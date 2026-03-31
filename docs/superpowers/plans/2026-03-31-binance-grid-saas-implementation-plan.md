@@ -75,17 +75,18 @@ The approved spec covers multiple independent subsystems, so implementation is i
 ## Batch Order
 
 1. Foundation workspace and tooling
-2. Auth, email verification, password reset, TOTP, security center
-3. Membership catalog, billing orders, address pools, grace lifecycle
-4. Binance credentials, connection testing, symbol metadata sync, fuzzy search
-5. Strategy draft/save/edit/template/pre-flight APIs
-6. Market data gateway, scheduler, event wiring
-7. Grid engine core, TP/SL, trailing TP, stop/rebuild behavior
-8. Wallet/trade/funding/fee analytics, per-strategy statistics, exports
-9. Telegram binding and notification flows
-10. User web app delivery
-11. Admin web app delivery
-12. Deployment, observability, docs, release hardening
+2. Web shell and workspace hygiene
+3. Auth, email verification, password reset, TOTP, security center
+4. Membership catalog, billing orders, address pools, grace lifecycle
+5. Binance credentials, connection testing, symbol metadata sync, fuzzy search
+6. Strategy draft/save/edit/template/pre-flight APIs
+7. Market data gateway, scheduler, event wiring
+8. Grid engine core, TP/SL, trailing TP, stop/rebuild behavior
+9. Wallet/trade/funding/fee analytics, per-strategy statistics, exports
+10. Telegram binding and notification flows
+11. User web app delivery
+12. Admin web app delivery
+13. Deployment, observability, docs, release hardening
 
 ## Global Verification Gates
 
@@ -158,7 +159,103 @@ git add Cargo.toml package.json pnpm-workspace.yaml turbo.json .env.example Make
 git commit -m "chore: 问题描述 bootstrap repository foundation"
 ```
 
-### Task 2: Auth and Security Center
+### Task 2: Web Shell and Workspace Hygiene
+
+**Files:**
+- Modify: `.gitignore`
+- Modify: `package.json`
+- Modify: `turbo.json`
+- Create: `Cargo.lock`
+- Create: `apps/web/package.json`
+- Create: `apps/web/next.config.ts`
+- Create: `apps/web/tsconfig.json`
+- Create: `apps/web/next-env.d.ts`
+- Create: `apps/web/postcss.config.js`
+- Create: `apps/web/tailwind.config.ts`
+- Create: `apps/web/src/app/layout.tsx`
+- Create: `apps/web/src/app/page.tsx`
+- Create: `apps/web/src/styles/globals.css`
+- Create: `tests/verification/web_shell.test.mjs`
+
+- [ ] **Step 1: Write the failing web shell verification**
+
+```js
+import test from "node:test";
+import assert from "node:assert/strict";
+import fs from "node:fs";
+
+test("web shell and workspace hygiene are present", () => {
+  for (const path of [
+    "apps/web/package.json",
+    "apps/web/src/app/layout.tsx",
+    "apps/web/src/app/page.tsx",
+    "Cargo.lock",
+  ]) {
+    assert.ok(fs.existsSync(path), `${path} should exist`);
+  }
+
+  const gitignore = fs.readFileSync(".gitignore", "utf8");
+  assert.match(gitignore, /^target\/$/m);
+
+  const rootPackage = JSON.parse(fs.readFileSync("package.json", "utf8"));
+  assert.ok(rootPackage.scripts["build:web"]);
+  assert.ok(rootPackage.scripts.build);
+});
+```
+
+- [ ] **Step 2: Run the failing verification**
+
+Run: `node --test tests/verification/web_shell.test.mjs`
+Expected: FAIL because the web shell files, lockfile, and build scripts do not exist yet.
+
+- [ ] **Step 3: Add the minimal web shell and hygiene fixes**
+
+```json
+{
+  "name": "grid-binance",
+  "private": true,
+  "packageManager": "pnpm@10.17.1",
+  "scripts": {
+    "build:web": "pnpm --filter web build",
+    "build": "pnpm build:web",
+    "lint": "pnpm --filter web lint",
+    "test": ". \"$HOME/.cargo/env\" && cargo test --workspace && node --test tests/verification/*.test.mjs"
+  }
+}
+```
+
+```tsx
+import "../styles/globals.css";
+import type { ReactNode } from "react";
+
+export default function RootLayout({ children }: { children: ReactNode }) {
+  return (
+    <html lang="en">
+      <body>{children}</body>
+    </html>
+  );
+}
+```
+
+```tsx
+export default function HomePage() {
+  return <main>Grid Binance</main>;
+}
+```
+
+- [ ] **Step 4: Run web shell verification**
+
+Run: `corepack enable && pnpm install && pnpm build:web && source "$HOME/.cargo/env" && cargo test --workspace && node --test tests/verification/*.test.mjs`
+Expected: PASS for the minimal `apps/web` shell, committed lockfile, and clean workspace hygiene.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add .gitignore Cargo.lock package.json turbo.json apps/web tests/verification
+git commit -m "chore: 修复思路 add web shell and workspace hygiene baseline"
+```
+
+### Task 3: Auth and Security Center
 
 **Files:**
 - Create: `apps/api-server/src/routes/auth.rs`
@@ -213,7 +310,7 @@ git add apps/api-server crates/shared-auth tests/integration apps/web
 git commit -m "feat: 修复思路 add auth and security center baseline"
 ```
 
-### Task 3: Membership, Billing Orders, and Address Pools
+### Task 4: Membership, Billing Orders, and Address Pools
 
 **Files:**
 - Create: `apps/api-server/src/routes/billing.rs`
@@ -273,7 +370,7 @@ git add apps/api-server apps/billing-chain-listener crates/shared-chain crates/s
 git commit -m "feat: 问题描述 add membership billing address pools"
 ```
 
-### Task 4: Binance Credentials and Symbol Metadata
+### Task 5: Binance Credentials and Symbol Metadata
 
 **Files:**
 - Create: `apps/api-server/src/routes/exchange.rs`
@@ -327,7 +424,7 @@ git add apps/api-server apps/scheduler crates/shared-binance tests/integration a
 git commit -m "feat: 修复思路 add binance credential and metadata sync"
 ```
 
-### Task 5: Strategy Drafting, Templates, and Pre-Flight
+### Task 6: Strategy Drafting, Templates, and Pre-Flight
 
 **Files:**
 - Create: `apps/api-server/src/routes/strategies.rs`
@@ -383,7 +480,7 @@ git add apps/api-server crates/shared-domain tests/integration apps/web
 git commit -m "feat: 问题描述 add strategy drafting templates and preflight"
 ```
 
-### Task 6: Market Data Gateway and Scheduler Wiring
+### Task 7: Market Data Gateway and Scheduler Wiring
 
 **Files:**
 - Create: `apps/market-data-gateway/src/subscriptions.rs`
@@ -429,7 +526,7 @@ git add apps/market-data-gateway apps/scheduler crates/shared-events tests/integ
 git commit -m "feat: 修复思路 add market data gateway and scheduler wiring"
 ```
 
-### Task 7: Grid Engine Core and Trade Lifecycle
+### Task 8: Grid Engine Core and Trade Lifecycle
 
 **Files:**
 - Create: `apps/trading-engine/src/grid_builder.rs`
@@ -484,7 +581,7 @@ git add apps/trading-engine tests/simulation
 git commit -m "feat: 问题描述 add grid engine runtime core"
 ```
 
-### Task 8: Analytics, Statistics, and Exports
+### Task 9: Analytics, Statistics, and Exports
 
 **Files:**
 - Create: `apps/api-server/src/routes/analytics.rs`
@@ -530,7 +627,7 @@ git add apps/api-server apps/trading-engine crates/shared-domain tests/integrati
 git commit -m "feat: 修复思路 add analytics statistics and exports"
 ```
 
-### Task 9: Telegram and In-App Notifications
+### Task 10: Telegram and In-App Notifications
 
 **Files:**
 - Create: `apps/api-server/src/routes/telegram.rs`
@@ -577,7 +674,7 @@ git add apps/api-server crates/shared-events tests/integration apps/web
 git commit -m "feat: 问题描述 add telegram and notification flows"
 ```
 
-### Task 10: User Web App Delivery
+### Task 11: User Web App Delivery
 
 **Files:**
 - Create: `apps/web/src/app/page.tsx`
@@ -623,7 +720,7 @@ git add apps/web tests/e2e
 git commit -m "feat: 修复思路 deliver user web application"
 ```
 
-### Task 11: Admin Web App Delivery
+### Task 12: Admin Web App Delivery
 
 **Files:**
 - Create: `apps/web/src/app/admin/dashboard/page.tsx`
@@ -668,7 +765,7 @@ git add apps/web tests/e2e
 git commit -m "feat: 问题描述 deliver admin web application"
 ```
 
-### Task 12: Deployment, Docs, and Release Hardening
+### Task 13: Deployment, Docs, and Release Hardening
 
 **Files:**
 - Create: `deploy/docker/docker-compose.yml`
@@ -730,20 +827,21 @@ git commit -m "chore: 修复思路 add deployment docs and release hardening"
 
 ## Requirement Coverage Map
 
-- Auth, registration, password reset, 2FA, security center: Task 2
-- Membership pricing, chain payment, grace period, address pools, admin override: Task 3
-- Binance API test, symbol sync, symbol search, futures checks: Task 4
-- Strategy save/edit/pause/start/pre-flight/template flow: Task 5
-- WebSocket market data, active subscription, hourly scheduler sync: Task 6
-- Grid modes, custom grids, TP/SL, trailing TP, stop/rebuild: Task 7
-- Wallet/trade/funding/fee stats, strategy-level stats, exports: Task 8
-- Telegram binding and runtime/member notifications: Task 9
-- User app pages and help center: Task 10
-- Admin pages, address pool expansion, audit logs, pricing config: Task 11
-- Docker Compose, monitoring, user/admin/deployment docs: Task 12
+- Foundation web shell, root build chain, lockfile, and build artifact hygiene: Task 2
+- Auth, registration, password reset, 2FA, security center: Task 3
+- Membership pricing, chain payment, grace period, address pools, admin override: Task 4
+- Binance API test, symbol sync, symbol search, futures checks: Task 5
+- Strategy save/edit/pause/start/pre-flight/template flow: Task 6
+- WebSocket market data, active subscription, hourly scheduler sync: Task 7
+- Grid modes, custom grids, TP/SL, trailing TP, stop/rebuild: Task 8
+- Wallet/trade/funding/fee stats, strategy-level stats, exports: Task 9
+- Telegram binding and runtime/member notifications: Task 10
+- User app pages and help center: Task 11
+- Admin pages, address pool expansion, audit logs, pricing config: Task 12
+- Docker Compose, monitoring, user/admin/deployment docs: Task 13
 
 ## Self-Review
 
-- Spec coverage: all sections from the approved design are mapped into the twelve tasks above.
+- Spec coverage: all sections from the approved design are mapped into the thirteen tasks above.
 - Placeholder scan: no `TODO`, `TBD`, or deferred unnamed steps are left in the plan.
-- Scope check: the plan is intentionally decomposed into twelve implementation batches to keep each execution step reviewable and testable.
+- Scope check: the plan is intentionally decomposed into thirteen implementation batches to keep each execution step reviewable and testable.
