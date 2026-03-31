@@ -1,3 +1,3 @@
-pub fn bootstrap_label() -> &'static str {
-    "bootstrap"
-}
+pub mod email_code;
+pub mod password;
+pub mod totp;
