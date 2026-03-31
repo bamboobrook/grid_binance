@@ -8,8 +8,9 @@ use axum::{
 use crate::services::auth_service::{
     AuthError, AuthService, EnableTotpRequest, EnableTotpResponse,
 };
+use crate::AppState;
 
-pub fn router() -> Router<AuthService> {
+pub fn router() -> Router<AppState> {
     Router::new().route("/security/totp/enable", post(enable_totp))
 }
 

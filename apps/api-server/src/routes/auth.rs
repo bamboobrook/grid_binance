@@ -5,8 +5,9 @@ use crate::services::auth_service::{
     PasswordResetConfirmResponse, PasswordResetRequest, PasswordResetRequestResponse,
     RegisterUserRequest, RegisterUserResponse, VerifyEmailRequest, VerifyEmailResponse,
 };
+use crate::AppState;
 
-pub fn router() -> Router<AuthService> {
+pub fn router() -> Router<AppState> {
     Router::new()
         .route("/auth/register", post(register))
         .route("/auth/verify-email", post(verify_email))
