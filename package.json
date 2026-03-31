@@ -3,6 +3,6 @@
   "private": true,
   "packageManager": "pnpm@10.17.1",
   "scripts": {
-    "test": "node --test tests/verification/*.test.mjs"
+    "test": ". \"$HOME/.cargo/env\" && cargo test --workspace && node --test tests/verification/*.test.mjs"
   }
 }
