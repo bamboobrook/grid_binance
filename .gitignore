@@ -32,3 +32,6 @@ artifacts/
 *.sock
 *.db
 *.sqlite3
+
+# Local git worktrees
+.worktrees/
