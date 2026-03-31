@@ -264,7 +264,7 @@ git commit -m "chore: 修复思路 add web shell and workspace hygiene baseline"
 - Create: `crates/shared-auth/src/password.rs`
 - Create: `crates/shared-auth/src/totp.rs`
 - Create: `crates/shared-auth/src/email_code.rs`
-- Create: `tests/integration/auth_flow.rs`
+- Create: `apps/api-server/tests/auth_flow.rs`
 - Create: `apps/web/src/app/(public)/login/page.tsx`
 - Create: `apps/web/src/app/(public)/register/page.tsx`
 - Create: `apps/web/src/app/app/security/page.tsx`
@@ -280,7 +280,7 @@ async fn register_verify_login_and_enable_totp() {
 
 - [ ] **Step 2: Run the auth integration test**
 
-Run: `source "$HOME/.cargo/env" && cargo test --test auth_flow`
+Run: `source "$HOME/.cargo/env" && cargo test -p api-server --test auth_flow`
 Expected: FAIL because auth routes and services do not exist.
 
 - [ ] **Step 3: Implement the minimal auth surface**
@@ -300,13 +300,13 @@ export default function SecurityPage() {
 
 - [ ] **Step 4: Run auth verification**
 
-Run: `source "$HOME/.cargo/env" && cargo test --test auth_flow && pnpm build`
+Run: `source "$HOME/.cargo/env" && cargo test -p api-server --test auth_flow && pnpm build`
 Expected: PASS for register, verify, login, password reset, and TOTP happy paths.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add apps/api-server crates/shared-auth tests/integration apps/web
+git add apps/api-server crates/shared-auth apps/web
 git commit -m "feat: 修复思路 add auth and security center baseline"
 ```
 
@@ -319,7 +319,7 @@ git commit -m "feat: 修复思路 add auth and security center baseline"
 - Create: `apps/billing-chain-listener/src/order_matcher.rs`
 - Create: `crates/shared-chain/src/assignment.rs`
 - Create: `crates/shared-domain/src/membership.rs`
-- Create: `tests/integration/membership_flow.rs`
+- Create: `apps/api-server/tests/membership_flow.rs`
 - Create: `apps/web/src/app/app/membership/page.tsx`
 - Create: `apps/web/src/app/admin/billing/page.tsx`
 
@@ -334,7 +334,7 @@ async fn assign_exact_amount_order_and_activate_membership() {
 
 - [ ] **Step 2: Run the membership integration test**
 
-Run: `source "$HOME/.cargo/env" && cargo test --test membership_flow`
+Run: `source "$HOME/.cargo/env" && cargo test -p api-server --test membership_flow`
 Expected: FAIL because billing and address-pool flows do not exist.
 
 - [ ] **Step 3: Implement the minimal billing domain**
@@ -360,13 +360,13 @@ pub struct AddressAssignment {
 
 - [ ] **Step 4: Run billing verification**
 
-Run: `source "$HOME/.cargo/env" && cargo test --test membership_flow`
+Run: `source "$HOME/.cargo/env" && cargo test -p api-server --test membership_flow`
 Expected: PASS for address rotation, exact-amount match, grace window, and admin override behavior.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add apps/api-server apps/billing-chain-listener crates/shared-chain crates/shared-domain tests/integration apps/web
+git add apps/api-server apps/billing-chain-listener crates/shared-chain crates/shared-domain apps/web
 git commit -m "feat: 问题描述 add membership billing address pools"
 ```
 
@@ -377,7 +377,7 @@ git commit -m "feat: 问题描述 add membership billing address pools"
 - Create: `apps/scheduler/src/jobs/symbol_sync.rs`
 - Create: `crates/shared-binance/src/client.rs`
 - Create: `crates/shared-binance/src/metadata.rs`
-- Create: `tests/integration/exchange_flow.rs`
+- Create: `apps/api-server/tests/exchange_flow.rs`
 - Create: `apps/web/src/app/app/exchange/page.tsx`
 
 - [ ] **Step 1: Write failing exchange coverage**
@@ -391,7 +391,7 @@ async fn save_credentials_test_connection_and_sync_symbols() {
 
 - [ ] **Step 2: Run the exchange integration test**
 
-Run: `source "$HOME/.cargo/env" && cargo test --test exchange_flow`
+Run: `source "$HOME/.cargo/env" && cargo test -p api-server --test exchange_flow`
 Expected: FAIL because exchange clients and sync job do not exist.
 
 - [ ] **Step 3: Implement the minimal exchange layer**
@@ -414,13 +414,13 @@ pub struct SymbolMetadata {
 
 - [ ] **Step 4: Run exchange verification**
 
-Run: `source "$HOME/.cargo/env" && cargo test --test exchange_flow`
+Run: `source "$HOME/.cargo/env" && cargo test -p api-server --test exchange_flow`
 Expected: PASS for credential test, symbol sync, fuzzy search, and hedge-mode validation.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add apps/api-server apps/scheduler crates/shared-binance tests/integration apps/web
+git add apps/api-server apps/scheduler crates/shared-binance apps/web
 git commit -m "feat: 修复思路 add binance credential and metadata sync"
 ```
 
@@ -431,7 +431,7 @@ git commit -m "feat: 修复思路 add binance credential and metadata sync"
 - Create: `apps/api-server/src/services/strategy_service.rs`
 - Create: `apps/api-server/src/routes/admin_templates.rs`
 - Create: `crates/shared-domain/src/strategy.rs`
-- Create: `tests/integration/strategy_flow.rs`
+- Create: `apps/api-server/tests/strategy_flow.rs`
 - Create: `apps/web/src/app/app/strategies/page.tsx`
 - Create: `apps/web/src/app/admin/templates/page.tsx`
 
@@ -446,7 +446,7 @@ async fn create_save_pause_edit_and_start_strategy() {
 
 - [ ] **Step 2: Run the strategy integration test**
 
-Run: `source "$HOME/.cargo/env" && cargo test --test strategy_flow`
+Run: `source "$HOME/.cargo/env" && cargo test -p api-server --test strategy_flow`
 Expected: FAIL because strategy CRUD and template flows do not exist.
 
 - [ ] **Step 3: Implement the minimal strategy domain**
@@ -470,13 +470,13 @@ pub struct PreflightFailure {
 
 - [ ] **Step 4: Run strategy verification**
 
-Run: `source "$HOME/.cargo/env" && cargo test --test strategy_flow`
+Run: `source "$HOME/.cargo/env" && cargo test -p api-server --test strategy_flow`
 Expected: PASS for draft/save/edit restrictions, template copy, pre-flight failure reporting, batch pause/delete, and stop-all.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add apps/api-server crates/shared-domain tests/integration apps/web
+git add apps/api-server crates/shared-domain apps/web
 git commit -m "feat: 问题描述 add strategy drafting templates and preflight"
 ```
 
@@ -488,7 +488,7 @@ git commit -m "feat: 问题描述 add strategy drafting templates and preflight"
 - Create: `apps/scheduler/src/jobs/membership_grace.rs`
 - Create: `apps/scheduler/src/jobs/reminders.rs`
 - Create: `crates/shared-events/src/market.rs`
-- Create: `tests/integration/runtime_wiring.rs`
+- Create: `apps/market-data-gateway/tests/runtime_wiring.rs`
 
 - [ ] **Step 1: Write failing runtime wiring coverage**
 
@@ -501,7 +501,7 @@ async fn subscribe_only_active_symbols_and_emit_ticks() {
 
 - [ ] **Step 2: Run the runtime wiring test**
 
-Run: `source "$HOME/.cargo/env" && cargo test --test runtime_wiring`
+Run: `source "$HOME/.cargo/env" && cargo test -p market-data-gateway --test runtime_wiring && cargo test -p scheduler`
 Expected: FAIL because gateway and scheduler jobs do not exist.
 
 - [ ] **Step 3: Implement the minimal event wiring**
@@ -516,13 +516,13 @@ pub struct MarketTick {
 
 - [ ] **Step 4: Run runtime verification**
 
-Run: `source "$HOME/.cargo/env" && cargo test --test runtime_wiring`
+Run: `source "$HOME/.cargo/env" && cargo test -p market-data-gateway --test runtime_wiring && cargo test -p scheduler`
 Expected: PASS for active subscription, reconnect, health, grace pause job, and reminder job behavior.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add apps/market-data-gateway apps/scheduler crates/shared-events tests/integration
+git add apps/market-data-gateway apps/scheduler crates/shared-events
 git commit -m "feat: 修复思路 add market data gateway and scheduler wiring"
 ```
 
@@ -533,7 +533,7 @@ git commit -m "feat: 修复思路 add market data gateway and scheduler wiring"
 - Create: `apps/trading-engine/src/runtime.rs`
 - Create: `apps/trading-engine/src/take_profit.rs`
 - Create: `apps/trading-engine/src/stop_loss.rs`
-- Create: `tests/simulation/grid_runtime.rs`
+- Create: `apps/trading-engine/tests/grid_runtime.rs`
 
 - [ ] **Step 1: Write failing grid simulation coverage**
 
@@ -546,7 +546,7 @@ fn trailing_take_profit_uses_post_activation_high() {
 
 - [ ] **Step 2: Run the grid simulation suite**
 
-Run: `source "$HOME/.cargo/env" && cargo test --test grid_runtime`
+Run: `source "$HOME/.cargo/env" && cargo test -p trading-engine --test grid_runtime`
 Expected: FAIL because the engine core does not exist.
 
 - [ ] **Step 3: Implement the minimal grid runtime contracts**
@@ -577,7 +577,7 @@ Expected: PASS for arithmetic, geometric, custom grids, maker TP, taker trailing
 - [ ] **Step 5: Commit**
 
 ```bash
-git add apps/trading-engine tests/simulation
+git add apps/trading-engine
 git commit -m "feat: 问题描述 add grid engine runtime core"
 ```
 
@@ -588,7 +588,7 @@ git commit -m "feat: 问题描述 add grid engine runtime core"
 - Create: `apps/api-server/src/routes/exports.rs`
 - Create: `apps/trading-engine/src/statistics.rs`
 - Create: `crates/shared-domain/src/analytics.rs`
-- Create: `tests/integration/analytics_flow.rs`
+- Create: `apps/api-server/tests/analytics_flow.rs`
 - Create: `apps/web/src/app/app/analytics/page.tsx`
 
 - [ ] **Step 1: Write failing analytics coverage**
@@ -602,7 +602,7 @@ async fn compute_strategy_and_account_profit_fee_and_cost_views() {
 
 - [ ] **Step 2: Run the analytics integration test**
 
-Run: `source "$HOME/.cargo/env" && cargo test --test analytics_flow`
+Run: `source "$HOME/.cargo/env" && cargo test -p api-server --test analytics_flow`
 Expected: FAIL because statistics projections and export endpoints do not exist.
 
 - [ ] **Step 3: Implement the minimal analytics contracts**
@@ -617,13 +617,13 @@ pub struct StrategyProfitSummary {
 
 - [ ] **Step 4: Run analytics verification**
 
-Run: `source "$HOME/.cargo/env" && cargo test --test analytics_flow`
+Run: `source "$HOME/.cargo/env" && cargo test -p api-server --test analytics_flow`
 Expected: PASS for per-fill PnL, per-strategy summaries, user aggregates, fee/funding aggregation, and CSV export behavior.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add apps/api-server apps/trading-engine crates/shared-domain tests/integration apps/web
+git add apps/api-server apps/trading-engine crates/shared-domain apps/web
 git commit -m "feat: 修复思路 add analytics statistics and exports"
 ```
 
@@ -633,7 +633,7 @@ git commit -m "feat: 修复思路 add analytics statistics and exports"
 - Create: `apps/api-server/src/routes/telegram.rs`
 - Create: `apps/api-server/src/services/telegram_service.rs`
 - Create: `crates/shared-events/src/notifications.rs`
-- Create: `tests/integration/notification_flow.rs`
+- Create: `apps/api-server/tests/notification_flow.rs`
 - Create: `apps/web/src/app/app/notifications/page.tsx`
 
 - [ ] **Step 1: Write failing notification coverage**
@@ -647,7 +647,7 @@ async fn bind_telegram_and_dispatch_runtime_membership_alerts() {
 
 - [ ] **Step 2: Run the notification integration test**
 
-Run: `source "$HOME/.cargo/env" && cargo test --test notification_flow`
+Run: `source "$HOME/.cargo/env" && cargo test -p api-server --test notification_flow`
 Expected: FAIL because bind codes and notification dispatch do not exist.
 
 - [ ] **Step 3: Implement the minimal notification contracts**
@@ -664,13 +664,13 @@ pub enum NotificationKind {
 
 - [ ] **Step 4: Run notification verification**
 
-Run: `source "$HOME/.cargo/env" && cargo test --test notification_flow`
+Run: `source "$HOME/.cargo/env" && cargo test -p api-server --test notification_flow`
 Expected: PASS for Telegram bind, deposit success, membership reminder, runtime failure, and expiry popup signal behavior.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add apps/api-server crates/shared-events tests/integration apps/web
+git add apps/api-server crates/shared-events apps/web
 git commit -m "feat: 问题描述 add telegram and notification flows"
 ```
 
