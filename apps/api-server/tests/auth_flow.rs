@@ -78,10 +78,11 @@ async fn register_verify_login_and_enable_totp() {
         .unwrap();
 
     assert_eq!(login.status(), StatusCode::OK);
-    assert!(response_json(login).await["session_token"]
+    let session_token = response_json(login).await["session_token"]
         .as_str()
         .expect("session token")
-        .starts_with("session-"));
+        .to_owned();
+    assert!(session_token.as_str().starts_with("session-"));
 
     let reset_request = app
         .clone()
@@ -136,6 +137,7 @@ async fn register_verify_login_and_enable_totp() {
             Request::builder()
                 .method("POST")
                 .uri("/security/totp/enable")
+                .header("authorization", format!("Bearer {session_token}"))
                 .header("content-type", "application/json")
                 .body(Body::from(
                     json!({
@@ -183,6 +185,248 @@ async fn register_verify_login_and_enable_totp() {
         .as_str()
         .expect("session token")
         .starts_with("session-"));
+}
+
+#[tokio::test]
+async fn unauthenticated_user_cannot_enable_totp() {
+    let app = app();
+    let verification_code = register_and_verify(&app, "unauth@example.com", "pass1234").await;
+    assert!(!verification_code.is_empty());
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/security/totp/enable")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    json!({
+                        "email": "unauth@example.com",
+                    })
+                    .to_string(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+}
+
+#[tokio::test]
+async fn login_requires_valid_totp_code_after_totp_is_enabled() {
+    let app = app();
+    let _verification_code = register_and_verify(&app, "totp@example.com", "pass1234").await;
+    let session_token = login_and_get_token(&app, "totp@example.com", "pass1234", None).await;
+    let _totp_code = enable_totp(&app, "totp@example.com", &session_token).await["code"]
+        .as_str()
+        .expect("totp code")
+        .to_owned();
+
+    let missing_code = app
+        .clone()
+        .oneshot(login_request("totp@example.com", "pass1234", None))
+        .await
+        .unwrap();
+    assert_eq!(missing_code.status(), StatusCode::UNAUTHORIZED);
+
+    let wrong_code = app
+        .oneshot(login_request(
+            "totp@example.com",
+            "pass1234",
+            Some("000000"),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(wrong_code.status(), StatusCode::UNAUTHORIZED);
+}
+
+#[tokio::test]
+async fn password_reset_rejects_empty_password_and_invalidates_old_password() {
+    let app = app();
+    let _verification_code = register_and_verify(&app, "reset@example.com", "pass1234").await;
+    let reset_code = request_password_reset(&app, "reset@example.com").await;
+
+    let empty_password = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/auth/password-reset/confirm")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    json!({
+                        "email": "reset@example.com",
+                        "code": reset_code,
+                        "new_password": "",
+                    })
+                    .to_string(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(empty_password.status(), StatusCode::BAD_REQUEST);
+
+    let reset_code = request_password_reset(&app, "reset@example.com").await;
+    let reset_confirm = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/auth/password-reset/confirm")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    json!({
+                        "email": "reset@example.com",
+                        "code": reset_code,
+                        "new_password": "newpass123",
+                    })
+                    .to_string(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(reset_confirm.status(), StatusCode::OK);
+
+    let old_password_login = app
+        .clone()
+        .oneshot(login_request("reset@example.com", "pass1234", None))
+        .await
+        .unwrap();
+    assert_eq!(old_password_login.status(), StatusCode::UNAUTHORIZED);
+
+    let new_password_login = app
+        .oneshot(login_request("reset@example.com", "newpass123", None))
+        .await
+        .unwrap();
+    assert_eq!(new_password_login.status(), StatusCode::OK);
+}
+
+async fn register_and_verify(app: &axum::Router, email: &str, password: &str) -> String {
+    let register = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/auth/register")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    json!({
+                        "email": email,
+                        "password": password,
+                    })
+                    .to_string(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(register.status(), StatusCode::CREATED);
+    let verification_code = response_json(register).await["verification_code"]
+        .as_str()
+        .expect("verification code")
+        .to_owned();
+
+    let verify = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/auth/verify-email")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    json!({
+                        "email": email,
+                        "code": verification_code,
+                    })
+                    .to_string(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(verify.status(), StatusCode::OK);
+
+    verification_code
+}
+
+async fn login_and_get_token(
+    app: &axum::Router,
+    email: &str,
+    password: &str,
+    totp_code: Option<&str>,
+) -> String {
+    let response = app
+        .clone()
+        .oneshot(login_request(email, password, totp_code))
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    response_json(response).await["session_token"]
+        .as_str()
+        .expect("session token")
+        .to_owned()
+}
+
+async fn request_password_reset(app: &axum::Router, email: &str) -> String {
+    let response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/auth/password-reset/request")
+                .header("content-type", "application/json")
+                .body(Body::from(json!({ "email": email }).to_string()))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    response_json(response).await["reset_code"]
+        .as_str()
+        .expect("reset code")
+        .to_owned()
+}
+
+async fn enable_totp(app: &axum::Router, email: &str, session_token: &str) -> Value {
+    let response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/security/totp/enable")
+                .header("authorization", format!("Bearer {session_token}"))
+                .header("content-type", "application/json")
+                .body(Body::from(json!({ "email": email }).to_string()))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    response_json(response).await
+}
+
+fn login_request(email: &str, password: &str, totp_code: Option<&str>) -> Request<Body> {
+    let body = match totp_code {
+        Some(totp_code) => json!({
+            "email": email,
+            "password": password,
+            "totp_code": totp_code,
+        }),
+        None => json!({
+            "email": email,
+            "password": password,
+        }),
+    };
+
+    Request::builder()
+        .method("POST")
+        .uri("/auth/login")
+        .header("content-type", "application/json")
+        .body(Body::from(body.to_string()))
+        .unwrap()
 }
 
 async fn response_json(response: axum::response::Response) -> Value {

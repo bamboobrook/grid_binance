@@ -25,6 +25,7 @@ struct AuthState {
     next_user_id: u64,
     next_seed: u64,
     users: HashMap<String, UserRecord>,
+    sessions: HashMap<String, String>,
 }
 
 struct UserRecord {
@@ -110,9 +111,10 @@ impl AuthService {
         request: RegisterUserRequest,
     ) -> Result<RegisterUserResponse, AuthError> {
         let email = normalize_email(&request.email);
-        if email.is_empty() || request.password.is_empty() {
+        if email.is_empty() {
             return Err(AuthError::bad_request("email and password are required"));
         }
+        validate_password(&request.password)?;
 
         let mut inner = self.inner.lock().expect("auth state poisoned");
         if inner.users.contains_key(&email) {
@@ -171,7 +173,7 @@ impl AuthService {
 
     pub fn login(&self, request: LoginRequest) -> Result<LoginResponse, AuthError> {
         let email = normalize_email(&request.email);
-        let inner = self.inner.lock().expect("auth state poisoned");
+        let mut inner = self.inner.lock().expect("auth state poisoned");
         let user = inner
             .users
             .get(&email)
@@ -196,9 +198,12 @@ impl AuthService {
             }
         }
 
-        Ok(LoginResponse {
-            session_token: format!("session-{}", user.user_id),
-        })
+        let user_id = user.user_id;
+        inner.next_seed += 1;
+        let session_token = format!("session-{}-{}", user_id, inner.next_seed);
+        inner.sessions.insert(session_token.clone(), email);
+
+        Ok(LoginResponse { session_token })
     }
 
     pub fn request_password_reset(
@@ -240,6 +245,7 @@ impl AuthService {
             return Err(AuthError::unauthorized("invalid reset code"));
         }
 
+        validate_password(&request.new_password)?;
         user.password_hash = hash_password(&request.new_password);
         user.reset_code = None;
 
@@ -248,9 +254,23 @@ impl AuthService {
         })
     }
 
-    pub fn enable_totp(&self, request: EnableTotpRequest) -> Result<EnableTotpResponse, AuthError> {
+    pub fn enable_totp(
+        &self,
+        request: EnableTotpRequest,
+        session_token: &str,
+    ) -> Result<EnableTotpResponse, AuthError> {
         let email = normalize_email(&request.email);
         let mut inner = self.inner.lock().expect("auth state poisoned");
+        let session_email = inner
+            .sessions
+            .get(session_token)
+            .cloned()
+            .ok_or_else(|| AuthError::unauthorized("valid session token required"))?;
+
+        if session_email != email {
+            return Err(AuthError::unauthorized("session does not match user"));
+        }
+
         inner.next_seed += 1;
         let secret = generate_secret(inner.next_seed);
         let code = current_code(&secret);
@@ -259,6 +279,10 @@ impl AuthService {
             .users
             .get_mut(&email)
             .ok_or_else(|| AuthError::not_found("user not found"))?;
+
+        if !user.email_verified {
+            return Err(AuthError::unauthorized("email not verified"));
+        }
 
         user.totp_secret = Some(secret.clone());
 
@@ -294,7 +318,7 @@ impl AuthError {
         }
     }
 
-    fn unauthorized(message: &'static str) -> Self {
+    pub(crate) fn unauthorized(message: &'static str) -> Self {
         Self {
             status: StatusCode::UNAUTHORIZED,
             message,
@@ -321,4 +345,12 @@ struct ErrorResponse {
 
 fn normalize_email(email: &str) -> String {
     email.trim().to_lowercase()
+}
+
+fn validate_password(password: &str) -> Result<(), AuthError> {
+    if password.is_empty() {
+        return Err(AuthError::bad_request("email and password are required"));
+    }
+
+    Ok(())
 }
