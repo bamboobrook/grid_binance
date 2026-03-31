@@ -5,7 +5,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "node -e \"console.log('lint placeholder: web shell baseline')\""
+    "lint": "eslint ."
   },
   "dependencies": {
     "next": "16.2.1",
@@ -17,6 +17,8 @@
     "@types/react": "19.2.14",
     "@types/react-dom": "19.2.3",
     "autoprefixer": "10.4.27",
+    "eslint": "9.38.0",
+    "eslint-config-next": "16.2.1",
     "postcss": "8.5.8",
     "tailwindcss": "3.4.19",
     "typescript": "5.9.3"
