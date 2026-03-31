@@ -17,9 +17,12 @@ __pycache__/
 
 # Node dependencies and build cache
 node_modules/
+.next/
+.turbo/
 dist/
 build/
 coverage/
+target/
 
 # Runtime artifacts
 logs/

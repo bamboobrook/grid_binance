@@ -3,6 +3,9 @@
   "private": true,
   "packageManager": "pnpm@10.17.1",
   "scripts": {
+    "build:web": "pnpm --filter web build",
+    "build": "pnpm build:web",
+    "lint": "pnpm --filter web lint",
     "test": ". \"$HOME/.cargo/env\" && cargo test --workspace && node --test tests/verification/*.test.mjs"
   }
 }
