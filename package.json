@@ -1,0 +1,8 @@
+{
+  "name": "grid-binance",
+  "private": true,
+  "packageManager": "pnpm@10.17.1",
+  "scripts": {
+    "test": "node --test tests/verification/*.test.mjs"
+  }
+}

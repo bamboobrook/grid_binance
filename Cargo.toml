@@ -1,0 +1,20 @@
+[workspace]
+members = [
+    "apps/api-server",
+    "apps/trading-engine",
+    "apps/market-data-gateway",
+    "apps/billing-chain-listener",
+    "apps/scheduler",
+    "crates/shared-config",
+    "crates/shared-db",
+    "crates/shared-auth",
+    "crates/shared-domain",
+    "crates/shared-binance",
+    "crates/shared-chain",
+    "crates/shared-events",
+    "crates/shared-telemetry",
+]
+resolver = "2"
+
+[workspace.package]
+edition = "2021"
