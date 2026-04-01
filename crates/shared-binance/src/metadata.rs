@@ -11,9 +11,27 @@ pub struct SymbolMetadata {
     pub quote_asset: String,
     pub price_precision: u32,
     pub quantity_precision: u32,
+    pub filters: SymbolFilters,
+    pub market_requirements: MarketRequirements,
+    pub keywords: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct SymbolFilters {
+    pub price_tick_size: String,
+    pub quantity_step_size: String,
     pub min_quantity: String,
     pub min_notional: String,
-    pub keywords: Vec<String>,
+    pub contract_size: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct MarketRequirements {
+    pub supports_isolated_margin: bool,
+    pub supports_cross_margin: bool,
+    pub hedge_mode_required: bool,
+    pub requires_futures_permissions: bool,
+    pub leverage_brackets: Vec<u32>,
 }
 
 impl SymbolMetadata {
@@ -25,8 +43,8 @@ impl SymbolMetadata {
         quote_asset: impl Into<String>,
         price_precision: u32,
         quantity_precision: u32,
-        min_quantity: impl Into<String>,
-        min_notional: impl Into<String>,
+        filters: SymbolFilters,
+        market_requirements: MarketRequirements,
         keywords: I,
     ) -> Self
     where
@@ -41,8 +59,8 @@ impl SymbolMetadata {
             quote_asset: quote_asset.into(),
             price_precision,
             quantity_precision,
-            min_quantity: min_quantity.into(),
-            min_notional: min_notional.into(),
+            filters,
+            market_requirements,
             keywords: keywords.into_iter().map(Into::into).collect(),
         }
     }

@@ -31,8 +31,15 @@ async fn save_credentials_persists_masked_account_health_and_three_market_symbol
     assert_eq!(body["account"]["validation"]["can_read_spot"], true);
     assert_eq!(body["account"]["validation"]["can_read_usdm"], true);
     assert_eq!(body["account"]["validation"]["can_read_coinm"], true);
+    assert_eq!(body["account"]["validation"]["api_connectivity_ok"], true);
+    assert_eq!(body["account"]["validation"]["timestamp_in_sync"], true);
     assert_eq!(body["account"]["validation"]["hedge_mode_ok"], true);
     assert_eq!(body["account"]["validation"]["permissions_ok"], true);
+    assert_eq!(body["account"]["validation"]["market_access_ok"], true);
+    assert_eq!(
+        body["account"]["selected_markets"],
+        json!(["spot", "usdm", "coinm"])
+    );
     assert_eq!(body["account"]["symbol_counts"]["spot"], 2);
     assert_eq!(body["account"]["symbol_counts"]["usdm"], 2);
     assert_eq!(body["account"]["symbol_counts"]["coinm"], 2);
@@ -78,6 +85,85 @@ async fn one_user_only_has_one_binance_account_and_updates_replace_the_masked_re
     assert_eq!(read_body["account"]["symbol_counts"]["spot"], 2);
     assert_eq!(read_body["account"]["symbol_counts"]["usdm"], 2);
     assert_eq!(read_body["account"]["symbol_counts"]["coinm"], 2);
+}
+
+#[tokio::test]
+async fn credential_updates_require_running_strategies_to_be_paused_first() {
+    let db = SharedDb::ephemeral().expect("ephemeral db");
+    let app = app_with_state(AppState::from_shared_db(db).expect("app state"));
+    let session_token = register_and_login(&app, "exchange-pause-first@example.com").await;
+
+    let first = save_credentials(
+        &app,
+        Some(&session_token),
+        "demo-key-1234",
+        "demo-secret",
+        true,
+    )
+    .await;
+    assert_eq!(first.status(), StatusCode::OK);
+
+    let strategy = create_strategy(
+        &app,
+        &session_token,
+        json!({
+            "name": "needs pause",
+            "symbol": "BTCUSDT",
+            "budget": "100.00",
+            "grid_spacing_bps": 50,
+            "membership_ready": true,
+            "exchange_ready": true,
+            "symbol_ready": true
+        }),
+    )
+    .await;
+    assert_eq!(strategy.status(), StatusCode::CREATED);
+    let strategy_id = response_json(strategy).await["id"]
+        .as_str()
+        .expect("strategy id")
+        .to_owned();
+
+    let started = start_strategy(&app, &session_token, &strategy_id).await;
+    assert_eq!(started.status(), StatusCode::OK);
+
+    let blocked = save_credentials(
+        &app,
+        Some(&session_token),
+        "next-key-5678",
+        "demo-secret",
+        true,
+    )
+    .await;
+    assert_eq!(blocked.status(), StatusCode::CONFLICT);
+    assert_eq!(
+        response_json(blocked).await["error"],
+        "pause running strategies before updating exchange credentials"
+    );
+
+    let read = read_account(&app, Some(&session_token)).await;
+    assert_eq!(read.status(), StatusCode::OK);
+    assert_eq!(
+        response_json(read).await["account"]["api_key_masked"],
+        "demo****1234"
+    );
+
+    let paused = pause_strategies(&app, &session_token, &[&strategy_id]).await;
+    assert_eq!(paused.status(), StatusCode::OK);
+    assert_eq!(response_json(paused).await["paused"], 1);
+
+    let retried = save_credentials(
+        &app,
+        Some(&session_token),
+        "next-key-5678",
+        "demo-secret",
+        true,
+    )
+    .await;
+    assert_eq!(retried.status(), StatusCode::OK);
+    assert_eq!(
+        response_json(retried).await["account"]["api_key_masked"],
+        "next****5678"
+    );
 }
 
 #[tokio::test]
@@ -132,6 +218,8 @@ async fn hedge_mode_validation_flags_mismatch_between_expectation_and_account_st
     assert_eq!(body["account"]["validation"]["can_read_spot"], true);
     assert_eq!(body["account"]["validation"]["can_read_usdm"], true);
     assert_eq!(body["account"]["validation"]["can_read_coinm"], true);
+    assert_eq!(body["account"]["validation"]["api_connectivity_ok"], true);
+    assert_eq!(body["account"]["validation"]["timestamp_in_sync"], true);
     assert_eq!(body["account"]["validation"]["hedge_mode_ok"], false);
     assert_eq!(body["account"]["connection_status"], "degraded");
     assert_eq!(body["account"]["sync_status"], "success");
@@ -142,6 +230,89 @@ async fn hedge_mode_validation_flags_mismatch_between_expectation_and_account_st
     let read_body = response_json(read).await;
     assert_eq!(read_body["account"]["validation"]["hedge_mode_ok"], false);
     assert_eq!(read_body["account"]["connection_status"], "degraded");
+}
+
+#[tokio::test]
+async fn selected_markets_drive_timestamp_and_market_reachability_validation() {
+    let db = SharedDb::ephemeral().expect("ephemeral db");
+    let app = app_with_state(AppState::from_shared_db(db.clone()).expect("app state"));
+    let session_token = register_and_login(&app, "exchange-market-scope@example.com").await;
+
+    let response = save_credentials_for_markets(
+        &app,
+        Some(&session_token),
+        "demo-key-nocoinm-1234",
+        "demo-secret-skew",
+        true,
+        &["spot", "coinm"],
+    )
+    .await;
+
+    assert_eq!(response.status(), StatusCode::OK);
+    let body = response_json(response).await;
+    assert_eq!(
+        body["account"]["selected_markets"],
+        json!(["spot", "coinm"])
+    );
+    assert_eq!(body["account"]["validation"]["api_connectivity_ok"], true);
+    assert_eq!(body["account"]["validation"]["timestamp_in_sync"], false);
+    assert_eq!(body["account"]["validation"]["can_read_spot"], true);
+    assert_eq!(body["account"]["validation"]["can_read_usdm"], false);
+    assert_eq!(body["account"]["validation"]["can_read_coinm"], false);
+    assert_eq!(body["account"]["validation"]["market_access_ok"], false);
+    assert_eq!(body["account"]["connection_status"], "degraded");
+    assert_eq!(body["synced_symbols"], 2);
+    assert_eq!(body["account"]["symbol_counts"]["spot"], 2);
+    assert_eq!(body["account"]["symbol_counts"]["usdm"], 0);
+    assert_eq!(body["account"]["symbol_counts"]["coinm"], 0);
+
+    let rebuilt = app_with_state(AppState::from_shared_db(db).expect("rebuilt app"));
+    let search = search_symbols(&rebuilt, Some(&session_token), "delivery").await;
+    assert_eq!(search.status(), StatusCode::OK);
+    assert_eq!(
+        response_json(search).await["items"]
+            .as_array()
+            .expect("items")
+            .len(),
+        0
+    );
+}
+
+#[tokio::test]
+async fn persisted_symbol_metadata_includes_filters_and_market_requirements() {
+    let db = SharedDb::ephemeral().expect("ephemeral db");
+    let app = app_with_state(AppState::from_shared_db(db.clone()).expect("app state"));
+    let session_token = register_and_login(&app, "exchange-rich-symbols@example.com").await;
+
+    let sync = save_credentials(
+        &app,
+        Some(&session_token),
+        "demo-key-1234",
+        "demo-secret",
+        true,
+    )
+    .await;
+    assert_eq!(sync.status(), StatusCode::OK);
+
+    let rebuilt = app_with_state(AppState::from_shared_db(db).expect("rebuilt app"));
+    let search = search_symbols(&rebuilt, Some(&session_token), "btc spot").await;
+    assert_eq!(search.status(), StatusCode::OK);
+    let body = response_json(search).await;
+    assert_eq!(body["items"][0]["symbol"], "BTCUSDT");
+    assert_eq!(body["items"][0]["filters"]["price_tick_size"], "0.01");
+    assert_eq!(
+        body["items"][0]["filters"]["quantity_step_size"],
+        "0.000010"
+    );
+    assert_eq!(body["items"][0]["filters"]["min_notional"], "5");
+    assert_eq!(
+        body["items"][0]["market_requirements"]["hedge_mode_required"],
+        false
+    );
+    assert_eq!(
+        body["items"][0]["market_requirements"]["supports_isolated_margin"],
+        false
+    );
 }
 
 #[tokio::test]
@@ -213,6 +384,25 @@ async fn save_credentials(
     api_secret: &str,
     expected_hedge_mode: bool,
 ) -> axum::response::Response {
+    save_credentials_for_markets(
+        app,
+        session_token,
+        api_key,
+        api_secret,
+        expected_hedge_mode,
+        &["spot", "usdm", "coinm"],
+    )
+    .await
+}
+
+async fn save_credentials_for_markets(
+    app: &axum::Router,
+    session_token: Option<&str>,
+    api_key: &str,
+    api_secret: &str,
+    expected_hedge_mode: bool,
+    selected_markets: &[&str],
+) -> axum::response::Response {
     let mut request = Request::builder()
         .method("POST")
         .uri("/exchange/binance/credentials")
@@ -229,9 +419,69 @@ async fn save_credentials(
                         "api_key": api_key,
                         "api_secret": api_secret,
                         "expected_hedge_mode": expected_hedge_mode,
+                        "selected_markets": selected_markets,
                     })
                     .to_string(),
                 ))
+                .unwrap(),
+        )
+        .await
+        .unwrap()
+}
+
+async fn create_strategy(
+    app: &axum::Router,
+    session_token: &str,
+    payload: Value,
+) -> axum::response::Response {
+    strategy_request(app, session_token, "POST", "/strategies", payload).await
+}
+
+async fn start_strategy(
+    app: &axum::Router,
+    session_token: &str,
+    strategy_id: &str,
+) -> axum::response::Response {
+    strategy_request(
+        app,
+        session_token,
+        "POST",
+        &format!("/strategies/{strategy_id}/start"),
+        json!({}),
+    )
+    .await
+}
+
+async fn pause_strategies(
+    app: &axum::Router,
+    session_token: &str,
+    ids: &[&str],
+) -> axum::response::Response {
+    strategy_request(
+        app,
+        session_token,
+        "POST",
+        "/strategies/batch/pause",
+        json!({ "ids": ids }),
+    )
+    .await
+}
+
+async fn strategy_request(
+    app: &axum::Router,
+    session_token: &str,
+    method: &str,
+    uri: &str,
+    payload: Value,
+) -> axum::response::Response {
+    app.clone()
+        .oneshot(
+            Request::builder()
+                .method(method)
+                .uri(uri)
+                .header("authorization", format!("Bearer {session_token}"))
+                .header("content-type", "application/json")
+                .body(Body::from(payload.to_string()))
                 .unwrap(),
         )
         .await

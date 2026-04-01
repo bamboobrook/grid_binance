@@ -1,14 +1,27 @@
 use axum::{http::header, response::IntoResponse, routing::get, Router};
-use std::io::{Error as IoError, ErrorKind};
+use scheduler::jobs::symbol_sync::{spawn_hourly_symbol_sync_job, SymbolSyncRuntimeState};
+use std::{
+    io::{Error as IoError, ErrorKind},
+    sync::{Arc, Mutex},
+    time::Duration,
+};
 use tokio::net::TcpListener;
 
 const DEFAULT_PORT: u16 = 8082;
 const SERVICE_NAME: &str = "scheduler";
+const DEFAULT_SYMBOL_SYNC_INTERVAL_SECS: u64 = 60 * 60;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let _database_url = required_env("DATABASE_URL")?;
     let _redis_url = required_env("REDIS_URL")?;
+
+    let symbol_sync_state = Arc::new(Mutex::new(SymbolSyncRuntimeState::default()));
+    let _symbol_sync_handle = spawn_hourly_symbol_sync_job(
+        Duration::from_secs(configured_symbol_sync_interval_secs()),
+        symbol_sync_state,
+    );
+
     let listener = TcpListener::bind(("0.0.0.0", configured_port(DEFAULT_PORT))).await?;
     let app = Router::new().route("/healthz", get(healthz));
 
@@ -28,6 +41,14 @@ async fn healthz() -> impl IntoResponse {
 
 fn configured_port(default_port: u16) -> u16 {
     parse_port(std::env::var("PORT").ok(), default_port)
+}
+
+fn configured_symbol_sync_interval_secs() -> u64 {
+    std::env::var("SYMBOL_SYNC_INTERVAL_SECS")
+        .ok()
+        .and_then(|value| value.parse::<u64>().ok())
+        .filter(|value| *value > 0)
+        .unwrap_or(DEFAULT_SYMBOL_SYNC_INTERVAL_SECS)
 }
 
 fn required_env(name: &str) -> Result<String, IoError> {
@@ -52,7 +73,10 @@ fn health_payload(service_name: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{health_payload, parse_port, required_env, DEFAULT_PORT, SERVICE_NAME};
+    use super::{
+        configured_symbol_sync_interval_secs, health_payload, parse_port, required_env,
+        DEFAULT_PORT, DEFAULT_SYMBOL_SYNC_INTERVAL_SECS, SERVICE_NAME,
+    };
 
     #[test]
     fn health_payload_mentions_service_name() {
@@ -79,5 +103,18 @@ mod tests {
         std::env::set_var("REDIS_URL", "redis://127.0.0.1:6379/0");
         assert!(required_env("REDIS_URL").is_ok());
         std::env::remove_var("REDIS_URL");
+    }
+
+    #[test]
+    fn symbol_sync_interval_uses_hourly_default_and_accepts_override() {
+        std::env::remove_var("SYMBOL_SYNC_INTERVAL_SECS");
+        assert_eq!(
+            configured_symbol_sync_interval_secs(),
+            DEFAULT_SYMBOL_SYNC_INTERVAL_SECS
+        );
+
+        std::env::set_var("SYMBOL_SYNC_INTERVAL_SECS", "90");
+        assert_eq!(configured_symbol_sync_interval_secs(), 90);
+        std::env::remove_var("SYMBOL_SYNC_INTERVAL_SECS");
     }
 }
