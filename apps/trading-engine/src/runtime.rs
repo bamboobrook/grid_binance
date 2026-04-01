@@ -54,10 +54,30 @@ impl RuntimeEvent {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct GridRuntimeError {
+    message: String,
+}
+
+impl GridRuntimeError {
+    fn new(message: impl Into<String>) -> Self {
+        Self {
+            message: message.into(),
+        }
+    }
+}
+
+impl std::fmt::Display for GridRuntimeError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.message)
+    }
+}
+
+impl std::error::Error for GridRuntimeError {}
+
 pub struct GridRuntime {
     mode: GridMode,
     plan: GridPlan,
-    default_quantity: Decimal,
     maker_take_profit: Option<MakerTakeProfit>,
     trailing_take_profit: Option<TrailingTakeProfit>,
     overall_take_profit: Option<OverallTakeProfit>,
@@ -70,11 +90,23 @@ pub struct GridRuntime {
 }
 
 impl GridRuntime {
-    pub fn new(config: GridRuntimeConfig) -> Self {
-        Self {
+    pub fn new(config: GridRuntimeConfig) -> Result<Self, GridRuntimeError> {
+        validate_supported_mode(config.mode)?;
+        validate_supported_mode(config.plan.mode)?;
+
+        if config.mode != config.plan.mode {
+            return Err(GridRuntimeError::new(
+                "runtime mode must match grid plan mode",
+            ));
+        }
+
+        if config.quantity <= Decimal::ZERO {
+            return Err(GridRuntimeError::new("default quantity must be positive"));
+        }
+
+        Ok(Self {
             mode: config.mode,
             plan: config.plan,
-            default_quantity: config.quantity,
             maker_take_profit: config.maker_take_profit,
             trailing_take_profit: config.trailing_take_profit,
             overall_take_profit: config.overall_take_profit,
@@ -84,15 +116,17 @@ impl GridRuntime {
             realized_pnl: Decimal::ZERO,
             last_price: None,
             trailing_high: None,
-        }
+        })
     }
 
-    pub fn record_fill(&mut self, entry_price: Decimal, quantity: Decimal) {
-        let quantity = if quantity.is_zero() {
-            self.default_quantity
-        } else {
-            quantity
-        };
+    pub fn record_fill(
+        &mut self,
+        entry_price: Decimal,
+        quantity: Decimal,
+    ) -> Result<(), GridRuntimeError> {
+        if quantity <= Decimal::ZERO {
+            return Err(GridRuntimeError::new("fill quantity must be positive"));
+        }
 
         if let Some(existing) = &mut self.position {
             let total_quantity = existing.quantity + quantity;
@@ -110,6 +144,7 @@ impl GridRuntime {
         }
 
         self.trailing_high = None;
+        Ok(())
     }
 
     pub fn on_price(&mut self, price: Decimal) -> Vec<RuntimeEvent> {
@@ -184,7 +219,8 @@ impl GridRuntime {
         self.status = RuntimeStatus::Stopped;
     }
 
-    pub fn rebuild(&mut self, plan: GridPlan) {
+    pub fn rebuild(&mut self, plan: GridPlan) -> Result<(), GridRuntimeError> {
+        validate_supported_mode(plan.mode)?;
         self.mode = plan.mode;
         self.plan = plan;
         self.status = RuntimeStatus::Running;
@@ -192,6 +228,7 @@ impl GridRuntime {
         self.realized_pnl = Decimal::ZERO;
         self.last_price = None;
         self.trailing_high = None;
+        Ok(())
     }
 
     pub fn status(&self) -> RuntimeStatus {
@@ -230,5 +267,14 @@ impl GridRuntime {
             reason,
             exit_price: Some(exit_price),
         }
+    }
+}
+
+fn validate_supported_mode(mode: GridMode) -> Result<(), GridRuntimeError> {
+    match mode {
+        GridMode::SpotClassic | GridMode::SpotBuyOnly | GridMode::FuturesLong => Ok(()),
+        GridMode::SpotSellOnly | GridMode::FuturesShort | GridMode::FuturesNeutral => Err(
+            GridRuntimeError::new("grid runtime does not support this mode yet"),
+        ),
     }
 }

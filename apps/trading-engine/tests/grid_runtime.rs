@@ -59,6 +59,18 @@ fn geometric_grid_builds_progressive_levels() {
 }
 
 #[test]
+fn geometric_grid_rejects_rounded_duplicate_levels() {
+    let result = GridBuilder::geometric(
+        GridMode::SpotClassic,
+        decimal(1000000000, 8),
+        decimal(1000000001, 8),
+        3,
+    );
+
+    assert!(result.is_err());
+}
+
+#[test]
 fn custom_grid_preserves_user_levels() {
     let levels = vec![decimal(95, 0), decimal(100, 0), decimal(1075, 1)];
     let grid = GridBuilder::custom(GridMode::SpotClassic, levels.clone())
@@ -74,8 +86,10 @@ fn maker_take_profit_closes_at_target_price() {
         target_percent: decimal(5, 2),
     });
 
-    let mut runtime = GridRuntime::new(config);
-    runtime.record_fill(decimal(100, 0), decimal(1, 0));
+    let mut runtime = GridRuntime::new(config).expect("spot long runtime should build");
+    runtime
+        .record_fill(decimal(100, 0), decimal(1, 0))
+        .expect("positive quantity fill should succeed");
 
     let events = runtime.on_price(decimal(105, 0));
 
@@ -94,8 +108,10 @@ fn trailing_take_profit_uses_post_activation_high() {
         trailing_percent: decimal(10, 2),
     });
 
-    let mut runtime = GridRuntime::new(config);
-    runtime.record_fill(decimal(100, 0), decimal(1, 0));
+    let mut runtime = GridRuntime::new(config).expect("spot long runtime should build");
+    runtime
+        .record_fill(decimal(100, 0), decimal(1, 0))
+        .expect("positive quantity fill should succeed");
 
     assert!(runtime.on_price(decimal(109, 0)).is_empty());
     assert!(runtime.on_price(decimal(111, 0)).is_empty());
@@ -117,8 +133,10 @@ fn overall_take_profit_stops_runtime() {
         target_percent: decimal(10, 2),
     });
 
-    let mut runtime = GridRuntime::new(config);
-    runtime.record_fill(decimal(100, 0), decimal(1, 0));
+    let mut runtime = GridRuntime::new(config).expect("spot long runtime should build");
+    runtime
+        .record_fill(decimal(100, 0), decimal(1, 0))
+        .expect("positive quantity fill should succeed");
 
     let events = runtime.on_price(decimal(110, 0));
 
@@ -135,8 +153,10 @@ fn overall_stop_loss_stops_runtime() {
         max_drawdown_percent: decimal(5, 2),
     });
 
-    let mut runtime = GridRuntime::new(config);
-    runtime.record_fill(decimal(100, 0), decimal(1, 0));
+    let mut runtime = GridRuntime::new(config).expect("spot long runtime should build");
+    runtime
+        .record_fill(decimal(100, 0), decimal(1, 0))
+        .expect("positive quantity fill should succeed");
 
     let events = runtime.on_price(decimal(95, 0));
 
@@ -153,8 +173,10 @@ fn pause_resume_stop_and_rebuild_follow_runtime_lifecycle() {
         target_percent: decimal(5, 2),
     });
 
-    let mut runtime = GridRuntime::new(config);
-    runtime.record_fill(decimal(100, 0), decimal(1, 0));
+    let mut runtime = GridRuntime::new(config).expect("spot long runtime should build");
+    runtime
+        .record_fill(decimal(100, 0), decimal(1, 0))
+        .expect("positive quantity fill should succeed");
     runtime.pause();
 
     assert!(runtime.on_price(decimal(105, 0)).is_empty());
@@ -174,7 +196,9 @@ fn pause_resume_stop_and_rebuild_follow_runtime_lifecycle() {
     let rebuilt =
         GridBuilder::arithmetic(GridMode::SpotClassic, decimal(80, 0), decimal(100, 0), 3)
             .expect("rebuilt grid should build");
-    runtime.rebuild(rebuilt);
+    runtime
+        .rebuild(rebuilt)
+        .expect("supported rebuild should succeed");
 
     assert_eq!(runtime.status(), RuntimeStatus::Running);
     assert_eq!(
@@ -182,5 +206,54 @@ fn pause_resume_stop_and_rebuild_follow_runtime_lifecycle() {
         vec![decimal(80, 0), decimal(90, 0), decimal(100, 0)]
     );
     assert_eq!(runtime.realized_pnl(), decimal(0, 0));
+    assert!(runtime.position().is_none());
+}
+
+#[test]
+fn runtime_rejects_unsupported_modes() {
+    let plan = GridBuilder::custom(
+        GridMode::FuturesShort,
+        vec![decimal(90, 0), decimal(100, 0), decimal(110, 0)],
+    )
+    .expect("custom grid should build");
+
+    let config = GridRuntimeConfig {
+        mode: GridMode::FuturesShort,
+        plan,
+        quantity: decimal(1, 0),
+        maker_take_profit: None,
+        trailing_take_profit: None,
+        overall_take_profit: None,
+        overall_stop_loss: None,
+    };
+
+    let result = GridRuntime::new(config);
+
+    assert!(result.is_err());
+}
+
+#[test]
+fn runtime_rejects_non_positive_default_quantity() {
+    let mut config = runtime_config();
+    config.quantity = Decimal::ZERO;
+
+    let zero_result = GridRuntime::new(config.clone());
+    assert!(zero_result.is_err());
+
+    config.quantity = decimal(-1, 0);
+    let negative_result = GridRuntime::new(config);
+    assert!(negative_result.is_err());
+}
+
+#[test]
+fn record_fill_rejects_non_positive_quantity() {
+    let mut runtime = GridRuntime::new(runtime_config()).expect("spot long runtime should build");
+
+    let zero_result = runtime.record_fill(decimal(100, 0), Decimal::ZERO);
+    assert!(zero_result.is_err());
+    assert!(runtime.position().is_none());
+
+    let negative_result = runtime.record_fill(decimal(100, 0), decimal(-1, 0));
+    assert!(negative_result.is_err());
     assert!(runtime.position().is_none());
 }

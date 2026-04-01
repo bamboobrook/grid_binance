@@ -90,6 +90,12 @@ impl GridBuilder {
             built_levels.push(level);
         }
 
+        if built_levels.windows(2).any(|pair| pair[0] >= pair[1]) {
+            return Err(GridBuildError::new(
+                "geometric grid levels must remain strictly increasing after rounding",
+            ));
+        }
+
         Ok(GridPlan {
             mode,
             levels: built_levels,
