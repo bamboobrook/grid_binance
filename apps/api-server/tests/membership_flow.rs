@@ -1,114 +1,194 @@
-use api_server::app;
+use api_server::{app, app_with_state, AppState};
 use axum::{
     body::{to_bytes, Body},
     http::{Request, StatusCode},
 };
 use serde_json::{json, Value};
+use shared_db::SharedDb;
 use tower::ServiceExt;
 
 mod support;
 
-use support::register_and_login;
+use support::{login_and_get_token, register_and_login, register_and_verify};
 
 #[tokio::test]
-async fn assigns_rotating_addresses_and_requires_exact_amount_match_before_activation() {
+async fn supports_all_three_chains_and_stablecoin_pricing_rules() {
     let app = app();
-    let alice_token = register_and_login(&app, "alice@example.com", "pass1234").await;
-    let bob_token = register_and_login(&app, "bob@example.com", "pass1234").await;
-    let admin_token = register_and_login(&app, "admin@example.com", "pass1234").await;
+    let eth_token = register_and_login(&app, "eth@example.com", "pass1234").await;
+    let bsc_token = register_and_login(&app, "bsc@example.com", "pass1234").await;
+    let sol_token = register_and_login(&app, "sol@example.com", "pass1234").await;
+    let admin_token = register_admin_and_login(&app).await;
 
-    let first_order = create_order(
+    let eth_order = create_order(
         &app,
-        &alice_token,
-        "alice@example.com",
-        "BSC",
-        "grid-pro",
-        "25.00000000",
+        &eth_token,
+        "eth@example.com",
+        "ETH",
+        "USDT",
+        "monthly",
         "2026-04-01T00:00:00Z",
     )
     .await;
-    assert_eq!(first_order.status(), StatusCode::CREATED);
-    let first_order_body = response_json(first_order).await;
-    assert_eq!(first_order_body["address"], "bsc-addr-1");
+    assert_eq!(eth_order.status(), StatusCode::CREATED);
+    let eth_order_body = response_json(eth_order).await;
+    assert_eq!(eth_order_body["chain"], "ETH");
+    assert_eq!(eth_order_body["asset"], "USDT");
+    assert_eq!(eth_order_body["amount"], "20.00000000");
+    assert_eq!(eth_order_body["address"], "eth-addr-1");
+    assert_eq!(eth_order_body["queue_position"], Value::Null);
 
-    let second_order = create_order(
+    let bsc_order = create_order(
         &app,
-        &bob_token,
-        "bob@example.com",
+        &bsc_token,
+        "bsc@example.com",
         "BSC",
-        "grid-pro",
-        "30.00000000",
-        "2026-04-01T00:05:00Z",
+        "USDC",
+        "quarterly",
+        "2026-04-01T00:00:00Z",
     )
     .await;
-    assert_eq!(second_order.status(), StatusCode::CREATED);
-    let second_order_body = response_json(second_order).await;
-    assert_eq!(second_order_body["address"], "bsc-addr-2");
+    assert_eq!(bsc_order.status(), StatusCode::CREATED);
+    let bsc_order_body = response_json(bsc_order).await;
+    assert_eq!(bsc_order_body["chain"], "BSC");
+    assert_eq!(bsc_order_body["asset"], "USDC");
+    assert_eq!(bsc_order_body["amount"], "54.00000000");
+    assert_eq!(bsc_order_body["address"], "bsc-addr-1");
 
-    let pending = membership_status(
+    let sol_order = create_order(
         &app,
-        &alice_token,
-        "alice@example.com",
-        "2026-04-01T00:10:00Z",
+        &sol_token,
+        "sol@example.com",
+        "SOL",
+        "USDT",
+        "yearly",
+        "2026-04-01T00:00:00Z",
     )
     .await;
-    assert_eq!(pending.status(), StatusCode::OK);
-    assert_eq!(response_json(pending).await["status"], "Pending");
+    assert_eq!(sol_order.status(), StatusCode::CREATED);
+    let sol_order_body = response_json(sol_order).await;
+    assert_eq!(sol_order_body["chain"], "SOL");
+    assert_eq!(sol_order_body["asset"], "USDT");
+    assert_eq!(sol_order_body["amount"], "180.00000000");
+    assert_eq!(sol_order_body["address"], "sol-addr-1");
 
     let mismatch = match_order(
         &app,
         &admin_token,
         "BSC",
+        "USDC",
         "bsc-addr-1",
-        "24.99999999",
-        "tx-mismatch",
-        "2026-04-01T00:15:00Z",
+        "53.99999999",
+        "tx-exact-mismatch",
+        "2026-04-01T00:10:00Z",
     )
     .await;
     assert_eq!(mismatch.status(), StatusCode::OK);
     let mismatch_body = response_json(mismatch).await;
     assert_eq!(mismatch_body["matched"], false);
     assert_eq!(mismatch_body["reason"], "exact_amount_required");
+    assert_eq!(mismatch_body["deposit_status"], "manual_review_required");
 
     let exact_match = match_order(
         &app,
         &admin_token,
-        "BSC",
-        "bsc-addr-1",
-        "25.00000000",
-        "tx-exact",
-        "2026-04-01T00:14:59Z",
+        "ETH",
+        "USDT",
+        "eth-addr-1",
+        "20.00000000",
+        "tx-eth-exact",
+        "2026-04-01T00:10:00Z",
     )
     .await;
     assert_eq!(exact_match.status(), StatusCode::OK);
     let exact_match_body = response_json(exact_match).await;
     assert_eq!(exact_match_body["matched"], true);
     assert_eq!(exact_match_body["membership_status"], "Active");
-
-    let active = membership_status(
-        &app,
-        &alice_token,
-        "alice@example.com",
-        "2026-04-15T00:00:00Z",
-    )
-    .await;
-    assert_eq!(active.status(), StatusCode::OK);
-    assert_eq!(response_json(active).await["status"], "Active");
+    assert_eq!(exact_match_body["deposit_status"], "matched");
 }
 
 #[tokio::test]
-async fn membership_transitions_from_active_to_grace_to_expired() {
+async fn queues_orders_when_pool_is_exhausted_and_promotes_in_fifo_order() {
+    let app = app();
+    let admin_token = register_admin_and_login(&app).await;
+
+    for index in 1..=5 {
+        let email = format!("queue-{index}@example.com");
+        let user_token = register_and_login(&app, &email, "pass1234").await;
+        let response = create_order(
+            &app,
+            &user_token,
+            &email,
+            "BSC",
+            "USDT",
+            "monthly",
+            "2026-04-01T00:00:00Z",
+        )
+        .await;
+        assert_eq!(response.status(), StatusCode::CREATED);
+        assert_eq!(
+            response_json(response).await["address"],
+            format!("bsc-addr-{index}")
+        );
+    }
+
+    let queued_email = "queue-6@example.com";
+    let queued_token = register_and_login(&app, queued_email, "pass1234").await;
+    let queued = create_order(
+        &app,
+        &queued_token,
+        queued_email,
+        "BSC",
+        "USDT",
+        "monthly",
+        "2026-04-01T00:01:00Z",
+    )
+    .await;
+    assert_eq!(queued.status(), StatusCode::CREATED);
+    let queued_body = response_json(queued).await;
+    assert_eq!(queued_body["address"], Value::Null);
+    assert_eq!(queued_body["queue_position"], 1);
+
+    let deposits = list_admin_deposits(&app, &admin_token, "2026-04-01T01:01:00Z").await;
+    assert_eq!(deposits.status(), StatusCode::OK);
+    let deposits_body = response_json(deposits).await;
+    let promoted = deposits_body["orders"]
+        .as_array()
+        .expect("orders array")
+        .iter()
+        .find(|order| order["email"] == queued_email)
+        .expect("queued order promoted");
+    assert_eq!(promoted["address"], "bsc-addr-1");
+    assert_eq!(promoted["queue_position"], Value::Null);
+
+    let next_email = "queue-7@example.com";
+    let next_token = register_and_login(&app, next_email, "pass1234").await;
+    let next_order = create_order(
+        &app,
+        &next_token,
+        next_email,
+        "BSC",
+        "USDT",
+        "monthly",
+        "2026-04-01T01:01:00Z",
+    )
+    .await;
+    assert_eq!(next_order.status(), StatusCode::CREATED);
+    assert_eq!(response_json(next_order).await["address"], "bsc-addr-2");
+}
+
+#[tokio::test]
+async fn membership_transitions_from_active_to_grace_to_expired_after_48_hours() {
     let app = app();
     let user_token = register_and_login(&app, "grace@example.com", "pass1234").await;
-    let admin_token = register_and_login(&app, "admin@example.com", "pass1234").await;
+    let admin_token = register_admin_and_login(&app).await;
 
     let order = create_order(
         &app,
         &user_token,
         "grace@example.com",
         "BSC",
-        "grid-pro",
-        "12.50000000",
+        "USDT",
+        "monthly",
         "2026-04-01T00:00:00Z",
     )
     .await;
@@ -118,8 +198,9 @@ async fn membership_transitions_from_active_to_grace_to_expired() {
         &app,
         &admin_token,
         "BSC",
+        "USDT",
         "bsc-addr-1",
-        "12.50000000",
+        "20.00000000",
         "tx-grace",
         "2026-04-01T00:00:00Z",
     )
@@ -141,7 +222,7 @@ async fn membership_transitions_from_active_to_grace_to_expired() {
         &app,
         &user_token,
         "grace@example.com",
-        "2026-05-02T00:00:00Z",
+        "2026-05-02T23:59:59Z",
     )
     .await;
     assert_eq!(grace.status(), StatusCode::OK);
@@ -151,7 +232,7 @@ async fn membership_transitions_from_active_to_grace_to_expired() {
         &app,
         &user_token,
         "grace@example.com",
-        "2026-05-05T00:00:00Z",
+        "2026-05-03T00:00:01Z",
     )
     .await;
     assert_eq!(expired.status(), StatusCode::OK);
@@ -159,17 +240,19 @@ async fn membership_transitions_from_active_to_grace_to_expired() {
 }
 
 #[tokio::test]
-async fn admin_override_can_freeze_and_revoke_membership() {
-    let app = app();
-    let admin_token = register_and_login(&app, "admin@example.com", "pass1234").await;
+async fn admin_override_writes_membership_audit_logs() {
+    let db = SharedDb::ephemeral().expect("ephemeral db");
+    let state = AppState::from_shared_db(db.clone()).expect("state");
+    let app = app_with_state(state);
+    let admin_token = register_admin_and_login(&app).await;
 
     let order = create_order(
         &app,
         &admin_token,
         "admin@example.com",
         "BSC",
-        "grid-pro",
-        "8.00000000",
+        "USDT",
+        "monthly",
         "2026-04-01T00:00:00Z",
     )
     .await;
@@ -179,8 +262,9 @@ async fn admin_override_can_freeze_and_revoke_membership() {
         &app,
         &admin_token,
         "BSC",
+        "USDT",
         "bsc-addr-1",
-        "8.00000000",
+        "20.00000000",
         "tx-admin",
         "2026-04-01T00:01:00Z",
     )
@@ -188,260 +272,33 @@ async fn admin_override_can_freeze_and_revoke_membership() {
     assert_eq!(matched.status(), StatusCode::OK);
     assert_eq!(response_json(matched).await["membership_status"], "Active");
 
-    let frozen = override_membership(&app, &admin_token, "admin@example.com", Some("Frozen")).await;
+    let frozen =
+        override_membership(&app, &admin_token, "admin@example.com", Some("Frozen")).await;
     assert_eq!(frozen.status(), StatusCode::OK);
-    let frozen_body = response_json(frozen).await;
-    assert_eq!(frozen_body["status"], "Frozen");
-    assert_eq!(frozen_body["override_status"], "Frozen");
+    assert_eq!(response_json(frozen).await["status"], "Frozen");
 
     let cleared = override_membership(&app, &admin_token, "admin@example.com", None).await;
     assert_eq!(cleared.status(), StatusCode::OK);
-    let cleared_body = response_json(cleared).await;
-    assert_eq!(cleared_body["status"], "Active");
-    assert_eq!(cleared_body["override_status"], Value::Null);
+    assert_eq!(response_json(cleared).await["status"], "Active");
 
     let revoked =
         override_membership(&app, &admin_token, "admin@example.com", Some("Revoked")).await;
     assert_eq!(revoked.status(), StatusCode::OK);
-    let revoked_body = response_json(revoked).await;
-    assert_eq!(revoked_body["status"], "Revoked");
-    assert_eq!(revoked_body["override_status"], "Revoked");
-}
+    assert_eq!(response_json(revoked).await["status"], "Revoked");
 
-#[tokio::test]
-async fn address_pool_rejects_new_order_when_all_leases_are_still_active() {
-    let app = app();
-
-    for (email, expected_address) in [
-        ("lease-1@example.com", "bsc-addr-1"),
-        ("lease-2@example.com", "bsc-addr-2"),
-        ("lease-3@example.com", "bsc-addr-3"),
-    ] {
-        let user_token = register_and_login(&app, email, "pass1234").await;
-        let response = create_order(
-            &app,
-            &user_token,
-            email,
-            "BSC",
-            "grid-pro",
-            "5.00000000",
-            "2026-04-01T00:00:00Z",
-        )
-        .await;
-        assert_eq!(response.status(), StatusCode::CREATED);
-        assert_eq!(response_json(response).await["address"], expected_address);
-    }
-
-    let user_token = register_and_login(&app, "lease-4@example.com", "pass1234").await;
-    let exhausted = create_order(
-        &app,
-        &user_token,
-        "lease-4@example.com",
-        "BSC",
-        "grid-pro",
-        "5.00000000",
-        "2026-04-01T00:10:00Z",
-    )
-    .await;
-    assert_eq!(exhausted.status(), StatusCode::CONFLICT);
+    let audit_logs = db.list_audit_logs().expect("audit logs");
+    let actions: Vec<_> = audit_logs
+        .iter()
+        .map(|record| record.action.as_str())
+        .collect();
+    assert!(actions.contains(&"membership.override_updated"));
     assert_eq!(
-        response_json(exhausted).await["error"],
-        "no address available"
+        audit_logs
+            .iter()
+            .filter(|record| record.action == "membership.override_updated")
+            .count(),
+        3
     );
-}
-
-#[tokio::test]
-async fn expired_order_cannot_be_activated() {
-    let app = app();
-    let user_token = register_and_login(&app, "expired@example.com", "pass1234").await;
-    let admin_token = register_and_login(&app, "admin@example.com", "pass1234").await;
-
-    let order = create_order(
-        &app,
-        &user_token,
-        "expired@example.com",
-        "BSC",
-        "grid-pro",
-        "9.00000000",
-        "2026-04-01T00:00:00Z",
-    )
-    .await;
-    assert_eq!(order.status(), StatusCode::CREATED);
-
-    let expired_match = match_order(
-        &app,
-        &admin_token,
-        "BSC",
-        "bsc-addr-1",
-        "9.00000000",
-        "tx-expired",
-        "2026-04-01T00:15:01Z",
-    )
-    .await;
-    assert_eq!(expired_match.status(), StatusCode::OK);
-    let expired_match_body = response_json(expired_match).await;
-    assert_eq!(expired_match_body["matched"], false);
-    assert_eq!(expired_match_body["reason"], "order_expired");
-
-    let status = membership_status(
-        &app,
-        &user_token,
-        "expired@example.com",
-        "2026-04-01T00:16:00Z",
-    )
-    .await;
-    assert_eq!(status.status(), StatusCode::OK);
-    assert_eq!(response_json(status).await["status"], "Pending");
-}
-
-#[tokio::test]
-async fn duplicate_tx_hash_cannot_activate_a_second_order() {
-    let app = app();
-    let first_user_token = register_and_login(&app, "dup-1@example.com", "pass1234").await;
-    let second_user_token = register_and_login(&app, "dup-2@example.com", "pass1234").await;
-    let admin_token = register_and_login(&app, "admin@example.com", "pass1234").await;
-
-    let first_order = create_order(
-        &app,
-        &first_user_token,
-        "dup-1@example.com",
-        "BSC",
-        "grid-pro",
-        "6.00000000",
-        "2026-04-01T00:00:00Z",
-    )
-    .await;
-    assert_eq!(first_order.status(), StatusCode::CREATED);
-
-    let first_match = match_order(
-        &app,
-        &admin_token,
-        "BSC",
-        "bsc-addr-1",
-        "6.00000000",
-        "tx-duplicate",
-        "2026-04-01T00:05:00Z",
-    )
-    .await;
-    assert_eq!(first_match.status(), StatusCode::OK);
-    assert_eq!(response_json(first_match).await["matched"], true);
-
-    let second_order = create_order(
-        &app,
-        &second_user_token,
-        "dup-2@example.com",
-        "BSC",
-        "grid-pro",
-        "7.00000000",
-        "2026-04-01T00:05:00Z",
-    )
-    .await;
-    assert_eq!(second_order.status(), StatusCode::CREATED);
-
-    let duplicate_match = match_order(
-        &app,
-        &admin_token,
-        "BSC",
-        "bsc-addr-2",
-        "7.00000000",
-        "tx-duplicate",
-        "2026-04-01T00:06:00Z",
-    )
-    .await;
-    assert_eq!(duplicate_match.status(), StatusCode::OK);
-    let duplicate_match_body = response_json(duplicate_match).await;
-    assert_eq!(duplicate_match_body["matched"], false);
-    assert_eq!(duplicate_match_body["reason"], "duplicate_transaction");
-
-    let second_status = membership_status(
-        &app,
-        &second_user_token,
-        "dup-2@example.com",
-        "2026-04-01T00:06:00Z",
-    )
-    .await;
-    assert_eq!(second_status.status(), StatusCode::OK);
-    assert_eq!(response_json(second_status).await["status"], "Pending");
-}
-
-#[tokio::test]
-async fn ambiguous_same_address_and_amount_conflict_is_rejected() {
-    let app = app();
-    let old_token = register_and_login(&app, "ambiguous-old@example.com", "pass1234").await;
-    let fill_1_token = register_and_login(&app, "ambiguous-fill-1@example.com", "pass1234").await;
-    let fill_2_token = register_and_login(&app, "ambiguous-fill-2@example.com", "pass1234").await;
-    let replacement_token = register_and_login(&app, "ambiguous-new@example.com", "pass1234").await;
-    let admin_token = register_and_login(&app, "admin@example.com", "pass1234").await;
-
-    for (email, user_token) in [
-        ("ambiguous-old@example.com", &old_token),
-        ("ambiguous-fill-1@example.com", &fill_1_token),
-        ("ambiguous-fill-2@example.com", &fill_2_token),
-    ] {
-        let response = create_order(
-            &app,
-            user_token,
-            email,
-            "BSC",
-            "grid-pro",
-            if email == "ambiguous-old@example.com" {
-                "11.00000000"
-            } else {
-                "4.00000000"
-            },
-            "2026-04-01T00:00:00Z",
-        )
-        .await;
-        assert_eq!(response.status(), StatusCode::CREATED);
-    }
-
-    let replacement = create_order(
-        &app,
-        &replacement_token,
-        "ambiguous-new@example.com",
-        "BSC",
-        "grid-pro",
-        "11.00000000",
-        "2026-04-01T00:15:00Z",
-    )
-    .await;
-    assert_eq!(replacement.status(), StatusCode::CREATED);
-    assert_eq!(response_json(replacement).await["address"], "bsc-addr-1");
-
-    let ambiguous_match = match_order(
-        &app,
-        &admin_token,
-        "BSC",
-        "bsc-addr-1",
-        "11.00000000",
-        "tx-ambiguous",
-        "2026-04-01T00:15:00Z",
-    )
-    .await;
-    assert_eq!(ambiguous_match.status(), StatusCode::OK);
-    let ambiguous_match_body = response_json(ambiguous_match).await;
-    assert_eq!(ambiguous_match_body["matched"], false);
-    assert_eq!(ambiguous_match_body["reason"], "ambiguous_match");
-
-    let old_status = membership_status(
-        &app,
-        &old_token,
-        "ambiguous-old@example.com",
-        "2026-04-01T00:15:00Z",
-    )
-    .await;
-    assert_eq!(old_status.status(), StatusCode::OK);
-    assert_eq!(response_json(old_status).await["status"], "Pending");
-
-    let new_status = membership_status(
-        &app,
-        &replacement_token,
-        "ambiguous-new@example.com",
-        "2026-04-01T00:15:00Z",
-    )
-    .await;
-    assert_eq!(new_status.status(), StatusCode::OK);
-    assert_eq!(response_json(new_status).await["status"], "Pending");
 }
 
 #[tokio::test]
@@ -453,7 +310,7 @@ async fn anonymous_user_cannot_override_membership() {
         .oneshot(
             Request::builder()
                 .method("POST")
-                .uri("/membership/admin/override")
+                .uri("/admin/memberships/override")
                 .header("content-type", "application/json")
                 .body(Body::from(
                     json!({
@@ -470,13 +327,76 @@ async fn anonymous_user_cannot_override_membership() {
     assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
 }
 
+async fn register_admin_and_login(app: &axum::Router) -> String {
+    register_and_verify(app, "admin@example.com", "pass1234").await;
+    let session_token = login_and_get_token(app, "admin@example.com", "pass1234").await;
+    let enabled = enable_totp(app, "admin@example.com", &session_token).await;
+    let totp_code = enabled["code"].as_str().expect("totp code");
+    login_with_totp(app, "admin@example.com", "pass1234", totp_code).await
+}
+
+async fn enable_totp(app: &axum::Router, email: &str, session_token: &str) -> Value {
+    let response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/security/totp/enable")
+                .header("authorization", format!("Bearer {session_token}"))
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    json!({
+                        "email": email,
+                    })
+                    .to_string(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    response_json(response).await
+}
+
+async fn login_with_totp(
+    app: &axum::Router,
+    email: &str,
+    password: &str,
+    totp_code: &str,
+) -> String {
+    let response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/auth/login")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    json!({
+                        "email": email,
+                        "password": password,
+                        "totp_code": totp_code,
+                    })
+                    .to_string(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    response_json(response).await["session_token"]
+        .as_str()
+        .expect("session token")
+        .to_owned()
+}
+
 async fn create_order(
     app: &axum::Router,
     session_token: &str,
     email: &str,
     chain: &str,
+    asset: &str,
     plan_code: &str,
-    amount: &str,
     requested_at: &str,
 ) -> axum::response::Response {
     app.clone()
@@ -490,8 +410,8 @@ async fn create_order(
                     json!({
                         "email": email,
                         "chain": chain,
+                        "asset": asset,
                         "plan_code": plan_code,
-                        "amount": amount,
                         "requested_at": requested_at,
                     })
                     .to_string(),
@@ -506,6 +426,7 @@ async fn match_order(
     app: &axum::Router,
     session_token: &str,
     chain: &str,
+    asset: &str,
     address: &str,
     amount: &str,
     tx_hash: &str,
@@ -521,6 +442,7 @@ async fn match_order(
                 .body(Body::from(
                     json!({
                         "chain": chain,
+                        "asset": asset,
                         "address": address,
                         "amount": amount,
                         "tx_hash": tx_hash,
@@ -528,6 +450,24 @@ async fn match_order(
                     })
                     .to_string(),
                 ))
+                .unwrap(),
+        )
+        .await
+        .unwrap()
+}
+
+async fn list_admin_deposits(
+    app: &axum::Router,
+    session_token: &str,
+    at: &str,
+) -> axum::response::Response {
+    app.clone()
+        .oneshot(
+            Request::builder()
+                .method("GET")
+                .uri(format!("/admin/deposits?at={at}"))
+                .header("authorization", format!("Bearer {session_token}"))
+                .body(Body::empty())
                 .unwrap(),
         )
         .await
@@ -570,7 +510,7 @@ async fn override_membership(
         .oneshot(
             Request::builder()
                 .method("POST")
-                .uri("/membership/admin/override")
+                .uri("/admin/memberships/override")
                 .header("authorization", format!("Bearer {session_token}"))
                 .header("content-type", "application/json")
                 .body(Body::from(

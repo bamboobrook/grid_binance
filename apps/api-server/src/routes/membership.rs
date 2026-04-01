@@ -2,18 +2,14 @@ use axum::{extract::State, http::HeaderMap, routing::post, Json, Router};
 use shared_domain::membership::MembershipSnapshot;
 
 use crate::{
-    routes::auth_guard::{require_admin_session, require_session_email, require_user_session},
+    routes::auth_guard::{require_session_email, require_user_session},
     services::auth_service::AuthService,
-    services::membership_service::{
-        MembershipError, MembershipOverrideRequest, MembershipService, MembershipStatusRequest,
-    },
+    services::membership_service::{MembershipError, MembershipService, MembershipStatusRequest},
     AppState,
 };
 
 pub fn router() -> Router<AppState> {
-    Router::new()
-        .route("/membership/status", post(status))
-        .route("/membership/admin/override", post(override_status))
+    Router::new().route("/membership/status", post(status))
 }
 
 async fn status(
@@ -25,14 +21,4 @@ async fn status(
     let session = require_user_session(&auth, &headers).map_err(MembershipError::from)?;
     require_session_email(&session, &request.email).map_err(MembershipError::from)?;
     Ok(Json(service.membership_status(request)?))
-}
-
-async fn override_status(
-    State(auth): State<AuthService>,
-    State(service): State<MembershipService>,
-    headers: HeaderMap,
-    Json(request): Json<MembershipOverrideRequest>,
-) -> Result<Json<MembershipSnapshot>, MembershipError> {
-    require_admin_session(&auth, &headers).map_err(MembershipError::from)?;
-    Ok(Json(service.override_membership(request)?))
 }

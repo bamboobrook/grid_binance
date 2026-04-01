@@ -38,6 +38,6 @@ async fn match_order(
     headers: HeaderMap,
     Json(request): Json<MatchBillingOrderRequest>,
 ) -> Result<Json<MatchBillingOrderResponse>, MembershipError> {
-    require_admin_session(&auth, &headers).map_err(MembershipError::from)?;
-    Ok(Json(service.match_order(request)?))
+    let session = require_admin_session(&auth, &headers).map_err(MembershipError::from)?;
+    Ok(Json(service.match_order(&session.email, request)?))
 }

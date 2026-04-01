@@ -1,4 +1,7 @@
 mod routes {
+    pub mod admin_deposits;
+    pub mod admin_memberships;
+    pub mod admin_sweeps;
     pub mod admin_templates;
     pub mod analytics;
     pub mod auth;
@@ -126,6 +129,9 @@ pub fn app_with_persistent_state(
 
 pub fn app_with_state(state: AppState) -> Router {
     Router::new()
+        .merge(routes::admin_deposits::router())
+        .merge(routes::admin_memberships::router())
+        .merge(routes::admin_sweeps::router())
         .merge(routes::admin_templates::router())
         .merge(routes::analytics::router())
         .merge(routes::auth::router())

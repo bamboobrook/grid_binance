@@ -25,7 +25,10 @@ use shared_domain::{
 pub mod postgres;
 pub mod redis;
 
-pub use crate::postgres::billing::{BillingOrderRecord, MembershipRecord};
+pub use crate::postgres::billing::{
+    BillingOrderRecord, DepositAddressPoolRecord, DepositTransactionRecord, MembershipPlanPriceRecord,
+    MembershipPlanRecord, MembershipRecord, SweepJobRecord, SweepTransferRecord,
+};
 pub use crate::postgres::admin::AuditLogRecord;
 pub use crate::postgres::identity::AuthUserRecord;
 
@@ -51,7 +54,12 @@ struct EphemeralState {
     audit_logs: Vec<AuditLogRecord>,
     billing_orders: BTreeMap<u64, BillingOrderRecord>,
     seen_transfers: HashSet<String>,
+    membership_plans: HashMap<String, MembershipPlanRecord>,
+    membership_plan_prices: HashMap<(String, String, String), MembershipPlanPriceRecord>,
+    deposit_addresses: HashMap<(String, String), DepositAddressPoolRecord>,
+    deposit_transactions: HashMap<String, DepositTransactionRecord>,
     membership_records: HashMap<String, MembershipRecord>,
+    sweep_jobs: BTreeMap<u64, SweepJobRecord>,
     strategies: BTreeMap<u64, Strategy>,
     templates: BTreeMap<u64, StrategyTemplate>,
 }
@@ -538,6 +546,201 @@ impl SharedDb {
         }
     }
 
+    pub fn update_billing_order_assignment(
+        &self,
+        order_id: u64,
+        assignment: &shared_chain::assignment::AddressAssignment,
+        status: &str,
+    ) -> Result<(), SharedDbError> {
+        match &self.backend {
+            SharedDbBackend::Runtime { .. } => {
+                let repo = self.billing_repo();
+                let assignment = assignment.clone();
+                let status = status.to_owned();
+                Self::block_on(async move {
+                    repo.update_order_assignment(order_id, &assignment, &status).await
+                })
+            }
+            SharedDbBackend::Ephemeral(state) => {
+                let mut state = lock_ephemeral(state)?;
+                if let Some(order) = state.billing_orders.get_mut(&order_id) {
+                    order.assignment = Some(assignment.clone());
+                    order.status = status.to_owned();
+                    order.enqueued_at = None;
+                }
+                Ok(())
+            }
+        }
+    }
+
+    pub fn list_membership_plans(&self) -> Result<Vec<MembershipPlanRecord>, SharedDbError> {
+        match &self.backend {
+            SharedDbBackend::Runtime { .. } => {
+                let repo = self.billing_repo();
+                Self::block_on(async move { repo.list_membership_plans().await })
+            }
+            SharedDbBackend::Ephemeral(state) => Ok(lock_ephemeral(state)?
+                .membership_plans
+                .values()
+                .cloned()
+                .collect()),
+        }
+    }
+
+    pub fn upsert_membership_plan(
+        &self,
+        plan: &MembershipPlanRecord,
+    ) -> Result<(), SharedDbError> {
+        match &self.backend {
+            SharedDbBackend::Runtime { .. } => {
+                let repo = self.billing_repo();
+                let plan = plan.clone();
+                Self::block_on(async move { repo.upsert_membership_plan(&plan).await })
+            }
+            SharedDbBackend::Ephemeral(state) => {
+                lock_ephemeral(state)?
+                    .membership_plans
+                    .insert(plan.code.clone(), plan.clone());
+                Ok(())
+            }
+        }
+    }
+
+    pub fn list_plan_prices(&self) -> Result<Vec<MembershipPlanPriceRecord>, SharedDbError> {
+        match &self.backend {
+            SharedDbBackend::Runtime { .. } => {
+                let repo = self.billing_repo();
+                Self::block_on(async move { repo.list_plan_prices().await })
+            }
+            SharedDbBackend::Ephemeral(state) => Ok(lock_ephemeral(state)?
+                .membership_plan_prices
+                .values()
+                .cloned()
+                .collect()),
+        }
+    }
+
+    pub fn upsert_plan_price(
+        &self,
+        price: &MembershipPlanPriceRecord,
+    ) -> Result<(), SharedDbError> {
+        match &self.backend {
+            SharedDbBackend::Runtime { .. } => {
+                let repo = self.billing_repo();
+                let price = price.clone();
+                Self::block_on(async move { repo.upsert_plan_price(&price).await })
+            }
+            SharedDbBackend::Ephemeral(state) => {
+                lock_ephemeral(state)?.membership_plan_prices.insert(
+                    (
+                        price.plan_code.clone(),
+                        price.chain.clone(),
+                        price.asset.clone(),
+                    ),
+                    price.clone(),
+                );
+                Ok(())
+            }
+        }
+    }
+
+    pub fn list_deposit_addresses(&self) -> Result<Vec<DepositAddressPoolRecord>, SharedDbError> {
+        match &self.backend {
+            SharedDbBackend::Runtime { .. } => {
+                let repo = self.billing_repo();
+                Self::block_on(async move { repo.list_deposit_addresses().await })
+            }
+            SharedDbBackend::Ephemeral(state) => Ok(lock_ephemeral(state)?
+                .deposit_addresses
+                .values()
+                .cloned()
+                .collect()),
+        }
+    }
+
+    pub fn upsert_deposit_address(
+        &self,
+        address: &DepositAddressPoolRecord,
+    ) -> Result<(), SharedDbError> {
+        match &self.backend {
+            SharedDbBackend::Runtime { .. } => {
+                let repo = self.billing_repo();
+                let address = address.clone();
+                Self::block_on(async move { repo.upsert_deposit_address(&address).await })
+            }
+            SharedDbBackend::Ephemeral(state) => {
+                lock_ephemeral(state)?.deposit_addresses.insert(
+                    (address.chain.clone(), address.address.clone()),
+                    address.clone(),
+                );
+                Ok(())
+            }
+        }
+    }
+
+    pub fn upsert_deposit_transaction(
+        &self,
+        record: &DepositTransactionRecord,
+    ) -> Result<(), SharedDbError> {
+        match &self.backend {
+            SharedDbBackend::Runtime { .. } => {
+                let repo = self.billing_repo();
+                let record = record.clone();
+                Self::block_on(async move { repo.upsert_deposit_transaction(&record).await })
+            }
+            SharedDbBackend::Ephemeral(state) => {
+                lock_ephemeral(state)?
+                    .deposit_transactions
+                    .insert(record.tx_hash.clone(), record.clone());
+                Ok(())
+            }
+        }
+    }
+
+    pub fn list_deposit_transactions(&self) -> Result<Vec<DepositTransactionRecord>, SharedDbError> {
+        match &self.backend {
+            SharedDbBackend::Runtime { .. } => {
+                let repo = self.billing_repo();
+                Self::block_on(async move { repo.list_deposit_transactions().await })
+            }
+            SharedDbBackend::Ephemeral(state) => Ok(lock_ephemeral(state)?
+                .deposit_transactions
+                .values()
+                .cloned()
+                .collect()),
+        }
+    }
+
+    pub fn create_sweep_job(&self, job: &SweepJobRecord) -> Result<(), SharedDbError> {
+        match &self.backend {
+            SharedDbBackend::Runtime { .. } => {
+                let repo = self.billing_repo();
+                let job = job.clone();
+                Self::block_on(async move { repo.create_sweep_job(&job).await })
+            }
+            SharedDbBackend::Ephemeral(state) => {
+                lock_ephemeral(state)?
+                    .sweep_jobs
+                    .insert(job.sweep_job_id, job.clone());
+                Ok(())
+            }
+        }
+    }
+
+    pub fn list_sweep_jobs(&self) -> Result<Vec<SweepJobRecord>, SharedDbError> {
+        match &self.backend {
+            SharedDbBackend::Runtime { .. } => {
+                let repo = self.billing_repo();
+                Self::block_on(async move { repo.list_sweep_jobs().await })
+            }
+            SharedDbBackend::Ephemeral(state) => Ok(lock_ephemeral(state)?
+                .sweep_jobs
+                .values()
+                .cloned()
+                .collect()),
+        }
+    }
+
     pub fn record_seen_transfer(
         &self,
         tx_hash: &str,
@@ -646,6 +849,13 @@ impl SharedDb {
                 if let Some(order) = state.billing_orders.get_mut(&order_id) {
                     order.paid_at = Some(paid_at);
                     order.tx_hash = Some(tx_hash.to_owned());
+                    order.status = "paid".to_owned();
+                    order.enqueued_at = None;
+                }
+                if let Some(deposit) = state.deposit_transactions.get_mut(tx_hash) {
+                    deposit.order_id = Some(order_id);
+                    deposit.matched_order_id = Some(order_id);
+                    deposit.status = "matched".to_owned();
                 }
                 state.membership_records.insert(
                     email.to_lowercase(),

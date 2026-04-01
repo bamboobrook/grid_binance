@@ -1,4 +1,8 @@
+use std::collections::HashMap;
+
 use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
+use serde_json::{json, Value};
 use sqlx::{PgPool, Row};
 
 use shared_chain::assignment::AddressAssignment;
@@ -6,17 +10,20 @@ use shared_domain::membership::MembershipStatus;
 
 use crate::{membership_status_to_str, parse_membership_status, SharedDbError};
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct BillingOrderRecord {
     pub order_id: u64,
     pub email: String,
     pub chain: String,
+    pub asset: String,
     pub plan_code: String,
     pub amount: String,
     pub requested_at: DateTime<Utc>,
-    pub assignment: AddressAssignment,
+    pub assignment: Option<AddressAssignment>,
     pub paid_at: Option<DateTime<Utc>>,
     pub tx_hash: Option<String>,
+    pub status: String,
+    pub enqueued_at: Option<DateTime<Utc>>,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -50,6 +57,41 @@ pub struct DepositAddressPoolRecord {
     pub is_enabled: bool,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DepositTransactionRecord {
+    pub tx_hash: String,
+    pub chain: String,
+    pub asset: String,
+    pub address: String,
+    pub amount: String,
+    pub observed_at: DateTime<Utc>,
+    pub order_id: Option<u64>,
+    pub status: String,
+    pub review_reason: Option<String>,
+    pub processed_at: Option<DateTime<Utc>>,
+    pub matched_order_id: Option<u64>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SweepTransferRecord {
+    pub from_address: String,
+    pub to_address: String,
+    pub amount: String,
+    pub tx_hash: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SweepJobRecord {
+    pub sweep_job_id: u64,
+    pub chain: String,
+    pub asset: String,
+    pub status: String,
+    pub requested_by: String,
+    pub requested_at: DateTime<Utc>,
+    pub completed_at: Option<DateTime<Utc>>,
+    pub transfers: Vec<SweepTransferRecord>,
+}
+
 #[derive(Clone)]
 pub struct BillingRepository {
     pool: PgPool,
@@ -62,18 +104,24 @@ impl BillingRepository {
 
     pub async fn list_orders(&self) -> Result<Vec<BillingOrderRecord>, SharedDbError> {
         let rows = sqlx::query(
-            "SELECT order_id,
-                    user_email,
-                    chain,
-                    plan_code,
-                    amount,
-                    requested_at,
-                    assigned_address,
-                    address_expires_at,
-                    paid_at,
-                    tx_hash
-             FROM membership_orders
-             ORDER BY order_id ASC",
+            "SELECT mo.order_id,
+                    mo.user_email,
+                    mo.chain,
+                    COALESCE(sc.config_value->>'asset', '') AS asset,
+                    mo.plan_code,
+                    mo.amount,
+                    mo.requested_at,
+                    mo.assigned_address,
+                    mo.address_expires_at,
+                    mo.paid_at,
+                    mo.tx_hash,
+                    mo.status,
+                    doq.enqueued_at
+             FROM membership_orders mo
+             LEFT JOIN deposit_order_queue doq ON doq.order_id = mo.order_id
+             LEFT JOIN system_configs sc
+               ON sc.config_key = ('billing.order.' || mo.order_id::text || '.meta')
+             ORDER BY mo.order_id ASC",
         )
         .fetch_all(&self.pool)
         .await
@@ -83,6 +131,7 @@ impl BillingRepository {
     }
 
     pub async fn insert_order(&self, order: &BillingOrderRecord) -> Result<(), SharedDbError> {
+        let mut transaction = self.pool.begin().await.map_err(SharedDbError::from)?;
         sqlx::query(
             "INSERT INTO membership_orders (
                 order_id,
@@ -105,14 +154,84 @@ impl BillingRepository {
         .bind(&order.plan_code)
         .bind(&order.amount)
         .bind(order.requested_at)
-        .bind(&order.assignment.address)
-        .bind(order.assignment.expires_at)
+        .bind(
+            order
+                .assignment
+                .as_ref()
+                .map(|assignment| assignment.address.as_str())
+                .unwrap_or(""),
+        )
+        .bind(
+            order
+                .assignment
+                .as_ref()
+                .map(|assignment| assignment.expires_at)
+                .unwrap_or(order.requested_at),
+        )
         .bind(order.paid_at)
         .bind(&order.tx_hash)
-        .bind(if order.paid_at.is_some() { "paid" } else { "pending" })
-        .execute(&self.pool)
+        .bind(&order.status)
+        .execute(&mut *transaction)
         .await
         .map_err(SharedDbError::from)?;
+
+        write_order_meta(
+            &mut transaction,
+            order.order_id,
+            json!({ "asset": order.asset }),
+        )
+        .await?;
+
+        if let Some(enqueued_at) = order.enqueued_at {
+            sqlx::query(
+                "INSERT INTO deposit_order_queue (order_id, chain, enqueued_at)
+                 VALUES ($1, $2, $3)
+                 ON CONFLICT (order_id) DO UPDATE
+                 SET chain = excluded.chain,
+                     enqueued_at = excluded.enqueued_at",
+            )
+            .bind(order.order_id as i64)
+            .bind(&order.chain)
+            .bind(enqueued_at)
+            .execute(&mut *transaction)
+            .await
+            .map_err(SharedDbError::from)?;
+        }
+
+        transaction.commit().await.map_err(SharedDbError::from)?;
+        Ok(())
+    }
+
+    pub async fn update_order_assignment(
+        &self,
+        order_id: u64,
+        assignment: &AddressAssignment,
+        status: &str,
+    ) -> Result<(), SharedDbError> {
+        let mut transaction = self.pool.begin().await.map_err(SharedDbError::from)?;
+        sqlx::query(
+            "UPDATE membership_orders
+             SET assigned_address = $2,
+                 address_expires_at = $3,
+                 status = $4,
+                 updated_at = now()
+             WHERE order_id = $1",
+        )
+        .bind(order_id as i64)
+        .bind(&assignment.address)
+        .bind(assignment.expires_at)
+        .bind(status)
+        .execute(&mut *transaction)
+        .await
+        .map_err(SharedDbError::from)?;
+
+        sqlx::query("DELETE FROM deposit_order_queue WHERE order_id = $1")
+            .bind(order_id as i64)
+            .execute(&mut *transaction)
+            .await
+            .map_err(SharedDbError::from)?;
+
+        transaction.commit().await.map_err(SharedDbError::from)?;
         Ok(())
     }
 
@@ -123,7 +242,15 @@ impl BillingRepository {
         observed_at: DateTime<Utc>,
     ) -> Result<bool, SharedDbError> {
         let inserted = sqlx::query(
-            "INSERT INTO deposit_transactions (tx_hash, chain, observed_at, status, raw_payload, created_at, updated_at)
+            "INSERT INTO deposit_transactions (
+                tx_hash,
+                chain,
+                observed_at,
+                status,
+                raw_payload,
+                created_at,
+                updated_at
+             )
              VALUES ($1, $2, $3, 'observed', '{}'::jsonb, now(), now())
              ON CONFLICT (tx_hash) DO NOTHING",
         )
@@ -134,6 +261,57 @@ impl BillingRepository {
         .await
         .map_err(SharedDbError::from)?;
         Ok(inserted.rows_affected() == 1)
+    }
+
+    pub async fn upsert_deposit_transaction(
+        &self,
+        record: &DepositTransactionRecord,
+    ) -> Result<(), SharedDbError> {
+        sqlx::query(
+            "INSERT INTO deposit_transactions (
+                tx_hash,
+                chain,
+                order_id,
+                observed_at,
+                status,
+                raw_payload,
+                created_at,
+                updated_at
+             )
+             VALUES ($1, $2, $3, $4, $5, $6, now(), now())
+             ON CONFLICT (tx_hash) DO UPDATE
+             SET chain = excluded.chain,
+                 order_id = excluded.order_id,
+                 observed_at = excluded.observed_at,
+                 status = excluded.status,
+                 raw_payload = excluded.raw_payload,
+                 updated_at = now()",
+        )
+        .bind(&record.tx_hash)
+        .bind(&record.chain)
+        .bind(record.order_id.map(|value| value as i64))
+        .bind(record.observed_at)
+        .bind(&record.status)
+        .bind(deposit_payload(record))
+        .execute(&self.pool)
+        .await
+        .map_err(SharedDbError::from)?;
+        Ok(())
+    }
+
+    pub async fn list_deposit_transactions(
+        &self,
+    ) -> Result<Vec<DepositTransactionRecord>, SharedDbError> {
+        let rows = sqlx::query(
+            "SELECT tx_hash, chain, order_id, observed_at, status, raw_payload
+             FROM deposit_transactions
+             ORDER BY observed_at ASC, tx_hash ASC",
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(SharedDbError::from)?;
+
+        rows.into_iter().map(deposit_from_row).collect()
     }
 
     pub async fn find_membership_record(
@@ -246,6 +424,12 @@ impl BillingRepository {
         .await
         .map_err(SharedDbError::from)?;
 
+        sqlx::query("DELETE FROM deposit_order_queue WHERE order_id = $1")
+            .bind(order_id as i64)
+            .execute(&mut *transaction)
+            .await
+            .map_err(SharedDbError::from)?;
+
         sqlx::query(
             "INSERT INTO membership_entitlements (
                 user_email,
@@ -270,7 +454,43 @@ impl BillingRepository {
         .execute(&mut *transaction)
         .await
         .map_err(SharedDbError::from)?;
+
+        sqlx::query(
+            "UPDATE deposit_transactions
+             SET order_id = $2,
+                 status = 'matched',
+                 updated_at = now()
+             WHERE tx_hash = $1",
+        )
+        .bind(tx_hash)
+        .bind(order_id as i64)
+        .execute(&mut *transaction)
+        .await
+        .map_err(SharedDbError::from)?;
+
         transaction.commit().await.map_err(SharedDbError::from)
+    }
+
+    pub async fn list_membership_plans(&self) -> Result<Vec<MembershipPlanRecord>, SharedDbError> {
+        let rows = sqlx::query(
+            "SELECT code, name, duration_days, is_active
+             FROM membership_plans
+             ORDER BY code ASC",
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(SharedDbError::from)?;
+
+        rows.into_iter()
+            .map(|row| {
+                Ok(MembershipPlanRecord {
+                    code: row.try_get("code").map_err(SharedDbError::from)?,
+                    name: row.try_get("name").map_err(SharedDbError::from)?,
+                    duration_days: row.try_get("duration_days").map_err(SharedDbError::from)?,
+                    is_active: row.try_get("is_active").map_err(SharedDbError::from)?,
+                })
+            })
+            .collect()
     }
 
     pub async fn upsert_membership_plan(
@@ -296,6 +516,30 @@ impl BillingRepository {
         Ok(())
     }
 
+    pub async fn list_plan_prices(
+        &self,
+    ) -> Result<Vec<MembershipPlanPriceRecord>, SharedDbError> {
+        let rows = sqlx::query(
+            "SELECT plan_code, chain, asset, amount
+             FROM membership_plan_prices
+             ORDER BY plan_code ASC, chain ASC, asset ASC",
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(SharedDbError::from)?;
+
+        rows.into_iter()
+            .map(|row| {
+                Ok(MembershipPlanPriceRecord {
+                    plan_code: row.try_get("plan_code").map_err(SharedDbError::from)?,
+                    chain: row.try_get("chain").map_err(SharedDbError::from)?,
+                    asset: row.try_get("asset").map_err(SharedDbError::from)?,
+                    amount: row.try_get("amount").map_err(SharedDbError::from)?,
+                })
+            })
+            .collect()
+    }
+
     pub async fn upsert_plan_price(
         &self,
         price: &MembershipPlanPriceRecord,
@@ -317,7 +561,33 @@ impl BillingRepository {
         Ok(())
     }
 
-    pub async fn upsert_deposit_address(&self, address: &DepositAddressPoolRecord) -> Result<(), SharedDbError> {
+    pub async fn list_deposit_addresses(
+        &self,
+    ) -> Result<Vec<DepositAddressPoolRecord>, SharedDbError> {
+        let rows = sqlx::query(
+            "SELECT chain, address, is_enabled
+             FROM deposit_address_pool
+             ORDER BY chain ASC, address ASC",
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(SharedDbError::from)?;
+
+        rows.into_iter()
+            .map(|row| {
+                Ok(DepositAddressPoolRecord {
+                    chain: row.try_get("chain").map_err(SharedDbError::from)?,
+                    address: row.try_get("address").map_err(SharedDbError::from)?,
+                    is_enabled: row.try_get("is_enabled").map_err(SharedDbError::from)?,
+                })
+            })
+            .collect()
+    }
+
+    pub async fn upsert_deposit_address(
+        &self,
+        address: &DepositAddressPoolRecord,
+    ) -> Result<(), SharedDbError> {
         sqlx::query(
             "INSERT INTO deposit_address_pool (chain, address, is_enabled, created_at, updated_at)
              VALUES ($1, $2, $3, now(), now())
@@ -333,25 +603,213 @@ impl BillingRepository {
         .map_err(SharedDbError::from)?;
         Ok(())
     }
+
+    pub async fn create_sweep_job(
+        &self,
+        job: &SweepJobRecord,
+    ) -> Result<(), SharedDbError> {
+        let mut transaction = self.pool.begin().await.map_err(SharedDbError::from)?;
+        sqlx::query(
+            "INSERT INTO fund_sweep_jobs (
+                sweep_job_id,
+                chain,
+                asset,
+                status,
+                requested_by,
+                requested_at,
+                completed_at
+             ) VALUES ($1, $2, $3, $4, $5, $6, $7)",
+        )
+        .bind(job.sweep_job_id as i64)
+        .bind(&job.chain)
+        .bind(&job.asset)
+        .bind(&job.status)
+        .bind(&job.requested_by)
+        .bind(job.requested_at)
+        .bind(job.completed_at)
+        .execute(&mut *transaction)
+        .await
+        .map_err(SharedDbError::from)?;
+
+        for transfer in &job.transfers {
+            sqlx::query(
+                "INSERT INTO fund_sweep_transfers (
+                    sweep_job_id,
+                    from_address,
+                    to_address,
+                    amount,
+                    tx_hash,
+                    created_at
+                 ) VALUES ($1, $2, $3, $4, $5, now())",
+            )
+            .bind(job.sweep_job_id as i64)
+            .bind(&transfer.from_address)
+            .bind(&transfer.to_address)
+            .bind(&transfer.amount)
+            .bind(&transfer.tx_hash)
+            .execute(&mut *transaction)
+            .await
+            .map_err(SharedDbError::from)?;
+        }
+
+        transaction.commit().await.map_err(SharedDbError::from)?;
+        Ok(())
+    }
+
+    pub async fn list_sweep_jobs(&self) -> Result<Vec<SweepJobRecord>, SharedDbError> {
+        let jobs = sqlx::query(
+            "SELECT sweep_job_id, chain, asset, status, requested_by, requested_at, completed_at
+             FROM fund_sweep_jobs
+             ORDER BY requested_at ASC, sweep_job_id ASC",
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(SharedDbError::from)?;
+
+        let transfers = sqlx::query(
+            "SELECT sweep_job_id, from_address, to_address, amount, tx_hash
+             FROM fund_sweep_transfers
+             ORDER BY sweep_job_id ASC, transfer_id ASC",
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(SharedDbError::from)?;
+
+        let mut grouped: HashMap<u64, Vec<SweepTransferRecord>> = HashMap::new();
+        for row in transfers {
+            let sweep_job_id = row
+                .try_get::<i64, _>("sweep_job_id")
+                .map_err(SharedDbError::from)? as u64;
+            grouped.entry(sweep_job_id).or_default().push(SweepTransferRecord {
+                from_address: row.try_get("from_address").map_err(SharedDbError::from)?,
+                to_address: row.try_get("to_address").map_err(SharedDbError::from)?,
+                amount: row.try_get("amount").map_err(SharedDbError::from)?,
+                tx_hash: row.try_get("tx_hash").map_err(SharedDbError::from)?,
+            });
+        }
+
+        jobs.into_iter()
+            .map(|row| {
+                let sweep_job_id = row
+                    .try_get::<i64, _>("sweep_job_id")
+                    .map_err(SharedDbError::from)? as u64;
+                Ok(SweepJobRecord {
+                    sweep_job_id,
+                    chain: row.try_get("chain").map_err(SharedDbError::from)?,
+                    asset: row.try_get("asset").map_err(SharedDbError::from)?,
+                    status: row.try_get("status").map_err(SharedDbError::from)?,
+                    requested_by: row.try_get("requested_by").map_err(SharedDbError::from)?,
+                    requested_at: row.try_get("requested_at").map_err(SharedDbError::from)?,
+                    completed_at: row.try_get("completed_at").map_err(SharedDbError::from)?,
+                    transfers: grouped.remove(&sweep_job_id).unwrap_or_default(),
+                })
+            })
+            .collect()
+    }
+}
+
+async fn write_order_meta(
+    transaction: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+    order_id: u64,
+    config_value: Value,
+) -> Result<(), SharedDbError> {
+    sqlx::query(
+        "INSERT INTO system_configs (config_key, config_value, updated_at)
+         VALUES ($1, $2, now())
+         ON CONFLICT (config_key) DO UPDATE
+         SET config_value = excluded.config_value,
+             updated_at = now()",
+    )
+    .bind(order_meta_key(order_id))
+    .bind(config_value)
+    .execute(&mut **transaction)
+    .await
+    .map_err(SharedDbError::from)?;
+    Ok(())
+}
+
+fn order_meta_key(order_id: u64) -> String {
+    format!("billing.order.{order_id}.meta")
 }
 
 fn billing_order_from_row(row: sqlx::postgres::PgRow) -> Result<BillingOrderRecord, SharedDbError> {
-    let chain: String = row.try_get("chain").map_err(SharedDbError::from)?;
-    let address: String = row.try_get("assigned_address").map_err(SharedDbError::from)?;
+    let assigned_address: String = row.try_get("assigned_address").map_err(SharedDbError::from)?;
+    let assignment = if assigned_address.is_empty() {
+        None
+    } else {
+        Some(AddressAssignment {
+            chain: row.try_get("chain").map_err(SharedDbError::from)?,
+            address: assigned_address,
+            expires_at: row.try_get("address_expires_at").map_err(SharedDbError::from)?,
+        })
+    };
 
     Ok(BillingOrderRecord {
-        order_id: row.try_get::<i64, _>("order_id").map_err(SharedDbError::from)? as u64,
+        order_id: row
+            .try_get::<i64, _>("order_id")
+            .map_err(SharedDbError::from)? as u64,
         email: row.try_get("user_email").map_err(SharedDbError::from)?,
-        chain: chain.clone(),
+        chain: row.try_get("chain").map_err(SharedDbError::from)?,
+        asset: row.try_get("asset").map_err(SharedDbError::from)?,
         plan_code: row.try_get("plan_code").map_err(SharedDbError::from)?,
         amount: row.try_get("amount").map_err(SharedDbError::from)?,
         requested_at: row.try_get("requested_at").map_err(SharedDbError::from)?,
-        assignment: AddressAssignment {
-            chain,
-            address,
-            expires_at: row.try_get("address_expires_at").map_err(SharedDbError::from)?,
-        },
+        assignment,
         paid_at: row.try_get("paid_at").map_err(SharedDbError::from)?,
         tx_hash: row.try_get("tx_hash").map_err(SharedDbError::from)?,
+        status: row.try_get("status").map_err(SharedDbError::from)?,
+        enqueued_at: row.try_get("enqueued_at").map_err(SharedDbError::from)?,
+    })
+}
+
+fn deposit_payload(record: &DepositTransactionRecord) -> Value {
+    json!({
+        "asset": record.asset,
+        "address": record.address,
+        "amount": record.amount,
+        "review_reason": record.review_reason,
+        "processed_at": record.processed_at,
+        "matched_order_id": record.matched_order_id,
+    })
+}
+
+fn deposit_from_row(row: sqlx::postgres::PgRow) -> Result<DepositTransactionRecord, SharedDbError> {
+    let payload: Value = row.try_get("raw_payload").map_err(SharedDbError::from)?;
+
+    Ok(DepositTransactionRecord {
+        tx_hash: row.try_get("tx_hash").map_err(SharedDbError::from)?,
+        chain: row.try_get("chain").map_err(SharedDbError::from)?,
+        asset: payload
+            .get("asset")
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+            .to_owned(),
+        address: payload
+            .get("address")
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+            .to_owned(),
+        amount: payload
+            .get("amount")
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+            .to_owned(),
+        observed_at: row.try_get("observed_at").map_err(SharedDbError::from)?,
+        order_id: row
+            .try_get::<Option<i64>, _>("order_id")
+            .map_err(SharedDbError::from)?
+            .map(|value| value as u64),
+        status: row.try_get("status").map_err(SharedDbError::from)?,
+        review_reason: payload
+            .get("review_reason")
+            .and_then(Value::as_str)
+            .map(str::to_owned),
+        processed_at: payload
+            .get("processed_at")
+            .and_then(Value::as_str)
+            .and_then(|value| value.parse().ok()),
+        matched_order_id: payload
+            .get("matched_order_id")
+            .and_then(Value::as_u64),
     })
 }
