@@ -1,5 +1,5 @@
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     sync::{Arc, Mutex},
 };
 
@@ -31,12 +31,14 @@ struct MembershipState {
     address_pools: HashMap<String, AddressPool>,
     orders: HashMap<u64, BillingOrder>,
     memberships: HashMap<String, MembershipRecord>,
+    seen_transfers: HashSet<String>,
 }
 
 #[derive(Debug, Clone)]
 struct BillingOrder {
     email: String,
     amount: String,
+    requested_at: DateTime<Utc>,
     assignment: AddressAssignment,
     paid_at: Option<DateTime<Utc>>,
     tx_hash: Option<String>,
@@ -124,6 +126,7 @@ impl Default for MembershipService {
                 address_pools,
                 orders: HashMap::new(),
                 memberships: HashMap::new(),
+                seen_transfers: HashSet::new(),
             })),
         }
     }
@@ -162,6 +165,7 @@ impl MembershipService {
             BillingOrder {
                 email,
                 amount: amount.clone(),
+                requested_at: request.requested_at,
                 assignment: assignment.clone(),
                 paid_at: None,
                 tx_hash: None,
@@ -197,41 +201,54 @@ impl MembershipService {
         }
 
         let mut inner = self.inner.lock().expect("membership state poisoned");
-        let mut address_candidate = false;
-        let mut matched_order_id = None;
+        if inner.seen_transfers.contains(&transfer.tx_hash) {
+            return Ok(unmatched_response("duplicate_transaction"));
+        }
+
+        inner.seen_transfers.insert(transfer.tx_hash.clone());
+
+        let mut has_address_candidate = false;
+        let mut has_exact_amount_candidate = false;
+        let mut has_expired_exact_amount_candidate = false;
+        let mut valid_candidates = Vec::new();
 
         for (order_id, order) in &inner.orders {
-            if order.paid_at.is_some() {
+            if order.paid_at.is_some()
+                || order.requested_at > transfer.observed_at
+                || order.assignment.chain != transfer.chain
+                || order.assignment.address != transfer.address
+            {
                 continue;
             }
 
-            if order.assignment.chain == transfer.chain
-                && order.assignment.address == transfer.address
+            has_address_candidate = true;
+
+            if !matches_assignment(&order.assignment, &order.amount, &transfer)
+                .map_err(|_| MembershipError::bad_request("invalid amount"))?
             {
-                address_candidate = true;
-                if matches_assignment(&order.assignment, &order.amount, &transfer)
-                    .map_err(|_| MembershipError::bad_request("invalid amount"))?
-                {
-                    matched_order_id = Some(*order_id);
-                    break;
-                }
+                continue;
             }
+
+            has_exact_amount_candidate = true;
+
+            if transfer.observed_at > order.assignment.expires_at {
+                has_expired_exact_amount_candidate = true;
+                continue;
+            }
+
+            valid_candidates.push(*order_id);
         }
 
-        let Some(order_id) = matched_order_id else {
-            return Ok(MatchBillingOrderResponse {
-                matched: false,
-                reason: Some(if address_candidate {
-                    "exact_amount_required"
-                } else {
-                    "order_not_found"
-                }),
-                order_id: None,
-                email: None,
-                membership_status: None,
-                active_until: None,
-                grace_until: None,
-            });
+        if valid_candidates.len() > 1 {
+            return Ok(unmatched_response("ambiguous_match"));
+        }
+
+        let Some(order_id) = valid_candidates.first().copied() else {
+            return Ok(unmatched_response(resolve_unmatched_reason(
+                has_address_candidate,
+                has_exact_amount_candidate,
+                has_expired_exact_amount_candidate,
+            )));
         };
 
         let (email, snapshot) = {
@@ -379,6 +396,34 @@ fn snapshot_for(
         active_until,
         grace_until,
         override_status,
+    }
+}
+
+fn unmatched_response(reason: &'static str) -> MatchBillingOrderResponse {
+    MatchBillingOrderResponse {
+        matched: false,
+        reason: Some(reason),
+        order_id: None,
+        email: None,
+        membership_status: None,
+        active_until: None,
+        grace_until: None,
+    }
+}
+
+fn resolve_unmatched_reason(
+    has_address_candidate: bool,
+    has_exact_amount_candidate: bool,
+    has_expired_exact_amount_candidate: bool,
+) -> &'static str {
+    if has_expired_exact_amount_candidate {
+        "order_expired"
+    } else if has_exact_amount_candidate {
+        "ambiguous_match"
+    } else if has_address_candidate {
+        "exact_amount_required"
+    } else {
+        "order_not_found"
     }
 }
 

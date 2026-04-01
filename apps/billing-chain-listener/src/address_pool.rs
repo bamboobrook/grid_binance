@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use chrono::{DateTime, Duration, Utc};
 use shared_chain::assignment::AddressAssignment;
 
@@ -7,6 +9,7 @@ pub struct AddressPool {
     addresses: Vec<String>,
     next_index: usize,
     lease_duration: Duration,
+    active_leases: HashMap<String, DateTime<Utc>>,
 }
 
 impl AddressPool {
@@ -16,6 +19,7 @@ impl AddressPool {
             addresses,
             next_index: 0,
             lease_duration,
+            active_leases: HashMap::new(),
         }
     }
 
@@ -24,13 +28,29 @@ impl AddressPool {
             return None;
         }
 
-        let address = self.addresses[self.next_index].clone();
-        self.next_index = (self.next_index + 1) % self.addresses.len();
+        self.active_leases
+            .retain(|_, expires_at| *expires_at > requested_at);
 
-        Some(AddressAssignment {
-            chain: self.chain.clone(),
-            address,
-            expires_at: requested_at + self.lease_duration,
-        })
+        let total = self.addresses.len();
+        for offset in 0..total {
+            let index = (self.next_index + offset) % total;
+            let address = self.addresses[index].clone();
+
+            if self.active_leases.contains_key(&address) {
+                continue;
+            }
+
+            let expires_at = requested_at + self.lease_duration;
+            self.active_leases.insert(address.clone(), expires_at);
+            self.next_index = (index + 1) % total;
+
+            return Some(AddressAssignment {
+                chain: self.chain.clone(),
+                address,
+                expires_at,
+            });
+        }
+
+        None
     }
 }
