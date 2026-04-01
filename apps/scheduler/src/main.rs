@@ -18,12 +18,11 @@ const DEFAULT_PORT: u16 = 8082;
 const SERVICE_NAME: &str = "scheduler";
 const DEFAULT_SYMBOL_SYNC_INTERVAL_SECS: u64 = 60 * 60;
 const BINANCE_EXCHANGE: &str = "binance";
-const DEFAULT_EXCHANGE_CREDENTIALS_MASTER_KEY: &str = "grid-binance-dev-exchange-credentials-key";
-
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let database_url = required_env("DATABASE_URL")?;
     let redis_url = required_env("REDIS_URL")?;
+    let _cipher = credential_cipher()?;
     let db = SharedDb::connect(&database_url, &redis_url)?;
 
     let symbol_sync_state = Arc::new(Mutex::new(SymbolSyncRuntimeState::default()));
@@ -32,7 +31,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let interval = Duration::from_secs(configured_symbol_sync_interval_secs());
     let _symbol_sync_handle = spawn_hourly_symbol_sync_job(interval, state_for_job);
     std::thread::spawn(move || loop {
-        let _ = run_persistent_symbol_sync_once(&db_for_job);
+        let result = run_persistent_symbol_sync_once(&db_for_job);
+        if result.failed_accounts > 0 {
+            eprintln!(
+                "scheduler persistent symbol sync completed with {} refreshed / {} failed",
+                result.refreshed_accounts, result.failed_accounts
+            );
+        }
         std::thread::sleep(interval);
     });
 
@@ -85,45 +90,71 @@ fn health_payload(service_name: &str) -> String {
     )
 }
 
-fn run_persistent_symbol_sync_once(db: &SharedDb) -> Result<usize, IoError> {
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+struct PersistentSymbolSyncResult {
+    refreshed_accounts: usize,
+    failed_accounts: usize,
+}
+
+fn run_persistent_symbol_sync_once(db: &SharedDb) -> PersistentSymbolSyncResult {
     let accounts = db
         .list_active_exchange_accounts(BINANCE_EXCHANGE)
-        .map_err(storage_error)?;
-    let mut refreshed_accounts = 0usize;
+        .unwrap_or_else(|error| {
+            eprintln!("scheduler persistent symbol sync failed to list accounts: {error}");
+            Vec::new()
+        });
+    let mut result = PersistentSymbolSyncResult::default();
 
     for account in accounts {
-        let Some(credentials) = db
-            .find_exchange_credentials(&account.user_email, BINANCE_EXCHANGE)
-            .map_err(storage_error)?
-        else {
-            continue;
-        };
+        match refresh_account_symbols(db, &account) {
+            Ok(()) => result.refreshed_accounts += 1,
+            Err(error) => {
+                result.failed_accounts += 1;
+                eprintln!(
+                    "scheduler persistent symbol sync failed for {}: {}",
+                    account.user_email, error
+                );
+            }
+        }
+    }
 
-        let metadata = parse_account_metadata(&account.metadata)?;
-        let (api_key, api_secret) = credential_cipher()
-            .decrypt(&credentials.encrypted_secret)
-            .map_err(|error| IoError::new(ErrorKind::InvalidData, error.to_string()))?;
-        let validation_request = CredentialValidationRequest::new(
-            metadata.expected_hedge_mode,
-            &metadata.selected_markets,
-        );
-        let client = BinanceClient::new(api_key, api_secret);
-        let check = client.check_credentials_for(&validation_request);
-        let symbols = sync_symbol_metadata(&client, &check);
-        let synced_at = Utc::now();
-        let symbol_counts = ExchangeSymbolCountsDto::from_symbols(&symbols);
+    result
+}
 
-        db.replace_exchange_symbols(
-            &account.user_email,
-            BINANCE_EXCHANGE,
-            &symbols
-                .into_iter()
-                .map(|symbol| to_symbol_record(&account.user_email, symbol, synced_at))
-                .collect::<Vec<_>>(),
-        )
-        .map_err(storage_error)?;
+fn refresh_account_symbols(
+    db: &SharedDb,
+    account: &UserExchangeAccountRecord,
+) -> Result<(), IoError> {
+    let Some(credentials) = db
+        .find_exchange_credentials(&account.user_email, BINANCE_EXCHANGE)
+        .map_err(storage_error)?
+    else {
+        return Err(IoError::new(
+            ErrorKind::NotFound,
+            "exchange credentials not found",
+        ));
+    };
 
-        db.upsert_exchange_account(&UserExchangeAccountRecord {
+    let metadata = parse_account_metadata(&account.metadata)?;
+    let (api_key, api_secret) = credential_cipher()?
+        .decrypt(&credentials.encrypted_secret)
+        .map_err(|error| IoError::new(ErrorKind::InvalidData, error.to_string()))?;
+    let validation_request =
+        CredentialValidationRequest::new(metadata.expected_hedge_mode, &metadata.selected_markets)
+            .map_err(validation_error)?;
+    let client = BinanceClient::new(api_key, api_secret);
+    let check = client.check_credentials_for(&validation_request);
+    let symbols = sync_symbol_metadata(&client, &check);
+    let synced_at = Utc::now();
+    let symbol_counts = ExchangeSymbolCountsDto::from_symbols(&symbols);
+
+    let symbol_records = symbols
+        .into_iter()
+        .map(|symbol| to_symbol_record(&account.user_email, symbol, synced_at))
+        .collect::<Vec<_>>();
+
+    db.refresh_exchange_account_bundle(
+        &UserExchangeAccountRecord {
             metadata: serde_json::to_value(StoredExchangeMetadata {
                 connection_status: check.connection_status().to_owned(),
                 sync_status: "success".to_owned(),
@@ -135,23 +166,18 @@ fn run_persistent_symbol_sync_once(db: &SharedDb) -> Result<usize, IoError> {
             })
             .map_err(serde_error)?,
             checked_at: Some(synced_at),
-            ..account
-        })
-        .map_err(storage_error)?;
+            ..account.clone()
+        },
+        &symbol_records,
+    )
+    .map_err(storage_error)?;
 
-        refreshed_accounts += 1;
-    }
-
-    Ok(refreshed_accounts)
+    Ok(())
 }
 
-fn credential_cipher() -> CredentialCipher {
-    let key_material = std::env::var("EXCHANGE_CREDENTIALS_MASTER_KEY")
-        .ok()
-        .filter(|value| !value.trim().is_empty())
-        .or_else(|| std::env::var("SESSION_TOKEN_SECRET").ok())
-        .unwrap_or_else(|| DEFAULT_EXCHANGE_CREDENTIALS_MASTER_KEY.to_owned());
-    CredentialCipher::new(key_material)
+fn credential_cipher() -> Result<CredentialCipher, IoError> {
+    CredentialCipher::from_env("EXCHANGE_CREDENTIALS_MASTER_KEY")
+        .map_err(|error| IoError::new(ErrorKind::InvalidInput, error.to_string()))
 }
 
 fn parse_account_metadata(value: &serde_json::Value) -> Result<StoredExchangeMetadata, IoError> {
@@ -164,6 +190,10 @@ fn serde_error(error: serde_json::Error) -> IoError {
 
 fn storage_error(error: shared_db::SharedDbError) -> IoError {
     IoError::new(ErrorKind::Other, error.to_string())
+}
+
+fn validation_error(error: shared_binance::CredentialValidationError) -> IoError {
+    IoError::new(ErrorKind::InvalidInput, error.to_string())
 }
 
 fn to_symbol_record(
@@ -260,6 +290,7 @@ mod tests {
     use serde_json::json;
     use shared_binance::{mask_api_key, CredentialCipher};
     use shared_db::{SharedDb, UserExchangeAccountRecord, UserExchangeCredentialRecord};
+    use std::sync::{Mutex, OnceLock};
 
     #[test]
     fn health_payload_mentions_service_name() {
@@ -303,9 +334,14 @@ mod tests {
 
     #[test]
     fn persistent_symbol_sync_updates_active_exchange_accounts_and_symbols() {
+        let _guard = env_lock().lock().expect("env lock");
+        std::env::set_var(
+            "EXCHANGE_CREDENTIALS_MASTER_KEY",
+            "scheduler-persistent-sync-test-key",
+        );
         let db = SharedDb::ephemeral().expect("ephemeral db");
         let now = Utc::now();
-        let cipher = CredentialCipher::new("grid-binance-dev-exchange-credentials-key");
+        let cipher = CredentialCipher::new("scheduler-persistent-sync-test-key");
 
         db.upsert_exchange_account(&UserExchangeAccountRecord {
             user_email: "sync@example.com".to_owned(),
@@ -349,8 +385,9 @@ mod tests {
         })
         .expect("credentials");
 
-        let refreshed = run_persistent_symbol_sync_once(&db).expect("persistent sync");
-        assert_eq!(refreshed, 1);
+        let refreshed = run_persistent_symbol_sync_once(&db);
+        assert_eq!(refreshed.refreshed_accounts, 1);
+        assert_eq!(refreshed.failed_accounts, 0);
 
         let account = db
             .find_exchange_account("sync@example.com", "binance")
@@ -370,5 +407,96 @@ mod tests {
             .list_exchange_symbols("sync@example.com", "binance")
             .expect("symbols");
         assert_eq!(symbols.len(), 4);
+    }
+
+    #[test]
+    fn persistent_symbol_sync_continues_past_bad_accounts() {
+        let _guard = env_lock().lock().expect("env lock");
+        std::env::set_var(
+            "EXCHANGE_CREDENTIALS_MASTER_KEY",
+            "scheduler-persistent-sync-test-key",
+        );
+        let db = SharedDb::ephemeral().expect("ephemeral db");
+        let now = Utc::now();
+        let cipher = CredentialCipher::new("scheduler-persistent-sync-test-key");
+
+        db.upsert_exchange_account(&UserExchangeAccountRecord {
+            user_email: "broken@example.com".to_owned(),
+            exchange: "binance".to_owned(),
+            account_label: "Broken".to_owned(),
+            market_scope: "spot".to_owned(),
+            is_active: true,
+            checked_at: Some(now),
+            metadata: json!("not-an-object"),
+        })
+        .expect("broken account");
+        db.upsert_exchange_credentials(&UserExchangeCredentialRecord {
+            user_email: "broken@example.com".to_owned(),
+            exchange: "binance".to_owned(),
+            api_key_masked: mask_api_key("broken-key-1234"),
+            encrypted_secret: cipher
+                .encrypt("broken-key-1234", "broken-secret")
+                .expect("encrypt"),
+        })
+        .expect("broken credentials");
+
+        db.upsert_exchange_account(&UserExchangeAccountRecord {
+            user_email: "healthy@example.com".to_owned(),
+            exchange: "binance".to_owned(),
+            account_label: "Healthy".to_owned(),
+            market_scope: "spot,coinm".to_owned(),
+            is_active: true,
+            checked_at: Some(now),
+            metadata: json!({
+                "connection_status": "healthy",
+                "sync_status": "success",
+                "last_synced_at": "2026-04-01T00:00:00Z",
+                "expected_hedge_mode": true,
+                "selected_markets": ["spot", "coinm"],
+                "validation": {
+                    "api_connectivity_ok": true,
+                    "timestamp_in_sync": true,
+                    "can_read_spot": true,
+                    "can_read_usdm": false,
+                    "can_read_coinm": false,
+                    "hedge_mode_ok": true,
+                    "permissions_ok": true,
+                    "market_access_ok": false
+                },
+                "symbol_counts": {
+                    "spot": 1,
+                    "usdm": 0,
+                    "coinm": 0
+                }
+            }),
+        })
+        .expect("healthy account");
+        db.upsert_exchange_credentials(&UserExchangeCredentialRecord {
+            user_email: "healthy@example.com".to_owned(),
+            exchange: "binance".to_owned(),
+            api_key_masked: mask_api_key("healthy-key-1234"),
+            encrypted_secret: cipher
+                .encrypt("healthy-key-1234", "healthy-secret")
+                .expect("encrypt"),
+        })
+        .expect("healthy credentials");
+
+        let result = run_persistent_symbol_sync_once(&db);
+        assert_eq!(result.refreshed_accounts, 1);
+        assert_eq!(result.failed_accounts, 1);
+
+        let healthy_symbols = db
+            .list_exchange_symbols("healthy@example.com", "binance")
+            .expect("healthy symbols");
+        assert_eq!(healthy_symbols.len(), 4);
+        let broken_symbols = db
+            .list_exchange_symbols("broken@example.com", "binance")
+            .expect("broken symbols");
+        assert_eq!(broken_symbols.len(), 0);
+    }
+
+    fn env_lock() -> &'static Mutex<()> {
+        static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+        LOCK.get_or_init(|| Mutex::new(()))
     }
 }

@@ -11,6 +11,7 @@
   - `DATABASE_URL=postgres://postgres:postgres@postgres:5432/grid_binance`
   - `REDIS_URL=redis://redis:6379/0`
   - `SESSION_TOKEN_SECRET=<long-random-secret>`
+  - `EXCHANGE_CREDENTIALS_MASTER_KEY=<different-long-random-secret>`
   - `ADMIN_EMAILS=admin@example.com`
 
 ## Start
@@ -21,7 +22,8 @@ From the repository root:
 cp .env.example .env
 ```
 
-Edit `.env` before startup. PostgreSQL and Redis are mandatory runtime dependencies. `DATABASE_URL`, `REDIS_URL`, `SESSION_TOKEN_SECRET`, and `ADMIN_EMAILS` are required by compose and the services fail fast if any of them are missing.
+Edit `.env` before startup. PostgreSQL and Redis are mandatory runtime dependencies. `DATABASE_URL`, `REDIS_URL`, `SESSION_TOKEN_SECRET`, `EXCHANGE_CREDENTIALS_MASTER_KEY`, and `ADMIN_EMAILS` are required by compose and the services fail fast if any of them are missing.
+`EXCHANGE_CREDENTIALS_MASTER_KEY` must be dedicated to exchange API credential encryption; do not reuse `SESSION_TOKEN_SECRET`.
 `.env.example` is compose-oriented: `postgres` and `redis` resolve to service names inside the compose network. For local non-compose `cargo run`, override them to host-accessible values such as `DATABASE_URL=postgres://postgres:postgres@127.0.0.1:5432/grid_binance` and `REDIS_URL=redis://127.0.0.1:6379/0`.
 
 Run the stack from the repository root:

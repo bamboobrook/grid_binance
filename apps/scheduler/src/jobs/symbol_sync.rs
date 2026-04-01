@@ -37,7 +37,8 @@ pub fn run_public_symbol_sync_once() -> Vec<SymbolMetadata> {
     let request = CredentialValidationRequest::new(
         true,
         &["spot".to_owned(), "usdm".to_owned(), "coinm".to_owned()],
-    );
+    )
+    .expect("public symbol sync market set should be valid");
     let check = client.check_credentials_for(&request);
 
     sync_symbol_metadata(&client, &check)

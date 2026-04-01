@@ -1,7 +1,8 @@
 use chrono::{DateTime, Utc};
 use serde_json::Value;
-use sqlx::{PgPool, Row};
+use sqlx::{PgPool, Postgres, Row, Transaction};
 
+use crate::postgres::transaction;
 use crate::SharedDbError;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -55,36 +56,9 @@ impl ExchangeRepository {
         &self,
         record: &UserExchangeAccountRecord,
     ) -> Result<(), SharedDbError> {
-        sqlx::query(
-            "INSERT INTO user_exchange_accounts (
-                user_email,
-                exchange,
-                account_label,
-                market_scope,
-                is_active,
-                checked_at,
-                metadata,
-                created_at,
-                updated_at
-             ) VALUES ($1, $2, $3, $4, $5, $6, $7, now(), now())
-             ON CONFLICT (user_email, exchange) DO UPDATE
-             SET account_label = excluded.account_label,
-                 market_scope = excluded.market_scope,
-                 is_active = excluded.is_active,
-                 checked_at = excluded.checked_at,
-                 metadata = excluded.metadata,
-                 updated_at = now()",
-        )
-        .bind(&record.user_email)
-        .bind(&record.exchange)
-        .bind(&record.account_label)
-        .bind(&record.market_scope)
-        .bind(record.is_active)
-        .bind(record.checked_at)
-        .bind(&record.metadata)
-        .execute(&self.pool)
-        .await
-        .map_err(SharedDbError::from)?;
+        let mut transaction = transaction::begin(&self.pool).await?;
+        upsert_account_in(transaction.inner_mut(), record).await?;
+        transaction.commit().await?;
         Ok(())
     }
 
@@ -92,28 +66,48 @@ impl ExchangeRepository {
         &self,
         record: &UserExchangeCredentialRecord,
     ) -> Result<(), SharedDbError> {
-        sqlx::query(
-            "INSERT INTO user_exchange_credentials (
-                user_email,
-                exchange,
-                api_key_masked,
-                encrypted_secret,
-                created_at,
-                updated_at
-             ) VALUES ($1, $2, $3, $4, now(), now())
-             ON CONFLICT (user_email, exchange) DO UPDATE
-             SET api_key_masked = excluded.api_key_masked,
-                 encrypted_secret = excluded.encrypted_secret,
-                 updated_at = now()",
-        )
-        .bind(&record.user_email)
-        .bind(&record.exchange)
-        .bind(&record.api_key_masked)
-        .bind(&record.encrypted_secret)
-        .execute(&self.pool)
-        .await
-        .map_err(SharedDbError::from)?;
+        let mut transaction = transaction::begin(&self.pool).await?;
+        upsert_credentials_in(transaction.inner_mut(), record).await?;
+        transaction.commit().await?;
         Ok(())
+    }
+
+    pub async fn save_account_bundle(
+        &self,
+        account: &UserExchangeAccountRecord,
+        credentials: &UserExchangeCredentialRecord,
+        records: &[UserExchangeSymbolRecord],
+    ) -> Result<usize, SharedDbError> {
+        let mut transaction = transaction::begin(&self.pool).await?;
+        upsert_account_in(transaction.inner_mut(), account).await?;
+        upsert_credentials_in(transaction.inner_mut(), credentials).await?;
+        replace_symbols_in(
+            transaction.inner_mut(),
+            &account.user_email,
+            &account.exchange,
+            records,
+        )
+        .await?;
+        transaction.commit().await?;
+        Ok(records.len())
+    }
+
+    pub async fn refresh_account_bundle(
+        &self,
+        account: &UserExchangeAccountRecord,
+        records: &[UserExchangeSymbolRecord],
+    ) -> Result<usize, SharedDbError> {
+        let mut transaction = transaction::begin(&self.pool).await?;
+        upsert_account_in(transaction.inner_mut(), account).await?;
+        replace_symbols_in(
+            transaction.inner_mut(),
+            &account.user_email,
+            &account.exchange,
+            records,
+        )
+        .await?;
+        transaction.commit().await?;
+        Ok(records.len())
     }
 
     pub async fn find_account(
@@ -160,62 +154,9 @@ impl ExchangeRepository {
         exchange: &str,
         records: &[UserExchangeSymbolRecord],
     ) -> Result<usize, SharedDbError> {
-        let mut transaction = self.pool.begin().await.map_err(SharedDbError::from)?;
-        sqlx::query(
-            "DELETE FROM user_exchange_symbol_metadata
-             WHERE lower(user_email) = lower($1) AND exchange = $2",
-        )
-        .bind(user_email)
-        .bind(exchange)
-        .execute(&mut *transaction)
-        .await
-        .map_err(SharedDbError::from)?;
-
-        for record in records {
-            sqlx::query(
-                "INSERT INTO user_exchange_symbol_metadata (
-                    user_email,
-                    exchange,
-                    market,
-                    symbol,
-                    status,
-                    base_asset,
-                    quote_asset,
-                    price_precision,
-                    quantity_precision,
-                    min_quantity,
-                    min_notional,
-                    keywords,
-                    metadata,
-                    synced_at,
-                    created_at,
-                    updated_at
-                 ) VALUES (
-                    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, now(), now()
-                 )",
-            )
-            .bind(&record.user_email)
-            .bind(&record.exchange)
-            .bind(&record.market)
-            .bind(&record.symbol)
-            .bind(&record.status)
-            .bind(&record.base_asset)
-            .bind(&record.quote_asset)
-            .bind(record.price_precision)
-            .bind(record.quantity_precision)
-            .bind(&record.min_quantity)
-            .bind(&record.min_notional)
-            .bind(serde_json::to_value(&record.keywords).map_err(|error| {
-                SharedDbError::new(format!("failed to serialize symbol keywords: {error}"))
-            })?)
-            .bind(&record.metadata)
-            .bind(record.synced_at)
-            .execute(&mut *transaction)
-            .await
-            .map_err(SharedDbError::from)?;
-        }
-
-        transaction.commit().await.map_err(SharedDbError::from)?;
+        let mut transaction = transaction::begin(&self.pool).await?;
+        replace_symbols_in(transaction.inner_mut(), user_email, exchange, records).await?;
+        transaction.commit().await?;
         Ok(records.len())
     }
 
@@ -270,6 +211,134 @@ impl ExchangeRepository {
 
         rows.into_iter().map(map_account_row).collect()
     }
+}
+
+async fn upsert_account_in(
+    transaction: &mut Transaction<'_, Postgres>,
+    record: &UserExchangeAccountRecord,
+) -> Result<(), SharedDbError> {
+    sqlx::query(
+        "INSERT INTO user_exchange_accounts (
+            user_email,
+            exchange,
+            account_label,
+            market_scope,
+            is_active,
+            checked_at,
+            metadata,
+            created_at,
+            updated_at
+         ) VALUES ($1, $2, $3, $4, $5, $6, $7, now(), now())
+         ON CONFLICT (user_email, exchange) DO UPDATE
+         SET account_label = excluded.account_label,
+             market_scope = excluded.market_scope,
+             is_active = excluded.is_active,
+             checked_at = excluded.checked_at,
+             metadata = excluded.metadata,
+             updated_at = now()",
+    )
+    .bind(&record.user_email)
+    .bind(&record.exchange)
+    .bind(&record.account_label)
+    .bind(&record.market_scope)
+    .bind(record.is_active)
+    .bind(record.checked_at)
+    .bind(&record.metadata)
+    .execute(&mut **transaction)
+    .await
+    .map_err(SharedDbError::from)?;
+    Ok(())
+}
+
+async fn upsert_credentials_in(
+    transaction: &mut Transaction<'_, Postgres>,
+    record: &UserExchangeCredentialRecord,
+) -> Result<(), SharedDbError> {
+    sqlx::query(
+        "INSERT INTO user_exchange_credentials (
+            user_email,
+            exchange,
+            api_key_masked,
+            encrypted_secret,
+            created_at,
+            updated_at
+         ) VALUES ($1, $2, $3, $4, now(), now())
+         ON CONFLICT (user_email, exchange) DO UPDATE
+         SET api_key_masked = excluded.api_key_masked,
+             encrypted_secret = excluded.encrypted_secret,
+             updated_at = now()",
+    )
+    .bind(&record.user_email)
+    .bind(&record.exchange)
+    .bind(&record.api_key_masked)
+    .bind(&record.encrypted_secret)
+    .execute(&mut **transaction)
+    .await
+    .map_err(SharedDbError::from)?;
+    Ok(())
+}
+
+async fn replace_symbols_in(
+    transaction: &mut Transaction<'_, Postgres>,
+    user_email: &str,
+    exchange: &str,
+    records: &[UserExchangeSymbolRecord],
+) -> Result<(), SharedDbError> {
+    sqlx::query(
+        "DELETE FROM user_exchange_symbol_metadata
+         WHERE lower(user_email) = lower($1) AND exchange = $2",
+    )
+    .bind(user_email)
+    .bind(exchange)
+    .execute(&mut **transaction)
+    .await
+    .map_err(SharedDbError::from)?;
+
+    for record in records {
+        sqlx::query(
+            "INSERT INTO user_exchange_symbol_metadata (
+                user_email,
+                exchange,
+                market,
+                symbol,
+                status,
+                base_asset,
+                quote_asset,
+                price_precision,
+                quantity_precision,
+                min_quantity,
+                min_notional,
+                keywords,
+                metadata,
+                synced_at,
+                created_at,
+                updated_at
+             ) VALUES (
+                $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, now(), now()
+             )",
+        )
+        .bind(&record.user_email)
+        .bind(&record.exchange)
+        .bind(&record.market)
+        .bind(&record.symbol)
+        .bind(&record.status)
+        .bind(&record.base_asset)
+        .bind(&record.quote_asset)
+        .bind(record.price_precision)
+        .bind(record.quantity_precision)
+        .bind(&record.min_quantity)
+        .bind(&record.min_notional)
+        .bind(serde_json::to_value(&record.keywords).map_err(|error| {
+            SharedDbError::new(format!("failed to serialize symbol keywords: {error}"))
+        })?)
+        .bind(&record.metadata)
+        .bind(record.synced_at)
+        .execute(&mut **transaction)
+        .await
+        .map_err(SharedDbError::from)?;
+    }
+
+    Ok(())
 }
 
 fn map_account_row(row: sqlx::postgres::PgRow) -> Result<UserExchangeAccountRecord, SharedDbError> {

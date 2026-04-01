@@ -4,6 +4,7 @@ use aes_gcm::{
 };
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
 use sha2::{Digest, Sha256};
+use std::env;
 
 use crate::metadata::SymbolMetadata;
 
@@ -13,6 +14,11 @@ const NONCE_SIZE: usize = 12;
 pub struct CredentialValidationRequest {
     pub expected_hedge_mode: bool,
     pub selected_markets: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CredentialValidationError {
+    message: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -59,11 +65,14 @@ pub struct CredentialCipherError {
 }
 
 impl CredentialValidationRequest {
-    pub fn new(expected_hedge_mode: bool, selected_markets: &[String]) -> Self {
-        Self {
+    pub fn new(
+        expected_hedge_mode: bool,
+        selected_markets: &[String],
+    ) -> Result<Self, CredentialValidationError> {
+        Ok(Self {
             expected_hedge_mode,
-            selected_markets: normalize_markets(selected_markets),
-        }
+            selected_markets: normalize_markets(selected_markets)?,
+        })
     }
 }
 
@@ -79,17 +88,20 @@ impl BinanceClient {
     }
 
     pub fn check_credentials(&self, expected_hedge_mode: bool) -> ExchangeCredentialCheck {
-        self.check_credentials_for(&CredentialValidationRequest::new(
-            expected_hedge_mode,
-            &["spot".to_owned(), "usdm".to_owned(), "coinm".to_owned()],
-        ))
+        self.check_credentials_for(
+            &CredentialValidationRequest::new(
+                expected_hedge_mode,
+                &["spot".to_owned(), "usdm".to_owned(), "coinm".to_owned()],
+            )
+            .expect("default market selection should be valid"),
+        )
     }
 
     pub fn check_credentials_for(
         &self,
         request: &CredentialValidationRequest,
     ) -> ExchangeCredentialCheck {
-        let selected_markets = normalize_markets(&request.selected_markets);
+        let selected_markets = request.selected_markets.clone();
         let api_connectivity_ok = self.account_state.api_connectivity_ok
             && !self.api_key.trim().is_empty()
             && !self.api_secret.trim().is_empty();
@@ -315,6 +327,15 @@ impl CredentialCipher {
         })?;
         Ok((api_key.to_owned(), api_secret.to_owned()))
     }
+
+    pub fn from_env(var_name: &str) -> Result<Self, CredentialCipherError> {
+        let key_material = env::var(var_name)
+            .ok()
+            .map(|value| value.trim().to_owned())
+            .filter(|value| !value.is_empty())
+            .ok_or_else(|| CredentialCipherError::new(format!("{var_name} is required")))?;
+        Ok(Self::new(key_material))
+    }
 }
 
 impl CredentialCipherError {
@@ -324,6 +345,22 @@ impl CredentialCipherError {
         }
     }
 }
+
+impl CredentialValidationError {
+    pub fn new(message: impl Into<String>) -> Self {
+        Self {
+            message: message.into(),
+        }
+    }
+}
+
+impl std::fmt::Display for CredentialValidationError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.message)
+    }
+}
+
+impl std::error::Error for CredentialValidationError {}
 
 impl std::fmt::Display for CredentialCipherError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -355,23 +392,31 @@ fn infer_account_state(api_key: &str, api_secret: &str) -> BinanceAccountState {
     }
 }
 
-fn normalize_markets(markets: &[String]) -> Vec<String> {
+fn normalize_markets(markets: &[String]) -> Result<Vec<String>, CredentialValidationError> {
     let mut normalized = Vec::new();
     for market in markets {
         let market = market.trim().to_lowercase();
-        if market.is_empty() || normalized.iter().any(|current| current == &market) {
+        if market.is_empty() {
             continue;
         }
-        if matches!(market.as_str(), "spot" | "usdm" | "coinm") {
-            normalized.push(market);
+        if !matches!(market.as_str(), "spot" | "usdm" | "coinm") {
+            return Err(CredentialValidationError::new(
+                "selected_markets contains unsupported market",
+            ));
         }
+        if normalized.iter().any(|current| current == &market) {
+            continue;
+        }
+        normalized.push(market);
     }
 
     if normalized.is_empty() {
-        return vec!["spot".to_owned(), "usdm".to_owned(), "coinm".to_owned()];
+        return Err(CredentialValidationError::new(
+            "selected_markets must include at least one of spot, usdm, coinm",
+        ));
     }
 
-    normalized
+    Ok(normalized)
 }
 
 fn symbol_filters(
@@ -408,7 +453,9 @@ fn symbol_requirements(
 
 #[cfg(test)]
 mod tests {
-    use super::{BinanceClient, CredentialCipher, CredentialValidationRequest};
+    use super::{
+        BinanceClient, CredentialCipher, CredentialValidationError, CredentialValidationRequest,
+    };
 
     #[test]
     fn credential_cipher_round_trips_credentials() {
@@ -426,7 +473,8 @@ mod tests {
     fn validation_respects_selected_markets_and_timestamp_health() {
         let client = BinanceClient::new("demo-key-nocoinm-1234", "demo-secret-skew");
         let request =
-            CredentialValidationRequest::new(true, &["spot".to_owned(), "coinm".to_owned()]);
+            CredentialValidationRequest::new(true, &["spot".to_owned(), "coinm".to_owned()])
+                .expect("request");
 
         let check = client.check_credentials_for(&request);
 
@@ -436,5 +484,25 @@ mod tests {
         assert!(check.can_read_spot);
         assert!(!check.can_read_coinm);
         assert!(!check.market_access_ok);
+    }
+
+    #[test]
+    fn validation_rejects_empty_and_unsupported_market_selection() {
+        let empty = CredentialValidationRequest::new(true, &[]);
+        assert_eq!(
+            empty,
+            Err(CredentialValidationError::new(
+                "selected_markets must include at least one of spot, usdm, coinm"
+            ))
+        );
+
+        let invalid =
+            CredentialValidationRequest::new(true, &["spot".to_owned(), "margin".to_owned()]);
+        assert_eq!(
+            invalid,
+            Err(CredentialValidationError::new(
+                "selected_markets contains unsupported market"
+            ))
+        );
     }
 }

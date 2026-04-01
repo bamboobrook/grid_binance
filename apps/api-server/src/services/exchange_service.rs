@@ -1,5 +1,3 @@
-use std::env;
-
 use axum::{
     http::StatusCode,
     response::{IntoResponse, Response},
@@ -21,8 +19,6 @@ use shared_domain::strategy::StrategyStatus;
 use crate::services::auth_service::AuthError;
 
 const BINANCE_EXCHANGE: &str = "binance";
-const DEFAULT_EXCHANGE_CREDENTIALS_MASTER_KEY: &str = "grid-binance-dev-exchange-credentials-key";
-
 #[derive(Clone)]
 pub struct ExchangeService {
     db: SharedDb,
@@ -117,6 +113,11 @@ impl ExchangeService {
         Self { db }
     }
 
+    pub fn new_strict(db: SharedDb) -> Result<Self, shared_db::SharedDbError> {
+        credential_cipher().map_err(|error| shared_db::SharedDbError::new(error.to_string()))?;
+        Ok(Self { db })
+    }
+
     pub fn save_binance_credentials(
         &self,
         user_email: &str,
@@ -135,7 +136,8 @@ impl ExchangeService {
 
         let selected_markets = request.selected_markets.unwrap_or_default();
         let validation_request =
-            CredentialValidationRequest::new(request.expected_hedge_mode, &selected_markets);
+            CredentialValidationRequest::new(request.expected_hedge_mode, &selected_markets)
+                .map_err(|error| ExchangeError::bad_request(error.to_string()))?;
         let client = BinanceClient::new(api_key.clone(), api_secret.clone());
         let check = client.check_credentials_for(&validation_request);
         let symbols = sync_symbol_metadata(&client, &check);
@@ -152,32 +154,27 @@ impl ExchangeService {
             symbol_counts,
         };
 
-        self.db
-            .upsert_exchange_account(&UserExchangeAccountRecord {
-                user_email: user_email.clone(),
-                exchange: BINANCE_EXCHANGE.to_owned(),
-                account_label: "Binance".to_owned(),
-                market_scope: check.selected_markets.join(","),
-                is_active: true,
-                checked_at: Some(now),
-                metadata: serde_json::to_value(&stored_metadata)
-                    .map_err(map_serde_storage_error)?,
-            })
-            .map_err(ExchangeError::storage)?;
-
-        let cipher = credential_cipher();
+        let cipher = credential_cipher().map_err(map_cipher_storage_error)?;
         let encrypted_secret = cipher.encrypt(&api_key, &api_secret).map_err(|error| {
             ExchangeError::storage(shared_db::SharedDbError::new(error.to_string()))
         })?;
 
-        self.db
-            .upsert_exchange_credentials(&UserExchangeCredentialRecord {
-                user_email: user_email.clone(),
-                exchange: BINANCE_EXCHANGE.to_owned(),
-                api_key_masked: mask_api_key(&api_key),
-                encrypted_secret,
-            })
-            .map_err(ExchangeError::storage)?;
+        let account_record = UserExchangeAccountRecord {
+            user_email: user_email.clone(),
+            exchange: BINANCE_EXCHANGE.to_owned(),
+            account_label: "Binance".to_owned(),
+            market_scope: check.selected_markets.join(","),
+            is_active: true,
+            checked_at: Some(now),
+            metadata: serde_json::to_value(&stored_metadata).map_err(map_serde_storage_error)?,
+        };
+
+        let credential_record = UserExchangeCredentialRecord {
+            user_email: user_email.clone(),
+            exchange: BINANCE_EXCHANGE.to_owned(),
+            api_key_masked: mask_api_key(&api_key),
+            encrypted_secret,
+        };
 
         let symbol_records = symbols
             .into_iter()
@@ -186,7 +183,7 @@ impl ExchangeService {
 
         let synced_symbols = self
             .db
-            .replace_exchange_symbols(&user_email, BINANCE_EXCHANGE, &symbol_records)
+            .save_exchange_account_bundle(&account_record, &credential_record, &symbol_records)
             .map_err(ExchangeError::storage)?;
 
         Ok(SaveBinanceCredentialsResponse {
@@ -225,6 +222,7 @@ impl ExchangeService {
         Ok(SearchSymbolsResponse { items })
     }
 
+    #[allow(dead_code)]
     pub fn run_symbol_sync_for_active_accounts(&self) -> Result<usize, ExchangeError> {
         let accounts = self
             .db
@@ -243,6 +241,7 @@ impl ExchangeService {
 
             let stored = parse_account_metadata(&account.metadata)?;
             let (api_key, api_secret) = credential_cipher()
+                .map_err(map_cipher_storage_error)?
                 .decrypt(&credentials.encrypted_secret)
                 .map_err(|error| {
                     ExchangeError::storage(shared_db::SharedDbError::new(error.to_string()))
@@ -250,39 +249,37 @@ impl ExchangeService {
             let validation_request = CredentialValidationRequest::new(
                 stored.expected_hedge_mode,
                 &stored.selected_markets,
-            );
+            )
+            .map_err(|error| ExchangeError::bad_request(error.to_string()))?;
             let client = BinanceClient::new(api_key, api_secret);
             let check = client.check_credentials_for(&validation_request);
             let symbols = sync_symbol_metadata(&client, &check);
             let symbol_counts = ExchangeSymbolCountsDto::from_symbols(&symbols);
             let synced_at = Utc::now();
 
-            self.db
-                .replace_exchange_symbols(
-                    &account.user_email,
-                    BINANCE_EXCHANGE,
-                    &symbols
-                        .into_iter()
-                        .map(|symbol| to_symbol_record(&account.user_email, symbol, synced_at))
-                        .collect::<Vec<_>>(),
-                )
-                .map_err(ExchangeError::storage)?;
+            let symbol_records = symbols
+                .into_iter()
+                .map(|symbol| to_symbol_record(&account.user_email, symbol, synced_at))
+                .collect::<Vec<_>>();
 
             self.db
-                .upsert_exchange_account(&UserExchangeAccountRecord {
-                    metadata: serde_json::to_value(StoredExchangeMetadata {
-                        connection_status: check.connection_status().to_owned(),
-                        sync_status: "success".to_owned(),
-                        last_synced_at: Some(synced_at.to_rfc3339()),
-                        expected_hedge_mode: stored.expected_hedge_mode,
-                        selected_markets: check.selected_markets.clone(),
-                        validation: StoredValidationSnapshot::from(&check),
-                        symbol_counts,
-                    })
-                    .map_err(map_serde_storage_error)?,
-                    checked_at: Some(synced_at),
-                    ..account.clone()
-                })
+                .refresh_exchange_account_bundle(
+                    &UserExchangeAccountRecord {
+                        metadata: serde_json::to_value(StoredExchangeMetadata {
+                            connection_status: check.connection_status().to_owned(),
+                            sync_status: "success".to_owned(),
+                            last_synced_at: Some(synced_at.to_rfc3339()),
+                            expected_hedge_mode: stored.expected_hedge_mode,
+                            selected_markets: check.selected_markets.clone(),
+                            validation: StoredValidationSnapshot::from(&check),
+                            symbol_counts,
+                        })
+                        .map_err(map_serde_storage_error)?,
+                        checked_at: Some(synced_at),
+                        ..account.clone()
+                    },
+                    &symbol_records,
+                )
                 .map_err(ExchangeError::storage)?;
 
             refreshed_accounts += 1;
@@ -477,13 +474,12 @@ fn parse_account_metadata(value: &Value) -> Result<StoredExchangeMetadata, Excha
     serde_json::from_value(value.clone()).map_err(map_serde_storage_error)
 }
 
-fn credential_cipher() -> CredentialCipher {
-    let key_material = env::var("EXCHANGE_CREDENTIALS_MASTER_KEY")
-        .ok()
-        .filter(|value| !value.trim().is_empty())
-        .or_else(|| env::var("SESSION_TOKEN_SECRET").ok())
-        .unwrap_or_else(|| DEFAULT_EXCHANGE_CREDENTIALS_MASTER_KEY.to_owned());
-    CredentialCipher::new(key_material)
+fn credential_cipher() -> Result<CredentialCipher, shared_binance::CredentialCipherError> {
+    CredentialCipher::from_env("EXCHANGE_CREDENTIALS_MASTER_KEY")
+}
+
+fn map_cipher_storage_error(error: shared_binance::CredentialCipherError) -> ExchangeError {
+    ExchangeError::storage(shared_db::SharedDbError::new(error.to_string()))
 }
 
 fn to_symbol_record(

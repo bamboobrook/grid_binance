@@ -56,7 +56,16 @@ impl AppState {
         database_url: impl AsRef<str>,
         redis_url: impl AsRef<str>,
     ) -> Result<Self, SharedDbError> {
-        Self::from_shared_db(SharedDb::connect(database_url, redis_url)?)
+        let db = SharedDb::connect(database_url, redis_url)?;
+        Ok(Self {
+            analytics: AnalyticsService::default(),
+            auth: AuthService::new_strict(db.clone())
+                .map_err(|error| SharedDbError::new(error.to_string()))?,
+            exchange: ExchangeService::new_strict(db.clone())?,
+            membership: MembershipService::new(db.clone()),
+            strategy: StrategyService::new(db),
+            telegram: TelegramService::default(),
+        })
     }
 
     pub fn from_shared_db(db: SharedDb) -> Result<Self, SharedDbError> {
@@ -120,7 +129,7 @@ pub fn app_with_persistent_state(
     let state = AppState {
         analytics: AnalyticsService::default(),
         auth,
-        exchange: ExchangeService::new(db.clone()),
+        exchange: ExchangeService::new_strict(db.clone()).map_err(AppBuildError::from)?,
         membership: MembershipService::new(db.clone()),
         strategy: StrategyService::new(db),
         telegram: TelegramService::default(),

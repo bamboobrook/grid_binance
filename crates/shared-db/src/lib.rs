@@ -218,6 +218,58 @@ impl SharedDb {
         }
     }
 
+    pub fn save_exchange_account_bundle(
+        &self,
+        account: &UserExchangeAccountRecord,
+        credentials: &UserExchangeCredentialRecord,
+        records: &[UserExchangeSymbolRecord],
+    ) -> Result<usize, SharedDbError> {
+        match &self.backend {
+            SharedDbBackend::Runtime { .. } => {
+                let repo = self.exchange_repo();
+                let account = account.clone();
+                let credentials = credentials.clone();
+                let records = records.to_vec();
+                Self::block_on(async move {
+                    repo.save_account_bundle(&account, &credentials, &records)
+                        .await
+                })
+            }
+            SharedDbBackend::Ephemeral(state) => {
+                let mut state = lock_ephemeral(state)?;
+                state.exchange_accounts.insert(
+                    (account.user_email.to_lowercase(), account.exchange.clone()),
+                    account.clone(),
+                );
+                state.exchange_credentials.insert(
+                    (
+                        credentials.user_email.to_lowercase(),
+                        credentials.exchange.clone(),
+                    ),
+                    credentials.clone(),
+                );
+                state
+                    .exchange_symbols
+                    .retain(|(email, current_exchange, _, _), _| {
+                        email != &account.user_email.to_lowercase()
+                            || current_exchange != &account.exchange
+                    });
+                for record in records {
+                    state.exchange_symbols.insert(
+                        (
+                            record.user_email.to_lowercase(),
+                            record.exchange.clone(),
+                            record.market.clone(),
+                            record.symbol.clone(),
+                        ),
+                        record.clone(),
+                    );
+                }
+                Ok(records.len())
+            }
+        }
+    }
+
     pub fn replace_exchange_symbols(
         &self,
         user_email: &str,
@@ -241,6 +293,46 @@ impl SharedDb {
                     .exchange_symbols
                     .retain(|(email, current_exchange, _, _), _| {
                         email != &normalized_email || current_exchange != exchange
+                    });
+                for record in records {
+                    state.exchange_symbols.insert(
+                        (
+                            record.user_email.to_lowercase(),
+                            record.exchange.clone(),
+                            record.market.clone(),
+                            record.symbol.clone(),
+                        ),
+                        record.clone(),
+                    );
+                }
+                Ok(records.len())
+            }
+        }
+    }
+
+    pub fn refresh_exchange_account_bundle(
+        &self,
+        account: &UserExchangeAccountRecord,
+        records: &[UserExchangeSymbolRecord],
+    ) -> Result<usize, SharedDbError> {
+        match &self.backend {
+            SharedDbBackend::Runtime { .. } => {
+                let repo = self.exchange_repo();
+                let account = account.clone();
+                let records = records.to_vec();
+                Self::block_on(async move { repo.refresh_account_bundle(&account, &records).await })
+            }
+            SharedDbBackend::Ephemeral(state) => {
+                let mut state = lock_ephemeral(state)?;
+                state.exchange_accounts.insert(
+                    (account.user_email.to_lowercase(), account.exchange.clone()),
+                    account.clone(),
+                );
+                state
+                    .exchange_symbols
+                    .retain(|(email, current_exchange, _, _), _| {
+                        email != &account.user_email.to_lowercase()
+                            || current_exchange != &account.exchange
                     });
                 for record in records {
                     state.exchange_symbols.insert(

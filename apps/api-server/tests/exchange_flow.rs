@@ -5,10 +5,16 @@ use axum::{
 };
 use serde_json::{json, Value};
 use shared_db::SharedDb;
+use std::sync::{Mutex, OnceLock};
 use tower::ServiceExt;
 
 #[tokio::test]
 async fn save_credentials_persists_masked_account_health_and_three_market_symbol_metadata() {
+    let _guard = exchange_env_lock().lock().expect("env lock");
+    std::env::set_var(
+        "EXCHANGE_CREDENTIALS_MASTER_KEY",
+        "exchange-flow-test-master-key",
+    );
     let db = SharedDb::ephemeral().expect("ephemeral db");
     let app = app_with_state(AppState::from_shared_db(db).expect("app state"));
     let session_token = register_and_login(&app, "exchange-save@example.com").await;
@@ -50,6 +56,11 @@ async fn save_credentials_persists_masked_account_health_and_three_market_symbol
 
 #[tokio::test]
 async fn one_user_only_has_one_binance_account_and_updates_replace_the_masked_read_model() {
+    let _guard = exchange_env_lock().lock().expect("env lock");
+    std::env::set_var(
+        "EXCHANGE_CREDENTIALS_MASTER_KEY",
+        "exchange-flow-test-master-key",
+    );
     let db = SharedDb::ephemeral().expect("ephemeral db");
     let app = app_with_state(AppState::from_shared_db(db).expect("app state"));
     let session_token = register_and_login(&app, "exchange-single-account@example.com").await;
@@ -89,6 +100,11 @@ async fn one_user_only_has_one_binance_account_and_updates_replace_the_masked_re
 
 #[tokio::test]
 async fn credential_updates_require_running_strategies_to_be_paused_first() {
+    let _guard = exchange_env_lock().lock().expect("env lock");
+    std::env::set_var(
+        "EXCHANGE_CREDENTIALS_MASTER_KEY",
+        "exchange-flow-test-master-key",
+    );
     let db = SharedDb::ephemeral().expect("ephemeral db");
     let app = app_with_state(AppState::from_shared_db(db).expect("app state"));
     let session_token = register_and_login(&app, "exchange-pause-first@example.com").await;
@@ -168,6 +184,11 @@ async fn credential_updates_require_running_strategies_to_be_paused_first() {
 
 #[tokio::test]
 async fn fuzzy_search_uses_persisted_symbol_metadata_after_service_rebuild() {
+    let _guard = exchange_env_lock().lock().expect("env lock");
+    std::env::set_var(
+        "EXCHANGE_CREDENTIALS_MASTER_KEY",
+        "exchange-flow-test-master-key",
+    );
     let db = SharedDb::ephemeral().expect("ephemeral db");
     let first_app = app_with_state(AppState::from_shared_db(db.clone()).expect("first app"));
     let session_token = register_and_login(&first_app, "exchange-search@example.com").await;
@@ -200,6 +221,11 @@ async fn fuzzy_search_uses_persisted_symbol_metadata_after_service_rebuild() {
 
 #[tokio::test]
 async fn hedge_mode_validation_flags_mismatch_between_expectation_and_account_state() {
+    let _guard = exchange_env_lock().lock().expect("env lock");
+    std::env::set_var(
+        "EXCHANGE_CREDENTIALS_MASTER_KEY",
+        "exchange-flow-test-master-key",
+    );
     let db = SharedDb::ephemeral().expect("ephemeral db");
     let app = app_with_state(AppState::from_shared_db(db.clone()).expect("first app"));
     let session_token = register_and_login(&app, "exchange-hedge@example.com").await;
@@ -234,6 +260,11 @@ async fn hedge_mode_validation_flags_mismatch_between_expectation_and_account_st
 
 #[tokio::test]
 async fn selected_markets_drive_timestamp_and_market_reachability_validation() {
+    let _guard = exchange_env_lock().lock().expect("env lock");
+    std::env::set_var(
+        "EXCHANGE_CREDENTIALS_MASTER_KEY",
+        "exchange-flow-test-master-key",
+    );
     let db = SharedDb::ephemeral().expect("ephemeral db");
     let app = app_with_state(AppState::from_shared_db(db.clone()).expect("app state"));
     let session_token = register_and_login(&app, "exchange-market-scope@example.com").await;
@@ -280,6 +311,11 @@ async fn selected_markets_drive_timestamp_and_market_reachability_validation() {
 
 #[tokio::test]
 async fn persisted_symbol_metadata_includes_filters_and_market_requirements() {
+    let _guard = exchange_env_lock().lock().expect("env lock");
+    std::env::set_var(
+        "EXCHANGE_CREDENTIALS_MASTER_KEY",
+        "exchange-flow-test-master-key",
+    );
     let db = SharedDb::ephemeral().expect("ephemeral db");
     let app = app_with_state(AppState::from_shared_db(db.clone()).expect("app state"));
     let session_token = register_and_login(&app, "exchange-rich-symbols@example.com").await;
@@ -317,6 +353,11 @@ async fn persisted_symbol_metadata_includes_filters_and_market_requirements() {
 
 #[tokio::test]
 async fn empty_api_credentials_are_rejected() {
+    let _guard = exchange_env_lock().lock().expect("env lock");
+    std::env::set_var(
+        "EXCHANGE_CREDENTIALS_MASTER_KEY",
+        "exchange-flow-test-master-key",
+    );
     let app = app();
     let session_token = register_and_login(&app, "exchange-empty-creds@example.com").await;
 
@@ -331,6 +372,11 @@ async fn empty_api_credentials_are_rejected() {
 
 #[tokio::test]
 async fn empty_symbol_query_is_rejected() {
+    let _guard = exchange_env_lock().lock().expect("env lock");
+    std::env::set_var(
+        "EXCHANGE_CREDENTIALS_MASTER_KEY",
+        "exchange-flow-test-master-key",
+    );
     let app = app();
     let session_token = register_and_login(&app, "exchange-empty-query@example.com").await;
     let sync = save_credentials(
@@ -351,6 +397,11 @@ async fn empty_symbol_query_is_rejected() {
 
 #[tokio::test]
 async fn unauthenticated_requests_to_exchange_api_are_rejected() {
+    let _guard = exchange_env_lock().lock().expect("env lock");
+    std::env::set_var(
+        "EXCHANGE_CREDENTIALS_MASTER_KEY",
+        "exchange-flow-test-master-key",
+    );
     let app = app();
 
     let save_response = save_credentials(&app, None, "demo-key", "demo-secret", true).await;
@@ -361,6 +412,74 @@ async fn unauthenticated_requests_to_exchange_api_are_rejected() {
 
     let search_response = search_symbols(&app, None, "btc").await;
     assert_eq!(search_response.status(), StatusCode::UNAUTHORIZED);
+}
+
+#[tokio::test]
+async fn invalid_selected_markets_are_rejected() {
+    let _guard = exchange_env_lock().lock().expect("env lock");
+    std::env::set_var(
+        "EXCHANGE_CREDENTIALS_MASTER_KEY",
+        "exchange-flow-test-master-key",
+    );
+    let app = app();
+    let session_token = register_and_login(&app, "exchange-invalid-markets@example.com").await;
+
+    let empty = save_credentials_for_markets(
+        &app,
+        Some(&session_token),
+        "demo-key-1234",
+        "demo-secret",
+        true,
+        &[],
+    )
+    .await;
+    assert_eq!(empty.status(), StatusCode::BAD_REQUEST);
+    assert_eq!(
+        response_json(empty).await["error"],
+        "selected_markets must include at least one of spot, usdm, coinm"
+    );
+
+    let invalid = save_credentials_raw_markets(
+        &app,
+        Some(&session_token),
+        "demo-key-1234",
+        "demo-secret",
+        true,
+        json!(["spot", "margin"]),
+    )
+    .await;
+    assert_eq!(invalid.status(), StatusCode::BAD_REQUEST);
+    assert_eq!(
+        response_json(invalid).await["error"],
+        "selected_markets contains unsupported market"
+    );
+}
+
+#[tokio::test]
+async fn exchange_credentials_master_key_is_required() {
+    let _guard = exchange_env_lock().lock().expect("env lock");
+    std::env::remove_var("EXCHANGE_CREDENTIALS_MASTER_KEY");
+    std::env::remove_var("SESSION_TOKEN_SECRET");
+    let app = app();
+    let session_token = register_and_login(&app, "exchange-missing-key@example.com").await;
+
+    let response = save_credentials(
+        &app,
+        Some(&session_token),
+        "demo-key-1234",
+        "demo-secret",
+        true,
+    )
+    .await;
+
+    assert_eq!(response.status(), StatusCode::INTERNAL_SERVER_ERROR);
+    assert_eq!(
+        response_json(response).await["error"],
+        "EXCHANGE_CREDENTIALS_MASTER_KEY is required"
+    );
+
+    let read = read_account(&app, Some(&session_token)).await;
+    assert_eq!(read.status(), StatusCode::NOT_FOUND);
 }
 
 async fn read_account(app: &axum::Router, session_token: Option<&str>) -> axum::response::Response {
@@ -402,6 +521,25 @@ async fn save_credentials_for_markets(
     api_secret: &str,
     expected_hedge_mode: bool,
     selected_markets: &[&str],
+) -> axum::response::Response {
+    save_credentials_raw_markets(
+        app,
+        session_token,
+        api_key,
+        api_secret,
+        expected_hedge_mode,
+        json!(selected_markets),
+    )
+    .await
+}
+
+async fn save_credentials_raw_markets(
+    app: &axum::Router,
+    session_token: Option<&str>,
+    api_key: &str,
+    api_secret: &str,
+    expected_hedge_mode: bool,
+    selected_markets: Value,
 ) -> axum::response::Response {
     let mut request = Request::builder()
         .method("POST")
@@ -592,4 +730,9 @@ async fn response_json(response: axum::response::Response) -> Value {
         .await
         .expect("response body");
     serde_json::from_slice(&bytes).expect("valid json")
+}
+
+fn exchange_env_lock() -> &'static Mutex<()> {
+    static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+    LOCK.get_or_init(|| Mutex::new(()))
 }
