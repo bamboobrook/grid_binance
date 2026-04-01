@@ -205,13 +205,17 @@ impl AuthService {
         }
 
         self.db
-            .update_auth_email_verification(&email, true, None)
+            .update_auth_email_verification_with_audit(
+                &email,
+                true,
+                None,
+                &security_audit(
+                    &email,
+                    "auth.email_verified",
+                    json!({ "email_verified": true }),
+                ),
+            )
             .map_err(AuthError::storage)?;
-        self.emit_security_audit(
-            &email,
-            "auth.email_verified",
-            json!({ "email_verified": true }),
-        )?;
 
         Ok(VerifyEmailResponse { verified: true })
     }
@@ -280,13 +284,16 @@ impl AuthService {
         let reset_code = issue_email_code(reset_seed);
 
         self.db
-            .set_auth_reset_code(&email, Some(&reset_code))
+            .set_auth_reset_code_with_audit(
+                &email,
+                Some(&reset_code),
+                &security_audit(
+                    &email,
+                    "auth.password_reset_requested",
+                    json!({ "reset_requested": true }),
+                ),
+            )
             .map_err(AuthError::storage)?;
-        self.emit_security_audit(
-            &email,
-            "auth.password_reset_requested",
-            json!({ "reset_requested": true }),
-        )?;
 
         Ok(PasswordResetRequestResponse { reset_code })
     }
@@ -313,13 +320,17 @@ impl AuthService {
 
         validate_password(&request.new_password)?;
         self.db
-            .update_auth_password(&email, &hash_password(&request.new_password))
+            .update_auth_password_with_audit(
+                &email,
+                &hash_password(&request.new_password),
+                true,
+                &security_audit(
+                    &email,
+                    "auth.password_reset_confirmed",
+                    json!({ "reset_completed": true }),
+                ),
+            )
             .map_err(AuthError::storage)?;
-        self.emit_security_audit(
-            &email,
-            "auth.password_reset_confirmed",
-            json!({ "reset_completed": true }),
-        )?;
 
         Ok(PasswordResetConfirmResponse {
             password_reset: true,
@@ -353,13 +364,17 @@ impl AuthService {
         }
 
         self.db
-            .set_auth_totp_secret(&email, Some(&secret))
+            .set_auth_totp_secret_with_audit(
+                &email,
+                Some(&secret),
+                false,
+                &security_audit(
+                    &email,
+                    "security.totp_enabled",
+                    json!({ "totp_enabled": true }),
+                ),
+            )
             .map_err(AuthError::storage)?;
-        self.emit_security_audit(
-            &email,
-            "security.totp_enabled",
-            json!({ "totp_enabled": true }),
-        )?;
 
         Ok(EnableTotpResponse { secret, code })
     }
@@ -384,13 +399,17 @@ impl AuthService {
         }
 
         self.db
-            .set_auth_totp_secret(&email, None)
+            .set_auth_totp_secret_with_audit(
+                &email,
+                None,
+                true,
+                &security_audit(
+                    &email,
+                    "security.totp_disabled",
+                    json!({ "totp_enabled": false }),
+                ),
+            )
             .map_err(AuthError::storage)?;
-        self.emit_security_audit(
-            &email,
-            "security.totp_disabled",
-            json!({ "totp_enabled": false }),
-        )?;
 
         Ok(DisableTotpResponse { disabled: true })
     }
@@ -413,13 +432,17 @@ impl AuthService {
 
         validate_password(&request.new_password)?;
         self.db
-            .update_auth_password(&email, &hash_password(&request.new_password))
+            .update_auth_password_with_audit(
+                &email,
+                &hash_password(&request.new_password),
+                true,
+                &security_audit(
+                    &email,
+                    "profile.password_changed",
+                    json!({ "password_changed": true }),
+                ),
+            )
             .map_err(AuthError::storage)?;
-        self.emit_security_audit(
-            &email,
-            "profile.password_changed",
-            json!({ "password_changed": true }),
-        )?;
 
         Ok(ChangePasswordResponse {
             password_changed: true,
@@ -488,23 +511,6 @@ impl AuthService {
         }
     }
 
-    fn emit_security_audit(
-        &self,
-        actor_email: &str,
-        action: &str,
-        payload: serde_json::Value,
-    ) -> Result<(), AuthError> {
-        self.db
-            .insert_audit_log(&AuditLogRecord {
-                actor_email: actor_email.to_owned(),
-                action: action.to_owned(),
-                target_type: "user".to_owned(),
-                target_id: actor_email.to_owned(),
-                payload,
-                created_at: Utc::now(),
-            })
-            .map_err(AuthError::storage)
-    }
 }
 
 impl Default for AuthService {
@@ -599,6 +605,21 @@ impl IntoResponse for AuthError {
 #[derive(Serialize)]
 struct ErrorResponse {
     error: String,
+}
+
+fn security_audit(
+    actor_email: &str,
+    action: &str,
+    payload: serde_json::Value,
+) -> AuditLogRecord {
+    AuditLogRecord {
+        actor_email: actor_email.to_owned(),
+        action: action.to_owned(),
+        target_type: "user".to_owned(),
+        target_id: actor_email.to_owned(),
+        payload,
+        created_at: Utc::now(),
+    }
 }
 
 fn normalize_email(email: &str) -> String {

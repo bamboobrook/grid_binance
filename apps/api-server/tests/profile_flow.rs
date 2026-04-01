@@ -57,6 +57,20 @@ async fn authenticated_user_can_read_profile_and_change_password() {
     assert_eq!(password_change.status(), StatusCode::OK);
     assert_eq!(response_json(password_change).await["password_changed"], true);
 
+    let revoked_session = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri("/profile")
+                .header("authorization", format!("Bearer {session_token}"))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(revoked_session.status(), StatusCode::UNAUTHORIZED);
+
     let old_password = app
         .clone()
         .oneshot(login_request("profile@example.com", "pass1234", None))
@@ -137,6 +151,20 @@ async fn profile_reflects_totp_state_after_enable_and_disable() {
     assert_eq!(disabled.status(), StatusCode::OK);
     assert_eq!(response_json(disabled).await["disabled"], true);
 
+    let revoked_session = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri("/profile")
+                .header("authorization", format!("Bearer {session_token}"))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(revoked_session.status(), StatusCode::UNAUTHORIZED);
+
     let without_totp = app
         .clone()
         .oneshot(login_request("security@example.com", "pass1234", None))
@@ -155,12 +183,27 @@ async fn profile_reflects_totp_state_after_enable_and_disable() {
         .unwrap();
     assert_eq!(stale_totp.status(), StatusCode::OK);
 
-    let profile = app
+    let revoked_profile = app
+        .clone()
         .oneshot(
             Request::builder()
                 .method(Method::GET)
                 .uri("/profile")
                 .header("authorization", format!("Bearer {session_token}"))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(revoked_profile.status(), StatusCode::UNAUTHORIZED);
+
+    let refreshed_session = login_and_get_token(&app, "security@example.com", "pass1234", None).await;
+    let profile = app
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri("/profile")
+                .header("authorization", format!("Bearer {refreshed_session}"))
                 .body(Body::empty())
                 .unwrap(),
         )
@@ -252,6 +295,82 @@ async fn profile_requires_authenticated_session() {
         .unwrap();
 
     assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+}
+
+#[tokio::test]
+async fn password_change_rejects_wrong_current_password_and_preserves_session() {
+    let app = app();
+    let _verification_code = register_and_verify(&app, "wrong-pass@example.com", "pass1234").await;
+    let session_token = login_and_get_token(&app, "wrong-pass@example.com", "pass1234", None).await;
+
+    let password_change = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/profile/password/change")
+                .header("authorization", format!("Bearer {session_token}"))
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    json!({
+                        "current_password": "badpass",
+                        "new_password": "newpass123",
+                    })
+                    .to_string(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(password_change.status(), StatusCode::UNAUTHORIZED);
+
+    let profile = app
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri("/profile")
+                .header("authorization", format!("Bearer {session_token}"))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(profile.status(), StatusCode::OK);
+}
+
+#[tokio::test]
+async fn totp_disable_rejects_session_email_mismatch() {
+    let app = app();
+    let _ = register_and_verify(&app, "first@example.com", "pass1234").await;
+    let _ = register_and_verify(&app, "second@example.com", "pass1234").await;
+    let session_token = login_and_get_token(&app, "first@example.com", "pass1234", None).await;
+    let _enabled = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/security/totp/enable")
+                .header("authorization", format!("Bearer {session_token}"))
+                .header("content-type", "application/json")
+                .body(Body::from(json!({ "email": "first@example.com" }).to_string()))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    let disabled = app
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/security/totp/disable")
+                .header("authorization", format!("Bearer {session_token}"))
+                .header("content-type", "application/json")
+                .body(Body::from(json!({ "email": "second@example.com" }).to_string()))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(disabled.status(), StatusCode::FORBIDDEN);
 }
 
 async fn register_and_verify(app: &axum::Router, email: &str, password: &str) -> String {

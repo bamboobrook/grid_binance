@@ -142,6 +142,8 @@ async fn register_verify_login_and_enable_totp() {
     assert_eq!(reset_confirm.status(), StatusCode::OK);
     assert_eq!(response_json(reset_confirm).await["password_reset"], true);
 
+    let session_token = login_and_get_token(&app, "alice@example.com", "newpass123", None).await;
+
     let enable_totp = app
         .clone()
         .oneshot(
@@ -411,6 +413,7 @@ async fn admin_access_requires_totp_backed_session() {
 async fn password_reset_rejects_empty_password_and_invalidates_old_password() {
     let app = app();
     let _verification_code = register_and_verify(&app, "reset@example.com", "pass1234").await;
+    let old_session = login_and_get_token(&app, "reset@example.com", "pass1234", None).await;
     let reset_code = request_password_reset(&app, "reset@example.com").await;
 
     let empty_password = app
@@ -455,6 +458,20 @@ async fn password_reset_rejects_empty_password_and_invalidates_old_password() {
         .await
         .unwrap();
     assert_eq!(reset_confirm.status(), StatusCode::OK);
+
+    let revoked_session = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri("/profile")
+                .header("authorization", format!("Bearer {old_session}"))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(revoked_session.status(), StatusCode::UNAUTHORIZED);
 
     let old_password_login = app
         .clone()

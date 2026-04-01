@@ -1,6 +1,7 @@
 use chrono::{DateTime, Utc};
 use sqlx::{PgPool, Postgres, Row, Transaction};
 
+use crate::postgres::admin::{insert_audit_log_in, AuditLogRecord};
 use crate::{default_token_expiry, SharedDbError};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -133,6 +134,34 @@ impl IdentityRepository {
         Ok(updated)
     }
 
+    pub async fn update_auth_email_verification_with_audit(
+        &self,
+        email: &str,
+        email_verified: bool,
+        verification_code: Option<&str>,
+        audit: &AuditLogRecord,
+    ) -> Result<usize, SharedDbError> {
+        let mut transaction = self.pool.begin().await.map_err(SharedDbError::from)?;
+        let user_id = lookup_user_id(&mut transaction, email).await?;
+        let updated = sqlx::query(
+            "UPDATE users
+             SET email_verified_at = $2, updated_at = now()
+             WHERE lower(email) = lower($1)",
+        )
+        .bind(email)
+        .bind(email_verified.then(Utc::now))
+        .execute(&mut *transaction)
+        .await
+        .map_err(SharedDbError::from)?
+        .rows_affected() as usize;
+        if let Some(user_id) = user_id {
+            replace_email_verification_token(&mut transaction, user_id, verification_code).await?;
+            insert_audit_log_in(&mut transaction, audit).await?;
+        }
+        transaction.commit().await.map_err(SharedDbError::from)?;
+        Ok(updated)
+    }
+
     pub async fn set_auth_reset_code(
         &self,
         email: &str,
@@ -142,6 +171,25 @@ impl IdentityRepository {
         let user_id = lookup_user_id(&mut transaction, email).await?;
         if let Some(user_id) = user_id {
             replace_password_reset_token(&mut transaction, user_id, reset_code).await?;
+            transaction.commit().await.map_err(SharedDbError::from)?;
+            Ok(1)
+        } else {
+            transaction.rollback().await.map_err(SharedDbError::from)?;
+            Ok(0)
+        }
+    }
+
+    pub async fn set_auth_reset_code_with_audit(
+        &self,
+        email: &str,
+        reset_code: Option<&str>,
+        audit: &AuditLogRecord,
+    ) -> Result<usize, SharedDbError> {
+        let mut transaction = self.pool.begin().await.map_err(SharedDbError::from)?;
+        let user_id = lookup_user_id(&mut transaction, email).await?;
+        if let Some(user_id) = user_id {
+            replace_password_reset_token(&mut transaction, user_id, reset_code).await?;
+            insert_audit_log_in(&mut transaction, audit).await?;
             transaction.commit().await.map_err(SharedDbError::from)?;
             Ok(1)
         } else {
@@ -175,6 +223,37 @@ impl IdentityRepository {
         Ok(updated)
     }
 
+    pub async fn update_auth_password_with_audit(
+        &self,
+        email: &str,
+        password_hash: &str,
+        revoke_sessions: bool,
+        audit: &AuditLogRecord,
+    ) -> Result<usize, SharedDbError> {
+        let mut transaction = self.pool.begin().await.map_err(SharedDbError::from)?;
+        let user_id = lookup_user_id(&mut transaction, email).await?;
+        let updated = sqlx::query(
+            "UPDATE users
+             SET password_hash = $2, updated_at = now()
+             WHERE lower(email) = lower($1)",
+        )
+        .bind(email)
+        .bind(password_hash)
+        .execute(&mut *transaction)
+        .await
+        .map_err(SharedDbError::from)?
+        .rows_affected() as usize;
+        if let Some(user_id) = user_id {
+            replace_password_reset_token(&mut transaction, user_id, None).await?;
+            if revoke_sessions {
+                revoke_auth_sessions(&mut transaction, user_id).await?;
+            }
+            insert_audit_log_in(&mut transaction, audit).await?;
+        }
+        transaction.commit().await.map_err(SharedDbError::from)?;
+        Ok(updated)
+    }
+
     pub async fn set_auth_totp_secret(
         &self,
         email: &str,
@@ -184,6 +263,29 @@ impl IdentityRepository {
         let user_id = lookup_user_id(&mut transaction, email).await?;
         if let Some(user_id) = user_id {
             replace_totp_factor(&mut transaction, user_id, totp_secret).await?;
+            transaction.commit().await.map_err(SharedDbError::from)?;
+            Ok(1)
+        } else {
+            transaction.rollback().await.map_err(SharedDbError::from)?;
+            Ok(0)
+        }
+    }
+
+    pub async fn set_auth_totp_secret_with_audit(
+        &self,
+        email: &str,
+        totp_secret: Option<&str>,
+        revoke_sessions: bool,
+        audit: &AuditLogRecord,
+    ) -> Result<usize, SharedDbError> {
+        let mut transaction = self.pool.begin().await.map_err(SharedDbError::from)?;
+        let user_id = lookup_user_id(&mut transaction, email).await?;
+        if let Some(user_id) = user_id {
+            replace_totp_factor(&mut transaction, user_id, totp_secret).await?;
+            if revoke_sessions {
+                revoke_auth_sessions(&mut transaction, user_id).await?;
+            }
+            insert_audit_log_in(&mut transaction, audit).await?;
             transaction.commit().await.map_err(SharedDbError::from)?;
             Ok(1)
         } else {
@@ -289,6 +391,22 @@ async fn lookup_user_id(
         .map_err(SharedDbError::from)?
         .map(|row| row.try_get("user_id").map_err(SharedDbError::from))
         .transpose()
+}
+
+async fn revoke_auth_sessions(
+    transaction: &mut Transaction<'_, Postgres>,
+    user_id: i64,
+) -> Result<(), SharedDbError> {
+    sqlx::query(
+        "UPDATE user_sessions
+         SET revoked_at = now()
+         WHERE user_id = $1 AND revoked_at IS NULL",
+    )
+    .bind(user_id)
+    .execute(&mut **transaction)
+    .await
+    .map_err(SharedDbError::from)?;
+    Ok(())
 }
 
 async fn replace_email_verification_token(

@@ -1,6 +1,7 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 
+const DEFAULT_AUTH_API_BASE_URL = "http://127.0.0.1:8080";
 const SESSION_TOKEN_COOKIE = "session_token";
 const DEFAULT_SESSION_TOKEN_SECRET = "grid-binance-dev-session-secret";
 
@@ -8,6 +9,10 @@ type SessionClaims = {
   email: string;
   is_admin: boolean;
   sid: number;
+};
+
+type ProfileSnapshot = {
+  admin_access_granted: boolean;
 };
 
 export async function proxy(request: NextRequest) {
@@ -21,7 +26,12 @@ export async function proxy(request: NextRequest) {
     return redirectToLogin(request);
   }
 
-  if (request.nextUrl.pathname.startsWith("/admin/") && !claims.is_admin) {
+  const profile = await fetchProfileSnapshot(sessionToken);
+  if (!profile) {
+    return redirectToLogin(request);
+  }
+
+  if (request.nextUrl.pathname.startsWith("/admin/") && !profile.admin_access_granted) {
     return redirectToLogin(request);
   }
 
@@ -78,6 +88,34 @@ async function verifySessionToken(token: string): Promise<SessionClaims | null> 
   }
 }
 
+async function fetchProfileSnapshot(
+  sessionToken: string,
+): Promise<ProfileSnapshot | null> {
+  try {
+    const response = await fetch(`${authApiBaseUrl()}/profile`, {
+      method: "GET",
+      headers: {
+        authorization: `Bearer ${sessionToken}`,
+      },
+      cache: "no-store",
+    });
+    if (!response.ok) {
+      return null;
+    }
+
+    const payload = (await response.json()) as Partial<ProfileSnapshot>;
+    if (typeof payload.admin_access_granted !== "boolean") {
+      return null;
+    }
+
+    return {
+      admin_access_granted: payload.admin_access_granted,
+    };
+  } catch {
+    return null;
+  }
+}
+
 async function signValue(value: string) {
   const key = await crypto.subtle.importKey(
     "raw",
@@ -119,6 +157,13 @@ function timingSafeEqual(left: Uint8Array, right: Uint8Array) {
   }
 
   return mismatch === 0;
+}
+
+function authApiBaseUrl() {
+  return (
+    process.env.AUTH_API_BASE_URL?.trim().replace(/\/+$/, "") ||
+    DEFAULT_AUTH_API_BASE_URL
+  );
 }
 
 export const config = {

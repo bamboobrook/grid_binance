@@ -221,6 +221,43 @@ impl SharedDb {
         }
     }
 
+    pub fn update_auth_email_verification_with_audit(
+        &self,
+        email: &str,
+        email_verified: bool,
+        verification_code: Option<&str>,
+        audit: &AuditLogRecord,
+    ) -> Result<usize, SharedDbError> {
+        match &self.backend {
+            SharedDbBackend::Runtime { .. } => {
+                let repo = self.identity_repo();
+                let email = email.to_owned();
+                let verification_code = verification_code.map(str::to_owned);
+                let audit = audit.clone();
+                Self::block_on(async move {
+                    repo.update_auth_email_verification_with_audit(
+                        &email,
+                        email_verified,
+                        verification_code.as_deref(),
+                        &audit,
+                    )
+                    .await
+                })
+            }
+            SharedDbBackend::Ephemeral(state) => {
+                let mut state = lock_ephemeral(state)?;
+                let normalized = email.to_lowercase();
+                let Some(user) = state.auth_users.get_mut(&normalized) else {
+                    return Ok(0);
+                };
+                user.email_verified = email_verified;
+                user.verification_code = verification_code.map(str::to_owned);
+                state.audit_logs.push(audit.clone());
+                Ok(1)
+            }
+        }
+    }
+
     pub fn set_auth_reset_code(
         &self,
         email: &str,
@@ -241,6 +278,36 @@ impl SharedDb {
                     return Ok(0);
                 };
                 user.reset_code = reset_code.map(str::to_owned);
+                Ok(1)
+            }
+        }
+    }
+
+    pub fn set_auth_reset_code_with_audit(
+        &self,
+        email: &str,
+        reset_code: Option<&str>,
+        audit: &AuditLogRecord,
+    ) -> Result<usize, SharedDbError> {
+        match &self.backend {
+            SharedDbBackend::Runtime { .. } => {
+                let repo = self.identity_repo();
+                let email = email.to_owned();
+                let reset_code = reset_code.map(str::to_owned);
+                let audit = audit.clone();
+                Self::block_on(async move {
+                    repo.set_auth_reset_code_with_audit(&email, reset_code.as_deref(), &audit)
+                        .await
+                })
+            }
+            SharedDbBackend::Ephemeral(state) => {
+                let mut state = lock_ephemeral(state)?;
+                let normalized = email.to_lowercase();
+                let Some(user) = state.auth_users.get_mut(&normalized) else {
+                    return Ok(0);
+                };
+                user.reset_code = reset_code.map(str::to_owned);
+                state.audit_logs.push(audit.clone());
                 Ok(1)
             }
         }
@@ -270,6 +337,46 @@ impl SharedDb {
         }
     }
 
+    pub fn update_auth_password_with_audit(
+        &self,
+        email: &str,
+        password_hash: &str,
+        revoke_sessions: bool,
+        audit: &AuditLogRecord,
+    ) -> Result<usize, SharedDbError> {
+        match &self.backend {
+            SharedDbBackend::Runtime { .. } => {
+                let repo = self.identity_repo();
+                let email = email.to_owned();
+                let password_hash = password_hash.to_owned();
+                let audit = audit.clone();
+                Self::block_on(async move {
+                    repo.update_auth_password_with_audit(
+                        &email,
+                        &password_hash,
+                        revoke_sessions,
+                        &audit,
+                    )
+                    .await
+                })
+            }
+            SharedDbBackend::Ephemeral(state) => {
+                let mut state = lock_ephemeral(state)?;
+                let normalized = email.to_lowercase();
+                let Some(user) = state.auth_users.get_mut(&normalized) else {
+                    return Ok(0);
+                };
+                user.password_hash = password_hash.to_owned();
+                user.reset_code = None;
+                if revoke_sessions {
+                    revoke_ephemeral_sessions(&mut state, &normalized);
+                }
+                state.audit_logs.push(audit.clone());
+                Ok(1)
+            }
+        }
+    }
+
     pub fn set_auth_totp_secret(
         &self,
         email: &str,
@@ -290,6 +397,45 @@ impl SharedDb {
                     return Ok(0);
                 };
                 user.totp_secret = totp_secret.map(str::to_owned);
+                Ok(1)
+            }
+        }
+    }
+
+    pub fn set_auth_totp_secret_with_audit(
+        &self,
+        email: &str,
+        totp_secret: Option<&str>,
+        revoke_sessions: bool,
+        audit: &AuditLogRecord,
+    ) -> Result<usize, SharedDbError> {
+        match &self.backend {
+            SharedDbBackend::Runtime { .. } => {
+                let repo = self.identity_repo();
+                let email = email.to_owned();
+                let totp_secret = totp_secret.map(str::to_owned);
+                let audit = audit.clone();
+                Self::block_on(async move {
+                    repo.set_auth_totp_secret_with_audit(
+                        &email,
+                        totp_secret.as_deref(),
+                        revoke_sessions,
+                        &audit,
+                    )
+                    .await
+                })
+            }
+            SharedDbBackend::Ephemeral(state) => {
+                let mut state = lock_ephemeral(state)?;
+                let normalized = email.to_lowercase();
+                let Some(user) = state.auth_users.get_mut(&normalized) else {
+                    return Ok(0);
+                };
+                user.totp_secret = totp_secret.map(str::to_owned);
+                if revoke_sessions {
+                    revoke_ephemeral_sessions(&mut state, &normalized);
+                }
+                state.audit_logs.push(audit.clone());
                 Ok(1)
             }
         }
@@ -806,6 +952,12 @@ pub(crate) fn membership_status_to_str(value: &MembershipStatus) -> &'static str
 
 pub(crate) fn default_token_expiry() -> DateTime<Utc> {
     Utc::now() + Duration::hours(24)
+}
+
+fn revoke_ephemeral_sessions(state: &mut EphemeralState, email: &str) {
+    state
+        .auth_sessions
+        .retain(|_, session_email| session_email != email);
 }
 
 #[cfg(test)]

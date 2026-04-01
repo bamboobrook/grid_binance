@@ -1,6 +1,6 @@
 use chrono::{DateTime, Utc};
 use serde_json::Value;
-use sqlx::{PgPool, Row};
+use sqlx::{PgPool, Postgres, Row, Transaction};
 
 use shared_domain::strategy::StrategyTemplate;
 
@@ -109,25 +109,9 @@ impl AdminRepository {
     }
 
     pub async fn insert_audit_log(&self, record: &AuditLogRecord) -> Result<(), SharedDbError> {
-        sqlx::query(
-            "INSERT INTO audit_logs (
-                actor_email,
-                action,
-                target_type,
-                target_id,
-                payload,
-                created_at
-             ) VALUES ($1, $2, $3, $4, $5, $6)",
-        )
-        .bind(&record.actor_email)
-        .bind(&record.action)
-        .bind(&record.target_type)
-        .bind(&record.target_id)
-        .bind(&record.payload)
-        .bind(record.created_at)
-        .execute(&self.pool)
-        .await
-        .map_err(SharedDbError::from)?;
+        let mut transaction = self.pool.begin().await.map_err(SharedDbError::from)?;
+        insert_audit_log_in(&mut transaction, record).await?;
+        transaction.commit().await.map_err(SharedDbError::from)?;
         Ok(())
     }
 
@@ -171,6 +155,32 @@ impl AdminRepository {
         .transpose()
     }
 }
+
+pub(crate) async fn insert_audit_log_in(
+    transaction: &mut Transaction<'_, Postgres>,
+    record: &AuditLogRecord,
+) -> Result<(), SharedDbError> {
+        sqlx::query(
+            "INSERT INTO audit_logs (
+                actor_email,
+                action,
+                target_type,
+                target_id,
+                payload,
+                created_at
+             ) VALUES ($1, $2, $3, $4, $5, $6)",
+        )
+        .bind(&record.actor_email)
+        .bind(&record.action)
+        .bind(&record.target_type)
+        .bind(&record.target_id)
+        .bind(&record.payload)
+        .bind(record.created_at)
+        .execute(&mut **transaction)
+        .await
+        .map_err(SharedDbError::from)?;
+        Ok(())
+    }
 
 fn template_from_row(row: sqlx::postgres::PgRow) -> Result<StrategyTemplate, SharedDbError> {
     Ok(StrategyTemplate {
