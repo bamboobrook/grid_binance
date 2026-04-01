@@ -1,0 +1,18 @@
+groups:
+  - name: deployment-baseline
+    rules:
+      - alert: PrometheusTargetMissing
+        expr: up{job="prometheus"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: Prometheus target scrape is failing
+          description: The baseline monitoring target is unavailable for more than 2 minutes.
+      - alert: ReleaseWatchdog
+        expr: vector(1)
+        labels:
+          severity: info
+        annotations:
+          summary: Release watchdog
+          description: Baseline release monitoring is loaded.
