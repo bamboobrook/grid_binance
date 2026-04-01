@@ -102,3 +102,25 @@ async fn health_reflects_connection_and_tick_freshness() {
     assert_eq!(disconnected_health.ready, false);
     assert_eq!(disconnected_health.last_tick_age_ms, Some(601));
 }
+
+#[tokio::test]
+async fn reconnect_clears_stale_freshness_until_new_tick_arrives() {
+    let mut runtime = GatewayRuntime::new(&[SymbolActivity::new("BTCUSDT", true)]);
+
+    runtime.emit_tick(BinanceTradeEvent::new(
+        "BTCUSDT",
+        Decimal::new(456, 0),
+        2_000,
+    ));
+    let pre_reconnect = runtime.health(2_100, 500);
+    assert_eq!(pre_reconnect.ready, true);
+    assert_eq!(pre_reconnect.last_tick_age_ms, Some(100));
+
+    runtime.disconnect();
+    runtime.reconnect(&[SymbolActivity::new("BTCUSDT", true)]);
+
+    let post_reconnect = runtime.health(2_100, 500);
+    assert_eq!(post_reconnect.connected, true);
+    assert_eq!(post_reconnect.ready, false);
+    assert_eq!(post_reconnect.last_tick_age_ms, None);
+}

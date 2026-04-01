@@ -55,6 +55,7 @@ impl GatewayRuntime {
     pub fn reconnect(&mut self, symbols: &[SymbolActivity]) -> &[SymbolSubscription] {
         self.subscriptions = active_symbol_subscriptions(symbols);
         self.connected = true;
+        self.last_tick_time_ms = None;
         self.reconnect_count += 1;
         &self.subscriptions
     }
