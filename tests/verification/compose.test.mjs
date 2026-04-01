@@ -35,12 +35,14 @@ test("compose references the expected release services", () => {
   assert.match(compose, /rust-service\.Dockerfile/);
 });
 
-test("release compose wires sqlite persistence and required auth env for api-server", () => {
+test("release compose wires sqlite persistence and required auth env for api-server and web", () => {
   const compose = fs.readFileSync("deploy/docker/docker-compose.yml", "utf8");
 
   assert.match(compose, /api-server:\n(?:.*\n)*?\s+environment:\n(?:.*\n)*?\s+APP_DB_PATH:\s+\$\{APP_DB_PATH(?::\?[^}]+)?\}/);
   assert.match(compose, /api-server:\n(?:.*\n)*?\s+environment:\n(?:.*\n)*?\s+SESSION_TOKEN_SECRET:\s+\$\{SESSION_TOKEN_SECRET:\?[^}]+\}/);
   assert.match(compose, /api-server:\n(?:.*\n)*?\s+environment:\n(?:.*\n)*?\s+ADMIN_EMAILS:\s+\$\{ADMIN_EMAILS:\?[^}]+\}/);
+  assert.match(compose, /web:\n(?:.*\n)*?\s+environment:\n(?:.*\n)*?\s+SESSION_TOKEN_SECRET:\s+\$\{SESSION_TOKEN_SECRET:\?[^}]+\}/);
+  assert.match(compose, /web:\n(?:.*\n)*?\s+environment:\n(?:.*\n)*?\s+AUTH_API_BASE_URL:\s+http:\/\/api-server:8080/);
   assert.match(compose, /api-server:\n(?:.*\n)*?\s+volumes:\n(?:.*\n)*?\s+-\s+api-server-data:\/var\/lib\/grid-binance/);
   assert.match(compose, /^volumes:\n(?:.*\n)*?\s+api-server-data:\s*$/m);
 });

@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { createSessionToken } from "./support/sessionToken";
+import { expectSessionCookie, loginViaPage, registerViaPage, uniqueEmail } from "./support/auth";
 
 test("anonymous user is redirected away from app pages", async ({ page }) => {
   await page.goto("/app/dashboard");
@@ -8,30 +8,25 @@ test("anonymous user is redirected away from app pages", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "Login" })).toBeVisible();
 });
 
-test("user can review billing, security, and strategies", async ({ page, context }) => {
-  await context.addCookies([
-    {
-      name: "session_token",
-      value: createSessionToken({
-        email: "trader@example.com",
-        is_admin: false,
-      }),
-      domain: "localhost",
-      path: "/",
-    },
-  ]);
+test("user can register and login through the browser before reviewing app areas", async ({
+  page,
+  context,
+}) => {
+  const email = uniqueEmail("trader");
+  const password = "pass1234";
 
-  await page.goto("/");
-  await expect(page.locator("main")).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Grid Binance" })).toBeVisible();
-
-  await page.getByRole("link", { name: "Registration Entry" }).click();
-  await expect(page).toHaveURL(/\/register$/);
-  await expect(page.getByRole("heading", { name: "Register" })).toBeVisible();
-
-  await page.goto("/app/dashboard");
+  await registerViaPage(page, email, password);
+  await expect(page).toHaveURL(/\/app\/dashboard$/);
+  await expectSessionCookie(page);
   await expect(page.getByRole("heading", { name: "User Dashboard" })).toBeVisible();
   await expect(page.getByText("Expiry reminder flow")).toBeVisible();
+
+  await context.clearCookies();
+  await page.goto("/app/dashboard");
+  await expect(page).toHaveURL(/\/login\?next=%2Fapp%2Fdashboard$/);
+  await loginViaPage(page, email, password);
+  await expect(page).toHaveURL(/\/app\/dashboard$/);
+  await expectSessionCookie(page);
 
   await page.getByRole("link", { name: "Security Center" }).click();
   await expect(page).toHaveURL(/\/app\/security$/);

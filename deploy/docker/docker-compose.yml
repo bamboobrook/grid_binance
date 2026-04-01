@@ -123,9 +123,11 @@ services:
       api-server:
         condition: service_started
     environment:
+      AUTH_API_BASE_URL: http://api-server:8080
       HOSTNAME: 0.0.0.0
       NEXT_TELEMETRY_DISABLED: "1"
       PORT: "3000"
+      SESSION_TOKEN_SECRET: ${SESSION_TOKEN_SECRET:?SESSION_TOKEN_SECRET is required}
     expose:
       - "3000"
     healthcheck:

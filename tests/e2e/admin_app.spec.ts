@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { createSessionToken } from "./support/sessionToken";
+import { expectSessionCookie, loginViaPage, registerViaPage } from "./support/auth";
 
 test("anonymous user is redirected away from admin pages", async ({ page }) => {
   await page.goto("/admin/dashboard");
@@ -8,20 +8,24 @@ test("anonymous user is redirected away from admin pages", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "Login" })).toBeVisible();
 });
 
-test("admin can manage members and address pools", async ({ page, context }) => {
-  await context.addCookies([
-    {
-      name: "session_token",
-      value: createSessionToken({
-        email: "admin@example.com",
-        is_admin: true,
-      }),
-      domain: "localhost",
-      path: "/",
-    },
-  ]);
+test("admin can login through the browser and manage members and address pools", async ({
+  page,
+  context,
+}) => {
+  const email = "admin@example.com";
+  const password = "pass1234";
 
+  await registerViaPage(page, email, password);
+  await expect(page).toHaveURL(/\/app\/dashboard$/);
+  await expectSessionCookie(page);
+
+  await context.clearCookies();
   await page.goto("/admin/dashboard");
+  await expect(page).toHaveURL(/\/login\?next=%2Fadmin%2Fdashboard$/);
+  await loginViaPage(page, email, password);
+  await expect(page).toHaveURL(/\/admin\/dashboard$/);
+  await expectSessionCookie(page);
+
   await expect(page.locator("main")).toBeVisible();
   await expect(page.getByRole("heading", { name: "Admin Dashboard" })).toBeVisible();
   await expect(page.getByText("Price config review")).toBeVisible();
