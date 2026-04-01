@@ -1,6 +1,26 @@
 import { expect, test } from "@playwright/test";
+import { createSessionToken } from "./support/sessionToken";
 
-test("user can review billing, security, and strategies", async ({ page }) => {
+test("anonymous user is redirected away from app pages", async ({ page }) => {
+  await page.goto("/app/dashboard");
+
+  await expect(page).toHaveURL(/\/login\?next=%2Fapp%2Fdashboard$/);
+  await expect(page.getByRole("heading", { name: "Login" })).toBeVisible();
+});
+
+test("user can review billing, security, and strategies", async ({ page, context }) => {
+  await context.addCookies([
+    {
+      name: "session_token",
+      value: createSessionToken({
+        email: "trader@example.com",
+        is_admin: false,
+      }),
+      domain: "localhost",
+      path: "/",
+    },
+  ]);
+
   await page.goto("/");
   await expect(page.locator("main")).toBeVisible();
   await expect(page.getByRole("heading", { name: "Grid Binance" })).toBeVisible();

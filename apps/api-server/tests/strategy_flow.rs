@@ -6,12 +6,19 @@ use axum::{
 use serde_json::{json, Value};
 use tower::ServiceExt;
 
+mod support;
+
+use support::register_and_login;
+
 #[tokio::test]
 async fn create_save_pause_edit_and_start_strategy() {
     let app = app();
+    let user_token = register_and_login(&app, "trader@example.com", "pass1234").await;
+    let admin_token = register_and_login(&app, "admin@example.com", "pass1234").await;
 
     let template = create_template(
         &app,
+        Some(&admin_token),
         json!({
             "name": "Momentum Starter",
             "symbol": "BTCUSDT",
@@ -29,6 +36,7 @@ async fn create_save_pause_edit_and_start_strategy() {
 
     let applied = apply_template(
         &app,
+        Some(&admin_token),
         template_id,
         json!({
             "name": "BTC copied draft",
@@ -43,7 +51,7 @@ async fn create_save_pause_edit_and_start_strategy() {
     assert_eq!(applied_body["budget"], "150.00");
     assert_eq!(applied_body["source_template_id"], template_id);
 
-    let preflight_failed = preflight_strategy(&app, strategy_id).await;
+    let preflight_failed = preflight_strategy(&app, &user_token, strategy_id).await;
     assert_eq!(preflight_failed.status(), StatusCode::OK);
     let preflight_failed_body = response_json(preflight_failed).await;
     assert_eq!(preflight_failed_body["ok"], false);
@@ -61,6 +69,7 @@ async fn create_save_pause_edit_and_start_strategy() {
 
     let saved = update_strategy(
         &app,
+        &user_token,
         strategy_id,
         json!({
             "name": "BTC live draft",
@@ -79,7 +88,7 @@ async fn create_save_pause_edit_and_start_strategy() {
     assert_eq!(saved_body["budget"], "180.00");
     assert_eq!(saved_body["grid_spacing_bps"], 45);
 
-    let started = start_strategy(&app, strategy_id).await;
+    let started = start_strategy(&app, &user_token, strategy_id).await;
     assert_eq!(started.status(), StatusCode::OK);
     let started_body = response_json(started).await;
     assert_eq!(started_body["status"], "Running");
@@ -94,6 +103,7 @@ async fn create_save_pause_edit_and_start_strategy() {
 
     let edit_rejected = update_strategy(
         &app,
+        &user_token,
         strategy_id,
         json!({
             "name": "should fail",
@@ -112,12 +122,12 @@ async fn create_save_pause_edit_and_start_strategy() {
         "only draft strategies can be edited"
     );
 
-    let paused = pause_strategies(&app, &[strategy_id]).await;
+    let paused = pause_strategies(&app, &user_token, &[strategy_id]).await;
     assert_eq!(paused.status(), StatusCode::OK);
     let paused_body = response_json(paused).await;
     assert_eq!(paused_body["paused"], 1);
 
-    let listed = list_strategies(&app).await;
+    let listed = list_strategies(&app, &user_token).await;
     assert_eq!(listed.status(), StatusCode::OK);
     let listed_body = response_json(listed).await;
     assert_eq!(listed_body["items"][0]["status"], "Paused");
@@ -126,9 +136,11 @@ async fn create_save_pause_edit_and_start_strategy() {
 #[tokio::test]
 async fn batch_pause_delete_and_stop_all_strategies() {
     let app = app();
+    let user_token = register_and_login(&app, "trader@example.com", "pass1234").await;
 
     let alpha = create_strategy(
         &app,
+        &user_token,
         json!({
             "name": "alpha",
             "symbol": "BTCUSDT",
@@ -148,6 +160,7 @@ async fn batch_pause_delete_and_stop_all_strategies() {
 
     let beta = create_strategy(
         &app,
+        &user_token,
         json!({
             "name": "beta",
             "symbol": "ETHUSDT",
@@ -167,6 +180,7 @@ async fn batch_pause_delete_and_stop_all_strategies() {
 
     let gamma = create_strategy(
         &app,
+        &user_token,
         json!({
             "name": "gamma",
             "symbol": "SOLUSDT",
@@ -184,23 +198,24 @@ async fn batch_pause_delete_and_stop_all_strategies() {
         .expect("gamma id")
         .to_string();
 
-    let alpha_started = start_strategy(&app, &alpha_id).await;
+    let alpha_started = start_strategy(&app, &user_token, &alpha_id).await;
     assert_eq!(alpha_started.status(), StatusCode::OK);
-    let beta_started = start_strategy(&app, &beta_id).await;
+    let beta_started = start_strategy(&app, &user_token, &beta_id).await;
     assert_eq!(beta_started.status(), StatusCode::OK);
 
-    let paused = pause_strategies(&app, &[&alpha_id, &beta_id]).await;
+    let paused = pause_strategies(&app, &user_token, &[&alpha_id, &beta_id]).await;
     assert_eq!(paused.status(), StatusCode::OK);
     let paused_body = response_json(paused).await;
     assert_eq!(paused_body["paused"], 2);
 
-    let deleted = delete_strategies(&app, &[&beta_id, &gamma_id]).await;
+    let deleted = delete_strategies(&app, &user_token, &[&beta_id, &gamma_id]).await;
     assert_eq!(deleted.status(), StatusCode::OK);
     let deleted_body = response_json(deleted).await;
     assert_eq!(deleted_body["deleted"], 2);
 
     let delta = create_strategy(
         &app,
+        &user_token,
         json!({
             "name": "delta",
             "symbol": "BNBUSDT",
@@ -218,15 +233,15 @@ async fn batch_pause_delete_and_stop_all_strategies() {
         .expect("delta id")
         .to_string();
 
-    let delta_started = start_strategy(&app, &delta_id).await;
+    let delta_started = start_strategy(&app, &user_token, &delta_id).await;
     assert_eq!(delta_started.status(), StatusCode::OK);
 
-    let stopped = stop_all_strategies(&app).await;
+    let stopped = stop_all_strategies(&app, &user_token).await;
     assert_eq!(stopped.status(), StatusCode::OK);
     let stopped_body = response_json(stopped).await;
     assert_eq!(stopped_body["stopped"], 2);
 
-    let listed = list_strategies(&app).await;
+    let listed = list_strategies(&app, &user_token).await;
     assert_eq!(listed.status(), StatusCode::OK);
     let listed_body = response_json(listed).await;
     assert_eq!(listed_body["items"].as_array().expect("items").len(), 2);
@@ -237,9 +252,11 @@ async fn batch_pause_delete_and_stop_all_strategies() {
 #[tokio::test]
 async fn failed_start_keeps_draft_editable_until_preflight_is_fixed() {
     let app = app();
+    let user_token = register_and_login(&app, "trader@example.com", "pass1234").await;
 
     let draft = create_strategy(
         &app,
+        &user_token,
         json!({
             "name": "recoverable",
             "symbol": "BTCUSDT",
@@ -257,7 +274,7 @@ async fn failed_start_keeps_draft_editable_until_preflight_is_fixed() {
         .expect("strategy id")
         .to_string();
 
-    let failed_start = start_strategy(&app, &strategy_id).await;
+    let failed_start = start_strategy(&app, &user_token, &strategy_id).await;
     assert_eq!(failed_start.status(), StatusCode::CONFLICT);
     let failed_start_body = response_json(failed_start).await;
     assert_eq!(failed_start_body["error"], "preflight failed");
@@ -269,6 +286,7 @@ async fn failed_start_keeps_draft_editable_until_preflight_is_fixed() {
 
     let repaired = update_strategy(
         &app,
+        &user_token,
         &strategy_id,
         json!({
             "name": "recoverable fixed",
@@ -286,7 +304,7 @@ async fn failed_start_keeps_draft_editable_until_preflight_is_fixed() {
     assert_eq!(repaired_body["status"], "Draft");
     assert_eq!(repaired_body["name"], "recoverable fixed");
 
-    let restarted = start_strategy(&app, &strategy_id).await;
+    let restarted = start_strategy(&app, &user_token, &strategy_id).await;
     assert_eq!(restarted.status(), StatusCode::OK);
     let restarted_body = response_json(restarted).await;
     assert_eq!(restarted_body["status"], "Running");
@@ -296,11 +314,35 @@ async fn failed_start_keeps_draft_editable_until_preflight_is_fixed() {
 #[tokio::test]
 async fn start_strategy_rejects_unknown_strategy_id() {
     let app = app();
+    let user_token = register_and_login(&app, "trader@example.com", "pass1234").await;
 
-    let response = start_strategy(&app, "strategy-missing").await;
+    let response = start_strategy(&app, &user_token, "strategy-missing").await;
 
     assert_eq!(response.status(), StatusCode::NOT_FOUND);
     assert_eq!(response_json(response).await["error"], "strategy not found");
+}
+
+#[tokio::test]
+async fn regular_user_cannot_create_admin_template() {
+    let app = app();
+    let user_token = register_and_login(&app, "trader@example.com", "pass1234").await;
+
+    let response = create_template(
+        &app,
+        Some(&user_token),
+        json!({
+            "name": "Forbidden Template",
+            "symbol": "BTCUSDT",
+            "budget": "100.00",
+            "grid_spacing_bps": 50,
+            "membership_ready": true,
+            "exchange_ready": true,
+            "symbol_ready": true,
+        }),
+    )
+    .await;
+
+    assert_eq!(response.status(), StatusCode::FORBIDDEN);
 }
 
 fn find_status<'a>(body: &'a Value, strategy_id: &str) -> Option<&'a str> {
@@ -312,17 +354,23 @@ fn find_status<'a>(body: &'a Value, strategy_id: &str) -> Option<&'a str> {
         .and_then(|item| item["status"].as_str())
 }
 
-async fn create_template(app: &axum::Router, payload: Value) -> axum::response::Response {
-    request(app, "POST", "/admin/templates", payload).await
+async fn create_template(
+    app: &axum::Router,
+    session_token: Option<&str>,
+    payload: Value,
+) -> axum::response::Response {
+    request(app, session_token, "POST", "/admin/templates", payload).await
 }
 
 async fn apply_template(
     app: &axum::Router,
+    session_token: Option<&str>,
     template_id: &str,
     payload: Value,
 ) -> axum::response::Response {
     request(
         app,
+        session_token,
         "POST",
         &format!("/admin/templates/{template_id}/apply"),
         payload,
@@ -330,21 +378,38 @@ async fn apply_template(
     .await
 }
 
-async fn create_strategy(app: &axum::Router, payload: Value) -> axum::response::Response {
-    request(app, "POST", "/strategies", payload).await
+async fn create_strategy(
+    app: &axum::Router,
+    session_token: &str,
+    payload: Value,
+) -> axum::response::Response {
+    request(app, Some(session_token), "POST", "/strategies", payload).await
 }
 
 async fn update_strategy(
     app: &axum::Router,
+    session_token: &str,
     strategy_id: &str,
     payload: Value,
 ) -> axum::response::Response {
-    request(app, "PUT", &format!("/strategies/{strategy_id}"), payload).await
-}
-
-async fn preflight_strategy(app: &axum::Router, strategy_id: &str) -> axum::response::Response {
     request(
         app,
+        Some(session_token),
+        "PUT",
+        &format!("/strategies/{strategy_id}"),
+        payload,
+    )
+    .await
+}
+
+async fn preflight_strategy(
+    app: &axum::Router,
+    session_token: &str,
+    strategy_id: &str,
+) -> axum::response::Response {
+    request(
+        app,
+        Some(session_token),
         "POST",
         &format!("/strategies/{strategy_id}/preflight"),
         json!({}),
@@ -352,9 +417,14 @@ async fn preflight_strategy(app: &axum::Router, strategy_id: &str) -> axum::resp
     .await
 }
 
-async fn start_strategy(app: &axum::Router, strategy_id: &str) -> axum::response::Response {
+async fn start_strategy(
+    app: &axum::Router,
+    session_token: &str,
+    strategy_id: &str,
+) -> axum::response::Response {
     request(
         app,
+        Some(session_token),
         "POST",
         &format!("/strategies/{strategy_id}/start"),
         json!({}),
@@ -362,9 +432,14 @@ async fn start_strategy(app: &axum::Router, strategy_id: &str) -> axum::response
     .await
 }
 
-async fn pause_strategies(app: &axum::Router, ids: &[&str]) -> axum::response::Response {
+async fn pause_strategies(
+    app: &axum::Router,
+    session_token: &str,
+    ids: &[&str],
+) -> axum::response::Response {
     request(
         app,
+        Some(session_token),
         "POST",
         "/strategies/batch/pause",
         json!({ "ids": ids }),
@@ -372,9 +447,14 @@ async fn pause_strategies(app: &axum::Router, ids: &[&str]) -> axum::response::R
     .await
 }
 
-async fn delete_strategies(app: &axum::Router, ids: &[&str]) -> axum::response::Response {
+async fn delete_strategies(
+    app: &axum::Router,
+    session_token: &str,
+    ids: &[&str],
+) -> axum::response::Response {
     request(
         app,
+        Some(session_token),
         "POST",
         "/strategies/batch/delete",
         json!({ "ids": ids }),
@@ -382,21 +462,25 @@ async fn delete_strategies(app: &axum::Router, ids: &[&str]) -> axum::response::
     .await
 }
 
-async fn stop_all_strategies(app: &axum::Router) -> axum::response::Response {
-    request(app, "POST", "/strategies/stop-all", json!({})).await
+async fn stop_all_strategies(app: &axum::Router, session_token: &str) -> axum::response::Response {
+    request(app, Some(session_token), "POST", "/strategies/stop-all", json!({})).await
 }
 
-async fn list_strategies(app: &axum::Router) -> axum::response::Response {
-    request(app, "GET", "/strategies", Value::Null).await
+async fn list_strategies(app: &axum::Router, session_token: &str) -> axum::response::Response {
+    request(app, Some(session_token), "GET", "/strategies", Value::Null).await
 }
 
 async fn request(
     app: &axum::Router,
+    session_token: Option<&str>,
     method: &str,
     uri: &str,
     payload: Value,
 ) -> axum::response::Response {
     let mut builder = Request::builder().method(method).uri(uri);
+    if let Some(session_token) = session_token {
+        builder = builder.header("authorization", format!("Bearer {session_token}"));
+    }
     if payload != Value::Null {
         builder = builder.header("content-type", "application/json");
     }

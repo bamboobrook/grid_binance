@@ -13,6 +13,8 @@ use getrandom::getrandom;
 use serde::{Deserialize, Serialize};
 use shared_events::{NotificationEvent, NotificationKind, NotificationRecord};
 
+use crate::services::auth_service::AuthError;
+
 const DEFAULT_BIND_CODE_TTL_SECONDS: i64 = 300;
 const MAX_BIND_CODE_TTL_SECONDS: i64 = 86_400;
 
@@ -83,6 +85,11 @@ pub struct NotificationInboxResponse {
 }
 
 impl TelegramService {
+    pub fn bind_code_owner(&self, code: &str) -> Option<String> {
+        let inner = self.inner.lock().expect("telegram state poisoned");
+        inner.bind_codes.get(code.trim()).map(|record| record.email.clone())
+    }
+
     pub fn create_bind_code(
         &self,
         request: CreateTelegramBindCodeRequest,
@@ -256,6 +263,16 @@ impl IntoResponse for TelegramError {
             }),
         )
             .into_response()
+    }
+}
+
+impl From<TelegramError> for AuthError {
+    fn from(value: TelegramError) -> Self {
+        match value.status {
+            StatusCode::BAD_REQUEST => AuthError::bad_request(value.message),
+            StatusCode::NOT_FOUND => AuthError::not_found(value.message),
+            _ => AuthError::unauthorized("valid session token required"),
+        }
     }
 }
 

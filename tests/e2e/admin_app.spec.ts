@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { createSessionToken } from "./support/sessionToken";
 
 test("anonymous user is redirected away from admin pages", async ({ page }) => {
   await page.goto("/admin/dashboard");
@@ -10,8 +11,11 @@ test("anonymous user is redirected away from admin pages", async ({ page }) => {
 test("admin can manage members and address pools", async ({ page, context }) => {
   await context.addCookies([
     {
-      name: "admin_session",
-      value: "active",
+      name: "session_token",
+      value: createSessionToken({
+        email: "admin@example.com",
+        is_admin: true,
+      }),
       domain: "localhost",
       path: "/",
     },

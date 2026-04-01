@@ -4,7 +4,10 @@ use axum::{
     http::{Request, StatusCode},
 };
 use serde_json::{json, Value};
+use shared_auth::session_token::{verify_session_token, SessionClaims};
 use tower::ServiceExt;
+
+const DEFAULT_SESSION_TOKEN_SECRET: &str = "grid-binance-dev-session-secret";
 
 #[tokio::test]
 async fn register_verify_login_and_enable_totp() {
@@ -82,7 +85,14 @@ async fn register_verify_login_and_enable_totp() {
         .as_str()
         .expect("session token")
         .to_owned();
-    assert!(session_token.as_str().starts_with("session-"));
+    assert_eq!(
+        verify_claims(&session_token),
+        SessionClaims {
+            email: "alice@example.com".to_string(),
+            is_admin: false,
+            sid: 2,
+        }
+    );
 
     let reset_request = app
         .clone()
@@ -181,10 +191,11 @@ async fn register_verify_login_and_enable_totp() {
         .unwrap();
 
     assert_eq!(login_with_totp.status(), StatusCode::OK);
-    assert!(response_json(login_with_totp).await["session_token"]
+    let session_token = response_json(login_with_totp).await["session_token"]
         .as_str()
         .expect("session token")
-        .starts_with("session-"));
+        .to_owned();
+    assert_eq!(verify_claims(&session_token).email, "alice@example.com");
 }
 
 #[tokio::test]
@@ -433,4 +444,8 @@ async fn response_json(response: axum::response::Response) -> Value {
     let body = response.into_body();
     let bytes = to_bytes(body, usize::MAX).await.unwrap();
     serde_json::from_slice(&bytes).unwrap()
+}
+
+fn verify_claims(session_token: &str) -> SessionClaims {
+    verify_session_token(DEFAULT_SESSION_TOKEN_SECRET, session_token).expect("valid session token")
 }

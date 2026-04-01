@@ -17,6 +17,8 @@ use serde::{Deserialize, Serialize};
 use shared_chain::assignment::AddressAssignment;
 use shared_domain::membership::{MembershipSnapshot, MembershipStatus};
 
+use crate::services::auth_service::AuthError;
+
 const ORDER_LEASE_MINUTES: i64 = 15;
 const MEMBERSHIP_DAYS: i64 = 30;
 const GRACE_DAYS: i64 = 3;
@@ -364,6 +366,15 @@ impl IntoResponse for MembershipError {
             }),
         )
             .into_response()
+    }
+}
+
+impl From<AuthError> for MembershipError {
+    fn from(value: AuthError) -> Self {
+        Self {
+            status: value.status,
+            message: value.message,
+        }
     }
 }
 

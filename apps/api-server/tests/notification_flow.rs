@@ -6,11 +6,16 @@ use axum::{
 use serde_json::{json, Value};
 use tower::ServiceExt;
 
+mod support;
+
+use support::register_and_login;
+
 #[tokio::test]
 async fn bind_telegram_and_dispatch_runtime_membership_alerts() {
     let app = app();
+    let session_token = register_and_login(&app, "trader@example.com", "pass1234").await;
 
-    let bind_code = create_bind_code(&app, "trader@example.com", None).await;
+    let bind_code = create_bind_code(&app, &session_token, "trader@example.com", None).await;
     assert_eq!(bind_code.status(), StatusCode::CREATED);
     let bind_code_body = response_json(bind_code).await;
     let code = bind_code_body["code"]
@@ -19,7 +24,7 @@ async fn bind_telegram_and_dispatch_runtime_membership_alerts() {
         .to_string();
     assert_eq!(bind_code_body["email"], "trader@example.com");
 
-    let bound = bind_telegram(&app, &code, "chat-9001").await;
+    let bound = bind_telegram(&app, &session_token, &code, "chat-9001").await;
     assert_eq!(bound.status(), StatusCode::OK);
     let bound_body = response_json(bound).await;
     assert_eq!(bound_body["email"], "trader@example.com");
@@ -27,6 +32,7 @@ async fn bind_telegram_and_dispatch_runtime_membership_alerts() {
 
     let deposit = dispatch_notification(
         &app,
+        &session_token,
         "trader@example.com",
         "DepositConfirmed",
         "Deposit received",
@@ -42,6 +48,7 @@ async fn bind_telegram_and_dispatch_runtime_membership_alerts() {
 
     let membership = dispatch_notification(
         &app,
+        &session_token,
         "trader@example.com",
         "MembershipExpiring",
         "Membership ending soon",
@@ -56,6 +63,7 @@ async fn bind_telegram_and_dispatch_runtime_membership_alerts() {
 
     let runtime = dispatch_notification(
         &app,
+        &session_token,
         "trader@example.com",
         "RuntimeError",
         "Runtime failure",
@@ -68,7 +76,7 @@ async fn bind_telegram_and_dispatch_runtime_membership_alerts() {
     assert_eq!(runtime_body["telegram_delivered"], true);
     assert_eq!(runtime_body["show_expiry_popup"], false);
 
-    let inbox = list_notifications(&app, "trader@example.com").await;
+    let inbox = list_notifications(&app, &session_token, "trader@example.com").await;
     assert_eq!(inbox.status(), StatusCode::OK);
     let inbox_body = response_json(inbox).await;
     let items = inbox_body["items"].as_array().expect("notification items");
@@ -82,13 +90,14 @@ async fn bind_telegram_and_dispatch_runtime_membership_alerts() {
 #[tokio::test]
 async fn previous_bind_code_is_rejected_after_regenerating_for_same_email() {
     let app = app();
+    let session_token = register_and_login(&app, "rotate@example.com", "pass1234").await;
 
-    let first = create_bind_code(&app, "rotate@example.com", None).await;
+    let first = create_bind_code(&app, &session_token, "rotate@example.com", None).await;
     assert_eq!(first.status(), StatusCode::CREATED);
     let first_body = response_json(first).await;
     let first_code = first_body["code"].as_str().expect("first code").to_string();
 
-    let second = create_bind_code(&app, "rotate@example.com", None).await;
+    let second = create_bind_code(&app, &session_token, "rotate@example.com", None).await;
     assert_eq!(second.status(), StatusCode::CREATED);
     let second_body = response_json(second).await;
     let second_code = second_body["code"]
@@ -97,14 +106,14 @@ async fn previous_bind_code_is_rejected_after_regenerating_for_same_email() {
         .to_string();
     assert_ne!(first_code, second_code);
 
-    let rejected = bind_telegram(&app, &first_code, "chat-old").await;
+    let rejected = bind_telegram(&app, &session_token, &first_code, "chat-old").await;
     assert_eq!(rejected.status(), StatusCode::NOT_FOUND);
     assert_eq!(
         response_json(rejected).await["error"],
         "bind code not found"
     );
 
-    let accepted = bind_telegram(&app, &second_code, "chat-new").await;
+    let accepted = bind_telegram(&app, &session_token, &second_code, "chat-new").await;
     assert_eq!(accepted.status(), StatusCode::OK);
     let accepted_body = response_json(accepted).await;
     assert_eq!(accepted_body["email"], "rotate@example.com");
@@ -114,8 +123,10 @@ async fn previous_bind_code_is_rejected_after_regenerating_for_same_email() {
 #[tokio::test]
 async fn expired_bind_code_is_rejected() {
     let app = app();
+    let session_token = register_and_login(&app, "expired-bind@example.com", "pass1234").await;
 
-    let bind_code = create_bind_code(&app, "expired-bind@example.com", Some(0)).await;
+    let bind_code =
+        create_bind_code(&app, &session_token, "expired-bind@example.com", Some(0)).await;
     assert_eq!(bind_code.status(), StatusCode::CREATED);
     let bind_code_body = response_json(bind_code).await;
     let code = bind_code_body["code"]
@@ -123,7 +134,7 @@ async fn expired_bind_code_is_rejected() {
         .expect("expired code")
         .to_string();
 
-    let rejected = bind_telegram(&app, &code, "chat-expired").await;
+    let rejected = bind_telegram(&app, &session_token, &code, "chat-expired").await;
     assert_eq!(rejected.status(), StatusCode::NOT_FOUND);
     assert_eq!(response_json(rejected).await["error"], "bind code expired");
 }
@@ -131,9 +142,11 @@ async fn expired_bind_code_is_rejected() {
 #[tokio::test]
 async fn unbound_email_keeps_telegram_delivery_disabled() {
     let app = app();
+    let session_token = register_and_login(&app, "unbound@example.com", "pass1234").await;
 
     let runtime = dispatch_notification(
         &app,
+        &session_token,
         "unbound@example.com",
         "RuntimeError",
         "Runtime failure",
@@ -150,8 +163,10 @@ async fn unbound_email_keeps_telegram_delivery_disabled() {
 #[tokio::test]
 async fn invalid_ttl_returns_bad_request_instead_of_panicking() {
     let app = app();
+    let session_token = register_and_login(&app, "invalid-ttl@example.com", "pass1234").await;
 
-    let response = create_bind_code(&app, "invalid-ttl@example.com", Some(i64::MAX)).await;
+    let response =
+        create_bind_code(&app, &session_token, "invalid-ttl@example.com", Some(i64::MAX)).await;
     assert_eq!(response.status(), StatusCode::BAD_REQUEST);
     assert_eq!(
         response_json(response).await["error"],
@@ -161,6 +176,7 @@ async fn invalid_ttl_returns_bad_request_instead_of_panicking() {
 
 async fn create_bind_code(
     app: &axum::Router,
+    session_token: &str,
     email: &str,
     ttl_seconds: Option<i64>,
 ) -> axum::response::Response {
@@ -169,6 +185,7 @@ async fn create_bind_code(
             Request::builder()
                 .method("POST")
                 .uri("/telegram/bind-codes")
+                .header("authorization", format!("Bearer {session_token}"))
                 .header("content-type", "application/json")
                 .body(Body::from(
                     json!({
@@ -183,12 +200,18 @@ async fn create_bind_code(
         .unwrap()
 }
 
-async fn bind_telegram(app: &axum::Router, code: &str, chat_id: &str) -> axum::response::Response {
+async fn bind_telegram(
+    app: &axum::Router,
+    session_token: &str,
+    code: &str,
+    chat_id: &str,
+) -> axum::response::Response {
     app.clone()
         .oneshot(
             Request::builder()
                 .method("POST")
                 .uri("/telegram/bind")
+                .header("authorization", format!("Bearer {session_token}"))
                 .header("content-type", "application/json")
                 .body(Body::from(
                     json!({
@@ -205,6 +228,7 @@ async fn bind_telegram(app: &axum::Router, code: &str, chat_id: &str) -> axum::r
 
 async fn dispatch_notification(
     app: &axum::Router,
+    session_token: &str,
     email: &str,
     kind: &str,
     title: &str,
@@ -215,6 +239,7 @@ async fn dispatch_notification(
             Request::builder()
                 .method("POST")
                 .uri("/notifications/dispatch")
+                .header("authorization", format!("Bearer {session_token}"))
                 .header("content-type", "application/json")
                 .body(Body::from(
                     json!({
@@ -231,12 +256,17 @@ async fn dispatch_notification(
         .unwrap()
 }
 
-async fn list_notifications(app: &axum::Router, email: &str) -> axum::response::Response {
+async fn list_notifications(
+    app: &axum::Router,
+    session_token: &str,
+    email: &str,
+) -> axum::response::Response {
     app.clone()
         .oneshot(
             Request::builder()
                 .method("GET")
                 .uri(format!("/notifications?email={email}"))
+                .header("authorization", format!("Bearer {session_token}"))
                 .body(Body::empty())
                 .unwrap(),
         )

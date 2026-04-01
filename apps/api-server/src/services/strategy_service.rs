@@ -10,6 +10,8 @@ use shared_domain::strategy::{
     PreflightFailure, PreflightReport, Strategy, StrategyStatus, StrategyTemplate,
 };
 
+use crate::services::auth_service::AuthError;
+
 #[derive(Clone, Default)]
 pub struct StrategyService {
     inner: Arc<Mutex<StrategyState>>,
@@ -431,5 +433,15 @@ impl IntoResponse for StrategyError {
         }
 
         (self.status, Json(body)).into_response()
+    }
+}
+
+impl From<AuthError> for StrategyError {
+    fn from(value: AuthError) -> Self {
+        Self {
+            status: value.status,
+            message: value.message.to_string(),
+            extra: None,
+        }
     }
 }

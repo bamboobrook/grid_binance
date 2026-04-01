@@ -1,5 +1,6 @@
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
+    env,
     sync::{Arc, Mutex},
 };
 
@@ -12,12 +13,17 @@ use serde::{Deserialize, Serialize};
 use shared_auth::{
     email_code::{issue_email_code, verify_email_code},
     password::{hash_password, verify_password},
+    session_token::{issue_session_token, verify_session_token, SessionClaims},
     totp::{current_code, generate_secret, verify_code},
 };
 
-#[derive(Clone, Default)]
+const DEFAULT_ADMIN_EMAILS: [&str; 1] = ["admin@example.com"];
+const DEFAULT_SESSION_TOKEN_SECRET: &str = "grid-binance-dev-session-secret";
+
+#[derive(Clone)]
 pub struct AuthService {
     inner: Arc<Mutex<AuthState>>,
+    config: Arc<AuthConfig>,
 }
 
 #[derive(Default)]
@@ -28,8 +34,12 @@ struct AuthState {
     sessions: HashMap<String, String>,
 }
 
+struct AuthConfig {
+    admin_emails: HashSet<String>,
+    session_token_secret: String,
+}
+
 struct UserRecord {
-    user_id: u64,
     password_hash: String,
     email_verified: bool,
     verification_code: Option<String>,
@@ -130,7 +140,6 @@ impl AuthService {
         inner.users.insert(
             email,
             UserRecord {
-                user_id,
                 password_hash: hash_password(&request.password),
                 email_verified: false,
                 verification_code: Some(verification_code.clone()),
@@ -198,9 +207,17 @@ impl AuthService {
             }
         }
 
-        let user_id = user.user_id;
+        let is_admin = self.config.admin_emails.contains(&email);
         inner.next_seed += 1;
-        let session_token = format!("session-{}-{}", user_id, inner.next_seed);
+        let session_token = issue_session_token(
+            &self.config.session_token_secret,
+            &SessionClaims {
+                email: email.clone(),
+                is_admin,
+                sid: inner.next_seed,
+            },
+        )
+        .map_err(|_| AuthError::unauthorized("valid session token required"))?;
         inner.sessions.insert(session_token.clone(), email);
 
         Ok(LoginResponse { session_token })
@@ -260,17 +277,12 @@ impl AuthService {
         session_token: &str,
     ) -> Result<EnableTotpResponse, AuthError> {
         let email = normalize_email(&request.email);
-        let mut inner = self.inner.lock().expect("auth state poisoned");
-        let session_email = inner
-            .sessions
-            .get(session_token)
-            .cloned()
-            .ok_or_else(|| AuthError::unauthorized("valid session token required"))?;
-
-        if session_email != email {
-            return Err(AuthError::unauthorized("session does not match user"));
+        let session_claims = self.session_claims(session_token)?;
+        if session_claims.email != email {
+            return Err(AuthError::forbidden("session does not match user"));
         }
 
+        let mut inner = self.inner.lock().expect("auth state poisoned");
         inner.next_seed += 1;
         let secret = generate_secret(inner.next_seed);
         let code = current_code(&secret);
@@ -288,30 +300,64 @@ impl AuthService {
 
         Ok(EnableTotpResponse { secret, code })
     }
+
+    pub fn session_claims(&self, session_token: &str) -> Result<SessionClaims, AuthError> {
+        let claims = verify_session_token(&self.config.session_token_secret, session_token)
+            .map_err(|_| AuthError::unauthorized("valid session token required"))?;
+        let email = normalize_email(&claims.email);
+        if email.is_empty() {
+            return Err(AuthError::unauthorized("valid session token required"));
+        }
+
+        let inner = self.inner.lock().expect("auth state poisoned");
+        let session_email = inner
+            .sessions
+            .get(session_token)
+            .ok_or_else(|| AuthError::unauthorized("valid session token required"))?;
+
+        if session_email != &email {
+            return Err(AuthError::unauthorized("valid session token required"));
+        }
+
+        Ok(SessionClaims {
+            email: email.clone(),
+            is_admin: claims.is_admin && self.config.admin_emails.contains(&email),
+            sid: claims.sid,
+        })
+    }
+}
+
+impl Default for AuthService {
+    fn default() -> Self {
+        Self {
+            inner: Arc::new(Mutex::new(AuthState::default())),
+            config: Arc::new(AuthConfig::from_env()),
+        }
+    }
 }
 
 #[derive(Debug)]
 pub struct AuthError {
-    status: StatusCode,
-    message: &'static str,
+    pub(crate) status: StatusCode,
+    pub(crate) message: &'static str,
 }
 
 impl AuthError {
-    fn bad_request(message: &'static str) -> Self {
+    pub(crate) fn bad_request(message: &'static str) -> Self {
         Self {
             status: StatusCode::BAD_REQUEST,
             message,
         }
     }
 
-    fn conflict(message: &'static str) -> Self {
+    pub(crate) fn conflict(message: &'static str) -> Self {
         Self {
             status: StatusCode::CONFLICT,
             message,
         }
     }
 
-    fn not_found(message: &'static str) -> Self {
+    pub(crate) fn not_found(message: &'static str) -> Self {
         Self {
             status: StatusCode::NOT_FOUND,
             message,
@@ -321,6 +367,13 @@ impl AuthError {
     pub(crate) fn unauthorized(message: &'static str) -> Self {
         Self {
             status: StatusCode::UNAUTHORIZED,
+            message,
+        }
+    }
+
+    pub(crate) fn forbidden(message: &'static str) -> Self {
+        Self {
+            status: StatusCode::FORBIDDEN,
             message,
         }
     }
@@ -345,6 +398,39 @@ struct ErrorResponse {
 
 fn normalize_email(email: &str) -> String {
     email.trim().to_lowercase()
+}
+
+impl AuthConfig {
+    fn from_env() -> Self {
+        Self {
+            admin_emails: load_admin_emails(),
+            session_token_secret: env::var("SESSION_TOKEN_SECRET")
+                .ok()
+                .map(|value| value.trim().to_owned())
+                .filter(|value| !value.is_empty())
+                .unwrap_or_else(|| DEFAULT_SESSION_TOKEN_SECRET.to_owned()),
+        }
+    }
+}
+
+fn load_admin_emails() -> HashSet<String> {
+    let configured = env::var("ADMIN_EMAILS").ok();
+    let emails = configured
+        .as_deref()
+        .unwrap_or("")
+        .split(',')
+        .map(normalize_email)
+        .filter(|email| !email.is_empty())
+        .collect::<HashSet<_>>();
+
+    if emails.is_empty() {
+        DEFAULT_ADMIN_EMAILS
+            .into_iter()
+            .map(normalize_email)
+            .collect()
+    } else {
+        emails
+    }
 }
 
 fn validate_password(password: &str) -> Result<(), AuthError> {

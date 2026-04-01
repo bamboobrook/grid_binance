@@ -6,15 +6,21 @@ use axum::{
 use serde_json::Value;
 use tower::ServiceExt;
 
+mod support;
+
+use support::register_and_login;
+
 #[tokio::test]
 async fn compute_strategy_and_account_profit_fee_and_cost_views() {
     let app = app();
+    let session_token = register_and_login(&app, "trader@example.com", "pass1234").await;
 
     let analytics = app
         .clone()
         .oneshot(
             Request::builder()
                 .uri("/analytics")
+                .header("authorization", format!("Bearer {session_token}"))
                 .body(Body::empty())
                 .expect("analytics request"),
         )
@@ -50,6 +56,7 @@ async fn compute_strategy_and_account_profit_fee_and_cost_views() {
         .oneshot(
             Request::builder()
                 .uri("/exports/analytics.csv")
+                .header("authorization", format!("Bearer {session_token}"))
                 .body(Body::empty())
                 .expect("export request"),
         )
