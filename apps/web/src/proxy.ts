@@ -26,13 +26,15 @@ export async function proxy(request: NextRequest) {
     return redirectToLogin(request);
   }
 
-  const profile = await fetchProfileSnapshot(sessionToken);
-  if (!profile) {
-    return redirectToLogin(request);
-  }
+  if (request.nextUrl.pathname.startsWith("/admin/")) {
+    if (!claims.is_admin) {
+      return redirectToLogin(request);
+    }
 
-  if (request.nextUrl.pathname.startsWith("/admin/") && !profile.admin_access_granted) {
-    return redirectToLogin(request);
+    const profile = await fetchProfileSnapshot(sessionToken);
+    if (!profile || !profile.admin_access_granted) {
+      return redirectToLogin(request);
+    }
   }
 
   return NextResponse.next();
