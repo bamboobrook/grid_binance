@@ -120,6 +120,62 @@ pub struct ManualMembershipRequest {
 }
 
 #[derive(Debug, Deserialize)]
+pub struct UpsertMembershipPlanRequest {
+    pub code: String,
+    pub name: String,
+    pub duration_days: i32,
+    pub is_active: bool,
+    pub prices: Vec<UpsertMembershipPlanPriceRequest>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct UpsertMembershipPlanPriceRequest {
+    pub chain: String,
+    pub asset: String,
+    pub amount: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct MembershipPlanConfigResponse {
+    pub code: String,
+    pub name: String,
+    pub duration_days: i32,
+    pub is_active: bool,
+    pub prices: Vec<MembershipPlanPriceResponse>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct MembershipPlanPriceResponse {
+    pub chain: String,
+    pub asset: String,
+    pub amount: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct MembershipPlanConfigListResponse {
+    pub plans: Vec<MembershipPlanConfigResponse>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct UpsertAddressPoolEntryRequest {
+    pub chain: String,
+    pub address: String,
+    pub is_enabled: bool,
+}
+
+#[derive(Debug, Serialize)]
+pub struct AddressPoolEntryResponse {
+    pub chain: String,
+    pub address: String,
+    pub is_enabled: bool,
+}
+
+#[derive(Debug, Serialize)]
+pub struct AddressPoolListResponse {
+    pub addresses: Vec<AddressPoolEntryResponse>,
+}
+
+#[derive(Debug, Deserialize)]
 pub struct AdminDepositsQuery {
     pub at: Option<DateTime<Utc>>,
 }
@@ -643,7 +699,17 @@ impl MembershipService {
                 let duration_days = request
                     .duration_days
                     .ok_or_else(|| MembershipError::bad_request("duration_days is required"))?;
-                let base = current.active_until.filter(|until| *until > request.at).unwrap_or(request.at);
+                let base = if current
+                    .grace_until
+                    .is_some_and(|grace_until| request.at <= grace_until)
+                {
+                    current.active_until.unwrap_or(request.at)
+                } else {
+                    current
+                        .active_until
+                        .filter(|until| *until > request.at)
+                        .unwrap_or(request.at)
+                };
                 let active_until = base + Duration::days(duration_days);
                 MembershipRecord {
                     activated_at: current.activated_at.or(Some(request.at)),
@@ -686,6 +752,154 @@ impl MembershipService {
             .find_membership_record(&email)
             .map_err(MembershipError::storage)?;
         Ok(snapshot_for(&email, record.as_ref(), Some(request.at)))
+    }
+
+    pub fn list_plan_configs(&self) -> Result<MembershipPlanConfigListResponse, MembershipError> {
+        self.bootstrap_defaults()?;
+        let plans = self.db.list_membership_plans().map_err(MembershipError::storage)?;
+        let prices = self.db.list_plan_prices().map_err(MembershipError::storage)?;
+        Ok(MembershipPlanConfigListResponse {
+            plans: plans
+                .into_iter()
+                .map(|plan| MembershipPlanConfigResponse {
+                    code: plan.code.clone(),
+                    name: plan.name,
+                    duration_days: plan.duration_days,
+                    is_active: plan.is_active,
+                    prices: prices
+                        .iter()
+                        .filter(|price| price.plan_code == plan.code)
+                        .map(|price| MembershipPlanPriceResponse {
+                            chain: price.chain.clone(),
+                            asset: price.asset.clone(),
+                            amount: price.amount.clone(),
+                        })
+                        .collect(),
+                })
+                .collect(),
+        })
+    }
+
+    pub fn upsert_plan_config(
+        &self,
+        actor_email: &str,
+        request: UpsertMembershipPlanRequest,
+    ) -> Result<MembershipPlanConfigResponse, MembershipError> {
+        self.bootstrap_defaults()?;
+        let code = normalize_code(&request.code);
+        let name = request.name.trim().to_owned();
+        if code.is_empty() || name.is_empty() || request.duration_days <= 0 {
+            return Err(MembershipError::bad_request(
+                "code, name, and positive duration_days are required",
+            ));
+        }
+        if request.prices.is_empty() {
+            return Err(MembershipError::bad_request("at least one price is required"));
+        }
+
+        self.db
+            .upsert_membership_plan(&MembershipPlanRecord {
+                code: code.clone(),
+                name: name.clone(),
+                duration_days: request.duration_days,
+                is_active: request.is_active,
+            })
+            .map_err(MembershipError::storage)?;
+
+        let mut prices = Vec::with_capacity(request.prices.len());
+        for price in request.prices {
+            let chain = normalize_chain(&price.chain);
+            let asset = normalize_asset(&price.asset);
+            if !DEFAULT_CHAIN_CODES.contains(&chain.as_str()) || !DEFAULT_ASSETS.contains(&asset.as_str()) {
+                return Err(MembershipError::bad_request("unsupported chain or asset"));
+            }
+            let amount = canonicalize_amount(&price.amount)
+                .map_err(|_| MembershipError::bad_request("invalid amount"))?;
+            self.db
+                .upsert_plan_price(&MembershipPlanPriceRecord {
+                    plan_code: code.clone(),
+                    chain: chain.clone(),
+                    asset: asset.clone(),
+                    amount: amount.clone(),
+                })
+                .map_err(MembershipError::storage)?;
+            prices.push(MembershipPlanPriceResponse { chain, asset, amount });
+        }
+
+        self.insert_audit(AuditLogRecord {
+            actor_email: actor_email.to_owned(),
+            action: "membership.plan_config_updated".to_owned(),
+            target_type: "membership_plan".to_owned(),
+            target_id: code.clone(),
+            payload: json!({
+                "duration_days": request.duration_days,
+                "is_active": request.is_active,
+                "price_count": prices.len(),
+            }),
+            created_at: Utc::now(),
+        })?;
+
+        Ok(MembershipPlanConfigResponse {
+            code,
+            name,
+            duration_days: request.duration_days,
+            is_active: request.is_active,
+            prices,
+        })
+    }
+
+    pub fn list_address_pools(&self) -> Result<AddressPoolListResponse, MembershipError> {
+        self.bootstrap_defaults()?;
+        let mut addresses = self
+            .db
+            .list_deposit_addresses()
+            .map_err(MembershipError::storage)?
+            .into_iter()
+            .map(|record| AddressPoolEntryResponse {
+                chain: record.chain,
+                address: record.address,
+                is_enabled: record.is_enabled,
+            })
+            .collect::<Vec<_>>();
+        addresses.sort_by(|left, right| left.chain.cmp(&right.chain).then_with(|| left.address.cmp(&right.address)));
+        Ok(AddressPoolListResponse { addresses })
+    }
+
+    pub fn upsert_address_pool_entry(
+        &self,
+        actor_email: &str,
+        request: UpsertAddressPoolEntryRequest,
+    ) -> Result<AddressPoolEntryResponse, MembershipError> {
+        self.bootstrap_defaults()?;
+        let chain = normalize_chain(&request.chain);
+        let address = request.address.trim().to_owned();
+        if chain.is_empty() || address.is_empty() {
+            return Err(MembershipError::bad_request("chain and address are required"));
+        }
+        if !DEFAULT_CHAIN_CODES.contains(&chain.as_str()) {
+            return Err(MembershipError::bad_request("unsupported chain"));
+        }
+
+        self.db
+            .upsert_deposit_address(&DepositAddressPoolRecord {
+                chain: chain.clone(),
+                address: address.clone(),
+                is_enabled: request.is_enabled,
+            })
+            .map_err(MembershipError::storage)?;
+        self.insert_audit(AuditLogRecord {
+            actor_email: actor_email.to_owned(),
+            action: "billing.address_pool_updated".to_owned(),
+            target_type: "deposit_address".to_owned(),
+            target_id: format!("{chain}:{address}"),
+            payload: json!({ "is_enabled": request.is_enabled }),
+            created_at: Utc::now(),
+        })?;
+        Ok(AddressPoolEntryResponse {
+            chain,
+            address,
+            is_enabled: request.is_enabled,
+        })
     }
 
     pub fn admin_list_deposits(
@@ -924,29 +1138,43 @@ impl MembershipService {
     }
 
     fn bootstrap_defaults(&self) -> Result<(), MembershipError> {
+        let existing_plans = self
+            .db
+            .list_membership_plans()
+            .map_err(MembershipError::storage)?;
+        let existing_prices = self
+            .db
+            .list_plan_prices()
+            .map_err(MembershipError::storage)?;
         let existing_addresses = self
             .db
             .list_deposit_addresses()
             .map_err(MembershipError::storage)?;
         for (code, name, duration_days, amount) in DEFAULT_PLAN_CONFIG {
-            self.db
-                .upsert_membership_plan(&MembershipPlanRecord {
-                    code: code.to_owned(),
-                    name: name.to_owned(),
-                    duration_days,
-                    is_active: true,
-                })
-                .map_err(MembershipError::storage)?;
+            if !existing_plans.iter().any(|plan| plan.code == code) {
+                self.db
+                    .upsert_membership_plan(&MembershipPlanRecord {
+                        code: code.to_owned(),
+                        name: name.to_owned(),
+                        duration_days,
+                        is_active: true,
+                    })
+                    .map_err(MembershipError::storage)?;
+            }
             for chain in DEFAULT_CHAIN_CODES {
                 for asset in DEFAULT_ASSETS {
-                    self.db
-                        .upsert_plan_price(&MembershipPlanPriceRecord {
-                            plan_code: code.to_owned(),
-                            chain: chain.to_owned(),
-                            asset: asset.to_owned(),
-                            amount: amount.to_owned(),
-                        })
-                        .map_err(MembershipError::storage)?;
+                    if !existing_prices.iter().any(|price| {
+                        price.plan_code == code && price.chain == chain && price.asset == asset
+                    }) {
+                        self.db
+                            .upsert_plan_price(&MembershipPlanPriceRecord {
+                                plan_code: code.to_owned(),
+                                chain: chain.to_owned(),
+                                asset: asset.to_owned(),
+                                amount: amount.to_owned(),
+                            })
+                            .map_err(MembershipError::storage)?;
+                    }
                 }
             }
         }

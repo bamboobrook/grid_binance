@@ -422,6 +422,37 @@ async fn admin_can_open_extend_and_unfreeze_membership_manually() {
 }
 
 #[tokio::test]
+async fn manual_extend_during_grace_stacks_from_previous_expiry() {
+    let app = app();
+    let admin_token = register_admin_and_login(&app).await;
+
+    let opened = manage_membership(
+        &app,
+        &admin_token,
+        "grace-stack@example.com",
+        "open",
+        Some(30),
+        "2026-04-01T00:00:00Z",
+    )
+    .await;
+    assert_eq!(opened.status(), StatusCode::OK);
+
+    let extended = manage_membership(
+        &app,
+        &admin_token,
+        "grace-stack@example.com",
+        "extend",
+        Some(10),
+        "2026-05-02T12:00:00Z",
+    )
+    .await;
+    assert_eq!(extended.status(), StatusCode::OK);
+    let extended_body = response_json(extended).await;
+    assert_eq!(extended_body["active_until"], "2026-05-11T00:00:00Z");
+    assert_eq!(extended_body["status"], "Active");
+}
+
+#[tokio::test]
 async fn anonymous_user_cannot_override_membership() {
     let app = app();
 
