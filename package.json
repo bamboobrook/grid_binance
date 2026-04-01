@@ -6,6 +6,10 @@
     "build:web": "pnpm --filter web build",
     "build": "pnpm build:web",
     "lint": "pnpm --filter web lint",
-    "test": ". \"$HOME/.cargo/env\" && cargo test --workspace && node --test tests/verification/*.test.mjs"
+    "test": ". \"$HOME/.cargo/env\" && cargo test --workspace && node --test tests/verification/*.test.mjs",
+    "test:e2e": "playwright test --config apps/web/playwright.config.ts"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.56.0"
   }
 }
