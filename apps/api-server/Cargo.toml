@@ -7,12 +7,14 @@ edition = "2021"
 axum = "0.8"
 billing-chain-listener = { path = "../billing-chain-listener" }
 chrono = { version = "0.4", features = ["serde"] }
+rust_decimal = "1"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 shared-binance = { path = "../../crates/shared-binance" }
 shared-chain = { path = "../../crates/shared-chain" }
 shared-auth = { path = "../../crates/shared-auth" }
 shared-domain = { path = "../../crates/shared-domain" }
+trading-engine = { path = "../trading-engine" }
 
 [dev-dependencies]
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }

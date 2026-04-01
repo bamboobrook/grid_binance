@@ -29,6 +29,7 @@ dependencies = [
  "axum",
  "billing-chain-listener",
  "chrono",
+ "rust_decimal",
  "serde",
  "serde_json",
  "shared-auth",
@@ -37,6 +38,7 @@ dependencies = [
  "shared-domain",
  "tokio",
  "tower",
+ "trading-engine",
 ]
 
 [[package]]
@@ -897,6 +899,7 @@ name = "shared-domain"
 version = "0.1.0"
 dependencies = [
  "chrono",
+ "rust_decimal",
  "serde",
 ]
 
@@ -1108,6 +1111,7 @@ name = "trading-engine"
 version = "0.1.0"
 dependencies = [
  "rust_decimal",
+ "shared-domain",
 ]
 
 [[package]]
