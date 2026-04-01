@@ -36,10 +36,10 @@ async fn fuzzy_search_matches_symbol_and_market_keywords() {
 }
 
 #[tokio::test]
-async fn hedge_mode_validation_flags_account_without_dual_side_position() {
+async fn hedge_mode_validation_flags_mismatch_between_expectation_and_account_state() {
     let app = app();
 
-    let response = save_credentials(&app, "demo-key", "demo-secret", false).await;
+    let response = save_credentials(&app, "demo-key-oneway", "demo-secret", true).await;
 
     assert_eq!(response.status(), StatusCode::OK);
     let body = response_json(response).await;
@@ -48,11 +48,36 @@ async fn hedge_mode_validation_flags_account_without_dual_side_position() {
     assert_eq!(body["check"]["hedge_mode_ok"], false);
 }
 
+#[tokio::test]
+async fn empty_api_credentials_are_rejected() {
+    let app = app();
+
+    let response = save_credentials(&app, "", "", true).await;
+
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    assert_eq!(
+        response_json(response).await["error"],
+        "api_key and api_secret are required"
+    );
+}
+
+#[tokio::test]
+async fn empty_symbol_query_is_rejected() {
+    let app = app();
+    let sync = save_credentials(&app, "demo-key", "demo-secret", true).await;
+    assert_eq!(sync.status(), StatusCode::OK);
+
+    let response = search_symbols(&app, "   ").await;
+
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    assert_eq!(response_json(response).await["error"], "query is required");
+}
+
 async fn save_credentials(
     app: &axum::Router,
     api_key: &str,
     api_secret: &str,
-    hedge_mode_enabled: bool,
+    expected_hedge_mode: bool,
 ) -> axum::response::Response {
     app.clone()
         .oneshot(
@@ -64,7 +89,7 @@ async fn save_credentials(
                     json!({
                         "api_key": api_key,
                         "api_secret": api_secret,
-                        "hedge_mode_enabled": hedge_mode_enabled,
+                        "expected_hedge_mode": expected_hedge_mode,
                     })
                     .to_string(),
                 ))

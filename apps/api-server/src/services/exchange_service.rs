@@ -5,10 +5,10 @@ use axum::{
     response::{IntoResponse, Response},
     Json,
 };
-use scheduler::jobs::symbol_sync::sync_symbols;
 use serde::{Deserialize, Serialize};
 use shared_binance::{
-    matches_symbol_query, BinanceClient, ExchangeCredentialCheck, SymbolMetadata,
+    matches_symbol_query, sync_symbol_metadata, BinanceClient, ExchangeCredentialCheck,
+    SymbolMetadata,
 };
 
 #[derive(Clone, Default)]
@@ -25,7 +25,7 @@ struct ExchangeState {
 pub struct SaveBinanceCredentialsRequest {
     pub api_key: String,
     pub api_secret: String,
-    pub hedge_mode_enabled: bool,
+    pub expected_hedge_mode: bool,
 }
 
 #[derive(Debug, Serialize)]
@@ -55,13 +55,9 @@ impl ExchangeService {
             ));
         }
 
-        let client = BinanceClient::new(
-            request.api_key,
-            request.api_secret,
-            request.hedge_mode_enabled,
-        );
-        let check = client.check_credentials();
-        let symbols = sync_symbols(&client, &check);
+        let client = BinanceClient::new(request.api_key, request.api_secret);
+        let check = client.check_credentials(request.expected_hedge_mode);
+        let symbols = sync_symbol_metadata(&client, &check);
 
         let synced_symbols = symbols.len();
         let mut inner = self.inner.lock().expect("exchange state poisoned");

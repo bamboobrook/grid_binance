@@ -18,7 +18,6 @@ dependencies = [
  "axum",
  "billing-chain-listener",
  "chrono",
- "scheduler",
  "serde",
  "serde_json",
  "shared-auth",
