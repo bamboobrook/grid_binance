@@ -11,6 +11,7 @@ rust_decimal = "1"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 getrandom = "0.2"
+shared-db = { path = "../../crates/shared-db" }
 shared-binance = { path = "../../crates/shared-binance" }
 shared-chain = { path = "../../crates/shared-chain" }
 shared-auth = { path = "../../crates/shared-auth" }

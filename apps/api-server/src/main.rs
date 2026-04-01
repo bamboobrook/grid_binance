@@ -1,6 +1,7 @@
 use axum::{http::header, response::IntoResponse, routing::get, Router};
 use tokio::net::TcpListener;
 
+const DEFAULT_DB_PATH: &str = "data/api-server.sqlite3";
 const DEFAULT_PORT: u16 = 8080;
 const SERVICE_NAME: &str = "api-server";
 
@@ -9,7 +10,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let listener = TcpListener::bind(("0.0.0.0", configured_port(DEFAULT_PORT))).await?;
     let app = Router::new()
         .route("/healthz", get(healthz))
-        .merge(api_server::app());
+        .merge(api_server::app_with_persistent_state(configured_db_path(DEFAULT_DB_PATH))?);
 
     axum::serve(listener, app).await?;
     Ok(())
@@ -29,6 +30,14 @@ fn configured_port(default_port: u16) -> u16 {
     parse_port(std::env::var("PORT").ok(), default_port)
 }
 
+fn configured_db_path(default_path: &str) -> String {
+    std::env::var("APP_DB_PATH")
+        .ok()
+        .map(|path| path.trim().to_owned())
+        .filter(|path| !path.is_empty())
+        .unwrap_or_else(|| default_path.to_owned())
+}
+
 fn parse_port(value: Option<String>, default_port: u16) -> u16 {
     value
         .and_then(|port| port.parse().ok())
@@ -43,7 +52,7 @@ fn health_payload(service_name: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{health_payload, parse_port, DEFAULT_PORT, SERVICE_NAME};
+    use super::{configured_db_path, health_payload, parse_port, DEFAULT_DB_PATH, DEFAULT_PORT, SERVICE_NAME};
 
     #[test]
     fn health_payload_mentions_service_name() {
@@ -60,5 +69,18 @@ mod tests {
             parse_port(Some("not-a-port".to_string()), DEFAULT_PORT),
             DEFAULT_PORT
         );
+    }
+
+    #[test]
+    fn configured_db_path_uses_env_or_default() {
+        std::env::remove_var("APP_DB_PATH");
+        assert_eq!(configured_db_path(DEFAULT_DB_PATH), DEFAULT_DB_PATH);
+
+        std::env::set_var("APP_DB_PATH", "/tmp/runtime.sqlite3");
+        assert_eq!(
+            configured_db_path(DEFAULT_DB_PATH),
+            "/tmp/runtime.sqlite3".to_string()
+        );
+        std::env::remove_var("APP_DB_PATH");
     }
 }

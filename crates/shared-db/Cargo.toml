@@ -2,3 +2,9 @@
 name = "shared-db"
 version = "0.1.0"
 edition = "2021"
+
+[dependencies]
+chrono = "0.4"
+rusqlite = { version = "0.32", features = ["bundled"] }
+shared-chain = { path = "../shared-chain" }
+shared-domain = { path = "../shared-domain" }

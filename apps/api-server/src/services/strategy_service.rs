@@ -1,28 +1,19 @@
-use std::sync::{Arc, Mutex};
-
 use axum::{
     http::StatusCode,
     response::{IntoResponse, Response},
     Json,
 };
 use serde::{Deserialize, Serialize};
+use shared_db::{SharedDb, StoredStrategy, StoredStrategyTemplate};
 use shared_domain::strategy::{
     PreflightFailure, PreflightReport, Strategy, StrategyStatus, StrategyTemplate,
 };
 
 use crate::services::auth_service::AuthError;
 
-#[derive(Clone, Default)]
+#[derive(Clone)]
 pub struct StrategyService {
-    inner: Arc<Mutex<StrategyState>>,
-}
-
-#[derive(Default)]
-struct StrategyState {
-    next_strategy_id: usize,
-    next_template_id: usize,
-    strategies: Vec<Strategy>,
-    templates: Vec<StrategyTemplate>,
+    db: SharedDb,
 }
 
 #[derive(Debug, Deserialize)]
@@ -89,21 +80,35 @@ pub struct StopAllResponse {
     pub stopped: usize,
 }
 
+impl Default for StrategyService {
+    fn default() -> Self {
+        Self::new(SharedDb::in_memory().expect("in-memory strategy db should initialize"))
+    }
+}
+
 impl StrategyService {
+    pub fn new(db: SharedDb) -> Self {
+        Self { db }
+    }
+
     pub fn list_strategies(&self) -> StrategyListResponse {
-        let inner = self.inner.lock().expect("strategy state poisoned");
         StrategyListResponse {
-            items: inner.strategies.clone(),
+            items: self
+                .db
+                .list_strategies()
+                .unwrap_or_else(|_| Vec::new()),
         }
     }
 
     pub fn create_strategy(&self, request: SaveStrategyRequest) -> Result<Strategy, StrategyError> {
         validate_strategy_request(&request)?;
 
-        let mut inner = self.inner.lock().expect("strategy state poisoned");
-        inner.next_strategy_id += 1;
+        let sequence_id = self
+            .db
+            .next_sequence("strategy")
+            .map_err(StrategyError::storage)?;
         let strategy = Strategy {
-            id: format!("strategy-{}", inner.next_strategy_id),
+            id: format!("strategy-{sequence_id}"),
             name: request.name,
             symbol: request.symbol,
             budget: request.budget,
@@ -114,7 +119,12 @@ impl StrategyService {
             exchange_ready: request.exchange_ready,
             symbol_ready: request.symbol_ready,
         };
-        inner.strategies.push(strategy.clone());
+        self.db
+            .insert_strategy(&StoredStrategy {
+                sequence_id,
+                strategy: strategy.clone(),
+            })
+            .map_err(StrategyError::storage)?;
         Ok(strategy)
     }
 
@@ -125,8 +135,11 @@ impl StrategyService {
     ) -> Result<Strategy, StrategyError> {
         validate_strategy_request(&request)?;
 
-        let mut inner = self.inner.lock().expect("strategy state poisoned");
-        let strategy = find_strategy_mut(&mut inner.strategies, strategy_id)?;
+        let mut strategy = self
+            .db
+            .find_strategy(strategy_id)
+            .map_err(StrategyError::storage)?
+            .ok_or_else(|| StrategyError::not_found("strategy not found"))?;
 
         if strategy.status != StrategyStatus::Draft {
             return Err(StrategyError::conflict(
@@ -142,32 +155,42 @@ impl StrategyService {
         strategy.exchange_ready = request.exchange_ready;
         strategy.symbol_ready = request.symbol_ready;
 
-        Ok(strategy.clone())
+        self.db
+            .update_strategy(&strategy)
+            .map_err(StrategyError::storage)?;
+        Ok(strategy)
     }
 
     pub fn preflight_strategy(&self, strategy_id: &str) -> Result<PreflightReport, StrategyError> {
-        let inner = self.inner.lock().expect("strategy state poisoned");
-        let strategy = find_strategy(&inner.strategies, strategy_id)?;
-        Ok(run_preflight(strategy))
+        let strategy = self
+            .db
+            .find_strategy(strategy_id)
+            .map_err(StrategyError::storage)?
+            .ok_or_else(|| StrategyError::not_found("strategy not found"))?;
+        Ok(run_preflight(&strategy))
     }
 
     pub fn start_strategy(
         &self,
         strategy_id: &str,
     ) -> Result<StartStrategyResponse, StrategyError> {
-        let mut inner = self.inner.lock().expect("strategy state poisoned");
-        let strategy = find_strategy_mut(&mut inner.strategies, strategy_id)?;
-        let preflight = run_preflight(strategy);
+        let mut strategy = self
+            .db
+            .find_strategy(strategy_id)
+            .map_err(StrategyError::storage)?
+            .ok_or_else(|| StrategyError::not_found("strategy not found"))?;
+        let preflight = run_preflight(&strategy);
 
         if !preflight.ok {
             return Err(StrategyError::preflight_failed(preflight));
         }
 
         strategy.status = StrategyStatus::Running;
-        Ok(StartStrategyResponse {
-            strategy: strategy.clone(),
-            preflight,
-        })
+        self.db
+            .update_strategy(&strategy)
+            .map_err(StrategyError::storage)?;
+
+        Ok(StartStrategyResponse { strategy, preflight })
     }
 
     pub fn pause_strategies(
@@ -178,14 +201,19 @@ impl StrategyService {
             return Err(StrategyError::bad_request("ids are required"));
         }
 
-        let mut inner = self.inner.lock().expect("strategy state poisoned");
         let mut paused = 0;
-
-        for strategy in &mut inner.strategies {
+        for mut strategy in self
+            .db
+            .list_strategies()
+            .map_err(StrategyError::storage)?
+        {
             if request.ids.iter().any(|id| id == &strategy.id)
                 && strategy.status == StrategyStatus::Running
             {
                 strategy.status = StrategyStatus::Paused;
+                self.db
+                    .update_strategy(&strategy)
+                    .map_err(StrategyError::storage)?;
                 paused += 1;
             }
         }
@@ -201,29 +229,39 @@ impl StrategyService {
             return Err(StrategyError::bad_request("ids are required"));
         }
 
-        let mut inner = self.inner.lock().expect("strategy state poisoned");
-        let before = inner.strategies.len();
-        inner.strategies.retain(|strategy| {
-            !(request.ids.iter().any(|id| id == &strategy.id)
-                && strategy.status != StrategyStatus::Running)
-        });
+        let mut deleted = 0;
+        for strategy in self
+            .db
+            .list_strategies()
+            .map_err(StrategyError::storage)?
+        {
+            if request.ids.iter().any(|id| id == &strategy.id)
+                && strategy.status != StrategyStatus::Running
+            {
+                deleted += self
+                    .db
+                    .delete_strategy(&strategy.id)
+                    .map_err(StrategyError::storage)?;
+            }
+        }
 
-        Ok(BatchDeleteResponse {
-            deleted: before - inner.strategies.len(),
-        })
+        Ok(BatchDeleteResponse { deleted })
     }
 
     pub fn stop_all(&self) -> StopAllResponse {
-        let mut inner = self.inner.lock().expect("strategy state poisoned");
         let mut stopped = 0;
 
-        for strategy in &mut inner.strategies {
-            if matches!(
-                strategy.status,
-                StrategyStatus::Running | StrategyStatus::Paused
-            ) {
-                strategy.status = StrategyStatus::Stopped;
-                stopped += 1;
+        if let Ok(strategies) = self.db.list_strategies() {
+            for mut strategy in strategies {
+                if matches!(
+                    strategy.status,
+                    StrategyStatus::Running | StrategyStatus::Paused
+                ) {
+                    strategy.status = StrategyStatus::Stopped;
+                    if self.db.update_strategy(&strategy).is_ok() {
+                        stopped += 1;
+                    }
+                }
             }
         }
 
@@ -231,9 +269,11 @@ impl StrategyService {
     }
 
     pub fn list_templates(&self) -> TemplateListResponse {
-        let inner = self.inner.lock().expect("strategy state poisoned");
         TemplateListResponse {
-            items: inner.templates.clone(),
+            items: self
+                .db
+                .list_templates()
+                .unwrap_or_else(|_| Vec::new()),
         }
     }
 
@@ -243,10 +283,12 @@ impl StrategyService {
     ) -> Result<StrategyTemplate, StrategyError> {
         validate_template_request(&request)?;
 
-        let mut inner = self.inner.lock().expect("strategy state poisoned");
-        inner.next_template_id += 1;
+        let sequence_id = self
+            .db
+            .next_sequence("strategy_template")
+            .map_err(StrategyError::storage)?;
         let template = StrategyTemplate {
-            id: format!("template-{}", inner.next_template_id),
+            id: format!("template-{sequence_id}"),
             name: request.name,
             symbol: request.symbol,
             budget: request.budget,
@@ -255,7 +297,12 @@ impl StrategyService {
             exchange_ready: request.exchange_ready,
             symbol_ready: request.symbol_ready,
         };
-        inner.templates.push(template.clone());
+        self.db
+            .insert_template(&StoredStrategyTemplate {
+                sequence_id,
+                template: template.clone(),
+            })
+            .map_err(StrategyError::storage)?;
         Ok(template)
     }
 
@@ -268,17 +315,17 @@ impl StrategyService {
             return Err(StrategyError::bad_request("name is required"));
         }
 
-        let mut inner = self.inner.lock().expect("strategy state poisoned");
-        let template = inner
-            .templates
-            .iter()
-            .find(|template| template.id == template_id)
-            .cloned()
+        let template = self
+            .db
+            .find_template(template_id)
+            .map_err(StrategyError::storage)?
             .ok_or_else(|| StrategyError::not_found("template not found"))?;
-
-        inner.next_strategy_id += 1;
+        let sequence_id = self
+            .db
+            .next_sequence("strategy")
+            .map_err(StrategyError::storage)?;
         let strategy = Strategy {
-            id: format!("strategy-{}", inner.next_strategy_id),
+            id: format!("strategy-{sequence_id}"),
             name: request.name,
             symbol: template.symbol,
             budget: template.budget,
@@ -289,29 +336,14 @@ impl StrategyService {
             exchange_ready: template.exchange_ready,
             symbol_ready: template.symbol_ready,
         };
-        inner.strategies.push(strategy.clone());
+        self.db
+            .insert_strategy(&StoredStrategy {
+                sequence_id,
+                strategy: strategy.clone(),
+            })
+            .map_err(StrategyError::storage)?;
         Ok(strategy)
     }
-}
-
-fn find_strategy<'a>(
-    strategies: &'a [Strategy],
-    strategy_id: &str,
-) -> Result<&'a Strategy, StrategyError> {
-    strategies
-        .iter()
-        .find(|strategy| strategy.id == strategy_id)
-        .ok_or_else(|| StrategyError::not_found("strategy not found"))
-}
-
-fn find_strategy_mut<'a>(
-    strategies: &'a mut [Strategy],
-    strategy_id: &str,
-) -> Result<&'a mut Strategy, StrategyError> {
-    strategies
-        .iter_mut()
-        .find(|strategy| strategy.id == strategy_id)
-        .ok_or_else(|| StrategyError::not_found("strategy not found"))
 }
 
 fn run_preflight(strategy: &Strategy) -> PreflightReport {
@@ -417,6 +449,14 @@ impl StrategyError {
             extra: Some(serde_json::json!({ "preflight": preflight })),
         }
     }
+
+    fn storage(_error: shared_db::SharedDbError) -> Self {
+        Self {
+            status: StatusCode::INTERNAL_SERVER_ERROR,
+            message: "internal storage error".to_string(),
+            extra: None,
+        }
+    }
 }
 
 impl IntoResponse for StrategyError {
@@ -443,5 +483,81 @@ impl From<AuthError> for StrategyError {
             message: value.message.to_string(),
             extra: None,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{
+        ApplyTemplateRequest, CreateTemplateRequest, SaveStrategyRequest, StrategyService,
+    };
+    use shared_db::SharedDb;
+    use shared_domain::strategy::StrategyStatus;
+    use std::{
+        path::PathBuf,
+        time::{SystemTime, UNIX_EPOCH},
+    };
+
+    #[test]
+    fn strategy_and_template_state_survive_service_restart() {
+        let db_path = temp_db_path("strategy");
+        let db = SharedDb::open(&db_path).expect("open db");
+        let service = StrategyService::new(db.clone());
+
+        let template = service
+            .create_template(CreateTemplateRequest {
+                name: "Starter".to_string(),
+                symbol: "BTCUSDT".to_string(),
+                budget: "1000".to_string(),
+                grid_spacing_bps: 50,
+                membership_ready: true,
+                exchange_ready: true,
+                symbol_ready: true,
+            })
+            .expect("create template");
+
+        service
+            .create_strategy(SaveStrategyRequest {
+                name: "Manual".to_string(),
+                symbol: "ETHUSDT".to_string(),
+                budget: "500".to_string(),
+                grid_spacing_bps: 40,
+                membership_ready: true,
+                exchange_ready: true,
+                symbol_ready: true,
+            })
+            .expect("create strategy");
+
+        let reopened = StrategyService::new(SharedDb::open(&db_path).expect("reopen db"));
+        let from_template = reopened
+            .apply_template(
+                &template.id,
+                ApplyTemplateRequest {
+                    name: "Applied".to_string(),
+                },
+            )
+            .expect("apply template");
+        reopened
+            .start_strategy(&from_template.id)
+            .expect("start strategy");
+
+        let restarted = StrategyService::new(SharedDb::open(&db_path).expect("reopen db"));
+        let strategies = restarted.list_strategies();
+        let templates = restarted.list_templates();
+
+        assert_eq!(templates.items.len(), 1);
+        assert!(strategies
+            .items
+            .iter()
+            .any(|strategy| strategy.id == from_template.id
+                && strategy.status == StrategyStatus::Running));
+    }
+
+    fn temp_db_path(label: &str) -> PathBuf {
+        let nonce = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("clock should be monotonic")
+            .as_nanos();
+        std::env::temp_dir().join(format!("grid-binance-{label}-{nonce}.sqlite3"))
     }
 }

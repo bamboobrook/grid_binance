@@ -1,3 +1,5 @@
+use std::path::Path;
+
 mod routes {
     pub mod admin_templates;
     pub mod analytics;
@@ -22,13 +24,14 @@ mod services {
 }
 
 use axum::{extract::FromRef, Router};
+use shared_db::{SharedDb, SharedDbError};
 use services::{
     analytics_service::AnalyticsService, auth_service::AuthService,
     exchange_service::ExchangeService, membership_service::MembershipService,
     strategy_service::StrategyService, telegram_service::TelegramService,
 };
 
-#[derive(Clone, Default)]
+#[derive(Clone)]
 pub struct AppState {
     analytics: AnalyticsService,
     auth: AuthService,
@@ -36,6 +39,27 @@ pub struct AppState {
     membership: MembershipService,
     strategy: StrategyService,
     telegram: TelegramService,
+}
+
+impl AppState {
+    pub fn in_memory() -> Result<Self, SharedDbError> {
+        Self::from_shared_db(SharedDb::in_memory()?)
+    }
+
+    pub fn persistent(path: impl AsRef<Path>) -> Result<Self, SharedDbError> {
+        Self::from_shared_db(SharedDb::open(path)?)
+    }
+
+    fn from_shared_db(db: SharedDb) -> Result<Self, SharedDbError> {
+        Ok(Self {
+            analytics: AnalyticsService::default(),
+            auth: AuthService::new(db.clone()),
+            exchange: ExchangeService::default(),
+            membership: MembershipService::new(db.clone()),
+            strategy: StrategyService::new(db),
+            telegram: TelegramService::default(),
+        })
+    }
 }
 
 impl FromRef<AppState> for AuthService {
@@ -75,6 +99,14 @@ impl FromRef<AppState> for TelegramService {
 }
 
 pub fn app() -> Router {
+    app_with_state(AppState::in_memory().expect("test app state should initialize"))
+}
+
+pub fn app_with_persistent_state(path: impl AsRef<Path>) -> Result<Router, SharedDbError> {
+    Ok(app_with_state(AppState::persistent(path)?))
+}
+
+pub fn app_with_state(state: AppState) -> Router {
     Router::new()
         .merge(routes::admin_templates::router())
         .merge(routes::analytics::router())
@@ -86,5 +118,59 @@ pub fn app() -> Router {
         .merge(routes::security::router())
         .merge(routes::strategies::router())
         .merge(routes::telegram::router())
-        .with_state(AppState::default())
+        .with_state(state)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::AppState;
+    use crate::services::auth_service::{LoginRequest, RegisterUserRequest, VerifyEmailRequest};
+    use std::{
+        path::PathBuf,
+        time::{SystemTime, UNIX_EPOCH},
+    };
+
+    #[test]
+    fn persistent_app_state_reuses_file_backed_auth_data() {
+        let db_path = temp_db_path("app-state");
+        let first = AppState::persistent(&db_path).expect("open first app state");
+        let registered = first
+            .auth
+            .register(RegisterUserRequest {
+                email: "persisted@app.test".to_string(),
+                password: "secret".to_string(),
+            })
+            .expect("register user");
+        first
+            .auth
+            .verify_email(VerifyEmailRequest {
+                email: "persisted@app.test".to_string(),
+                code: registered.verification_code,
+            })
+            .expect("verify email");
+        let session = first
+            .auth
+            .login(LoginRequest {
+                email: "persisted@app.test".to_string(),
+                password: "secret".to_string(),
+                totp_code: None,
+            })
+            .expect("login");
+
+        let reopened = AppState::persistent(&db_path).expect("reopen app state");
+        let claims = reopened
+            .auth
+            .session_claims(&session.session_token)
+            .expect("session still exists");
+
+        assert_eq!(claims.email, "persisted@app.test");
+    }
+
+    fn temp_db_path(label: &str) -> PathBuf {
+        let nonce = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("clock should be monotonic")
+            .as_nanos();
+        std::env::temp_dir().join(format!("grid-binance-{label}-{nonce}.sqlite3"))
+    }
 }

@@ -1,20 +1,13 @@
-use std::{
-    collections::{HashMap, HashSet},
-    sync::{Arc, Mutex},
-};
-
 use axum::{
     http::StatusCode,
     response::{IntoResponse, Response},
     Json,
 };
-use billing_chain_listener::{
-    address_pool::AddressPool,
-    order_matcher::{canonicalize_amount, matches_assignment, ObservedTransfer},
-};
+use billing_chain_listener::order_matcher::{canonicalize_amount, matches_assignment, ObservedTransfer};
 use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
 use shared_chain::assignment::AddressAssignment;
+use shared_db::{BillingOrderRecord, MembershipRecord as StoredMembershipRecord, SharedDb};
 use shared_domain::membership::{MembershipSnapshot, MembershipStatus};
 
 use crate::services::auth_service::AuthError;
@@ -22,36 +15,11 @@ use crate::services::auth_service::AuthError;
 const ORDER_LEASE_MINUTES: i64 = 15;
 const MEMBERSHIP_DAYS: i64 = 30;
 const GRACE_DAYS: i64 = 3;
+const BSC_ADDRESSES: [&str; 3] = ["bsc-addr-1", "bsc-addr-2", "bsc-addr-3"];
 
 #[derive(Clone)]
 pub struct MembershipService {
-    inner: Arc<Mutex<MembershipState>>,
-}
-
-struct MembershipState {
-    next_order_id: u64,
-    address_pools: HashMap<String, AddressPool>,
-    orders: HashMap<u64, BillingOrder>,
-    memberships: HashMap<String, MembershipRecord>,
-    seen_transfers: HashSet<String>,
-}
-
-#[derive(Debug, Clone)]
-struct BillingOrder {
-    email: String,
-    amount: String,
-    requested_at: DateTime<Utc>,
-    assignment: AddressAssignment,
-    paid_at: Option<DateTime<Utc>>,
-    tx_hash: Option<String>,
-}
-
-#[derive(Debug, Clone, Default)]
-struct MembershipRecord {
-    activated_at: Option<DateTime<Utc>>,
-    active_until: Option<DateTime<Utc>>,
-    grace_until: Option<DateTime<Utc>>,
-    override_status: Option<MembershipStatus>,
+    db: SharedDb,
 }
 
 #[derive(Debug, Deserialize)]
@@ -108,33 +76,15 @@ pub struct MembershipOverrideRequest {
 
 impl Default for MembershipService {
     fn default() -> Self {
-        let mut address_pools = HashMap::new();
-        address_pools.insert(
-            "BSC".to_owned(),
-            AddressPool::new(
-                "BSC",
-                vec![
-                    "bsc-addr-1".to_owned(),
-                    "bsc-addr-2".to_owned(),
-                    "bsc-addr-3".to_owned(),
-                ],
-                Duration::minutes(ORDER_LEASE_MINUTES),
-            ),
-        );
-
-        Self {
-            inner: Arc::new(Mutex::new(MembershipState {
-                next_order_id: 0,
-                address_pools,
-                orders: HashMap::new(),
-                memberships: HashMap::new(),
-                seen_transfers: HashSet::new(),
-            })),
-        }
+        Self::new(SharedDb::in_memory().expect("in-memory membership db should initialize"))
     }
 }
 
 impl MembershipService {
+    pub fn new(db: SharedDb) -> Self {
+        Self { db }
+    }
+
     pub fn create_order(
         &self,
         request: CreateBillingOrderRequest,
@@ -151,28 +101,31 @@ impl MembershipService {
             ));
         }
 
-        let mut inner = self.inner.lock().expect("membership state poisoned");
-        let assignment = inner
-            .address_pools
-            .get_mut(&chain)
-            .ok_or_else(|| MembershipError::bad_request("unsupported chain"))?
-            .assign(request.requested_at)
+        if supported_addresses(&chain).is_none() {
+            return Err(MembershipError::bad_request("unsupported chain"));
+        }
+
+        let orders = self.db.list_billing_orders().map_err(MembershipError::storage)?;
+        let assignment = assign_address(&chain, request.requested_at, &orders)
             .ok_or_else(|| MembershipError::conflict("no address available"))?;
+        let order_id = self
+            .db
+            .next_sequence("billing_order_id")
+            .map_err(MembershipError::storage)?;
 
-        inner.next_order_id += 1;
-        let order_id = inner.next_order_id;
-
-        inner.orders.insert(
-            order_id,
-            BillingOrder {
+        self.db
+            .insert_billing_order(&BillingOrderRecord {
+                order_id,
                 email,
+                chain: assignment.chain.clone(),
+                plan_code,
                 amount: amount.clone(),
                 requested_at: request.requested_at,
                 assignment: assignment.clone(),
                 paid_at: None,
                 tx_hash: None,
-            },
-        );
+            })
+            .map_err(MembershipError::storage)?;
 
         Ok(CreateBillingOrderResponse {
             order_id,
@@ -202,19 +155,21 @@ impl MembershipService {
             ));
         }
 
-        let mut inner = self.inner.lock().expect("membership state poisoned");
-        if inner.seen_transfers.contains(&transfer.tx_hash) {
+        if !self
+            .db
+            .record_seen_transfer(&transfer.tx_hash, &transfer.chain, transfer.observed_at)
+            .map_err(MembershipError::storage)?
+        {
             return Ok(unmatched_response("duplicate_transaction"));
         }
 
-        inner.seen_transfers.insert(transfer.tx_hash.clone());
-
+        let orders = self.db.list_billing_orders().map_err(MembershipError::storage)?;
         let mut has_address_candidate = false;
         let mut has_exact_amount_candidate = false;
         let mut has_expired_exact_amount_candidate = false;
         let mut valid_candidates = Vec::new();
 
-        for (order_id, order) in &inner.orders {
+        for order in &orders {
             if order.paid_at.is_some()
                 || order.requested_at > transfer.observed_at
                 || order.assignment.chain != transfer.chain
@@ -238,14 +193,14 @@ impl MembershipService {
                 continue;
             }
 
-            valid_candidates.push(*order_id);
+            valid_candidates.push(order.clone());
         }
 
         if valid_candidates.len() > 1 {
             return Ok(unmatched_response("ambiguous_match"));
         }
 
-        let Some(order_id) = valid_candidates.first().copied() else {
+        let Some(order) = valid_candidates.into_iter().next() else {
             return Ok(unmatched_response(resolve_unmatched_reason(
                 has_address_candidate,
                 has_exact_amount_candidate,
@@ -253,32 +208,35 @@ impl MembershipService {
             )));
         };
 
-        let (email, snapshot) = {
-            let order = inner
-                .orders
-                .get_mut(&order_id)
-                .expect("matched order should exist");
-            order.paid_at = Some(transfer.observed_at);
-            order.tx_hash = Some(transfer.tx_hash.clone());
-            let email = order.email.clone();
-            let paid_at = transfer.observed_at;
+        let paid_at = transfer.observed_at;
+        let active_until = paid_at + Duration::days(MEMBERSHIP_DAYS);
+        let grace_until = active_until + Duration::days(GRACE_DAYS);
 
-            let record = inner.memberships.entry(email.clone()).or_default();
-            record.activated_at = Some(paid_at);
-            record.active_until = Some(paid_at + Duration::days(MEMBERSHIP_DAYS));
-            record.grace_until = record
-                .active_until
-                .map(|active_until| active_until + Duration::days(GRACE_DAYS));
+        self.db
+            .apply_membership_payment(
+                order.order_id,
+                &transfer.tx_hash,
+                paid_at,
+                &order.email,
+                active_until,
+                grace_until,
+            )
+            .map_err(MembershipError::storage)?;
 
-            let snapshot = snapshot_for(&email, Some(record), Some(paid_at));
-            (email, snapshot)
-        };
+        let snapshot = snapshot_for(
+            &order.email,
+            self.db
+                .find_membership_record(&order.email)
+                .map_err(MembershipError::storage)?
+                .as_ref(),
+            Some(paid_at),
+        );
 
         Ok(MatchBillingOrderResponse {
             matched: true,
             reason: None,
-            order_id: Some(order_id),
-            email: Some(email),
+            order_id: Some(order.order_id),
+            email: Some(order.email),
             membership_status: Some(snapshot.status),
             active_until: snapshot.active_until,
             grace_until: snapshot.grace_until,
@@ -294,12 +252,12 @@ impl MembershipService {
             return Err(MembershipError::bad_request("email is required"));
         }
 
-        let inner = self.inner.lock().expect("membership state poisoned");
-        Ok(snapshot_for(
-            &email,
-            inner.memberships.get(&email),
-            Some(request.at),
-        ))
+        let record = self
+            .db
+            .find_membership_record(&email)
+            .map_err(MembershipError::storage)?;
+
+        Ok(snapshot_for(&email, record.as_ref(), Some(request.at)))
     }
 
     pub fn override_membership(
@@ -320,18 +278,19 @@ impl MembershipService {
             ));
         }
 
-        let mut inner = self.inner.lock().expect("membership state poisoned");
+        self.db
+            .update_membership_override(&email, request.status.as_ref())
+            .map_err(MembershipError::storage)?;
+        let record = self
+            .db
+            .find_membership_record(&email)
+            .map_err(MembershipError::storage)?;
         let effective_at = {
-            let record = inner.memberships.entry(email.clone()).or_default();
-            record.override_status = request.status;
-            request.at.or(record.activated_at)
+            let activated_at = record.as_ref().and_then(|record| record.activated_at);
+            request.at.or(activated_at)
         };
 
-        Ok(snapshot_for(
-            &email,
-            inner.memberships.get(&email),
-            effective_at,
-        ))
+        Ok(snapshot_for(&email, record.as_ref(), effective_at))
     }
 }
 
@@ -353,6 +312,13 @@ impl MembershipError {
         Self {
             status: StatusCode::CONFLICT,
             message,
+        }
+    }
+
+    fn storage(_error: shared_db::SharedDbError) -> Self {
+        Self {
+            status: StatusCode::INTERNAL_SERVER_ERROR,
+            message: "internal storage error",
         }
     }
 }
@@ -385,7 +351,7 @@ struct MembershipErrorResponse {
 
 fn snapshot_for(
     email: &str,
-    record: Option<&MembershipRecord>,
+    record: Option<&StoredMembershipRecord>,
     at: Option<DateTime<Utc>>,
 ) -> MembershipSnapshot {
     let active_until = record.and_then(|value| value.active_until);
@@ -438,12 +404,49 @@ fn resolve_unmatched_reason(
     }
 }
 
-fn resolve_status(record: &MembershipRecord, at: Option<DateTime<Utc>>) -> MembershipStatus {
+fn resolve_status(
+    record: &StoredMembershipRecord,
+    at: Option<DateTime<Utc>>,
+) -> MembershipStatus {
     match (at, record.active_until, record.grace_until) {
         (Some(at), Some(active_until), _) if at <= active_until => MembershipStatus::Active,
         (Some(at), Some(_), Some(grace_until)) if at <= grace_until => MembershipStatus::Grace,
         (_, Some(_), Some(_)) => MembershipStatus::Expired,
         _ => MembershipStatus::Pending,
+    }
+}
+
+fn assign_address(
+    chain: &str,
+    requested_at: DateTime<Utc>,
+    orders: &[BillingOrderRecord],
+) -> Option<AddressAssignment> {
+    let addresses = supported_addresses(chain)?;
+    let expires_at = requested_at + Duration::minutes(ORDER_LEASE_MINUTES);
+
+    addresses.iter().find_map(|address| {
+        let reserved = orders.iter().any(|order| {
+            order.assignment.chain == chain
+                && order.assignment.address == *address
+                && order.assignment.expires_at > requested_at
+        });
+
+        if reserved {
+            None
+        } else {
+            Some(AddressAssignment {
+                chain: chain.to_owned(),
+                address: (*address).to_owned(),
+                expires_at,
+            })
+        }
+    })
+}
+
+fn supported_addresses(chain: &str) -> Option<&'static [&'static str]> {
+    match chain {
+        "BSC" => Some(&BSC_ADDRESSES),
+        _ => None,
     }
 }
 
@@ -453,4 +456,66 @@ fn normalize_email(email: &str) -> String {
 
 fn normalize_chain(chain: &str) -> String {
     chain.trim().to_uppercase()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{
+        CreateBillingOrderRequest, MatchBillingOrderRequest, MembershipService,
+        MembershipStatusRequest,
+    };
+    use chrono::{Duration, Utc};
+    use shared_db::SharedDb;
+    use shared_domain::membership::MembershipStatus;
+    use std::{
+        path::PathBuf,
+        time::{SystemTime, UNIX_EPOCH},
+    };
+
+    #[test]
+    fn membership_orders_and_status_survive_service_restart() {
+        let db_path = temp_db_path("membership");
+        let requested_at = Utc::now();
+        let db = SharedDb::open(&db_path).expect("open db");
+        let service = MembershipService::new(db.clone());
+
+        let order = service
+            .create_order(CreateBillingOrderRequest {
+                email: "member@example.com".to_string(),
+                chain: "BSC".to_string(),
+                plan_code: "pro-monthly".to_string(),
+                amount: "12.34".to_string(),
+                requested_at,
+            })
+            .expect("create order");
+
+        let reopened = MembershipService::new(SharedDb::open(&db_path).expect("reopen db"));
+        reopened
+            .match_order(MatchBillingOrderRequest {
+                chain: order.chain.clone(),
+                address: order.address.clone(),
+                amount: order.amount.clone(),
+                tx_hash: "0xtesthash".to_string(),
+                observed_at: requested_at + Duration::minutes(1),
+            })
+            .expect("match order");
+
+        let restarted = MembershipService::new(SharedDb::open(&db_path).expect("reopen db"));
+        let snapshot = restarted
+            .membership_status(MembershipStatusRequest {
+                email: "member@example.com".to_string(),
+                at: requested_at + Duration::minutes(2),
+            })
+            .expect("membership status");
+
+        assert_eq!(snapshot.status, MembershipStatus::Active);
+    }
+
+    fn temp_db_path(label: &str) -> PathBuf {
+        let nonce = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("clock should be monotonic")
+            .as_nanos();
+        std::env::temp_dir().join(format!("grid-binance-{label}-{nonce}.sqlite3"))
+    }
 }
