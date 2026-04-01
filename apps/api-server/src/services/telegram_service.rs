@@ -14,6 +14,7 @@ use serde::{Deserialize, Serialize};
 use shared_events::{NotificationEvent, NotificationKind, NotificationRecord};
 
 const DEFAULT_BIND_CODE_TTL_SECONDS: i64 = 300;
+const MAX_BIND_CODE_TTL_SECONDS: i64 = 86_400;
 
 #[derive(Clone, Default)]
 pub struct TelegramService {
@@ -96,7 +97,17 @@ impl TelegramService {
             inner.bind_codes.remove(&previous_code);
         }
 
-        let ttl_seconds = request.ttl_seconds.unwrap_or(DEFAULT_BIND_CODE_TTL_SECONDS);
+        let ttl_seconds = match request.ttl_seconds {
+            Some(ttl_seconds) if (0..=MAX_BIND_CODE_TTL_SECONDS).contains(&ttl_seconds) => {
+                ttl_seconds
+            }
+            Some(_) => {
+                return Err(TelegramError::bad_request(
+                    "ttl_seconds must be between 0 and 86400",
+                ));
+            }
+            None => DEFAULT_BIND_CODE_TTL_SECONDS,
+        };
         let expires_at = Utc::now() + Duration::seconds(ttl_seconds);
         let code = generate_bind_code(&inner);
 

@@ -147,6 +147,18 @@ async fn unbound_email_keeps_telegram_delivery_disabled() {
     assert_eq!(runtime_body["in_app_delivered"], true);
 }
 
+#[tokio::test]
+async fn invalid_ttl_returns_bad_request_instead_of_panicking() {
+    let app = app();
+
+    let response = create_bind_code(&app, "invalid-ttl@example.com", Some(i64::MAX)).await;
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    assert_eq!(
+        response_json(response).await["error"],
+        "ttl_seconds must be between 0 and 86400"
+    );
+}
+
 async fn create_bind_code(
     app: &axum::Router,
     email: &str,
