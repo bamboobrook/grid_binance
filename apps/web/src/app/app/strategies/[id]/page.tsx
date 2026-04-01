@@ -1,4 +1,7 @@
 import Link from "next/link";
+import { notFound } from "next/navigation";
+
+const validStrategyIds = new Set(["grid-btc"]);
 
 function formatStrategyId(id: string) {
   return id
@@ -14,6 +17,10 @@ export default async function StrategyDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+
+  if (!validStrategyIds.has(id)) {
+    notFound();
+  }
 
   return (
     <main>

@@ -37,3 +37,10 @@ test("user can review billing, security, and strategies", async ({ page }) => {
   await expect(page).toHaveURL(/\/help\/expiry-reminder$/);
   await expect(page.getByRole("heading", { name: "Expiry Reminder" })).toBeVisible();
 });
+
+test("invalid help slug returns 404", async ({ page }) => {
+  const response = await page.goto("/help/not-a-real-article");
+
+  expect(response?.status()).toBe(404);
+  await expect(page.getByText("404")).toBeVisible();
+});

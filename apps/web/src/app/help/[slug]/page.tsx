@@ -1,4 +1,7 @@
 import Link from "next/link";
+import { notFound } from "next/navigation";
+
+const validHelpSlugs = new Set(["expiry-reminder"]);
 
 function formatSlug(slug: string) {
   return slug
@@ -14,6 +17,11 @@ export default async function HelpArticlePage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
+
+  if (!validHelpSlugs.has(slug)) {
+    notFound();
+  }
+
   const title = formatSlug(slug);
 
   return (

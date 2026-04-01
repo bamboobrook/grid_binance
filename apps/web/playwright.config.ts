@@ -8,6 +8,6 @@ export default defineConfig({
   webServer: {
     command: "pnpm --filter web build && pnpm --filter web exec next start --hostname localhost --port 3000",
     url: "http://localhost:3000",
-    reuseExistingServer: !process.env.CI,
+    reuseExistingServer: false,
   },
 });
