@@ -607,6 +607,31 @@ fn configure_connection(connection: &Connection) -> Result<(), SharedDbError> {
          PRAGMA journal_mode = WAL;",
     )?;
     connection.execute_batch(INITIAL_CORE_MIGRATION)?;
+    ensure_strategy_owner_column(connection)?;
+    Ok(())
+}
+
+fn ensure_strategy_owner_column(connection: &Connection) -> Result<(), SharedDbError> {
+    let mut statement = connection.prepare("PRAGMA table_info(strategies)")?;
+    let columns = statement.query_map([], |row| row.get::<_, String>(1))?;
+    let has_owner_email = columns
+        .collect::<Result<Vec<_>, _>>()?
+        .iter()
+        .any(|column| column == "owner_email");
+
+    if !has_owner_email {
+        connection.execute(
+            "ALTER TABLE strategies
+             ADD COLUMN owner_email TEXT NOT NULL DEFAULT ''",
+            [],
+        )?;
+    }
+
+    connection.execute(
+        "CREATE INDEX IF NOT EXISTS idx_strategies_owner_email
+         ON strategies(owner_email)",
+        [],
+    )?;
     Ok(())
 }
 
@@ -778,7 +803,8 @@ fn to_from_sql_error(error: SharedDbError) -> rusqlite::Error {
 
 #[cfg(test)]
 mod tests {
-    use super::{AuthUserRecord, SharedDb};
+    use super::{AuthUserRecord, SharedDb, StoredStrategy};
+    use shared_domain::strategy::{Strategy, StrategyStatus};
     use std::{
         path::PathBuf,
         time::{SystemTime, UNIX_EPOCH},
@@ -818,6 +844,68 @@ mod tests {
 
         assert_eq!(user.user_id, 1);
         assert_eq!(user.verification_code.as_deref(), Some("123456"));
+    }
+
+    #[test]
+    fn opening_legacy_strategy_db_adds_owner_email_column() {
+        let path = temp_db_path("shared-db-legacy-strategy");
+        let legacy = rusqlite::Connection::open(&path).expect("open legacy db");
+        legacy
+            .execute_batch(
+                "CREATE TABLE strategies (
+                    id TEXT PRIMARY KEY,
+                    sequence_id INTEGER NOT NULL UNIQUE,
+                    name TEXT NOT NULL,
+                    symbol TEXT NOT NULL,
+                    budget TEXT NOT NULL,
+                    grid_spacing_bps INTEGER NOT NULL,
+                    status TEXT NOT NULL,
+                    source_template_id TEXT,
+                    membership_ready INTEGER NOT NULL,
+                    exchange_ready INTEGER NOT NULL,
+                    symbol_ready INTEGER NOT NULL
+                );
+                INSERT INTO strategies (
+                    id, sequence_id, name, symbol, budget, grid_spacing_bps, status,
+                    source_template_id, membership_ready, exchange_ready, symbol_ready
+                ) VALUES (
+                    'strategy-1', 1, 'legacy', 'BTCUSDT', '100.00', 50, 'Draft',
+                    NULL, 1, 1, 1
+                );",
+            )
+            .expect("create legacy strategies table");
+        drop(legacy);
+
+        let db = SharedDb::open(&path).expect("migrate legacy db");
+        let legacy_strategy = db
+            .find_strategy("", "strategy-1")
+            .expect("read migrated legacy strategy")
+            .expect("legacy strategy exists");
+        assert_eq!(legacy_strategy.owner_email, "");
+
+        let inserted_strategy = Strategy {
+            id: "strategy-2".to_string(),
+            owner_email: "owner@example.com".to_string(),
+            name: "isolated".to_string(),
+            symbol: "ETHUSDT".to_string(),
+            budget: "200.00".to_string(),
+            grid_spacing_bps: 40,
+            status: StrategyStatus::Draft,
+            source_template_id: None,
+            membership_ready: true,
+            exchange_ready: true,
+            symbol_ready: true,
+        };
+        db.insert_strategy(&StoredStrategy {
+            sequence_id: 2,
+            strategy: inserted_strategy.clone(),
+        })
+        .expect("insert owner strategy");
+
+        let listed = db
+            .list_strategies("owner@example.com")
+            .expect("list owner strategies");
+        assert_eq!(listed, vec![inserted_strategy]);
     }
 
     fn temp_db_path(label: &str) -> PathBuf {

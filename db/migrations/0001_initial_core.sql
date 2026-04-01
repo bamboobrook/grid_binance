@@ -89,7 +89,4 @@ CREATE TABLE IF NOT EXISTS strategies (
 CREATE INDEX IF NOT EXISTS idx_strategies_status
     ON strategies(status);
 
-CREATE INDEX IF NOT EXISTS idx_strategies_owner_email
-    ON strategies(owner_email);
-
 COMMIT;
