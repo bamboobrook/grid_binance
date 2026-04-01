@@ -4,4 +4,6 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+chrono = "0.4"
 shared-binance = { path = "../../crates/shared-binance" }
+shared-domain = { path = "../../crates/shared-domain" }

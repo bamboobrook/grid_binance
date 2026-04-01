@@ -2,3 +2,10 @@
 name = "market-data-gateway"
 version = "0.1.0"
 edition = "2021"
+
+[dependencies]
+rust_decimal = "1"
+shared-events = { path = "../../crates/shared-events" }
+
+[dev-dependencies]
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }

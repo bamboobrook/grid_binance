@@ -1,3 +1,3 @@
-pub fn bootstrap_label() -> &'static str {
-    "bootstrap"
-}
+pub mod market;
+
+pub use market::MarketTick;
