@@ -234,6 +234,75 @@ async fn batch_pause_delete_and_stop_all_strategies() {
     assert_eq!(find_status(&listed_body, &delta_id), Some("Stopped"));
 }
 
+#[tokio::test]
+async fn failed_start_keeps_draft_editable_until_preflight_is_fixed() {
+    let app = app();
+
+    let draft = create_strategy(
+        &app,
+        json!({
+            "name": "recoverable",
+            "symbol": "BTCUSDT",
+            "budget": "100.00",
+            "grid_spacing_bps": 50,
+            "membership_ready": true,
+            "exchange_ready": false,
+            "symbol_ready": true,
+        }),
+    )
+    .await;
+    assert_eq!(draft.status(), StatusCode::CREATED);
+    let strategy_id = response_json(draft).await["id"]
+        .as_str()
+        .expect("strategy id")
+        .to_string();
+
+    let failed_start = start_strategy(&app, &strategy_id).await;
+    assert_eq!(failed_start.status(), StatusCode::CONFLICT);
+    let failed_start_body = response_json(failed_start).await;
+    assert_eq!(failed_start_body["error"], "preflight failed");
+    assert_eq!(failed_start_body["preflight"]["ok"], false);
+    assert_eq!(
+        failed_start_body["preflight"]["failures"][0]["step"],
+        "exchange_connection"
+    );
+
+    let repaired = update_strategy(
+        &app,
+        &strategy_id,
+        json!({
+            "name": "recoverable fixed",
+            "symbol": "BTCUSDT",
+            "budget": "120.00",
+            "grid_spacing_bps": 45,
+            "membership_ready": true,
+            "exchange_ready": true,
+            "symbol_ready": true,
+        }),
+    )
+    .await;
+    assert_eq!(repaired.status(), StatusCode::OK);
+    let repaired_body = response_json(repaired).await;
+    assert_eq!(repaired_body["status"], "Draft");
+    assert_eq!(repaired_body["name"], "recoverable fixed");
+
+    let restarted = start_strategy(&app, &strategy_id).await;
+    assert_eq!(restarted.status(), StatusCode::OK);
+    let restarted_body = response_json(restarted).await;
+    assert_eq!(restarted_body["status"], "Running");
+    assert_eq!(restarted_body["preflight"]["ok"], true);
+}
+
+#[tokio::test]
+async fn start_strategy_rejects_unknown_strategy_id() {
+    let app = app();
+
+    let response = start_strategy(&app, "strategy-missing").await;
+
+    assert_eq!(response.status(), StatusCode::NOT_FOUND);
+    assert_eq!(response_json(response).await["error"], "strategy not found");
+}
+
 fn find_status<'a>(body: &'a Value, strategy_id: &str) -> Option<&'a str> {
     body["items"]
         .as_array()

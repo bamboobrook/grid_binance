@@ -158,8 +158,7 @@ impl StrategyService {
         let preflight = run_preflight(strategy);
 
         if !preflight.ok {
-            strategy.status = StrategyStatus::Error;
-            return Err(StrategyError::conflict("preflight failed"));
+            return Err(StrategyError::preflight_failed(preflight));
         }
 
         strategy.status = StrategyStatus::Running;
@@ -381,6 +380,7 @@ fn validate_template_request(request: &CreateTemplateRequest) -> Result<(), Stra
 pub struct StrategyError {
     status: StatusCode,
     message: String,
+    extra: Option<serde_json::Value>,
 }
 
 impl StrategyError {
@@ -388,6 +388,7 @@ impl StrategyError {
         Self {
             status: StatusCode::BAD_REQUEST,
             message: message.to_string(),
+            extra: None,
         }
     }
 
@@ -395,6 +396,7 @@ impl StrategyError {
         Self {
             status: StatusCode::NOT_FOUND,
             message: message.to_string(),
+            extra: None,
         }
     }
 
@@ -402,16 +404,32 @@ impl StrategyError {
         Self {
             status: StatusCode::CONFLICT,
             message: message.to_string(),
+            extra: None,
+        }
+    }
+
+    fn preflight_failed(preflight: PreflightReport) -> Self {
+        Self {
+            status: StatusCode::CONFLICT,
+            message: "preflight failed".to_string(),
+            extra: Some(serde_json::json!({ "preflight": preflight })),
         }
     }
 }
 
 impl IntoResponse for StrategyError {
     fn into_response(self) -> Response {
-        (
-            self.status,
-            Json(serde_json::json!({ "error": self.message })),
-        )
-            .into_response()
+        let mut body = serde_json::json!({ "error": self.message });
+        if let Some(extra) = self.extra {
+            if let (Some(body_object), Some(extra_object)) =
+                (body.as_object_mut(), extra.as_object())
+            {
+                for (key, value) in extra_object {
+                    body_object.insert(key.clone(), value.clone());
+                }
+            }
+        }
+
+        (self.status, Json(body)).into_response()
     }
 }
