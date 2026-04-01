@@ -238,6 +238,9 @@ async fn admin_can_expand_disable_and_list_address_pools() {
     )
     .await;
     assert_eq!(enabled.status(), StatusCode::OK);
+    let pools_after_enable = list_address_pools(&app, &admin_token).await;
+    assert_eq!(pools_after_enable.status(), StatusCode::OK);
+    let _ = response_json(pools_after_enable).await;
 
     let deposits = list_admin_deposits(&app, &admin_token, "2026-04-01T00:10:00Z").await;
     assert_eq!(deposits.status(), StatusCode::OK);

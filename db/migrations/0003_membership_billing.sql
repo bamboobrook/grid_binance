@@ -68,15 +68,20 @@ CREATE TABLE IF NOT EXISTS deposit_address_allocations (
     UNIQUE (order_id)
 );
 
+CREATE UNIQUE INDEX IF NOT EXISTS idx_deposit_address_allocations_active
+    ON deposit_address_allocations (chain, address)
+    WHERE released_at IS NULL;
+
 CREATE TABLE IF NOT EXISTS deposit_transactions (
-    tx_hash TEXT PRIMARY KEY,
     chain TEXT NOT NULL,
+    tx_hash TEXT NOT NULL,
     order_id BIGINT REFERENCES membership_orders(order_id) ON DELETE SET NULL,
     observed_at TIMESTAMPTZ NOT NULL,
     status TEXT NOT NULL,
     raw_payload JSONB NOT NULL DEFAULT '{}'::jsonb,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    PRIMARY KEY (chain, tx_hash)
 );
 
 CREATE TABLE IF NOT EXISTS deposit_order_queue (

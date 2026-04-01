@@ -573,6 +573,63 @@ impl SharedDb {
         }
     }
 
+    pub fn allocate_or_queue_billing_order(
+        &self,
+        order_id: u64,
+        chain: &str,
+        requested_at: DateTime<Utc>,
+    ) -> Result<Option<shared_chain::assignment::AddressAssignment>, SharedDbError> {
+        match &self.backend {
+            SharedDbBackend::Runtime { .. } => {
+                let repo = self.billing_repo();
+                let chain = chain.to_owned();
+                Self::block_on(async move {
+                    repo.allocate_or_queue_order(order_id, &chain, requested_at).await
+                })
+            }
+            SharedDbBackend::Ephemeral(state) => {
+                let mut state = lock_ephemeral(state)?;
+                let occupied: HashSet<String> = state
+                    .billing_orders
+                    .values()
+                    .filter(|order| order.chain == chain && order.paid_at.is_none())
+                    .filter_map(|order| {
+                        order.assignment.as_ref().and_then(|assignment| {
+                            (assignment.expires_at > requested_at).then_some(assignment.address.clone())
+                        })
+                    })
+                    .collect();
+                let mut candidates = state
+                    .deposit_addresses
+                    .values()
+                    .filter(|address| address.chain == chain && address.is_enabled)
+                    .map(|address| address.address.clone())
+                    .collect::<Vec<_>>();
+                candidates.sort();
+                if let Some(address) = candidates.into_iter().find(|address| !occupied.contains(address)) {
+                    let assignment = shared_chain::assignment::AddressAssignment {
+                        chain: chain.to_owned(),
+                        address,
+                        expires_at: requested_at + Duration::hours(1),
+                    };
+                    if let Some(order) = state.billing_orders.get_mut(&order_id) {
+                        order.assignment = Some(assignment.clone());
+                        order.status = "pending".to_owned();
+                        order.enqueued_at = None;
+                    }
+                    Ok(Some(assignment))
+                } else {
+                    if let Some(order) = state.billing_orders.get_mut(&order_id) {
+                        order.assignment = None;
+                        order.status = "queued".to_owned();
+                        order.enqueued_at = Some(requested_at);
+                    }
+                    Ok(None)
+                }
+            }
+        }
+    }
+
     pub fn list_membership_plans(&self) -> Result<Vec<MembershipPlanRecord>, SharedDbError> {
         match &self.backend {
             SharedDbBackend::Runtime { .. } => {
@@ -727,7 +784,7 @@ impl SharedDb {
             SharedDbBackend::Ephemeral(state) => {
                 lock_ephemeral(state)?
                     .deposit_transactions
-                    .insert(record.tx_hash.clone(), record.clone());
+                    .insert(format!("{}:{}", record.chain, record.tx_hash), record.clone());
                 Ok(())
             }
         }
@@ -864,6 +921,7 @@ impl SharedDb {
     pub fn apply_membership_payment(
         &self,
         order_id: u64,
+        chain: &str,
         tx_hash: &str,
         paid_at: DateTime<Utc>,
         email: &str,
@@ -873,10 +931,11 @@ impl SharedDb {
         match &self.backend {
             SharedDbBackend::Runtime { .. } => {
                 let repo = self.billing_repo();
+                let chain = chain.to_owned();
                 let tx_hash = tx_hash.to_owned();
                 let email = email.to_owned();
                 Self::block_on(async move {
-                    repo.apply_payment(order_id, &tx_hash, paid_at, &email, active_until, grace_until)
+                    repo.apply_payment(order_id, &chain, &tx_hash, paid_at, &email, active_until, grace_until)
                         .await
                 })
             }
@@ -888,7 +947,7 @@ impl SharedDb {
                     order.status = "paid".to_owned();
                     order.enqueued_at = None;
                 }
-                if let Some(deposit) = state.deposit_transactions.get_mut(tx_hash) {
+                if let Some(deposit) = state.deposit_transactions.get_mut(&format!("{chain}:{tx_hash}")) {
                     deposit.order_id = Some(order_id);
                     deposit.matched_order_id = Some(order_id);
                     deposit.status = "matched".to_owned();
@@ -1115,7 +1174,7 @@ impl Display for SharedDbError {
 impl Error for SharedDbError {}
 
 impl SharedDbError {
-    pub(crate) fn new(message: impl Into<String>) -> Self {
+    pub fn new(message: impl Into<String>) -> Self {
         Self {
             message: message.into(),
         }

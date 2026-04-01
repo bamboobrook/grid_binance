@@ -7,7 +7,6 @@ use billing_chain_listener::order_matcher::canonicalize_amount;
 use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use shared_chain::assignment::AddressAssignment;
 use shared_db::{
     AuditLogRecord, BillingOrderRecord, DepositAddressPoolRecord, DepositTransactionRecord,
     MembershipPlanPriceRecord, MembershipPlanRecord, MembershipRecord,
@@ -17,7 +16,6 @@ use shared_domain::membership::{MembershipSnapshot, MembershipStatus};
 
 use crate::services::auth_service::AuthError;
 
-const ORDER_LEASE_HOURS: i64 = 1;
 const GRACE_HOURS: i64 = 48;
 
 const DEFAULT_PLAN_CONFIG: [(&str, &str, i32, &str); 3] = [
@@ -305,27 +303,10 @@ impl MembershipService {
             .map(|price| price.amount)
             .ok_or_else(|| MembershipError::bad_request("price not configured for chain and asset"))?;
 
-        let existing_orders = self
-            .db
-            .list_billing_orders()
-            .map_err(MembershipError::storage)?;
-        let configured_addresses = self
-            .configured_addresses_for_chain(&chain)?
-            .into_iter()
-            .filter(|address| address.is_enabled)
-            .collect::<Vec<_>>();
         let order_id = self
             .db
             .next_sequence("billing_order_id")
             .map_err(MembershipError::storage)?;
-        let assignment = next_available_assignment(
-            &chain,
-            request.requested_at,
-            &existing_orders,
-            &configured_addresses,
-        );
-        let enqueued_at = assignment.is_none().then_some(request.requested_at);
-        let status = if assignment.is_some() { "pending" } else { "queued" }.to_owned();
 
         self.db
             .insert_billing_order(&BillingOrderRecord {
@@ -336,23 +317,27 @@ impl MembershipService {
                 plan_code,
                 amount: amount.clone(),
                 requested_at: request.requested_at,
-                assignment: assignment.clone(),
+                assignment: None,
                 paid_at: None,
                 tx_hash: None,
-                status,
-                enqueued_at,
+                status: "queued".to_owned(),
+                enqueued_at: Some(request.requested_at),
             })
             .map_err(MembershipError::storage)?;
 
-        let queue_position = if assignment.is_none() {
-            let refreshed = self
-                .db
-                .list_billing_orders()
-                .map_err(MembershipError::storage)?;
-            queue_position_for(order_id, &chain, &refreshed)
-        } else {
-            None
-        };
+        let assignment = self
+            .db
+            .allocate_or_queue_billing_order(order_id, &chain, request.requested_at)
+            .map_err(MembershipError::storage)?;
+
+        let refreshed = self
+            .db
+            .list_billing_orders()
+            .map_err(MembershipError::storage)?;
+        let queue_position = assignment
+            .is_none()
+            .then(|| queue_position_for(order_id, &chain, &refreshed))
+            .flatten();
 
         Ok(CreateBillingOrderResponse {
             order_id,
@@ -969,9 +954,20 @@ impl MembershipService {
             .db
             .list_deposit_transactions()
             .map_err(MembershipError::storage)?;
-        let deposit = deposits
-            .iter_mut()
-            .find(|deposit| deposit.tx_hash == tx_hash)
+        let matching_indexes = deposits
+            .iter()
+            .enumerate()
+            .filter_map(|(index, deposit)| (deposit.tx_hash == tx_hash).then_some(index))
+            .collect::<Vec<_>>();
+        if matching_indexes.len() > 1 {
+            return Err(MembershipError::bad_request(
+                "multiple deposits share this tx_hash across chains; refine the lookup",
+            ));
+        }
+        let deposit = matching_indexes
+            .into_iter()
+            .next()
+            .and_then(|index| deposits.get_mut(index))
             .ok_or_else(|| MembershipError::not_found("deposit not found"))?;
 
         if deposit.status != "manual_review_required" {
@@ -992,10 +988,25 @@ impl MembershipService {
                     .into_iter()
                     .find(|order| order.order_id == order_id)
                     .ok_or_else(|| MembershipError::not_found("order not found"))?;
+                if order.paid_at.is_some() {
+                    return Err(MembershipError::bad_request("order already paid"));
+                }
+                if deposit.order_id.is_some()
+                    && deposit.order_id != Some(order_id)
+                    && !matches!(
+                        deposit.review_reason.as_deref(),
+                        Some("order_not_found") | Some("ambiguous_match")
+                    )
+                {
+                    return Err(MembershipError::bad_request(
+                        "manual credit cannot reassign this deposit to a different order",
+                    ));
+                }
                 let (_active_until, _grace_until) =
                     self.apply_membership_entitlement(&order, &tx_hash, request.processed_at)?;
                 deposit.status = "manual_approved".to_owned();
                 deposit.processed_at = Some(request.processed_at);
+                deposit.order_id = Some(order_id);
                 deposit.matched_order_id = Some(order_id);
                 self.db
                     .upsert_deposit_transaction(deposit)
@@ -1217,10 +1228,12 @@ impl MembershipService {
             .db
             .list_billing_orders()
             .map_err(MembershipError::storage)?;
-        let mut chains = orders
-            .iter()
-            .map(|order| order.chain.clone())
-            .collect::<Vec<_>>();
+        let mut chains = Vec::new();
+        for order in &orders {
+            if !chains.contains(&order.chain) {
+                chains.push(order.chain.clone());
+            }
+        }
         for address in &addresses {
             if !chains.contains(&address.chain) {
                 chains.push(address.chain.clone());
@@ -1228,37 +1241,15 @@ impl MembershipService {
         }
 
         for chain in chains {
-            let enabled_addresses: Vec<_> = addresses
-                .iter()
-                .filter(|address| address.chain == chain && address.is_enabled)
-                .cloned()
-                .collect();
-
             let queued_orders = queued_orders_for(&chain, &orders);
             if queued_orders.is_empty() {
                 continue;
             }
 
-            let mut occupied = occupied_addresses(&chain, at, &orders);
-            let mut free_addresses = rotation_order(&chain, at, &orders, &enabled_addresses)
-                .into_iter()
-                .filter(|address| !occupied.contains(address))
-                .collect::<Vec<_>>();
-
             for order in queued_orders {
-                let Some(address) = free_addresses.first().cloned() else {
-                    break;
-                };
-                let assignment = AddressAssignment {
-                    chain: chain.clone(),
-                    address: address.clone(),
-                    expires_at: at + Duration::hours(ORDER_LEASE_HOURS),
-                };
                 self.db
-                    .update_billing_order_assignment(order.order_id, &assignment, "pending")
+                    .allocate_or_queue_billing_order(order.order_id, &chain, at)
                     .map_err(MembershipError::storage)?;
-                occupied.push(address.clone());
-                free_addresses.retain(|candidate| candidate != &address);
             }
         }
 
@@ -1300,6 +1291,7 @@ impl MembershipService {
         self.db
             .apply_membership_payment(
                 order.order_id,
+                &order.chain,
                 tx_hash,
                 paid_at,
                 &order.email,
@@ -1319,23 +1311,9 @@ impl MembershipService {
             .map_err(MembershipError::storage)
     }
 
-    fn configured_addresses_for_chain(
-        &self,
-        chain: &str,
-    ) -> Result<Vec<DepositAddressPoolRecord>, MembershipError> {
-        Ok(self
-            .db
-            .list_deposit_addresses()
-            .map_err(MembershipError::storage)?
-            .into_iter()
-            .filter(|address| address.chain == chain)
-            .collect())
-    }
-
     fn insert_audit(&self, record: AuditLogRecord) -> Result<(), MembershipError> {
-        self.db
-            .insert_audit_log(&record)
-            .map_err(MembershipError::storage)
+        let _ = self.db.insert_audit_log(&record);
+        Ok(())
     }
 }
 
@@ -1442,34 +1420,6 @@ fn resolve_status(record: &MembershipRecord, at: Option<DateTime<Utc>>) -> Membe
         _ => MembershipStatus::Pending,
     }
 }
-
-fn next_available_assignment(
-    chain: &str,
-    requested_at: DateTime<Utc>,
-    orders: &[BillingOrderRecord],
-    configured_addresses: &[DepositAddressPoolRecord],
-) -> Option<AddressAssignment> {
-    let rotation = rotation_order(chain, requested_at, orders, configured_addresses);
-    let free_address = rotation.into_iter().find(|address| {
-        !orders.iter().any(|order| {
-            order.chain == chain
-                && order.paid_at.is_none()
-                && order
-                    .assignment
-                    .as_ref()
-                    .is_some_and(|assignment| {
-                        assignment.address == *address && assignment.expires_at > requested_at
-                    })
-        })
-    })?;
-
-    Some(AddressAssignment {
-        chain: chain.to_owned(),
-        address: free_address,
-        expires_at: requested_at + Duration::hours(ORDER_LEASE_HOURS),
-    })
-}
-
 fn queued_orders_for<'a>(chain: &str, orders: &'a [BillingOrderRecord]) -> Vec<&'a BillingOrderRecord> {
     let mut queued = orders
         .iter()
@@ -1477,43 +1427,6 @@ fn queued_orders_for<'a>(chain: &str, orders: &'a [BillingOrderRecord]) -> Vec<&
         .collect::<Vec<_>>();
     queued.sort_by_key(|order| order.enqueued_at.unwrap_or(order.requested_at));
     queued
-}
-
-fn occupied_addresses(chain: &str, at: DateTime<Utc>, orders: &[BillingOrderRecord]) -> Vec<String> {
-    orders
-        .iter()
-        .filter(|order| order.chain == chain && order.paid_at.is_none())
-        .filter_map(|order| order.assignment.as_ref())
-        .filter(|assignment| assignment.expires_at > at)
-        .map(|assignment| assignment.address.clone())
-        .collect()
-}
-
-fn rotation_order(
-    chain: &str,
-    _at: DateTime<Utc>,
-    orders: &[BillingOrderRecord],
-    addresses: &[DepositAddressPoolRecord],
-) -> Vec<String> {
-    let mut ranked = addresses
-        .iter()
-        .filter(|address| address.chain == chain && address.is_enabled)
-        .map(|address| {
-            let last_assigned_at = orders
-                .iter()
-                .filter(|order| order.chain == chain)
-                .filter_map(|order| {
-                    order.assignment
-                        .as_ref()
-                        .filter(|assignment| assignment.address == address.address)
-                        .map(|_| order.requested_at)
-                })
-                .max();
-            (last_assigned_at, address.address.clone())
-        })
-        .collect::<Vec<_>>();
-    ranked.sort_by(|left, right| left.0.cmp(&right.0).then_with(|| left.1.cmp(&right.1)));
-    ranked.into_iter().map(|(_, address)| address).collect()
 }
 
 fn queue_position_for(order_id: u64, chain: &str, orders: &[BillingOrderRecord]) -> Option<u64> {

@@ -198,8 +198,164 @@ impl BillingRepository {
             .map_err(SharedDbError::from)?;
         }
 
+        if let Some(assignment) = &order.assignment {
+            upsert_allocation_in(&mut transaction, order.order_id, assignment).await?;
+        }
+
         transaction.commit().await.map_err(SharedDbError::from)?;
         Ok(())
+    }
+
+    pub async fn allocate_or_queue_order(
+        &self,
+        order_id: u64,
+        chain: &str,
+        requested_at: DateTime<Utc>,
+    ) -> Result<Option<AddressAssignment>, SharedDbError> {
+        let mut transaction = self.pool.begin().await.map_err(SharedDbError::from)?;
+        release_expired_allocations_in(&mut transaction, chain, requested_at).await?;
+
+        let existing = sqlx::query(
+            "SELECT assigned_address, address_expires_at, status, paid_at
+             FROM membership_orders
+             WHERE order_id = $1",
+        )
+        .bind(order_id as i64)
+        .fetch_optional(&mut *transaction)
+        .await
+        .map_err(SharedDbError::from)?;
+        let Some(existing) = existing else {
+            transaction.rollback().await.map_err(SharedDbError::from)?;
+            return Err(SharedDbError::new("billing order not found"));
+        };
+
+        let paid_at: Option<DateTime<Utc>> = existing.try_get("paid_at").map_err(SharedDbError::from)?;
+        if paid_at.is_some() {
+            transaction.rollback().await.map_err(SharedDbError::from)?;
+            return Ok(None);
+        }
+
+        let current_address: String = existing.try_get("assigned_address").map_err(SharedDbError::from)?;
+        let current_expires_at: DateTime<Utc> =
+            existing.try_get("address_expires_at").map_err(SharedDbError::from)?;
+        if !current_address.is_empty() && current_expires_at > requested_at {
+            transaction.rollback().await.map_err(SharedDbError::from)?;
+            return Ok(Some(AddressAssignment {
+                chain: chain.to_owned(),
+                address: current_address,
+                expires_at: current_expires_at,
+            }));
+        }
+
+        sqlx::query(
+            "UPDATE deposit_address_allocations
+             SET released_at = $2
+             WHERE order_id = $1
+               AND released_at IS NULL
+               AND expires_at <= $2",
+        )
+        .bind(order_id as i64)
+        .bind(requested_at)
+        .execute(&mut *transaction)
+        .await
+        .map_err(SharedDbError::from)?;
+
+        let candidates = sqlx::query(
+            "SELECT dap.address
+             FROM deposit_address_pool dap
+             LEFT JOIN LATERAL (
+                SELECT da.created_at
+                FROM deposit_address_allocations da
+                WHERE da.chain = dap.chain
+                  AND da.address = dap.address
+                ORDER BY da.created_at DESC
+                LIMIT 1
+             ) last_alloc ON TRUE
+             WHERE dap.chain = $1
+               AND dap.is_enabled = TRUE
+             ORDER BY last_alloc.created_at NULLS FIRST, dap.address ASC",
+        )
+        .bind(chain)
+        .fetch_all(&mut *transaction)
+        .await
+        .map_err(SharedDbError::from)?;
+
+        let mut allocated = None;
+        for row in candidates {
+            let address: String = row.try_get("address").map_err(SharedDbError::from)?;
+            let assignment = AddressAssignment {
+                chain: chain.to_owned(),
+                address,
+                expires_at: requested_at + chrono::Duration::hours(1),
+            };
+            let inserted = sqlx::query(
+                "INSERT INTO deposit_address_allocations (order_id, chain, address, expires_at, created_at)
+                 VALUES ($1, $2, $3, $4, now())
+                 ON CONFLICT DO NOTHING",
+            )
+            .bind(order_id as i64)
+            .bind(&assignment.chain)
+            .bind(&assignment.address)
+            .bind(assignment.expires_at)
+            .execute(&mut *transaction)
+            .await
+            .map_err(SharedDbError::from)?;
+            if inserted.rows_affected() == 1 {
+                sqlx::query(
+                    "UPDATE membership_orders
+                     SET assigned_address = $2,
+                         address_expires_at = $3,
+                         status = 'pending',
+                         updated_at = now()
+                     WHERE order_id = $1",
+                )
+                .bind(order_id as i64)
+                .bind(&assignment.address)
+                .bind(assignment.expires_at)
+                .execute(&mut *transaction)
+                .await
+                .map_err(SharedDbError::from)?;
+                sqlx::query("DELETE FROM deposit_order_queue WHERE order_id = $1")
+                    .bind(order_id as i64)
+                    .execute(&mut *transaction)
+                    .await
+                    .map_err(SharedDbError::from)?;
+                allocated = Some(assignment);
+                break;
+            }
+        }
+
+        if allocated.is_none() {
+            sqlx::query(
+                "INSERT INTO deposit_order_queue (order_id, chain, enqueued_at)
+                 VALUES ($1, $2, $3)
+                 ON CONFLICT (order_id) DO UPDATE
+                 SET chain = excluded.chain,
+                     enqueued_at = excluded.enqueued_at",
+            )
+            .bind(order_id as i64)
+            .bind(chain)
+            .bind(requested_at)
+            .execute(&mut *transaction)
+            .await
+            .map_err(SharedDbError::from)?;
+            sqlx::query(
+                "UPDATE membership_orders
+                 SET assigned_address = '',
+                     address_expires_at = $2,
+                     status = 'queued',
+                     updated_at = now()
+                 WHERE order_id = $1",
+            )
+            .bind(order_id as i64)
+            .bind(requested_at)
+            .execute(&mut *transaction)
+            .await
+            .map_err(SharedDbError::from)?;
+        }
+
+        transaction.commit().await.map_err(SharedDbError::from)?;
+        Ok(allocated)
     }
 
     pub async fn update_order_assignment(
@@ -252,7 +408,7 @@ impl BillingRepository {
                 updated_at
              )
              VALUES ($1, $2, $3, 'observed', '{}'::jsonb, now(), now())
-             ON CONFLICT (tx_hash) DO NOTHING",
+             ON CONFLICT (chain, tx_hash) DO NOTHING",
         )
         .bind(tx_hash)
         .bind(chain)
@@ -279,7 +435,7 @@ impl BillingRepository {
                 updated_at
              )
              VALUES ($1, $2, $3, $4, $5, $6, now(), now())
-             ON CONFLICT (tx_hash) DO UPDATE
+             ON CONFLICT (chain, tx_hash) DO UPDATE
              SET chain = excluded.chain,
                  order_id = excluded.order_id,
                  observed_at = excluded.observed_at,
@@ -402,6 +558,7 @@ impl BillingRepository {
     pub async fn apply_payment(
         &self,
         order_id: u64,
+        chain: &str,
         tx_hash: &str,
         paid_at: DateTime<Utc>,
         email: &str,
@@ -431,6 +588,18 @@ impl BillingRepository {
             .map_err(SharedDbError::from)?;
 
         sqlx::query(
+            "UPDATE deposit_address_allocations
+             SET released_at = $2
+             WHERE order_id = $1
+               AND released_at IS NULL",
+        )
+        .bind(order_id as i64)
+        .bind(paid_at)
+        .execute(&mut *transaction)
+        .await
+        .map_err(SharedDbError::from)?;
+
+        sqlx::query(
             "INSERT INTO membership_entitlements (
                 user_email,
                 source_order_id,
@@ -457,11 +626,12 @@ impl BillingRepository {
 
         sqlx::query(
             "UPDATE deposit_transactions
-             SET order_id = $2,
+             SET order_id = $3,
                  status = 'matched',
                  updated_at = now()
-             WHERE tx_hash = $1",
+             WHERE chain = $1 AND tx_hash = $2",
         )
+        .bind(chain)
         .bind(tx_hash)
         .bind(order_id as i64)
         .execute(&mut *transaction)
@@ -712,6 +882,56 @@ async fn write_order_meta(
     )
     .bind(order_meta_key(order_id))
     .bind(config_value)
+    .execute(&mut **transaction)
+    .await
+    .map_err(SharedDbError::from)?;
+    Ok(())
+}
+
+async fn release_expired_allocations_in(
+    transaction: &mut Transaction<'_, Postgres>,
+    chain: &str,
+    released_at: DateTime<Utc>,
+) -> Result<(), SharedDbError> {
+    sqlx::query(
+        "UPDATE deposit_address_allocations
+         SET released_at = $2
+         WHERE chain = $1
+           AND released_at IS NULL
+           AND expires_at <= $2",
+    )
+    .bind(chain)
+    .bind(released_at)
+    .execute(&mut **transaction)
+    .await
+    .map_err(SharedDbError::from)?;
+    Ok(())
+}
+
+async fn upsert_allocation_in(
+    transaction: &mut Transaction<'_, Postgres>,
+    order_id: u64,
+    assignment: &AddressAssignment,
+) -> Result<(), SharedDbError> {
+    sqlx::query(
+        "INSERT INTO deposit_address_allocations (
+            order_id,
+            chain,
+            address,
+            expires_at,
+            released_at,
+            created_at
+         ) VALUES ($1, $2, $3, $4, NULL, now())
+         ON CONFLICT (order_id) DO UPDATE
+         SET chain = excluded.chain,
+             address = excluded.address,
+             expires_at = excluded.expires_at,
+             released_at = NULL",
+    )
+    .bind(order_id as i64)
+    .bind(&assignment.chain)
+    .bind(&assignment.address)
+    .bind(assignment.expires_at)
     .execute(&mut **transaction)
     .await
     .map_err(SharedDbError::from)?;
