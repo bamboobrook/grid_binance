@@ -1,6 +1,22 @@
 import { expect, test } from "@playwright/test";
 
-test("admin can manage members and address pools", async ({ page }) => {
+test("anonymous user is redirected away from admin pages", async ({ page }) => {
+  await page.goto("/admin/dashboard");
+
+  await expect(page).toHaveURL(/\/login\?next=%2Fadmin%2Fdashboard$/);
+  await expect(page.getByRole("heading", { name: "Login" })).toBeVisible();
+});
+
+test("admin can manage members and address pools", async ({ page, context }) => {
+  await context.addCookies([
+    {
+      name: "admin_session",
+      value: "active",
+      domain: "localhost",
+      path: "/",
+    },
+  ]);
+
   await page.goto("/admin/dashboard");
   await expect(page.locator("main")).toBeVisible();
   await expect(page.getByRole("heading", { name: "Admin Dashboard" })).toBeVisible();
