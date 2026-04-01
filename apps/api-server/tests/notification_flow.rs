@@ -165,8 +165,13 @@ async fn invalid_ttl_returns_bad_request_instead_of_panicking() {
     let app = app();
     let session_token = register_and_login(&app, "invalid-ttl@example.com", "pass1234").await;
 
-    let response =
-        create_bind_code(&app, &session_token, "invalid-ttl@example.com", Some(i64::MAX)).await;
+    let response = create_bind_code(
+        &app,
+        &session_token,
+        "invalid-ttl@example.com",
+        Some(i64::MAX),
+    )
+    .await;
     assert_eq!(response.status(), StatusCode::BAD_REQUEST);
     assert_eq!(
         response_json(response).await["error"],

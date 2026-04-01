@@ -463,7 +463,14 @@ async fn delete_strategies(
 }
 
 async fn stop_all_strategies(app: &axum::Router, session_token: &str) -> axum::response::Response {
-    request(app, Some(session_token), "POST", "/strategies/stop-all", json!({})).await
+    request(
+        app,
+        Some(session_token),
+        "POST",
+        "/strategies/stop-all",
+        json!({}),
+    )
+    .await
 }
 
 async fn list_strategies(app: &axum::Router, session_token: &str) -> axum::response::Response {

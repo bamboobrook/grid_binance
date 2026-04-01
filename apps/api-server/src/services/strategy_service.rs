@@ -93,10 +93,7 @@ impl StrategyService {
 
     pub fn list_strategies(&self) -> StrategyListResponse {
         StrategyListResponse {
-            items: self
-                .db
-                .list_strategies()
-                .unwrap_or_else(|_| Vec::new()),
+            items: self.db.list_strategies().unwrap_or_else(|_| Vec::new()),
         }
     }
 
@@ -190,7 +187,10 @@ impl StrategyService {
             .update_strategy(&strategy)
             .map_err(StrategyError::storage)?;
 
-        Ok(StartStrategyResponse { strategy, preflight })
+        Ok(StartStrategyResponse {
+            strategy,
+            preflight,
+        })
     }
 
     pub fn pause_strategies(
@@ -202,11 +202,7 @@ impl StrategyService {
         }
 
         let mut paused = 0;
-        for mut strategy in self
-            .db
-            .list_strategies()
-            .map_err(StrategyError::storage)?
-        {
+        for mut strategy in self.db.list_strategies().map_err(StrategyError::storage)? {
             if request.ids.iter().any(|id| id == &strategy.id)
                 && strategy.status == StrategyStatus::Running
             {
@@ -230,11 +226,7 @@ impl StrategyService {
         }
 
         let mut deleted = 0;
-        for strategy in self
-            .db
-            .list_strategies()
-            .map_err(StrategyError::storage)?
-        {
+        for strategy in self.db.list_strategies().map_err(StrategyError::storage)? {
             if request.ids.iter().any(|id| id == &strategy.id)
                 && strategy.status != StrategyStatus::Running
             {
@@ -270,10 +262,7 @@ impl StrategyService {
 
     pub fn list_templates(&self) -> TemplateListResponse {
         TemplateListResponse {
-            items: self
-                .db
-                .list_templates()
-                .unwrap_or_else(|_| Vec::new()),
+            items: self.db.list_templates().unwrap_or_else(|_| Vec::new()),
         }
     }
 

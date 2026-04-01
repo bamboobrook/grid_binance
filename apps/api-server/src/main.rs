@@ -8,9 +8,12 @@ const SERVICE_NAME: &str = "api-server";
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let listener = TcpListener::bind(("0.0.0.0", configured_port(DEFAULT_PORT))).await?;
-    let app = Router::new()
-        .route("/healthz", get(healthz))
-        .merge(api_server::app_with_persistent_state(configured_db_path(DEFAULT_DB_PATH))?);
+    let app =
+        Router::new()
+            .route("/healthz", get(healthz))
+            .merge(api_server::app_with_persistent_state(configured_db_path(
+                DEFAULT_DB_PATH,
+            ))?);
 
     axum::serve(listener, app).await?;
     Ok(())
@@ -52,7 +55,9 @@ fn health_payload(service_name: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{configured_db_path, health_payload, parse_port, DEFAULT_DB_PATH, DEFAULT_PORT, SERVICE_NAME};
+    use super::{
+        configured_db_path, health_payload, parse_port, DEFAULT_DB_PATH, DEFAULT_PORT, SERVICE_NAME,
+    };
 
     #[test]
     fn health_payload_mentions_service_name() {

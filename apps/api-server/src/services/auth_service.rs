@@ -1,8 +1,4 @@
-use std::{
-    collections::HashSet,
-    env,
-    sync::Arc,
-};
+use std::{collections::HashSet, env, sync::Arc};
 
 use axum::{
     http::StatusCode,
@@ -10,13 +6,13 @@ use axum::{
     Json,
 };
 use serde::{Deserialize, Serialize};
-use shared_db::{AuthUserRecord, SharedDb};
 use shared_auth::{
     email_code::{issue_email_code, verify_email_code},
     password::{hash_password, verify_password},
     session_token::{issue_session_token, verify_session_token, SessionClaims},
     totp::{current_code, generate_secret, verify_code},
 };
+use shared_db::{AuthUserRecord, SharedDb};
 
 const DEFAULT_ADMIN_EMAILS: [&str; 1] = ["admin@example.com"];
 const DEFAULT_SESSION_TOKEN_SECRET: &str = "grid-binance-dev-session-secret";
@@ -462,9 +458,7 @@ fn validate_password(password: &str) -> Result<(), AuthError> {
 
 #[cfg(test)]
 mod tests {
-    use super::{
-        AuthService, LoginRequest, RegisterUserRequest, VerifyEmailRequest,
-    };
+    use super::{AuthService, LoginRequest, RegisterUserRequest, VerifyEmailRequest};
     use shared_db::SharedDb;
     use std::{
         path::PathBuf,

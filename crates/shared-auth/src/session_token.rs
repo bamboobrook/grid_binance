@@ -23,18 +23,14 @@ pub fn issue_session_token(
     secret: &str,
     claims: &SessionClaims,
 ) -> Result<String, SessionTokenError> {
-    let payload =
-        serde_json::to_vec(claims).map_err(|_| SessionTokenError::InvalidPayload)?;
+    let payload = serde_json::to_vec(claims).map_err(|_| SessionTokenError::InvalidPayload)?;
     let encoded_payload = URL_SAFE_NO_PAD.encode(payload);
     let signed_value = format!("v1.{encoded_payload}");
     let signature = sign(secret, &signed_value)?;
     Ok(format!("{signed_value}.{signature}"))
 }
 
-pub fn verify_session_token(
-    secret: &str,
-    token: &str,
-) -> Result<SessionClaims, SessionTokenError> {
+pub fn verify_session_token(secret: &str, token: &str) -> Result<SessionClaims, SessionTokenError> {
     let mut parts = token.split('.');
     let Some(version) = parts.next() else {
         return Err(SessionTokenError::InvalidFormat);

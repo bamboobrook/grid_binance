@@ -87,7 +87,10 @@ pub struct NotificationInboxResponse {
 impl TelegramService {
     pub fn bind_code_owner(&self, code: &str) -> Option<String> {
         let inner = self.inner.lock().expect("telegram state poisoned");
-        inner.bind_codes.get(code.trim()).map(|record| record.email.clone())
+        inner
+            .bind_codes
+            .get(code.trim())
+            .map(|record| record.email.clone())
     }
 
     pub fn create_bind_code(

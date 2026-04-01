@@ -24,12 +24,12 @@ mod services {
 }
 
 use axum::{extract::FromRef, Router};
-use shared_db::{SharedDb, SharedDbError};
 use services::{
     analytics_service::AnalyticsService, auth_service::AuthService,
     exchange_service::ExchangeService, membership_service::MembershipService,
     strategy_service::StrategyService, telegram_service::TelegramService,
 };
+use shared_db::{SharedDb, SharedDbError};
 
 #[derive(Clone)]
 pub struct AppState {

@@ -1,9 +1,4 @@
-use axum::{
-    extract::State,
-    http::HeaderMap,
-    routing::post,
-    Json, Router,
-};
+use axum::{extract::State, http::HeaderMap, routing::post, Json, Router};
 use shared_domain::membership::MembershipSnapshot;
 
 use crate::{

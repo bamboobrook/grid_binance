@@ -45,8 +45,13 @@ async fn assigns_rotating_addresses_and_requires_exact_amount_match_before_activ
     let second_order_body = response_json(second_order).await;
     assert_eq!(second_order_body["address"], "bsc-addr-2");
 
-    let pending =
-        membership_status(&app, &alice_token, "alice@example.com", "2026-04-01T00:10:00Z").await;
+    let pending = membership_status(
+        &app,
+        &alice_token,
+        "alice@example.com",
+        "2026-04-01T00:10:00Z",
+    )
+    .await;
     assert_eq!(pending.status(), StatusCode::OK);
     assert_eq!(response_json(pending).await["status"], "Pending");
 
@@ -80,8 +85,13 @@ async fn assigns_rotating_addresses_and_requires_exact_amount_match_before_activ
     assert_eq!(exact_match_body["matched"], true);
     assert_eq!(exact_match_body["membership_status"], "Active");
 
-    let active =
-        membership_status(&app, &alice_token, "alice@example.com", "2026-04-15T00:00:00Z").await;
+    let active = membership_status(
+        &app,
+        &alice_token,
+        "alice@example.com",
+        "2026-04-15T00:00:00Z",
+    )
+    .await;
     assert_eq!(active.status(), StatusCode::OK);
     assert_eq!(response_json(active).await["status"], "Active");
 }
@@ -117,18 +127,33 @@ async fn membership_transitions_from_active_to_grace_to_expired() {
     assert_eq!(matched.status(), StatusCode::OK);
     assert_eq!(response_json(matched).await["matched"], true);
 
-    let active =
-        membership_status(&app, &user_token, "grace@example.com", "2026-04-30T23:59:59Z").await;
+    let active = membership_status(
+        &app,
+        &user_token,
+        "grace@example.com",
+        "2026-04-30T23:59:59Z",
+    )
+    .await;
     assert_eq!(active.status(), StatusCode::OK);
     assert_eq!(response_json(active).await["status"], "Active");
 
-    let grace =
-        membership_status(&app, &user_token, "grace@example.com", "2026-05-02T00:00:00Z").await;
+    let grace = membership_status(
+        &app,
+        &user_token,
+        "grace@example.com",
+        "2026-05-02T00:00:00Z",
+    )
+    .await;
     assert_eq!(grace.status(), StatusCode::OK);
     assert_eq!(response_json(grace).await["status"], "Grace");
 
-    let expired =
-        membership_status(&app, &user_token, "grace@example.com", "2026-05-05T00:00:00Z").await;
+    let expired = membership_status(
+        &app,
+        &user_token,
+        "grace@example.com",
+        "2026-05-05T00:00:00Z",
+    )
+    .await;
     assert_eq!(expired.status(), StatusCode::OK);
     assert_eq!(response_json(expired).await["status"], "Expired");
 }
@@ -175,7 +200,8 @@ async fn admin_override_can_freeze_and_revoke_membership() {
     assert_eq!(cleared_body["status"], "Active");
     assert_eq!(cleared_body["override_status"], Value::Null);
 
-    let revoked = override_membership(&app, &admin_token, "admin@example.com", Some("Revoked")).await;
+    let revoked =
+        override_membership(&app, &admin_token, "admin@example.com", Some("Revoked")).await;
     assert_eq!(revoked.status(), StatusCode::OK);
     let revoked_body = response_json(revoked).await;
     assert_eq!(revoked_body["status"], "Revoked");
@@ -257,8 +283,13 @@ async fn expired_order_cannot_be_activated() {
     assert_eq!(expired_match_body["matched"], false);
     assert_eq!(expired_match_body["reason"], "order_expired");
 
-    let status =
-        membership_status(&app, &user_token, "expired@example.com", "2026-04-01T00:16:00Z").await;
+    let status = membership_status(
+        &app,
+        &user_token,
+        "expired@example.com",
+        "2026-04-01T00:16:00Z",
+    )
+    .await;
     assert_eq!(status.status(), StatusCode::OK);
     assert_eq!(response_json(status).await["status"], "Pending");
 }
@@ -322,9 +353,13 @@ async fn duplicate_tx_hash_cannot_activate_a_second_order() {
     assert_eq!(duplicate_match_body["matched"], false);
     assert_eq!(duplicate_match_body["reason"], "duplicate_transaction");
 
-    let second_status =
-        membership_status(&app, &second_user_token, "dup-2@example.com", "2026-04-01T00:06:00Z")
-            .await;
+    let second_status = membership_status(
+        &app,
+        &second_user_token,
+        "dup-2@example.com",
+        "2026-04-01T00:06:00Z",
+    )
+    .await;
     assert_eq!(second_status.status(), StatusCode::OK);
     assert_eq!(response_json(second_status).await["status"], "Pending");
 }
@@ -335,8 +370,7 @@ async fn ambiguous_same_address_and_amount_conflict_is_rejected() {
     let old_token = register_and_login(&app, "ambiguous-old@example.com", "pass1234").await;
     let fill_1_token = register_and_login(&app, "ambiguous-fill-1@example.com", "pass1234").await;
     let fill_2_token = register_and_login(&app, "ambiguous-fill-2@example.com", "pass1234").await;
-    let replacement_token =
-        register_and_login(&app, "ambiguous-new@example.com", "pass1234").await;
+    let replacement_token = register_and_login(&app, "ambiguous-new@example.com", "pass1234").await;
     let admin_token = register_and_login(&app, "admin@example.com", "pass1234").await;
 
     for (email, user_token) in [
@@ -389,15 +423,23 @@ async fn ambiguous_same_address_and_amount_conflict_is_rejected() {
     assert_eq!(ambiguous_match_body["matched"], false);
     assert_eq!(ambiguous_match_body["reason"], "ambiguous_match");
 
-    let old_status =
-        membership_status(&app, &old_token, "ambiguous-old@example.com", "2026-04-01T00:15:00Z")
-            .await;
+    let old_status = membership_status(
+        &app,
+        &old_token,
+        "ambiguous-old@example.com",
+        "2026-04-01T00:15:00Z",
+    )
+    .await;
     assert_eq!(old_status.status(), StatusCode::OK);
     assert_eq!(response_json(old_status).await["status"], "Pending");
 
-    let new_status =
-        membership_status(&app, &replacement_token, "ambiguous-new@example.com", "2026-04-01T00:15:00Z")
-            .await;
+    let new_status = membership_status(
+        &app,
+        &replacement_token,
+        "ambiguous-new@example.com",
+        "2026-04-01T00:15:00Z",
+    )
+    .await;
     assert_eq!(new_status.status(), StatusCode::OK);
     assert_eq!(response_json(new_status).await["status"], "Pending");
 }

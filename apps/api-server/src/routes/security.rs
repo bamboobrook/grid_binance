@@ -1,9 +1,4 @@
-use axum::{
-    extract::State,
-    http::HeaderMap,
-    routing::post,
-    Json, Router,
-};
+use axum::{extract::State, http::HeaderMap, routing::post, Json, Router};
 
 use crate::routes::auth_guard::require_user_session;
 use crate::services::auth_service::{

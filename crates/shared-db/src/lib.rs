@@ -15,8 +15,10 @@ use shared_domain::{
     strategy::{Strategy, StrategyStatus, StrategyTemplate},
 };
 
-const INITIAL_CORE_MIGRATION: &str =
-    include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../db/migrations/0001_initial_core.sql"));
+const INITIAL_CORE_MIGRATION: &str = include_str!(concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/../../db/migrations/0001_initial_core.sql"
+));
 
 #[derive(Clone)]
 pub struct SharedDb {
@@ -75,7 +77,10 @@ pub struct StoredStrategyTemplate {
 impl SharedDb {
     pub fn open(path: impl AsRef<Path>) -> Result<Self, SharedDbError> {
         let path = path.as_ref();
-        if let Some(parent) = path.parent().filter(|parent| !parent.as_os_str().is_empty()) {
+        if let Some(parent) = path
+            .parent()
+            .filter(|parent| !parent.as_os_str().is_empty())
+        {
             fs::create_dir_all(parent)?;
         }
 
@@ -336,7 +341,10 @@ impl SharedDb {
                 option_datetime_to_string(record.activated_at),
                 option_datetime_to_string(record.active_until),
                 option_datetime_to_string(record.grace_until),
-                record.override_status.as_ref().map(membership_status_to_str),
+                record
+                    .override_status
+                    .as_ref()
+                    .map(membership_status_to_str),
             ],
         )?;
         Ok(())
@@ -517,10 +525,7 @@ impl SharedDb {
             .map_err(SharedDbError::from)
     }
 
-    pub fn insert_template(
-        &self,
-        template: &StoredStrategyTemplate,
-    ) -> Result<(), SharedDbError> {
+    pub fn insert_template(&self, template: &StoredStrategyTemplate) -> Result<(), SharedDbError> {
         let connection = self.lock_connection()?;
         connection.execute(
             "INSERT INTO strategy_templates (
@@ -662,7 +667,9 @@ fn strategy_from_row(row: &rusqlite::Row<'_>) -> Result<Strategy, rusqlite::Erro
     })
 }
 
-fn strategy_template_from_row(row: &rusqlite::Row<'_>) -> Result<StrategyTemplate, rusqlite::Error> {
+fn strategy_template_from_row(
+    row: &rusqlite::Row<'_>,
+) -> Result<StrategyTemplate, rusqlite::Error> {
     Ok(StrategyTemplate {
         id: row.get(0)?,
         name: row.get(1)?,
@@ -692,14 +699,18 @@ fn parse_strategy_status(value: &str) -> Result<StrategyStatus, SharedDbError> {
         "Paused" => Ok(StrategyStatus::Paused),
         "Stopped" => Ok(StrategyStatus::Stopped),
         "Error" => Ok(StrategyStatus::Error),
-        _ => Err(SharedDbError::new(format!("unknown strategy status: {value}"))),
+        _ => Err(SharedDbError::new(format!(
+            "unknown strategy status: {value}"
+        ))),
     }
 }
 
 fn parse_optional_membership_status(
     value: Option<String>,
 ) -> Result<Option<MembershipStatus>, SharedDbError> {
-    value.map(|value| parse_membership_status(&value)).transpose()
+    value
+        .map(|value| parse_membership_status(&value))
+        .transpose()
 }
 
 fn parse_membership_status(value: &str) -> Result<MembershipStatus, SharedDbError> {
@@ -710,7 +721,9 @@ fn parse_membership_status(value: &str) -> Result<MembershipStatus, SharedDbErro
         "Expired" => Ok(MembershipStatus::Expired),
         "Frozen" => Ok(MembershipStatus::Frozen),
         "Revoked" => Ok(MembershipStatus::Revoked),
-        _ => Err(SharedDbError::new(format!("unknown membership status: {value}"))),
+        _ => Err(SharedDbError::new(format!(
+            "unknown membership status: {value}"
+        ))),
     }
 }
 

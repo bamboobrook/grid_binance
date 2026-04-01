@@ -3,7 +3,9 @@ use axum::{
     response::{IntoResponse, Response},
     Json,
 };
-use billing_chain_listener::order_matcher::{canonicalize_amount, matches_assignment, ObservedTransfer};
+use billing_chain_listener::order_matcher::{
+    canonicalize_amount, matches_assignment, ObservedTransfer,
+};
 use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
 use shared_chain::assignment::AddressAssignment;
@@ -105,7 +107,10 @@ impl MembershipService {
             return Err(MembershipError::bad_request("unsupported chain"));
         }
 
-        let orders = self.db.list_billing_orders().map_err(MembershipError::storage)?;
+        let orders = self
+            .db
+            .list_billing_orders()
+            .map_err(MembershipError::storage)?;
         let assignment = assign_address(&chain, request.requested_at, &orders)
             .ok_or_else(|| MembershipError::conflict("no address available"))?;
         let order_id = self
@@ -163,7 +168,10 @@ impl MembershipService {
             return Ok(unmatched_response("duplicate_transaction"));
         }
 
-        let orders = self.db.list_billing_orders().map_err(MembershipError::storage)?;
+        let orders = self
+            .db
+            .list_billing_orders()
+            .map_err(MembershipError::storage)?;
         let mut has_address_candidate = false;
         let mut has_exact_amount_candidate = false;
         let mut has_expired_exact_amount_candidate = false;
@@ -404,10 +412,7 @@ fn resolve_unmatched_reason(
     }
 }
 
-fn resolve_status(
-    record: &StoredMembershipRecord,
-    at: Option<DateTime<Utc>>,
-) -> MembershipStatus {
+fn resolve_status(record: &StoredMembershipRecord, at: Option<DateTime<Utc>>) -> MembershipStatus {
     match (at, record.active_until, record.grace_until) {
         (Some(at), Some(active_until), _) if at <= active_until => MembershipStatus::Active,
         (Some(at), Some(_), Some(grace_until)) if at <= grace_until => MembershipStatus::Grace,

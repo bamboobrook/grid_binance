@@ -8,7 +8,9 @@ use axum::{
 
 use crate::{
     routes::auth_guard::require_user_session,
-    services::{analytics_service::AnalyticsService, auth_service::AuthError, auth_service::AuthService},
+    services::{
+        analytics_service::AnalyticsService, auth_service::AuthError, auth_service::AuthService,
+    },
     AppState,
 };
 

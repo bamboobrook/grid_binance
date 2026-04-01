@@ -49,7 +49,9 @@ async fn bind_telegram(
     if let Some(owner) = service.bind_code_owner(&request.code) {
         require_session_email(&session, &owner)?;
     }
-    Ok(Json(service.bind_telegram(request).map_err(AuthError::from)?))
+    Ok(Json(
+        service.bind_telegram(request).map_err(AuthError::from)?,
+    ))
 }
 
 async fn dispatch_notification(
@@ -75,5 +77,7 @@ async fn list_notifications(
 ) -> Result<Json<NotificationInboxResponse>, AuthError> {
     let session = require_user_session(&auth, &headers)?;
     require_session_email(&session, &query.email)?;
-    Ok(Json(service.list_notifications(query).map_err(AuthError::from)?))
+    Ok(Json(
+        service.list_notifications(query).map_err(AuthError::from)?,
+    ))
 }

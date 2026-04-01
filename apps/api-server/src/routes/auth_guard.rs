@@ -32,10 +32,7 @@ pub fn require_admin_session(
     Ok(session)
 }
 
-pub fn require_session_email(
-    session: &AuthenticatedSession,
-    email: &str,
-) -> Result<(), AuthError> {
+pub fn require_session_email(session: &AuthenticatedSession, email: &str) -> Result<(), AuthError> {
     if session.email != email.trim().to_lowercase() {
         return Err(AuthError::forbidden("session does not match user"));
     }
