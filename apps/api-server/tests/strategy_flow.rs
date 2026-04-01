@@ -36,7 +36,7 @@ async fn create_save_pause_edit_and_start_strategy() {
 
     let applied = apply_template(
         &app,
-        Some(&admin_token),
+        Some(&user_token),
         template_id,
         json!({
             "name": "BTC copied draft",
@@ -320,6 +320,195 @@ async fn start_strategy_rejects_unknown_strategy_id() {
 
     assert_eq!(response.status(), StatusCode::NOT_FOUND);
     assert_eq!(response_json(response).await["error"], "strategy not found");
+}
+
+#[tokio::test]
+async fn strategy_owner_isolation_blocks_cross_user_reads_and_mutations() {
+    let app = app();
+    let alice_token = register_and_login(&app, "alice@example.com", "pass1234").await;
+    let bob_token = register_and_login(&app, "bob@example.com", "pass1234").await;
+
+    let alice_strategy = create_strategy(
+        &app,
+        &alice_token,
+        json!({
+            "name": "alice draft",
+            "symbol": "BTCUSDT",
+            "budget": "100.00",
+            "grid_spacing_bps": 50,
+            "membership_ready": true,
+            "exchange_ready": true,
+            "symbol_ready": true,
+        }),
+    )
+    .await;
+    assert_eq!(alice_strategy.status(), StatusCode::CREATED);
+    let alice_strategy_id = response_json(alice_strategy).await["id"]
+        .as_str()
+        .expect("alice strategy id")
+        .to_string();
+
+    let bob_strategy = create_strategy(
+        &app,
+        &bob_token,
+        json!({
+            "name": "bob draft",
+            "symbol": "ETHUSDT",
+            "budget": "120.00",
+            "grid_spacing_bps": 45,
+            "membership_ready": true,
+            "exchange_ready": true,
+            "symbol_ready": true,
+        }),
+    )
+    .await;
+    assert_eq!(bob_strategy.status(), StatusCode::CREATED);
+    let bob_strategy_id = response_json(bob_strategy).await["id"]
+        .as_str()
+        .expect("bob strategy id")
+        .to_string();
+
+    let alice_list = list_strategies(&app, &alice_token).await;
+    assert_eq!(alice_list.status(), StatusCode::OK);
+    let alice_list_body = response_json(alice_list).await;
+    assert_eq!(alice_list_body["items"].as_array().expect("items").len(), 1);
+    assert_eq!(alice_list_body["items"][0]["id"], alice_strategy_id);
+
+    let bob_list = list_strategies(&app, &bob_token).await;
+    assert_eq!(bob_list.status(), StatusCode::OK);
+    let bob_list_body = response_json(bob_list).await;
+    assert_eq!(bob_list_body["items"].as_array().expect("items").len(), 1);
+    assert_eq!(bob_list_body["items"][0]["id"], bob_strategy_id);
+
+    let foreign_preflight = preflight_strategy(&app, &bob_token, &alice_strategy_id).await;
+    assert_eq!(foreign_preflight.status(), StatusCode::NOT_FOUND);
+    assert_eq!(
+        response_json(foreign_preflight).await["error"],
+        "strategy not found"
+    );
+
+    let foreign_update = update_strategy(
+        &app,
+        &bob_token,
+        &alice_strategy_id,
+        json!({
+            "name": "stolen",
+            "symbol": "BTCUSDT",
+            "budget": "999.00",
+            "grid_spacing_bps": 10,
+            "membership_ready": true,
+            "exchange_ready": true,
+            "symbol_ready": true,
+        }),
+    )
+    .await;
+    assert_eq!(foreign_update.status(), StatusCode::NOT_FOUND);
+    assert_eq!(
+        response_json(foreign_update).await["error"],
+        "strategy not found"
+    );
+
+    let foreign_start = start_strategy(&app, &bob_token, &alice_strategy_id).await;
+    assert_eq!(foreign_start.status(), StatusCode::NOT_FOUND);
+    assert_eq!(
+        response_json(foreign_start).await["error"],
+        "strategy not found"
+    );
+
+    let foreign_pause = pause_strategies(&app, &bob_token, &[&alice_strategy_id]).await;
+    assert_eq!(foreign_pause.status(), StatusCode::OK);
+    assert_eq!(response_json(foreign_pause).await["paused"], 0);
+
+    let foreign_delete = delete_strategies(&app, &bob_token, &[&alice_strategy_id]).await;
+    assert_eq!(foreign_delete.status(), StatusCode::OK);
+    assert_eq!(response_json(foreign_delete).await["deleted"], 0);
+
+    let alice_list_after = list_strategies(&app, &alice_token).await;
+    assert_eq!(alice_list_after.status(), StatusCode::OK);
+    let alice_list_after_body = response_json(alice_list_after).await;
+    assert_eq!(
+        alice_list_after_body["items"]
+            .as_array()
+            .expect("items")
+            .len(),
+        1
+    );
+    assert_eq!(
+        find_status(&alice_list_after_body, &alice_strategy_id),
+        Some("Draft")
+    );
+}
+
+#[tokio::test]
+async fn stop_all_only_stops_strategies_owned_by_current_user() {
+    let app = app();
+    let alice_token = register_and_login(&app, "alice@example.com", "pass1234").await;
+    let bob_token = register_and_login(&app, "bob@example.com", "pass1234").await;
+
+    let alice_strategy = create_strategy(
+        &app,
+        &alice_token,
+        json!({
+            "name": "alice running",
+            "symbol": "BTCUSDT",
+            "budget": "100.00",
+            "grid_spacing_bps": 50,
+            "membership_ready": true,
+            "exchange_ready": true,
+            "symbol_ready": true,
+        }),
+    )
+    .await;
+    assert_eq!(alice_strategy.status(), StatusCode::CREATED);
+    let alice_strategy_id = response_json(alice_strategy).await["id"]
+        .as_str()
+        .expect("alice strategy id")
+        .to_string();
+
+    let bob_strategy = create_strategy(
+        &app,
+        &bob_token,
+        json!({
+            "name": "bob running",
+            "symbol": "ETHUSDT",
+            "budget": "120.00",
+            "grid_spacing_bps": 45,
+            "membership_ready": true,
+            "exchange_ready": true,
+            "symbol_ready": true,
+        }),
+    )
+    .await;
+    assert_eq!(bob_strategy.status(), StatusCode::CREATED);
+    let bob_strategy_id = response_json(bob_strategy).await["id"]
+        .as_str()
+        .expect("bob strategy id")
+        .to_string();
+
+    let alice_started = start_strategy(&app, &alice_token, &alice_strategy_id).await;
+    assert_eq!(alice_started.status(), StatusCode::OK);
+    let bob_started = start_strategy(&app, &bob_token, &bob_strategy_id).await;
+    assert_eq!(bob_started.status(), StatusCode::OK);
+
+    let stopped = stop_all_strategies(&app, &alice_token).await;
+    assert_eq!(stopped.status(), StatusCode::OK);
+    assert_eq!(response_json(stopped).await["stopped"], 1);
+
+    let alice_list = list_strategies(&app, &alice_token).await;
+    assert_eq!(alice_list.status(), StatusCode::OK);
+    let alice_list_body = response_json(alice_list).await;
+    assert_eq!(
+        find_status(&alice_list_body, &alice_strategy_id),
+        Some("Stopped")
+    );
+
+    let bob_list = list_strategies(&app, &bob_token).await;
+    assert_eq!(bob_list.status(), StatusCode::OK);
+    let bob_list_body = response_json(bob_list).await;
+    assert_eq!(
+        find_status(&bob_list_body, &bob_strategy_id),
+        Some("Running")
+    );
 }
 
 #[tokio::test]

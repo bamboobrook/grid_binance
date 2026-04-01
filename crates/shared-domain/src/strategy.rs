@@ -24,6 +24,8 @@ pub struct PreflightReport {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Strategy {
     pub id: String,
+    #[serde(skip)]
+    pub owner_email: String,
     pub name: String,
     pub symbol: String,
     pub budget: String,

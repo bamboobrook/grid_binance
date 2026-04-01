@@ -73,6 +73,7 @@ CREATE TABLE IF NOT EXISTS strategy_templates (
 CREATE TABLE IF NOT EXISTS strategies (
     id TEXT PRIMARY KEY,
     sequence_id INTEGER NOT NULL UNIQUE,
+    owner_email TEXT NOT NULL,
     name TEXT NOT NULL,
     symbol TEXT NOT NULL,
     budget TEXT NOT NULL,
@@ -87,5 +88,8 @@ CREATE TABLE IF NOT EXISTS strategies (
 
 CREATE INDEX IF NOT EXISTS idx_strategies_status
     ON strategies(status);
+
+CREATE INDEX IF NOT EXISTS idx_strategies_owner_email
+    ON strategies(owner_email);
 
 COMMIT;

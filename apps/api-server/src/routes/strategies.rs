@@ -36,8 +36,8 @@ async fn list_strategies(
     State(service): State<StrategyService>,
     headers: HeaderMap,
 ) -> Result<Json<StrategyListResponse>, StrategyError> {
-    require_user_session(&auth, &headers).map_err(StrategyError::from)?;
-    Ok(Json(service.list_strategies()))
+    let session = require_user_session(&auth, &headers).map_err(StrategyError::from)?;
+    Ok(Json(service.list_strategies(&session.email)))
 }
 
 async fn create_strategy(
@@ -46,10 +46,10 @@ async fn create_strategy(
     headers: HeaderMap,
     Json(request): Json<SaveStrategyRequest>,
 ) -> Result<(axum::http::StatusCode, Json<Strategy>), StrategyError> {
-    require_user_session(&auth, &headers).map_err(StrategyError::from)?;
+    let session = require_user_session(&auth, &headers).map_err(StrategyError::from)?;
     Ok((
         axum::http::StatusCode::CREATED,
-        Json(service.create_strategy(request)?),
+        Json(service.create_strategy(&session.email, request)?),
     ))
 }
 
@@ -60,8 +60,12 @@ async fn update_strategy(
     Path(strategy_id): Path<String>,
     Json(request): Json<SaveStrategyRequest>,
 ) -> Result<Json<Strategy>, StrategyError> {
-    require_user_session(&auth, &headers).map_err(StrategyError::from)?;
-    Ok(Json(service.update_strategy(&strategy_id, request)?))
+    let session = require_user_session(&auth, &headers).map_err(StrategyError::from)?;
+    Ok(Json(service.update_strategy(
+        &session.email,
+        &strategy_id,
+        request,
+    )?))
 }
 
 async fn preflight_strategy(
@@ -70,8 +74,10 @@ async fn preflight_strategy(
     headers: HeaderMap,
     Path(strategy_id): Path<String>,
 ) -> Result<Json<PreflightReport>, StrategyError> {
-    require_user_session(&auth, &headers).map_err(StrategyError::from)?;
-    Ok(Json(service.preflight_strategy(&strategy_id)?))
+    let session = require_user_session(&auth, &headers).map_err(StrategyError::from)?;
+    Ok(Json(
+        service.preflight_strategy(&session.email, &strategy_id)?,
+    ))
 }
 
 async fn start_strategy(
@@ -80,8 +86,8 @@ async fn start_strategy(
     headers: HeaderMap,
     Path(strategy_id): Path<String>,
 ) -> Result<Json<StartStrategyResponse>, StrategyError> {
-    require_user_session(&auth, &headers).map_err(StrategyError::from)?;
-    Ok(Json(service.start_strategy(&strategy_id)?))
+    let session = require_user_session(&auth, &headers).map_err(StrategyError::from)?;
+    Ok(Json(service.start_strategy(&session.email, &strategy_id)?))
 }
 
 async fn pause_strategies(
@@ -90,8 +96,8 @@ async fn pause_strategies(
     headers: HeaderMap,
     Json(request): Json<BatchStrategyRequest>,
 ) -> Result<Json<BatchPauseResponse>, StrategyError> {
-    require_user_session(&auth, &headers).map_err(StrategyError::from)?;
-    Ok(Json(service.pause_strategies(request)?))
+    let session = require_user_session(&auth, &headers).map_err(StrategyError::from)?;
+    Ok(Json(service.pause_strategies(&session.email, request)?))
 }
 
 async fn delete_strategies(
@@ -100,8 +106,8 @@ async fn delete_strategies(
     headers: HeaderMap,
     Json(request): Json<BatchStrategyRequest>,
 ) -> Result<Json<BatchDeleteResponse>, StrategyError> {
-    require_user_session(&auth, &headers).map_err(StrategyError::from)?;
-    Ok(Json(service.delete_strategies(request)?))
+    let session = require_user_session(&auth, &headers).map_err(StrategyError::from)?;
+    Ok(Json(service.delete_strategies(&session.email, request)?))
 }
 
 async fn stop_all_strategies(
@@ -109,6 +115,6 @@ async fn stop_all_strategies(
     State(service): State<StrategyService>,
     headers: HeaderMap,
 ) -> Result<Json<StopAllResponse>, StrategyError> {
-    require_user_session(&auth, &headers).map_err(StrategyError::from)?;
-    Ok(Json(service.stop_all()))
+    let session = require_user_session(&auth, &headers).map_err(StrategyError::from)?;
+    Ok(Json(service.stop_all(&session.email)))
 }

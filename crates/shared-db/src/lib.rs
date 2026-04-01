@@ -404,28 +404,33 @@ impl SharedDb {
         Ok(())
     }
 
-    pub fn list_strategies(&self) -> Result<Vec<Strategy>, SharedDbError> {
+    pub fn list_strategies(&self, owner_email: &str) -> Result<Vec<Strategy>, SharedDbError> {
         let connection = self.lock_connection()?;
         let mut statement = connection.prepare(
-            "SELECT id, name, symbol, budget, grid_spacing_bps, status, source_template_id,
+            "SELECT id, owner_email, name, symbol, budget, grid_spacing_bps, status, source_template_id,
                     membership_ready, exchange_ready, symbol_ready
              FROM strategies
+             WHERE owner_email = ?1
              ORDER BY sequence_id ASC",
         )?;
-        let rows = statement.query_map([], |row| strategy_from_row(row))?;
+        let rows = statement.query_map(params![owner_email], |row| strategy_from_row(row))?;
         rows.collect::<Result<Vec<_>, _>>()
             .map_err(SharedDbError::from)
     }
 
-    pub fn find_strategy(&self, strategy_id: &str) -> Result<Option<Strategy>, SharedDbError> {
+    pub fn find_strategy(
+        &self,
+        owner_email: &str,
+        strategy_id: &str,
+    ) -> Result<Option<Strategy>, SharedDbError> {
         let connection = self.lock_connection()?;
         connection
             .query_row(
-                "SELECT id, name, symbol, budget, grid_spacing_bps, status, source_template_id,
+                "SELECT id, owner_email, name, symbol, budget, grid_spacing_bps, status, source_template_id,
                         membership_ready, exchange_ready, symbol_ready
                  FROM strategies
-                 WHERE id = ?1",
-                params![strategy_id],
+                 WHERE owner_email = ?1 AND id = ?2",
+                params![owner_email, strategy_id],
                 |row| strategy_from_row(row),
             )
             .optional()
@@ -436,12 +441,13 @@ impl SharedDb {
         let connection = self.lock_connection()?;
         connection.execute(
             "INSERT INTO strategies (
-                id, sequence_id, name, symbol, budget, grid_spacing_bps, status, source_template_id,
-                membership_ready, exchange_ready, symbol_ready
-            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
+                id, sequence_id, owner_email, name, symbol, budget, grid_spacing_bps, status,
+                source_template_id, membership_ready, exchange_ready, symbol_ready
+            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
             params![
                 strategy.strategy.id,
                 strategy.sequence_id as i64,
+                strategy.strategy.owner_email,
                 strategy.strategy.name,
                 strategy.strategy.symbol,
                 strategy.strategy.budget,
@@ -460,18 +466,19 @@ impl SharedDb {
         let connection = self.lock_connection()?;
         let updated = connection.execute(
             "UPDATE strategies
-             SET name = ?2,
-                 symbol = ?3,
-                 budget = ?4,
-                 grid_spacing_bps = ?5,
-                 status = ?6,
-                 source_template_id = ?7,
-                 membership_ready = ?8,
-                 exchange_ready = ?9,
-                 symbol_ready = ?10
-             WHERE id = ?1",
+             SET name = ?3,
+                 symbol = ?4,
+                 budget = ?5,
+                 grid_spacing_bps = ?6,
+                 status = ?7,
+                 source_template_id = ?8,
+                 membership_ready = ?9,
+                 exchange_ready = ?10,
+                 symbol_ready = ?11
+             WHERE id = ?1 AND owner_email = ?2",
             params![
                 strategy.id,
+                strategy.owner_email,
                 strategy.name,
                 strategy.symbol,
                 strategy.budget,
@@ -486,12 +493,16 @@ impl SharedDb {
         Ok(updated)
     }
 
-    pub fn delete_strategy(&self, strategy_id: &str) -> Result<usize, SharedDbError> {
+    pub fn delete_strategy(
+        &self,
+        owner_email: &str,
+        strategy_id: &str,
+    ) -> Result<usize, SharedDbError> {
         let connection = self.lock_connection()?;
         let deleted = connection.execute(
             "DELETE FROM strategies
-             WHERE id = ?1",
-            params![strategy_id],
+             WHERE owner_email = ?1 AND id = ?2",
+            params![owner_email, strategy_id],
         )?;
         Ok(deleted)
     }
@@ -650,20 +661,21 @@ fn billing_order_from_row(row: &rusqlite::Row<'_>) -> Result<BillingOrderRecord,
 }
 
 fn strategy_from_row(row: &rusqlite::Row<'_>) -> Result<Strategy, rusqlite::Error> {
-    let status_raw: String = row.get(5)?;
+    let status_raw: String = row.get(6)?;
     let status = parse_strategy_status(&status_raw).map_err(to_from_sql_error)?;
 
     Ok(Strategy {
         id: row.get(0)?,
-        name: row.get(1)?,
-        symbol: row.get(2)?,
-        budget: row.get(3)?,
-        grid_spacing_bps: row.get::<_, i64>(4)? as u32,
+        owner_email: row.get(1)?,
+        name: row.get(2)?,
+        symbol: row.get(3)?,
+        budget: row.get(4)?,
+        grid_spacing_bps: row.get::<_, i64>(5)? as u32,
         status,
-        source_template_id: row.get(6)?,
-        membership_ready: row.get::<_, i64>(7)? != 0,
-        exchange_ready: row.get::<_, i64>(8)? != 0,
-        symbol_ready: row.get::<_, i64>(9)? != 0,
+        source_template_id: row.get(7)?,
+        membership_ready: row.get::<_, i64>(8)? != 0,
+        exchange_ready: row.get::<_, i64>(9)? != 0,
+        symbol_ready: row.get::<_, i64>(10)? != 0,
     })
 }
 

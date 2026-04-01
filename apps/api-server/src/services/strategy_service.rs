@@ -91,13 +91,20 @@ impl StrategyService {
         Self { db }
     }
 
-    pub fn list_strategies(&self) -> StrategyListResponse {
+    pub fn list_strategies(&self, owner_email: &str) -> StrategyListResponse {
         StrategyListResponse {
-            items: self.db.list_strategies().unwrap_or_else(|_| Vec::new()),
+            items: self
+                .db
+                .list_strategies(owner_email)
+                .unwrap_or_else(|_| Vec::new()),
         }
     }
 
-    pub fn create_strategy(&self, request: SaveStrategyRequest) -> Result<Strategy, StrategyError> {
+    pub fn create_strategy(
+        &self,
+        owner_email: &str,
+        request: SaveStrategyRequest,
+    ) -> Result<Strategy, StrategyError> {
         validate_strategy_request(&request)?;
 
         let sequence_id = self
@@ -106,6 +113,7 @@ impl StrategyService {
             .map_err(StrategyError::storage)?;
         let strategy = Strategy {
             id: format!("strategy-{sequence_id}"),
+            owner_email: owner_email.to_string(),
             name: request.name,
             symbol: request.symbol,
             budget: request.budget,
@@ -127,6 +135,7 @@ impl StrategyService {
 
     pub fn update_strategy(
         &self,
+        owner_email: &str,
         strategy_id: &str,
         request: SaveStrategyRequest,
     ) -> Result<Strategy, StrategyError> {
@@ -134,7 +143,7 @@ impl StrategyService {
 
         let mut strategy = self
             .db
-            .find_strategy(strategy_id)
+            .find_strategy(owner_email, strategy_id)
             .map_err(StrategyError::storage)?
             .ok_or_else(|| StrategyError::not_found("strategy not found"))?;
 
@@ -158,10 +167,14 @@ impl StrategyService {
         Ok(strategy)
     }
 
-    pub fn preflight_strategy(&self, strategy_id: &str) -> Result<PreflightReport, StrategyError> {
+    pub fn preflight_strategy(
+        &self,
+        owner_email: &str,
+        strategy_id: &str,
+    ) -> Result<PreflightReport, StrategyError> {
         let strategy = self
             .db
-            .find_strategy(strategy_id)
+            .find_strategy(owner_email, strategy_id)
             .map_err(StrategyError::storage)?
             .ok_or_else(|| StrategyError::not_found("strategy not found"))?;
         Ok(run_preflight(&strategy))
@@ -169,11 +182,12 @@ impl StrategyService {
 
     pub fn start_strategy(
         &self,
+        owner_email: &str,
         strategy_id: &str,
     ) -> Result<StartStrategyResponse, StrategyError> {
         let mut strategy = self
             .db
-            .find_strategy(strategy_id)
+            .find_strategy(owner_email, strategy_id)
             .map_err(StrategyError::storage)?
             .ok_or_else(|| StrategyError::not_found("strategy not found"))?;
         let preflight = run_preflight(&strategy);
@@ -195,6 +209,7 @@ impl StrategyService {
 
     pub fn pause_strategies(
         &self,
+        owner_email: &str,
         request: BatchStrategyRequest,
     ) -> Result<BatchPauseResponse, StrategyError> {
         if request.ids.is_empty() {
@@ -202,7 +217,11 @@ impl StrategyService {
         }
 
         let mut paused = 0;
-        for mut strategy in self.db.list_strategies().map_err(StrategyError::storage)? {
+        for mut strategy in self
+            .db
+            .list_strategies(owner_email)
+            .map_err(StrategyError::storage)?
+        {
             if request.ids.iter().any(|id| id == &strategy.id)
                 && strategy.status == StrategyStatus::Running
             {
@@ -219,6 +238,7 @@ impl StrategyService {
 
     pub fn delete_strategies(
         &self,
+        owner_email: &str,
         request: BatchStrategyRequest,
     ) -> Result<BatchDeleteResponse, StrategyError> {
         if request.ids.is_empty() {
@@ -226,13 +246,17 @@ impl StrategyService {
         }
 
         let mut deleted = 0;
-        for strategy in self.db.list_strategies().map_err(StrategyError::storage)? {
+        for strategy in self
+            .db
+            .list_strategies(owner_email)
+            .map_err(StrategyError::storage)?
+        {
             if request.ids.iter().any(|id| id == &strategy.id)
                 && strategy.status != StrategyStatus::Running
             {
                 deleted += self
                     .db
-                    .delete_strategy(&strategy.id)
+                    .delete_strategy(owner_email, &strategy.id)
                     .map_err(StrategyError::storage)?;
             }
         }
@@ -240,10 +264,10 @@ impl StrategyService {
         Ok(BatchDeleteResponse { deleted })
     }
 
-    pub fn stop_all(&self) -> StopAllResponse {
+    pub fn stop_all(&self, owner_email: &str) -> StopAllResponse {
         let mut stopped = 0;
 
-        if let Ok(strategies) = self.db.list_strategies() {
+        if let Ok(strategies) = self.db.list_strategies(owner_email) {
             for mut strategy in strategies {
                 if matches!(
                     strategy.status,
@@ -297,6 +321,7 @@ impl StrategyService {
 
     pub fn apply_template(
         &self,
+        owner_email: &str,
         template_id: &str,
         request: ApplyTemplateRequest,
     ) -> Result<Strategy, StrategyError> {
@@ -315,6 +340,7 @@ impl StrategyService {
             .map_err(StrategyError::storage)?;
         let strategy = Strategy {
             id: format!("strategy-{sequence_id}"),
+            owner_email: owner_email.to_string(),
             name: request.name,
             symbol: template.symbol,
             budget: template.budget,
@@ -492,6 +518,7 @@ mod tests {
         let db_path = temp_db_path("strategy");
         let db = SharedDb::open(&db_path).expect("open db");
         let service = StrategyService::new(db.clone());
+        let owner_email = "trader@example.com";
 
         let template = service
             .create_template(CreateTemplateRequest {
@@ -506,20 +533,24 @@ mod tests {
             .expect("create template");
 
         service
-            .create_strategy(SaveStrategyRequest {
-                name: "Manual".to_string(),
-                symbol: "ETHUSDT".to_string(),
-                budget: "500".to_string(),
-                grid_spacing_bps: 40,
-                membership_ready: true,
-                exchange_ready: true,
-                symbol_ready: true,
-            })
+            .create_strategy(
+                owner_email,
+                SaveStrategyRequest {
+                    name: "Manual".to_string(),
+                    symbol: "ETHUSDT".to_string(),
+                    budget: "500".to_string(),
+                    grid_spacing_bps: 40,
+                    membership_ready: true,
+                    exchange_ready: true,
+                    symbol_ready: true,
+                },
+            )
             .expect("create strategy");
 
         let reopened = StrategyService::new(SharedDb::open(&db_path).expect("reopen db"));
         let from_template = reopened
             .apply_template(
+                owner_email,
                 &template.id,
                 ApplyTemplateRequest {
                     name: "Applied".to_string(),
@@ -527,11 +558,11 @@ mod tests {
             )
             .expect("apply template");
         reopened
-            .start_strategy(&from_template.id)
+            .start_strategy(owner_email, &from_template.id)
             .expect("start strategy");
 
         let restarted = StrategyService::new(SharedDb::open(&db_path).expect("reopen db"));
-        let strategies = restarted.list_strategies();
+        let strategies = restarted.list_strategies(owner_email);
         let templates = restarted.list_templates();
 
         assert_eq!(templates.items.len(), 1);

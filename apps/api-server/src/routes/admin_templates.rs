@@ -6,7 +6,7 @@ use axum::{
 };
 
 use crate::{
-    routes::auth_guard::require_admin_session,
+    routes::auth_guard::{require_admin_session, require_user_session},
     services::auth_service::AuthService,
     services::strategy_service::{
         ApplyTemplateRequest, CreateTemplateRequest, StrategyError, StrategyService,
@@ -65,9 +65,9 @@ async fn apply_template(
     ),
     StrategyError,
 > {
-    require_admin_session(&auth, &headers).map_err(StrategyError::from)?;
+    let session = require_user_session(&auth, &headers).map_err(StrategyError::from)?;
     Ok((
         axum::http::StatusCode::CREATED,
-        Json(service.apply_template(&template_id, request)?),
+        Json(service.apply_template(&session.email, &template_id, request)?),
     ))
 }
