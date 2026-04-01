@@ -32,9 +32,16 @@ test("compose references the expected release services", () => {
 test("smoke script validates nginx and api entrypoints", () => {
   const script = fs.readFileSync("scripts/smoke.sh", "utf8");
 
-  assert.match(script, /docker compose up -d --build/);
-  assert.match(script, /http:\/\/localhost/);
-  assert.match(script, /api\/healthz/);
+  assert.match(script, /^\s*compose up -d --build\s*$/m);
+  assert.match(script, /wait_for_url "http:\/\/localhost:8080\/" "nginx web entrypoint"/);
+  assert.match(script, /wait_for_url "http:\/\/localhost:8080\/api\/healthz" "api health entrypoint"/);
+});
+
+test("api server container startup fails before placeholder health service when binary fails", () => {
+  const dockerfile = fs.readFileSync("deploy/docker/api-server.Dockerfile", "utf8");
+
+  assert.match(dockerfile, /\/usr\/local\/bin\/api-server\s+&&\s+exec python -m http\.server 8080/);
+  assert.doesNotMatch(dockerfile, /\/usr\/local\/bin\/api-server\s*;\s*exec python -m http\.server 8080/);
 });
 
 test("docker ignore trims release build artifacts from docker context", () => {
