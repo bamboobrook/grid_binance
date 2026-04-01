@@ -1,3 +1,18 @@
+WITH ranked_allocations AS (
+    SELECT allocation_id,
+           ROW_NUMBER() OVER (
+               PARTITION BY chain, address
+               ORDER BY created_at DESC, allocation_id DESC
+           ) AS rank_index
+    FROM deposit_address_allocations
+    WHERE released_at IS NULL
+)
+UPDATE deposit_address_allocations allocations
+SET released_at = COALESCE(allocations.expires_at, now())
+FROM ranked_allocations ranked
+WHERE allocations.allocation_id = ranked.allocation_id
+  AND ranked.rank_index > 1;
+
 CREATE UNIQUE INDEX IF NOT EXISTS idx_deposit_address_allocations_active
     ON deposit_address_allocations (chain, address)
     WHERE released_at IS NULL;

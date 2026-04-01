@@ -31,10 +31,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let db = SharedDb::connect(&database_url, &redis_url)?;
     tokio::spawn(queue_promotion_loop(db.clone()));
     let listener = TcpListener::bind(("0.0.0.0", configured_port(DEFAULT_PORT))).await?;
-    let app = Router::new()
-        .route("/healthz", get(healthz))
-        .route("/internal/observed-transfers", post(ingest_transfer))
-        .with_state(ListenerState { db, internal_token });
+    let app = build_router(ListenerState { db, internal_token });
 
     axum::serve(listener, app).await?;
     Ok(())
@@ -133,9 +130,21 @@ fn health_payload(service_name: &str) -> String {
     )
 }
 
+fn build_router(state: ListenerState) -> Router {
+    Router::new()
+        .route("/healthz", get(healthz))
+        .route("/internal/observed-transfers", post(ingest_transfer))
+        .with_state(state)
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{configured_port, health_payload, parse_port, required_env, DEFAULT_PORT, SERVICE_NAME};
+    use super::{build_router, configured_port, health_payload, parse_port, required_env, ListenerState, DEFAULT_PORT, SERVICE_NAME};
+    use axum::body::{to_bytes, Body};
+    use shared_db::SharedDb;
+    use axum::http::{Request, StatusCode};
+    use serde_json::json;
+    use tower::ServiceExt;
 
     #[test]
     fn health_payload_mentions_service_name() {
@@ -167,5 +176,43 @@ mod tests {
     #[test]
     fn configured_port_uses_default_when_missing() {
         assert_eq!(configured_port(DEFAULT_PORT), DEFAULT_PORT);
+    }
+
+    #[tokio::test]
+    async fn observed_transfer_endpoint_rejects_invalid_payload_with_422() {
+        let app = build_router(ListenerState {
+            db: SharedDb::ephemeral().expect("db"),
+            internal_token: "secret".to_string(),
+        });
+
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/internal/observed-transfers")
+                    .header("x-internal-token", "secret")
+                    .header("content-type", "application/json")
+                    .body(Body::from(
+                        json!({
+                            "chain": "",
+                            "asset": "USDT",
+                            "address": "addr-1",
+                            "amount": "1.00000000",
+                            "tx_hash": "tx-1",
+                            "observed_at": "2026-04-01T00:00:00Z"
+                        })
+                        .to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::UNPROCESSABLE_ENTITY);
+        let body = serde_json::from_slice::<serde_json::Value>(
+            &to_bytes(response.into_body(), usize::MAX).await.expect("body"),
+        )
+        .expect("json");
+        assert_eq!(body["error"], "invalid chain");
     }
 }

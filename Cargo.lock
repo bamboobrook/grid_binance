@@ -184,6 +184,7 @@ dependencies = [
  "shared-chain",
  "shared-db",
  "tokio",
+ "tower",
 ]
 
 [[package]]

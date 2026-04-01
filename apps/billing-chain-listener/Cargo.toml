@@ -11,3 +11,6 @@ serde_json = "1"
 shared-db = { path = "../../crates/shared-db" }
 shared-chain = { path = "../../crates/shared-chain" }
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "net", "time"] }
+
+[dev-dependencies]
+tower = { version = "0.5", features = ["util"] }

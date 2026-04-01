@@ -55,6 +55,18 @@ pub fn process_observed_transfer(
     let asset = transfer.asset.trim().to_uppercase();
     let address = transfer.address.trim().to_owned();
     let tx_hash = transfer.tx_hash.trim().to_owned();
+    if chain.is_empty() {
+        return Err(ProcessorError::InvalidRequest("invalid chain"));
+    }
+    if asset.is_empty() {
+        return Err(ProcessorError::InvalidRequest("invalid asset"));
+    }
+    if address.is_empty() {
+        return Err(ProcessorError::InvalidRequest("invalid address"));
+    }
+    if tx_hash.is_empty() {
+        return Err(ProcessorError::InvalidRequest("invalid tx_hash"));
+    }
     let amount = canonicalize_amount(&transfer.amount)
         .map_err(|_| ProcessorError::InvalidRequest("invalid amount"))?;
 
@@ -391,6 +403,31 @@ mod tests {
             queued.assignment.as_ref().expect("assignment").address,
             "bsc-addr-1"
         );
+    }
+
+    #[test]
+    fn listener_rejects_empty_required_fields() {
+        let db = SharedDb::ephemeral().expect("db");
+        for (chain, asset, address, tx_hash, expected) in [
+            ("", "USDT", "addr", "tx", "invalid chain"),
+            ("BSC", "", "addr", "tx", "invalid asset"),
+            ("BSC", "USDT", "", "tx", "invalid address"),
+            ("BSC", "USDT", "addr", "", "invalid tx_hash"),
+        ] {
+            let error = process_observed_transfer(
+                &db,
+                ObservedChainTransfer {
+                    chain: chain.to_string(),
+                    asset: asset.to_string(),
+                    address: address.to_string(),
+                    amount: "1.00000000".to_string(),
+                    tx_hash: tx_hash.to_string(),
+                    observed_at: parse_time("2026-04-01T00:00:00Z"),
+                },
+            )
+            .expect_err("invalid request");
+            assert_eq!(error.to_string(), expected);
+        }
     }
 
     fn seed_plan(db: &SharedDb, code: &str, duration_days: i32, chain: &str, asset: &str, amount: &str) {
