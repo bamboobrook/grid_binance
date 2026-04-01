@@ -8,7 +8,7 @@ This release hardening task focuses on deployment assets, basic routing, and ope
 
 - Public admin traffic is served through `http://localhost:8080`.
 - Monitoring is served through `http://localhost:9090`.
-- The current API container exposes a deployment placeholder health endpoint through Nginx at `/api/healthz`.
+- The API health endpoint is exposed through Nginx at `/api/healthz`.
 
 ## Day-2 Checks
 

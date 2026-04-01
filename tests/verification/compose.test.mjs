@@ -35,6 +35,24 @@ test("compose references the expected release services", () => {
   assert.match(compose, /rust-service\.Dockerfile/);
 });
 
+test("release compose wires sqlite persistence and required auth env for api-server", () => {
+  const compose = fs.readFileSync("deploy/docker/docker-compose.yml", "utf8");
+
+  assert.match(compose, /api-server:\n(?:.*\n)*?\s+environment:\n(?:.*\n)*?\s+APP_DB_PATH:\s+\$\{APP_DB_PATH(?::\?[^}]+)?\}/);
+  assert.match(compose, /api-server:\n(?:.*\n)*?\s+environment:\n(?:.*\n)*?\s+SESSION_TOKEN_SECRET:\s+\$\{SESSION_TOKEN_SECRET:\?[^}]+\}/);
+  assert.match(compose, /api-server:\n(?:.*\n)*?\s+environment:\n(?:.*\n)*?\s+ADMIN_EMAILS:\s+\$\{ADMIN_EMAILS:\?[^}]+\}/);
+  assert.match(compose, /api-server:\n(?:.*\n)*?\s+volumes:\n(?:.*\n)*?\s+-\s+api-server-data:\/var\/lib\/grid-binance/);
+  assert.match(compose, /^volumes:\n(?:.*\n)*?\s+api-server-data:\s*$/m);
+});
+
+test("env example documents release-critical sqlite and auth settings", () => {
+  const envExample = fs.readFileSync(".env.example", "utf8");
+
+  assert.match(envExample, /^APP_DB_PATH=/m);
+  assert.match(envExample, /^SESSION_TOKEN_SECRET=/m);
+  assert.match(envExample, /^ADMIN_EMAILS=/m);
+});
+
 test("smoke script validates nginx and api entrypoints", () => {
   const script = fs.readFileSync("scripts/smoke.sh", "utf8");
 
