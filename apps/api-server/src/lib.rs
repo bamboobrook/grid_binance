@@ -1,5 +1,3 @@
-use std::path::Path;
-
 mod routes {
     pub mod admin_templates;
     pub mod analytics;
@@ -45,12 +43,15 @@ pub struct AppState {
 }
 
 impl AppState {
-    pub fn in_memory() -> Result<Self, SharedDbError> {
-        Self::from_shared_db(SharedDb::in_memory()?)
+    pub fn ephemeral() -> Result<Self, SharedDbError> {
+        Self::from_shared_db(SharedDb::ephemeral()?)
     }
 
-    pub fn persistent(path: impl AsRef<Path>) -> Result<Self, SharedDbError> {
-        Self::from_shared_db(SharedDb::open(path)?)
+    pub fn persistent(
+        database_url: impl AsRef<str>,
+        redis_url: impl AsRef<str>,
+    ) -> Result<Self, SharedDbError> {
+        Self::from_shared_db(SharedDb::connect(database_url, redis_url)?)
     }
 
     fn from_shared_db(db: SharedDb) -> Result<Self, SharedDbError> {
@@ -102,14 +103,18 @@ impl FromRef<AppState> for TelegramService {
 }
 
 pub fn app() -> Router {
-    app_with_state(AppState::in_memory().expect("test app state should initialize"))
+    app_with_state(AppState::ephemeral().expect("test app state should initialize"))
 }
 
-pub fn app_with_persistent_state(path: impl AsRef<Path>) -> Result<Router, AppBuildError> {
-    let db = SharedDb::open(path).map_err(AppBuildError::from)?;
+pub fn app_with_persistent_state(
+    database_url: impl AsRef<str>,
+    redis_url: impl AsRef<str>,
+) -> Result<Router, AppBuildError> {
+    let db = SharedDb::connect(database_url, redis_url).map_err(AppBuildError::from)?;
+    let auth = AuthService::new_strict(db.clone()).map_err(AppBuildError::from)?;
     let state = AppState {
         analytics: AnalyticsService::default(),
-        auth: AuthService::new_strict(db.clone()).map_err(AppBuildError::from)?,
+        auth,
         exchange: ExchangeService::default(),
         membership: MembershipService::new(db.clone()),
         strategy: StrategyService::new(db),
@@ -166,16 +171,12 @@ impl std::error::Error for AppBuildError {}
 mod tests {
     use super::{app_with_persistent_state, AppState};
     use crate::services::auth_service::{LoginRequest, RegisterUserRequest, VerifyEmailRequest};
-    use std::{
-        path::PathBuf,
-        sync::{Mutex, OnceLock},
-        time::{SystemTime, UNIX_EPOCH},
-    };
+    use std::sync::{Mutex, OnceLock};
 
     #[test]
-    fn persistent_app_state_reuses_file_backed_auth_data() {
-        let db_path = temp_db_path("app-state");
-        let first = AppState::persistent(&db_path).expect("open first app state");
+    fn app_state_reuses_ephemeral_auth_data_across_service_rebuilds() {
+        let db = shared_db::SharedDb::ephemeral().expect("ephemeral db");
+        let first = AppState::from_shared_db(db.clone()).expect("open first app state");
         let registered = first
             .auth
             .register(RegisterUserRequest {
@@ -199,7 +200,7 @@ mod tests {
             })
             .expect("login");
 
-        let reopened = AppState::persistent(&db_path).expect("reopen app state");
+        let reopened = AppState::from_shared_db(db).expect("reopen app state");
         let claims = reopened
             .auth
             .session_claims(&session.session_token)
@@ -214,17 +215,37 @@ mod tests {
         std::env::remove_var("ADMIN_EMAILS");
         std::env::remove_var("SESSION_TOKEN_SECRET");
 
-        let router = app_with_persistent_state(temp_db_path("strict-app"));
+        let router = app_with_persistent_state(
+            "postgres://grid:secret@localhost/grid",
+            "redis://localhost:6379/0",
+        );
 
         assert!(router.is_err());
     }
 
-    fn temp_db_path(label: &str) -> PathBuf {
-        let nonce = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .expect("clock should be monotonic")
-            .as_nanos();
-        std::env::temp_dir().join(format!("grid-binance-{label}-{nonce}.sqlite3"))
+    #[test]
+    fn persistent_router_rejects_invalid_database_url() {
+        let _guard = env_lock().lock().expect("env lock");
+        std::env::set_var("ADMIN_EMAILS", "admin@example.com");
+        std::env::set_var("SESSION_TOKEN_SECRET", "grid-binance-dev-session-secret");
+
+        let router = app_with_persistent_state("not-a-postgres-url", "redis://localhost:6379/0");
+
+        assert!(router.is_err());
+    }
+
+    #[test]
+    fn persistent_router_rejects_invalid_redis_url() {
+        let _guard = env_lock().lock().expect("env lock");
+        std::env::set_var("ADMIN_EMAILS", "admin@example.com");
+        std::env::set_var("SESSION_TOKEN_SECRET", "grid-binance-dev-session-secret");
+
+        let router = app_with_persistent_state(
+            "postgres://grid:secret@localhost/grid",
+            "not-a-redis-url",
+        );
+
+        assert!(router.is_err());
     }
 
     fn env_lock() -> &'static Mutex<()> {

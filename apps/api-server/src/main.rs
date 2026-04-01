@@ -1,19 +1,19 @@
 use axum::{http::header, response::IntoResponse, routing::get, Router};
+use std::io::{Error as IoError, ErrorKind};
 use tokio::net::TcpListener;
 
-const DEFAULT_DB_PATH: &str = "data/api-server.sqlite3";
 const DEFAULT_PORT: u16 = 8080;
 const SERVICE_NAME: &str = "api-server";
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let database_url = configured_database_url()?;
+    let redis_url = configured_redis_url()?;
     let listener = TcpListener::bind(("0.0.0.0", configured_port(DEFAULT_PORT))).await?;
     let app =
         Router::new()
             .route("/healthz", get(healthz))
-            .merge(api_server::app_with_persistent_state(configured_db_path(
-                DEFAULT_DB_PATH,
-            ))?);
+            .merge(api_server::app_with_persistent_state(database_url, redis_url)?);
 
     axum::serve(listener, app).await?;
     Ok(())
@@ -33,12 +33,20 @@ fn configured_port(default_port: u16) -> u16 {
     parse_port(std::env::var("PORT").ok(), default_port)
 }
 
-fn configured_db_path(default_path: &str) -> String {
-    std::env::var("APP_DB_PATH")
+fn configured_database_url() -> Result<String, IoError> {
+    required_env("DATABASE_URL")
+}
+
+fn configured_redis_url() -> Result<String, IoError> {
+    required_env("REDIS_URL")
+}
+
+fn required_env(name: &str) -> Result<String, IoError> {
+    std::env::var(name)
         .ok()
-        .map(|path| path.trim().to_owned())
-        .filter(|path| !path.is_empty())
-        .unwrap_or_else(|| default_path.to_owned())
+        .map(|value| value.trim().to_owned())
+        .filter(|value| !value.is_empty())
+        .ok_or_else(|| IoError::new(ErrorKind::InvalidInput, format!("{name} is required")))
 }
 
 fn parse_port(value: Option<String>, default_port: u16) -> u16 {
@@ -56,7 +64,8 @@ fn health_payload(service_name: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::{
-        configured_db_path, health_payload, parse_port, DEFAULT_DB_PATH, DEFAULT_PORT, SERVICE_NAME,
+        configured_database_url, configured_redis_url, health_payload, parse_port, required_env,
+        DEFAULT_PORT, SERVICE_NAME,
     };
 
     #[test]
@@ -77,15 +86,33 @@ mod tests {
     }
 
     #[test]
-    fn configured_db_path_uses_env_or_default() {
-        std::env::remove_var("APP_DB_PATH");
-        assert_eq!(configured_db_path(DEFAULT_DB_PATH), DEFAULT_DB_PATH);
+    fn required_env_requires_non_empty_values() {
+        std::env::remove_var("DATABASE_URL");
+        assert!(required_env("DATABASE_URL").is_err());
 
-        std::env::set_var("APP_DB_PATH", "/tmp/runtime.sqlite3");
+        std::env::set_var("DATABASE_URL", "postgres://grid:secret@localhost/grid");
         assert_eq!(
-            configured_db_path(DEFAULT_DB_PATH),
-            "/tmp/runtime.sqlite3".to_string()
+            required_env("DATABASE_URL").expect("env should be returned"),
+            "postgres://grid:secret@localhost/grid".to_string()
         );
-        std::env::remove_var("APP_DB_PATH");
+        std::env::remove_var("DATABASE_URL");
+    }
+
+    #[test]
+    fn configured_runtime_urls_read_expected_envs() {
+        std::env::set_var("DATABASE_URL", "postgres://grid:secret@localhost/grid");
+        std::env::set_var("REDIS_URL", "redis://127.0.0.1:6379/0");
+
+        assert_eq!(
+            configured_database_url().expect("database url"),
+            "postgres://grid:secret@localhost/grid".to_string()
+        );
+        assert_eq!(
+            configured_redis_url().expect("redis url"),
+            "redis://127.0.0.1:6379/0".to_string()
+        );
+
+        std::env::remove_var("DATABASE_URL");
+        std::env::remove_var("REDIS_URL");
     }
 }

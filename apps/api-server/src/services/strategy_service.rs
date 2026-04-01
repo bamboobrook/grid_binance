@@ -82,7 +82,7 @@ pub struct StopAllResponse {
 
 impl Default for StrategyService {
     fn default() -> Self {
-        Self::new(SharedDb::in_memory().expect("in-memory strategy db should initialize"))
+        Self::new(SharedDb::ephemeral().expect("ephemeral strategy db should initialize"))
     }
 }
 
@@ -508,15 +508,10 @@ mod tests {
     };
     use shared_db::SharedDb;
     use shared_domain::strategy::StrategyStatus;
-    use std::{
-        path::PathBuf,
-        time::{SystemTime, UNIX_EPOCH},
-    };
 
     #[test]
     fn strategy_and_template_state_survive_service_restart() {
-        let db_path = temp_db_path("strategy");
-        let db = SharedDb::open(&db_path).expect("open db");
+        let db = SharedDb::ephemeral().expect("ephemeral db");
         let service = StrategyService::new(db.clone());
         let owner_email = "trader@example.com";
 
@@ -547,7 +542,7 @@ mod tests {
             )
             .expect("create strategy");
 
-        let reopened = StrategyService::new(SharedDb::open(&db_path).expect("reopen db"));
+        let reopened = StrategyService::new(db.clone());
         let from_template = reopened
             .apply_template(
                 owner_email,
@@ -561,7 +556,7 @@ mod tests {
             .start_strategy(owner_email, &from_template.id)
             .expect("start strategy");
 
-        let restarted = StrategyService::new(SharedDb::open(&db_path).expect("reopen db"));
+        let restarted = StrategyService::new(db);
         let strategies = restarted.list_strategies(owner_email);
         let templates = restarted.list_templates();
 
@@ -571,13 +566,5 @@ mod tests {
             .iter()
             .any(|strategy| strategy.id == from_template.id
                 && strategy.status == StrategyStatus::Running));
-    }
-
-    fn temp_db_path(label: &str) -> PathBuf {
-        let nonce = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .expect("clock should be monotonic")
-            .as_nanos();
-        std::env::temp_dir().join(format!("grid-binance-{label}-{nonce}.sqlite3"))
     }
 }

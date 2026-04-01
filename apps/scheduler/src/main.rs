@@ -1,4 +1,5 @@
 use axum::{http::header, response::IntoResponse, routing::get, Router};
+use std::io::{Error as IoError, ErrorKind};
 use tokio::net::TcpListener;
 
 const DEFAULT_PORT: u16 = 8082;
@@ -6,6 +7,8 @@ const SERVICE_NAME: &str = "scheduler";
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let _database_url = required_env("DATABASE_URL")?;
+    let _redis_url = required_env("REDIS_URL")?;
     let listener = TcpListener::bind(("0.0.0.0", configured_port(DEFAULT_PORT))).await?;
     let app = Router::new().route("/healthz", get(healthz));
 
@@ -27,6 +30,14 @@ fn configured_port(default_port: u16) -> u16 {
     parse_port(std::env::var("PORT").ok(), default_port)
 }
 
+fn required_env(name: &str) -> Result<String, IoError> {
+    std::env::var(name)
+        .ok()
+        .map(|value| value.trim().to_owned())
+        .filter(|value| !value.is_empty())
+        .ok_or_else(|| IoError::new(ErrorKind::InvalidInput, format!("{name} is required")))
+}
+
 fn parse_port(value: Option<String>, default_port: u16) -> u16 {
     value
         .and_then(|port| port.parse().ok())
@@ -41,7 +52,7 @@ fn health_payload(service_name: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{health_payload, parse_port, DEFAULT_PORT, SERVICE_NAME};
+    use super::{health_payload, parse_port, required_env, DEFAULT_PORT, SERVICE_NAME};
 
     #[test]
     fn health_payload_mentions_service_name() {
@@ -58,5 +69,15 @@ mod tests {
             parse_port(Some("not-a-port".to_string()), DEFAULT_PORT),
             DEFAULT_PORT
         );
+    }
+
+    #[test]
+    fn required_env_requires_runtime_storage_urls() {
+        std::env::remove_var("REDIS_URL");
+        assert!(required_env("REDIS_URL").is_err());
+
+        std::env::set_var("REDIS_URL", "redis://127.0.0.1:6379/0");
+        assert!(required_env("REDIS_URL").is_ok());
+        std::env::remove_var("REDIS_URL");
     }
 }

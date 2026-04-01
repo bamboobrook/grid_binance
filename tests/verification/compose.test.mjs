@@ -35,24 +35,31 @@ test("compose references the expected release services", () => {
   assert.match(compose, /rust-service\.Dockerfile/);
 });
 
-test("release compose wires sqlite persistence and required auth env for api-server and web", () => {
+test("release compose wires postgres redis persistence and required auth env for api-server and web", () => {
   const compose = fs.readFileSync("deploy/docker/docker-compose.yml", "utf8");
 
-  assert.match(compose, /api-server:\n(?:.*\n)*?\s+environment:\n(?:.*\n)*?\s+APP_DB_PATH:\s+\$\{APP_DB_PATH(?::\?[^}]+)?\}/);
+  assert.match(compose, /^  postgres:$/m);
+  assert.match(compose, /^  redis:$/m);
+  assert.match(compose, /api-server:\n(?:.*\n)*?\s+environment:\n(?:.*\n)*?\s+DATABASE_URL:\s+\$\{DATABASE_URL:\?[^}]+\}/);
+  assert.match(compose, /api-server:\n(?:.*\n)*?\s+environment:\n(?:.*\n)*?\s+REDIS_URL:\s+\$\{REDIS_URL:\?[^}]+\}/);
   assert.match(compose, /api-server:\n(?:.*\n)*?\s+environment:\n(?:.*\n)*?\s+SESSION_TOKEN_SECRET:\s+\$\{SESSION_TOKEN_SECRET:\?[^}]+\}/);
   assert.match(compose, /api-server:\n(?:.*\n)*?\s+environment:\n(?:.*\n)*?\s+ADMIN_EMAILS:\s+\$\{ADMIN_EMAILS:\?[^}]+\}/);
   assert.match(compose, /web:\n(?:.*\n)*?\s+environment:\n(?:.*\n)*?\s+SESSION_TOKEN_SECRET:\s+\$\{SESSION_TOKEN_SECRET:\?[^}]+\}/);
   assert.match(compose, /web:\n(?:.*\n)*?\s+environment:\n(?:.*\n)*?\s+AUTH_API_BASE_URL:\s+http:\/\/api-server:8080/);
-  assert.match(compose, /api-server:\n(?:.*\n)*?\s+volumes:\n(?:.*\n)*?\s+-\s+api-server-data:\/var\/lib\/grid-binance/);
-  assert.match(compose, /^volumes:\n(?:.*\n)*?\s+api-server-data:\s*$/m);
+  assert.match(compose, /^volumes:\n(?:.*\n)*?\s+postgres-data:\s*$/m);
+  assert.match(compose, /^volumes:\n(?:.*\n)*?\s+redis-data:\s*$/m);
 });
 
-test("env example documents release-critical sqlite and auth settings", () => {
+test("env example documents release-critical postgres redis and auth settings", () => {
   const envExample = fs.readFileSync(".env.example", "utf8");
 
-  assert.match(envExample, /^APP_DB_PATH=/m);
+  assert.match(envExample, /^DATABASE_URL=postgres:\/\/postgres:postgres@postgres:5432\/grid_binance$/m);
+  assert.match(envExample, /^REDIS_URL=redis:\/\/redis:6379\/0$/m);
+  assert.match(envExample, /^DATABASE_URL=/m);
+  assert.match(envExample, /^REDIS_URL=/m);
   assert.match(envExample, /^SESSION_TOKEN_SECRET=/m);
   assert.match(envExample, /^ADMIN_EMAILS=/m);
+  assert.doesNotMatch(envExample, /^APP_DB_PATH=/m);
 });
 
 test("smoke script validates nginx and api entrypoints", () => {
@@ -76,7 +83,11 @@ test("compose docs consistently require explicit root env file and quoted web he
   );
   assert.match(deploymentGuide, /docker compose --env-file \.env -f deploy\/docker\/docker-compose\.yml up -d --build/);
   assert.match(deploymentGuide, /docker compose --env-file \.env -f deploy\/docker\/docker-compose\.yml down/);
+  assert.match(deploymentGuide, /127\.0\.0\.1:5432/);
+  assert.match(deploymentGuide, /127\.0\.0\.1:6379/);
   assert.match(userGuide, /docker compose --env-file \.env -f deploy\/docker\/docker-compose\.yml up -d --build/);
+  assert.match(userGuide, /cargo run -p api-server/);
+  assert.doesNotMatch(userGuide, /sqlite/i);
   assert.match(adminGuide, /docker compose --env-file \.env -f deploy\/docker\/docker-compose\.yml ps/);
 });
 
@@ -91,7 +102,8 @@ test("api server container runs the real Rust process without placeholder http s
 test("rust service entrypoints are long-running health probe servers instead of bootstrap printlns", () => {
   const apiMain = fs.readFileSync("apps/api-server/src/main.rs", "utf8");
   assert.match(apiMain, /api_server::app_with_persistent_state\(/);
-  assert.match(apiMain, /configured_db_path\(/);
+  assert.match(apiMain, /configured_database_url\(\)/);
+  assert.match(apiMain, /configured_redis_url\(\)/);
   assert.match(apiMain, /\/healthz/);
   assert.doesNotMatch(apiMain, /println!\("bootstrap"\)/);
 

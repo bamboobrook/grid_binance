@@ -1,0 +1,21 @@
+use sqlx::{migrate::Migrator, PgPool};
+
+use crate::SharedDbError;
+
+static MIGRATOR: Migrator = sqlx::migrate!("../../db/migrations");
+
+const REQUIRED_MIGRATIONS: [&str; 5] = [
+    "0001_initial_core.sql",
+    "0002_identity_security.sql",
+    "0003_membership_billing.sql",
+    "0004_trading.sql",
+    "0005_admin_and_notifications.sql",
+];
+
+pub async fn run(pool: &PgPool) -> Result<(), SharedDbError> {
+    MIGRATOR.run(pool).await.map_err(SharedDbError::from)
+}
+
+pub fn required_migrations() -> &'static [&'static str; 5] {
+    &REQUIRED_MIGRATIONS
+}

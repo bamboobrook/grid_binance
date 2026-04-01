@@ -78,7 +78,7 @@ pub struct MembershipOverrideRequest {
 
 impl Default for MembershipService {
     fn default() -> Self {
-        Self::new(SharedDb::in_memory().expect("in-memory membership db should initialize"))
+        Self::new(SharedDb::ephemeral().expect("ephemeral membership db should initialize"))
     }
 }
 
@@ -472,16 +472,11 @@ mod tests {
     use chrono::{Duration, Utc};
     use shared_db::SharedDb;
     use shared_domain::membership::MembershipStatus;
-    use std::{
-        path::PathBuf,
-        time::{SystemTime, UNIX_EPOCH},
-    };
 
     #[test]
     fn membership_orders_and_status_survive_service_restart() {
-        let db_path = temp_db_path("membership");
         let requested_at = Utc::now();
-        let db = SharedDb::open(&db_path).expect("open db");
+        let db = SharedDb::ephemeral().expect("ephemeral db");
         let service = MembershipService::new(db.clone());
 
         let order = service
@@ -494,7 +489,7 @@ mod tests {
             })
             .expect("create order");
 
-        let reopened = MembershipService::new(SharedDb::open(&db_path).expect("reopen db"));
+        let reopened = MembershipService::new(db.clone());
         reopened
             .match_order(MatchBillingOrderRequest {
                 chain: order.chain.clone(),
@@ -505,7 +500,7 @@ mod tests {
             })
             .expect("match order");
 
-        let restarted = MembershipService::new(SharedDb::open(&db_path).expect("reopen db"));
+        let restarted = MembershipService::new(db);
         let snapshot = restarted
             .membership_status(MembershipStatusRequest {
                 email: "member@example.com".to_string(),
@@ -514,13 +509,5 @@ mod tests {
             .expect("membership status");
 
         assert_eq!(snapshot.status, MembershipStatus::Active);
-    }
-
-    fn temp_db_path(label: &str) -> PathBuf {
-        let nonce = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .expect("clock should be monotonic")
-            .as_nanos();
-        std::env::temp_dir().join(format!("grid-binance-{label}-{nonce}.sqlite3"))
     }
 }

@@ -348,7 +348,7 @@ impl AuthService {
 
 impl Default for AuthService {
     fn default() -> Self {
-        Self::new(SharedDb::in_memory().expect("in-memory auth db should initialize"))
+        Self::new(SharedDb::ephemeral().expect("ephemeral auth db should initialize"))
     }
 }
 
@@ -518,15 +518,10 @@ fn validate_password(password: &str) -> Result<(), AuthError> {
 mod tests {
     use super::{AuthService, LoginRequest, RegisterUserRequest, VerifyEmailRequest};
     use shared_db::SharedDb;
-    use std::{
-        path::PathBuf,
-        time::{SystemTime, UNIX_EPOCH},
-    };
 
     #[test]
     fn auth_state_survives_service_restart() {
-        let db_path = temp_db_path("auth");
-        let db = SharedDb::open(&db_path).expect("open db");
+        let db = SharedDb::ephemeral().expect("ephemeral db");
         let service = AuthService::new(db.clone());
 
         let registered = service
@@ -551,19 +546,11 @@ mod tests {
             })
             .expect("login succeeds");
 
-        let reopened = AuthService::new(SharedDb::open(&db_path).expect("reopen db"));
+        let reopened = AuthService::new(db);
         let claims = reopened
             .session_claims(&login.session_token)
             .expect("session still valid");
 
         assert_eq!(claims.email, "user@example.com");
-    }
-
-    fn temp_db_path(label: &str) -> PathBuf {
-        let nonce = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .expect("clock should be monotonic")
-            .as_nanos();
-        std::env::temp_dir().join(format!("grid-binance-{label}-{nonce}.sqlite3"))
     }
 }

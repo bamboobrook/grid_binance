@@ -7,7 +7,7 @@ This release packages the public web shell and API behind Nginx and exposes the 
 ## First Run
 
 1. Copy `.env.example` to `.env`.
-2. Set at least `APP_DB_PATH`, `SESSION_TOKEN_SECRET`, and `ADMIN_EMAILS` in `.env`.
+2. Set at least `DATABASE_URL`, `REDIS_URL`, `SESSION_TOKEN_SECRET`, and `ADMIN_EMAILS` in `.env`.
 3. Start the stack with `docker compose --env-file .env -f deploy/docker/docker-compose.yml up -d --build`.
 4. Open `http://localhost:8080`.
 5. Use the public entry points:
@@ -20,7 +20,9 @@ This release packages the public web shell and API behind Nginx and exposes the 
 - The user-facing Next.js app
 - Nginx reverse proxy in front of the app
 - The API health endpoint at `/api/healthz`
-- SQLite persistence in the Docker volume `api-server-data`, with the default file path `/var/lib/grid-binance/app.db`
+- PostgreSQL for relational runtime data and Redis for runtime coordination
+
+`.env.example` targets Docker Compose service discovery. If you run `cargo run -p api-server` outside compose, override `DATABASE_URL` and `REDIS_URL` to `127.0.0.1` or another reachable host.
 
 ## Smoke Check
 
