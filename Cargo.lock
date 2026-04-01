@@ -36,6 +36,7 @@ dependencies = [
  "shared-binance",
  "shared-chain",
  "shared-domain",
+ "shared-events",
  "tokio",
  "tower",
  "trading-engine",
@@ -908,6 +909,7 @@ name = "shared-events"
 version = "0.1.0"
 dependencies = [
  "rust_decimal",
+ "serde",
 ]
 
 [[package]]

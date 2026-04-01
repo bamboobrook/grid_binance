@@ -8,6 +8,7 @@ mod routes {
     pub mod membership;
     pub mod security;
     pub mod strategies;
+    pub mod telegram;
 }
 
 mod services {
@@ -16,13 +17,14 @@ mod services {
     pub mod exchange_service;
     pub mod membership_service;
     pub mod strategy_service;
+    pub mod telegram_service;
 }
 
 use axum::{extract::FromRef, Router};
 use services::{
     analytics_service::AnalyticsService, auth_service::AuthService,
     exchange_service::ExchangeService, membership_service::MembershipService,
-    strategy_service::StrategyService,
+    strategy_service::StrategyService, telegram_service::TelegramService,
 };
 
 #[derive(Clone, Default)]
@@ -32,6 +34,7 @@ pub struct AppState {
     exchange: ExchangeService,
     membership: MembershipService,
     strategy: StrategyService,
+    telegram: TelegramService,
 }
 
 impl FromRef<AppState> for AuthService {
@@ -64,6 +67,12 @@ impl FromRef<AppState> for StrategyService {
     }
 }
 
+impl FromRef<AppState> for TelegramService {
+    fn from_ref(input: &AppState) -> Self {
+        input.telegram.clone()
+    }
+}
+
 pub fn app() -> Router {
     Router::new()
         .merge(routes::admin_templates::router())
@@ -75,5 +84,6 @@ pub fn app() -> Router {
         .merge(routes::membership::router())
         .merge(routes::security::router())
         .merge(routes::strategies::router())
+        .merge(routes::telegram::router())
         .with_state(AppState::default())
 }

@@ -14,6 +14,7 @@ shared-binance = { path = "../../crates/shared-binance" }
 shared-chain = { path = "../../crates/shared-chain" }
 shared-auth = { path = "../../crates/shared-auth" }
 shared-domain = { path = "../../crates/shared-domain" }
+shared-events = { path = "../../crates/shared-events" }
 trading-engine = { path = "../trading-engine" }
 
 [dev-dependencies]
