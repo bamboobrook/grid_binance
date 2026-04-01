@@ -8,8 +8,12 @@ use axum::{
     response::{IntoResponse, Response},
     Json,
 };
+use chrono::{DateTime, Duration, Utc};
+use getrandom::getrandom;
 use serde::{Deserialize, Serialize};
 use shared_events::{NotificationEvent, NotificationKind, NotificationRecord};
+
+const DEFAULT_BIND_CODE_TTL_SECONDS: i64 = 300;
 
 #[derive(Clone, Default)]
 pub struct TelegramService {
@@ -18,10 +22,15 @@ pub struct TelegramService {
 
 #[derive(Default)]
 struct TelegramState {
-    next_bind_code: u64,
-    bind_codes: HashMap<String, String>,
+    bind_codes: HashMap<String, BindCodeRecord>,
+    active_codes_by_email: HashMap<String, String>,
     bindings: HashMap<String, TelegramBinding>,
     inboxes: HashMap<String, Vec<NotificationRecord>>,
+}
+
+struct BindCodeRecord {
+    email: String,
+    expires_at: DateTime<Utc>,
 }
 
 struct TelegramBinding {
@@ -31,12 +40,14 @@ struct TelegramBinding {
 #[derive(Debug, Deserialize)]
 pub struct CreateTelegramBindCodeRequest {
     pub email: String,
+    pub ttl_seconds: Option<i64>,
 }
 
 #[derive(Debug, Serialize)]
 pub struct CreateTelegramBindCodeResponse {
     pub email: String,
     pub code: String,
+    pub expires_at: DateTime<Utc>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -81,11 +92,30 @@ impl TelegramService {
         }
 
         let mut inner = self.inner.lock().expect("telegram state poisoned");
-        inner.next_bind_code += 1;
-        let code = format!("tg-bind-{:06}", inner.next_bind_code);
-        inner.bind_codes.insert(code.clone(), email.clone());
+        if let Some(previous_code) = inner.active_codes_by_email.remove(&email) {
+            inner.bind_codes.remove(&previous_code);
+        }
 
-        Ok(CreateTelegramBindCodeResponse { email, code })
+        let ttl_seconds = request.ttl_seconds.unwrap_or(DEFAULT_BIND_CODE_TTL_SECONDS);
+        let expires_at = Utc::now() + Duration::seconds(ttl_seconds);
+        let code = generate_bind_code(&inner);
+
+        inner.bind_codes.insert(
+            code.clone(),
+            BindCodeRecord {
+                email: email.clone(),
+                expires_at,
+            },
+        );
+        inner
+            .active_codes_by_email
+            .insert(email.clone(), code.clone());
+
+        Ok(CreateTelegramBindCodeResponse {
+            email,
+            code,
+            expires_at,
+        })
     }
 
     pub fn bind_telegram(
@@ -99,20 +129,33 @@ impl TelegramService {
         }
 
         let mut inner = self.inner.lock().expect("telegram state poisoned");
-        let email = inner
+        let bind_code = inner
             .bind_codes
             .remove(code)
             .ok_or_else(|| TelegramError::not_found("bind code not found"))?;
 
+        if Utc::now() > bind_code.expires_at {
+            match inner.active_codes_by_email.get(&bind_code.email) {
+                Some(active_code) if active_code == code => {
+                    inner.active_codes_by_email.remove(&bind_code.email);
+                }
+                _ => {}
+            }
+
+            return Err(TelegramError::not_found("bind code expired"));
+        }
+
+        inner.active_codes_by_email.remove(&bind_code.email);
+
         inner.bindings.insert(
-            email.clone(),
+            bind_code.email.clone(),
             TelegramBinding {
                 chat_id: chat_id.to_owned(),
             },
         );
 
         Ok(BindTelegramResponse {
-            email,
+            email: bind_code.email,
             chat_id: chat_id.to_owned(),
         })
     }
@@ -212,4 +255,32 @@ struct TelegramErrorResponse {
 
 fn normalize_email(email: &str) -> String {
     email.trim().to_lowercase()
+}
+
+fn generate_bind_code(state: &TelegramState) -> String {
+    loop {
+        let mut bytes = [0_u8; 16];
+        getrandom(&mut bytes).expect("os randomness available");
+        let code = format!("tg-bind-{}", hex_encode(&bytes));
+        if !state.bind_codes.contains_key(&code) {
+            return code;
+        }
+    }
+}
+
+fn hex_encode(bytes: &[u8]) -> String {
+    let mut encoded = String::with_capacity(bytes.len() * 2);
+    for byte in bytes {
+        encoded.push(nibble_to_hex(byte >> 4));
+        encoded.push(nibble_to_hex(byte & 0x0f));
+    }
+    encoded
+}
+
+fn nibble_to_hex(value: u8) -> char {
+    match value {
+        0..=9 => (b'0' + value) as char,
+        10..=15 => (b'a' + (value - 10)) as char,
+        _ => unreachable!("nibble value out of range"),
+    }
 }

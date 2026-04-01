@@ -10,7 +10,7 @@ use tower::ServiceExt;
 async fn bind_telegram_and_dispatch_runtime_membership_alerts() {
     let app = app();
 
-    let bind_code = create_bind_code(&app, "trader@example.com").await;
+    let bind_code = create_bind_code(&app, "trader@example.com", None).await;
     assert_eq!(bind_code.status(), StatusCode::CREATED);
     let bind_code_body = response_json(bind_code).await;
     let code = bind_code_body["code"]
@@ -79,14 +79,92 @@ async fn bind_telegram_and_dispatch_runtime_membership_alerts() {
     assert_eq!(items[2]["event"]["kind"], "RuntimeError");
 }
 
-async fn create_bind_code(app: &axum::Router, email: &str) -> axum::response::Response {
+#[tokio::test]
+async fn previous_bind_code_is_rejected_after_regenerating_for_same_email() {
+    let app = app();
+
+    let first = create_bind_code(&app, "rotate@example.com", None).await;
+    assert_eq!(first.status(), StatusCode::CREATED);
+    let first_body = response_json(first).await;
+    let first_code = first_body["code"].as_str().expect("first code").to_string();
+
+    let second = create_bind_code(&app, "rotate@example.com", None).await;
+    assert_eq!(second.status(), StatusCode::CREATED);
+    let second_body = response_json(second).await;
+    let second_code = second_body["code"]
+        .as_str()
+        .expect("second code")
+        .to_string();
+    assert_ne!(first_code, second_code);
+
+    let rejected = bind_telegram(&app, &first_code, "chat-old").await;
+    assert_eq!(rejected.status(), StatusCode::NOT_FOUND);
+    assert_eq!(
+        response_json(rejected).await["error"],
+        "bind code not found"
+    );
+
+    let accepted = bind_telegram(&app, &second_code, "chat-new").await;
+    assert_eq!(accepted.status(), StatusCode::OK);
+    let accepted_body = response_json(accepted).await;
+    assert_eq!(accepted_body["email"], "rotate@example.com");
+    assert_eq!(accepted_body["chat_id"], "chat-new");
+}
+
+#[tokio::test]
+async fn expired_bind_code_is_rejected() {
+    let app = app();
+
+    let bind_code = create_bind_code(&app, "expired-bind@example.com", Some(0)).await;
+    assert_eq!(bind_code.status(), StatusCode::CREATED);
+    let bind_code_body = response_json(bind_code).await;
+    let code = bind_code_body["code"]
+        .as_str()
+        .expect("expired code")
+        .to_string();
+
+    let rejected = bind_telegram(&app, &code, "chat-expired").await;
+    assert_eq!(rejected.status(), StatusCode::NOT_FOUND);
+    assert_eq!(response_json(rejected).await["error"], "bind code expired");
+}
+
+#[tokio::test]
+async fn unbound_email_keeps_telegram_delivery_disabled() {
+    let app = app();
+
+    let runtime = dispatch_notification(
+        &app,
+        "unbound@example.com",
+        "RuntimeError",
+        "Runtime failure",
+        "Worker panic detected.",
+    )
+    .await;
+    assert_eq!(runtime.status(), StatusCode::OK);
+    let runtime_body = response_json(runtime).await;
+    assert_eq!(runtime_body["event"]["kind"], "RuntimeError");
+    assert_eq!(runtime_body["telegram_delivered"], false);
+    assert_eq!(runtime_body["in_app_delivered"], true);
+}
+
+async fn create_bind_code(
+    app: &axum::Router,
+    email: &str,
+    ttl_seconds: Option<i64>,
+) -> axum::response::Response {
     app.clone()
         .oneshot(
             Request::builder()
                 .method("POST")
                 .uri("/telegram/bind-codes")
                 .header("content-type", "application/json")
-                .body(Body::from(json!({ "email": email }).to_string()))
+                .body(Body::from(
+                    json!({
+                        "email": email,
+                        "ttl_seconds": ttl_seconds,
+                    })
+                    .to_string(),
+                ))
                 .unwrap(),
         )
         .await

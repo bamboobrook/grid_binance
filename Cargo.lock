@@ -29,6 +29,7 @@ dependencies = [
  "axum",
  "billing-chain-listener",
  "chrono",
+ "getrandom",
  "rust_decimal",
  "serde",
  "serde_json",
