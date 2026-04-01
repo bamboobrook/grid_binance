@@ -1,10 +1,15 @@
-use axum::{extract::State, http::HeaderMap, routing::post, Json, Router};
+use axum::{
+    extract::State,
+    http::HeaderMap,
+    routing::{get, post},
+    Json, Router,
+};
 
 use crate::{
     routes::auth_guard::require_user_session,
     services::auth_service::AuthService,
     services::exchange_service::{
-        ExchangeError, ExchangeService, SaveBinanceCredentialsRequest,
+        ExchangeError, ExchangeService, ReadBinanceAccountResponse, SaveBinanceCredentialsRequest,
         SaveBinanceCredentialsResponse, SearchSymbolsRequest, SearchSymbolsResponse,
     },
     AppState,
@@ -13,6 +18,7 @@ use crate::{
 pub fn router() -> Router<AppState> {
     Router::new()
         .route("/exchange/binance/credentials", post(save_credentials))
+        .route("/exchange/binance/account", get(read_account))
         .route("/exchange/binance/symbols/search", post(search_symbols))
 }
 
@@ -22,8 +28,19 @@ async fn save_credentials(
     headers: HeaderMap,
     Json(request): Json<SaveBinanceCredentialsRequest>,
 ) -> Result<Json<SaveBinanceCredentialsResponse>, ExchangeError> {
-    require_user_session(&auth, &headers).map_err(ExchangeError::from)?;
-    Ok(Json(service.save_binance_credentials(request)?))
+    let session = require_user_session(&auth, &headers).map_err(ExchangeError::from)?;
+    Ok(Json(
+        service.save_binance_credentials(&session.email, request)?,
+    ))
+}
+
+async fn read_account(
+    State(auth): State<AuthService>,
+    State(service): State<ExchangeService>,
+    headers: HeaderMap,
+) -> Result<Json<ReadBinanceAccountResponse>, ExchangeError> {
+    let session = require_user_session(&auth, &headers).map_err(ExchangeError::from)?;
+    Ok(Json(service.read_binance_account(&session.email)?))
 }
 
 async fn search_symbols(
@@ -32,6 +49,6 @@ async fn search_symbols(
     headers: HeaderMap,
     Json(request): Json<SearchSymbolsRequest>,
 ) -> Result<Json<SearchSymbolsResponse>, ExchangeError> {
-    require_user_session(&auth, &headers).map_err(ExchangeError::from)?;
-    Ok(Json(service.search_symbols(request)?))
+    let session = require_user_session(&auth, &headers).map_err(ExchangeError::from)?;
+    Ok(Json(service.search_symbols(&session.email, request)?))
 }

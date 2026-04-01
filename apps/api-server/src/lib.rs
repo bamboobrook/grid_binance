@@ -63,7 +63,7 @@ impl AppState {
         Ok(Self {
             analytics: AnalyticsService::default(),
             auth: AuthService::new(db.clone()),
-            exchange: ExchangeService::default(),
+            exchange: ExchangeService::new(db.clone()),
             membership: MembershipService::new(db.clone()),
             strategy: StrategyService::new(db),
             telegram: TelegramService::default(),
@@ -120,7 +120,7 @@ pub fn app_with_persistent_state(
     let state = AppState {
         analytics: AnalyticsService::default(),
         auth,
-        exchange: ExchangeService::default(),
+        exchange: ExchangeService::new(db.clone()),
         membership: MembershipService::new(db.clone()),
         strategy: StrategyService::new(db),
         telegram: TelegramService::default(),
@@ -250,10 +250,8 @@ mod tests {
         std::env::set_var("ADMIN_EMAILS", "admin@example.com");
         std::env::set_var("SESSION_TOKEN_SECRET", "grid-binance-dev-session-secret");
 
-        let router = app_with_persistent_state(
-            "postgres://grid:secret@localhost/grid",
-            "not-a-redis-url",
-        );
+        let router =
+            app_with_persistent_state("postgres://grid:secret@localhost/grid", "not-a-redis-url");
 
         assert!(router.is_err());
     }

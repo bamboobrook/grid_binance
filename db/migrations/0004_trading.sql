@@ -122,3 +122,30 @@ CREATE TABLE IF NOT EXISTS exchange_account_trade_history (
     fee_asset TEXT,
     traded_at TIMESTAMPTZ NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS user_exchange_symbol_metadata (
+    symbol_metadata_id BIGSERIAL PRIMARY KEY,
+    user_email TEXT NOT NULL,
+    exchange TEXT NOT NULL,
+    market TEXT NOT NULL,
+    symbol TEXT NOT NULL,
+    status TEXT NOT NULL,
+    base_asset TEXT NOT NULL,
+    quote_asset TEXT NOT NULL,
+    price_precision INTEGER NOT NULL,
+    quantity_precision INTEGER NOT NULL,
+    min_quantity TEXT NOT NULL,
+    min_notional TEXT NOT NULL,
+    keywords JSONB NOT NULL DEFAULT '[]'::jsonb,
+    metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+    synced_at TIMESTAMPTZ NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE (user_email, exchange, market, symbol)
+);
+
+CREATE INDEX IF NOT EXISTS idx_user_exchange_symbol_metadata_user_exchange
+    ON user_exchange_symbol_metadata ((lower(user_email)), exchange);
+
+CREATE INDEX IF NOT EXISTS idx_user_exchange_symbol_metadata_symbol_lower
+    ON user_exchange_symbol_metadata ((lower(symbol)));

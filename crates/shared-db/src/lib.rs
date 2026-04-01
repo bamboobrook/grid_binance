@@ -6,17 +6,13 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use ::redis::RedisError;
-use chrono::{DateTime, Duration, Utc};
 use crate::postgres::{
-    admin::AdminRepository,
-    billing::BillingRepository,
-    exchange::ExchangeRepository,
-    identity::IdentityRepository,
-    strategy::StrategyRepository,
-    PostgresConfig, PostgresStore,
+    admin::AdminRepository, billing::BillingRepository, exchange::ExchangeRepository,
+    identity::IdentityRepository, strategy::StrategyRepository, PostgresConfig, PostgresStore,
 };
 use crate::redis::{RedisConfig, RedisStore};
+use ::redis::RedisError;
+use chrono::{DateTime, Duration, Utc};
 use shared_domain::{
     membership::MembershipStatus,
     strategy::{Strategy, StrategyStatus, StrategyTemplate},
@@ -25,11 +21,15 @@ use shared_domain::{
 pub mod postgres;
 pub mod redis;
 
-pub use crate::postgres::billing::{
-    BillingOrderRecord, DepositAddressPoolRecord, DepositTransactionRecord, MembershipPlanPriceRecord,
-    MembershipPlanRecord, MembershipRecord, SweepJobRecord, SweepTransferRecord,
-};
 pub use crate::postgres::admin::AuditLogRecord;
+pub use crate::postgres::billing::{
+    BillingOrderRecord, DepositAddressPoolRecord, DepositTransactionRecord,
+    MembershipPlanPriceRecord, MembershipPlanRecord, MembershipRecord, SweepJobRecord,
+    SweepTransferRecord,
+};
+pub use crate::postgres::exchange::{
+    UserExchangeAccountRecord, UserExchangeCredentialRecord, UserExchangeSymbolRecord,
+};
 pub use crate::postgres::identity::AuthUserRecord;
 
 #[derive(Clone)]
@@ -60,6 +60,9 @@ struct EphemeralState {
     deposit_transactions: HashMap<String, DepositTransactionRecord>,
     membership_records: HashMap<String, MembershipRecord>,
     sweep_jobs: BTreeMap<u64, SweepJobRecord>,
+    exchange_accounts: HashMap<(String, String), UserExchangeAccountRecord>,
+    exchange_credentials: HashMap<(String, String), UserExchangeCredentialRecord>,
+    exchange_symbols: BTreeMap<(String, String, String, String), UserExchangeSymbolRecord>,
     strategies: BTreeMap<u64, Strategy>,
     templates: BTreeMap<u64, StrategyTemplate>,
 }
@@ -135,6 +138,167 @@ impl SharedDb {
 
     pub fn exchange_repo(&self) -> ExchangeRepository {
         ExchangeRepository::new(self.postgres().pool().clone())
+    }
+
+    pub fn find_exchange_account(
+        &self,
+        user_email: &str,
+        exchange: &str,
+    ) -> Result<Option<UserExchangeAccountRecord>, SharedDbError> {
+        match &self.backend {
+            SharedDbBackend::Runtime { .. } => {
+                let repo = self.exchange_repo();
+                let user_email = user_email.to_owned();
+                let exchange = exchange.to_owned();
+                Self::block_on(async move { repo.find_account(&user_email, &exchange).await })
+            }
+            SharedDbBackend::Ephemeral(state) => Ok(lock_ephemeral(state)?
+                .exchange_accounts
+                .get(&(user_email.to_lowercase(), exchange.to_owned()))
+                .cloned()),
+        }
+    }
+
+    pub fn upsert_exchange_account(
+        &self,
+        record: &UserExchangeAccountRecord,
+    ) -> Result<(), SharedDbError> {
+        match &self.backend {
+            SharedDbBackend::Runtime { .. } => {
+                let repo = self.exchange_repo();
+                let record = record.clone();
+                Self::block_on(async move { repo.upsert_account(&record).await })
+            }
+            SharedDbBackend::Ephemeral(state) => {
+                lock_ephemeral(state)?.exchange_accounts.insert(
+                    (record.user_email.to_lowercase(), record.exchange.clone()),
+                    record.clone(),
+                );
+                Ok(())
+            }
+        }
+    }
+
+    pub fn find_exchange_credentials(
+        &self,
+        user_email: &str,
+        exchange: &str,
+    ) -> Result<Option<UserExchangeCredentialRecord>, SharedDbError> {
+        match &self.backend {
+            SharedDbBackend::Runtime { .. } => {
+                let repo = self.exchange_repo();
+                let user_email = user_email.to_owned();
+                let exchange = exchange.to_owned();
+                Self::block_on(async move { repo.find_credentials(&user_email, &exchange).await })
+            }
+            SharedDbBackend::Ephemeral(state) => Ok(lock_ephemeral(state)?
+                .exchange_credentials
+                .get(&(user_email.to_lowercase(), exchange.to_owned()))
+                .cloned()),
+        }
+    }
+
+    pub fn upsert_exchange_credentials(
+        &self,
+        record: &UserExchangeCredentialRecord,
+    ) -> Result<(), SharedDbError> {
+        match &self.backend {
+            SharedDbBackend::Runtime { .. } => {
+                let repo = self.exchange_repo();
+                let record = record.clone();
+                Self::block_on(async move { repo.upsert_credentials(&record).await })
+            }
+            SharedDbBackend::Ephemeral(state) => {
+                lock_ephemeral(state)?.exchange_credentials.insert(
+                    (record.user_email.to_lowercase(), record.exchange.clone()),
+                    record.clone(),
+                );
+                Ok(())
+            }
+        }
+    }
+
+    pub fn replace_exchange_symbols(
+        &self,
+        user_email: &str,
+        exchange: &str,
+        records: &[UserExchangeSymbolRecord],
+    ) -> Result<usize, SharedDbError> {
+        match &self.backend {
+            SharedDbBackend::Runtime { .. } => {
+                let repo = self.exchange_repo();
+                let user_email = user_email.to_owned();
+                let exchange = exchange.to_owned();
+                let records = records.to_vec();
+                Self::block_on(async move {
+                    repo.replace_symbols(&user_email, &exchange, &records).await
+                })
+            }
+            SharedDbBackend::Ephemeral(state) => {
+                let mut state = lock_ephemeral(state)?;
+                let normalized_email = user_email.to_lowercase();
+                state
+                    .exchange_symbols
+                    .retain(|(email, current_exchange, _, _), _| {
+                        email != &normalized_email || current_exchange != exchange
+                    });
+                for record in records {
+                    state.exchange_symbols.insert(
+                        (
+                            record.user_email.to_lowercase(),
+                            record.exchange.clone(),
+                            record.market.clone(),
+                            record.symbol.clone(),
+                        ),
+                        record.clone(),
+                    );
+                }
+                Ok(records.len())
+            }
+        }
+    }
+
+    pub fn list_exchange_symbols(
+        &self,
+        user_email: &str,
+        exchange: &str,
+    ) -> Result<Vec<UserExchangeSymbolRecord>, SharedDbError> {
+        match &self.backend {
+            SharedDbBackend::Runtime { .. } => {
+                let repo = self.exchange_repo();
+                let user_email = user_email.to_owned();
+                let exchange = exchange.to_owned();
+                Self::block_on(async move { repo.list_symbols(&user_email, &exchange).await })
+            }
+            SharedDbBackend::Ephemeral(state) => Ok(lock_ephemeral(state)?
+                .exchange_symbols
+                .values()
+                .filter(|record| {
+                    record.user_email.eq_ignore_ascii_case(user_email)
+                        && record.exchange == exchange
+                })
+                .cloned()
+                .collect()),
+        }
+    }
+
+    pub fn list_active_exchange_accounts(
+        &self,
+        exchange: &str,
+    ) -> Result<Vec<UserExchangeAccountRecord>, SharedDbError> {
+        match &self.backend {
+            SharedDbBackend::Runtime { .. } => {
+                let repo = self.exchange_repo();
+                let exchange = exchange.to_owned();
+                Self::block_on(async move { repo.list_active_accounts(&exchange).await })
+            }
+            SharedDbBackend::Ephemeral(state) => Ok(lock_ephemeral(state)?
+                .exchange_accounts
+                .values()
+                .filter(|record| record.exchange == exchange && record.is_active)
+                .cloned()
+                .collect()),
+        }
     }
 
     pub fn strategy_repo(&self) -> StrategyRepository {
@@ -277,7 +441,8 @@ impl SharedDb {
                 let email = email.to_owned();
                 let reset_code = reset_code.map(str::to_owned);
                 Self::block_on(async move {
-                    repo.set_auth_reset_code(&email, reset_code.as_deref()).await
+                    repo.set_auth_reset_code(&email, reset_code.as_deref())
+                        .await
                 })
             }
             SharedDbBackend::Ephemeral(state) => {
@@ -331,7 +496,9 @@ impl SharedDb {
                 let repo = self.identity_repo();
                 let email = email.to_owned();
                 let password_hash = password_hash.to_owned();
-                Self::block_on(async move { repo.update_auth_password(&email, &password_hash).await })
+                Self::block_on(
+                    async move { repo.update_auth_password(&email, &password_hash).await },
+                )
             }
             SharedDbBackend::Ephemeral(state) => {
                 let mut state = lock_ephemeral(state)?;
@@ -396,7 +563,8 @@ impl SharedDb {
                 let email = email.to_owned();
                 let totp_secret = totp_secret.map(str::to_owned);
                 Self::block_on(async move {
-                    repo.set_auth_totp_secret(&email, totp_secret.as_deref()).await
+                    repo.set_auth_totp_secret(&email, totp_secret.as_deref())
+                        .await
                 })
             }
             SharedDbBackend::Ephemeral(state) => {
@@ -460,7 +628,9 @@ impl SharedDb {
                 let repo = self.identity_repo();
                 let session_token = session_token.to_owned();
                 let email = email.to_owned();
-                Self::block_on(async move { repo.insert_auth_session(&session_token, &email, sid).await })
+                Self::block_on(async move {
+                    repo.insert_auth_session(&session_token, &email, sid).await
+                })
             }
             SharedDbBackend::Ephemeral(state) => {
                 let mut state = lock_ephemeral(state)?;
@@ -558,7 +728,8 @@ impl SharedDb {
                 let assignment = assignment.clone();
                 let status = status.to_owned();
                 Self::block_on(async move {
-                    repo.update_order_assignment(order_id, &assignment, &status).await
+                    repo.update_order_assignment(order_id, &assignment, &status)
+                        .await
                 })
             }
             SharedDbBackend::Ephemeral(state) => {
@@ -584,7 +755,8 @@ impl SharedDb {
                 let repo = self.billing_repo();
                 let chain = chain.to_owned();
                 Self::block_on(async move {
-                    repo.allocate_or_queue_order(order_id, &chain, requested_at).await
+                    repo.allocate_or_queue_order(order_id, &chain, requested_at)
+                        .await
                 })
             }
             SharedDbBackend::Ephemeral(state) => {
@@ -595,7 +767,8 @@ impl SharedDb {
                     .filter(|order| order.chain == chain && order.paid_at.is_none())
                     .filter_map(|order| {
                         order.assignment.as_ref().and_then(|assignment| {
-                            (assignment.expires_at > requested_at).then_some(assignment.address.clone())
+                            (assignment.expires_at > requested_at)
+                                .then_some(assignment.address.clone())
                         })
                     })
                     .collect();
@@ -606,7 +779,10 @@ impl SharedDb {
                     .map(|address| address.address.clone())
                     .collect::<Vec<_>>();
                 candidates.sort();
-                if let Some(address) = candidates.into_iter().find(|address| !occupied.contains(address)) {
+                if let Some(address) = candidates
+                    .into_iter()
+                    .find(|address| !occupied.contains(address))
+                {
                     let assignment = shared_chain::assignment::AddressAssignment {
                         chain: chain.to_owned(),
                         address,
@@ -644,10 +820,7 @@ impl SharedDb {
         }
     }
 
-    pub fn upsert_membership_plan(
-        &self,
-        plan: &MembershipPlanRecord,
-    ) -> Result<(), SharedDbError> {
+    pub fn upsert_membership_plan(&self, plan: &MembershipPlanRecord) -> Result<(), SharedDbError> {
         match &self.backend {
             SharedDbBackend::Runtime { .. } => {
                 let repo = self.billing_repo();
@@ -674,7 +847,8 @@ impl SharedDb {
                 let plan = plan.clone();
                 let prices = prices.to_vec();
                 Self::block_on(async move {
-                    repo.upsert_membership_plan_with_prices(&plan, &prices).await
+                    repo.upsert_membership_plan_with_prices(&plan, &prices)
+                        .await
                 })
             }
             SharedDbBackend::Ephemeral(state) => {
@@ -782,15 +956,18 @@ impl SharedDb {
                 Self::block_on(async move { repo.upsert_deposit_transaction(&record).await })
             }
             SharedDbBackend::Ephemeral(state) => {
-                lock_ephemeral(state)?
-                    .deposit_transactions
-                    .insert(format!("{}:{}", record.chain, record.tx_hash), record.clone());
+                lock_ephemeral(state)?.deposit_transactions.insert(
+                    format!("{}:{}", record.chain, record.tx_hash),
+                    record.clone(),
+                );
                 Ok(())
             }
         }
     }
 
-    pub fn list_deposit_transactions(&self) -> Result<Vec<DepositTransactionRecord>, SharedDbError> {
+    pub fn list_deposit_transactions(
+        &self,
+    ) -> Result<Vec<DepositTransactionRecord>, SharedDbError> {
         match &self.backend {
             SharedDbBackend::Runtime { .. } => {
                 let repo = self.billing_repo();
@@ -845,7 +1022,10 @@ impl SharedDb {
                 let repo = self.billing_repo();
                 let tx_hash = tx_hash.to_owned();
                 let chain = chain.to_owned();
-                Self::block_on(async move { repo.record_seen_transfer(&tx_hash, &chain, observed_at).await })
+                Self::block_on(async move {
+                    repo.record_seen_transfer(&tx_hash, &chain, observed_at)
+                        .await
+                })
             }
             SharedDbBackend::Ephemeral(state) => {
                 let mut state = lock_ephemeral(state)?;
@@ -903,7 +1083,8 @@ impl SharedDb {
                 let email = email.to_owned();
                 let override_status = override_status.cloned();
                 Self::block_on(async move {
-                    repo.update_membership_override(&email, override_status.as_ref()).await
+                    repo.update_membership_override(&email, override_status.as_ref())
+                        .await
                 })
             }
             SharedDbBackend::Ephemeral(state) => {
@@ -935,8 +1116,16 @@ impl SharedDb {
                 let tx_hash = tx_hash.to_owned();
                 let email = email.to_owned();
                 Self::block_on(async move {
-                    repo.apply_payment(order_id, &chain, &tx_hash, paid_at, &email, active_until, grace_until)
-                        .await
+                    repo.apply_payment(
+                        order_id,
+                        &chain,
+                        &tx_hash,
+                        paid_at,
+                        &email,
+                        active_until,
+                        grace_until,
+                    )
+                    .await
                 })
             }
             SharedDbBackend::Ephemeral(state) => {
@@ -947,7 +1136,10 @@ impl SharedDb {
                     order.status = "paid".to_owned();
                     order.enqueued_at = None;
                 }
-                if let Some(deposit) = state.deposit_transactions.get_mut(&format!("{chain}:{tx_hash}")) {
+                if let Some(deposit) = state
+                    .deposit_transactions
+                    .get_mut(&format!("{chain}:{tx_hash}"))
+                {
                     deposit.order_id = Some(order_id);
                     deposit.matched_order_id = Some(order_id);
                     deposit.status = "matched".to_owned();
@@ -1027,11 +1219,9 @@ impl SharedDb {
             }
             SharedDbBackend::Ephemeral(state) => {
                 let mut state = lock_ephemeral(state)?;
-                let Some((_, stored)) = state
-                    .strategies
-                    .iter_mut()
-                    .find(|(_, stored)| stored.id == strategy.id && stored.owner_email == strategy.owner_email)
-                else {
+                let Some((_, stored)) = state.strategies.iter_mut().find(|(_, stored)| {
+                    stored.id == strategy.id && stored.owner_email == strategy.owner_email
+                }) else {
                     return Ok(0);
                 };
                 *stored = strategy.clone();
@@ -1050,14 +1240,16 @@ impl SharedDb {
                 let repo = self.strategy_repo();
                 let owner_email = owner_email.to_owned();
                 let strategy_id = strategy_id.to_owned();
-                Self::block_on(async move { repo.delete_strategy(&owner_email, &strategy_id).await })
+                Self::block_on(
+                    async move { repo.delete_strategy(&owner_email, &strategy_id).await },
+                )
             }
             SharedDbBackend::Ephemeral(state) => {
                 let mut state = lock_ephemeral(state)?;
                 let before = state.strategies.len();
-                state
-                    .strategies
-                    .retain(|_, strategy| !(strategy.owner_email == owner_email && strategy.id == strategy_id));
+                state.strategies.retain(|_, strategy| {
+                    !(strategy.owner_email == owner_email && strategy.id == strategy_id)
+                });
                 Ok(before.saturating_sub(state.strategies.len()))
             }
         }
@@ -1069,11 +1261,9 @@ impl SharedDb {
                 let repo = self.admin_repo();
                 Self::block_on(async move { repo.list_templates().await })
             }
-            SharedDbBackend::Ephemeral(state) => Ok(lock_ephemeral(state)?
-                .templates
-                .values()
-                .cloned()
-                .collect()),
+            SharedDbBackend::Ephemeral(state) => {
+                Ok(lock_ephemeral(state)?.templates.values().cloned().collect())
+            }
         }
     }
 
@@ -1111,10 +1301,7 @@ impl SharedDb {
         }
     }
 
-    fn from_configs(
-        postgres: PostgresConfig,
-        redis: RedisConfig,
-    ) -> Result<Self, SharedDbError> {
+    fn from_configs(postgres: PostgresConfig, redis: RedisConfig) -> Result<Self, SharedDbError> {
         Self::block_on(async move {
             let postgres = PostgresStore::connect(postgres).await?;
             let redis = RedisStore::connect(redis).await?;
@@ -1131,7 +1318,9 @@ impl SharedDb {
     {
         if let Ok(handle) = tokio::runtime::Handle::try_current() {
             if handle.runtime_flavor() == tokio::runtime::RuntimeFlavor::MultiThread {
-                return Ok(tokio::task::block_in_place(move || handle.block_on(future))?);
+                return Ok(tokio::task::block_in_place(move || {
+                    handle.block_on(future)
+                })?);
             }
         }
 
@@ -1155,11 +1344,11 @@ fn blocking_runtime() -> Result<&'static Mutex<tokio::runtime::Runtime>, SharedD
         std::sync::OnceLock::new();
     RUNTIME
         .get_or_init(|| {
-        tokio::runtime::Builder::new_current_thread()
-            .enable_all()
-            .build()
-            .map(Mutex::new)
-            .map_err(SharedDbError::from)
+            tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+                .map(Mutex::new)
+                .map_err(SharedDbError::from)
         })
         .as_ref()
         .map_err(Clone::clone)
@@ -1218,7 +1407,9 @@ pub(crate) fn parse_strategy_status(value: &str) -> Result<StrategyStatus, Share
         "Paused" => Ok(StrategyStatus::Paused),
         "Stopped" => Ok(StrategyStatus::Stopped),
         "Error" => Ok(StrategyStatus::Error),
-        _ => Err(SharedDbError::new(format!("unknown strategy status: {value}"))),
+        _ => Err(SharedDbError::new(format!(
+            "unknown strategy status: {value}"
+        ))),
     }
 }
 
@@ -1240,7 +1431,9 @@ pub(crate) fn parse_membership_status(value: &str) -> Result<MembershipStatus, S
         "Expired" => Ok(MembershipStatus::Expired),
         "Frozen" => Ok(MembershipStatus::Frozen),
         "Revoked" => Ok(MembershipStatus::Revoked),
-        _ => Err(SharedDbError::new(format!("unknown membership status: {value}"))),
+        _ => Err(SharedDbError::new(format!(
+            "unknown membership status: {value}"
+        ))),
     }
 }
 
