@@ -7,6 +7,7 @@ services:
       dockerfile: deploy/docker/api-server.Dockerfile
     environment:
       APP_ENV: production
+      PORT: "8080"
     expose:
       - "8080"
     healthcheck:
@@ -15,6 +16,94 @@ services:
         - python
         - -c
         - import urllib.request; urllib.request.urlopen("http://127.0.0.1:8080/healthz")
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+    restart: unless-stopped
+
+  trading-engine:
+    build:
+      context: ../..
+      dockerfile: deploy/docker/rust-service.Dockerfile
+      args:
+        APP_NAME: trading-engine
+    environment:
+      PORT: "8081"
+    expose:
+      - "8081"
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - import urllib.request; urllib.request.urlopen("http://127.0.0.1:8081/healthz")
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+    restart: unless-stopped
+
+  scheduler:
+    build:
+      context: ../..
+      dockerfile: deploy/docker/rust-service.Dockerfile
+      args:
+        APP_NAME: scheduler
+    environment:
+      PORT: "8082"
+    expose:
+      - "8082"
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - import urllib.request; urllib.request.urlopen("http://127.0.0.1:8082/healthz")
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+    restart: unless-stopped
+
+  market-data-gateway:
+    build:
+      context: ../..
+      dockerfile: deploy/docker/rust-service.Dockerfile
+      args:
+        APP_NAME: market-data-gateway
+    environment:
+      PORT: "8083"
+    expose:
+      - "8083"
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - import urllib.request; urllib.request.urlopen("http://127.0.0.1:8083/healthz")
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+    restart: unless-stopped
+
+  billing-chain-listener:
+    build:
+      context: ../..
+      dockerfile: deploy/docker/rust-service.Dockerfile
+      args:
+        APP_NAME: billing-chain-listener
+    environment:
+      PORT: "8084"
+    expose:
+      - "8084"
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - import urllib.request; urllib.request.urlopen("http://127.0.0.1:8084/healthz")
       interval: 10s
       timeout: 3s
       retries: 5
@@ -74,6 +163,16 @@ services:
       - --storage.tsdb.path=/prometheus
       - --web.enable-lifecycle
     depends_on:
+      api-server:
+        condition: service_started
+      trading-engine:
+        condition: service_started
+      scheduler:
+        condition: service_started
+      market-data-gateway:
+        condition: service_started
+      billing-chain-listener:
+        condition: service_started
       nginx:
         condition: service_started
     ports:

@@ -10,3 +10,26 @@ scrape_configs:
     static_configs:
       - targets:
           - prometheus:9090
+  - job_name: rust-services-health
+    metrics_path: /healthz
+    static_configs:
+      - targets:
+          - api-server:8080
+        labels:
+          service: api-server
+      - targets:
+          - trading-engine:8081
+        labels:
+          service: trading-engine
+      - targets:
+          - scheduler:8082
+        labels:
+          service: scheduler
+      - targets:
+          - market-data-gateway:8083
+        labels:
+          service: market-data-gateway
+      - targets:
+          - billing-chain-listener:8084
+        labels:
+          service: billing-chain-listener

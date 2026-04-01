@@ -6,6 +6,7 @@ test("compose and docs assets exist", () => {
   for (const path of [
     "deploy/docker/docker-compose.yml",
     "deploy/docker/api-server.Dockerfile",
+    "deploy/docker/rust-service.Dockerfile",
     "deploy/docker/web.Dockerfile",
     "deploy/nginx/default.conf",
     "deploy/monitoring/prometheus.yml",
@@ -22,11 +23,16 @@ test("compose references the expected release services", () => {
   const compose = fs.readFileSync("deploy/docker/docker-compose.yml", "utf8");
 
   assert.match(compose, /api-server:/);
+  assert.match(compose, /trading-engine:/);
+  assert.match(compose, /scheduler:/);
+  assert.match(compose, /market-data-gateway:/);
+  assert.match(compose, /billing-chain-listener:/);
   assert.match(compose, /web:/);
   assert.match(compose, /nginx:/);
   assert.match(compose, /prometheus:/);
   assert.match(compose, /api-server\.Dockerfile/);
   assert.match(compose, /web\.Dockerfile/);
+  assert.match(compose, /rust-service\.Dockerfile/);
 });
 
 test("smoke script validates nginx and api entrypoints", () => {
@@ -37,11 +43,45 @@ test("smoke script validates nginx and api entrypoints", () => {
   assert.match(script, /wait_for_url "http:\/\/localhost:8080\/api\/healthz" "api health entrypoint"/);
 });
 
-test("api server container startup fails before placeholder health service when binary fails", () => {
+test("api server container runs the real Rust process without placeholder http server", () => {
   const dockerfile = fs.readFileSync("deploy/docker/api-server.Dockerfile", "utf8");
 
-  assert.match(dockerfile, /\/usr\/local\/bin\/api-server\s+&&\s+exec python -m http\.server 8080/);
-  assert.doesNotMatch(dockerfile, /\/usr\/local\/bin\/api-server\s*;\s*exec python -m http\.server 8080/);
+  assert.match(dockerfile, /CMD \["\/usr\/local\/bin\/api-server"\]/);
+  assert.doesNotMatch(dockerfile, /python -m http\.server/);
+  assert.doesNotMatch(dockerfile, /grid-binance api placeholder/);
+});
+
+test("rust service entrypoints are long-running health probe servers instead of bootstrap printlns", () => {
+  const apiMain = fs.readFileSync("apps/api-server/src/main.rs", "utf8");
+  assert.match(apiMain, /api_server::app\(\)/);
+  assert.match(apiMain, /\/healthz/);
+  assert.doesNotMatch(apiMain, /println!\("bootstrap"\)/);
+
+  for (const path of [
+    "apps/trading-engine/src/main.rs",
+    "apps/scheduler/src/main.rs",
+    "apps/market-data-gateway/src/main.rs",
+    "apps/billing-chain-listener/src/main.rs",
+  ]) {
+    const source = fs.readFileSync(path, "utf8");
+    assert.match(source, /\/healthz/);
+    assert.doesNotMatch(source, /println!\("bootstrap"\)/);
+  }
+});
+
+test("prometheus scrapes every Rust service health endpoint", () => {
+  const prometheus = fs.readFileSync("deploy/monitoring/prometheus.yml", "utf8");
+
+  for (const target of [
+    "api-server:8080",
+    "trading-engine:8081",
+    "scheduler:8082",
+    "market-data-gateway:8083",
+    "billing-chain-listener:8084",
+  ]) {
+    assert.match(prometheus, new RegExp(target.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+  }
+  assert.match(prometheus, /metrics_path:\s*\/healthz/);
 });
 
 test("docker ignore trims release build artifacts from docker context", () => {

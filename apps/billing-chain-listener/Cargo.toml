@@ -4,5 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+axum = "0.8"
 chrono = "0.4"
 shared-chain = { path = "../../crates/shared-chain" }
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "net"] }

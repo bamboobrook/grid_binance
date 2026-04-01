@@ -16,8 +16,8 @@ shared-chain = { path = "../../crates/shared-chain" }
 shared-auth = { path = "../../crates/shared-auth" }
 shared-domain = { path = "../../crates/shared-domain" }
 shared-events = { path = "../../crates/shared-events" }
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "net"] }
 trading-engine = { path = "../trading-engine" }
 
 [dev-dependencies]
-tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 tower = { version = "0.5", features = ["util"] }

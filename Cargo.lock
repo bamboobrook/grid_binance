@@ -135,8 +135,10 @@ checksum = "2af50177e190e07a26ab74f8b1efbfe2ef87da2116221318cb1c2e82baf7de06"
 name = "billing-chain-listener"
 version = "0.1.0"
 dependencies = [
+ "axum",
  "chrono",
  "shared-chain",
+ "tokio",
 ]
 
 [[package]]
@@ -541,6 +543,7 @@ checksum = "5e5032e24019045c762d3c0f28f5b6b8bbf38563a65908389bf7978758920897"
 name = "market-data-gateway"
 version = "0.1.0"
 dependencies = [
+ "axum",
  "rust_decimal",
  "shared-events",
  "tokio",
@@ -776,9 +779,11 @@ checksum = "9774ba4a74de5f7b1c1451ed6cd5285a32eddb5cccb8cc655a4e50009e06477f"
 name = "scheduler"
 version = "0.1.0"
 dependencies = [
+ "axum",
  "chrono",
  "shared-binance",
  "shared-domain",
+ "tokio",
 ]
 
 [[package]]
@@ -1113,8 +1118,10 @@ dependencies = [
 name = "trading-engine"
 version = "0.1.0"
 dependencies = [
+ "axum",
  "rust_decimal",
  "shared-domain",
+ "tokio",
 ]
 
 [[package]]
