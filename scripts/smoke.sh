@@ -6,12 +6,12 @@ COMPOSE_DIR="$ROOT_DIR/deploy/docker"
 
 compose() {
   if docker compose version >/dev/null 2>&1; then
-    docker compose "$@"
+    docker compose --env-file "$ROOT_DIR/.env" -f "$COMPOSE_DIR/docker-compose.yml" "$@"
     return 0
   fi
 
   if command -v docker-compose >/dev/null 2>&1; then
-    docker-compose "$@"
+    docker-compose --env-file "$ROOT_DIR/.env" -f "$COMPOSE_DIR/docker-compose.yml" "$@"
     return 0
   fi
 
@@ -33,8 +33,6 @@ wait_for_url() {
   echo "smoke check failed: $label ($url)" >&2
   return 1
 }
-
-cd "$COMPOSE_DIR"
 
 # Preferred path from the release checklist: docker compose up -d --build
 compose up -d --build

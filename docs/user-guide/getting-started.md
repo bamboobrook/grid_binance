@@ -8,7 +8,7 @@ This release packages the public web shell and API behind Nginx and exposes the 
 
 1. Copy `.env.example` to `.env`.
 2. Set at least `APP_DB_PATH`, `SESSION_TOKEN_SECRET`, and `ADMIN_EMAILS` in `.env`.
-3. Start the stack with `docker compose -f deploy/docker/docker-compose.yml up -d --build`.
+3. Start the stack with `docker compose --env-file .env -f deploy/docker/docker-compose.yml up -d --build`.
 4. Open `http://localhost:8080`.
 5. Use the public entry points:
    - `/register` for registration entry

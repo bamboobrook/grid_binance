@@ -22,7 +22,7 @@ Edit `.env` before startup. `SESSION_TOKEN_SECRET` and `ADMIN_EMAILS` are requir
 Run the stack from the repository root:
 
 ```bash
-docker compose -f deploy/docker/docker-compose.yml up -d --build
+docker compose --env-file .env -f deploy/docker/docker-compose.yml up -d --build
 ```
 
 ## Included Services
@@ -36,7 +36,7 @@ docker compose -f deploy/docker/docker-compose.yml up -d --build
 
 - Compose mounts the named volume `api-server-data` at `/var/lib/grid-binance` inside `api-server`
 - With the default example env, SQLite lives at `/var/lib/grid-binance/app.db`
-- `docker compose down` keeps the SQLite volume; use `docker compose -f deploy/docker/docker-compose.yml down -v` only when you intentionally want to remove persisted data
+- `docker compose --env-file .env -f deploy/docker/docker-compose.yml down` keeps the SQLite volume; use `docker compose --env-file .env -f deploy/docker/docker-compose.yml down -v` only when you intentionally want to remove persisted data
 
 ## Verification
 
@@ -48,5 +48,5 @@ node --test tests/verification/*.test.mjs
 ## Stop
 
 ```bash
-docker compose -f deploy/docker/docker-compose.yml down
+docker compose --env-file .env -f deploy/docker/docker-compose.yml down
 ```

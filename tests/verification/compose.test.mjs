@@ -59,8 +59,25 @@ test("smoke script validates nginx and api entrypoints", () => {
   const script = fs.readFileSync("scripts/smoke.sh", "utf8");
 
   assert.match(script, /^\s*compose up -d --build\s*$/m);
+  assert.match(script, /docker compose --env-file "\$ROOT_DIR\/\.env" -f "\$COMPOSE_DIR\/docker-compose\.yml"/);
   assert.match(script, /wait_for_url "http:\/\/localhost:8080\/" "nginx web entrypoint"/);
   assert.match(script, /wait_for_url "http:\/\/localhost:8080\/api\/healthz" "api health entrypoint"/);
+});
+
+test("compose docs consistently require explicit root env file and quoted web healthcheck", () => {
+  const compose = fs.readFileSync("deploy/docker/docker-compose.yml", "utf8");
+  const deploymentGuide = fs.readFileSync("docs/deployment/docker-compose.md", "utf8");
+  const userGuide = fs.readFileSync("docs/user-guide/getting-started.md", "utf8");
+  const adminGuide = fs.readFileSync("docs/admin-guide/operations.md", "utf8");
+
+  assert.match(
+    compose,
+    /-\s+'fetch\("http:\/\/127\.0\.0\.1:3000"\)\.then\(\(res\) => process\.exit\(res\.ok \? 0 : 1\)\)\.catch\(\(\) => process\.exit\(1\)\)'/,
+  );
+  assert.match(deploymentGuide, /docker compose --env-file \.env -f deploy\/docker\/docker-compose\.yml up -d --build/);
+  assert.match(deploymentGuide, /docker compose --env-file \.env -f deploy\/docker\/docker-compose\.yml down/);
+  assert.match(userGuide, /docker compose --env-file \.env -f deploy\/docker\/docker-compose\.yml up -d --build/);
+  assert.match(adminGuide, /docker compose --env-file \.env -f deploy\/docker\/docker-compose\.yml ps/);
 });
 
 test("api server container runs the real Rust process without placeholder http server", () => {
