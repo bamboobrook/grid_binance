@@ -26,6 +26,7 @@ pub mod postgres;
 pub mod redis;
 
 pub use crate::postgres::billing::{BillingOrderRecord, MembershipRecord};
+pub use crate::postgres::admin::AuditLogRecord;
 pub use crate::postgres::identity::AuthUserRecord;
 
 #[derive(Clone)]
@@ -47,6 +48,7 @@ struct EphemeralState {
     sequences: HashMap<String, u64>,
     auth_users: HashMap<String, AuthUserRecord>,
     auth_sessions: HashMap<String, String>,
+    audit_logs: Vec<AuditLogRecord>,
     billing_orders: BTreeMap<u64, BillingOrderRecord>,
     seen_transfers: HashSet<String>,
     membership_records: HashMap<String, MembershipRecord>,
@@ -334,6 +336,20 @@ impl SharedDb {
                 .auth_sessions
                 .get(session_token)
                 .cloned()),
+        }
+    }
+
+    pub fn insert_audit_log(&self, record: &AuditLogRecord) -> Result<(), SharedDbError> {
+        match &self.backend {
+            SharedDbBackend::Runtime { .. } => {
+                let repo = self.admin_repo();
+                let record = record.clone();
+                Self::block_on(async move { repo.insert_audit_log(&record).await })
+            }
+            SharedDbBackend::Ephemeral(state) => {
+                lock_ephemeral(state)?.audit_logs.push(record.clone());
+                Ok(())
+            }
         }
     }
 

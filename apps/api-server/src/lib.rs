@@ -7,6 +7,7 @@ mod routes {
     pub mod exchange;
     pub mod exports;
     pub mod membership;
+    pub mod profile;
     pub mod security;
     pub mod strategies;
     pub mod telegram;
@@ -54,7 +55,7 @@ impl AppState {
         Self::from_shared_db(SharedDb::connect(database_url, redis_url)?)
     }
 
-    fn from_shared_db(db: SharedDb) -> Result<Self, SharedDbError> {
+    pub fn from_shared_db(db: SharedDb) -> Result<Self, SharedDbError> {
         Ok(Self {
             analytics: AnalyticsService::default(),
             auth: AuthService::new(db.clone()),
@@ -132,6 +133,7 @@ pub fn app_with_state(state: AppState) -> Router {
         .merge(routes::exchange::router())
         .merge(routes::exports::router())
         .merge(routes::membership::router())
+        .merge(routes::profile::router())
         .merge(routes::security::router())
         .merge(routes::strategies::router())
         .merge(routes::telegram::router())

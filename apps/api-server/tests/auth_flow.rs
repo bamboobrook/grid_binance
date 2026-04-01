@@ -1,9 +1,10 @@
-use api_server::app;
+use api_server::{app, app_with_state, AppState};
 use axum::{
     body::{to_bytes, Body},
-    http::{Request, StatusCode},
+    http::{Method, Request, StatusCode},
 };
 use serde_json::{json, Value};
+use shared_db::SharedDb;
 use shared_auth::session_token::{verify_session_token, SessionClaims};
 use tower::ServiceExt;
 
@@ -253,6 +254,154 @@ async fn login_requires_valid_totp_code_after_totp_is_enabled() {
 }
 
 #[tokio::test]
+async fn verification_reset_and_totp_state_survive_router_rebuilds() {
+    let db = SharedDb::ephemeral().expect("ephemeral db");
+
+    let register = app_with_shared_db(&db)
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/auth/register")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    json!({
+                        "email": "durable@example.com",
+                        "password": "pass1234",
+                    })
+                    .to_string(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(register.status(), StatusCode::CREATED);
+    let verification_code = response_json(register).await["verification_code"]
+        .as_str()
+        .expect("verification code")
+        .to_owned();
+
+    let verify = app_with_shared_db(&db)
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/auth/verify-email")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    json!({
+                        "email": "durable@example.com",
+                        "code": verification_code,
+                    })
+                    .to_string(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(verify.status(), StatusCode::OK);
+
+    let reset_request = app_with_shared_db(&db)
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/auth/password-reset/request")
+                .header("content-type", "application/json")
+                .body(Body::from(json!({ "email": "durable@example.com" }).to_string()))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(reset_request.status(), StatusCode::OK);
+    let reset_code = response_json(reset_request).await["reset_code"]
+        .as_str()
+        .expect("reset code")
+        .to_owned();
+
+    let reset_confirm = app_with_shared_db(&db)
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/auth/password-reset/confirm")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    json!({
+                        "email": "durable@example.com",
+                        "code": reset_code,
+                        "new_password": "newpass123",
+                    })
+                    .to_string(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(reset_confirm.status(), StatusCode::OK);
+
+    let session_token = login_and_get_token(
+        &app_with_shared_db(&db),
+        "durable@example.com",
+        "newpass123",
+        None,
+    )
+    .await;
+    let enabled = enable_totp(
+        &app_with_shared_db(&db),
+        "durable@example.com",
+        &session_token,
+    )
+    .await;
+    let totp_code = enabled["code"].as_str().expect("totp code").to_owned();
+
+    let login = app_with_shared_db(&db)
+        .oneshot(login_request(
+            "durable@example.com",
+            "newpass123",
+            Some(&totp_code),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(login.status(), StatusCode::OK);
+}
+
+#[tokio::test]
+async fn admin_access_requires_totp_backed_session() {
+    let app = app();
+    let _verification_code = register_and_verify(&app, "admin@example.com", "pass1234").await;
+
+    let session_token = login_and_get_token(&app, "admin@example.com", "pass1234", None).await;
+    let admin_list = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri("/admin/templates")
+                .header("authorization", format!("Bearer {session_token}"))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(admin_list.status(), StatusCode::FORBIDDEN);
+
+    let totp = enable_totp(&app, "admin@example.com", &session_token).await;
+    let totp_code = totp["code"].as_str().expect("totp code");
+    let admin_session = login_and_get_token(&app, "admin@example.com", "pass1234", Some(totp_code)).await;
+
+    let admin_list = app
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri("/admin/templates")
+                .header("authorization", format!("Bearer {admin_session}"))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(admin_list.status(), StatusCode::OK);
+}
+
+#[tokio::test]
 async fn password_reset_rejects_empty_password_and_invalidates_old_password() {
     let app = app();
     let _verification_code = register_and_verify(&app, "reset@example.com", "pass1234").await;
@@ -417,6 +566,10 @@ async fn enable_totp(app: &axum::Router, email: &str, session_token: &str) -> Va
         .unwrap();
     assert_eq!(response.status(), StatusCode::OK);
     response_json(response).await
+}
+
+fn app_with_shared_db(db: &SharedDb) -> axum::Router {
+    app_with_state(AppState::from_shared_db(db.clone()).expect("app state"))
 }
 
 fn login_request(email: &str, password: &str, totp_code: Option<&str>) -> Request<Body> {

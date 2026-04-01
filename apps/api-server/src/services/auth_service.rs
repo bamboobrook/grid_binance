@@ -5,14 +5,16 @@ use axum::{
     response::{IntoResponse, Response},
     Json,
 };
+use chrono::Utc;
 use serde::{Deserialize, Serialize};
+use serde_json::json;
 use shared_auth::{
     email_code::{issue_email_code, verify_email_code},
     password::{hash_password, verify_password},
     session_token::{issue_session_token, verify_session_token, SessionClaims},
     totp::{current_code, generate_secret, verify_code},
 };
-use shared_db::{AuthUserRecord, SharedDb};
+use shared_db::{AuditLogRecord, AuthUserRecord, SharedDb};
 
 const DEFAULT_ADMIN_EMAILS: [&str; 1] = ["admin@example.com"];
 const DEFAULT_SESSION_TOKEN_SECRET: &str = "grid-binance-dev-session-secret";
@@ -96,6 +98,36 @@ pub struct EnableTotpResponse {
     pub code: String,
 }
 
+#[derive(Debug, Deserialize)]
+pub struct DisableTotpRequest {
+    pub email: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct DisableTotpResponse {
+    pub disabled: bool,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ChangePasswordRequest {
+    pub current_password: String,
+    pub new_password: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct ChangePasswordResponse {
+    pub password_changed: bool,
+}
+
+#[derive(Debug, Serialize)]
+pub struct ProfileResponse {
+    pub email: String,
+    pub email_verified: bool,
+    pub totp_enabled: bool,
+    pub admin_totp_required: bool,
+    pub admin_access_granted: bool,
+}
+
 impl AuthService {
     pub fn new(db: SharedDb) -> Self {
         Self::from_config(db, AuthConfig::from_env())
@@ -175,6 +207,11 @@ impl AuthService {
         self.db
             .update_auth_email_verification(&email, true, None)
             .map_err(AuthError::storage)?;
+        self.emit_security_audit(
+            &email,
+            "auth.email_verified",
+            json!({ "email_verified": true }),
+        )?;
 
         Ok(VerifyEmailResponse { verified: true })
     }
@@ -206,7 +243,7 @@ impl AuthService {
             }
         }
 
-        let is_admin = self.config.admin_emails.contains(&email);
+        let is_admin = self.config.admin_emails.contains(&email) && user.totp_secret.is_some();
         let sid = self
             .db
             .next_sequence("auth_seed")
@@ -273,6 +310,11 @@ impl AuthService {
         self.db
             .update_auth_password(&email, &hash_password(&request.new_password))
             .map_err(AuthError::storage)?;
+        self.emit_security_audit(
+            &email,
+            "auth.password_reset_confirmed",
+            json!({ "reset_completed": true }),
+        )?;
 
         Ok(PasswordResetConfirmResponse {
             password_reset: true,
@@ -282,11 +324,10 @@ impl AuthService {
     pub fn enable_totp(
         &self,
         request: EnableTotpRequest,
-        session_token: &str,
+        session_email: &str,
     ) -> Result<EnableTotpResponse, AuthError> {
         let email = normalize_email(&request.email);
-        let session_claims = self.session_claims(session_token)?;
-        if session_claims.email != email {
+        if normalize_email(session_email) != email {
             return Err(AuthError::forbidden("session does not match user"));
         }
 
@@ -309,8 +350,94 @@ impl AuthService {
         self.db
             .set_auth_totp_secret(&email, Some(&secret))
             .map_err(AuthError::storage)?;
+        self.emit_security_audit(
+            &email,
+            "security.totp_enabled",
+            json!({ "totp_enabled": true }),
+        )?;
 
         Ok(EnableTotpResponse { secret, code })
+    }
+
+    pub fn disable_totp(
+        &self,
+        request: DisableTotpRequest,
+        session_email: &str,
+    ) -> Result<DisableTotpResponse, AuthError> {
+        let email = normalize_email(&request.email);
+        if normalize_email(session_email) != email {
+            return Err(AuthError::forbidden("session does not match user"));
+        }
+
+        let user = self
+            .db
+            .find_auth_user(&email)
+            .map_err(AuthError::storage)?
+            .ok_or_else(|| AuthError::not_found("user not found"))?;
+        if user.totp_secret.is_none() {
+            return Err(AuthError::bad_request("totp is not enabled"));
+        }
+
+        self.db
+            .set_auth_totp_secret(&email, None)
+            .map_err(AuthError::storage)?;
+        self.emit_security_audit(
+            &email,
+            "security.totp_disabled",
+            json!({ "totp_enabled": false }),
+        )?;
+
+        Ok(DisableTotpResponse { disabled: true })
+    }
+
+    pub fn change_password(
+        &self,
+        session_email: &str,
+        request: ChangePasswordRequest,
+    ) -> Result<ChangePasswordResponse, AuthError> {
+        let email = normalize_email(session_email);
+        let user = self
+            .db
+            .find_auth_user(&email)
+            .map_err(AuthError::storage)?
+            .ok_or_else(|| AuthError::not_found("user not found"))?;
+
+        if !verify_password(&request.current_password, &user.password_hash) {
+            return Err(AuthError::unauthorized("invalid credentials"));
+        }
+
+        validate_password(&request.new_password)?;
+        self.db
+            .update_auth_password(&email, &hash_password(&request.new_password))
+            .map_err(AuthError::storage)?;
+        self.emit_security_audit(
+            &email,
+            "profile.password_changed",
+            json!({ "password_changed": true }),
+        )?;
+
+        Ok(ChangePasswordResponse {
+            password_changed: true,
+        })
+    }
+
+    pub fn profile(&self, session_email: &str) -> Result<ProfileResponse, AuthError> {
+        let email = normalize_email(session_email);
+        let user = self
+            .db
+            .find_auth_user(&email)
+            .map_err(AuthError::storage)?
+            .ok_or_else(|| AuthError::not_found("user not found"))?;
+        let admin_totp_required = self.config.admin_emails.contains(&email);
+        let totp_enabled = user.totp_secret.is_some();
+
+        Ok(ProfileResponse {
+            email: user.email,
+            email_verified: user.email_verified,
+            totp_enabled,
+            admin_totp_required,
+            admin_access_granted: admin_totp_required && totp_enabled,
+        })
     }
 
     pub fn session_claims(&self, session_token: &str) -> Result<SessionClaims, AuthError> {
@@ -331,9 +458,16 @@ impl AuthService {
             return Err(AuthError::unauthorized("valid session token required"));
         }
 
+        let totp_enabled = self
+            .db
+            .find_auth_user(&email)
+            .map_err(AuthError::storage)?
+            .map(|user| user.totp_secret.is_some())
+            .unwrap_or(false);
+
         Ok(SessionClaims {
             email: email.clone(),
-            is_admin: claims.is_admin && self.config.admin_emails.contains(&email),
+            is_admin: claims.is_admin && self.config.admin_emails.contains(&email) && totp_enabled,
             sid: claims.sid,
         })
     }
@@ -343,6 +477,24 @@ impl AuthService {
             db,
             config: Arc::new(config),
         }
+    }
+
+    fn emit_security_audit(
+        &self,
+        actor_email: &str,
+        action: &str,
+        payload: serde_json::Value,
+    ) -> Result<(), AuthError> {
+        self.db
+            .insert_audit_log(&AuditLogRecord {
+                actor_email: actor_email.to_owned(),
+                action: action.to_owned(),
+                target_type: "user".to_owned(),
+                target_id: actor_email.to_owned(),
+                payload,
+                created_at: Utc::now(),
+            })
+            .map_err(AuthError::storage)
     }
 }
 
