@@ -361,6 +361,12 @@ async fn verification_reset_and_totp_state_survive_router_rebuilds() {
         .await
         .unwrap();
     assert_eq!(login.status(), StatusCode::OK);
+
+    let audit_logs = db.list_audit_logs().expect("list audit logs");
+    assert!(audit_logs
+        .iter()
+        .any(|entry| entry.action == "auth.password_reset_requested"
+            && entry.actor_email == "durable@example.com"));
 }
 
 #[tokio::test]

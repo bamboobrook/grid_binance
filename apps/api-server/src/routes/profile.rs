@@ -24,7 +24,7 @@ async fn read_profile(
     headers: HeaderMap,
 ) -> Result<Json<ProfileResponse>, AuthError> {
     let session = require_user_session(&service, &headers)?;
-    Ok(Json(service.profile(&session.email)?))
+    Ok(Json(service.profile(&session.email, session.is_admin)?))
 }
 
 async fn change_password(

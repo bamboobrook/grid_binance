@@ -282,6 +282,11 @@ impl AuthService {
         self.db
             .set_auth_reset_code(&email, Some(&reset_code))
             .map_err(AuthError::storage)?;
+        self.emit_security_audit(
+            &email,
+            "auth.password_reset_requested",
+            json!({ "reset_requested": true }),
+        )?;
 
         Ok(PasswordResetRequestResponse { reset_code })
     }
@@ -421,7 +426,11 @@ impl AuthService {
         })
     }
 
-    pub fn profile(&self, session_email: &str) -> Result<ProfileResponse, AuthError> {
+    pub fn profile(
+        &self,
+        session_email: &str,
+        admin_access_granted: bool,
+    ) -> Result<ProfileResponse, AuthError> {
         let email = normalize_email(session_email);
         let user = self
             .db
@@ -436,7 +445,7 @@ impl AuthService {
             email_verified: user.email_verified,
             totp_enabled,
             admin_totp_required,
-            admin_access_granted: admin_totp_required && totp_enabled,
+            admin_access_granted,
         })
     }
 

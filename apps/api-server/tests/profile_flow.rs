@@ -1,9 +1,10 @@
-use api_server::app;
+use api_server::{app, app_with_state, AppState};
 use axum::{
     body::{to_bytes, Body},
     http::{Method, Request, StatusCode},
 };
 use serde_json::{json, Value};
+use shared_db::SharedDb;
 use tower::ServiceExt;
 
 #[tokio::test]
@@ -170,6 +171,74 @@ async fn profile_reflects_totp_state_after_enable_and_disable() {
 }
 
 #[tokio::test]
+async fn profile_admin_access_granted_tracks_current_bearer_session() {
+    let db = SharedDb::ephemeral().expect("ephemeral db");
+    let app = app_with_shared_db(&db);
+
+    let _verification_code = register_and_verify(&app, "admin@example.com", "pass1234").await;
+    let pre_totp_session = login_and_get_token(&app, "admin@example.com", "pass1234", None).await;
+
+    let enabled = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/security/totp/enable")
+                .header("authorization", format!("Bearer {pre_totp_session}"))
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    json!({
+                        "email": "admin@example.com",
+                    })
+                    .to_string(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(enabled.status(), StatusCode::OK);
+    let totp_code = response_json(enabled).await["code"]
+        .as_str()
+        .expect("totp code")
+        .to_owned();
+
+    let stale_profile = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri("/profile")
+                .header("authorization", format!("Bearer {pre_totp_session}"))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(stale_profile.status(), StatusCode::OK);
+    let stale_body = response_json(stale_profile).await;
+    assert_eq!(stale_body["admin_totp_required"], true);
+    assert_eq!(stale_body["totp_enabled"], true);
+    assert_eq!(stale_body["admin_access_granted"], false);
+
+    let admin_session =
+        login_and_get_token(&app, "admin@example.com", "pass1234", Some(&totp_code)).await;
+    let current_profile = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri("/profile")
+                .header("authorization", format!("Bearer {admin_session}"))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(current_profile.status(), StatusCode::OK);
+    assert_eq!(response_json(current_profile).await["admin_access_granted"], true);
+}
+
+#[tokio::test]
 async fn profile_requires_authenticated_session() {
     let response = app()
         .oneshot(
@@ -276,4 +345,8 @@ async fn response_json(response: axum::response::Response) -> Value {
     let body = response.into_body();
     let bytes = to_bytes(body, usize::MAX).await.unwrap();
     serde_json::from_slice(&bytes).unwrap()
+}
+
+fn app_with_shared_db(db: &SharedDb) -> axum::Router {
+    app_with_state(AppState::from_shared_db(db.clone()).expect("app state"))
 }

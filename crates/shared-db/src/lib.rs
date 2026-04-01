@@ -353,6 +353,15 @@ impl SharedDb {
         }
     }
 
+    pub fn list_audit_logs(&self) -> Result<Vec<AuditLogRecord>, SharedDbError> {
+        match &self.backend {
+            SharedDbBackend::Runtime { .. } => Err(SharedDbError::new(
+                "list_audit_logs is only available for the ephemeral test backend",
+            )),
+            SharedDbBackend::Ephemeral(state) => Ok(lock_ephemeral(state)?.audit_logs.clone()),
+        }
+    }
+
     pub fn list_billing_orders(&self) -> Result<Vec<BillingOrderRecord>, SharedDbError> {
         match &self.backend {
             SharedDbBackend::Runtime { .. } => {
