@@ -98,10 +98,11 @@ pub struct EnableTotpResponse {
 
 impl AuthService {
     pub fn new(db: SharedDb) -> Self {
-        Self {
-            db,
-            config: Arc::new(AuthConfig::from_env()),
-        }
+        Self::from_config(db, AuthConfig::from_env())
+    }
+
+    pub fn new_strict(db: SharedDb) -> Result<Self, AuthConfigError> {
+        Ok(Self::from_config(db, AuthConfig::from_env_strict()?))
     }
 
     pub fn register(
@@ -336,6 +337,13 @@ impl AuthService {
             sid: claims.sid,
         })
     }
+
+    fn from_config(db: SharedDb, config: AuthConfig) -> Self {
+        Self {
+            db,
+            config: Arc::new(config),
+        }
+    }
 }
 
 impl Default for AuthService {
@@ -349,6 +357,27 @@ pub struct AuthError {
     pub(crate) status: StatusCode,
     pub(crate) message: &'static str,
 }
+
+#[derive(Debug)]
+pub struct AuthConfigError {
+    message: String,
+}
+
+impl AuthConfigError {
+    fn missing(name: &'static str) -> Self {
+        Self {
+            message: format!("{name} must be set for persistent runtime auth"),
+        }
+    }
+}
+
+impl std::fmt::Display for AuthConfigError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.message)
+    }
+}
+
+impl std::error::Error for AuthConfigError {}
 
 impl AuthError {
     pub(crate) fn bad_request(message: &'static str) -> Self {
@@ -426,6 +455,13 @@ impl AuthConfig {
                 .unwrap_or_else(|| DEFAULT_SESSION_TOKEN_SECRET.to_owned()),
         }
     }
+
+    fn from_env_strict() -> Result<Self, AuthConfigError> {
+        Ok(Self {
+            admin_emails: load_admin_emails_strict()?,
+            session_token_secret: required_env("SESSION_TOKEN_SECRET")?,
+        })
+    }
 }
 
 fn load_admin_emails() -> HashSet<String> {
@@ -446,6 +482,28 @@ fn load_admin_emails() -> HashSet<String> {
     } else {
         emails
     }
+}
+
+fn load_admin_emails_strict() -> Result<HashSet<String>, AuthConfigError> {
+    let emails = required_env("ADMIN_EMAILS")?
+        .split(',')
+        .map(normalize_email)
+        .filter(|email| !email.is_empty())
+        .collect::<HashSet<_>>();
+
+    if emails.is_empty() {
+        Err(AuthConfigError::missing("ADMIN_EMAILS"))
+    } else {
+        Ok(emails)
+    }
+}
+
+fn required_env(name: &'static str) -> Result<String, AuthConfigError> {
+    env::var(name)
+        .ok()
+        .map(|value| value.trim().to_owned())
+        .filter(|value| !value.is_empty())
+        .ok_or_else(|| AuthConfigError::missing(name))
 }
 
 fn validate_password(password: &str) -> Result<(), AuthError> {

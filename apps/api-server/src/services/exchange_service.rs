@@ -11,6 +11,8 @@ use shared_binance::{
     SymbolMetadata,
 };
 
+use crate::services::auth_service::AuthError;
+
 #[derive(Clone, Default)]
 pub struct ExchangeService {
     inner: Arc<Mutex<ExchangeState>>,
@@ -128,5 +130,14 @@ impl IntoResponse for ExchangeError {
             Json(serde_json::json!({ "error": self.message })),
         )
             .into_response()
+    }
+}
+
+impl From<AuthError> for ExchangeError {
+    fn from(value: AuthError) -> Self {
+        Self {
+            status: value.status,
+            message: value.message,
+        }
     }
 }

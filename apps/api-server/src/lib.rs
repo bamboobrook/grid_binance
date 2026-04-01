@@ -25,9 +25,12 @@ mod services {
 
 use axum::{extract::FromRef, Router};
 use services::{
-    analytics_service::AnalyticsService, auth_service::AuthService,
-    exchange_service::ExchangeService, membership_service::MembershipService,
-    strategy_service::StrategyService, telegram_service::TelegramService,
+    analytics_service::AnalyticsService,
+    auth_service::{AuthConfigError, AuthService},
+    exchange_service::ExchangeService,
+    membership_service::MembershipService,
+    strategy_service::StrategyService,
+    telegram_service::TelegramService,
 };
 use shared_db::{SharedDb, SharedDbError};
 
@@ -102,8 +105,17 @@ pub fn app() -> Router {
     app_with_state(AppState::in_memory().expect("test app state should initialize"))
 }
 
-pub fn app_with_persistent_state(path: impl AsRef<Path>) -> Result<Router, SharedDbError> {
-    Ok(app_with_state(AppState::persistent(path)?))
+pub fn app_with_persistent_state(path: impl AsRef<Path>) -> Result<Router, AppBuildError> {
+    let db = SharedDb::open(path).map_err(AppBuildError::from)?;
+    let state = AppState {
+        analytics: AnalyticsService::default(),
+        auth: AuthService::new_strict(db.clone()).map_err(AppBuildError::from)?,
+        exchange: ExchangeService::default(),
+        membership: MembershipService::new(db.clone()),
+        strategy: StrategyService::new(db),
+        telegram: TelegramService::default(),
+    };
+    Ok(app_with_state(state))
 }
 
 pub fn app_with_state(state: AppState) -> Router {
@@ -121,12 +133,42 @@ pub fn app_with_state(state: AppState) -> Router {
         .with_state(state)
 }
 
+#[derive(Debug)]
+pub enum AppBuildError {
+    Storage(SharedDbError),
+    AuthConfig(AuthConfigError),
+}
+
+impl From<SharedDbError> for AppBuildError {
+    fn from(value: SharedDbError) -> Self {
+        Self::Storage(value)
+    }
+}
+
+impl From<AuthConfigError> for AppBuildError {
+    fn from(value: AuthConfigError) -> Self {
+        Self::AuthConfig(value)
+    }
+}
+
+impl std::fmt::Display for AppBuildError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Storage(error) => write!(f, "{error}"),
+            Self::AuthConfig(error) => write!(f, "{error}"),
+        }
+    }
+}
+
+impl std::error::Error for AppBuildError {}
+
 #[cfg(test)]
 mod tests {
-    use super::AppState;
+    use super::{app_with_persistent_state, AppState};
     use crate::services::auth_service::{LoginRequest, RegisterUserRequest, VerifyEmailRequest};
     use std::{
         path::PathBuf,
+        sync::{Mutex, OnceLock},
         time::{SystemTime, UNIX_EPOCH},
     };
 
@@ -166,11 +208,27 @@ mod tests {
         assert_eq!(claims.email, "persisted@app.test");
     }
 
+    #[test]
+    fn persistent_router_requires_runtime_auth_env() {
+        let _guard = env_lock().lock().expect("env lock");
+        std::env::remove_var("ADMIN_EMAILS");
+        std::env::remove_var("SESSION_TOKEN_SECRET");
+
+        let router = app_with_persistent_state(temp_db_path("strict-app"));
+
+        assert!(router.is_err());
+    }
+
     fn temp_db_path(label: &str) -> PathBuf {
         let nonce = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .expect("clock should be monotonic")
             .as_nanos();
         std::env::temp_dir().join(format!("grid-binance-{label}-{nonce}.sqlite3"))
+    }
+
+    fn env_lock() -> &'static Mutex<()> {
+        static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+        LOCK.get_or_init(|| Mutex::new(()))
     }
 }
