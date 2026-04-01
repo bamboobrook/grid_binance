@@ -797,15 +797,6 @@ impl MembershipService {
             return Err(MembershipError::bad_request("at least one price is required"));
         }
 
-        self.db
-            .upsert_membership_plan(&MembershipPlanRecord {
-                code: code.clone(),
-                name: name.clone(),
-                duration_days: request.duration_days,
-                is_active: request.is_active,
-            })
-            .map_err(MembershipError::storage)?;
-
         let mut prices = Vec::with_capacity(request.prices.len());
         for price in request.prices {
             let chain = normalize_chain(&price.chain);
@@ -815,16 +806,29 @@ impl MembershipService {
             }
             let amount = canonicalize_amount(&price.amount)
                 .map_err(|_| MembershipError::bad_request("invalid amount"))?;
-            self.db
-                .upsert_plan_price(&MembershipPlanPriceRecord {
-                    plan_code: code.clone(),
-                    chain: chain.clone(),
-                    asset: asset.clone(),
-                    amount: amount.clone(),
-                })
-                .map_err(MembershipError::storage)?;
             prices.push(MembershipPlanPriceResponse { chain, asset, amount });
         }
+
+        let stored_prices = prices
+            .iter()
+            .map(|price| MembershipPlanPriceRecord {
+                plan_code: code.clone(),
+                chain: price.chain.clone(),
+                asset: price.asset.clone(),
+                amount: price.amount.clone(),
+            })
+            .collect::<Vec<_>>();
+        self.db
+            .upsert_membership_plan_with_prices(
+                &MembershipPlanRecord {
+                    code: code.clone(),
+                    name: name.clone(),
+                    duration_days: request.duration_days,
+                    is_active: request.is_active,
+                },
+                &stored_prices,
+            )
+            .map_err(MembershipError::storage)?;
 
         self.insert_audit(AuditLogRecord {
             actor_email: actor_email.to_owned(),

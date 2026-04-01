@@ -85,6 +85,63 @@ async fn admin_can_update_plan_config_and_new_orders_use_latest_price_and_durati
 }
 
 #[tokio::test]
+async fn invalid_plan_update_does_not_partially_persist_plan_or_prices() {
+    let app =
+        app_with_state(AppState::from_shared_db(SharedDb::ephemeral().expect("db")).expect("state"));
+    let admin_token = register_admin_and_login(&app).await;
+
+    let seeded = list_plans(&app, &admin_token).await;
+    assert_eq!(seeded.status(), StatusCode::OK);
+    let before = response_json(seeded).await;
+    let original = before["plans"]
+        .as_array()
+        .expect("plans")
+        .iter()
+        .find(|plan| plan["code"] == "monthly")
+        .expect("monthly plan");
+    assert_eq!(original["duration_days"], 30);
+
+    let invalid = upsert_plan(
+        &app,
+        &admin_token,
+        json!({
+            "code": "monthly",
+            "name": "Broken Monthly",
+            "duration_days": 99,
+            "is_active": true,
+            "prices": [
+                { "chain": "BSC", "asset": "USDT", "amount": "88.00000000" },
+                { "chain": "TRON", "asset": "USDT", "amount": "77.00000000" }
+            ]
+        }),
+    )
+    .await;
+    assert_eq!(invalid.status(), StatusCode::BAD_REQUEST);
+
+    let after_response = list_plans(&app, &admin_token).await;
+    assert_eq!(after_response.status(), StatusCode::OK);
+    let after = response_json(after_response).await;
+    let monthly = after["plans"]
+        .as_array()
+        .expect("plans")
+        .iter()
+        .find(|plan| plan["code"] == "monthly")
+        .expect("monthly plan");
+    assert_eq!(monthly["name"], "Monthly");
+    assert_eq!(monthly["duration_days"], 30);
+    assert!(monthly["prices"]
+        .as_array()
+        .expect("prices")
+        .iter()
+        .any(|price| price["chain"] == "BSC" && price["asset"] == "USDT" && price["amount"] == "20.00000000"));
+    assert!(!monthly["prices"]
+        .as_array()
+        .expect("prices")
+        .iter()
+        .any(|price| price["amount"] == "88.00000000"));
+}
+
+#[tokio::test]
 async fn admin_can_expand_disable_and_list_address_pools() {
     let app = app_with_state(AppState::from_shared_db(SharedDb::ephemeral().expect("db")).expect("state"));
     let admin_token = register_admin_and_login(&app).await;

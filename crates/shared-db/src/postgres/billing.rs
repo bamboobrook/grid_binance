@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-use sqlx::{PgPool, Row};
+use sqlx::{PgPool, Postgres, Row, Transaction};
 
 use shared_chain::assignment::AddressAssignment;
 use shared_domain::membership::MembershipStatus;
@@ -497,22 +497,23 @@ impl BillingRepository {
         &self,
         plan: &MembershipPlanRecord,
     ) -> Result<(), SharedDbError> {
-        sqlx::query(
-            "INSERT INTO membership_plans (code, name, duration_days, is_active, created_at, updated_at)
-             VALUES ($1, $2, $3, $4, now(), now())
-             ON CONFLICT (code) DO UPDATE
-             SET name = excluded.name,
-                 duration_days = excluded.duration_days,
-                 is_active = excluded.is_active,
-                 updated_at = now()",
-        )
-        .bind(&plan.code)
-        .bind(&plan.name)
-        .bind(plan.duration_days)
-        .bind(plan.is_active)
-        .execute(&self.pool)
-        .await
-        .map_err(SharedDbError::from)?;
+        let mut transaction = self.pool.begin().await.map_err(SharedDbError::from)?;
+        upsert_membership_plan_in(&mut transaction, plan).await?;
+        transaction.commit().await.map_err(SharedDbError::from)?;
+        Ok(())
+    }
+
+    pub async fn upsert_membership_plan_with_prices(
+        &self,
+        plan: &MembershipPlanRecord,
+        prices: &[MembershipPlanPriceRecord],
+    ) -> Result<(), SharedDbError> {
+        let mut transaction = self.pool.begin().await.map_err(SharedDbError::from)?;
+        upsert_membership_plan_in(&mut transaction, plan).await?;
+        for price in prices {
+            upsert_plan_price_in(&mut transaction, price).await?;
+        }
+        transaction.commit().await.map_err(SharedDbError::from)?;
         Ok(())
     }
 
@@ -544,20 +545,9 @@ impl BillingRepository {
         &self,
         price: &MembershipPlanPriceRecord,
     ) -> Result<(), SharedDbError> {
-        sqlx::query(
-            "INSERT INTO membership_plan_prices (plan_code, chain, asset, amount, created_at, updated_at)
-             VALUES ($1, $2, $3, $4, now(), now())
-             ON CONFLICT (plan_code, chain, asset) DO UPDATE
-             SET amount = excluded.amount,
-                 updated_at = now()",
-        )
-        .bind(&price.plan_code)
-        .bind(&price.chain)
-        .bind(&price.asset)
-        .bind(&price.amount)
-        .execute(&self.pool)
-        .await
-        .map_err(SharedDbError::from)?;
+        let mut transaction = self.pool.begin().await.map_err(SharedDbError::from)?;
+        upsert_plan_price_in(&mut transaction, price).await?;
+        transaction.commit().await.map_err(SharedDbError::from)?;
         Ok(())
     }
 
@@ -722,6 +712,50 @@ async fn write_order_meta(
     )
     .bind(order_meta_key(order_id))
     .bind(config_value)
+    .execute(&mut **transaction)
+    .await
+    .map_err(SharedDbError::from)?;
+    Ok(())
+}
+
+async fn upsert_membership_plan_in(
+    transaction: &mut Transaction<'_, Postgres>,
+    plan: &MembershipPlanRecord,
+) -> Result<(), SharedDbError> {
+    sqlx::query(
+        "INSERT INTO membership_plans (code, name, duration_days, is_active, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, now(), now())
+         ON CONFLICT (code) DO UPDATE
+         SET name = excluded.name,
+             duration_days = excluded.duration_days,
+             is_active = excluded.is_active,
+             updated_at = now()",
+    )
+    .bind(&plan.code)
+    .bind(&plan.name)
+    .bind(plan.duration_days)
+    .bind(plan.is_active)
+    .execute(&mut **transaction)
+    .await
+    .map_err(SharedDbError::from)?;
+    Ok(())
+}
+
+async fn upsert_plan_price_in(
+    transaction: &mut Transaction<'_, Postgres>,
+    price: &MembershipPlanPriceRecord,
+) -> Result<(), SharedDbError> {
+    sqlx::query(
+        "INSERT INTO membership_plan_prices (plan_code, chain, asset, amount, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, now(), now())
+         ON CONFLICT (plan_code, chain, asset) DO UPDATE
+         SET amount = excluded.amount,
+             updated_at = now()",
+    )
+    .bind(&price.plan_code)
+    .bind(&price.chain)
+    .bind(&price.asset)
+    .bind(&price.amount)
     .execute(&mut **transaction)
     .await
     .map_err(SharedDbError::from)?;

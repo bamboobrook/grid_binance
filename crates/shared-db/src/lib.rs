@@ -606,6 +606,42 @@ impl SharedDb {
         }
     }
 
+    pub fn upsert_membership_plan_with_prices(
+        &self,
+        plan: &MembershipPlanRecord,
+        prices: &[MembershipPlanPriceRecord],
+    ) -> Result<(), SharedDbError> {
+        match &self.backend {
+            SharedDbBackend::Runtime { .. } => {
+                let repo = self.billing_repo();
+                let plan = plan.clone();
+                let prices = prices.to_vec();
+                Self::block_on(async move {
+                    repo.upsert_membership_plan_with_prices(&plan, &prices).await
+                })
+            }
+            SharedDbBackend::Ephemeral(state) => {
+                let mut state = lock_ephemeral(state)?;
+                let mut next_plans = state.membership_plans.clone();
+                let mut next_prices = state.membership_plan_prices.clone();
+                next_plans.insert(plan.code.clone(), plan.clone());
+                for price in prices {
+                    next_prices.insert(
+                        (
+                            price.plan_code.clone(),
+                            price.chain.clone(),
+                            price.asset.clone(),
+                        ),
+                        price.clone(),
+                    );
+                }
+                state.membership_plans = next_plans;
+                state.membership_plan_prices = next_prices;
+                Ok(())
+            }
+        }
+    }
+
     pub fn list_plan_prices(&self) -> Result<Vec<MembershipPlanPriceRecord>, SharedDbError> {
         match &self.backend {
             SharedDbBackend::Runtime { .. } => {
