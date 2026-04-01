@@ -6,6 +6,29 @@ use shared_db::{
 
 use crate::order_matcher::canonicalize_amount;
 
+#[derive(Debug)]
+pub enum ProcessorError {
+    InvalidRequest(&'static str),
+    Storage(shared_db::SharedDbError),
+}
+
+impl std::fmt::Display for ProcessorError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::InvalidRequest(message) => f.write_str(message),
+            Self::Storage(error) => write!(f, "{error}"),
+        }
+    }
+}
+
+impl std::error::Error for ProcessorError {}
+
+impl From<shared_db::SharedDbError> for ProcessorError {
+    fn from(value: shared_db::SharedDbError) -> Self {
+        Self::Storage(value)
+    }
+}
+
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
 pub struct ObservedChainTransfer {
     pub chain: String,
@@ -27,13 +50,13 @@ pub struct ListenerMatchResult {
 pub fn process_observed_transfer(
     db: &SharedDb,
     transfer: ObservedChainTransfer,
-) -> Result<ListenerMatchResult, shared_db::SharedDbError> {
+) -> Result<ListenerMatchResult, ProcessorError> {
     let chain = transfer.chain.trim().to_uppercase();
     let asset = transfer.asset.trim().to_uppercase();
     let address = transfer.address.trim().to_owned();
     let tx_hash = transfer.tx_hash.trim().to_owned();
     let amount = canonicalize_amount(&transfer.amount)
-        .map_err(|_| shared_db::SharedDbError::new("invalid amount"))?;
+        .map_err(|_| ProcessorError::InvalidRequest("invalid amount"))?;
 
     if !db.record_seen_transfer(&tx_hash, &chain, transfer.observed_at)? {
         return Ok(ListenerMatchResult {
@@ -76,7 +99,7 @@ pub fn process_observed_transfer(
             .list_membership_plans()?
             .into_iter()
             .find(|plan| plan.code == order.plan_code)
-            .ok_or_else(|| shared_db::SharedDbError::new("plan not configured"))?;
+        .ok_or(ProcessorError::InvalidRequest("plan not configured"))?;
         let (active_until, grace_until) =
             entitlement_window(db.find_membership_record(&order.email)?.as_ref(), &plan, transfer.observed_at);
         db.apply_membership_payment(
@@ -148,6 +171,38 @@ pub fn process_observed_transfer(
     })
 }
 
+pub fn promote_due_orders(
+    db: &SharedDb,
+    at: DateTime<Utc>,
+) -> Result<usize, ProcessorError> {
+    let orders = db.list_billing_orders()?;
+    let mut chains = Vec::new();
+    for order in &orders {
+        if !chains.contains(&order.chain) {
+            chains.push(order.chain.clone());
+        }
+    }
+
+    let mut promoted = 0;
+    for chain in chains {
+        let mut queued = orders
+            .iter()
+            .filter(|order| order.chain == chain && order.paid_at.is_none() && order.status == "queued")
+            .collect::<Vec<_>>();
+        queued.sort_by_key(|order| order.enqueued_at.unwrap_or(order.requested_at));
+        for order in queued {
+            if db
+                .allocate_or_queue_billing_order(order.order_id, &chain, at)?
+                .is_some()
+            {
+                promoted += 1;
+            }
+        }
+    }
+
+    Ok(promoted)
+}
+
 fn entitlement_window(
     current: Option<&MembershipRecord>,
     plan: &MembershipPlanRecord,
@@ -169,7 +224,7 @@ fn entitlement_window(
 
 #[cfg(test)]
 mod tests {
-    use super::{process_observed_transfer, ObservedChainTransfer};
+    use super::{process_observed_transfer, promote_due_orders, ObservedChainTransfer};
     use chrono::{DateTime, Utc};
     use shared_chain::assignment::AddressAssignment;
     use shared_db::{BillingOrderRecord, MembershipPlanPriceRecord, MembershipPlanRecord, SharedDb};
@@ -277,6 +332,65 @@ mod tests {
 
         assert!(first.matched);
         assert!(second.matched);
+    }
+
+    #[test]
+    fn promote_due_orders_assigns_freed_addresses_without_api_calls() {
+        let db = SharedDb::ephemeral().expect("db");
+        seed_plan(&db, "monthly", 30, "BSC", "USDT", "20.00000000");
+        db.upsert_deposit_address(&shared_db::DepositAddressPoolRecord {
+            chain: "BSC".to_string(),
+            address: "bsc-addr-1".to_string(),
+            is_enabled: true,
+        })
+        .expect("address");
+        db.insert_billing_order(&BillingOrderRecord {
+            order_id: 1,
+            email: "occupied@example.com".to_string(),
+            chain: "BSC".to_string(),
+            asset: "USDT".to_string(),
+            plan_code: "monthly".to_string(),
+            amount: "20.00000000".to_string(),
+            requested_at: parse_time("2026-04-01T00:00:00Z"),
+            assignment: Some(AddressAssignment {
+                chain: "BSC".to_string(),
+                address: "bsc-addr-1".to_string(),
+                expires_at: parse_time("2026-04-01T01:00:00Z"),
+            }),
+            paid_at: None,
+            tx_hash: None,
+            status: "pending".to_string(),
+            enqueued_at: None,
+        })
+        .expect("order");
+        db.insert_billing_order(&BillingOrderRecord {
+            order_id: 2,
+            email: "queued@example.com".to_string(),
+            chain: "BSC".to_string(),
+            asset: "USDT".to_string(),
+            plan_code: "monthly".to_string(),
+            amount: "20.00000000".to_string(),
+            requested_at: parse_time("2026-04-01T00:10:00Z"),
+            assignment: None,
+            paid_at: None,
+            tx_hash: None,
+            status: "queued".to_string(),
+            enqueued_at: Some(parse_time("2026-04-01T00:10:00Z")),
+        })
+        .expect("order");
+
+        let promoted = promote_due_orders(&db, parse_time("2026-04-01T01:00:01Z")).expect("promote");
+
+        assert_eq!(promoted, 1);
+        let orders = db.list_billing_orders().expect("orders");
+        let queued = orders
+            .iter()
+            .find(|order| order.order_id == 2)
+            .expect("queued order");
+        assert_eq!(
+            queued.assignment.as_ref().expect("assignment").address,
+            "bsc-addr-1"
+        );
     }
 
     fn seed_plan(db: &SharedDb, code: &str, duration_days: i32, chain: &str, asset: &str, amount: &str) {

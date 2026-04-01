@@ -65,6 +65,7 @@ async fn wrong_asset_transfer_requires_manual_review_and_admin_can_credit_member
     let credited = process_abnormal_deposit(
         &app,
         &admin_token,
+        "BSC",
         "tx-wrong-asset",
         "credit_membership",
         Some(order_id),
@@ -132,6 +133,7 @@ async fn admin_can_reject_abnormal_transfer_and_create_audited_sweep_jobs() {
     let rejected = process_abnormal_deposit(
         &app,
         &admin_token,
+        "ETH",
         "tx-underpaid",
         "reject",
         None,
@@ -255,6 +257,7 @@ async fn expired_and_unmatched_transfers_create_processable_manual_review_record
     let credited = process_abnormal_deposit(
         &app,
         &admin_token,
+        "BSC",
         "tx-order-not-found",
         "credit_membership",
         Some(expired_order_id),
@@ -344,6 +347,7 @@ async fn ambiguous_manual_review_records_can_be_processed() {
     let rejected = process_abnormal_deposit(
         &app,
         &admin_token,
+        "BSC",
         "tx-ambiguous-manual",
         "reject",
         None,
@@ -504,6 +508,7 @@ async fn list_admin_deposits(
 async fn process_abnormal_deposit(
     app: &axum::Router,
     session_token: &str,
+    chain: &str,
     tx_hash: &str,
     decision: &str,
     order_id: Option<u64>,
@@ -518,6 +523,7 @@ async fn process_abnormal_deposit(
                 .header("content-type", "application/json")
                 .body(Body::from(
                     json!({
+                        "chain": chain,
                         "tx_hash": tx_hash,
                         "decision": decision,
                         "order_id": order_id,

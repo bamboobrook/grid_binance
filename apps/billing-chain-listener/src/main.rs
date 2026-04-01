@@ -5,10 +5,14 @@ use axum::{
     routing::{get, post},
     Json, Router,
 };
-use billing_chain_listener::processor::{process_observed_transfer, ListenerMatchResult, ObservedChainTransfer};
+use billing_chain_listener::processor::{
+    process_observed_transfer, promote_due_orders, ListenerMatchResult, ObservedChainTransfer,
+    ProcessorError,
+};
 use shared_db::SharedDb;
 use std::io::{Error as IoError, ErrorKind};
 use tokio::net::TcpListener;
+use tokio::time::{interval, Duration as TokioDuration};
 
 const DEFAULT_PORT: u16 = 8084;
 const SERVICE_NAME: &str = "billing-chain-listener";
@@ -16,18 +20,21 @@ const SERVICE_NAME: &str = "billing-chain-listener";
 #[derive(Clone)]
 struct ListenerState {
     db: SharedDb,
+    internal_token: String,
 }
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let database_url = required_env("DATABASE_URL")?;
     let redis_url = required_env("REDIS_URL")?;
+    let internal_token = required_env("INTERNAL_SHARED_SECRET")?;
     let db = SharedDb::connect(&database_url, &redis_url)?;
+    tokio::spawn(queue_promotion_loop(db.clone()));
     let listener = TcpListener::bind(("0.0.0.0", configured_port(DEFAULT_PORT))).await?;
     let app = Router::new()
         .route("/healthz", get(healthz))
         .route("/internal/observed-transfers", post(ingest_transfer))
-        .with_state(ListenerState { db });
+        .with_state(ListenerState { db, internal_token });
 
     axum::serve(listener, app).await?;
     Ok(())
@@ -45,16 +52,61 @@ async fn healthz() -> impl IntoResponse {
 
 async fn ingest_transfer(
     State(state): State<ListenerState>,
+    headers: axum::http::HeaderMap,
     Json(request): Json<ObservedChainTransfer>,
 ) -> Result<Json<ListenerMatchResult>, (axum::http::StatusCode, Json<serde_json::Value>)> {
+    authorize_internal_request(&headers, &state.internal_token)?;
     process_observed_transfer(&state.db, request)
-        .map(Json)
-        .map_err(|error| {
-            (
-                axum::http::StatusCode::BAD_REQUEST,
-                Json(serde_json::json!({ "error": error.to_string() })),
-            )
+        .map(|result| {
+            let _ = promote_due_orders(&state.db, chrono::Utc::now());
+            Json(result)
         })
+        .map_err(map_processor_error)
+}
+
+async fn queue_promotion_loop(db: SharedDb) {
+    let mut ticker = interval(TokioDuration::from_secs(30));
+    loop {
+        ticker.tick().await;
+        let _ = promote_due_orders(&db, chrono::Utc::now());
+    }
+}
+
+fn authorize_internal_request(
+    headers: &axum::http::HeaderMap,
+    expected_token: &str,
+) -> Result<(), (axum::http::StatusCode, Json<serde_json::Value>)> {
+    let supplied = headers
+        .get("x-internal-token")
+        .and_then(|value| value.to_str().ok())
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .ok_or((
+            axum::http::StatusCode::UNAUTHORIZED,
+            Json(serde_json::json!({ "error": "internal token required" })),
+        ))?;
+    if supplied != expected_token {
+        return Err((
+            axum::http::StatusCode::FORBIDDEN,
+            Json(serde_json::json!({ "error": "invalid internal token" })),
+        ));
+    }
+    Ok(())
+}
+
+fn map_processor_error(
+    error: ProcessorError,
+) -> (axum::http::StatusCode, Json<serde_json::Value>) {
+    match error {
+        ProcessorError::InvalidRequest(message) => (
+            axum::http::StatusCode::UNPROCESSABLE_ENTITY,
+            Json(serde_json::json!({ "error": message })),
+        ),
+        ProcessorError::Storage(storage) => (
+            axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({ "error": storage.to_string() })),
+        ),
+    }
 }
 
 fn configured_port(default_port: u16) -> u16 {

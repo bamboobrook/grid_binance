@@ -211,6 +211,7 @@ pub struct AdminDepositsResponse {
 
 #[derive(Debug, Deserialize)]
 pub struct ProcessAbnormalDepositRequest {
+    pub chain: String,
     pub tx_hash: String,
     pub decision: String,
     pub order_id: Option<u64>,
@@ -948,26 +949,22 @@ impl MembershipService {
         request: ProcessAbnormalDepositRequest,
     ) -> Result<ProcessAbnormalDepositResponse, MembershipError> {
         self.bootstrap_defaults()?;
+        let chain = normalize_chain(&request.chain);
         let tx_hash = request.tx_hash.trim().to_owned();
         let decision = normalize_code(&request.decision);
         let mut deposits = self
             .db
             .list_deposit_transactions()
             .map_err(MembershipError::storage)?;
-        let matching_indexes = deposits
+        let deposit_index = deposits
             .iter()
             .enumerate()
-            .filter_map(|(index, deposit)| (deposit.tx_hash == tx_hash).then_some(index))
-            .collect::<Vec<_>>();
-        if matching_indexes.len() > 1 {
-            return Err(MembershipError::bad_request(
-                "multiple deposits share this tx_hash across chains; refine the lookup",
-            ));
-        }
-        let deposit = matching_indexes
-            .into_iter()
-            .next()
-            .and_then(|index| deposits.get_mut(index))
+            .find_map(|(index, deposit)| {
+                (deposit.chain == chain && deposit.tx_hash == tx_hash).then_some(index)
+            })
+            .ok_or_else(|| MembershipError::not_found("deposit not found"))?;
+        let deposit = deposits
+            .get_mut(deposit_index)
             .ok_or_else(|| MembershipError::not_found("deposit not found"))?;
 
         if deposit.status != "manual_review_required" {
@@ -1015,8 +1012,8 @@ impl MembershipService {
                     actor_email: actor_email.to_owned(),
                     action: "deposit.manual_credited".to_owned(),
                     target_type: "deposit".to_owned(),
-                    target_id: tx_hash.clone(),
-                    payload: json!({ "order_id": order_id }),
+                    target_id: format!("{chain}:{tx_hash}"),
+                    payload: json!({ "order_id": order_id, "chain": chain }),
                     created_at: request.processed_at,
                 })?;
                 let snapshot = snapshot_for(
@@ -1044,8 +1041,8 @@ impl MembershipService {
                     actor_email: actor_email.to_owned(),
                     action: "deposit.manual_rejected".to_owned(),
                     target_type: "deposit".to_owned(),
-                    target_id: tx_hash.clone(),
-                    payload: json!({ "decision": "reject" }),
+                    target_id: format!("{chain}:{tx_hash}"),
+                    payload: json!({ "decision": "reject", "chain": chain }),
                     created_at: request.processed_at,
                 })?;
                 Ok(ProcessAbnormalDepositResponse {
