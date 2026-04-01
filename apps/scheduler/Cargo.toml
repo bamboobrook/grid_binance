@@ -6,6 +6,9 @@ edition = "2021"
 [dependencies]
 axum = "0.8"
 chrono = "0.4"
+serde = { workspace = true }
+serde_json = { workspace = true }
 shared-binance = { path = "../../crates/shared-binance" }
+shared-db = { path = "../../crates/shared-db" }
 shared-domain = { path = "../../crates/shared-domain" }
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "net"] }
