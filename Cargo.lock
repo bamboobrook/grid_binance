@@ -1106,6 +1106,9 @@ dependencies = [
 [[package]]
 name = "trading-engine"
 version = "0.1.0"
+dependencies = [
+ "rust_decimal",
+]
 
 [[package]]
 name = "typenum"
