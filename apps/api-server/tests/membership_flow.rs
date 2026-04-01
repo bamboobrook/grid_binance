@@ -177,6 +177,60 @@ async fn queues_orders_when_pool_is_exhausted_and_promotes_in_fifo_order() {
 }
 
 #[tokio::test]
+async fn allocation_uses_configured_pool_and_respects_disabled_addresses() {
+    let db = SharedDb::ephemeral().expect("ephemeral db");
+    for address in ["bsc-addr-1", "bsc-addr-2", "bsc-addr-3", "bsc-addr-4", "bsc-addr-5"] {
+        db.upsert_deposit_address(&shared_db::DepositAddressPoolRecord {
+            chain: "BSC".to_string(),
+            address: address.to_string(),
+            is_enabled: false,
+        })
+        .expect("disable default address");
+    }
+    db.upsert_deposit_address(&shared_db::DepositAddressPoolRecord {
+        chain: "BSC".to_string(),
+        address: "bsc-custom-1".to_string(),
+        is_enabled: true,
+    })
+    .expect("insert custom address");
+    db.upsert_deposit_address(&shared_db::DepositAddressPoolRecord {
+        chain: "BSC".to_string(),
+        address: "bsc-custom-2".to_string(),
+        is_enabled: true,
+    })
+    .expect("insert custom address");
+    let app = app_with_state(AppState::from_shared_db(db).expect("state"));
+    let first_token = register_and_login(&app, "pool-a@example.com", "pass1234").await;
+    let second_token = register_and_login(&app, "pool-b@example.com", "pass1234").await;
+
+    let first = create_order(
+        &app,
+        &first_token,
+        "pool-a@example.com",
+        "BSC",
+        "USDT",
+        "monthly",
+        "2026-04-01T00:00:00Z",
+    )
+    .await;
+    assert_eq!(first.status(), StatusCode::CREATED);
+    assert_eq!(response_json(first).await["address"], "bsc-custom-1");
+
+    let second = create_order(
+        &app,
+        &second_token,
+        "pool-b@example.com",
+        "BSC",
+        "USDT",
+        "monthly",
+        "2026-04-01T00:00:00Z",
+    )
+    .await;
+    assert_eq!(second.status(), StatusCode::CREATED);
+    assert_eq!(response_json(second).await["address"], "bsc-custom-2");
+}
+
+#[tokio::test]
 async fn membership_transitions_from_active_to_grace_to_expired_after_48_hours() {
     let app = app();
     let user_token = register_and_login(&app, "grace@example.com", "pass1234").await;
@@ -299,6 +353,72 @@ async fn admin_override_writes_membership_audit_logs() {
             .count(),
         3
     );
+}
+
+#[tokio::test]
+async fn admin_can_open_extend_and_unfreeze_membership_manually() {
+    let db = SharedDb::ephemeral().expect("ephemeral db");
+    let app = app_with_state(AppState::from_shared_db(db.clone()).expect("state"));
+    let user_token = register_and_login(&app, "manual@example.com", "pass1234").await;
+    let admin_token = register_admin_and_login(&app).await;
+
+    let opened = manage_membership(
+        &app,
+        &admin_token,
+        "manual@example.com",
+        "open",
+        Some(30),
+        "2026-04-01T00:00:00Z",
+    )
+    .await;
+    assert_eq!(opened.status(), StatusCode::OK);
+    let opened_body = response_json(opened).await;
+    assert_eq!(opened_body["status"], "Active");
+    assert_eq!(opened_body["active_until"], "2026-05-01T00:00:00Z");
+
+    let frozen = override_membership(&app, &admin_token, "manual@example.com", Some("Frozen")).await;
+    assert_eq!(frozen.status(), StatusCode::OK);
+    assert_eq!(response_json(frozen).await["status"], "Frozen");
+
+    let unfrozen = manage_membership(
+        &app,
+        &admin_token,
+        "manual@example.com",
+        "unfreeze",
+        None,
+        "2026-04-10T00:00:00Z",
+    )
+    .await;
+    assert_eq!(unfrozen.status(), StatusCode::OK);
+    assert_eq!(response_json(unfrozen).await["status"], "Active");
+
+    let extended = manage_membership(
+        &app,
+        &admin_token,
+        "manual@example.com",
+        "extend",
+        Some(30),
+        "2026-04-15T00:00:00Z",
+    )
+    .await;
+    assert_eq!(extended.status(), StatusCode::OK);
+    let extended_body = response_json(extended).await;
+    assert_eq!(extended_body["active_until"], "2026-05-31T00:00:00Z");
+
+    let status = membership_status(
+        &app,
+        &user_token,
+        "manual@example.com",
+        "2026-05-20T00:00:00Z",
+    )
+    .await;
+    assert_eq!(status.status(), StatusCode::OK);
+    assert_eq!(response_json(status).await["status"], "Active");
+
+    let audit_logs = db.list_audit_logs().expect("audit logs");
+    assert!(audit_logs.iter().any(|record| record.action == "membership.manual_opened"));
+    assert!(audit_logs.iter().any(|record| record.action == "membership.manual_extended"));
+    assert!(audit_logs.iter().any(|record| record.action == "membership.manual_unfrozen"));
 }
 
 #[tokio::test]
@@ -517,6 +637,36 @@ async fn override_membership(
                     json!({
                         "email": email,
                         "status": status,
+                    })
+                    .to_string(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap()
+}
+
+async fn manage_membership(
+    app: &axum::Router,
+    session_token: &str,
+    email: &str,
+    action: &str,
+    duration_days: Option<i64>,
+    at: &str,
+) -> axum::response::Response {
+    app.clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/admin/memberships/manage")
+                .header("authorization", format!("Bearer {session_token}"))
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    json!({
+                        "email": email,
+                        "action": action,
+                        "duration_days": duration_days,
+                        "at": at,
                     })
                     .to_string(),
                 ))

@@ -112,6 +112,14 @@ pub struct MembershipOverrideRequest {
 }
 
 #[derive(Debug, Deserialize)]
+pub struct ManualMembershipRequest {
+    pub email: String,
+    pub action: String,
+    pub duration_days: Option<i64>,
+    pub at: DateTime<Utc>,
+}
+
+#[derive(Debug, Deserialize)]
 pub struct AdminDepositsQuery {
     pub at: Option<DateTime<Utc>>,
 }
@@ -221,8 +229,9 @@ impl MembershipService {
             ));
         }
 
-        let _ = supported_addresses(&chain)
-            .ok_or_else(|| MembershipError::bad_request("unsupported chain"))?;
+        if !DEFAULT_CHAIN_CODES.contains(&chain.as_str()) {
+            return Err(MembershipError::bad_request("unsupported chain"));
+        }
         if !DEFAULT_ASSETS.contains(&asset.as_str()) {
             return Err(MembershipError::bad_request("unsupported asset"));
         }
@@ -244,11 +253,21 @@ impl MembershipService {
             .db
             .list_billing_orders()
             .map_err(MembershipError::storage)?;
+        let configured_addresses = self
+            .configured_addresses_for_chain(&chain)?
+            .into_iter()
+            .filter(|address| address.is_enabled)
+            .collect::<Vec<_>>();
         let order_id = self
             .db
             .next_sequence("billing_order_id")
             .map_err(MembershipError::storage)?;
-        let assignment = next_available_assignment(&chain, request.requested_at, &existing_orders);
+        let assignment = next_available_assignment(
+            &chain,
+            request.requested_at,
+            &existing_orders,
+            &configured_addresses,
+        );
         let enqueued_at = assignment.is_none().then_some(request.requested_at);
         let status = if assignment.is_some() { "pending" } else { "queued" }.to_owned();
 
@@ -399,13 +418,41 @@ impl MembershipService {
             });
         }
 
+        if valid_candidates.len() > 1 {
+            self.record_abnormal_deposit(DepositTransactionRecord {
+                tx_hash,
+                chain,
+                asset,
+                address,
+                amount,
+                observed_at: request.observed_at,
+                order_id: None,
+                status: "manual_review_required".to_owned(),
+                review_reason: Some("ambiguous_match".to_owned()),
+                processed_at: None,
+                matched_order_id: None,
+            })?;
+            return Ok(unmatched_response("ambiguous_match", "manual_review_required"));
+        }
+
         if address_candidates.len() > 1 && valid_candidates.is_empty() {
             let reason = if address_candidates.iter().any(|order| order.asset != asset) {
                 "wrong_asset"
+            } else if address_candidates.iter().all(|order| {
+                order
+                    .assignment
+                    .as_ref()
+                    .is_some_and(|assignment| request.observed_at > assignment.expires_at)
+            }) {
+                "order_expired"
             } else {
                 "exact_amount_required"
             };
-            let order_id = address_candidates.first().map(|order| order.order_id);
+            let order_id = if reason == "order_expired" {
+                address_candidates.first().map(|order| order.order_id)
+            } else {
+                None
+            };
             self.record_abnormal_deposit(DepositTransactionRecord {
                 tx_hash: tx_hash.clone(),
                 chain: chain.clone(),
@@ -420,10 +467,6 @@ impl MembershipService {
                 matched_order_id: None,
             })?;
             return Ok(unmatched_response(reason, "manual_review_required"));
-        }
-
-        if address_candidates.len() > 1 {
-            return Ok(unmatched_response("ambiguous_match", "manual_review_required"));
         }
 
         if let Some(order) = address_candidates.first() {
@@ -469,10 +512,36 @@ impl MembershipService {
                 .as_ref()
                 .is_some_and(|assignment| request.observed_at > assignment.expires_at)
             {
+                self.record_abnormal_deposit(DepositTransactionRecord {
+                    tx_hash,
+                    chain,
+                    asset,
+                    address,
+                    amount,
+                    observed_at: request.observed_at,
+                    order_id: Some(order.order_id),
+                    status: "manual_review_required".to_owned(),
+                    review_reason: Some("order_expired".to_owned()),
+                    processed_at: None,
+                    matched_order_id: None,
+                })?;
                 return Ok(unmatched_response("order_expired", "manual_review_required"));
             }
         }
 
+        self.record_abnormal_deposit(DepositTransactionRecord {
+            tx_hash,
+            chain,
+            asset,
+            address,
+            amount,
+            observed_at: request.observed_at,
+            order_id: None,
+            status: "manual_review_required".to_owned(),
+            review_reason: Some("order_not_found".to_owned()),
+            processed_at: None,
+            matched_order_id: None,
+        })?;
         Ok(unmatched_response("order_not_found", "manual_review_required"))
     }
 
@@ -538,6 +607,85 @@ impl MembershipService {
         })?;
 
         Ok(snapshot_for(&email, record.as_ref(), effective_at))
+    }
+
+    pub fn manage_membership(
+        &self,
+        actor_email: &str,
+        request: ManualMembershipRequest,
+    ) -> Result<MembershipSnapshot, MembershipError> {
+        self.bootstrap_defaults()?;
+        let email = normalize_email(&request.email);
+        let action = normalize_code(&request.action);
+        if email.is_empty() {
+            return Err(MembershipError::bad_request("email is required"));
+        }
+
+        let current = self
+            .db
+            .find_membership_record(&email)
+            .map_err(MembershipError::storage)?
+            .unwrap_or_default();
+
+        let updated = match action.as_str() {
+            "open" => {
+                let duration_days = request
+                    .duration_days
+                    .ok_or_else(|| MembershipError::bad_request("duration_days is required"))?;
+                MembershipRecord {
+                    activated_at: Some(request.at),
+                    active_until: Some(request.at + Duration::days(duration_days)),
+                    grace_until: Some(request.at + Duration::days(duration_days) + Duration::hours(GRACE_HOURS)),
+                    override_status: None,
+                }
+            }
+            "extend" => {
+                let duration_days = request
+                    .duration_days
+                    .ok_or_else(|| MembershipError::bad_request("duration_days is required"))?;
+                let base = current.active_until.filter(|until| *until > request.at).unwrap_or(request.at);
+                let active_until = base + Duration::days(duration_days);
+                MembershipRecord {
+                    activated_at: current.activated_at.or(Some(request.at)),
+                    active_until: Some(active_until),
+                    grace_until: Some(active_until + Duration::hours(GRACE_HOURS)),
+                    override_status: None,
+                }
+            }
+            "unfreeze" => MembershipRecord {
+                override_status: None,
+                ..current.clone()
+            },
+            _ => return Err(MembershipError::bad_request("unsupported membership action")),
+        };
+
+        self.db
+            .upsert_membership_record(&email, &updated)
+            .map_err(MembershipError::storage)?;
+
+        let action_name = match action.as_str() {
+            "open" => "membership.manual_opened",
+            "extend" => "membership.manual_extended",
+            "unfreeze" => "membership.manual_unfrozen",
+            _ => unreachable!(),
+        };
+        self.insert_audit(AuditLogRecord {
+            actor_email: actor_email.to_owned(),
+            action: action_name.to_owned(),
+            target_type: "membership".to_owned(),
+            target_id: email.clone(),
+            payload: json!({
+                "duration_days": request.duration_days,
+                "at": request.at,
+            }),
+            created_at: request.at,
+        })?;
+
+        let record = self
+            .db
+            .find_membership_record(&email)
+            .map_err(MembershipError::storage)?;
+        Ok(snapshot_for(&email, record.as_ref(), Some(request.at)))
     }
 
     pub fn admin_list_deposits(
@@ -776,6 +924,10 @@ impl MembershipService {
     }
 
     fn bootstrap_defaults(&self) -> Result<(), MembershipError> {
+        let existing_addresses = self
+            .db
+            .list_deposit_addresses()
+            .map_err(MembershipError::storage)?;
         for (code, name, duration_days, amount) in DEFAULT_PLAN_CONFIG {
             self.db
                 .upsert_membership_plan(&MembershipPlanRecord {
@@ -805,6 +957,12 @@ impl MembershipService {
             ("SOL", DEFAULT_SOL_ADDRESSES.as_slice()),
         ] {
             for address in addresses {
+                if existing_addresses
+                    .iter()
+                    .any(|record| record.chain == chain && record.address == *address)
+                {
+                    continue;
+                }
                 self.db
                     .upsert_deposit_address(&DepositAddressPoolRecord {
                         chain: chain.to_owned(),
@@ -827,24 +985,30 @@ impl MembershipService {
             .db
             .list_billing_orders()
             .map_err(MembershipError::storage)?;
+        let mut chains = orders
+            .iter()
+            .map(|order| order.chain.clone())
+            .collect::<Vec<_>>();
+        for address in &addresses {
+            if !chains.contains(&address.chain) {
+                chains.push(address.chain.clone());
+            }
+        }
 
-        for chain in DEFAULT_CHAIN_CODES {
+        for chain in chains {
             let enabled_addresses: Vec<_> = addresses
                 .iter()
                 .filter(|address| address.chain == chain && address.is_enabled)
                 .cloned()
                 .collect();
-            if enabled_addresses.is_empty() {
-                continue;
-            }
 
-            let queued_orders = queued_orders_for(chain, &orders);
+            let queued_orders = queued_orders_for(&chain, &orders);
             if queued_orders.is_empty() {
                 continue;
             }
 
-            let mut occupied = occupied_addresses(chain, at, &orders);
-            let mut free_addresses = rotation_order(chain, at, &orders, &enabled_addresses)
+            let mut occupied = occupied_addresses(&chain, at, &orders);
+            let mut free_addresses = rotation_order(&chain, at, &orders, &enabled_addresses)
                 .into_iter()
                 .filter(|address| !occupied.contains(address))
                 .collect::<Vec<_>>();
@@ -854,7 +1018,7 @@ impl MembershipService {
                     break;
                 };
                 let assignment = AddressAssignment {
-                    chain: chain.to_owned(),
+                    chain: chain.clone(),
                     address: address.clone(),
                     expires_at: at + Duration::hours(ORDER_LEASE_HOURS),
                 };
@@ -921,6 +1085,19 @@ impl MembershipService {
         self.db
             .upsert_deposit_transaction(&record)
             .map_err(MembershipError::storage)
+    }
+
+    fn configured_addresses_for_chain(
+        &self,
+        chain: &str,
+    ) -> Result<Vec<DepositAddressPoolRecord>, MembershipError> {
+        Ok(self
+            .db
+            .list_deposit_addresses()
+            .map_err(MembershipError::storage)?
+            .into_iter()
+            .filter(|address| address.chain == chain)
+            .collect())
     }
 
     fn insert_audit(&self, record: AuditLogRecord) -> Result<(), MembershipError> {
@@ -1038,22 +1215,21 @@ fn next_available_assignment(
     chain: &str,
     requested_at: DateTime<Utc>,
     orders: &[BillingOrderRecord],
+    configured_addresses: &[DepositAddressPoolRecord],
 ) -> Option<AddressAssignment> {
-    let free_address = supported_addresses(chain)?
-        .into_iter()
-        .find(|address| {
-            !orders.iter().any(|order| {
-                order.chain == chain
-                    && order.paid_at.is_none()
-                    && order
-                        .assignment
-                        .as_ref()
-                        .is_some_and(|assignment| {
-                            assignment.address == **address && assignment.expires_at > requested_at
-                        })
-            })
-        })?
-        .to_owned();
+    let rotation = rotation_order(chain, requested_at, orders, configured_addresses);
+    let free_address = rotation.into_iter().find(|address| {
+        !orders.iter().any(|order| {
+            order.chain == chain
+                && order.paid_at.is_none()
+                && order
+                    .assignment
+                    .as_ref()
+                    .is_some_and(|assignment| {
+                        assignment.address == *address && assignment.expires_at > requested_at
+                    })
+        })
+    })?;
 
     Some(AddressAssignment {
         chain: chain.to_owned(),
@@ -1113,15 +1289,6 @@ fn queue_position_for(order_id: u64, chain: &str, orders: &[BillingOrderRecord])
         .iter()
         .position(|order| order.order_id == order_id)
         .map(|index| index as u64 + 1)
-}
-
-fn supported_addresses(chain: &str) -> Option<Vec<String>> {
-    match chain {
-        "ETH" => Some(DEFAULT_ETH_ADDRESSES.iter().map(|value| (*value).to_owned()).collect()),
-        "BSC" => Some(DEFAULT_BSC_ADDRESSES.iter().map(|value| (*value).to_owned()).collect()),
-        "SOL" => Some(DEFAULT_SOL_ADDRESSES.iter().map(|value| (*value).to_owned()).collect()),
-        _ => None,
-    }
 }
 
 fn normalize_email(email: &str) -> String {

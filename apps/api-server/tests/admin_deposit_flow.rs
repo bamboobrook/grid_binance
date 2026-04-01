@@ -184,6 +184,176 @@ async fn admin_can_reject_abnormal_transfer_and_create_audited_sweep_jobs() {
         .any(|record| record.action == "treasury.sweep_requested"));
 }
 
+#[tokio::test]
+async fn expired_and_unmatched_transfers_create_processable_manual_review_records() {
+    let db = SharedDb::ephemeral().expect("ephemeral db");
+    let app = app_with_state(AppState::from_shared_db(db.clone()).expect("state"));
+    let user_token = register_and_login(&app, "expired-manual@example.com", "pass1234").await;
+    let admin_token = register_admin_and_login(&app).await;
+
+    let expired_order = create_order(
+        &app,
+        &user_token,
+        "expired-manual@example.com",
+        "BSC",
+        "USDT",
+        "monthly",
+        "2026-04-01T00:00:00Z",
+    )
+    .await;
+    assert_eq!(expired_order.status(), StatusCode::CREATED);
+    let expired_body = response_json(expired_order).await;
+    let expired_order_id = expired_body["order_id"].as_u64().expect("order id");
+
+    let expired_match = match_order(
+        &app,
+        &admin_token,
+        "BSC",
+        "USDT",
+        "bsc-addr-1",
+        "20.00000000",
+        "tx-expired-manual",
+        "2026-04-01T01:00:01Z",
+    )
+    .await;
+    assert_eq!(expired_match.status(), StatusCode::OK);
+    let expired_match_body = response_json(expired_match).await;
+    assert_eq!(expired_match_body["reason"], "order_expired");
+    assert_eq!(expired_match_body["deposit_status"], "manual_review_required");
+
+    let unmatched = match_order(
+        &app,
+        &admin_token,
+        "BSC",
+        "USDT",
+        "unknown-address",
+        "20.00000000",
+        "tx-order-not-found",
+        "2026-04-01T01:10:00Z",
+    )
+    .await;
+    assert_eq!(unmatched.status(), StatusCode::OK);
+    let unmatched_body = response_json(unmatched).await;
+    assert_eq!(unmatched_body["reason"], "order_not_found");
+    assert_eq!(unmatched_body["deposit_status"], "manual_review_required");
+
+    let listed = list_admin_deposits(&app, &admin_token, "2026-04-01T01:10:00Z").await;
+    assert_eq!(listed.status(), StatusCode::OK);
+    let listed_body = response_json(listed).await;
+    let deposits = listed_body["abnormal_deposits"].as_array().expect("deposits");
+    assert!(deposits.iter().any(|record| {
+        record["tx_hash"] == "tx-expired-manual"
+            && record["review_reason"] == "order_expired"
+            && record["status"] == "manual_review_required"
+    }));
+    assert!(deposits.iter().any(|record| {
+        record["tx_hash"] == "tx-order-not-found"
+            && record["review_reason"] == "order_not_found"
+            && record["status"] == "manual_review_required"
+    }));
+
+    let credited = process_abnormal_deposit(
+        &app,
+        &admin_token,
+        "tx-order-not-found",
+        "credit_membership",
+        Some(expired_order_id),
+        "2026-04-01T01:11:00Z",
+    )
+    .await;
+    assert_eq!(credited.status(), StatusCode::OK);
+    let credited_body = response_json(credited).await;
+    assert_eq!(credited_body["deposit_status"], "manual_approved");
+    assert_eq!(credited_body["order_id"], expired_order_id);
+    assert_eq!(credited_body["membership_status"], "Active");
+}
+
+#[tokio::test]
+async fn ambiguous_manual_review_records_can_be_processed() {
+    let db = SharedDb::ephemeral().expect("ephemeral db");
+    let app = app_with_state(AppState::from_shared_db(db.clone()).expect("state"));
+    let admin_token = register_admin_and_login(&app).await;
+
+    for email in ["amb-a@example.com", "amb-b@example.com"] {
+        register_and_verify(&app, email, "pass1234").await;
+    }
+
+    db.insert_billing_order(&shared_db::BillingOrderRecord {
+        order_id: 1001,
+        email: "amb-a@example.com".to_string(),
+        chain: "BSC".to_string(),
+        asset: "USDT".to_string(),
+        plan_code: "monthly".to_string(),
+        amount: "20.00000000".to_string(),
+        requested_at: "2026-04-01T00:00:00Z".parse().expect("time"),
+        assignment: Some(shared_chain::assignment::AddressAssignment {
+            chain: "BSC".to_string(),
+            address: "shared-ambiguous".to_string(),
+            expires_at: "2026-04-01T02:00:00Z".parse().expect("time"),
+        }),
+        paid_at: None,
+        tx_hash: None,
+        status: "pending".to_string(),
+        enqueued_at: None,
+    })
+    .expect("insert order");
+    db.insert_billing_order(&shared_db::BillingOrderRecord {
+        order_id: 1002,
+        email: "amb-b@example.com".to_string(),
+        chain: "BSC".to_string(),
+        asset: "USDT".to_string(),
+        plan_code: "monthly".to_string(),
+        amount: "20.00000000".to_string(),
+        requested_at: "2026-04-01T00:01:00Z".parse().expect("time"),
+        assignment: Some(shared_chain::assignment::AddressAssignment {
+            chain: "BSC".to_string(),
+            address: "shared-ambiguous".to_string(),
+            expires_at: "2026-04-01T02:00:00Z".parse().expect("time"),
+        }),
+        paid_at: None,
+        tx_hash: None,
+        status: "pending".to_string(),
+        enqueued_at: None,
+    })
+    .expect("insert order");
+
+    let ambiguous = match_order(
+        &app,
+        &admin_token,
+        "BSC",
+        "USDT",
+        "shared-ambiguous",
+        "20.00000000",
+        "tx-ambiguous-manual",
+        "2026-04-01T00:10:00Z",
+    )
+    .await;
+    assert_eq!(ambiguous.status(), StatusCode::OK);
+    let ambiguous_body = response_json(ambiguous).await;
+    assert_eq!(ambiguous_body["reason"], "ambiguous_match");
+    assert_eq!(ambiguous_body["deposit_status"], "manual_review_required");
+
+    let listed = list_admin_deposits(&app, &admin_token, "2026-04-01T00:10:00Z").await;
+    assert_eq!(listed.status(), StatusCode::OK);
+    assert!(response_json(listed).await["abnormal_deposits"]
+        .as_array()
+        .expect("deposits")
+        .iter()
+        .any(|record| record["tx_hash"] == "tx-ambiguous-manual" && record["review_reason"] == "ambiguous_match"));
+
+    let rejected = process_abnormal_deposit(
+        &app,
+        &admin_token,
+        "tx-ambiguous-manual",
+        "reject",
+        None,
+        "2026-04-01T00:11:00Z",
+    )
+    .await;
+    assert_eq!(rejected.status(), StatusCode::OK);
+    assert_eq!(response_json(rejected).await["deposit_status"], "manual_rejected");
+}
+
 async fn register_admin_and_login(app: &axum::Router) -> String {
     register_and_verify(app, "admin@example.com", "pass1234").await;
     let session_token = login_and_get_token(app, "admin@example.com", "pass1234").await;
