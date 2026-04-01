@@ -53,7 +53,8 @@ test("api server container runs the real Rust process without placeholder http s
 
 test("rust service entrypoints are long-running health probe servers instead of bootstrap printlns", () => {
   const apiMain = fs.readFileSync("apps/api-server/src/main.rs", "utf8");
-  assert.match(apiMain, /api_server::app\(\)/);
+  assert.match(apiMain, /api_server::app_with_persistent_state\(/);
+  assert.match(apiMain, /configured_db_path\(/);
   assert.match(apiMain, /\/healthz/);
   assert.doesNotMatch(apiMain, /println!\("bootstrap"\)/);
 
