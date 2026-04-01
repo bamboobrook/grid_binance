@@ -677,7 +677,7 @@ git commit -m "feat: 问题描述 add telegram and notification flows"
 ### Task 11: User Web App Delivery
 
 **Files:**
-- Create: `apps/web/src/app/page.tsx`
+- Modify: `apps/web/src/app/page.tsx`
 - Create: `apps/web/src/app/app/dashboard/page.tsx`
 - Create: `apps/web/src/app/app/billing/page.tsx`
 - Create: `apps/web/src/app/app/strategies/[id]/page.tsx`
@@ -711,7 +711,7 @@ export default function DashboardPage() {
 - [ ] **Step 4: Run user app verification**
 
 Run: `pnpm build && pnpm test:e2e`
-Expected: PASS for registration entry, billing center, strategy workspace, analytics pages, help center, and expiry reminder flows.
+Expected: PASS for registration entry, billing center, security center, strategy workspace, analytics pages, help center, and expiry reminder flows.
 
 - [ ] **Step 5: Commit**
 
