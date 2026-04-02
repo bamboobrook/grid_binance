@@ -73,7 +73,7 @@ export type UserProductState = {
   security: {
     passwordChangedAt: string | null;
     sessionsRevokedAt: string | null;
-    totpEnabled: boolean;
+    totpEnabled: boolean | null;
   };
   telegram: {
     bindCode: string | null;
@@ -128,6 +128,8 @@ export async function getCurrentUserProductState() {
 
   if (backendTruth?.profile) {
     state.security.totpEnabled = backendTruth.profile.totp_enabled;
+  } else {
+    state.security.totpEnabled = null;
   }
 
   if (backendTruth?.membership) {
@@ -138,6 +140,10 @@ export async function getCurrentUserProductState() {
     if (backendTruth.membership.grace_until) {
       state.billing.graceEndsAt = backendTruth.membership.grace_until.slice(0, 10);
     }
+  } else {
+    state.billing.membershipStatus = "Unknown";
+    state.billing.nextRenewalAt = "Unavailable";
+    state.billing.graceEndsAt = "Unavailable";
   }
 
   return state;

@@ -21,7 +21,7 @@ export default async function DashboardPage() {
     { label: "Net profit", value: "+1,284.20 USDT", detail: "Realized plus unrealized minus fees and funding." },
     { label: "Running strategies", value: String(runningCount), detail: "Eligible to keep operating during grace only while entitlement is valid." },
     { label: "Error-paused strategies", value: String(errorPausedCount), detail: "Require remediation before restart is allowed." },
-    { label: "Membership status", value: state.billing.membershipStatus, detail: `Next renewal ${state.billing.nextRenewalAt}, grace ends ${state.billing.graceEndsAt}.` },
+    { label: "Membership status", value: state.billing.membershipStatus, detail: state.billing.membershipStatus === "Unknown" ? "Entitlement truth is temporarily unavailable; starts remain fail-closed." : `Next renewal ${state.billing.nextRenewalAt}, grace ends ${state.billing.graceEndsAt}.` },
   ];
 
   const actionQueue = [

@@ -78,8 +78,8 @@ export default async function SecurityPage({ searchParams }: SecurityPageProps) 
             <CardBody>
               <div className="chip-row">
                 <Chip tone="success">Email: Verified</Chip>
-                <Chip tone={state.security.totpEnabled ? "success" : "warning"}>
-                  TOTP: {state.security.totpEnabled ? "Enabled" : "Disabled"}
+                <Chip tone={state.security.totpEnabled === null ? "info" : state.security.totpEnabled ? "success" : "warning"}>
+                  TOTP: {state.security.totpEnabled === null ? "Unknown" : state.security.totpEnabled ? "Enabled" : "Disabled"}
                 </Chip>
                 <Chip tone="info">Session review: Read-only</Chip>
               </div>

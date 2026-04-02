@@ -85,6 +85,7 @@ export default async function BillingPage() {
           <CardBody>
             <ul className="text-list">
               <li>Membership status: {state.billing.membershipStatus}</li>
+              {state.billing.membershipStatus === "Unknown" ? <li>Entitlement truth is temporarily unavailable; strategy starts remain blocked.</li> : null}
               <li>Current plan: {state.billing.currentPlan}</li>
               <li>Renewal stacking: Allowed</li>
               <li>Grace period ends: {state.billing.graceEndsAt}</li>
