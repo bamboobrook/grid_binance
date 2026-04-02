@@ -1,3 +1,6 @@
+import { readFileSync, readdirSync } from "node:fs";
+import path from "node:path";
+
 export type HelpArticle = {
   body: string[];
   slug: string;
@@ -5,40 +8,39 @@ export type HelpArticle = {
   title: string;
 };
 
-export const HELP_ARTICLES: HelpArticle[] = [
-  {
-    slug: "expiry-reminder",
-    title: "Expiry Reminder",
-    summary: "Understand the 48-hour grace period and what happens when membership renewal is delayed.",
-    body: [
-      "Expiry And Grace Period",
-      "Existing running strategies may continue for 48 hours after membership expiry, but new starts stay blocked until renewal is confirmed.",
-      "After the grace period ends, the platform auto-pauses running strategies and shows recovery guidance in the dashboard, billing center, and Telegram alerts.",
-      "Renewal stacking is allowed, but each payment order must be completed with the exact chain, token, and amount shown on the billing page.",
-    ],
-  },
-  {
-    slug: "create-grid-strategy",
-    title: "Create Grid Strategy",
-    summary: "Review draft creation, pre-flight validation, and start requirements before your first launch.",
-    body: [
-      "Drafts can be edited freely until you run pre-flight and start the strategy.",
-      "Running strategy parameters cannot be hot-modified. Pause, save edits, and re-run pre-flight before restart.",
-      "Trailing take profit uses taker execution and may increase fees compared with maker-style take-profit orders.",
-    ],
-  },
-  {
-    slug: "security-center",
-    title: "Security Center",
-    summary: "Manage passwords, TOTP, and session review without losing visibility into account posture.",
-    body: [
-      "Use a unique password, enable TOTP, and revoke stale sessions whenever device trust changes.",
-      "Binance API secrets stay encrypted and masked after save. Withdrawal permission must remain disabled.",
-      "Telegram notifications complement web alerts for membership, API, and strategy incidents.",
-    ],
-  },
-];
+function docsDirectory() {
+  return path.resolve(process.cwd(), "..", "..", "docs", "user-guide");
+}
 
+function parseArticle(slug: string): HelpArticle {
+  const content = readFileSync(path.join(docsDirectory(), `${slug}.md`), "utf8");
+  const lines = content
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  const titleLine = lines.find((line) => line.startsWith("# ")) ?? "# Untitled";
+  const title = titleLine.replace(/^#\s+/, "");
+  const paragraphs = lines.filter((line) => !line.startsWith("# "));
+  const summary = paragraphs[0] ?? "Repository-backed user help article.";
+
+  return {
+    slug,
+    title,
+    summary,
+    body: paragraphs.slice(1),
+  };
+}
+
+export function listHelpArticles(): HelpArticle[] {
+  return readdirSync(docsDirectory())
+    .filter((entry) => entry.endsWith(".md"))
+    .map((entry) => entry.replace(/\.md$/, ""))
+    .sort()
+    .map((slug) => parseArticle(slug));
+}
+
+export const HELP_ARTICLES = listHelpArticles();
 export const VALID_HELP_ARTICLES = HELP_ARTICLES.map((article) => article.slug) as [string, ...string[]];
 
 export function getHelpArticle(article: string): HelpArticle | null {

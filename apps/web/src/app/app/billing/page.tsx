@@ -7,57 +7,16 @@ import { DialogFrame } from "../../../components/ui/dialog";
 import { Button, Field, FormStack, Select } from "../../../components/ui/form";
 import { StatusBanner } from "../../../components/ui/status-banner";
 import { DataTable } from "../../../components/ui/table";
-import { firstValue } from "../../../lib/auth";
+import { getCurrentUserProductState } from "../../../lib/api/user-product-state";
 
-type BillingPageProps = {
-  searchParams?: Promise<{
-    chain?: string | string[];
-    create?: string | string[];
-    plan?: string | string[];
-    token?: string | string[];
-  }>;
-};
+const planCatalog = [
+  { label: "Monthly", amount: "20.00 USD equivalent" },
+  { label: "Quarterly", amount: "54.00 USD equivalent" },
+  { label: "Yearly", amount: "180.00 USD equivalent" },
+];
 
-const planCatalog = {
-  monthly: { label: "Monthly", amount: "20.00" },
-  quarterly: { label: "Quarterly", amount: "54.00" },
-  yearly: { label: "Yearly", amount: "180.00" },
-} as const;
-
-const chainLabels = {
-  ethereum: "Ethereum",
-  bsc: "BSC",
-  solana: "Solana",
-} as const;
-
-const tokenLabels = {
-  usdt: "USDT",
-  usdc: "USDC",
-} as const;
-
-export default async function BillingPage({ searchParams }: BillingPageProps) {
-  const params = (await searchParams) ?? {};
-  const plan = (firstValue(params.plan) ?? "monthly") as keyof typeof planCatalog;
-  const chain = (firstValue(params.chain) ?? "bsc") as keyof typeof chainLabels;
-  const token = (firstValue(params.token) ?? "usdt") as keyof typeof tokenLabels;
-  const create = firstValue(params.create) === "1";
-  const selectedPlan = planCatalog[plan] ?? planCatalog.monthly;
-  const selectedChain = chainLabels[chain] ?? chainLabels.bsc;
-  const selectedToken = tokenLabels[token] ?? tokenLabels.usdt;
-  const newOrder = create
-    ? {
-        id: "order-4201",
-        order: "ORD-4201",
-        chain: `${selectedChain} / ${selectedToken}`,
-        amount: selectedPlan.amount,
-        state: "Awaiting exact transfer",
-      }
-    : null;
-
-  const existingOrders = [
-    { id: "order-4138", order: "ORD-4138", chain: "Solana / USDC", amount: "60.00", state: "Confirmed" },
-  ];
-  const rows = newOrder ? [newOrder, ...existingOrders] : existingOrders;
+export default async function BillingPage() {
+  const state = await getCurrentUserProductState();
 
   return (
     <>
@@ -66,17 +25,20 @@ export default async function BillingPage({ searchParams }: BillingPageProps) {
         title="Grace-period reminder enabled"
         tone="warning"
       />
+      {state.flash.billing ? (
+        <StatusBanner description={state.flash.billing} title="Awaiting exact transfer" tone="warning" />
+      ) : null}
       <AppShellSection
         description="Create renewal orders with visible exact-amount warnings, plan pricing, and membership timing."
         eyebrow="Membership billing"
         title="Billing Center"
       >
         <div className="content-grid content-grid--metrics">
-          {Object.values(planCatalog).map((item) => (
+          {planCatalog.map((item) => (
             <Card key={item.label}>
               <CardHeader>
                 <CardTitle>{item.label}</CardTitle>
-                <CardDescription>{item.amount} USD equivalent</CardDescription>
+                <CardDescription>{item.amount}</CardDescription>
               </CardHeader>
             </Card>
           ))}
@@ -89,31 +51,29 @@ export default async function BillingPage({ searchParams }: BillingPageProps) {
             <CardDescription>Renewal timing stays visible before the user sends funds on-chain.</CardDescription>
           </CardHeader>
           <CardBody>
-            <p>Next renewal: 2026-04-15</p>
-            <FormStack action="/app/billing" method="get">
+            <p>Next renewal: {state.billing.nextRenewalAt}</p>
+            <FormStack action="/api/user/billing" method="post">
               <Field label="Plan">
-                <Select defaultValue={plan} name="plan">
+                <Select defaultValue="monthly" name="plan">
                   <option value="monthly">Monthly</option>
                   <option value="quarterly">Quarterly</option>
                   <option value="yearly">Yearly</option>
                 </Select>
               </Field>
               <Field label="Chain">
-                <Select defaultValue={chain} name="chain">
+                <Select defaultValue="bsc" name="chain">
                   <option value="ethereum">Ethereum</option>
                   <option value="bsc">BSC</option>
                   <option value="solana">Solana</option>
                 </Select>
               </Field>
               <Field label="Token">
-                <Select defaultValue={token} name="token">
+                <Select defaultValue="usdt" name="token">
                   <option value="usdt">USDT</option>
                   <option value="usdc">USDC</option>
                 </Select>
               </Field>
-              <Button name="create" type="submit" value="1">
-                Create payment order
-              </Button>
+              <Button type="submit">Create payment order</Button>
             </FormStack>
           </CardBody>
         </Card>
@@ -124,22 +84,15 @@ export default async function BillingPage({ searchParams }: BillingPageProps) {
           </CardHeader>
           <CardBody>
             <ul className="text-list">
-              <li>Current plan: Monthly</li>
+              <li>Membership status: {state.billing.membershipStatus}</li>
+              <li>Current plan: {state.billing.currentPlan}</li>
               <li>Renewal stacking: Allowed</li>
-              <li>Grace period: 48 hours after expiry</li>
-              <li>Auto-pause starts when grace ends and renewal is still unpaid.</li>
-              <li><Link href="/app/strategies/grid-btc">Strategy Workspace</Link></li>
+              <li>Grace period ends: {state.billing.graceEndsAt}</li>
+              <li><Link href={`/app/strategies/${state.strategies[0]?.id ?? ""}`}>Strategy Workspace</Link></li>
             </ul>
           </CardBody>
         </Card>
       </div>
-      {newOrder ? (
-        <StatusBanner
-          description={`Send exactly ${selectedPlan.amount} ${selectedToken} on ${selectedChain}. Overpayment, underpayment, or wrong token will require manual review.`}
-          title="Awaiting exact transfer"
-          tone="warning"
-        />
-      ) : null}
       <div className="content-grid content-grid--split">
         <Card>
           <CardHeader>
@@ -150,12 +103,15 @@ export default async function BillingPage({ searchParams }: BillingPageProps) {
             <DataTable
               columns={[
                 { key: "order", label: "Order" },
-                { key: "chain", label: "Chain / token" },
+                { key: "chainToken", label: "Chain / token" },
                 { key: "amount", label: "Amount", align: "right" },
                 { key: "state", label: "State", align: "right" },
               ]}
-              rows={rows.map((row) => ({
-                ...row,
+              rows={state.billing.orders.map((row) => ({
+                id: row.id,
+                order: row.order,
+                chainToken: `${row.chain} / ${row.token}`,
+                amount: row.amount,
                 state: <Chip tone={row.state === "Confirmed" ? "success" : "warning"}>{row.state}</Chip>,
               }))}
             />

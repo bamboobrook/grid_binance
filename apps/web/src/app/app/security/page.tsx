@@ -3,34 +3,35 @@ import { Card, CardBody, CardDescription, CardHeader, CardTitle } from "../../..
 import { Chip } from "../../../components/ui/chip";
 import { Button, Field, FormStack, Input } from "../../../components/ui/form";
 import { StatusBanner } from "../../../components/ui/status-banner";
-import { firstValue } from "../../../lib/auth";
+import { getCurrentUserProductState } from "../../../lib/api/user-product-state";
 
-type SecurityPageProps = {
-  searchParams?: Promise<{
-    passwordUpdated?: string | string[];
-    sessionsRevoked?: string | string[];
-    totpEnabled?: string | string[];
-  }>;
-};
-
-export default async function SecurityPage({ searchParams }: SecurityPageProps) {
-  const params = (await searchParams) ?? {};
-  const passwordUpdated = firstValue(params.passwordUpdated) === "1";
-  const totpEnabled = firstValue(params.totpEnabled) === "1";
-  const sessionsRevoked = firstValue(params.sessionsRevoked) === "1";
+export default async function SecurityPage() {
+  const state = await getCurrentUserProductState();
 
   return (
     <>
       <StatusBanner
-        description="Password, TOTP, and session review now have explicit user actions instead of a shell-only placeholder."
+        description="Password, TOTP, and session review now have explicit POST actions instead of URL-driven toggles."
         title="Security center"
         tone="info"
       />
-      {passwordUpdated ? <StatusBanner description="Password rotation completed for the current account." title="Password updated" tone="success" /> : null}
-      {totpEnabled ? <StatusBanner description="TOTP is now enabled for future login challenges." title="TOTP enabled" tone="success" /> : null}
-      {sessionsRevoked ? <StatusBanner description="Other sessions revoked. Only the current browser remains active." title="Other sessions revoked" tone="success" /> : null}
+      {state.flash.security ? (
+        <StatusBanner
+          description={
+            state.flash.security === "TOTP disabled"
+              ? "TOTP has been disabled. Password login remains active until re-enabled."
+              : state.flash.security === "TOTP enabled"
+                ? "TOTP is now enabled for future login challenges."
+                : state.flash.security === "Other sessions revoked"
+                  ? "Only the current browser remains active."
+                  : "Password rotation completed for the current account."
+          }
+          title={state.flash.security}
+          tone="success"
+        />
+      ) : null}
       <AppShellSection
-        description="Protect account access with password rotation, TOTP enablement, and active session review."
+        description="Protect account access with password rotation, TOTP enablement, TOTP disablement, and active session review."
         eyebrow="Security center"
         title="Security Center"
       >
@@ -41,28 +42,27 @@ export default async function SecurityPage({ searchParams }: SecurityPageProps) 
               <CardDescription>Each operation stays visible and separately actionable.</CardDescription>
             </CardHeader>
             <CardBody>
-              <FormStack action="/app/security" method="get">
-                {totpEnabled ? <input name="totpEnabled" type="hidden" value="1" /> : null}
-                {sessionsRevoked ? <input name="sessionsRevoked" type="hidden" value="1" /> : null}
+              <FormStack action="/api/user/security" method="post">
                 <Field hint="Use a unique password before enabling TOTP." label="New password">
                   <Input name="password" required type="password" />
                 </Field>
-                <Button name="passwordUpdated" type="submit" value="1">
+                <Button name="intent" type="submit" value="password">
                   Update password
                 </Button>
               </FormStack>
               <div className="button-row">
-                <FormStack action="/app/security" method="get">
-                  {passwordUpdated ? <input name="passwordUpdated" type="hidden" value="1" /> : null}
-                  {sessionsRevoked ? <input name="sessionsRevoked" type="hidden" value="1" /> : null}
-                  <Button name="totpEnabled" type="submit" value="1">
+                <FormStack action="/api/user/security" method="post">
+                  <Button name="intent" type="submit" value="enable-totp">
                     Enable TOTP
                   </Button>
                 </FormStack>
-                <FormStack action="/app/security" method="get">
-                  {passwordUpdated ? <input name="passwordUpdated" type="hidden" value="1" /> : null}
-                  {totpEnabled ? <input name="totpEnabled" type="hidden" value="1" /> : null}
-                  <Button name="sessionsRevoked" tone="secondary" type="submit" value="1">
+                <FormStack action="/api/user/security" method="post">
+                  <Button name="intent" tone="secondary" type="submit" value="disable-totp">
+                    Disable TOTP
+                  </Button>
+                </FormStack>
+                <FormStack action="/api/user/security" method="post">
+                  <Button name="intent" tone="secondary" type="submit" value="revoke-sessions">
                     Revoke other sessions
                   </Button>
                 </FormStack>
@@ -77,13 +77,18 @@ export default async function SecurityPage({ searchParams }: SecurityPageProps) 
             <CardBody>
               <div className="chip-row">
                 <Chip tone="success">Email: Verified</Chip>
-                <Chip tone={totpEnabled ? "success" : "warning"}>TOTP: {totpEnabled ? "Enabled" : "Disabled"}</Chip>
-                <Chip tone={sessionsRevoked ? "info" : "success"}>Session review: {sessionsRevoked ? "Current only" : "2 active devices"}</Chip>
+                <Chip tone={state.security.totpEnabled ? "success" : "warning"}>
+                  TOTP: {state.security.totpEnabled ? "Enabled" : "Disabled"}
+                </Chip>
+                <Chip tone={state.security.sessionsRevokedAt ? "info" : "success"}>
+                  Session review: {state.security.sessionsRevokedAt ? "Current only" : "2 active devices"}
+                </Chip>
               </div>
               <ul className="text-list">
+                <li>Password changed at: {state.security.passwordChangedAt ?? "Not recently changed"}</li>
+                <li>Sessions revoked at: {state.security.sessionsRevokedAt ?? "No recent revocation"}</li>
                 <li>Admin accounts must use TOTP in V1.</li>
                 <li>Binance secrets remain masked even after save.</li>
-                <li>Telegram complements web alerts for account-risk incidents.</li>
               </ul>
             </CardBody>
           </Card>

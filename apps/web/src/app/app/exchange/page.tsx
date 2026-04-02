@@ -1,41 +1,12 @@
-import Link from "next/link";
-
 import { AppShellSection } from "../../../components/shell/app-shell-section";
 import { Card, CardBody, CardDescription, CardHeader, CardTitle } from "../../../components/ui/card";
 import { DialogFrame } from "../../../components/ui/dialog";
 import { Button, ButtonRow, Field, FormStack, Input, Select } from "../../../components/ui/form";
 import { StatusBanner } from "../../../components/ui/status-banner";
-import { firstValue } from "../../../lib/auth";
+import { getCurrentUserProductState } from "../../../lib/api/user-product-state";
 
-type ExchangePageProps = {
-  searchParams?: Promise<{
-    apiKey?: string | string[];
-    apiSecret?: string | string[];
-    positionMode?: string | string[];
-    saved?: string | string[];
-    tested?: string | string[];
-  }>;
-};
-
-function maskApiKey(value: string) {
-  if (value.length <= 8) {
-    return "••••";
-  }
-
-  return `${value.slice(0, 4)}••••${value.slice(-4)}`;
-}
-
-export default async function ExchangePage({ searchParams }: ExchangePageProps) {
-  const params = (await searchParams) ?? {};
-  const apiKey = firstValue(params.apiKey) ?? "";
-  const apiSecret = firstValue(params.apiSecret) ?? "";
-  const positionMode = firstValue(params.positionMode) ?? "hedge";
-  const saved = firstValue(params.saved) === "1";
-  const tested = firstValue(params.tested) === "1";
-  const hasCredentials = saved && apiKey.length > 0 && apiSecret.length > 0;
-  const testHref = hasCredentials
-    ? `/app/exchange?apiKey=${encodeURIComponent(apiKey)}&apiSecret=${encodeURIComponent(apiSecret)}&positionMode=${encodeURIComponent(positionMode)}&saved=1&tested=1`
-    : "/app/exchange";
+export default async function ExchangePage() {
+  const state = await getCurrentUserProductState();
 
   return (
     <>
@@ -44,18 +15,17 @@ export default async function ExchangePage({ searchParams }: ExchangePageProps) 
         title="Exchange credential workspace"
         tone="info"
       />
-      {saved ? (
+      {state.flash.exchange ? (
         <StatusBanner
-          description="Credentials saved. The key is masked immediately after persistence and withdrawal permission must remain disabled."
-          title="Credentials saved"
-          tone="success"
-        />
-      ) : null}
-      {tested ? (
-        <StatusBanner
-          description="Spot, USDⓈ-M, and COIN-M permissions verified. Hedge mode remains required before futures pre-flight can pass."
-          title="Connection test passed"
-          tone="success"
+          description={
+            state.exchange.connectionStatus === "passed"
+              ? "Spot, USDⓈ-M, and COIN-M permissions verified. Hedge mode remains required before futures pre-flight can pass."
+              : state.flash.exchange === "Credentials saved"
+                ? "The key is masked immediately after persistence and withdrawal permission must remain disabled."
+                : state.flash.exchange
+          }
+          title={state.flash.exchange}
+          tone={state.exchange.connectionStatus === "failed" ? "warning" : "success"}
         />
       ) : null}
       <AppShellSection
@@ -67,29 +37,29 @@ export default async function ExchangePage({ searchParams }: ExchangePageProps) 
           <Card>
             <CardHeader>
               <CardTitle>Bind Binance account</CardTitle>
-              <CardDescription>Save first, then run the connection test before opening strategy runtime.</CardDescription>
+              <CardDescription>Credentials are submitted over POST and never round-tripped through the URL.</CardDescription>
             </CardHeader>
             <CardBody>
-              <FormStack action="/app/exchange" method="get">
+              <FormStack action="/api/user/exchange" method="post">
                 <Field hint="Do not enable withdrawal permission on your Binance API key." label="Binance API key">
-                  <Input defaultValue={apiKey} name="apiKey" required />
+                  <Input name="apiKey" />
                 </Field>
                 <Field hint="Stored encrypted server-side and never shown back in plaintext." label="Binance API secret">
-                  <Input defaultValue={apiSecret} name="apiSecret" required type="password" />
+                  <Input name="apiSecret" type="password" />
                 </Field>
                 <Field hint="Required for futures strategies in V1." label="Position mode">
-                  <Select defaultValue={positionMode} name="positionMode">
+                  <Select defaultValue={state.exchange.positionMode} name="positionMode">
                     <option value="hedge">Hedge mode</option>
                     <option value="one-way">One-way</option>
                   </Select>
                 </Field>
                 <ButtonRow>
-                  <Button name="saved" type="submit" value="1">
+                  <Button name="intent" type="submit" value="save">
                     Save credentials
                   </Button>
-                  <Link className="button button--ghost" href={testHref}>
+                  <Button name="intent" tone="secondary" type="submit" value="test">
                     Run connection test
-                  </Link>
+                  </Button>
                 </ButtonRow>
               </FormStack>
             </CardBody>
@@ -97,13 +67,14 @@ export default async function ExchangePage({ searchParams }: ExchangePageProps) 
           <Card tone="subtle">
             <CardHeader>
               <CardTitle>Credential summary</CardTitle>
-              <CardDescription>Masked values and futures constraints remain visible after save.</CardDescription>
+              <CardDescription>Masked values and exchange runtime requirements remain visible after save.</CardDescription>
             </CardHeader>
             <CardBody>
               <ul className="text-list">
-                <li>Masked API key: {hasCredentials ? maskApiKey(apiKey) : "Not saved yet"}</li>
-                <li>API secret: {hasCredentials ? "••••••••••••••••" : "Not saved yet"}</li>
-                <li>Supported scopes: Spot, USDⓈ-M, COIN-M</li>
+                <li>Masked API key: {state.exchange.apiKeyMasked ?? "Not saved yet"}</li>
+                <li>API secret: {state.exchange.saved ? "••••••••••••••••" : "Not saved yet"}</li>
+                <li>Connection status: {state.exchange.connectionStatus === "passed" ? "Verified" : state.exchange.saved ? "Saved, not tested" : "Not connected"}</li>
+                <li>Supported scopes: {state.exchange.supportedScopes.join(", ")}</li>
                 <li>Symbol metadata sync: Every 1 hour</li>
               </ul>
             </CardBody>

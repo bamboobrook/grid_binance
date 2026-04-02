@@ -3,15 +3,21 @@ import { Card, CardBody, CardDescription, CardHeader, CardTitle } from "../../..
 import { DialogFrame } from "../../../../components/ui/dialog";
 import { Button, Field, FormStack, Input, Select } from "../../../../components/ui/form";
 import { StatusBanner } from "../../../../components/ui/status-banner";
+import { getCurrentUserProductState } from "../../../../lib/api/user-product-state";
 
-export default function StrategyNewPage() {
+export default async function StrategyNewPage() {
+  const state = await getCurrentUserProductState();
+
   return (
     <>
       <StatusBanner
-        description="Draft creation now includes symbol, market, mode, and risk-preparation fields instead of a placeholder shell."
+        description="Draft creation now captures the main lifecycle inputs before pre-flight and start."
         title="Strategy creation workspace"
         tone="info"
       />
+      {state.flash.strategy === "Draft saved" ? (
+        <StatusBanner description="A user-owned draft was created and copied into your strategy library." title="Draft saved" tone="success" />
+      ) : null}
       <AppShellSection
         description="Create a draft first, then save edits, run pre-flight, and start from the strategy workspace."
         eyebrow="Strategy creation"
@@ -21,16 +27,15 @@ export default function StrategyNewPage() {
           <Card>
             <CardHeader>
               <CardTitle>Draft setup</CardTitle>
-              <CardDescription>Captured values are forwarded into the strategy workspace for edit and pre-flight review.</CardDescription>
+              <CardDescription>New drafts generate their own route id and remain user-owned after creation.</CardDescription>
             </CardHeader>
             <CardBody>
-              <FormStack action="/app/strategies/grid-btc" method="get">
-                <input name="draft" type="hidden" value="1" />
+              <FormStack action="/api/user/strategies/create" method="post">
                 <Field label="Strategy name">
-                  <Input defaultValue="BTC Recovery Ladder" name="name" required />
+                  <Input defaultValue="ETH Swing Builder" name="name" required />
                 </Field>
                 <Field label="Symbol">
-                  <Input defaultValue="BTCUSDT" name="symbol" required />
+                  <Input defaultValue="ETHUSDT" name="symbol" required />
                 </Field>
                 <Field label="Market type">
                   <Select defaultValue="spot" name="marketType">
@@ -44,6 +49,9 @@ export default function StrategyNewPage() {
                     <option value="classic">Classic two-way spot</option>
                     <option value="buy-only">Buy-only spot grid</option>
                     <option value="sell-only">Sell-only spot grid</option>
+                    <option value="long">Long futures grid</option>
+                    <option value="short">Short futures grid</option>
+                    <option value="neutral">Neutral futures grid</option>
                   </Select>
                 </Field>
                 <Field label="Generation mode">
@@ -56,6 +64,12 @@ export default function StrategyNewPage() {
                 <Field label="Trailing take profit (%)">
                   <Input defaultValue="0.8" inputMode="decimal" name="trailing" />
                 </Field>
+                <Field label="Post-trigger behavior">
+                  <Select defaultValue="rebuild" name="postTrigger">
+                    <option value="stop">Stop after execution</option>
+                    <option value="rebuild">Rebuild and continue</option>
+                  </Select>
+                </Field>
                 <Button type="submit">Save draft</Button>
               </FormStack>
             </CardBody>
@@ -63,14 +77,14 @@ export default function StrategyNewPage() {
           <Card tone="subtle">
             <CardHeader>
               <CardTitle>Composer rules</CardTitle>
-              <CardDescription>Draft inputs are validated later by pre-flight, but the warnings stay visible here.</CardDescription>
+              <CardDescription>Drafts align with the same lifecycle rules enforced on detail pages.</CardDescription>
             </CardHeader>
             <CardBody>
               <ul className="text-list">
                 <li>Futures allow only one strategy per user per symbol per direction.</li>
                 <li>Running strategy parameters cannot be hot-modified.</li>
                 <li>Trailing take profit uses taker execution and may increase fees.</li>
-                <li>Templates are copied into user-owned drafts and can be edited freely afterward.</li>
+                <li>Existing user drafts: {state.strategies.length}</li>
               </ul>
             </CardBody>
           </Card>

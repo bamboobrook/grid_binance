@@ -4,15 +4,7 @@ import { Chip } from "../../../components/ui/chip";
 import { Button, FormStack } from "../../../components/ui/form";
 import { StatusBanner } from "../../../components/ui/status-banner";
 import { DataTable } from "../../../components/ui/table";
-import { firstValue } from "../../../lib/auth";
-
-type TelegramPageProps = {
-  searchParams?: Promise<{
-    bound?: string | string[];
-    code?: string | string[];
-    generate?: string | string[];
-  }>;
-};
+import { getCurrentUserProductState } from "../../../lib/api/user-product-state";
 
 const deliveryRows = [
   { id: "notice-1", event: "Membership expiring", channel: "Telegram + web", state: "Queued" },
@@ -20,11 +12,8 @@ const deliveryRows = [
   { id: "notice-3", event: "Deposit confirmed", channel: "Telegram + web", state: "Delivered" },
 ];
 
-export default async function TelegramPage({ searchParams }: TelegramPageProps) {
-  const params = (await searchParams) ?? {};
-  const generated = firstValue(params.generate) === "1";
-  const code = firstValue(params.code) ?? (generated ? "GB-4821" : "");
-  const bound = firstValue(params.bound) === "1";
+export default async function TelegramPage() {
+  const state = await getCurrentUserProductState();
 
   return (
     <>
@@ -33,10 +22,10 @@ export default async function TelegramPage({ searchParams }: TelegramPageProps) 
         title="Telegram bind flow"
         tone="warning"
       />
-      {bound ? (
+      {state.flash.telegram ? (
         <StatusBanner
-          description="Telegram bound. Critical alerts now reach the linked account and the web inbox together."
-          title="Telegram bound"
+          description={state.telegram.state === "bound" ? "Critical alerts now reach the linked account and the web inbox together." : "Send the issued code to the Telegram bot to finish linking."}
+          title={state.flash.telegram}
           tone="success"
         />
       ) : null}
@@ -52,27 +41,32 @@ export default async function TelegramPage({ searchParams }: TelegramPageProps) 
               <CardDescription>One user binds one Telegram identity only.</CardDescription>
             </CardHeader>
             <CardBody>
-              {!generated ? (
-                <FormStack action="/app/telegram" method="get">
-                  <Button name="generate" type="submit" value="1">
+              {state.telegram.state === "unbound" ? (
+                <FormStack action="/api/user/telegram" method="post">
+                  <Button name="intent" type="submit" value="generate">
                     Generate bind code
                   </Button>
                 </FormStack>
-              ) : (
+              ) : state.telegram.state === "code_issued" ? (
                 <>
-                  <p>Bind code</p>
+                  <p>A fresh bind code is ready.</p>
                   <p>
-                    <strong>{code}</strong>
+                    <strong>{state.telegram.bindCode}</strong>
                   </p>
-                  <p>Send <strong>/start {code}</strong> to the Telegram bot.</p>
-                  <FormStack action="/app/telegram" method="get">
-                    <input name="generate" type="hidden" value="1" />
-                    <input name="code" type="hidden" value={code} />
-                    <Button name="bound" type="submit" value="1">
+                  <p>Send <strong>/start {state.telegram.bindCode}</strong> to the Telegram bot.</p>
+                  <p>Issued at: {state.telegram.bindCodeIssuedAt}</p>
+                  <FormStack action="/api/user/telegram" method="post">
+                    <Button name="intent" type="submit" value="confirm">
                       I sent the code to the bot
                     </Button>
                   </FormStack>
                 </>
+              ) : (
+                <ul className="text-list">
+                  <li>Telegram bound at: {state.telegram.boundAt}</li>
+                  <li>Latest bind code: {state.telegram.bindCode}</li>
+                  <li>Web inbox and Telegram are both active.</li>
+                </ul>
               )}
             </CardBody>
           </Card>
