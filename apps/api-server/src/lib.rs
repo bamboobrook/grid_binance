@@ -59,24 +59,24 @@ impl AppState {
     ) -> Result<Self, SharedDbError> {
         let db = SharedDb::connect(database_url, redis_url)?;
         Ok(Self {
-            analytics: AnalyticsService::default(),
+            analytics: AnalyticsService::new(db.clone()),
             auth: AuthService::new_strict(db.clone())
                 .map_err(|error| SharedDbError::new(error.to_string()))?,
             exchange: ExchangeService::new_strict(db.clone())?,
             membership: MembershipService::new(db.clone()),
-            strategy: StrategyService::new(db),
-            telegram: TelegramService::default(),
+            strategy: StrategyService::new(db.clone()),
+            telegram: TelegramService::new(db),
         })
     }
 
     pub fn from_shared_db(db: SharedDb) -> Result<Self, SharedDbError> {
         Ok(Self {
-            analytics: AnalyticsService::default(),
+            analytics: AnalyticsService::new(db.clone()),
             auth: AuthService::new(db.clone()),
             exchange: ExchangeService::new(db.clone()),
             membership: MembershipService::new(db.clone()),
-            strategy: StrategyService::new(db),
-            telegram: TelegramService::default(),
+            strategy: StrategyService::new(db.clone()),
+            telegram: TelegramService::new(db),
         })
     }
 }
@@ -128,12 +128,12 @@ pub fn app_with_persistent_state(
     let db = SharedDb::connect(database_url, redis_url).map_err(AppBuildError::from)?;
     let auth = AuthService::new_strict(db.clone()).map_err(AppBuildError::from)?;
     let state = AppState {
-        analytics: AnalyticsService::default(),
+        analytics: AnalyticsService::new(db.clone()),
         auth,
         exchange: ExchangeService::new_strict(db.clone()).map_err(AppBuildError::from)?,
         membership: MembershipService::new(db.clone()),
-        strategy: StrategyService::new(db),
-        telegram: TelegramService::default(),
+        strategy: StrategyService::new(db.clone()),
+        telegram: TelegramService::new(db),
     };
     Ok(app_with_state(state))
 }

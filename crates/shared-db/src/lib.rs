@@ -30,7 +30,8 @@ pub use crate::postgres::billing::{
 pub use crate::postgres::exchange::{
     UserExchangeAccountRecord, UserExchangeCredentialRecord, UserExchangeSymbolRecord,
 };
-pub use crate::postgres::identity::AuthUserRecord;
+pub use crate::postgres::identity::{AuthUserRecord, TelegramBindingRecord};
+pub use crate::postgres::notification::NotificationLogRecord;
 
 #[derive(Clone)]
 pub struct SharedDb {
@@ -51,6 +52,8 @@ struct EphemeralState {
     sequences: HashMap<String, u64>,
     auth_users: HashMap<String, AuthUserRecord>,
     auth_sessions: HashMap<String, String>,
+    telegram_bindings: HashMap<String, TelegramBindingRecord>,
+    notification_logs: Vec<NotificationLogRecord>,
     audit_logs: Vec<AuditLogRecord>,
     billing_orders: BTreeMap<u64, BillingOrderRecord>,
     seen_transfers: HashSet<String>,
@@ -752,6 +755,92 @@ impl SharedDb {
                 .auth_sessions
                 .get(session_token)
                 .cloned()),
+        }
+    }
+
+    pub fn find_telegram_binding(
+        &self,
+        user_email: &str,
+    ) -> Result<Option<TelegramBindingRecord>, SharedDbError> {
+        match &self.backend {
+            SharedDbBackend::Runtime { .. } => {
+                let repo = self.identity_repo();
+                let user_email = user_email.to_owned();
+                Self::block_on(async move { repo.find_telegram_binding(&user_email).await })
+            }
+            SharedDbBackend::Ephemeral(state) => Ok(lock_ephemeral(state)?
+                .telegram_bindings
+                .get(&user_email.to_lowercase())
+                .cloned()),
+        }
+    }
+
+    pub fn upsert_telegram_binding(
+        &self,
+        binding: &TelegramBindingRecord,
+    ) -> Result<(), SharedDbError> {
+        match &self.backend {
+            SharedDbBackend::Runtime { .. } => {
+                let repo = self.identity_repo();
+                let binding = binding.clone();
+                Self::block_on(async move { repo.upsert_telegram_binding(&binding).await })
+            }
+            SharedDbBackend::Ephemeral(state) => {
+                lock_ephemeral(state)?
+                    .telegram_bindings
+                    .insert(binding.user_email.to_lowercase(), binding.clone());
+                Ok(())
+            }
+        }
+    }
+
+    pub fn insert_notification_log(
+        &self,
+        record: &NotificationLogRecord,
+    ) -> Result<(), SharedDbError> {
+        match &self.backend {
+            SharedDbBackend::Runtime { .. } => {
+                let repo = self.notification_repo();
+                let record = record.clone();
+                Self::block_on(async move { repo.insert_notification(&record).await })
+            }
+            SharedDbBackend::Ephemeral(state) => {
+                lock_ephemeral(state)?.notification_logs.push(record.clone());
+                Ok(())
+            }
+        }
+    }
+
+    pub fn list_notification_logs(
+        &self,
+        user_email: &str,
+        limit: usize,
+    ) -> Result<Vec<NotificationLogRecord>, SharedDbError> {
+        match &self.backend {
+            SharedDbBackend::Runtime { .. } => {
+                let repo = self.notification_repo();
+                let user_email = user_email.to_owned();
+                let limit = limit as i64;
+                let mut items =
+                    Self::block_on(async move { repo.list_recent_for_user(&user_email, limit).await })?;
+                items.sort_by_key(|item| item.created_at);
+                Ok(items)
+            }
+            SharedDbBackend::Ephemeral(state) => {
+                let mut items = lock_ephemeral(state)?
+                    .notification_logs
+                    .iter()
+                    .filter(|record| record.user_email.eq_ignore_ascii_case(user_email))
+                    .cloned()
+                    .collect::<Vec<_>>();
+                items.sort_by_key(|item| item.created_at);
+                if items.len() > limit {
+                    let start = items.len() - limit;
+                    Ok(items.split_off(start))
+                } else {
+                    Ok(items)
+                }
+            }
         }
     }
 

@@ -18,6 +18,10 @@ async fn get_analytics(
     State(service): State<AnalyticsService>,
     headers: HeaderMap,
 ) -> Result<Json<AnalyticsReport>, AuthError> {
-    require_user_session(&auth, &headers)?;
-    Ok(Json(service.report()))
+    let session = require_user_session(&auth, &headers)?;
+    Ok(Json(
+        service
+            .report_for_user(&session.email)
+            .map_err(AuthError::storage)?,
+    ))
 }

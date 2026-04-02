@@ -352,6 +352,32 @@ impl IdentityRepository {
         Ok(())
     }
 
+    pub async fn find_telegram_binding(
+        &self,
+        email: &str,
+    ) -> Result<Option<TelegramBindingRecord>, SharedDbError> {
+        let row = sqlx::query(
+            "SELECT u.email AS user_email, tb.telegram_user_id, tb.telegram_chat_id, tb.bound_at
+             FROM telegram_bindings tb
+             JOIN users u ON u.user_id = tb.user_id
+             WHERE lower(u.email) = lower($1)",
+        )
+        .bind(email)
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(SharedDbError::from)?;
+
+        row.map(|row| {
+            Ok(TelegramBindingRecord {
+                user_email: row.try_get("user_email").map_err(SharedDbError::from)?,
+                telegram_user_id: row.try_get("telegram_user_id").map_err(SharedDbError::from)?,
+                telegram_chat_id: row.try_get("telegram_chat_id").map_err(SharedDbError::from)?,
+                bound_at: row.try_get("bound_at").map_err(SharedDbError::from)?,
+            })
+        })
+        .transpose()
+    }
+
     pub async fn upsert_telegram_binding(
         &self,
         binding: &TelegramBindingRecord,

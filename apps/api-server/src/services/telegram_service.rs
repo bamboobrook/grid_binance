@@ -11,33 +11,36 @@ use axum::{
 use chrono::{DateTime, Duration, Utc};
 use getrandom::getrandom;
 use serde::{Deserialize, Serialize};
+use shared_db::{NotificationLogRecord, SharedDb, TelegramBindingRecord};
 use shared_events::{NotificationEvent, NotificationKind, NotificationRecord};
 
 use crate::services::auth_service::AuthError;
 
 const DEFAULT_BIND_CODE_TTL_SECONDS: i64 = 300;
 const MAX_BIND_CODE_TTL_SECONDS: i64 = 86_400;
+const NOTIFICATION_INBOX_LIMIT: usize = 100;
 
-#[derive(Clone, Default)]
+#[derive(Clone)]
 pub struct TelegramService {
+    db: SharedDb,
     inner: Arc<Mutex<TelegramState>>,
+}
+
+impl Default for TelegramService {
+    fn default() -> Self {
+        Self::new(SharedDb::ephemeral().expect("ephemeral telegram db should initialize"))
+    }
 }
 
 #[derive(Default)]
 struct TelegramState {
     bind_codes: HashMap<String, BindCodeRecord>,
     active_codes_by_email: HashMap<String, String>,
-    bindings: HashMap<String, TelegramBinding>,
-    inboxes: HashMap<String, Vec<NotificationRecord>>,
 }
 
 struct BindCodeRecord {
     email: String,
     expires_at: DateTime<Utc>,
-}
-
-struct TelegramBinding {
-    chat_id: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -85,6 +88,13 @@ pub struct NotificationInboxResponse {
 }
 
 impl TelegramService {
+    pub fn new(db: SharedDb) -> Self {
+        Self {
+            db,
+            inner: Arc::new(Mutex::new(TelegramState::default())),
+        }
+    }
+
     pub fn bind_code_owner(&self, code: &str) -> Option<String> {
         let inner = self.inner.lock().expect("telegram state poisoned");
         inner
@@ -156,24 +166,28 @@ impl TelegramService {
             .ok_or_else(|| TelegramError::not_found("bind code not found"))?;
 
         if Utc::now() > bind_code.expires_at {
-            match inner.active_codes_by_email.get(&bind_code.email) {
-                Some(active_code) if active_code == code => {
-                    inner.active_codes_by_email.remove(&bind_code.email);
-                }
-                _ => {}
+            if inner
+                .active_codes_by_email
+                .get(&bind_code.email)
+                .is_some_and(|active_code| active_code == code)
+            {
+                inner.active_codes_by_email.remove(&bind_code.email);
             }
 
             return Err(TelegramError::not_found("bind code expired"));
         }
 
         inner.active_codes_by_email.remove(&bind_code.email);
+        drop(inner);
 
-        inner.bindings.insert(
-            bind_code.email.clone(),
-            TelegramBinding {
-                chat_id: chat_id.to_owned(),
-            },
-        );
+        self.db
+            .upsert_telegram_binding(&TelegramBindingRecord {
+                user_email: bind_code.email.clone(),
+                telegram_user_id: chat_id.to_owned(),
+                telegram_chat_id: chat_id.to_owned(),
+                bound_at: Utc::now(),
+            })
+            .map_err(TelegramError::storage)?;
 
         Ok(BindTelegramResponse {
             email: bind_code.email,
@@ -194,11 +208,11 @@ impl TelegramService {
             ));
         }
 
-        let mut inner = self.inner.lock().expect("telegram state poisoned");
-        let telegram_delivered = inner
-            .bindings
-            .get(&email)
-            .map(|binding| !binding.chat_id.is_empty())
+        let telegram_delivered = self
+            .db
+            .find_telegram_binding(&email)
+            .map_err(TelegramError::storage)?
+            .map(|binding| !binding.telegram_chat_id.is_empty())
             .unwrap_or(false);
         let show_expiry_popup = matches!(&request.kind, NotificationKind::MembershipExpiring);
 
@@ -206,15 +220,29 @@ impl TelegramService {
             event: NotificationEvent {
                 email: email.clone(),
                 kind: request.kind,
-                title,
-                message,
+                title: title.clone(),
+                message: message.clone(),
             },
             telegram_delivered,
             in_app_delivered: true,
             show_expiry_popup,
         };
 
-        inner.inboxes.entry(email).or_default().push(record.clone());
+        let now = Utc::now();
+        self.db
+            .insert_notification_log(&NotificationLogRecord {
+                user_email: email,
+                channel: "in_app".to_string(),
+                template_key: Some(notification_kind_key(&record.event.kind).to_string()),
+                title,
+                body: message,
+                status: "delivered".to_string(),
+                payload: serde_json::to_value(&record)
+                    .map_err(|error| TelegramError::storage_message(error.to_string()))?,
+                created_at: now,
+                delivered_at: Some(now),
+            })
+            .map_err(TelegramError::storage)?;
 
         Ok(record)
     }
@@ -228,8 +256,17 @@ impl TelegramService {
             return Err(TelegramError::bad_request("email is required"));
         }
 
-        let inner = self.inner.lock().expect("telegram state poisoned");
-        let items = inner.inboxes.get(&email).cloned().unwrap_or_default();
+        let items = self
+            .db
+            .list_notification_logs(&email, NOTIFICATION_INBOX_LIMIT)
+            .map_err(TelegramError::storage)?
+            .into_iter()
+            .filter(|record| record.channel == "in_app")
+            .map(|record| {
+                serde_json::from_value(record.payload)
+                    .map_err(|error| TelegramError::storage_message(error.to_string()))
+            })
+            .collect::<Result<Vec<NotificationRecord>, TelegramError>>()?;
 
         Ok(NotificationInboxResponse { email, items })
     }
@@ -238,21 +275,36 @@ impl TelegramService {
 #[derive(Debug)]
 pub struct TelegramError {
     status: StatusCode,
-    message: &'static str,
+    message: String,
 }
 
 impl TelegramError {
     fn bad_request(message: &'static str) -> Self {
         Self {
             status: StatusCode::BAD_REQUEST,
-            message,
+            message: message.to_owned(),
         }
     }
 
     fn not_found(message: &'static str) -> Self {
         Self {
             status: StatusCode::NOT_FOUND,
-            message,
+            message: message.to_owned(),
+        }
+    }
+
+    fn storage(error: shared_db::SharedDbError) -> Self {
+        let _ = error;
+        Self {
+            status: StatusCode::INTERNAL_SERVER_ERROR,
+            message: "internal storage error".to_string(),
+        }
+    }
+
+    fn storage_message(_message: String) -> Self {
+        Self {
+            status: StatusCode::INTERNAL_SERVER_ERROR,
+            message: "internal storage error".to_string(),
         }
     }
 }
@@ -262,7 +314,7 @@ impl IntoResponse for TelegramError {
         (
             self.status,
             Json(TelegramErrorResponse {
-                error: self.message.to_owned(),
+                error: self.message,
             }),
         )
             .into_response()
@@ -272,8 +324,15 @@ impl IntoResponse for TelegramError {
 impl From<TelegramError> for AuthError {
     fn from(value: TelegramError) -> Self {
         match value.status {
-            StatusCode::BAD_REQUEST => AuthError::bad_request(value.message),
-            StatusCode::NOT_FOUND => AuthError::not_found(value.message),
+            StatusCode::BAD_REQUEST => {
+                AuthError::bad_request(Box::leak(value.message.into_boxed_str()))
+            }
+            StatusCode::NOT_FOUND => {
+                AuthError::not_found(Box::leak(value.message.into_boxed_str()))
+            }
+            StatusCode::INTERNAL_SERVER_ERROR => {
+                AuthError::storage(shared_db::SharedDbError::new("telegram storage error"))
+            }
             _ => AuthError::unauthorized("valid session token required"),
         }
     }
@@ -296,6 +355,16 @@ fn generate_bind_code(state: &TelegramState) -> String {
         if !state.bind_codes.contains_key(&code) {
             return code;
         }
+    }
+}
+
+fn notification_kind_key(kind: &NotificationKind) -> &'static str {
+    match kind {
+        NotificationKind::StrategyStarted => "StrategyStarted",
+        NotificationKind::StrategyPaused => "StrategyPaused",
+        NotificationKind::MembershipExpiring => "MembershipExpiring",
+        NotificationKind::DepositConfirmed => "DepositConfirmed",
+        NotificationKind::RuntimeError => "RuntimeError",
     }
 }
 

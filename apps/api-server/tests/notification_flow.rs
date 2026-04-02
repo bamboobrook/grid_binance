@@ -1,9 +1,10 @@
-use api_server::app;
+use api_server::{app, app_with_state, AppState};
 use axum::{
     body::{to_bytes, Body},
     http::{Request, StatusCode},
 };
 use serde_json::{json, Value};
+use shared_db::SharedDb;
 use tower::ServiceExt;
 
 mod support;
@@ -85,6 +86,69 @@ async fn bind_telegram_and_dispatch_runtime_membership_alerts() {
     assert_eq!(items[1]["event"]["kind"], "MembershipExpiring");
     assert_eq!(items[1]["show_expiry_popup"], true);
     assert_eq!(items[2]["event"]["kind"], "RuntimeError");
+}
+
+#[tokio::test]
+async fn telegram_bindings_and_inbox_items_survive_app_rebuilds() {
+    let db = SharedDb::ephemeral().expect("ephemeral db");
+    let first_app = app_with_state(AppState::from_shared_db(db.clone()).expect("first state"));
+    let session_token = register_and_login(&first_app, "durable@example.com", "pass1234").await;
+
+    let bind_code = create_bind_code(&first_app, &session_token, "durable@example.com", None).await;
+    assert_eq!(bind_code.status(), StatusCode::CREATED);
+    let code = response_json(bind_code).await["code"]
+        .as_str()
+        .expect("bind code")
+        .to_string();
+
+    let bound = bind_telegram(&first_app, &session_token, &code, "chat-durable").await;
+    assert_eq!(bound.status(), StatusCode::OK);
+
+    let first_dispatch = dispatch_notification(
+        &first_app,
+        &session_token,
+        "durable@example.com",
+        "DepositConfirmed",
+        "Deposit received",
+        "USDT top-up matched successfully.",
+    )
+    .await;
+    assert_eq!(first_dispatch.status(), StatusCode::OK);
+    assert_eq!(response_json(first_dispatch).await["telegram_delivered"], true);
+
+    let rebuilt_app = app_with_state(AppState::from_shared_db(db).expect("rebuilt state"));
+
+    let inbox = list_notifications(&rebuilt_app, &session_token, "durable@example.com").await;
+    assert_eq!(inbox.status(), StatusCode::OK);
+    let inbox_body = response_json(inbox).await;
+    let items = inbox_body["items"].as_array().expect("notification items");
+    assert_eq!(items.len(), 1);
+    assert_eq!(items[0]["event"]["kind"], "DepositConfirmed");
+    assert_eq!(items[0]["telegram_delivered"], true);
+
+    let second_dispatch = dispatch_notification(
+        &rebuilt_app,
+        &session_token,
+        "durable@example.com",
+        "MembershipExpiring",
+        "Membership ending soon",
+        "Renew within 3 days to avoid strategy interruption.",
+    )
+    .await;
+    assert_eq!(second_dispatch.status(), StatusCode::OK);
+    let second_dispatch_body = response_json(second_dispatch).await;
+    assert_eq!(second_dispatch_body["telegram_delivered"], true);
+    assert_eq!(second_dispatch_body["show_expiry_popup"], true);
+
+    let inbox_after_rebuild = list_notifications(&rebuilt_app, &session_token, "durable@example.com").await;
+    assert_eq!(inbox_after_rebuild.status(), StatusCode::OK);
+    let items_after_rebuild = response_json(inbox_after_rebuild).await["items"]
+        .as_array()
+        .expect("notification items after rebuild")
+        .clone();
+    assert_eq!(items_after_rebuild.len(), 2);
+    assert_eq!(items_after_rebuild[0]["event"]["kind"], "DepositConfirmed");
+    assert_eq!(items_after_rebuild[1]["event"]["kind"], "MembershipExpiring");
 }
 
 #[tokio::test]
