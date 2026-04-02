@@ -52,6 +52,9 @@ async fn update_system(
     Json(request): Json<AdminSystemUpdateRequest>,
 ) -> Result<Json<AdminSystemResponse>, AuthError> {
     let session = require_super_admin_session(&auth, &headers)?;
+    let before_eth = read_confirmation(&db, ETH_CONFIRMATIONS_KEY)?;
+    let before_bsc = read_confirmation(&db, BSC_CONFIRMATIONS_KEY)?;
+    let before_sol = read_confirmation(&db, SOL_CONFIRMATIONS_KEY)?;
     write_confirmation(&db, ETH_CONFIRMATIONS_KEY, request.eth_confirmations)?;
     write_confirmation(&db, BSC_CONFIRMATIONS_KEY, request.bsc_confirmations)?;
     write_confirmation(&db, SOL_CONFIRMATIONS_KEY, request.sol_confirmations)?;
@@ -66,12 +69,12 @@ async fn update_system(
             "sol": request.sol_confirmations,
             "session_role": session.admin_role.map(|role| role.as_str()),
             "session_sid": session.sid,
-            "before_summary": "confirmation policy before update",
-            "after_summary": format!("ETH {} | BSC {} | SOL {}", request.eth_confirmations, request.bsc_confirmations, request.sol_confirmations),
+            "before_summary": confirmation_summary(before_eth, before_bsc, before_sol),
+            "after_summary": confirmation_summary(request.eth_confirmations, request.bsc_confirmations, request.sol_confirmations),
         }),
         created_at: Utc::now(),
     })
-    .map_err(|error| AuthError::storage(error))?;
+    .map_err(AuthError::storage)?;
     Ok(Json(AdminSystemResponse {
         eth_confirmations: request.eth_confirmations,
         bsc_confirmations: request.bsc_confirmations,
@@ -86,6 +89,10 @@ fn read_confirmation(db: &SharedDb, key: &str) -> Result<u32, AuthError> {
     Ok(record
         .and_then(|item| item.config_value.get("value").and_then(|value: &serde_json::Value| value.as_u64()).map(|value| value as u32))
         .unwrap_or(12))
+}
+
+fn confirmation_summary(eth: u32, bsc: u32, sol: u32) -> String {
+    format!("ETH {} | BSC {} | SOL {}", eth, bsc, sol)
 }
 
 fn write_confirmation(db: &SharedDb, key: &str, value: u32) -> Result<(), AuthError> {

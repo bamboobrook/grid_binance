@@ -1,7 +1,9 @@
+import { redirect } from "next/navigation";
+
 import { AppShellSection } from "../../../components/shell/app-shell-section";
 import { Card, CardBody, CardDescription, CardHeader, CardTitle } from "../../../components/ui/card";
 import { DataTable } from "../../../components/ui/table";
-import { getAdminAuditData } from "../../../lib/api/admin-product-state";
+import { getAdminAuditData, getCurrentAdminProfile } from "../../../lib/api/admin-product-state";
 
 function payloadString(value: unknown) {
   if (typeof value === "string") {
@@ -42,12 +44,17 @@ function payloadSummary(payload: Record<string, unknown>) {
 }
 
 export default async function AdminAuditPage() {
+  const profile = await getCurrentAdminProfile();
+  if (profile.admin_role !== "super_admin") {
+    redirect("/admin/dashboard");
+  }
+
   const data = await getAdminAuditData();
 
   return (
     <>
       <AppShellSection
-        description="Operator review is sourced from persisted backend audit rows."
+        description="Super-admin audit review is sourced from persisted backend audit rows."
         eyebrow="Admin retention"
         title="Audit Review"
       >
@@ -80,7 +87,7 @@ export default async function AdminAuditPage() {
           <Card tone="subtle">
             <CardHeader>
               <CardTitle>Before / after summary</CardTitle>
-              <CardDescription>Richer audit payload details surfaced for operator review.</CardDescription>
+              <CardDescription>Critical admin actions carry concrete before and after summaries.</CardDescription>
             </CardHeader>
             <CardBody>
               <DataTable
@@ -89,7 +96,7 @@ export default async function AdminAuditPage() {
                   { key: "summary", label: "Summary" },
                   { key: "payload", label: "Payload" },
                 ]}
-                rows={data.items.slice(0, 12).map((item, index) => ({
+                rows={data.items.map((item, index) => ({
                   id: `summary-${index}`,
                   action: item.action,
                   payload: payloadSummary(item.payload),

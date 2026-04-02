@@ -14,10 +14,12 @@ test.describe("admin commercial", () => {
     request,
   }) => {
     const adminSessionToken = await createAdminSession(request, ADMIN_EMAIL);
+    const viewerEmail = uniqueEmail("viewer");
     const creditEmail = uniqueEmail("credit");
     const rejectEmail = uniqueEmail("reject");
     const strategyName = `admin-draft-${Date.now()}`;
 
+    await createVerifiedUserSession(request, viewerEmail, "pass1234");
     const seeded = await seedAdminCommercialData(request, adminSessionToken, {
       creditEmail,
       rejectEmail,
@@ -39,6 +41,14 @@ test.describe("admin commercial", () => {
     await expect(page.getByRole("heading", { name: "Admin Dashboard" })).toBeVisible();
     await expect(page.getByText("operator_admin", { exact: false })).toBeVisible();
     await expect(page.getByText("Restricted permission boundary", { exact: false })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Audit" })).toHaveCount(0);
+
+    await page.getByRole("link", { name: "Users" }).click();
+    await expect(page.getByRole("heading", { name: "User Management" })).toBeVisible();
+    await expect(page.getByText("Identity-backed user directory", { exact: false })).toBeVisible();
+    await expect(page.getByText(viewerEmail, { exact: true })).toBeVisible();
+    await expect(page.getByText("No membership record", { exact: false })).toBeVisible();
+    await expectForbiddenAdminRead(request, adminSessionToken, "/admin/audit");
 
     await page.getByRole("link", { name: "Memberships" }).click();
     await expect(page.getByRole("heading", { name: "Membership Operations" })).toBeVisible();
@@ -136,12 +146,7 @@ test.describe("admin commercial", () => {
       sol_confirmations: 22,
     });
 
-    await page.getByRole("link", { name: "Audit" }).click();
-    await expect(page.getByRole("heading", { name: "Audit Review" })).toBeVisible();
-    await expect(page.getByText("Before / after summary", { exact: false })).toBeVisible();
-    await expect(page.getByText("before manual_review_required exact_amount_required | after manual_rejected reject", { exact: false }).first()).toBeVisible();
-    await expect(page.getByText("before manual_review_required wrong_asset | after manual_approved credit_membership order", { exact: false }).first()).toBeVisible();
-    await expect(page.getByText("session role operator_admin | session sid", { exact: false }).first()).toBeVisible();
+
   });
 
   test("super admin manages pricing, memberships, templates, inventory, sweeps, and audit-backed system controls", async ({
@@ -345,7 +350,15 @@ test.describe("admin commercial", () => {
     await expect(page.getByRole("cell", { name: "treasury.sweep_requested" }).first()).toBeVisible();
     await expect(page.getByText("session role super_admin", { exact: false }).first()).toBeVisible();
     await expect(page.getByText("session sid", { exact: false }).first()).toBeVisible();
-    await expect(page.getByText("before summary", { exact: false }).first()).toBeVisible();
+    await expect(page.getByText("before monthly Monthly 30d active true prices BSC/USDT 20.00000000, ETH/USDT 20.00000000, SOL/USDC 20.00000000", { exact: false }).first()).toBeVisible();
+    await expect(page.getByText("after monthly Monthly 31d active true prices BSC/USDT 24.50000000, ETH/USDT 24.80000000, SOL/USDC 24.10000000", { exact: false }).first()).toBeVisible();
+    await expect(page.getByText("before status Pending | active - | grace - | override none", { exact: false }).first()).toBeVisible();
+    await expect(page.getByText("after status Active | active", { exact: false }).first()).toBeVisible();
+    await expect(page.getByText("before BSC bsc-addr-1 enabled", { exact: false }).first()).toBeVisible();
+    await expect(page.getByText("after BSC bsc-addr-1 disabled", { exact: false }).first()).toBeVisible();
+    await expect(page.getByText("before ETH 12 | BSC 12 | SOL 12", { exact: false }).first()).toBeVisible();
+    await expect(page.getByText("after ETH 18 | BSC 15 | SOL 22", { exact: false }).first()).toBeVisible();
+    await expect(page.getByText("before no prior sweep job | after SOL USDC treasury-sol-main 1 transfer", { exact: false }).first()).toBeVisible();
     await expect(page.getByText(templateName, { exact: false }).first()).toBeVisible();
     await expect(page.getByText("treasury-sol-main", { exact: false }).first()).toBeVisible();
   });
@@ -527,6 +540,21 @@ async function expectForbiddenAdminWrite(
     headers: {
       authorization: `Bearer ${sessionToken}`,
       "content-type": "application/json",
+    },
+  });
+  expect(response.status()).toBe(403);
+  const body = await response.text();
+  expect(body).toContain("super admin access required");
+}
+
+async function expectForbiddenAdminRead(
+  request: APIRequestContext,
+  sessionToken: string,
+  path: string,
+) {
+  const response = await request.get(`${AUTH_API_BASE_URL}${path}`, {
+    headers: {
+      authorization: `Bearer ${sessionToken}`,
     },
   });
   expect(response.status()).toBe(403);

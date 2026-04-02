@@ -18,7 +18,7 @@ export default async function AdminDashboardPage() {
     getAdminMembershipsData(),
     getAdminDepositsData(),
     getAdminStrategiesData(),
-    getAdminAuditData(),
+    profile.admin_role === "super_admin" ? getAdminAuditData() : Promise.resolve({ items: [] }),
     profile.admin_permissions?.can_manage_templates ? fetchAdminJson<AdminTemplateList>("/admin/templates") : Promise.resolve({ items: [] }),
   ]);
   const openDeposits = deposits.abnormal_deposits.filter((item) => item.status === "manual_review_required").length;

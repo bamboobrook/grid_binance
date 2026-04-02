@@ -31,7 +31,9 @@ pub use crate::postgres::exchange::{
     AccountProfitSnapshotRecord, ExchangeTradeHistoryRecord, ExchangeWalletSnapshotRecord,
     UserExchangeAccountRecord, UserExchangeCredentialRecord, UserExchangeSymbolRecord,
 };
-pub use crate::postgres::identity::{AdminUserRecord, AuthUserRecord, TelegramBindingRecord};
+pub use crate::postgres::identity::{
+    AdminUserRecord, AuthUserDirectoryRecord, AuthUserRecord, TelegramBindingRecord,
+};
 pub use crate::postgres::notification::NotificationLogRecord;
 pub use crate::postgres::strategy::StrategyProfitSnapshotRecord;
 
@@ -553,6 +555,28 @@ impl SharedDb {
                 .auth_users
                 .get(&email.to_lowercase())
                 .cloned()),
+        }
+    }
+
+    pub fn list_auth_users(&self) -> Result<Vec<AuthUserDirectoryRecord>, SharedDbError> {
+        match &self.backend {
+            SharedDbBackend::Runtime { .. } => {
+                let repo = self.identity_repo();
+                Self::block_on(async move { repo.list_auth_users().await })
+            }
+            SharedDbBackend::Ephemeral(state) => {
+                let mut items = lock_ephemeral(state)?
+                    .auth_users
+                    .values()
+                    .map(|user| AuthUserDirectoryRecord {
+                        email: user.email.clone(),
+                        email_verified: user.email_verified,
+                        totp_enabled: user.totp_secret.is_some(),
+                    })
+                    .collect::<Vec<_>>();
+                items.sort_by(|left, right| left.email.cmp(&right.email));
+                Ok(items)
+            }
         }
     }
 

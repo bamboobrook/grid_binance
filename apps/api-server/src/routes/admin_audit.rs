@@ -3,8 +3,8 @@ use serde::Serialize;
 use shared_db::SharedDb;
 
 use crate::{
-    routes::auth_guard::require_admin_session,
-    services::auth_service::AuthService,
+    routes::auth_guard::require_super_admin_session,
+    services::auth_service::{AuthError, AuthService},
     AppState,
 };
 
@@ -31,11 +31,11 @@ async fn list_audit(
     State(auth): State<AuthService>,
     State(db): State<SharedDb>,
     headers: HeaderMap,
-) -> Result<Json<AdminAuditResponse>, crate::services::auth_service::AuthError> {
-    require_admin_session(&auth, &headers)?;
+) -> Result<Json<AdminAuditResponse>, AuthError> {
+    require_super_admin_session(&auth, &headers)?;
     let items = db
         .list_audit_logs()
-        .map_err(|error| crate::services::auth_service::AuthError::storage(error))?
+        .map_err(AuthError::storage)?
         .into_iter()
         .map(|entry| AdminAuditItem {
             actor_email: entry.actor_email,

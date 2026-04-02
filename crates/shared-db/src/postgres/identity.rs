@@ -15,6 +15,13 @@ pub struct AuthUserRecord {
     pub totp_secret: Option<String>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AuthUserDirectoryRecord {
+    pub email: String,
+    pub email_verified: bool,
+    pub totp_enabled: bool,
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct AdminUserRecord {
     pub email: String,
@@ -76,6 +83,31 @@ impl IdentityRepository {
             })
         })
         .transpose()
+    }
+
+    pub async fn list_auth_users(&self) -> Result<Vec<AuthUserDirectoryRecord>, SharedDbError> {
+        let rows = sqlx::query(
+            "SELECT u.email,
+                    (u.email_verified_at IS NOT NULL) AS email_verified,
+                    (utf.secret IS NOT NULL) AS totp_enabled
+             FROM users u
+             LEFT JOIN user_totp_factors utf
+               ON utf.user_id = u.user_id AND utf.disabled_at IS NULL
+             ORDER BY lower(u.email) ASC",
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(SharedDbError::from)?;
+
+        rows.into_iter()
+            .map(|row| {
+                Ok(AuthUserDirectoryRecord {
+                    email: row.try_get("email").map_err(SharedDbError::from)?,
+                    email_verified: row.try_get("email_verified").map_err(SharedDbError::from)?,
+                    totp_enabled: row.try_get("totp_enabled").map_err(SharedDbError::from)?,
+                })
+            })
+            .collect()
     }
 
     pub async fn insert_auth_user(&self, record: &AuthUserRecord) -> Result<(), SharedDbError> {

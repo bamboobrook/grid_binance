@@ -54,9 +54,13 @@ export type AdminMembershipPlans = {
 };
 
 export type AdminUserRecord = {
+  admin_role: string | null;
   email: string;
+  email_verified: boolean;
   latest_order_status: string | null;
-  membership: AdminMembershipRecord;
+  membership: AdminMembershipRecord | null;
+  registered: boolean;
+  totp_enabled: boolean;
 };
 
 export type AdminUserList = {
@@ -241,6 +245,19 @@ export async function buildAdminShellSnapshot(): Promise<AdminShellSnapshot> {
   const role = profile.admin_role ?? "operator_admin";
   const restricted = role === "operator_admin";
 
+  const nav = [
+    { href: "/admin/dashboard", label: "Dashboard" },
+    { href: "/admin/users", label: "Users" },
+    { href: "/admin/memberships", label: "Memberships" },
+    { href: "/admin/deposits", label: "Deposits", badge: String(openDeposits) },
+    { href: "/admin/address-pools", label: "Address pools" },
+    { href: "/admin/templates", label: "Templates" },
+    { href: "/admin/strategies", label: "Strategies" },
+    { href: "/admin/sweeps", label: "Sweeps" },
+    ...(role === "super_admin" ? [{ href: "/admin/audit", label: "Audit" }] : []),
+    { href: "/admin/system", label: "System" },
+  ];
+
   return {
     banners: [
       {
@@ -259,18 +276,7 @@ export async function buildAdminShellSnapshot(): Promise<AdminShellSnapshot> {
       name: profile.email,
       role,
     },
-    nav: [
-      { href: "/admin/dashboard", label: "Dashboard" },
-      { href: "/admin/users", label: "Users" },
-      { href: "/admin/memberships", label: "Memberships" },
-      { href: "/admin/deposits", label: "Deposits", badge: String(openDeposits) },
-      { href: "/admin/address-pools", label: "Address pools" },
-      { href: "/admin/templates", label: "Templates" },
-      { href: "/admin/strategies", label: "Strategies" },
-      { href: "/admin/sweeps", label: "Sweeps" },
-      { href: "/admin/audit", label: "Audit" },
-      { href: "/admin/system", label: "System" },
-    ],
+    nav,
     quickStats: [
       { label: "Open deposits", value: String(openDeposits) },
       { label: "Membership risk", value: String(membershipsNeedingAction) },
