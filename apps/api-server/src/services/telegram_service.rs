@@ -1,5 +1,6 @@
 use std::{
     collections::HashMap,
+    env,
     sync::{Arc, Mutex},
 };
 
@@ -20,11 +21,13 @@ use crate::services::auth_service::AuthError;
 const DEFAULT_BIND_CODE_TTL_SECONDS: i64 = 300;
 const MAX_BIND_CODE_TTL_SECONDS: i64 = 86_400;
 const NOTIFICATION_INBOX_LIMIT: usize = 100;
+const DEFAULT_TELEGRAM_BOT_BIND_SECRET: &str = "grid-binance-dev-telegram-bot-bind-secret";
 
 #[derive(Clone)]
 pub struct TelegramService {
     db: SharedDb,
     inner: Arc<Mutex<TelegramState>>,
+    bot_bind_secret: Arc<String>,
 }
 
 impl Default for TelegramService {
@@ -60,6 +63,7 @@ pub struct CreateTelegramBindCodeResponse {
 #[derive(Debug, Deserialize)]
 pub struct BindTelegramRequest {
     pub code: String,
+    #[allow(dead_code)]
     pub chat_id: String,
 }
 
@@ -105,6 +109,10 @@ impl TelegramService {
         Self {
             db,
             inner: Arc::new(Mutex::new(TelegramState::default())),
+            bot_bind_secret: Arc::new(
+                env::var("TELEGRAM_BOT_BIND_SECRET")
+                    .unwrap_or_else(|_| DEFAULT_TELEGRAM_BOT_BIND_SECRET.to_string()),
+            ),
         }
     }
 
@@ -164,14 +172,16 @@ impl TelegramService {
 
     pub fn bind_telegram(
         &self,
-        request: BindTelegramRequest,
+        _request: BindTelegramRequest,
     ) -> Result<BindTelegramResponse, TelegramError> {
-        self.bind_telegram_from_bot(BotBindTelegramRequest {
-            code: request.code,
-            telegram_user_id: request.chat_id.clone(),
-            chat_id: request.chat_id,
-            username: None,
-        })
+        Err(TelegramError::forbidden("telegram bot bind flow required"))
+    }
+
+    pub fn authorize_bot_secret(&self, provided_secret: Option<&str>) -> Result<(), TelegramError> {
+        match provided_secret {
+            Some(secret) if secret == self.bot_bind_secret.as_str() => Ok(()),
+            _ => Err(TelegramError::unauthorized("telegram bot authentication failed")),
+        }
     }
 
     pub fn bind_telegram_from_bot(
@@ -324,6 +334,20 @@ impl TelegramError {
         }
     }
 
+    fn forbidden(message: &'static str) -> Self {
+        Self {
+            status: StatusCode::FORBIDDEN,
+            message: message.to_owned(),
+        }
+    }
+
+    fn unauthorized(message: &'static str) -> Self {
+        Self {
+            status: StatusCode::UNAUTHORIZED,
+            message: message.to_owned(),
+        }
+    }
+
     fn storage(_error: shared_db::SharedDbError) -> Self {
         Self {
             status: StatusCode::INTERNAL_SERVER_ERROR,
@@ -358,6 +382,8 @@ impl From<TelegramError> for AuthError {
             StatusCode::NOT_FOUND => {
                 AuthError::not_found(Box::leak(value.message.into_boxed_str()))
             }
+            StatusCode::FORBIDDEN => AuthError::forbidden(Box::leak(value.message.into_boxed_str())),
+            StatusCode::UNAUTHORIZED => AuthError::unauthorized(Box::leak(value.message.into_boxed_str())),
             StatusCode::INTERNAL_SERVER_ERROR => {
                 AuthError::storage(shared_db::SharedDbError::new("telegram storage error"))
             }

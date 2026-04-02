@@ -56,8 +56,13 @@ async fn bind_telegram(
 
 async fn bind_telegram_from_bot(
     State(service): State<TelegramService>,
+    headers: HeaderMap,
     Json(request): Json<BotBindTelegramRequest>,
 ) -> Result<Json<BindTelegramResponse>, AuthError> {
+    let bot_secret = headers
+        .get("x-telegram-bot-secret")
+        .and_then(|value| value.to_str().ok());
+    service.authorize_bot_secret(bot_secret).map_err(AuthError::from)?;
     Ok(Json(
         service
             .bind_telegram_from_bot(request)

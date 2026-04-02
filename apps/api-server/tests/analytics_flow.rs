@@ -70,6 +70,8 @@ async fn compute_strategy_and_account_snapshots_from_persisted_trading_and_excha
     assert_eq!(strategies[2]["position_quantity"], "1.5");
     assert_eq!(strategies[2]["average_entry_price"], "22");
     assert_eq!(strategies[2]["unrealized_pnl"], "4.2");
+    assert_eq!(strategies[2]["funding_total"], "-1.25");
+    assert_eq!(strategies[2]["net_pnl"], "2.95");
 
     assert_eq!(analytics_body["user"]["user_id"], "trader@example.com");
     assert_eq!(analytics_body["user"]["realized_pnl"], "15");
@@ -96,6 +98,7 @@ async fn compute_strategy_and_account_snapshots_from_persisted_trading_and_excha
     assert_eq!(strategy_snapshots.len(), 3);
     assert_eq!(strategy_snapshots[2]["strategy_id"], "strategy-gamma");
     assert_eq!(strategy_snapshots[2]["unrealized_pnl"], "4.2");
+    assert_eq!(strategy_snapshots[2]["funding_total"], "-1.25");
 
     assert!(
         analytics_body["fills"]
@@ -124,7 +127,7 @@ async fn compute_strategy_and_account_snapshots_from_persisted_trading_and_excha
     );
     assert_eq!(
         strategy_lines[3],
-        "strategy-gamma,trader@example.com,SOLUSDT,Running,0,1,33,1.5,22,0,4.2,0,0,4.2"
+        "strategy-gamma,trader@example.com,SOLUSDT,Running,0,1,33,1.5,22,0,4.2,0,-1.25,2.95"
     );
 
     let payments_csv = export_csv(&app, &session_token, "/exports/payments.csv").await;

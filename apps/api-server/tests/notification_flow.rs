@@ -11,6 +11,9 @@ mod support;
 
 use support::register_and_login;
 
+const BOT_BIND_SECRET: &str = "grid-binance-dev-telegram-bot-bind-secret";
+const WRONG_BOT_BIND_SECRET: &str = "wrong-bot-secret";
+
 #[tokio::test]
 async fn bot_side_binding_and_expanded_notification_payloads_are_logged_durably() {
     let app = app();
@@ -235,6 +238,28 @@ async fn telegram_bindings_and_inbox_items_survive_app_rebuilds_via_bot_binding_
 }
 
 #[tokio::test]
+async fn bot_bind_requires_internal_secret_and_direct_user_bind_is_forbidden() {
+    let app = app();
+    let session_token = register_and_login(&app, "bot-auth@example.com", "pass1234").await;
+
+    let bind_code = create_bind_code(&app, &session_token, "bot-auth@example.com", None).await;
+    assert_eq!(bind_code.status(), StatusCode::CREATED);
+    let code = response_json(bind_code).await["code"].as_str().expect("bind code").to_string();
+
+    let forbidden_direct = direct_user_bind_telegram(&app, &session_token, &code, "chat-direct").await;
+    assert_eq!(forbidden_direct.status(), StatusCode::FORBIDDEN);
+
+    let missing_secret = bot_bind_telegram_with_secret(&app, &code, "tg-user-auth", "chat-auth", Some("botuser"), None).await;
+    assert_eq!(missing_secret.status(), StatusCode::UNAUTHORIZED);
+
+    let wrong_secret = bot_bind_telegram_with_secret(&app, &code, "tg-user-auth", "chat-auth", Some("botuser"), Some(WRONG_BOT_BIND_SECRET)).await;
+    assert_eq!(wrong_secret.status(), StatusCode::UNAUTHORIZED);
+
+    let accepted = bot_bind_telegram_with_secret(&app, &code, "tg-user-auth", "chat-auth", Some("botuser"), Some(BOT_BIND_SECRET)).await;
+    assert_eq!(accepted.status(), StatusCode::OK);
+}
+
+#[tokio::test]
 async fn previous_bind_code_is_rejected_after_regenerating_for_same_email() {
     let app = app();
     let session_token = register_and_login(&app, "rotate@example.com", "pass1234").await;
@@ -333,6 +358,32 @@ async fn create_bind_code(
         .unwrap()
 }
 
+async fn direct_user_bind_telegram(
+    app: &axum::Router,
+    session_token: &str,
+    code: &str,
+    chat_id: &str,
+) -> axum::response::Response {
+    app.clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/telegram/bind")
+                .header("authorization", format!("Bearer {session_token}"))
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    json!({
+                        "code": code,
+                        "chat_id": chat_id,
+                    })
+                    .to_string(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap()
+}
+
 async fn bot_bind_telegram(
     app: &axum::Router,
     code: &str,
@@ -340,12 +391,27 @@ async fn bot_bind_telegram(
     chat_id: &str,
     username: Option<&str>,
 ) -> axum::response::Response {
+    bot_bind_telegram_with_secret(app, code, telegram_user_id, chat_id, username, Some(BOT_BIND_SECRET)).await
+}
+
+async fn bot_bind_telegram_with_secret(
+    app: &axum::Router,
+    code: &str,
+    telegram_user_id: &str,
+    chat_id: &str,
+    username: Option<&str>,
+    bot_secret: Option<&str>,
+) -> axum::response::Response {
+    let mut builder = Request::builder()
+        .method("POST")
+        .uri("/telegram/bot/bind")
+        .header("content-type", "application/json");
+    if let Some(bot_secret) = bot_secret {
+        builder = builder.header("x-telegram-bot-secret", bot_secret);
+    }
     app.clone()
         .oneshot(
-            Request::builder()
-                .method("POST")
-                .uri("/telegram/bot/bind")
-                .header("content-type", "application/json")
+            builder
                 .body(Body::from(
                     json!({
                         "code": code,
