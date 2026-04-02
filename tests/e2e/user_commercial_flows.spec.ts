@@ -71,15 +71,15 @@ test.describe("user commercial", () => {
     await expect(page).toHaveURL(/\/app\/strategies\/eth-swing-builder$/);
     await expect(page.getByText("Draft saved", { exact: true })).toBeVisible();
     await page.getByRole("button", { name: "Start strategy" }).click();
-    await expect(page.getByText("Start blocked until pre-flight passes", { exact: true })).toBeVisible();
+    await expect(page.getByText("Start blocked until membership is active or in grace", { exact: true })).toBeVisible();
     await page.getByLabel("Trailing take profit (%)").fill("0.7");
     await page.getByRole("button", { name: "Save edits" }).click();
     await expect(page.getByText("Edits saved", { exact: true })).toBeVisible();
     await page.getByRole("button", { name: "Run pre-flight" }).click();
-    await expect(page.getByText("Pre-flight passed", { exact: true })).toBeVisible();
-    await expect(page.getByText("Exchange filters, balance, and hedge-mode checks passed", { exact: false })).toBeVisible();
+    await expect(page.getByText("Pre-flight failed", { exact: true })).toBeVisible();
+    await expect(page.getByText("Renew or reactivate membership before starting this strategy.", { exact: false })).toBeVisible();
     await page.getByRole("button", { name: "Start strategy" }).click();
-    await expect(page.getByText("Strategy started", { exact: true })).toBeVisible();
+    await expect(page.getByText("Start blocked until membership is active or in grace", { exact: true })).toBeVisible();
     await expect(page.getByText("Realized PnL", { exact: true })).toBeVisible();
     await expect(page.getByText("Unrealized PnL", { exact: true })).toBeVisible();
     await expect(page.getByText("Funding fees", { exact: true })).toBeVisible();
@@ -116,6 +116,8 @@ test.describe("user commercial", () => {
     await page.getByRole("button", { name: "Enable TOTP" }).click();
     await expect(page).toHaveURL(/\/app\/security$/);
     await expect(page.getByText("TOTP enabled", { exact: true })).toBeVisible();
+    await page.goto("/app/security");
+    await expect(page.getByText("TOTP: Enabled", { exact: false })).toBeVisible();
     await page.getByRole("button", { name: "Disable TOTP" }).click();
     await expect(page).toHaveURL(/\/login\?security=totp-disabled$/);
     await expect(page.getByRole("heading", { name: "Login" })).toBeVisible();

@@ -106,6 +106,8 @@ const globalStore = globalThis as typeof globalThis & {
 const store = globalStore.__gridBinanceUserProductState ?? new Map<string, UserProductState>();
 globalStore.__gridBinanceUserProductState = store;
 
+const DEFAULT_AUTH_API_BASE_URL = "http://127.0.0.1:8080";
+
 export function getUserProductState(sessionToken: string | null | undefined): UserProductState {
   const key = sessionKey(sessionToken);
 
@@ -120,7 +122,35 @@ export function getUserProductState(sessionToken: string | null | undefined): Us
 export async function getCurrentUserProductState() {
   const { cookies } = await import("next/headers");
   const cookieStore = await cookies();
-  return getUserProductState(cookieStore.get("session_token")?.value ?? null);
+  const sessionToken = cookieStore.get("session_token")?.value ?? null;
+  const state = getUserProductState(sessionToken);
+  const backendTruth = sessionToken ? await fetchBackendTruth(sessionToken) : null;
+
+  if (backendTruth?.profile) {
+    state.security.totpEnabled = backendTruth.profile.totp_enabled;
+  }
+
+  if (backendTruth?.membership) {
+    state.billing.membershipStatus = backendTruth.membership.status;
+    if (backendTruth.membership.active_until) {
+      state.billing.nextRenewalAt = backendTruth.membership.active_until.slice(0, 10);
+    }
+    if (backendTruth.membership.grace_until) {
+      state.billing.graceEndsAt = backendTruth.membership.grace_until.slice(0, 10);
+    }
+  }
+
+  return state;
+}
+
+export async function fetchBackendTruth(sessionToken: string) {
+  const profile = await fetchProfileTruth(sessionToken);
+  if (!profile) {
+    return null;
+  }
+
+  const membership = await fetchMembershipTruth(sessionToken, profile.email);
+  return { profile, membership };
 }
 
 export function updateUserProductState(
@@ -231,6 +261,55 @@ export function reassignStrategyId(strategy: StrategyRecord, nextId: string) {
   if (strategy.preflightMessage) {
     strategy.preflightMessage = strategy.preflightMessage.replace(previousId, nextId);
   }
+}
+
+
+async function fetchProfileTruth(sessionToken: string) {
+  const response = await fetch(`${authApiBaseUrl()}/profile`, {
+    method: "GET",
+    headers: { authorization: `Bearer ${sessionToken}` },
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    return null;
+  }
+
+  const payload = (await response.json()) as { email?: string; totp_enabled?: boolean };
+  if (typeof payload.email !== "string") {
+    return null;
+  }
+
+  return {
+    email: payload.email,
+    totp_enabled: Boolean(payload.totp_enabled),
+  };
+}
+
+async function fetchMembershipTruth(sessionToken: string, email: string) {
+  const response = await fetch(`${authApiBaseUrl()}/membership/status`, {
+    method: "POST",
+    headers: {
+      authorization: `Bearer ${sessionToken}`,
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({ email, at: new Date().toISOString() }),
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    return null;
+  }
+
+  return (await response.json()) as {
+    status: string;
+    active_until?: string | null;
+    grace_until?: string | null;
+  };
+}
+
+function authApiBaseUrl() {
+  return process.env.AUTH_API_BASE_URL?.trim().replace(/\/+$/, "") || DEFAULT_AUTH_API_BASE_URL;
 }
 
 function createDefaultState(): UserProductState {

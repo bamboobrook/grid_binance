@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import {
+  fetchBackendTruth,
   findStrategy,
   membershipAllowsNewStarts,
   updateUserProductState,
@@ -13,8 +14,11 @@ export async function POST(
   const { id } = await context.params;
   const formData = await request.formData();
   const intent = readField(formData, "intent");
+  const sessionToken = readSessionToken(request);
+  const backendTruth = sessionToken ? await fetchBackendTruth(sessionToken) : null;
+  const membershipStatus = backendTruth?.membership?.status ?? "Pending";
 
-  updateUserProductState(readSessionToken(request), (state) => {
+  updateUserProductState(sessionToken, (state) => {
     const strategy = findStrategy(state, id);
     if (!strategy) {
       return;
@@ -35,7 +39,7 @@ export async function POST(
     }
 
     if (intent === "preflight") {
-      const membershipReady = membershipAllowsNewStarts(state.billing.membershipStatus);
+      const membershipReady = membershipAllowsNewStarts(membershipStatus);
       const exchangeReady = state.exchange.saved && state.exchange.connectionStatus === "passed";
       const hedgeReady = strategy.marketType === "spot" || state.exchange.positionMode === "hedge";
       strategy.preflightChecks = [
@@ -56,7 +60,7 @@ export async function POST(
     }
 
     if (intent === "start") {
-      if (!membershipAllowsNewStarts(state.billing.membershipStatus)) {
+      if (!membershipAllowsNewStarts(membershipStatus)) {
         strategy.preflightStatus = "failed";
         strategy.preflightMessage = "Start blocked. Membership is not active or in grace.";
         state.flash.strategy = "Start blocked until membership is active or in grace";
