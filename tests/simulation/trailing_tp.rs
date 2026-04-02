@@ -1,6 +1,6 @@
 use rust_decimal::Decimal;
 use shared_domain::strategy::{
-    GridGeneration, GridLevel, PostTriggerAction, StrategyMode, StrategyRevision,
+    GridGeneration, GridLevel, PostTriggerAction, StrategyMarket, StrategyMode, StrategyRevision,
 };
 use trading_engine::strategy_runtime::StrategyRuntimeEngine;
 
@@ -30,6 +30,7 @@ fn revision_with_trailing(trailing_bps: Option<u32>) -> StrategyRevision {
 fn trailing_take_profit_rejects_retracement_wider_than_grid_take_profit() {
     let result = StrategyRuntimeEngine::new(
         "strategy-1",
+        StrategyMarket::Spot,
         StrategyMode::SpotClassic,
         revision_with_trailing(Some(1200)),
     );
@@ -45,6 +46,7 @@ fn trailing_take_profit_rejects_retracement_wider_than_grid_take_profit() {
 fn trailing_take_profit_uses_post_activation_high_and_taker_close() {
     let mut engine = StrategyRuntimeEngine::new(
         "strategy-2",
+        StrategyMarket::Spot,
         StrategyMode::SpotClassic,
         revision_with_trailing(Some(500)),
     )

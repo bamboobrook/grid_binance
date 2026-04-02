@@ -40,6 +40,7 @@ struct OpenLevelState {
 #[derive(Debug)]
 pub struct StrategyRuntimeEngine {
     strategy_id: String,
+    market: StrategyMarket,
     mode: StrategyMode,
     revision: StrategyRevision,
     runtime: StrategyRuntime,
@@ -51,6 +52,7 @@ pub struct StrategyRuntimeEngine {
 impl StrategyRuntimeEngine {
     pub fn new(
         strategy_id: &str,
+        market: StrategyMarket,
         mode: StrategyMode,
         revision: StrategyRevision,
     ) -> Result<Self, StrategyRuntimeError> {
@@ -65,6 +67,7 @@ impl StrategyRuntimeEngine {
 
         Ok(Self {
             strategy_id: strategy_id.to_string(),
+            market,
             mode,
             revision,
             runtime: StrategyRuntime::default(),
@@ -77,12 +80,7 @@ impl StrategyRuntimeEngine {
     pub fn start(&mut self) -> Result<(), StrategyRuntimeError> {
         self.running = true;
         self.runtime.orders = self.build_working_orders();
-        push_event(
-            &mut self.runtime.events,
-            "strategy_started",
-            "strategy started",
-            None,
-        );
+        push_event(&mut self.runtime.events, "strategy_started", "strategy started", None);
         Ok(())
     }
 
@@ -126,19 +124,11 @@ impl StrategyRuntimeEngine {
             is_short: level_is_short(self.mode, level.level_index),
         });
         self.recompute_position();
-        push_event(
-            &mut self.runtime.events,
-            "entry_fill",
-            "entry fill recorded",
-            Some(level.entry_price),
-        );
+        push_event(&mut self.runtime.events, "entry_fill", "entry fill recorded", Some(level.entry_price));
         Ok(())
     }
 
-    pub fn on_price(
-        &mut self,
-        price: Decimal,
-    ) -> Result<Vec<StrategyRuntimeEvent>, StrategyRuntimeError> {
+    pub fn on_price(&mut self, price: Decimal) -> Result<Vec<StrategyRuntimeEvent>, StrategyRuntimeError> {
         if !self.running {
             return Ok(Vec::new());
         }
@@ -163,22 +153,14 @@ impl StrategyRuntimeEngine {
                             state.trailing_extreme = Some(new_low);
                             let retrace_price = new_low * short_trailing_factor(trailing_bps);
                             if price >= retrace_price {
-                                pending_closures.push((
-                                    state.level_index,
-                                    price,
-                                    "taker_trailing_take_profit",
-                                ));
+                                pending_closures.push((state.level_index, price, "taker_trailing_take_profit"));
                             }
                         } else {
                             let new_high = extreme.max(price);
                             state.trailing_extreme = Some(new_high);
                             let retrace_price = new_high * trailing_factor(trailing_bps);
                             if price <= retrace_price {
-                                pending_closures.push((
-                                    state.level_index,
-                                    price,
-                                    "taker_trailing_take_profit",
-                                ));
+                                pending_closures.push((state.level_index, price, "taker_trailing_take_profit"));
                             }
                         }
                     } else if price_reaches_take_profit(price, tp_price, state.is_short) {
@@ -197,8 +179,11 @@ impl StrategyRuntimeEngine {
             for (level_index, exit_price, event_type) in &pending_closures {
                 emitted.push(self.close_level(*level_index, *exit_price, event_type));
             }
-            self.open_levels
-                .retain(|state| !pending_closures.iter().any(|(index, _, _)| index == &state.level_index));
+            self.open_levels.retain(|state| {
+                !pending_closures
+                    .iter()
+                    .any(|(index, _, _)| index == &state.level_index)
+            });
             self.recompute_position();
         }
 
@@ -212,23 +197,13 @@ impl StrategyRuntimeEngine {
                 order.status = "Canceled".to_string();
             }
         }
-        push_event(
-            &mut self.runtime.events,
-            "strategy_paused",
-            "strategy paused",
-            None,
-        );
+        push_event(&mut self.runtime.events, "strategy_paused", "strategy paused", None);
     }
 
     pub fn resume(&mut self) -> Result<(), StrategyRuntimeError> {
         self.running = true;
         self.runtime.orders = self.build_working_orders();
-        push_event(
-            &mut self.runtime.events,
-            "strategy_resumed",
-            "strategy resumed",
-            None,
-        );
+        push_event(&mut self.runtime.events, "strategy_resumed", "strategy resumed", None);
         Ok(())
     }
 
@@ -243,7 +218,9 @@ impl StrategyRuntimeEngine {
         let Some(position) = self.runtime.positions.first() else {
             return false;
         };
-        let is_short = overall_exposure_is_short(self.mode, &self.open_levels);
+        let Some(is_short) = overall_exposure_is_short(self.mode, &self.open_levels) else {
+            return false;
+        };
         price_reaches_take_profit(
             price,
             take_profit_price(position.average_entry_price, overall_bps, is_short),
@@ -258,7 +235,9 @@ impl StrategyRuntimeEngine {
         let Some(position) = self.runtime.positions.first() else {
             return false;
         };
-        let is_short = overall_exposure_is_short(self.mode, &self.open_levels);
+        let Some(is_short) = overall_exposure_is_short(self.mode, &self.open_levels) else {
+            return false;
+        };
         price_hits_stop_loss(
             price,
             stop_loss_price(position.average_entry_price, overall_bps, is_short),
@@ -280,12 +259,7 @@ impl StrategyRuntimeEngine {
         }
     }
 
-    fn close_all(
-        &mut self,
-        price: Decimal,
-        event_type: &str,
-        rebuild: bool,
-    ) -> StrategyRuntimeEvent {
+    fn close_all(&mut self, price: Decimal, event_type: &str, rebuild: bool) -> StrategyRuntimeEvent {
         let closing_levels = self.open_levels.clone();
         for state in closing_levels {
             let _ = self.close_level(state.level_index, price, event_type);
@@ -304,16 +278,10 @@ impl StrategyRuntimeEngine {
             self.running = false;
         }
 
-        let event = push_event(&mut self.runtime.events, event_type, event_type, Some(price));
-        event
+        push_event(&mut self.runtime.events, event_type, event_type, Some(price))
     }
 
-    fn close_level(
-        &mut self,
-        level_index: u32,
-        price: Decimal,
-        event_type: &str,
-    ) -> StrategyRuntimeEvent {
+    fn close_level(&mut self, level_index: u32, price: Decimal, event_type: &str) -> StrategyRuntimeEvent {
         let state = self
             .open_levels
             .iter()
@@ -328,18 +296,10 @@ impl StrategyRuntimeEngine {
             fill_type: "Exit".to_string(),
             price,
             quantity: state.quantity,
-            realized_pnl: Some((price - state.entry_price) * state.quantity),
+            realized_pnl: Some(realized_pnl(state.entry_price, price, state.quantity, state.is_short)),
             fee_amount: None,
             fee_asset: None,
         });
-        if let Some(last_fill) = self.runtime.fills.last_mut() {
-            last_fill.realized_pnl = Some(realized_pnl(
-                state.entry_price,
-                price,
-                state.quantity,
-                state.is_short,
-            ));
-        }
         if let Some(order) = self
             .runtime
             .orders
@@ -349,17 +309,49 @@ impl StrategyRuntimeEngine {
             order.status = "Filled".to_string();
         }
 
-        push_event(
-            &mut self.runtime.events,
-            event_type,
-            event_type,
-            Some(price),
-        )
+        push_event(&mut self.runtime.events, event_type, event_type, Some(price))
     }
 
     fn recompute_position(&mut self) {
         if self.open_levels.is_empty() {
             self.runtime.positions.clear();
+            return;
+        }
+
+        if self.mode == StrategyMode::FuturesNeutral {
+            let mut long_quantity = Decimal::ZERO;
+            let mut long_cost = Decimal::ZERO;
+            let mut short_quantity = Decimal::ZERO;
+            let mut short_cost = Decimal::ZERO;
+
+            for level in &self.open_levels {
+                if level.is_short {
+                    short_quantity += level.quantity;
+                    short_cost += level.entry_price * level.quantity;
+                } else {
+                    long_quantity += level.quantity;
+                    long_cost += level.entry_price * level.quantity;
+                }
+            }
+
+            let mut positions = Vec::new();
+            if long_quantity > Decimal::ZERO {
+                positions.push(StrategyRuntimePosition {
+                    market: self.market,
+                    mode: StrategyMode::FuturesLong,
+                    quantity: long_quantity,
+                    average_entry_price: long_cost / long_quantity,
+                });
+            }
+            if short_quantity > Decimal::ZERO {
+                positions.push(StrategyRuntimePosition {
+                    market: self.market,
+                    mode: StrategyMode::FuturesShort,
+                    quantity: short_quantity,
+                    average_entry_price: short_cost / short_quantity,
+                });
+            }
+            self.runtime.positions = positions;
             return;
         }
 
@@ -373,8 +365,12 @@ impl StrategyRuntimeEngine {
             .fold(Decimal::ZERO, |acc, level| acc + level.entry_price * level.quantity);
 
         self.runtime.positions = vec![StrategyRuntimePosition {
-            market: market_for_mode(self.mode),
-            mode: self.mode,
+            market: self.market,
+            mode: if overall_exposure_is_short(self.mode, &self.open_levels) == Some(true) {
+                StrategyMode::FuturesShort
+            } else {
+                self.mode
+            },
             quantity: total_quantity,
             average_entry_price: weighted_cost / total_quantity,
         }];
@@ -399,11 +395,9 @@ impl StrategyRuntimeEngine {
 
 fn take_profit_price(entry_price: Decimal, take_profit_bps: u32, is_short: bool) -> Decimal {
     if is_short {
-        entry_price
-            * (Decimal::ONE - Decimal::from(take_profit_bps) / Decimal::from(10_000u32))
+        entry_price * (Decimal::ONE - Decimal::from(take_profit_bps) / Decimal::from(10_000u32))
     } else {
-        entry_price
-            * (Decimal::ONE + Decimal::from(take_profit_bps) / Decimal::from(10_000u32))
+        entry_price * (Decimal::ONE + Decimal::from(take_profit_bps) / Decimal::from(10_000u32))
     }
 }
 
@@ -417,11 +411,9 @@ fn short_trailing_factor(bps: u32) -> Decimal {
 
 fn stop_loss_price(entry_price: Decimal, stop_loss_bps: u32, is_short: bool) -> Decimal {
     if is_short {
-        entry_price
-            * (Decimal::ONE + Decimal::from(stop_loss_bps) / Decimal::from(10_000u32))
+        entry_price * (Decimal::ONE + Decimal::from(stop_loss_bps) / Decimal::from(10_000u32))
     } else {
-        entry_price
-            * (Decimal::ONE - Decimal::from(stop_loss_bps) / Decimal::from(10_000u32))
+        entry_price * (Decimal::ONE - Decimal::from(stop_loss_bps) / Decimal::from(10_000u32))
     }
 }
 
@@ -449,17 +441,6 @@ fn realized_pnl(entry_price: Decimal, exit_price: Decimal, quantity: Decimal, is
     }
 }
 
-fn market_for_mode(mode: StrategyMode) -> StrategyMarket {
-    match mode {
-        StrategyMode::SpotClassic | StrategyMode::SpotBuyOnly | StrategyMode::SpotSellOnly => {
-            StrategyMarket::Spot
-        }
-        StrategyMode::FuturesLong | StrategyMode::FuturesShort | StrategyMode::FuturesNeutral => {
-            StrategyMarket::FuturesUsdM
-        }
-    }
-}
-
 fn entry_side(mode: StrategyMode, level_index: u32) -> &'static str {
     if level_is_short(mode, level_index) {
         "Sell"
@@ -476,11 +457,26 @@ fn level_is_short(mode: StrategyMode, level_index: u32) -> bool {
     }
 }
 
-fn overall_exposure_is_short(mode: StrategyMode, open_levels: &[OpenLevelState]) -> bool {
-    open_levels
-        .first()
-        .map(|level| level.is_short)
-        .unwrap_or(matches!(mode, StrategyMode::SpotSellOnly | StrategyMode::FuturesShort))
+fn overall_exposure_is_short(mode: StrategyMode, open_levels: &[OpenLevelState]) -> Option<bool> {
+    let mut has_short = false;
+    let mut has_long = false;
+    for level in open_levels {
+        if level.is_short {
+            has_short = true;
+        } else {
+            has_long = true;
+        }
+    }
+    if has_short && has_long {
+        return None;
+    }
+    if has_short {
+        Some(true)
+    } else if has_long {
+        Some(false)
+    } else {
+        Some(matches!(mode, StrategyMode::SpotSellOnly | StrategyMode::FuturesShort))
+    }
 }
 
 fn push_event(

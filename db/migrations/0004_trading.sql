@@ -10,17 +10,7 @@ CREATE TABLE IF NOT EXISTS strategies (
     source_template_id TEXT,
     membership_ready BOOLEAN NOT NULL DEFAULT FALSE,
     exchange_ready BOOLEAN NOT NULL DEFAULT FALSE,
-    permissions_ready BOOLEAN NOT NULL DEFAULT FALSE,
-    withdrawals_disabled BOOLEAN NOT NULL DEFAULT TRUE,
-    hedge_mode_ready BOOLEAN NOT NULL DEFAULT FALSE,
     symbol_ready BOOLEAN NOT NULL DEFAULT FALSE,
-    filters_ready BOOLEAN NOT NULL DEFAULT FALSE,
-    margin_ready BOOLEAN NOT NULL DEFAULT FALSE,
-    conflict_ready BOOLEAN NOT NULL DEFAULT FALSE,
-    balance_ready BOOLEAN NOT NULL DEFAULT FALSE,
-    market TEXT NOT NULL DEFAULT 'Spot',
-    mode TEXT NOT NULL DEFAULT 'SpotClassic',
-    archived_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -43,8 +33,7 @@ CREATE TABLE IF NOT EXISTS strategy_grid_levels (
     level_index INTEGER NOT NULL,
     entry_price TEXT NOT NULL,
     quantity TEXT NOT NULL,
-    take_profit_bps INTEGER NOT NULL,
-    take_profit_price TEXT NOT NULL,
+    take_profit_price TEXT,
     trailing_bps INTEGER,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
