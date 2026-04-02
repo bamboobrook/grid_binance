@@ -16,6 +16,12 @@ type LoginPageProps = {
   }>;
 };
 
+const reminders = [
+  "Membership expiry reminders appear in web and Telegram before grace ends.",
+  "Do not enable withdrawal permission on Binance API keys.",
+  "TOTP can be enabled later from the security center.",
+];
+
 export default async function LoginPage({ searchParams }: LoginPageProps) {
   const snapshot = await getPublicAuthSnapshot("login");
   const params = (await searchParams) ?? {};
@@ -38,39 +44,54 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
       ) : (
         <StatusBanner description={snapshot.notice.description} title={snapshot.notice.title} tone={snapshot.notice.tone} />
       )}
-      <Card tone="accent">
-        <CardHeader>
-          <CardTitle>{snapshot.title}</CardTitle>
-          <CardDescription>{snapshot.description}</CardDescription>
-        </CardHeader>
-        <CardBody>
-          <FormStack action="/api/auth/login" method="post">
-            <input name="next" type="hidden" value={next} />
-            <Field hint="Use the verified email tied to your membership and exchange setup." label="Email">
-              <Input autoComplete="email" defaultValue={email} name="email" required type="email" />
-            </Field>
-            <Field hint="Your password can be combined with TOTP during later security flows." label="Password">
-              <Input autoComplete="current-password" name="password" required type="password" />
-            </Field>
-            <div className="chip-row">
-              {snapshot.checklist.map((item) => (
-                <Chip key={item} tone="info">
-                  {item}
-                </Chip>
+      <div className="content-grid content-grid--split">
+        <Card tone="accent">
+          <CardHeader>
+            <CardTitle>{snapshot.title}</CardTitle>
+            <CardDescription>{snapshot.description}</CardDescription>
+          </CardHeader>
+          <CardBody>
+            <FormStack action="/api/auth/login" method="post">
+              <input name="next" type="hidden" value={next} />
+              <Field hint="Use the verified email tied to your membership and exchange setup." label="Email">
+                <Input autoComplete="email" defaultValue={email} name="email" required type="email" />
+              </Field>
+              <Field hint="Password login remains the first step before optional TOTP challenges." label="Password">
+                <Input autoComplete="current-password" name="password" required type="password" />
+              </Field>
+              <div className="chip-row">
+                {snapshot.checklist.map((item) => (
+                  <Chip key={item} tone="info">
+                    {item}
+                  </Chip>
+                ))}
+              </div>
+              <ButtonRow>
+                <Button type="submit">{snapshot.submitLabel}</Button>
+                <Link className="button button--ghost" href="/help/expiry-reminder">
+                  Review expiry reminders
+                </Link>
+              </ButtonRow>
+            </FormStack>
+          </CardBody>
+          <CardFooter>
+            <Link href={snapshot.alternateHref}>{snapshot.alternateLabel}</Link>
+          </CardFooter>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>Before you sign in</CardTitle>
+            <CardDescription>Commercial guardrails stay visible on the public auth pages too.</CardDescription>
+          </CardHeader>
+          <CardBody>
+            <ul className="text-list">
+              {reminders.map((item) => (
+                <li key={item}>{item}</li>
               ))}
-            </div>
-            <ButtonRow>
-              <Button type="submit">{snapshot.submitLabel}</Button>
-              <Link className="button button--ghost" href="/app/help">
-                Review expiry reminders
-              </Link>
-            </ButtonRow>
-          </FormStack>
-        </CardBody>
-        <CardFooter>
-          <Link href={snapshot.alternateHref}>{snapshot.alternateLabel}</Link>
-        </CardFooter>
-      </Card>
+            </ul>
+          </CardBody>
+        </Card>
+      </div>
     </>
   );
 }

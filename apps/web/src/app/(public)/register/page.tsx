@@ -16,6 +16,12 @@ type RegisterPageProps = {
   }>;
 };
 
+const onboardingNotes = [
+  "Email verification is required before normal sign-in is allowed.",
+  "One Binance account per user keeps exchange ownership explicit.",
+  "Membership is required before any strategy can start.",
+];
+
 export default async function RegisterPage({ searchParams }: RegisterPageProps) {
   const snapshot = await getPublicAuthSnapshot("register");
   const params = (await searchParams) ?? {};
@@ -38,39 +44,54 @@ export default async function RegisterPage({ searchParams }: RegisterPageProps) 
       ) : (
         <StatusBanner description={snapshot.notice.description} title={snapshot.notice.title} tone={snapshot.notice.tone} />
       )}
-      <Card tone="accent">
-        <CardHeader>
-          <CardTitle>{snapshot.title}</CardTitle>
-          <CardDescription>{snapshot.description}</CardDescription>
-        </CardHeader>
-        <CardBody>
-          <FormStack action="/api/auth/register" method="post">
-            <input name="next" type="hidden" value={next} />
-            <Field hint="Email verification is required before sign-in is allowed." label="Email">
-              <Input autoComplete="email" defaultValue={email} name="email" required type="email" />
-            </Field>
-            <Field hint="Use a unique password before enabling TOTP in the security center." label="Password">
-              <Input autoComplete="new-password" name="password" required type="password" />
-            </Field>
-            <div className="chip-row">
-              {snapshot.checklist.map((item) => (
-                <Chip key={item} tone="warning">
-                  {item}
-                </Chip>
+      <div className="content-grid content-grid--split">
+        <Card tone="accent">
+          <CardHeader>
+            <CardTitle>{snapshot.title}</CardTitle>
+            <CardDescription>{snapshot.description}</CardDescription>
+          </CardHeader>
+          <CardBody>
+            <FormStack action="/api/auth/register" method="post">
+              <input name="next" type="hidden" value={next} />
+              <Field hint="Email verification is required before sign-in is allowed." label="Email">
+                <Input autoComplete="email" defaultValue={email} name="email" required type="email" />
+              </Field>
+              <Field hint="Use a unique password before enabling TOTP in the security center." label="Password">
+                <Input autoComplete="new-password" name="password" required type="password" />
+              </Field>
+              <div className="chip-row">
+                {snapshot.checklist.map((item) => (
+                  <Chip key={item} tone="warning">
+                    {item}
+                  </Chip>
+                ))}
+              </div>
+              <ButtonRow>
+                <Button type="submit">{snapshot.submitLabel}</Button>
+                <Link className="button button--ghost" href="/help/expiry-reminder">
+                  Billing help
+                </Link>
+              </ButtonRow>
+            </FormStack>
+          </CardBody>
+          <CardFooter>
+            <Link href={snapshot.alternateHref}>{snapshot.alternateLabel}</Link>
+          </CardFooter>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>Account onboarding</CardTitle>
+            <CardDescription>Registration moves directly into the documented user lifecycle.</CardDescription>
+          </CardHeader>
+          <CardBody>
+            <ul className="text-list">
+              {onboardingNotes.map((item) => (
+                <li key={item}>{item}</li>
               ))}
-            </div>
-            <ButtonRow>
-              <Button type="submit">{snapshot.submitLabel}</Button>
-              <Link className="button button--ghost" href="/app/help">
-                Billing help
-              </Link>
-            </ButtonRow>
-          </FormStack>
-        </CardBody>
-        <CardFooter>
-          <Link href={snapshot.alternateHref}>{snapshot.alternateLabel}</Link>
-        </CardFooter>
-      </Card>
+            </ul>
+          </CardBody>
+        </Card>
+      </div>
     </>
   );
 }

@@ -7,7 +7,7 @@
     "build": "pnpm build:web",
     "lint": "pnpm --filter web lint",
     "test": ". \"$HOME/.cargo/env\" && cargo test --workspace && node --test tests/verification/*.test.mjs",
-    "test:e2e": "bash -lc 'set -euo pipefail; COMPOSE=(docker compose -p grid-binance-e2e --env-file .env.example -f deploy/docker/docker-compose.yml -f deploy/docker/docker-compose.e2e.yml); cleanup(){ \"${COMPOSE[@]}\" down -v >/dev/null 2>&1 || true; }; cleanup; trap cleanup EXIT; \"${COMPOSE[@]}\" up -d --wait postgres redis; playwright test --config apps/web/playwright.config.ts'"
+    "test:e2e": "node scripts/run-playwright-e2e.mjs"
   },
   "devDependencies": {
     "@playwright/test": "1.56.0"

@@ -19,7 +19,7 @@ test("user can register and login through the browser before reviewing app areas
   await expect(page).toHaveURL(/\/app\/dashboard$/);
   await expectSessionCookie(page);
   await expect(page.getByRole("heading", { name: "User Dashboard" })).toBeVisible();
-  await expect(page.getByText("Expiry reminder flow")).toBeVisible();
+  await expect(page.getByText("Expiry reminder flow", { exact: true })).toBeVisible();
 
   await context.clearCookies();
   await page.goto("/app/dashboard");
@@ -37,15 +37,15 @@ test("user can register and login through the browser before reviewing app areas
   await page.getByRole("link", { name: "Billing Center" }).click();
   await expect(page).toHaveURL(/\/app\/billing$/);
   await expect(page.getByRole("heading", { name: "Billing Center" })).toBeVisible();
-  await expect(page.getByText("Next renewal")).toBeVisible();
+  await expect(page.getByText("Next renewal: 2026-04-15")).toBeVisible();
 
   await page.getByRole("link", { name: "Strategy Workspace" }).click();
   await expect(page).toHaveURL(/\/app\/strategies\/grid-btc$/);
   await expect(page.getByRole("heading", { name: "Strategy Workspace" })).toBeVisible();
 
-  await page.getByRole("link", { name: "Analytics" }).click();
-  await expect(page).toHaveURL(/\/app\/analytics$/);
-  await expect(page.getByRole("heading", { name: "Analytics" })).toBeVisible();
+  await page.getByRole("link", { name: "Orders" }).click();
+  await expect(page).toHaveURL(/\/app\/orders$/);
+  await expect(page.getByRole("heading", { name: "Orders & History" })).toBeVisible();
 
   await page.goto("/app/strategies/grid-btc");
   await page.getByRole("link", { name: "Help Center" }).click();

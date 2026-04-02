@@ -1,30 +1,36 @@
 import { AppShellSection } from "../../../../components/shell/app-shell-section";
 import { Card, CardBody, CardDescription, CardHeader, CardTitle } from "../../../../components/ui/card";
-import { Button, ButtonRow, Field, FormStack, Input, Select } from "../../../../components/ui/form";
+import { DialogFrame } from "../../../../components/ui/dialog";
+import { Button, Field, FormStack, Input, Select } from "../../../../components/ui/form";
 import { StatusBanner } from "../../../../components/ui/status-banner";
-import { getStrategyComposerSnapshot } from "../../../../lib/api/server";
 
-export default async function StrategyNewPage() {
-  const snapshot = await getStrategyComposerSnapshot();
-
+export default function StrategyNewPage() {
   return (
     <>
-      <StatusBanner description={snapshot.banner.description} title={snapshot.banner.title} tone={snapshot.banner.tone} />
+      <StatusBanner
+        description="Draft creation now includes symbol, market, mode, and risk-preparation fields instead of a placeholder shell."
+        title="Strategy creation workspace"
+        tone="info"
+      />
       <AppShellSection
-        description="The documented /app/strategies/new route now exists inside the shared user shell with reusable form primitives."
+        description="Create a draft first, then save edits, run pre-flight, and start from the strategy workspace."
         eyebrow="Strategy creation"
-        title="New strategy"
+        title="New Strategy"
       >
         <div className="content-grid content-grid--split">
           <Card>
             <CardHeader>
               <CardTitle>Draft setup</CardTitle>
-              <CardDescription>Task 7 stops at shell and form-system structure, not full validation logic.</CardDescription>
+              <CardDescription>Captured values are forwarded into the strategy workspace for edit and pre-flight review.</CardDescription>
             </CardHeader>
             <CardBody>
-              <FormStack action="#" method="post">
+              <FormStack action="/app/strategies/grid-btc" method="get">
+                <input name="draft" type="hidden" value="1" />
                 <Field label="Strategy name">
-                  <Input name="name" placeholder="BTC mean re-entry" />
+                  <Input defaultValue="BTC Recovery Ladder" name="name" required />
+                </Field>
+                <Field label="Symbol">
+                  <Input defaultValue="BTCUSDT" name="symbol" required />
                 </Field>
                 <Field label="Market type">
                   <Select defaultValue="spot" name="marketType">
@@ -33,29 +39,48 @@ export default async function StrategyNewPage() {
                     <option value="coin-m">COIN-M futures</option>
                   </Select>
                 </Field>
-                <ButtonRow>
-                  <Button type="submit">Save draft</Button>
-                </ButtonRow>
+                <Field label="Strategy mode">
+                  <Select defaultValue="classic" name="mode">
+                    <option value="classic">Classic two-way spot</option>
+                    <option value="buy-only">Buy-only spot grid</option>
+                    <option value="sell-only">Sell-only spot grid</option>
+                  </Select>
+                </Field>
+                <Field label="Generation mode">
+                  <Select defaultValue="geometric" name="generation">
+                    <option value="arithmetic">Arithmetic</option>
+                    <option value="geometric">Geometric</option>
+                    <option value="custom">Fully custom</option>
+                  </Select>
+                </Field>
+                <Field label="Trailing take profit (%)">
+                  <Input defaultValue="0.8" inputMode="decimal" name="trailing" />
+                </Field>
+                <Button type="submit">Save draft</Button>
               </FormStack>
             </CardBody>
           </Card>
           <Card tone="subtle">
             <CardHeader>
-              <CardTitle>Supported modes</CardTitle>
-              <CardDescription>Shell-aligned preview of the composer surface.</CardDescription>
+              <CardTitle>Composer rules</CardTitle>
+              <CardDescription>Draft inputs are validated later by pre-flight, but the warnings stay visible here.</CardDescription>
             </CardHeader>
             <CardBody>
               <ul className="text-list">
-                {snapshot.modes.map((item) => (
-                  <li key={item.label}>
-                    <strong>{item.label}:</strong> {item.value}
-                  </li>
-                ))}
+                <li>Futures allow only one strategy per user per symbol per direction.</li>
+                <li>Running strategy parameters cannot be hot-modified.</li>
+                <li>Trailing take profit uses taker execution and may increase fees.</li>
+                <li>Templates are copied into user-owned drafts and can be edited freely afterward.</li>
               </ul>
             </CardBody>
           </Card>
         </div>
       </AppShellSection>
+      <DialogFrame
+        description="Starting is blocked until pre-flight confirms exchange filters, balance, and the required hedge-mode posture."
+        title="Pre-flight remains mandatory"
+        tone="warning"
+      />
     </>
   );
 }
