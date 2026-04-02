@@ -1,6 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 
-const validHelpSlugs = new Set(["expiry-reminder"]);
+import { isValidHelpArticle } from "../../../lib/api/help-articles";
 
 export default async function HelpArticlePage({
   params,
@@ -9,7 +9,7 @@ export default async function HelpArticlePage({
 }) {
   const { slug } = await params;
 
-  if (!validHelpSlugs.has(slug)) {
+  if (!isValidHelpArticle(slug)) {
     notFound();
   }
 

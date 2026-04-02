@@ -1,8 +1,10 @@
 import Link from "next/link";
+import { notFound } from "next/navigation";
 
 import { AppShellSection } from "../../../components/shell/app-shell-section";
 import { Card, CardBody, CardDescription, CardHeader, CardTitle } from "../../../components/ui/card";
 import { StatusBanner } from "../../../components/ui/status-banner";
+import { normalizeHelpArticle } from "../../../lib/api/help-articles";
 import { getHelpCenterSnapshot } from "../../../lib/api/server";
 
 type HelpPageProps = {
@@ -11,13 +13,14 @@ type HelpPageProps = {
   }>;
 };
 
-function firstValue(value?: string | string[]) {
-  return Array.isArray(value) ? value[0] : value;
-}
-
 export default async function HelpPage({ searchParams }: HelpPageProps) {
   const snapshot = await getHelpCenterSnapshot();
-  const article = firstValue((await searchParams)?.article);
+  const requestedArticle = (await searchParams)?.article;
+  const article = normalizeHelpArticle(requestedArticle);
+
+  if (requestedArticle && !article) {
+    notFound();
+  }
 
   return (
     <>
@@ -50,7 +53,7 @@ export default async function HelpPage({ searchParams }: HelpPageProps) {
                 <CardDescription>{article.replaceAll("-", " ")}</CardDescription>
               </CardHeader>
               <CardBody>
-                Legacy `/help/{'{'}slug{'}'}` routes now land inside the documented `/app/help` shell surface.
+                Legacy help-slug routes now land inside the documented `/app/help` shell surface.
               </CardBody>
             </Card>
           ) : null}

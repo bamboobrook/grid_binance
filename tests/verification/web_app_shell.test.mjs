@@ -10,9 +10,24 @@ function escapePattern(input) {
   return input.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+function loadTsExports(path, exportNames) {
+  const source = read(path)
+    .replace(/\sas const/g, "")
+    .replace(/\sas \(typeof VALID_HELP_ARTICLES\)\[number\]/g, "")
+    .replace(/\?:/g, ":")
+    .replace(/: string \| string\[\]/g, "")
+    .replace(/: string \| null/g, "")
+    .replace(/: string/g, "")
+    .replace(/: boolean/g, "")
+    .replace(/export const /g, "const ")
+    .replace(/export function /g, "function ");
+
+  return new Function(`${source}\nreturn { ${exportNames.join(", ")} };`)();
+}
+
 test("web app shell structure aligns with shared public, user, and admin route systems", () => {
   const requiredFiles = [
-    "apps/web/src/app/page.tsx",
+    "apps/web/src/app/(public)/page.tsx",
     "apps/web/src/app/(public)/layout.tsx",
     "apps/web/src/app/app/layout.tsx",
     "apps/web/src/app/admin/layout.tsx",
@@ -28,6 +43,7 @@ test("web app shell structure aligns with shared public, user, and admin route s
     "apps/web/src/components/shell/public-shell.tsx",
     "apps/web/src/components/shell/user-shell.tsx",
     "apps/web/src/components/shell/admin-shell.tsx",
+    "apps/web/src/components/shell/path-utils.ts",
     "apps/web/src/components/ui/status-banner.tsx",
     "apps/web/src/components/ui/card.tsx",
     "apps/web/src/components/ui/table.tsx",
@@ -37,13 +53,16 @@ test("web app shell structure aligns with shared public, user, and admin route s
     "apps/web/src/components/ui/dialog.tsx",
     "apps/web/src/lib/api/server.ts",
     "apps/web/src/lib/api/mock-data.ts",
+    "apps/web/src/lib/api/help-articles.ts",
   ];
 
   for (const file of requiredFiles) {
     assert.ok(fs.existsSync(file), `${file} should exist`);
   }
 
-  const homePage = read("apps/web/src/app/page.tsx");
+  assert.equal(fs.existsSync("apps/web/src/app/page.tsx"), false, "homepage should be owned by /(public)/page.tsx, not app/page.tsx");
+
+  const homePage = read("apps/web/src/app/(public)/page.tsx");
   const publicLayout = read("apps/web/src/app/(public)/layout.tsx");
   const userLayout = read("apps/web/src/app/app/layout.tsx");
   const adminLayout = read("apps/web/src/app/admin/layout.tsx");
@@ -51,9 +70,11 @@ test("web app shell structure aligns with shared public, user, and admin route s
   const userShell = read("apps/web/src/components/shell/user-shell.tsx");
   const adminShell = read("apps/web/src/components/shell/admin-shell.tsx");
   const mockData = read("apps/web/src/lib/api/mock-data.ts");
+  const helpPage = read("apps/web/src/app/app/help/page.tsx");
+  const helpSlugPage = read("apps/web/src/app/help/[slug]/page.tsx");
 
-  assert.match(homePage, /PublicShell/);
-  assert.doesNotMatch(homePage, /<main[\s>]/, "homepage should rely on shared public shell");
+  assert.doesNotMatch(homePage, /PublicShell/, "homepage content should be wrapped by the public layout instead of re-rendering PublicShell");
+  assert.doesNotMatch(homePage, /<main[\s>]/, "homepage should rely on shared public shell layout");
   assert.match(publicLayout, /PublicShell/);
   assert.doesNotMatch(userLayout, /\/app\/dashboard/, "user layout must not hardcode dashboard as active state");
   assert.doesNotMatch(adminLayout, /\/admin\/dashboard/, "admin layout must not hardcode dashboard as active state");
@@ -79,6 +100,7 @@ test("web app shell structure aligns with shared public, user, and admin route s
   const routePages = [
     "apps/web/src/app/(public)/login/page.tsx",
     "apps/web/src/app/(public)/register/page.tsx",
+    "apps/web/src/app/(public)/page.tsx",
     "apps/web/src/app/app/dashboard/page.tsx",
     "apps/web/src/app/app/exchange/page.tsx",
     "apps/web/src/app/app/strategies/page.tsx",
@@ -133,8 +155,30 @@ test("web app shell structure aligns with shared public, user, and admin route s
     assert.doesNotMatch(mockData, new RegExp(escapePattern(legacyHref)));
   }
 
+  assert.match(helpPage, /normalizeHelpArticle/);
+  assert.match(helpPage, /notFound\(/);
+  assert.match(helpSlugPage, /isValidHelpArticle/);
+
   const serverApi = read("apps/web/src/lib/api/server.ts");
   assert.match(serverApi, /getUserDashboardSnapshot/);
   assert.match(serverApi, /getAdminDashboardSnapshot/);
   assert.match(serverApi, /server-only|"use server"/);
+});
+
+test("shell and help helpers enforce route behavior", () => {
+  const { isNavHrefActive } = loadTsExports("apps/web/src/components/shell/path-utils.ts", ["isNavHrefActive"]);
+  const { isValidHelpArticle, normalizeHelpArticle } = loadTsExports("apps/web/src/lib/api/help-articles.ts", [
+    "isValidHelpArticle",
+    "normalizeHelpArticle",
+  ]);
+
+  assert.equal(isNavHrefActive("/app/orders", "/app/orders"), true);
+  assert.equal(isNavHrefActive("/app/strategies/grid-btc", "/app/strategies"), true);
+  assert.equal(isNavHrefActive("/app/telegram", "/app/orders"), false);
+
+  assert.equal(isValidHelpArticle("expiry-reminder"), true);
+  assert.equal(isValidHelpArticle("unknown-slug"), false);
+  assert.equal(normalizeHelpArticle("expiry-reminder"), "expiry-reminder");
+  assert.equal(normalizeHelpArticle(["expiry-reminder", "other"]), "expiry-reminder");
+  assert.equal(normalizeHelpArticle("unknown-slug"), null);
 });
