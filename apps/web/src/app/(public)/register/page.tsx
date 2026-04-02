@@ -1,5 +1,11 @@
 import Link from "next/link";
 
+import { Card, CardBody, CardDescription, CardFooter, CardHeader, CardTitle } from "../../../components/ui/card";
+import { Chip } from "../../../components/ui/chip";
+import { Button, ButtonRow, Field, FormStack, Input } from "../../../components/ui/form";
+import { StatusBanner } from "../../../components/ui/status-banner";
+import { Tabs } from "../../../components/ui/tabs";
+import { getPublicAuthSnapshot } from "../../../lib/api/server";
 import { firstValue, safeRedirectTarget } from "../../../lib/auth";
 
 type RegisterPageProps = {
@@ -11,46 +17,60 @@ type RegisterPageProps = {
 };
 
 export default async function RegisterPage({ searchParams }: RegisterPageProps) {
+  const snapshot = await getPublicAuthSnapshot("register");
   const params = (await searchParams) ?? {};
   const email = firstValue(params.email) ?? "";
   const error = firstValue(params.error);
   const next = safeRedirectTarget(firstValue(params.next), "/app/dashboard");
 
   return (
-    <main>
-      <h1>Register</h1>
-      <p>Create your account and verify your email.</p>
-      {error ? <p role="alert">{error}</p> : null}
-      <form action="/api/auth/register" method="post">
-        <input type="hidden" name="next" value={next} />
-        <p>
-          <label>
-            Email
-            <input
-              autoComplete="email"
-              defaultValue={email}
-              name="email"
-              required
-              type="email"
-            />
-          </label>
-        </p>
-        <p>
-          <label>
-            Password
-            <input
-              autoComplete="new-password"
-              name="password"
-              required
-              type="password"
-            />
-          </label>
-        </p>
-        <button type="submit">Create account</button>
-      </form>
-      <p>
-        Already registered? <Link href="/login">Login</Link>
-      </p>
-    </main>
+    <>
+      <Tabs
+        activeHref="/register"
+        items={[
+          { href: "/login", label: "Login" },
+          { href: "/register", label: "Register" },
+        ]}
+        label="Authentication pages"
+      />
+      {error ? (
+        <StatusBanner description={error} title="Registration failed" tone="danger" />
+      ) : (
+        <StatusBanner description={snapshot.notice.description} title={snapshot.notice.title} tone={snapshot.notice.tone} />
+      )}
+      <Card tone="accent">
+        <CardHeader>
+          <CardTitle>{snapshot.title}</CardTitle>
+          <CardDescription>{snapshot.description}</CardDescription>
+        </CardHeader>
+        <CardBody>
+          <FormStack action="/api/auth/register" method="post">
+            <input name="next" type="hidden" value={next} />
+            <Field hint="Email verification is required before sign-in is allowed." label="Email">
+              <Input autoComplete="email" defaultValue={email} name="email" required type="email" />
+            </Field>
+            <Field hint="Use a unique password before enabling TOTP in the security center." label="Password">
+              <Input autoComplete="new-password" name="password" required type="password" />
+            </Field>
+            <div className="chip-row">
+              {snapshot.checklist.map((item) => (
+                <Chip key={item} tone="warning">
+                  {item}
+                </Chip>
+              ))}
+            </div>
+            <ButtonRow>
+              <Button type="submit">{snapshot.submitLabel}</Button>
+              <Link className="button button--ghost" href="/help/expiry-reminder">
+                Billing help
+              </Link>
+            </ButtonRow>
+          </FormStack>
+        </CardBody>
+        <CardFooter>
+          <Link href={snapshot.alternateHref}>{snapshot.alternateLabel}</Link>
+        </CardFooter>
+      </Card>
+    </>
   );
 }
