@@ -42,6 +42,40 @@ pub struct UserExchangeSymbolRecord {
     pub synced_at: DateTime<Utc>,
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct AccountProfitSnapshotRecord {
+    pub user_email: String,
+    pub exchange: String,
+    pub realized_pnl: String,
+    pub unrealized_pnl: String,
+    pub fees: String,
+    pub funding: Option<String>,
+    pub captured_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ExchangeWalletSnapshotRecord {
+    pub user_email: String,
+    pub exchange: String,
+    pub wallet_type: String,
+    pub balances: Value,
+    pub captured_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ExchangeTradeHistoryRecord {
+    pub trade_id: String,
+    pub user_email: String,
+    pub exchange: String,
+    pub symbol: String,
+    pub side: String,
+    pub quantity: String,
+    pub price: String,
+    pub fee_amount: Option<String>,
+    pub fee_asset: Option<String>,
+    pub traded_at: DateTime<Utc>,
+}
+
 #[derive(Clone)]
 pub struct ExchangeRepository {
     pool: PgPool,
@@ -211,6 +245,146 @@ impl ExchangeRepository {
 
         rows.into_iter().map(map_account_row).collect()
     }
+
+    pub async fn insert_account_profit_snapshot(
+        &self,
+        record: &AccountProfitSnapshotRecord,
+    ) -> Result<(), SharedDbError> {
+        sqlx::query(
+            "INSERT INTO account_profit_snapshots (
+                user_email,
+                exchange,
+                realized_pnl,
+                unrealized_pnl,
+                fees,
+                funding,
+                captured_at
+             ) VALUES ($1, $2, $3, $4, $5, $6, $7)",
+        )
+        .bind(&record.user_email)
+        .bind(&record.exchange)
+        .bind(&record.realized_pnl)
+        .bind(&record.unrealized_pnl)
+        .bind(&record.fees)
+        .bind(&record.funding)
+        .bind(record.captured_at)
+        .execute(&self.pool)
+        .await
+        .map_err(SharedDbError::from)?;
+        Ok(())
+    }
+
+    pub async fn list_account_profit_snapshots(
+        &self,
+        user_email: &str,
+    ) -> Result<Vec<AccountProfitSnapshotRecord>, SharedDbError> {
+        let rows = sqlx::query(
+            "SELECT user_email, exchange, realized_pnl, unrealized_pnl, fees, funding, captured_at
+             FROM account_profit_snapshots
+             WHERE lower(user_email) = lower($1)
+             ORDER BY captured_at ASC",
+        )
+        .bind(user_email)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(SharedDbError::from)?;
+
+        rows.into_iter().map(map_account_profit_snapshot_row).collect()
+    }
+
+    pub async fn insert_wallet_snapshot(
+        &self,
+        record: &ExchangeWalletSnapshotRecord,
+    ) -> Result<(), SharedDbError> {
+        sqlx::query(
+            "INSERT INTO exchange_wallet_snapshots (
+                user_email,
+                exchange,
+                wallet_type,
+                balances,
+                captured_at
+             ) VALUES ($1, $2, $3, $4, $5)",
+        )
+        .bind(&record.user_email)
+        .bind(&record.exchange)
+        .bind(&record.wallet_type)
+        .bind(&record.balances)
+        .bind(record.captured_at)
+        .execute(&self.pool)
+        .await
+        .map_err(SharedDbError::from)?;
+        Ok(())
+    }
+
+    pub async fn list_wallet_snapshots(
+        &self,
+        user_email: &str,
+    ) -> Result<Vec<ExchangeWalletSnapshotRecord>, SharedDbError> {
+        let rows = sqlx::query(
+            "SELECT user_email, exchange, wallet_type, balances, captured_at
+             FROM exchange_wallet_snapshots
+             WHERE lower(user_email) = lower($1)
+             ORDER BY captured_at ASC",
+        )
+        .bind(user_email)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(SharedDbError::from)?;
+
+        rows.into_iter().map(map_wallet_snapshot_row).collect()
+    }
+
+    pub async fn insert_trade_history(
+        &self,
+        record: &ExchangeTradeHistoryRecord,
+    ) -> Result<(), SharedDbError> {
+        sqlx::query(
+            "INSERT INTO exchange_account_trade_history (
+                trade_id,
+                user_email,
+                exchange,
+                symbol,
+                side,
+                quantity,
+                price,
+                fee_amount,
+                fee_asset,
+                traded_at
+             ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)",
+        )
+        .bind(&record.trade_id)
+        .bind(&record.user_email)
+        .bind(&record.exchange)
+        .bind(&record.symbol)
+        .bind(&record.side)
+        .bind(&record.quantity)
+        .bind(&record.price)
+        .bind(&record.fee_amount)
+        .bind(&record.fee_asset)
+        .bind(record.traded_at)
+        .execute(&self.pool)
+        .await
+        .map_err(SharedDbError::from)?;
+        Ok(())
+    }
+
+    pub async fn list_trade_history(
+        &self,
+        user_email: &str,
+    ) -> Result<Vec<ExchangeTradeHistoryRecord>, SharedDbError> {
+        let rows = sqlx::query(
+            "SELECT trade_id, user_email, exchange, symbol, side, quantity, price, fee_amount, fee_asset, traded_at
+             FROM exchange_account_trade_history
+             WHERE lower(user_email) = lower($1)
+             ORDER BY traded_at ASC, trade_id ASC",
+        )
+        .bind(user_email)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(SharedDbError::from)?;
+
+        rows.into_iter().map(map_trade_history_row).collect()
+    }
 }
 
 async fn upsert_account_in(
@@ -363,6 +537,49 @@ fn map_credential_row(
         encrypted_secret: row
             .try_get("encrypted_secret")
             .map_err(SharedDbError::from)?,
+    })
+}
+
+fn map_account_profit_snapshot_row(
+    row: sqlx::postgres::PgRow,
+) -> Result<AccountProfitSnapshotRecord, SharedDbError> {
+    Ok(AccountProfitSnapshotRecord {
+        user_email: row.try_get("user_email").map_err(SharedDbError::from)?,
+        exchange: row.try_get("exchange").map_err(SharedDbError::from)?,
+        realized_pnl: row.try_get("realized_pnl").map_err(SharedDbError::from)?,
+        unrealized_pnl: row.try_get("unrealized_pnl").map_err(SharedDbError::from)?,
+        fees: row.try_get("fees").map_err(SharedDbError::from)?,
+        funding: row.try_get("funding").map_err(SharedDbError::from)?,
+        captured_at: row.try_get("captured_at").map_err(SharedDbError::from)?,
+    })
+}
+
+fn map_wallet_snapshot_row(
+    row: sqlx::postgres::PgRow,
+) -> Result<ExchangeWalletSnapshotRecord, SharedDbError> {
+    Ok(ExchangeWalletSnapshotRecord {
+        user_email: row.try_get("user_email").map_err(SharedDbError::from)?,
+        exchange: row.try_get("exchange").map_err(SharedDbError::from)?,
+        wallet_type: row.try_get("wallet_type").map_err(SharedDbError::from)?,
+        balances: row.try_get("balances").map_err(SharedDbError::from)?,
+        captured_at: row.try_get("captured_at").map_err(SharedDbError::from)?,
+    })
+}
+
+fn map_trade_history_row(
+    row: sqlx::postgres::PgRow,
+) -> Result<ExchangeTradeHistoryRecord, SharedDbError> {
+    Ok(ExchangeTradeHistoryRecord {
+        trade_id: row.try_get("trade_id").map_err(SharedDbError::from)?,
+        user_email: row.try_get("user_email").map_err(SharedDbError::from)?,
+        exchange: row.try_get("exchange").map_err(SharedDbError::from)?,
+        symbol: row.try_get("symbol").map_err(SharedDbError::from)?,
+        side: row.try_get("side").map_err(SharedDbError::from)?,
+        quantity: row.try_get("quantity").map_err(SharedDbError::from)?,
+        price: row.try_get("price").map_err(SharedDbError::from)?,
+        fee_amount: row.try_get("fee_amount").map_err(SharedDbError::from)?,
+        fee_asset: row.try_get("fee_asset").map_err(SharedDbError::from)?,
+        traded_at: row.try_get("traded_at").map_err(SharedDbError::from)?,
     })
 }
 

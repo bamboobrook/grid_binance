@@ -9,9 +9,10 @@ use crate::{
     routes::auth_guard::{require_session_email, require_user_session},
     services::auth_service::{AuthError, AuthService},
     services::telegram_service::{
-        BindTelegramRequest, BindTelegramResponse, CreateTelegramBindCodeRequest,
-        CreateTelegramBindCodeResponse, DispatchNotificationRequest, NotificationInboxQuery,
-        NotificationInboxResponse, TelegramService,
+        BindTelegramRequest, BindTelegramResponse, BotBindTelegramRequest,
+        CreateTelegramBindCodeRequest, CreateTelegramBindCodeResponse,
+        DispatchNotificationRequest, NotificationInboxQuery, NotificationInboxResponse,
+        TelegramService,
     },
     AppState,
 };
@@ -21,6 +22,7 @@ pub fn router() -> Router<AppState> {
     Router::new()
         .route("/telegram/bind-codes", post(create_bind_code))
         .route("/telegram/bind", post(bind_telegram))
+        .route("/telegram/bot/bind", post(bind_telegram_from_bot))
         .route("/notifications/dispatch", post(dispatch_notification))
         .route("/notifications", get(list_notifications))
 }
@@ -49,8 +51,17 @@ async fn bind_telegram(
     if let Some(owner) = service.bind_code_owner(&request.code) {
         require_session_email(&session, &owner)?;
     }
+    Ok(Json(service.bind_telegram(request).map_err(AuthError::from)?))
+}
+
+async fn bind_telegram_from_bot(
+    State(service): State<TelegramService>,
+    Json(request): Json<BotBindTelegramRequest>,
+) -> Result<Json<BindTelegramResponse>, AuthError> {
     Ok(Json(
-        service.bind_telegram(request).map_err(AuthError::from)?,
+        service
+            .bind_telegram_from_bot(request)
+            .map_err(AuthError::from)?,
     ))
 }
 
@@ -77,7 +88,5 @@ async fn list_notifications(
 ) -> Result<Json<NotificationInboxResponse>, AuthError> {
     let session = require_user_session(&auth, &headers)?;
     require_session_email(&session, &query.email)?;
-    Ok(Json(
-        service.list_notifications(query).map_err(AuthError::from)?,
-    ))
+    Ok(Json(service.list_notifications(query).map_err(AuthError::from)?))
 }

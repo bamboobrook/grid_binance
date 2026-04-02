@@ -28,10 +28,12 @@ pub use crate::postgres::billing::{
     SweepTransferRecord,
 };
 pub use crate::postgres::exchange::{
+    AccountProfitSnapshotRecord, ExchangeTradeHistoryRecord, ExchangeWalletSnapshotRecord,
     UserExchangeAccountRecord, UserExchangeCredentialRecord, UserExchangeSymbolRecord,
 };
 pub use crate::postgres::identity::{AuthUserRecord, TelegramBindingRecord};
 pub use crate::postgres::notification::NotificationLogRecord;
+pub use crate::postgres::strategy::StrategyProfitSnapshotRecord;
 
 #[derive(Clone)]
 pub struct SharedDb {
@@ -66,6 +68,10 @@ struct EphemeralState {
     exchange_accounts: HashMap<(String, String), UserExchangeAccountRecord>,
     exchange_credentials: HashMap<(String, String), UserExchangeCredentialRecord>,
     exchange_symbols: BTreeMap<(String, String, String, String), UserExchangeSymbolRecord>,
+    account_profit_snapshots: Vec<AccountProfitSnapshotRecord>,
+    exchange_wallet_snapshots: Vec<ExchangeWalletSnapshotRecord>,
+    exchange_trade_history: Vec<ExchangeTradeHistoryRecord>,
+    strategy_profit_snapshots: Vec<StrategyProfitSnapshotRecord>,
     strategies: BTreeMap<u64, Strategy>,
     templates: BTreeMap<u64, StrategyTemplate>,
 }
@@ -391,6 +397,114 @@ impl SharedDb {
                 .exchange_accounts
                 .values()
                 .filter(|record| record.exchange == exchange && record.is_active)
+                .cloned()
+                .collect()),
+        }
+    }
+
+    pub fn insert_account_profit_snapshot(
+        &self,
+        record: &AccountProfitSnapshotRecord,
+    ) -> Result<(), SharedDbError> {
+        match &self.backend {
+            SharedDbBackend::Runtime { .. } => {
+                let repo = self.exchange_repo();
+                let record = record.clone();
+                Self::block_on(async move { repo.insert_account_profit_snapshot(&record).await })
+            }
+            SharedDbBackend::Ephemeral(state) => {
+                lock_ephemeral(state)?.account_profit_snapshots.push(record.clone());
+                Ok(())
+            }
+        }
+    }
+
+    pub fn list_account_profit_snapshots(
+        &self,
+        user_email: &str,
+    ) -> Result<Vec<AccountProfitSnapshotRecord>, SharedDbError> {
+        match &self.backend {
+            SharedDbBackend::Runtime { .. } => {
+                let repo = self.exchange_repo();
+                let user_email = user_email.to_owned();
+                Self::block_on(async move { repo.list_account_profit_snapshots(&user_email).await })
+            }
+            SharedDbBackend::Ephemeral(state) => Ok(lock_ephemeral(state)?
+                .account_profit_snapshots
+                .iter()
+                .filter(|record| record.user_email.eq_ignore_ascii_case(user_email))
+                .cloned()
+                .collect()),
+        }
+    }
+
+    pub fn insert_exchange_wallet_snapshot(
+        &self,
+        record: &ExchangeWalletSnapshotRecord,
+    ) -> Result<(), SharedDbError> {
+        match &self.backend {
+            SharedDbBackend::Runtime { .. } => {
+                let repo = self.exchange_repo();
+                let record = record.clone();
+                Self::block_on(async move { repo.insert_wallet_snapshot(&record).await })
+            }
+            SharedDbBackend::Ephemeral(state) => {
+                lock_ephemeral(state)?.exchange_wallet_snapshots.push(record.clone());
+                Ok(())
+            }
+        }
+    }
+
+    pub fn list_exchange_wallet_snapshots(
+        &self,
+        user_email: &str,
+    ) -> Result<Vec<ExchangeWalletSnapshotRecord>, SharedDbError> {
+        match &self.backend {
+            SharedDbBackend::Runtime { .. } => {
+                let repo = self.exchange_repo();
+                let user_email = user_email.to_owned();
+                Self::block_on(async move { repo.list_wallet_snapshots(&user_email).await })
+            }
+            SharedDbBackend::Ephemeral(state) => Ok(lock_ephemeral(state)?
+                .exchange_wallet_snapshots
+                .iter()
+                .filter(|record| record.user_email.eq_ignore_ascii_case(user_email))
+                .cloned()
+                .collect()),
+        }
+    }
+
+    pub fn insert_exchange_trade_history(
+        &self,
+        record: &ExchangeTradeHistoryRecord,
+    ) -> Result<(), SharedDbError> {
+        match &self.backend {
+            SharedDbBackend::Runtime { .. } => {
+                let repo = self.exchange_repo();
+                let record = record.clone();
+                Self::block_on(async move { repo.insert_trade_history(&record).await })
+            }
+            SharedDbBackend::Ephemeral(state) => {
+                lock_ephemeral(state)?.exchange_trade_history.push(record.clone());
+                Ok(())
+            }
+        }
+    }
+
+    pub fn list_exchange_trade_history(
+        &self,
+        user_email: &str,
+    ) -> Result<Vec<ExchangeTradeHistoryRecord>, SharedDbError> {
+        match &self.backend {
+            SharedDbBackend::Runtime { .. } => {
+                let repo = self.exchange_repo();
+                let user_email = user_email.to_owned();
+                Self::block_on(async move { repo.list_trade_history(&user_email).await })
+            }
+            SharedDbBackend::Ephemeral(state) => Ok(lock_ephemeral(state)?
+                .exchange_trade_history
+                .iter()
+                .filter(|record| record.user_email.eq_ignore_ascii_case(user_email))
                 .cloned()
                 .collect()),
         }
@@ -1407,6 +1521,51 @@ impl SharedDb {
                 };
                 *stored = strategy.clone();
                 Ok(1)
+            }
+        }
+    }
+
+    pub fn insert_strategy_profit_snapshot(
+        &self,
+        record: &StrategyProfitSnapshotRecord,
+    ) -> Result<(), SharedDbError> {
+        match &self.backend {
+            SharedDbBackend::Runtime { .. } => {
+                let repo = self.strategy_repo();
+                let record = record.clone();
+                Self::block_on(async move { repo.insert_profit_snapshot(&record).await })
+            }
+            SharedDbBackend::Ephemeral(state) => {
+                lock_ephemeral(state)?.strategy_profit_snapshots.push(record.clone());
+                Ok(())
+            }
+        }
+    }
+
+    pub fn list_strategy_profit_snapshots(
+        &self,
+        owner_email: &str,
+    ) -> Result<Vec<StrategyProfitSnapshotRecord>, SharedDbError> {
+        match &self.backend {
+            SharedDbBackend::Runtime { .. } => {
+                let repo = self.strategy_repo();
+                let owner_email = owner_email.to_owned();
+                Self::block_on(async move { repo.list_profit_snapshots(&owner_email).await })
+            }
+            SharedDbBackend::Ephemeral(state) => {
+                let state = lock_ephemeral(state)?;
+                let strategy_ids = state
+                    .strategies
+                    .values()
+                    .filter(|strategy| strategy.owner_email.eq_ignore_ascii_case(owner_email))
+                    .map(|strategy| strategy.id.clone())
+                    .collect::<std::collections::HashSet<_>>();
+                Ok(state
+                    .strategy_profit_snapshots
+                    .iter()
+                    .filter(|record| strategy_ids.contains(&record.strategy_id))
+                    .cloned()
+                    .collect())
             }
         }
     }

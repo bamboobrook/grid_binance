@@ -2,8 +2,8 @@ use std::collections::BTreeMap;
 
 use rust_decimal::Decimal;
 use shared_domain::analytics::{
-    AnalyticsReport, CostAggregation, FillProfitView, StrategyProfitSummary, TradeFillInput,
-    UserAggregate,
+    AccountSnapshotView, AnalyticsReport, CostAggregation, FillProfitView, StrategyProfitSummary,
+    StrategySnapshotView, TradeFillInput, UserAggregate, WalletSnapshotView,
 };
 
 pub fn compute_fill_views(fills: &[TradeFillInput]) -> Vec<FillProfitView> {
@@ -20,6 +20,12 @@ pub fn compute_strategy_summaries(fills: &[FillProfitView]) -> Vec<StrategyProfi
                 strategy_id: fill.strategy_id.clone(),
                 user_id: fill.user_id.clone(),
                 symbol: fill.symbol.clone(),
+                current_state: "Unknown".to_string(),
+                fill_count: 0,
+                order_count: 0,
+                cost_basis: Decimal::ZERO,
+                position_quantity: Decimal::ZERO,
+                average_entry_price: Decimal::ZERO,
                 realized_pnl: Decimal::ZERO,
                 unrealized_pnl: Decimal::ZERO,
                 fees_paid: Decimal::ZERO,
@@ -27,6 +33,7 @@ pub fn compute_strategy_summaries(fills: &[FillProfitView]) -> Vec<StrategyProfi
                 net_pnl: Decimal::ZERO,
             });
 
+        entry.fill_count += 1;
         entry.realized_pnl += fill.realized_pnl;
         entry.fees_paid += fill.fee;
         entry.funding_total += fill.funding;
@@ -38,11 +45,7 @@ pub fn compute_strategy_summaries(fills: &[FillProfitView]) -> Vec<StrategyProfi
 
 pub fn compute_user_aggregate(fills: &[FillProfitView]) -> UserAggregate {
     let user_id = match fills.first() {
-        Some(fill)
-            if fills
-                .iter()
-                .all(|candidate| candidate.user_id == fill.user_id) =>
-        {
+        Some(fill) if fills.iter().all(|candidate| candidate.user_id == fill.user_id) => {
             fill.user_id.clone()
         }
         Some(_) => "all-users".to_string(),
@@ -56,6 +59,8 @@ pub fn compute_user_aggregate(fills: &[FillProfitView]) -> UserAggregate {
         fees_paid: Decimal::ZERO,
         funding_total: Decimal::ZERO,
         net_pnl: Decimal::ZERO,
+        wallet_asset_count: 0,
+        exchange_trade_count: 0,
     };
 
     for fill in fills {
@@ -93,6 +98,9 @@ pub fn compute_analytics_report(fills: &[TradeFillInput]) -> AnalyticsReport {
         strategies,
         user,
         costs,
+        strategy_snapshots: Vec::<StrategySnapshotView>::new(),
+        account_snapshots: Vec::<AccountSnapshotView>::new(),
+        wallets: Vec::<WalletSnapshotView>::new(),
     }
 }
 

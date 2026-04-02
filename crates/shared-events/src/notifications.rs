@@ -1,3 +1,5 @@
+use std::collections::BTreeMap;
+
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -7,6 +9,11 @@ pub enum NotificationKind {
     MembershipExpiring,
     DepositConfirmed,
     RuntimeError,
+    ApiCredentialsInvalidated,
+    GridFillExecuted,
+    FillProfitReported,
+    OverallTakeProfitTriggered,
+    OverallStopLossTriggered,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -15,6 +22,8 @@ pub struct NotificationEvent {
     pub kind: NotificationKind,
     pub title: String,
     pub message: String,
+    #[serde(default)]
+    pub payload: BTreeMap<String, String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

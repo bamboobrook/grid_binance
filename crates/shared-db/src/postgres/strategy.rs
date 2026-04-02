@@ -26,6 +26,15 @@ pub struct StrategyEventRecord {
     pub created_at: DateTime<Utc>,
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct StrategyProfitSnapshotRecord {
+    pub strategy_id: String,
+    pub realized_pnl: String,
+    pub unrealized_pnl: String,
+    pub fees: String,
+    pub captured_at: DateTime<Utc>,
+}
+
 #[derive(Clone)]
 pub struct StrategyRepository {
     pool: PgPool,
@@ -287,6 +296,61 @@ impl StrategyRepository {
         .map_err(SharedDbError::from)?;
         Ok(())
     }
+
+    pub async fn insert_profit_snapshot(
+        &self,
+        record: &StrategyProfitSnapshotRecord,
+    ) -> Result<(), SharedDbError> {
+        sqlx::query(
+            "INSERT INTO strategy_profit_snapshots (
+                strategy_id,
+                realized_pnl,
+                unrealized_pnl,
+                fees,
+                captured_at
+             ) VALUES ($1, $2, $3, $4, $5)",
+        )
+        .bind(&record.strategy_id)
+        .bind(&record.realized_pnl)
+        .bind(&record.unrealized_pnl)
+        .bind(&record.fees)
+        .bind(record.captured_at)
+        .execute(&self.pool)
+        .await
+        .map_err(SharedDbError::from)?;
+        Ok(())
+    }
+
+    pub async fn list_profit_snapshots(
+        &self,
+        owner_email: &str,
+    ) -> Result<Vec<StrategyProfitSnapshotRecord>, SharedDbError> {
+        let rows = sqlx::query(
+            "SELECT sps.strategy_id, sps.realized_pnl, sps.unrealized_pnl, sps.fees, sps.captured_at
+             FROM strategy_profit_snapshots sps
+             JOIN strategies s ON s.id = sps.strategy_id
+             WHERE lower(s.owner_email) = lower($1)
+             ORDER BY sps.captured_at ASC, sps.strategy_id ASC",
+        )
+        .bind(owner_email)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(SharedDbError::from)?;
+
+        rows.into_iter().map(map_profit_snapshot_row).collect()
+    }
+}
+
+fn map_profit_snapshot_row(
+    row: sqlx::postgres::PgRow,
+) -> Result<StrategyProfitSnapshotRecord, SharedDbError> {
+    Ok(StrategyProfitSnapshotRecord {
+        strategy_id: row.try_get("strategy_id").map_err(SharedDbError::from)?,
+        realized_pnl: row.try_get("realized_pnl").map_err(SharedDbError::from)?,
+        unrealized_pnl: row.try_get("unrealized_pnl").map_err(SharedDbError::from)?,
+        fees: row.try_get("fees").map_err(SharedDbError::from)?,
+        captured_at: row.try_get("captured_at").map_err(SharedDbError::from)?,
+    })
 }
 
 async fn strategy_from_row(pool: &PgPool, row: sqlx::postgres::PgRow) -> Result<Strategy, SharedDbError> {

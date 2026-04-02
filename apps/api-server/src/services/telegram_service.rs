@@ -11,6 +11,7 @@ use axum::{
 use chrono::{DateTime, Duration, Utc};
 use getrandom::getrandom;
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use shared_db::{NotificationLogRecord, SharedDb, TelegramBindingRecord};
 use shared_events::{NotificationEvent, NotificationKind, NotificationRecord};
 
@@ -62,10 +63,20 @@ pub struct BindTelegramRequest {
     pub chat_id: String,
 }
 
+#[derive(Debug, Deserialize)]
+pub struct BotBindTelegramRequest {
+    pub code: String,
+    pub telegram_user_id: String,
+    pub chat_id: String,
+    pub username: Option<String>,
+}
+
 #[derive(Debug, Serialize)]
 pub struct BindTelegramResponse {
     pub email: String,
     pub chat_id: String,
+    pub telegram_user_id: String,
+    pub username: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -74,6 +85,8 @@ pub struct DispatchNotificationRequest {
     pub kind: NotificationKind,
     pub title: String,
     pub message: String,
+    #[serde(default)]
+    pub payload: Value,
 }
 
 #[derive(Debug, Deserialize)]
@@ -153,10 +166,25 @@ impl TelegramService {
         &self,
         request: BindTelegramRequest,
     ) -> Result<BindTelegramResponse, TelegramError> {
+        self.bind_telegram_from_bot(BotBindTelegramRequest {
+            code: request.code,
+            telegram_user_id: request.chat_id.clone(),
+            chat_id: request.chat_id,
+            username: None,
+        })
+    }
+
+    pub fn bind_telegram_from_bot(
+        &self,
+        request: BotBindTelegramRequest,
+    ) -> Result<BindTelegramResponse, TelegramError> {
         let code = request.code.trim();
+        let telegram_user_id = request.telegram_user_id.trim();
         let chat_id = request.chat_id.trim();
-        if code.is_empty() || chat_id.is_empty() {
-            return Err(TelegramError::bad_request("code and chat_id are required"));
+        if code.is_empty() || telegram_user_id.is_empty() || chat_id.is_empty() {
+            return Err(TelegramError::bad_request(
+                "code, telegram_user_id, and chat_id are required",
+            ));
         }
 
         let mut inner = self.inner.lock().expect("telegram state poisoned");
@@ -183,7 +211,7 @@ impl TelegramService {
         self.db
             .upsert_telegram_binding(&TelegramBindingRecord {
                 user_email: bind_code.email.clone(),
-                telegram_user_id: chat_id.to_owned(),
+                telegram_user_id: telegram_user_id.to_owned(),
                 telegram_chat_id: chat_id.to_owned(),
                 bound_at: Utc::now(),
             })
@@ -192,6 +220,8 @@ impl TelegramService {
         Ok(BindTelegramResponse {
             email: bind_code.email,
             chat_id: chat_id.to_owned(),
+            telegram_user_id: telegram_user_id.to_owned(),
+            username: request.username.map(|value| value.trim().to_owned()),
         })
     }
 
@@ -222,6 +252,7 @@ impl TelegramService {
                 kind: request.kind,
                 title: title.clone(),
                 message: message.clone(),
+                payload: json_value_to_payload_map(request.payload),
             },
             telegram_delivered,
             in_app_delivered: true,
@@ -293,8 +324,7 @@ impl TelegramError {
         }
     }
 
-    fn storage(error: shared_db::SharedDbError) -> Self {
-        let _ = error;
+    fn storage(_error: shared_db::SharedDbError) -> Self {
         Self {
             status: StatusCode::INTERNAL_SERVER_ERROR,
             message: "internal storage error".to_string(),
@@ -313,9 +343,7 @@ impl IntoResponse for TelegramError {
     fn into_response(self) -> Response {
         (
             self.status,
-            Json(TelegramErrorResponse {
-                error: self.message,
-            }),
+            Json(TelegramErrorResponse { error: self.message }),
         )
             .into_response()
     }
@@ -365,6 +393,11 @@ fn notification_kind_key(kind: &NotificationKind) -> &'static str {
         NotificationKind::MembershipExpiring => "MembershipExpiring",
         NotificationKind::DepositConfirmed => "DepositConfirmed",
         NotificationKind::RuntimeError => "RuntimeError",
+        NotificationKind::ApiCredentialsInvalidated => "ApiCredentialsInvalidated",
+        NotificationKind::GridFillExecuted => "GridFillExecuted",
+        NotificationKind::FillProfitReported => "FillProfitReported",
+        NotificationKind::OverallTakeProfitTriggered => "OverallTakeProfitTriggered",
+        NotificationKind::OverallStopLossTriggered => "OverallStopLossTriggered",
     }
 }
 
@@ -382,5 +415,30 @@ fn nibble_to_hex(value: u8) -> char {
         0..=9 => (b'0' + value) as char,
         10..=15 => (b'a' + (value - 10)) as char,
         _ => unreachable!("nibble value out of range"),
+    }
+}
+
+fn json_value_to_payload_map(value: Value) -> std::collections::BTreeMap<String, String> {
+    match value {
+        Value::Object(map) => map
+            .into_iter()
+            .map(|(key, value)| (key, json_scalar_to_string(value)))
+            .collect(),
+        _ => std::collections::BTreeMap::new(),
+    }
+}
+
+fn json_scalar_to_string(value: Value) -> String {
+    match value {
+        Value::Null => String::new(),
+        Value::Bool(value) => value.to_string(),
+        Value::Number(value) => value.to_string(),
+        Value::String(value) => value,
+        Value::Array(values) => values
+            .into_iter()
+            .map(json_scalar_to_string)
+            .collect::<Vec<_>>()
+            .join(","),
+        Value::Object(_) => value.to_string(),
     }
 }
