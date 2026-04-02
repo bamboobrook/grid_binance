@@ -4,6 +4,7 @@ use axum::{
     Json,
 };
 use chrono::Utc;
+use serde_json::json;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use shared_db::{SharedDb, StoredStrategy, StoredStrategyTemplate};
@@ -14,7 +15,7 @@ use shared_domain::strategy::{
     StrategyRuntimePosition, StrategyStatus, StrategyTemplate,
 };
 
-use crate::services::auth_service::AuthError;
+use crate::services::auth_service::{AdminRole, AuthError};
 
 #[derive(Clone)]
 pub struct StrategyService {
@@ -427,6 +428,8 @@ impl StrategyService {
 
     pub fn create_template(
         &self,
+        actor_email: &str,
+        admin_role: Option<AdminRole>,
         request: CreateTemplateRequest,
     ) -> Result<StrategyTemplate, StrategyError> {
         validate_strategy_request(&request.strategy)?;
@@ -451,6 +454,24 @@ impl StrategyService {
                 template: template.clone(),
             })
             .map_err(StrategyError::storage)?;
+        let _ = self.db.insert_audit_log(&shared_db::AuditLogRecord {
+            actor_email: actor_email.to_owned(),
+            action: "strategy.template_created".to_owned(),
+            target_type: "strategy_template".to_owned(),
+            target_id: template.id.clone(),
+            payload: json!({
+                "template_name": template.name,
+                "symbol": template.symbol,
+                "budget": template.budget,
+                "grid_spacing_bps": template.grid_spacing_bps,
+                "membership_ready": template.membership_ready,
+                "exchange_ready": template.exchange_ready,
+                "symbol_ready": template.symbol_ready,
+                "session_role": admin_role.map(|role| role.as_str()),
+                "after_summary": format!("{} {} spacing {}bps", template.name, template.symbol, template.grid_spacing_bps),
+            }),
+            created_at: Utc::now(),
+        });
         Ok(template)
     }
 

@@ -6,8 +6,21 @@ import type { AdminShellSnapshot } from "./mock-data";
 
 const DEFAULT_AUTH_API_BASE_URL = "http://127.0.0.1:8080";
 
+export type AdminRole = "super_admin" | "operator_admin";
+
+export type AdminPermissions = {
+  can_manage_address_pools: boolean;
+  can_manage_memberships: boolean;
+  can_manage_plans: boolean;
+  can_manage_sweeps: boolean;
+  can_manage_system: boolean;
+  can_manage_templates: boolean;
+};
+
 export type AdminProfile = {
   admin_access_granted: boolean;
+  admin_permissions: AdminPermissions | null;
+  admin_role: AdminRole | null;
   admin_totp_required: boolean;
   email: string;
   totp_enabled: boolean;
@@ -23,6 +36,18 @@ export type AdminMembershipRecord = {
 
 export type AdminMembershipList = {
   items: AdminMembershipRecord[];
+};
+
+export type AdminMembershipPlan = {
+  code: string;
+  duration_days: number;
+  is_active: boolean;
+  name: string;
+  prices: Array<{ amount: string; asset: string; chain: string }>;
+};
+
+export type AdminMembershipPlans = {
+  plans: AdminMembershipPlan[];
 };
 
 export type AdminUserRecord = {
@@ -84,11 +109,26 @@ export type AdminTemplateList = {
 
 export type AdminStrategyList = {
   items: Array<{
+    active_revision: {
+      revision_id: string;
+      version: number;
+    } | null;
+    draft_revision: {
+      revision_id: string;
+      version: number;
+    };
     id: string;
     market: string;
+    owner_email: string;
     mode: string;
     name: string;
-    owner_email: string;
+    runtime: {
+      events: Array<{ created_at: string; detail: string; event_type: string }>;
+      fills: Array<{ fee_amount: string | null; fill_id: string; fill_type: string; realized_pnl: string | null }>;
+      last_preflight: { ok: boolean; steps: Array<{ status: string; step: string }> } | null;
+      orders: Array<{ order_id: string; side: string; status: string }>;
+      positions: Array<{ average_entry_price: string; quantity: string }>;
+    };
     status: string;
     symbol: string;
   }>;
@@ -135,6 +175,10 @@ export async function getAdminMembershipsData() {
   return fetchAdminJson<AdminMembershipList>("/admin/memberships");
 }
 
+export async function getAdminMembershipPlansData() {
+  return fetchAdminJson<AdminMembershipPlans>("/admin/memberships/plans");
+}
+
 export async function getAdminDepositsData() {
   return fetchAdminJson<AdminDepositsResponse>(`/admin/deposits?at=${encodeURIComponent(new Date().toISOString())}`);
 }
@@ -164,22 +208,24 @@ export async function getAdminSystemData() {
 }
 
 export async function buildAdminShellSnapshot(): Promise<AdminShellSnapshot> {
-  const [profile, memberships, deposits, templates] = await Promise.all([
-    getCurrentAdminProfile(),
+  const profile = await getCurrentAdminProfile();
+  const [memberships, deposits, templates] = await Promise.all([
     getAdminMembershipsData(),
     getAdminDepositsData(),
-    getAdminTemplatesData(),
+    profile.admin_permissions?.can_manage_templates ? getAdminTemplatesData() : Promise.resolve<AdminTemplateList | null>(null),
   ]);
   const openDeposits = deposits.abnormal_deposits.filter((item) => item.status === "manual_review_required").length;
   const membershipsNeedingAction = memberships.items.filter((item) => ["Grace", "Frozen", "Revoked"].includes(item.status)).length;
+  const role = profile.admin_role ?? "operator_admin";
+  const restricted = role === "operator_admin";
 
   return {
     banners: [
       {
         action: { href: "/admin/deposits", label: openDeposits > 0 ? "Review queue" : "View deposits" },
-        description: profile.admin_access_granted
-          ? "TOTP-backed session is active for backend operator workflows."
-          : "Admin access is not currently granted.",
+        description: restricted
+          ? "Operator boundary is active. Pricing, templates, sweeps, and system changes require super_admin."
+          : "Super admin session is active for pricing, treasury, and template operations.",
         title: profile.admin_access_granted ? "Admin access granted" : "Admin access missing",
         tone: profile.admin_access_granted ? "success" : "warning",
       },
@@ -187,9 +233,9 @@ export async function buildAdminShellSnapshot(): Promise<AdminShellSnapshot> {
     brand: "GridBinance Ops",
     description: "Backend-backed admin control plane.",
     identity: {
-      context: `TOTP ${profile.totp_enabled ? "enabled" : "disabled"}. Memberships needing action ${membershipsNeedingAction}.`,
+      context: `TOTP ${profile.totp_enabled ? "enabled" : "disabled"}. Operator boundary ${restricted ? "active" : "lifted"}.`,
       name: profile.email,
-      role: profile.admin_access_granted ? "Admin operator" : "User",
+      role,
     },
     nav: [
       { href: "/admin/dashboard", label: "Dashboard" },
@@ -206,7 +252,7 @@ export async function buildAdminShellSnapshot(): Promise<AdminShellSnapshot> {
     quickStats: [
       { label: "Open deposits", value: String(openDeposits) },
       { label: "Membership risk", value: String(membershipsNeedingAction) },
-      { label: "Templates", value: String(templates.items.length) },
+      { label: "Templates", value: String(templates?.items.length ?? 0) },
     ],
     subtitle: "Admin control plane",
     title: "Administration shell",
@@ -234,6 +280,14 @@ export async function fetchAdminJsonWithToken<T>(sessionToken: string, path: str
   }
 
   return (await response.json()) as T;
+}
+
+async function tryFetchAdminJson<T>(path: string, init?: RequestInit): Promise<T | null> {
+  try {
+    return await fetchAdminJson<T>(path, init);
+  } catch {
+    return null;
+  }
 }
 
 export function authApiBaseUrl() {

@@ -6,7 +6,7 @@ use axum::{
 };
 
 use crate::{
-    routes::auth_guard::{require_admin_session, require_user_session},
+    routes::auth_guard::{require_super_admin_session, require_user_session},
     services::auth_service::AuthService,
     services::strategy_service::{
         ApplyTemplateRequest, CreateTemplateRequest, StrategyError, StrategyService,
@@ -29,7 +29,7 @@ async fn list_templates(
     State(service): State<StrategyService>,
     headers: HeaderMap,
 ) -> Result<Json<TemplateListResponse>, StrategyError> {
-    require_admin_session(&auth, &headers).map_err(StrategyError::from)?;
+    require_super_admin_session(&auth, &headers).map_err(StrategyError::from)?;
     Ok(Json(service.list_templates()))
 }
 
@@ -45,10 +45,10 @@ async fn create_template(
     ),
     StrategyError,
 > {
-    require_admin_session(&auth, &headers).map_err(StrategyError::from)?;
+    let session = require_super_admin_session(&auth, &headers).map_err(StrategyError::from)?;
     Ok((
         axum::http::StatusCode::CREATED,
-        Json(service.create_template(request)?),
+        Json(service.create_template(&session.email, session.admin_role, request)?),
     ))
 }
 

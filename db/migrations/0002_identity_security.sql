@@ -12,6 +12,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email_lower
 
 CREATE TABLE IF NOT EXISTS admin_users (
     email TEXT PRIMARY KEY,
+    role TEXT NOT NULL DEFAULT 'operator_admin' CHECK (role IN ('super_admin', 'operator_admin')),
     totp_required BOOLEAN NOT NULL DEFAULT TRUE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now()

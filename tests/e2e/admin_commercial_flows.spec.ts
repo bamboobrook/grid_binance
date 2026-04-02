@@ -3,21 +3,20 @@ import { expect, test, type APIRequestContext } from "@playwright/test";
 const AUTH_API_BASE_URL = "http://127.0.0.1:18080";
 const ADMIN_EMAIL = "admin@example.com";
 const ADMIN_PASSWORD = "pass1234";
+const SUPER_ADMIN_EMAIL = "super-admin@example.com";
 
 let uniqueCounter = 0;
 
 test.describe("admin commercial", () => {
-  test("operator workflows use backend-backed admin data and required actions", async ({
+  test("operator admin sees restricted commercial controls but can process abnormal orders and runtime review", async ({
     context,
     page,
     request,
   }) => {
-    const adminSessionToken = await createAdminSession(request);
-    const memberEmail = uniqueEmail("member");
+    const adminSessionToken = await createAdminSession(request, ADMIN_EMAIL);
     const creditEmail = uniqueEmail("credit");
     const rejectEmail = uniqueEmail("reject");
     const strategyName = `admin-draft-${Date.now()}`;
-    const extraAddress = `bsc-ops-${Date.now()}`;
 
     const seeded = await seedAdminCommercialData(request, adminSessionToken, {
       creditEmail,
@@ -38,17 +37,100 @@ test.describe("admin commercial", () => {
 
     await page.goto("/admin/dashboard");
     await expect(page.getByRole("heading", { name: "Admin Dashboard" })).toBeVisible();
-    await expect(page.getByText("Admin access granted", { exact: false })).toBeVisible();
-    await expect(page.getByText("super_admin", { exact: false })).not.toBeVisible();
+    await expect(page.getByText("operator_admin", { exact: false })).toBeVisible();
+    await expect(page.getByText("Restricted permission boundary", { exact: false })).toBeVisible();
 
     await page.getByRole("link", { name: "Memberships" }).click();
     await expect(page.getByRole("heading", { name: "Membership Operations" })).toBeVisible();
+    await expect(page.getByText("Plan & pricing management", { exact: false })).toBeVisible();
+    await expect(page.getByText("super_admin required", { exact: false })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Open membership" })).not.toBeVisible();
+
+    await page.getByRole("link", { name: "Deposits" }).click();
+    await expect(page.getByRole("heading", { name: "Abnormal Deposit Handling" })).toBeVisible();
+    await expect(page.getByText(seeded.rejectTxHash, { exact: true })).toBeVisible();
+    await expect(page.getByText(seeded.creditTxHash, { exact: true })).toBeVisible();
+    await expect(page.getByText("Manual credit target order", { exact: false })).toBeVisible();
+    await page.getByRole("button", { name: `Reject ${seeded.rejectTxHash}` }).click();
+    await expect(page.getByText("Deposit result: manual_rejected", { exact: false })).toBeVisible();
+    await page.getByRole("button", { name: `Credit ${seeded.creditTxHash} to membership` }).click();
+    await expect(page.getByText("Deposit result: manual_approved", { exact: false })).toBeVisible();
+
+    await page.getByRole("link", { name: "Address pools" }).click();
+    await expect(page.getByRole("heading", { name: "Address Pool Inventory" })).toBeVisible();
+    await expect(page.getByText("bsc-addr-1", { exact: true })).toBeVisible();
+    await expect(page.getByText("Enabled inventory", { exact: false })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Add or enable address" })).not.toBeVisible();
+
+    await page.getByRole("link", { name: "Templates" }).click();
+    await expect(page.getByRole("heading", { name: "Template Management" })).toBeVisible();
+    await expect(page.getByText("Template changes require super_admin", { exact: false })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Create template" })).not.toBeVisible();
+
+    await page.getByRole("link", { name: "Strategies" }).click();
+    await expect(page.getByRole("heading", { name: "Strategy Oversight" })).toBeVisible();
+    await expect(page.getByText("Runtime overview", { exact: false })).toBeVisible();
+    await expect(page.getByText(strategyName, { exact: true })).toBeVisible();
+    await expect(page.getByText("Active orders", { exact: false })).toBeVisible();
+    await expect(page.getByText("Last pre-flight", { exact: false })).toBeVisible();
+
+    await page.getByRole("link", { name: "Audit" }).click();
+    await expect(page.getByRole("heading", { name: "Audit Review" })).toBeVisible();
+    await expect(page.getByText("Before / after summary", { exact: false })).toBeVisible();
+    await expect(page.getByRole("cell", { name: "decision reject" }).first()).toBeVisible();
+    await expect(page.getByRole("cell", { name: "decision credit_membership" }).first()).toBeVisible();
+  });
+
+  test("super admin manages pricing, memberships, templates, inventory, sweeps, and audit-backed system controls", async ({
+    context,
+    page,
+    request,
+  }) => {
+    const adminSessionToken = await createAdminSession(request, SUPER_ADMIN_EMAIL);
+    const memberEmail = uniqueEmail("member");
+    const creditEmail = uniqueEmail("credit");
+    const rejectEmail = uniqueEmail("reject");
+    const strategyName = `admin-draft-${Date.now()}`;
+    const extraAddress = `bsc-ops-${Date.now()}`;
+
+    await seedAdminCommercialData(request, adminSessionToken, {
+      creditEmail,
+      rejectEmail,
+      strategyName,
+    });
+
+    await context.addCookies([
+      {
+        domain: "localhost",
+        httpOnly: true,
+        name: "session_token",
+        path: "/",
+        sameSite: "Lax",
+        value: adminSessionToken,
+      },
+    ]);
+
+    await page.goto("/admin/dashboard");
+    await expect(page.getByText("super_admin", { exact: false })).toBeVisible();
+
+    await page.getByRole("link", { name: "Memberships" }).click();
+    await expect(page.getByRole("heading", { name: "Membership Operations" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Plan & pricing management" })).toBeVisible();
+    await page.getByLabel("Plan code").fill("monthly");
+    await page.getByLabel("Display name").fill("Monthly");
+    await page.getByLabel("Plan duration days").fill("31");
+    await page.getByLabel("BSC / USDT price").fill("24.50");
+    await page.getByLabel("ETH / USDT price").fill("24.80");
+    await page.getByLabel("SOL / USDC price").fill("24.10");
+    await page.getByRole("button", { name: "Save plan pricing" }).click();
+    await expect(page.getByText("Plan pricing saved", { exact: false })).toBeVisible();
+    await expect(page.getByText("24.50", { exact: false })).toBeVisible();
     await page.getByLabel("Member email").fill(memberEmail);
-    await page.getByLabel("Duration days").fill("30");
+    await page.getByLabel("Membership duration days").fill("30");
     await page.getByRole("button", { name: "Open membership" }).click();
     await expect(page.getByText(`Target: ${memberEmail}`, { exact: false })).toBeVisible();
     await expect(page.getByText("Status: Active", { exact: false })).toBeVisible();
-    await page.getByLabel("Duration days").fill("15");
+    await page.getByLabel("Membership duration days").fill("15");
     await page.getByRole("button", { name: "Extend membership" }).click();
     await expect(page.getByText("Last action: extend", { exact: false })).toBeVisible();
     await page.getByRole("button", { name: "Freeze membership" }).click();
@@ -58,18 +140,8 @@ test.describe("admin commercial", () => {
     await page.getByRole("button", { name: "Revoke membership" }).click();
     await expect(page.getByText("Status: Revoked", { exact: false })).toBeVisible();
 
-    await page.getByRole("link", { name: "Deposits" }).click();
-    await expect(page.getByRole("heading", { name: "Abnormal Deposit Handling" })).toBeVisible();
-    await expect(page.getByText(seeded.rejectTxHash, { exact: true })).toBeVisible();
-    await expect(page.getByText(seeded.creditTxHash, { exact: true })).toBeVisible();
-    await page.getByRole("button", { name: `Reject ${seeded.rejectTxHash}` }).click();
-    await expect(page.getByText("Deposit result: manual_rejected", { exact: false })).toBeVisible();
-    await page.getByRole("button", { name: `Credit ${seeded.creditTxHash} to membership` }).click();
-    await expect(page.getByText("Deposit result: manual_approved", { exact: false })).toBeVisible();
-
     await page.getByRole("link", { name: "Address pools" }).click();
     await expect(page.getByRole("heading", { name: "Address Pool Inventory" })).toBeVisible();
-    await expect(page.getByText("bsc-addr-1", { exact: true })).toBeVisible();
     await page.getByRole("button", { name: "Disable bsc-addr-1" }).click();
     await expect(page.getByText("Updated address bsc-addr-1", { exact: false })).toBeVisible();
     await page.getByLabel("Chain").selectOption("BSC");
@@ -84,19 +156,14 @@ test.describe("admin commercial", () => {
     await expect(page.getByText("Template created", { exact: false })).toBeVisible();
     await expect(page.getByText("ADA Trend Rider", { exact: true })).toBeVisible();
 
-    await page.getByRole("link", { name: "Strategies" }).click();
-    await expect(page.getByRole("heading", { name: "Strategy Oversight" })).toBeVisible();
-    await page.getByLabel("Runtime state").selectOption("draft");
-    await page.getByRole("button", { name: "Apply filters" }).click();
-    await expect(page.getByText("No operator-visible strategies yet", { exact: false })).toBeVisible();
-
     await page.getByRole("link", { name: "Sweeps" }).click();
-    await expect(page.getByRole("heading", { name: "Sweep Job Visibility" })).toBeVisible();
-    await expect(page.getByText("treasury-bsc-main", { exact: false })).toBeVisible();
-
-    await page.getByRole("link", { name: "Audit" }).click();
-    await expect(page.getByRole("heading", { name: "Audit Review" })).toBeVisible();
-    await expect(page.getByText("Backend audit records are written server-side", { exact: false })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Sweep Operations" })).toBeVisible();
+    await page.getByLabel("Treasury address").fill("treasury-bsc-main");
+    await page.getByLabel("Source address").fill("bsc-addr-2");
+    await page.getByLabel("Sweep amount").fill("18.50000000");
+    await page.getByRole("button", { name: "Request sweep" }).click();
+    await expect(page.getByText("Sweep request submitted", { exact: false })).toBeVisible();
+    await expect(page.getByRole("cell", { name: "treasury-bsc-main" }).first()).toBeVisible();
 
     await page.getByRole("link", { name: "System" }).click();
     await expect(page.getByRole("heading", { name: "System Configuration" })).toBeVisible();
@@ -108,6 +175,13 @@ test.describe("admin commercial", () => {
     await expect(page.getByText("ETH 18", { exact: false })).toBeVisible();
     await expect(page.getByText("BSC 15", { exact: false })).toBeVisible();
     await expect(page.getByText("SOL 22", { exact: false })).toBeVisible();
+
+    await page.getByRole("link", { name: "Audit" }).click();
+    await expect(page.getByRole("heading", { name: "Audit Review" })).toBeVisible();
+    await expect(page.getByRole("cell", { name: "strategy.template_created" }).first()).toBeVisible();
+    await expect(page.getByRole("cell", { name: "membership.plan_config_updated" }).first()).toBeVisible();
+    await expect(page.getByRole("cell", { name: "treasury.sweep_requested" }).first()).toBeVisible();
+    await expect(page.getByText("session role super_admin", { exact: false })).toBeVisible();
   });
 });
 
@@ -140,6 +214,7 @@ async function seedAdminCommercialData(
     txHash: rejectTxHash,
   });
 
+  await createStrategy(request, creditUserToken, input.strategyName);
   await createSweepJob(request, adminSessionToken);
 
   return {
@@ -149,11 +224,11 @@ async function seedAdminCommercialData(
   };
 }
 
-async function createAdminSession(request: APIRequestContext) {
-  await ensureVerifiedUser(request, ADMIN_EMAIL, ADMIN_PASSWORD);
-  const preTotpSessionToken = await login(request, ADMIN_EMAIL, ADMIN_PASSWORD);
+async function createAdminSession(request: APIRequestContext, email: string) {
+  await ensureVerifiedUser(request, email, ADMIN_PASSWORD);
+  const preTotpSessionToken = await login(request, email, ADMIN_PASSWORD);
   const enabled = await request.post(`${AUTH_API_BASE_URL}/security/totp/enable`, {
-    data: { email: ADMIN_EMAIL },
+    data: { email },
     headers: {
       authorization: `Bearer ${preTotpSessionToken}`,
     },
@@ -163,7 +238,18 @@ async function createAdminSession(request: APIRequestContext) {
   const payload = (await enabled.json()) as { code?: string };
   expect(typeof payload.code).toBe("string");
 
-  return login(request, ADMIN_EMAIL, ADMIN_PASSWORD, payload.code);
+  const sessionToken = await login(request, email, ADMIN_PASSWORD, payload.code);
+  const profile = await request.get(`${AUTH_API_BASE_URL}/profile`, {
+    headers: { authorization: `Bearer ${sessionToken}` },
+  });
+  if (!profile.ok()) {
+    throw new Error(`profile check failed ${profile.status()} ${await profile.text()}`);
+  }
+  const profileBody = await profile.text();
+  if (!profileBody.includes('"admin_access_granted":true')) {
+    throw new Error(`admin session missing access ${email} ${profileBody}`);
+  }
+  return sessionToken;
 }
 
 async function createVerifiedUserSession(request: APIRequestContext, email: string, password: string) {
@@ -243,9 +329,10 @@ async function matchOrderAsAbnormal(
       "content-type": "application/json",
     },
   });
-  expect(response.ok()).toBeTruthy();
+  if (!response.ok()) {
+    throw new Error(`matchOrderAsAbnormal failed ${response.status()} ${await response.text()}`);
+  }
 }
-
 
 async function createSweepJob(request: APIRequestContext, adminSessionToken: string) {
   const response = await request.post(`${AUTH_API_BASE_URL}/admin/sweeps`, {
@@ -254,9 +341,7 @@ async function createSweepJob(request: APIRequestContext, adminSessionToken: str
       asset: "USDT",
       treasury_address: "treasury-bsc-main",
       requested_at: new Date().toISOString(),
-      transfers: [
-        { from_address: "bsc-addr-1", amount: "20.00000000" },
-      ],
+      transfers: [{ from_address: "bsc-addr-1", amount: "20.00000000" }],
     },
     headers: {
       authorization: `Bearer ${adminSessionToken}`,
@@ -264,6 +349,42 @@ async function createSweepJob(request: APIRequestContext, adminSessionToken: str
     },
   });
   expect(response.ok()).toBeTruthy();
+}
+
+async function createStrategy(request: APIRequestContext, sessionToken: string, name: string) {
+  const response = await request.post(`${AUTH_API_BASE_URL}/strategies`, {
+    data: {
+      name,
+      symbol: "ADAUSDT",
+      market: "Spot",
+      mode: "SpotClassic",
+      generation: "Custom",
+      levels: [
+        { entry_price: "1.00", quantity: "10", take_profit_bps: 120, trailing_bps: null },
+        { entry_price: "1.10", quantity: "10", take_profit_bps: 140, trailing_bps: null },
+      ],
+      membership_ready: true,
+      exchange_ready: true,
+      permissions_ready: true,
+      withdrawals_disabled: true,
+      hedge_mode_ready: true,
+      symbol_ready: true,
+      filters_ready: true,
+      margin_ready: true,
+      conflict_ready: true,
+      balance_ready: true,
+      overall_take_profit_bps: null,
+      overall_stop_loss_bps: null,
+      post_trigger_action: "Stop",
+    },
+    headers: {
+      authorization: `Bearer ${sessionToken}`,
+      "content-type": "application/json",
+    },
+  });
+  if (!response.ok()) {
+    throw new Error(`createStrategy failed ${response.status()} ${await response.text()}`);
+  }
 }
 
 function uniqueEmail(prefix: string) {

@@ -73,6 +73,21 @@ export default async function AdminDepositsPage({ searchParams }: PageProps) {
             />
           </CardBody>
         </Card>
+        <Card tone="subtle">
+          <CardHeader>
+            <CardTitle>Manual credit target order</CardTitle>
+            <CardDescription>Operator can see which order a credit action will target.</CardDescription>
+          </CardHeader>
+          <CardBody>
+            <ul className="text-list">
+              {data.abnormal_deposits.map((item) => (
+                <li key={item.tx_hash}>
+                  {item.tx_hash}: {item.order_id ? `order ${item.order_id}` : "no linked order"}
+                </li>
+              ))}
+            </ul>
+          </CardBody>
+        </Card>
       </AppShellSection>
     </>
   );

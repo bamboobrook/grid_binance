@@ -1,11 +1,12 @@
 use axum::http::{header::AUTHORIZATION, HeaderMap};
 
-use crate::services::auth_service::{AuthError, AuthService};
+use crate::services::auth_service::{AdminRole, AuthError, AuthService};
 
 #[derive(Debug, Clone)]
 pub struct AuthenticatedSession {
     pub email: String,
     pub is_admin: bool,
+    pub admin_role: Option<AdminRole>,
 }
 
 pub fn require_user_session(
@@ -15,9 +16,15 @@ pub fn require_user_session(
     let session_token = bearer_token(headers)
         .ok_or_else(|| AuthError::unauthorized("valid session token required"))?;
     let claims = service.session_claims(session_token)?;
+    let admin_role = if claims.is_admin {
+        service.admin_role_for_email(&claims.email)
+    } else {
+        None
+    };
     Ok(AuthenticatedSession {
         email: claims.email,
-        is_admin: claims.is_admin,
+        is_admin: admin_role.is_some(),
+        admin_role,
     })
 }
 
@@ -28,6 +35,17 @@ pub fn require_admin_session(
     let session = require_user_session(service, headers)?;
     if !session.is_admin {
         return Err(AuthError::forbidden("admin access required"));
+    }
+    Ok(session)
+}
+
+pub fn require_super_admin_session(
+    service: &AuthService,
+    headers: &HeaderMap,
+) -> Result<AuthenticatedSession, AuthError> {
+    let session = require_admin_session(service, headers)?;
+    if session.admin_role != Some(AdminRole::SuperAdmin) {
+        return Err(AuthError::forbidden("super admin access required"));
     }
     Ok(session)
 }

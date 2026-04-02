@@ -2,43 +2,51 @@ import { AppShellSection } from "../../../components/shell/app-shell-section";
 import { Card, CardBody, CardDescription, CardHeader, CardTitle } from "../../../components/ui/card";
 import { StatusBanner } from "../../../components/ui/status-banner";
 import { DataTable } from "../../../components/ui/table";
-import { Tabs } from "../../../components/ui/tabs";
 import {
   getAdminAuditData,
   getAdminDepositsData,
   getAdminMembershipsData,
   getAdminStrategiesData,
-  getAdminTemplatesData,
   getCurrentAdminProfile,
+  type AdminTemplateList,
+  fetchAdminJson,
 } from "../../../lib/api/admin-product-state";
 
 export default async function AdminDashboardPage() {
-  const [profile, memberships, deposits, strategies, templates, audit] = await Promise.all([
-    getCurrentAdminProfile(),
+  const profile = await getCurrentAdminProfile();
+  const [memberships, deposits, strategies, audit, templates] = await Promise.all([
     getAdminMembershipsData(),
     getAdminDepositsData(),
     getAdminStrategiesData(),
-    getAdminTemplatesData(),
     getAdminAuditData(),
+    profile.admin_permissions?.can_manage_templates ? fetchAdminJson<AdminTemplateList>("/admin/templates") : Promise.resolve({ items: [] }),
   ]);
   const openDeposits = deposits.abnormal_deposits.filter((item) => item.status === "manual_review_required").length;
   const membershipRisk = memberships.items.filter((item) => ["Grace", "Frozen", "Revoked"].includes(item.status)).length;
   const runtimeIncidents = strategies.items.filter((item) => item.status === "ErrorPaused").length;
+  const role = profile.admin_role ?? "operator_admin";
+  const restricted = role === "operator_admin";
 
   return (
     <>
       <StatusBanner
-        description={profile.admin_access_granted ? "Backend operator session is verified against the live admin API." : "Admin access is missing."}
-        title={profile.admin_access_granted ? "Session verified" : "Admin access missing"}
+        description={restricted ? "Restricted permission boundary is active for this operator session." : "Super admin session is active for commercial control workflows."}
+        title={profile.admin_access_granted ? "Admin access granted" : "Admin access missing"}
         tone={profile.admin_access_granted ? "success" : "warning"}
       />
       <AppShellSection
-        actions={<Tabs activeHref="/admin/dashboard" items={[{ href: "/admin/dashboard", label: "Overview" }, { href: "/admin/audit", label: "Audit" }]} />}
         description="Backend-backed operator summary for memberships, deposits, runtime state, and audits."
         eyebrow="Admin overview"
         title="Admin Dashboard"
       >
         <div className="content-grid content-grid--metrics">
+          <Card>
+            <CardHeader>
+              <CardTitle>Session role</CardTitle>
+              <CardDescription>Current session privileges</CardDescription>
+            </CardHeader>
+            <CardBody>{restricted ? "Operator-only controls unlocked" : "Commercial control unlocked for treasury, pricing, and templates."}</CardBody>
+          </Card>
           <Card>
             <CardHeader>
               <CardTitle>Membership risk</CardTitle>
@@ -55,17 +63,17 @@ export default async function AdminDashboardPage() {
           </Card>
           <Card>
             <CardHeader>
+              <CardTitle>Templates</CardTitle>
+              <CardDescription>{templates.items.length} templates currently visible to this session</CardDescription>
+            </CardHeader>
+            <CardBody>{templates.items.length}</CardBody>
+          </Card>
+          <Card>
+            <CardHeader>
               <CardTitle>Runtime incidents</CardTitle>
               <CardDescription>{runtimeIncidents} strategies are error-paused</CardDescription>
             </CardHeader>
             <CardBody>{runtimeIncidents}</CardBody>
-          </Card>
-          <Card>
-            <CardHeader>
-              <CardTitle>Templates</CardTitle>
-              <CardDescription>{templates.items.length} templates exist in the backend catalog</CardDescription>
-            </CardHeader>
-            <CardBody>{templates.items.length}</CardBody>
           </Card>
         </div>
       </AppShellSection>

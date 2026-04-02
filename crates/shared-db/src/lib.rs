@@ -31,7 +31,7 @@ pub use crate::postgres::exchange::{
     AccountProfitSnapshotRecord, ExchangeTradeHistoryRecord, ExchangeWalletSnapshotRecord,
     UserExchangeAccountRecord, UserExchangeCredentialRecord, UserExchangeSymbolRecord,
 };
-pub use crate::postgres::identity::{AuthUserRecord, TelegramBindingRecord};
+pub use crate::postgres::identity::{AdminUserRecord, AuthUserRecord, TelegramBindingRecord};
 pub use crate::postgres::notification::NotificationLogRecord;
 pub use crate::postgres::strategy::StrategyProfitSnapshotRecord;
 
@@ -53,6 +53,7 @@ enum SharedDbBackend {
 struct EphemeralState {
     sequences: HashMap<String, u64>,
     auth_users: HashMap<String, AuthUserRecord>,
+    admin_users: HashMap<String, AdminUserRecord>,
     auth_sessions: HashMap<String, String>,
     telegram_bindings: HashMap<String, TelegramBindingRecord>,
     notification_logs: Vec<NotificationLogRecord>,
@@ -851,6 +852,29 @@ impl SharedDb {
                 state
                     .auth_sessions
                     .insert(session_token.to_owned(), normalized);
+                Ok(())
+            }
+        }
+    }
+
+    pub fn upsert_admin_user(&self, email: &str, role: &str, totp_required: bool) -> Result<(), SharedDbError> {
+        match &self.backend {
+            SharedDbBackend::Runtime { .. } => {
+                let repo = self.identity_repo();
+                let email = email.to_owned();
+                let role = role.to_owned();
+                Self::block_on(async move { repo.upsert_admin_user(&email, &role, totp_required).await })
+            }
+            SharedDbBackend::Ephemeral(state) => {
+                lock_ephemeral(state)?.admin_users.insert(
+                    email.to_lowercase(),
+                    AdminUserRecord {
+                        email: email.to_lowercase(),
+                        role: role.to_owned(),
+                        totp_required,
+                        created_at: Utc::now(),
+                    },
+                );
                 Ok(())
             }
         }

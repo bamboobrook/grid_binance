@@ -3,7 +3,7 @@ import { Card, CardBody, CardDescription, CardHeader, CardTitle } from "../../..
 import { Button, Field, FormStack, Input } from "../../../components/ui/form";
 import { StatusBanner } from "../../../components/ui/status-banner";
 import { DataTable } from "../../../components/ui/table";
-import { getAdminTemplatesData } from "../../../lib/api/admin-product-state";
+import { getAdminTemplatesData, getCurrentAdminProfile } from "../../../lib/api/admin-product-state";
 
 type PageProps = {
   searchParams?: Promise<{ created?: string }>;
@@ -12,11 +12,13 @@ type PageProps = {
 export default async function AdminTemplatesPage({ searchParams }: PageProps) {
   const params = (await searchParams) ?? {};
   const created = typeof params.created === "string" ? params.created : "";
-  const data = await getAdminTemplatesData();
+  const profile = await getCurrentAdminProfile();
+  const canManageTemplates = profile.admin_permissions?.can_manage_templates ?? false;
+  const data = canManageTemplates ? await getAdminTemplatesData() : { items: [] };
 
   return (
     <>
-      {created ? <StatusBanner description={"Created template name: " + created} title="Template created" tone="success" /> : null}
+      {created ? <StatusBanner description={`Created template name: ${created}`} title="Template created" tone="success" /> : null}
       <AppShellSection
         description="Template inventory is read from the backend strategy template catalog."
         eyebrow="Strategy templates"
@@ -26,15 +28,19 @@ export default async function AdminTemplatesPage({ searchParams }: PageProps) {
           <Card>
             <CardHeader>
               <CardTitle>Create template</CardTitle>
-              <CardDescription>Create a backend strategy template with a minimal valid payload.</CardDescription>
+              <CardDescription>Strategy template governance for the commercial catalog.</CardDescription>
             </CardHeader>
             <CardBody>
-              <FormStack action="/api/admin/templates" method="post">
-                <Field label="Template name">
-                  <Input name="name" placeholder="ADA Trend Rider" />
-                </Field>
-                <Button type="submit">Create template</Button>
-              </FormStack>
+              {canManageTemplates ? (
+                <FormStack action="/api/admin/templates" method="post">
+                  <Field label="Template name">
+                    <Input name="name" placeholder="ADA Trend Rider" />
+                  </Field>
+                  <Button type="submit">Create template</Button>
+                </FormStack>
+              ) : (
+                <p>Template changes require super_admin.</p>
+              )}
             </CardBody>
           </Card>
         </div>

@@ -18,6 +18,7 @@ pub struct AuthUserRecord {
 #[derive(Debug, Clone, PartialEq)]
 pub struct AdminUserRecord {
     pub email: String,
+    pub role: String,
     pub totp_required: bool,
     pub created_at: DateTime<Utc>,
 }
@@ -336,15 +337,17 @@ impl IdentityRepository {
         .transpose()
     }
 
-    pub async fn upsert_admin_user(&self, email: &str, totp_required: bool) -> Result<(), SharedDbError> {
+    pub async fn upsert_admin_user(&self, email: &str, role: &str, totp_required: bool) -> Result<(), SharedDbError> {
         sqlx::query(
-            "INSERT INTO admin_users (email, totp_required, created_at, updated_at)
-             VALUES ($1, $2, now(), now())
+            "INSERT INTO admin_users (email, role, totp_required, created_at, updated_at)
+             VALUES ($1, $2, $3, now(), now())
              ON CONFLICT (email) DO UPDATE
-             SET totp_required = excluded.totp_required,
+             SET role = excluded.role,
+                 totp_required = excluded.totp_required,
                  updated_at = now()",
         )
         .bind(email)
+        .bind(role)
         .bind(totp_required)
         .execute(&self.pool)
         .await

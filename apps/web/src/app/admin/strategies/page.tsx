@@ -13,6 +13,7 @@ export default async function AdminStrategiesPage({ searchParams }: PageProps) {
   const stateFilter = typeof params.state === "string" ? params.state.toLowerCase() : "all";
   const data = await getAdminStrategiesData();
   const items = data.items.filter((item) => (stateFilter === "all" ? true : item.status.toLowerCase() === stateFilter));
+  const focused = items[0] ?? null;
 
   return (
     <>
@@ -44,6 +45,24 @@ export default async function AdminStrategiesPage({ searchParams }: PageProps) {
               </FormStack>
             </CardBody>
           </Card>
+          <Card tone="subtle">
+            <CardHeader>
+              <CardTitle>Runtime overview</CardTitle>
+              <CardDescription>Focused strategy runtime summary for operators.</CardDescription>
+            </CardHeader>
+            <CardBody>
+              {focused ? (
+                <ul className="text-list">
+                  <li>Name: {focused.name}</li>
+                  <li>Owner: {focused.owner_email}</li>
+                  <li>Focused order count: {focused.runtime.orders.length}</li>
+                  <li>Focused pre-flight: {focused.runtime.last_preflight ? (focused.runtime.last_preflight.ok ? "ok" : "failed") : "missing"}</li>
+                </ul>
+              ) : (
+                <p>No operator-visible strategies yet.</p>
+              )}
+            </CardBody>
+          </Card>
         </div>
       </AppShellSection>
       <Card>
@@ -61,11 +80,15 @@ export default async function AdminStrategiesPage({ searchParams }: PageProps) {
                 { key: "owner", label: "Owner" },
                 { key: "symbol", label: "Symbol" },
                 { key: "status", label: "Status" },
+                { key: "orders", label: "Active orders" },
+                { key: "preflight", label: "Last pre-flight" },
               ]}
               rows={items.map((item) => ({
                 id: item.id,
                 name: item.name,
+                orders: String(item.runtime.orders.length),
                 owner: item.owner_email,
+                preflight: item.runtime.last_preflight ? (item.runtime.last_preflight.ok ? "ok" : "failed") : "missing",
                 status: item.status,
                 symbol: item.symbol,
               }))}

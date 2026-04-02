@@ -1,4 +1,4 @@
-use std::{collections::HashSet, env, sync::Arc};
+use std::{collections::HashMap, env, sync::Arc};
 
 use axum::{
     http::StatusCode,
@@ -16,7 +16,8 @@ use shared_auth::{
 };
 use shared_db::{AuditLogRecord, AuthUserRecord, SharedDb};
 
-const DEFAULT_ADMIN_EMAILS: [&str; 1] = ["admin@example.com"];
+const DEFAULT_OPERATOR_ADMIN_EMAILS: [&str; 1] = ["admin@example.com"];
+const DEFAULT_SUPER_ADMIN_EMAILS: [&str; 1] = ["super-admin@example.com"];
 const DEFAULT_SESSION_TOKEN_SECRET: &str = "grid-binance-dev-session-secret";
 
 #[derive(Clone)]
@@ -26,8 +27,25 @@ pub struct AuthService {
 }
 
 struct AuthConfig {
-    admin_emails: HashSet<String>,
+    admin_roles: HashMap<String, AdminRole>,
     session_token_secret: String,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum AdminRole {
+    SuperAdmin,
+    OperatorAdmin,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct AdminPermissions {
+    pub can_manage_memberships: bool,
+    pub can_manage_plans: bool,
+    pub can_manage_address_pools: bool,
+    pub can_manage_templates: bool,
+    pub can_manage_sweeps: bool,
+    pub can_manage_system: bool,
 }
 
 #[derive(Debug, Deserialize)]
@@ -126,6 +144,8 @@ pub struct ProfileResponse {
     pub totp_enabled: bool,
     pub admin_totp_required: bool,
     pub admin_access_granted: bool,
+    pub admin_role: Option<AdminRole>,
+    pub admin_permissions: Option<AdminPermissions>,
 }
 
 impl AuthService {
@@ -247,7 +267,11 @@ impl AuthService {
             }
         }
 
-        let is_admin = self.config.admin_emails.contains(&email) && user.totp_secret.is_some();
+        let admin_role = resolved_admin_role(&self.config, &email);
+        if let Some(role) = admin_role {
+            let _ = self.db.upsert_admin_user(&email, role.as_str(), true);
+        }
+        let is_admin = admin_role.is_some() && user.totp_secret.is_some();
         let sid = self
             .db
             .next_sequence("auth_seed")
@@ -460,7 +484,8 @@ impl AuthService {
             .find_auth_user(&email)
             .map_err(AuthError::storage)?
             .ok_or_else(|| AuthError::not_found("user not found"))?;
-        let admin_totp_required = self.config.admin_emails.contains(&email);
+        let admin_role = resolved_admin_role(&self.config, &email);
+        let admin_totp_required = admin_role.is_some();
         let totp_enabled = user.totp_secret.is_some();
 
         Ok(ProfileResponse {
@@ -469,6 +494,8 @@ impl AuthService {
             totp_enabled,
             admin_totp_required,
             admin_access_granted,
+            admin_role,
+            admin_permissions: admin_role.map(AdminPermissions::for_role),
         })
     }
 
@@ -499,7 +526,7 @@ impl AuthService {
 
         Ok(SessionClaims {
             email: email.clone(),
-            is_admin: claims.is_admin && self.config.admin_emails.contains(&email) && totp_enabled,
+            is_admin: claims.is_admin && resolved_admin_role(&self.config, &email).is_some() && totp_enabled,
             sid: claims.sid,
         })
     }
@@ -511,7 +538,44 @@ impl AuthService {
         }
     }
 
+    pub fn admin_role_for_email(&self, email: &str) -> Option<AdminRole> {
+resolved_admin_role(&self.config, email)
+    }
+
 }
+
+impl AdminRole {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::SuperAdmin => "super_admin",
+            Self::OperatorAdmin => "operator_admin",
+        }
+    }
+}
+
+impl AdminPermissions {
+    fn for_role(role: AdminRole) -> Self {
+        match role {
+            AdminRole::SuperAdmin => Self {
+                can_manage_memberships: true,
+                can_manage_plans: true,
+                can_manage_address_pools: true,
+                can_manage_templates: true,
+                can_manage_sweeps: true,
+                can_manage_system: true,
+            },
+            AdminRole::OperatorAdmin => Self {
+                can_manage_memberships: false,
+                can_manage_plans: false,
+                can_manage_address_pools: false,
+                can_manage_templates: false,
+                can_manage_sweeps: false,
+                can_manage_system: false,
+            },
+        }
+    }
+}
+
 
 impl Default for AuthService {
     fn default() -> Self {
@@ -626,10 +690,23 @@ fn normalize_email(email: &str) -> String {
     email.trim().to_lowercase()
 }
 
+fn resolved_admin_role(config: &AuthConfig, email: &str) -> Option<AdminRole> {
+    let email = normalize_email(email);
+    config.admin_roles.get(&email).copied().or_else(|| {
+        if DEFAULT_SUPER_ADMIN_EMAILS.iter().any(|candidate| normalize_email(candidate) == email) {
+            Some(AdminRole::SuperAdmin)
+        } else if DEFAULT_OPERATOR_ADMIN_EMAILS.iter().any(|candidate| normalize_email(candidate) == email) {
+            Some(AdminRole::OperatorAdmin)
+        } else {
+            None
+        }
+    })
+}
+
 impl AuthConfig {
     fn from_env() -> Self {
         Self {
-            admin_emails: load_admin_emails(),
+            admin_roles: load_admin_roles(),
             session_token_secret: env::var("SESSION_TOKEN_SECRET")
                 .ok()
                 .map(|value| value.trim().to_owned())
@@ -640,43 +717,65 @@ impl AuthConfig {
 
     fn from_env_strict() -> Result<Self, AuthConfigError> {
         Ok(Self {
-            admin_emails: load_admin_emails_strict()?,
+            admin_roles: load_admin_roles_strict()?,
             session_token_secret: required_env("SESSION_TOKEN_SECRET")?,
         })
     }
 }
 
-fn load_admin_emails() -> HashSet<String> {
-    let configured = env::var("ADMIN_EMAILS").ok();
-    let emails = configured
-        .as_deref()
-        .unwrap_or("")
+fn load_admin_roles() -> HashMap<String, AdminRole> {
+    let mut roles = HashMap::new();
+
+    for email in DEFAULT_OPERATOR_ADMIN_EMAILS.into_iter().map(normalize_email) {
+        roles.insert(email, AdminRole::OperatorAdmin);
+    }
+    for email in DEFAULT_SUPER_ADMIN_EMAILS.into_iter().map(normalize_email) {
+        roles.insert(email, AdminRole::SuperAdmin);
+    }
+
+    for email in env::var("ADMIN_EMAILS")
+        .unwrap_or_default()
         .split(',')
         .map(normalize_email)
         .filter(|email| !email.is_empty())
-        .collect::<HashSet<_>>();
-
-    if emails.is_empty() {
-        DEFAULT_ADMIN_EMAILS
-            .into_iter()
-            .map(normalize_email)
-            .collect()
-    } else {
-        emails
+    {
+        roles.insert(email, AdminRole::OperatorAdmin);
     }
+    for email in env::var("SUPER_ADMIN_EMAILS")
+        .unwrap_or_default()
+        .split(',')
+        .map(normalize_email)
+        .filter(|email| !email.is_empty())
+    {
+        roles.insert(email, AdminRole::SuperAdmin);
+    }
+
+    roles
 }
 
-fn load_admin_emails_strict() -> Result<HashSet<String>, AuthConfigError> {
-    let emails = required_env("ADMIN_EMAILS")?
+fn load_admin_roles_strict() -> Result<HashMap<String, AdminRole>, AuthConfigError> {
+    let mut roles = HashMap::new();
+
+    for email in required_env("ADMIN_EMAILS")?
         .split(',')
         .map(normalize_email)
         .filter(|email| !email.is_empty())
-        .collect::<HashSet<_>>();
+    {
+        roles.insert(email, AdminRole::OperatorAdmin);
+    }
+    for email in env::var("SUPER_ADMIN_EMAILS")
+        .unwrap_or_default()
+        .split(',')
+        .map(normalize_email)
+        .filter(|email| !email.is_empty())
+    {
+        roles.insert(email, AdminRole::SuperAdmin);
+    }
 
-    if emails.is_empty() {
+    if roles.is_empty() {
         Err(AuthConfigError::missing("ADMIN_EMAILS"))
     } else {
-        Ok(emails)
+        Ok(roles)
     }
 }
 
