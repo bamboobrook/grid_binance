@@ -299,6 +299,16 @@ impl StrategyService {
         }
 
         let positions = strategy.runtime.positions.clone();
+        let draft_differs_from_active = strategy
+            .active_revision
+            .as_ref()
+            .map(|active| active.revision_id != strategy.draft_revision.revision_id)
+            .unwrap_or(false);
+        if !positions.is_empty() && draft_differs_from_active {
+            return Err(StrategyError::conflict(
+                "resume requires reconciling paused positions before applying a revised grid",
+            ));
+        }
         strategy.active_revision = Some(strategy.draft_revision.clone());
         strategy.runtime = rebuild_runtime(&strategy, Some(positions), "strategy_resumed");
         strategy.runtime.last_preflight = Some(preflight.clone());
@@ -990,9 +1000,14 @@ impl From<AuthError> for StrategyError {
 
 #[cfg(test)]
 mod tests {
-    use super::{run_preflight, SaveGridLevelRequest, SaveStrategyRequest, StrategyService};
+    use super::{
+        run_preflight, SaveGridLevelRequest, SaveStrategyRequest, StrategyError, StrategyService,
+    };
     use shared_db::SharedDb;
-    use shared_domain::strategy::{GridGeneration, PostTriggerAction, StrategyMarket, StrategyMode};
+    use shared_domain::strategy::{
+        GridGeneration, PostTriggerAction, StrategyMarket, StrategyMode, StrategyRuntimePosition,
+        StrategyStatus,
+    };
 
     #[test]
     fn preflight_reports_fail_fast_steps() {
@@ -1082,5 +1097,101 @@ mod tests {
         assert_eq!(report.steps[8].step, "strategy_conflicts");
         assert_eq!(report.steps[9].step, "balance_or_collateral");
         assert_eq!(report.failures[0].step, "exchange_permissions");
+    }
+
+    #[test]
+    fn resume_rejects_paused_strategy_with_positions_after_revision_change() {
+        let db = SharedDb::ephemeral().expect("db");
+        let service = StrategyService::new(db.clone());
+        let strategy = service
+            .create_strategy(
+                "trader@example.com",
+                SaveStrategyRequest {
+                    name: "paused".to_string(),
+                    symbol: "BTCUSDT".to_string(),
+                    market: StrategyMarket::Spot,
+                    mode: StrategyMode::SpotClassic,
+                    generation: GridGeneration::Custom,
+                    levels: vec![SaveGridLevelRequest {
+                        entry_price: "100".to_string(),
+                        quantity: "1".to_string(),
+                        take_profit_bps: 100,
+                        trailing_bps: None,
+                    }],
+                    membership_ready: true,
+                    exchange_ready: true,
+                    permissions_ready: true,
+                    withdrawals_disabled: true,
+                    hedge_mode_ready: true,
+                    symbol_ready: true,
+                    filters_ready: true,
+                    margin_ready: true,
+                    conflict_ready: true,
+                    balance_ready: true,
+                    overall_take_profit_bps: None,
+                    overall_stop_loss_bps: None,
+                    post_trigger_action: PostTriggerAction::Stop,
+                },
+            )
+            .expect("strategy");
+        let started = service
+            .start_strategy("trader@example.com", &strategy.id)
+            .expect("start strategy")
+            .strategy;
+
+        let mut paused = started.clone();
+        paused.status = StrategyStatus::Paused;
+        paused.runtime.positions = vec![StrategyRuntimePosition {
+            market: StrategyMarket::Spot,
+            mode: StrategyMode::SpotClassic,
+            quantity: "1".parse().expect("decimal"),
+            average_entry_price: "100".parse().expect("decimal"),
+        }];
+        db.update_strategy(&paused).expect("store paused strategy");
+
+        let _edited = service
+            .update_strategy(
+                "trader@example.com",
+                &strategy.id,
+                SaveStrategyRequest {
+                    name: "paused edited".to_string(),
+                    symbol: "BTCUSDT".to_string(),
+                    market: StrategyMarket::Spot,
+                    mode: StrategyMode::SpotClassic,
+                    generation: GridGeneration::Custom,
+                    levels: vec![SaveGridLevelRequest {
+                        entry_price: "95".to_string(),
+                        quantity: "1".to_string(),
+                        take_profit_bps: 100,
+                        trailing_bps: None,
+                    }],
+                    membership_ready: true,
+                    exchange_ready: true,
+                    permissions_ready: true,
+                    withdrawals_disabled: true,
+                    hedge_mode_ready: true,
+                    symbol_ready: true,
+                    filters_ready: true,
+                    margin_ready: true,
+                    conflict_ready: true,
+                    balance_ready: true,
+                    overall_take_profit_bps: None,
+                    overall_stop_loss_bps: None,
+                    post_trigger_action: PostTriggerAction::Stop,
+                },
+            )
+            .expect("edit paused strategy");
+
+        let resumed = service.resume_strategy("trader@example.com", &strategy.id);
+
+        match resumed {
+            Err(StrategyError { message, .. }) => {
+                assert_eq!(
+                    message,
+                    "resume requires reconciling paused positions before applying a revised grid"
+                );
+            }
+            Ok(_) => panic!("resume should have been rejected"),
+        }
     }
 }

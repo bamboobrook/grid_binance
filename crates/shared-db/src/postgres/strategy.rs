@@ -1,6 +1,6 @@
 use chrono::{DateTime, Utc};
 use serde_json::{json, Value};
-use sqlx::{PgPool, Row};
+use sqlx::{PgPool, Postgres, Row, Transaction};
 
 use shared_domain::strategy::{
     GridGeneration, PostTriggerAction, PreflightReport, Strategy, StrategyMarket,
@@ -118,6 +118,7 @@ impl StrategyRepository {
     }
 
     pub async fn insert_strategy(&self, strategy: &StoredStrategy) -> Result<(), SharedDbError> {
+        let mut transaction = self.pool.begin().await.map_err(SharedDbError::from)?;
         sqlx::query(
             "INSERT INTO strategies (
                 id,
@@ -168,16 +169,18 @@ impl StrategyRepository {
         .bind(strategy_market_to_str(strategy.strategy.market))
         .bind(strategy_mode_to_str(strategy.strategy.mode))
         .bind(strategy.strategy.archived_at)
-        .execute(&self.pool)
+        .execute(&mut *transaction)
         .await
         .map_err(SharedDbError::from)?;
 
-        replace_revisions(&self.pool, &strategy.strategy).await?;
-        replace_runtime(&self.pool, &strategy.strategy).await?;
+        replace_revisions_in(&mut transaction, &strategy.strategy).await?;
+        replace_runtime_in(&mut transaction, &strategy.strategy).await?;
+        transaction.commit().await.map_err(SharedDbError::from)?;
         Ok(())
     }
 
     pub async fn update_strategy(&self, strategy: &Strategy) -> Result<usize, SharedDbError> {
+        let mut transaction = self.pool.begin().await.map_err(SharedDbError::from)?;
         let updated = sqlx::query(
             "UPDATE strategies
              SET name = $3,
@@ -223,12 +226,13 @@ impl StrategyRepository {
         .bind(strategy_market_to_str(strategy.market))
         .bind(strategy_mode_to_str(strategy.mode))
         .bind(strategy.archived_at)
-        .execute(&self.pool)
+        .execute(&mut *transaction)
         .await
         .map_err(SharedDbError::from)?;
 
-        replace_revisions(&self.pool, strategy).await?;
-        replace_runtime(&self.pool, strategy).await?;
+        replace_revisions_in(&mut transaction, strategy).await?;
+        replace_runtime_in(&mut transaction, strategy).await?;
+        transaction.commit().await.map_err(SharedDbError::from)?;
         Ok(updated.rows_affected() as usize)
     }
 
@@ -349,21 +353,30 @@ async fn load_revision(
     .transpose()
 }
 
-async fn replace_revisions(pool: &PgPool, strategy: &Strategy) -> Result<(), SharedDbError> {
+async fn replace_revisions_in(
+    transaction: &mut Transaction<'_, Postgres>,
+    strategy: &Strategy,
+) -> Result<(), SharedDbError> {
     sqlx::query("DELETE FROM strategy_grid_levels WHERE strategy_id = $1")
         .bind(&strategy.id)
-        .execute(pool)
+        .execute(&mut **transaction)
         .await
         .map_err(SharedDbError::from)?;
     sqlx::query("DELETE FROM strategy_revisions WHERE strategy_id = $1")
         .bind(&strategy.id)
-        .execute(pool)
+        .execute(&mut **transaction)
         .await
         .map_err(SharedDbError::from)?;
 
-    let draft_revision_id = insert_revision_with_levels(pool, &strategy.id, "draft", &strategy.draft_revision).await?;
+    let draft_revision_id = insert_revision_with_levels_in(
+        transaction,
+        &strategy.id,
+        "draft",
+        &strategy.draft_revision,
+    )
+    .await?;
     if let Some(active) = &strategy.active_revision {
-        let _ = insert_revision_with_levels(pool, &strategy.id, "active", active).await?;
+        let _ = insert_revision_with_levels_in(transaction, &strategy.id, "active", active).await?;
     }
 
     if draft_revision_id == 0 {
@@ -373,8 +386,8 @@ async fn replace_revisions(pool: &PgPool, strategy: &Strategy) -> Result<(), Sha
     Ok(())
 }
 
-async fn insert_revision_with_levels(
-    pool: &PgPool,
+async fn insert_revision_with_levels_in(
+    transaction: &mut Transaction<'_, Postgres>,
     strategy_id: &str,
     revision_kind: &str,
     revision: &StrategyRevision,
@@ -387,7 +400,7 @@ async fn insert_revision_with_levels(
     .bind(strategy_id)
     .bind(revision_kind)
     .bind(serde_json::to_value(revision).map_err(|error| SharedDbError::new(error.to_string()))?)
-    .fetch_one(pool)
+    .fetch_one(&mut **transaction)
     .await
     .map_err(SharedDbError::from)?;
     let revision_id: i64 = row.try_get("revision_id").map_err(SharedDbError::from)?;
@@ -414,7 +427,7 @@ async fn insert_revision_with_levels(
         .bind(level.take_profit_bps as i32)
         .bind(take_profit_price(level))
         .bind(level.trailing_bps.map(|value| value as i32))
-        .execute(pool)
+        .execute(&mut **transaction)
         .await
         .map_err(SharedDbError::from)?;
     }
@@ -422,25 +435,28 @@ async fn insert_revision_with_levels(
     Ok(revision_id)
 }
 
-async fn replace_runtime(pool: &PgPool, strategy: &Strategy) -> Result<(), SharedDbError> {
+async fn replace_runtime_in(
+    transaction: &mut Transaction<'_, Postgres>,
+    strategy: &Strategy,
+) -> Result<(), SharedDbError> {
     sqlx::query("DELETE FROM strategy_runtime_positions WHERE strategy_id = $1")
         .bind(&strategy.id)
-        .execute(pool)
+        .execute(&mut **transaction)
         .await
         .map_err(SharedDbError::from)?;
     sqlx::query("DELETE FROM strategy_fills WHERE strategy_id = $1")
         .bind(&strategy.id)
-        .execute(pool)
+        .execute(&mut **transaction)
         .await
         .map_err(SharedDbError::from)?;
     sqlx::query("DELETE FROM strategy_orders WHERE strategy_id = $1")
         .bind(&strategy.id)
-        .execute(pool)
+        .execute(&mut **transaction)
         .await
         .map_err(SharedDbError::from)?;
     sqlx::query("DELETE FROM strategy_events WHERE strategy_id = $1")
         .bind(&strategy.id)
-        .execute(pool)
+        .execute(&mut **transaction)
         .await
         .map_err(SharedDbError::from)?;
 
@@ -460,7 +476,7 @@ async fn replace_runtime(pool: &PgPool, strategy: &Strategy) -> Result<(), Share
         .bind(strategy_mode_to_str(position.mode))
         .bind(position.quantity.to_string())
         .bind(position.average_entry_price.to_string())
-        .execute(pool)
+        .execute(&mut **transaction)
         .await
         .map_err(SharedDbError::from)?;
     }
@@ -488,7 +504,7 @@ async fn replace_runtime(pool: &PgPool, strategy: &Strategy) -> Result<(), Share
         .bind(order.price.map(|value| value.to_string()))
         .bind(order.quantity.to_string())
         .bind(&order.status)
-        .execute(pool)
+        .execute(&mut **transaction)
         .await
         .map_err(SharedDbError::from)?;
     }
@@ -515,7 +531,7 @@ async fn replace_runtime(pool: &PgPool, strategy: &Strategy) -> Result<(), Share
         .bind(fill.fee_amount.map(|value| value.to_string()))
         .bind(&fill.fee_asset)
         .bind(fill.realized_pnl.map(|value| value.to_string()))
-        .execute(pool)
+        .execute(&mut **transaction)
         .await
         .map_err(SharedDbError::from)?;
     }
@@ -532,7 +548,7 @@ async fn replace_runtime(pool: &PgPool, strategy: &Strategy) -> Result<(), Share
             "price": event.price.map(|value| value.to_string()),
         }))
         .bind(event.created_at)
-        .execute(pool)
+        .execute(&mut **transaction)
         .await
         .map_err(SharedDbError::from)?;
     }
@@ -547,7 +563,7 @@ async fn replace_runtime(pool: &PgPool, strategy: &Strategy) -> Result<(), Share
         serde_json::to_value(&strategy.runtime)
             .map_err(|error| SharedDbError::new(error.to_string()))?,
     )
-    .execute(pool)
+    .execute(&mut **transaction)
     .await
     .map_err(SharedDbError::from)?;
 

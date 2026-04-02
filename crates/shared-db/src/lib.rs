@@ -1585,6 +1585,7 @@ mod tests {
                 "0004_trading.sql",
                 "0005_admin_and_notifications.sql",
                 "0006_membership_billing_runtime_hardening.sql",
+                "0007_strategy_runtime_hardening.sql",
             ]
         );
     }

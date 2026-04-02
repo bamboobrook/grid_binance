@@ -104,3 +104,41 @@ fn pause_resume_rebuild_preserves_holdings_and_recreates_orders() {
         "strategy_resumed"
     );
 }
+
+#[test]
+fn futures_short_runtime_uses_short_side_and_short_profit_formula() {
+    let mut engine = StrategyRuntimeEngine::new(
+        "strategy-12",
+        StrategyMode::FuturesShort,
+        StrategyRevision {
+            revision_id: "revision-short".to_string(),
+            version: 1,
+            generation: GridGeneration::Custom,
+            levels: vec![GridLevel {
+                level_index: 0,
+                entry_price: decimal(100, 0),
+                quantity: decimal(1, 0),
+                take_profit_bps: 500,
+                trailing_bps: None,
+            }],
+            overall_take_profit_bps: None,
+            overall_stop_loss_bps: Some(500),
+            post_trigger_action: PostTriggerAction::Stop,
+        },
+    )
+    .expect("runtime should build");
+
+    engine.start().expect("runtime should start");
+    assert_eq!(engine.snapshot().orders[0].side, "Sell");
+    engine.fill_entry(0).expect("entry fill should succeed");
+    assert_eq!(engine.snapshot().positions[0].market, shared_domain::strategy::StrategyMarket::FuturesUsdM);
+
+    let events = engine.on_price(decimal(95, 0)).expect("price update");
+    let runtime = engine.snapshot();
+
+    assert_eq!(events.len(), 1);
+    assert_eq!(events[0].event_type, "maker_take_profit");
+    assert_eq!(runtime.positions.len(), 0);
+    assert_eq!(runtime.fills.len(), 2);
+    assert_eq!(runtime.fills[1].realized_pnl, Some(decimal(5, 0)));
+}
