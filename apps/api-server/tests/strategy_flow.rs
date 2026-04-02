@@ -496,6 +496,49 @@ async fn futures_preflight_reports_permissions_hedge_margin_and_balance_surface(
 }
 
 #[tokio::test]
+async fn futures_neutral_strategy_start_exposes_dual_sided_orders() {
+    let app = app();
+    let user_token = register_and_login(&app, "neutral@example.com", "pass1234").await;
+
+    let created = create_strategy(
+        &app,
+        &user_token,
+        json!({
+            "name": "neutral",
+            "symbol": "BTCUSDT",
+            "market": "FuturesUsdM",
+            "mode": "FuturesNeutral",
+            "generation": "Custom",
+            "levels": [
+                { "entry_price": "100.00", "quantity": "0.0100", "take_profit_bps": 120, "trailing_bps": null },
+                { "entry_price": "101.00", "quantity": "0.0100", "take_profit_bps": 120, "trailing_bps": null }
+            ],
+            "membership_ready": true,
+            "exchange_ready": true,
+            "permissions_ready": true,
+            "withdrawals_disabled": true,
+            "hedge_mode_ready": true,
+            "symbol_ready": true,
+            "filters_ready": true,
+            "margin_ready": true,
+            "conflict_ready": true,
+            "balance_ready": true,
+            "overall_take_profit_bps": null,
+            "overall_stop_loss_bps": null,
+            "post_trigger_action": "Stop"
+        }),
+    ).await;
+    assert_eq!(created.status(), StatusCode::CREATED);
+    let strategy_id = response_json(created).await["id"].as_str().expect("strategy id").to_string();
+
+    let started = start_strategy(&app, &user_token, &strategy_id).await;
+    assert_eq!(started.status(), StatusCode::OK);
+    let body = response_json(started).await;
+    assert_eq!(body["runtime"]["orders"][0]["side"], "Buy");
+    assert_eq!(body["runtime"]["orders"][1]["side"], "Sell");
+}
+
+#[tokio::test]
 async fn strategy_owner_isolation_blocks_cross_user_reads_and_mutations() {
     let app = app();
     let alice_token = register_and_login(&app, "alice@example.com", "pass1234").await;

@@ -838,7 +838,7 @@ fn rebuild_runtime(
             .map(|level| StrategyRuntimeOrder {
                 order_id: format!("{}-order-{}", strategy.id, level.level_index),
                 level_index: Some(level.level_index),
-                side: side_for_mode(strategy.mode).to_string(),
+                side: side_for_level(strategy.mode, level.level_index).to_string(),
                 order_type: "Limit".to_string(),
                 price: Some(level.entry_price),
                 quantity: level.quantity,
@@ -857,10 +857,13 @@ fn requires_futures_checks(market: StrategyMarket) -> bool {
     !matches!(market, StrategyMarket::Spot)
 }
 
-fn side_for_mode(mode: StrategyMode) -> &'static str {
+fn side_for_level(mode: StrategyMode, level_index: u32) -> &'static str {
     match mode {
         StrategyMode::SpotClassic | StrategyMode::SpotBuyOnly | StrategyMode::FuturesLong => "Buy",
-        StrategyMode::SpotSellOnly | StrategyMode::FuturesShort | StrategyMode::FuturesNeutral => "Sell",
+        StrategyMode::SpotSellOnly | StrategyMode::FuturesShort => "Sell",
+        StrategyMode::FuturesNeutral => {
+            if level_index % 2 == 0 { "Buy" } else { "Sell" }
+        }
     }
 }
 
@@ -1097,6 +1100,59 @@ mod tests {
         assert_eq!(report.steps[8].step, "strategy_conflicts");
         assert_eq!(report.steps[9].step, "balance_or_collateral");
         assert_eq!(report.failures[0].step, "exchange_permissions");
+    }
+
+    #[test]
+    fn futures_neutral_rebuild_uses_dual_sided_orders() {
+        let service = StrategyService::new(SharedDb::ephemeral().expect("db"));
+        let strategy = service
+            .create_strategy(
+                "trader@example.com",
+                SaveStrategyRequest {
+                    name: "neutral".to_string(),
+                    symbol: "BTCUSDT".to_string(),
+                    market: StrategyMarket::FuturesUsdM,
+                    mode: StrategyMode::FuturesNeutral,
+                    generation: GridGeneration::Custom,
+                    levels: vec![
+                        SaveGridLevelRequest {
+                            entry_price: "100".to_string(),
+                            quantity: "1".to_string(),
+                            take_profit_bps: 100,
+                            trailing_bps: None,
+                        },
+                        SaveGridLevelRequest {
+                            entry_price: "101".to_string(),
+                            quantity: "1".to_string(),
+                            take_profit_bps: 100,
+                            trailing_bps: None,
+                        },
+                    ],
+                    membership_ready: true,
+                    exchange_ready: true,
+                    permissions_ready: true,
+                    withdrawals_disabled: true,
+                    hedge_mode_ready: true,
+                    symbol_ready: true,
+                    filters_ready: true,
+                    margin_ready: true,
+                    conflict_ready: true,
+                    balance_ready: true,
+                    overall_take_profit_bps: None,
+                    overall_stop_loss_bps: None,
+                    post_trigger_action: PostTriggerAction::Stop,
+                },
+            )
+            .expect("strategy");
+
+        let started = service
+            .start_strategy("trader@example.com", &strategy.id)
+            .expect("start strategy")
+            .strategy;
+
+        assert_eq!(started.runtime.orders.len(), 2);
+        assert_eq!(started.runtime.orders[0].side, "Buy");
+        assert_eq!(started.runtime.orders[1].side, "Sell");
     }
 
     #[test]

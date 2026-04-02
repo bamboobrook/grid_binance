@@ -466,14 +466,16 @@ async fn replace_runtime_in(
                 strategy_id,
                 market_type,
                 direction,
+                exposure_side,
                 quantity,
                 average_entry_price,
                 updated_at
-             ) VALUES ($1, $2, $3, $4, $5, now())",
+             ) VALUES ($1, $2, $3, $4, $5, $6, now())",
         )
         .bind(&strategy.id)
         .bind(strategy_market_to_str(position.market))
         .bind(strategy_mode_to_str(position.mode))
+        .bind(exposure_side_for_mode(position.mode))
         .bind(position.quantity.to_string())
         .bind(position.average_entry_price.to_string())
         .execute(&mut **transaction)
@@ -652,6 +654,13 @@ fn strategy_mode_to_str(value: StrategyMode) -> &'static str {
         StrategyMode::FuturesLong => "FuturesLong",
         StrategyMode::FuturesShort => "FuturesShort",
         StrategyMode::FuturesNeutral => "FuturesNeutral",
+    }
+}
+
+fn exposure_side_for_mode(value: StrategyMode) -> &'static str {
+    match value {
+        StrategyMode::SpotSellOnly | StrategyMode::FuturesShort => "Sell",
+        _ => "Buy",
     }
 }
 

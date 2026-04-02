@@ -2,7 +2,12 @@ ALTER TABLE strategy_runtime_positions
     ADD COLUMN IF NOT EXISTS exposure_side TEXT;
 
 UPDATE strategy_runtime_positions
-SET exposure_side = COALESCE(exposure_side, direction);
+SET exposure_side = CASE
+    WHEN exposure_side IN ('Buy', 'Sell') THEN exposure_side
+    WHEN direction IN ('SpotSellOnly', 'FuturesShort') THEN 'Sell'
+    WHEN direction = 'FuturesNeutral' THEN 'Buy'
+    ELSE 'Buy'
+END;
 
 ALTER TABLE strategy_runtime_positions
     ALTER COLUMN exposure_side SET DEFAULT 'Buy';
