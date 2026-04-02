@@ -1,5 +1,8 @@
 import { postAdminBackend, readField, redirectTo } from "../_shared";
 
+const SUPPORTED_CHAINS = ["ETH", "BSC", "SOL"] as const;
+const SUPPORTED_ASSETS = ["USDT", "USDC"] as const;
+
 export async function POST(request: Request) {
   const formData = await request.formData();
   const intent = readField(formData, "intent");
@@ -9,16 +12,19 @@ export async function POST(request: Request) {
     const name = readField(formData, "name");
     const durationDays = Number(readField(formData, "durationDays") || "0");
     const isActive = readField(formData, "isActive") !== "false";
+    const prices = SUPPORTED_CHAINS.flatMap((chain) =>
+      SUPPORTED_ASSETS.map((asset) => ({
+        chain,
+        asset,
+        amount: readField(formData, `price:${chain}:${asset}`) || "20.00",
+      })),
+    );
     await postAdminBackend(request, "/admin/memberships/plans", {
       code,
       name,
       duration_days: durationDays,
       is_active: isActive,
-      prices: [
-        { chain: "BSC", asset: "USDT", amount: readField(formData, "bscUsdtPrice") || "20.00" },
-        { chain: "ETH", asset: "USDT", amount: readField(formData, "ethUsdtPrice") || "20.00" },
-        { chain: "SOL", asset: "USDC", amount: readField(formData, "solUsdcPrice") || "20.00" },
-      ],
+      prices,
     });
     return redirectTo(request, `/admin/memberships?planSaved=${encodeURIComponent(code)}`);
   }

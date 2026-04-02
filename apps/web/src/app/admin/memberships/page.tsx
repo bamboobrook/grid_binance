@@ -9,6 +9,12 @@ import {
   getCurrentAdminProfile,
 } from "../../../lib/api/admin-product-state";
 
+const SUPPORTED_CHAINS = ["ETH", "BSC", "SOL"] as const;
+const SUPPORTED_ASSETS = ["USDT", "USDC"] as const;
+const SUPPORTED_PRICE_MATRIX = SUPPORTED_CHAINS.flatMap((chain) =>
+  SUPPORTED_ASSETS.map((asset) => ({ chain, asset, fieldName: `price:${chain}:${asset}` })),
+);
+
 type PageProps = {
   searchParams?: Promise<{ action?: string; planSaved?: string; target?: string }>;
 };
@@ -27,7 +33,8 @@ export default async function AdminMembershipsPage({ searchParams }: PageProps) 
   const canManage = profile.admin_permissions?.can_manage_memberships ?? false;
   const canManagePlans = profile.admin_permissions?.can_manage_plans ?? false;
   const monthly = plans.plans.find((plan) => plan.code === "monthly") ?? plans.plans[0] ?? null;
-  const priceFor = (chain: string, asset: string) => monthly?.prices.find((price) => price.chain === chain && price.asset === asset)?.amount ?? "20.00";
+  const priceFor = (chain: string, asset: string) =>
+    monthly?.prices.find((price) => price.chain === chain && price.asset === asset)?.amount ?? "20.00";
   const membershipColumns: DataTableColumn[] = [
     { key: "email", label: "Email" },
     { key: "status", label: "Status" },
@@ -73,15 +80,11 @@ export default async function AdminMembershipsPage({ searchParams }: PageProps) 
                   <Field label="Plan duration days">
                     <Input defaultValue={String(monthly?.duration_days ?? 30)} inputMode="numeric" name="durationDays" />
                   </Field>
-                  <Field label="BSC / USDT price">
-                    <Input defaultValue={priceFor("BSC", "USDT")} name="bscUsdtPrice" />
-                  </Field>
-                  <Field label="ETH / USDT price">
-                    <Input defaultValue={priceFor("ETH", "USDT")} name="ethUsdtPrice" />
-                  </Field>
-                  <Field label="SOL / USDC price">
-                    <Input defaultValue={priceFor("SOL", "USDC")} name="solUsdcPrice" />
-                  </Field>
+                  {SUPPORTED_PRICE_MATRIX.map(({ chain, asset, fieldName }) => (
+                    <Field key={fieldName} label={`${chain} / ${asset} price`}>
+                      <Input defaultValue={priceFor(chain, asset)} name={fieldName} />
+                    </Field>
+                  ))}
                   <Button type="submit">Save plan pricing</Button>
                 </FormStack>
               ) : (

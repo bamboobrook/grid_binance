@@ -2,7 +2,7 @@
 
 ## Scope
 
-This release hardening task focuses on deployment assets, basic routing, and operational checks. It does not add new admin business flows.
+This release hardening task covers deployment assets, routing and operational checks, and the new admin commercial business flows shipped in V1. Admin operators can now manage membership pricing, membership lifecycle actions, abnormal deposit handling, address pool inventory, treasury sweep requests, strategy/template oversight, system confirmation policy, and audit review from the admin surface.
 
 ## Admin Entry Points
 
@@ -16,6 +16,7 @@ This release hardening task focuses on deployment assets, basic routing, and ope
 2. Confirm Nginx routing with `curl -fsS http://localhost:8080/`.
 3. Confirm API routing with `curl -fsS http://localhost:8080/api/healthz`.
 4. Confirm Prometheus is reachable with `curl -fsS http://localhost:9090/-/ready`.
+5. Confirm admin commercial flows are reachable after login by checking Memberships, Deposits, Address pools, Templates, Strategies, System, and Audit in the admin nav.
 
 ## Log Collection
 

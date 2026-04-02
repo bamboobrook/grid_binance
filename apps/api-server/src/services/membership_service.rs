@@ -868,6 +868,7 @@ impl MembershipService {
                 "session_sid": session_sid,
                 "before_summary": before_summary,
                 "after_summary": after_summary,
+                "prices": prices,
             }),
             created_at: Utc::now(),
         })?;
@@ -1436,23 +1437,11 @@ fn plan_config_summary(
     is_active: bool,
     prices: &[MembershipPlanPriceResponse],
 ) -> String {
-    let preferred = [("BSC", "USDT"), ("ETH", "USDT"), ("SOL", "USDC")];
-    let mut entries = preferred
+    let mut entries = prices
         .iter()
-        .filter_map(|(chain, asset)| {
-            prices
-                .iter()
-                .find(|price| price.chain == *chain && price.asset == *asset)
-                .map(|price| format!("{}/{} {}", price.chain, price.asset, price.amount))
-        })
+        .map(|price| format!("{}/{} {}", price.chain, price.asset, price.amount))
         .collect::<Vec<_>>();
-    if entries.is_empty() {
-        entries = prices
-            .iter()
-            .map(|price| format!("{}/{} {}", price.chain, price.asset, price.amount))
-            .collect::<Vec<_>>();
-        entries.sort();
-    }
+    entries.sort();
     format!(
         "{} {} {}d active {} prices {}",
         code,
