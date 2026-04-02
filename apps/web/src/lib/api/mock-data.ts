@@ -394,7 +394,7 @@ export const helpCenterSnapshot = {
     description: "The documented user help route now exists inside the shared user shell."
   },
   guides: [
-    { href: "/help/expiry-reminder", label: "Expiry reminder guide" },
+    { href: "/app/help?article=expiry-reminder", label: "Expiry reminder guide" },
     { href: "/app/billing", label: "Billing center" },
     { href: "/app/security", label: "Security center" }
   ]

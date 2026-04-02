@@ -61,7 +61,7 @@ export default async function RegisterPage({ searchParams }: RegisterPageProps) 
             </div>
             <ButtonRow>
               <Button type="submit">{snapshot.submitLabel}</Button>
-              <Link className="button button--ghost" href="/help/expiry-reminder">
+              <Link className="button button--ghost" href="/app/help">
                 Billing help
               </Link>
             </ButtonRow>

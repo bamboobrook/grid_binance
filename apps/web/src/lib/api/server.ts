@@ -126,10 +126,6 @@ export async function getAdminDepositsSnapshot() {
   return clone(adminDepositsSnapshot);
 }
 
-export async function getAdminBillingSnapshot() {
-  return clone(adminDepositsSnapshot);
-}
-
 export async function getAdminAddressPoolsSnapshot() {
   return clone(adminAddressPoolsSnapshot);
 }

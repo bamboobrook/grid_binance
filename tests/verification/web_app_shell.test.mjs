@@ -62,6 +62,20 @@ test("web app shell structure aligns with shared public, user, and admin route s
   assert.match(userShell, /usePathname/);
   assert.match(adminShell, /usePathname/);
 
+  const legacyRedirects = [
+    ["apps/web/src/app/app/analytics/page.tsx", /redirect\("\/app\/orders"\)/],
+    ["apps/web/src/app/app/membership/page.tsx", /redirect\("\/app\/billing"\)/],
+    ["apps/web/src/app/app/notifications/page.tsx", /redirect\("\/app\/telegram"\)/],
+    ["apps/web/src/app/admin/billing/page.tsx", /redirect\("\/admin\/deposits"\)/],
+    ["apps/web/src/app/help/[slug]/page.tsx", /redirect\(`\/app\/help\?article=\$\{slug\}`\)/],
+  ];
+
+  for (const [page, pattern] of legacyRedirects) {
+    const source = read(page);
+    assert.match(source, pattern, `${page} should redirect to the documented route`);
+    assert.doesNotMatch(source, /<main[\s>]/, `${page} should not render route-local markup`);
+  }
+
   const routePages = [
     "apps/web/src/app/(public)/login/page.tsx",
     "apps/web/src/app/(public)/register/page.tsx",
@@ -113,6 +127,10 @@ test("web app shell structure aligns with shared public, user, and admin route s
     "/admin/system",
   ]) {
     assert.match(mockData, new RegExp(escapePattern(href)));
+  }
+
+  for (const legacyHref of ["/app/analytics", "/app/membership", "/app/notifications", "/admin/billing"]) {
+    assert.doesNotMatch(mockData, new RegExp(escapePattern(legacyHref)));
   }
 
   const serverApi = read("apps/web/src/lib/api/server.ts");

@@ -17,7 +17,7 @@ export default async function AdminAuditPage() {
             activeHref="/admin/audit"
             items={[
               { href: "/admin/dashboard", label: "Overview" },
-              { href: "/admin/billing", label: "Billing" },
+              { href: "/admin/deposits", label: "Billing" },
               { href: "/admin/audit", label: "Audit" },
             ]}
           />

@@ -61,7 +61,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
             </div>
             <ButtonRow>
               <Button type="submit">{snapshot.submitLabel}</Button>
-              <Link className="button button--ghost" href="/help/expiry-reminder">
+              <Link className="button button--ghost" href="/app/help">
                 Review expiry reminders
               </Link>
             </ButtonRow>
