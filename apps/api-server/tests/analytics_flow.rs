@@ -47,7 +47,7 @@ async fn compute_strategy_and_account_snapshots_from_persisted_trading_and_excha
     assert_eq!(analytics_body["fills"][1]["fee"], "0.5");
 
     let strategies = analytics_body["strategies"].as_array().expect("strategies");
-    assert_eq!(strategies.len(), 3);
+    assert_eq!(strategies.len(), 4);
     assert_eq!(strategies[0]["strategy_id"], "strategy-alpha");
     assert_eq!(strategies[0]["current_state"], "Stopped");
     assert_eq!(strategies[0]["fill_count"], 2);
@@ -70,8 +70,13 @@ async fn compute_strategy_and_account_snapshots_from_persisted_trading_and_excha
     assert_eq!(strategies[2]["position_quantity"], "1.5");
     assert_eq!(strategies[2]["average_entry_price"], "22");
     assert_eq!(strategies[2]["unrealized_pnl"], "4.2");
-    assert_eq!(strategies[2]["funding_total"], "-1.25");
-    assert_eq!(strategies[2]["net_pnl"], "2.95");
+    assert_eq!(strategies[2]["funding_total"], "0");
+    assert_eq!(strategies[2]["net_pnl"], "4.2");
+
+    assert_eq!(strategies[3]["strategy_id"], "strategy-delta");
+    assert_eq!(strategies[3]["fill_count"], 0);
+    assert_eq!(strategies[3]["position_quantity"], "0");
+    assert_eq!(strategies[3]["funding_total"], "0");
 
     assert_eq!(analytics_body["user"]["user_id"], "trader@example.com");
     assert_eq!(analytics_body["user"]["realized_pnl"], "15");
@@ -91,14 +96,17 @@ async fn compute_strategy_and_account_snapshots_from_persisted_trading_and_excha
     assert_eq!(wallet_snapshots[0]["balances"]["BTC"], "0.01");
 
     let account_snapshots = analytics_body["account_snapshots"].as_array().expect("account snapshots");
-    assert_eq!(account_snapshots.len(), 1);
-    assert_eq!(account_snapshots[0]["funding_total"], "-1.25");
+    assert_eq!(account_snapshots.len(), 2);
+    assert_eq!(account_snapshots[0]["funding_total"], "-0.5");
+    assert_eq!(account_snapshots[1]["funding_total"], "-1.25");
 
     let strategy_snapshots = analytics_body["strategy_snapshots"].as_array().expect("strategy snapshots");
-    assert_eq!(strategy_snapshots.len(), 3);
+    assert_eq!(strategy_snapshots.len(), 4);
     assert_eq!(strategy_snapshots[2]["strategy_id"], "strategy-gamma");
     assert_eq!(strategy_snapshots[2]["unrealized_pnl"], "4.2");
-    assert_eq!(strategy_snapshots[2]["funding_total"], "-1.25");
+    assert_eq!(strategy_snapshots[2]["funding_total"], "0");
+    assert_eq!(strategy_snapshots[3]["strategy_id"], "strategy-delta");
+    assert_eq!(strategy_snapshots[3]["funding_total"], "0");
 
     assert!(
         analytics_body["fills"]
@@ -127,7 +135,7 @@ async fn compute_strategy_and_account_snapshots_from_persisted_trading_and_excha
     );
     assert_eq!(
         strategy_lines[3],
-        "strategy-gamma,trader@example.com,SOLUSDT,Running,0,1,33,1.5,22,0,4.2,0,-1.25,2.95"
+        "strategy-gamma,trader@example.com,SOLUSDT,Running,0,1,33,1.5,22,0,4.2,0,0,4.2"
     );
 
     let payments_csv = export_csv(&app, &session_token, "/exports/payments.csv").await;
@@ -228,6 +236,21 @@ fn seed_analytics_data(db: &SharedDb) {
     db.insert_strategy(&StoredStrategy {
         sequence_id: 4,
         strategy: stored_strategy(
+            "strategy-delta",
+            "trader@example.com",
+            "Delta Flat",
+            "BNBUSDT",
+            StrategyStatus::Paused,
+            vec![],
+            vec![],
+            vec![],
+        ),
+    })
+    .expect("insert delta strategy");
+
+    db.insert_strategy(&StoredStrategy {
+        sequence_id: 5,
+        strategy: stored_strategy(
             "foreign-strategy",
             "other@example.com",
             "Foreign SOL",
@@ -263,6 +286,24 @@ fn seed_analytics_data(db: &SharedDb) {
         fees: "0".to_string(),
         captured_at: Utc.with_ymd_and_hms(2026, 3, 4, 0, 10, 0).unwrap(),
     }).expect("gamma snapshot");
+
+    db.insert_strategy_profit_snapshot(&StrategyProfitSnapshotRecord {
+        strategy_id: "strategy-delta".to_string(),
+        realized_pnl: "0".to_string(),
+        unrealized_pnl: "0".to_string(),
+        fees: "0".to_string(),
+        captured_at: Utc.with_ymd_and_hms(2026, 3, 4, 0, 15, 0).unwrap(),
+    }).expect("delta snapshot");
+
+    db.insert_account_profit_snapshot(&AccountProfitSnapshotRecord {
+        user_email: "trader@example.com".to_string(),
+        exchange: "binance".to_string(),
+        realized_pnl: "10".to_string(),
+        unrealized_pnl: "4.5".to_string(),
+        fees: "1.5".to_string(),
+        funding: Some("-0.5".to_string()),
+        captured_at: Utc.with_ymd_and_hms(2026, 3, 4, 0, 30, 0).unwrap(),
+    }).expect("older account snapshot");
 
     db.insert_account_profit_snapshot(&AccountProfitSnapshotRecord {
         user_email: "trader@example.com".to_string(),

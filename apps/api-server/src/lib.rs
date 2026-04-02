@@ -65,7 +65,7 @@ impl AppState {
             exchange: ExchangeService::new_strict(db.clone())?,
             membership: MembershipService::new(db.clone()),
             strategy: StrategyService::new(db.clone()),
-            telegram: TelegramService::new(db),
+            telegram: TelegramService::new_strict(db)?,
         })
     }
 
@@ -133,7 +133,7 @@ pub fn app_with_persistent_state(
         exchange: ExchangeService::new_strict(db.clone()).map_err(AppBuildError::from)?,
         membership: MembershipService::new(db.clone()),
         strategy: StrategyService::new(db.clone()),
-        telegram: TelegramService::new(db),
+        telegram: TelegramService::new_strict(db).map_err(AppBuildError::from)?,
     };
     Ok(app_with_state(state))
 }
@@ -245,6 +245,21 @@ mod tests {
     }
 
     #[test]
+    fn persistent_router_requires_telegram_bot_secret_env() {
+        let _guard = env_lock().lock().expect("env lock");
+        std::env::set_var("ADMIN_EMAILS", "admin@example.com");
+        std::env::set_var("SESSION_TOKEN_SECRET", "grid-binance-dev-session-secret");
+        std::env::remove_var("TELEGRAM_BOT_BIND_SECRET");
+
+        let router = app_with_persistent_state(
+            "postgres://grid:secret@localhost/grid",
+            "redis://localhost:6379/0",
+        );
+
+        assert!(router.is_err());
+    }
+
+#[test]
     fn persistent_router_rejects_invalid_database_url() {
         let _guard = env_lock().lock().expect("env lock");
         std::env::set_var("ADMIN_EMAILS", "admin@example.com");

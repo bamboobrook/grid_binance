@@ -116,6 +116,16 @@ impl TelegramService {
         }
     }
 
+    pub fn new_strict(db: SharedDb) -> Result<Self, shared_db::SharedDbError> {
+        let bot_bind_secret = env::var("TELEGRAM_BOT_BIND_SECRET")
+            .map_err(|_| shared_db::SharedDbError::new("TELEGRAM_BOT_BIND_SECRET is required"))?;
+        Ok(Self {
+            db,
+            inner: Arc::new(Mutex::new(TelegramState::default())),
+            bot_bind_secret: Arc::new(bot_bind_secret),
+        })
+    }
+
     pub fn bind_code_owner(&self, code: &str) -> Option<String> {
         let inner = self.inner.lock().expect("telegram state poisoned");
         inner

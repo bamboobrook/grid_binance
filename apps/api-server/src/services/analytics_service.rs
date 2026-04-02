@@ -36,26 +36,16 @@ impl AnalyticsService {
         let trade_history_records = self.db.list_exchange_trade_history(user_email)?;
 
         let fills = compute_fill_views(&self.trade_fill_inputs(&strategies));
-        let mut strategy_snapshots = to_strategy_snapshot_views(&strategy_snapshot_records)?;
+        let strategy_snapshots = to_strategy_snapshot_views(&strategy_snapshot_records)?;
         let account_snapshots = to_account_snapshot_views(&account_snapshot_records)?;
         let wallets = to_wallet_snapshot_views(&wallet_snapshot_records);
         let latest_strategy_snapshots = latest_strategy_snapshot_map(&strategy_snapshot_records)?;
         let latest_account_snapshot = latest_account_snapshot(&account_snapshot_records)?;
 
-        let mut strategies = strategies
+        let strategies = strategies
             .iter()
             .map(|strategy| strategy_summary(strategy, latest_strategy_snapshots.get(&strategy.id)))
             .collect::<Result<Vec<_>, SharedDbError>>()?;
-
-        let funding_allocations = funding_allocation_map(
-            &strategies,
-            latest_account_snapshot
-                .as_ref()
-                .map(|snapshot| snapshot.funding_total)
-                .unwrap_or(Decimal::ZERO),
-        );
-        apply_funding_allocations(&mut strategies, &funding_allocations);
-        apply_snapshot_funding_allocations(&mut strategy_snapshots, &funding_allocations);
 
         let user = user_aggregate(
             user_email,
@@ -125,19 +115,10 @@ impl AnalyticsService {
         let strategies = self.db.list_strategies(user_email)?;
         let latest_strategy_snapshots =
             latest_strategy_snapshot_map(&self.db.list_strategy_profit_snapshots(user_email)?)?;
-        let latest_account_snapshot = latest_account_snapshot(&self.db.list_account_profit_snapshots(user_email)?)?;
-        let mut summaries = strategies
+        let summaries = strategies
             .iter()
             .map(|strategy| strategy_summary(strategy, latest_strategy_snapshots.get(&strategy.id)))
             .collect::<Result<Vec<_>, SharedDbError>>()?;
-        let funding_allocations = funding_allocation_map(
-            &summaries,
-            latest_account_snapshot
-                .as_ref()
-                .map(|snapshot| snapshot.funding_total)
-                .unwrap_or(Decimal::ZERO),
-        );
-        apply_funding_allocations(&mut summaries, &funding_allocations);
 
         let mut csv = String::from(
             "strategy_id,user_id,symbol,current_state,fill_count,order_count,cost_basis,position_quantity,average_entry_price,realized_pnl,unrealized_pnl,fees_paid,funding_total,net_pnl
@@ -499,65 +480,5 @@ fn json_value_to_string(value: &serde_json::Value) -> String {
             .collect::<Vec<_>>()
             .join(","),
         serde_json::Value::Object(_) => value.to_string(),
-    }
-}
-
-fn funding_allocation_map(
-    strategies: &[StrategyProfitSummary],
-    total_funding: Decimal,
-) -> BTreeMap<String, Decimal> {
-    if total_funding.is_zero() {
-        return BTreeMap::new();
-    }
-
-    let total_cost_basis = strategies
-        .iter()
-        .filter(|strategy| strategy.cost_basis > Decimal::ZERO)
-        .fold(Decimal::ZERO, |acc, strategy| acc + strategy.cost_basis);
-    if total_cost_basis.is_zero() {
-        return BTreeMap::new();
-    }
-
-    let mut allocations = BTreeMap::new();
-    let mut allocated = Decimal::ZERO;
-    let eligible = strategies
-        .iter()
-        .filter(|strategy| strategy.cost_basis > Decimal::ZERO)
-        .collect::<Vec<_>>();
-    for (index, strategy) in eligible.iter().enumerate() {
-        let share = if index + 1 == eligible.len() {
-            total_funding - allocated
-        } else {
-            (total_funding * strategy.cost_basis) / total_cost_basis
-        };
-        allocations.insert(strategy.strategy_id.clone(), share.normalize());
-        allocated += share;
-    }
-    allocations
-}
-
-fn apply_funding_allocations(
-    strategies: &mut [StrategyProfitSummary],
-    allocations: &BTreeMap<String, Decimal>,
-) {
-    for strategy in strategies {
-        if let Some(allocation) = allocations.get(&strategy.strategy_id) {
-            strategy.funding_total = allocation.normalize();
-            strategy.net_pnl = (
-                strategy.realized_pnl + strategy.unrealized_pnl - strategy.fees_paid + strategy.funding_total
-            )
-            .normalize();
-        }
-    }
-}
-
-fn apply_snapshot_funding_allocations(
-    snapshots: &mut [StrategySnapshotView],
-    allocations: &BTreeMap<String, Decimal>,
-) {
-    for snapshot in snapshots {
-        if let Some(allocation) = allocations.get(&snapshot.strategy_id) {
-            snapshot.funding_total = allocation.normalize();
-        }
     }
 }
