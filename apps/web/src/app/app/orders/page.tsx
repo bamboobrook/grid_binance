@@ -3,30 +3,22 @@ import { Card, CardBody, CardDescription, CardHeader, CardTitle } from "../../..
 import { Chip } from "../../../components/ui/chip";
 import { StatusBanner } from "../../../components/ui/status-banner";
 import { DataTable } from "../../../components/ui/table";
+import { getCurrentUserProductState } from "../../../lib/api/user-product-state";
 
-const orderRows = [
-  { id: "ord-1", order: "ORD-8801", symbol: "BTCUSDT", side: "Buy", state: "Filled" },
-  { id: "ord-2", order: "ORD-8802", symbol: "ETHUSDT", side: "Sell", state: "Working" },
-  { id: "ord-3", order: "ORD-8803", symbol: "SOLUSDT", side: "Buy", state: "Cancelled" },
-];
+export default async function OrdersPage() {
+  const state = await getCurrentUserProductState();
+  const orderRows = state.strategies.map((strategy) => ({
+    id: `${strategy.id}-orders`,
+    order: `ORD-${strategy.id.slice(0, 4).toUpperCase()}`,
+    symbol: strategy.symbol,
+    side: strategy.mode,
+    state: strategy.status === "running" ? "Working" : strategy.preflightStatus === "passed" ? "Ready" : strategy.status === "error_paused" ? "Blocked" : "Draft",
+  }));
 
-const fillRows = [
-  { id: "fill-1", event: "Trailing TP exit", symbol: "BTCUSDT", pnl: "+42.18" },
-  { id: "fill-2", event: "Grid buy fill", symbol: "ETHUSDT", pnl: "+9.42" },
-  { id: "fill-3", event: "Grid sell fill", symbol: "SOLUSDT", pnl: "-3.11" },
-];
-
-const historyRows = [
-  { id: "hist-1", at: "2026-04-02 09:21", activity: "API credential retest", detail: "Passed" },
-  { id: "hist-2", at: "2026-04-02 08:55", activity: "Billing order created", detail: "Awaiting exact transfer" },
-  { id: "hist-3", at: "2026-04-01 23:14", activity: "Strategy auto-pause", detail: "Runtime anomaly surfaced" },
-];
-
-export default function OrdersPage() {
   return (
     <>
       <StatusBanner
-        description="Strategy orders, fill history, and exchange account activity are now visible together for reconciliation and export readiness."
+        description="Strategy orders, fill history, and exchange account activity now come from the same user state and account activity flow."
         title="Orders and history"
         tone="info"
       />
@@ -39,7 +31,7 @@ export default function OrdersPage() {
           <Card>
             <CardHeader>
               <CardTitle>Strategy orders</CardTitle>
-              <CardDescription>Working, filled, and cancelled orders stay grouped by strategy runtime.</CardDescription>
+              <CardDescription>Order rows are derived from the current strategy state and lifecycle posture.</CardDescription>
             </CardHeader>
             <CardBody>
               <DataTable
@@ -51,7 +43,7 @@ export default function OrdersPage() {
                 ]}
                 rows={orderRows.map((row) => ({
                   ...row,
-                  state: <Chip tone={row.state === "Filled" ? "success" : row.state === "Working" ? "info" : "warning"}>{row.state}</Chip>,
+                  state: <Chip tone={row.state === "Working" ? "success" : row.state === "Ready" ? "info" : row.state === "Blocked" ? "danger" : "warning"}>{row.state}</Chip>,
                 }))}
               />
             </CardBody>
@@ -59,16 +51,21 @@ export default function OrdersPage() {
           <Card tone="subtle">
             <CardHeader>
               <CardTitle>Fill history</CardTitle>
-              <CardDescription>Per-fill profit context supports export and Telegram notifications.</CardDescription>
+              <CardDescription>Per-fill profit context comes directly from the user-state reporting surface.</CardDescription>
             </CardHeader>
             <CardBody>
               <DataTable
                 columns={[
-                  { key: "event", label: "Event" },
+                  { key: "state", label: "Event" },
                   { key: "symbol", label: "Symbol" },
                   { key: "pnl", label: "PnL", align: "right" },
                 ]}
-                rows={fillRows}
+                rows={state.recentFills.map((row) => ({
+                  id: row.id,
+                  state: row.state === "Trailing TP" ? "Trailing TP exit" : row.state === "Settled" ? "Grid fill" : row.state,
+                  symbol: row.symbol,
+                  pnl: row.pnl,
+                }))}
               />
             </CardBody>
           </Card>
@@ -86,7 +83,7 @@ export default function OrdersPage() {
               { key: "activity", label: "Activity" },
               { key: "detail", label: "Detail", align: "right" },
             ]}
-            rows={historyRows}
+            rows={state.tradeHistory}
           />
         </CardBody>
       </Card>

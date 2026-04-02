@@ -5,25 +5,21 @@ import { Card, CardBody, CardDescription, CardHeader, CardTitle } from "../../..
 import { Chip } from "../../../components/ui/chip";
 import { StatusBanner } from "../../../components/ui/status-banner";
 import { DataTable } from "../../../components/ui/table";
+import { getCurrentUserProductState } from "../../../lib/api/user-product-state";
 
-const summaries = [
-  { label: "Drafts", value: "2" },
-  { label: "Running", value: "5" },
-  { label: "Paused", value: "1" },
-  { label: "Error-paused", value: "1" },
-];
+export default async function StrategiesPage() {
+  const state = await getCurrentUserProductState();
+  const summaries = [
+    { label: "Drafts", value: String(state.strategies.filter((item) => item.status === "draft").length) },
+    { label: "Running", value: String(state.strategies.filter((item) => item.status === "running").length) },
+    { label: "Paused", value: String(state.strategies.filter((item) => item.status === "paused").length) },
+    { label: "Error-paused", value: String(state.strategies.filter((item) => item.status === "error_paused").length) },
+  ];
 
-const rows = [
-  { id: "grid-btc", name: "BTC Recovery Ladder", market: "Spot", state: "Running", exposure: "5,000 USDT" },
-  { id: "grid-eth", name: "ETH Short Ladder", market: "USDⓈ-M", state: "Draft", exposure: "2,400 USDT" },
-  { id: "grid-sol", name: "SOL Neutral Swing", market: "COIN-M", state: "Paused", exposure: "1,800 USD" },
-];
-
-export default function StrategiesPage() {
   return (
     <>
       <StatusBanner
-        description="Batch actions and lifecycle guardrails stay visible while each strategy still owns its own edit and pre-flight flow."
+        description="Batch actions and lifecycle guardrails stay visible while each strategy owns its own edit and pre-flight flow."
         title="Lifecycle guardrails"
         tone="warning"
       />
@@ -33,7 +29,7 @@ export default function StrategiesPage() {
             New strategy
           </Link>
         }
-        description="Review drafts, running instances, and pause-before-edit rules in one inventory view."
+        description="Review drafts, running instances, and pause-before-edit rules from your current user state."
         eyebrow="Strategy catalog"
         title="Strategies"
       >
@@ -52,7 +48,7 @@ export default function StrategiesPage() {
         <Card>
           <CardHeader>
             <CardTitle>Strategy inventory</CardTitle>
-            <CardDescription>Futures same-direction collisions remain blocked at pre-flight and runtime.</CardDescription>
+            <CardDescription>Rows now come from user session-backed strategy state instead of fixed demo samples.</CardDescription>
           </CardHeader>
           <CardBody>
             <DataTable
@@ -62,12 +58,14 @@ export default function StrategiesPage() {
                 { key: "state", label: "State" },
                 { key: "exposure", label: "Exposure", align: "right" },
               ]}
-              rows={rows.map((row) => ({
-                ...row,
-                name: row.id === "grid-btc" ? <Link href="/app/strategies/grid-btc">{row.name}</Link> : row.name,
+              rows={state.strategies.map((row) => ({
+                id: row.id,
+                name: <Link href={`/app/strategies/${row.id}`}>{row.name}</Link>,
+                market: row.marketType,
+                exposure: row.notional,
                 state: (
-                  <Chip tone={row.state === "Running" ? "success" : row.state === "Paused" ? "warning" : "info"}>
-                    {row.state}
+                  <Chip tone={row.status === "running" ? "success" : row.status === "paused" ? "warning" : row.status === "error_paused" ? "danger" : "info"}>
+                    {row.status.replaceAll("_", " ")}
                   </Chip>
                 ),
               }))}
