@@ -122,6 +122,14 @@ test.describe("admin commercial", () => {
       requested_at: new Date().toISOString(),
       transfers: [{ from_address: "sol-addr-1", amount: "12.50000000" }],
     });
+
+    await page.getByRole("link", { name: "System" }).click();
+    await expect(page.getByRole("heading", { name: "System Configuration" })).toBeVisible();
+    await expect(page.getByText("operator_admin sessions can review but cannot change confirmation counts", { exact: false })).toBeVisible();
+    await expect(page.getByLabel("ETH confirmations")).toBeDisabled();
+    await expect(page.getByLabel("BSC confirmations")).toBeDisabled();
+    await expect(page.getByLabel("SOL confirmations")).toBeDisabled();
+    await expect(page.getByRole("button", { name: "Save confirmation policy" })).toBeDisabled();
     await expectForbiddenAdminWrite(request, adminSessionToken, "/admin/system", {
       eth_confirmations: 18,
       bsc_confirmations: 15,
@@ -131,9 +139,9 @@ test.describe("admin commercial", () => {
     await page.getByRole("link", { name: "Audit" }).click();
     await expect(page.getByRole("heading", { name: "Audit Review" })).toBeVisible();
     await expect(page.getByText("Before / after summary", { exact: false })).toBeVisible();
-    await expect(page.getByRole("cell", { name: "decision reject" }).first()).toBeVisible();
-    await expect(page.getByRole("cell", { name: "decision credit_membership" }).first()).toBeVisible();
-    await expect(page.getByText("session role operator_admin", { exact: false }).first()).toBeVisible();
+    await expect(page.getByText("before manual_review_required exact_amount_required | after manual_rejected reject", { exact: false }).first()).toBeVisible();
+    await expect(page.getByText("before manual_review_required wrong_asset | after manual_approved credit_membership order", { exact: false }).first()).toBeVisible();
+    await expect(page.getByText("session role operator_admin | session sid", { exact: false }).first()).toBeVisible();
   });
 
   test("super admin manages pricing, memberships, templates, inventory, sweeps, and audit-backed system controls", async ({

@@ -88,9 +88,21 @@ async fn wrong_asset_transfer_requires_manual_review_and_admin_can_credit_member
     assert_eq!(response_json(status).await["status"], "Active");
 
     let audit_logs = db.list_audit_logs().expect("audit logs");
-    assert!(audit_logs
+    let credited_audit = audit_logs
         .iter()
-        .any(|record| record.action == "deposit.manual_credited"));
+        .find(|record| record.action == "deposit.manual_credited")
+        .expect("credited audit");
+    assert_eq!(credited_audit.actor_email, "admin@example.com");
+    assert_eq!(credited_audit.payload["session_role"], "operator_admin");
+    assert!(credited_audit.payload["session_sid"].as_u64().is_some());
+    assert_eq!(
+        credited_audit.payload["before_summary"],
+        "manual_review_required wrong_asset"
+    );
+    assert_eq!(
+        credited_audit.payload["after_summary"],
+        format!("manual_approved credit_membership order {order_id}")
+    );
 }
 
 #[tokio::test]
@@ -178,9 +190,18 @@ async fn admin_can_reject_abnormal_transfer_and_create_audited_sweep_jobs() {
     assert_eq!(jobs[0]["transfer_count"], 2);
 
     let audit_logs = db.list_audit_logs().expect("audit logs");
-    assert!(audit_logs
+    let rejected_audit = audit_logs
         .iter()
-        .any(|record| record.action == "deposit.manual_rejected"));
+        .find(|record| record.action == "deposit.manual_rejected")
+        .expect("rejected audit");
+    assert_eq!(rejected_audit.actor_email, "admin@example.com");
+    assert_eq!(rejected_audit.payload["session_role"], "operator_admin");
+    assert!(rejected_audit.payload["session_sid"].as_u64().is_some());
+    assert_eq!(
+        rejected_audit.payload["before_summary"],
+        "manual_review_required exact_amount_required"
+    );
+    assert_eq!(rejected_audit.payload["after_summary"], "manual_rejected reject");
     assert!(audit_logs
         .iter()
         .any(|record| record.action == "treasury.sweep_requested"));

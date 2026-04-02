@@ -40,5 +40,10 @@ async fn process_deposit(
     Json(request): Json<ProcessAbnormalDepositRequest>,
 ) -> Result<Json<ProcessAbnormalDepositResponse>, MembershipError> {
     let session = require_admin_session(&auth, &headers).map_err(MembershipError::from)?;
-    Ok(Json(service.process_abnormal_deposit(&session.email, request)?))
+    Ok(Json(service.process_abnormal_deposit(
+        &session.email,
+        session.admin_role,
+        session.sid,
+        request,
+    )?))
 }

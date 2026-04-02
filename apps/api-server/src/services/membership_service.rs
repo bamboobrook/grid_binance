@@ -972,6 +972,8 @@ impl MembershipService {
     pub fn process_abnormal_deposit(
         &self,
         actor_email: &str,
+        admin_role: Option<AdminRole>,
+        session_sid: u64,
         request: ProcessAbnormalDepositRequest,
     ) -> Result<ProcessAbnormalDepositResponse, MembershipError> {
         self.bootstrap_defaults()?;
@@ -996,6 +998,8 @@ impl MembershipService {
         if deposit.status != "manual_review_required" {
             return Err(MembershipError::bad_request("deposit is not pending manual review"));
         }
+
+        let before_summary = abnormal_deposit_before_summary(deposit);
 
         match decision.as_str() {
             "credit_membership" => {
@@ -1039,7 +1043,15 @@ impl MembershipService {
                     action: "deposit.manual_credited".to_owned(),
                     target_type: "deposit".to_owned(),
                     target_id: format!("{chain}:{tx_hash}"),
-                    payload: json!({ "order_id": order_id, "chain": chain }),
+                    payload: json!({
+                        "order_id": order_id,
+                        "chain": chain,
+                        "decision": decision,
+                        "session_role": admin_role.map(|role| role.as_str()),
+                        "session_sid": session_sid,
+                        "before_summary": before_summary,
+                        "after_summary": abnormal_deposit_after_summary("manual_approved", decision.as_str(), Some(order_id)),
+                    }),
                     created_at: request.processed_at,
                 })?;
                 let snapshot = snapshot_for(
@@ -1068,7 +1080,14 @@ impl MembershipService {
                     action: "deposit.manual_rejected".to_owned(),
                     target_type: "deposit".to_owned(),
                     target_id: format!("{chain}:{tx_hash}"),
-                    payload: json!({ "decision": "reject", "chain": chain }),
+                    payload: json!({
+                        "decision": decision,
+                        "chain": chain,
+                        "session_role": admin_role.map(|role| role.as_str()),
+                        "session_sid": session_sid,
+                        "before_summary": before_summary,
+                        "after_summary": abnormal_deposit_after_summary("manual_rejected", decision.as_str(), None),
+                    }),
                     created_at: request.processed_at,
                 })?;
                 Ok(ProcessAbnormalDepositResponse {
@@ -1344,6 +1363,20 @@ impl MembershipService {
     fn insert_audit(&self, record: AuditLogRecord) -> Result<(), MembershipError> {
         let _ = self.db.insert_audit_log(&record);
         Ok(())
+    }
+}
+
+fn abnormal_deposit_before_summary(deposit: &DepositTransactionRecord) -> String {
+    match deposit.review_reason.as_deref() {
+        Some(reason) if !reason.is_empty() => format!("{} {}", deposit.status, reason),
+        _ => deposit.status.clone(),
+    }
+}
+
+fn abnormal_deposit_after_summary(status: &str, decision: &str, order_id: Option<u64>) -> String {
+    match order_id {
+        Some(order_id) => format!("{status} {decision} order {order_id}"),
+        None => format!("{status} {decision}"),
     }
 }
 

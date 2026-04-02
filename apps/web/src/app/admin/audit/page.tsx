@@ -3,65 +3,42 @@ import { Card, CardBody, CardDescription, CardHeader, CardTitle } from "../../..
 import { DataTable } from "../../../components/ui/table";
 import { getAdminAuditData } from "../../../lib/api/admin-product-state";
 
-function deriveSessionRole(actorEmail: string, payload: Record<string, unknown>) {
-  if (typeof payload.session_role === "string" && payload.session_role.length > 0) {
-    return payload.session_role;
+function payloadString(value: unknown) {
+  if (typeof value === "string") {
+    return value;
   }
-  if (actorEmail === "super-admin@example.com") {
-    return "super_admin";
+  if (typeof value === "number" || typeof value === "boolean") {
+    return String(value);
   }
-  if (actorEmail === "admin@example.com") {
-    return "operator_admin";
+  if (value === null) {
+    return "null";
+  }
+  if (typeof value === "object") {
+    return JSON.stringify(value);
   }
   return "-";
 }
 
-function sessionSummary(actorEmail: string, payload: Record<string, unknown>) {
-  const role = deriveSessionRole(actorEmail, payload);
-  const sid = payload.session_sid;
-  if (typeof sid === "number") {
-    return `session role ${role} | session sid ${sid}`;
-  }
-  return `session role ${role}`;
+function sessionSummary(payload: Record<string, unknown>) {
+  const role = typeof payload.session_role === "string" && payload.session_role.length > 0 ? payload.session_role : "-";
+  const sid = typeof payload.session_sid === "number" ? String(payload.session_sid) : "-";
+  return `session role ${role} | session sid ${sid}`;
 }
 
-function summarizePayload(actorEmail: string, payload: Record<string, unknown>) {
+function beforeAfterSummary(payload: Record<string, unknown>) {
+  const before = typeof payload.before_summary === "string" && payload.before_summary.length > 0 ? payload.before_summary : "-";
+  const after = typeof payload.after_summary === "string" && payload.after_summary.length > 0 ? payload.after_summary : "-";
+  return `before ${before} | after ${after}`;
+}
+
+function payloadSummary(payload: Record<string, unknown>) {
   const entries = Object.entries(payload);
+
   if (entries.length === 0) {
-    return sessionSummary(actorEmail, payload);
+    return "-";
   }
 
-  const summaryEntries = [...entries.map(([key, value]) => `${key.replace(/_/g, " ")} ${String(value)}`)];
-  if (!entries.some(([key]) => key === "session_role")) {
-    summaryEntries.push(`session role ${deriveSessionRole(actorEmail, payload)}`);
-  }
-  return summaryEntries.join(" | ");
-}
-
-function afterSummary(action: string, payload: Record<string, unknown>) {
-  if (action === "deposit.manual_credited") {
-    return "decision credit_membership";
-  }
-  if (action === "deposit.manual_rejected") {
-    return "decision reject";
-  }
-  const beforeSummary = payload.before_summary;
-  const explicit = payload.after_summary;
-  if (typeof beforeSummary === "string" && beforeSummary.length > 0 && typeof explicit === "string" && explicit.length > 0) {
-    return `before ${beforeSummary} | after ${explicit}`;
-  }
-  if (typeof explicit === "string" && explicit.length > 0) {
-    return explicit;
-  }
-  const decision = payload.decision;
-  if (typeof decision === "string") {
-    return `decision ${decision}`;
-  }
-  const orderId = payload.order_id;
-  if (typeof orderId === "number") {
-    return `order ${orderId}`;
-  }
-  return "No before/after summary available.";
+  return entries.map(([key, value]) => `${key.replace(/_/g, " ")} ${payloadString(value)}`).join(" | ");
 }
 
 export default async function AdminAuditPage() {
@@ -93,7 +70,7 @@ export default async function AdminAuditPage() {
                   id: item.action + String(index),
                   action: item.action,
                   actor: item.actor_email,
-                  session: sessionSummary(item.actor_email, item.payload),
+                  session: sessionSummary(item.payload),
                   target: item.target_type + ":" + item.target_id,
                   time: item.created_at.replace("T", " ").slice(0, 16),
                 }))}
@@ -115,8 +92,8 @@ export default async function AdminAuditPage() {
                 rows={data.items.slice(0, 12).map((item, index) => ({
                   id: `summary-${index}`,
                   action: item.action,
-                  payload: summarizePayload(item.actor_email, item.payload),
-                  summary: afterSummary(item.action, item.payload),
+                  payload: payloadSummary(item.payload),
+                  summary: beforeAfterSummary(item.payload),
                 }))}
               />
             </CardBody>
