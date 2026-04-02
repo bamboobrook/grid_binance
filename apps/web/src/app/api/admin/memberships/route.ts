@@ -1,40 +1,26 @@
-import { appendAuditRecord, updateAdminProductState } from "../../../../lib/api/admin-product-state";
-
-import { readField, readSessionToken, redirectTo } from "../_shared";
+import { postAdminBackend, readField, redirectTo } from "../_shared";
 
 export async function POST(request: Request) {
   const formData = await request.formData();
-  const membershipId = readField(formData, "membershipId");
-  const sessionToken = readSessionToken(request);
+  const email = readField(formData, "email");
+  const action = readField(formData, "action");
+  const durationDays = Number(readField(formData, "durationDays") || "0");
+  const at = new Date().toISOString();
 
-  updateAdminProductState(sessionToken, (state) => {
-    const membership = state.memberships.find((item) => item.id === membershipId);
-    if (!membership) {
-      state.flash.memberships = {
-        description: "The requested membership record no longer exists.",
-        title: "Membership update failed",
-        tone: "danger",
-      };
-      return;
-    }
-
-    membership.status = "Active";
-    membership.expiresAt = "2026-05-17";
-    membership.graceEndsAt = null;
-    membership.note = "Extended by operator after grace-period review.";
-    state.flash.memberships = {
-      description: `Extended to ${membership.expiresAt} and restored to Active.`,
-      title: "Membership updated",
-      tone: "success",
-    };
-    appendAuditRecord(state, {
-      action: "membership.extend",
-      actor: "Operator Nova",
-      domain: "membership",
-      summary: `Extended ${membership.email} by 30 days from the memberships console.`,
-      target: membership.email,
+  if (action === "freeze" || action === "revoke") {
+    await postAdminBackend(request, "/admin/memberships/override", {
+      email,
+      status: action === "freeze" ? "Frozen" : "Revoked",
+      at,
     });
-  });
+  } else {
+    await postAdminBackend(request, "/admin/memberships/manage", {
+      action,
+      at,
+      duration_days: action === "open" || action === "extend" ? durationDays : null,
+      email,
+    });
+  }
 
-  return redirectTo(request, "/admin/memberships");
+  return redirectTo(request, `/admin/memberships?email=${encodeURIComponent(email)}&action=${encodeURIComponent(action)}`);
 }

@@ -21,7 +21,7 @@ use shared_domain::{
 pub mod postgres;
 pub mod redis;
 
-pub use crate::postgres::admin::AuditLogRecord;
+pub use crate::postgres::admin::{AuditLogRecord, SystemConfigRecord};
 pub use crate::postgres::billing::{
     BillingOrderRecord, DepositAddressPoolRecord, DepositTransactionRecord,
     MembershipPlanPriceRecord, MembershipPlanRecord, MembershipRecord, SweepJobRecord,
@@ -57,6 +57,7 @@ struct EphemeralState {
     telegram_bindings: HashMap<String, TelegramBindingRecord>,
     notification_logs: Vec<NotificationLogRecord>,
     audit_logs: Vec<AuditLogRecord>,
+    system_configs: HashMap<String, SystemConfigRecord>,
     billing_orders: BTreeMap<u64, BillingOrderRecord>,
     seen_transfers: HashSet<String>,
     membership_plans: HashMap<String, MembershipPlanRecord>,
@@ -974,10 +975,36 @@ impl SharedDb {
 
     pub fn list_audit_logs(&self) -> Result<Vec<AuditLogRecord>, SharedDbError> {
         match &self.backend {
-            SharedDbBackend::Runtime { .. } => Err(SharedDbError::new(
-                "list_audit_logs is only available for the ephemeral test backend",
-            )),
+            SharedDbBackend::Runtime { .. } => {
+                let repo = self.admin_repo();
+                Self::block_on(async move { repo.list_audit_logs().await })
+            }
             SharedDbBackend::Ephemeral(state) => Ok(lock_ephemeral(state)?.audit_logs.clone()),
+        }
+    }
+
+    pub fn get_system_config(&self, config_key: &str) -> Result<Option<SystemConfigRecord>, SharedDbError> {
+        match &self.backend {
+            SharedDbBackend::Runtime { .. } => {
+                let repo = self.admin_repo();
+                let config_key = config_key.to_owned();
+                Self::block_on(async move { repo.get_system_config(&config_key).await })
+            }
+            SharedDbBackend::Ephemeral(state) => Ok(lock_ephemeral(state)?.system_configs.get(config_key).cloned()),
+        }
+    }
+
+    pub fn upsert_system_config(&self, record: &SystemConfigRecord) -> Result<(), SharedDbError> {
+        match &self.backend {
+            SharedDbBackend::Runtime { .. } => {
+                let repo = self.admin_repo();
+                let record = record.clone();
+                Self::block_on(async move { repo.upsert_system_config(&record).await })
+            }
+            SharedDbBackend::Ephemeral(state) => {
+                lock_ephemeral(state)?.system_configs.insert(record.config_key.clone(), record.clone());
+                Ok(())
+            }
         }
     }
 
@@ -1346,6 +1373,20 @@ impl SharedDb {
         }
     }
 
+    pub fn list_membership_records(&self) -> Result<Vec<(String, MembershipRecord)>, SharedDbError> {
+        match &self.backend {
+            SharedDbBackend::Runtime { .. } => {
+                let repo = self.billing_repo();
+                Self::block_on(async move { repo.list_membership_records().await })
+            }
+            SharedDbBackend::Ephemeral(state) => Ok(lock_ephemeral(state)?
+                .membership_records
+                .iter()
+                .map(|(email, record)| (email.clone(), record.clone()))
+                .collect()),
+        }
+    }
+
     pub fn upsert_membership_record(
         &self,
         email: &str,
@@ -1464,6 +1505,20 @@ impl SharedDb {
                 .strategies
                 .values()
                 .filter(|strategy| strategy.owner_email == owner_email)
+                .cloned()
+                .collect()),
+        }
+    }
+
+    pub fn list_all_strategies(&self) -> Result<Vec<Strategy>, SharedDbError> {
+        match &self.backend {
+            SharedDbBackend::Runtime { .. } => {
+                let repo = self.strategy_repo();
+                Self::block_on(async move { repo.list_all_strategies().await })
+            }
+            SharedDbBackend::Ephemeral(state) => Ok(lock_ephemeral(state)?
+                .strategies
+                .values()
                 .cloned()
                 .collect()),
         }

@@ -1,9 +1,13 @@
 mod routes {
     pub mod admin_address_pools;
+    pub mod admin_audit;
     pub mod admin_deposits;
     pub mod admin_memberships;
+    pub mod admin_strategies;
     pub mod admin_sweeps;
+    pub mod admin_system;
     pub mod admin_templates;
+    pub mod admin_users;
     pub mod analytics;
     pub mod auth;
     pub mod auth_guard;
@@ -42,6 +46,7 @@ use shared_db::{SharedDb, SharedDbError};
 pub struct AppState {
     analytics: AnalyticsService,
     auth: AuthService,
+    db: SharedDb,
     exchange: ExchangeService,
     membership: MembershipService,
     strategy: StrategyService,
@@ -62,6 +67,7 @@ impl AppState {
             analytics: AnalyticsService::new(db.clone()),
             auth: AuthService::new_strict(db.clone())
                 .map_err(|error| SharedDbError::new(error.to_string()))?,
+            db: db.clone(),
             exchange: ExchangeService::new_strict(db.clone())?,
             membership: MembershipService::new(db.clone()),
             strategy: StrategyService::new(db.clone()),
@@ -73,11 +79,18 @@ impl AppState {
         Ok(Self {
             analytics: AnalyticsService::new(db.clone()),
             auth: AuthService::new(db.clone()),
+            db: db.clone(),
             exchange: ExchangeService::new(db.clone()),
             membership: MembershipService::new(db.clone()),
             strategy: StrategyService::new(db.clone()),
             telegram: TelegramService::new(db),
         })
+    }
+}
+
+impl FromRef<AppState> for SharedDb {
+    fn from_ref(input: &AppState) -> Self {
+        input.db.clone()
     }
 }
 
@@ -130,6 +143,7 @@ pub fn app_with_persistent_state(
     let state = AppState {
         analytics: AnalyticsService::new(db.clone()),
         auth,
+        db: db.clone(),
         exchange: ExchangeService::new_strict(db.clone()).map_err(AppBuildError::from)?,
         membership: MembershipService::new(db.clone()),
         strategy: StrategyService::new(db.clone()),
@@ -141,10 +155,14 @@ pub fn app_with_persistent_state(
 pub fn app_with_state(state: AppState) -> Router {
     Router::new()
         .merge(routes::admin_address_pools::router())
+        .merge(routes::admin_audit::router())
         .merge(routes::admin_deposits::router())
         .merge(routes::admin_memberships::router())
+        .merge(routes::admin_strategies::router())
         .merge(routes::admin_sweeps::router())
+        .merge(routes::admin_system::router())
         .merge(routes::admin_templates::router())
+        .merge(routes::admin_users::router())
         .merge(routes::analytics::router())
         .merge(routes::auth::router())
         .merge(routes::billing::router())

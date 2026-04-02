@@ -1,88 +1,79 @@
 import { AppShellSection } from "../../../components/shell/app-shell-section";
 import { Card, CardBody, CardDescription, CardHeader, CardTitle } from "../../../components/ui/card";
-import { Chip } from "../../../components/ui/chip";
-import { DialogFrame } from "../../../components/ui/dialog";
 import { Button, FormStack } from "../../../components/ui/form";
 import { StatusBanner } from "../../../components/ui/status-banner";
 import { DataTable } from "../../../components/ui/table";
-import { getCurrentAdminProductState } from "../../../lib/api/admin-product-state";
+import { getAdminDepositsData } from "../../../lib/api/admin-product-state";
 
-export default async function AdminDepositsPage() {
-  const state = await getCurrentAdminProductState();
+type PageProps = {
+  searchParams?: Promise<{ result?: string; tx?: string }>;
+};
+
+export default async function AdminDepositsPage({ searchParams }: PageProps) {
+  const params = (await searchParams) ?? {};
+  const result = typeof params.result === "string" ? params.result : "";
+  const tx = typeof params.tx === "string" ? params.tx : "";
+  const data = await getAdminDepositsData();
 
   return (
     <>
-      {state.flash.deposits ? (
-        <StatusBanner description={state.flash.deposits.description} title={state.flash.deposits.title} tone={state.flash.deposits.tone} />
+      {result ? (
+        <StatusBanner description={"Deposit result: " + result + (tx ? " | " + tx : "")} title="Deposit case updated" tone="success" />
       ) : null}
       <AppShellSection
-        description="Resolve wrong-token, underpayment, overpayment, and abnormal transfer cases without silently crediting memberships."
+        description="Manual review decisions are read from and written to backend deposit workflows."
         eyebrow="Deposit review"
         title="Abnormal Deposit Handling"
       >
         <Card>
           <CardHeader>
-            <CardTitle>Abnormal deposit queue</CardTitle>
-            <CardDescription>Open cases remain blocked until an operator makes an explicit decision.</CardDescription>
+            <CardTitle>Deposit exception queue</CardTitle>
+            <CardDescription>Manual credit and rejection both route through backend review decisions.</CardDescription>
           </CardHeader>
           <CardBody>
             <DataTable
               columns={[
-                { key: "order", label: "Order" },
-                { key: "issue", label: "Issue" },
-                { key: "user", label: "User" },
-                { key: "amount", label: "Amount", align: "right" },
-                { key: "state", label: "State" },
-                { key: "action", label: "Action", align: "right" },
+                { key: "tx", label: "Tx hash" },
+                { key: "chain", label: "Chain" },
+                { key: "reason", label: "Reason" },
+                { key: "status", label: "Status" },
+                { key: "action", label: "Actions" },
               ]}
-              rows={state.deposits.map((item) => ({
-                id: item.id,
+              rows={data.abnormal_deposits.map((item) => ({
+                id: item.tx_hash,
                 action:
-                  item.order === "ORD-4201" ? (
-                    <FormStack action="/api/admin/deposits" method="post">
-                      <input name="depositId" type="hidden" value={item.id} />
-                      <Button type="submit">Resolve ORD-4201 as refunded</Button>
-                    </FormStack>
+                  item.status === "manual_review_required" ? (
+                    <div className="content-grid">
+                      <FormStack action="/api/admin/deposits" method="post">
+                        <input name="txHash" type="hidden" value={item.tx_hash} />
+                        <input name="chain" type="hidden" value={item.chain} />
+                        <input name="decision" type="hidden" value="reject" />
+                        <Button type="submit">{"Reject " + item.tx_hash}</Button>
+                      </FormStack>
+                      {item.order_id ? (
+                        <FormStack action="/api/admin/deposits" method="post">
+                          <input name="txHash" type="hidden" value={item.tx_hash} />
+                          <input name="chain" type="hidden" value={item.chain} />
+                          <input name="decision" type="hidden" value="credit_membership" />
+                          <input name="orderId" type="hidden" value={String(item.order_id)} />
+                          <Button type="submit">{"Credit " + item.tx_hash + " to membership"}</Button>
+                        </FormStack>
+                      ) : (
+                        <span>-</span>
+                      )}
+                    </div>
                   ) : (
-                    <Chip tone={item.state === "open" ? "warning" : "success"}>{item.state}</Chip>
+                    item.status
                   ),
-                amount: `${item.amount} ${item.token}`,
-                issue: item.issue,
-                order: item.order,
-                state: <Chip tone={item.state === "open" ? "danger" : "success"}>{item.state}</Chip>,
-                user: item.user,
+                chain: item.chain,
+                reason: item.review_reason ?? "-",
+                status: item.status,
+                tx: item.tx_hash,
               }))}
             />
           </CardBody>
         </Card>
       </AppShellSection>
-      <div className="content-grid content-grid--split">
-        <DialogFrame
-          description="Overpayment, underpayment, wrong token, and abnormal transfer must be held for manual handling. No auto-credit path exists here."
-          title="Manual handling rule"
-          tone="danger"
-        >
-          <ul className="text-list">
-            <li>Open cases: {state.deposits.filter((item) => item.state === "open").length}</li>
-            <li>Refunded cases: {state.deposits.filter((item) => item.state === "refunded").length}</li>
-          </ul>
-        </DialogFrame>
-        <Card>
-          <CardHeader>
-            <CardTitle>Operator notes</CardTitle>
-            <CardDescription>Use these notes before messaging the user or treasury team.</CardDescription>
-          </CardHeader>
-          <CardBody>
-            <ul className="text-list">
-              {state.deposits.map((item) => (
-                <li key={item.id}>
-                  {item.order}: {item.note}
-                </li>
-              ))}
-            </ul>
-          </CardBody>
-        </Card>
-      </div>
     </>
   );
 }

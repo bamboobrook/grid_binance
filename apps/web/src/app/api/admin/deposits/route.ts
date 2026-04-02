@@ -1,38 +1,23 @@
-import { appendAuditRecord, updateAdminProductState } from "../../../../lib/api/admin-product-state";
-
-import { readField, readSessionToken, redirectTo } from "../_shared";
+import { postAdminBackend, readField, redirectTo } from "../_shared";
 
 export async function POST(request: Request) {
   const formData = await request.formData();
-  const depositId = readField(formData, "depositId");
-  const sessionToken = readSessionToken(request);
+  const txHash = readField(formData, "txHash");
+  const chain = readField(formData, "chain");
+  const decision = readField(formData, "decision");
+  const orderId = readField(formData, "orderId");
 
-  updateAdminProductState(sessionToken, (state) => {
-    const deposit = state.deposits.find((item) => item.id === depositId);
-    if (!deposit) {
-      state.flash.deposits = {
-        description: "The abnormal deposit case no longer exists.",
-        title: "Deposit update failed",
-        tone: "danger",
-      };
-      return;
-    }
-
-    deposit.state = "refunded";
-    deposit.note = "Treasury refund recorded after support verification.";
-    state.flash.deposits = {
-      description: "Refunded after user contact. Treasury refund recorded after support verification.",
-      title: "Deposit case updated",
-      tone: "success",
-    };
-    appendAuditRecord(state, {
-      action: "deposit.refund",
-      actor: "Operator Mira",
-      domain: "deposit",
-      summary: `Resolved ${deposit.order} as refunded after support review.`,
-      target: deposit.order,
-    });
+  const response = await postAdminBackend(request, "/admin/deposits/process", {
+    chain,
+    decision,
+    order_id: orderId ? Number(orderId) : null,
+    processed_at: new Date().toISOString(),
+    tx_hash: txHash,
   });
+  const payload = (await response.json()) as { deposit_status?: string };
 
-  return redirectTo(request, "/admin/deposits");
+  return redirectTo(
+    request,
+    `/admin/deposits?tx=${encodeURIComponent(txHash)}&result=${encodeURIComponent(payload.deposit_status ?? decision)}`,
+  );
 }

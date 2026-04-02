@@ -1,76 +1,78 @@
 import { AppShellSection } from "../../../components/shell/app-shell-section";
 import { Card, CardBody, CardDescription, CardHeader, CardTitle } from "../../../components/ui/card";
-import { DialogFrame } from "../../../components/ui/dialog";
 import { Button, Field, FormStack, Input, Select } from "../../../components/ui/form";
 import { StatusBanner } from "../../../components/ui/status-banner";
 import { DataTable } from "../../../components/ui/table";
-import { getCurrentAdminProductState } from "../../../lib/api/admin-product-state";
+import { getAdminAddressPoolsData } from "../../../lib/api/admin-product-state";
 
-export default async function AdminAddressPoolsPage() {
-  const state = await getCurrentAdminProductState();
+type PageProps = {
+  searchParams?: Promise<{ updated?: string }>;
+};
+
+export default async function AdminAddressPoolsPage({ searchParams }: PageProps) {
+  const params = (await searchParams) ?? {};
+  const updated = typeof params.updated === "string" ? params.updated : "";
+  const data = await getAdminAddressPoolsData();
 
   return (
     <>
-      {state.flash.addressPools ? (
-        <StatusBanner
-          description={state.flash.addressPools.description}
-          title={state.flash.addressPools.title}
-          tone={state.flash.addressPools.tone}
-        />
-      ) : null}
+      {updated ? <StatusBanner description={"Updated address " + updated} title="Address pool updated" tone="success" /> : null}
       <AppShellSection
-        description="Expand address inventory before queues grow, while keeping one-hour lock visibility and chain-level utilization in view."
+        description="Address inventory and enablement are read from backend billing address pools."
         eyebrow="Chain billing ops"
-        title="Address Pool Expansion"
+        title="Address Pool Inventory"
       >
         <div className="content-grid content-grid--split">
           <Card>
             <CardHeader>
-              <CardTitle>Expand pool capacity</CardTitle>
-              <CardDescription>Each assigned address remains reserved for one hour before rotation can reuse it.</CardDescription>
+              <CardTitle>Add or enable address</CardTitle>
+              <CardDescription>Submit address-level changes to the backend pool.</CardDescription>
             </CardHeader>
             <CardBody>
               <FormStack action="/api/admin/address-pools" method="post">
                 <Field label="Chain">
-                  <Select defaultValue="bsc" name="chain">
-                    <option value="ethereum">Ethereum</option>
-                    <option value="bsc">BSC</option>
-                    <option value="solana">Solana</option>
+                  <Select name="chain">
+                    <option value="BSC">BSC</option>
+                    <option value="ETH">ETH</option>
+                    <option value="SOL">SOL</option>
                   </Select>
                 </Field>
-                <Field label="Expand by">
-                  <Input defaultValue="3" inputMode="numeric" name="expandBy" />
+                <Field label="Address">
+                  <Input name="address" placeholder="bsc-ops-1" />
                 </Field>
-                <Button type="submit">Expand BSC pool</Button>
+                <input name="isEnabled" type="hidden" value="true" />
+                <Button type="submit">Add or enable address</Button>
               </FormStack>
             </CardBody>
           </Card>
-          <DialogFrame
-            description="If the address pool is full, new payment orders must queue instead of reusing a locked address. Expansion is the operator-safe way to relieve pressure."
-            title="Pool saturation rule"
-            tone="warning"
-          />
         </div>
       </AppShellSection>
       <Card>
         <CardHeader>
-          <CardTitle>Current pool pressure</CardTitle>
-          <CardDescription>Visibility into total addresses, locks, and queued orders by chain.</CardDescription>
+          <CardTitle>Address inventory</CardTitle>
+          <CardDescription>Address-level backend pool records.</CardDescription>
         </CardHeader>
         <CardBody>
           <DataTable
             columns={[
               { key: "chain", label: "Chain" },
-              { key: "total", label: "Total addresses", align: "right" },
-              { key: "locked", label: "Locked", align: "right" },
-              { key: "queue", label: "Queue", align: "right" },
+              { key: "address", label: "Address" },
+              { key: "enabled", label: "Enabled" },
+              { key: "action", label: "Action" },
             ]}
-            rows={state.addressPools.map((item) => ({
-              id: item.id,
-              chain: item.chain === "bsc" ? "BSC" : item.chain === "solana" ? "Solana" : "Ethereum",
-              locked: String(item.locked),
-              queue: String(item.queue),
-              total: String(item.total),
+            rows={data.addresses.map((item) => ({
+              id: item.chain + ":" + item.address,
+              action: (
+                <FormStack action="/api/admin/address-pools" method="post">
+                  <input name="chain" type="hidden" value={item.chain} />
+                  <input name="address" type="hidden" value={item.address} />
+                  <input name="isEnabled" type="hidden" value={item.is_enabled ? "false" : "true"} />
+                  <Button type="submit">{(item.is_enabled ? "Disable " : "Enable ") + item.address}</Button>
+                </FormStack>
+              ),
+              address: item.address,
+              chain: item.chain,
+              enabled: item.is_enabled ? "Yes" : "No",
             }))}
           />
         </CardBody>

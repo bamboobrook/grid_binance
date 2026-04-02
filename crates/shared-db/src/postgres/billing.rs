@@ -470,6 +470,36 @@ impl BillingRepository {
         rows.into_iter().map(deposit_from_row).collect()
     }
 
+    pub async fn list_membership_records(&self) -> Result<Vec<(String, MembershipRecord)>, SharedDbError> {
+        let rows = sqlx::query(
+            "SELECT user_email, activated_at, active_until, grace_until, override_status
+             FROM membership_entitlements
+             ORDER BY updated_at DESC, user_email ASC",
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(SharedDbError::from)?;
+
+        rows.into_iter()
+            .map(|row| {
+                let override_status: Option<String> =
+                    row.try_get("override_status").map_err(SharedDbError::from)?;
+                Ok((
+                    row.try_get("user_email").map_err(SharedDbError::from)?,
+                    MembershipRecord {
+                        activated_at: row.try_get("activated_at").map_err(SharedDbError::from)?,
+                        active_until: row.try_get("active_until").map_err(SharedDbError::from)?,
+                        grace_until: row.try_get("grace_until").map_err(SharedDbError::from)?,
+                        override_status: override_status
+                            .as_deref()
+                            .map(parse_membership_status)
+                            .transpose()?,
+                    },
+                ))
+            })
+            .collect()
+    }
+
     pub async fn find_membership_record(
         &self,
         email: &str,

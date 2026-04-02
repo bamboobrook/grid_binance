@@ -1,27 +1,16 @@
-import { appendAuditRecord, updateAdminProductState } from "../../../../lib/api/admin-product-state";
-
-import { readField, readSessionToken, redirectTo } from "../_shared";
+import { postAdminBackend, readField, redirectTo } from "../_shared";
 
 export async function POST(request: Request) {
   const formData = await request.formData();
-  const sessionToken = readSessionToken(request);
-  const bscConfirmations = readField(formData, "bscConfirmations") || "12";
+  const eth = Number(readField(formData, "ethConfirmations") || "12");
+  const bsc = Number(readField(formData, "bscConfirmations") || "12");
+  const sol = Number(readField(formData, "solConfirmations") || "12");
 
-  updateAdminProductState(sessionToken, (state) => {
-    state.system.billing.bscConfirmations = bscConfirmations;
-    state.flash.system = {
-      description: `Billing confirmation thresholds were updated. BSC now requires ${bscConfirmations} confirmations.`,
-      title: "System configuration saved",
-      tone: "success",
-    };
-    appendAuditRecord(state, {
-      action: "system.update",
-      actor: "Operator Nova",
-      domain: "system",
-      summary: `Updated BSC confirmations to ${bscConfirmations}.`,
-      target: "billing-config",
-    });
+  await postAdminBackend(request, "/admin/system", {
+    bsc_confirmations: bsc,
+    eth_confirmations: eth,
+    sol_confirmations: sol,
   });
 
-  return redirectTo(request, "/admin/system");
+  return redirectTo(request, `/admin/system?saved=1&eth=${eth}&bsc=${bsc}&sol=${sol}`);
 }

@@ -115,6 +115,30 @@ impl AdminRepository {
         Ok(())
     }
 
+    pub async fn list_audit_logs(&self) -> Result<Vec<AuditLogRecord>, SharedDbError> {
+        let rows = sqlx::query(
+            "SELECT actor_email, action, target_type, target_id, payload, created_at
+             FROM audit_logs
+             ORDER BY created_at DESC, audit_id DESC",
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(SharedDbError::from)?;
+
+        rows.into_iter()
+            .map(|row| {
+                Ok(AuditLogRecord {
+                    actor_email: row.try_get("actor_email").map_err(SharedDbError::from)?,
+                    action: row.try_get("action").map_err(SharedDbError::from)?,
+                    target_type: row.try_get("target_type").map_err(SharedDbError::from)?,
+                    target_id: row.try_get("target_id").map_err(SharedDbError::from)?,
+                    payload: row.try_get("payload").map_err(SharedDbError::from)?,
+                    created_at: row.try_get("created_at").map_err(SharedDbError::from)?,
+                })
+            })
+            .collect()
+    }
+
     pub async fn upsert_system_config(&self, record: &SystemConfigRecord) -> Result<(), SharedDbError> {
         sqlx::query(
             "INSERT INTO system_configs (config_key, config_value, updated_at)
@@ -160,27 +184,27 @@ pub(crate) async fn insert_audit_log_in(
     transaction: &mut Transaction<'_, Postgres>,
     record: &AuditLogRecord,
 ) -> Result<(), SharedDbError> {
-        sqlx::query(
-            "INSERT INTO audit_logs (
-                actor_email,
-                action,
-                target_type,
-                target_id,
-                payload,
-                created_at
-             ) VALUES ($1, $2, $3, $4, $5, $6)",
-        )
-        .bind(&record.actor_email)
-        .bind(&record.action)
-        .bind(&record.target_type)
-        .bind(&record.target_id)
-        .bind(&record.payload)
-        .bind(record.created_at)
-        .execute(&mut **transaction)
-        .await
-        .map_err(SharedDbError::from)?;
-        Ok(())
-    }
+    sqlx::query(
+        "INSERT INTO audit_logs (
+            actor_email,
+            action,
+            target_type,
+            target_id,
+            payload,
+            created_at
+         ) VALUES ($1, $2, $3, $4, $5, $6)",
+    )
+    .bind(&record.actor_email)
+    .bind(&record.action)
+    .bind(&record.target_type)
+    .bind(&record.target_id)
+    .bind(&record.payload)
+    .bind(record.created_at)
+    .execute(&mut **transaction)
+    .await
+    .map_err(SharedDbError::from)?;
+    Ok(())
+}
 
 fn template_from_row(row: sqlx::postgres::PgRow) -> Result<StrategyTemplate, SharedDbError> {
     Ok(StrategyTemplate {

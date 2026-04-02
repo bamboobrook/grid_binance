@@ -84,6 +84,43 @@ impl StrategyRepository {
         Ok(items)
     }
 
+    pub async fn list_all_strategies(&self) -> Result<Vec<Strategy>, SharedDbError> {
+        let rows = sqlx::query(
+            "SELECT id,
+                    owner_email,
+                    name,
+                    symbol,
+                    budget,
+                    grid_spacing_bps,
+                    status,
+                    source_template_id,
+                    membership_ready,
+                    exchange_ready,
+                    permissions_ready,
+                    withdrawals_disabled,
+                    hedge_mode_ready,
+                    symbol_ready,
+                    filters_ready,
+                    margin_ready,
+                    conflict_ready,
+                    balance_ready,
+                    market,
+                    mode,
+                    archived_at
+             FROM strategies
+             ORDER BY sequence_id ASC",
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(SharedDbError::from)?;
+
+        let mut items = Vec::with_capacity(rows.len());
+        for row in rows {
+            items.push(strategy_from_row(&self.pool, row).await?);
+        }
+        Ok(items)
+    }
+
     pub async fn find_strategy(
         &self,
         owner_email: &str,

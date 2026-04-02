@@ -2,73 +2,51 @@ import { AppShellSection } from "../../../components/shell/app-shell-section";
 import { Card, CardBody, CardDescription, CardHeader, CardTitle } from "../../../components/ui/card";
 import { Button, Field, FormStack, Input } from "../../../components/ui/form";
 import { StatusBanner } from "../../../components/ui/status-banner";
-import { DataTable } from "../../../components/ui/table";
-import { getCurrentAdminProductState } from "../../../lib/api/admin-product-state";
+import { getAdminSystemData } from "../../../lib/api/admin-product-state";
 
-export default async function AdminSystemPage() {
-  const state = await getCurrentAdminProductState();
+type PageProps = {
+  searchParams?: Promise<{ bsc?: string; eth?: string; saved?: string; sol?: string }>;
+};
+
+export default async function AdminSystemPage({ searchParams }: PageProps) {
+  const params = (await searchParams) ?? {};
+  const data = await getAdminSystemData();
+  const hasSaved = params.saved === "1";
+  const eth = typeof params.eth === "string" ? params.eth : String(data.eth_confirmations);
+  const bsc = typeof params.bsc === "string" ? params.bsc : String(data.bsc_confirmations);
+  const sol = typeof params.sol === "string" ? params.sol : String(data.sol_confirmations);
 
   return (
     <>
-      {state.flash.system ? (
-        <StatusBanner description={state.flash.system.description} title={state.flash.system.title} tone={state.flash.system.tone} />
+      {hasSaved ? (
+        <StatusBanner description={"ETH " + eth + " | BSC " + bsc + " | SOL " + sol} title="Confirmation policy saved" tone="success" />
       ) : null}
       <AppShellSection
-        description="Manage billing confirmations and treasury-oriented settings with visible persistence and audit confirmation."
+        description="Per-chain confirmation policy is persisted in the backend system config store."
         eyebrow="System settings"
         title="System Configuration"
       >
-        <div className="content-grid content-grid--split">
-          <Card>
-            <CardHeader>
-              <CardTitle>Billing configuration</CardTitle>
-              <CardDescription>Confirmation thresholds and on-chain billing protections.</CardDescription>
-            </CardHeader>
-            <CardBody>
-              <FormStack action="/api/admin/system" method="post">
-                <Field label="BSC confirmations">
-                  <Input defaultValue={state.system.billing.bscConfirmations} inputMode="numeric" name="bscConfirmations" />
-                </Field>
-                <Button type="submit">Save billing configuration</Button>
-              </FormStack>
-            </CardBody>
-          </Card>
-          <Card tone="subtle">
-            <CardHeader>
-              <CardTitle>Treasury settings</CardTitle>
-              <CardDescription>Read-only treasury references for this commercial recovery stage.</CardDescription>
-            </CardHeader>
-            <CardBody>
-              <ul className="text-list">
-                <li>BSC treasury: {state.system.treasury.bscWallet}</li>
-                <li>Solana treasury: {state.system.treasury.solanaWallet}</li>
-                <li>BSC USDT price: {state.system.treasury.usdtPriceBsc}</li>
-              </ul>
-            </CardBody>
-          </Card>
-        </div>
+        <Card>
+          <CardHeader>
+            <CardTitle>Confirmation policy</CardTitle>
+            <CardDescription>Edit all supported chain confirmation counts.</CardDescription>
+          </CardHeader>
+          <CardBody>
+            <FormStack action="/api/admin/system" method="post">
+              <Field label="ETH confirmations">
+                <Input defaultValue={String(data.eth_confirmations)} inputMode="numeric" name="ethConfirmations" />
+              </Field>
+              <Field label="BSC confirmations">
+                <Input defaultValue={String(data.bsc_confirmations)} inputMode="numeric" name="bscConfirmations" />
+              </Field>
+              <Field label="SOL confirmations">
+                <Input defaultValue={String(data.sol_confirmations)} inputMode="numeric" name="solConfirmations" />
+              </Field>
+              <Button type="submit">Save confirmation policy</Button>
+            </FormStack>
+          </CardBody>
+        </Card>
       </AppShellSection>
-      <Card>
-        <CardHeader>
-          <CardTitle>Current config snapshot</CardTitle>
-          <CardDescription>Current effective values after the latest operator write.</CardDescription>
-        </CardHeader>
-        <CardBody>
-          <DataTable
-            columns={[
-              { key: "key", label: "Key" },
-              { key: "value", label: "Value" },
-              { key: "scope", label: "Scope", align: "right" },
-            ]}
-            rows={[
-              { id: "cfg-bsc", key: "bsc_confirmations", scope: "Billing", value: state.system.billing.bscConfirmations },
-              { id: "cfg-eth", key: "eth_confirmations", scope: "Billing", value: state.system.billing.ethConfirmations },
-              { id: "cfg-sol", key: "solana_confirmations", scope: "Billing", value: state.system.billing.solanaConfirmations },
-              { id: "cfg-wallet", key: "bsc_treasury_wallet", scope: "Treasury", value: state.system.treasury.bscWallet },
-            ]}
-          />
-        </CardBody>
-      </Card>
     </>
   );
 }
