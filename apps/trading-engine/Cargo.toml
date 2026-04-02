@@ -5,6 +5,15 @@ edition = "2021"
 
 [dependencies]
 axum = "0.8"
+chrono = { version = "0.4", features = ["serde"] }
 rust_decimal = "1"
 shared-domain = { path = "../../crates/shared-domain" }
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "net"] }
+
+[[test]]
+name = "trailing_tp"
+path = "../../tests/simulation/trailing_tp.rs"
+
+[[test]]
+name = "strategy_rebuild"
+path = "../../tests/simulation/strategy_rebuild.rs"

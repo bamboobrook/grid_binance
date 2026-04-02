@@ -1,12 +1,14 @@
 use chrono::{DateTime, Utc};
-use serde_json::Value;
+use serde_json::{json, Value};
 use sqlx::{PgPool, Row};
 
-use shared_domain::strategy::{Strategy, StrategyStatus};
-
-use crate::{
-    parse_strategy_status, strategy_status_to_str, SharedDbError, StoredStrategy,
+use shared_domain::strategy::{
+    GridGeneration, PostTriggerAction, PreflightReport, Strategy, StrategyMarket,
+    StrategyMode, StrategyRevision, StrategyRuntime, StrategyRuntimeEvent, StrategyRuntimeFill,
+    StrategyRuntimeOrder, StrategyRuntimePosition,
 };
+
+use crate::{parse_strategy_status, strategy_status_to_str, SharedDbError, StoredStrategy};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct StrategyRevisionRecord {
@@ -46,7 +48,10 @@ impl StrategyRepository {
                     source_template_id,
                     membership_ready,
                     exchange_ready,
-                    symbol_ready
+                    symbol_ready,
+                    market,
+                    mode,
+                    archived_at
              FROM strategies
              WHERE lower(owner_email) = lower($1)
              ORDER BY sequence_id ASC",
@@ -56,7 +61,11 @@ impl StrategyRepository {
         .await
         .map_err(SharedDbError::from)?;
 
-        rows.into_iter().map(strategy_from_row).collect()
+        let mut items = Vec::with_capacity(rows.len());
+        for row in rows {
+            items.push(strategy_from_row(&self.pool, row).await?);
+        }
+        Ok(items)
     }
 
     pub async fn find_strategy(
@@ -64,7 +73,7 @@ impl StrategyRepository {
         owner_email: &str,
         strategy_id: &str,
     ) -> Result<Option<Strategy>, SharedDbError> {
-        sqlx::query(
+        let row = sqlx::query(
             "SELECT id,
                     owner_email,
                     name,
@@ -75,7 +84,10 @@ impl StrategyRepository {
                     source_template_id,
                     membership_ready,
                     exchange_ready,
-                    symbol_ready
+                    symbol_ready,
+                    market,
+                    mode,
+                    archived_at
              FROM strategies
              WHERE lower(owner_email) = lower($1) AND id = $2",
         )
@@ -83,9 +95,12 @@ impl StrategyRepository {
         .bind(strategy_id)
         .fetch_optional(&self.pool)
         .await
-        .map_err(SharedDbError::from)?
-        .map(strategy_from_row)
-        .transpose()
+        .map_err(SharedDbError::from)?;
+
+        match row {
+            Some(row) => Ok(Some(strategy_from_row(&self.pool, row).await?)),
+            None => Ok(None),
+        }
     }
 
     pub async fn insert_strategy(&self, strategy: &StoredStrategy) -> Result<(), SharedDbError> {
@@ -103,9 +118,12 @@ impl StrategyRepository {
                 membership_ready,
                 exchange_ready,
                 symbol_ready,
+                market,
+                mode,
+                archived_at,
                 created_at,
                 updated_at
-             ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, now(), now())",
+             ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, now(), now())",
         )
         .bind(&strategy.strategy.id)
         .bind(strategy.sequence_id as i64)
@@ -119,9 +137,15 @@ impl StrategyRepository {
         .bind(strategy.strategy.membership_ready)
         .bind(strategy.strategy.exchange_ready)
         .bind(strategy.strategy.symbol_ready)
+        .bind(strategy_market_to_str(strategy.strategy.market))
+        .bind(strategy_mode_to_str(strategy.strategy.mode))
+        .bind(strategy.strategy.archived_at)
         .execute(&self.pool)
         .await
         .map_err(SharedDbError::from)?;
+
+        replace_revisions(&self.pool, &strategy.strategy).await?;
+        replace_runtime(&self.pool, &strategy.strategy).await?;
         Ok(())
     }
 
@@ -137,6 +161,9 @@ impl StrategyRepository {
                  membership_ready = $9,
                  exchange_ready = $10,
                  symbol_ready = $11,
+                 market = $12,
+                 mode = $13,
+                 archived_at = $14,
                  updated_at = now()
              WHERE id = $1 AND lower(owner_email) = lower($2)",
         )
@@ -151,9 +178,15 @@ impl StrategyRepository {
         .bind(strategy.membership_ready)
         .bind(strategy.exchange_ready)
         .bind(strategy.symbol_ready)
+        .bind(strategy_market_to_str(strategy.market))
+        .bind(strategy_mode_to_str(strategy.mode))
+        .bind(strategy.archived_at)
         .execute(&self.pool)
         .await
         .map_err(SharedDbError::from)?;
+
+        replace_revisions(&self.pool, strategy).await?;
+        replace_runtime(&self.pool, strategy).await?;
         Ok(updated.rows_affected() as usize)
     }
 
@@ -205,11 +238,19 @@ impl StrategyRepository {
     }
 }
 
-fn strategy_from_row(row: sqlx::postgres::PgRow) -> Result<Strategy, SharedDbError> {
+async fn strategy_from_row(pool: &PgPool, row: sqlx::postgres::PgRow) -> Result<Strategy, SharedDbError> {
+    let id: String = row.try_get("id").map_err(SharedDbError::from)?;
     let status: String = row.try_get("status").map_err(SharedDbError::from)?;
+    let market: String = row.try_get("market").map_err(SharedDbError::from)?;
+    let mode: String = row.try_get("mode").map_err(SharedDbError::from)?;
+    let draft_revision = load_revision(pool, &id, "draft")
+        .await?
+        .unwrap_or_else(default_revision);
+    let active_revision = load_revision(pool, &id, "active").await?;
+    let runtime = load_runtime(pool, &id, parse_strategy_market(&market)?, parse_strategy_mode(&mode)?).await?;
 
     Ok(Strategy {
-        id: row.try_get("id").map_err(SharedDbError::from)?,
+        id,
         owner_email: row.try_get("owner_email").map_err(SharedDbError::from)?,
         name: row.try_get("name").map_err(SharedDbError::from)?,
         symbol: row.try_get("symbol").map_err(SharedDbError::from)?,
@@ -220,8 +261,324 @@ fn strategy_from_row(row: sqlx::postgres::PgRow) -> Result<Strategy, SharedDbErr
         membership_ready: row.try_get("membership_ready").map_err(SharedDbError::from)?,
         exchange_ready: row.try_get("exchange_ready").map_err(SharedDbError::from)?,
         symbol_ready: row.try_get("symbol_ready").map_err(SharedDbError::from)?,
+        market: parse_strategy_market(&market)?,
+        mode: parse_strategy_mode(&mode)?,
+        draft_revision,
+        active_revision,
+        runtime,
+        archived_at: row.try_get("archived_at").map_err(SharedDbError::from)?,
     })
 }
 
-#[allow(dead_code)]
-fn _status_for_compile(_: StrategyStatus) {}
+async fn load_revision(
+    pool: &PgPool,
+    strategy_id: &str,
+    revision_kind: &str,
+) -> Result<Option<StrategyRevision>, SharedDbError> {
+    let row = sqlx::query(
+        "SELECT config
+         FROM strategy_revisions
+         WHERE strategy_id = $1 AND revision_kind = $2
+         ORDER BY revision_id DESC
+         LIMIT 1",
+    )
+    .bind(strategy_id)
+    .bind(revision_kind)
+    .fetch_optional(pool)
+    .await
+    .map_err(SharedDbError::from)?;
+
+    row.map(|row| {
+        let config: Value = row.try_get("config").map_err(SharedDbError::from)?;
+        serde_json::from_value(config).map_err(|error| SharedDbError::new(error.to_string()))
+    })
+    .transpose()
+}
+
+async fn replace_revisions(pool: &PgPool, strategy: &Strategy) -> Result<(), SharedDbError> {
+    sqlx::query("DELETE FROM strategy_grid_levels WHERE strategy_id = $1")
+        .bind(&strategy.id)
+        .execute(pool)
+        .await
+        .map_err(SharedDbError::from)?;
+    sqlx::query("DELETE FROM strategy_revisions WHERE strategy_id = $1")
+        .bind(&strategy.id)
+        .execute(pool)
+        .await
+        .map_err(SharedDbError::from)?;
+
+    let draft_revision_id = insert_revision_with_levels(pool, &strategy.id, "draft", &strategy.draft_revision).await?;
+    if let Some(active) = &strategy.active_revision {
+        let _ = insert_revision_with_levels(pool, &strategy.id, "active", active).await?;
+    }
+
+    if draft_revision_id == 0 {
+        return Err(SharedDbError::new("failed to persist draft revision"));
+    }
+
+    Ok(())
+}
+
+async fn insert_revision_with_levels(
+    pool: &PgPool,
+    strategy_id: &str,
+    revision_kind: &str,
+    revision: &StrategyRevision,
+) -> Result<i64, SharedDbError> {
+    let row = sqlx::query(
+        "INSERT INTO strategy_revisions (strategy_id, revision_kind, config, created_at)
+         VALUES ($1, $2, $3, now())
+         RETURNING revision_id",
+    )
+    .bind(strategy_id)
+    .bind(revision_kind)
+    .bind(serde_json::to_value(revision).map_err(|error| SharedDbError::new(error.to_string()))?)
+    .fetch_one(pool)
+    .await
+    .map_err(SharedDbError::from)?;
+    let revision_id: i64 = row.try_get("revision_id").map_err(SharedDbError::from)?;
+
+    for level in &revision.levels {
+        sqlx::query(
+            "INSERT INTO strategy_grid_levels (
+                strategy_id,
+                revision_id,
+                level_index,
+                entry_price,
+                quantity,
+                take_profit_price,
+                trailing_bps,
+                created_at
+             ) VALUES ($1, $2, $3, $4, $5, $6, $7, now())",
+        )
+        .bind(strategy_id)
+        .bind(revision_id)
+        .bind(level.level_index as i32)
+        .bind(level.entry_price.to_string())
+        .bind(level.quantity.to_string())
+        .bind(level.entry_price.to_string())
+        .bind(level.trailing_bps.map(|value| value as i32))
+        .execute(pool)
+        .await
+        .map_err(SharedDbError::from)?;
+    }
+
+    Ok(revision_id)
+}
+
+async fn replace_runtime(pool: &PgPool, strategy: &Strategy) -> Result<(), SharedDbError> {
+    sqlx::query("DELETE FROM strategy_runtime_positions WHERE strategy_id = $1")
+        .bind(&strategy.id)
+        .execute(pool)
+        .await
+        .map_err(SharedDbError::from)?;
+    sqlx::query("DELETE FROM strategy_fills WHERE strategy_id = $1")
+        .bind(&strategy.id)
+        .execute(pool)
+        .await
+        .map_err(SharedDbError::from)?;
+    sqlx::query("DELETE FROM strategy_orders WHERE strategy_id = $1")
+        .bind(&strategy.id)
+        .execute(pool)
+        .await
+        .map_err(SharedDbError::from)?;
+    sqlx::query("DELETE FROM strategy_events WHERE strategy_id = $1")
+        .bind(&strategy.id)
+        .execute(pool)
+        .await
+        .map_err(SharedDbError::from)?;
+
+    for position in &strategy.runtime.positions {
+        sqlx::query(
+            "INSERT INTO strategy_runtime_positions (
+                strategy_id,
+                market_type,
+                direction,
+                quantity,
+                average_entry_price,
+                updated_at
+             ) VALUES ($1, $2, $3, $4, $5, now())",
+        )
+        .bind(&strategy.id)
+        .bind(strategy_market_to_str(position.market))
+        .bind(strategy_mode_to_str(position.mode))
+        .bind(position.quantity.to_string())
+        .bind(position.average_entry_price.to_string())
+        .execute(pool)
+        .await
+        .map_err(SharedDbError::from)?;
+    }
+
+    for order in &strategy.runtime.orders {
+        sqlx::query(
+            "INSERT INTO strategy_orders (
+                order_id,
+                strategy_id,
+                exchange_order_id,
+                side,
+                order_type,
+                price,
+                quantity,
+                status,
+                created_at,
+                updated_at
+             ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, now(), now())",
+        )
+        .bind(&order.order_id)
+        .bind(&strategy.id)
+        .bind(order.level_index.map(|index| format!("grid:{index}")))
+        .bind(&order.side)
+        .bind(&order.order_type)
+        .bind(order.price.map(|value| value.to_string()))
+        .bind(order.quantity.to_string())
+        .bind(&order.status)
+        .execute(pool)
+        .await
+        .map_err(SharedDbError::from)?;
+    }
+
+    for fill in &strategy.runtime.fills {
+        sqlx::query(
+            "INSERT INTO strategy_fills (
+                fill_id,
+                strategy_id,
+                order_id,
+                price,
+                quantity,
+                fee_amount,
+                fee_asset,
+                realized_pnl,
+                filled_at
+             ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, now())",
+        )
+        .bind(&fill.fill_id)
+        .bind(&strategy.id)
+        .bind(&fill.order_id)
+        .bind(fill.price.to_string())
+        .bind(fill.quantity.to_string())
+        .bind(fill.fee_amount.map(|value| value.to_string()))
+        .bind(&fill.fee_asset)
+        .bind(fill.realized_pnl.map(|value| value.to_string()))
+        .execute(pool)
+        .await
+        .map_err(SharedDbError::from)?;
+    }
+
+    for event in &strategy.runtime.events {
+        sqlx::query(
+            "INSERT INTO strategy_events (strategy_id, event_type, payload, created_at)
+             VALUES ($1, $2, $3, $4)",
+        )
+        .bind(&strategy.id)
+        .bind(&event.event_type)
+        .bind(json!({
+            "detail": event.detail,
+            "price": event.price.map(|value| value.to_string()),
+        }))
+        .bind(event.created_at)
+        .execute(pool)
+        .await
+        .map_err(SharedDbError::from)?;
+    }
+
+    sqlx::query(
+        "INSERT INTO strategy_events (strategy_id, event_type, payload, created_at)
+         VALUES ($1, $2, $3, now())",
+    )
+    .bind(&strategy.id)
+    .bind("runtime_snapshot")
+    .bind(
+        serde_json::to_value(&strategy.runtime)
+            .map_err(|error| SharedDbError::new(error.to_string()))?,
+    )
+    .execute(pool)
+    .await
+    .map_err(SharedDbError::from)?;
+
+    Ok(())
+}
+
+async fn load_runtime(
+    pool: &PgPool,
+    strategy_id: &str,
+    _market: StrategyMarket,
+    _mode: StrategyMode,
+) -> Result<StrategyRuntime, SharedDbError> {
+    let row = sqlx::query(
+        "SELECT payload
+         FROM strategy_events
+         WHERE strategy_id = $1 AND event_type = 'runtime_snapshot'
+         ORDER BY event_id DESC
+         LIMIT 1",
+    )
+    .bind(strategy_id)
+    .fetch_optional(pool)
+    .await
+    .map_err(SharedDbError::from)?;
+
+    match row {
+        Some(row) => {
+            let payload: Value = row.try_get("payload").map_err(SharedDbError::from)?;
+            serde_json::from_value(payload).map_err(|error| SharedDbError::new(error.to_string()))
+        }
+        None => Ok(StrategyRuntime {
+            positions: Vec::<StrategyRuntimePosition>::new(),
+            orders: Vec::<StrategyRuntimeOrder>::new(),
+            fills: Vec::<StrategyRuntimeFill>::new(),
+            events: Vec::<StrategyRuntimeEvent>::new(),
+            last_preflight: None::<PreflightReport>,
+        }),
+    }
+}
+
+fn default_revision() -> StrategyRevision {
+    StrategyRevision {
+        revision_id: "draft-revision-0".to_string(),
+        version: 0,
+        generation: GridGeneration::Custom,
+        levels: Vec::new(),
+        overall_take_profit_bps: None,
+        overall_stop_loss_bps: None,
+        post_trigger_action: PostTriggerAction::Stop,
+    }
+}
+
+fn parse_strategy_market(value: &str) -> Result<StrategyMarket, SharedDbError> {
+    match value {
+        "Spot" => Ok(StrategyMarket::Spot),
+        "FuturesUsdM" => Ok(StrategyMarket::FuturesUsdM),
+        "FuturesCoinM" => Ok(StrategyMarket::FuturesCoinM),
+        _ => Err(SharedDbError::new(format!("unknown strategy market: {value}"))),
+    }
+}
+
+fn strategy_market_to_str(value: StrategyMarket) -> &'static str {
+    match value {
+        StrategyMarket::Spot => "Spot",
+        StrategyMarket::FuturesUsdM => "FuturesUsdM",
+        StrategyMarket::FuturesCoinM => "FuturesCoinM",
+    }
+}
+
+fn parse_strategy_mode(value: &str) -> Result<StrategyMode, SharedDbError> {
+    match value {
+        "SpotClassic" => Ok(StrategyMode::SpotClassic),
+        "SpotBuyOnly" => Ok(StrategyMode::SpotBuyOnly),
+        "SpotSellOnly" => Ok(StrategyMode::SpotSellOnly),
+        "FuturesLong" => Ok(StrategyMode::FuturesLong),
+        "FuturesShort" => Ok(StrategyMode::FuturesShort),
+        "FuturesNeutral" => Ok(StrategyMode::FuturesNeutral),
+        _ => Err(SharedDbError::new(format!("unknown strategy mode: {value}"))),
+    }
+}
+
+fn strategy_mode_to_str(value: StrategyMode) -> &'static str {
+    match value {
+        StrategyMode::SpotClassic => "SpotClassic",
+        StrategyMode::SpotBuyOnly => "SpotBuyOnly",
+        StrategyMode::SpotSellOnly => "SpotSellOnly",
+        StrategyMode::FuturesLong => "FuturesLong",
+        StrategyMode::FuturesShort => "FuturesShort",
+        StrategyMode::FuturesNeutral => "FuturesNeutral",
+    }
+}

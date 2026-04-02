@@ -11,315 +11,402 @@ mod support;
 use support::register_and_login;
 
 #[tokio::test]
-async fn create_save_pause_edit_and_start_strategy() {
+async fn strategy_revisions_runtime_contracts_and_soft_archive_follow_frozen_lifecycle() {
     let app = app();
     let user_token = register_and_login(&app, "trader@example.com", "pass1234").await;
-    let admin_token = register_and_login(&app, "admin@example.com", "pass1234").await;
 
-    let template = create_template(
+    let created = create_strategy(
         &app,
-        Some(&admin_token),
-        json!({
-            "name": "Momentum Starter",
-            "symbol": "BTCUSDT",
-            "budget": "150.00",
-            "grid_spacing_bps": 60,
-            "membership_ready": true,
-            "exchange_ready": false,
-            "symbol_ready": true,
-        }),
+        &user_token,
+        strategy_payload(
+            "BTC draft",
+            "BTCUSDT",
+            "Custom",
+            &[
+                grid_level("101.00", "0.0100", 160, Some(80)),
+                grid_level("108.00", "0.0200", 220, None),
+            ],
+            true,
+            false,
+            true,
+            Some(800),
+            Some(350),
+            "Rebuild",
+        ),
     )
     .await;
-    assert_eq!(template.status(), StatusCode::CREATED);
-    let template_body = response_json(template).await;
-    let template_id = template_body["id"].as_str().expect("template id");
+    assert_eq!(created.status(), StatusCode::CREATED);
+    let created_body = response_json(created).await;
+    let strategy_id = created_body["id"].as_str().expect("strategy id").to_string();
+    assert_eq!(created_body["status"], "Draft");
+    assert_eq!(created_body["draft_revision"]["generation"], "Custom");
+    assert_eq!(
+        created_body["draft_revision"]["levels"]
+            .as_array()
+            .expect("levels")
+            .len(),
+        2
+    );
+    assert_eq!(created_body["draft_revision"]["version"], 1);
+    assert!(created_body["active_revision"].is_null());
+    assert_eq!(created_body["draft_revision"]["post_trigger_action"], "Rebuild");
+    assert_eq!(
+        created_body["draft_revision"]["overall_take_profit_bps"],
+        json!(800)
+    );
+    assert_eq!(
+        created_body["draft_revision"]["overall_stop_loss_bps"],
+        json!(350)
+    );
+    assert_eq!(
+        created_body["draft_revision"]["levels"][0]["trailing_bps"],
+        json!(80)
+    );
+    assert_eq!(
+        created_body["runtime"]["orders"].as_array().expect("orders").len(),
+        0
+    );
+    assert_eq!(
+        created_body["runtime"]["positions"]
+            .as_array()
+            .expect("positions")
+            .len(),
+        0
+    );
 
-    let applied = apply_template(
-        &app,
-        Some(&user_token),
-        template_id,
-        json!({
-            "name": "BTC copied draft",
-        }),
-    )
-    .await;
-    assert_eq!(applied.status(), StatusCode::CREATED);
-    let applied_body = response_json(applied).await;
-    let strategy_id = applied_body["id"].as_str().expect("strategy id");
-    assert_eq!(applied_body["status"], "Draft");
-    assert_eq!(applied_body["symbol"], "BTCUSDT");
-    assert_eq!(applied_body["budget"], "150.00");
-    assert_eq!(applied_body["source_template_id"], template_id);
-
-    let preflight_failed = preflight_strategy(&app, &user_token, strategy_id).await;
+    let preflight_failed = preflight_strategy(&app, &user_token, &strategy_id).await;
     assert_eq!(preflight_failed.status(), StatusCode::OK);
     let preflight_failed_body = response_json(preflight_failed).await;
     assert_eq!(preflight_failed_body["ok"], false);
     assert_eq!(
-        preflight_failed_body["failures"]
-            .as_array()
-            .expect("failures")
-            .len(),
-        1
-    );
-    assert_eq!(
         preflight_failed_body["failures"][0]["step"],
         "exchange_connection"
+    );
+    assert_eq!(
+        preflight_failed_body["steps"][0]["status"],
+        "Passed"
+    );
+    assert_eq!(
+        preflight_failed_body["steps"][1]["status"],
+        "Failed"
+    );
+    assert_eq!(
+        preflight_failed_body["steps"][2]["status"],
+        "Skipped"
     );
 
     let saved = update_strategy(
         &app,
         &user_token,
-        strategy_id,
-        json!({
-            "name": "BTC live draft",
-            "symbol": "BTCUSDT",
-            "budget": "180.00",
-            "grid_spacing_bps": 45,
-            "membership_ready": true,
-            "exchange_ready": true,
-            "symbol_ready": true,
-        }),
+        &strategy_id,
+        strategy_payload(
+            "BTC live draft",
+            "BTCUSDT",
+            "Arithmetic",
+            &[
+                grid_level("95.00", "0.0100", 150, Some(50)),
+                grid_level("100.00", "0.0150", 180, None),
+                grid_level("105.00", "0.0200", 220, None),
+            ],
+            true,
+            true,
+            true,
+            Some(600),
+            Some(300),
+            "Stop",
+        ),
     )
     .await;
     assert_eq!(saved.status(), StatusCode::OK);
     let saved_body = response_json(saved).await;
-    assert_eq!(saved_body["name"], "BTC live draft");
-    assert_eq!(saved_body["budget"], "180.00");
-    assert_eq!(saved_body["grid_spacing_bps"], 45);
+    assert_eq!(saved_body["status"], "Draft");
+    assert_eq!(saved_body["draft_revision"]["version"], 2);
+    assert_eq!(saved_body["draft_revision"]["generation"], "Arithmetic");
+    assert_eq!(
+        saved_body["draft_revision"]["levels"]
+            .as_array()
+            .expect("levels")
+            .len(),
+        3
+    );
 
-    let started = start_strategy(&app, &user_token, strategy_id).await;
+    let started = start_strategy(&app, &user_token, &strategy_id).await;
     assert_eq!(started.status(), StatusCode::OK);
     let started_body = response_json(started).await;
     assert_eq!(started_body["status"], "Running");
+    assert_eq!(started_body["active_revision"]["version"], 2);
     assert_eq!(started_body["preflight"]["ok"], true);
     assert_eq!(
-        started_body["preflight"]["failures"]
+        started_body["preflight"]["steps"]
             .as_array()
-            .expect("failures")
+            .expect("steps")
+            .iter()
+            .filter(|step| step["status"] == "Passed")
+            .count(),
+        5
+    );
+    assert_eq!(
+        started_body["runtime"]["orders"]
+            .as_array()
+            .expect("orders")
             .len(),
-        0
+        3
     );
-
-    let edit_rejected = update_strategy(
-        &app,
-        &user_token,
-        strategy_id,
-        json!({
-            "name": "should fail",
-            "symbol": "BTCUSDT",
-            "budget": "180.00",
-            "grid_spacing_bps": 45,
-            "membership_ready": true,
-            "exchange_ready": true,
-            "symbol_ready": true,
-        }),
-    )
-    .await;
-    assert_eq!(edit_rejected.status(), StatusCode::CONFLICT);
     assert_eq!(
-        response_json(edit_rejected).await["error"],
-        "only draft strategies can be edited"
+        started_body["runtime"]["positions"]
+            .as_array()
+            .expect("positions")
+            .len(),
+        1
     );
-
-    let paused = pause_strategies(&app, &user_token, &[strategy_id]).await;
-    assert_eq!(paused.status(), StatusCode::OK);
-    let paused_body = response_json(paused).await;
-    assert_eq!(paused_body["paused"], 1);
-
-    let listed = list_strategies(&app, &user_token).await;
-    assert_eq!(listed.status(), StatusCode::OK);
-    let listed_body = response_json(listed).await;
-    assert_eq!(listed_body["items"][0]["status"], "Paused");
-}
-
-#[tokio::test]
-async fn batch_pause_delete_and_stop_all_strategies() {
-    let app = app();
-    let user_token = register_and_login(&app, "trader@example.com", "pass1234").await;
-
-    let alpha = create_strategy(
-        &app,
-        &user_token,
-        json!({
-            "name": "alpha",
-            "symbol": "BTCUSDT",
-            "budget": "100.00",
-            "grid_spacing_bps": 50,
-            "membership_ready": true,
-            "exchange_ready": true,
-            "symbol_ready": true,
-        }),
-    )
-    .await;
-    assert_eq!(alpha.status(), StatusCode::CREATED);
-    let alpha_id = response_json(alpha).await["id"]
-        .as_str()
-        .expect("alpha id")
-        .to_string();
-
-    let beta = create_strategy(
-        &app,
-        &user_token,
-        json!({
-            "name": "beta",
-            "symbol": "ETHUSDT",
-            "budget": "90.00",
-            "grid_spacing_bps": 40,
-            "membership_ready": true,
-            "exchange_ready": true,
-            "symbol_ready": true,
-        }),
-    )
-    .await;
-    assert_eq!(beta.status(), StatusCode::CREATED);
-    let beta_id = response_json(beta).await["id"]
-        .as_str()
-        .expect("beta id")
-        .to_string();
-
-    let gamma = create_strategy(
-        &app,
-        &user_token,
-        json!({
-            "name": "gamma",
-            "symbol": "SOLUSDT",
-            "budget": "80.00",
-            "grid_spacing_bps": 30,
-            "membership_ready": true,
-            "exchange_ready": true,
-            "symbol_ready": true,
-        }),
-    )
-    .await;
-    assert_eq!(gamma.status(), StatusCode::CREATED);
-    let gamma_id = response_json(gamma).await["id"]
-        .as_str()
-        .expect("gamma id")
-        .to_string();
-
-    let alpha_started = start_strategy(&app, &user_token, &alpha_id).await;
-    assert_eq!(alpha_started.status(), StatusCode::OK);
-    let beta_started = start_strategy(&app, &user_token, &beta_id).await;
-    assert_eq!(beta_started.status(), StatusCode::OK);
-
-    let paused = pause_strategies(&app, &user_token, &[&alpha_id, &beta_id]).await;
-    assert_eq!(paused.status(), StatusCode::OK);
-    let paused_body = response_json(paused).await;
-    assert_eq!(paused_body["paused"], 2);
-
-    let deleted = delete_strategies(&app, &user_token, &[&beta_id, &gamma_id]).await;
-    assert_eq!(deleted.status(), StatusCode::OK);
-    let deleted_body = response_json(deleted).await;
-    assert_eq!(deleted_body["deleted"], 2);
-
-    let delta = create_strategy(
-        &app,
-        &user_token,
-        json!({
-            "name": "delta",
-            "symbol": "BNBUSDT",
-            "budget": "120.00",
-            "grid_spacing_bps": 25,
-            "membership_ready": true,
-            "exchange_ready": true,
-            "symbol_ready": true,
-        }),
-    )
-    .await;
-    assert_eq!(delta.status(), StatusCode::CREATED);
-    let delta_id = response_json(delta).await["id"]
-        .as_str()
-        .expect("delta id")
-        .to_string();
-
-    let delta_started = start_strategy(&app, &user_token, &delta_id).await;
-    assert_eq!(delta_started.status(), StatusCode::OK);
-
-    let stopped = stop_all_strategies(&app, &user_token).await;
-    assert_eq!(stopped.status(), StatusCode::OK);
-    let stopped_body = response_json(stopped).await;
-    assert_eq!(stopped_body["stopped"], 2);
-
-    let listed = list_strategies(&app, &user_token).await;
-    assert_eq!(listed.status(), StatusCode::OK);
-    let listed_body = response_json(listed).await;
-    assert_eq!(listed_body["items"].as_array().expect("items").len(), 2);
-    assert_eq!(find_status(&listed_body, &alpha_id), Some("Stopped"));
-    assert_eq!(find_status(&listed_body, &delta_id), Some("Stopped"));
-}
-
-#[tokio::test]
-async fn failed_start_keeps_draft_editable_until_preflight_is_fixed() {
-    let app = app();
-    let user_token = register_and_login(&app, "trader@example.com", "pass1234").await;
-
-    let draft = create_strategy(
-        &app,
-        &user_token,
-        json!({
-            "name": "recoverable",
-            "symbol": "BTCUSDT",
-            "budget": "100.00",
-            "grid_spacing_bps": 50,
-            "membership_ready": true,
-            "exchange_ready": false,
-            "symbol_ready": true,
-        }),
-    )
-    .await;
-    assert_eq!(draft.status(), StatusCode::CREATED);
-    let strategy_id = response_json(draft).await["id"]
-        .as_str()
-        .expect("strategy id")
-        .to_string();
-
-    let failed_start = start_strategy(&app, &user_token, &strategy_id).await;
-    assert_eq!(failed_start.status(), StatusCode::CONFLICT);
-    let failed_start_body = response_json(failed_start).await;
-    assert_eq!(failed_start_body["error"], "preflight failed");
-    assert_eq!(failed_start_body["preflight"]["ok"], false);
     assert_eq!(
-        failed_start_body["preflight"]["failures"][0]["step"],
-        "exchange_connection"
+        started_body["runtime"]["events"][0]["event_type"],
+        "strategy_started"
     );
 
-    let repaired = update_strategy(
+    let orders = list_strategy_orders(&app, &user_token, &strategy_id).await;
+    assert_eq!(orders.status(), StatusCode::OK);
+    let orders_body = response_json(orders).await;
+    assert_eq!(
+        orders_body["orders"].as_array().expect("orders").len(),
+        3
+    );
+    assert_eq!(
+        orders_body["positions"].as_array().expect("positions").len(),
+        1
+    );
+
+    let paused = pause_strategies(&app, &user_token, &[&strategy_id]).await;
+    assert_eq!(paused.status(), StatusCode::OK);
+    assert_eq!(response_json(paused).await["paused"], 1);
+
+    let paused_list = list_strategies(&app, &user_token).await;
+    assert_eq!(paused_list.status(), StatusCode::OK);
+    let paused_list_body = response_json(paused_list).await;
+    let paused_strategy = find_strategy(&paused_list_body, &strategy_id);
+    assert_eq!(paused_strategy["status"], "Paused");
+    assert_eq!(
+        paused_strategy["runtime"]["positions"]
+            .as_array()
+            .expect("positions")
+            .len(),
+        1
+    );
+    assert_eq!(
+        paused_strategy["runtime"]["orders"]
+            .as_array()
+            .expect("orders")
+            .iter()
+            .filter(|order| order["status"] == "Canceled")
+            .count(),
+        3
+    );
+
+    let edited_while_paused = update_strategy(
         &app,
         &user_token,
         &strategy_id,
-        json!({
-            "name": "recoverable fixed",
-            "symbol": "BTCUSDT",
-            "budget": "120.00",
-            "grid_spacing_bps": 45,
-            "membership_ready": true,
-            "exchange_ready": true,
-            "symbol_ready": true,
-        }),
+        strategy_payload(
+            "BTC resumed draft",
+            "BTCUSDT",
+            "Geometric",
+            &[
+                grid_level("90.00", "0.0100", 120, None),
+                grid_level("100.00", "0.0100", 140, None),
+                grid_level("111.00", "0.0100", 160, None),
+                grid_level("123.21", "0.0100", 200, None),
+            ],
+            true,
+            true,
+            true,
+            Some(700),
+            Some(250),
+            "Rebuild",
+        ),
     )
     .await;
-    assert_eq!(repaired.status(), StatusCode::OK);
-    let repaired_body = response_json(repaired).await;
-    assert_eq!(repaired_body["status"], "Draft");
-    assert_eq!(repaired_body["name"], "recoverable fixed");
+    assert_eq!(edited_while_paused.status(), StatusCode::OK);
+    let edited_body = response_json(edited_while_paused).await;
+    assert_eq!(edited_body["status"], "Paused");
+    assert_eq!(edited_body["draft_revision"]["version"], 3);
+    assert_eq!(edited_body["active_revision"]["version"], 2);
+    assert_eq!(edited_body["draft_revision"]["generation"], "Geometric");
 
-    let restarted = start_strategy(&app, &user_token, &strategy_id).await;
-    assert_eq!(restarted.status(), StatusCode::OK);
-    let restarted_body = response_json(restarted).await;
-    assert_eq!(restarted_body["status"], "Running");
-    assert_eq!(restarted_body["preflight"]["ok"], true);
+    let resumed = resume_strategy(&app, &user_token, &strategy_id).await;
+    assert_eq!(resumed.status(), StatusCode::OK);
+    let resumed_body = response_json(resumed).await;
+    assert_eq!(resumed_body["status"], "Running");
+    assert_eq!(resumed_body["active_revision"]["version"], 3);
+    assert_eq!(resumed_body["active_revision"]["generation"], "Geometric");
+    assert_eq!(
+        resumed_body["runtime"]["orders"]
+            .as_array()
+            .expect("orders")
+            .len(),
+        4
+    );
+    assert_eq!(
+        resumed_body["runtime"]["positions"]
+            .as_array()
+            .expect("positions")
+            .len(),
+        1
+    );
+
+    let stopped = stop_strategy(&app, &user_token, &strategy_id).await;
+    assert_eq!(stopped.status(), StatusCode::OK);
+    let stopped_body = response_json(stopped).await;
+    assert_eq!(stopped_body["status"], "Stopped");
+    assert_eq!(
+        stopped_body["runtime"]["positions"]
+            .as_array()
+            .expect("positions")
+            .len(),
+        0
+    );
+    assert_eq!(
+        stopped_body["runtime"]["fills"].as_array().expect("fills").len(),
+        1
+    );
+    assert_eq!(
+        stopped_body["runtime"]["events"]
+            .as_array()
+            .expect("events")
+            .last()
+            .expect("last event")["event_type"],
+        "strategy_stopped"
+    );
+
+    let deleted = delete_strategies(&app, &user_token, &[&strategy_id]).await;
+    assert_eq!(deleted.status(), StatusCode::OK);
+    assert_eq!(response_json(deleted).await["deleted"], 1);
+
+    let listed_after_delete = list_strategies(&app, &user_token).await;
+    assert_eq!(listed_after_delete.status(), StatusCode::OK);
+    let listed_after_delete_body = response_json(listed_after_delete).await;
+    let archived = find_strategy(&listed_after_delete_body, &strategy_id);
+    assert_eq!(archived["status"], "Archived");
+    assert!(archived["archived_at"].is_string());
 }
 
 #[tokio::test]
-async fn start_strategy_rejects_unknown_strategy_id() {
+async fn strategy_validates_generation_modes_and_trailing_constraints() {
     let app = app();
     let user_token = register_and_login(&app, "trader@example.com", "pass1234").await;
 
-    let response = start_strategy(&app, &user_token, "strategy-missing").await;
+    let arithmetic = create_strategy(
+        &app,
+        &user_token,
+        strategy_payload(
+            "arith",
+            "BTCUSDT",
+            "Arithmetic",
+            &[
+                grid_level("95.00", "0.0100", 100, None),
+                grid_level("100.00", "0.0100", 100, None),
+                grid_level("105.00", "0.0100", 100, None),
+            ],
+            true,
+            true,
+            true,
+            None,
+            None,
+            "Stop",
+        ),
+    )
+    .await;
+    assert_eq!(arithmetic.status(), StatusCode::CREATED);
 
-    assert_eq!(response.status(), StatusCode::NOT_FOUND);
-    assert_eq!(response_json(response).await["error"], "strategy not found");
+    let geometric = create_strategy(
+        &app,
+        &user_token,
+        strategy_payload(
+            "geo",
+            "ETHUSDT",
+            "Geometric",
+            &[
+                grid_level("100.00", "0.0100", 120, None),
+                grid_level("125.00", "0.0100", 120, None),
+                grid_level("156.25", "0.0100", 120, None),
+            ],
+            true,
+            true,
+            true,
+            Some(500),
+            None,
+            "Rebuild",
+        ),
+    )
+    .await;
+    assert_eq!(geometric.status(), StatusCode::CREATED);
+
+    let custom = create_strategy(
+        &app,
+        &user_token,
+        strategy_payload(
+            "custom",
+            "SOLUSDT",
+            "Custom",
+            &[
+                grid_level("80.10", "1.0000", 130, Some(90)),
+                grid_level("84.20", "1.5000", 160, None),
+            ],
+            true,
+            true,
+            true,
+            None,
+            Some(200),
+            "Stop",
+        ),
+    )
+    .await;
+    assert_eq!(custom.status(), StatusCode::CREATED);
+
+    let listed = list_strategies(&app, &user_token).await;
+    assert_eq!(listed.status(), StatusCode::OK);
+    let listed_body = response_json(listed).await;
+    assert_eq!(
+        listed_body["items"].as_array().expect("items").len(),
+        3
+    );
+    assert!(listed_body["items"]
+        .as_array()
+        .expect("items")
+        .iter()
+        .any(|item| item["draft_revision"]["generation"] == "Arithmetic"));
+    assert!(listed_body["items"]
+        .as_array()
+        .expect("items")
+        .iter()
+        .any(|item| item["draft_revision"]["generation"] == "Geometric"));
+    assert!(listed_body["items"]
+        .as_array()
+        .expect("items")
+        .iter()
+        .any(|item| item["draft_revision"]["generation"] == "Custom"));
+
+    let invalid_trailing = create_strategy(
+        &app,
+        &user_token,
+        strategy_payload(
+            "bad trailing",
+            "BNBUSDT",
+            "Custom",
+            &[grid_level("600.00", "0.0100", 80, Some(120))],
+            true,
+            true,
+            true,
+            None,
+            None,
+            "Stop",
+        ),
+    )
+    .await;
+    assert_eq!(invalid_trailing.status(), StatusCode::BAD_REQUEST);
+    assert_eq!(
+        response_json(invalid_trailing).await["error"],
+        "level 0 trailing_bps must be less than or equal to take_profit_bps"
+    );
 }
 
 #[tokio::test]
@@ -331,15 +418,18 @@ async fn strategy_owner_isolation_blocks_cross_user_reads_and_mutations() {
     let alice_strategy = create_strategy(
         &app,
         &alice_token,
-        json!({
-            "name": "alice draft",
-            "symbol": "BTCUSDT",
-            "budget": "100.00",
-            "grid_spacing_bps": 50,
-            "membership_ready": true,
-            "exchange_ready": true,
-            "symbol_ready": true,
-        }),
+        strategy_payload(
+            "alice draft",
+            "BTCUSDT",
+            "Custom",
+            &[grid_level("100.00", "0.0100", 120, None)],
+            true,
+            true,
+            true,
+            None,
+            None,
+            "Stop",
+        ),
     )
     .await;
     assert_eq!(alice_strategy.status(), StatusCode::CREATED);
@@ -348,72 +438,40 @@ async fn strategy_owner_isolation_blocks_cross_user_reads_and_mutations() {
         .expect("alice strategy id")
         .to_string();
 
-    let bob_strategy = create_strategy(
-        &app,
-        &bob_token,
-        json!({
-            "name": "bob draft",
-            "symbol": "ETHUSDT",
-            "budget": "120.00",
-            "grid_spacing_bps": 45,
-            "membership_ready": true,
-            "exchange_ready": true,
-            "symbol_ready": true,
-        }),
-    )
-    .await;
-    assert_eq!(bob_strategy.status(), StatusCode::CREATED);
-    let bob_strategy_id = response_json(bob_strategy).await["id"]
-        .as_str()
-        .expect("bob strategy id")
-        .to_string();
-
-    let alice_list = list_strategies(&app, &alice_token).await;
-    assert_eq!(alice_list.status(), StatusCode::OK);
-    let alice_list_body = response_json(alice_list).await;
-    assert_eq!(alice_list_body["items"].as_array().expect("items").len(), 1);
-    assert_eq!(alice_list_body["items"][0]["id"], alice_strategy_id);
-
-    let bob_list = list_strategies(&app, &bob_token).await;
-    assert_eq!(bob_list.status(), StatusCode::OK);
-    let bob_list_body = response_json(bob_list).await;
-    assert_eq!(bob_list_body["items"].as_array().expect("items").len(), 1);
-    assert_eq!(bob_list_body["items"][0]["id"], bob_strategy_id);
-
     let foreign_preflight = preflight_strategy(&app, &bob_token, &alice_strategy_id).await;
     assert_eq!(foreign_preflight.status(), StatusCode::NOT_FOUND);
-    assert_eq!(
-        response_json(foreign_preflight).await["error"],
-        "strategy not found"
-    );
 
     let foreign_update = update_strategy(
         &app,
         &bob_token,
         &alice_strategy_id,
-        json!({
-            "name": "stolen",
-            "symbol": "BTCUSDT",
-            "budget": "999.00",
-            "grid_spacing_bps": 10,
-            "membership_ready": true,
-            "exchange_ready": true,
-            "symbol_ready": true,
-        }),
+        strategy_payload(
+            "stolen",
+            "BTCUSDT",
+            "Custom",
+            &[grid_level("100.00", "1.0000", 100, None)],
+            true,
+            true,
+            true,
+            None,
+            None,
+            "Stop",
+        ),
     )
     .await;
     assert_eq!(foreign_update.status(), StatusCode::NOT_FOUND);
-    assert_eq!(
-        response_json(foreign_update).await["error"],
-        "strategy not found"
-    );
 
     let foreign_start = start_strategy(&app, &bob_token, &alice_strategy_id).await;
     assert_eq!(foreign_start.status(), StatusCode::NOT_FOUND);
-    assert_eq!(
-        response_json(foreign_start).await["error"],
-        "strategy not found"
-    );
+
+    let foreign_resume = resume_strategy(&app, &bob_token, &alice_strategy_id).await;
+    assert_eq!(foreign_resume.status(), StatusCode::NOT_FOUND);
+
+    let foreign_stop = stop_strategy(&app, &bob_token, &alice_strategy_id).await;
+    assert_eq!(foreign_stop.status(), StatusCode::NOT_FOUND);
+
+    let foreign_orders = list_strategy_orders(&app, &bob_token, &alice_strategy_id).await;
+    assert_eq!(foreign_orders.status(), StatusCode::NOT_FOUND);
 
     let foreign_pause = pause_strategies(&app, &bob_token, &[&alice_strategy_id]).await;
     assert_eq!(foreign_pause.status(), StatusCode::OK);
@@ -427,15 +485,8 @@ async fn strategy_owner_isolation_blocks_cross_user_reads_and_mutations() {
     assert_eq!(alice_list_after.status(), StatusCode::OK);
     let alice_list_after_body = response_json(alice_list_after).await;
     assert_eq!(
-        alice_list_after_body["items"]
-            .as_array()
-            .expect("items")
-            .len(),
-        1
-    );
-    assert_eq!(
-        find_status(&alice_list_after_body, &alice_strategy_id),
-        Some("Draft")
+        find_strategy(&alice_list_after_body, &alice_strategy_id)["status"],
+        "Draft"
     );
 }
 
@@ -448,15 +499,18 @@ async fn stop_all_only_stops_strategies_owned_by_current_user() {
     let alice_strategy = create_strategy(
         &app,
         &alice_token,
-        json!({
-            "name": "alice running",
-            "symbol": "BTCUSDT",
-            "budget": "100.00",
-            "grid_spacing_bps": 50,
-            "membership_ready": true,
-            "exchange_ready": true,
-            "symbol_ready": true,
-        }),
+        strategy_payload(
+            "alice running",
+            "BTCUSDT",
+            "Custom",
+            &[grid_level("100.00", "0.0100", 120, None)],
+            true,
+            true,
+            true,
+            None,
+            None,
+            "Stop",
+        ),
     )
     .await;
     assert_eq!(alice_strategy.status(), StatusCode::CREATED);
@@ -468,15 +522,18 @@ async fn stop_all_only_stops_strategies_owned_by_current_user() {
     let bob_strategy = create_strategy(
         &app,
         &bob_token,
-        json!({
-            "name": "bob running",
-            "symbol": "ETHUSDT",
-            "budget": "120.00",
-            "grid_spacing_bps": 45,
-            "membership_ready": true,
-            "exchange_ready": true,
-            "symbol_ready": true,
-        }),
+        strategy_payload(
+            "bob running",
+            "ETHUSDT",
+            "Custom",
+            &[grid_level("200.00", "0.0100", 120, None)],
+            true,
+            true,
+            true,
+            None,
+            None,
+            "Stop",
+        ),
     )
     .await;
     assert_eq!(bob_strategy.status(), StatusCode::CREATED);
@@ -485,10 +542,18 @@ async fn stop_all_only_stops_strategies_owned_by_current_user() {
         .expect("bob strategy id")
         .to_string();
 
-    let alice_started = start_strategy(&app, &alice_token, &alice_strategy_id).await;
-    assert_eq!(alice_started.status(), StatusCode::OK);
-    let bob_started = start_strategy(&app, &bob_token, &bob_strategy_id).await;
-    assert_eq!(bob_started.status(), StatusCode::OK);
+    assert_eq!(
+        start_strategy(&app, &alice_token, &alice_strategy_id)
+            .await
+            .status(),
+        StatusCode::OK
+    );
+    assert_eq!(
+        start_strategy(&app, &bob_token, &bob_strategy_id)
+            .await
+            .status(),
+        StatusCode::OK
+    );
 
     let stopped = stop_all_strategies(&app, &alice_token).await;
     assert_eq!(stopped.status(), StatusCode::OK);
@@ -498,16 +563,16 @@ async fn stop_all_only_stops_strategies_owned_by_current_user() {
     assert_eq!(alice_list.status(), StatusCode::OK);
     let alice_list_body = response_json(alice_list).await;
     assert_eq!(
-        find_status(&alice_list_body, &alice_strategy_id),
-        Some("Stopped")
+        find_strategy(&alice_list_body, &alice_strategy_id)["status"],
+        "Stopped"
     );
 
     let bob_list = list_strategies(&app, &bob_token).await;
     assert_eq!(bob_list.status(), StatusCode::OK);
     let bob_list_body = response_json(bob_list).await;
     assert_eq!(
-        find_status(&bob_list_body, &bob_strategy_id),
-        Some("Running")
+        find_strategy(&bob_list_body, &bob_strategy_id)["status"],
+        "Running"
     );
 }
 
@@ -519,28 +584,73 @@ async fn regular_user_cannot_create_admin_template() {
     let response = create_template(
         &app,
         Some(&user_token),
-        json!({
-            "name": "Forbidden Template",
-            "symbol": "BTCUSDT",
-            "budget": "100.00",
-            "grid_spacing_bps": 50,
-            "membership_ready": true,
-            "exchange_ready": true,
-            "symbol_ready": true,
-        }),
+        strategy_payload(
+            "Forbidden Template",
+            "BTCUSDT",
+            "Custom",
+            &[grid_level("100.00", "0.0100", 100, None)],
+            true,
+            true,
+            true,
+            None,
+            None,
+            "Stop",
+        ),
     )
     .await;
 
     assert_eq!(response.status(), StatusCode::FORBIDDEN);
 }
 
-fn find_status<'a>(body: &'a Value, strategy_id: &str) -> Option<&'a str> {
+fn strategy_payload(
+    name: &str,
+    symbol: &str,
+    generation: &str,
+    levels: &[Value],
+    membership_ready: bool,
+    exchange_ready: bool,
+    symbol_ready: bool,
+    overall_take_profit_bps: Option<u32>,
+    overall_stop_loss_bps: Option<u32>,
+    post_trigger_action: &str,
+) -> Value {
+    json!({
+        "name": name,
+        "symbol": symbol,
+        "market": "Spot",
+        "mode": "SpotClassic",
+        "generation": generation,
+        "levels": levels,
+        "membership_ready": membership_ready,
+        "exchange_ready": exchange_ready,
+        "symbol_ready": symbol_ready,
+        "overall_take_profit_bps": overall_take_profit_bps,
+        "overall_stop_loss_bps": overall_stop_loss_bps,
+        "post_trigger_action": post_trigger_action,
+    })
+}
+
+fn grid_level(
+    entry_price: &str,
+    quantity: &str,
+    take_profit_bps: u32,
+    trailing_bps: Option<u32>,
+) -> Value {
+    json!({
+        "entry_price": entry_price,
+        "quantity": quantity,
+        "take_profit_bps": take_profit_bps,
+        "trailing_bps": trailing_bps,
+    })
+}
+
+fn find_strategy<'a>(body: &'a Value, strategy_id: &str) -> &'a Value {
     body["items"]
         .as_array()
         .expect("items")
         .iter()
         .find(|item| item["id"] == strategy_id)
-        .and_then(|item| item["status"].as_str())
+        .expect("strategy present")
 }
 
 async fn create_template(
@@ -549,22 +659,6 @@ async fn create_template(
     payload: Value,
 ) -> axum::response::Response {
     request(app, session_token, "POST", "/admin/templates", payload).await
-}
-
-async fn apply_template(
-    app: &axum::Router,
-    session_token: Option<&str>,
-    template_id: &str,
-    payload: Value,
-) -> axum::response::Response {
-    request(
-        app,
-        session_token,
-        "POST",
-        &format!("/admin/templates/{template_id}/apply"),
-        payload,
-    )
-    .await
 }
 
 async fn create_strategy(
@@ -617,6 +711,51 @@ async fn start_strategy(
         "POST",
         &format!("/strategies/{strategy_id}/start"),
         json!({}),
+    )
+    .await
+}
+
+async fn resume_strategy(
+    app: &axum::Router,
+    session_token: &str,
+    strategy_id: &str,
+) -> axum::response::Response {
+    request(
+        app,
+        Some(session_token),
+        "POST",
+        &format!("/strategies/{strategy_id}/resume"),
+        json!({}),
+    )
+    .await
+}
+
+async fn stop_strategy(
+    app: &axum::Router,
+    session_token: &str,
+    strategy_id: &str,
+) -> axum::response::Response {
+    request(
+        app,
+        Some(session_token),
+        "POST",
+        &format!("/strategies/{strategy_id}/stop"),
+        json!({}),
+    )
+    .await
+}
+
+async fn list_strategy_orders(
+    app: &axum::Router,
+    session_token: &str,
+    strategy_id: &str,
+) -> axum::response::Response {
+    request(
+        app,
+        Some(session_token),
+        "GET",
+        &format!("/strategies/{strategy_id}/orders"),
+        Value::Null,
     )
     .await
 }

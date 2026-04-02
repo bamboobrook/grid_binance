@@ -11,6 +11,7 @@ mod routes {
     pub mod exchange;
     pub mod exports;
     pub mod membership;
+    pub mod orders;
     pub mod profile;
     pub mod security;
     pub mod strategies;
@@ -150,6 +151,7 @@ pub fn app_with_state(state: AppState) -> Router {
         .merge(routes::exchange::router())
         .merge(routes::exports::router())
         .merge(routes::membership::router())
+        .merge(routes::orders::router())
         .merge(routes::profile::router())
         .merge(routes::security::router())
         .merge(routes::strategies::router())

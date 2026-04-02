@@ -11,6 +11,9 @@ CREATE TABLE IF NOT EXISTS strategies (
     membership_ready BOOLEAN NOT NULL DEFAULT FALSE,
     exchange_ready BOOLEAN NOT NULL DEFAULT FALSE,
     symbol_ready BOOLEAN NOT NULL DEFAULT FALSE,
+    market TEXT NOT NULL DEFAULT 'Spot',
+    mode TEXT NOT NULL DEFAULT 'SpotClassic',
+    archived_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );

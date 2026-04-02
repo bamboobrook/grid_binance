@@ -1497,8 +1497,10 @@ pub(crate) fn parse_strategy_status(value: &str) -> Result<StrategyStatus, Share
         "Draft" => Ok(StrategyStatus::Draft),
         "Running" => Ok(StrategyStatus::Running),
         "Paused" => Ok(StrategyStatus::Paused),
+        "ErrorPaused" => Ok(StrategyStatus::ErrorPaused),
+        "Completed" => Ok(StrategyStatus::Completed),
         "Stopped" => Ok(StrategyStatus::Stopped),
-        "Error" => Ok(StrategyStatus::Error),
+        "Archived" => Ok(StrategyStatus::Archived),
         _ => Err(SharedDbError::new(format!(
             "unknown strategy status: {value}"
         ))),
@@ -1510,8 +1512,10 @@ pub(crate) fn strategy_status_to_str(value: &StrategyStatus) -> &'static str {
         StrategyStatus::Draft => "Draft",
         StrategyStatus::Running => "Running",
         StrategyStatus::Paused => "Paused",
+        StrategyStatus::ErrorPaused => "ErrorPaused",
+        StrategyStatus::Completed => "Completed",
         StrategyStatus::Stopped => "Stopped",
-        StrategyStatus::Error => "Error",
+        StrategyStatus::Archived => "Archived",
     }
 }
 

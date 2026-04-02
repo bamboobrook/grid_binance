@@ -10,8 +10,7 @@ use crate::{
     services::auth_service::AuthService,
     services::strategy_service::{
         BatchDeleteResponse, BatchPauseResponse, BatchStrategyRequest, SaveStrategyRequest,
-        StartStrategyResponse, StopAllResponse, StrategyError, StrategyListResponse,
-        StrategyService,
+        StartStrategyResponse, StopAllResponse, StrategyError, StrategyListResponse, StrategyService,
     },
     AppState,
 };
@@ -26,6 +25,8 @@ pub fn router() -> Router<AppState> {
             post(preflight_strategy),
         )
         .route("/strategies/{strategy_id}/start", post(start_strategy))
+        .route("/strategies/{strategy_id}/resume", post(resume_strategy))
+        .route("/strategies/{strategy_id}/stop", post(stop_strategy))
         .route("/strategies/batch/pause", post(pause_strategies))
         .route("/strategies/batch/delete", post(delete_strategies))
         .route("/strategies/stop-all", post(stop_all_strategies))
@@ -88,6 +89,26 @@ async fn start_strategy(
 ) -> Result<Json<StartStrategyResponse>, StrategyError> {
     let session = require_user_session(&auth, &headers).map_err(StrategyError::from)?;
     Ok(Json(service.start_strategy(&session.email, &strategy_id)?))
+}
+
+async fn resume_strategy(
+    State(auth): State<AuthService>,
+    State(service): State<StrategyService>,
+    headers: HeaderMap,
+    Path(strategy_id): Path<String>,
+) -> Result<Json<StartStrategyResponse>, StrategyError> {
+    let session = require_user_session(&auth, &headers).map_err(StrategyError::from)?;
+    Ok(Json(service.resume_strategy(&session.email, &strategy_id)?))
+}
+
+async fn stop_strategy(
+    State(auth): State<AuthService>,
+    State(service): State<StrategyService>,
+    headers: HeaderMap,
+    Path(strategy_id): Path<String>,
+) -> Result<Json<Strategy>, StrategyError> {
+    let session = require_user_session(&auth, &headers).map_err(StrategyError::from)?;
+    Ok(Json(service.stop_strategy(&session.email, &strategy_id)?))
 }
 
 async fn pause_strategies(
