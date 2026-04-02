@@ -48,7 +48,7 @@ async fn create_template(
     let session = require_super_admin_session(&auth, &headers).map_err(StrategyError::from)?;
     Ok((
         axum::http::StatusCode::CREATED,
-        Json(service.create_template(&session.email, session.admin_role, request)?),
+        Json(service.create_template(&session.email, session.admin_role, session.sid, request)?),
     ))
 }
 

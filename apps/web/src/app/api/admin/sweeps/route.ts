@@ -16,5 +16,8 @@ export async function POST(request: Request) {
     transfers: [{ from_address: fromAddress, amount }],
   });
 
-  return redirectTo(request, `/admin/sweeps?submitted=1&treasury=${encodeURIComponent(treasuryAddress)}`);
+  return redirectTo(
+    request,
+    `/admin/sweeps?submitted=1&treasury=${encodeURIComponent(treasuryAddress)}&chain=${encodeURIComponent(chain)}&asset=${encodeURIComponent(asset)}`,
+  );
 }

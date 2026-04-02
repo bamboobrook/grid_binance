@@ -430,6 +430,7 @@ impl StrategyService {
         &self,
         actor_email: &str,
         admin_role: Option<AdminRole>,
+        session_sid: u64,
         request: CreateTemplateRequest,
     ) -> Result<StrategyTemplate, StrategyError> {
         validate_strategy_request(&request.strategy)?;
@@ -438,15 +439,39 @@ impl StrategyService {
             .db
             .next_sequence("strategy_template")
             .map_err(StrategyError::storage)?;
+        let template_id = format!("template-{sequence_id}");
+        let revision = build_revision(
+            &template_id,
+            1,
+            request.strategy.generation,
+            &request.strategy.levels,
+            request.strategy.overall_take_profit_bps,
+            request.strategy.overall_stop_loss_bps,
+            request.strategy.post_trigger_action,
+        )?;
         let template = StrategyTemplate {
-            id: format!("template-{sequence_id}"),
+            id: template_id.clone(),
             name: request.strategy.name,
             symbol: request.strategy.symbol,
+            market: request.strategy.market,
+            mode: request.strategy.mode,
+            generation: revision.generation,
+            levels: revision.levels.clone(),
             budget: summarize_budget(&request.strategy.levels)?,
             grid_spacing_bps: summarize_spacing_bps(&request.strategy.levels)?,
             membership_ready: request.strategy.membership_ready,
             exchange_ready: request.strategy.exchange_ready,
+            permissions_ready: request.strategy.permissions_ready,
+            withdrawals_disabled: request.strategy.withdrawals_disabled,
+            hedge_mode_ready: request.strategy.hedge_mode_ready,
             symbol_ready: request.strategy.symbol_ready,
+            filters_ready: request.strategy.filters_ready,
+            margin_ready: request.strategy.margin_ready,
+            conflict_ready: request.strategy.conflict_ready,
+            balance_ready: request.strategy.balance_ready,
+            overall_take_profit_bps: revision.overall_take_profit_bps,
+            overall_stop_loss_bps: revision.overall_stop_loss_bps,
+            post_trigger_action: revision.post_trigger_action,
         };
         self.db
             .insert_template(&StoredStrategyTemplate {
@@ -462,13 +487,23 @@ impl StrategyService {
             payload: json!({
                 "template_name": template.name,
                 "symbol": template.symbol,
+                "market": template.market,
+                "mode": template.mode,
+                "generation": template.generation,
+                "level_count": template.levels.len(),
                 "budget": template.budget,
                 "grid_spacing_bps": template.grid_spacing_bps,
-                "membership_ready": template.membership_ready,
-                "exchange_ready": template.exchange_ready,
-                "symbol_ready": template.symbol_ready,
                 "session_role": admin_role.map(|role| role.as_str()),
-                "after_summary": format!("{} {} spacing {}bps", template.name, template.symbol, template.grid_spacing_bps),
+                "session_sid": session_sid,
+                "before_summary": "template absent",
+                "after_summary": format!(
+                    "{} {} {:?} {:?} {} levels",
+                    template.name,
+                    template.symbol,
+                    template.market,
+                    template.generation,
+                    template.levels.len()
+                ),
             }),
             created_at: Utc::now(),
         });
@@ -495,38 +530,11 @@ impl StrategyService {
             .next_sequence("strategy")
             .map_err(StrategyError::storage)?;
 
-        let request = SaveStrategyRequest {
-            name: request.name,
-            symbol: template.symbol.clone(),
-            market: StrategyMarket::Spot,
-            mode: StrategyMode::SpotClassic,
-            generation: GridGeneration::Custom,
-            levels: vec![SaveGridLevelRequest {
-                entry_price: "100".to_string(),
-                quantity: "1".to_string(),
-                take_profit_bps: 100,
-                trailing_bps: None,
-            }],
-            membership_ready: template.membership_ready,
-            exchange_ready: template.exchange_ready,
-            permissions_ready: true,
-            withdrawals_disabled: true,
-            hedge_mode_ready: true,
-            symbol_ready: template.symbol_ready,
-            filters_ready: true,
-            margin_ready: true,
-            conflict_ready: true,
-            balance_ready: true,
-            overall_take_profit_bps: None,
-            overall_stop_loss_bps: None,
-            post_trigger_action: PostTriggerAction::Stop,
-        };
-
         let strategy = build_strategy(
             sequence_id,
             owner_email,
-            request,
-            Some(template.id),
+            template_to_save_request(&template, request.name),
+            Some(template.id.clone()),
             default_runtime(),
             None,
             None,
@@ -538,6 +546,39 @@ impl StrategyService {
             })
             .map_err(StrategyError::storage)?;
         Ok(strategy)
+    }
+}
+
+fn template_to_save_request(template: &StrategyTemplate, name: String) -> SaveStrategyRequest {
+    SaveStrategyRequest {
+        name,
+        symbol: template.symbol.clone(),
+        market: template.market,
+        mode: template.mode,
+        generation: template.generation,
+        levels: template
+            .levels
+            .iter()
+            .map(|level| SaveGridLevelRequest {
+                entry_price: level.entry_price.to_string(),
+                quantity: level.quantity.to_string(),
+                take_profit_bps: level.take_profit_bps,
+                trailing_bps: level.trailing_bps,
+            })
+            .collect(),
+        membership_ready: template.membership_ready,
+        exchange_ready: template.exchange_ready,
+        permissions_ready: template.permissions_ready,
+        withdrawals_disabled: template.withdrawals_disabled,
+        hedge_mode_ready: template.hedge_mode_ready,
+        symbol_ready: template.symbol_ready,
+        filters_ready: template.filters_ready,
+        margin_ready: template.margin_ready,
+        conflict_ready: template.conflict_ready,
+        balance_ready: template.balance_ready,
+        overall_take_profit_bps: template.overall_take_profit_bps,
+        overall_stop_loss_bps: template.overall_stop_loss_bps,
+        post_trigger_action: template.post_trigger_action,
     }
 }
 

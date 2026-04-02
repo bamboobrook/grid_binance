@@ -14,7 +14,7 @@ use shared_db::{
 };
 use shared_domain::membership::{MembershipSnapshot, MembershipStatus};
 
-use crate::services::auth_service::AuthError;
+use crate::services::auth_service::{AdminRole, AuthError};
 
 const GRACE_HOURS: i64 = 48;
 
@@ -608,6 +608,8 @@ impl MembershipService {
     pub fn override_membership(
         &self,
         actor_email: &str,
+        admin_role: Option<AdminRole>,
+        session_sid: u64,
         request: MembershipOverrideRequest,
     ) -> Result<MembershipSnapshot, MembershipError> {
         self.bootstrap_defaults()?;
@@ -644,6 +646,10 @@ impl MembershipService {
             target_id: email.clone(),
             payload: json!({
                 "override_status": request.status,
+                "session_role": admin_role.map(|role| role.as_str()),
+                "session_sid": session_sid,
+                "before_summary": "membership override unchanged",
+                "after_summary": format!("override {:?}", request.status),
             }),
             created_at: request.at.unwrap_or_else(Utc::now),
         })?;
@@ -654,6 +660,8 @@ impl MembershipService {
     pub fn manage_membership(
         &self,
         actor_email: &str,
+        admin_role: Option<AdminRole>,
+        session_sid: u64,
         request: ManualMembershipRequest,
     ) -> Result<MembershipSnapshot, MembershipError> {
         self.bootstrap_defaults()?;
@@ -729,6 +737,10 @@ impl MembershipService {
             payload: json!({
                 "duration_days": request.duration_days,
                 "at": request.at,
+                "session_role": admin_role.map(|role| role.as_str()),
+                "session_sid": session_sid,
+                "before_summary": "membership state before manual action",
+                "after_summary": format!("{} membership action", action),
             }),
             created_at: request.at,
         })?;
@@ -769,6 +781,8 @@ impl MembershipService {
     pub fn upsert_plan_config(
         &self,
         actor_email: &str,
+        admin_role: Option<AdminRole>,
+        session_sid: u64,
         request: UpsertMembershipPlanRequest,
     ) -> Result<MembershipPlanConfigResponse, MembershipError> {
         self.bootstrap_defaults()?;
@@ -825,6 +839,10 @@ impl MembershipService {
                 "duration_days": request.duration_days,
                 "is_active": request.is_active,
                 "price_count": prices.len(),
+                "session_role": admin_role.map(|role| role.as_str()),
+                "session_sid": session_sid,
+                "before_summary": "plan config before update",
+                "after_summary": format!("plan {} {} prices", code, prices.len()),
             }),
             created_at: Utc::now(),
         })?;
@@ -858,6 +876,8 @@ impl MembershipService {
     pub fn upsert_address_pool_entry(
         &self,
         actor_email: &str,
+        admin_role: Option<AdminRole>,
+        session_sid: u64,
         request: UpsertAddressPoolEntryRequest,
     ) -> Result<AddressPoolEntryResponse, MembershipError> {
         self.bootstrap_defaults()?;
@@ -882,7 +902,13 @@ impl MembershipService {
             action: "billing.address_pool_updated".to_owned(),
             target_type: "deposit_address".to_owned(),
             target_id: format!("{chain}:{address}"),
-            payload: json!({ "is_enabled": request.is_enabled }),
+            payload: json!({
+                "is_enabled": request.is_enabled,
+                "session_role": admin_role.map(|role| role.as_str()),
+                "session_sid": session_sid,
+                "before_summary": "address pool state before update",
+                "after_summary": format!("{} {}", chain, if request.is_enabled { "enabled" } else { "disabled" }),
+            }),
             created_at: Utc::now(),
         })?;
         Ok(AddressPoolEntryResponse {
@@ -1059,6 +1085,8 @@ impl MembershipService {
     pub fn create_sweep_job(
         &self,
         actor_email: &str,
+        admin_role: Option<AdminRole>,
+        session_sid: u64,
         request: CreateSweepJobRequest,
     ) -> Result<SweepJobResponse, MembershipError> {
         self.bootstrap_defaults()?;
@@ -1115,6 +1143,11 @@ impl MembershipService {
                 "chain": chain,
                 "asset": asset,
                 "transfer_count": transfers.len(),
+                "treasury_address": treasury_address,
+                "session_role": admin_role.map(|role| role.as_str()),
+                "session_sid": session_sid,
+                "before_summary": "sweep queue before request",
+                "after_summary": format!("{} {} transfers to treasury", asset, transfers.len()),
             }),
             created_at: request.requested_at,
         })?;

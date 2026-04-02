@@ -1,18 +1,25 @@
 import { AppShellSection } from "../../../components/shell/app-shell-section";
 import { Card, CardBody, CardDescription, CardHeader, CardTitle } from "../../../components/ui/card";
-import { Button, Field, FormStack, Input } from "../../../components/ui/form";
+import { Button, Field, FormStack, Input, Select } from "../../../components/ui/form";
 import { StatusBanner } from "../../../components/ui/status-banner";
 import { DataTable } from "../../../components/ui/table";
-import { getAdminSweepsData, getCurrentAdminProfile } from "../../../lib/api/admin-product-state";
+import {
+  SUPPORTED_PAYMENT_ASSETS,
+  SUPPORTED_PAYMENT_CHAINS,
+  getAdminSweepsData,
+  getCurrentAdminProfile,
+} from "../../../lib/api/admin-product-state";
 
 type PageProps = {
-  searchParams?: Promise<{ submitted?: string; treasury?: string }>;
+  searchParams?: Promise<{ asset?: string; chain?: string; submitted?: string; treasury?: string }>;
 };
 
 export default async function AdminSweepsPage({ searchParams }: PageProps) {
   const params = (await searchParams) ?? {};
   const submitted = params.submitted === "1";
   const treasury = typeof params.treasury === "string" ? params.treasury : "";
+  const selectedChain = typeof params.chain === "string" ? params.chain : "BSC";
+  const selectedAsset = typeof params.asset === "string" ? params.asset : "USDT";
   const [profile, data] = await Promise.all([getCurrentAdminProfile(), getAdminSweepsData()]);
   const canManageSweeps = profile.admin_permissions?.can_manage_sweeps ?? false;
 
@@ -20,7 +27,7 @@ export default async function AdminSweepsPage({ searchParams }: PageProps) {
     <>
       {submitted ? (
         <StatusBanner
-          description={`Latest sweep destination recorded`}
+          description={`Latest sweep destination recorded: ${treasury || "-"} | ${selectedChain} / ${selectedAsset}`}
           title="Sweep request submitted"
           tone="success"
         />
@@ -39,8 +46,20 @@ export default async function AdminSweepsPage({ searchParams }: PageProps) {
             <CardBody>
               {canManageSweeps ? (
                 <FormStack action="/api/admin/sweeps" method="post">
-                  <input name="chain" type="hidden" value="BSC" />
-                  <input name="asset" type="hidden" value="USDT" />
+                  <Field label="Chain">
+                    <Select defaultValue={selectedChain} name="chain">
+                      {SUPPORTED_PAYMENT_CHAINS.map((chain) => (
+                        <option key={chain} value={chain}>{chain}</option>
+                      ))}
+                    </Select>
+                  </Field>
+                  <Field label="Asset">
+                    <Select defaultValue={selectedAsset} name="asset">
+                      {SUPPORTED_PAYMENT_ASSETS.map((asset) => (
+                        <option key={asset} value={asset}>{asset}</option>
+                      ))}
+                    </Select>
+                  </Field>
                   <Field label="Treasury address">
                     <Input name="treasuryAddress" placeholder="treasury-bsc-main" />
                   </Field>

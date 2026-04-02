@@ -5,7 +5,7 @@ use serde_json::json;
 use shared_db::{AuditLogRecord, SharedDb, SystemConfigRecord};
 
 use crate::{
-    routes::auth_guard::require_admin_session,
+    routes::auth_guard::{require_admin_session, require_super_admin_session},
     services::auth_service::{AuthError, AuthService},
     AppState,
 };
@@ -51,7 +51,7 @@ async fn update_system(
     headers: HeaderMap,
     Json(request): Json<AdminSystemUpdateRequest>,
 ) -> Result<Json<AdminSystemResponse>, AuthError> {
-    let session = require_admin_session(&auth, &headers)?;
+    let session = require_super_admin_session(&auth, &headers)?;
     write_confirmation(&db, ETH_CONFIRMATIONS_KEY, request.eth_confirmations)?;
     write_confirmation(&db, BSC_CONFIRMATIONS_KEY, request.bsc_confirmations)?;
     write_confirmation(&db, SOL_CONFIRMATIONS_KEY, request.sol_confirmations)?;
@@ -64,6 +64,10 @@ async fn update_system(
             "eth": request.eth_confirmations,
             "bsc": request.bsc_confirmations,
             "sol": request.sol_confirmations,
+            "session_role": session.admin_role.map(|role| role.as_str()),
+            "session_sid": session.sid,
+            "before_summary": "confirmation policy before update",
+            "after_summary": format!("ETH {} | BSC {} | SOL {}", request.eth_confirmations, request.bsc_confirmations, request.sol_confirmations),
         }),
         created_at: Utc::now(),
     })

@@ -3,7 +3,7 @@ use serde::Serialize;
 use shared_db::SharedDb;
 
 use crate::{
-    routes::auth_guard::require_admin_session,
+    routes::auth_guard::{require_admin_session, require_super_admin_session},
     services::auth_service::{AuthError, AuthService},
     services::membership_service::{CreateSweepJobRequest, MembershipError, MembershipService, SweepJobResponse},
     AppState,
@@ -35,8 +35,8 @@ async fn create_sweep_job(
     headers: HeaderMap,
     Json(request): Json<CreateSweepJobRequest>,
 ) -> Result<(StatusCode, Json<SweepJobResponse>), MembershipError> {
-    let session = require_admin_session(&auth, &headers).map_err(MembershipError::from)?;
-    Ok((StatusCode::CREATED, Json(service.create_sweep_job(&session.email, request)?)))
+    let session = require_super_admin_session(&auth, &headers).map_err(MembershipError::from)?;
+    Ok((StatusCode::CREATED, Json(service.create_sweep_job(&session.email, session.admin_role, session.sid, request)?)))
 }
 
 async fn list_sweeps(

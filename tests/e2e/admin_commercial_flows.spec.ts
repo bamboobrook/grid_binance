@@ -45,6 +45,19 @@ test.describe("admin commercial", () => {
     await expect(page.getByText("Plan & pricing management", { exact: false })).toBeVisible();
     await expect(page.getByText("super_admin required", { exact: false })).toBeVisible();
     await expect(page.getByRole("button", { name: "Open membership" })).not.toBeVisible();
+    await expectForbiddenAdminWrite(request, adminSessionToken, "/admin/memberships/plans", {
+      code: "monthly",
+      name: "Monthly",
+      duration_days: 30,
+      is_active: true,
+      prices: [{ chain: "BSC", asset: "USDT", amount: "20.00" }],
+    });
+    await expectForbiddenAdminWrite(request, adminSessionToken, "/admin/memberships/manage", {
+      email: uniqueEmail("blocked-member"),
+      action: "open",
+      duration_days: 30,
+      at: new Date().toISOString(),
+    });
 
     await page.getByRole("link", { name: "Deposits" }).click();
     await expect(page.getByRole("heading", { name: "Abnormal Deposit Handling" })).toBeVisible();
@@ -61,11 +74,40 @@ test.describe("admin commercial", () => {
     await expect(page.getByText("bsc-addr-1", { exact: true })).toBeVisible();
     await expect(page.getByText("Enabled inventory", { exact: false })).toBeVisible();
     await expect(page.getByRole("button", { name: "Add or enable address" })).not.toBeVisible();
+    await expectForbiddenAdminWrite(request, adminSessionToken, "/admin/address-pools", {
+      chain: "BSC",
+      address: `blocked-bsc-${Date.now()}`,
+      is_enabled: true,
+    });
 
     await page.getByRole("link", { name: "Templates" }).click();
     await expect(page.getByRole("heading", { name: "Template Management" })).toBeVisible();
     await expect(page.getByText("Template changes require super_admin", { exact: false })).toBeVisible();
     await expect(page.getByRole("button", { name: "Create template" })).not.toBeVisible();
+    await expectForbiddenAdminWrite(request, adminSessionToken, "/admin/templates", {
+      name: "Blocked Template",
+      symbol: "ADAUSDT",
+      market: "Spot",
+      mode: "SpotClassic",
+      generation: "Custom",
+      levels: [
+        { entry_price: "1.00", quantity: "10", take_profit_bps: 150, trailing_bps: null },
+        { entry_price: "1.10", quantity: "10", take_profit_bps: 180, trailing_bps: null },
+      ],
+      membership_ready: true,
+      exchange_ready: true,
+      permissions_ready: true,
+      withdrawals_disabled: true,
+      hedge_mode_ready: true,
+      symbol_ready: true,
+      filters_ready: true,
+      margin_ready: true,
+      conflict_ready: true,
+      balance_ready: true,
+      overall_take_profit_bps: 350,
+      overall_stop_loss_bps: 120,
+      post_trigger_action: "Rebuild",
+    });
 
     await page.getByRole("link", { name: "Strategies" }).click();
     await expect(page.getByRole("heading", { name: "Strategy Oversight" })).toBeVisible();
@@ -73,12 +115,25 @@ test.describe("admin commercial", () => {
     await expect(page.getByText(strategyName, { exact: true })).toBeVisible();
     await expect(page.getByText("Active orders", { exact: false })).toBeVisible();
     await expect(page.getByText("Last pre-flight", { exact: false })).toBeVisible();
+    await expectForbiddenAdminWrite(request, adminSessionToken, "/admin/sweeps", {
+      chain: "SOL",
+      asset: "USDC",
+      treasury_address: "blocked-sol-treasury",
+      requested_at: new Date().toISOString(),
+      transfers: [{ from_address: "sol-addr-1", amount: "12.50000000" }],
+    });
+    await expectForbiddenAdminWrite(request, adminSessionToken, "/admin/system", {
+      eth_confirmations: 18,
+      bsc_confirmations: 15,
+      sol_confirmations: 22,
+    });
 
     await page.getByRole("link", { name: "Audit" }).click();
     await expect(page.getByRole("heading", { name: "Audit Review" })).toBeVisible();
     await expect(page.getByText("Before / after summary", { exact: false })).toBeVisible();
     await expect(page.getByRole("cell", { name: "decision reject" }).first()).toBeVisible();
     await expect(page.getByRole("cell", { name: "decision credit_membership" }).first()).toBeVisible();
+    await expect(page.getByText("session role operator_admin", { exact: false }).first()).toBeVisible();
   });
 
   test("super admin manages pricing, memberships, templates, inventory, sweeps, and audit-backed system controls", async ({
@@ -90,8 +145,11 @@ test.describe("admin commercial", () => {
     const memberEmail = uniqueEmail("member");
     const creditEmail = uniqueEmail("credit");
     const rejectEmail = uniqueEmail("reject");
+    const templateUserEmail = uniqueEmail("template-user");
     const strategyName = `admin-draft-${Date.now()}`;
     const extraAddress = `bsc-ops-${Date.now()}`;
+    const templateName = `ADA Trend Rider ${Date.now()}`;
+    const appliedStrategyName = `ADA Rider Copy ${Date.now()}`;
 
     await seedAdminCommercialData(request, adminSessionToken, {
       creditEmail,
@@ -151,19 +209,68 @@ test.describe("admin commercial", () => {
 
     await page.getByRole("link", { name: "Templates" }).click();
     await expect(page.getByRole("heading", { name: "Template Management" })).toBeVisible();
-    await page.getByLabel("Template name").fill("ADA Trend Rider");
+    await page.getByLabel("Template name").fill(templateName);
+    await page.getByRole("textbox", { name: "Symbol" }).fill("ADAUSDT");
+    await page.locator('select[name="market"]').selectOption("Spot");
+    await page.locator('select[name="mode"]').selectOption("SpotClassic");
+    await page.locator('select[name="generation"]').selectOption("Geometric");
+    await page.getByLabel("Level 1 entry price").fill("0.9500");
+    await page.getByLabel("Level 1 quantity").fill("120");
+    await page.getByLabel("Level 1 take profit (bps)").fill("140");
+    await page.getByLabel("Level 1 trailing (bps)").fill("80");
+    await page.getByLabel("Level 2 entry price").fill("1.0500");
+    await page.getByLabel("Level 2 quantity").fill("130");
+    await page.getByLabel("Level 2 take profit (bps)").fill("170");
+    await page.getByLabel("Level 2 trailing (bps)").fill("90");
+    await page.getByLabel("Membership ready").selectOption("true");
+    await page.getByLabel("Exchange ready").selectOption("true");
+    await page.getByLabel("Permissions ready").selectOption("true");
+    await page.getByLabel("Withdrawals disabled").selectOption("true");
+    await page.getByLabel("Hedge mode ready").selectOption("true");
+    await page.getByLabel("Symbol ready").selectOption("true");
+    await page.getByLabel("Filters ready").selectOption("true");
+    await page.getByLabel("Margin ready").selectOption("true");
+    await page.getByLabel("Conflict ready").selectOption("true");
+    await page.getByLabel("Balance ready").selectOption("true");
+    await page.getByLabel("Overall take profit (bps)").fill("420");
+    await page.getByLabel("Overall stop loss (bps)").fill("160");
+    await page.getByLabel("Post-trigger action").selectOption("Rebuild");
     await page.getByRole("button", { name: "Create template" }).click();
     await expect(page.getByText("Template created", { exact: false })).toBeVisible();
-    await expect(page.getByText("ADA Trend Rider", { exact: true })).toBeVisible();
+    await expect(page.getByText(templateName, { exact: true })).toBeVisible();
+    await expect(page.getByRole("cell", { name: "Geometric" }).first()).toBeVisible();
+    await expect(page.getByText("2 levels", { exact: false })).toBeVisible();
+    const templateUserToken = await createVerifiedUserSession(request, templateUserEmail, "pass1234");
+    const createdTemplate = await findTemplateByName(request, adminSessionToken, templateName);
+    const applied = await applyTemplate(request, templateUserToken, createdTemplate.id, appliedStrategyName);
+    expect(applied.name).toBe(appliedStrategyName);
+    expect(applied.symbol).toBe("ADAUSDT");
+    expect(applied.market).toBe("Spot");
+    expect(applied.mode).toBe("SpotClassic");
+    expect(applied.source_template_id).toBe(createdTemplate.id);
+    expect(applied.draft_revision.generation).toBe("Geometric");
+    expect(applied.draft_revision.levels).toHaveLength(2);
+    expect(applied.draft_revision.levels[0]?.entry_price).toBe("0.9500");
+    expect(applied.draft_revision.levels[0]?.quantity).toBe("120");
+    expect(applied.draft_revision.levels[0]?.take_profit_bps).toBe(140);
+    expect(applied.draft_revision.levels[0]?.trailing_bps).toBe(80);
+    expect(applied.draft_revision.levels[1]?.entry_price).toBe("1.0500");
+    expect(applied.draft_revision.levels[1]?.quantity).toBe("130");
+    expect(applied.draft_revision.overall_take_profit_bps).toBe(420);
+    expect(applied.draft_revision.overall_stop_loss_bps).toBe(160);
+    expect(applied.draft_revision.post_trigger_action).toBe("Rebuild");
 
     await page.getByRole("link", { name: "Sweeps" }).click();
     await expect(page.getByRole("heading", { name: "Sweep Operations" })).toBeVisible();
-    await page.getByLabel("Treasury address").fill("treasury-bsc-main");
-    await page.getByLabel("Source address").fill("bsc-addr-2");
+    await page.locator('select[name="chain"]').selectOption("SOL");
+    await page.locator('select[name="asset"]').selectOption("USDC");
+    await page.getByLabel("Treasury address").fill("treasury-sol-main");
+    await page.getByLabel("Source address").fill("sol-addr-2");
     await page.getByLabel("Sweep amount").fill("18.50000000");
     await page.getByRole("button", { name: "Request sweep" }).click();
     await expect(page.getByText("Sweep request submitted", { exact: false })).toBeVisible();
-    await expect(page.getByRole("cell", { name: "treasury-bsc-main" }).first()).toBeVisible();
+    await expect(page.getByRole("cell", { name: "treasury-sol-main" }).first()).toBeVisible();
+    await expect(page.getByRole("cell", { name: "SOL / USDC" }).first()).toBeVisible();
 
     await page.getByRole("link", { name: "System" }).click();
     await expect(page.getByRole("heading", { name: "System Configuration" })).toBeVisible();
@@ -181,7 +288,11 @@ test.describe("admin commercial", () => {
     await expect(page.getByRole("cell", { name: "strategy.template_created" }).first()).toBeVisible();
     await expect(page.getByRole("cell", { name: "membership.plan_config_updated" }).first()).toBeVisible();
     await expect(page.getByRole("cell", { name: "treasury.sweep_requested" }).first()).toBeVisible();
-    await expect(page.getByText("session role super_admin", { exact: false })).toBeVisible();
+    await expect(page.getByText("session role super_admin", { exact: false }).first()).toBeVisible();
+    await expect(page.getByText("session sid", { exact: false }).first()).toBeVisible();
+    await expect(page.getByText("before summary", { exact: false }).first()).toBeVisible();
+    await expect(page.getByText(templateName, { exact: false }).first()).toBeVisible();
+    await expect(page.getByText("treasury-sol-main", { exact: false }).first()).toBeVisible();
   });
 });
 
@@ -215,7 +326,6 @@ async function seedAdminCommercialData(
   });
 
   await createStrategy(request, creditUserToken, input.strategyName);
-  await createSweepJob(request, adminSessionToken);
 
   return {
     creditOrderId: creditOrder.orderId,
@@ -350,6 +460,81 @@ async function createSweepJob(request: APIRequestContext, adminSessionToken: str
   });
   expect(response.ok()).toBeTruthy();
 }
+
+async function expectForbiddenAdminWrite(
+  request: APIRequestContext,
+  sessionToken: string,
+  path: string,
+  data: Record<string, unknown>,
+) {
+  const response = await request.post(`${AUTH_API_BASE_URL}${path}`, {
+    data,
+    headers: {
+      authorization: `Bearer ${sessionToken}`,
+      "content-type": "application/json",
+    },
+  });
+  expect(response.status()).toBe(403);
+  const body = await response.text();
+  expect(body).toContain("super admin access required");
+}
+
+async function findTemplateByName(
+  request: APIRequestContext,
+  adminSessionToken: string,
+  name: string,
+) {
+  const response = await request.get(`${AUTH_API_BASE_URL}/admin/templates`, {
+    headers: {
+      authorization: `Bearer ${adminSessionToken}`,
+    },
+  });
+  expect(response.ok()).toBeTruthy();
+  const payload = (await response.json()) as {
+    items?: Array<{ id: string; name: string }>;
+  };
+  const match = payload.items?.find((item) => item.name === name);
+  expect(match).toBeTruthy();
+  return match!;
+}
+
+async function applyTemplate(
+  request: APIRequestContext,
+  sessionToken: string,
+  templateId: string,
+  name: string,
+) {
+  const response = await request.post(`${AUTH_API_BASE_URL}/admin/templates/${templateId}/apply`, {
+    data: { name },
+    headers: {
+      authorization: `Bearer ${sessionToken}`,
+      "content-type": "application/json",
+    },
+  });
+  if (!response.ok()) {
+    throw new Error(`applyTemplate failed ${response.status()} ${await response.text()}`);
+  }
+  return (await response.json()) as {
+    draft_revision: {
+      generation: string;
+      levels: Array<{
+        entry_price: string;
+        quantity: string;
+        take_profit_bps: number;
+        trailing_bps: number | null;
+      }>;
+      overall_stop_loss_bps: number | null;
+      overall_take_profit_bps: number | null;
+      post_trigger_action: string;
+    };
+    market: string;
+    mode: string;
+    name: string;
+    source_template_id: string | null;
+    symbol: string;
+  };
+}
+
 
 async function createStrategy(request: APIRequestContext, sessionToken: string, name: string) {
   const response = await request.post(`${AUTH_API_BASE_URL}/strategies`, {

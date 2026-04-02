@@ -5,7 +5,7 @@ use shared_db::SharedDb;
 use shared_domain::membership::{MembershipSnapshot, MembershipStatus};
 
 use crate::{
-    routes::auth_guard::require_admin_session,
+    routes::auth_guard::{require_admin_session, require_super_admin_session},
     services::auth_service::{AuthError, AuthService},
     services::membership_service::{
         ManualMembershipRequest, MembershipError, MembershipOverrideRequest,
@@ -56,8 +56,8 @@ async fn override_membership(
     headers: HeaderMap,
     Json(request): Json<MembershipOverrideRequest>,
 ) -> Result<Json<MembershipSnapshot>, MembershipError> {
-    let session = require_admin_session(&auth, &headers).map_err(MembershipError::from)?;
-    Ok(Json(service.override_membership(&session.email, request)?))
+    let session = require_super_admin_session(&auth, &headers).map_err(MembershipError::from)?;
+    Ok(Json(service.override_membership(&session.email, session.admin_role, session.sid, request)?))
 }
 
 async fn manage_membership(
@@ -66,8 +66,8 @@ async fn manage_membership(
     headers: HeaderMap,
     Json(request): Json<ManualMembershipRequest>,
 ) -> Result<Json<MembershipSnapshot>, MembershipError> {
-    let session = require_admin_session(&auth, &headers).map_err(MembershipError::from)?;
-    Ok(Json(service.manage_membership(&session.email, request)?))
+    let session = require_super_admin_session(&auth, &headers).map_err(MembershipError::from)?;
+    Ok(Json(service.manage_membership(&session.email, session.admin_role, session.sid, request)?))
 }
 
 async fn list_plans(
@@ -85,8 +85,8 @@ async fn upsert_plan(
     headers: HeaderMap,
     Json(request): Json<UpsertMembershipPlanRequest>,
 ) -> Result<Json<MembershipPlanConfigResponse>, MembershipError> {
-    let session = require_admin_session(&auth, &headers).map_err(MembershipError::from)?;
-    Ok(Json(service.upsert_plan_config(&session.email, request)?))
+    let session = require_super_admin_session(&auth, &headers).map_err(MembershipError::from)?;
+    Ok(Json(service.upsert_plan_config(&session.email, session.admin_role, session.sid, request)?))
 }
 
 fn derive_status(record: &shared_db::MembershipRecord, now: chrono::DateTime<chrono::Utc>) -> MembershipStatus {

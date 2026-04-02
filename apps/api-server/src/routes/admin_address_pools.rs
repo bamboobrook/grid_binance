@@ -6,7 +6,7 @@ use axum::{
 };
 
 use crate::{
-    routes::auth_guard::require_admin_session,
+    routes::auth_guard::{require_admin_session, require_super_admin_session},
     services::auth_service::AuthService,
     services::membership_service::{
         AddressPoolEntryResponse, AddressPoolListResponse, MembershipError, MembershipService,
@@ -34,6 +34,6 @@ async fn upsert_address_pool(
     headers: HeaderMap,
     Json(request): Json<UpsertAddressPoolEntryRequest>,
 ) -> Result<Json<AddressPoolEntryResponse>, MembershipError> {
-    let session = require_admin_session(&auth, &headers).map_err(MembershipError::from)?;
-    Ok(Json(service.upsert_address_pool_entry(&session.email, request)?))
+    let session = require_super_admin_session(&auth, &headers).map_err(MembershipError::from)?;
+    Ok(Json(service.upsert_address_pool_entry(&session.email, session.admin_role, session.sid, request)?))
 }

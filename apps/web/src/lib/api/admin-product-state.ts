@@ -6,6 +6,9 @@ import type { AdminShellSnapshot } from "./mock-data";
 
 const DEFAULT_AUTH_API_BASE_URL = "http://127.0.0.1:8080";
 
+export const SUPPORTED_PAYMENT_CHAINS = ["ETH", "BSC", "SOL"] as const;
+export const SUPPORTED_PAYMENT_ASSETS = ["USDT", "USDC"] as const;
+
 export type AdminRole = "super_admin" | "operator_admin";
 
 export type AdminPermissions = {
@@ -98,9 +101,18 @@ export type AdminTemplateList = {
   items: Array<{
     budget: string;
     exchange_ready: boolean;
+    generation: string;
     grid_spacing_bps: number;
     id: string;
+    levels: Array<{
+      entry_price: string;
+      quantity: string;
+      take_profit_bps: number;
+      trailing_bps: number | null;
+    }>;
+    market: string;
     membership_ready: boolean;
+    mode: string;
     name: string;
     symbol: string;
     symbol_ready: boolean;

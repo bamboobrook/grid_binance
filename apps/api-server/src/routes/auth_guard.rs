@@ -7,6 +7,7 @@ pub struct AuthenticatedSession {
     pub email: String,
     pub is_admin: bool,
     pub admin_role: Option<AdminRole>,
+    pub sid: u64,
 }
 
 pub fn require_user_session(
@@ -25,6 +26,7 @@ pub fn require_user_session(
         email: claims.email,
         is_admin: admin_role.is_some(),
         admin_role,
+        sid: claims.sid,
     })
 }
 
