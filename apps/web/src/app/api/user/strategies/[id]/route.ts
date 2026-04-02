@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 
-import { findStrategy, updateUserProductState } from "../../../../../lib/api/user-product-state";
+import {
+  findStrategy,
+  membershipAllowsNewStarts,
+  updateUserProductState,
+} from "../../../../../lib/api/user-product-state";
 
 export async function POST(
   request: Request,
@@ -31,23 +35,34 @@ export async function POST(
     }
 
     if (intent === "preflight") {
+      const membershipReady = membershipAllowsNewStarts(state.billing.membershipStatus);
       const exchangeReady = state.exchange.saved && state.exchange.connectionStatus === "passed";
       const hedgeReady = strategy.marketType === "spot" || state.exchange.positionMode === "hedge";
       strategy.preflightChecks = [
-        { id: `${id}-check-1`, item: "Exchange filters", result: exchangeReady ? "Pass" : "Fail" },
-        { id: `${id}-check-2`, item: "Balance coverage", result: "Pass" },
-        { id: `${id}-check-3`, item: "Hedge mode", result: hedgeReady ? "Pass" : "Fail" },
+        { id: `${id}-check-1`, item: "membership_status", result: membershipReady ? "Pass" : "Fail" },
+        { id: `${id}-check-2`, item: "Exchange filters", result: exchangeReady ? "Pass" : "Fail" },
+        { id: `${id}-check-3`, item: "Balance coverage", result: "Pass" },
+        { id: `${id}-check-4`, item: "Hedge mode", result: hedgeReady ? "Pass" : "Fail" },
       ];
-      strategy.preflightStatus = exchangeReady && hedgeReady ? "passed" : "failed";
+      strategy.preflightStatus = membershipReady && exchangeReady && hedgeReady ? "passed" : "failed";
       strategy.preflightMessage =
         strategy.preflightStatus === "passed"
           ? "Exchange filters, balance, and hedge-mode checks passed."
-          : "Pre-flight failed. Save/test exchange credentials and confirm hedge mode before starting.";
+          : !membershipReady
+            ? "Pre-flight failed. Renew or reactivate membership before starting this strategy."
+            : "Pre-flight failed. Save/test exchange credentials and confirm hedge mode before starting.";
       strategy.status = strategy.preflightStatus === "passed" ? "ready" : strategy.status;
       state.flash.strategy = strategy.preflightStatus === "passed" ? "Pre-flight passed" : "Pre-flight failed";
     }
 
     if (intent === "start") {
+      if (!membershipAllowsNewStarts(state.billing.membershipStatus)) {
+        strategy.preflightStatus = "failed";
+        strategy.preflightMessage = "Start blocked. Membership is not active or in grace.";
+        state.flash.strategy = "Start blocked until membership is active or in grace";
+        return;
+      }
+
       if (strategy.preflightStatus === "passed") {
         strategy.status = "running";
         state.flash.strategy = "Strategy started";

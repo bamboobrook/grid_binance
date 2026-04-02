@@ -102,16 +102,27 @@ test.describe("user commercial", () => {
     await expect(page.getByText("Telegram bound", { exact: true })).toBeVisible();
 
     await page.goto("/app/security");
+    await page.getByLabel("Current password").fill("pass1234");
     await page.getByLabel("New password").fill("pass12345");
     await page.getByRole("button", { name: "Update password" }).click();
-    await expect(page).toHaveURL(/\/app\/security$/);
-    await expect(page.getByText("Password updated", { exact: true })).toBeVisible();
+    await expect(page).toHaveURL(/\/login\?security=password-updated$/);
+    await expect(page.getByRole("heading", { name: "Login" })).toBeVisible();
+    await page.getByLabel("Email").fill(email);
+    await page.getByLabel("Password").fill("pass12345");
+    await page.getByRole("button", { name: "Sign in" }).click();
+    await expect(page).toHaveURL(/\/app\/dashboard$/);
+
+    await page.goto("/app/security");
     await page.getByRole("button", { name: "Enable TOTP" }).click();
+    await expect(page).toHaveURL(/\/app\/security$/);
     await expect(page.getByText("TOTP enabled", { exact: true })).toBeVisible();
     await page.getByRole("button", { name: "Disable TOTP" }).click();
-    await expect(page.getByText("TOTP disabled", { exact: true })).toBeVisible();
-    await page.getByRole("button", { name: "Revoke other sessions" }).click();
-    await expect(page.getByText("Other sessions revoked", { exact: true })).toBeVisible();
+    await expect(page).toHaveURL(/\/login\?security=totp-disabled$/);
+    await expect(page.getByRole("heading", { name: "Login" })).toBeVisible();
+    await page.getByLabel("Email").fill(email);
+    await page.getByLabel("Password").fill("pass12345");
+    await page.getByRole("button", { name: "Sign in" }).click();
+    await expect(page).toHaveURL(/\/app\/dashboard$/);
 
     await page.goto("/app/help");
     await expect(page.getByRole("heading", { name: "Help Center" })).toBeVisible();

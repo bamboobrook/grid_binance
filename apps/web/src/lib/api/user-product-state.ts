@@ -198,6 +198,41 @@ export function findStrategy(state: UserProductState, id: string) {
   return state.strategies.find((strategy) => strategy.id === id) ?? null;
 }
 
+
+export function membershipAllowsNewStarts(membershipStatus: string) {
+  return membershipStatus === "Active" || membershipStatus === "Grace";
+}
+
+export function uniqueStrategyId(strategies: StrategyRecord[], desiredId: string) {
+  const existing = new Set(strategies.map((item) => item.id));
+  if (!existing.has(desiredId)) {
+    return desiredId;
+  }
+
+  let suffix = 2;
+  while (existing.has(`${desiredId}-${suffix}`)) {
+    suffix += 1;
+  }
+
+  return `${desiredId}-${suffix}`;
+}
+
+export function reassignStrategyId(strategy: StrategyRecord, nextId: string) {
+  const previousId = strategy.id;
+  strategy.id = nextId;
+  strategy.gridLevels = strategy.gridLevels.map((level, index) => ({
+    ...level,
+    id: `${nextId}-l${index + 1}`,
+  }));
+  strategy.preflightChecks = strategy.preflightChecks.map((check, index) => ({
+    ...check,
+    id: `${nextId}-check-${index + 1}`,
+  }));
+  if (strategy.preflightMessage) {
+    strategy.preflightMessage = strategy.preflightMessage.replace(previousId, nextId);
+  }
+}
+
 function createDefaultState(): UserProductState {
   const btc = createStrategyRecord({
     generation: "geometric",

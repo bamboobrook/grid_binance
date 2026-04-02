@@ -1,5 +1,6 @@
-import { readFileSync, readdirSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 export type HelpArticle = {
   body: string[];
@@ -9,7 +10,28 @@ export type HelpArticle = {
 };
 
 function docsDirectory() {
-  return path.resolve(process.cwd(), "..", "..", "docs", "user-guide");
+  const starts = [
+    process.cwd(),
+    path.dirname(fileURLToPath(import.meta.url)),
+  ];
+
+  for (const start of starts) {
+    let current = start;
+    while (true) {
+      const candidate = path.join(current, "docs", "user-guide");
+      if (existsSync(candidate)) {
+        return candidate;
+      }
+
+      const parent = path.dirname(current);
+      if (parent === current) {
+        break;
+      }
+      current = parent;
+    }
+  }
+
+  throw new Error("docs/user-guide directory not found");
 }
 
 function parseArticle(slug: string): HelpArticle {
