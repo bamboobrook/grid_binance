@@ -1,5 +1,6 @@
 import "server-only";
 
+import { buildAdminShellSnapshotFromState, getCurrentAdminProductState } from "./admin-product-state";
 import {
   adminAddressPoolsSnapshot,
   adminAuditSnapshot,
@@ -13,7 +14,6 @@ import {
   adminUsersSnapshot,
   analyticsSnapshot,
   billingSnapshot,
-  buildAdminShellSnapshot,
   buildUserShellSnapshot,
   exchangeSnapshot,
   helpCenterSnapshot,
@@ -55,7 +55,7 @@ export async function getUserShellSnapshot(): Promise<UserShellSnapshot> {
 }
 
 export async function getAdminShellSnapshot(): Promise<AdminShellSnapshot> {
-  return clone(buildAdminShellSnapshot());
+  return buildAdminShellSnapshotFromState(await getCurrentAdminProductState());
 }
 
 export async function getUserDashboardSnapshot() {

@@ -1,38 +1,55 @@
+import Link from "next/link";
+
 import { AppShellSection } from "../../../components/shell/app-shell-section";
 import { Card, CardBody, CardDescription, CardHeader, CardTitle } from "../../../components/ui/card";
+import { Chip } from "../../../components/ui/chip";
 import { Button, ButtonRow, Field, FormStack, Input, Select } from "../../../components/ui/form";
-import { StatusBanner } from "../../../components/ui/status-banner";
 import { DataTable } from "../../../components/ui/table";
-import { getAdminUsersSnapshot } from "../../../lib/api/server";
+import { getCurrentAdminProductState } from "../../../lib/api/admin-product-state";
 
-export default async function AdminUsersPage() {
-  const snapshot = await getAdminUsersSnapshot();
+type UsersPageProps = {
+  searchParams?: Promise<{
+    query?: string;
+    state?: string;
+  }>;
+};
+
+export default async function AdminUsersPage({ searchParams }: UsersPageProps) {
+  const params = (await searchParams) ?? {};
+  const query = typeof params.query === "string" ? params.query.trim().toLowerCase() : "";
+  const stateFilter = typeof params.state === "string" ? params.state : "all";
+  const state = await getCurrentAdminProductState();
+  const rows = state.memberships.filter((item) => {
+    const matchesState = stateFilter === "all" ? true : item.status.toLowerCase() === stateFilter;
+    const matchesQuery = query.length === 0 ? true : item.email.toLowerCase().includes(query);
+    return matchesState && matchesQuery;
+  });
 
   return (
     <>
-      <StatusBanner description={snapshot.banner.description} title={snapshot.banner.title} tone={snapshot.banner.tone} />
       <AppShellSection
-        description="Filtering, overrides, and later audit-backed actions now share the same admin shell and form primitives."
+        description="Search user accounts, review membership state, and jump into override surfaces without losing account context."
         eyebrow="User operations"
-        title="Member Control"
+        title="User Management"
       >
         <div className="content-grid content-grid--split">
           <Card>
             <CardHeader>
-              <CardTitle>Filter members</CardTitle>
-              <CardDescription>Reusable form primitives for future search and override actions.</CardDescription>
+              <CardTitle>Find users</CardTitle>
+              <CardDescription>Search by email and membership status.</CardDescription>
             </CardHeader>
             <CardBody>
-              <FormStack action="#" method="get">
+              <FormStack action="/admin/users" method="get">
                 <Field label="Email search">
-                  <Input name="email" placeholder="luna@example.com" />
+                  <Input defaultValue={query} name="query" placeholder="miles@example.com" />
                 </Field>
                 <Field label="Membership state">
-                  <Select defaultValue="all" name="state">
+                  <Select defaultValue={stateFilter} name="state">
                     <option value="all">All states</option>
                     <option value="active">Active</option>
                     <option value="grace">Grace</option>
                     <option value="frozen">Frozen</option>
+                    <option value="revoked">Revoked</option>
                   </Select>
                 </Field>
                 <ButtonRow>
@@ -44,10 +61,14 @@ export default async function AdminUsersPage() {
           <Card tone="subtle">
             <CardHeader>
               <CardTitle>Operator guidance</CardTitle>
-              <CardDescription>Manual overrides must stay explicit and auditable.</CardDescription>
+              <CardDescription>Membership overrides and deposit decisions always remain auditable.</CardDescription>
             </CardHeader>
             <CardBody>
-              Freeze, unfreeze, extend, and revoke operations remain downstream work; this task establishes the shared shell and UI contract.
+              <ul className="text-list">
+                <li>Use Memberships for direct extend/freeze/unfreeze workflows.</li>
+                <li>Use Deposits when billing mismatches block entitlement changes.</li>
+                <li>Current result count: {rows.length}</li>
+              </ul>
             </CardBody>
           </Card>
         </div>
@@ -55,17 +76,25 @@ export default async function AdminUsersPage() {
       <Card>
         <CardHeader>
           <CardTitle>User state overview</CardTitle>
-          <CardDescription>Preview table for membership and grace handling.</CardDescription>
+          <CardDescription>Membership, grace timing, and operator notes stay in one table.</CardDescription>
         </CardHeader>
         <CardBody>
           <DataTable
             columns={[
               { key: "email", label: "Email" },
-              { key: "membership", label: "Membership" },
-              { key: "grace", label: "Grace" },
-              { key: "note", label: "Note" },
+              { key: "plan", label: "Plan" },
+              { key: "status", label: "Status" },
+              { key: "note", label: "Operator note" },
+              { key: "actions", label: "Actions", align: "right" },
             ]}
-            rows={snapshot.rows}
+            rows={rows.map((item) => ({
+              id: item.id,
+              actions: <Link href="/admin/memberships">Open membership actions</Link>,
+              email: item.email,
+              note: item.note,
+              plan: item.plan,
+              status: <Chip tone={item.status === "Active" ? "success" : item.status === "Grace" ? "warning" : "danger"}>{item.status}</Chip>,
+            }))}
           />
         </CardBody>
       </Card>

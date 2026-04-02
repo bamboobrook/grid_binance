@@ -1,37 +1,66 @@
 import { AppShellSection } from "../../../components/shell/app-shell-section";
 import { Card, CardBody, CardDescription, CardHeader, CardTitle } from "../../../components/ui/card";
-import { StatusBanner } from "../../../components/ui/status-banner";
+import { Chip } from "../../../components/ui/chip";
 import { DataTable } from "../../../components/ui/table";
-import { getAdminSweepsSnapshot } from "../../../lib/api/server";
+import { getCurrentAdminProductState } from "../../../lib/api/admin-product-state";
 
 export default async function AdminSweepsPage() {
-  const snapshot = await getAdminSweepsSnapshot();
+  const state = await getCurrentAdminProductState();
+  const queuedCount = state.sweeps.filter((item) => item.state === "Queued").length;
 
   return (
     <>
-      <StatusBanner description={snapshot.banner.description} title={snapshot.banner.title} tone={snapshot.banner.tone} />
       <AppShellSection
-        description="The documented sweep route is present with the shared table and card system."
+        description="Treasury sweep visibility stays explicit so operators can confirm queue depth and completed collections without hidden automation."
         eyebrow="Treasury movement"
-        title="Sweeps"
+        title="Sweep Job Visibility"
       >
-        <Card>
-          <CardHeader>
-            <CardTitle>Sweep queue</CardTitle>
-            <CardDescription>All sweep actions must remain audited.</CardDescription>
-          </CardHeader>
-          <CardBody>
-            <DataTable
-              columns={[
-                { key: "wallet", label: "Wallet" },
-                { key: "amount", label: "Amount" },
-                { key: "state", label: "State", align: "right" },
-              ]}
-              rows={snapshot.rows}
-            />
-          </CardBody>
-        </Card>
+        <div className="content-grid content-grid--split">
+          <Card>
+            <CardHeader>
+              <CardTitle>Queued treasury jobs</CardTitle>
+              <CardDescription>{queuedCount} jobs still waiting for execution.</CardDescription>
+            </CardHeader>
+            <CardBody>
+              <strong>{queuedCount} queued sweep jobs</strong>
+            </CardBody>
+          </Card>
+          <Card tone="subtle">
+            <CardHeader>
+              <CardTitle>Audit requirement</CardTitle>
+              <CardDescription>Every sweep action remains audit-backed.</CardDescription>
+            </CardHeader>
+            <CardBody>
+              Latest sweep target: {state.sweeps[0]?.wallet ?? "n/a"}
+            </CardBody>
+          </Card>
+        </div>
       </AppShellSection>
+      <Card>
+        <CardHeader>
+          <CardTitle>Sweep queue</CardTitle>
+          <CardDescription>Wallet, asset, amount, and execution state for treasury collection.</CardDescription>
+        </CardHeader>
+        <CardBody>
+          <DataTable
+            columns={[
+              { key: "wallet", label: "Wallet" },
+              { key: "asset", label: "Asset" },
+              { key: "amount", label: "Amount", align: "right" },
+              { key: "requestedAt", label: "Requested at" },
+              { key: "state", label: "State", align: "right" },
+            ]}
+            rows={state.sweeps.map((item) => ({
+              id: item.id,
+              amount: item.amount,
+              asset: item.asset,
+              requestedAt: item.requestedAt,
+              state: <Chip tone={item.state === "Completed" ? "success" : "warning"}>{item.state}</Chip>,
+              wallet: item.wallet,
+            }))}
+          />
+        </CardBody>
+      </Card>
     </>
   );
 }
