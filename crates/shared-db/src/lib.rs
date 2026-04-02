@@ -1683,7 +1683,7 @@ impl SharedDb {
     pub fn list_templates(&self) -> Result<Vec<StrategyTemplate>, SharedDbError> {
         match &self.backend {
             SharedDbBackend::Runtime { .. } => {
-                let repo = self.admin_repo();
+                let repo = self.strategy_repo();
                 Self::block_on(async move { repo.list_templates().await })
             }
             SharedDbBackend::Ephemeral(state) => {
@@ -1698,7 +1698,7 @@ impl SharedDb {
     ) -> Result<Option<StrategyTemplate>, SharedDbError> {
         match &self.backend {
             SharedDbBackend::Runtime { .. } => {
-                let repo = self.admin_repo();
+                let repo = self.strategy_repo();
                 let template_id = template_id.to_owned();
                 Self::block_on(async move { repo.find_template(&template_id).await })
             }
@@ -1713,7 +1713,7 @@ impl SharedDb {
     pub fn insert_template(&self, template: &StoredStrategyTemplate) -> Result<(), SharedDbError> {
         match &self.backend {
             SharedDbBackend::Runtime { .. } => {
-                let repo = self.admin_repo();
+                let repo = self.strategy_repo();
                 let template = template.clone();
                 Self::block_on(async move { repo.insert_template(&template).await })
             }
@@ -1722,6 +1722,28 @@ impl SharedDb {
                     .templates
                     .insert(template.sequence_id, template.template.clone());
                 Ok(())
+            }
+        }
+    }
+
+    pub fn update_template(&self, template: &StrategyTemplate) -> Result<usize, SharedDbError> {
+        match &self.backend {
+            SharedDbBackend::Runtime { .. } => {
+                let repo = self.strategy_repo();
+                let template = template.clone();
+                Self::block_on(async move { repo.update_template(&template).await })
+            }
+            SharedDbBackend::Ephemeral(state) => {
+                let mut state = lock_ephemeral(state)?;
+                let Some((_, stored)) = state
+                    .templates
+                    .iter_mut()
+                    .find(|(_, current)| current.id == template.id)
+                else {
+                    return Ok(0);
+                };
+                *stored = template.clone();
+                Ok(1)
             }
         }
     }

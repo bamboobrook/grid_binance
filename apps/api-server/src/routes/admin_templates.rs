@@ -10,17 +10,15 @@ use crate::{
     services::auth_service::AuthService,
     services::strategy_service::{
         ApplyTemplateRequest, CreateTemplateRequest, StrategyError, StrategyService,
-        TemplateListResponse,
+        TemplateListResponse, UpdateTemplateRequest,
     },
     AppState,
 };
 
 pub fn router() -> Router<AppState> {
     Router::new()
-        .route(
-            "/admin/templates",
-            get(list_templates).post(create_template),
-        )
+        .route("/admin/templates", get(list_templates).post(create_template))
+        .route("/admin/templates/{template_id}", post(update_template))
         .route("/admin/templates/{template_id}/apply", post(apply_template))
 }
 
@@ -50,6 +48,23 @@ async fn create_template(
         axum::http::StatusCode::CREATED,
         Json(service.create_template(&session.email, session.admin_role, session.sid, request)?),
     ))
+}
+
+async fn update_template(
+    State(auth): State<AuthService>,
+    State(service): State<StrategyService>,
+    headers: HeaderMap,
+    Path(template_id): Path<String>,
+    Json(request): Json<UpdateTemplateRequest>,
+) -> Result<Json<shared_domain::strategy::StrategyTemplate>, StrategyError> {
+    let session = require_super_admin_session(&auth, &headers).map_err(StrategyError::from)?;
+    Ok(Json(service.update_template(
+        &session.email,
+        session.admin_role,
+        session.sid,
+        &template_id,
+        request,
+    )?))
 }
 
 async fn apply_template(

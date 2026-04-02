@@ -2,7 +2,7 @@ import { AppShellSection } from "../../../components/shell/app-shell-section";
 import { Card, CardBody, CardDescription, CardHeader, CardTitle } from "../../../components/ui/card";
 import { Button, Field, FormStack, Input } from "../../../components/ui/form";
 import { StatusBanner } from "../../../components/ui/status-banner";
-import { DataTable } from "../../../components/ui/table";
+import { DataTable, type DataTableColumn } from "../../../components/ui/table";
 import {
   getAdminMembershipPlansData,
   getAdminMembershipsData,
@@ -10,12 +10,12 @@ import {
 } from "../../../lib/api/admin-product-state";
 
 type PageProps = {
-  searchParams?: Promise<{ action?: string; email?: string; planSaved?: string }>;
+  searchParams?: Promise<{ action?: string; planSaved?: string; target?: string }>;
 };
 
 export default async function AdminMembershipsPage({ searchParams }: PageProps) {
   const params = (await searchParams) ?? {};
-  const selectedEmail = typeof params.email === "string" ? params.email : "";
+  const targetEmail = typeof params.target === "string" ? params.target : "";
   const lastAction = typeof params.action === "string" ? params.action : "";
   const planSaved = typeof params.planSaved === "string" ? params.planSaved : "";
   const [profile, memberships, plans] = await Promise.all([
@@ -23,17 +23,27 @@ export default async function AdminMembershipsPage({ searchParams }: PageProps) 
     getAdminMembershipsData(),
     getAdminMembershipPlansData(),
   ]);
-  const selected = memberships.items.find((item) => item.email === selectedEmail) ?? null;
+  const updatedMembership = memberships.items.find((item) => item.email === targetEmail) ?? null;
   const canManage = profile.admin_permissions?.can_manage_memberships ?? false;
   const canManagePlans = profile.admin_permissions?.can_manage_plans ?? false;
   const monthly = plans.plans.find((plan) => plan.code === "monthly") ?? plans.plans[0] ?? null;
   const priceFor = (chain: string, asset: string) => monthly?.prices.find((price) => price.chain === chain && price.asset === asset)?.amount ?? "20.00";
+  const membershipColumns: DataTableColumn[] = [
+    { key: "email", label: "Email" },
+    { key: "status", label: "Status" },
+    { key: "activeUntil", label: "Active until" },
+    { key: "graceUntil", label: "Grace until" },
+  ];
+
+  if (canManage) {
+    membershipColumns.push({ key: "actions", label: "Actions" });
+  }
 
   return (
     <>
-      {selected && lastAction ? (
+      {updatedMembership && lastAction ? (
         <StatusBanner
-          description={`Target: ${selected.email} | Status: ${selected.status} | Last action: ${lastAction}`}
+          description={`Target: ${updatedMembership.email} | Status: ${updatedMembership.status} | Last action: ${lastAction}`}
           title="Membership updated"
           tone="success"
         />
@@ -81,47 +91,21 @@ export default async function AdminMembershipsPage({ searchParams }: PageProps) 
           </Card>
           <Card>
             <CardHeader>
-              <CardTitle>Manual membership controls</CardTitle>
-              <CardDescription>Operate directly against backend membership actions.</CardDescription>
+              <CardTitle>Open membership</CardTitle>
+              <CardDescription>Create or reopen a membership without relying on a pre-selected row.</CardDescription>
             </CardHeader>
             <CardBody>
               {canManage ? (
-                <>
-                  <FormStack action="/api/admin/memberships" method="post">
-                    <Field label="Member email">
-                      <Input defaultValue={selectedEmail} name="email" placeholder="member@example.com" />
-                    </Field>
-                    <Field label="Membership duration days">
-                      <Input defaultValue="30" inputMode="numeric" name="durationDays" />
-                    </Field>
-                    <input name="action" type="hidden" value="open" />
-                    <Button type="submit">Open membership</Button>
-                  </FormStack>
-                  <FormStack action="/api/admin/memberships" method="post">
-                    <input name="email" type="hidden" value={selectedEmail} />
-                    <input name="durationDays" type="hidden" value="15" />
-                    <input name="action" type="hidden" value="extend" />
-                    <Button type="submit">Extend membership</Button>
-                  </FormStack>
-                  {selected?.status === "Frozen" ? (
-                    <FormStack action="/api/admin/memberships" method="post">
-                      <input name="email" type="hidden" value={selectedEmail} />
-                      <input name="action" type="hidden" value="unfreeze" />
-                      <Button type="submit">Unfreeze membership</Button>
-                    </FormStack>
-                  ) : (
-                    <FormStack action="/api/admin/memberships" method="post">
-                      <input name="email" type="hidden" value={selectedEmail} />
-                      <input name="action" type="hidden" value="freeze" />
-                      <Button type="submit">Freeze membership</Button>
-                    </FormStack>
-                  )}
-                  <FormStack action="/api/admin/memberships" method="post">
-                    <input name="email" type="hidden" value={selectedEmail} />
-                    <input name="action" type="hidden" value="revoke" />
-                    <Button type="submit">Revoke membership</Button>
-                  </FormStack>
-                </>
+                <FormStack action="/api/admin/memberships" method="post">
+                  <Field label="Member email">
+                    <Input name="email" placeholder="member@example.com" />
+                  </Field>
+                  <Field label="Membership duration days">
+                    <Input defaultValue="30" inputMode="numeric" name="durationDays" />
+                  </Field>
+                  <input name="action" type="hidden" value="open" />
+                  <Button type="submit">Open membership</Button>
+                </FormStack>
               ) : (
                 <p>Membership lifecycle changes are locked to super_admin.</p>
               )}
@@ -153,19 +137,50 @@ export default async function AdminMembershipsPage({ searchParams }: PageProps) 
       <Card>
         <CardHeader>
           <CardTitle>Membership list</CardTitle>
-          <CardDescription>Current backend membership snapshots.</CardDescription>
+          <CardDescription>Current backend membership snapshots with row-level controls.</CardDescription>
         </CardHeader>
         <CardBody>
           <DataTable
-            columns={[
-              { key: "email", label: "Email" },
-              { key: "status", label: "Status" },
-              { key: "activeUntil", label: "Active until" },
-              { key: "graceUntil", label: "Grace until" },
-            ]}
+            columns={membershipColumns}
             rows={memberships.items.map((item) => ({
               id: item.email,
               activeUntil: item.active_until?.slice(0, 10) ?? "-",
+              actions: canManage ? (
+                <div>
+                  <FormStack action="/api/admin/memberships" method="post">
+                    <input name="email" type="hidden" value={item.email} />
+                    {item.email === targetEmail ? (
+                    <Field label="Membership duration days">
+                      <Input defaultValue="15" inputMode="numeric" name="durationDays" />
+                    </Field>
+                  ) : (
+                    <Field label="Extend duration days">
+                      <Input defaultValue="15" inputMode="numeric" name="durationDays" />
+                    </Field>
+                  )}
+                    <input name="action" type="hidden" value="extend" />
+                    <Button type="submit">Extend membership</Button>
+                  </FormStack>
+                  {item.status === "Frozen" ? (
+                    <FormStack action="/api/admin/memberships" method="post">
+                      <input name="email" type="hidden" value={item.email} />
+                      <input name="action" type="hidden" value="unfreeze" />
+                      <Button type="submit">Unfreeze membership</Button>
+                    </FormStack>
+                  ) : (
+                    <FormStack action="/api/admin/memberships" method="post">
+                      <input name="email" type="hidden" value={item.email} />
+                      <input name="action" type="hidden" value="freeze" />
+                      <Button type="submit">Freeze membership</Button>
+                    </FormStack>
+                  )}
+                  <FormStack action="/api/admin/memberships" method="post">
+                    <input name="email" type="hidden" value={item.email} />
+                    <input name="action" type="hidden" value="revoke" />
+                    <Button type="submit">Revoke membership</Button>
+                  </FormStack>
+                </div>
+              ) : null,
               email: item.email,
               graceUntil: item.grace_until?.slice(0, 10) ?? "-",
               status: item.status,

@@ -1,4 +1,5 @@
-import { postAdminBackend, readField, redirectTo } from "../_shared";
+import { authApiBaseUrl } from "../../../../lib/api/admin-product-state";
+import { postAdminBackend, readField, readSessionToken, redirectTo } from "../_shared";
 
 function readBoolField(formData: FormData, key: string) {
   return readField(formData, key) === "true";
@@ -13,12 +14,9 @@ function readOptionalNumberField(formData: FormData, key: string) {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
-export async function POST(request: Request) {
-  const formData = await request.formData();
-  const name = readField(formData, "name");
-
-  await postAdminBackend(request, "/admin/templates", {
-    name,
+function buildTemplatePayload(formData: FormData) {
+  return {
+    name: readField(formData, "name"),
     symbol: readField(formData, "symbol"),
     market: readField(formData, "market") || "Spot",
     mode: readField(formData, "mode") || "SpotClassic",
@@ -50,7 +48,34 @@ export async function POST(request: Request) {
     overall_take_profit_bps: readOptionalNumberField(formData, "overallTakeProfitBps"),
     overall_stop_loss_bps: readOptionalNumberField(formData, "overallStopLossBps"),
     post_trigger_action: readField(formData, "postTriggerAction") || "Stop",
-  });
+  };
+}
 
+export async function POST(request: Request) {
+  const formData = await request.formData();
+  const intent = readField(formData, "intent");
+  const name = readField(formData, "name");
+
+  if (intent === "update") {
+    const templateId = readField(formData, "templateId");
+    const sessionToken = readSessionToken(request) ?? "";
+    const response = await fetch(`${authApiBaseUrl()}/admin/templates/${templateId}`, {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${sessionToken}`,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify(buildTemplatePayload(formData)),
+      cache: "no-store",
+    });
+
+    if (!response.ok) {
+      throw new Error(`admin backend template update failed ${response.status} ${templateId}`);
+    }
+
+    return redirectTo(request, `/admin/templates?updated=${encodeURIComponent(name)}`);
+  }
+
+  await postAdminBackend(request, "/admin/templates", buildTemplatePayload(formData));
   return redirectTo(request, `/admin/templates?created=${encodeURIComponent(name)}`);
 }

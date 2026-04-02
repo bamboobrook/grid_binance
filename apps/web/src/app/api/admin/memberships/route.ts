@@ -43,5 +43,5 @@ export async function POST(request: Request) {
     });
   }
 
-  return redirectTo(request, `/admin/memberships?email=${encodeURIComponent(email)}&action=${encodeURIComponent(action)}`);
+  return redirectTo(request, `/admin/memberships?target=${encodeURIComponent(email)}&action=${encodeURIComponent(action)}`);
 }

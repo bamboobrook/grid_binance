@@ -59,6 +59,12 @@ pub struct CreateTemplateRequest {
     pub strategy: SaveStrategyRequest,
 }
 
+#[derive(Debug, Deserialize, Clone)]
+pub struct UpdateTemplateRequest {
+    #[serde(flatten)]
+    pub strategy: SaveStrategyRequest,
+}
+
 #[derive(Debug, Deserialize)]
 pub struct ApplyTemplateRequest {
     pub name: String,
@@ -440,73 +446,53 @@ impl StrategyService {
             .next_sequence("strategy_template")
             .map_err(StrategyError::storage)?;
         let template_id = format!("template-{sequence_id}");
-        let revision = build_revision(
-            &template_id,
-            1,
-            request.strategy.generation,
-            &request.strategy.levels,
-            request.strategy.overall_take_profit_bps,
-            request.strategy.overall_stop_loss_bps,
-            request.strategy.post_trigger_action,
-        )?;
-        let template = StrategyTemplate {
-            id: template_id.clone(),
-            name: request.strategy.name,
-            symbol: request.strategy.symbol,
-            market: request.strategy.market,
-            mode: request.strategy.mode,
-            generation: revision.generation,
-            levels: revision.levels.clone(),
-            budget: summarize_budget(&request.strategy.levels)?,
-            grid_spacing_bps: summarize_spacing_bps(&request.strategy.levels)?,
-            membership_ready: request.strategy.membership_ready,
-            exchange_ready: request.strategy.exchange_ready,
-            permissions_ready: request.strategy.permissions_ready,
-            withdrawals_disabled: request.strategy.withdrawals_disabled,
-            hedge_mode_ready: request.strategy.hedge_mode_ready,
-            symbol_ready: request.strategy.symbol_ready,
-            filters_ready: request.strategy.filters_ready,
-            margin_ready: request.strategy.margin_ready,
-            conflict_ready: request.strategy.conflict_ready,
-            balance_ready: request.strategy.balance_ready,
-            overall_take_profit_bps: revision.overall_take_profit_bps,
-            overall_stop_loss_bps: revision.overall_stop_loss_bps,
-            post_trigger_action: revision.post_trigger_action,
-        };
+        let template = build_template(&template_id, request.strategy)?;
         self.db
             .insert_template(&StoredStrategyTemplate {
                 sequence_id,
                 template: template.clone(),
             })
             .map_err(StrategyError::storage)?;
-        let _ = self.db.insert_audit_log(&shared_db::AuditLogRecord {
-            actor_email: actor_email.to_owned(),
-            action: "strategy.template_created".to_owned(),
-            target_type: "strategy_template".to_owned(),
-            target_id: template.id.clone(),
-            payload: json!({
-                "template_name": template.name,
-                "symbol": template.symbol,
-                "market": template.market,
-                "mode": template.mode,
-                "generation": template.generation,
-                "level_count": template.levels.len(),
-                "budget": template.budget,
-                "grid_spacing_bps": template.grid_spacing_bps,
-                "session_role": admin_role.map(|role| role.as_str()),
-                "session_sid": session_sid,
-                "before_summary": "template absent",
-                "after_summary": format!(
-                    "{} {} {:?} {:?} {} levels",
-                    template.name,
-                    template.symbol,
-                    template.market,
-                    template.generation,
-                    template.levels.len()
-                ),
-            }),
-            created_at: Utc::now(),
-        });
+        write_template_audit(
+            &self.db,
+            actor_email,
+            admin_role,
+            session_sid,
+            "strategy.template_created",
+            None,
+            &template,
+        );
+        Ok(template)
+    }
+
+    pub fn update_template(
+        &self,
+        actor_email: &str,
+        admin_role: Option<AdminRole>,
+        session_sid: u64,
+        template_id: &str,
+        request: UpdateTemplateRequest,
+    ) -> Result<StrategyTemplate, StrategyError> {
+        validate_strategy_request(&request.strategy)?;
+
+        let existing = self
+            .db
+            .find_template(template_id)
+            .map_err(StrategyError::storage)?
+            .ok_or_else(|| StrategyError::not_found("template not found"))?;
+        let template = build_template(template_id, request.strategy)?;
+        self.db
+            .update_template(&template)
+            .map_err(StrategyError::storage)?;
+        write_template_audit(
+            &self.db,
+            actor_email,
+            admin_role,
+            session_sid,
+            "strategy.template_updated",
+            Some(&existing),
+            &template,
+        );
         Ok(template)
     }
 
@@ -547,6 +533,89 @@ impl StrategyService {
             .map_err(StrategyError::storage)?;
         Ok(strategy)
     }
+}
+
+fn build_template(
+    template_id: &str,
+    request: SaveStrategyRequest,
+) -> Result<StrategyTemplate, StrategyError> {
+    let revision = build_revision(
+        template_id,
+        1,
+        request.generation,
+        &request.levels,
+        request.overall_take_profit_bps,
+        request.overall_stop_loss_bps,
+        request.post_trigger_action,
+    )?;
+
+    Ok(StrategyTemplate {
+        id: template_id.to_owned(),
+        name: request.name,
+        symbol: request.symbol,
+        market: request.market,
+        mode: request.mode,
+        generation: revision.generation,
+        levels: revision.levels.clone(),
+        budget: summarize_budget(&request.levels)?,
+        grid_spacing_bps: summarize_spacing_bps(&request.levels)?,
+        membership_ready: request.membership_ready,
+        exchange_ready: request.exchange_ready,
+        permissions_ready: request.permissions_ready,
+        withdrawals_disabled: request.withdrawals_disabled,
+        hedge_mode_ready: request.hedge_mode_ready,
+        symbol_ready: request.symbol_ready,
+        filters_ready: request.filters_ready,
+        margin_ready: request.margin_ready,
+        conflict_ready: request.conflict_ready,
+        balance_ready: request.balance_ready,
+        overall_take_profit_bps: revision.overall_take_profit_bps,
+        overall_stop_loss_bps: revision.overall_stop_loss_bps,
+        post_trigger_action: revision.post_trigger_action,
+    })
+}
+
+fn write_template_audit(
+    db: &SharedDb,
+    actor_email: &str,
+    admin_role: Option<AdminRole>,
+    session_sid: u64,
+    action: &str,
+    before: Option<&StrategyTemplate>,
+    after: &StrategyTemplate,
+) {
+    let _ = db.insert_audit_log(&shared_db::AuditLogRecord {
+        actor_email: actor_email.to_owned(),
+        action: action.to_owned(),
+        target_type: "strategy_template".to_owned(),
+        target_id: after.id.clone(),
+        payload: json!({
+            "template_name": after.name,
+            "symbol": after.symbol,
+            "market": after.market,
+            "mode": after.mode,
+            "generation": after.generation,
+            "level_count": after.levels.len(),
+            "budget": after.budget,
+            "grid_spacing_bps": after.grid_spacing_bps,
+            "session_role": admin_role.map(|role| role.as_str()),
+            "session_sid": session_sid,
+            "before_summary": before.map(template_summary).unwrap_or_else(|| "template absent".to_owned()),
+            "after_summary": template_summary(after),
+        }),
+        created_at: Utc::now(),
+    });
+}
+
+fn template_summary(template: &StrategyTemplate) -> String {
+    format!(
+        "{} {} {:?} {:?} {} levels",
+        template.name,
+        template.symbol,
+        template.market,
+        template.generation,
+        template.levels.len()
+    )
 }
 
 fn template_to_save_request(template: &StrategyTemplate, name: String) -> SaveStrategyRequest {

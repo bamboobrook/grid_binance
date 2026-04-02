@@ -99,10 +99,14 @@ export type AdminAddressPoolsResponse = {
 
 export type AdminTemplateList = {
   items: Array<{
+    balance_ready: boolean;
     budget: string;
+    conflict_ready: boolean;
     exchange_ready: boolean;
+    filters_ready: boolean;
     generation: string;
     grid_spacing_bps: number;
+    hedge_mode_ready: boolean;
     id: string;
     levels: Array<{
       entry_price: string;
@@ -110,12 +114,18 @@ export type AdminTemplateList = {
       take_profit_bps: number;
       trailing_bps: number | null;
     }>;
+    margin_ready: boolean;
     market: string;
     membership_ready: boolean;
     mode: string;
     name: string;
+    overall_stop_loss_bps: number | null;
+    overall_take_profit_bps: number | null;
+    permissions_ready: boolean;
+    post_trigger_action: string;
     symbol: string;
     symbol_ready: boolean;
+    withdrawals_disabled: boolean;
   }>;
 };
 

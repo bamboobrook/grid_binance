@@ -196,14 +196,16 @@ test.describe("admin commercial", () => {
     await page.getByRole("button", { name: "Open membership" }).click();
     await expect(page.getByText(`Target: ${memberEmail}`, { exact: false })).toBeVisible();
     await expect(page.getByText("Status: Active", { exact: false })).toBeVisible();
-    await page.getByLabel("Membership duration days").fill("15");
-    await page.getByRole("button", { name: "Extend membership" }).click();
+    const membershipRow = page.getByRole("row", { name: new RegExp(memberEmail) });
+    await expect(membershipRow).toBeVisible();
+    await membershipRow.getByLabel("Membership duration days").fill("15");
+    await membershipRow.getByRole("button", { name: "Extend membership" }).click();
     await expect(page.getByText("Last action: extend", { exact: false })).toBeVisible();
-    await page.getByRole("button", { name: "Freeze membership" }).click();
+    await membershipRow.getByRole("button", { name: "Freeze membership" }).click();
     await expect(page.getByText("Status: Frozen", { exact: false })).toBeVisible();
-    await page.getByRole("button", { name: "Unfreeze membership" }).click();
+    await membershipRow.getByRole("button", { name: "Unfreeze membership" }).click();
     await expect(page.getByText("Last action: unfreeze", { exact: false })).toBeVisible();
-    await page.getByRole("button", { name: "Revoke membership" }).click();
+    await membershipRow.getByRole("button", { name: "Revoke membership" }).click();
     await expect(page.getByText("Status: Revoked", { exact: false })).toBeVisible();
 
     await page.getByRole("link", { name: "Address pools" }).click();
@@ -267,6 +269,50 @@ test.describe("admin commercial", () => {
     expect(applied.draft_revision.overall_take_profit_bps).toBe(420);
     expect(applied.draft_revision.overall_stop_loss_bps).toBe(160);
     expect(applied.draft_revision.post_trigger_action).toBe("Rebuild");
+    await page.getByRole("button", { name: `Edit ${templateName}` }).click();
+    await expect(page.getByRole("heading", { name: "Edit template" })).toBeVisible();
+    await page.getByLabel("Template name").fill(`${templateName} v2`);
+    await page.getByRole("textbox", { name: "Symbol" }).fill("XRPUSDT");
+    await page.locator('select[name="generation"]').selectOption("Arithmetic");
+    await page.getByLabel("Level 1 entry price").fill("0.5000");
+    await page.getByLabel("Level 1 quantity").fill("150");
+    await page.getByLabel("Level 1 take profit (bps)").fill("125");
+    await page.getByLabel("Level 1 trailing (bps)").fill("60");
+    await page.getByLabel("Level 2 entry price").fill("0.6500");
+    await page.getByLabel("Level 2 quantity").fill("180");
+    await page.getByLabel("Level 2 take profit (bps)").fill("155");
+    await page.getByLabel("Level 2 trailing (bps)").fill("70");
+    await page.getByLabel("Overall take profit (bps)").fill("390");
+    await page.getByLabel("Overall stop loss (bps)").fill("145");
+    await page.getByLabel("Post-trigger action").selectOption("Stop");
+    await page.getByRole("button", { name: "Save template changes" }).click();
+    await expect(page.getByText("Template updated", { exact: false })).toBeVisible();
+    await expect(page.getByText(`${templateName} v2`, { exact: true })).toBeVisible();
+    await expect(page.getByRole("cell", { name: "Arithmetic" }).first()).toBeVisible();
+    const updatedTemplate = await getTemplateById(request, adminSessionToken, createdTemplate.id);
+    expect(updatedTemplate.name).toBe(`${templateName} v2`);
+    expect(updatedTemplate.symbol).toBe("XRPUSDT");
+    expect(updatedTemplate.generation).toBe("Arithmetic");
+    expect(updatedTemplate.levels[0]?.entry_price).toBe("0.5000");
+    expect(updatedTemplate.levels[0]?.quantity).toBe("150");
+    expect(updatedTemplate.overall_take_profit_bps).toBe(390);
+    expect(updatedTemplate.overall_stop_loss_bps).toBe(145);
+    expect(updatedTemplate.post_trigger_action).toBe("Stop");
+    const appliedAfterUpdate = await applyTemplate(
+      request,
+      templateUserToken,
+      createdTemplate.id,
+      `${appliedStrategyName} v2`,
+    );
+    expect(appliedAfterUpdate.symbol).toBe("XRPUSDT");
+    expect(appliedAfterUpdate.draft_revision.generation).toBe("Arithmetic");
+    expect(appliedAfterUpdate.draft_revision.levels[0]?.entry_price).toBe("0.5000");
+    expect(appliedAfterUpdate.draft_revision.overall_take_profit_bps).toBe(390);
+    expect(appliedAfterUpdate.draft_revision.post_trigger_action).toBe("Stop");
+    expect(applied.symbol).toBe("ADAUSDT");
+    expect(applied.draft_revision.generation).toBe("Geometric");
+    expect(applied.draft_revision.levels[0]?.entry_price).toBe("0.9500");
+    expect(applied.draft_revision.overall_take_profit_bps).toBe(420);
 
     await page.getByRole("link", { name: "Sweeps" }).click();
     await expect(page.getByRole("heading", { name: "Sweep Operations" })).toBeVisible();
@@ -294,6 +340,7 @@ test.describe("admin commercial", () => {
     await page.getByRole("link", { name: "Audit" }).click();
     await expect(page.getByRole("heading", { name: "Audit Review" })).toBeVisible();
     await expect(page.getByRole("cell", { name: "strategy.template_created" }).first()).toBeVisible();
+    await expect(page.getByRole("cell", { name: "strategy.template_updated" }).first()).toBeVisible();
     await expect(page.getByRole("cell", { name: "membership.plan_config_updated" }).first()).toBeVisible();
     await expect(page.getByRole("cell", { name: "treasury.sweep_requested" }).first()).toBeVisible();
     await expect(page.getByText("session role super_admin", { exact: false }).first()).toBeVisible();
@@ -502,6 +549,39 @@ async function findTemplateByName(
     items?: Array<{ id: string; name: string }>;
   };
   const match = payload.items?.find((item) => item.name === name);
+  expect(match).toBeTruthy();
+  return match!;
+}
+
+async function getTemplateById(
+  request: APIRequestContext,
+  adminSessionToken: string,
+  templateId: string,
+) {
+  const response = await request.get(`${AUTH_API_BASE_URL}/admin/templates`, {
+    headers: {
+      authorization: `Bearer ${adminSessionToken}`,
+    },
+  });
+  expect(response.ok()).toBeTruthy();
+  const payload = (await response.json()) as {
+    items?: Array<{
+      generation: string;
+      id: string;
+      levels: Array<{
+        entry_price: string;
+        quantity: string;
+        take_profit_bps: number;
+        trailing_bps: number | null;
+      }>;
+      name: string;
+      overall_stop_loss_bps: number | null;
+      overall_take_profit_bps: number | null;
+      post_trigger_action: string;
+      symbol: string;
+    }>;
+  };
+  const match = payload.items?.find((item) => item.id === templateId);
   expect(match).toBeTruthy();
   return match!;
 }
