@@ -1338,11 +1338,17 @@ impl SharedDb {
             }
             SharedDbBackend::Ephemeral(state) => {
                 let mut state = lock_ephemeral(state)?;
-                let before = state.strategies.len();
-                state.strategies.retain(|_, strategy| {
-                    !(strategy.owner_email == owner_email && strategy.id == strategy_id)
-                });
-                Ok(before.saturating_sub(state.strategies.len()))
+                let Some((_, strategy)) = state.strategies.iter_mut().find(|(_, strategy)| {
+                    strategy.owner_email == owner_email && strategy.id == strategy_id
+                }) else {
+                    return Ok(0);
+                };
+                if strategy.status == StrategyStatus::Archived {
+                    return Ok(0);
+                }
+                strategy.status = StrategyStatus::Archived;
+                strategy.archived_at = Some(Utc::now());
+                Ok(1)
             }
         }
     }
@@ -1556,7 +1562,12 @@ fn revoke_ephemeral_sessions(state: &mut EphemeralState, email: &str) {
 
 #[cfg(test)]
 mod tests {
-    use super::{postgres, redis, SharedDb};
+    use super::{postgres, redis, SharedDb, StoredStrategy};
+    use chrono::Utc;
+    use shared_domain::strategy::{
+        GridGeneration, GridLevel, PostTriggerAction, Strategy, StrategyMarket, StrategyMode,
+        StrategyRevision, StrategyRuntime, StrategyStatus,
+    };
 
     #[test]
     fn bootstrap_label_reflects_postgres_and_redis_runtime() {
@@ -1573,6 +1584,7 @@ mod tests {
                 "0003_membership_billing.sql",
                 "0004_trading.sql",
                 "0005_admin_and_notifications.sql",
+                "0006_membership_billing_runtime_hardening.sql",
             ]
         );
     }
@@ -1583,5 +1595,68 @@ mod tests {
         assert!(redis::RedisConfig::new("redis://127.0.0.1:6379/0").is_ok());
         assert!(postgres::PostgresConfig::new("not-a-postgres-url").is_err());
         assert!(redis::RedisConfig::new("not-a-redis-url").is_err());
+    }
+
+    #[test]
+    fn delete_strategy_archives_instead_of_physically_removing() {
+        let db = SharedDb::ephemeral().expect("db");
+        let strategy = Strategy {
+            id: "strategy-1".to_string(),
+            owner_email: "trader@example.com".to_string(),
+            name: "draft".to_string(),
+            symbol: "BTCUSDT".to_string(),
+            budget: "1".to_string(),
+            grid_spacing_bps: 100,
+            status: StrategyStatus::Stopped,
+            source_template_id: None,
+            membership_ready: true,
+            exchange_ready: true,
+            permissions_ready: true,
+            withdrawals_disabled: true,
+            hedge_mode_ready: true,
+            symbol_ready: true,
+            filters_ready: true,
+            margin_ready: true,
+            conflict_ready: true,
+            balance_ready: true,
+            market: StrategyMarket::Spot,
+            mode: StrategyMode::SpotClassic,
+            draft_revision: StrategyRevision {
+                revision_id: "strategy-1-revision-1".to_string(),
+                version: 1,
+                generation: GridGeneration::Custom,
+                levels: vec![GridLevel {
+                    level_index: 0,
+                    entry_price: "100".parse().expect("decimal"),
+                    quantity: "1".parse().expect("decimal"),
+                    take_profit_bps: 120,
+                    trailing_bps: None,
+                }],
+                overall_take_profit_bps: None,
+                overall_stop_loss_bps: None,
+                post_trigger_action: PostTriggerAction::Stop,
+            },
+            active_revision: None,
+            runtime: StrategyRuntime::default(),
+            archived_at: None,
+        };
+
+        db.insert_strategy(&StoredStrategy {
+            sequence_id: 1,
+            strategy,
+        })
+        .expect("insert strategy");
+
+        let affected = db
+            .delete_strategy("trader@example.com", "strategy-1")
+            .expect("archive strategy");
+        assert_eq!(affected, 1);
+
+        let archived = db
+            .find_strategy("trader@example.com", "strategy-1")
+            .expect("find strategy")
+            .expect("strategy should remain persisted");
+        assert_eq!(archived.status, StrategyStatus::Archived);
+        assert!(archived.archived_at.unwrap_or_else(Utc::now) <= Utc::now());
     }
 }

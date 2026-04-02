@@ -48,7 +48,14 @@ impl StrategyRepository {
                     source_template_id,
                     membership_ready,
                     exchange_ready,
+                    permissions_ready,
+                    withdrawals_disabled,
+                    hedge_mode_ready,
                     symbol_ready,
+                    filters_ready,
+                    margin_ready,
+                    conflict_ready,
+                    balance_ready,
                     market,
                     mode,
                     archived_at
@@ -84,7 +91,14 @@ impl StrategyRepository {
                     source_template_id,
                     membership_ready,
                     exchange_ready,
+                    permissions_ready,
+                    withdrawals_disabled,
+                    hedge_mode_ready,
                     symbol_ready,
+                    filters_ready,
+                    margin_ready,
+                    conflict_ready,
+                    balance_ready,
                     market,
                     mode,
                     archived_at
@@ -117,13 +131,20 @@ impl StrategyRepository {
                 source_template_id,
                 membership_ready,
                 exchange_ready,
+                permissions_ready,
+                withdrawals_disabled,
+                hedge_mode_ready,
                 symbol_ready,
+                filters_ready,
+                margin_ready,
+                conflict_ready,
+                balance_ready,
                 market,
                 mode,
                 archived_at,
                 created_at,
                 updated_at
-             ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, now(), now())",
+             ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, now(), now())",
         )
         .bind(&strategy.strategy.id)
         .bind(strategy.sequence_id as i64)
@@ -136,7 +157,14 @@ impl StrategyRepository {
         .bind(&strategy.strategy.source_template_id)
         .bind(strategy.strategy.membership_ready)
         .bind(strategy.strategy.exchange_ready)
+        .bind(strategy.strategy.permissions_ready)
+        .bind(strategy.strategy.withdrawals_disabled)
+        .bind(strategy.strategy.hedge_mode_ready)
         .bind(strategy.strategy.symbol_ready)
+        .bind(strategy.strategy.filters_ready)
+        .bind(strategy.strategy.margin_ready)
+        .bind(strategy.strategy.conflict_ready)
+        .bind(strategy.strategy.balance_ready)
         .bind(strategy_market_to_str(strategy.strategy.market))
         .bind(strategy_mode_to_str(strategy.strategy.mode))
         .bind(strategy.strategy.archived_at)
@@ -160,10 +188,17 @@ impl StrategyRepository {
                  source_template_id = $8,
                  membership_ready = $9,
                  exchange_ready = $10,
-                 symbol_ready = $11,
-                 market = $12,
-                 mode = $13,
-                 archived_at = $14,
+                 permissions_ready = $11,
+                 withdrawals_disabled = $12,
+                 hedge_mode_ready = $13,
+                 symbol_ready = $14,
+                 filters_ready = $15,
+                 margin_ready = $16,
+                 conflict_ready = $17,
+                 balance_ready = $18,
+                 market = $19,
+                 mode = $20,
+                 archived_at = $21,
                  updated_at = now()
              WHERE id = $1 AND lower(owner_email) = lower($2)",
         )
@@ -177,7 +212,14 @@ impl StrategyRepository {
         .bind(&strategy.source_template_id)
         .bind(strategy.membership_ready)
         .bind(strategy.exchange_ready)
+        .bind(strategy.permissions_ready)
+        .bind(strategy.withdrawals_disabled)
+        .bind(strategy.hedge_mode_ready)
         .bind(strategy.symbol_ready)
+        .bind(strategy.filters_ready)
+        .bind(strategy.margin_ready)
+        .bind(strategy.conflict_ready)
+        .bind(strategy.balance_ready)
         .bind(strategy_market_to_str(strategy.market))
         .bind(strategy_mode_to_str(strategy.mode))
         .bind(strategy.archived_at)
@@ -195,16 +237,21 @@ impl StrategyRepository {
         owner_email: &str,
         strategy_id: &str,
     ) -> Result<usize, SharedDbError> {
-        let deleted = sqlx::query(
-            "DELETE FROM strategies
-             WHERE lower(owner_email) = lower($1) AND id = $2",
+        let archived = sqlx::query(
+            "UPDATE strategies
+             SET status = 'Archived',
+                 archived_at = now(),
+                 updated_at = now()
+             WHERE lower(owner_email) = lower($1)
+               AND id = $2
+               AND status <> 'Archived'",
         )
         .bind(owner_email)
         .bind(strategy_id)
         .execute(&self.pool)
         .await
         .map_err(SharedDbError::from)?;
-        Ok(deleted.rows_affected() as usize)
+        Ok(archived.rows_affected() as usize)
     }
 
     pub async fn insert_revision(&self, record: &StrategyRevisionRecord) -> Result<(), SharedDbError> {
@@ -260,7 +307,14 @@ async fn strategy_from_row(pool: &PgPool, row: sqlx::postgres::PgRow) -> Result<
         source_template_id: row.try_get("source_template_id").map_err(SharedDbError::from)?,
         membership_ready: row.try_get("membership_ready").map_err(SharedDbError::from)?,
         exchange_ready: row.try_get("exchange_ready").map_err(SharedDbError::from)?,
+        permissions_ready: row.try_get("permissions_ready").map_err(SharedDbError::from)?,
+        withdrawals_disabled: row.try_get("withdrawals_disabled").map_err(SharedDbError::from)?,
+        hedge_mode_ready: row.try_get("hedge_mode_ready").map_err(SharedDbError::from)?,
         symbol_ready: row.try_get("symbol_ready").map_err(SharedDbError::from)?,
+        filters_ready: row.try_get("filters_ready").map_err(SharedDbError::from)?,
+        margin_ready: row.try_get("margin_ready").map_err(SharedDbError::from)?,
+        conflict_ready: row.try_get("conflict_ready").map_err(SharedDbError::from)?,
+        balance_ready: row.try_get("balance_ready").map_err(SharedDbError::from)?,
         market: parse_strategy_market(&market)?,
         mode: parse_strategy_mode(&mode)?,
         draft_revision,
@@ -346,17 +400,19 @@ async fn insert_revision_with_levels(
                 level_index,
                 entry_price,
                 quantity,
+                take_profit_bps,
                 take_profit_price,
                 trailing_bps,
                 created_at
-             ) VALUES ($1, $2, $3, $4, $5, $6, $7, now())",
+             ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, now())",
         )
         .bind(strategy_id)
         .bind(revision_id)
         .bind(level.level_index as i32)
         .bind(level.entry_price.to_string())
         .bind(level.quantity.to_string())
-        .bind(level.entry_price.to_string())
+        .bind(level.take_profit_bps as i32)
+        .bind(take_profit_price(level))
         .bind(level.trailing_bps.map(|value| value as i32))
         .execute(pool)
         .await
@@ -581,4 +637,10 @@ fn strategy_mode_to_str(value: StrategyMode) -> &'static str {
         StrategyMode::FuturesShort => "FuturesShort",
         StrategyMode::FuturesNeutral => "FuturesNeutral",
     }
+}
+
+fn take_profit_price(level: &shared_domain::strategy::GridLevel) -> String {
+    let entry = level.entry_price.to_string().parse::<f64>().unwrap_or_default();
+    let factor = 1.0 + (level.take_profit_bps as f64 / 10_000.0);
+    format!("{:.8}", entry * factor)
 }

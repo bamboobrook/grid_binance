@@ -83,6 +83,19 @@ async fn strategy_revisions_runtime_contracts_and_soft_archive_follow_frozen_lif
         "exchange_connection"
     );
     assert_eq!(
+        preflight_failed_body["steps"].as_array().expect("steps").len(),
+        11
+    );
+    assert_eq!(preflight_failed_body["steps"][0]["step"], "membership_status");
+    assert_eq!(
+        preflight_failed_body["steps"][1]["step"],
+        "exchange_connection"
+    );
+    assert_eq!(
+        preflight_failed_body["steps"][2]["step"],
+        "exchange_permissions"
+    );
+    assert_eq!(
         preflight_failed_body["steps"][0]["status"],
         "Passed"
     );
@@ -143,7 +156,16 @@ async fn strategy_revisions_runtime_contracts_and_soft_archive_follow_frozen_lif
             .iter()
             .filter(|step| step["status"] == "Passed")
             .count(),
-        5
+        9
+    );
+    assert_eq!(
+        started_body["preflight"]["steps"]
+            .as_array()
+            .expect("steps")
+            .iter()
+            .filter(|step| step["status"] == "Skipped")
+            .count(),
+        2
     );
     assert_eq!(
         started_body["runtime"]["orders"]
@@ -157,7 +179,7 @@ async fn strategy_revisions_runtime_contracts_and_soft_archive_follow_frozen_lif
             .as_array()
             .expect("positions")
             .len(),
-        1
+        0
     );
     assert_eq!(
         started_body["runtime"]["events"][0]["event_type"],
@@ -173,7 +195,7 @@ async fn strategy_revisions_runtime_contracts_and_soft_archive_follow_frozen_lif
     );
     assert_eq!(
         orders_body["positions"].as_array().expect("positions").len(),
-        1
+        0
     );
 
     let paused = pause_strategies(&app, &user_token, &[&strategy_id]).await;
@@ -190,7 +212,7 @@ async fn strategy_revisions_runtime_contracts_and_soft_archive_follow_frozen_lif
             .as_array()
             .expect("positions")
             .len(),
-        1
+        0
     );
     assert_eq!(
         paused_strategy["runtime"]["orders"]
@@ -250,7 +272,7 @@ async fn strategy_revisions_runtime_contracts_and_soft_archive_follow_frozen_lif
             .as_array()
             .expect("positions")
             .len(),
-        1
+        0
     );
 
     let stopped = stop_strategy(&app, &user_token, &strategy_id).await;
@@ -266,7 +288,7 @@ async fn strategy_revisions_runtime_contracts_and_soft_archive_follow_frozen_lif
     );
     assert_eq!(
         stopped_body["runtime"]["fills"].as_array().expect("fills").len(),
-        1
+        0
     );
     assert_eq!(
         stopped_body["runtime"]["events"]
@@ -407,6 +429,70 @@ async fn strategy_validates_generation_modes_and_trailing_constraints() {
         response_json(invalid_trailing).await["error"],
         "level 0 trailing_bps must be less than or equal to take_profit_bps"
     );
+}
+
+#[tokio::test]
+async fn futures_preflight_reports_permissions_hedge_margin_and_balance_surface() {
+    let app = app();
+    let user_token = register_and_login(&app, "futures@example.com", "pass1234").await;
+
+    let created = create_strategy(
+        &app,
+        &user_token,
+        json!({
+            "name": "futures draft",
+            "symbol": "BTCUSDT",
+            "market": "FuturesUsdM",
+            "mode": "FuturesLong",
+            "generation": "Custom",
+            "levels": [
+                {
+                    "entry_price": "100.00",
+                    "quantity": "0.0100",
+                    "take_profit_bps": 120,
+                    "trailing_bps": null
+                }
+            ],
+            "membership_ready": true,
+            "exchange_ready": true,
+            "symbol_ready": true,
+            "permissions_ready": false,
+            "withdrawals_disabled": true,
+            "hedge_mode_ready": false,
+            "filters_ready": false,
+            "margin_ready": false,
+            "conflict_ready": false,
+            "balance_ready": false,
+            "overall_take_profit_bps": null,
+            "overall_stop_loss_bps": null,
+            "post_trigger_action": "Stop"
+        }),
+    )
+    .await;
+    assert_eq!(created.status(), StatusCode::CREATED);
+    let strategy_id = response_json(created).await["id"]
+        .as_str()
+        .expect("strategy id")
+        .to_string();
+
+    let preflight = preflight_strategy(&app, &user_token, &strategy_id).await;
+    assert_eq!(preflight.status(), StatusCode::OK);
+    let body = response_json(preflight).await;
+    assert_eq!(body["ok"], false);
+    assert_eq!(
+        body["steps"].as_array().expect("steps").len(),
+        11
+    );
+    assert_eq!(body["steps"][0]["step"], "membership_status");
+    assert_eq!(body["steps"][2]["step"], "exchange_permissions");
+    assert_eq!(body["steps"][3]["step"], "withdrawal_permission_disabled");
+    assert_eq!(body["steps"][4]["step"], "hedge_mode");
+    assert_eq!(body["steps"][7]["step"], "margin_or_leverage");
+    assert_eq!(body["steps"][8]["step"], "strategy_conflicts");
+    assert_eq!(body["steps"][9]["step"], "balance_or_collateral");
+    assert_eq!(body["failures"][0]["step"], "exchange_permissions");
+    assert_eq!(body["steps"][2]["status"], "Failed");
+    assert_eq!(body["steps"][3]["status"], "Skipped");
 }
 
 #[tokio::test]
@@ -624,6 +710,13 @@ fn strategy_payload(
         "membership_ready": membership_ready,
         "exchange_ready": exchange_ready,
         "symbol_ready": symbol_ready,
+        "permissions_ready": true,
+        "withdrawals_disabled": true,
+        "hedge_mode_ready": true,
+        "filters_ready": true,
+        "margin_ready": true,
+        "conflict_ready": true,
+        "balance_ready": true,
         "overall_take_profit_bps": overall_take_profit_bps,
         "overall_stop_loss_bps": overall_stop_loss_bps,
         "post_trigger_action": post_trigger_action,

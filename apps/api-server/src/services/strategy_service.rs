@@ -39,7 +39,14 @@ pub struct SaveStrategyRequest {
     pub levels: Vec<SaveGridLevelRequest>,
     pub membership_ready: bool,
     pub exchange_ready: bool,
+    pub permissions_ready: bool,
+    pub withdrawals_disabled: bool,
+    pub hedge_mode_ready: bool,
     pub symbol_ready: bool,
+    pub filters_ready: bool,
+    pub margin_ready: bool,
+    pub conflict_ready: bool,
+    pub balance_ready: bool,
     pub overall_take_profit_bps: Option<u32>,
     pub overall_stop_loss_bps: Option<u32>,
     pub post_trigger_action: PostTriggerAction,
@@ -202,7 +209,14 @@ impl StrategyService {
         strategy.grid_spacing_bps = summarize_spacing_bps(&request.levels)?;
         strategy.membership_ready = request.membership_ready;
         strategy.exchange_ready = request.exchange_ready;
+        strategy.permissions_ready = request.permissions_ready;
+        strategy.withdrawals_disabled = request.withdrawals_disabled;
+        strategy.hedge_mode_ready = request.hedge_mode_ready;
         strategy.symbol_ready = request.symbol_ready;
+        strategy.filters_ready = request.filters_ready;
+        strategy.margin_ready = request.margin_ready;
+        strategy.conflict_ready = request.conflict_ready;
+        strategy.balance_ready = request.balance_ready;
         strategy.draft_revision = build_revision(
             &strategy.id,
             strategy.draft_revision.version + 1,
@@ -464,7 +478,14 @@ impl StrategyService {
             }],
             membership_ready: template.membership_ready,
             exchange_ready: template.exchange_ready,
+            permissions_ready: true,
+            withdrawals_disabled: true,
+            hedge_mode_ready: true,
             symbol_ready: template.symbol_ready,
+            filters_ready: true,
+            margin_ready: true,
+            conflict_ready: true,
+            balance_ready: true,
             overall_take_profit_bps: None,
             overall_stop_loss_bps: None,
             post_trigger_action: PostTriggerAction::Stop,
@@ -563,7 +584,14 @@ fn build_strategy(
         source_template_id,
         membership_ready: request.membership_ready,
         exchange_ready: request.exchange_ready,
+        permissions_ready: request.permissions_ready,
+        withdrawals_disabled: request.withdrawals_disabled,
+        hedge_mode_ready: request.hedge_mode_ready,
         symbol_ready: request.symbol_ready,
+        filters_ready: request.filters_ready,
+        margin_ready: request.margin_ready,
+        conflict_ready: request.conflict_ready,
+        balance_ready: request.balance_ready,
         market: request.market,
         mode: request.mode,
         draft_revision,
@@ -643,30 +671,77 @@ fn run_preflight(strategy: &Strategy) -> PreflightReport {
     let checks = [
         (
             "membership_status",
+            true,
             strategy.membership_ready,
             "membership is not active",
             "renew or reactivate membership before starting",
         ),
         (
             "exchange_connection",
+            true,
             strategy.exchange_ready,
             "exchange credentials are not ready",
             "verify API key, secret, and required Binance permissions",
         ),
         (
+            "exchange_permissions",
+            true,
+            strategy.permissions_ready,
+            "required Binance trading permissions are missing",
+            "enable the permissions required for this market before starting",
+        ),
+        (
+            "withdrawal_permission_disabled",
+            true,
+            strategy.withdrawals_disabled,
+            "withdraw permission must be disabled",
+            "turn off withdrawal permission on the Binance API key",
+        ),
+        (
+            "hedge_mode",
+            requires_futures_checks(strategy.market),
+            strategy.hedge_mode_ready,
+            "hedge mode is required for futures strategies",
+            "enable hedge mode on Binance before starting this futures strategy",
+        ),
+        (
             "symbol_support",
+            true,
             strategy.symbol_ready,
             "symbol is not available",
             "choose a tradable symbol from synced Binance metadata",
         ),
         (
-            "grid_configuration",
-            !strategy.draft_revision.levels.is_empty(),
-            "grid levels are missing",
-            "save at least one grid level before starting",
+            "filters_and_notional",
+            true,
+            strategy.filters_ready,
+            "grid quantities or notionals do not satisfy exchange filters",
+            "adjust the grid quantities to satisfy Binance min quantity and min notional filters",
+        ),
+        (
+            "margin_or_leverage",
+            requires_futures_checks(strategy.market),
+            strategy.margin_ready,
+            "margin type or leverage settings are invalid",
+            "fix margin mode or leverage before starting this futures strategy",
+        ),
+        (
+            "strategy_conflicts",
+            true,
+            strategy.conflict_ready,
+            "strategy conflicts with an existing active strategy",
+            "stop or change the conflicting strategy before starting this one",
+        ),
+        (
+            "balance_or_collateral",
+            true,
+            strategy.balance_ready,
+            "insufficient available balance or collateral",
+            "add funds or reduce the configured grid size before starting",
         ),
         (
             "trailing_take_profit",
+            true,
             strategy
                 .draft_revision
                 .levels
@@ -678,8 +753,18 @@ fn run_preflight(strategy: &Strategy) -> PreflightReport {
     ];
 
     let mut blocked = false;
-    for (step, ok, reason, guidance) in checks {
+    for (step, applicable, ok, reason, guidance) in checks {
         if blocked {
+            steps.push(PreflightStepResult {
+                step: step.to_string(),
+                status: PreflightStepStatus::Skipped,
+                reason: None,
+                guidance: None,
+            });
+            continue;
+        }
+
+        if !applicable {
             steps.push(PreflightStepResult {
                 step: step.to_string(),
                 status: PreflightStepStatus::Skipped,
@@ -733,7 +818,7 @@ fn rebuild_runtime(
         .active_revision
         .clone()
         .unwrap_or_else(|| strategy.draft_revision.clone());
-    let positions = positions_override.unwrap_or_else(|| seed_positions(strategy.market, strategy.mode, &active));
+    let positions = positions_override.unwrap_or_default();
 
     let mut runtime = StrategyRuntime {
         positions,
@@ -758,22 +843,8 @@ fn rebuild_runtime(
     runtime
 }
 
-fn seed_positions(
-    market: StrategyMarket,
-    mode: StrategyMode,
-    revision: &StrategyRevision,
-) -> Vec<StrategyRuntimePosition> {
-    revision
-        .levels
-        .first()
-        .map(|level| StrategyRuntimePosition {
-            market,
-            mode,
-            quantity: level.quantity,
-            average_entry_price: level.entry_price,
-        })
-        .into_iter()
-        .collect()
+fn requires_futures_checks(market: StrategyMarket) -> bool {
+    !matches!(market, StrategyMarket::Spot)
 }
 
 fn side_for_mode(mode: StrategyMode) -> &'static str {
@@ -943,7 +1014,14 @@ mod tests {
                     }],
                     membership_ready: true,
                     exchange_ready: false,
+                    permissions_ready: true,
+                    withdrawals_disabled: true,
+                    hedge_mode_ready: true,
                     symbol_ready: true,
+                    filters_ready: true,
+                    margin_ready: true,
+                    conflict_ready: true,
+                    balance_ready: true,
                     overall_take_profit_bps: None,
                     overall_stop_loss_bps: None,
                     post_trigger_action: PostTriggerAction::Stop,
@@ -957,5 +1035,52 @@ mod tests {
         assert_eq!(report.steps[0].step, "membership_status");
         assert_eq!(report.steps[1].step, "exchange_connection");
         assert_eq!(report.failures[0].step, "exchange_connection");
+    }
+
+    #[test]
+    fn futures_preflight_includes_permissions_hedge_margin_and_balance_steps() {
+        let service = StrategyService::new(SharedDb::ephemeral().expect("db"));
+        let strategy = service
+            .create_strategy(
+                "trader@example.com",
+                SaveStrategyRequest {
+                    name: "futures".to_string(),
+                    symbol: "BTCUSDT".to_string(),
+                    market: StrategyMarket::FuturesUsdM,
+                    mode: StrategyMode::FuturesLong,
+                    generation: GridGeneration::Custom,
+                    levels: vec![SaveGridLevelRequest {
+                        entry_price: "100".to_string(),
+                        quantity: "1".to_string(),
+                        take_profit_bps: 100,
+                        trailing_bps: None,
+                    }],
+                    membership_ready: true,
+                    exchange_ready: true,
+                    permissions_ready: false,
+                    withdrawals_disabled: true,
+                    hedge_mode_ready: false,
+                    symbol_ready: true,
+                    filters_ready: false,
+                    margin_ready: false,
+                    conflict_ready: false,
+                    balance_ready: false,
+                    overall_take_profit_bps: None,
+                    overall_stop_loss_bps: None,
+                    post_trigger_action: PostTriggerAction::Stop,
+                },
+            )
+            .expect("strategy");
+
+        let report = run_preflight(&strategy);
+
+        assert_eq!(report.steps.len(), 11);
+        assert_eq!(report.steps[2].step, "exchange_permissions");
+        assert_eq!(report.steps[3].step, "withdrawal_permission_disabled");
+        assert_eq!(report.steps[4].step, "hedge_mode");
+        assert_eq!(report.steps[7].step, "margin_or_leverage");
+        assert_eq!(report.steps[8].step, "strategy_conflicts");
+        assert_eq!(report.steps[9].step, "balance_or_collateral");
+        assert_eq!(report.failures[0].step, "exchange_permissions");
     }
 }
