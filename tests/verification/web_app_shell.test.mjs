@@ -6,11 +6,25 @@ function read(path) {
   return fs.readFileSync(path, "utf8");
 }
 
-test("web app route groups use shared shells and ui system", () => {
+function escapePattern(input) {
+  return input.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+test("web app shell structure aligns with shared public, user, and admin route systems", () => {
   const requiredFiles = [
+    "apps/web/src/app/page.tsx",
     "apps/web/src/app/(public)/layout.tsx",
     "apps/web/src/app/app/layout.tsx",
     "apps/web/src/app/admin/layout.tsx",
+    "apps/web/src/app/app/strategies/new/page.tsx",
+    "apps/web/src/app/app/orders/page.tsx",
+    "apps/web/src/app/app/telegram/page.tsx",
+    "apps/web/src/app/app/help/page.tsx",
+    "apps/web/src/app/admin/memberships/page.tsx",
+    "apps/web/src/app/admin/deposits/page.tsx",
+    "apps/web/src/app/admin/strategies/page.tsx",
+    "apps/web/src/app/admin/sweeps/page.tsx",
+    "apps/web/src/app/admin/system/page.tsx",
     "apps/web/src/components/shell/public-shell.tsx",
     "apps/web/src/components/shell/user-shell.tsx",
     "apps/web/src/components/shell/admin-shell.tsx",
@@ -22,20 +36,31 @@ test("web app route groups use shared shells and ui system", () => {
     "apps/web/src/components/ui/chip.tsx",
     "apps/web/src/components/ui/dialog.tsx",
     "apps/web/src/lib/api/server.ts",
-    "apps/web/src/lib/api/mock-data.ts"
+    "apps/web/src/lib/api/mock-data.ts",
   ];
 
-  for (const path of requiredFiles) {
-    assert.ok(fs.existsSync(path), `${path} should exist`);
+  for (const file of requiredFiles) {
+    assert.ok(fs.existsSync(file), `${file} should exist`);
   }
 
+  const homePage = read("apps/web/src/app/page.tsx");
   const publicLayout = read("apps/web/src/app/(public)/layout.tsx");
   const userLayout = read("apps/web/src/app/app/layout.tsx");
   const adminLayout = read("apps/web/src/app/admin/layout.tsx");
+  const publicShell = read("apps/web/src/components/shell/public-shell.tsx");
+  const userShell = read("apps/web/src/components/shell/user-shell.tsx");
+  const adminShell = read("apps/web/src/components/shell/admin-shell.tsx");
+  const mockData = read("apps/web/src/lib/api/mock-data.ts");
 
+  assert.match(homePage, /PublicShell/);
+  assert.doesNotMatch(homePage, /<main[\s>]/, "homepage should rely on shared public shell");
   assert.match(publicLayout, /PublicShell/);
-  assert.match(userLayout, /UserShell/);
-  assert.match(adminLayout, /AdminShell/);
+  assert.doesNotMatch(userLayout, /\/app\/dashboard/, "user layout must not hardcode dashboard as active state");
+  assert.doesNotMatch(adminLayout, /\/admin\/dashboard/, "admin layout must not hardcode dashboard as active state");
+
+  assert.match(publicShell, /usePathname/);
+  assert.match(userShell, /usePathname/);
+  assert.match(adminShell, /usePathname/);
 
   const routePages = [
     "apps/web/src/app/(public)/login/page.tsx",
@@ -43,28 +68,52 @@ test("web app route groups use shared shells and ui system", () => {
     "apps/web/src/app/app/dashboard/page.tsx",
     "apps/web/src/app/app/exchange/page.tsx",
     "apps/web/src/app/app/strategies/page.tsx",
+    "apps/web/src/app/app/strategies/new/page.tsx",
     "apps/web/src/app/app/strategies/[id]/page.tsx",
+    "apps/web/src/app/app/orders/page.tsx",
     "apps/web/src/app/app/billing/page.tsx",
-    "apps/web/src/app/app/analytics/page.tsx",
+    "apps/web/src/app/app/telegram/page.tsx",
     "apps/web/src/app/app/security/page.tsx",
-    "apps/web/src/app/app/membership/page.tsx",
-    "apps/web/src/app/app/notifications/page.tsx",
+    "apps/web/src/app/app/help/page.tsx",
     "apps/web/src/app/admin/dashboard/page.tsx",
     "apps/web/src/app/admin/users/page.tsx",
+    "apps/web/src/app/admin/memberships/page.tsx",
+    "apps/web/src/app/admin/deposits/page.tsx",
     "apps/web/src/app/admin/address-pools/page.tsx",
     "apps/web/src/app/admin/templates/page.tsx",
-    "apps/web/src/app/admin/billing/page.tsx",
-    "apps/web/src/app/admin/audit/page.tsx"
+    "apps/web/src/app/admin/strategies/page.tsx",
+    "apps/web/src/app/admin/sweeps/page.tsx",
+    "apps/web/src/app/admin/audit/page.tsx",
+    "apps/web/src/app/admin/system/page.tsx",
   ];
 
   for (const page of routePages) {
-    const source = read(page);
-    assert.doesNotMatch(source, /<main[\s>]/, `${page} should rely on shared shell layout`);
+    assert.doesNotMatch(read(page), /<main[\s>]/, `${page} should rely on shared shell layout`);
   }
 
-  assert.match(read("apps/web/src/app/app/dashboard/page.tsx"), /Card|StatusBanner|AppShellSection/);
-  assert.match(read("apps/web/src/app/admin/dashboard/page.tsx"), /Card|StatusBanner|AppShellSection/);
-  assert.match(read("apps/web/src/app/(public)/register/page.tsx"), /Field|Form/);
+  for (const href of [
+    "/app/dashboard",
+    "/app/exchange",
+    "/app/strategies",
+    "/app/strategies/new",
+    "/app/orders",
+    "/app/billing",
+    "/app/telegram",
+    "/app/security",
+    "/app/help",
+    "/admin/dashboard",
+    "/admin/users",
+    "/admin/memberships",
+    "/admin/deposits",
+    "/admin/address-pools",
+    "/admin/templates",
+    "/admin/strategies",
+    "/admin/sweeps",
+    "/admin/audit",
+    "/admin/system",
+  ]) {
+    assert.match(mockData, new RegExp(escapePattern(href)));
+  }
 
   const serverApi = read("apps/web/src/lib/api/server.ts");
   assert.match(serverApi, /getUserDashboardSnapshot/);

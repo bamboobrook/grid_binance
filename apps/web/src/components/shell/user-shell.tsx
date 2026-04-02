@@ -1,10 +1,14 @@
+"use client";
+
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 
 import type { UserShellSnapshot } from "../../lib/api/mock-data";
 import { Card, CardBody, CardDescription, CardHeader, CardTitle } from "../ui/card";
 import { Chip } from "../ui/chip";
 import { StatusBanner } from "../ui/status-banner";
+import { isNavHrefActive } from "./path-utils";
 
 export function UserShell({
   children,
@@ -13,6 +17,8 @@ export function UserShell({
   children: ReactNode;
   snapshot: UserShellSnapshot;
 }) {
+  const pathname = usePathname();
+
   return (
     <div className="shell shell--workspace">
       <aside className="shell-sidebar">
@@ -24,7 +30,7 @@ export function UserShell({
         </div>
         <nav aria-label="User workspace" className="shell-sidebar__nav">
           {snapshot.nav.map((item) => {
-            const isActive = item.href === snapshot.activeHref;
+            const isActive = isNavHrefActive(pathname, item.href);
             return (
               <Link className={isActive ? "shell-link shell-link--active" : "shell-link"} href={item.href} key={item.href}>
                 <span>{item.label}</span>

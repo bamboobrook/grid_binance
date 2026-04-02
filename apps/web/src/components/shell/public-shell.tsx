@@ -1,8 +1,12 @@
+"use client";
+
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 
 import type { PublicShellSnapshot } from "../../lib/api/mock-data";
 import { Card, CardBody, CardDescription, CardHeader, CardTitle } from "../ui/card";
+import { isNavHrefActive } from "./path-utils";
 
 export function PublicShell({
   children,
@@ -11,6 +15,8 @@ export function PublicShell({
   children: ReactNode;
   snapshot: PublicShellSnapshot;
 }) {
+  const pathname = usePathname();
+
   return (
     <div className="shell shell--public">
       <header className="shell-topbar shell-topbar--public">
@@ -21,11 +27,15 @@ export function PublicShell({
           <p className="shell-topbar__subtitle">{snapshot.subtitle}</p>
         </div>
         <nav aria-label="Public navigation" className="shell-inline-nav">
-          {snapshot.actions.map((item) => (
-            <Link href={item.href} key={item.href}>
-              {item.label}
-            </Link>
-          ))}
+          {snapshot.actions.map((item) => {
+            const isActive = isNavHrefActive(pathname, item.href);
+
+            return (
+              <Link className={isActive ? "shell-link shell-link--active" : "shell-link"} href={item.href} key={item.href}>
+                {item.label}
+              </Link>
+            );
+          })}
         </nav>
       </header>
       <div className="public-shell__layout">

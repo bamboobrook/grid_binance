@@ -1,10 +1,14 @@
+"use client";
+
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 
 import type { AdminShellSnapshot } from "../../lib/api/mock-data";
 import { Card, CardBody, CardDescription, CardHeader, CardTitle } from "../ui/card";
 import { Chip } from "../ui/chip";
 import { StatusBanner } from "../ui/status-banner";
+import { isNavHrefActive } from "./path-utils";
 
 export function AdminShell({
   children,
@@ -13,6 +17,8 @@ export function AdminShell({
   children: ReactNode;
   snapshot: AdminShellSnapshot;
 }) {
+  const pathname = usePathname();
+
   return (
     <div className="shell shell--workspace shell--admin">
       <aside className="shell-sidebar shell-sidebar--admin">
@@ -24,7 +30,7 @@ export function AdminShell({
         </div>
         <nav aria-label="Admin workspace" className="shell-sidebar__nav">
           {snapshot.nav.map((item) => {
-            const isActive = item.href === snapshot.activeHref;
+            const isActive = isNavHrefActive(pathname, item.href);
             return (
               <Link className={isActive ? "shell-link shell-link--active" : "shell-link"} href={item.href} key={item.href}>
                 <span>{item.label}</span>

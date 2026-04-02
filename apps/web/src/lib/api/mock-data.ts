@@ -28,7 +28,6 @@ export type PublicShellSnapshot = {
 };
 
 export type UserShellSnapshot = {
-  activeHref: string;
   banners: BannerSnapshot[];
   brand: string;
   description: string;
@@ -50,11 +49,11 @@ export const publicShellSnapshot: PublicShellSnapshot = {
   subtitle: "Binance grid SaaS control plane",
   eyebrow: "Commercial recovery plan",
   title: "Public access shell",
-  description: "Shared entry flow for registration and login, with risk framing and help center guidance surfaced beside the form.",
+  description: "Shared entry and preview shell for the homepage, login, and registration flows.",
   actions: [
+    { href: "/", label: "Home" },
     { href: "/login", label: "Login" },
     { href: "/register", label: "Register" },
-    { href: "/help/expiry-reminder", label: "Help" }
   ],
   highlights: [
     {
@@ -67,7 +66,7 @@ export const publicShellSnapshot: PublicShellSnapshot = {
     }
   ],
   supportLinks: [
-    { href: "/help/expiry-reminder", label: "Expiry reminder guide" },
+    { href: "/app/help", label: "In-app help center" },
     { href: "/app/dashboard", label: "User dashboard preview" },
     { href: "/admin/dashboard", label: "Admin dashboard preview" }
   ]
@@ -106,25 +105,28 @@ const userNav: NavItem[] = [
   { href: "/app/dashboard", label: "Dashboard" },
   { href: "/app/exchange", label: "Exchange" },
   { href: "/app/strategies", label: "Strategies", badge: "8" },
+  { href: "/app/orders", label: "Orders" },
   { href: "/app/billing", label: "Billing" },
-  { href: "/app/analytics", label: "Analytics" },
+  { href: "/app/telegram", label: "Telegram", badge: "3" },
   { href: "/app/security", label: "Security" },
-  { href: "/app/membership", label: "Membership" },
-  { href: "/app/notifications", label: "Notifications", badge: "3" }
+  { href: "/app/help", label: "Help" }
 ];
 
 const adminNav: NavItem[] = [
   { href: "/admin/dashboard", label: "Dashboard" },
   { href: "/admin/users", label: "Users", badge: "12" },
+  { href: "/admin/memberships", label: "Memberships" },
+  { href: "/admin/deposits", label: "Deposits", badge: "4" },
   { href: "/admin/address-pools", label: "Address pools" },
   { href: "/admin/templates", label: "Templates" },
-  { href: "/admin/billing", label: "Billing", badge: "4" },
-  { href: "/admin/audit", label: "Audit" }
+  { href: "/admin/strategies", label: "Strategies" },
+  { href: "/admin/sweeps", label: "Sweeps" },
+  { href: "/admin/audit", label: "Audit" },
+  { href: "/admin/system", label: "System" }
 ];
 
-export function buildUserShellSnapshot(activeHref: string): UserShellSnapshot {
+export function buildUserShellSnapshot(): UserShellSnapshot {
   return {
-    activeHref,
     brand: "GridBinance",
     subtitle: "User operating cockpit",
     title: "Trading workspace shell",
@@ -151,17 +153,16 @@ export function buildUserShellSnapshot(activeHref: string): UserShellSnapshot {
   };
 }
 
-export function buildAdminShellSnapshot(activeHref: string): AdminShellSnapshot {
+export function buildAdminShellSnapshot(): AdminShellSnapshot {
   return {
-    activeHref,
     brand: "GridBinance Ops",
     subtitle: "Admin control plane",
     title: "Administration shell",
-    description: "Shared operations navigation for pricing, address pools, templates, and audit review.",
+    description: "Shared operations navigation for pricing, address pools, deposits, and audit review.",
     identity: {
       name: "Operator Nova",
       role: "super_admin",
-      context: "TOTP is enabled. Four abnormal billing orders require review today."
+      context: "TOTP is enabled. Four abnormal deposit orders require review today."
     },
     nav: adminNav,
     quickStats: [
@@ -174,11 +175,24 @@ export function buildAdminShellSnapshot(activeHref: string): AdminShellSnapshot 
         tone: "danger",
         title: "Abnormal payment queue",
         description: "Overpayment, wrong-token, and underpayment cases stay blocked until an operator resolves them.",
-        action: { href: "/admin/billing", label: "Review queue" }
+        action: { href: "/admin/deposits", label: "Review queue" }
       }
     ]
   };
 }
+
+export const homeSnapshot = {
+  banner: {
+    tone: "info",
+    title: "Shared public shell active",
+    description: "Homepage, login, and registration now share the same public shell rather than route-local bare markup."
+  },
+  links: [
+    { href: "/register", label: "Registration entry" },
+    { href: "/app/dashboard", label: "Open user dashboard" },
+    { href: "/app/help", label: "Help center" }
+  ]
+};
 
 export const userDashboardSnapshot = {
   banner: {
@@ -188,7 +202,7 @@ export const userDashboardSnapshot = {
   },
   tabs: [
     { href: "/app/dashboard", label: "Overview" },
-    { href: "/app/analytics", label: "Analytics" },
+    { href: "/app/orders", label: "Orders" },
     { href: "/app/strategies", label: "Strategies", badge: "8" }
   ],
   metrics: [
@@ -234,8 +248,8 @@ export const strategiesSnapshot = {
   },
   tabs: [
     { href: "/app/strategies", label: "All" },
-    { href: "/app/strategies/grid-btc", label: "Workspace" },
-    { href: "/app/analytics", label: "PnL" }
+    { href: "/app/strategies/new", label: "New strategy" },
+    { href: "/app/orders", label: "Orders" }
   ],
   rows: [
     { id: "grid-btc", name: "BTC mean re-entry", market: "Spot", state: "Running", exposure: "5,000 USDT" },
@@ -249,14 +263,27 @@ export const strategiesSnapshot = {
   ]
 };
 
+export const strategyComposerSnapshot = {
+  banner: {
+    tone: "info",
+    title: "Draft composer shell",
+    description: "Task 7 only establishes the shared shell and form surface for strategy creation."
+  },
+  modes: [
+    { label: "Spot", value: "Classic / buy-only / sell-only" },
+    { label: "Futures", value: "Long / short / neutral" },
+    { label: "Generation", value: "Arithmetic / geometric / custom" }
+  ]
+};
+
 export const strategyDetailSnapshots = {
   "grid-btc": {
     title: "BTC mean re-entry",
     description: "Review pre-check state, grid ladders, trailing take profit, and stop semantics before runtime wiring lands.",
     tabs: [
       { href: "/app/strategies/grid-btc", label: "Workspace" },
-      { href: "/app/analytics", label: "Analytics" },
-      { href: "/help/expiry-reminder", label: "Help" }
+      { href: "/app/orders", label: "Orders" },
+      { href: "/app/help", label: "Help" }
     ],
     stats: [
       { label: "Mode", value: "Classic two-way spot" },
@@ -271,6 +298,19 @@ export const strategyDetailSnapshots = {
   }
 } as const;
 
+export const ordersSnapshot = {
+  banner: {
+    tone: "info",
+    title: "Order history shell",
+    description: "User order tables and export surfaces now map to the documented /app/orders route."
+  },
+  rows: [
+    { id: "ord-1", order: "ORD-8801", symbol: "BTCUSDT", side: "Buy", state: "Filled" },
+    { id: "ord-2", order: "ORD-8802", symbol: "ETHUSDT", side: "Sell", state: "Working" },
+    { id: "ord-3", order: "ORD-8803", symbol: "SOLUSDT", side: "Buy", state: "Cancelled" }
+  ]
+};
+
 export const billingSnapshot = {
   banner: {
     tone: "warning",
@@ -279,8 +319,8 @@ export const billingSnapshot = {
   },
   tabs: [
     { href: "/app/billing", label: "Renewal" },
-    { href: "/app/membership", label: "Entitlement" },
-    { href: "/help/expiry-reminder", label: "Help" }
+    { href: "/app/help", label: "Help" },
+    { href: "/app/telegram", label: "Telegram" }
   ],
   plans: [
     { label: "Monthly", value: "20 USD eq." },
@@ -296,13 +336,13 @@ export const billingSnapshot = {
 export const analyticsSnapshot = {
   banner: {
     tone: "info",
-    title: "Reporting surfaces",
-    description: "Exports are shared UI primitives here first; full reporting endpoints arrive in later tasks."
+    title: "Legacy analytics surface",
+    description: "This route remains as a non-shell-critical legacy page during route-map alignment."
   },
   tabs: [
-    { href: "/app/analytics", label: "Summary" },
+    { href: "/app/orders", label: "Orders" },
     { href: "/app/strategies", label: "Strategies" },
-    { href: "/app/notifications", label: "Alerts" }
+    { href: "/app/telegram", label: "Alerts" }
   ],
   metrics: [
     { label: "Realized PnL", value: "+1,632.44" },
@@ -313,6 +353,24 @@ export const analyticsSnapshot = {
     { id: "export-1", export: "Fill records", cadence: "On demand CSV", scope: "Account + strategy" },
     { id: "export-2", export: "Order records", cadence: "On demand CSV", scope: "User account" },
     { id: "export-3", export: "Strategy statistics", cadence: "On demand CSV", scope: "Per strategy" }
+  ]
+};
+
+export const telegramSnapshot = {
+  banner: {
+    tone: "warning",
+    title: "Telegram notification routing",
+    description: "Deposit success, membership reminders, API invalidation, and grid fills stay visible in web and Telegram."
+  },
+  channels: [
+    { label: "Telegram", value: "Bound" },
+    { label: "Web inbox", value: "Active" },
+    { label: "Critical alerts", value: "Instant" }
+  ],
+  rows: [
+    { id: "notice-1", event: "Membership expiring", channel: "Telegram + web", state: "Queued" },
+    { id: "notice-2", event: "Runtime failure", channel: "Telegram + web", state: "Delivered" },
+    { id: "notice-3", event: "Deposit confirmed", channel: "Telegram + web", state: "Delivered" }
   ]
 };
 
@@ -329,11 +387,24 @@ export const securitySnapshot = {
   ]
 };
 
+export const helpCenterSnapshot = {
+  banner: {
+    tone: "success",
+    title: "In-app help center",
+    description: "The documented user help route now exists inside the shared user shell."
+  },
+  guides: [
+    { href: "/help/expiry-reminder", label: "Expiry reminder guide" },
+    { href: "/app/billing", label: "Billing center" },
+    { href: "/app/security", label: "Security center" }
+  ]
+};
+
 export const membershipSnapshot = {
   banner: {
     tone: "success",
     title: "Membership overview",
-    description: "Renewal stacking, freeze state, and grace reminders are grouped in one shell-aware view."
+    description: "Legacy membership route retained while the shell route map shifts to documented help and billing pages."
   },
   rows: [
     { id: "timeline-1", event: "Current plan", at: "2026-04-15", note: "Monthly plan ends" },
@@ -345,8 +416,8 @@ export const membershipSnapshot = {
 export const notificationsSnapshot = {
   banner: {
     tone: "warning",
-    title: "Notification routing",
-    description: "Deposit success, membership reminders, API invalidation, and grid fills stay visible in web and Telegram."
+    title: "Legacy notification routing",
+    description: "Legacy route retained while Telegram becomes the documented page-map destination."
   },
   channels: [
     { label: "Telegram", value: "Bound" },
@@ -364,11 +435,11 @@ export const adminDashboardSnapshot = {
   banner: {
     tone: "danger",
     title: "Operator queue requires action",
-    description: "Billing exceptions and address pool pressure are surfaced at shell level for every admin route."
+    description: "Deposit exceptions and address pool pressure are surfaced at shell level for every admin route."
   },
   tabs: [
     { href: "/admin/dashboard", label: "Overview" },
-    { href: "/admin/billing", label: "Billing", badge: "4" },
+    { href: "/admin/deposits", label: "Deposits", badge: "4" },
     { href: "/admin/audit", label: "Audit" }
   ],
   metrics: [
@@ -393,6 +464,31 @@ export const adminUsersSnapshot = {
     { id: "user-1", email: "luna@example.com", membership: "Active", grace: "No", note: "TOTP enabled" },
     { id: "user-2", email: "miles@example.com", membership: "Grace", grace: "26h left", note: "Awaiting renewal" },
     { id: "user-3", email: "ava@example.com", membership: "Frozen", grace: "N/A", note: "Manual override" }
+  ]
+};
+
+export const adminMembershipsSnapshot = {
+  banner: {
+    tone: "info",
+    title: "Membership operations",
+    description: "Open, extend, freeze, unfreeze, and revoke controls map to the documented /admin/memberships route."
+  },
+  rows: [
+    { id: "member-1", user: "luna@example.com", plan: "Monthly", state: "Active", action: "Extend" },
+    { id: "member-2", user: "miles@example.com", plan: "Quarterly", state: "Grace", action: "Open renewal" }
+  ]
+};
+
+export const adminDepositsSnapshot = {
+  banner: {
+    tone: "danger",
+    title: "Abnormal deposit triage",
+    description: "Overpayment, underpayment, wrong token, and abnormal transfers are held for manual handling."
+  },
+  rows: [
+    { id: "abn-1", order: "ORD-4195", issue: "Wrong token", amount: "20.00", action: "Manual review" },
+    { id: "abn-2", order: "ORD-4201", issue: "Underpayment", amount: "19.50", action: "Pending contact" },
+    { id: "abn-3", order: "ORD-4204", issue: "Overpayment", amount: "20.75", action: "Treasury hold" }
   ]
 };
 
@@ -422,16 +518,27 @@ export const adminTemplatesSnapshot = {
   ]
 };
 
-export const adminBillingSnapshot = {
+export const adminStrategiesSnapshot = {
   banner: {
-    tone: "danger",
-    title: "Abnormal billing triage",
-    description: "Overpayment, underpayment, wrong token, and abnormal transfers are held for manual handling."
+    tone: "warning",
+    title: "Strategy operations overview",
+    description: "Runtime strategy supervision now maps to the documented /admin/strategies route."
   },
   rows: [
-    { id: "abn-1", order: "ORD-4195", issue: "Wrong token", amount: "20.00", action: "Manual review" },
-    { id: "abn-2", order: "ORD-4201", issue: "Underpayment", amount: "19.50", action: "Pending contact" },
-    { id: "abn-3", order: "ORD-4204", issue: "Overpayment", amount: "20.75", action: "Treasury hold" }
+    { id: "adm-strat-1", user: "luna@example.com", strategy: "BTC mean re-entry", state: "Running" },
+    { id: "adm-strat-2", user: "miles@example.com", strategy: "ETH short ladder", state: "Paused" }
+  ]
+};
+
+export const adminSweepsSnapshot = {
+  banner: {
+    tone: "warning",
+    title: "Treasury sweep queue",
+    description: "Wallet sweep actions are a documented admin route and must remain audited."
+  },
+  rows: [
+    { id: "sweep-1", wallet: "bsc_pool_02", amount: "420 USDT", state: "Queued" },
+    { id: "sweep-2", wallet: "sol_pool_03", amount: "380 USDC", state: "Completed" }
   ]
 };
 
@@ -445,5 +552,18 @@ export const adminAuditSnapshot = {
     { id: "log-1", actor: "Operator Nova", timestamp: "2026-04-02 09:12", action: "Pool size update", target: "BSC" },
     { id: "log-2", actor: "Operator Mira", timestamp: "2026-04-02 08:45", action: "Membership freeze", target: "user_311" },
     { id: "log-3", actor: "System", timestamp: "2026-04-02 08:15", action: "Sweep queued", target: "sol_pool_03" }
+  ]
+};
+
+export const adminSystemSnapshot = {
+  banner: {
+    tone: "info",
+    title: "System controls",
+    description: "Confirmation counts, pricing config, and operator-facing system toggles map to /admin/system."
+  },
+  rows: [
+    { id: "cfg-1", key: "eth_confirmations", value: "12", scope: "Billing" },
+    { id: "cfg-2", key: "symbol_sync_interval", value: "1 hour", scope: "Exchange" },
+    { id: "cfg-3", key: "membership_grace_window", value: "48 hours", scope: "Entitlement" }
   ]
 };

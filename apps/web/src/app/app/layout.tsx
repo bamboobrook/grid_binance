@@ -4,7 +4,7 @@ import { UserShell } from "../../components/shell/user-shell";
 import { getUserShellSnapshot } from "../../lib/api/server";
 
 export default async function UserAppLayout({ children }: { children: ReactNode }) {
-  const snapshot = await getUserShellSnapshot("/app/dashboard");
+  const snapshot = await getUserShellSnapshot();
 
   return <UserShell snapshot={snapshot}>{children}</UserShell>;
 }
