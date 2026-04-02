@@ -1,8 +1,6 @@
 use rust_decimal::Decimal;
 use shared_db::{BillingOrderRecord, SharedDb, SharedDbError};
-use shared_domain::analytics::{
-    AnalyticsReport, FillProfitView, StrategyProfitSummary, TradeFillInput,
-};
+use shared_domain::analytics::{AnalyticsReport, StrategyProfitSummary, TradeFillInput};
 use trading_engine::statistics::{
     compute_analytics_report, compute_fill_views, compute_strategy_summaries,
 };
