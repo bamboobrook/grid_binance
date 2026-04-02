@@ -79,16 +79,16 @@ async fn compute_strategy_and_account_snapshots_from_persisted_trading_and_excha
     assert_eq!(strategies[3]["funding_total"], "0");
 
     assert_eq!(analytics_body["user"]["user_id"], "trader@example.com");
-    assert_eq!(analytics_body["user"]["realized_pnl"], "15");
-    assert_eq!(analytics_body["user"]["unrealized_pnl"], "6.7");
-    assert_eq!(analytics_body["user"]["fees_paid"], "2.25");
-    assert_eq!(analytics_body["user"]["funding_total"], "-1.25");
-    assert_eq!(analytics_body["user"]["net_pnl"], "18.2");
+    assert_eq!(analytics_body["user"]["realized_pnl"], "18");
+    assert_eq!(analytics_body["user"]["unrealized_pnl"], "7.7");
+    assert_eq!(analytics_body["user"]["fees_paid"], "2.75");
+    assert_eq!(analytics_body["user"]["funding_total"], "-1.5");
+    assert_eq!(analytics_body["user"]["net_pnl"], "21.45");
     assert_eq!(analytics_body["user"]["wallet_asset_count"], 3);
     assert_eq!(analytics_body["user"]["exchange_trade_count"], 4);
 
-    assert_eq!(analytics_body["costs"]["fees_paid"], "2.25");
-    assert_eq!(analytics_body["costs"]["funding_total"], "-1.25");
+    assert_eq!(analytics_body["costs"]["fees_paid"], "2.75");
+    assert_eq!(analytics_body["costs"]["funding_total"], "-1.5");
 
     let wallet_snapshots = analytics_body["wallets"].as_array().expect("wallets");
     assert_eq!(wallet_snapshots.len(), 1);
@@ -96,9 +96,15 @@ async fn compute_strategy_and_account_snapshots_from_persisted_trading_and_excha
     assert_eq!(wallet_snapshots[0]["balances"]["BTC"], "0.01");
 
     let account_snapshots = analytics_body["account_snapshots"].as_array().expect("account snapshots");
-    assert_eq!(account_snapshots.len(), 2);
+    assert_eq!(account_snapshots.len(), 4);
+    assert_eq!(account_snapshots[0]["exchange"], "binance");
     assert_eq!(account_snapshots[0]["funding_total"], "-0.5");
+    assert_eq!(account_snapshots[1]["exchange"], "binance");
     assert_eq!(account_snapshots[1]["funding_total"], "-1.25");
+    assert_eq!(account_snapshots[2]["exchange"], "binance-futures");
+    assert_eq!(account_snapshots[2]["funding_total"], "-0.1");
+    assert_eq!(account_snapshots[3]["exchange"], "binance-futures");
+    assert_eq!(account_snapshots[3]["funding_total"], "-0.25");
 
     let strategy_snapshots = analytics_body["strategy_snapshots"].as_array().expect("strategy snapshots");
     assert_eq!(strategy_snapshots.len(), 4);
@@ -314,6 +320,26 @@ fn seed_analytics_data(db: &SharedDb) {
         funding: Some("-1.25".to_string()),
         captured_at: Utc.with_ymd_and_hms(2026, 3, 4, 1, 0, 0).unwrap(),
     }).expect("account snapshot");
+
+    db.insert_account_profit_snapshot(&AccountProfitSnapshotRecord {
+        user_email: "trader@example.com".to_string(),
+        exchange: "binance-futures".to_string(),
+        realized_pnl: "2".to_string(),
+        unrealized_pnl: "0.8".to_string(),
+        fees: "0.2".to_string(),
+        funding: Some("-0.1".to_string()),
+        captured_at: Utc.with_ymd_and_hms(2026, 3, 4, 0, 45, 0).unwrap(),
+    }).expect("older futures account snapshot");
+
+    db.insert_account_profit_snapshot(&AccountProfitSnapshotRecord {
+        user_email: "trader@example.com".to_string(),
+        exchange: "binance-futures".to_string(),
+        realized_pnl: "3".to_string(),
+        unrealized_pnl: "1".to_string(),
+        fees: "0.5".to_string(),
+        funding: Some("-0.25".to_string()),
+        captured_at: Utc.with_ymd_and_hms(2026, 3, 4, 1, 5, 0).unwrap(),
+    }).expect("futures account snapshot");
 
     db.insert_exchange_wallet_snapshot(&ExchangeWalletSnapshotRecord {
         user_email: "trader@example.com".to_string(),

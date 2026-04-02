@@ -40,7 +40,8 @@ impl AnalyticsService {
         let account_snapshots = to_account_snapshot_views(&account_snapshot_records)?;
         let wallets = to_wallet_snapshot_views(&wallet_snapshot_records);
         let latest_strategy_snapshots = latest_strategy_snapshot_map(&strategy_snapshot_records)?;
-        let latest_account_snapshot = latest_account_snapshot(&account_snapshot_records)?;
+        let latest_account_snapshots = latest_account_snapshots_by_exchange(&account_snapshot_records)?;
+        let latest_wallets = latest_wallets_by_exchange(&wallet_snapshot_records);
 
         let strategies = strategies
             .iter()
@@ -50,11 +51,11 @@ impl AnalyticsService {
         let user = user_aggregate(
             user_email,
             &fills,
-            latest_account_snapshot.as_ref(),
-            wallets.last(),
+            &latest_account_snapshots,
+            &latest_wallets,
             trade_history_records.len(),
         )?;
-        let costs = cost_aggregation(&fills, latest_account_snapshot.as_ref())?;
+        let costs = cost_aggregation(&fills, &latest_account_snapshots)?;
 
         Ok(AnalyticsReport {
             fills,
@@ -237,8 +238,8 @@ fn strategy_summary(
 fn user_aggregate(
     user_email: &str,
     fills: &[shared_domain::analytics::FillProfitView],
-    latest_account_snapshot: Option<&AccountSnapshotNumbers>,
-    latest_wallet: Option<&WalletSnapshotView>,
+    latest_account_snapshots: &BTreeMap<String, AccountSnapshotNumbers>,
+    latest_wallets: &BTreeMap<String, WalletSnapshotView>,
     exchange_trade_count: usize,
 ) -> Result<UserAggregate, SharedDbError> {
     let realized_from_fills = fills
@@ -247,19 +248,33 @@ fn user_aggregate(
     let fees_from_fills = fills.iter().fold(Decimal::ZERO, |acc, fill| acc + fill.fee);
     let funding_from_fills = fills.iter().fold(Decimal::ZERO, |acc, fill| acc + fill.funding);
 
-    let realized_pnl = latest_account_snapshot
-        .map(|snapshot| snapshot.realized_pnl)
-        .unwrap_or(realized_from_fills);
-    let unrealized_pnl = latest_account_snapshot
-        .map(|snapshot| snapshot.unrealized_pnl)
-        .unwrap_or(Decimal::ZERO);
-    let fees_paid = latest_account_snapshot
-        .map(|snapshot| snapshot.fees_paid)
-        .unwrap_or(fees_from_fills);
-    let funding_total = latest_account_snapshot
-        .map(|snapshot| snapshot.funding_total)
-        .unwrap_or(funding_from_fills);
-    let wallet_asset_count = latest_wallet.map(|wallet| wallet.balances.len()).unwrap_or(0);
+    let realized_pnl = if latest_account_snapshots.is_empty() {
+        realized_from_fills
+    } else {
+        latest_account_snapshots
+            .values()
+            .fold(Decimal::ZERO, |acc, snapshot| acc + snapshot.realized_pnl)
+    };
+    let unrealized_pnl = latest_account_snapshots
+        .values()
+        .fold(Decimal::ZERO, |acc, snapshot| acc + snapshot.unrealized_pnl);
+    let fees_paid = if latest_account_snapshots.is_empty() {
+        fees_from_fills
+    } else {
+        latest_account_snapshots
+            .values()
+            .fold(Decimal::ZERO, |acc, snapshot| acc + snapshot.fees_paid)
+    };
+    let funding_total = if latest_account_snapshots.is_empty() {
+        funding_from_fills
+    } else {
+        latest_account_snapshots
+            .values()
+            .fold(Decimal::ZERO, |acc, snapshot| acc + snapshot.funding_total)
+    };
+    let wallet_asset_count = latest_wallets
+        .values()
+        .fold(0_usize, |acc, wallet| acc + wallet.balances.len());
 
     Ok(UserAggregate {
         user_id: user_email.to_string(),
@@ -275,14 +290,22 @@ fn user_aggregate(
 
 fn cost_aggregation(
     fills: &[shared_domain::analytics::FillProfitView],
-    latest_account_snapshot: Option<&AccountSnapshotNumbers>,
+    latest_account_snapshots: &BTreeMap<String, AccountSnapshotNumbers>,
 ) -> Result<CostAggregation, SharedDbError> {
-    let fees_paid = latest_account_snapshot
-        .map(|snapshot| snapshot.fees_paid)
-        .unwrap_or_else(|| fills.iter().fold(Decimal::ZERO, |acc, fill| acc + fill.fee));
-    let funding_total = latest_account_snapshot
-        .map(|snapshot| snapshot.funding_total)
-        .unwrap_or_else(|| fills.iter().fold(Decimal::ZERO, |acc, fill| acc + fill.funding));
+    let fees_paid = if latest_account_snapshots.is_empty() {
+        fills.iter().fold(Decimal::ZERO, |acc, fill| acc + fill.fee)
+    } else {
+        latest_account_snapshots
+            .values()
+            .fold(Decimal::ZERO, |acc, snapshot| acc + snapshot.fees_paid)
+    };
+    let funding_total = if latest_account_snapshots.is_empty() {
+        fills.iter().fold(Decimal::ZERO, |acc, fill| acc + fill.funding)
+    } else {
+        latest_account_snapshots
+            .values()
+            .fold(Decimal::ZERO, |acc, snapshot| acc + snapshot.funding_total)
+    };
 
     Ok(CostAggregation {
         fees_paid: fees_paid.normalize(),
@@ -356,20 +379,40 @@ fn latest_strategy_snapshot_map(
     Ok(map)
 }
 
-fn latest_account_snapshot(
+fn latest_account_snapshots_by_exchange(
     snapshots: &[AccountProfitSnapshotRecord],
-) -> Result<Option<AccountSnapshotNumbers>, SharedDbError> {
-    snapshots
-        .last()
-        .map(|snapshot| {
-            Ok(AccountSnapshotNumbers {
+) -> Result<BTreeMap<String, AccountSnapshotNumbers>, SharedDbError> {
+    let mut latest = BTreeMap::new();
+    for snapshot in snapshots {
+        latest.insert(
+            snapshot.exchange.clone(),
+            AccountSnapshotNumbers {
                 realized_pnl: parse_decimal(&snapshot.realized_pnl)?.normalize(),
                 unrealized_pnl: parse_decimal(&snapshot.unrealized_pnl)?.normalize(),
                 fees_paid: parse_decimal(&snapshot.fees)?.normalize(),
                 funding_total: parse_optional_decimal(snapshot.funding.as_deref())?.normalize(),
-            })
-        })
-        .transpose()
+            },
+        );
+    }
+    Ok(latest)
+}
+
+fn latest_wallets_by_exchange(
+    snapshots: &[ExchangeWalletSnapshotRecord],
+) -> BTreeMap<String, WalletSnapshotView> {
+    let mut latest = BTreeMap::new();
+    for snapshot in snapshots {
+        latest.insert(
+            snapshot.exchange.clone(),
+            WalletSnapshotView {
+                exchange: snapshot.exchange.clone(),
+                wallet_type: snapshot.wallet_type.clone(),
+                balances: json_value_to_string_map(&snapshot.balances),
+                captured_at: snapshot.captured_at.to_rfc3339(),
+            },
+        );
+    }
+    latest
 }
 
 fn aggregate_position(
