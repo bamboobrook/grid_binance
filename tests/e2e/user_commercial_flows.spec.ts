@@ -130,7 +130,7 @@ test.describe("user commercial", () => {
     await page.goto("/app/help");
     await expect(page.getByRole("heading", { name: "Help Center" })).toBeVisible();
     await page.getByRole("link", { name: "Create Grid Strategy" }).click();
-    await expect(page).toHaveURL(/\/help\/create-grid-strategy$/);
+    await expect(page).toHaveURL(/\/app\/help\?article=create-grid-strategy$/);
     await expect(page.getByRole("heading", { name: "Create Grid Strategy" })).toBeVisible();
     await expect(
       page.getByText(

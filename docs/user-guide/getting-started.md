@@ -35,8 +35,8 @@ Key user routes:
 - `/app/billing` for membership plans, renewal orders, and payment instructions
 - `/app/security` for password and TOTP operations
 - `/app/strategies` for draft strategy management
-- `/app/analytics` for account and strategy reporting
-- `/app/notifications` for in-app alert review
+- `/app/orders` for fills, order history, and account activity review
+- `/app/telegram` for Telegram bot binding and notification delivery status
 
 Anonymous requests to `/app/*` and `/admin/*` are expected to redirect to `/login`.
 

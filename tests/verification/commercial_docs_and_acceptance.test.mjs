@@ -76,8 +76,12 @@ test("help center stays sourced from repository user guides", async () => {
     "repository headings should stay available to the in-app help renderer",
   );
   assert.ok(
-    gettingStarted.body.includes("- `/app/dashboard` for account overview and renewal reminders"),
+    gettingStarted.body.includes("- `/app/orders` for fills, order history, and account activity review"),
     "repository bullet content should stay available to the in-app help renderer",
+  );
+  assert.ok(
+    gettingStarted.body.includes("- `/app/telegram` for Telegram bot binding and notification delivery status"),
+    "repository routes should stay aligned with the canonical app shell pages",
   );
   assert.match(helpPage, /\/app\/help\?article=\$\{item\.slug\}/);
   assert.doesNotMatch(helpPage, /href=\{`\/help\/\$\{item\.slug\}`\}/);

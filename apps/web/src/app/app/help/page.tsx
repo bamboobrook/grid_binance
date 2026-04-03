@@ -38,7 +38,11 @@ function renderArticleBlock(block: HelpArticleBlock, index: number) {
     );
   }
 
-  return <p key={`${block.kind}-${index}`}>{block.text}</p>;
+  if (block.kind === "paragraph") {
+    return <p key={`${block.kind}-${index}`}>{block.text}</p>;
+  }
+
+  return null;
 }
 
 export default async function HelpPage({ searchParams }: HelpPageProps) {
