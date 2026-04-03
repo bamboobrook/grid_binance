@@ -1,13 +1,82 @@
 import { AppShellSection } from "../../../components/shell/app-shell-section";
 import { Card, CardBody, CardDescription, CardHeader, CardTitle } from "../../../components/ui/card";
-import { Button, FormStack } from "../../../components/ui/form";
+import { Button, Field, FormStack, Input, Select, Textarea } from "../../../components/ui/form";
 import { StatusBanner } from "../../../components/ui/status-banner";
 import { DataTable } from "../../../components/ui/table";
-import { getAdminDepositsData } from "../../../lib/api/admin-product-state";
+import { getAdminDepositsData, type AdminDepositView, type AdminDepositsResponse } from "../../../lib/api/admin-product-state";
+
+const MANUAL_CREDIT_CONFIRMATION = "MANUAL_CREDIT_MEMBERSHIP";
+const REVIEW_REASONS_REQUIRING_ORDER_SELECTION = new Set(["ambiguous_match", "order_not_found"]);
 
 type PageProps = {
   searchParams?: Promise<{ result?: string; tx?: string }>;
 };
+
+function suggestedOrdersForDeposit(item: AdminDepositView, orders: AdminDepositsResponse["orders"]) {
+  return orders
+    .filter((order) => order.chain === item.chain && order.asset === item.asset && order.status !== "paid")
+    .sort((left, right) => {
+      const leftScore = Number(left.amount === item.amount) + Number(left.order_id === item.order_id);
+      const rightScore = Number(right.amount === item.amount) + Number(right.order_id === item.order_id);
+      return rightScore - leftScore || left.order_id - right.order_id;
+    });
+}
+
+function targetOrderLabel(order: AdminDepositsResponse["orders"][number]) {
+  return `#${order.order_id} | ${order.email} | ${order.amount} ${order.asset} | ${order.status}`;
+}
+
+function renderManualActions(item: AdminDepositView, orders: AdminDepositsResponse["orders"]) {
+  const suggestedOrders = suggestedOrdersForDeposit(item, orders);
+  const defaultOrderId = item.order_id ?? suggestedOrders[0]?.order_id ?? null;
+  const requiresOrderSelection = REVIEW_REASONS_REQUIRING_ORDER_SELECTION.has(item.review_reason ?? "");
+
+  return (
+    <div className="content-grid">
+      <FormStack action="/api/admin/deposits" method="post">
+        <input name="txHash" type="hidden" value={item.tx_hash} />
+        <input name="chain" type="hidden" value={item.chain} />
+        <input name="decision" type="hidden" value="reject" />
+        <Button type="submit">{"Reject " + item.tx_hash}</Button>
+      </FormStack>
+      <FormStack action="/api/admin/deposits" method="post">
+        <input name="txHash" type="hidden" value={item.tx_hash} />
+        <input name="chain" type="hidden" value={item.chain} />
+        <input name="decision" type="hidden" value="credit_membership" />
+        {!requiresOrderSelection && defaultOrderId ? <input name="orderId" type="hidden" value={String(defaultOrderId)} /> : null}
+        {requiresOrderSelection ? (
+          <>
+            <Field
+              hint={suggestedOrders.length > 0 ? "Choose a candidate order or enter an explicit order ID below." : "No candidate orders found. Enter an explicit order ID below."}
+              label={`Target order for ${item.tx_hash}`}
+            >
+              <Select defaultValue={defaultOrderId ? String(defaultOrderId) : ""} name="suggestedOrderId">
+                <option value="">Select order</option>
+                {suggestedOrders.map((order) => (
+                  <option key={order.order_id} value={String(order.order_id)}>
+                    {targetOrderLabel(order)}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+            <Field hint="Optional override when the intended order is not in the suggested list." label={`Override order ID for ${item.tx_hash}`}>
+              <Input inputMode="numeric" min="1" name="orderId" placeholder="Enter order ID" />
+            </Field>
+          </>
+        ) : (
+          <p>{defaultOrderId ? `Target order: ${defaultOrderId}` : "No linked order available for manual credit."}</p>
+        )}
+        <Field hint={`Type ${MANUAL_CREDIT_CONFIRMATION} to confirm the manual membership credit.`} label={`Confirmation for ${item.tx_hash}`}>
+          <Input autoComplete="off" name="confirmation" />
+        </Field>
+        <Field label={`Justification for ${item.tx_hash}`}>
+          <Textarea name="justification" rows={3} />
+        </Field>
+        <Button type="submit">{"Credit " + item.tx_hash + " to membership"}</Button>
+      </FormStack>
+    </div>
+  );
+}
 
 export default async function AdminDepositsPage({ searchParams }: PageProps) {
   const params = (await searchParams) ?? {};
@@ -41,30 +110,7 @@ export default async function AdminDepositsPage({ searchParams }: PageProps) {
               ]}
               rows={data.abnormal_deposits.map((item) => ({
                 id: item.tx_hash,
-                action:
-                  item.status === "manual_review_required" ? (
-                    <div className="content-grid">
-                      <FormStack action="/api/admin/deposits" method="post">
-                        <input name="txHash" type="hidden" value={item.tx_hash} />
-                        <input name="chain" type="hidden" value={item.chain} />
-                        <input name="decision" type="hidden" value="reject" />
-                        <Button type="submit">{"Reject " + item.tx_hash}</Button>
-                      </FormStack>
-                      {item.order_id ? (
-                        <FormStack action="/api/admin/deposits" method="post">
-                          <input name="txHash" type="hidden" value={item.tx_hash} />
-                          <input name="chain" type="hidden" value={item.chain} />
-                          <input name="decision" type="hidden" value="credit_membership" />
-                          <input name="orderId" type="hidden" value={String(item.order_id)} />
-                          <Button type="submit">{"Credit " + item.tx_hash + " to membership"}</Button>
-                        </FormStack>
-                      ) : (
-                        <span>-</span>
-                      )}
-                    </div>
-                  ) : (
-                    item.status
-                  ),
+                action: item.status === "manual_review_required" ? renderManualActions(item, data.orders) : item.status,
                 chain: item.chain,
                 reason: item.review_reason ?? "-",
                 status: item.status,
@@ -76,15 +122,22 @@ export default async function AdminDepositsPage({ searchParams }: PageProps) {
         <Card tone="subtle">
           <CardHeader>
             <CardTitle>Manual credit target order</CardTitle>
-            <CardDescription>Operator can see which order a credit action will target.</CardDescription>
+            <CardDescription>Operator can confirm the current target and see suggested orders for unresolved review cases.</CardDescription>
           </CardHeader>
           <CardBody>
             <ul className="text-list">
-              {data.abnormal_deposits.map((item) => (
-                <li key={item.tx_hash}>
-                  {item.tx_hash}: {item.order_id ? `order ${item.order_id}` : "no linked order"}
-                </li>
-              ))}
+              {data.abnormal_deposits.map((item) => {
+                const suggestedOrders = suggestedOrdersForDeposit(item, data.orders);
+                const needsSelection = REVIEW_REASONS_REQUIRING_ORDER_SELECTION.has(item.review_reason ?? "");
+                return (
+                  <li key={item.tx_hash}>
+                    {item.tx_hash}: {item.order_id ? `order ${item.order_id}` : "no linked order"}
+                    {needsSelection && suggestedOrders.length > 0
+                      ? ` | suggested ${suggestedOrders.map((order) => order.order_id).join(", ")}`
+                      : ""}
+                  </li>
+                );
+              })}
             </ul>
           </CardBody>
         </Card>

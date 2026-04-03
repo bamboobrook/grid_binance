@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+
 import { expect, test, type APIRequestContext } from "@playwright/test";
 
 const AUTH_API_BASE_URL = "http://127.0.0.1:18080";
@@ -25,12 +27,14 @@ test.describe("admin commercial", () => {
     const adminSessionToken = operatorAdminSessionToken;
     const viewerEmail = uniqueEmail("viewer");
     const creditEmail = uniqueEmail("credit");
+    const orphanEmail = uniqueEmail("orphan");
     const rejectEmail = uniqueEmail("reject");
     const strategyName = `admin-draft-${Date.now()}`;
 
     await createVerifiedUserSession(request, viewerEmail, "pass1234");
     const seeded = await seedAdminCommercialData(request, adminSessionToken, {
       creditEmail,
+      orphanEmail,
       rejectEmail,
       strategyName,
     });
@@ -83,17 +87,27 @@ test.describe("admin commercial", () => {
     await expect(page.getByRole("heading", { name: "Abnormal Deposit Handling" })).toBeVisible();
     await expect(page.getByText(seeded.rejectTxHash, { exact: true })).toBeVisible();
     await expect(page.getByText(seeded.creditTxHash, { exact: true })).toBeVisible();
+    await expect(page.getByText(seeded.orphanTxHash, { exact: true })).toBeVisible();
     await expect(page.getByText("Manual credit target order", { exact: false })).toBeVisible();
     await page.getByRole("button", { name: `Reject ${seeded.rejectTxHash}` }).click();
     await expect(page.getByText("Deposit result: manual_rejected", { exact: false })).toBeVisible();
-    await manualCreditAbnormalDeposit(request, adminSessionToken, {
-      chain: "BSC",
-      justification: "operator reviewed wrong-asset transfer and validated order ownership",
-      orderId: seeded.creditOrderId,
-      txHash: seeded.creditTxHash,
-    });
-    await page.goto(`/admin/deposits?tx=${encodeURIComponent(seeded.creditTxHash)}&result=manual_approved`);
+    const creditRow = page.getByRole("row", { name: new RegExp(seeded.creditTxHash) });
+    await creditRow.getByLabel(`Confirmation for ${seeded.creditTxHash}`).fill(MANUAL_CREDIT_CONFIRMATION);
+    await creditRow
+      .getByLabel(`Justification for ${seeded.creditTxHash}`)
+      .fill("operator reviewed wrong-asset transfer and validated order ownership");
+    await creditRow.getByRole("button", { name: `Credit ${seeded.creditTxHash} to membership` }).click();
     await expect(page.getByText("Deposit result: manual_approved", { exact: false })).toBeVisible();
+    await expect(page.getByText(`${seeded.creditTxHash}: order ${seeded.creditOrderId}`, { exact: false })).toBeVisible();
+    const orphanRow = page.getByRole("row", { name: new RegExp(seeded.orphanTxHash) });
+    await orphanRow.getByLabel(`Target order for ${seeded.orphanTxHash}`).selectOption(String(seeded.orphanOrderId));
+    await orphanRow.getByLabel(`Confirmation for ${seeded.orphanTxHash}`).fill(MANUAL_CREDIT_CONFIRMATION);
+    await orphanRow
+      .getByLabel(`Justification for ${seeded.orphanTxHash}`)
+      .fill("manual review linked orphan transfer back to the intended pending order");
+    await orphanRow.getByRole("button", { name: `Credit ${seeded.orphanTxHash} to membership` }).click();
+    await expect(page.getByText(`Deposit result: manual_approved | ${seeded.orphanTxHash}`, { exact: false })).toBeVisible();
+    await expect(page.getByText(`${seeded.orphanTxHash}: order ${seeded.orphanOrderId}`, { exact: false })).toBeVisible();
 
     await page.getByRole("link", { name: "Address pools" }).click();
     await expect(page.getByRole("heading", { name: "Address Pool Inventory" })).toBeVisible();
@@ -175,6 +189,7 @@ test.describe("admin commercial", () => {
     const adminSessionToken = superAdminSessionToken;
     const memberEmail = uniqueEmail("member");
     const creditEmail = uniqueEmail("credit");
+    const orphanEmail = uniqueEmail("orphan");
     const rejectEmail = uniqueEmail("reject");
     const templateUserEmail = uniqueEmail("template-user");
     const strategyName = `admin-draft-${Date.now()}`;
@@ -184,6 +199,7 @@ test.describe("admin commercial", () => {
 
     await seedAdminCommercialData(request, adminSessionToken, {
       creditEmail,
+      orphanEmail,
       rejectEmail,
       strategyName,
     });
@@ -424,15 +440,18 @@ test.describe("admin commercial", () => {
 async function seedAdminCommercialData(
   request: APIRequestContext,
   adminSessionToken: string,
-  input: { creditEmail: string; rejectEmail: string; strategyName: string },
+  input: { creditEmail: string; orphanEmail: string; rejectEmail: string; strategyName: string },
 ) {
   const creditUserToken = await createVerifiedUserSession(request, input.creditEmail, "pass1234");
+  const orphanUserToken = await createVerifiedUserSession(request, input.orphanEmail, "pass1234");
   const rejectUserToken = await createVerifiedUserSession(request, input.rejectEmail, "pass1234");
 
   const creditOrder = await createBillingOrder(request, creditUserToken, input.creditEmail);
+  const orphanOrder = await createBillingOrder(request, orphanUserToken, input.orphanEmail);
   const rejectOrder = await createBillingOrder(request, rejectUserToken, input.rejectEmail);
 
   const creditTxHash = `tx-credit-${Date.now()}`;
+  const orphanTxHash = `tx-orphan-${Date.now()}`;
   const rejectTxHash = `tx-reject-${Date.now()}`;
 
   await matchOrderAsAbnormal(request, adminSessionToken, {
@@ -441,6 +460,13 @@ async function seedAdminCommercialData(
     asset: "USDC",
     chain: "BSC",
     txHash: creditTxHash,
+  });
+  await matchOrderAsAbnormal(request, adminSessionToken, {
+    address: `unknown-${Date.now()}`,
+    amount: orphanOrder.amount,
+    asset: "USDT",
+    chain: "BSC",
+    txHash: orphanTxHash,
   });
   await matchOrderAsAbnormal(request, adminSessionToken, {
     address: rejectOrder.address,
@@ -455,33 +481,10 @@ async function seedAdminCommercialData(
   return {
     creditOrderId: creditOrder.orderId,
     creditTxHash,
+    orphanOrderId: orphanOrder.orderId,
+    orphanTxHash,
     rejectTxHash,
   };
-}
-
-async function manualCreditAbnormalDeposit(
-  request: APIRequestContext,
-  adminSessionToken: string,
-  input: { chain: string; justification: string; orderId: number; txHash: string },
-) {
-  const response = await request.post(`${AUTH_API_BASE_URL}/admin/deposits/process`, {
-    data: {
-      chain: input.chain,
-      confirmation: MANUAL_CREDIT_CONFIRMATION,
-      decision: "credit_membership",
-      justification: input.justification,
-      order_id: input.orderId,
-      processed_at: new Date().toISOString(),
-      tx_hash: input.txHash,
-    },
-    headers: {
-      authorization: `Bearer ${adminSessionToken}`,
-      "content-type": "application/json",
-    },
-  });
-  if (!response.ok()) {
-    throw new Error(`manualCreditAbnormalDeposit failed ${response.status()} ${await response.text()}`);
-  }
 }
 
 async function createAdminSession(request: APIRequestContext, email: string) {
@@ -522,18 +525,23 @@ async function ensureVerifiedUser(request: APIRequestContext, email: string, pas
     data: { email, password },
   });
 
-  if (register.status() === 409) {
+  if (register.ok()) {
+    const payload = (await register.json()) as { verification_code?: string };
+    expect(typeof payload.verification_code).toBe("string");
+
+    const verify = await request.post(`${AUTH_API_BASE_URL}/auth/verify-email`, {
+      data: { code: payload.verification_code, email },
+    });
+    expect(verify.ok()).toBeTruthy();
     return;
   }
 
-  expect(register.ok()).toBeTruthy();
-  const payload = (await register.json()) as { verification_code?: string };
-  expect(typeof payload.verification_code).toBe("string");
+  const body = await register.text();
+  if (register.status() === 409 || body.includes("user already exists")) {
+    return;
+  }
 
-  const verify = await request.post(`${AUTH_API_BASE_URL}/auth/verify-email`, {
-    data: { code: payload.verification_code, email },
-  });
-  expect(verify.ok()).toBeTruthy();
+  throw new Error(`ensureVerifiedUser failed ${email} ${register.status()} ${body}`);
 }
 
 async function login(request: APIRequestContext, email: string, password: string, totpCode?: string) {
@@ -772,5 +780,5 @@ async function createStrategy(request: APIRequestContext, sessionToken: string, 
 
 function uniqueEmail(prefix: string) {
   uniqueCounter += 1;
-  return `${prefix}-${Date.now()}-${uniqueCounter}@example.com`;
+  return `${prefix}-${Date.now()}-${uniqueCounter}-${randomUUID()}@example.com`;
 }
