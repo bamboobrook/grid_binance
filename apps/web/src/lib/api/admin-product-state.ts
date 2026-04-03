@@ -242,8 +242,9 @@ export async function buildAdminShellSnapshot(): Promise<AdminShellSnapshot> {
   ]);
   const openDeposits = deposits.abnormal_deposits.filter((item) => item.status === "manual_review_required").length;
   const membershipsNeedingAction = memberships.items.filter((item) => ["Grace", "Frozen", "Revoked"].includes(item.status)).length;
-  const role = profile.admin_role ?? "operator_admin";
-  const restricted = role === "operator_admin";
+  const role = profile.admin_access_granted ? profile.admin_role : null;
+  const restricted = role !== "super_admin";
+  const roleLabel = role ?? "admin_access_pending";
 
   const nav = [
     { href: "/admin/dashboard", label: "Dashboard" },
@@ -262,9 +263,11 @@ export async function buildAdminShellSnapshot(): Promise<AdminShellSnapshot> {
     banners: [
       {
         action: { href: "/admin/deposits", label: openDeposits > 0 ? "Review queue" : "View deposits" },
-        description: restricted
-          ? "Operator boundary is active. Pricing, templates, sweeps, and system changes require super_admin."
-          : "Super admin session is active for pricing, treasury, and template operations.",
+        description: !profile.admin_access_granted
+          ? "Admin identity is recognized, but this bearer session has not cleared the TOTP gate yet."
+          : restricted
+            ? "Operator boundary is active. Pricing, templates, sweeps, and system changes require super_admin."
+            : "Super admin session is active for pricing, treasury, and template operations.",
         title: profile.admin_access_granted ? "Admin access granted" : "Admin access missing",
         tone: profile.admin_access_granted ? "success" : "warning",
       },
@@ -272,9 +275,11 @@ export async function buildAdminShellSnapshot(): Promise<AdminShellSnapshot> {
     brand: "GridBinance Ops",
     description: "Backend-backed admin control plane.",
     identity: {
-      context: `TOTP ${profile.totp_enabled ? "enabled" : "disabled"}. Operator boundary ${restricted ? "active" : "lifted"}.`,
+      context: profile.admin_access_granted
+        ? `TOTP ${profile.totp_enabled ? "enabled" : "disabled"}. Operator boundary ${restricted ? "active" : "lifted"}.`
+        : `TOTP ${profile.totp_enabled ? "enabled" : "disabled"}. Admin access is pending fresh bearer-session verification.`,
       name: profile.email,
-      role,
+      role: roleLabel,
     },
     nav,
     quickStats: [

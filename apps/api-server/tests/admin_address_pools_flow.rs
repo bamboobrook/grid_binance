@@ -37,8 +37,12 @@ async fn operator_admin_cannot_update_plan_config_and_existing_defaults_remain_i
             "duration_days": 45,
             "is_active": true,
             "prices": [
+                { "chain": "ETH", "asset": "USDT", "amount": "22.50000000" },
+                { "chain": "ETH", "asset": "USDC", "amount": "22.40000000" },
                 { "chain": "BSC", "asset": "USDT", "amount": "21.50000000" },
-                { "chain": "ETH", "asset": "USDT", "amount": "22.50000000" }
+                { "chain": "BSC", "asset": "USDC", "amount": "21.40000000" },
+                { "chain": "SOL", "asset": "USDT", "amount": "20.50000000" },
+                { "chain": "SOL", "asset": "USDC", "amount": "20.40000000" }
             ]
         }),
     )
@@ -239,6 +243,30 @@ async fn super_admin_plan_and_address_pool_updates_fail_when_audit_write_fails()
     let super_admin_token =
         register_privileged_admin_and_login_via_http(&server, "super-admin@example.com");
 
+    let (incomplete_status, incomplete_body) = http_json(
+        "POST",
+        &format!("{}/admin/memberships/plans", server.base_url()),
+        Some(&super_admin_token),
+        Some(json!({
+            "code": "monthly",
+            "name": "Monthly Plus",
+            "duration_days": 45,
+            "is_active": true,
+            "prices": [
+                { "chain": "ETH", "asset": "USDT", "amount": "22.50000000" },
+                { "chain": "ETH", "asset": "USDC", "amount": "22.40000000" },
+                { "chain": "BSC", "asset": "USDT", "amount": "21.50000000" },
+                { "chain": "BSC", "asset": "USDC", "amount": "21.40000000" },
+                { "chain": "SOL", "asset": "USDT", "amount": "20.50000000" }
+            ]
+        })),
+    );
+    assert_eq!(incomplete_status, StatusCode::BAD_REQUEST.as_u16());
+    assert_eq!(
+        incomplete_body["error"],
+        "complete price matrix is required"
+    );
+
     server.break_audit_table();
 
     let (plan_status, _) = http_json(
@@ -251,8 +279,12 @@ async fn super_admin_plan_and_address_pool_updates_fail_when_audit_write_fails()
             "duration_days": 45,
             "is_active": true,
             "prices": [
+                { "chain": "ETH", "asset": "USDT", "amount": "22.50000000" },
+                { "chain": "ETH", "asset": "USDC", "amount": "22.40000000" },
                 { "chain": "BSC", "asset": "USDT", "amount": "21.50000000" },
-                { "chain": "ETH", "asset": "USDT", "amount": "22.50000000" }
+                { "chain": "BSC", "asset": "USDC", "amount": "21.40000000" },
+                { "chain": "SOL", "asset": "USDT", "amount": "20.50000000" },
+                { "chain": "SOL", "asset": "USDC", "amount": "20.40000000" }
             ]
         })),
     );

@@ -1798,6 +1798,10 @@ impl SharedDb {
                 })
             }
             SharedDbBackend::Ephemeral(state) => mutate_ephemeral_atomically(state, |state| {
+                let order = state.billing_orders.get(&order_id);
+                if order.is_none() || order.is_some_and(|record| record.paid_at.is_some()) {
+                    return Ok(false);
+                }
                 if !state.seen_transfers.insert(format!("{chain}:{tx_hash}")) {
                     return Ok(false);
                 }
@@ -1903,7 +1907,7 @@ impl SharedDb {
         grace_until: DateTime<Utc>,
         deposit: &DepositTransactionRecord,
         audit: &AuditLogRecord,
-    ) -> Result<(), SharedDbError> {
+    ) -> Result<bool, SharedDbError> {
         match &self.backend {
             SharedDbBackend::Runtime { .. } => {
                 let repo = self.admin_repo();
@@ -1928,6 +1932,10 @@ impl SharedDb {
                 })
             }
             SharedDbBackend::Ephemeral(state) => mutate_ephemeral_atomically(state, |state| {
+                let order = state.billing_orders.get(&order_id);
+                if order.is_none() || order.is_some_and(|record| record.paid_at.is_some()) {
+                    return Ok(false);
+                }
                 if let Some(order) = state.billing_orders.get_mut(&order_id) {
                     order.paid_at = Some(paid_at);
                     order.tx_hash = Some(tx_hash.to_owned());
@@ -1948,7 +1956,7 @@ impl SharedDb {
                     },
                 );
                 state.audit_logs.push(audit.clone());
-                Ok(())
+                Ok(true)
             }),
         }
     }
@@ -2415,8 +2423,12 @@ fn revoke_ephemeral_sessions(state: &mut EphemeralState, email: &str) {
 
 #[cfg(test)]
 mod tests {
-    use super::{postgres, redis, SharedDb, StoredStrategy};
-    use chrono::Utc;
+    use super::{
+        postgres, redis, AuditLogRecord, BillingOrderRecord, DepositTransactionRecord, SharedDb,
+        StoredStrategy,
+    };
+    use chrono::{TimeZone, Utc};
+    use serde_json::json;
     use shared_domain::strategy::{
         GridGeneration, GridLevel, PostTriggerAction, Strategy, StrategyMarket, StrategyMode,
         StrategyRevision, StrategyRuntime, StrategyStatus,
@@ -2513,5 +2525,124 @@ mod tests {
             .expect("strategy should remain persisted");
         assert_eq!(archived.status, StrategyStatus::Archived);
         assert!(archived.archived_at.unwrap_or_else(Utc::now) <= Utc::now());
+    }
+
+    #[test]
+    fn manual_membership_payment_does_not_overwrite_first_paid_order_state() {
+        let db = SharedDb::ephemeral().expect("db");
+        let requested_at = Utc.with_ymd_and_hms(2026, 4, 1, 0, 0, 0).single().unwrap();
+        let first_paid_at = Utc.with_ymd_and_hms(2026, 4, 1, 0, 5, 0).single().unwrap();
+        let second_paid_at = Utc.with_ymd_and_hms(2026, 4, 1, 0, 6, 0).single().unwrap();
+        let first_active_until = Utc.with_ymd_and_hms(2026, 5, 1, 0, 5, 0).single().unwrap();
+        let first_grace_until = Utc.with_ymd_and_hms(2026, 5, 3, 0, 5, 0).single().unwrap();
+        let second_active_until = Utc.with_ymd_and_hms(2026, 6, 1, 0, 6, 0).single().unwrap();
+        let second_grace_until = Utc.with_ymd_and_hms(2026, 6, 3, 0, 6, 0).single().unwrap();
+
+        db.insert_billing_order(&BillingOrderRecord {
+            order_id: 1,
+            email: "member@example.com".to_owned(),
+            chain: "BSC".to_owned(),
+            asset: "USDT".to_owned(),
+            plan_code: "monthly".to_owned(),
+            amount: "20.00000000".to_owned(),
+            requested_at,
+            assignment: None,
+            paid_at: None,
+            tx_hash: None,
+            status: "pending".to_owned(),
+            enqueued_at: None,
+        })
+        .expect("insert order");
+
+        db.apply_membership_payment_with_deposit_and_audit(
+            1,
+            "BSC",
+            "tx-first",
+            first_paid_at,
+            "member@example.com",
+            first_active_until,
+            first_grace_until,
+            &DepositTransactionRecord {
+                tx_hash: "tx-first".to_owned(),
+                chain: "BSC".to_owned(),
+                asset: "USDT".to_owned(),
+                address: "bsc-addr-1".to_owned(),
+                amount: "20.00000000".to_owned(),
+                observed_at: first_paid_at,
+                order_id: Some(1),
+                status: "manual_approved".to_owned(),
+                review_reason: Some("wrong_asset".to_owned()),
+                processed_at: Some(first_paid_at),
+                matched_order_id: Some(1),
+            },
+            &AuditLogRecord {
+                actor_email: "admin@example.com".to_owned(),
+                action: "deposit.manual_credited".to_owned(),
+                target_type: "deposit".to_owned(),
+                target_id: "BSC:tx-first".to_owned(),
+                payload: json!({ "tx_hash": "tx-first" }),
+                created_at: first_paid_at,
+            },
+        )
+        .expect("first payment");
+
+        let second_applied = db
+            .apply_membership_payment_with_deposit_and_audit(
+                1,
+                "BSC",
+                "tx-second",
+                second_paid_at,
+                "member@example.com",
+                second_active_until,
+                second_grace_until,
+                &DepositTransactionRecord {
+                    tx_hash: "tx-second".to_owned(),
+                    chain: "BSC".to_owned(),
+                    asset: "USDT".to_owned(),
+                    address: "bsc-addr-2".to_owned(),
+                    amount: "20.00000000".to_owned(),
+                    observed_at: second_paid_at,
+                    order_id: Some(1),
+                    status: "manual_approved".to_owned(),
+                    review_reason: Some("ambiguous_match".to_owned()),
+                    processed_at: Some(second_paid_at),
+                    matched_order_id: Some(1),
+                },
+                &AuditLogRecord {
+                    actor_email: "admin@example.com".to_owned(),
+                    action: "deposit.manual_credited".to_owned(),
+                    target_type: "deposit".to_owned(),
+                    target_id: "BSC:tx-second".to_owned(),
+                    payload: json!({ "tx_hash": "tx-second" }),
+                    created_at: second_paid_at,
+                },
+            )
+            .expect("second payment attempt");
+        assert!(!second_applied);
+
+        let order = db
+            .list_billing_orders()
+            .expect("orders")
+            .into_iter()
+            .find(|record| record.order_id == 1)
+            .expect("order");
+        assert_eq!(order.paid_at, Some(first_paid_at));
+        assert_eq!(order.tx_hash.as_deref(), Some("tx-first"));
+
+        let deposits = db.list_deposit_transactions().expect("deposits");
+        assert!(deposits.iter().any(|record| record.tx_hash == "tx-first"));
+        assert!(!deposits.iter().any(|record| record.tx_hash == "tx-second"));
+
+        let membership = db
+            .find_membership_record("member@example.com")
+            .expect("membership")
+            .expect("membership record");
+        assert_eq!(membership.activated_at, Some(first_paid_at));
+        assert_eq!(membership.active_until, Some(first_active_until));
+        assert_eq!(membership.grace_until, Some(first_grace_until));
+
+        let audit_logs = db.list_audit_logs().expect("audit logs");
+        assert_eq!(audit_logs.len(), 1);
+        assert_eq!(audit_logs[0].target_id, "BSC:tx-first");
     }
 }

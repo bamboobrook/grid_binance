@@ -484,9 +484,10 @@ impl AuthService {
             .find_auth_user(&email)
             .map_err(AuthError::storage)?
             .ok_or_else(|| AuthError::not_found("user not found"))?;
-        let admin_role = resolved_admin_role(&self.config, &email);
-        let admin_totp_required = admin_role.is_some();
+        let resolved_role = resolved_admin_role(&self.config, &email);
+        let admin_totp_required = resolved_role.is_some();
         let totp_enabled = user.totp_secret.is_some();
+        let admin_role = admin_access_granted.then_some(resolved_role).flatten();
 
         Ok(ProfileResponse {
             email: user.email,
@@ -526,7 +527,9 @@ impl AuthService {
 
         Ok(SessionClaims {
             email: email.clone(),
-            is_admin: claims.is_admin && resolved_admin_role(&self.config, &email).is_some() && totp_enabled,
+            is_admin: claims.is_admin
+                && resolved_admin_role(&self.config, &email).is_some()
+                && totp_enabled,
             sid: claims.sid,
         })
     }
@@ -539,9 +542,8 @@ impl AuthService {
     }
 
     pub fn admin_role_for_email(&self, email: &str) -> Option<AdminRole> {
-resolved_admin_role(&self.config, email)
+        resolved_admin_role(&self.config, email)
     }
-
 }
 
 impl AdminRole {
@@ -575,7 +577,6 @@ impl AdminPermissions {
         }
     }
 }
-
 
 impl Default for AuthService {
     fn default() -> Self {
@@ -671,11 +672,7 @@ struct ErrorResponse {
     error: String,
 }
 
-fn security_audit(
-    actor_email: &str,
-    action: &str,
-    payload: serde_json::Value,
-) -> AuditLogRecord {
+fn security_audit(actor_email: &str, action: &str, payload: serde_json::Value) -> AuditLogRecord {
     AuditLogRecord {
         actor_email: actor_email.to_owned(),
         action: action.to_owned(),
@@ -693,9 +690,15 @@ fn normalize_email(email: &str) -> String {
 fn resolved_admin_role(config: &AuthConfig, email: &str) -> Option<AdminRole> {
     let email = normalize_email(email);
     config.admin_roles.get(&email).copied().or_else(|| {
-        if DEFAULT_SUPER_ADMIN_EMAILS.iter().any(|candidate| normalize_email(candidate) == email) {
+        if DEFAULT_SUPER_ADMIN_EMAILS
+            .iter()
+            .any(|candidate| normalize_email(candidate) == email)
+        {
             Some(AdminRole::SuperAdmin)
-        } else if DEFAULT_OPERATOR_ADMIN_EMAILS.iter().any(|candidate| normalize_email(candidate) == email) {
+        } else if DEFAULT_OPERATOR_ADMIN_EMAILS
+            .iter()
+            .any(|candidate| normalize_email(candidate) == email)
+        {
             Some(AdminRole::OperatorAdmin)
         } else {
             None
@@ -726,7 +729,10 @@ impl AuthConfig {
 fn load_admin_roles() -> HashMap<String, AdminRole> {
     let mut roles = HashMap::new();
 
-    for email in DEFAULT_OPERATOR_ADMIN_EMAILS.into_iter().map(normalize_email) {
+    for email in DEFAULT_OPERATOR_ADMIN_EMAILS
+        .into_iter()
+        .map(normalize_email)
+    {
         roles.insert(email, AdminRole::OperatorAdmin);
     }
     for email in DEFAULT_SUPER_ADMIN_EMAILS.into_iter().map(normalize_email) {

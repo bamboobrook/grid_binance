@@ -7,13 +7,13 @@ use billing_chain_listener::order_matcher::canonicalize_amount;
 use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use std::collections::HashSet;
 use shared_db::{
     AuditLogRecord, BillingOrderRecord, DepositAddressPoolRecord, DepositTransactionRecord,
     MembershipPlanPriceRecord, MembershipPlanRecord, MembershipRecord, SharedDb, SweepJobRecord,
     SweepTransferRecord,
 };
 use shared_domain::membership::{MembershipSnapshot, MembershipStatus};
+use std::collections::HashSet;
 
 use crate::services::auth_service::{AdminRole, AuthError};
 
@@ -866,9 +866,9 @@ impl MembershipService {
         let expected_price_count = DEFAULT_CHAIN_CODES.len() * DEFAULT_ASSETS.len();
         if request_price_count != expected_price_count
             || DEFAULT_CHAIN_CODES.iter().any(|chain| {
-                DEFAULT_ASSETS.iter().any(|asset| {
-                    !seen_pairs.contains(&(chain.to_string(), asset.to_string()))
-                })
+                DEFAULT_ASSETS
+                    .iter()
+                    .any(|asset| !seen_pairs.contains(&(chain.to_string(), asset.to_string())))
             })
         {
             return Err(MembershipError::bad_request(
@@ -1192,7 +1192,8 @@ impl MembershipService {
                     }),
                     created_at: request.processed_at,
                 };
-                self.db
+                let applied = self
+                    .db
                     .apply_membership_payment_with_deposit_and_audit(
                         order_id,
                         &order.chain,
@@ -1205,6 +1206,9 @@ impl MembershipService {
                         &audit,
                     )
                     .map_err(MembershipError::storage)?;
+                if !applied {
+                    return Err(MembershipError::bad_request("order already paid"));
+                }
                 let snapshot = snapshot_for(
                     &order.email,
                     self.db
@@ -1264,7 +1268,11 @@ impl MembershipService {
         let chain = normalize_chain(&request.chain);
         let asset = normalize_asset(&request.asset);
         let treasury_address = request.treasury_address.trim().to_owned();
-        if chain.is_empty() || asset.is_empty() || treasury_address.is_empty() || request.transfers.is_empty() {
+        if chain.is_empty()
+            || asset.is_empty()
+            || treasury_address.is_empty()
+            || request.transfers.is_empty()
+        {
             return Err(MembershipError::bad_request(
                 "chain, asset, treasury_address, and transfers are required",
             ));
@@ -1291,7 +1299,9 @@ impl MembershipService {
             .map(|transfer| {
                 let from_address = transfer.from_address.trim().to_owned();
                 if from_address.is_empty() {
-                    return Err(MembershipError::bad_request("transfer from_address is required"));
+                    return Err(MembershipError::bad_request(
+                        "transfer from_address is required",
+                    ));
                 }
                 canonicalize_amount(&transfer.amount)
                     .map_err(|_| MembershipError::bad_request("invalid amount"))
@@ -1552,7 +1562,6 @@ impl MembershipService {
             .upsert_deposit_transaction(&record)
             .map_err(MembershipError::storage)
     }
-
 }
 
 fn manual_credit_target_consistent(
@@ -1572,9 +1581,7 @@ fn manual_credit_target_consistent(
                     .as_ref()
                     .is_some_and(|assignment| assignment.address == deposit.address)
         }
-        Some("order_not_found") => {
-            deposit.asset == order.asset && deposit.amount == order.amount
-        }
+        Some("order_not_found") => deposit.asset == order.asset && deposit.amount == order.amount,
         _ => deposit.order_id == Some(order.order_id),
     }
 }

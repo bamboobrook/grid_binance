@@ -55,7 +55,10 @@ async fn authenticated_user_can_read_profile_and_change_password() {
         .unwrap();
 
     assert_eq!(password_change.status(), StatusCode::OK);
-    assert_eq!(response_json(password_change).await["password_changed"], true);
+    assert_eq!(
+        response_json(password_change).await["password_changed"],
+        true
+    );
 
     let revoked_session = app
         .clone()
@@ -197,7 +200,8 @@ async fn profile_reflects_totp_state_after_enable_and_disable() {
         .unwrap();
     assert_eq!(revoked_profile.status(), StatusCode::UNAUTHORIZED);
 
-    let refreshed_session = login_and_get_token(&app, "security@example.com", "pass1234", None).await;
+    let refreshed_session =
+        login_and_get_token(&app, "security@example.com", "pass1234", None).await;
     let profile = app
         .oneshot(
             Request::builder()
@@ -262,6 +266,8 @@ async fn profile_admin_access_granted_tracks_current_bearer_session() {
     assert_eq!(stale_body["admin_totp_required"], true);
     assert_eq!(stale_body["totp_enabled"], true);
     assert_eq!(stale_body["admin_access_granted"], false);
+    assert_eq!(stale_body["admin_role"], Value::Null);
+    assert_eq!(stale_body["admin_permissions"], Value::Null);
 
     let admin_session =
         login_and_get_token(&app, "admin@example.com", "pass1234", Some(&totp_code)).await;
@@ -278,7 +284,17 @@ async fn profile_admin_access_granted_tracks_current_bearer_session() {
         .await
         .unwrap();
     assert_eq!(current_profile.status(), StatusCode::OK);
-    assert_eq!(response_json(current_profile).await["admin_access_granted"], true);
+    let current_body = response_json(current_profile).await;
+    assert_eq!(current_body["admin_access_granted"], true);
+    assert_eq!(current_body["admin_role"], "operator_admin");
+    assert_eq!(
+        current_body["admin_permissions"]["can_manage_memberships"],
+        false
+    );
+    assert_eq!(
+        current_body["admin_permissions"]["can_manage_templates"],
+        false
+    );
 }
 
 #[tokio::test]
@@ -352,7 +368,9 @@ async fn totp_disable_rejects_session_email_mismatch() {
                 .uri("/security/totp/enable")
                 .header("authorization", format!("Bearer {session_token}"))
                 .header("content-type", "application/json")
-                .body(Body::from(json!({ "email": "first@example.com" }).to_string()))
+                .body(Body::from(
+                    json!({ "email": "first@example.com" }).to_string(),
+                ))
                 .unwrap(),
         )
         .await
@@ -365,7 +383,9 @@ async fn totp_disable_rejects_session_email_mismatch() {
                 .uri("/security/totp/disable")
                 .header("authorization", format!("Bearer {session_token}"))
                 .header("content-type", "application/json")
-                .body(Body::from(json!({ "email": "second@example.com" }).to_string()))
+                .body(Body::from(
+                    json!({ "email": "second@example.com" }).to_string(),
+                ))
                 .unwrap(),
         )
         .await
