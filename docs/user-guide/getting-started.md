@@ -1,29 +1,68 @@
 # User Guide: Getting Started
 
-## Purpose
+## What This Product Includes
 
-This release packages the public web shell and API behind Nginx and exposes the app at `http://localhost:8080`.
+Grid Binance V1 is a hosted Binance grid trading platform with:
 
-## First Run
+- public registration and login
+- a user workspace under `/app/*`
+- an admin workspace under `/admin/*`
+- Binance spot, USDⓈ-M futures, and COIN-M futures support
+- membership billing by chain payment order
+- Telegram notifications
+- repository-backed help center articles under `/help/*`
+
+The first release is deployed with Docker Compose behind Nginx and is exposed locally at `http://localhost:8080`.
+
+## First Run Path
 
 1. Copy `.env.example` to `.env`.
-2. Set at least `DATABASE_URL`, `REDIS_URL`, `SESSION_TOKEN_SECRET`, and `ADMIN_EMAILS` in `.env`.
+2. Set the release-critical values described in `docs/deployment/env-and-secrets.md`.
 3. Start the stack with `docker compose --env-file .env -f deploy/docker/docker-compose.yml up -d --build`.
 4. Open `http://localhost:8080`.
 5. Use the public entry points:
-   - `/register` for registration entry
-   - `/login` for login
-   - `/help/expiry-reminder` for the help center example article
+   - `/register` to create an account
+   - `/login` to sign in
+   - `/help/getting-started` to read the in-app help center from repository docs
 
-## What Is Included
+## After Sign-In
 
-- The user-facing Next.js app
-- Nginx reverse proxy in front of the app
-- The API health endpoint at `/api/healthz`
-- PostgreSQL for relational runtime data and Redis for runtime coordination
+After login, the commercial runtime path is the user app under `/app/*`.
 
-`.env.example` targets Docker Compose service discovery. If you run `cargo run -p api-server` outside compose, override `DATABASE_URL` and `REDIS_URL` to `127.0.0.1` or another reachable host.
+Key user routes:
 
-## Smoke Check
+- `/app/dashboard` for account overview and renewal reminders
+- `/app/billing` for membership plans, renewal orders, and payment instructions
+- `/app/security` for password and TOTP operations
+- `/app/strategies` for draft strategy management
+- `/app/analytics` for account and strategy reporting
+- `/app/notifications` for in-app alert review
 
-Run `./scripts/smoke.sh` after the stack is up. It verifies the main web entry point and the API health endpoint routed through Nginx.
+Anonymous requests to `/app/*` and `/admin/*` are expected to redirect to `/login`.
+
+## Product Rules To Remember
+
+- Membership is required before starting a strategy.
+- Each billing order must be paid with the exact chain, token, and amount shown on the billing page.
+- Spot, USDⓈ-M futures, and COIN-M futures are supported.
+- Futures strategies require Binance Hedge Mode.
+- Withdrawal permission must stay disabled on Binance API keys.
+- Help center articles are sourced from `docs/user-guide/*` in this repository.
+
+## Non-Compose Local Note
+
+If you are verifying the API service outside Docker Compose, override the runtime hosts and use `cargo run -p api-server` with host-reachable database and Redis values.
+
+## Local Verification
+
+After the stack is up, run `./scripts/smoke.sh`.
+
+The smoke script verifies the release path through Nginx, including:
+
+- `http://localhost:8080/`
+- `http://localhost:8080/api/healthz`
+- `http://localhost:8080/help/getting-started`
+- `http://localhost:8080/app/dashboard`
+- `http://localhost:8080/admin/dashboard`
+
+The `/app/*` and `/admin/*` checks are expected to prove routing and auth gates, even when they redirect to login for anonymous access.

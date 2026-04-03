@@ -3,6 +3,7 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 COMPOSE_DIR="$ROOT_DIR/deploy/docker"
+# Commercial runtime path: deploy/docker/docker-compose.yml
 
 compose() {
   if docker compose version >/dev/null 2>&1; then
@@ -39,5 +40,8 @@ compose up -d --build
 
 wait_for_url "http://localhost:8080/" "nginx web entrypoint"
 wait_for_url "http://localhost:8080/api/healthz" "api health entrypoint"
+wait_for_url "http://localhost:8080/help/getting-started" "repository help entrypoint"
+wait_for_url "http://localhost:8080/app/dashboard" "user commercial runtime path"
+wait_for_url "http://localhost:8080/admin/dashboard" "admin commercial runtime path"
 
 compose ps
