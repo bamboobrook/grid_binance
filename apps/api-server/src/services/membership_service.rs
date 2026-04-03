@@ -656,15 +656,9 @@ impl MembershipService {
                 .and_then(|record| record.activated_at)
         });
 
-        self.db
-            .update_membership_override(&email, request.status.as_ref())
-            .map_err(MembershipError::storage)?;
-        let after_record = self
-            .db
-            .find_membership_record(&email)
-            .map_err(MembershipError::storage)?;
-
-        self.insert_audit(AuditLogRecord {
+        let mut updated_record = before_record.clone().unwrap_or_default();
+        updated_record.override_status = request.status.clone();
+        let audit = AuditLogRecord {
             actor_email: actor_email.to_owned(),
             action: "membership.override_updated".to_owned(),
             target_type: "membership".to_owned(),
@@ -674,10 +668,18 @@ impl MembershipService {
                 "session_role": admin_role.map(|role| role.as_str()),
                 "session_sid": session_sid,
                 "before_summary": membership_record_summary(&email, before_record.as_ref(), effective_at),
-                "after_summary": membership_record_summary(&email, after_record.as_ref(), effective_at),
+                "after_summary": membership_record_summary(&email, Some(&updated_record), effective_at),
             }),
             created_at: request.at.unwrap_or_else(Utc::now),
-        })?;
+        };
+
+        self.db
+            .update_membership_override_with_audit(&email, request.status.as_ref(), &audit)
+            .map_err(MembershipError::storage)?;
+        let after_record = self
+            .db
+            .find_membership_record(&email)
+            .map_err(MembershipError::storage)?;
 
         Ok(snapshot_for(&email, after_record.as_ref(), effective_at))
     }
@@ -752,17 +754,13 @@ impl MembershipService {
         };
         let after_summary = membership_record_summary(&email, Some(&updated), Some(request.at));
 
-        self.db
-            .upsert_membership_record(&email, &updated)
-            .map_err(MembershipError::storage)?;
-
         let action_name = match action.as_str() {
             "open" => "membership.manual_opened",
             "extend" => "membership.manual_extended",
             "unfreeze" => "membership.manual_unfrozen",
             _ => unreachable!(),
         };
-        self.insert_audit(AuditLogRecord {
+        let audit = AuditLogRecord {
             actor_email: actor_email.to_owned(),
             action: action_name.to_owned(),
             target_type: "membership".to_owned(),
@@ -776,7 +774,10 @@ impl MembershipService {
                 "after_summary": after_summary,
             }),
             created_at: request.at,
-        })?;
+        };
+        self.db
+            .upsert_membership_record_with_audit(&email, &updated, &audit)
+            .map_err(MembershipError::storage)?;
 
         let record = self
             .db
@@ -890,19 +891,7 @@ impl MembershipService {
                 amount: price.amount.clone(),
             })
             .collect::<Vec<_>>();
-        self.db
-            .upsert_membership_plan_with_prices(
-                &MembershipPlanRecord {
-                    code: code.clone(),
-                    name: name.clone(),
-                    duration_days: request.duration_days,
-                    is_active: request.is_active,
-                },
-                &stored_prices,
-            )
-            .map_err(MembershipError::storage)?;
-
-        self.insert_audit(AuditLogRecord {
+        let audit = AuditLogRecord {
             actor_email: actor_email.to_owned(),
             action: "membership.plan_config_updated".to_owned(),
             target_type: "membership_plan".to_owned(),
@@ -918,7 +907,19 @@ impl MembershipService {
                 "prices": prices,
             }),
             created_at: Utc::now(),
-        })?;
+        };
+        self.db
+            .upsert_membership_plan_with_prices_and_audit(
+                &MembershipPlanRecord {
+                    code: code.clone(),
+                    name: name.clone(),
+                    duration_days: request.duration_days,
+                    is_active: request.is_active,
+                },
+                &stored_prices,
+                &audit,
+            )
+            .map_err(MembershipError::storage)?;
 
         Ok(MembershipPlanConfigResponse {
             code,
@@ -983,14 +984,7 @@ impl MembershipService {
         );
         let after_summary = address_pool_summary(&chain, &address, Some(request.is_enabled));
 
-        self.db
-            .upsert_deposit_address(&DepositAddressPoolRecord {
-                chain: chain.clone(),
-                address: address.clone(),
-                is_enabled: request.is_enabled,
-            })
-            .map_err(MembershipError::storage)?;
-        self.insert_audit(AuditLogRecord {
+        let audit = AuditLogRecord {
             actor_email: actor_email.to_owned(),
             action: "billing.address_pool_updated".to_owned(),
             target_type: "deposit_address".to_owned(),
@@ -1003,7 +997,17 @@ impl MembershipService {
                 "after_summary": after_summary,
             }),
             created_at: Utc::now(),
-        })?;
+        };
+        self.db
+            .upsert_deposit_address_with_audit(
+                &DepositAddressPoolRecord {
+                    chain: chain.clone(),
+                    address: address.clone(),
+                    is_enabled: request.is_enabled,
+                },
+                &audit,
+            )
+            .map_err(MembershipError::storage)?;
         Ok(AddressPoolEntryResponse {
             chain,
             address,
@@ -1127,16 +1131,14 @@ impl MembershipService {
                         "manual credit cannot reassign this deposit to a different order",
                     ));
                 }
-                let (_active_until, _grace_until) =
-                    self.apply_membership_entitlement(&order, &tx_hash, request.processed_at)?;
-                deposit.status = "manual_approved".to_owned();
-                deposit.processed_at = Some(request.processed_at);
-                deposit.order_id = Some(order_id);
-                deposit.matched_order_id = Some(order_id);
-                self.db
-                    .upsert_deposit_transaction(deposit)
-                    .map_err(MembershipError::storage)?;
-                self.insert_audit(AuditLogRecord {
+                let (active_until, grace_until) =
+                    self.membership_entitlement_window(&order, request.processed_at)?;
+                let mut updated_deposit = deposit.clone();
+                updated_deposit.status = "manual_approved".to_owned();
+                updated_deposit.processed_at = Some(request.processed_at);
+                updated_deposit.order_id = Some(order_id);
+                updated_deposit.matched_order_id = Some(order_id);
+                let audit = AuditLogRecord {
                     actor_email: actor_email.to_owned(),
                     action: "deposit.manual_credited".to_owned(),
                     target_type: "deposit".to_owned(),
@@ -1151,7 +1153,20 @@ impl MembershipService {
                         "after_summary": abnormal_deposit_after_summary("manual_approved", decision.as_str(), Some(order_id)),
                     }),
                     created_at: request.processed_at,
-                })?;
+                };
+                self.db
+                    .apply_membership_payment_with_deposit_and_audit(
+                        order_id,
+                        &order.chain,
+                        &tx_hash,
+                        request.processed_at,
+                        &order.email,
+                        active_until,
+                        grace_until,
+                        &updated_deposit,
+                        &audit,
+                    )
+                    .map_err(MembershipError::storage)?;
                 let snapshot = snapshot_for(
                     &order.email,
                     self.db
@@ -1168,12 +1183,10 @@ impl MembershipService {
                 })
             }
             "reject" => {
-                deposit.status = "manual_rejected".to_owned();
-                deposit.processed_at = Some(request.processed_at);
-                self.db
-                    .upsert_deposit_transaction(deposit)
-                    .map_err(MembershipError::storage)?;
-                self.insert_audit(AuditLogRecord {
+                let mut updated_deposit = deposit.clone();
+                updated_deposit.status = "manual_rejected".to_owned();
+                updated_deposit.processed_at = Some(request.processed_at);
+                let audit = AuditLogRecord {
                     actor_email: actor_email.to_owned(),
                     action: "deposit.manual_rejected".to_owned(),
                     target_type: "deposit".to_owned(),
@@ -1187,7 +1200,10 @@ impl MembershipService {
                         "after_summary": abnormal_deposit_after_summary("manual_rejected", decision.as_str(), None),
                     }),
                     created_at: request.processed_at,
-                })?;
+                };
+                self.db
+                    .upsert_deposit_transaction_with_audit(&updated_deposit, &audit)
+                    .map_err(MembershipError::storage)?;
                 Ok(ProcessAbnormalDepositResponse {
                     tx_hash,
                     deposit_status: "manual_rejected".to_owned(),
@@ -1255,10 +1271,7 @@ impl MembershipService {
             completed_at: None,
             transfers: transfers.clone(),
         };
-        self.db
-            .create_sweep_job(&job)
-            .map_err(MembershipError::storage)?;
-        self.insert_audit(AuditLogRecord {
+        let audit = AuditLogRecord {
             actor_email: actor_email.to_owned(),
             action: "treasury.sweep_requested".to_owned(),
             target_type: "sweep_job".to_owned(),
@@ -1274,7 +1287,10 @@ impl MembershipService {
                 "after_summary": after_summary,
             }),
             created_at: request.requested_at,
-        })?;
+        };
+        self.db
+            .create_sweep_job_with_audit(&job, &audit)
+            .map_err(MembershipError::storage)?;
         Ok(SweepJobResponse {
             sweep_job_id,
             chain,
@@ -1416,6 +1432,27 @@ impl MembershipService {
         tx_hash: &str,
         paid_at: DateTime<Utc>,
     ) -> Result<(DateTime<Utc>, DateTime<Utc>), MembershipError> {
+        let (active_until, grace_until) = self.membership_entitlement_window(order, paid_at)?;
+
+        self.db
+            .apply_membership_payment(
+                order.order_id,
+                &order.chain,
+                tx_hash,
+                paid_at,
+                &order.email,
+                active_until,
+                grace_until,
+            )
+            .map_err(MembershipError::storage)?;
+        Ok((active_until, grace_until))
+    }
+
+    fn membership_entitlement_window(
+        &self,
+        order: &BillingOrderRecord,
+        paid_at: DateTime<Utc>,
+    ) -> Result<(DateTime<Utc>, DateTime<Utc>), MembershipError> {
         let plan = self
             .db
             .list_membership_plans()
@@ -1441,18 +1478,6 @@ impl MembershipService {
             .unwrap_or(paid_at);
         let active_until = base + Duration::days(i64::from(plan.duration_days));
         let grace_until = active_until + Duration::hours(GRACE_HOURS);
-
-        self.db
-            .apply_membership_payment(
-                order.order_id,
-                &order.chain,
-                tx_hash,
-                paid_at,
-                &order.email,
-                active_until,
-                grace_until,
-            )
-            .map_err(MembershipError::storage)?;
         Ok((active_until, grace_until))
     }
 

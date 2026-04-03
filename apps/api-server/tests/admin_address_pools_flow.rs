@@ -257,6 +257,28 @@ async fn super_admin_plan_and_address_pool_updates_fail_when_audit_write_fails()
         })),
     );
     assert_eq!(plan_status, StatusCode::INTERNAL_SERVER_ERROR.as_u16());
+    let (plans_status, plans_body) = http_json(
+        "GET",
+        &format!("{}/admin/memberships/plans", server.base_url()),
+        Some(&super_admin_token),
+        None,
+    );
+    assert_eq!(plans_status, StatusCode::OK.as_u16());
+    let monthly = plans_body["plans"]
+        .as_array()
+        .expect("plans")
+        .iter()
+        .find(|plan| plan["code"] == "monthly")
+        .expect("monthly plan");
+    assert_eq!(monthly["name"], "Monthly");
+    assert_eq!(monthly["duration_days"], 30);
+    assert!(monthly["prices"]
+        .as_array()
+        .expect("prices")
+        .iter()
+        .any(|price| price["chain"] == "BSC"
+            && price["asset"] == "USDT"
+            && price["amount"] == "20.00000000"));
 
     let (pool_status, _) = http_json(
         "POST",
@@ -269,6 +291,40 @@ async fn super_admin_plan_and_address_pool_updates_fail_when_audit_write_fails()
         })),
     );
     assert_eq!(pool_status, StatusCode::INTERNAL_SERVER_ERROR.as_u16());
+    let (pools_status, pools_body) = http_json(
+        "GET",
+        &format!("{}/admin/address-pools", server.base_url()),
+        Some(&super_admin_token),
+        None,
+    );
+    assert_eq!(pools_status, StatusCode::OK.as_u16());
+    assert!(!pools_body["addresses"]
+        .as_array()
+        .expect("addresses")
+        .iter()
+        .any(|entry| entry["chain"] == "BSC" && entry["address"] == "bsc-extra-1"));
+
+    let (system_status, _) = http_json(
+        "POST",
+        &format!("{}/admin/system", server.base_url()),
+        Some(&super_admin_token),
+        Some(json!({
+            "eth_confirmations": 6,
+            "bsc_confirmations": 7,
+            "sol_confirmations": 8
+        })),
+    );
+    assert_eq!(system_status, StatusCode::INTERNAL_SERVER_ERROR.as_u16());
+    let (system_read_status, system_body) = http_json(
+        "GET",
+        &format!("{}/admin/system", server.base_url()),
+        Some(&super_admin_token),
+        None,
+    );
+    assert_eq!(system_read_status, StatusCode::OK.as_u16());
+    assert_eq!(system_body["eth_confirmations"], 12);
+    assert_eq!(system_body["bsc_confirmations"], 12);
+    assert_eq!(system_body["sol_confirmations"], 12);
 }
 
 async fn register_admin_and_login(app: &axum::Router) -> String {

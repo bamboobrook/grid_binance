@@ -395,7 +395,8 @@ async fn ambiguous_manual_review_records_can_be_processed() {
 async fn abnormal_deposit_processing_fails_when_audit_write_fails() {
     let server = ApiServerHarness::start("deposit-audit");
     let user_token = register_and_login_via_http(&server, "member@example.com", "pass1234");
-    let admin_token = register_privileged_admin_and_login_via_http(&server, "admin@example.com");
+    let super_admin_token =
+        register_privileged_admin_and_login_via_http(&server, "super-admin@example.com");
 
     let (order_status, order_body) = http_json(
         "POST",
@@ -415,7 +416,7 @@ async fn abnormal_deposit_processing_fails_when_audit_write_fails() {
     let (match_status, _) = http_json(
         "POST",
         &format!("{}/billing/orders/match", server.base_url()),
-        Some(&admin_token),
+        Some(&super_admin_token),
         Some(json!({
             "chain": "BSC",
             "asset": "USDC",
@@ -432,16 +433,79 @@ async fn abnormal_deposit_processing_fails_when_audit_write_fails() {
     let (reject_status, _) = http_json(
         "POST",
         &format!("{}/admin/deposits/process", server.base_url()),
-        Some(&admin_token),
+        Some(&super_admin_token),
         Some(json!({
             "chain": "BSC",
             "tx_hash": "tx-wrong-asset-audit",
-            "decision": "reject",
-            "order_id": null,
+            "decision": "credit_membership",
+            "order_id": order_body["order_id"],
             "processed_at": "2026-04-01T00:06:00Z"
         })),
     );
     assert_eq!(reject_status, StatusCode::INTERNAL_SERVER_ERROR.as_u16());
+
+    let (status_status, status_body) = http_json(
+        "POST",
+        &format!("{}/membership/status", server.base_url()),
+        Some(&user_token),
+        Some(json!({
+            "email": "member@example.com",
+            "at": "2026-04-01T00:07:00Z"
+        })),
+    );
+    assert_eq!(status_status, StatusCode::OK.as_u16());
+    assert_eq!(status_body["status"], "Pending");
+
+    let (deposits_status, deposits_body) = http_json(
+        "GET",
+        &format!(
+            "{}/admin/deposits?at={}",
+            server.base_url(),
+            "2026-04-01T00:07:00Z"
+        ),
+        Some(&super_admin_token),
+        None,
+    );
+    assert_eq!(deposits_status, StatusCode::OK.as_u16());
+    let deposit = deposits_body["abnormal_deposits"]
+        .as_array()
+        .expect("abnormal deposits")
+        .iter()
+        .find(|record| record["tx_hash"] == "tx-wrong-asset-audit")
+        .expect("tx still listed");
+    assert_eq!(deposit["status"], "manual_review_required");
+    assert_eq!(deposit["review_reason"], "wrong_asset");
+
+    let (sweep_status, _) = http_json(
+        "POST",
+        &format!("{}/admin/sweeps", server.base_url()),
+        Some(&super_admin_token),
+        Some(json!({
+            "chain": "BSC",
+            "asset": "USDT",
+            "treasury_address": "bsc-treasury-1",
+            "requested_at": "2026-04-01T00:08:00Z",
+            "transfers": [
+                {
+                    "from_address": "bsc-addr-1",
+                    "amount": "20.00000000"
+                }
+            ]
+        })),
+    );
+    assert_eq!(sweep_status, StatusCode::INTERNAL_SERVER_ERROR.as_u16());
+    let (sweeps_read_status, sweeps_body) = http_json(
+        "GET",
+        &format!("{}/admin/sweeps", server.base_url()),
+        Some(&super_admin_token),
+        None,
+    );
+    assert_eq!(sweeps_read_status, StatusCode::OK.as_u16());
+    assert_eq!(
+        sweeps_body["jobs"].as_array().expect("jobs").len(),
+        0,
+        "failed sweep request must not persist"
+    );
 }
 
 async fn register_admin_and_login(app: &axum::Router) -> String {

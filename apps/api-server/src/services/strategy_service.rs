@@ -470,21 +470,23 @@ impl StrategyService {
             .map_err(StrategyError::storage)?;
         let template_id = format!("template-{sequence_id}");
         let template = build_template(&template_id, request.strategy)?;
-        self.db
-            .insert_template(&StoredStrategyTemplate {
-                sequence_id,
-                template: template.clone(),
-            })
-            .map_err(StrategyError::storage)?;
-        write_template_audit(
-            &self.db,
+        let audit = build_template_audit(
             actor_email,
             admin_role,
             session_sid,
             "strategy.template_created",
             None,
             &template,
-        )?;
+        );
+        self.db
+            .insert_template_with_audit(
+                &StoredStrategyTemplate {
+                    sequence_id,
+                    template: template.clone(),
+                },
+                &audit,
+            )
+            .map_err(StrategyError::storage)?;
         Ok(template)
     }
 
@@ -504,18 +506,21 @@ impl StrategyService {
             .map_err(StrategyError::storage)?
             .ok_or_else(|| StrategyError::not_found("template not found"))?;
         let template = build_template(template_id, request.strategy)?;
-        self.db
-            .update_template(&template)
-            .map_err(StrategyError::storage)?;
-        write_template_audit(
-            &self.db,
+        let audit = build_template_audit(
             actor_email,
             admin_role,
             session_sid,
             "strategy.template_updated",
             Some(&existing),
             &template,
-        )?;
+        );
+        let updated = self
+            .db
+            .update_template_with_audit(&template, &audit)
+            .map_err(StrategyError::storage)?;
+        if updated == 0 {
+            return Err(StrategyError::not_found("template not found"));
+        }
         Ok(template)
     }
 
@@ -598,16 +603,15 @@ fn build_template(
     })
 }
 
-fn write_template_audit(
-    db: &SharedDb,
+fn build_template_audit(
     actor_email: &str,
     admin_role: Option<AdminRole>,
     session_sid: u64,
     action: &str,
     before: Option<&StrategyTemplate>,
     after: &StrategyTemplate,
-) -> Result<(), StrategyError> {
-    db.insert_audit_log(&shared_db::AuditLogRecord {
+) -> shared_db::AuditLogRecord {
+    shared_db::AuditLogRecord {
         actor_email: actor_email.to_owned(),
         action: action.to_owned(),
         target_type: "strategy_template".to_owned(),
@@ -627,8 +631,7 @@ fn write_template_audit(
             "after_summary": template_summary(after),
         }),
         created_at: Utc::now(),
-    })
-    .map_err(StrategyError::storage)
+    }
 }
 
 fn template_summary(template: &StrategyTemplate) -> String {
@@ -1202,7 +1205,7 @@ mod tests {
     fn create_template_fails_when_audit_write_fails() {
         let harness = PersistentRuntimeHarness::start("strategy-audit");
         let db = SharedDb::connect(harness.database_url(), harness.redis_url()).expect("db");
-        let service = StrategyService::new(db);
+        let service = StrategyService::new(db.clone());
 
         harness.break_audit_table();
 
@@ -1224,6 +1227,11 @@ mod tests {
             }
             Ok(_) => panic!("template create should fail when audit write fails"),
         }
+
+        assert!(
+            db.list_templates().expect("templates").is_empty(),
+            "failed template create must not persist"
+        );
     }
 
     fn template_request(name: &str) -> SaveStrategyRequest {

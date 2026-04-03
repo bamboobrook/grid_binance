@@ -433,6 +433,7 @@ async fn operator_admin_cannot_manually_open_extend_or_unfreeze_membership() {
 
 async fn manual_membership_actions_fail_when_audit_write_fails() {
     let server = ApiServerHarness::start("membership-audit");
+    let user_token = register_and_login_via_http(&server, "manual@example.com", "pass1234");
     let super_admin_token =
         register_privileged_admin_and_login_via_http(&server, "super-admin@example.com");
 
@@ -487,6 +488,21 @@ async fn manual_membership_actions_fail_when_audit_write_fails() {
         })),
     );
     assert_eq!(unfreeze_status, StatusCode::INTERNAL_SERVER_ERROR.as_u16());
+
+    let (status_status, status_body) = http_json(
+        "POST",
+        &format!("{}/membership/status", server.base_url()),
+        Some(&user_token),
+        Some(json!({
+            "email": "manual@example.com",
+            "at": "2026-04-20T00:00:00Z"
+        })),
+    );
+    assert_eq!(status_status, StatusCode::OK.as_u16());
+    assert_eq!(status_body["status"], "Pending");
+    assert_eq!(status_body["active_until"], Value::Null);
+    assert_eq!(status_body["grace_until"], Value::Null);
+    assert_eq!(status_body["override_status"], Value::Null);
 }
 
 #[tokio::test]

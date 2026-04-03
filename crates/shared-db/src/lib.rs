@@ -51,7 +51,7 @@ enum SharedDbBackend {
     Ephemeral(Arc<Mutex<EphemeralState>>),
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Clone, Default)]
 struct EphemeralState {
     sequences: HashMap<String, u64>,
     auth_users: HashMap<String, AuthUserRecord>,
@@ -417,7 +417,9 @@ impl SharedDb {
                 Self::block_on(async move { repo.insert_account_profit_snapshot(&record).await })
             }
             SharedDbBackend::Ephemeral(state) => {
-                lock_ephemeral(state)?.account_profit_snapshots.push(record.clone());
+                lock_ephemeral(state)?
+                    .account_profit_snapshots
+                    .push(record.clone());
                 Ok(())
             }
         }
@@ -453,7 +455,9 @@ impl SharedDb {
                 Self::block_on(async move { repo.insert_wallet_snapshot(&record).await })
             }
             SharedDbBackend::Ephemeral(state) => {
-                lock_ephemeral(state)?.exchange_wallet_snapshots.push(record.clone());
+                lock_ephemeral(state)?
+                    .exchange_wallet_snapshots
+                    .push(record.clone());
                 Ok(())
             }
         }
@@ -489,7 +493,9 @@ impl SharedDb {
                 Self::block_on(async move { repo.insert_trade_history(&record).await })
             }
             SharedDbBackend::Ephemeral(state) => {
-                lock_ephemeral(state)?.exchange_trade_history.push(record.clone());
+                lock_ephemeral(state)?
+                    .exchange_trade_history
+                    .push(record.clone());
                 Ok(())
             }
         }
@@ -881,13 +887,20 @@ impl SharedDb {
         }
     }
 
-    pub fn upsert_admin_user(&self, email: &str, role: &str, totp_required: bool) -> Result<(), SharedDbError> {
+    pub fn upsert_admin_user(
+        &self,
+        email: &str,
+        role: &str,
+        totp_required: bool,
+    ) -> Result<(), SharedDbError> {
         match &self.backend {
             SharedDbBackend::Runtime { .. } => {
                 let repo = self.identity_repo();
                 let email = email.to_owned();
                 let role = role.to_owned();
-                Self::block_on(async move { repo.upsert_admin_user(&email, &role, totp_required).await })
+                Self::block_on(
+                    async move { repo.upsert_admin_user(&email, &role, totp_required).await },
+                )
             }
             SharedDbBackend::Ephemeral(state) => {
                 lock_ephemeral(state)?.admin_users.insert(
@@ -968,7 +981,9 @@ impl SharedDb {
                 Self::block_on(async move { repo.insert_notification(&record).await })
             }
             SharedDbBackend::Ephemeral(state) => {
-                lock_ephemeral(state)?.notification_logs.push(record.clone());
+                lock_ephemeral(state)?
+                    .notification_logs
+                    .push(record.clone());
                 Ok(())
             }
         }
@@ -985,7 +1000,9 @@ impl SharedDb {
                 let user_email = user_email.to_owned();
                 let limit = limit as i64;
                 let mut items =
-                    Self::block_on(async move { repo.list_recent_for_user(&user_email, limit).await })?;
+                    Self::block_on(
+                        async move { repo.list_recent_for_user(&user_email, limit).await },
+                    )?;
                 items.sort_by_key(|item| item.created_at);
                 Ok(items)
             }
@@ -1031,14 +1048,20 @@ impl SharedDb {
         }
     }
 
-    pub fn get_system_config(&self, config_key: &str) -> Result<Option<SystemConfigRecord>, SharedDbError> {
+    pub fn get_system_config(
+        &self,
+        config_key: &str,
+    ) -> Result<Option<SystemConfigRecord>, SharedDbError> {
         match &self.backend {
             SharedDbBackend::Runtime { .. } => {
                 let repo = self.admin_repo();
                 let config_key = config_key.to_owned();
                 Self::block_on(async move { repo.get_system_config(&config_key).await })
             }
-            SharedDbBackend::Ephemeral(state) => Ok(lock_ephemeral(state)?.system_configs.get(config_key).cloned()),
+            SharedDbBackend::Ephemeral(state) => Ok(lock_ephemeral(state)?
+                .system_configs
+                .get(config_key)
+                .cloned()),
         }
     }
 
@@ -1050,9 +1073,38 @@ impl SharedDb {
                 Self::block_on(async move { repo.upsert_system_config(&record).await })
             }
             SharedDbBackend::Ephemeral(state) => {
-                lock_ephemeral(state)?.system_configs.insert(record.config_key.clone(), record.clone());
+                lock_ephemeral(state)?
+                    .system_configs
+                    .insert(record.config_key.clone(), record.clone());
                 Ok(())
             }
+        }
+    }
+
+    pub fn upsert_system_configs_with_audit(
+        &self,
+        records: &[SystemConfigRecord],
+        audit: &AuditLogRecord,
+    ) -> Result<(), SharedDbError> {
+        match &self.backend {
+            SharedDbBackend::Runtime { .. } => {
+                let repo = self.admin_repo();
+                let records = records.to_vec();
+                let audit = audit.clone();
+                Self::block_on(async move {
+                    repo.upsert_system_configs_with_audit(&records, &audit)
+                        .await
+                })
+            }
+            SharedDbBackend::Ephemeral(state) => mutate_ephemeral_atomically(state, |state| {
+                for record in records {
+                    state
+                        .system_configs
+                        .insert(record.config_key.clone(), record.clone());
+                }
+                state.audit_logs.push(audit.clone());
+                Ok(())
+            }),
         }
     }
 
@@ -1243,6 +1295,43 @@ impl SharedDb {
         }
     }
 
+    pub fn upsert_membership_plan_with_prices_and_audit(
+        &self,
+        plan: &MembershipPlanRecord,
+        prices: &[MembershipPlanPriceRecord],
+        audit: &AuditLogRecord,
+    ) -> Result<(), SharedDbError> {
+        match &self.backend {
+            SharedDbBackend::Runtime { .. } => {
+                let repo = self.admin_repo();
+                let plan = plan.clone();
+                let prices = prices.to_vec();
+                let audit = audit.clone();
+                Self::block_on(async move {
+                    repo.upsert_membership_plan_with_prices_and_audit(&plan, &prices, &audit)
+                        .await
+                })
+            }
+            SharedDbBackend::Ephemeral(state) => mutate_ephemeral_atomically(state, |state| {
+                state
+                    .membership_plans
+                    .insert(plan.code.clone(), plan.clone());
+                for price in prices {
+                    state.membership_plan_prices.insert(
+                        (
+                            price.plan_code.clone(),
+                            price.chain.clone(),
+                            price.asset.clone(),
+                        ),
+                        price.clone(),
+                    );
+                }
+                state.audit_logs.push(audit.clone());
+                Ok(())
+            }),
+        }
+    }
+
     pub fn list_plan_prices(&self) -> Result<Vec<MembershipPlanPriceRecord>, SharedDbError> {
         match &self.backend {
             SharedDbBackend::Runtime { .. } => {
@@ -1315,6 +1404,32 @@ impl SharedDb {
         }
     }
 
+    pub fn upsert_deposit_address_with_audit(
+        &self,
+        address: &DepositAddressPoolRecord,
+        audit: &AuditLogRecord,
+    ) -> Result<(), SharedDbError> {
+        match &self.backend {
+            SharedDbBackend::Runtime { .. } => {
+                let repo = self.admin_repo();
+                let address = address.clone();
+                let audit = audit.clone();
+                Self::block_on(async move {
+                    repo.upsert_deposit_address_with_audit(&address, &audit)
+                        .await
+                })
+            }
+            SharedDbBackend::Ephemeral(state) => mutate_ephemeral_atomically(state, |state| {
+                state.deposit_addresses.insert(
+                    (address.chain.clone(), address.address.clone()),
+                    address.clone(),
+                );
+                state.audit_logs.push(audit.clone());
+                Ok(())
+            }),
+        }
+    }
+
     pub fn upsert_deposit_transaction(
         &self,
         record: &DepositTransactionRecord,
@@ -1332,6 +1447,32 @@ impl SharedDb {
                 );
                 Ok(())
             }
+        }
+    }
+
+    pub fn upsert_deposit_transaction_with_audit(
+        &self,
+        record: &DepositTransactionRecord,
+        audit: &AuditLogRecord,
+    ) -> Result<(), SharedDbError> {
+        match &self.backend {
+            SharedDbBackend::Runtime { .. } => {
+                let repo = self.admin_repo();
+                let record = record.clone();
+                let audit = audit.clone();
+                Self::block_on(async move {
+                    repo.upsert_deposit_transaction_with_audit(&record, &audit)
+                        .await
+                })
+            }
+            SharedDbBackend::Ephemeral(state) => mutate_ephemeral_atomically(state, |state| {
+                state.deposit_transactions.insert(
+                    format!("{}:{}", record.chain, record.tx_hash),
+                    record.clone(),
+                );
+                state.audit_logs.push(audit.clone());
+                Ok(())
+            }),
         }
     }
 
@@ -1364,6 +1505,26 @@ impl SharedDb {
                     .insert(job.sweep_job_id, job.clone());
                 Ok(())
             }
+        }
+    }
+
+    pub fn create_sweep_job_with_audit(
+        &self,
+        job: &SweepJobRecord,
+        audit: &AuditLogRecord,
+    ) -> Result<(), SharedDbError> {
+        match &self.backend {
+            SharedDbBackend::Runtime { .. } => {
+                let repo = self.admin_repo();
+                let job = job.clone();
+                let audit = audit.clone();
+                Self::block_on(async move { repo.create_sweep_job_with_audit(&job, &audit).await })
+            }
+            SharedDbBackend::Ephemeral(state) => mutate_ephemeral_atomically(state, |state| {
+                state.sweep_jobs.insert(job.sweep_job_id, job.clone());
+                state.audit_logs.push(audit.clone());
+                Ok(())
+            }),
         }
     }
 
@@ -1421,7 +1582,9 @@ impl SharedDb {
         }
     }
 
-    pub fn list_membership_records(&self) -> Result<Vec<(String, MembershipRecord)>, SharedDbError> {
+    pub fn list_membership_records(
+        &self,
+    ) -> Result<Vec<(String, MembershipRecord)>, SharedDbError> {
         match &self.backend {
             SharedDbBackend::Runtime { .. } => {
                 let repo = self.billing_repo();
@@ -1456,6 +1619,33 @@ impl SharedDb {
         }
     }
 
+    pub fn upsert_membership_record_with_audit(
+        &self,
+        email: &str,
+        record: &MembershipRecord,
+        audit: &AuditLogRecord,
+    ) -> Result<(), SharedDbError> {
+        match &self.backend {
+            SharedDbBackend::Runtime { .. } => {
+                let repo = self.admin_repo();
+                let email = email.to_owned();
+                let record = record.clone();
+                let audit = audit.clone();
+                Self::block_on(async move {
+                    repo.upsert_membership_record_with_audit(&email, &record, &audit)
+                        .await
+                })
+            }
+            SharedDbBackend::Ephemeral(state) => mutate_ephemeral_atomically(state, |state| {
+                state
+                    .membership_records
+                    .insert(email.to_lowercase(), record.clone());
+                state.audit_logs.push(audit.clone());
+                Ok(())
+            }),
+        }
+    }
+
     pub fn update_membership_override(
         &self,
         email: &str,
@@ -1480,6 +1670,39 @@ impl SharedDb {
                 entry.override_status = override_status.cloned();
                 Ok(())
             }
+        }
+    }
+
+    pub fn update_membership_override_with_audit(
+        &self,
+        email: &str,
+        override_status: Option<&MembershipStatus>,
+        audit: &AuditLogRecord,
+    ) -> Result<(), SharedDbError> {
+        match &self.backend {
+            SharedDbBackend::Runtime { .. } => {
+                let repo = self.admin_repo();
+                let email = email.to_owned();
+                let override_status = override_status.cloned();
+                let audit = audit.clone();
+                Self::block_on(async move {
+                    repo.update_membership_override_with_audit(
+                        &email,
+                        override_status.as_ref(),
+                        &audit,
+                    )
+                    .await
+                })
+            }
+            SharedDbBackend::Ephemeral(state) => mutate_ephemeral_atomically(state, |state| {
+                let entry = state
+                    .membership_records
+                    .entry(email.to_lowercase())
+                    .or_default();
+                entry.override_status = override_status.cloned();
+                state.audit_logs.push(audit.clone());
+                Ok(())
+            }),
         }
     }
 
@@ -1539,6 +1762,129 @@ impl SharedDb {
                 );
                 Ok(())
             }
+        }
+    }
+
+    pub fn apply_membership_payment_with_audit(
+        &self,
+        order_id: u64,
+        chain: &str,
+        tx_hash: &str,
+        paid_at: DateTime<Utc>,
+        email: &str,
+        active_until: DateTime<Utc>,
+        grace_until: DateTime<Utc>,
+        audit: &AuditLogRecord,
+    ) -> Result<(), SharedDbError> {
+        match &self.backend {
+            SharedDbBackend::Runtime { .. } => {
+                let repo = self.admin_repo();
+                let chain = chain.to_owned();
+                let tx_hash = tx_hash.to_owned();
+                let email = email.to_owned();
+                let audit = audit.clone();
+                Self::block_on(async move {
+                    repo.apply_membership_payment_with_audit(
+                        order_id,
+                        &chain,
+                        &tx_hash,
+                        paid_at,
+                        &email,
+                        active_until,
+                        grace_until,
+                        &audit,
+                    )
+                    .await
+                })
+            }
+            SharedDbBackend::Ephemeral(state) => mutate_ephemeral_atomically(state, |state| {
+                if let Some(order) = state.billing_orders.get_mut(&order_id) {
+                    order.paid_at = Some(paid_at);
+                    order.tx_hash = Some(tx_hash.to_owned());
+                    order.status = "paid".to_owned();
+                    order.enqueued_at = None;
+                }
+                if let Some(deposit) = state
+                    .deposit_transactions
+                    .get_mut(&format!("{chain}:{tx_hash}"))
+                {
+                    deposit.order_id = Some(order_id);
+                    deposit.matched_order_id = Some(order_id);
+                    deposit.status = "matched".to_owned();
+                }
+                state.membership_records.insert(
+                    email.to_lowercase(),
+                    MembershipRecord {
+                        activated_at: Some(paid_at),
+                        active_until: Some(active_until),
+                        grace_until: Some(grace_until),
+                        override_status: None,
+                    },
+                );
+                state.audit_logs.push(audit.clone());
+                Ok(())
+            }),
+        }
+    }
+
+    pub fn apply_membership_payment_with_deposit_and_audit(
+        &self,
+        order_id: u64,
+        chain: &str,
+        tx_hash: &str,
+        paid_at: DateTime<Utc>,
+        email: &str,
+        active_until: DateTime<Utc>,
+        grace_until: DateTime<Utc>,
+        deposit: &DepositTransactionRecord,
+        audit: &AuditLogRecord,
+    ) -> Result<(), SharedDbError> {
+        match &self.backend {
+            SharedDbBackend::Runtime { .. } => {
+                let repo = self.admin_repo();
+                let chain = chain.to_owned();
+                let tx_hash = tx_hash.to_owned();
+                let email = email.to_owned();
+                let deposit = deposit.clone();
+                let audit = audit.clone();
+                Self::block_on(async move {
+                    repo.apply_membership_payment_with_deposit_and_audit(
+                        order_id,
+                        &chain,
+                        &tx_hash,
+                        paid_at,
+                        &email,
+                        active_until,
+                        grace_until,
+                        &deposit,
+                        &audit,
+                    )
+                    .await
+                })
+            }
+            SharedDbBackend::Ephemeral(state) => mutate_ephemeral_atomically(state, |state| {
+                if let Some(order) = state.billing_orders.get_mut(&order_id) {
+                    order.paid_at = Some(paid_at);
+                    order.tx_hash = Some(tx_hash.to_owned());
+                    order.status = "paid".to_owned();
+                    order.enqueued_at = None;
+                }
+                state.deposit_transactions.insert(
+                    format!("{}:{}", deposit.chain, deposit.tx_hash),
+                    deposit.clone(),
+                );
+                state.membership_records.insert(
+                    email.to_lowercase(),
+                    MembershipRecord {
+                        activated_at: Some(paid_at),
+                        active_until: Some(active_until),
+                        grace_until: Some(grace_until),
+                        override_status: None,
+                    },
+                );
+                state.audit_logs.push(audit.clone());
+                Ok(())
+            }),
         }
     }
 
@@ -1639,7 +1985,9 @@ impl SharedDb {
                 Self::block_on(async move { repo.insert_profit_snapshot(&record).await })
             }
             SharedDbBackend::Ephemeral(state) => {
-                lock_ephemeral(state)?.strategy_profit_snapshots.push(record.clone());
+                lock_ephemeral(state)?
+                    .strategy_profit_snapshots
+                    .push(record.clone());
                 Ok(())
             }
         }
@@ -1750,6 +2098,30 @@ impl SharedDb {
         }
     }
 
+    pub fn insert_template_with_audit(
+        &self,
+        template: &StoredStrategyTemplate,
+        audit: &AuditLogRecord,
+    ) -> Result<(), SharedDbError> {
+        match &self.backend {
+            SharedDbBackend::Runtime { .. } => {
+                let repo = self.admin_repo();
+                let template = template.clone();
+                let audit = audit.clone();
+                Self::block_on(
+                    async move { repo.insert_template_with_audit(&template, &audit).await },
+                )
+            }
+            SharedDbBackend::Ephemeral(state) => mutate_ephemeral_atomically(state, |state| {
+                state
+                    .templates
+                    .insert(template.sequence_id, template.template.clone());
+                state.audit_logs.push(audit.clone());
+                Ok(())
+            }),
+        }
+    }
+
     pub fn update_template(&self, template: &StrategyTemplate) -> Result<usize, SharedDbError> {
         match &self.backend {
             SharedDbBackend::Runtime { .. } => {
@@ -1769,6 +2141,35 @@ impl SharedDb {
                 *stored = template.clone();
                 Ok(1)
             }
+        }
+    }
+
+    pub fn update_template_with_audit(
+        &self,
+        template: &StrategyTemplate,
+        audit: &AuditLogRecord,
+    ) -> Result<usize, SharedDbError> {
+        match &self.backend {
+            SharedDbBackend::Runtime { .. } => {
+                let repo = self.admin_repo();
+                let template = template.clone();
+                let audit = audit.clone();
+                Self::block_on(
+                    async move { repo.update_template_with_audit(&template, &audit).await },
+                )
+            }
+            SharedDbBackend::Ephemeral(state) => mutate_ephemeral_atomically(state, |state| {
+                let Some((_, stored)) = state
+                    .templates
+                    .iter_mut()
+                    .find(|(_, current)| current.id == template.id)
+                else {
+                    return Ok(0);
+                };
+                *stored = template.clone();
+                state.audit_logs.push(audit.clone());
+                Ok(1)
+            }),
         }
     }
 
@@ -1808,6 +2209,20 @@ fn lock_ephemeral(
     state
         .lock()
         .map_err(|_| SharedDbError::new("ephemeral shared-db mutex poisoned"))
+}
+
+fn mutate_ephemeral_atomically<T, F>(
+    state: &Arc<Mutex<EphemeralState>>,
+    mutate: F,
+) -> Result<T, SharedDbError>
+where
+    F: FnOnce(&mut EphemeralState) -> Result<T, SharedDbError>,
+{
+    let mut guard = lock_ephemeral(state)?;
+    let mut next = guard.clone();
+    let result = mutate(&mut next)?;
+    *guard = next;
+    Ok(result)
 }
 
 fn blocking_runtime() -> Result<&'static Mutex<tokio::runtime::Runtime>, SharedDbError> {

@@ -55,10 +55,25 @@ async fn update_system(
     let before_eth = read_confirmation(&db, ETH_CONFIRMATIONS_KEY)?;
     let before_bsc = read_confirmation(&db, BSC_CONFIRMATIONS_KEY)?;
     let before_sol = read_confirmation(&db, SOL_CONFIRMATIONS_KEY)?;
-    write_confirmation(&db, ETH_CONFIRMATIONS_KEY, request.eth_confirmations)?;
-    write_confirmation(&db, BSC_CONFIRMATIONS_KEY, request.bsc_confirmations)?;
-    write_confirmation(&db, SOL_CONFIRMATIONS_KEY, request.sol_confirmations)?;
-    db.insert_audit_log(&AuditLogRecord {
+    let updated_at = Utc::now();
+    let records = vec![
+        SystemConfigRecord {
+            config_key: ETH_CONFIRMATIONS_KEY.to_owned(),
+            config_value: json!({ "value": request.eth_confirmations }),
+            updated_at,
+        },
+        SystemConfigRecord {
+            config_key: BSC_CONFIRMATIONS_KEY.to_owned(),
+            config_value: json!({ "value": request.bsc_confirmations }),
+            updated_at,
+        },
+        SystemConfigRecord {
+            config_key: SOL_CONFIRMATIONS_KEY.to_owned(),
+            config_value: json!({ "value": request.sol_confirmations }),
+            updated_at,
+        },
+    ];
+    let audit = AuditLogRecord {
         actor_email: session.email,
         action: "system.confirmations_updated".to_owned(),
         target_type: "system_config".to_owned(),
@@ -72,9 +87,10 @@ async fn update_system(
             "before_summary": confirmation_summary(before_eth, before_bsc, before_sol),
             "after_summary": confirmation_summary(request.eth_confirmations, request.bsc_confirmations, request.sol_confirmations),
         }),
-        created_at: Utc::now(),
-    })
-    .map_err(AuthError::storage)?;
+        created_at: updated_at,
+    };
+    db.upsert_system_configs_with_audit(&records, &audit)
+        .map_err(AuthError::storage)?;
     Ok(Json(AdminSystemResponse {
         eth_confirmations: request.eth_confirmations,
         bsc_confirmations: request.bsc_confirmations,
@@ -87,19 +103,15 @@ fn read_confirmation(db: &SharedDb, key: &str) -> Result<u32, AuthError> {
         .get_system_config(key)
         .map_err(|error| AuthError::storage(error))?;
     Ok(record
-        .and_then(|item| item.config_value.get("value").and_then(|value: &serde_json::Value| value.as_u64()).map(|value| value as u32))
+        .and_then(|item| {
+            item.config_value
+                .get("value")
+                .and_then(|value: &serde_json::Value| value.as_u64())
+                .map(|value| value as u32)
+        })
         .unwrap_or(12))
 }
 
 fn confirmation_summary(eth: u32, bsc: u32, sol: u32) -> String {
     format!("ETH {} | BSC {} | SOL {}", eth, bsc, sol)
-}
-
-fn write_confirmation(db: &SharedDb, key: &str, value: u32) -> Result<(), AuthError> {
-    db.upsert_system_config(&SystemConfigRecord {
-        config_key: key.to_owned(),
-        config_value: json!({ "value": value }),
-        updated_at: Utc::now(),
-    })
-    .map_err(|error| AuthError::storage(error))
 }
