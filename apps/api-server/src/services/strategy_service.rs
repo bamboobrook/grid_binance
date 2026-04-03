@@ -449,10 +449,10 @@ impl StrategyService {
         StopAllResponse { stopped }
     }
 
-    pub fn list_templates(&self) -> TemplateListResponse {
-        TemplateListResponse {
-            items: self.db.list_templates().unwrap_or_else(|_| Vec::new()),
-        }
+    pub fn list_templates(&self) -> Result<TemplateListResponse, StrategyError> {
+        Ok(TemplateListResponse {
+            items: self.db.list_templates().map_err(StrategyError::storage)?,
+        })
     }
 
     pub fn create_template(
@@ -1234,6 +1234,36 @@ mod tests {
         );
     }
 
+    #[test]
+    fn list_templates_fails_when_storage_read_fails() {
+        let harness = PersistentRuntimeHarness::start("strategy-template-read");
+        let db = SharedDb::connect(harness.database_url(), harness.redis_url()).expect("db");
+        let service = StrategyService::new(db.clone());
+
+        service
+            .create_template(
+                "super-admin@example.com",
+                Some(AdminRole::SuperAdmin),
+                8,
+                CreateTemplateRequest {
+                    strategy: template_request("Template B"),
+                },
+            )
+            .expect("template created");
+
+        harness.break_templates_table();
+
+        match service.list_templates() {
+            Err(StrategyError {
+                status, message, ..
+            }) => {
+                assert_eq!(status, StatusCode::INTERNAL_SERVER_ERROR);
+                assert_eq!(message, "internal storage error");
+            }
+            Ok(_) => panic!("template list should fail when template storage is unavailable"),
+        }
+    }
+
     fn template_request(name: &str) -> SaveStrategyRequest {
         SaveStrategyRequest {
             name: name.to_string(),
@@ -1350,6 +1380,23 @@ mod tests {
                     .arg("-c")
                     .arg("ALTER TABLE audit_logs RENAME TO audit_logs_disabled"),
                 "break audit table",
+            );
+        }
+
+
+        fn break_templates_table(&self) {
+            run_command(
+                Command::new("docker")
+                    .arg("exec")
+                    .arg(format!("{}-postgres-1", self.project_name))
+                    .arg("psql")
+                    .arg("-U")
+                    .arg("postgres")
+                    .arg("-d")
+                    .arg("grid_binance")
+                    .arg("-c")
+                    .arg("ALTER TABLE strategy_templates RENAME TO strategy_templates_disabled"),
+                "break strategy templates table",
             );
         }
     }

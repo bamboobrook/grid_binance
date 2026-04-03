@@ -210,6 +210,70 @@ async fn operator_admin_can_reject_abnormal_transfer_but_cannot_create_sweep_job
 }
 
 #[tokio::test]
+async fn super_admin_sweep_validation_rejects_unsupported_chain_asset_and_blank_from_address() {
+    let db = SharedDb::ephemeral().expect("ephemeral db");
+    let app = app_with_state(AppState::from_shared_db(db.clone()).expect("state"));
+    let super_admin_token =
+        register_privileged_admin_and_login(&app, "super-admin@example.com").await;
+
+    let unsupported_chain = create_sweep_job(
+        &app,
+        &super_admin_token,
+        "TRON",
+        "USDT",
+        "tron-treasury-1",
+        "2026-04-01T00:10:00Z",
+        vec![json!({
+            "from_address": "tron-addr-1",
+            "amount": "42.00000000",
+        })],
+    )
+    .await;
+    assert_eq!(unsupported_chain.status(), StatusCode::BAD_REQUEST);
+    assert_eq!(response_json(unsupported_chain).await["error"], "unsupported chain");
+
+    let unsupported_asset = create_sweep_job(
+        &app,
+        &super_admin_token,
+        "ETH",
+        "DAI",
+        "eth-treasury-1",
+        "2026-04-01T00:11:00Z",
+        vec![json!({
+            "from_address": "eth-addr-1",
+            "amount": "42.00000000",
+        })],
+    )
+    .await;
+    assert_eq!(unsupported_asset.status(), StatusCode::BAD_REQUEST);
+    assert_eq!(response_json(unsupported_asset).await["error"], "unsupported asset");
+
+    let blank_from_address = create_sweep_job(
+        &app,
+        &super_admin_token,
+        "ETH",
+        "USDC",
+        "eth-treasury-1",
+        "2026-04-01T00:12:00Z",
+        vec![json!({
+            "from_address": "   ",
+            "amount": "42.00000000",
+        })],
+    )
+    .await;
+    assert_eq!(blank_from_address.status(), StatusCode::BAD_REQUEST);
+    assert_eq!(
+        response_json(blank_from_address).await["error"],
+        "transfer from_address is required"
+    );
+
+    assert!(
+        db.list_sweep_jobs().expect("sweep jobs").is_empty(),
+        "invalid sweep requests must not persist"
+    );
+}
+
+#[tokio::test]
 async fn expired_and_unmatched_transfers_create_processable_manual_review_records() {
     let db = SharedDb::ephemeral().expect("ephemeral db");
     let app = app_with_state(AppState::from_shared_db(db.clone()).expect("state"));

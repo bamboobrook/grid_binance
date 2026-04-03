@@ -17,7 +17,10 @@ use crate::{
 
 pub fn router() -> Router<AppState> {
     Router::new()
-        .route("/admin/templates", get(list_templates).post(create_template))
+        .route(
+            "/admin/templates",
+            get(list_templates).post(create_template),
+        )
         .route("/admin/templates/{template_id}", post(update_template))
         .route("/admin/templates/{template_id}/apply", post(apply_template))
 }
@@ -28,7 +31,7 @@ async fn list_templates(
     headers: HeaderMap,
 ) -> Result<Json<TemplateListResponse>, StrategyError> {
     require_super_admin_session(&auth, &headers).map_err(StrategyError::from)?;
-    Ok(Json(service.list_templates()))
+    Ok(Json(service.list_templates()?))
 }
 
 async fn create_template(

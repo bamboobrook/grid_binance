@@ -1,4 +1,4 @@
-import { postAdminBackend, readField, redirectTo } from "../_shared";
+import { postAdminBackend, proxyAdminBackendError, readField, redirectTo } from "../_shared";
 
 export async function POST(request: Request) {
   const formData = await request.formData();
@@ -14,6 +14,10 @@ export async function POST(request: Request) {
     processed_at: new Date().toISOString(),
     tx_hash: txHash,
   });
+  if (!response.ok) {
+    return proxyAdminBackendError(response);
+  }
+
   const payload = (await response.json()) as { deposit_status?: string };
 
   return redirectTo(

@@ -1226,14 +1226,16 @@ impl MembershipService {
         let chain = normalize_chain(&request.chain);
         let asset = normalize_asset(&request.asset);
         let treasury_address = request.treasury_address.trim().to_owned();
-        if chain.is_empty()
-            || asset.is_empty()
-            || treasury_address.is_empty()
-            || request.transfers.is_empty()
-        {
+        if chain.is_empty() || asset.is_empty() || treasury_address.is_empty() || request.transfers.is_empty() {
             return Err(MembershipError::bad_request(
                 "chain, asset, treasury_address, and transfers are required",
             ));
+        }
+        if !DEFAULT_CHAIN_CODES.contains(&chain.as_str()) {
+            return Err(MembershipError::bad_request("unsupported chain"));
+        }
+        if !DEFAULT_ASSETS.contains(&asset.as_str()) {
+            return Err(MembershipError::bad_request("unsupported asset"));
         }
 
         let existing_jobs = self
@@ -1249,10 +1251,14 @@ impl MembershipService {
             .transfers
             .into_iter()
             .map(|transfer| {
+                let from_address = transfer.from_address.trim().to_owned();
+                if from_address.is_empty() {
+                    return Err(MembershipError::bad_request("transfer from_address is required"));
+                }
                 canonicalize_amount(&transfer.amount)
                     .map_err(|_| MembershipError::bad_request("invalid amount"))
                     .map(|amount| SweepTransferRecord {
-                        from_address: transfer.from_address,
+                        from_address,
                         to_address: treasury_address.clone(),
                         amount,
                         tx_hash: None,

@@ -1,5 +1,5 @@
 import { authApiBaseUrl } from "../../../../lib/api/admin-product-state";
-import { postAdminBackend, readField, readSessionToken, redirectTo } from "../_shared";
+import { postAdminBackend, proxyAdminBackendError, readField, readSessionToken, redirectTo } from "../_shared";
 
 function readBoolField(formData: FormData, key: string) {
   return readField(formData, key) === "true";
@@ -70,12 +70,15 @@ export async function POST(request: Request) {
     });
 
     if (!response.ok) {
-      throw new Error(`admin backend template update failed ${response.status} ${templateId}`);
+      return proxyAdminBackendError(response);
     }
 
     return redirectTo(request, `/admin/templates?updated=${encodeURIComponent(name)}`);
   }
 
-  await postAdminBackend(request, "/admin/templates", buildTemplatePayload(formData));
+  const response = await postAdminBackend(request, "/admin/templates", buildTemplatePayload(formData));
+  if (!response.ok) {
+    return proxyAdminBackendError(response);
+  }
   return redirectTo(request, `/admin/templates?created=${encodeURIComponent(name)}`);
 }

@@ -1,4 +1,4 @@
-import { postAdminBackend, readField, redirectTo } from "../_shared";
+import { postAdminBackend, proxyAdminBackendError, readField, redirectTo } from "../_shared";
 
 export async function POST(request: Request) {
   const formData = await request.formData();
@@ -6,11 +6,14 @@ export async function POST(request: Request) {
   const address = readField(formData, "address");
   const isEnabled = readField(formData, "isEnabled") === "true";
 
-  await postAdminBackend(request, "/admin/address-pools", {
+  const response = await postAdminBackend(request, "/admin/address-pools", {
     address,
     chain,
     is_enabled: isEnabled,
   });
+  if (!response.ok) {
+    return proxyAdminBackendError(response);
+  }
 
   return redirectTo(request, `/admin/address-pools?updated=${encodeURIComponent(address)}`);
 }

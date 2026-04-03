@@ -19,7 +19,7 @@ export function redirectTo(request: Request, path: string) {
 
 export async function postAdminBackend(request: Request, path: string, body: Record<string, unknown>) {
   const sessionToken = readSessionToken(request) ?? "";
-  const response = await fetch(`${authApiBaseUrl()}${path}`, {
+  return fetch(`${authApiBaseUrl()}${path}`, {
     method: "POST",
     headers: {
       authorization: `Bearer ${sessionToken}`,
@@ -28,10 +28,17 @@ export async function postAdminBackend(request: Request, path: string, body: Rec
     body: JSON.stringify(body),
     cache: "no-store",
   });
+}
 
-  if (!response.ok) {
-    throw new Error(`admin backend post failed ${response.status} ${path}`);
+export async function proxyAdminBackendError(response: Response) {
+  const contentType = response.headers.get("content-type");
+  const headers = new Headers();
+  if (contentType) {
+    headers.set("content-type", contentType);
   }
 
-  return response;
+  return new Response(await response.text(), {
+    status: response.status,
+    headers,
+  });
 }

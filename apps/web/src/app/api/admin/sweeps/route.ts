@@ -1,4 +1,4 @@
-import { postAdminBackend, readField, redirectTo } from "../_shared";
+import { postAdminBackend, proxyAdminBackendError, readField, redirectTo } from "../_shared";
 
 export async function POST(request: Request) {
   const formData = await request.formData();
@@ -8,13 +8,16 @@ export async function POST(request: Request) {
   const fromAddress = readField(formData, "fromAddress");
   const amount = readField(formData, "amount");
 
-  await postAdminBackend(request, "/admin/sweeps", {
+  const response = await postAdminBackend(request, "/admin/sweeps", {
     chain,
     asset,
     treasury_address: treasuryAddress,
     requested_at: new Date().toISOString(),
     transfers: [{ from_address: fromAddress, amount }],
   });
+  if (!response.ok) {
+    return proxyAdminBackendError(response);
+  }
 
   return redirectTo(
     request,

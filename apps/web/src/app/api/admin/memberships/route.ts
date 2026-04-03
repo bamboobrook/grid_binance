@@ -1,4 +1,4 @@
-import { postAdminBackend, readField, redirectTo } from "../_shared";
+import { postAdminBackend, proxyAdminBackendError, readField, redirectTo } from "../_shared";
 
 const SUPPORTED_CHAINS = ["ETH", "BSC", "SOL"] as const;
 const SUPPORTED_ASSETS = ["USDT", "USDC"] as const;
@@ -19,13 +19,16 @@ export async function POST(request: Request) {
         amount: readField(formData, `price:${chain}:${asset}`) || "20.00",
       })),
     );
-    await postAdminBackend(request, "/admin/memberships/plans", {
+    const response = await postAdminBackend(request, "/admin/memberships/plans", {
       code,
       name,
       duration_days: durationDays,
       is_active: isActive,
       prices,
     });
+    if (!response.ok) {
+      return proxyAdminBackendError(response);
+    }
     return redirectTo(request, `/admin/memberships?planSaved=${encodeURIComponent(code)}`);
   }
 
@@ -35,18 +38,24 @@ export async function POST(request: Request) {
   const at = new Date().toISOString();
 
   if (action === "freeze" || action === "revoke") {
-    await postAdminBackend(request, "/admin/memberships/override", {
+    const response = await postAdminBackend(request, "/admin/memberships/override", {
       email,
       status: action === "freeze" ? "Frozen" : "Revoked",
       at,
     });
+    if (!response.ok) {
+      return proxyAdminBackendError(response);
+    }
   } else {
-    await postAdminBackend(request, "/admin/memberships/manage", {
+    const response = await postAdminBackend(request, "/admin/memberships/manage", {
       action,
       at,
       duration_days: action === "open" || action === "extend" ? durationDays : null,
       email,
     });
+    if (!response.ok) {
+      return proxyAdminBackendError(response);
+    }
   }
 
   return redirectTo(request, `/admin/memberships?target=${encodeURIComponent(email)}&action=${encodeURIComponent(action)}`);

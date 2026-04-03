@@ -6,14 +6,21 @@ const ADMIN_PASSWORD = "pass1234";
 const SUPER_ADMIN_EMAIL = "super-admin@example.com";
 
 let uniqueCounter = 0;
+let operatorAdminSessionToken = "";
+let superAdminSessionToken = "";
 
 test.describe("admin commercial", () => {
+  test.beforeAll(async ({ request }) => {
+    operatorAdminSessionToken = await createAdminSession(request, ADMIN_EMAIL);
+    superAdminSessionToken = await createAdminSession(request, SUPER_ADMIN_EMAIL);
+  });
+
   test("operator admin sees restricted commercial controls but can process abnormal orders and runtime review", async ({
     context,
     page,
     request,
   }) => {
-    const adminSessionToken = await createAdminSession(request, ADMIN_EMAIL);
+    const adminSessionToken = operatorAdminSessionToken;
     const viewerEmail = uniqueEmail("viewer");
     const creditEmail = uniqueEmail("credit");
     const rejectEmail = uniqueEmail("reject");
@@ -157,7 +164,7 @@ test.describe("admin commercial", () => {
     page,
     request,
   }) => {
-    const adminSessionToken = await createAdminSession(request, SUPER_ADMIN_EMAIL);
+    const adminSessionToken = superAdminSessionToken;
     const memberEmail = uniqueEmail("member");
     const creditEmail = uniqueEmail("credit");
     const rejectEmail = uniqueEmail("reject");
@@ -370,6 +377,40 @@ test.describe("admin commercial", () => {
     await expect(page.getByText(templateName, { exact: false }).first()).toBeVisible();
     await expect(page.getByText("treasury-sol-main", { exact: false }).first()).toBeVisible();
   });
+  test("web admin bridge preserves backend 403 and 400 semantics", async ({ request }) => {
+    const operatorToken = operatorAdminSessionToken;
+    const superAdminToken = superAdminSessionToken;
+
+    const forbiddenResponse = await request.post("http://localhost:13000/api/admin/system", {
+      failOnStatusCode: false,
+      form: {
+        ethConfirmations: "18",
+        bscConfirmations: "15",
+        solConfirmations: "22",
+      },
+      headers: {
+        cookie: `session_token=${operatorToken}`,
+      },
+    });
+    expect(forbiddenResponse.status()).toBe(403);
+    expect(await forbiddenResponse.text()).toContain("super admin access required");
+
+    const badRequestResponse = await request.post("http://localhost:13000/api/admin/system", {
+      failOnStatusCode: false,
+      form: {
+        ethConfirmations: "0",
+        bscConfirmations: "15",
+        solConfirmations: "22",
+      },
+      headers: {
+        cookie: `session_token=${superAdminToken}`,
+      },
+    });
+    expect(badRequestResponse.status()).toBe(400);
+    expect(await badRequestResponse.text()).toContain("eth_confirmations must be greater than 0");
+  });
+
+
 });
 
 async function seedAdminCommercialData(
