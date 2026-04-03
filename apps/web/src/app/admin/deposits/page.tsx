@@ -12,9 +12,22 @@ type PageProps = {
   searchParams?: Promise<{ result?: string; tx?: string }>;
 };
 
-function suggestedOrdersForDeposit(item: AdminDepositView, orders: AdminDepositsResponse["orders"]) {
+function manualCreditCandidateOrders(item: AdminDepositView, orders: AdminDepositsResponse["orders"]) {
   return orders
-    .filter((order) => order.chain === item.chain && order.asset === item.asset && order.status !== "paid")
+    .filter((order) => {
+      if (order.status === "paid" || order.chain !== item.chain) {
+        return false;
+      }
+
+      switch (item.review_reason) {
+        case "ambiguous_match":
+          return order.asset === item.asset && order.amount === item.amount && order.address === item.address;
+        case "order_not_found":
+          return order.asset === item.asset && order.amount === item.amount;
+        default:
+          return item.order_id === order.order_id;
+      }
+    })
     .sort((left, right) => {
       const leftScore = Number(left.amount === item.amount) + Number(left.order_id === item.order_id);
       const rightScore = Number(right.amount === item.amount) + Number(right.order_id === item.order_id);
@@ -27,9 +40,10 @@ function targetOrderLabel(order: AdminDepositsResponse["orders"][number]) {
 }
 
 function renderManualActions(item: AdminDepositView, orders: AdminDepositsResponse["orders"]) {
-  const suggestedOrders = suggestedOrdersForDeposit(item, orders);
-  const defaultOrderId = item.order_id ?? suggestedOrders[0]?.order_id ?? null;
+  const candidateOrders = manualCreditCandidateOrders(item, orders);
+  const defaultOrderId = item.order_id ?? candidateOrders[0]?.order_id ?? null;
   const requiresOrderSelection = REVIEW_REASONS_REQUIRING_ORDER_SELECTION.has(item.review_reason ?? "");
+  const canSubmitCredit = requiresOrderSelection ? candidateOrders.length > 0 : Boolean(defaultOrderId);
 
   return (
     <div className="content-grid">
@@ -45,24 +59,23 @@ function renderManualActions(item: AdminDepositView, orders: AdminDepositsRespon
         <input name="decision" type="hidden" value="credit_membership" />
         {!requiresOrderSelection && defaultOrderId ? <input name="orderId" type="hidden" value={String(defaultOrderId)} /> : null}
         {requiresOrderSelection ? (
-          <>
-            <Field
-              hint={suggestedOrders.length > 0 ? "Choose a candidate order or enter an explicit order ID below." : "No candidate orders found. Enter an explicit order ID below."}
-              label={`Target order for ${item.tx_hash}`}
-            >
-              <Select defaultValue={defaultOrderId ? String(defaultOrderId) : ""} name="suggestedOrderId">
-                <option value="">Select order</option>
-                {suggestedOrders.map((order) => (
-                  <option key={order.order_id} value={String(order.order_id)}>
-                    {targetOrderLabel(order)}
-                  </option>
-                ))}
-              </Select>
-            </Field>
-            <Field hint="Optional override when the intended order is not in the suggested list." label={`Override order ID for ${item.tx_hash}`}>
-              <Input inputMode="numeric" min="1" name="orderId" placeholder="Enter order ID" />
-            </Field>
-          </>
+          <Field
+            hint={
+              candidateOrders.length > 0
+                ? "Choose an eligible candidate order that matches this deposit context."
+                : "No eligible candidate orders found for this deposit."
+            }
+            label={`Target order for ${item.tx_hash}`}
+          >
+            <Select defaultValue={defaultOrderId ? String(defaultOrderId) : ""} name="suggestedOrderId">
+              <option value="">Select order</option>
+              {candidateOrders.map((order) => (
+                <option key={order.order_id} value={String(order.order_id)}>
+                  {targetOrderLabel(order)}
+                </option>
+              ))}
+            </Select>
+          </Field>
         ) : (
           <p>{defaultOrderId ? `Target order: ${defaultOrderId}` : "No linked order available for manual credit."}</p>
         )}
@@ -72,7 +85,7 @@ function renderManualActions(item: AdminDepositView, orders: AdminDepositsRespon
         <Field label={`Justification for ${item.tx_hash}`}>
           <Textarea name="justification" rows={3} />
         </Field>
-        <Button type="submit">{"Credit " + item.tx_hash + " to membership"}</Button>
+        <Button disabled={!canSubmitCredit} type="submit">{"Credit " + item.tx_hash + " to membership"}</Button>
       </FormStack>
     </div>
   );
@@ -122,18 +135,18 @@ export default async function AdminDepositsPage({ searchParams }: PageProps) {
         <Card tone="subtle">
           <CardHeader>
             <CardTitle>Manual credit target order</CardTitle>
-            <CardDescription>Operator can confirm the current target and see suggested orders for unresolved review cases.</CardDescription>
+            <CardDescription>Operator can confirm the current target and see only eligible candidate orders for unresolved review cases.</CardDescription>
           </CardHeader>
           <CardBody>
             <ul className="text-list">
               {data.abnormal_deposits.map((item) => {
-                const suggestedOrders = suggestedOrdersForDeposit(item, data.orders);
+                const candidateOrders = manualCreditCandidateOrders(item, data.orders);
                 const needsSelection = REVIEW_REASONS_REQUIRING_ORDER_SELECTION.has(item.review_reason ?? "");
                 return (
                   <li key={item.tx_hash}>
                     {item.tx_hash}: {item.order_id ? `order ${item.order_id}` : "no linked order"}
-                    {needsSelection && suggestedOrders.length > 0
-                      ? ` | suggested ${suggestedOrders.map((order) => order.order_id).join(", ")}`
+                    {needsSelection && candidateOrders.length > 0
+                      ? ` | eligible ${candidateOrders.map((order) => order.order_id).join(", ")}`
                       : ""}
                   </li>
                 );

@@ -16,7 +16,7 @@ const SUPPORTED_PRICE_MATRIX = SUPPORTED_CHAINS.flatMap((chain) =>
 );
 
 type PageProps = {
-  searchParams?: Promise<{ action?: string; planSaved?: string; target?: string }>;
+  searchParams?: Promise<{ action?: string; planError?: string; planSaved?: string; target?: string }>;
 };
 
 export default async function AdminMembershipsPage({ searchParams }: PageProps) {
@@ -24,6 +24,7 @@ export default async function AdminMembershipsPage({ searchParams }: PageProps) 
   const targetEmail = typeof params.target === "string" ? params.target : "";
   const lastAction = typeof params.action === "string" ? params.action : "";
   const planSaved = typeof params.planSaved === "string" ? params.planSaved : "";
+  const planError = typeof params.planError === "string" ? params.planError : "";
   const [profile, memberships, plans] = await Promise.all([
     getCurrentAdminProfile(),
     getAdminMembershipsData(),
@@ -33,8 +34,7 @@ export default async function AdminMembershipsPage({ searchParams }: PageProps) 
   const canManage = profile.admin_permissions?.can_manage_memberships ?? false;
   const canManagePlans = profile.admin_permissions?.can_manage_plans ?? false;
   const monthly = plans.plans.find((plan) => plan.code === "monthly") ?? plans.plans[0] ?? null;
-  const priceFor = (chain: string, asset: string) =>
-    monthly?.prices.find((price) => price.chain === chain && price.asset === asset)?.amount ?? "20.00";
+  const priceFor = (chain: string, asset: string) => monthly?.prices.find((price) => price.chain === chain && price.asset === asset)?.amount ?? "";
   const membershipColumns: DataTableColumn[] = [
     { key: "email", label: "Email" },
     { key: "status", label: "Status" },
@@ -56,6 +56,7 @@ export default async function AdminMembershipsPage({ searchParams }: PageProps) 
         />
       ) : null}
       {planSaved ? <StatusBanner description={`Updated pricing plan code: ${planSaved}`} title="Plan pricing saved" tone="success" /> : null}
+      {planError ? <StatusBanner description={planError} title="Plan pricing not saved" tone="warning" /> : null}
       <AppShellSection
         description="Backend-backed membership operations and plan pricing controls."
         eyebrow="Membership operations"
@@ -153,14 +154,14 @@ export default async function AdminMembershipsPage({ searchParams }: PageProps) 
                   <FormStack action="/api/admin/memberships" method="post">
                     <input name="email" type="hidden" value={item.email} />
                     {item.email === targetEmail ? (
-                    <Field label="Membership duration days">
-                      <Input defaultValue="15" inputMode="numeric" name="durationDays" />
-                    </Field>
-                  ) : (
-                    <Field label="Extend duration days">
-                      <Input defaultValue="15" inputMode="numeric" name="durationDays" />
-                    </Field>
-                  )}
+                      <Field label="Membership duration days">
+                        <Input defaultValue="15" inputMode="numeric" name="durationDays" />
+                      </Field>
+                    ) : (
+                      <Field label="Extend duration days">
+                        <Input defaultValue="15" inputMode="numeric" name="durationDays" />
+                      </Field>
+                    )}
                     <input name="action" type="hidden" value="extend" />
                     <Button type="submit">Extend membership</Button>
                   </FormStack>

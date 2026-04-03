@@ -246,6 +246,84 @@ async fn allocation_uses_configured_pool_and_respects_disabled_addresses() {
 }
 
 #[tokio::test]
+async fn plan_pricing_updates_require_complete_positive_matrix() {
+    let app = app();
+    let super_admin_token =
+        register_privileged_admin_and_login(&app, "super-admin@example.com").await;
+
+    let blank_amount = upsert_plan(
+        &app,
+        &super_admin_token,
+        json!({
+            "code": "monthly",
+            "name": "Monthly",
+            "duration_days": 30,
+            "is_active": true,
+            "prices": [
+                { "chain": "ETH", "asset": "USDT", "amount": "" },
+                { "chain": "ETH", "asset": "USDC", "amount": "24.70" },
+                { "chain": "BSC", "asset": "USDT", "amount": "24.50" },
+                { "chain": "BSC", "asset": "USDC", "amount": "24.40" },
+                { "chain": "SOL", "asset": "USDT", "amount": "24.20" },
+                { "chain": "SOL", "asset": "USDC", "amount": "24.10" }
+            ]
+        }),
+    )
+    .await;
+    assert_eq!(blank_amount.status(), StatusCode::BAD_REQUEST);
+    assert_eq!(response_json(blank_amount).await["error"], "invalid amount");
+
+    let zero_amount = upsert_plan(
+        &app,
+        &super_admin_token,
+        json!({
+            "code": "monthly",
+            "name": "Monthly",
+            "duration_days": 30,
+            "is_active": true,
+            "prices": [
+                { "chain": "ETH", "asset": "USDT", "amount": "24.80" },
+                { "chain": "ETH", "asset": "USDC", "amount": "24.70" },
+                { "chain": "BSC", "asset": "USDT", "amount": "24.50" },
+                { "chain": "BSC", "asset": "USDC", "amount": "24.40" },
+                { "chain": "SOL", "asset": "USDT", "amount": "24.20" },
+                { "chain": "SOL", "asset": "USDC", "amount": "0" }
+            ]
+        }),
+    )
+    .await;
+    assert_eq!(zero_amount.status(), StatusCode::BAD_REQUEST);
+    assert_eq!(
+        response_json(zero_amount).await["error"],
+        "price amount must be greater than 0"
+    );
+
+    let incomplete_matrix = upsert_plan(
+        &app,
+        &super_admin_token,
+        json!({
+            "code": "monthly",
+            "name": "Monthly",
+            "duration_days": 30,
+            "is_active": true,
+            "prices": [
+                { "chain": "ETH", "asset": "USDT", "amount": "24.80" },
+                { "chain": "ETH", "asset": "USDC", "amount": "24.70" },
+                { "chain": "BSC", "asset": "USDT", "amount": "24.50" },
+                { "chain": "BSC", "asset": "USDC", "amount": "24.40" },
+                { "chain": "SOL", "asset": "USDT", "amount": "24.20" }
+            ]
+        }),
+    )
+    .await;
+    assert_eq!(incomplete_matrix.status(), StatusCode::BAD_REQUEST);
+    assert_eq!(
+        response_json(incomplete_matrix).await["error"],
+        "complete price matrix is required"
+    );
+}
+
+#[tokio::test]
 async fn membership_transitions_from_active_to_grace_to_expired_after_48_hours() {
     let app = app();
     let user_token = register_and_login(&app, "grace@example.com", "pass1234").await;
@@ -999,6 +1077,25 @@ async fn override_membership(
                     })
                     .to_string(),
                 ))
+                .unwrap(),
+        )
+        .await
+        .unwrap()
+}
+
+async fn upsert_plan(
+    app: &axum::Router,
+    session_token: &str,
+    payload: Value,
+) -> axum::response::Response {
+    app.clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/admin/memberships/plans")
+                .header("authorization", format!("Bearer {session_token}"))
+                .header("content-type", "application/json")
+                .body(Body::from(payload.to_string()))
                 .unwrap(),
         )
         .await

@@ -2,6 +2,16 @@ import { postAdminBackend, proxyAdminBackendError, readField, redirectTo } from 
 
 const SUPPORTED_CHAINS = ["ETH", "BSC", "SOL"] as const;
 const SUPPORTED_ASSETS = ["USDT", "USDC"] as const;
+const SUPPORTED_PRICE_MATRIX = SUPPORTED_CHAINS.flatMap((chain) => SUPPORTED_ASSETS.map((asset) => ({ chain, asset })));
+
+function isPositiveAmount(value: string) {
+  if (!/^\d+(?:\.\d{1,8})?$/.test(value)) {
+    return false;
+  }
+
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed > 0;
+}
 
 export async function POST(request: Request) {
   const formData = await request.formData();
@@ -12,13 +22,19 @@ export async function POST(request: Request) {
     const name = readField(formData, "name");
     const durationDays = Number(readField(formData, "durationDays") || "0");
     const isActive = readField(formData, "isActive") !== "false";
-    const prices = SUPPORTED_CHAINS.flatMap((chain) =>
-      SUPPORTED_ASSETS.map((asset) => ({
-        chain,
-        asset,
-        amount: readField(formData, `price:${chain}:${asset}`) || "20.00",
-      })),
-    );
+    const prices = [] as Array<{ chain: string; asset: string; amount: string }>;
+
+    for (const { chain, asset } of SUPPORTED_PRICE_MATRIX) {
+      const amount = readField(formData, `price:${chain}:${asset}`);
+      if (!isPositiveAmount(amount)) {
+        return redirectTo(
+          request,
+          `/admin/memberships?planError=${encodeURIComponent(`${chain} / ${asset} price must be a positive amount`)}`,
+        );
+      }
+      prices.push({ chain, asset, amount });
+    }
+
     const response = await postAdminBackend(request, "/admin/memberships/plans", {
       code,
       name,
@@ -27,7 +43,9 @@ export async function POST(request: Request) {
       prices,
     });
     if (!response.ok) {
-      return proxyAdminBackendError(response);
+      const payload = await response.json().catch(() => null) as { error?: string } | null;
+      const error = payload?.error ?? "plan pricing save failed";
+      return redirectTo(request, `/admin/memberships?planError=${encodeURIComponent(error)}`);
     }
     return redirectTo(request, `/admin/memberships?planSaved=${encodeURIComponent(code)}`);
   }

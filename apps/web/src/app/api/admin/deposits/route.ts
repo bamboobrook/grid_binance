@@ -20,7 +20,7 @@ export async function POST(request: Request) {
   const decision = readField(formData, "decision");
   const confirmation = readField(formData, "confirmation");
   const justification = readField(formData, "justification");
-  const orderId = readOptionalOrderId(readField(formData, "orderId"), readField(formData, "suggestedOrderId"));
+  const orderId = readOptionalOrderId(readField(formData, "suggestedOrderId"), readField(formData, "orderId"));
 
   const response = await postAdminBackend(request, "/admin/deposits/process", {
     chain,

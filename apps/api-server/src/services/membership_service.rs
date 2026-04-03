@@ -7,6 +7,7 @@ use billing_chain_listener::order_matcher::canonicalize_amount;
 use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
+use std::collections::HashSet;
 use shared_db::{
     AuditLogRecord, BillingOrderRecord, DepositAddressPoolRecord, DepositTransactionRecord,
     MembershipPlanPriceRecord, MembershipPlanRecord, MembershipRecord, SharedDb, SweepJobRecord,
@@ -834,6 +835,8 @@ impl MembershipService {
             .map_err(MembershipError::storage)?;
 
         let mut prices = Vec::with_capacity(request.prices.len());
+        let request_price_count = request.prices.len();
+        let mut seen_pairs = HashSet::with_capacity(request_price_count);
         for price in request.prices {
             let chain = normalize_chain(&price.chain);
             let asset = normalize_asset(&price.asset);
@@ -842,13 +845,35 @@ impl MembershipService {
             {
                 return Err(MembershipError::bad_request("unsupported chain or asset"));
             }
+            if !seen_pairs.insert((chain.clone(), asset.clone())) {
+                return Err(MembershipError::bad_request(
+                    "complete price matrix is required",
+                ));
+            }
             let amount = canonicalize_amount(&price.amount)
                 .map_err(|_| MembershipError::bad_request("invalid amount"))?;
+            if amount == "0.00000000" {
+                return Err(MembershipError::bad_request(
+                    "price amount must be greater than 0",
+                ));
+            }
             prices.push(MembershipPlanPriceResponse {
                 chain,
                 asset,
                 amount,
             });
+        }
+        let expected_price_count = DEFAULT_CHAIN_CODES.len() * DEFAULT_ASSETS.len();
+        if request_price_count != expected_price_count
+            || DEFAULT_CHAIN_CODES.iter().any(|chain| {
+                DEFAULT_ASSETS.iter().any(|asset| {
+                    !seen_pairs.contains(&(chain.to_string(), asset.to_string()))
+                })
+            })
+        {
+            return Err(MembershipError::bad_request(
+                "complete price matrix is required",
+            ));
         }
         let before_summary = plan_config_summary_from_records(
             &code,
@@ -1135,6 +1160,11 @@ impl MembershipService {
                 {
                     return Err(MembershipError::bad_request(
                         "manual credit cannot reassign this deposit to a different order",
+                    ));
+                }
+                if !manual_credit_target_consistent(deposit, &order) {
+                    return Err(MembershipError::bad_request(
+                        "manual credit target order is inconsistent with deposit context",
                     ));
                 }
                 let (active_until, grace_until) =
@@ -1523,6 +1553,30 @@ impl MembershipService {
             .map_err(MembershipError::storage)
     }
 
+}
+
+fn manual_credit_target_consistent(
+    deposit: &DepositTransactionRecord,
+    order: &BillingOrderRecord,
+) -> bool {
+    if deposit.chain != order.chain {
+        return false;
+    }
+
+    match deposit.review_reason.as_deref() {
+        Some("ambiguous_match") => {
+            deposit.asset == order.asset
+                && deposit.amount == order.amount
+                && order
+                    .assignment
+                    .as_ref()
+                    .is_some_and(|assignment| assignment.address == deposit.address)
+        }
+        Some("order_not_found") => {
+            deposit.asset == order.asset && deposit.amount == order.amount
+        }
+        _ => deposit.order_id == Some(order.order_id),
+    }
 }
 
 fn positive_duration_days(duration_days: Option<i64>) -> Result<i64, MembershipError> {

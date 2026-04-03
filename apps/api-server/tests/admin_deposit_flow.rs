@@ -433,6 +433,21 @@ async fn expired_and_unmatched_transfers_create_processable_manual_review_record
     assert_eq!(expired_order.status(), StatusCode::CREATED);
     let expired_body = response_json(expired_order).await;
     let expired_order_id = expired_body["order_id"].as_u64().expect("order id");
+    let unrelated_token = register_and_login(&app, "unrelated-order@example.com", "pass1234").await;
+    let unrelated_order = create_order(
+        &app,
+        &unrelated_token,
+        "unrelated-order@example.com",
+        "BSC",
+        "USDT",
+        "quarterly",
+        "2026-04-01T00:02:00Z",
+    )
+    .await;
+    assert_eq!(unrelated_order.status(), StatusCode::CREATED);
+    let unrelated_order_id = response_json(unrelated_order).await["order_id"]
+        .as_u64()
+        .expect("unrelated order id");
 
     let expired_match = match_order(
         &app,
@@ -485,6 +500,24 @@ async fn expired_and_unmatched_transfers_create_processable_manual_review_record
             && record["review_reason"] == "order_not_found"
             && record["status"] == "manual_review_required"
     }));
+
+    let unrelated_credit = process_abnormal_deposit(
+        &app,
+        &admin_token,
+        "BSC",
+        "tx-order-not-found",
+        "credit_membership",
+        Some(unrelated_order_id),
+        Some(MANUAL_CREDIT_CONFIRMATION),
+        Some("attempted to bind orphan transfer to unrelated quarterly order"),
+        "2026-04-01T01:10:30Z",
+    )
+    .await;
+    assert_eq!(unrelated_credit.status(), StatusCode::BAD_REQUEST);
+    assert_eq!(
+        response_json(unrelated_credit).await["error"],
+        "manual credit target order is inconsistent with deposit context"
+    );
 
     let credited = process_abnormal_deposit(
         &app,
@@ -553,6 +586,25 @@ async fn ambiguous_manual_review_records_can_be_processed() {
         enqueued_at: None,
     })
     .expect("insert order");
+    db.insert_billing_order(&shared_db::BillingOrderRecord {
+        order_id: 1003,
+        email: "amb-c@example.com".to_string(),
+        chain: "BSC".to_string(),
+        asset: "USDT".to_string(),
+        plan_code: "monthly".to_string(),
+        amount: "20.00000000".to_string(),
+        requested_at: "2026-04-01T00:02:00Z".parse().expect("time"),
+        assignment: Some(shared_chain::assignment::AddressAssignment {
+            chain: "BSC".to_string(),
+            address: "different-address".to_string(),
+            expires_at: "2026-04-01T02:00:00Z".parse().expect("time"),
+        }),
+        paid_at: None,
+        tx_hash: None,
+        status: "pending".to_string(),
+        enqueued_at: None,
+    })
+    .expect("insert order");
 
     let ambiguous = match_order(
         &app,
@@ -578,6 +630,24 @@ async fn ambiguous_manual_review_records_can_be_processed() {
         .iter()
         .any(|record| record["tx_hash"] == "tx-ambiguous-manual"
             && record["review_reason"] == "ambiguous_match"));
+
+    let unrelated_credit = process_abnormal_deposit(
+        &app,
+        &admin_token,
+        "BSC",
+        "tx-ambiguous-manual",
+        "credit_membership",
+        Some(1003),
+        Some(MANUAL_CREDIT_CONFIRMATION),
+        Some("attempted to bind ambiguous transfer to order on a different address"),
+        "2026-04-01T00:10:30Z",
+    )
+    .await;
+    assert_eq!(unrelated_credit.status(), StatusCode::BAD_REQUEST);
+    assert_eq!(
+        response_json(unrelated_credit).await["error"],
+        "manual credit target order is inconsistent with deposit context"
+    );
 
     let rejected = process_abnormal_deposit(
         &app,
