@@ -4,7 +4,16 @@ use axum::{
     http::{Request, StatusCode},
 };
 use serde_json::{json, Value};
+
 use shared_db::SharedDb;
+use std::{
+    fs,
+    net::TcpListener,
+    path::{Path, PathBuf},
+    process::{Child, Command, Stdio},
+    thread::sleep,
+    time::{Duration, SystemTime, UNIX_EPOCH},
+};
 use tower::ServiceExt;
 
 mod support;
@@ -179,7 +188,13 @@ async fn queues_orders_when_pool_is_exhausted_and_promotes_in_fifo_order() {
 #[tokio::test]
 async fn allocation_uses_configured_pool_and_respects_disabled_addresses() {
     let db = SharedDb::ephemeral().expect("ephemeral db");
-    for address in ["bsc-addr-1", "bsc-addr-2", "bsc-addr-3", "bsc-addr-4", "bsc-addr-5"] {
+    for address in [
+        "bsc-addr-1",
+        "bsc-addr-2",
+        "bsc-addr-3",
+        "bsc-addr-4",
+        "bsc-addr-5",
+    ] {
         db.upsert_deposit_address(&shared_db::DepositAddressPoolRecord {
             chain: "BSC".to_string(),
             address: address.to_string(),
@@ -326,8 +341,7 @@ async fn operator_admin_cannot_override_membership_or_write_override_audit_logs(
     assert_eq!(matched.status(), StatusCode::OK);
     assert_eq!(response_json(matched).await["membership_status"], "Active");
 
-    let frozen =
-        override_membership(&app, &admin_token, "admin@example.com", Some("Frozen")).await;
+    let frozen = override_membership(&app, &admin_token, "admin@example.com", Some("Frozen")).await;
     assert_eq!(frozen.status(), StatusCode::FORBIDDEN);
 
     let cleared = override_membership(&app, &admin_token, "admin@example.com", None).await;
@@ -346,6 +360,7 @@ async fn operator_admin_cannot_override_membership_or_write_override_audit_logs(
 #[tokio::test]
 async fn admin_can_open_extend_and_unfreeze_membership_manually() {
     operator_admin_cannot_manually_open_extend_or_unfreeze_membership().await;
+    manual_membership_actions_fail_when_audit_write_fails().await;
 }
 
 async fn operator_admin_cannot_manually_open_extend_or_unfreeze_membership() {
@@ -365,7 +380,8 @@ async fn operator_admin_cannot_manually_open_extend_or_unfreeze_membership() {
     .await;
     assert_eq!(opened.status(), StatusCode::FORBIDDEN);
 
-    let frozen = override_membership(&app, &admin_token, "manual@example.com", Some("Frozen")).await;
+    let frozen =
+        override_membership(&app, &admin_token, "manual@example.com", Some("Frozen")).await;
     assert_eq!(frozen.status(), StatusCode::FORBIDDEN);
 
     let unfrozen = manage_membership(
@@ -401,10 +417,76 @@ async fn operator_admin_cannot_manually_open_extend_or_unfreeze_membership() {
     assert_eq!(response_json(status).await["status"], "Pending");
 
     let audit_logs = db.list_audit_logs().expect("audit logs");
-    assert!(!audit_logs.iter().any(|record| record.action == "membership.manual_opened"));
-    assert!(!audit_logs.iter().any(|record| record.action == "membership.manual_extended"));
-    assert!(!audit_logs.iter().any(|record| record.action == "membership.manual_unfrozen"));
-    assert!(!audit_logs.iter().any(|record| record.action == "membership.override_updated"));
+    assert!(!audit_logs
+        .iter()
+        .any(|record| record.action == "membership.manual_opened"));
+    assert!(!audit_logs
+        .iter()
+        .any(|record| record.action == "membership.manual_extended"));
+    assert!(!audit_logs
+        .iter()
+        .any(|record| record.action == "membership.manual_unfrozen"));
+    assert!(!audit_logs
+        .iter()
+        .any(|record| record.action == "membership.override_updated"));
+}
+
+async fn manual_membership_actions_fail_when_audit_write_fails() {
+    let server = ApiServerHarness::start("membership-audit");
+    let super_admin_token =
+        register_privileged_admin_and_login_via_http(&server, "super-admin@example.com");
+
+    server.break_audit_table();
+
+    let (opened_status, _) = http_json(
+        "POST",
+        &format!("{}/admin/memberships/manage", server.base_url()),
+        Some(&super_admin_token),
+        Some(json!({
+            "email": "manual@example.com",
+            "action": "open",
+            "duration_days": 30,
+            "at": "2026-04-01T00:00:00Z"
+        })),
+    );
+    assert_eq!(opened_status, StatusCode::INTERNAL_SERVER_ERROR.as_u16());
+
+    let (extended_status, _) = http_json(
+        "POST",
+        &format!("{}/admin/memberships/manage", server.base_url()),
+        Some(&super_admin_token),
+        Some(json!({
+            "email": "manual@example.com",
+            "action": "extend",
+            "duration_days": 30,
+            "at": "2026-04-15T00:00:00Z"
+        })),
+    );
+    assert_eq!(extended_status, StatusCode::INTERNAL_SERVER_ERROR.as_u16());
+
+    let (override_status, _) = http_json(
+        "POST",
+        &format!("{}/admin/memberships/override", server.base_url()),
+        Some(&super_admin_token),
+        Some(json!({
+            "email": "manual@example.com",
+            "status": "Frozen"
+        })),
+    );
+    assert_eq!(override_status, StatusCode::INTERNAL_SERVER_ERROR.as_u16());
+
+    let (unfreeze_status, _) = http_json(
+        "POST",
+        &format!("{}/admin/memberships/manage", server.base_url()),
+        Some(&super_admin_token),
+        Some(json!({
+            "email": "manual@example.com",
+            "action": "unfreeze",
+            "duration_days": null,
+            "at": "2026-04-20T00:00:00Z"
+        })),
+    );
+    assert_eq!(unfreeze_status, StatusCode::INTERNAL_SERVER_ERROR.as_u16());
 }
 
 #[tokio::test]
@@ -487,11 +569,126 @@ async fn anonymous_user_cannot_override_membership() {
 }
 
 async fn register_admin_and_login(app: &axum::Router) -> String {
-    register_and_verify(app, "admin@example.com", "pass1234").await;
-    let session_token = login_and_get_token(app, "admin@example.com", "pass1234").await;
-    let enabled = enable_totp(app, "admin@example.com", &session_token).await;
+    register_privileged_admin_and_login(app, "admin@example.com").await
+}
+
+async fn register_privileged_admin_and_login(app: &axum::Router, email: &str) -> String {
+    register_and_verify(app, email, "pass1234").await;
+    let session_token = login_and_get_token(app, email, "pass1234").await;
+    let enabled = enable_totp(app, email, &session_token).await;
     let totp_code = enabled["code"].as_str().expect("totp code");
-    login_with_totp(app, "admin@example.com", "pass1234", totp_code).await
+    login_with_totp(app, email, "pass1234", totp_code).await
+}
+
+struct PersistentRuntimeHarness {
+    project_name: String,
+    override_file: PathBuf,
+    postgres_port: u16,
+    redis_port: u16,
+}
+
+impl PersistentRuntimeHarness {
+    fn start(prefix: &str) -> Self {
+        let workspace_root = workspace_root();
+        let postgres_port = pick_unused_port();
+        let redis_port = pick_unused_port();
+        let project_name = format!(
+            "{prefix}-{}-{}",
+            std::process::id(),
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .expect("unix time")
+                .as_nanos()
+        );
+        let override_file = std::env::temp_dir().join(format!("{project_name}.yml"));
+        fs::write(
+            &override_file,
+            format!(
+                "services:
+  postgres:
+    ports:
+      - \"{postgres_port}:5432\"
+
+  redis:
+    ports:
+      - \"{redis_port}:6379\"
+"
+            ),
+        )
+        .expect("write compose override");
+        run_command(
+            Command::new("docker")
+                .arg("compose")
+                .arg("-p")
+                .arg(&project_name)
+                .arg("--env-file")
+                .arg(workspace_root.join(".env.example"))
+                .arg("-f")
+                .arg(workspace_root.join("deploy/docker/docker-compose.yml"))
+                .arg("-f")
+                .arg(&override_file)
+                .arg("up")
+                .arg("-d")
+                .arg("--wait")
+                .arg("postgres")
+                .arg("redis"),
+            "start persistent runtime",
+        );
+
+        Self {
+            project_name,
+            override_file,
+            postgres_port,
+            redis_port,
+        }
+    }
+
+    fn database_url(&self) -> String {
+        format!(
+            "postgres://postgres:postgres@127.0.0.1:{}/grid_binance",
+            self.postgres_port
+        )
+    }
+
+    fn redis_url(&self) -> String {
+        format!("redis://127.0.0.1:{}/0", self.redis_port)
+    }
+
+    fn break_audit_table(&self) {
+        run_command(
+            Command::new("docker")
+                .arg("exec")
+                .arg(format!("{}-postgres-1", self.project_name))
+                .arg("psql")
+                .arg("-U")
+                .arg("postgres")
+                .arg("-d")
+                .arg("grid_binance")
+                .arg("-c")
+                .arg("ALTER TABLE audit_logs RENAME TO audit_logs_disabled"),
+            "break audit table",
+        );
+    }
+}
+
+impl Drop for PersistentRuntimeHarness {
+    fn drop(&mut self) {
+        let workspace_root = workspace_root();
+        let _ = Command::new("docker")
+            .arg("compose")
+            .arg("-p")
+            .arg(&self.project_name)
+            .arg("--env-file")
+            .arg(workspace_root.join(".env.example"))
+            .arg("-f")
+            .arg(workspace_root.join("deploy/docker/docker-compose.yml"))
+            .arg("-f")
+            .arg(&self.override_file)
+            .arg("down")
+            .arg("-v")
+            .status();
+        let _ = fs::remove_file(&self.override_file);
+    }
 }
 
 async fn enable_totp(app: &axum::Router, email: &str, session_token: &str) -> Value {
@@ -720,4 +917,207 @@ async fn response_json(response: axum::response::Response) -> Value {
         .await
         .expect("response body");
     serde_json::from_slice(&bytes).expect("valid json")
+}
+
+struct ApiServerHarness {
+    runtime: PersistentRuntimeHarness,
+    port: u16,
+    child: Child,
+}
+
+impl ApiServerHarness {
+    fn start(prefix: &str) -> Self {
+        let runtime = PersistentRuntimeHarness::start(prefix);
+        let port = pick_unused_port();
+        let mut child = Command::new("bash");
+        child
+            .arg("-lc")
+            .arg("source \"$HOME/.cargo/env\" && cargo run -p api-server")
+            .current_dir(workspace_root())
+            .env("DATABASE_URL", runtime.database_url())
+            .env("REDIS_URL", runtime.redis_url())
+            .env("SESSION_TOKEN_SECRET", "grid-binance-dev-session-secret")
+            .env("ADMIN_EMAILS", "admin@example.com")
+            .env("SUPER_ADMIN_EMAILS", "super-admin@example.com")
+            .env(
+                "EXCHANGE_CREDENTIALS_MASTER_KEY",
+                "grid-binance-dev-exchange-secret",
+            )
+            .env(
+                "TELEGRAM_BOT_BIND_SECRET",
+                "grid-binance-dev-telegram-secret",
+            )
+            .env("PORT", port.to_string())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null());
+        let child = child.spawn().expect("start api-server");
+        let harness = Self {
+            runtime,
+            port,
+            child,
+        };
+        harness.wait_until_ready();
+        harness
+    }
+
+    fn base_url(&self) -> String {
+        format!("http://127.0.0.1:{}", self.port)
+    }
+
+    fn break_audit_table(&self) {
+        self.runtime.break_audit_table();
+    }
+
+    fn wait_until_ready(&self) {
+        for _ in 0..120 {
+            let output = Command::new("curl")
+                .arg("-sS")
+                .arg("-o")
+                .arg("/dev/null")
+                .arg("-w")
+                .arg("%{http_code}")
+                .arg(format!("{}/healthz", self.base_url()))
+                .output();
+            if let Ok(output) = output {
+                if output.status.success()
+                    && String::from_utf8_lossy(&output.stdout).trim() == "200"
+                {
+                    return;
+                }
+            }
+            sleep(Duration::from_millis(500));
+        }
+        panic!("api-server did not become ready");
+    }
+}
+
+impl Drop for ApiServerHarness {
+    fn drop(&mut self) {
+        let _ = self.child.kill();
+        let _ = self.child.wait();
+    }
+}
+
+fn register_and_login_via_http(server: &ApiServerHarness, email: &str, password: &str) -> String {
+    let (register_status, register_body) = http_json(
+        "POST",
+        &format!("{}/auth/register", server.base_url()),
+        None,
+        Some(json!({ "email": email, "password": password })),
+    );
+    assert_eq!(register_status, StatusCode::CREATED.as_u16());
+    let verification_code = register_body["verification_code"]
+        .as_str()
+        .expect("verification code");
+
+    let (verify_status, _) = http_json(
+        "POST",
+        &format!("{}/auth/verify-email", server.base_url()),
+        None,
+        Some(json!({ "email": email, "code": verification_code })),
+    );
+    assert_eq!(verify_status, StatusCode::OK.as_u16());
+
+    let (login_status, login_body) = http_json(
+        "POST",
+        &format!("{}/auth/login", server.base_url()),
+        None,
+        Some(json!({ "email": email, "password": password })),
+    );
+    assert_eq!(login_status, StatusCode::OK.as_u16());
+    login_body["session_token"]
+        .as_str()
+        .expect("session token")
+        .to_owned()
+}
+
+fn register_privileged_admin_and_login_via_http(server: &ApiServerHarness, email: &str) -> String {
+    let session_token = register_and_login_via_http(server, email, "pass1234");
+    let (enable_status, enable_body) = http_json(
+        "POST",
+        &format!("{}/security/totp/enable", server.base_url()),
+        Some(&session_token),
+        Some(json!({ "email": email })),
+    );
+    assert_eq!(enable_status, StatusCode::OK.as_u16());
+    let totp_code = enable_body["code"].as_str().expect("totp code");
+
+    let (login_status, login_body) = http_json(
+        "POST",
+        &format!("{}/auth/login", server.base_url()),
+        None,
+        Some(json!({
+            "email": email,
+            "password": "pass1234",
+            "totp_code": totp_code,
+        })),
+    );
+    assert_eq!(login_status, StatusCode::OK.as_u16());
+    login_body["session_token"]
+        .as_str()
+        .expect("session token")
+        .to_owned()
+}
+
+fn http_json(
+    method: &str,
+    url: &str,
+    bearer_token: Option<&str>,
+    payload: Option<Value>,
+) -> (u16, Value) {
+    let mut command = Command::new("curl");
+    command.arg("-sS").arg("-X").arg(method).arg(url);
+    if let Some(token) = bearer_token {
+        command
+            .arg("-H")
+            .arg(format!("authorization: Bearer {token}"));
+    }
+    if payload.is_some() {
+        command.arg("-H").arg("content-type: application/json");
+    }
+    if let Some(payload) = payload {
+        command.arg("-d").arg(payload.to_string());
+    }
+    command.arg("-w").arg("\n%{http_code}");
+    let output = command.output().expect("execute curl");
+    assert!(
+        output.status.success(),
+        "curl failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).expect("curl stdout utf8");
+    let (body, status) = stdout.rsplit_once('\n').expect("curl status line");
+    let status = status.trim().parse::<u16>().expect("http status");
+    let body = body.trim();
+    let json = if body.is_empty() {
+        Value::Null
+    } else {
+        serde_json::from_str(body).expect("valid json body")
+    };
+    (status, json)
+}
+
+fn workspace_root() -> PathBuf {
+    Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../..")
+        .canonicalize()
+        .expect("workspace root")
+}
+
+fn pick_unused_port() -> u16 {
+    TcpListener::bind("127.0.0.1:0")
+        .expect("bind random port")
+        .local_addr()
+        .expect("local addr")
+        .port()
+}
+
+fn run_command(command: &mut Command, context: &str) {
+    let output = command.output().expect(context);
+    assert!(
+        output.status.success(),
+        "{context} failed: stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
 }

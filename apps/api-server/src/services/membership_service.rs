@@ -9,8 +9,8 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 use shared_db::{
     AuditLogRecord, BillingOrderRecord, DepositAddressPoolRecord, DepositTransactionRecord,
-    MembershipPlanPriceRecord, MembershipPlanRecord, MembershipRecord,
-    SweepJobRecord, SweepTransferRecord, SharedDb,
+    MembershipPlanPriceRecord, MembershipPlanRecord, MembershipRecord, SharedDb, SweepJobRecord,
+    SweepTransferRecord,
 };
 use shared_domain::membership::{MembershipSnapshot, MembershipStatus};
 
@@ -292,17 +292,27 @@ impl MembershipService {
         }
 
         self.promote_queued_orders(request.requested_at)?;
-        let plans = self.db.list_membership_plans().map_err(MembershipError::storage)?;
-        let prices = self.db.list_plan_prices().map_err(MembershipError::storage)?;
+        let plans = self
+            .db
+            .list_membership_plans()
+            .map_err(MembershipError::storage)?;
+        let prices = self
+            .db
+            .list_plan_prices()
+            .map_err(MembershipError::storage)?;
         let _plan = plans
             .into_iter()
             .find(|plan| plan.code == plan_code && plan.is_active)
             .ok_or_else(|| MembershipError::bad_request("unknown plan_code"))?;
         let amount = prices
             .into_iter()
-            .find(|price| price.plan_code == plan_code && price.chain == chain && price.asset == asset)
+            .find(|price| {
+                price.plan_code == plan_code && price.chain == chain && price.asset == asset
+            })
             .map(|price| price.amount)
-            .ok_or_else(|| MembershipError::bad_request("price not configured for chain and asset"))?;
+            .ok_or_else(|| {
+                MembershipError::bad_request("price not configured for chain and asset")
+            })?;
 
         let order_id = self
             .db
@@ -474,7 +484,10 @@ impl MembershipService {
                 processed_at: None,
                 matched_order_id: None,
             })?;
-            return Ok(unmatched_response("ambiguous_match", "manual_review_required"));
+            return Ok(unmatched_response(
+                "ambiguous_match",
+                "manual_review_required",
+            ));
         }
 
         if address_candidates.len() > 1 && valid_candidates.is_empty() {
@@ -567,7 +580,10 @@ impl MembershipService {
                     processed_at: None,
                     matched_order_id: None,
                 })?;
-                return Ok(unmatched_response("order_expired", "manual_review_required"));
+                return Ok(unmatched_response(
+                    "order_expired",
+                    "manual_review_required",
+                ));
             }
         }
 
@@ -584,7 +600,10 @@ impl MembershipService {
             processed_at: None,
             matched_order_id: None,
         })?;
-        Ok(unmatched_response("order_not_found", "manual_review_required"))
+        Ok(unmatched_response(
+            "order_not_found",
+            "manual_review_required",
+        ))
     }
 
     pub fn membership_status(
@@ -631,9 +650,11 @@ impl MembershipService {
             .db
             .find_membership_record(&email)
             .map_err(MembershipError::storage)?;
-        let effective_at = request
-            .at
-            .or_else(|| before_record.as_ref().and_then(|record| record.activated_at));
+        let effective_at = request.at.or_else(|| {
+            before_record
+                .as_ref()
+                .and_then(|record| record.activated_at)
+        });
 
         self.db
             .update_membership_override(&email, request.status.as_ref())
@@ -690,7 +711,9 @@ impl MembershipService {
                 MembershipRecord {
                     activated_at: Some(request.at),
                     active_until: Some(request.at + Duration::days(duration_days)),
-                    grace_until: Some(request.at + Duration::days(duration_days) + Duration::hours(GRACE_HOURS)),
+                    grace_until: Some(
+                        request.at + Duration::days(duration_days) + Duration::hours(GRACE_HOURS),
+                    ),
                     override_status: None,
                 }
             }
@@ -721,7 +744,11 @@ impl MembershipService {
                 override_status: None,
                 ..current.clone()
             },
-            _ => return Err(MembershipError::bad_request("unsupported membership action")),
+            _ => {
+                return Err(MembershipError::bad_request(
+                    "unsupported membership action",
+                ))
+            }
         };
         let after_summary = membership_record_summary(&email, Some(&updated), Some(request.at));
 
@@ -760,8 +787,14 @@ impl MembershipService {
 
     pub fn list_plan_configs(&self) -> Result<MembershipPlanConfigListResponse, MembershipError> {
         self.bootstrap_defaults()?;
-        let plans = self.db.list_membership_plans().map_err(MembershipError::storage)?;
-        let prices = self.db.list_plan_prices().map_err(MembershipError::storage)?;
+        let plans = self
+            .db
+            .list_membership_plans()
+            .map_err(MembershipError::storage)?;
+        let prices = self
+            .db
+            .list_plan_prices()
+            .map_err(MembershipError::storage)?;
         Ok(MembershipPlanConfigListResponse {
             plans: plans
                 .into_iter()
@@ -800,22 +833,36 @@ impl MembershipService {
             ));
         }
         if request.prices.is_empty() {
-            return Err(MembershipError::bad_request("at least one price is required"));
+            return Err(MembershipError::bad_request(
+                "at least one price is required",
+            ));
         }
 
-        let existing_plans = self.db.list_membership_plans().map_err(MembershipError::storage)?;
-        let existing_prices = self.db.list_plan_prices().map_err(MembershipError::storage)?;
+        let existing_plans = self
+            .db
+            .list_membership_plans()
+            .map_err(MembershipError::storage)?;
+        let existing_prices = self
+            .db
+            .list_plan_prices()
+            .map_err(MembershipError::storage)?;
 
         let mut prices = Vec::with_capacity(request.prices.len());
         for price in request.prices {
             let chain = normalize_chain(&price.chain);
             let asset = normalize_asset(&price.asset);
-            if !DEFAULT_CHAIN_CODES.contains(&chain.as_str()) || !DEFAULT_ASSETS.contains(&asset.as_str()) {
+            if !DEFAULT_CHAIN_CODES.contains(&chain.as_str())
+                || !DEFAULT_ASSETS.contains(&asset.as_str())
+            {
                 return Err(MembershipError::bad_request("unsupported chain or asset"));
             }
             let amount = canonicalize_amount(&price.amount)
                 .map_err(|_| MembershipError::bad_request("invalid amount"))?;
-            prices.push(MembershipPlanPriceResponse { chain, asset, amount });
+            prices.push(MembershipPlanPriceResponse {
+                chain,
+                asset,
+                amount,
+            });
         }
         let before_summary = plan_config_summary_from_records(
             &code,
@@ -895,7 +942,11 @@ impl MembershipService {
                 is_enabled: record.is_enabled,
             })
             .collect::<Vec<_>>();
-        addresses.sort_by(|left, right| left.chain.cmp(&right.chain).then_with(|| left.address.cmp(&right.address)));
+        addresses.sort_by(|left, right| {
+            left.chain
+                .cmp(&right.chain)
+                .then_with(|| left.address.cmp(&right.address))
+        });
         Ok(AddressPoolListResponse { addresses })
     }
 
@@ -910,13 +961,18 @@ impl MembershipService {
         let chain = normalize_chain(&request.chain);
         let address = request.address.trim().to_owned();
         if chain.is_empty() || address.is_empty() {
-            return Err(MembershipError::bad_request("chain and address are required"));
+            return Err(MembershipError::bad_request(
+                "chain and address are required",
+            ));
         }
         if !DEFAULT_CHAIN_CODES.contains(&chain.as_str()) {
             return Err(MembershipError::bad_request("unsupported chain"));
         }
 
-        let existing_addresses = self.db.list_deposit_addresses().map_err(MembershipError::storage)?;
+        let existing_addresses = self
+            .db
+            .list_deposit_addresses()
+            .map_err(MembershipError::storage)?;
         let before_summary = address_pool_summary(
             &chain,
             &address,
@@ -956,7 +1012,6 @@ impl MembershipService {
     }
 
     pub fn admin_list_deposits(
-
         &self,
         at: DateTime<Utc>,
     ) -> Result<AdminDepositsResponse, MembershipError> {
@@ -993,7 +1048,10 @@ impl MembershipService {
                     email: order.email.clone(),
                     chain: order.chain.clone(),
                     asset: order.asset.clone(),
-                    address: order.assignment.as_ref().map(|assignment| assignment.address.clone()),
+                    address: order
+                        .assignment
+                        .as_ref()
+                        .map(|assignment| assignment.address.clone()),
                     amount: order.amount.clone(),
                     status: order.status.clone(),
                     queue_position: if order.status == "queued" {
@@ -1034,7 +1092,9 @@ impl MembershipService {
             .ok_or_else(|| MembershipError::not_found("deposit not found"))?;
 
         if deposit.status != "manual_review_required" {
-            return Err(MembershipError::bad_request("deposit is not pending manual review"));
+            return Err(MembershipError::bad_request(
+                "deposit is not pending manual review",
+            ));
         }
 
         let before_summary = abnormal_deposit_before_summary(deposit);
@@ -1160,7 +1220,10 @@ impl MembershipService {
             ));
         }
 
-        let existing_jobs = self.db.list_sweep_jobs().map_err(MembershipError::storage)?;
+        let existing_jobs = self
+            .db
+            .list_sweep_jobs()
+            .map_err(MembershipError::storage)?;
         let before_summary = sweep_queue_summary(existing_jobs.len());
         let sweep_job_id = self
             .db
@@ -1180,7 +1243,8 @@ impl MembershipService {
                     })
             })
             .collect::<Result<Vec<_>, _>>()?;
-        let after_summary = sweep_request_summary(&chain, &asset, &treasury_address, transfers.len());
+        let after_summary =
+            sweep_request_summary(&chain, &asset, &treasury_address, transfers.len());
         let job = SweepJobRecord {
             sweep_job_id,
             chain: chain.clone(),
@@ -1402,13 +1466,16 @@ impl MembershipService {
     }
 
     fn insert_audit(&self, record: AuditLogRecord) -> Result<(), MembershipError> {
-        let _ = self.db.insert_audit_log(&record);
-        Ok(())
+        self.db
+            .insert_audit_log(&record)
+            .map_err(MembershipError::storage)
     }
 }
 
 fn optional_time_summary(value: Option<DateTime<Utc>>) -> String {
-    value.map(|value| value.to_rfc3339()).unwrap_or_else(|| "-".to_owned())
+    value
+        .map(|value| value.to_rfc3339())
+        .unwrap_or_else(|| "-".to_owned())
 }
 
 fn membership_record_summary(
@@ -1467,7 +1534,13 @@ fn plan_config_summary_from_records(
                     amount: price.amount.clone(),
                 })
                 .collect::<Vec<_>>();
-            plan_config_summary(code, &plan.name, plan.duration_days, plan.is_active, &view_prices)
+            plan_config_summary(
+                code,
+                &plan.name,
+                plan.duration_days,
+                plan.is_active,
+                &view_prices,
+            )
         }
         None => format!("plan {} absent", code),
     }
@@ -1489,9 +1562,21 @@ fn sweep_queue_summary(existing_jobs: usize) -> String {
     }
 }
 
-fn sweep_request_summary(chain: &str, asset: &str, treasury_address: &str, transfer_count: usize) -> String {
-    let noun = if transfer_count == 1 { "transfer" } else { "transfers" };
-    format!("{} {} {} {} {}", chain, asset, treasury_address, transfer_count, noun)
+fn sweep_request_summary(
+    chain: &str,
+    asset: &str,
+    treasury_address: &str,
+    transfer_count: usize,
+) -> String {
+    let noun = if transfer_count == 1 {
+        "transfer"
+    } else {
+        "transfers"
+    };
+    format!(
+        "{} {} {} {} {}",
+        chain, asset, treasury_address, transfer_count, noun
+    )
 }
 
 fn abnormal_deposit_before_summary(deposit: &DepositTransactionRecord) -> String {
@@ -1611,7 +1696,10 @@ fn resolve_status(record: &MembershipRecord, at: Option<DateTime<Utc>>) -> Membe
         _ => MembershipStatus::Pending,
     }
 }
-fn queued_orders_for<'a>(chain: &str, orders: &'a [BillingOrderRecord]) -> Vec<&'a BillingOrderRecord> {
+fn queued_orders_for<'a>(
+    chain: &str,
+    orders: &'a [BillingOrderRecord],
+) -> Vec<&'a BillingOrderRecord> {
     let mut queued = orders
         .iter()
         .filter(|order| order.chain == chain && order.paid_at.is_none() && order.status == "queued")

@@ -4,15 +4,15 @@ use axum::{
     Json,
 };
 use chrono::Utc;
-use serde_json::json;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
+use serde_json::json;
 use shared_db::{SharedDb, StoredStrategy, StoredStrategyTemplate};
 use shared_domain::strategy::{
     GridGeneration, GridLevel, PostTriggerAction, PreflightFailure, PreflightReport,
-    PreflightStepResult, PreflightStepStatus, Strategy, StrategyMarket, StrategyMode, StrategyRevision,
-    StrategyRuntime, StrategyRuntimeEvent, StrategyRuntimeFill, StrategyRuntimeOrder,
-    StrategyRuntimePosition, StrategyStatus, StrategyTemplate,
+    PreflightStepResult, PreflightStepStatus, Strategy, StrategyMarket, StrategyMode,
+    StrategyRevision, StrategyRuntime, StrategyRuntimeEvent, StrategyRuntimeFill,
+    StrategyRuntimeOrder, StrategyRuntimePosition, StrategyStatus, StrategyTemplate,
 };
 
 use crate::services::auth_service::{AdminRole, AuthError};
@@ -264,8 +264,13 @@ impl StrategyService {
             .map_err(StrategyError::storage)?
             .ok_or_else(|| StrategyError::not_found("strategy not found"))?;
 
-        if !matches!(strategy.status, StrategyStatus::Draft | StrategyStatus::Stopped) {
-            return Err(StrategyError::conflict("strategy cannot be started from this state"));
+        if !matches!(
+            strategy.status,
+            StrategyStatus::Draft | StrategyStatus::Stopped
+        ) {
+            return Err(StrategyError::conflict(
+                "strategy cannot be started from this state",
+            ));
         }
 
         let preflight = run_preflight(&strategy);
@@ -282,7 +287,10 @@ impl StrategyService {
             .update_strategy(&strategy)
             .map_err(StrategyError::storage)?;
 
-        Ok(StartStrategyResponse { strategy, preflight })
+        Ok(StartStrategyResponse {
+            strategy,
+            preflight,
+        })
     }
 
     pub fn resume_strategy(
@@ -325,7 +333,10 @@ impl StrategyService {
             .update_strategy(&strategy)
             .map_err(StrategyError::storage)?;
 
-        Ok(StartStrategyResponse { strategy, preflight })
+        Ok(StartStrategyResponse {
+            strategy,
+            preflight,
+        })
     }
 
     pub fn stop_strategy(
@@ -366,7 +377,12 @@ impl StrategyService {
             {
                 strategy.status = StrategyStatus::Paused;
                 cancel_working_orders(&mut strategy.runtime.orders);
-                push_runtime_event(&mut strategy.runtime, "strategy_paused", "strategy paused", None);
+                push_runtime_event(
+                    &mut strategy.runtime,
+                    "strategy_paused",
+                    "strategy paused",
+                    None,
+                );
                 self.db
                     .update_strategy(&strategy)
                     .map_err(StrategyError::storage)?;
@@ -398,7 +414,12 @@ impl StrategyService {
             {
                 strategy.status = StrategyStatus::Archived;
                 strategy.archived_at = Some(Utc::now());
-                push_runtime_event(&mut strategy.runtime, "strategy_archived", "strategy archived", None);
+                push_runtime_event(
+                    &mut strategy.runtime,
+                    "strategy_archived",
+                    "strategy archived",
+                    None,
+                );
                 self.db
                     .update_strategy(&strategy)
                     .map_err(StrategyError::storage)?;
@@ -414,8 +435,10 @@ impl StrategyService {
 
         if let Ok(strategies) = self.db.list_strategies(owner_email) {
             for mut strategy in strategies {
-                if matches!(strategy.status, StrategyStatus::Running | StrategyStatus::Paused)
-                    && stop_strategy_runtime(&mut strategy).is_ok()
+                if matches!(
+                    strategy.status,
+                    StrategyStatus::Running | StrategyStatus::Paused
+                ) && stop_strategy_runtime(&mut strategy).is_ok()
                     && self.db.update_strategy(&strategy).is_ok()
                 {
                     stopped += 1;
@@ -461,7 +484,7 @@ impl StrategyService {
             "strategy.template_created",
             None,
             &template,
-        );
+        )?;
         Ok(template)
     }
 
@@ -492,7 +515,7 @@ impl StrategyService {
             "strategy.template_updated",
             Some(&existing),
             &template,
-        );
+        )?;
         Ok(template)
     }
 
@@ -583,8 +606,8 @@ fn write_template_audit(
     action: &str,
     before: Option<&StrategyTemplate>,
     after: &StrategyTemplate,
-) {
-    let _ = db.insert_audit_log(&shared_db::AuditLogRecord {
+) -> Result<(), StrategyError> {
+    db.insert_audit_log(&shared_db::AuditLogRecord {
         actor_email: actor_email.to_owned(),
         action: action.to_owned(),
         target_type: "strategy_template".to_owned(),
@@ -604,7 +627,8 @@ fn write_template_audit(
             "after_summary": template_summary(after),
         }),
         created_at: Utc::now(),
-    });
+    })
+    .map_err(StrategyError::storage)
 }
 
 fn template_summary(template: &StrategyTemplate) -> String {
@@ -777,9 +801,9 @@ fn build_revision(
 }
 
 fn parse_decimal(value: &str, field: &str) -> Result<Decimal, StrategyError> {
-    value.parse::<Decimal>().map_err(|_| {
-        StrategyError::bad_request(&format!("{field} must be a valid decimal string"))
-    })
+    value
+        .parse::<Decimal>()
+        .map_err(|_| StrategyError::bad_request(&format!("{field} must be a valid decimal string")))
 }
 
 fn summarize_budget(levels: &[SaveGridLevelRequest]) -> Result<String, StrategyError> {
@@ -883,11 +907,9 @@ fn run_preflight(strategy: &Strategy) -> PreflightReport {
         (
             "trailing_take_profit",
             true,
-            strategy
-                .draft_revision
-                .levels
-                .iter()
-                .all(|level| level.trailing_bps.unwrap_or(level.take_profit_bps) <= level.take_profit_bps),
+            strategy.draft_revision.levels.iter().all(|level| {
+                level.trailing_bps.unwrap_or(level.take_profit_bps) <= level.take_profit_bps
+            }),
             "trailing take profit exceeds the configured grid take profit range",
             "reduce trailing_bps so it does not exceed take_profit_bps",
         ),
@@ -980,7 +1002,12 @@ fn rebuild_runtime(
         events: Vec::new(),
         last_preflight: None,
     };
-    push_runtime_event(&mut runtime, event_type, event_type.replace('_', " ").as_str(), None);
+    push_runtime_event(
+        &mut runtime,
+        event_type,
+        event_type.replace('_', " ").as_str(),
+        None,
+    );
     runtime
 }
 
@@ -993,7 +1020,11 @@ fn side_for_level(mode: StrategyMode, level_index: u32) -> &'static str {
         StrategyMode::SpotClassic | StrategyMode::SpotBuyOnly | StrategyMode::FuturesLong => "Buy",
         StrategyMode::SpotSellOnly | StrategyMode::FuturesShort => "Sell",
         StrategyMode::FuturesNeutral => {
-            if level_index % 2 == 0 { "Buy" } else { "Sell" }
+            if level_index % 2 == 0 {
+                "Buy"
+            } else {
+                "Sell"
+            }
         }
     }
 }
@@ -1007,14 +1038,23 @@ fn cancel_working_orders(orders: &mut [StrategyRuntimeOrder]) {
 }
 
 fn can_soft_archive(strategy: &Strategy) -> bool {
-    !strategy.runtime.orders.iter().any(|order| order.status == "Working")
+    !strategy
+        .runtime
+        .orders
+        .iter()
+        .any(|order| order.status == "Working")
         && strategy.runtime.positions.is_empty()
         && !matches!(strategy.status, StrategyStatus::Running)
 }
 
 fn stop_strategy_runtime(strategy: &mut Strategy) -> Result<(), StrategyError> {
-    if !matches!(strategy.status, StrategyStatus::Running | StrategyStatus::Paused) {
-        return Err(StrategyError::conflict("only running or paused strategies can stop"));
+    if !matches!(
+        strategy.status,
+        StrategyStatus::Running | StrategyStatus::Paused
+    ) {
+        return Err(StrategyError::conflict(
+            "only running or paused strategies can stop",
+        ));
     }
 
     cancel_working_orders(&mut strategy.runtime.orders);
@@ -1038,7 +1078,12 @@ fn stop_strategy_runtime(strategy: &mut Strategy) -> Result<(), StrategyError> {
     strategy.runtime.fills.append(&mut closing_fills);
     strategy.runtime.positions.clear();
     strategy.status = StrategyStatus::Stopped;
-    push_runtime_event(&mut strategy.runtime, "strategy_stopped", "strategy stopped", None);
+    push_runtime_event(
+        &mut strategy.runtime,
+        "strategy_stopped",
+        "strategy stopped",
+        None,
+    );
     Ok(())
 }
 
@@ -1135,13 +1180,216 @@ impl From<AuthError> for StrategyError {
 #[cfg(test)]
 mod tests {
     use super::{
-        run_preflight, SaveGridLevelRequest, SaveStrategyRequest, StrategyError, StrategyService,
+        run_preflight, CreateTemplateRequest, SaveGridLevelRequest, SaveStrategyRequest,
+        StrategyError, StrategyService,
     };
+    use crate::services::auth_service::AdminRole;
+    use axum::http::StatusCode;
     use shared_db::SharedDb;
     use shared_domain::strategy::{
         GridGeneration, PostTriggerAction, StrategyMarket, StrategyMode, StrategyRuntimePosition,
         StrategyStatus,
     };
+    use std::{
+        fs,
+        net::TcpListener,
+        path::{Path, PathBuf},
+        process::Command,
+        time::{SystemTime, UNIX_EPOCH},
+    };
+
+    #[test]
+    fn create_template_fails_when_audit_write_fails() {
+        let harness = PersistentRuntimeHarness::start("strategy-audit");
+        let db = SharedDb::connect(harness.database_url(), harness.redis_url()).expect("db");
+        let service = StrategyService::new(db);
+
+        harness.break_audit_table();
+
+        let result = service.create_template(
+            "super-admin@example.com",
+            Some(AdminRole::SuperAdmin),
+            7,
+            CreateTemplateRequest {
+                strategy: template_request("Template A"),
+            },
+        );
+
+        match result {
+            Err(StrategyError {
+                status, message, ..
+            }) => {
+                assert_eq!(status, StatusCode::INTERNAL_SERVER_ERROR);
+                assert_eq!(message, "internal storage error");
+            }
+            Ok(_) => panic!("template create should fail when audit write fails"),
+        }
+    }
+
+    fn template_request(name: &str) -> SaveStrategyRequest {
+        SaveStrategyRequest {
+            name: name.to_string(),
+            symbol: "BTCUSDT".to_string(),
+            market: StrategyMarket::Spot,
+            mode: StrategyMode::SpotClassic,
+            generation: GridGeneration::Custom,
+            levels: vec![SaveGridLevelRequest {
+                entry_price: "100".to_string(),
+                quantity: "1".to_string(),
+                take_profit_bps: 100,
+                trailing_bps: None,
+            }],
+            membership_ready: true,
+            exchange_ready: true,
+            permissions_ready: true,
+            withdrawals_disabled: true,
+            hedge_mode_ready: true,
+            symbol_ready: true,
+            filters_ready: true,
+            margin_ready: true,
+            conflict_ready: true,
+            balance_ready: true,
+            overall_take_profit_bps: None,
+            overall_stop_loss_bps: None,
+            post_trigger_action: PostTriggerAction::Stop,
+        }
+    }
+
+    struct PersistentRuntimeHarness {
+        project_name: String,
+        override_file: PathBuf,
+        postgres_port: u16,
+        redis_port: u16,
+    }
+
+    impl PersistentRuntimeHarness {
+        fn start(prefix: &str) -> Self {
+            let workspace_root = workspace_root();
+            let postgres_port = pick_unused_port();
+            let redis_port = pick_unused_port();
+            let project_name = format!(
+                "{prefix}-{}-{}",
+                std::process::id(),
+                SystemTime::now()
+                    .duration_since(UNIX_EPOCH)
+                    .expect("unix time")
+                    .as_nanos()
+            );
+            let override_file = std::env::temp_dir().join(format!("{project_name}.yml"));
+            fs::write(
+                &override_file,
+                format!(
+                    "services:
+  postgres:
+    ports:
+      - \"{postgres_port}:5432\"
+
+  redis:
+    ports:
+      - \"{redis_port}:6379\"
+"
+                ),
+            )
+            .expect("write compose override");
+            run_command(
+                Command::new("docker")
+                    .arg("compose")
+                    .arg("-p")
+                    .arg(&project_name)
+                    .arg("--env-file")
+                    .arg(workspace_root.join(".env.example"))
+                    .arg("-f")
+                    .arg(workspace_root.join("deploy/docker/docker-compose.yml"))
+                    .arg("-f")
+                    .arg(&override_file)
+                    .arg("up")
+                    .arg("-d")
+                    .arg("--wait")
+                    .arg("postgres")
+                    .arg("redis"),
+                "start persistent runtime",
+            );
+
+            Self {
+                project_name,
+                override_file,
+                postgres_port,
+                redis_port,
+            }
+        }
+
+        fn database_url(&self) -> String {
+            format!(
+                "postgres://postgres:postgres@127.0.0.1:{}/grid_binance",
+                self.postgres_port
+            )
+        }
+
+        fn redis_url(&self) -> String {
+            format!("redis://127.0.0.1:{}/0", self.redis_port)
+        }
+
+        fn break_audit_table(&self) {
+            run_command(
+                Command::new("docker")
+                    .arg("exec")
+                    .arg(format!("{}-postgres-1", self.project_name))
+                    .arg("psql")
+                    .arg("-U")
+                    .arg("postgres")
+                    .arg("-d")
+                    .arg("grid_binance")
+                    .arg("-c")
+                    .arg("ALTER TABLE audit_logs RENAME TO audit_logs_disabled"),
+                "break audit table",
+            );
+        }
+    }
+
+    impl Drop for PersistentRuntimeHarness {
+        fn drop(&mut self) {
+            let workspace_root = workspace_root();
+            let _ = Command::new("docker")
+                .arg("compose")
+                .arg("-p")
+                .arg(&self.project_name)
+                .arg("--env-file")
+                .arg(workspace_root.join(".env.example"))
+                .arg("-f")
+                .arg(workspace_root.join("deploy/docker/docker-compose.yml"))
+                .arg("-f")
+                .arg(&self.override_file)
+                .arg("down")
+                .arg("-v")
+                .status();
+            let _ = fs::remove_file(&self.override_file);
+        }
+    }
+
+    fn workspace_root() -> PathBuf {
+        Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .canonicalize()
+            .expect("workspace root")
+    }
+
+    fn pick_unused_port() -> u16 {
+        TcpListener::bind("127.0.0.1:0")
+            .expect("bind random port")
+            .local_addr()
+            .expect("local addr")
+            .port()
+    }
+
+    fn run_command(command: &mut Command, context: &str) {
+        let output = command.output().expect(context);
+        assert!(
+            output.status.success(),
+            "{context} failed: stdout={} stderr={}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
+    }
 
     #[test]
     fn preflight_reports_fail_fast_steps() {

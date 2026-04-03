@@ -4,7 +4,16 @@ use axum::{
     http::{Request, StatusCode},
 };
 use serde_json::{json, Value};
+
 use shared_db::SharedDb;
+use std::{
+    fs,
+    net::TcpListener,
+    path::{Path, PathBuf},
+    process::{Child, Command, Stdio},
+    thread::sleep,
+    time::{Duration, SystemTime, UNIX_EPOCH},
+};
 use tower::ServiceExt;
 
 mod support;
@@ -153,7 +162,10 @@ async fn operator_admin_can_reject_abnormal_transfer_but_cannot_create_sweep_job
     )
     .await;
     assert_eq!(rejected.status(), StatusCode::OK);
-    assert_eq!(response_json(rejected).await["deposit_status"], "manual_rejected");
+    assert_eq!(
+        response_json(rejected).await["deposit_status"],
+        "manual_rejected"
+    );
 
     let sweep = create_sweep_job(
         &app,
@@ -188,7 +200,10 @@ async fn operator_admin_can_reject_abnormal_transfer_but_cannot_create_sweep_job
         rejected_audit.payload["before_summary"],
         "manual_review_required exact_amount_required"
     );
-    assert_eq!(rejected_audit.payload["after_summary"], "manual_rejected reject");
+    assert_eq!(
+        rejected_audit.payload["after_summary"],
+        "manual_rejected reject"
+    );
     assert!(!audit_logs
         .iter()
         .any(|record| record.action == "treasury.sweep_requested"));
@@ -229,7 +244,10 @@ async fn expired_and_unmatched_transfers_create_processable_manual_review_record
     assert_eq!(expired_match.status(), StatusCode::OK);
     let expired_match_body = response_json(expired_match).await;
     assert_eq!(expired_match_body["reason"], "order_expired");
-    assert_eq!(expired_match_body["deposit_status"], "manual_review_required");
+    assert_eq!(
+        expired_match_body["deposit_status"],
+        "manual_review_required"
+    );
 
     let unmatched = match_order(
         &app,
@@ -250,7 +268,9 @@ async fn expired_and_unmatched_transfers_create_processable_manual_review_record
     let listed = list_admin_deposits(&app, &admin_token, "2026-04-01T01:10:00Z").await;
     assert_eq!(listed.status(), StatusCode::OK);
     let listed_body = response_json(listed).await;
-    let deposits = listed_body["abnormal_deposits"].as_array().expect("deposits");
+    let deposits = listed_body["abnormal_deposits"]
+        .as_array()
+        .expect("deposits");
     assert!(deposits.iter().any(|record| {
         record["tx_hash"] == "tx-expired-manual"
             && record["review_reason"] == "order_expired"
@@ -350,7 +370,8 @@ async fn ambiguous_manual_review_records_can_be_processed() {
         .as_array()
         .expect("deposits")
         .iter()
-        .any(|record| record["tx_hash"] == "tx-ambiguous-manual" && record["review_reason"] == "ambiguous_match"));
+        .any(|record| record["tx_hash"] == "tx-ambiguous-manual"
+            && record["review_reason"] == "ambiguous_match"));
 
     let rejected = process_abnormal_deposit(
         &app,
@@ -363,15 +384,187 @@ async fn ambiguous_manual_review_records_can_be_processed() {
     )
     .await;
     assert_eq!(rejected.status(), StatusCode::OK);
-    assert_eq!(response_json(rejected).await["deposit_status"], "manual_rejected");
+    assert_eq!(
+        response_json(rejected).await["deposit_status"],
+        "manual_rejected"
+    );
+}
+
+#[tokio::test]
+
+async fn abnormal_deposit_processing_fails_when_audit_write_fails() {
+    let server = ApiServerHarness::start("deposit-audit");
+    let user_token = register_and_login_via_http(&server, "member@example.com", "pass1234");
+    let admin_token = register_privileged_admin_and_login_via_http(&server, "admin@example.com");
+
+    let (order_status, order_body) = http_json(
+        "POST",
+        &format!("{}/billing/orders", server.base_url()),
+        Some(&user_token),
+        Some(json!({
+            "email": "member@example.com",
+            "chain": "BSC",
+            "asset": "USDT",
+            "plan_code": "monthly",
+            "requested_at": "2026-04-01T00:00:00Z"
+        })),
+    );
+    assert_eq!(order_status, StatusCode::CREATED.as_u16());
+
+    let order_address = order_body["address"].as_str().expect("address");
+    let (match_status, _) = http_json(
+        "POST",
+        &format!("{}/billing/orders/match", server.base_url()),
+        Some(&admin_token),
+        Some(json!({
+            "chain": "BSC",
+            "asset": "USDC",
+            "address": order_address,
+            "amount": "20.00000000",
+            "tx_hash": "tx-wrong-asset-audit",
+            "observed_at": "2026-04-01T00:05:00Z"
+        })),
+    );
+    assert_eq!(match_status, StatusCode::OK.as_u16());
+
+    server.break_audit_table();
+
+    let (reject_status, _) = http_json(
+        "POST",
+        &format!("{}/admin/deposits/process", server.base_url()),
+        Some(&admin_token),
+        Some(json!({
+            "chain": "BSC",
+            "tx_hash": "tx-wrong-asset-audit",
+            "decision": "reject",
+            "order_id": null,
+            "processed_at": "2026-04-01T00:06:00Z"
+        })),
+    );
+    assert_eq!(reject_status, StatusCode::INTERNAL_SERVER_ERROR.as_u16());
 }
 
 async fn register_admin_and_login(app: &axum::Router) -> String {
-    register_and_verify(app, "admin@example.com", "pass1234").await;
-    let session_token = login_and_get_token(app, "admin@example.com", "pass1234").await;
-    let enabled = enable_totp(app, "admin@example.com", &session_token).await;
+    register_privileged_admin_and_login(app, "admin@example.com").await
+}
+
+async fn register_privileged_admin_and_login(app: &axum::Router, email: &str) -> String {
+    register_and_verify(app, email, "pass1234").await;
+    let session_token = login_and_get_token(app, email, "pass1234").await;
+    let enabled = enable_totp(app, email, &session_token).await;
     let totp_code = enabled["code"].as_str().expect("totp code");
-    login_with_totp(app, "admin@example.com", "pass1234", totp_code).await
+    login_with_totp(app, email, "pass1234", totp_code).await
+}
+
+struct PersistentRuntimeHarness {
+    project_name: String,
+    override_file: PathBuf,
+    postgres_port: u16,
+    redis_port: u16,
+}
+
+impl PersistentRuntimeHarness {
+    fn start(prefix: &str) -> Self {
+        let workspace_root = workspace_root();
+        let postgres_port = pick_unused_port();
+        let redis_port = pick_unused_port();
+        let project_name = format!(
+            "{prefix}-{}-{}",
+            std::process::id(),
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .expect("unix time")
+                .as_nanos()
+        );
+        let override_file = std::env::temp_dir().join(format!("{project_name}.yml"));
+        fs::write(
+            &override_file,
+            format!(
+                "services:
+  postgres:
+    ports:
+      - \"{postgres_port}:5432\"
+
+  redis:
+    ports:
+      - \"{redis_port}:6379\"
+"
+            ),
+        )
+        .expect("write compose override");
+        run_command(
+            Command::new("docker")
+                .arg("compose")
+                .arg("-p")
+                .arg(&project_name)
+                .arg("--env-file")
+                .arg(workspace_root.join(".env.example"))
+                .arg("-f")
+                .arg(workspace_root.join("deploy/docker/docker-compose.yml"))
+                .arg("-f")
+                .arg(&override_file)
+                .arg("up")
+                .arg("-d")
+                .arg("--wait")
+                .arg("postgres")
+                .arg("redis"),
+            "start persistent runtime",
+        );
+
+        Self {
+            project_name,
+            override_file,
+            postgres_port,
+            redis_port,
+        }
+    }
+
+    fn database_url(&self) -> String {
+        format!(
+            "postgres://postgres:postgres@127.0.0.1:{}/grid_binance",
+            self.postgres_port
+        )
+    }
+
+    fn redis_url(&self) -> String {
+        format!("redis://127.0.0.1:{}/0", self.redis_port)
+    }
+
+    fn break_audit_table(&self) {
+        run_command(
+            Command::new("docker")
+                .arg("exec")
+                .arg(format!("{}-postgres-1", self.project_name))
+                .arg("psql")
+                .arg("-U")
+                .arg("postgres")
+                .arg("-d")
+                .arg("grid_binance")
+                .arg("-c")
+                .arg("ALTER TABLE audit_logs RENAME TO audit_logs_disabled"),
+            "break audit table",
+        );
+    }
+}
+
+impl Drop for PersistentRuntimeHarness {
+    fn drop(&mut self) {
+        let workspace_root = workspace_root();
+        let _ = Command::new("docker")
+            .arg("compose")
+            .arg("-p")
+            .arg(&self.project_name)
+            .arg("--env-file")
+            .arg(workspace_root.join(".env.example"))
+            .arg("-f")
+            .arg(workspace_root.join("deploy/docker/docker-compose.yml"))
+            .arg("-f")
+            .arg(&self.override_file)
+            .arg("down")
+            .arg("-v")
+            .status();
+        let _ = fs::remove_file(&self.override_file);
+    }
 }
 
 async fn enable_totp(app: &axum::Router, email: &str, session_token: &str) -> Value {
@@ -608,4 +801,207 @@ async fn response_json(response: axum::response::Response) -> Value {
         .await
         .expect("response body");
     serde_json::from_slice(&bytes).expect("valid json")
+}
+
+struct ApiServerHarness {
+    runtime: PersistentRuntimeHarness,
+    port: u16,
+    child: Child,
+}
+
+impl ApiServerHarness {
+    fn start(prefix: &str) -> Self {
+        let runtime = PersistentRuntimeHarness::start(prefix);
+        let port = pick_unused_port();
+        let mut child = Command::new("bash");
+        child
+            .arg("-lc")
+            .arg("source \"$HOME/.cargo/env\" && cargo run -p api-server")
+            .current_dir(workspace_root())
+            .env("DATABASE_URL", runtime.database_url())
+            .env("REDIS_URL", runtime.redis_url())
+            .env("SESSION_TOKEN_SECRET", "grid-binance-dev-session-secret")
+            .env("ADMIN_EMAILS", "admin@example.com")
+            .env("SUPER_ADMIN_EMAILS", "super-admin@example.com")
+            .env(
+                "EXCHANGE_CREDENTIALS_MASTER_KEY",
+                "grid-binance-dev-exchange-secret",
+            )
+            .env(
+                "TELEGRAM_BOT_BIND_SECRET",
+                "grid-binance-dev-telegram-secret",
+            )
+            .env("PORT", port.to_string())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null());
+        let child = child.spawn().expect("start api-server");
+        let harness = Self {
+            runtime,
+            port,
+            child,
+        };
+        harness.wait_until_ready();
+        harness
+    }
+
+    fn base_url(&self) -> String {
+        format!("http://127.0.0.1:{}", self.port)
+    }
+
+    fn break_audit_table(&self) {
+        self.runtime.break_audit_table();
+    }
+
+    fn wait_until_ready(&self) {
+        for _ in 0..120 {
+            let output = Command::new("curl")
+                .arg("-sS")
+                .arg("-o")
+                .arg("/dev/null")
+                .arg("-w")
+                .arg("%{http_code}")
+                .arg(format!("{}/healthz", self.base_url()))
+                .output();
+            if let Ok(output) = output {
+                if output.status.success()
+                    && String::from_utf8_lossy(&output.stdout).trim() == "200"
+                {
+                    return;
+                }
+            }
+            sleep(Duration::from_millis(500));
+        }
+        panic!("api-server did not become ready");
+    }
+}
+
+impl Drop for ApiServerHarness {
+    fn drop(&mut self) {
+        let _ = self.child.kill();
+        let _ = self.child.wait();
+    }
+}
+
+fn register_and_login_via_http(server: &ApiServerHarness, email: &str, password: &str) -> String {
+    let (register_status, register_body) = http_json(
+        "POST",
+        &format!("{}/auth/register", server.base_url()),
+        None,
+        Some(json!({ "email": email, "password": password })),
+    );
+    assert_eq!(register_status, StatusCode::CREATED.as_u16());
+    let verification_code = register_body["verification_code"]
+        .as_str()
+        .expect("verification code");
+
+    let (verify_status, _) = http_json(
+        "POST",
+        &format!("{}/auth/verify-email", server.base_url()),
+        None,
+        Some(json!({ "email": email, "code": verification_code })),
+    );
+    assert_eq!(verify_status, StatusCode::OK.as_u16());
+
+    let (login_status, login_body) = http_json(
+        "POST",
+        &format!("{}/auth/login", server.base_url()),
+        None,
+        Some(json!({ "email": email, "password": password })),
+    );
+    assert_eq!(login_status, StatusCode::OK.as_u16());
+    login_body["session_token"]
+        .as_str()
+        .expect("session token")
+        .to_owned()
+}
+
+fn register_privileged_admin_and_login_via_http(server: &ApiServerHarness, email: &str) -> String {
+    let session_token = register_and_login_via_http(server, email, "pass1234");
+    let (enable_status, enable_body) = http_json(
+        "POST",
+        &format!("{}/security/totp/enable", server.base_url()),
+        Some(&session_token),
+        Some(json!({ "email": email })),
+    );
+    assert_eq!(enable_status, StatusCode::OK.as_u16());
+    let totp_code = enable_body["code"].as_str().expect("totp code");
+
+    let (login_status, login_body) = http_json(
+        "POST",
+        &format!("{}/auth/login", server.base_url()),
+        None,
+        Some(json!({
+            "email": email,
+            "password": "pass1234",
+            "totp_code": totp_code,
+        })),
+    );
+    assert_eq!(login_status, StatusCode::OK.as_u16());
+    login_body["session_token"]
+        .as_str()
+        .expect("session token")
+        .to_owned()
+}
+
+fn http_json(
+    method: &str,
+    url: &str,
+    bearer_token: Option<&str>,
+    payload: Option<Value>,
+) -> (u16, Value) {
+    let mut command = Command::new("curl");
+    command.arg("-sS").arg("-X").arg(method).arg(url);
+    if let Some(token) = bearer_token {
+        command
+            .arg("-H")
+            .arg(format!("authorization: Bearer {token}"));
+    }
+    if payload.is_some() {
+        command.arg("-H").arg("content-type: application/json");
+    }
+    if let Some(payload) = payload {
+        command.arg("-d").arg(payload.to_string());
+    }
+    command.arg("-w").arg("\n%{http_code}");
+    let output = command.output().expect("execute curl");
+    assert!(
+        output.status.success(),
+        "curl failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).expect("curl stdout utf8");
+    let (body, status) = stdout.rsplit_once('\n').expect("curl status line");
+    let status = status.trim().parse::<u16>().expect("http status");
+    let body = body.trim();
+    let json = if body.is_empty() {
+        Value::Null
+    } else {
+        serde_json::from_str(body).expect("valid json body")
+    };
+    (status, json)
+}
+
+fn workspace_root() -> PathBuf {
+    Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../..")
+        .canonicalize()
+        .expect("workspace root")
+}
+
+fn pick_unused_port() -> u16 {
+    TcpListener::bind("127.0.0.1:0")
+        .expect("bind random port")
+        .local_addr()
+        .expect("local addr")
+        .port()
+}
+
+fn run_command(command: &mut Command, context: &str) {
+    let output = command.output().expect(context);
+    assert!(
+        output.status.success(),
+        "{context} failed: stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
 }
