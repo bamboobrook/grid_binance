@@ -10,7 +10,7 @@ Grid Binance V1 is a hosted Binance grid trading platform with:
 - Binance spot, USDⓈ-M futures, and COIN-M futures support
 - membership billing by chain payment order
 - Telegram notifications
-- repository-backed help center articles under `/help/*`
+- repository-backed help articles rendered in both the in-app help center and the public help route
 
 The first release is deployed with Docker Compose behind Nginx and is exposed locally at `http://localhost:8080`.
 
@@ -23,7 +23,7 @@ The first release is deployed with Docker Compose behind Nginx and is exposed lo
 5. Use the public entry points:
    - `/register` to create an account
    - `/login` to sign in
-   - `/help/getting-started` to read the in-app help center from repository docs
+   - `/help/getting-started` as the public help route for the same repository-backed article
 
 ## After Sign-In
 
@@ -34,9 +34,14 @@ Key user routes:
 - `/app/dashboard` for account overview and renewal reminders
 - `/app/billing` for membership plans, renewal orders, and payment instructions
 - `/app/security` for password and TOTP operations
+- `/app/exchange` for Binance API credential save, masking, and connection tests
 - `/app/strategies` for draft strategy management
+- `/app/strategies/new` for creating a new draft strategy
 - `/app/orders` for fills, order history, and account activity review
 - `/app/telegram` for Telegram bot binding and notification delivery status
+- `/app/help?article=getting-started` for the in-app help center view of this article
+
+Use `/app/help?article=<slug>` when reading help inside the authenticated app shell. Use `/help/<slug>` when sharing the same article on the public help route without the app shell.
 
 Anonymous requests to `/app/*` and `/admin/*` are expected to redirect to `/login`.
 

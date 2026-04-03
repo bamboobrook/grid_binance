@@ -31,6 +31,10 @@ const requiredDeploymentGuides = [
 function escapePattern(input) {
   return input.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
+function readUserGuide(file) {
+  return fs.readFileSync(path.join("docs", "user-guide", file), "utf8");
+}
+
 
 test("commercial guide set matches the March 31 design doc", () => {
   for (const file of requiredUserGuides) {
@@ -86,6 +90,26 @@ test("help center stays sourced from repository user guides", async () => {
   assert.match(helpPage, /\/app\/help\?article=\$\{item\.slug\}/);
   assert.doesNotMatch(helpPage, /href=\{`\/help\/\$\{item\.slug\}`\}/);
   assert.match(helpPage, /blocks\.map\(/);
+});
+
+test("user guides stay aligned with canonical app and help routes", () => {
+  const gettingStarted = readUserGuide("getting-started.md");
+  const binanceApiSetup = readUserGuide("binance-api-setup.md");
+  const createGridStrategy = readUserGuide("create-grid-strategy.md");
+  const manageStrategy = readUserGuide("manage-strategy.md");
+  const telegramNotifications = readUserGuide("telegram-notifications.md");
+
+  assert.match(gettingStarted, /`\/app\/help\?article=getting-started`/);
+  assert.match(gettingStarted, /`\/app\/help\?article=<slug>`/);
+  assert.match(gettingStarted, /`\/help\/getting-started`/);
+  assert.match(gettingStarted, /`\/help\/<slug>`/);
+  assert.match(gettingStarted, /public help route/i);
+  assert.match(gettingStarted, /in-app help/i);
+
+  assert.match(binanceApiSetup, /`\/app\/exchange`/);
+  assert.match(createGridStrategy, /`\/app\/strategies\/new`/);
+  assert.match(manageStrategy, /`\/app\/strategies\/:id`/);
+  assert.match(telegramNotifications, /`\/app\/telegram`/);
 });
 
 test("smoke checks mention the commercial runtime path", () => {
