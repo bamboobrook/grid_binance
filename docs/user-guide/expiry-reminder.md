@@ -2,7 +2,7 @@
 
 Understand the 48-hour grace period and what happens when membership renewal is delayed.
 
-Expiry And Grace Period
+## Expiry And Grace Period
 
 Existing running strategies may continue for 48 hours after membership expiry, but new starts stay blocked until renewal is confirmed.
 
