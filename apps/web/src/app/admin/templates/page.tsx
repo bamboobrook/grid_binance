@@ -1,3 +1,5 @@
+import { redirect } from "next/navigation";
+
 import { AppShellSection } from "../../../components/shell/app-shell-section";
 import { Card, CardBody, CardDescription, CardHeader, CardTitle } from "../../../components/ui/card";
 import { Button, Field, FormStack, Input, Select } from "../../../components/ui/form";
@@ -24,6 +26,10 @@ export default async function AdminTemplatesPage({ searchParams }: PageProps) {
   const updated = typeof params.updated === "string" ? params.updated : "";
   const editId = typeof params.edit === "string" ? params.edit : "";
   const profile = await getCurrentAdminProfile();
+  if (profile.admin_role !== "super_admin") {
+    redirect("/admin/dashboard");
+  }
+
   const canManageTemplates = profile.admin_permissions?.can_manage_templates ?? false;
   const data = canManageTemplates ? await getAdminTemplatesData() : { items: [] };
   const editingTemplate = editId ? data.items.find((item) => item.id === editId) ?? null : null;

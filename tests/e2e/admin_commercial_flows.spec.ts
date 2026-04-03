@@ -91,6 +91,11 @@ test.describe("admin commercial", () => {
       is_enabled: true,
     });
 
+    await page.goto("/admin/templates");
+    await expect(page).toHaveURL(/\/admin\/dashboard$/);
+    await expect(page.getByRole("heading", { name: "Admin Dashboard" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Template Management" })).toHaveCount(0);
+
     await expectForbiddenAdminRead(request, adminSessionToken, "/admin/templates");
     await expectForbiddenAdminWrite(request, adminSessionToken, "/admin/templates", {
       name: "Blocked Template",
