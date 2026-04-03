@@ -12,12 +12,12 @@ mod support;
 use support::{login_and_get_token, register_and_login, register_and_verify};
 
 #[tokio::test]
-async fn admin_can_update_plan_config_and_new_orders_use_latest_price_and_duration() {
+async fn operator_admin_cannot_update_plan_config_and_existing_defaults_remain_in_effect() {
     let app = app_with_state(AppState::from_shared_db(SharedDb::ephemeral().expect("db")).expect("state"));
     let admin_token = register_admin_and_login(&app).await;
     let user_token = register_and_login(&app, "priced@example.com", "pass1234").await;
 
-    let updated = upsert_plan(
+    let forbidden = upsert_plan(
         &app,
         &admin_token,
         json!({
@@ -32,26 +32,24 @@ async fn admin_can_update_plan_config_and_new_orders_use_latest_price_and_durati
         }),
     )
     .await;
-    assert_eq!(updated.status(), StatusCode::OK);
-    let updated_body = response_json(updated).await;
-    assert_eq!(updated_body["duration_days"], 45);
-    assert_eq!(
-        updated_body["prices"]
-            .as_array()
-            .expect("prices")
-            .iter()
-            .find(|price| price["chain"] == "BSC" && price["asset"] == "USDT")
-            .expect("bsc price")["amount"],
-        "21.50000000"
-    );
+    assert_eq!(forbidden.status(), StatusCode::FORBIDDEN);
 
     let listed = list_plans(&app, &admin_token).await;
     assert_eq!(listed.status(), StatusCode::OK);
-    assert!(response_json(listed).await["plans"]
+    let listed_body = response_json(listed).await;
+    let monthly = listed_body["plans"]
         .as_array()
         .expect("plans")
         .iter()
-        .any(|plan| plan["code"] == "monthly" && plan["duration_days"] == 45));
+        .find(|plan| plan["code"] == "monthly")
+        .expect("monthly plan");
+    assert_eq!(monthly["name"], "Monthly");
+    assert_eq!(monthly["duration_days"], 30);
+    assert!(monthly["prices"]
+        .as_array()
+        .expect("prices")
+        .iter()
+        .any(|price| price["chain"] == "BSC" && price["asset"] == "USDT" && price["amount"] == "20.00000000"));
 
     let order = create_order(
         &app,
@@ -65,7 +63,7 @@ async fn admin_can_update_plan_config_and_new_orders_use_latest_price_and_durati
     .await;
     assert_eq!(order.status(), StatusCode::CREATED);
     let order_body = response_json(order).await;
-    assert_eq!(order_body["amount"], "21.50000000");
+    assert_eq!(order_body["amount"], "20.00000000");
 
     let matched = match_order(
         &app,
@@ -73,7 +71,7 @@ async fn admin_can_update_plan_config_and_new_orders_use_latest_price_and_durati
         "BSC",
         "USDT",
         order_body["address"].as_str().expect("address"),
-        "21.50000000",
+        "20.00000000",
         "tx-priced",
         "2026-04-01T00:01:00Z",
     )
@@ -81,11 +79,11 @@ async fn admin_can_update_plan_config_and_new_orders_use_latest_price_and_durati
     assert_eq!(matched.status(), StatusCode::OK);
     let matched_body = response_json(matched).await;
     assert_eq!(matched_body["matched"], true);
-    assert_eq!(matched_body["active_until"], "2026-05-16T00:01:00Z");
+    assert_eq!(matched_body["active_until"], "2026-05-01T00:01:00Z");
 }
 
 #[tokio::test]
-async fn invalid_plan_update_does_not_partially_persist_plan_or_prices() {
+async fn forbidden_plan_update_does_not_partially_persist_plan_or_prices() {
     let app =
         app_with_state(AppState::from_shared_db(SharedDb::ephemeral().expect("db")).expect("state"));
     let admin_token = register_admin_and_login(&app).await;
@@ -116,7 +114,7 @@ async fn invalid_plan_update_does_not_partially_persist_plan_or_prices() {
         }),
     )
     .await;
-    assert_eq!(invalid.status(), StatusCode::BAD_REQUEST);
+    assert_eq!(invalid.status(), StatusCode::FORBIDDEN);
 
     let after_response = list_plans(&app, &admin_token).await;
     assert_eq!(after_response.status(), StatusCode::OK);
@@ -142,23 +140,21 @@ async fn invalid_plan_update_does_not_partially_persist_plan_or_prices() {
 }
 
 #[tokio::test]
-async fn admin_can_expand_disable_and_list_address_pools() {
+async fn operator_admin_cannot_mutate_address_pools_but_can_review_current_pool_state() {
     let app = app_with_state(AppState::from_shared_db(SharedDb::ephemeral().expect("db")).expect("state"));
     let admin_token = register_admin_and_login(&app).await;
 
-    for address in ["bsc-addr-1", "bsc-addr-2", "bsc-addr-3", "bsc-addr-4", "bsc-addr-5"] {
-        let disabled = upsert_address_pool(
-            &app,
-            &admin_token,
-            json!({
-                "chain": "BSC",
-                "address": address,
-                "is_enabled": false
-            }),
-        )
-        .await;
-        assert_eq!(disabled.status(), StatusCode::OK);
-    }
+    let disabled = upsert_address_pool(
+        &app,
+        &admin_token,
+        json!({
+            "chain": "BSC",
+            "address": "bsc-addr-1",
+            "is_enabled": false
+        }),
+    )
+    .await;
+    assert_eq!(disabled.status(), StatusCode::FORBIDDEN);
 
     let added = upsert_address_pool(
         &app,
@@ -170,19 +166,7 @@ async fn admin_can_expand_disable_and_list_address_pools() {
         }),
     )
     .await;
-    assert_eq!(added.status(), StatusCode::OK);
-
-    let added_second = upsert_address_pool(
-        &app,
-        &admin_token,
-        json!({
-            "chain": "BSC",
-            "address": "bsc-extra-2",
-            "is_enabled": false
-        }),
-    )
-    .await;
-    assert_eq!(added_second.status(), StatusCode::OK);
+    assert_eq!(added.status(), StatusCode::FORBIDDEN);
 
     let listed = list_address_pools(&app, &admin_token).await;
     assert_eq!(listed.status(), StatusCode::OK);
@@ -191,12 +175,12 @@ async fn admin_can_expand_disable_and_list_address_pools() {
         .as_array()
         .expect("addresses")
         .iter()
-        .any(|entry| entry["address"] == "bsc-extra-1" && entry["is_enabled"] == true));
-    assert!(listed_body["addresses"]
+        .any(|entry| entry["address"] == "bsc-addr-1" && entry["is_enabled"] == true));
+    assert!(!listed_body["addresses"]
         .as_array()
         .expect("addresses")
         .iter()
-        .any(|entry| entry["address"] == "bsc-extra-2" && entry["is_enabled"] == false));
+        .any(|entry| entry["address"] == "bsc-extra-1"));
 
     let first_token = register_and_login(&app, "pool-admin-1@example.com", "pass1234").await;
     let second_token = register_and_login(&app, "pool-admin-2@example.com", "pass1234").await;
@@ -212,7 +196,7 @@ async fn admin_can_expand_disable_and_list_address_pools() {
     )
     .await;
     assert_eq!(first.status(), StatusCode::CREATED);
-    assert_eq!(response_json(first).await["address"], "bsc-extra-1");
+    assert_eq!(response_json(first).await["address"], "bsc-addr-1");
 
     let second = create_order(
         &app,
@@ -225,34 +209,9 @@ async fn admin_can_expand_disable_and_list_address_pools() {
     )
     .await;
     assert_eq!(second.status(), StatusCode::CREATED);
-    assert_eq!(response_json(second).await["queue_position"], 1);
-
-    let enabled = upsert_address_pool(
-        &app,
-        &admin_token,
-        json!({
-            "chain": "BSC",
-            "address": "bsc-extra-2",
-            "is_enabled": true
-        }),
-    )
-    .await;
-    assert_eq!(enabled.status(), StatusCode::OK);
-    let pools_after_enable = list_address_pools(&app, &admin_token).await;
-    assert_eq!(pools_after_enable.status(), StatusCode::OK);
-    let _ = response_json(pools_after_enable).await;
-
-    let deposits = list_admin_deposits(&app, &admin_token, "2026-04-01T00:10:00Z").await;
-    assert_eq!(deposits.status(), StatusCode::OK);
-    let deposits_body = response_json(deposits).await;
-    let promoted = deposits_body["orders"]
-        .as_array()
-        .expect("orders")
-        .iter()
-        .find(|order| order["email"] == "pool-admin-2@example.com")
-        .expect("promoted order");
-    assert_eq!(promoted["address"], "bsc-extra-2");
-    assert_eq!(promoted["queue_position"], Value::Null);
+    let second_body = response_json(second).await;
+    assert_eq!(second_body["address"], "bsc-addr-2");
+    assert_eq!(second_body["queue_position"], Value::Null);
 }
 
 async fn register_admin_and_login(app: &axum::Router) -> String {
@@ -430,24 +389,6 @@ async fn match_order(
                     })
                     .to_string(),
                 ))
-                .unwrap(),
-        )
-        .await
-        .unwrap()
-}
-
-async fn list_admin_deposits(
-    app: &axum::Router,
-    session_token: &str,
-    at: &str,
-) -> axum::response::Response {
-    app.clone()
-        .oneshot(
-            Request::builder()
-                .method("GET")
-                .uri(format!("/admin/deposits?at={at}"))
-                .header("authorization", format!("Bearer {session_token}"))
-                .body(Body::empty())
                 .unwrap(),
         )
         .await

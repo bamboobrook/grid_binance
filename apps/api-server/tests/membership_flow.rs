@@ -294,7 +294,7 @@ async fn membership_transitions_from_active_to_grace_to_expired_after_48_hours()
 }
 
 #[tokio::test]
-async fn admin_override_writes_membership_audit_logs() {
+async fn operator_admin_cannot_override_membership_or_write_override_audit_logs() {
     let db = SharedDb::ephemeral().expect("ephemeral db");
     let state = AppState::from_shared_db(db.clone()).expect("state");
     let app = app_with_state(state);
@@ -328,35 +328,27 @@ async fn admin_override_writes_membership_audit_logs() {
 
     let frozen =
         override_membership(&app, &admin_token, "admin@example.com", Some("Frozen")).await;
-    assert_eq!(frozen.status(), StatusCode::OK);
-    assert_eq!(response_json(frozen).await["status"], "Frozen");
+    assert_eq!(frozen.status(), StatusCode::FORBIDDEN);
 
     let cleared = override_membership(&app, &admin_token, "admin@example.com", None).await;
-    assert_eq!(cleared.status(), StatusCode::OK);
-    assert_eq!(response_json(cleared).await["status"], "Active");
+    assert_eq!(cleared.status(), StatusCode::FORBIDDEN);
 
     let revoked =
         override_membership(&app, &admin_token, "admin@example.com", Some("Revoked")).await;
-    assert_eq!(revoked.status(), StatusCode::OK);
-    assert_eq!(response_json(revoked).await["status"], "Revoked");
+    assert_eq!(revoked.status(), StatusCode::FORBIDDEN);
 
     let audit_logs = db.list_audit_logs().expect("audit logs");
-    let actions: Vec<_> = audit_logs
+    assert!(!audit_logs
         .iter()
-        .map(|record| record.action.as_str())
-        .collect();
-    assert!(actions.contains(&"membership.override_updated"));
-    assert_eq!(
-        audit_logs
-            .iter()
-            .filter(|record| record.action == "membership.override_updated")
-            .count(),
-        3
-    );
+        .any(|record| record.action == "membership.override_updated"));
 }
 
 #[tokio::test]
 async fn admin_can_open_extend_and_unfreeze_membership_manually() {
+    operator_admin_cannot_manually_open_extend_or_unfreeze_membership().await;
+}
+
+async fn operator_admin_cannot_manually_open_extend_or_unfreeze_membership() {
     let db = SharedDb::ephemeral().expect("ephemeral db");
     let app = app_with_state(AppState::from_shared_db(db.clone()).expect("state"));
     let user_token = register_and_login(&app, "manual@example.com", "pass1234").await;
@@ -371,14 +363,10 @@ async fn admin_can_open_extend_and_unfreeze_membership_manually() {
         "2026-04-01T00:00:00Z",
     )
     .await;
-    assert_eq!(opened.status(), StatusCode::OK);
-    let opened_body = response_json(opened).await;
-    assert_eq!(opened_body["status"], "Active");
-    assert_eq!(opened_body["active_until"], "2026-05-01T00:00:00Z");
+    assert_eq!(opened.status(), StatusCode::FORBIDDEN);
 
     let frozen = override_membership(&app, &admin_token, "manual@example.com", Some("Frozen")).await;
-    assert_eq!(frozen.status(), StatusCode::OK);
-    assert_eq!(response_json(frozen).await["status"], "Frozen");
+    assert_eq!(frozen.status(), StatusCode::FORBIDDEN);
 
     let unfrozen = manage_membership(
         &app,
@@ -389,8 +377,7 @@ async fn admin_can_open_extend_and_unfreeze_membership_manually() {
         "2026-04-10T00:00:00Z",
     )
     .await;
-    assert_eq!(unfrozen.status(), StatusCode::OK);
-    assert_eq!(response_json(unfrozen).await["status"], "Active");
+    assert_eq!(unfrozen.status(), StatusCode::FORBIDDEN);
 
     let extended = manage_membership(
         &app,
@@ -401,9 +388,7 @@ async fn admin_can_open_extend_and_unfreeze_membership_manually() {
         "2026-04-15T00:00:00Z",
     )
     .await;
-    assert_eq!(extended.status(), StatusCode::OK);
-    let extended_body = response_json(extended).await;
-    assert_eq!(extended_body["active_until"], "2026-05-31T00:00:00Z");
+    assert_eq!(extended.status(), StatusCode::FORBIDDEN);
 
     let status = membership_status(
         &app,
@@ -413,29 +398,45 @@ async fn admin_can_open_extend_and_unfreeze_membership_manually() {
     )
     .await;
     assert_eq!(status.status(), StatusCode::OK);
-    assert_eq!(response_json(status).await["status"], "Active");
+    assert_eq!(response_json(status).await["status"], "Pending");
 
     let audit_logs = db.list_audit_logs().expect("audit logs");
-    assert!(audit_logs.iter().any(|record| record.action == "membership.manual_opened"));
-    assert!(audit_logs.iter().any(|record| record.action == "membership.manual_extended"));
-    assert!(audit_logs.iter().any(|record| record.action == "membership.manual_unfrozen"));
+    assert!(!audit_logs.iter().any(|record| record.action == "membership.manual_opened"));
+    assert!(!audit_logs.iter().any(|record| record.action == "membership.manual_extended"));
+    assert!(!audit_logs.iter().any(|record| record.action == "membership.manual_unfrozen"));
+    assert!(!audit_logs.iter().any(|record| record.action == "membership.override_updated"));
 }
 
 #[tokio::test]
-async fn manual_extend_during_grace_stacks_from_previous_expiry() {
+async fn operator_admin_cannot_manually_extend_membership_during_grace() {
     let app = app();
+    let user_token = register_and_login(&app, "grace-stack@example.com", "pass1234").await;
     let admin_token = register_admin_and_login(&app).await;
 
-    let opened = manage_membership(
+    let order = create_order(
         &app,
-        &admin_token,
+        &user_token,
         "grace-stack@example.com",
-        "open",
-        Some(30),
+        "BSC",
+        "USDT",
+        "monthly",
         "2026-04-01T00:00:00Z",
     )
     .await;
-    assert_eq!(opened.status(), StatusCode::OK);
+    assert_eq!(order.status(), StatusCode::CREATED);
+
+    let matched = match_order(
+        &app,
+        &admin_token,
+        "BSC",
+        "USDT",
+        "bsc-addr-1",
+        "20.00000000",
+        "tx-grace-stack",
+        "2026-04-01T00:00:00Z",
+    )
+    .await;
+    assert_eq!(matched.status(), StatusCode::OK);
 
     let extended = manage_membership(
         &app,
@@ -446,10 +447,17 @@ async fn manual_extend_during_grace_stacks_from_previous_expiry() {
         "2026-05-02T12:00:00Z",
     )
     .await;
-    assert_eq!(extended.status(), StatusCode::OK);
-    let extended_body = response_json(extended).await;
-    assert_eq!(extended_body["active_until"], "2026-05-11T00:00:00Z");
-    assert_eq!(extended_body["status"], "Active");
+    assert_eq!(extended.status(), StatusCode::FORBIDDEN);
+
+    let status = membership_status(
+        &app,
+        &user_token,
+        "grace-stack@example.com",
+        "2026-05-02T12:00:00Z",
+    )
+    .await;
+    assert_eq!(status.status(), StatusCode::OK);
+    assert_eq!(response_json(status).await["status"], "Grace");
 }
 
 #[tokio::test]

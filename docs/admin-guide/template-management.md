@@ -6,10 +6,10 @@ Use `/admin/templates` to maintain admin-owned strategy templates that users can
 
 ## Permissions
 
-- `super_admin` can create and edit templates.
-- `operator_admin` can review template inventory only.
+- `super_admin` can create, edit, and maintain template definitions.
+- `operator_admin` can open `/admin/templates` and review template inventory only.
 
-## Template Workflow
+## Super Admin Workflow
 
 1. Open `/admin/templates` and review the current inventory.
 2. Create a template with symbol, market, mode, generation, and at least the required grid levels.
@@ -17,6 +17,12 @@ Use `/admin/templates` to maintain admin-owned strategy templates that users can
 4. Configure overall take-profit, optional stop-loss, and post-trigger action.
 5. Save the template and verify it appears in the inventory table.
 6. Use the `Edit` action when a future template revision is needed.
+
+## Operator Review Workflow
+
+1. Open `/admin/templates` and review the current inventory.
+2. Confirm the symbol, market, mode, readiness, and risk fields are complete.
+3. Escalate any required template create or edit work to a `super_admin`.
 
 ## Product Rules
 
@@ -29,4 +35,4 @@ Use `/admin/templates` to maintain admin-owned strategy templates that users can
 - Confirm symbol and market match the intended exchange product.
 - Confirm level entry prices, quantities, take-profit values, and optional trailing values are complete.
 - Confirm readiness flags are honest; they are part of the operator review surface.
-- Expect operator sessions to show the page without create or edit controls.
+- Expect operator sessions to show the page without create or edit controls, and without any save path.

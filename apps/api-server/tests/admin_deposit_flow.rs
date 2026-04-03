@@ -106,7 +106,7 @@ async fn wrong_asset_transfer_requires_manual_review_and_admin_can_credit_member
 }
 
 #[tokio::test]
-async fn admin_can_reject_abnormal_transfer_and_create_audited_sweep_jobs() {
+async fn operator_admin_can_reject_abnormal_transfer_but_cannot_create_sweep_jobs() {
     let db = SharedDb::ephemeral().expect("ephemeral db");
     let state = AppState::from_shared_db(db.clone()).expect("state");
     let app = app_with_state(state);
@@ -174,20 +174,7 @@ async fn admin_can_reject_abnormal_transfer_and_create_audited_sweep_jobs() {
         ],
     )
     .await;
-    assert_eq!(sweep.status(), StatusCode::CREATED);
-    let sweep_body = response_json(sweep).await;
-    assert_eq!(sweep_body["status"], "queued");
-    assert_eq!(sweep_body["transfer_count"], 2);
-    assert_eq!(sweep_body["requested_by"], "admin@example.com");
-
-    let listed = list_sweeps(&app, &admin_token).await;
-    assert_eq!(listed.status(), StatusCode::OK);
-    let listed_body = response_json(listed).await;
-    let jobs = listed_body["jobs"].as_array().expect("jobs");
-    assert_eq!(jobs.len(), 1);
-    assert_eq!(jobs[0]["chain"], "ETH");
-    assert_eq!(jobs[0]["asset"], "USDC");
-    assert_eq!(jobs[0]["transfer_count"], 2);
+    assert_eq!(sweep.status(), StatusCode::FORBIDDEN);
 
     let audit_logs = db.list_audit_logs().expect("audit logs");
     let rejected_audit = audit_logs
@@ -202,7 +189,7 @@ async fn admin_can_reject_abnormal_transfer_and_create_audited_sweep_jobs() {
         "manual_review_required exact_amount_required"
     );
     assert_eq!(rejected_audit.payload["after_summary"], "manual_rejected reject");
-    assert!(audit_logs
+    assert!(!audit_logs
         .iter()
         .any(|record| record.action == "treasury.sweep_requested"));
 }
@@ -610,20 +597,6 @@ async fn create_sweep_job(
                     })
                     .to_string(),
                 ))
-                .unwrap(),
-        )
-        .await
-        .unwrap()
-}
-
-async fn list_sweeps(app: &axum::Router, session_token: &str) -> axum::response::Response {
-    app.clone()
-        .oneshot(
-            Request::builder()
-                .method("GET")
-                .uri("/admin/sweeps")
-                .header("authorization", format!("Bearer {session_token}"))
-                .body(Body::empty())
                 .unwrap(),
         )
         .await
