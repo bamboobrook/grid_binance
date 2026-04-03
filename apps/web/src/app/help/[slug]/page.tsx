@@ -3,7 +3,36 @@ import { notFound } from "next/navigation";
 
 import { Card, CardBody, CardDescription, CardHeader, CardTitle } from "../../../components/ui/card";
 import { StatusBanner } from "../../../components/ui/status-banner";
-import { getHelpArticle } from "../../../lib/api/help-articles";
+import { getHelpArticle, type HelpArticleBlock } from "../../../lib/api/help-articles";
+
+function renderArticleBlock(block: HelpArticleBlock, index: number) {
+  if (block.kind === "heading") {
+    const HeadingTag = block.level <= 2 ? "h2" : "h3";
+    return <HeadingTag key={`${block.kind}-${index}`}>{block.text}</HeadingTag>;
+  }
+
+  if (block.kind === "unordered-list") {
+    return (
+      <ul key={`${block.kind}-${index}`} className="text-list">
+        {block.items.map((item) => (
+          <li key={item}>{item}</li>
+        ))}
+      </ul>
+    );
+  }
+
+  if (block.kind === "ordered-list") {
+    return (
+      <ol key={`${block.kind}-${index}`} className="text-list">
+        {block.items.map((item) => (
+          <li key={item}>{item}</li>
+        ))}
+      </ol>
+    );
+  }
+
+  return <p key={`${block.kind}-${index}`}>{block.text}</p>;
+}
 
 export default async function HelpArticlePage({
   params,
@@ -24,17 +53,13 @@ export default async function HelpArticlePage({
         <Card tone="accent">
           <CardHeader>
             <CardTitle>{article.title}</CardTitle>
-            <CardDescription>{article.body[0]}</CardDescription>
+            <CardDescription>Public help route showing the same repository-backed content rendered in /app/help.</CardDescription>
           </CardHeader>
           <CardBody>
-            <ul className="text-list">
-              {article.body.slice(1).map((paragraph) => (
-                <li key={paragraph}>{paragraph}</li>
-              ))}
-            </ul>
+            {article.blocks.map((block, index) => renderArticleBlock(block, index))}
             <div className="button-row">
-              <Link className="button button--ghost" href="/app/help">
-                Back to Help Center
+              <Link className="button button--ghost" href={`/app/help?article=${article.slug}`}>
+                Open in App Help Center
               </Link>
               <Link className="button" href="/app/billing">
                 Open Billing Center

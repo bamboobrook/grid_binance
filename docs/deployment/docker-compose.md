@@ -37,9 +37,15 @@ This release depends on PostgreSQL and Redis. `DATABASE_URL`, `REDIS_URL`, `SESS
 
 ## Included Services
 
+The compose stack includes 10 services in total, including 5 Rust services.
+
 - `postgres` for relational runtime data
 - `redis` for runtime coordination and cache usage
-- `api-server` for auth, billing, admin, reporting, and integration APIs
+- `api-server` as the Rust auth, billing, admin, reporting, and integration API
+- `trading-engine` as the Rust order execution worker
+- `scheduler` as the Rust strategy scheduling and pre-flight worker
+- `market-data-gateway` as the Rust market data ingestion service
+- `billing-chain-listener` as the Rust billing deposit listener
 - `web` for the Next.js public, user, admin, and help-center UI
 - `nginx` for the commercial runtime entrypoint on `localhost:8080`
 - `prometheus` for baseline monitoring on `localhost:9090`

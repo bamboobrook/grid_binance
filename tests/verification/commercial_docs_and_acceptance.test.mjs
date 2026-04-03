@@ -28,6 +28,10 @@ const requiredDeploymentGuides = [
   "backup-and-restore.md",
 ];
 
+function escapePattern(input) {
+  return input.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 test("commercial guide set matches the March 31 design doc", () => {
   for (const file of requiredUserGuides) {
     assert.ok(
@@ -52,9 +56,10 @@ test("commercial guide set matches the March 31 design doc", () => {
 });
 
 test("help center stays sourced from repository user guides", async () => {
-  const { VALID_HELP_ARTICLES } = await import(
+  const { VALID_HELP_ARTICLES, getHelpArticle } = await import(
     "../../apps/web/src/lib/api/help-articles.ts"
   );
+  const helpPage = fs.readFileSync("apps/web/src/app/app/help/page.tsx", "utf8");
 
   for (const file of requiredUserGuides) {
     const slug = file.replace(/\.md$/, "");
@@ -63,6 +68,20 @@ test("help center stays sourced from repository user guides", async () => {
       `help center should expose ${slug}`,
     );
   }
+
+  const gettingStarted = getHelpArticle("getting-started");
+  assert.ok(gettingStarted, "getting-started article should be available");
+  assert.ok(
+    gettingStarted.body.includes("## First Run Path"),
+    "repository headings should stay available to the in-app help renderer",
+  );
+  assert.ok(
+    gettingStarted.body.includes("- `/app/dashboard` for account overview and renewal reminders"),
+    "repository bullet content should stay available to the in-app help renderer",
+  );
+  assert.match(helpPage, /\/app\/help\?article=\$\{item\.slug\}/);
+  assert.doesNotMatch(helpPage, /href=\{`\/help\/\$\{item\.slug\}`\}/);
+  assert.match(helpPage, /blocks\.map\(/);
 });
 
 test("smoke checks mention the commercial runtime path", () => {
@@ -72,4 +91,25 @@ test("smoke checks mention the commercial runtime path", () => {
   assert.match(script, /http:\/\/localhost:8080\/app\/dashboard/);
   assert.match(script, /http:\/\/localhost:8080\/admin\/dashboard/);
   assert.match(script, /http:\/\/localhost:8080\/help\/getting-started/);
+});
+
+test("docker compose guide lists the actual commercial stack services", () => {
+  const guide = fs.readFileSync("docs/deployment/docker-compose.md", "utf8");
+
+  for (const service of [
+    "postgres",
+    "redis",
+    "api-server",
+    "trading-engine",
+    "scheduler",
+    "market-data-gateway",
+    "billing-chain-listener",
+    "web",
+    "nginx",
+    "prometheus",
+  ]) {
+    assert.match(guide, new RegExp("`" + escapePattern(service) + "`"));
+  }
+
+  assert.match(guide, /5 Rust services/i);
 });

@@ -4,13 +4,42 @@ import { notFound } from "next/navigation";
 import { AppShellSection } from "../../../components/shell/app-shell-section";
 import { Card, CardBody, CardDescription, CardHeader, CardTitle } from "../../../components/ui/card";
 import { StatusBanner } from "../../../components/ui/status-banner";
-import { getHelpArticle, HELP_ARTICLES, normalizeHelpArticle } from "../../../lib/api/help-articles";
+import { getHelpArticle, HELP_ARTICLES, normalizeHelpArticle, type HelpArticleBlock } from "../../../lib/api/help-articles";
 
 type HelpPageProps = {
   searchParams?: Promise<{
     article?: string | string[];
   }>;
 };
+
+function renderArticleBlock(block: HelpArticleBlock, index: number) {
+  if (block.kind === "heading") {
+    const HeadingTag = block.level <= 2 ? "h3" : "h4";
+    return <HeadingTag key={`${block.kind}-${index}`}>{block.text}</HeadingTag>;
+  }
+
+  if (block.kind === "unordered-list") {
+    return (
+      <ul key={`${block.kind}-${index}`} className="text-list">
+        {block.items.map((item) => (
+          <li key={item}>{item}</li>
+        ))}
+      </ul>
+    );
+  }
+
+  if (block.kind === "ordered-list") {
+    return (
+      <ol key={`${block.kind}-${index}`} className="text-list">
+        {block.items.map((item) => (
+          <li key={item}>{item}</li>
+        ))}
+      </ol>
+    );
+  }
+
+  return <p key={`${block.kind}-${index}`}>{block.text}</p>;
+}
 
 export default async function HelpPage({ searchParams }: HelpPageProps) {
   const requestedArticle = (await searchParams)?.article;
@@ -21,16 +50,17 @@ export default async function HelpPage({ searchParams }: HelpPageProps) {
   }
 
   const article = articleSlug ? getHelpArticle(articleSlug) : null;
+  const selectedArticle = article ?? HELP_ARTICLES[0];
 
   return (
     <>
       <StatusBanner
-        description="The in-app help center mirrors repository-backed user guidance for billing, strategy, and security flows."
+        description="The in-app help center now renders the same repository-backed guides that live under docs/user-guide/*.md."
         title="Help center"
         tone="success"
       />
       <AppShellSection
-        description="Use the help center to move from concept questions into the exact route where the action happens."
+        description="Open a guide on the left and read the full repository document without leaving the app shell."
         eyebrow="Help center"
         title="Help Center"
       >
@@ -38,13 +68,15 @@ export default async function HelpPage({ searchParams }: HelpPageProps) {
           <Card>
             <CardHeader>
               <CardTitle>Guides</CardTitle>
-              <CardDescription>User-facing documentation shared between the app shell and the standalone article route.</CardDescription>
+              <CardDescription>Every entry below is loaded from the matching file in docs/user-guide.</CardDescription>
             </CardHeader>
             <CardBody>
               <ul className="text-list">
                 {HELP_ARTICLES.map((item) => (
                   <li key={item.slug}>
-                    <Link href={`/help/${item.slug}`}>{item.slug === "expiry-reminder" ? "Expiry reminder guide" : item.title}</Link>
+                    <Link href={`/app/help?article=${item.slug}`}>
+                      {item.slug === "expiry-reminder" ? "Expiry reminder guide" : item.title}
+                    </Link>
                     <br />
                     <span>{item.summary}</span>
                   </li>
@@ -54,30 +86,14 @@ export default async function HelpPage({ searchParams }: HelpPageProps) {
           </Card>
           <Card tone="subtle">
             <CardHeader>
-              <CardTitle>{article ? article.title : "Recommended next steps"}</CardTitle>
-              <CardDescription>{article ? article.summary : "Pick the guide that matches the blocker in your current workflow."}</CardDescription>
+              <CardTitle>{selectedArticle.title}</CardTitle>
+              <CardDescription>
+                {article
+                  ? selectedArticle.summary
+                  : "Showing the default repository guide until you choose a specific article."}
+              </CardDescription>
             </CardHeader>
-            <CardBody>
-              {article ? (
-                <ul className="text-list">
-                  {article.body.map((paragraph) => (
-                    <li key={paragraph}>{paragraph}</li>
-                  ))}
-                </ul>
-              ) : (
-                <ul className="text-list">
-                  <li>
-                    <Link href="/app/billing">Open Billing Center</Link>
-                  </li>
-                  <li>
-                    <Link href="/app/security">Open Security Center</Link>
-                  </li>
-                  <li>
-                    <Link href="/app/strategies/new">Create a new strategy draft</Link>
-                  </li>
-                </ul>
-              )}
-            </CardBody>
+            <CardBody>{selectedArticle.blocks.map((block, index) => renderArticleBlock(block, index))}</CardBody>
           </Card>
         </div>
       </AppShellSection>
