@@ -1,4 +1,9 @@
-use axum::{extract::State, http::HeaderMap, routing::{get, post}, Json, Router};
+use axum::{
+    extract::State,
+    http::HeaderMap,
+    routing::{get, post},
+    Json, Router,
+};
 use chrono::Utc;
 use serde::Serialize;
 use shared_db::SharedDb;
@@ -25,7 +30,10 @@ pub fn router() -> Router<AppState> {
         .route("/admin/memberships", get(list_memberships))
         .route("/admin/memberships/override", post(override_membership))
         .route("/admin/memberships/manage", post(manage_membership))
-        .route("/admin/memberships/plans", get(list_plans).post(upsert_plan))
+        .route(
+            "/admin/memberships/plans",
+            get(list_plans).post(upsert_plan),
+        )
 }
 
 async fn list_memberships(
@@ -57,7 +65,12 @@ async fn override_membership(
     Json(request): Json<MembershipOverrideRequest>,
 ) -> Result<Json<MembershipSnapshot>, MembershipError> {
     let session = require_super_admin_session(&auth, &headers).map_err(MembershipError::from)?;
-    Ok(Json(service.override_membership(&session.email, session.admin_role, session.sid, request)?))
+    Ok(Json(service.override_membership(
+        &session.email,
+        session.admin_role,
+        session.sid,
+        request,
+    )?))
 }
 
 async fn manage_membership(
@@ -67,7 +80,12 @@ async fn manage_membership(
     Json(request): Json<ManualMembershipRequest>,
 ) -> Result<Json<MembershipSnapshot>, MembershipError> {
     let session = require_super_admin_session(&auth, &headers).map_err(MembershipError::from)?;
-    Ok(Json(service.manage_membership(&session.email, session.admin_role, session.sid, request)?))
+    Ok(Json(service.manage_membership(
+        &session.email,
+        session.admin_role,
+        session.sid,
+        request,
+    )?))
 }
 
 async fn list_plans(
@@ -86,17 +104,31 @@ async fn upsert_plan(
     Json(request): Json<UpsertMembershipPlanRequest>,
 ) -> Result<Json<MembershipPlanConfigResponse>, MembershipError> {
     let session = require_super_admin_session(&auth, &headers).map_err(MembershipError::from)?;
-    Ok(Json(service.upsert_plan_config(&session.email, session.admin_role, session.sid, request)?))
+    Ok(Json(service.upsert_plan_config(
+        &session.email,
+        session.admin_role,
+        session.sid,
+        request,
+    )?))
 }
 
-fn derive_status(record: &shared_db::MembershipRecord, now: chrono::DateTime<chrono::Utc>) -> MembershipStatus {
+fn derive_status(
+    record: &shared_db::MembershipRecord,
+    now: chrono::DateTime<chrono::Utc>,
+) -> MembershipStatus {
     if let Some(status) = record.override_status.clone() {
         return status;
     }
-    if record.active_until.is_some_and(|active_until| now <= active_until) {
+    if record
+        .active_until
+        .is_some_and(|active_until| now <= active_until)
+    {
         return MembershipStatus::Active;
     }
-    if record.grace_until.is_some_and(|grace_until| now <= grace_until) {
+    if record
+        .grace_until
+        .is_some_and(|grace_until| now <= grace_until)
+    {
         return MembershipStatus::Grace;
     }
     if record.activated_at.is_some() {

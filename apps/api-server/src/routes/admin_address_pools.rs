@@ -1,9 +1,4 @@
-use axum::{
-    extract::State,
-    http::HeaderMap,
-    routing::get,
-    Json, Router,
-};
+use axum::{extract::State, http::HeaderMap, routing::get, Json, Router};
 
 use crate::{
     routes::auth_guard::{require_admin_session, require_super_admin_session},
@@ -16,7 +11,10 @@ use crate::{
 };
 
 pub fn router() -> Router<AppState> {
-    Router::new().route("/admin/address-pools", get(list_address_pools).post(upsert_address_pool))
+    Router::new().route(
+        "/admin/address-pools",
+        get(list_address_pools).post(upsert_address_pool),
+    )
 }
 
 async fn list_address_pools(
@@ -35,5 +33,10 @@ async fn upsert_address_pool(
     Json(request): Json<UpsertAddressPoolEntryRequest>,
 ) -> Result<Json<AddressPoolEntryResponse>, MembershipError> {
     let session = require_super_admin_session(&auth, &headers).map_err(MembershipError::from)?;
-    Ok(Json(service.upsert_address_pool_entry(&session.email, session.admin_role, session.sid, request)?))
+    Ok(Json(service.upsert_address_pool_entry(
+        &session.email,
+        session.admin_role,
+        session.sid,
+        request,
+    )?))
 }

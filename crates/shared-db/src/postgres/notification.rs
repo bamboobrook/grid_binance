@@ -27,7 +27,10 @@ impl NotificationRepository {
         Self { pool }
     }
 
-    pub async fn insert_notification(&self, record: &NotificationLogRecord) -> Result<(), SharedDbError> {
+    pub async fn insert_notification(
+        &self,
+        record: &NotificationLogRecord,
+    ) -> Result<(), SharedDbError> {
         sqlx::query(
             "INSERT INTO notification_logs (
                 user_email,

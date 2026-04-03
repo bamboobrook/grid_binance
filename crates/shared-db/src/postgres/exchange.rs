@@ -289,7 +289,9 @@ impl ExchangeRepository {
         .await
         .map_err(SharedDbError::from)?;
 
-        rows.into_iter().map(map_account_profit_snapshot_row).collect()
+        rows.into_iter()
+            .map(map_account_profit_snapshot_row)
+            .collect()
     }
 
     pub async fn insert_wallet_snapshot(

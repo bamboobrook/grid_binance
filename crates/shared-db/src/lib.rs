@@ -1487,7 +1487,8 @@ impl SharedDb {
                 let record = record.clone();
                 let audit = audit.clone();
                 Self::block_on(async move {
-                    repo.update_pending_deposit_with_audit(&record, &audit).await
+                    repo.update_pending_deposit_with_audit(&record, &audit)
+                        .await
                 })
             }
             SharedDbBackend::Ephemeral(state) => mutate_ephemeral_atomically(state, |state| {

@@ -10,7 +10,8 @@ use crate::{
     services::auth_service::AuthService,
     services::strategy_service::{
         BatchDeleteResponse, BatchPauseResponse, BatchStrategyRequest, SaveStrategyRequest,
-        StartStrategyResponse, StopAllResponse, StrategyError, StrategyListResponse, StrategyService,
+        StartStrategyResponse, StopAllResponse, StrategyError, StrategyListResponse,
+        StrategyService,
     },
     AppState,
 };

@@ -1,8 +1,6 @@
 use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
-use shared_db::{
-    DepositTransactionRecord, MembershipPlanRecord, MembershipRecord, SharedDb,
-};
+use shared_db::{DepositTransactionRecord, MembershipPlanRecord, MembershipRecord, SharedDb};
 
 use crate::order_matcher::canonicalize_amount;
 
@@ -111,9 +109,12 @@ pub fn process_observed_transfer(
             .list_membership_plans()?
             .into_iter()
             .find(|plan| plan.code == order.plan_code)
-        .ok_or(ProcessorError::InvalidRequest("plan not configured"))?;
-        let (active_until, grace_until) =
-            entitlement_window(db.find_membership_record(&order.email)?.as_ref(), &plan, transfer.observed_at);
+            .ok_or(ProcessorError::InvalidRequest("plan not configured"))?;
+        let (active_until, grace_until) = entitlement_window(
+            db.find_membership_record(&order.email)?.as_ref(),
+            &plan,
+            transfer.observed_at,
+        );
         db.apply_membership_payment(
             order.order_id,
             &order.chain,
@@ -183,10 +184,7 @@ pub fn process_observed_transfer(
     })
 }
 
-pub fn promote_due_orders(
-    db: &SharedDb,
-    at: DateTime<Utc>,
-) -> Result<usize, ProcessorError> {
+pub fn promote_due_orders(db: &SharedDb, at: DateTime<Utc>) -> Result<usize, ProcessorError> {
     let orders = db.list_billing_orders()?;
     let mut chains = Vec::new();
     for order in &orders {
@@ -199,7 +197,9 @@ pub fn promote_due_orders(
     for chain in chains {
         let mut queued = orders
             .iter()
-            .filter(|order| order.chain == chain && order.paid_at.is_none() && order.status == "queued")
+            .filter(|order| {
+                order.chain == chain && order.paid_at.is_none() && order.status == "queued"
+            })
             .collect::<Vec<_>>();
         queued.sort_by_key(|order| order.enqueued_at.unwrap_or(order.requested_at));
         for order in queued {
@@ -239,7 +239,9 @@ mod tests {
     use super::{process_observed_transfer, promote_due_orders, ObservedChainTransfer};
     use chrono::{DateTime, Utc};
     use shared_chain::assignment::AddressAssignment;
-    use shared_db::{BillingOrderRecord, MembershipPlanPriceRecord, MembershipPlanRecord, SharedDb};
+    use shared_db::{
+        BillingOrderRecord, MembershipPlanPriceRecord, MembershipPlanRecord, SharedDb,
+    };
 
     #[test]
     fn listener_processes_exact_match_and_activates_membership() {
@@ -391,7 +393,8 @@ mod tests {
         })
         .expect("order");
 
-        let promoted = promote_due_orders(&db, parse_time("2026-04-01T01:00:01Z")).expect("promote");
+        let promoted =
+            promote_due_orders(&db, parse_time("2026-04-01T01:00:01Z")).expect("promote");
 
         assert_eq!(promoted, 1);
         let orders = db.list_billing_orders().expect("orders");
@@ -430,7 +433,14 @@ mod tests {
         }
     }
 
-    fn seed_plan(db: &SharedDb, code: &str, duration_days: i32, chain: &str, asset: &str, amount: &str) {
+    fn seed_plan(
+        db: &SharedDb,
+        code: &str,
+        duration_days: i32,
+        chain: &str,
+        asset: &str,
+        amount: &str,
+    ) {
         db.upsert_membership_plan(&MembershipPlanRecord {
             code: code.to_string(),
             name: code.to_string(),

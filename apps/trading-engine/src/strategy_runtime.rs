@@ -80,7 +80,12 @@ impl StrategyRuntimeEngine {
     pub fn start(&mut self) -> Result<(), StrategyRuntimeError> {
         self.running = true;
         self.runtime.orders = self.build_working_orders();
-        push_event(&mut self.runtime.events, "strategy_started", "strategy started", None);
+        push_event(
+            &mut self.runtime.events,
+            "strategy_started",
+            "strategy started",
+            None,
+        );
         Ok(())
     }
 
@@ -124,11 +129,19 @@ impl StrategyRuntimeEngine {
             is_short: level_is_short(self.mode, level.level_index),
         });
         self.recompute_position();
-        push_event(&mut self.runtime.events, "entry_fill", "entry fill recorded", Some(level.entry_price));
+        push_event(
+            &mut self.runtime.events,
+            "entry_fill",
+            "entry fill recorded",
+            Some(level.entry_price),
+        );
         Ok(())
     }
 
-    pub fn on_price(&mut self, price: Decimal) -> Result<Vec<StrategyRuntimeEvent>, StrategyRuntimeError> {
+    pub fn on_price(
+        &mut self,
+        price: Decimal,
+    ) -> Result<Vec<StrategyRuntimeEvent>, StrategyRuntimeError> {
         if !self.running {
             return Ok(Vec::new());
         }
@@ -144,7 +157,8 @@ impl StrategyRuntimeEngine {
         let mut pending_closures = Vec::new();
 
         for state in &mut self.open_levels {
-            let tp_price = take_profit_price(state.entry_price, state.take_profit_bps, state.is_short);
+            let tp_price =
+                take_profit_price(state.entry_price, state.take_profit_bps, state.is_short);
             match state.trailing_bps {
                 Some(trailing_bps) => {
                     if let Some(extreme) = state.trailing_extreme {
@@ -153,14 +167,22 @@ impl StrategyRuntimeEngine {
                             state.trailing_extreme = Some(new_low);
                             let retrace_price = new_low * short_trailing_factor(trailing_bps);
                             if price >= retrace_price {
-                                pending_closures.push((state.level_index, price, "taker_trailing_take_profit"));
+                                pending_closures.push((
+                                    state.level_index,
+                                    price,
+                                    "taker_trailing_take_profit",
+                                ));
                             }
                         } else {
                             let new_high = extreme.max(price);
                             state.trailing_extreme = Some(new_high);
                             let retrace_price = new_high * trailing_factor(trailing_bps);
                             if price <= retrace_price {
-                                pending_closures.push((state.level_index, price, "taker_trailing_take_profit"));
+                                pending_closures.push((
+                                    state.level_index,
+                                    price,
+                                    "taker_trailing_take_profit",
+                                ));
                             }
                         }
                     } else if price_reaches_take_profit(price, tp_price, state.is_short) {
@@ -197,13 +219,23 @@ impl StrategyRuntimeEngine {
                 order.status = "Canceled".to_string();
             }
         }
-        push_event(&mut self.runtime.events, "strategy_paused", "strategy paused", None);
+        push_event(
+            &mut self.runtime.events,
+            "strategy_paused",
+            "strategy paused",
+            None,
+        );
     }
 
     pub fn resume(&mut self) -> Result<(), StrategyRuntimeError> {
         self.running = true;
         self.runtime.orders = self.build_working_orders();
-        push_event(&mut self.runtime.events, "strategy_resumed", "strategy resumed", None);
+        push_event(
+            &mut self.runtime.events,
+            "strategy_resumed",
+            "strategy resumed",
+            None,
+        );
         Ok(())
     }
 
@@ -248,7 +280,9 @@ impl StrategyRuntimeEngine {
     fn trigger_post_take_profit(&mut self, price: Decimal) -> StrategyRuntimeEvent {
         match self.revision.post_trigger_action {
             PostTriggerAction::Stop => self.close_all(price, "overall_take_profit_stop", false),
-            PostTriggerAction::Rebuild => self.close_all(price, "overall_take_profit_rebuild", true),
+            PostTriggerAction::Rebuild => {
+                self.close_all(price, "overall_take_profit_rebuild", true)
+            }
         }
     }
 
@@ -259,7 +293,12 @@ impl StrategyRuntimeEngine {
         }
     }
 
-    fn close_all(&mut self, price: Decimal, event_type: &str, rebuild: bool) -> StrategyRuntimeEvent {
+    fn close_all(
+        &mut self,
+        price: Decimal,
+        event_type: &str,
+        rebuild: bool,
+    ) -> StrategyRuntimeEvent {
         let closing_levels = self.open_levels.clone();
         for state in closing_levels {
             let _ = self.close_level(state.level_index, price, event_type);
@@ -278,10 +317,20 @@ impl StrategyRuntimeEngine {
             self.running = false;
         }
 
-        push_event(&mut self.runtime.events, event_type, event_type, Some(price))
+        push_event(
+            &mut self.runtime.events,
+            event_type,
+            event_type,
+            Some(price),
+        )
     }
 
-    fn close_level(&mut self, level_index: u32, price: Decimal, event_type: &str) -> StrategyRuntimeEvent {
+    fn close_level(
+        &mut self,
+        level_index: u32,
+        price: Decimal,
+        event_type: &str,
+    ) -> StrategyRuntimeEvent {
         let state = self
             .open_levels
             .iter()
@@ -296,7 +345,12 @@ impl StrategyRuntimeEngine {
             fill_type: "Exit".to_string(),
             price,
             quantity: state.quantity,
-            realized_pnl: Some(realized_pnl(state.entry_price, price, state.quantity, state.is_short)),
+            realized_pnl: Some(realized_pnl(
+                state.entry_price,
+                price,
+                state.quantity,
+                state.is_short,
+            )),
             fee_amount: None,
             fee_asset: None,
         });
@@ -309,7 +363,12 @@ impl StrategyRuntimeEngine {
             order.status = "Filled".to_string();
         }
 
-        push_event(&mut self.runtime.events, event_type, event_type, Some(price))
+        push_event(
+            &mut self.runtime.events,
+            event_type,
+            event_type,
+            Some(price),
+        )
     }
 
     fn recompute_position(&mut self) {
@@ -359,10 +418,9 @@ impl StrategyRuntimeEngine {
             .open_levels
             .iter()
             .fold(Decimal::ZERO, |acc, level| acc + level.quantity);
-        let weighted_cost = self
-            .open_levels
-            .iter()
-            .fold(Decimal::ZERO, |acc, level| acc + level.entry_price * level.quantity);
+        let weighted_cost = self.open_levels.iter().fold(Decimal::ZERO, |acc, level| {
+            acc + level.entry_price * level.quantity
+        });
 
         self.runtime.positions = vec![StrategyRuntimePosition {
             market: self.market,
@@ -433,7 +491,12 @@ fn price_hits_stop_loss(price: Decimal, threshold: Decimal, is_short: bool) -> b
     }
 }
 
-fn realized_pnl(entry_price: Decimal, exit_price: Decimal, quantity: Decimal, is_short: bool) -> Decimal {
+fn realized_pnl(
+    entry_price: Decimal,
+    exit_price: Decimal,
+    quantity: Decimal,
+    is_short: bool,
+) -> Decimal {
     if is_short {
         (entry_price - exit_price) * quantity
     } else {
@@ -475,7 +538,10 @@ fn overall_exposure_is_short(mode: StrategyMode, open_levels: &[OpenLevelState])
     } else if has_long {
         Some(false)
     } else {
-        Some(matches!(mode, StrategyMode::SpotSellOnly | StrategyMode::FuturesShort))
+        Some(matches!(
+            mode,
+            StrategyMode::SpotSellOnly | StrategyMode::FuturesShort
+        ))
     }
 }
 

@@ -105,9 +105,7 @@ async fn update_system(
 }
 
 fn read_confirmation(db: &SharedDb, key: &str) -> Result<u32, AuthError> {
-    let record = db
-        .get_system_config(key)
-        .map_err(AuthError::storage)?;
+    let record = db.get_system_config(key).map_err(AuthError::storage)?;
 
     let Some(record) = record else {
         return Ok(12);
@@ -136,7 +134,6 @@ fn confirmation_summary(eth: u32, bsc: u32, sol: u32) -> String {
     format!("ETH {} | BSC {} | SOL {}", eth, bsc, sol)
 }
 
-
 fn validate_confirmation_value(value: u32, key: &str) -> Result<u32, AuthError> {
     if value == 0 {
         return Err(AuthError::bad_request(match key {
@@ -161,7 +158,10 @@ mod tests {
     #[test]
     fn missing_confirmation_uses_default_value() {
         let db = SharedDb::ephemeral().expect("db");
-        assert_eq!(read_confirmation(&db, ETH_CONFIRMATIONS_KEY).expect("default"), 12);
+        assert_eq!(
+            read_confirmation(&db, ETH_CONFIRMATIONS_KEY).expect("default"),
+            12
+        );
     }
 
     #[test]

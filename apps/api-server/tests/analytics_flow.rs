@@ -95,7 +95,9 @@ async fn compute_strategy_and_account_snapshots_from_persisted_trading_and_excha
     assert_eq!(wallet_snapshots[0]["wallet_type"], "spot");
     assert_eq!(wallet_snapshots[0]["balances"]["BTC"], "0.01");
 
-    let account_snapshots = analytics_body["account_snapshots"].as_array().expect("account snapshots");
+    let account_snapshots = analytics_body["account_snapshots"]
+        .as_array()
+        .expect("account snapshots");
     assert_eq!(account_snapshots.len(), 4);
     assert_eq!(account_snapshots[0]["exchange"], "binance");
     assert_eq!(account_snapshots[0]["funding_total"], "-0.5");
@@ -106,7 +108,9 @@ async fn compute_strategy_and_account_snapshots_from_persisted_trading_and_excha
     assert_eq!(account_snapshots[3]["exchange"], "binance-futures");
     assert_eq!(account_snapshots[3]["funding_total"], "-0.25");
 
-    let strategy_snapshots = analytics_body["strategy_snapshots"].as_array().expect("strategy snapshots");
+    let strategy_snapshots = analytics_body["strategy_snapshots"]
+        .as_array()
+        .expect("strategy snapshots");
     assert_eq!(strategy_snapshots.len(), 4);
     assert_eq!(strategy_snapshots[2]["strategy_id"], "strategy-gamma");
     assert_eq!(strategy_snapshots[2]["unrealized_pnl"], "4.2");
@@ -125,8 +129,14 @@ async fn compute_strategy_and_account_snapshots_from_persisted_trading_and_excha
 
     let orders_csv = export_csv(&app, &session_token, "/exports/orders.csv").await;
     let order_lines: Vec<&str> = orders_csv.trim().lines().collect();
-    assert_eq!(order_lines[0], "order_id,strategy_id,symbol,side,order_type,price,quantity,status");
-    assert_eq!(order_lines[4], "gamma-order-1,strategy-gamma,SOLUSDT,Buy,Limit,22,1.5,Working");
+    assert_eq!(
+        order_lines[0],
+        "order_id,strategy_id,symbol,side,order_type,price,quantity,status"
+    );
+    assert_eq!(
+        order_lines[4],
+        "gamma-order-1,strategy-gamma,SOLUSDT,Buy,Limit,22,1.5,Working"
+    );
 
     let fills_csv = export_csv(&app, &session_token, "/exports/fills.csv").await;
     let fill_lines: Vec<&str> = fills_csv.trim().lines().collect();
@@ -146,7 +156,10 @@ async fn compute_strategy_and_account_snapshots_from_persisted_trading_and_excha
 
     let payments_csv = export_csv(&app, &session_token, "/exports/payments.csv").await;
     let payment_lines: Vec<&str> = payments_csv.trim().lines().collect();
-    assert_eq!(payment_lines[0], "order_id,email,chain,asset,plan_code,amount,status,address,requested_at,paid_at,tx_hash");
+    assert_eq!(
+        payment_lines[0],
+        "order_id,email,chain,asset,plan_code,amount,status,address,requested_at,paid_at,tx_hash"
+    );
     assert_eq!(payment_lines[2], "502,trader@example.com,BSC,USDC,quarterly,54.00000000,pending,bsc-addr-3,2026-03-02T00:00:00+00:00,,");
 }
 
@@ -202,8 +215,26 @@ fn seed_analytics_data(db: &SharedDb) {
                 runtime_order("alpha-order-2", "Sell", "Limit", Some("110"), "2", "Filled"),
             ],
             vec![
-                runtime_fill("alpha-fill-1", Some("alpha-order-1"), "GridTakeProfit", "110", "1", Some("10"), Some("1"), Some("USDT")),
-                runtime_fill("alpha-fill-2", Some("alpha-order-2"), "GridTakeProfit", "105", "2", Some("-10"), Some("0.5"), Some("USDT")),
+                runtime_fill(
+                    "alpha-fill-1",
+                    Some("alpha-order-1"),
+                    "GridTakeProfit",
+                    "110",
+                    "1",
+                    Some("10"),
+                    Some("1"),
+                    Some("USDT"),
+                ),
+                runtime_fill(
+                    "alpha-fill-2",
+                    Some("alpha-order-2"),
+                    "GridTakeProfit",
+                    "105",
+                    "2",
+                    Some("-10"),
+                    Some("0.5"),
+                    Some("USDT"),
+                ),
             ],
         ),
     })
@@ -218,8 +249,24 @@ fn seed_analytics_data(db: &SharedDb) {
             "ETHUSDT",
             StrategyStatus::Stopped,
             vec![],
-            vec![runtime_order("beta-order-1", "Sell", "Limit", Some("50"), "3", "Filled")],
-            vec![runtime_fill("beta-fill-1", Some("beta-order-1"), "GridTakeProfit", "55", "3", Some("15"), Some("0.75"), Some("USDT"))],
+            vec![runtime_order(
+                "beta-order-1",
+                "Sell",
+                "Limit",
+                Some("50"),
+                "3",
+                "Filled",
+            )],
+            vec![runtime_fill(
+                "beta-fill-1",
+                Some("beta-order-1"),
+                "GridTakeProfit",
+                "55",
+                "3",
+                Some("15"),
+                Some("0.75"),
+                Some("USDT"),
+            )],
         ),
     })
     .expect("insert beta strategy");
@@ -233,7 +280,14 @@ fn seed_analytics_data(db: &SharedDb) {
             "SOLUSDT",
             StrategyStatus::Running,
             vec![runtime_position("1.5", "22")],
-            vec![runtime_order("gamma-order-1", "Buy", "Limit", Some("22"), "1.5", "Working")],
+            vec![runtime_order(
+                "gamma-order-1",
+                "Buy",
+                "Limit",
+                Some("22"),
+                "1.5",
+                "Working",
+            )],
             vec![],
         ),
     })
@@ -263,8 +317,24 @@ fn seed_analytics_data(db: &SharedDb) {
             "SOLUSDT",
             StrategyStatus::Stopped,
             vec![],
-            vec![runtime_order("foreign-order-1", "Sell", "Limit", Some("20"), "4", "Filled")],
-            vec![runtime_fill("foreign-fill-1", Some("foreign-order-1"), "GridTakeProfit", "25", "4", Some("20"), Some("0.25"), Some("USDT"))],
+            vec![runtime_order(
+                "foreign-order-1",
+                "Sell",
+                "Limit",
+                Some("20"),
+                "4",
+                "Filled",
+            )],
+            vec![runtime_fill(
+                "foreign-fill-1",
+                Some("foreign-order-1"),
+                "GridTakeProfit",
+                "25",
+                "4",
+                Some("20"),
+                Some("0.25"),
+                Some("USDT"),
+            )],
         ),
     })
     .expect("insert foreign strategy");
@@ -275,7 +345,8 @@ fn seed_analytics_data(db: &SharedDb) {
         unrealized_pnl: "0".to_string(),
         fees: "1.5".to_string(),
         captured_at: Utc.with_ymd_and_hms(2026, 3, 4, 0, 0, 0).unwrap(),
-    }).expect("alpha snapshot");
+    })
+    .expect("alpha snapshot");
 
     db.insert_strategy_profit_snapshot(&StrategyProfitSnapshotRecord {
         strategy_id: "strategy-beta".to_string(),
@@ -283,7 +354,8 @@ fn seed_analytics_data(db: &SharedDb) {
         unrealized_pnl: "2.5".to_string(),
         fees: "0.75".to_string(),
         captured_at: Utc.with_ymd_and_hms(2026, 3, 4, 0, 5, 0).unwrap(),
-    }).expect("beta snapshot");
+    })
+    .expect("beta snapshot");
 
     db.insert_strategy_profit_snapshot(&StrategyProfitSnapshotRecord {
         strategy_id: "strategy-gamma".to_string(),
@@ -291,7 +363,8 @@ fn seed_analytics_data(db: &SharedDb) {
         unrealized_pnl: "4.2".to_string(),
         fees: "0".to_string(),
         captured_at: Utc.with_ymd_and_hms(2026, 3, 4, 0, 10, 0).unwrap(),
-    }).expect("gamma snapshot");
+    })
+    .expect("gamma snapshot");
 
     db.insert_strategy_profit_snapshot(&StrategyProfitSnapshotRecord {
         strategy_id: "strategy-delta".to_string(),
@@ -299,7 +372,8 @@ fn seed_analytics_data(db: &SharedDb) {
         unrealized_pnl: "0".to_string(),
         fees: "0".to_string(),
         captured_at: Utc.with_ymd_and_hms(2026, 3, 4, 0, 15, 0).unwrap(),
-    }).expect("delta snapshot");
+    })
+    .expect("delta snapshot");
 
     db.insert_account_profit_snapshot(&AccountProfitSnapshotRecord {
         user_email: "trader@example.com".to_string(),
@@ -309,7 +383,8 @@ fn seed_analytics_data(db: &SharedDb) {
         fees: "1.5".to_string(),
         funding: Some("-0.5".to_string()),
         captured_at: Utc.with_ymd_and_hms(2026, 3, 4, 0, 30, 0).unwrap(),
-    }).expect("older account snapshot");
+    })
+    .expect("older account snapshot");
 
     db.insert_account_profit_snapshot(&AccountProfitSnapshotRecord {
         user_email: "trader@example.com".to_string(),
@@ -319,7 +394,8 @@ fn seed_analytics_data(db: &SharedDb) {
         fees: "2.25".to_string(),
         funding: Some("-1.25".to_string()),
         captured_at: Utc.with_ymd_and_hms(2026, 3, 4, 1, 0, 0).unwrap(),
-    }).expect("account snapshot");
+    })
+    .expect("account snapshot");
 
     db.insert_account_profit_snapshot(&AccountProfitSnapshotRecord {
         user_email: "trader@example.com".to_string(),
@@ -329,7 +405,8 @@ fn seed_analytics_data(db: &SharedDb) {
         fees: "0.2".to_string(),
         funding: Some("-0.1".to_string()),
         captured_at: Utc.with_ymd_and_hms(2026, 3, 4, 0, 45, 0).unwrap(),
-    }).expect("older futures account snapshot");
+    })
+    .expect("older futures account snapshot");
 
     db.insert_account_profit_snapshot(&AccountProfitSnapshotRecord {
         user_email: "trader@example.com".to_string(),
@@ -339,7 +416,8 @@ fn seed_analytics_data(db: &SharedDb) {
         fees: "0.5".to_string(),
         funding: Some("-0.25".to_string()),
         captured_at: Utc.with_ymd_and_hms(2026, 3, 4, 1, 5, 0).unwrap(),
-    }).expect("futures account snapshot");
+    })
+    .expect("futures account snapshot");
 
     db.insert_exchange_wallet_snapshot(&ExchangeWalletSnapshotRecord {
         user_email: "trader@example.com".to_string(),
@@ -351,16 +429,63 @@ fn seed_analytics_data(db: &SharedDb) {
             "ETH": "0.50",
         }),
         captured_at: Utc.with_ymd_and_hms(2026, 3, 4, 1, 5, 0).unwrap(),
-    }).expect("wallet snapshot");
+    })
+    .expect("wallet snapshot");
 
     for trade in [
-        exchange_trade("trade-1", "trader@example.com", "BTCUSDT", "Buy", "1", "100", Some("0.5"), Some("USDT")),
-        exchange_trade("trade-2", "trader@example.com", "BTCUSDT", "Sell", "1", "110", Some("0.5"), Some("USDT")),
-        exchange_trade("trade-3", "trader@example.com", "ETHUSDT", "Buy", "3", "50", Some("0.25"), Some("USDT")),
-        exchange_trade("trade-4", "trader@example.com", "ETHUSDT", "Sell", "3", "55", Some("0.25"), Some("USDT")),
-        exchange_trade("trade-foreign", "other@example.com", "SOLUSDT", "Sell", "4", "25", Some("0.25"), Some("USDT")),
+        exchange_trade(
+            "trade-1",
+            "trader@example.com",
+            "BTCUSDT",
+            "Buy",
+            "1",
+            "100",
+            Some("0.5"),
+            Some("USDT"),
+        ),
+        exchange_trade(
+            "trade-2",
+            "trader@example.com",
+            "BTCUSDT",
+            "Sell",
+            "1",
+            "110",
+            Some("0.5"),
+            Some("USDT"),
+        ),
+        exchange_trade(
+            "trade-3",
+            "trader@example.com",
+            "ETHUSDT",
+            "Buy",
+            "3",
+            "50",
+            Some("0.25"),
+            Some("USDT"),
+        ),
+        exchange_trade(
+            "trade-4",
+            "trader@example.com",
+            "ETHUSDT",
+            "Sell",
+            "3",
+            "55",
+            Some("0.25"),
+            Some("USDT"),
+        ),
+        exchange_trade(
+            "trade-foreign",
+            "other@example.com",
+            "SOLUSDT",
+            "Sell",
+            "4",
+            "25",
+            Some("0.25"),
+            Some("USDT"),
+        ),
     ] {
-        db.insert_exchange_trade_history(&trade).expect("trade history");
+        db.insert_exchange_trade_history(&trade)
+            .expect("trade history");
     }
 
     db.insert_billing_order(&BillingOrderRecord {
@@ -380,7 +505,8 @@ fn seed_analytics_data(db: &SharedDb) {
         tx_hash: Some("tx-501".to_string()),
         status: "paid".to_string(),
         enqueued_at: None,
-    }).expect("insert paid order");
+    })
+    .expect("insert paid order");
 
     db.insert_billing_order(&BillingOrderRecord {
         order_id: 502,
@@ -399,7 +525,8 @@ fn seed_analytics_data(db: &SharedDb) {
         tx_hash: None,
         status: "pending".to_string(),
         enqueued_at: None,
-    }).expect("insert pending order");
+    })
+    .expect("insert pending order");
 }
 
 fn stored_strategy(

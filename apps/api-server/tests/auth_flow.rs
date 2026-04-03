@@ -4,8 +4,8 @@ use axum::{
     http::{Method, Request, StatusCode},
 };
 use serde_json::{json, Value};
-use shared_db::SharedDb;
 use shared_auth::session_token::{verify_session_token, SessionClaims};
+use shared_db::SharedDb;
 use tower::ServiceExt;
 
 const DEFAULT_SESSION_TOKEN_SECRET: &str = "grid-binance-dev-session-secret";
@@ -307,7 +307,9 @@ async fn verification_reset_and_totp_state_survive_router_rebuilds() {
                 .method("POST")
                 .uri("/auth/password-reset/request")
                 .header("content-type", "application/json")
-                .body(Body::from(json!({ "email": "durable@example.com" }).to_string()))
+                .body(Body::from(
+                    json!({ "email": "durable@example.com" }).to_string(),
+                ))
                 .unwrap(),
         )
         .await
@@ -374,9 +376,10 @@ async fn verification_reset_and_totp_state_survive_router_rebuilds() {
 #[tokio::test]
 async fn admin_access_requires_totp_backed_session() {
     let app = app();
-    let _verification_code = register_and_verify(&app, "admin@example.com", "pass1234").await;
+    let _verification_code = register_and_verify(&app, "super-admin@example.com", "pass1234").await;
 
-    let session_token = login_and_get_token(&app, "admin@example.com", "pass1234", None).await;
+    let session_token =
+        login_and_get_token(&app, "super-admin@example.com", "pass1234", None).await;
     let admin_list = app
         .clone()
         .oneshot(
@@ -391,9 +394,10 @@ async fn admin_access_requires_totp_backed_session() {
         .unwrap();
     assert_eq!(admin_list.status(), StatusCode::FORBIDDEN);
 
-    let totp = enable_totp(&app, "admin@example.com", &session_token).await;
+    let totp = enable_totp(&app, "super-admin@example.com", &session_token).await;
     let totp_code = totp["code"].as_str().expect("totp code");
-    let admin_session = login_and_get_token(&app, "admin@example.com", "pass1234", Some(totp_code)).await;
+    let admin_session =
+        login_and_get_token(&app, "super-admin@example.com", "pass1234", Some(totp_code)).await;
 
     let admin_list = app
         .oneshot(

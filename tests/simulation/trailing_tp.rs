@@ -55,9 +55,18 @@ fn trailing_take_profit_uses_post_activation_high_and_taker_close() {
     engine.start().expect("runtime should start");
     engine.fill_entry(0).expect("level fill should succeed");
 
-    assert!(engine.on_price(decimal(109, 0)).expect("price update").is_empty());
-    assert!(engine.on_price(decimal(110, 0)).expect("price update").is_empty());
-    assert!(engine.on_price(decimal(120, 0)).expect("price update").is_empty());
+    assert!(engine
+        .on_price(decimal(109, 0))
+        .expect("price update")
+        .is_empty());
+    assert!(engine
+        .on_price(decimal(110, 0))
+        .expect("price update")
+        .is_empty());
+    assert!(engine
+        .on_price(decimal(120, 0))
+        .expect("price update")
+        .is_empty());
 
     let events = engine.on_price(decimal(114, 0)).expect("price update");
     let runtime = engine.snapshot();
@@ -68,11 +77,7 @@ fn trailing_take_profit_uses_post_activation_high_and_taker_close() {
     assert_eq!(runtime.fills.len(), 2);
     assert_eq!(runtime.positions.len(), 0);
     assert_eq!(
-        runtime
-            .events
-            .last()
-            .expect("final event")
-            .event_type,
+        runtime.events.last().expect("final event").event_type,
         "taker_trailing_take_profit"
     );
 }

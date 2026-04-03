@@ -125,11 +125,28 @@ async fn credential_updates_require_running_strategies_to_be_paused_first() {
         json!({
             "name": "needs pause",
             "symbol": "BTCUSDT",
-            "budget": "100.00",
-            "grid_spacing_bps": 50,
+            "market": "Spot",
+            "mode": "SpotClassic",
+            "generation": "Custom",
+            "levels": [{
+                "entry_price": "100.00",
+                "quantity": "0.0100",
+                "take_profit_bps": 100,
+                "trailing_bps": null
+            }],
             "membership_ready": true,
             "exchange_ready": true,
-            "symbol_ready": true
+            "symbol_ready": true,
+            "permissions_ready": true,
+            "withdrawals_disabled": true,
+            "hedge_mode_ready": true,
+            "filters_ready": true,
+            "margin_ready": true,
+            "conflict_ready": true,
+            "balance_ready": true,
+            "overall_take_profit_bps": null,
+            "overall_stop_loss_bps": null,
+            "post_trigger_action": "Stop"
         }),
     )
     .await;

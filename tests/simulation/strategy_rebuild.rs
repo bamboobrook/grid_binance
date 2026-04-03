@@ -98,11 +98,7 @@ fn pause_resume_rebuild_preserves_holdings_and_recreates_orders() {
     assert_eq!(resumed.orders.len(), 2);
     assert!(resumed.orders.iter().all(|order| order.status == "Working"));
     assert_eq!(
-        resumed
-            .events
-            .last()
-            .expect("resume event")
-            .event_type,
+        resumed.events.last().expect("resume event").event_type,
         "strategy_resumed"
     );
 }
@@ -134,7 +130,10 @@ fn futures_short_runtime_uses_short_side_and_short_profit_formula() {
     engine.start().expect("runtime should start");
     assert_eq!(engine.snapshot().orders[0].side, "Sell");
     engine.fill_entry(0).expect("entry fill should succeed");
-    assert_eq!(engine.snapshot().positions[0].market, shared_domain::strategy::StrategyMarket::FuturesUsdM);
+    assert_eq!(
+        engine.snapshot().positions[0].market,
+        shared_domain::strategy::StrategyMarket::FuturesUsdM
+    );
 
     let events = engine.on_price(decimal(95, 0)).expect("price update");
     let runtime = engine.snapshot();
@@ -173,7 +172,10 @@ fn futures_coinm_runtime_preserves_market_type() {
     engine.start().expect("runtime should start");
     engine.fill_entry(0).expect("entry fill should succeed");
 
-    assert_eq!(engine.snapshot().positions[0].market, StrategyMarket::FuturesCoinM);
+    assert_eq!(
+        engine.snapshot().positions[0].market,
+        StrategyMarket::FuturesCoinM
+    );
 }
 
 #[test]
@@ -217,6 +219,12 @@ fn futures_neutral_runtime_keeps_both_sides_and_skips_overall_tp_when_hedged() {
     engine.fill_entry(1).expect("short leg");
 
     assert_eq!(engine.snapshot().positions.len(), 2);
-    assert!(engine.on_price(decimal(102, 0)).expect("price update").is_empty());
-    assert!(engine.on_price(decimal(98, 0)).expect("price update").is_empty());
+    assert!(engine
+        .on_price(decimal(102, 0))
+        .expect("price update")
+        .is_empty());
+    assert!(engine
+        .on_price(decimal(98, 0))
+        .expect("price update")
+        .is_empty());
 }

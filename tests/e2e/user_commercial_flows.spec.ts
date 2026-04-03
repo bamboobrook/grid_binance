@@ -146,7 +146,7 @@ test.describe("user commercial", () => {
     await expect(page.getByRole("heading", { name: "Telegram Notifications" })).toBeVisible();
     await expect(
       page.getByText(
-        "Bind a short-lived code in the web app, then send it to the Telegram bot to complete linking.",
+        "Open `/app/telegram` after sign-in. This is the canonical app route for Telegram binding and delivery status.",
         { exact: false },
       ),
     ).toBeVisible();

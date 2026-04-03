@@ -2,6 +2,14 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 
+function readComposeServiceBlock(compose, service) {
+  const escapedService = service.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const pattern = new RegExp(`^  ${escapedService}:\\n([\\s\\S]*?)(?=^  [a-z0-9-]+:|^volumes:)`, "m");
+  const match = compose.match(pattern);
+  assert.ok(match, `compose should contain a scoped block for ${service}`);
+  return match[0];
+}
+
 test("compose and docs assets exist", () => {
   for (const path of [
     "deploy/docker/docker-compose.yml",
@@ -37,15 +45,17 @@ test("compose references the expected release services", () => {
 
 test("release compose wires postgres redis persistence and required auth env for api-server and web", () => {
   const compose = fs.readFileSync("deploy/docker/docker-compose.yml", "utf8");
+  const apiServerBlock = readComposeServiceBlock(compose, "api-server");
+  const webBlock = readComposeServiceBlock(compose, "web");
 
   assert.match(compose, /^  postgres:$/m);
   assert.match(compose, /^  redis:$/m);
-  assert.match(compose, /api-server:\n(?:.*\n)*?\s+environment:\n(?:.*\n)*?\s+DATABASE_URL:\s+\$\{DATABASE_URL:\?[^}]+\}/);
-  assert.match(compose, /api-server:\n(?:.*\n)*?\s+environment:\n(?:.*\n)*?\s+REDIS_URL:\s+\$\{REDIS_URL:\?[^}]+\}/);
-  assert.match(compose, /api-server:\n(?:.*\n)*?\s+environment:\n(?:.*\n)*?\s+SESSION_TOKEN_SECRET:\s+\$\{SESSION_TOKEN_SECRET:\?[^}]+\}/);
-  assert.match(compose, /api-server:\n(?:.*\n)*?\s+environment:\n(?:.*\n)*?\s+ADMIN_EMAILS:\s+\$\{ADMIN_EMAILS:\?[^}]+\}/);
-  assert.match(compose, /web:\n(?:.*\n)*?\s+environment:\n(?:.*\n)*?\s+SESSION_TOKEN_SECRET:\s+\$\{SESSION_TOKEN_SECRET:\?[^}]+\}/);
-  assert.match(compose, /web:\n(?:.*\n)*?\s+environment:\n(?:.*\n)*?\s+AUTH_API_BASE_URL:\s+http:\/\/api-server:8080/);
+  assert.match(apiServerBlock, /\s+environment:\n(?:.*\n)*?\s+DATABASE_URL:\s+\$\{DATABASE_URL:\?[^}]+\}/);
+  assert.match(apiServerBlock, /\s+environment:\n(?:.*\n)*?\s+REDIS_URL:\s+\$\{REDIS_URL:\?[^}]+\}/);
+  assert.match(apiServerBlock, /\s+environment:\n(?:.*\n)*?\s+SESSION_TOKEN_SECRET:\s+\$\{SESSION_TOKEN_SECRET:\?[^}]+\}/);
+  assert.match(apiServerBlock, /\s+environment:\n(?:.*\n)*?\s+ADMIN_EMAILS:\s+\$\{ADMIN_EMAILS:\?[^}]+\}/);
+  assert.match(webBlock, /\s+environment:\n(?:.*\n)*?\s+SESSION_TOKEN_SECRET:\s+\$\{SESSION_TOKEN_SECRET:\?[^}]+\}/);
+  assert.match(webBlock, /\s+environment:\n(?:.*\n)*?\s+AUTH_API_BASE_URL:\s+http:\/\/api-server:8080/);
   assert.match(compose, /^volumes:\n(?:.*\n)*?\s+postgres-data:\s*$/m);
   assert.match(compose, /^volumes:\n(?:.*\n)*?\s+redis-data:\s*$/m);
 });
@@ -59,16 +69,49 @@ test("env example documents release-critical postgres redis and auth settings", 
   assert.match(envExample, /^REDIS_URL=/m);
   assert.match(envExample, /^SESSION_TOKEN_SECRET=/m);
   assert.match(envExample, /^ADMIN_EMAILS=/m);
+  assert.match(envExample, /^INTERNAL_SHARED_SECRET=/m);
   assert.doesNotMatch(envExample, /^APP_DB_PATH=/m);
+  assert.doesNotMatch(envExample, /^BINANCE_API_KEY=/m);
+  assert.doesNotMatch(envExample, /^BINANCE_API_SECRET=/m);
 });
 
-test("smoke script validates nginx and api entrypoints", () => {
+test("smoke script validates nginx and api entrypoints and supports explicit env-file override", () => {
   const script = fs.readFileSync("scripts/smoke.sh", "utf8");
 
   assert.match(script, /^\s*compose up -d --build\s*$/m);
-  assert.match(script, /docker compose --env-file "\$ROOT_DIR\/\.env" -f "\$COMPOSE_DIR\/docker-compose\.yml"/);
+  assert.match(script, /GRID_BINANCE_ENV_FILE/);
+  assert.match(script, /docker compose --env-file "\$ENV_FILE" -f "\$COMPOSE_DIR\/docker-compose\.yml"/);
   assert.match(script, /wait_for_url "http:\/\/localhost:8080\/" "nginx web entrypoint"/);
   assert.match(script, /wait_for_url "http:\/\/localhost:8080\/api\/healthz" "api health entrypoint"/);
+});
+
+test("smoke script keeps .env as the default release env source and explicitly verifies postgres redis and billing listener health", () => {
+  const script = fs.readFileSync("scripts/smoke.sh", "utf8");
+
+  assert.match(script, /INTERNAL_SHARED_SECRET/);
+  assert.match(script, /DEFAULT_ENV_FILE="\$ROOT_DIR\/\.env"/);
+  assert.doesNotMatch(script, /FALLBACK_ENV_FILE/);
+  assert.match(script, /compose ps -q "\$service"/);
+  assert.match(script, /wait_for_service_health postgres/);
+  assert.match(script, /wait_for_service_health redis/);
+  assert.match(script, /wait_for_service_health billing-chain-listener/);
+  assert.match(
+    script,
+    /docker inspect -f '\{\{if \.State\.Health\}\}\{\{\.State\.Health\.Status\}\}\{\{else\}\}\{\{\.State\.Status\}\}\{\{end\}\}' "\$billing_listener_container"/,
+  );
+});
+
+test("nginx config and smoke workflow refresh upstream resolution after web container recreation", () => {
+  const script = fs.readFileSync("scripts/smoke.sh", "utf8");
+  const nginxConfig = fs.readFileSync("deploy/nginx/default.conf", "utf8");
+
+  assert.match(script, /compose restart nginx/);
+  assert.match(nginxConfig, /resolver 127\.0\.0\.11/);
+  assert.match(nginxConfig, /set \$api_upstream api-server:8080;/);
+  assert.match(nginxConfig, /set \$web_upstream web:3000;/);
+  assert.match(nginxConfig, /rewrite \^\/api\/(.*)\$ \/\$1 break;/);
+  assert.match(nginxConfig, /proxy_pass http:\/\/\$api_upstream;/);
+  assert.match(nginxConfig, /proxy_pass http:\/\/\$web_upstream;/);
 });
 
 test("compose docs consistently require explicit root env file and quoted web healthcheck", () => {
@@ -88,6 +131,7 @@ test("compose docs consistently require explicit root env file and quoted web he
   assert.match(deploymentGuide, /prometheus-data/);
   assert.match(deploymentGuide, /127\.0\.0\.1:5432/);
   assert.match(deploymentGuide, /127\.0\.0\.1:6379/);
+  assert.match(deploymentGuide, /INTERNAL_SHARED_SECRET/);
   assert.match(userGuide, /docker compose --env-file \.env -f deploy\/docker\/docker-compose\.yml up -d --build/);
   assert.match(userGuide, /cargo run -p api-server/);
   assert.doesNotMatch(userGuide, /sqlite/i);

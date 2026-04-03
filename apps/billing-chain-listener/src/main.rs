@@ -91,9 +91,7 @@ fn authorize_internal_request(
     Ok(())
 }
 
-fn map_processor_error(
-    error: ProcessorError,
-) -> (axum::http::StatusCode, Json<serde_json::Value>) {
+fn map_processor_error(error: ProcessorError) -> (axum::http::StatusCode, Json<serde_json::Value>) {
     match error {
         ProcessorError::InvalidRequest(message) => (
             axum::http::StatusCode::UNPROCESSABLE_ENTITY,
@@ -139,11 +137,14 @@ fn build_router(state: ListenerState) -> Router {
 
 #[cfg(test)]
 mod tests {
-    use super::{build_router, configured_port, health_payload, parse_port, required_env, ListenerState, DEFAULT_PORT, SERVICE_NAME};
+    use super::{
+        build_router, configured_port, health_payload, parse_port, required_env, ListenerState,
+        DEFAULT_PORT, SERVICE_NAME,
+    };
     use axum::body::{to_bytes, Body};
-    use shared_db::SharedDb;
     use axum::http::{Request, StatusCode};
     use serde_json::json;
+    use shared_db::SharedDb;
     use tower::ServiceExt;
 
     #[test]
@@ -210,7 +211,9 @@ mod tests {
 
         assert_eq!(response.status(), StatusCode::UNPROCESSABLE_ENTITY);
         let body = serde_json::from_slice::<serde_json::Value>(
-            &to_bytes(response.into_body(), usize::MAX).await.expect("body"),
+            &to_bytes(response.into_body(), usize::MAX)
+                .await
+                .expect("body"),
         )
         .expect("json");
         assert_eq!(body["error"], "invalid chain");

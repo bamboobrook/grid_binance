@@ -18,7 +18,10 @@ pub fn router() -> Router<AppState> {
     Router::new()
         .route("/exports/orders.csv", get(export_orders_csv))
         .route("/exports/fills.csv", get(export_fills_csv))
-        .route("/exports/strategy-stats.csv", get(export_strategy_stats_csv))
+        .route(
+            "/exports/strategy-stats.csv",
+            get(export_strategy_stats_csv),
+        )
         .route("/exports/payments.csv", get(export_payments_csv))
 }
 

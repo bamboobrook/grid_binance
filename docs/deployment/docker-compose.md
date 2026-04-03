@@ -18,9 +18,9 @@ Public runtime entrypoints:
 
 - Docker Engine with Compose support
 - enough local CPU, memory, and disk to build Rust and Next.js images
-- a repository-root `.env` file
+- a repository-root `.env` file for normal compose startup
 
-Start from `.env.example` and then review `docs/deployment/env-and-secrets.md` before startup.
+Start from `.env.example` and then review `docs/deployment/env-and-secrets.md` before startup. `./scripts/smoke.sh` also accepts `GRID_BINANCE_ENV_FILE=/path/to/env` for explicit local acceptance runs, but the default release path remains the repository-root `.env` file.
 
 ## Start
 
@@ -31,7 +31,7 @@ cp .env.example .env
 docker compose --env-file .env -f deploy/docker/docker-compose.yml up -d --build
 ```
 
-This release depends on PostgreSQL and Redis. `DATABASE_URL`, `REDIS_URL`, `SESSION_TOKEN_SECRET`, `EXCHANGE_CREDENTIALS_MASTER_KEY`, `ADMIN_EMAILS`, and `TELEGRAM_BOT_BIND_SECRET` must be present before the stack starts.
+This release depends on PostgreSQL and Redis. `DATABASE_URL`, `REDIS_URL`, `SESSION_TOKEN_SECRET`, `EXCHANGE_CREDENTIALS_MASTER_KEY`, `ADMIN_EMAILS`, `TELEGRAM_BOT_BIND_SECRET`, and `INTERNAL_SHARED_SECRET` must be present before the stack starts.
 
 `.env.example` is compose-oriented. Inside the compose network, `postgres` and `redis` resolve as service names. If you run services outside compose, override them to host-reachable values such as `postgres://postgres:postgres@127.0.0.1:5432/grid_binance` and `redis://127.0.0.1:6379/0`.
 
@@ -58,6 +58,8 @@ Run both checks after startup:
 node --test tests/verification/*.test.mjs
 ./scripts/smoke.sh
 ```
+
+If you want to smoke-test the example secrets bundle without editing your local `.env`, run `GRID_BINANCE_ENV_FILE=.env.example ./scripts/smoke.sh`.
 
 `./scripts/smoke.sh` should provide smoke coverage for the commercial runtime path through Nginx, not only the root page. The expected checks include:
 

@@ -229,15 +229,19 @@ impl BillingRepository {
             return Err(SharedDbError::new("billing order not found"));
         };
 
-        let paid_at: Option<DateTime<Utc>> = existing.try_get("paid_at").map_err(SharedDbError::from)?;
+        let paid_at: Option<DateTime<Utc>> =
+            existing.try_get("paid_at").map_err(SharedDbError::from)?;
         if paid_at.is_some() {
             transaction.rollback().await.map_err(SharedDbError::from)?;
             return Ok(None);
         }
 
-        let current_address: String = existing.try_get("assigned_address").map_err(SharedDbError::from)?;
-        let current_expires_at: DateTime<Utc> =
-            existing.try_get("address_expires_at").map_err(SharedDbError::from)?;
+        let current_address: String = existing
+            .try_get("assigned_address")
+            .map_err(SharedDbError::from)?;
+        let current_expires_at: DateTime<Utc> = existing
+            .try_get("address_expires_at")
+            .map_err(SharedDbError::from)?;
         if !current_address.is_empty() && current_expires_at > requested_at {
             transaction.rollback().await.map_err(SharedDbError::from)?;
             return Ok(Some(AddressAssignment {
@@ -470,7 +474,9 @@ impl BillingRepository {
         rows.into_iter().map(deposit_from_row).collect()
     }
 
-    pub async fn list_membership_records(&self) -> Result<Vec<(String, MembershipRecord)>, SharedDbError> {
+    pub async fn list_membership_records(
+        &self,
+    ) -> Result<Vec<(String, MembershipRecord)>, SharedDbError> {
         let rows = sqlx::query(
             "SELECT user_email, activated_at, active_until, grace_until, override_status
              FROM membership_entitlements
@@ -482,8 +488,9 @@ impl BillingRepository {
 
         rows.into_iter()
             .map(|row| {
-                let override_status: Option<String> =
-                    row.try_get("override_status").map_err(SharedDbError::from)?;
+                let override_status: Option<String> = row
+                    .try_get("override_status")
+                    .map_err(SharedDbError::from)?;
                 Ok((
                     row.try_get("user_email").map_err(SharedDbError::from)?,
                     MembershipRecord {
@@ -515,8 +522,9 @@ impl BillingRepository {
         .map_err(SharedDbError::from)?;
 
         row.map(|row| {
-            let override_status: Option<String> =
-                row.try_get("override_status").map_err(SharedDbError::from)?;
+            let override_status: Option<String> = row
+                .try_get("override_status")
+                .map_err(SharedDbError::from)?;
             Ok(MembershipRecord {
                 activated_at: row.try_get("activated_at").map_err(SharedDbError::from)?,
                 active_until: row.try_get("active_until").map_err(SharedDbError::from)?,
@@ -555,7 +563,12 @@ impl BillingRepository {
         .bind(record.activated_at)
         .bind(record.active_until)
         .bind(record.grace_until)
-        .bind(record.override_status.as_ref().map(membership_status_to_str))
+        .bind(
+            record
+                .override_status
+                .as_ref()
+                .map(membership_status_to_str),
+        )
         .execute(&self.pool)
         .await
         .map_err(SharedDbError::from)?;
@@ -717,9 +730,7 @@ impl BillingRepository {
         Ok(())
     }
 
-    pub async fn list_plan_prices(
-        &self,
-    ) -> Result<Vec<MembershipPlanPriceRecord>, SharedDbError> {
+    pub async fn list_plan_prices(&self) -> Result<Vec<MembershipPlanPriceRecord>, SharedDbError> {
         let rows = sqlx::query(
             "SELECT plan_code, chain, asset, amount
              FROM membership_plan_prices
@@ -794,10 +805,7 @@ impl BillingRepository {
         Ok(())
     }
 
-    pub async fn create_sweep_job(
-        &self,
-        job: &SweepJobRecord,
-    ) -> Result<(), SharedDbError> {
+    pub async fn create_sweep_job(&self, job: &SweepJobRecord) -> Result<(), SharedDbError> {
         let mut transaction = self.pool.begin().await.map_err(SharedDbError::from)?;
         sqlx::query(
             "INSERT INTO fund_sweep_jobs (
@@ -870,12 +878,15 @@ impl BillingRepository {
             let sweep_job_id = row
                 .try_get::<i64, _>("sweep_job_id")
                 .map_err(SharedDbError::from)? as u64;
-            grouped.entry(sweep_job_id).or_default().push(SweepTransferRecord {
-                from_address: row.try_get("from_address").map_err(SharedDbError::from)?,
-                to_address: row.try_get("to_address").map_err(SharedDbError::from)?,
-                amount: row.try_get("amount").map_err(SharedDbError::from)?,
-                tx_hash: row.try_get("tx_hash").map_err(SharedDbError::from)?,
-            });
+            grouped
+                .entry(sweep_job_id)
+                .or_default()
+                .push(SweepTransferRecord {
+                    from_address: row.try_get("from_address").map_err(SharedDbError::from)?,
+                    to_address: row.try_get("to_address").map_err(SharedDbError::from)?,
+                    amount: row.try_get("amount").map_err(SharedDbError::from)?,
+                    tx_hash: row.try_get("tx_hash").map_err(SharedDbError::from)?,
+                });
         }
 
         jobs.into_iter()
@@ -1017,14 +1028,18 @@ fn order_meta_key(order_id: u64) -> String {
 }
 
 fn billing_order_from_row(row: sqlx::postgres::PgRow) -> Result<BillingOrderRecord, SharedDbError> {
-    let assigned_address: String = row.try_get("assigned_address").map_err(SharedDbError::from)?;
+    let assigned_address: String = row
+        .try_get("assigned_address")
+        .map_err(SharedDbError::from)?;
     let assignment = if assigned_address.is_empty() {
         None
     } else {
         Some(AddressAssignment {
             chain: row.try_get("chain").map_err(SharedDbError::from)?,
             address: assigned_address,
-            expires_at: row.try_get("address_expires_at").map_err(SharedDbError::from)?,
+            expires_at: row
+                .try_get("address_expires_at")
+                .map_err(SharedDbError::from)?,
         })
     };
 
@@ -1092,8 +1107,6 @@ fn deposit_from_row(row: sqlx::postgres::PgRow) -> Result<DepositTransactionReco
             .get("processed_at")
             .and_then(Value::as_str)
             .and_then(|value| value.parse().ok()),
-        matched_order_id: payload
-            .get("matched_order_id")
-            .and_then(Value::as_u64),
+        matched_order_id: payload.get("matched_order_id").and_then(Value::as_u64),
     })
 }

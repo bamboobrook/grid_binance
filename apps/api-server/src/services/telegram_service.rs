@@ -190,7 +190,9 @@ impl TelegramService {
     pub fn authorize_bot_secret(&self, provided_secret: Option<&str>) -> Result<(), TelegramError> {
         match provided_secret {
             Some(secret) if secret == self.bot_bind_secret.as_str() => Ok(()),
-            _ => Err(TelegramError::unauthorized("telegram bot authentication failed")),
+            _ => Err(TelegramError::unauthorized(
+                "telegram bot authentication failed",
+            )),
         }
     }
 
@@ -377,7 +379,9 @@ impl IntoResponse for TelegramError {
     fn into_response(self) -> Response {
         (
             self.status,
-            Json(TelegramErrorResponse { error: self.message }),
+            Json(TelegramErrorResponse {
+                error: self.message,
+            }),
         )
             .into_response()
     }
@@ -392,8 +396,12 @@ impl From<TelegramError> for AuthError {
             StatusCode::NOT_FOUND => {
                 AuthError::not_found(Box::leak(value.message.into_boxed_str()))
             }
-            StatusCode::FORBIDDEN => AuthError::forbidden(Box::leak(value.message.into_boxed_str())),
-            StatusCode::UNAUTHORIZED => AuthError::unauthorized(Box::leak(value.message.into_boxed_str())),
+            StatusCode::FORBIDDEN => {
+                AuthError::forbidden(Box::leak(value.message.into_boxed_str()))
+            }
+            StatusCode::UNAUTHORIZED => {
+                AuthError::unauthorized(Box::leak(value.message.into_boxed_str()))
+            }
             StatusCode::INTERNAL_SERVER_ERROR => {
                 AuthError::storage(shared_db::SharedDbError::new("telegram storage error"))
             }

@@ -22,9 +22,13 @@ async fn bot_side_binding_and_expanded_notification_payloads_are_logged_durably(
     let bind_code = create_bind_code(&app, &session_token, "trader@example.com", None).await;
     assert_eq!(bind_code.status(), StatusCode::CREATED);
     let bind_code_body = response_json(bind_code).await;
-    let code = bind_code_body["code"].as_str().expect("bind code").to_string();
+    let code = bind_code_body["code"]
+        .as_str()
+        .expect("bind code")
+        .to_string();
 
-    let bound = bot_bind_telegram(&app, &code, "tg-user-9001", "chat-9001", Some("gridtrader")).await;
+    let bound =
+        bot_bind_telegram(&app, &code, "tg-user-9001", "chat-9001", Some("gridtrader")).await;
     assert_eq!(bound.status(), StatusCode::OK);
     let bound_body = response_json(bound).await;
     assert_eq!(bound_body["email"], "trader@example.com");
@@ -47,8 +51,14 @@ async fn bot_side_binding_and_expanded_notification_payloads_are_logged_durably(
     .await;
     assert_eq!(api_invalidated.status(), StatusCode::OK);
     let api_invalidated_body = response_json(api_invalidated).await;
-    assert_eq!(api_invalidated_body["event"]["kind"], "ApiCredentialsInvalidated");
-    assert_eq!(api_invalidated_body["event"]["payload"]["exchange"], "binance");
+    assert_eq!(
+        api_invalidated_body["event"]["kind"],
+        "ApiCredentialsInvalidated"
+    );
+    assert_eq!(
+        api_invalidated_body["event"]["payload"]["exchange"],
+        "binance"
+    );
     assert_eq!(api_invalidated_body["telegram_delivered"], true);
 
     let fill_notice = dispatch_notification(
@@ -107,7 +117,10 @@ async fn bot_side_binding_and_expanded_notification_payloads_are_logged_durably(
     .await;
     assert_eq!(tp_notice.status(), StatusCode::OK);
     let tp_notice_body = response_json(tp_notice).await;
-    assert_eq!(tp_notice_body["event"]["kind"], "OverallTakeProfitTriggered");
+    assert_eq!(
+        tp_notice_body["event"]["kind"],
+        "OverallTakeProfitTriggered"
+    );
     assert_eq!(tp_notice_body["event"]["payload"]["trigger_price"], "112");
 
     let sl_notice = dispatch_notification(
@@ -126,7 +139,10 @@ async fn bot_side_binding_and_expanded_notification_payloads_are_logged_durably(
     assert_eq!(sl_notice.status(), StatusCode::OK);
     let sl_notice_body = response_json(sl_notice).await;
     assert_eq!(sl_notice_body["event"]["kind"], "OverallStopLossTriggered");
-    assert_eq!(sl_notice_body["event"]["payload"]["strategy_id"], "strategy-beta");
+    assert_eq!(
+        sl_notice_body["event"]["payload"]["strategy_id"],
+        "strategy-beta"
+    );
 
     let membership = dispatch_notification(
         &app,
@@ -159,7 +175,10 @@ async fn bot_side_binding_and_expanded_notification_payloads_are_logged_durably(
     assert_eq!(runtime.status(), StatusCode::OK);
     let runtime_body = response_json(runtime).await;
     assert_eq!(runtime_body["event"]["kind"], "RuntimeError");
-    assert_eq!(runtime_body["event"]["payload"]["reason"], "exchange connectivity lost");
+    assert_eq!(
+        runtime_body["event"]["payload"]["reason"],
+        "exchange connectivity lost"
+    );
 
     let inbox = list_notifications(&app, &session_token, "trader@example.com").await;
     assert_eq!(inbox.status(), StatusCode::OK);
@@ -188,7 +207,14 @@ async fn telegram_bindings_and_inbox_items_survive_app_rebuilds_via_bot_binding_
         .expect("bind code")
         .to_string();
 
-    let bound = bot_bind_telegram(&first_app, &code, "tg-durable", "chat-durable", Some("durable_user")).await;
+    let bound = bot_bind_telegram(
+        &first_app,
+        &code,
+        "tg-durable",
+        "chat-durable",
+        Some("durable_user"),
+    )
+    .await;
     assert_eq!(bound.status(), StatusCode::OK);
 
     let first_dispatch = dispatch_notification(
@@ -206,13 +232,19 @@ async fn telegram_bindings_and_inbox_items_survive_app_rebuilds_via_bot_binding_
     )
     .await;
     assert_eq!(first_dispatch.status(), StatusCode::OK);
-    assert_eq!(response_json(first_dispatch).await["telegram_delivered"], true);
+    assert_eq!(
+        response_json(first_dispatch).await["telegram_delivered"],
+        true
+    );
 
     let rebuilt_app = app_with_state(AppState::from_shared_db(db).expect("rebuilt state"));
 
     let inbox = list_notifications(&rebuilt_app, &session_token, "durable@example.com").await;
     assert_eq!(inbox.status(), StatusCode::OK);
-    let items = response_json(inbox).await["items"].as_array().expect("items").clone();
+    let items = response_json(inbox).await["items"]
+        .as_array()
+        .expect("items")
+        .clone();
     assert_eq!(items.len(), 1);
     assert_eq!(items[0]["event"]["kind"], "GridFillExecuted");
     assert_eq!(items[0]["event"]["payload"]["fill_id"], "durable-fill-1");
@@ -234,7 +266,10 @@ async fn telegram_bindings_and_inbox_items_survive_app_rebuilds_via_bot_binding_
     assert_eq!(second_dispatch.status(), StatusCode::OK);
     let second_dispatch_body = response_json(second_dispatch).await;
     assert_eq!(second_dispatch_body["telegram_delivered"], true);
-    assert_eq!(second_dispatch_body["event"]["payload"]["trigger_price"], "48");
+    assert_eq!(
+        second_dispatch_body["event"]["payload"]["trigger_price"],
+        "48"
+    );
 }
 
 #[tokio::test]
@@ -244,18 +279,46 @@ async fn bot_bind_requires_internal_secret_and_direct_user_bind_is_forbidden() {
 
     let bind_code = create_bind_code(&app, &session_token, "bot-auth@example.com", None).await;
     assert_eq!(bind_code.status(), StatusCode::CREATED);
-    let code = response_json(bind_code).await["code"].as_str().expect("bind code").to_string();
+    let code = response_json(bind_code).await["code"]
+        .as_str()
+        .expect("bind code")
+        .to_string();
 
-    let forbidden_direct = direct_user_bind_telegram(&app, &session_token, &code, "chat-direct").await;
+    let forbidden_direct =
+        direct_user_bind_telegram(&app, &session_token, &code, "chat-direct").await;
     assert_eq!(forbidden_direct.status(), StatusCode::FORBIDDEN);
 
-    let missing_secret = bot_bind_telegram_with_secret(&app, &code, "tg-user-auth", "chat-auth", Some("botuser"), None).await;
+    let missing_secret = bot_bind_telegram_with_secret(
+        &app,
+        &code,
+        "tg-user-auth",
+        "chat-auth",
+        Some("botuser"),
+        None,
+    )
+    .await;
     assert_eq!(missing_secret.status(), StatusCode::UNAUTHORIZED);
 
-    let wrong_secret = bot_bind_telegram_with_secret(&app, &code, "tg-user-auth", "chat-auth", Some("botuser"), Some(WRONG_BOT_BIND_SECRET)).await;
+    let wrong_secret = bot_bind_telegram_with_secret(
+        &app,
+        &code,
+        "tg-user-auth",
+        "chat-auth",
+        Some("botuser"),
+        Some(WRONG_BOT_BIND_SECRET),
+    )
+    .await;
     assert_eq!(wrong_secret.status(), StatusCode::UNAUTHORIZED);
 
-    let accepted = bot_bind_telegram_with_secret(&app, &code, "tg-user-auth", "chat-auth", Some("botuser"), Some(BOT_BIND_SECRET)).await;
+    let accepted = bot_bind_telegram_with_secret(
+        &app,
+        &code,
+        "tg-user-auth",
+        "chat-auth",
+        Some("botuser"),
+        Some(BOT_BIND_SECRET),
+    )
+    .await;
     assert_eq!(accepted.status(), StatusCode::OK);
 }
 
@@ -272,14 +335,27 @@ async fn previous_bind_code_is_rejected_after_regenerating_for_same_email() {
     let second = create_bind_code(&app, &session_token, "rotate@example.com", None).await;
     assert_eq!(second.status(), StatusCode::CREATED);
     let second_body = response_json(second).await;
-    let second_code = second_body["code"].as_str().expect("second code").to_string();
+    let second_code = second_body["code"]
+        .as_str()
+        .expect("second code")
+        .to_string();
     assert_ne!(first_code, second_code);
 
     let rejected = bot_bind_telegram(&app, &first_code, "tg-old", "chat-old", None).await;
     assert_eq!(rejected.status(), StatusCode::NOT_FOUND);
-    assert_eq!(response_json(rejected).await["error"], "bind code not found");
+    assert_eq!(
+        response_json(rejected).await["error"],
+        "bind code not found"
+    );
 
-    let accepted = bot_bind_telegram(&app, &second_code, "tg-new", "chat-new", Some("rotate_user")).await;
+    let accepted = bot_bind_telegram(
+        &app,
+        &second_code,
+        "tg-new",
+        "chat-new",
+        Some("rotate_user"),
+    )
+    .await;
     assert_eq!(accepted.status(), StatusCode::OK);
     let accepted_body = response_json(accepted).await;
     assert_eq!(accepted_body["email"], "rotate@example.com");
@@ -291,9 +367,13 @@ async fn expired_bind_code_is_rejected() {
     let app = app();
     let session_token = register_and_login(&app, "expired-bind@example.com", "pass1234").await;
 
-    let bind_code = create_bind_code(&app, &session_token, "expired-bind@example.com", Some(0)).await;
+    let bind_code =
+        create_bind_code(&app, &session_token, "expired-bind@example.com", Some(0)).await;
     assert_eq!(bind_code.status(), StatusCode::CREATED);
-    let code = response_json(bind_code).await["code"].as_str().expect("expired code").to_string();
+    let code = response_json(bind_code).await["code"]
+        .as_str()
+        .expect("expired code")
+        .to_string();
 
     let rejected = bot_bind_telegram(&app, &code, "tg-expired", "chat-expired", None).await;
     assert_eq!(rejected.status(), StatusCode::NOT_FOUND);
@@ -327,9 +407,18 @@ async fn invalid_ttl_returns_bad_request_instead_of_panicking() {
     let app = app();
     let session_token = register_and_login(&app, "invalid-ttl@example.com", "pass1234").await;
 
-    let response = create_bind_code(&app, &session_token, "invalid-ttl@example.com", Some(i64::MAX)).await;
+    let response = create_bind_code(
+        &app,
+        &session_token,
+        "invalid-ttl@example.com",
+        Some(i64::MAX),
+    )
+    .await;
     assert_eq!(response.status(), StatusCode::BAD_REQUEST);
-    assert_eq!(response_json(response).await["error"], "ttl_seconds must be between 0 and 86400");
+    assert_eq!(
+        response_json(response).await["error"],
+        "ttl_seconds must be between 0 and 86400"
+    );
 }
 
 async fn create_bind_code(
@@ -391,7 +480,15 @@ async fn bot_bind_telegram(
     chat_id: &str,
     username: Option<&str>,
 ) -> axum::response::Response {
-    bot_bind_telegram_with_secret(app, code, telegram_user_id, chat_id, username, Some(BOT_BIND_SECRET)).await
+    bot_bind_telegram_with_secret(
+        app,
+        code,
+        telegram_user_id,
+        chat_id,
+        username,
+        Some(BOT_BIND_SECRET),
+    )
+    .await
 }
 
 async fn bot_bind_telegram_with_secret(
@@ -478,6 +575,8 @@ async fn list_notifications(
 }
 
 async fn response_json(response: axum::response::Response) -> Value {
-    let bytes = to_bytes(response.into_body(), usize::MAX).await.expect("response body");
+    let bytes = to_bytes(response.into_body(), usize::MAX)
+        .await
+        .expect("response body");
     serde_json::from_slice(&bytes).expect("valid json")
 }

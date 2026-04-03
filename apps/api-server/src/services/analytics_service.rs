@@ -2,8 +2,8 @@ use std::collections::BTreeMap;
 
 use rust_decimal::Decimal;
 use shared_db::{
-    AccountProfitSnapshotRecord, BillingOrderRecord,
-    ExchangeWalletSnapshotRecord, SharedDb, SharedDbError, StrategyProfitSnapshotRecord,
+    AccountProfitSnapshotRecord, BillingOrderRecord, ExchangeWalletSnapshotRecord, SharedDb,
+    SharedDbError, StrategyProfitSnapshotRecord,
 };
 use shared_domain::analytics::{
     AccountSnapshotView, AnalyticsReport, CostAggregation, StrategyProfitSummary,
@@ -40,7 +40,8 @@ impl AnalyticsService {
         let account_snapshots = to_account_snapshot_views(&account_snapshot_records)?;
         let wallets = to_wallet_snapshot_views(&wallet_snapshot_records);
         let latest_strategy_snapshots = latest_strategy_snapshot_map(&strategy_snapshot_records)?;
-        let latest_account_snapshots = latest_account_snapshots_by_exchange(&account_snapshot_records)?;
+        let latest_account_snapshots =
+            latest_account_snapshots_by_exchange(&account_snapshot_records)?;
         let latest_wallets = latest_wallets_by_exchange(&wallet_snapshot_records);
 
         let strategies = strategies
@@ -69,7 +70,8 @@ impl AnalyticsService {
     }
 
     pub fn export_orders_csv(&self, user_email: &str) -> Result<String, SharedDbError> {
-        let mut csv = String::from("order_id,strategy_id,symbol,side,order_type,price,quantity,status\n");
+        let mut csv =
+            String::from("order_id,strategy_id,symbol,side,order_type,price,quantity,status\n");
         for strategy in self.db.list_strategies(user_email)? {
             for order in strategy.runtime.orders {
                 csv.push_str(&format!(
@@ -201,7 +203,9 @@ fn strategy_summary(
     let cost_basis = position
         .map(|(quantity, average_entry_price)| quantity * average_entry_price)
         .unwrap_or(Decimal::ZERO);
-    let position_quantity = position.map(|(quantity, _)| quantity).unwrap_or(Decimal::ZERO);
+    let position_quantity = position
+        .map(|(quantity, _)| quantity)
+        .unwrap_or(Decimal::ZERO);
     let average_entry_price = position
         .map(|(_, average_entry_price)| average_entry_price)
         .unwrap_or(Decimal::ZERO);
@@ -211,7 +215,9 @@ fn strategy_summary(
     let unrealized_pnl = snapshot
         .map(|snapshot| snapshot.unrealized_pnl)
         .unwrap_or(Decimal::ZERO);
-    let fees_paid = snapshot.map(|snapshot| snapshot.fees_paid).unwrap_or(fees_from_fills);
+    let fees_paid = snapshot
+        .map(|snapshot| snapshot.fees_paid)
+        .unwrap_or(fees_from_fills);
     let funding_total = snapshot
         .map(|snapshot| snapshot.funding_total)
         .unwrap_or(Decimal::ZERO);
@@ -246,7 +252,9 @@ fn user_aggregate(
         .iter()
         .fold(Decimal::ZERO, |acc, fill| acc + fill.realized_pnl);
     let fees_from_fills = fills.iter().fold(Decimal::ZERO, |acc, fill| acc + fill.fee);
-    let funding_from_fills = fills.iter().fold(Decimal::ZERO, |acc, fill| acc + fill.funding);
+    let funding_from_fills = fills
+        .iter()
+        .fold(Decimal::ZERO, |acc, fill| acc + fill.funding);
 
     let realized_pnl = if latest_account_snapshots.is_empty() {
         realized_from_fills
@@ -300,7 +308,9 @@ fn cost_aggregation(
             .fold(Decimal::ZERO, |acc, snapshot| acc + snapshot.fees_paid)
     };
     let funding_total = if latest_account_snapshots.is_empty() {
-        fills.iter().fold(Decimal::ZERO, |acc, fill| acc + fill.funding)
+        fills
+            .iter()
+            .fold(Decimal::ZERO, |acc, fill| acc + fill.funding)
     } else {
         latest_account_snapshots
             .values()

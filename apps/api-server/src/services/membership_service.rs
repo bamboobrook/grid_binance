@@ -1612,7 +1612,10 @@ fn manual_credit_target_consistent(
     deposit: &DepositTransactionRecord,
     order: &BillingOrderRecord,
 ) -> bool {
-    if deposit.chain != order.chain || order.paid_at.is_some() || order.requested_at > deposit.observed_at {
+    if deposit.chain != order.chain
+        || order.paid_at.is_some()
+        || order.requested_at > deposit.observed_at
+    {
         return false;
     }
 

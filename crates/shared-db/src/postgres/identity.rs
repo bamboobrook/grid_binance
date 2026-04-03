@@ -48,7 +48,10 @@ impl IdentityRepository {
         Self { pool }
     }
 
-    pub async fn find_auth_user(&self, email: &str) -> Result<Option<AuthUserRecord>, SharedDbError> {
+    pub async fn find_auth_user(
+        &self,
+        email: &str,
+    ) -> Result<Option<AuthUserRecord>, SharedDbError> {
         let row = sqlx::query(
             "SELECT u.user_id,
                     u.email,
@@ -73,11 +76,15 @@ impl IdentityRepository {
 
         row.map(|row| {
             Ok(AuthUserRecord {
-                user_id: row.try_get::<i64, _>("user_id").map_err(SharedDbError::from)? as u64,
+                user_id: row
+                    .try_get::<i64, _>("user_id")
+                    .map_err(SharedDbError::from)? as u64,
                 email: row.try_get("email").map_err(SharedDbError::from)?,
                 password_hash: row.try_get("password_hash").map_err(SharedDbError::from)?,
                 email_verified: row.try_get("email_verified").map_err(SharedDbError::from)?,
-                verification_code: row.try_get("verification_code").map_err(SharedDbError::from)?,
+                verification_code: row
+                    .try_get("verification_code")
+                    .map_err(SharedDbError::from)?,
                 reset_code: row.try_get("reset_code").map_err(SharedDbError::from)?,
                 totp_secret: row.try_get("totp_secret").map_err(SharedDbError::from)?,
             })
@@ -136,7 +143,8 @@ impl IdentityRepository {
             record.verification_code.as_deref(),
         )
         .await?;
-        replace_password_reset_token(&mut transaction, user_id, record.reset_code.as_deref()).await?;
+        replace_password_reset_token(&mut transaction, user_id, record.reset_code.as_deref())
+            .await?;
         replace_totp_factor(&mut transaction, user_id, record.totp_secret.as_deref()).await?;
         transaction.commit().await.map_err(SharedDbError::from)
     }
@@ -346,7 +354,9 @@ impl IdentityRepository {
         .await
         .map_err(SharedDbError::from)?;
         if inserted.rows_affected() == 0 {
-            return Err(SharedDbError::new(format!("cannot create session for missing user {email}")));
+            return Err(SharedDbError::new(format!(
+                "cannot create session for missing user {email}"
+            )));
         }
         Ok(())
     }
@@ -369,7 +379,12 @@ impl IdentityRepository {
         .transpose()
     }
 
-    pub async fn upsert_admin_user(&self, email: &str, role: &str, totp_required: bool) -> Result<(), SharedDbError> {
+    pub async fn upsert_admin_user(
+        &self,
+        email: &str,
+        role: &str,
+        totp_required: bool,
+    ) -> Result<(), SharedDbError> {
         sqlx::query(
             "INSERT INTO admin_users (email, role, totp_required, created_at, updated_at)
              VALUES ($1, $2, $3, now(), now())
@@ -405,8 +420,12 @@ impl IdentityRepository {
         row.map(|row| {
             Ok(TelegramBindingRecord {
                 user_email: row.try_get("user_email").map_err(SharedDbError::from)?,
-                telegram_user_id: row.try_get("telegram_user_id").map_err(SharedDbError::from)?,
-                telegram_chat_id: row.try_get("telegram_chat_id").map_err(SharedDbError::from)?,
+                telegram_user_id: row
+                    .try_get("telegram_user_id")
+                    .map_err(SharedDbError::from)?,
+                telegram_chat_id: row
+                    .try_get("telegram_chat_id")
+                    .map_err(SharedDbError::from)?,
                 bound_at: row.try_get("bound_at").map_err(SharedDbError::from)?,
             })
         })

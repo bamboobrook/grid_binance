@@ -45,7 +45,11 @@ pub fn compute_strategy_summaries(fills: &[FillProfitView]) -> Vec<StrategyProfi
 
 pub fn compute_user_aggregate(fills: &[FillProfitView]) -> UserAggregate {
     let user_id = match fills.first() {
-        Some(fill) if fills.iter().all(|candidate| candidate.user_id == fill.user_id) => {
+        Some(fill)
+            if fills
+                .iter()
+                .all(|candidate| candidate.user_id == fill.user_id) =>
+        {
             fill.user_id.clone()
         }
         Some(_) => "all-users".to_string(),

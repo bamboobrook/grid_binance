@@ -13,7 +13,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let app =
         Router::new()
             .route("/healthz", get(healthz))
-            .merge(api_server::app_with_persistent_state(database_url, redis_url)?);
+            .merge(api_server::app_with_persistent_state(
+                database_url,
+                redis_url,
+            )?);
 
     axum::serve(listener, app).await?;
     Ok(())

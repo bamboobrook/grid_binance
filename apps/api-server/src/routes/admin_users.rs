@@ -118,14 +118,23 @@ fn empty_user_summary(auth: &AuthService, email: &str) -> AdminUserSummary {
     }
 }
 
-fn derive_status(record: &shared_db::MembershipRecord, now: chrono::DateTime<chrono::Utc>) -> MembershipStatus {
+fn derive_status(
+    record: &shared_db::MembershipRecord,
+    now: chrono::DateTime<chrono::Utc>,
+) -> MembershipStatus {
     if let Some(status) = record.override_status.clone() {
         return status;
     }
-    if record.active_until.is_some_and(|active_until| now <= active_until) {
+    if record
+        .active_until
+        .is_some_and(|active_until| now <= active_until)
+    {
         return MembershipStatus::Active;
     }
-    if record.grace_until.is_some_and(|grace_until| now <= grace_until) {
+    if record
+        .grace_until
+        .is_some_and(|grace_until| now <= grace_until)
+    {
         return MembershipStatus::Grace;
     }
     if record.activated_at.is_some() {

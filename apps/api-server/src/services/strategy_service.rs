@@ -1383,7 +1383,6 @@ mod tests {
             );
         }
 
-
         fn break_templates_table(&self) {
             run_command(
                 Command::new("docker")

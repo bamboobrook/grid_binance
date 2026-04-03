@@ -37,7 +37,10 @@ async fn strategy_revisions_runtime_contracts_and_soft_archive_follow_frozen_lif
     .await;
     assert_eq!(created.status(), StatusCode::CREATED);
     let created_body = response_json(created).await;
-    let strategy_id = created_body["id"].as_str().expect("strategy id").to_string();
+    let strategy_id = created_body["id"]
+        .as_str()
+        .expect("strategy id")
+        .to_string();
     assert_eq!(created_body["status"], "Draft");
     assert_eq!(created_body["draft_revision"]["generation"], "Custom");
     assert_eq!(
@@ -49,7 +52,10 @@ async fn strategy_revisions_runtime_contracts_and_soft_archive_follow_frozen_lif
     );
     assert_eq!(created_body["draft_revision"]["version"], 1);
     assert!(created_body["active_revision"].is_null());
-    assert_eq!(created_body["draft_revision"]["post_trigger_action"], "Rebuild");
+    assert_eq!(
+        created_body["draft_revision"]["post_trigger_action"],
+        "Rebuild"
+    );
     assert_eq!(
         created_body["draft_revision"]["overall_take_profit_bps"],
         json!(800)
@@ -63,7 +69,10 @@ async fn strategy_revisions_runtime_contracts_and_soft_archive_follow_frozen_lif
         json!(80)
     );
     assert_eq!(
-        created_body["runtime"]["orders"].as_array().expect("orders").len(),
+        created_body["runtime"]["orders"]
+            .as_array()
+            .expect("orders")
+            .len(),
         0
     );
     assert_eq!(
@@ -83,10 +92,16 @@ async fn strategy_revisions_runtime_contracts_and_soft_archive_follow_frozen_lif
         "exchange_connection"
     );
     assert_eq!(
-        preflight_failed_body["steps"].as_array().expect("steps").len(),
+        preflight_failed_body["steps"]
+            .as_array()
+            .expect("steps")
+            .len(),
         11
     );
-    assert_eq!(preflight_failed_body["steps"][0]["step"], "membership_status");
+    assert_eq!(
+        preflight_failed_body["steps"][0]["step"],
+        "membership_status"
+    );
     assert_eq!(
         preflight_failed_body["steps"][1]["step"],
         "exchange_connection"
@@ -95,18 +110,9 @@ async fn strategy_revisions_runtime_contracts_and_soft_archive_follow_frozen_lif
         preflight_failed_body["steps"][2]["step"],
         "exchange_permissions"
     );
-    assert_eq!(
-        preflight_failed_body["steps"][0]["status"],
-        "Passed"
-    );
-    assert_eq!(
-        preflight_failed_body["steps"][1]["status"],
-        "Failed"
-    );
-    assert_eq!(
-        preflight_failed_body["steps"][2]["status"],
-        "Skipped"
-    );
+    assert_eq!(preflight_failed_body["steps"][0]["status"], "Passed");
+    assert_eq!(preflight_failed_body["steps"][1]["status"], "Failed");
+    assert_eq!(preflight_failed_body["steps"][2]["status"], "Skipped");
 
     let saved = update_strategy(
         &app,
@@ -189,12 +195,12 @@ async fn strategy_revisions_runtime_contracts_and_soft_archive_follow_frozen_lif
     let orders = list_strategy_orders(&app, &user_token, &strategy_id).await;
     assert_eq!(orders.status(), StatusCode::OK);
     let orders_body = response_json(orders).await;
+    assert_eq!(orders_body["orders"].as_array().expect("orders").len(), 3);
     assert_eq!(
-        orders_body["orders"].as_array().expect("orders").len(),
-        3
-    );
-    assert_eq!(
-        orders_body["positions"].as_array().expect("positions").len(),
+        orders_body["positions"]
+            .as_array()
+            .expect("positions")
+            .len(),
         0
     );
 
@@ -287,7 +293,10 @@ async fn strategy_revisions_runtime_contracts_and_soft_archive_follow_frozen_lif
         0
     );
     assert_eq!(
-        stopped_body["runtime"]["fills"].as_array().expect("fills").len(),
+        stopped_body["runtime"]["fills"]
+            .as_array()
+            .expect("fills")
+            .len(),
         0
     );
     assert_eq!(
@@ -387,10 +396,7 @@ async fn strategy_validates_generation_modes_and_trailing_constraints() {
     let listed = list_strategies(&app, &user_token).await;
     assert_eq!(listed.status(), StatusCode::OK);
     let listed_body = response_json(listed).await;
-    assert_eq!(
-        listed_body["items"].as_array().expect("items").len(),
-        3
-    );
+    assert_eq!(listed_body["items"].as_array().expect("items").len(), 3);
     assert!(listed_body["items"]
         .as_array()
         .expect("items")
@@ -479,10 +485,7 @@ async fn futures_preflight_reports_permissions_hedge_margin_and_balance_surface(
     assert_eq!(preflight.status(), StatusCode::OK);
     let body = response_json(preflight).await;
     assert_eq!(body["ok"], false);
-    assert_eq!(
-        body["steps"].as_array().expect("steps").len(),
-        11
-    );
+    assert_eq!(body["steps"].as_array().expect("steps").len(), 11);
     assert_eq!(body["steps"][0]["step"], "membership_status");
     assert_eq!(body["steps"][2]["step"], "exchange_permissions");
     assert_eq!(body["steps"][3]["step"], "withdrawal_permission_disabled");
@@ -529,7 +532,10 @@ async fn futures_neutral_strategy_start_exposes_dual_sided_orders() {
         }),
     ).await;
     assert_eq!(created.status(), StatusCode::CREATED);
-    let strategy_id = response_json(created).await["id"].as_str().expect("strategy id").to_string();
+    let strategy_id = response_json(created).await["id"]
+        .as_str()
+        .expect("strategy id")
+        .to_string();
 
     let started = start_strategy(&app, &user_token, &strategy_id).await;
     assert_eq!(started.status(), StatusCode::OK);

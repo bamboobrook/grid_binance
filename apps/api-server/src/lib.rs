@@ -277,7 +277,7 @@ mod tests {
         assert!(router.is_err());
     }
 
-#[test]
+    #[test]
     fn persistent_router_rejects_invalid_database_url() {
         let _guard = env_lock().lock().expect("env lock");
         std::env::set_var("ADMIN_EMAILS", "admin@example.com");

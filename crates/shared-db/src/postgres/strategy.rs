@@ -307,7 +307,10 @@ impl StrategyRepository {
         Ok(archived.rows_affected() as usize)
     }
 
-    pub async fn insert_revision(&self, record: &StrategyRevisionRecord) -> Result<(), SharedDbError> {
+    pub async fn insert_revision(
+        &self,
+        record: &StrategyRevisionRecord,
+    ) -> Result<(), SharedDbError> {
         sqlx::query(
             "INSERT INTO strategy_revisions (strategy_id, revision_kind, config, created_at)
              VALUES ($1, $2, $3, $4)",
@@ -409,7 +412,10 @@ impl StrategyRepository {
         .transpose()
     }
 
-    pub async fn insert_template(&self, template: &StoredStrategyTemplate) -> Result<(), SharedDbError> {
+    pub async fn insert_template(
+        &self,
+        template: &StoredStrategyTemplate,
+    ) -> Result<(), SharedDbError> {
         let levels = serde_json::to_value(&template.template.levels)
             .map_err(|error| SharedDbError::new(error.to_string()))?;
         sqlx::query(
@@ -465,16 +471,31 @@ impl StrategyRepository {
         .bind(template.template.margin_ready)
         .bind(template.template.conflict_ready)
         .bind(template.template.balance_ready)
-        .bind(template.template.overall_take_profit_bps.map(|value| value as i32))
-        .bind(template.template.overall_stop_loss_bps.map(|value| value as i32))
-        .bind(post_trigger_action_to_str(template.template.post_trigger_action))
+        .bind(
+            template
+                .template
+                .overall_take_profit_bps
+                .map(|value| value as i32),
+        )
+        .bind(
+            template
+                .template
+                .overall_stop_loss_bps
+                .map(|value| value as i32),
+        )
+        .bind(post_trigger_action_to_str(
+            template.template.post_trigger_action,
+        ))
         .execute(&self.pool)
         .await
         .map_err(SharedDbError::from)?;
         Ok(())
     }
 
-    pub async fn update_template(&self, template: &StrategyTemplate) -> Result<usize, SharedDbError> {
+    pub async fn update_template(
+        &self,
+        template: &StrategyTemplate,
+    ) -> Result<usize, SharedDbError> {
         let levels = serde_json::to_value(&template.levels)
             .map_err(|error| SharedDbError::new(error.to_string()))?;
         let updated = sqlx::query(
@@ -584,17 +605,36 @@ fn template_from_row(row: sqlx::postgres::PgRow) -> Result<StrategyTemplate, Sha
         id: row.try_get("id").map_err(SharedDbError::from)?,
         name: row.try_get("name").map_err(SharedDbError::from)?,
         symbol: row.try_get("symbol").map_err(SharedDbError::from)?,
-        market: parse_strategy_market(&row.try_get::<String, _>("market").map_err(SharedDbError::from)?)?,
-        mode: parse_strategy_mode(&row.try_get::<String, _>("mode").map_err(SharedDbError::from)?)?,
-        generation: parse_grid_generation(&row.try_get::<String, _>("generation").map_err(SharedDbError::from)?)?,
+        market: parse_strategy_market(
+            &row.try_get::<String, _>("market")
+                .map_err(SharedDbError::from)?,
+        )?,
+        mode: parse_strategy_mode(
+            &row.try_get::<String, _>("mode")
+                .map_err(SharedDbError::from)?,
+        )?,
+        generation: parse_grid_generation(
+            &row.try_get::<String, _>("generation")
+                .map_err(SharedDbError::from)?,
+        )?,
         levels,
         budget: row.try_get("budget").map_err(SharedDbError::from)?,
-        grid_spacing_bps: row.try_get::<i32, _>("grid_spacing_bps").map_err(SharedDbError::from)? as u32,
-        membership_ready: row.try_get("membership_ready").map_err(SharedDbError::from)?,
+        grid_spacing_bps: row
+            .try_get::<i32, _>("grid_spacing_bps")
+            .map_err(SharedDbError::from)? as u32,
+        membership_ready: row
+            .try_get("membership_ready")
+            .map_err(SharedDbError::from)?,
         exchange_ready: row.try_get("exchange_ready").map_err(SharedDbError::from)?,
-        permissions_ready: row.try_get("permissions_ready").map_err(SharedDbError::from)?,
-        withdrawals_disabled: row.try_get("withdrawals_disabled").map_err(SharedDbError::from)?,
-        hedge_mode_ready: row.try_get("hedge_mode_ready").map_err(SharedDbError::from)?,
+        permissions_ready: row
+            .try_get("permissions_ready")
+            .map_err(SharedDbError::from)?,
+        withdrawals_disabled: row
+            .try_get("withdrawals_disabled")
+            .map_err(SharedDbError::from)?,
+        hedge_mode_ready: row
+            .try_get("hedge_mode_ready")
+            .map_err(SharedDbError::from)?,
         symbol_ready: row.try_get("symbol_ready").map_err(SharedDbError::from)?,
         filters_ready: row.try_get("filters_ready").map_err(SharedDbError::from)?,
         margin_ready: row.try_get("margin_ready").map_err(SharedDbError::from)?,
@@ -609,7 +649,8 @@ fn template_from_row(row: sqlx::postgres::PgRow) -> Result<StrategyTemplate, Sha
             .map_err(SharedDbError::from)?
             .map(|value| value as u32),
         post_trigger_action: parse_post_trigger_action(
-            &row.try_get::<String, _>("post_trigger_action").map_err(SharedDbError::from)?,
+            &row.try_get::<String, _>("post_trigger_action")
+                .map_err(SharedDbError::from)?,
         )?,
     })
 }
@@ -626,7 +667,10 @@ fn map_profit_snapshot_row(
     })
 }
 
-async fn strategy_from_row(pool: &PgPool, row: sqlx::postgres::PgRow) -> Result<Strategy, SharedDbError> {
+async fn strategy_from_row(
+    pool: &PgPool,
+    row: sqlx::postgres::PgRow,
+) -> Result<Strategy, SharedDbError> {
     let id: String = row.try_get("id").map_err(SharedDbError::from)?;
     let status: String = row.try_get("status").map_err(SharedDbError::from)?;
     let market: String = row.try_get("market").map_err(SharedDbError::from)?;
@@ -635,7 +679,13 @@ async fn strategy_from_row(pool: &PgPool, row: sqlx::postgres::PgRow) -> Result<
         .await?
         .unwrap_or_else(default_revision);
     let active_revision = load_revision(pool, &id, "active").await?;
-    let runtime = load_runtime(pool, &id, parse_strategy_market(&market)?, parse_strategy_mode(&mode)?).await?;
+    let runtime = load_runtime(
+        pool,
+        &id,
+        parse_strategy_market(&market)?,
+        parse_strategy_mode(&mode)?,
+    )
+    .await?;
 
     Ok(Strategy {
         id,
@@ -643,14 +693,26 @@ async fn strategy_from_row(pool: &PgPool, row: sqlx::postgres::PgRow) -> Result<
         name: row.try_get("name").map_err(SharedDbError::from)?,
         symbol: row.try_get("symbol").map_err(SharedDbError::from)?,
         budget: row.try_get("budget").map_err(SharedDbError::from)?,
-        grid_spacing_bps: row.try_get::<i32, _>("grid_spacing_bps").map_err(SharedDbError::from)? as u32,
+        grid_spacing_bps: row
+            .try_get::<i32, _>("grid_spacing_bps")
+            .map_err(SharedDbError::from)? as u32,
         status: parse_strategy_status(&status)?,
-        source_template_id: row.try_get("source_template_id").map_err(SharedDbError::from)?,
-        membership_ready: row.try_get("membership_ready").map_err(SharedDbError::from)?,
+        source_template_id: row
+            .try_get("source_template_id")
+            .map_err(SharedDbError::from)?,
+        membership_ready: row
+            .try_get("membership_ready")
+            .map_err(SharedDbError::from)?,
         exchange_ready: row.try_get("exchange_ready").map_err(SharedDbError::from)?,
-        permissions_ready: row.try_get("permissions_ready").map_err(SharedDbError::from)?,
-        withdrawals_disabled: row.try_get("withdrawals_disabled").map_err(SharedDbError::from)?,
-        hedge_mode_ready: row.try_get("hedge_mode_ready").map_err(SharedDbError::from)?,
+        permissions_ready: row
+            .try_get("permissions_ready")
+            .map_err(SharedDbError::from)?,
+        withdrawals_disabled: row
+            .try_get("withdrawals_disabled")
+            .map_err(SharedDbError::from)?,
+        hedge_mode_ready: row
+            .try_get("hedge_mode_ready")
+            .map_err(SharedDbError::from)?,
         symbol_ready: row.try_get("symbol_ready").map_err(SharedDbError::from)?,
         filters_ready: row.try_get("filters_ready").map_err(SharedDbError::from)?,
         margin_ready: row.try_get("margin_ready").map_err(SharedDbError::from)?,
@@ -959,7 +1021,9 @@ fn parse_strategy_market(value: &str) -> Result<StrategyMarket, SharedDbError> {
         "Spot" => Ok(StrategyMarket::Spot),
         "FuturesUsdM" => Ok(StrategyMarket::FuturesUsdM),
         "FuturesCoinM" => Ok(StrategyMarket::FuturesCoinM),
-        _ => Err(SharedDbError::new(format!("unknown strategy market: {value}"))),
+        _ => Err(SharedDbError::new(format!(
+            "unknown strategy market: {value}"
+        ))),
     }
 }
 
@@ -979,7 +1043,9 @@ fn parse_strategy_mode(value: &str) -> Result<StrategyMode, SharedDbError> {
         "FuturesLong" => Ok(StrategyMode::FuturesLong),
         "FuturesShort" => Ok(StrategyMode::FuturesShort),
         "FuturesNeutral" => Ok(StrategyMode::FuturesNeutral),
-        _ => Err(SharedDbError::new(format!("unknown strategy mode: {value}"))),
+        _ => Err(SharedDbError::new(format!(
+            "unknown strategy mode: {value}"
+        ))),
     }
 }
 
@@ -999,7 +1065,9 @@ fn parse_grid_generation(value: &str) -> Result<GridGeneration, SharedDbError> {
         "Arithmetic" => Ok(GridGeneration::Arithmetic),
         "Geometric" => Ok(GridGeneration::Geometric),
         "Custom" => Ok(GridGeneration::Custom),
-        _ => Err(SharedDbError::new(format!("unknown grid generation: {value}"))),
+        _ => Err(SharedDbError::new(format!(
+            "unknown grid generation: {value}"
+        ))),
     }
 }
 
@@ -1015,7 +1083,9 @@ fn parse_post_trigger_action(value: &str) -> Result<PostTriggerAction, SharedDbE
     match value {
         "Stop" => Ok(PostTriggerAction::Stop),
         "Rebuild" => Ok(PostTriggerAction::Rebuild),
-        _ => Err(SharedDbError::new(format!("unknown post trigger action: {value}"))),
+        _ => Err(SharedDbError::new(format!(
+            "unknown post trigger action: {value}"
+        ))),
     }
 }
 
@@ -1034,7 +1104,11 @@ fn exposure_side_for_mode(value: StrategyMode) -> &'static str {
 }
 
 fn take_profit_price(level: &shared_domain::strategy::GridLevel) -> String {
-    let entry = level.entry_price.to_string().parse::<f64>().unwrap_or_default();
+    let entry = level
+        .entry_price
+        .to_string()
+        .parse::<f64>()
+        .unwrap_or_default();
     let factor = 1.0 + (level.take_profit_bps as f64 / 10_000.0);
     format!("{:.8}", entry * factor)
 }

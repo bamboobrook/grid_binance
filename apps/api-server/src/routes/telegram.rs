@@ -10,9 +10,8 @@ use crate::{
     services::auth_service::{AuthError, AuthService},
     services::telegram_service::{
         BindTelegramRequest, BindTelegramResponse, BotBindTelegramRequest,
-        CreateTelegramBindCodeRequest, CreateTelegramBindCodeResponse,
-        DispatchNotificationRequest, NotificationInboxQuery, NotificationInboxResponse,
-        TelegramService,
+        CreateTelegramBindCodeRequest, CreateTelegramBindCodeResponse, DispatchNotificationRequest,
+        NotificationInboxQuery, NotificationInboxResponse, TelegramService,
     },
     AppState,
 };
@@ -51,7 +50,9 @@ async fn bind_telegram(
     if let Some(owner) = service.bind_code_owner(&request.code) {
         require_session_email(&session, &owner)?;
     }
-    Ok(Json(service.bind_telegram(request).map_err(AuthError::from)?))
+    Ok(Json(
+        service.bind_telegram(request).map_err(AuthError::from)?,
+    ))
 }
 
 async fn bind_telegram_from_bot(
@@ -62,7 +63,9 @@ async fn bind_telegram_from_bot(
     let bot_secret = headers
         .get("x-telegram-bot-secret")
         .and_then(|value| value.to_str().ok());
-    service.authorize_bot_secret(bot_secret).map_err(AuthError::from)?;
+    service
+        .authorize_bot_secret(bot_secret)
+        .map_err(AuthError::from)?;
     Ok(Json(
         service
             .bind_telegram_from_bot(request)
@@ -93,5 +96,7 @@ async fn list_notifications(
 ) -> Result<Json<NotificationInboxResponse>, AuthError> {
     let session = require_user_session(&auth, &headers)?;
     require_session_email(&session, &query.email)?;
-    Ok(Json(service.list_notifications(query).map_err(AuthError::from)?))
+    Ok(Json(
+        service.list_notifications(query).map_err(AuthError::from)?,
+    ))
 }
