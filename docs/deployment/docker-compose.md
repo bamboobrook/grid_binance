@@ -59,13 +59,13 @@ node --test tests/verification/*.test.mjs
 ./scripts/smoke.sh
 ```
 
-`./scripts/smoke.sh` should validate the commercial runtime path through Nginx, not only the root page. The expected checks include:
+`./scripts/smoke.sh` should provide smoke coverage for the commercial runtime path through Nginx, not only the root page. The expected checks include:
 
 - root web entrypoint
 - API health entrypoint
 - repository-backed help entrypoint
-- user app route gate at `/app/dashboard`
-- admin app route gate at `/admin/dashboard`
+- user app route reachability at `/app/dashboard`
+- admin app route reachability at `/admin/dashboard`
 
 ## Stop
 

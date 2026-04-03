@@ -62,7 +62,7 @@ If you are verifying the API service outside Docker Compose, override the runtim
 
 After the stack is up, run `./scripts/smoke.sh`.
 
-The smoke script verifies the release path through Nginx, including:
+The smoke script provides route reachability and smoke coverage through Nginx, including:
 
 - `http://localhost:8080/`
 - `http://localhost:8080/api/healthz`
@@ -70,4 +70,4 @@ The smoke script verifies the release path through Nginx, including:
 - `http://localhost:8080/app/dashboard`
 - `http://localhost:8080/admin/dashboard`
 
-The `/app/*` and `/admin/*` checks are expected to prove routing and auth gates, even when they redirect to login for anonymous access.
+The `/app/*` and `/admin/*` checks confirm those routes stay reachable in the release path. Anonymous requests may still redirect to `/login`; this smoke coverage does not prove full auth-gate semantics.

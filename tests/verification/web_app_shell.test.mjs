@@ -88,7 +88,6 @@ test("web app shell structure aligns with shared public, user, and admin route s
     ["apps/web/src/app/app/membership/page.tsx", /redirect\("\/app\/billing"\)/],
     ["apps/web/src/app/app/notifications/page.tsx", /redirect\("\/app\/telegram"\)/],
     ["apps/web/src/app/admin/billing/page.tsx", /redirect\("\/admin\/deposits"\)/],
-    ["apps/web/src/app/help/[slug]/page.tsx", /redirect\(`\/app\/help\?article=\$\{slug\}`\)/],
   ];
 
   for (const [page, pattern] of legacyRedirects) {
@@ -157,7 +156,10 @@ test("web app shell structure aligns with shared public, user, and admin route s
 
   assert.match(helpPage, /normalizeHelpArticle/);
   assert.match(helpPage, /notFound\(/);
-  assert.match(helpSlugPage, /isValidHelpArticle/);
+  assert.match(helpSlugPage, /getHelpArticle/);
+  assert.match(helpSlugPage, /notFound\(/);
+  assert.match(helpSlugPage, /shell--public/);
+  assert.match(helpSlugPage, /\/app\/help\?article=\$\{article\.slug\}/);
 
   const serverApi = read("apps/web/src/lib/api/server.ts");
   assert.match(serverApi, /getUserDashboardSnapshot/);
@@ -165,12 +167,9 @@ test("web app shell structure aligns with shared public, user, and admin route s
   assert.match(serverApi, /server-only|"use server"/);
 });
 
-test("shell and help helpers enforce route behavior", () => {
-  const { isNavHrefActive } = loadTsExports("apps/web/src/components/shell/path-utils.ts", ["isNavHrefActive"]);
-  const { isValidHelpArticle, normalizeHelpArticle } = loadTsExports("apps/web/src/lib/api/help-articles.ts", [
-    "isValidHelpArticle",
-    "normalizeHelpArticle",
-  ]);
+test("shell and help helpers enforce route behavior", async () => {
+  const { isNavHrefActive } = await import("../../apps/web/src/components/shell/path-utils.ts");
+  const { isValidHelpArticle, normalizeHelpArticle } = await import("../../apps/web/src/lib/api/help-articles.ts");
 
   assert.equal(isNavHrefActive("/app/orders", "/app/orders"), true);
   assert.equal(isNavHrefActive("/app/strategies/grid-btc", "/app/strategies"), true);
