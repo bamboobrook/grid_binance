@@ -2,27 +2,19 @@
 
 ## Scope
 
-Use `/admin/templates` to maintain admin-owned strategy templates that users can apply into their own draft configurations.
+Use `/admin/templates` to maintain admin-owned strategy templates that users can apply into their own draft configurations. In the current product, this page is a `super_admin` control surface.
 
 ## Permissions
 
 - `super_admin` can create, edit, and maintain template definitions.
-- `operator_admin` can open `/admin/templates` and review template inventory only.
+- `operator_admin` does not have a template review surface in the current admin app and should not use this page as part of normal operations.
 
 ## Super Admin Workflow
 
 1. Open `/admin/templates` and review the current inventory.
-2. Create a template with symbol, market, mode, generation, and at least the required grid levels.
-3. Set readiness fields to reflect whether the template is safe for membership users.
-4. Configure overall take-profit, optional stop-loss, and post-trigger action.
-5. Save the template and verify it appears in the inventory table.
-6. Use the `Edit` action when a future template revision is needed.
-
-## Operator Review Workflow
-
-1. Open `/admin/templates` and review the current inventory.
-2. Confirm the symbol, market, mode, readiness, and risk fields are complete.
-3. Escalate any required template create or edit work to a `super_admin`.
+2. Create or edit a template with the fields the page currently exposes: template name, symbol, market, mode, generation, two grid levels, readiness booleans, overall take-profit, optional overall stop-loss, and post-trigger action.
+3. Save the template and verify it appears in the inventory table.
+4. Use the inventory `Edit` action to load an existing template back into the form when a future revision is needed.
 
 ## Product Rules
 
@@ -30,9 +22,9 @@ Use `/admin/templates` to maintain admin-owned strategy templates that users can
 - Later template updates do not change already-applied user strategies.
 - Users can still modify their template-derived drafts after application.
 
-## Review Checklist
+## Current Surface Reference
 
-- Confirm symbol and market match the intended exchange product.
-- Confirm level entry prices, quantities, take-profit values, and optional trailing values are complete.
-- Confirm readiness flags are honest; they are part of the operator review surface.
-- Expect operator sessions to show the page without create or edit controls, and without any save path.
+- Inventory columns currently shown: `Name`, `Symbol`, `Market`, `Generation`, and `Levels`.
+- `super_admin` sessions also get an `Actions` column with the `Edit` action.
+- The current page does not expose a separate operator review mode, approval queue, readiness summary table, or template actions beyond create and edit.
+- The inventory table does not list readiness flags, risk annotations, overall TP/SL values, or post-trigger action inline; those fields are only available inside the create/edit form for `super_admin`.

@@ -2,7 +2,7 @@
 
 ## Scope
 
-This release hardening task covers deployment assets, routing and operational checks, and the new admin commercial business flows shipped in V1. Admin operators can now manage membership pricing, membership lifecycle actions, abnormal deposit handling, address pool inventory, treasury sweep requests, strategy/template oversight, system confirmation policy, and audit review from the admin surface.
+This release hardening task covers deployment assets, routing and operational checks, and the admin control surfaces shipped in V1. The admin app exposes both shared pages and `super_admin`-only control areas, so day-2 checks must confirm routing and RBAC behavior together.
 
 ## Admin Entry Points
 
@@ -16,7 +16,16 @@ This release hardening task covers deployment assets, routing and operational ch
 2. Confirm Nginx routing with `curl -fsS http://localhost:8080/`.
 3. Confirm API routing with `curl -fsS http://localhost:8080/api/healthz`.
 4. Confirm Prometheus is reachable with `curl -fsS http://localhost:9090/-/ready`.
-5. Confirm admin commercial flows are reachable after login by checking Memberships, Deposits, Address pools, Templates, Strategies, System, and Audit in the admin nav.
+5. Confirm the admin nav exposes the full page map after login: Dashboard, Users, Memberships, Deposits, Address pools, Templates, Strategies, Sweeps, Audit, and System.
+6. For a `super_admin` session, confirm `/admin/memberships`, `/admin/address-pools`, `/admin/templates`, `/admin/sweeps`, `/admin/audit`, and `/admin/system` all load with their expected control surfaces.
+7. For an `operator_admin` session, confirm `/admin/deposits`, `/admin/users`, `/admin/strategies`, and `/admin/dashboard` remain reachable, `/admin/system` is read-only, and `/admin/audit` redirects away.
+
+## Admin RBAC Reference
+
+- Shared admin pages for both roles: `/admin/dashboard`, `/admin/users`, `/admin/deposits`, `/admin/strategies`.
+- `operator_admin` read-only page: `/admin/system`.
+- `super_admin` control surfaces: `/admin/memberships`, `/admin/address-pools`, `/admin/templates`, `/admin/sweeps`, `/admin/audit`.
+- Do not treat `operator_admin` as authorized to manage pricing, membership lifecycle mutations, address inventory, templates, sweeps, or audit review.
 
 ## Log Collection
 
