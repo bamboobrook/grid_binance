@@ -73,4 +73,4 @@ node --test tests/verification/*.test.mjs
 docker compose --env-file .env -f deploy/docker/docker-compose.yml down
 ```
 
-Use `docker compose --env-file .env -f deploy/docker/docker-compose.yml down -v` only when you intentionally want to remove persisted PostgreSQL and Redis volumes.
+Use `docker compose --env-file .env -f deploy/docker/docker-compose.yml down -v` only when you intentionally want to remove the named volumes `postgres-data`, `redis-data`, and `prometheus-data`.

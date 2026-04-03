@@ -82,7 +82,10 @@ test("compose docs consistently require explicit root env file and quoted web he
     /-\s+'fetch\("http:\/\/127\.0\.0\.1:3000"\)\.then\(\(res\) => process\.exit\(res\.ok \? 0 : 1\)\)\.catch\(\(\) => process\.exit\(1\)\)'/,
   );
   assert.match(deploymentGuide, /docker compose --env-file \.env -f deploy\/docker\/docker-compose\.yml up -d --build/);
-  assert.match(deploymentGuide, /docker compose --env-file \.env -f deploy\/docker\/docker-compose\.yml down/);
+  assert.match(deploymentGuide, /docker compose --env-file \.env -f deploy\/docker\/docker-compose\.yml down -v/);
+  assert.match(deploymentGuide, /postgres-data/);
+  assert.match(deploymentGuide, /redis-data/);
+  assert.match(deploymentGuide, /prometheus-data/);
   assert.match(deploymentGuide, /127\.0\.0\.1:5432/);
   assert.match(deploymentGuide, /127\.0\.0\.1:6379/);
   assert.match(userGuide, /docker compose --env-file \.env -f deploy\/docker\/docker-compose\.yml up -d --build/);
