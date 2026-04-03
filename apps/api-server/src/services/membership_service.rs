@@ -1194,7 +1194,7 @@ impl MembershipService {
                 };
                 let applied = self
                     .db
-                    .apply_membership_payment_with_deposit_and_audit(
+                    .apply_membership_payment_with_claimed_pending_deposit_and_audit(
                         order_id,
                         &order.chain,
                         &tx_hash,
@@ -1207,7 +1207,11 @@ impl MembershipService {
                     )
                     .map_err(MembershipError::storage)?;
                 if !applied {
-                    return Err(MembershipError::bad_request("order already paid"));
+                    return Err(self.manual_deposit_processing_conflict(
+                        &chain,
+                        &tx_hash,
+                        Some(order_id),
+                    )?);
                 }
                 let snapshot = snapshot_for(
                     &order.email,
@@ -1243,9 +1247,13 @@ impl MembershipService {
                     }),
                     created_at: request.processed_at,
                 };
-                self.db
-                    .upsert_deposit_transaction_with_audit(&updated_deposit, &audit)
+                let updated = self
+                    .db
+                    .update_pending_deposit_with_audit(&updated_deposit, &audit)
                     .map_err(MembershipError::storage)?;
+                if !updated {
+                    return Err(self.manual_deposit_processing_conflict(&chain, &tx_hash, None)?);
+                }
                 Ok(ProcessAbnormalDepositResponse {
                     tx_hash,
                     deposit_status: "manual_rejected".to_owned(),
@@ -1562,26 +1570,70 @@ impl MembershipService {
             .upsert_deposit_transaction(&record)
             .map_err(MembershipError::storage)
     }
+
+    fn manual_deposit_processing_conflict(
+        &self,
+        chain: &str,
+        tx_hash: &str,
+        order_id: Option<u64>,
+    ) -> Result<MembershipError, MembershipError> {
+        let deposit = self
+            .db
+            .list_deposit_transactions()
+            .map_err(MembershipError::storage)?
+            .into_iter()
+            .find(|deposit| deposit.chain == chain && deposit.tx_hash == tx_hash);
+        if deposit
+            .as_ref()
+            .is_some_and(|deposit| deposit.status != "manual_review_required")
+        {
+            return Ok(MembershipError::bad_request(
+                "deposit is not pending manual review",
+            ));
+        }
+        if let Some(order_id) = order_id {
+            let order = self
+                .db
+                .list_billing_orders()
+                .map_err(MembershipError::storage)?
+                .into_iter()
+                .find(|order| order.order_id == order_id);
+            if order.as_ref().is_some_and(|order| order.paid_at.is_some()) {
+                return Ok(MembershipError::bad_request("order already paid"));
+            }
+        }
+        Ok(MembershipError::bad_request(
+            "deposit is not pending manual review",
+        ))
+    }
 }
 
 fn manual_credit_target_consistent(
     deposit: &DepositTransactionRecord,
     order: &BillingOrderRecord,
 ) -> bool {
-    if deposit.chain != order.chain {
+    if deposit.chain != order.chain || order.paid_at.is_some() || order.requested_at > deposit.observed_at {
         return false;
     }
+
+    let assignment_active = order
+        .assignment
+        .as_ref()
+        .is_some_and(|assignment| deposit.observed_at <= assignment.expires_at);
 
     match deposit.review_reason.as_deref() {
         Some("ambiguous_match") => {
             deposit.asset == order.asset
                 && deposit.amount == order.amount
+                && assignment_active
                 && order
                     .assignment
                     .as_ref()
                     .is_some_and(|assignment| assignment.address == deposit.address)
         }
-        Some("order_not_found") => deposit.asset == order.asset && deposit.amount == order.amount,
+        Some("order_not_found") => {
+            deposit.asset == order.asset && deposit.amount == order.amount && assignment_active
+        }
         _ => deposit.order_id == Some(order.order_id),
     }
 }

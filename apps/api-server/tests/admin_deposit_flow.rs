@@ -11,7 +11,8 @@ use std::{
     net::TcpListener,
     path::{Path, PathBuf},
     process::{Child, Command, Stdio},
-    thread::sleep,
+    sync::{Arc, Barrier},
+    thread::{self, sleep},
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
 use tower::ServiceExt;
@@ -370,7 +371,10 @@ async fn super_admin_sweep_validation_rejects_unsupported_chain_asset_and_blank_
     )
     .await;
     assert_eq!(unsupported_chain.status(), StatusCode::BAD_REQUEST);
-    assert_eq!(response_json(unsupported_chain).await["error"], "unsupported chain");
+    assert_eq!(
+        response_json(unsupported_chain).await["error"],
+        "unsupported chain"
+    );
 
     let unsupported_asset = create_sweep_job(
         &app,
@@ -386,7 +390,10 @@ async fn super_admin_sweep_validation_rejects_unsupported_chain_asset_and_blank_
     )
     .await;
     assert_eq!(unsupported_asset.status(), StatusCode::BAD_REQUEST);
-    assert_eq!(response_json(unsupported_asset).await["error"], "unsupported asset");
+    assert_eq!(
+        response_json(unsupported_asset).await["error"],
+        "unsupported asset"
+    );
 
     let blank_from_address = create_sweep_job(
         &app,
@@ -448,6 +455,21 @@ async fn expired_and_unmatched_transfers_create_processable_manual_review_record
     let unrelated_order_id = response_json(unrelated_order).await["order_id"]
         .as_u64()
         .expect("unrelated order id");
+    let pending_token = register_and_login(&app, "pending-order@example.com", "pass1234").await;
+    let pending_order = create_order(
+        &app,
+        &pending_token,
+        "pending-order@example.com",
+        "BSC",
+        "USDT",
+        "monthly",
+        "2026-04-01T00:30:00Z",
+    )
+    .await;
+    assert_eq!(pending_order.status(), StatusCode::CREATED);
+    let pending_order_id = response_json(pending_order).await["order_id"]
+        .as_u64()
+        .expect("pending order id");
 
     let expired_match = match_order(
         &app,
@@ -527,14 +549,34 @@ async fn expired_and_unmatched_transfers_create_processable_manual_review_record
         "credit_membership",
         Some(expired_order_id),
         Some(MANUAL_CREDIT_CONFIRMATION),
-        Some("manual review linked orphan transfer back to the intended expired order"),
+        Some("attempted to bind orphan transfer to an already expired order assignment"),
         "2026-04-01T01:11:00Z",
+    )
+    .await;
+    assert_eq!(credited.status(), StatusCode::BAD_REQUEST);
+    assert_eq!(
+        response_json(credited).await["error"],
+        "manual credit target order is inconsistent with deposit context"
+    );
+
+    let credited = process_abnormal_deposit(
+        &app,
+        &admin_token,
+        "BSC",
+        "tx-order-not-found",
+        "credit_membership",
+        Some(pending_order_id),
+        Some(MANUAL_CREDIT_CONFIRMATION),
+        Some(
+            "manual review linked orphan transfer to the still-pending order in the active deposit window",
+        ),
+        "2026-04-01T01:11:30Z",
     )
     .await;
     assert_eq!(credited.status(), StatusCode::OK);
     let credited_body = response_json(credited).await;
     assert_eq!(credited_body["deposit_status"], "manual_approved");
-    assert_eq!(credited_body["order_id"], expired_order_id);
+    assert_eq!(credited_body["order_id"], pending_order_id);
     assert_eq!(credited_body["membership_status"], "Active");
 }
 
@@ -786,6 +828,127 @@ async fn abnormal_deposit_processing_fails_when_audit_write_fails() {
         0,
         "failed sweep request must not persist"
     );
+}
+
+#[test]
+fn concurrent_manual_abnormal_processing_allows_only_one_outcome() {
+    let server = ApiServerHarness::start("manual-claim");
+    let user_token = register_and_login_via_http(&server, "member@example.com", "pass1234");
+    let credit_admin_token =
+        register_privileged_admin_and_login_via_http(&server, "admin@example.com");
+    let reject_admin_token =
+        register_privileged_admin_and_login_via_http(&server, "super-admin@example.com");
+
+    let (order_status, order_body) = http_json(
+        "POST",
+        &format!("{}/billing/orders", server.base_url()),
+        Some(&user_token),
+        Some(json!({
+            "email": "member@example.com",
+            "chain": "BSC",
+            "asset": "USDT",
+            "plan_code": "monthly",
+            "requested_at": "2026-04-01T00:00:00Z"
+        })),
+    );
+    assert_eq!(order_status, StatusCode::CREATED.as_u16());
+
+    let order_id = order_body["order_id"].as_u64().expect("order id");
+    let order_address = order_body["address"].as_str().expect("address");
+
+    let (match_status, match_body) = http_json(
+        "POST",
+        &format!("{}/billing/orders/match", server.base_url()),
+        Some(&credit_admin_token),
+        Some(json!({
+            "chain": "BSC",
+            "asset": "USDC",
+            "address": order_address,
+            "amount": "20.00000000",
+            "tx_hash": "tx-manual-race",
+            "observed_at": "2026-04-01T00:05:00Z"
+        })),
+    );
+    assert_eq!(match_status, StatusCode::OK.as_u16());
+    assert_eq!(match_body["deposit_status"], "manual_review_required");
+
+    let barrier = Arc::new(Barrier::new(2));
+    let process_url = format!("{}/admin/deposits/process", server.base_url());
+    let credit_barrier = barrier.clone();
+    let reject_barrier = barrier.clone();
+    let credit_token = credit_admin_token.clone();
+    let reject_token = reject_admin_token.clone();
+    let credit_url = process_url.clone();
+    let reject_url = process_url;
+
+    let credit_handle = thread::spawn(move || {
+        credit_barrier.wait();
+        http_json(
+            "POST",
+            &credit_url,
+            Some(&credit_token),
+            Some(json!({
+                "chain": "BSC",
+                "tx_hash": "tx-manual-race",
+                "decision": "credit_membership",
+                "order_id": order_id,
+                "confirmation": MANUAL_CREDIT_CONFIRMATION,
+                "justification": "credit path raced against reject path",
+                "processed_at": "2026-04-01T00:06:00Z"
+            })),
+        )
+    });
+    let reject_handle = thread::spawn(move || {
+        reject_barrier.wait();
+        http_json(
+            "POST",
+            &reject_url,
+            Some(&reject_token),
+            Some(json!({
+                "chain": "BSC",
+                "tx_hash": "tx-manual-race",
+                "decision": "reject",
+                "processed_at": "2026-04-01T00:06:00Z"
+            })),
+        )
+    });
+
+    let credit_result = credit_handle.join().expect("credit join");
+    let reject_result = reject_handle.join().expect("reject join");
+    let statuses = [credit_result.0, reject_result.0];
+    assert_eq!(
+        statuses
+            .iter()
+            .filter(|status| **status == StatusCode::OK.as_u16())
+            .count(),
+        1
+    );
+    assert_eq!(
+        statuses
+            .iter()
+            .filter(|status| **status == StatusCode::BAD_REQUEST.as_u16())
+            .count(),
+        1
+    );
+
+    let (deposits_status, deposits_body) = http_json(
+        "GET",
+        &format!(
+            "{}/admin/deposits?at={}",
+            server.base_url(),
+            "2026-04-01T00:07:00Z"
+        ),
+        Some(&reject_admin_token),
+        None,
+    );
+    assert_eq!(deposits_status, StatusCode::OK.as_u16());
+    let deposit = deposits_body["abnormal_deposits"]
+        .as_array()
+        .expect("abnormal deposits")
+        .iter()
+        .find(|record| record["tx_hash"] == "tx-manual-race")
+        .expect("deposit listed");
+    assert!(deposit["status"] == "manual_approved" || deposit["status"] == "manual_rejected");
 }
 
 async fn register_admin_and_login(app: &axum::Router) -> String {

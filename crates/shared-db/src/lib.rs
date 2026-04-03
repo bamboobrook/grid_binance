@@ -1476,6 +1476,35 @@ impl SharedDb {
         }
     }
 
+    pub fn update_pending_deposit_with_audit(
+        &self,
+        record: &DepositTransactionRecord,
+        audit: &AuditLogRecord,
+    ) -> Result<bool, SharedDbError> {
+        match &self.backend {
+            SharedDbBackend::Runtime { .. } => {
+                let repo = self.admin_repo();
+                let record = record.clone();
+                let audit = audit.clone();
+                Self::block_on(async move {
+                    repo.update_pending_deposit_with_audit(&record, &audit).await
+                })
+            }
+            SharedDbBackend::Ephemeral(state) => mutate_ephemeral_atomically(state, |state| {
+                let key = format!("{}:{}", record.chain, record.tx_hash);
+                let Some(existing) = state.deposit_transactions.get(&key) else {
+                    return Ok(false);
+                };
+                if existing.status != "manual_review_required" {
+                    return Ok(false);
+                }
+                state.deposit_transactions.insert(key, record.clone());
+                state.audit_logs.push(audit.clone());
+                Ok(true)
+            }),
+        }
+    }
+
     pub fn list_deposit_transactions(
         &self,
     ) -> Result<Vec<DepositTransactionRecord>, SharedDbError> {
@@ -1946,6 +1975,77 @@ impl SharedDb {
                     format!("{}:{}", deposit.chain, deposit.tx_hash),
                     deposit.clone(),
                 );
+                state.membership_records.insert(
+                    email.to_lowercase(),
+                    MembershipRecord {
+                        activated_at: Some(paid_at),
+                        active_until: Some(active_until),
+                        grace_until: Some(grace_until),
+                        override_status: None,
+                    },
+                );
+                state.audit_logs.push(audit.clone());
+                Ok(true)
+            }),
+        }
+    }
+
+    pub fn apply_membership_payment_with_claimed_pending_deposit_and_audit(
+        &self,
+        order_id: u64,
+        chain: &str,
+        tx_hash: &str,
+        paid_at: DateTime<Utc>,
+        email: &str,
+        active_until: DateTime<Utc>,
+        grace_until: DateTime<Utc>,
+        deposit: &DepositTransactionRecord,
+        audit: &AuditLogRecord,
+    ) -> Result<bool, SharedDbError> {
+        match &self.backend {
+            SharedDbBackend::Runtime { .. } => {
+                let repo = self.admin_repo();
+                let chain = chain.to_owned();
+                let tx_hash = tx_hash.to_owned();
+                let email = email.to_owned();
+                let deposit = deposit.clone();
+                let audit = audit.clone();
+                Self::block_on(async move {
+                    repo.apply_membership_payment_with_claimed_pending_deposit_and_audit(
+                        order_id,
+                        &chain,
+                        &tx_hash,
+                        paid_at,
+                        &email,
+                        active_until,
+                        grace_until,
+                        &deposit,
+                        &audit,
+                    )
+                    .await
+                })
+            }
+            SharedDbBackend::Ephemeral(state) => mutate_ephemeral_atomically(state, |state| {
+                let key = format!("{}:{}", deposit.chain, deposit.tx_hash);
+                let Some(existing) = state.deposit_transactions.get(&key) else {
+                    return Ok(false);
+                };
+                if existing.status != "manual_review_required" {
+                    return Ok(false);
+                }
+                let Some(order) = state.billing_orders.get(&order_id) else {
+                    return Ok(false);
+                };
+                if order.paid_at.is_some() {
+                    return Ok(false);
+                }
+                if let Some(order) = state.billing_orders.get_mut(&order_id) {
+                    order.paid_at = Some(paid_at);
+                    order.tx_hash = Some(tx_hash.to_owned());
+                    order.status = "paid".to_owned();
+                    order.enqueued_at = None;
+                }
+                state.deposit_transactions.insert(key, deposit.clone());
                 state.membership_records.insert(
                     email.to_lowercase(),
                     MembershipRecord {

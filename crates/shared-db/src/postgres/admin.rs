@@ -274,6 +274,22 @@ impl AdminRepository {
         Ok(())
     }
 
+    pub async fn update_pending_deposit_with_audit(
+        &self,
+        record: &DepositTransactionRecord,
+        audit: &AuditLogRecord,
+    ) -> Result<bool, SharedDbError> {
+        let mut transaction = self.pool.begin().await.map_err(SharedDbError::from)?;
+        let updated = update_pending_deposit_in(&mut transaction, record).await?;
+        if !updated {
+            transaction.rollback().await.map_err(SharedDbError::from)?;
+            return Ok(false);
+        }
+        insert_audit_log_in(&mut transaction, audit).await?;
+        transaction.commit().await.map_err(SharedDbError::from)?;
+        Ok(true)
+    }
+
     pub async fn create_sweep_job_with_audit(
         &self,
         job: &SweepJobRecord,
@@ -386,6 +402,45 @@ impl AdminRepository {
         audit: &AuditLogRecord,
     ) -> Result<bool, SharedDbError> {
         let mut transaction = self.pool.begin().await.map_err(SharedDbError::from)?;
+        let applied = apply_membership_payment_in(
+            &mut transaction,
+            order_id,
+            chain,
+            tx_hash,
+            paid_at,
+            email,
+            active_until,
+            grace_until,
+        )
+        .await?;
+        if !applied {
+            transaction.rollback().await.map_err(SharedDbError::from)?;
+            return Ok(false);
+        }
+        upsert_deposit_transaction_in(&mut transaction, deposit).await?;
+        insert_audit_log_in(&mut transaction, audit).await?;
+        transaction.commit().await.map_err(SharedDbError::from)?;
+        Ok(true)
+    }
+
+    pub async fn apply_membership_payment_with_claimed_pending_deposit_and_audit(
+        &self,
+        order_id: u64,
+        chain: &str,
+        tx_hash: &str,
+        paid_at: DateTime<Utc>,
+        email: &str,
+        active_until: DateTime<Utc>,
+        grace_until: DateTime<Utc>,
+        deposit: &DepositTransactionRecord,
+        audit: &AuditLogRecord,
+    ) -> Result<bool, SharedDbError> {
+        let mut transaction = self.pool.begin().await.map_err(SharedDbError::from)?;
+        let claimed = update_pending_deposit_in(&mut transaction, deposit).await?;
+        if !claimed {
+            transaction.rollback().await.map_err(SharedDbError::from)?;
+            return Ok(false);
+        }
         let applied = apply_membership_payment_in(
             &mut transaction,
             order_id,
@@ -721,6 +776,33 @@ async fn upsert_deposit_transaction_in(
     .await
     .map_err(SharedDbError::from)?;
     Ok(())
+}
+
+async fn update_pending_deposit_in(
+    transaction: &mut Transaction<'_, Postgres>,
+    record: &DepositTransactionRecord,
+) -> Result<bool, SharedDbError> {
+    let updated = sqlx::query(
+        "UPDATE deposit_transactions
+         SET order_id = $3,
+             observed_at = $4,
+             status = $5,
+             raw_payload = $6,
+             updated_at = now()
+         WHERE chain = $1
+           AND tx_hash = $2
+           AND status = 'manual_review_required'",
+    )
+    .bind(&record.chain)
+    .bind(&record.tx_hash)
+    .bind(record.order_id.map(|value| value as i64))
+    .bind(record.observed_at)
+    .bind(&record.status)
+    .bind(deposit_payload(record))
+    .execute(&mut **transaction)
+    .await
+    .map_err(SharedDbError::from)?;
+    Ok(updated.rows_affected() == 1)
 }
 
 async fn upsert_membership_record_in(

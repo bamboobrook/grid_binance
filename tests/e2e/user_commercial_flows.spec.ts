@@ -59,8 +59,9 @@ test.describe("user commercial", () => {
     await page.getByRole("button", { name: "Create payment order" }).click();
     await expect(page).toHaveURL(/\/app\/billing$/);
     await expect(page.getByRole("alert").filter({ hasText: "Awaiting exact transfer" })).toBeVisible();
-    await expect(page.getByText("Send exactly 180.00 USDT on BSC", { exact: false })).toBeVisible();
+    await expect(page.getByText("Send exactly 180.00000000 USDT on BSC", { exact: false })).toBeVisible();
     await expect(page.getByRole("alert").filter({ hasText: "Overpayment, underpayment, or wrong token will require manual review" })).toBeVisible();
+    await expect(page.getByText("180.00000000", { exact: true })).toBeVisible();
 
     await page.goto("/app/strategies/new");
     await page.getByLabel("Strategy name").fill("ETH Swing Builder");
