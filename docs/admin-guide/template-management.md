@@ -7,7 +7,7 @@ Use `/admin/templates` to maintain admin-owned strategy templates that users can
 ## Permissions
 
 - `super_admin` can create, edit, and maintain template definitions.
-- `operator_admin` does not have a template review surface in the current admin app and should not use this page as part of normal operations.
+- `operator_admin` does not have a template review surface in the current admin app; the nav stays hidden and direct access to `/admin/templates` should be rejected.
 
 ## Super Admin Workflow
 

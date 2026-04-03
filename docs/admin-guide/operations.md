@@ -18,15 +18,17 @@ This release hardening task covers deployment assets, routing and operational ch
 4. Confirm Prometheus is reachable with `curl -fsS http://localhost:9090/-/ready`.
 5. Confirm the admin nav matches the signed-in role after login.
 6. For a `super_admin` session, confirm the nav exposes Dashboard, Users, Memberships, Deposits, Address pools, Templates, Strategies, Sweeps, Audit, and System, and that `/admin/memberships`, `/admin/address-pools`, `/admin/templates`, `/admin/sweeps`, `/admin/audit`, and `/admin/system` all load with their expected control surfaces.
-7. For an `operator_admin` session, confirm the nav exposes Dashboard, Users, Memberships, Deposits, Address pools, Templates, Strategies, Sweeps, and System, confirm `/admin/memberships`, `/admin/address-pools`, `/admin/templates`, `/admin/sweeps`, `/admin/deposits`, `/admin/users`, `/admin/strategies`, `/admin/system`, and `/admin/dashboard` remain reachable, confirm write actions inside Memberships, Address pools, Templates, Sweeps, and System remain restricted to `super_admin`, and confirm `/admin/audit` stays hidden from nav and redirects away when requested directly.
+7. For an `operator_admin` session, confirm the nav exposes Dashboard, Users, Memberships, Deposits, Address pools, Strategies, Sweeps, and System, confirm `/admin/memberships`, `/admin/address-pools`, `/admin/sweeps`, `/admin/deposits`, `/admin/users`, `/admin/strategies`, `/admin/system`, and `/admin/dashboard` remain reachable, confirm write actions inside Memberships, Address pools, Sweeps, and System remain restricted to `super_admin`, and confirm `/admin/templates` and `/admin/audit` stay hidden from nav and reject direct access.
 
 ## Admin RBAC Reference
 
-- Shared admin navigation for both roles: `/admin/dashboard`, `/admin/users`, `/admin/memberships`, `/admin/deposits`, `/admin/address-pools`, `/admin/templates`, `/admin/strategies`, `/admin/sweeps`, `/admin/system`.
-- `operator_admin` can review Memberships, Address pools, Templates, Sweeps, and System, but the current product keeps write actions on those pages restricted to `super_admin`.
+- Shared admin navigation for both roles: `/admin/dashboard`, `/admin/users`, `/admin/memberships`, `/admin/deposits`, `/admin/address-pools`, `/admin/strategies`, `/admin/sweeps`, `/admin/system`.
+- `/admin/templates` remains a `super_admin`-only route and stays hidden from `operator_admin` navigation.
+- `operator_admin` can review Memberships, Address pools, Sweeps, and System, but the current product keeps write actions on those pages restricted to `super_admin`.
 - `operator_admin` should still be treated as operationally authorized for deposit handling on `/admin/deposits`.
 - `super_admin` gets the full control surface for pricing and plans, membership lifecycle actions, address inventory changes, template changes, sweep requests, system confirmation policy changes, and audit review.
 - `/admin/audit` remains a `super_admin`-only route and must stay hidden/restricted for `operator_admin`.
+- `/admin/templates` is also `super_admin`-only and should reject direct `operator_admin` access.
 
 ## Log Collection
 

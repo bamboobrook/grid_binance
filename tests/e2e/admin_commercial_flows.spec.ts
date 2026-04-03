@@ -42,6 +42,7 @@ test.describe("admin commercial", () => {
     await expect(page.getByText("operator_admin", { exact: false })).toBeVisible();
     await expect(page.getByText("Restricted permission boundary", { exact: false })).toBeVisible();
     await expect(page.getByRole("link", { name: "Audit" })).toHaveCount(0);
+    await expect(page.getByRole("link", { name: "Templates" })).toHaveCount(0);
 
     await page.getByRole("link", { name: "Users" }).click();
     await expect(page.getByRole("heading", { name: "User Management" })).toBeVisible();
@@ -90,10 +91,7 @@ test.describe("admin commercial", () => {
       is_enabled: true,
     });
 
-    await page.getByRole("link", { name: "Templates" }).click();
-    await expect(page.getByRole("heading", { name: "Template Management" })).toBeVisible();
-    await expect(page.getByText("Template changes require super_admin", { exact: false })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Create template" })).not.toBeVisible();
+    await expectForbiddenAdminRead(request, adminSessionToken, "/admin/templates");
     await expectForbiddenAdminWrite(request, adminSessionToken, "/admin/templates", {
       name: "Blocked Template",
       symbol: "ADAUSDT",

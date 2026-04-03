@@ -251,7 +251,7 @@ export async function buildAdminShellSnapshot(): Promise<AdminShellSnapshot> {
     { href: "/admin/memberships", label: "Memberships" },
     { href: "/admin/deposits", label: "Deposits", badge: String(openDeposits) },
     { href: "/admin/address-pools", label: "Address pools" },
-    { href: "/admin/templates", label: "Templates" },
+    ...(profile.admin_permissions?.can_manage_templates ? [{ href: "/admin/templates", label: "Templates" }] : []),
     { href: "/admin/strategies", label: "Strategies" },
     { href: "/admin/sweeps", label: "Sweeps" },
     ...(role === "super_admin" ? [{ href: "/admin/audit", label: "Audit" }] : []),
@@ -280,7 +280,9 @@ export async function buildAdminShellSnapshot(): Promise<AdminShellSnapshot> {
     quickStats: [
       { label: "Open deposits", value: String(openDeposits) },
       { label: "Membership risk", value: String(membershipsNeedingAction) },
-      { label: "Templates", value: String(templates?.items.length ?? 0) },
+      ...(profile.admin_permissions?.can_manage_templates
+        ? [{ label: "Templates", value: String(templates?.items.length ?? 0) }]
+        : []),
     ],
     subtitle: "Admin control plane",
     title: "Administration shell",
