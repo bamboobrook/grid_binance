@@ -1765,6 +1765,71 @@ impl SharedDb {
         }
     }
 
+    pub fn apply_exact_match_membership_payment_with_audit(
+        &self,
+        order_id: u64,
+        chain: &str,
+        tx_hash: &str,
+        paid_at: DateTime<Utc>,
+        email: &str,
+        active_until: DateTime<Utc>,
+        grace_until: DateTime<Utc>,
+        audit: &AuditLogRecord,
+    ) -> Result<bool, SharedDbError> {
+        match &self.backend {
+            SharedDbBackend::Runtime { .. } => {
+                let repo = self.admin_repo();
+                let chain = chain.to_owned();
+                let tx_hash = tx_hash.to_owned();
+                let email = email.to_owned();
+                let audit = audit.clone();
+                Self::block_on(async move {
+                    repo.apply_exact_match_membership_payment_with_audit(
+                        order_id,
+                        &chain,
+                        &tx_hash,
+                        paid_at,
+                        &email,
+                        active_until,
+                        grace_until,
+                        &audit,
+                    )
+                    .await
+                })
+            }
+            SharedDbBackend::Ephemeral(state) => mutate_ephemeral_atomically(state, |state| {
+                if !state.seen_transfers.insert(format!("{chain}:{tx_hash}")) {
+                    return Ok(false);
+                }
+                if let Some(order) = state.billing_orders.get_mut(&order_id) {
+                    order.paid_at = Some(paid_at);
+                    order.tx_hash = Some(tx_hash.to_owned());
+                    order.status = "paid".to_owned();
+                    order.enqueued_at = None;
+                }
+                if let Some(deposit) = state
+                    .deposit_transactions
+                    .get_mut(&format!("{chain}:{tx_hash}"))
+                {
+                    deposit.order_id = Some(order_id);
+                    deposit.matched_order_id = Some(order_id);
+                    deposit.status = "matched".to_owned();
+                }
+                state.membership_records.insert(
+                    email.to_lowercase(),
+                    MembershipRecord {
+                        activated_at: Some(paid_at),
+                        active_until: Some(active_until),
+                        grace_until: Some(grace_until),
+                        override_status: None,
+                    },
+                );
+                state.audit_logs.push(audit.clone());
+                Ok(true)
+            }),
+        }
+    }
+
     pub fn apply_membership_payment_with_audit(
         &self,
         order_id: u64,

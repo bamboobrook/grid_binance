@@ -20,6 +20,8 @@ mod support;
 
 use support::{login_and_get_token, register_and_login, register_and_verify};
 
+const MANUAL_CREDIT_CONFIRMATION: &str = "MANUAL_CREDIT_MEMBERSHIP";
+
 #[tokio::test]
 async fn wrong_asset_transfer_requires_manual_review_and_admin_can_credit_membership() {
     let db = SharedDb::ephemeral().expect("ephemeral db");
@@ -71,6 +73,42 @@ async fn wrong_asset_transfer_requires_manual_review_and_admin_can_credit_member
     assert_eq!(deposit["review_reason"], "wrong_asset");
     assert_eq!(deposit["status"], "manual_review_required");
 
+    let missing_confirmation = process_abnormal_deposit(
+        &app,
+        &admin_token,
+        "BSC",
+        "tx-wrong-asset",
+        "credit_membership",
+        Some(order_id),
+        None,
+        Some("operator reviewed wrong-asset transfer and validated order ownership"),
+        "2026-04-01T00:06:00Z",
+    )
+    .await;
+    assert_eq!(missing_confirmation.status(), StatusCode::BAD_REQUEST);
+    assert_eq!(
+        response_json(missing_confirmation).await["error"],
+        "manual credit confirmation is required"
+    );
+
+    let missing_justification = process_abnormal_deposit(
+        &app,
+        &admin_token,
+        "BSC",
+        "tx-wrong-asset",
+        "credit_membership",
+        Some(order_id),
+        Some(MANUAL_CREDIT_CONFIRMATION),
+        Some("   "),
+        "2026-04-01T00:06:30Z",
+    )
+    .await;
+    assert_eq!(missing_justification.status(), StatusCode::BAD_REQUEST);
+    assert_eq!(
+        response_json(missing_justification).await["error"],
+        "manual credit justification is required"
+    );
+
     let credited = process_abnormal_deposit(
         &app,
         &admin_token,
@@ -78,6 +116,8 @@ async fn wrong_asset_transfer_requires_manual_review_and_admin_can_credit_member
         "tx-wrong-asset",
         "credit_membership",
         Some(order_id),
+        Some(MANUAL_CREDIT_CONFIRMATION),
+        Some("operator reviewed wrong-asset transfer and validated order ownership"),
         "2026-04-01T00:06:00Z",
     )
     .await;
@@ -111,6 +151,14 @@ async fn wrong_asset_transfer_requires_manual_review_and_admin_can_credit_member
     assert_eq!(
         credited_audit.payload["after_summary"],
         format!("manual_approved credit_membership order {order_id}")
+    );
+    assert_eq!(
+        credited_audit.payload["confirmation"],
+        MANUAL_CREDIT_CONFIRMATION
+    );
+    assert_eq!(
+        credited_audit.payload["justification"],
+        "operator reviewed wrong-asset transfer and validated order ownership"
     );
 }
 
@@ -157,6 +205,8 @@ async fn operator_admin_can_reject_abnormal_transfer_but_cannot_create_sweep_job
         "ETH",
         "tx-underpaid",
         "reject",
+        None,
+        None,
         None,
         "2026-04-01T00:06:00Z",
     )
@@ -207,6 +257,96 @@ async fn operator_admin_can_reject_abnormal_transfer_but_cannot_create_sweep_job
     assert!(!audit_logs
         .iter()
         .any(|record| record.action == "treasury.sweep_requested"));
+}
+
+#[tokio::test]
+async fn exact_match_does_not_persist_payment_when_audit_write_fails() {
+    let server = ApiServerHarness::start("exact-match-audit");
+    let user_token = register_and_login_via_http(&server, "member@example.com", "pass1234");
+    let super_admin_token =
+        register_privileged_admin_and_login_via_http(&server, "super-admin@example.com");
+
+    let (order_status, order_body) = http_json(
+        "POST",
+        &format!("{}/billing/orders", server.base_url()),
+        Some(&user_token),
+        Some(json!({
+            "email": "member@example.com",
+            "chain": "BSC",
+            "asset": "USDT",
+            "plan_code": "monthly",
+            "requested_at": "2026-04-01T00:00:00Z"
+        })),
+    );
+    assert_eq!(order_status, StatusCode::CREATED.as_u16());
+    let order_id = order_body["order_id"].as_u64().expect("order id");
+    let order_address = order_body["address"].as_str().expect("order address");
+
+    server.break_audit_table();
+
+    let (match_status, match_body) = http_json(
+        "POST",
+        &format!("{}/billing/orders/match", server.base_url()),
+        Some(&super_admin_token),
+        Some(json!({
+            "chain": "BSC",
+            "asset": "USDT",
+            "address": order_address,
+            "amount": "20.00000000",
+            "tx_hash": "tx-exact-audit-fail",
+            "observed_at": "2026-04-01T00:05:00Z"
+        })),
+    );
+    assert_eq!(match_status, StatusCode::INTERNAL_SERVER_ERROR.as_u16());
+    assert!(match_body["error"].is_string());
+
+    let (status_status, status_body) = http_json(
+        "POST",
+        &format!("{}/membership/status", server.base_url()),
+        Some(&user_token),
+        Some(json!({
+            "email": "member@example.com",
+            "at": "2026-04-01T00:06:00Z"
+        })),
+    );
+    assert_eq!(status_status, StatusCode::OK.as_u16());
+    assert_eq!(status_body["status"], "Pending");
+
+    let (deposits_status, deposits_body) = http_json(
+        "GET",
+        &format!(
+            "{}/admin/deposits?at={}",
+            server.base_url(),
+            "2026-04-01T00:06:00Z"
+        ),
+        Some(&super_admin_token),
+        None,
+    );
+    assert_eq!(deposits_status, StatusCode::OK.as_u16());
+    assert!(deposits_body["abnormal_deposits"]
+        .as_array()
+        .expect("abnormal deposits")
+        .iter()
+        .all(|record| record["tx_hash"] != "tx-exact-audit-fail"));
+
+    let (orders_status, orders_body) = http_json(
+        "GET",
+        &format!(
+            "{}/admin/deposits?at={}",
+            server.base_url(),
+            "2026-04-01T00:06:30Z"
+        ),
+        Some(&super_admin_token),
+        None,
+    );
+    assert_eq!(orders_status, StatusCode::OK.as_u16());
+    let order = orders_body["orders"]
+        .as_array()
+        .expect("orders")
+        .iter()
+        .find(|record| record["order_id"] == order_id)
+        .expect("order listed");
+    assert_eq!(order["status"], "pending");
 }
 
 #[tokio::test]
@@ -353,6 +493,8 @@ async fn expired_and_unmatched_transfers_create_processable_manual_review_record
         "tx-order-not-found",
         "credit_membership",
         Some(expired_order_id),
+        Some(MANUAL_CREDIT_CONFIRMATION),
+        Some("manual review linked orphan transfer back to the intended expired order"),
         "2026-04-01T01:11:00Z",
     )
     .await;
@@ -444,6 +586,8 @@ async fn ambiguous_manual_review_records_can_be_processed() {
         "tx-ambiguous-manual",
         "reject",
         None,
+        None,
+        None,
         "2026-04-01T00:11:00Z",
     )
     .await;
@@ -503,6 +647,8 @@ async fn abnormal_deposit_processing_fails_when_audit_write_fails() {
             "tx_hash": "tx-wrong-asset-audit",
             "decision": "credit_membership",
             "order_id": order_body["order_id"],
+            "confirmation": MANUAL_CREDIT_CONFIRMATION,
+            "justification": "audit write failure should abort manual credit mutation",
             "processed_at": "2026-04-01T00:06:00Z"
         })),
     );
@@ -841,6 +987,8 @@ async fn process_abnormal_deposit(
     tx_hash: &str,
     decision: &str,
     order_id: Option<u64>,
+    confirmation: Option<&str>,
+    justification: Option<&str>,
     processed_at: &str,
 ) -> axum::response::Response {
     app.clone()
@@ -856,6 +1004,8 @@ async fn process_abnormal_deposit(
                         "tx_hash": tx_hash,
                         "decision": decision,
                         "order_id": order_id,
+                        "confirmation": confirmation,
+                        "justification": justification,
                         "processed_at": processed_at,
                     })
                     .to_string(),

@@ -360,7 +360,114 @@ async fn operator_admin_cannot_override_membership_or_write_override_audit_logs(
 #[tokio::test]
 async fn admin_can_open_extend_and_unfreeze_membership_manually() {
     operator_admin_cannot_manually_open_extend_or_unfreeze_membership().await;
+    super_admin_manual_open_and_extend_reject_non_positive_duration_days().await;
     manual_membership_actions_fail_when_audit_write_fails().await;
+}
+
+async fn super_admin_manual_open_and_extend_reject_non_positive_duration_days() {
+    let db = SharedDb::ephemeral().expect("ephemeral db");
+    let app = app_with_state(AppState::from_shared_db(db.clone()).expect("state"));
+    let user_token = register_and_login(&app, "manual-positive@example.com", "pass1234").await;
+    let super_admin_token =
+        register_privileged_admin_and_login(&app, "super-admin@example.com").await;
+
+    let open_zero = manage_membership(
+        &app,
+        &super_admin_token,
+        "manual-positive@example.com",
+        "open",
+        Some(0),
+        "2026-04-01T00:00:00Z",
+    )
+    .await;
+    assert_eq!(open_zero.status(), StatusCode::BAD_REQUEST);
+    assert_eq!(
+        response_json(open_zero).await["error"],
+        "duration_days must be greater than 0"
+    );
+
+    let open_negative = manage_membership(
+        &app,
+        &super_admin_token,
+        "manual-positive@example.com",
+        "open",
+        Some(-7),
+        "2026-04-01T00:00:30Z",
+    )
+    .await;
+    assert_eq!(open_negative.status(), StatusCode::BAD_REQUEST);
+    assert_eq!(
+        response_json(open_negative).await["error"],
+        "duration_days must be greater than 0"
+    );
+
+    let valid_open = manage_membership(
+        &app,
+        &super_admin_token,
+        "manual-positive@example.com",
+        "open",
+        Some(30),
+        "2026-04-01T00:01:00Z",
+    )
+    .await;
+    assert_eq!(valid_open.status(), StatusCode::OK);
+
+    let extend_zero = manage_membership(
+        &app,
+        &super_admin_token,
+        "manual-positive@example.com",
+        "extend",
+        Some(0),
+        "2026-04-10T00:00:00Z",
+    )
+    .await;
+    assert_eq!(extend_zero.status(), StatusCode::BAD_REQUEST);
+    assert_eq!(
+        response_json(extend_zero).await["error"],
+        "duration_days must be greater than 0"
+    );
+
+    let extend_negative = manage_membership(
+        &app,
+        &super_admin_token,
+        "manual-positive@example.com",
+        "extend",
+        Some(-3),
+        "2026-04-10T00:00:30Z",
+    )
+    .await;
+    assert_eq!(extend_negative.status(), StatusCode::BAD_REQUEST);
+    assert_eq!(
+        response_json(extend_negative).await["error"],
+        "duration_days must be greater than 0"
+    );
+
+    let status = membership_status(
+        &app,
+        &user_token,
+        "manual-positive@example.com",
+        "2026-04-20T00:00:00Z",
+    )
+    .await;
+    assert_eq!(status.status(), StatusCode::OK);
+    let status_body = response_json(status).await;
+    assert_eq!(status_body["status"], "Active");
+
+    let audit_logs = db.list_audit_logs().expect("audit logs");
+    assert_eq!(
+        audit_logs
+            .iter()
+            .filter(|record| record.action == "membership.manual_opened")
+            .count(),
+        1
+    );
+    assert_eq!(
+        audit_logs
+            .iter()
+            .filter(|record| record.action == "membership.manual_extended")
+            .count(),
+        0
+    );
 }
 
 async fn operator_admin_cannot_manually_open_extend_or_unfreeze_membership() {

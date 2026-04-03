@@ -286,6 +286,57 @@ impl AdminRepository {
         Ok(())
     }
 
+    pub async fn apply_exact_match_membership_payment_with_audit(
+        &self,
+        order_id: u64,
+        chain: &str,
+        tx_hash: &str,
+        paid_at: DateTime<Utc>,
+        email: &str,
+        active_until: DateTime<Utc>,
+        grace_until: DateTime<Utc>,
+        audit: &AuditLogRecord,
+    ) -> Result<bool, SharedDbError> {
+        let mut transaction = self.pool.begin().await.map_err(SharedDbError::from)?;
+        let observed = sqlx::query(
+            "INSERT INTO deposit_transactions (
+                tx_hash,
+                chain,
+                observed_at,
+                status,
+                raw_payload,
+                created_at,
+                updated_at
+             )
+             VALUES ($1, $2, $3, 'observed', '{}'::jsonb, now(), now())
+             ON CONFLICT (chain, tx_hash) DO NOTHING",
+        )
+        .bind(tx_hash)
+        .bind(chain)
+        .bind(paid_at)
+        .execute(&mut *transaction)
+        .await
+        .map_err(SharedDbError::from)?;
+        if observed.rows_affected() == 0 {
+            transaction.rollback().await.map_err(SharedDbError::from)?;
+            return Ok(false);
+        }
+        apply_membership_payment_in(
+            &mut transaction,
+            order_id,
+            chain,
+            tx_hash,
+            paid_at,
+            email,
+            active_until,
+            grace_until,
+        )
+        .await?;
+        insert_audit_log_in(&mut transaction, audit).await?;
+        transaction.commit().await.map_err(SharedDbError::from)?;
+        Ok(true)
+    }
+
     pub async fn apply_membership_payment_with_audit(
         &self,
         order_id: u64,

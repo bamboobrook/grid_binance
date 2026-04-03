@@ -17,6 +17,7 @@ use shared_domain::membership::{MembershipSnapshot, MembershipStatus};
 use crate::services::auth_service::{AdminRole, AuthError};
 
 const GRACE_HOURS: i64 = 48;
+const MANUAL_CREDIT_CONFIRMATION: &str = "MANUAL_CREDIT_MEMBERSHIP";
 
 const DEFAULT_PLAN_CONFIG: [(&str, &str, i32, &str); 3] = [
     ("monthly", "Monthly", 30, "20.00000000"),
@@ -215,6 +216,8 @@ pub struct ProcessAbnormalDepositRequest {
     pub tx_hash: String,
     pub decision: String,
     pub order_id: Option<u64>,
+    pub confirmation: Option<String>,
+    pub justification: Option<String>,
     pub processed_at: DateTime<Utc>,
 }
 
@@ -384,23 +387,6 @@ impl MembershipService {
 
         self.promote_queued_orders(request.observed_at)?;
 
-        if !self
-            .db
-            .record_seen_transfer(&tx_hash, &chain, request.observed_at)
-            .map_err(MembershipError::storage)?
-        {
-            return Ok(MatchBillingOrderResponse {
-                matched: false,
-                reason: Some("duplicate_transaction".to_owned()),
-                order_id: None,
-                email: None,
-                membership_status: None,
-                active_until: None,
-                grace_until: None,
-                deposit_status: "duplicate_ignored".to_owned(),
-            });
-        }
-
         let orders = self
             .db
             .list_billing_orders()
@@ -433,8 +419,17 @@ impl MembershipService {
 
         if valid_candidates.len() == 1 {
             let order = valid_candidates.into_iter().next().expect("one candidate");
-            let (active_until, grace_until) =
-                self.apply_membership_entitlement(&order, &tx_hash, request.observed_at)?;
+            let Some((_active_until, _grace_until)) = self.apply_membership_entitlement(
+                actor_email,
+                &order,
+                &tx_hash,
+                &chain,
+                &asset,
+                request.observed_at,
+            )?
+            else {
+                return Ok(duplicate_match_response());
+            };
             let snapshot = snapshot_for(
                 &order.email,
                 self.db
@@ -443,20 +438,6 @@ impl MembershipService {
                     .as_ref(),
                 Some(request.observed_at),
             );
-            self.insert_audit(AuditLogRecord {
-                actor_email: actor_email.to_owned(),
-                action: "membership.payment_applied".to_owned(),
-                target_type: "membership_order".to_owned(),
-                target_id: order.order_id.to_string(),
-                payload: json!({
-                    "tx_hash": tx_hash,
-                    "chain": chain,
-                    "asset": asset,
-                    "active_until": active_until,
-                    "grace_until": grace_until,
-                }),
-                created_at: request.observed_at,
-            })?;
 
             return Ok(MatchBillingOrderResponse {
                 matched: true,
@@ -468,6 +449,14 @@ impl MembershipService {
                 grace_until: snapshot.grace_until,
                 deposit_status: "matched".to_owned(),
             });
+        }
+
+        if !self
+            .db
+            .record_seen_transfer(&tx_hash, &chain, request.observed_at)
+            .map_err(MembershipError::storage)?
+        {
+            return Ok(duplicate_match_response());
         }
 
         if valid_candidates.len() > 1 {
@@ -707,9 +696,7 @@ impl MembershipService {
 
         let updated = match action.as_str() {
             "open" => {
-                let duration_days = request
-                    .duration_days
-                    .ok_or_else(|| MembershipError::bad_request("duration_days is required"))?;
+                let duration_days = positive_duration_days(request.duration_days)?;
                 MembershipRecord {
                     activated_at: Some(request.at),
                     active_until: Some(request.at + Duration::days(duration_days)),
@@ -720,9 +707,7 @@ impl MembershipService {
                 }
             }
             "extend" => {
-                let duration_days = request
-                    .duration_days
-                    .ok_or_else(|| MembershipError::bad_request("duration_days is required"))?;
+                let duration_days = positive_duration_days(request.duration_days)?;
                 let base = if current
                     .grace_until
                     .is_some_and(|grace_until| request.at <= grace_until)
@@ -1105,6 +1090,27 @@ impl MembershipService {
 
         match decision.as_str() {
             "credit_membership" => {
+                let confirmation = request
+                    .confirmation
+                    .as_deref()
+                    .map(str::trim)
+                    .filter(|value| !value.is_empty())
+                    .ok_or_else(|| {
+                        MembershipError::bad_request("manual credit confirmation is required")
+                    })?;
+                if confirmation != MANUAL_CREDIT_CONFIRMATION {
+                    return Err(MembershipError::bad_request(
+                        "manual credit confirmation is required",
+                    ));
+                }
+                let justification = request
+                    .justification
+                    .as_deref()
+                    .map(str::trim)
+                    .filter(|value| !value.is_empty())
+                    .ok_or_else(|| {
+                        MembershipError::bad_request("manual credit justification is required")
+                    })?;
                 let order_id = request
                     .order_id
                     .or(deposit.order_id)
@@ -1147,6 +1153,8 @@ impl MembershipService {
                         "order_id": order_id,
                         "chain": chain,
                         "decision": decision,
+                        "confirmation": confirmation,
+                        "justification": justification,
                         "session_role": admin_role.map(|role| role.as_str()),
                         "session_sid": session_sid,
                         "before_summary": before_summary,
@@ -1434,14 +1442,32 @@ impl MembershipService {
 
     fn apply_membership_entitlement(
         &self,
+        actor_email: &str,
         order: &BillingOrderRecord,
         tx_hash: &str,
+        chain: &str,
+        asset: &str,
         paid_at: DateTime<Utc>,
-    ) -> Result<(DateTime<Utc>, DateTime<Utc>), MembershipError> {
+    ) -> Result<Option<(DateTime<Utc>, DateTime<Utc>)>, MembershipError> {
         let (active_until, grace_until) = self.membership_entitlement_window(order, paid_at)?;
+        let audit = AuditLogRecord {
+            actor_email: actor_email.to_owned(),
+            action: "membership.payment_applied".to_owned(),
+            target_type: "membership_order".to_owned(),
+            target_id: order.order_id.to_string(),
+            payload: json!({
+                "tx_hash": tx_hash,
+                "chain": chain,
+                "asset": asset,
+                "active_until": active_until,
+                "grace_until": grace_until,
+            }),
+            created_at: paid_at,
+        };
 
-        self.db
-            .apply_membership_payment(
+        let applied = self
+            .db
+            .apply_exact_match_membership_payment_with_audit(
                 order.order_id,
                 &order.chain,
                 tx_hash,
@@ -1449,9 +1475,10 @@ impl MembershipService {
                 &order.email,
                 active_until,
                 grace_until,
+                &audit,
             )
             .map_err(MembershipError::storage)?;
-        Ok((active_until, grace_until))
+        Ok(applied.then_some((active_until, grace_until)))
     }
 
     fn membership_entitlement_window(
@@ -1496,11 +1523,17 @@ impl MembershipService {
             .map_err(MembershipError::storage)
     }
 
-    fn insert_audit(&self, record: AuditLogRecord) -> Result<(), MembershipError> {
-        self.db
-            .insert_audit_log(&record)
-            .map_err(MembershipError::storage)
+}
+
+fn positive_duration_days(duration_days: Option<i64>) -> Result<i64, MembershipError> {
+    let duration_days =
+        duration_days.ok_or_else(|| MembershipError::bad_request("duration_days is required"))?;
+    if duration_days <= 0 {
+        return Err(MembershipError::bad_request(
+            "duration_days must be greater than 0",
+        ));
     }
+    Ok(duration_days)
 }
 
 fn optional_time_summary(value: Option<DateTime<Utc>>) -> String {
@@ -1703,6 +1736,19 @@ fn snapshot_for(
         active_until,
         grace_until,
         override_status,
+    }
+}
+
+fn duplicate_match_response() -> MatchBillingOrderResponse {
+    MatchBillingOrderResponse {
+        matched: false,
+        reason: Some("duplicate_transaction".to_owned()),
+        order_id: None,
+        email: None,
+        membership_status: None,
+        active_until: None,
+        grace_until: None,
+        deposit_status: "duplicate_ignored".to_owned(),
     }
 }
 

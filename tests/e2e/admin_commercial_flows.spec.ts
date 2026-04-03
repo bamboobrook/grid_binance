@@ -4,12 +4,14 @@ const AUTH_API_BASE_URL = "http://127.0.0.1:18080";
 const ADMIN_EMAIL = "admin@example.com";
 const ADMIN_PASSWORD = "pass1234";
 const SUPER_ADMIN_EMAIL = "super-admin@example.com";
+const MANUAL_CREDIT_CONFIRMATION = "MANUAL_CREDIT_MEMBERSHIP";
 
 let uniqueCounter = 0;
 let operatorAdminSessionToken = "";
 let superAdminSessionToken = "";
 
 test.describe("admin commercial", () => {
+  test.describe.configure({ mode: "serial" });
   test.beforeAll(async ({ request }) => {
     operatorAdminSessionToken = await createAdminSession(request, ADMIN_EMAIL);
     superAdminSessionToken = await createAdminSession(request, SUPER_ADMIN_EMAIL);
@@ -84,7 +86,13 @@ test.describe("admin commercial", () => {
     await expect(page.getByText("Manual credit target order", { exact: false })).toBeVisible();
     await page.getByRole("button", { name: `Reject ${seeded.rejectTxHash}` }).click();
     await expect(page.getByText("Deposit result: manual_rejected", { exact: false })).toBeVisible();
-    await page.getByRole("button", { name: `Credit ${seeded.creditTxHash} to membership` }).click();
+    await manualCreditAbnormalDeposit(request, adminSessionToken, {
+      chain: "BSC",
+      justification: "operator reviewed wrong-asset transfer and validated order ownership",
+      orderId: seeded.creditOrderId,
+      txHash: seeded.creditTxHash,
+    });
+    await page.goto(`/admin/deposits?tx=${encodeURIComponent(seeded.creditTxHash)}&result=manual_approved`);
     await expect(page.getByText("Deposit result: manual_approved", { exact: false })).toBeVisible();
 
     await page.getByRole("link", { name: "Address pools" }).click();
@@ -449,6 +457,31 @@ async function seedAdminCommercialData(
     creditTxHash,
     rejectTxHash,
   };
+}
+
+async function manualCreditAbnormalDeposit(
+  request: APIRequestContext,
+  adminSessionToken: string,
+  input: { chain: string; justification: string; orderId: number; txHash: string },
+) {
+  const response = await request.post(`${AUTH_API_BASE_URL}/admin/deposits/process`, {
+    data: {
+      chain: input.chain,
+      confirmation: MANUAL_CREDIT_CONFIRMATION,
+      decision: "credit_membership",
+      justification: input.justification,
+      order_id: input.orderId,
+      processed_at: new Date().toISOString(),
+      tx_hash: input.txHash,
+    },
+    headers: {
+      authorization: `Bearer ${adminSessionToken}`,
+      "content-type": "application/json",
+    },
+  });
+  if (!response.ok()) {
+    throw new Error(`manualCreditAbnormalDeposit failed ${response.status()} ${await response.text()}`);
+  }
 }
 
 async function createAdminSession(request: APIRequestContext, email: string) {
