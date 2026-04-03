@@ -23,6 +23,7 @@ At minimum, set these values in the repository-root `.env` file:
 
 - `SESSION_TOKEN_SECRET` signs session tokens used by the web and API auth boundary.
 - `EXCHANGE_CREDENTIALS_MASTER_KEY` is dedicated to exchange credential encryption.
+- User Binance API keys are entered through `/app/exchange`; they are not supplied through the release `.env` file.
 - `TELEGRAM_BOT_BIND_SECRET` is dedicated to Telegram bind and bot-facing trust checks.
 - `INTERNAL_SHARED_SECRET` is dedicated to trusted internal service-to-service calls such as chain-listener ingestion.
 - Do not reuse one secret for another purpose.

@@ -255,11 +255,6 @@ pub struct SweepJobResponse {
     pub transfer_count: usize,
 }
 
-#[derive(Debug, Serialize)]
-pub struct SweepJobListResponse {
-    pub jobs: Vec<SweepJobResponse>,
-}
-
 impl Default for MembershipService {
     fn default() -> Self {
         Self::new(SharedDb::ephemeral().expect("ephemeral membership db should initialize"))
@@ -1360,27 +1355,6 @@ impl MembershipService {
             status: "queued".to_owned(),
             requested_by: actor_email.to_owned(),
             transfer_count: transfers.len(),
-        })
-    }
-
-    pub fn list_sweep_jobs(&self) -> Result<SweepJobListResponse, MembershipError> {
-        self.bootstrap_defaults()?;
-        let jobs = self
-            .db
-            .list_sweep_jobs()
-            .map_err(MembershipError::storage)?;
-        Ok(SweepJobListResponse {
-            jobs: jobs
-                .into_iter()
-                .map(|job| SweepJobResponse {
-                    sweep_job_id: job.sweep_job_id,
-                    chain: job.chain,
-                    asset: job.asset,
-                    status: job.status,
-                    requested_by: job.requested_by,
-                    transfer_count: job.transfers.len(),
-                })
-                .collect(),
         })
     }
 

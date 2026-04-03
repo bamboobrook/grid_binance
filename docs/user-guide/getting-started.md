@@ -45,6 +45,19 @@ Use `/app/help?article=<slug>` when reading help inside the authenticated app sh
 
 Anonymous requests to `/app/*` and `/admin/*` are expected to redirect to `/login`.
 
+## Real Binance Test Checklist
+
+Before your first live Binance run:
+
+1. Use a low-balance Binance account or dedicated sub-account for the first pass.
+2. Start the platform with Docker Compose first, then register the user account that will trade.
+3. Make sure that user has an active membership before strategy start. The fastest internal test path is to open `/admin/memberships` with a `super_admin` account and use `Open membership` or `Extend membership`.
+4. If you want to test real billing instead of admin activation, fill `/admin/address-pools` first so each chain has enabled deposit addresses.
+5. In Binance, create an API key with read + trading permissions only. Keep withdrawal permission disabled.
+6. If you enable Binance IP whitelisting, whitelist the public egress IP of this server before saving the key in `/app/exchange`.
+7. If you plan to test futures, enable the relevant futures permission in Binance and turn on Hedge Mode in the Binance account before running strategy pre-flight.
+8. Save the API key in `/app/exchange`, run the built-in connection test, then create a very small draft strategy such as Spot `BTCUSDT` before trying larger budgets.
+
 ## Product Rules To Remember
 
 - Membership is required before starting a strategy.
