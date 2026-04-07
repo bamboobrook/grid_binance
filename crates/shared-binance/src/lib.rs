@@ -7,5 +7,5 @@ pub use client::{
     ExchangeCredentialCheck,
 };
 pub use metadata::{
-    matches_symbol_query, sync_symbol_metadata, MarketRequirements, SymbolFilters, SymbolMetadata,
+    matches_symbol_query, sync_symbol_metadata, sync_symbol_metadata_strict, MarketRequirements, SymbolFilters, SymbolMetadata,
 };

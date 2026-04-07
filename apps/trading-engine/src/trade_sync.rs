@@ -71,6 +71,10 @@ pub fn sync_strategy_trades(
             Some(value) => Some(parse_decimal(value)?),
             None => None,
         };
+        let realized_pnl = match trade.realized_profit.as_deref() {
+            Some(value) => Some(parse_decimal(value)?),
+            None => None,
+        };
         order.status = "Filled".to_string();
         if strategy.status == shared_domain::strategy::StrategyStatus::Stopping
             && order.order_id.contains("-stop-close-")
@@ -88,7 +92,7 @@ pub fn sync_strategy_trades(
             fill_type: "ExchangeFill".to_string(),
             price,
             quantity,
-            realized_pnl: None,
+            realized_pnl,
             fee_amount,
             fee_asset: trade.fee_asset.clone(),
         });
@@ -151,7 +155,7 @@ pub fn sync_strategy_trades(
             })?;
         }
         let fill_profit_title = format!("Fill profit {}", trade.symbol);
-        let realized_pnl = Decimal::ZERO;
+        let realized_pnl = realized_pnl.unwrap_or(Decimal::ZERO);
         let net_pnl = realized_pnl - fee_amount.unwrap_or(Decimal::ZERO);
         let cumulative_net_pnl = strategy
             .runtime

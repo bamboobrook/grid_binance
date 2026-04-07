@@ -5,38 +5,47 @@ import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 
 import type { PublicShellSnapshot } from "../../lib/api/mock-data";
+import { pickText, type UiLanguage, type UiTheme } from "../../lib/ui/preferences";
 import { Card, CardBody, CardDescription, CardHeader, CardTitle } from "../ui/card";
+import { ShellPreferences } from "./shell-preferences";
 import { isNavHrefActive } from "./path-utils";
 
 export function PublicShell({
   children,
   snapshot,
+  lang,
+  theme,
 }: {
   children: ReactNode;
   snapshot: PublicShellSnapshot;
+  lang: UiLanguage;
+  theme: UiTheme | null;
 }) {
   const pathname = usePathname();
 
   return (
     <div className="shell shell--public">
       <header className="shell-topbar shell-topbar--public">
-        <div>
+        <div className="shell-topbar__copy">
           <Link className="brand-mark" href="/">
             {snapshot.brand}
           </Link>
           <p className="shell-topbar__subtitle">{snapshot.subtitle}</p>
         </div>
-        <nav aria-label="Public navigation" className="shell-inline-nav">
-          {snapshot.actions.map((item) => {
-            const isActive = isNavHrefActive(pathname, item.href);
+        <div className="shell-topbar__actions shell-topbar__actions--public">
+          <nav aria-label={pickText(lang, "公共导航", "Public navigation")} className="shell-inline-nav">
+            {snapshot.actions.map((item) => {
+              const isActive = isNavHrefActive(pathname, item.href);
 
-            return (
-              <Link className={isActive ? "shell-link shell-link--active" : "shell-link"} href={item.href} key={item.href}>
-                {item.label}
-              </Link>
-            );
-          })}
-        </nav>
+              return (
+                <Link className={isActive ? "shell-link shell-link--active" : "shell-link"} href={item.href} key={item.href}>
+                  {item.label}
+                </Link>
+              );
+            })}
+          </nav>
+          <ShellPreferences lang={lang} theme={theme} />
+        </div>
       </header>
       <div className="public-shell__layout">
         <aside className="public-shell__aside">
@@ -60,8 +69,8 @@ export function PublicShell({
         <aside className="public-shell__rail">
           <Card>
             <CardHeader>
-              <CardTitle>Operational baseline</CardTitle>
-              <CardDescription>V1 keeps billing and trading risk surfaces explicit.</CardDescription>
+              <CardTitle>{pickText(lang, "运行基线", "Operational Baseline")}</CardTitle>
+              <CardDescription>{pickText(lang, "V1 保持计费和交易风险表面明确。", "V1 keeps billing and trading risk surfaces explicit.")}</CardDescription>
             </CardHeader>
             <CardBody>
               <ul className="text-list">

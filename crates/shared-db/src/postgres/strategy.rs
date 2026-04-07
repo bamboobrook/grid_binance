@@ -3,7 +3,7 @@ use serde_json::{json, Value};
 use sqlx::{PgPool, Postgres, Row, Transaction};
 
 use shared_domain::strategy::{
-    GridGeneration, GridLevel, PostTriggerAction, PreflightReport, Strategy, StrategyAmountMode,
+    GridGeneration, GridLevel, PostTriggerAction, PreflightReport, Strategy, StrategyAmountMode, FuturesMarginMode,
     StrategyMarket, StrategyMode, StrategyRevision, StrategyRuntime, StrategyRuntimeEvent,
     StrategyRuntimeFill, StrategyRuntimeOrder, StrategyRuntimePosition, StrategyTemplate,
 };
@@ -350,6 +350,9 @@ impl StrategyRepository {
                     mode,
                     generation,
                     levels,
+                    amount_mode,
+                    futures_margin_mode,
+                    leverage,
                     budget,
                     grid_spacing_bps,
                     membership_ready,
@@ -387,6 +390,9 @@ impl StrategyRepository {
                     mode,
                     generation,
                     levels,
+                    amount_mode,
+                    futures_margin_mode,
+                    leverage,
                     budget,
                     grid_spacing_bps,
                     membership_ready,
@@ -429,6 +435,9 @@ impl StrategyRepository {
                 mode,
                 generation,
                 levels,
+                amount_mode,
+                futures_margin_mode,
+                leverage,
                 budget,
                 grid_spacing_bps,
                 membership_ready,
@@ -449,7 +458,7 @@ impl StrategyRepository {
              ) VALUES (
                 $1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
                 $11, $12, $13, $14, $15, $16, $17, $18, $19, $20,
-                $21, $22, $23, now(), now()
+                $21, $22, $23, $24, $25, $26, now(), now()
              )",
         )
         .bind(&template.template.id)
@@ -460,6 +469,9 @@ impl StrategyRepository {
         .bind(strategy_mode_to_str(template.template.mode))
         .bind(grid_generation_to_str(template.template.generation))
         .bind(levels)
+        .bind(strategy_amount_mode_to_str(template.template.amount_mode))
+        .bind(template.template.futures_margin_mode.map(futures_margin_mode_to_str))
+        .bind(template.template.leverage.map(|value| value as i32))
         .bind(&template.template.budget)
         .bind(template.template.grid_spacing_bps as i32)
         .bind(template.template.membership_ready)
@@ -507,21 +519,24 @@ impl StrategyRepository {
                  mode = $5,
                  generation = $6,
                  levels = $7,
-                 budget = $8,
-                 grid_spacing_bps = $9,
-                 membership_ready = $10,
-                 exchange_ready = $11,
-                 permissions_ready = $12,
-                 withdrawals_disabled = $13,
-                 hedge_mode_ready = $14,
-                 symbol_ready = $15,
-                 filters_ready = $16,
-                 margin_ready = $17,
-                 conflict_ready = $18,
-                 balance_ready = $19,
-                 overall_take_profit_bps = $20,
-                 overall_stop_loss_bps = $21,
-                 post_trigger_action = $22,
+                 amount_mode = $8,
+                 futures_margin_mode = $9,
+                 leverage = $10,
+                 budget = $11,
+                 grid_spacing_bps = $12,
+                 membership_ready = $13,
+                 exchange_ready = $14,
+                 permissions_ready = $15,
+                 withdrawals_disabled = $16,
+                 hedge_mode_ready = $17,
+                 symbol_ready = $18,
+                 filters_ready = $19,
+                 margin_ready = $20,
+                 conflict_ready = $21,
+                 balance_ready = $22,
+                 overall_take_profit_bps = $23,
+                 overall_stop_loss_bps = $24,
+                 post_trigger_action = $25,
                  updated_at = now()
              WHERE id = $1",
         )
@@ -532,6 +547,9 @@ impl StrategyRepository {
         .bind(strategy_mode_to_str(template.mode))
         .bind(grid_generation_to_str(template.generation))
         .bind(levels)
+        .bind(strategy_amount_mode_to_str(template.amount_mode))
+        .bind(template.futures_margin_mode.map(futures_margin_mode_to_str))
+        .bind(template.leverage.map(|value| value as i32))
         .bind(&template.budget)
         .bind(template.grid_spacing_bps as i32)
         .bind(template.membership_ready)
@@ -621,9 +639,18 @@ fn template_from_row(row: sqlx::postgres::PgRow) -> Result<StrategyTemplate, Sha
                 .map_err(SharedDbError::from)?,
         )?,
         levels,
-        amount_mode: StrategyAmountMode::Quote,
-        futures_margin_mode: None,
-        leverage: None,
+        amount_mode: parse_strategy_amount_mode(
+            &row.try_get::<String, _>("amount_mode").map_err(SharedDbError::from)?,
+        )?,
+        futures_margin_mode: row
+            .try_get::<Option<String>, _>("futures_margin_mode")
+            .map_err(SharedDbError::from)?
+            .map(|value| parse_futures_margin_mode(&value))
+            .transpose()?,
+        leverage: row
+            .try_get::<Option<i32>, _>("leverage")
+            .map_err(SharedDbError::from)?
+            .map(|value| value as u32),
         budget: row.try_get("budget").map_err(SharedDbError::from)?,
         grid_spacing_bps: row
             .try_get::<i32, _>("grid_spacing_bps")
@@ -1067,6 +1094,40 @@ fn strategy_mode_to_str(value: StrategyMode) -> &'static str {
         StrategyMode::FuturesLong => "FuturesLong",
         StrategyMode::FuturesShort => "FuturesShort",
         StrategyMode::FuturesNeutral => "FuturesNeutral",
+    }
+}
+
+fn parse_strategy_amount_mode(value: &str) -> Result<StrategyAmountMode, SharedDbError> {
+    match value {
+        "Quote" => Ok(StrategyAmountMode::Quote),
+        "Base" => Ok(StrategyAmountMode::Base),
+        _ => Err(SharedDbError::new(format!(
+            "unknown strategy amount mode: {value}"
+        ))),
+    }
+}
+
+fn strategy_amount_mode_to_str(value: StrategyAmountMode) -> &'static str {
+    match value {
+        StrategyAmountMode::Quote => "Quote",
+        StrategyAmountMode::Base => "Base",
+    }
+}
+
+fn parse_futures_margin_mode(value: &str) -> Result<FuturesMarginMode, SharedDbError> {
+    match value {
+        "Isolated" => Ok(FuturesMarginMode::Isolated),
+        "Cross" => Ok(FuturesMarginMode::Cross),
+        _ => Err(SharedDbError::new(format!(
+            "unknown futures margin mode: {value}"
+        ))),
+    }
+}
+
+fn futures_margin_mode_to_str(value: FuturesMarginMode) -> &'static str {
+    match value {
+        FuturesMarginMode::Isolated => "Isolated",
+        FuturesMarginMode::Cross => "Cross",
     }
 }
 

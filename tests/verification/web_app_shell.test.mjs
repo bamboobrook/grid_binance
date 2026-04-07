@@ -173,6 +173,28 @@ test("web app shell structure aligns with shared public, user, and admin route s
   assert.match(serverApi, /server-only|"use server"/);
 });
 
+test("web shells expose persistent language and theme preferences", () => {
+  const requiredFiles = [
+    "apps/web/src/lib/ui/preferences.ts",
+    "apps/web/src/components/shell/shell-preferences.tsx",
+  ];
+
+  for (const file of requiredFiles) {
+    assert.ok(fs.existsSync(file), `${file} should exist`);
+  }
+
+  const rootLayout = read("apps/web/src/app/layout.tsx");
+  const publicShell = read("apps/web/src/components/shell/public-shell.tsx");
+  const userShell = read("apps/web/src/components/shell/user-shell.tsx");
+  const adminShell = read("apps/web/src/components/shell/admin-shell.tsx");
+
+  assert.doesNotMatch(rootLayout, /<html lang="en">/, "root layout should not hardcode english once i18n preferences exist");
+  assert.match(rootLayout, /ui_lang|ui_theme|data-theme|cookies\(/, "root layout should read persisted ui preferences");
+  assert.match(publicShell, /ShellPreferences|language|theme|语言|主题/i, "public shell should expose preference controls");
+  assert.match(userShell, /ShellPreferences|language|theme|语言|主题/i, "user shell should expose preference controls");
+  assert.match(adminShell, /ShellPreferences|language|theme|语言|主题/i, "admin shell should expose preference controls");
+});
+
 test("shell and help helpers enforce route behavior", async () => {
   const { isNavHrefActive } = await import("../../apps/web/src/components/shell/path-utils.ts");
   const { isValidHelpArticle, normalizeHelpArticle } = await import("../../apps/web/src/lib/api/help-articles.ts");

@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use shared_events::{NotificationEvent, NotificationKind, NotificationRecord};
 use shared_binance::{
-    mask_api_key, matches_symbol_query, sync_symbol_metadata, BinanceClient, CredentialCipher,
+    mask_api_key, matches_symbol_query, sync_symbol_metadata_strict, BinanceClient, CredentialCipher,
     CredentialValidationRequest, ExchangeCredentialCheck, MarketRequirements, SymbolFilters,
     SymbolMetadata,
 };
@@ -150,7 +150,7 @@ impl ExchangeService {
                 .map_err(|error| ExchangeError::bad_request(error.to_string()))?;
         let client = BinanceClient::new(api_key.clone(), api_secret.clone());
         let check = client.check_credentials_for(&validation_request);
-        let symbols = sync_symbol_metadata(&client, &check);
+        let symbols = sync_symbol_metadata_strict(&client, &check).map_err(|error| ExchangeError::bad_request(error.to_string()))?;
         let symbol_counts = ExchangeSymbolCountsDto::from_symbols(&symbols);
         let now = Utc::now();
 
@@ -269,7 +269,7 @@ impl ExchangeService {
             .map_err(|error| ExchangeError::bad_request(error.to_string()))?;
             let client = BinanceClient::new(api_key, api_secret);
             let check = client.check_credentials_for(&validation_request);
-            let symbols = sync_symbol_metadata(&client, &check);
+            let symbols = sync_symbol_metadata_strict(&client, &check).map_err(|error| ExchangeError::bad_request(error.to_string()))?;
             let symbol_counts = ExchangeSymbolCountsDto::from_symbols(&symbols);
             let synced_at = Utc::now();
 

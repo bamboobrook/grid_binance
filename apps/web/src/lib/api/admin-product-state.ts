@@ -3,6 +3,7 @@ import "server-only";
 import { cookies } from "next/headers";
 
 import type { AdminShellSnapshot } from "./mock-data";
+import { pickText, type UiLanguage } from "../ui/preferences";
 
 const DEFAULT_AUTH_API_BASE_URL = "http://127.0.0.1:8080";
 
@@ -251,7 +252,7 @@ export async function getAdminSystemData() {
   return fetchAdminJson<AdminSystemConfig>("/admin/system");
 }
 
-export async function buildAdminShellSnapshot(): Promise<AdminShellSnapshot> {
+export async function buildAdminShellSnapshot(lang: UiLanguage): Promise<AdminShellSnapshot> {
   const profile = await getCurrentAdminProfile();
   const [memberships, deposits, templates] = await Promise.all([
     getAdminMembershipsData(),
@@ -265,50 +266,50 @@ export async function buildAdminShellSnapshot(): Promise<AdminShellSnapshot> {
   const roleLabel = role ?? "admin_access_pending";
 
   const nav = [
-    { href: "/admin/dashboard", label: "Dashboard" },
-    { href: "/admin/users", label: "Users" },
-    { href: "/admin/memberships", label: "Memberships" },
-    { href: "/admin/deposits", label: "Deposits", badge: String(openDeposits) },
-    { href: "/admin/address-pools", label: "Address pools" },
-    ...(profile.admin_permissions?.can_manage_templates ? [{ href: "/admin/templates", label: "Templates" }] : []),
-    { href: "/admin/strategies", label: "Strategies" },
-    { href: "/admin/sweeps", label: "Sweeps" },
-    ...(role === "super_admin" ? [{ href: "/admin/audit", label: "Audit" }] : []),
-    { href: "/admin/system", label: "System" },
+    { href: "/admin/dashboard", label: pickText(lang, "总览", "Dashboard") },
+    { href: "/admin/users", label: pickText(lang, "用户", "Users") },
+    { href: "/admin/memberships", label: pickText(lang, "会员", "Memberships") },
+    { href: "/admin/deposits", label: pickText(lang, "充值单", "Deposits"), badge: String(openDeposits) },
+    { href: "/admin/address-pools", label: pickText(lang, "地址池", "Address pools") },
+    ...(profile.admin_permissions?.can_manage_templates ? [{ href: "/admin/templates", label: pickText(lang, "模板", "Templates") }] : []),
+    { href: "/admin/strategies", label: pickText(lang, "策略", "Strategies") },
+    { href: "/admin/sweeps", label: pickText(lang, "归集", "Sweeps") },
+    ...(role === "super_admin" ? [{ href: "/admin/audit", label: pickText(lang, "审计", "Audit") }] : []),
+    { href: "/admin/system", label: pickText(lang, "系统", "System") },
   ];
 
   return {
     banners: [
       {
-        action: { href: "/admin/deposits", label: openDeposits > 0 ? "Review queue" : "View deposits" },
+        action: { href: "/admin/deposits", label: openDeposits > 0 ? pickText(lang, "处理队列", "Review queue") : pickText(lang, "查看充值", "View deposits") },
         description: !profile.admin_access_granted
-          ? "Admin identity is recognized, but this bearer session has not cleared the TOTP gate yet."
+          ? pickText(lang, "管理员身份已识别，但当前 bearer 会话尚未通过 TOTP 门禁。", "Admin identity is recognized, but this bearer session has not cleared the TOTP gate yet.")
           : restricted
-            ? "Operator boundary is active. Pricing, templates, sweeps, and system changes require super_admin."
-            : "Super admin session is active for pricing, treasury, and template operations.",
-        title: profile.admin_access_granted ? "Admin access granted" : "Admin access missing",
+            ? pickText(lang, "当前为操作员权限边界，价格、模板、归集和系统变更需要 super_admin。", "Operator boundary is active. Pricing, templates, sweeps, and system changes require super_admin.")
+            : pickText(lang, "当前为超级管理员会话，可执行定价、金库和模板操作。", "Super admin session is active for pricing, treasury, and template operations."),
+        title: profile.admin_access_granted ? pickText(lang, "管理员权限已生效", "Admin access granted") : pickText(lang, "管理员权限未生效", "Admin access missing"),
         tone: profile.admin_access_granted ? "success" : "warning",
       },
     ],
     brand: "GridBinance Ops",
-    description: "Backend-backed admin control plane.",
+    description: pickText(lang, "基于后端真实数据的管理控制台。", "Backend-backed admin control plane."),
     identity: {
       context: profile.admin_access_granted
-        ? `TOTP ${profile.totp_enabled ? "enabled" : "disabled"}. Operator boundary ${restricted ? "active" : "lifted"}.`
-        : `TOTP ${profile.totp_enabled ? "enabled" : "disabled"}. Admin access is pending fresh bearer-session verification.`,
+        ? pickText(lang, `TOTP ${profile.totp_enabled ? "已启用" : "未启用"}，操作员边界${restricted ? "生效中" : "已解除"}。`, `TOTP ${profile.totp_enabled ? "enabled" : "disabled"}. Operator boundary ${restricted ? "active" : "lifted"}.`)
+        : pickText(lang, `TOTP ${profile.totp_enabled ? "已启用" : "未启用"}，管理员权限仍待新的 bearer 会话验证。`, `TOTP ${profile.totp_enabled ? "enabled" : "disabled"}. Admin access is pending fresh bearer-session verification.`),
       name: profile.email,
       role: roleLabel,
     },
     nav,
     quickStats: [
-      { label: "Open deposits", value: String(openDeposits) },
-      { label: "Membership risk", value: String(membershipsNeedingAction) },
+      { label: pickText(lang, "待处理充值", "Open deposits"), value: String(openDeposits) },
+      { label: pickText(lang, "会员风险", "Membership risk"), value: String(membershipsNeedingAction) },
       ...(profile.admin_permissions?.can_manage_templates
-        ? [{ label: "Templates", value: String(templates?.items.length ?? 0) }]
+        ? [{ label: pickText(lang, "模板", "Templates"), value: String(templates?.items.length ?? 0) }]
         : []),
     ],
-    subtitle: "Admin control plane",
-    title: "Administration shell",
+    subtitle: pickText(lang, "管理员控制台", "Admin control plane"),
+    title: pickText(lang, "管理工作台", "Administration shell"),
   };
 }
 

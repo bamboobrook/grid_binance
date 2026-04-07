@@ -1,3 +1,5 @@
+import { pickText, type UiLanguage } from "../ui/preferences";
+
 export type NavItem = {
   badge?: string;
   href: string;
@@ -44,74 +46,89 @@ export type UserShellSnapshot = {
 
 export type AdminShellSnapshot = UserShellSnapshot;
 
-export const publicShellSnapshot: PublicShellSnapshot = {
-  brand: "GridBinance",
-  subtitle: "Binance grid SaaS control plane",
-  eyebrow: "Commercial recovery plan",
-  title: "Public access shell",
-  description: "Shared entry and preview shell for the homepage, login, and registration flows.",
-  actions: [
-    { href: "/", label: "Home" },
-    { href: "/login", label: "Login" },
-    { href: "/register", label: "Register" },
-  ],
-  highlights: [
-    {
-      title: "Membership first",
-      description: "Running strategies is gated by an active membership with a visible grace-period surface."
-    },
-    {
-      title: "Explicit warnings",
-      description: "Billing, API permissions, and take-profit modes stay visible instead of being hidden behind automation."
-    }
-  ],
-  supportLinks: [
-    { href: "/app/help", label: "In-app help center" },
-    { href: "/app/dashboard", label: "User dashboard preview" },
-    { href: "/admin/dashboard", label: "Admin dashboard preview" }
-  ]
-};
+export function buildPublicShellSnapshot(lang: UiLanguage): PublicShellSnapshot {
+  return {
+    brand: "GridBinance",
+    subtitle: pickText(lang, "币安网格 SaaS 控制台", "Binance grid SaaS control plane"),
+    eyebrow: pickText(lang, "首版商用交付", "Commercial recovery plan"),
+    title: pickText(lang, "公共入口", "Public access shell"),
+    description: pickText(lang, "首页、登录、注册共用同一套公共外壳。", "Shared entry and preview shell for the homepage, login, and registration flows."),
+    actions: [
+      { href: "/", label: pickText(lang, "首页", "Home") },
+      { href: "/login", label: pickText(lang, "登录", "Login") },
+      { href: "/register", label: pickText(lang, "注册", "Register") },
+    ],
+    highlights: [
+      {
+        title: pickText(lang, "先开会员", "Membership first"),
+        description: pickText(lang, "策略运行受有效会员权限控制，宽限期风险会明确展示。", "Running strategies is gated by an active membership with a visible grace-period surface."),
+      },
+      {
+        title: pickText(lang, "关键风险直说", "Explicit warnings"),
+        description: pickText(lang, "计费、API 权限、止盈模式等关键提醒会直接展示，不藏在自动化后面。", "Billing, API permissions, and take-profit modes stay visible instead of being hidden behind automation."),
+      },
+    ],
+    supportLinks: [
+      { href: "/app/help", label: pickText(lang, "帮助中心", "In-app help center") },
+      { href: "/app/dashboard", label: pickText(lang, "用户控制台预览", "User dashboard preview") },
+      { href: "/admin/dashboard", label: pickText(lang, "管理员控制台预览", "Admin dashboard preview") },
+    ],
+  };
+}
 
-export const publicAuthSnapshots = {
-  login: {
-    title: "Login",
-    description: "Sign in to access your trading workspace, billing lifecycle, and runtime alerts.",
-    submitLabel: "Sign in",
-    alternateHref: "/register",
-    alternateLabel: "Need an account? Register",
-    checklist: ["Verified email", "No withdrawal API permission", "2FA ready"],
-    notice: {
-      tone: "info",
-      title: "Security baseline",
-      description: "User and admin flows both support TOTP in V1; admin use is mandatory."
-    }
-  },
-  register: {
-    title: "Register",
-    description: "Create your account now and continue into verification, membership, and exchange setup.",
-    submitLabel: "Create account",
+export function buildPublicAuthSnapshot(mode: "login" | "register", lang: UiLanguage) {
+  if (mode === "login") {
+    return {
+      title: pickText(lang, "登录", "Login"),
+      description: pickText(lang, "登录后进入你的交易控制台、会员计费和运行提醒中心。", "Sign in to access your trading workspace, billing lifecycle, and runtime alerts."),
+      submitLabel: pickText(lang, "登录", "Sign in"),
+      alternateHref: "/register",
+      alternateLabel: pickText(lang, "还没有账号？去注册", "Need an account? Register"),
+      checklist: [
+        pickText(lang, "邮箱已验证", "Verified email"),
+        pickText(lang, "API 不可开启提现权限", "No withdrawal API permission"),
+        pickText(lang, "已准备好 2FA", "2FA ready"),
+      ],
+      notice: {
+        tone: "info",
+        title: pickText(lang, "安全基线", "Security baseline"),
+        description: pickText(lang, "用户和管理员都支持 TOTP，管理员必须启用。", "User and admin flows both support TOTP in V1; admin use is mandatory."),
+      },
+    };
+  }
+
+  return {
+    title: pickText(lang, "注册", "Register"),
+    description: pickText(lang, "创建账号后，继续完成验证、会员开通和交易所接入。", "Create your account now and continue into verification, membership, and exchange setup."),
+    submitLabel: pickText(lang, "创建账号", "Create account"),
     alternateHref: "/login",
-    alternateLabel: "Already registered? Login",
-    checklist: ["Email verification required", "One Binance account per user", "Membership required before runtime"],
+    alternateLabel: pickText(lang, "已经注册？去登录", "Already registered? Login"),
+    checklist: [
+      pickText(lang, "必须完成邮箱验证", "Email verification required"),
+      pickText(lang, "每个用户仅绑定一个币安账号", "One Binance account per user"),
+      pickText(lang, "运行策略前必须开通会员", "Membership required before runtime"),
+    ],
     notice: {
       tone: "warning",
-      title: "Before you bind Binance",
-      description: "Do not enable withdrawal permission on your API key. The app will only use trading and read scopes."
-    }
-  }
-} as const;
+      title: pickText(lang, "绑定币安前请确认", "Before you bind Binance"),
+      description: pickText(lang, "不要给 API 开启提现权限，平台只会使用读取与交易权限。", "Do not enable withdrawal permission on your API key. The app will only use trading and read scopes."),
+    },
+  };
+}
 
-const userNav: NavItem[] = [
-  { href: "/app/dashboard", label: "Dashboard" },
-  { href: "/app/exchange", label: "Exchange" },
-  { href: "/app/strategies", label: "Strategies", badge: "8" },
-  { href: "/app/orders", label: "Orders" },
-  { href: "/app/analytics", label: "Analytics" },
-  { href: "/app/billing", label: "Billing" },
-  { href: "/app/telegram", label: "Telegram", badge: "3" },
-  { href: "/app/security", label: "Security" },
-  { href: "/app/help", label: "Help" }
-];
+function buildUserNav(lang: UiLanguage): NavItem[] {
+  return [
+    { href: "/app/dashboard", label: pickText(lang, "总览", "Dashboard") },
+    { href: "/app/exchange", label: pickText(lang, "交易所", "Exchange") },
+    { href: "/app/strategies", label: pickText(lang, "策略", "Strategies"), badge: "8" },
+    { href: "/app/orders", label: pickText(lang, "订单", "Orders") },
+    { href: "/app/analytics", label: pickText(lang, "统计", "Analytics") },
+    { href: "/app/billing", label: pickText(lang, "计费", "Billing") },
+    { href: "/app/telegram", label: pickText(lang, "Telegram", "Telegram"), badge: "3" },
+    { href: "/app/security", label: pickText(lang, "安全", "Security") },
+    { href: "/app/help", label: pickText(lang, "帮助", "Help") },
+  ];
+}
 
 const adminNav: NavItem[] = [
   { href: "/admin/dashboard", label: "Dashboard" },
@@ -126,31 +143,31 @@ const adminNav: NavItem[] = [
   { href: "/admin/system", label: "System" }
 ];
 
-export function buildUserShellSnapshot(): UserShellSnapshot {
+export function buildUserShellSnapshot(lang: UiLanguage): UserShellSnapshot {
   return {
     brand: "GridBinance",
-    subtitle: "User operating cockpit",
-    title: "Trading workspace shell",
-    description: "Shared navigation, membership visibility, and runtime warning surfaces across all user pages.",
+    subtitle: pickText(lang, "用户操作台", "User operating cockpit"),
+    title: pickText(lang, "交易工作台", "Trading workspace shell"),
+    description: pickText(lang, "所有用户页面共享导航、会员可见性和运行告警入口。", "Shared navigation, membership visibility, and runtime warning surfaces across all user pages."),
     identity: {
       name: "Luna Chen",
-      role: "Verified member",
-      context: "Plan renews in 13 days. Binance futures account remains in hedge mode."
+      role: pickText(lang, "已验证会员", "Verified member"),
+      context: pickText(lang, "套餐将在 13 天后续费，币安合约账号当前仍为双向持仓模式。", "Plan renews in 13 days. Binance futures account remains in hedge mode."),
     },
-    nav: userNav,
+    nav: buildUserNav(lang),
     quickStats: [
-      { label: "Net PnL", value: "+1,284.20 USDT" },
-      { label: "Running", value: "5 strategies" },
-      { label: "Grace", value: "Inactive" }
+      { label: pickText(lang, "净收益", "Net PnL"), value: "+1,284.20 USDT" },
+      { label: pickText(lang, "运行中", "Running"), value: pickText(lang, "5 个策略", "5 strategies") },
+      { label: pickText(lang, "宽限期", "Grace"), value: pickText(lang, "未触发", "Inactive") },
     ],
     banners: [
       {
         tone: "warning",
-        title: "Renewal window approaching",
-        description: "Membership enters a 48-hour grace period after expiry. Existing running strategies may continue only during that window.",
-        action: { href: "/app/billing", label: "Open billing" }
-      }
-    ]
+        title: pickText(lang, "续费窗口即将到来", "Renewal window approaching"),
+        description: pickText(lang, "会员过期后会进入 48 小时宽限期，只有在该窗口内已运行策略才能继续。", "Membership enters a 48-hour grace period after expiry. Existing running strategies may continue only during that window."),
+        action: { href: "/app/billing", label: pickText(lang, "打开计费", "Open billing") },
+      },
+    ],
   };
 }
 

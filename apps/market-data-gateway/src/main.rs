@@ -51,7 +51,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         .iter()
                         .map(|plan| format!("{}:{}", plan.market, plan.url))
                         .collect::<Vec<_>>();
-                    if signature != live_signature {
+                    let restart_required = should_restart_streams(&live_handles, &live_signature, &signature);
+                    let signature_changed = signature != live_signature;
+                    if restart_required {
+                        if !signature_changed {
+                            let reconnects = {
+                                let mut guard = runtime_for_loop.lock().expect("gateway runtime poisoned");
+                                guard.reconnect(&activities);
+                                guard.reconnect_count()
+                            };
+                            metrics_for_loop.lock().expect("metrics poisoned").reconnect_count = reconnects;
+                        }
                         for handle in live_handles.drain(..) {
                             handle.abort();
                         }
@@ -131,6 +141,14 @@ fn refresh_subscriptions(
     Ok(activities)
 }
 
+fn should_restart_streams(
+    handles: &[JoinHandle<()>],
+    current_signature: &[String],
+    next_signature: &[String],
+) -> bool {
+    current_signature != next_signature || handles.iter().any(|handle| handle.is_finished())
+}
+
 fn market_code(market: StrategyMarket) -> &'static str {
     match market {
         StrategyMarket::Spot => "spot",
@@ -183,7 +201,7 @@ fn health_payload(service_name: &str, metrics: &Arc<Mutex<GatewayMetrics>>) -> S
 
 #[cfg(test)]
 mod tests {
-    use super::{health_payload, parse_port, required_env, GatewayMetrics, DEFAULT_PORT, SERVICE_NAME};
+    use super::{health_payload, parse_port, required_env, should_restart_streams, GatewayMetrics, DEFAULT_PORT, SERVICE_NAME};
     use std::sync::{Arc, Mutex};
 
     #[test]
@@ -207,5 +225,18 @@ mod tests {
         std::env::set_var("DATABASE_URL", "postgres://grid:secret@localhost/grid");
         assert!(required_env("DATABASE_URL").is_ok());
         std::env::remove_var("DATABASE_URL");
+    }
+
+    #[tokio::test]
+    async fn finished_live_stream_handle_triggers_restart_even_when_signature_is_unchanged() {
+        let handle = tokio::spawn(async {});
+        tokio::task::yield_now().await;
+        assert!(handle.is_finished());
+
+        let current = vec!["spot:wss://stream.binance.com/ws/btcusdt@trade".to_string()];
+        let next = vec!["spot:wss://stream.binance.com/ws/btcusdt@trade".to_string()];
+        let handles = vec![handle];
+
+        assert!(should_restart_streams(&handles, &current, &next));
     }
 }

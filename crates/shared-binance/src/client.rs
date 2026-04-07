@@ -291,6 +291,8 @@ struct UserTradePayload {
     time: i64,
     #[serde(default)]
     is_buyer: bool,
+    #[serde(default, alias = "rp", alias = "realizedPnl", alias = "realizedProfit")]
+    realized_profit: Option<FlexibleValue>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -392,6 +394,7 @@ pub struct BinanceUserTrade {
     pub quantity: String,
     pub fee_amount: Option<String>,
     pub fee_asset: Option<String>,
+    pub realized_profit: Option<String>,
     pub traded_at_ms: i64,
 }
 
@@ -748,30 +751,42 @@ impl BinanceClient {
     }
 
     pub fn spot_symbols(&self) -> Vec<SymbolMetadata> {
-        if !self.live_config.enabled {
-            return offline_spot_symbols();
-        }
-
-        self.live_symbols(BinanceMarket::Spot)
+        self.spot_symbols_strict()
             .unwrap_or_else(|_| offline_spot_symbols())
     }
 
-    pub fn usdm_symbols(&self) -> Vec<SymbolMetadata> {
+    pub fn spot_symbols_strict(&self) -> Result<Vec<SymbolMetadata>, CredentialValidationError> {
         if !self.live_config.enabled {
-            return offline_usdm_symbols();
+            return Ok(offline_spot_symbols());
         }
 
-        self.live_symbols(BinanceMarket::Usdm)
+        self.live_symbols(BinanceMarket::Spot)
+    }
+
+    pub fn usdm_symbols(&self) -> Vec<SymbolMetadata> {
+        self.usdm_symbols_strict()
             .unwrap_or_else(|_| offline_usdm_symbols())
     }
 
-    pub fn coinm_symbols(&self) -> Vec<SymbolMetadata> {
+    pub fn usdm_symbols_strict(&self) -> Result<Vec<SymbolMetadata>, CredentialValidationError> {
         if !self.live_config.enabled {
-            return offline_coinm_symbols();
+            return Ok(offline_usdm_symbols());
+        }
+
+        self.live_symbols(BinanceMarket::Usdm)
+    }
+
+    pub fn coinm_symbols(&self) -> Vec<SymbolMetadata> {
+        self.coinm_symbols_strict()
+            .unwrap_or_else(|_| offline_coinm_symbols())
+    }
+
+    pub fn coinm_symbols_strict(&self) -> Result<Vec<SymbolMetadata>, CredentialValidationError> {
+        if !self.live_config.enabled {
+            return Ok(offline_coinm_symbols());
         }
 
         self.live_symbols(BinanceMarket::Coinm)
-            .unwrap_or_else(|_| offline_coinm_symbols())
     }
 
     fn offline_credential_check(
@@ -1112,6 +1127,7 @@ impl BinanceUserTrade {
             quantity: flexible_scalar_to_string(payload.qty),
             fee_amount: payload.commission.map(flexible_scalar_to_string),
             fee_asset: payload.commission_asset,
+            realized_profit: payload.realized_profit.map(flexible_scalar_to_string),
             traded_at_ms: payload.time,
         }
     }
@@ -2123,6 +2139,24 @@ mod tests {
         assert_eq!(coinm.len(), 1);
         assert_eq!(coinm[0].symbol, "BTCUSD_PERP");
         assert_eq!(coinm[0].filters.contract_size.as_deref(), Some("100"));
+    }
+
+    #[test]
+    fn live_symbol_fetch_strict_surfaces_exchange_info_failures() {
+        let _guard = env_lock().lock().unwrap();
+        let server = spawn_test_server(vec![
+            TestRoute {
+                path_prefix: "/api/v3/exchangeInfo",
+                status_line: "HTTP/1.1 500 Internal Server Error",
+                body: r#"{"code":-1,"msg":"boom"}"#,
+            },
+        ]);
+        let _live_mode = set_env("BINANCE_LIVE_MODE", "1");
+        let _spot_base = set_env("BINANCE_SPOT_REST_BASE_URL", &server.base_url);
+
+        let client = BinanceClient::new("live-key", "live-secret");
+
+        assert!(client.spot_symbols_strict().is_err());
     }
 
     #[test]

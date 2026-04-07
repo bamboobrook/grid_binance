@@ -37,6 +37,7 @@ fn trade_sync_records_new_exchange_fill_and_notification() {
             quantity: "0.001".to_string(),
             fee_amount: Some("0.05".to_string()),
             fee_asset: Some("USDT".to_string()),
+            realized_profit: None,
             traded_at_ms: 1_710_000_000_123,
         }],
     };
@@ -72,6 +73,7 @@ fn fill_profit_notification_includes_running_cumulative_net_pnl() {
             quantity: "0.001".to_string(),
             fee_amount: Some("0.05".to_string()),
             fee_asset: Some("USDT".to_string()),
+            realized_profit: None,
             traded_at_ms: 1_710_000_000_125,
         }],
     };
@@ -101,6 +103,39 @@ fn fill_profit_notification_includes_running_cumulative_net_pnl() {
 }
 
 #[test]
+fn trade_sync_uses_realized_profit_from_exchange_trade_payload() {
+    let db = SharedDb::ephemeral().expect("db");
+    let gateway = FakeTradeGateway {
+        trades: vec![BinanceUserTrade {
+            market: "usdm".to_string(),
+            trade_id: "profit-1001".to_string(),
+            order_id: Some("98765".to_string()),
+            symbol: "BTCUSDT".to_string(),
+            side: "SELL".to_string(),
+            price: "42000".to_string(),
+            quantity: "0.001".to_string(),
+            fee_amount: Some("0.05".to_string()),
+            fee_asset: Some("USDT".to_string()),
+            realized_profit: Some("1.25".to_string()),
+            traded_at_ms: 1_710_000_000_127,
+        }],
+    };
+    let mut strategy = sample_strategy();
+
+    sync_strategy_trades(&db, &mut strategy, &gateway).expect("sync trades");
+
+    assert_eq!(strategy.runtime.fills[0].realized_pnl, Some(Decimal::new(125, 2)));
+    let notifications = db.list_notification_logs("trader@example.com", 10).unwrap();
+    let pnl = notifications
+        .iter()
+        .find(|record| record.template_key.as_deref() == Some("FillProfitReported"))
+        .expect("fill profit record");
+    assert_eq!(pnl.payload["realized_pnl"], "1.25");
+    assert_eq!(pnl.payload["net_pnl"], "1.2");
+    assert_eq!(pnl.payload["cumulative_net_pnl"], "1.2");
+}
+
+#[test]
 fn trade_sync_dedupes_existing_trade_ids() {
     let db = SharedDb::ephemeral().expect("db");
     let gateway = FakeTradeGateway {
@@ -114,6 +149,7 @@ fn trade_sync_dedupes_existing_trade_ids() {
             quantity: "0.001".to_string(),
             fee_amount: Some("0.05".to_string()),
             fee_asset: Some("USDT".to_string()),
+            realized_profit: None,
             traded_at_ms: 1_710_000_000_123,
         }],
     };
@@ -163,6 +199,7 @@ fn trade_sync_sends_telegram_for_bound_user_when_configured() {
             quantity: "0.001".to_string(),
             fee_amount: Some("0.05".to_string()),
             fee_asset: Some("USDT".to_string()),
+            realized_profit: None,
             traded_at_ms: 1_710_000_000_124,
         }],
     };
@@ -200,6 +237,7 @@ fn trade_sync_records_failed_telegram_logs_when_binding_exists_without_bot_token
             quantity: "0.001".to_string(),
             fee_amount: Some("0.05".to_string()),
             fee_asset: Some("USDT".to_string()),
+            realized_profit: None,
             traded_at_ms: 1_710_000_000_126,
         }],
     };

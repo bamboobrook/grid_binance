@@ -2,6 +2,8 @@ import "server-only";
 
 import { cookies } from "next/headers";
 
+import { pickText, resolveUiLanguage, UI_LANGUAGE_COOKIE, type UiLanguage } from "../ui/preferences";
+
 import { buildAdminShellSnapshot } from "./admin-product-state";
 import {
   adminAddressPoolsSnapshot,
@@ -16,6 +18,8 @@ import {
   adminUsersSnapshot,
   analyticsSnapshot,
   billingSnapshot,
+  buildPublicAuthSnapshot,
+  buildPublicShellSnapshot,
   buildUserShellSnapshot,
   exchangeSnapshot,
   helpCenterSnapshot,
@@ -23,8 +27,6 @@ import {
   membershipSnapshot,
   notificationsSnapshot,
   ordersSnapshot,
-  publicAuthSnapshots,
-  publicShellSnapshot,
   securitySnapshot,
   strategiesSnapshot,
   strategyComposerSnapshot,
@@ -82,7 +84,8 @@ function clone<T>(value: T): T {
 }
 
 export async function getPublicShellSnapshot(): Promise<PublicShellSnapshot> {
-  return clone(publicShellSnapshot);
+  const lang = await currentUiLanguage();
+  return clone(buildPublicShellSnapshot(lang));
 }
 
 export async function getHomeSnapshot() {
@@ -90,12 +93,14 @@ export async function getHomeSnapshot() {
 }
 
 export async function getPublicAuthSnapshot(mode: "login" | "register") {
-  return clone(publicAuthSnapshots[mode]);
+  const lang = await currentUiLanguage();
+  return clone(buildPublicAuthSnapshot(mode, lang));
 }
 
 export async function getUserShellSnapshot(): Promise<UserShellSnapshot> {
+  const lang = await currentUiLanguage();
   const sessionToken = await currentSessionToken();
-  const base = clone(buildUserShellSnapshot());
+  const base = clone(buildUserShellSnapshot(lang));
 
   if (!sessionToken) {
     return base;
@@ -112,21 +117,21 @@ export async function getUserShellSnapshot(): Promise<UserShellSnapshot> {
     base.identity.name = profile.email;
   }
 
-  const membershipStatus = billing?.membership?.status ?? "Unknown";
+  const membershipStatus = billing?.membership?.status ?? pickText(lang, "未知", "Unknown");
   base.identity.role = membershipStatus;
   if (billing?.membership?.active_until) {
     const renewalDate = billing.membership.active_until.slice(0, 10);
     const graceDate = billing.membership.grace_until?.slice(0, 10);
     base.identity.context = graceDate
-      ? `Membership ${membershipStatus}. Next renewal ${renewalDate}. Grace ends ${graceDate}.`
-      : `Membership ${membershipStatus}. Next renewal ${renewalDate}.`;
+      ? pickText(lang, `会员状态 ${membershipStatus}，下次续费 ${renewalDate}，宽限期截止 ${graceDate}。`, `Membership ${membershipStatus}. Next renewal ${renewalDate}. Grace ends ${graceDate}.`)
+      : pickText(lang, `会员状态 ${membershipStatus}，下次续费 ${renewalDate}。`, `Membership ${membershipStatus}. Next renewal ${renewalDate}.`);
   }
 
   const runningCount = strategies.filter((item) => item.status === "Running").length;
   base.quickStats = [
-    { label: "Net PnL", value: analytics?.user?.net_pnl ?? "-" },
-    { label: "Running", value: `${runningCount} strategies` },
-    { label: "Grace", value: membershipStatus },
+    { label: pickText(lang, "净收益", "Net PnL"), value: analytics?.user?.net_pnl ?? "-" },
+    { label: pickText(lang, "运行中", "Running"), value: pickText(lang, `${runningCount} 个策略`, `${runningCount} strategies`) },
+    { label: pickText(lang, "会员状态", "Grace"), value: membershipStatus },
   ];
 
   return base;
@@ -148,7 +153,8 @@ export async function getUserExpiryNotification(): Promise<NotificationRecord | 
 }
 
 export async function getAdminShellSnapshot(): Promise<AdminShellSnapshot> {
-  return buildAdminShellSnapshot();
+  const lang = await currentUiLanguage();
+  return buildAdminShellSnapshot(lang);
 }
 
 export async function getUserDashboardSnapshot() {
@@ -241,6 +247,11 @@ export async function getAdminAuditSnapshot() {
 
 export async function getAdminSystemSnapshot() {
   return clone(adminSystemSnapshot);
+}
+
+async function currentUiLanguage(): Promise<UiLanguage> {
+  const cookieStore = await cookies();
+  return resolveUiLanguage(cookieStore.get(UI_LANGUAGE_COOKIE)?.value);
 }
 
 async function currentSessionToken() {

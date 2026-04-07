@@ -173,8 +173,8 @@ mod tests {
     use shared_db::{MembershipRecord, SharedDb, StoredStrategy, TelegramBindingRecord};
     use shared_domain::membership::{MembershipSnapshot, MembershipStatus};
     use shared_domain::strategy::{
-        GridGeneration, GridLevel, PostTriggerAction, Strategy, StrategyMarket, StrategyMode,
-        StrategyRevision, StrategyRuntime, StrategyRuntimeOrder, StrategyStatus,
+        GridGeneration, GridLevel, PostTriggerAction, Strategy, StrategyAmountMode, StrategyMarket,
+        StrategyMode, StrategyRevision, StrategyRuntime, StrategyRuntimeOrder, StrategyStatus,
     };
     use std::{
         collections::VecDeque,
@@ -396,6 +396,9 @@ mod tests {
             revision_id: "rev-1".to_string(),
             version: 1,
             generation: GridGeneration::Custom,
+            amount_mode: StrategyAmountMode::Quote,
+            futures_margin_mode: None,
+            leverage: None,
             levels: vec![GridLevel {
                 level_index: 0,
                 entry_price: Decimal::new(100_000, 2),

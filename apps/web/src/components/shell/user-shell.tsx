@@ -5,17 +5,23 @@ import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 
 import type { UserShellSnapshot } from "../../lib/api/mock-data";
+import { pickText, type UiLanguage, type UiTheme } from "../../lib/ui/preferences";
 import { Card, CardBody, CardDescription, CardHeader, CardTitle } from "../ui/card";
 import { Chip } from "../ui/chip";
 import { StatusBanner } from "../ui/status-banner";
+import { ShellPreferences } from "./shell-preferences";
 import { isNavHrefActive } from "./path-utils";
 
 export function UserShell({
   children,
   snapshot,
+  lang,
+  theme,
 }: {
   children: ReactNode;
   snapshot: UserShellSnapshot;
+  lang: UiLanguage;
+  theme: UiTheme | null;
 }) {
   const pathname = usePathname();
 
@@ -28,7 +34,7 @@ export function UserShell({
           </Link>
           <p>{snapshot.subtitle}</p>
         </div>
-        <nav aria-label="User workspace" className="shell-sidebar__nav">
+        <nav aria-label={pickText(lang, "用户导航", "User workspace")} className="shell-sidebar__nav">
           {snapshot.nav.map((item) => {
             const isActive = isNavHrefActive(pathname, item.href);
             return (
@@ -51,18 +57,21 @@ export function UserShell({
       </aside>
       <div className="shell-content">
         <header className="shell-topbar">
-          <div>
-            <p className="shell-topbar__eyebrow">User workspace</p>
+          <div className="shell-topbar__copy">
+            <p className="shell-topbar__eyebrow">{pickText(lang, "用户控制台", "User Workspace")}</p>
             <h1>{snapshot.title}</h1>
             <p className="shell-topbar__subtitle">{snapshot.description}</p>
           </div>
-          <div className="metric-strip">
-            {snapshot.quickStats.map((item) => (
-              <div className="metric-strip__item" key={item.label}>
-                <span>{item.label}</span>
-                <strong>{item.value}</strong>
-              </div>
-            ))}
+          <div className="shell-topbar__actions">
+            <ShellPreferences lang={lang} theme={theme} />
+            <div className="metric-strip">
+              {snapshot.quickStats.map((item) => (
+                <div className="metric-strip__item" key={item.label}>
+                  <span>{item.label}</span>
+                  <strong>{item.value}</strong>
+                </div>
+              ))}
+            </div>
           </div>
         </header>
         <div className="shell-banner-stack">

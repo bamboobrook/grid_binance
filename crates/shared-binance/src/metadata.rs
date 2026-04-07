@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{BinanceClient, ExchangeCredentialCheck};
+use crate::{BinanceClient, CredentialValidationError, ExchangeCredentialCheck};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct SymbolMetadata {
@@ -86,6 +86,33 @@ pub fn matches_symbol_query(symbol: &SymbolMetadata, query: &str) -> bool {
         symbol.keywords.join(" ")
     ));
     terms.into_iter().all(|term| haystack.contains(&term))
+}
+
+pub fn sync_symbol_metadata_strict(
+    client: &BinanceClient,
+    check: &ExchangeCredentialCheck,
+) -> Result<Vec<SymbolMetadata>, CredentialValidationError> {
+    let mut symbols = Vec::new();
+
+    if check.can_read_spot {
+        symbols.extend(client.spot_symbols_strict()?);
+    }
+
+    if check.can_read_usdm {
+        symbols.extend(client.usdm_symbols_strict()?);
+    }
+
+    if check.can_read_coinm {
+        symbols.extend(client.coinm_symbols_strict()?);
+    }
+
+    symbols.sort_by(|left, right| {
+        left.symbol
+            .cmp(&right.symbol)
+            .then(left.market.cmp(&right.market))
+    });
+    symbols.dedup_by(|left, right| left.symbol == right.symbol && left.market == right.market);
+    Ok(symbols)
 }
 
 pub fn sync_symbol_metadata(
