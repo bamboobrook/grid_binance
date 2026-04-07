@@ -1,9 +1,9 @@
 import Link from "next/link";
 import { cookies } from "next/headers";
 
-import { Card, CardBody, CardDescription, CardHeader, CardTitle } from "../../components/ui/card";
-import { StatusBanner } from "../../components/ui/status-banner";
-import { pickText, resolveUiLanguage, UI_LANGUAGE_COOKIE } from "../../lib/ui/preferences";
+import { Card, CardBody, CardDescription, CardHeader, CardTitle } from "../../../components/ui/card";
+import { StatusBanner } from "../../../components/ui/status-banner";
+import { pickText, resolveUiLanguage, UI_LANGUAGE_COOKIE } from "../../../lib/ui/preferences";
 
 export default async function HomePage() {
   const cookieStore = await cookies();

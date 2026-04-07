@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
-import { AuthProxyError, authApiPost } from "../../../../lib/auth";
+import { AuthProxyError, authApiPost } from "../../../../../lib/auth";
+
 
 const PENDING_ADMIN_TOTP_SECRET_COOKIE = "pending_admin_totp_secret";
 const PENDING_ADMIN_TOTP_CODE_COOKIE = "pending_admin_totp_code";

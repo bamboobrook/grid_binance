@@ -1,12 +1,12 @@
 import { cookies } from "next/headers";
 
-import { AppShellSection } from "../../../components/shell/app-shell-section";
-import { Card, CardBody, CardDescription, CardHeader, CardTitle } from "../../../components/ui/card";
-import { Button, Field, FormStack, Input, Select, Textarea } from "../../../components/ui/form";
-import { StatusBanner } from "../../../components/ui/status-banner";
-import { DataTable } from "../../../components/ui/table";
-import { getAdminDepositsData, type AdminDepositView, type AdminDepositsResponse } from "../../../lib/api/admin-product-state";
-import { pickText, resolveUiLanguage, UI_LANGUAGE_COOKIE, type UiLanguage } from "../../../lib/ui/preferences";
+import { AppShellSection } from "../../../../components/shell/app-shell-section";
+import { Card, CardBody, CardDescription, CardHeader, CardTitle } from "../../../../components/ui/card";
+import { Button, Field, FormStack, Input, Select, Textarea } from "../../../../components/ui/form";
+import { StatusBanner } from "../../../../components/ui/status-banner";
+import { DataTable } from "../../../../components/ui/table";
+import { getAdminDepositsData, type AdminDepositView, type AdminDepositsResponse } from "../../../../lib/api/admin-product-state";
+import { pickText, resolveUiLanguage, UI_LANGUAGE_COOKIE, type UiLanguage } from "../../../../lib/ui/preferences";
 
 const MANUAL_CREDIT_CONFIRMATION = "confirm manual credit";
 const REVIEW_REASONS_REQUIRING_ORDER_SELECTION = new Set(["ambiguous_match", "order_not_found"]);

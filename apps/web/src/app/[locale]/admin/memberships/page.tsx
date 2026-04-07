@@ -1,16 +1,16 @@
 import { cookies } from "next/headers";
 
-import { AppShellSection } from "../../../components/shell/app-shell-section";
-import { Card, CardBody, CardDescription, CardHeader, CardTitle } from "../../../components/ui/card";
-import { Button, Field, FormStack, Input } from "../../../components/ui/form";
-import { StatusBanner } from "../../../components/ui/status-banner";
-import { DataTable, type DataTableColumn } from "../../../components/ui/table";
+import { AppShellSection } from "../../../../components/shell/app-shell-section";
+import { Card, CardBody, CardDescription, CardHeader, CardTitle } from "../../../../components/ui/card";
+import { Button, Field, FormStack, Input } from "../../../../components/ui/form";
+import { StatusBanner } from "../../../../components/ui/status-banner";
+import { DataTable, type DataTableColumn } from "../../../../components/ui/table";
 import {
   getAdminMembershipPlansData,
   getAdminMembershipsData,
   getCurrentAdminProfile,
-} from "../../../lib/api/admin-product-state";
-import { pickText, resolveUiLanguage, UI_LANGUAGE_COOKIE, type UiLanguage } from "../../../lib/ui/preferences";
+} from "../../../../lib/api/admin-product-state";
+import { pickText, resolveUiLanguage, UI_LANGUAGE_COOKIE, type UiLanguage } from "../../../../lib/ui/preferences";
 
 const SUPPORTED_CHAINS = ["ETH", "BSC", "SOL"] as const;
 const SUPPORTED_ASSETS = ["USDT", "USDC"] as const;

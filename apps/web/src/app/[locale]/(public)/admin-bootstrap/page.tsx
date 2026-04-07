@@ -1,12 +1,12 @@
 import Link from "next/link";
 import { cookies } from "next/headers";
 
-import { Card, CardBody, CardDescription, CardFooter, CardHeader, CardTitle } from "../../../components/ui/card";
-import { Button, ButtonRow, Field, FormStack, Input } from "../../../components/ui/form";
-import { StatusBanner } from "../../../components/ui/status-banner";
-import { Tabs } from "../../../components/ui/tabs";
-import { firstValue } from "../../../lib/auth";
-import { pickText, resolveUiLanguage, UI_LANGUAGE_COOKIE } from "../../../lib/ui/preferences";
+import { Card, CardBody, CardDescription, CardFooter, CardHeader, CardTitle } from "../../../../components/ui/card";
+import { Button, ButtonRow, Field, FormStack, Input } from "../../../../components/ui/form";
+import { StatusBanner } from "../../../../components/ui/status-banner";
+import { Tabs } from "../../../../components/ui/tabs";
+import { firstValue } from "../../../../lib/auth";
+import { pickText, resolveUiLanguage, UI_LANGUAGE_COOKIE } from "../../../../lib/ui/preferences";
 
 type PageProps = {
   searchParams?: Promise<{

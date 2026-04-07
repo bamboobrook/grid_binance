@@ -1,4 +1,5 @@
-import { authApiBaseUrl } from "../../../../lib/api/admin-product-state";
+import { authApiBaseUrl } from "../../../../../lib/api/admin-product-state";
+
 import { postAdminBackend, proxyAdminBackendError, readField, readSessionToken, redirectTo } from "../_shared";
 
 function readBoolField(formData: FormData, key: string) {

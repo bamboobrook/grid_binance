@@ -59,6 +59,7 @@
       "exposure": "Exposure",
       "actions": "Actions"
     }
+  },
   "newStrategy": {
     "title": "Create Grid Bot",
     "subtitle": "Configure your trading parameters and launch a new strategy",

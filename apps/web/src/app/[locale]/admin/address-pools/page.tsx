@@ -1,12 +1,12 @@
 import { cookies } from "next/headers";
 
-import { AppShellSection } from "../../../components/shell/app-shell-section";
-import { Card, CardBody, CardDescription, CardHeader, CardTitle } from "../../../components/ui/card";
-import { Button, Field, FormStack, Input, Select } from "../../../components/ui/form";
-import { StatusBanner } from "../../../components/ui/status-banner";
-import { DataTable } from "../../../components/ui/table";
-import { getAdminAddressPoolsData, getCurrentAdminProfile } from "../../../lib/api/admin-product-state";
-import { pickText, resolveUiLanguage, UI_LANGUAGE_COOKIE } from "../../../lib/ui/preferences";
+import { AppShellSection } from "../../../../components/shell/app-shell-section";
+import { Card, CardBody, CardDescription, CardHeader, CardTitle } from "../../../../components/ui/card";
+import { Button, Field, FormStack, Input, Select } from "../../../../components/ui/form";
+import { StatusBanner } from "../../../../components/ui/status-banner";
+import { DataTable } from "../../../../components/ui/table";
+import { getAdminAddressPoolsData, getCurrentAdminProfile } from "../../../../lib/api/admin-product-state";
+import { pickText, resolveUiLanguage, UI_LANGUAGE_COOKIE } from "../../../../lib/ui/preferences";
 
 type PageProps = {
   searchParams?: Promise<{ updated?: string }>;

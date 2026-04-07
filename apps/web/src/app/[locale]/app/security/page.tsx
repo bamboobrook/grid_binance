@@ -1,11 +1,11 @@
 import { cookies } from "next/headers";
 
-import { AppShellSection } from "../../../components/shell/app-shell-section";
-import { Card, CardBody, CardDescription, CardHeader, CardTitle } from "../../../components/ui/card";
-import { Chip } from "../../../components/ui/chip";
-import { Button, Field, FormStack, Input } from "../../../components/ui/form";
-import { StatusBanner } from "../../../components/ui/status-banner";
-import { UI_LANGUAGE_COOKIE, pickText, resolveUiLanguage } from "../../../lib/ui/preferences";
+import { AppShellSection } from "../../../../components/shell/app-shell-section";
+import { Card, CardBody, CardDescription, CardHeader, CardTitle } from "../../../../components/ui/card";
+import { Chip } from "../../../../components/ui/chip";
+import { Button, Field, FormStack, Input } from "../../../../components/ui/form";
+import { StatusBanner } from "../../../../components/ui/status-banner";
+import { UI_LANGUAGE_COOKIE, pickText, resolveUiLanguage } from "../../../../lib/ui/preferences";
 
 type SecurityPageProps = {
   searchParams?: Promise<{

@@ -1,9 +1,9 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-import { Card, CardBody, CardDescription, CardHeader, CardTitle } from "../../../components/ui/card";
-import { StatusBanner } from "../../../components/ui/status-banner";
-import { getHelpArticle, type HelpArticleBlock } from "../../../lib/api/help-articles";
+import { Card, CardBody, CardDescription, CardHeader, CardTitle } from "../../../../components/ui/card";
+import { StatusBanner } from "../../../../components/ui/status-banner";
+import { getHelpArticle, type HelpArticleBlock } from "../../../../lib/api/help-articles";
 
 function renderArticleBlock(block: HelpArticleBlock, index: number) {
   if (block.kind === "heading") {

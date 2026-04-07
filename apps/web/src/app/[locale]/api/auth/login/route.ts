@@ -3,7 +3,8 @@ import {
   authApiPost,
   buildErrorRedirect,
   buildSessionRedirect,
-} from "../../../../lib/auth";
+} from "../../../../../lib/auth";
+
 
 export async function POST(request: Request) {
   const formData = await request.formData();

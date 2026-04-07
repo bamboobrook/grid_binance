@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { AuthProxyError, authApiPost } from "../../../../lib/auth";
+import { AuthProxyError, authApiPost } from "../../../../../lib/auth";
 
 const PENDING_VERIFY_CODE_COOKIE = "pending_verify_code";
 

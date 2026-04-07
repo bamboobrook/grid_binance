@@ -1,9 +1,9 @@
 import { cookies } from "next/headers";
 
-import { AppShellSection } from "../../../components/shell/app-shell-section";
-import { Card, CardBody, CardDescription, CardHeader, CardTitle } from "../../../components/ui/card";
-import { StatusBanner } from "../../../components/ui/status-banner";
-import { DataTable } from "../../../components/ui/table";
+import { AppShellSection } from "../../../../components/shell/app-shell-section";
+import { Card, CardBody, CardDescription, CardHeader, CardTitle } from "../../../../components/ui/card";
+import { StatusBanner } from "../../../../components/ui/status-banner";
+import { DataTable } from "../../../../components/ui/table";
 import {
   getAdminAddressPoolsData,
   getAdminAuditData,
@@ -13,8 +13,8 @@ import {
   getCurrentAdminProfile,
   type AdminTemplateList,
   fetchAdminJson,
-} from "../../../lib/api/admin-product-state";
-import { pickText, resolveUiLanguage, UI_LANGUAGE_COOKIE, type UiLanguage } from "../../../lib/ui/preferences";
+} from "../../../../lib/api/admin-product-state";
+import { pickText, resolveUiLanguage, UI_LANGUAGE_COOKIE, type UiLanguage } from "../../../../lib/ui/preferences";
 
 function roleBoundaryLabel(lang: UiLanguage, restricted: boolean) {
   return restricted ? pickText(lang, "操作员边界", "Operator Boundary") : pickText(lang, "超级管理员边界", "Super Admin Boundary");

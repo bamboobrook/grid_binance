@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { AuthProxyError, authApiPost } from "../../../../lib/auth";
+import { AuthProxyError, authApiPost } from "../../../../../lib/auth";
 
 export async function POST(request: Request) {
   const secureCookie = process.env.NODE_ENV === "production";

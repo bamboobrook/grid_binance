@@ -14,9 +14,9 @@ import {
   AlertCircle
 } from "lucide-react";
 
-import { Card } from "../../../components/ui/card";
-import { Button } from "../../../components/ui/form";
-import { Chip } from "../../../components/ui/chip";
+import { Card } from "../../../../components/ui/card";
+import { Button } from "../../../../components/ui/form";
+import { Chip } from "../../../../components/ui/chip";
 
 const DEFAULT_AUTH_API_BASE_URL = "http://127.0.0.1:8080";
 
@@ -96,12 +96,12 @@ export default async function DashboardPage({ params }: { params: Promise<{ loca
           <p className="text-muted-foreground text-sm">{t('subtitle')}</p>
         </div>
         <div className="flex items-center gap-3">
-          <Button variant="outline" size="sm">
+          <Button tone="secondary" className="px-3 py-1 text-xs">
             <History className="w-4 h-4 mr-2" />
             Last 24h
           </Button>
           <Link href={`/${locale}/app/strategies/new`}>
-            <Button size="sm" className="bg-amber-500 hover:bg-amber-600 text-white border-none shadow-lg shadow-amber-500/20">
+            <Button className="bg-amber-500 hover:bg-amber-600 text-white border-none shadow-lg shadow-amber-500/20 px-4 py-1 text-xs">
               New Bot
             </Button>
           </Link>

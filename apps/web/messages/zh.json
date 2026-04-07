@@ -59,6 +59,7 @@
       "exposure": "预算",
       "actions": "操作"
     }
+  },
   "newStrategy": {
     "title": "创建网格机器人",
     "subtitle": "配置交易参数并启动新策略",

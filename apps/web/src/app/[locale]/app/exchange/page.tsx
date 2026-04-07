@@ -1,10 +1,10 @@
 import { cookies } from "next/headers";
 
-import { AppShellSection } from "../../../components/shell/app-shell-section";
-import { Card, CardBody, CardDescription, CardHeader, CardTitle } from "../../../components/ui/card";
-import { DialogFrame } from "../../../components/ui/dialog";
-import { Button, ButtonRow, Field, FormStack, Input, Select } from "../../../components/ui/form";
-import { StatusBanner } from "../../../components/ui/status-banner";
+import { AppShellSection } from "../../../../components/shell/app-shell-section";
+import { Card, CardBody, CardDescription, CardHeader, CardTitle } from "../../../../components/ui/card";
+import { DialogFrame } from "../../../../components/ui/dialog";
+import { Button, ButtonRow, Field, FormStack, Input, Select } from "../../../../components/ui/form";
+import { StatusBanner } from "../../../../components/ui/status-banner";
 
 const DEFAULT_AUTH_API_BASE_URL = "http://127.0.0.1:8080";
 

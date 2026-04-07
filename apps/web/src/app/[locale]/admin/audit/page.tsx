@@ -1,11 +1,11 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
-import { AppShellSection } from "../../../components/shell/app-shell-section";
-import { Card, CardBody, CardDescription, CardHeader, CardTitle } from "../../../components/ui/card";
-import { DataTable } from "../../../components/ui/table";
-import { getAdminAuditData, getCurrentAdminProfile } from "../../../lib/api/admin-product-state";
-import { pickText, resolveUiLanguage, UI_LANGUAGE_COOKIE, type UiLanguage } from "../../../lib/ui/preferences";
+import { AppShellSection } from "../../../../components/shell/app-shell-section";
+import { Card, CardBody, CardDescription, CardHeader, CardTitle } from "../../../../components/ui/card";
+import { DataTable } from "../../../../components/ui/table";
+import { getAdminAuditData, getCurrentAdminProfile } from "../../../../lib/api/admin-product-state";
+import { pickText, resolveUiLanguage, UI_LANGUAGE_COOKIE, type UiLanguage } from "../../../../lib/ui/preferences";
 
 function payloadString(value: unknown) {
   if (typeof value === "string") {

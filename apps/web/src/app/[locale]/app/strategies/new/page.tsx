@@ -2,7 +2,7 @@ import { cookies } from "next/headers";
 import { getTranslations } from "next-intl/server";
 import { Bot, Search, Save, Copy, Info, AlertTriangle, ChevronRight } from "lucide-react";
 
-import { Button } from "../../../../components/ui/form";
+import { Button } from "../../../../../components/ui/form";
 
 const DEFAULT_AUTH_API_BASE_URL = "http://127.0.0.1:8080";
 
@@ -154,7 +154,7 @@ export default async function StrategyNewPage({ params, searchParams }: PageProp
                 <p className="text-xs text-muted-foreground italic text-center py-4 bg-muted/20 rounded-xl">No templates found</p>
               )}
             </div>
-            <Button variant="outline" className="w-full text-xs">Create Template</Button>
+            <Button  className="w-full text-xs">Create Template</Button>
           </div>
 
           <div className="bg-amber-500/10 border border-amber-500/20 rounded-2xl p-6 space-y-3">

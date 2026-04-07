@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
-import { authApiBaseUrl } from "../../../lib/api/admin-product-state";
+import { authApiBaseUrl } from "../../../../lib/api/admin-product-state";
+
 
 export function readField(formData: FormData, key: string) {
   const value = formData.get(key);

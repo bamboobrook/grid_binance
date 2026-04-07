@@ -1,10 +1,10 @@
 import Link from "next/link";
 import { cookies } from "next/headers";
-import { useTranslations, getTranslations } from "next-intl/server";
+import { getTranslations } from "next-intl/server";
 import { Bot, Plus, Pause, Play, Trash2, Filter, LayoutGrid, List } from "lucide-react";
 
-import { Button } from "../../../components/ui/form";
-import { Chip } from "../../../components/ui/chip";
+import { Button } from "../../../../components/ui/form";
+import { Chip } from "../../../../components/ui/chip";
 
 const DEFAULT_AUTH_API_BASE_URL = "http://127.0.0.1:8080";
 
@@ -62,7 +62,7 @@ export default async function StrategiesPage({ params, searchParams }: PageProps
           </Link>
           <form action="/api/user/strategies/batch" method="post">
             <input name="intent" type="hidden" value="stop-all" />
-            <Button variant="outline" className="border-red-500/50 text-red-500 hover:bg-red-500/10">
+            <Button  className="border-red-500/50 text-red-500 hover:bg-red-500/10">
               <Pause className="w-4 h-4 mr-2" />
               {t('stopAll')}
             </Button>
@@ -102,8 +102,8 @@ export default async function StrategiesPage({ params, searchParams }: PageProps
           />
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="ghost" size="sm" className="bg-muted text-foreground"><List className="w-4 h-4" /></Button>
-          <Button variant="ghost" size="sm"><LayoutGrid className="w-4 h-4" /></Button>
+          <Button   className="bg-muted text-foreground"><List className="w-4 h-4" /></Button>
+          <Button  ><LayoutGrid className="w-4 h-4" /></Button>
         </div>
       </div>
 
@@ -143,13 +143,13 @@ export default async function StrategiesPage({ params, searchParams }: PageProps
                 </td>
                 <td className="px-6 py-4 text-right">
                   <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0 hover:text-green-500">
+                    <Button   className="h-8 w-8 p-0 hover:text-green-500">
                       <Play className="w-4 h-4" />
                     </Button>
-                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0 hover:text-amber-500">
+                    <Button   className="h-8 w-8 p-0 hover:text-amber-500">
                       <Pause className="w-4 h-4" />
                     </Button>
-                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0 hover:text-red-500">
+                    <Button   className="h-8 w-8 p-0 hover:text-red-500">
                       <Trash2 className="w-4 h-4" />
                     </Button>
                   </div>

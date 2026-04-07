@@ -2,11 +2,11 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { cookies } from "next/headers";
 
-import { AppShellSection } from "../../../components/shell/app-shell-section";
-import { Card, CardBody, CardDescription, CardHeader, CardTitle } from "../../../components/ui/card";
-import { StatusBanner } from "../../../components/ui/status-banner";
-import { getHelpArticle, HELP_ARTICLES, normalizeHelpArticle, type HelpArticleBlock } from "../../../lib/api/help-articles";
-import { UI_LANGUAGE_COOKIE, pickText, resolveUiLanguage } from "../../../lib/ui/preferences";
+import { AppShellSection } from "../../../../components/shell/app-shell-section";
+import { Card, CardBody, CardDescription, CardHeader, CardTitle } from "../../../../components/ui/card";
+import { StatusBanner } from "../../../../components/ui/status-banner";
+import { getHelpArticle, HELP_ARTICLES, normalizeHelpArticle, type HelpArticleBlock } from "../../../../lib/api/help-articles";
+import { UI_LANGUAGE_COOKIE, pickText, resolveUiLanguage } from "../../../../lib/ui/preferences";
 
 type HelpPageProps = {
   searchParams?: Promise<{
