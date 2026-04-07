@@ -58,7 +58,7 @@ export default async function AnalyticsPage() {
       <StatusBanner
         description={pickText(lang, "分析页直接展示后端报表，包括策略汇总、钱包快照与交易所成交。", "Analytics renders the backend report directly, including strategy totals, wallet snapshots, and exchange trades.")}
         title={pickText(lang, "分析状态条", "Analytics status strip")}
-        tone="info"
+       
       />
       <AppShellSection
         description={pickText(lang, "账户级与策略级统计集中展示，便于收益与成本复盘。", "Account-level and strategy-level statistics stay together for PnL and cost review.")}
@@ -108,7 +108,7 @@ export default async function AnalyticsPage() {
             />
           </CardBody>
         </Card>
-        <Card tone="subtle">
+        <Card>
           <CardHeader>
             <CardTitle>{pickText(lang, "钱包快照", "Wallet snapshots")}</CardTitle>
             <CardDescription>{pickText(lang, "记录账户余额快照用于对账与回溯。", "Captured wallet state is preserved for reconciliation and audit.")}</CardDescription>

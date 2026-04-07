@@ -91,18 +91,18 @@ export default async function AdminMembershipsPage({ searchParams }: PageProps) 
         <StatusBanner
           description={pickText(lang, "目标账号：" + updatedMembership.email + "，当前状态：" + membershipStatusLabel(lang, updatedMembership.status) + "，最近动作：" + actionLabel(lang, lastAction), "Target " + updatedMembership.email + ". Status " + membershipStatusLabel(lang, updatedMembership.status) + ". Last action " + actionLabel(lang, lastAction) + ".")}
           title={pickText(lang, "会员变更已记录", "Membership Change Recorded")}
-          tone="success"
+         
         />
       ) : null}
-      {planSaved ? <StatusBanner description={pickText(lang, "已保存计划：" + planSaved, "Saved plan: " + planSaved)} title={pickText(lang, "价格矩阵已保存", "Price Matrix Saved")} tone="success" /> : null}
-      {planError ? <StatusBanner description={planError} title={pickText(lang, "价格矩阵未保存", "Price Matrix Not Saved")} tone="warning" /> : null}
+      {planSaved ? <StatusBanner description={pickText(lang, "已保存计划：" + planSaved, "Saved plan: " + planSaved)} title={pickText(lang, "价格矩阵已保存", "Price Matrix Saved")} /> : null}
+      {planError ? <StatusBanner description={planError} title={pickText(lang, "价格矩阵未保存", "Price Matrix Not Saved")} /> : null}
       <AppShellSection
         description={pickText(lang, "值班席位同时处理会员生命周期与价格矩阵，但当前编辑面板默认加载 monthly 计划，其他计划以清单核对。", "The desk handles lifecycle and pricing, but the editor currently preloads the monthly plan while other plans remain visible in the snapshot table.")}
         eyebrow={pickText(lang, "会员生命周期", "Membership Lifecycle")}
         title={pickText(lang, "会员运营", "Membership Operations")}
       >
         <div className="content-grid content-grid--metrics">
-          <Card tone="accent">
+          <Card>
             <CardHeader>
               <CardTitle>{pickText(lang, "风险会员", "Membership Risk")}</CardTitle>
               <CardDescription>{pickText(lang, "宽限、冻结、撤销", "Grace, Frozen, Revoked")}</CardDescription>
@@ -155,7 +155,7 @@ export default async function AdminMembershipsPage({ searchParams }: PageProps) 
               )}
             </CardBody>
           </Card>
-          <Card tone="subtle">
+          <Card>
             <CardHeader>
               <CardTitle>{pickText(lang, "会员开通", "Open Membership")}</CardTitle>
               <CardDescription>{pickText(lang, "用于补开、恢复或临时延长，不依赖预选行。", "Open, restore, or extend access without depending on a preselected row.")}</CardDescription>

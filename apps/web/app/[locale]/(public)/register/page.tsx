@@ -42,12 +42,12 @@ export default async function RegisterPage({ searchParams }: RegisterPageProps) 
         label={pickText(lang, "认证页面", "Authentication pages")}
       />
       {error ? (
-        <StatusBanner description={error} title={pickText(lang, "注册失败", "Registration failed")} tone="danger" />
+        <StatusBanner description={error} title={pickText(lang, "注册失败", "Registration failed")} />
       ) : (
         <StatusBanner description={snapshot.notice.description} title={snapshot.notice.title} tone={snapshot.notice.tone} />
       )}
       <div className="content-grid content-grid--split">
-        <Card tone="accent">
+        <Card>
           <CardHeader>
             <CardTitle>{snapshot.title}</CardTitle>
             <CardDescription>{snapshot.description}</CardDescription>
@@ -63,7 +63,7 @@ export default async function RegisterPage({ searchParams }: RegisterPageProps) 
               </Field>
               <div className="chip-row">
                 {snapshot.checklist.map((item) => (
-                  <Chip key={item} tone="warning">
+                  <Chip key={item}>
                     {item}
                   </Chip>
                 ))}

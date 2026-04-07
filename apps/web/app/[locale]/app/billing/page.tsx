@@ -67,10 +67,10 @@ export default async function BillingPage({ searchParams }: PageProps) {
       <StatusBanner
         description="Membership enters a 48-hour grace period after expiry. Existing strategies may continue only during that window."
         title="Grace-period reminder enabled"
-        tone="warning"
+       
       />
-      {notice ? <StatusBanner description={notice} title="Awaiting exact transfer" tone="warning" /> : null}
-      {error ? <StatusBanner description={error} title="Billing request failed" tone="warning" /> : null}
+      {notice ? <StatusBanner description={notice} title="Awaiting exact transfer" /> : null}
+      {error ? <StatusBanner description={error} title="Billing request failed" /> : null}
       <AppShellSection
         description="Create renewal orders with visible exact-amount warnings, plan pricing, and membership timing."
         eyebrow="Membership billing"
@@ -125,7 +125,7 @@ export default async function BillingPage({ searchParams }: PageProps) {
             </FormStack>
           </CardBody>
         </Card>
-        <Card tone="subtle">
+        <Card>
           <CardHeader>
             <CardTitle>Membership timing</CardTitle>
             <CardDescription>Pricing changes apply to the following billing cycle, not the current entitlement.</CardDescription>
@@ -171,7 +171,7 @@ export default async function BillingPage({ searchParams }: PageProps) {
         <DialogFrame
           description="Payment amount must match exactly. Overpayment, underpayment, or wrong token will require manual review before membership can be extended."
           title="Payment amount must match exactly"
-          tone="danger"
+         
         />
       </div>
     </>

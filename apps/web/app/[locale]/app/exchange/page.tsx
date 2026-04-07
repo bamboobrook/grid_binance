@@ -51,28 +51,28 @@ export default async function ExchangePage({ searchParams }: ExchangePageProps) 
       <StatusBanner
         description="One user can bind only one Binance account, and saved API secrets stay encrypted and masked."
         title="Exchange credential workspace"
-        tone="info"
+       
       />
-      {error ? <StatusBanner description={error} title="Exchange action failed" tone="warning" /> : null}
+      {error ? <StatusBanner description={error} title="Exchange action failed" /> : null}
       {notice === "credentials-saved" ? (
         <StatusBanner
           description="The key is masked immediately after persistence and withdrawal permission must remain disabled."
           title="Credentials saved"
-          tone="success"
+         
         />
       ) : null}
       {notice === "test-passed" ? (
         <StatusBanner
           description="Spot, USDⓈ-M, and COIN-M permissions verified. Hedge mode remains required before futures pre-flight can pass."
           title="Connection test passed"
-          tone="success"
+         
         />
       ) : null}
       {notice === "test-failed" ? (
         <StatusBanner
           description="The saved Binance account is reachable, but the latest validation snapshot is not healthy enough for futures pre-flight."
           title="Connection test failed"
-          tone="warning"
+         
         />
       ) : null}
       <AppShellSection
@@ -104,14 +104,14 @@ export default async function ExchangePage({ searchParams }: ExchangePageProps) 
                   <Button name="intent" type="submit" value="save">
                     Save credentials
                   </Button>
-                  <Button name="intent" tone="secondary" type="submit" value="test">
+                  <Button name="intent" type="submit" value="test">
                     Run connection test
                   </Button>
                 </ButtonRow>
               </FormStack>
             </CardBody>
           </Card>
-          <Card tone="subtle">
+          <Card>
             <CardHeader>
               <CardTitle>Credential summary</CardTitle>
               <CardDescription>Masked values and exchange runtime requirements remain visible after save.</CardDescription>
@@ -148,7 +148,7 @@ export default async function ExchangePage({ searchParams }: ExchangePageProps) 
       <DialogFrame
         description="If hedge mode, balance, or exchange filters do not match runtime requirements, strategy pre-flight must fail fast with the exact reason."
         title="Trading-critical warning"
-        tone="warning"
+       
       />
     </>
   );

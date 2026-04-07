@@ -84,7 +84,7 @@ export default async function AdminAuditPage() {
               />
             </CardBody>
           </Card>
-          <Card tone="subtle">
+          <Card>
             <CardHeader>
               <CardTitle>{pickText(lang, "变更前后", "Before / After")}</CardTitle>
               <CardDescription>{pickText(lang, "关键动作会带上变更前后摘要和原始 payload。", "Critical actions include before-after summaries and raw payload detail.")}</CardDescription>

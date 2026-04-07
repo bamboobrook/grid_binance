@@ -3,8 +3,8 @@ import { cookies } from "next/headers";
 import { getTranslations } from "next-intl/server";
 import { Bot, Plus, Pause, Play, Trash2, Filter, LayoutGrid, List } from "lucide-react";
 
-import { Button } from "@/components/ui/form";
-import { Chip } from "@/components/ui/chip";
+import { Button, Input } from "@/components/ui/form";
+import { Card } from "@/components/ui/card";
 
 const DEFAULT_AUTH_API_BASE_URL = "http://127.0.0.1:8080";
 
@@ -44,149 +44,123 @@ export default async function StrategiesPage({ params, searchParams }: PageProps
   });
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col space-y-4 max-w-[1600px] mx-auto h-full">
       {/* Header Section */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
-          <p className="text-muted-foreground text-sm">
-            Manage your active trading bots and monitor their performance.
-          </p>
+          <h1 className="text-xl font-bold tracking-tight text-slate-100">{t('title')}</h1>
         </div>
         <div className="flex items-center gap-3">
-          <Link href={`/${locale}/app/strategies/new`}>
-            <Button className="bg-amber-500 hover:bg-amber-600 text-white border-none shadow-lg shadow-amber-500/20">
-              <Plus className="w-4 h-4 mr-2" />
-              {t('new')}
-            </Button>
-          </Link>
           <form action="/api/user/strategies/batch" method="post">
             <input name="intent" type="hidden" value="stop-all" />
-            <Button  className="border-red-500/50 text-red-500 hover:bg-red-500/10">
-              <Pause className="w-4 h-4 mr-2" />
-              {t('stopAll')}
+            <Button className="h-8 px-3 text-xs bg-red-500/10 text-red-500 hover:bg-red-500/20 border border-red-500/20">
+              <Pause className="w-3.5 h-3.5 mr-1.5" />
+              Stop All
             </Button>
           </form>
+          <Link href={`/${locale}/app/strategies/new`}>
+            <Button className="h-8 px-4 text-xs font-semibold">
+              <Plus className="w-3.5 h-3.5 mr-1.5" />
+              New Bot
+            </Button>
+          </Link>
         </div>
-      </div>
-
-      {/* Stats Overview */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {[
-          { label: commonT('gridConfig.status.running'), count: strategies.filter(s => s.status === 'Running').length, color: 'text-green-500', bg: 'bg-green-500/10' },
-          { label: commonT('gridConfig.status.paused'), count: strategies.filter(s => s.status === 'Paused').length, color: 'text-amber-500', bg: 'bg-amber-500/10' },
-          { label: commonT('gridConfig.status.draft'), count: strategies.filter(s => s.status === 'Draft').length, color: 'text-blue-500', bg: 'bg-blue-500/10' },
-          { label: 'Total Budget', count: `$${strategies.reduce((acc, s) => acc + parseFloat(s.budget || '0'), 0).toFixed(2)}`, color: 'text-foreground', bg: 'bg-muted' }
-        ].map((stat, i) => (
-          <div key={i} className="bg-card border border-border rounded-xl p-4 flex flex-col gap-1 shadow-sm">
-            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{stat.label}</span>
-            <div className="flex items-center justify-between">
-              <span className={`text-xl font-bold ${stat.color}`}>{stat.count}</span>
-              <div className={`w-8 h-8 rounded-full ${stat.bg} flex items-center justify-center`}>
-                <Bot className={`w-4 h-4 ${stat.color}`} />
-              </div>
-            </div>
-          </div>
-        ))}
       </div>
 
       {/* Filter Bar */}
-      <div className="bg-card border border-border rounded-xl p-4 flex flex-wrap items-center gap-4">
-        <div className="flex items-center gap-2 px-3 py-1.5 bg-muted/50 rounded-lg border border-transparent focus-within:border-amber-500/50 transition-colors flex-1 min-w-[200px]">
-          <Filter className="w-4 h-4 text-muted-foreground" />
+      <div className="bg-[#131b2c] border border-slate-800/60 rounded-sm p-3 flex flex-wrap items-center gap-4">
+        <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-900 rounded-sm border border-slate-800 focus-within:border-primary/50 transition-colors flex-1 max-w-[300px]">
+          <Filter className="w-4 h-4 text-slate-500" />
           <input 
             type="text" 
             placeholder={t('filter')}
             defaultValue={symbolFilter}
-            className="bg-transparent border-none outline-none text-sm w-full"
+            className="bg-transparent border-none outline-none text-xs w-full text-slate-300 placeholder:text-slate-500"
           />
         </div>
-        <div className="flex items-center gap-2">
-          <Button   className="bg-muted text-foreground"><List className="w-4 h-4" /></Button>
-          <Button  ><LayoutGrid className="w-4 h-4" /></Button>
+        <div className="flex items-center gap-1 ml-auto bg-slate-900 p-1 rounded-sm border border-slate-800">
+          <button className="p-1.5 bg-slate-800 text-slate-200 rounded-sm"><List className="w-4 h-4" /></button>
+          <button className="p-1.5 text-slate-500 hover:text-slate-300 rounded-sm transition-colors"><LayoutGrid className="w-4 h-4" /></button>
         </div>
       </div>
 
       {/* Strategies List */}
-      <div className="bg-card border border-border rounded-xl overflow-hidden shadow-sm">
-        <table className="w-full text-sm text-left">
-          <thead className="bg-muted/50 text-muted-foreground font-medium border-b border-border">
-            <tr>
-              <th className="px-6 py-3">{t('table.strategy')}</th>
-              <th className="px-6 py-3">{t('table.market')}</th>
-              <th className="px-6 py-3">{t('table.status')}</th>
-              <th className="px-6 py-3 text-right">{t('table.exposure')}</th>
-              <th className="px-6 py-3 text-right">{t('table.actions')}</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-border">
-            {filteredStrategies.length > 0 ? filteredStrategies.map((strategy) => (
-              <tr key={strategy.id} className="hover:bg-muted/30 transition-colors group">
-                <td className="px-6 py-4">
-                  <div className="flex flex-col">
-                    <Link href={`/${locale}/app/strategies/${strategy.id}`} className="font-semibold text-foreground hover:text-amber-500 transition-colors">
-                      {strategy.name}
-                    </Link>
-                    <span className="text-xs text-muted-foreground">{strategy.symbol}</span>
-                  </div>
-                </td>
-                <td className="px-6 py-4">
-                  <span className="px-2 py-0.5 bg-muted rounded text-[10px] font-bold uppercase tracking-tight">
-                    {strategy.market}
-                  </span>
-                </td>
-                <td className="px-6 py-4">
-                  <StatusBadge status={strategy.status} t={commonT} />
-                </td>
-                <td className="px-6 py-4 text-right font-mono font-medium">
-                  {strategy.budget}
-                </td>
-                <td className="px-6 py-4 text-right">
-                  <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <Button   className="h-8 w-8 p-0 hover:text-green-500">
-                      <Play className="w-4 h-4" />
-                    </Button>
-                    <Button   className="h-8 w-8 p-0 hover:text-amber-500">
-                      <Pause className="w-4 h-4" />
-                    </Button>
-                    <Button   className="h-8 w-8 p-0 hover:text-red-500">
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
-                  </div>
-                </td>
-              </tr>
-            )) : (
+      <Card className="bg-[#131b2c] border-slate-800 shadow-none">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-sm">
+            <thead className="bg-[#0a101d] text-slate-500 text-[10px] uppercase tracking-wider">
               <tr>
-                <td colSpan={5} className="px-6 py-12 text-center text-muted-foreground">
-                  No strategies found. Create your first bot to get started!
-                </td>
+                <th className="px-4 py-2 font-medium">{t('table.strategy')}</th>
+                <th className="px-4 py-2 font-medium">{t('table.market')}</th>
+                <th className="px-4 py-2 font-medium text-center">{t('table.status')}</th>
+                <th className="px-4 py-2 font-medium text-right">{t('table.exposure')}</th>
+                <th className="px-4 py-2 font-medium text-right">{t('table.actions')}</th>
               </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody className="divide-y divide-slate-800/50">
+              {filteredStrategies.length > 0 ? filteredStrategies.map((strategy) => (
+                <tr key={strategy.id} className="hover:bg-slate-800/30 transition-colors group">
+                  <td className="px-4 py-3">
+                    <div className="flex flex-col gap-0.5">
+                      <Link href={`/${locale}/app/strategies/${strategy.id}`} className="text-sm font-bold text-slate-200 hover:text-primary transition-colors">
+                        {strategy.name}
+                      </Link>
+                      <span className="text-[10px] text-slate-500 font-mono tracking-wide">{strategy.symbol}</span>
+                    </div>
+                  </td>
+                  <td className="px-4 py-3">
+                    <span className="px-1.5 py-0.5 bg-slate-800 border border-slate-700 text-slate-300 rounded-[2px] text-[10px] font-bold uppercase tracking-widest">
+                      {strategy.market}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-center">
+                    <StatusBadge status={strategy.status} />
+                  </td>
+                  <td className="px-4 py-3 text-right font-mono text-xs text-slate-300 font-semibold">
+                    ${strategy.budget}
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <Button size="icon" className="h-7 w-7 text-slate-400 hover:text-emerald-500 hover:bg-emerald-500/10">
+                        <Play className="w-3.5 h-3.5" />
+                      </Button>
+                      <Button size="icon" className="h-7 w-7 text-slate-400 hover:text-amber-500 hover:bg-amber-500/10">
+                        <Pause className="w-3.5 h-3.5" />
+                      </Button>
+                      <Button size="icon" className="h-7 w-7 text-slate-400 hover:text-red-500 hover:bg-red-500/10">
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </Button>
+                    </div>
+                  </td>
+                </tr>
+              )) : (
+                <tr>
+                  <td colSpan={5} className="px-4 py-12 text-center text-xs text-slate-500">
+                    No active strategies. Create your first bot to get started.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </Card>
     </div>
   );
 }
 
-function StatusBadge({ status, t }: { status: string, t: any }) {
-  const styles: Record<string, string> = {
-    Running: "bg-green-500/10 text-green-500 border-green-500/20",
-    Paused: "bg-amber-500/10 text-amber-500 border-amber-500/20",
-    Draft: "bg-blue-500/10 text-blue-500 border-blue-500/20",
-    Stopped: "bg-red-500/10 text-red-500 border-red-500/20",
-  };
-
-  const label: Record<string, string> = {
-    Running: t('gridConfig.status.running'),
-    Paused: t('gridConfig.status.paused'),
-    Draft: t('gridConfig.status.draft'),
-    Stopped: t('gridConfig.status.stopped'),
-  };
-
+function StatusBadge({ status }: { status: string }) {
+  const isRunning = status === 'Running';
+  const isPaused = status === 'Paused';
+  const isDraft = status === 'Draft';
+  
   return (
-    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold border ${styles[status] || styles.Draft}`}>
-      {label[status] || status}
+    <span className={`inline-flex items-center px-1.5 py-0.5 rounded-[2px] text-[10px] font-bold uppercase tracking-widest ${
+      isRunning ? "bg-emerald-500/10 text-emerald-500" :
+      isPaused ? "bg-amber-500/10 text-amber-500" :
+      isDraft ? "bg-blue-500/10 text-blue-500" :
+      "bg-slate-800 text-slate-400"
+    }`}>
+      {status}
     </span>
   );
 }

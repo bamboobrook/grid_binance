@@ -1,8 +1,8 @@
 import { cookies } from "next/headers";
 import { getTranslations } from "next-intl/server";
-import { Bot, Search, Save, Copy, Info, AlertTriangle, ChevronRight } from "lucide-react";
-
-import { Button } from "../../../../../components/ui/form";
+import { Bot, Search, Save, Copy, AlertTriangle, ChevronRight, Activity } from "lucide-react";
+import { Button, Input, Select } from "@/components/ui/form";
+import { Card, CardBody, CardHeader, CardTitle } from "@/components/ui/card";
 
 const DEFAULT_AUTH_API_BASE_URL = "http://127.0.0.1:8080";
 
@@ -29,148 +29,172 @@ type TemplateListResponse = {
 export default async function StrategyNewPage({ params, searchParams }: PageProps) {
   const { locale } = await params;
   const t = await getTranslations({ locale, namespace: 'newStrategy' });
-  const commonT = await getTranslations({ locale, namespace: 'common' });
   
   const searchParamsValue = (await searchParams) ?? {};
   const symbolQuery = (Array.isArray(searchParamsValue.symbolQuery) ? searchParamsValue.symbolQuery[0] : searchParamsValue.symbolQuery) ?? "";
   
   const results = await Promise.all([fetchStrategies(), fetchTemplates(), fetchSymbolMatches(symbolQuery)]);
-  const strategies = results[0].items;
   const templates = results[1].items;
-  const symbolMatches = results[2].items;
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6">
+    <div className="flex flex-col h-full space-y-4 max-w-[1400px] mx-auto">
       {/* Header */}
-      <div className="flex items-center gap-3">
-        <div className="w-10 h-10 rounded-xl bg-amber-500/20 flex items-center justify-center text-amber-500">
-          <Bot className="w-6 h-6" />
-        </div>
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
-          <p className="text-muted-foreground text-sm">{t('subtitle')}</p>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-sm bg-primary/20 flex items-center justify-center text-primary border border-primary/30">
+            <Bot className="w-4 h-4" />
+          </div>
+          <h1 className="text-xl font-bold tracking-tight text-slate-100">{t('title')}</h1>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Main Config Panel */}
-        <div className="lg:col-span-2 space-y-6">
-          <div className="bg-card border border-border rounded-2xl p-6 shadow-sm space-y-6">
-            <h2 className="text-lg font-bold flex items-center gap-2">
-              <ChevronRight className="w-4 h-4 text-amber-500" />
-              General Settings
-            </h2>
-            
-            <form action="/api/user/strategies/create" method="post" className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-muted-foreground uppercase">{t('form.strategyName')}</label>
-                  <input name="name" defaultValue="My First Grid Bot" className="w-full bg-muted/50 border border-border rounded-lg px-3 py-2 text-sm focus:border-amber-500/50 outline-none transition-colors" />
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-muted-foreground uppercase">{t('form.symbol')}</label>
-                  <div className="relative group">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-amber-500 transition-colors" />
-                    <input name="symbol" defaultValue="ETHUSDT" className="w-full bg-muted/50 border border-border rounded-lg pl-10 pr-3 py-2 text-sm focus:border-amber-500/50 outline-none transition-colors" />
-                  </div>
-                </div>
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 items-start">
+        {/* Left Panel: Chart Placeholder (Takes up 2/3 of space on large screens) */}
+        <div className="lg:col-span-3 flex flex-col gap-4">
+          {/* Main Chart Card */}
+          <Card className="bg-[#131b2c] border-slate-800 shadow-none">
+            <CardHeader className="py-3 px-4 border-b border-slate-800 flex flex-row items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Activity className="w-4 h-4 text-slate-400" />
+                <CardTitle className="text-sm text-slate-300">Chart & Strategy Visualizer</CardTitle>
               </div>
+              <div className="text-xs text-slate-500 font-mono">1D • 4H • 1H • 15M</div>
+            </CardHeader>
+            <CardBody className="p-0 h-[400px] flex items-center justify-center bg-[#0a101d]">
+              <p className="text-slate-600 text-sm flex flex-col items-center gap-2">
+                <LineChartIcon className="w-8 h-8 opacity-50" />
+                Select a pair to load TradingView chart
+              </p>
+            </CardBody>
+          </Card>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-muted-foreground uppercase">{t('form.marketType')}</label>
-                  <select name="marketType" className="w-full bg-muted/50 border border-border rounded-lg px-3 py-2 text-sm focus:border-amber-500/50 outline-none transition-colors appearance-none">
-                    <option value="spot">Binance Spot</option>
-                    <option value="usd-m">USDT-Futures</option>
-                  </select>
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-muted-foreground uppercase">{t('form.strategyMode')}</label>
-                  <select name="mode" className="w-full bg-muted/50 border border-border rounded-lg px-3 py-2 text-sm focus:border-amber-500/50 outline-none transition-colors appearance-none">
-                    <option value="classic">Classic</option>
-                    <option value="long">Long (Futures)</option>
-                    <option value="short">Short (Futures)</option>
-                  </select>
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-muted-foreground uppercase">{t('form.leverage')}</label>
-                  <input name="leverage" type="number" defaultValue="1" className="w-full bg-muted/50 border border-border rounded-lg px-3 py-2 text-sm focus:border-amber-500/50 outline-none transition-colors" />
-                </div>
-              </div>
-
-              <div className="h-[1px] bg-border my-2" />
-              
-              <h2 className="text-lg font-bold flex items-center gap-2 pt-2">
-                <ChevronRight className="w-4 h-4 text-amber-500" />
-                Grid Parameters
-              </h2>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-muted-foreground uppercase">{t('form.investment')}</label>
-                  <input name="quoteAmount" type="number" defaultValue="1000" className="w-full bg-muted/50 border border-border rounded-lg px-3 py-2 text-sm font-mono focus:border-amber-500/50 outline-none transition-colors" />
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-muted-foreground uppercase">{t('form.gridCount')}</label>
-                  <input name="gridCount" type="number" defaultValue="10" className="w-full bg-muted/50 border border-border rounded-lg px-3 py-2 text-sm focus:border-amber-500/50 outline-none transition-colors" />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-muted-foreground uppercase">{t('form.spacing')}</label>
-                  <input name="gridSpacingPercent" type="number" step="0.1" defaultValue="1.5" className="w-full bg-muted/50 border border-border rounded-lg px-3 py-2 text-sm focus:border-amber-500/50 outline-none transition-colors" />
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-muted-foreground uppercase">{t('form.takeProfit')}</label>
-                  <input name="batchTakeProfit" type="number" step="0.1" defaultValue="2.0" className="w-full bg-muted/50 border border-border rounded-lg px-3 py-2 text-sm focus:border-amber-500/50 outline-none transition-colors" />
-                </div>
-              </div>
-
-              <div className="pt-4">
-                <Button type="submit" className="w-full bg-amber-500 hover:bg-amber-600 text-white font-bold py-6 text-base rounded-xl border-none shadow-xl shadow-amber-500/20 transition-all">
-                  <Save className="w-5 h-5 mr-2" />
-                  {t('form.saveDraft')}
-                </Button>
-              </div>
-            </form>
-          </div>
+          {/* Additional info or Backtest summary could go here */}
         </div>
 
-        {/* Templates & Help Side Panel */}
-        <div className="space-y-6">
-          <div className="bg-card border border-border rounded-2xl p-6 shadow-sm space-y-6">
-            <h2 className="font-bold flex items-center gap-2">
-              <Copy className="w-4 h-4 text-blue-500" />
-              {t('templates.title')}
-            </h2>
-            <div className="space-y-3">
+        {/* Right Panel: High Density Configuration Form (Takes 1/3) */}
+        <div className="lg:col-span-1 flex flex-col gap-4">
+          <Card className="bg-[#131b2c] border-slate-800 shadow-none overflow-hidden">
+            <div className="bg-slate-800/50 px-4 py-2 border-b border-slate-800 flex justify-between items-center">
+              <span className="text-xs font-bold text-slate-300 uppercase tracking-wider">Parameters</span>
+              <span className="text-[10px] text-primary cursor-pointer hover:underline">Reset</span>
+            </div>
+            <CardBody className="p-4">
+              <form action="/api/user/strategies/create" method="post" className="space-y-4">
+                
+                {/* Pair Selection */}
+                <div className="space-y-1.5">
+                  <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">{t('form.symbol')}</label>
+                  <div className="relative group">
+                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500 group-focus-within:text-primary transition-colors" />
+                    <Input name="symbol" defaultValue="ETHUSDT" className="pl-8 bg-slate-900 border-slate-800 font-mono text-sm" />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">{t('form.marketType')}</label>
+                    <Select name="marketType" className="bg-slate-900 border-slate-800 text-xs">
+                      <option value="spot">Spot</option>
+                      <option value="usd-m">Futures</option>
+                    </Select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">{t('form.strategyMode')}</label>
+                    <Select name="mode" className="bg-slate-900 border-slate-800 text-xs">
+                      <option value="classic">Classic</option>
+                      <option value="long">Long</option>
+                      <option value="short">Short</option>
+                    </Select>
+                  </div>
+                </div>
+
+                <div className="h-px bg-slate-800 my-4" />
+
+                <div className="space-y-1.5">
+                  <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">{t('form.investment')}</label>
+                  <div className="relative">
+                    <Input name="quoteAmount" type="number" defaultValue="1000" className="pr-12 bg-slate-900 border-slate-800 font-mono" />
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-500">USDT</span>
+                  </div>
+                  {/* Slider representation */}
+                  <div className="h-1 w-full bg-slate-800 rounded-full mt-2 relative">
+                    <div className="absolute left-0 top-0 h-full w-1/3 bg-primary rounded-full"></div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">{t('form.gridCount')}</label>
+                    <Input name="gridCount" type="number" defaultValue="20" className="bg-slate-900 border-slate-800 font-mono text-sm" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">{t('form.spacing')}</label>
+                    <div className="relative">
+                      <Input name="gridSpacingPercent" type="number" step="0.1" defaultValue="1.5" className="bg-slate-900 border-slate-800 font-mono text-sm pr-6" />
+                      <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-slate-500">%</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">{t('form.takeProfit')}</label>
+                  <div className="relative">
+                    <Input name="batchTakeProfit" type="number" step="0.1" defaultValue="2.0" className="bg-slate-900 border-slate-800 font-mono text-sm pr-6" />
+                    <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-slate-500">%</span>
+                  </div>
+                </div>
+
+                <div className="pt-2">
+                  <Button type="submit" className="w-full font-bold h-10 shadow-lg shadow-primary/20">
+                    {t('form.saveDraft') || 'Create Bot'}
+                  </Button>
+                </div>
+              </form>
+            </CardBody>
+          </Card>
+
+          {/* Templates Section */}
+          <Card className="bg-[#131b2c] border-slate-800 shadow-none">
+            <div className="bg-slate-800/50 px-4 py-2 border-b border-slate-800 flex justify-between items-center">
+              <span className="text-xs font-bold text-slate-300 uppercase tracking-wider">{t('templates.title')}</span>
+            </div>
+            <CardBody className="p-2 space-y-1 max-h-[150px] overflow-y-auto">
               {templates.length > 0 ? templates.map(tpl => (
-                <button key={tpl.id} className="w-full text-left p-3 rounded-xl border border-border bg-muted/20 hover:border-blue-500/50 transition-all group">
-                  <p className="text-xs font-bold group-hover:text-blue-500">{tpl.name}</p>
-                  <p className="text-[10px] text-muted-foreground">{tpl.symbol} · {tpl.market}</p>
+                <button key={tpl.id} className="w-full text-left p-2 rounded-sm border border-transparent hover:bg-slate-800/80 hover:border-slate-700 transition-all flex items-center justify-between group">
+                  <div>
+                    <p className="text-xs font-semibold text-slate-300 group-hover:text-primary transition-colors">{tpl.name}</p>
+                    <p className="text-[10px] text-slate-500 font-mono">{tpl.symbol}</p>
+                  </div>
+                  <ChevronRight className="w-3 h-3 text-slate-600 group-hover:text-primary" />
                 </button>
               )) : (
-                <p className="text-xs text-muted-foreground italic text-center py-4 bg-muted/20 rounded-xl">No templates found</p>
+                <p className="text-[11px] text-slate-500 text-center py-4">No templates available</p>
               )}
-            </div>
-            <Button  className="w-full text-xs">Create Template</Button>
-          </div>
-
-          <div className="bg-amber-500/10 border border-amber-500/20 rounded-2xl p-6 space-y-3">
-            <div className="flex items-center gap-2 text-amber-500 font-bold text-sm">
-              <AlertTriangle className="w-4 h-4" />
-              Risk Notice
-            </div>
-            <ul className="text-[11px] text-muted-foreground space-y-2 list-disc pl-4 leading-relaxed">
-              <li>Grid trading requires sufficient balance in your wallet.</li>
-              <li>Trailing Take Profit may involve higher slippage.</li>
-              <li>Always perform a Pre-flight check before starting.</li>
-            </ul>
-          </div>
+            </CardBody>
+          </Card>
         </div>
       </div>
     </div>
+  );
+}
+
+function LineChartIcon(props: any) {
+  return (
+    <svg
+      {...props}
+      xmlns="http://www.w3.org/2000/svg"
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M3 3v18h18" />
+      <path d="m19 9-5 5-4-4-3 3" />
+    </svg>
   );
 }
 

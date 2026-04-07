@@ -76,14 +76,14 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
         label={pickText(lang, "认证页面", "Authentication pages")}
       />
       {error ? (
-        <StatusBanner description={error} title={pickText(lang, "登录失败", "Login failed")} tone="danger" />
+        <StatusBanner description={error} title={pickText(lang, "登录失败", "Login failed")} />
       ) : notice ? (
-        <StatusBanner description={notice.description} title={notice.title} tone="success" />
+        <StatusBanner description={notice.description} title={notice.title} />
       ) : (
         <StatusBanner description={snapshot.notice.description} title={snapshot.notice.title} tone={snapshot.notice.tone} />
       )}
       <div className="content-grid content-grid--split">
-        <Card tone="accent">
+        <Card>
           <CardHeader>
             <CardTitle>{snapshot.title}</CardTitle>
             <CardDescription>{snapshot.description}</CardDescription>
@@ -104,7 +104,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
               ) : null}
               <div className="chip-row">
                 {snapshot.checklist.map((item) => (
-                  <Chip key={item} tone="info">
+                  <Chip key={item}>
                     {item}
                   </Chip>
                 ))}

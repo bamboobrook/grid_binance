@@ -69,7 +69,7 @@ export default async function AdminUsersPage() {
         title={pickText(lang, "用户管理", "User Management")}
       >
         <div className="content-grid content-grid--metrics">
-          <Card tone="accent">
+          <Card>
             <CardHeader>
               <CardTitle>{pickText(lang, "待验证邮箱", "Pending Verification")}</CardTitle>
               <CardDescription>{pickText(lang, "注册状态", "Registration State")}</CardDescription>
@@ -119,7 +119,7 @@ export default async function AdminUsersPage() {
               />
             </CardBody>
           </Card>
-          <Card tone="subtle">
+          <Card>
             <CardHeader>
               <CardTitle>{pickText(lang, "值班说明", "Desk Notes")}</CardTitle>
               <CardDescription>{pickText(lang, "明确哪些用户是后台台账、哪些用户仍有安全或验证缺口。", "Make ledger-only records, security gaps, and verification gaps explicit.")}</CardDescription>

@@ -33,7 +33,7 @@ export default async function AdminSweepsPage({ searchParams }: PageProps) {
         <StatusBanner
           description={pickText(lang, "最近归集目标：" + (treasury || "-") + "，链路资产：" + selectedChain + " / " + selectedAsset, "Latest sweep destination: " + (treasury || "-") + ", route " + selectedChain + " / " + selectedAsset)}
           title={pickText(lang, "归集请求已提交", "Sweep Request Submitted")}
-          tone="success"
+         
         />
       ) : null}
       <AppShellSection

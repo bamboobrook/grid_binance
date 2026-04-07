@@ -121,7 +121,7 @@ export default async function AdminDashboardPage() {
         title={pickText(lang, "运营总览", "Operations Overview")}
       >
         <div className="content-grid content-grid--metrics">
-          <Card tone="accent">
+          <Card>
             <CardHeader>
               <CardTitle>{pickText(lang, "待处理充值", "Pending Deposits")}</CardTitle>
               <CardDescription>{pickText(lang, "充值异常队列", "Exception Queue")}</CardDescription>
@@ -176,7 +176,7 @@ export default async function AdminDashboardPage() {
               />
             </CardBody>
           </Card>
-          <Card tone="subtle">
+          <Card>
             <CardHeader>
               <CardTitle>{pickText(lang, "席位说明", "Desk Boundaries")}</CardTitle>
               <CardDescription>{pickText(lang, "权限边界、模板可见性和地址池冗余一并明确。", "Permission boundary, template visibility, and pool redundancy stay explicit.")}</CardDescription>

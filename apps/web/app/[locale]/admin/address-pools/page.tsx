@@ -23,7 +23,7 @@ export default async function AdminAddressPoolsPage({ searchParams }: PageProps)
 
   return (
     <>
-      {updated ? <StatusBanner description={pickText(lang, "已更新地址：" + updated, "Updated address: " + updated)} title={pickText(lang, "地址池已更新", "Address Pool Updated")} tone="success" /> : null}
+      {updated ? <StatusBanner description={pickText(lang, "已更新地址：" + updated, "Updated address: " + updated)} title={pickText(lang, "地址池已更新", "Address Pool Updated")} /> : null}
       <AppShellSection
         description={pickText(lang, "值班席位追踪地址池压力、链路分配和启停状态，避免充值入口在高峰期失去冗余。", "The desk tracks pool pressure, chain allocation, and enablement so billing routes do not lose redundancy under load.")}
         eyebrow={pickText(lang, "地址池治理", "Address Pool Governance")}
@@ -56,7 +56,7 @@ export default async function AdminAddressPoolsPage({ searchParams }: PageProps)
               )}
             </CardBody>
           </Card>
-          <Card tone="subtle">
+          <Card>
             <CardHeader>
               <CardTitle>{pickText(lang, "值班说明", "Desk Notes")}</CardTitle>
               <CardDescription>{pickText(lang, "地址池压力和链路冗余必须显式暴露，不能等充值异常才回查。", "Pool pressure and route redundancy must stay explicit before deposit failures force a lookup.")}</CardDescription>

@@ -57,14 +57,14 @@ export default async function TelegramPage({ searchParams }: TelegramPageProps) 
       <StatusBanner
         description={pickText(lang, "Telegram 覆盖策略生命周期、API 事故、会员提醒与充值确认。", "Telegram notifications cover strategy lifecycle, API incidents, membership reminders, and deposit confirmations.")}
         title={pickText(lang, "Telegram 绑定状态条", "Telegram bind status strip")}
-        tone="warning"
+       
       />
-      {error ? <StatusBanner description={error} title={pickText(lang, "Telegram 操作失败", "Telegram action failed")} tone="warning" /> : null}
+      {error ? <StatusBanner description={error} title={pickText(lang, "Telegram 操作失败", "Telegram action failed")} /> : null}
       {notice === "bind-code-issued" ? (
         <StatusBanner
           description={pickText(lang, "把这一串绑定码发给机器人，收到回复后再刷新页面。", "Send the issued code to the Telegram bot, then refresh after the bot replies.")}
           title={pickText(lang, "绑定码已签发", "Bind code issued")}
-          tone="success"
+         
         />
       ) : null}
       <AppShellSection
@@ -109,7 +109,7 @@ export default async function TelegramPage({ searchParams }: TelegramPageProps) 
               )}
             </CardBody>
           </Card>
-          <Card tone="subtle">
+          <Card>
             <CardHeader>
               <CardTitle>{pickText(lang, "通知覆盖范围", "Notification coverage")}</CardTitle>
               <CardDescription>{pickText(lang, "关键提醒会在 Web 与 Telegram 双端镜像。", "Critical alerts are mirrored in web and Telegram.")}</CardDescription>

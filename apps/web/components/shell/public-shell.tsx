@@ -45,8 +45,8 @@ export function PublicShell({
       <header className="shell-topbar shell-topbar--public">
         <div className="shell-topbar__copy shell-topbar__console">
           <div className="shell-topbar__meta">
-            <Chip tone="warning">{pickText(lang, "公共终端", "Public console")}</Chip>
-            <Chip tone="default">{pickText(lang, "只读视图", "Read-only view")}</Chip>
+            <Chip>{pickText(lang, "公共终端", "Public console")}</Chip>
+            <Chip>{pickText(lang, "只读视图", "Read-only view")}</Chip>
           </div>
           <Link className="brand-mark" href="/">
             {snapshot.brand}
@@ -85,7 +85,7 @@ export function PublicShell({
           </div>
           <div className="stack-grid">
             {snapshot.highlights.map((item) => (
-              <Card className="public-shell__highlight" key={item.title} tone="accent">
+              <Card className="public-shell__highlight" key={item.title}>
                 <CardHeader>
                   <CardTitle>{item.title}</CardTitle>
                   <CardDescription>{item.description}</CardDescription>

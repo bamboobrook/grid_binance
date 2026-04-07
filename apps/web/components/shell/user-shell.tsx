@@ -49,7 +49,7 @@ export function UserShell({
       <aside className="shell-sidebar">
         <div className="shell-sidebar__brand">
           <div className="shell-sidebar__meta">
-            <Chip tone="warning">{pickText(lang, "用户终端", "User console")}</Chip>
+            <Chip>{pickText(lang, "用户终端", "User console")}</Chip>
             <span>{snapshot.subtitle}</span>
           </div>
           <Link className="brand-mark" href="/app/dashboard">
@@ -73,7 +73,7 @@ export function UserShell({
         </div>
         <div className="shell-sidebar__section">
           <p className="shell-sidebar__label">{pickText(lang, "会话", "Session")}</p>
-          <Card className="shell-sidebar__identity" tone="subtle">
+          <Card className="shell-sidebar__identity">
             <CardHeader>
               <CardTitle>{snapshot.identity.name}</CardTitle>
               <CardDescription>{snapshot.identity.role}</CardDescription>

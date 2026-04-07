@@ -65,7 +65,7 @@ export default async function AdminStrategiesPage({ searchParams }: PageProps) {
               </FormStack>
             </CardBody>
           </Card>
-          <Card tone="subtle">
+          <Card>
             <CardHeader>
               <CardTitle>{pickText(lang, "选中详情", "Selected Detail")}</CardTitle>
               <CardDescription>{pickText(lang, "不再默认盯住第一条；选中态通过 query 显式保留。", "The page no longer blindly focuses the first row; selection is kept explicitly through the query string.")}</CardDescription>

@@ -49,7 +49,7 @@ export function AdminShell({
       <aside className="shell-sidebar shell-sidebar--admin">
         <div className="shell-sidebar__brand">
           <div className="shell-sidebar__meta">
-            <Chip tone="warning">{pickText(lang, "管理终端", "Admin console")}</Chip>
+            <Chip>{pickText(lang, "管理终端", "Admin console")}</Chip>
             <span>{snapshot.subtitle}</span>
           </div>
           <Link className="brand-mark" href="/admin/dashboard">
@@ -73,7 +73,7 @@ export function AdminShell({
         </div>
         <div className="shell-sidebar__section">
           <p className="shell-sidebar__label">{pickText(lang, "会话", "Session")}</p>
-          <Card className="shell-sidebar__identity" tone="subtle">
+          <Card className="shell-sidebar__identity">
             <CardHeader>
               <CardTitle>{snapshot.identity.name}</CardTitle>
               <CardDescription>{snapshot.identity.role}</CardDescription>

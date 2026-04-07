@@ -43,14 +43,14 @@ export default async function AdminBootstrapPage({ searchParams }: PageProps) {
         label={pickText(lang, "认证页面", "Authentication pages")}
       />
       {error ? (
-        <StatusBanner description={error} title={pickText(lang, "管理员 TOTP 初始化失败", "Admin TOTP bootstrap failed")} tone="danger" />
+        <StatusBanner description={error} title={pickText(lang, "管理员 TOTP 初始化失败", "Admin TOTP bootstrap failed")} />
       ) : setup && secret ? (
-        <StatusBanner description={pickText(lang, "请把密钥保存到验证器应用中，再用页面显示的当前验证码完成首次管理员登录。", "Store the secret in your authenticator app, then use the shown code to complete the first admin login.")} title={pickText(lang, "管理员 TOTP 已就绪", "Admin TOTP ready")} tone="success" />
+        <StatusBanner description={pickText(lang, "请把密钥保存到验证器应用中，再用页面显示的当前验证码完成首次管理员登录。", "Store the secret in your authenticator app, then use the shown code to complete the first admin login.")} title={pickText(lang, "管理员 TOTP 已就绪", "Admin TOTP ready")} />
       ) : (
-        <StatusBanner description={pickText(lang, "已配置的管理员账号必须先完成 TOTP 初始化，才能进入管理后台。", "Configured admin accounts must complete TOTP setup before they can access the admin control plane.")} title={pickText(lang, "初始化管理员 TOTP", "Admin TOTP bootstrap")} tone="warning" />
+        <StatusBanner description={pickText(lang, "已配置的管理员账号必须先完成 TOTP 初始化，才能进入管理后台。", "Configured admin accounts must complete TOTP setup before they can access the admin control plane.")} title={pickText(lang, "初始化管理员 TOTP", "Admin TOTP bootstrap")} />
       )}
       <div className="content-grid content-grid--split">
-        <Card tone="accent">
+        <Card>
           <CardHeader>
             <CardTitle>{pickText(lang, "初始化管理员 TOTP", "Bootstrap Admin TOTP")}</CardTitle>
             <CardDescription>{pickText(lang, "使用已验证的管理员邮箱和密码，创建首次验证器密钥。", "Use the verified admin email and password to create the first authenticator secret.")}</CardDescription>

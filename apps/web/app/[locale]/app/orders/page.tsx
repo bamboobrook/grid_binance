@@ -91,7 +91,7 @@ export default async function OrdersPage() {
       <StatusBanner
         description={pickText(lang, "订单、成交和交易所侧成交记录统一来自后端运行态与分析接口。", "Orders, fills, and exchange-side trades come directly from backend runtime and analytics data.")}
         title={pickText(lang, "订单状态条", "Orders status strip")}
-        tone="info"
+       
       />
       <AppShellSection
         description={pickText(lang, "这个页面用于核对挂单、成交与交易所侧执行，不离开用户工作台。", "Use this page to reconcile working orders, fills, and exchange executions without leaving the user shell.")}
@@ -128,7 +128,7 @@ export default async function OrdersPage() {
               />
             </CardBody>
           </Card>
-          <Card tone="subtle">
+          <Card>
             <CardHeader>
               <CardTitle>{pickText(lang, "成交历史", "Fill history")}</CardTitle>
               <CardDescription>{pickText(lang, "逐笔盈亏来自真实成交，不使用伪造汇总。", "Per-fill PnL comes from actual runtime fills, not fabricated summaries.")}</CardDescription>
@@ -175,7 +175,7 @@ export default async function OrdersPage() {
             />
           </CardBody>
         </Card>
-        <Card tone="subtle">
+        <Card>
           <CardHeader>
             <CardTitle>{pickText(lang, "账户活动快照", "Exchange account activity")}</CardTitle>
             <CardDescription>{pickText(lang, "账户级分析快照用于复盘成本与资金费。", "Account-level snapshots help review cost and funding drift.")}</CardDescription>

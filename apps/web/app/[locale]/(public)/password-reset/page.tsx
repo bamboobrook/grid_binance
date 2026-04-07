@@ -39,7 +39,7 @@ export default async function PasswordResetPage({ searchParams }: PasswordResetP
         label={pickText(lang, "认证页面", "Authentication pages")}
       />
       {error ? (
-        <StatusBanner description={error} title={pickText(lang, "密码重置失败", "Password reset failed")} tone="danger" />
+        <StatusBanner description={error} title={pickText(lang, "密码重置失败", "Password reset failed")} />
       ) : (
         <StatusBanner
           description={step === "confirm" && notice === "reset-code-issued"
@@ -50,11 +50,11 @@ export default async function PasswordResetPage({ searchParams }: PasswordResetP
             : step === "confirm"
               ? pickText(lang, "确认重置密码", "Confirm Password Reset")
               : pickText(lang, "密码重置", "Password Reset")}
-          tone="warning"
+         
         />
       )}
       <div className="content-grid content-grid--split">
-        <Card tone="accent">
+        <Card>
           <CardHeader>
             <CardTitle>{step === "confirm" ? pickText(lang, "设置新密码", "Reset your password") : pickText(lang, "申请重置验证码", "Request reset code")}</CardTitle>
             <CardDescription>{step === "confirm" ? pickText(lang, "输入邮箱收到的验证码，完成密码重置。", "Complete the reset with the code sent to your email inbox.") : pickText(lang, "先申请验证码，再去邮箱查看。", "Request a password reset code first, then check your email for the code.")}</CardDescription>

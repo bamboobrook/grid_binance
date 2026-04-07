@@ -53,8 +53,8 @@ export default async function HelpArticlePage({
   return (
     <main className="shell shell--public">
       <div className="public-shell__content">
-        <StatusBanner description={article.summary} title={article.title} tone="info" />
-        <Card tone="accent">
+        <StatusBanner description={article.summary} title={article.title} />
+        <Card>
           <CardHeader>
             <CardTitle>{article.title}</CardTitle>
             <CardDescription>Public help route showing the same repository-backed content rendered in /app/help.</CardDescription>

@@ -44,14 +44,14 @@ export default async function SecurityPage({ searchParams }: SecurityPageProps) 
       <StatusBanner
         description={pickText(lang, "密码与 TOTP 操作直接走后端安全接口，只有后端接受后才显示成功。", "Password and TOTP actions are wired to real backend security endpoints and only show success after backend acceptance.")}
         title={pickText(lang, "安全状态条", "Security status strip")}
-        tone="info"
+       
       />
-      {error ? <StatusBanner description={error} title={pickText(lang, "安全操作失败", "Security action failed")} tone="warning" /> : null}
+      {error ? <StatusBanner description={error} title={pickText(lang, "安全操作失败", "Security action failed")} /> : null}
       {security === "totp-enabled" ? (
         <StatusBanner
           description={pickText(lang, "请把 TOTP 密钥保存到验证器，并在下次登录挑战时使用当前验证码。", "Store the TOTP secret in your authenticator app and use the current code during the next login challenge.")}
           title={pickText(lang, "TOTP 已启用", "TOTP enabled")}
-          tone="success"
+         
         />
       ) : null}
       <AppShellSection
@@ -84,7 +84,7 @@ export default async function SecurityPage({ searchParams }: SecurityPageProps) 
                   </Button>
                 </FormStack>
                 <FormStack action="/api/user/security" method="post">
-                  <Button name="intent" tone="secondary" type="submit" value="disable-totp">
+                  <Button name="intent" type="submit" value="disable-totp">
                     {pickText(lang, "停用 TOTP", "Disable TOTP")}
                   </Button>
                 </FormStack>
@@ -92,7 +92,7 @@ export default async function SecurityPage({ searchParams }: SecurityPageProps) 
               <p>{pickText(lang, "密码修改成功或停用 TOTP 后，当前会话会失效并回到登录页。", "Successful password changes and TOTP disable actions revoke the session and return you to login.")}</p>
             </CardBody>
           </Card>
-          <Card tone="subtle">
+          <Card>
             <CardHeader>
               <CardTitle>{pickText(lang, "安全检查点", "Security checkpoints")}</CardTitle>
               <CardDescription>{pickText(lang, "这些关键姿态值来自后端 profile 接口，而不是前端本地状态。", "Critical posture values come from the backend profile endpoint, not local product state.")}</CardDescription>

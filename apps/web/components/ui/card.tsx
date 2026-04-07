@@ -1,50 +1,86 @@
+import { cn } from "@/lib/utils";
 import type { ReactNode } from "react";
 
-function cx(...parts: Array<string | false | null | undefined>) {
-  return parts.filter(Boolean).join(" ");
-}
-
-type CardTone = "default" | "accent" | "subtle";
-
-type CardProps = {
+export function Card({
+  children,
+  className,
+}: {
   children: ReactNode;
   className?: string;
-  tone?: CardTone;
-};
-
-type SlotProps = {
-  children: ReactNode;
-  className?: string;
-};
-
-export function Card({ children, className, tone = "default" }: CardProps) {
+}) {
   return (
-    <section className={cx("ui-card", tone !== "default" && `ui-card--${tone}`, className)} data-tone={tone}>
+    <div className={cn("rounded-sm border border-border bg-card text-card-foreground shadow-sm", className)}>
       {children}
-    </section>
+    </div>
   );
 }
 
-export function CardHeader({ children, className }: SlotProps) {
-  return <header className={cx("ui-card__header", className)}>{children}</header>;
+export function CardHeader({
+  children,
+  className,
+}: {
+  children: ReactNode;
+  className?: string;
+}) {
+  return (
+    <div className={cn("flex flex-col space-y-1.5 p-4", className)}>
+      {children}
+    </div>
+  );
 }
 
-export function CardEyebrow({ children, className }: SlotProps) {
-  return <p className={cx("ui-card__eyebrow", className)}>{children}</p>;
+export function CardTitle({
+  children,
+  className,
+}: {
+  children: ReactNode;
+  className?: string;
+}) {
+  return (
+    <h3 className={cn("font-semibold leading-none tracking-tight", className)}>
+      {children}
+    </h3>
+  );
 }
 
-export function CardTitle({ children, className }: SlotProps) {
-  return <h2 className={cx("ui-card__title", className)}>{children}</h2>;
+export function CardDescription({
+  children,
+  className,
+}: {
+  children: ReactNode;
+  className?: string;
+}) {
+  return (
+    <p className={cn("text-sm text-muted-foreground", className)}>
+      {children}
+    </p>
+  );
 }
 
-export function CardDescription({ children, className }: SlotProps) {
-  return <p className={cx("ui-card__description", className)}>{children}</p>;
+export function CardBody({
+  children,
+  className,
+}: {
+  children: ReactNode;
+  className?: string;
+}) {
+  return (
+    <div className={cn("p-4 pt-0", className)}>
+      {children}
+    </div>
+  );
 }
 
-export function CardBody({ children, className }: SlotProps) {
-  return <div className={cx("ui-card__body", className)}>{children}</div>;
-}
-
-export function CardFooter({ children, className }: SlotProps) {
-  return <footer className={cx("ui-card__footer", className)}>{children}</footer>;
+export function CardFooter({
+  children,
+  className,
+}: {
+  children: ReactNode;
+  className?: string;
+}) {
+  return (
+    <div className={cn("flex items-center p-4 pt-0", className)}>
+      {children}
+    </div>
+  );
 }

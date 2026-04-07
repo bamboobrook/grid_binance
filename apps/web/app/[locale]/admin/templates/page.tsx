@@ -49,8 +49,8 @@ export default async function AdminTemplatesPage({ searchParams }: PageProps) {
 
   return (
     <>
-      {created ? <StatusBanner description={pickText(lang, "已创建模板：" + created, "Created template: " + created)} title={pickText(lang, "模板已创建", "Template Created")} tone="success" /> : null}
-      {updated ? <StatusBanner description={pickText(lang, "已更新模板：" + updated, "Updated template: " + updated)} title={pickText(lang, "模板已更新", "Template Updated")} tone="success" /> : null}
+      {created ? <StatusBanner description={pickText(lang, "已创建模板：" + created, "Created template: " + created)} title={pickText(lang, "模板已创建", "Template Created")} /> : null}
+      {updated ? <StatusBanner description={pickText(lang, "已更新模板：" + updated, "Updated template: " + updated)} title={pickText(lang, "模板已更新", "Template Updated")} /> : null}
       <AppShellSection
         description={pickText(lang, "值班席位在这里核对模板就绪门禁、层级配置和未来可复制的策略模板。", "The desk reviews template readiness gates, ladder settings, and future-copy strategy templates here.")}
         eyebrow={pickText(lang, "模板治理", "Template Governance")}

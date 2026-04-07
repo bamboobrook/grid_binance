@@ -39,18 +39,18 @@ export default async function VerifyEmailPage({ searchParams }: VerifyEmailPageP
         label={pickText(lang, "认证页面", "Authentication pages")}
       />
       {error ? (
-        <StatusBanner description={error} title={pickText(lang, "邮箱验证失败", "Email verification failed")} tone="danger" />
+        <StatusBanner description={error} title={pickText(lang, "邮箱验证失败", "Email verification failed")} />
       ) : (
         <StatusBanner
           description={notice === "registration-created"
             ? pickText(lang, "首次登录前，请先去邮箱查看验证码。", "Check your email for the issued verification code before your first login.")
             : pickText(lang, "必须先完成邮箱验证，系统已把验证码发到你的邮箱。", "Verification must complete before login is allowed. The code is sent to your email address.")}
           title={pickText(lang, "验证邮箱", "Verify Email")}
-          tone="warning"
+         
         />
       )}
       <div className="content-grid content-grid--split">
-        <Card tone="accent">
+        <Card>
           <CardHeader>
             <CardTitle>{pickText(lang, "验证邮箱", "Verify Email")}</CardTitle>
             <CardDescription>{pickText(lang, "请输入注册邮箱收到的验证码，完成首次验证。", "Confirm the verification code delivered to the email address used during registration.")}</CardDescription>

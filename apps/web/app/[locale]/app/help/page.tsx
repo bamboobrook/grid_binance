@@ -65,7 +65,7 @@ export default async function HelpPage({ searchParams }: HelpPageProps) {
       <StatusBanner
         description={pickText(lang, "应用内帮助中心直接渲染仓库里的 docs/user-guide 文档。", "The in-app help center renders repository-backed guides from docs/user-guide.")}
         title={pickText(lang, "帮助中心状态条", "Help center status strip")}
-        tone="success"
+       
       />
       <AppShellSection
         description={pickText(lang, "左侧选指南，右侧直接阅读文档正文，不离开应用壳层。", "Choose a guide on the left and read the full repository document on the right without leaving the app shell.")}
@@ -92,7 +92,7 @@ export default async function HelpPage({ searchParams }: HelpPageProps) {
               </ul>
             </CardBody>
           </Card>
-          <Card tone="subtle">
+          <Card>
             <CardHeader>
               <CardTitle>{selectedArticle.title}</CardTitle>
               <CardDescription>

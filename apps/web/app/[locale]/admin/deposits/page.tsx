@@ -128,8 +128,8 @@ export default async function AdminDepositsPage({ searchParams }: PageProps) {
 
   return (
     <>
-      {result ? <StatusBanner description={pickText(lang, "处理结果：" + result + (tx ? "，交易 " + tx : ""), "Result: " + result + (tx ? ", tx " + tx : ""))} title={pickText(lang, "充值案件已更新", "Deposit Case Updated")} tone="success" /> : null}
-      {error ? <StatusBanner description={tx ? error + " (" + tx + ")" : error} title={pickText(lang, "充值动作失败", "Deposit Action Failed")} tone="warning" /> : null}
+      {result ? <StatusBanner description={pickText(lang, "处理结果：" + result + (tx ? "，交易 " + tx : ""), "Result: " + result + (tx ? ", tx " + tx : ""))} title={pickText(lang, "充值案件已更新", "Deposit Case Updated")} /> : null}
+      {error ? <StatusBanner description={tx ? error + " (" + tx + ")" : error} title={pickText(lang, "充值动作失败", "Deposit Action Failed")} /> : null}
       <AppShellSection
         description={pickText(lang, "值班席位直接处理充值异常、订单匹配和人工入账说明，确保术语与风险提示都对人可读。", "The desk handles deposit exceptions, order matching, and manual credit notes with human-readable risk prompts.")}
         eyebrow={pickText(lang, "充值审核", "Deposit Review")}
@@ -161,7 +161,7 @@ export default async function AdminDepositsPage({ searchParams }: PageProps) {
               />
             </CardBody>
           </Card>
-          <Card tone="subtle">
+          <Card>
             <CardHeader>
               <CardTitle>{pickText(lang, "复核说明", "Desk Notes")}</CardTitle>
               <CardDescription>{pickText(lang, "确认短语仍保留给后端校验，但页面上用人类可读的操作说明展示。", "The confirmation phrase is still kept for backend validation, but the UI explains it in human terms.")}</CardDescription>
@@ -176,7 +176,7 @@ export default async function AdminDepositsPage({ searchParams }: PageProps) {
           </Card>
         </div>
       </AppShellSection>
-      <Card tone="subtle">
+      <Card>
         <CardHeader>
           <CardTitle>{pickText(lang, "目标订单快照", "Target Order Snapshot")}</CardTitle>
           <CardDescription>{pickText(lang, "供值班席位快速判断当前充值对应的候选订单。", "Helps the desk quickly verify the candidate orders tied to each deposit case.")}</CardDescription>

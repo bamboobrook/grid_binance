@@ -105,7 +105,7 @@ export default async function StrategyDetailPage({ params, searchParams }: PageP
   if (!strategy) {
     return (
       <>
-        <StatusBanner title="Strategy workspace unavailable" description={strategyResult.error ?? "Strategy workspace is temporarily unavailable."} tone="warning" />
+        <StatusBanner title="Strategy workspace unavailable" description={strategyResult.error ?? "Strategy workspace is temporarily unavailable."} />
       </>
     );
   }
@@ -136,11 +136,11 @@ export default async function StrategyDetailPage({ params, searchParams }: PageP
           tone={notice.includes("failed") || error ? "warning" : "success"}
         />
       ) : null}
-      {error ? <StatusBanner description={error} title="Strategy action failed" tone="warning" /> : null}
-      {strategyResult.error ? <StatusBanner description={strategyResult.error} title="Strategy data unavailable" tone="warning" /> : null}
-      {preflightResult.error ? <StatusBanner description={preflightResult.error} title="Pre-flight status unavailable" tone="warning" /> : null}
-      {analyticsResult.error ? <StatusBanner description={analyticsResult.error} title="Strategy analytics unavailable" tone="warning" /> : null}
-      {symbolMatchesResult.error ? <StatusBanner description={symbolMatchesResult.error} title="Symbol search unavailable" tone="warning" /> : null}
+      {error ? <StatusBanner description={error} title="Strategy action failed" /> : null}
+      {strategyResult.error ? <StatusBanner description={strategyResult.error} title="Strategy data unavailable" /> : null}
+      {preflightResult.error ? <StatusBanner description={preflightResult.error} title="Pre-flight status unavailable" /> : null}
+      {analyticsResult.error ? <StatusBanner description={analyticsResult.error} title="Strategy analytics unavailable" /> : null}
+      {symbolMatchesResult.error ? <StatusBanner description={symbolMatchesResult.error} title="Symbol search unavailable" /> : null}
       <AppShellSection
         actions={
           <div className="button-row">
@@ -302,7 +302,7 @@ export default async function StrategyDetailPage({ params, searchParams }: PageP
                 <Button name="intent" type="submit" value="save">
                   Save edits
                 </Button>
-                <Button name="intent" tone="secondary" type="submit" value="preflight">
+                <Button name="intent" type="submit" value="preflight">
                   Run pre-flight
                 </Button>
                 <Button name="intent" type="submit" value="start">
@@ -310,20 +310,20 @@ export default async function StrategyDetailPage({ params, searchParams }: PageP
                 </Button>
               </ButtonRow>
               <ButtonRow>
-                <Button name="intent" tone="secondary" type="submit" value="pause">
+                <Button name="intent" type="submit" value="pause">
                   Pause strategy
                 </Button>
-                <Button name="intent" tone="secondary" type="submit" value="stop">
+                <Button name="intent" type="submit" value="stop">
                   Stop strategy
                 </Button>
-                <Button name="intent" tone="secondary" type="submit" value="delete">
+                <Button name="intent" type="submit" value="delete">
                   Delete strategy
                 </Button>
               </ButtonRow>
             </FormStack>
           </CardBody>
         </Card>
-        <Card tone="subtle">
+        <Card>
           <CardHeader>
             <CardTitle>Pre-flight checklist</CardTitle>
             <CardDescription>Start requires all checks to pass and any failures explain the exact blocker.</CardDescription>
@@ -411,7 +411,7 @@ export default async function StrategyDetailPage({ params, searchParams }: PageP
         <DialogFrame
           description="Running strategy parameters cannot be hot-modified. Trailing take profit uses taker execution and may increase fees."
           title="Running strategy parameters cannot be hot-modified"
-          tone="warning"
+         
         />
       </div>
     </>
