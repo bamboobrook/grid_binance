@@ -3,16 +3,30 @@ use axum::{
     response::{IntoResponse, Response},
     Json,
 };
-use chrono::Utc;
+use chrono::{DateTime, Utc};
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
-use serde_json::json;
-use shared_db::{SharedDb, StoredStrategy, StoredStrategyTemplate};
-use shared_domain::strategy::{
-    GridGeneration, GridLevel, PostTriggerAction, PreflightFailure, PreflightReport,
-    PreflightStepResult, PreflightStepStatus, Strategy, StrategyMarket, StrategyMode,
-    StrategyRevision, StrategyRuntime, StrategyRuntimeEvent, StrategyRuntimeFill,
-    StrategyRuntimeOrder, StrategyRuntimePosition, StrategyStatus, StrategyTemplate,
+use serde_json::{json, Value};
+use shared_db::{
+    MembershipRecord, NotificationLogRecord, SharedDb, StoredStrategy, StoredStrategyTemplate, UserExchangeAccountRecord,
+};
+use shared_events::{NotificationEvent, NotificationKind, NotificationRecord};
+use std::{
+    collections::BTreeMap,
+    env,
+    sync::OnceLock,
+    time::Duration as StdDuration,
+};
+
+use shared_domain::{
+    membership::MembershipStatus,
+    strategy::{
+        FuturesMarginMode, GridGeneration, GridLevel, PostTriggerAction, PreflightFailure,
+        PreflightReport, PreflightStepResult, PreflightStepStatus, Strategy, StrategyAmountMode,
+        StrategyMarket, StrategyMode, StrategyRevision, StrategyRuntime, StrategyRuntimeEvent,
+        StrategyRuntimeFill, StrategyRuntimeOrder, StrategyRuntimePosition, StrategyStatus,
+        StrategyTemplate,
+    },
 };
 
 use crate::services::auth_service::{AdminRole, AuthError};
@@ -30,6 +44,7 @@ pub struct SaveGridLevelRequest {
     pub trailing_bps: Option<u32>,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Deserialize, Clone)]
 pub struct SaveStrategyRequest {
     pub name: String,
@@ -37,16 +52,32 @@ pub struct SaveStrategyRequest {
     pub market: StrategyMarket,
     pub mode: StrategyMode,
     pub generation: GridGeneration,
+    #[serde(default)]
+    pub amount_mode: StrategyAmountMode,
+    #[serde(default)]
+    pub futures_margin_mode: Option<FuturesMarginMode>,
+    #[serde(default)]
+    pub leverage: Option<u32>,
     pub levels: Vec<SaveGridLevelRequest>,
+    #[serde(default)]
     pub membership_ready: bool,
+    #[serde(default)]
     pub exchange_ready: bool,
+    #[serde(default)]
     pub permissions_ready: bool,
+    #[serde(default)]
     pub withdrawals_disabled: bool,
+    #[serde(default)]
     pub hedge_mode_ready: bool,
+    #[serde(default)]
     pub symbol_ready: bool,
+    #[serde(default)]
     pub filters_ready: bool,
+    #[serde(default)]
     pub margin_ready: bool,
+    #[serde(default)]
     pub conflict_ready: bool,
+    #[serde(default)]
     pub balance_ready: bool,
     pub overall_take_profit_bps: Option<u32>,
     pub overall_stop_loss_bps: Option<u32>,
@@ -102,6 +133,20 @@ pub struct StrategyRuntimeResponse {
 }
 
 #[derive(Debug, Serialize)]
+pub struct BatchStartFailure {
+    pub strategy_id: String,
+    pub error: String,
+    pub preflight: Option<PreflightReport>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct BatchStartResponse {
+    pub started: usize,
+    pub items: Vec<StartStrategyResponse>,
+    pub failures: Vec<BatchStartFailure>,
+}
+
+#[derive(Debug, Serialize)]
 pub struct BatchPauseResponse {
     pub paused: usize,
 }
@@ -114,6 +159,100 @@ pub struct BatchDeleteResponse {
 #[derive(Debug, Serialize)]
 pub struct StopAllResponse {
     pub stopped: usize,
+}
+
+fn persist_strategy_notification(
+    db: &SharedDb,
+    email: &str,
+    kind: NotificationKind,
+    title: &str,
+    message: &str,
+    payload: BTreeMap<String, String>,
+) -> Result<(), StrategyError> {
+    let binding = db
+        .find_telegram_binding(email)
+        .map_err(StrategyError::storage)?;
+    let telegram_delivered = binding.is_some();
+    let record = NotificationRecord {
+        event: NotificationEvent {
+            email: email.to_owned(),
+            kind: kind.clone(),
+            title: title.to_owned(),
+            message: message.to_owned(),
+            payload,
+        },
+        telegram_delivered,
+        in_app_delivered: true,
+        show_expiry_popup: matches!(kind, NotificationKind::MembershipExpiring),
+    };
+    let now = Utc::now();
+    let payload = serde_json::to_value(&record)
+        .map_err(|_| StrategyError::storage(shared_db::SharedDbError::new("notification serialization failed")))?;
+    db.insert_notification_log(&NotificationLogRecord {
+        user_email: email.to_owned(),
+        channel: "in_app".to_owned(),
+        template_key: Some(format!("{:?}", kind)),
+        title: title.to_owned(),
+        body: message.to_owned(),
+        status: "delivered".to_owned(),
+        payload: payload.clone(),
+        created_at: now,
+        delivered_at: Some(now),
+    }).map_err(StrategyError::storage)?;
+    if let Some(binding) = binding {
+        if let Some(token) = telegram_bot_token() {
+            let delivered = send_telegram_message(&token, &binding.telegram_chat_id, title, message).is_ok();
+            db.insert_notification_log(&NotificationLogRecord {
+                user_email: email.to_owned(),
+                channel: "telegram".to_owned(),
+                template_key: Some(format!("{:?}", kind)),
+                title: title.to_owned(),
+                body: message.to_owned(),
+                status: if delivered { "delivered" } else { "failed" }.to_owned(),
+                payload,
+                created_at: now,
+                delivered_at: delivered.then_some(now),
+            }).map_err(StrategyError::storage)?;
+        }
+    }
+    Ok(())
+}
+
+
+fn telegram_bot_token() -> Option<String> {
+    env::var("TELEGRAM_BOT_TOKEN")
+        .ok()
+        .map(|value| value.trim().to_owned())
+        .filter(|value| !value.is_empty())
+}
+
+fn telegram_api_base_url() -> String {
+    env::var("TELEGRAM_API_BASE_URL")
+        .ok()
+        .map(|value| value.trim().trim_end_matches('/').to_owned())
+        .filter(|value| !value.is_empty())
+        .unwrap_or_else(|| "https://api.telegram.org".to_string())
+}
+
+fn telegram_http_agent() -> &'static ureq::Agent {
+    static AGENT: OnceLock<ureq::Agent> = OnceLock::new();
+    AGENT.get_or_init(|| ureq::AgentBuilder::new().timeout(StdDuration::from_secs(5)).build())
+}
+
+fn send_telegram_message(
+    bot_token: &str,
+    chat_id: &str,
+    title: &str,
+    body: &str,
+) -> Result<(), shared_db::SharedDbError> {
+    telegram_http_agent()
+        .post(&format!("{}/bot{}/sendMessage", telegram_api_base_url(), bot_token))
+        .send_json(ureq::json!({
+            "chat_id": chat_id,
+            "text": format!("{}\n{}", title, body),
+        }))
+        .map_err(|error| shared_db::SharedDbError::new(error.to_string()))?;
+    Ok(())
 }
 
 impl Default for StrategyService {
@@ -201,7 +340,7 @@ impl StrategyService {
 
         if matches!(
             strategy.status,
-            StrategyStatus::Running | StrategyStatus::Archived | StrategyStatus::Completed
+            StrategyStatus::Running | StrategyStatus::Archived | StrategyStatus::Completed | StrategyStatus::Stopping
         ) {
             return Err(StrategyError::conflict(
                 "strategy must be paused or stopped before editing",
@@ -214,20 +353,23 @@ impl StrategyService {
         strategy.mode = request.mode;
         strategy.budget = summarize_budget(&request.levels)?;
         strategy.grid_spacing_bps = summarize_spacing_bps(&request.levels)?;
-        strategy.membership_ready = request.membership_ready;
-        strategy.exchange_ready = request.exchange_ready;
-        strategy.permissions_ready = request.permissions_ready;
-        strategy.withdrawals_disabled = request.withdrawals_disabled;
-        strategy.hedge_mode_ready = request.hedge_mode_ready;
-        strategy.symbol_ready = request.symbol_ready;
-        strategy.filters_ready = request.filters_ready;
-        strategy.margin_ready = request.margin_ready;
-        strategy.conflict_ready = request.conflict_ready;
-        strategy.balance_ready = request.balance_ready;
+        strategy.membership_ready = false;
+        strategy.exchange_ready = false;
+        strategy.permissions_ready = false;
+        strategy.withdrawals_disabled = false;
+        strategy.hedge_mode_ready = false;
+        strategy.symbol_ready = false;
+        strategy.filters_ready = false;
+        strategy.margin_ready = false;
+        strategy.conflict_ready = matches!(strategy.market, StrategyMarket::Spot);
+        strategy.balance_ready = false;
         strategy.draft_revision = build_revision(
             &strategy.id,
             strategy.draft_revision.version + 1,
             request.generation,
+            request.amount_mode,
+            request.futures_margin_mode,
+            request.leverage,
             &request.levels,
             request.overall_take_profit_bps,
             request.overall_stop_loss_bps,
@@ -250,7 +392,7 @@ impl StrategyService {
             .find_strategy(owner_email, strategy_id)
             .map_err(StrategyError::storage)?
             .ok_or_else(|| StrategyError::not_found("strategy not found"))?;
-        Ok(run_preflight(&strategy))
+        self.live_preflight_report(&strategy)
     }
 
     pub fn start_strategy(
@@ -273,7 +415,7 @@ impl StrategyService {
             ));
         }
 
-        let preflight = run_preflight(&strategy);
+        let preflight = self.live_preflight_report(&strategy)?;
         if !preflight.ok {
             return Err(StrategyError::preflight_failed(preflight));
         }
@@ -286,6 +428,17 @@ impl StrategyService {
         self.db
             .update_strategy(&strategy)
             .map_err(StrategyError::storage)?;
+        let mut payload = BTreeMap::new();
+        payload.insert("strategy_id".to_string(), strategy.id.clone());
+        payload.insert("symbol".to_string(), strategy.symbol.clone());
+        persist_strategy_notification(
+            &self.db,
+            &strategy.owner_email,
+            NotificationKind::StrategyStarted,
+            "Strategy started",
+            &format!("{} started on {}.", strategy.name, strategy.symbol),
+            payload,
+        )?;
 
         Ok(StartStrategyResponse {
             strategy,
@@ -308,7 +461,7 @@ impl StrategyService {
             return Err(StrategyError::conflict("only paused strategies can resume"));
         }
 
-        let preflight = run_preflight(&strategy);
+        let preflight = self.live_preflight_report(&strategy)?;
         if !preflight.ok {
             return Err(StrategyError::preflight_failed(preflight));
         }
@@ -357,6 +510,55 @@ impl StrategyService {
         Ok(strategy)
     }
 
+    pub fn start_strategies(
+        &self,
+        owner_email: &str,
+        request: BatchStrategyRequest,
+    ) -> Result<BatchStartResponse, StrategyError> {
+        if request.ids.is_empty() {
+            return Err(StrategyError::bad_request("ids are required"));
+        }
+
+        let mut items = Vec::new();
+        let mut failures = Vec::new();
+
+        for strategy_id in request.ids {
+            let strategy = self
+                .db
+                .find_strategy(owner_email, &strategy_id)
+                .map_err(StrategyError::storage)?;
+            let Some(strategy) = strategy else {
+                failures.push(BatchStartFailure {
+                    strategy_id,
+                    error: "strategy not found".to_string(),
+                    preflight: None,
+                });
+                continue;
+            };
+
+            let outcome = match strategy.status {
+                StrategyStatus::Draft | StrategyStatus::Stopped => {
+                    self.start_strategy(owner_email, &strategy.id)
+                }
+                StrategyStatus::Paused => self.resume_strategy(owner_email, &strategy.id),
+                _ => Err(StrategyError::conflict(
+                    "strategy cannot be started from this state",
+                )),
+            };
+
+            match outcome {
+                Ok(started) => items.push(started),
+                Err(error) => failures.push(error.into_batch_start_failure(strategy.id.clone())),
+            }
+        }
+
+        Ok(BatchStartResponse {
+            started: items.len(),
+            items,
+            failures,
+        })
+    }
+
     pub fn pause_strategies(
         &self,
         owner_email: &str,
@@ -386,6 +588,17 @@ impl StrategyService {
                 self.db
                     .update_strategy(&strategy)
                     .map_err(StrategyError::storage)?;
+                let mut payload = BTreeMap::new();
+                payload.insert("strategy_id".to_string(), strategy.id.clone());
+                payload.insert("symbol".to_string(), strategy.symbol.clone());
+                persist_strategy_notification(
+                    &self.db,
+                    &strategy.owner_email,
+                    NotificationKind::StrategyPaused,
+                    "Strategy paused",
+                    &format!("{} paused on {}.", strategy.name, strategy.symbol),
+                    payload,
+                )?;
                 paused += 1;
             }
         }
@@ -571,6 +784,9 @@ fn build_template(
         template_id,
         1,
         request.generation,
+        request.amount_mode,
+        request.futures_margin_mode,
+        request.leverage,
         &request.levels,
         request.overall_take_profit_bps,
         request.overall_stop_loss_bps,
@@ -585,18 +801,21 @@ fn build_template(
         mode: request.mode,
         generation: revision.generation,
         levels: revision.levels.clone(),
+        amount_mode: revision.amount_mode,
+        futures_margin_mode: revision.futures_margin_mode,
+        leverage: revision.leverage,
         budget: summarize_budget(&request.levels)?,
         grid_spacing_bps: summarize_spacing_bps(&request.levels)?,
-        membership_ready: request.membership_ready,
-        exchange_ready: request.exchange_ready,
-        permissions_ready: request.permissions_ready,
-        withdrawals_disabled: request.withdrawals_disabled,
-        hedge_mode_ready: request.hedge_mode_ready,
-        symbol_ready: request.symbol_ready,
-        filters_ready: request.filters_ready,
-        margin_ready: request.margin_ready,
-        conflict_ready: request.conflict_ready,
-        balance_ready: request.balance_ready,
+        membership_ready: false,
+        exchange_ready: false,
+        permissions_ready: false,
+        withdrawals_disabled: false,
+        hedge_mode_ready: false,
+        symbol_ready: false,
+        filters_ready: false,
+        margin_ready: false,
+        conflict_ready: matches!(request.market, StrategyMarket::Spot),
+        balance_ready: false,
         overall_take_profit_bps: revision.overall_take_profit_bps,
         overall_stop_loss_bps: revision.overall_stop_loss_bps,
         post_trigger_action: revision.post_trigger_action,
@@ -662,16 +881,19 @@ fn template_to_save_request(template: &StrategyTemplate, name: String) -> SaveSt
                 trailing_bps: level.trailing_bps,
             })
             .collect(),
-        membership_ready: template.membership_ready,
-        exchange_ready: template.exchange_ready,
-        permissions_ready: template.permissions_ready,
-        withdrawals_disabled: template.withdrawals_disabled,
-        hedge_mode_ready: template.hedge_mode_ready,
-        symbol_ready: template.symbol_ready,
-        filters_ready: template.filters_ready,
-        margin_ready: template.margin_ready,
-        conflict_ready: template.conflict_ready,
-        balance_ready: template.balance_ready,
+        amount_mode: template.amount_mode,
+        futures_margin_mode: template.futures_margin_mode,
+        leverage: template.leverage,
+        membership_ready: false,
+        exchange_ready: false,
+        permissions_ready: false,
+        withdrawals_disabled: false,
+        hedge_mode_ready: false,
+        symbol_ready: false,
+        filters_ready: false,
+        margin_ready: false,
+        conflict_ready: matches!(template.market, StrategyMarket::Spot),
+        balance_ready: false,
         overall_take_profit_bps: template.overall_take_profit_bps,
         overall_stop_loss_bps: template.overall_stop_loss_bps,
         post_trigger_action: template.post_trigger_action,
@@ -687,6 +909,9 @@ fn validate_strategy_request(request: &SaveStrategyRequest) -> Result<(), Strate
     }
     if request.levels.is_empty() {
         return Err(StrategyError::bad_request("levels are required"));
+    }
+    if !strategy_mode_matches_market(request.market, request.mode) {
+        return Err(StrategyError::bad_request("market and mode are incompatible"));
     }
 
     let mut parsed = Vec::with_capacity(request.levels.len());
@@ -719,6 +944,25 @@ fn validate_strategy_request(request: &SaveStrategyRequest) -> Result<(), Strate
         ));
     }
 
+    if matches!(request.market, StrategyMarket::Spot) {
+        if request.futures_margin_mode.is_some() || request.leverage.is_some() {
+            return Err(StrategyError::bad_request(
+                "spot strategies cannot set futures margin mode or leverage",
+            ));
+        }
+    } else {
+        if request.futures_margin_mode.is_none() {
+            return Err(StrategyError::bad_request(
+                "futures strategies require futures_margin_mode",
+            ));
+        }
+        if request.leverage.unwrap_or(0) == 0 {
+            return Err(StrategyError::bad_request(
+                "futures strategies require leverage greater than 0",
+            ));
+        }
+    }
+
     Ok(())
 }
 
@@ -735,6 +979,9 @@ fn build_strategy(
         &format!("strategy-{sequence_id}"),
         1,
         request.generation,
+        request.amount_mode,
+        request.futures_margin_mode,
+        request.leverage,
         &request.levels,
         request.overall_take_profit_bps,
         request.overall_stop_loss_bps,
@@ -750,16 +997,16 @@ fn build_strategy(
         grid_spacing_bps: summarize_spacing_bps(&request.levels)?,
         status: StrategyStatus::Draft,
         source_template_id,
-        membership_ready: request.membership_ready,
-        exchange_ready: request.exchange_ready,
-        permissions_ready: request.permissions_ready,
-        withdrawals_disabled: request.withdrawals_disabled,
-        hedge_mode_ready: request.hedge_mode_ready,
-        symbol_ready: request.symbol_ready,
-        filters_ready: request.filters_ready,
-        margin_ready: request.margin_ready,
-        conflict_ready: request.conflict_ready,
-        balance_ready: request.balance_ready,
+        membership_ready: false,
+        exchange_ready: false,
+        permissions_ready: false,
+        withdrawals_disabled: false,
+        hedge_mode_ready: false,
+        symbol_ready: false,
+        filters_ready: false,
+        margin_ready: false,
+        conflict_ready: matches!(request.market, StrategyMarket::Spot),
+        balance_ready: false,
         market: request.market,
         mode: request.mode,
         draft_revision,
@@ -773,6 +1020,9 @@ fn build_revision(
     strategy_id: &str,
     version: u32,
     generation: GridGeneration,
+    amount_mode: StrategyAmountMode,
+    futures_margin_mode: Option<FuturesMarginMode>,
+    leverage: Option<u32>,
     levels: &[SaveGridLevelRequest],
     overall_take_profit_bps: Option<u32>,
     overall_stop_loss_bps: Option<u32>,
@@ -797,6 +1047,9 @@ fn build_revision(
         version,
         generation,
         levels,
+        amount_mode,
+        futures_margin_mode,
+        leverage,
         overall_take_profit_bps,
         overall_stop_loss_bps,
         post_trigger_action,
@@ -832,7 +1085,268 @@ fn summarize_spacing_bps(levels: &[SaveGridLevelRequest]) -> Result<u32, Strateg
     Ok(spacing.max(1))
 }
 
+#[derive(Debug, Clone, Default)]
+struct ServerPreflightState {
+    membership_ready: Option<bool>,
+    exchange_ready: Option<bool>,
+    permissions_ready: Option<bool>,
+    withdrawals_disabled: Option<bool>,
+    hedge_mode_ready: Option<bool>,
+    symbol_ready: Option<bool>,
+    filters_ready: Option<bool>,
+    margin_ready: Option<bool>,
+    conflict_ready: Option<bool>,
+    balance_ready: Option<bool>,
+}
+
+impl StrategyService {
+    fn live_preflight_report(&self, strategy: &Strategy) -> Result<PreflightReport, StrategyError> {
+        let state = self.server_preflight_state(strategy)?;
+        Ok(run_preflight_with_state(strategy, Some(&state)))
+    }
+
+    fn server_preflight_state(
+        &self,
+        strategy: &Strategy,
+    ) -> Result<ServerPreflightState, StrategyError> {
+        let membership_ready = self
+            .db
+            .find_membership_record(&strategy.owner_email)
+            .map_err(StrategyError::storage)?
+            .map(|record| membership_allows_runtime(&record, Utc::now()))
+            .unwrap_or(false);
+
+        let exchange_account = self
+            .db
+            .find_exchange_account(&strategy.owner_email, "binance")
+            .map_err(StrategyError::storage)?;
+        let exchange_ready = exchange_account
+            .as_ref()
+            .map(|record| exchange_account_supports_strategy(record, strategy.market))
+            .unwrap_or(false);
+        let permissions_ready = exchange_account
+            .as_ref()
+            .and_then(|record| metadata_bool(&record.metadata, &["validation", "permissions_ok"]))
+            .unwrap_or(false);
+        let hedge_mode_ready = exchange_account
+            .as_ref()
+            .and_then(|record| metadata_bool(&record.metadata, &["validation", "hedge_mode_ok"]))
+            .unwrap_or(false);
+        let withdrawals_disabled = exchange_account.as_ref().and_then(|record| {
+            metadata_bool(&record.metadata, &["validation", "withdrawals_disabled"])
+                .or_else(|| metadata_bool(&record.metadata, &["validation", "withdraw_disabled"]))
+        }).unwrap_or(false);
+        let symbol_ready = if exchange_account.is_some() {
+            self.symbol_exists_for_strategy(strategy)?
+        } else {
+            false
+        };
+        let filters_ready = if exchange_account.is_some() {
+            self.filters_satisfied(strategy)?
+        } else {
+            false
+        };
+        let margin_ready = if matches!(strategy.market, StrategyMarket::Spot) {
+            true
+        } else {
+            hedge_mode_ready && self.margin_requirements_satisfied(strategy)?
+        };
+        let conflict_ready = if futures_conflict_required(strategy.market) {
+            self.futures_conflict_free(strategy)?
+        } else {
+            true
+        };
+        let balance_ready = if exchange_account.is_some() {
+            self.balance_available(strategy)?
+        } else {
+            false
+        };
+
+        Ok(ServerPreflightState {
+            membership_ready: Some(membership_ready),
+            exchange_ready: Some(exchange_ready),
+            permissions_ready: Some(permissions_ready),
+            withdrawals_disabled: Some(withdrawals_disabled),
+            hedge_mode_ready: Some(hedge_mode_ready),
+            symbol_ready: Some(symbol_ready),
+            filters_ready: Some(filters_ready),
+            margin_ready: Some(margin_ready),
+            conflict_ready: Some(conflict_ready),
+            balance_ready: Some(balance_ready),
+        })
+    }
+
+    fn symbol_exists_for_strategy(&self, strategy: &Strategy) -> Result<bool, StrategyError> {
+        let market_key = strategy_market_key(strategy.market);
+        let symbols = self
+            .db
+            .list_exchange_symbols(&strategy.owner_email, "binance")
+            .map_err(StrategyError::storage)?;
+        Ok(symbols.into_iter().any(|record| {
+            record.market == market_key
+                && record.symbol.eq_ignore_ascii_case(&strategy.symbol)
+                && record.status == "TRADING"
+        }))
+    }
+
+    fn futures_conflict_free(&self, strategy: &Strategy) -> Result<bool, StrategyError> {
+        let current_mask = futures_direction_mask(strategy.mode);
+        if current_mask == 0 {
+            return Ok(true);
+        }
+
+        let has_conflict = self
+            .db
+            .list_strategies(&strategy.owner_email)
+            .map_err(StrategyError::storage)?
+            .into_iter()
+            .filter(|candidate| candidate.id != strategy.id)
+            .filter(|candidate| candidate.market == strategy.market)
+            .filter(|candidate| candidate.symbol.eq_ignore_ascii_case(&strategy.symbol))
+            .filter(|candidate| candidate.status == StrategyStatus::Running)
+            .any(|candidate| futures_direction_mask(candidate.mode) & current_mask != 0);
+
+        Ok(!has_conflict)
+    }
+
+    fn symbol_record_for_strategy(
+        &self,
+        strategy: &Strategy,
+    ) -> Result<Option<shared_db::UserExchangeSymbolRecord>, StrategyError> {
+        let market_key = strategy_market_key(strategy.market);
+        Ok(self
+            .db
+            .list_exchange_symbols(&strategy.owner_email, "binance")
+            .map_err(StrategyError::storage)?
+            .into_iter()
+            .find(|record| {
+                record.market == market_key
+                    && record.symbol.eq_ignore_ascii_case(&strategy.symbol)
+                    && record.status == "TRADING"
+            }))
+    }
+
+    fn margin_requirements_satisfied(&self, strategy: &Strategy) -> Result<bool, StrategyError> {
+        if matches!(strategy.market, StrategyMarket::Spot) {
+            return Ok(true);
+        }
+        let Some(symbol) = self.symbol_record_for_strategy(strategy)? else {
+            return Ok(false);
+        };
+        let supports_isolated = metadata_bool(
+            &symbol.metadata,
+            &["market_requirements", "supports_isolated_margin"],
+        )
+        .unwrap_or(true);
+        let supports_cross = metadata_bool(
+            &symbol.metadata,
+            &["market_requirements", "supports_cross_margin"],
+        )
+        .unwrap_or(true);
+        let leverage_brackets = metadata_u32_list(
+            &symbol.metadata,
+            &["market_requirements", "leverage_brackets"],
+        );
+        let margin_mode_ok = match strategy.draft_revision.futures_margin_mode {
+            Some(FuturesMarginMode::Isolated) => supports_isolated,
+            Some(FuturesMarginMode::Cross) => supports_cross,
+            None => false,
+        };
+        let leverage_ok = strategy
+            .draft_revision
+            .leverage
+            .is_some_and(|value| value > 0 && (leverage_brackets.is_empty() || leverage_brackets.contains(&value)));
+        Ok(margin_mode_ok && leverage_ok)
+    }
+
+    fn filters_satisfied(&self, strategy: &Strategy) -> Result<bool, StrategyError> {
+        let Some(symbol) = self.symbol_record_for_strategy(strategy)? else {
+            return Ok(false);
+        };
+
+        let min_quantity = parse_strategy_decimal(&symbol.min_quantity).unwrap_or(Decimal::ZERO);
+        let min_notional = parse_strategy_decimal(&symbol.min_notional).unwrap_or(Decimal::ZERO);
+        let levels = &strategy.draft_revision.levels;
+        Ok(levels.iter().all(|level| {
+            level.quantity >= min_quantity
+                && (level.entry_price * level.quantity) >= min_notional
+        }))
+    }
+
+    fn balance_available(&self, strategy: &Strategy) -> Result<bool, StrategyError> {
+        let Some(symbol) = self.symbol_record_for_strategy(strategy)? else {
+            return Ok(false);
+        };
+        let snapshots = self
+            .db
+            .list_exchange_wallet_snapshots(&strategy.owner_email)
+            .map_err(StrategyError::storage)?;
+        let Some(snapshot) = snapshots.iter().rev().find(|snapshot| {
+            snapshot.exchange == wallet_exchange_key(strategy.market)
+                || snapshot.wallet_type == wallet_type_key(strategy.market)
+        }) else {
+            return Ok(false);
+        };
+
+        let quote_needed = strategy
+            .draft_revision
+            .levels
+            .iter()
+            .fold(Decimal::ZERO, |acc, level| acc + (level.entry_price * level.quantity));
+        let base_needed = strategy
+            .draft_revision
+            .levels
+            .iter()
+            .fold(Decimal::ZERO, |acc, level| acc + level.quantity);
+
+        if matches!(strategy.market, StrategyMarket::Spot) {
+            return match strategy.mode {
+                StrategyMode::SpotSellOnly => Ok(wallet_balance(snapshot, &symbol.base_asset) >= base_needed),
+                _ => Ok(wallet_balance(snapshot, &symbol.quote_asset) >= quote_needed),
+            };
+        }
+
+        let leverage = Decimal::from(strategy.draft_revision.leverage.unwrap_or(1));
+        let collateral_needed = if matches!(strategy.market, StrategyMarket::FuturesCoinM) {
+            if leverage.is_zero() { Decimal::ZERO } else { base_needed / leverage }
+        } else if leverage.is_zero() {
+            Decimal::ZERO
+        } else {
+            quote_needed / leverage
+        };
+        let collateral_asset = if matches!(strategy.market, StrategyMarket::FuturesCoinM) {
+            symbol.base_asset.clone()
+        } else {
+            symbol.quote_asset.clone()
+        };
+
+        Ok(wallet_balance(snapshot, &collateral_asset) >= collateral_needed)
+    }
+}
+
+fn parse_strategy_decimal(value: &str) -> Option<Decimal> {
+    value.parse::<Decimal>().ok()
+}
+
+fn wallet_balance(snapshot: &shared_db::ExchangeWalletSnapshotRecord, asset: &str) -> Decimal {
+    snapshot
+        .balances
+        .get(asset)
+        .or_else(|| snapshot.balances.get(&asset.to_ascii_uppercase()))
+        .and_then(|value| value.as_str())
+        .and_then(parse_strategy_decimal)
+        .unwrap_or(Decimal::ZERO)
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
 fn run_preflight(strategy: &Strategy) -> PreflightReport {
+    run_preflight_with_state(strategy, None)
+}
+
+fn run_preflight_with_state(
+    strategy: &Strategy,
+    server_state: Option<&ServerPreflightState>,
+) -> PreflightReport {
     let mut steps = Vec::new();
     let mut failures = Vec::new();
 
@@ -840,70 +1354,90 @@ fn run_preflight(strategy: &Strategy) -> PreflightReport {
         (
             "membership_status",
             true,
-            strategy.membership_ready,
+            server_state
+                .and_then(|state| state.membership_ready)
+                .unwrap_or(strategy.membership_ready),
             "membership is not active",
             "renew or reactivate membership before starting",
         ),
         (
             "exchange_connection",
             true,
-            strategy.exchange_ready,
+            server_state
+                .and_then(|state| state.exchange_ready)
+                .unwrap_or(strategy.exchange_ready),
             "exchange credentials are not ready",
             "verify API key, secret, and required Binance permissions",
         ),
         (
             "exchange_permissions",
             true,
-            strategy.permissions_ready,
+            server_state
+                .and_then(|state| state.permissions_ready)
+                .unwrap_or(strategy.permissions_ready),
             "required Binance trading permissions are missing",
             "enable the permissions required for this market before starting",
         ),
         (
             "withdrawal_permission_disabled",
             true,
-            strategy.withdrawals_disabled,
+            server_state
+                .and_then(|state| state.withdrawals_disabled)
+                .unwrap_or(strategy.withdrawals_disabled),
             "withdraw permission must be disabled",
             "turn off withdrawal permission on the Binance API key",
         ),
         (
             "hedge_mode",
             requires_futures_checks(strategy.market),
-            strategy.hedge_mode_ready,
+            server_state
+                .and_then(|state| state.hedge_mode_ready)
+                .unwrap_or(strategy.hedge_mode_ready),
             "hedge mode is required for futures strategies",
             "enable hedge mode on Binance before starting this futures strategy",
         ),
         (
             "symbol_support",
             true,
-            strategy.symbol_ready,
+            server_state
+                .and_then(|state| state.symbol_ready)
+                .unwrap_or(strategy.symbol_ready),
             "symbol is not available",
             "choose a tradable symbol from synced Binance metadata",
         ),
         (
             "filters_and_notional",
             true,
-            strategy.filters_ready,
+            server_state
+                .and_then(|state| state.filters_ready)
+                .unwrap_or(strategy.filters_ready),
             "grid quantities or notionals do not satisfy exchange filters",
             "adjust the grid quantities to satisfy Binance min quantity and min notional filters",
         ),
         (
             "margin_or_leverage",
             requires_futures_checks(strategy.market),
-            strategy.margin_ready,
+            server_state
+                .and_then(|state| state.margin_ready)
+                .unwrap_or(strategy.margin_ready),
             "margin type or leverage settings are invalid",
             "fix margin mode or leverage before starting this futures strategy",
         ),
         (
             "strategy_conflicts",
             true,
-            strategy.conflict_ready,
+            server_state
+                .and_then(|state| state.conflict_ready)
+                .unwrap_or(strategy.conflict_ready),
             "strategy conflicts with an existing active strategy",
             "stop or change the conflicting strategy before starting this one",
         ),
         (
             "balance_or_collateral",
             true,
-            strategy.balance_ready,
+            server_state
+                .and_then(|state| state.balance_ready)
+                .unwrap_or(strategy.balance_ready),
             "insufficient available balance or collateral",
             "add funds or reduce the configured grid size before starting",
         ),
@@ -971,6 +1505,101 @@ fn run_preflight(strategy: &Strategy) -> PreflightReport {
     }
 }
 
+fn membership_allows_runtime(record: &MembershipRecord, at: DateTime<Utc>) -> bool {
+    match record.override_status {
+        Some(MembershipStatus::Frozen) | Some(MembershipStatus::Revoked) => false,
+        _ => {
+            record.active_until.is_some_and(|until| at <= until)
+                || record.grace_until.is_some_and(|until| at <= until)
+        }
+    }
+}
+
+fn exchange_account_supports_strategy(
+    record: &UserExchangeAccountRecord,
+    market: StrategyMarket,
+) -> bool {
+    if !record.is_active {
+        return false;
+    }
+
+    let connection_status = metadata_string(&record.metadata, &["connection_status"]);
+    let connectivity_ok = metadata_bool(&record.metadata, &["validation", "api_connectivity_ok"])
+        .or_else(|| {
+            connection_status
+                .as_deref()
+                .map(|status| matches!(status, "healthy" | "connected"))
+        })
+        .unwrap_or(true);
+    let timestamp_in_sync =
+        metadata_bool(&record.metadata, &["validation", "timestamp_in_sync"]).unwrap_or(true);
+    let market_access_ok = match market {
+        StrategyMarket::Spot => metadata_bool(&record.metadata, &["validation", "can_read_spot"]),
+        StrategyMarket::FuturesUsdM => {
+            metadata_bool(&record.metadata, &["validation", "can_read_usdm"])
+        }
+        StrategyMarket::FuturesCoinM => {
+            metadata_bool(&record.metadata, &["validation", "can_read_coinm"])
+        }
+    }
+    .or_else(|| metadata_bool(&record.metadata, &["validation", "market_access_ok"]))
+    .unwrap_or(true);
+
+    connectivity_ok && timestamp_in_sync && market_access_ok
+}
+
+fn metadata_bool(metadata: &Value, path: &[&str]) -> Option<bool> {
+    metadata_at_path(metadata, path).and_then(|value| value.as_bool())
+}
+
+fn metadata_string(metadata: &Value, path: &[&str]) -> Option<String> {
+    metadata_at_path(metadata, path)
+        .and_then(|value| value.as_str())
+        .map(str::to_owned)
+}
+
+fn metadata_u32_list(metadata: &Value, path: &[&str]) -> Vec<u32> {
+    metadata_at_path(metadata, path)
+        .and_then(|value| value.as_array())
+        .map(|items| {
+            items
+                .iter()
+                .filter_map(|item| item.as_u64())
+                .filter_map(|item| u32::try_from(item).ok())
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+fn metadata_at_path<'a>(metadata: &'a Value, path: &[&str]) -> Option<&'a Value> {
+    let mut current = metadata;
+    for key in path {
+        current = current.get(*key)?;
+    }
+    Some(current)
+}
+
+fn strategy_market_key(market: StrategyMarket) -> &'static str {
+    match market {
+        StrategyMarket::Spot => "spot",
+        StrategyMarket::FuturesUsdM => "usdm",
+        StrategyMarket::FuturesCoinM => "coinm",
+    }
+}
+
+fn futures_conflict_required(market: StrategyMarket) -> bool {
+    !matches!(market, StrategyMarket::Spot)
+}
+
+fn futures_direction_mask(mode: StrategyMode) -> u8 {
+    match mode {
+        StrategyMode::SpotClassic | StrategyMode::SpotBuyOnly | StrategyMode::SpotSellOnly => 0,
+        StrategyMode::FuturesLong => 0b01,
+        StrategyMode::FuturesShort => 0b10,
+        StrategyMode::FuturesNeutral => 0b11,
+    }
+}
+
 fn default_runtime() -> StrategyRuntime {
     StrategyRuntime::default()
 }
@@ -993,6 +1622,7 @@ fn rebuild_runtime(
             .iter()
             .map(|level| StrategyRuntimeOrder {
                 order_id: format!("{}-order-{}", strategy.id, level.level_index),
+                exchange_order_id: None,
                 level_index: Some(level.level_index),
                 side: side_for_level(strategy.mode, level.level_index).to_string(),
                 order_type: "Limit".to_string(),
@@ -1018,6 +1648,35 @@ fn requires_futures_checks(market: StrategyMarket) -> bool {
     !matches!(market, StrategyMarket::Spot)
 }
 
+fn strategy_mode_matches_market(market: StrategyMarket, mode: StrategyMode) -> bool {
+    match market {
+        StrategyMarket::Spot => matches!(
+            mode,
+            StrategyMode::SpotClassic | StrategyMode::SpotBuyOnly | StrategyMode::SpotSellOnly
+        ),
+        StrategyMarket::FuturesUsdM | StrategyMarket::FuturesCoinM => matches!(
+            mode,
+            StrategyMode::FuturesLong | StrategyMode::FuturesShort | StrategyMode::FuturesNeutral
+        ),
+    }
+}
+
+fn wallet_exchange_key(market: StrategyMarket) -> &'static str {
+    match market {
+        StrategyMarket::Spot => "binance",
+        StrategyMarket::FuturesUsdM => "binance-usdm",
+        StrategyMarket::FuturesCoinM => "binance-coinm",
+    }
+}
+
+fn wallet_type_key(market: StrategyMarket) -> &'static str {
+    match market {
+        StrategyMarket::Spot => "spot",
+        StrategyMarket::FuturesUsdM => "usdm",
+        StrategyMarket::FuturesCoinM => "coinm",
+    }
+}
+
 fn side_for_level(mode: StrategyMode, level_index: u32) -> &'static str {
     match mode {
         StrategyMode::SpotClassic | StrategyMode::SpotBuyOnly | StrategyMode::FuturesLong => "Buy",
@@ -1034,7 +1693,7 @@ fn side_for_level(mode: StrategyMode, level_index: u32) -> &'static str {
 
 fn cancel_working_orders(orders: &mut [StrategyRuntimeOrder]) {
     for order in orders.iter_mut() {
-        if order.status == "Working" {
+        if matches!(order.status.as_str(), "Working" | "Placed") {
             order.status = "Canceled".to_string();
         }
     }
@@ -1045,7 +1704,7 @@ fn can_soft_archive(strategy: &Strategy) -> bool {
         .runtime
         .orders
         .iter()
-        .any(|order| order.status == "Working")
+        .any(|order| matches!(order.status.as_str(), "Working" | "Placed"))
         && strategy.runtime.positions.is_empty()
         && !matches!(strategy.status, StrategyStatus::Running)
 }
@@ -1061,32 +1720,23 @@ fn stop_strategy_runtime(strategy: &mut Strategy) -> Result<(), StrategyError> {
     }
 
     cancel_working_orders(&mut strategy.runtime.orders);
-    let mut closing_fills = strategy
-        .runtime
-        .positions
-        .iter()
-        .enumerate()
-        .map(|(index, position)| StrategyRuntimeFill {
-            fill_id: format!("{}-close-fill-{index}", strategy.id),
-            order_id: None,
-            level_index: None,
-            fill_type: "MarketClose".to_string(),
-            price: position.average_entry_price,
-            quantity: position.quantity,
-            realized_pnl: Some(Decimal::ZERO),
-            fee_amount: None,
-            fee_asset: None,
-        })
-        .collect::<Vec<_>>();
-    strategy.runtime.fills.append(&mut closing_fills);
-    strategy.runtime.positions.clear();
-    strategy.status = StrategyStatus::Stopped;
-    push_runtime_event(
-        &mut strategy.runtime,
-        "strategy_stopped",
-        "strategy stopped",
-        None,
-    );
+    if strategy.runtime.positions.is_empty() {
+        strategy.status = StrategyStatus::Stopped;
+        push_runtime_event(
+            &mut strategy.runtime,
+            "strategy_stopped",
+            "strategy stopped",
+            None,
+        );
+    } else {
+        strategy.status = StrategyStatus::Stopping;
+        push_runtime_event(
+            &mut strategy.runtime,
+            "strategy_stop_requested",
+            "strategy stop requested; waiting for exchange close reconciliation",
+            None,
+        );
+    }
     Ok(())
 }
 
@@ -1112,6 +1762,20 @@ pub struct StrategyError {
 }
 
 impl StrategyError {
+    fn into_batch_start_failure(self, strategy_id: String) -> BatchStartFailure {
+        let preflight = self
+            .extra
+            .as_ref()
+            .and_then(|extra| extra.get("preflight"))
+            .cloned()
+            .and_then(|value| serde_json::from_value(value).ok());
+        BatchStartFailure {
+            strategy_id,
+            error: self.message,
+            preflight,
+        }
+    }
+
     fn bad_request(message: &str) -> Self {
         Self {
             status: StatusCode::BAD_REQUEST,
@@ -1188,10 +1852,11 @@ mod tests {
     };
     use crate::services::auth_service::AdminRole;
     use axum::http::StatusCode;
-    use shared_db::SharedDb;
+    use chrono::Utc;
+    use shared_db::{MembershipRecord, SharedDb, UserExchangeAccountRecord};
     use shared_domain::strategy::{
-        GridGeneration, PostTriggerAction, StrategyMarket, StrategyMode, StrategyRuntimePosition,
-        StrategyStatus,
+        GridGeneration, PostTriggerAction, PreflightStepStatus, StrategyMarket, StrategyMode,
+        StrategyRuntimePosition, StrategyStatus,
     };
     use std::{
         fs,
@@ -1486,6 +2151,169 @@ mod tests {
         assert_eq!(report.steps[0].step, "membership_status");
         assert_eq!(report.steps[1].step, "exchange_connection");
         assert_eq!(report.failures[0].step, "exchange_connection");
+    }
+
+    #[test]
+    fn server_preflight_does_not_trust_persisted_client_ready_flags_when_server_state_is_missing() {
+        let db = SharedDb::ephemeral().expect("db");
+        let service = StrategyService::new(db);
+
+        let strategy = service
+            .create_strategy(
+                "trader@example.com",
+                SaveStrategyRequest {
+                    name: "spot".to_string(),
+                    symbol: "BTCUSDT".to_string(),
+                    market: StrategyMarket::Spot,
+                    mode: StrategyMode::SpotClassic,
+                    generation: GridGeneration::Custom,
+                    levels: vec![SaveGridLevelRequest {
+                        entry_price: "100".to_string(),
+                        quantity: "1".to_string(),
+                        take_profit_bps: 100,
+                        trailing_bps: None,
+                    }],
+                    membership_ready: true,
+                    exchange_ready: true,
+                    permissions_ready: true,
+                    withdrawals_disabled: true,
+                    hedge_mode_ready: true,
+                    symbol_ready: true,
+                    filters_ready: true,
+                    margin_ready: true,
+                    conflict_ready: true,
+                    balance_ready: true,
+                    overall_take_profit_bps: None,
+                    overall_stop_loss_bps: None,
+                    post_trigger_action: PostTriggerAction::Stop,
+                },
+            )
+            .expect("strategy");
+
+        let report = service
+            .preflight_strategy("trader@example.com", &strategy.id)
+            .expect("preflight");
+
+        assert!(!report.ok);
+        assert_eq!(
+            report
+                .steps
+                .iter()
+                .find(|step| step.step == "membership_status")
+                .expect("membership step")
+                .status,
+            PreflightStepStatus::Failed
+        );
+        assert_eq!(
+            report
+                .steps
+                .iter()
+                .find(|step| step.step == "exchange_connection")
+                .expect("exchange step")
+                .status,
+            PreflightStepStatus::Skipped
+        );
+        assert_eq!(report.failures[0].step, "membership_status");
+    }
+
+    #[test]
+    fn server_preflight_overrides_false_client_flags_when_server_state_is_satisfied() {
+        let db = SharedDb::ephemeral().expect("db");
+        let service = StrategyService::new(db.clone());
+        let now = Utc::now();
+        db.upsert_membership_record(
+            "trader@example.com",
+            &MembershipRecord {
+                activated_at: Some(now),
+                active_until: Some(now + chrono::Duration::days(30)),
+                grace_until: Some(now + chrono::Duration::days(32)),
+                override_status: None,
+            },
+        )
+        .expect("membership");
+        db.upsert_exchange_account(&UserExchangeAccountRecord {
+            user_email: "trader@example.com".to_string(),
+            exchange: "binance".to_string(),
+            account_label: "Binance".to_string(),
+            market_scope: "spot".to_string(),
+            is_active: true,
+            checked_at: Some(now),
+            metadata: serde_json::json!({
+                "connection_status": "connected",
+                "validation": {
+                    "api_connectivity_ok": true,
+                    "timestamp_in_sync": true,
+                    "permissions_ok": true,
+                    "hedge_mode_ok": true,
+                    "withdrawals_disabled": true,
+                    "can_read_spot": true,
+                    "market_access_ok": true
+                }
+            }),
+        }).expect("account");
+        db.replace_exchange_symbols(
+            "trader@example.com",
+            "binance",
+            &[shared_db::UserExchangeSymbolRecord {
+                user_email: "trader@example.com".to_string(),
+                exchange: "binance".to_string(),
+                market: "spot".to_string(),
+                symbol: "BTCUSDT".to_string(),
+                status: "TRADING".to_string(),
+                base_asset: "BTC".to_string(),
+                quote_asset: "USDT".to_string(),
+                price_precision: 2,
+                quantity_precision: 4,
+                min_quantity: "0.001".to_string(),
+                min_notional: "5".to_string(),
+                keywords: vec!["btcusdt".to_string()],
+                metadata: serde_json::json!({}),
+                synced_at: now,
+            }],
+        ).expect("symbols");
+        db.insert_exchange_wallet_snapshot(&shared_db::ExchangeWalletSnapshotRecord {
+            user_email: "trader@example.com".to_string(),
+            exchange: "binance".to_string(),
+            wallet_type: "spot".to_string(),
+            balances: serde_json::json!({ "USDT": "1000" }),
+            captured_at: now,
+        }).expect("wallet");
+
+        let strategy = service.create_strategy(
+            "trader@example.com",
+            SaveStrategyRequest {
+                name: "spot".to_string(),
+                symbol: "BTCUSDT".to_string(),
+                market: StrategyMarket::Spot,
+                mode: StrategyMode::SpotClassic,
+                generation: GridGeneration::Custom,
+                levels: vec![SaveGridLevelRequest {
+                    entry_price: "100".to_string(),
+                    quantity: "1".to_string(),
+                    take_profit_bps: 100,
+                    trailing_bps: None,
+                }],
+                membership_ready: false,
+                exchange_ready: false,
+                permissions_ready: false,
+                withdrawals_disabled: false,
+                hedge_mode_ready: false,
+                symbol_ready: false,
+                filters_ready: false,
+                margin_ready: false,
+                conflict_ready: false,
+                balance_ready: false,
+                overall_take_profit_bps: None,
+                overall_stop_loss_bps: None,
+                post_trigger_action: PostTriggerAction::Stop,
+            },
+        ).expect("strategy");
+
+        let report = service.preflight_strategy("trader@example.com", &strategy.id).expect("preflight");
+        assert!(report.ok);
+        assert_eq!(report.steps.iter().find(|step| step.step == "filters_and_notional").unwrap().status, PreflightStepStatus::Passed);
+        assert_eq!(report.steps.iter().find(|step| step.step == "balance_or_collateral").unwrap().status, PreflightStepStatus::Passed);
+        assert_eq!(report.steps.iter().find(|step| step.step == "strategy_conflicts").unwrap().status, PreflightStepStatus::Passed);
     }
 
     #[test]

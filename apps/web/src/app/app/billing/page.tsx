@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { cookies } from "next/headers";
 
 import { AppShellSection } from "../../../components/shell/app-shell-section";
 import { Card, CardBody, CardDescription, CardHeader, CardTitle } from "../../../components/ui/card";
@@ -7,16 +8,48 @@ import { DialogFrame } from "../../../components/ui/dialog";
 import { Button, Field, FormStack, Select } from "../../../components/ui/form";
 import { StatusBanner } from "../../../components/ui/status-banner";
 import { DataTable } from "../../../components/ui/table";
-import { getCurrentUserProductState } from "../../../lib/api/user-product-state";
 
-const planCatalog = [
-  { label: "Monthly", amount: "20.00 USD equivalent" },
-  { label: "Quarterly", amount: "54.00 USD equivalent" },
-  { label: "Yearly", amount: "180.00 USD equivalent" },
-];
+const DEFAULT_AUTH_API_BASE_URL = "http://127.0.0.1:8080";
 
-export default async function BillingPage() {
-  const state = await getCurrentUserProductState();
+type PageProps = {
+  searchParams?: Promise<{ error?: string | string[]; notice?: string | string[] }>;
+};
+
+type BillingOverview = {
+  membership: {
+    grace_until?: string | null;
+    status: string;
+    active_until?: string | null;
+  };
+  orders: Array<{
+    address: string | null;
+    amount: string;
+    asset: string;
+    chain: string;
+    order_id: number;
+    queue_position: number | null;
+    status: string;
+    expires_at?: string | null;
+  }>;
+  plans: Array<{
+    code: string;
+    name: string;
+    prices: Array<{ amount: string; asset: string; chain: string }>;
+  }>;
+};
+
+function firstValue(value?: string | string[]) {
+  return Array.isArray(value) ? value[0] : value;
+}
+
+export default async function BillingPage({ searchParams }: PageProps) {
+  const params = (await searchParams) ?? {};
+  const notice = firstValue(params.notice);
+  const error = firstValue(params.error);
+  const overview = await fetchBillingOverview();
+  const plans = overview?.plans ?? [];
+  const orders = overview?.orders ?? [];
+  const membership = overview?.membership ?? null;
 
   return (
     <>
@@ -25,20 +58,19 @@ export default async function BillingPage() {
         title="Grace-period reminder enabled"
         tone="warning"
       />
-      {state.flash.billing ? (
-        <StatusBanner description={state.flash.billing} title="Awaiting exact transfer" tone="warning" />
-      ) : null}
+      {notice ? <StatusBanner description={notice} title="Awaiting exact transfer" tone="warning" /> : null}
+      {error ? <StatusBanner description={error} title="Billing request failed" tone="warning" /> : null}
       <AppShellSection
         description="Create renewal orders with visible exact-amount warnings, plan pricing, and membership timing."
         eyebrow="Membership billing"
         title="Billing Center"
       >
         <div className="content-grid content-grid--metrics">
-          {planCatalog.map((item) => (
-            <Card key={item.label}>
+          {plans.map((item) => (
+            <Card key={item.code}>
               <CardHeader>
-                <CardTitle>{item.label}</CardTitle>
-                <CardDescription>{item.amount}</CardDescription>
+                <CardTitle>{item.name}</CardTitle>
+                <CardDescription>{item.prices.map((price) => `${price.chain} ${price.asset} ${price.amount}`).join(" | ")}</CardDescription>
               </CardHeader>
             </Card>
           ))}
@@ -51,7 +83,7 @@ export default async function BillingPage() {
             <CardDescription>Renewal timing stays visible before the user sends funds on-chain.</CardDescription>
           </CardHeader>
           <CardBody>
-            <p>Next renewal: {state.billing.nextRenewalAt}</p>
+            <p>Next renewal: {membership?.active_until?.slice(0, 10) ?? "Unavailable"}</p>
             <FormStack action="/api/user/billing" method="post">
               <Field label="Plan">
                 <Select defaultValue="monthly" name="plan">
@@ -84,12 +116,10 @@ export default async function BillingPage() {
           </CardHeader>
           <CardBody>
             <ul className="text-list">
-              <li>Membership status: {state.billing.membershipStatus}</li>
-              {state.billing.membershipStatus === "Unknown" ? <li>Entitlement truth is temporarily unavailable; strategy starts remain blocked.</li> : null}
-              <li>Current plan: {state.billing.currentPlan}</li>
+              <li>Membership status: {membership?.status ?? "Unknown"}</li>
               <li>Renewal stacking: Allowed</li>
-              <li>Grace period ends: {state.billing.graceEndsAt}</li>
-              <li><Link href={`/app/strategies/${state.strategies[0]?.id ?? ""}`}>Strategy Workspace</Link></li>
+              <li>Grace period ends: {membership?.grace_until?.slice(0, 10) ?? "Unavailable"}</li>
+              <li><Link href="/app/strategies">Strategy Workspace</Link></li>
             </ul>
           </CardBody>
         </Card>
@@ -105,15 +135,19 @@ export default async function BillingPage() {
               columns={[
                 { key: "order", label: "Order" },
                 { key: "chainToken", label: "Chain / token" },
+                { key: "details", label: "Assignment details" },
                 { key: "amount", label: "Amount", align: "right" },
                 { key: "state", label: "State", align: "right" },
               ]}
-              rows={state.billing.orders.map((row) => ({
-                id: row.id,
-                order: row.order,
-                chainToken: `${row.chain} / ${row.token}`,
+              rows={orders.map((row) => ({
+                id: String(row.order_id),
+                order: `ORD-${String(row.order_id).padStart(4, "0")}`,
+                chainToken: `${row.chain} / ${row.asset}`,
+                details: row.address
+                  ? `Assigned address: ${row.address} | Address lock expires: ${row.expires_at?.slice(0, 19).replace("T", " ") ?? "pending"}`
+                  : `Queue position: ${row.queue_position ?? "pending"} | Assigned address pending`,
                 amount: row.amount,
-                state: <Chip tone={row.state === "Confirmed" ? "success" : "warning"}>{row.state}</Chip>,
+                state: <Chip tone={row.status === "matched" || row.status === "completed" ? "success" : "warning"}>{row.status}</Chip>,
               }))}
             />
           </CardBody>
@@ -126,4 +160,25 @@ export default async function BillingPage() {
       </div>
     </>
   );
+}
+
+async function fetchBillingOverview(): Promise<BillingOverview | null> {
+  const cookieStore = await cookies();
+  const sessionToken = cookieStore.get("session_token")?.value ?? "";
+  if (!sessionToken) {
+    return null;
+  }
+  const response = await fetch(`${authApiBaseUrl()}/billing/overview`, {
+    method: "GET",
+    headers: { authorization: `Bearer ${sessionToken}` },
+    cache: "no-store",
+  });
+  if (!response.ok) {
+    return null;
+  }
+  return (await response.json()) as BillingOverview;
+}
+
+function authApiBaseUrl() {
+  return process.env.AUTH_API_BASE_URL?.trim().replace(/\/+$/, "") || DEFAULT_AUTH_API_BASE_URL;
 }

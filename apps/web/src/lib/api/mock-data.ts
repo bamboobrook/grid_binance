@@ -106,6 +106,7 @@ const userNav: NavItem[] = [
   { href: "/app/exchange", label: "Exchange" },
   { href: "/app/strategies", label: "Strategies", badge: "8" },
   { href: "/app/orders", label: "Orders" },
+  { href: "/app/analytics", label: "Analytics" },
   { href: "/app/billing", label: "Billing" },
   { href: "/app/telegram", label: "Telegram", badge: "3" },
   { href: "/app/security", label: "Security" },
@@ -537,8 +538,7 @@ export const adminSweepsSnapshot = {
     description: "Wallet sweep actions are a documented admin route and must remain audited."
   },
   rows: [
-    { id: "sweep-1", wallet: "bsc_pool_02", amount: "420 USDT", state: "Queued" },
-    { id: "sweep-2", wallet: "sol_pool_03", amount: "380 USDC", state: "Completed" }
+    { id: "sweep-pending", wallet: "address-pool-job", amount: "Pending backend job", state: "Pending" }
   ]
 };
 

@@ -9,7 +9,7 @@ const MANUAL_CREDIT_CONFIRMATION = "MANUAL_CREDIT_MEMBERSHIP";
 const REVIEW_REASONS_REQUIRING_ORDER_SELECTION = new Set(["ambiguous_match", "order_not_found"]);
 
 type PageProps = {
-  searchParams?: Promise<{ result?: string; tx?: string }>;
+  searchParams?: Promise<{ error?: string; result?: string; tx?: string }>;
 };
 
 function manualCreditCandidateOrders(item: AdminDepositView, orders: AdminDepositsResponse["orders"]) {
@@ -23,7 +23,7 @@ function manualCreditCandidateOrders(item: AdminDepositView, orders: AdminDeposi
         case "ambiguous_match":
           return order.asset === item.asset && order.amount === item.amount && order.address === item.address;
         case "order_not_found":
-          return order.asset === item.asset && order.amount === item.amount;
+          return order.asset === item.asset && order.amount === item.amount && order.address === item.address;
         default:
           return item.order_id === order.order_id;
       }
@@ -93,6 +93,7 @@ function renderManualActions(item: AdminDepositView, orders: AdminDepositsRespon
 
 export default async function AdminDepositsPage({ searchParams }: PageProps) {
   const params = (await searchParams) ?? {};
+  const error = typeof params.error === "string" ? params.error : "";
   const result = typeof params.result === "string" ? params.result : "";
   const tx = typeof params.tx === "string" ? params.tx : "";
   const data = await getAdminDepositsData();
@@ -101,6 +102,9 @@ export default async function AdminDepositsPage({ searchParams }: PageProps) {
     <>
       {result ? (
         <StatusBanner description={"Deposit result: " + result + (tx ? " | " + tx : "")} title="Deposit case updated" tone="success" />
+      ) : null}
+      {error ? (
+        <StatusBanner description={error + (tx ? " | " + tx : "")} title="Deposit action failed" tone="warning" />
       ) : null}
       <AppShellSection
         description="Manual review decisions are read from and written to backend deposit workflows."

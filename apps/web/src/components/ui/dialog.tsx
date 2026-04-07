@@ -7,14 +7,16 @@ export function DialogFrame({
   description,
   title,
   tone = "info",
+  modal = false,
 }: {
   children?: ReactNode;
   description: string;
   title: string;
   tone?: "info" | "warning" | "danger";
+  modal?: boolean;
 }) {
   return (
-    <section aria-modal="false" className={`ui-dialog ui-dialog--${tone}`} role="dialog">
+    <section aria-modal={modal ? "true" : "false"} className={`ui-dialog ui-dialog--${tone}`} role="dialog">
       <header className="ui-dialog__header">
         <Chip tone={tone}>{tone === "info" ? "Heads up" : tone === "warning" ? "Warning" : "Critical"}</Chip>
         <h3>{title}</h3>

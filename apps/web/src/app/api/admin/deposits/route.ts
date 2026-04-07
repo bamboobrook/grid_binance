@@ -1,4 +1,4 @@
-import { postAdminBackend, proxyAdminBackendError, readField, redirectTo } from "../_shared";
+import { postAdminBackend, readField, redirectTo } from "../_shared";
 
 function readOptionalOrderId(...values: string[]) {
   for (const value of values) {
@@ -32,7 +32,11 @@ export async function POST(request: Request) {
     tx_hash: txHash,
   });
   if (!response.ok) {
-    return proxyAdminBackendError(response);
+    const message = await readBackendError(response);
+    return redirectTo(
+      request,
+      `/admin/deposits?tx=${encodeURIComponent(txHash)}&error=${encodeURIComponent(message)}`,
+    );
   }
 
   const payload = (await response.json()) as { deposit_status?: string };
@@ -41,4 +45,14 @@ export async function POST(request: Request) {
     request,
     `/admin/deposits?tx=${encodeURIComponent(txHash)}&result=${encodeURIComponent(payload.deposit_status ?? decision)}`,
   );
+}
+
+
+async function readBackendError(response: Response) {
+  try {
+    const payload = (await response.json()) as { error?: string };
+    return payload.error ?? "admin deposit request failed";
+  } catch {
+    return "admin deposit request failed";
+  }
 }

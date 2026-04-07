@@ -4,7 +4,7 @@ use axum::{
     http::{Request, StatusCode},
 };
 use serde_json::{json, Value};
-use shared_db::SharedDb;
+use shared_db::{MembershipRecord, SharedDb};
 use std::sync::{Mutex, OnceLock};
 use tower::ServiceExt;
 
@@ -16,7 +16,7 @@ async fn save_credentials_persists_masked_account_health_and_three_market_symbol
         "exchange-flow-test-master-key",
     );
     let db = SharedDb::ephemeral().expect("ephemeral db");
-    let app = app_with_state(AppState::from_shared_db(db).expect("app state"));
+    let app = app_with_state(AppState::from_shared_db(db.clone()).expect("app state"));
     let session_token = register_and_login(&app, "exchange-save@example.com").await;
 
     let response = save_credentials(
@@ -62,7 +62,7 @@ async fn one_user_only_has_one_binance_account_and_updates_replace_the_masked_re
         "exchange-flow-test-master-key",
     );
     let db = SharedDb::ephemeral().expect("ephemeral db");
-    let app = app_with_state(AppState::from_shared_db(db).expect("app state"));
+    let app = app_with_state(AppState::from_shared_db(db.clone()).expect("app state"));
     let session_token = register_and_login(&app, "exchange-single-account@example.com").await;
 
     let first = save_credentials(
@@ -106,8 +106,19 @@ async fn credential_updates_require_running_strategies_to_be_paused_first() {
         "exchange-flow-test-master-key",
     );
     let db = SharedDb::ephemeral().expect("ephemeral db");
-    let app = app_with_state(AppState::from_shared_db(db).expect("app state"));
+    let app = app_with_state(AppState::from_shared_db(db.clone()).expect("app state"));
     let session_token = register_and_login(&app, "exchange-pause-first@example.com").await;
+    let now = chrono::Utc::now();
+    db.upsert_membership_record(
+        "exchange-pause-first@example.com",
+        &MembershipRecord {
+            activated_at: Some(now),
+            active_until: Some(now + chrono::Duration::days(30)),
+            grace_until: Some(now + chrono::Duration::days(32)),
+            override_status: None,
+        },
+    )
+    .expect("membership");
 
     let first = save_credentials(
         &app,
@@ -118,6 +129,14 @@ async fn credential_updates_require_running_strategies_to_be_paused_first() {
     )
     .await;
     assert_eq!(first.status(), StatusCode::OK);
+    db.insert_exchange_wallet_snapshot(&shared_db::ExchangeWalletSnapshotRecord {
+        user_email: "exchange-pause-first@example.com".to_string(),
+        exchange: "binance".to_string(),
+        wallet_type: "spot".to_string(),
+        balances: json!({ "USDT": "1000" }),
+        captured_at: chrono::Utc::now(),
+    })
+    .expect("wallet snapshot");
 
     let strategy = create_strategy(
         &app,
@@ -130,7 +149,7 @@ async fn credential_updates_require_running_strategies_to_be_paused_first() {
             "generation": "Custom",
             "levels": [{
                 "entry_price": "100.00",
-                "quantity": "0.0100",
+                "quantity": "0.1000",
                 "take_profit_bps": 100,
                 "trailing_bps": null
             }],
@@ -273,6 +292,40 @@ async fn hedge_mode_validation_flags_mismatch_between_expectation_and_account_st
     let read_body = response_json(read).await;
     assert_eq!(read_body["account"]["validation"]["hedge_mode_ok"], false);
     assert_eq!(read_body["account"]["connection_status"], "degraded");
+}
+
+#[tokio::test]
+async fn degraded_credentials_emit_api_invalidation_notification_without_manual_dispatch() {
+    let _guard = exchange_env_lock().lock().expect("env lock");
+    std::env::set_var(
+        "EXCHANGE_CREDENTIALS_MASTER_KEY",
+        "exchange-flow-test-master-key",
+    );
+    let db = SharedDb::ephemeral().expect("ephemeral db");
+    let app = app_with_state(AppState::from_shared_db(db.clone()).expect("app state"));
+    let session_token = register_and_login(&app, "exchange-invalidated@example.com").await;
+
+    let response = save_credentials(
+        &app,
+        Some(&session_token),
+        "demo-key-oneway-1234",
+        "demo-secret",
+        true,
+    )
+    .await;
+
+    assert_eq!(response.status(), StatusCode::OK);
+    let notifications = db
+        .list_notification_logs("exchange-invalidated@example.com", 10)
+        .expect("notification logs");
+    let invalidation = notifications
+        .iter()
+        .find(|record| record.template_key.as_deref() == Some("ApiCredentialsInvalidated") && record.channel == "in_app")
+        .expect("api invalidation notification");
+    assert_eq!(invalidation.title, "API credentials invalid");
+    assert_eq!(invalidation.payload["event"]["kind"], "ApiCredentialsInvalidated");
+    assert_eq!(invalidation.payload["event"]["payload"]["exchange"], "binance");
+    assert_eq!(invalidation.payload["event"]["payload"]["reason"], "hedge_mode");
 }
 
 #[tokio::test]

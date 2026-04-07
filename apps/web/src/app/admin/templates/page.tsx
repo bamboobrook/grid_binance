@@ -35,6 +35,14 @@ export default async function AdminTemplatesPage({ searchParams }: PageProps) {
   const editingTemplate = editId ? data.items.find((item) => item.id === editId) ?? null : null;
   const levelOne = editingTemplate?.levels[0] ?? null;
   const levelTwo = editingTemplate?.levels[1] ?? null;
+  const levelsJson = JSON.stringify(editingTemplate?.levels ?? [
+    { entry_price: "1.0000", quantity: "10", take_profit_bps: 150, trailing_bps: null },
+    { entry_price: "1.0500", quantity: "10", take_profit_bps: 180, trailing_bps: null },
+    { entry_price: "1.1000", quantity: "12", take_profit_bps: 220, trailing_bps: 90 },
+  ], null, 2);
+  const amountMode = editingTemplate?.amount_mode === "Base" ? "base" : "quote";
+  const futuresMarginMode = editingTemplate?.futures_margin_mode === "Cross" ? "cross" : "isolated";
+  const leverage = editingTemplate?.leverage ? String(editingTemplate.leverage) : "5";
 
   return (
     <>
@@ -85,6 +93,21 @@ export default async function AdminTemplatesPage({ searchParams }: PageProps) {
                       <option value="Geometric">Geometric</option>
                       <option value="Custom">Custom</option>
                     </Select>
+                  </Field>
+                  <Field label="Amount mode">
+                    <Select defaultValue={amountMode} name="amountMode">
+                      <option value="quote">Quote</option>
+                      <option value="base">Base</option>
+                    </Select>
+                  </Field>
+                  <Field label="Futures margin mode">
+                    <Select defaultValue={futuresMarginMode} name="futuresMarginMode">
+                      <option value="isolated">Isolated</option>
+                      <option value="cross">Cross</option>
+                    </Select>
+                  </Field>
+                  <Field label="Leverage">
+                    <Input defaultValue={leverage} inputMode="numeric" name="leverage" />
                   </Field>
                   <Field label="Level 1 entry price">
                     <Input defaultValue={levelOne?.entry_price ?? "1.0000"} name="level1EntryPrice" />
@@ -139,6 +162,9 @@ export default async function AdminTemplatesPage({ searchParams }: PageProps) {
                   </Field>
                   <Field label="Balance ready">
                     <Select defaultValue={String(editingTemplate?.balance_ready ?? true)} name="balanceReady">{readinessOptions()}</Select>
+                  </Field>
+                  <Field label="Levels JSON" hint="Use this field when the template needs 3+ levels or full custom ladder control.">
+                    <textarea className="ui-input" defaultValue={levelsJson} name="levelsJson" rows={10} />
                   </Field>
                   <Field label="Overall take profit (bps)">
                     <Input defaultValue={editingTemplate?.overall_take_profit_bps ?? ""} inputMode="numeric" name="overallTakeProfitBps" />

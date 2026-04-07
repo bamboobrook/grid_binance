@@ -77,6 +77,51 @@ impl StrategyRuntimeEngine {
         })
     }
 
+    pub fn from_runtime_snapshot(
+        strategy_id: &str,
+        market: StrategyMarket,
+        mode: StrategyMode,
+        revision: StrategyRevision,
+        runtime: StrategyRuntime,
+        running: bool,
+    ) -> Result<Self, StrategyRuntimeError> {
+        let mut engine = Self::new(strategy_id, market, mode, revision.clone())?;
+        engine.runtime = runtime.clone();
+        engine.running = running;
+        engine.fill_sequence = runtime.fills.len() as u64;
+        engine.open_levels = runtime
+            .positions
+            .iter()
+            .enumerate()
+            .map(|(index, position)| {
+                let template_level = revision
+                    .levels
+                    .get(index)
+                    .or_else(|| revision.levels.first())
+                    .expect("revision level must exist");
+                OpenLevelState {
+                    level_index: template_level.level_index,
+                    entry_price: position.average_entry_price,
+                    quantity: position.quantity,
+                    take_profit_bps: template_level.take_profit_bps,
+                    trailing_bps: template_level.trailing_bps,
+                    trailing_extreme: runtime
+                        .events
+                        .iter()
+                        .rev()
+                        .find(|event| event.event_type == format!("trailing_anchor_{}", template_level.level_index))
+                        .and_then(|event| event.price),
+                    is_short: matches!(position.mode, StrategyMode::SpotSellOnly | StrategyMode::FuturesShort),
+                }
+            })
+            .collect();
+        Ok(engine)
+    }
+
+    pub fn is_running(&self) -> bool {
+        self.running
+    }
+
     pub fn start(&mut self) -> Result<(), StrategyRuntimeError> {
         self.running = true;
         self.runtime.orders = self.build_working_orders();
@@ -165,6 +210,7 @@ impl StrategyRuntimeEngine {
                         if state.is_short {
                             let new_low = extreme.min(price);
                             state.trailing_extreme = Some(new_low);
+                            push_event(&mut self.runtime.events, &format!("trailing_anchor_{}", state.level_index), "trailing anchor updated", Some(new_low));
                             let retrace_price = new_low * short_trailing_factor(trailing_bps);
                             if price >= retrace_price {
                                 pending_closures.push((
@@ -176,6 +222,7 @@ impl StrategyRuntimeEngine {
                         } else {
                             let new_high = extreme.max(price);
                             state.trailing_extreme = Some(new_high);
+                            push_event(&mut self.runtime.events, &format!("trailing_anchor_{}", state.level_index), "trailing anchor updated", Some(new_high));
                             let retrace_price = new_high * trailing_factor(trailing_bps);
                             if price <= retrace_price {
                                 pending_closures.push((
@@ -187,6 +234,12 @@ impl StrategyRuntimeEngine {
                         }
                     } else if price_reaches_take_profit(price, tp_price, state.is_short) {
                         state.trailing_extreme = Some(price);
+                        push_event(
+                            &mut self.runtime.events,
+                            &format!("trailing_anchor_{}", state.level_index),
+                            "trailing anchor armed",
+                            Some(price),
+                        );
                     }
                 }
                 None => {
@@ -440,6 +493,7 @@ impl StrategyRuntimeEngine {
             .iter()
             .map(|level| StrategyRuntimeOrder {
                 order_id: format!("{}-order-{}", self.strategy_id, level.level_index),
+                exchange_order_id: None,
                 level_index: Some(level.level_index),
                 side: entry_side(self.mode, level.level_index).to_string(),
                 order_type: "Limit".to_string(),

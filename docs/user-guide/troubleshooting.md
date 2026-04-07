@@ -1,9 +1,23 @@
 # Troubleshooting
 
-Use this guide when exchange tests, pre-flight checks, billing confirmation, or Telegram binding do not complete as expected.
+## Login And Security
 
-If exchange pre-flight fails, confirm credentials were saved, run the connection test again, and make sure futures accounts are in hedge mode.
+- If login says `admin totp setup required`, open `/admin-bootstrap`, create the admin TOTP secret, then return to `/login` and enter the shown TOTP code.
+- If normal user login says `totp code required`, enter the current code from your authenticator app.
 
-If a billing order stays pending, verify that the transfer chain, token, and amount exactly match the billing page.
+## Exchange Problems
 
-If Telegram binding does not complete, generate a fresh bind code and send it to the bot before the code expires.
+- If the platform shows `API credentials invalid`, open `/app/exchange` and inspect the validation details.
+- Common failure reasons include timestamp drift, missing permissions, withdrawal permission still enabled, market access mismatch, or hedge mode mismatch.
+
+## Strategy Problems
+
+- If start fails, read the failed pre-flight step in `/app/strategies/:id`.
+- If stop remains in `Stopping`, the platform is still reconciling exchange order cancellation or market-close execution.
+- If delete is blocked, clear remaining positions and working orders first.
+
+## Billing Problems
+
+- Payment amounts must match exactly.
+- Wrong token, wrong amount, or unmatched transfers go to manual review.
+- If a payment stays in `confirming`, wait for the required chain confirmations.

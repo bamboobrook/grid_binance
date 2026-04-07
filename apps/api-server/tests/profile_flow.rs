@@ -223,51 +223,17 @@ async fn profile_admin_access_granted_tracks_current_bearer_session() {
     let app = app_with_shared_db(&db);
 
     let _verification_code = register_and_verify(&app, "admin@example.com", "pass1234").await;
-    let pre_totp_session = login_and_get_token(&app, "admin@example.com", "pass1234", None).await;
 
-    let enabled = app
+    let blocked_login = app
         .clone()
-        .oneshot(
-            Request::builder()
-                .method("POST")
-                .uri("/security/totp/enable")
-                .header("authorization", format!("Bearer {pre_totp_session}"))
-                .header("content-type", "application/json")
-                .body(Body::from(
-                    json!({
-                        "email": "admin@example.com",
-                    })
-                    .to_string(),
-                ))
-                .unwrap(),
-        )
+        .oneshot(login_request("admin@example.com", "pass1234", None))
         .await
         .unwrap();
-    assert_eq!(enabled.status(), StatusCode::OK);
-    let totp_code = response_json(enabled).await["code"]
-        .as_str()
-        .expect("totp code")
-        .to_owned();
+    assert_eq!(blocked_login.status(), StatusCode::UNAUTHORIZED);
+    assert_eq!(response_json(blocked_login).await["error"], "admin totp setup required");
 
-    let stale_profile = app
-        .clone()
-        .oneshot(
-            Request::builder()
-                .method(Method::GET)
-                .uri("/profile")
-                .header("authorization", format!("Bearer {pre_totp_session}"))
-                .body(Body::empty())
-                .unwrap(),
-        )
-        .await
-        .unwrap();
-    assert_eq!(stale_profile.status(), StatusCode::OK);
-    let stale_body = response_json(stale_profile).await;
-    assert_eq!(stale_body["admin_totp_required"], true);
-    assert_eq!(stale_body["totp_enabled"], true);
-    assert_eq!(stale_body["admin_access_granted"], false);
-    assert_eq!(stale_body["admin_role"], Value::Null);
-    assert_eq!(stale_body["admin_permissions"], Value::Null);
+    let bootstrap = bootstrap_admin_totp(&app, "admin@example.com", "pass1234").await;
+    let totp_code = bootstrap["code"].as_str().expect("totp code").to_owned();
 
     let admin_session =
         login_and_get_token(&app, "admin@example.com", "pass1234", Some(&totp_code)).await;
@@ -285,6 +251,8 @@ async fn profile_admin_access_granted_tracks_current_bearer_session() {
         .unwrap();
     assert_eq!(current_profile.status(), StatusCode::OK);
     let current_body = response_json(current_profile).await;
+    assert_eq!(current_body["admin_totp_required"], true);
+    assert_eq!(current_body["totp_enabled"], true);
     assert_eq!(current_body["admin_access_granted"], true);
     assert_eq!(current_body["admin_role"], "operator_admin");
     assert_eq!(
@@ -478,6 +446,23 @@ fn login_request(email: &str, password: &str, totp_code: Option<&str>) -> Reques
         .header("content-type", "application/json")
         .body(Body::from(body.to_string()))
         .unwrap()
+}
+
+async fn bootstrap_admin_totp(app: &axum::Router, email: &str, password: &str) -> Value {
+    let response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/auth/admin-bootstrap")
+                .header("content-type", "application/json")
+                .body(Body::from(json!({ "email": email, "password": password }).to_string()))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    response_json(response).await
 }
 
 async fn response_json(response: axum::response::Response) -> Value {

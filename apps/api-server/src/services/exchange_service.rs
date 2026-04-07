@@ -6,15 +6,18 @@ use axum::{
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
+use shared_events::{NotificationEvent, NotificationKind, NotificationRecord};
 use shared_binance::{
     mask_api_key, matches_symbol_query, sync_symbol_metadata, BinanceClient, CredentialCipher,
     CredentialValidationRequest, ExchangeCredentialCheck, MarketRequirements, SymbolFilters,
     SymbolMetadata,
 };
 use shared_db::{
-    SharedDb, UserExchangeAccountRecord, UserExchangeCredentialRecord, UserExchangeSymbolRecord,
+    NotificationLogRecord, SharedDb, UserExchangeAccountRecord, UserExchangeCredentialRecord,
+    UserExchangeSymbolRecord,
 };
 use shared_domain::strategy::StrategyStatus;
+use std::{collections::BTreeMap, sync::OnceLock, time::Duration as StdDuration};
 
 use crate::services::auth_service::AuthError;
 
@@ -75,6 +78,7 @@ pub struct ExchangeCredentialCheckDto {
     pub can_read_coinm: bool,
     pub hedge_mode_ok: bool,
     pub permissions_ok: bool,
+    pub withdrawals_disabled: bool,
     pub market_access_ok: bool,
 }
 
@@ -98,6 +102,7 @@ struct StoredValidationSnapshot {
     can_read_coinm: bool,
     hedge_mode_ok: bool,
     permissions_ok: bool,
+    withdrawals_disabled: bool,
     market_access_ok: bool,
 }
 
@@ -133,6 +138,11 @@ impl ExchangeService {
 
         let user_email = normalize_email(user_email);
         self.ensure_no_running_strategies_for_credential_update(&user_email)?;
+        let previous_metadata = self
+            .db
+            .find_exchange_account(&user_email, BINANCE_EXCHANGE)
+            .map_err(ExchangeError::storage)?
+            .and_then(|record| parse_account_metadata(&record.metadata).ok());
 
         let selected_markets = request.selected_markets.unwrap_or_default();
         let validation_request =
@@ -185,6 +195,12 @@ impl ExchangeService {
             .db
             .save_exchange_account_bundle(&account_record, &credential_record, &symbol_records)
             .map_err(ExchangeError::storage)?;
+        self.persist_api_invalidation_notification_if_needed(
+            &user_email,
+            previous_metadata.as_ref(),
+            &check,
+            now,
+        )?;
 
         Ok(SaveBinanceCredentialsResponse {
             account: self.read_account_model(&user_email)?,
@@ -281,6 +297,12 @@ impl ExchangeService {
                     &symbol_records,
                 )
                 .map_err(ExchangeError::storage)?;
+            self.persist_api_invalidation_notification_if_needed(
+                &account.user_email,
+                Some(&stored),
+                &check,
+                synced_at,
+            )?;
 
             refreshed_accounts += 1;
         }
@@ -313,6 +335,84 @@ impl ExchangeService {
             ));
         }
 
+        Ok(())
+    }
+
+    fn persist_api_invalidation_notification_if_needed(
+        &self,
+        user_email: &str,
+        previous: Option<&StoredExchangeMetadata>,
+        check: &ExchangeCredentialCheck,
+        created_at: DateTime<Utc>,
+    ) -> Result<(), ExchangeError> {
+        if check.is_healthy() {
+            return Ok(());
+        }
+        if previous.is_some_and(|metadata| metadata.connection_status == "degraded") {
+            return Ok(());
+        }
+
+        let reason = api_invalidation_reason(check);
+        let binding = self
+            .db
+            .find_telegram_binding(user_email)
+            .map_err(ExchangeError::storage)?;
+        let telegram_delivered = match (binding.as_ref(), telegram_bot_token()) {
+            (Some(binding), Some(token)) => send_telegram_message(
+                &token,
+                &binding.telegram_chat_id,
+                "API credentials invalid",
+                &format!("Binance validation failed: {reason}."),
+            )
+            .is_ok(),
+            _ => false,
+        };
+        let record = NotificationRecord {
+            event: NotificationEvent {
+                email: user_email.to_owned(),
+                kind: NotificationKind::ApiCredentialsInvalidated,
+                title: "API credentials invalid".to_string(),
+                message: format!("Binance validation failed: {reason}."),
+                payload: BTreeMap::from([
+                    ("exchange".to_string(), BINANCE_EXCHANGE.to_string()),
+                    ("reason".to_string(), reason),
+                    ("connection_status".to_string(), check.connection_status().to_string()),
+                ]),
+            },
+            telegram_delivered,
+            in_app_delivered: true,
+            show_expiry_popup: false,
+        };
+        let payload = serde_json::to_value(&record)
+            .map_err(|error| ExchangeError::storage(shared_db::SharedDbError::new(error.to_string())))?;
+        self.db
+            .insert_notification_log(&NotificationLogRecord {
+                user_email: user_email.to_owned(),
+                channel: "in_app".to_string(),
+                template_key: Some("ApiCredentialsInvalidated".to_string()),
+                title: record.event.title.clone(),
+                body: record.event.message.clone(),
+                status: "delivered".to_string(),
+                payload: payload.clone(),
+                created_at,
+                delivered_at: Some(created_at),
+            })
+            .map_err(ExchangeError::storage)?;
+        if binding.is_some() {
+            self.db
+                .insert_notification_log(&NotificationLogRecord {
+                    user_email: user_email.to_owned(),
+                    channel: "telegram".to_string(),
+                    template_key: Some("ApiCredentialsInvalidated".to_string()),
+                    title: record.event.title,
+                    body: record.event.message,
+                    status: if telegram_delivered { "delivered" } else { "failed" }.to_string(),
+                    payload,
+                    created_at,
+                    delivered_at: telegram_delivered.then_some(created_at),
+                })
+                .map_err(ExchangeError::storage)?;
+        }
         Ok(())
     }
 
@@ -357,6 +457,7 @@ impl From<ExchangeCredentialCheck> for ExchangeCredentialCheckDto {
             can_read_coinm: value.can_read_coinm,
             hedge_mode_ok: value.hedge_mode_ok,
             permissions_ok: value.permissions_ok,
+            withdrawals_disabled: value.withdrawal_disabled,
             market_access_ok: value.market_access_ok,
         }
     }
@@ -372,6 +473,7 @@ impl From<StoredValidationSnapshot> for ExchangeCredentialCheckDto {
             can_read_coinm: value.can_read_coinm,
             hedge_mode_ok: value.hedge_mode_ok,
             permissions_ok: value.permissions_ok,
+            withdrawals_disabled: value.withdrawals_disabled,
             market_access_ok: value.market_access_ok,
         }
     }
@@ -387,6 +489,7 @@ impl StoredValidationSnapshot {
             can_read_coinm: check.can_read_coinm,
             hedge_mode_ok: check.hedge_mode_ok,
             permissions_ok: check.permissions_ok,
+            withdrawals_disabled: check.withdrawal_disabled,
             market_access_ok: check.market_access_ok,
         }
     }
@@ -472,6 +575,69 @@ fn map_serde_storage_error(error: serde_json::Error) -> ExchangeError {
 
 fn parse_account_metadata(value: &Value) -> Result<StoredExchangeMetadata, ExchangeError> {
     serde_json::from_value(value.clone()).map_err(map_serde_storage_error)
+}
+
+fn api_invalidation_reason(check: &ExchangeCredentialCheck) -> String {
+    let mut reasons = Vec::new();
+    if !check.api_connectivity_ok {
+        reasons.push("api_connectivity");
+    }
+    if !check.timestamp_in_sync {
+        reasons.push("timestamp_in_sync");
+    }
+    if !check.permissions_ok {
+        reasons.push("permissions");
+    }
+    if !check.withdrawal_disabled {
+        reasons.push("withdrawal_permission");
+    }
+    if !check.market_access_ok {
+        reasons.push("market_access");
+    }
+    if !check.hedge_mode_ok {
+        reasons.push("hedge_mode");
+    }
+    if reasons.is_empty() {
+        "validation_failed".to_string()
+    } else {
+        reasons.join(",")
+    }
+}
+
+fn telegram_bot_token() -> Option<String> {
+    std::env::var("TELEGRAM_BOT_TOKEN")
+        .ok()
+        .map(|value| value.trim().to_owned())
+        .filter(|value| !value.is_empty())
+}
+
+fn telegram_api_base_url() -> String {
+    std::env::var("TELEGRAM_API_BASE_URL")
+        .ok()
+        .map(|value| value.trim().trim_end_matches('/').to_owned())
+        .filter(|value| !value.is_empty())
+        .unwrap_or_else(|| "https://api.telegram.org".to_string())
+}
+
+fn telegram_http_agent() -> &'static ureq::Agent {
+    static AGENT: OnceLock<ureq::Agent> = OnceLock::new();
+    AGENT.get_or_init(|| ureq::AgentBuilder::new().timeout(StdDuration::from_secs(5)).build())
+}
+
+fn send_telegram_message(
+    bot_token: &str,
+    chat_id: &str,
+    title: &str,
+    body: &str,
+) -> Result<(), shared_db::SharedDbError> {
+    telegram_http_agent()
+        .post(&format!("{}/bot{}/sendMessage", telegram_api_base_url(), bot_token))
+        .send_json(ureq::json!({
+            "chat_id": chat_id,
+            "text": format!("{}\n{}", title, body),
+        }))
+        .map_err(|error| shared_db::SharedDbError::new(error.to_string()))?;
+    Ok(())
 }
 
 fn credential_cipher() -> Result<CredentialCipher, shared_binance::CredentialCipherError> {

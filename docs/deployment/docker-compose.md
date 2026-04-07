@@ -31,7 +31,7 @@ cp .env.example .env
 docker compose --env-file .env -f deploy/docker/docker-compose.yml up -d --build
 ```
 
-This release depends on PostgreSQL and Redis. `DATABASE_URL`, `REDIS_URL`, `SESSION_TOKEN_SECRET`, `EXCHANGE_CREDENTIALS_MASTER_KEY`, `ADMIN_EMAILS`, `TELEGRAM_BOT_BIND_SECRET`, and `INTERNAL_SHARED_SECRET` must be present before the stack starts.
+This release depends on PostgreSQL and Redis. `DATABASE_URL`, `REDIS_URL`, `SESSION_TOKEN_SECRET`, `EXCHANGE_CREDENTIALS_MASTER_KEY`, `ADMIN_EMAILS`, `TELEGRAM_BOT_BIND_SECRET`, `INTERNAL_SHARED_SECRET`, `CHAIN_RPC_URL_ETH`, `CHAIN_RPC_URL_BSC`, and `CHAIN_RPC_URL_SOL` must be present before the stack starts. Set `BINANCE_LIVE_MODE=1` when you want the API, scheduler, trading engine, and market-data gateway to hit the real Binance endpoints instead of offline fallbacks. Add `TELEGRAM_BOT_TOKEN` if you want Telegram delivery in addition to in-app notifications. Set `SWEEP_EXECUTOR_URL` when you want `/admin/sweeps` jobs to be submitted automatically and return real tx hashes or Solana signatures. Add `SWEEP_EXECUTOR_AUTH_TOKEN` when that executor requires bearer auth. Tune `SNAPSHOT_SYNC_INTERVAL_SECS` if you want account/wallet snapshots captured more or less frequently, tune `REMINDER_INTERVAL_SECS` / `REMINDER_LOOKAHEAD_HOURS` if you want renewal reminders emitted on a different cadence, and override `BINANCE_*_WS_BASE_URL` only when routing market/user streams through a proxy or alternate endpoint.
 
 `.env.example` is compose-oriented. Inside the compose network, `postgres` and `redis` resolve as service names. If you run services outside compose, override them to host-reachable values such as `postgres://postgres:postgres@127.0.0.1:5432/grid_binance` and `redis://127.0.0.1:6379/0`.
 

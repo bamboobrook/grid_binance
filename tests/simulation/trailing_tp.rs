@@ -1,6 +1,7 @@
 use rust_decimal::Decimal;
 use shared_domain::strategy::{
-    GridGeneration, GridLevel, PostTriggerAction, StrategyMarket, StrategyMode, StrategyRevision,
+    GridGeneration, GridLevel, PostTriggerAction, StrategyAmountMode, StrategyMarket,
+    StrategyMode, StrategyRevision,
 };
 use trading_engine::strategy_runtime::StrategyRuntimeEngine;
 
@@ -13,6 +14,9 @@ fn revision_with_trailing(trailing_bps: Option<u32>) -> StrategyRevision {
         revision_id: "revision-1".to_string(),
         version: 1,
         generation: GridGeneration::Custom,
+        amount_mode: StrategyAmountMode::Quote,
+        futures_margin_mode: None,
+        leverage: None,
         levels: vec![GridLevel {
             level_index: 0,
             entry_price: decimal(100, 0),

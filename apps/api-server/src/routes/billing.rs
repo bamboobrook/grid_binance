@@ -1,7 +1,7 @@
 use axum::{
     extract::State,
     http::{HeaderMap, StatusCode},
-    routing::post,
+    routing::{get, post},
     Json, Router,
 };
 
@@ -11,14 +11,25 @@ use crate::{
     services::membership_service::{
         CreateBillingOrderRequest, CreateBillingOrderResponse, MatchBillingOrderRequest,
         MatchBillingOrderResponse, MembershipError, MembershipService,
+        UserBillingOverviewResponse,
     },
     AppState,
 };
 
 pub fn router() -> Router<AppState> {
     Router::new()
+        .route("/billing/overview", get(billing_overview))
         .route("/billing/orders", post(create_order))
         .route("/billing/orders/match", post(match_order))
+}
+
+async fn billing_overview(
+    State(auth): State<AuthService>,
+    State(service): State<MembershipService>,
+    headers: HeaderMap,
+) -> Result<Json<UserBillingOverviewResponse>, MembershipError> {
+    let session = require_user_session(&auth, &headers).map_err(MembershipError::from)?;
+    Ok(Json(service.billing_overview(&session.email, chrono::Utc::now())?))
 }
 
 async fn create_order(

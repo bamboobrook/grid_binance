@@ -9,11 +9,12 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 use shared_db::{
     AuditLogRecord, BillingOrderRecord, DepositAddressPoolRecord, DepositTransactionRecord,
-    MembershipPlanPriceRecord, MembershipPlanRecord, MembershipRecord, SharedDb, SweepJobRecord,
-    SweepTransferRecord,
+    MembershipPlanPriceRecord, MembershipPlanRecord, MembershipRecord, NotificationLogRecord,
+    SharedDb, SweepJobRecord, SweepTransferRecord,
 };
 use shared_domain::membership::{MembershipSnapshot, MembershipStatus};
-use std::collections::HashSet;
+use shared_events::{NotificationEvent, NotificationKind, NotificationRecord};
+use std::{collections::{BTreeMap, HashSet}, sync::OnceLock, time::Duration as StdDuration};
 
 use crate::services::auth_service::{AdminRole, AuthError};
 
@@ -83,6 +84,7 @@ pub struct MatchBillingOrderRequest {
     pub address: String,
     pub amount: String,
     pub tx_hash: String,
+    pub confirmations: Option<u32>,
     pub observed_at: DateTime<Utc>,
 }
 
@@ -154,6 +156,25 @@ pub struct MembershipPlanPriceResponse {
 #[derive(Debug, Serialize)]
 pub struct MembershipPlanConfigListResponse {
     pub plans: Vec<MembershipPlanConfigResponse>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct UserBillingOrderResponse {
+    pub order_id: u64,
+    pub chain: String,
+    pub asset: String,
+    pub address: Option<String>,
+    pub amount: String,
+    pub status: String,
+    pub expires_at: Option<DateTime<Utc>>,
+    pub queue_position: Option<u64>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct UserBillingOverviewResponse {
+    pub membership: MembershipSnapshot,
+    pub plans: Vec<MembershipPlanConfigResponse>,
+    pub orders: Vec<UserBillingOrderResponse>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -370,10 +391,11 @@ impl MembershipService {
 
         let chain = normalize_chain(&request.chain);
         let asset = normalize_asset(&request.asset);
-        let address = request.address.trim().to_owned();
-        let tx_hash = request.tx_hash.trim().to_owned();
+        let address = normalize_chain_address(&normalize_chain(&request.chain), request.address.trim());
+        let tx_hash = normalize_chain_tx_hash(&normalize_chain(&request.chain), request.tx_hash.trim());
         let amount = canonicalize_amount(&request.amount)
             .map_err(|_| MembershipError::bad_request("invalid amount"))?;
+        let confirmations = request.confirmations.unwrap_or_default();
 
         if chain.is_empty() || asset.is_empty() || address.is_empty() || tx_hash.is_empty() {
             return Err(MembershipError::bad_request(
@@ -403,7 +425,7 @@ impl MembershipService {
 
         let valid_candidates: Vec<_> = address_candidates
             .iter()
-            .filter(|order| order.asset == asset && order.amount == amount)
+            .filter(|order| order.asset == asset && canonicalize_amount(&order.amount).ok().as_deref() == Some(amount.as_str()))
             .filter(|order| {
                 order
                     .assignment
@@ -415,17 +437,53 @@ impl MembershipService {
 
         if valid_candidates.len() == 1 {
             let order = valid_candidates.into_iter().next().expect("one candidate");
-            let Some((_active_until, _grace_until)) = self.apply_membership_entitlement(
-                actor_email,
-                &order,
+            if !self.confirming_transaction_exists(&chain, &tx_hash)? {
+                return Err(MembershipError::bad_request(
+                    "automatic exact matches must originate from chain listener",
+                ));
+            }
+            let required_confirmations = self.required_confirmations(&chain)?;
+            if confirmations < required_confirmations {
+                return Ok(MatchBillingOrderResponse {
+                    matched: false,
+                    reason: Some("awaiting_confirmations".to_owned()),
+                    order_id: Some(order.order_id),
+                    email: Some(order.email),
+                    membership_status: None,
+                    active_until: None,
+                    grace_until: None,
+                    deposit_status: "confirming".to_owned(),
+                });
+            }
+            if self
+                .apply_membership_entitlement(
+                    actor_email,
+                    &order,
+                    &tx_hash,
+                    &chain,
+                    &asset,
+                    request.observed_at,
+                )?
+                .is_none()
+            {
+                self.promote_confirming_exact_match(
+                    actor_email,
+                    &order,
+                    &tx_hash,
+                    &chain,
+                    &asset,
+                    request.observed_at,
+                )?;
+            }
+            persist_deposit_confirmation_notification(
+                &self.db,
+                &order.email,
+                &order.chain,
+                &order.asset,
+                order.order_id,
                 &tx_hash,
-                &chain,
-                &asset,
                 request.observed_at,
-            )?
-            else {
-                return Ok(duplicate_match_response());
-            };
+            )?;
             let snapshot = snapshot_for(
                 &order.email,
                 self.db
@@ -589,6 +647,27 @@ impl MembershipService {
             "order_not_found",
             "manual_review_required",
         ))
+    }
+
+    fn required_confirmations(&self, chain: &str) -> Result<u32, MembershipError> {
+        let key = match chain {
+            "ETH" => "confirmations.eth",
+            "BSC" => "confirmations.bsc",
+            "SOL" => "confirmations.sol",
+            _ => return Ok(12),
+        };
+
+        let Some(record) = self.db.get_system_config(key).map_err(MembershipError::storage)? else {
+            return Ok(12);
+        };
+
+        Ok(record
+            .config_value
+            .get("value")
+            .and_then(|value| value.as_u64())
+            .filter(|value| *value > 0 && *value <= u32::MAX as u64)
+            .map(|value| value as u32)
+            .unwrap_or(12))
     }
 
     pub fn membership_status(
@@ -765,6 +844,51 @@ impl MembershipService {
             .find_membership_record(&email)
             .map_err(MembershipError::storage)?;
         Ok(snapshot_for(&email, record.as_ref(), Some(request.at)))
+    }
+
+    pub fn billing_overview(
+        &self,
+        email: &str,
+        at: DateTime<Utc>,
+    ) -> Result<UserBillingOverviewResponse, MembershipError> {
+        self.bootstrap_defaults()?;
+        let email = normalize_email(email);
+        if email.is_empty() {
+            return Err(MembershipError::bad_request("email is required"));
+        }
+        let plans = self.list_plan_configs()?.plans;
+        let membership = self.membership_status(MembershipStatusRequest {
+            email: email.clone(),
+            at,
+        })?;
+        let orders = self
+            .db
+            .list_billing_orders()
+            .map_err(MembershipError::storage)?;
+        let user_orders = orders
+            .iter()
+            .filter(|order| order.email.eq_ignore_ascii_case(&email))
+            .map(|order| UserBillingOrderResponse {
+                order_id: order.order_id,
+                chain: order.chain.clone(),
+                asset: order.asset.clone(),
+                address: order.assignment.as_ref().map(|assignment| assignment.address.clone()),
+                amount: order.amount.clone(),
+                status: order.status.clone(),
+                expires_at: order.assignment.as_ref().map(|assignment| assignment.expires_at),
+                queue_position: if order.status == "queued" {
+                    queue_position_for(order.order_id, &order.chain, &orders)
+                } else {
+                    None
+                },
+            })
+            .collect();
+
+        Ok(UserBillingOverviewResponse {
+            membership,
+            plans,
+            orders: user_orders,
+        })
     }
 
     pub fn list_plan_configs(&self) -> Result<MembershipPlanConfigListResponse, MembershipError> {
@@ -1208,6 +1332,15 @@ impl MembershipService {
                         Some(order_id),
                     )?);
                 }
+                persist_deposit_confirmation_notification(
+                    &self.db,
+                    &order.email,
+                    &order.chain,
+                    &order.asset,
+                    order_id,
+                    &tx_hash,
+                    request.processed_at,
+                )?;
                 let snapshot = snapshot_for(
                     &order.email,
                     self.db
@@ -1296,14 +1429,26 @@ impl MembershipService {
             .db
             .next_sequence("sweep_job_id")
             .map_err(MembershipError::storage)?;
+        let pool_addresses = self
+            .db
+            .list_deposit_addresses()
+            .map_err(MembershipError::storage)?;
         let transfers = request
             .transfers
             .into_iter()
-            .map(|transfer| {
+            .enumerate()
+            .map(|(_index, transfer)| {
                 let from_address = transfer.from_address.trim().to_owned();
                 if from_address.is_empty() {
                     return Err(MembershipError::bad_request(
                         "transfer from_address is required",
+                    ));
+                }
+                if !pool_addresses.iter().any(|record| {
+                    record.chain == chain && record.is_enabled && record.address == from_address
+                }) {
+                    return Err(MembershipError::bad_request(
+                        "transfer from_address must belong to the address pool",
                     ));
                 }
                 canonicalize_amount(&transfer.amount)
@@ -1313,19 +1458,30 @@ impl MembershipService {
                         to_address: treasury_address.clone(),
                         amount,
                         tx_hash: None,
+                        status: "pending".to_owned(),
+                        submitted_at: None,
+                        confirmed_at: None,
+                        failed_at: None,
+                        error_message: None,
                     })
             })
             .collect::<Result<Vec<_>, _>>()?;
+        let completed_at = None;
         let after_summary =
             sweep_request_summary(&chain, &asset, &treasury_address, transfers.len());
         let job = SweepJobRecord {
             sweep_job_id,
             chain: chain.clone(),
             asset: asset.clone(),
-            status: "queued".to_owned(),
+            status: "pending".to_owned(),
             requested_by: actor_email.to_owned(),
             requested_at: request.requested_at,
-            completed_at: None,
+            treasury_address: treasury_address.clone(),
+            submitted_at: None,
+            completed_at,
+            failed_at: None,
+            last_error: None,
+            attempt_count: 0,
             transfers: transfers.clone(),
         };
         let audit = AuditLogRecord {
@@ -1352,7 +1508,7 @@ impl MembershipService {
             sweep_job_id,
             chain,
             asset,
-            status: "queued".to_owned(),
+            status: "pending".to_owned(),
             requested_by: actor_email.to_owned(),
             transfer_count: transfers.len(),
         })
@@ -1460,6 +1616,60 @@ impl MembershipService {
         }
 
         Ok(())
+    }
+
+    fn promote_confirming_exact_match(
+        &self,
+        actor_email: &str,
+        order: &BillingOrderRecord,
+        tx_hash: &str,
+        chain: &str,
+        asset: &str,
+        paid_at: DateTime<Utc>,
+    ) -> Result<(), MembershipError> {
+        let (active_until, grace_until) = self.membership_entitlement_window(order, paid_at)?;
+        let audit = AuditLogRecord {
+            actor_email: actor_email.to_owned(),
+            action: "membership.payment_applied".to_owned(),
+            target_type: "membership_order".to_owned(),
+            target_id: order.order_id.to_string(),
+            payload: json!({
+                "tx_hash": tx_hash,
+                "chain": chain,
+                "asset": asset,
+                "active_until": active_until,
+                "grace_until": grace_until,
+                "from_status": "confirming",
+            }),
+            created_at: paid_at,
+        };
+
+        self.db
+            .apply_membership_payment_with_audit(
+                order.order_id,
+                &order.chain,
+                tx_hash,
+                paid_at,
+                &order.email,
+                active_until,
+                grace_until,
+                &audit,
+            )
+            .map_err(MembershipError::storage)?;
+        Ok(())
+    }
+
+    fn confirming_transaction_exists(&self, chain: &str, tx_hash: &str) -> Result<bool, MembershipError> {
+        Ok(self
+            .db
+            .list_deposit_transactions()
+            .map_err(MembershipError::storage)?
+            .into_iter()
+            .any(|record| {
+                record.chain == chain
+                    && normalize_chain_tx_hash(chain, &record.tx_hash) == tx_hash
+                    && record.status == "confirming"
+            }))
     }
 
     fn apply_membership_entitlement(
@@ -1609,7 +1819,13 @@ fn manual_credit_target_consistent(
                     .is_some_and(|assignment| assignment.address == deposit.address)
         }
         Some("order_not_found") => {
-            deposit.asset == order.asset && deposit.amount == order.amount && assignment_active
+            deposit.asset == order.asset
+                && deposit.amount == order.amount
+                && assignment_active
+                && order
+                    .assignment
+                    .as_ref()
+                    .is_some_and(|assignment| assignment.address == deposit.address)
         }
         _ => deposit.order_id == Some(order.order_id),
     }
@@ -1747,6 +1963,108 @@ fn abnormal_deposit_after_summary(status: &str, decision: &str, order_id: Option
     }
 }
 
+fn persist_deposit_confirmation_notification(
+    db: &SharedDb,
+    email: &str,
+    chain: &str,
+    asset: &str,
+    order_id: u64,
+    tx_hash: &str,
+    at: DateTime<Utc>,
+) -> Result<(), MembershipError> {
+    let binding = db.find_telegram_binding(email).map_err(MembershipError::storage)?;
+    let telegram_delivered = match (binding.as_ref(), telegram_bot_token()) {
+        (Some(binding), Some(token)) => send_telegram_message(
+            &token,
+            &binding.telegram_chat_id,
+            "Deposit confirmed",
+            &format!("{} {} deposit matched billing order {}.", chain, asset, order_id),
+        )
+        .is_ok(),
+        _ => false,
+    };
+    let record = NotificationRecord {
+        event: NotificationEvent {
+            email: email.to_owned(),
+            kind: NotificationKind::DepositConfirmed,
+            title: "Deposit confirmed".to_string(),
+            message: format!("{} {} deposit matched billing order {}.", chain, asset, order_id),
+            payload: BTreeMap::from([
+                ("order_id".to_string(), order_id.to_string()),
+                ("tx_hash".to_string(), tx_hash.to_owned()),
+            ]),
+        },
+        telegram_delivered,
+        in_app_delivered: true,
+        show_expiry_popup: false,
+    };
+    let payload = serde_json::to_value(&record)
+        .map_err(|_| MembershipError::storage(shared_db::SharedDbError::new("notification serialization failed")))?;
+    db.insert_notification_log(&NotificationLogRecord {
+        user_email: email.to_owned(),
+        channel: "in_app".to_string(),
+        template_key: Some("DepositConfirmed".to_string()),
+        title: record.event.title.clone(),
+        body: record.event.message.clone(),
+        status: "delivered".to_string(),
+        payload: payload.clone(),
+        created_at: at,
+        delivered_at: Some(at),
+    })
+    .map_err(MembershipError::storage)?;
+    if binding.is_some() {
+        db.insert_notification_log(&NotificationLogRecord {
+            user_email: email.to_owned(),
+            channel: "telegram".to_string(),
+            template_key: Some("DepositConfirmed".to_string()),
+            title: record.event.title.clone(),
+            body: record.event.message.clone(),
+            status: if telegram_delivered { "delivered" } else { "failed" }.to_string(),
+            payload,
+            created_at: at,
+            delivered_at: telegram_delivered.then_some(at),
+        })
+        .map_err(MembershipError::storage)?;
+    }
+    Ok(())
+}
+
+fn telegram_bot_token() -> Option<String> {
+    std::env::var("TELEGRAM_BOT_TOKEN")
+        .ok()
+        .map(|value| value.trim().to_owned())
+        .filter(|value| !value.is_empty())
+}
+
+fn telegram_api_base_url() -> String {
+    std::env::var("TELEGRAM_API_BASE_URL")
+        .ok()
+        .map(|value| value.trim().trim_end_matches('/').to_owned())
+        .filter(|value| !value.is_empty())
+        .unwrap_or_else(|| "https://api.telegram.org".to_string())
+}
+
+fn telegram_http_agent() -> &'static ureq::Agent {
+    static AGENT: OnceLock<ureq::Agent> = OnceLock::new();
+    AGENT.get_or_init(|| ureq::AgentBuilder::new().timeout(StdDuration::from_secs(5)).build())
+}
+
+fn send_telegram_message(
+    bot_token: &str,
+    chat_id: &str,
+    title: &str,
+    body: &str,
+) -> Result<(), shared_db::SharedDbError> {
+    telegram_http_agent()
+        .post(&format!("{}/bot{}/sendMessage", telegram_api_base_url(), bot_token))
+        .send_json(ureq::json!({
+            "chat_id": chat_id,
+            "text": format!("{}\n{}", title, body),
+        }))
+        .map_err(|error| shared_db::SharedDbError::new(error.to_string()))?;
+    Ok(())
+}
+
 #[derive(Debug)]
 pub struct MembershipError {
     status: StatusCode,
@@ -1880,6 +2198,20 @@ fn queue_position_for(order_id: u64, chain: &str, orders: &[BillingOrderRecord])
         .iter()
         .position(|order| order.order_id == order_id)
         .map(|index| index as u64 + 1)
+}
+
+fn normalize_chain_address(chain: &str, address: &str) -> String {
+    match chain {
+        "ETH" | "BSC" => address.trim().to_ascii_lowercase(),
+        _ => address.trim().to_owned(),
+    }
+}
+
+fn normalize_chain_tx_hash(chain: &str, tx_hash: &str) -> String {
+    match chain {
+        "ETH" | "BSC" => tx_hash.trim().to_ascii_lowercase(),
+        _ => tx_hash.trim().to_owned(),
+    }
 }
 
 fn normalize_email(email: &str) -> String {

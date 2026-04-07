@@ -13,15 +13,29 @@ export async function registerViaPage(
   await page.getByLabel("Email").fill(email);
   await page.getByLabel("Password").fill(password);
   await page.getByRole("button", { name: "Create account" }).click();
+  await expect(page).toHaveURL(/\/verify-email\?/);
+  await expect(page.getByRole("heading", { name: "Verify Email" })).toBeVisible();
+  const cookies = await page.context().cookies();
+  const verificationCode = cookies.find((cookie) => cookie.name === "pending_verify_code")?.value ?? "";
+  await page.getByLabel("Verification code").fill(verificationCode);
+  await page.getByRole("button", { name: "Verify email" }).click();
+  await expect(page).toHaveURL(/\/login\?/);
+  await loginViaPage(page, email, password);
 }
 
 export async function loginViaPage(
   page: Page,
   email: string,
   password: string,
+  options?: {
+    totpCode?: string;
+  },
 ) {
   await page.getByLabel("Email").fill(email);
   await page.getByLabel("Password").fill(password);
+  if (options?.totpCode) {
+    await page.getByLabel("TOTP code").fill(options.totpCode);
+  }
   await page.getByRole("button", { name: "Sign in" }).click();
 }
 

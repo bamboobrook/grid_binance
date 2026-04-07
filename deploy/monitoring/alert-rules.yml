@@ -1,4 +1,98 @@
 groups:
+  - name: runtime-availability
+    rules:
+      - alert: ApiServerDown
+        expr: service_up{service="api-server"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: API server is unavailable
+          description: The API service health probe has been down for more than 2 minutes.
+      - alert: TradingEngineDown
+        expr: service_up{service="trading-engine"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: Trading engine is unavailable
+          description: The trading engine health probe has been down for more than 2 minutes.
+      - alert: MarketDataGatewayDown
+        expr: service_up{service="market-data-gateway"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: Market data gateway is unavailable
+          description: The market data gateway health probe has been down for more than 2 minutes.
+      - alert: SchedulerDown
+        expr: service_up{service="scheduler"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: Scheduler is unavailable
+          description: The scheduler health probe has been down for more than 2 minutes.
+      - alert: BillingChainListenerDown
+        expr: service_up{service="billing-chain-listener"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: Billing chain listener is unavailable
+          description: The billing chain listener health probe has been down for more than 2 minutes.
+
+  - name: runtime-business
+    rules:
+      - alert: TradingEngineReconcileFailures
+        expr: trading_engine_reconcile_failures_total > 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: Trading engine reconcile loop is failing
+          description: The trading engine recorded reconcile failures in the last 5 minutes.
+      - alert: MarketDataGatewayRefreshFailures
+        expr: market_data_gateway_refresh_failures_total > 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: Market data subscription refresh is failing
+          description: The market data gateway recorded subscription refresh failures in the last 5 minutes.
+      - alert: AddressPoolExhaustion
+        expr: billing_listener_queued_orders > 0 and billing_listener_pool_enabled_addresses > 0
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: Billing address pool is exhausted or saturated
+          description: Billing orders remain queued while the listener reports enabled pool addresses.
+      - alert: ManualReviewBacklog
+        expr: billing_listener_manual_review_total > 0
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: Manual review backlog exists
+          description: The billing listener reports deposits waiting for manual review.
+      - alert: MembershipExpiryJobFailure
+        expr: scheduler_membership_grace_failures_total > 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: Membership expiry pause job is failing
+          description: The scheduler recorded membership grace job failures in the last 5 minutes.
+      - alert: MembershipExpiryAutoPausesTriggered
+        expr: scheduler_membership_grace_paused_total > 0
+        for: 1m
+        labels:
+          severity: info
+        annotations:
+          summary: Strategies were auto-paused after grace expiry
+          description: The scheduler auto-paused one or more strategies because membership grace expired.
+
   - name: deployment-baseline
     rules:
       - alert: PrometheusTargetMissing

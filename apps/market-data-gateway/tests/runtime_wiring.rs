@@ -3,69 +3,85 @@ use market_data_gateway::{
     subscriptions::SymbolActivity,
 };
 use rust_decimal::Decimal;
+use shared_db::SharedDb;
 use shared_events::MarketTick;
 
 #[tokio::test]
-async fn subscribe_only_active_symbols_and_emit_ticks() {
+async fn subscribe_only_active_symbols_per_market_and_emit_ticks() {
     let symbols = vec![
-        SymbolActivity::new("BTCUSDT", true),
-        SymbolActivity::new("ETHUSDT", false),
-        SymbolActivity::new("BNBUSDT", true),
+        SymbolActivity::new_with_market("BTCUSDT", "spot", true),
+        SymbolActivity::new_with_market("BTCUSDT", "usdm", true),
+        SymbolActivity::new_with_market("ETHUSDT", "spot", false),
     ];
     let mut runtime = GatewayRuntime::new(&symbols);
 
     let subscriptions = runtime.subscriptions();
     assert_eq!(subscriptions.len(), 2);
+    assert_eq!(subscriptions[0].market, "spot");
     assert_eq!(subscriptions[0].stream_name, "btcusdt@trade");
-    assert_eq!(subscriptions[1].stream_name, "bnbusdt@trade");
+    assert_eq!(subscriptions[1].market, "usdm");
+    assert_eq!(subscriptions[1].stream_name, "btcusdt@trade");
 
-    let tick = runtime.emit_tick(BinanceTradeEvent::new(
+    let spot_tick = runtime.emit_tick(BinanceTradeEvent::new(
         "BTCUSDT",
+        "spot",
         Decimal::new(4312578, 2),
         1_710_000,
     ));
     assert_eq!(
-        tick,
+        spot_tick,
         Some(MarketTick {
             symbol: "BTCUSDT".to_string(),
+            market: "spot".to_string(),
             price: Decimal::new(4312578, 2),
             event_time_ms: 1_710_000,
         })
     );
 
-    let ignored = runtime.emit_tick(BinanceTradeEvent::new(
-        "ETHUSDT",
-        Decimal::new(312499, 2),
-        1_710_050,
+    let wrong_market = runtime.emit_tick(BinanceTradeEvent::new(
+        "BTCUSDT",
+        "coinm",
+        Decimal::new(4312578, 2),
+        1_710_010,
     ));
-    assert_eq!(ignored, None);
+    assert_eq!(wrong_market, None);
 }
 
 #[tokio::test]
-async fn reconnect_refreshes_subscription_plan() {
-    let mut runtime = GatewayRuntime::new(&[SymbolActivity::new("BTCUSDT", true)]);
+async fn reconnect_refreshes_subscription_plan_without_cross_market_leakage() {
+    let mut runtime = GatewayRuntime::new(&[SymbolActivity::new_with_market("BTCUSDT", "spot", true)]);
     runtime.disconnect();
 
     let refreshed = runtime
         .reconnect(&[
-            SymbolActivity::new("BTCUSDT", false),
-            SymbolActivity::new("ETHUSDT", true),
+            SymbolActivity::new_with_market("BTCUSDT", "spot", false),
+            SymbolActivity::new_with_market("BTCUSDT", "usdm", true),
         ])
         .to_vec();
 
     assert_eq!(runtime.reconnect_count(), 1);
     assert_eq!(refreshed.len(), 1);
-    assert_eq!(refreshed[0].stream_name, "ethusdt@trade");
+    assert_eq!(refreshed[0].market, "usdm");
 
-    let stale_symbol = runtime.emit_tick(BinanceTradeEvent::new("BTCUSDT", Decimal::new(1, 0), 10));
+    let stale_symbol = runtime.emit_tick(BinanceTradeEvent::new(
+        "BTCUSDT",
+        "spot",
+        Decimal::new(1, 0),
+        10,
+    ));
     assert_eq!(stale_symbol, None);
 
-    let active_symbol =
-        runtime.emit_tick(BinanceTradeEvent::new("ETHUSDT", Decimal::new(2, 0), 20));
+    let active_symbol = runtime.emit_tick(BinanceTradeEvent::new(
+        "BTCUSDT",
+        "usdm",
+        Decimal::new(2, 0),
+        20,
+    ));
     assert_eq!(
         active_symbol,
         Some(MarketTick {
-            symbol: "ETHUSDT".to_string(),
+            symbol: "BTCUSDT".to_string(),
+            market: "usdm".to_string(),
             price: Decimal::new(2, 0),
             event_time_ms: 20,
         })
@@ -74,7 +90,7 @@ async fn reconnect_refreshes_subscription_plan() {
 
 #[tokio::test]
 async fn health_reflects_connection_and_tick_freshness() {
-    let mut runtime = GatewayRuntime::new(&[SymbolActivity::new("BTCUSDT", true)]);
+    let mut runtime = GatewayRuntime::new(&[SymbolActivity::new_with_market("BTCUSDT", "spot", true)]);
 
     let cold_health = runtime.health(1_000, 500);
     assert_eq!(cold_health.connected, true);
@@ -83,6 +99,7 @@ async fn health_reflects_connection_and_tick_freshness() {
 
     runtime.emit_tick(BinanceTradeEvent::new(
         "BTCUSDT",
+        "spot",
         Decimal::new(123, 0),
         1_200,
     ));
@@ -105,10 +122,11 @@ async fn health_reflects_connection_and_tick_freshness() {
 
 #[tokio::test]
 async fn reconnect_clears_stale_freshness_until_new_tick_arrives() {
-    let mut runtime = GatewayRuntime::new(&[SymbolActivity::new("BTCUSDT", true)]);
+    let mut runtime = GatewayRuntime::new(&[SymbolActivity::new_with_market("BTCUSDT", "spot", true)]);
 
     runtime.emit_tick(BinanceTradeEvent::new(
         "BTCUSDT",
+        "spot",
         Decimal::new(456, 0),
         2_000,
     ));
@@ -117,10 +135,26 @@ async fn reconnect_clears_stale_freshness_until_new_tick_arrives() {
     assert_eq!(pre_reconnect.last_tick_age_ms, Some(100));
 
     runtime.disconnect();
-    runtime.reconnect(&[SymbolActivity::new("BTCUSDT", true)]);
+    runtime.reconnect(&[SymbolActivity::new_with_market("BTCUSDT", "spot", true)]);
 
     let post_reconnect = runtime.health(2_100, 500);
     assert_eq!(post_reconnect.connected, true);
     assert_eq!(post_reconnect.ready, false);
     assert_eq!(post_reconnect.last_tick_age_ms, None);
+}
+
+#[tokio::test]
+async fn emitted_ticks_can_be_queued_for_engine_consumption() {
+    let db = SharedDb::ephemeral().expect("db");
+    let tick = MarketTick {
+        symbol: "BTCUSDT".to_string(),
+        market: "spot".to_string(),
+        price: Decimal::new(4312578, 2),
+        event_time_ms: 1_710_000,
+    };
+
+    db.enqueue_market_tick(&tick).expect("enqueue tick");
+    let drained = db.drain_market_ticks(10).expect("drain ticks");
+
+    assert_eq!(drained, vec![tick]);
 }

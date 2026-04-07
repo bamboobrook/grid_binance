@@ -13,7 +13,8 @@ export type LoginResponse = {
 
 export type RegisterResponse = {
   user_id: number;
-  verification_code: string;
+  code_delivery: string;
+  verification_code?: string;
 };
 
 export class AuthProxyError extends Error {
@@ -84,6 +85,7 @@ export function buildErrorRedirect(
     email?: string;
     next?: string | null;
     error: string;
+    extra?: Record<string, string>;
   },
 ) {
   const url = new URL(pathname, requestUrl);
@@ -94,6 +96,10 @@ export function buildErrorRedirect(
     url.searchParams.set("next", safeRedirectTarget(params.next, "/app/dashboard"));
   }
   url.searchParams.set("error", params.error);
+
+  for (const [key, value] of Object.entries(params.extra ?? {})) {
+    url.searchParams.set(key, value);
+  }
 
   return NextResponse.redirect(url, { status: 303 });
 }

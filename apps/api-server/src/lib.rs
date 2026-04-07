@@ -78,7 +78,7 @@ impl AppState {
     pub fn from_shared_db(db: SharedDb) -> Result<Self, SharedDbError> {
         Ok(Self {
             analytics: AnalyticsService::new(db.clone()),
-            auth: AuthService::new(db.clone()),
+            auth: AuthService::new_capture(db.clone()),
             db: db.clone(),
             exchange: ExchangeService::new(db.clone()),
             membership: MembershipService::new(db.clone()),
@@ -139,7 +139,11 @@ pub fn app_with_persistent_state(
     redis_url: impl AsRef<str>,
 ) -> Result<Router, AppBuildError> {
     let db = SharedDb::connect(database_url, redis_url).map_err(AppBuildError::from)?;
-    let auth = AuthService::new_strict(db.clone()).map_err(AppBuildError::from)?;
+    let auth = if std::env::var("APP_ENV").ok().as_deref() == Some("test") {
+        AuthService::new_capture(db.clone())
+    } else {
+        AuthService::new_strict(db.clone()).map_err(AppBuildError::from)?
+    };
     let state = AppState {
         analytics: AnalyticsService::new(db.clone()),
         auth,
@@ -227,7 +231,7 @@ mod tests {
             .auth
             .verify_email(VerifyEmailRequest {
                 email: "persisted@app.test".to_string(),
-                code: registered.verification_code,
+                code: registered.verification_code.expect("verification code"),
             })
             .expect("verify email");
         let session = first

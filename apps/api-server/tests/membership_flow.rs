@@ -5,7 +5,7 @@ use axum::{
 };
 use serde_json::{json, Value};
 
-use shared_db::SharedDb;
+use shared_db::{DepositTransactionRecord, SharedDb};
 use std::{
     fs,
     net::TcpListener,
@@ -22,7 +22,8 @@ use support::{login_and_get_token, register_and_login, register_and_verify};
 
 #[tokio::test]
 async fn supports_all_three_chains_and_stablecoin_pricing_rules() {
-    let app = app();
+    let db = SharedDb::ephemeral().expect("db");
+    let app = app_with_state(AppState::from_shared_db(db.clone()).expect("state"));
     let eth_token = register_and_login(&app, "eth@example.com", "pass1234").await;
     let bsc_token = register_and_login(&app, "bsc@example.com", "pass1234").await;
     let sol_token = register_and_login(&app, "sol@example.com", "pass1234").await;
@@ -45,6 +46,7 @@ async fn supports_all_three_chains_and_stablecoin_pricing_rules() {
     assert_eq!(eth_order_body["amount"], "20.00000000");
     assert_eq!(eth_order_body["address"], "eth-addr-1");
     assert_eq!(eth_order_body["queue_position"], Value::Null);
+    let eth_order_id = eth_order_body["order_id"].as_u64().expect("eth order id");
 
     let bsc_order = create_order(
         &app,
@@ -97,6 +99,17 @@ async fn supports_all_three_chains_and_stablecoin_pricing_rules() {
     assert_eq!(mismatch_body["reason"], "exact_amount_required");
     assert_eq!(mismatch_body["deposit_status"], "manual_review_required");
 
+    seed_confirming_deposit(
+        &db,
+        "ETH",
+        "USDT",
+        "eth-addr-1",
+        "20.00000000",
+        "tx-eth-exact",
+        Some(eth_order_id),
+        "2026-04-01T00:10:00Z",
+    );
+
     let exact_match = match_order(
         &app,
         &admin_token,
@@ -113,6 +126,210 @@ async fn supports_all_three_chains_and_stablecoin_pricing_rules() {
     assert_eq!(exact_match_body["matched"], true);
     assert_eq!(exact_match_body["membership_status"], "Active");
     assert_eq!(exact_match_body["deposit_status"], "matched");
+
+    let notifications = db.list_notification_logs("eth@example.com", 10).expect("notification logs");
+    let deposit_notice = notifications
+        .iter()
+        .find(|record| record.template_key.as_deref() == Some("DepositConfirmed") && record.channel == "in_app")
+        .expect("deposit confirmation notification");
+    assert_eq!(deposit_notice.payload["event"]["payload"]["order_id"], eth_order_id.to_string());
+    assert_eq!(deposit_notice.payload["event"]["payload"]["tx_hash"], "tx-eth-exact");
+}
+
+
+#[tokio::test]
+async fn billing_match_route_rejects_bootstrapping_exact_match_without_listener_record() {
+    let app = app();
+    let user_token = register_and_login(&app, "confirm@example.com", "pass1234").await;
+    let admin_token = register_admin_and_login(&app).await;
+
+    let order = create_order(
+        &app,
+        &user_token,
+        "confirm@example.com",
+        "BSC",
+        "USDT",
+        "monthly",
+        "2026-04-01T00:00:00Z",
+    )
+    .await;
+    assert_eq!(order.status(), StatusCode::CREATED);
+
+    let insufficient = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/billing/orders/match")
+                .header("authorization", format!("Bearer {admin_token}"))
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    json!({
+                        "chain": "BSC",
+                        "asset": "USDT",
+                        "address": "bsc-addr-1",
+                        "amount": "20.00000000",
+                        "tx_hash": "tx-confirm-short",
+                        "confirmations": 1,
+                        "observed_at": "2026-04-01T00:10:00Z"
+                    })
+                    .to_string(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(insufficient.status(), StatusCode::BAD_REQUEST);
+    let body = response_json(insufficient).await;
+    assert_eq!(body["error"], "automatic exact matches must originate from chain listener");
+}
+
+#[tokio::test]
+async fn billing_match_route_promotes_confirming_transfer_once_confirmations_arrive() {
+    let db = SharedDb::ephemeral().expect("db");
+    let app = app_with_state(AppState::from_shared_db(db.clone()).expect("state"));
+    let user_token = register_and_login(&app, "promote@example.com", "pass1234").await;
+    let admin_token = register_admin_and_login(&app).await;
+
+    let order = create_order(
+        &app,
+        &user_token,
+        "promote@example.com",
+        "BSC",
+        "USDT",
+        "monthly",
+        "2026-04-01T00:00:00Z",
+    )
+    .await;
+    assert_eq!(order.status(), StatusCode::CREATED);
+
+    let order_body = response_json(order).await;
+    let order_id = order_body["order_id"].as_u64().expect("order id");
+    seed_confirming_deposit(
+        &db,
+        "BSC",
+        "USDT",
+        "bsc-addr-1",
+        "20.00000000",
+        "tx-promote",
+        Some(order_id),
+        "2026-04-01T00:10:00Z",
+    );
+
+    let second = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/billing/orders/match")
+                .header("authorization", format!("Bearer {admin_token}"))
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    json!({
+                        "chain": "BSC",
+                        "asset": "USDT",
+                        "address": "bsc-addr-1",
+                        "amount": "20.00000000",
+                        "tx_hash": "tx-promote",
+                        "confirmations": 12,
+                        "observed_at": "2026-04-01T00:11:00Z"
+                    })
+                    .to_string(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let body = response_json(second).await;
+    assert_eq!(body["matched"], true);
+    assert_eq!(body["deposit_status"], "matched");
+    assert_eq!(body["membership_status"], "Active");
+}
+
+#[tokio::test]
+async fn billing_match_route_normalizes_evm_address_and_tx_hash() {
+    let db = SharedDb::ephemeral().expect("db");
+    let app = app_with_state(AppState::from_shared_db(db.clone()).expect("state"));
+    let user_token = register_and_login(&app, "case@example.com", "pass1234").await;
+    let admin_token = register_admin_and_login(&app).await;
+
+    let order = create_order(
+        &app,
+        &user_token,
+        "case@example.com",
+        "ETH",
+        "USDT",
+        "monthly",
+        "2026-04-01T00:00:00Z",
+    )
+    .await;
+    assert_eq!(order.status(), StatusCode::CREATED);
+
+    seed_confirming_deposit(
+        &db,
+        "ETH",
+        "USDT",
+        "eth-addr-1",
+        "20.00000000",
+        "0xabcd123",
+        Some(response_json(order).await["order_id"].as_u64().expect("order id")),
+        "2026-04-01T00:10:00Z",
+    );
+
+    let exact = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/billing/orders/match")
+                .header("authorization", format!("Bearer {admin_token}"))
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    json!({
+                        "chain": "ETH",
+                        "asset": "USDT",
+                        "address": "ETH-ADDR-1",
+                        "amount": "20.00000000",
+                        "tx_hash": "0xAbCd123",
+                        "confirmations": 12,
+                        "observed_at": "2026-04-01T00:10:00Z"
+                    })
+                    .to_string(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let body = response_json(exact).await;
+    assert_eq!(body["matched"], true);
+
+    let duplicate = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/billing/orders/match")
+                .header("authorization", format!("Bearer {admin_token}"))
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    json!({
+                        "chain": "ETH",
+                        "asset": "USDT",
+                        "address": "eth-addr-1",
+                        "amount": "20.00000000",
+                        "tx_hash": "0xabcd123",
+                        "confirmations": 12,
+                        "observed_at": "2026-04-01T00:11:00Z"
+                    })
+                    .to_string(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let duplicate_body = response_json(duplicate).await;
+    assert_eq!(duplicate_body["deposit_status"], "duplicate_ignored");
 }
 
 #[tokio::test]
@@ -325,7 +542,8 @@ async fn plan_pricing_updates_require_complete_positive_matrix() {
 
 #[tokio::test]
 async fn membership_transitions_from_active_to_grace_to_expired_after_48_hours() {
-    let app = app();
+    let db = SharedDb::ephemeral().expect("db");
+    let app = app_with_state(AppState::from_shared_db(db.clone()).expect("state"));
     let user_token = register_and_login(&app, "grace@example.com", "pass1234").await;
     let admin_token = register_admin_and_login(&app).await;
 
@@ -340,6 +558,8 @@ async fn membership_transitions_from_active_to_grace_to_expired_after_48_hours()
     )
     .await;
     assert_eq!(order.status(), StatusCode::CREATED);
+    let order_id = response_json(order).await["order_id"].as_u64().expect("order id");
+    seed_confirming_deposit(&db, "BSC", "USDT", "bsc-addr-1", "20.00000000", "tx-grace", Some(order_id), "2026-04-01T00:00:00Z");
 
     let matched = match_order(
         &app,
@@ -404,6 +624,8 @@ async fn operator_admin_cannot_override_membership_or_write_override_audit_logs(
     )
     .await;
     assert_eq!(order.status(), StatusCode::CREATED);
+    let order_id = response_json(order).await["order_id"].as_u64().expect("order id");
+    seed_confirming_deposit(&db, "BSC", "USDT", "bsc-addr-1", "20.00000000", "tx-admin", Some(order_id), "2026-04-01T00:01:00Z");
 
     let matched = match_order(
         &app,
@@ -692,7 +914,8 @@ async fn manual_membership_actions_fail_when_audit_write_fails() {
 
 #[tokio::test]
 async fn operator_admin_cannot_manually_extend_membership_during_grace() {
-    let app = app();
+    let db = SharedDb::ephemeral().expect("db");
+    let app = app_with_state(AppState::from_shared_db(db.clone()).expect("state"));
     let user_token = register_and_login(&app, "grace-stack@example.com", "pass1234").await;
     let admin_token = register_admin_and_login(&app).await;
 
@@ -707,6 +930,8 @@ async fn operator_admin_cannot_manually_extend_membership_during_grace() {
     )
     .await;
     assert_eq!(order.status(), StatusCode::CREATED);
+    let order_id = response_json(order).await["order_id"].as_u64().expect("order id");
+    seed_confirming_deposit(&db, "BSC", "USDT", "bsc-addr-1", "20.00000000", "tx-grace-stack", Some(order_id), "2026-04-01T00:00:00Z");
 
     let matched = match_order(
         &app,
@@ -775,8 +1000,7 @@ async fn register_admin_and_login(app: &axum::Router) -> String {
 
 async fn register_privileged_admin_and_login(app: &axum::Router, email: &str) -> String {
     register_and_verify(app, email, "pass1234").await;
-    let session_token = login_and_get_token(app, email, "pass1234").await;
-    let enabled = enable_totp(app, email, &session_token).await;
+    let enabled = bootstrap_admin_totp(app, email, "pass1234").await;
     let totp_code = enabled["code"].as_str().expect("totp code");
     login_with_totp(app, email, "pass1234", totp_code).await
 }
@@ -892,6 +1116,23 @@ impl Drop for PersistentRuntimeHarness {
     }
 }
 
+async fn bootstrap_admin_totp(app: &axum::Router, email: &str, password: &str) -> Value {
+    let response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/auth/admin-bootstrap")
+                .header("content-type", "application/json")
+                .body(Body::from(json!({ "email": email, "password": password }).to_string()))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    response_json(response).await
+}
+
 async fn enable_totp(app: &axum::Router, email: &str, session_token: &str) -> Value {
     let response = app
         .clone()
@@ -1003,6 +1244,7 @@ async fn match_order(
                         "address": address,
                         "amount": amount,
                         "tx_hash": tx_hash,
+                        "confirmations": 12,
                         "observed_at": observed_at,
                     })
                     .to_string(),
@@ -1011,6 +1253,32 @@ async fn match_order(
         )
         .await
         .unwrap()
+}
+
+fn seed_confirming_deposit(
+    db: &SharedDb,
+    chain: &str,
+    asset: &str,
+    address: &str,
+    amount: &str,
+    tx_hash: &str,
+    order_id: Option<u64>,
+    observed_at: &str,
+) {
+    db.upsert_deposit_transaction(&DepositTransactionRecord {
+        tx_hash: tx_hash.to_string(),
+        chain: chain.to_string(),
+        asset: asset.to_string(),
+        address: address.to_string(),
+        amount: amount.to_string(),
+        observed_at: observed_at.parse().expect("observed_at"),
+        order_id,
+        status: "confirming".to_string(),
+        review_reason: Some("awaiting_confirmations".to_string()),
+        processed_at: None,
+        matched_order_id: None,
+    })
+    .expect("confirming deposit");
 }
 
 async fn list_admin_deposits(
@@ -1157,6 +1425,8 @@ impl ApiServerHarness {
             .env("DATABASE_URL", runtime.database_url())
             .env("REDIS_URL", runtime.redis_url())
             .env("SESSION_TOKEN_SECRET", "grid-binance-dev-session-secret")
+            .env("APP_ENV", "test")
+            .env("AUTH_EMAIL_DELIVERY", "capture")
             .env("ADMIN_EMAILS", "admin@example.com")
             .env("SUPER_ADMIN_EMAILS", "super-admin@example.com")
             .env(
@@ -1251,16 +1521,34 @@ fn register_and_login_via_http(server: &ApiServerHarness, email: &str, password:
         .to_owned()
 }
 
-fn register_privileged_admin_and_login_via_http(server: &ApiServerHarness, email: &str) -> String {
-    let session_token = register_and_login_via_http(server, email, "pass1234");
-    let (enable_status, enable_body) = http_json(
+fn register_and_verify_via_http(server: &ApiServerHarness, email: &str, password: &str) {
+    let (register_status, register_body) = http_json(
         "POST",
-        &format!("{}/security/totp/enable", server.base_url()),
-        Some(&session_token),
-        Some(json!({ "email": email })),
+        &format!("{}/auth/register", server.base_url()),
+        None,
+        Some(json!({ "email": email, "password": password })),
     );
-    assert_eq!(enable_status, StatusCode::OK.as_u16());
-    let totp_code = enable_body["code"].as_str().expect("totp code");
+    assert_eq!(register_status, StatusCode::CREATED.as_u16());
+    let verification_code = register_body["verification_code"].as_str().expect("verification code").to_owned();
+    let (verify_status, _) = http_json(
+        "POST",
+        &format!("{}/auth/verify-email", server.base_url()),
+        None,
+        Some(json!({ "email": email, "code": verification_code })),
+    );
+    assert_eq!(verify_status, StatusCode::OK.as_u16());
+}
+
+fn register_privileged_admin_and_login_via_http(server: &ApiServerHarness, email: &str) -> String {
+    register_and_verify_via_http(server, email, "pass1234");
+    let (bootstrap_status, bootstrap_body) = http_json(
+        "POST",
+        &format!("{}/auth/admin-bootstrap", server.base_url()),
+        None,
+        Some(json!({ "email": email, "password": "pass1234" })),
+    );
+    assert_eq!(bootstrap_status, StatusCode::OK.as_u16());
+    let totp_code = bootstrap_body["code"].as_str().expect("totp code");
 
     let (login_status, login_body) = http_json(
         "POST",

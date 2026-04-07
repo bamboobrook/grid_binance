@@ -1,15 +1,55 @@
 # Create Grid Strategy
 
-Review draft creation, pre-flight validation, and start requirements before your first launch.
+Use `/app/strategies/new` to create a draft before the first launch.
 
-Open `/app/strategies/new` to create a draft. This is the canonical app route for the new-strategy composer.
+## Draft Flow
 
-Drafts can be edited freely until you run pre-flight and start the strategy.
+1. Search the symbol with the fuzzy symbol search box.
+2. Choose the market type and strategy mode.
+3. Pick a generation mode:
+   - Arithmetic for fixed percentage spacing around the reference price.
+   - Geometric for compounded spacing around the reference price.
+   - Fully custom when every grid will be edited manually.
+4. Choose the editor mode:
+   - Batch ladder builder for fast setup.
+   - Custom JSON for every-grid overrides.
 
-After the draft is created, continue from the strategy detail workspace under `/app/strategies/:id` for save, pre-flight, and start actions.
+## Amount Mode
 
-Pre-flight validates exchange filters, available balance, and hedge mode before a strategy can start.
+- Amount mode lets you size each grid by quote capital or base asset size.
+- `Quote amount (USDT)` keeps every grid near the same USDT exposure.
+- `Base asset quantity` keeps every grid at the same coin quantity.
+- Batch mode converts the chosen amount mode into the real per-grid quantity saved in `levels_json`.
 
-Running strategy parameters cannot be hot-modified. Pause, save edits, and re-run pre-flight before restart.
+## Batch Ladder Controls
 
-Trailing take profit uses taker execution and may increase fees compared with maker-style take-profit orders.
+Batch mode uses these fields:
+
+- `Reference price`
+- `Grid count`
+- `Batch spacing (%)`
+- `Batch take profit (%)`
+- `Trailing take profit (%)`
+
+Use batch mode when you want a quick ladder. Switch to custom JSON when you need to set every grid entry price, quantity, take-profit range, and trailing rule separately.
+
+## Profit And Risk Controls
+
+- `Overall take profit (%)` closes the whole strategy when the total profit target is reached.
+- `Overall stop loss (%)` is optional.
+- `Trailing take profit (%)` is optional.
+- When trailing take profit is enabled, the close is taker-style, so fees may be higher than maker-style limit take profit.
+- Trailing take profit must not exceed the grid take-profit range.
+
+## Templates
+
+- `Apply template` copies the admin preset into your own draft.
+- After copy, the draft belongs to you.
+- Later template changes do not overwrite drafts you already created.
+
+## Start Requirements
+
+- Draft creation does not start the strategy.
+- Pre-flight validates membership, exchange API posture, symbol metadata, balance or collateral, and futures hedge-mode requirements.
+- Running strategy parameters cannot be hot-modified.
+- Pause first, save changes, re-run pre-flight, then start or resume again.

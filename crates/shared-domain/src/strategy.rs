@@ -9,6 +9,7 @@ pub enum StrategyStatus {
     Paused,
     ErrorPaused,
     Completed,
+    Stopping,
     Stopped,
     Archived,
 }
@@ -50,6 +51,24 @@ pub enum PostTriggerAction {
     Rebuild,
 }
 
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+pub enum StrategyAmountMode {
+    Quote,
+    Base,
+}
+
+impl Default for StrategyAmountMode {
+    fn default() -> Self {
+        Self::Quote
+    }
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+pub enum FuturesMarginMode {
+    Isolated,
+    Cross,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct PreflightFailure {
     pub step: String,
@@ -87,6 +106,12 @@ pub struct StrategyRevision {
     pub version: u32,
     pub generation: GridGeneration,
     pub levels: Vec<GridLevel>,
+    #[serde(default)]
+    pub amount_mode: StrategyAmountMode,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub futures_margin_mode: Option<FuturesMarginMode>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub leverage: Option<u32>,
     pub overall_take_profit_bps: Option<u32>,
     pub overall_stop_loss_bps: Option<u32>,
     pub post_trigger_action: PostTriggerAction,
@@ -103,6 +128,8 @@ pub struct StrategyRuntimePosition {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct StrategyRuntimeOrder {
     pub order_id: String,
+    #[serde(default)]
+    pub exchange_order_id: Option<String>,
     pub level_index: Option<u32>,
     pub side: String,
     pub order_type: String,
@@ -191,6 +218,12 @@ pub struct StrategyTemplate {
     pub mode: StrategyMode,
     pub generation: GridGeneration,
     pub levels: Vec<GridLevel>,
+    #[serde(default)]
+    pub amount_mode: StrategyAmountMode,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub futures_margin_mode: Option<FuturesMarginMode>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub leverage: Option<u32>,
     pub budget: String,
     pub grid_spacing_bps: u32,
     pub membership_ready: bool,

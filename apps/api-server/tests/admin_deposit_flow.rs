@@ -161,6 +161,15 @@ async fn wrong_asset_transfer_requires_manual_review_and_admin_can_credit_member
         credited_audit.payload["justification"],
         "operator reviewed wrong-asset transfer and validated order ownership"
     );
+
+    let notifications = db.list_notification_logs("member@example.com", 10).expect("notification logs");
+    let deposit_notice = notifications
+        .iter()
+        .find(|record| record.template_key.as_deref() == Some("DepositConfirmed") && record.channel == "in_app")
+        .expect("deposit confirmation notification");
+    assert_eq!(deposit_notice.title, "Deposit confirmed");
+    assert_eq!(deposit_notice.payload["event"]["payload"]["order_id"], order_id.to_string());
+    assert_eq!(deposit_notice.payload["event"]["payload"]["tx_hash"], "tx-wrong-asset");
 }
 
 #[tokio::test]
@@ -282,6 +291,25 @@ async fn exact_match_does_not_persist_payment_when_audit_write_fails() {
     assert_eq!(order_status, StatusCode::CREATED.as_u16());
     let order_id = order_body["order_id"].as_u64().expect("order id");
     let order_address = order_body["address"].as_str().expect("order address");
+    let database_url = server.runtime.database_url();
+    let redis_url = server.runtime.redis_url();
+    let observed_address = order_address.to_string();
+    tokio::task::spawn_blocking(move || {
+        let db = SharedDb::connect(&database_url, &redis_url).expect("persistent db");
+        db.upsert_deposit_transaction(&shared_db::DepositTransactionRecord {
+            tx_hash: "tx-exact-audit-fail".to_string(),
+            chain: "BSC".to_string(),
+            asset: "USDT".to_string(),
+            address: observed_address,
+            amount: "20.00000000".to_string(),
+            observed_at: "2026-04-01T00:05:00Z".parse().expect("observed_at"),
+            order_id: Some(order_id),
+            status: "confirming".to_string(),
+            review_reason: Some("awaiting_confirmations".to_string()),
+            processed_at: None,
+            matched_order_id: None,
+        }).expect("confirming deposit");
+    }).await.expect("seed confirming deposit");
 
     server.break_audit_table();
 
@@ -295,6 +323,7 @@ async fn exact_match_does_not_persist_payment_when_audit_write_fails() {
             "address": order_address,
             "amount": "20.00000000",
             "tx_hash": "tx-exact-audit-fail",
+            "confirmations": 12,
             "observed_at": "2026-04-01T00:05:00Z"
         })),
     );
@@ -324,11 +353,14 @@ async fn exact_match_does_not_persist_payment_when_audit_write_fails() {
         None,
     );
     assert_eq!(deposits_status, StatusCode::OK.as_u16());
-    assert!(deposits_body["abnormal_deposits"]
+    let abnormal = deposits_body["abnormal_deposits"]
         .as_array()
         .expect("abnormal deposits")
         .iter()
-        .all(|record| record["tx_hash"] != "tx-exact-audit-fail"));
+        .find(|record| record["tx_hash"] == "tx-exact-audit-fail")
+        .expect("confirming deposit");
+    assert_eq!(abnormal["status"], "confirming");
+    assert_eq!(abnormal["review_reason"], "awaiting_confirmations");
 
     let (orders_status, orders_body) = http_json(
         "GET",
@@ -351,7 +383,8 @@ async fn exact_match_does_not_persist_payment_when_audit_write_fails() {
 }
 
 #[tokio::test]
-async fn super_admin_sweep_validation_rejects_unsupported_chain_asset_and_blank_from_address() {
+async fn super_admin_sweep_validation_rejects_unsupported_chain_asset_blank_from_address_and_non_pool_source(
+) {
     let db = SharedDb::ephemeral().expect("ephemeral db");
     let app = app_with_state(AppState::from_shared_db(db.clone()).expect("state"));
     let super_admin_token =
@@ -414,10 +447,76 @@ async fn super_admin_sweep_validation_rejects_unsupported_chain_asset_and_blank_
         "transfer from_address is required"
     );
 
+    let non_pool_source = create_sweep_job(
+        &app,
+        &super_admin_token,
+        "BSC",
+        "USDT",
+        "bsc-treasury-1",
+        "2026-04-01T00:13:00Z",
+        vec![json!({
+            "from_address": "bsc-foreign-1",
+            "amount": "42.00000000",
+        })],
+    )
+    .await;
+    assert_eq!(non_pool_source.status(), StatusCode::BAD_REQUEST);
+    assert_eq!(
+        response_json(non_pool_source).await["error"],
+        "transfer from_address must belong to the address pool"
+    );
+
     assert!(
         db.list_sweep_jobs().expect("sweep jobs").is_empty(),
         "invalid sweep requests must not persist"
     );
+}
+
+#[tokio::test]
+async fn super_admin_sweep_creates_pending_job_without_fake_tx_hashes() {
+    let db = SharedDb::ephemeral().expect("ephemeral db");
+    let app = app_with_state(AppState::from_shared_db(db.clone()).expect("state"));
+    let super_admin_token =
+        register_privileged_admin_and_login(&app, "super-admin@example.com").await;
+
+    let created = create_sweep_job(
+        &app,
+        &super_admin_token,
+        "BSC",
+        "USDT",
+        "bsc-treasury-1",
+        "2026-04-01T00:14:00Z",
+        vec![json!({
+            "from_address": "bsc-addr-1",
+            "amount": "20.00000000",
+        })],
+    )
+    .await;
+    assert_eq!(created.status(), StatusCode::CREATED);
+    let created_body = response_json(created).await;
+    assert_eq!(created_body["status"], "pending");
+
+    let listed = list_sweeps(&app, &super_admin_token).await;
+    assert_eq!(listed.status(), StatusCode::OK);
+    let listed_body = response_json(listed).await;
+    let job = listed_body["jobs"]
+        .as_array()
+        .expect("jobs")
+        .iter()
+        .find(|record| record["chain"] == "BSC" && record["asset"] == "USDT")
+        .expect("sweep job listed");
+    assert_eq!(job["status"], "pending");
+    assert!(job["completed_at"].is_null());
+    assert_eq!(job["transfers"][0]["from_address"], "bsc-addr-1");
+    assert_eq!(job["transfers"][0]["to_address"], "bsc-treasury-1");
+    assert!(job["transfers"][0]["tx_hash"].is_null());
+
+    let stored = db.list_sweep_jobs().expect("sweep jobs");
+    assert_eq!(stored.len(), 1);
+    assert_eq!(stored[0].status, "pending");
+    assert!(stored[0].completed_at.is_none());
+    assert_eq!(stored[0].transfers.len(), 1);
+    assert!(stored[0].transfers[0].tx_hash.is_none());
 }
 
 #[tokio::test]
@@ -568,16 +667,16 @@ async fn expired_and_unmatched_transfers_create_processable_manual_review_record
         Some(pending_order_id),
         Some(MANUAL_CREDIT_CONFIRMATION),
         Some(
-            "manual review linked orphan transfer to the still-pending order in the active deposit window",
+            "manual review attempted to bind orphan transfer to a different pending order address",
         ),
         "2026-04-01T01:11:30Z",
     )
     .await;
-    assert_eq!(credited.status(), StatusCode::OK);
-    let credited_body = response_json(credited).await;
-    assert_eq!(credited_body["deposit_status"], "manual_approved");
-    assert_eq!(credited_body["order_id"], pending_order_id);
-    assert_eq!(credited_body["membership_status"], "Active");
+    assert_eq!(credited.status(), StatusCode::BAD_REQUEST);
+    assert_eq!(
+        response_json(credited).await["error"],
+        "manual credit target order is inconsistent with deposit context"
+    );
 }
 
 #[tokio::test]
@@ -957,8 +1056,7 @@ async fn register_admin_and_login(app: &axum::Router) -> String {
 
 async fn register_privileged_admin_and_login(app: &axum::Router, email: &str) -> String {
     register_and_verify(app, email, "pass1234").await;
-    let session_token = login_and_get_token(app, email, "pass1234").await;
-    let enabled = enable_totp(app, email, &session_token).await;
+    let enabled = bootstrap_admin_totp(app, email, "pass1234").await;
     let totp_code = enabled["code"].as_str().expect("totp code");
     login_with_totp(app, email, "pass1234", totp_code).await
 }
@@ -1074,6 +1172,23 @@ impl Drop for PersistentRuntimeHarness {
     }
 }
 
+async fn bootstrap_admin_totp(app: &axum::Router, email: &str, password: &str) -> Value {
+    let response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/auth/admin-bootstrap")
+                .header("content-type", "application/json")
+                .body(Body::from(json!({ "email": email, "password": password }).to_string()))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    response_json(response).await
+}
+
 async fn enable_totp(app: &axum::Router, email: &str, session_token: &str) -> Value {
     let response = app
         .clone()
@@ -1185,6 +1300,7 @@ async fn match_order(
                         "address": address,
                         "amount": amount,
                         "tx_hash": tx_hash,
+                        "confirmations": 12,
                         "observed_at": observed_at,
                     })
                     .to_string(),
@@ -1275,6 +1391,20 @@ async fn membership_status(
         .unwrap()
 }
 
+async fn list_sweeps(app: &axum::Router, session_token: &str) -> axum::response::Response {
+    app.clone()
+        .oneshot(
+            Request::builder()
+                .method("GET")
+                .uri("/admin/sweeps")
+                .header("authorization", format!("Bearer {session_token}"))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap()
+}
+
 async fn create_sweep_job(
     app: &axum::Router,
     session_token: &str,
@@ -1332,6 +1462,8 @@ impl ApiServerHarness {
             .env("DATABASE_URL", runtime.database_url())
             .env("REDIS_URL", runtime.redis_url())
             .env("SESSION_TOKEN_SECRET", "grid-binance-dev-session-secret")
+            .env("APP_ENV", "test")
+            .env("AUTH_EMAIL_DELIVERY", "capture")
             .env("ADMIN_EMAILS", "admin@example.com")
             .env("SUPER_ADMIN_EMAILS", "super-admin@example.com")
             .env(
@@ -1426,16 +1558,34 @@ fn register_and_login_via_http(server: &ApiServerHarness, email: &str, password:
         .to_owned()
 }
 
-fn register_privileged_admin_and_login_via_http(server: &ApiServerHarness, email: &str) -> String {
-    let session_token = register_and_login_via_http(server, email, "pass1234");
-    let (enable_status, enable_body) = http_json(
+fn register_and_verify_via_http(server: &ApiServerHarness, email: &str, password: &str) {
+    let (register_status, register_body) = http_json(
         "POST",
-        &format!("{}/security/totp/enable", server.base_url()),
-        Some(&session_token),
-        Some(json!({ "email": email })),
+        &format!("{}/auth/register", server.base_url()),
+        None,
+        Some(json!({ "email": email, "password": password })),
     );
-    assert_eq!(enable_status, StatusCode::OK.as_u16());
-    let totp_code = enable_body["code"].as_str().expect("totp code");
+    assert_eq!(register_status, StatusCode::CREATED.as_u16());
+    let verification_code = register_body["verification_code"].as_str().expect("verification code").to_owned();
+    let (verify_status, _) = http_json(
+        "POST",
+        &format!("{}/auth/verify-email", server.base_url()),
+        None,
+        Some(json!({ "email": email, "code": verification_code })),
+    );
+    assert_eq!(verify_status, StatusCode::OK.as_u16());
+}
+
+fn register_privileged_admin_and_login_via_http(server: &ApiServerHarness, email: &str) -> String {
+    register_and_verify_via_http(server, email, "pass1234");
+    let (bootstrap_status, bootstrap_body) = http_json(
+        "POST",
+        &format!("{}/auth/admin-bootstrap", server.base_url()),
+        None,
+        Some(json!({ "email": email, "password": "pass1234" })),
+    );
+    assert_eq!(bootstrap_status, StatusCode::OK.as_u16());
+    let totp_code = bootstrap_body["code"].as_str().expect("totp code");
 
     let (login_status, login_body) = http_json(
         "POST",

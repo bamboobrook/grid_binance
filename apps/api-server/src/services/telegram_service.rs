@@ -1,7 +1,8 @@
 use std::{
     collections::HashMap,
     env,
-    sync::{Arc, Mutex},
+    sync::{Arc, Mutex, OnceLock},
+    time::Duration as StdDuration,
 };
 
 use axum::{
@@ -22,12 +23,15 @@ const DEFAULT_BIND_CODE_TTL_SECONDS: i64 = 300;
 const MAX_BIND_CODE_TTL_SECONDS: i64 = 86_400;
 const NOTIFICATION_INBOX_LIMIT: usize = 100;
 const DEFAULT_TELEGRAM_BOT_BIND_SECRET: &str = "grid-binance-dev-telegram-bot-bind-secret";
+const DEFAULT_TELEGRAM_API_BASE_URL: &str = "https://api.telegram.org";
 
 #[derive(Clone)]
 pub struct TelegramService {
     db: SharedDb,
     inner: Arc<Mutex<TelegramState>>,
     bot_bind_secret: Arc<String>,
+    telegram_bot_token: Arc<Option<String>>,
+    telegram_api_base_url: Arc<String>,
 }
 
 impl Default for TelegramService {
@@ -84,6 +88,20 @@ pub struct BindTelegramResponse {
 }
 
 #[derive(Debug, Deserialize)]
+pub struct TelegramBindingStatusQuery {
+    pub email: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct TelegramBindingStatusResponse {
+    pub email: String,
+    pub bound: bool,
+    pub bound_at: Option<DateTime<Utc>>,
+    pub chat_id: Option<String>,
+    pub telegram_user_id: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
 pub struct DispatchNotificationRequest {
     pub email: String,
     pub kind: NotificationKind,
@@ -113,6 +131,19 @@ impl TelegramService {
                 env::var("TELEGRAM_BOT_BIND_SECRET")
                     .unwrap_or_else(|_| DEFAULT_TELEGRAM_BOT_BIND_SECRET.to_string()),
             ),
+            telegram_bot_token: Arc::new(
+                env::var("TELEGRAM_BOT_TOKEN")
+                    .ok()
+                    .map(|value| value.trim().to_owned())
+                    .filter(|value| !value.is_empty()),
+            ),
+            telegram_api_base_url: Arc::new(
+                env::var("TELEGRAM_API_BASE_URL")
+                    .ok()
+                    .map(|value| value.trim().trim_end_matches('/').to_owned())
+                    .filter(|value| !value.is_empty())
+                    .unwrap_or_else(|| DEFAULT_TELEGRAM_API_BASE_URL.to_string()),
+            ),
         }
     }
 
@@ -123,6 +154,19 @@ impl TelegramService {
             db,
             inner: Arc::new(Mutex::new(TelegramState::default())),
             bot_bind_secret: Arc::new(bot_bind_secret),
+            telegram_bot_token: Arc::new(
+                env::var("TELEGRAM_BOT_TOKEN")
+                    .ok()
+                    .map(|value| value.trim().to_owned())
+                    .filter(|value| !value.is_empty()),
+            ),
+            telegram_api_base_url: Arc::new(
+                env::var("TELEGRAM_API_BASE_URL")
+                    .ok()
+                    .map(|value| value.trim().trim_end_matches('/').to_owned())
+                    .filter(|value| !value.is_empty())
+                    .unwrap_or_else(|| DEFAULT_TELEGRAM_API_BASE_URL.to_string()),
+            ),
         })
     }
 
@@ -247,6 +291,33 @@ impl TelegramService {
         })
     }
 
+    pub fn binding_status(
+        &self,
+        query: TelegramBindingStatusQuery,
+    ) -> Result<TelegramBindingStatusResponse, TelegramError> {
+        let email = normalize_email(&query.email);
+        if email.is_empty() {
+            return Err(TelegramError::bad_request("email is required"));
+        }
+
+        let binding = self
+            .db
+            .find_telegram_binding(&email)
+            .map_err(TelegramError::storage)?;
+
+        Ok(TelegramBindingStatusResponse {
+            email,
+            bound: binding.is_some(),
+            bound_at: binding.as_ref().map(|record| record.bound_at),
+            chat_id: binding
+                .as_ref()
+                .map(|record| record.telegram_chat_id.clone()),
+            telegram_user_id: binding
+                .as_ref()
+                .map(|record| record.telegram_user_id.clone()),
+        })
+    }
+
     pub fn dispatch_notification(
         &self,
         request: DispatchNotificationRequest,
@@ -260,10 +331,12 @@ impl TelegramService {
             ));
         }
 
-        let telegram_delivered = self
+        let binding = self
             .db
             .find_telegram_binding(&email)
-            .map_err(TelegramError::storage)?
+            .map_err(TelegramError::storage)?;
+        let telegram_delivered = binding
+            .as_ref()
             .map(|binding| !binding.telegram_chat_id.is_empty())
             .unwrap_or(false);
         let show_expiry_popup = matches!(&request.kind, NotificationKind::MembershipExpiring);
@@ -282,22 +355,73 @@ impl TelegramService {
         };
 
         let now = Utc::now();
+        let payload = serde_json::to_value(&record)
+            .map_err(|error| TelegramError::storage_message(error.to_string()))?;
         self.db
             .insert_notification_log(&NotificationLogRecord {
-                user_email: email,
+                user_email: email.clone(),
                 channel: "in_app".to_string(),
                 template_key: Some(notification_kind_key(&record.event.kind).to_string()),
-                title,
-                body: message,
+                title: title.clone(),
+                body: message.clone(),
                 status: "delivered".to_string(),
-                payload: serde_json::to_value(&record)
-                    .map_err(|error| TelegramError::storage_message(error.to_string()))?,
+                payload: payload.clone(),
                 created_at: now,
                 delivered_at: Some(now),
             })
             .map_err(TelegramError::storage)?;
 
+        if let Some(binding) = binding.as_ref() {
+            if let Some(token) = self.telegram_bot_token.as_ref().as_ref() {
+                let send_result = self.send_telegram_message(
+                    token,
+                    &binding.telegram_chat_id,
+                    &title,
+                    &message,
+                );
+                let (status, delivered_at) = if send_result.is_ok() {
+                    ("delivered".to_string(), Some(now))
+                } else {
+                    ("failed".to_string(), None)
+                };
+                self.db
+                    .insert_notification_log(&NotificationLogRecord {
+                        user_email: email,
+                        channel: "telegram".to_string(),
+                        template_key: Some(notification_kind_key(&record.event.kind).to_string()),
+                        title,
+                        body: message,
+                        status,
+                        payload,
+                        created_at: now,
+                        delivered_at,
+                    })
+                    .map_err(TelegramError::storage)?;
+            }
+        }
+
         Ok(record)
+    }
+
+    fn send_telegram_message(
+        &self,
+        bot_token: &str,
+        chat_id: &str,
+        title: &str,
+        message: &str,
+    ) -> Result<(), TelegramError> {
+        let http = telegram_http_client()?;
+        http.post(&format!(
+            "{}/bot{}/sendMessage",
+            self.telegram_api_base_url.as_str(),
+            bot_token
+        ))
+        .send_json(ureq::json!({
+            "chat_id": chat_id,
+            "text": format!("{}\n{}", title, message),
+        }))
+        .map_err(|error| TelegramError::storage_message(error.to_string()))?;
+        Ok(())
     }
 
     pub fn list_notifications(
@@ -413,6 +537,11 @@ impl From<TelegramError> for AuthError {
 #[derive(Debug, Serialize)]
 struct TelegramErrorResponse {
     error: String,
+}
+
+fn telegram_http_client() -> Result<&'static ureq::Agent, TelegramError> {
+    static CLIENT: OnceLock<ureq::Agent> = OnceLock::new();
+    Ok(CLIENT.get_or_init(|| ureq::AgentBuilder::new().timeout(StdDuration::from_secs(5)).build()))
 }
 
 fn normalize_email(email: &str) -> String {

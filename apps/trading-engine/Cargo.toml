@@ -7,8 +7,15 @@ edition = "2021"
 axum = "0.8"
 chrono = { version = "0.4", features = ["serde"] }
 rust_decimal = "1"
+serde_json = "1"
+ureq = { version = "2", features = ["json"] }
+shared-binance = { path = "../../crates/shared-binance" }
+shared-db = { path = "../../crates/shared-db" }
 shared-domain = { path = "../../crates/shared-domain" }
-tokio = { version = "1", features = ["macros", "rt-multi-thread", "net"] }
+shared-events = { path = "../../crates/shared-events" }
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "net", "time", "sync"] }
+tokio-tungstenite = { version = "0.24", features = ["rustls-tls-webpki-roots"] }
+futures-util = "0.3"
 
 [[test]]
 name = "trailing_tp"

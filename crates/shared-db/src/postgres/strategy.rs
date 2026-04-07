@@ -3,9 +3,9 @@ use serde_json::{json, Value};
 use sqlx::{PgPool, Postgres, Row, Transaction};
 
 use shared_domain::strategy::{
-    GridGeneration, GridLevel, PostTriggerAction, PreflightReport, Strategy, StrategyMarket,
-    StrategyMode, StrategyRevision, StrategyRuntime, StrategyRuntimeEvent, StrategyRuntimeFill,
-    StrategyRuntimeOrder, StrategyRuntimePosition, StrategyTemplate,
+    GridGeneration, GridLevel, PostTriggerAction, PreflightReport, Strategy, StrategyAmountMode,
+    StrategyMarket, StrategyMode, StrategyRevision, StrategyRuntime, StrategyRuntimeEvent,
+    StrategyRuntimeFill, StrategyRuntimeOrder, StrategyRuntimePosition, StrategyTemplate,
 };
 
 use crate::{
@@ -35,6 +35,7 @@ pub struct StrategyProfitSnapshotRecord {
     pub realized_pnl: String,
     pub unrealized_pnl: String,
     pub fees: String,
+    pub funding: Option<String>,
     pub captured_at: DateTime<Utc>,
 }
 
@@ -562,13 +563,15 @@ impl StrategyRepository {
                 realized_pnl,
                 unrealized_pnl,
                 fees,
+                funding,
                 captured_at
-             ) VALUES ($1, $2, $3, $4, $5)",
+             ) VALUES ($1, $2, $3, $4, $5, $6)",
         )
         .bind(&record.strategy_id)
         .bind(&record.realized_pnl)
         .bind(&record.unrealized_pnl)
         .bind(&record.fees)
+        .bind(&record.funding)
         .bind(record.captured_at)
         .execute(&self.pool)
         .await
@@ -581,7 +584,7 @@ impl StrategyRepository {
         owner_email: &str,
     ) -> Result<Vec<StrategyProfitSnapshotRecord>, SharedDbError> {
         let rows = sqlx::query(
-            "SELECT sps.strategy_id, sps.realized_pnl, sps.unrealized_pnl, sps.fees, sps.captured_at
+            "SELECT sps.strategy_id, sps.realized_pnl, sps.unrealized_pnl, sps.fees, sps.funding, sps.captured_at
              FROM strategy_profit_snapshots sps
              JOIN strategies s ON s.id = sps.strategy_id
              WHERE lower(s.owner_email) = lower($1)
@@ -618,6 +621,9 @@ fn template_from_row(row: sqlx::postgres::PgRow) -> Result<StrategyTemplate, Sha
                 .map_err(SharedDbError::from)?,
         )?,
         levels,
+        amount_mode: StrategyAmountMode::Quote,
+        futures_margin_mode: None,
+        leverage: None,
         budget: row.try_get("budget").map_err(SharedDbError::from)?,
         grid_spacing_bps: row
             .try_get::<i32, _>("grid_spacing_bps")
@@ -663,6 +669,7 @@ fn map_profit_snapshot_row(
         realized_pnl: row.try_get("realized_pnl").map_err(SharedDbError::from)?,
         unrealized_pnl: row.try_get("unrealized_pnl").map_err(SharedDbError::from)?,
         fees: row.try_get("fees").map_err(SharedDbError::from)?,
+        funding: row.try_get("funding").map_err(SharedDbError::from)?,
         captured_at: row.try_get("captured_at").map_err(SharedDbError::from)?,
     })
 }
@@ -1010,6 +1017,9 @@ fn default_revision() -> StrategyRevision {
         version: 0,
         generation: GridGeneration::Custom,
         levels: Vec::new(),
+        amount_mode: StrategyAmountMode::Quote,
+        futures_margin_mode: None,
+        leverage: None,
         overall_take_profit_bps: None,
         overall_stop_loss_bps: None,
         post_trigger_action: PostTriggerAction::Stop,

@@ -2,8 +2,9 @@ use std::collections::BTreeMap;
 
 use rust_decimal::Decimal;
 use shared_domain::analytics::{
-    AccountSnapshotView, AnalyticsReport, CostAggregation, FillProfitView, StrategyProfitSummary,
-    StrategySnapshotView, TradeFillInput, UserAggregate, WalletSnapshotView,
+    AccountSnapshotView, AnalyticsReport, CostAggregation, ExchangeTradeHistoryView,
+    FillProfitView, StrategyProfitSummary, StrategySnapshotView, TradeFillInput,
+    UserAggregate, WalletSnapshotView,
 };
 
 pub fn compute_fill_views(fills: &[TradeFillInput]) -> Vec<FillProfitView> {
@@ -105,6 +106,7 @@ pub fn compute_analytics_report(fills: &[TradeFillInput]) -> AnalyticsReport {
         strategy_snapshots: Vec::<StrategySnapshotView>::new(),
         account_snapshots: Vec::<AccountSnapshotView>::new(),
         wallets: Vec::<WalletSnapshotView>::new(),
+        exchange_trades: Vec::<ExchangeTradeHistoryView>::new(),
     }
 }
 

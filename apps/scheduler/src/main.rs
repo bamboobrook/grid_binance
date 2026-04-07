@@ -1,13 +1,21 @@
-use axum::{http::header, response::IntoResponse, routing::get, Router};
+use axum::{extract::State, http::header, response::IntoResponse, routing::get, Router};
 use chrono::{DateTime, Utc};
-use scheduler::jobs::symbol_sync::{spawn_hourly_symbol_sync_job, SymbolSyncRuntimeState};
+use scheduler::jobs::{
+    membership_grace::run_membership_grace_once,
+    reminders::run_membership_reminders_once,
+    symbol_sync::{spawn_hourly_symbol_sync_job, SymbolSyncRuntimeState},
+};
 use serde::{Deserialize, Serialize};
 use shared_binance::{
     sync_symbol_metadata, BinanceClient, CredentialCipher, CredentialValidationRequest,
     ExchangeCredentialCheck, SymbolMetadata,
 };
-use shared_db::{SharedDb, UserExchangeAccountRecord, UserExchangeSymbolRecord};
+use shared_db::{
+    AccountProfitSnapshotRecord, ExchangeWalletSnapshotRecord, SharedDb, UserExchangeAccountRecord,
+    UserExchangeSymbolRecord,
+};
 use std::{
+    collections::BTreeMap,
     io::{Error as IoError, ErrorKind},
     sync::{Arc, Mutex},
     time::Duration,
@@ -17,7 +25,25 @@ use tokio::net::TcpListener;
 const DEFAULT_PORT: u16 = 8082;
 const SERVICE_NAME: &str = "scheduler";
 const DEFAULT_SYMBOL_SYNC_INTERVAL_SECS: u64 = 60 * 60;
+const DEFAULT_MEMBERSHIP_GRACE_INTERVAL_SECS: u64 = 60;
+const DEFAULT_SNAPSHOT_SYNC_INTERVAL_SECS: u64 = 300;
+const DEFAULT_REMINDER_INTERVAL_SECS: u64 = 300;
+const DEFAULT_REMINDER_LOOKAHEAD_HOURS: i64 = 24;
 const BINANCE_EXCHANGE: &str = "binance";
+
+#[derive(Debug, Clone, Default)]
+struct MembershipGraceMetrics {
+    failures_total: u64,
+    paused_total: u64,
+    runs_total: u64,
+}
+
+#[derive(Clone)]
+struct SchedulerState {
+    grace_metrics: Arc<Mutex<MembershipGraceMetrics>>,
+    symbol_sync_state: Arc<Mutex<SymbolSyncRuntimeState>>,
+}
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let database_url = required_env("DATABASE_URL")?;
@@ -27,34 +53,84 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let symbol_sync_state = Arc::new(Mutex::new(SymbolSyncRuntimeState::default()));
     let state_for_job = symbol_sync_state.clone();
-    let db_for_job = db.clone();
-    let interval = Duration::from_secs(configured_symbol_sync_interval_secs());
-    let _symbol_sync_handle = spawn_hourly_symbol_sync_job(interval, state_for_job);
+    let db_for_symbol_sync = db.clone();
+    let grace_db = db.clone();
+    let reminder_db = db.clone();
+    let snapshot_db = db.clone();
+    let grace_metrics = Arc::new(Mutex::new(MembershipGraceMetrics::default()));
+    let grace_metrics_for_loop = grace_metrics.clone();
+
+    let symbol_sync_interval = Duration::from_secs(configured_symbol_sync_interval_secs());
+    let grace_interval = Duration::from_secs(configured_membership_grace_interval_secs());
+    let snapshot_interval = Duration::from_secs(configured_snapshot_sync_interval_secs());
+    let reminder_interval = Duration::from_secs(configured_reminder_interval_secs());
+
+    let _symbol_sync_handle = spawn_hourly_symbol_sync_job(symbol_sync_interval, state_for_job);
     std::thread::spawn(move || loop {
-        let result = run_persistent_symbol_sync_once(&db_for_job);
+        let result = run_persistent_symbol_sync_once(&db_for_symbol_sync);
         if result.failed_accounts > 0 {
             eprintln!(
                 "scheduler persistent symbol sync completed with {} refreshed / {} failed",
                 result.refreshed_accounts, result.failed_accounts
             );
         }
-        std::thread::sleep(interval);
+        std::thread::sleep(symbol_sync_interval);
+    });
+    std::thread::spawn(move || loop {
+        let result = run_persistent_snapshot_sync_once(&snapshot_db);
+        if result.failed_accounts > 0 {
+            eprintln!(
+                "scheduler persistent snapshot sync completed with {} refreshed / {} failed",
+                result.refreshed_accounts, result.failed_accounts
+            );
+        }
+        std::thread::sleep(snapshot_interval);
+    });
+    std::thread::spawn(move || loop {
+        if let Err(error) = run_membership_reminders_once(&reminder_db, Utc::now(), chrono::Duration::hours(configured_reminder_lookahead_hours())) {
+            eprintln!("scheduler membership reminder job failed: {error}");
+        }
+        std::thread::sleep(reminder_interval);
+    });
+    std::thread::spawn(move || loop {
+        let mut metrics = grace_metrics_for_loop.lock().expect("grace metrics poisoned");
+        metrics.runs_total += 1;
+        drop(metrics);
+        match run_membership_grace_once(&grace_db, Utc::now()) {
+            Ok(paused) if paused > 0 => {
+                let mut metrics = grace_metrics_for_loop.lock().expect("grace metrics poisoned");
+                metrics.paused_total += paused as u64;
+                eprintln!("scheduler membership grace paused {} strategies", paused);
+            }
+            Ok(_) => {}
+            Err(error) => {
+                let mut metrics = grace_metrics_for_loop.lock().expect("grace metrics poisoned");
+                metrics.failures_total += 1;
+                eprintln!("scheduler membership grace job failed: {error}");
+            }
+        }
+        std::thread::sleep(grace_interval);
     });
 
     let listener = TcpListener::bind(("0.0.0.0", configured_port(DEFAULT_PORT))).await?;
-    let app = Router::new().route("/healthz", get(healthz));
+    let app = Router::new()
+        .route("/healthz", get(healthz))
+        .with_state(SchedulerState {
+            grace_metrics,
+            symbol_sync_state,
+        });
 
     axum::serve(listener, app).await?;
     Ok(())
 }
 
-async fn healthz() -> impl IntoResponse {
+async fn healthz(State(state): State<SchedulerState>) -> impl IntoResponse {
     (
         [(
             header::CONTENT_TYPE,
             "text/plain; version=0.0.4; charset=utf-8",
         )],
-        health_payload(SERVICE_NAME),
+        health_payload(SERVICE_NAME, &state.symbol_sync_state, &state.grace_metrics),
     )
 }
 
@@ -68,6 +144,38 @@ fn configured_symbol_sync_interval_secs() -> u64 {
         .and_then(|value| value.parse::<u64>().ok())
         .filter(|value| *value > 0)
         .unwrap_or(DEFAULT_SYMBOL_SYNC_INTERVAL_SECS)
+}
+
+fn configured_snapshot_sync_interval_secs() -> u64 {
+    std::env::var("SNAPSHOT_SYNC_INTERVAL_SECS")
+        .ok()
+        .and_then(|value| value.parse::<u64>().ok())
+        .filter(|value| *value > 0)
+        .unwrap_or(DEFAULT_SNAPSHOT_SYNC_INTERVAL_SECS)
+}
+
+fn configured_reminder_interval_secs() -> u64 {
+    std::env::var("REMINDER_INTERVAL_SECS")
+        .ok()
+        .and_then(|value| value.parse::<u64>().ok())
+        .filter(|value| *value > 0)
+        .unwrap_or(DEFAULT_REMINDER_INTERVAL_SECS)
+}
+
+fn configured_reminder_lookahead_hours() -> i64 {
+    std::env::var("REMINDER_LOOKAHEAD_HOURS")
+        .ok()
+        .and_then(|value| value.parse::<i64>().ok())
+        .filter(|value| *value > 0)
+        .unwrap_or(DEFAULT_REMINDER_LOOKAHEAD_HOURS)
+}
+
+fn configured_membership_grace_interval_secs() -> u64 {
+    std::env::var("MEMBERSHIP_GRACE_INTERVAL_SECS")
+        .ok()
+        .and_then(|value| value.parse::<u64>().ok())
+        .filter(|value| *value > 0)
+        .unwrap_or(DEFAULT_MEMBERSHIP_GRACE_INTERVAL_SECS)
 }
 
 fn required_env(name: &str) -> Result<String, IoError> {
@@ -84,9 +192,20 @@ fn parse_port(value: Option<String>, default_port: u16) -> u16 {
         .unwrap_or(default_port)
 }
 
-fn health_payload(service_name: &str) -> String {
+fn health_payload(
+    service_name: &str,
+    symbol_sync_state: &Arc<Mutex<SymbolSyncRuntimeState>>,
+    grace_metrics: &Arc<Mutex<MembershipGraceMetrics>>,
+) -> String {
+    let symbol = symbol_sync_state.lock().expect("symbol sync metrics poisoned");
+    let grace = grace_metrics.lock().expect("grace metrics poisoned");
     format!(
-        "# HELP service_up Service health probe status.\n# TYPE service_up gauge\nservice_up{{service=\"{service_name}\"}} 1\n"
+        "# HELP service_up Service health probe status.\n# TYPE service_up gauge\nservice_up{{service=\"{service_name}\"}} 1\n# HELP scheduler_symbol_sync_runs_total Public symbol sync executions.\n# TYPE scheduler_symbol_sync_runs_total counter\nscheduler_symbol_sync_runs_total {sync_runs}\n# HELP scheduler_symbol_sync_last_synced_symbols Last synced public symbol count.\n# TYPE scheduler_symbol_sync_last_synced_symbols gauge\nscheduler_symbol_sync_last_synced_symbols {symbols}\n# HELP scheduler_membership_grace_runs_total Membership grace loop executions.\n# TYPE scheduler_membership_grace_runs_total counter\nscheduler_membership_grace_runs_total {grace_runs}\n# HELP scheduler_membership_grace_paused_total Strategies auto-paused after grace expiry.\n# TYPE scheduler_membership_grace_paused_total counter\nscheduler_membership_grace_paused_total {grace_paused}\n# HELP scheduler_membership_grace_failures_total Membership grace loop failures.\n# TYPE scheduler_membership_grace_failures_total counter\nscheduler_membership_grace_failures_total {grace_failures}\n",
+        sync_runs = symbol.run_count,
+        symbols = symbol.last_synced_symbols,
+        grace_runs = grace.runs_total,
+        grace_paused = grace.paused_total,
+        grace_failures = grace.failures_total,
     )
 }
 
@@ -94,6 +213,15 @@ fn health_payload(service_name: &str) -> String {
 struct PersistentSymbolSyncResult {
     refreshed_accounts: usize,
     failed_accounts: usize,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+struct PersistentSnapshotSyncResult {
+    refreshed_accounts: usize,
+    failed_accounts: usize,
+    account_snapshots: usize,
+    wallet_snapshots: usize,
+    strategy_snapshots: usize,
 }
 
 fn run_persistent_symbol_sync_once(db: &SharedDb) -> PersistentSymbolSyncResult {
@@ -119,6 +247,189 @@ fn run_persistent_symbol_sync_once(db: &SharedDb) -> PersistentSymbolSyncResult 
     }
 
     result
+}
+
+fn run_persistent_snapshot_sync_once(db: &SharedDb) -> PersistentSnapshotSyncResult {
+    let accounts = db
+        .list_active_exchange_accounts(BINANCE_EXCHANGE)
+        .unwrap_or_else(|error| {
+            eprintln!("scheduler persistent snapshot sync failed to list accounts: {error}");
+            Vec::new()
+        });
+    let mut result = PersistentSnapshotSyncResult::default();
+
+    for account in accounts {
+        match refresh_account_snapshots(db, &account) {
+            Ok((account_snapshots, wallet_snapshots)) => {
+                result.refreshed_accounts += 1;
+                result.account_snapshots += account_snapshots;
+                result.wallet_snapshots += wallet_snapshots;
+            }
+            Err(error) => {
+                result.failed_accounts += 1;
+                eprintln!(
+                    "scheduler persistent snapshot sync failed for {}: {}",
+                    account.user_email, error
+                );
+            }
+        }
+    }
+
+    result.strategy_snapshots = run_strategy_snapshot_sync_once(db).unwrap_or_default();
+    result
+}
+
+fn refresh_account_snapshots(
+    db: &SharedDb,
+    account: &UserExchangeAccountRecord,
+) -> Result<(usize, usize), IoError> {
+    let Some(credentials) = db
+        .find_exchange_credentials(&account.user_email, BINANCE_EXCHANGE)
+        .map_err(storage_error)?
+    else {
+        return Err(IoError::new(
+            ErrorKind::NotFound,
+            "exchange credentials not found",
+        ));
+    };
+
+    let metadata = parse_account_metadata(&account.metadata)?;
+    let (api_key, api_secret) = credential_cipher()?
+        .decrypt(&credentials.encrypted_secret)
+        .map_err(|error| IoError::new(ErrorKind::InvalidData, error.to_string()))?;
+    let client = BinanceClient::new(api_key, api_secret);
+    let bundle = client
+        .snapshot_bundle(&metadata.selected_markets)
+        .map_err(validation_error)?;
+    let captured_at = Utc::now();
+
+    for snapshot in &bundle.account_snapshots {
+        db.insert_account_profit_snapshot(&AccountProfitSnapshotRecord {
+            user_email: account.user_email.clone(),
+            exchange: snapshot.exchange.clone(),
+            realized_pnl: snapshot.realized_pnl.clone(),
+            unrealized_pnl: snapshot.unrealized_pnl.clone(),
+            fees: snapshot.fees.clone(),
+            funding: snapshot.funding.clone(),
+            captured_at,
+        })
+        .map_err(storage_error)?;
+    }
+
+    for snapshot in &bundle.wallet_snapshots {
+        db.insert_exchange_wallet_snapshot(&ExchangeWalletSnapshotRecord {
+            user_email: account.user_email.clone(),
+            exchange: snapshot.exchange.clone(),
+            wallet_type: snapshot.wallet_type.clone(),
+            balances: serde_json::to_value(&snapshot.balances).map_err(serde_error)?,
+            captured_at,
+        })
+        .map_err(storage_error)?;
+    }
+
+    Ok((bundle.account_snapshots.len(), bundle.wallet_snapshots.len()))
+}
+
+fn run_strategy_snapshot_sync_once(db: &SharedDb) -> Result<usize, shared_db::SharedDbError> {
+    let strategies = db.list_all_strategies()?;
+    let mut inserted = 0usize;
+    let mut account_snapshots_by_user: BTreeMap<String, Vec<AccountProfitSnapshotRecord>> = BTreeMap::new();
+    let mut market_cost_basis_totals: BTreeMap<(String, String), rust_decimal::Decimal> = BTreeMap::new();
+
+    for strategy in &strategies {
+        account_snapshots_by_user
+            .entry(strategy.owner_email.clone())
+            .or_insert(db.list_account_profit_snapshots(&strategy.owner_email)?);
+        let cost_basis = strategy_cost_basis(strategy);
+        if cost_basis > rust_decimal::Decimal::ZERO {
+            let key = (
+                strategy.owner_email.clone(),
+                strategy_account_exchange(strategy.market).to_string(),
+            );
+            let entry = market_cost_basis_totals
+                .entry(key)
+                .or_insert(rust_decimal::Decimal::ZERO);
+            *entry += cost_basis;
+        }
+    }
+
+    for strategy in strategies {
+        let realized = strategy
+            .runtime
+            .fills
+            .iter()
+            .filter_map(|fill| fill.realized_pnl)
+            .fold(rust_decimal::Decimal::ZERO, |acc, value| acc + value);
+        let fees = strategy
+            .runtime
+            .fills
+            .iter()
+            .filter_map(|fill| fill.fee_amount)
+            .fold(rust_decimal::Decimal::ZERO, |acc, value| acc + value);
+        let cost_basis = strategy_cost_basis(&strategy);
+        let account_snapshot = account_snapshots_by_user
+            .get(&strategy.owner_email)
+            .and_then(|snapshots| latest_account_snapshot_for_exchange(snapshots, strategy_account_exchange(strategy.market)));
+        let group_total = market_cost_basis_totals
+            .get(&(strategy.owner_email.clone(), strategy_account_exchange(strategy.market).to_string()))
+            .copied()
+            .unwrap_or(rust_decimal::Decimal::ZERO);
+        let share = if cost_basis > rust_decimal::Decimal::ZERO && group_total > rust_decimal::Decimal::ZERO {
+            cost_basis / group_total
+        } else {
+            rust_decimal::Decimal::ZERO
+        };
+        let unrealized = account_snapshot
+            .and_then(|snapshot| parse_snapshot_decimal(&snapshot.unrealized_pnl))
+            .map(|value| (value * share).normalize())
+            .unwrap_or(rust_decimal::Decimal::ZERO);
+        let funding = account_snapshot
+            .and_then(|snapshot| snapshot.funding.as_deref())
+            .and_then(parse_snapshot_decimal)
+            .map(|value| (value * share).normalize());
+        db.insert_strategy_profit_snapshot(&shared_db::StrategyProfitSnapshotRecord {
+            strategy_id: strategy.id,
+            realized_pnl: realized.normalize().to_string(),
+            unrealized_pnl: unrealized.normalize().to_string(),
+            fees: fees.normalize().to_string(),
+            funding: funding.map(|value| value.to_string()),
+            captured_at: Utc::now(),
+        })?;
+        inserted += 1;
+    }
+    Ok(inserted)
+}
+
+fn strategy_cost_basis(strategy: &shared_domain::strategy::Strategy) -> rust_decimal::Decimal {
+    strategy
+        .runtime
+        .positions
+        .iter()
+        .fold(rust_decimal::Decimal::ZERO, |acc, position| {
+            acc + (position.quantity * position.average_entry_price)
+        })
+}
+
+fn parse_snapshot_decimal(value: &str) -> Option<rust_decimal::Decimal> {
+    value.parse::<rust_decimal::Decimal>().ok()
+}
+
+fn latest_account_snapshot_for_exchange<'a>(
+    snapshots: &'a [AccountProfitSnapshotRecord],
+    exchange: &str,
+) -> Option<&'a AccountProfitSnapshotRecord> {
+    snapshots
+        .iter()
+        .filter(|snapshot| snapshot.exchange == exchange)
+        .max_by_key(|snapshot| snapshot.captured_at)
+}
+
+fn strategy_account_exchange(market: shared_domain::strategy::StrategyMarket) -> &'static str {
+    match market {
+        shared_domain::strategy::StrategyMarket::Spot => "binance",
+        shared_domain::strategy::StrategyMarket::FuturesUsdM => "binance-usdm",
+        shared_domain::strategy::StrategyMarket::FuturesCoinM => "binance-coinm",
+    }
 }
 
 fn refresh_account_symbols(
@@ -282,22 +593,33 @@ impl ExchangeSymbolCountsDto {
 #[cfg(test)]
 mod tests {
     use super::{
-        configured_symbol_sync_interval_secs, health_payload, parse_port, required_env,
-        run_persistent_symbol_sync_once, DEFAULT_PORT, DEFAULT_SYMBOL_SYNC_INTERVAL_SECS,
-        SERVICE_NAME,
+        configured_membership_grace_interval_secs, configured_symbol_sync_interval_secs,
+        health_payload, parse_port, required_env, run_persistent_snapshot_sync_once,
+        run_persistent_symbol_sync_once, run_strategy_snapshot_sync_once,
+        MembershipGraceMetrics, DEFAULT_PORT, DEFAULT_MEMBERSHIP_GRACE_INTERVAL_SECS,
+        DEFAULT_SYMBOL_SYNC_INTERVAL_SECS, SERVICE_NAME,
     };
+    use scheduler::jobs::symbol_sync::SymbolSyncRuntimeState;
     use chrono::Utc;
     use serde_json::json;
     use shared_binance::{mask_api_key, CredentialCipher};
     use shared_db::{SharedDb, UserExchangeAccountRecord, UserExchangeCredentialRecord};
-    use std::sync::{Mutex, OnceLock};
+    use std::{
+        collections::VecDeque,
+        io::{Read, Write},
+        net::TcpListener,
+        sync::{Arc, Mutex, OnceLock},
+        thread,
+    };
 
     #[test]
     fn health_payload_mentions_service_name() {
-        let payload = health_payload(SERVICE_NAME);
+        let symbol = Arc::new(Mutex::new(SymbolSyncRuntimeState::default()));
+        let grace = Arc::new(Mutex::new(MembershipGraceMetrics::default()));
+        let payload = health_payload(SERVICE_NAME, &symbol, &grace);
 
         assert!(payload.contains("service_up"));
-        assert!(payload.contains("scheduler"));
+        assert!(payload.contains("scheduler_membership_grace_runs_total"));
     }
 
     #[test]
@@ -333,12 +655,26 @@ mod tests {
     }
 
     #[test]
+    fn membership_grace_interval_uses_minute_default_and_accepts_override() {
+        std::env::remove_var("MEMBERSHIP_GRACE_INTERVAL_SECS");
+        assert_eq!(
+            configured_membership_grace_interval_secs(),
+            DEFAULT_MEMBERSHIP_GRACE_INTERVAL_SECS
+        );
+
+        std::env::set_var("MEMBERSHIP_GRACE_INTERVAL_SECS", "45");
+        assert_eq!(configured_membership_grace_interval_secs(), 45);
+        std::env::remove_var("MEMBERSHIP_GRACE_INTERVAL_SECS");
+    }
+
+    #[test]
     fn persistent_symbol_sync_updates_active_exchange_accounts_and_symbols() {
         let _guard = env_lock().lock().expect("env lock");
         std::env::set_var(
             "EXCHANGE_CREDENTIALS_MASTER_KEY",
             "scheduler-persistent-sync-test-key",
         );
+        std::env::set_var("BINANCE_LIVE_MODE", "0");
         let db = SharedDb::ephemeral().expect("ephemeral db");
         let now = Utc::now();
         let cipher = CredentialCipher::new("scheduler-persistent-sync-test-key");
@@ -410,41 +746,80 @@ mod tests {
     }
 
     #[test]
-    fn persistent_symbol_sync_continues_past_bad_accounts() {
+    fn persistent_strategy_snapshot_sync_persists_runtime_aggregates() {
+        let db = SharedDb::ephemeral().expect("db");
+        let strategy = strategy_for_snapshot("snapshot-strategy", "snap@example.com");
+        db.insert_strategy(&shared_db::StoredStrategy { sequence_id: 1, strategy }).expect("strategy");
+
+        let inserted = run_strategy_snapshot_sync_once(&db).expect("snapshot sync");
+
+        assert_eq!(inserted, 1);
+        let snapshots = db.list_strategy_profit_snapshots("snap@example.com").expect("strategy snapshots");
+        assert_eq!(snapshots.len(), 1);
+        assert_eq!(snapshots[0].strategy_id, "snapshot-strategy");
+        assert_eq!(snapshots[0].realized_pnl, "12.5");
+        assert_eq!(snapshots[0].fees, "0.7");
+        assert!(snapshots[0].funding.is_none());
+    }
+
+    #[test]
+    fn persistent_strategy_snapshot_sync_carries_unrealized_and_funding_from_latest_account_snapshot() {
+        let db = SharedDb::ephemeral().expect("db");
+        let mut strategy = strategy_for_snapshot("snapshot-strategy", "snap@example.com");
+        strategy.runtime.positions = vec![shared_domain::strategy::StrategyRuntimePosition {
+            market: shared_domain::strategy::StrategyMarket::Spot,
+            mode: shared_domain::strategy::StrategyMode::SpotClassic,
+            quantity: rust_decimal::Decimal::new(15, 1),
+            average_entry_price: rust_decimal::Decimal::new(22, 0),
+        }];
+        db.insert_strategy(&shared_db::StoredStrategy { sequence_id: 1, strategy }).expect("strategy");
+        db.insert_account_profit_snapshot(&shared_db::AccountProfitSnapshotRecord {
+            user_email: "snap@example.com".to_string(),
+            exchange: "binance".to_string(),
+            realized_pnl: "12.5".to_string(),
+            unrealized_pnl: "4.2".to_string(),
+            fees: "0.7".to_string(),
+            funding: Some("-0.4".to_string()),
+            captured_at: Utc::now(),
+        }).expect("account snapshot");
+
+        let inserted = run_strategy_snapshot_sync_once(&db).expect("snapshot sync");
+
+        assert_eq!(inserted, 1);
+        let snapshots = db.list_strategy_profit_snapshots("snap@example.com").expect("strategy snapshots");
+        assert_eq!(snapshots.len(), 1);
+        assert_eq!(snapshots[0].unrealized_pnl, "4.2");
+        assert_eq!(snapshots[0].funding.as_deref(), Some("-0.4"));
+    }
+
+    #[test]
+    fn persistent_snapshot_sync_persists_account_and_wallet_snapshots() {
         let _guard = env_lock().lock().expect("env lock");
-        std::env::set_var(
-            "EXCHANGE_CREDENTIALS_MASTER_KEY",
-            "scheduler-persistent-sync-test-key",
-        );
+        std::env::set_var("EXCHANGE_CREDENTIALS_MASTER_KEY", "scheduler-persistent-sync-test-key");
+        std::env::set_var("BINANCE_LIVE_MODE", "1");
+        let server = spawn_test_server(vec![
+            TestRoute {
+                path_prefix: "/api/v3/account?",
+                status_line: "HTTP/1.1 200 OK",
+                body: r#"{"canTrade":true,"canWithdraw":false,"permissions":["SPOT"],"balances":[{"asset":"BTC","free":"0.01","locked":"0.00"},{"asset":"USDT","free":"120.5","locked":"0.5"}]}"#,
+            },
+            TestRoute {
+                path_prefix: "/fapi/v2/account?",
+                status_line: "HTTP/1.1 200 OK",
+                body: r#"{"totalWalletBalance":"200.5","totalUnrealizedProfit":"3.25","assets":[{"asset":"USDT","walletBalance":"200.5","unrealizedProfit":"3.25"}]}"#,
+            },
+        ]);
+        std::env::set_var("BINANCE_SPOT_REST_BASE_URL", &server.base_url);
+        std::env::set_var("BINANCE_USDM_REST_BASE_URL", &server.base_url);
         let db = SharedDb::ephemeral().expect("ephemeral db");
         let now = Utc::now();
         let cipher = CredentialCipher::new("scheduler-persistent-sync-test-key");
 
         db.upsert_exchange_account(&UserExchangeAccountRecord {
-            user_email: "broken@example.com".to_owned(),
+            user_email: "snapshot@example.com".to_owned(),
             exchange: "binance".to_owned(),
-            account_label: "Broken".to_owned(),
-            market_scope: "spot".to_owned(),
-            is_active: true,
-            checked_at: Some(now),
-            metadata: json!("not-an-object"),
-        })
-        .expect("broken account");
-        db.upsert_exchange_credentials(&UserExchangeCredentialRecord {
-            user_email: "broken@example.com".to_owned(),
-            exchange: "binance".to_owned(),
-            api_key_masked: mask_api_key("broken-key-1234"),
-            encrypted_secret: cipher
-                .encrypt("broken-key-1234", "broken-secret")
-                .expect("encrypt"),
-        })
-        .expect("broken credentials");
-
-        db.upsert_exchange_account(&UserExchangeAccountRecord {
-            user_email: "healthy@example.com".to_owned(),
-            exchange: "binance".to_owned(),
-            account_label: "Healthy".to_owned(),
-            market_scope: "spot,coinm".to_owned(),
+            account_label: "Binance".to_owned(),
+            market_scope: "spot,usdm".to_owned(),
             is_active: true,
             checked_at: Some(now),
             metadata: json!({
@@ -452,47 +827,248 @@ mod tests {
                 "sync_status": "success",
                 "last_synced_at": "2026-04-01T00:00:00Z",
                 "expected_hedge_mode": true,
-                "selected_markets": ["spot", "coinm"],
+                "selected_markets": ["spot", "usdm"],
                 "validation": {
                     "api_connectivity_ok": true,
                     "timestamp_in_sync": true,
                     "can_read_spot": true,
-                    "can_read_usdm": false,
+                    "can_read_usdm": true,
                     "can_read_coinm": false,
                     "hedge_mode_ok": true,
                     "permissions_ok": true,
-                    "market_access_ok": false
+                    "market_access_ok": true
                 },
                 "symbol_counts": {
-                    "spot": 1,
-                    "usdm": 0,
+                    "spot": 2,
+                    "usdm": 2,
                     "coinm": 0
                 }
             }),
-        })
-        .expect("healthy account");
+        }).expect("account");
         db.upsert_exchange_credentials(&UserExchangeCredentialRecord {
-            user_email: "healthy@example.com".to_owned(),
+            user_email: "snapshot@example.com".to_owned(),
             exchange: "binance".to_owned(),
-            api_key_masked: mask_api_key("healthy-key-1234"),
-            encrypted_secret: cipher
-                .encrypt("healthy-key-1234", "healthy-secret")
-                .expect("encrypt"),
-        })
-        .expect("healthy credentials");
+            api_key_masked: mask_api_key("demo-key-1234"),
+            encrypted_secret: cipher.encrypt("demo-key-1234", "demo-secret").expect("encrypt"),
+        }).expect("credentials");
 
-        let result = run_persistent_symbol_sync_once(&db);
-        assert_eq!(result.refreshed_accounts, 1);
-        assert_eq!(result.failed_accounts, 1);
+        let synced = run_persistent_snapshot_sync_once(&db);
+        assert_eq!(synced.refreshed_accounts, 1);
+        assert_eq!(synced.failed_accounts, 0);
+        assert_eq!(synced.account_snapshots, 2);
+        assert_eq!(synced.wallet_snapshots, 2);
+        let accounts = db.list_account_profit_snapshots("snapshot@example.com").expect("account snapshots");
+        assert_eq!(accounts.len(), 2);
+        assert_eq!(accounts[0].exchange, "binance");
+        assert_eq!(accounts[1].exchange, "binance-usdm");
+        let wallets = db.list_exchange_wallet_snapshots("snapshot@example.com").expect("wallet snapshots");
+        assert_eq!(wallets.len(), 2);
+        assert_eq!(wallets[0].wallet_type, "spot");
+    }
 
-        let healthy_symbols = db
-            .list_exchange_symbols("healthy@example.com", "binance")
-            .expect("healthy symbols");
-        assert_eq!(healthy_symbols.len(), 4);
-        let broken_symbols = db
-            .list_exchange_symbols("broken@example.com", "binance")
-            .expect("broken symbols");
-        assert_eq!(broken_symbols.len(), 0);
+    #[test]
+    fn persistent_symbol_sync_continues_past_bad_accounts() {
+        let _guard = env_lock().lock().expect("env lock");
+        std::env::set_var(
+            "EXCHANGE_CREDENTIALS_MASTER_KEY",
+            "scheduler-persistent-sync-test-key",
+        );
+        std::env::set_var("BINANCE_LIVE_MODE", "0");
+        let db = SharedDb::ephemeral().expect("ephemeral db");
+        let now = Utc::now();
+        let cipher = CredentialCipher::new("scheduler-persistent-sync-test-key");
+
+        for (email, encrypted_secret) in [
+            (
+                "good@example.com",
+                cipher.encrypt("demo-key-1234", "demo-secret").expect("encrypt"),
+            ),
+            ("bad@example.com", "broken-payload".to_string()),
+        ] {
+            db.upsert_exchange_account(&UserExchangeAccountRecord {
+                user_email: email.to_owned(),
+                exchange: "binance".to_owned(),
+                account_label: "Binance".to_owned(),
+                market_scope: "spot".to_owned(),
+                is_active: true,
+                checked_at: Some(now),
+                metadata: json!({
+                    "connection_status": "healthy",
+                    "sync_status": "success",
+                    "last_synced_at": "2026-04-01T00:00:00Z",
+                    "expected_hedge_mode": true,
+                    "selected_markets": ["spot"],
+                    "validation": {
+                        "api_connectivity_ok": true,
+                        "timestamp_in_sync": true,
+                        "can_read_spot": true,
+                        "can_read_usdm": false,
+                        "can_read_coinm": false,
+                        "hedge_mode_ok": true,
+                        "permissions_ok": true,
+                        "market_access_ok": true
+                    },
+                    "symbol_counts": {
+                        "spot": 1,
+                        "usdm": 0,
+                        "coinm": 0
+                    }
+                }),
+            })
+            .expect("account");
+            db.upsert_exchange_credentials(&UserExchangeCredentialRecord {
+                user_email: email.to_owned(),
+                exchange: "binance".to_owned(),
+                api_key_masked: mask_api_key("demo-key-1234"),
+                encrypted_secret,
+            })
+            .expect("credentials");
+        }
+
+        let refreshed = run_persistent_symbol_sync_once(&db);
+        assert_eq!(refreshed.refreshed_accounts, 1);
+        assert_eq!(refreshed.failed_accounts, 1);
+    }
+
+    #[derive(Clone)]
+    struct TestRoute {
+        path_prefix: &'static str,
+        status_line: &'static str,
+        body: &'static str,
+    }
+
+    struct TestServer {
+        base_url: String,
+        join_handle: Option<thread::JoinHandle<()>>,
+    }
+
+    impl Drop for TestServer {
+        fn drop(&mut self) {
+            if let Some(handle) = self.join_handle.take() {
+                handle.join().expect("scheduler test server thread should exit cleanly");
+            }
+        }
+    }
+
+    fn spawn_test_server(routes: Vec<TestRoute>) -> TestServer {
+        let listener = TcpListener::bind("127.0.0.1:0").expect("bind local test server");
+        let address = listener.local_addr().expect("test server address");
+        let queue = Arc::new(Mutex::new(VecDeque::from(routes)));
+        let queue_for_thread = queue.clone();
+        let join_handle = thread::spawn(move || {
+            while let Some(route) = queue_for_thread.lock().expect("route queue poisoned").pop_front() {
+                let (mut stream, _) = listener.accept().expect("accept test request");
+                let mut buffer = [0u8; 4096];
+                let read = stream.read(&mut buffer).expect("read test request");
+                let request = String::from_utf8_lossy(&buffer[..read]);
+                let path = request.lines().next().and_then(|line| line.split_whitespace().nth(1)).expect("request path");
+                assert!(path.starts_with(route.path_prefix), "expected path prefix {} but received {}", route.path_prefix, path);
+                let response = format!(
+                    "{}
+content-type: application/json
+content-length: {}
+connection: close
+
+{}",
+                    route.status_line,
+                    route.body.len(),
+                    route.body,
+                );
+                stream.write_all(response.as_bytes()).expect("write test response");
+            }
+        });
+        TestServer {
+            base_url: format!("http://{}", address),
+            join_handle: Some(join_handle),
+        }
+    }
+
+    fn strategy_for_snapshot(id: &str, email: &str) -> shared_domain::strategy::Strategy {
+        use rust_decimal::Decimal;
+        use shared_domain::strategy::{
+            GridGeneration, GridLevel, PostTriggerAction, Strategy, StrategyMarket, StrategyMode,
+            StrategyRevision, StrategyRuntime, StrategyRuntimeFill, StrategyRuntimeOrder,
+            StrategyStatus,
+        };
+
+        Strategy {
+            id: id.to_string(),
+            owner_email: email.to_string(),
+            name: id.to_string(),
+            symbol: "BTCUSDT".to_string(),
+            budget: "1000".to_string(),
+            grid_spacing_bps: 100,
+            status: StrategyStatus::Running,
+            source_template_id: None,
+            membership_ready: true,
+            exchange_ready: true,
+            permissions_ready: true,
+            withdrawals_disabled: true,
+            hedge_mode_ready: true,
+            symbol_ready: true,
+            filters_ready: true,
+            margin_ready: true,
+            conflict_ready: true,
+            balance_ready: true,
+            market: StrategyMarket::Spot,
+            mode: StrategyMode::SpotClassic,
+            draft_revision: StrategyRevision {
+                revision_id: "rev-1".to_string(),
+                version: 1,
+                generation: GridGeneration::Custom,
+                levels: vec![GridLevel {
+                    level_index: 0,
+                    entry_price: Decimal::new(100, 0),
+                    quantity: Decimal::new(1, 0),
+                    take_profit_bps: 100,
+                    trailing_bps: None,
+                }],
+                overall_take_profit_bps: None,
+                overall_stop_loss_bps: None,
+                post_trigger_action: PostTriggerAction::Stop,
+            },
+            active_revision: None,
+            runtime: StrategyRuntime {
+                positions: Vec::new(),
+                orders: vec![StrategyRuntimeOrder {
+                    order_id: format!("{}-order-1", id),
+                    exchange_order_id: Some("123".to_string()),
+                    level_index: Some(0),
+                    side: "Buy".to_string(),
+                    order_type: "Limit".to_string(),
+                    price: Some(Decimal::new(100, 0)),
+                    quantity: Decimal::new(1, 0),
+                    status: "Filled".to_string(),
+                }],
+                fills: vec![
+                    StrategyRuntimeFill {
+                        fill_id: format!("{}-fill-1", id),
+                        order_id: Some(format!("{}-order-1", id)),
+                        level_index: Some(0),
+                        fill_type: "ExchangeFill".to_string(),
+                        price: Decimal::new(110, 0),
+                        quantity: Decimal::new(1, 0),
+                        realized_pnl: Some(Decimal::new(125, 1)),
+                        fee_amount: Some(Decimal::new(5, 1)),
+                        fee_asset: Some("USDT".to_string()),
+                    },
+                    StrategyRuntimeFill {
+                        fill_id: format!("{}-fill-2", id),
+                        order_id: Some(format!("{}-order-1", id)),
+                        level_index: Some(0),
+                        fill_type: "ExchangeFill".to_string(),
+                        price: Decimal::new(112, 0),
+                        quantity: Decimal::new(1, 0),
+                        realized_pnl: Some(Decimal::ZERO),
+                        fee_amount: Some(Decimal::new(2, 1)),
+                        fee_asset: Some("USDT".to_string()),
+                    },
+                ],
+                events: Vec::new(),
+                last_preflight: None,
+            },
+            archived_at: None,
+        }
     }
 
     fn env_lock() -> &'static Mutex<()> {

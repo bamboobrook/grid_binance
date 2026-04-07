@@ -78,6 +78,11 @@ pub struct SweepTransferRecord {
     pub to_address: String,
     pub amount: String,
     pub tx_hash: Option<String>,
+    pub status: String,
+    pub submitted_at: Option<DateTime<Utc>>,
+    pub confirmed_at: Option<DateTime<Utc>>,
+    pub failed_at: Option<DateTime<Utc>>,
+    pub error_message: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -88,7 +93,12 @@ pub struct SweepJobRecord {
     pub status: String,
     pub requested_by: String,
     pub requested_at: DateTime<Utc>,
+    pub treasury_address: String,
+    pub submitted_at: Option<DateTime<Utc>>,
     pub completed_at: Option<DateTime<Utc>>,
+    pub failed_at: Option<DateTime<Utc>>,
+    pub last_error: Option<String>,
+    pub attempt_count: i32,
     pub transfers: Vec<SweepTransferRecord>,
 }
 
@@ -815,8 +825,13 @@ impl BillingRepository {
                 status,
                 requested_by,
                 requested_at,
-                completed_at
-             ) VALUES ($1, $2, $3, $4, $5, $6, $7)",
+                treasury_address,
+                submitted_at,
+                completed_at,
+                failed_at,
+                last_error,
+                attempt_count
+             ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)",
         )
         .bind(job.sweep_job_id as i64)
         .bind(&job.chain)
@@ -824,7 +839,12 @@ impl BillingRepository {
         .bind(&job.status)
         .bind(&job.requested_by)
         .bind(job.requested_at)
+        .bind(&job.treasury_address)
+        .bind(job.submitted_at)
         .bind(job.completed_at)
+        .bind(job.failed_at)
+        .bind(&job.last_error)
+        .bind(job.attempt_count)
         .execute(&mut *transaction)
         .await
         .map_err(SharedDbError::from)?;
@@ -837,14 +857,24 @@ impl BillingRepository {
                     to_address,
                     amount,
                     tx_hash,
+                    status,
+                    submitted_at,
+                    confirmed_at,
+                    failed_at,
+                    error_message,
                     created_at
-                 ) VALUES ($1, $2, $3, $4, $5, now())",
+                 ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, now())",
             )
             .bind(job.sweep_job_id as i64)
             .bind(&transfer.from_address)
             .bind(&transfer.to_address)
             .bind(&transfer.amount)
             .bind(&transfer.tx_hash)
+            .bind(&transfer.status)
+            .bind(transfer.submitted_at)
+            .bind(transfer.confirmed_at)
+            .bind(transfer.failed_at)
+            .bind(&transfer.error_message)
             .execute(&mut *transaction)
             .await
             .map_err(SharedDbError::from)?;
@@ -856,7 +886,7 @@ impl BillingRepository {
 
     pub async fn list_sweep_jobs(&self) -> Result<Vec<SweepJobRecord>, SharedDbError> {
         let jobs = sqlx::query(
-            "SELECT sweep_job_id, chain, asset, status, requested_by, requested_at, completed_at
+            "SELECT sweep_job_id, chain, asset, status, requested_by, requested_at, treasury_address, submitted_at, completed_at, failed_at, last_error, attempt_count
              FROM fund_sweep_jobs
              ORDER BY requested_at ASC, sweep_job_id ASC",
         )
@@ -865,7 +895,7 @@ impl BillingRepository {
         .map_err(SharedDbError::from)?;
 
         let transfers = sqlx::query(
-            "SELECT sweep_job_id, from_address, to_address, amount, tx_hash
+            "SELECT sweep_job_id, from_address, to_address, amount, tx_hash, status, submitted_at, confirmed_at, failed_at, error_message
              FROM fund_sweep_transfers
              ORDER BY sweep_job_id ASC, transfer_id ASC",
         )
@@ -886,6 +916,11 @@ impl BillingRepository {
                     to_address: row.try_get("to_address").map_err(SharedDbError::from)?,
                     amount: row.try_get("amount").map_err(SharedDbError::from)?,
                     tx_hash: row.try_get("tx_hash").map_err(SharedDbError::from)?,
+                    status: row.try_get("status").map_err(SharedDbError::from)?,
+                    submitted_at: row.try_get("submitted_at").map_err(SharedDbError::from)?,
+                    confirmed_at: row.try_get("confirmed_at").map_err(SharedDbError::from)?,
+                    failed_at: row.try_get("failed_at").map_err(SharedDbError::from)?,
+                    error_message: row.try_get("error_message").map_err(SharedDbError::from)?,
                 });
         }
 
@@ -901,12 +936,177 @@ impl BillingRepository {
                     status: row.try_get("status").map_err(SharedDbError::from)?,
                     requested_by: row.try_get("requested_by").map_err(SharedDbError::from)?,
                     requested_at: row.try_get("requested_at").map_err(SharedDbError::from)?,
+                    treasury_address: row.try_get("treasury_address").map_err(SharedDbError::from)?,
+                    submitted_at: row.try_get("submitted_at").map_err(SharedDbError::from)?,
                     completed_at: row.try_get("completed_at").map_err(SharedDbError::from)?,
+                    failed_at: row.try_get("failed_at").map_err(SharedDbError::from)?,
+                    last_error: row.try_get("last_error").map_err(SharedDbError::from)?,
+                    attempt_count: row.try_get("attempt_count").map_err(SharedDbError::from)?,
                     transfers: grouped.remove(&sweep_job_id).unwrap_or_default(),
                 })
             })
             .collect()
     }
+    pub async fn mark_sweep_job_submitting(&self, sweep_job_id: u64) -> Result<bool, SharedDbError> {
+        let result = sqlx::query(
+            "UPDATE fund_sweep_jobs
+             SET status = 'submitting',
+                 attempt_count = attempt_count + 1,
+                 last_error = NULL,
+                 failed_at = NULL
+             WHERE sweep_job_id = $1
+               AND status = 'pending'",
+        )
+        .bind(sweep_job_id as i64)
+        .execute(&self.pool)
+        .await
+        .map_err(SharedDbError::from)?;
+        Ok(result.rows_affected() > 0)
+    }
+
+    pub async fn mark_sweep_transfer_submitted(
+        &self,
+        sweep_job_id: u64,
+        from_address: &str,
+        tx_hash: &str,
+        submitted_at: DateTime<Utc>,
+    ) -> Result<bool, SharedDbError> {
+        let result = sqlx::query(
+            "UPDATE fund_sweep_transfers
+             SET status = 'submitted',
+                 tx_hash = $3,
+                 submitted_at = $4,
+                 error_message = NULL,
+                 failed_at = NULL
+             WHERE sweep_job_id = $1
+               AND from_address = $2
+               AND status = 'pending'",
+        )
+        .bind(sweep_job_id as i64)
+        .bind(from_address)
+        .bind(tx_hash)
+        .bind(submitted_at)
+        .execute(&self.pool)
+        .await
+        .map_err(SharedDbError::from)?;
+        Ok(result.rows_affected() > 0)
+    }
+
+    pub async fn mark_sweep_transfer_failed(
+        &self,
+        sweep_job_id: u64,
+        from_address: &str,
+        failed_at: DateTime<Utc>,
+        error_message: &str,
+    ) -> Result<bool, SharedDbError> {
+        let result = sqlx::query(
+            "UPDATE fund_sweep_transfers
+             SET status = 'failed',
+                 failed_at = $3,
+                 error_message = $4
+             WHERE sweep_job_id = $1
+               AND from_address = $2
+               AND status IN ('pending', 'submitted')",
+        )
+        .bind(sweep_job_id as i64)
+        .bind(from_address)
+        .bind(failed_at)
+        .bind(error_message)
+        .execute(&self.pool)
+        .await
+        .map_err(SharedDbError::from)?;
+        Ok(result.rows_affected() > 0)
+    }
+
+    pub async fn mark_sweep_transfer_confirmed(
+        &self,
+        sweep_job_id: u64,
+        from_address: &str,
+        confirmed_at: DateTime<Utc>,
+    ) -> Result<bool, SharedDbError> {
+        let result = sqlx::query(
+            "UPDATE fund_sweep_transfers
+             SET status = 'confirmed',
+                 confirmed_at = $3
+             WHERE sweep_job_id = $1
+               AND from_address = $2
+               AND status = 'submitted'",
+        )
+        .bind(sweep_job_id as i64)
+        .bind(from_address)
+        .bind(confirmed_at)
+        .execute(&self.pool)
+        .await
+        .map_err(SharedDbError::from)?;
+        Ok(result.rows_affected() > 0)
+    }
+
+    pub async fn mark_sweep_job_submitted(
+        &self,
+        sweep_job_id: u64,
+        submitted_at: DateTime<Utc>,
+    ) -> Result<bool, SharedDbError> {
+        let result = sqlx::query(
+            "UPDATE fund_sweep_jobs
+             SET status = 'submitted',
+                 submitted_at = $2,
+                 last_error = NULL,
+                 failed_at = NULL
+             WHERE sweep_job_id = $1
+               AND status = 'submitting'",
+        )
+        .bind(sweep_job_id as i64)
+        .bind(submitted_at)
+        .execute(&self.pool)
+        .await
+        .map_err(SharedDbError::from)?;
+        Ok(result.rows_affected() > 0)
+    }
+
+    pub async fn mark_sweep_job_failed(
+        &self,
+        sweep_job_id: u64,
+        failed_at: DateTime<Utc>,
+        last_error: &str,
+    ) -> Result<bool, SharedDbError> {
+        let result = sqlx::query(
+            "UPDATE fund_sweep_jobs
+             SET status = 'failed',
+                 failed_at = $2,
+                 last_error = $3
+             WHERE sweep_job_id = $1
+               AND status IN ('pending', 'submitting', 'submitted')",
+        )
+        .bind(sweep_job_id as i64)
+        .bind(failed_at)
+        .bind(last_error)
+        .execute(&self.pool)
+        .await
+        .map_err(SharedDbError::from)?;
+        Ok(result.rows_affected() > 0)
+    }
+
+    pub async fn mark_sweep_job_confirmed(
+        &self,
+        sweep_job_id: u64,
+        completed_at: DateTime<Utc>,
+    ) -> Result<bool, SharedDbError> {
+        let result = sqlx::query(
+            "UPDATE fund_sweep_jobs
+             SET status = 'confirmed',
+                 completed_at = $2,
+                 last_error = NULL
+             WHERE sweep_job_id = $1
+               AND status = 'submitted'",
+        )
+        .bind(sweep_job_id as i64)
+        .bind(completed_at)
+        .execute(&self.pool)
+        .await
+        .map_err(SharedDbError::from)?;
+        Ok(result.rows_affected() > 0)
+    }
+
 }
 
 async fn write_order_meta(

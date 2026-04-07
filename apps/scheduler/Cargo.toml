@@ -11,4 +11,9 @@ serde_json = { workspace = true }
 shared-binance = { path = "../../crates/shared-binance" }
 shared-db = { path = "../../crates/shared-db" }
 shared-domain = { path = "../../crates/shared-domain" }
+shared-events = { path = "../../crates/shared-events" }
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "net"] }
+ureq = { version = "2", features = ["json"] }
+
+[dev-dependencies]
+rust_decimal = "1"

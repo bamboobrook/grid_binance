@@ -11,7 +11,8 @@ use crate::{
     services::telegram_service::{
         BindTelegramRequest, BindTelegramResponse, BotBindTelegramRequest,
         CreateTelegramBindCodeRequest, CreateTelegramBindCodeResponse, DispatchNotificationRequest,
-        NotificationInboxQuery, NotificationInboxResponse, TelegramService,
+        NotificationInboxQuery, NotificationInboxResponse, TelegramBindingStatusQuery,
+        TelegramBindingStatusResponse, TelegramService,
     },
     AppState,
 };
@@ -22,6 +23,7 @@ pub fn router() -> Router<AppState> {
         .route("/telegram/bind-codes", post(create_bind_code))
         .route("/telegram/bind", post(bind_telegram))
         .route("/telegram/bot/bind", post(bind_telegram_from_bot))
+        .route("/telegram/binding", get(read_binding_status))
         .route("/notifications/dispatch", post(dispatch_notification))
         .route("/notifications", get(list_notifications))
 }
@@ -70,6 +72,19 @@ async fn bind_telegram_from_bot(
         service
             .bind_telegram_from_bot(request)
             .map_err(AuthError::from)?,
+    ))
+}
+
+async fn read_binding_status(
+    State(auth): State<AuthService>,
+    State(service): State<TelegramService>,
+    headers: HeaderMap,
+    Query(query): Query<TelegramBindingStatusQuery>,
+) -> Result<Json<TelegramBindingStatusResponse>, AuthError> {
+    let session = require_user_session(&auth, &headers)?;
+    require_session_email(&session, &query.email)?;
+    Ok(Json(
+        service.binding_status(query).map_err(AuthError::from)?,
     ))
 }
 

@@ -1,43 +1,88 @@
 import { NextResponse } from "next/server";
 
-import { buildMaskedApiKey, updateUserProductState } from "../../../../lib/api/user-product-state";
+const DEFAULT_AUTH_API_BASE_URL = "http://127.0.0.1:8080";
 
 export async function POST(request: Request) {
   const formData = await request.formData();
   const intent = readField(formData, "intent");
-  const apiKey = readField(formData, "apiKey");
-  const apiSecret = readField(formData, "apiSecret");
-  const positionMode = readField(formData, "positionMode") || "hedge";
+  const sessionToken = readSessionToken(request);
 
-  updateUserProductState(readSessionToken(request), (state) => {
-    if (intent === "save") {
-      state.exchange.saved = apiKey.length > 0 && apiSecret.length > 0;
-      state.exchange.apiKeyMasked = state.exchange.saved ? buildMaskedApiKey(apiKey) : null;
-      state.exchange.positionMode = positionMode;
-      state.exchange.connectionStatus = "idle";
-      state.exchange.connectionMessage = null;
-      state.flash.exchange = state.exchange.saved ? "Credentials saved" : "Credentials were incomplete and were not saved.";
+  if (!sessionToken) {
+    return NextResponse.redirect(new URL("/login?error=session+expired", request.url), { status: 303 });
+  }
+
+  if (intent === "save") {
+    const apiKey = readField(formData, "apiKey");
+    const apiSecret = readField(formData, "apiSecret");
+    const positionMode = readField(formData, "positionMode") || "hedge";
+    const result = await exchangePost(sessionToken, "/exchange/binance/credentials", {
+      api_key: apiKey,
+      api_secret: apiSecret,
+      expected_hedge_mode: positionMode === "hedge",
+      selected_markets: ["spot", "usdm", "coinm"],
+    });
+
+    if (!result.ok) {
+      return redirectWithError(request, result.error ?? "Exchange credential save failed");
     }
 
-    if (intent === "test") {
-      state.exchange.connectionStatus = state.exchange.saved && state.exchange.positionMode === "hedge" ? "passed" : "failed";
-      state.exchange.connectionMessage =
-        state.exchange.connectionStatus === "passed"
-          ? "Spot, USDⓈ-M, and COIN-M permissions verified."
-          : "Save credentials first and enable hedge mode before running the connection test.";
-      state.flash.exchange =
-        state.exchange.connectionStatus === "passed" ? "Connection test passed" : "Connection test failed";
-      state.tradeHistory.unshift({
-        id: `hist-${Date.now()}`,
-        at: "2026-04-02 10:06",
-        activity: "API credential retest",
-        detail: state.exchange.connectionStatus === "passed" ? "Passed" : "Blocked",
-      });
-      state.tradeHistory = state.tradeHistory.slice(0, 6);
-    }
+    return NextResponse.redirect(new URL("/app/exchange?exchange=credentials-saved", request.url), { status: 303 });
+  }
+
+  const account = await exchangeGet(sessionToken, "/exchange/binance/account");
+  if (!account.ok) {
+    return redirectWithError(request, account.error ?? "Connection test failed");
+  }
+
+  const status = account.data?.account?.connection_status === "healthy" ? "test-passed" : "test-failed";
+  return NextResponse.redirect(new URL(`/app/exchange?exchange=${status}`, request.url), { status: 303 });
+}
+
+async function exchangePost(sessionToken: string, path: string, body: Record<string, unknown>) {
+  const response = await fetch(`${authApiBaseUrl()}${path}`, {
+    method: "POST",
+    headers: {
+      authorization: `Bearer ${sessionToken}`,
+      "content-type": "application/json",
+    },
+    body: JSON.stringify(body),
+    cache: "no-store",
   });
 
-  return NextResponse.redirect(new URL("/app/exchange", request.url), { status: 303 });
+  if (!response.ok) {
+    return { ok: false as const, error: await readError(response) };
+  }
+
+  return { ok: true as const, data: await response.json() };
+}
+
+async function exchangeGet(sessionToken: string, path: string) {
+  const response = await fetch(`${authApiBaseUrl()}${path}`, {
+    method: "GET",
+    headers: {
+      authorization: `Bearer ${sessionToken}`,
+    },
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    return { ok: false as const, error: await readError(response) };
+  }
+
+  return { ok: true as const, data: await response.json() };
+}
+
+async function readError(response: Response) {
+  try {
+    const payload = (await response.json()) as { error?: string };
+    return payload.error ?? "exchange request failed";
+  } catch {
+    return "exchange request failed";
+  }
+}
+
+function redirectWithError(request: Request, error: string) {
+  return NextResponse.redirect(new URL(`/app/exchange?error=${encodeURIComponent(error)}`, request.url), { status: 303 });
 }
 
 function readField(formData: FormData, key: string) {
@@ -49,4 +94,8 @@ function readSessionToken(request: Request) {
   const cookie = request.headers.get("cookie") ?? "";
   const match = cookie.match(/(?:^|; )session_token=([^;]+)/);
   return match ? decodeURIComponent(match[1]) : null;
+}
+
+function authApiBaseUrl() {
+  return process.env.AUTH_API_BASE_URL?.trim().replace(/\/+$/, "") || DEFAULT_AUTH_API_BASE_URL;
 }

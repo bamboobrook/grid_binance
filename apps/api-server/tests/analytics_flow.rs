@@ -11,7 +11,8 @@ use shared_db::{
     ExchangeWalletSnapshotRecord, SharedDb, StoredStrategy, StrategyProfitSnapshotRecord,
 };
 use shared_domain::strategy::{
-    GridGeneration, PostTriggerAction, Strategy, StrategyMarket, StrategyMode, StrategyRevision,
+    GridGeneration, PostTriggerAction, Strategy, StrategyAmountMode, StrategyMarket,
+    StrategyMode, StrategyRevision,
     StrategyRuntime, StrategyRuntimeFill, StrategyRuntimeOrder, StrategyRuntimePosition,
     StrategyStatus,
 };
@@ -20,6 +21,63 @@ use tower::ServiceExt;
 mod support;
 
 use support::register_and_login;
+
+#[tokio::test]
+async fn analytics_falls_back_to_trade_history_fees_when_account_snapshots_report_zero() {
+    let db = SharedDb::ephemeral().expect("ephemeral db");
+    db.insert_strategy(&StoredStrategy {
+        sequence_id: 1,
+        strategy: stored_strategy(
+            "fee-fallback",
+            "trader@example.com",
+            "Fee Fallback",
+            "BTCUSDT",
+            StrategyStatus::Stopped,
+            vec![],
+            vec![],
+            vec![],
+        ),
+    }).expect("strategy");
+    db.insert_account_profit_snapshot(&AccountProfitSnapshotRecord {
+        user_email: "trader@example.com".to_string(),
+        exchange: "binance".to_string(),
+        realized_pnl: "0".to_string(),
+        unrealized_pnl: "0".to_string(),
+        fees: "0".to_string(),
+        funding: None,
+        captured_at: Utc.with_ymd_and_hms(2026, 3, 5, 0, 0, 0).unwrap(),
+    }).expect("account snapshot");
+    db.insert_exchange_trade_history(&exchange_trade(
+        "fee-trade-1",
+        "trader@example.com",
+        "BTCUSDT",
+        "Buy",
+        "1",
+        "100",
+        Some("0.75"),
+        Some("USDT"),
+    )).expect("trade history");
+
+    let app = app_with_state(AppState::from_shared_db(db).expect("app state"));
+    let session_token = register_and_login(&app, "trader@example.com", "pass1234").await;
+
+    let analytics = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri("/analytics")
+                .header("authorization", format!("Bearer {session_token}"))
+                .body(Body::empty())
+                .expect("analytics request"),
+        )
+        .await
+        .expect("analytics response");
+
+    assert_eq!(analytics.status(), StatusCode::OK);
+    let body = response_json(analytics).await;
+    assert_eq!(body["user"]["fees_paid"], "0.75");
+    assert_eq!(body["costs"]["fees_paid"], "0.75");
+}
 
 #[tokio::test]
 async fn compute_strategy_and_account_snapshots_from_persisted_trading_and_exchange_data() {
@@ -70,13 +128,13 @@ async fn compute_strategy_and_account_snapshots_from_persisted_trading_and_excha
     assert_eq!(strategies[2]["position_quantity"], "1.5");
     assert_eq!(strategies[2]["average_entry_price"], "22");
     assert_eq!(strategies[2]["unrealized_pnl"], "4.2");
-    assert_eq!(strategies[2]["funding_total"], "0");
-    assert_eq!(strategies[2]["net_pnl"], "4.2");
+    assert_eq!(strategies[2]["funding_total"], "-0.4");
+    assert_eq!(strategies[2]["net_pnl"], "3.8");
 
     assert_eq!(strategies[3]["strategy_id"], "strategy-delta");
     assert_eq!(strategies[3]["fill_count"], 0);
     assert_eq!(strategies[3]["position_quantity"], "0");
-    assert_eq!(strategies[3]["funding_total"], "0");
+    assert_eq!(strategies[3]["funding_total"], "0.15");
 
     assert_eq!(analytics_body["user"]["user_id"], "trader@example.com");
     assert_eq!(analytics_body["user"]["realized_pnl"], "18");
@@ -86,6 +144,15 @@ async fn compute_strategy_and_account_snapshots_from_persisted_trading_and_excha
     assert_eq!(analytics_body["user"]["net_pnl"], "21.45");
     assert_eq!(analytics_body["user"]["wallet_asset_count"], 3);
     assert_eq!(analytics_body["user"]["exchange_trade_count"], 4);
+
+    let exchange_trades = analytics_body["exchange_trades"]
+        .as_array()
+        .expect("exchange trades");
+    assert_eq!(exchange_trades.len(), 4);
+    assert_eq!(exchange_trades[0]["trade_id"], "trade-1");
+    assert_eq!(exchange_trades[0]["symbol"], "BTCUSDT");
+    assert_eq!(exchange_trades[3]["trade_id"], "trade-4");
+    assert_eq!(exchange_trades[3]["fee_amount"], "0.25");
 
     assert_eq!(analytics_body["costs"]["fees_paid"], "2.75");
     assert_eq!(analytics_body["costs"]["funding_total"], "-1.5");
@@ -114,9 +181,9 @@ async fn compute_strategy_and_account_snapshots_from_persisted_trading_and_excha
     assert_eq!(strategy_snapshots.len(), 4);
     assert_eq!(strategy_snapshots[2]["strategy_id"], "strategy-gamma");
     assert_eq!(strategy_snapshots[2]["unrealized_pnl"], "4.2");
-    assert_eq!(strategy_snapshots[2]["funding_total"], "0");
+    assert_eq!(strategy_snapshots[2]["funding_total"], "-0.4");
     assert_eq!(strategy_snapshots[3]["strategy_id"], "strategy-delta");
-    assert_eq!(strategy_snapshots[3]["funding_total"], "0");
+    assert_eq!(strategy_snapshots[3]["funding_total"], "0.15");
 
     assert!(
         analytics_body["fills"]
@@ -151,7 +218,7 @@ async fn compute_strategy_and_account_snapshots_from_persisted_trading_and_excha
     );
     assert_eq!(
         strategy_lines[3],
-        "strategy-gamma,trader@example.com,SOLUSDT,Running,0,1,33,1.5,22,0,4.2,0,0,4.2"
+        "strategy-gamma,trader@example.com,SOLUSDT,Running,0,1,33,1.5,22,0,4.2,0,-0.4,3.8"
     );
 
     let payments_csv = export_csv(&app, &session_token, "/exports/payments.csv").await;
@@ -344,6 +411,7 @@ fn seed_analytics_data(db: &SharedDb) {
         realized_pnl: "0".to_string(),
         unrealized_pnl: "0".to_string(),
         fees: "1.5".to_string(),
+        funding: Some("0".to_string()),
         captured_at: Utc.with_ymd_and_hms(2026, 3, 4, 0, 0, 0).unwrap(),
     })
     .expect("alpha snapshot");
@@ -353,6 +421,7 @@ fn seed_analytics_data(db: &SharedDb) {
         realized_pnl: "15".to_string(),
         unrealized_pnl: "2.5".to_string(),
         fees: "0.75".to_string(),
+        funding: Some("-0.05".to_string()),
         captured_at: Utc.with_ymd_and_hms(2026, 3, 4, 0, 5, 0).unwrap(),
     })
     .expect("beta snapshot");
@@ -362,6 +431,7 @@ fn seed_analytics_data(db: &SharedDb) {
         realized_pnl: "0".to_string(),
         unrealized_pnl: "4.2".to_string(),
         fees: "0".to_string(),
+        funding: Some("-0.4".to_string()),
         captured_at: Utc.with_ymd_and_hms(2026, 3, 4, 0, 10, 0).unwrap(),
     })
     .expect("gamma snapshot");
@@ -371,6 +441,7 @@ fn seed_analytics_data(db: &SharedDb) {
         realized_pnl: "0".to_string(),
         unrealized_pnl: "0".to_string(),
         fees: "0".to_string(),
+        funding: Some("0.15".to_string()),
         captured_at: Utc.with_ymd_and_hms(2026, 3, 4, 0, 15, 0).unwrap(),
     })
     .expect("delta snapshot");
@@ -543,6 +614,9 @@ fn stored_strategy(
         revision_id: format!("{strategy_id}-rev-1"),
         version: 1,
         generation: GridGeneration::Custom,
+        amount_mode: StrategyAmountMode::Quote,
+        futures_margin_mode: None,
+        leverage: None,
         levels: Vec::new(),
         overall_take_profit_bps: None,
         overall_stop_loss_bps: None,
@@ -602,6 +676,7 @@ fn runtime_order(
 ) -> StrategyRuntimeOrder {
     StrategyRuntimeOrder {
         order_id: order_id.to_string(),
+        exchange_order_id: None,
         level_index: None,
         side: side.to_string(),
         order_type: order_type.to_string(),

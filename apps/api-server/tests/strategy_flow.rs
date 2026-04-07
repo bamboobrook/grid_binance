@@ -1,9 +1,11 @@
-use api_server::app;
+use api_server::{app, app_with_state, AppState};
 use axum::{
     body::{to_bytes, Body},
     http::{Request, StatusCode},
 };
+use chrono::{Duration, Utc};
 use serde_json::{json, Value};
+use shared_db::{ExchangeWalletSnapshotRecord, MembershipRecord, SharedDb, UserExchangeAccountRecord, UserExchangeSymbolRecord};
 use tower::ServiceExt;
 
 mod support;
@@ -11,9 +13,63 @@ mod support;
 use support::register_and_login;
 
 #[tokio::test]
-async fn strategy_revisions_runtime_contracts_and_soft_archive_follow_frozen_lifecycle() {
+async fn strategy_create_and_update_accept_payloads_without_client_readiness_flags() {
     let app = app();
-    let user_token = register_and_login(&app, "trader@example.com", "pass1234").await;
+    let user_token = register_and_login(&app, "payload@example.com", "pass1234").await;
+
+    let created = create_strategy(
+        &app,
+        &user_token,
+        json!({
+            "name": "Payload draft",
+            "symbol": "BTCUSDT",
+            "market": "Spot",
+            "mode": "SpotClassic",
+            "generation": "Custom",
+            "levels": [grid_level("100.00", "0.0100", 120, None)],
+            "overall_take_profit_bps": 500,
+            "overall_stop_loss_bps": 200,
+            "post_trigger_action": "Stop"
+        }),
+    )
+    .await;
+    assert_eq!(created.status(), StatusCode::CREATED);
+    let created_body = response_json(created).await;
+    let strategy_id = created_body["id"].as_str().expect("strategy id").to_string();
+
+    let updated = update_strategy(
+        &app,
+        &user_token,
+        &strategy_id,
+        json!({
+            "name": "Payload updated",
+            "symbol": "BTCUSDT",
+            "market": "Spot",
+            "mode": "SpotClassic",
+            "generation": "Arithmetic",
+            "levels": [
+                grid_level("95.00", "0.0100", 120, None),
+                grid_level("100.00", "0.0150", 150, None)
+            ],
+            "overall_take_profit_bps": 700,
+            "overall_stop_loss_bps": 250,
+            "post_trigger_action": "Rebuild"
+        }),
+    )
+    .await;
+    assert_eq!(updated.status(), StatusCode::OK);
+    let updated_body = response_json(updated).await;
+    assert_eq!(updated_body["draft_revision"]["generation"], "Arithmetic");
+    assert_eq!(updated_body["draft_revision"]["post_trigger_action"], "Rebuild");
+}
+
+#[tokio::test]
+async fn strategy_revisions_runtime_contracts_and_soft_archive_follow_frozen_lifecycle() {
+    let db = SharedDb::ephemeral().expect("ephemeral db");
+    let app = app_with_state(AppState::from_shared_db(db.clone()).expect("state"));
+    let email = "trader@example.com";
+    let user_token = register_and_login(&app, email, "pass1234").await;
+    seed_active_membership(&db, email);
 
     let created = create_strategy(
         &app,
@@ -113,6 +169,15 @@ async fn strategy_revisions_runtime_contracts_and_soft_archive_follow_frozen_lif
     assert_eq!(preflight_failed_body["steps"][0]["status"], "Passed");
     assert_eq!(preflight_failed_body["steps"][1]["status"], "Failed");
     assert_eq!(preflight_failed_body["steps"][2]["status"], "Skipped");
+
+    seed_exchange_context(
+        &db,
+        email,
+        &["spot"],
+        true,
+        true,
+        &[symbol_record(email, "spot", "BTCUSDT")],
+    );
 
     let saved = update_strategy(
         &app,
@@ -321,6 +386,273 @@ async fn strategy_revisions_runtime_contracts_and_soft_archive_follow_frozen_lif
 }
 
 #[tokio::test]
+async fn batch_start_starts_draft_stopped_and_paused_strategies() {
+    let db = SharedDb::ephemeral().expect("ephemeral db");
+    let app = app_with_state(AppState::from_shared_db(db.clone()).expect("state"));
+    let email = "batchstart@example.com";
+    let user_token = register_and_login(&app, email, "pass1234").await;
+    seed_active_membership(&db, email);
+    seed_exchange_context(
+        &db,
+        email,
+        &["spot"],
+        true,
+        true,
+        &[
+            symbol_record(email, "spot", "BTCUSDT"),
+            symbol_record(email, "spot", "ETHUSDT"),
+            symbol_record(email, "spot", "SOLUSDT"),
+        ],
+    );
+
+    let draft = create_strategy(
+        &app,
+        &user_token,
+        strategy_payload(
+            "draft-a",
+            "BTCUSDT",
+            "Custom",
+            &[grid_level("100.00", "0.0100", 120, None)],
+            true,
+            true,
+            true,
+            None,
+            None,
+            "Stop",
+        ),
+    )
+    .await;
+    assert_eq!(draft.status(), StatusCode::CREATED);
+    let draft_id = response_json(draft).await["id"]
+        .as_str()
+        .unwrap()
+        .to_string();
+
+    let paused = create_strategy(
+        &app,
+        &user_token,
+        strategy_payload(
+            "paused-a",
+            "ETHUSDT",
+            "Custom",
+            &[grid_level("200.00", "0.0100", 120, None)],
+            true,
+            true,
+            true,
+            None,
+            None,
+            "Stop",
+        ),
+    )
+    .await;
+    assert_eq!(paused.status(), StatusCode::CREATED);
+    let paused_id = response_json(paused).await["id"]
+        .as_str()
+        .unwrap()
+        .to_string();
+    assert_eq!(
+        start_strategy(&app, &user_token, &paused_id).await.status(),
+        StatusCode::OK
+    );
+    assert_eq!(
+        pause_strategies(&app, &user_token, &[&paused_id])
+            .await
+            .status(),
+        StatusCode::OK
+    );
+
+    let stopped = create_strategy(
+        &app,
+        &user_token,
+        strategy_payload(
+            "stopped-a",
+            "SOLUSDT",
+            "Custom",
+            &[grid_level("50.00", "0.0100", 120, None)],
+            true,
+            true,
+            true,
+            None,
+            None,
+            "Stop",
+        ),
+    )
+    .await;
+    assert_eq!(stopped.status(), StatusCode::CREATED);
+    let stopped_id = response_json(stopped).await["id"]
+        .as_str()
+        .unwrap()
+        .to_string();
+    assert_eq!(
+        start_strategy(&app, &user_token, &stopped_id)
+            .await
+            .status(),
+        StatusCode::OK
+    );
+    assert_eq!(
+        stop_strategy(&app, &user_token, &stopped_id).await.status(),
+        StatusCode::OK
+    );
+
+    let started = start_strategies(&app, &user_token, &[&draft_id, &paused_id, &stopped_id]).await;
+    assert_eq!(started.status(), StatusCode::OK);
+    assert_eq!(response_json(started).await["started"], 3);
+
+    let listed = list_strategies(&app, &user_token).await;
+    let body = response_json(listed).await;
+    assert_eq!(find_strategy(&body, &draft_id)["status"], "Running");
+    assert_eq!(find_strategy(&body, &paused_id)["status"], "Running");
+    assert_eq!(find_strategy(&body, &stopped_id)["status"], "Running");
+}
+
+#[tokio::test]
+async fn preflight_prefers_server_side_symbol_and_conflict_truth_for_futures() {
+    let db = SharedDb::ephemeral().expect("ephemeral db");
+    let app = app_with_state(AppState::from_shared_db(db.clone()).expect("state"));
+    let email = "truthy@example.com";
+    let user_token = register_and_login(&app, email, "pass1234").await;
+
+    seed_active_membership(&db, email);
+    seed_exchange_context(
+        &db,
+        email,
+        &["spot", "usdm", "coinm"],
+        true,
+        true,
+        &[
+            symbol_record(email, "spot", "BTCUSDT"),
+            symbol_record(email, "usdm", "BTCUSDT"),
+            symbol_record(email, "coinm", "BTCUSD_PERP"),
+        ],
+    );
+    db.insert_exchange_wallet_snapshot(&ExchangeWalletSnapshotRecord {
+        user_email: email.to_string(),
+        exchange: "binance-usdm".to_string(),
+        wallet_type: "usdm".to_string(),
+        balances: json!({ "USDT": "1000" }),
+        captured_at: Utc::now(),
+    })
+    .expect("seed usdm wallet");
+
+    let unsupported_symbol = create_strategy(
+        &app,
+        &user_token,
+        json!({
+            "name": "missing-symbol",
+            "symbol": "ADAUSDT",
+            "market": "FuturesUsdM",
+            "mode": "FuturesLong",
+            "generation": "Custom",
+            "amount_mode": "Quote",
+            "futures_margin_mode": "Isolated",
+            "leverage": 5,
+            "levels": [{ "entry_price": "100.00", "quantity": "0.0100", "take_profit_bps": 120, "trailing_bps": null }],
+            "membership_ready": true,
+            "exchange_ready": true,
+            "permissions_ready": true,
+            "withdrawals_disabled": true,
+            "hedge_mode_ready": true,
+            "symbol_ready": true,
+            "filters_ready": true,
+            "margin_ready": true,
+            "conflict_ready": true,
+            "balance_ready": true,
+            "overall_take_profit_bps": null,
+            "overall_stop_loss_bps": null,
+            "post_trigger_action": "Stop"
+        }),
+    ).await;
+    assert_eq!(unsupported_symbol.status(), StatusCode::CREATED);
+    let unsupported_id = response_json(unsupported_symbol).await["id"]
+        .as_str()
+        .unwrap()
+        .to_string();
+    let unsupported_preflight = preflight_strategy(&app, &user_token, &unsupported_id).await;
+    let unsupported_body = response_json(unsupported_preflight).await;
+    assert_eq!(unsupported_body["failures"][0]["step"], "symbol_support");
+
+    let first_long = create_strategy(
+        &app,
+        &user_token,
+        json!({
+            "name": "first-long",
+            "symbol": "BTCUSDT",
+            "market": "FuturesUsdM",
+            "mode": "FuturesLong",
+            "generation": "Custom",
+            "amount_mode": "Quote",
+            "futures_margin_mode": "Isolated",
+            "leverage": 5,
+            "levels": [{ "entry_price": "100.00", "quantity": "0.0100", "take_profit_bps": 120, "trailing_bps": null }],
+            "membership_ready": true,
+            "exchange_ready": true,
+            "permissions_ready": true,
+            "withdrawals_disabled": true,
+            "hedge_mode_ready": true,
+            "symbol_ready": true,
+            "filters_ready": true,
+            "margin_ready": true,
+            "conflict_ready": true,
+            "balance_ready": true,
+            "overall_take_profit_bps": null,
+            "overall_stop_loss_bps": null,
+            "post_trigger_action": "Stop"
+        }),
+    ).await;
+    assert_eq!(first_long.status(), StatusCode::CREATED);
+    let first_long_id = response_json(first_long).await["id"]
+        .as_str()
+        .unwrap()
+        .to_string();
+    assert_eq!(
+        start_strategy(&app, &user_token, &first_long_id)
+            .await
+            .status(),
+        StatusCode::OK
+    );
+
+    let conflicting_long = create_strategy(
+        &app,
+        &user_token,
+        json!({
+            "name": "second-long",
+            "symbol": "BTCUSDT",
+            "market": "FuturesUsdM",
+            "mode": "FuturesLong",
+            "generation": "Custom",
+            "amount_mode": "Quote",
+            "futures_margin_mode": "Isolated",
+            "leverage": 5,
+            "levels": [{ "entry_price": "101.00", "quantity": "0.0100", "take_profit_bps": 120, "trailing_bps": null }],
+            "membership_ready": true,
+            "exchange_ready": true,
+            "permissions_ready": true,
+            "withdrawals_disabled": true,
+            "hedge_mode_ready": true,
+            "symbol_ready": true,
+            "filters_ready": true,
+            "margin_ready": true,
+            "conflict_ready": true,
+            "balance_ready": true,
+            "overall_take_profit_bps": null,
+            "overall_stop_loss_bps": null,
+            "post_trigger_action": "Stop"
+        }),
+    ).await;
+    assert_eq!(conflicting_long.status(), StatusCode::CREATED);
+    let conflicting_id = response_json(conflicting_long).await["id"]
+        .as_str()
+        .unwrap()
+        .to_string();
+    let conflicting_preflight = preflight_strategy(&app, &user_token, &conflicting_id).await;
+    let conflicting_body = response_json(conflicting_preflight).await;
+    assert_eq!(
+        conflicting_body["failures"][0]["step"],
+        "strategy_conflicts"
+    );
+}
+
+#[tokio::test]
 async fn strategy_validates_generation_modes_and_trailing_constraints() {
     let app = app();
     let user_token = register_and_login(&app, "trader@example.com", "pass1234").await;
@@ -439,8 +771,19 @@ async fn strategy_validates_generation_modes_and_trailing_constraints() {
 
 #[tokio::test]
 async fn futures_preflight_reports_permissions_hedge_margin_and_balance_surface() {
-    let app = app();
-    let user_token = register_and_login(&app, "futures@example.com", "pass1234").await;
+    let db = SharedDb::ephemeral().expect("ephemeral db");
+    let app = app_with_state(AppState::from_shared_db(db.clone()).expect("state"));
+    let email = "futures@example.com";
+    let user_token = register_and_login(&app, email, "pass1234").await;
+    seed_active_membership(&db, email);
+    seed_exchange_context(
+        &db,
+        email,
+        &["usdm"],
+        false,
+        false,
+        &[symbol_record(email, "usdm", "BTCUSDT")],
+    );
 
     let created = create_strategy(
         &app,
@@ -451,6 +794,9 @@ async fn futures_preflight_reports_permissions_hedge_margin_and_balance_surface(
             "market": "FuturesUsdM",
             "mode": "FuturesLong",
             "generation": "Custom",
+            "amount_mode": "Quote",
+            "futures_margin_mode": "Isolated",
+            "leverage": 5,
             "levels": [
                 {
                     "entry_price": "100.00",
@@ -499,9 +845,170 @@ async fn futures_preflight_reports_permissions_hedge_margin_and_balance_surface(
 }
 
 #[tokio::test]
-async fn futures_neutral_strategy_start_exposes_dual_sided_orders() {
+async fn strategy_creation_rejects_market_and_mode_mismatch() {
     let app = app();
-    let user_token = register_and_login(&app, "neutral@example.com", "pass1234").await;
+    let user_token = register_and_login(&app, "mode-check@example.com", "pass1234").await;
+
+    let invalid_spot = create_strategy(
+        &app,
+        &user_token,
+        json!({
+            "name": "bad spot",
+            "symbol": "BTCUSDT",
+            "market": "Spot",
+            "mode": "FuturesLong",
+            "generation": "Custom",
+            "levels": [grid_level("100.00", "0.0100", 120, Option::<u32>::None)],
+            "overall_take_profit_bps": null,
+            "overall_stop_loss_bps": null,
+            "post_trigger_action": "Stop"
+        }),
+    )
+    .await;
+    assert_eq!(invalid_spot.status(), StatusCode::BAD_REQUEST);
+    assert_eq!(response_json(invalid_spot).await["error"], "market and mode are incompatible");
+
+    let invalid_futures = create_strategy(
+        &app,
+        &user_token,
+        json!({
+            "name": "bad futures",
+            "symbol": "BTCUSDT",
+            "market": "FuturesUsdM",
+            "mode": "SpotClassic",
+            "generation": "Custom",
+            "amount_mode": "Quote",
+            "futures_margin_mode": "Isolated",
+            "leverage": 5,
+            "levels": [grid_level("100.00", "0.0100", 120, Option::<u32>::None)],
+            "overall_take_profit_bps": null,
+            "overall_stop_loss_bps": null,
+            "post_trigger_action": "Stop"
+        }),
+    )
+    .await;
+    assert_eq!(invalid_futures.status(), StatusCode::BAD_REQUEST);
+    assert_eq!(response_json(invalid_futures).await["error"], "market and mode are incompatible");
+}
+
+#[tokio::test]
+async fn futures_preflight_uses_market_scoped_wallet_and_margin_rules() {
+    let db = SharedDb::ephemeral().expect("ephemeral db");
+    let app = app_with_state(AppState::from_shared_db(db.clone()).expect("state"));
+    let email = "wallet-scope@example.com";
+    let user_token = register_and_login(&app, email, "pass1234").await;
+    seed_active_membership(&db, email);
+    seed_exchange_context(
+        &db,
+        email,
+        &["usdm"],
+        true,
+        true,
+        &[symbol_record(email, "usdm", "BTCUSDT")],
+    );
+    let now = Utc::now();
+    db.insert_exchange_wallet_snapshot(&ExchangeWalletSnapshotRecord {
+        user_email: email.to_string(),
+        exchange: "binance".to_string(),
+        wallet_type: "spot".to_string(),
+        balances: json!({ "USDT": "0" }),
+        captured_at: now + Duration::seconds(1),
+    })
+    .expect("generic wallet snapshot");
+    db.insert_exchange_wallet_snapshot(&ExchangeWalletSnapshotRecord {
+        user_email: email.to_string(),
+        exchange: "binance-usdm".to_string(),
+        wallet_type: "usdm".to_string(),
+        balances: json!({ "USDT": "10" }),
+        captured_at: now + Duration::seconds(2),
+    })
+    .expect("futures wallet snapshot");
+
+    let created = create_strategy(
+        &app,
+        &user_token,
+        json!({
+            "name": "futures scoped wallet",
+            "symbol": "BTCUSDT",
+            "market": "FuturesUsdM",
+            "mode": "FuturesLong",
+            "generation": "Custom",
+            "amount_mode": "Quote",
+            "futures_margin_mode": "Isolated",
+            "leverage": 7,
+            "levels": [{
+                "entry_price": "100.00",
+                "quantity": "0.0100",
+                "take_profit_bps": 120,
+                "trailing_bps": null
+            }],
+            "overall_take_profit_bps": null,
+            "overall_stop_loss_bps": null,
+            "post_trigger_action": "Stop"
+        }),
+    )
+    .await;
+    assert_eq!(created.status(), StatusCode::CREATED);
+    let strategy_id = response_json(created).await["id"].as_str().expect("strategy id").to_string();
+
+    let invalid_margin = preflight_strategy(&app, &user_token, &strategy_id).await;
+    assert_eq!(invalid_margin.status(), StatusCode::OK);
+    let invalid_body = response_json(invalid_margin).await;
+    assert_eq!(invalid_body["ok"], false);
+    assert_eq!(invalid_body["steps"][7]["step"], "margin_or_leverage");
+    assert_eq!(invalid_body["steps"][7]["status"], "Failed");
+    assert_eq!(invalid_body["failures"][0]["step"], "margin_or_leverage");
+
+    let updated = update_strategy(
+        &app,
+        &user_token,
+        &strategy_id,
+        json!({
+            "name": "futures scoped wallet",
+            "symbol": "BTCUSDT",
+            "market": "FuturesUsdM",
+            "mode": "FuturesLong",
+            "generation": "Custom",
+            "amount_mode": "Quote",
+            "futures_margin_mode": "Isolated",
+            "leverage": 5,
+            "levels": [{
+                "entry_price": "100.00",
+                "quantity": "0.0100",
+                "take_profit_bps": 120,
+                "trailing_bps": null
+            }],
+            "overall_take_profit_bps": null,
+            "overall_stop_loss_bps": null,
+            "post_trigger_action": "Stop"
+        }),
+    )
+    .await;
+    assert_eq!(updated.status(), StatusCode::OK);
+
+    let valid_preflight = preflight_strategy(&app, &user_token, &strategy_id).await;
+    assert_eq!(valid_preflight.status(), StatusCode::OK);
+    let valid_body = response_json(valid_preflight).await;
+    assert_eq!(valid_body["ok"], true);
+    assert_eq!(valid_body["steps"][7]["status"], "Passed");
+    assert_eq!(valid_body["steps"][9]["status"], "Passed");
+}
+
+#[tokio::test]
+async fn futures_neutral_strategy_start_exposes_dual_sided_orders() {
+    let db = SharedDb::ephemeral().expect("ephemeral db");
+    let app = app_with_state(AppState::from_shared_db(db.clone()).expect("state"));
+    let email = "neutral@example.com";
+    let user_token = register_and_login(&app, email, "pass1234").await;
+    seed_active_membership(&db, email);
+    seed_exchange_context(
+        &db,
+        email,
+        &["usdm"],
+        true,
+        true,
+        &[symbol_record(email, "usdm", "BTCUSDT")],
+    );
 
     let created = create_strategy(
         &app,
@@ -512,6 +1019,9 @@ async fn futures_neutral_strategy_start_exposes_dual_sided_orders() {
             "market": "FuturesUsdM",
             "mode": "FuturesNeutral",
             "generation": "Custom",
+            "amount_mode": "Quote",
+            "futures_margin_mode": "Isolated",
+            "leverage": 5,
             "levels": [
                 { "entry_price": "100.00", "quantity": "0.0100", "take_profit_bps": 120, "trailing_bps": null },
                 { "entry_price": "101.00", "quantity": "0.0100", "take_profit_bps": 120, "trailing_bps": null }
@@ -542,6 +1052,204 @@ async fn futures_neutral_strategy_start_exposes_dual_sided_orders() {
     let body = response_json(started).await;
     assert_eq!(body["runtime"]["orders"][0]["side"], "Buy");
     assert_eq!(body["runtime"]["orders"][1]["side"], "Sell");
+}
+
+#[tokio::test]
+async fn preflight_prefers_server_derived_membership_exchange_and_symbol_truths() {
+    let db = SharedDb::ephemeral().expect("ephemeral db");
+    let app = app_with_state(AppState::from_shared_db(db.clone()).expect("state"));
+    let email = "server-truth@example.com";
+    let user_token = register_and_login(&app, email, "pass1234").await;
+
+    seed_active_membership(&db, email);
+    seed_exchange_context(
+        &db,
+        email,
+        &["spot"],
+        true,
+        true,
+        &[symbol_record(email, "spot", "BTCUSDT")],
+    );
+
+    let created = create_strategy(
+        &app,
+        &user_token,
+        strategy_payload(
+            "server truth",
+            "BTCUSDT",
+            "Custom",
+            &[grid_level("100.00", "0.0100", 120, None)],
+            false,
+            false,
+            false,
+            None,
+            None,
+            "Stop",
+        ),
+    )
+    .await;
+    assert_eq!(created.status(), StatusCode::CREATED);
+    let strategy_id = response_json(created).await["id"]
+        .as_str()
+        .expect("strategy id")
+        .to_string();
+
+    let preflight = preflight_strategy(&app, &user_token, &strategy_id).await;
+    assert_eq!(preflight.status(), StatusCode::OK);
+    let preflight_body = response_json(preflight).await;
+    assert_eq!(preflight_body["ok"], true);
+    assert_eq!(preflight_body["steps"][0]["step"], "membership_status");
+    assert_eq!(preflight_body["steps"][0]["status"], "Passed");
+    assert_eq!(preflight_body["steps"][1]["step"], "exchange_connection");
+    assert_eq!(preflight_body["steps"][1]["status"], "Passed");
+    assert_eq!(preflight_body["steps"][5]["step"], "symbol_support");
+    assert_eq!(preflight_body["steps"][5]["status"], "Passed");
+
+    let started = start_strategy(&app, &user_token, &strategy_id).await;
+    assert_eq!(started.status(), StatusCode::OK);
+    assert_eq!(response_json(started).await["preflight"]["ok"], true);
+}
+
+#[tokio::test]
+async fn batch_start_uses_server_preflight_truth_and_starts_multiple_strategies() {
+    let db = SharedDb::ephemeral().expect("ephemeral db");
+    let app = app_with_state(AppState::from_shared_db(db.clone()).expect("state"));
+    let email = "batch-start@example.com";
+    let user_token = register_and_login(&app, email, "pass1234").await;
+
+    seed_active_membership(&db, email);
+    seed_exchange_context(
+        &db,
+        email,
+        &["spot"],
+        true,
+        true,
+        &[
+            symbol_record(email, "spot", "BTCUSDT"),
+            symbol_record(email, "spot", "ETHUSDT"),
+        ],
+    );
+
+    let btc = create_strategy(
+        &app,
+        &user_token,
+        strategy_payload(
+            "btc",
+            "BTCUSDT",
+            "Custom",
+            &[grid_level("100.00", "0.0100", 120, None)],
+            false,
+            false,
+            false,
+            None,
+            None,
+            "Stop",
+        ),
+    )
+    .await;
+    assert_eq!(btc.status(), StatusCode::CREATED);
+    let btc_id = response_json(btc).await["id"]
+        .as_str()
+        .expect("btc id")
+        .to_string();
+
+    let eth = create_strategy(
+        &app,
+        &user_token,
+        strategy_payload(
+            "eth",
+            "ETHUSDT",
+            "Custom",
+            &[grid_level("200.00", "0.0100", 120, None)],
+            false,
+            false,
+            false,
+            None,
+            None,
+            "Stop",
+        ),
+    )
+    .await;
+    assert_eq!(eth.status(), StatusCode::CREATED);
+    let eth_id = response_json(eth).await["id"]
+        .as_str()
+        .expect("eth id")
+        .to_string();
+
+    let started = batch_start_strategies(&app, &user_token, &[&btc_id, &eth_id]).await;
+    assert_eq!(started.status(), StatusCode::OK);
+    let body = response_json(started).await;
+    assert_eq!(body["started"], 2);
+    assert_eq!(body["items"].as_array().expect("items").len(), 2);
+    assert_eq!(body["failures"].as_array().expect("failures").len(), 0);
+
+    let listed = list_strategies(&app, &user_token).await;
+    assert_eq!(listed.status(), StatusCode::OK);
+    let listed_body = response_json(listed).await;
+    assert_eq!(find_strategy(&listed_body, &btc_id)["status"], "Running");
+    assert_eq!(find_strategy(&listed_body, &eth_id)["status"], "Running");
+}
+
+#[tokio::test]
+async fn futures_same_symbol_same_direction_conflict_is_checked_server_side() {
+    let db = SharedDb::ephemeral().expect("ephemeral db");
+    let app = app_with_state(AppState::from_shared_db(db.clone()).expect("state"));
+    let email = "futures-conflict@example.com";
+    let user_token = register_and_login(&app, email, "pass1234").await;
+
+    seed_active_membership(&db, email);
+    seed_exchange_context(
+        &db,
+        email,
+        &["usdm"],
+        true,
+        true,
+        &[symbol_record(email, "usdm", "BTCUSDT")],
+    );
+
+    let first = create_strategy(
+        &app,
+        &user_token,
+        futures_strategy_payload("leader", "BTCUSDT", "FuturesLong"),
+    )
+    .await;
+    assert_eq!(first.status(), StatusCode::CREATED);
+    let first_id = response_json(first).await["id"]
+        .as_str()
+        .expect("first id")
+        .to_string();
+    assert_eq!(
+        start_strategy(&app, &user_token, &first_id).await.status(),
+        StatusCode::OK
+    );
+
+    let second = create_strategy(
+        &app,
+        &user_token,
+        futures_strategy_payload("follower", "BTCUSDT", "FuturesLong"),
+    )
+    .await;
+    assert_eq!(second.status(), StatusCode::CREATED);
+    let second_id = response_json(second).await["id"]
+        .as_str()
+        .expect("second id")
+        .to_string();
+
+    let preflight = preflight_strategy(&app, &user_token, &second_id).await;
+    assert_eq!(preflight.status(), StatusCode::OK);
+    let preflight_body = response_json(preflight).await;
+    assert_eq!(preflight_body["ok"], false);
+    assert_eq!(preflight_body["failures"][0]["step"], "strategy_conflicts");
+    assert_eq!(preflight_body["steps"][8]["status"], "Failed");
+
+    let started = start_strategy(&app, &user_token, &second_id).await;
+    assert_eq!(started.status(), StatusCode::CONFLICT);
+    let started_body = response_json(started).await;
+    assert_eq!(started_body["error"], "preflight failed");
+    assert_eq!(
+        started_body["preflight"]["failures"][0]["step"],
+        "strategy_conflicts"
+    );
 }
 
 #[tokio::test]
@@ -627,9 +1335,16 @@ async fn strategy_owner_isolation_blocks_cross_user_reads_and_mutations() {
 
 #[tokio::test]
 async fn stop_all_only_stops_strategies_owned_by_current_user() {
-    let app = app();
-    let alice_token = register_and_login(&app, "alice@example.com", "pass1234").await;
-    let bob_token = register_and_login(&app, "bob@example.com", "pass1234").await;
+    let db = SharedDb::ephemeral().expect("ephemeral db");
+    let app = app_with_state(AppState::from_shared_db(db.clone()).expect("state"));
+    let alice_email = "alice@example.com";
+    let bob_email = "bob@example.com";
+    let alice_token = register_and_login(&app, alice_email, "pass1234").await;
+    let bob_token = register_and_login(&app, bob_email, "pass1234").await;
+    seed_active_membership(&db, alice_email);
+    seed_active_membership(&db, bob_email);
+    seed_exchange_context(&db, alice_email, &["spot"], true, true, &[symbol_record(alice_email, "spot", "BTCUSDT")]);
+    seed_exchange_context(&db, bob_email, &["spot"], true, true, &[symbol_record(bob_email, "spot", "ETHUSDT")]);
 
     let alice_strategy = create_strategy(
         &app,
@@ -902,6 +1617,21 @@ async fn list_strategy_orders(
     .await
 }
 
+async fn start_strategies(
+    app: &axum::Router,
+    session_token: &str,
+    ids: &[&str],
+) -> axum::response::Response {
+    request(
+        app,
+        Some(session_token),
+        "POST",
+        "/strategies/batch/start",
+        json!({ "ids": ids }),
+    )
+    .await
+}
+
 async fn pause_strategies(
     app: &axum::Router,
     session_token: &str,
@@ -912,6 +1642,21 @@ async fn pause_strategies(
         Some(session_token),
         "POST",
         "/strategies/batch/pause",
+        json!({ "ids": ids }),
+    )
+    .await
+}
+
+async fn batch_start_strategies(
+    app: &axum::Router,
+    session_token: &str,
+    ids: &[&str],
+) -> axum::response::Response {
+    request(
+        app,
+        Some(session_token),
+        "POST",
+        "/strategies/batch/start",
         json!({ "ids": ids }),
     )
     .await
@@ -979,4 +1724,148 @@ async fn response_json(response: axum::response::Response) -> Value {
         .await
         .expect("response body");
     serde_json::from_slice(&bytes).expect("valid json")
+}
+
+fn seed_active_membership(db: &SharedDb, email: &str) {
+    let now = Utc::now();
+    db.upsert_membership_record(
+        email,
+        &MembershipRecord {
+            activated_at: Some(now),
+            active_until: Some(now + Duration::days(30)),
+            grace_until: Some(now + Duration::days(32)),
+            override_status: None,
+        },
+    )
+    .expect("seed membership");
+}
+
+fn seed_exchange_context(
+    db: &SharedDb,
+    email: &str,
+    selected_markets: &[&str],
+    permissions_ok: bool,
+    hedge_mode_ok: bool,
+    symbols: &[UserExchangeSymbolRecord],
+) {
+    let now = Utc::now();
+    db.upsert_exchange_account(&UserExchangeAccountRecord {
+        user_email: email.to_string(),
+        exchange: "binance".to_string(),
+        account_label: "Binance".to_string(),
+        market_scope: selected_markets.join(","),
+        is_active: true,
+        checked_at: Some(now),
+        metadata: json!({
+            "connection_status": "connected",
+            "sync_status": "success",
+            "last_synced_at": now.to_rfc3339(),
+            "expected_hedge_mode": true,
+            "selected_markets": selected_markets,
+            "validation": {
+                "api_connectivity_ok": true,
+                "timestamp_in_sync": true,
+                "can_read_spot": selected_markets.contains(&"spot"),
+                "can_read_usdm": selected_markets.contains(&"usdm"),
+                "can_read_coinm": selected_markets.contains(&"coinm"),
+                "hedge_mode_ok": hedge_mode_ok,
+                "permissions_ok": permissions_ok,
+                "withdrawals_disabled": true,
+                "market_access_ok": true
+            },
+            "symbol_counts": {
+                "spot": symbols.iter().filter(|symbol| symbol.market == "spot").count(),
+                "usdm": symbols.iter().filter(|symbol| symbol.market == "usdm").count(),
+                "coinm": symbols.iter().filter(|symbol| symbol.market == "coinm").count()
+            }
+        }),
+    })
+    .expect("seed account");
+    db.replace_exchange_symbols(email, "binance", symbols)
+        .expect("seed symbols");
+    db.insert_exchange_wallet_snapshot(&ExchangeWalletSnapshotRecord {
+        user_email: email.to_string(),
+        exchange: "binance".to_string(),
+        wallet_type: selected_markets.first().copied().unwrap_or("spot").to_string(),
+        balances: json!({ "USDT": "1000", "USD": "1000" }),
+        captured_at: now,
+    })
+    .expect("seed wallet");
+}
+
+fn symbol_record(email: &str, market: &str, symbol: &str) -> UserExchangeSymbolRecord {
+    let now = Utc::now();
+    UserExchangeSymbolRecord {
+        user_email: email.to_string(),
+        exchange: "binance".to_string(),
+        market: market.to_string(),
+        symbol: symbol.to_string(),
+        status: "TRADING".to_string(),
+        base_asset: symbol.trim_end_matches("USDT").to_string(),
+        quote_asset: "USDT".to_string(),
+        price_precision: 2,
+        quantity_precision: 4,
+        min_quantity: "0.001".to_string(),
+        min_notional: "0.5".to_string(),
+        keywords: vec![symbol.to_lowercase(), market.to_string()],
+        metadata: json!({
+            "symbol": symbol,
+            "market": market,
+            "status": "TRADING",
+            "base_asset": symbol.trim_end_matches("USDT"),
+            "quote_asset": "USDT",
+            "price_precision": 2,
+            "quantity_precision": 4,
+            "filters": {
+                "price_tick_size": "0.01",
+                "quantity_step_size": "0.001",
+                "min_quantity": "0.001",
+                "min_notional": "0.5",
+                "contract_size": null
+            },
+            "market_requirements": {
+                "supports_isolated_margin": true,
+                "supports_cross_margin": true,
+                "hedge_mode_required": market != "spot",
+                "requires_futures_permissions": market != "spot",
+                "leverage_brackets": [1, 5, 10]
+            },
+            "keywords": [symbol.to_lowercase(), market]
+        }),
+        synced_at: now,
+    }
+}
+
+fn futures_strategy_payload(name: &str, symbol: &str, mode: &str) -> Value {
+    json!({
+        "name": name,
+        "symbol": symbol,
+        "market": "FuturesUsdM",
+        "mode": mode,
+        "generation": "Custom",
+        "amount_mode": "Quote",
+        "futures_margin_mode": "Isolated",
+        "leverage": 5,
+        "levels": [
+            {
+                "entry_price": "100.00",
+                "quantity": "0.0100",
+                "take_profit_bps": 120,
+                "trailing_bps": null
+            }
+        ],
+        "membership_ready": true,
+        "exchange_ready": true,
+        "permissions_ready": true,
+        "withdrawals_disabled": true,
+        "hedge_mode_ready": true,
+        "symbol_ready": true,
+        "filters_ready": true,
+        "margin_ready": true,
+        "conflict_ready": true,
+        "balance_ready": true,
+        "overall_take_profit_bps": null,
+        "overall_stop_loss_bps": null,
+        "post_trigger_action": "Stop"
+    })
 }

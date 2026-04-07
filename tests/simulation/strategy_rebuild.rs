@@ -1,6 +1,7 @@
 use rust_decimal::Decimal;
 use shared_domain::strategy::{
-    GridGeneration, GridLevel, PostTriggerAction, StrategyMarket, StrategyMode, StrategyRevision,
+    GridGeneration, GridLevel, PostTriggerAction, StrategyAmountMode, StrategyMarket,
+    StrategyMode, StrategyRevision,
 };
 use trading_engine::strategy_runtime::StrategyRuntimeEngine;
 
@@ -13,6 +14,9 @@ fn rebuild_revision() -> StrategyRevision {
         revision_id: "revision-9".to_string(),
         version: 9,
         generation: GridGeneration::Arithmetic,
+        amount_mode: StrategyAmountMode::Quote,
+        futures_margin_mode: None,
+        leverage: None,
         levels: vec![
             GridLevel {
                 level_index: 0,
@@ -113,6 +117,9 @@ fn futures_short_runtime_uses_short_side_and_short_profit_formula() {
             revision_id: "revision-short".to_string(),
             version: 1,
             generation: GridGeneration::Custom,
+            amount_mode: StrategyAmountMode::Quote,
+            futures_margin_mode: None,
+            leverage: None,
             levels: vec![GridLevel {
                 level_index: 0,
                 entry_price: decimal(100, 0),
@@ -155,6 +162,9 @@ fn futures_coinm_runtime_preserves_market_type() {
             revision_id: "revision-coinm".to_string(),
             version: 1,
             generation: GridGeneration::Custom,
+            amount_mode: StrategyAmountMode::Quote,
+            futures_margin_mode: None,
+            leverage: None,
             levels: vec![GridLevel {
                 level_index: 0,
                 entry_price: decimal(100, 0),
@@ -188,6 +198,9 @@ fn futures_neutral_runtime_keeps_both_sides_and_skips_overall_tp_when_hedged() {
             revision_id: "revision-neutral".to_string(),
             version: 1,
             generation: GridGeneration::Custom,
+            amount_mode: StrategyAmountMode::Quote,
+            futures_margin_mode: None,
+            leverage: None,
             levels: vec![
                 GridLevel {
                     level_index: 0,

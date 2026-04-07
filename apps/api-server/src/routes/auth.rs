@@ -1,9 +1,10 @@
 use axum::{extract::State, http::StatusCode, routing::post, Json, Router};
 
 use crate::services::auth_service::{
-    AuthError, AuthService, LoginRequest, LoginResponse, PasswordResetConfirmRequest,
-    PasswordResetConfirmResponse, PasswordResetRequest, PasswordResetRequestResponse,
-    RegisterUserRequest, RegisterUserResponse, VerifyEmailRequest, VerifyEmailResponse,
+    AdminTotpBootstrapRequest, AdminTotpBootstrapResponse, AuthError, AuthService,
+    LoginRequest, LoginResponse, PasswordResetConfirmRequest, PasswordResetConfirmResponse,
+    PasswordResetRequest, PasswordResetRequestResponse, RegisterUserRequest,
+    RegisterUserResponse, VerifyEmailRequest, VerifyEmailResponse,
 };
 use crate::AppState;
 
@@ -12,6 +13,7 @@ pub fn router() -> Router<AppState> {
         .route("/auth/register", post(register))
         .route("/auth/verify-email", post(verify_email))
         .route("/auth/login", post(login))
+        .route("/auth/admin-bootstrap", post(admin_bootstrap))
         .route("/auth/password-reset/request", post(request_password_reset))
         .route("/auth/password-reset/confirm", post(confirm_password_reset))
 }
@@ -36,6 +38,13 @@ async fn login(
     Json(request): Json<LoginRequest>,
 ) -> Result<Json<LoginResponse>, AuthError> {
     Ok(Json(service.login(request)?))
+}
+
+async fn admin_bootstrap(
+    State(service): State<AuthService>,
+    Json(request): Json<AdminTotpBootstrapRequest>,
+) -> Result<Json<AdminTotpBootstrapResponse>, AuthError> {
+    Ok(Json(service.bootstrap_admin_totp(request)?))
 }
 
 async fn request_password_reset(

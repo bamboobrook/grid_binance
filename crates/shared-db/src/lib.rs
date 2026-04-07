@@ -17,6 +17,7 @@ use shared_domain::{
     membership::MembershipStatus,
     strategy::{Strategy, StrategyStatus, StrategyTemplate},
 };
+use shared_events::MarketTick;
 
 pub mod postgres;
 pub mod redis;
@@ -59,6 +60,7 @@ struct EphemeralState {
     auth_sessions: HashMap<String, String>,
     telegram_bindings: HashMap<String, TelegramBindingRecord>,
     notification_logs: Vec<NotificationLogRecord>,
+    market_ticks: Vec<MarketTick>,
     audit_logs: Vec<AuditLogRecord>,
     system_configs: HashMap<String, SystemConfigRecord>,
     billing_orders: BTreeMap<u64, BillingOrderRecord>,
@@ -970,6 +972,35 @@ impl SharedDb {
         }
     }
 
+
+    pub fn enqueue_market_tick(&self, tick: &MarketTick) -> Result<(), SharedDbError> {
+        match &self.backend {
+            SharedDbBackend::Runtime { .. } => {
+                let redis = self.redis().clone();
+                let tick = tick.clone();
+                Self::block_on(async move { redis.enqueue_market_tick(&tick).await })
+            }
+            SharedDbBackend::Ephemeral(state) => {
+                lock_ephemeral(state)?.market_ticks.push(tick.clone());
+                Ok(())
+            }
+        }
+    }
+
+    pub fn drain_market_ticks(&self, limit: usize) -> Result<Vec<MarketTick>, SharedDbError> {
+        match &self.backend {
+            SharedDbBackend::Runtime { .. } => {
+                let redis = self.redis().clone();
+                Self::block_on(async move { redis.drain_market_ticks(limit).await })
+            }
+            SharedDbBackend::Ephemeral(state) => {
+                let mut guard = lock_ephemeral(state)?;
+                let count = limit.min(guard.market_ticks.len());
+                Ok(guard.market_ticks.drain(0..count).collect())
+            }
+        }
+    }
+
     pub fn insert_notification_log(
         &self,
         record: &NotificationLogRecord,
@@ -1569,6 +1600,141 @@ impl SharedDb {
                 .values()
                 .cloned()
                 .collect()),
+        }
+    }
+
+    pub fn mark_sweep_job_submitting(&self, sweep_job_id: u64) -> Result<bool, SharedDbError> {
+        match &self.backend {
+            SharedDbBackend::Runtime { .. } => {
+                let repo = self.billing_repo();
+                Self::block_on(async move { repo.mark_sweep_job_submitting(sweep_job_id).await })
+            }
+            SharedDbBackend::Ephemeral(state) => {
+                let mut state = lock_ephemeral(state)?;
+                let Some(job) = state.sweep_jobs.get_mut(&sweep_job_id) else { return Ok(false); };
+                if job.status != "pending" {
+                    return Ok(false);
+                }
+                job.status = "submitting".to_string();
+                job.attempt_count += 1;
+                job.failed_at = None;
+                job.last_error = None;
+                Ok(true)
+            }
+        }
+    }
+
+    pub fn mark_sweep_transfer_submitted(&self, sweep_job_id: u64, from_address: &str, tx_hash: &str, submitted_at: DateTime<Utc>) -> Result<bool, SharedDbError> {
+        match &self.backend {
+            SharedDbBackend::Runtime { .. } => {
+                let repo = self.billing_repo();
+                let from_address = from_address.to_owned();
+                let tx_hash = tx_hash.to_owned();
+                Self::block_on(async move { repo.mark_sweep_transfer_submitted(sweep_job_id, &from_address, &tx_hash, submitted_at).await })
+            }
+            SharedDbBackend::Ephemeral(state) => {
+                let mut state = lock_ephemeral(state)?;
+                let Some(job) = state.sweep_jobs.get_mut(&sweep_job_id) else { return Ok(false); };
+                let Some(transfer) = job.transfers.iter_mut().find(|transfer| transfer.from_address == from_address && transfer.status == "pending") else { return Ok(false); };
+                transfer.status = "submitted".to_string();
+                transfer.tx_hash = Some(tx_hash.to_string());
+                transfer.submitted_at = Some(submitted_at);
+                transfer.failed_at = None;
+                transfer.error_message = None;
+                Ok(true)
+            }
+        }
+    }
+
+    pub fn mark_sweep_transfer_failed(&self, sweep_job_id: u64, from_address: &str, failed_at: DateTime<Utc>, error_message: &str) -> Result<bool, SharedDbError> {
+        match &self.backend {
+            SharedDbBackend::Runtime { .. } => {
+                let repo = self.billing_repo();
+                let from_address = from_address.to_owned();
+                let error_message = error_message.to_owned();
+                Self::block_on(async move { repo.mark_sweep_transfer_failed(sweep_job_id, &from_address, failed_at, &error_message).await })
+            }
+            SharedDbBackend::Ephemeral(state) => {
+                let mut state = lock_ephemeral(state)?;
+                let Some(job) = state.sweep_jobs.get_mut(&sweep_job_id) else { return Ok(false); };
+                let Some(transfer) = job.transfers.iter_mut().find(|transfer| transfer.from_address == from_address && matches!(transfer.status.as_str(), "pending" | "submitted")) else { return Ok(false); };
+                transfer.status = "failed".to_string();
+                transfer.failed_at = Some(failed_at);
+                transfer.error_message = Some(error_message.to_string());
+                Ok(true)
+            }
+        }
+    }
+
+    pub fn mark_sweep_transfer_confirmed(&self, sweep_job_id: u64, from_address: &str, confirmed_at: DateTime<Utc>) -> Result<bool, SharedDbError> {
+        match &self.backend {
+            SharedDbBackend::Runtime { .. } => {
+                let repo = self.billing_repo();
+                let from_address = from_address.to_owned();
+                Self::block_on(async move { repo.mark_sweep_transfer_confirmed(sweep_job_id, &from_address, confirmed_at).await })
+            }
+            SharedDbBackend::Ephemeral(state) => {
+                let mut state = lock_ephemeral(state)?;
+                let Some(job) = state.sweep_jobs.get_mut(&sweep_job_id) else { return Ok(false); };
+                let Some(transfer) = job.transfers.iter_mut().find(|transfer| transfer.from_address == from_address && transfer.status == "submitted") else { return Ok(false); };
+                transfer.status = "confirmed".to_string();
+                transfer.confirmed_at = Some(confirmed_at);
+                Ok(true)
+            }
+        }
+    }
+
+    pub fn mark_sweep_job_submitted(&self, sweep_job_id: u64, submitted_at: DateTime<Utc>) -> Result<bool, SharedDbError> {
+        match &self.backend {
+            SharedDbBackend::Runtime { .. } => {
+                let repo = self.billing_repo();
+                Self::block_on(async move { repo.mark_sweep_job_submitted(sweep_job_id, submitted_at).await })
+            }
+            SharedDbBackend::Ephemeral(state) => {
+                let mut state = lock_ephemeral(state)?;
+                let Some(job) = state.sweep_jobs.get_mut(&sweep_job_id) else { return Ok(false); };
+                if job.status != "submitting" { return Ok(false); }
+                job.status = "submitted".to_string();
+                job.submitted_at = Some(submitted_at);
+                job.failed_at = None;
+                job.last_error = None;
+                Ok(true)
+            }
+        }
+    }
+
+    pub fn mark_sweep_job_failed(&self, sweep_job_id: u64, failed_at: DateTime<Utc>, last_error: &str) -> Result<bool, SharedDbError> {
+        match &self.backend {
+            SharedDbBackend::Runtime { .. } => {
+                let repo = self.billing_repo();
+                let last_error = last_error.to_owned();
+                Self::block_on(async move { repo.mark_sweep_job_failed(sweep_job_id, failed_at, &last_error).await })
+            }
+            SharedDbBackend::Ephemeral(state) => {
+                let mut state = lock_ephemeral(state)?;
+                let Some(job) = state.sweep_jobs.get_mut(&sweep_job_id) else { return Ok(false); };
+                job.status = "failed".to_string();
+                job.failed_at = Some(failed_at);
+                job.last_error = Some(last_error.to_string());
+                Ok(true)
+            }
+        }
+    }
+
+    pub fn mark_sweep_job_confirmed(&self, sweep_job_id: u64, completed_at: DateTime<Utc>) -> Result<bool, SharedDbError> {
+        match &self.backend {
+            SharedDbBackend::Runtime { .. } => {
+                let repo = self.billing_repo();
+                Self::block_on(async move { repo.mark_sweep_job_confirmed(sweep_job_id, completed_at).await })
+            }
+            SharedDbBackend::Ephemeral(state) => {
+                let mut state = lock_ephemeral(state)?;
+                let Some(job) = state.sweep_jobs.get_mut(&sweep_job_id) else { return Ok(false); };
+                job.status = "confirmed".to_string();
+                job.completed_at = Some(completed_at);
+                job.last_error = None;
+                Ok(true)
+            }
         }
     }
 
@@ -2467,6 +2633,7 @@ pub(crate) fn parse_strategy_status(value: &str) -> Result<StrategyStatus, Share
         "Paused" => Ok(StrategyStatus::Paused),
         "ErrorPaused" => Ok(StrategyStatus::ErrorPaused),
         "Completed" => Ok(StrategyStatus::Completed),
+        "Stopping" => Ok(StrategyStatus::Stopping),
         "Stopped" => Ok(StrategyStatus::Stopped),
         "Archived" => Ok(StrategyStatus::Archived),
         _ => Err(SharedDbError::new(format!(
@@ -2482,6 +2649,7 @@ pub(crate) fn strategy_status_to_str(value: &StrategyStatus) -> &'static str {
         StrategyStatus::Paused => "Paused",
         StrategyStatus::ErrorPaused => "ErrorPaused",
         StrategyStatus::Completed => "Completed",
+        StrategyStatus::Stopping => "Stopping",
         StrategyStatus::Stopped => "Stopped",
         StrategyStatus::Archived => "Archived",
     }

@@ -5,6 +5,12 @@ edition = "2021"
 
 [dependencies]
 axum = "0.8"
+futures-util = "0.3"
 rust_decimal = "1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+shared-db = { path = "../../crates/shared-db" }
+shared-domain = { path = "../../crates/shared-domain" }
 shared-events = { path = "../../crates/shared-events" }
-tokio = { version = "1", features = ["macros", "rt-multi-thread", "net"] }
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "net", "time", "sync"] }
+tokio-tungstenite = { version = "0.24", features = ["rustls-tls-webpki-roots"] }

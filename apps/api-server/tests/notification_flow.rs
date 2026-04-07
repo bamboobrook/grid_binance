@@ -3,8 +3,20 @@ use axum::{
     body::{to_bytes, Body},
     http::{Request, StatusCode},
 };
+use chrono::{Duration, Utc};
 use serde_json::{json, Value};
-use shared_db::SharedDb;
+use shared_db::{
+    ExchangeWalletSnapshotRecord, MembershipRecord, SharedDb, UserExchangeAccountRecord,
+    UserExchangeSymbolRecord,
+};
+use std::{
+    collections::VecDeque,
+    env,
+    io::{Read, Write},
+    net::TcpListener,
+    sync::{Arc, Mutex, OnceLock},
+    thread,
+};
 use tower::ServiceExt;
 
 mod support;
@@ -16,6 +28,9 @@ const WRONG_BOT_BIND_SECRET: &str = "wrong-bot-secret";
 
 #[tokio::test]
 async fn bot_side_binding_and_expanded_notification_payloads_are_logged_durably() {
+    let _guard = env_lock().lock().unwrap();
+    std::env::remove_var("TELEGRAM_BOT_TOKEN");
+    std::env::remove_var("TELEGRAM_API_BASE_URL");
     let app = app();
     let session_token = register_and_login(&app, "trader@example.com", "pass1234").await;
 
@@ -195,7 +210,129 @@ async fn bot_side_binding_and_expanded_notification_payloads_are_logged_durably(
 }
 
 #[tokio::test]
+async fn strategy_start_and_pause_emit_telegram_logs_when_bound_and_configured() {
+    let _guard = env_lock().lock().unwrap();
+    let _bot_token = set_env("TELEGRAM_BOT_TOKEN", "bot-test-token");
+    let server = spawn_test_server(vec![
+        TestRoute {
+            path_prefix: "/botbot-test-token/sendMessage",
+            status_line: "HTTP/1.1 200 OK",
+            body: r#"{"ok":true,"result":{"message_id":1}}"#,
+        },
+        TestRoute {
+            path_prefix: "/botbot-test-token/sendMessage",
+            status_line: "HTTP/1.1 200 OK",
+            body: r#"{"ok":true,"result":{"message_id":2}}"#,
+        },
+    ]);
+    let _api_base = set_env("TELEGRAM_API_BASE_URL", &server.base_url);
+    let db = SharedDb::ephemeral().expect("db");
+    let app = app_with_state(AppState::from_shared_db(db.clone()).expect("state"));
+    let session_token = register_and_login(&app, "auto-telegram@example.com", "pass1234").await;
+
+    seed_strategy_start_prerequisites(&db, "auto-telegram@example.com", "BTCUSDT");
+
+    let bind_code = create_bind_code(&app, &session_token, "auto-telegram@example.com", None).await;
+    let code = response_json(bind_code).await["code"].as_str().unwrap().to_string();
+    let bound = bot_bind_telegram(&app, &code, "tg-auto", "chat-auto", Some("autobot")).await;
+    assert_eq!(bound.status(), StatusCode::OK);
+
+    let created = request(
+        &app,
+        Some(&session_token),
+        "POST",
+        "/strategies",
+        json!({
+            "name": "auto-start-telegram",
+            "symbol": "BTCUSDT",
+            "market": "Spot",
+            "mode": "SpotClassic",
+            "generation": "Custom",
+            "levels": [{ "entry_price": "100.00", "quantity": "0.0100", "take_profit_bps": 120, "trailing_bps": null }],
+            "membership_ready": true,
+            "exchange_ready": true,
+            "permissions_ready": true,
+            "withdrawals_disabled": true,
+            "hedge_mode_ready": true,
+            "symbol_ready": true,
+            "filters_ready": true,
+            "margin_ready": true,
+            "conflict_ready": true,
+            "balance_ready": true,
+            "overall_take_profit_bps": null,
+            "overall_stop_loss_bps": null,
+            "post_trigger_action": "Stop"
+        }),
+    ).await;
+    let strategy_id = response_json(created).await["id"].as_str().unwrap().to_string();
+
+    let started = request(&app, Some(&session_token), "POST", &format!("/strategies/{strategy_id}/start"), Value::Null).await;
+    assert_eq!(started.status(), StatusCode::OK);
+    let paused = request(&app, Some(&session_token), "POST", "/strategies/batch/pause", json!({ "ids": [strategy_id] })).await;
+    assert_eq!(paused.status(), StatusCode::OK);
+
+    let logs = db.list_notification_logs("auto-telegram@example.com", 20).expect("logs");
+    assert!(logs.iter().any(|record| record.channel == "telegram" && record.template_key.as_deref() == Some("StrategyStarted") && record.status == "delivered"));
+    assert!(logs.iter().any(|record| record.channel == "telegram" && record.template_key.as_deref() == Some("StrategyPaused") && record.status == "delivered"));
+}
+
+#[tokio::test]
+async fn strategy_start_and_pause_emit_notifications_automatically() {
+    let _guard = env_lock().lock().unwrap();
+    std::env::remove_var("TELEGRAM_BOT_TOKEN");
+    std::env::remove_var("TELEGRAM_API_BASE_URL");
+    let db = SharedDb::ephemeral().expect("db");
+    seed_strategy_start_prerequisites(&db, "auto-strategy@example.com", "BTCUSDT");
+    let app = app_with_state(AppState::from_shared_db(db).expect("state"));
+    let session_token = register_and_login(&app, "auto-strategy@example.com", "pass1234").await;
+
+    let created = request(
+        &app,
+        Some(&session_token),
+        "POST",
+        "/strategies",
+        json!({
+            "name": "auto-start",
+            "symbol": "BTCUSDT",
+            "market": "Spot",
+            "mode": "SpotClassic",
+            "generation": "Custom",
+            "levels": [{ "entry_price": "100.00", "quantity": "0.0100", "take_profit_bps": 120, "trailing_bps": null }],
+            "membership_ready": true,
+            "exchange_ready": true,
+            "permissions_ready": true,
+            "withdrawals_disabled": true,
+            "hedge_mode_ready": true,
+            "symbol_ready": true,
+            "filters_ready": true,
+            "margin_ready": true,
+            "conflict_ready": true,
+            "balance_ready": true,
+            "overall_take_profit_bps": null,
+            "overall_stop_loss_bps": null,
+            "post_trigger_action": "Stop"
+        }),
+    ).await;
+    assert_eq!(created.status(), StatusCode::CREATED);
+    let strategy_id = response_json(created).await["id"].as_str().unwrap().to_string();
+
+    let started = request(&app, Some(&session_token), "POST", &format!("/strategies/{strategy_id}/start"), Value::Null).await;
+    assert_eq!(started.status(), StatusCode::OK);
+    let paused = request(&app, Some(&session_token), "POST", "/strategies/batch/pause", json!({ "ids": [strategy_id] })).await;
+    assert_eq!(paused.status(), StatusCode::OK);
+
+    let inbox = list_notifications(&app, &session_token, "auto-strategy@example.com").await;
+    assert_eq!(inbox.status(), StatusCode::OK);
+    let items = response_json(inbox).await["items"].as_array().expect("items").clone();
+    assert!(items.iter().any(|item| item["event"]["kind"] == "StrategyStarted"));
+    assert!(items.iter().any(|item| item["event"]["kind"] == "StrategyPaused"));
+}
+
+#[tokio::test]
 async fn telegram_bindings_and_inbox_items_survive_app_rebuilds_via_bot_binding_path() {
+    let _guard = env_lock().lock().unwrap();
+    std::env::remove_var("TELEGRAM_BOT_TOKEN");
+    std::env::remove_var("TELEGRAM_API_BASE_URL");
     let db = SharedDb::ephemeral().expect("ephemeral db");
     let first_app = app_with_state(AppState::from_shared_db(db.clone()).expect("first state"));
     let session_token = register_and_login(&first_app, "durable@example.com", "pass1234").await;
@@ -274,6 +411,9 @@ async fn telegram_bindings_and_inbox_items_survive_app_rebuilds_via_bot_binding_
 
 #[tokio::test]
 async fn bot_bind_requires_internal_secret_and_direct_user_bind_is_forbidden() {
+    let _guard = env_lock().lock().unwrap();
+    std::env::remove_var("TELEGRAM_BOT_TOKEN");
+    std::env::remove_var("TELEGRAM_API_BASE_URL");
     let app = app();
     let session_token = register_and_login(&app, "bot-auth@example.com", "pass1234").await;
 
@@ -324,6 +464,9 @@ async fn bot_bind_requires_internal_secret_and_direct_user_bind_is_forbidden() {
 
 #[tokio::test]
 async fn previous_bind_code_is_rejected_after_regenerating_for_same_email() {
+    let _guard = env_lock().lock().unwrap();
+    std::env::remove_var("TELEGRAM_BOT_TOKEN");
+    std::env::remove_var("TELEGRAM_API_BASE_URL");
     let app = app();
     let session_token = register_and_login(&app, "rotate@example.com", "pass1234").await;
 
@@ -364,6 +507,9 @@ async fn previous_bind_code_is_rejected_after_regenerating_for_same_email() {
 
 #[tokio::test]
 async fn expired_bind_code_is_rejected() {
+    let _guard = env_lock().lock().unwrap();
+    std::env::remove_var("TELEGRAM_BOT_TOKEN");
+    std::env::remove_var("TELEGRAM_API_BASE_URL");
     let app = app();
     let session_token = register_and_login(&app, "expired-bind@example.com", "pass1234").await;
 
@@ -382,6 +528,9 @@ async fn expired_bind_code_is_rejected() {
 
 #[tokio::test]
 async fn unbound_email_keeps_telegram_delivery_disabled_for_api_invalidation() {
+    let _guard = env_lock().lock().unwrap();
+    std::env::remove_var("TELEGRAM_BOT_TOKEN");
+    std::env::remove_var("TELEGRAM_API_BASE_URL");
     let app = app();
     let session_token = register_and_login(&app, "unbound@example.com", "pass1234").await;
 
@@ -403,7 +552,47 @@ async fn unbound_email_keeps_telegram_delivery_disabled_for_api_invalidation() {
 }
 
 #[tokio::test]
+async fn dispatch_notification_sends_real_telegram_message_when_bot_is_configured() {
+    let _guard = env_lock().lock().unwrap();
+    let _bot_token = set_env("TELEGRAM_BOT_TOKEN", "bot-test-token");
+    let server = spawn_test_server(vec![TestRoute {
+        path_prefix: "/botbot-test-token/sendMessage",
+        status_line: "HTTP/1.1 200 OK",
+        body: r#"{"ok":true,"result":{"message_id":1}}"#,
+    }]);
+    let _api_base = set_env("TELEGRAM_API_BASE_URL", &server.base_url);
+    let db = SharedDb::ephemeral().expect("db");
+    let app = app_with_state(AppState::from_shared_db(db.clone()).expect("state"));
+    let session_token = register_and_login(&app, "telegram-live@example.com", "pass1234").await;
+
+    let bind_code = create_bind_code(&app, &session_token, "telegram-live@example.com", None).await;
+    let code = response_json(bind_code).await["code"].as_str().unwrap().to_string();
+    let bound = bot_bind_telegram(&app, &code, "tg-live", "chat-live", Some("gridlive")).await;
+    assert_eq!(bound.status(), StatusCode::OK);
+
+    let dispatched = dispatch_notification(
+        &app,
+        &session_token,
+        "telegram-live@example.com",
+        "GridFillExecuted",
+        "Grid fill executed",
+        "BTCUSDT grid filled at 110.",
+        json!({"fill_id": "fill-live-1"}),
+    )
+    .await;
+    assert_eq!(dispatched.status(), StatusCode::OK);
+    let body = response_json(dispatched).await;
+    assert_eq!(body["telegram_delivered"], true);
+
+    let logs = db.list_notification_logs("telegram-live@example.com", 10).expect("logs");
+    assert!(logs.iter().any(|record| record.channel == "telegram" && record.status == "delivered"));
+}
+
+#[tokio::test]
 async fn invalid_ttl_returns_bad_request_instead_of_panicking() {
+    let _guard = env_lock().lock().unwrap();
+    std::env::remove_var("TELEGRAM_BOT_TOKEN");
+    std::env::remove_var("TELEGRAM_API_BASE_URL");
     let app = app();
     let session_token = register_and_login(&app, "invalid-ttl@example.com", "pass1234").await;
 
@@ -574,9 +763,206 @@ async fn list_notifications(
         .unwrap()
 }
 
+async fn request(
+    app: &axum::Router,
+    session_token: Option<&str>,
+    method: &str,
+    uri: &str,
+    payload: Value,
+) -> axum::response::Response {
+    let mut builder = Request::builder().method(method).uri(uri);
+    if let Some(session_token) = session_token {
+        builder = builder.header("authorization", format!("Bearer {session_token}"));
+    }
+    if payload != Value::Null {
+        builder = builder.header("content-type", "application/json");
+    }
+    let body = if payload == Value::Null {
+        Body::empty()
+    } else {
+        Body::from(payload.to_string())
+    };
+    app.clone().oneshot(builder.body(body).unwrap()).await.unwrap()
+}
+
+#[derive(Clone)]
+struct TestRoute {
+    path_prefix: &'static str,
+    status_line: &'static str,
+    body: &'static str,
+}
+
+struct TestServer {
+    base_url: String,
+    join_handle: Option<thread::JoinHandle<()>>,
+}
+
+struct EnvGuard {
+    key: &'static str,
+    previous: Option<String>,
+}
+
+impl Drop for EnvGuard {
+    fn drop(&mut self) {
+        match &self.previous {
+            Some(value) => env::set_var(self.key, value),
+            None => env::remove_var(self.key),
+        }
+    }
+}
+
+impl Drop for TestServer {
+    fn drop(&mut self) {
+        if let Some(handle) = self.join_handle.take() {
+            handle.join().expect("telegram test server thread should exit cleanly");
+        }
+    }
+}
+
+fn env_lock() -> &'static Mutex<()> {
+    static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+    LOCK.get_or_init(|| Mutex::new(()))
+}
+
+fn set_env(key: &'static str, value: impl Into<String>) -> EnvGuard {
+    let previous = env::var(key).ok();
+    env::set_var(key, value.into());
+    EnvGuard { key, previous }
+}
+
+fn spawn_test_server(routes: Vec<TestRoute>) -> TestServer {
+    let listener = TcpListener::bind("127.0.0.1:0").expect("bind local telegram test server");
+    let address = listener.local_addr().expect("telegram test server address");
+    let queue = Arc::new(Mutex::new(VecDeque::from(routes)));
+    let queue_for_thread = queue.clone();
+    let join_handle = thread::spawn(move || {
+        while let Some(route) = queue_for_thread.lock().expect("telegram route queue poisoned").pop_front() {
+            let (mut stream, _) = listener.accept().expect("accept telegram test request");
+            let mut buffer = [0u8; 4096];
+            let read = stream.read(&mut buffer).expect("read telegram test request");
+            let request = String::from_utf8_lossy(&buffer[..read]);
+            let path = request
+                .lines()
+                .next()
+                .and_then(|line| line.split_whitespace().nth(1))
+                .expect("telegram request path");
+            assert!(path.starts_with(route.path_prefix), "expected path prefix {} but received {}", route.path_prefix, path);
+            let response = format!(
+                "{}
+content-type: application/json
+content-length: {}
+connection: close
+
+{}",
+                route.status_line,
+                route.body.len(),
+                route.body
+            );
+            stream.write_all(response.as_bytes()).expect("write telegram test response");
+        }
+    });
+    TestServer {
+        base_url: format!("http://{}", address),
+        join_handle: Some(join_handle),
+    }
+}
+
 async fn response_json(response: axum::response::Response) -> Value {
     let bytes = to_bytes(response.into_body(), usize::MAX)
         .await
         .expect("response body");
     serde_json::from_slice(&bytes).expect("valid json")
+}
+
+
+fn seed_strategy_start_prerequisites(db: &SharedDb, email: &str, symbol: &str) {
+    let now = Utc::now();
+    db.upsert_membership_record(
+        email,
+        &MembershipRecord {
+            activated_at: Some(now),
+            active_until: Some(now + Duration::days(30)),
+            grace_until: Some(now + Duration::days(32)),
+            override_status: None,
+        },
+    )
+    .expect("seed membership");
+
+    let symbol_record = UserExchangeSymbolRecord {
+        user_email: email.to_string(),
+        exchange: "binance".to_string(),
+        market: "spot".to_string(),
+        symbol: symbol.to_string(),
+        status: "TRADING".to_string(),
+        base_asset: symbol.trim_end_matches("USDT").to_string(),
+        quote_asset: "USDT".to_string(),
+        price_precision: 2,
+        quantity_precision: 4,
+        min_quantity: "0.001".to_string(),
+        min_notional: "0.5".to_string(),
+        keywords: vec![symbol.to_lowercase(), "spot".to_string()],
+        metadata: json!({
+            "symbol": symbol,
+            "market": "spot",
+            "status": "TRADING",
+            "base_asset": symbol.trim_end_matches("USDT"),
+            "quote_asset": "USDT",
+            "price_precision": 2,
+            "quantity_precision": 4,
+            "filters": {
+                "price_tick_size": "0.01",
+                "quantity_step_size": "0.001",
+                "min_quantity": "0.001",
+                "min_notional": "0.5",
+                "contract_size": null
+            },
+            "market_requirements": {
+                "supports_isolated_margin": true,
+                "supports_cross_margin": true,
+                "hedge_mode_required": false,
+                "requires_futures_permissions": false,
+                "leverage_brackets": [1, 5, 10]
+            },
+            "keywords": [symbol.to_lowercase(), "spot"]
+        }),
+        synced_at: now,
+    };
+
+    db.upsert_exchange_account(&UserExchangeAccountRecord {
+        user_email: email.to_string(),
+        exchange: "binance".to_string(),
+        account_label: "Binance".to_string(),
+        market_scope: "spot".to_string(),
+        is_active: true,
+        checked_at: Some(now),
+        metadata: json!({
+            "connection_status": "connected",
+            "sync_status": "success",
+            "last_synced_at": now.to_rfc3339(),
+            "expected_hedge_mode": false,
+            "selected_markets": ["spot"],
+            "validation": {
+                "api_connectivity_ok": true,
+                "timestamp_in_sync": true,
+                "can_read_spot": true,
+                "can_read_usdm": false,
+                "can_read_coinm": false,
+                "hedge_mode_ok": true,
+                "permissions_ok": true,
+                "withdrawals_disabled": true,
+                "market_access_ok": true
+            }
+        }),
+    })
+    .expect("seed exchange account");
+    db.replace_exchange_symbols(email, "binance", &[symbol_record])
+        .expect("seed symbols");
+    db.insert_exchange_wallet_snapshot(&ExchangeWalletSnapshotRecord {
+        user_email: email.to_string(),
+        exchange: "binance".to_string(),
+        wallet_type: "spot".to_string(),
+        balances: json!({ "USDT": "1000" }),
+        captured_at: now,
+    })
+    .expect("seed wallet snapshot");
 }

@@ -14,27 +14,48 @@ function readOptionalNumberField(formData: FormData, key: string) {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
+function readTemplateLevels(formData: FormData) {
+  const raw = readField(formData, "levelsJson");
+  if (raw) {
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed) || parsed.length === 0) {
+      throw new Error("levelsJson must be a non-empty array");
+    }
+    return parsed.map((level) => ({
+      entry_price: String(level.entry_price ?? "").trim(),
+      quantity: String(level.quantity ?? "").trim(),
+      take_profit_bps: Number(level.take_profit_bps ?? 0),
+      trailing_bps: level.trailing_bps === null || level.trailing_bps === undefined || level.trailing_bps === "" ? null : Number(level.trailing_bps),
+    }));
+  }
+  return [
+    {
+      entry_price: readField(formData, "level1EntryPrice"),
+      quantity: readField(formData, "level1Quantity"),
+      take_profit_bps: Number(readField(formData, "level1TakeProfitBps") || "0"),
+      trailing_bps: readOptionalNumberField(formData, "level1TrailingBps"),
+    },
+    {
+      entry_price: readField(formData, "level2EntryPrice"),
+      quantity: readField(formData, "level2Quantity"),
+      take_profit_bps: Number(readField(formData, "level2TakeProfitBps") || "0"),
+      trailing_bps: readOptionalNumberField(formData, "level2TrailingBps"),
+    },
+  ];
+}
+
 function buildTemplatePayload(formData: FormData) {
+  const market = readField(formData, "market") || "Spot";
   return {
     name: readField(formData, "name"),
     symbol: readField(formData, "symbol"),
-    market: readField(formData, "market") || "Spot",
+    market,
     mode: readField(formData, "mode") || "SpotClassic",
     generation: readField(formData, "generation") || "Custom",
-    levels: [
-      {
-        entry_price: readField(formData, "level1EntryPrice"),
-        quantity: readField(formData, "level1Quantity"),
-        take_profit_bps: Number(readField(formData, "level1TakeProfitBps") || "0"),
-        trailing_bps: readOptionalNumberField(formData, "level1TrailingBps"),
-      },
-      {
-        entry_price: readField(formData, "level2EntryPrice"),
-        quantity: readField(formData, "level2Quantity"),
-        take_profit_bps: Number(readField(formData, "level2TakeProfitBps") || "0"),
-        trailing_bps: readOptionalNumberField(formData, "level2TrailingBps"),
-      },
-    ],
+    amount_mode: readField(formData, "amountMode") === "base" ? "Base" : "Quote",
+    futures_margin_mode: market === "Spot" ? null : (readField(formData, "futuresMarginMode") === "cross" ? "Cross" : "Isolated"),
+    leverage: market === "Spot" ? null : readOptionalNumberField(formData, "leverage"),
+    levels: readTemplateLevels(formData),
     membership_ready: readBoolField(formData, "membershipReady"),
     exchange_ready: readBoolField(formData, "exchangeReady"),
     permissions_ready: readBoolField(formData, "permissionsReady"),

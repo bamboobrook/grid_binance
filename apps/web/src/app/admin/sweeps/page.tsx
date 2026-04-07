@@ -89,6 +89,7 @@ export default async function AdminSweepsPage({ searchParams }: PageProps) {
               { key: "id", label: "Job" },
               { key: "chain", label: "Chain" },
               { key: "treasury", label: "Treasury" },
+              { key: "lifecycle", label: "Lifecycle" },
               { key: "status", label: "Status" },
             ]}
             rows={data.jobs.map((item) => ({
@@ -96,6 +97,11 @@ export default async function AdminSweepsPage({ searchParams }: PageProps) {
               chain: item.chain + " / " + item.asset,
               status: item.status,
               treasury: item.treasury_address,
+              lifecycle: item.failed_at
+                ? `Failed at ${item.failed_at.slice(0, 19).replace("T", " ")} | ${item.last_error ?? "no error detail"}`
+                : item.submitted_at
+                  ? `Submitted at ${item.submitted_at.slice(0, 19).replace("T", " ")} | ${item.transfer_count} transfers`
+                  : `${item.transfer_count} pending transfers`,
             }))}
           />
         </CardBody>

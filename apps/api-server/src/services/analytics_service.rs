@@ -2,12 +2,13 @@ use std::collections::BTreeMap;
 
 use rust_decimal::Decimal;
 use shared_db::{
-    AccountProfitSnapshotRecord, BillingOrderRecord, ExchangeWalletSnapshotRecord, SharedDb,
-    SharedDbError, StrategyProfitSnapshotRecord,
+    AccountProfitSnapshotRecord, BillingOrderRecord, ExchangeTradeHistoryRecord,
+    ExchangeWalletSnapshotRecord, SharedDb, SharedDbError, StrategyProfitSnapshotRecord,
 };
 use shared_domain::analytics::{
-    AccountSnapshotView, AnalyticsReport, CostAggregation, StrategyProfitSummary,
-    StrategySnapshotView, TradeFillInput, UserAggregate, WalletSnapshotView,
+    AccountSnapshotView, AnalyticsReport, CostAggregation, ExchangeTradeHistoryView,
+    StrategyProfitSummary, StrategySnapshotView, TradeFillInput, UserAggregate,
+    WalletSnapshotView,
 };
 use shared_domain::strategy::{Strategy, StrategyRuntimePosition};
 use trading_engine::statistics::compute_fill_views;
@@ -39,6 +40,7 @@ impl AnalyticsService {
         let strategy_snapshots = to_strategy_snapshot_views(&strategy_snapshot_records)?;
         let account_snapshots = to_account_snapshot_views(&account_snapshot_records)?;
         let wallets = to_wallet_snapshot_views(&wallet_snapshot_records);
+        let exchange_trades = to_exchange_trade_history_views(&trade_history_records);
         let latest_strategy_snapshots = latest_strategy_snapshot_map(&strategy_snapshot_records)?;
         let latest_account_snapshots =
             latest_account_snapshots_by_exchange(&account_snapshot_records)?;
@@ -52,11 +54,12 @@ impl AnalyticsService {
         let user = user_aggregate(
             user_email,
             &fills,
+            &trade_history_records,
             &latest_account_snapshots,
             &latest_wallets,
             trade_history_records.len(),
         )?;
-        let costs = cost_aggregation(&fills, &latest_account_snapshots)?;
+        let costs = cost_aggregation(&fills, &trade_history_records, &latest_account_snapshots)?;
 
         Ok(AnalyticsReport {
             fills,
@@ -66,6 +69,7 @@ impl AnalyticsService {
             strategy_snapshots,
             account_snapshots,
             wallets,
+            exchange_trades,
         })
     }
 
@@ -244,6 +248,7 @@ fn strategy_summary(
 fn user_aggregate(
     user_email: &str,
     fills: &[shared_domain::analytics::FillProfitView],
+    trade_history_records: &[ExchangeTradeHistoryRecord],
     latest_account_snapshots: &BTreeMap<String, AccountSnapshotNumbers>,
     latest_wallets: &BTreeMap<String, WalletSnapshotView>,
     exchange_trade_count: usize,
@@ -256,30 +261,32 @@ fn user_aggregate(
         .iter()
         .fold(Decimal::ZERO, |acc, fill| acc + fill.funding);
 
-    let realized_pnl = if latest_account_snapshots.is_empty() {
-        realized_from_fills
-    } else {
-        latest_account_snapshots
-            .values()
-            .fold(Decimal::ZERO, |acc, snapshot| acc + snapshot.realized_pnl)
-    };
+    let snapshot_realized = latest_account_snapshots
+        .values()
+        .fold(Decimal::ZERO, |acc, snapshot| acc + snapshot.realized_pnl);
+    let realized_pnl = resolve_snapshot_total(
+        (!latest_account_snapshots.is_empty()).then_some(snapshot_realized),
+        realized_from_fills,
+    );
     let unrealized_pnl = latest_account_snapshots
         .values()
         .fold(Decimal::ZERO, |acc, snapshot| acc + snapshot.unrealized_pnl);
-    let fees_paid = if latest_account_snapshots.is_empty() {
-        fees_from_fills
-    } else {
-        latest_account_snapshots
-            .values()
-            .fold(Decimal::ZERO, |acc, snapshot| acc + snapshot.fees_paid)
-    };
-    let funding_total = if latest_account_snapshots.is_empty() {
-        funding_from_fills
-    } else {
-        latest_account_snapshots
-            .values()
-            .fold(Decimal::ZERO, |acc, snapshot| acc + snapshot.funding_total)
-    };
+    let trade_history_fees = trade_history_fee_total(trade_history_records)?;
+    let snapshot_fees = latest_account_snapshots
+        .values()
+        .fold(Decimal::ZERO, |acc, snapshot| acc + snapshot.fees_paid);
+    let fees_paid = resolve_fee_total(
+        (!latest_account_snapshots.is_empty()).then_some(snapshot_fees),
+        trade_history_fees,
+        fees_from_fills,
+    );
+    let snapshot_funding = latest_account_snapshots
+        .values()
+        .fold(Decimal::ZERO, |acc, snapshot| acc + snapshot.funding_total);
+    let funding_total = resolve_snapshot_total(
+        (!latest_account_snapshots.is_empty()).then_some(snapshot_funding),
+        funding_from_fills,
+    );
     let wallet_asset_count = latest_wallets
         .values()
         .fold(0_usize, |acc, wallet| acc + wallet.balances.len());
@@ -298,29 +305,66 @@ fn user_aggregate(
 
 fn cost_aggregation(
     fills: &[shared_domain::analytics::FillProfitView],
+    trade_history_records: &[ExchangeTradeHistoryRecord],
     latest_account_snapshots: &BTreeMap<String, AccountSnapshotNumbers>,
 ) -> Result<CostAggregation, SharedDbError> {
-    let fees_paid = if latest_account_snapshots.is_empty() {
-        fills.iter().fold(Decimal::ZERO, |acc, fill| acc + fill.fee)
-    } else {
-        latest_account_snapshots
-            .values()
-            .fold(Decimal::ZERO, |acc, snapshot| acc + snapshot.fees_paid)
-    };
-    let funding_total = if latest_account_snapshots.is_empty() {
-        fills
-            .iter()
-            .fold(Decimal::ZERO, |acc, fill| acc + fill.funding)
-    } else {
-        latest_account_snapshots
-            .values()
-            .fold(Decimal::ZERO, |acc, snapshot| acc + snapshot.funding_total)
-    };
+    let fill_fees = fills.iter().fold(Decimal::ZERO, |acc, fill| acc + fill.fee);
+    let trade_history_fees = trade_history_fee_total(trade_history_records)?;
+    let snapshot_fees = latest_account_snapshots
+        .values()
+        .fold(Decimal::ZERO, |acc, snapshot| acc + snapshot.fees_paid);
+    let fees_paid = resolve_fee_total(
+        (!latest_account_snapshots.is_empty()).then_some(snapshot_fees),
+        trade_history_fees,
+        fill_fees,
+    );
+    let fill_funding = fills
+        .iter()
+        .fold(Decimal::ZERO, |acc, fill| acc + fill.funding);
+    let snapshot_funding = latest_account_snapshots
+        .values()
+        .fold(Decimal::ZERO, |acc, snapshot| acc + snapshot.funding_total);
+    let funding_total = resolve_snapshot_total(
+        (!latest_account_snapshots.is_empty()).then_some(snapshot_funding),
+        fill_funding,
+    );
 
     Ok(CostAggregation {
         fees_paid: fees_paid.normalize(),
         funding_total: funding_total.normalize(),
     })
+}
+
+fn trade_history_fee_total(
+    records: &[ExchangeTradeHistoryRecord],
+) -> Result<Decimal, SharedDbError> {
+    records.iter().try_fold(Decimal::ZERO, |acc, record| {
+        let fee = parse_optional_decimal(record.fee_amount.as_deref())?;
+        Ok(acc + fee)
+    })
+}
+
+fn resolve_fee_total(
+    snapshot_total: Option<Decimal>,
+    trade_history_total: Decimal,
+    fill_total: Decimal,
+) -> Decimal {
+    match snapshot_total {
+        Some(value)
+            if value != Decimal::ZERO || (trade_history_total == Decimal::ZERO && fill_total == Decimal::ZERO) =>
+        {
+            value
+        }
+        _ if trade_history_total != Decimal::ZERO => trade_history_total,
+        _ => fill_total,
+    }
+}
+
+fn resolve_snapshot_total(snapshot_total: Option<Decimal>, fallback_total: Decimal) -> Decimal {
+    match snapshot_total {
+        Some(value) if value != Decimal::ZERO || fallback_total == Decimal::ZERO => value,
+        _ => fallback_total,
+    }
 }
 
 fn to_strategy_snapshot_views(
@@ -334,7 +378,7 @@ fn to_strategy_snapshot_views(
                 realized_pnl: parse_decimal(&snapshot.realized_pnl)?.normalize(),
                 unrealized_pnl: parse_decimal(&snapshot.unrealized_pnl)?.normalize(),
                 fees_paid: parse_decimal(&snapshot.fees)?.normalize(),
-                funding_total: Decimal::ZERO,
+                funding_total: parse_optional_decimal(snapshot.funding.as_deref())?.normalize(),
                 captured_at: snapshot.captured_at.to_rfc3339(),
             })
         })
@@ -371,6 +415,25 @@ fn to_wallet_snapshot_views(snapshots: &[ExchangeWalletSnapshotRecord]) -> Vec<W
         .collect()
 }
 
+fn to_exchange_trade_history_views(
+    records: &[ExchangeTradeHistoryRecord],
+) -> Vec<ExchangeTradeHistoryView> {
+    records
+        .iter()
+        .map(|record| ExchangeTradeHistoryView {
+            trade_id: record.trade_id.clone(),
+            exchange: record.exchange.clone(),
+            symbol: record.symbol.clone(),
+            side: record.side.clone(),
+            quantity: record.quantity.clone(),
+            price: record.price.clone(),
+            fee_amount: record.fee_amount.clone(),
+            fee_asset: record.fee_asset.clone(),
+            traded_at: record.traded_at.to_rfc3339(),
+        })
+        .collect()
+}
+
 fn latest_strategy_snapshot_map(
     snapshots: &[StrategyProfitSnapshotRecord],
 ) -> Result<BTreeMap<String, StrategySnapshotNumbers>, SharedDbError> {
@@ -382,7 +445,7 @@ fn latest_strategy_snapshot_map(
                 realized_pnl: parse_decimal(&snapshot.realized_pnl)?.normalize(),
                 unrealized_pnl: parse_decimal(&snapshot.unrealized_pnl)?.normalize(),
                 fees_paid: parse_decimal(&snapshot.fees)?.normalize(),
-                funding_total: Decimal::ZERO,
+                funding_total: parse_optional_decimal(snapshot.funding.as_deref())?.normalize(),
             },
         );
     }

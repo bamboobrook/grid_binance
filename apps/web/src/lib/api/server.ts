@@ -1,5 +1,7 @@
 import "server-only";
 
+import { cookies } from "next/headers";
+
 import { buildAdminShellSnapshot } from "./admin-product-state";
 import {
   adminAddressPoolsSnapshot,
@@ -34,6 +36,47 @@ import {
   userDashboardSnapshot,
 } from "./mock-data";
 
+const DEFAULT_AUTH_API_BASE_URL = "http://127.0.0.1:8080";
+
+type ProfileResponse = {
+  admin_totp_required?: boolean;
+  email?: string;
+  email_verified?: boolean;
+  totp_enabled?: boolean;
+};
+
+type BillingOverview = {
+  membership?: {
+    active_until?: string | null;
+    grace_until?: string | null;
+    status?: string;
+  };
+};
+
+type AnalyticsReport = {
+  user?: {
+    net_pnl?: string;
+  };
+};
+
+type StrategyListResponse = {
+  items: Array<{
+    status: string;
+  }>;
+};
+
+type NotificationRecord = {
+  event: {
+    message: string;
+    title: string;
+  };
+  show_expiry_popup: boolean;
+};
+
+type NotificationInboxResponse = {
+  items: NotificationRecord[];
+};
+
 function clone<T>(value: T): T {
   return structuredClone(value);
 }
@@ -51,7 +94,57 @@ export async function getPublicAuthSnapshot(mode: "login" | "register") {
 }
 
 export async function getUserShellSnapshot(): Promise<UserShellSnapshot> {
-  return clone(buildUserShellSnapshot());
+  const sessionToken = await currentSessionToken();
+  const base = clone(buildUserShellSnapshot());
+
+  if (!sessionToken) {
+    return base;
+  }
+
+  const [profile, billing, analytics, strategies] = await Promise.all([
+    fetchProfile(sessionToken),
+    fetchBillingOverview(sessionToken),
+    fetchAnalytics(sessionToken),
+    fetchStrategies(sessionToken),
+  ]);
+
+  if (profile?.email) {
+    base.identity.name = profile.email;
+  }
+
+  const membershipStatus = billing?.membership?.status ?? "Unknown";
+  base.identity.role = membershipStatus;
+  if (billing?.membership?.active_until) {
+    const renewalDate = billing.membership.active_until.slice(0, 10);
+    const graceDate = billing.membership.grace_until?.slice(0, 10);
+    base.identity.context = graceDate
+      ? `Membership ${membershipStatus}. Next renewal ${renewalDate}. Grace ends ${graceDate}.`
+      : `Membership ${membershipStatus}. Next renewal ${renewalDate}.`;
+  }
+
+  const runningCount = strategies.filter((item) => item.status === "Running").length;
+  base.quickStats = [
+    { label: "Net PnL", value: analytics?.user?.net_pnl ?? "-" },
+    { label: "Running", value: `${runningCount} strategies` },
+    { label: "Grace", value: membershipStatus },
+  ];
+
+  return base;
+}
+
+export async function getUserExpiryNotification(): Promise<NotificationRecord | null> {
+  const sessionToken = await currentSessionToken();
+  if (!sessionToken) {
+    return null;
+  }
+
+  const profile = await fetchProfile(sessionToken);
+  if (!profile?.email) {
+    return null;
+  }
+
+  const inbox = await fetchNotifications(sessionToken, profile.email);
+  return inbox?.items.find((item) => item.show_expiry_popup) ?? null;
 }
 
 export async function getAdminShellSnapshot(): Promise<AdminShellSnapshot> {
@@ -148,4 +241,76 @@ export async function getAdminAuditSnapshot() {
 
 export async function getAdminSystemSnapshot() {
   return clone(adminSystemSnapshot);
+}
+
+async function currentSessionToken() {
+  const cookieStore = await cookies();
+  return cookieStore.get("session_token")?.value ?? null;
+}
+
+async function fetchProfile(sessionToken: string): Promise<ProfileResponse | null> {
+  const response = await fetch(`${authApiBaseUrl()}/profile`, {
+    method: "GET",
+    headers: { authorization: `Bearer ${sessionToken}` },
+    cache: "no-store",
+  });
+  if (!response.ok) {
+    return null;
+  }
+  return (await response.json()) as ProfileResponse;
+}
+
+async function fetchBillingOverview(sessionToken: string): Promise<BillingOverview | null> {
+  const response = await fetch(`${authApiBaseUrl()}/billing/overview`, {
+    method: "GET",
+    headers: { authorization: `Bearer ${sessionToken}` },
+    cache: "no-store",
+  });
+  if (!response.ok) {
+    return null;
+  }
+  return (await response.json()) as BillingOverview;
+}
+
+async function fetchAnalytics(sessionToken: string): Promise<AnalyticsReport | null> {
+  const response = await fetch(`${authApiBaseUrl()}/analytics`, {
+    method: "GET",
+    headers: { authorization: `Bearer ${sessionToken}` },
+    cache: "no-store",
+  });
+  if (!response.ok) {
+    return null;
+  }
+  return (await response.json()) as AnalyticsReport;
+}
+
+async function fetchStrategies(sessionToken: string): Promise<StrategyListResponse["items"]> {
+  const response = await fetch(`${authApiBaseUrl()}/strategies`, {
+    method: "GET",
+    headers: { authorization: `Bearer ${sessionToken}` },
+    cache: "no-store",
+  });
+  if (!response.ok) {
+    return [];
+  }
+  return ((await response.json()) as StrategyListResponse).items;
+}
+
+async function fetchNotifications(
+  sessionToken: string,
+  email: string,
+): Promise<NotificationInboxResponse | null> {
+  const response = await fetch(`${authApiBaseUrl()}/notifications?email=${encodeURIComponent(email)}`, {
+    method: "GET",
+    headers: { authorization: `Bearer ${sessionToken}` },
+    cache: "no-store",
+  });
+  if (!response.ok) {
+    return null;
+  }
+  return (await response.json()) as NotificationInboxResponse;
+}
+
+function authApiBaseUrl() {
+  return process.env.AUTH_API_BASE_URL?.trim().replace(/\/+$/, "") || DEFAULT_AUTH_API_BASE_URL;
 }

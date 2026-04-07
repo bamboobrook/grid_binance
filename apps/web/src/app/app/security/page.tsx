@@ -1,21 +1,41 @@
+import { cookies } from "next/headers";
+
 import { AppShellSection } from "../../../components/shell/app-shell-section";
 import { Card, CardBody, CardDescription, CardHeader, CardTitle } from "../../../components/ui/card";
 import { Chip } from "../../../components/ui/chip";
 import { Button, Field, FormStack, Input } from "../../../components/ui/form";
 import { StatusBanner } from "../../../components/ui/status-banner";
-import { getCurrentUserProductState } from "../../../lib/api/user-product-state";
 
 type SecurityPageProps = {
   searchParams?: Promise<{
     error?: string | string[];
+    security?: string | string[];
   }>;
 };
 
+type ProfileResponse = {
+  admin_totp_required?: boolean;
+  email?: string;
+  email_verified?: boolean;
+  totp_enabled?: boolean;
+};
+
+const DEFAULT_AUTH_API_BASE_URL = "http://127.0.0.1:8080";
+const PENDING_TOTP_SECRET_COOKIE = "pending_totp_secret";
+const PENDING_TOTP_CODE_COOKIE = "pending_totp_code";
+
+function firstValue(value?: string | string[]) {
+  return Array.isArray(value) ? value[0] : value;
+}
+
 export default async function SecurityPage({ searchParams }: SecurityPageProps) {
-  const state = await getCurrentUserProductState();
-  const error = Array.isArray((await searchParams)?.error)
-    ? (await searchParams)?.error?.[0]
-    : (await searchParams)?.error;
+  const params = (await searchParams) ?? {};
+  const cookieStore = await cookies();
+  const error = firstValue(params.error);
+  const security = firstValue(params.security);
+  const profile = await fetchProfile();
+  const secret = cookieStore.get(PENDING_TOTP_SECRET_COOKIE)?.value ?? "";
+  const code = cookieStore.get(PENDING_TOTP_CODE_COOKIE)?.value ?? "";
 
   return (
     <>
@@ -25,9 +45,9 @@ export default async function SecurityPage({ searchParams }: SecurityPageProps) 
         tone="info"
       />
       {error ? <StatusBanner description={error} title="Security action failed" tone="warning" /> : null}
-      {state.flash.security === "TOTP enabled" ? (
+      {security === "totp-enabled" ? (
         <StatusBanner
-          description="TOTP is now enabled for future login challenges."
+          description="Store the TOTP secret in your authenticator app and use the current code on the next login challenge."
           title="TOTP enabled"
           tone="success"
         />
@@ -73,21 +93,35 @@ export default async function SecurityPage({ searchParams }: SecurityPageProps) 
           <Card tone="subtle">
             <CardHeader>
               <CardTitle>Security checkpoints</CardTitle>
-              <CardDescription>Current posture remains visible; session review is read-only in this build.</CardDescription>
+              <CardDescription>Critical posture values come from the backend profile endpoint instead of local product state.</CardDescription>
             </CardHeader>
             <CardBody>
               <div className="chip-row">
-                <Chip tone="success">Email: Verified</Chip>
-                <Chip tone={state.security.totpEnabled === null ? "info" : state.security.totpEnabled ? "success" : "warning"}>
-                  TOTP: {state.security.totpEnabled === null ? "Unknown" : state.security.totpEnabled ? "Enabled" : "Disabled"}
+                <Chip tone={profile?.email_verified ? "success" : "warning"}>
+                  Email: {profile?.email_verified ? "Verified" : "Unverified"}
                 </Chip>
-                <Chip tone="info">Session review: Read-only</Chip>
+                <Chip tone={profile?.totp_enabled ? "success" : "warning"}>
+                  TOTP: {profile?.totp_enabled ? "Enabled" : "Disabled"}
+                </Chip>
+                <Chip tone={profile?.admin_totp_required ? "warning" : "info"}>
+                  Admin TOTP required: {profile?.admin_totp_required ? "Yes" : "No"}
+                </Chip>
               </div>
+              {security === "totp-enabled" ? (
+                <div className="ui-form">
+                  <Field hint="Save this in your authenticator app before the next login." label="TOTP secret">
+                    <Input readOnly value={secret} />
+                  </Field>
+                  <Field hint="Use this current code to verify the first TOTP-based login." label="Current TOTP code">
+                    <Input readOnly value={code} />
+                  </Field>
+                </div>
+              ) : null}
               <ul className="text-list">
-                <li>Password changed at: {state.security.passwordChangedAt ?? "Not recently changed"}</li>
+                <li>Account email: {profile?.email ?? "Unavailable"}</li>
                 <li>Admin accounts must use TOTP in V1.</li>
                 <li>Binance secrets remain masked even after save.</li>
-                <li>Session revocation beyond password/TOTP lifecycle is not exposed as a fake success path.</li>
+                <li>Session revocation is enforced by backend password and TOTP lifecycle actions.</li>
               </ul>
             </CardBody>
           </Card>
@@ -95,4 +129,25 @@ export default async function SecurityPage({ searchParams }: SecurityPageProps) 
       </AppShellSection>
     </>
   );
+}
+
+async function fetchProfile(): Promise<ProfileResponse | null> {
+  const cookieStore = await cookies();
+  const sessionToken = cookieStore.get("session_token")?.value ?? "";
+  if (!sessionToken) {
+    return null;
+  }
+  const response = await fetch(`${authApiBaseUrl()}/profile`, {
+    method: "GET",
+    headers: { authorization: `Bearer ${sessionToken}` },
+    cache: "no-store",
+  });
+  if (!response.ok) {
+    return null;
+  }
+  return (await response.json()) as ProfileResponse;
+}
+
+function authApiBaseUrl() {
+  return process.env.AUTH_API_BASE_URL?.trim().replace(/\/+$/, "") || DEFAULT_AUTH_API_BASE_URL;
 }

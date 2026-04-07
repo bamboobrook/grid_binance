@@ -109,6 +109,9 @@ export type AdminTemplateList = {
     exchange_ready: boolean;
     filters_ready: boolean;
     generation: string;
+    amount_mode?: "Quote" | "Base";
+    futures_margin_mode?: "Isolated" | "Cross" | null;
+    leverage?: number | null;
     grid_spacing_bps: number;
     hedge_mode_ready: boolean;
     id: string;
@@ -169,6 +172,21 @@ export type AdminSweepList = {
     sweep_job_id: number;
     transfer_count: number;
     treasury_address: string;
+    submitted_at: string | null;
+    completed_at: string | null;
+    failed_at: string | null;
+    last_error: string | null;
+    transfers: Array<{
+      amount: string;
+      from_address: string;
+      to_address: string;
+      tx_hash: string | null;
+      status: string;
+      submitted_at: string | null;
+      confirmed_at: string | null;
+      failed_at: string | null;
+      error_message: string | null;
+    }>;
   }>;
 };
 

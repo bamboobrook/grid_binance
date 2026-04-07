@@ -53,7 +53,7 @@ export default async function RegisterPage({ searchParams }: RegisterPageProps) 
           <CardBody>
             <FormStack action="/api/auth/register" method="post">
               <input name="next" type="hidden" value={next} />
-              <Field hint="Email verification is required before sign-in is allowed." label="Email">
+              <Field hint="A verification code will be issued before login is allowed." label="Email">
                 <Input autoComplete="email" defaultValue={email} name="email" required type="email" />
               </Field>
               <Field hint="Use a unique password before enabling TOTP in the security center." label="Password">
@@ -81,7 +81,7 @@ export default async function RegisterPage({ searchParams }: RegisterPageProps) 
         <Card>
           <CardHeader>
             <CardTitle>Account onboarding</CardTitle>
-            <CardDescription>Registration moves directly into the documented user lifecycle.</CardDescription>
+            <CardDescription>Registration now moves through explicit verification before login.</CardDescription>
           </CardHeader>
           <CardBody>
             <ul className="text-list">

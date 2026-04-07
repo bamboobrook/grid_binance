@@ -5,8 +5,8 @@ use sqlx::{PgPool, Postgres, Row, Transaction};
 use shared_domain::{
     membership::MembershipStatus,
     strategy::{
-        GridGeneration, GridLevel, PostTriggerAction, StrategyMarket, StrategyMode,
-        StrategyTemplate,
+        GridGeneration, GridLevel, PostTriggerAction, StrategyAmountMode, StrategyMarket,
+        StrategyMode, StrategyTemplate,
     },
 };
 
@@ -1037,6 +1037,9 @@ fn template_from_row(row: sqlx::postgres::PgRow) -> Result<StrategyTemplate, Sha
                 .map_err(SharedDbError::from)?,
         )?,
         levels,
+        amount_mode: StrategyAmountMode::Quote,
+        futures_margin_mode: None,
+        leverage: None,
         budget: row.try_get("budget").map_err(SharedDbError::from)?,
         grid_spacing_bps: row
             .try_get::<i32, _>("grid_spacing_bps")

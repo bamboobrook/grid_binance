@@ -1,11 +1,12 @@
 use api_server::{app_with_state, AppState};
+use chrono::{DateTime, Utc};
 use axum::{
     body::{to_bytes, Body},
     http::{Request, StatusCode},
 };
 use serde_json::{json, Value};
 
-use shared_db::SharedDb;
+use shared_db::{DepositTransactionRecord, SharedDb};
 use std::{
     fs,
     net::TcpListener,
@@ -22,8 +23,9 @@ use support::{login_and_get_token, register_and_login, register_and_verify};
 
 #[tokio::test]
 async fn operator_admin_cannot_update_plan_config_and_existing_defaults_remain_in_effect() {
+    let db = SharedDb::ephemeral().expect("db");
     let app = app_with_state(
-        AppState::from_shared_db(SharedDb::ephemeral().expect("db")).expect("state"),
+        AppState::from_shared_db(db.clone()).expect("state"),
     );
     let admin_token = register_admin_and_login(&app).await;
     let user_token = register_and_login(&app, "priced@example.com", "pass1234").await;
@@ -81,6 +83,20 @@ async fn operator_admin_cannot_update_plan_config_and_existing_defaults_remain_i
     assert_eq!(order.status(), StatusCode::CREATED);
     let order_body = response_json(order).await;
     assert_eq!(order_body["amount"], "20.00000000");
+
+    db.upsert_deposit_transaction(&DepositTransactionRecord {
+        tx_hash: "tx-priced".to_string(),
+        chain: "BSC".to_string(),
+        asset: "USDT".to_string(),
+        address: order_body["address"].as_str().expect("address").to_string(),
+        amount: "20.00000000".to_string(),
+        observed_at: parse_time("2026-04-01T00:01:00Z"),
+        order_id: Some(order_body["order_id"].as_u64().expect("order id")),
+        status: "confirming".to_string(),
+        review_reason: Some("awaiting_confirmations".to_string()),
+        processed_at: None,
+        matched_order_id: None,
+    }).expect("confirming deposit");
 
     let matched = match_order(
         &app,
@@ -365,8 +381,7 @@ async fn register_admin_and_login(app: &axum::Router) -> String {
 
 async fn register_privileged_admin_and_login(app: &axum::Router, email: &str) -> String {
     register_and_verify(app, email, "pass1234").await;
-    let session_token = login_and_get_token(app, email, "pass1234").await;
-    let enabled = enable_totp(app, email, &session_token).await;
+    let enabled = bootstrap_admin_totp(app, email, "pass1234").await;
     let totp_code = enabled["code"].as_str().expect("totp code");
     login_with_totp(app, email, "pass1234", totp_code).await
 }
@@ -480,6 +495,23 @@ impl Drop for PersistentRuntimeHarness {
             .status();
         let _ = fs::remove_file(&self.override_file);
     }
+}
+
+async fn bootstrap_admin_totp(app: &axum::Router, email: &str, password: &str) -> Value {
+    let response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/auth/admin-bootstrap")
+                .header("content-type", "application/json")
+                .body(Body::from(json!({ "email": email, "password": password }).to_string()))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    response_json(response).await
 }
 
 async fn enable_totp(app: &axum::Router, email: &str, session_token: &str) -> Value {
@@ -654,6 +686,7 @@ async fn match_order(
                         "address": address,
                         "amount": amount,
                         "tx_hash": tx_hash,
+                        "confirmations": 12,
                         "observed_at": observed_at,
                     })
                     .to_string(),
@@ -662,6 +695,12 @@ async fn match_order(
         )
         .await
         .unwrap()
+}
+
+fn parse_time(value: &str) -> DateTime<Utc> {
+    DateTime::parse_from_rfc3339(value)
+        .expect("valid time")
+        .with_timezone(&Utc)
 }
 
 async fn response_json(response: axum::response::Response) -> Value {
@@ -689,6 +728,8 @@ impl ApiServerHarness {
             .env("DATABASE_URL", runtime.database_url())
             .env("REDIS_URL", runtime.redis_url())
             .env("SESSION_TOKEN_SECRET", "grid-binance-dev-session-secret")
+            .env("APP_ENV", "test")
+            .env("AUTH_EMAIL_DELIVERY", "capture")
             .env("ADMIN_EMAILS", "admin@example.com")
             .env("SUPER_ADMIN_EMAILS", "super-admin@example.com")
             .env(
@@ -783,16 +824,34 @@ fn register_and_login_via_http(server: &ApiServerHarness, email: &str, password:
         .to_owned()
 }
 
-fn register_privileged_admin_and_login_via_http(server: &ApiServerHarness, email: &str) -> String {
-    let session_token = register_and_login_via_http(server, email, "pass1234");
-    let (enable_status, enable_body) = http_json(
+fn register_and_verify_via_http(server: &ApiServerHarness, email: &str, password: &str) {
+    let (register_status, register_body) = http_json(
         "POST",
-        &format!("{}/security/totp/enable", server.base_url()),
-        Some(&session_token),
-        Some(json!({ "email": email })),
+        &format!("{}/auth/register", server.base_url()),
+        None,
+        Some(json!({ "email": email, "password": password })),
     );
-    assert_eq!(enable_status, StatusCode::OK.as_u16());
-    let totp_code = enable_body["code"].as_str().expect("totp code");
+    assert_eq!(register_status, StatusCode::CREATED.as_u16());
+    let verification_code = register_body["verification_code"].as_str().expect("verification code").to_owned();
+    let (verify_status, _) = http_json(
+        "POST",
+        &format!("{}/auth/verify-email", server.base_url()),
+        None,
+        Some(json!({ "email": email, "code": verification_code })),
+    );
+    assert_eq!(verify_status, StatusCode::OK.as_u16());
+}
+
+fn register_privileged_admin_and_login_via_http(server: &ApiServerHarness, email: &str) -> String {
+    register_and_verify_via_http(server, email, "pass1234");
+    let (bootstrap_status, bootstrap_body) = http_json(
+        "POST",
+        &format!("{}/auth/admin-bootstrap", server.base_url()),
+        None,
+        Some(json!({ "email": email, "password": "pass1234" })),
+    );
+    assert_eq!(bootstrap_status, StatusCode::OK.as_u16());
+    let totp_code = bootstrap_body["code"].as_str().expect("totp code");
 
     let (login_status, login_body) = http_json(
         "POST",

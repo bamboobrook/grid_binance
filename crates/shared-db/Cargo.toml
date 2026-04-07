@@ -12,3 +12,4 @@ sqlx = { workspace = true }
 tokio = { workspace = true }
 shared-chain = { path = "../shared-chain" }
 shared-domain = { path = "../shared-domain" }
+shared-events = { path = "../shared-events" }

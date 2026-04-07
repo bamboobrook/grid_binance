@@ -129,6 +129,19 @@ pub struct WalletSnapshotView {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ExchangeTradeHistoryView {
+    pub trade_id: String,
+    pub exchange: String,
+    pub symbol: String,
+    pub side: String,
+    pub quantity: String,
+    pub price: String,
+    pub fee_amount: Option<String>,
+    pub fee_asset: Option<String>,
+    pub traded_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct AnalyticsReport {
     pub fills: Vec<FillProfitView>,
     pub strategies: Vec<StrategyProfitSummary>,
@@ -137,4 +150,5 @@ pub struct AnalyticsReport {
     pub strategy_snapshots: Vec<StrategySnapshotView>,
     pub account_snapshots: Vec<AccountSnapshotView>,
     pub wallets: Vec<WalletSnapshotView>,
+    pub exchange_trades: Vec<ExchangeTradeHistoryView>,
 }

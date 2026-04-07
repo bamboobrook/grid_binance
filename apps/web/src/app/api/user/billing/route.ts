@@ -1,7 +1,5 @@
 import { NextResponse } from "next/server";
 
-import { fetchBackendTruth, updateUserProductState } from "../../../../lib/api/user-product-state";
-
 const DEFAULT_AUTH_API_BASE_URL = "http://127.0.0.1:8080";
 
 export async function POST(request: Request) {
@@ -10,42 +8,41 @@ export async function POST(request: Request) {
   const chain = normalizeChain(readField(formData, "chain") || "bsc");
   const asset = normalizeAsset(readField(formData, "token") || "usdt");
   const sessionToken = readSessionToken(request);
-  const backendTruth = sessionToken ? await fetchBackendTruth(sessionToken) : null;
+  const profile = sessionToken ? await fetchProfile(sessionToken) : null;
 
-  if (!sessionToken || !backendTruth?.profile) {
+  if (!sessionToken || !profile?.email) {
     return NextResponse.redirect(new URL("/login?error=session+expired", request.url), { status: 303 });
   }
 
   const result = await createBillingOrder(sessionToken, {
-    email: backendTruth.profile.email,
+    email: profile.email,
     chain,
     asset,
     plan_code: planCode,
     requested_at: new Date().toISOString(),
   });
 
-  updateUserProductState(sessionToken, (state) => {
-    if (!result.ok) {
-      state.flash.billing = `Billing order failed: ${result.error}`;
-      return;
-    }
+  if (!result.ok) {
+    return NextResponse.redirect(new URL(`/app/billing?error=${encodeURIComponent(result.error)}`, request.url), { status: 303 });
+  }
 
-    const chainLabel = humanChainLabel(result.data.chain);
-    const nextOrder = {
-      id: String(result.data.order_id),
-      order: `ORD-${String(result.data.order_id).padStart(4, "0")}`,
-      chain: chainLabel,
-      token: result.data.asset,
-      amount: result.data.amount,
-      state: result.data.address ? "Awaiting exact transfer" : "Queued for address assignment",
-    };
-    state.billing.orders = [nextOrder, ...state.billing.orders.filter((order) => order.id !== nextOrder.id)];
-    state.flash.billing = result.data.address
-      ? `Send exactly ${result.data.amount} ${result.data.asset} on ${chainLabel}. Overpayment, underpayment, or wrong token will require manual review.`
-      : `Order queued for ${chainLabel} ${result.data.asset}. Exact amount ${result.data.amount} remains reserved while awaiting address assignment.`;
+  const chainLabel = humanChainLabel(result.data.chain);
+  const notice = result.data.address
+    ? `Send exactly ${result.data.amount} ${result.data.asset} on ${chainLabel} to ${result.data.address}. Address lock expires ${result.data.expires_at ?? "soon"}. Overpayment, underpayment, or wrong token will require manual review.`
+    : `Order queued for ${chainLabel} ${result.data.asset}. Exact amount ${result.data.amount} remains reserved while awaiting address assignment. Queue position ${result.data.queue_position ?? "pending"}.`;
+  return NextResponse.redirect(new URL(`/app/billing?notice=${encodeURIComponent(notice)}`, request.url), { status: 303 });
+}
+
+async function fetchProfile(sessionToken: string) {
+  const response = await fetch(`${authApiBaseUrl()}/profile`, {
+    method: "GET",
+    headers: { authorization: `Bearer ${sessionToken}` },
+    cache: "no-store",
   });
-
-  return NextResponse.redirect(new URL("/app/billing", request.url), { status: 303 });
+  if (!response.ok) {
+    return null;
+  }
+  return (await response.json()) as { email?: string };
 }
 
 async function createBillingOrder(
@@ -79,7 +76,9 @@ async function createBillingOrder(
       amount: string;
       asset: string;
       chain: string;
+      expires_at?: string | null;
       order_id: number;
+      queue_position?: number | null;
     },
   };
 }

@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 
-import { updateUserProductState } from "../../../../lib/api/user-product-state";
-
 const DEFAULT_AUTH_API_BASE_URL = "http://127.0.0.1:8080";
 const SESSION_TOKEN_COOKIE = "session_token";
+const PENDING_TOTP_SECRET_COOKIE = "pending_totp_secret";
+const PENDING_TOTP_CODE_COOKIE = "pending_totp_code";
 
 export async function POST(request: Request) {
   const formData = await request.formData();
@@ -16,26 +16,7 @@ export async function POST(request: Request) {
   }
 
   if (intent === "password") {
-    const currentPassword = readField(formData, "currentPassword");
-    const newPassword = readField(formData, "password");
-    const result = await authPost(
-      "/profile/password/change",
-      sessionToken,
-      { current_password: currentPassword, new_password: newPassword },
-    );
-
-    if (!result.ok) {
-      return NextResponse.redirect(new URL(`/app/security?error=${encodeURIComponent(result.error ?? "Password change failed")}`, request.url), { status: 303 });
-    }
-
-    updateUserProductState(sessionToken, (state) => {
-      state.security.passwordChangedAt = "2026-04-02 10:12";
-      state.flash.security = null;
-    });
-
-    const response = NextResponse.redirect(new URL("/login?security=password-updated", request.url), { status: 303 });
-    response.cookies.delete(SESSION_TOKEN_COOKIE);
-    return response;
+    return handlePasswordChange(request, sessionToken, readField(formData, "currentPassword"), readField(formData, "password"));
   }
 
   if (intent === "enable-totp") {
@@ -49,12 +30,22 @@ export async function POST(request: Request) {
       return NextResponse.redirect(new URL(`/app/security?error=${encodeURIComponent(result.error ?? "TOTP enable failed")}`, request.url), { status: 303 });
     }
 
-    updateUserProductState(sessionToken, (state) => {
-      state.security.totpEnabled = true;
-      state.flash.security = "TOTP enabled";
+    const secret = typeof result.data?.secret === "string" ? result.data.secret : "";
+    const code = typeof result.data?.code === "string" ? result.data.code : "";
+    const response = NextResponse.redirect(new URL("/app/security?security=totp-enabled", request.url), { status: 303 });
+    response.cookies.set(PENDING_TOTP_SECRET_COOKIE, secret, {
+      httpOnly: true,
+      path: "/",
+      sameSite: "lax",
+      secure: false,
     });
-
-    return NextResponse.redirect(new URL("/app/security", request.url), { status: 303 });
+    response.cookies.set(PENDING_TOTP_CODE_COOKIE, code, {
+      httpOnly: true,
+      path: "/",
+      sameSite: "lax",
+      secure: false,
+    });
+    return response;
   }
 
   if (intent === "disable-totp") {
@@ -68,17 +59,32 @@ export async function POST(request: Request) {
       return NextResponse.redirect(new URL(`/app/security?error=${encodeURIComponent(result.error ?? "TOTP disable failed")}`, request.url), { status: 303 });
     }
 
-    updateUserProductState(sessionToken, (state) => {
-      state.security.totpEnabled = false;
-      state.flash.security = null;
-    });
-
     const response = NextResponse.redirect(new URL("/login?security=totp-disabled", request.url), { status: 303 });
     response.cookies.delete(SESSION_TOKEN_COOKIE);
+    response.cookies.delete(PENDING_TOTP_SECRET_COOKIE);
+    response.cookies.delete(PENDING_TOTP_CODE_COOKIE);
     return response;
   }
 
   return NextResponse.redirect(new URL("/app/security", request.url), { status: 303 });
+}
+
+async function handlePasswordChange(request: Request, sessionToken: string, currentPassword: string, newPassword: string) {
+  const result = await authPost(
+    "/profile/password/change",
+    sessionToken,
+    { current_password: currentPassword, new_password: newPassword },
+  );
+
+  if (!result.ok) {
+    return NextResponse.redirect(new URL(`/app/security?error=${encodeURIComponent(result.error ?? "Password change failed")}`, request.url), { status: 303 });
+  }
+
+  const response = NextResponse.redirect(new URL("/login?security=password-updated", request.url), { status: 303 });
+  response.cookies.delete(SESSION_TOKEN_COOKIE);
+  response.cookies.delete(PENDING_TOTP_SECRET_COOKIE);
+  response.cookies.delete(PENDING_TOTP_CODE_COOKIE);
+  return response;
 }
 
 async function authPost(path: string, sessionToken: string, body: Record<string, string>) {

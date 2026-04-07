@@ -1,12 +1,50 @@
+import { cookies } from "next/headers";
+
 import { AppShellSection } from "../../../components/shell/app-shell-section";
 import { Card, CardBody, CardDescription, CardHeader, CardTitle } from "../../../components/ui/card";
 import { DialogFrame } from "../../../components/ui/dialog";
 import { Button, ButtonRow, Field, FormStack, Input, Select } from "../../../components/ui/form";
 import { StatusBanner } from "../../../components/ui/status-banner";
-import { getCurrentUserProductState } from "../../../lib/api/user-product-state";
 
-export default async function ExchangePage() {
-  const state = await getCurrentUserProductState();
+const DEFAULT_AUTH_API_BASE_URL = "http://127.0.0.1:8080";
+
+type ExchangePageProps = {
+  searchParams?: Promise<{
+    error?: string | string[];
+    exchange?: string | string[];
+  }>;
+};
+
+type ExchangeAccountResponse = {
+  account: {
+    api_key_masked: string;
+    connection_status: string;
+    selected_markets: string[];
+    validation: {
+      can_read_coinm: boolean;
+      can_read_spot: boolean;
+      can_read_usdm: boolean;
+      hedge_mode_ok: boolean;
+      market_access_ok: boolean;
+      permissions_ok: boolean;
+    };
+  };
+};
+
+function firstValue(value?: string | string[]) {
+  return Array.isArray(value) ? value[0] : value;
+}
+
+export default async function ExchangePage({ searchParams }: ExchangePageProps) {
+  const params = (await searchParams) ?? {};
+  const notice = firstValue(params.exchange);
+  const error = firstValue(params.error);
+  const account = await fetchExchangeAccount();
+  const positionMode = account ? (account.account.validation.hedge_mode_ok ? "hedge" : "one-way") : "hedge";
+  const healthy = account?.account.connection_status === "healthy";
+  const supportedScopes = account?.account.selected_markets?.length
+    ? account.account.selected_markets.map(labelForMarket)
+    : ["Spot", "USDⓈ-M", "COIN-M"];
 
   return (
     <>
@@ -15,17 +53,26 @@ export default async function ExchangePage() {
         title="Exchange credential workspace"
         tone="info"
       />
-      {state.flash.exchange ? (
+      {error ? <StatusBanner description={error} title="Exchange action failed" tone="warning" /> : null}
+      {notice === "credentials-saved" ? (
         <StatusBanner
-          description={
-            state.exchange.connectionStatus === "passed"
-              ? "Spot, USDⓈ-M, and COIN-M permissions verified. Hedge mode remains required before futures pre-flight can pass."
-              : state.flash.exchange === "Credentials saved"
-                ? "The key is masked immediately after persistence and withdrawal permission must remain disabled."
-                : state.flash.exchange
-          }
-          title={state.flash.exchange}
-          tone={state.exchange.connectionStatus === "failed" ? "warning" : "success"}
+          description="The key is masked immediately after persistence and withdrawal permission must remain disabled."
+          title="Credentials saved"
+          tone="success"
+        />
+      ) : null}
+      {notice === "test-passed" ? (
+        <StatusBanner
+          description="Spot, USDⓈ-M, and COIN-M permissions verified. Hedge mode remains required before futures pre-flight can pass."
+          title="Connection test passed"
+          tone="success"
+        />
+      ) : null}
+      {notice === "test-failed" ? (
+        <StatusBanner
+          description="The saved Binance account is reachable, but the latest validation snapshot is not healthy enough for futures pre-flight."
+          title="Connection test failed"
+          tone="warning"
         />
       ) : null}
       <AppShellSection
@@ -48,7 +95,7 @@ export default async function ExchangePage() {
                   <Input name="apiSecret" type="password" />
                 </Field>
                 <Field hint="Required for futures strategies in V1." label="Position mode">
-                  <Select defaultValue={state.exchange.positionMode} name="positionMode">
+                  <Select defaultValue={positionMode} name="positionMode">
                     <option value="hedge">Hedge mode</option>
                     <option value="one-way">One-way</option>
                   </Select>
@@ -71,16 +118,32 @@ export default async function ExchangePage() {
             </CardHeader>
             <CardBody>
               <ul className="text-list">
-                <li>Masked API key: {state.exchange.apiKeyMasked ?? "Not saved yet"}</li>
-                <li>API secret: {state.exchange.saved ? "••••••••••••••••" : "Not saved yet"}</li>
-                <li>Connection status: {state.exchange.connectionStatus === "passed" ? "Verified" : state.exchange.saved ? "Saved, not tested" : "Not connected"}</li>
-                <li>Supported scopes: {state.exchange.supportedScopes.join(", ")}</li>
+                <li>Masked API key: {account?.account.api_key_masked ?? "Not saved yet"}</li>
+                <li>API secret: {account ? "••••••••••••••••" : "Not saved yet"}</li>
+                <li>Connection status: {account ? healthy ? "Verified" : "Degraded" : "Not connected"}</li>
+                <li>Supported scopes: {supportedScopes.join(", ")}</li>
                 <li>Symbol metadata sync: Every 1 hour</li>
               </ul>
             </CardBody>
           </Card>
         </div>
       </AppShellSection>
+      <Card>
+        <CardHeader>
+          <CardTitle>Validation details</CardTitle>
+          <CardDescription>Connection testing now shows which exchange checks passed and which one blocks futures starts.</CardDescription>
+        </CardHeader>
+        <CardBody>
+          <ul className="text-list">
+            <li>Spot readable: {account?.account.validation.can_read_spot ? "Yes" : "No"}</li>
+            <li>USDⓈ-M readable: {account?.account.validation.can_read_usdm ? "Yes" : "No"}</li>
+            <li>COIN-M readable: {account?.account.validation.can_read_coinm ? "Yes" : "No"}</li>
+            <li>Permissions OK: {account?.account.validation.permissions_ok ? "Yes" : "No"}</li>
+            <li>Market access OK: {account?.account.validation.market_access_ok ? "Yes" : "No"}</li>
+            <li>Hedge mode OK: {account?.account.validation.hedge_mode_ok ? "Yes" : "No"}</li>
+          </ul>
+        </CardBody>
+      </Card>
       <DialogFrame
         description="If hedge mode, balance, or exchange filters do not match runtime requirements, strategy pre-flight must fail fast with the exact reason."
         title="Trading-critical warning"
@@ -88,4 +151,43 @@ export default async function ExchangePage() {
       />
     </>
   );
+}
+
+async function fetchExchangeAccount(): Promise<ExchangeAccountResponse | null> {
+  const cookieStore = await cookies();
+  const sessionToken = cookieStore.get("session_token")?.value ?? "";
+  if (!sessionToken) {
+    return null;
+  }
+
+  const response = await fetch(`${authApiBaseUrl()}/exchange/binance/account`, {
+    method: "GET",
+    headers: {
+      authorization: `Bearer ${sessionToken}`,
+    },
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    return null;
+  }
+
+  return (await response.json()) as ExchangeAccountResponse;
+}
+
+function labelForMarket(value: string) {
+  switch (value) {
+    case "spot":
+      return "Spot";
+    case "usdm":
+      return "USDⓈ-M";
+    case "coinm":
+      return "COIN-M";
+    default:
+      return value;
+  }
+}
+
+function authApiBaseUrl() {
+  return process.env.AUTH_API_BASE_URL?.trim().replace(/\/+$/, "") || DEFAULT_AUTH_API_BASE_URL;
 }

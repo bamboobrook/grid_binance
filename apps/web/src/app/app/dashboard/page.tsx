@@ -1,35 +1,92 @@
 import Link from "next/link";
+import { cookies } from "next/headers";
 
 import { AppShellSection } from "../../../components/shell/app-shell-section";
 import { Card, CardBody, CardDescription, CardHeader, CardTitle } from "../../../components/ui/card";
 import { Chip } from "../../../components/ui/chip";
 import { StatusBanner } from "../../../components/ui/status-banner";
 import { DataTable } from "../../../components/ui/table";
-import { getCurrentUserProductState } from "../../../lib/api/user-product-state";
+
+const DEFAULT_AUTH_API_BASE_URL = "http://127.0.0.1:8080";
+
+type AnalyticsReport = {
+  account_snapshots: Array<{
+    captured_at: string;
+    exchange: string;
+    fees_paid: string;
+    funding_total: string;
+    unrealized_pnl: string;
+  }>;
+  fills: Array<{
+    net_pnl: string;
+    realized_pnl: string;
+    strategy_id: string;
+    symbol: string;
+  }>;
+  user: {
+    fees_paid: string;
+    funding_total: string;
+    net_pnl: string;
+    realized_pnl: string;
+    unrealized_pnl: string;
+    wallet_asset_count: number;
+  };
+  wallets: Array<{
+    balances: Record<string, string>;
+    exchange: string;
+    wallet_type: string;
+  }>;
+};
+
+type StrategyListResponse = {
+  items: Array<{
+    id: string;
+    status: string;
+    symbol: string;
+  }>;
+};
+
+type BillingOverview = {
+  membership: {
+    active_until?: string | null;
+    grace_until?: string | null;
+    status: string;
+  };
+};
 
 export default async function DashboardPage() {
-  const state = await getCurrentUserProductState();
-  const runningCount = state.strategies.filter((item) => item.status === "running").length;
-  const errorPausedCount = state.strategies.filter((item) => item.status === "error_paused").length;
+  const [analytics, strategies, billing] = await Promise.all([
+    fetchAnalytics(),
+    fetchStrategies(),
+    fetchBillingOverview(),
+  ]);
+  const runningCount = strategies.filter((item) => item.status === "Running").length;
+  const errorPausedCount = strategies.filter((item) => item.status === "ErrorPaused").length;
+  const membership = billing?.membership;
+  const latestWallet = analytics?.wallets[0] ?? null;
+  const walletSummary = latestWallet
+    ? Object.entries(latestWallet.balances)
+        .slice(0, 4)
+        .map(([asset, amount]) => `${asset} ${amount}`)
+        .join(" | ")
+    : "Unavailable";
 
   const metrics = [
-    { label: "Wallet balance", value: "18,420 USDT", detail: "Spot, futures, and pending billing reserves." },
-    { label: "Total realized PnL", value: "+1,632.44 USDT", detail: "Closed cycles across all strategies." },
-    { label: "Total unrealized PnL", value: "+192.51 USDT", detail: "Open inventory and futures mark-to-market." },
-    { label: "Total fees", value: "-231.08 USDT", detail: "Maker, taker, and settlement fees combined." },
-    { label: "Total funding fees", value: "-18.42 USDT", detail: "Applies only to active futures exposure." },
-    { label: "Net profit", value: "+1,284.20 USDT", detail: "Realized plus unrealized minus fees and funding." },
+    { label: "Total realized PnL", value: analytics?.user.realized_pnl ?? "-", detail: "Closed cycles across all strategies." },
+    { label: "Total unrealized PnL", value: analytics?.user.unrealized_pnl ?? "-", detail: "Open inventory and futures mark-to-market." },
+    { label: "Total fees", value: analytics?.user.fees_paid ?? "-", detail: "Maker, taker, and settlement fees combined." },
+    { label: "Total funding fees", value: analytics?.user.funding_total ?? "-", detail: "Applies only to active futures exposure." },
+    { label: "Net profit", value: analytics?.user.net_pnl ?? "-", detail: "Realized plus unrealized minus fees and funding." },
     { label: "Running strategies", value: String(runningCount), detail: "Eligible to keep operating during grace only while entitlement is valid." },
     { label: "Error-paused strategies", value: String(errorPausedCount), detail: "Require remediation before restart is allowed." },
-    { label: "Membership status", value: state.billing.membershipStatus, detail: state.billing.membershipStatus === "Unknown" ? "Entitlement truth is temporarily unavailable; starts remain fail-closed." : `Next renewal ${state.billing.nextRenewalAt}, grace ends ${state.billing.graceEndsAt}.` },
+    { label: "Membership status", value: membership?.status ?? "Unknown", detail: membership?.active_until ? `Next renewal ${membership.active_until.slice(0, 10)}, grace ends ${membership.grace_until?.slice(0, 10) ?? "-"}.` : "Entitlement truth is temporarily unavailable; starts remain fail-closed." },
+    { label: "Wallet assets", value: String(analytics?.user.wallet_asset_count ?? 0), detail: walletSummary },
   ];
 
   const actionQueue = [
     {
-      title: state.exchange.connectionStatus === "passed" ? "Exchange connection healthy" : "Complete exchange connection test",
-      description: state.exchange.connectionStatus === "passed"
-        ? "Spot, USDⓈ-M, and COIN-M permissions are already verified."
-        : "Save masked Binance credentials, then verify spot and futures permissions.",
+      title: "Complete exchange connection test",
+      description: "Save masked Binance credentials, then verify spot and futures permissions.",
       href: "/app/exchange",
       action: "Review exchange setup",
     },
@@ -38,7 +95,7 @@ export default async function DashboardPage() {
       description: errorPausedCount > 0
         ? "Investigate the blocked strategy, then re-run pre-flight before restart."
         : "Open a strategy workspace to review independent PnL, fees, and cost basis.",
-      href: `/app/strategies/${state.strategies.find((item) => item.status === "error_paused")?.id ?? state.strategies[0]?.id ?? ""}`,
+      href: `/app/strategies/${strategies.find((item) => item.status === "ErrorPaused")?.id ?? strategies[0]?.id ?? ""}`,
       action: "Open strategy workspace",
     },
     {
@@ -100,9 +157,9 @@ export default async function DashboardPage() {
           </CardHeader>
           <CardBody>
             <ul className="text-list">
-              <li>Membership status: {state.billing.membershipStatus}</li>
-              <li>Next renewal: {state.billing.nextRenewalAt}</li>
-              <li>Grace period ends: {state.billing.graceEndsAt}</li>
+              <li>Membership status: {membership?.status ?? "Unknown"}</li>
+              <li>Next renewal: {membership?.active_until?.slice(0, 10) ?? "Unavailable"}</li>
+              <li>Grace period ends: {membership?.grace_until?.slice(0, 10) ?? "Unavailable"}</li>
               <li>New starts are blocked when grace expires.</li>
               <li>Telegram reminders are active for membership and runtime incidents.</li>
             </ul>
@@ -119,13 +176,14 @@ export default async function DashboardPage() {
             <DataTable
               columns={[
                 { key: "symbol", label: "Symbol" },
-                { key: "side", label: "Side" },
                 { key: "pnl", label: "PnL", align: "right" },
                 { key: "state", label: "State", align: "right" },
               ]}
-              rows={state.recentFills.map((fill) => ({
-                ...fill,
-                state: <Chip tone={fill.state === "Trailing TP" ? "warning" : "success"}>{fill.state}</Chip>,
+              rows={(analytics?.fills ?? []).map((fill, index) => ({
+                id: `${fill.strategy_id}-${index}`,
+                symbol: fill.symbol,
+                pnl: fill.net_pnl || fill.realized_pnl,
+                state: <Chip tone={(fill.net_pnl || fill.realized_pnl).startsWith("-") ? "warning" : "success"}>{(fill.net_pnl || fill.realized_pnl).startsWith("-") ? "Trailing TP" : "Settled"}</Chip>,
               }))}
             />
           </CardBody>
@@ -133,20 +191,80 @@ export default async function DashboardPage() {
         <Card tone="subtle">
           <CardHeader>
             <CardTitle>Exchange account activity</CardTitle>
-            <CardDescription>Account-level history supports analytics, reconciliation, and user trust.</CardDescription>
+            <CardDescription>Latest account snapshots come from backend analytics instead of strategy placeholders.</CardDescription>
           </CardHeader>
           <CardBody>
             <DataTable
               columns={[
-                { key: "at", label: "Timestamp" },
-                { key: "activity", label: "Activity" },
+                { key: "capturedAt", label: "Captured" },
+                { key: "exchange", label: "Exchange" },
                 { key: "detail", label: "Detail", align: "right" },
               ]}
-              rows={state.tradeHistory}
+              rows={(analytics?.account_snapshots ?? []).map((item, index) => ({
+                id: `${item.exchange}-${index}`,
+                capturedAt: item.captured_at,
+                exchange: item.exchange,
+                detail: `Fees ${item.fees_paid} | Funding ${item.funding_total} | Unrealized ${item.unrealized_pnl}`,
+              }))}
             />
           </CardBody>
         </Card>
       </div>
     </>
   );
+}
+
+async function fetchAnalytics(): Promise<AnalyticsReport | null> {
+  const cookieStore = await cookies();
+  const sessionToken = cookieStore.get("session_token")?.value ?? "";
+  if (!sessionToken) {
+    return null;
+  }
+  const response = await fetch(`${authApiBaseUrl()}/analytics`, {
+    method: "GET",
+    headers: { authorization: `Bearer ${sessionToken}` },
+    cache: "no-store",
+  });
+  if (!response.ok) {
+    return null;
+  }
+  return (await response.json()) as AnalyticsReport;
+}
+
+async function fetchStrategies(): Promise<StrategyListResponse["items"]> {
+  const cookieStore = await cookies();
+  const sessionToken = cookieStore.get("session_token")?.value ?? "";
+  if (!sessionToken) {
+    return [];
+  }
+  const response = await fetch(`${authApiBaseUrl()}/strategies`, {
+    method: "GET",
+    headers: { authorization: `Bearer ${sessionToken}` },
+    cache: "no-store",
+  });
+  if (!response.ok) {
+    return [];
+  }
+  return ((await response.json()) as StrategyListResponse).items;
+}
+
+async function fetchBillingOverview(): Promise<BillingOverview | null> {
+  const cookieStore = await cookies();
+  const sessionToken = cookieStore.get("session_token")?.value ?? "";
+  if (!sessionToken) {
+    return null;
+  }
+  const response = await fetch(`${authApiBaseUrl()}/billing/overview`, {
+    method: "GET",
+    headers: { authorization: `Bearer ${sessionToken}` },
+    cache: "no-store",
+  });
+  if (!response.ok) {
+    return null;
+  }
+  return (await response.json()) as BillingOverview;
+}
+
+function authApiBaseUrl() {
+  return process.env.AUTH_API_BASE_URL?.trim().replace(/\/+$/, "") || DEFAULT_AUTH_API_BASE_URL;
 }
