@@ -1,6 +1,8 @@
+"use client";
+
 import Link from "next/link";
 
-import { Chip } from "./chip";
+import { Chip, useUiCopy } from "./chip";
 
 export type TabItem = {
   badge?: string;
@@ -11,14 +13,16 @@ export type TabItem = {
 export function Tabs({
   activeHref,
   items,
-  label = "Page sections",
+  label,
 }: {
   activeHref: string;
   items: readonly TabItem[];
   label?: string;
 }) {
+  const resolvedLabel = label ?? useUiCopy("页面分区", "Page sections");
+
   return (
-    <nav aria-label={label} className="ui-tabs">
+    <nav aria-label={resolvedLabel} className="ui-tabs">
       {items.map((item) => {
         const isActive = item.href === activeHref;
 
@@ -29,8 +33,12 @@ export function Tabs({
             href={item.href}
             key={item.href}
           >
-            <span>{item.label}</span>
-            {item.badge ? <Chip tone={isActive ? "info" : "default"}>{item.badge}</Chip> : null}
+            <span className="ui-tab__label">{item.label}</span>
+            {item.badge ? (
+              <span className="ui-tab__meta">
+                <Chip tone={isActive ? "warning" : "default"}>{item.badge}</Chip>
+              </span>
+            ) : null}
           </Link>
         );
       })}

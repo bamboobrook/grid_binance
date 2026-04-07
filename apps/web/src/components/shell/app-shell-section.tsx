@@ -22,14 +22,14 @@ export function AppShellSection({
   return (
     <section className={cx("app-section", className)}>
       <header className="app-section__header">
-        <div>
+        <div className="app-section__copy">
           {eyebrow ? <p className="app-section__eyebrow">{eyebrow}</p> : null}
           <h1 className="app-section__title">{title}</h1>
           {description ? <p className="app-section__description">{description}</p> : null}
         </div>
         {actions ? <div className="app-section__actions">{actions}</div> : null}
       </header>
-      {children}
+      <div className="app-section__content">{children}</div>
     </section>
   );
 }

@@ -18,11 +18,19 @@ type SlotProps = {
 };
 
 export function Card({ children, className, tone = "default" }: CardProps) {
-  return <section className={cx("ui-card", tone !== "default" && `ui-card--${tone}`, className)}>{children}</section>;
+  return (
+    <section className={cx("ui-card", tone !== "default" && `ui-card--${tone}`, className)} data-tone={tone}>
+      {children}
+    </section>
+  );
 }
 
 export function CardHeader({ children, className }: SlotProps) {
   return <header className={cx("ui-card__header", className)}>{children}</header>;
+}
+
+export function CardEyebrow({ children, className }: SlotProps) {
+  return <p className={cx("ui-card__eyebrow", className)}>{children}</p>;
 }
 
 export function CardTitle({ children, className }: SlotProps) {

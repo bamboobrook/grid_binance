@@ -1,0 +1,1 @@
+{"common": {"sidebar": {"dashboard": "控制台", "strategies": "策略列表", "orders": "订单管理", "exchange": "交易所"}, "topbar": {"title": "网格交易平台", "search": "搜索市场..."}, "gridConfig": {"title": "网格机器人配置", "pair": "交易对", "upperLimit": "上限价格", "lowerLimit": "下限价格", "gridCount": "网格数量", "investment": "投入金额", "create": "创建机器人"}}}

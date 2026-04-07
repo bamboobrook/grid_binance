@@ -34,9 +34,11 @@ export function Field({
 }) {
   return (
     <label className="ui-field">
-      <span className="ui-field__label">{label}</span>
+      <span className="ui-field__meta">
+        <span className="ui-field__label">{label}</span>
+        {hint ? <span className="ui-field__hint">{hint}</span> : null}
+      </span>
       {children}
-      {hint ? <span className="ui-field__hint">{hint}</span> : null}
     </label>
   );
 }
@@ -65,10 +67,17 @@ export function Button({
 }: ButtonHTMLAttributes<HTMLButtonElement> & {
   children: ReactNode;
   className?: string;
-  tone?: "primary" | "secondary";
+  tone?: "primary" | "secondary" | "danger";
 }) {
   return (
-    <button className={cx("button", tone === "secondary" && "button--ghost", className)} {...props}>
+    <button
+      className={cx(
+        "button",
+        (tone === "secondary" || tone === "danger") && `button--${tone === "secondary" ? "ghost" : tone}`,
+        className,
+      )}
+      {...props}
+    >
       {children}
     </button>
   );
