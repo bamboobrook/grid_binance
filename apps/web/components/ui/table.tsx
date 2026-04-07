@@ -25,14 +25,14 @@ export function DataTable({
   const resolvedEmptyMessage = emptyMessage ?? "No matching records.";
 
   return (
-    <div className="w-full overflow-x-auto rounded-sm border border-slate-800 bg-[#131b2c]">
+    <div className="w-full overflow-x-auto rounded-sm border border-border bg-card">
       <table className="w-full text-left text-sm">
         {caption ? (
-          <caption className="text-xs text-slate-500 font-bold uppercase tracking-wider text-left p-4 pb-2">
+          <caption className="text-xs text-muted-foreground font-bold uppercase tracking-wider text-left p-4 pb-2">
             {caption}
           </caption>
         ) : null}
-        <thead className="bg-[#0a101d] text-slate-500 text-[10px] uppercase tracking-wider border-b border-slate-800">
+        <thead className="bg-muted text-muted-foreground text-[10px] uppercase tracking-wider border-b border-border">
           <tr>
             {columns.map((column) => (
               <th 
@@ -51,16 +51,16 @@ export function DataTable({
         <tbody className="divide-y divide-slate-800/50">
           {rows.length === 0 ? (
             <tr>
-              <td className="px-4 py-8 text-center text-xs text-slate-500" colSpan={columns.length}>
+              <td className="px-4 py-8 text-center text-xs text-muted-foreground" colSpan={columns.length}>
                 {resolvedEmptyMessage}
               </td>
             </tr>
           ) : null}
           {rows.map((row) => (
-            <tr key={row.id} className="hover:bg-slate-800/30 transition-colors">
+            <tr key={row.id} className="hover:bg-secondary/30 transition-colors">
               {columns.map((column) => (
                 <td 
-                  className={cn("px-4 py-3 text-xs text-slate-300 font-mono", {
+                  className={cn("px-4 py-3 text-xs text-foreground font-mono", {
                     "text-right": column.align === "right",
                     "text-center": column.align === "center",
                   })} 

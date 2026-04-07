@@ -33,10 +33,10 @@ export default async function PasswordResetPage({ params, searchParams }: Passwo
   return (
     <div className="w-full max-w-[420px] space-y-6">
       <div className="text-center space-y-2">
-        <h1 className="text-2xl font-bold tracking-tight text-white">
+        <h1 className="text-2xl font-bold tracking-tight text-foreground">
           {step === "confirm" ? pickText(lang, "设置新密码", "Reset your password") : pickText(lang, "密码重置", "Password Reset")}
         </h1>
-        <p className="text-sm text-slate-400">
+        <p className="text-sm text-muted-foreground">
           {step === "confirm" 
             ? pickText(lang, "输入邮箱收到的验证码，完成密码重置。", "Complete the reset with the code sent to your email inbox.") 
             : pickText(lang, "先申请验证码，再去邮箱查看。", "Request a password reset code first, then check your email for the code.")}
@@ -59,7 +59,7 @@ export default async function PasswordResetPage({ params, searchParams }: Passwo
         />
       )}
 
-      <Card className="bg-[#131b2c] border-slate-800 shadow-xl">
+      <Card className="bg-card border-border shadow-xl">
         <CardBody className="p-6">
           <FormStack action={`/api/auth/password-reset?locale=${locale}`} method="post" className="space-y-5">
             <input name="intent" type="hidden" value={step} />
@@ -71,7 +71,7 @@ export default async function PasswordResetPage({ params, searchParams }: Passwo
                 name="email" 
                 required 
                 type="email" 
-                className="bg-slate-900 border-slate-700 h-10 text-sm"
+                className="bg-input border-border h-10 text-sm"
                 placeholder="name@example.com"
               />
             </Field>
@@ -85,7 +85,7 @@ export default async function PasswordResetPage({ params, searchParams }: Passwo
                     name="code" 
                     required 
                     pattern="[0-9]{6}" 
-                    className="bg-slate-900 border-slate-700 h-10 font-mono text-center tracking-widest text-lg"
+                    className="bg-input border-border h-10 font-mono text-center tracking-widest text-lg"
                     placeholder="000000"
                   />
                 </Field>
@@ -95,7 +95,7 @@ export default async function PasswordResetPage({ params, searchParams }: Passwo
                     name="password" 
                     required 
                     type="password" 
-                    className="bg-slate-900 border-slate-700 h-10 text-sm"
+                    className="bg-input border-border h-10 text-sm"
                     placeholder="••••••••"
                   />
                 </Field>
@@ -108,8 +108,8 @@ export default async function PasswordResetPage({ params, searchParams }: Passwo
             </Button>
           </FormStack>
         </CardBody>
-        <div className="border-t border-slate-800/60 bg-slate-800/30 p-4 text-center flex flex-col gap-2">
-          <Link href={`/${locale}/login`} className="text-xs text-slate-400 hover:text-white transition-colors">
+        <div className="border-t border-border/60 bg-secondary/30 p-4 text-center flex flex-col gap-2">
+          <Link href={`/${locale}/login`} className="text-xs text-muted-foreground hover:text-foreground transition-colors">
             {pickText(lang, "返回登录", "Back to login")}
           </Link>
           <Link href={`/${locale}/register`} className="text-xs text-primary hover:underline font-semibold">

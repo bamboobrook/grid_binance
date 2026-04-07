@@ -5,59 +5,46 @@ import { usePathname, useRouter } from 'next/navigation';
 import { Globe, Search, Bell, Plus, ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '../ui/form';
+import { LocaleToggle } from '../ui/locale-toggle';
+import { ThemeToggle } from '../ui/theme-toggle';
 
 export function Topbar() {
   const t = useTranslations('common.topbar');
   const locale = useLocale();
-  const router = useRouter();
-  const pathname = usePathname();
-
-  const toggleLocale = () => {
-    const nextLocale = locale === 'en' ? 'zh' : 'en';
-    const newPath = pathname.replace(`/${locale}`, `/${nextLocale}`);
-    router.push(newPath);
-  };
 
   return (
     <header className="h-14 border-b border-border bg-background flex items-center justify-between px-4 sticky top-0 z-20">
       <div className="flex items-center flex-1 max-w-sm">
         <div className="relative w-full group hidden md:block">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <input 
             type="text" 
             placeholder={t('search')} 
-            className="w-full bg-slate-900 border border-slate-800 focus:border-primary/50 focus:ring-1 focus:ring-primary/20 rounded-sm pl-9 pr-3 py-1.5 text-xs outline-none transition-all placeholder:text-slate-500 text-slate-300"
+            className="w-full bg-input border border-border focus:border-primary/50 focus:ring-1 focus:ring-primary/20 rounded-sm pl-9 pr-3 py-1.5 text-xs outline-none transition-all placeholder:text-muted-foreground text-foreground"
           />
         </div>
       </div>
 
       <div className="flex items-center gap-3">
         {/* Exchange Status (Fake for UI) */}
-        <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-slate-800/50 border border-slate-700/50 rounded-sm cursor-pointer hover:bg-slate-800 transition-colors">
+        <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-secondary/50 border border-border/50 rounded-sm cursor-pointer hover:bg-secondary transition-colors">
           <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-          <span className="text-xs font-semibold text-slate-300">Binance Spot</span>
-          <ChevronDown className="w-3 h-3 text-slate-500" />
+          <span className="text-xs font-semibold text-foreground">Binance Spot</span>
+          <ChevronDown className="w-3 h-3 text-muted-foreground" />
         </div>
 
         {/* Global Create Button */}
-        <Button size="sm" className="h-7 px-3 text-xs bg-primary text-white hidden sm:flex">
+        <Button size="sm" className="h-7 px-3 text-xs bg-primary text-foreground hidden sm:flex">
           <Plus className="w-3 h-3 mr-1" /> Create Bot
         </Button>
 
-        <div className="h-6 w-px bg-slate-800 mx-1" />
+        <div className="h-6 w-px bg-secondary mx-1" />
 
-        {/* Locale Toggle */}
-        <button
-          onClick={toggleLocale}
-          className="flex items-center gap-1.5 p-1.5 rounded-sm hover:bg-slate-800 text-slate-400 transition-colors"
-          title="Toggle Language"
-        >
-          <Globe className="w-4 h-4" />
-          <span className="text-xs font-bold uppercase">{locale}</span>
-        </button>
+        <ThemeToggle />
+        <LocaleToggle />
 
         {/* Notifications */}
-        <button className="p-1.5 rounded-sm hover:bg-slate-800 text-slate-400 transition-colors relative">
+        <button className="p-1.5 rounded-sm hover:bg-secondary text-muted-foreground transition-colors relative">
           <Bell className="w-4 h-4" />
           <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-destructive border border-background" />
         </button>

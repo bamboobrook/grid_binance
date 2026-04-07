@@ -40,7 +40,7 @@ export function StatusBanner({
       <div className="flex gap-3">
         <Icon className="w-5 h-5 shrink-0 mt-0.5" />
         <div className="space-y-1">
-          <h4 className="text-sm font-bold text-slate-200">{title}</h4>
+          <h4 className="text-sm font-bold text-foreground">{title}</h4>
           <div className="text-xs opacity-90 leading-relaxed max-w-3xl">{description}</div>
           {extra && <div className="text-xs pt-2">{extra}</div>}
         </div>

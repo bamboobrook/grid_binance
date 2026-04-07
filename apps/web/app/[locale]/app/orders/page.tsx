@@ -99,8 +99,8 @@ export default async function OrdersPage() {
         title={pickText(lang, "订单与历史", "Orders & History")}
         actions={
           <div className="flex items-center gap-2">
-            <a className="inline-flex items-center justify-center rounded-sm text-sm font-medium h-9 px-4 py-2 hover:bg-slate-800 text-slate-300 transition-colors" href="/api/user/exports/orders">{pickText(lang, "导出订单 CSV", "Download orders CSV")}</a>
-            <a className="inline-flex items-center justify-center rounded-sm text-sm font-medium h-9 px-4 py-2 hover:bg-slate-800 text-slate-300 transition-colors" href="/api/user/exports/fills">{pickText(lang, "导出成交 CSV", "Download fills CSV")}</a>
+            <a className="inline-flex items-center justify-center rounded-sm text-sm font-medium h-9 px-4 py-2 hover:bg-secondary text-foreground transition-colors" href="/api/user/exports/orders">{pickText(lang, "导出订单 CSV", "Download orders CSV")}</a>
+            <a className="inline-flex items-center justify-center rounded-sm text-sm font-medium h-9 px-4 py-2 hover:bg-secondary text-foreground transition-colors" href="/api/user/exports/fills">{pickText(lang, "导出成交 CSV", "Download fills CSV")}</a>
           </div>
         }
       >

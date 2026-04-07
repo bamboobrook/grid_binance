@@ -29,6 +29,49 @@
       }
     }
   },
+  "home": {
+    "poweredBy": "Powered by Binance API",
+    "title1": "The Ultimate Grid",
+    "title2": "Trading Console",
+    "subtitle": "Master the markets with professional-grade grid bots. Automate your strategy, manage risk, and track performance with precision.",
+    "advancedGrid": "Advanced Grid & DCA Bots",
+    "launch": "Launch Terminal",
+    "createAccount": "Create Account",
+    "startFree": "Start trading for free",
+    "viewDemo": "View Demo Account",
+    "features": {
+      "smartGrids": {
+        "title": "Smart Grids",
+        "desc": "Deploy sophisticated classic, long, or short grid strategies with dynamic spacing and volume control."
+      },
+      "riskGuardrails": {
+        "title": "Risk Guardrails",
+        "desc": "Built-in pre-flight checks, hedging requirements, and real-time monitoring to protect your capital."
+      },
+      "globalReach": {
+        "title": "Global Reach",
+        "desc": "Full multi-language support and multi-currency tracking for traders across the globe."
+      },
+      "smartTrade": {
+        "title": "SmartTrade Terminal",
+        "desc": "Execute advanced orders with built-in Take Profit and Stop Loss. Manage your entire portfolio from a single, powerful interface."
+      },
+      "dcaBots": {
+        "title": "Grid & DCA Bots",
+        "desc": "Profit from market volatility 24/7. Run classic, long, or short strategies completely hands-free with optimized algorithms."
+      },
+      "riskManagement": {
+        "title": "Risk Management",
+        "desc": "Set global portfolio safeguards, trailed stops, and timeout rules. Your funds stay safe on the exchange via secure API connections."
+      }
+    },
+    "footer": {
+      "terms": "Terms",
+      "privacy": "Privacy",
+      "helpCenter": "Help Center",
+      "copyright": "© 2026 Trading Console. Designed for professionals."
+    }
+  },
   "dashboard": {
     "title": "Trading Cockpit",
     "subtitle": "Performance overview and account activity",

@@ -40,10 +40,10 @@ export function Sidebar() {
   };
 
   return (
-    <aside className="w-60 bg-[#0a101d] border-r border-border hidden md:flex flex-col text-slate-300">
+    <aside className="w-60 bg-muted border-r border-border hidden md:flex flex-col text-foreground">
       {/* Brand */}
-      <div className="h-14 flex items-center px-4 font-bold text-white tracking-wide border-b border-border/50">
-        <div className="w-6 h-6 rounded bg-primary flex items-center justify-center mr-3 text-white">
+      <div className="h-14 flex items-center px-4 font-bold text-foreground tracking-wide border-b border-border/50">
+        <div className="w-6 h-6 rounded bg-primary flex items-center justify-center mr-3 text-foreground">
           <Bot className="w-4 h-4" />
         </div>
         Grid.Binance
@@ -51,7 +51,7 @@ export function Sidebar() {
 
       {/* Main Navigation */}
       <nav className="flex-1 py-4 px-2 space-y-1 overflow-y-auto">
-        <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 px-2">Trading</div>
+        <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-2 px-2">Trading</div>
         {navItems.map((item) => {
           const active = isCurrent(item.href);
           return (
@@ -62,10 +62,10 @@ export function Sidebar() {
                 "flex items-center gap-3 px-3 py-2 rounded-sm text-sm font-medium transition-colors",
                 active 
                   ? "bg-primary/10 text-primary" 
-                  : "hover:bg-slate-800/50 hover:text-white"
+                  : "hover:bg-secondary/50 hover:text-foreground"
               )}
             >
-              <item.icon className={cn("w-4 h-4", active ? "text-primary" : "text-slate-400")} />
+              <item.icon className={cn("w-4 h-4", active ? "text-primary" : "text-muted-foreground")} />
               {item.name}
             </Link>
           );
@@ -78,15 +78,15 @@ export function Sidebar() {
           <Link
             key={item.href}
             href={`/en${item.href}`}
-            className="flex items-center gap-3 px-3 py-2 rounded-sm text-sm font-medium transition-colors hover:bg-slate-800/50 hover:text-white"
+            className="flex items-center gap-3 px-3 py-2 rounded-sm text-sm font-medium transition-colors hover:bg-secondary/50 hover:text-foreground"
           >
-            <item.icon className="w-4 h-4 text-slate-400" />
+            <item.icon className="w-4 h-4 text-muted-foreground" />
             {item.name}
           </Link>
         ))}
         <Link
           href="/en/help"
-          className="flex items-center gap-3 px-3 py-2 rounded-sm text-sm font-medium transition-colors hover:bg-slate-800/50 hover:text-white mt-4 text-slate-400"
+          className="flex items-center gap-3 px-3 py-2 rounded-sm text-sm font-medium transition-colors hover:bg-secondary/50 hover:text-foreground mt-4 text-muted-foreground"
         >
           <HelpCircle className="w-4 h-4" />
           {t('help')}

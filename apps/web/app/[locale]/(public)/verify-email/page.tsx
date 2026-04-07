@@ -33,10 +33,10 @@ export default async function VerifyEmailPage({ params, searchParams }: VerifyEm
   return (
     <div className="w-full max-w-[420px] space-y-6">
       <div className="text-center space-y-2">
-        <h1 className="text-2xl font-bold tracking-tight text-white">
+        <h1 className="text-2xl font-bold tracking-tight text-foreground">
           {pickText(lang, "验证邮箱", "Verify Email")}
         </h1>
-        <p className="text-sm text-slate-400">
+        <p className="text-sm text-muted-foreground">
           {pickText(lang, "请输入注册邮箱收到的验证码，完成首次验证。", "Confirm the verification code delivered to the email address used during registration.")}
         </p>
       </div>
@@ -53,7 +53,7 @@ export default async function VerifyEmailPage({ params, searchParams }: VerifyEm
         />
       )}
 
-      <Card className="bg-[#131b2c] border-slate-800 shadow-xl">
+      <Card className="bg-card border-border shadow-xl">
         <CardBody className="p-6">
           <FormStack action={`/api/auth/verify-email?locale=${locale}`} method="post" className="space-y-5">
             <input name="next" type="hidden" value={next} />
@@ -65,7 +65,7 @@ export default async function VerifyEmailPage({ params, searchParams }: VerifyEm
                 name="email" 
                 required 
                 type="email" 
-                className="bg-slate-900 border-slate-700 h-10 text-sm"
+                className="bg-input border-border h-10 text-sm"
               />
             </Field>
 
@@ -76,7 +76,7 @@ export default async function VerifyEmailPage({ params, searchParams }: VerifyEm
                 name="code" 
                 required 
                 pattern="[0-9]{6}" 
-                className="bg-slate-900 border-slate-700 h-10 font-mono text-center tracking-widest text-lg"
+                className="bg-input border-border h-10 font-mono text-center tracking-widest text-lg"
                 placeholder="000000"
               />
             </Field>
@@ -87,8 +87,8 @@ export default async function VerifyEmailPage({ params, searchParams }: VerifyEm
             </Button>
           </FormStack>
         </CardBody>
-        <div className="border-t border-slate-800/60 bg-slate-800/30 p-4 text-center flex flex-col gap-2">
-          <Link href={`/${locale}/login`} className="text-xs text-slate-400 hover:text-white transition-colors">
+        <div className="border-t border-border/60 bg-secondary/30 p-4 text-center flex flex-col gap-2">
+          <Link href={`/${locale}/login`} className="text-xs text-muted-foreground hover:text-foreground transition-colors">
             {pickText(lang, "返回登录", "Back to login")}
           </Link>
           <Link href={`/${locale}/register`} className="text-xs text-primary hover:underline font-semibold">

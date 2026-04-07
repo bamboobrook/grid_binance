@@ -30,8 +30,8 @@ export default async function RegisterPage({ params, searchParams }: RegisterPag
   return (
     <div className="w-full max-w-[420px] space-y-6">
       <div className="text-center space-y-2">
-        <h1 className="text-2xl font-bold tracking-tight text-white">{snapshot.title}</h1>
-        <p className="text-sm text-slate-400">{snapshot.description}</p>
+        <h1 className="text-2xl font-bold tracking-tight text-foreground">{snapshot.title}</h1>
+        <p className="text-sm text-muted-foreground">{snapshot.description}</p>
       </div>
 
       {error ? (
@@ -40,7 +40,7 @@ export default async function RegisterPage({ params, searchParams }: RegisterPag
         <StatusBanner description={snapshot.notice.description} title={snapshot.notice.title} tone={snapshot.notice.tone as any} />
       ) : null}
 
-      <Card className="bg-[#131b2c] border-slate-800 shadow-xl">
+      <Card className="bg-card border-border shadow-xl">
         <CardBody className="p-6">
           <FormStack action={`/api/auth/register?locale=${locale}`} method="post" className="space-y-5">
             <input name="next" type="hidden" value={next} />
@@ -52,7 +52,7 @@ export default async function RegisterPage({ params, searchParams }: RegisterPag
                 name="email" 
                 required 
                 type="email" 
-                className="bg-slate-900 border-slate-700 h-10 text-sm"
+                className="bg-input border-border h-10 text-sm"
                 placeholder="name@example.com"
               />
             </Field>
@@ -63,7 +63,7 @@ export default async function RegisterPage({ params, searchParams }: RegisterPag
                 name="password" 
                 required 
                 type="password" 
-                className="bg-slate-900 border-slate-700 h-10 text-sm"
+                className="bg-input border-border h-10 text-sm"
                 placeholder="••••••••"
               />
             </Field>
@@ -74,7 +74,7 @@ export default async function RegisterPage({ params, searchParams }: RegisterPag
             </Button>
           </FormStack>
         </CardBody>
-        <div className="border-t border-slate-800/60 bg-slate-800/30 p-4 text-center flex flex-col gap-2">
+        <div className="border-t border-border/60 bg-secondary/30 p-4 text-center flex flex-col gap-2">
           <Link href={`/${locale}/login`} className="text-xs text-primary hover:underline font-semibold">
             {snapshot.alternateLabel}
           </Link>
@@ -82,7 +82,7 @@ export default async function RegisterPage({ params, searchParams }: RegisterPag
       </Card>
 
       <div className="text-center">
-        <p className="text-[11px] text-slate-500 max-w-xs mx-auto leading-relaxed">
+        <p className="text-[11px] text-muted-foreground max-w-xs mx-auto leading-relaxed">
           {pickText(lang, "注册即表示您同意我们的服务条款和隐私政策。一账户仅限绑定一个交易所 API。", "By registering, you agree to our Terms of Service and Privacy Policy. One exchange API per account.")}
         </p>
       </div>

@@ -4,58 +4,64 @@
 
 @layer base {
   :root {
-    /* Enforce Dark Theme variables natively for robust 3commas look */
-    --background: #0f172a; /* slate-900 */
-    --foreground: #f8fafc; /* slate-50 */
+    --background: #ffffff;
+    --foreground: #0f172a;
 
-    --card: #1e293b; /* slate-800 */
-    --card-foreground: #f8fafc;
+    --card: #ffffff;
+    --card-foreground: #0f172a;
 
-    --popover: #1e293b;
-    --popover-foreground: #f8fafc;
+    --popover: #ffffff;
+    --popover-foreground: #0f172a;
 
-    --primary: #3b82f6; /* blue-500 */
+    --primary: #3b82f6;
     --primary-foreground: #ffffff;
 
-    --secondary: #334155; /* slate-700 */
-    --secondary-foreground: #f8fafc;
+    --secondary: #f1f5f9;
+    --secondary-foreground: #0f172a;
 
-    --muted: #1e293b;
-    --muted-foreground: #94a3b8; /* slate-400 */
+    --muted: #f8fafc;
+    --muted-foreground: #64748b;
 
     --accent: #3b82f6;
     --accent-foreground: #ffffff;
 
-    --destructive: #ef4444; /* red-500 */
-    --destructive-foreground: #f8fafc;
+    --destructive: #ef4444;
+    --destructive-foreground: #ffffff;
 
-    --border: #334155; /* slate-700 */
-    --input: #1e293b; /* slate-800 */
+    --border: #e2e8f0;
+    --input: #ffffff;
     --ring: #3b82f6;
 
-    --radius: 0.375rem; /* md */
+    --radius: 0.375rem;
   }
 
-  /* Just map dark theme to the same if they toggle it */
   [data-theme="dark"] {
     --background: #0f172a;
     --foreground: #f8fafc;
-    --card: #1e293b;
+
+    --card: #131b2c;
     --card-foreground: #f8fafc;
-    --popover: #1e293b;
+
+    --popover: #131b2c;
     --popover-foreground: #f8fafc;
+
     --primary: #3b82f6;
     --primary-foreground: #ffffff;
-    --secondary: #334155;
+
+    --secondary: #1e293b;
     --secondary-foreground: #f8fafc;
+
     --muted: #1e293b;
     --muted-foreground: #94a3b8;
+
     --accent: #3b82f6;
     --accent-foreground: #ffffff;
+
     --destructive: #ef4444;
     --destructive-foreground: #f8fafc;
-    --border: #334155;
-    --input: #1e293b;
+
+    --border: #1e293b;
+    --input: #0f172a;
     --ring: #3b82f6;
   }
 }
@@ -70,7 +76,6 @@
   }
 }
 
-/* Base scrollbar styles for dark professional tool */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -79,9 +84,9 @@
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: #334155; /* slate-700 */
+  @apply bg-slate-300 dark:bg-slate-700;
   border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #475569; /* slate-600 */
+  @apply bg-slate-400 dark:bg-slate-600;
 }

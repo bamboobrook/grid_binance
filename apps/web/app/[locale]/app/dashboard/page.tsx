@@ -80,7 +80,7 @@ export default async function DashboardPage({ params }: { params: Promise<{ loca
           <h1 className="text-xl font-bold tracking-tight text-slate-100">{t('title') || 'Dashboard'}</h1>
         </div>
         <div className="flex items-center gap-3">
-          <Button className="h-8 px-3 text-xs bg-transparent border-slate-700 text-slate-300">
+          <Button className="h-8 px-3 text-xs bg-transparent border-border text-foreground">
             <History className="w-3.5 h-3.5 mr-1.5" />
             Last 24h
           </Button>
@@ -96,8 +96,8 @@ export default async function DashboardPage({ params }: { params: Promise<{ loca
       {/* Primary Metrics Grid (High Density) */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {metrics.map((metric, i) => (
-          <div key={i} className="bg-[#131b2c] border border-slate-800/60 rounded-sm p-4 flex flex-col justify-center">
-            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">{metric.label}</span>
+          <div key={i} className="bg-card border border-border/60 rounded-sm p-4 flex flex-col justify-center">
+            <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider mb-1">{metric.label}</span>
             <span className={`text-xl font-mono font-semibold ${metric.color}`}>
               {metric.value}
             </span>
@@ -108,9 +108,9 @@ export default async function DashboardPage({ params }: { params: Promise<{ loca
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Recent Fills Table (Main Content) */}
         <div className="lg:col-span-2 flex flex-col">
-          <Card className="bg-[#131b2c] border-slate-800 shadow-none flex-1">
-            <div className="bg-slate-800/30 px-4 py-2.5 border-b border-slate-800 flex items-center justify-between">
-              <span className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-2">
+          <Card className="bg-card border-border shadow-none flex-1">
+            <div className="bg-secondary/30 px-4 py-2.5 border-b border-border flex items-center justify-between">
+              <span className="text-xs font-bold text-foreground uppercase tracking-wider flex items-center gap-2">
                 <Activity className="w-4 h-4 text-primary" />
                 {t('sections.recentFills') || 'Recent Deals'}
               </span>
@@ -120,7 +120,7 @@ export default async function DashboardPage({ params }: { params: Promise<{ loca
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-left text-sm">
-                <thead className="bg-[#0a101d] text-slate-500 text-[10px] uppercase tracking-wider">
+                <thead className="bg-muted text-muted-foreground text-[10px] uppercase tracking-wider">
                   <tr>
                     <th className="px-4 py-2 font-medium">Pair</th>
                     <th className="px-4 py-2 font-medium text-right">PnL</th>
@@ -132,8 +132,8 @@ export default async function DashboardPage({ params }: { params: Promise<{ loca
                     const pnl = parseFloat(fill.net_pnl || fill.realized_pnl || "0");
                     const isPositive = pnl >= 0;
                     return (
-                      <tr key={index} className="hover:bg-slate-800/30 transition-colors">
-                        <td className="px-4 py-2.5 font-mono text-xs text-slate-300 font-semibold">{fill.symbol}</td>
+                      <tr key={index} className="hover:bg-secondary/30 transition-colors">
+                        <td className="px-4 py-2.5 font-mono text-xs text-foreground font-semibold">{fill.symbol}</td>
                         <td className={`px-4 py-2.5 text-right font-mono text-xs font-bold ${isPositive ? 'text-emerald-500' : 'text-red-500'}`}>
                           {isPositive ? '+' : ''}{pnl.toFixed(4)}
                         </td>
@@ -147,7 +147,7 @@ export default async function DashboardPage({ params }: { params: Promise<{ loca
                   })}
                   {(!analytics?.fills || analytics.fills.length === 0) && (
                     <tr>
-                      <td colSpan={3} className="px-4 py-8 text-center text-xs text-slate-500">
+                      <td colSpan={3} className="px-4 py-8 text-center text-xs text-muted-foreground">
                         No recent deals. Start a bot to see activity.
                       </td>
                     </tr>
@@ -160,9 +160,9 @@ export default async function DashboardPage({ params }: { params: Promise<{ loca
 
         {/* Side Panel (Account Watch) */}
         <div className="flex flex-col gap-4">
-          <Card className="bg-[#131b2c] border-slate-800 shadow-none">
-            <div className="bg-slate-800/30 px-4 py-2.5 border-b border-slate-800">
-              <span className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-2">
+          <Card className="bg-card border-border shadow-none">
+            <div className="bg-secondary/30 px-4 py-2.5 border-b border-border">
+              <span className="text-xs font-bold text-foreground uppercase tracking-wider flex items-center gap-2">
                 <Wallet className="w-4 h-4 text-emerald-500" />
                 {t('sections.accountWatch') || 'Balances'}
               </span>
@@ -171,43 +171,43 @@ export default async function DashboardPage({ params }: { params: Promise<{ loca
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <div className="w-2 h-2 rounded-full bg-emerald-500" />
-                  <span className="text-xs text-slate-300 font-semibold">Binance Spot</span>
+                  <span className="text-xs text-foreground font-semibold">Binance Spot</span>
                 </div>
-                <span className="text-[10px] bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded-sm">Connected</span>
+                <span className="text-[10px] bg-secondary text-muted-foreground px-1.5 py-0.5 rounded-sm">Connected</span>
               </div>
               
-              <div className="h-px bg-slate-800" />
+              <div className="h-px bg-secondary" />
               
               <div className="space-y-2">
                 {analytics?.wallets[0] ? Object.entries(analytics.wallets[0].balances).slice(0, 5).map(([asset, amount]) => (
                   <div key={asset} className="flex items-center justify-between text-xs">
-                    <span className="text-slate-400 font-medium">{asset}</span>
-                    <span className="font-mono text-slate-300">{parseFloat(amount).toFixed(4)}</span>
+                    <span className="text-muted-foreground font-medium">{asset}</span>
+                    <span className="font-mono text-foreground">{parseFloat(amount).toFixed(4)}</span>
                   </div>
-                )) : <p className="text-xs text-slate-500 text-center py-2">No balance data</p>}
+                )) : <p className="text-xs text-muted-foreground text-center py-2">No balance data</p>}
               </div>
             </div>
           </Card>
 
-          <Card className="bg-[#131b2c] border-slate-800 shadow-none">
-            <div className="bg-slate-800/30 px-4 py-2.5 border-b border-slate-800">
-              <span className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-2">
+          <Card className="bg-card border-border shadow-none">
+            <div className="bg-secondary/30 px-4 py-2.5 border-b border-border">
+              <span className="text-xs font-bold text-foreground uppercase tracking-wider flex items-center gap-2">
                 <ShieldCheck className="w-4 h-4 text-blue-500" />
                 System Status
               </span>
             </div>
             <div className="p-4 space-y-3">
               <div className="flex items-center justify-between text-xs">
-                <span className="text-slate-400">Trading Engine</span>
+                <span className="text-muted-foreground">Trading Engine</span>
                 <span className="text-emerald-500 font-semibold">Operational</span>
               </div>
               <div className="flex items-center justify-between text-xs">
-                <span className="text-slate-400">Market Data</span>
+                <span className="text-muted-foreground">Market Data</span>
                 <span className="text-emerald-500 font-semibold">Syncing</span>
               </div>
               <div className="flex items-center justify-between text-xs">
-                <span className="text-slate-400">Latency</span>
-                <span className="text-slate-300 font-mono">12ms</span>
+                <span className="text-muted-foreground">Latency</span>
+                <span className="text-foreground font-mono">12ms</span>
               </div>
             </div>
           </Card>

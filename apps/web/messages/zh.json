@@ -29,6 +29,49 @@
       }
     }
   },
+  "home": {
+    "poweredBy": "基于 Binance API",
+    "title1": "终极网格",
+    "title2": "交易终端",
+    "subtitle": "使用专业级网格机器人掌控市场。实现策略自动化、管理风险，并精准跟踪您的投资表现。",
+    "advancedGrid": "高级网格与 DCA 机器人",
+    "launch": "进入终端",
+    "createAccount": "创建账户",
+    "startFree": "免费开始交易",
+    "viewDemo": "查看演示账户",
+    "features": {
+      "smartGrids": {
+        "title": "智能网格",
+        "desc": "部署复杂的经典、做多或做空网格策略，支持动态间距和交易量控制。"
+      },
+      "riskGuardrails": {
+        "title": "风险护栏",
+        "desc": "内置预检、对冲要求和实时监控机制，全方位保护您的资金安全。"
+      },
+      "globalReach": {
+        "title": "触达全球",
+        "desc": "支持多语言及多币种统计，专为全球专业交易员打造。"
+      },
+      "smartTrade": {
+        "title": "智能交易终端",
+        "desc": "执行内置止盈和止损的高级订单。通过一个强大的界面管理您的全部投资组合。"
+      },
+      "dcaBots": {
+        "title": "网格与 DCA 机器人",
+        "desc": "全天候从市场波动中获利。利用优化的算法实现自动化的经典、做多或做空策略。"
+      },
+      "riskManagement": {
+        "title": "风险管理",
+        "desc": "设置全局安全保护、追踪止损和超时规则。通过安全的 API 连接确保交易所资金安全。"
+      }
+    },
+    "footer": {
+      "terms": "服务条款",
+      "privacy": "隐私政策",
+      "helpCenter": "帮助中心",
+      "copyright": "© 2026 Trading Console. 专为专业人士打造。"
+    }
+  },
   "dashboard": {
     "title": "交易驾驶舱",
     "subtitle": "性能总览与账户活动",

@@ -9,47 +9,44 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        background: "#0f172a", // Very dark slate (3commas background)
-        foreground: "#f8fafc",
+        background: "var(--background)",
+        foreground: "var(--foreground)",
         card: {
-          DEFAULT: "#1e293b", // Slate 800
-          foreground: "#f8fafc",
+          DEFAULT: "var(--card)",
+          foreground: "var(--card-foreground)",
         },
         popover: {
-          DEFAULT: "#1e293b",
-          foreground: "#f8fafc",
+          DEFAULT: "var(--popover)",
+          foreground: "var(--popover-foreground)",
         },
         primary: {
-          DEFAULT: "#3b82f6", // Blue 500 (3commas primary brand)
-          foreground: "#ffffff",
+          DEFAULT: "var(--primary)",
+          foreground: "var(--primary-foreground)",
         },
         secondary: {
-          DEFAULT: "#334155", // Slate 700
-          foreground: "#f8fafc",
+          DEFAULT: "var(--secondary)",
+          foreground: "var(--secondary-foreground)",
         },
         muted: {
-          DEFAULT: "#1e293b",
-          foreground: "#94a3b8", // Slate 400
+          DEFAULT: "var(--muted)",
+          foreground: "var(--muted-foreground)",
         },
         accent: {
-          DEFAULT: "#3b82f6",
-          foreground: "#ffffff",
+          DEFAULT: "var(--accent)",
+          foreground: "var(--accent-foreground)",
         },
         destructive: {
-          DEFAULT: "#ef4444", // Red 500
-          foreground: "#f8fafc",
+          DEFAULT: "var(--destructive)",
+          foreground: "var(--destructive-foreground)",
         },
-        border: "#334155", // Slate 700
-        input: "#1e293b",
-        ring: "#3b82f6",
-        positive: "#10b981", // Emerald 500 (3commas green)
-        negative: "#ef4444", // Red 500 (3commas red)
-        warning: "#f59e0b", // Amber 500
+        border: "var(--border)",
+        input: "var(--input)",
+        ring: "var(--ring)",
       },
       borderRadius: {
-        lg: "0.5rem",
-        md: "0.375rem",
-        sm: "0.25rem",
+        lg: "var(--radius)",
+        md: "calc(var(--radius) - 2px)",
+        sm: "calc(var(--radius) - 4px)",
       },
     },
   },

@@ -144,10 +144,10 @@ export default async function StrategyDetailPage({ params, searchParams }: PageP
       <AppShellSection
         actions={
           <div className="flex items-center gap-2">
-            <Link className="inline-flex items-center justify-center rounded-sm text-sm font-medium h-9 px-4 py-2 hover:bg-slate-800 text-slate-300 transition-colors" href="/app/orders">
+            <Link className="inline-flex items-center justify-center rounded-sm text-sm font-medium h-9 px-4 py-2 hover:bg-secondary text-foreground transition-colors" href="/app/orders">
               Orders
             </Link>
-            <Link className="inline-flex items-center justify-center rounded-sm text-sm font-medium h-9 px-4 py-2 hover:bg-slate-800 text-slate-300 transition-colors" href="/app/help">
+            <Link className="inline-flex items-center justify-center rounded-sm text-sm font-medium h-9 px-4 py-2 hover:bg-secondary text-foreground transition-colors" href="/app/help">
               Help Center
             </Link>
           </div>

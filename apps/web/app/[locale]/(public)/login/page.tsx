@@ -64,8 +64,8 @@ export default async function LoginPage({ params, searchParams }: LoginPageProps
   return (
     <div className="w-full max-w-[420px] space-y-6">
       <div className="text-center space-y-2">
-        <h1 className="text-2xl font-bold tracking-tight text-white">{snapshot.title}</h1>
-        <p className="text-sm text-slate-400">{snapshot.description}</p>
+        <h1 className="text-2xl font-bold tracking-tight text-foreground">{snapshot.title}</h1>
+        <p className="text-sm text-muted-foreground">{snapshot.description}</p>
       </div>
 
       {error ? (
@@ -76,7 +76,7 @@ export default async function LoginPage({ params, searchParams }: LoginPageProps
         <StatusBanner description={snapshot.notice.description} title={snapshot.notice.title} tone={snapshot.notice.tone as any} />
       ) : null}
 
-      <Card className="bg-[#131b2c] border-slate-800 shadow-xl">
+      <Card className="bg-card border-border shadow-xl">
         <CardBody className="p-6">
           <FormStack action={`/api/auth/login?locale=${locale}`} method="post" className="space-y-5">
             <input name="next" type="hidden" value={next} />
@@ -88,7 +88,7 @@ export default async function LoginPage({ params, searchParams }: LoginPageProps
                 name="email" 
                 required 
                 type="email" 
-                className="bg-slate-900 border-slate-700 h-10 text-sm"
+                className="bg-input border-border h-10 text-sm"
                 placeholder="name@example.com"
               />
             </Field>
@@ -99,7 +99,7 @@ export default async function LoginPage({ params, searchParams }: LoginPageProps
                 name="password" 
                 required 
                 type="password" 
-                className="bg-slate-900 border-slate-700 h-10 text-sm"
+                className="bg-input border-border h-10 text-sm"
                 placeholder="••••••••"
               />
             </Field>
@@ -111,7 +111,7 @@ export default async function LoginPage({ params, searchParams }: LoginPageProps
                   inputMode="numeric" 
                   name="totpCode" 
                   pattern="[0-9]{6}"
-                  className="bg-slate-900 border-slate-700 h-10 font-mono text-center tracking-widest text-lg"
+                  className="bg-input border-border h-10 font-mono text-center tracking-widest text-lg"
                   placeholder="000000"
                 />
               </Field>
@@ -123,8 +123,8 @@ export default async function LoginPage({ params, searchParams }: LoginPageProps
             </Button>
           </FormStack>
         </CardBody>
-        <div className="border-t border-slate-800/60 bg-slate-800/30 p-4 text-center flex flex-col gap-2">
-          <Link href={`/${locale}/password-reset`} className="text-xs text-slate-400 hover:text-white transition-colors">
+        <div className="border-t border-border/60 bg-secondary/30 p-4 text-center flex flex-col gap-2">
+          <Link href={`/${locale}/password-reset`} className="text-xs text-muted-foreground hover:text-foreground transition-colors">
             {pickText(lang, "忘记密码？重置密码", "Forgot password? Reset here")}
           </Link>
           <Link href={`/${locale}/register`} className="text-xs text-primary hover:underline font-semibold">

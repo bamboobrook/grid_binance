@@ -18,11 +18,11 @@ export function AppShellSection({
 }) {
   return (
     <section className={cn("flex flex-col gap-4", className)}>
-      <header className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-2 border-b border-slate-800/60">
+      <header className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-2 border-b border-border/60">
         <div className="space-y-1">
           {eyebrow && <p className="text-[10px] font-bold text-primary uppercase tracking-widest">{eyebrow}</p>}
           <h1 className="text-xl font-bold text-slate-100 tracking-tight">{title}</h1>
-          {description && <p className="text-xs text-slate-400 mt-1 max-w-2xl leading-relaxed">{description}</p>}
+          {description && <p className="text-xs text-muted-foreground mt-1 max-w-2xl leading-relaxed">{description}</p>}
         </div>
         {actions && <div className="flex items-center gap-2 shrink-0">{actions}</div>}
       </header>

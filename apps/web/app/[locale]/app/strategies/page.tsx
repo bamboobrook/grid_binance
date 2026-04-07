@@ -68,27 +68,27 @@ export default async function StrategiesPage({ params, searchParams }: PageProps
       </div>
 
       {/* Filter Bar */}
-      <div className="bg-[#131b2c] border border-slate-800/60 rounded-sm p-3 flex flex-wrap items-center gap-4">
-        <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-900 rounded-sm border border-slate-800 focus-within:border-primary/50 transition-colors flex-1 max-w-[300px]">
-          <Filter className="w-4 h-4 text-slate-500" />
+      <div className="bg-card border border-border/60 rounded-sm p-3 flex flex-wrap items-center gap-4">
+        <div className="flex items-center gap-2 px-3 py-1.5 bg-input rounded-sm border border-border focus-within:border-primary/50 transition-colors flex-1 max-w-[300px]">
+          <Filter className="w-4 h-4 text-muted-foreground" />
           <input 
             type="text" 
             placeholder={t('filter')}
             defaultValue={symbolFilter}
-            className="bg-transparent border-none outline-none text-xs w-full text-slate-300 placeholder:text-slate-500"
+            className="bg-transparent border-none outline-none text-xs w-full text-foreground placeholder:text-muted-foreground"
           />
         </div>
-        <div className="flex items-center gap-1 ml-auto bg-slate-900 p-1 rounded-sm border border-slate-800">
-          <button className="p-1.5 bg-slate-800 text-slate-200 rounded-sm"><List className="w-4 h-4" /></button>
-          <button className="p-1.5 text-slate-500 hover:text-slate-300 rounded-sm transition-colors"><LayoutGrid className="w-4 h-4" /></button>
+        <div className="flex items-center gap-1 ml-auto bg-input p-1 rounded-sm border border-border">
+          <button className="p-1.5 bg-secondary text-foreground rounded-sm"><List className="w-4 h-4" /></button>
+          <button className="p-1.5 text-muted-foreground hover:text-foreground rounded-sm transition-colors"><LayoutGrid className="w-4 h-4" /></button>
         </div>
       </div>
 
       {/* Strategies List */}
-      <Card className="bg-[#131b2c] border-slate-800 shadow-none">
+      <Card className="bg-card border-border shadow-none">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
-            <thead className="bg-[#0a101d] text-slate-500 text-[10px] uppercase tracking-wider">
+            <thead className="bg-muted text-muted-foreground text-[10px] uppercase tracking-wider">
               <tr>
                 <th className="px-4 py-2 font-medium">{t('table.strategy')}</th>
                 <th className="px-4 py-2 font-medium">{t('table.market')}</th>
@@ -99,35 +99,35 @@ export default async function StrategiesPage({ params, searchParams }: PageProps
             </thead>
             <tbody className="divide-y divide-slate-800/50">
               {filteredStrategies.length > 0 ? filteredStrategies.map((strategy) => (
-                <tr key={strategy.id} className="hover:bg-slate-800/30 transition-colors group">
+                <tr key={strategy.id} className="hover:bg-secondary/30 transition-colors group">
                   <td className="px-4 py-3">
                     <div className="flex flex-col gap-0.5">
-                      <Link href={`/${locale}/app/strategies/${strategy.id}`} className="text-sm font-bold text-slate-200 hover:text-primary transition-colors">
+                      <Link href={`/${locale}/app/strategies/${strategy.id}`} className="text-sm font-bold text-foreground hover:text-primary transition-colors">
                         {strategy.name}
                       </Link>
-                      <span className="text-[10px] text-slate-500 font-mono tracking-wide">{strategy.symbol}</span>
+                      <span className="text-[10px] text-muted-foreground font-mono tracking-wide">{strategy.symbol}</span>
                     </div>
                   </td>
                   <td className="px-4 py-3">
-                    <span className="px-1.5 py-0.5 bg-slate-800 border border-slate-700 text-slate-300 rounded-[2px] text-[10px] font-bold uppercase tracking-widest">
+                    <span className="px-1.5 py-0.5 bg-secondary border border-border text-foreground rounded-[2px] text-[10px] font-bold uppercase tracking-widest">
                       {strategy.market}
                     </span>
                   </td>
                   <td className="px-4 py-3 text-center">
                     <StatusBadge status={strategy.status} />
                   </td>
-                  <td className="px-4 py-3 text-right font-mono text-xs text-slate-300 font-semibold">
+                  <td className="px-4 py-3 text-right font-mono text-xs text-foreground font-semibold">
                     ${strategy.budget}
                   </td>
                   <td className="px-4 py-3 text-right">
                     <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <Button size="icon" className="h-7 w-7 text-slate-400 hover:text-emerald-500 hover:bg-emerald-500/10">
+                      <Button size="icon" className="h-7 w-7 text-muted-foreground hover:text-emerald-500 hover:bg-emerald-500/10">
                         <Play className="w-3.5 h-3.5" />
                       </Button>
-                      <Button size="icon" className="h-7 w-7 text-slate-400 hover:text-amber-500 hover:bg-amber-500/10">
+                      <Button size="icon" className="h-7 w-7 text-muted-foreground hover:text-amber-500 hover:bg-amber-500/10">
                         <Pause className="w-3.5 h-3.5" />
                       </Button>
-                      <Button size="icon" className="h-7 w-7 text-slate-400 hover:text-red-500 hover:bg-red-500/10">
+                      <Button size="icon" className="h-7 w-7 text-muted-foreground hover:text-red-500 hover:bg-red-500/10">
                         <Trash2 className="w-3.5 h-3.5" />
                       </Button>
                     </div>
@@ -135,7 +135,7 @@ export default async function StrategiesPage({ params, searchParams }: PageProps
                 </tr>
               )) : (
                 <tr>
-                  <td colSpan={5} className="px-4 py-12 text-center text-xs text-slate-500">
+                  <td colSpan={5} className="px-4 py-12 text-center text-xs text-muted-foreground">
                     No active strategies. Create your first bot to get started.
                   </td>
                 </tr>
@@ -158,7 +158,7 @@ function StatusBadge({ status }: { status: string }) {
       isRunning ? "bg-emerald-500/10 text-emerald-500" :
       isPaused ? "bg-amber-500/10 text-amber-500" :
       isDraft ? "bg-blue-500/10 text-blue-500" :
-      "bg-slate-800 text-slate-400"
+      "bg-secondary text-muted-foreground"
     }`}>
       {status}
     </span>

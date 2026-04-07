@@ -21,7 +21,7 @@ export function Tabs({
   const pathname = usePathname();
 
   return (
-    <nav aria-label={label} className="flex items-center gap-1 border-b border-slate-800/60 pb-px mb-4">
+    <nav aria-label={label} className="flex items-center gap-1 border-b border-border/60 pb-px mb-4">
       {items.map((item) => {
         const isActive = activeHref ? activeHref === item.href : pathname.includes(item.href);
 
@@ -31,7 +31,7 @@ export function Tabs({
               "px-4 py-2 text-sm font-semibold rounded-t-sm transition-colors border-b-2",
               isActive 
                 ? "text-primary border-primary bg-primary/5" 
-                : "text-slate-500 border-transparent hover:text-slate-300 hover:bg-slate-800/30"
+                : "text-muted-foreground border-transparent hover:text-foreground hover:bg-secondary/30"
             )}
             href={item.href}
             key={item.href}
