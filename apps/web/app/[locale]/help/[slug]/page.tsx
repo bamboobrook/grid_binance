@@ -61,11 +61,11 @@ export default async function HelpArticlePage({
           </CardHeader>
           <CardBody>
             {article.blocks.map((block, index) => renderArticleBlock(block, index))}
-            <div className="button-row">
-              <Link className="button button--ghost" href={`/app/help?article=${article.slug}`}>
+            <div className="flex items-center gap-2">
+              <Link className="inline-flex items-center justify-center rounded-sm text-sm font-medium h-9 px-4 py-2 hover:bg-slate-800 text-slate-300 transition-colors" href={`/app/help?article=${article.slug}`}>
                 Open in App Help Center
               </Link>
-              <Link className="button" href="/app/billing">
+              <Link className="inline-flex items-center justify-center rounded-sm text-sm font-medium h-9 px-4 py-2 bg-primary hover:bg-primary/90 text-white shadow-sm transition-colors" href="/app/billing">
                 Open Billing Center
               </Link>
             </div>

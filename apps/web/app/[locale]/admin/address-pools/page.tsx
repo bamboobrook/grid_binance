@@ -29,7 +29,7 @@ export default async function AdminAddressPoolsPage({ searchParams }: PageProps)
         eyebrow={pickText(lang, "地址池治理", "Address Pool Governance")}
         title={pickText(lang, "地址池库存", "Address Pool Inventory")}
       >
-        <div className="content-grid content-grid--split">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <Card>
             <CardHeader>
               <CardTitle>{pickText(lang, "可用库存", "Enabled Inventory")}</CardTitle>

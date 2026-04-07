@@ -59,7 +59,7 @@ export default async function SecurityPage({ searchParams }: SecurityPageProps) 
         eyebrow={pickText(lang, "安全中心", "Security center")}
         title={pickText(lang, "安全中心", "Security Center")}
       >
-        <div className="content-grid content-grid--split">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <Card>
             <CardHeader>
               <CardTitle>{pickText(lang, "凭证操作", "Credential operations")}</CardTitle>
@@ -77,7 +77,7 @@ export default async function SecurityPage({ searchParams }: SecurityPageProps) 
                   {pickText(lang, "更新密码", "Update password")}
                 </Button>
               </FormStack>
-              <div className="button-row">
+              <div className="flex items-center gap-2">
                 <FormStack action="/api/user/security" method="post">
                   <Button name="intent" type="submit" value="enable-totp">
                     {pickText(lang, "启用 TOTP", "Enable TOTP")}

@@ -157,7 +157,7 @@ export default async function AdminDashboardPage() {
             <CardBody>{auditEvents.length}</CardBody>
           </Card>
         </div>
-        <div className="content-grid content-grid--split">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <Card>
             <CardHeader>
               <CardTitle>{pickText(lang, "值班工作板", "On-call Workboard")}</CardTitle>

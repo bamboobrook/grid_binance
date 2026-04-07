@@ -124,7 +124,7 @@ export default async function AdminMembershipsPage({ searchParams }: PageProps) 
             <CardBody>{canManagePlans ? pickText(lang, "价格矩阵可编辑", "Price Matrix Editable") : pickText(lang, "价格矩阵只读", "Price Matrix Read-only")}</CardBody>
           </Card>
         </div>
-        <div className="content-grid content-grid--split">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <Card>
             <CardHeader>
               <CardTitle>{pickText(lang, "价格矩阵", "Price Matrix")}</CardTitle>

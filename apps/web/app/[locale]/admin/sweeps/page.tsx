@@ -41,7 +41,7 @@ export default async function AdminSweepsPage({ searchParams }: PageProps) {
         eyebrow={pickText(lang, "归集审批", "Sweep Approval")}
         title={pickText(lang, "归集操作", "Sweep Operations")}
       >
-        <div className="content-grid content-grid--split">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <Card>
             <CardHeader>
               <CardTitle>{pickText(lang, "提交归集", "Submit Sweep")}</CardTitle>

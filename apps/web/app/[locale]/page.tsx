@@ -20,7 +20,7 @@ export default async function HomePage({ params }: PageProps) {
           <div className="w-8 h-8 rounded bg-primary flex items-center justify-center text-white shadow-lg shadow-primary/20">
             <Bot className="w-5 h-5" />
           </div>
-          3Commas Clone
+          Grid.Binance
         </div>
         <div className="flex items-center gap-4">
           <Link href={`/${locale}/login`} className="text-sm font-medium text-slate-300 hover:text-white transition-colors hidden sm:block">

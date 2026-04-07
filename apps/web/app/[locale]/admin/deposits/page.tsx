@@ -76,7 +76,7 @@ function renderManualActions(lang: UiLanguage, item: AdminDepositView, orders: A
   const canSubmitCredit = requiresOrderSelection ? candidateOrders.length > 0 : Boolean(defaultOrderId);
 
   return (
-    <div className="content-grid">
+    <div className="grid grid-cols-1 gap-4">
       <FormStack action="/api/admin/deposits" method="post">
         <input name="txHash" type="hidden" value={item.tx_hash} />
         <input name="chain" type="hidden" value={item.chain} />
@@ -135,7 +135,7 @@ export default async function AdminDepositsPage({ searchParams }: PageProps) {
         eyebrow={pickText(lang, "充值审核", "Deposit Review")}
         title={pickText(lang, "异常充值处理", "Abnormal Deposit Handling")}
       >
-        <div className="content-grid content-grid--split">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <Card>
             <CardHeader>
               <CardTitle>{pickText(lang, "异常队列", "Exception Queue")}</CardTitle>

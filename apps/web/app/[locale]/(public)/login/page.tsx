@@ -1,16 +1,16 @@
 import Link from "next/link";
 import { cookies } from "next/headers";
+import { LogIn } from "lucide-react";
 
 import { Card, CardBody, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Chip } from "@/components/ui/chip";
-import { Button, ButtonRow, Field, FormStack, Input } from "@/components/ui/form";
+import { Button, Field, FormStack, Input } from "@/components/ui/form";
 import { StatusBanner } from "@/components/ui/status-banner";
-import { Tabs } from "@/components/ui/tabs";
 import { getPublicAuthSnapshot } from "@/lib/api/server";
 import { firstValue, safeRedirectTarget } from "@/lib/auth";
 import { pickText, resolveUiLanguage, UI_LANGUAGE_COOKIE } from "@/lib/ui/preferences";
 
 type LoginPageProps = {
+  params: Promise<{ locale: string }>;
   searchParams?: Promise<{
     email?: string | string[];
     error?: string | string[];
@@ -49,100 +49,94 @@ function noticeCopy(lang: "zh" | "en", notice: string | undefined) {
   }
 }
 
-export default async function LoginPage({ searchParams }: LoginPageProps) {
+export default async function LoginPage({ params, searchParams }: LoginPageProps) {
+  const { locale } = await params;
   const [snapshot, cookieStore] = await Promise.all([getPublicAuthSnapshot("login"), cookies()]);
   const lang = resolveUiLanguage(cookieStore.get(UI_LANGUAGE_COOKIE)?.value);
-  const params = (await searchParams) ?? {};
-  const email = firstValue(params.email) ?? "";
-  const error = firstValue(params.error);
-  const next = safeRedirectTarget(firstValue(params.next), "/app/dashboard");
-  const notice = noticeCopy(lang, firstValue(params.notice) ?? firstValue(params.security));
-  const showTotp = firstValue(params.totp) === "1" || Boolean(error && /totp/i.test(error));
-  const showAdminBootstrap = firstValue(params.adminBootstrap) === "1" || Boolean(error && /admin totp setup required/i.test(error ?? ""));
-  const reminders = [
-    pickText(lang, "会员到期前，网页和 Telegram 都会提前提醒。", "Membership expiry reminders appear in web and Telegram before grace ends."),
-    pickText(lang, "币安 API 不要开启提现权限。", "Do not enable withdrawal permission on Binance API keys."),
-    pickText(lang, "TOTP 可以稍后在安全中心开启。", "TOTP can be enabled later from the security center."),
-  ];
+  const searchParamsValue = (await searchParams) ?? {};
+  const email = firstValue(searchParamsValue.email) ?? "";
+  const error = firstValue(searchParamsValue.error);
+  const next = safeRedirectTarget(firstValue(searchParamsValue.next), "/app/dashboard");
+  const notice = noticeCopy(lang, firstValue(searchParamsValue.notice) ?? firstValue(searchParamsValue.security));
+  const showTotp = firstValue(searchParamsValue.totp) === "1" || Boolean(error && /totp/i.test(error));
+  const showAdminBootstrap = firstValue(searchParamsValue.adminBootstrap) === "1" || Boolean(error && /admin totp setup required/i.test(error ?? ""));
 
   return (
-    <>
-      <Tabs
-        activeHref="/login"
-        items={[
-          { href: "/login", label: pickText(lang, "登录", "Login") },
-          { href: "/register", label: pickText(lang, "注册", "Register") },
-        ]}
-        label={pickText(lang, "认证页面", "Authentication pages")}
-      />
-      {error ? (
-        <StatusBanner description={error} title={pickText(lang, "登录失败", "Login failed")} />
-      ) : notice ? (
-        <StatusBanner description={notice.description} title={notice.title} />
-      ) : (
-        <StatusBanner description={snapshot.notice.description} title={snapshot.notice.title} tone={snapshot.notice.tone} />
-      )}
-      <div className="content-grid content-grid--split">
-        <Card>
-          <CardHeader>
-            <CardTitle>{snapshot.title}</CardTitle>
-            <CardDescription>{snapshot.description}</CardDescription>
-          </CardHeader>
-          <CardBody>
-            <FormStack action="/api/auth/login" method="post">
-              <input name="next" type="hidden" value={next} />
-              <Field hint={pickText(lang, "请输入已经完成验证、并已绑定会员与交易所设置的邮箱。", "Use the verified email tied to your membership and exchange setup.")} label="Email">
-                <Input autoComplete="email" defaultValue={email} name="email" required type="email" />
-              </Field>
-              <Field hint={pickText(lang, "密码登录是第一步，如有需要，系统会继续要求输入 TOTP。", "Password login remains the first step before optional TOTP challenges.")} label={pickText(lang, "密码", "Password")}>
-                <Input autoComplete="current-password" name="password" required type="password" />
-              </Field>
-              {showTotp ? (
-                <Field hint={pickText(lang, "请输入验证器当前显示的 6 位验证码。", "Enter the current 6-digit code from your authenticator app.")} label="TOTP">
-                  <Input autoComplete="one-time-code" inputMode="numeric" name="totpCode" pattern="[0-9]{6}" />
-                </Field>
-              ) : null}
-              <div className="chip-row">
-                {snapshot.checklist.map((item) => (
-                  <Chip key={item}>
-                    {item}
-                  </Chip>
-                ))}
-              </div>
-              <ButtonRow>
-                <Button type="submit">{snapshot.submitLabel}</Button>
-                <Link className="button button--ghost" href="/password-reset">
-                  {pickText(lang, "重置密码", "Reset password")}
-                </Link>
-                <Link className="button button--ghost" href="/help/expiry-reminder">
-                  {pickText(lang, "查看到期提醒", "Review expiry reminders")}
-                </Link>
-                {showAdminBootstrap ? (
-                  <Link className="button button--ghost" href={`/admin-bootstrap?email=${encodeURIComponent(email)}`}>
-                    {pickText(lang, "初始化管理员 TOTP", "Bootstrap admin TOTP")}
-                  </Link>
-                ) : null}
-              </ButtonRow>
-            </FormStack>
-          </CardBody>
-          <CardFooter>
-            <Link href={snapshot.alternateHref}>{snapshot.alternateLabel}</Link>
-          </CardFooter>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle>{pickText(lang, "登录前请确认", "Before you sign in")}</CardTitle>
-            <CardDescription>{pickText(lang, "公共认证页也会保留关键商用提醒。", "Commercial guardrails stay visible on the public auth pages too.")}</CardDescription>
-          </CardHeader>
-          <CardBody>
-            <ul className="text-list">
-              {reminders.map((item) => (
-                <li key={item}>{item}</li>
-              ))}
-            </ul>
-          </CardBody>
-        </Card>
+    <div className="w-full max-w-[420px] space-y-6">
+      <div className="text-center space-y-2">
+        <h1 className="text-2xl font-bold tracking-tight text-white">{snapshot.title}</h1>
+        <p className="text-sm text-slate-400">{snapshot.description}</p>
       </div>
-    </>
+
+      {error ? (
+        <StatusBanner description={error} title={pickText(lang, "登录失败", "Login failed")} tone="danger" />
+      ) : notice ? (
+        <StatusBanner description={notice.description} title={notice.title} tone="success" />
+      ) : snapshot.notice.description ? (
+        <StatusBanner description={snapshot.notice.description} title={snapshot.notice.title} tone={snapshot.notice.tone as any} />
+      ) : null}
+
+      <Card className="bg-[#131b2c] border-slate-800 shadow-xl">
+        <CardBody className="p-6">
+          <FormStack action={`/api/auth/login?locale=${locale}`} method="post" className="space-y-5">
+            <input name="next" type="hidden" value={next} />
+            
+            <Field label="Email">
+              <Input 
+                autoComplete="email" 
+                defaultValue={email} 
+                name="email" 
+                required 
+                type="email" 
+                className="bg-slate-900 border-slate-700 h-10 text-sm"
+                placeholder="name@example.com"
+              />
+            </Field>
+
+            <Field label={pickText(lang, "密码", "Password")}>
+              <Input 
+                autoComplete="current-password" 
+                name="password" 
+                required 
+                type="password" 
+                className="bg-slate-900 border-slate-700 h-10 text-sm"
+                placeholder="••••••••"
+              />
+            </Field>
+
+            {showTotp && (
+              <Field label="TOTP" hint={pickText(lang, "6 位验证码", "6-digit code")}>
+                <Input 
+                  autoComplete="one-time-code" 
+                  inputMode="numeric" 
+                  name="totpCode" 
+                  pattern="[0-9]{6}"
+                  className="bg-slate-900 border-slate-700 h-10 font-mono text-center tracking-widest text-lg"
+                  placeholder="000000"
+                />
+              </Field>
+            )}
+
+            <Button type="submit" tone="primary" className="w-full h-11 text-sm font-bold shadow-lg shadow-primary/20">
+              <LogIn className="w-4 h-4 mr-2" />
+              {snapshot.submitLabel}
+            </Button>
+          </FormStack>
+        </CardBody>
+        <div className="border-t border-slate-800/60 bg-slate-800/30 p-4 text-center flex flex-col gap-2">
+          <Link href={`/${locale}/password-reset`} className="text-xs text-slate-400 hover:text-white transition-colors">
+            {pickText(lang, "忘记密码？重置密码", "Forgot password? Reset here")}
+          </Link>
+          <Link href={`/${locale}/register`} className="text-xs text-primary hover:underline font-semibold">
+            {snapshot.alternateLabel}
+          </Link>
+          {showAdminBootstrap && (
+            <Link href={`/${locale}/admin-bootstrap?email=${encodeURIComponent(email)}`} className="text-xs text-amber-500 hover:underline mt-2">
+              {pickText(lang, "初始化管理员 TOTP", "Bootstrap admin TOTP")}
+            </Link>
+          )}
+        </div>
+      </Card>
+    </div>
   );
 }

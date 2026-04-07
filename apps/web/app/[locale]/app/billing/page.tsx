@@ -87,7 +87,7 @@ export default async function BillingPage({ searchParams }: PageProps) {
           ))}
         </div>
       </AppShellSection>
-      <div className="content-grid content-grid--split">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <Card>
           <CardHeader>
             <CardTitle>Create payment order</CardTitle>
@@ -140,7 +140,7 @@ export default async function BillingPage({ searchParams }: PageProps) {
           </CardBody>
         </Card>
       </div>
-      <div className="content-grid content-grid--split">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <Card>
           <CardHeader>
             <CardTitle>Payment orders</CardTitle>

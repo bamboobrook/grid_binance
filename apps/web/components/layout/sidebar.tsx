@@ -46,7 +46,7 @@ export function Sidebar() {
         <div className="w-6 h-6 rounded bg-primary flex items-center justify-center mr-3 text-white">
           <Bot className="w-4 h-4" />
         </div>
-        3Commas Clone
+        Grid.Binance
       </div>
 
       {/* Main Navigation */}

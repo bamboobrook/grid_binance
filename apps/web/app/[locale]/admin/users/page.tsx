@@ -91,7 +91,7 @@ export default async function AdminUsersPage() {
             <CardBody>{totpDisabled}</CardBody>
           </Card>
         </div>
-        <div className="content-grid content-grid--split">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <Card>
             <CardHeader>
               <CardTitle>{pickText(lang, "用户主表", "User Ledger Table")}</CardTitle>

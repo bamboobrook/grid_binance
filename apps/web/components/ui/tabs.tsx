@@ -1,11 +1,10 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { cn } from "@/lib/utils";
 
-import { Chip, useUiCopy } from "./chip";
-
-export type TabItem = {
-  badge?: string;
+type TabItem = {
   href: string;
   label: string;
 };
@@ -15,30 +14,29 @@ export function Tabs({
   items,
   label,
 }: {
-  activeHref: string;
+  activeHref?: string;
   items: readonly TabItem[];
-  label?: string;
+  label: string;
 }) {
-  const resolvedLabel = label ?? useUiCopy("页面分区", "Page sections");
+  const pathname = usePathname();
 
   return (
-    <nav aria-label={resolvedLabel} className="ui-tabs">
+    <nav aria-label={label} className="flex items-center gap-1 border-b border-slate-800/60 pb-px mb-4">
       {items.map((item) => {
-        const isActive = item.href === activeHref;
+        const isActive = activeHref ? activeHref === item.href : pathname.includes(item.href);
 
         return (
           <Link
-            aria-current={isActive ? "page" : undefined}
-            className={isActive ? "ui-tab ui-tab--active" : "ui-tab"}
+            className={cn(
+              "px-4 py-2 text-sm font-semibold rounded-t-sm transition-colors border-b-2",
+              isActive 
+                ? "text-primary border-primary bg-primary/5" 
+                : "text-slate-500 border-transparent hover:text-slate-300 hover:bg-slate-800/30"
+            )}
             href={item.href}
             key={item.href}
           >
-            <span className="ui-tab__label">{item.label}</span>
-            {item.badge ? (
-              <span className="ui-tab__meta">
-                <Chip tone={isActive ? "warning" : "default"}>{item.badge}</Chip>
-              </span>
-            ) : null}
+            <span>{item.label}</span>
           </Link>
         );
       })}

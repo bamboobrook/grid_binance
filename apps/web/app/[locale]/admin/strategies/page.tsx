@@ -42,7 +42,7 @@ export default async function AdminStrategiesPage({ searchParams }: PageProps) {
         eyebrow={pickText(lang, "策略监督", "Strategy Supervision")}
         title={pickText(lang, "策略总览", "Strategy Oversight")}
       >
-        <div className="content-grid content-grid--split">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <Card>
             <CardHeader>
               <CardTitle>{pickText(lang, "运行态筛选", "Runtime Filter")}</CardTitle>

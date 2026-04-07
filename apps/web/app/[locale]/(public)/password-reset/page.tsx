@@ -1,14 +1,15 @@
 import Link from "next/link";
 import { cookies } from "next/headers";
+import { KeyRound } from "lucide-react";
 
 import { Card, CardBody, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button, ButtonRow, Field, FormStack, Input } from "@/components/ui/form";
 import { StatusBanner } from "@/components/ui/status-banner";
-import { Tabs } from "@/components/ui/tabs";
 import { firstValue } from "@/lib/auth";
 import { pickText, resolveUiLanguage, UI_LANGUAGE_COOKIE } from "@/lib/ui/preferences";
 
 type PasswordResetPageProps = {
+  params: Promise<{ locale: string }>;
   searchParams?: Promise<{
     code?: string | string[];
     email?: string | string[];
@@ -18,9 +19,10 @@ type PasswordResetPageProps = {
   }>;
 };
 
-export default async function PasswordResetPage({ searchParams }: PasswordResetPageProps) {
-  const [params, cookieStore] = await Promise.all([searchParams, cookies()]);
-  const resolved = (await params) ?? {};
+export default async function PasswordResetPage({ params, searchParams }: PasswordResetPageProps) {
+  const { locale } = await params;
+  const [searchParamsValue, cookieStore] = await Promise.all([searchParams, cookies()]);
+  const resolved = searchParamsValue ?? {};
   const lang = resolveUiLanguage(cookieStore.get(UI_LANGUAGE_COOKIE)?.value);
   const email = firstValue(resolved.email) ?? "";
   const code = firstValue(resolved.code) ?? "";
@@ -29,17 +31,20 @@ export default async function PasswordResetPage({ searchParams }: PasswordResetP
   const step = firstValue(resolved.step) === "confirm" ? "confirm" : "request";
 
   return (
-    <>
-      <Tabs
-        activeHref="/login"
-        items={[
-          { href: "/login", label: pickText(lang, "登录", "Login") },
-          { href: "/register", label: pickText(lang, "注册", "Register") },
-        ]}
-        label={pickText(lang, "认证页面", "Authentication pages")}
-      />
+    <div className="w-full max-w-[420px] space-y-6">
+      <div className="text-center space-y-2">
+        <h1 className="text-2xl font-bold tracking-tight text-white">
+          {step === "confirm" ? pickText(lang, "设置新密码", "Reset your password") : pickText(lang, "密码重置", "Password Reset")}
+        </h1>
+        <p className="text-sm text-slate-400">
+          {step === "confirm" 
+            ? pickText(lang, "输入邮箱收到的验证码，完成密码重置。", "Complete the reset with the code sent to your email inbox.") 
+            : pickText(lang, "先申请验证码，再去邮箱查看。", "Request a password reset code first, then check your email for the code.")}
+        </p>
+      </div>
+
       {error ? (
-        <StatusBanner description={error} title={pickText(lang, "密码重置失败", "Password reset failed")} />
+        <StatusBanner description={error} title={pickText(lang, "密码重置失败", "Password reset failed")} tone="danger" />
       ) : (
         <StatusBanner
           description={step === "confirm" && notice === "reset-code-issued"
@@ -50,44 +55,68 @@ export default async function PasswordResetPage({ searchParams }: PasswordResetP
             : step === "confirm"
               ? pickText(lang, "确认重置密码", "Confirm Password Reset")
               : pickText(lang, "密码重置", "Password Reset")}
-         
+          tone="info"
         />
       )}
-      <div className="content-grid content-grid--split">
-        <Card>
-          <CardHeader>
-            <CardTitle>{step === "confirm" ? pickText(lang, "设置新密码", "Reset your password") : pickText(lang, "申请重置验证码", "Request reset code")}</CardTitle>
-            <CardDescription>{step === "confirm" ? pickText(lang, "输入邮箱收到的验证码，完成密码重置。", "Complete the reset with the code sent to your email inbox.") : pickText(lang, "先申请验证码，再去邮箱查看。", "Request a password reset code first, then check your email for the code.")}</CardDescription>
-          </CardHeader>
-          <CardBody>
-            <FormStack action="/api/auth/password-reset" method="post">
-              <input name="intent" type="hidden" value={step} />
-              <Field label="Email">
-                <Input autoComplete="email" defaultValue={email} name="email" required type="email" />
-              </Field>
-              {step === "confirm" ? (
-                <>
-                  <Field hint={pickText(lang, "请输入这次密码重置邮件里的验证码。", "Enter the reset code delivered to your email for this password reset request.")} label={pickText(lang, "重置验证码", "Reset code")}>
-                    <Input defaultValue={code} inputMode="numeric" name="code" required pattern="[0-9]{6}" />
-                  </Field>
-                  <Field label={pickText(lang, "新密码", "New password")}>
-                    <Input autoComplete="new-password" name="password" required type="password" />
-                  </Field>
-                </>
-              ) : null}
-              <ButtonRow>
-                <Button type="submit">{step === "confirm" ? pickText(lang, "重置密码", "Reset password") : pickText(lang, "发送重置验证码", "Send reset code")}</Button>
-                <Link className="button button--ghost" href="/login">
-                  {pickText(lang, "返回登录", "Back to login")}
-                </Link>
-              </ButtonRow>
-            </FormStack>
-          </CardBody>
-          <CardFooter>
-            <Link href="/register">{pickText(lang, "还没有账号？去注册", "Need a new account? Register")}</Link>
-          </CardFooter>
-        </Card>
-      </div>
-    </>
+
+      <Card className="bg-[#131b2c] border-slate-800 shadow-xl">
+        <CardBody className="p-6">
+          <FormStack action={`/api/auth/password-reset?locale=${locale}`} method="post" className="space-y-5">
+            <input name="intent" type="hidden" value={step} />
+            
+            <Field label="Email">
+              <Input 
+                autoComplete="email" 
+                defaultValue={email} 
+                name="email" 
+                required 
+                type="email" 
+                className="bg-slate-900 border-slate-700 h-10 text-sm"
+                placeholder="name@example.com"
+              />
+            </Field>
+
+            {step === "confirm" && (
+              <>
+                <Field hint={pickText(lang, "请输入这次密码重置邮件里的验证码。", "Enter the reset code delivered to your email.")} label={pickText(lang, "重置验证码", "Reset code")}>
+                  <Input 
+                    defaultValue={code} 
+                    inputMode="numeric" 
+                    name="code" 
+                    required 
+                    pattern="[0-9]{6}" 
+                    className="bg-slate-900 border-slate-700 h-10 font-mono text-center tracking-widest text-lg"
+                    placeholder="000000"
+                  />
+                </Field>
+                <Field label={pickText(lang, "新密码", "New password")}>
+                  <Input 
+                    autoComplete="new-password" 
+                    name="password" 
+                    required 
+                    type="password" 
+                    className="bg-slate-900 border-slate-700 h-10 text-sm"
+                    placeholder="••••••••"
+                  />
+                </Field>
+              </>
+            )}
+
+            <Button type="submit" tone="primary" className="w-full h-11 text-sm font-bold shadow-lg shadow-primary/20">
+              <KeyRound className="w-4 h-4 mr-2" />
+              {step === "confirm" ? pickText(lang, "重置密码", "Reset password") : pickText(lang, "发送重置验证码", "Send reset code")}
+            </Button>
+          </FormStack>
+        </CardBody>
+        <div className="border-t border-slate-800/60 bg-slate-800/30 p-4 text-center flex flex-col gap-2">
+          <Link href={`/${locale}/login`} className="text-xs text-slate-400 hover:text-white transition-colors">
+            {pickText(lang, "返回登录", "Back to login")}
+          </Link>
+          <Link href={`/${locale}/register`} className="text-xs text-primary hover:underline font-semibold">
+            {pickText(lang, "还没有账号？去注册", "Need a new account? Register")}
+          </Link>
+        </div>
+      </Card>
+    </div>
   );
 }

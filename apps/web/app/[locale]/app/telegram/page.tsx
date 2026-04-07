@@ -72,7 +72,7 @@ export default async function TelegramPage({ searchParams }: TelegramPageProps) 
         eyebrow={pickText(lang, "Telegram 绑定", "Telegram bind")}
         title={pickText(lang, "Telegram 通知", "Telegram Notifications")}
       >
-        <div className="content-grid content-grid--split">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <Card>
             <CardHeader>
               <CardTitle>{pickText(lang, "绑定 Telegram 账户", "Bind your Telegram account")}</CardTitle>

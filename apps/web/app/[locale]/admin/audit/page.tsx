@@ -58,7 +58,7 @@ export default async function AdminAuditPage() {
         eyebrow={pickText(lang, "审计留痕", "Audit Trail")}
         title={pickText(lang, "审计复核", "Audit Review")}
       >
-        <div className="content-grid content-grid--split">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <Card>
             <CardHeader>
               <CardTitle>{pickText(lang, "审计日志", "Audit Log")}</CardTitle>

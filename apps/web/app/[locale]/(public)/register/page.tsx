@@ -1,16 +1,16 @@
 import Link from "next/link";
 import { cookies } from "next/headers";
+import { UserPlus } from "lucide-react";
 
-import { Card, CardBody, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Chip } from "@/components/ui/chip";
-import { Button, ButtonRow, Field, FormStack, Input } from "@/components/ui/form";
+import { Card, CardBody } from "@/components/ui/card";
+import { Button, Field, FormStack, Input } from "@/components/ui/form";
 import { StatusBanner } from "@/components/ui/status-banner";
-import { Tabs } from "@/components/ui/tabs";
 import { getPublicAuthSnapshot } from "@/lib/api/server";
 import { firstValue, safeRedirectTarget } from "@/lib/auth";
 import { pickText, resolveUiLanguage, UI_LANGUAGE_COOKIE } from "@/lib/ui/preferences";
 
 type RegisterPageProps = {
+  params: Promise<{ locale: string }>;
   searchParams?: Promise<{
     email?: string | string[];
     error?: string | string[];
@@ -18,82 +18,74 @@ type RegisterPageProps = {
   }>;
 };
 
-export default async function RegisterPage({ searchParams }: RegisterPageProps) {
+export default async function RegisterPage({ params, searchParams }: RegisterPageProps) {
+  const { locale } = await params;
   const [snapshot, cookieStore] = await Promise.all([getPublicAuthSnapshot("register"), cookies()]);
   const lang = resolveUiLanguage(cookieStore.get(UI_LANGUAGE_COOKIE)?.value);
-  const params = (await searchParams) ?? {};
-  const email = firstValue(params.email) ?? "";
-  const error = firstValue(params.error);
-  const next = safeRedirectTarget(firstValue(params.next), "/app/dashboard");
-  const onboardingNotes = [
-    pickText(lang, "必须先完成邮箱验证，才能正常登录。", "Email verification is required before normal sign-in is allowed."),
-    pickText(lang, "每个用户只能绑定一个币安账号，保持所有权关系清晰。", "One Binance account per user keeps exchange ownership explicit."),
-    pickText(lang, "没有会员权限时，不允许启动任何策略。", "Membership is required before any strategy can start."),
-  ];
+  const searchParamsValue = (await searchParams) ?? {};
+  const email = firstValue(searchParamsValue.email) ?? "";
+  const error = firstValue(searchParamsValue.error);
+  const next = safeRedirectTarget(firstValue(searchParamsValue.next), "/app/dashboard");
 
   return (
-    <>
-      <Tabs
-        activeHref="/register"
-        items={[
-          { href: "/login", label: pickText(lang, "登录", "Login") },
-          { href: "/register", label: pickText(lang, "注册", "Register") },
-        ]}
-        label={pickText(lang, "认证页面", "Authentication pages")}
-      />
-      {error ? (
-        <StatusBanner description={error} title={pickText(lang, "注册失败", "Registration failed")} />
-      ) : (
-        <StatusBanner description={snapshot.notice.description} title={snapshot.notice.title} tone={snapshot.notice.tone} />
-      )}
-      <div className="content-grid content-grid--split">
-        <Card>
-          <CardHeader>
-            <CardTitle>{snapshot.title}</CardTitle>
-            <CardDescription>{snapshot.description}</CardDescription>
-          </CardHeader>
-          <CardBody>
-            <FormStack action="/api/auth/register" method="post">
-              <input name="next" type="hidden" value={next} />
-              <Field hint={pickText(lang, "注册后会先发送验证码，验证完成后才能登录。", "A verification code will be issued before login is allowed.")} label="Email">
-                <Input autoComplete="email" defaultValue={email} name="email" required type="email" />
-              </Field>
-              <Field hint={pickText(lang, "请先设置独立密码，之后可到安全中心启用 TOTP。", "Use a unique password before enabling TOTP in the security center.")} label={pickText(lang, "密码", "Password")}>
-                <Input autoComplete="new-password" name="password" required type="password" />
-              </Field>
-              <div className="chip-row">
-                {snapshot.checklist.map((item) => (
-                  <Chip key={item}>
-                    {item}
-                  </Chip>
-                ))}
-              </div>
-              <ButtonRow>
-                <Button type="submit">{snapshot.submitLabel}</Button>
-                <Link className="button button--ghost" href="/help/expiry-reminder">
-                  {pickText(lang, "查看计费说明", "Billing help")}
-                </Link>
-              </ButtonRow>
-            </FormStack>
-          </CardBody>
-          <CardFooter>
-            <Link href={snapshot.alternateHref}>{snapshot.alternateLabel}</Link>
-          </CardFooter>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle>{pickText(lang, "开户流程", "Account onboarding")}</CardTitle>
-            <CardDescription>{pickText(lang, "注册后必须先完成验证，才会进入正式登录。", "Registration now moves through explicit verification before login.")}</CardDescription>
-          </CardHeader>
-          <CardBody>
-            <ul className="text-list">
-              {onboardingNotes.map((item) => (
-                <li key={item}>{item}</li>
-              ))}
-            </ul>
-          </CardBody>
-        </Card>
+    <div className="w-full max-w-[420px] space-y-6">
+      <div className="text-center space-y-2">
+        <h1 className="text-2xl font-bold tracking-tight text-white">{snapshot.title}</h1>
+        <p className="text-sm text-slate-400">{snapshot.description}</p>
       </div>
-    </>
+
+      {error ? (
+        <StatusBanner description={error} title={pickText(lang, "注册失败", "Registration failed")} tone="danger" />
+      ) : snapshot.notice.description ? (
+        <StatusBanner description={snapshot.notice.description} title={snapshot.notice.title} tone={snapshot.notice.tone as any} />
+      ) : null}
+
+      <Card className="bg-[#131b2c] border-slate-800 shadow-xl">
+        <CardBody className="p-6">
+          <FormStack action={`/api/auth/register?locale=${locale}`} method="post" className="space-y-5">
+            <input name="next" type="hidden" value={next} />
+            
+            <Field label="Email" hint={pickText(lang, "需要进行验证", "Verification required")}>
+              <Input 
+                autoComplete="email" 
+                defaultValue={email} 
+                name="email" 
+                required 
+                type="email" 
+                className="bg-slate-900 border-slate-700 h-10 text-sm"
+                placeholder="name@example.com"
+              />
+            </Field>
+
+            <Field label={pickText(lang, "密码", "Password")}>
+              <Input 
+                autoComplete="new-password" 
+                name="password" 
+                required 
+                type="password" 
+                className="bg-slate-900 border-slate-700 h-10 text-sm"
+                placeholder="••••••••"
+              />
+            </Field>
+
+            <Button type="submit" tone="primary" className="w-full h-11 text-sm font-bold shadow-lg shadow-primary/20">
+              <UserPlus className="w-4 h-4 mr-2" />
+              {snapshot.submitLabel}
+            </Button>
+          </FormStack>
+        </CardBody>
+        <div className="border-t border-slate-800/60 bg-slate-800/30 p-4 text-center flex flex-col gap-2">
+          <Link href={`/${locale}/login`} className="text-xs text-primary hover:underline font-semibold">
+            {snapshot.alternateLabel}
+          </Link>
+        </div>
+      </Card>
+
+      <div className="text-center">
+        <p className="text-[11px] text-slate-500 max-w-xs mx-auto leading-relaxed">
+          {pickText(lang, "注册即表示您同意我们的服务条款和隐私政策。一账户仅限绑定一个交易所 API。", "By registering, you agree to our Terms of Service and Privacy Policy. One exchange API per account.")}
+        </p>
+      </div>
+    </div>
   );
 }

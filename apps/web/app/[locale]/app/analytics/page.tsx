@@ -64,7 +64,7 @@ export default async function AnalyticsPage() {
         description={pickText(lang, "账户级与策略级统计集中展示，便于收益与成本复盘。", "Account-level and strategy-level statistics stay together for PnL and cost review.")}
         eyebrow={pickText(lang, "分析", "Analytics")}
         title={pickText(lang, "分析面板", "Analytics")}
-        actions={<div className="button-row"><a className="button button--ghost" href="/api/user/exports/strategy-stats">{pickText(lang, "导出策略统计 CSV", "Download strategy stats CSV")}</a><a className="button button--ghost" href="/api/user/exports/payments">{pickText(lang, "导出付款 CSV", "Download payments CSV")}</a></div>}
+        actions={<div className="flex items-center gap-2"><a className="inline-flex items-center justify-center rounded-sm text-sm font-medium h-9 px-4 py-2 hover:bg-slate-800 text-slate-300 transition-colors" href="/api/user/exports/strategy-stats">{pickText(lang, "导出策略统计 CSV", "Download strategy stats CSV")}</a><a className="inline-flex items-center justify-center rounded-sm text-sm font-medium h-9 px-4 py-2 hover:bg-slate-800 text-slate-300 transition-colors" href="/api/user/exports/payments">{pickText(lang, "导出付款 CSV", "Download payments CSV")}</a></div>}
       >
         <div className="content-grid content-grid--metrics">
           {[
@@ -84,7 +84,7 @@ export default async function AnalyticsPage() {
           ))}
         </div>
       </AppShellSection>
-      <div className="content-grid content-grid--split">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <Card>
           <CardHeader>
             <CardTitle>{pickText(lang, "策略统计", "Strategy statistics")}</CardTitle>
@@ -130,7 +130,7 @@ export default async function AnalyticsPage() {
           </CardBody>
         </Card>
       </div>
-      <div className="content-grid content-grid--split">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <Card>
           <CardHeader>
             <CardTitle>{pickText(lang, "最近交易所成交", "Recent exchange trades")}</CardTitle>

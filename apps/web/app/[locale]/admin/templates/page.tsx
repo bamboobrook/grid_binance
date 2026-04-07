@@ -56,7 +56,7 @@ export default async function AdminTemplatesPage({ searchParams }: PageProps) {
         eyebrow={pickText(lang, "模板治理", "Template Governance")}
         title={pickText(lang, "模板管理", "Template Management")}
       >
-        <div className="content-grid content-grid--split">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <Card>
             <CardHeader>
               <CardTitle>{editingTemplate ? pickText(lang, "编辑模板", "Edit Template") : pickText(lang, "创建模板", "Create Template")}</CardTitle>

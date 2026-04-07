@@ -143,11 +143,11 @@ export default async function StrategyDetailPage({ params, searchParams }: PageP
       {symbolMatchesResult.error ? <StatusBanner description={symbolMatchesResult.error} title="Symbol search unavailable" /> : null}
       <AppShellSection
         actions={
-          <div className="button-row">
-            <Link className="button button--ghost" href="/app/orders">
+          <div className="flex items-center gap-2">
+            <Link className="inline-flex items-center justify-center rounded-sm text-sm font-medium h-9 px-4 py-2 hover:bg-slate-800 text-slate-300 transition-colors" href="/app/orders">
               Orders
             </Link>
-            <Link className="button button--ghost" href="/app/help">
+            <Link className="inline-flex items-center justify-center rounded-sm text-sm font-medium h-9 px-4 py-2 hover:bg-slate-800 text-slate-300 transition-colors" href="/app/help">
               Help Center
             </Link>
           </div>
@@ -191,7 +191,7 @@ export default async function StrategyDetailPage({ params, searchParams }: PageP
           </Card>
         </div>
       </AppShellSection>
-      <div className="content-grid content-grid--split">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <Card>
           <CardHeader>
             <CardTitle>Edit and lifecycle flow</CardTitle>
@@ -204,7 +204,7 @@ export default async function StrategyDetailPage({ params, searchParams }: PageP
                 <Input defaultValue={strategy.name} name="name" required />
               </Field>
               <Field label="Search symbols" hint="Symbol search uses synced Binance metadata for fuzzy matching.">
-                <div className="button-row">
+                <div className="flex items-center gap-2">
                   <Input defaultValue={symbolQuery} form="detail-symbol-search-form" name="symbolQuery" />
                   <Button form="detail-symbol-search-form" type="submit">Search symbols</Button>
                 </div>
@@ -384,7 +384,7 @@ export default async function StrategyDetailPage({ params, searchParams }: PageP
           </Card>
         ))}
       </div>
-      <div className="content-grid content-grid--split">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <Card>
           <CardHeader>
             <CardTitle>Grid ladder</CardTitle>

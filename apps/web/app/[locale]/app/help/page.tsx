@@ -72,7 +72,7 @@ export default async function HelpPage({ searchParams }: HelpPageProps) {
         eyebrow={pickText(lang, "帮助中心", "Help center")}
         title={pickText(lang, "帮助中心", "Help Center")}
       >
-        <div className="content-grid content-grid--split">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <Card>
             <CardHeader>
               <CardTitle>{pickText(lang, "指南列表", "Guides")}</CardTitle>

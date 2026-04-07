@@ -80,7 +80,7 @@ export default async function ExchangePage({ searchParams }: ExchangePageProps) 
         eyebrow="Exchange settings"
         title="Exchange Credentials"
       >
-        <div className="content-grid content-grid--split">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <Card>
             <CardHeader>
               <CardTitle>Bind Binance account</CardTitle>
