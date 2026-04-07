@@ -230,6 +230,19 @@ test("user app routes do not rely on fabricated product state for critical truth
 });
 
 
+test("public landing and auth pages localize primary copy instead of single-language rendering", () => {
+  const homePage = read("apps/web/src/app/(public)/page.tsx");
+  const loginPage = read("apps/web/src/app/(public)/login/page.tsx");
+  const registerPage = read("apps/web/src/app/(public)/register/page.tsx");
+
+  assert.match(homePage, /pickText|resolveUiLanguage|cookies\(/);
+  assert.match(loginPage, /pickText|resolveUiLanguage|cookies\(/);
+  assert.match(registerPage, /pickText|resolveUiLanguage|cookies\(/);
+  assert.match(homePage, /创建账号|Create account/);
+  assert.match(loginPage, /重置密码|Reset password/);
+  assert.match(registerPage, /查看计费说明|Billing help/);
+});
+
 test("strategy save route does not auto-pause running strategies", () => {
   const strategyRoute = read("apps/web/src/app/api/user/strategies/[id]/route.ts");
 

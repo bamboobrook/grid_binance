@@ -74,6 +74,7 @@ name = "api-server"
 version = "0.1.0"
 dependencies = [
  "axum",
+ "base64",
  "billing-chain-listener",
  "chrono",
  "getrandom 0.2.17",

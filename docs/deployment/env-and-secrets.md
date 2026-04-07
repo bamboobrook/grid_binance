@@ -28,6 +28,8 @@ Optional but required for the selected auth email delivery path:
 - `AUTH_EMAIL_SMTP_HOST`
 - `AUTH_EMAIL_SMTP_PORT`
 - `AUTH_EMAIL_SMTP_HELO_NAME`
+- `AUTH_EMAIL_SMTP_USERNAME`
+- `AUTH_EMAIL_PASSWORD`
 - `AUTH_EMAIL_HTTP_URL`
 - `AUTH_EMAIL_HTTP_BEARER_TOKEN`
 
@@ -59,7 +61,7 @@ Optional but required for automatic billing detection on the corresponding asset
 - `SESSION_TOKEN_SECRET` signs session tokens used by the web and API auth boundary.
 - `AUTH_EMAIL_DELIVERY` selects how registration and password reset codes are delivered. Use `smtp` for a trusted relay or `http` for a mail webhook. Persistent runtime auth rejects `capture` or missing delivery config.
 - `AUTH_EMAIL_FROM` is the sender address used for verification and password reset mail.
-- `AUTH_EMAIL_SMTP_HOST`, `AUTH_EMAIL_SMTP_PORT`, and `AUTH_EMAIL_SMTP_HELO_NAME` configure the minimal SMTP relay path. This implementation expects a relay that accepts direct SMTP without STARTTLS or AUTH.
+- `AUTH_EMAIL_SMTP_HOST`, `AUTH_EMAIL_SMTP_PORT`, and `AUTH_EMAIL_SMTP_HELO_NAME` configure the SMTP relay path. `AUTH_EMAIL_SMTP_USERNAME` and `AUTH_EMAIL_PASSWORD` are optional but required when the relay enforces SMTP AUTH; when the username is omitted and a password is present, the sender address is used as the AUTH username. This implementation still expects plain SMTP without STARTTLS.
 - `AUTH_EMAIL_HTTP_URL` and `AUTH_EMAIL_HTTP_BEARER_TOKEN` configure the generic JSON webhook path for external mail gateways.
 - `EXCHANGE_CREDENTIALS_MASTER_KEY` is dedicated to exchange credential encryption.
 - `BINANCE_LIVE_MODE` toggles real Binance REST/WS execution paths for the API, trading engine, scheduler, and market-data gateway.

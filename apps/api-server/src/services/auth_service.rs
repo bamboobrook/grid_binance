@@ -7,6 +7,7 @@ use std::{
     time::Duration as StdDuration,
 };
 
+use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
 use axum::{
     http::StatusCode,
     response::{IntoResponse, Response},
@@ -57,6 +58,8 @@ struct SmtpEmailConfig {
     port: u16,
     helo_name: String,
     from: String,
+    auth_username: Option<String>,
+    auth_password: Option<String>,
 }
 
 struct EmailMessage {
@@ -1007,22 +1010,30 @@ fn load_auth_email_delivery(strict_runtime: bool) -> Result<AuthEmailDelivery, A
             bearer_token: optional_env("AUTH_EMAIL_HTTP_BEARER_TOKEN"),
             from: required_env("AUTH_EMAIL_FROM")?,
         })),
-        "smtp" => Ok(AuthEmailDelivery::Smtp(SmtpEmailConfig {
-            host: required_env("AUTH_EMAIL_SMTP_HOST")?,
-            port: optional_env("AUTH_EMAIL_SMTP_PORT")
-                .map(|value| {
-                    value.parse::<u16>().map_err(|_| {
-                        AuthConfigError::message(
-                            "AUTH_EMAIL_SMTP_PORT must be a valid u16 port number",
-                        )
+        "smtp" => {
+            let from = required_env("AUTH_EMAIL_FROM")?;
+            let auth_password = optional_env("AUTH_EMAIL_PASSWORD");
+            let auth_username = optional_env("AUTH_EMAIL_SMTP_USERNAME")
+                .or_else(|| auth_password.as_ref().map(|_| from.clone()));
+            Ok(AuthEmailDelivery::Smtp(SmtpEmailConfig {
+                host: required_env("AUTH_EMAIL_SMTP_HOST")?,
+                port: optional_env("AUTH_EMAIL_SMTP_PORT")
+                    .map(|value| {
+                        value.parse::<u16>().map_err(|_| {
+                            AuthConfigError::message(
+                                "AUTH_EMAIL_SMTP_PORT must be a valid u16 port number",
+                            )
+                        })
                     })
-                })
-                .transpose()?
-                .unwrap_or(DEFAULT_AUTH_EMAIL_SMTP_PORT),
-            helo_name: optional_env("AUTH_EMAIL_SMTP_HELO_NAME")
-                .unwrap_or_else(|| "localhost".to_owned()),
-            from: required_env("AUTH_EMAIL_FROM")?,
-        })),
+                    .transpose()?
+                    .unwrap_or(DEFAULT_AUTH_EMAIL_SMTP_PORT),
+                helo_name: optional_env("AUTH_EMAIL_SMTP_HELO_NAME")
+                    .unwrap_or_else(|| "localhost".to_owned()),
+                from,
+                auth_username,
+                auth_password,
+            }))
+        }
         _ => Err(AuthConfigError::message(
             "AUTH_EMAIL_DELIVERY must be one of: capture, smtp, http",
         )),
@@ -1082,9 +1093,27 @@ fn send_smtp_email(
     smtp_write_command(
         &mut stream,
         &mut reader,
-        &format!("HELO {}", config.helo_name),
+        &format!("EHLO {}", config.helo_name),
         250,
     )?;
+    if let (Some(username), Some(password)) = (
+        config.auth_username.as_deref(),
+        config.auth_password.as_deref(),
+    ) {
+        smtp_write_command(&mut stream, &mut reader, "AUTH LOGIN", 334)?;
+        smtp_write_command(
+            &mut stream,
+            &mut reader,
+            &BASE64_STANDARD.encode(username),
+            334,
+        )?;
+        smtp_write_command(
+            &mut stream,
+            &mut reader,
+            &BASE64_STANDARD.encode(password),
+            235,
+        )?;
+    }
     smtp_write_command(
         &mut stream,
         &mut reader,
@@ -1281,6 +1310,42 @@ fn validate_password(password: &str) -> Result<(), AuthError> {
 mod tests {
     use super::{AuthService, LoginRequest, RegisterUserRequest, VerifyEmailRequest};
     use shared_db::SharedDb;
+
+    #[test]
+    fn smtp_delivery_loads_password_backed_auth_config() {
+        let previous = [
+            ("AUTH_EMAIL_DELIVERY", std::env::var("AUTH_EMAIL_DELIVERY").ok()),
+            ("AUTH_EMAIL_SMTP_HOST", std::env::var("AUTH_EMAIL_SMTP_HOST").ok()),
+            ("AUTH_EMAIL_SMTP_PORT", std::env::var("AUTH_EMAIL_SMTP_PORT").ok()),
+            ("AUTH_EMAIL_FROM", std::env::var("AUTH_EMAIL_FROM").ok()),
+            ("AUTH_EMAIL_PASSWORD", std::env::var("AUTH_EMAIL_PASSWORD").ok()),
+            ("AUTH_EMAIL_SMTP_USERNAME", std::env::var("AUTH_EMAIL_SMTP_USERNAME").ok()),
+        ];
+
+        std::env::set_var("AUTH_EMAIL_DELIVERY", "smtp");
+        std::env::set_var("AUTH_EMAIL_SMTP_HOST", "smtp.example.com");
+        std::env::set_var("AUTH_EMAIL_SMTP_PORT", "587");
+        std::env::set_var("AUTH_EMAIL_FROM", "bot@example.com");
+        std::env::set_var("AUTH_EMAIL_PASSWORD", "topsecret");
+        std::env::remove_var("AUTH_EMAIL_SMTP_USERNAME");
+
+        let delivery = super::load_auth_email_delivery(true).expect("smtp config");
+        match delivery {
+            super::AuthEmailDelivery::Smtp(config) => {
+                assert_eq!(config.auth_username.as_deref(), Some("bot@example.com"));
+                assert_eq!(config.auth_password.as_deref(), Some("topsecret"));
+            }
+            _ => panic!("expected smtp config"),
+        }
+
+        for (key, value) in previous {
+            if let Some(value) = value {
+                std::env::set_var(key, value);
+            } else {
+                std::env::remove_var(key);
+            }
+        }
+    }
 
     #[test]
     fn auth_state_survives_service_restart() {
