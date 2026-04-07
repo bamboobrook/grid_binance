@@ -1,8 +1,11 @@
 use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
+use shared_db::{
+    DepositTransactionRecord, MembershipPlanRecord, MembershipRecord, NotificationLogRecord,
+    SharedDb,
+};
 use shared_events::{NotificationEvent, NotificationKind, NotificationRecord};
 use std::{collections::BTreeMap, sync::OnceLock, time::Duration as StdDuration};
-use shared_db::{DepositTransactionRecord, MembershipPlanRecord, MembershipRecord, NotificationLogRecord, SharedDb};
 
 use crate::order_matcher::canonicalize_amount;
 
@@ -86,10 +89,9 @@ pub fn process_observed_transfer(
             order.paid_at.is_none()
                 && order.requested_at <= transfer.observed_at
                 && order.chain == chain
-                && order
-                    .assignment
-                    .as_ref()
-                    .is_some_and(|assignment| normalize_chain_address(&chain, &assignment.address) == address)
+                && order.assignment.as_ref().is_some_and(|assignment| {
+                    normalize_chain_address(&chain, &assignment.address) == address
+                })
         })
         .cloned()
         .collect();
@@ -157,7 +159,10 @@ pub fn process_observed_transfer(
                 &token,
                 &binding.telegram_chat_id,
                 "Deposit confirmed",
-                &format!("{} {} deposit matched billing order {}.", order.chain, order.asset, order.order_id),
+                &format!(
+                    "{} {} deposit matched billing order {}.",
+                    order.chain, order.asset, order.order_id
+                ),
             )
             .is_ok(),
             _ => false,
@@ -167,7 +172,10 @@ pub fn process_observed_transfer(
                 email: order.email.clone(),
                 kind: NotificationKind::DepositConfirmed,
                 title: "Deposit confirmed".to_string(),
-                message: format!("{} {} deposit matched billing order {}.", order.chain, order.asset, order.order_id),
+                message: format!(
+                    "{} {} deposit matched billing order {}.",
+                    order.chain, order.asset, order.order_id
+                ),
                 payload: BTreeMap::from([
                     ("order_id".to_string(), order.order_id.to_string()),
                     ("tx_hash".to_string(), tx_hash.clone()),
@@ -177,8 +185,9 @@ pub fn process_observed_transfer(
             in_app_delivered: true,
             show_expiry_popup: false,
         };
-        let payload = serde_json::to_value(&record)
-            .map_err(|error| ProcessorError::Storage(shared_db::SharedDbError::new(error.to_string())))?;
+        let payload = serde_json::to_value(&record).map_err(|error| {
+            ProcessorError::Storage(shared_db::SharedDbError::new(error.to_string()))
+        })?;
         db.insert_notification_log(&NotificationLogRecord {
             user_email: order.email.clone(),
             channel: "in_app".to_string(),
@@ -197,7 +206,12 @@ pub fn process_observed_transfer(
                 template_key: Some("DepositConfirmed".to_string()),
                 title: record.event.title.clone(),
                 body: record.event.message.clone(),
-                status: if telegram_delivered { "delivered" } else { "failed" }.to_string(),
+                status: if telegram_delivered {
+                    "delivered"
+                } else {
+                    "failed"
+                }
+                .to_string(),
                 payload,
                 created_at: transfer.observed_at,
                 delivered_at: telegram_delivered.then_some(transfer.observed_at),
@@ -267,7 +281,6 @@ pub fn process_observed_transfer(
     })
 }
 
-
 fn telegram_bot_token() -> Option<String> {
     std::env::var("TELEGRAM_BOT_TOKEN")
         .ok()
@@ -285,7 +298,11 @@ fn telegram_api_base_url() -> String {
 
 fn telegram_http_agent() -> &'static ureq::Agent {
     static AGENT: OnceLock<ureq::Agent> = OnceLock::new();
-    AGENT.get_or_init(|| ureq::AgentBuilder::new().timeout(StdDuration::from_secs(5)).build())
+    AGENT.get_or_init(|| {
+        ureq::AgentBuilder::new()
+            .timeout(StdDuration::from_secs(5))
+            .build()
+    })
 }
 
 fn send_telegram_message(
@@ -295,11 +312,15 @@ fn send_telegram_message(
     body: &str,
 ) -> Result<(), shared_db::SharedDbError> {
     telegram_http_agent()
-        .post(&format!("{}/bot{}/sendMessage", telegram_api_base_url(), bot_token))
+        .post(&format!(
+            "{}/bot{}/sendMessage",
+            telegram_api_base_url(),
+            bot_token
+        ))
         .send_json(ureq::json!({
             "chat_id": chat_id,
             "text": format!("{}
-{}", title, body),
+        {}", title, body),
         }))
         .map_err(|error| shared_db::SharedDbError::new(error.to_string()))?;
     Ok(())
@@ -501,7 +522,9 @@ mod tests {
             .expect("membership")
             .expect("membership exists");
         assert!(membership.active_until.is_some());
-        let notifications = db.list_notification_logs("listener@example.com", 10).expect("notifications");
+        let notifications = db
+            .list_notification_logs("listener@example.com", 10)
+            .expect("notifications");
         assert_eq!(notifications.len(), 1);
         assert!(notifications[0].title.contains("Deposit confirmed"));
     }
@@ -555,7 +578,9 @@ mod tests {
         .expect("process");
 
         assert!(result.matched);
-        let notifications = db.list_notification_logs("listener@example.com", 10).expect("notifications");
+        let notifications = db
+            .list_notification_logs("listener@example.com", 10)
+            .expect("notifications");
         assert_eq!(notifications.len(), 2);
         assert_eq!(notifications[1].channel, "telegram");
         assert_eq!(notifications[1].status, "failed");
@@ -573,7 +598,8 @@ mod tests {
             telegram_user_id: "tg-user".to_string(),
             telegram_chat_id: "tg-chat".to_string(),
             bound_at: parse_time("2026-04-01T00:00:00Z"),
-        }).expect("binding");
+        })
+        .expect("binding");
         std::env::set_var("TELEGRAM_BOT_TOKEN", "bot-test-token");
         std::env::set_var("TELEGRAM_API_BASE_URL", "http://127.0.0.1:1");
         db.insert_billing_order(&BillingOrderRecord {
@@ -593,20 +619,30 @@ mod tests {
             tx_hash: None,
             status: "pending".to_string(),
             enqueued_at: None,
-        }).expect("order");
+        })
+        .expect("order");
 
-        process_observed_transfer(&db, ObservedChainTransfer {
-            chain: "BSC".to_string(),
-            asset: "USDT".to_string(),
-            address: "bsc-addr-1".to_string(),
-            amount: "20.00000000".to_string(),
-            tx_hash: "tx-payload".to_string(),
-            confirmations: Some(12),
-            observed_at: parse_time("2026-04-01T00:01:00Z"),
-        }).expect("process");
+        process_observed_transfer(
+            &db,
+            ObservedChainTransfer {
+                chain: "BSC".to_string(),
+                asset: "USDT".to_string(),
+                address: "bsc-addr-1".to_string(),
+                amount: "20.00000000".to_string(),
+                tx_hash: "tx-payload".to_string(),
+                confirmations: Some(12),
+                observed_at: parse_time("2026-04-01T00:01:00Z"),
+            },
+        )
+        .expect("process");
 
-        let notifications = db.list_notification_logs("listener@example.com", 10).expect("notifications");
-        let in_app = notifications.iter().find(|record| record.channel == "in_app").expect("in_app");
+        let notifications = db
+            .list_notification_logs("listener@example.com", 10)
+            .expect("notifications");
+        let in_app = notifications
+            .iter()
+            .find(|record| record.channel == "in_app")
+            .expect("in_app");
         assert_eq!(in_app.payload["telegram_delivered"], false);
         std::env::remove_var("TELEGRAM_BOT_TOKEN");
         std::env::remove_var("TELEGRAM_API_BASE_URL");
@@ -622,7 +658,8 @@ mod tests {
             telegram_user_id: "tg-user".to_string(),
             telegram_chat_id: "tg-chat".to_string(),
             bound_at: parse_time("2026-04-01T00:00:00Z"),
-        }).expect("binding");
+        })
+        .expect("binding");
         std::env::remove_var("TELEGRAM_BOT_TOKEN");
         db.insert_billing_order(&BillingOrderRecord {
             order_id: 1,
@@ -641,20 +678,29 @@ mod tests {
             tx_hash: None,
             status: "pending".to_string(),
             enqueued_at: None,
-        }).expect("order");
+        })
+        .expect("order");
 
-        process_observed_transfer(&db, ObservedChainTransfer {
-            chain: "BSC".to_string(),
-            asset: "USDT".to_string(),
-            address: "bsc-addr-1".to_string(),
-            amount: "20.00000000".to_string(),
-            tx_hash: "tx-no-token".to_string(),
-            confirmations: Some(12),
-            observed_at: parse_time("2026-04-01T00:01:00Z"),
-        }).expect("process");
+        process_observed_transfer(
+            &db,
+            ObservedChainTransfer {
+                chain: "BSC".to_string(),
+                asset: "USDT".to_string(),
+                address: "bsc-addr-1".to_string(),
+                amount: "20.00000000".to_string(),
+                tx_hash: "tx-no-token".to_string(),
+                confirmations: Some(12),
+                observed_at: parse_time("2026-04-01T00:01:00Z"),
+            },
+        )
+        .expect("process");
 
-        let notifications = db.list_notification_logs("listener@example.com", 10).expect("notifications");
-        assert!(notifications.iter().any(|record| record.channel == "telegram" && record.status == "failed"));
+        let notifications = db
+            .list_notification_logs("listener@example.com", 10)
+            .expect("notifications");
+        assert!(notifications
+            .iter()
+            .any(|record| record.channel == "telegram" && record.status == "failed"));
     }
 
     #[test]
@@ -702,7 +748,9 @@ mod tests {
             .expect("membership")
             .expect("membership exists");
         assert!(membership.active_until.is_some());
-        let notifications = db.list_notification_logs("listener@example.com", 10).expect("notifications");
+        let notifications = db
+            .list_notification_logs("listener@example.com", 10)
+            .expect("notifications");
         assert_eq!(notifications.len(), 1);
         assert!(notifications[0].title.contains("Deposit confirmed"));
     }

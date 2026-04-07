@@ -7,12 +7,12 @@ use std::{
     time::Duration as StdDuration,
 };
 
-use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
 use axum::{
     http::StatusCode,
     response::{IntoResponse, Response},
     Json,
 };
+use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -252,11 +252,7 @@ impl AuthService {
         }
         validate_password(&request.password)?;
 
-        if let Some(existing) = self
-            .db
-            .find_auth_user(&email)
-            .map_err(AuthError::storage)?
-        {
+        if let Some(existing) = self.db.find_auth_user(&email).map_err(AuthError::storage)? {
             let verification_seed = self
                 .db
                 .next_sequence("auth_seed")
@@ -308,7 +304,10 @@ impl AuthService {
         Ok(RegisterUserResponse {
             user_id,
             code_delivery: "email",
-            verification_code: self.config.email_delivery.capture_code(Some(verification_code)),
+            verification_code: self
+                .config
+                .email_delivery
+                .capture_code(Some(verification_code)),
         })
     }
 
@@ -409,10 +408,7 @@ impl AuthService {
         request: PasswordResetRequest,
     ) -> Result<PasswordResetRequestResponse, AuthError> {
         let email = normalize_email(&request.email);
-        let Some(_) = self.db
-            .find_auth_user(&email)
-            .map_err(AuthError::storage)?
-        else {
+        let Some(_) = self.db.find_auth_user(&email).map_err(AuthError::storage)? else {
             return Ok(PasswordResetRequestResponse {
                 code_delivery: "email",
                 reset_code: None,
@@ -492,12 +488,19 @@ impl AuthService {
             .db
             .find_auth_user(&email)
             .map_err(AuthError::storage)?
-            .ok_or_else(|| AuthError::unauthorized("admin totp bootstrap requires a verified admin account"))?;
-        let admin_role = resolved_admin_role(&self.config, &email)
-            .ok_or_else(|| AuthError::forbidden("admin totp bootstrap is only available for configured admin accounts"))?;
+            .ok_or_else(|| {
+                AuthError::unauthorized("admin totp bootstrap requires a verified admin account")
+            })?;
+        let admin_role = resolved_admin_role(&self.config, &email).ok_or_else(|| {
+            AuthError::forbidden(
+                "admin totp bootstrap is only available for configured admin accounts",
+            )
+        })?;
 
         if !user.email_verified {
-            return Err(AuthError::unauthorized("admin totp bootstrap requires a verified admin account"));
+            return Err(AuthError::unauthorized(
+                "admin totp bootstrap requires a verified admin account",
+            ));
         }
         if !verify_password(&request.password, &user.password_hash) {
             return Err(AuthError::unauthorized("invalid credentials"));
@@ -1314,12 +1317,27 @@ mod tests {
     #[test]
     fn smtp_delivery_loads_password_backed_auth_config() {
         let previous = [
-            ("AUTH_EMAIL_DELIVERY", std::env::var("AUTH_EMAIL_DELIVERY").ok()),
-            ("AUTH_EMAIL_SMTP_HOST", std::env::var("AUTH_EMAIL_SMTP_HOST").ok()),
-            ("AUTH_EMAIL_SMTP_PORT", std::env::var("AUTH_EMAIL_SMTP_PORT").ok()),
+            (
+                "AUTH_EMAIL_DELIVERY",
+                std::env::var("AUTH_EMAIL_DELIVERY").ok(),
+            ),
+            (
+                "AUTH_EMAIL_SMTP_HOST",
+                std::env::var("AUTH_EMAIL_SMTP_HOST").ok(),
+            ),
+            (
+                "AUTH_EMAIL_SMTP_PORT",
+                std::env::var("AUTH_EMAIL_SMTP_PORT").ok(),
+            ),
             ("AUTH_EMAIL_FROM", std::env::var("AUTH_EMAIL_FROM").ok()),
-            ("AUTH_EMAIL_PASSWORD", std::env::var("AUTH_EMAIL_PASSWORD").ok()),
-            ("AUTH_EMAIL_SMTP_USERNAME", std::env::var("AUTH_EMAIL_SMTP_USERNAME").ok()),
+            (
+                "AUTH_EMAIL_PASSWORD",
+                std::env::var("AUTH_EMAIL_PASSWORD").ok(),
+            ),
+            (
+                "AUTH_EMAIL_SMTP_USERNAME",
+                std::env::var("AUTH_EMAIL_SMTP_USERNAME").ok(),
+            ),
         ];
 
         std::env::set_var("AUTH_EMAIL_DELIVERY", "smtp");

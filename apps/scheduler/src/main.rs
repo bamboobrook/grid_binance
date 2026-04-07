@@ -6,7 +6,6 @@ use scheduler::jobs::{
     symbol_sync::{spawn_hourly_symbol_sync_job, SymbolSyncRuntimeState},
 };
 use serde::{Deserialize, Serialize};
-use shared_events::{NotificationEvent, NotificationKind, NotificationRecord};
 use shared_binance::{
     sync_symbol_metadata_strict, BinanceClient, CredentialCipher, CredentialValidationRequest,
     ExchangeCredentialCheck, SymbolMetadata,
@@ -15,6 +14,7 @@ use shared_db::{
     AccountProfitSnapshotRecord, ExchangeWalletSnapshotRecord, NotificationLogRecord, SharedDb,
     UserExchangeAccountRecord, UserExchangeSymbolRecord,
 };
+use shared_events::{NotificationEvent, NotificationKind, NotificationRecord};
 use std::{
     collections::BTreeMap,
     env,
@@ -89,24 +89,34 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         std::thread::sleep(snapshot_interval);
     });
     std::thread::spawn(move || loop {
-        if let Err(error) = run_membership_reminders_once(&reminder_db, Utc::now(), chrono::Duration::hours(configured_reminder_lookahead_hours())) {
+        if let Err(error) = run_membership_reminders_once(
+            &reminder_db,
+            Utc::now(),
+            chrono::Duration::hours(configured_reminder_lookahead_hours()),
+        ) {
             eprintln!("scheduler membership reminder job failed: {error}");
         }
         std::thread::sleep(reminder_interval);
     });
     std::thread::spawn(move || loop {
-        let mut metrics = grace_metrics_for_loop.lock().expect("grace metrics poisoned");
+        let mut metrics = grace_metrics_for_loop
+            .lock()
+            .expect("grace metrics poisoned");
         metrics.runs_total += 1;
         drop(metrics);
         match run_membership_grace_once(&grace_db, Utc::now()) {
             Ok(paused) if paused > 0 => {
-                let mut metrics = grace_metrics_for_loop.lock().expect("grace metrics poisoned");
+                let mut metrics = grace_metrics_for_loop
+                    .lock()
+                    .expect("grace metrics poisoned");
                 metrics.paused_total += paused as u64;
                 eprintln!("scheduler membership grace paused {} strategies", paused);
             }
             Ok(_) => {}
             Err(error) => {
-                let mut metrics = grace_metrics_for_loop.lock().expect("grace metrics poisoned");
+                let mut metrics = grace_metrics_for_loop
+                    .lock()
+                    .expect("grace metrics poisoned");
                 metrics.failures_total += 1;
                 eprintln!("scheduler membership grace job failed: {error}");
             }
@@ -199,11 +209,35 @@ fn health_payload(
     symbol_sync_state: &Arc<Mutex<SymbolSyncRuntimeState>>,
     grace_metrics: &Arc<Mutex<MembershipGraceMetrics>>,
 ) -> String {
-    let symbol = symbol_sync_state.lock().expect("symbol sync metrics poisoned");
+    let symbol = symbol_sync_state
+        .lock()
+        .expect("symbol sync metrics poisoned");
     let grace = grace_metrics.lock().expect("grace metrics poisoned");
     format!(
-        "# HELP service_up Service health probe status.\n# TYPE service_up gauge\nservice_up{{service=\"{service_name}\"}} 1\n# HELP scheduler_symbol_sync_runs_total Public symbol sync executions.\n# TYPE scheduler_symbol_sync_runs_total counter\nscheduler_symbol_sync_runs_total {sync_runs}\n# HELP scheduler_symbol_sync_last_synced_symbols Last synced public symbol count.\n# TYPE scheduler_symbol_sync_last_synced_symbols gauge\nscheduler_symbol_sync_last_synced_symbols {symbols}\n# HELP scheduler_membership_grace_runs_total Membership grace loop executions.\n# TYPE scheduler_membership_grace_runs_total counter\nscheduler_membership_grace_runs_total {grace_runs}\n# HELP scheduler_membership_grace_paused_total Strategies auto-paused after grace expiry.\n# TYPE scheduler_membership_grace_paused_total counter\nscheduler_membership_grace_paused_total {grace_paused}\n# HELP scheduler_membership_grace_failures_total Membership grace loop failures.\n# TYPE scheduler_membership_grace_failures_total counter\nscheduler_membership_grace_failures_total {grace_failures}\n",
+        r#"# HELP service_up Service health probe status.
+# TYPE service_up gauge
+service_up{{service="{service_name}"}} 1
+# HELP scheduler_symbol_sync_runs_total Public symbol sync executions.
+# TYPE scheduler_symbol_sync_runs_total counter
+scheduler_symbol_sync_runs_total {sync_runs}
+# HELP scheduler_symbol_sync_failures_total Public symbol sync failures.
+# TYPE scheduler_symbol_sync_failures_total counter
+scheduler_symbol_sync_failures_total {sync_failures}
+# HELP scheduler_symbol_sync_last_synced_symbols Last synced public symbol count.
+# TYPE scheduler_symbol_sync_last_synced_symbols gauge
+scheduler_symbol_sync_last_synced_symbols {symbols}
+# HELP scheduler_membership_grace_runs_total Membership grace loop executions.
+# TYPE scheduler_membership_grace_runs_total counter
+scheduler_membership_grace_runs_total {grace_runs}
+# HELP scheduler_membership_grace_paused_total Strategies auto-paused after grace expiry.
+# TYPE scheduler_membership_grace_paused_total counter
+scheduler_membership_grace_paused_total {grace_paused}
+# HELP scheduler_membership_grace_failures_total Membership grace loop failures.
+# TYPE scheduler_membership_grace_failures_total counter
+scheduler_membership_grace_failures_total {grace_failures}
+"#,
         sync_runs = symbol.run_count,
+        sync_failures = symbol.failure_count,
         symbols = symbol.last_synced_symbols,
         grace_runs = grace.runs_total,
         grace_paused = grace.paused_total,
@@ -329,14 +363,19 @@ fn refresh_account_snapshots(
         .map_err(storage_error)?;
     }
 
-    Ok((bundle.account_snapshots.len(), bundle.wallet_snapshots.len()))
+    Ok((
+        bundle.account_snapshots.len(),
+        bundle.wallet_snapshots.len(),
+    ))
 }
 
 fn run_strategy_snapshot_sync_once(db: &SharedDb) -> Result<usize, shared_db::SharedDbError> {
     let strategies = db.list_all_strategies()?;
     let mut inserted = 0usize;
-    let mut account_snapshots_by_user: BTreeMap<String, Vec<AccountProfitSnapshotRecord>> = BTreeMap::new();
-    let mut market_cost_basis_totals: BTreeMap<(String, String), rust_decimal::Decimal> = BTreeMap::new();
+    let mut account_snapshots_by_user: BTreeMap<String, Vec<AccountProfitSnapshotRecord>> =
+        BTreeMap::new();
+    let mut market_cost_basis_totals: BTreeMap<(String, String), rust_decimal::Decimal> =
+        BTreeMap::new();
 
     for strategy in &strategies {
         account_snapshots_by_user
@@ -371,12 +410,22 @@ fn run_strategy_snapshot_sync_once(db: &SharedDb) -> Result<usize, shared_db::Sh
         let cost_basis = strategy_cost_basis(&strategy);
         let account_snapshot = account_snapshots_by_user
             .get(&strategy.owner_email)
-            .and_then(|snapshots| latest_account_snapshot_for_exchange(snapshots, strategy_account_exchange(strategy.market)));
+            .and_then(|snapshots| {
+                latest_account_snapshot_for_exchange(
+                    snapshots,
+                    strategy_account_exchange(strategy.market),
+                )
+            });
         let group_total = market_cost_basis_totals
-            .get(&(strategy.owner_email.clone(), strategy_account_exchange(strategy.market).to_string()))
+            .get(&(
+                strategy.owner_email.clone(),
+                strategy_account_exchange(strategy.market).to_string(),
+            ))
             .copied()
             .unwrap_or(rust_decimal::Decimal::ZERO);
-        let share = if cost_basis > rust_decimal::Decimal::ZERO && group_total > rust_decimal::Decimal::ZERO {
+        let share = if cost_basis > rust_decimal::Decimal::ZERO
+            && group_total > rust_decimal::Decimal::ZERO
+        {
             cost_basis / group_total
         } else {
             rust_decimal::Decimal::ZERO
@@ -484,7 +533,13 @@ fn refresh_account_symbols(
         &symbol_records,
     )
     .map_err(storage_error)?;
-    persist_api_invalidation_notification_if_needed(db, &account.user_email, Some(&metadata), &check, synced_at)?;
+    persist_api_invalidation_notification_if_needed(
+        db,
+        &account.user_email,
+        Some(&metadata),
+        &check,
+        synced_at,
+    )?;
 
     Ok(())
 }
@@ -504,7 +559,9 @@ fn persist_api_invalidation_notification_if_needed(
     }
 
     let reason = api_invalidation_reason(check);
-    let binding = db.find_telegram_binding(user_email).map_err(storage_error)?;
+    let binding = db
+        .find_telegram_binding(user_email)
+        .map_err(storage_error)?;
     let telegram_delivered = match (binding.as_ref(), telegram_bot_token()) {
         (Some(binding), Some(token)) => send_telegram_message(
             &token,
@@ -524,7 +581,10 @@ fn persist_api_invalidation_notification_if_needed(
             payload: BTreeMap::from([
                 ("exchange".to_string(), BINANCE_EXCHANGE.to_string()),
                 ("reason".to_string(), reason),
-                ("connection_status".to_string(), check.connection_status().to_string()),
+                (
+                    "connection_status".to_string(),
+                    check.connection_status().to_string(),
+                ),
             ]),
         },
         telegram_delivered,
@@ -551,7 +611,12 @@ fn persist_api_invalidation_notification_if_needed(
             template_key: Some("ApiCredentialsInvalidated".to_string()),
             title: record.event.title,
             body: record.event.message,
-            status: if telegram_delivered { "delivered" } else { "failed" }.to_string(),
+            status: if telegram_delivered {
+                "delivered"
+            } else {
+                "failed"
+            }
+            .to_string(),
             payload,
             created_at,
             delivered_at: telegram_delivered.then_some(created_at),
@@ -605,7 +670,11 @@ fn telegram_api_base_url() -> String {
 
 fn telegram_http_agent() -> &'static ureq::Agent {
     static AGENT: OnceLock<ureq::Agent> = OnceLock::new();
-    AGENT.get_or_init(|| ureq::AgentBuilder::new().timeout(std::time::Duration::from_secs(5)).build())
+    AGENT.get_or_init(|| {
+        ureq::AgentBuilder::new()
+            .timeout(std::time::Duration::from_secs(5))
+            .build()
+    })
 }
 
 fn send_telegram_message(
@@ -615,11 +684,15 @@ fn send_telegram_message(
     body: &str,
 ) -> Result<(), shared_db::SharedDbError> {
     telegram_http_agent()
-        .post(&format!("{}/bot{}/sendMessage", telegram_api_base_url(), bot_token))
+        .post(&format!(
+            "{}/bot{}/sendMessage",
+            telegram_api_base_url(),
+            bot_token
+        ))
         .send_json(ureq::json!({
             "chat_id": chat_id,
             "text": format!("{}
-{}", title, body),
+        {}", title, body),
         }))
         .map_err(|error| shared_db::SharedDbError::new(error.to_string()))?;
     Ok(())
@@ -734,12 +807,12 @@ mod tests {
     use super::{
         configured_membership_grace_interval_secs, configured_symbol_sync_interval_secs,
         health_payload, parse_port, required_env, run_persistent_snapshot_sync_once,
-        run_persistent_symbol_sync_once, run_strategy_snapshot_sync_once,
-        MembershipGraceMetrics, DEFAULT_PORT, DEFAULT_MEMBERSHIP_GRACE_INTERVAL_SECS,
-        DEFAULT_SYMBOL_SYNC_INTERVAL_SECS, SERVICE_NAME,
+        run_persistent_symbol_sync_once, run_strategy_snapshot_sync_once, MembershipGraceMetrics,
+        DEFAULT_MEMBERSHIP_GRACE_INTERVAL_SECS, DEFAULT_PORT, DEFAULT_SYMBOL_SYNC_INTERVAL_SECS,
+        SERVICE_NAME,
     };
-    use scheduler::jobs::symbol_sync::SymbolSyncRuntimeState;
     use chrono::Utc;
+    use scheduler::jobs::symbol_sync::SymbolSyncRuntimeState;
     use serde_json::json;
     use shared_binance::{mask_api_key, CredentialCipher};
     use shared_db::{SharedDb, UserExchangeAccountRecord, UserExchangeCredentialRecord};
@@ -758,6 +831,7 @@ mod tests {
         let payload = health_payload(SERVICE_NAME, &symbol, &grace);
 
         assert!(payload.contains("service_up"));
+        assert!(payload.contains("scheduler_symbol_sync_failures_total"));
         assert!(payload.contains("scheduler_membership_grace_runs_total"));
     }
 
@@ -946,21 +1020,36 @@ mod tests {
             .list_notification_logs("degraded@example.com", 10)
             .expect("notification logs");
         assert_eq!(logs.len(), 1);
-        assert_eq!(logs[0].template_key.as_deref(), Some("ApiCredentialsInvalidated"));
-        assert_eq!(logs[0].payload["event"]["kind"], "ApiCredentialsInvalidated");
-        assert_eq!(logs[0].payload["event"]["payload"]["connection_status"], "degraded");
+        assert_eq!(
+            logs[0].template_key.as_deref(),
+            Some("ApiCredentialsInvalidated")
+        );
+        assert_eq!(
+            logs[0].payload["event"]["kind"],
+            "ApiCredentialsInvalidated"
+        );
+        assert_eq!(
+            logs[0].payload["event"]["payload"]["connection_status"],
+            "degraded"
+        );
     }
 
     #[test]
     fn persistent_strategy_snapshot_sync_persists_runtime_aggregates() {
         let db = SharedDb::ephemeral().expect("db");
         let strategy = strategy_for_snapshot("snapshot-strategy", "snap@example.com");
-        db.insert_strategy(&shared_db::StoredStrategy { sequence_id: 1, strategy }).expect("strategy");
+        db.insert_strategy(&shared_db::StoredStrategy {
+            sequence_id: 1,
+            strategy,
+        })
+        .expect("strategy");
 
         let inserted = run_strategy_snapshot_sync_once(&db).expect("snapshot sync");
 
         assert_eq!(inserted, 1);
-        let snapshots = db.list_strategy_profit_snapshots("snap@example.com").expect("strategy snapshots");
+        let snapshots = db
+            .list_strategy_profit_snapshots("snap@example.com")
+            .expect("strategy snapshots");
         assert_eq!(snapshots.len(), 1);
         assert_eq!(snapshots[0].strategy_id, "snapshot-strategy");
         assert_eq!(snapshots[0].realized_pnl, "12.5");
@@ -969,7 +1058,8 @@ mod tests {
     }
 
     #[test]
-    fn persistent_strategy_snapshot_sync_carries_unrealized_and_funding_from_latest_account_snapshot() {
+    fn persistent_strategy_snapshot_sync_carries_unrealized_and_funding_from_latest_account_snapshot(
+    ) {
         let db = SharedDb::ephemeral().expect("db");
         let mut strategy = strategy_for_snapshot("snapshot-strategy", "snap@example.com");
         strategy.runtime.positions = vec![shared_domain::strategy::StrategyRuntimePosition {
@@ -978,7 +1068,11 @@ mod tests {
             quantity: rust_decimal::Decimal::new(15, 1),
             average_entry_price: rust_decimal::Decimal::new(22, 0),
         }];
-        db.insert_strategy(&shared_db::StoredStrategy { sequence_id: 1, strategy }).expect("strategy");
+        db.insert_strategy(&shared_db::StoredStrategy {
+            sequence_id: 1,
+            strategy,
+        })
+        .expect("strategy");
         db.insert_account_profit_snapshot(&shared_db::AccountProfitSnapshotRecord {
             user_email: "snap@example.com".to_string(),
             exchange: "binance".to_string(),
@@ -987,12 +1081,15 @@ mod tests {
             fees: "0.7".to_string(),
             funding: Some("-0.4".to_string()),
             captured_at: Utc::now(),
-        }).expect("account snapshot");
+        })
+        .expect("account snapshot");
 
         let inserted = run_strategy_snapshot_sync_once(&db).expect("snapshot sync");
 
         assert_eq!(inserted, 1);
-        let snapshots = db.list_strategy_profit_snapshots("snap@example.com").expect("strategy snapshots");
+        let snapshots = db
+            .list_strategy_profit_snapshots("snap@example.com")
+            .expect("strategy snapshots");
         assert_eq!(snapshots.len(), 1);
         assert_eq!(snapshots[0].unrealized_pnl, "4.2");
         assert_eq!(snapshots[0].funding.as_deref(), Some("-0.4"));
@@ -1001,7 +1098,10 @@ mod tests {
     #[test]
     fn persistent_snapshot_sync_persists_account_and_wallet_snapshots() {
         let _guard = env_lock().lock().expect("env lock");
-        std::env::set_var("EXCHANGE_CREDENTIALS_MASTER_KEY", "scheduler-persistent-sync-test-key");
+        std::env::set_var(
+            "EXCHANGE_CREDENTIALS_MASTER_KEY",
+            "scheduler-persistent-sync-test-key",
+        );
         std::env::set_var("BINANCE_LIVE_MODE", "1");
         let server = spawn_test_server(vec![
             TestRoute {
@@ -1050,24 +1150,32 @@ mod tests {
                     "coinm": 0
                 }
             }),
-        }).expect("account");
+        })
+        .expect("account");
         db.upsert_exchange_credentials(&UserExchangeCredentialRecord {
             user_email: "snapshot@example.com".to_owned(),
             exchange: "binance".to_owned(),
             api_key_masked: mask_api_key("demo-key-1234"),
-            encrypted_secret: cipher.encrypt("demo-key-1234", "demo-secret").expect("encrypt"),
-        }).expect("credentials");
+            encrypted_secret: cipher
+                .encrypt("demo-key-1234", "demo-secret")
+                .expect("encrypt"),
+        })
+        .expect("credentials");
 
         let synced = run_persistent_snapshot_sync_once(&db);
         assert_eq!(synced.refreshed_accounts, 1);
         assert_eq!(synced.failed_accounts, 0);
         assert_eq!(synced.account_snapshots, 2);
         assert_eq!(synced.wallet_snapshots, 2);
-        let accounts = db.list_account_profit_snapshots("snapshot@example.com").expect("account snapshots");
+        let accounts = db
+            .list_account_profit_snapshots("snapshot@example.com")
+            .expect("account snapshots");
         assert_eq!(accounts.len(), 2);
         assert_eq!(accounts[0].exchange, "binance");
         assert_eq!(accounts[1].exchange, "binance-usdm");
-        let wallets = db.list_exchange_wallet_snapshots("snapshot@example.com").expect("wallet snapshots");
+        let wallets = db
+            .list_exchange_wallet_snapshots("snapshot@example.com")
+            .expect("wallet snapshots");
         assert_eq!(wallets.len(), 2);
         assert_eq!(wallets[0].wallet_type, "spot");
     }
@@ -1087,7 +1195,9 @@ mod tests {
         for (email, encrypted_secret) in [
             (
                 "good@example.com",
-                cipher.encrypt("demo-key-1234", "demo-secret").expect("encrypt"),
+                cipher
+                    .encrypt("demo-key-1234", "demo-secret")
+                    .expect("encrypt"),
             ),
             ("bad@example.com", "broken-payload".to_string()),
         ] {
@@ -1151,7 +1261,9 @@ mod tests {
     impl Drop for TestServer {
         fn drop(&mut self) {
             if let Some(handle) = self.join_handle.take() {
-                handle.join().expect("scheduler test server thread should exit cleanly");
+                handle
+                    .join()
+                    .expect("scheduler test server thread should exit cleanly");
             }
         }
     }
@@ -1162,13 +1274,26 @@ mod tests {
         let queue = Arc::new(Mutex::new(VecDeque::from(routes)));
         let queue_for_thread = queue.clone();
         let join_handle = thread::spawn(move || {
-            while let Some(route) = queue_for_thread.lock().expect("route queue poisoned").pop_front() {
+            while let Some(route) = queue_for_thread
+                .lock()
+                .expect("route queue poisoned")
+                .pop_front()
+            {
                 let (mut stream, _) = listener.accept().expect("accept test request");
                 let mut buffer = [0u8; 4096];
                 let read = stream.read(&mut buffer).expect("read test request");
                 let request = String::from_utf8_lossy(&buffer[..read]);
-                let path = request.lines().next().and_then(|line| line.split_whitespace().nth(1)).expect("request path");
-                assert!(path.starts_with(route.path_prefix), "expected path prefix {} but received {}", route.path_prefix, path);
+                let path = request
+                    .lines()
+                    .next()
+                    .and_then(|line| line.split_whitespace().nth(1))
+                    .expect("request path");
+                assert!(
+                    path.starts_with(route.path_prefix),
+                    "expected path prefix {} but received {}",
+                    route.path_prefix,
+                    path
+                );
                 let response = format!(
                     "{}
 content-type: application/json
@@ -1180,7 +1305,9 @@ connection: close
                     route.body.len(),
                     route.body,
                 );
-                stream.write_all(response.as_bytes()).expect("write test response");
+                stream
+                    .write_all(response.as_bytes())
+                    .expect("write test response");
             }
         });
         TestServer {
@@ -1192,9 +1319,9 @@ connection: close
     fn strategy_for_snapshot(id: &str, email: &str) -> shared_domain::strategy::Strategy {
         use rust_decimal::Decimal;
         use shared_domain::strategy::{
-            GridGeneration, GridLevel, PostTriggerAction, Strategy, StrategyAmountMode, StrategyMarket,
-            StrategyMode, StrategyRevision, StrategyRuntime, StrategyRuntimeFill, StrategyRuntimeOrder,
-            StrategyStatus,
+            GridGeneration, GridLevel, PostTriggerAction, Strategy, StrategyAmountMode,
+            StrategyMarket, StrategyMode, StrategyRevision, StrategyRuntime, StrategyRuntimeFill,
+            StrategyRuntimeOrder, StrategyStatus,
         };
 
         Strategy {

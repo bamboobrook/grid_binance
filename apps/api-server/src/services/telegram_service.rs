@@ -373,12 +373,8 @@ impl TelegramService {
 
         if let Some(binding) = binding.as_ref() {
             if let Some(token) = self.telegram_bot_token.as_ref().as_ref() {
-                let send_result = self.send_telegram_message(
-                    token,
-                    &binding.telegram_chat_id,
-                    &title,
-                    &message,
-                );
+                let send_result =
+                    self.send_telegram_message(token, &binding.telegram_chat_id, &title, &message);
                 let (status, delivered_at) = if send_result.is_ok() {
                     ("delivered".to_string(), Some(now))
                 } else {
@@ -541,7 +537,11 @@ struct TelegramErrorResponse {
 
 fn telegram_http_client() -> Result<&'static ureq::Agent, TelegramError> {
     static CLIENT: OnceLock<ureq::Agent> = OnceLock::new();
-    Ok(CLIENT.get_or_init(|| ureq::AgentBuilder::new().timeout(StdDuration::from_secs(5)).build()))
+    Ok(CLIENT.get_or_init(|| {
+        ureq::AgentBuilder::new()
+            .timeout(StdDuration::from_secs(5))
+            .build()
+    }))
 }
 
 fn normalize_email(email: &str) -> String {

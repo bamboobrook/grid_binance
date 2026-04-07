@@ -1,4 +1,6 @@
-use crate::subscriptions::{active_symbol_subscriptions, MarketStreamPlan, SymbolActivity, SymbolSubscription};
+use crate::subscriptions::{
+    active_symbol_subscriptions, MarketStreamPlan, SymbolActivity, SymbolSubscription,
+};
 use futures_util::StreamExt;
 use rust_decimal::Decimal;
 use serde::Deserialize;
@@ -140,7 +142,10 @@ pub async fn run_market_stream(
         }
     }
 
-    runtime.lock().expect("gateway runtime poisoned").disconnect();
+    runtime
+        .lock()
+        .expect("gateway runtime poisoned")
+        .disconnect();
     Ok(())
 }
 

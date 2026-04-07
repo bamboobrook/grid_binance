@@ -6,17 +6,17 @@ use axum::{
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-use shared_events::{NotificationEvent, NotificationKind, NotificationRecord};
 use shared_binance::{
-    mask_api_key, matches_symbol_query, sync_symbol_metadata_strict, BinanceClient, CredentialCipher,
-    CredentialValidationRequest, ExchangeCredentialCheck, MarketRequirements, SymbolFilters,
-    SymbolMetadata,
+    mask_api_key, matches_symbol_query, sync_symbol_metadata_strict, BinanceClient,
+    CredentialCipher, CredentialValidationRequest, ExchangeCredentialCheck, MarketRequirements,
+    SymbolFilters, SymbolMetadata,
 };
 use shared_db::{
     NotificationLogRecord, SharedDb, UserExchangeAccountRecord, UserExchangeCredentialRecord,
     UserExchangeSymbolRecord,
 };
 use shared_domain::strategy::StrategyStatus;
+use shared_events::{NotificationEvent, NotificationKind, NotificationRecord};
 use std::{collections::BTreeMap, sync::OnceLock, time::Duration as StdDuration};
 
 use crate::services::auth_service::AuthError;
@@ -150,7 +150,9 @@ impl ExchangeService {
                 .map_err(|error| ExchangeError::bad_request(error.to_string()))?;
         let client = BinanceClient::new(api_key.clone(), api_secret.clone());
         let check = client.check_credentials_for(&validation_request);
-        let symbols = sync_symbol_metadata_strict(&client, &check).map_err(|error| ExchangeError::bad_request(error.to_string()))?;
+        let symbols = sync_symbol_metadata_strict(&client, &check).map_err(|error| {
+            ExchangeError::service_unavailable(format!("binance symbol sync unavailable: {error}"))
+        })?;
         let symbol_counts = ExchangeSymbolCountsDto::from_symbols(&symbols);
         let now = Utc::now();
 
@@ -269,7 +271,11 @@ impl ExchangeService {
             .map_err(|error| ExchangeError::bad_request(error.to_string()))?;
             let client = BinanceClient::new(api_key, api_secret);
             let check = client.check_credentials_for(&validation_request);
-            let symbols = sync_symbol_metadata_strict(&client, &check).map_err(|error| ExchangeError::bad_request(error.to_string()))?;
+            let symbols = sync_symbol_metadata_strict(&client, &check).map_err(|error| {
+                ExchangeError::service_unavailable(format!(
+                    "binance symbol sync unavailable: {error}"
+                ))
+            })?;
             let symbol_counts = ExchangeSymbolCountsDto::from_symbols(&symbols);
             let synced_at = Utc::now();
 
@@ -376,15 +382,19 @@ impl ExchangeService {
                 payload: BTreeMap::from([
                     ("exchange".to_string(), BINANCE_EXCHANGE.to_string()),
                     ("reason".to_string(), reason),
-                    ("connection_status".to_string(), check.connection_status().to_string()),
+                    (
+                        "connection_status".to_string(),
+                        check.connection_status().to_string(),
+                    ),
                 ]),
             },
             telegram_delivered,
             in_app_delivered: true,
             show_expiry_popup: false,
         };
-        let payload = serde_json::to_value(&record)
-            .map_err(|error| ExchangeError::storage(shared_db::SharedDbError::new(error.to_string())))?;
+        let payload = serde_json::to_value(&record).map_err(|error| {
+            ExchangeError::storage(shared_db::SharedDbError::new(error.to_string()))
+        })?;
         self.db
             .insert_notification_log(&NotificationLogRecord {
                 user_email: user_email.to_owned(),
@@ -406,7 +416,12 @@ impl ExchangeService {
                     template_key: Some("ApiCredentialsInvalidated".to_string()),
                     title: record.event.title,
                     body: record.event.message,
-                    status: if telegram_delivered { "delivered" } else { "failed" }.to_string(),
+                    status: if telegram_delivered {
+                        "delivered"
+                    } else {
+                        "failed"
+                    }
+                    .to_string(),
                     payload,
                     created_at,
                     delivered_at: telegram_delivered.then_some(created_at),
@@ -538,6 +553,13 @@ impl ExchangeError {
         }
     }
 
+    fn service_unavailable(message: impl Into<String>) -> Self {
+        Self {
+            status: StatusCode::SERVICE_UNAVAILABLE,
+            message: message.into(),
+        }
+    }
+
     fn storage(error: shared_db::SharedDbError) -> Self {
         Self {
             status: StatusCode::INTERNAL_SERVER_ERROR,
@@ -621,7 +643,11 @@ fn telegram_api_base_url() -> String {
 
 fn telegram_http_agent() -> &'static ureq::Agent {
     static AGENT: OnceLock<ureq::Agent> = OnceLock::new();
-    AGENT.get_or_init(|| ureq::AgentBuilder::new().timeout(StdDuration::from_secs(5)).build())
+    AGENT.get_or_init(|| {
+        ureq::AgentBuilder::new()
+            .timeout(StdDuration::from_secs(5))
+            .build()
+    })
 }
 
 fn send_telegram_message(
@@ -631,7 +657,11 @@ fn send_telegram_message(
     body: &str,
 ) -> Result<(), shared_db::SharedDbError> {
     telegram_http_agent()
-        .post(&format!("{}/bot{}/sendMessage", telegram_api_base_url(), bot_token))
+        .post(&format!(
+            "{}/bot{}/sendMessage",
+            telegram_api_base_url(),
+            bot_token
+        ))
         .send_json(ureq::json!({
             "chat_id": chat_id,
             "text": format!("{}\n{}", title, body),
@@ -696,4 +726,149 @@ fn from_symbol_record(record: UserExchangeSymbolRecord) -> SymbolMetadata {
         },
         keywords: record.keywords,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{ExchangeService, SaveBinanceCredentialsRequest};
+    use axum::http::StatusCode;
+    use shared_db::SharedDb;
+    use std::{
+        collections::VecDeque,
+        io::{Read, Write},
+        net::TcpListener,
+        sync::{Arc, Mutex, OnceLock},
+        thread,
+    };
+
+    #[test]
+    fn symbol_sync_upstream_failures_return_service_unavailable_without_persisting_credentials() {
+        let _guard = env_lock().lock().expect("env lock");
+        std::env::set_var(
+            "EXCHANGE_CREDENTIALS_MASTER_KEY",
+            "exchange-service-test-master-key",
+        );
+        let server = spawn_test_server(vec![
+            TestRoute {
+                path_prefix: "/api/v3/time",
+                status_line: "HTTP/1.1 200 OK",
+                body: format!(
+                    r#"{{"serverTime": {}}}"#,
+                    chrono::Utc::now().timestamp_millis()
+                ),
+            },
+            TestRoute {
+                path_prefix: "/api/v3/account?",
+                status_line: "HTTP/1.1 200 OK",
+                body:
+                    r#"{"canTrade":true,"canWithdraw":false,"permissions":["SPOT"],"balances":[]}"#
+                        .to_string(),
+            },
+            TestRoute {
+                path_prefix: "/api/v3/exchangeInfo",
+                status_line: "HTTP/1.1 503 Service Unavailable",
+                body: r#"{"code":-1001,"msg":"upstream unavailable"}"#.to_string(),
+            },
+        ]);
+        std::env::set_var("BINANCE_LIVE_MODE", "1");
+        std::env::set_var("BINANCE_SPOT_REST_BASE_URL", &server.base_url);
+        std::env::remove_var("BINANCE_USDM_REST_BASE_URL");
+        std::env::remove_var("BINANCE_COINM_REST_BASE_URL");
+
+        let db = SharedDb::ephemeral().expect("ephemeral db");
+        let service = ExchangeService::new(db.clone());
+        let error = service
+            .save_binance_credentials(
+                "exchange-upstream-503@example.com",
+                SaveBinanceCredentialsRequest {
+                    api_key: "live-key".to_string(),
+                    api_secret: "live-secret".to_string(),
+                    expected_hedge_mode: true,
+                    selected_markets: Some(vec!["spot".to_string()]),
+                },
+            )
+            .expect_err("symbol sync should fail");
+
+        assert_eq!(error.status, StatusCode::SERVICE_UNAVAILABLE);
+        assert!(error.message.contains("symbol sync"));
+        assert!(db
+            .find_exchange_account("exchange-upstream-503@example.com", "binance")
+            .expect("find account")
+            .is_none());
+        assert!(db
+            .find_exchange_credentials("exchange-upstream-503@example.com", "binance")
+            .expect("find credentials")
+            .is_none());
+
+        std::env::remove_var("BINANCE_LIVE_MODE");
+        std::env::remove_var("BINANCE_SPOT_REST_BASE_URL");
+        std::env::remove_var("EXCHANGE_CREDENTIALS_MASTER_KEY");
+    }
+
+    fn env_lock() -> &'static Mutex<()> {
+        static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+        LOCK.get_or_init(|| Mutex::new(()))
+    }
+
+    #[derive(Clone)]
+    struct TestRoute {
+        path_prefix: &'static str,
+        status_line: &'static str,
+        body: String,
+    }
+
+    struct TestServer {
+        base_url: String,
+        join_handle: Option<thread::JoinHandle<()>>,
+    }
+
+    impl Drop for TestServer {
+        fn drop(&mut self) {
+            let _ = self.join_handle.take();
+        }
+    }
+
+    fn spawn_test_server(routes: Vec<TestRoute>) -> TestServer {
+        let listener = TcpListener::bind("127.0.0.1:0").expect("bind local test server");
+        let address = listener.local_addr().expect("test server address");
+        let queue = Arc::new(Mutex::new(VecDeque::from(routes)));
+        let queue_for_thread = queue.clone();
+        let join_handle = thread::spawn(move || {
+            while let Some(route) = queue_for_thread
+                .lock()
+                .expect("route queue poisoned")
+                .pop_front()
+            {
+                let (mut stream, _) = listener.accept().expect("accept test request");
+                let mut buffer = [0u8; 4096];
+                let read = stream.read(&mut buffer).expect("read test request");
+                let request = String::from_utf8_lossy(&buffer[..read]);
+                let path = request
+                    .lines()
+                    .next()
+                    .and_then(|line| line.split_whitespace().nth(1))
+                    .expect("request path");
+                assert!(
+                    path.starts_with(route.path_prefix),
+                    "expected path prefix {} but received {}",
+                    route.path_prefix,
+                    path
+                );
+                let response = format!(
+                    "{}\r\ncontent-type: application/json\r\ncontent-length: {}\r\nconnection: close\r\n\r\n{}",
+                    route.status_line,
+                    route.body.len(),
+                    route.body
+                );
+                stream
+                    .write_all(response.as_bytes())
+                    .expect("write test response");
+            }
+        });
+
+        TestServer {
+            base_url: format!("http://{}", address),
+            join_handle: Some(join_handle),
+        }
+    }
 }

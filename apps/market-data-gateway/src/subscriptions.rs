@@ -112,8 +112,14 @@ mod tests {
 
         assert_eq!(plans.len(), 2);
         assert_eq!(plans[0].market, "spot");
-        assert_eq!(plans[0].url, "wss://stream.binance.com:9443/stream?streams=btcusdt@trade");
+        assert_eq!(
+            plans[0].url,
+            "wss://stream.binance.com:9443/stream?streams=btcusdt@trade"
+        );
         assert_eq!(plans[1].market, "usdm");
-        assert_eq!(plans[1].url, "wss://fstream.binance.com/stream?streams=btcusdt@trade/ethusdt@trade");
+        assert_eq!(
+            plans[1].url,
+            "wss://fstream.binance.com/stream?streams=btcusdt@trade/ethusdt@trade"
+        );
     }
 }

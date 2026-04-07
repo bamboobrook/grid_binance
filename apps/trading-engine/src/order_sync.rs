@@ -132,11 +132,15 @@ fn cancel_open_strategy_orders(
         if is_close_order(order) {
             continue;
         }
-        if matches!(order.status.as_str(), "Working" | "Placed") && order.exchange_order_id.is_none() {
+        if matches!(order.status.as_str(), "Working" | "Placed")
+            && order.exchange_order_id.is_none()
+        {
             order.status = "Canceled".to_string();
             continue;
         }
-        if !matches!(order.status.as_str(), "Working" | "Placed" | "Canceled") || order.exchange_order_id.is_none() {
+        if !matches!(order.status.as_str(), "Working" | "Placed" | "Canceled")
+            || order.exchange_order_id.is_none()
+        {
             continue;
         }
         let exchange_order_id = order.exchange_order_id.clone();
@@ -159,7 +163,12 @@ fn cancel_open_strategy_orders(
 fn ensure_close_orders(strategy: &mut Strategy) {
     for (index, position) in strategy.runtime.positions.iter().enumerate() {
         let close_order_id = close_order_id(&strategy.id, index);
-        if strategy.runtime.orders.iter().any(|order| order.order_id == close_order_id) {
+        if strategy
+            .runtime
+            .orders
+            .iter()
+            .any(|order| order.order_id == close_order_id)
+        {
             continue;
         }
         strategy.runtime.orders.push(StrategyRuntimeOrder {
@@ -185,7 +194,10 @@ fn submit_close_orders(
     let mode = strategy.mode;
     let symbol = strategy.symbol.clone();
     for order in &mut strategy.runtime.orders {
-        if !is_close_order(order) || order.exchange_order_id.is_some() || order.status != "ClosingRequested" {
+        if !is_close_order(order)
+            || order.exchange_order_id.is_some()
+            || order.status != "ClosingRequested"
+        {
             continue;
         }
         let request = BinanceOrderRequest {
@@ -259,12 +271,15 @@ fn finalize_stop_if_ready(strategy: &mut Strategy) {
     });
     if strategy.runtime.positions.is_empty() && !has_pending_close {
         strategy.status = StrategyStatus::Stopped;
-        strategy.runtime.events.push(shared_domain::strategy::StrategyRuntimeEvent {
-            event_type: "strategy_stopped".to_string(),
-            detail: "strategy stopped after exchange close reconciliation".to_string(),
-            price: None,
-            created_at: Utc::now(),
-        });
+        strategy
+            .runtime
+            .events
+            .push(shared_domain::strategy::StrategyRuntimeEvent {
+                event_type: "strategy_stopped".to_string(),
+                detail: "strategy stopped after exchange close reconciliation".to_string(),
+                price: None,
+                created_at: Utc::now(),
+            });
     }
 }
 
@@ -300,11 +315,13 @@ fn close_position_side_for_order(
     let Some(index) = close_order_index(&order.order_id) else {
         return position_side(mode, &order.side);
     };
-    positions.get(index).and_then(|position| match position.mode {
-        StrategyMode::FuturesLong => Some("LONG".to_string()),
-        StrategyMode::FuturesShort => Some("SHORT".to_string()),
-        _ => position_side(mode, &order.side),
-    })
+    positions
+        .get(index)
+        .and_then(|position| match position.mode {
+            StrategyMode::FuturesLong => Some("LONG".to_string()),
+            StrategyMode::FuturesShort => Some("SHORT".to_string()),
+            _ => position_side(mode, &order.side),
+        })
 }
 
 fn market_scope(market: StrategyMarket) -> &'static str {

@@ -320,12 +320,24 @@ async fn degraded_credentials_emit_api_invalidation_notification_without_manual_
         .expect("notification logs");
     let invalidation = notifications
         .iter()
-        .find(|record| record.template_key.as_deref() == Some("ApiCredentialsInvalidated") && record.channel == "in_app")
+        .find(|record| {
+            record.template_key.as_deref() == Some("ApiCredentialsInvalidated")
+                && record.channel == "in_app"
+        })
         .expect("api invalidation notification");
     assert_eq!(invalidation.title, "API credentials invalid");
-    assert_eq!(invalidation.payload["event"]["kind"], "ApiCredentialsInvalidated");
-    assert_eq!(invalidation.payload["event"]["payload"]["exchange"], "binance");
-    assert_eq!(invalidation.payload["event"]["payload"]["reason"], "hedge_mode");
+    assert_eq!(
+        invalidation.payload["event"]["kind"],
+        "ApiCredentialsInvalidated"
+    );
+    assert_eq!(
+        invalidation.payload["event"]["payload"]["exchange"],
+        "binance"
+    );
+    assert_eq!(
+        invalidation.payload["event"]["payload"]["reason"],
+        "hedge_mode"
+    );
 }
 
 #[tokio::test]

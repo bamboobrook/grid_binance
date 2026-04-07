@@ -1,7 +1,7 @@
 use rust_decimal::Decimal;
 use shared_domain::strategy::{
-    GridGeneration, GridLevel, PostTriggerAction, StrategyAmountMode, StrategyMarket,
-    StrategyMode, StrategyRevision,
+    GridGeneration, GridLevel, PostTriggerAction, StrategyAmountMode, StrategyMarket, StrategyMode,
+    StrategyRevision,
 };
 use trading_engine::strategy_runtime::StrategyRuntimeEngine;
 

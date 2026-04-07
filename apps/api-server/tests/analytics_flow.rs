@@ -11,10 +11,9 @@ use shared_db::{
     ExchangeWalletSnapshotRecord, SharedDb, StoredStrategy, StrategyProfitSnapshotRecord,
 };
 use shared_domain::strategy::{
-    GridGeneration, PostTriggerAction, Strategy, StrategyAmountMode, StrategyMarket,
-    StrategyMode, StrategyRevision,
-    StrategyRuntime, StrategyRuntimeFill, StrategyRuntimeOrder, StrategyRuntimePosition,
-    StrategyStatus,
+    GridGeneration, PostTriggerAction, Strategy, StrategyAmountMode, StrategyMarket, StrategyMode,
+    StrategyRevision, StrategyRuntime, StrategyRuntimeFill, StrategyRuntimeOrder,
+    StrategyRuntimePosition, StrategyStatus,
 };
 use tower::ServiceExt;
 
@@ -37,7 +36,8 @@ async fn analytics_falls_back_to_trade_history_fees_when_account_snapshots_repor
             vec![],
             vec![],
         ),
-    }).expect("strategy");
+    })
+    .expect("strategy");
     db.insert_account_profit_snapshot(&AccountProfitSnapshotRecord {
         user_email: "trader@example.com".to_string(),
         exchange: "binance".to_string(),
@@ -46,7 +46,8 @@ async fn analytics_falls_back_to_trade_history_fees_when_account_snapshots_repor
         fees: "0".to_string(),
         funding: None,
         captured_at: Utc.with_ymd_and_hms(2026, 3, 5, 0, 0, 0).unwrap(),
-    }).expect("account snapshot");
+    })
+    .expect("account snapshot");
     db.insert_exchange_trade_history(&exchange_trade(
         "fee-trade-1",
         "trader@example.com",
@@ -56,7 +57,8 @@ async fn analytics_falls_back_to_trade_history_fees_when_account_snapshots_repor
         "100",
         Some("0.75"),
         Some("USDT"),
-    )).expect("trade history");
+    ))
+    .expect("trade history");
 
     let app = app_with_state(AppState::from_shared_db(db).expect("app state"));
     let session_token = register_and_login(&app, "trader@example.com", "pass1234").await;

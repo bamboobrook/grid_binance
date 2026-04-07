@@ -1,9 +1,9 @@
 use api_server::{app_with_state, AppState};
-use chrono::{DateTime, Utc};
 use axum::{
     body::{to_bytes, Body},
     http::{Request, StatusCode},
 };
+use chrono::{DateTime, Utc};
 use serde_json::{json, Value};
 
 use shared_db::{DepositTransactionRecord, SharedDb};
@@ -24,9 +24,7 @@ use support::{login_and_get_token, register_and_login, register_and_verify};
 #[tokio::test]
 async fn operator_admin_cannot_update_plan_config_and_existing_defaults_remain_in_effect() {
     let db = SharedDb::ephemeral().expect("db");
-    let app = app_with_state(
-        AppState::from_shared_db(db.clone()).expect("state"),
-    );
+    let app = app_with_state(AppState::from_shared_db(db.clone()).expect("state"));
     let admin_token = register_admin_and_login(&app).await;
     let user_token = register_and_login(&app, "priced@example.com", "pass1234").await;
 
@@ -96,7 +94,8 @@ async fn operator_admin_cannot_update_plan_config_and_existing_defaults_remain_i
         review_reason: Some("awaiting_confirmations".to_string()),
         processed_at: None,
         matched_order_id: None,
-    }).expect("confirming deposit");
+    })
+    .expect("confirming deposit");
 
     let matched = match_order(
         &app,
@@ -505,7 +504,9 @@ async fn bootstrap_admin_totp(app: &axum::Router, email: &str, password: &str) -
                 .method("POST")
                 .uri("/auth/admin-bootstrap")
                 .header("content-type", "application/json")
-                .body(Body::from(json!({ "email": email, "password": password }).to_string()))
+                .body(Body::from(
+                    json!({ "email": email, "password": password }).to_string(),
+                ))
                 .unwrap(),
         )
         .await
@@ -832,7 +833,10 @@ fn register_and_verify_via_http(server: &ApiServerHarness, email: &str, password
         Some(json!({ "email": email, "password": password })),
     );
     assert_eq!(register_status, StatusCode::CREATED.as_u16());
-    let verification_code = register_body["verification_code"].as_str().expect("verification code").to_owned();
+    let verification_code = register_body["verification_code"]
+        .as_str()
+        .expect("verification code")
+        .to_owned();
     let (verify_status, _) = http_json(
         "POST",
         &format!("{}/auth/verify-email", server.base_url()),

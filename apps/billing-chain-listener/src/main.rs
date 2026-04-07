@@ -79,7 +79,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     let listener = TcpListener::bind(("0.0.0.0", configured_port(DEFAULT_PORT))).await?;
-    let app = build_router(ListenerState { db, internal_token, metrics });
+    let app = build_router(ListenerState {
+        db,
+        internal_token,
+        metrics,
+    });
 
     axum::serve(listener, app).await?;
     Ok(())
@@ -104,7 +108,8 @@ async fn ingest_transfer(
     process_observed_transfer(&state.db, request)
         .map(|result| {
             let promoted = promote_due_orders(&state.db, chrono::Utc::now()).unwrap_or_default();
-            let _ = refresh_listener_metrics(&state.db, &state.metrics, 1, promoted, result.matched);
+            let _ =
+                refresh_listener_metrics(&state.db, &state.metrics, 1, promoted, result.matched);
             Json(result)
         })
         .map_err(map_processor_error)
@@ -134,8 +139,15 @@ async fn rpc_polling_loop(
                 for transfer in transfers {
                     match process_observed_transfer(&db, transfer) {
                         Ok(result) => {
-                            let promoted = promote_due_orders(&db, chrono::Utc::now()).unwrap_or_default();
-                            let _ = refresh_listener_metrics(&db, &metrics, 1, promoted, result.matched);
+                            let promoted =
+                                promote_due_orders(&db, chrono::Utc::now()).unwrap_or_default();
+                            let _ = refresh_listener_metrics(
+                                &db,
+                                &metrics,
+                                1,
+                                promoted,
+                                result.matched,
+                            );
                         }
                         Err(error) => {
                             eprintln!("billing-chain-listener failed to process observed transfer: {error}");
@@ -151,11 +163,7 @@ async fn rpc_polling_loop(
     }
 }
 
-async fn sweep_submission_loop(
-    db: SharedDb,
-    http: Client,
-    executor: SweepExecutorConfig,
-) {
+async fn sweep_submission_loop(db: SharedDb, http: Client, executor: SweepExecutorConfig) {
     let mut ticker = interval(TokioDuration::from_secs(30));
     loop {
         ticker.tick().await;
@@ -167,13 +175,20 @@ async fn sweep_submission_loop(
             }
         };
         for job in jobs.into_iter().filter(|job| job.status == "pending") {
-            if !db.mark_sweep_job_submitting(job.sweep_job_id).unwrap_or(false) {
+            if !db
+                .mark_sweep_job_submitting(job.sweep_job_id)
+                .unwrap_or(false)
+            {
                 continue;
             }
             let mut submission_failed = None::<String>;
             let submitted_at = chrono::Utc::now();
             let mut submitted_any = false;
-            for transfer in job.transfers.iter().filter(|transfer| transfer.status == "pending") {
+            for transfer in job
+                .transfers
+                .iter()
+                .filter(|transfer| transfer.status == "pending")
+            {
                 match submit_sweep_transfer(
                     &http,
                     &executor,
@@ -218,17 +233,17 @@ async fn sweep_submission_loop(
             if submitted_any {
                 let _ = db.mark_sweep_job_submitted(job.sweep_job_id, submitted_at);
             } else {
-                let _ = db.mark_sweep_job_failed(job.sweep_job_id, submitted_at, "sweep job has no pending transfers");
+                let _ = db.mark_sweep_job_failed(
+                    job.sweep_job_id,
+                    submitted_at,
+                    "sweep job has no pending transfers",
+                );
             }
         }
     }
 }
 
-async fn sweep_confirmation_loop(
-    db: SharedDb,
-    http: Client,
-    config: RpcRuntimeConfig,
-) {
+async fn sweep_confirmation_loop(db: SharedDb, http: Client, config: RpcRuntimeConfig) {
     let mut ticker = interval(TokioDuration::from_secs(30));
     loop {
         ticker.tick().await;
@@ -241,7 +256,11 @@ async fn sweep_confirmation_loop(
         };
         for job in jobs.into_iter().filter(|job| job.status == "submitted") {
             let mut all_confirmed = true;
-            for transfer in job.transfers.iter().filter(|transfer| transfer.status == "submitted") {
+            for transfer in job
+                .transfers
+                .iter()
+                .filter(|transfer| transfer.status == "submitted")
+            {
                 let Some(tx_hash) = transfer.tx_hash.as_deref() else {
                     all_confirmed = false;
                     continue;
@@ -258,7 +277,10 @@ async fn sweep_confirmation_loop(
                         all_confirmed = false;
                     }
                     Err(error) => {
-                        eprintln!("billing-chain-listener failed to confirm sweep transfer {}: {}", tx_hash, error);
+                        eprintln!(
+                            "billing-chain-listener failed to confirm sweep transfer {}: {}",
+                            tx_hash, error
+                        );
                         all_confirmed = false;
                     }
                 }
@@ -268,7 +290,11 @@ async fn sweep_confirmation_loop(
                 if refreshed
                     .iter()
                     .find(|item| item.sweep_job_id == job.sweep_job_id)
-                    .is_some_and(|item| item.transfers.iter().all(|transfer| transfer.status == "confirmed"))
+                    .is_some_and(|item| {
+                        item.transfers
+                            .iter()
+                            .all(|transfer| transfer.status == "confirmed")
+                    })
                 {
                     let _ = db.mark_sweep_job_confirmed(job.sweep_job_id, chrono::Utc::now());
                 }
@@ -294,7 +320,10 @@ fn refresh_listener_metrics(
     }
     guard.queue_promotions_total += promoted as u64;
     guard.pool_enabled_addresses = addresses.iter().filter(|record| record.is_enabled).count();
-    guard.queued_orders = orders.iter().filter(|order| order.status == "queued").count();
+    guard.queued_orders = orders
+        .iter()
+        .filter(|order| order.status == "queued")
+        .count();
     guard.manual_review_total = deposits
         .iter()
         .filter(|deposit| deposit.status == "manual_review_required")
@@ -397,15 +426,20 @@ fn internal_ingest_enabled() -> bool {
 
     std::env::var("CHAIN_LISTENER_ALLOW_INTERNAL_INGEST")
         .ok()
-        .map(|value| matches!(value.trim().to_ascii_lowercase().as_str(), "1" | "true" | "yes" | "on"))
+        .map(|value| {
+            matches!(
+                value.trim().to_ascii_lowercase().as_str(),
+                "1" | "true" | "yes" | "on"
+            )
+        })
         .unwrap_or(false)
 }
 
 #[cfg(test)]
 mod tests {
     use super::{
-        build_router, configured_port, health_payload, internal_ingest_enabled, parse_port, required_env, ListenerMetrics,
-        ListenerState, DEFAULT_PORT, SERVICE_NAME,
+        build_router, configured_port, health_payload, internal_ingest_enabled, parse_port,
+        required_env, ListenerMetrics, ListenerState, DEFAULT_PORT, SERVICE_NAME,
     };
     use axum::body::{to_bytes, Body};
     use axum::http::{Request, StatusCode};
@@ -421,7 +455,10 @@ mod tests {
 
     #[test]
     fn health_payload_mentions_service_name() {
-        let payload = health_payload(SERVICE_NAME, &Arc::new(Mutex::new(ListenerMetrics::default())));
+        let payload = health_payload(
+            SERVICE_NAME,
+            &Arc::new(Mutex::new(ListenerMetrics::default())),
+        );
 
         assert!(payload.contains("service_up"));
         assert!(payload.contains("billing_listener_queued_orders"));

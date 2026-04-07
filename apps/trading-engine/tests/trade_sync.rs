@@ -3,8 +3,7 @@ use shared_binance::BinanceUserTrade;
 use shared_db::SharedDb;
 use shared_domain::strategy::{
     GridGeneration, GridLevel, PostTriggerAction, Strategy, StrategyAmountMode, StrategyMarket,
-    StrategyMode,
-    StrategyRevision, StrategyRuntime, StrategyRuntimeOrder, StrategyStatus,
+    StrategyMode, StrategyRevision, StrategyRuntime, StrategyRuntimeOrder, StrategyStatus,
 };
 use trading_engine::trade_sync::{sync_strategy_trades, BinanceTradeGateway};
 
@@ -49,14 +48,25 @@ fn trade_sync_records_new_exchange_fill_and_notification() {
     assert_eq!(strategy.runtime.orders[0].status, "Filled");
     assert_eq!(strategy.runtime.fills.len(), 1);
     assert_eq!(strategy.runtime.fills[0].fill_id, "exchange-trade-1001");
-    assert_eq!(strategy.runtime.fills[0].fee_amount, Some(Decimal::new(5, 2)));
-    let trade_history = db.list_exchange_trade_history("trader@example.com").expect("history");
+    assert_eq!(
+        strategy.runtime.fills[0].fee_amount,
+        Some(Decimal::new(5, 2))
+    );
+    let trade_history = db
+        .list_exchange_trade_history("trader@example.com")
+        .expect("history");
     assert_eq!(trade_history.len(), 1);
     assert_eq!(trade_history[0].trade_id, "1001");
-    let notifications = db.list_notification_logs("trader@example.com", 10).expect("notifications");
+    let notifications = db
+        .list_notification_logs("trader@example.com", 10)
+        .expect("notifications");
     assert_eq!(notifications.len(), 2);
-    assert!(notifications.iter().any(|record| record.template_key.as_deref() == Some("GridFillExecuted")));
-    assert!(notifications.iter().any(|record| record.template_key.as_deref() == Some("FillProfitReported")));
+    assert!(notifications
+        .iter()
+        .any(|record| record.template_key.as_deref() == Some("GridFillExecuted")));
+    assert!(notifications
+        .iter()
+        .any(|record| record.template_key.as_deref() == Some("FillProfitReported")));
 }
 
 #[test]
@@ -78,17 +88,20 @@ fn fill_profit_notification_includes_running_cumulative_net_pnl() {
         }],
     };
     let mut strategy = sample_strategy();
-    strategy.runtime.fills.push(shared_domain::strategy::StrategyRuntimeFill {
-        fill_id: "existing-fill".to_string(),
-        order_id: Some("old-order".to_string()),
-        level_index: Some(0),
-        fill_type: "ExchangeFill".to_string(),
-        price: Decimal::new(41000, 0),
-        quantity: Decimal::new(1, 3),
-        realized_pnl: Some(Decimal::new(1, 1)),
-        fee_amount: Some(Decimal::new(2, 2)),
-        fee_asset: Some("USDT".to_string()),
-    });
+    strategy
+        .runtime
+        .fills
+        .push(shared_domain::strategy::StrategyRuntimeFill {
+            fill_id: "existing-fill".to_string(),
+            order_id: Some("old-order".to_string()),
+            level_index: Some(0),
+            fill_type: "ExchangeFill".to_string(),
+            price: Decimal::new(41000, 0),
+            quantity: Decimal::new(1, 3),
+            realized_pnl: Some(Decimal::new(1, 1)),
+            fee_amount: Some(Decimal::new(2, 2)),
+            fee_asset: Some("USDT".to_string()),
+        });
 
     sync_strategy_trades(&db, &mut strategy, &gateway).expect("sync trades");
 
@@ -124,7 +137,10 @@ fn trade_sync_uses_realized_profit_from_exchange_trade_payload() {
 
     sync_strategy_trades(&db, &mut strategy, &gateway).expect("sync trades");
 
-    assert_eq!(strategy.runtime.fills[0].realized_pnl, Some(Decimal::new(125, 2)));
+    assert_eq!(
+        strategy.runtime.fills[0].realized_pnl,
+        Some(Decimal::new(125, 2))
+    );
     let notifications = db.list_notification_logs("trader@example.com", 10).unwrap();
     let pnl = notifications
         .iter()
@@ -161,7 +177,12 @@ fn trade_sync_dedupes_existing_trade_ids() {
     assert_eq!(first.new_fills, 1);
     assert_eq!(second.new_fills, 0);
     assert_eq!(strategy.runtime.fills.len(), 1);
-    assert_eq!(db.list_exchange_trade_history("trader@example.com").unwrap().len(), 1);
+    assert_eq!(
+        db.list_exchange_trade_history("trader@example.com")
+            .unwrap()
+            .len(),
+        1
+    );
 }
 
 #[test]
@@ -187,7 +208,8 @@ fn trade_sync_sends_telegram_for_bound_user_when_configured() {
         telegram_user_id: "tg-1".to_string(),
         telegram_chat_id: "chat-1".to_string(),
         bound_at: chrono::Utc::now(),
-    }).unwrap();
+    })
+    .unwrap();
     let gateway = FakeTradeGateway {
         trades: vec![BinanceUserTrade {
             market: "spot".to_string(),
@@ -209,8 +231,16 @@ fn trade_sync_sends_telegram_for_bound_user_when_configured() {
 
     assert_eq!(result.new_fills, 1);
     let notifications = db.list_notification_logs("trader@example.com", 10).unwrap();
-    assert!(notifications.iter().any(|record| record.channel == "telegram" && record.template_key.as_deref() == Some("GridFillExecuted") && record.status == "delivered"));
-    assert!(notifications.iter().any(|record| record.channel == "telegram" && record.template_key.as_deref() == Some("FillProfitReported") && record.status == "delivered"));
+    assert!(notifications
+        .iter()
+        .any(|record| record.channel == "telegram"
+            && record.template_key.as_deref() == Some("GridFillExecuted")
+            && record.status == "delivered"));
+    assert!(notifications
+        .iter()
+        .any(|record| record.channel == "telegram"
+            && record.template_key.as_deref() == Some("FillProfitReported")
+            && record.status == "delivered"));
 }
 
 #[test]
@@ -225,7 +255,8 @@ fn trade_sync_records_failed_telegram_logs_when_binding_exists_without_bot_token
         telegram_user_id: "tg-1".to_string(),
         telegram_chat_id: "chat-1".to_string(),
         bound_at: chrono::Utc::now(),
-    }).unwrap();
+    })
+    .unwrap();
     let gateway = FakeTradeGateway {
         trades: vec![BinanceUserTrade {
             market: "spot".to_string(),
@@ -246,8 +277,16 @@ fn trade_sync_records_failed_telegram_logs_when_binding_exists_without_bot_token
     sync_strategy_trades(&db, &mut strategy, &gateway).unwrap();
 
     let notifications = db.list_notification_logs("trader@example.com", 10).unwrap();
-    assert!(notifications.iter().any(|record| record.channel == "telegram" && record.template_key.as_deref() == Some("GridFillExecuted") && record.status == "failed"));
-    assert!(notifications.iter().any(|record| record.channel == "telegram" && record.template_key.as_deref() == Some("FillProfitReported") && record.status == "failed"));
+    assert!(notifications
+        .iter()
+        .any(|record| record.channel == "telegram"
+            && record.template_key.as_deref() == Some("GridFillExecuted")
+            && record.status == "failed"));
+    assert!(notifications
+        .iter()
+        .any(|record| record.channel == "telegram"
+            && record.template_key.as_deref() == Some("FillProfitReported")
+            && record.status == "failed"));
 }
 
 #[derive(Clone)]
@@ -266,7 +305,9 @@ impl TestServer {
     fn start(routes: Vec<TestRoute>) -> Self {
         let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("bind test server");
         let address = listener.local_addr().unwrap();
-        let queue = std::sync::Arc::new(std::sync::Mutex::new(std::collections::VecDeque::from(routes)));
+        let queue = std::sync::Arc::new(std::sync::Mutex::new(std::collections::VecDeque::from(
+            routes,
+        )));
         let queue_for_thread = queue.clone();
         let join_handle = std::thread::spawn(move || {
             while let Some(route) = queue_for_thread.lock().unwrap().pop_front() {
@@ -274,8 +315,17 @@ impl TestServer {
                 let mut buffer = [0u8; 4096];
                 let read = std::io::Read::read(&mut stream, &mut buffer).unwrap();
                 let request = String::from_utf8_lossy(&buffer[..read]);
-                let path = request.lines().next().and_then(|line| line.split_whitespace().nth(1)).unwrap();
-                assert!(path.starts_with(route.path_prefix), "expected path prefix {} but received {}", route.path_prefix, path);
+                let path = request
+                    .lines()
+                    .next()
+                    .and_then(|line| line.split_whitespace().nth(1))
+                    .unwrap();
+                assert!(
+                    path.starts_with(route.path_prefix),
+                    "expected path prefix {} but received {}",
+                    route.path_prefix,
+                    path
+                );
                 let response = format!(
                     "{}
 content-type: application/json
@@ -290,7 +340,10 @@ connection: close
                 std::io::Write::write_all(&mut stream, response.as_bytes()).unwrap();
             }
         });
-        Self { base_url: format!("http://{}", address), join_handle: Some(join_handle) }
+        Self {
+            base_url: format!("http://{}", address),
+            join_handle: Some(join_handle),
+        }
     }
 }
 

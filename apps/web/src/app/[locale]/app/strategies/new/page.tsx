@@ -1,15 +1,13 @@
 import { cookies } from "next/headers";
+import { getTranslations } from "next-intl/server";
+import { Bot, Search, Save, Copy, Info, AlertTriangle, ChevronRight } from "lucide-react";
 
-import { AppShellSection } from "../../../../components/shell/app-shell-section";
-import { Card, CardBody, CardDescription, CardHeader, CardTitle } from "../../../../components/ui/card";
-import { DialogFrame } from "../../../../components/ui/dialog";
-import { Button, Field, FormStack, Input, Select } from "../../../../components/ui/form";
-import { StatusBanner } from "../../../../components/ui/status-banner";
-import { UI_LANGUAGE_COOKIE, pickText, resolveUiLanguage, type UiLanguage } from "../../../../lib/ui/preferences";
+import { Button } from "../../../../components/ui/form";
 
 const DEFAULT_AUTH_API_BASE_URL = "http://127.0.0.1:8080";
 
 type PageProps = {
+  params: Promise<{ locale: string }>;
   searchParams?: Promise<{ error?: string | string[]; symbolQuery?: string | string[] }>;
 };
 
@@ -28,260 +26,191 @@ type TemplateListResponse = {
   }>;
 };
 
-const defaultLevelsJson = JSON.stringify(
-  [
-    { entry_price: "97", quantity: "12.37113402", take_profit_bps: 220, trailing_bps: 70 },
-    { entry_price: "98.5", quantity: "12.18274112", take_profit_bps: 220, trailing_bps: 70 },
-    { entry_price: "101.5", quantity: "11.82266010", take_profit_bps: 220, trailing_bps: null },
-    { entry_price: "103", quantity: "11.65048544", take_profit_bps: 220, trailing_bps: null },
-  ],
-  null,
-  2,
-);
-
-function firstValue(value?: string | string[]) {
-  return Array.isArray(value) ? value[0] : value;
-}
-
-export default async function StrategyNewPage({ searchParams }: PageProps) {
-  const cookieStore = await cookies();
-  const lang = resolveUiLanguage(cookieStore.get(UI_LANGUAGE_COOKIE)?.value);
-  const params = (await searchParams) ?? {};
-  const error = firstValue(params.error);
-  const symbolQuery = firstValue(params.symbolQuery) ?? "";
+export default async function StrategyNewPage({ params, searchParams }: PageProps) {
+  const { locale } = await params;
+  const t = await getTranslations({ locale, namespace: 'newStrategy' });
+  const commonT = await getTranslations({ locale, namespace: 'common' });
+  
+  const searchParamsValue = (await searchParams) ?? {};
+  const symbolQuery = (Array.isArray(searchParamsValue.symbolQuery) ? searchParamsValue.symbolQuery[0] : searchParamsValue.symbolQuery) ?? "";
+  
   const results = await Promise.all([fetchStrategies(), fetchTemplates(), fetchSymbolMatches(symbolQuery)]);
-  const strategiesResult = results[0];
-  const templatesResult = results[1];
-  const symbolMatchesResult = results[2];
-  const strategies = strategiesResult.items;
-  const templates = templatesResult.items;
-  const symbolMatches = symbolMatchesResult.items;
-  const loadError = strategiesResult.error ?? templatesResult.error ?? symbolMatchesResult.error;
+  const strategies = results[0].items;
+  const templates = results[1].items;
+  const symbolMatches = results[2].items;
 
   return (
-    <>
-      <StatusBanner
-        description={pickText(lang, "新建页优先保证草稿可落地、预检前置信息明确、模板可直接复用。", "This page prioritizes draft readiness, clear pre-flight prerequisites, and template reuse.")}
-        title={pickText(lang, "新建策略状态条", "New strategy status strip")}
-        tone="info"
-      />
-      {error ? <StatusBanner description={error} title={pickText(lang, "草稿创建失败", "Draft creation failed")} tone="warning" /> : null}
-      {loadError ? <StatusBanner description={loadError} title={pickText(lang, "策略创建上下文不可用", "Strategy setup unavailable")} tone="warning" /> : null}
-      <AppShellSection
-        description={pickText(lang, "主面板填写交易参数，侧栏只保留模板、容量与风控提醒。", "The main panel owns trade parameters while the side rail keeps templates, capacity, and risk reminders." )}
-        eyebrow={pickText(lang, "新建策略", "Strategy creation")}
-        title={pickText(lang, "新建策略", "New Strategy")}
-      >
-        <div className="content-grid content-grid--split">
-          <Card>
-            <CardHeader>
-              <CardTitle>{pickText(lang, "草稿主面板", "Draft setup")}</CardTitle>
-              <CardDescription>{pickText(lang, "先确定标的、模式和网格生成方式，再保存草稿。", "Choose symbol, mode, and ladder generation first, then save the draft.")}</CardDescription>
-            </CardHeader>
-            <CardBody>
-              <form action="/app/strategies/new" id="symbol-search-form" method="get" />
-              <FormStack action="/api/user/strategies/create" method="post">
-                <Field label={pickText(lang, "策略名", "Strategy name")}>
-                  <Input defaultValue="ETH Swing Builder" name="name" required />
-                </Field>
-                <Field label={pickText(lang, "搜索交易对", "Search symbols")} hint={pickText(lang, "符号搜索使用已同步的 Binance 元数据。", "Symbol search uses synced Binance metadata.")}>
-                  <div className="button-row">
-                    <Input defaultValue={symbolQuery || "ETH"} form="symbol-search-form" name="symbolQuery" />
-                    <Button form="symbol-search-form" type="submit">{pickText(lang, "搜索", "Search")}</Button>
-                  </div>
-                </Field>
-                <Field label={pickText(lang, "交易对", "Symbol")}>
-                  <Input defaultValue={symbolMatches[0]?.symbol ?? "ETHUSDT"} list="symbol-suggestions" name="symbol" required />
-                  <datalist id="symbol-suggestions">
-                    {symbolMatches.map((item) => (
-                      <option key={item.symbol} value={item.symbol}>{item.market + " · " + item.base_asset + "/" + item.quote_asset}</option>
-                    ))}
-                  </datalist>
-                </Field>
-                <Field label={pickText(lang, "市场类型", "Market type")}>
-                  <Select defaultValue="spot" name="marketType">
-                    <option value="spot">{pickText(lang, "现货", "Spot")}</option>
-                    <option value="usd-m">{pickText(lang, "U 本位合约", "USD-M futures")}</option>
-                    <option value="coin-m">{pickText(lang, "币本位合约", "COIN-M futures")}</option>
-                  </Select>
-                </Field>
-                <Field label={pickText(lang, "策略模式", "Strategy mode")}>
-                  <Select defaultValue="classic" name="mode">
-                    <option value="classic">{pickText(lang, "双向现货网格", "Classic two-way spot")}</option>
-                    <option value="buy-only">{pickText(lang, "只买现货网格", "Buy-only spot")}</option>
-                    <option value="sell-only">{pickText(lang, "只卖现货网格", "Sell-only spot")}</option>
-                    <option value="long">{pickText(lang, "做多合约网格", "Long futures")}</option>
-                    <option value="short">{pickText(lang, "做空合约网格", "Short futures")}</option>
-                    <option value="neutral">{pickText(lang, "中性合约网格", "Neutral futures")}</option>
-                  </Select>
-                </Field>
-                <Field label={pickText(lang, "生成方式", "Generation mode")}>
-                  <Select defaultValue="arithmetic" name="generation">
-                    <option value="arithmetic">{pickText(lang, "等差", "Arithmetic")}</option>
-                    <option value="geometric">{pickText(lang, "等比", "Geometric")}</option>
-                    <option value="custom">{pickText(lang, "完全自定义", "Fully custom")}</option>
-                  </Select>
-                </Field>
-                <Field label={pickText(lang, "编辑模式", "Editor mode")} hint={pickText(lang, "批量模式适合快速出梯；JSON 适合逐格定制。", "Batch mode is fast for ladder generation; JSON keeps full per-level control.")}>
-                  <Select defaultValue="batch" name="editorMode">
-                    <option value="batch">{pickText(lang, "批量建梯", "Batch ladder builder")}</option>
-                    <option value="custom">{pickText(lang, "自定义 JSON", "Custom JSON")}</option>
-                  </Select>
-                </Field>
-                <Field label={pickText(lang, "金额模式", "Amount mode")} hint={pickText(lang, "USDT 金额和币数量二选一。", "Choose quote amount or base quantity.")}>
-                  <Select defaultValue="quote" name="amountMode">
-                    <option value="quote">{pickText(lang, "计价金额", "Quote amount")}</option>
-                    <option value="base">{pickText(lang, "基础币数量", "Base quantity")}</option>
-                  </Select>
-                </Field>
-                <Field label={pickText(lang, "合约保证金模式", "Futures margin mode")} hint={pickText(lang, "仅合约策略生效。", "Applies only to futures strategies.")}>
-                  <Select defaultValue="isolated" name="futuresMarginMode">
-                    <option value="isolated">{pickText(lang, "逐仓", "Isolated")}</option>
-                    <option value="cross">{pickText(lang, "全仓", "Cross")}</option>
-                  </Select>
-                </Field>
-                <Field label={pickText(lang, "杠杆", "Leverage")}>
-                  <Input defaultValue="5" inputMode="numeric" name="leverage" />
-                </Field>
-                <div className="content-grid content-grid--split">
-                  <Field label={pickText(lang, "计价金额 (USDT)", "Quote amount (USDT)")}>
-                    <Input defaultValue="1200" inputMode="decimal" name="quoteAmount" />
-                  </Field>
-                  <Field label={pickText(lang, "基础币数量", "Base asset quantity")}>
-                    <Input defaultValue="0.0100" inputMode="decimal" name="baseQuantity" />
-                  </Field>
-                </div>
-                <div className="content-grid content-grid--split">
-                  <Field label={pickText(lang, "参考价", "Reference price")}>
-                    <Input defaultValue="100" inputMode="decimal" name="referencePrice" />
-                  </Field>
-                  <Field label={pickText(lang, "网格数量", "Grid count")}>
-                    <Input defaultValue="4" inputMode="numeric" name="gridCount" />
-                  </Field>
-                </div>
-                <div className="content-grid content-grid--split">
-                  <Field label={pickText(lang, "网格间距 (%)", "Batch spacing (%)")}>
-                    <Input defaultValue="1.5" inputMode="decimal" name="gridSpacingPercent" />
-                  </Field>
-                  <Field label={pickText(lang, "单格止盈 (%)", "Batch take profit (%)")}>
-                    <Input defaultValue="2.2" inputMode="decimal" name="batchTakeProfit" />
-                  </Field>
-                </div>
-                <div className="content-grid content-grid--split">
-                  <Field label={pickText(lang, "移动止盈 (%)", "Trailing take profit (%)")}>
-                    <Input defaultValue="0.7" inputMode="decimal" name="batchTrailing" />
-                  </Field>
-                  <Field label={pickText(lang, "总体止盈 (%)", "Overall take profit (%)")}>
-                    <Input defaultValue="7.0" inputMode="decimal" name="overallTakeProfit" required />
-                  </Field>
-                </div>
-                <Field label={pickText(lang, "总体止损 (%)", "Overall stop loss (%)")}>
-                  <Input defaultValue="2.5" inputMode="decimal" name="overallStopLoss" />
-                </Field>
-                <Field label={pickText(lang, "网格 JSON", "Grid levels JSON")} hint={pickText(lang, "需要逐格覆盖时再切到 JSON。", "Use JSON only when per-level overrides are required.")}>
-                  <textarea className="ui-input" defaultValue={defaultLevelsJson} name="levels_json" rows={10} />
-                </Field>
-                <Field label={pickText(lang, "触发后行为", "Post-trigger behavior")}>
-                  <Select defaultValue="rebuild" name="postTrigger">
-                    <option value="stop">{pickText(lang, "执行后停止", "Stop after execution")}</option>
-                    <option value="rebuild">{pickText(lang, "重建并继续", "Rebuild and continue")}</option>
-                  </Select>
-                </Field>
-                <Button type="submit">{pickText(lang, "保存草稿", "Save draft")}</Button>
-              </FormStack>
-            </CardBody>
-          </Card>
-          <Card tone="subtle">
-            <CardHeader>
-              <CardTitle>{pickText(lang, "策略模板", "Strategy templates")}</CardTitle>
-              <CardDescription>{pickText(lang, "模板复用、容量提醒和预检要点统一放到右侧。", "Template reuse, capacity reminders, and pre-flight notes live on the side rail.")}</CardDescription>
-            </CardHeader>
-            <CardBody>
-              <FormStack action="/api/user/strategies/templates" method="post">
-                <Field label={pickText(lang, "模板生成的策略名", "Draft name from template")}>
-                  <Input defaultValue="Template Based Draft" name="name" required />
-                </Field>
-                <Field label={pickText(lang, "应用模板", "Apply template")}>
-                  <Select defaultValue={templates[0]?.id ?? ""} name="templateId">
-                    {templates.length === 0 ? <option value="">{pickText(lang, "暂无模板", "No templates available")}</option> : null}
-                    {templates.map((template) => (
-                      <option key={template.id} value={template.id}>{template.name + " · " + template.symbol + " · " + template.market}</option>
-                    ))}
-                  </Select>
-                </Field>
-                <Button type="submit">{pickText(lang, "套用模板", "Apply template")}</Button>
-              </FormStack>
-              <ul className="text-list">
-                <li>{pickText(lang, "当前用户草稿数", "Existing user drafts")}: {strategies.length}</li>
-                <li>{pickText(lang, "合约方向同一用户同一标的只能有一个实例。", "Futures allow only one strategy per user, symbol, and direction.")}</li>
-                <li>{pickText(lang, "移动止盈走 taker，成本会高于普通挂单。", "Trailing take profit uses taker execution and may cost more than passive orders.")}</li>
-                <li>{pickText(lang, "保存草稿后仍需到工作台执行预检与启动。", "After saving the draft, pre-flight and launch still happen in the workspace.")}</li>
-              </ul>
-            </CardBody>
-          </Card>
+    <div className="max-w-6xl mx-auto space-y-6">
+      {/* Header */}
+      <div className="flex items-center gap-3">
+        <div className="w-10 h-10 rounded-xl bg-amber-500/20 flex items-center justify-center text-amber-500">
+          <Bot className="w-6 h-6" />
         </div>
-      </AppShellSection>
-      <DialogFrame
-        description={pickText(lang, "未通过预检前不能启动；预检会检查余额、交易所过滤器与对冲模式。", "Launch remains blocked until pre-flight confirms balance, exchange filters, and hedge mode.")}
-        title={pickText(lang, "预检仍然是强制步骤", "Pre-flight remains mandatory")}
-        tone="warning"
-      />
-    </>
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
+          <p className="text-muted-foreground text-sm">{t('subtitle')}</p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Main Config Panel */}
+        <div className="lg:col-span-2 space-y-6">
+          <div className="bg-card border border-border rounded-2xl p-6 shadow-sm space-y-6">
+            <h2 className="text-lg font-bold flex items-center gap-2">
+              <ChevronRight className="w-4 h-4 text-amber-500" />
+              General Settings
+            </h2>
+            
+            <form action="/api/user/strategies/create" method="post" className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-muted-foreground uppercase">{t('form.strategyName')}</label>
+                  <input name="name" defaultValue="My First Grid Bot" className="w-full bg-muted/50 border border-border rounded-lg px-3 py-2 text-sm focus:border-amber-500/50 outline-none transition-colors" />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-muted-foreground uppercase">{t('form.symbol')}</label>
+                  <div className="relative group">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-amber-500 transition-colors" />
+                    <input name="symbol" defaultValue="ETHUSDT" className="w-full bg-muted/50 border border-border rounded-lg pl-10 pr-3 py-2 text-sm focus:border-amber-500/50 outline-none transition-colors" />
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-muted-foreground uppercase">{t('form.marketType')}</label>
+                  <select name="marketType" className="w-full bg-muted/50 border border-border rounded-lg px-3 py-2 text-sm focus:border-amber-500/50 outline-none transition-colors appearance-none">
+                    <option value="spot">Binance Spot</option>
+                    <option value="usd-m">USDT-Futures</option>
+                  </select>
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-muted-foreground uppercase">{t('form.strategyMode')}</label>
+                  <select name="mode" className="w-full bg-muted/50 border border-border rounded-lg px-3 py-2 text-sm focus:border-amber-500/50 outline-none transition-colors appearance-none">
+                    <option value="classic">Classic</option>
+                    <option value="long">Long (Futures)</option>
+                    <option value="short">Short (Futures)</option>
+                  </select>
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-muted-foreground uppercase">{t('form.leverage')}</label>
+                  <input name="leverage" type="number" defaultValue="1" className="w-full bg-muted/50 border border-border rounded-lg px-3 py-2 text-sm focus:border-amber-500/50 outline-none transition-colors" />
+                </div>
+              </div>
+
+              <div className="h-[1px] bg-border my-2" />
+              
+              <h2 className="text-lg font-bold flex items-center gap-2 pt-2">
+                <ChevronRight className="w-4 h-4 text-amber-500" />
+                Grid Parameters
+              </h2>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-muted-foreground uppercase">{t('form.investment')}</label>
+                  <input name="quoteAmount" type="number" defaultValue="1000" className="w-full bg-muted/50 border border-border rounded-lg px-3 py-2 text-sm font-mono focus:border-amber-500/50 outline-none transition-colors" />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-muted-foreground uppercase">{t('form.gridCount')}</label>
+                  <input name="gridCount" type="number" defaultValue="10" className="w-full bg-muted/50 border border-border rounded-lg px-3 py-2 text-sm focus:border-amber-500/50 outline-none transition-colors" />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-muted-foreground uppercase">{t('form.spacing')}</label>
+                  <input name="gridSpacingPercent" type="number" step="0.1" defaultValue="1.5" className="w-full bg-muted/50 border border-border rounded-lg px-3 py-2 text-sm focus:border-amber-500/50 outline-none transition-colors" />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-muted-foreground uppercase">{t('form.takeProfit')}</label>
+                  <input name="batchTakeProfit" type="number" step="0.1" defaultValue="2.0" className="w-full bg-muted/50 border border-border rounded-lg px-3 py-2 text-sm focus:border-amber-500/50 outline-none transition-colors" />
+                </div>
+              </div>
+
+              <div className="pt-4">
+                <Button type="submit" className="w-full bg-amber-500 hover:bg-amber-600 text-white font-bold py-6 text-base rounded-xl border-none shadow-xl shadow-amber-500/20 transition-all">
+                  <Save className="w-5 h-5 mr-2" />
+                  {t('form.saveDraft')}
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+
+        {/* Templates & Help Side Panel */}
+        <div className="space-y-6">
+          <div className="bg-card border border-border rounded-2xl p-6 shadow-sm space-y-6">
+            <h2 className="font-bold flex items-center gap-2">
+              <Copy className="w-4 h-4 text-blue-500" />
+              {t('templates.title')}
+            </h2>
+            <div className="space-y-3">
+              {templates.length > 0 ? templates.map(tpl => (
+                <button key={tpl.id} className="w-full text-left p-3 rounded-xl border border-border bg-muted/20 hover:border-blue-500/50 transition-all group">
+                  <p className="text-xs font-bold group-hover:text-blue-500">{tpl.name}</p>
+                  <p className="text-[10px] text-muted-foreground">{tpl.symbol} · {tpl.market}</p>
+                </button>
+              )) : (
+                <p className="text-xs text-muted-foreground italic text-center py-4 bg-muted/20 rounded-xl">No templates found</p>
+              )}
+            </div>
+            <Button variant="outline" className="w-full text-xs">Create Template</Button>
+          </div>
+
+          <div className="bg-amber-500/10 border border-amber-500/20 rounded-2xl p-6 space-y-3">
+            <div className="flex items-center gap-2 text-amber-500 font-bold text-sm">
+              <AlertTriangle className="w-4 h-4" />
+              Risk Notice
+            </div>
+            <ul className="text-[11px] text-muted-foreground space-y-2 list-disc pl-4 leading-relaxed">
+              <li>Grid trading requires sufficient balance in your wallet.</li>
+              <li>Trailing Take Profit may involve higher slippage.</li>
+              <li>Always perform a Pre-flight check before starting.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
 
 async function fetchStrategies(): Promise<{ items: StrategyListResponse["items"]; error: string | null }> {
   const cookieStore = await cookies();
   const sessionToken = cookieStore.get("session_token")?.value ?? "";
-  if (!sessionToken) {
-    return { items: [], error: null };
-  }
+  if (!sessionToken) return { items: [], error: null };
   const response = await fetch(authApiBaseUrl() + "/strategies", {
     method: "GET",
     headers: { authorization: "Bearer " + sessionToken },
     cache: "no-store",
   });
-  if (!response.ok) {
-    return { items: [], error: "Unable to load your current strategies." };
-  }
+  if (!response.ok) return { items: [], error: "Load failed" };
   return { items: ((await response.json()) as StrategyListResponse).items, error: null };
 }
 
 async function fetchTemplates(): Promise<{ items: TemplateListResponse["items"]; error: string | null }> {
   const cookieStore = await cookies();
   const sessionToken = cookieStore.get("session_token")?.value ?? "";
-  if (!sessionToken) {
-    return { items: [], error: null };
-  }
+  if (!sessionToken) return { items: [], error: null };
   const response = await fetch(authApiBaseUrl() + "/strategies/templates", {
     method: "GET",
     headers: { authorization: "Bearer " + sessionToken },
     cache: "no-store",
   });
-  if (!response.ok) {
-    return { items: [], error: "Unable to load strategy templates." };
-  }
+  if (!response.ok) return { items: [], error: "Load failed" };
   return { items: ((await response.json()) as TemplateListResponse).items, error: null };
 }
 
 async function fetchSymbolMatches(query: string): Promise<{ items: SymbolSearchResponse["items"]; error: string | null }> {
   const cookieStore = await cookies();
   const sessionToken = cookieStore.get("session_token")?.value ?? "";
-  if (!sessionToken || !query.trim()) {
-    return { items: [], error: null };
-  }
+  if (!sessionToken || !query.trim()) return { items: [], error: null };
   const response = await fetch(authApiBaseUrl() + "/exchange/binance/symbols/search", {
     method: "POST",
-    headers: {
-      authorization: "Bearer " + sessionToken,
-      "content-type": "application/json",
-    },
+    headers: { authorization: "Bearer " + sessionToken, "content-type": "application/json" },
     body: JSON.stringify({ query }),
     cache: "no-store",
   });
-  if (!response.ok) {
-    return { items: [], error: "Unable to search symbols right now." };
-  }
+  if (!response.ok) return { items: [], error: "Search failed" };
   return { items: ((await response.json()) as SymbolSearchResponse).items, error: null };
 }
 

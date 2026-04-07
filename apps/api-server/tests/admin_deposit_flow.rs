@@ -162,14 +162,24 @@ async fn wrong_asset_transfer_requires_manual_review_and_admin_can_credit_member
         "operator reviewed wrong-asset transfer and validated order ownership"
     );
 
-    let notifications = db.list_notification_logs("member@example.com", 10).expect("notification logs");
+    let notifications = db
+        .list_notification_logs("member@example.com", 10)
+        .expect("notification logs");
     let deposit_notice = notifications
         .iter()
-        .find(|record| record.template_key.as_deref() == Some("DepositConfirmed") && record.channel == "in_app")
+        .find(|record| {
+            record.template_key.as_deref() == Some("DepositConfirmed") && record.channel == "in_app"
+        })
         .expect("deposit confirmation notification");
     assert_eq!(deposit_notice.title, "Deposit confirmed");
-    assert_eq!(deposit_notice.payload["event"]["payload"]["order_id"], order_id.to_string());
-    assert_eq!(deposit_notice.payload["event"]["payload"]["tx_hash"], "tx-wrong-asset");
+    assert_eq!(
+        deposit_notice.payload["event"]["payload"]["order_id"],
+        order_id.to_string()
+    );
+    assert_eq!(
+        deposit_notice.payload["event"]["payload"]["tx_hash"],
+        "tx-wrong-asset"
+    );
 }
 
 #[tokio::test]
@@ -308,8 +318,11 @@ async fn exact_match_does_not_persist_payment_when_audit_write_fails() {
             review_reason: Some("awaiting_confirmations".to_string()),
             processed_at: None,
             matched_order_id: None,
-        }).expect("confirming deposit");
-    }).await.expect("seed confirming deposit");
+        })
+        .expect("confirming deposit");
+    })
+    .await
+    .expect("seed confirming deposit");
 
     server.break_audit_table();
 
@@ -1180,7 +1193,9 @@ async fn bootstrap_admin_totp(app: &axum::Router, email: &str, password: &str) -
                 .method("POST")
                 .uri("/auth/admin-bootstrap")
                 .header("content-type", "application/json")
-                .body(Body::from(json!({ "email": email, "password": password }).to_string()))
+                .body(Body::from(
+                    json!({ "email": email, "password": password }).to_string(),
+                ))
                 .unwrap(),
         )
         .await
@@ -1566,7 +1581,10 @@ fn register_and_verify_via_http(server: &ApiServerHarness, email: &str, password
         Some(json!({ "email": email, "password": password })),
     );
     assert_eq!(register_status, StatusCode::CREATED.as_u16());
-    let verification_code = register_body["verification_code"].as_str().expect("verification code").to_owned();
+    let verification_code = register_body["verification_code"]
+        .as_str()
+        .expect("verification code")
+        .to_owned();
     let (verify_status, _) = http_json(
         "POST",
         &format!("{}/auth/verify-email", server.base_url()),

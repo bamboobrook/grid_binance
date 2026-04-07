@@ -54,23 +54,26 @@ pub fn apply_execution_update(strategy: &mut Strategy, update: &BinanceExecution
         finalize_stopping_status(strategy);
     }
 
-    strategy.runtime.events.push(shared_domain::strategy::StrategyRuntimeEvent {
-        event_type: "execution_update_received".to_string(),
-        detail: format!(
-            "{} {} {}",
-            update.symbol,
-            update.execution_type.as_deref().unwrap_or("UPDATE"),
-            update.status
-        ),
-        price: update
-            .last_fill_price
-            .as_deref()
-            .and_then(|value| value.parse().ok()),
-        created_at: Utc
-            .timestamp_millis_opt(update.event_time_ms)
-            .single()
-            .unwrap_or_else(Utc::now),
-    });
+    strategy
+        .runtime
+        .events
+        .push(shared_domain::strategy::StrategyRuntimeEvent {
+            event_type: "execution_update_received".to_string(),
+            detail: format!(
+                "{} {} {}",
+                update.symbol,
+                update.execution_type.as_deref().unwrap_or("UPDATE"),
+                update.status
+            ),
+            price: update
+                .last_fill_price
+                .as_deref()
+                .and_then(|value| value.parse().ok()),
+            created_at: Utc
+                .timestamp_millis_opt(update.event_time_ms)
+                .single()
+                .unwrap_or_else(Utc::now),
+        });
     true
 }
 
@@ -102,8 +105,18 @@ fn append_execution_fill(
         .trade_id
         .as_deref()
         .map(|trade_id| format!("exchange-trade-{trade_id}"))
-        .unwrap_or_else(|| format!("execution-update-{}-{}", update.order_id, update.event_time_ms));
-    if strategy.runtime.fills.iter().any(|fill| fill.fill_id == fill_id) {
+        .unwrap_or_else(|| {
+            format!(
+                "execution-update-{}-{}",
+                update.order_id, update.event_time_ms
+            )
+        });
+    if strategy
+        .runtime
+        .fills
+        .iter()
+        .any(|fill| fill.fill_id == fill_id)
+    {
         return;
     }
     let price = update
@@ -116,22 +129,24 @@ fn append_execution_fill(
         .fee_amount
         .as_deref()
         .and_then(|value| value.parse::<Decimal>().ok());
-    strategy.runtime.fills.push(shared_domain::strategy::StrategyRuntimeFill {
-        fill_id,
-        order_id: Some(order_id.to_string()),
-        level_index,
-        fill_type: "ExecutionUpdateFill".to_string(),
-        price,
-        quantity,
-        realized_pnl: update
-            .realized_profit
-            .as_deref()
-            .and_then(|value| value.parse::<Decimal>().ok()),
-        fee_amount,
-        fee_asset: update.fee_asset.clone(),
-    });
+    strategy
+        .runtime
+        .fills
+        .push(shared_domain::strategy::StrategyRuntimeFill {
+            fill_id,
+            order_id: Some(order_id.to_string()),
+            level_index,
+            fill_type: "ExecutionUpdateFill".to_string(),
+            price,
+            quantity,
+            realized_pnl: update
+                .realized_profit
+                .as_deref()
+                .and_then(|value| value.parse::<Decimal>().ok()),
+            fee_amount,
+            fee_asset: update.fee_asset.clone(),
+        });
 }
-
 
 fn close_order_index(order_id: &str) -> Option<usize> {
     order_id.rsplit('-').next()?.parse::<usize>().ok()
@@ -139,7 +154,8 @@ fn close_order_index(order_id: &str) -> Option<usize> {
 
 fn finalize_stopping_status(strategy: &mut Strategy) {
     let has_pending_close = strategy.runtime.orders.iter().any(|order| {
-        order.order_id.contains("-stop-close-") && matches!(order.status.as_str(), "ClosingRequested" | "Placed")
+        order.order_id.contains("-stop-close-")
+            && matches!(order.status.as_str(), "ClosingRequested" | "Placed")
     });
     if strategy.runtime.positions.is_empty() && !has_pending_close {
         strategy.status = shared_domain::strategy::StrategyStatus::Stopped;

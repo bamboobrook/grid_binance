@@ -4,11 +4,7 @@ use serde_json::json;
 use shared_binance::{BinanceClient, BinanceUserTrade};
 use shared_db::{ExchangeTradeHistoryRecord, NotificationLogRecord, SharedDb};
 use shared_domain::strategy::{Strategy, StrategyRuntimeEvent};
-use std::{
-    collections::HashSet,
-    sync::OnceLock,
-    time::Duration as StdDuration,
-};
+use std::{collections::HashSet, sync::OnceLock, time::Duration as StdDuration};
 
 pub trait BinanceTradeGateway {
     fn user_trades(
@@ -85,17 +81,20 @@ pub fn sync_strategy_trades(
                 }
             }
         }
-        strategy.runtime.fills.push(shared_domain::strategy::StrategyRuntimeFill {
-            fill_id: fill_id.clone(),
-            order_id: Some(order.order_id.clone()),
-            level_index: order.level_index,
-            fill_type: "ExchangeFill".to_string(),
-            price,
-            quantity,
-            realized_pnl,
-            fee_amount,
-            fee_asset: trade.fee_asset.clone(),
-        });
+        strategy
+            .runtime
+            .fills
+            .push(shared_domain::strategy::StrategyRuntimeFill {
+                fill_id: fill_id.clone(),
+                order_id: Some(order.order_id.clone()),
+                level_index: order.level_index,
+                fill_type: "ExchangeFill".to_string(),
+                price,
+                quantity,
+                realized_pnl,
+                fee_amount,
+                fee_asset: trade.fee_asset.clone(),
+            });
         strategy.runtime.events.push(StrategyRuntimeEvent {
             event_type: "grid_fill_executed".to_string(),
             detail: format!("grid fill {} executed at {}", trade.trade_id, trade.price),
@@ -162,12 +161,10 @@ pub fn sync_strategy_trades(
             .fills
             .iter()
             .fold(Decimal::ZERO, |acc, fill| {
-                acc + fill.realized_pnl.unwrap_or(Decimal::ZERO) - fill.fee_amount.unwrap_or(Decimal::ZERO)
+                acc + fill.realized_pnl.unwrap_or(Decimal::ZERO)
+                    - fill.fee_amount.unwrap_or(Decimal::ZERO)
             });
-        let fill_profit_body = format!(
-            "Grid fill realized {} net PnL.",
-            net_pnl.normalize()
-        );
+        let fill_profit_body = format!("Grid fill realized {} net PnL.", net_pnl.normalize());
         let fill_profit_payload = json!({
             "trade_id": trade.trade_id,
             "symbol": trade.symbol,
@@ -188,7 +185,13 @@ pub fn sync_strategy_trades(
         })?;
         if let Some(binding) = db.find_telegram_binding(&strategy.owner_email)? {
             let delivered = if let Some(token) = telegram_bot_token() {
-                send_telegram_message(&token, &binding.telegram_chat_id, &fill_profit_title, &fill_profit_body).is_ok()
+                send_telegram_message(
+                    &token,
+                    &binding.telegram_chat_id,
+                    &fill_profit_title,
+                    &fill_profit_body,
+                )
+                .is_ok()
             } else {
                 false
             };
@@ -217,7 +220,8 @@ fn close_order_index(order_id: &str) -> Option<usize> {
 
 fn finalize_stopping_status(strategy: &mut Strategy) {
     let has_pending_close = strategy.runtime.orders.iter().any(|order| {
-        order.order_id.contains("-stop-close-") && matches!(order.status.as_str(), "ClosingRequested" | "Placed")
+        order.order_id.contains("-stop-close-")
+            && matches!(order.status.as_str(), "ClosingRequested" | "Placed")
     });
     if strategy.status == shared_domain::strategy::StrategyStatus::Stopping
         && strategy.runtime.positions.is_empty()
@@ -269,7 +273,11 @@ fn telegram_api_base_url() -> String {
 
 fn telegram_http_agent() -> &'static ureq::Agent {
     static AGENT: OnceLock<ureq::Agent> = OnceLock::new();
-    AGENT.get_or_init(|| ureq::AgentBuilder::new().timeout(StdDuration::from_secs(5)).build())
+    AGENT.get_or_init(|| {
+        ureq::AgentBuilder::new()
+            .timeout(StdDuration::from_secs(5))
+            .build()
+    })
 }
 
 fn send_telegram_message(
@@ -279,7 +287,11 @@ fn send_telegram_message(
     body: &str,
 ) -> Result<(), shared_db::SharedDbError> {
     telegram_http_agent()
-        .post(&format!("{}/bot{}/sendMessage", telegram_api_base_url(), bot_token))
+        .post(&format!(
+            "{}/bot{}/sendMessage",
+            telegram_api_base_url(),
+            bot_token
+        ))
         .send_json(ureq::json!({
             "chat_id": chat_id,
             "text": format!("{}\n{}", title, body),

@@ -195,6 +195,60 @@ test("web shells expose persistent language and theme preferences", () => {
   assert.match(adminShell, /ShellPreferences|language|theme|语言|主题/i, "admin shell should expose preference controls");
 });
 
+test("shared shell visual system follows a professional trading-console contract", () => {
+  const globalsCss = read("apps/web/src/styles/globals.css");
+  const rootLayout = read("apps/web/src/app/layout.tsx");
+  const publicShell = read("apps/web/src/components/shell/public-shell.tsx");
+  const userShell = read("apps/web/src/components/shell/user-shell.tsx");
+  const adminShell = read("apps/web/src/components/shell/admin-shell.tsx");
+  const section = read("apps/web/src/components/shell/app-shell-section.tsx");
+  const card = read("apps/web/src/components/ui/card.tsx");
+  const form = read("apps/web/src/components/ui/form.tsx");
+  const banner = read("apps/web/src/components/ui/status-banner.tsx");
+  const table = read("apps/web/src/components/ui/table.tsx");
+  const chip = read("apps/web/src/components/ui/chip.tsx");
+  const dialog = read("apps/web/src/components/ui/dialog.tsx");
+  const tabs = read("apps/web/src/components/ui/tabs.tsx");
+
+  assert.match(globalsCss, /--mono-font|IBM Plex Mono/i, "global styles should define mono typography for prices, pnl, and timestamps");
+  assert.match(globalsCss, /--panel|--accent-amber|--positive|--negative/i, "global styles should define console-like panel, amber, and red-green tokens");
+  assert.match(globalsCss, /grid-template-columns:\s*(240px|15rem|248px|15\.5rem|256px|16rem)\s+minmax\(0,\s*1fr\)/i, "workspace shell should keep a fixed-width sidebar");
+  assert.match(globalsCss, /\.shell-topbar[\s\S]*border-bottom/i, "workspace topbar should read like a console header");
+  assert.match(globalsCss, /\.metric-strip__item[\s\S]*font-family:\s*var\(--mono-font\)/i, "metrics should use mono numerals");
+  assert.match(globalsCss, /\.ui-table[\s\S]*font-variant-numeric:\s*tabular-nums/i, "tables should use tabular numerals");
+  assert.match(globalsCss, /\.ui-chip[\s\S]*text-transform:\s*uppercase/i, "chips should keep compact uppercase labels");
+
+  assert.match(rootLayout, /UiLanguageProvider|app-body/, "root layout should continue to own shared shell chrome and language context");
+  assert.match(publicShell, /market-strip|console|session|supportLinks/i, "public shell should expose compact console metadata");
+  assert.match(userShell, /console|workspace|risk|quickStats/i, "user shell should expose compact console stats");
+  assert.match(adminShell, /console|operations|risk|quickStats/i, "admin shell should expose compact console stats");
+  assert.match(section, /app-section__header|app-section__content|app-section/i, "app sections should keep shared console framing");
+  assert.match(card, /ui-card__eyebrow|ui-card__header|ui-card/i, "card primitive should support dense console framing");
+  assert.match(form, /ui-field__meta|ui-input|button/i, "form primitive should support dense field metadata");
+  assert.match(banner, /status-banner__meta|status-banner__actions|status-banner/i, "status banner should expose compact metadata and actions");
+  assert.match(table, /ui-table__scroller|ui-table|table-wrap/i, "table primitive should support a dedicated scroller wrapper");
+  assert.match(chip, /UiLanguageProvider|useUiCopy|ui-chip/i, "shared UI primitives should host a reusable language mapping helper");
+  assert.match(dialog, /ui-dialog__header|ui-dialog__body|ui-dialog/i, "dialog primitive should keep structured console framing");
+  assert.match(tabs, /ui-tab__meta|ui-tab|ui-tabs/i, "tabs should support compact meta-friendly triggers");
+});
+
+test("shared status and table copy localizes instead of leaking fixed english labels", () => {
+  const rootLayout = read("apps/web/src/app/layout.tsx");
+  const banner = read("apps/web/src/components/ui/status-banner.tsx");
+  const dialog = read("apps/web/src/components/ui/dialog.tsx");
+  const table = read("apps/web/src/components/ui/table.tsx");
+  const chip = read("apps/web/src/components/ui/chip.tsx");
+
+  assert.match(rootLayout, /UiLanguageProvider/, "root layout should provide shared UI language context");
+  assert.match(chip, /createContext|pickText|UiLanguageProvider|useUiCopy/, "shared UI language helper should live in shared UI scope");
+  assert.match(banner, /pickText|useUiCopy|lang/i, "status banner labels should use language-aware copy");
+  assert.match(dialog, /pickText|useUiCopy|lang/i, "dialog labels should use language-aware copy");
+  assert.match(table, /pickText|useUiCopy|lang/i, "table empty-state copy should use language-aware copy");
+  assert.doesNotMatch(banner, />\s*Heads up\s*</, "dialog/banner tone labels must not be fixed english");
+  assert.doesNotMatch(dialog, />\s*Warning\s*</, "dialog tone labels must not be fixed english");
+  assert.doesNotMatch(table, /No records available\./, "table empty-state copy must not be fixed english");
+});
+
 test("shell and help helpers enforce route behavior", async () => {
   const { isNavHrefActive } = await import("../../apps/web/src/components/shell/path-utils.ts");
   const { isValidHelpArticle, normalizeHelpArticle } = await import("../../apps/web/src/lib/api/help-articles.ts");

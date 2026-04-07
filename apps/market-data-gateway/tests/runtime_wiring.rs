@@ -49,7 +49,8 @@ async fn subscribe_only_active_symbols_per_market_and_emit_ticks() {
 
 #[tokio::test]
 async fn reconnect_refreshes_subscription_plan_without_cross_market_leakage() {
-    let mut runtime = GatewayRuntime::new(&[SymbolActivity::new_with_market("BTCUSDT", "spot", true)]);
+    let mut runtime =
+        GatewayRuntime::new(&[SymbolActivity::new_with_market("BTCUSDT", "spot", true)]);
     runtime.disconnect();
 
     let refreshed = runtime
@@ -90,7 +91,8 @@ async fn reconnect_refreshes_subscription_plan_without_cross_market_leakage() {
 
 #[tokio::test]
 async fn health_reflects_connection_and_tick_freshness() {
-    let mut runtime = GatewayRuntime::new(&[SymbolActivity::new_with_market("BTCUSDT", "spot", true)]);
+    let mut runtime =
+        GatewayRuntime::new(&[SymbolActivity::new_with_market("BTCUSDT", "spot", true)]);
 
     let cold_health = runtime.health(1_000, 500);
     assert_eq!(cold_health.connected, true);
@@ -122,7 +124,8 @@ async fn health_reflects_connection_and_tick_freshness() {
 
 #[tokio::test]
 async fn reconnect_clears_stale_freshness_until_new_tick_arrives() {
-    let mut runtime = GatewayRuntime::new(&[SymbolActivity::new_with_market("BTCUSDT", "spot", true)]);
+    let mut runtime =
+        GatewayRuntime::new(&[SymbolActivity::new_with_market("BTCUSDT", "spot", true)]);
 
     runtime.emit_tick(BinanceTradeEvent::new(
         "BTCUSDT",

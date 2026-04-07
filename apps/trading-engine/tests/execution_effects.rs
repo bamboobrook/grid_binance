@@ -2,9 +2,8 @@ use rust_decimal::Decimal;
 use shared_binance::BinanceExecutionUpdate;
 use shared_db::SharedDb;
 use shared_domain::strategy::{
-    GridGeneration, GridLevel, PostTriggerAction, Strategy, StrategyAmountMode,
-    StrategyMarket, StrategyMode, StrategyRevision, StrategyRuntime, StrategyRuntimeOrder,
-    StrategyStatus,
+    GridGeneration, GridLevel, PostTriggerAction, Strategy, StrategyAmountMode, StrategyMarket,
+    StrategyMode, StrategyRevision, StrategyRuntime, StrategyRuntimeOrder, StrategyStatus,
 };
 use trading_engine::execution_effects::persist_execution_effects;
 use trading_engine::execution_sync::apply_execution_update;
@@ -43,14 +42,21 @@ fn execution_effects_persist_trade_history_and_notifications_once() {
 
     assert_eq!(first.new_trades, 1);
     assert_eq!(second.new_trades, 0);
-    let trades = db.list_exchange_trade_history("trader@example.com").unwrap();
+    let trades = db
+        .list_exchange_trade_history("trader@example.com")
+        .unwrap();
     assert_eq!(trades.len(), 1);
     assert_eq!(trades[0].trade_id, "321");
     let notifications = db.list_notification_logs("trader@example.com", 10).unwrap();
-    assert!(notifications.iter().any(|record| record.template_key.as_deref() == Some("GridFillExecuted")));
+    assert!(notifications
+        .iter()
+        .any(|record| record.template_key.as_deref() == Some("GridFillExecuted")));
     let profit_log = notifications
         .iter()
-        .find(|record| record.template_key.as_deref() == Some("FillProfitReported") && record.channel == "in_app")
+        .find(|record| {
+            record.template_key.as_deref() == Some("FillProfitReported")
+                && record.channel == "in_app"
+        })
         .expect("fill profit log");
     assert_eq!(profit_log.payload["cumulative_net_pnl"], "1.21");
 }
@@ -78,7 +84,8 @@ fn execution_effects_emit_telegram_logs_when_bound_and_configured() {
         telegram_user_id: "tg-1".to_string(),
         telegram_chat_id: "chat-1".to_string(),
         bound_at: chrono::Utc::now(),
-    }).unwrap();
+    })
+    .unwrap();
     let mut strategy = sample_strategy();
     let update = BinanceExecutionUpdate {
         market: "usdm".to_string(),
@@ -105,8 +112,16 @@ fn execution_effects_emit_telegram_logs_when_bound_and_configured() {
     persist_execution_effects(&db, &strategy, &update).unwrap();
 
     let notifications = db.list_notification_logs("trader@example.com", 10).unwrap();
-    assert!(notifications.iter().any(|record| record.channel == "telegram" && record.template_key.as_deref() == Some("GridFillExecuted") && record.status == "delivered"));
-    assert!(notifications.iter().any(|record| record.channel == "telegram" && record.template_key.as_deref() == Some("FillProfitReported") && record.status == "delivered"));
+    assert!(notifications
+        .iter()
+        .any(|record| record.channel == "telegram"
+            && record.template_key.as_deref() == Some("GridFillExecuted")
+            && record.status == "delivered"));
+    assert!(notifications
+        .iter()
+        .any(|record| record.channel == "telegram"
+            && record.template_key.as_deref() == Some("FillProfitReported")
+            && record.status == "delivered"));
 }
 
 #[test]
@@ -121,7 +136,8 @@ fn execution_effects_record_failed_telegram_logs_when_binding_exists_without_bot
         telegram_user_id: "tg-1".to_string(),
         telegram_chat_id: "chat-1".to_string(),
         bound_at: chrono::Utc::now(),
-    }).unwrap();
+    })
+    .unwrap();
     let mut strategy = sample_strategy();
     let update = BinanceExecutionUpdate {
         market: "usdm".to_string(),
@@ -148,8 +164,16 @@ fn execution_effects_record_failed_telegram_logs_when_binding_exists_without_bot
     persist_execution_effects(&db, &strategy, &update).unwrap();
 
     let notifications = db.list_notification_logs("trader@example.com", 10).unwrap();
-    assert!(notifications.iter().any(|record| record.channel == "telegram" && record.template_key.as_deref() == Some("GridFillExecuted") && record.status == "failed"));
-    assert!(notifications.iter().any(|record| record.channel == "telegram" && record.template_key.as_deref() == Some("FillProfitReported") && record.status == "failed"));
+    assert!(notifications
+        .iter()
+        .any(|record| record.channel == "telegram"
+            && record.template_key.as_deref() == Some("GridFillExecuted")
+            && record.status == "failed"));
+    assert!(notifications
+        .iter()
+        .any(|record| record.channel == "telegram"
+            && record.template_key.as_deref() == Some("FillProfitReported")
+            && record.status == "failed"));
 }
 
 #[derive(Clone)]
@@ -168,7 +192,9 @@ impl TestServer {
     fn start(routes: Vec<TestRoute>) -> Self {
         let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("bind test server");
         let address = listener.local_addr().unwrap();
-        let queue = std::sync::Arc::new(std::sync::Mutex::new(std::collections::VecDeque::from(routes)));
+        let queue = std::sync::Arc::new(std::sync::Mutex::new(std::collections::VecDeque::from(
+            routes,
+        )));
         let queue_for_thread = queue.clone();
         let join_handle = std::thread::spawn(move || {
             while let Some(route) = queue_for_thread.lock().unwrap().pop_front() {
@@ -176,8 +202,17 @@ impl TestServer {
                 let mut buffer = [0u8; 4096];
                 let read = std::io::Read::read(&mut stream, &mut buffer).unwrap();
                 let request = String::from_utf8_lossy(&buffer[..read]);
-                let path = request.lines().next().and_then(|line| line.split_whitespace().nth(1)).unwrap();
-                assert!(path.starts_with(route.path_prefix), "expected path prefix {} but received {}", route.path_prefix, path);
+                let path = request
+                    .lines()
+                    .next()
+                    .and_then(|line| line.split_whitespace().nth(1))
+                    .unwrap();
+                assert!(
+                    path.starts_with(route.path_prefix),
+                    "expected path prefix {} but received {}",
+                    route.path_prefix,
+                    path
+                );
                 let response = format!(
                     "{}
 content-type: application/json
@@ -192,7 +227,10 @@ connection: close
                 std::io::Write::write_all(&mut stream, response.as_bytes()).unwrap();
             }
         });
-        Self { base_url: format!("http://{}", address), join_handle: Some(join_handle) }
+        Self {
+            base_url: format!("http://{}", address),
+            join_handle: Some(join_handle),
+        }
     }
 }
 

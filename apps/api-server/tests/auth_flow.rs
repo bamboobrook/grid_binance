@@ -388,7 +388,10 @@ async fn admin_access_requires_bootstrapped_totp_session() {
         .await
         .unwrap();
     assert_eq!(blocked_login.status(), StatusCode::UNAUTHORIZED);
-    assert_eq!(response_json(blocked_login).await["error"], "admin totp setup required");
+    assert_eq!(
+        response_json(blocked_login).await["error"],
+        "admin totp setup required"
+    );
 
     let bootstrap = bootstrap_admin_totp(&app, "super-admin@example.com", "pass1234").await;
     let totp_code = bootstrap["code"].as_str().expect("totp code");
@@ -479,7 +482,10 @@ async fn public_auth_failures_do_not_disclose_account_state() {
         .await
         .unwrap();
     assert_eq!(duplicate_register.status(), StatusCode::CREATED);
-    assert_eq!(response_json(duplicate_register).await["code_delivery"], "email");
+    assert_eq!(
+        response_json(duplicate_register).await["code_delivery"],
+        "email"
+    );
 
     let unknown_login = app
         .clone()
@@ -500,7 +506,10 @@ async fn public_auth_failures_do_not_disclose_account_state() {
         .await
         .unwrap();
     assert_eq!(unknown_login.status(), StatusCode::UNAUTHORIZED);
-    assert_eq!(response_json(unknown_login).await["error"], "invalid credentials");
+    assert_eq!(
+        response_json(unknown_login).await["error"],
+        "invalid credentials"
+    );
 
     let unknown_reset = app
         .clone()
@@ -541,7 +550,10 @@ async fn public_auth_failures_do_not_disclose_account_state() {
         .await
         .unwrap();
     assert_eq!(unknown_verify.status(), StatusCode::UNAUTHORIZED);
-    assert_eq!(response_json(unknown_verify).await["error"], "invalid verification code");
+    assert_eq!(
+        response_json(unknown_verify).await["error"],
+        "invalid verification code"
+    );
 
     let unknown_reset_confirm = app
         .clone()
@@ -563,7 +575,10 @@ async fn public_auth_failures_do_not_disclose_account_state() {
         .await
         .unwrap();
     assert_eq!(unknown_reset_confirm.status(), StatusCode::UNAUTHORIZED);
-    assert_eq!(response_json(unknown_reset_confirm).await["error"], "invalid reset code");
+    assert_eq!(
+        response_json(unknown_reset_confirm).await["error"],
+        "invalid reset code"
+    );
 }
 
 #[tokio::test]
@@ -760,7 +775,9 @@ async fn bootstrap_admin_totp(app: &axum::Router, email: &str, password: &str) -
                 .method("POST")
                 .uri("/auth/admin-bootstrap")
                 .header("content-type", "application/json")
-                .body(Body::from(json!({ "email": email, "password": password }).to_string()))
+                .body(Body::from(
+                    json!({ "email": email, "password": password }).to_string(),
+                ))
                 .unwrap(),
         )
         .await

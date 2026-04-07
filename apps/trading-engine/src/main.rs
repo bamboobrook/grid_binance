@@ -3,8 +3,8 @@ use chrono::Utc;
 use futures_util::StreamExt;
 use shared_binance::{parse_user_data_message, BinanceClient, CredentialCipher};
 use shared_db::{NotificationLogRecord, SharedDb};
-use shared_events::{MarketTick, NotificationKind};
 use shared_domain::strategy::{Strategy, StrategyRuntimeEvent, StrategyStatus};
+use shared_events::{MarketTick, NotificationKind};
 use std::{
     collections::{HashMap, HashSet},
     io::{Error as IoError, ErrorKind},
@@ -13,7 +13,11 @@ use std::{
 };
 use tokio::{net::TcpListener, task::JoinHandle, time::sleep};
 use tokio_tungstenite::{connect_async, tungstenite::Message};
-use trading_engine::{execution_effects::persist_execution_effects, execution_sync::apply_execution_update, order_sync::sync_strategy_orders, strategy_runtime::StrategyRuntimeEngine, trade_sync::sync_strategy_trades};
+use trading_engine::{
+    execution_effects::persist_execution_effects, execution_sync::apply_execution_update,
+    order_sync::sync_strategy_orders, strategy_runtime::StrategyRuntimeEngine,
+    trade_sync::sync_strategy_trades,
+};
 
 const DEFAULT_PORT: u16 = 8081;
 const SERVICE_NAME: &str = "trading-engine";
@@ -91,11 +95,18 @@ async fn healthz(State(state): State<EngineState>) -> impl IntoResponse {
     )
 }
 
-fn reconcile_once(db: &SharedDb, metrics: &Arc<Mutex<RuntimeMetrics>>) -> Result<(), shared_db::SharedDbError> {
+fn reconcile_once(
+    db: &SharedDb,
+    metrics: &Arc<Mutex<RuntimeMetrics>>,
+) -> Result<(), shared_db::SharedDbError> {
     let mut active = 0usize;
     let mut error_paused = 0usize;
     let live_mode = live_mode_enabled();
-    let cipher = if live_mode { Some(credential_cipher()?) } else { None };
+    let cipher = if live_mode {
+        Some(credential_cipher()?)
+    } else {
+        None
+    };
     let market_ticks = db.drain_market_ticks(256)?;
     for mut strategy in db.list_all_strategies()? {
         let mut dirty = false;
@@ -105,8 +116,16 @@ fn reconcile_once(db: &SharedDb, metrics: &Arc<Mutex<RuntimeMetrics>>) -> Result
         dirty |= apply_market_ticks(db, &mut strategy, &market_ticks)?;
         match strategy.status {
             StrategyStatus::Running => {
-                let revision = strategy.active_revision.clone().unwrap_or_else(|| strategy.draft_revision.clone());
-                if let Err(error) = StrategyRuntimeEngine::new(&strategy.id, strategy.market, strategy.mode, revision) {
+                let revision = strategy
+                    .active_revision
+                    .clone()
+                    .unwrap_or_else(|| strategy.draft_revision.clone());
+                if let Err(error) = StrategyRuntimeEngine::new(
+                    &strategy.id,
+                    strategy.market,
+                    strategy.mode,
+                    revision,
+                ) {
                     strategy.status = StrategyStatus::ErrorPaused;
                     strategy.runtime.events.push(StrategyRuntimeEvent {
                         event_type: "runtime_reconcile_failed".to_string(),
@@ -147,7 +166,6 @@ fn reconcile_once(db: &SharedDb, metrics: &Arc<Mutex<RuntimeMetrics>>) -> Result
     Ok(())
 }
 
-
 fn sync_live_orders(
     db: &SharedDb,
     strategy: &mut Strategy,
@@ -155,7 +173,10 @@ fn sync_live_orders(
 ) -> Result<bool, shared_db::SharedDbError> {
     if !matches!(
         strategy.status,
-        StrategyStatus::Running | StrategyStatus::Paused | StrategyStatus::Stopped | StrategyStatus::ErrorPaused
+        StrategyStatus::Running
+            | StrategyStatus::Paused
+            | StrategyStatus::Stopped
+            | StrategyStatus::ErrorPaused
     ) {
         return Ok(false);
     }
@@ -165,7 +186,9 @@ fn sync_live_orders(
     if !account.is_active {
         return Ok(false);
     }
-    let Some(credentials) = db.find_exchange_credentials(&strategy.owner_email, BINANCE_EXCHANGE)? else {
+    let Some(credentials) =
+        db.find_exchange_credentials(&strategy.owner_email, BINANCE_EXCHANGE)?
+    else {
         return Ok(false);
     };
     let (api_key, api_secret) = cipher
@@ -201,7 +224,10 @@ fn sync_live_orders(
     if result.failed > 0 {
         apply_live_sync_failure(db, strategy, result.failed, Utc::now())?;
     }
-    Ok(result.submitted > 0 || result.canceled > 0 || result.failed > 0 || trade_result.new_fills > 0)
+    Ok(result.submitted > 0
+        || result.canceled > 0
+        || result.failed > 0
+        || trade_result.new_fills > 0)
 }
 
 fn apply_live_sync_failure(
@@ -291,7 +317,10 @@ fn apply_market_ticks(
                 strategy,
                 NotificationKind::OverallTakeProfitTriggered,
                 "Overall take profit reached",
-                &format!("{} reached overall take profit on {}.", strategy.name, strategy.symbol),
+                &format!(
+                    "{} reached overall take profit on {}.",
+                    strategy.name, strategy.symbol
+                ),
                 serde_json::json!({
                     "strategy_id": strategy.id,
                     "trigger_price": event.price.map(|price| price.to_string()).unwrap_or_default(),
@@ -305,7 +334,10 @@ fn apply_market_ticks(
                 strategy,
                 NotificationKind::OverallStopLossTriggered,
                 "Overall stop loss reached",
-                &format!("{} reached overall stop loss on {}.", strategy.name, strategy.symbol),
+                &format!(
+                    "{} reached overall stop loss on {}.",
+                    strategy.name, strategy.symbol
+                ),
                 serde_json::json!({
                     "strategy_id": strategy.id,
                     "trigger_price": event.price.map(|price| price.to_string()).unwrap_or_default(),
@@ -347,12 +379,17 @@ fn persist_runtime_notification(
 ) -> Result<(), shared_db::SharedDbError> {
     let binding = db.find_telegram_binding(&strategy.owner_email)?;
     let telegram_delivered = match (binding.as_ref(), telegram_bot_token()) {
-        (Some(binding), Some(token)) => send_telegram_message(&token, &binding.telegram_chat_id, title, body).is_ok(),
+        (Some(binding), Some(token)) => {
+            send_telegram_message(&token, &binding.telegram_chat_id, title, body).is_ok()
+        }
         _ => false,
     };
     let mut record_payload = payload.clone();
     if let Some(object) = record_payload.as_object_mut() {
-        object.insert("telegram_delivered".to_string(), serde_json::json!(telegram_delivered));
+        object.insert(
+            "telegram_delivered".to_string(),
+            serde_json::json!(telegram_delivered),
+        );
     }
     db.insert_notification_log(&NotificationLogRecord {
         user_email: strategy.owner_email.clone(),
@@ -372,7 +409,12 @@ fn persist_runtime_notification(
             template_key: Some(format!("{:?}", kind)),
             title: title.to_string(),
             body: body.to_string(),
-            status: if telegram_delivered { "delivered" } else { "failed" }.to_string(),
+            status: if telegram_delivered {
+                "delivered"
+            } else {
+                "failed"
+            }
+            .to_string(),
             payload,
             created_at,
             delivered_at: telegram_delivered.then_some(created_at),
@@ -398,7 +440,11 @@ fn telegram_api_base_url() -> String {
 
 fn telegram_http_agent() -> &'static ureq::Agent {
     static AGENT: std::sync::OnceLock<ureq::Agent> = std::sync::OnceLock::new();
-    AGENT.get_or_init(|| ureq::AgentBuilder::new().timeout(Duration::from_secs(5)).build())
+    AGENT.get_or_init(|| {
+        ureq::AgentBuilder::new()
+            .timeout(Duration::from_secs(5))
+            .build()
+    })
 }
 
 fn send_telegram_message(
@@ -408,7 +454,11 @@ fn send_telegram_message(
     body: &str,
 ) -> Result<(), shared_db::SharedDbError> {
     telegram_http_agent()
-        .post(&format!("{}/bot{}/sendMessage", telegram_api_base_url(), bot_token))
+        .post(&format!(
+            "{}/bot{}/sendMessage",
+            telegram_api_base_url(),
+            bot_token
+        ))
         .send_json(ureq::json!({
             "chat_id": chat_id,
             "text": format!("{}\n{}", title, body),
@@ -420,7 +470,12 @@ fn send_telegram_message(
 fn live_mode_enabled() -> bool {
     std::env::var("BINANCE_LIVE_MODE")
         .ok()
-        .map(|value| matches!(value.trim().to_ascii_lowercase().as_str(), "1" | "true" | "yes" | "on" | "live"))
+        .map(|value| {
+            matches!(
+                value.trim().to_ascii_lowercase().as_str(),
+                "1" | "true" | "yes" | "on" | "live"
+            )
+        })
         .unwrap_or(false)
 }
 
@@ -430,7 +485,8 @@ fn credential_cipher() -> Result<CredentialCipher, shared_db::SharedDbError> {
 }
 
 fn sync_user_streams(db: &SharedDb) -> Result<(), shared_db::SharedDbError> {
-    static HANDLES: std::sync::OnceLock<Mutex<HashMap<String, JoinHandle<()>>>> = std::sync::OnceLock::new();
+    static HANDLES: std::sync::OnceLock<Mutex<HashMap<String, JoinHandle<()>>>> =
+        std::sync::OnceLock::new();
     let handles = HANDLES.get_or_init(|| Mutex::new(HashMap::new()));
     let accounts = db.list_active_exchange_accounts(BINANCE_EXCHANGE)?;
     let desired = desired_user_stream_keys(
@@ -475,13 +531,20 @@ fn sync_user_streams(db: &SharedDb) -> Result<(), shared_db::SharedDbError> {
 async fn user_stream_task(db: SharedDb, email: String, market: String) {
     loop {
         if let Err(error) = run_user_stream_once(&db, &email, &market).await {
-            eprintln!("trading-engine user stream {} {} failed: {error}", email, market);
+            eprintln!(
+                "trading-engine user stream {} {} failed: {error}",
+                email, market
+            );
         }
         tokio::time::sleep(Duration::from_secs(5)).await;
     }
 }
 
-async fn run_user_stream_once(db: &SharedDb, email: &str, market: &str) -> Result<(), shared_db::SharedDbError> {
+async fn run_user_stream_once(
+    db: &SharedDb,
+    email: &str,
+    market: &str,
+) -> Result<(), shared_db::SharedDbError> {
     let Some(credentials) = db.find_exchange_credentials(email, BINANCE_EXCHANGE)? else {
         return Ok(());
     };
@@ -501,8 +564,13 @@ async fn run_user_stream_once(db: &SharedDb, email: &str, market: &str) -> Resul
         let mut interval = tokio::time::interval(Duration::from_secs(30 * 60));
         loop {
             interval.tick().await;
-            if let Err(error) = keepalive_client.keepalive_user_data_stream(&keepalive_market, &keepalive_key) {
-                eprintln!("trading-engine user stream keepalive {} {} failed: {}", keepalive_email, keepalive_market, error);
+            if let Err(error) =
+                keepalive_client.keepalive_user_data_stream(&keepalive_market, &keepalive_key)
+            {
+                eprintln!(
+                    "trading-engine user stream keepalive {} {} failed: {}",
+                    keepalive_email, keepalive_market, error
+                );
                 break;
             }
         }
@@ -612,7 +680,9 @@ fn required_env(name: &str) -> Result<String, IoError> {
 }
 
 fn parse_port(value: Option<String>, default_port: u16) -> u16 {
-    value.and_then(|port| port.parse().ok()).unwrap_or(default_port)
+    value
+        .and_then(|port| port.parse().ok())
+        .unwrap_or(default_port)
 }
 
 fn health_payload(service_name: &str, metrics: &Arc<Mutex<RuntimeMetrics>>) -> String {
@@ -628,15 +698,17 @@ fn health_payload(service_name: &str, metrics: &Arc<Mutex<RuntimeMetrics>>) -> S
 
 #[cfg(test)]
 mod tests {
-    use super::{apply_live_sync_failure, health_payload, reconcile_once, RuntimeMetrics, DEFAULT_PORT, SERVICE_NAME};
-    use shared_db::{SharedDb, StoredStrategy};
-    use shared_domain::strategy::{
-        GridGeneration, GridLevel, PostTriggerAction, Strategy, StrategyAmountMode, StrategyMarket,
-        StrategyMode,
-        StrategyRevision, StrategyRuntime, StrategyStatus,
+    use super::{
+        apply_live_sync_failure, health_payload, reconcile_once, RuntimeMetrics, DEFAULT_PORT,
+        SERVICE_NAME,
     };
     use chrono::Utc;
     use rust_decimal::Decimal;
+    use shared_db::{SharedDb, StoredStrategy};
+    use shared_domain::strategy::{
+        GridGeneration, GridLevel, PostTriggerAction, Strategy, StrategyAmountMode, StrategyMarket,
+        StrategyMode, StrategyRevision, StrategyRuntime, StrategyStatus,
+    };
     use std::sync::{Arc, Mutex};
 
     #[test]
@@ -690,7 +762,10 @@ mod tests {
     #[test]
     fn parse_port_falls_back_when_value_is_missing_or_invalid() {
         assert_eq!(super::parse_port(None, DEFAULT_PORT), DEFAULT_PORT);
-        assert_eq!(super::parse_port(Some("not-a-port".to_string()), DEFAULT_PORT), DEFAULT_PORT);
+        assert_eq!(
+            super::parse_port(Some("not-a-port".to_string()), DEFAULT_PORT),
+            DEFAULT_PORT
+        );
     }
 
     #[test]
@@ -701,15 +776,21 @@ mod tests {
 
     #[test]
     fn user_stream_keys_expand_active_accounts_by_market_scope() {
-        let keys = super::desired_user_stream_keys(true, &[
-            ("alice@example.com", "spot,usdm"),
-            ("bob@example.com", "coinm"),
-        ]);
-        assert_eq!(keys, vec![
-            "alice@example.com:spot".to_string(),
-            "alice@example.com:usdm".to_string(),
-            "bob@example.com:coinm".to_string(),
-        ]);
+        let keys = super::desired_user_stream_keys(
+            true,
+            &[
+                ("alice@example.com", "spot,usdm"),
+                ("bob@example.com", "coinm"),
+            ],
+        );
+        assert_eq!(
+            keys,
+            vec![
+                "alice@example.com:spot".to_string(),
+                "alice@example.com:usdm".to_string(),
+                "bob@example.com:coinm".to_string(),
+            ]
+        );
     }
 
     #[test]
@@ -726,16 +807,19 @@ mod tests {
         let db = SharedDb::ephemeral().expect("db");
         let mut strategy = strategy("run", StrategyStatus::Running);
         strategy.owner_email = "engine@example.com".to_string();
-        strategy.runtime.orders.push(shared_domain::strategy::StrategyRuntimeOrder {
-            order_id: "run-order-0".to_string(),
-            exchange_order_id: Some("555".to_string()),
-            level_index: Some(0),
-            side: "Buy".to_string(),
-            order_type: "Limit".to_string(),
-            price: Some(Decimal::new(100, 0)),
-            quantity: Decimal::new(1, 0),
-            status: "Placed".to_string(),
-        });
+        strategy
+            .runtime
+            .orders
+            .push(shared_domain::strategy::StrategyRuntimeOrder {
+                order_id: "run-order-0".to_string(),
+                exchange_order_id: Some("555".to_string()),
+                level_index: Some(0),
+                side: "Buy".to_string(),
+                order_type: "Limit".to_string(),
+                price: Some(Decimal::new(100, 0)),
+                quantity: Decimal::new(1, 0),
+                status: "Placed".to_string(),
+            });
 
         let changed = super::apply_execution_update_effects(
             &db,
@@ -760,10 +844,13 @@ mod tests {
                 realized_profit: None,
                 event_time_ms: 1_710_000,
             },
-        ).expect("apply effects");
+        )
+        .expect("apply effects");
 
         assert!(changed);
-        let trades = db.list_exchange_trade_history("engine@example.com").unwrap();
+        let trades = db
+            .list_exchange_trade_history("engine@example.com")
+            .unwrap();
         assert_eq!(trades.len(), 1);
         assert_eq!(trades[0].trade_id, "123");
     }
@@ -771,8 +858,16 @@ mod tests {
     #[test]
     fn reconcile_updates_metrics_for_running_and_error_paused_strategies() {
         let db = SharedDb::ephemeral().expect("db");
-        db.insert_strategy(&StoredStrategy { sequence_id: 1, strategy: strategy("run", StrategyStatus::Running) }).unwrap();
-        db.insert_strategy(&StoredStrategy { sequence_id: 2, strategy: strategy("err", StrategyStatus::ErrorPaused) }).unwrap();
+        db.insert_strategy(&StoredStrategy {
+            sequence_id: 1,
+            strategy: strategy("run", StrategyStatus::Running),
+        })
+        .unwrap();
+        db.insert_strategy(&StoredStrategy {
+            sequence_id: 2,
+            strategy: strategy("err", StrategyStatus::ErrorPaused),
+        })
+        .unwrap();
         let metrics = Arc::new(Mutex::new(RuntimeMetrics::default()));
         reconcile_once(&db, &metrics).unwrap();
         let guard = metrics.lock().unwrap();
@@ -789,7 +884,8 @@ mod tests {
             telegram_user_id: "tg-1".to_string(),
             telegram_chat_id: "chat-1".to_string(),
             bound_at: chrono::Utc::now(),
-        }).unwrap();
+        })
+        .unwrap();
         std::env::remove_var("TELEGRAM_BOT_TOKEN");
         let metrics = Arc::new(Mutex::new(RuntimeMetrics::default()));
         let mut running = strategy("notify-tg-fail", StrategyStatus::Running);
@@ -817,18 +913,29 @@ mod tests {
             overall_stop_loss_bps: None,
             post_trigger_action: PostTriggerAction::Stop,
         });
-        db.insert_strategy(&StoredStrategy { sequence_id: 1, strategy: running }).expect("strategy");
+        db.insert_strategy(&StoredStrategy {
+            sequence_id: 1,
+            strategy: running,
+        })
+        .expect("strategy");
         db.enqueue_market_tick(&shared_events::MarketTick {
             symbol: "BTCUSDT".to_string(),
             market: "spot".to_string(),
             price: Decimal::new(101, 0),
             event_time_ms: 1_000,
-        }).expect("tick");
+        })
+        .expect("tick");
 
         reconcile_once(&db, &metrics).expect("reconcile");
 
-        let notifications = db.list_notification_logs("engine@example.com", 10).expect("notifications");
-        assert!(notifications.iter().any(|record| record.channel == "telegram" && record.template_key.as_deref() == Some("OverallTakeProfitTriggered") && record.status == "failed"));
+        let notifications = db
+            .list_notification_logs("engine@example.com", 10)
+            .expect("notifications");
+        assert!(notifications
+            .iter()
+            .any(|record| record.channel == "telegram"
+                && record.template_key.as_deref() == Some("OverallTakeProfitTriggered")
+                && record.status == "failed"));
     }
 
     #[test]
@@ -860,18 +967,27 @@ mod tests {
             overall_stop_loss_bps: None,
             post_trigger_action: PostTriggerAction::Stop,
         });
-        db.insert_strategy(&StoredStrategy { sequence_id: 1, strategy: running }).expect("strategy");
+        db.insert_strategy(&StoredStrategy {
+            sequence_id: 1,
+            strategy: running,
+        })
+        .expect("strategy");
         db.enqueue_market_tick(&shared_events::MarketTick {
             symbol: "BTCUSDT".to_string(),
             market: "spot".to_string(),
             price: Decimal::new(101, 0),
             event_time_ms: 1_000,
-        }).expect("tick");
+        })
+        .expect("tick");
 
         reconcile_once(&db, &metrics).expect("reconcile");
 
-        let notifications = db.list_notification_logs("engine@example.com", 10).expect("notifications");
-        assert!(notifications.iter().any(|record| record.template_key.as_deref() == Some("OverallTakeProfitTriggered")));
+        let notifications = db
+            .list_notification_logs("engine@example.com", 10)
+            .expect("notifications");
+        assert!(notifications
+            .iter()
+            .any(|record| record.template_key.as_deref() == Some("OverallTakeProfitTriggered")));
     }
 
     #[test]
@@ -897,14 +1013,25 @@ mod tests {
             overall_stop_loss_bps: None,
             post_trigger_action: PostTriggerAction::Stop,
         });
-        db.insert_strategy(&StoredStrategy { sequence_id: 1, strategy: broken }).expect("strategy");
+        db.insert_strategy(&StoredStrategy {
+            sequence_id: 1,
+            strategy: broken,
+        })
+        .expect("strategy");
 
         reconcile_once(&db, &metrics).expect("reconcile");
 
-        let stored = db.find_strategy("engine@example.com", "broken").expect("find").expect("strategy");
+        let stored = db
+            .find_strategy("engine@example.com", "broken")
+            .expect("find")
+            .expect("strategy");
         assert_eq!(stored.status, StrategyStatus::ErrorPaused);
-        let notifications = db.list_notification_logs("engine@example.com", 10).expect("notifications");
-        assert!(notifications.iter().any(|record| record.template_key.as_deref() == Some("RuntimeError")));
+        let notifications = db
+            .list_notification_logs("engine@example.com", 10)
+            .expect("notifications");
+        assert!(notifications
+            .iter()
+            .any(|record| record.template_key.as_deref() == Some("RuntimeError")));
     }
 
     #[test]
@@ -913,13 +1040,22 @@ mod tests {
         let mut running = strategy("live-sync-fail", StrategyStatus::Running);
         let created_at = Utc::now();
 
-        let changed = apply_live_sync_failure(&db, &mut running, 2, created_at).expect("live sync failure");
+        let changed =
+            apply_live_sync_failure(&db, &mut running, 2, created_at).expect("live sync failure");
 
         assert!(changed);
         assert_eq!(running.status, StrategyStatus::ErrorPaused);
-        assert!(running.runtime.events.iter().any(|event| event.event_type == "live_order_sync_failed"));
-        let notifications = db.list_notification_logs("engine@example.com", 10).expect("notifications");
-        assert!(notifications.iter().any(|record| record.template_key.as_deref() == Some("RuntimeError")));
+        assert!(running
+            .runtime
+            .events
+            .iter()
+            .any(|event| event.event_type == "live_order_sync_failed"));
+        let notifications = db
+            .list_notification_logs("engine@example.com", 10)
+            .expect("notifications");
+        assert!(notifications
+            .iter()
+            .any(|record| record.template_key.as_deref() == Some("RuntimeError")));
     }
 
     #[test]
@@ -951,18 +1087,30 @@ mod tests {
             overall_stop_loss_bps: None,
             post_trigger_action: PostTriggerAction::Stop,
         });
-        db.insert_strategy(&StoredStrategy { sequence_id: 1, strategy: running }).expect("strategy");
+        db.insert_strategy(&StoredStrategy {
+            sequence_id: 1,
+            strategy: running,
+        })
+        .expect("strategy");
         db.enqueue_market_tick(&shared_events::MarketTick {
             symbol: "BTCUSDT".to_string(),
             market: "spot".to_string(),
             price: Decimal::new(101, 0),
             event_time_ms: 1_000,
-        }).expect("tick");
+        })
+        .expect("tick");
 
         reconcile_once(&db, &metrics).expect("reconcile");
 
-        let stored = db.find_strategy("engine@example.com", "tick").expect("find").expect("strategy");
-        assert!(stored.runtime.events.iter().any(|event| event.event_type.contains("overall_take_profit")));
+        let stored = db
+            .find_strategy("engine@example.com", "tick")
+            .expect("find")
+            .expect("strategy");
+        assert!(stored
+            .runtime
+            .events
+            .iter()
+            .any(|event| event.event_type.contains("overall_take_profit")));
     }
 
     fn strategy(id: &str, status: StrategyStatus) -> Strategy {
@@ -1002,7 +1150,13 @@ mod tests {
             amount_mode: StrategyAmountMode::Quote,
             futures_margin_mode: None,
             leverage: None,
-            levels: vec![GridLevel { level_index: 0, entry_price: Decimal::new(100,0), quantity: Decimal::new(1,0), take_profit_bps: 100, trailing_bps: None }],
+            levels: vec![GridLevel {
+                level_index: 0,
+                entry_price: Decimal::new(100, 0),
+                quantity: Decimal::new(1, 0),
+                take_profit_bps: 100,
+                trailing_bps: None,
+            }],
             overall_take_profit_bps: None,
             overall_stop_loss_bps: None,
             post_trigger_action: PostTriggerAction::Stop,

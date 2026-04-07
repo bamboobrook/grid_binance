@@ -7,8 +7,7 @@ use shared_db::{
 };
 use shared_domain::analytics::{
     AccountSnapshotView, AnalyticsReport, CostAggregation, ExchangeTradeHistoryView,
-    StrategyProfitSummary, StrategySnapshotView, TradeFillInput, UserAggregate,
-    WalletSnapshotView,
+    StrategyProfitSummary, StrategySnapshotView, TradeFillInput, UserAggregate, WalletSnapshotView,
 };
 use shared_domain::strategy::{Strategy, StrategyRuntimePosition};
 use trading_engine::statistics::compute_fill_views;
@@ -351,7 +350,8 @@ fn resolve_fee_total(
 ) -> Decimal {
     match snapshot_total {
         Some(value)
-            if value != Decimal::ZERO || (trade_history_total == Decimal::ZERO && fill_total == Decimal::ZERO) =>
+            if value != Decimal::ZERO
+                || (trade_history_total == Decimal::ZERO && fill_total == Decimal::ZERO) =>
         {
             value
         }

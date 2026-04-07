@@ -10,8 +10,7 @@ use crate::{
     services::auth_service::AuthService,
     services::membership_service::{
         CreateBillingOrderRequest, CreateBillingOrderResponse, MatchBillingOrderRequest,
-        MatchBillingOrderResponse, MembershipError, MembershipService,
-        UserBillingOverviewResponse,
+        MatchBillingOrderResponse, MembershipError, MembershipService, UserBillingOverviewResponse,
     },
     AppState,
 };
@@ -29,7 +28,9 @@ async fn billing_overview(
     headers: HeaderMap,
 ) -> Result<Json<UserBillingOverviewResponse>, MembershipError> {
     let session = require_user_session(&auth, &headers).map_err(MembershipError::from)?;
-    Ok(Json(service.billing_overview(&session.email, chrono::Utc::now())?))
+    Ok(Json(
+        service.billing_overview(&session.email, chrono::Utc::now())?,
+    ))
 }
 
 async fn create_order(

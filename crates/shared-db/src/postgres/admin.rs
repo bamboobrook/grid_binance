@@ -569,7 +569,12 @@ async fn insert_template_in(
     .bind(grid_generation_to_str(template.template.generation))
     .bind(levels)
     .bind(strategy_amount_mode_to_str(template.template.amount_mode))
-    .bind(template.template.futures_margin_mode.map(futures_margin_mode_to_str))
+    .bind(
+        template
+            .template
+            .futures_margin_mode
+            .map(futures_margin_mode_to_str),
+    )
     .bind(template.template.leverage.map(|value| value as i32))
     .bind(&template.template.budget)
     .bind(template.template.grid_spacing_bps as i32)
@@ -1053,7 +1058,8 @@ fn template_from_row(row: sqlx::postgres::PgRow) -> Result<StrategyTemplate, Sha
         )?,
         levels,
         amount_mode: parse_strategy_amount_mode(
-            &row.try_get::<String, _>("amount_mode").map_err(SharedDbError::from)?,
+            &row.try_get::<String, _>("amount_mode")
+                .map_err(SharedDbError::from)?,
         )?,
         futures_margin_mode: row
             .try_get::<Option<String>, _>("futures_margin_mode")

@@ -21,7 +21,10 @@ pub fn router() -> Router<AppState> {
     Router::new()
         .route("/strategies", get(list_strategies).post(create_strategy))
         .route("/strategies/templates", get(list_templates))
-        .route("/strategies/templates/{template_id}/apply", post(apply_template))
+        .route(
+            "/strategies/templates/{template_id}/apply",
+            post(apply_template),
+        )
         .route("/strategies/{strategy_id}", put(update_strategy))
         .route(
             "/strategies/{strategy_id}/preflight",

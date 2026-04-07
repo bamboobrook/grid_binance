@@ -14,7 +14,11 @@ use shared_db::{
 };
 use shared_domain::membership::{MembershipSnapshot, MembershipStatus};
 use shared_events::{NotificationEvent, NotificationKind, NotificationRecord};
-use std::{collections::{BTreeMap, HashSet}, sync::OnceLock, time::Duration as StdDuration};
+use std::{
+    collections::{BTreeMap, HashSet},
+    sync::OnceLock,
+    time::Duration as StdDuration,
+};
 
 use crate::services::auth_service::{AdminRole, AuthError};
 
@@ -391,8 +395,10 @@ impl MembershipService {
 
         let chain = normalize_chain(&request.chain);
         let asset = normalize_asset(&request.asset);
-        let address = normalize_chain_address(&normalize_chain(&request.chain), request.address.trim());
-        let tx_hash = normalize_chain_tx_hash(&normalize_chain(&request.chain), request.tx_hash.trim());
+        let address =
+            normalize_chain_address(&normalize_chain(&request.chain), request.address.trim());
+        let tx_hash =
+            normalize_chain_tx_hash(&normalize_chain(&request.chain), request.tx_hash.trim());
         let amount = canonicalize_amount(&request.amount)
             .map_err(|_| MembershipError::bad_request("invalid amount"))?;
         let confirmations = request.confirmations.unwrap_or_default();
@@ -425,7 +431,10 @@ impl MembershipService {
 
         let valid_candidates: Vec<_> = address_candidates
             .iter()
-            .filter(|order| order.asset == asset && canonicalize_amount(&order.amount).ok().as_deref() == Some(amount.as_str()))
+            .filter(|order| {
+                order.asset == asset
+                    && canonicalize_amount(&order.amount).ok().as_deref() == Some(amount.as_str())
+            })
             .filter(|order| {
                 order
                     .assignment
@@ -657,7 +666,11 @@ impl MembershipService {
             _ => return Ok(12),
         };
 
-        let Some(record) = self.db.get_system_config(key).map_err(MembershipError::storage)? else {
+        let Some(record) = self
+            .db
+            .get_system_config(key)
+            .map_err(MembershipError::storage)?
+        else {
             return Ok(12);
         };
 
@@ -872,10 +885,16 @@ impl MembershipService {
                 order_id: order.order_id,
                 chain: order.chain.clone(),
                 asset: order.asset.clone(),
-                address: order.assignment.as_ref().map(|assignment| assignment.address.clone()),
+                address: order
+                    .assignment
+                    .as_ref()
+                    .map(|assignment| assignment.address.clone()),
                 amount: order.amount.clone(),
                 status: order.status.clone(),
-                expires_at: order.assignment.as_ref().map(|assignment| assignment.expires_at),
+                expires_at: order
+                    .assignment
+                    .as_ref()
+                    .map(|assignment| assignment.expires_at),
                 queue_position: if order.status == "queued" {
                     queue_position_for(order.order_id, &order.chain, &orders)
                 } else {
@@ -1659,7 +1678,11 @@ impl MembershipService {
         Ok(())
     }
 
-    fn confirming_transaction_exists(&self, chain: &str, tx_hash: &str) -> Result<bool, MembershipError> {
+    fn confirming_transaction_exists(
+        &self,
+        chain: &str,
+        tx_hash: &str,
+    ) -> Result<bool, MembershipError> {
         Ok(self
             .db
             .list_deposit_transactions()
@@ -1972,13 +1995,18 @@ fn persist_deposit_confirmation_notification(
     tx_hash: &str,
     at: DateTime<Utc>,
 ) -> Result<(), MembershipError> {
-    let binding = db.find_telegram_binding(email).map_err(MembershipError::storage)?;
+    let binding = db
+        .find_telegram_binding(email)
+        .map_err(MembershipError::storage)?;
     let telegram_delivered = match (binding.as_ref(), telegram_bot_token()) {
         (Some(binding), Some(token)) => send_telegram_message(
             &token,
             &binding.telegram_chat_id,
             "Deposit confirmed",
-            &format!("{} {} deposit matched billing order {}.", chain, asset, order_id),
+            &format!(
+                "{} {} deposit matched billing order {}.",
+                chain, asset, order_id
+            ),
         )
         .is_ok(),
         _ => false,
@@ -1988,7 +2016,10 @@ fn persist_deposit_confirmation_notification(
             email: email.to_owned(),
             kind: NotificationKind::DepositConfirmed,
             title: "Deposit confirmed".to_string(),
-            message: format!("{} {} deposit matched billing order {}.", chain, asset, order_id),
+            message: format!(
+                "{} {} deposit matched billing order {}.",
+                chain, asset, order_id
+            ),
             payload: BTreeMap::from([
                 ("order_id".to_string(), order_id.to_string()),
                 ("tx_hash".to_string(), tx_hash.to_owned()),
@@ -1998,8 +2029,11 @@ fn persist_deposit_confirmation_notification(
         in_app_delivered: true,
         show_expiry_popup: false,
     };
-    let payload = serde_json::to_value(&record)
-        .map_err(|_| MembershipError::storage(shared_db::SharedDbError::new("notification serialization failed")))?;
+    let payload = serde_json::to_value(&record).map_err(|_| {
+        MembershipError::storage(shared_db::SharedDbError::new(
+            "notification serialization failed",
+        ))
+    })?;
     db.insert_notification_log(&NotificationLogRecord {
         user_email: email.to_owned(),
         channel: "in_app".to_string(),
@@ -2019,7 +2053,12 @@ fn persist_deposit_confirmation_notification(
             template_key: Some("DepositConfirmed".to_string()),
             title: record.event.title.clone(),
             body: record.event.message.clone(),
-            status: if telegram_delivered { "delivered" } else { "failed" }.to_string(),
+            status: if telegram_delivered {
+                "delivered"
+            } else {
+                "failed"
+            }
+            .to_string(),
             payload,
             created_at: at,
             delivered_at: telegram_delivered.then_some(at),
@@ -2046,7 +2085,11 @@ fn telegram_api_base_url() -> String {
 
 fn telegram_http_agent() -> &'static ureq::Agent {
     static AGENT: OnceLock<ureq::Agent> = OnceLock::new();
-    AGENT.get_or_init(|| ureq::AgentBuilder::new().timeout(StdDuration::from_secs(5)).build())
+    AGENT.get_or_init(|| {
+        ureq::AgentBuilder::new()
+            .timeout(StdDuration::from_secs(5))
+            .build()
+    })
 }
 
 fn send_telegram_message(
@@ -2056,7 +2099,11 @@ fn send_telegram_message(
     body: &str,
 ) -> Result<(), shared_db::SharedDbError> {
     telegram_http_agent()
-        .post(&format!("{}/bot{}/sendMessage", telegram_api_base_url(), bot_token))
+        .post(&format!(
+            "{}/bot{}/sendMessage",
+            telegram_api_base_url(),
+            bot_token
+        ))
         .send_json(ureq::json!({
             "chat_id": chat_id,
             "text": format!("{}\n{}", title, body),

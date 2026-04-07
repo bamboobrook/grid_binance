@@ -233,7 +233,10 @@ async fn strategy_start_and_pause_emit_telegram_logs_when_bound_and_configured()
     seed_strategy_start_prerequisites(&db, "auto-telegram@example.com", "BTCUSDT");
 
     let bind_code = create_bind_code(&app, &session_token, "auto-telegram@example.com", None).await;
-    let code = response_json(bind_code).await["code"].as_str().unwrap().to_string();
+    let code = response_json(bind_code).await["code"]
+        .as_str()
+        .unwrap()
+        .to_string();
     let bound = bot_bind_telegram(&app, &code, "tg-auto", "chat-auto", Some("autobot")).await;
     assert_eq!(bound.status(), StatusCode::OK);
 
@@ -264,16 +267,39 @@ async fn strategy_start_and_pause_emit_telegram_logs_when_bound_and_configured()
             "post_trigger_action": "Stop"
         }),
     ).await;
-    let strategy_id = response_json(created).await["id"].as_str().unwrap().to_string();
+    let strategy_id = response_json(created).await["id"]
+        .as_str()
+        .unwrap()
+        .to_string();
 
-    let started = request(&app, Some(&session_token), "POST", &format!("/strategies/{strategy_id}/start"), Value::Null).await;
+    let started = request(
+        &app,
+        Some(&session_token),
+        "POST",
+        &format!("/strategies/{strategy_id}/start"),
+        Value::Null,
+    )
+    .await;
     assert_eq!(started.status(), StatusCode::OK);
-    let paused = request(&app, Some(&session_token), "POST", "/strategies/batch/pause", json!({ "ids": [strategy_id] })).await;
+    let paused = request(
+        &app,
+        Some(&session_token),
+        "POST",
+        "/strategies/batch/pause",
+        json!({ "ids": [strategy_id] }),
+    )
+    .await;
     assert_eq!(paused.status(), StatusCode::OK);
 
-    let logs = db.list_notification_logs("auto-telegram@example.com", 20).expect("logs");
-    assert!(logs.iter().any(|record| record.channel == "telegram" && record.template_key.as_deref() == Some("StrategyStarted") && record.status == "delivered"));
-    assert!(logs.iter().any(|record| record.channel == "telegram" && record.template_key.as_deref() == Some("StrategyPaused") && record.status == "delivered"));
+    let logs = db
+        .list_notification_logs("auto-telegram@example.com", 20)
+        .expect("logs");
+    assert!(logs.iter().any(|record| record.channel == "telegram"
+        && record.template_key.as_deref() == Some("StrategyStarted")
+        && record.status == "delivered"));
+    assert!(logs.iter().any(|record| record.channel == "telegram"
+        && record.template_key.as_deref() == Some("StrategyPaused")
+        && record.status == "delivered"));
 }
 
 #[tokio::test]
@@ -314,18 +340,42 @@ async fn strategy_start_and_pause_emit_notifications_automatically() {
         }),
     ).await;
     assert_eq!(created.status(), StatusCode::CREATED);
-    let strategy_id = response_json(created).await["id"].as_str().unwrap().to_string();
+    let strategy_id = response_json(created).await["id"]
+        .as_str()
+        .unwrap()
+        .to_string();
 
-    let started = request(&app, Some(&session_token), "POST", &format!("/strategies/{strategy_id}/start"), Value::Null).await;
+    let started = request(
+        &app,
+        Some(&session_token),
+        "POST",
+        &format!("/strategies/{strategy_id}/start"),
+        Value::Null,
+    )
+    .await;
     assert_eq!(started.status(), StatusCode::OK);
-    let paused = request(&app, Some(&session_token), "POST", "/strategies/batch/pause", json!({ "ids": [strategy_id] })).await;
+    let paused = request(
+        &app,
+        Some(&session_token),
+        "POST",
+        "/strategies/batch/pause",
+        json!({ "ids": [strategy_id] }),
+    )
+    .await;
     assert_eq!(paused.status(), StatusCode::OK);
 
     let inbox = list_notifications(&app, &session_token, "auto-strategy@example.com").await;
     assert_eq!(inbox.status(), StatusCode::OK);
-    let items = response_json(inbox).await["items"].as_array().expect("items").clone();
-    assert!(items.iter().any(|item| item["event"]["kind"] == "StrategyStarted"));
-    assert!(items.iter().any(|item| item["event"]["kind"] == "StrategyPaused"));
+    let items = response_json(inbox).await["items"]
+        .as_array()
+        .expect("items")
+        .clone();
+    assert!(items
+        .iter()
+        .any(|item| item["event"]["kind"] == "StrategyStarted"));
+    assert!(items
+        .iter()
+        .any(|item| item["event"]["kind"] == "StrategyPaused"));
 }
 
 #[tokio::test]
@@ -566,7 +616,10 @@ async fn dispatch_notification_sends_real_telegram_message_when_bot_is_configure
     let session_token = register_and_login(&app, "telegram-live@example.com", "pass1234").await;
 
     let bind_code = create_bind_code(&app, &session_token, "telegram-live@example.com", None).await;
-    let code = response_json(bind_code).await["code"].as_str().unwrap().to_string();
+    let code = response_json(bind_code).await["code"]
+        .as_str()
+        .unwrap()
+        .to_string();
     let bound = bot_bind_telegram(&app, &code, "tg-live", "chat-live", Some("gridlive")).await;
     assert_eq!(bound.status(), StatusCode::OK);
 
@@ -584,8 +637,12 @@ async fn dispatch_notification_sends_real_telegram_message_when_bot_is_configure
     let body = response_json(dispatched).await;
     assert_eq!(body["telegram_delivered"], true);
 
-    let logs = db.list_notification_logs("telegram-live@example.com", 10).expect("logs");
-    assert!(logs.iter().any(|record| record.channel == "telegram" && record.status == "delivered"));
+    let logs = db
+        .list_notification_logs("telegram-live@example.com", 10)
+        .expect("logs");
+    assert!(logs
+        .iter()
+        .any(|record| record.channel == "telegram" && record.status == "delivered"));
 }
 
 #[tokio::test]
@@ -782,7 +839,10 @@ async fn request(
     } else {
         Body::from(payload.to_string())
     };
-    app.clone().oneshot(builder.body(body).unwrap()).await.unwrap()
+    app.clone()
+        .oneshot(builder.body(body).unwrap())
+        .await
+        .unwrap()
 }
 
 #[derive(Clone)]
@@ -814,7 +874,9 @@ impl Drop for EnvGuard {
 impl Drop for TestServer {
     fn drop(&mut self) {
         if let Some(handle) = self.join_handle.take() {
-            handle.join().expect("telegram test server thread should exit cleanly");
+            handle
+                .join()
+                .expect("telegram test server thread should exit cleanly");
         }
     }
 }
@@ -836,17 +898,28 @@ fn spawn_test_server(routes: Vec<TestRoute>) -> TestServer {
     let queue = Arc::new(Mutex::new(VecDeque::from(routes)));
     let queue_for_thread = queue.clone();
     let join_handle = thread::spawn(move || {
-        while let Some(route) = queue_for_thread.lock().expect("telegram route queue poisoned").pop_front() {
+        while let Some(route) = queue_for_thread
+            .lock()
+            .expect("telegram route queue poisoned")
+            .pop_front()
+        {
             let (mut stream, _) = listener.accept().expect("accept telegram test request");
             let mut buffer = [0u8; 4096];
-            let read = stream.read(&mut buffer).expect("read telegram test request");
+            let read = stream
+                .read(&mut buffer)
+                .expect("read telegram test request");
             let request = String::from_utf8_lossy(&buffer[..read]);
             let path = request
                 .lines()
                 .next()
                 .and_then(|line| line.split_whitespace().nth(1))
                 .expect("telegram request path");
-            assert!(path.starts_with(route.path_prefix), "expected path prefix {} but received {}", route.path_prefix, path);
+            assert!(
+                path.starts_with(route.path_prefix),
+                "expected path prefix {} but received {}",
+                route.path_prefix,
+                path
+            );
             let response = format!(
                 "{}
 content-type: application/json
@@ -858,7 +931,9 @@ connection: close
                 route.body.len(),
                 route.body
             );
-            stream.write_all(response.as_bytes()).expect("write telegram test response");
+            stream
+                .write_all(response.as_bytes())
+                .expect("write telegram test response");
         }
     });
     TestServer {
@@ -873,7 +948,6 @@ async fn response_json(response: axum::response::Response) -> Value {
         .expect("response body");
     serde_json::from_slice(&bytes).expect("valid json")
 }
-
 
 fn seed_strategy_start_prerequisites(db: &SharedDb, email: &str, symbol: &str) {
     let now = Utc::now();

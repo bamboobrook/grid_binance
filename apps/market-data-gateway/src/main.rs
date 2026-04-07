@@ -51,16 +51,21 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         .iter()
                         .map(|plan| format!("{}:{}", plan.market, plan.url))
                         .collect::<Vec<_>>();
-                    let restart_required = should_restart_streams(&live_handles, &live_signature, &signature);
+                    let restart_required =
+                        should_restart_streams(&live_handles, &live_signature, &signature);
                     let signature_changed = signature != live_signature;
                     if restart_required {
                         if !signature_changed {
                             let reconnects = {
-                                let mut guard = runtime_for_loop.lock().expect("gateway runtime poisoned");
+                                let mut guard =
+                                    runtime_for_loop.lock().expect("gateway runtime poisoned");
                                 guard.reconnect(&activities);
                                 guard.reconnect_count()
                             };
-                            metrics_for_loop.lock().expect("metrics poisoned").reconnect_count = reconnects;
+                            metrics_for_loop
+                                .lock()
+                                .expect("metrics poisoned")
+                                .reconnect_count = reconnects;
                         }
                         for handle in live_handles.drain(..) {
                             handle.abort();
@@ -70,7 +75,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             let db = db.clone();
                             live_handles.push(tokio::spawn(async move {
                                 if let Err(error) = run_market_stream(&plan, runtime, db).await {
-                                    eprintln!("market-data-gateway live stream {} failed: {error}", plan.market);
+                                    eprintln!(
+                                        "market-data-gateway live stream {} failed: {error}",
+                                        plan.market
+                                    );
                                 }
                             }));
                         }
@@ -98,7 +106,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 async fn healthz(State(state): State<GatewayState>) -> impl IntoResponse {
     (
-        [(header::CONTENT_TYPE, "text/plain; version=0.0.4; charset=utf-8")],
+        [(
+            header::CONTENT_TYPE,
+            "text/plain; version=0.0.4; charset=utf-8",
+        )],
         health_payload(SERVICE_NAME, &state.metrics),
     )
 }
@@ -160,7 +171,12 @@ fn market_code(market: StrategyMarket) -> &'static str {
 fn live_mode_enabled() -> bool {
     std::env::var("BINANCE_LIVE_MODE")
         .ok()
-        .map(|value| matches!(value.trim().to_ascii_lowercase().as_str(), "1" | "true" | "yes" | "on"))
+        .map(|value| {
+            matches!(
+                value.trim().to_ascii_lowercase().as_str(),
+                "1" | "true" | "yes" | "on"
+            )
+        })
         .unwrap_or(false)
 }
 
@@ -185,7 +201,9 @@ fn required_env(name: &str) -> Result<String, IoError> {
 }
 
 fn parse_port(value: Option<String>, default_port: u16) -> u16 {
-    value.and_then(|port| port.parse().ok()).unwrap_or(default_port)
+    value
+        .and_then(|port| port.parse().ok())
+        .unwrap_or(default_port)
 }
 
 fn health_payload(service_name: &str, metrics: &Arc<Mutex<GatewayMetrics>>) -> String {
@@ -201,7 +219,10 @@ fn health_payload(service_name: &str, metrics: &Arc<Mutex<GatewayMetrics>>) -> S
 
 #[cfg(test)]
 mod tests {
-    use super::{health_payload, parse_port, required_env, should_restart_streams, GatewayMetrics, DEFAULT_PORT, SERVICE_NAME};
+    use super::{
+        health_payload, parse_port, required_env, should_restart_streams, GatewayMetrics,
+        DEFAULT_PORT, SERVICE_NAME,
+    };
     use std::sync::{Arc, Mutex};
 
     #[test]
@@ -215,7 +236,10 @@ mod tests {
     #[test]
     fn parse_port_falls_back_when_value_is_missing_or_invalid() {
         assert_eq!(parse_port(None, DEFAULT_PORT), DEFAULT_PORT);
-        assert_eq!(parse_port(Some("not-a-port".to_string()), DEFAULT_PORT), DEFAULT_PORT);
+        assert_eq!(
+            parse_port(Some("not-a-port".to_string()), DEFAULT_PORT),
+            DEFAULT_PORT
+        );
     }
 
     #[test]

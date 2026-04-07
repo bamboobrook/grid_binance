@@ -8,15 +8,11 @@ use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use shared_db::{
-    MembershipRecord, NotificationLogRecord, SharedDb, StoredStrategy, StoredStrategyTemplate, UserExchangeAccountRecord,
+    MembershipRecord, NotificationLogRecord, SharedDb, StoredStrategy, StoredStrategyTemplate,
+    UserExchangeAccountRecord,
 };
 use shared_events::{NotificationEvent, NotificationKind, NotificationRecord};
-use std::{
-    collections::BTreeMap,
-    env,
-    sync::OnceLock,
-    time::Duration as StdDuration,
-};
+use std::{collections::BTreeMap, env, sync::OnceLock, time::Duration as StdDuration};
 
 use shared_domain::{
     membership::MembershipStatus,
@@ -186,8 +182,11 @@ fn persist_strategy_notification(
         show_expiry_popup: matches!(kind, NotificationKind::MembershipExpiring),
     };
     let now = Utc::now();
-    let payload = serde_json::to_value(&record)
-        .map_err(|_| StrategyError::storage(shared_db::SharedDbError::new("notification serialization failed")))?;
+    let payload = serde_json::to_value(&record).map_err(|_| {
+        StrategyError::storage(shared_db::SharedDbError::new(
+            "notification serialization failed",
+        ))
+    })?;
     db.insert_notification_log(&NotificationLogRecord {
         user_email: email.to_owned(),
         channel: "in_app".to_owned(),
@@ -198,10 +197,12 @@ fn persist_strategy_notification(
         payload: payload.clone(),
         created_at: now,
         delivered_at: Some(now),
-    }).map_err(StrategyError::storage)?;
+    })
+    .map_err(StrategyError::storage)?;
     if let Some(binding) = binding {
         if let Some(token) = telegram_bot_token() {
-            let delivered = send_telegram_message(&token, &binding.telegram_chat_id, title, message).is_ok();
+            let delivered =
+                send_telegram_message(&token, &binding.telegram_chat_id, title, message).is_ok();
             db.insert_notification_log(&NotificationLogRecord {
                 user_email: email.to_owned(),
                 channel: "telegram".to_owned(),
@@ -212,12 +213,12 @@ fn persist_strategy_notification(
                 payload,
                 created_at: now,
                 delivered_at: delivered.then_some(now),
-            }).map_err(StrategyError::storage)?;
+            })
+            .map_err(StrategyError::storage)?;
         }
     }
     Ok(())
 }
-
 
 fn telegram_bot_token() -> Option<String> {
     env::var("TELEGRAM_BOT_TOKEN")
@@ -236,7 +237,11 @@ fn telegram_api_base_url() -> String {
 
 fn telegram_http_agent() -> &'static ureq::Agent {
     static AGENT: OnceLock<ureq::Agent> = OnceLock::new();
-    AGENT.get_or_init(|| ureq::AgentBuilder::new().timeout(StdDuration::from_secs(5)).build())
+    AGENT.get_or_init(|| {
+        ureq::AgentBuilder::new()
+            .timeout(StdDuration::from_secs(5))
+            .build()
+    })
 }
 
 fn send_telegram_message(
@@ -246,7 +251,11 @@ fn send_telegram_message(
     body: &str,
 ) -> Result<(), shared_db::SharedDbError> {
     telegram_http_agent()
-        .post(&format!("{}/bot{}/sendMessage", telegram_api_base_url(), bot_token))
+        .post(&format!(
+            "{}/bot{}/sendMessage",
+            telegram_api_base_url(),
+            bot_token
+        ))
         .send_json(ureq::json!({
             "chat_id": chat_id,
             "text": format!("{}\n{}", title, body),
@@ -340,7 +349,10 @@ impl StrategyService {
 
         if matches!(
             strategy.status,
-            StrategyStatus::Running | StrategyStatus::Archived | StrategyStatus::Completed | StrategyStatus::Stopping
+            StrategyStatus::Running
+                | StrategyStatus::Archived
+                | StrategyStatus::Completed
+                | StrategyStatus::Stopping
         ) {
             return Err(StrategyError::conflict(
                 "strategy must be paused or stopped before editing",
@@ -911,7 +923,9 @@ fn validate_strategy_request(request: &SaveStrategyRequest) -> Result<(), Strate
         return Err(StrategyError::bad_request("levels are required"));
     }
     if !strategy_mode_matches_market(request.market, request.mode) {
-        return Err(StrategyError::bad_request("market and mode are incompatible"));
+        return Err(StrategyError::bad_request(
+            "market and mode are incompatible",
+        ));
     }
 
     let mut parsed = Vec::with_capacity(request.levels.len());
@@ -1132,10 +1146,14 @@ impl StrategyService {
             .as_ref()
             .and_then(|record| metadata_bool(&record.metadata, &["validation", "hedge_mode_ok"]))
             .unwrap_or(false);
-        let withdrawals_disabled = exchange_account.as_ref().and_then(|record| {
-            metadata_bool(&record.metadata, &["validation", "withdrawals_disabled"])
-                .or_else(|| metadata_bool(&record.metadata, &["validation", "withdraw_disabled"]))
-        }).unwrap_or(false);
+        let withdrawals_disabled = exchange_account
+            .as_ref()
+            .and_then(|record| {
+                metadata_bool(&record.metadata, &["validation", "withdrawals_disabled"]).or_else(
+                    || metadata_bool(&record.metadata, &["validation", "withdraw_disabled"]),
+                )
+            })
+            .unwrap_or(false);
         let symbol_ready = if exchange_account.is_some() {
             self.symbol_exists_for_strategy(strategy)?
         } else {
@@ -1252,10 +1270,9 @@ impl StrategyService {
             Some(FuturesMarginMode::Cross) => supports_cross,
             None => false,
         };
-        let leverage_ok = strategy
-            .draft_revision
-            .leverage
-            .is_some_and(|value| value > 0 && (leverage_brackets.is_empty() || leverage_brackets.contains(&value)));
+        let leverage_ok = strategy.draft_revision.leverage.is_some_and(|value| {
+            value > 0 && (leverage_brackets.is_empty() || leverage_brackets.contains(&value))
+        });
         Ok(margin_mode_ok && leverage_ok)
     }
 
@@ -1268,8 +1285,7 @@ impl StrategyService {
         let min_notional = parse_strategy_decimal(&symbol.min_notional).unwrap_or(Decimal::ZERO);
         let levels = &strategy.draft_revision.levels;
         Ok(levels.iter().all(|level| {
-            level.quantity >= min_quantity
-                && (level.entry_price * level.quantity) >= min_notional
+            level.quantity >= min_quantity && (level.entry_price * level.quantity) >= min_notional
         }))
     }
 
@@ -1292,7 +1308,9 @@ impl StrategyService {
             .draft_revision
             .levels
             .iter()
-            .fold(Decimal::ZERO, |acc, level| acc + (level.entry_price * level.quantity));
+            .fold(Decimal::ZERO, |acc, level| {
+                acc + (level.entry_price * level.quantity)
+            });
         let base_needed = strategy
             .draft_revision
             .levels
@@ -1301,14 +1319,20 @@ impl StrategyService {
 
         if matches!(strategy.market, StrategyMarket::Spot) {
             return match strategy.mode {
-                StrategyMode::SpotSellOnly => Ok(wallet_balance(snapshot, &symbol.base_asset) >= base_needed),
+                StrategyMode::SpotSellOnly => {
+                    Ok(wallet_balance(snapshot, &symbol.base_asset) >= base_needed)
+                }
                 _ => Ok(wallet_balance(snapshot, &symbol.quote_asset) >= quote_needed),
             };
         }
 
         let leverage = Decimal::from(strategy.draft_revision.leverage.unwrap_or(1));
         let collateral_needed = if matches!(strategy.market, StrategyMarket::FuturesCoinM) {
-            if leverage.is_zero() { Decimal::ZERO } else { base_needed / leverage }
+            if leverage.is_zero() {
+                Decimal::ZERO
+            } else {
+                base_needed / leverage
+            }
         } else if leverage.is_zero() {
             Decimal::ZERO
         } else {
@@ -2259,7 +2283,8 @@ mod tests {
                     "market_access_ok": true
                 }
             }),
-        }).expect("account");
+        })
+        .expect("account");
         db.replace_exchange_symbols(
             "trader@example.com",
             "binance",
@@ -2279,53 +2304,83 @@ mod tests {
                 metadata: serde_json::json!({}),
                 synced_at: now,
             }],
-        ).expect("symbols");
+        )
+        .expect("symbols");
         db.insert_exchange_wallet_snapshot(&shared_db::ExchangeWalletSnapshotRecord {
             user_email: "trader@example.com".to_string(),
             exchange: "binance".to_string(),
             wallet_type: "spot".to_string(),
             balances: serde_json::json!({ "USDT": "1000" }),
             captured_at: now,
-        }).expect("wallet");
+        })
+        .expect("wallet");
 
-        let strategy = service.create_strategy(
-            "trader@example.com",
-            SaveStrategyRequest {
-                name: "spot".to_string(),
-                symbol: "BTCUSDT".to_string(),
-                market: StrategyMarket::Spot,
-                mode: StrategyMode::SpotClassic,
-                generation: GridGeneration::Custom,
-                levels: vec![SaveGridLevelRequest {
-                    entry_price: "100".to_string(),
-                    quantity: "1".to_string(),
-                    take_profit_bps: 100,
-                    trailing_bps: None,
-                }],
-                amount_mode: StrategyAmountMode::Quote,
-                futures_margin_mode: None,
-                leverage: None,
-                membership_ready: false,
-                exchange_ready: false,
-                permissions_ready: false,
-                withdrawals_disabled: false,
-                hedge_mode_ready: false,
-                symbol_ready: false,
-                filters_ready: false,
-                margin_ready: false,
-                conflict_ready: false,
-                balance_ready: false,
-                overall_take_profit_bps: None,
-                overall_stop_loss_bps: None,
-                post_trigger_action: PostTriggerAction::Stop,
-            },
-        ).expect("strategy");
+        let strategy = service
+            .create_strategy(
+                "trader@example.com",
+                SaveStrategyRequest {
+                    name: "spot".to_string(),
+                    symbol: "BTCUSDT".to_string(),
+                    market: StrategyMarket::Spot,
+                    mode: StrategyMode::SpotClassic,
+                    generation: GridGeneration::Custom,
+                    levels: vec![SaveGridLevelRequest {
+                        entry_price: "100".to_string(),
+                        quantity: "1".to_string(),
+                        take_profit_bps: 100,
+                        trailing_bps: None,
+                    }],
+                    amount_mode: StrategyAmountMode::Quote,
+                    futures_margin_mode: None,
+                    leverage: None,
+                    membership_ready: false,
+                    exchange_ready: false,
+                    permissions_ready: false,
+                    withdrawals_disabled: false,
+                    hedge_mode_ready: false,
+                    symbol_ready: false,
+                    filters_ready: false,
+                    margin_ready: false,
+                    conflict_ready: false,
+                    balance_ready: false,
+                    overall_take_profit_bps: None,
+                    overall_stop_loss_bps: None,
+                    post_trigger_action: PostTriggerAction::Stop,
+                },
+            )
+            .expect("strategy");
 
-        let report = service.preflight_strategy("trader@example.com", &strategy.id).expect("preflight");
+        let report = service
+            .preflight_strategy("trader@example.com", &strategy.id)
+            .expect("preflight");
         assert!(report.ok);
-        assert_eq!(report.steps.iter().find(|step| step.step == "filters_and_notional").unwrap().status, PreflightStepStatus::Passed);
-        assert_eq!(report.steps.iter().find(|step| step.step == "balance_or_collateral").unwrap().status, PreflightStepStatus::Passed);
-        assert_eq!(report.steps.iter().find(|step| step.step == "strategy_conflicts").unwrap().status, PreflightStepStatus::Passed);
+        assert_eq!(
+            report
+                .steps
+                .iter()
+                .find(|step| step.step == "filters_and_notional")
+                .unwrap()
+                .status,
+            PreflightStepStatus::Passed
+        );
+        assert_eq!(
+            report
+                .steps
+                .iter()
+                .find(|step| step.step == "balance_or_collateral")
+                .unwrap()
+                .status,
+            PreflightStepStatus::Passed
+        );
+        assert_eq!(
+            report
+                .steps
+                .iter()
+                .find(|step| step.step == "strategy_conflicts")
+                .unwrap()
+                .status,
+            PreflightStepStatus::Passed
+        );
     }
 
     #[test]

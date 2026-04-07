@@ -5,7 +5,10 @@ use axum::{
 };
 use chrono::{Duration, Utc};
 use serde_json::{json, Value};
-use shared_db::{ExchangeWalletSnapshotRecord, MembershipRecord, SharedDb, UserExchangeAccountRecord, UserExchangeSymbolRecord};
+use shared_db::{
+    ExchangeWalletSnapshotRecord, MembershipRecord, SharedDb, UserExchangeAccountRecord,
+    UserExchangeSymbolRecord,
+};
 use tower::ServiceExt;
 
 mod support;
@@ -35,7 +38,10 @@ async fn strategy_create_and_update_accept_payloads_without_client_readiness_fla
     .await;
     assert_eq!(created.status(), StatusCode::CREATED);
     let created_body = response_json(created).await;
-    let strategy_id = created_body["id"].as_str().expect("strategy id").to_string();
+    let strategy_id = created_body["id"]
+        .as_str()
+        .expect("strategy id")
+        .to_string();
 
     let updated = update_strategy(
         &app,
@@ -60,7 +66,10 @@ async fn strategy_create_and_update_accept_payloads_without_client_readiness_fla
     assert_eq!(updated.status(), StatusCode::OK);
     let updated_body = response_json(updated).await;
     assert_eq!(updated_body["draft_revision"]["generation"], "Arithmetic");
-    assert_eq!(updated_body["draft_revision"]["post_trigger_action"], "Rebuild");
+    assert_eq!(
+        updated_body["draft_revision"]["post_trigger_action"],
+        "Rebuild"
+    );
 }
 
 #[tokio::test]
@@ -866,7 +875,10 @@ async fn strategy_creation_rejects_market_and_mode_mismatch() {
     )
     .await;
     assert_eq!(invalid_spot.status(), StatusCode::BAD_REQUEST);
-    assert_eq!(response_json(invalid_spot).await["error"], "market and mode are incompatible");
+    assert_eq!(
+        response_json(invalid_spot).await["error"],
+        "market and mode are incompatible"
+    );
 
     let invalid_futures = create_strategy(
         &app,
@@ -888,7 +900,10 @@ async fn strategy_creation_rejects_market_and_mode_mismatch() {
     )
     .await;
     assert_eq!(invalid_futures.status(), StatusCode::BAD_REQUEST);
-    assert_eq!(response_json(invalid_futures).await["error"], "market and mode are incompatible");
+    assert_eq!(
+        response_json(invalid_futures).await["error"],
+        "market and mode are incompatible"
+    );
 }
 
 #[tokio::test]
@@ -949,7 +964,10 @@ async fn futures_preflight_uses_market_scoped_wallet_and_margin_rules() {
     )
     .await;
     assert_eq!(created.status(), StatusCode::CREATED);
-    let strategy_id = response_json(created).await["id"].as_str().expect("strategy id").to_string();
+    let strategy_id = response_json(created).await["id"]
+        .as_str()
+        .expect("strategy id")
+        .to_string();
 
     let invalid_margin = preflight_strategy(&app, &user_token, &strategy_id).await;
     assert_eq!(invalid_margin.status(), StatusCode::OK);
@@ -1343,8 +1361,22 @@ async fn stop_all_only_stops_strategies_owned_by_current_user() {
     let bob_token = register_and_login(&app, bob_email, "pass1234").await;
     seed_active_membership(&db, alice_email);
     seed_active_membership(&db, bob_email);
-    seed_exchange_context(&db, alice_email, &["spot"], true, true, &[symbol_record(alice_email, "spot", "BTCUSDT")]);
-    seed_exchange_context(&db, bob_email, &["spot"], true, true, &[symbol_record(bob_email, "spot", "ETHUSDT")]);
+    seed_exchange_context(
+        &db,
+        alice_email,
+        &["spot"],
+        true,
+        true,
+        &[symbol_record(alice_email, "spot", "BTCUSDT")],
+    );
+    seed_exchange_context(
+        &db,
+        bob_email,
+        &["spot"],
+        true,
+        true,
+        &[symbol_record(bob_email, "spot", "ETHUSDT")],
+    );
 
     let alice_strategy = create_strategy(
         &app,
@@ -1786,7 +1818,11 @@ fn seed_exchange_context(
     db.insert_exchange_wallet_snapshot(&ExchangeWalletSnapshotRecord {
         user_email: email.to_string(),
         exchange: "binance".to_string(),
-        wallet_type: selected_markets.first().copied().unwrap_or("spot").to_string(),
+        wallet_type: selected_markets
+            .first()
+            .copied()
+            .unwrap_or("spot")
+            .to_string(),
         balances: json!({ "USDT": "1000", "USD": "1000" }),
         captured_at: now,
     })

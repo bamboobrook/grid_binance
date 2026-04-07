@@ -2,12 +2,7 @@ use chrono::{DateTime, Duration, Utc};
 use shared_db::{NotificationLogRecord, SharedDb, SharedDbError};
 use shared_domain::membership::{MembershipSnapshot, MembershipStatus};
 use shared_events::{NotificationEvent, NotificationKind, NotificationRecord};
-use std::{
-    collections::BTreeMap,
-    env,
-    sync::OnceLock,
-    time::Duration as StdDuration,
-};
+use std::{collections::BTreeMap, env, sync::OnceLock, time::Duration as StdDuration};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ReminderKind {
@@ -105,7 +100,8 @@ pub fn run_membership_reminders_once(
             in_app_delivered: true,
             show_expiry_popup: true,
         };
-        let payload = serde_json::to_value(&record).map_err(|error| SharedDbError::new(error.to_string()))?;
+        let payload =
+            serde_json::to_value(&record).map_err(|error| SharedDbError::new(error.to_string()))?;
         db.insert_notification_log(&NotificationLogRecord {
             user_email: reminder.email.clone(),
             channel: "in_app".to_string(),
@@ -119,7 +115,9 @@ pub fn run_membership_reminders_once(
         })?;
         if let Some(binding) = db.find_telegram_binding(&reminder.email)? {
             if let Some(token) = telegram_bot_token() {
-                let delivered = send_telegram_message(&token, &binding.telegram_chat_id, title, message).is_ok();
+                let delivered =
+                    send_telegram_message(&token, &binding.telegram_chat_id, title, message)
+                        .is_ok();
                 db.insert_notification_log(&NotificationLogRecord {
                     user_email: reminder.email.clone(),
                     channel: "telegram".to_string(),
@@ -152,7 +150,10 @@ fn resolve_status(record: &shared_db::MembershipRecord, now: DateTime<Utc>) -> M
     }
 }
 
-fn reminder_already_logged(db: &SharedDb, reminder: &MembershipReminder) -> Result<bool, SharedDbError> {
+fn reminder_already_logged(
+    db: &SharedDb,
+    reminder: &MembershipReminder,
+) -> Result<bool, SharedDbError> {
     let due_at = reminder.due_at.to_rfc3339();
     Ok(db
         .list_notification_logs(&reminder.email, 50)?
@@ -199,7 +200,11 @@ fn telegram_api_base_url() -> String {
 
 fn telegram_http_agent() -> &'static ureq::Agent {
     static AGENT: OnceLock<ureq::Agent> = OnceLock::new();
-    AGENT.get_or_init(|| ureq::AgentBuilder::new().timeout(StdDuration::from_secs(5)).build())
+    AGENT.get_or_init(|| {
+        ureq::AgentBuilder::new()
+            .timeout(StdDuration::from_secs(5))
+            .build()
+    })
 }
 
 fn send_telegram_message(
@@ -209,7 +214,11 @@ fn send_telegram_message(
     body: &str,
 ) -> Result<(), SharedDbError> {
     telegram_http_agent()
-        .post(&format!("{}/bot{}/sendMessage", telegram_api_base_url(), bot_token))
+        .post(&format!(
+            "{}/bot{}/sendMessage",
+            telegram_api_base_url(),
+            bot_token
+        ))
         .send_json(ureq::json!({
             "chat_id": chat_id,
             "text": format!("{}\n{}", title, body),
@@ -314,7 +323,9 @@ mod tests {
         assert_eq!(second, 0);
         let logs = db.list_notification_logs("renew@example.com", 10).unwrap();
         assert!(logs.iter().any(|record| record.channel == "in_app"));
-        assert!(logs.iter().any(|record| record.channel == "telegram" && record.status == "delivered"));
+        assert!(logs
+            .iter()
+            .any(|record| record.channel == "telegram" && record.status == "delivered"));
     }
 
     fn snapshot(
@@ -361,8 +372,17 @@ mod tests {
                     let mut buffer = [0u8; 4096];
                     let read = stream.read(&mut buffer).unwrap();
                     let request = String::from_utf8_lossy(&buffer[..read]);
-                    let path = request.lines().next().and_then(|line| line.split_whitespace().nth(1)).unwrap();
-                    assert!(path.starts_with(route.path_prefix), "expected path prefix {} but received {}", route.path_prefix, path);
+                    let path = request
+                        .lines()
+                        .next()
+                        .and_then(|line| line.split_whitespace().nth(1))
+                        .unwrap();
+                    assert!(
+                        path.starts_with(route.path_prefix),
+                        "expected path prefix {} but received {}",
+                        route.path_prefix,
+                        path
+                    );
                     let response = format!(
                         "{}\r\ncontent-type: application/json\r\ncontent-length: {}\r\nconnection: close\r\n\r\n{}",
                         route.status_line,
@@ -372,7 +392,10 @@ mod tests {
                     stream.write_all(response.as_bytes()).unwrap();
                 }
             });
-            Self { base_url: format!("http://{}", address), join_handle: Some(join_handle) }
+            Self {
+                base_url: format!("http://{}", address),
+                join_handle: Some(join_handle),
+            }
         }
     }
 

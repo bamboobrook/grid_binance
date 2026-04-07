@@ -35,9 +35,9 @@ impl RedisStore {
         &self.client
     }
 
-
     pub async fn enqueue_market_tick(&self, tick: &MarketTick) -> Result<(), SharedDbError> {
-        let payload = serde_json::to_string(tick).map_err(|error| SharedDbError::new(error.to_string()))?;
+        let payload =
+            serde_json::to_string(tick).map_err(|error| SharedDbError::new(error.to_string()))?;
         let mut connection = self
             .client
             .get_multiplexed_async_connection()

@@ -109,9 +109,15 @@ impl StrategyRuntimeEngine {
                         .events
                         .iter()
                         .rev()
-                        .find(|event| event.event_type == format!("trailing_anchor_{}", template_level.level_index))
+                        .find(|event| {
+                            event.event_type
+                                == format!("trailing_anchor_{}", template_level.level_index)
+                        })
                         .and_then(|event| event.price),
-                    is_short: matches!(position.mode, StrategyMode::SpotSellOnly | StrategyMode::FuturesShort),
+                    is_short: matches!(
+                        position.mode,
+                        StrategyMode::SpotSellOnly | StrategyMode::FuturesShort
+                    ),
                 }
             })
             .collect();
@@ -210,7 +216,12 @@ impl StrategyRuntimeEngine {
                         if state.is_short {
                             let new_low = extreme.min(price);
                             state.trailing_extreme = Some(new_low);
-                            push_event(&mut self.runtime.events, &format!("trailing_anchor_{}", state.level_index), "trailing anchor updated", Some(new_low));
+                            push_event(
+                                &mut self.runtime.events,
+                                &format!("trailing_anchor_{}", state.level_index),
+                                "trailing anchor updated",
+                                Some(new_low),
+                            );
                             let retrace_price = new_low * short_trailing_factor(trailing_bps);
                             if price >= retrace_price {
                                 pending_closures.push((
@@ -222,7 +233,12 @@ impl StrategyRuntimeEngine {
                         } else {
                             let new_high = extreme.max(price);
                             state.trailing_extreme = Some(new_high);
-                            push_event(&mut self.runtime.events, &format!("trailing_anchor_{}", state.level_index), "trailing anchor updated", Some(new_high));
+                            push_event(
+                                &mut self.runtime.events,
+                                &format!("trailing_anchor_{}", state.level_index),
+                                "trailing anchor updated",
+                                Some(new_high),
+                            );
                             let retrace_price = new_high * trailing_factor(trailing_bps);
                             if price <= retrace_price {
                                 pending_closures.push((

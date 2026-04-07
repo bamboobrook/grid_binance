@@ -1,1 +1,84 @@
-{"common": {"sidebar": {"dashboard": "控制台", "strategies": "策略列表", "orders": "订单管理", "exchange": "交易所"}, "topbar": {"title": "网格交易平台", "search": "搜索市场..."}, "gridConfig": {"title": "网格机器人配置", "pair": "交易对", "upperLimit": "上限价格", "lowerLimit": "下限价格", "gridCount": "网格数量", "investment": "投入金额", "create": "创建机器人"}}}
+{
+  "common": {
+    "sidebar": {
+      "dashboard": "控制台",
+      "strategies": "策略列表",
+      "orders": "历史订单",
+      "exchange": "交易所",
+      "notifications": "系统通知",
+      "settings": "账户设置",
+      "help": "帮助中心"
+    },
+    "topbar": {
+      "title": "网格交易平台",
+      "search": "搜索交易对..."
+    },
+    "gridConfig": {
+      "title": "网格机器人配置",
+      "pair": "交易对",
+      "upperLimit": "价格上限",
+      "lowerLimit": "价格下限",
+      "gridCount": "网格数量",
+      "investment": "投入金额",
+      "create": "创建机器人",
+      "status": {
+        "running": "运行中",
+        "paused": "已暂停",
+        "stopped": "已停止",
+        "draft": "草稿"
+      }
+    }
+  },
+  "dashboard": {
+    "title": "交易驾驶舱",
+    "subtitle": "性能总览与账户活动",
+    "metrics": {
+      "realizedPnL": "已实现收益",
+      "unrealizedPnL": "未实现收益",
+      "netPnL": "净收益",
+      "runningBots": "运行中策略",
+      "pausedBots": "暂停 / 异常",
+      "membership": "会员状态"
+    },
+    "sections": {
+      "recentFills": "最近成交",
+      "accountWatch": "账户看板",
+      "nextActions": "今日动作",
+      "exchangeActivity": "交易所活动"
+    }
+  },
+  "strategies": {
+    "title": "策略台账",
+    "new": "新建策略",
+    "stopAll": "停止所有",
+    "filter": "筛选机器人",
+    "table": {
+      "strategy": "策略名称",
+      "market": "市场",
+      "status": "状态",
+      "exposure": "预算",
+      "actions": "操作"
+    }
+  "newStrategy": {
+    "title": "创建网格机器人",
+    "subtitle": "配置交易参数并启动新策略",
+    "form": {
+      "strategyName": "策略名称",
+      "searchSymbol": "搜索币种",
+      "symbol": "交易对",
+      "marketType": "市场类型",
+      "strategyMode": "策略模式",
+      "generationMode": "生成方式",
+      "leverage": "杠杆倍数",
+      "investment": "投入金额 (USDT)",
+      "gridCount": "网格数量",
+      "spacing": "网格间距 (%)",
+      "takeProfit": "止盈比例 (%)",
+      "saveDraft": "保存策略草稿"
+    },
+    "templates": {
+      "title": "策略模板",
+      "apply": "套用模板"
+    }
+  }
+}

@@ -230,7 +230,10 @@ async fn profile_admin_access_granted_tracks_current_bearer_session() {
         .await
         .unwrap();
     assert_eq!(blocked_login.status(), StatusCode::UNAUTHORIZED);
-    assert_eq!(response_json(blocked_login).await["error"], "admin totp setup required");
+    assert_eq!(
+        response_json(blocked_login).await["error"],
+        "admin totp setup required"
+    );
 
     let bootstrap = bootstrap_admin_totp(&app, "admin@example.com", "pass1234").await;
     let totp_code = bootstrap["code"].as_str().expect("totp code").to_owned();
@@ -456,7 +459,9 @@ async fn bootstrap_admin_totp(app: &axum::Router, email: &str, password: &str) -
                 .method("POST")
                 .uri("/auth/admin-bootstrap")
                 .header("content-type", "application/json")
-                .body(Body::from(json!({ "email": email, "password": password }).to_string()))
+                .body(Body::from(
+                    json!({ "email": email, "password": password }).to_string(),
+                ))
                 .unwrap(),
         )
         .await

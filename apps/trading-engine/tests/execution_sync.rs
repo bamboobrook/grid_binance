@@ -1,11 +1,10 @@
+use rust_decimal::Decimal;
 use shared_binance::BinanceExecutionUpdate;
 use shared_domain::strategy::{
     GridGeneration, GridLevel, PostTriggerAction, Strategy, StrategyAmountMode, StrategyMarket,
-    StrategyMode,
-    StrategyRevision, StrategyRuntime, StrategyRuntimeOrder, StrategyStatus,
+    StrategyMode, StrategyRevision, StrategyRuntime, StrategyRuntimeOrder, StrategyStatus,
 };
 use trading_engine::execution_sync::apply_execution_update;
-use rust_decimal::Decimal;
 
 #[test]
 fn execution_update_marks_order_canceled_and_records_event() {
@@ -39,7 +38,10 @@ fn execution_update_marks_order_canceled_and_records_event() {
 
     assert!(changed);
     assert_eq!(strategy.runtime.orders[0].status, "Canceled");
-    assert_eq!(strategy.runtime.events.last().unwrap().event_type, "execution_update_received");
+    assert_eq!(
+        strategy.runtime.events.last().unwrap().event_type,
+        "execution_update_received"
+    );
 }
 
 #[test]
@@ -106,7 +108,10 @@ fn futures_trade_execution_uses_trade_id_and_realized_profit() {
 
     assert!(changed);
     assert_eq!(strategy.runtime.fills[0].fill_id, "exchange-trade-321");
-    assert_eq!(strategy.runtime.fills[0].realized_pnl, Some(Decimal::new(125, 2)));
+    assert_eq!(
+        strategy.runtime.fills[0].realized_pnl,
+        Some(Decimal::new(125, 2))
+    );
 }
 
 #[test]
@@ -139,7 +144,10 @@ fn execution_update_matches_client_order_id_when_exchange_id_missing() {
 
     assert!(changed);
     assert_eq!(strategy.runtime.orders[0].status, "Filled");
-    assert_eq!(strategy.runtime.orders[0].exchange_order_id.as_deref(), Some("999"));
+    assert_eq!(
+        strategy.runtime.orders[0].exchange_order_id.as_deref(),
+        Some("999")
+    );
 }
 
 fn sample_strategy() -> Strategy {

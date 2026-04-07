@@ -75,7 +75,8 @@ pub fn persist_execution_effects(
     })?;
     if let Some(binding) = db.find_telegram_binding(&strategy.owner_email)? {
         let delivered = if let Some(token) = telegram_bot_token() {
-            send_telegram_message(&token, &binding.telegram_chat_id, &fill_title, &fill_body).is_ok()
+            send_telegram_message(&token, &binding.telegram_chat_id, &fill_title, &fill_body)
+                .is_ok()
         } else {
             false
         };
@@ -108,7 +109,8 @@ pub fn persist_execution_effects(
         .fills
         .iter()
         .fold(Decimal::ZERO, |acc, fill| {
-            acc + fill.realized_pnl.unwrap_or(Decimal::ZERO) - fill.fee_amount.unwrap_or(Decimal::ZERO)
+            acc + fill.realized_pnl.unwrap_or(Decimal::ZERO)
+                - fill.fee_amount.unwrap_or(Decimal::ZERO)
         });
     let profit_title = format!("Fill profit {}", update.symbol);
     let profit_body = format!("Grid fill realized {} net PnL.", net_pnl.normalize());
@@ -132,7 +134,13 @@ pub fn persist_execution_effects(
     })?;
     if let Some(binding) = db.find_telegram_binding(&strategy.owner_email)? {
         let delivered = if let Some(token) = telegram_bot_token() {
-            send_telegram_message(&token, &binding.telegram_chat_id, &profit_title, &profit_body).is_ok()
+            send_telegram_message(
+                &token,
+                &binding.telegram_chat_id,
+                &profit_title,
+                &profit_body,
+            )
+            .is_ok()
         } else {
             false
         };
@@ -169,7 +177,11 @@ fn telegram_api_base_url() -> String {
 
 fn telegram_http_agent() -> &'static ureq::Agent {
     static AGENT: OnceLock<ureq::Agent> = OnceLock::new();
-    AGENT.get_or_init(|| ureq::AgentBuilder::new().timeout(StdDuration::from_secs(5)).build())
+    AGENT.get_or_init(|| {
+        ureq::AgentBuilder::new()
+            .timeout(StdDuration::from_secs(5))
+            .build()
+    })
 }
 
 fn send_telegram_message(
@@ -179,7 +191,11 @@ fn send_telegram_message(
     body: &str,
 ) -> Result<(), shared_db::SharedDbError> {
     telegram_http_agent()
-        .post(&format!("{}/bot{}/sendMessage", telegram_api_base_url(), bot_token))
+        .post(&format!(
+            "{}/bot{}/sendMessage",
+            telegram_api_base_url(),
+            bot_token
+        ))
         .send_json(ureq::json!({
             "chat_id": chat_id,
             "text": format!("{}\n{}", title, body),

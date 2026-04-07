@@ -1,10 +1,10 @@
 use axum::{extract::State, http::StatusCode, routing::post, Json, Router};
 
 use crate::services::auth_service::{
-    AdminTotpBootstrapRequest, AdminTotpBootstrapResponse, AuthError, AuthService,
-    LoginRequest, LoginResponse, PasswordResetConfirmRequest, PasswordResetConfirmResponse,
-    PasswordResetRequest, PasswordResetRequestResponse, RegisterUserRequest,
-    RegisterUserResponse, VerifyEmailRequest, VerifyEmailResponse,
+    AdminTotpBootstrapRequest, AdminTotpBootstrapResponse, AuthError, AuthService, LoginRequest,
+    LoginResponse, PasswordResetConfirmRequest, PasswordResetConfirmResponse, PasswordResetRequest,
+    PasswordResetRequestResponse, RegisterUserRequest, RegisterUserResponse, VerifyEmailRequest,
+    VerifyEmailResponse,
 };
 use crate::AppState;
 

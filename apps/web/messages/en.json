@@ -1,1 +1,84 @@
-{"common": {"sidebar": {"dashboard": "Dashboard", "strategies": "Strategies", "orders": "Orders", "exchange": "Exchange"}, "topbar": {"title": "Grid Trading Platform", "search": "Search markets..."}, "gridConfig": {"title": "Grid Bot Configuration", "pair": "Trading Pair", "upperLimit": "Upper Limit", "lowerLimit": "Lower Limit", "gridCount": "Grid Count", "investment": "Investment", "create": "Create Bot"}}}
+{
+  "common": {
+    "sidebar": {
+      "dashboard": "Dashboard",
+      "strategies": "Strategies",
+      "orders": "History",
+      "exchange": "Exchange",
+      "notifications": "Notifications",
+      "settings": "Settings",
+      "help": "Help Center"
+    },
+    "topbar": {
+      "title": "Grid Bot Console",
+      "search": "Search markets..."
+    },
+    "gridConfig": {
+      "title": "Grid Bot Configuration",
+      "pair": "Trading Pair",
+      "upperLimit": "Upper Price",
+      "lowerLimit": "Lower Price",
+      "gridCount": "Grids Count",
+      "investment": "Investment Amount",
+      "create": "Create Bot",
+      "status": {
+        "running": "Running",
+        "paused": "Paused",
+        "stopped": "Stopped",
+        "draft": "Draft"
+      }
+    }
+  },
+  "dashboard": {
+    "title": "Trading Cockpit",
+    "subtitle": "Performance overview and account activity",
+    "metrics": {
+      "realizedPnL": "Realized PnL",
+      "unrealizedPnL": "Unrealized PnL",
+      "netPnL": "Net PnL",
+      "runningBots": "Running Bots",
+      "pausedBots": "Paused / Blocked",
+      "membership": "Membership"
+    },
+    "sections": {
+      "recentFills": "Recent Fills",
+      "accountWatch": "Account Watch",
+      "nextActions": "Next Actions",
+      "exchangeActivity": "Exchange Activity"
+    }
+  },
+  "strategies": {
+    "title": "Strategy Inventory",
+    "new": "New Strategy",
+    "stopAll": "Stop All Bots",
+    "filter": "Filter Bots",
+    "table": {
+      "strategy": "Strategy",
+      "market": "Market",
+      "status": "Status",
+      "exposure": "Exposure",
+      "actions": "Actions"
+    }
+  "newStrategy": {
+    "title": "Create Grid Bot",
+    "subtitle": "Configure your trading parameters and launch a new strategy",
+    "form": {
+      "strategyName": "Strategy Name",
+      "searchSymbol": "Search Symbol",
+      "symbol": "Symbol",
+      "marketType": "Market Type",
+      "strategyMode": "Strategy Mode",
+      "generationMode": "Generation Mode",
+      "leverage": "Leverage",
+      "investment": "Investment (USDT)",
+      "gridCount": "Grids",
+      "spacing": "Spacing (%)",
+      "takeProfit": "Take Profit (%)",
+      "saveDraft": "Save Strategy Draft"
+    },
+    "templates": {
+      "title": "Templates",
+      "apply": "Apply Template"
+    }
+  }
+}

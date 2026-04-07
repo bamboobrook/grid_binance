@@ -4,7 +4,7 @@ pub mod grid_builder;
 pub mod order_sync;
 pub mod runtime;
 pub mod statistics;
-pub mod trade_sync;
 pub mod stop_loss;
 pub mod strategy_runtime;
 pub mod take_profit;
+pub mod trade_sync;

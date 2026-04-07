@@ -146,7 +146,12 @@ pub async fn submit_sweep_transfer(
         .tx_hash
         .or(payload.signature)
         .filter(|value| !value.trim().is_empty())
-        .ok_or_else(|| IoError::new(ErrorKind::InvalidData, "sweep executor response missing tx reference"))
+        .ok_or_else(|| {
+            IoError::new(
+                ErrorKind::InvalidData,
+                "sweep executor response missing tx reference",
+            )
+        })
 }
 
 pub async fn sweep_transfer_confirmed(
@@ -159,11 +164,18 @@ pub async fn sweep_transfer_confirmed(
         "ETH" => evm_transaction_confirmed(http, &config.eth_rpc_url, tx_hash).await,
         "BSC" => evm_transaction_confirmed(http, &config.bsc_rpc_url, tx_hash).await,
         "SOL" => solana_signature_confirmed(http, &config.sol_rpc_url, tx_hash).await,
-        _ => Err(IoError::new(ErrorKind::InvalidInput, "unsupported sweep chain")),
+        _ => Err(IoError::new(
+            ErrorKind::InvalidInput,
+            "unsupported sweep chain",
+        )),
     }
 }
 
-async fn evm_transaction_confirmed(http: &Client, rpc_url: &str, tx_hash: &str) -> Result<bool, IoError> {
+async fn evm_transaction_confirmed(
+    http: &Client,
+    rpc_url: &str,
+    tx_hash: &str,
+) -> Result<bool, IoError> {
     let receipt = rpc_call(http, rpc_url, "eth_getTransactionReceipt", json!([tx_hash])).await?;
     if receipt.is_null() {
         return Ok(false);
@@ -175,7 +187,11 @@ async fn evm_transaction_confirmed(http: &Client, rpc_url: &str, tx_hash: &str) 
     Ok(!status.is_empty() && status != "0x0")
 }
 
-async fn solana_signature_confirmed(http: &Client, rpc_url: &str, signature: &str) -> Result<bool, IoError> {
+async fn solana_signature_confirmed(
+    http: &Client,
+    rpc_url: &str,
+    signature: &str,
+) -> Result<bool, IoError> {
     let value = rpc_call(
         http,
         rpc_url,
@@ -230,7 +246,12 @@ pub fn solana_transfer_to_observed(
     let confirmations = latest_slot
         .checked_sub(transfer.slot)
         .map(|distance| distance + 1)
-        .ok_or_else(|| IoError::new(ErrorKind::InvalidData, "latest slot is behind observed slot"))?;
+        .ok_or_else(|| {
+            IoError::new(
+                ErrorKind::InvalidData,
+                "latest slot is behind observed slot",
+            )
+        })?;
 
     Ok(ObservedChainTransfer {
         chain: "SOL".to_string(),
@@ -293,7 +314,8 @@ pub async fn collect_observed_transfers(
                     .copied()
                     .map(|block| block.saturating_add(1))
                     .unwrap_or_else(|| {
-                        latest_block.saturating_sub(config.evm_initial_lookback_blocks.saturating_sub(1))
+                        latest_block
+                            .saturating_sub(config.evm_initial_lookback_blocks.saturating_sub(1))
                     });
                 guard.evm_last_scanned_block.insert(key, latest_block);
                 next_block
@@ -424,10 +446,9 @@ async fn evm_transfer_logs(
             .clone()
             .ok_or_else(|| IoError::new(ErrorKind::InvalidData, "missing transactionHash"))?;
         let block_number = parse_hex_u64(&log.block_number)?;
-        let to_topic = log
-            .topics
-            .get(2)
-            .ok_or_else(|| IoError::new(ErrorKind::InvalidData, "missing transfer destination topic"))?;
+        let to_topic = log.topics.get(2).ok_or_else(|| {
+            IoError::new(ErrorKind::InvalidData, "missing transfer destination topic")
+        })?;
         let to_address = topic_to_address(to_topic)?;
         let observed_at = if let Some(cached) = block_timestamps.get(&block_number).copied() {
             cached
@@ -548,11 +569,7 @@ fn extract_solana_transfer(
     monitored_address: &str,
     mint: &str,
 ) -> Result<Option<ExtractedSolanaTransfer>, IoError> {
-    let instructions = transaction
-        .transaction
-        .message
-        .instructions
-        .as_slice();
+    let instructions = transaction.transaction.message.instructions.as_slice();
 
     for instruction in instructions {
         let Some(parsed) = instruction.parsed.as_ref() else {
@@ -594,7 +611,12 @@ fn extract_solana_transfer(
             .unwrap_or_else(Utc::now);
         return Ok(Some(ExtractedSolanaTransfer {
             amount,
-            signature: transaction.transaction.signatures.first().cloned().unwrap_or_default(),
+            signature: transaction
+                .transaction
+                .signatures
+                .first()
+                .cloned()
+                .unwrap_or_default(),
             slot: transaction.slot,
             observed_at,
         }));
@@ -629,9 +651,12 @@ async fn rpc_call(
             format!("rpc {method} failed: {}", error.message),
         ));
     }
-    payload
-        .result
-        .ok_or_else(|| IoError::new(ErrorKind::InvalidData, format!("rpc {method} result missing")))
+    payload.result.ok_or_else(|| {
+        IoError::new(
+            ErrorKind::InvalidData,
+            format!("rpc {method} result missing"),
+        )
+    })
 }
 
 fn required_env(name: &str) -> Result<String, IoError> {
@@ -697,7 +722,10 @@ fn to_topic_address(address: &str) -> String {
 fn topic_to_address(topic: &str) -> Result<String, IoError> {
     let trimmed = topic.trim().trim_start_matches("0x");
     if trimmed.len() != 64 {
-        return Err(IoError::new(ErrorKind::InvalidData, "invalid topic address width"));
+        return Err(IoError::new(
+            ErrorKind::InvalidData,
+            "invalid topic address width",
+        ));
     }
     Ok(format!("0x{}", &trimmed[24..]).to_ascii_lowercase())
 }

@@ -936,7 +936,9 @@ impl BillingRepository {
                     status: row.try_get("status").map_err(SharedDbError::from)?,
                     requested_by: row.try_get("requested_by").map_err(SharedDbError::from)?,
                     requested_at: row.try_get("requested_at").map_err(SharedDbError::from)?,
-                    treasury_address: row.try_get("treasury_address").map_err(SharedDbError::from)?,
+                    treasury_address: row
+                        .try_get("treasury_address")
+                        .map_err(SharedDbError::from)?,
                     submitted_at: row.try_get("submitted_at").map_err(SharedDbError::from)?,
                     completed_at: row.try_get("completed_at").map_err(SharedDbError::from)?,
                     failed_at: row.try_get("failed_at").map_err(SharedDbError::from)?,
@@ -947,7 +949,10 @@ impl BillingRepository {
             })
             .collect()
     }
-    pub async fn mark_sweep_job_submitting(&self, sweep_job_id: u64) -> Result<bool, SharedDbError> {
+    pub async fn mark_sweep_job_submitting(
+        &self,
+        sweep_job_id: u64,
+    ) -> Result<bool, SharedDbError> {
         let result = sqlx::query(
             "UPDATE fund_sweep_jobs
              SET status = 'submitting',
@@ -1106,7 +1111,6 @@ impl BillingRepository {
         .map_err(SharedDbError::from)?;
         Ok(result.rows_affected() > 0)
     }
-
 }
 
 async fn write_order_meta(

@@ -127,15 +127,24 @@ async fn supports_all_three_chains_and_stablecoin_pricing_rules() {
     assert_eq!(exact_match_body["membership_status"], "Active");
     assert_eq!(exact_match_body["deposit_status"], "matched");
 
-    let notifications = db.list_notification_logs("eth@example.com", 10).expect("notification logs");
+    let notifications = db
+        .list_notification_logs("eth@example.com", 10)
+        .expect("notification logs");
     let deposit_notice = notifications
         .iter()
-        .find(|record| record.template_key.as_deref() == Some("DepositConfirmed") && record.channel == "in_app")
+        .find(|record| {
+            record.template_key.as_deref() == Some("DepositConfirmed") && record.channel == "in_app"
+        })
         .expect("deposit confirmation notification");
-    assert_eq!(deposit_notice.payload["event"]["payload"]["order_id"], eth_order_id.to_string());
-    assert_eq!(deposit_notice.payload["event"]["payload"]["tx_hash"], "tx-eth-exact");
+    assert_eq!(
+        deposit_notice.payload["event"]["payload"]["order_id"],
+        eth_order_id.to_string()
+    );
+    assert_eq!(
+        deposit_notice.payload["event"]["payload"]["tx_hash"],
+        "tx-eth-exact"
+    );
 }
-
 
 #[tokio::test]
 async fn billing_match_route_rejects_bootstrapping_exact_match_without_listener_record() {
@@ -182,7 +191,10 @@ async fn billing_match_route_rejects_bootstrapping_exact_match_without_listener_
 
     assert_eq!(insufficient.status(), StatusCode::BAD_REQUEST);
     let body = response_json(insufficient).await;
-    assert_eq!(body["error"], "automatic exact matches must originate from chain listener");
+    assert_eq!(
+        body["error"],
+        "automatic exact matches must originate from chain listener"
+    );
 }
 
 #[tokio::test]
@@ -273,7 +285,11 @@ async fn billing_match_route_normalizes_evm_address_and_tx_hash() {
         "eth-addr-1",
         "20.00000000",
         "0xabcd123",
-        Some(response_json(order).await["order_id"].as_u64().expect("order id")),
+        Some(
+            response_json(order).await["order_id"]
+                .as_u64()
+                .expect("order id"),
+        ),
         "2026-04-01T00:10:00Z",
     );
 
@@ -558,8 +574,19 @@ async fn membership_transitions_from_active_to_grace_to_expired_after_48_hours()
     )
     .await;
     assert_eq!(order.status(), StatusCode::CREATED);
-    let order_id = response_json(order).await["order_id"].as_u64().expect("order id");
-    seed_confirming_deposit(&db, "BSC", "USDT", "bsc-addr-1", "20.00000000", "tx-grace", Some(order_id), "2026-04-01T00:00:00Z");
+    let order_id = response_json(order).await["order_id"]
+        .as_u64()
+        .expect("order id");
+    seed_confirming_deposit(
+        &db,
+        "BSC",
+        "USDT",
+        "bsc-addr-1",
+        "20.00000000",
+        "tx-grace",
+        Some(order_id),
+        "2026-04-01T00:00:00Z",
+    );
 
     let matched = match_order(
         &app,
@@ -624,8 +651,19 @@ async fn operator_admin_cannot_override_membership_or_write_override_audit_logs(
     )
     .await;
     assert_eq!(order.status(), StatusCode::CREATED);
-    let order_id = response_json(order).await["order_id"].as_u64().expect("order id");
-    seed_confirming_deposit(&db, "BSC", "USDT", "bsc-addr-1", "20.00000000", "tx-admin", Some(order_id), "2026-04-01T00:01:00Z");
+    let order_id = response_json(order).await["order_id"]
+        .as_u64()
+        .expect("order id");
+    seed_confirming_deposit(
+        &db,
+        "BSC",
+        "USDT",
+        "bsc-addr-1",
+        "20.00000000",
+        "tx-admin",
+        Some(order_id),
+        "2026-04-01T00:01:00Z",
+    );
 
     let matched = match_order(
         &app,
@@ -930,8 +968,19 @@ async fn operator_admin_cannot_manually_extend_membership_during_grace() {
     )
     .await;
     assert_eq!(order.status(), StatusCode::CREATED);
-    let order_id = response_json(order).await["order_id"].as_u64().expect("order id");
-    seed_confirming_deposit(&db, "BSC", "USDT", "bsc-addr-1", "20.00000000", "tx-grace-stack", Some(order_id), "2026-04-01T00:00:00Z");
+    let order_id = response_json(order).await["order_id"]
+        .as_u64()
+        .expect("order id");
+    seed_confirming_deposit(
+        &db,
+        "BSC",
+        "USDT",
+        "bsc-addr-1",
+        "20.00000000",
+        "tx-grace-stack",
+        Some(order_id),
+        "2026-04-01T00:00:00Z",
+    );
 
     let matched = match_order(
         &app,
@@ -1124,7 +1173,9 @@ async fn bootstrap_admin_totp(app: &axum::Router, email: &str, password: &str) -
                 .method("POST")
                 .uri("/auth/admin-bootstrap")
                 .header("content-type", "application/json")
-                .body(Body::from(json!({ "email": email, "password": password }).to_string()))
+                .body(Body::from(
+                    json!({ "email": email, "password": password }).to_string(),
+                ))
                 .unwrap(),
         )
         .await
@@ -1529,7 +1580,10 @@ fn register_and_verify_via_http(server: &ApiServerHarness, email: &str, password
         Some(json!({ "email": email, "password": password })),
     );
     assert_eq!(register_status, StatusCode::CREATED.as_u16());
-    let verification_code = register_body["verification_code"].as_str().expect("verification code").to_owned();
+    let verification_code = register_body["verification_code"]
+        .as_str()
+        .expect("verification code")
+        .to_owned();
     let (verify_status, _) = http_json(
         "POST",
         &format!("{}/auth/verify-email", server.base_url()),
