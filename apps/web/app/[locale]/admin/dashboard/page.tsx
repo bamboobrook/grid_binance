@@ -14,7 +14,12 @@ import {
   type AdminTemplateList,
   fetchAdminJson,
 } from "@/lib/api/admin-product-state";
-import { pickText, resolveUiLanguage, UI_LANGUAGE_COOKIE, type UiLanguage } from "@/lib/ui/preferences";
+import { pickText, resolveUiLanguageFromRoute, UI_LANGUAGE_COOKIE, type UiLanguage } from "@/lib/ui/preferences";
+
+type PageProps = {
+  params: Promise<{ locale: string }>;
+};
+
 
 function roleBoundaryLabel(lang: UiLanguage, restricted: boolean) {
   return restricted ? pickText(lang, "操作员边界", "Operator Boundary") : pickText(lang, "超级管理员边界", "Super Admin Boundary");
@@ -33,9 +38,10 @@ function auditActionLabel(lang: UiLanguage, action: string) {
   return map.get(action) ?? action;
 }
 
-export default async function AdminDashboardPage() {
+export default async function AdminDashboardPage({ params }: PageProps) {
+  const { locale } = await params;
   const [cookieStore, profile] = await Promise.all([cookies(), getCurrentAdminProfile()]);
-  const lang = resolveUiLanguage(cookieStore.get(UI_LANGUAGE_COOKIE)?.value);
+  const lang = resolveUiLanguageFromRoute(locale, cookieStore.get(UI_LANGUAGE_COOKIE)?.value);
   const [memberships, deposits, strategies, audit, templates, pools] = await Promise.all([
     getAdminMembershipsData(),
     getAdminDepositsData(),
@@ -120,7 +126,7 @@ export default async function AdminDashboardPage() {
         eyebrow={pickText(lang, "值班总览", "On-call Console")}
         title={pickText(lang, "运营总览", "Operations Overview")}
       >
-        <div className="content-grid content-grid--metrics">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 mb-6">
           <Card>
             <CardHeader>
               <CardTitle>{pickText(lang, "待处理充值", "Pending Deposits")}</CardTitle>
@@ -164,7 +170,8 @@ export default async function AdminDashboardPage() {
               <CardDescription>{pickText(lang, "按风险和处理入口排序，避免值班时在页面间来回找线索。", "Sorted by severity and route so the desk does not have to hunt across pages.")}</CardDescription>
             </CardHeader>
             <CardBody>
-              <DataTable
+              <div className="overflow-x-auto whitespace-nowrap min-w-full pb-4 rounded-lg">
+                <DataTable
                 columns={[
                   { key: "item", label: pickText(lang, "事项", "Item") },
                   { key: "severity", label: pickText(lang, "等级", "Severity") },
@@ -174,6 +181,7 @@ export default async function AdminDashboardPage() {
                 ]}
                 rows={boardRows}
               />
+              </div>
             </CardBody>
           </Card>
           <Card>
@@ -198,7 +206,8 @@ export default async function AdminDashboardPage() {
           <CardDescription>{pickText(lang, "保留时间、动作和目标，方便快速回溯最近值班处理。", "Time, action, and target stay visible for quick review of the last operator moves.")}</CardDescription>
         </CardHeader>
         <CardBody>
-          <DataTable
+          <div className="overflow-x-auto whitespace-nowrap min-w-full pb-4 rounded-lg">
+                <DataTable
             columns={[
               { key: "createdAt", label: pickText(lang, "时间", "Timestamp") },
               { key: "action", label: pickText(lang, "动作", "Action") },
@@ -210,8 +219,9 @@ export default async function AdminDashboardPage() {
               createdAt: item.created_at.replace("T", " ").slice(0, 16),
               target: item.target_type + ":" + item.target_id,
             }))}
-            emptyMessage={restricted ? pickText(lang, "当前席位只能查看审计摘要，请切换 super_admin 查看明细。", "Summary only in this session. Use a super_admin session for full audit detail.") : pickText(lang, "暂无审计事件。", "No audit events yet.")}
+            emptyMessage={restricted ? pickText(lang, "当前席位只能查看审计摘要，请切换到超级管理员会话查看明细。", "Summary only in this session. Use a Super Admin session for full audit detail.") : pickText(lang, "暂无审计事件。", "No audit events yet.")}
           />
+              </div>
         </CardBody>
       </Card>
     </>

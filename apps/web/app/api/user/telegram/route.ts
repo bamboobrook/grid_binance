@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { localizedPath, localizedPublicPath, publicUrl } from "@/lib/auth";
 
 const DEFAULT_AUTH_API_BASE_URL = "http://127.0.0.1:8080";
 
@@ -8,16 +9,16 @@ export async function POST(request: Request) {
   const sessionToken = readSessionToken(request);
 
   if (!sessionToken) {
-    return NextResponse.redirect(new URL("/login?error=session+expired", request.url), { status: 303 });
+    return NextResponse.redirect(publicUrl(request, localizedPublicPath(request, "/login?error=session+expired")), { status: 303 });
   }
 
   const profile = await fetchProfile(sessionToken);
   if (!profile) {
-    return NextResponse.redirect(new URL("/login?error=session+expired", request.url), { status: 303 });
+    return NextResponse.redirect(publicUrl(request, localizedPublicPath(request, "/login?error=session+expired")), { status: 303 });
   }
 
   if (intent !== "generate") {
-    return NextResponse.redirect(new URL("/app/telegram", request.url), { status: 303 });
+    return NextResponse.redirect(publicUrl(request, localizedPath(request, "/app/telegram")), { status: 303 });
   }
 
   const response = await fetch(`${authApiBaseUrl()}/telegram/bind-codes`, {
@@ -32,11 +33,11 @@ export async function POST(request: Request) {
 
   if (!response.ok) {
     const error = await readError(response);
-    return NextResponse.redirect(new URL(`/app/telegram?error=${encodeURIComponent(error)}`, request.url), { status: 303 });
+    return NextResponse.redirect(publicUrl(request, localizedPath(request, `/app/telegram?error=${encodeURIComponent(error)}`)), { status: 303 });
   }
 
   const payload = (await response.json()) as { code: string; expires_at: string };
-  const url = new URL("/app/telegram", request.url);
+  const url = publicUrl(request, localizedPath(request, "/app/telegram"));
   url.searchParams.set("notice", "bind-code-issued");
   url.searchParams.set("code", payload.code);
   url.searchParams.set("expires", payload.expires_at);

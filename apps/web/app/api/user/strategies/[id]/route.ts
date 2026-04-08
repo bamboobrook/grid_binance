@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { localizedPath, localizedPublicPath, publicUrl } from "@/lib/auth";
 
 const DEFAULT_AUTH_API_BASE_URL = "http://127.0.0.1:8080";
 
@@ -42,12 +43,12 @@ export async function POST(
   const intent = readField(formData, "intent");
   const sessionToken = readSessionToken(request);
   if (!sessionToken) {
-    return NextResponse.redirect(new URL("/login?error=session+expired", request.url), { status: 303 });
+    return NextResponse.redirect(publicUrl(request, localizedPublicPath(request, "/login?error=session+expired")), { status: 303 });
   }
 
   const current = await fetchStrategy(sessionToken, id);
   if (!current) {
-    return NextResponse.redirect(new URL(`/app/strategies/${id}?error=strategy+workspace+is+temporarily+unavailable`, request.url), { status: 303 });
+    return NextResponse.redirect(publicUrl(request, localizedPath(request, `/app/strategies/${id}?error=strategy+workspace+is+temporarily+unavailable`)), { status: 303 });
   }
 
   if (intent === "pause") {
@@ -59,7 +60,7 @@ export async function POST(
     if ((pausedPayload.paused ?? 0) === 0) {
       return redirectWithError(request, id, "No running strategy was paused.");
     }
-    return NextResponse.redirect(new URL(`/app/strategies/${id}?notice=strategy-paused`, request.url), { status: 303 });
+    return NextResponse.redirect(publicUrl(request, localizedPath(request, `/app/strategies/${id}?notice=strategy-paused`)), { status: 303 });
   }
 
   if (intent === "stop") {
@@ -67,7 +68,7 @@ export async function POST(
     if (!stopped.ok) {
       return redirectWithError(request, id, await readError(stopped.response));
     }
-    return NextResponse.redirect(new URL(`/app/strategies/${id}?notice=strategy-stopped`, request.url), { status: 303 });
+    return NextResponse.redirect(publicUrl(request, localizedPath(request, `/app/strategies/${id}?notice=strategy-stopped`)), { status: 303 });
   }
 
   if (intent === "delete") {
@@ -79,7 +80,7 @@ export async function POST(
     if ((deletedPayload.deleted ?? 0) === 0) {
       return redirectWithError(request, id, "Strategy cannot be deleted while orders or positions remain.");
     }
-    return NextResponse.redirect(new URL(`/app/strategies?notice=strategy-deleted`, request.url), { status: 303 });
+    return NextResponse.redirect(publicUrl(request, localizedPath(request, `/app/strategies?notice=strategy-deleted`)), { status: 303 });
   }
 
   if (intent === "save") {
@@ -96,7 +97,7 @@ export async function POST(
     if (!saved.ok) {
       return redirectWithError(request, id, await readError(saved.response));
     }
-    return NextResponse.redirect(new URL(`/app/strategies/${id}?notice=edits-saved`, request.url), { status: 303 });
+    return NextResponse.redirect(publicUrl(request, localizedPath(request, `/app/strategies/${id}?notice=edits-saved`)), { status: 303 });
   }
 
   if (intent === "preflight") {
@@ -106,10 +107,10 @@ export async function POST(
     }
     const payload = (await preflight.response.json()) as { ok: boolean; failures?: Array<{ guidance?: string; reason?: string; step: string }> };
     if (payload.ok) {
-      return NextResponse.redirect(new URL(`/app/strategies/${id}?notice=preflight-passed`, request.url), { status: 303 });
+      return NextResponse.redirect(publicUrl(request, localizedPath(request, `/app/strategies/${id}?notice=preflight-passed`)), { status: 303 });
     }
     const failure = payload.failures?.[0];
-    const url = new URL(`/app/strategies/${id}`, request.url);
+    const url = publicUrl(request, localizedPath(request, `/app/strategies/${id}`));
     url.searchParams.set("notice", "preflight-failed");
     if (failure?.step) url.searchParams.set("step", failure.step);
     if (failure) url.searchParams.set("reason", humanizeFailure(failure.step, failure.guidance ?? failure.reason ?? ""));
@@ -120,7 +121,7 @@ export async function POST(
   const started = await strategyPost(sessionToken, path, null);
   if (!started.ok) {
     const parsed = await readStrategyError(started.response);
-    const url = new URL(`/app/strategies/${id}`, request.url);
+    const url = publicUrl(request, localizedPath(request, `/app/strategies/${id}`));
     url.searchParams.set("notice", "start-failed");
     url.searchParams.set("error", parsed.error);
     if (parsed.reason) {
@@ -128,7 +129,7 @@ export async function POST(
     }
     return NextResponse.redirect(url, { status: 303 });
   }
-  return NextResponse.redirect(new URL(`/app/strategies/${id}?notice=strategy-started`, request.url), { status: 303 });
+  return NextResponse.redirect(publicUrl(request, localizedPath(request, `/app/strategies/${id}?notice=strategy-started`)), { status: 303 });
 }
 
 function buildUpdatePayload(formData: FormData, current: BackendStrategy) {
@@ -436,7 +437,7 @@ function mapPostTrigger(value: string) {
 }
 
 function redirectWithError(request: Request, strategyId: string, error: string) {
-  return NextResponse.redirect(new URL(`/app/strategies/${strategyId}?error=${encodeURIComponent(error)}`, request.url), { status: 303 });
+  return NextResponse.redirect(publicUrl(request, localizedPath(request, `/app/strategies/${strategyId}?error=${encodeURIComponent(error)}`)), { status: 303 });
 }
 
 async function readError(response: Response) {

@@ -6,7 +6,7 @@ import { Card, CardBody, CardDescription, CardHeader, CardTitle } from "@/compon
 import { Button, Field, FormStack, Input } from "@/components/ui/form";
 import { StatusBanner } from "@/components/ui/status-banner";
 import { firstValue } from "@/lib/auth";
-import { pickText, resolveUiLanguage, UI_LANGUAGE_COOKIE } from "@/lib/ui/preferences";
+import { pickText, resolveUiLanguageFromRoute, UI_LANGUAGE_COOKIE } from "@/lib/ui/preferences";
 
 type PageProps = {
   params: Promise<{ locale: string }>;
@@ -20,6 +20,7 @@ type PageProps = {
 const PENDING_ADMIN_TOTP_SECRET_COOKIE = "pending_admin_totp_secret";
 const PENDING_ADMIN_TOTP_CODE_COOKIE = "pending_admin_totp_code";
 const PENDING_ADMIN_TOTP_EMAIL_COOKIE = "pending_admin_totp_email";
+const TOTP_ISSUER = "Grid.Binance";
 
 export default async function AdminBootstrapPage({ params, searchParams }: PageProps) {
   const { locale } = await params;
@@ -28,10 +29,11 @@ export default async function AdminBootstrapPage({ params, searchParams }: PageP
   const email = firstValue(resolved.email) ?? "";
   const error = firstValue(resolved.error);
   const setup = firstValue(resolved.setup) === "ready";
-  const lang = resolveUiLanguage(cookieStore.get(UI_LANGUAGE_COOKIE)?.value);
+  const lang = resolveUiLanguageFromRoute(locale, cookieStore.get(UI_LANGUAGE_COOKIE)?.value);
   const secret = cookieStore.get(PENDING_ADMIN_TOTP_SECRET_COOKIE)?.value ?? "";
   const code = cookieStore.get(PENDING_ADMIN_TOTP_CODE_COOKIE)?.value ?? "";
   const bootstrapEmail = cookieStore.get(PENDING_ADMIN_TOTP_EMAIL_COOKIE)?.value ?? email;
+  const provisioningUri = buildTotpProvisioningUri(bootstrapEmail || email, secret);
 
   return (
     <div className="w-full max-w-[500px] space-y-6">
@@ -47,7 +49,11 @@ export default async function AdminBootstrapPage({ params, searchParams }: PageP
       {error ? (
         <StatusBanner description={error} title={pickText(lang, "管理员 TOTP 初始化失败", "Admin TOTP bootstrap failed")} tone="danger" />
       ) : setup && secret ? (
-        <StatusBanner description={pickText(lang, "请把密钥保存到验证器应用中，再用页面显示的当前验证码完成首次管理员登录。", "Store the secret in your authenticator app, then use the shown code to complete the first admin login.")} title={pickText(lang, "管理员 TOTP 已就绪", "Admin TOTP ready")} tone="success" />
+        <StatusBanner
+          description={pickText(lang, "请把 Base32 密钥保存到验证器；如果密码管理器支持，也可以直接导入下方的 otpauth 链接。", "Save the Base32 secret in your authenticator app, or import the otpauth link below if your password manager supports it.")}
+          title={pickText(lang, "管理员 TOTP 已就绪", "Admin TOTP ready")}
+          tone="success"
+        />
       ) : (
         <StatusBanner description={pickText(lang, "已配置的管理员账号必须先完成 TOTP 初始化，才能进入管理后台。", "Configured admin accounts must complete TOTP setup before they can access the admin control plane.")} title={pickText(lang, "初始化要求", "Bootstrap Required")} tone="info" />
       )}
@@ -86,18 +92,18 @@ export default async function AdminBootstrapPage({ params, searchParams }: PageP
           </CardHeader>
           <CardBody className="p-6">
             <div className="space-y-4">
-              <div className="flex flex-col gap-1">
-                <span className="text-xs font-bold text-muted-foreground uppercase">{pickText(lang, "管理员邮箱", "Admin email")}</span>
-                <span className="text-sm font-medium text-foreground">{bootstrapEmail || "-"}</span>
-              </div>
-              <div className="flex flex-col gap-1">
-                <span className="text-xs font-bold text-muted-foreground uppercase">{pickText(lang, "TOTP 密钥", "TOTP secret")}</span>
-                <span className="text-sm font-mono text-emerald-400 tracking-wider bg-emerald-500/10 p-2 rounded border border-emerald-500/20 break-all">{secret || "-"}</span>
-              </div>
-              <div className="flex flex-col gap-1">
-                <span className="text-xs font-bold text-muted-foreground uppercase">{pickText(lang, "当前验证码", "Current TOTP code")}</span>
-                <span className="text-xl font-mono text-foreground tracking-widest">{code || "-"}</span>
-              </div>
+              <Field label={pickText(lang, "管理员邮箱", "Admin email")}>
+                <Input readOnly value={bootstrapEmail || "-"} />
+              </Field>
+              <Field label={pickText(lang, "TOTP 密钥", "TOTP secret")} hint={pickText(lang, "这是标准 Base32 密钥，可手动添加到验证器。", "This is a standard Base32 secret for manual authenticator setup.")}>
+                <Input readOnly value={secret || "-"} />
+              </Field>
+              <Field label={pickText(lang, "TOTP 导入链接", "TOTP provisioning URI")} hint={pickText(lang, "支持 otpauth:// 的密码管理器或验证器可以直接导入。", "Password managers or authenticators that support otpauth:// can import this directly.")}>
+                <Input readOnly value={provisioningUri || "-"} />
+              </Field>
+              <Field label={pickText(lang, "当前验证码", "Current TOTP code")}>
+                <Input readOnly value={code || "-"} />
+              </Field>
               <Link href={`/${locale}/login?email=${encodeURIComponent(bootstrapEmail || email)}&totp=1`} className="block pt-2">
                 <Button tone="primary" className="w-full h-11 text-sm font-bold shadow-lg shadow-primary/20">
                   {pickText(lang, "带 TOTP 返回登录", "Continue to login with TOTP")}
@@ -109,4 +115,13 @@ export default async function AdminBootstrapPage({ params, searchParams }: PageP
       )}
     </div>
   );
+}
+
+function buildTotpProvisioningUri(email: string, secret: string) {
+  if (!email || !secret) {
+    return "";
+  }
+
+  const label = `${TOTP_ISSUER}:${email}`;
+  return `otpauth://totp/${encodeURIComponent(label)}?secret=${encodeURIComponent(secret)}&issuer=${encodeURIComponent(TOTP_ISSUER)}&algorithm=SHA1&digits=6&period=30`;
 }

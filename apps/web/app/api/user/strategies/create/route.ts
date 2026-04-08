@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { localizedPath, localizedPublicPath, publicUrl } from "@/lib/auth";
 
 const DEFAULT_AUTH_API_BASE_URL = "http://127.0.0.1:8080";
 
@@ -13,14 +14,14 @@ export async function POST(request: Request) {
   const formData = await request.formData();
   const sessionToken = readSessionToken(request);
   if (!sessionToken) {
-    return NextResponse.redirect(new URL("/login?error=session+expired", request.url), { status: 303 });
+    return NextResponse.redirect(publicUrl(request, localizedPublicPath(request, "/login?error=session+expired")), { status: 303 });
   }
 
   let payload;
   try {
     payload = buildStrategyPayload(formData);
   } catch (error) {
-    return NextResponse.redirect(new URL(`/app/strategies/new?error=${encodeURIComponent(readErrorMessage(error))}`, request.url), { status: 303 });
+    return NextResponse.redirect(publicUrl(request, localizedPath(request, `/app/strategies/new?error=${encodeURIComponent(readErrorMessage(error))}`)), { status: 303 });
   }
 
   const response = await fetch(`${authApiBaseUrl()}/strategies`, {
@@ -34,11 +35,11 @@ export async function POST(request: Request) {
   });
 
   if (!response.ok) {
-    return NextResponse.redirect(new URL(`/app/strategies/new?error=${encodeURIComponent(await readError(response))}`, request.url), { status: 303 });
+    return NextResponse.redirect(publicUrl(request, localizedPath(request, `/app/strategies/new?error=${encodeURIComponent(await readError(response))}`)), { status: 303 });
   }
 
   const created = (await response.json()) as { id: string };
-  return NextResponse.redirect(new URL(`/app/strategies/${created.id}?notice=draft-saved`, request.url), { status: 303 });
+  return NextResponse.redirect(publicUrl(request, localizedPath(request, `/app/strategies/${created.id}?notice=draft-saved`)), { status: 303 });
 }
 
 function buildStrategyPayload(formData: FormData) {

@@ -6,17 +6,19 @@ import { Button, Field, FormStack, Input, Select } from "@/components/ui/form";
 import { StatusBanner } from "@/components/ui/status-banner";
 import { DataTable } from "@/components/ui/table";
 import { getAdminAddressPoolsData, getCurrentAdminProfile } from "@/lib/api/admin-product-state";
-import { pickText, resolveUiLanguage, UI_LANGUAGE_COOKIE } from "@/lib/ui/preferences";
+import { pickText, resolveUiLanguageFromRoute, UI_LANGUAGE_COOKIE } from "@/lib/ui/preferences";
 
 type PageProps = {
+  params: Promise<{ locale: string }>;
   searchParams?: Promise<{ updated?: string }>;
 };
 
-export default async function AdminAddressPoolsPage({ searchParams }: PageProps) {
-  const params = (await searchParams) ?? {};
-  const updated = typeof params.updated === "string" ? params.updated : "";
+export default async function AdminAddressPoolsPage({ params, searchParams }: PageProps) {
+  const { locale } = await params;
+  const query = (await searchParams) ?? {};
+  const updated = typeof query.updated === "string" ? query.updated : "";
   const [cookieStore, profile, data] = await Promise.all([cookies(), getCurrentAdminProfile(), getAdminAddressPoolsData()]);
-  const lang = resolveUiLanguage(cookieStore.get(UI_LANGUAGE_COOKIE)?.value);
+  const lang = resolveUiLanguageFromRoute(locale, cookieStore.get(UI_LANGUAGE_COOKIE)?.value);
   const canManagePools = profile.admin_permissions?.can_manage_address_pools ?? false;
   const enabledCount = data.addresses.filter((item) => item.is_enabled).length;
   const pressureCount = data.addresses.length - enabledCount;
@@ -52,7 +54,7 @@ export default async function AdminAddressPoolsPage({ searchParams }: PageProps)
                   <Button type="submit">{pickText(lang, "新增或启用地址", "Add or Enable Address")}</Button>
                 </FormStack>
               ) : (
-                <p>{pickText(lang, "需要 super_admin 才能改地址池；当前席位只做压力观测。", "A super_admin session is required to change the address pool.")}</p>
+                <p>{pickText(lang, "需要超级管理员会话才能修改地址池；当前席位只做压力观测。", "A Super Admin session is required to change the address pool.")}</p>
               )}
             </CardBody>
           </Card>
@@ -77,7 +79,8 @@ export default async function AdminAddressPoolsPage({ searchParams }: PageProps)
           <CardDescription>{pickText(lang, "逐行展示链路、地址和启停动作。", "Shows chain, address, and enablement actions row by row.")}</CardDescription>
         </CardHeader>
         <CardBody>
-          <DataTable
+          <div className="overflow-x-auto whitespace-nowrap min-w-full pb-4 rounded-lg">
+                <DataTable
             columns={[
               { key: "chain", label: pickText(lang, "链路", "Chain") },
               { key: "address", label: pickText(lang, "地址", "Address") },
@@ -89,6 +92,7 @@ export default async function AdminAddressPoolsPage({ searchParams }: PageProps)
               action: canManagePools ? (
                 <FormStack action="/api/admin/address-pools" method="post">
                   <input name="chain" type="hidden" value={item.chain} />
+              </div>
                   <input name="address" type="hidden" value={item.address} />
                   <input name="isEnabled" type="hidden" value={item.is_enabled ? "false" : "true"} />
                   <Button type="submit">{item.is_enabled ? pickText(lang, "停用地址", "Disable Address") : pickText(lang, "启用地址", "Enable Address")}</Button>

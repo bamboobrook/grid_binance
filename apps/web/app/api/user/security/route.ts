@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { localizedPath, localizedPublicPath, publicUrl } from "@/lib/auth";
 
 const DEFAULT_AUTH_API_BASE_URL = "http://127.0.0.1:8080";
 const SESSION_TOKEN_COOKIE = "session_token";
@@ -12,7 +13,7 @@ export async function POST(request: Request) {
   const profile = sessionToken ? await fetchProfile(sessionToken) : null;
 
   if (!sessionToken || !profile) {
-    return NextResponse.redirect(new URL("/login?error=session+expired", request.url), { status: 303 });
+    return NextResponse.redirect(publicUrl(request, localizedPublicPath(request, "/login?error=session+expired")), { status: 303 });
   }
 
   if (intent === "password") {
@@ -27,12 +28,12 @@ export async function POST(request: Request) {
     );
 
     if (!result.ok) {
-      return NextResponse.redirect(new URL(`/app/security?error=${encodeURIComponent(result.error ?? "TOTP enable failed")}`, request.url), { status: 303 });
+      return NextResponse.redirect(publicUrl(request, localizedPath(request, `/app/security?error=${encodeURIComponent(result.error ?? "TOTP enable failed")}`)), { status: 303 });
     }
 
     const secret = typeof result.data?.secret === "string" ? result.data.secret : "";
     const code = typeof result.data?.code === "string" ? result.data.code : "";
-    const response = NextResponse.redirect(new URL("/app/security?security=totp-enabled", request.url), { status: 303 });
+    const response = NextResponse.redirect(publicUrl(request, localizedPath(request, "/app/security?security=totp-enabled")), { status: 303 });
     response.cookies.set(PENDING_TOTP_SECRET_COOKIE, secret, {
       httpOnly: true,
       path: "/",
@@ -56,17 +57,17 @@ export async function POST(request: Request) {
     );
 
     if (!result.ok) {
-      return NextResponse.redirect(new URL(`/app/security?error=${encodeURIComponent(result.error ?? "TOTP disable failed")}`, request.url), { status: 303 });
+      return NextResponse.redirect(publicUrl(request, localizedPath(request, `/app/security?error=${encodeURIComponent(result.error ?? "TOTP disable failed")}`)), { status: 303 });
     }
 
-    const response = NextResponse.redirect(new URL("/login?security=totp-disabled", request.url), { status: 303 });
+    const response = NextResponse.redirect(publicUrl(request, localizedPublicPath(request, "/login?security=totp-disabled")), { status: 303 });
     response.cookies.delete(SESSION_TOKEN_COOKIE);
     response.cookies.delete(PENDING_TOTP_SECRET_COOKIE);
     response.cookies.delete(PENDING_TOTP_CODE_COOKIE);
     return response;
   }
 
-  return NextResponse.redirect(new URL("/app/security", request.url), { status: 303 });
+  return NextResponse.redirect(publicUrl(request, localizedPath(request, "/app/security")), { status: 303 });
 }
 
 async function handlePasswordChange(request: Request, sessionToken: string, currentPassword: string, newPassword: string) {
@@ -77,10 +78,10 @@ async function handlePasswordChange(request: Request, sessionToken: string, curr
   );
 
   if (!result.ok) {
-    return NextResponse.redirect(new URL(`/app/security?error=${encodeURIComponent(result.error ?? "Password change failed")}`, request.url), { status: 303 });
+    return NextResponse.redirect(publicUrl(request, localizedPath(request, `/app/security?error=${encodeURIComponent(result.error ?? "Password change failed")}`)), { status: 303 });
   }
 
-  const response = NextResponse.redirect(new URL("/login?security=password-updated", request.url), { status: 303 });
+  const response = NextResponse.redirect(publicUrl(request, localizedPublicPath(request, "/login?security=password-updated")), { status: 303 });
   response.cookies.delete(SESSION_TOKEN_COOKIE);
   response.cookies.delete(PENDING_TOTP_SECRET_COOKIE);
   response.cookies.delete(PENDING_TOTP_CODE_COOKIE);

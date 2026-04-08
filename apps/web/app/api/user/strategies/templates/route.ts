@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { localizedPath, localizedPublicPath, publicUrl } from "@/lib/auth";
 
 const DEFAULT_AUTH_API_BASE_URL = "http://127.0.0.1:8080";
 
@@ -8,10 +9,10 @@ export async function POST(request: Request) {
   const templateId = readField(formData, "templateId");
   const sessionToken = readSessionToken(request);
   if (!sessionToken) {
-    return NextResponse.redirect(new URL("/login?error=session+expired", request.url), { status: 303 });
+    return NextResponse.redirect(publicUrl(request, localizedPublicPath(request, "/login?error=session+expired")), { status: 303 });
   }
   if (!templateId || !name) {
-    return NextResponse.redirect(new URL("/app/strategies/new?error=Template+and+strategy+name+are+required.", request.url), { status: 303 });
+    return NextResponse.redirect(publicUrl(request, localizedPath(request, "/app/strategies/new?error=Template+and+strategy+name+are+required.")), { status: 303 });
   }
 
   const response = await fetch(`${authApiBaseUrl()}/strategies/templates/${templateId}/apply`, {
@@ -24,11 +25,11 @@ export async function POST(request: Request) {
     cache: "no-store",
   });
   if (!response.ok) {
-    return NextResponse.redirect(new URL(`/app/strategies/new?error=${encodeURIComponent(await readError(response))}`, request.url), { status: 303 });
+    return NextResponse.redirect(publicUrl(request, localizedPath(request, `/app/strategies/new?error=${encodeURIComponent(await readError(response))}`)), { status: 303 });
   }
 
   const created = (await response.json()) as { id: string };
-  return NextResponse.redirect(new URL(`/app/strategies/${created.id}?notice=template-applied`, request.url), { status: 303 });
+  return NextResponse.redirect(publicUrl(request, localizedPath(request, `/app/strategies/${created.id}?notice=template-applied`)), { status: 303 });
 }
 
 function readField(formData: FormData, key: string) {
