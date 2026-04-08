@@ -120,7 +120,7 @@ export default async function AdminDashboardPage() {
         eyebrow={pickText(lang, "值班总览", "On-call Console")}
         title={pickText(lang, "运营总览", "Operations Overview")}
       >
-        <div className="content-grid content-grid--metrics">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 mb-6">
           <Card>
             <CardHeader>
               <CardTitle>{pickText(lang, "待处理充值", "Pending Deposits")}</CardTitle>
@@ -164,6 +164,7 @@ export default async function AdminDashboardPage() {
               <CardDescription>{pickText(lang, "按风险和处理入口排序，避免值班时在页面间来回找线索。", "Sorted by severity and route so the desk does not have to hunt across pages.")}</CardDescription>
             </CardHeader>
             <CardBody>
+              <div className="overflow-x-auto whitespace-nowrap min-w-full pb-4 rounded-lg">
               <DataTable
                 columns={[
                   { key: "item", label: pickText(lang, "事项", "Item") },
@@ -174,6 +175,7 @@ export default async function AdminDashboardPage() {
                 ]}
                 rows={boardRows}
               />
+              </div>
             </CardBody>
           </Card>
           <Card>
@@ -198,6 +200,7 @@ export default async function AdminDashboardPage() {
           <CardDescription>{pickText(lang, "保留时间、动作和目标，方便快速回溯最近值班处理。", "Time, action, and target stay visible for quick review of the last operator moves.")}</CardDescription>
         </CardHeader>
         <CardBody>
+          <div className="overflow-x-auto whitespace-nowrap min-w-full pb-4 rounded-lg">
           <DataTable
             columns={[
               { key: "createdAt", label: pickText(lang, "时间", "Timestamp") },
@@ -212,6 +215,7 @@ export default async function AdminDashboardPage() {
             }))}
             emptyMessage={restricted ? pickText(lang, "当前席位只能查看审计摘要，请切换 super_admin 查看明细。", "Summary only in this session. Use a super_admin session for full audit detail.") : pickText(lang, "暂无审计事件。", "No audit events yet.")}
           />
+          </div>
         </CardBody>
       </Card>
     </>

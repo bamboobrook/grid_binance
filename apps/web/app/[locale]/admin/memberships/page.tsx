@@ -101,7 +101,7 @@ export default async function AdminMembershipsPage({ searchParams }: PageProps) 
         eyebrow={pickText(lang, "会员生命周期", "Membership Lifecycle")}
         title={pickText(lang, "会员运营", "Membership Operations")}
       >
-        <div className="content-grid content-grid--metrics">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 mb-6">
           <Card>
             <CardHeader>
               <CardTitle>{pickText(lang, "风险会员", "Membership Risk")}</CardTitle>
@@ -185,6 +185,7 @@ export default async function AdminMembershipsPage({ searchParams }: PageProps) 
           <CardDescription>{pickText(lang, "展示全部计划的当前天数与链上报价，避免把当前能力夸大成“全计划都可直接编辑”。", "Shows all plans with duration and chain pricing so the desk does not overstate what is directly editable.")}</CardDescription>
         </CardHeader>
         <CardBody>
+          <div className="overflow-x-auto whitespace-nowrap min-w-full pb-4 rounded-lg">
           <DataTable
             columns={[
               { key: "code", label: pickText(lang, "计划", "Plan") },
@@ -200,6 +201,7 @@ export default async function AdminMembershipsPage({ searchParams }: PageProps) 
               prices: plan.prices.map((price) => price.chain + " " + price.asset + " " + price.amount).join(" | "),
             }))}
           />
+          </div>
         </CardBody>
       </Card>
       <Card>
@@ -208,6 +210,7 @@ export default async function AdminMembershipsPage({ searchParams }: PageProps) 
           <CardDescription>{pickText(lang, "显式展示生命周期状态和可执行动作。", "Lifecycle status and available desk actions remain explicit.")}</CardDescription>
         </CardHeader>
         <CardBody>
+          <div className="overflow-x-auto whitespace-nowrap min-w-full pb-4 rounded-lg">
           <DataTable
             columns={membershipColumns}
             rows={memberships.items.map((item) => ({
@@ -248,6 +251,7 @@ export default async function AdminMembershipsPage({ searchParams }: PageProps) 
               status: membershipStatusLabel(lang, item.status),
             }))}
           />
+          </div>
         </CardBody>
       </Card>
     </>

@@ -20,9 +20,9 @@ export async function POST(request: Request) {
       totp_code: totpCode || null,
     });
 
-    return buildSessionRedirect(request.url, next, response.session_token);
+    return buildSessionRedirect(request, next, response.session_token);
   } catch (error) {
-    return buildErrorRedirect(request.url, "/login", {
+    return buildErrorRedirect(request, "/login", {
       email,
       next,
       error: errorMessage(error),

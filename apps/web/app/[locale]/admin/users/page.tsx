@@ -68,7 +68,7 @@ export default async function AdminUsersPage() {
         eyebrow={pickText(lang, "用户台账", "User Ledger")}
         title={pickText(lang, "用户管理", "User Management")}
       >
-        <div className="content-grid content-grid--metrics">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 mb-6">
           <Card>
             <CardHeader>
               <CardTitle>{pickText(lang, "待验证邮箱", "Pending Verification")}</CardTitle>
@@ -98,6 +98,7 @@ export default async function AdminUsersPage() {
               <CardDescription>{pickText(lang, "状态、权限、会员和订单并排展示，避免在多个后台之间跳转确认。", "Status, privilege, membership, and order signals stay side by side.")}</CardDescription>
             </CardHeader>
             <CardBody>
+              <div className="overflow-x-auto whitespace-nowrap min-w-full pb-4 rounded-lg">
               <DataTable
                 columns={[
                   { key: "email", label: pickText(lang, "用户", "User") },
@@ -117,6 +118,7 @@ export default async function AdminUsersPage() {
                   security: item.totp_enabled ? pickText(lang, "已启用 TOTP", "TOTP enabled") : pickText(lang, "未启用 TOTP", "TOTP disabled"),
                 }))}
               />
+              </div>
             </CardBody>
           </Card>
           <Card>

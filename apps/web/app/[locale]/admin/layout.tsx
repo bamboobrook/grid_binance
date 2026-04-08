@@ -10,13 +10,13 @@ import {
   UI_THEME_COOKIE,
 } from "@/lib/ui/preferences";
 
-export default async function AdminAppLayout({ children }: { children: ReactNode }) {
-  const [snapshot, cookieStore] = await Promise.all([getAdminShellSnapshot(), cookies()]);
+export default async function AdminAppLayout({ children, params }: { children: ReactNode, params: Promise<{ locale: string }> }) {
+  const [snapshot, cookieStore, { locale }] = await Promise.all([getAdminShellSnapshot(), cookies(), params]);
   const lang = resolveUiLanguage(cookieStore.get(UI_LANGUAGE_COOKIE)?.value);
   const theme = resolveUiTheme(cookieStore.get(UI_THEME_COOKIE)?.value);
 
   return (
-    <AdminShell lang={lang} snapshot={snapshot} theme={theme}>
+    <AdminShell lang={lang} locale={locale} snapshot={snapshot} theme={theme}>
       {children}
     </AdminShell>
   );
