@@ -4,12 +4,7 @@ import { AppShellSection } from "@/components/shell/app-shell-section";
 import { Card, CardBody, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { DataTable } from "@/components/ui/table";
 import { getAdminUsersData } from "@/lib/api/admin-product-state";
-import { pickText, resolveUiLanguageFromRoute, UI_LANGUAGE_COOKIE, type UiLanguage } from "@/lib/ui/preferences";
-
-type PageProps = {
-  params: Promise<{ locale: string }>;
-};
-
+import { pickText, resolveUiLanguage, UI_LANGUAGE_COOKIE, type UiLanguage } from "@/lib/ui/preferences";
 
 function membershipLabel(lang: UiLanguage, status: string | null) {
   switch (status) {
@@ -59,10 +54,9 @@ function roleLabel(lang: UiLanguage, role: string | null) {
   }
 }
 
-export default async function AdminUsersPage({ params }: PageProps) {
-  const { locale } = await params;
+export default async function AdminUsersPage() {
   const [cookieStore, data] = await Promise.all([cookies(), getAdminUsersData()]);
-  const lang = resolveUiLanguageFromRoute(locale, cookieStore.get(UI_LANGUAGE_COOKIE)?.value);
+  const lang = resolveUiLanguage(cookieStore.get(UI_LANGUAGE_COOKIE)?.value);
   const pendingVerification = data.items.filter((item) => item.registered && item.email_verified === false).length;
   const privilegedUsers = data.items.filter((item) => item.admin_role).length;
   const totpDisabled = data.items.filter((item) => item.registered && item.totp_enabled === false).length;
@@ -74,7 +68,7 @@ export default async function AdminUsersPage({ params }: PageProps) {
         eyebrow={pickText(lang, "用户台账", "User Ledger")}
         title={pickText(lang, "用户管理", "User Management")}
       >
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 mb-6">
+        <div className="content-grid content-grid--metrics">
           <Card>
             <CardHeader>
               <CardTitle>{pickText(lang, "待验证邮箱", "Pending Verification")}</CardTitle>
@@ -104,8 +98,7 @@ export default async function AdminUsersPage({ params }: PageProps) {
               <CardDescription>{pickText(lang, "状态、权限、会员和订单并排展示，避免在多个后台之间跳转确认。", "Status, privilege, membership, and order signals stay side by side.")}</CardDescription>
             </CardHeader>
             <CardBody>
-              <div className="overflow-x-auto whitespace-nowrap min-w-full pb-4 rounded-lg">
-                <DataTable
+              <DataTable
                 columns={[
                   { key: "email", label: pickText(lang, "用户", "User") },
                   { key: "registration", label: pickText(lang, "注册状态", "Registration State") },
@@ -124,7 +117,6 @@ export default async function AdminUsersPage({ params }: PageProps) {
                   security: item.totp_enabled ? pickText(lang, "已启用 TOTP", "TOTP enabled") : pickText(lang, "未启用 TOTP", "TOTP disabled"),
                 }))}
               />
-              </div>
             </CardBody>
           </Card>
           <Card>
@@ -135,7 +127,7 @@ export default async function AdminUsersPage({ params }: PageProps) {
             <CardBody>
               <ul className="text-list">
                 <li>{pickText(lang, "注册状态会区分正式账号与仅有商业台账的记录。", "Registration state separates real accounts from ledger-only records.")}</li>
-                <li>{pickText(lang, "权限角色会明确区分超级管理员、操作员与普通用户边界。", "Role boundary keeps Super Admin, Operator Admin, and regular users explicit.")}</li>
+                <li>{pickText(lang, "权限角色直接暴露 super_admin、operator_admin 与普通用户边界。", "Role boundary keeps super_admin, operator_admin, and regular users explicit.")}</li>
                 <li>{pickText(lang, "宽限、冻结、撤销会员会在台账中优先暴露。", "Grace, frozen, and revoked memberships stay visible in the desk ledger.")}</li>
                 <li>{pickText(lang, "值班时优先补齐未启用 TOTP 的已注册账号。", "During on-call, prioritize registered accounts that still lack TOTP.")}</li>
               </ul>

@@ -5,7 +5,7 @@ import { Card, CardBody, CardDescription, CardHeader, CardTitle } from "@/compon
 import { Chip } from "@/components/ui/chip";
 import { StatusBanner } from "@/components/ui/status-banner";
 import { DataTable } from "@/components/ui/table";
-import { UI_LANGUAGE_COOKIE, pickText, resolveUiLanguageFromRoute, type UiLanguage } from "@/lib/ui/preferences";
+import { UI_LANGUAGE_COOKIE, pickText, resolveUiLanguage, type UiLanguage } from "@/lib/ui/preferences";
 
 const DEFAULT_AUTH_API_BASE_URL = "http://127.0.0.1:8080";
 
@@ -74,10 +74,9 @@ type FillRow = {
   symbol: string;
 };
 
-export default async function OrdersPage({ params }: { params: Promise<{ locale: string }> }) {
-  const { locale } = await params;
+export default async function OrdersPage() {
   const cookieStore = await cookies();
-  const lang = resolveUiLanguageFromRoute(locale, cookieStore.get(UI_LANGUAGE_COOKIE)?.value);
+  const lang = resolveUiLanguage(cookieStore.get(UI_LANGUAGE_COOKIE)?.value);
   const results = await Promise.all([fetchAnalytics(), fetchStrategies()]);
   const analytics = results[0];
   const strategies = results[1];
@@ -112,8 +111,7 @@ export default async function OrdersPage({ params }: { params: Promise<{ locale:
               <CardDescription>{pickText(lang, "每一行都来自真实运行时订单簿。", "Every row is rendered from the live runtime order book.")}</CardDescription>
             </CardHeader>
             <CardBody>
-              <div className="overflow-x-auto whitespace-nowrap min-w-full pb-4 rounded-lg">
-                <DataTable
+              <DataTable
                 columns={[
                   { key: "orderId", label: pickText(lang, "订单号", "Order ID") },
                   { key: "strategy", label: pickText(lang, "策略", "Strategy") },
@@ -128,7 +126,6 @@ export default async function OrdersPage({ params }: { params: Promise<{ locale:
                   state: <Chip tone={orderTone(row.state)}>{describeOrderState(lang, row.state)}</Chip>,
                 }))}
               />
-              </div>
             </CardBody>
           </Card>
           <Card>
@@ -137,8 +134,7 @@ export default async function OrdersPage({ params }: { params: Promise<{ locale:
               <CardDescription>{pickText(lang, "逐笔盈亏来自真实成交，不使用伪造汇总。", "Per-fill PnL comes from actual runtime fills, not fabricated summaries.")}</CardDescription>
             </CardHeader>
             <CardBody>
-              <div className="overflow-x-auto whitespace-nowrap min-w-full pb-4 rounded-lg">
-                <DataTable
+              <DataTable
                 columns={[
                   { key: "event", label: pickText(lang, "事件", "Event") },
                   { key: "symbol", label: pickText(lang, "交易对", "Symbol") },
@@ -151,7 +147,6 @@ export default async function OrdersPage({ params }: { params: Promise<{ locale:
                   pnl: row.pnl,
                 }))}
               />
-              </div>
             </CardBody>
           </Card>
         </div>
@@ -163,8 +158,7 @@ export default async function OrdersPage({ params }: { params: Promise<{ locale:
             <CardDescription>{pickText(lang, "这些记录用于对账 Binance 侧的实际执行。", "These rows help reconcile actual Binance-side executions.")}</CardDescription>
           </CardHeader>
           <CardBody>
-            <div className="overflow-x-auto whitespace-nowrap min-w-full pb-4 rounded-lg">
-                <DataTable
+            <DataTable
               columns={[
                 { key: "at", label: pickText(lang, "时间", "Timestamp") },
                 { key: "symbol", label: pickText(lang, "交易对", "Symbol") },
@@ -179,7 +173,6 @@ export default async function OrdersPage({ params }: { params: Promise<{ locale:
                 fee: row.fee_amount ? (row.fee_amount + " " + (row.fee_asset ?? "")).trim() : "-",
               }))}
             />
-              </div>
           </CardBody>
         </Card>
         <Card>
@@ -188,8 +181,7 @@ export default async function OrdersPage({ params }: { params: Promise<{ locale:
             <CardDescription>{pickText(lang, "账户级分析快照用于复盘成本与资金费。", "Account-level snapshots help review cost and funding drift.")}</CardDescription>
           </CardHeader>
           <CardBody>
-            <div className="overflow-x-auto whitespace-nowrap min-w-full pb-4 rounded-lg">
-                <DataTable
+            <DataTable
               columns={[
                 { key: "capturedAt", label: pickText(lang, "时间", "Timestamp") },
                 { key: "exchange", label: pickText(lang, "交易所", "Exchange") },
@@ -202,7 +194,6 @@ export default async function OrdersPage({ params }: { params: Promise<{ locale:
                 detail: pickText(lang, "手续费 " + row.fees_paid + " | 资金费 " + row.funding_total, "Fees " + row.fees_paid + " | Funding " + row.funding_total),
               }))}
             />
-              </div>
           </CardBody>
         </Card>
       </div>

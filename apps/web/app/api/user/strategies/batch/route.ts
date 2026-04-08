@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { localizedPath, localizedPublicPath, publicUrl } from "@/lib/auth";
 
 const DEFAULT_AUTH_API_BASE_URL = "http://127.0.0.1:8080";
 
@@ -9,7 +8,7 @@ export async function POST(request: Request) {
   const ids = formData.getAll("ids").filter((value): value is string => typeof value === "string").map((value) => value.trim()).filter(Boolean);
   const sessionToken = readSessionToken(request);
   if (!sessionToken) {
-    return NextResponse.redirect(publicUrl(request, localizedPublicPath(request, "/login?error=session+expired")), { status: 303 });
+    return NextResponse.redirect(new URL("/login?error=session+expired", request.url), { status: 303 });
   }
 
   if (intent === "stop-all") {
@@ -25,7 +24,7 @@ export async function POST(request: Request) {
     if ((payload.stopped ?? 0) === 0) {
       return redirectWithError(request, "No running strategies were stopped.");
     }
-    return NextResponse.redirect(publicUrl(request, localizedPath(request, "/app/strategies?notice=stop-all-complete")), { status: 303 });
+    return NextResponse.redirect(new URL("/app/strategies?notice=stop-all-complete", request.url), { status: 303 });
   }
 
   if (ids.length === 0) {
@@ -59,11 +58,11 @@ export async function POST(request: Request) {
     return redirectWithError(request, intent === "start" ? "No selected strategy could be started." : intent === "pause" ? "No running strategy was paused." : "Selected strategies could not be deleted.");
   }
 
-  return NextResponse.redirect(publicUrl(request, localizedPath(request, `/app/strategies?notice=batch-${intent}-complete`)), { status: 303 });
+  return NextResponse.redirect(new URL(`/app/strategies?notice=batch-${intent}-complete`, request.url), { status: 303 });
 }
 
 function redirectWithError(request: Request, error: string) {
-  return NextResponse.redirect(publicUrl(request, localizedPath(request, `/app/strategies?error=${encodeURIComponent(error)}`)), { status: 303 });
+  return NextResponse.redirect(new URL(`/app/strategies?error=${encodeURIComponent(error)}`, request.url), { status: 303 });
 }
 
 function readField(formData: FormData, key: string) {

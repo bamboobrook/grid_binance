@@ -1,16 +1,10 @@
 import {
   AuthProxyError,
-  authApiGet,
   authApiPost,
   buildErrorRedirect,
   buildSessionRedirect,
-  localizedAdminPath,
-  localizedAppPath,
 } from "../../../../lib/auth";
 
-type LoginProfile = {
-  admin_access_granted?: boolean;
-};
 
 export async function POST(request: Request) {
   const formData = await request.formData();
@@ -26,14 +20,9 @@ export async function POST(request: Request) {
       totp_code: totpCode || null,
     });
 
-    const profile = await authApiGet<LoginProfile>("/profile", response.session_token).catch(() => null);
-    const fallbackPath = profile?.admin_access_granted
-      ? localizedAdminPath(request, "/dashboard")
-      : localizedAppPath(request, "/dashboard");
-
-    return buildSessionRedirect(request, next, response.session_token, fallbackPath);
+    return buildSessionRedirect(request.url, next, response.session_token);
   } catch (error) {
-    return buildErrorRedirect(request, "/login", {
+    return buildErrorRedirect(request.url, "/login", {
       email,
       next,
       error: errorMessage(error),

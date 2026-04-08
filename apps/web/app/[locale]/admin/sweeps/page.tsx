@@ -11,22 +11,20 @@ import {
   getAdminSweepsData,
   getCurrentAdminProfile,
 } from "@/lib/api/admin-product-state";
-import { pickText, resolveUiLanguageFromRoute, UI_LANGUAGE_COOKIE } from "@/lib/ui/preferences";
+import { pickText, resolveUiLanguage, UI_LANGUAGE_COOKIE } from "@/lib/ui/preferences";
 
 type PageProps = {
-  params: Promise<{ locale: string }>;
   searchParams?: Promise<{ asset?: string; chain?: string; submitted?: string; treasury?: string }>;
 };
 
-export default async function AdminSweepsPage({ params, searchParams }: PageProps) {
-  const { locale } = await params;
-  const query = (await searchParams) ?? {};
-  const submitted = query.submitted === "1";
-  const treasury = typeof query.treasury === "string" ? query.treasury : "";
-  const selectedChain = typeof query.chain === "string" ? query.chain : "BSC";
-  const selectedAsset = typeof query.asset === "string" ? query.asset : "USDT";
+export default async function AdminSweepsPage({ searchParams }: PageProps) {
+  const params = (await searchParams) ?? {};
+  const submitted = params.submitted === "1";
+  const treasury = typeof params.treasury === "string" ? params.treasury : "";
+  const selectedChain = typeof params.chain === "string" ? params.chain : "BSC";
+  const selectedAsset = typeof params.asset === "string" ? params.asset : "USDT";
   const [cookieStore, profile, data] = await Promise.all([cookies(), getCurrentAdminProfile(), getAdminSweepsData()]);
-  const lang = resolveUiLanguageFromRoute(locale, cookieStore.get(UI_LANGUAGE_COOKIE)?.value);
+  const lang = resolveUiLanguage(cookieStore.get(UI_LANGUAGE_COOKIE)?.value);
   const canManageSweeps = profile.admin_permissions?.can_manage_sweeps ?? false;
 
   return (
@@ -78,7 +76,7 @@ export default async function AdminSweepsPage({ params, searchParams }: PageProp
                   <Button type="submit">{pickText(lang, "提交归集", "Submit Sweep")}</Button>
                 </FormStack>
               ) : (
-                <p>{pickText(lang, "需要超级管理员会话才能执行归集操作。", "A Super Admin session is required for sweep operations.")}</p>
+                <p>{pickText(lang, "需要 super_admin 才能执行归集操作。", "A super_admin session is required for sweep operations.")}</p>
               )}
             </CardBody>
           </Card>
@@ -90,8 +88,7 @@ export default async function AdminSweepsPage({ params, searchParams }: PageProp
           <CardDescription>{pickText(lang, "逐行暴露金库地址、生命周期和失败原因。", "Treasury destination, lifecycle, and failure detail stay visible row by row.")}</CardDescription>
         </CardHeader>
         <CardBody>
-          <div className="overflow-x-auto whitespace-nowrap min-w-full pb-4 rounded-lg">
-                <DataTable
+          <DataTable
             columns={[
               { key: "id", label: pickText(lang, "任务", "Job") },
               { key: "chain", label: pickText(lang, "链路资产", "Route") },
@@ -111,7 +108,6 @@ export default async function AdminSweepsPage({ params, searchParams }: PageProp
               treasury: item.treasury_address,
             }))}
           />
-              </div>
         </CardBody>
       </Card>
     </>

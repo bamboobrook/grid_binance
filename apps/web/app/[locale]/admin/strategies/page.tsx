@@ -5,10 +5,9 @@ import { Card, CardBody, CardDescription, CardHeader, CardTitle } from "@/compon
 import { Button, ButtonRow, Field, FormStack, Select } from "@/components/ui/form";
 import { DataTable } from "@/components/ui/table";
 import { getAdminStrategiesData } from "@/lib/api/admin-product-state";
-import { pickText, resolveUiLanguageFromRoute, UI_LANGUAGE_COOKIE, type UiLanguage } from "@/lib/ui/preferences";
+import { pickText, resolveUiLanguage, UI_LANGUAGE_COOKIE, type UiLanguage } from "@/lib/ui/preferences";
 
 type PageProps = {
-  params: Promise<{ locale: string }>;
   searchParams?: Promise<{ selected?: string; state?: string }>;
 };
 
@@ -27,13 +26,12 @@ function statusLabel(lang: UiLanguage, status: string) {
   }
 }
 
-export default async function AdminStrategiesPage({ params, searchParams }: PageProps) {
-  const { locale } = await params;
-  const query = (await searchParams) ?? {};
+export default async function AdminStrategiesPage({ searchParams }: PageProps) {
+  const params = (await searchParams) ?? {};
   const [cookieStore, data] = await Promise.all([cookies(), getAdminStrategiesData()]);
-  const lang = resolveUiLanguageFromRoute(locale, cookieStore.get(UI_LANGUAGE_COOKIE)?.value);
-  const stateFilter = typeof query.state === "string" ? query.state.toLowerCase() : "all";
-  const selectedId = typeof query.selected === "string" ? query.selected : "";
+  const lang = resolveUiLanguage(cookieStore.get(UI_LANGUAGE_COOKIE)?.value);
+  const stateFilter = typeof params.state === "string" ? params.state.toLowerCase() : "all";
+  const selectedId = typeof params.selected === "string" ? params.selected : "";
   const items = data.items.filter((item) => (stateFilter === "all" ? true : item.status.toLowerCase() == stateFilter));
   const selected = data.items.find((item) => item.id === selectedId) ?? items[0] ?? null;
 
@@ -51,7 +49,7 @@ export default async function AdminStrategiesPage({ params, searchParams }: Page
               <CardDescription>{pickText(lang, "按运行状态缩小值班视野。", "Filter backend strategies by runtime state.")}</CardDescription>
             </CardHeader>
             <CardBody>
-              <FormStack action={`/${locale}/admin/strategies`} method="get">
+              <FormStack action="/admin/strategies" method="get">
                 <Field label={pickText(lang, "运行态", "Runtime State")}>
                   <Select defaultValue={stateFilter} name="state">
                     <option value="all">{pickText(lang, "全部状态", "All States")}</option>
@@ -97,8 +95,7 @@ export default async function AdminStrategiesPage({ params, searchParams }: Page
           {items.length === 0 ? (
             <p>{pickText(lang, "暂无可见策略。", "No operator-visible strategies yet.")}</p>
           ) : (
-            <div className="overflow-x-auto whitespace-nowrap min-w-full pb-4 rounded-lg">
-                <DataTable
+            <DataTable
               columns={[
                 { key: "name", label: pickText(lang, "名称", "Name") },
                 { key: "owner", label: pickText(lang, "所有者", "Owner") },
@@ -111,9 +108,8 @@ export default async function AdminStrategiesPage({ params, searchParams }: Page
               rows={items.map((item) => ({
                 id: item.id,
                 action: (
-                  <form action={`/${locale}/admin/strategies`} method="get">
+                  <form action="/admin/strategies" method="get">
                     <input name="state" type="hidden" value={stateFilter} />
-              </div>
                     <input name="selected" type="hidden" value={item.id} />
                     <Button type="submit">{pickText(lang, "查看详情", "View Detail")}</Button>
                   </form>

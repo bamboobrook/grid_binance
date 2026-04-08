@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { localizedPath, localizedPublicPath, publicUrl } from "@/lib/auth";
 
 const DEFAULT_AUTH_API_BASE_URL = "http://127.0.0.1:8080";
 
@@ -9,7 +8,7 @@ export async function POST(request: Request) {
   const sessionToken = readSessionToken(request);
 
   if (!sessionToken) {
-    return NextResponse.redirect(publicUrl(request, localizedPublicPath(request, "/login?error=session+expired")), { status: 303 });
+    return NextResponse.redirect(new URL("/login?error=session+expired", request.url), { status: 303 });
   }
 
   if (intent === "save") {
@@ -27,7 +26,7 @@ export async function POST(request: Request) {
       return redirectWithError(request, result.error ?? "Exchange credential save failed");
     }
 
-    return NextResponse.redirect(publicUrl(request, localizedPath(request, "/app/exchange?exchange=credentials-saved")), { status: 303 });
+    return NextResponse.redirect(new URL("/app/exchange?exchange=credentials-saved", request.url), { status: 303 });
   }
 
   const account = await exchangeGet(sessionToken, "/exchange/binance/account");
@@ -36,7 +35,7 @@ export async function POST(request: Request) {
   }
 
   const status = account.data?.account?.connection_status === "healthy" ? "test-passed" : "test-failed";
-  return NextResponse.redirect(publicUrl(request, localizedPath(request, `/app/exchange?exchange=${status}`)), { status: 303 });
+  return NextResponse.redirect(new URL(`/app/exchange?exchange=${status}`, request.url), { status: 303 });
 }
 
 async function exchangePost(sessionToken: string, path: string, body: Record<string, unknown>) {
@@ -83,7 +82,7 @@ async function readError(response: Response) {
 }
 
 function redirectWithError(request: Request, error: string) {
-  return NextResponse.redirect(publicUrl(request, localizedPath(request, `/app/exchange?error=${encodeURIComponent(error)}`)), { status: 303 });
+  return NextResponse.redirect(new URL(`/app/exchange?error=${encodeURIComponent(error)}`, request.url), { status: 303 });
 }
 
 function readField(formData: FormData, key: string) {

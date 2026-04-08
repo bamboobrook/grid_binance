@@ -41,9 +41,9 @@ function renderArticleBlock(block: HelpArticleBlock, index: number) {
 export default async function HelpArticlePage({
   params,
 }: {
-  params: Promise<{ locale: string; slug: string }>;
+  params: Promise<{ slug: string }>;
 }) {
-  const { locale, slug } = await params;
+  const { slug } = await params;
   const article = getHelpArticle(slug);
 
   if (!article) {
@@ -57,16 +57,16 @@ export default async function HelpArticlePage({
         <Card>
           <CardHeader>
             <CardTitle>{article.title}</CardTitle>
-            <CardDescription>{locale === "zh" ? "公开帮助页，与应用内帮助中心共享同一份仓库文档。" : "Public help route showing the same repository-backed content rendered in /app/help."}</CardDescription>
+            <CardDescription>Public help route showing the same repository-backed content rendered in /app/help.</CardDescription>
           </CardHeader>
           <CardBody>
             {article.blocks.map((block, index) => renderArticleBlock(block, index))}
             <div className="flex items-center gap-2">
-              <Link className="inline-flex items-center justify-center rounded-sm text-sm font-medium h-9 px-4 py-2 hover:bg-secondary text-foreground transition-colors" href={`/${locale}/app/help?article=${article.slug}`}>
-                {locale === "zh" ? "在应用内帮助中心打开" : "Open in App Help Center"}
+              <Link className="inline-flex items-center justify-center rounded-sm text-sm font-medium h-9 px-4 py-2 hover:bg-secondary text-foreground transition-colors" href={`/app/help?article=${article.slug}`}>
+                Open in App Help Center
               </Link>
-              <Link className="inline-flex items-center justify-center rounded-sm text-sm font-medium h-9 px-4 py-2 bg-primary hover:bg-primary/90 text-foreground shadow-sm transition-colors" href={`/${locale}/app/billing`}>
-                {locale === "zh" ? "打开计费中心" : "Open Billing Center"}
+              <Link className="inline-flex items-center justify-center rounded-sm text-sm font-medium h-9 px-4 py-2 bg-primary hover:bg-primary/90 text-foreground shadow-sm transition-colors" href="/app/billing">
+                Open Billing Center
               </Link>
             </div>
           </CardBody>

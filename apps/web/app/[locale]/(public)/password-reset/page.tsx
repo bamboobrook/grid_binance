@@ -6,7 +6,7 @@ import { Card, CardBody, CardDescription, CardFooter, CardHeader, CardTitle } fr
 import { Button, ButtonRow, Field, FormStack, Input } from "@/components/ui/form";
 import { StatusBanner } from "@/components/ui/status-banner";
 import { firstValue } from "@/lib/auth";
-import { pickText, resolveUiLanguageFromRoute, UI_LANGUAGE_COOKIE } from "@/lib/ui/preferences";
+import { pickText, resolveUiLanguage, UI_LANGUAGE_COOKIE } from "@/lib/ui/preferences";
 
 type PasswordResetPageProps = {
   params: Promise<{ locale: string }>;
@@ -23,7 +23,7 @@ export default async function PasswordResetPage({ params, searchParams }: Passwo
   const { locale } = await params;
   const [searchParamsValue, cookieStore] = await Promise.all([searchParams, cookies()]);
   const resolved = searchParamsValue ?? {};
-  const lang = resolveUiLanguageFromRoute(locale, cookieStore.get(UI_LANGUAGE_COOKIE)?.value);
+  const lang = resolveUiLanguage(cookieStore.get(UI_LANGUAGE_COOKIE)?.value);
   const email = firstValue(resolved.email) ?? "";
   const code = firstValue(resolved.code) ?? "";
   const error = firstValue(resolved.error);
@@ -64,7 +64,7 @@ export default async function PasswordResetPage({ params, searchParams }: Passwo
           <FormStack action={`/api/auth/password-reset?locale=${locale}`} method="post" className="space-y-5">
             <input name="intent" type="hidden" value={step} />
             
-            <Field label={pickText(lang, "邮箱", "Email")}>
+            <Field label="Email">
               <Input 
                 autoComplete="email" 
                 defaultValue={email} 

@@ -5,10 +5,9 @@ import { Card, CardBody, CardDescription, CardHeader, CardTitle } from "@/compon
 import { Chip } from "@/components/ui/chip";
 import { Button, Field, FormStack, Input } from "@/components/ui/form";
 import { StatusBanner } from "@/components/ui/status-banner";
-import { UI_LANGUAGE_COOKIE, pickText, resolveUiLanguageFromRoute } from "@/lib/ui/preferences";
+import { UI_LANGUAGE_COOKIE, pickText, resolveUiLanguage } from "@/lib/ui/preferences";
 
 type SecurityPageProps = {
-  params: Promise<{ locale: string }>;
   searchParams?: Promise<{
     error?: string | string[];
     security?: string | string[];
@@ -25,23 +24,20 @@ type ProfileResponse = {
 const DEFAULT_AUTH_API_BASE_URL = "http://127.0.0.1:8080";
 const PENDING_TOTP_SECRET_COOKIE = "pending_totp_secret";
 const PENDING_TOTP_CODE_COOKIE = "pending_totp_code";
-const TOTP_ISSUER = "Grid.Binance";
 
 function firstValue(value?: string | string[]) {
   return Array.isArray(value) ? value[0] : value;
 }
 
-export default async function SecurityPage({ params, searchParams }: SecurityPageProps) {
-  const { locale } = await params;
-  const resolved = (await searchParams) ?? {};
+export default async function SecurityPage({ searchParams }: SecurityPageProps) {
+  const params = (await searchParams) ?? {};
   const cookieStore = await cookies();
-  const lang = resolveUiLanguageFromRoute(locale, cookieStore.get(UI_LANGUAGE_COOKIE)?.value);
-  const error = firstValue(resolved.error);
-  const security = firstValue(resolved.security);
+  const lang = resolveUiLanguage(cookieStore.get(UI_LANGUAGE_COOKIE)?.value);
+  const error = firstValue(params.error);
+  const security = firstValue(params.security);
   const profile = await fetchProfile();
   const secret = cookieStore.get(PENDING_TOTP_SECRET_COOKIE)?.value ?? "";
   const code = cookieStore.get(PENDING_TOTP_CODE_COOKIE)?.value ?? "";
-  const provisioningUri = buildTotpProvisioningUri(profile?.email ?? "", secret);
 
   return (
     <>
@@ -115,11 +111,8 @@ export default async function SecurityPage({ params, searchParams }: SecurityPag
               </div>
               {security === "totp-enabled" ? (
                 <div className="ui-form">
-                  <Field hint={pickText(lang, "这是标准 Base32 密钥，可手动添加到验证器。", "This is a standard Base32 secret for manual authenticator setup.")} label={pickText(lang, "TOTP 密钥", "TOTP secret")}>
+                  <Field hint={pickText(lang, "下次登录前请先保存到验证器。", "Save this in your authenticator app before the next login.")} label={pickText(lang, "TOTP 密钥", "TOTP secret")}>
                     <Input readOnly value={secret} />
-                  </Field>
-                  <Field hint={pickText(lang, "支持 otpauth:// 的密码管理器或验证器可以直接导入。", "Password managers or authenticators that support otpauth:// can import this directly.")} label={pickText(lang, "TOTP 导入链接", "TOTP provisioning URI")}>
-                    <Input readOnly value={provisioningUri} />
                   </Field>
                   <Field hint={pickText(lang, "首次 TOTP 登录时会用到这个当前验证码。", "Use this current code to verify the first TOTP-based login.")} label={pickText(lang, "当前 TOTP 验证码", "Current TOTP code")}>
                     <Input readOnly value={code} />
@@ -138,16 +131,6 @@ export default async function SecurityPage({ params, searchParams }: SecurityPag
       </AppShellSection>
     </>
   );
-}
-
-
-function buildTotpProvisioningUri(email: string, secret: string) {
-  if (!email || !secret) {
-    return "";
-  }
-
-  const label = `${TOTP_ISSUER}:${email}`;
-  return `otpauth://totp/${encodeURIComponent(label)}?secret=${encodeURIComponent(secret)}&issuer=${encodeURIComponent(TOTP_ISSUER)}&algorithm=SHA1&digits=6&period=30`;
 }
 
 async function fetchProfile(): Promise<ProfileResponse | null> {

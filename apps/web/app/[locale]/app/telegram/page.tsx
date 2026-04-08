@@ -6,12 +6,11 @@ import { Chip } from "@/components/ui/chip";
 import { Button, FormStack } from "@/components/ui/form";
 import { StatusBanner } from "@/components/ui/status-banner";
 import { DataTable } from "@/components/ui/table";
-import { UI_LANGUAGE_COOKIE, pickText, resolveUiLanguageFromRoute, type UiLanguage } from "@/lib/ui/preferences";
+import { UI_LANGUAGE_COOKIE, pickText, resolveUiLanguage, type UiLanguage } from "@/lib/ui/preferences";
 
 const DEFAULT_AUTH_API_BASE_URL = "http://127.0.0.1:8080";
 
 type TelegramPageProps = {
-  params: Promise<{ locale: string }>;
   searchParams?: Promise<{
     code?: string | string[];
     error?: string | string[];
@@ -41,15 +40,14 @@ function firstValue(value?: string | string[]) {
   return Array.isArray(value) ? value[0] : value;
 }
 
-export default async function TelegramPage({ params, searchParams }: TelegramPageProps) {
-  const { locale } = await params;
+export default async function TelegramPage({ searchParams }: TelegramPageProps) {
   const cookieStore = await cookies();
-  const lang = resolveUiLanguageFromRoute(locale, cookieStore.get(UI_LANGUAGE_COOKIE)?.value);
-  const query = (await searchParams) ?? {};
-  const notice = firstValue(query.notice);
-  const error = firstValue(query.error);
-  const bindCode = firstValue(query.code) ?? "";
-  const expiresAt = firstValue(query.expires) ?? "";
+  const lang = resolveUiLanguage(cookieStore.get(UI_LANGUAGE_COOKIE)?.value);
+  const params = (await searchParams) ?? {};
+  const notice = firstValue(params.notice);
+  const error = firstValue(params.error);
+  const bindCode = firstValue(params.code) ?? "";
+  const expiresAt = firstValue(params.expires) ?? "";
   const context = await fetchTelegramContext();
   const binding = context?.binding ?? null;
   const inbox = context?.notifications.items ?? [];
@@ -133,8 +131,7 @@ export default async function TelegramPage({ params, searchParams }: TelegramPag
           <CardDescription>{pickText(lang, "即使绑定完成，送达历史也会继续保留在这里。", "Delivery history remains visible here even after binding is complete.")}</CardDescription>
         </CardHeader>
         <CardBody>
-          <div className="overflow-x-auto whitespace-nowrap min-w-full pb-4 rounded-lg">
-                <DataTable
+          <DataTable
             columns={[
               { key: "event", label: pickText(lang, "事件", "Event") },
               { key: "channel", label: pickText(lang, "通道", "Channel") },
@@ -150,7 +147,6 @@ export default async function TelegramPage({ params, searchParams }: TelegramPag
               };
             })}
           />
-              </div>
         </CardBody>
       </Card>
     </>

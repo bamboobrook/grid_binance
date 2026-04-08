@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { authApiBaseUrl } from "../../../lib/api/admin-product-state";
-import { localizedAdminPath, publicUrl } from "@/lib/auth";
+
 
 export function readField(formData: FormData, key: string) {
   const value = formData.get(key);
@@ -15,15 +15,7 @@ export function readSessionToken(request: Request) {
 }
 
 export function redirectTo(request: Request, path: string) {
-  return NextResponse.redirect(publicUrl(request, localizedAdminPath(request, asAdminSubpath(path))), { status: 303 });
-}
-
-function asAdminSubpath(path: string) {
-  if (path.startsWith("/admin")) {
-    const rest = path.slice("/admin".length);
-    return rest === "" ? "/" : rest;
-  }
-  return path;
+  return NextResponse.redirect(new URL(path, request.url), { status: 303 });
 }
 
 export async function postAdminBackend(request: Request, path: string, body: Record<string, unknown>) {

@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 
-import { AuthProxyError, authApiPost, localizedPublicPath, publicUrl, shouldUseSecureCookie } from "../../../../lib/auth";
+import { AuthProxyError, authApiPost } from "../../../../lib/auth";
 
 export async function POST(request: Request) {
-  const secureCookie = shouldUseSecureCookie(request);
+  const secureCookie = process.env.NODE_ENV === "production";
   const formData = await request.formData();
   const intent = readField(formData, "intent") || "request";
   const email = readField(formData, "email");
@@ -23,7 +23,7 @@ export async function POST(request: Request) {
 async function requestReset(request: Request, email: string, secureCookie: boolean) {
   try {
     const responseBody = await authApiPost<{ code_delivery: string; reset_code?: string }>("/auth/password-reset/request", { email });
-    const url = publicUrl(request, localizedPublicPath(request, "/password-reset"));
+    const url = new URL("/password-reset", request.url);
     url.searchParams.set("email", email);
     url.searchParams.set("step", "confirm");
     url.searchParams.set("notice", "reset-code-issued");
@@ -38,7 +38,7 @@ async function requestReset(request: Request, email: string, secureCookie: boole
     }
     return response;
   } catch (error) {
-    const url = publicUrl(request, localizedPublicPath(request, "/password-reset"));
+    const url = new URL("/password-reset", request.url);
     url.searchParams.set("email", email);
     url.searchParams.set("error", errorMessage(error));
     return NextResponse.redirect(url, { status: 303 });
@@ -52,12 +52,12 @@ async function confirmReset(request: Request, email: string, code: string, passw
       code,
       new_password: password,
     });
-    const url = publicUrl(request, localizedPublicPath(request, "/login"));
+    const url = new URL("/login", request.url);
     url.searchParams.set("email", email);
     url.searchParams.set("notice", "password-reset-complete");
     return NextResponse.redirect(url, { status: 303 });
   } catch (error) {
-    const url = publicUrl(request, localizedPublicPath(request, "/password-reset"));
+    const url = new URL("/password-reset", request.url);
     url.searchParams.set("email", email);
     url.searchParams.set("step", "confirm");
     url.searchParams.set("error", errorMessage(error));

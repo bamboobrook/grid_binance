@@ -10,7 +10,7 @@ import {
   getAdminMembershipsData,
   getCurrentAdminProfile,
 } from "@/lib/api/admin-product-state";
-import { pickText, resolveUiLanguageFromRoute, UI_LANGUAGE_COOKIE, type UiLanguage } from "@/lib/ui/preferences";
+import { pickText, resolveUiLanguage, UI_LANGUAGE_COOKIE, type UiLanguage } from "@/lib/ui/preferences";
 
 const SUPPORTED_CHAINS = ["ETH", "BSC", "SOL"] as const;
 const SUPPORTED_ASSETS = ["USDT", "USDC"] as const;
@@ -19,7 +19,6 @@ const SUPPORTED_PRICE_MATRIX = SUPPORTED_CHAINS.flatMap((chain) =>
 );
 
 type PageProps = {
-  params: Promise<{ locale: string }>;
   searchParams?: Promise<{ action?: string; planError?: string; planSaved?: string; target?: string }>;
 };
 
@@ -55,20 +54,19 @@ function actionLabel(lang: UiLanguage, action: string) {
   }
 }
 
-export default async function AdminMembershipsPage({ params, searchParams }: PageProps) {
-  const { locale } = await params;
-  const query = (await searchParams) ?? {};
+export default async function AdminMembershipsPage({ searchParams }: PageProps) {
+  const params = (await searchParams) ?? {};
   const [cookieStore, profile, memberships, plans] = await Promise.all([
     cookies(),
     getCurrentAdminProfile(),
     getAdminMembershipsData(),
     getAdminMembershipPlansData(),
   ]);
-  const lang = resolveUiLanguageFromRoute(locale, cookieStore.get(UI_LANGUAGE_COOKIE)?.value);
-  const targetEmail = typeof query.target === "string" ? query.target : "";
-  const lastAction = typeof query.action === "string" ? query.action : "";
-  const planSaved = typeof query.planSaved === "string" ? query.planSaved : "";
-  const planError = typeof query.planError === "string" ? query.planError : "";
+  const lang = resolveUiLanguage(cookieStore.get(UI_LANGUAGE_COOKIE)?.value);
+  const targetEmail = typeof params.target === "string" ? params.target : "";
+  const lastAction = typeof params.action === "string" ? params.action : "";
+  const planSaved = typeof params.planSaved === "string" ? params.planSaved : "";
+  const planError = typeof params.planError === "string" ? params.planError : "";
   const updatedMembership = memberships.items.find((item) => item.email === targetEmail) ?? null;
   const canManage = profile.admin_permissions?.can_manage_memberships ?? false;
   const canManagePlans = profile.admin_permissions?.can_manage_plans ?? false;
@@ -103,7 +101,7 @@ export default async function AdminMembershipsPage({ params, searchParams }: Pag
         eyebrow={pickText(lang, "会员生命周期", "Membership Lifecycle")}
         title={pickText(lang, "会员运营", "Membership Operations")}
       >
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 mb-6">
+        <div className="content-grid content-grid--metrics">
           <Card>
             <CardHeader>
               <CardTitle>{pickText(lang, "风险会员", "Membership Risk")}</CardTitle>
@@ -153,7 +151,7 @@ export default async function AdminMembershipsPage({ params, searchParams }: Pag
                   <Button type="submit">{pickText(lang, "保存价格矩阵", "Save Price Matrix")}</Button>
                 </FormStack>
               ) : (
-                <p>{pickText(lang, "需要超级管理员会话才能修改价格矩阵；当前席位只展示价格快照。", "A Super Admin session is required to change the price matrix.")}</p>
+                <p>{pickText(lang, "需要 super_admin 才能改价格矩阵；当前席位只展示价格快照。", "A super_admin session is required to change the price matrix.")}</p>
               )}
             </CardBody>
           </Card>
@@ -187,8 +185,7 @@ export default async function AdminMembershipsPage({ params, searchParams }: Pag
           <CardDescription>{pickText(lang, "展示全部计划的当前天数与链上报价，避免把当前能力夸大成“全计划都可直接编辑”。", "Shows all plans with duration and chain pricing so the desk does not overstate what is directly editable.")}</CardDescription>
         </CardHeader>
         <CardBody>
-          <div className="overflow-x-auto whitespace-nowrap min-w-full pb-4 rounded-lg">
-                <DataTable
+          <DataTable
             columns={[
               { key: "code", label: pickText(lang, "计划", "Plan") },
               { key: "duration", label: pickText(lang, "时长", "Duration") },
@@ -203,7 +200,6 @@ export default async function AdminMembershipsPage({ params, searchParams }: Pag
               prices: plan.prices.map((price) => price.chain + " " + price.asset + " " + price.amount).join(" | "),
             }))}
           />
-              </div>
         </CardBody>
       </Card>
       <Card>
@@ -212,8 +208,7 @@ export default async function AdminMembershipsPage({ params, searchParams }: Pag
           <CardDescription>{pickText(lang, "显式展示生命周期状态和可执行动作。", "Lifecycle status and available desk actions remain explicit.")}</CardDescription>
         </CardHeader>
         <CardBody>
-          <div className="overflow-x-auto whitespace-nowrap min-w-full pb-4 rounded-lg">
-                <DataTable
+          <DataTable
             columns={membershipColumns}
             rows={memberships.items.map((item) => ({
               id: item.email,
@@ -222,7 +217,6 @@ export default async function AdminMembershipsPage({ params, searchParams }: Pag
                 <div>
                   <FormStack action="/api/admin/memberships" method="post">
                     <input name="email" type="hidden" value={item.email} />
-              </div>
                     <Field label={pickText(lang, "延长天数", "Extend Days")}>
                       <Input defaultValue="15" inputMode="numeric" name="durationDays" />
                     </Field>

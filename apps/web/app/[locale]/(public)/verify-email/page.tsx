@@ -6,7 +6,7 @@ import { Card, CardBody } from "@/components/ui/card";
 import { Button, Field, FormStack, Input } from "@/components/ui/form";
 import { StatusBanner } from "@/components/ui/status-banner";
 import { firstValue, safeRedirectTarget } from "@/lib/auth";
-import { pickText, resolveUiLanguageFromRoute, UI_LANGUAGE_COOKIE } from "@/lib/ui/preferences";
+import { pickText, resolveUiLanguage, UI_LANGUAGE_COOKIE } from "@/lib/ui/preferences";
 
 type VerifyEmailPageProps = {
   params: Promise<{ locale: string }>;
@@ -23,11 +23,11 @@ export default async function VerifyEmailPage({ params, searchParams }: VerifyEm
   const { locale } = await params;
   const [searchParamsValue, cookieStore] = await Promise.all([searchParams, cookies()]);
   const resolved = searchParamsValue ?? {};
-  const lang = resolveUiLanguageFromRoute(locale, cookieStore.get(UI_LANGUAGE_COOKIE)?.value);
+  const lang = resolveUiLanguage(cookieStore.get(UI_LANGUAGE_COOKIE)?.value);
   const email = firstValue(resolved.email) ?? "";
   const code = firstValue(resolved.code) ?? "";
   const error = firstValue(resolved.error);
-  const next = safeRedirectTarget(firstValue(resolved.next), `/${locale}/app/dashboard`);
+  const next = safeRedirectTarget(firstValue(resolved.next), "/app/dashboard");
   const notice = firstValue(resolved.notice);
 
   return (
@@ -58,7 +58,7 @@ export default async function VerifyEmailPage({ params, searchParams }: VerifyEm
           <FormStack action={`/api/auth/verify-email?locale=${locale}`} method="post" className="space-y-5">
             <input name="next" type="hidden" value={next} />
             
-            <Field label={pickText(lang, "邮箱", "Email")}>
+            <Field label="Email">
               <Input 
                 autoComplete="email" 
                 defaultValue={email} 

@@ -13,7 +13,7 @@ import { DataTable } from "../../../../../components/ui/table";
 const DEFAULT_AUTH_API_BASE_URL = "http://127.0.0.1:8080";
 
 type PageProps = {
-  params: Promise<{ locale: string; id: string }>;
+  params: Promise<{ id: string }>;
   searchParams?: Promise<{
     error?: string | string[];
     notice?: string | string[];
@@ -86,7 +86,7 @@ function firstValue(value?: string | string[]) {
 }
 
 export default async function StrategyDetailPage({ params, searchParams }: PageProps) {
-  const { locale, id } = await params;
+  const { id } = await params;
   const [strategyResult, analyticsResult] = await Promise.all([fetchStrategy(id), fetchAnalytics()]);
   const strategy = strategyResult.strategy;
   const analytics = analyticsResult.analytics;
@@ -137,26 +137,26 @@ export default async function StrategyDetailPage({ params, searchParams }: PageP
         />
       ) : null}
       {error ? <StatusBanner description={error} title="Strategy action failed" /> : null}
-      {strategyResult.error ? <StatusBanner description={strategyResult.error} title={locale === "zh" ? "策略数据不可用" : "Strategy data unavailable"} /> : null}
-      {preflightResult.error ? <StatusBanner description={preflightResult.error} title={locale === "zh" ? "预检状态不可用" : "Pre-flight status unavailable"} /> : null}
-      {analyticsResult.error ? <StatusBanner description={analyticsResult.error} title={locale === "zh" ? "策略统计不可用" : "Strategy analytics unavailable"} /> : null}
-      {symbolMatchesResult.error ? <StatusBanner description={symbolMatchesResult.error} title={locale === "zh" ? "交易对搜索不可用" : "Symbol search unavailable"} /> : null}
+      {strategyResult.error ? <StatusBanner description={strategyResult.error} title="Strategy data unavailable" /> : null}
+      {preflightResult.error ? <StatusBanner description={preflightResult.error} title="Pre-flight status unavailable" /> : null}
+      {analyticsResult.error ? <StatusBanner description={analyticsResult.error} title="Strategy analytics unavailable" /> : null}
+      {symbolMatchesResult.error ? <StatusBanner description={symbolMatchesResult.error} title="Symbol search unavailable" /> : null}
       <AppShellSection
         actions={
           <div className="flex items-center gap-2">
-            <Link className="inline-flex items-center justify-center rounded-sm text-sm font-medium h-9 px-4 py-2 hover:bg-secondary text-foreground transition-colors" href={`/${locale}/app/orders`}>
-              {locale === "zh" ? "订单" : "Orders"}
+            <Link className="inline-flex items-center justify-center rounded-sm text-sm font-medium h-9 px-4 py-2 hover:bg-secondary text-foreground transition-colors" href="/app/orders">
+              Orders
             </Link>
-            <Link className="inline-flex items-center justify-center rounded-sm text-sm font-medium h-9 px-4 py-2 hover:bg-secondary text-foreground transition-colors" href={`/${locale}/app/help`}>
-              {locale === "zh" ? "帮助中心" : "Help Center"}
+            <Link className="inline-flex items-center justify-center rounded-sm text-sm font-medium h-9 px-4 py-2 hover:bg-secondary text-foreground transition-colors" href="/app/help">
+              Help Center
             </Link>
           </div>
         }
-        description={locale === "zh" ? "重启或启动前，在这里核对已保存参数、独立策略统计和预检状态。" : "Review saved parameters, independent strategy statistics, and pre-flight status before restarting or launching."}
-        eyebrow={locale === "zh" ? "策略工作区" : "Strategy workspace"}
-        title={locale === "zh" ? "策略工作区" : "Strategy Workspace"}
+        description="Review saved parameters, independent strategy statistics, and pre-flight status before restarting or launching."
+        eyebrow="Strategy workspace"
+        title="Strategy Workspace"
       >
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 mb-6">
+        <div className="content-grid content-grid--metrics">
           <Card>
             <CardHeader>
               <CardTitle>{strategy.name}</CardTitle>
@@ -167,16 +167,16 @@ export default async function StrategyDetailPage({ params, searchParams }: PageP
           <Card>
             <CardHeader>
               <CardTitle>{strategy.mode}</CardTitle>
-              <CardDescription>{locale === "zh" ? "模式" : "Mode"}</CardDescription>
+              <CardDescription>Mode</CardDescription>
             </CardHeader>
-            <CardBody>{locale === "zh" ? "生成方式" : "Generation"}: {strategy.draft_revision.generation}</CardBody>
+            <CardBody>Generation: {strategy.draft_revision.generation}</CardBody>
           </Card>
           <Card>
             <CardHeader>
               <CardTitle>{trailingPercent || "-"}%</CardTitle>
-              <CardDescription>{locale === "zh" ? "追踪止盈" : "Trailing take profit"}</CardDescription>
+              <CardDescription>Trailing take profit</CardDescription>
             </CardHeader>
-            <CardBody>{locale === "zh" ? "只有在能接受 taker 手续费时才建议使用。" : "Use only when taker execution fee tradeoff is acceptable."}</CardBody>
+            <CardBody>Use only when taker execution fee tradeoff is acceptable.</CardBody>
           </Card>
           <Card>
             <CardHeader>
@@ -185,31 +185,31 @@ export default async function StrategyDetailPage({ params, searchParams }: PageP
                   {describeStrategyStatus(strategy.status)}
                 </Chip>
               </CardTitle>
-              <CardDescription>{locale === "zh" ? "当前状态" : "Current state"}</CardDescription>
+              <CardDescription>Current state</CardDescription>
             </CardHeader>
-            <CardBody>{locale === "zh" ? "修改前先暂停，重启前先保存，运行中不支持热修改。" : "Pause first to edit, save before restart, no hot-modify while running."}</CardBody>
+            <CardBody>Pause first to edit, save before restart, no hot-modify while running.</CardBody>
           </Card>
         </div>
       </AppShellSection>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <Card>
           <CardHeader>
-            <CardTitle>{locale === "zh" ? "编辑与生命周期" : "Edit and lifecycle flow"}</CardTitle>
-            <CardDescription>{locale === "zh" ? "预检与策略控制都是真实后端生命周期动作。" : "Pre-flight and strategy controls are POST-backed lifecycle steps against the real backend."}</CardDescription>
+            <CardTitle>Edit and lifecycle flow</CardTitle>
+            <CardDescription>Pre-flight and strategy controls are POST-backed lifecycle steps against the real backend.</CardDescription>
           </CardHeader>
           <CardBody>
-            <form action={`/${locale}/app/strategies/${strategy.id}`} id="detail-symbol-search-form" method="get" />
+            <form action={`/app/strategies/${strategy.id}`} id="detail-symbol-search-form" method="get" />
             <FormStack action={`/api/user/strategies/${strategy.id}`} method="post">
-              <Field label={locale === "zh" ? "策略名称" : "Strategy name"}>
+              <Field label="Strategy name">
                 <Input defaultValue={strategy.name} name="name" required />
               </Field>
-              <Field label={locale === "zh" ? "搜索交易对" : "Search symbols"} hint={locale === "zh" ? "交易对搜索会使用同步后的币安元数据做模糊匹配。" : "Symbol search uses synced Binance metadata for fuzzy matching."}>
+              <Field label="Search symbols" hint="Symbol search uses synced Binance metadata for fuzzy matching.">
                 <div className="flex items-center gap-2">
                   <Input defaultValue={symbolQuery} form="detail-symbol-search-form" name="symbolQuery" />
-                  <Button form="detail-symbol-search-form" type="submit">{locale === "zh" ? "搜索交易对" : "Search symbols"}</Button>
+                  <Button form="detail-symbol-search-form" type="submit">Search symbols</Button>
                 </div>
               </Field>
-              <Field label={locale === "zh" ? "交易对" : "Symbol"}>
+              <Field label="Symbol">
                 <Input defaultValue={symbolMatchesResult.items[0]?.symbol ?? strategy.symbol} list="detail-symbol-suggestions" name="symbol" required />
                 <datalist id="detail-symbol-suggestions">
                   {symbolMatchesResult.items.map((item) => (
@@ -217,14 +217,14 @@ export default async function StrategyDetailPage({ params, searchParams }: PageP
                   ))}
                 </datalist>
               </Field>
-              <Field label={locale === "zh" ? "市场类型" : "Market type"}>
+              <Field label="Market type">
                 <Select defaultValue={mapMarketToForm(strategy.market)} name="marketType">
                   <option value="spot">spot</option>
                   <option value="usd-m">usd-m</option>
                   <option value="coin-m">coin-m</option>
                 </Select>
               </Field>
-              <Field label={locale === "zh" ? "策略模式" : "Strategy mode"}>
+              <Field label="Strategy mode">
                 <Select defaultValue={mapModeToForm(strategy.mode)} name="mode">
                   <option value="classic">classic</option>
                   <option value="buy-only">buy-only</option>
@@ -329,8 +329,7 @@ export default async function StrategyDetailPage({ params, searchParams }: PageP
             <CardDescription>Start requires all checks to pass and any failures explain the exact blocker.</CardDescription>
           </CardHeader>
           <CardBody>
-            <div className="overflow-x-auto whitespace-nowrap min-w-full pb-4 rounded-lg">
-                <DataTable
+            <DataTable
               columns={[
                 { key: "item", label: "Check" },
                 { key: "result", label: "Result", align: "right" },
@@ -341,7 +340,6 @@ export default async function StrategyDetailPage({ params, searchParams }: PageP
                 result: <Chip tone={row.status === "Passed" ? "success" : row.status === "Failed" ? "danger" : "info"}>{row.status}</Chip>,
               }))}
             />
-              </div>
           </CardBody>
         </Card>
       </div>
@@ -351,8 +349,7 @@ export default async function StrategyDetailPage({ params, searchParams }: PageP
           <CardDescription>Runtime failures and recovery hints stay visible here instead of being hidden only in notifications.</CardDescription>
         </CardHeader>
         <CardBody>
-          <div className="overflow-x-auto whitespace-nowrap min-w-full pb-4 rounded-lg">
-                <DataTable
+          <DataTable
             columns={[
               { key: "at", label: "Timestamp" },
               { key: "event", label: "Event" },
@@ -365,10 +362,9 @@ export default async function StrategyDetailPage({ params, searchParams }: PageP
               detail: event.detail,
             }))}
           />
-              </div>
         </CardBody>
       </Card>
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 mb-6">
+      <div className="content-grid content-grid--metrics">
         {[
           ["Realized PnL", stats?.realized_pnl ?? "-"],
           ["Unrealized PnL", stats?.unrealized_pnl ?? "-"],
@@ -395,8 +391,7 @@ export default async function StrategyDetailPage({ params, searchParams }: PageP
             <CardDescription>Per-grid take-profit ranges stay visible for manual review and export readiness.</CardDescription>
           </CardHeader>
           <CardBody>
-            <div className="overflow-x-auto whitespace-nowrap min-w-full pb-4 rounded-lg">
-                <DataTable
+            <DataTable
               columns={[
                 { key: "level", label: "Level" },
                 { key: "range", label: "Entry" },
@@ -411,7 +406,6 @@ export default async function StrategyDetailPage({ params, searchParams }: PageP
                 tp: `${(level.take_profit_bps / 100).toFixed(2)}%`,
               }))}
             />
-              </div>
           </CardBody>
         </Card>
         <DialogFrame

@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 
 import { AuthProxyError, authApiPost } from "../../../../lib/auth";
-import { localizedPath, localizedPublicPath, publicUrl } from "@/lib/auth";
 
 const PENDING_VERIFY_CODE_COOKIE = "pending_verify_code";
 
@@ -13,7 +12,7 @@ export async function POST(request: Request) {
 
   try {
     await authApiPost("/auth/verify-email", { email, code });
-    const url = publicUrl(request, localizedPublicPath(request, "/login"));
+    const url = new URL("/login", request.url);
     url.searchParams.set("email", email);
     if (next) {
       url.searchParams.set("next", next);
@@ -23,7 +22,7 @@ export async function POST(request: Request) {
     response.cookies.delete(PENDING_VERIFY_CODE_COOKIE);
     return response;
   } catch (error) {
-    const url = publicUrl(request, localizedPublicPath(request, "/verify-email"));
+    const url = new URL("/verify-email", request.url);
     url.searchParams.set("email", email);
     if (next) {
       url.searchParams.set("next", next);

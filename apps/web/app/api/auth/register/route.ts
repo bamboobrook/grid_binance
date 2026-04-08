@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 
-import { AuthProxyError, authApiPost, localizedPublicPath, publicUrl, shouldUseSecureCookie } from "../../../../lib/auth";
+import { AuthProxyError, authApiPost } from "../../../../lib/auth";
 
 export async function POST(request: Request) {
-  const secureCookie = shouldUseSecureCookie(request);
+  const secureCookie = process.env.NODE_ENV === "production";
   const formData = await request.formData();
   const email = readField(formData, "email");
   const password = readField(formData, "password");
@@ -15,7 +15,7 @@ export async function POST(request: Request) {
       password,
     });
 
-    const url = publicUrl(request, localizedPublicPath(request, "/verify-email"));
+    const url = new URL("/verify-email", request.url);
     url.searchParams.set("email", email);
     if (next) {
       url.searchParams.set("next", next);
@@ -33,7 +33,7 @@ export async function POST(request: Request) {
     }
     return response;
   } catch (error) {
-    const url = publicUrl(request, localizedPublicPath(request, "/register"));
+    const url = new URL("/register", request.url);
     url.searchParams.set("email", email);
     if (next) {
       url.searchParams.set("next", next);

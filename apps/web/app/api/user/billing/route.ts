@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { localizedPath, localizedPublicPath, publicUrl } from "@/lib/auth";
 
 const DEFAULT_AUTH_API_BASE_URL = "http://127.0.0.1:8080";
 
@@ -12,7 +11,7 @@ export async function POST(request: Request) {
   const profile = sessionToken ? await fetchProfile(sessionToken) : null;
 
   if (!sessionToken || !profile?.email) {
-    return NextResponse.redirect(publicUrl(request, localizedPublicPath(request, "/login?error=session+expired")), { status: 303 });
+    return NextResponse.redirect(new URL("/login?error=session+expired", request.url), { status: 303 });
   }
 
   const result = await createBillingOrder(sessionToken, {
@@ -24,14 +23,14 @@ export async function POST(request: Request) {
   });
 
   if (!result.ok) {
-    return NextResponse.redirect(publicUrl(request, localizedPath(request, `/app/billing?error=${encodeURIComponent(result.error)}`)), { status: 303 });
+    return NextResponse.redirect(new URL(`/app/billing?error=${encodeURIComponent(result.error)}`, request.url), { status: 303 });
   }
 
   const chainLabel = humanChainLabel(result.data.chain);
   const notice = result.data.address
     ? `Send exactly ${result.data.amount} ${result.data.asset} on ${chainLabel} to ${result.data.address}. Address lock expires ${result.data.expires_at ?? "soon"}. Overpayment, underpayment, or wrong token will require manual review.`
     : `Order queued for ${chainLabel} ${result.data.asset}. Exact amount ${result.data.amount} remains reserved while awaiting address assignment. Queue position ${result.data.queue_position ?? "pending"}.`;
-  return NextResponse.redirect(publicUrl(request, localizedPath(request, `/app/billing?notice=${encodeURIComponent(notice)}`)), { status: 303 });
+  return NextResponse.redirect(new URL(`/app/billing?notice=${encodeURIComponent(notice)}`, request.url), { status: 303 });
 }
 
 async function fetchProfile(sessionToken: string) {

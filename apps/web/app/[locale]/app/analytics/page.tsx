@@ -4,7 +4,7 @@ import { AppShellSection } from "@/components/shell/app-shell-section";
 import { Card, CardBody, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { DataTable } from "@/components/ui/table";
 import { StatusBanner } from "@/components/ui/status-banner";
-import { UI_LANGUAGE_COOKIE, pickText, resolveUiLanguageFromRoute, type UiLanguage } from "@/lib/ui/preferences";
+import { UI_LANGUAGE_COOKIE, pickText, resolveUiLanguage, type UiLanguage } from "@/lib/ui/preferences";
 
 const DEFAULT_AUTH_API_BASE_URL = "http://127.0.0.1:8080";
 
@@ -48,10 +48,9 @@ type AnalyticsReport = {
   }>;
 };
 
-export default async function AnalyticsPage({ params }: { params: Promise<{ locale: string }> }) {
-  const { locale } = await params;
+export default async function AnalyticsPage() {
   const cookieStore = await cookies();
-  const lang = resolveUiLanguageFromRoute(locale, cookieStore.get(UI_LANGUAGE_COOKIE)?.value);
+  const lang = resolveUiLanguage(cookieStore.get(UI_LANGUAGE_COOKIE)?.value);
   const analytics = await fetchAnalytics();
 
   return (
@@ -67,7 +66,7 @@ export default async function AnalyticsPage({ params }: { params: Promise<{ loca
         title={pickText(lang, "分析面板", "Analytics")}
         actions={<div className="flex items-center gap-2"><a className="inline-flex items-center justify-center rounded-sm text-sm font-medium h-9 px-4 py-2 hover:bg-secondary text-foreground transition-colors" href="/api/user/exports/strategy-stats">{pickText(lang, "导出策略统计 CSV", "Download strategy stats CSV")}</a><a className="inline-flex items-center justify-center rounded-sm text-sm font-medium h-9 px-4 py-2 hover:bg-secondary text-foreground transition-colors" href="/api/user/exports/payments">{pickText(lang, "导出付款 CSV", "Download payments CSV")}</a></div>}
       >
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 mb-6">
+        <div className="content-grid content-grid--metrics">
           {[
             [pickText(lang, "已实现收益", "Realized PnL"), analytics?.user.realized_pnl ?? "-"],
             [pickText(lang, "未实现收益", "Unrealized PnL"), analytics?.user.unrealized_pnl ?? "-"],
@@ -92,8 +91,7 @@ export default async function AnalyticsPage({ params }: { params: Promise<{ loca
             <CardDescription>{pickText(lang, "这里看每个策略的收益、费用和当前状态。", "Review realized, unrealized, fee, funding, and net totals per strategy.")}</CardDescription>
           </CardHeader>
           <CardBody>
-            <div className="overflow-x-auto whitespace-nowrap min-w-full pb-4 rounded-lg">
-                <DataTable
+            <DataTable
               columns={[
                 { key: "strategy", label: pickText(lang, "策略", "Strategy") },
                 { key: "symbol", label: pickText(lang, "交易对", "Symbol") },
@@ -108,7 +106,6 @@ export default async function AnalyticsPage({ params }: { params: Promise<{ loca
                 net: row.net_pnl,
               }))}
             />
-              </div>
           </CardBody>
         </Card>
         <Card>
@@ -117,8 +114,7 @@ export default async function AnalyticsPage({ params }: { params: Promise<{ loca
             <CardDescription>{pickText(lang, "记录账户余额快照用于对账与回溯。", "Captured wallet state is preserved for reconciliation and audit.")}</CardDescription>
           </CardHeader>
           <CardBody>
-            <div className="overflow-x-auto whitespace-nowrap min-w-full pb-4 rounded-lg">
-                <DataTable
+            <DataTable
               columns={[
                 { key: "exchange", label: pickText(lang, "交易所", "Exchange") },
                 { key: "wallet", label: pickText(lang, "钱包", "Wallet") },
@@ -131,7 +127,6 @@ export default async function AnalyticsPage({ params }: { params: Promise<{ loca
                 balances: Object.entries(row.balances).map(([asset, amount]) => asset + " " + amount).join(" | "),
               }))}
             />
-              </div>
           </CardBody>
         </Card>
       </div>
@@ -142,8 +137,7 @@ export default async function AnalyticsPage({ params }: { params: Promise<{ loca
             <CardDescription>{pickText(lang, "用于核对真实成交、手续费和策略行为。", "Use this table to reconcile real exchange executions, fees, and strategy behavior.")}</CardDescription>
           </CardHeader>
           <CardBody>
-            <div className="overflow-x-auto whitespace-nowrap min-w-full pb-4 rounded-lg">
-                <DataTable
+            <DataTable
               columns={[
                 { key: "at", label: pickText(lang, "时间", "Timestamp") },
                 { key: "symbol", label: pickText(lang, "交易对", "Symbol") },
@@ -158,7 +152,6 @@ export default async function AnalyticsPage({ params }: { params: Promise<{ loca
                 fee: row.fee_amount ? (row.fee_amount + " " + (row.fee_asset ?? "")).trim() : "-",
               }))}
             />
-              </div>
           </CardBody>
         </Card>
         <Card>
