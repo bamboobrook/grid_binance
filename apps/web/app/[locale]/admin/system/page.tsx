@@ -5,21 +5,23 @@ import { Card, CardBody, CardDescription, CardHeader, CardTitle } from "@/compon
 import { Button, Field, FormStack, Input } from "@/components/ui/form";
 import { StatusBanner } from "@/components/ui/status-banner";
 import { getAdminSystemData, getCurrentAdminProfile } from "@/lib/api/admin-product-state";
-import { pickText, resolveUiLanguage, UI_LANGUAGE_COOKIE } from "@/lib/ui/preferences";
+import { pickText, resolveUiLanguageFromRoute, UI_LANGUAGE_COOKIE } from "@/lib/ui/preferences";
 
 type PageProps = {
+  params: Promise<{ locale: string }>;
   searchParams?: Promise<{ bsc?: string; eth?: string; saved?: string; sol?: string }>;
 };
 
-export default async function AdminSystemPage({ searchParams }: PageProps) {
-  const params = (await searchParams) ?? {};
+export default async function AdminSystemPage({ params, searchParams }: PageProps) {
+  const { locale } = await params;
+  const query = (await searchParams) ?? {};
   const [cookieStore, profile, data] = await Promise.all([cookies(), getCurrentAdminProfile(), getAdminSystemData()]);
-  const lang = resolveUiLanguage(cookieStore.get(UI_LANGUAGE_COOKIE)?.value);
-  const hasSaved = params.saved === "1";
+  const lang = resolveUiLanguageFromRoute(locale, cookieStore.get(UI_LANGUAGE_COOKIE)?.value);
+  const hasSaved = query.saved === "1";
   const canManageSystem = profile.admin_permissions?.can_manage_system ?? false;
-  const eth = typeof params.eth === "string" ? params.eth : String(data.eth_confirmations);
-  const bsc = typeof params.bsc === "string" ? params.bsc : String(data.bsc_confirmations);
-  const sol = typeof params.sol === "string" ? params.sol : String(data.sol_confirmations);
+  const eth = typeof query.eth === "string" ? query.eth : String(data.eth_confirmations);
+  const bsc = typeof query.bsc === "string" ? query.bsc : String(data.bsc_confirmations);
+  const sol = typeof query.sol === "string" ? query.sol : String(data.sol_confirmations);
 
   return (
     <>
@@ -40,7 +42,7 @@ export default async function AdminSystemPage({ searchParams }: PageProps) {
                 : pickText(lang, "当前席位只能查看确认数，不可保存变更。", "This session can review but cannot change confirmation counts.")}
             </CardDescription>
           </CardHeader>
-          <CardBody>
+          <CardBody className="overflow-x-auto whitespace-nowrap">
             <FormStack action={canManageSystem ? "/api/admin/system" : undefined} method="post">
               <Field label={pickText(lang, "ETH 确认数", "ETH Confirmations")}>
                 <Input defaultValue={eth} disabled={canManageSystem === false} inputMode="numeric" name="ethConfirmations" readOnly={canManageSystem === false} />
@@ -54,7 +56,7 @@ export default async function AdminSystemPage({ searchParams }: PageProps) {
               {canManageSystem ? <Button type="submit">{pickText(lang, "保存确认数策略", "Save Confirmation Policy")}</Button> : null}
               {canManageSystem === false ? (
                 <>
-                  <p>{pickText(lang, "需要 super_admin 会话才能持久化系统配置变更。", "Use a super_admin session to persist updated confirmation policy.")}</p>
+                  <p>{pickText(lang, "需要超级管理员会话才能持久化系统配置变更。", "Use a Super Admin session to persist the updated confirmation policy.")}</p>
                   <Button disabled type="button">
                     {pickText(lang, "保存确认数策略", "Save Confirmation Policy")}
                   </Button>

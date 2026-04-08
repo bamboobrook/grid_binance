@@ -124,5 +124,73 @@
       "title": "策略模板",
       "apply": "套用模板"
     }
+  },
+  "admin": {
+    "shell": {
+      "console": "控制面",
+      "admin": "管理后台",
+      "language": "语言",
+      "theme": "主题",
+      "adminConsole": "管理终端",
+      "navigation": "导航",
+      "workspace": "管理员导航",
+      "session": "会话",
+      "operations": "管理后台",
+      "nav": {
+        "dashboard": "仪表盘",
+        "users": "用户管理",
+        "memberships": "会员管理",
+        "deposits": "充值管理",
+        "addressPools": "地址池",
+        "templates": "模板管理",
+        "strategies": "策略管理",
+        "sweeps": "资金归集",
+        "audit": "审计日志",
+        "system": "系统设置"
+      }
+    },
+    "audit": {
+      "title": "审计复核",
+      "eyebrow": "审计留痕",
+      "description": "超级管理员值班席位通过这张表回看审计留痕、会话摘要与变更前后说明。",
+      "log": {
+        "title": "审计日志",
+        "description": "服务端写入的审计记录会保留操作者、目标与会话摘要。",
+        "columns": {
+          "time": "时间",
+          "actor": "操作者",
+          "action": "动作",
+          "session": "会话摘要",
+          "target": "目标"
+        }
+      },
+      "summary": {
+        "title": "变更前后",
+        "description": "关键动作会带上变更前后摘要和原始 payload。",
+        "columns": {
+          "action": "动作",
+          "summary": "摘要",
+          "payload": "原始载荷"
+        }
+      }
+    },
+    "system": {
+      "title": "系统配置",
+      "eyebrow": "系统设置",
+      "description": "每条链的确认政策持久化在后端系统配置库中。",
+      "form": {
+        "title": "确认政策",
+        "description": "编辑所有支持的链确认数。",
+        "fields": {
+          "eth": "ETH 确认数",
+          "bsc": "BSC 确认数",
+          "sol": "SOL 确认数"
+        },
+        "submit": "保存确认政策"
+      },
+      "status": {
+        "saved": "确认政策已保存"
+      }
+    }
   }
 }

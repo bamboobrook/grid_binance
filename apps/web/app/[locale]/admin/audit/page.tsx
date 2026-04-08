@@ -5,7 +5,12 @@ import { AppShellSection } from "@/components/shell/app-shell-section";
 import { Card, CardBody, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { DataTable } from "@/components/ui/table";
 import { getAdminAuditData, getCurrentAdminProfile } from "@/lib/api/admin-product-state";
-import { pickText, resolveUiLanguage, UI_LANGUAGE_COOKIE, type UiLanguage } from "@/lib/ui/preferences";
+import { pickText, resolveUiLanguageFromRoute, UI_LANGUAGE_COOKIE, type UiLanguage } from "@/lib/ui/preferences";
+
+type PageProps = {
+  params: Promise<{ locale: string }>;
+};
+
 
 function payloadString(value: unknown) {
   if (typeof value === "string") {
@@ -43,11 +48,12 @@ function payloadSummary(payload: Record<string, unknown>) {
   return entries.map(([key, value]) => key.replace(/_/g, " ") + " " + payloadString(value)).join(" | ");
 }
 
-export default async function AdminAuditPage() {
+export default async function AdminAuditPage({ params }: PageProps) {
+  const { locale } = await params;
   const [cookieStore, profile] = await Promise.all([cookies(), getCurrentAdminProfile()]);
-  const lang = resolveUiLanguage(cookieStore.get(UI_LANGUAGE_COOKIE)?.value);
+  const lang = resolveUiLanguageFromRoute(locale, cookieStore.get(UI_LANGUAGE_COOKIE)?.value);
   if (profile.admin_role !== "super_admin") {
-    redirect("/admin/dashboard");
+    redirect(`/${locale}/admin/dashboard`);
   }
   const data = await getAdminAuditData();
 
@@ -58,14 +64,15 @@ export default async function AdminAuditPage() {
         eyebrow={pickText(lang, "审计留痕", "Audit Trail")}
         title={pickText(lang, "审计复核", "Audit Review")}
       >
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
           <Card>
             <CardHeader>
               <CardTitle>{pickText(lang, "审计日志", "Audit Log")}</CardTitle>
               <CardDescription>{pickText(lang, "服务端写入的审计记录会保留操作者、目标与会话摘要。", "Server-side audit records keep actor, target, and session summary visible.")}</CardDescription>
             </CardHeader>
             <CardBody>
-              <DataTable
+              <div className="overflow-x-auto whitespace-nowrap min-w-full">
+                <DataTable
                 columns={[
                   { key: "time", label: pickText(lang, "时间", "Time") },
                   { key: "actor", label: pickText(lang, "操作者", "Actor") },
@@ -82,6 +89,7 @@ export default async function AdminAuditPage() {
                   time: item.created_at.replace("T", " ").slice(0, 16),
                 }))}
               />
+              </div>
             </CardBody>
           </Card>
           <Card>
@@ -90,7 +98,8 @@ export default async function AdminAuditPage() {
               <CardDescription>{pickText(lang, "关键动作会带上变更前后摘要和原始 payload。", "Critical actions include before-after summaries and raw payload detail.")}</CardDescription>
             </CardHeader>
             <CardBody>
-              <DataTable
+              <div className="overflow-x-auto whitespace-nowrap min-w-full">
+                <DataTable
                 columns={[
                   { key: "action", label: pickText(lang, "动作", "Action") },
                   { key: "summary", label: pickText(lang, "摘要", "Summary") },
@@ -103,6 +112,7 @@ export default async function AdminAuditPage() {
                   summary: beforeAfterSummary(lang, item.payload),
                 }))}
               />
+              </div>
             </CardBody>
           </Card>
         </div>

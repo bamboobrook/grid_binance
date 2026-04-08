@@ -124,5 +124,73 @@
       "title": "Templates",
       "apply": "Apply Template"
     }
+  },
+  "admin": {
+    "shell": {
+      "console": "Console",
+      "admin": "Admin",
+      "language": "Language",
+      "theme": "Theme",
+      "adminConsole": "Admin console",
+      "navigation": "Navigation",
+      "workspace": "Admin workspace",
+      "session": "Session",
+      "operations": "Admin operations",
+      "nav": {
+        "dashboard": "Dashboard",
+        "users": "Users",
+        "memberships": "Memberships",
+        "deposits": "Deposits",
+        "addressPools": "Address pools",
+        "templates": "Templates",
+        "strategies": "Strategies",
+        "sweeps": "Sweeps",
+        "audit": "Audit",
+        "system": "System"
+      }
+    },
+    "audit": {
+      "title": "Audit Review",
+      "eyebrow": "Audit Trail",
+      "description": "The super-admin desk reviews audit trails, session summaries, and before-after notes here.",
+      "log": {
+        "title": "Audit Log",
+        "description": "Server-side audit records keep actor, target, and session summary visible.",
+        "columns": {
+          "time": "Time",
+          "actor": "Actor",
+          "action": "Action",
+          "session": "Session Summary",
+          "target": "Target"
+        }
+      },
+      "summary": {
+        "title": "Before / After",
+        "description": "Critical actions include before-after summaries and raw payload detail.",
+        "columns": {
+          "action": "Action",
+          "summary": "Summary",
+          "payload": "Payload"
+        }
+      }
+    },
+    "system": {
+      "title": "System Configuration",
+      "eyebrow": "System settings",
+      "description": "Per-chain confirmation policy is persisted in the backend system config store.",
+      "form": {
+        "title": "Confirmation policy",
+        "description": "Edit all supported chain confirmation counts.",
+        "fields": {
+          "eth": "ETH confirmations",
+          "bsc": "BSC confirmations",
+          "sol": "SOL confirmations"
+        },
+        "submit": "Save confirmation policy"
+      },
+      "status": {
+        "saved": "Confirmation policy saved"
+      }
+    }
   }
 }
