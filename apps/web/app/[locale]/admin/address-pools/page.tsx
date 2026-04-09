@@ -6,17 +6,19 @@ import { Button, Field, FormStack, Input, Select } from "@/components/ui/form";
 import { StatusBanner } from "@/components/ui/status-banner";
 import { DataTable } from "@/components/ui/table";
 import { getAdminAddressPoolsData, getCurrentAdminProfile } from "@/lib/api/admin-product-state";
-import { pickText, resolveUiLanguage, UI_LANGUAGE_COOKIE } from "@/lib/ui/preferences";
+import { pickText, resolveUiLanguageFromRoute, UI_LANGUAGE_COOKIE } from "@/lib/ui/preferences";
 
 type PageProps = {
+  params: Promise<{ locale: string }>;
   searchParams?: Promise<{ updated?: string }>;
 };
 
-export default async function AdminAddressPoolsPage({ searchParams }: PageProps) {
-  const params = (await searchParams) ?? {};
-  const updated = typeof params.updated === "string" ? params.updated : "";
+export default async function AdminAddressPoolsPage({ params, searchParams }: PageProps) {
+  const { locale } = await params;
+  const query = (await searchParams) ?? {};
+  const updated = typeof query.updated === "string" ? query.updated : "";
   const [cookieStore, profile, data] = await Promise.all([cookies(), getCurrentAdminProfile(), getAdminAddressPoolsData()]);
-  const lang = resolveUiLanguage(cookieStore.get(UI_LANGUAGE_COOKIE)?.value);
+  const lang = resolveUiLanguageFromRoute(locale, cookieStore.get(UI_LANGUAGE_COOKIE)?.value);
   const canManagePools = profile.admin_permissions?.can_manage_address_pools ?? false;
   const enabledCount = data.addresses.filter((item) => item.is_enabled).length;
   const pressureCount = data.addresses.length - enabledCount;

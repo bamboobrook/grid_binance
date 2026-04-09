@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { cookies } from "next/headers";
 
 import { AppShellSection } from "@/components/shell/app-shell-section";
@@ -14,7 +15,20 @@ import {
   type AdminTemplateList,
   fetchAdminJson,
 } from "@/lib/api/admin-product-state";
-import { pickText, resolveUiLanguage, UI_LANGUAGE_COOKIE, type UiLanguage } from "@/lib/ui/preferences";
+import { pickText, resolveUiLanguageFromRoute, UI_LANGUAGE_COOKIE, type UiLanguage } from "@/lib/ui/preferences";
+
+type PageProps = {
+  params: Promise<{ locale: string }>;
+};
+
+type ActionPanel = {
+  id: string;
+  actionLabel: string;
+  description: string;
+  href: string | null;
+  title: string;
+  value: string;
+};
 
 function roleBoundaryLabel(lang: UiLanguage, restricted: boolean) {
   return restricted ? pickText(lang, "操作员边界", "Operator Boundary") : pickText(lang, "超级管理员边界", "Super Admin Boundary");
@@ -33,9 +47,16 @@ function auditActionLabel(lang: UiLanguage, action: string) {
   return map.get(action) ?? action;
 }
 
-export default async function AdminDashboardPage() {
+function actionButtonClass(disabled: boolean) {
+  return disabled
+    ? "inline-flex items-center justify-center rounded-lg px-4 py-2 text-sm font-semibold bg-slate-800 text-slate-500 cursor-not-allowed"
+    : "inline-flex items-center justify-center rounded-lg px-4 py-2 text-sm font-semibold bg-primary text-primary-foreground hover:bg-primary/90 transition-colors";
+}
+
+export default async function AdminDashboardPage({ params }: PageProps) {
+  const { locale } = await params;
   const [cookieStore, profile] = await Promise.all([cookies(), getCurrentAdminProfile()]);
-  const lang = resolveUiLanguage(cookieStore.get(UI_LANGUAGE_COOKIE)?.value);
+  const lang = resolveUiLanguageFromRoute(locale, cookieStore.get(UI_LANGUAGE_COOKIE)?.value);
   const [memberships, deposits, strategies, audit, templates, pools] = await Promise.all([
     getAdminMembershipsData(),
     getAdminDepositsData(),
@@ -55,140 +76,174 @@ export default async function AdminDashboardPage() {
     enabledByChain.set(item.chain, (enabledByChain.get(item.chain) ?? 0) + 1);
   }
 
-  const pressuredChains = Array.from(enabledByChain.entries()).filter(([, count]) => count <= 1).map(([chain]) => chain);
+  const pressuredChains = Array.from(enabledByChain.entries())
+    .filter(([, count]) => count <= 1)
+    .map(([chain]) => chain);
   const auditEvents = audit.items.slice(0, 6);
   const role = profile.admin_role ?? "operator_admin";
   const restricted = role === "operator_admin";
-  const boardRows = [
+  const panels: ActionPanel[] = [
     {
       id: "deposits",
-      item: pickText(lang, "待处理充值", "Pending Deposits"),
-      owner: pickText(lang, "充值审核", "Deposit Review"),
-      route: "/admin/deposits",
-      severity: openDeposits > 0 ? pickText(lang, "高", "High") : pickText(lang, "低", "Low"),
-      summary: pickText(lang, String(openDeposits) + " 笔等待人工复核", String(openDeposits) + " cases await manual review"),
+      title: pickText(lang, "充值审核", "Deposit Review"),
+      description: pickText(lang, "人工复核异常转账、手动入账与队列处理。", "Review abnormal transfers, manual credits, and queue handling."),
+      value: pickText(lang, String(openDeposits) + " 笔待处理", String(openDeposits) + " pending"),
+      href: "/" + locale + "/admin/deposits",
+      actionLabel: openDeposits > 0 ? pickText(lang, "立即处理", "Review now") : pickText(lang, "查看详情", "View details"),
     },
     {
       id: "memberships",
-      item: pickText(lang, "会员风险", "Membership Risk"),
-      owner: pickText(lang, "会员生命周期", "Membership Lifecycle"),
-      route: "/admin/memberships",
-      severity: membershipRisk > 0 ? pickText(lang, "中", "Medium") : pickText(lang, "低", "Low"),
-      summary: pickText(lang, String(membershipRisk) + " 个账号处于宽限、冻结或撤销", String(membershipRisk) + " accounts need lifecycle follow-up"),
+      title: pickText(lang, "会员管理", "Memberships"),
+      description: pickText(lang, "调整套餐、查看宽限期与冻结状态。", "Adjust plans, review grace windows, and manage freezes."),
+      value: pickText(lang, String(membershipRisk) + " 个风险账号", String(membershipRisk) + " accounts at risk"),
+      href: "/" + locale + "/admin/memberships",
+      actionLabel: pickText(lang, "查看详情", "View details"),
     },
     {
       id: "strategies",
-      item: pickText(lang, "异常暂停策略", "Error-paused Strategies"),
-      owner: pickText(lang, "策略监督", "Strategy Supervision"),
-      route: "/admin/strategies?state=errorpaused",
-      severity: runtimeIncidents > 0 ? pickText(lang, "高", "High") : pickText(lang, "低", "Low"),
-      summary: pickText(lang, String(runtimeIncidents) + " 个策略被异常暂停", String(runtimeIncidents) + " strategies are blocked by runtime incidents"),
+      title: pickText(lang, "策略监督", "Strategies"),
+      description: pickText(lang, "查看异常暂停、运行态事件和最近下单。", "Inspect error-paused strategies, runtime events, and recent orders."),
+      value: pickText(lang, String(runtimeIncidents) + " 个异常暂停", String(runtimeIncidents) + " paused by incidents"),
+      href: "/" + locale + "/admin/strategies",
+      actionLabel: runtimeIncidents > 0 ? pickText(lang, "立即处理", "Review now") : pickText(lang, "查看详情", "View details"),
     },
     {
-      id: "pools",
-      item: pickText(lang, "地址池压力", "Pool Pressure"),
-      owner: pickText(lang, "地址池治理", "Address Pool Governance"),
-      route: "/admin/address-pools",
-      severity: pressuredChains.length > 0 ? pickText(lang, "中", "Medium") : pickText(lang, "低", "Low"),
-      summary: pressuredChains.length > 0
-        ? pickText(lang, pressuredChains.join("、") + " 仅剩 1 个可用地址", pressuredChains.join(", ") + " are down to one enabled address")
-        : pickText(lang, "各链路仍有冗余", "Address redundancy still exists on every chain"),
-    },
-    {
-      id: "audit",
-      item: pickText(lang, "审计事件", "Audit Events"),
-      owner: pickText(lang, "审计留痕", "Audit Trail"),
-      route: restricted ? pickText(lang, "仅超级管理员", "Super Admin Only") : "/admin/audit",
-      severity: auditEvents.length > 0 ? pickText(lang, "观察", "Watch") : pickText(lang, "低", "Low"),
-      summary: restricted
-        ? pickText(lang, "当前会话只能看摘要", "This session can review only the summary")
-        : pickText(lang, String(audit.items.length) + " 条最近审计记录", String(audit.items.length) + " recent audit entries"),
+      id: "address-pools",
+      title: pickText(lang, "地址池", "Address Pools"),
+      description: pickText(lang, "查看各链路可用地址数量与补池压力。", "Review pool capacity and replenishment pressure by chain."),
+      value: pressuredChains.length > 0
+        ? pickText(lang, pressuredChains.join("、") + " 需要补池", pressuredChains.join(", ") + " need replenishment")
+        : pickText(lang, "当前冗余充足", "Healthy redundancy"),
+      href: "/" + locale + "/admin/address-pools",
+      actionLabel: pickText(lang, "查看详情", "View details"),
     },
   ];
+
+  if (profile.admin_permissions?.can_manage_templates) {
+    panels.push({
+      id: "templates",
+      title: pickText(lang, "模板治理", "Templates"),
+      description: pickText(lang, "维护预设参数模板并投放给用户。", "Maintain template presets and publish them to users."),
+      value: pickText(lang, String(templates.items.length) + " 个模板", String(templates.items.length) + " templates"),
+      href: "/" + locale + "/admin/templates",
+      actionLabel: pickText(lang, "查看详情", "View details"),
+    });
+  }
+
+  panels.push({
+    id: "audit",
+    title: pickText(lang, "审计记录", "Audit Trail"),
+    description: restricted
+      ? pickText(lang, "当前会话不是超级管理员，只展示摘要。", "This session is not Super Admin, so only the summary is visible.")
+      : pickText(lang, "查看完整审计事件与变更痕迹。", "Review full audit events and change history."),
+    value: restricted
+      ? pickText(lang, "摘要模式", "Summary only")
+      : pickText(lang, String(audit.items.length) + " 条记录", String(audit.items.length) + " events"),
+    href: restricted ? null : "/" + locale + "/admin/audit",
+    actionLabel: restricted ? pickText(lang, "仅超级管理员可查看", "Super Admin only") : pickText(lang, "查看详情", "View details"),
+  });
 
   return (
     <>
       <StatusBanner
         description={restricted
-          ? pickText(lang, "当前为操作员值班席位，仅可处理审核与巡检；模板、系统、归集改动仍受权限边界限制。", "Operator on-call boundary is active. Review and supervision stay open, while templates, system, and sweep changes remain restricted.")
-          : pickText(lang, "当前为超级管理员值班席位，可直接处理模板、系统配置、归集与审计。", "Super admin on-call boundary is active for templates, system config, sweeps, and audit actions.")}
-        title={profile.admin_access_granted ? pickText(lang, "值班权限已生效", "On-call Access Active") : pickText(lang, "值班权限未完成", "On-call Access Pending")}
+          ? pickText(lang, "当前为操作员权限边界，可继续处理审核与巡检；模板、归集、系统配置与完整审计仍受限制。", "Operator boundary is active. Reviews and supervision stay available, while templates, sweeps, system configuration, and full audit remain restricted.")
+          : pickText(lang, "当前为超级管理员会话，可直接处理模板、系统配置、归集与完整审计。", "Super Admin session is active for templates, system configuration, sweeps, and full audit." )}
+        title={profile.admin_access_granted ? pickText(lang, "管理员权限已生效", "Admin access granted") : pickText(lang, "管理员权限未生效", "Admin access missing")}
         tone={profile.admin_access_granted ? "success" : "warning"}
       />
       <AppShellSection
-        description={pickText(lang, "围绕待处理充值、会员风险、异常暂停策略、地址池压力与审计事件组织首屏，保持值班席位的处理顺序清晰。", "The first screen is organized around pending deposits, membership risk, error-paused strategies, pool pressure, and audit events so the on-call desk can act in order.")}
-        eyebrow={pickText(lang, "值班总览", "On-call Console")}
+        description={pickText(lang, "后台首页只保留当前最关键的处理面板与状态看板，进入后可以直接点击处理。", "The homepage keeps only the most important control panels and status boards so operators can act immediately.")}
+        eyebrow={pickText(lang, "管理总览", "Control Overview")}
         title={pickText(lang, "运营总览", "Operations Overview")}
       >
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-6 mb-6">
           <Card>
             <CardHeader>
               <CardTitle>{pickText(lang, "待处理充值", "Pending Deposits")}</CardTitle>
-              <CardDescription>{pickText(lang, "充值异常队列", "Exception Queue")}</CardDescription>
+              <CardDescription>{pickText(lang, "需要人工复核", "Manual review queue")}</CardDescription>
             </CardHeader>
             <CardBody>{openDeposits}</CardBody>
           </Card>
           <Card>
             <CardHeader>
               <CardTitle>{pickText(lang, "会员风险", "Membership Risk")}</CardTitle>
-              <CardDescription>{pickText(lang, "宽限、冻结、撤销", "Grace, Frozen, Revoked")}</CardDescription>
+              <CardDescription>{pickText(lang, "宽限、冻结、撤销", "Grace, frozen, revoked")}</CardDescription>
             </CardHeader>
             <CardBody>{membershipRisk}</CardBody>
           </Card>
           <Card>
             <CardHeader>
-              <CardTitle>{pickText(lang, "异常暂停", "Error-paused")}</CardTitle>
-              <CardDescription>{pickText(lang, "运行态阻塞", "Runtime Incidents")}</CardDescription>
+              <CardTitle>{pickText(lang, "异常暂停", "Runtime Incidents")}</CardTitle>
+              <CardDescription>{pickText(lang, "策略运行阻塞", "Strategies blocked")}</CardDescription>
             </CardHeader>
             <CardBody>{runtimeIncidents}</CardBody>
           </Card>
           <Card>
             <CardHeader>
               <CardTitle>{pickText(lang, "地址池压力", "Pool Pressure")}</CardTitle>
-              <CardDescription>{pickText(lang, String(enabledAddresses.length) + " / " + String(pools.addresses.length) + " 可用地址", String(enabledAddresses.length) + " of " + String(pools.addresses.length) + " enabled addresses")}</CardDescription>
+              <CardDescription>{pickText(lang, String(enabledAddresses.length) + " / " + String(pools.addresses.length) + " 可用地址", String(enabledAddresses.length) + " of " + String(pools.addresses.length) + " enabled")}</CardDescription>
             </CardHeader>
             <CardBody>{pressuredChains.length}</CardBody>
           </Card>
           <Card>
             <CardHeader>
               <CardTitle>{pickText(lang, "审计事件", "Audit Events")}</CardTitle>
-              <CardDescription>{restricted ? pickText(lang, "摘要模式", "Summary Only") : pickText(lang, "最近事件", "Recent Events")}</CardDescription>
+              <CardDescription>{restricted ? pickText(lang, "摘要模式", "Summary only") : pickText(lang, "完整可见", "Full visibility")}</CardDescription>
             </CardHeader>
             <CardBody>{auditEvents.length}</CardBody>
           </Card>
         </div>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+          {panels.map((panel) => {
+            const disabled = !panel.href;
+            return (
+              <Card key={panel.id}>
+                <CardHeader>
+                  <CardTitle>{panel.title}</CardTitle>
+                  <CardDescription>{panel.description}</CardDescription>
+                </CardHeader>
+                <CardBody className="flex flex-col gap-4">
+                  <div className="text-2xl font-semibold text-foreground">{panel.value}</div>
+                  {panel.href ? (
+                    <Link className={actionButtonClass(false)} href={panel.href}>
+                      {panel.actionLabel}
+                    </Link>
+                  ) : (
+                    <span className={actionButtonClass(disabled)}>{panel.actionLabel}</span>
+                  )}
+                </CardBody>
+              </Card>
+            );
+          })}
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-6">
           <Card>
             <CardHeader>
-              <CardTitle>{pickText(lang, "值班工作板", "On-call Workboard")}</CardTitle>
-              <CardDescription>{pickText(lang, "按风险和处理入口排序，避免值班时在页面间来回找线索。", "Sorted by severity and route so the desk does not have to hunt across pages.")}</CardDescription>
-            </CardHeader>
-            <CardBody>
-              <div className="overflow-x-auto whitespace-nowrap min-w-full pb-4 rounded-lg">
-              <DataTable
-                columns={[
-                  { key: "item", label: pickText(lang, "事项", "Item") },
-                  { key: "severity", label: pickText(lang, "等级", "Severity") },
-                  { key: "summary", label: pickText(lang, "状态摘要", "Summary") },
-                  { key: "owner", label: pickText(lang, "责任面板", "Desk") },
-                  { key: "route", label: pickText(lang, "入口", "Route") },
-                ]}
-                rows={boardRows}
-              />
-              </div>
-            </CardBody>
-          </Card>
-          <Card>
-            <CardHeader>
-              <CardTitle>{pickText(lang, "席位说明", "Desk Boundaries")}</CardTitle>
-              <CardDescription>{pickText(lang, "权限边界、模板可见性和地址池冗余一并明确。", "Permission boundary, template visibility, and pool redundancy stay explicit.")}</CardDescription>
+              <CardTitle>{pickText(lang, "当前权限", "Current permissions")}</CardTitle>
+              <CardDescription>{pickText(lang, "先确认你的会话边界，再决定是否处理模板或系统变更。", "Confirm the session boundary before making template or system changes.")}</CardDescription>
             </CardHeader>
             <CardBody>
               <ul className="text-list">
                 <li>{pickText(lang, "权限角色：" + roleBoundaryLabel(lang, restricted), "Role boundary: " + roleBoundaryLabel(lang, restricted))}</li>
-                <li>{pickText(lang, "模板可见数：" + String(templates.items.length) + " 个模板", "Template inventory: " + String(templates.items.length) + " templates visible")}</li>
-                <li>{pressuredChains.length > 0 ? pickText(lang, "地址池压力：" + pressuredChains.join("、") + " 需要补仓", "Pool pressure: " + pressuredChains.join(", ") + " require replenishment") : pickText(lang, "地址池压力：暂无", "Pool pressure: none")}</li>
-                <li>{restricted ? pickText(lang, "审计可见性：仅摘要", "Audit visibility: summary only") : pickText(lang, "审计可见性：完整事件", "Audit visibility: full event review")}</li>
+                <li>{restricted ? pickText(lang, "完整审计：仅超级管理员可见", "Full audit: Super Admin only") : pickText(lang, "完整审计：当前会话可见", "Full audit: available in this session")}</li>
+                <li>{profile.admin_permissions?.can_manage_templates ? pickText(lang, "模板治理：当前会话可编辑", "Templates: editable in this session") : pickText(lang, "模板治理：当前会话只读", "Templates: read only in this session")}</li>
+                <li>{pressuredChains.length > 0 ? pickText(lang, "地址池关注：" + pressuredChains.join("、") + " 需要补池", "Address pools to watch: " + pressuredChains.join(", ") + " need replenishment") : pickText(lang, "地址池关注：暂无异常", "Address pools to watch: no active issues")}</li>
+              </ul>
+            </CardBody>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle>{pickText(lang, "处理建议", "Suggested actions")}</CardTitle>
+              <CardDescription>{pickText(lang, "按优先级给出下一步，不再展示生硬的入口字符串。", "Next steps are shown by priority instead of exposing raw route strings.")}</CardDescription>
+            </CardHeader>
+            <CardBody>
+              <ul className="text-list">
+                <li>{openDeposits > 0 ? pickText(lang, "先处理待复核充值，避免会员订单持续堆积。", "Review pending deposits first so membership orders do not keep piling up.") : pickText(lang, "充值队列稳定，可以继续查看会员或策略状态。", "The deposit queue is stable. You can continue with memberships or strategy status.")}</li>
+                <li>{membershipRisk > 0 ? pickText(lang, "存在宽限或冻结账号，建议同步检查支付与链上入账。", "There are grace or frozen accounts. Cross-check payments and on-chain credits next.") : pickText(lang, "会员生命周期稳定，可把重点放到策略运行与地址池。", "Membership lifecycle is stable, so focus can move to strategies and address pools.")}</li>
+                <li>{runtimeIncidents > 0 ? pickText(lang, "异常暂停策略需要优先查看预检与事件流。", "Error-paused strategies should be reviewed through pre-flight and runtime events first.") : pickText(lang, "策略运行稳定，可把检查重点放在模板和地址池。", "Strategies are stable. Templates and address pools are the next review target.")}</li>
               </ul>
             </CardBody>
           </Card>
@@ -197,27 +252,28 @@ export default async function AdminDashboardPage() {
       <Card>
         <CardHeader>
           <CardTitle>{pickText(lang, "最近审计事件", "Recent Audit Events")}</CardTitle>
-          <CardDescription>{pickText(lang, "保留时间、动作和目标，方便快速回溯最近值班处理。", "Time, action, and target stay visible for quick review of the last operator moves.")}</CardDescription>
+          <CardDescription>{pickText(lang, "保留时间、动作和目标，方便快速回溯最近管理员操作。", "Timestamp, action, and target remain visible for quick review of recent admin activity.")}</CardDescription>
         </CardHeader>
         <CardBody>
           <div className="overflow-x-auto whitespace-nowrap min-w-full pb-4 rounded-lg">
-          <DataTable
-            columns={[
-              { key: "createdAt", label: pickText(lang, "时间", "Timestamp") },
-              { key: "action", label: pickText(lang, "动作", "Action") },
-              { key: "target", label: pickText(lang, "目标", "Target") },
-            ]}
-            rows={auditEvents.map((item, index) => ({
-              id: item.action + "-" + String(index),
-              action: auditActionLabel(lang, item.action),
-              createdAt: item.created_at.replace("T", " ").slice(0, 16),
-              target: item.target_type + ":" + item.target_id,
-            }))}
-            emptyMessage={restricted ? pickText(lang, "当前席位只能查看审计摘要，请切换 super_admin 查看明细。", "Summary only in this session. Use a super_admin session for full audit detail.") : pickText(lang, "暂无审计事件。", "No audit events yet.")}
-          />
+            <DataTable
+              columns={[
+                { key: "createdAt", label: pickText(lang, "时间", "Timestamp") },
+                { key: "action", label: pickText(lang, "动作", "Action") },
+                { key: "target", label: pickText(lang, "目标", "Target") },
+              ]}
+              rows={auditEvents.map((item, index) => ({
+                id: item.action + "-" + String(index),
+                action: auditActionLabel(lang, item.action),
+                createdAt: item.created_at.replace("T", " ").slice(0, 16),
+                target: item.target_type + ":" + item.target_id,
+              }))}
+              emptyMessage={restricted ? pickText(lang, "当前席位只能查看审计摘要，请切换到超级管理员会话查看明细。", "Summary only in this session. Use a Super Admin session for full audit detail.") : pickText(lang, "暂无审计事件。", "No audit events yet.")}
+            />
           </div>
         </CardBody>
       </Card>
     </>
   );
 }
+

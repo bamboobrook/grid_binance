@@ -6,12 +6,13 @@ import { Button, Field, FormStack, Input, Select, Textarea } from "@/components/
 import { StatusBanner } from "@/components/ui/status-banner";
 import { DataTable } from "@/components/ui/table";
 import { getAdminDepositsData, type AdminDepositView, type AdminDepositsResponse } from "@/lib/api/admin-product-state";
-import { pickText, resolveUiLanguage, UI_LANGUAGE_COOKIE, type UiLanguage } from "@/lib/ui/preferences";
+import { pickText, resolveUiLanguageFromRoute, UI_LANGUAGE_COOKIE, type UiLanguage } from "@/lib/ui/preferences";
 
 const MANUAL_CREDIT_CONFIRMATION = "confirm manual credit";
 const REVIEW_REASONS_REQUIRING_ORDER_SELECTION = new Set(["ambiguous_match", "order_not_found"]);
 
 type PageProps = {
+  params: Promise<{ locale: string }>;
   searchParams?: Promise<{ error?: string; result?: string; tx?: string }>;
 };
 
@@ -117,13 +118,14 @@ function renderManualActions(lang: UiLanguage, item: AdminDepositView, orders: A
   );
 }
 
-export default async function AdminDepositsPage({ searchParams }: PageProps) {
-  const params = (await searchParams) ?? {};
+export default async function AdminDepositsPage({ params, searchParams }: PageProps) {
+  const { locale } = await params;
+  const query = (await searchParams) ?? {};
   const [cookieStore, data] = await Promise.all([cookies(), getAdminDepositsData()]);
-  const lang = resolveUiLanguage(cookieStore.get(UI_LANGUAGE_COOKIE)?.value);
-  const error = typeof params.error === "string" ? params.error : "";
-  const result = typeof params.result === "string" ? params.result : "";
-  const tx = typeof params.tx === "string" ? params.tx : "";
+  const lang = resolveUiLanguageFromRoute(locale, cookieStore.get(UI_LANGUAGE_COOKIE)?.value);
+  const error = typeof query.error === "string" ? query.error : "";
+  const result = typeof query.result === "string" ? query.result : "";
+  const tx = typeof query.tx === "string" ? query.tx : "";
   const manualQueue = data.abnormal_deposits.filter((item) => item.status === "manual_review_required").length;
 
   return (

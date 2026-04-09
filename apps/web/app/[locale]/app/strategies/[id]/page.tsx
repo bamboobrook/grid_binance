@@ -1,6 +1,6 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
 import { cookies } from "next/headers";
+import { notFound } from "next/navigation";
 
 import { AppShellSection } from "../../../../../components/shell/app-shell-section";
 import { Card, CardBody, CardDescription, CardHeader, CardTitle } from "../../../../../components/ui/card";
@@ -13,7 +13,7 @@ import { DataTable } from "../../../../../components/ui/table";
 const DEFAULT_AUTH_API_BASE_URL = "http://127.0.0.1:8080";
 
 type PageProps = {
-  params: Promise<{ id: string }>;
+  params: Promise<{ locale: string; id: string }>;
   searchParams?: Promise<{
     error?: string | string[];
     notice?: string | string[];
@@ -61,7 +61,7 @@ type PreflightReport = {
 };
 
 type SymbolSearchResponse = {
-  items: Array<{ base_asset: string; market: string; quote_asset: string; symbol: string }> ;
+  items: Array<{ base_asset: string; market: string; quote_asset: string; symbol: string }>;
 };
 
 type AnalyticsReport = {
@@ -85,8 +85,16 @@ function firstValue(value?: string | string[]) {
   return Array.isArray(value) ? value[0] : value;
 }
 
+function bi(zh: string, en: string) {
+  return `${zh} / ${en}`;
+}
+
+function withLocale(locale: string, path: string) {
+  return `/${locale}${path}`;
+}
+
 export default async function StrategyDetailPage({ params, searchParams }: PageProps) {
-  const { id } = await params;
+  const { locale, id } = await params;
   const [strategyResult, analyticsResult] = await Promise.all([fetchStrategy(id), fetchAnalytics()]);
   const strategy = strategyResult.strategy;
   const analytics = analyticsResult.analytics;
@@ -95,7 +103,11 @@ export default async function StrategyDetailPage({ params, searchParams }: PageP
   const symbolQuery = firstValue(paramsValue.symbolQuery) ?? strategy?.symbol ?? "";
   const error = firstValue(paramsValue.error);
   const reason = firstValue(paramsValue.reason);
-  const [preflightResult, symbolMatchesResult] = await Promise.all([fetchPreflight(id), fetchSymbolMatches(firstValue(paramsValue.symbolQuery) ?? strategy?.symbol ?? "")]);
+  const step = firstValue(paramsValue.step);
+  const [preflightResult, symbolMatchesResult] = await Promise.all([
+    fetchPreflight(id),
+    fetchSymbolMatches(firstValue(paramsValue.symbolQuery) ?? strategy?.symbol ?? ""),
+  ]);
   const preflight = preflightResult.preflight;
 
   if (!strategy && !strategyResult.error) {
@@ -103,11 +115,7 @@ export default async function StrategyDetailPage({ params, searchParams }: PageP
   }
 
   if (!strategy) {
-    return (
-      <>
-        <StatusBanner title="Strategy workspace unavailable" description={strategyResult.error ?? "Strategy workspace is temporarily unavailable."} />
-      </>
-    );
+    return <StatusBanner title={bi("策略工作台不可用", "Strategy workspace unavailable")} description={strategyResult.error ?? bi("策略工作台暂不可用。", "Strategy workspace is temporarily unavailable.")} />;
   }
 
   const stats = analytics?.strategies.find((item) => item.strategy_id === strategy.id) ?? null;
@@ -126,35 +134,38 @@ export default async function StrategyDetailPage({ params, searchParams }: PageP
   const gridCount = String(strategy.draft_revision.levels.length || 0);
   const batchSpacingPercent = computeSpacingPercent(firstLevel?.entry_price, secondLevel?.entry_price);
   const batchTakeProfitPercent = firstLevel ? (firstLevel.take_profit_bps / 100).toFixed(2) : "";
+  const detailPagePath = withLocale(locale, `/app/strategies/${strategy.id}`);
 
   return (
     <>
       {notice ? (
         <StatusBanner
-          description={reason ?? "The latest strategy action has been recorded in the backend workspace."}
+          description={reason ? `${bi("原因", "Reason")}: ${reason}` : bi("最新策略动作已记录到后端工作区。", "The latest strategy action has been recorded in the backend workspace.")}
           title={formatNotice(notice)}
           tone={notice.includes("failed") || error ? "warning" : "success"}
         />
       ) : null}
-      {error ? <StatusBanner description={error} title="Strategy action failed" /> : null}
-      {strategyResult.error ? <StatusBanner description={strategyResult.error} title="Strategy data unavailable" /> : null}
-      {preflightResult.error ? <StatusBanner description={preflightResult.error} title="Pre-flight status unavailable" /> : null}
-      {analyticsResult.error ? <StatusBanner description={analyticsResult.error} title="Strategy analytics unavailable" /> : null}
-      {symbolMatchesResult.error ? <StatusBanner description={symbolMatchesResult.error} title="Symbol search unavailable" /> : null}
+      {step ? <StatusBanner description={`${bi("阻塞检查", "Blocking step")}: ${describePreflightStep(step)}`} title={bi("预检提示", "Pre-flight hint")} tone="warning" /> : null}
+      {error ? <StatusBanner description={error} title={bi("策略动作失败", "Strategy action failed")} /> : null}
+      {strategyResult.error ? <StatusBanner description={strategyResult.error} title={bi("策略数据不可用", "Strategy data unavailable")} /> : null}
+      {preflightResult.error ? <StatusBanner description={preflightResult.error} title={bi("预检状态不可用", "Pre-flight status unavailable")} /> : null}
+      {analyticsResult.error ? <StatusBanner description={analyticsResult.error} title={bi("策略分析不可用", "Strategy analytics unavailable")} /> : null}
+      {symbolMatchesResult.error ? <StatusBanner description={symbolMatchesResult.error} title={bi("交易对搜索不可用", "Symbol search unavailable")} /> : null}
+
       <AppShellSection
         actions={
           <div className="flex items-center gap-2">
-            <Link className="inline-flex items-center justify-center rounded-sm text-sm font-medium h-9 px-4 py-2 hover:bg-secondary text-foreground transition-colors" href="/app/orders">
-              Orders
+            <Link className="inline-flex items-center justify-center rounded-sm text-sm font-medium h-9 px-4 py-2 hover:bg-secondary text-foreground transition-colors" href={withLocale(locale, "/app/orders")}>
+              {bi("订单", "Orders")}
             </Link>
-            <Link className="inline-flex items-center justify-center rounded-sm text-sm font-medium h-9 px-4 py-2 hover:bg-secondary text-foreground transition-colors" href="/app/help">
-              Help Center
+            <Link className="inline-flex items-center justify-center rounded-sm text-sm font-medium h-9 px-4 py-2 hover:bg-secondary text-foreground transition-colors" href={withLocale(locale, "/app/help")}>
+              {bi("帮助中心", "Help Center")}
             </Link>
           </div>
         }
-        description="Review saved parameters, independent strategy statistics, and pre-flight status before restarting or launching."
-        eyebrow="Strategy workspace"
-        title="Strategy Workspace"
+        description={bi("在重启或启动前，先核对已保存参数、独立策略统计和实时预检状态。", "Review saved parameters, strategy analytics, and pre-flight status before restarting or launching.")}
+        eyebrow={bi("策略工作台", "Strategy workspace")}
+        title={bi("策略详情", "Strategy workspace")}
       >
         <div className="content-grid content-grid--metrics">
           <Card>
@@ -162,21 +173,21 @@ export default async function StrategyDetailPage({ params, searchParams }: PageP
               <CardTitle>{strategy.name}</CardTitle>
               <CardDescription>{strategy.symbol}</CardDescription>
             </CardHeader>
-            <CardBody>{strategy.market}</CardBody>
+            <CardBody>{describeMarket(strategy.market)}</CardBody>
           </Card>
           <Card>
             <CardHeader>
-              <CardTitle>{strategy.mode}</CardTitle>
-              <CardDescription>Mode</CardDescription>
+              <CardTitle>{describeMode(strategy.mode)}</CardTitle>
+              <CardDescription>{bi("模式", "Mode")}</CardDescription>
             </CardHeader>
-            <CardBody>Generation: {strategy.draft_revision.generation}</CardBody>
+            <CardBody>{bi("生成方式", "Generation")}: {describeGeneration(strategy.draft_revision.generation)}</CardBody>
           </Card>
           <Card>
             <CardHeader>
               <CardTitle>{trailingPercent || "-"}%</CardTitle>
-              <CardDescription>Trailing take profit</CardDescription>
+              <CardDescription>{bi("追踪止盈", "Trailing take profit")}</CardDescription>
             </CardHeader>
-            <CardBody>Use only when taker execution fee tradeoff is acceptable.</CardBody>
+            <CardBody>{bi("仅在可接受 taker 成交费时启用。", "Use only when taker execution fees are acceptable.")}</CardBody>
           </Card>
           <Card>
             <CardHeader>
@@ -185,46 +196,47 @@ export default async function StrategyDetailPage({ params, searchParams }: PageP
                   {describeStrategyStatus(strategy.status)}
                 </Chip>
               </CardTitle>
-              <CardDescription>Current state</CardDescription>
+              <CardDescription>{bi("当前状态", "Current state")}</CardDescription>
             </CardHeader>
-            <CardBody>Pause first to edit, save before restart, no hot-modify while running.</CardBody>
+            <CardBody>{bi("编辑前先暂停，保存后再恢复，运行中不支持热修改。", "Pause before editing, save before restarting, and do not hot-modify while running.")}</CardBody>
           </Card>
         </div>
       </AppShellSection>
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <Card>
           <CardHeader>
-            <CardTitle>Edit and lifecycle flow</CardTitle>
-            <CardDescription>Pre-flight and strategy controls are POST-backed lifecycle steps against the real backend.</CardDescription>
+            <CardTitle>{bi("编辑与生命周期流", "Edit and lifecycle flow")}</CardTitle>
+            <CardDescription>{bi("预检与策略控制都会走真实 POST 路由并写回后端。", "Pre-flight and strategy controls are backed by real POST routes against the backend.")}</CardDescription>
           </CardHeader>
           <CardBody>
-            <form action={`/app/strategies/${strategy.id}`} id="detail-symbol-search-form" method="get" />
+            <form action={detailPagePath} id="detail-symbol-search-form" method="get" />
             <FormStack action={`/api/user/strategies/${strategy.id}`} method="post">
-              <Field label="Strategy name">
+              <Field label={bi("策略名称", "Strategy name")}>
                 <Input defaultValue={strategy.name} name="name" required />
               </Field>
-              <Field label="Search symbols" hint="Symbol search uses synced Binance metadata for fuzzy matching.">
+              <Field label={bi("搜索交易对", "Search symbols")} hint={bi("模糊搜索使用已同步的 Binance 元数据。", "Fuzzy search uses synced Binance metadata.")}>
                 <div className="flex items-center gap-2">
                   <Input defaultValue={symbolQuery} form="detail-symbol-search-form" name="symbolQuery" />
-                  <Button form="detail-symbol-search-form" type="submit">Search symbols</Button>
+                  <Button form="detail-symbol-search-form" type="submit">{bi("搜索", "Search")}</Button>
                 </div>
               </Field>
-              <Field label="Symbol">
+              <Field label={bi("交易对", "Symbol")}>
                 <Input defaultValue={symbolMatchesResult.items[0]?.symbol ?? strategy.symbol} list="detail-symbol-suggestions" name="symbol" required />
                 <datalist id="detail-symbol-suggestions">
                   {symbolMatchesResult.items.map((item) => (
-                    <option key={item.symbol} value={item.symbol}>{item.market} · {item.base_asset}/{item.quote_asset}</option>
+                    <option key={item.symbol} value={item.symbol}>{describeMarket(item.market)} · {item.base_asset}/{item.quote_asset}</option>
                   ))}
                 </datalist>
               </Field>
-              <Field label="Market type">
+              <Field label={bi("市场类型", "Market type")}>
                 <Select defaultValue={mapMarketToForm(strategy.market)} name="marketType">
                   <option value="spot">spot</option>
                   <option value="usd-m">usd-m</option>
                   <option value="coin-m">coin-m</option>
                 </Select>
               </Field>
-              <Field label="Strategy mode">
+              <Field label={bi("策略模式", "Strategy mode")}>
                 <Select defaultValue={mapModeToForm(strategy.mode)} name="mode">
                   <option value="classic">classic</option>
                   <option value="buy-only">buy-only</option>
@@ -234,147 +246,140 @@ export default async function StrategyDetailPage({ params, searchParams }: PageP
                   <option value="neutral">neutral</option>
                 </Select>
               </Field>
-              <Field label="Generation mode">
+              <Field label={bi("生成方式", "Generation mode")}>
                 <Select defaultValue={mapGenerationToForm(strategy.draft_revision.generation)} name="generation">
                   <option value="arithmetic">arithmetic</option>
                   <option value="geometric">geometric</option>
                   <option value="custom">custom</option>
                 </Select>
               </Field>
-              <Field label="Editor mode" hint="Batch mode rewrites the ladder from the inputs below. Custom JSON keeps every grid fully manual.">
+              <Field label={bi("编辑模式", "Editor mode")} hint={bi("batch 会重算阶梯，custom 会保留完整 JSON。", "Batch rebuilds the ladder, while custom keeps the full JSON payload.")}>
                 <Select defaultValue={editorMode} name="editorMode">
-                  <option value="batch">Batch ladder builder</option>
-                  <option value="custom">Custom JSON</option>
+                  <option value="batch">{bi("批量阶梯生成", "Batch ladder builder")}</option>
+                  <option value="custom">{bi("自定义 JSON", "Custom JSON")}</option>
                 </Select>
               </Field>
-              <Field label="Amount mode">
+              <Field label={bi("计量模式", "Amount mode")}>
                 <Select defaultValue={amountMode} name="amountMode">
-                  <option value="quote">Quote amount</option>
-                  <option value="base">Base asset quantity</option>
+                  <option value="quote">{bi("报价资产金额", "Quote amount")}</option>
+                  <option value="base">{bi("基础资产数量", "Base quantity")}</option>
                 </Select>
               </Field>
-              <Field label="Futures margin mode" hint="Required for futures strategies. Spot strategies ignore this setting.">
+              <Field label={bi("合约保证金模式", "Futures margin mode")} hint={bi("仅合约策略使用，现货会忽略该字段。", "Only futures strategies use this field; spot ignores it.")}>
                 <Select defaultValue={futuresMarginMode} name="futuresMarginMode">
-                  <option value="isolated">Isolated</option>
-                  <option value="cross">Cross</option>
+                  <option value="isolated">{bi("逐仓", "Isolated")}</option>
+                  <option value="cross">{bi("全仓", "Cross")}</option>
                 </Select>
               </Field>
-              <Field label="Leverage">
+              <Field label={bi("杠杆", "Leverage")}>
                 <Input defaultValue={leverage} inputMode="numeric" name="leverage" />
               </Field>
-              <Field label="Quote amount (USDT)">
+              <Field label={bi("报价金额 (USDT)", "Quote amount (USDT)")}>
                 <Input defaultValue={quoteAmount} inputMode="decimal" name="quoteAmount" />
               </Field>
-              <Field label="Base asset quantity">
+              <Field label={bi("基础资产数量", "Base asset quantity")}>
                 <Input defaultValue={baseQuantity} inputMode="decimal" name="baseQuantity" />
               </Field>
-              <Field label="Reference price">
+              <Field label={bi("参考价格", "Reference price")}>
                 <Input defaultValue={referencePrice} inputMode="decimal" name="referencePrice" />
               </Field>
-              <Field label="Grid count">
+              <Field label={bi("网格数量", "Grid count")}>
                 <Input defaultValue={gridCount} inputMode="numeric" name="gridCount" />
               </Field>
-              <Field label="Batch spacing (%)">
+              <Field label={bi("批量间距 (%)", "Batch spacing (%)")}>
                 <Input defaultValue={batchSpacingPercent} inputMode="decimal" name="gridSpacingPercent" />
               </Field>
-              <Field label="Batch take profit (%)">
+              <Field label={bi("批量止盈 (%)", "Batch take profit (%)")}>
                 <Input defaultValue={batchTakeProfitPercent} inputMode="decimal" name="batchTakeProfit" />
               </Field>
-              <Field label="Trailing take profit (%)">
+              <Field label={bi("追踪止盈 (%)", "Trailing take profit (%)")}>
                 <Input defaultValue={trailingPercent} inputMode="decimal" name="batchTrailing" />
               </Field>
-              <Field label="Overall take profit (%)">
+              <Field label={bi("整体止盈 (%)", "Overall take profit (%)")}>
                 <Input defaultValue={formatBps(strategy.draft_revision.overall_take_profit_bps)} inputMode="decimal" name="overallTakeProfit" />
               </Field>
-              <Field label="Overall stop loss (%)">
+              <Field label={bi("整体止损 (%)", "Overall stop loss (%)")}>
                 <Input defaultValue={formatBps(strategy.draft_revision.overall_stop_loss_bps)} inputMode="decimal" name="overallStopLoss" />
               </Field>
-              <Field label="Grid levels JSON" hint="Pause before editing. Save the JSON, then rerun pre-flight before restart. Use this for fully custom per-grid overrides.">
+              <Field label={bi("网格 JSON", "Grid levels JSON")} hint={bi("修改前先暂停，保存后重新预检再恢复。", "Pause before editing, save, then rerun pre-flight before restarting.")}>
                 <textarea className="ui-input" defaultValue={levelsJson} name="levels_json" rows={10} />
               </Field>
-              <Field label="Post-trigger behavior">
+              <Field label={bi("触发后行为", "Post-trigger behavior")}>
                 <Select defaultValue={mapPostTriggerToForm(strategy.draft_revision.post_trigger_action)} name="postTrigger">
-                  <option value="stop">Stop after execution</option>
-                  <option value="rebuild">Rebuild and continue</option>
+                  <option value="stop">{bi("执行后停止", "Stop after execution")}</option>
+                  <option value="rebuild">{bi("重建后继续", "Rebuild and continue")}</option>
                 </Select>
               </Field>
               <ButtonRow>
-                <Button name="intent" type="submit" value="save">
-                  Save edits
-                </Button>
-                <Button name="intent" type="submit" value="preflight">
-                  Run pre-flight
-                </Button>
-                <Button name="intent" type="submit" value="start">
-                  Start strategy
-                </Button>
+                <Button name="intent" type="submit" value="save">{bi("保存修改", "Save edits")}</Button>
+                <Button name="intent" type="submit" value="preflight">{bi("运行预检", "Run pre-flight")}</Button>
+                <Button name="intent" type="submit" value="start">{bi("启动策略", "Start strategy")}</Button>
               </ButtonRow>
               <ButtonRow>
-                <Button name="intent" type="submit" value="pause">
-                  Pause strategy
-                </Button>
-                <Button name="intent" type="submit" value="stop">
-                  Stop strategy
-                </Button>
-                <Button name="intent" type="submit" value="delete">
-                  Delete strategy
-                </Button>
+                <Button name="intent" type="submit" value="pause">{bi("暂停策略", "Pause strategy")}</Button>
+                <Button name="intent" type="submit" value="stop">{bi("停止策略", "Stop strategy")}</Button>
+                <Button name="intent" type="submit" value="delete">{bi("删除策略", "Delete strategy")}</Button>
               </ButtonRow>
             </FormStack>
           </CardBody>
         </Card>
+
         <Card>
           <CardHeader>
-            <CardTitle>Pre-flight checklist</CardTitle>
-            <CardDescription>Start requires all checks to pass and any failures explain the exact blocker.</CardDescription>
+            <CardTitle>{bi("预检清单", "Pre-flight checklist")}</CardTitle>
+            <CardDescription>{bi("启动前必须全部通过；失败项会说明具体阻塞点。", "All checks must pass before start; failures explain the exact blocker.")}</CardDescription>
           </CardHeader>
           <CardBody>
             <DataTable
               columns={[
-                { key: "item", label: "Check" },
-                { key: "result", label: "Result", align: "right" },
+                { key: "item", label: bi("检查项", "Check") },
+                { key: "result", label: bi("结果", "Result"), align: "right" },
               ]}
+              emptyMessage={bi("暂无预检数据。", "No pre-flight data yet.")}
               rows={(preflight?.steps ?? []).map((row) => ({
                 id: row.step,
-                item: row.step,
-                result: <Chip tone={row.status === "Passed" ? "success" : row.status === "Failed" ? "danger" : "info"}>{row.status}</Chip>,
+                item: describePreflightStep(row.step),
+                result: <Chip tone={row.status === "Passed" ? "success" : row.status === "Failed" ? "danger" : "info"}>{describePreflightStatus(row.status)}</Chip>,
               }))}
             />
           </CardBody>
         </Card>
       </div>
+
       <Card>
         <CardHeader>
-          <CardTitle>Runtime events</CardTitle>
-          <CardDescription>Runtime failures and recovery hints stay visible here instead of being hidden only in notifications.</CardDescription>
+          <CardTitle>{bi("运行事件", "Runtime events")}</CardTitle>
+          <CardDescription>{bi("运行失败与恢复线索会直接展示在这里，而不是只藏在通知里。", "Runtime failures and recovery hints stay visible here instead of hiding only in notifications.")}</CardDescription>
         </CardHeader>
         <CardBody>
           <DataTable
             columns={[
-              { key: "at", label: "Timestamp" },
-              { key: "event", label: "Event" },
-              { key: "detail", label: "Detail" },
+              { key: "at", label: bi("时间", "Timestamp") },
+              { key: "event", label: bi("事件", "Event") },
+              { key: "detail", label: bi("详情", "Detail") },
             ]}
+            emptyMessage={bi("暂无运行事件。", "No runtime events yet.")}
             rows={strategy.runtime.events.map((event, index) => ({
-              id: strategy.id + "-event-" + index,
+              id: `${strategy.id}-event-${index}`,
               at: event.created_at.replace("T", " ").slice(0, 16),
-              event: event.event_type,
+              event: describeRuntimeEvent(event.event_type),
               detail: event.detail,
             }))}
           />
         </CardBody>
       </Card>
+
       <div className="content-grid content-grid--metrics">
         {[
-          ["Realized PnL", stats?.realized_pnl ?? "-"],
-          ["Unrealized PnL", stats?.unrealized_pnl ?? "-"],
-          ["Fees", stats?.fees_paid ?? "-"],
-          ["Funding fees", stats?.funding_total ?? "-"],
-          ["Net profit", stats?.net_pnl ?? "-"],
-          ["Cost basis", stats?.cost_basis ?? strategy.budget],
-          ["Fill count", String(stats?.fill_count ?? strategy.runtime.fills.length)],
-          ["Order count", String(stats?.order_count ?? strategy.runtime.orders.length)],
-          ["Current holdings", holdings],
+          [bi("已实现盈亏", "Realized PnL"), stats?.realized_pnl ?? "-"],
+          [bi("未实现盈亏", "Unrealized PnL"), stats?.unrealized_pnl ?? "-"],
+          [bi("手续费", "Fees"), stats?.fees_paid ?? "-"],
+          [bi("资金费", "Funding fees"), stats?.funding_total ?? "-"],
+          [bi("净利润", "Net profit"), stats?.net_pnl ?? "-"],
+          [bi("成本基础", "Cost basis"), stats?.cost_basis ?? strategy.budget],
+          [bi("成交笔数", "Fill count"), String(stats?.fill_count ?? strategy.runtime.fills.length)],
+          [bi("订单数量", "Order count"), String(stats?.order_count ?? strategy.runtime.orders.length)],
+          [bi("当前持仓", "Current holdings"), holdings],
         ].map(([label, value]) => (
           <Card key={label}>
             <CardHeader>
@@ -384,19 +389,20 @@ export default async function StrategyDetailPage({ params, searchParams }: PageP
           </Card>
         ))}
       </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <Card>
           <CardHeader>
-            <CardTitle>Grid ladder</CardTitle>
-            <CardDescription>Per-grid take-profit ranges stay visible for manual review and export readiness.</CardDescription>
+            <CardTitle>{bi("网格阶梯", "Grid ladder")}</CardTitle>
+            <CardDescription>{bi("逐层止盈范围会保留在页面上，便于人工复核与导出前核查。", "Per-grid take-profit ranges stay visible for manual review and export readiness.")}</CardDescription>
           </CardHeader>
           <CardBody>
             <DataTable
               columns={[
-                { key: "level", label: "Level" },
-                { key: "range", label: "Entry" },
-                { key: "allocation", label: "Allocation" },
-                { key: "tp", label: "Take profit", align: "right" },
+                { key: "level", label: bi("层级", "Level") },
+                { key: "range", label: bi("入场价", "Entry") },
+                { key: "allocation", label: bi("数量", "Allocation") },
+                { key: "tp", label: bi("止盈", "Take profit"), align: "right" },
               ]}
               rows={strategy.draft_revision.levels.map((level, index) => ({
                 id: `${strategy.id}-level-${index}`,
@@ -409,9 +415,8 @@ export default async function StrategyDetailPage({ params, searchParams }: PageP
           </CardBody>
         </Card>
         <DialogFrame
-          description="Running strategy parameters cannot be hot-modified. Trailing take profit uses taker execution and may increase fees."
-          title="Running strategy parameters cannot be hot-modified"
-         
+          description={bi("运行中的参数不能热修改；追踪止盈会走 taker 成交，费用可能更高。", "Running strategy parameters cannot be hot-modified. Trailing take profit uses taker execution and may increase fees.")}
+          title={bi("运行中参数不可热修改", "Running strategy parameters cannot be hot-modified")}
         />
       </div>
     </>
@@ -422,7 +427,7 @@ async function fetchStrategy(strategyId: string): Promise<{ strategy: BackendStr
   const cookieStore = await cookies();
   const sessionToken = cookieStore.get("session_token")?.value ?? "";
   if (!sessionToken) {
-    return { strategy: null, error: "Session expired." };
+    return { strategy: null, error: bi("会话已过期。", "Session expired.") };
   }
   const response = await fetch(`${authApiBaseUrl()}/strategies`, {
     method: "GET",
@@ -430,7 +435,7 @@ async function fetchStrategy(strategyId: string): Promise<{ strategy: BackendStr
     cache: "no-store",
   });
   if (!response.ok) {
-    return { strategy: null, error: "Strategy workspace is temporarily unavailable." };
+    return { strategy: null, error: bi("策略工作台暂不可用。", "Strategy workspace is temporarily unavailable.") };
   }
   const payload = (await response.json()) as { items: BackendStrategy[] };
   return { strategy: payload.items.find((item) => item.id === strategyId) ?? null, error: null };
@@ -440,7 +445,7 @@ async function fetchPreflight(strategyId: string): Promise<{ preflight: Prefligh
   const cookieStore = await cookies();
   const sessionToken = cookieStore.get("session_token")?.value ?? "";
   if (!sessionToken) {
-    return { preflight: null, error: "Session expired." };
+    return { preflight: null, error: bi("会话已过期。", "Session expired.") };
   }
   const response = await fetch(`${authApiBaseUrl()}/strategies/${strategyId}/preflight`, {
     method: "POST",
@@ -448,7 +453,7 @@ async function fetchPreflight(strategyId: string): Promise<{ preflight: Prefligh
     cache: "no-store",
   });
   if (!response.ok) {
-    return { preflight: null, error: "Unable to load pre-flight status." };
+    return { preflight: null, error: bi("无法加载预检状态。", "Unable to load pre-flight status.") };
   }
   return { preflight: (await response.json()) as PreflightReport, error: null };
 }
@@ -457,7 +462,7 @@ async function fetchAnalytics(): Promise<{ analytics: AnalyticsReport | null; er
   const cookieStore = await cookies();
   const sessionToken = cookieStore.get("session_token")?.value ?? "";
   if (!sessionToken) {
-    return { analytics: null, error: "Session expired." };
+    return { analytics: null, error: bi("会话已过期。", "Session expired.") };
   }
   const response = await fetch(`${authApiBaseUrl()}/analytics`, {
     method: "GET",
@@ -465,35 +470,47 @@ async function fetchAnalytics(): Promise<{ analytics: AnalyticsReport | null; er
     cache: "no-store",
   });
   if (!response.ok) {
-    return { analytics: null, error: "Unable to load strategy analytics." };
+    return { analytics: null, error: bi("无法加载策略分析。", "Unable to load strategy analytics.") };
   }
   return { analytics: (await response.json()) as AnalyticsReport, error: null };
 }
 
 function mapMarketToForm(value: string) {
   switch (value) {
-    case "FuturesUsdM": return "usd-m";
-    case "FuturesCoinM": return "coin-m";
-    default: return "spot";
+    case "FuturesUsdM":
+      return "usd-m";
+    case "FuturesCoinM":
+      return "coin-m";
+    default:
+      return "spot";
   }
 }
 
 function mapModeToForm(value: string) {
   switch (value) {
-    case "SpotBuyOnly": return "buy-only";
-    case "SpotSellOnly": return "sell-only";
-    case "FuturesLong": return "long";
-    case "FuturesShort": return "short";
-    case "FuturesNeutral": return "neutral";
-    default: return "classic";
+    case "SpotBuyOnly":
+      return "buy-only";
+    case "SpotSellOnly":
+      return "sell-only";
+    case "FuturesLong":
+      return "long";
+    case "FuturesShort":
+      return "short";
+    case "FuturesNeutral":
+      return "neutral";
+    default:
+      return "classic";
   }
 }
 
 function mapGenerationToForm(value: string) {
   switch (value) {
-    case "Arithmetic": return "arithmetic";
-    case "Custom": return "custom";
-    default: return "geometric";
+    case "Arithmetic":
+      return "arithmetic";
+    case "Custom":
+      return "custom";
+    default:
+      return "geometric";
   }
 }
 
@@ -501,20 +518,116 @@ function mapPostTriggerToForm(value: string) {
   return value === "Stop" ? "stop" : "rebuild";
 }
 
+function describeMarket(value: string) {
+  switch (value) {
+    case "FuturesUsdM":
+      return bi("U 本位合约", "USD-M futures");
+    case "FuturesCoinM":
+      return bi("币本位合约", "COIN-M futures");
+    default:
+      return bi("现货", "Spot");
+  }
+}
+
+function describeMode(value: string) {
+  switch (value) {
+    case "SpotBuyOnly":
+      return bi("只买", "Buy-only");
+    case "SpotSellOnly":
+      return bi("只卖", "Sell-only");
+    case "FuturesLong":
+      return bi("做多", "Long");
+    case "FuturesShort":
+      return bi("做空", "Short");
+    case "FuturesNeutral":
+      return bi("中性", "Neutral");
+    default:
+      return bi("经典", "Classic");
+  }
+}
+
+function describeGeneration(value: string) {
+  switch (value) {
+    case "Arithmetic":
+      return bi("等差", "Arithmetic");
+    case "Custom":
+      return bi("自定义", "Custom");
+    default:
+      return bi("等比", "Geometric");
+  }
+}
+
 function describeStrategyStatus(status: string) {
   switch (status) {
     case "Draft":
-      return "Draft";
+      return bi("草稿", "Draft");
     case "Running":
-      return "Running";
+      return bi("运行中", "Running");
     case "Paused":
-      return "Paused";
+      return bi("已暂停", "Paused");
     case "ErrorPaused":
-      return "Blocked";
+      return bi("异常阻塞", "Blocked");
     case "Stopped":
-      return "Stopped";
+      return bi("已停止", "Stopped");
     default:
       return status;
+  }
+}
+
+function describePreflightStatus(status: string) {
+  switch (status) {
+    case "Passed":
+      return bi("通过", "Passed");
+    case "Failed":
+      return bi("失败", "Failed");
+    case "Skipped":
+      return bi("跳过", "Skipped");
+    default:
+      return status;
+  }
+}
+
+function describePreflightStep(step: string) {
+  switch (step) {
+    case "membership_status":
+      return bi("会员状态", "Membership status");
+    case "exchange_connection":
+      return bi("交易所连接", "Exchange connection");
+    case "exchange_permissions":
+      return bi("交易权限", "Exchange permissions");
+    case "withdrawal_permission_disabled":
+      return bi("禁提校验", "Withdrawals disabled");
+    case "hedge_mode":
+      return bi("双向持仓", "Hedge mode");
+    case "symbol_support":
+      return bi("交易对支持", "Symbol support");
+    case "filters_and_notional":
+      return bi("过滤器与最小名义", "Filters and notional");
+    case "margin_or_leverage":
+      return bi("保证金或杠杆", "Margin or leverage");
+    case "strategy_conflicts":
+      return bi("策略冲突", "Strategy conflicts");
+    case "balance_or_collateral":
+      return bi("余额或保证金", "Balance or collateral");
+    default:
+      return step;
+  }
+}
+
+function describeRuntimeEvent(eventType: string) {
+  switch (eventType) {
+    case "strategy_started":
+      return bi("策略已启动", "Strategy started");
+    case "strategy_paused":
+      return bi("策略已暂停", "Strategy paused");
+    case "strategy_stopped":
+      return bi("策略已停止", "Strategy stopped");
+    case "strategy_resumed":
+      return bi("策略已恢复", "Strategy resumed");
+    case "strategy_saved":
+      return bi("策略已保存", "Strategy saved");
+    default:
+      return eventType.replace(/_/g, " ");
   }
 }
 
@@ -528,12 +641,26 @@ function computeSpacingPercent(first?: string, second?: string) {
 }
 
 function formatNotice(value: string) {
-  const parts = value.split("-");
-  if (parts.length === 0) {
-    return value;
+  switch (value) {
+    case "template-applied":
+      return bi("模板已应用", "Template applied");
+    case "edits-saved":
+      return bi("修改已保存", "Edits saved");
+    case "preflight-passed":
+      return bi("预检通过", "Pre-flight passed");
+    case "preflight-failed":
+      return bi("预检失败", "Pre-flight failed");
+    case "strategy-paused":
+      return bi("策略已暂停", "Strategy paused");
+    case "strategy-stopped":
+      return bi("策略已停止", "Strategy stopped");
+    case "strategy-started":
+      return bi("策略已启动", "Strategy started");
+    case "start-failed":
+      return bi("启动失败", "Start failed");
+    default:
+      return value;
   }
-  const first = parts[0] === "preflight" ? "Pre-flight" : parts[0].charAt(0).toUpperCase() + parts[0].slice(1);
-  return [first, ...parts.slice(1)].join(" ");
 }
 
 function formatBps(value: number | null) {
@@ -556,7 +683,7 @@ async function fetchSymbolMatches(query: string): Promise<{ items: SymbolSearchR
     cache: "no-store",
   });
   if (!response.ok) {
-    return { items: [], error: "Unable to search symbols right now." };
+    return { items: [], error: bi("当前无法搜索交易对。", "Unable to search symbols right now.") };
   }
   return { items: ((await response.json()) as SymbolSearchResponse).items, error: null };
 }

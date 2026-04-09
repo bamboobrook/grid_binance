@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 
+import { localizedAppPath, localizedPublicPath, publicUrl } from "../../../../lib/auth";
+
 const DEFAULT_AUTH_API_BASE_URL = "http://127.0.0.1:8080";
 
 export async function POST(request: Request) {
@@ -8,16 +10,16 @@ export async function POST(request: Request) {
   const sessionToken = readSessionToken(request);
 
   if (!sessionToken) {
-    return NextResponse.redirect(new URL("/login?error=session+expired", request.url), { status: 303 });
+    return redirectPublic(request, "/login?error=session+expired");
   }
 
   const profile = await fetchProfile(sessionToken);
   if (!profile) {
-    return NextResponse.redirect(new URL("/login?error=session+expired", request.url), { status: 303 });
+    return redirectPublic(request, "/login?error=session+expired");
   }
 
   if (intent !== "generate") {
-    return NextResponse.redirect(new URL("/app/telegram", request.url), { status: 303 });
+    return redirectApp(request, "/telegram");
   }
 
   const response = await fetch(`${authApiBaseUrl()}/telegram/bind-codes`, {
@@ -32,11 +34,11 @@ export async function POST(request: Request) {
 
   if (!response.ok) {
     const error = await readError(response);
-    return NextResponse.redirect(new URL(`/app/telegram?error=${encodeURIComponent(error)}`, request.url), { status: 303 });
+    return redirectApp(request, `/telegram?error=${encodeURIComponent(error)}`);
   }
 
   const payload = (await response.json()) as { code: string; expires_at: string };
-  const url = new URL("/app/telegram", request.url);
+  const url = publicUrl(request, localizedAppPath(request, "/telegram"));
   url.searchParams.set("notice", "bind-code-issued");
   url.searchParams.set("code", payload.code);
   url.searchParams.set("expires", payload.expires_at);
@@ -82,6 +84,14 @@ function readSessionToken(request: Request) {
   const cookie = request.headers.get("cookie") ?? "";
   const match = cookie.match(/(?:^|; )session_token=([^;]+)/);
   return match ? decodeURIComponent(match[1]) : null;
+}
+
+function redirectApp(request: Request, path: string) {
+  return NextResponse.redirect(publicUrl(request, localizedAppPath(request, path)), { status: 303 });
+}
+
+function redirectPublic(request: Request, path: string) {
+  return NextResponse.redirect(publicUrl(request, localizedPublicPath(request, path)), { status: 303 });
 }
 
 function authApiBaseUrl() {

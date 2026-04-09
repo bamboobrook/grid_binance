@@ -1,5 +1,10 @@
 import { redirect } from "next/navigation";
 
-export default function NotificationsPage() {
-  redirect("/app/telegram");
+type PageProps = {
+  params: Promise<{ locale: string }>;
+};
+
+export default async function NotificationsPage({ params }: PageProps) {
+  const { locale } = await params;
+  redirect(`/${locale}/app/telegram`);
 }

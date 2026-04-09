@@ -10,7 +10,6 @@ import { Card, CardBody, CardDescription, CardHeader, CardTitle } from "../ui/ca
 import { Chip } from "../ui/chip";
 import { StatusBanner } from "../ui/status-banner";
 import { ShellPreferences } from "./shell-preferences";
-import { isNavHrefActive } from "./path-utils";
 
 function describeLanguage(lang: UiLanguage) {
   return pickText(lang, "中文", "English");
@@ -26,20 +25,37 @@ function describeTheme(lang: UiLanguage, theme: UiTheme | null) {
   return pickText(lang, "跟随系统", "System");
 }
 
+function withLocale(locale: string, href: string) {
+  if (!href.startsWith("/")) {
+    return href;
+  }
+  if (href === "/") {
+    return `/${locale}`;
+  }
+  return `/${locale}${href}`;
+}
+
+function isNavHrefActive(pathname: string, locale: string, href: string) {
+  const localized = withLocale(locale, href);
+  return pathname === localized || pathname.startsWith(`${localized}/`);
+}
+
 export function UserShell({
   children,
   snapshot,
   lang,
+  locale,
   theme,
 }: {
   children: ReactNode;
   snapshot: UserShellSnapshot;
   lang: UiLanguage;
+  locale: string;
   theme: UiTheme | null;
 }) {
   const pathname = usePathname();
   const consoleStatus = [
-    { label: pickText(lang, "工作区", "Workspace"), value: pickText(lang, "用户", "USER") },
+    { label: pickText(lang, "工作区", "Workspace"), value: pickText(lang, "用户", "User") },
     { label: pickText(lang, "语言", "Language"), value: describeLanguage(lang) },
     { label: pickText(lang, "主题", "Theme"), value: describeTheme(lang, theme) },
   ];
@@ -52,7 +68,7 @@ export function UserShell({
             <Chip>{pickText(lang, "用户终端", "User console")}</Chip>
             <span>{snapshot.subtitle}</span>
           </div>
-          <Link className="brand-mark" href="/app/dashboard">
+          <Link className="brand-mark" href={withLocale(locale, "/app/dashboard")}>
             {snapshot.brand}
           </Link>
           <p>{snapshot.subtitle}</p>
@@ -61,9 +77,10 @@ export function UserShell({
           <p className="shell-sidebar__label">{pickText(lang, "导航", "Navigation")}</p>
           <nav aria-label={pickText(lang, "用户导航", "User workspace")} className="shell-sidebar__nav">
             {snapshot.nav.map((item) => {
-              const isActive = isNavHrefActive(pathname, item.href);
+              const localizedHref = withLocale(locale, item.href);
+              const isActive = isNavHrefActive(pathname, locale, item.href);
               return (
-                <Link className={isActive ? "shell-link shell-link--active" : "shell-link"} href={item.href} key={item.href}>
+                <Link className={isActive ? "shell-link shell-link--active" : "shell-link"} href={localizedHref} key={item.href}>
                   <span>{item.label}</span>
                   {item.badge ? <Chip tone={isActive ? "warning" : "default"}>{item.badge}</Chip> : null}
                 </Link>
@@ -114,7 +131,7 @@ export function UserShell({
         <div className="shell-banner-stack">
           {snapshot.banners.map((banner) => (
             <StatusBanner
-              action={banner.action}
+              action={banner.action ? { ...banner.action, href: withLocale(locale, banner.action.href) } : undefined}
               description={banner.description}
               key={banner.title}
               title={banner.title}

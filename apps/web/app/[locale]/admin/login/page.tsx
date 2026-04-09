@@ -4,7 +4,7 @@ type PageProps = {
   params: Promise<{ locale: string }>;
 };
 
-export default async function AdminBillingPage({ params }: PageProps) {
+export default async function LocalizedAdminLoginPage({ params }: PageProps) {
   const { locale } = await params;
-  redirect(`/${locale}/admin/deposits`);
+  redirect(`/${locale}/login?next=/${locale}/admin/dashboard`);
 }

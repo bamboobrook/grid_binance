@@ -24,6 +24,11 @@ type LoginPageProps = {
 
 function noticeCopy(lang: "zh" | "en", notice: string | undefined) {
   switch (notice) {
+    case "registration-created":
+      return {
+        title: pickText(lang, "账号已创建", "Account created"),
+        description: pickText(lang, "注册已完成，现在可以直接登录；如果你已经启用 TOTP，请一并填写当前验证码。", "Registration is complete. You can sign in now. If TOTP is already enabled, enter the current code as well."),
+      };
     case "email-verified":
       return {
         title: pickText(lang, "邮箱验证完成", "Email verified"),
@@ -57,7 +62,7 @@ export default async function LoginPage({ params, searchParams }: LoginPageProps
   const email = firstValue(searchParamsValue.email) ?? "";
   const error = firstValue(searchParamsValue.error);
   const requestedNext = firstValue(searchParamsValue.next);
-  const next = requestedNext ? safeRedirectTarget(requestedNext, `/${locale}/app/dashboard`) : "";
+  const next = requestedNext ? safeRedirectTarget(requestedNext, "/" + locale + "/app/dashboard") : "";
   const notice = noticeCopy(lang, firstValue(searchParamsValue.notice) ?? firstValue(searchParamsValue.security));
   const showAdminBootstrap = firstValue(searchParamsValue.adminBootstrap) === "1" || Boolean(error && /admin totp setup required/i.test(error ?? ""));
 
@@ -79,7 +84,7 @@ export default async function LoginPage({ params, searchParams }: LoginPageProps
 
         <Card className="bg-[#111827] border-slate-800 shadow-2xl rounded-2xl overflow-hidden">
           <CardBody className="p-8">
-            <FormStack action={`/api/auth/login?locale=${locale}`} method="post" className="space-y-6">
+            <FormStack action={"/api/auth/login?locale=" + locale} method="post" className="space-y-6">
               <input name="next" type="hidden" value={next} />
 
               <Field label={pickText(lang, "邮箱", "Email")}>
@@ -126,14 +131,14 @@ export default async function LoginPage({ params, searchParams }: LoginPageProps
             </FormStack>
           </CardBody>
           <div className="border-t border-slate-800 bg-[#0f141f] p-5 text-center flex flex-col gap-3">
-            <Link href={`/${locale}/password-reset`} className="text-sm text-slate-400 hover:text-white transition-colors">
+            <Link href={"/" + locale + "/password-reset"} className="text-sm text-slate-400 hover:text-white transition-colors">
               {pickText(lang, "忘记密码？重置密码", "Forgot password? Reset here")}
             </Link>
-            <Link href={`/${locale}/register`} className="text-sm text-primary hover:text-primary-foreground font-semibold hover:underline transition-colors">
+            <Link href={"/" + locale + "/register"} className="text-sm text-primary hover:text-primary-foreground font-semibold hover:underline transition-colors">
               {snapshot.alternateLabel}
             </Link>
             {showAdminBootstrap ? (
-              <Link href={`/${locale}/admin-bootstrap?email=${encodeURIComponent(email)}`} className="text-xs text-amber-500 hover:text-amber-400 hover:underline mt-2">
+              <Link href={"/" + locale + "/admin-bootstrap?email=" + encodeURIComponent(email)} className="text-xs text-amber-500 hover:text-amber-400 hover:underline mt-2">
                 {pickText(lang, "初始化管理员 TOTP", "Bootstrap admin TOTP")}
               </Link>
             ) : null}
@@ -143,3 +148,4 @@ export default async function LoginPage({ params, searchParams }: LoginPageProps
     </div>
   );
 }
+

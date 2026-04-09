@@ -15,15 +15,17 @@ export type HelpArticle = {
   title: string;
 };
 
-function docsDirectory() {
-  const starts = [
-    process.cwd(),
-    path.dirname(fileURLToPath(import.meta.url)),
-  ];
+function docsDirectory(locale?: string) {
+  const starts = [process.cwd(), path.dirname(fileURLToPath(import.meta.url))];
 
   for (const start of starts) {
     let current = start;
     while (true) {
+      const localizedCandidate = locale ? path.join(current, "docs", "user-guide", locale) : null;
+      if (localizedCandidate && existsSync(localizedCandidate)) {
+        return localizedCandidate;
+      }
+
       const candidate = path.join(current, "docs", "user-guide");
       if (existsSync(candidate)) {
         return candidate;
@@ -57,11 +59,7 @@ function toBlocks(lines: string[]): HelpArticleBlock[] {
     if (/^#{2,6}\s+/.test(line)) {
       const heading = line.match(/^(#{2,6})\s+(.*)$/);
       if (heading) {
-        blocks.push({
-          kind: "heading",
-          level: heading[1].length,
-          text: heading[2].trim(),
-        });
+        blocks.push({ kind: "heading", level: heading[1].length, text: heading[2].trim() });
       }
       continue;
     }
@@ -94,16 +92,14 @@ function toBlocks(lines: string[]): HelpArticleBlock[] {
   return blocks;
 }
 
-function parseArticle(slug: string): HelpArticle {
-  const content = readFileSync(path.join(docsDirectory(), `${slug}.md`), "utf8");
+function parseArticle(slug: string, locale?: string): HelpArticle {
+  const content = readFileSync(path.join(docsDirectory(locale), `${slug}.md`), "utf8");
   const lines = content.split(/\r?\n/).map((line) => line.trim());
 
   const titleIndex = lines.findIndex((line) => line.startsWith("# "));
   const titleLine = titleIndex >= 0 ? lines[titleIndex] : "# Untitled";
   const title = titleLine.replace(/^#\s+/, "");
-  const body = lines
-    .slice(titleIndex >= 0 ? titleIndex + 1 : 0)
-    .filter(Boolean);
+  const body = lines.slice(titleIndex >= 0 ? titleIndex + 1 : 0).filter(Boolean);
   const summaryLine = body.find((line) => !/^#{1,6}\s+/.test(line) && !/^[-*]\s+/.test(line) && !/^\d+\.\s+/.test(line));
   const summary = stripMarkdown(summaryLine ?? body[0] ?? "Repository-backed user help article.");
 
@@ -116,31 +112,29 @@ function parseArticle(slug: string): HelpArticle {
   };
 }
 
-export function listHelpArticles(): HelpArticle[] {
-  return readdirSync(docsDirectory())
+export function listHelpArticles(locale?: string): HelpArticle[] {
+  return readdirSync(docsDirectory(locale))
     .filter((entry) => entry.endsWith(".md"))
     .map((entry) => entry.replace(/\.md$/, ""))
     .sort()
-    .map((slug) => parseArticle(slug));
+    .map((slug) => parseArticle(slug, locale));
 }
 
 export const HELP_ARTICLES = listHelpArticles();
 export const VALID_HELP_ARTICLES = HELP_ARTICLES.map((article) => article.slug) as [string, ...string[]];
 
-export function getHelpArticle(article: string): HelpArticle | null {
-  return HELP_ARTICLES.find((item) => item.slug === article) ?? null;
+export function getHelpArticle(article: string, locale?: string): HelpArticle | null {
+  return listHelpArticles(locale).find((item) => item.slug === article) ?? null;
 }
 
-export function isValidHelpArticle(article: string): boolean {
-  return getHelpArticle(article) !== null;
+export function isValidHelpArticle(article: string, locale?: string): boolean {
+  return getHelpArticle(article, locale) !== null;
 }
 
-export function normalizeHelpArticle(value?: string | string[]): string | null {
+export function normalizeHelpArticle(value?: string | string[], locale?: string): string | null {
   const article = Array.isArray(value) ? value[0] : value;
-
   if (!article) {
     return null;
   }
-
-  return isValidHelpArticle(article) ? article : null;
+  return isValidHelpArticle(article, locale) ? article : null;
 }

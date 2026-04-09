@@ -7,9 +7,10 @@ import { Button, Field, FormStack, Input, Select } from "@/components/ui/form";
 import { StatusBanner } from "@/components/ui/status-banner";
 import { DataTable } from "@/components/ui/table";
 import { getAdminTemplatesData, getCurrentAdminProfile } from "@/lib/api/admin-product-state";
-import { pickText, resolveUiLanguage, UI_LANGUAGE_COOKIE } from "@/lib/ui/preferences";
+import { pickText, resolveUiLanguageFromRoute, UI_LANGUAGE_COOKIE } from "@/lib/ui/preferences";
 
 type PageProps = {
+  params: Promise<{ locale: string }>;
   searchParams?: Promise<{ created?: string; edit?: string; updated?: string }>;
 };
 
@@ -22,15 +23,17 @@ function readinessOptions(lang: "zh" | "en") {
   );
 }
 
-export default async function AdminTemplatesPage({ searchParams }: PageProps) {
-  const params = (await searchParams) ?? {};
+export default async function AdminTemplatesPage({ params, searchParams }: PageProps) {
+  const { locale } = await params;
+  const query = (await searchParams) ?? {};
   const [cookieStore, profile] = await Promise.all([cookies(), getCurrentAdminProfile()]);
-  const lang = resolveUiLanguage(cookieStore.get(UI_LANGUAGE_COOKIE)?.value);
-  const created = typeof params.created === "string" ? params.created : "";
-  const updated = typeof params.updated === "string" ? params.updated : "";
-  const editId = typeof params.edit === "string" ? params.edit : "";
+  const lang = resolveUiLanguageFromRoute(locale, cookieStore.get(UI_LANGUAGE_COOKIE)?.value);
+  const pagePath = `/${locale}/admin/templates`;
+  const created = typeof query.created === "string" ? query.created : "";
+  const updated = typeof query.updated === "string" ? query.updated : "";
+  const editId = typeof query.edit === "string" ? query.edit : "";
   if (profile.admin_role !== "super_admin") {
-    redirect("/admin/dashboard");
+    redirect("/" + locale + "/admin/dashboard");
   }
 
   const canManageTemplates = profile.admin_permissions?.can_manage_templates ?? false;
@@ -213,7 +216,7 @@ export default async function AdminTemplatesPage({ searchParams }: PageProps) {
             ]}
             rows={data.items.map((item) => ({
               actions: canManageTemplates ? (
-                <form action="/admin/templates" method="get">
+                <form action={pagePath} method="get">
                   <input name="edit" type="hidden" value={item.id} />
                   <Button type="submit">{pickText(lang, "编辑模板", "Edit Template")}</Button>
                 </form>

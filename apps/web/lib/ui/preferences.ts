@@ -8,6 +8,13 @@ export function resolveUiLanguage(value?: string | null): UiLanguage {
   return value === "en" ? "en" : "zh";
 }
 
+export function resolveUiLanguageFromRoute(routeLocale?: string | null, cookieValue?: string | null): UiLanguage {
+  if (routeLocale === "zh" || routeLocale === "en") {
+    return routeLocale;
+  }
+  return resolveUiLanguage(cookieValue);
+}
+
 export function resolveUiTheme(value?: string | null): UiTheme | null {
   if (value === "light" || value === "dark") {
     return value;

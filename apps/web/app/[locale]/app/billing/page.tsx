@@ -1,17 +1,18 @@
 import Link from "next/link";
 import { cookies } from "next/headers";
 
+import { MembershipOrderForm } from "@/components/billing/membership-order-form";
 import { AppShellSection } from "@/components/shell/app-shell-section";
 import { Card, CardBody, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Chip } from "@/components/ui/chip";
 import { DialogFrame } from "@/components/ui/dialog";
-import { Button, Field, FormStack, Select } from "@/components/ui/form";
 import { StatusBanner } from "@/components/ui/status-banner";
 import { DataTable } from "@/components/ui/table";
+import { pickText, type UiLanguage } from "@/lib/ui/preferences";
 
 const DEFAULT_AUTH_API_BASE_URL = "http://127.0.0.1:8080";
 
 type PageProps = {
+  params: Promise<{ locale: string }>;
   searchParams?: Promise<{ error?: string | string[]; notice?: string | string[]; plan?: string | string[]; chain?: string | string[]; token?: string | string[] }>;
 };
 
@@ -38,148 +39,121 @@ type BillingOverview = {
   }>;
 };
 
+type BillingPlan = BillingOverview["plans"][number];
+
+
 function firstValue(value?: string | string[]) {
   return Array.isArray(value) ? value[0] : value;
 }
 
-export default async function BillingPage({ searchParams }: PageProps) {
-  const params = (await searchParams) ?? {};
-  const notice = firstValue(params.notice);
-  const error = firstValue(params.error);
-  const requestedPlan = firstValue(params.plan) ?? "";
-  const requestedChain = firstValue(params.chain) ?? "";
-  const requestedToken = firstValue(params.token) ?? "";
+export default async function BillingPage({ params, searchParams }: PageProps) {
+  const { locale } = await params;
+  const lang: UiLanguage = locale === "en" ? "en" : "zh";
+  const query = (await searchParams) ?? {};
+  const notice = firstValue(query.notice);
+  const error = firstValue(query.error);
+  const requestedPlan = firstValue(query.plan) ?? "";
+  const requestedChain = firstValue(query.chain) ?? "";
+  const requestedToken = firstValue(query.token) ?? "";
   const overview = await fetchBillingOverview();
   const plans = overview?.plans ?? [];
   const orders = overview?.orders ?? [];
   const membership = overview?.membership ?? null;
-  const selectedPlan = plans.find((plan) => plan.code === requestedPlan) ?? plans[0] ?? null;
-  const selectedPrice = selectedPlan?.prices.find((price) => {
-    const chainMatches = !requestedChain || price.chain === requestedChain;
-    const tokenMatches = !requestedToken || price.asset === requestedToken;
-    return chainMatches && tokenMatches;
-  }) ?? selectedPlan?.prices[0] ?? null;
-  const chainOptions = uniqueValues((selectedPlan?.prices ?? []).map((price) => price.chain));
-  const tokenOptions = uniqueValues((selectedPlan?.prices ?? []).map((price) => price.asset));
 
   return (
     <>
       <StatusBanner
-        description="Membership enters a 48-hour grace period after expiry. Existing strategies may continue only during that window."
-        title="Grace-period reminder enabled"
-       
+        description={pickText(lang, "会员到期后会进入48小时宽限期，宽限期内已运行策略可继续运行。", "Membership enters a 48-hour grace period after expiry. Existing strategies may continue only during that window.")}
+        title={pickText(lang, "宽限期规则已启用", "Grace-period reminder enabled")}
       />
-      {notice ? <StatusBanner description={notice} title="Awaiting exact transfer" /> : null}
-      {error ? <StatusBanner description={error} title="Billing request failed" /> : null}
+      {notice ? <StatusBanner description={notice} title={pickText(lang, "等待精确到账", "Awaiting exact transfer")} /> : null}
+      {error ? <StatusBanner description={error} title={pickText(lang, "会员请求失败", "Membership request failed")} /> : null}
       <AppShellSection
-        description="Create renewal orders with visible exact-amount warnings, plan pricing, and membership timing."
-        eyebrow="Membership billing"
-        title="Billing Center"
+        description={pickText(lang, "在这里创建续费订单、确认精确金额，并查看会员时间线。", "Create renewal orders, confirm the exact amount, and review membership timing here.")}
+        eyebrow={pickText(lang, "会员服务", "Membership service")}
+        title={pickText(lang, "会员中心", "Membership Center")}
       >
-        <div className="content-grid content-grid--metrics">
-          {plans.map((item) => (
-            <Card key={item.code}>
-              <CardHeader>
-                <CardTitle>{item.name}</CardTitle>
-                <CardDescription>{item.prices.map((price) => price.chain + " " + price.asset + " " + price.amount).join(" | ")}</CardDescription>
-              </CardHeader>
-            </Card>
-          ))}
-        </div>
-      </AppShellSection>
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <Card>
           <CardHeader>
-            <CardTitle>Create payment order</CardTitle>
-            <CardDescription>Renewal timing stays visible before the user sends funds on-chain.</CardDescription>
+            <CardTitle>{pickText(lang, "会员套餐", "Membership plans")}</CardTitle>
+            <CardDescription>{pickText(lang, "这里只保留简洁套餐说明；具体下单金额会根据你下面选择的链路与稳定币实时联动。", "This section keeps plan pricing simple. The exact order amount below updates live with the selected chain and stablecoin.")}</CardDescription>
           </CardHeader>
           <CardBody>
-            <p>Next renewal: {membership?.active_until?.slice(0, 10) ?? "Unavailable"}</p>
-            <p>Selected price: {selectedPrice ? selectedPrice.chain + " " + selectedPrice.asset + " " + selectedPrice.amount : "No price available"}</p>
-            <FormStack action="/api/user/billing" method="post">
-              <Field label="Plan">
-                <Select defaultValue={selectedPlan?.code ?? ""} name="plan">
-                  {plans.length === 0 ? <option value="">No plans available</option> : null}
-                  {plans.map((plan) => (
-                    <option key={plan.code} value={plan.code}>{plan.name}</option>
-                  ))}
-                </Select>
-              </Field>
-              <Field label="Chain">
-                <Select defaultValue={selectedPrice?.chain ?? ""} name="chain">
-                  {chainOptions.length === 0 ? <option value="">No chain available</option> : null}
-                  {chainOptions.map((chain) => (
-                    <option key={chain} value={chain}>{chain}</option>
-                  ))}
-                </Select>
-              </Field>
-              <Field label="Token">
-                <Select defaultValue={selectedPrice?.asset ?? ""} name="token">
-                  {tokenOptions.length === 0 ? <option value="">No token available</option> : null}
-                  {tokenOptions.map((token) => (
-                    <option key={token} value={token}>{token}</option>
-                  ))}
-                </Select>
-              </Field>
-              <Button type="submit">Create payment order</Button>
-            </FormStack>
+            <ul className="text-list">
+              {plans.map((plan) => (
+                <li key={plan.code}>{describePlanSummary(lang, plan)}</li>
+              ))}
+            </ul>
+          </CardBody>
+        </Card>
+      </AppShellSection>
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle>{pickText(lang, "创建支付订单", "Create payment order")}</CardTitle>
+            <CardDescription>{pickText(lang, "链路、币种和金额都必须完全一致，系统才会自动确认。", "Chain, token, and amount must match exactly before the system can confirm automatically.")}</CardDescription>
+          </CardHeader>
+          <CardBody className="space-y-4">
+            <MembershipOrderForm
+              activeUntil={membership?.active_until}
+              initialChain={requestedChain}
+              initialPlanCode={requestedPlan}
+              initialToken={requestedToken}
+              lang={lang}
+              plans={plans}
+            />
           </CardBody>
         </Card>
         <Card>
           <CardHeader>
-            <CardTitle>Membership timing</CardTitle>
-            <CardDescription>Pricing changes apply to the following billing cycle, not the current entitlement.</CardDescription>
+            <CardTitle>{pickText(lang, "会员时间线", "Membership timing")}</CardTitle>
+            <CardDescription>{pickText(lang, "价格调整只影响后续续费，不影响当前已生效会员。", "Pricing changes apply to later renewals, not the currently active entitlement.")}</CardDescription>
           </CardHeader>
           <CardBody>
             <ul className="text-list">
-              <li>Membership status: {membership?.status ?? "Unknown"}</li>
-              <li>Renewal stacking: Allowed</li>
-              <li>Grace period ends: {membership?.grace_until?.slice(0, 10) ?? "Unavailable"}</li>
-              <li><Link href="/app/strategies">Strategy Workspace</Link></li>
+              <li>{pickText(lang, "会员状态", "Membership status")}: {membership?.status ?? pickText(lang, "未知", "Unknown")}</li>
+              <li>{pickText(lang, "续费叠加", "Renewal stacking")}: {pickText(lang, "允许", "Allowed")}</li>
+              <li>{pickText(lang, "宽限期截止", "Grace period ends")}: {membership?.grace_until?.slice(0, 10) ?? pickText(lang, "暂无", "Unavailable")}</li>
+              <li><Link href={`/${locale}/app/strategies`}>{pickText(lang, "前往策略工作台", "Open strategy workspace")}</Link></li>
             </ul>
           </CardBody>
         </Card>
       </div>
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle>Payment orders</CardTitle>
-            <CardDescription>Exact chain, token, and amount are all required for automatic confirmation.</CardDescription>
+            <CardTitle>{pickText(lang, "支付订单", "Payment orders")}</CardTitle>
+            <CardDescription>{pickText(lang, "地址分配、锁定时间和排队状态都会在这里显示。", "Address assignment, lock timing, and queue state stay visible here.")}</CardDescription>
           </CardHeader>
           <CardBody>
             <DataTable
               columns={[
-                { key: "order", label: "Order" },
-                { key: "chainToken", label: "Chain / token" },
-                { key: "details", label: "Assignment details" },
-                { key: "amount", label: "Amount", align: "right" },
-                { key: "state", label: "State", align: "right" },
+                { key: "order", label: pickText(lang, "订单", "Order") },
+                { key: "chainToken", label: pickText(lang, "链路 / 币种", "Chain / token") },
+                { key: "details", label: pickText(lang, "分配详情", "Assignment details") },
+                { key: "amount", label: pickText(lang, "金额", "Amount"), align: "right" },
+                { key: "state", label: pickText(lang, "状态", "State"), align: "right" },
               ]}
               rows={orders.map((row) => ({
                 id: String(row.order_id),
                 order: "ORD-" + String(row.order_id).padStart(4, "0"),
                 chainToken: row.chain + " / " + row.asset,
                 details: row.address
-                  ? "Assigned address: " + row.address + " | Address lock expires: " + (row.expires_at?.slice(0, 19).replace("T", " ") ?? "pending")
-                  : "Queue position: " + String(row.queue_position ?? "pending") + " | Assigned address pending",
+                  ? pickText(lang, "已分配地址：", "Assigned address: ") + row.address + " | " + pickText(lang, "锁定到期：", "Address lock expires: ") + (row.expires_at?.slice(0, 19).replace("T", " ") ?? pickText(lang, "处理中", "pending"))
+                  : pickText(lang, "排队序号：", "Queue position: ") + String(row.queue_position ?? pickText(lang, "处理中", "pending")) + " | " + pickText(lang, "等待分配地址", "Assigned address pending"),
                 amount: row.amount,
-                state: <Chip tone={row.status === "matched" || row.status === "completed" ? "success" : "warning"}>{row.status}</Chip>,
+                state: row.status,
               }))}
             />
           </CardBody>
         </Card>
         <DialogFrame
-          description="Payment amount must match exactly. Overpayment, underpayment, or wrong token will require manual review before membership can be extended."
-          title="Payment amount must match exactly"
-         
+          description={pickText(lang, "支付金额必须完全一致。多转、少转或转错币种都会进入人工复核。", "Payment amount must match exactly. Overpayment, underpayment, or wrong token will require manual review before membership can be extended.")}
+          title={pickText(lang, "支付金额必须精确匹配", "Payment amount must match exactly")}
         />
       </div>
     </>
   );
-}
-
-function uniqueValues(values: string[]) {
-  return Array.from(new Set(values));
 }
 
 async function fetchBillingOverview(): Promise<BillingOverview | null> {
@@ -201,4 +175,25 @@ async function fetchBillingOverview(): Promise<BillingOverview | null> {
 
 function authApiBaseUrl() {
   return process.env.AUTH_API_BASE_URL?.trim().replace(/\/+$/, "") || DEFAULT_AUTH_API_BASE_URL;
+}
+
+function describePlanSummary(lang: UiLanguage, plan: BillingPlan) {
+  return `${labelForPlan(lang, plan.code, plan.name)} ${firstUsdAmount(plan)}`;
+}
+
+function labelForPlan(lang: UiLanguage, code: string, fallback: string) {
+  switch (code.trim().toLowerCase()) {
+    case "monthly":
+      return pickText(lang, "按月支付", "Pay monthly");
+    case "quarterly":
+      return pickText(lang, "按季度支付", "Pay quarterly");
+    case "yearly":
+      return pickText(lang, "按年支付", "Pay yearly");
+    default:
+      return fallback;
+  }
+}
+
+function firstUsdAmount(plan: BillingPlan) {
+  return `${plan.prices[0]?.amount ?? "0"} USD`;
 }

@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 
+import { localizedAppPath, localizedPublicPath, publicUrl } from "../../../../lib/auth";
+
 const DEFAULT_AUTH_API_BASE_URL = "http://127.0.0.1:8080";
 
 export async function POST(request: Request) {
@@ -9,9 +11,10 @@ export async function POST(request: Request) {
   const asset = normalizeAsset(readField(formData, "token") || "usdt");
   const sessionToken = readSessionToken(request);
   const profile = sessionToken ? await fetchProfile(sessionToken) : null;
+  const selectionQuery = buildSelectionQuery(planCode, chain, asset);
 
   if (!sessionToken || !profile?.email) {
-    return NextResponse.redirect(new URL("/login?error=session+expired", request.url), { status: 303 });
+    return redirectPublic(request, "/login?error=session+expired");
   }
 
   const result = await createBillingOrder(sessionToken, {
@@ -23,20 +26,20 @@ export async function POST(request: Request) {
   });
 
   if (!result.ok) {
-    return NextResponse.redirect(new URL(`/app/billing?error=${encodeURIComponent(result.error)}`, request.url), { status: 303 });
+    return redirectApp(request, "/billing?error=" + encodeURIComponent(result.error) + selectionQuery);
   }
 
   const chainLabel = humanChainLabel(result.data.chain);
   const notice = result.data.address
-    ? `Send exactly ${result.data.amount} ${result.data.asset} on ${chainLabel} to ${result.data.address}. Address lock expires ${result.data.expires_at ?? "soon"}. Overpayment, underpayment, or wrong token will require manual review.`
-    : `Order queued for ${chainLabel} ${result.data.asset}. Exact amount ${result.data.amount} remains reserved while awaiting address assignment. Queue position ${result.data.queue_position ?? "pending"}.`;
-  return NextResponse.redirect(new URL(`/app/billing?notice=${encodeURIComponent(notice)}`, request.url), { status: 303 });
+    ? "Send exactly " + result.data.amount + " " + result.data.asset + " on " + chainLabel + " to " + result.data.address + ". Address lock expires " + (result.data.expires_at ?? "soon") + ". Overpayment, underpayment, or wrong token will require manual review."
+    : "Order queued for " + chainLabel + " " + result.data.asset + ". Exact amount " + result.data.amount + " remains reserved while awaiting address assignment. Queue position " + (result.data.queue_position ?? "pending") + ".";
+  return redirectApp(request, "/billing?notice=" + encodeURIComponent(notice) + selectionQuery);
 }
 
 async function fetchProfile(sessionToken: string) {
-  const response = await fetch(`${authApiBaseUrl()}/profile`, {
+  const response = await fetch(authApiBaseUrl() + "/profile", {
     method: "GET",
-    headers: { authorization: `Bearer ${sessionToken}` },
+    headers: { authorization: "Bearer " + sessionToken },
     cache: "no-store",
   });
   if (!response.ok) {
@@ -55,10 +58,10 @@ async function createBillingOrder(
     requested_at: string;
   },
 ) {
-  const response = await fetch(`${authApiBaseUrl()}/billing/orders`, {
+  const response = await fetch(authApiBaseUrl() + "/billing/orders", {
     method: "POST",
     headers: {
-      authorization: `Bearer ${sessionToken}`,
+      authorization: "Bearer " + sessionToken,
       "content-type": "application/json",
     },
     body: JSON.stringify(body),
@@ -90,6 +93,15 @@ async function readError(response: Response) {
   } catch {
     return "billing request failed";
   }
+}
+
+function buildSelectionQuery(planCode: string, chain: string, asset: string) {
+  const params = new URLSearchParams({
+    plan: planCode,
+    chain,
+    token: asset,
+  });
+  return "&" + params.toString();
 }
 
 function normalizeChain(value: string) {
@@ -129,6 +141,14 @@ function readSessionToken(request: Request) {
   const cookie = request.headers.get("cookie") ?? "";
   const match = cookie.match(/(?:^|; )session_token=([^;]+)/);
   return match ? decodeURIComponent(match[1]) : null;
+}
+
+function redirectApp(request: Request, path: string) {
+  return NextResponse.redirect(publicUrl(request, localizedAppPath(request, path)), { status: 303 });
+}
+
+function redirectPublic(request: Request, path: string) {
+  return NextResponse.redirect(publicUrl(request, localizedPublicPath(request, path)), { status: 303 });
 }
 
 function authApiBaseUrl() {

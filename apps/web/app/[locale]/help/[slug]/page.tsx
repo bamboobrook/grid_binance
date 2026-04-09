@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { Card, CardBody, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatusBanner } from "@/components/ui/status-banner";
 import { getHelpArticle, type HelpArticleBlock } from "@/lib/api/help-articles";
+import { pickText, type UiLanguage } from "@/lib/ui/preferences";
 
 function renderArticleBlock(block: HelpArticleBlock, index: number) {
   if (block.kind === "heading") {
@@ -41,10 +42,11 @@ function renderArticleBlock(block: HelpArticleBlock, index: number) {
 export default async function HelpArticlePage({
   params,
 }: {
-  params: Promise<{ slug: string }>;
+  params: Promise<{ locale: string; slug: string }>;
 }) {
-  const { slug } = await params;
-  const article = getHelpArticle(slug);
+  const { locale, slug } = await params;
+  const lang: UiLanguage = locale === "en" ? "en" : "zh";
+  const article = getHelpArticle(slug, locale);
 
   if (!article) {
     notFound();
@@ -52,21 +54,23 @@ export default async function HelpArticlePage({
 
   return (
     <main className="shell shell--public">
-      <div className="public-shell__content">
+      <div className="public-shell__content py-6">
         <StatusBanner description={article.summary} title={article.title} />
         <Card>
           <CardHeader>
             <CardTitle>{article.title}</CardTitle>
-            <CardDescription>Public help route showing the same repository-backed content rendered in /app/help.</CardDescription>
+            <CardDescription>
+              {pickText(lang, "公开帮助路由会展示与应用内帮助中心相同的仓库文档内容。", "The public help route renders the same repository-backed content as the in-app help center.")}
+            </CardDescription>
           </CardHeader>
           <CardBody>
-            {article.blocks.map((block, index) => renderArticleBlock(block, index))}
-            <div className="flex items-center gap-2">
-              <Link className="inline-flex items-center justify-center rounded-sm text-sm font-medium h-9 px-4 py-2 hover:bg-secondary text-foreground transition-colors" href={`/app/help?article=${article.slug}`}>
-                Open in App Help Center
+            <div className="ui-form">{article.blocks.map((block, index) => renderArticleBlock(block, index))}</div>
+            <div className="flex flex-wrap items-center gap-2 mt-6">
+              <Link className="inline-flex items-center justify-center rounded-sm text-sm font-medium h-9 px-4 py-2 hover:bg-secondary text-foreground transition-colors" href={`/${locale}/app/help?article=${article.slug}`}>
+                {pickText(lang, "在应用内打开帮助中心", "Open in App Help Center")}
               </Link>
-              <Link className="inline-flex items-center justify-center rounded-sm text-sm font-medium h-9 px-4 py-2 bg-primary hover:bg-primary/90 text-foreground shadow-sm transition-colors" href="/app/billing">
-                Open Billing Center
+              <Link className="inline-flex items-center justify-center rounded-sm text-sm font-medium h-9 px-4 py-2 bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm transition-colors" href={`/${locale}/app/billing`}>
+                {pickText(lang, "打开计费中心", "Open Billing Center")}
               </Link>
             </div>
           </CardBody>

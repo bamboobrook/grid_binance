@@ -1,5 +1,6 @@
 "use client";
 
+import { usePathname, useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
 import {
@@ -16,7 +17,16 @@ type ShellPreferencesProps = {
   theme: UiTheme | null;
 };
 
+function withLocale(pathname: string, nextLanguage: UiLanguage) {
+  if (pathname.startsWith("/zh/") || pathname === "/zh" || pathname.startsWith("/en/") || pathname === "/en") {
+    return pathname.replace(/^\/(zh|en)(?=\/|$)/, `/${nextLanguage}`);
+  }
+  return `/${nextLanguage}${pathname.startsWith("/") ? pathname : `/${pathname}`}`;
+}
+
 export function ShellPreferences({ lang, theme }: ShellPreferencesProps) {
+  const pathname = usePathname();
+  const router = useRouter();
   const [currentLang, setCurrentLang] = useState<UiLanguage>(lang);
   const [currentTheme, setCurrentTheme] = useState<UiTheme>(() => {
     if (theme) {
@@ -48,7 +58,7 @@ export function ShellPreferences({ lang, theme }: ShellPreferencesProps) {
     persist(UI_LANGUAGE_COOKIE, nextLanguage);
     document.documentElement.lang = nextLanguage;
     startTransition(() => {
-      window.location.reload();
+      router.push(withLocale(pathname, nextLanguage));
     });
   }
 

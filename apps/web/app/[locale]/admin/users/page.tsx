@@ -4,7 +4,7 @@ import { AppShellSection } from "@/components/shell/app-shell-section";
 import { Card, CardBody, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { DataTable } from "@/components/ui/table";
 import { getAdminUsersData } from "@/lib/api/admin-product-state";
-import { pickText, resolveUiLanguage, UI_LANGUAGE_COOKIE, type UiLanguage } from "@/lib/ui/preferences";
+import { pickText, resolveUiLanguageFromRoute, UI_LANGUAGE_COOKIE, type UiLanguage } from "@/lib/ui/preferences";
 
 function membershipLabel(lang: UiLanguage, status: string | null) {
   switch (status) {
@@ -54,9 +54,14 @@ function roleLabel(lang: UiLanguage, role: string | null) {
   }
 }
 
-export default async function AdminUsersPage() {
+type PageProps = {
+  params: Promise<{ locale: string }>;
+};
+
+export default async function AdminUsersPage({ params }: PageProps) {
+  const { locale } = await params;
   const [cookieStore, data] = await Promise.all([cookies(), getAdminUsersData()]);
-  const lang = resolveUiLanguage(cookieStore.get(UI_LANGUAGE_COOKIE)?.value);
+  const lang = resolveUiLanguageFromRoute(locale, cookieStore.get(UI_LANGUAGE_COOKIE)?.value);
   const pendingVerification = data.items.filter((item) => item.registered && item.email_verified === false).length;
   const privilegedUsers = data.items.filter((item) => item.admin_role).length;
   const totpDisabled = data.items.filter((item) => item.registered && item.totp_enabled === false).length;

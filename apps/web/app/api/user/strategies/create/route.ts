@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 
+import { localizedAppPath, localizedPublicPath, publicUrl } from "../../../../../lib/auth";
+
 const DEFAULT_AUTH_API_BASE_URL = "http://127.0.0.1:8080";
 
 type ParsedGridLevel = {
@@ -13,14 +15,14 @@ export async function POST(request: Request) {
   const formData = await request.formData();
   const sessionToken = readSessionToken(request);
   if (!sessionToken) {
-    return NextResponse.redirect(new URL("/login?error=session+expired", request.url), { status: 303 });
+    return redirectToPublic(request, "/login?error=session+expired");
   }
 
   let payload;
   try {
     payload = buildStrategyPayload(formData);
   } catch (error) {
-    return NextResponse.redirect(new URL(`/app/strategies/new?error=${encodeURIComponent(readErrorMessage(error))}`, request.url), { status: 303 });
+    return redirectToApp(request, `/strategies/new?error=${encodeURIComponent(readErrorMessage(error))}`);
   }
 
   const response = await fetch(`${authApiBaseUrl()}/strategies`, {
@@ -34,11 +36,11 @@ export async function POST(request: Request) {
   });
 
   if (!response.ok) {
-    return NextResponse.redirect(new URL(`/app/strategies/new?error=${encodeURIComponent(await readError(response))}`, request.url), { status: 303 });
+    return redirectToApp(request, `/strategies/new?error=${encodeURIComponent(await readError(response))}`);
   }
 
   const created = (await response.json()) as { id: string };
-  return NextResponse.redirect(new URL(`/app/strategies/${created.id}?notice=draft-saved`, request.url), { status: 303 });
+  return redirectToApp(request, `/strategies/${created.id}?notice=draft-saved`);
 }
 
 function buildStrategyPayload(formData: FormData) {
@@ -310,4 +312,12 @@ function readSessionToken(request: Request) {
 
 function authApiBaseUrl() {
   return process.env.AUTH_API_BASE_URL?.trim().replace(/\/+$/, "") || DEFAULT_AUTH_API_BASE_URL;
+}
+
+function redirectToApp(request: Request, pathname: string) {
+  return NextResponse.redirect(publicUrl(request, localizedAppPath(request, pathname)), { status: 303 });
+}
+
+function redirectToPublic(request: Request, pathname: string) {
+  return NextResponse.redirect(publicUrl(request, localizedPublicPath(request, pathname)), { status: 303 });
 }

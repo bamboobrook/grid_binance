@@ -25,7 +25,7 @@ export default async function RegisterPage({ params, searchParams }: RegisterPag
   const searchParamsValue = (await searchParams) ?? {};
   const email = firstValue(searchParamsValue.email) ?? "";
   const error = firstValue(searchParamsValue.error);
-  const next = safeRedirectTarget(firstValue(searchParamsValue.next), `/${locale}/app/dashboard`);
+  const next = safeRedirectTarget(firstValue(searchParamsValue.next), "/" + locale + "/app/dashboard");
 
   return (
     <div className="flex flex-col items-center justify-center min-h-[85vh] py-12 px-4 sm:px-6 lg:px-8 bg-[#0a0e17] text-slate-200 w-full">
@@ -43,27 +43,27 @@ export default async function RegisterPage({ params, searchParams }: RegisterPag
 
         <Card className="bg-[#111827] border-slate-800 shadow-2xl rounded-2xl overflow-hidden">
           <CardBody className="p-8">
-            <FormStack action={`/api/auth/register?locale=${locale}`} method="post" className="space-y-6">
+            <FormStack action={"/api/auth/register?locale=" + locale} method="post" className="space-y-6">
               <input name="next" type="hidden" value={next} />
-              
-              <Field label={pickText(lang, "邮箱", "Email")} hint={pickText(lang, "需要进行验证", "Verification required")}>
-                <Input 
-                  autoComplete="email" 
-                  defaultValue={email} 
-                  name="email" 
-                  required 
-                  type="email" 
+
+              <Field label={pickText(lang, "邮箱", "Email")} hint={pickText(lang, "注册后可直接登录", "Sign in right after registration")}>
+                <Input
+                  autoComplete="email"
+                  defaultValue={email}
+                  name="email"
+                  required
+                  type="email"
                   className="bg-[#1f2937] border-slate-700 text-white focus:ring-primary focus:border-primary h-12 rounded-lg px-4 w-full"
                   placeholder={pickText(lang, "name@example.com", "name@example.com")}
                 />
               </Field>
 
               <Field label={pickText(lang, "密码", "Password")}>
-                <Input 
-                  autoComplete="new-password" 
-                  name="password" 
-                  required 
-                  type="password" 
+                <Input
+                  autoComplete="new-password"
+                  name="password"
+                  required
+                  type="password"
                   className="bg-[#1f2937] border-slate-700 text-white focus:ring-primary focus:border-primary h-12 rounded-lg px-4 w-full"
                   placeholder="••••••••"
                 />
@@ -76,7 +76,7 @@ export default async function RegisterPage({ params, searchParams }: RegisterPag
             </FormStack>
           </CardBody>
           <div className="border-t border-slate-800 bg-[#0f141f] p-5 text-center flex flex-col gap-3">
-            <Link href={`/${locale}/login`} className="text-sm text-primary hover:text-primary-foreground font-semibold hover:underline transition-colors">
+            <Link href={"/" + locale + "/login"} className="text-sm text-primary hover:text-primary-foreground font-semibold hover:underline transition-colors">
               {snapshot.alternateLabel}
             </Link>
           </div>
@@ -91,3 +91,4 @@ export default async function RegisterPage({ params, searchParams }: RegisterPag
     </div>
   );
 }
+

@@ -7,11 +7,18 @@
       "exchange": "Exchange",
       "notifications": "Notifications",
       "settings": "Settings",
-      "help": "Help Center"
+      "help": "Help Center",
+      "analytics": "Analytics",
+      "trading": "Trading Workspace"
     },
     "topbar": {
       "title": "Grid Bot Console",
-      "search": "Search markets..."
+      "search": "Search markets...",
+      "createBot": "Create Bot",
+      "exchangeStatus": "Binance Spot",
+      "connected": "Connected",
+      "language": "Toggle language",
+      "theme": "Toggle theme"
     },
     "gridConfig": {
       "title": "Grid Bot Configuration",

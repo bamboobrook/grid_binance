@@ -5,10 +5,11 @@ import { cookies } from "next/headers";
 import { AppShellSection } from "@/components/shell/app-shell-section";
 import { Card, CardBody, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatusBanner } from "@/components/ui/status-banner";
-import { getHelpArticle, HELP_ARTICLES, normalizeHelpArticle, type HelpArticleBlock } from "@/lib/api/help-articles";
-import { UI_LANGUAGE_COOKIE, pickText, resolveUiLanguage } from "@/lib/ui/preferences";
+import { getHelpArticle, listHelpArticles, normalizeHelpArticle, type HelpArticleBlock } from "@/lib/api/help-articles";
+import { UI_LANGUAGE_COOKIE, pickText, resolveUiLanguageFromRoute } from "@/lib/ui/preferences";
 
 type HelpPageProps = {
+  params: Promise<{ locale: string }>;
   searchParams?: Promise<{
     article?: string | string[];
   }>;
@@ -47,18 +48,20 @@ function renderArticleBlock(block: HelpArticleBlock, index: number) {
   return null;
 }
 
-export default async function HelpPage({ searchParams }: HelpPageProps) {
+export default async function HelpPage({ params, searchParams }: HelpPageProps) {
+  const { locale } = await params;
   const cookieStore = await cookies();
-  const lang = resolveUiLanguage(cookieStore.get(UI_LANGUAGE_COOKIE)?.value);
+  const lang = resolveUiLanguageFromRoute(locale, cookieStore.get(UI_LANGUAGE_COOKIE)?.value);
+  const articles = listHelpArticles(locale);
   const requestedArticle = (await searchParams)?.article;
-  const articleSlug = normalizeHelpArticle(requestedArticle);
+  const articleSlug = normalizeHelpArticle(requestedArticle, locale);
 
   if (requestedArticle && articleSlug === null) {
     notFound();
   }
 
-  const article = articleSlug ? getHelpArticle(articleSlug) : null;
-  const selectedArticle = article ?? HELP_ARTICLES[0];
+  const article = articleSlug ? getHelpArticle(articleSlug, locale) : null;
+  const selectedArticle = article ?? articles[0];
 
   return (
     <>
@@ -80,9 +83,9 @@ export default async function HelpPage({ searchParams }: HelpPageProps) {
             </CardHeader>
             <CardBody>
               <ul className="text-list">
-                {HELP_ARTICLES.map((item) => (
+                {articles.map((item) => (
                   <li key={item.slug}>
-                    <Link href={"/app/help?article=" + item.slug}>
+                    <Link href={`/${locale}/app/help?article=${item.slug}`}>
                       {item.slug === "expiry-reminder" ? pickText(lang, "到期提醒指南", "Expiry reminder guide") : item.title}
                     </Link>
                     <br />

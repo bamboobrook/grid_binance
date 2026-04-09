@@ -252,6 +252,17 @@ export async function getAdminSystemData() {
   return fetchAdminJson<AdminSystemConfig>("/admin/system");
 }
 
+function describeAdminRole(lang: UiLanguage, role: AdminRole | null) {
+  switch (role) {
+    case "super_admin":
+      return pickText(lang, "超级管理员", "Super Admin");
+    case "operator_admin":
+      return pickText(lang, "操作员", "Operator Admin");
+    default:
+      return pickText(lang, "待验证", "Pending Verification");
+  }
+}
+
 export async function buildAdminShellSnapshot(lang: UiLanguage): Promise<AdminShellSnapshot> {
   const profile = await getCurrentAdminProfile();
   const [memberships, deposits, templates] = await Promise.all([
@@ -263,7 +274,7 @@ export async function buildAdminShellSnapshot(lang: UiLanguage): Promise<AdminSh
   const membershipsNeedingAction = memberships.items.filter((item) => ["Grace", "Frozen", "Revoked"].includes(item.status)).length;
   const role = profile.admin_access_granted ? profile.admin_role : null;
   const restricted = role !== "super_admin";
-  const roleLabel = role ?? "admin_access_pending";
+  const roleLabel = describeAdminRole(lang, role);
 
   const nav = [
     { href: "/admin/dashboard", label: pickText(lang, "总览", "Dashboard") },
@@ -285,7 +296,7 @@ export async function buildAdminShellSnapshot(lang: UiLanguage): Promise<AdminSh
         description: !profile.admin_access_granted
           ? pickText(lang, "管理员身份已识别，但当前 bearer 会话尚未通过 TOTP 门禁。", "Admin identity is recognized, but this bearer session has not cleared the TOTP gate yet.")
           : restricted
-            ? pickText(lang, "当前为操作员权限边界，价格、模板、归集和系统变更需要 super_admin。", "Operator boundary is active. Pricing, templates, sweeps, and system changes require super_admin.")
+            ? pickText(lang, "当前为操作员权限边界，价格、模板、归集和系统变更需要超级管理员会话。", "Operator boundary is active. Pricing, templates, sweeps, and system changes require a Super Admin session.")
             : pickText(lang, "当前为超级管理员会话，可执行定价、金库和模板操作。", "Super admin session is active for pricing, treasury, and template operations."),
         title: profile.admin_access_granted ? pickText(lang, "管理员权限已生效", "Admin access granted") : pickText(lang, "管理员权限未生效", "Admin access missing"),
         tone: profile.admin_access_granted ? "success" : "warning",

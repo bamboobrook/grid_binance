@@ -11,20 +11,22 @@ import {
   getAdminSweepsData,
   getCurrentAdminProfile,
 } from "@/lib/api/admin-product-state";
-import { pickText, resolveUiLanguage, UI_LANGUAGE_COOKIE } from "@/lib/ui/preferences";
+import { pickText, resolveUiLanguageFromRoute, UI_LANGUAGE_COOKIE } from "@/lib/ui/preferences";
 
 type PageProps = {
+  params: Promise<{ locale: string }>;
   searchParams?: Promise<{ asset?: string; chain?: string; submitted?: string; treasury?: string }>;
 };
 
-export default async function AdminSweepsPage({ searchParams }: PageProps) {
-  const params = (await searchParams) ?? {};
-  const submitted = params.submitted === "1";
-  const treasury = typeof params.treasury === "string" ? params.treasury : "";
-  const selectedChain = typeof params.chain === "string" ? params.chain : "BSC";
-  const selectedAsset = typeof params.asset === "string" ? params.asset : "USDT";
+export default async function AdminSweepsPage({ params, searchParams }: PageProps) {
+  const { locale } = await params;
+  const query = (await searchParams) ?? {};
+  const submitted = query.submitted === "1";
+  const treasury = typeof query.treasury === "string" ? query.treasury : "";
+  const selectedChain = typeof query.chain === "string" ? query.chain : "BSC";
+  const selectedAsset = typeof query.asset === "string" ? query.asset : "USDT";
   const [cookieStore, profile, data] = await Promise.all([cookies(), getCurrentAdminProfile(), getAdminSweepsData()]);
-  const lang = resolveUiLanguage(cookieStore.get(UI_LANGUAGE_COOKIE)?.value);
+  const lang = resolveUiLanguageFromRoute(locale, cookieStore.get(UI_LANGUAGE_COOKIE)?.value);
   const canManageSweeps = profile.admin_permissions?.can_manage_sweeps ?? false;
 
   return (

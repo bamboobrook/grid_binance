@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 
+import { localizedPublicPath, publicUrl } from "../../../../../lib/auth";
+
 const DEFAULT_AUTH_API_BASE_URL = "http://127.0.0.1:8080";
 
 const EXPORT_PATHS: Record<string, string> = {
@@ -18,7 +20,7 @@ export async function GET(
   const path = EXPORT_PATHS[kind];
 
   if (!sessionToken) {
-    return NextResponse.redirect(new URL("/login?error=session+expired", request.url), { status: 303 });
+    return NextResponse.redirect(publicUrl(request, localizedPublicPath(request, "/login?error=session+expired")), { status: 303 });
   }
   if (!path) {
     return new NextResponse("export not found", { status: 404 });

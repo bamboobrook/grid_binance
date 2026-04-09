@@ -2,7 +2,7 @@ import "server-only";
 
 import { cookies } from "next/headers";
 
-import { pickText, resolveUiLanguage, UI_LANGUAGE_COOKIE, type UiLanguage } from "../ui/preferences";
+import { pickText, resolveUiLanguageFromRoute, UI_LANGUAGE_COOKIE, type UiLanguage } from "../ui/preferences";
 
 import { buildAdminShellSnapshot } from "./admin-product-state";
 import {
@@ -83,8 +83,8 @@ function clone<T>(value: T): T {
   return structuredClone(value);
 }
 
-export async function getPublicShellSnapshot(): Promise<PublicShellSnapshot> {
-  const lang = await currentUiLanguage();
+export async function getPublicShellSnapshot(routeLocale?: string | null): Promise<PublicShellSnapshot> {
+  const lang = await currentUiLanguage(routeLocale);
   return clone(buildPublicShellSnapshot(lang));
 }
 
@@ -92,13 +92,13 @@ export async function getHomeSnapshot() {
   return clone(homeSnapshot);
 }
 
-export async function getPublicAuthSnapshot(mode: "login" | "register") {
-  const lang = await currentUiLanguage();
+export async function getPublicAuthSnapshot(mode: "login" | "register", routeLocale?: string | null) {
+  const lang = await currentUiLanguage(routeLocale);
   return clone(buildPublicAuthSnapshot(mode, lang));
 }
 
-export async function getUserShellSnapshot(): Promise<UserShellSnapshot> {
-  const lang = await currentUiLanguage();
+export async function getUserShellSnapshot(routeLocale?: string | null): Promise<UserShellSnapshot> {
+  const lang = await currentUiLanguage(routeLocale);
   const sessionToken = await currentSessionToken();
   const base = clone(buildUserShellSnapshot(lang));
 
@@ -152,8 +152,8 @@ export async function getUserExpiryNotification(): Promise<NotificationRecord | 
   return inbox?.items.find((item) => item.show_expiry_popup) ?? null;
 }
 
-export async function getAdminShellSnapshot(): Promise<AdminShellSnapshot> {
-  const lang = await currentUiLanguage();
+export async function getAdminShellSnapshot(routeLocale?: string | null): Promise<AdminShellSnapshot> {
+  const lang = await currentUiLanguage(routeLocale);
   return buildAdminShellSnapshot(lang);
 }
 
@@ -249,9 +249,9 @@ export async function getAdminSystemSnapshot() {
   return clone(adminSystemSnapshot);
 }
 
-async function currentUiLanguage(): Promise<UiLanguage> {
+async function currentUiLanguage(routeLocale?: string | null): Promise<UiLanguage> {
   const cookieStore = await cookies();
-  return resolveUiLanguage(cookieStore.get(UI_LANGUAGE_COOKIE)?.value);
+  return resolveUiLanguageFromRoute(routeLocale, cookieStore.get(UI_LANGUAGE_COOKIE)?.value);
 }
 
 async function currentSessionToken() {

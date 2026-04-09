@@ -9,7 +9,6 @@ import { pickText, type UiLanguage, type UiTheme } from "../../lib/ui/preference
 import { Card, CardBody, CardDescription, CardHeader, CardTitle } from "../ui/card";
 import { Chip } from "../ui/chip";
 import { ShellPreferences } from "./shell-preferences";
-import { isNavHrefActive } from "./path-utils";
 
 function describeTheme(lang: UiLanguage, theme: UiTheme | null) {
   if (theme === "dark") {
@@ -21,20 +20,37 @@ function describeTheme(lang: UiLanguage, theme: UiTheme | null) {
   return pickText(lang, "跟随系统", "System");
 }
 
+function withLocale(locale: string, href: string) {
+  if (!href.startsWith("/")) {
+    return href;
+  }
+  if (href === "/") {
+    return `/${locale}`;
+  }
+  return `/${locale}${href}`;
+}
+
+function isNavHrefActive(pathname: string, locale: string, href: string) {
+  const localized = withLocale(locale, href);
+  return pathname === localized || pathname.startsWith(`${localized}/`);
+}
+
 export function PublicShell({
   children,
   snapshot,
   lang,
+  locale,
   theme,
 }: {
   children: ReactNode;
   snapshot: PublicShellSnapshot;
   lang: UiLanguage;
+  locale: string;
   theme: UiTheme | null;
 }) {
   const pathname = usePathname();
   const marketStrip = [
-    { label: pickText(lang, "终端", "Console"), value: pickText(lang, "公开", "PUBLIC") },
+    { label: pickText(lang, "终端", "Console"), value: pickText(lang, "公开", "Public") },
     { label: pickText(lang, "导航", "Routes"), value: String(snapshot.actions.length) },
     { label: pickText(lang, "支持", "Support"), value: String(snapshot.supportLinks.length) },
     { label: pickText(lang, "主题", "Theme"), value: describeTheme(lang, theme) },
@@ -48,7 +64,7 @@ export function PublicShell({
             <Chip>{pickText(lang, "公共终端", "Public console")}</Chip>
             <Chip>{pickText(lang, "只读视图", "Read-only view")}</Chip>
           </div>
-          <Link className="brand-mark" href="/">
+          <Link className="brand-mark" href={withLocale(locale, "/")}>
             {snapshot.brand}
           </Link>
           <p className="shell-topbar__subtitle">{snapshot.subtitle}</p>
@@ -56,10 +72,10 @@ export function PublicShell({
         <div className="shell-topbar__actions shell-topbar__actions--public">
           <nav aria-label={pickText(lang, "公共导航", "Public navigation")} className="shell-inline-nav">
             {snapshot.actions.map((item) => {
-              const isActive = isNavHrefActive(pathname, item.href);
-
+              const localizedHref = withLocale(locale, item.href);
+              const isActive = isNavHrefActive(pathname, locale, item.href);
               return (
-                <Link className={isActive ? "shell-link shell-link--active" : "shell-link"} href={item.href} key={item.href}>
+                <Link className={isActive ? "shell-link shell-link--active" : "shell-link"} href={localizedHref} key={item.href}>
                   <span>{item.label}</span>
                 </Link>
               );
@@ -107,7 +123,7 @@ export function PublicShell({
               <ul className="text-list">
                 {snapshot.supportLinks.map((item) => (
                   <li key={item.href}>
-                    <Link href={item.href}>{item.label}</Link>
+                    <Link href={withLocale(locale, item.href)}>{item.label}</Link>
                   </li>
                 ))}
               </ul>

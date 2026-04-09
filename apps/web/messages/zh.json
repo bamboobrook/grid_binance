@@ -7,11 +7,18 @@
       "exchange": "交易所",
       "notifications": "系统通知",
       "settings": "账户设置",
-      "help": "帮助中心"
+      "help": "帮助中心",
+      "analytics": "分析面板",
+      "trading": "交易工作区"
     },
     "topbar": {
       "title": "网格交易平台",
-      "search": "搜索交易对..."
+      "search": "搜索交易对...",
+      "createBot": "创建机器人",
+      "exchangeStatus": "币安现货",
+      "connected": "已连接",
+      "language": "切换语言",
+      "theme": "切换深浅模式"
     },
     "gridConfig": {
       "title": "网格机器人配置",

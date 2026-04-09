@@ -10,7 +10,7 @@ import {
   getAdminMembershipsData,
   getCurrentAdminProfile,
 } from "@/lib/api/admin-product-state";
-import { pickText, resolveUiLanguage, UI_LANGUAGE_COOKIE, type UiLanguage } from "@/lib/ui/preferences";
+import { pickText, resolveUiLanguageFromRoute, UI_LANGUAGE_COOKIE, type UiLanguage } from "@/lib/ui/preferences";
 
 const SUPPORTED_CHAINS = ["ETH", "BSC", "SOL"] as const;
 const SUPPORTED_ASSETS = ["USDT", "USDC"] as const;
@@ -19,6 +19,7 @@ const SUPPORTED_PRICE_MATRIX = SUPPORTED_CHAINS.flatMap((chain) =>
 );
 
 type PageProps = {
+  params: Promise<{ locale: string }>;
   searchParams?: Promise<{ action?: string; planError?: string; planSaved?: string; target?: string }>;
 };
 
@@ -54,19 +55,20 @@ function actionLabel(lang: UiLanguage, action: string) {
   }
 }
 
-export default async function AdminMembershipsPage({ searchParams }: PageProps) {
-  const params = (await searchParams) ?? {};
+export default async function AdminMembershipsPage({ params, searchParams }: PageProps) {
+  const { locale } = await params;
+  const query = (await searchParams) ?? {};
   const [cookieStore, profile, memberships, plans] = await Promise.all([
     cookies(),
     getCurrentAdminProfile(),
     getAdminMembershipsData(),
     getAdminMembershipPlansData(),
   ]);
-  const lang = resolveUiLanguage(cookieStore.get(UI_LANGUAGE_COOKIE)?.value);
-  const targetEmail = typeof params.target === "string" ? params.target : "";
-  const lastAction = typeof params.action === "string" ? params.action : "";
-  const planSaved = typeof params.planSaved === "string" ? params.planSaved : "";
-  const planError = typeof params.planError === "string" ? params.planError : "";
+  const lang = resolveUiLanguageFromRoute(locale, cookieStore.get(UI_LANGUAGE_COOKIE)?.value);
+  const targetEmail = typeof query.target === "string" ? query.target : "";
+  const lastAction = typeof query.action === "string" ? query.action : "";
+  const planSaved = typeof query.planSaved === "string" ? query.planSaved : "";
+  const planError = typeof query.planError === "string" ? query.planError : "";
   const updatedMembership = memberships.items.find((item) => item.email === targetEmail) ?? null;
   const canManage = profile.admin_permissions?.can_manage_memberships ?? false;
   const canManagePlans = profile.admin_permissions?.can_manage_plans ?? false;

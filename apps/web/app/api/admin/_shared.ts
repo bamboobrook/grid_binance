@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { authApiBaseUrl } from "../../../lib/api/admin-product-state";
-
+import { localizedAdminPath, localizedPublicPath, publicUrl } from "../../../lib/auth";
 
 export function readField(formData: FormData, key: string) {
   const value = formData.get(key);
@@ -15,7 +15,7 @@ export function readSessionToken(request: Request) {
 }
 
 export function redirectTo(request: Request, path: string) {
-  return NextResponse.redirect(new URL(path, request.url), { status: 303 });
+  return NextResponse.redirect(publicUrl(request, resolveRedirectPath(request, path)), { status: 303 });
 }
 
 export async function postAdminBackend(request: Request, path: string, body: Record<string, unknown>) {
@@ -42,4 +42,14 @@ export async function proxyAdminBackendError(response: Response) {
     status: response.status,
     headers,
   });
+}
+
+function resolveRedirectPath(request: Request, path: string) {
+  if (path.startsWith('/admin')) {
+    return localizedAdminPath(request, path.slice('/admin'.length) || '/dashboard');
+  }
+  if (path.startsWith('/login') || path.startsWith('/register') || path.startsWith('/password-reset') || path.startsWith('/verify-email') || path.startsWith('/admin-bootstrap')) {
+    return localizedPublicPath(request, path);
+  }
+  return path;
 }

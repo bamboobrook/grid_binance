@@ -5,9 +5,10 @@ import { Card, CardBody, CardDescription, CardHeader, CardTitle } from "@/compon
 import { Chip } from "@/components/ui/chip";
 import { Button, Field, FormStack, Input } from "@/components/ui/form";
 import { StatusBanner } from "@/components/ui/status-banner";
-import { UI_LANGUAGE_COOKIE, pickText, resolveUiLanguage } from "@/lib/ui/preferences";
+import { UI_LANGUAGE_COOKIE, pickText, resolveUiLanguageFromRoute } from "@/lib/ui/preferences";
 
 type SecurityPageProps = {
+  params: Promise<{ locale: string }>;
   searchParams?: Promise<{
     error?: string | string[];
     security?: string | string[];
@@ -29,12 +30,13 @@ function firstValue(value?: string | string[]) {
   return Array.isArray(value) ? value[0] : value;
 }
 
-export default async function SecurityPage({ searchParams }: SecurityPageProps) {
-  const params = (await searchParams) ?? {};
+export default async function SecurityPage({ params, searchParams }: SecurityPageProps) {
+  const { locale } = await params;
+  const query = (await searchParams) ?? {};
   const cookieStore = await cookies();
-  const lang = resolveUiLanguage(cookieStore.get(UI_LANGUAGE_COOKIE)?.value);
-  const error = firstValue(params.error);
-  const security = firstValue(params.security);
+  const lang = resolveUiLanguageFromRoute(locale, cookieStore.get(UI_LANGUAGE_COOKIE)?.value);
+  const error = firstValue(query.error);
+  const security = firstValue(query.security);
   const profile = await fetchProfile();
   const secret = cookieStore.get(PENDING_TOTP_SECRET_COOKIE)?.value ?? "";
   const code = cookieStore.get(PENDING_TOTP_CODE_COOKIE)?.value ?? "";
@@ -77,7 +79,7 @@ export default async function SecurityPage({ searchParams }: SecurityPageProps) 
                   {pickText(lang, "更新密码", "Update password")}
                 </Button>
               </FormStack>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <FormStack action="/api/user/security" method="post">
                   <Button name="intent" type="submit" value="enable-totp">
                     {pickText(lang, "启用 TOTP", "Enable TOTP")}

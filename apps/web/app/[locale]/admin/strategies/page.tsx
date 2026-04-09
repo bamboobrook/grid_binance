@@ -5,9 +5,10 @@ import { Card, CardBody, CardDescription, CardHeader, CardTitle } from "@/compon
 import { Button, ButtonRow, Field, FormStack, Select } from "@/components/ui/form";
 import { DataTable } from "@/components/ui/table";
 import { getAdminStrategiesData } from "@/lib/api/admin-product-state";
-import { pickText, resolveUiLanguage, UI_LANGUAGE_COOKIE, type UiLanguage } from "@/lib/ui/preferences";
+import { pickText, resolveUiLanguageFromRoute, UI_LANGUAGE_COOKIE, type UiLanguage } from "@/lib/ui/preferences";
 
 type PageProps = {
+  params: Promise<{ locale: string }>;
   searchParams?: Promise<{ selected?: string; state?: string }>;
 };
 
@@ -26,12 +27,14 @@ function statusLabel(lang: UiLanguage, status: string) {
   }
 }
 
-export default async function AdminStrategiesPage({ searchParams }: PageProps) {
-  const params = (await searchParams) ?? {};
+export default async function AdminStrategiesPage({ params, searchParams }: PageProps) {
+  const { locale } = await params;
+  const query = (await searchParams) ?? {};
   const [cookieStore, data] = await Promise.all([cookies(), getAdminStrategiesData()]);
-  const lang = resolveUiLanguage(cookieStore.get(UI_LANGUAGE_COOKIE)?.value);
-  const stateFilter = typeof params.state === "string" ? params.state.toLowerCase() : "all";
-  const selectedId = typeof params.selected === "string" ? params.selected : "";
+  const lang = resolveUiLanguageFromRoute(locale, cookieStore.get(UI_LANGUAGE_COOKIE)?.value);
+  const pagePath = `/${locale}/admin/strategies`;
+  const stateFilter = typeof query.state === "string" ? query.state.toLowerCase() : "all";
+  const selectedId = typeof query.selected === "string" ? query.selected : "";
   const items = data.items.filter((item) => (stateFilter === "all" ? true : item.status.toLowerCase() == stateFilter));
   const selected = data.items.find((item) => item.id === selectedId) ?? items[0] ?? null;
 
@@ -49,7 +52,7 @@ export default async function AdminStrategiesPage({ searchParams }: PageProps) {
               <CardDescription>{pickText(lang, "按运行状态缩小值班视野。", "Filter backend strategies by runtime state.")}</CardDescription>
             </CardHeader>
             <CardBody>
-              <FormStack action="/admin/strategies" method="get">
+              <FormStack action={pagePath} method="get">
                 <Field label={pickText(lang, "运行态", "Runtime State")}>
                   <Select defaultValue={stateFilter} name="state">
                     <option value="all">{pickText(lang, "全部状态", "All States")}</option>
@@ -108,7 +111,7 @@ export default async function AdminStrategiesPage({ searchParams }: PageProps) {
               rows={items.map((item) => ({
                 id: item.id,
                 action: (
-                  <form action="/admin/strategies" method="get">
+                  <form action={pagePath} method="get">
                     <input name="state" type="hidden" value={stateFilter} />
                     <input name="selected" type="hidden" value={item.id} />
                     <Button type="submit">{pickText(lang, "查看详情", "View Detail")}</Button>

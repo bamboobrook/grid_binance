@@ -99,12 +99,12 @@ export function buildPublicAuthSnapshot(mode: "login" | "register", lang: UiLang
 
   return {
     title: pickText(lang, "注册", "Register"),
-    description: pickText(lang, "创建账号后，继续完成验证、会员开通和交易所接入。", "Create your account now and continue into verification, membership, and exchange setup."),
+    description: pickText(lang, "创建账号后可直接登录，再继续会员开通和交易所接入。", "Create your account, sign in immediately, then continue with membership and exchange setup."),
     submitLabel: pickText(lang, "创建账号", "Create account"),
     alternateHref: "/login",
     alternateLabel: pickText(lang, "已经注册？去登录", "Already registered? Login"),
     checklist: [
-      pickText(lang, "必须完成邮箱验证", "Email verification required"),
+      pickText(lang, "注册后可直接登录", "Direct sign-in after registration"),
       pickText(lang, "每个用户仅绑定一个币安账号", "One Binance account per user"),
       pickText(lang, "运行策略前必须开通会员", "Membership required before runtime"),
     ],
@@ -123,7 +123,7 @@ function buildUserNav(lang: UiLanguage): NavItem[] {
     { href: "/app/strategies", label: pickText(lang, "策略", "Strategies"), badge: "8" },
     { href: "/app/orders", label: pickText(lang, "订单", "Orders") },
     { href: "/app/analytics", label: pickText(lang, "统计", "Analytics") },
-    { href: "/app/billing", label: pickText(lang, "计费", "Billing") },
+    { href: "/app/billing", label: pickText(lang, "会员中心", "Membership Center") },
     { href: "/app/telegram", label: pickText(lang, "Telegram", "Telegram"), badge: "3" },
     { href: "/app/security", label: pickText(lang, "安全", "Security") },
     { href: "/app/help", label: pickText(lang, "帮助", "Help") },
@@ -165,7 +165,7 @@ export function buildUserShellSnapshot(lang: UiLanguage): UserShellSnapshot {
         tone: "warning",
         title: pickText(lang, "续费窗口即将到来", "Renewal window approaching"),
         description: pickText(lang, "会员过期后会进入 48 小时宽限期，只有在该窗口内已运行策略才能继续。", "Membership enters a 48-hour grace period after expiry. Existing running strategies may continue only during that window."),
-        action: { href: "/app/billing", label: pickText(lang, "打开计费", "Open billing") },
+        action: { href: "/app/billing", label: pickText(lang, "打开会员中心", "Open membership center") },
       },
     ],
   };

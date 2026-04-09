@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 
+import { localizedAppPath, localizedPublicPath, publicUrl } from "../../../../../lib/auth";
+
 const DEFAULT_AUTH_API_BASE_URL = "http://127.0.0.1:8080";
 
 export async function POST(request: Request) {
@@ -8,7 +10,7 @@ export async function POST(request: Request) {
   const ids = formData.getAll("ids").filter((value): value is string => typeof value === "string").map((value) => value.trim()).filter(Boolean);
   const sessionToken = readSessionToken(request);
   if (!sessionToken) {
-    return NextResponse.redirect(new URL("/login?error=session+expired", request.url), { status: 303 });
+    return redirectPublic(request, "/login?error=session+expired");
   }
 
   if (intent === "stop-all") {
@@ -24,7 +26,7 @@ export async function POST(request: Request) {
     if ((payload.stopped ?? 0) === 0) {
       return redirectWithError(request, "No running strategies were stopped.");
     }
-    return NextResponse.redirect(new URL("/app/strategies?notice=stop-all-complete", request.url), { status: 303 });
+    return redirectApp(request, "/strategies?notice=stop-all-complete");
   }
 
   if (ids.length === 0) {
@@ -58,11 +60,11 @@ export async function POST(request: Request) {
     return redirectWithError(request, intent === "start" ? "No selected strategy could be started." : intent === "pause" ? "No running strategy was paused." : "Selected strategies could not be deleted.");
   }
 
-  return NextResponse.redirect(new URL(`/app/strategies?notice=batch-${intent}-complete`, request.url), { status: 303 });
+  return redirectApp(request, `/strategies?notice=batch-${intent}-complete`);
 }
 
 function redirectWithError(request: Request, error: string) {
-  return NextResponse.redirect(new URL(`/app/strategies?error=${encodeURIComponent(error)}`, request.url), { status: 303 });
+  return redirectApp(request, `/strategies?error=${encodeURIComponent(error)}`);
 }
 
 function readField(formData: FormData, key: string) {
@@ -83,6 +85,14 @@ function readSessionToken(request: Request) {
   const cookie = request.headers.get("cookie") ?? "";
   const match = cookie.match(/(?:^|; )session_token=([^;]+)/);
   return match ? decodeURIComponent(match[1]) : null;
+}
+
+function redirectApp(request: Request, path: string) {
+  return NextResponse.redirect(publicUrl(request, localizedAppPath(request, path)), { status: 303 });
+}
+
+function redirectPublic(request: Request, path: string) {
+  return NextResponse.redirect(publicUrl(request, localizedPublicPath(request, path)), { status: 303 });
 }
 
 function authApiBaseUrl() {

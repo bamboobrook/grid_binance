@@ -1,10 +1,30 @@
 import type { ReactNode } from "react";
-import { ModernShell } from "@/components/layout/modern-shell";
+import { cookies } from "next/headers";
 
-export default async function UserAppLayout({ children }: { children: ReactNode }) {
+import { UserShell } from "@/components/shell/user-shell";
+import { getUserShellSnapshot } from "@/lib/api/server";
+import {
+  resolveUiLanguageFromRoute,
+  resolveUiTheme,
+  UI_LANGUAGE_COOKIE,
+  UI_THEME_COOKIE,
+} from "@/lib/ui/preferences";
+
+export default async function UserAppLayout({
+  children,
+  params,
+}: {
+  children: ReactNode;
+  params: Promise<{ locale: string }>;
+}) {
+  const [{ locale }, cookieStore] = await Promise.all([params, cookies()]);
+  const lang = resolveUiLanguageFromRoute(locale, cookieStore.get(UI_LANGUAGE_COOKIE)?.value);
+  const theme = resolveUiTheme(cookieStore.get(UI_THEME_COOKIE)?.value);
+  const snapshot = await getUserShellSnapshot(locale);
+
   return (
-    <ModernShell>
+    <UserShell lang={lang} locale={locale} snapshot={snapshot} theme={theme}>
       {children}
-    </ModernShell>
+    </UserShell>
   );
 }

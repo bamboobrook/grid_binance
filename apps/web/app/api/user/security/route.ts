@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 
+import { localizedAppPath, localizedPublicPath, publicUrl, shouldUseSecureCookie } from "../../../../lib/auth";
+
 const DEFAULT_AUTH_API_BASE_URL = "http://127.0.0.1:8080";
 const SESSION_TOKEN_COOKIE = "session_token";
 const PENDING_TOTP_SECRET_COOKIE = "pending_totp_secret";
@@ -12,7 +14,7 @@ export async function POST(request: Request) {
   const profile = sessionToken ? await fetchProfile(sessionToken) : null;
 
   if (!sessionToken || !profile) {
-    return NextResponse.redirect(new URL("/login?error=session+expired", request.url), { status: 303 });
+    return redirectPublic(request, "/login?error=session+expired");
   }
 
   if (intent === "password") {
@@ -27,23 +29,23 @@ export async function POST(request: Request) {
     );
 
     if (!result.ok) {
-      return NextResponse.redirect(new URL(`/app/security?error=${encodeURIComponent(result.error ?? "TOTP enable failed")}`, request.url), { status: 303 });
+      return redirectApp(request, `/security?error=${encodeURIComponent(result.error ?? "TOTP enable failed")}`);
     }
 
     const secret = typeof result.data?.secret === "string" ? result.data.secret : "";
     const code = typeof result.data?.code === "string" ? result.data.code : "";
-    const response = NextResponse.redirect(new URL("/app/security?security=totp-enabled", request.url), { status: 303 });
+    const response = redirectApp(request, "/security?security=totp-enabled");
     response.cookies.set(PENDING_TOTP_SECRET_COOKIE, secret, {
       httpOnly: true,
       path: "/",
       sameSite: "lax",
-      secure: false,
+      secure: shouldUseSecureCookie(request),
     });
     response.cookies.set(PENDING_TOTP_CODE_COOKIE, code, {
       httpOnly: true,
       path: "/",
       sameSite: "lax",
-      secure: false,
+      secure: shouldUseSecureCookie(request),
     });
     return response;
   }
@@ -56,17 +58,17 @@ export async function POST(request: Request) {
     );
 
     if (!result.ok) {
-      return NextResponse.redirect(new URL(`/app/security?error=${encodeURIComponent(result.error ?? "TOTP disable failed")}`, request.url), { status: 303 });
+      return redirectApp(request, `/security?error=${encodeURIComponent(result.error ?? "TOTP disable failed")}`);
     }
 
-    const response = NextResponse.redirect(new URL("/login?security=totp-disabled", request.url), { status: 303 });
+    const response = redirectPublic(request, "/login?security=totp-disabled");
     response.cookies.delete(SESSION_TOKEN_COOKIE);
     response.cookies.delete(PENDING_TOTP_SECRET_COOKIE);
     response.cookies.delete(PENDING_TOTP_CODE_COOKIE);
     return response;
   }
 
-  return NextResponse.redirect(new URL("/app/security", request.url), { status: 303 });
+  return redirectApp(request, "/security");
 }
 
 async function handlePasswordChange(request: Request, sessionToken: string, currentPassword: string, newPassword: string) {
@@ -77,10 +79,10 @@ async function handlePasswordChange(request: Request, sessionToken: string, curr
   );
 
   if (!result.ok) {
-    return NextResponse.redirect(new URL(`/app/security?error=${encodeURIComponent(result.error ?? "Password change failed")}`, request.url), { status: 303 });
+    return redirectApp(request, `/security?error=${encodeURIComponent(result.error ?? "Password change failed")}`);
   }
 
-  const response = NextResponse.redirect(new URL("/login?security=password-updated", request.url), { status: 303 });
+  const response = redirectPublic(request, "/login?security=password-updated");
   response.cookies.delete(SESSION_TOKEN_COOKIE);
   response.cookies.delete(PENDING_TOTP_SECRET_COOKIE);
   response.cookies.delete(PENDING_TOTP_CODE_COOKIE);
@@ -147,6 +149,14 @@ function readSessionToken(request: Request) {
   const cookie = request.headers.get("cookie") ?? "";
   const match = cookie.match(/(?:^|; )session_token=([^;]+)/);
   return match ? decodeURIComponent(match[1]) : null;
+}
+
+function redirectApp(request: Request, path: string) {
+  return NextResponse.redirect(publicUrl(request, localizedAppPath(request, path)), { status: 303 });
+}
+
+function redirectPublic(request: Request, path: string) {
+  return NextResponse.redirect(publicUrl(request, localizedPublicPath(request, path)), { status: 303 });
 }
 
 function authApiBaseUrl() {
