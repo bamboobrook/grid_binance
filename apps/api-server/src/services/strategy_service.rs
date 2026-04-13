@@ -22,6 +22,7 @@ use shared_domain::{
         PreflightReport, PreflightStepResult, PreflightStepStatus, ReferencePriceSource,
         RuntimeControls, Strategy, StrategyAmountMode, StrategyMarket, StrategyMode,
         StrategyRevision, StrategyRuntime, StrategyRuntimeEvent, StrategyRuntimeFill,
+        strategy_template_reference_price, set_strategy_template_reference_price,
         StrategyRuntimeOrder, StrategyRuntimePhase, StrategyRuntimePosition, StrategyStatus,
         StrategyTemplate, StrategyType,
     },
@@ -403,6 +404,7 @@ impl StrategyService {
             ));
         }
 
+        let reference_price = reference_price_for_request(&request)?;
         strategy.name = request.name;
         strategy.symbol = request.symbol;
         strategy.market = request.market;
@@ -432,6 +434,7 @@ impl StrategyService {
             request.overall_take_profit_bps,
             request.overall_stop_loss_bps,
             request.reference_price_source,
+            reference_price,
             request.post_trigger_action,
         )?;
         self.normalize_strategy_levels(&mut strategy)?;
@@ -774,6 +777,7 @@ impl StrategyService {
         let stored_template = StoredStrategyTemplate {
             sequence_id,
             template: template.clone(),
+            reference_price: strategy_template_reference_price(&template).map(|value| value.to_string()),
         };
         let audit = build_template_audit(
             actor_email,
@@ -813,6 +817,7 @@ impl StrategyService {
                 .parse::<u64>()
                 .unwrap_or_default(),
             template: template.clone(),
+            reference_price: strategy_template_reference_price(&template).map(|value| value.to_string()),
         };
         let audit = build_template_audit(
             actor_email,
@@ -875,6 +880,7 @@ fn build_template(
     template_id: &str,
     request: SaveStrategyRequest,
 ) -> Result<StrategyTemplate, StrategyError> {
+    let reference_price = reference_price_for_request(&request)?;
     let revision = build_revision(
         template_id,
         1,
@@ -887,10 +893,11 @@ fn build_template(
         request.overall_take_profit_bps,
         request.overall_stop_loss_bps,
         request.reference_price_source,
+        reference_price,
         request.post_trigger_action,
     )?;
 
-    Ok(StrategyTemplate {
+    let template = StrategyTemplate {
         id: template_id.to_owned(),
         name: request.name,
         symbol: request.symbol,
@@ -918,7 +925,9 @@ fn build_template(
         overall_stop_loss_bps: revision.overall_stop_loss_bps,
         reference_price_source: revision.reference_price_source,
         post_trigger_action: revision.post_trigger_action,
-    })
+    };
+    set_strategy_template_reference_price(&template.id, revision.reference_price);
+    Ok(template)
 }
 
 fn build_template_audit(
@@ -964,6 +973,14 @@ fn template_summary(template: &StrategyTemplate) -> String {
 }
 
 fn template_to_save_request(template: &StrategyTemplate, name: String) -> SaveStrategyRequest {
+    let mut extra = BTreeMap::new();
+    if let Some(reference_price) = strategy_template_reference_price(template) {
+        extra.insert(
+            "reference_price".to_string(),
+            Value::String(reference_price.to_string()),
+        );
+    }
+
     SaveStrategyRequest {
         name,
         symbol: template.symbol.clone(),
@@ -998,7 +1015,7 @@ fn template_to_save_request(template: &StrategyTemplate, name: String) -> SaveSt
         overall_stop_loss_bps: template.overall_stop_loss_bps,
         reference_price_source: template.reference_price_source,
         post_trigger_action: template.post_trigger_action,
-        extra: BTreeMap::new(),
+        extra,
     }
 }
 
@@ -1093,7 +1110,6 @@ fn request_has_bilateral_fields(hints: BilateralRequestHints) -> bool {
     hints.levels_per_side.is_some()
         || hints.spacing_mode.is_some()
         || hints.grid_spacing_bps.is_some()
-        || hints.reference_price.is_some()
 }
 
 fn apply_classic_bilateral_defaults(
@@ -1261,6 +1277,11 @@ fn validate_strategy_request(request: &SaveStrategyRequest) -> Result<(), Strate
             "market and mode are incompatible",
         ));
     }
+    if !strategy_type_matches_mode(request.strategy_type, request.mode) {
+        return Err(StrategyError::bad_request(
+            "strategy type and mode are incompatible",
+        ));
+    }
 
     let mut parsed = Vec::with_capacity(request.levels.len());
     for (index, level) in request.levels.iter().enumerate() {
@@ -1371,6 +1392,7 @@ fn build_strategy(
     active_revision: Option<StrategyRevision>,
     archived_at: Option<chrono::DateTime<Utc>>,
 ) -> Result<Strategy, StrategyError> {
+    let reference_price = reference_price_for_request(&request)?;
     let draft_revision = build_revision(
         &format!("strategy-{sequence_id}"),
         1,
@@ -1383,6 +1405,7 @@ fn build_strategy(
         request.overall_take_profit_bps,
         request.overall_stop_loss_bps,
         request.reference_price_source,
+        reference_price,
         request.post_trigger_action,
     )?;
 
@@ -1429,6 +1452,7 @@ fn build_revision(
     overall_take_profit_bps: Option<u32>,
     overall_stop_loss_bps: Option<u32>,
     reference_price_source: ReferencePriceSource,
+    reference_price: Option<Decimal>,
     post_trigger_action: PostTriggerAction,
 ) -> Result<StrategyRevision, StrategyError> {
     let levels = levels
@@ -1455,10 +1479,56 @@ fn build_revision(
         futures_margin_mode,
         leverage,
         reference_price_source,
+        reference_price,
         overall_take_profit_bps,
         overall_stop_loss_bps,
         post_trigger_action,
     })
+}
+
+fn reference_price_for_request(
+    request: &SaveStrategyRequest,
+) -> Result<Option<Decimal>, StrategyError> {
+    Ok(
+        parse_decimal_extra(request, "reference_price")?
+            .or(reference_price_from_levels(request.strategy_type, request.mode, &request.levels)?),
+    )
+}
+
+fn reference_price_from_levels(
+    strategy_type: StrategyType,
+    mode: StrategyMode,
+    levels: &[SaveGridLevelRequest],
+) -> Result<Option<Decimal>, StrategyError> {
+    if levels.is_empty() {
+        return Ok(None);
+    }
+
+    let prices = levels
+        .iter()
+        .map(|level| parse_decimal(&level.entry_price, "entry_price"))
+        .collect::<Result<Vec<_>, _>>()?;
+
+    Ok(Some(if uses_center_reference(strategy_type, mode) {
+        midpoint_reference_price(&prices)
+    } else {
+        prices[0]
+    }))
+}
+
+fn uses_center_reference(strategy_type: StrategyType, mode: StrategyMode) -> bool {
+    matches!(strategy_type, StrategyType::ClassicBilateralGrid)
+        || matches!(mode, StrategyMode::SpotClassic | StrategyMode::FuturesNeutral)
+}
+
+fn midpoint_reference_price(prices: &[Decimal]) -> Decimal {
+    match prices {
+        [] => Decimal::ZERO,
+        [single] => *single,
+        _ => (prices.first().copied().unwrap_or(Decimal::ZERO)
+            + prices.last().copied().unwrap_or(Decimal::ZERO))
+            / Decimal::from(2u32),
+    }
 }
 
 fn parse_decimal(value: &str, field: &str) -> Result<Decimal, StrategyError> {
@@ -1731,7 +1801,7 @@ impl StrategyService {
             return Ok(false);
         };
 
-        let reference_price = effective_reference_price(&strategy.draft_revision.levels);
+        let reference_price = effective_reference_price(&strategy.draft_revision, strategy.mode);
         let quote_needed = strategy
             .draft_revision
             .levels
@@ -2147,7 +2217,7 @@ fn rebuild_runtime(
         .clone()
         .unwrap_or_else(|| strategy.draft_revision.clone());
     let reference_price = runtime_reference_price(strategy, positions_override.as_deref())
-        .unwrap_or_else(|| effective_reference_price(&active.levels));
+        .unwrap_or_else(|| effective_reference_price(&active, strategy.mode));
     let positions = positions_override.unwrap_or_default();
 
     let mut runtime = StrategyRuntime {
@@ -2224,6 +2294,21 @@ fn strategy_mode_matches_market(market: StrategyMarket, mode: StrategyMode) -> b
     }
 }
 
+fn strategy_type_matches_mode(strategy_type: StrategyType, mode: StrategyMode) -> bool {
+    match strategy_type {
+        StrategyType::OrdinaryGrid => matches!(
+            mode,
+            StrategyMode::SpotBuyOnly
+                | StrategyMode::SpotSellOnly
+                | StrategyMode::FuturesLong
+                | StrategyMode::FuturesShort
+        ),
+        StrategyType::ClassicBilateralGrid => {
+            matches!(mode, StrategyMode::SpotClassic | StrategyMode::FuturesNeutral)
+        }
+    }
+}
+
 fn wallet_exchange_key(market: StrategyMarket) -> &'static str {
     match market {
         StrategyMarket::Spot => "binance",
@@ -2284,15 +2369,24 @@ fn initial_entry_side(
     }
 }
 
-fn effective_reference_price(levels: &[GridLevel]) -> Decimal {
-    match levels {
-        [] => Decimal::ZERO,
-        [single] => single.entry_price,
-        _ => {
-            (levels.first().expect("first").entry_price + levels.last().expect("last").entry_price)
-                / Decimal::from(2u32)
+fn effective_reference_price(revision: &StrategyRevision, mode: StrategyMode) -> Decimal {
+    revision.reference_price.unwrap_or_else(|| {
+        if uses_center_reference(revision.strategy_type, mode) {
+            midpoint_reference_price(
+                &revision
+                    .levels
+                    .iter()
+                    .map(|level| level.entry_price)
+                    .collect::<Vec<_>>(),
+            )
+        } else {
+            revision
+                .levels
+                .first()
+                .map(|level| level.entry_price)
+                .unwrap_or(Decimal::ZERO)
         }
-    }
+    })
 }
 
 fn runtime_reference_price(
@@ -2534,7 +2628,8 @@ impl From<AuthError> for StrategyError {
 #[cfg(test)]
 mod tests {
     use super::{
-        rebuild_runtime, run_preflight, template_to_save_request, ApplyTemplateRequest,
+        rebuild_runtime, run_preflight, strategy_template_reference_price,
+        template_to_save_request, ApplyTemplateRequest,
         CreateTemplateRequest, SaveGridLevelRequest, SaveStrategyRequest, StrategyError,
         StrategyService, UpdateTemplateRequest,
     };
@@ -2680,6 +2775,10 @@ mod tests {
             .expect("update template");
         assert_eq!(updated.strategy_type, StrategyType::ClassicBilateralGrid);
         assert_eq!(updated.reference_price_source, ReferencePriceSource::Market);
+        assert_eq!(
+            strategy_template_reference_price(&updated),
+            Some("100".parse().expect("decimal"))
+        );
 
         let applied = service
             .apply_template(

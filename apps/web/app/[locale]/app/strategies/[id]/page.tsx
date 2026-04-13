@@ -41,6 +41,7 @@ type BackendStrategy = {
     overall_stop_loss_bps: number | null;
     overall_take_profit_bps: number | null;
     post_trigger_action: string;
+    reference_price?: string | null;
     reference_price_source?: string;
     strategy_type?: string;
   };
@@ -105,7 +106,11 @@ export default async function StrategyDetailPage({ params, searchParams }: PageP
   const detailPagePath = withLocale(locale, `/app/strategies/${strategy.id}`);
   const strategyType = mapStrategyTypeToForm(strategy.strategy_type ?? "ordinary_grid");
   const ordinarySide = mapOrdinarySideToForm(strategy.mode);
-  const bounds = deriveWorkspaceBounds(strategy.draft_revision.levels, strategyType);
+  const bounds = deriveWorkspaceBounds(
+    strategy.draft_revision.levels,
+    strategyType,
+    strategy.draft_revision.reference_price ?? null,
+  );
   const values: StrategyWorkspaceValues = {
     amountMode: strategy.draft_revision.amount_mode === "Base" ? "base" : "quote",
     baseQuantity: firstLevel?.quantity ?? "",
@@ -321,6 +326,7 @@ function mapOrdinarySideToForm(value: string): StrategyWorkspaceValues["ordinary
 function deriveWorkspaceBounds(
   levels: BackendStrategy["draft_revision"]["levels"],
   strategyType: StrategyWorkspaceValues["strategyType"],
+  storedReferencePrice?: string | null,
 ) {
   const orderedPrices = levels
     .map((level) => Number.parseFloat(level.entry_price))
@@ -337,8 +343,11 @@ function deriveWorkspaceBounds(
 
   const minPrice = prices[0];
   const maxPrice = prices[prices.length - 1];
+  const parsedStoredReference = Number.parseFloat(storedReferencePrice ?? "");
   if (strategyType === "ordinary_grid") {
-    const anchor = orderedPrices[0] ?? minPrice;
+    const anchor = Number.isFinite(parsedStoredReference) && parsedStoredReference > 0
+      ? parsedStoredReference
+      : (orderedPrices[0] ?? minPrice);
     const edge = orderedPrices[orderedPrices.length - 1] ?? maxPrice;
     return {
       coveredRangePercent: formatPercentFromPrices(anchor, edge),
@@ -348,7 +357,9 @@ function deriveWorkspaceBounds(
     };
   }
 
-  const center = (minPrice + maxPrice) / 2;
+  const center = Number.isFinite(parsedStoredReference) && parsedStoredReference > 0
+    ? parsedStoredReference
+    : (minPrice + maxPrice) / 2;
   return {
     coveredRangePercent: "",
     lowerRangePercent: formatPercentFromPrices(center, minPrice),

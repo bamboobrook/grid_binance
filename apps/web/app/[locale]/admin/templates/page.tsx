@@ -6,12 +6,18 @@ import { Card, CardBody, CardDescription, CardHeader, CardTitle } from "@/compon
 import { Button, Field, FormStack, Input, Select } from "@/components/ui/form";
 import { StatusBanner } from "@/components/ui/status-banner";
 import { DataTable } from "@/components/ui/table";
-import { getAdminTemplatesData, getCurrentAdminProfile } from "@/lib/api/admin-product-state";
+import { getAdminTemplatesData, getCurrentAdminProfile, type AdminTemplateList } from "@/lib/api/admin-product-state";
 import { pickText, resolveUiLanguageFromRoute, UI_LANGUAGE_COOKIE } from "@/lib/ui/preferences";
 
 type PageProps = {
   params: Promise<{ locale: string }>;
   searchParams?: Promise<{ created?: string; edit?: string; updated?: string }>;
+};
+
+type AdminTemplateView = AdminTemplateList["items"][number] & {
+  reference_price?: string | null;
+  reference_price_source?: "manual" | "market";
+  strategy_type?: "ordinary_grid" | "classic_bilateral_grid";
 };
 
 function readinessOptions(lang: "zh" | "en") {
@@ -38,7 +44,9 @@ export default async function AdminTemplatesPage({ params, searchParams }: PageP
 
   const canManageTemplates = profile.admin_permissions?.can_manage_templates ?? false;
   const data = canManageTemplates ? await getAdminTemplatesData() : { items: [] };
-  const editingTemplate = editId ? data.items.find((item) => item.id === editId) ?? null : null;
+  const editingTemplate = editId
+    ? ((data.items.find((item) => item.id === editId) as AdminTemplateView | undefined) ?? null)
+    : null;
   const levelOne = editingTemplate?.levels[0] ?? null;
   const levelTwo = editingTemplate?.levels[1] ?? null;
   const levelsJson = JSON.stringify(editingTemplate?.levels ?? [
@@ -92,6 +100,21 @@ export default async function AdminTemplatesPage({ params, searchParams }: PageP
                       <option value="FuturesShort">{pickText(lang, "合约做空", "Futures Short")}</option>
                       <option value="FuturesNeutral">{pickText(lang, "合约中性", "Futures Neutral")}</option>
                     </Select>
+                  </Field>
+                  <Field label={pickText(lang, "策略类型", "Strategy Type")}>
+                    <Select defaultValue={editingTemplate?.strategy_type ?? "ordinary_grid"} name="strategyType">
+                      <option value="ordinary_grid">{pickText(lang, "普通网格", "Ordinary Grid")}</option>
+                      <option value="classic_bilateral_grid">{pickText(lang, "经典双边", "Classic Bilateral Grid")}</option>
+                    </Select>
+                  </Field>
+                  <Field label={pickText(lang, "参考价来源", "Reference Source")}>
+                    <Select defaultValue={editingTemplate?.reference_price_source ?? "manual"} name="referencePriceSource">
+                      <option value="manual">{pickText(lang, "手动输入", "Manual")}</option>
+                      <option value="market">{pickText(lang, "当前市价", "Current Price")}</option>
+                    </Select>
+                  </Field>
+                  <Field label={pickText(lang, "参考价格", "Reference Price")}>
+                    <Input defaultValue={editingTemplate?.reference_price ?? ""} name="referencePrice" />
                   </Field>
                   <Field label={pickText(lang, "生成方式", "Generation")}>
                     <Select defaultValue={editingTemplate?.generation ?? "Custom"} name="generation">

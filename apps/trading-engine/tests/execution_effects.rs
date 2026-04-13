@@ -410,6 +410,7 @@ fn ordinary_revision() -> StrategyRevision {
         amount_mode: StrategyAmountMode::Quote,
         futures_margin_mode: None,
         leverage: None,
+        reference_price: Some(decimal(110, 0)),
         reference_price_source: shared_domain::strategy::ReferencePriceSource::Manual,
         levels: vec![
             GridLevel {
@@ -473,6 +474,7 @@ fn sample_strategy() -> Strategy {
             amount_mode: StrategyAmountMode::Quote,
             futures_margin_mode: None,
             leverage: None,
+            reference_price: Some(Decimal::new(43000, 0)),
             reference_price_source: shared_domain::strategy::ReferencePriceSource::default(),
             levels: vec![GridLevel {
                 level_index: 0,

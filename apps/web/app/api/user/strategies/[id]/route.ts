@@ -152,6 +152,8 @@ async function buildUpdatePayload(formData: FormData, current: BackendStrategy) 
 
   validateClassicGridCount(formData, strategyType);
 
+  const referencePrice = readField(formData, "referencePrice");
+
   return {
     name: readField(formData, "name") || current.name,
     symbol,
@@ -172,6 +174,7 @@ async function buildUpdatePayload(formData: FormData, current: BackendStrategy) 
     reference_price_source: mapReferencePriceSource(readField(formData, "referencePriceMode"))
       || current.draft_revision.reference_price_source
       || "manual",
+    ...(referencePrice ? { reference_price: referencePrice } : {}),
     post_trigger_action: mapPostTrigger(readField(formData, "postTrigger")) || current.draft_revision.post_trigger_action,
   };
 }

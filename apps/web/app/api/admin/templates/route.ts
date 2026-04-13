@@ -69,6 +69,9 @@ function buildTemplatePayload(formData: FormData) {
     balance_ready: readBoolField(formData, "balanceReady"),
     overall_take_profit_bps: readOptionalNumberField(formData, "overallTakeProfitBps"),
     overall_stop_loss_bps: readOptionalNumberField(formData, "overallStopLossBps"),
+    strategy_type: readField(formData, "strategyType") || "ordinary_grid",
+    reference_price_source: readField(formData, "referencePriceSource") || "manual",
+    reference_price: readField(formData, "referencePrice") || null,
     post_trigger_action: readField(formData, "postTriggerAction") || "Stop",
   };
 }

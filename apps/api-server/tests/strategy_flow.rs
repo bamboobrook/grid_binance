@@ -13,7 +13,7 @@ use tower::ServiceExt;
 
 mod support;
 
-use support::register_and_login;
+use support::{register_and_login, register_and_verify};
 
 #[tokio::test]
 async fn create_strategy_returns_explicit_strategy_type_and_runtime_phase() {
@@ -27,7 +27,7 @@ async fn create_strategy_returns_explicit_strategy_type_and_runtime_phase() {
             "name": "Typed draft",
             "symbol": "BTCUSDT",
             "market": "Spot",
-            "mode": "SpotClassic",
+            "mode": "SpotBuyOnly",
             "generation": "Custom",
             "levels": [grid_level("100.00", "0.0100", 120, None)],
             "overall_take_profit_bps": 500,
@@ -59,7 +59,7 @@ async fn strategy_create_and_update_accept_payloads_without_client_readiness_fla
             "name": "Payload draft",
             "symbol": "BTCUSDT",
             "market": "Spot",
-            "mode": "SpotClassic",
+            "mode": "SpotBuyOnly",
             "generation": "Custom",
             "levels": [grid_level("100.00", "0.0100", 120, None)],
             "overall_take_profit_bps": 500,
@@ -83,11 +83,11 @@ async fn strategy_create_and_update_accept_payloads_without_client_readiness_fla
             "name": "Payload updated",
             "symbol": "BTCUSDT",
             "market": "Spot",
-            "mode": "SpotClassic",
+            "mode": "SpotBuyOnly",
             "generation": "Arithmetic",
             "levels": [
-                grid_level("95.00", "0.0100", 120, None),
-                grid_level("100.00", "0.0150", 150, None)
+                grid_level("100.00", "0.0150", 150, None),
+                grid_level("95.00", "0.0100", 120, None)
             ],
             "overall_take_profit_bps": 700,
             "overall_stop_loss_bps": 250,
@@ -116,7 +116,7 @@ async fn ordinary_grid_rejects_bilateral_configuration_fields() {
             "name": "Bad Ordinary",
             "symbol": "BTCUSDT",
             "market": "Spot",
-            "mode": "SpotClassic",
+            "mode": "SpotBuyOnly",
             "generation": "Custom",
             "levels": [grid_level("100.00", "0.0100", 120, None)],
             "strategy_type": "ordinary_grid",
@@ -151,6 +151,7 @@ async fn classic_bilateral_create_and_list_round_trips_strategy_type() {
             "market": "FuturesUsdM",
             "mode": "FuturesNeutral",
             "generation": "Custom",
+            "strategy_type": "classic_bilateral_grid",
             "amount_mode": "Quote",
             "futures_margin_mode": "Isolated",
             "leverage": 5,
@@ -186,6 +187,158 @@ async fn classic_bilateral_create_and_list_round_trips_strategy_type() {
     assert_eq!(
         strategy["draft_revision"]["strategy_type"],
         "classic_bilateral_grid"
+    );
+}
+
+#[tokio::test]
+async fn classic_bilateral_asymmetric_reference_price_persists_and_drives_entry_sides() {
+    let db = SharedDb::ephemeral().expect("ephemeral db");
+    let app = app_with_state(AppState::from_shared_db(db.clone()).expect("state"));
+    let email = "classic-asymmetric-reference@example.com";
+    let user_token = register_and_login(&app, email, "pass1234").await;
+    seed_active_membership(&db, email);
+    seed_exchange_context(
+        &db,
+        email,
+        &["spot"],
+        true,
+        true,
+        &[symbol_record(email, "spot", "ETHUSDT")],
+    );
+
+    let created = create_strategy(
+        &app,
+        &user_token,
+        json!({
+            "name": "Classic Asymmetric",
+            "symbol": "ETHUSDT",
+            "market": "Spot",
+            "mode": "SpotClassic",
+            "generation": "Custom",
+            "strategy_type": "classic_bilateral_grid",
+            "reference_price_source": "manual",
+            "reference_price": "100.00",
+            "levels": [
+                grid_level("90.00", "0.0100", 120, None),
+                grid_level("96.00", "0.0100", 120, None),
+                grid_level("101.00", "0.0100", 120, None),
+                grid_level("112.00", "0.0100", 120, None)
+            ],
+            "overall_take_profit_bps": 500,
+            "overall_stop_loss_bps": 200,
+            "post_trigger_action": "Stop"
+        }),
+    )
+    .await;
+
+    assert_eq!(created.status(), StatusCode::CREATED);
+    let created_body = response_json(created).await;
+    assert_eq!(
+        created_body["draft_revision"]["reference_price"],
+        "100.00"
+    );
+    let strategy_id = created_body["id"].as_str().expect("strategy id");
+
+    let listed = list_strategies(&app, &user_token).await;
+    assert_eq!(listed.status(), StatusCode::OK);
+    let listed_body = response_json(listed).await;
+    let listed_strategy = find_strategy(&listed_body, strategy_id);
+    assert_eq!(
+        listed_strategy["draft_revision"]["reference_price"],
+        "100.00"
+    );
+
+    let updated = update_strategy(
+        &app,
+        &user_token,
+        strategy_id,
+        json!({
+            "name": "Classic Asymmetric Saved",
+            "symbol": "ETHUSDT",
+            "market": "Spot",
+            "mode": "SpotClassic",
+            "generation": "Custom",
+            "strategy_type": "classic_bilateral_grid",
+            "reference_price_source": "manual",
+            "reference_price": "100.00",
+            "levels": [
+                grid_level("90.00", "0.0100", 120, None),
+                grid_level("96.00", "0.0100", 120, None),
+                grid_level("101.00", "0.0100", 120, None),
+                grid_level("112.00", "0.0100", 120, None)
+            ],
+            "overall_take_profit_bps": 500,
+            "overall_stop_loss_bps": 200,
+            "post_trigger_action": "Stop"
+        }),
+    )
+    .await;
+    assert_eq!(updated.status(), StatusCode::OK);
+    let updated_body = response_json(updated).await;
+    assert_eq!(
+        updated_body["draft_revision"]["reference_price"],
+        "100.00"
+    );
+
+    let ready = update_strategy(
+        &app,
+        &user_token,
+        strategy_id,
+        json!({
+            "name": "Classic Ready",
+            "symbol": "ETHUSDT",
+            "market": "Spot",
+            "mode": "SpotClassic",
+            "generation": "Custom",
+            "strategy_type": "classic_bilateral_grid",
+            "reference_price_source": "manual",
+            "reference_price": "100.00",
+            "membership_ready": true,
+            "exchange_ready": true,
+            "permissions_ready": true,
+            "withdrawals_disabled": true,
+            "hedge_mode_ready": true,
+            "symbol_ready": true,
+            "filters_ready": true,
+            "margin_ready": true,
+            "conflict_ready": true,
+            "balance_ready": true,
+            "levels": [
+                grid_level("90.00", "0.0100", 120, None),
+                grid_level("96.00", "0.0100", 120, None),
+                grid_level("101.00", "0.0100", 120, None),
+                grid_level("112.00", "0.0100", 120, None)
+            ],
+            "overall_take_profit_bps": 500,
+            "overall_stop_loss_bps": 200,
+            "post_trigger_action": "Stop"
+        }),
+    )
+    .await;
+    assert_eq!(ready.status(), StatusCode::OK);
+
+    let started = start_strategy(&app, &user_token, strategy_id).await;
+    assert_eq!(started.status(), StatusCode::OK);
+    let started_body = response_json(started).await;
+    let sides = started_body["runtime"]["orders"]
+        .as_array()
+        .expect("orders")
+        .iter()
+        .map(|order| {
+            (
+                order["price"].as_str().expect("price").to_string(),
+                order["side"].as_str().expect("side").to_string(),
+            )
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(
+        sides,
+        vec![
+            ("90".to_string(), "Buy".to_string()),
+            ("96".to_string(), "Buy".to_string()),
+            ("101".to_string(), "Sell".to_string()),
+            ("112".to_string(), "Sell".to_string()),
+        ]
     );
 }
 
@@ -474,6 +627,7 @@ async fn futures_classic_bilateral_preflight_fails_without_hedge_mode() {
             "market": "FuturesUsdM",
             "mode": "FuturesNeutral",
             "generation": "Custom",
+            "strategy_type": "classic_bilateral_grid",
             "amount_mode": "Quote",
             "futures_margin_mode": "Isolated",
             "leverage": 5,
@@ -561,7 +715,7 @@ async fn strategy_revisions_runtime_contracts_and_soft_archive_follow_frozen_lif
         json!(350)
     );
     assert_eq!(
-        created_body["draft_revision"]["levels"][0]["trailing_bps"],
+        created_body["draft_revision"]["levels"][1]["trailing_bps"],
         json!(80)
     );
     assert_eq!(
@@ -681,9 +835,8 @@ async fn strategy_revisions_runtime_contracts_and_soft_archive_follow_frozen_lif
     let started_orders = started_body["runtime"]["orders"]
         .as_array()
         .expect("orders");
-    assert_eq!(started_orders.len(), 2);
-    assert_eq!(started_orders[0]["side"], "Buy");
-    assert_eq!(started_orders[1]["side"], "Sell");
+    assert_eq!(started_orders.len(), 3);
+    assert!(started_orders.iter().all(|order| order["side"] == "Buy"));
     assert_eq!(
         started_body["runtime"]["positions"]
             .as_array()
@@ -699,7 +852,7 @@ async fn strategy_revisions_runtime_contracts_and_soft_archive_follow_frozen_lif
     let orders = list_strategy_orders(&app, &user_token, &strategy_id).await;
     assert_eq!(orders.status(), StatusCode::OK);
     let orders_body = response_json(orders).await;
-    assert_eq!(orders_body["orders"].as_array().expect("orders").len(), 2);
+    assert_eq!(orders_body["orders"].as_array().expect("orders").len(), 3);
     assert_eq!(
         orders_body["positions"]
             .as_array()
@@ -731,7 +884,7 @@ async fn strategy_revisions_runtime_contracts_and_soft_archive_follow_frozen_lif
             .iter()
             .filter(|order| order["status"] == "Canceled")
             .count(),
-        2
+        3
     );
 
     let edited_while_paused = update_strategy(
@@ -840,7 +993,7 @@ async fn draft_lifecycle_actions_report_clear_failures_and_allow_delete() {
             "name": "Draft lifecycle",
             "symbol": "BTCUSDT",
             "market": "Spot",
-            "mode": "SpotClassic",
+            "mode": "SpotBuyOnly",
             "generation": "Custom",
             "levels": [grid_level("100.00", "0.0100", 120, None)],
             "overall_take_profit_bps": 500,
@@ -1492,6 +1645,35 @@ async fn strategy_creation_rejects_market_and_mode_mismatch() {
 }
 
 #[tokio::test]
+async fn strategy_creation_rejects_strategy_type_and_mode_mismatch() {
+    let app = app();
+    let user_token = register_and_login(&app, "type-mode-check@example.com", "pass1234").await;
+
+    let invalid_ordinary = create_strategy(
+        &app,
+        &user_token,
+        json!({
+            "name": "bad ordinary classic",
+            "symbol": "BTCUSDT",
+            "market": "Spot",
+            "mode": "SpotClassic",
+            "generation": "Custom",
+            "strategy_type": "ordinary_grid",
+            "levels": [grid_level("100.00", "0.0100", 120, Option::<u32>::None)],
+            "overall_take_profit_bps": null,
+            "overall_stop_loss_bps": null,
+            "post_trigger_action": "Stop"
+        }),
+    )
+    .await;
+    assert_eq!(invalid_ordinary.status(), StatusCode::BAD_REQUEST);
+    assert_eq!(
+        response_json(invalid_ordinary).await["error"],
+        "strategy type and mode are incompatible"
+    );
+}
+
+#[tokio::test]
 async fn futures_preflight_uses_market_scoped_wallet_and_margin_rules() {
     let db = SharedDb::ephemeral().expect("ephemeral db");
     let app = app_with_state(AppState::from_shared_db(db.clone()).expect("state"));
@@ -1622,6 +1804,7 @@ async fn futures_neutral_strategy_start_exposes_dual_sided_orders() {
             "market": "FuturesUsdM",
             "mode": "FuturesNeutral",
             "generation": "Custom",
+            "strategy_type": "classic_bilateral_grid",
             "amount_mode": "Quote",
             "futures_margin_mode": "Isolated",
             "leverage": 5,
@@ -2069,6 +2252,109 @@ async fn regular_user_cannot_create_admin_template() {
     assert_eq!(response.status(), StatusCode::FORBIDDEN);
 }
 
+
+#[tokio::test]
+async fn admin_template_create_update_apply_preserves_classic_reference_price() {
+    let app = app();
+    let admin_token = register_privileged_admin_and_login(&app, "super-admin@example.com").await;
+    let user_token = register_and_login(&app, "template-user@example.com", "pass1234").await;
+
+    let created = create_template(
+        &app,
+        Some(&admin_token),
+        json!({
+            "name": "Classic Template",
+            "symbol": "ETHUSDT",
+            "market": "Spot",
+            "mode": "SpotClassic",
+            "generation": "Custom",
+            "strategy_type": "classic_bilateral_grid",
+            "reference_price_source": "manual",
+            "reference_price": "100.00",
+            "levels": [
+                grid_level("90.00", "0.0100", 120, None),
+                grid_level("96.00", "0.0100", 120, None),
+                grid_level("101.00", "0.0100", 120, None),
+                grid_level("112.00", "0.0100", 120, None)
+            ],
+            "membership_ready": true,
+            "exchange_ready": true,
+            "symbol_ready": true,
+            "permissions_ready": true,
+            "withdrawals_disabled": true,
+            "hedge_mode_ready": true,
+            "filters_ready": true,
+            "margin_ready": true,
+            "conflict_ready": true,
+            "balance_ready": true,
+            "overall_take_profit_bps": 500,
+            "overall_stop_loss_bps": 200,
+            "post_trigger_action": "Stop"
+        }),
+    )
+    .await;
+    assert_eq!(created.status(), StatusCode::CREATED);
+    let created_body = response_json(created).await;
+    let template_id = created_body["id"].as_str().expect("template id");
+    assert_eq!(created_body["reference_price"], "100.00");
+
+    let listed = list_templates(&app, &admin_token).await;
+    assert_eq!(listed.status(), StatusCode::OK);
+    let listed_body = response_json(listed).await;
+    let listed_template = find_template(&listed_body, template_id);
+    assert_eq!(listed_template["reference_price"], "100.00");
+
+    let updated = update_template(
+        &app,
+        &admin_token,
+        template_id,
+        json!({
+            "name": "Classic Template Updated",
+            "symbol": "ETHUSDT",
+            "market": "Spot",
+            "mode": "SpotClassic",
+            "generation": "Custom",
+            "strategy_type": "classic_bilateral_grid",
+            "reference_price_source": "manual",
+            "reference_price": "100.00",
+            "levels": [
+                grid_level("90.00", "0.0100", 120, None),
+                grid_level("96.00", "0.0100", 120, None),
+                grid_level("101.00", "0.0100", 120, None),
+                grid_level("112.00", "0.0100", 120, None)
+            ],
+            "membership_ready": true,
+            "exchange_ready": true,
+            "symbol_ready": true,
+            "permissions_ready": true,
+            "withdrawals_disabled": true,
+            "hedge_mode_ready": true,
+            "filters_ready": true,
+            "margin_ready": true,
+            "conflict_ready": true,
+            "balance_ready": true,
+            "overall_take_profit_bps": 500,
+            "overall_stop_loss_bps": 200,
+            "post_trigger_action": "Stop"
+        }),
+    )
+    .await;
+    assert_eq!(updated.status(), StatusCode::OK);
+    let updated_body = response_json(updated).await;
+    assert_eq!(updated_body["reference_price"], "100.00");
+
+    let applied = apply_template(
+        &app,
+        &user_token,
+        template_id,
+        json!({ "name": "Applied Classic Template" }),
+    )
+    .await;
+    assert_eq!(applied.status(), StatusCode::CREATED);
+    let applied_body = response_json(applied).await;
+    assert_eq!(applied_body["draft_revision"]["reference_price"], "100.00");
+}
+
 fn strategy_payload(
     name: &str,
     symbol: &str,
@@ -2081,11 +2367,16 @@ fn strategy_payload(
     overall_stop_loss_bps: Option<u32>,
     post_trigger_action: &str,
 ) -> Value {
+    let mut levels = levels.to_vec();
+    levels.sort_by(|left, right| {
+        read_level_entry_price(right).total_cmp(&read_level_entry_price(left))
+    });
+
     json!({
         "name": name,
         "symbol": symbol,
         "market": "Spot",
-        "mode": "SpotClassic",
+        "mode": "SpotBuyOnly",
         "generation": generation,
         "levels": levels,
         "membership_ready": membership_ready,
@@ -2102,6 +2393,14 @@ fn strategy_payload(
         "overall_stop_loss_bps": overall_stop_loss_bps,
         "post_trigger_action": post_trigger_action,
     })
+}
+
+fn read_level_entry_price(level: &Value) -> f64 {
+    level
+        .get("entry_price")
+        .and_then(Value::as_str)
+        .and_then(|value| value.parse::<f64>().ok())
+        .unwrap_or(0.0)
 }
 
 fn grid_level(
@@ -2127,12 +2426,57 @@ fn find_strategy<'a>(body: &'a Value, strategy_id: &str) -> &'a Value {
         .expect("strategy present")
 }
 
+fn find_template<'a>(body: &'a Value, template_id: &str) -> &'a Value {
+    body["items"]
+        .as_array()
+        .expect("items")
+        .iter()
+        .find(|item| item["id"] == template_id)
+        .expect("template present")
+}
+
 async fn create_template(
     app: &axum::Router,
     session_token: Option<&str>,
     payload: Value,
 ) -> axum::response::Response {
     request(app, session_token, "POST", "/admin/templates", payload).await
+}
+
+async fn list_templates(app: &axum::Router, session_token: &str) -> axum::response::Response {
+    request(app, Some(session_token), "GET", "/admin/templates", Value::Null).await
+}
+
+async fn update_template(
+    app: &axum::Router,
+    session_token: &str,
+    template_id: &str,
+    payload: Value,
+) -> axum::response::Response {
+    request(
+        app,
+        Some(session_token),
+        "POST",
+        &format!("/admin/templates/{template_id}"),
+        payload,
+    )
+    .await
+}
+
+async fn apply_template(
+    app: &axum::Router,
+    session_token: &str,
+    template_id: &str,
+    payload: Value,
+) -> axum::response::Response {
+    request(
+        app,
+        Some(session_token),
+        "POST",
+        &format!("/admin/templates/{template_id}/apply"),
+        payload,
+    )
+    .await
 }
 
 async fn create_strategy(
@@ -2307,6 +2651,64 @@ async fn stop_all_strategies(app: &axum::Router, session_token: &str) -> axum::r
 
 async fn list_strategies(app: &axum::Router, session_token: &str) -> axum::response::Response {
     request(app, Some(session_token), "GET", "/strategies", Value::Null).await
+}
+
+async fn register_privileged_admin_and_login(app: &axum::Router, email: &str) -> String {
+    register_and_verify(app, email, "pass1234").await;
+    let enabled = bootstrap_admin_totp(app, email, "pass1234").await;
+    let totp_code = enabled["code"].as_str().expect("totp code");
+    login_with_totp(app, email, "pass1234", totp_code).await
+}
+
+async fn bootstrap_admin_totp(app: &axum::Router, email: &str, password: &str) -> Value {
+    let response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/auth/admin-bootstrap")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    json!({ "email": email, "password": password }).to_string(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    response_json(response).await
+}
+
+async fn login_with_totp(
+    app: &axum::Router,
+    email: &str,
+    password: &str,
+    totp_code: &str,
+) -> String {
+    let response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/auth/login")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    json!({
+                        "email": email,
+                        "password": password,
+                        "totp_code": totp_code,
+                    })
+                    .to_string(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    response_json(response).await["session_token"]
+        .as_str()
+        .expect("session token")
+        .to_owned()
 }
 
 async fn request(

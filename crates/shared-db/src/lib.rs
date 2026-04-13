@@ -15,7 +15,9 @@ use ::redis::RedisError;
 use chrono::{DateTime, Duration, Utc};
 use shared_domain::{
     membership::MembershipStatus,
-    strategy::{Strategy, StrategyStatus, StrategyTemplate},
+    strategy::{
+        set_strategy_template_reference_price, Strategy, StrategyStatus, StrategyTemplate,
+    },
 };
 use shared_events::MarketTick;
 
@@ -97,6 +99,7 @@ pub struct StoredStrategy {
 pub struct StoredStrategyTemplate {
     pub sequence_id: u64,
     pub template: StrategyTemplate,
+    pub reference_price: Option<String>,
 }
 
 impl SharedDb {
@@ -2710,7 +2713,16 @@ impl SharedDb {
             SharedDbBackend::Ephemeral(state) => Ok(lock_ephemeral(state)?
                 .templates
                 .values()
-                .map(|stored| stored.template.clone())
+                .map(|stored| {
+                    set_strategy_template_reference_price(
+                        &stored.template.id,
+                        stored
+                            .reference_price
+                            .as_deref()
+                            .and_then(|value| value.parse().ok()),
+                    );
+                    stored.template.clone()
+                })
                 .collect()),
         }
     }
@@ -2729,7 +2741,16 @@ impl SharedDb {
                 .templates
                 .values()
                 .find(|template| template.template.id == template_id)
-                .map(|template| template.template.clone())),
+                .map(|template| {
+                    set_strategy_template_reference_price(
+                        &template.template.id,
+                        template
+                            .reference_price
+                            .as_deref()
+                            .and_then(|value| value.parse().ok()),
+                    );
+                    template.template.clone()
+                })),
         }
     }
 
@@ -3048,6 +3069,7 @@ mod tests {
                 "0011_strategy_template_futures_fields.sql",
                 "0012_strategy_engine_rewrite.sql",
                 "0013_strategy_type_and_reference_source_template_support.sql",
+                "0014_strategy_template_reference_price_support.sql",
             ]
         );
     }
@@ -3131,6 +3153,7 @@ mod tests {
                 futures_margin_mode: None,
                 leverage: None,
                 reference_price_source: ReferencePriceSource::Manual,
+                reference_price: None,
                 overall_take_profit_bps: None,
                 overall_stop_loss_bps: None,
                 post_trigger_action: PostTriggerAction::Stop,
@@ -3204,6 +3227,7 @@ mod tests {
                 futures_margin_mode: None,
                 leverage: None,
                 reference_price_source: ReferencePriceSource::Manual,
+                reference_price: None,
                 overall_take_profit_bps: None,
                 overall_stop_loss_bps: None,
                 post_trigger_action: PostTriggerAction::Stop,
@@ -3286,6 +3310,7 @@ mod tests {
                 futures_margin_mode: Some(shared_domain::strategy::FuturesMarginMode::Isolated),
                 leverage: Some(5),
                 reference_price_source: ReferencePriceSource::Market,
+                reference_price: None,
                 overall_take_profit_bps: None,
                 overall_stop_loss_bps: None,
                 post_trigger_action: PostTriggerAction::Stop,
@@ -3323,6 +3348,7 @@ mod tests {
             SharedDb::connect(runtime.database_url(), runtime.redis_url()).expect("runtime db");
         let template = StoredStrategyTemplate {
             sequence_id: 1,
+            reference_price: Some("100".to_string()),
             template: StrategyTemplate {
                 id: "template-classic-roundtrip".to_string(),
                 name: "classic-template".to_string(),
@@ -3377,6 +3403,10 @@ mod tests {
             .expect("template persisted");
         assert_eq!(stored.strategy_type, StrategyType::ClassicBilateralGrid);
         assert_eq!(stored.reference_price_source, ReferencePriceSource::Market);
+        assert_eq!(
+            shared_domain::strategy::strategy_template_reference_price(&stored),
+            Some("100".parse().expect("decimal"))
+        );
     }
 
     #[test]

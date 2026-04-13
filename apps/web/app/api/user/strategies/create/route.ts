@@ -54,6 +54,8 @@ function buildStrategyPayload(formData: FormData) {
 
   validateClassicGridCount(formData, strategyType);
 
+  const referencePrice = readField(formData, "referencePrice");
+
   return {
     name: readField(formData, "name") || "Strategy Draft",
     symbol,
@@ -68,6 +70,7 @@ function buildStrategyPayload(formData: FormData) {
     overall_take_profit_bps: readPercentField(formData, "overallTakeProfit", true),
     overall_stop_loss_bps: readPercentField(formData, "overallStopLoss", false),
     reference_price_source: mapReferencePriceSource(readField(formData, "referencePriceMode") || "manual"),
+    ...(referencePrice ? { reference_price: referencePrice } : {}),
     post_trigger_action: mapPostTrigger(readField(formData, "postTrigger") || "rebuild"),
   };
 }

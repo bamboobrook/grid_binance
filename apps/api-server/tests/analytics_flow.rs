@@ -1000,6 +1000,7 @@ fn stored_strategy(
         amount_mode: StrategyAmountMode::Quote,
         futures_margin_mode: None,
         leverage: None,
+        reference_price: Some(decimal("70000")),
         reference_price_source: ReferencePriceSource::Manual,
         levels: Vec::new(),
         overall_take_profit_bps: None,

@@ -91,6 +91,7 @@ export function StrategyWorkspaceForm({
   const [baseQuantity, setBaseQuantity] = useState(values.baseQuantity);
   const [referencePriceMode, setReferencePriceMode] = useState<StrategyWorkspaceValues["referencePriceMode"]>(values.referencePriceMode);
   const [referencePrice, setReferencePrice] = useState(values.referencePrice);
+  const [marketPricePending, setMarketPricePending] = useState(false);
   const [gridCount, setGridCount] = useState(values.gridCount);
   const [gridSpacingPercent, setGridSpacingPercent] = useState(values.gridSpacingPercent);
   const [coveredRangePercent, setCoveredRangePercent] = useState(values.coveredRangePercent);
@@ -122,23 +123,27 @@ export function StrategyWorkspaceForm({
 
   useEffect(() => {
     if (referencePriceMode !== "market" || !selectedSymbol) {
+      setMarketPricePending(false);
       return;
     }
     let cancelled = false;
     setReferencePrice("");
+    setMarketPricePending(true);
     fetch(marketPreviewUrl(selectedSymbol, marketType), { cache: "no-store" })
       .then(async (response) => {
         if (!response.ok) {
           throw new Error("price fetch failed");
         }
         const payload = (await response.json()) as { latest_price?: string | null };
-        if (!cancelled && typeof payload.latest_price === "string") {
-          setReferencePrice(normalizeNumericString(payload.latest_price));
+        if (!cancelled) {
+          setReferencePrice(typeof payload.latest_price === "string" ? normalizeNumericString(payload.latest_price) : "");
+          setMarketPricePending(false);
         }
       })
       .catch(() => {
         if (!cancelled) {
           setReferencePrice("");
+          setMarketPricePending(false);
         }
       });
     return () => {
@@ -219,6 +224,8 @@ export function StrategyWorkspaceForm({
     levels,
     overallTakeProfit,
   });
+  const marketReferenceSubmitBlocked = referencePriceMode === "market"
+    && (marketPricePending || referencePrice.trim() === "");
 
   return (
     <div className="grid gap-6 xl:grid-cols-[minmax(0,0.92fr)_minmax(0,1.08fr)] xl:items-start">
@@ -292,7 +299,9 @@ export function StrategyWorkspaceForm({
                 }}
                 onSelect={(item) => {
                   setSelectedSymbol(item.symbol);
-                  setMarketType(normalizeMarket(item.market));
+                  const nextMarketType = normalizeMarket(item.market);
+                  setMarketType(nextMarketType);
+                  setLevels((current) => reorderEditableLevelsForStrategy(current, amountMode, strategyType, nextMarketType, ordinarySide));
                 }}
                 query={query}
                 selectedSymbol={selectedSymbol}
@@ -302,7 +311,11 @@ export function StrategyWorkspaceForm({
                 <Field label={pickText(lang, "市场类型", "Market Type")}>
                   <Select
                     name="marketType"
-                    onChange={(event) => setMarketType(event.target.value as StrategyWorkspaceValues["marketType"])}
+                    onChange={(event) => {
+                      const nextMarketType = event.target.value as StrategyWorkspaceValues["marketType"];
+                      setMarketType(nextMarketType);
+                      setLevels((current) => reorderEditableLevelsForStrategy(current, amountMode, strategyType, nextMarketType, ordinarySide));
+                    }}
                     value={marketType}
                   >
                     <option value="spot">{pickText(lang, "现货", "Spot")}</option>
@@ -313,7 +326,11 @@ export function StrategyWorkspaceForm({
                 <Field label={pickText(lang, "策略类型", "Strategy Type")}>
                   <Select
                     name="strategyType"
-                    onChange={(event) => setStrategyType(event.target.value as StrategyWorkspaceValues["strategyType"])}
+                    onChange={(event) => {
+                      const nextStrategyType = event.target.value as StrategyWorkspaceValues["strategyType"];
+                      setStrategyType(nextStrategyType);
+                      setLevels((current) => reorderEditableLevelsForStrategy(current, amountMode, nextStrategyType, marketType, ordinarySide));
+                    }}
                     value={strategyType}
                   >
                     <option value="ordinary_grid">{pickText(lang, "普通网格", "Ordinary Grid")}</option>
@@ -324,7 +341,11 @@ export function StrategyWorkspaceForm({
                   <Field label={pickText(lang, "单侧方向", "Ordinary Side")}>
                     <Select
                       name="ordinarySide"
-                      onChange={(event) => setOrdinarySide(event.target.value as StrategyWorkspaceValues["ordinarySide"])}
+                      onChange={(event) => {
+                        const nextOrdinarySide = event.target.value as StrategyWorkspaceValues["ordinarySide"];
+                        setOrdinarySide(nextOrdinarySide);
+                        setLevels((current) => reorderEditableLevelsForStrategy(current, amountMode, strategyType, marketType, nextOrdinarySide));
+                      }}
                       value={ordinarySide}
                     >
                       <option value="lower">{marketType === "spot" ? pickText(lang, "下侧买入", "Lower Buy Side") : pickText(lang, "下侧做多", "Lower Long Side")}</option>
@@ -438,7 +459,16 @@ export function StrategyWorkspaceForm({
             <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
               <Field label={pickText(lang, "参考价来源", "Reference Source")}>
                 <Select
-                  onChange={(event) => setReferencePriceMode(event.target.value as StrategyWorkspaceValues["referencePriceMode"])}
+                  onChange={(event) => {
+                    const nextMode = event.target.value as StrategyWorkspaceValues["referencePriceMode"];
+                    setReferencePriceMode(nextMode);
+                    if (nextMode === "market") {
+                      setReferencePrice("");
+                      setMarketPricePending(selectedSymbol.trim() !== "");
+                    } else {
+                      setMarketPricePending(false);
+                    }
+                  }}
                   value={referencePriceMode}
                 >
                   <option value="manual">{pickText(lang, "手动输入", "Manual")}</option>
@@ -732,6 +762,7 @@ export function StrategyWorkspaceForm({
         <div className="flex flex-wrap gap-2">
           {intentRow.map((button, index) => (
             <Button
+              disabled={button.value === "delete" ? false : marketReferenceSubmitBlocked}
               key={`${button.label}-${index}`}
               name={button.value ? "intent" : undefined}
               tone={button.tone ?? (button.value === "delete" ? "danger" : button.value === "pause" || button.value === "stop" ? "outline" : "primary")}
@@ -1063,6 +1094,7 @@ function orderEditableLevels(
   strategyType: StrategyWorkspaceValues["strategyType"],
   marketType: StrategyWorkspaceValues["marketType"],
   ordinarySide: StrategyWorkspaceValues["ordinarySide"],
+  preserveOrdinaryAnchor = true,
 ) {
   if (levels.length <= 1) {
     return [...levels];
@@ -1072,8 +1104,12 @@ function orderEditableLevels(
     return [...levels].sort((left, right) => compareEditableLevelPrice(left, right, 1));
   }
 
-  const [anchor, ...tail] = levels;
   const direction: -1 | 1 = ordinaryLevelsAscend(strategyType, marketType, ordinarySide) ? 1 : -1;
+  if (!preserveOrdinaryAnchor) {
+    return [...levels].sort((left, right) => compareEditableLevelPrice(left, right, direction));
+  }
+
+  const [anchor, ...tail] = levels;
   return [anchor, ...tail.sort((left, right) => compareEditableLevelPrice(left, right, direction))];
 }
 
@@ -1083,8 +1119,9 @@ function normalizeEditableLevels(
   strategyType: StrategyWorkspaceValues["strategyType"],
   marketType: StrategyWorkspaceValues["marketType"],
   ordinarySide: StrategyWorkspaceValues["ordinarySide"],
+  preserveOrdinaryAnchor = true,
 ) {
-  const ordered = orderEditableLevels(levels, strategyType, marketType, ordinarySide);
+  const ordered = orderEditableLevels(levels, strategyType, marketType, ordinarySide, preserveOrdinaryAnchor);
   return ordered.map((level, index) => {
     const prev = ordered[index - 1];
     const entryPrice = Number.parseFloat(level.entryPrice);
@@ -1107,6 +1144,16 @@ function normalizeEditableLevels(
       spacingPercent: index === 0 ? "" : computeSpacingPercent(prev?.entryPrice ?? "", level.entryPrice),
     };
   });
+}
+
+function reorderEditableLevelsForStrategy(
+  levels: EditableGridLevel[],
+  amountMode: StrategyWorkspaceValues["amountMode"],
+  strategyType: StrategyWorkspaceValues["strategyType"],
+  marketType: StrategyWorkspaceValues["marketType"],
+  ordinarySide: StrategyWorkspaceValues["ordinarySide"],
+) {
+  return normalizeEditableLevels(levels, amountMode, strategyType, marketType, ordinarySide, false);
 }
 
 function updateLevelField(

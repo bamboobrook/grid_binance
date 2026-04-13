@@ -940,7 +940,7 @@ impl StrategyRuntimeEngine {
                     .rev()
                     .find_map(|fill| (fill.price > Decimal::ZERO).then_some(fill.price))
             })
-            .unwrap_or_else(|| effective_reference_price(&self.revision))
+            .unwrap_or_else(|| effective_reference_price(&self.revision, self.mode))
     }
 }
 
@@ -1023,11 +1023,27 @@ fn restore_stop_after_take_profit(runtime: &StrategyRuntime) -> bool {
         .unwrap_or(false)
 }
 
-fn effective_reference_price(revision: &StrategyRevision) -> Decimal {
-    match revision.levels.as_slice() {
+fn effective_reference_price(revision: &StrategyRevision, mode: StrategyMode) -> Decimal {
+    revision.reference_price.unwrap_or_else(|| {
+        if matches!(revision.strategy_type, shared_domain::strategy::StrategyType::ClassicBilateralGrid)
+            || matches!(mode, StrategyMode::SpotClassic | StrategyMode::FuturesNeutral)
+        {
+            midpoint_reference_price(&revision.levels)
+        } else {
+            revision
+                .levels
+                .first()
+                .map(|level| level.entry_price)
+                .unwrap_or(Decimal::ZERO)
+        }
+    })
+}
+
+fn midpoint_reference_price(levels: &[shared_domain::strategy::GridLevel]) -> Decimal {
+    match levels {
         [] => Decimal::ZERO,
         [single] => single.entry_price,
-        levels => {
+        _ => {
             let first = levels.first().expect("first level").entry_price;
             let last = levels.last().expect("last level").entry_price;
             (first + last) / Decimal::from(2u32)

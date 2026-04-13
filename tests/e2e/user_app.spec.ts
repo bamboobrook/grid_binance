@@ -349,6 +349,129 @@ test("classic bilateral create preserves strategy type and reference source on d
   await expect(page.getByLabel("Covered Range (%)")).toHaveCount(0);
 });
 
+test("Current Price blocks submit until fresh market price arrives and refreshes stale manual value", async ({
+  page,
+}) => {
+  const email = uniqueEmail("strategy-current-price");
+  const password = "pass1234";
+  let resolvePreview: (() => void) | null = null;
+  const previewReady = new Promise<void>((resolve) => {
+    resolvePreview = resolve;
+  });
+
+  await page.route("**/api/market/preview?**", async (route) => {
+    await previewReady;
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        candles: [],
+        latest_price: "2345.67",
+        market_type: "spot",
+        symbol: "ETHUSDT",
+      }),
+    });
+  });
+
+  await registerViaPage(page, email, password);
+  await page.goto("/app/strategies/new");
+  await expect(page).toHaveURL(/\/app\/strategies\/new$/);
+
+  await page.getByRole("button", { name: /ETHUSDT/ }).first().click();
+  const referencePriceInput = page.getByLabel("Anchor Price");
+  const submitButton = page.getByRole("button", { name: "Create Bot" });
+  await referencePriceInput.fill("100");
+  await page.getByLabel("Reference Source").selectOption("market");
+  await expect(referencePriceInput).toHaveValue("");
+  await expect(submitButton).toBeDisabled();
+
+  resolvePreview?.();
+  await expect(referencePriceInput).toHaveValue("2345.67");
+  await expect(submitButton).toBeEnabled();
+
+  await page.getByLabel("Reference Source").selectOption("manual");
+  await referencePriceInput.fill("2100");
+  await expect(referencePriceInput).toHaveValue("2100");
+});
+
+test("classic bilateral reference price stays stable on detail after create and save", async ({ page }) => {
+  const email = uniqueEmail("strategy-classic-reference");
+  const password = "pass1234";
+
+  await registerViaPage(page, email, password);
+  await page.goto("/app/strategies/new");
+  await expect(page).toHaveURL(/\/app\/strategies\/new$/);
+
+  await page.getByLabel("Generation").selectOption("custom");
+  await page.getByLabel("Editor Mode").selectOption("custom");
+  await page.getByRole("button", { name: /ETHUSDT/ }).first().click();
+  await page.getByLabel("Reference Source").selectOption("manual");
+  await page.getByLabel("Strategy Type").selectOption("classic_bilateral_grid");
+  await page.getByLabel("Center Price").fill("100");
+  await page.getByLabel("Grid Count").fill("4");
+  await page.getByLabel("Upper Range (%)").fill("12");
+  await page.getByLabel("Lower Range (%)").fill("10");
+  await page.getByRole("button", { name: "Apply Batch Defaults" }).click();
+
+  const editor = page.locator('[data-level-editor="true"]');
+  await editor.getByLabel("Grid Price").nth(0).fill("90");
+  await editor.getByLabel("Grid Price").nth(1).fill("96");
+  await editor.getByLabel("Grid Price").nth(2).fill("101");
+  await editor.getByLabel("Grid Price").nth(3).fill("112");
+
+  await page.getByRole("button", { name: "Create Bot" }).click();
+  await expect(page).toHaveURL(/\/app\/strategies\/[^/]+\?notice=draft-saved/);
+  await expect(page.getByLabel("Center Price")).toHaveValue("100");
+
+  await page.getByRole("button", { name: "Save Changes" }).click();
+  await expect(page).toHaveURL(/notice=edits-saved/);
+  await expect(page.getByLabel("Center Price")).toHaveValue("100");
+});
+
+test("ordinary and classic custom editor reorders levels immediately before save", async ({ page }) => {
+  const email = uniqueEmail("strategy-order-switch");
+  const password = "pass1234";
+
+  await registerViaPage(page, email, password);
+  await page.goto("/app/strategies/new");
+  await expect(page).toHaveURL(/\/app\/strategies\/new$/);
+
+  await page.getByLabel("Generation").selectOption("custom");
+  await page.getByLabel("Editor Mode").selectOption("custom");
+  await page.getByRole("button", { name: /ETHUSDT/ }).first().click();
+  await page.getByLabel("Reference Source").selectOption("manual");
+  await page.getByLabel("Anchor Price").fill("1800");
+  await page.getByLabel("Grid Count").fill("3");
+  await page.getByRole("button", { name: "Apply Batch Defaults" }).click();
+
+  const editor = page.locator('[data-level-editor="true"]');
+  await editor.getByLabel("Grid Price").nth(0).fill("1800");
+  await editor.getByLabel("Grid Price").nth(1).fill("1740");
+  await editor.getByLabel("Grid Price").nth(2).fill("1680");
+
+  await page.getByLabel("Strategy Type").selectOption("classic_bilateral_grid");
+  await expect(editor.getByLabel("Grid Price").nth(0)).toHaveValue("1680");
+  await expect(editor.getByLabel("Grid Price").nth(1)).toHaveValue("1740");
+  await expect(editor.getByLabel("Grid Price").nth(2)).toHaveValue("1800");
+
+  await page.getByLabel("Strategy Type").selectOption("ordinary_grid");
+  await expect(editor.getByLabel("Grid Price").nth(0)).toHaveValue("1800");
+  await expect(editor.getByLabel("Grid Price").nth(1)).toHaveValue("1740");
+  await expect(editor.getByLabel("Grid Price").nth(2)).toHaveValue("1680");
+
+  await page.getByLabel("Market Type").selectOption("usd-m");
+  await page.getByLabel("Ordinary Side").selectOption("upper");
+  await expect(editor.getByLabel("Grid Price").nth(0)).toHaveValue("1680");
+  await expect(editor.getByLabel("Grid Price").nth(1)).toHaveValue("1740");
+  await expect(editor.getByLabel("Grid Price").nth(2)).toHaveValue("1800");
+
+  await page.getByRole("button", { name: "Create Bot" }).click();
+  await expect(page).toHaveURL(/\/app\/strategies\/[^/]+\?notice=draft-saved/);
+
+  await page.getByRole("button", { name: "Save Changes" }).click();
+  await expect(page).toHaveURL(/notice=edits-saved/);
+});
+
 test("ordinary detail save preserves execution-ordered levels shape", async ({ page }) => {
   const email = uniqueEmail("strategy-save-shape");
   const password = "pass1234";

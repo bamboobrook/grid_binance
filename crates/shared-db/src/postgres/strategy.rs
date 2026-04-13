@@ -3,11 +3,11 @@ use serde_json::{json, Value};
 use sqlx::{PgPool, Postgres, Row, Transaction};
 
 use shared_domain::strategy::{
-    FuturesMarginMode, GridGeneration, GridLevel, PostTriggerAction, PreflightReport,
-    ReferencePriceSource, Strategy, StrategyAmountMode, StrategyMarket, StrategyMode,
-    StrategyRevision, StrategyRuntime, StrategyRuntimeEvent, StrategyRuntimeFill,
-    StrategyRuntimeOrder, StrategyRuntimePhase, StrategyRuntimePosition, StrategyTemplate,
-    StrategyType,
+    set_strategy_template_reference_price, Decimal, FuturesMarginMode, GridGeneration, GridLevel,
+    PostTriggerAction, PreflightReport, ReferencePriceSource, Strategy, StrategyAmountMode,
+    StrategyMarket, StrategyMode, StrategyRevision, StrategyRuntime, StrategyRuntimeEvent,
+    StrategyRuntimeFill, StrategyRuntimeOrder, StrategyRuntimePhase, StrategyRuntimePosition,
+    StrategyTemplate, StrategyType,
 };
 
 use crate::{
@@ -415,6 +415,7 @@ impl StrategyRepository {
                     overall_take_profit_bps,
                     overall_stop_loss_bps,
                     reference_price_source,
+                    reference_price,
                     post_trigger_action
              FROM strategy_templates
              ORDER BY sequence_id ASC",
@@ -457,6 +458,7 @@ impl StrategyRepository {
                     overall_take_profit_bps,
                     overall_stop_loss_bps,
                     reference_price_source,
+                    reference_price,
                     post_trigger_action
              FROM strategy_templates
              WHERE id = $1",
@@ -598,13 +600,14 @@ async fn insert_template_in(
             overall_take_profit_bps,
             overall_stop_loss_bps,
             reference_price_source,
+            reference_price,
             post_trigger_action,
             created_at,
             updated_at
          ) VALUES (
             $1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
             $11, $12, $13, $14, $15, $16, $17, $18, $19, $20,
-            $21, $22, $23, $24, $25, $26, $27, $28, now(), now()
+            $21, $22, $23, $24, $25, $26, $27, $28, $29, now(), now()
          )",
     )
     .bind(&template.template.id)
@@ -651,6 +654,7 @@ async fn insert_template_in(
     .bind(reference_price_source_to_str(
         template.template.reference_price_source,
     ))
+    .bind(&template.reference_price)
     .bind(post_trigger_action_to_str(
         template.template.post_trigger_action,
     ))
@@ -693,7 +697,8 @@ async fn update_template_in(
              overall_take_profit_bps = $24,
              overall_stop_loss_bps = $25,
              reference_price_source = $26,
-             post_trigger_action = $27,
+             reference_price = $27,
+             post_trigger_action = $28,
              updated_at = now()
          WHERE id = $1",
     )
@@ -740,6 +745,7 @@ async fn update_template_in(
     .bind(reference_price_source_to_str(
         template.template.reference_price_source,
     ))
+    .bind(&template.reference_price)
     .bind(post_trigger_action_to_str(
         template.template.post_trigger_action,
     ))
@@ -779,8 +785,13 @@ fn template_from_row(row: sqlx::postgres::PgRow) -> Result<StrategyTemplate, Sha
     let levels_value: Value = row.try_get("levels").map_err(SharedDbError::from)?;
     let levels: Vec<GridLevel> = serde_json::from_value(levels_value)
         .map_err(|error| SharedDbError::new(error.to_string()))?;
+    let reference_price = row
+        .try_get::<Option<String>, _>("reference_price")
+        .map_err(SharedDbError::from)?
+        .map(|value| value.parse::<Decimal>().map_err(|error| SharedDbError::new(error.to_string())))
+        .transpose()?;
 
-    Ok(StrategyTemplate {
+    let template = StrategyTemplate {
         id: row.try_get("id").map_err(SharedDbError::from)?,
         name: row.try_get("name").map_err(SharedDbError::from)?,
         symbol: row.try_get("symbol").map_err(SharedDbError::from)?,
@@ -852,7 +863,9 @@ fn template_from_row(row: sqlx::postgres::PgRow) -> Result<StrategyTemplate, Sha
             &row.try_get::<String, _>("post_trigger_action")
                 .map_err(SharedDbError::from)?,
         )?,
-    })
+    };
+    set_strategy_template_reference_price(&template.id, reference_price);
+    Ok(template)
 }
 
 fn map_profit_snapshot_row(
@@ -1247,6 +1260,7 @@ fn default_revision() -> StrategyRevision {
         futures_margin_mode: None,
         leverage: None,
         reference_price_source: ReferencePriceSource::Manual,
+        reference_price: None,
         overall_take_profit_bps: None,
         overall_stop_loss_bps: None,
         post_trigger_action: PostTriggerAction::Stop,

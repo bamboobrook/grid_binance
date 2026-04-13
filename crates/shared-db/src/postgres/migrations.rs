@@ -4,7 +4,7 @@ use crate::SharedDbError;
 
 static MIGRATOR: Migrator = sqlx::migrate!("../../db/migrations");
 
-const REQUIRED_MIGRATIONS: [&str; 13] = [
+const REQUIRED_MIGRATIONS: [&str; 14] = [
     "0001_initial_core.sql",
     "0002_identity_security.sql",
     "0003_membership_billing.sql",
@@ -18,12 +18,13 @@ const REQUIRED_MIGRATIONS: [&str; 13] = [
     "0011_strategy_template_futures_fields.sql",
     "0012_strategy_engine_rewrite.sql",
     "0013_strategy_type_and_reference_source_template_support.sql",
+    "0014_strategy_template_reference_price_support.sql",
 ];
 
 pub async fn run(pool: &PgPool) -> Result<(), SharedDbError> {
     MIGRATOR.run(pool).await.map_err(SharedDbError::from)
 }
 
-pub fn required_migrations() -> &'static [&'static str; 13] {
+pub fn required_migrations() -> &'static [&'static str; 14] {
     &REQUIRED_MIGRATIONS
 }
