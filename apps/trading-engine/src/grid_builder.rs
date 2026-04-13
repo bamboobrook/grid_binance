@@ -1,4 +1,3 @@
-use rust_decimal::prelude::{FromPrimitive, ToPrimitive};
 use rust_decimal::Decimal;
 
 use crate::runtime::GridMode;
@@ -7,6 +6,28 @@ use crate::runtime::GridMode;
 pub struct GridPlan {
     pub mode: GridMode,
     pub levels: Vec<Decimal>,
+    pub lower_levels: Vec<Decimal>,
+    pub upper_levels: Vec<Decimal>,
+}
+
+impl GridPlan {
+    fn ordinary(mode: GridMode, levels: Vec<Decimal>) -> Self {
+        Self {
+            mode,
+            levels,
+            lower_levels: Vec::new(),
+            upper_levels: Vec::new(),
+        }
+    }
+
+    fn bilateral(mode: GridMode, lower_levels: Vec<Decimal>, upper_levels: Vec<Decimal>) -> Self {
+        Self {
+            mode,
+            levels: Vec::new(),
+            lower_levels,
+            upper_levels,
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -33,73 +54,109 @@ impl std::error::Error for GridBuildError {}
 pub struct GridBuilder;
 
 impl GridBuilder {
-    pub fn arithmetic(
+    pub fn ordinary_fixed_step(
         mode: GridMode,
-        lower: Decimal,
-        upper: Decimal,
-        levels: usize,
+        anchor_price: Decimal,
+        spacing_bps: u32,
+        grid_count: u32,
     ) -> Result<GridPlan, GridBuildError> {
-        validate_range(lower, upper, levels)?;
-        let step = (upper - lower) / Decimal::from((levels - 1) as u64);
-        let built_levels = (0..levels)
-            .map(|index| lower + step * Decimal::from(index as u64))
-            .collect();
+        validate_ordinary_mode(mode)?;
+        validate_anchor_inputs(anchor_price, spacing_bps, grid_count)?;
 
-        Ok(GridPlan {
-            mode,
-            levels: built_levels,
-        })
+        let spacing = spacing_ratio(spacing_bps);
+        let step = normalize_level(anchor_price * spacing);
+        let mut levels = Vec::with_capacity(grid_count as usize);
+
+        for index in 0..grid_count {
+            let offset = step * Decimal::from(index);
+            let level = match mode {
+                GridMode::SpotGrid | GridMode::FuturesLong => anchor_price - offset,
+                GridMode::FuturesShort => anchor_price + offset,
+                GridMode::ClassicBilateralSpot | GridMode::ClassicBilateralFutures => {
+                    unreachable!("ordinary mode validated above")
+                }
+            };
+            let level = normalize_level(level);
+            if level <= Decimal::ZERO {
+                return Err(GridBuildError::new(
+                    "ordinary grid levels must stay positive",
+                ));
+            }
+            levels.push(level);
+        }
+
+        validate_ordinary_direction(mode, &levels)?;
+        Ok(GridPlan::ordinary(mode, levels))
     }
 
-    pub fn geometric(
+    pub fn classic_bilateral_fixed(
         mode: GridMode,
-        lower: Decimal,
-        upper: Decimal,
-        levels: usize,
+        center_price: Decimal,
+        spacing_bps: u32,
+        levels_per_side: u32,
     ) -> Result<GridPlan, GridBuildError> {
-        validate_range(lower, upper, levels)?;
-        if lower <= Decimal::ZERO {
-            return Err(GridBuildError::new("lower bound must be positive"));
+        validate_bilateral_mode(mode)?;
+        validate_anchor_inputs(center_price, spacing_bps, levels_per_side)?;
+
+        let spacing = spacing_ratio(spacing_bps);
+        let step = normalize_level(center_price * spacing);
+        let mut lower_levels = Vec::with_capacity(levels_per_side as usize);
+        let mut upper_levels = Vec::with_capacity(levels_per_side as usize);
+
+        for index in 1..=levels_per_side {
+            let offset = step * Decimal::from(index);
+            let lower = normalize_level(center_price - offset);
+            let upper = normalize_level(center_price + offset);
+            if lower <= Decimal::ZERO {
+                return Err(GridBuildError::new(
+                    "classic bilateral lower levels must stay positive",
+                ));
+            }
+            lower_levels.push(lower);
+            upper_levels.push(upper);
         }
 
-        let lower_f64 = lower
-            .to_f64()
-            .ok_or_else(|| GridBuildError::new("failed to convert lower bound"))?;
-        let upper_f64 = upper
-            .to_f64()
-            .ok_or_else(|| GridBuildError::new("failed to convert upper bound"))?;
-        let ratio = (upper_f64 / lower_f64).powf(1.0 / (levels - 1) as f64);
+        validate_bilateral_levels(&lower_levels, &upper_levels)?;
+        Ok(GridPlan::bilateral(mode, lower_levels, upper_levels))
+    }
 
-        let mut built_levels = Vec::with_capacity(levels);
-        for index in 0..levels {
-            if index == 0 {
-                built_levels.push(lower);
-                continue;
-            }
+    pub fn classic_bilateral_geometric(
+        mode: GridMode,
+        center_price: Decimal,
+        spacing_bps: u32,
+        levels_per_side: u32,
+    ) -> Result<GridPlan, GridBuildError> {
+        validate_bilateral_mode(mode)?;
+        validate_anchor_inputs(center_price, spacing_bps, levels_per_side)?;
 
-            if index == levels - 1 {
-                built_levels.push(upper);
-                continue;
-            }
-
-            let level = lower_f64 * ratio.powi(index as i32);
-            let level = Decimal::from_f64(level)
-                .ok_or_else(|| GridBuildError::new("failed to convert geometric level"))?
-                .round_dp(8)
-                .normalize();
-            built_levels.push(level);
-        }
-
-        if built_levels.windows(2).any(|pair| pair[0] >= pair[1]) {
+        let spacing = spacing_ratio(spacing_bps);
+        let lower_ratio = Decimal::ONE - spacing;
+        if lower_ratio <= Decimal::ZERO {
             return Err(GridBuildError::new(
-                "geometric grid levels must remain strictly increasing after rounding",
+                "classic bilateral geometric spacing must keep lower ratio positive",
             ));
         }
 
-        Ok(GridPlan {
-            mode,
-            levels: built_levels,
-        })
+        let upper_ratio = Decimal::ONE + spacing;
+        let mut lower_levels = Vec::with_capacity(levels_per_side as usize);
+        let mut upper_levels = Vec::with_capacity(levels_per_side as usize);
+        let mut lower = center_price;
+        let mut upper = center_price;
+
+        for _ in 0..levels_per_side {
+            lower = normalize_level(lower * lower_ratio);
+            upper = normalize_level(upper * upper_ratio);
+            if lower <= Decimal::ZERO {
+                return Err(GridBuildError::new(
+                    "classic bilateral lower levels must stay positive",
+                ));
+            }
+            lower_levels.push(lower);
+            upper_levels.push(upper);
+        }
+
+        validate_bilateral_levels(&lower_levels, &upper_levels)?;
+        Ok(GridPlan::bilateral(mode, lower_levels, upper_levels))
     }
 
     pub fn custom(mode: GridMode, levels: Vec<Decimal>) -> Result<GridPlan, GridBuildError> {
@@ -113,20 +170,91 @@ impl GridBuilder {
             ));
         }
 
-        Ok(GridPlan { mode, levels })
+        Ok(GridPlan::ordinary(mode, levels))
     }
 }
 
-fn validate_range(lower: Decimal, upper: Decimal, levels: usize) -> Result<(), GridBuildError> {
-    if levels < 2 {
-        return Err(GridBuildError::new("grid requires at least two levels"));
+fn validate_anchor_inputs(
+    anchor_price: Decimal,
+    spacing_bps: u32,
+    level_count: u32,
+) -> Result<(), GridBuildError> {
+    if anchor_price <= Decimal::ZERO {
+        return Err(GridBuildError::new("anchor price must be positive"));
     }
 
-    if lower >= upper {
+    if spacing_bps == 0 {
+        return Err(GridBuildError::new("grid spacing must be positive"));
+    }
+
+    if level_count == 0 {
+        return Err(GridBuildError::new("grid requires at least one level"));
+    }
+
+    Ok(())
+}
+
+fn validate_ordinary_mode(mode: GridMode) -> Result<(), GridBuildError> {
+    if mode.is_ordinary() {
+        Ok(())
+    } else {
+        Err(GridBuildError::new(
+            "ordinary fixed-step builder only supports ordinary grid modes",
+        ))
+    }
+}
+
+fn validate_bilateral_mode(mode: GridMode) -> Result<(), GridBuildError> {
+    if mode.is_classic_bilateral() {
+        Ok(())
+    } else {
+        Err(GridBuildError::new(
+            "classic bilateral builder only supports bilateral grid modes",
+        ))
+    }
+}
+
+fn validate_ordinary_direction(mode: GridMode, levels: &[Decimal]) -> Result<(), GridBuildError> {
+    let invalid = match mode {
+        GridMode::SpotGrid | GridMode::FuturesLong => {
+            levels.windows(2).any(|pair| pair[0] <= pair[1])
+        }
+        GridMode::FuturesShort => levels.windows(2).any(|pair| pair[0] >= pair[1]),
+        GridMode::ClassicBilateralSpot | GridMode::ClassicBilateralFutures => false,
+    };
+
+    if invalid {
         return Err(GridBuildError::new(
-            "lower bound must be smaller than upper bound",
+            "ordinary grid levels must remain strictly monotonic after normalization",
         ));
     }
 
     Ok(())
+}
+
+fn validate_bilateral_levels(
+    lower_levels: &[Decimal],
+    upper_levels: &[Decimal],
+) -> Result<(), GridBuildError> {
+    if lower_levels.windows(2).any(|pair| pair[0] <= pair[1]) {
+        return Err(GridBuildError::new(
+            "classic bilateral lower levels must remain strictly descending",
+        ));
+    }
+
+    if upper_levels.windows(2).any(|pair| pair[0] >= pair[1]) {
+        return Err(GridBuildError::new(
+            "classic bilateral upper levels must remain strictly ascending",
+        ));
+    }
+
+    Ok(())
+}
+
+fn spacing_ratio(spacing_bps: u32) -> Decimal {
+    Decimal::new(i64::from(spacing_bps), 4)
+}
+
+fn normalize_level(level: Decimal) -> Decimal {
+    level.round_dp(8).normalize()
 }

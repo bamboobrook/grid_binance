@@ -6,12 +6,27 @@ use crate::take_profit::{MakerTakeProfit, OverallTakeProfit, TrailingTakeProfit}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum GridMode {
-    SpotClassic,
-    SpotBuyOnly,
-    SpotSellOnly,
+    SpotGrid,
     FuturesLong,
     FuturesShort,
-    FuturesNeutral,
+    ClassicBilateralSpot,
+    ClassicBilateralFutures,
+}
+
+impl GridMode {
+    pub fn is_ordinary(self) -> bool {
+        matches!(
+            self,
+            Self::SpotGrid | Self::FuturesLong | Self::FuturesShort
+        )
+    }
+
+    pub fn is_classic_bilateral(self) -> bool {
+        matches!(
+            self,
+            Self::ClassicBilateralSpot | Self::ClassicBilateralFutures
+        )
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -270,7 +285,6 @@ impl GridRuntime {
     }
 }
 
-fn validate_supported_mode(mode: GridMode) -> Result<(), GridRuntimeError> {
-    let _ = mode;
+fn validate_supported_mode(_mode: GridMode) -> Result<(), GridRuntimeError> {
     Ok(())
 }

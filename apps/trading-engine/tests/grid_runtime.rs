@@ -10,13 +10,13 @@ fn decimal(value: i64, scale: u32) -> Decimal {
 
 fn runtime_config() -> GridRuntimeConfig {
     let plan = GridBuilder::custom(
-        GridMode::SpotClassic,
+        GridMode::SpotGrid,
         vec![decimal(90, 0), decimal(100, 0), decimal(110, 0)],
     )
     .expect("custom grid should build");
 
     GridRuntimeConfig {
-        mode: GridMode::SpotClassic,
+        mode: GridMode::SpotGrid,
         plan,
         quantity: decimal(1, 0),
         maker_take_profit: None,
@@ -27,56 +27,69 @@ fn runtime_config() -> GridRuntimeConfig {
 }
 
 #[test]
-fn arithmetic_grid_builds_evenly_spaced_levels() {
-    let grid = GridBuilder::arithmetic(GridMode::SpotClassic, decimal(100, 0), decimal(130, 0), 4)
-        .expect("arithmetic grid should build");
+fn ordinary_spot_grid_uses_anchor_fixed_step_without_bilateral_levels() {
+    let grid = GridBuilder::ordinary_fixed_step(GridMode::SpotGrid, decimal(70000, 0), 100, 4)
+        .expect("ordinary grid should build");
 
     assert_eq!(
         grid.levels,
         vec![
-            decimal(100, 0),
-            decimal(110, 0),
-            decimal(120, 0),
-            decimal(130, 0)
+            decimal(70000, 0),
+            decimal(69300, 0),
+            decimal(68600, 0),
+            decimal(67900, 0)
         ]
     );
+    assert!(grid.lower_levels.is_empty());
+    assert!(grid.upper_levels.is_empty());
 }
 
 #[test]
-fn geometric_grid_builds_progressive_levels() {
-    let grid = GridBuilder::geometric(GridMode::SpotClassic, decimal(100, 0), decimal(800, 0), 4)
-        .expect("geometric grid should build");
-
+fn classic_bilateral_grid_supports_fixed_and_geometric_spacing() {
+    let fixed = GridBuilder::classic_bilateral_fixed(
+        GridMode::ClassicBilateralSpot,
+        decimal(70000, 0),
+        100,
+        2,
+    )
+    .expect("fixed bilateral grid should build");
+    assert!(fixed.levels.is_empty());
     assert_eq!(
-        grid.levels,
-        vec![
-            decimal(100, 0),
-            decimal(200, 0),
-            decimal(400, 0),
-            decimal(800, 0)
-        ]
+        fixed.lower_levels,
+        vec![decimal(69300, 0), decimal(68600, 0)]
     );
-}
-
-#[test]
-fn geometric_grid_rejects_rounded_duplicate_levels() {
-    let result = GridBuilder::geometric(
-        GridMode::SpotClassic,
-        decimal(1000000000, 8),
-        decimal(1000000001, 8),
-        3,
+    assert_eq!(
+        fixed.upper_levels,
+        vec![decimal(70700, 0), decimal(71400, 0)]
     );
 
-    assert!(result.is_err());
+    let geometric = GridBuilder::classic_bilateral_geometric(
+        GridMode::ClassicBilateralSpot,
+        decimal(70000, 0),
+        100,
+        2,
+    )
+    .expect("geometric bilateral grid should build");
+    assert!(geometric.levels.is_empty());
+    assert_eq!(
+        geometric.lower_levels,
+        vec![decimal(69300, 0), decimal(68607, 0)]
+    );
+    assert_eq!(
+        geometric.upper_levels,
+        vec![decimal(70700, 0), decimal(71407, 0)]
+    );
 }
 
 #[test]
 fn custom_grid_preserves_user_levels() {
     let levels = vec![decimal(95, 0), decimal(100, 0), decimal(1075, 1)];
-    let grid = GridBuilder::custom(GridMode::SpotClassic, levels.clone())
-        .expect("custom grid should build");
+    let grid =
+        GridBuilder::custom(GridMode::SpotGrid, levels.clone()).expect("custom grid should build");
 
     assert_eq!(grid.levels, levels);
+    assert!(grid.lower_levels.is_empty());
+    assert!(grid.upper_levels.is_empty());
 }
 
 #[test]
@@ -193,9 +206,8 @@ fn pause_resume_stop_and_rebuild_follow_runtime_lifecycle() {
     assert_eq!(runtime.status(), RuntimeStatus::Stopped);
     assert!(runtime.on_price(decimal(120, 0)).is_empty());
 
-    let rebuilt =
-        GridBuilder::arithmetic(GridMode::SpotClassic, decimal(80, 0), decimal(100, 0), 3)
-            .expect("rebuilt grid should build");
+    let rebuilt = GridBuilder::ordinary_fixed_step(GridMode::SpotGrid, decimal(100, 0), 1000, 3)
+        .expect("rebuilt grid should build");
     runtime
         .rebuild(rebuilt)
         .expect("supported rebuild should succeed");
@@ -203,7 +215,7 @@ fn pause_resume_stop_and_rebuild_follow_runtime_lifecycle() {
     assert_eq!(runtime.status(), RuntimeStatus::Running);
     assert_eq!(
         runtime.grid().levels,
-        vec![decimal(80, 0), decimal(90, 0), decimal(100, 0)]
+        vec![decimal(100, 0), decimal(90, 0), decimal(80, 0)]
     );
     assert_eq!(runtime.realized_pnl(), decimal(0, 0));
     assert!(runtime.position().is_none());
@@ -218,7 +230,7 @@ fn runtime_rejects_plan_mode_mismatch() {
     .expect("custom grid should build");
 
     let config = GridRuntimeConfig {
-        mode: GridMode::SpotClassic,
+        mode: GridMode::SpotGrid,
         plan,
         quantity: decimal(1, 0),
         maker_take_profit: None,
@@ -233,17 +245,17 @@ fn runtime_rejects_plan_mode_mismatch() {
 }
 
 #[test]
-fn runtime_accepts_required_sell_short_and_neutral_modes() {
+fn runtime_accepts_all_task_two_grid_modes() {
     for mode in [
-        GridMode::SpotSellOnly,
+        GridMode::SpotGrid,
+        GridMode::FuturesLong,
         GridMode::FuturesShort,
-        GridMode::FuturesNeutral,
+        GridMode::ClassicBilateralSpot,
+        GridMode::ClassicBilateralFutures,
     ] {
-        let plan = GridBuilder::custom(
-            mode,
-            vec![decimal(90, 0), decimal(100, 0), decimal(110, 0)],
-        )
-        .expect("custom grid should build");
+        let plan =
+            GridBuilder::custom(mode, vec![decimal(90, 0), decimal(100, 0), decimal(110, 0)])
+                .expect("custom grid should build");
         let config = GridRuntimeConfig {
             mode,
             plan,
