@@ -28,7 +28,7 @@ export default async function HomePage({ params }: PageProps) {
           <ThemeToggle />
           <LocaleToggle />
           <Link href={`/${locale}/login`} className="text-sm font-semibold text-slate-400 hover:text-white transition-colors hidden sm:block">
-            {t('viewDemo') || "Log in"}
+            {t('viewDemo')}
           </Link>
           <Link href={`/${locale}/register`}>
             <Button className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg px-6 h-10 text-sm font-bold shadow-lg shadow-primary/20 transition-all">

@@ -191,7 +191,7 @@
   }
 
   .shell-link--active {
-    @apply bg-primary text-primary ring-1 ring-primary;
+    @apply bg-primary/10 text-primary ring-1 ring-primary/20;
   }
 
   .brand-mark {
@@ -216,6 +216,50 @@
 
   .shell-main {
     @apply flex-1 px-4 py-4 md:px-6 md:pb-6;
+  }
+
+  .app-section {
+    @apply rounded-2xl;
+  }
+
+  .app-section__header {
+    @apply rounded-t-2xl;
+  }
+
+  .app-section__content {
+    @apply min-w-0;
+  }
+
+  .status-banner {
+    @apply rounded-2xl;
+  }
+
+  .status-banner__copy {
+    @apply min-w-0;
+  }
+
+  .status-banner__actions {
+    @apply whitespace-nowrap;
+  }
+
+  .ui-table__scroller {
+    @apply rounded-2xl;
+  }
+
+  .ui-table {
+    font-variant-numeric: tabular-nums;
+  }
+
+  .ui-tabs {
+    @apply rounded-t-2xl;
+  }
+
+  .ui-tab {
+    @apply relative;
+  }
+
+  .ui-tab__meta {
+    @apply shadow-sm;
   }
 
   .shell-preferences {

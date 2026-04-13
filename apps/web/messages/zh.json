@@ -45,7 +45,7 @@
     "launch": "进入终端",
     "createAccount": "创建账户",
     "startFree": "免费开始交易",
-    "viewDemo": "查看演示账户",
+    "viewDemo": "登录",
     "features": {
       "smartGrids": {
         "title": "智能网格",

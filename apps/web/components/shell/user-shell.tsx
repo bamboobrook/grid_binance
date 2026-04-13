@@ -8,6 +8,7 @@ import type { UserShellSnapshot } from "../../lib/api/mock-data";
 import { pickText, type UiLanguage, type UiTheme } from "../../lib/ui/preferences";
 import { Card, CardBody, CardDescription, CardHeader, CardTitle } from "../ui/card";
 import { Chip } from "../ui/chip";
+import { DialogFrame } from "../ui/dialog";
 import { StatusBanner } from "../ui/status-banner";
 import { ShellPreferences } from "./shell-preferences";
 
@@ -46,12 +47,17 @@ export function UserShell({
   lang,
   locale,
   theme,
+  expiryReminder,
 }: {
   children: ReactNode;
   snapshot: UserShellSnapshot;
   lang: UiLanguage;
   locale: string;
   theme: UiTheme | null;
+  expiryReminder?: {
+    description: string;
+    title: string;
+  } | null;
 }) {
   const pathname = usePathname();
   const consoleStatus = [
@@ -98,6 +104,14 @@ export function UserShell({
             <CardBody>
               <p>{snapshot.identity.context}</p>
             </CardBody>
+            <CardFooter className="pt-0">
+              <form action={`/api/auth/logout?locale=${locale}`} method="post" className="w-full">
+                <button type="submit" className="flex w-full items-center justify-center gap-2 rounded-lg bg-red-500/10 px-3 py-2 text-sm font-medium text-red-500 transition-colors hover:bg-red-500/20 hover:text-red-600">
+                  <LogOut className="h-4 w-4" />
+                  {pickText(lang, "退出登录", "Log Out")}
+                </button>
+              </form>
+            </CardFooter>
           </Card>
         </div>
       </aside>
@@ -129,6 +143,24 @@ export function UserShell({
           </div>
         </header>
         <div className="shell-banner-stack">
+          {expiryReminder ? (
+            <DialogFrame
+              description={expiryReminder.description}
+              lang={lang}
+              modal
+              title={expiryReminder.title}
+              tone="warning"
+            >
+              <div className="flex flex-wrap items-center gap-2">
+                <Link
+                  className="button button--ghost"
+                  href={withLocale(locale, "/app/billing")}
+                >
+                  {pickText(lang, "打开会员中心", "Open membership center")}
+                </Link>
+              </div>
+            </DialogFrame>
+          ) : null}
           {snapshot.banners.map((banner) => (
             <StatusBanner
               action={banner.action ? { ...banner.action, href: withLocale(locale, banner.action.href) } : undefined}
