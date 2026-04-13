@@ -11,7 +11,7 @@ fn decimal(value: i64, scale: u32) -> Decimal {
 fn runtime_config() -> GridRuntimeConfig {
     let plan = GridBuilder::custom(
         GridMode::SpotGrid,
-        vec![decimal(90, 0), decimal(100, 0), decimal(110, 0)],
+        vec![decimal(110, 0), decimal(100, 0), decimal(90, 0)],
     )
     .expect("custom grid should build");
 
@@ -82,14 +82,40 @@ fn classic_bilateral_grid_supports_fixed_and_geometric_spacing() {
 }
 
 #[test]
-fn custom_grid_preserves_user_levels() {
-    let levels = vec![decimal(95, 0), decimal(100, 0), decimal(1075, 1)];
+fn custom_grid_preserves_spot_levels_in_execution_order() {
+    let levels = vec![decimal(1075, 1), decimal(100, 0), decimal(95, 0)];
     let grid =
         GridBuilder::custom(GridMode::SpotGrid, levels.clone()).expect("custom grid should build");
 
     assert_eq!(grid.levels, levels);
     assert!(grid.lower_levels.is_empty());
     assert!(grid.upper_levels.is_empty());
+}
+
+#[test]
+fn custom_grid_preserves_futures_short_levels_in_execution_order() {
+    let levels = vec![decimal(95, 0), decimal(100, 0), decimal(1075, 1)];
+    let grid = GridBuilder::custom(GridMode::FuturesShort, levels.clone())
+        .expect("custom short grid should build");
+
+    assert_eq!(grid.levels, levels);
+    assert!(grid.lower_levels.is_empty());
+    assert!(grid.upper_levels.is_empty());
+}
+
+#[test]
+fn custom_grid_rejects_levels_with_wrong_mode_order() {
+    let spot_result = GridBuilder::custom(
+        GridMode::SpotGrid,
+        vec![decimal(95, 0), decimal(100, 0), decimal(1075, 1)],
+    );
+    assert!(spot_result.is_err());
+
+    let short_result = GridBuilder::custom(
+        GridMode::FuturesShort,
+        vec![decimal(1075, 1), decimal(100, 0), decimal(95, 0)],
+    );
+    assert!(short_result.is_err());
 }
 
 #[test]
@@ -292,6 +318,28 @@ fn runtime_rejects_mode_matched_plan_with_invalid_shape() {
         plan: trading_engine::grid_builder::GridPlan {
             mode: GridMode::ClassicBilateralSpot,
             levels: vec![decimal(90, 0), decimal(100, 0), decimal(110, 0)],
+            lower_levels: Vec::new(),
+            upper_levels: Vec::new(),
+        },
+        quantity: decimal(1, 0),
+        maker_take_profit: None,
+        trailing_take_profit: None,
+        overall_take_profit: None,
+        overall_stop_loss: None,
+    };
+
+    let result = GridRuntime::new(config);
+
+    assert!(result.is_err());
+}
+
+#[test]
+fn runtime_rejects_directly_constructed_ordinary_plan_with_non_positive_level() {
+    let config = GridRuntimeConfig {
+        mode: GridMode::SpotGrid,
+        plan: trading_engine::grid_builder::GridPlan {
+            mode: GridMode::SpotGrid,
+            levels: vec![decimal(110, 0), decimal(100, 0), Decimal::ZERO],
             lower_levels: Vec::new(),
             upper_levels: Vec::new(),
         },

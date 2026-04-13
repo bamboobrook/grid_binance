@@ -26,7 +26,13 @@ impl GridPlan {
                     ));
                 }
 
-                Ok(())
+                if self.levels.iter().any(|level| *level <= Decimal::ZERO) {
+                    return Err(GridBuildError::new(
+                        "ordinary grid plan levels must stay positive",
+                    ));
+                }
+
+                validate_ordinary_direction(self.mode, &self.levels)
             }
             GridMode::ClassicBilateralSpot | GridMode::ClassicBilateralFutures => {
                 if !self.levels.is_empty() {
@@ -210,12 +216,6 @@ impl GridBuilder {
 
         if levels.is_empty() {
             return Err(GridBuildError::new("grid requires at least one level"));
-        }
-
-        if levels.windows(2).any(|pair| pair[0] >= pair[1]) {
-            return Err(GridBuildError::new(
-                "custom grid levels must be strictly increasing",
-            ));
         }
 
         let plan = GridPlan::ordinary(mode, levels);
