@@ -49,6 +49,8 @@ pub struct SaveStrategyRequest {
     pub symbol: String,
     pub market: StrategyMarket,
     pub mode: StrategyMode,
+    #[serde(default)]
+    pub strategy_type: StrategyType,
     pub generation: GridGeneration,
     #[serde(default)]
     pub amount_mode: StrategyAmountMode,
@@ -56,6 +58,7 @@ pub struct SaveStrategyRequest {
     pub futures_margin_mode: Option<FuturesMarginMode>,
     #[serde(default)]
     pub leverage: Option<u32>,
+    #[serde(default)]
     pub levels: Vec<SaveGridLevelRequest>,
     #[serde(default)]
     pub membership_ready: bool,
@@ -79,7 +82,26 @@ pub struct SaveStrategyRequest {
     pub balance_ready: bool,
     pub overall_take_profit_bps: Option<u32>,
     pub overall_stop_loss_bps: Option<u32>,
+    #[serde(default)]
+    pub reference_price_source: ReferencePriceSource,
     pub post_trigger_action: PostTriggerAction,
+    #[serde(flatten, default)]
+    pub extra: BTreeMap<String, Value>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum BilateralSpacingMode {
+    FixedStep,
+    Geometric,
+}
+
+#[derive(Debug, Clone, Copy)]
+struct BilateralRequestHints {
+    strategy_type: StrategyType,
+    levels_per_side: Option<u32>,
+    spacing_mode: Option<BilateralSpacingMode>,
+    grid_spacing_bps: Option<u32>,
+    reference_price: Option<Decimal>,
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -328,6 +350,7 @@ impl StrategyService {
         owner_email: &str,
         request: SaveStrategyRequest,
     ) -> Result<Strategy, StrategyError> {
+        let request = normalize_strategy_request(request)?;
         validate_strategy_request(&request)?;
 
         let sequence_id = self
@@ -359,6 +382,7 @@ impl StrategyService {
         strategy_id: &str,
         request: SaveStrategyRequest,
     ) -> Result<Strategy, StrategyError> {
+        let request = normalize_strategy_request(request)?;
         validate_strategy_request(&request)?;
 
         let mut strategy = self
@@ -383,6 +407,7 @@ impl StrategyService {
         strategy.symbol = request.symbol;
         strategy.market = request.market;
         strategy.mode = request.mode;
+        strategy.strategy_type = request.strategy_type;
         strategy.budget = summarize_budget(&request.levels)?;
         strategy.grid_spacing_bps = summarize_spacing_bps(&request.levels)?;
         strategy.membership_ready = false;
@@ -398,6 +423,7 @@ impl StrategyService {
         strategy.draft_revision = build_revision(
             &strategy.id,
             strategy.draft_revision.version + 1,
+            request.strategy_type,
             request.generation,
             request.amount_mode,
             request.futures_margin_mode,
@@ -405,6 +431,7 @@ impl StrategyService {
             &request.levels,
             request.overall_take_profit_bps,
             request.overall_stop_loss_bps,
+            request.reference_price_source,
             request.post_trigger_action,
         )?;
         self.normalize_strategy_levels(&mut strategy)?;
@@ -735,14 +762,19 @@ impl StrategyService {
         session_sid: u64,
         request: CreateTemplateRequest,
     ) -> Result<StrategyTemplate, StrategyError> {
-        validate_strategy_request(&request.strategy)?;
+        let strategy = normalize_strategy_request(request.strategy)?;
+        validate_strategy_request(&strategy)?;
 
         let sequence_id = self
             .db
             .next_sequence("strategy_template")
             .map_err(StrategyError::storage)?;
         let template_id = format!("template-{sequence_id}");
-        let template = build_template(&template_id, request.strategy)?;
+        let template = build_template(&template_id, strategy.clone())?;
+        let stored_template = StoredStrategyTemplate {
+            sequence_id,
+            template: template.clone(),
+        };
         let audit = build_template_audit(
             actor_email,
             admin_role,
@@ -752,13 +784,7 @@ impl StrategyService {
             &template,
         );
         self.db
-            .insert_template_with_audit(
-                &StoredStrategyTemplate {
-                    sequence_id,
-                    template: template.clone(),
-                },
-                &audit,
-            )
+            .insert_template_with_audit(&stored_template, &audit)
             .map_err(StrategyError::storage)?;
         Ok(template)
     }
@@ -771,14 +797,23 @@ impl StrategyService {
         template_id: &str,
         request: UpdateTemplateRequest,
     ) -> Result<StrategyTemplate, StrategyError> {
-        validate_strategy_request(&request.strategy)?;
+        let strategy = normalize_strategy_request(request.strategy)?;
+        validate_strategy_request(&strategy)?;
 
         let existing = self
             .db
             .find_template(template_id)
             .map_err(StrategyError::storage)?
             .ok_or_else(|| StrategyError::not_found("template not found"))?;
-        let template = build_template(template_id, request.strategy)?;
+        let template = build_template(template_id, strategy.clone())?;
+        let stored_template = StoredStrategyTemplate {
+            sequence_id: existing
+                .id
+                .trim_start_matches("template-")
+                .parse::<u64>()
+                .unwrap_or_default(),
+            template: template.clone(),
+        };
         let audit = build_template_audit(
             actor_email,
             admin_role,
@@ -789,7 +824,7 @@ impl StrategyService {
         );
         let updated = self
             .db
-            .update_template_with_audit(&template, &audit)
+            .update_template_with_audit(&stored_template, &audit)
             .map_err(StrategyError::storage)?;
         if updated == 0 {
             return Err(StrategyError::not_found("template not found"));
@@ -843,6 +878,7 @@ fn build_template(
     let revision = build_revision(
         template_id,
         1,
+        request.strategy_type,
         request.generation,
         request.amount_mode,
         request.futures_margin_mode,
@@ -850,6 +886,7 @@ fn build_template(
         &request.levels,
         request.overall_take_profit_bps,
         request.overall_stop_loss_bps,
+        request.reference_price_source,
         request.post_trigger_action,
     )?;
 
@@ -859,6 +896,7 @@ fn build_template(
         symbol: request.symbol,
         market: request.market,
         mode: request.mode,
+        strategy_type: revision.strategy_type,
         generation: revision.generation,
         levels: revision.levels.clone(),
         amount_mode: revision.amount_mode,
@@ -878,6 +916,7 @@ fn build_template(
         balance_ready: false,
         overall_take_profit_bps: revision.overall_take_profit_bps,
         overall_stop_loss_bps: revision.overall_stop_loss_bps,
+        reference_price_source: revision.reference_price_source,
         post_trigger_action: revision.post_trigger_action,
     })
 }
@@ -930,6 +969,7 @@ fn template_to_save_request(template: &StrategyTemplate, name: String) -> SaveSt
         symbol: template.symbol.clone(),
         market: template.market,
         mode: template.mode,
+        strategy_type: template.strategy_type,
         generation: template.generation,
         levels: template
             .levels
@@ -956,8 +996,247 @@ fn template_to_save_request(template: &StrategyTemplate, name: String) -> SaveSt
         balance_ready: false,
         overall_take_profit_bps: template.overall_take_profit_bps,
         overall_stop_loss_bps: template.overall_stop_loss_bps,
+        reference_price_source: template.reference_price_source,
         post_trigger_action: template.post_trigger_action,
+        extra: BTreeMap::new(),
     }
+}
+
+fn normalize_strategy_request(
+    mut request: SaveStrategyRequest,
+) -> Result<SaveStrategyRequest, StrategyError> {
+    let hints = bilateral_request_hints(&request)?;
+    match hints.strategy_type {
+        StrategyType::OrdinaryGrid => {
+            if request_has_bilateral_fields(hints) {
+                return Err(StrategyError::bad_request(
+                    "ordinary grid does not accept bilateral fields",
+                ));
+            }
+        }
+        StrategyType::ClassicBilateralGrid => {
+            apply_classic_bilateral_defaults(&mut request, hints)?;
+        }
+    }
+    Ok(request)
+}
+
+fn bilateral_request_hints(
+    request: &SaveStrategyRequest,
+) -> Result<BilateralRequestHints, StrategyError> {
+    Ok(BilateralRequestHints {
+        strategy_type: request.strategy_type,
+        levels_per_side: parse_u32_extra(request, "levels_per_side")?,
+        spacing_mode: parse_spacing_mode(request)?,
+        grid_spacing_bps: parse_u32_extra(request, "grid_spacing_bps")?,
+        reference_price: parse_decimal_extra(request, "reference_price")?,
+    })
+}
+
+fn parse_spacing_mode(
+    request: &SaveStrategyRequest,
+) -> Result<Option<BilateralSpacingMode>, StrategyError> {
+    match extra_string(request, "spacing_mode") {
+        None => Ok(None),
+        Some("fixed_step") => Ok(Some(BilateralSpacingMode::FixedStep)),
+        Some("geometric") => Ok(Some(BilateralSpacingMode::Geometric)),
+        Some(other) => Err(StrategyError::bad_request(&format!(
+            "unsupported spacing_mode: {other}",
+        ))),
+    }
+}
+
+fn parse_u32_extra(
+    request: &SaveStrategyRequest,
+    field: &str,
+) -> Result<Option<u32>, StrategyError> {
+    let Some(value) = request.extra.get(field) else {
+        return Ok(None);
+    };
+    match value {
+        Value::Number(number) => number
+            .as_u64()
+            .and_then(|value| u32::try_from(value).ok())
+            .map(Some)
+            .ok_or_else(|| {
+                StrategyError::bad_request(&format!("{field} must be a positive integer"))
+            }),
+        Value::String(raw) => raw.trim().parse::<u32>().map(Some).map_err(|_| {
+            StrategyError::bad_request(&format!("{field} must be a positive integer"))
+        }),
+        _ => Err(StrategyError::bad_request(&format!(
+            "{field} must be a positive integer",
+        ))),
+    }
+}
+
+fn parse_decimal_extra(
+    request: &SaveStrategyRequest,
+    field: &str,
+) -> Result<Option<Decimal>, StrategyError> {
+    let Some(raw) = extra_string(request, field) else {
+        return Ok(None);
+    };
+    parse_decimal(raw, field).map(Some)
+}
+
+fn extra_string<'a>(request: &'a SaveStrategyRequest, field: &str) -> Option<&'a str> {
+    request
+        .extra
+        .get(field)
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+}
+
+fn request_has_bilateral_fields(hints: BilateralRequestHints) -> bool {
+    hints.levels_per_side.is_some()
+        || hints.spacing_mode.is_some()
+        || hints.grid_spacing_bps.is_some()
+        || hints.reference_price.is_some()
+}
+
+fn apply_classic_bilateral_defaults(
+    request: &mut SaveStrategyRequest,
+    hints: BilateralRequestHints,
+) -> Result<(), StrategyError> {
+    if let Some(spacing_mode) = hints.spacing_mode {
+        request.generation = match spacing_mode {
+            BilateralSpacingMode::FixedStep => GridGeneration::Arithmetic,
+            BilateralSpacingMode::Geometric => GridGeneration::Geometric,
+        };
+    }
+
+    if !request.levels.is_empty() {
+        return Ok(());
+    }
+
+    let levels_per_side = hints.levels_per_side.ok_or_else(|| {
+        StrategyError::bad_request(
+            "classic bilateral grid requires levels_per_side when levels are omitted",
+        )
+    })?;
+    if levels_per_side == 0 {
+        return Err(StrategyError::bad_request(
+            "classic bilateral grid requires levels_per_side greater than 0",
+        ));
+    }
+
+    let reference_price = hints
+        .reference_price
+        .unwrap_or_else(|| Decimal::from(100u32));
+    let spacing_bps = hints.grid_spacing_bps.unwrap_or(100);
+    if spacing_bps == 0 {
+        return Err(StrategyError::bad_request(
+            "grid_spacing_bps must be greater than 0",
+        ));
+    }
+
+    let template_level = request
+        .levels
+        .first()
+        .cloned()
+        .unwrap_or(SaveGridLevelRequest {
+            entry_price: reference_price.normalize().to_string(),
+            quantity: "1".to_string(),
+            take_profit_bps: 100,
+            trailing_bps: None,
+        });
+    let spacing_mode = hints
+        .spacing_mode
+        .unwrap_or(BilateralSpacingMode::FixedStep);
+    request.levels = build_classic_bilateral_levels(
+        reference_price,
+        levels_per_side,
+        spacing_bps,
+        spacing_mode,
+        &template_level,
+    )?;
+    Ok(())
+}
+
+fn build_classic_bilateral_levels(
+    reference_price: Decimal,
+    levels_per_side: u32,
+    spacing_bps: u32,
+    spacing_mode: BilateralSpacingMode,
+    template_level: &SaveGridLevelRequest,
+) -> Result<Vec<SaveGridLevelRequest>, StrategyError> {
+    if reference_price <= Decimal::ZERO {
+        return Err(StrategyError::bad_request(
+            "reference_price must be positive for classic bilateral grid",
+        ));
+    }
+
+    let step_ratio = Decimal::from(spacing_bps) / Decimal::from(10_000u32);
+    let mut levels = Vec::with_capacity((levels_per_side * 2) as usize);
+
+    for offset in (1..=levels_per_side).rev() {
+        let entry_price =
+            bilateral_level_price(reference_price, step_ratio, spacing_mode, offset, false)?;
+        levels.push(SaveGridLevelRequest {
+            entry_price: entry_price.normalize().to_string(),
+            quantity: template_level.quantity.clone(),
+            take_profit_bps: template_level.take_profit_bps,
+            trailing_bps: template_level.trailing_bps,
+        });
+    }
+
+    for offset in 1..=levels_per_side {
+        let entry_price =
+            bilateral_level_price(reference_price, step_ratio, spacing_mode, offset, true)?;
+        levels.push(SaveGridLevelRequest {
+            entry_price: entry_price.normalize().to_string(),
+            quantity: template_level.quantity.clone(),
+            take_profit_bps: template_level.take_profit_bps,
+            trailing_bps: template_level.trailing_bps,
+        });
+    }
+
+    Ok(levels)
+}
+
+fn bilateral_level_price(
+    reference_price: Decimal,
+    step_ratio: Decimal,
+    spacing_mode: BilateralSpacingMode,
+    offset: u32,
+    upper_side: bool,
+) -> Result<Decimal, StrategyError> {
+    let price = match spacing_mode {
+        BilateralSpacingMode::FixedStep => {
+            let multiplier = Decimal::ONE + step_ratio * Decimal::from(offset);
+            if upper_side {
+                reference_price * multiplier
+            } else {
+                reference_price * (Decimal::ONE - step_ratio * Decimal::from(offset))
+            }
+        }
+        BilateralSpacingMode::Geometric => {
+            let growth = decimal_power(Decimal::ONE + step_ratio, offset);
+            if upper_side {
+                reference_price * growth
+            } else {
+                reference_price / growth
+            }
+        }
+    };
+
+    if price <= Decimal::ZERO {
+        return Err(StrategyError::bad_request(
+            "classic bilateral grid generated a non-positive level",
+        ));
+    }
+
+    Ok(price)
+}
+
+fn decimal_power(base: Decimal, exponent: u32) -> Decimal {
+    let mut value = Decimal::ONE;
+    for _ in 0..exponent {
+        value *= base;
+    }
+    value
 }
 
 fn validate_strategy_request(request: &SaveStrategyRequest) -> Result<(), StrategyError> {
@@ -1040,6 +1319,7 @@ fn build_strategy(
     let draft_revision = build_revision(
         &format!("strategy-{sequence_id}"),
         1,
+        request.strategy_type,
         request.generation,
         request.amount_mode,
         request.futures_margin_mode,
@@ -1047,6 +1327,7 @@ fn build_strategy(
         &request.levels,
         request.overall_take_profit_bps,
         request.overall_stop_loss_bps,
+        request.reference_price_source,
         request.post_trigger_action,
     )?;
 
@@ -1069,7 +1350,7 @@ fn build_strategy(
         margin_ready: false,
         conflict_ready: matches!(request.market, StrategyMarket::Spot),
         balance_ready: false,
-        strategy_type: StrategyType::OrdinaryGrid,
+        strategy_type: request.strategy_type,
         market: request.market,
         mode: request.mode,
         runtime_phase: StrategyRuntimePhase::Draft,
@@ -1084,6 +1365,7 @@ fn build_strategy(
 fn build_revision(
     strategy_id: &str,
     version: u32,
+    strategy_type: StrategyType,
     generation: GridGeneration,
     amount_mode: StrategyAmountMode,
     futures_margin_mode: Option<FuturesMarginMode>,
@@ -1091,6 +1373,7 @@ fn build_revision(
     levels: &[SaveGridLevelRequest],
     overall_take_profit_bps: Option<u32>,
     overall_stop_loss_bps: Option<u32>,
+    reference_price_source: ReferencePriceSource,
     post_trigger_action: PostTriggerAction,
 ) -> Result<StrategyRevision, StrategyError> {
     let levels = levels
@@ -1110,13 +1393,13 @@ fn build_revision(
     Ok(StrategyRevision {
         revision_id: format!("{strategy_id}-revision-{version}"),
         version,
-        strategy_type: StrategyType::OrdinaryGrid,
+        strategy_type,
         generation,
         levels,
         amount_mode,
         futures_margin_mode,
         leverage,
-        reference_price_source: ReferencePriceSource::Manual,
+        reference_price_source,
         overall_take_profit_bps,
         overall_stop_loss_bps,
         post_trigger_action,
@@ -2197,12 +2480,14 @@ impl From<AuthError> for StrategyError {
 #[cfg(test)]
 mod tests {
     use super::{
-        rebuild_runtime, run_preflight, CreateTemplateRequest, SaveGridLevelRequest,
-        SaveStrategyRequest, StrategyError, StrategyService,
+        rebuild_runtime, run_preflight, template_to_save_request, ApplyTemplateRequest,
+        CreateTemplateRequest, SaveGridLevelRequest, SaveStrategyRequest, StrategyError,
+        StrategyService, UpdateTemplateRequest,
     };
     use crate::services::auth_service::AdminRole;
     use axum::http::StatusCode;
     use chrono::Utc;
+    use serde_json::json;
     use shared_db::{MembershipRecord, SharedDb, UserExchangeAccountRecord};
     use shared_domain::strategy::{
         FuturesMarginMode, GridGeneration, GridLevel, PostTriggerAction, PreflightStepStatus,
@@ -2211,6 +2496,7 @@ mod tests {
         StrategyRuntimePosition, StrategyStatus, StrategyType,
     };
     use std::{
+        collections::BTreeMap,
         fs,
         net::TcpListener,
         path::{Path, PathBuf},
@@ -2281,12 +2567,94 @@ mod tests {
         }
     }
 
+    #[test]
+    fn apply_template_preserves_classic_bilateral_strategy_type() {
+        let db = SharedDb::ephemeral().expect("db");
+        let service = StrategyService::new(db);
+        let mut request = template_request("Classic Template");
+        request.strategy_type = StrategyType::ClassicBilateralGrid;
+        request.reference_price_source = ReferencePriceSource::Market;
+        request
+            .extra
+            .insert("levels_per_side".to_string(), json!(2));
+        request
+            .extra
+            .insert("spacing_mode".to_string(), json!("fixed_step"));
+        request
+            .extra
+            .insert("grid_spacing_bps".to_string(), json!(100));
+        request
+            .extra
+            .insert("reference_price".to_string(), json!("100"));
+
+        let template = service
+            .create_template(
+                "super-admin@example.com",
+                Some(AdminRole::SuperAdmin),
+                9,
+                CreateTemplateRequest { strategy: request },
+            )
+            .expect("template created");
+        let listed = service.list_templates().expect("list templates");
+        let listed_template = listed
+            .items
+            .into_iter()
+            .find(|item| item.id == template.id)
+            .expect("listed template");
+        assert_eq!(
+            listed_template.strategy_type,
+            StrategyType::ClassicBilateralGrid
+        );
+        assert_eq!(
+            listed_template.reference_price_source,
+            ReferencePriceSource::Market
+        );
+
+        let updated = service
+            .update_template(
+                "super-admin@example.com",
+                Some(AdminRole::SuperAdmin),
+                10,
+                &listed_template.id,
+                UpdateTemplateRequest {
+                    strategy: template_to_save_request(
+                        &listed_template,
+                        listed_template.name.clone(),
+                    ),
+                },
+            )
+            .expect("update template");
+        assert_eq!(updated.strategy_type, StrategyType::ClassicBilateralGrid);
+        assert_eq!(updated.reference_price_source, ReferencePriceSource::Market);
+
+        let applied = service
+            .apply_template(
+                "trader@example.com",
+                &updated.id,
+                ApplyTemplateRequest {
+                    name: "Applied Classic".to_string(),
+                },
+            )
+            .expect("apply template");
+
+        assert_eq!(applied.strategy_type, StrategyType::ClassicBilateralGrid);
+        assert_eq!(
+            applied.draft_revision.strategy_type,
+            StrategyType::ClassicBilateralGrid
+        );
+        assert_eq!(
+            applied.draft_revision.reference_price_source,
+            ReferencePriceSource::Market
+        );
+    }
+
     fn template_request(name: &str) -> SaveStrategyRequest {
         SaveStrategyRequest {
             name: name.to_string(),
             symbol: "BTCUSDT".to_string(),
             market: StrategyMarket::Spot,
             mode: StrategyMode::SpotClassic,
+            strategy_type: StrategyType::OrdinaryGrid,
             generation: GridGeneration::Custom,
             levels: vec![SaveGridLevelRequest {
                 entry_price: "100".to_string(),
@@ -2309,7 +2677,9 @@ mod tests {
             balance_ready: true,
             overall_take_profit_bps: None,
             overall_stop_loss_bps: None,
+            reference_price_source: ReferencePriceSource::Manual,
             post_trigger_action: PostTriggerAction::Stop,
+            extra: BTreeMap::new(),
         }
     }
 
@@ -2476,6 +2846,7 @@ mod tests {
                     symbol: "BTCUSDT".to_string(),
                     market: StrategyMarket::Spot,
                     mode: StrategyMode::SpotClassic,
+                    strategy_type: StrategyType::OrdinaryGrid,
                     generation: GridGeneration::Custom,
                     levels: vec![SaveGridLevelRequest {
                         entry_price: "100".to_string(),
@@ -2498,7 +2869,9 @@ mod tests {
                     balance_ready: true,
                     overall_take_profit_bps: None,
                     overall_stop_loss_bps: None,
+                    reference_price_source: ReferencePriceSource::Manual,
                     post_trigger_action: PostTriggerAction::Stop,
+                    extra: BTreeMap::new(),
                 },
             )
             .expect("strategy");
@@ -2526,6 +2899,7 @@ mod tests {
                     symbol: "BTCUSDT".to_string(),
                     market: StrategyMarket::Spot,
                     mode: StrategyMode::SpotClassic,
+                    strategy_type: StrategyType::OrdinaryGrid,
                     generation: GridGeneration::Custom,
                     levels: vec![SaveGridLevelRequest {
                         entry_price: "100".to_string(),
@@ -2548,7 +2922,9 @@ mod tests {
                     balance_ready: true,
                     overall_take_profit_bps: None,
                     overall_stop_loss_bps: None,
+                    reference_price_source: ReferencePriceSource::Manual,
                     post_trigger_action: PostTriggerAction::Stop,
+                    extra: BTreeMap::new(),
                 },
             )
             .expect("strategy");
@@ -2653,6 +3029,7 @@ mod tests {
                     symbol: "BTCUSDT".to_string(),
                     market: StrategyMarket::Spot,
                     mode: StrategyMode::SpotClassic,
+                    strategy_type: StrategyType::OrdinaryGrid,
                     generation: GridGeneration::Custom,
                     levels: vec![SaveGridLevelRequest {
                         entry_price: "100".to_string(),
@@ -2675,7 +3052,9 @@ mod tests {
                     balance_ready: false,
                     overall_take_profit_bps: None,
                     overall_stop_loss_bps: None,
+                    reference_price_source: ReferencePriceSource::Manual,
                     post_trigger_action: PostTriggerAction::Stop,
+                    extra: BTreeMap::new(),
                 },
             )
             .expect("strategy");
@@ -2724,6 +3103,7 @@ mod tests {
                     symbol: "BTCUSDT".to_string(),
                     market: StrategyMarket::FuturesUsdM,
                     mode: StrategyMode::FuturesLong,
+                    strategy_type: StrategyType::OrdinaryGrid,
                     generation: GridGeneration::Custom,
                     levels: vec![SaveGridLevelRequest {
                         entry_price: "100".to_string(),
@@ -2746,7 +3126,9 @@ mod tests {
                     balance_ready: false,
                     overall_take_profit_bps: None,
                     overall_stop_loss_bps: None,
+                    reference_price_source: ReferencePriceSource::Manual,
                     post_trigger_action: PostTriggerAction::Stop,
+                    extra: BTreeMap::new(),
                 },
             )
             .expect("strategy");
@@ -2984,6 +3366,7 @@ mod tests {
                     symbol: "BTCUSDT".to_string(),
                     market: StrategyMarket::Spot,
                     mode: StrategyMode::SpotClassic,
+                    strategy_type: StrategyType::OrdinaryGrid,
                     generation: GridGeneration::Custom,
                     levels: vec![SaveGridLevelRequest {
                         entry_price: "100".to_string(),
@@ -3006,7 +3389,9 @@ mod tests {
                     balance_ready: true,
                     overall_take_profit_bps: None,
                     overall_stop_loss_bps: None,
+                    reference_price_source: ReferencePriceSource::Manual,
                     post_trigger_action: PostTriggerAction::Stop,
+                    extra: BTreeMap::new(),
                 },
             )
             .expect("strategy");
@@ -3031,6 +3416,7 @@ mod tests {
                     symbol: "BTCUSDT".to_string(),
                     market: StrategyMarket::Spot,
                     mode: StrategyMode::SpotClassic,
+                    strategy_type: StrategyType::OrdinaryGrid,
                     generation: GridGeneration::Custom,
                     levels: vec![SaveGridLevelRequest {
                         entry_price: "95".to_string(),
@@ -3053,7 +3439,9 @@ mod tests {
                     balance_ready: true,
                     overall_take_profit_bps: None,
                     overall_stop_loss_bps: None,
+                    reference_price_source: ReferencePriceSource::Manual,
                     post_trigger_action: PostTriggerAction::Stop,
+                    extra: BTreeMap::new(),
                 },
             )
             .expect("edit paused strategy");
@@ -3145,6 +3533,7 @@ mod tests {
                     symbol: "BTCUSDT".to_string(),
                     market: StrategyMarket::Spot,
                     mode: StrategyMode::SpotClassic,
+                    strategy_type: StrategyType::OrdinaryGrid,
                     generation: GridGeneration::Custom,
                     levels: vec![SaveGridLevelRequest {
                         entry_price: "100".to_string(),
@@ -3167,7 +3556,9 @@ mod tests {
                     balance_ready: true,
                     overall_take_profit_bps: None,
                     overall_stop_loss_bps: None,
+                    reference_price_source: ReferencePriceSource::Manual,
                     post_trigger_action: PostTriggerAction::Stop,
+                    extra: BTreeMap::new(),
                 },
             )
             .expect("strategy");
@@ -3286,6 +3677,7 @@ mod tests {
                     symbol: "BTCUSDT".to_string(),
                     market: StrategyMarket::Spot,
                     mode: StrategyMode::SpotClassic,
+                    strategy_type: StrategyType::OrdinaryGrid,
                     generation: GridGeneration::Custom,
                     levels: vec![
                         SaveGridLevelRequest {
@@ -3316,7 +3708,9 @@ mod tests {
                     balance_ready: true,
                     overall_take_profit_bps: None,
                     overall_stop_loss_bps: None,
+                    reference_price_source: ReferencePriceSource::Manual,
                     post_trigger_action: PostTriggerAction::Stop,
+                    extra: BTreeMap::new(),
                 },
             )
             .expect("strategy");
@@ -3401,6 +3795,7 @@ mod tests {
                     symbol: "BTCUSDT".to_string(),
                     market: StrategyMarket::Spot,
                     mode: StrategyMode::SpotBuyOnly,
+                    strategy_type: StrategyType::OrdinaryGrid,
                     generation: GridGeneration::Custom,
                     levels: vec![SaveGridLevelRequest {
                         entry_price: "100.13".to_string(),
@@ -3423,7 +3818,9 @@ mod tests {
                     balance_ready: true,
                     overall_take_profit_bps: None,
                     overall_stop_loss_bps: None,
+                    reference_price_source: ReferencePriceSource::Manual,
                     post_trigger_action: PostTriggerAction::Stop,
+                    extra: BTreeMap::new(),
                 },
             )
             .expect("strategy");

@@ -73,6 +73,7 @@ pub enum FuturesMarginMode {
 #[serde(rename_all = "snake_case")]
 pub enum StrategyType {
     OrdinaryGrid,
+    ClassicBilateralGrid,
 }
 
 impl Default for StrategyType {
@@ -85,6 +86,7 @@ impl Default for StrategyType {
 #[serde(rename_all = "snake_case")]
 pub enum ReferencePriceSource {
     Manual,
+    Market,
 }
 
 impl Default for ReferencePriceSource {
@@ -265,6 +267,8 @@ pub struct StrategyTemplate {
     pub symbol: String,
     pub market: StrategyMarket,
     pub mode: StrategyMode,
+    #[serde(default)]
+    pub strategy_type: StrategyType,
     pub generation: GridGeneration,
     pub levels: Vec<GridLevel>,
     #[serde(default)]
@@ -287,5 +291,7 @@ pub struct StrategyTemplate {
     pub balance_ready: bool,
     pub overall_take_profit_bps: Option<u32>,
     pub overall_stop_loss_bps: Option<u32>,
+    #[serde(default)]
+    pub reference_price_source: ReferencePriceSource,
     pub post_trigger_action: PostTriggerAction,
 }

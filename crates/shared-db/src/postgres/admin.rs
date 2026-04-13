@@ -50,6 +50,7 @@ impl AdminRepository {
                     symbol,
                     market,
                     mode,
+                    strategy_type,
                     generation,
                     levels,
                     amount_mode,
@@ -69,6 +70,7 @@ impl AdminRepository {
                     balance_ready,
                     overall_take_profit_bps,
                     overall_stop_loss_bps,
+                    reference_price_source,
                     post_trigger_action
              FROM strategy_templates
              ORDER BY sequence_id ASC",
@@ -90,6 +92,7 @@ impl AdminRepository {
                     symbol,
                     market,
                     mode,
+                    strategy_type,
                     generation,
                     levels,
                     amount_mode,
@@ -109,6 +112,7 @@ impl AdminRepository {
                     balance_ready,
                     overall_take_profit_bps,
                     overall_stop_loss_bps,
+                    reference_price_source,
                     post_trigger_action
              FROM strategy_templates
              WHERE id = $1",
@@ -1052,6 +1056,11 @@ fn template_from_row(row: sqlx::postgres::PgRow) -> Result<StrategyTemplate, Sha
             &row.try_get::<String, _>("mode")
                 .map_err(SharedDbError::from)?,
         )?,
+        strategy_type: row
+            .try_get::<String, _>("strategy_type")
+            .ok()
+            .and_then(|value| super::strategy::parse_strategy_type(&value).ok())
+            .unwrap_or_default(),
         generation: parse_grid_generation(
             &row.try_get::<String, _>("generation")
                 .map_err(SharedDbError::from)?,
@@ -1100,6 +1109,11 @@ fn template_from_row(row: sqlx::postgres::PgRow) -> Result<StrategyTemplate, Sha
             .try_get::<Option<i32>, _>("overall_stop_loss_bps")
             .map_err(SharedDbError::from)?
             .map(|value| value as u32),
+        reference_price_source: row
+            .try_get::<String, _>("reference_price_source")
+            .ok()
+            .and_then(|value| super::strategy::parse_reference_price_source(&value).ok())
+            .unwrap_or_default(),
         post_trigger_action: parse_post_trigger_action(
             &row.try_get::<String, _>("post_trigger_action")
                 .map_err(SharedDbError::from)?,

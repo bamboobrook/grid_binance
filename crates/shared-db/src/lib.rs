@@ -79,7 +79,7 @@ struct EphemeralState {
     exchange_trade_history: Vec<ExchangeTradeHistoryRecord>,
     strategy_profit_snapshots: Vec<StrategyProfitSnapshotRecord>,
     strategies: BTreeMap<u64, Strategy>,
-    templates: BTreeMap<u64, StrategyTemplate>,
+    templates: BTreeMap<u64, StoredStrategyTemplate>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -2707,9 +2707,11 @@ impl SharedDb {
                 let repo = self.strategy_repo();
                 Self::block_on(async move { repo.list_templates().await })
             }
-            SharedDbBackend::Ephemeral(state) => {
-                Ok(lock_ephemeral(state)?.templates.values().cloned().collect())
-            }
+            SharedDbBackend::Ephemeral(state) => Ok(lock_ephemeral(state)?
+                .templates
+                .values()
+                .map(|stored| stored.template.clone())
+                .collect()),
         }
     }
 
@@ -2726,8 +2728,8 @@ impl SharedDb {
             SharedDbBackend::Ephemeral(state) => Ok(lock_ephemeral(state)?
                 .templates
                 .values()
-                .find(|template| template.id == template_id)
-                .cloned()),
+                .find(|template| template.template.id == template_id)
+                .map(|template| template.template.clone())),
         }
     }
 
@@ -2741,7 +2743,7 @@ impl SharedDb {
             SharedDbBackend::Ephemeral(state) => {
                 lock_ephemeral(state)?
                     .templates
-                    .insert(template.sequence_id, template.template.clone());
+                    .insert(template.sequence_id, template.clone());
                 Ok(())
             }
         }
@@ -2754,7 +2756,7 @@ impl SharedDb {
     ) -> Result<(), SharedDbError> {
         match &self.backend {
             SharedDbBackend::Runtime { .. } => {
-                let repo = self.admin_repo();
+                let repo = self.strategy_repo();
                 let template = template.clone();
                 let audit = audit.clone();
                 Self::block_on(
@@ -2764,14 +2766,17 @@ impl SharedDb {
             SharedDbBackend::Ephemeral(state) => mutate_ephemeral_atomically(state, |state| {
                 state
                     .templates
-                    .insert(template.sequence_id, template.template.clone());
+                    .insert(template.sequence_id, template.clone());
                 state.audit_logs.push(audit.clone());
                 Ok(())
             }),
         }
     }
 
-    pub fn update_template(&self, template: &StrategyTemplate) -> Result<usize, SharedDbError> {
+    pub fn update_template(
+        &self,
+        template: &StoredStrategyTemplate,
+    ) -> Result<usize, SharedDbError> {
         match &self.backend {
             SharedDbBackend::Runtime { .. } => {
                 let repo = self.strategy_repo();
@@ -2783,7 +2788,7 @@ impl SharedDb {
                 let Some((_, stored)) = state
                     .templates
                     .iter_mut()
-                    .find(|(_, current)| current.id == template.id)
+                    .find(|(_, current)| current.template.id == template.template.id)
                 else {
                     return Ok(0);
                 };
@@ -2795,12 +2800,12 @@ impl SharedDb {
 
     pub fn update_template_with_audit(
         &self,
-        template: &StrategyTemplate,
+        template: &StoredStrategyTemplate,
         audit: &AuditLogRecord,
     ) -> Result<usize, SharedDbError> {
         match &self.backend {
             SharedDbBackend::Runtime { .. } => {
-                let repo = self.admin_repo();
+                let repo = self.strategy_repo();
                 let template = template.clone();
                 let audit = audit.clone();
                 Self::block_on(
@@ -2811,7 +2816,7 @@ impl SharedDb {
                 let Some((_, stored)) = state
                     .templates
                     .iter_mut()
-                    .find(|(_, current)| current.id == template.id)
+                    .find(|(_, current)| current.template.id == template.template.id)
                 else {
                     return Ok(0);
                 };
@@ -3003,14 +3008,14 @@ fn revoke_ephemeral_sessions(state: &mut EphemeralState, email: &str) {
 mod tests {
     use super::{
         postgres, redis, AuditLogRecord, BillingOrderRecord, DepositTransactionRecord, SharedDb,
-        StoredStrategy,
+        StoredStrategy, StoredStrategyTemplate,
     };
     use chrono::{TimeZone, Utc};
     use serde_json::json;
     use shared_domain::strategy::{
         GridGeneration, GridLevel, PostTriggerAction, ReferencePriceSource, RuntimeControls,
         Strategy, StrategyAmountMode, StrategyMarket, StrategyMode, StrategyRevision,
-        StrategyRuntime, StrategyRuntimePhase, StrategyStatus, StrategyType,
+        StrategyRuntime, StrategyRuntimePhase, StrategyStatus, StrategyTemplate, StrategyType,
     };
     use std::{
         fs,
@@ -3042,6 +3047,7 @@ mod tests {
                 "0010_sweep_lifecycle_columns.sql",
                 "0011_strategy_template_futures_fields.sql",
                 "0012_strategy_engine_rewrite.sql",
+                "0013_strategy_type_and_reference_source_template_support.sql",
             ]
         );
     }
@@ -3224,6 +3230,153 @@ mod tests {
             stored.draft_revision.reference_price_source,
             ReferencePriceSource::Manual
         );
+    }
+
+    #[test]
+    fn runtime_strategy_round_trip_persists_classic_bilateral_strategy_type() {
+        let runtime = PersistentRuntimeHarness::start("shared-db-classic-strategy");
+        let db =
+            SharedDb::connect(runtime.database_url(), runtime.redis_url()).expect("runtime db");
+        let strategy = Strategy {
+            id: "strategy-classic-roundtrip".to_string(),
+            owner_email: "roundtrip@example.com".to_string(),
+            name: "classic-roundtrip".to_string(),
+            symbol: "ETHUSDT".to_string(),
+            budget: "2".to_string(),
+            grid_spacing_bps: 100,
+            status: StrategyStatus::Draft,
+            source_template_id: None,
+            membership_ready: true,
+            exchange_ready: true,
+            permissions_ready: true,
+            withdrawals_disabled: true,
+            hedge_mode_ready: true,
+            symbol_ready: true,
+            filters_ready: true,
+            margin_ready: true,
+            conflict_ready: true,
+            balance_ready: true,
+            strategy_type: StrategyType::ClassicBilateralGrid,
+            market: StrategyMarket::FuturesUsdM,
+            mode: StrategyMode::FuturesNeutral,
+            runtime_phase: StrategyRuntimePhase::Draft,
+            runtime_controls: RuntimeControls::default(),
+            draft_revision: StrategyRevision {
+                revision_id: "strategy-classic-roundtrip-revision-1".to_string(),
+                version: 1,
+                strategy_type: StrategyType::ClassicBilateralGrid,
+                generation: GridGeneration::Arithmetic,
+                levels: vec![
+                    GridLevel {
+                        level_index: 0,
+                        entry_price: "99".parse().expect("decimal"),
+                        quantity: "1".parse().expect("decimal"),
+                        take_profit_bps: 120,
+                        trailing_bps: None,
+                    },
+                    GridLevel {
+                        level_index: 1,
+                        entry_price: "101".parse().expect("decimal"),
+                        quantity: "1".parse().expect("decimal"),
+                        take_profit_bps: 120,
+                        trailing_bps: None,
+                    },
+                ],
+                amount_mode: StrategyAmountMode::Quote,
+                futures_margin_mode: Some(shared_domain::strategy::FuturesMarginMode::Isolated),
+                leverage: Some(5),
+                reference_price_source: ReferencePriceSource::Market,
+                overall_take_profit_bps: None,
+                overall_stop_loss_bps: None,
+                post_trigger_action: PostTriggerAction::Stop,
+            },
+            active_revision: None,
+            runtime: StrategyRuntime::default(),
+            archived_at: None,
+        };
+
+        db.insert_strategy(&StoredStrategy {
+            sequence_id: 1,
+            strategy,
+        })
+        .expect("insert strategy");
+
+        let stored = db
+            .find_strategy("roundtrip@example.com", "strategy-classic-roundtrip")
+            .expect("find strategy")
+            .expect("strategy persisted");
+        assert_eq!(stored.strategy_type, StrategyType::ClassicBilateralGrid);
+        assert_eq!(
+            stored.draft_revision.strategy_type,
+            StrategyType::ClassicBilateralGrid
+        );
+        assert_eq!(
+            stored.draft_revision.reference_price_source,
+            ReferencePriceSource::Market
+        );
+    }
+
+    #[test]
+    fn runtime_template_round_trip_persists_classic_bilateral_metadata() {
+        let runtime = PersistentRuntimeHarness::start("shared-db-classic-template");
+        let db =
+            SharedDb::connect(runtime.database_url(), runtime.redis_url()).expect("runtime db");
+        let template = StoredStrategyTemplate {
+            sequence_id: 1,
+            template: StrategyTemplate {
+                id: "template-classic-roundtrip".to_string(),
+                name: "classic-template".to_string(),
+                symbol: "ETHUSDT".to_string(),
+                market: StrategyMarket::FuturesUsdM,
+                mode: StrategyMode::FuturesNeutral,
+                strategy_type: StrategyType::ClassicBilateralGrid,
+                generation: GridGeneration::Arithmetic,
+                levels: vec![
+                    GridLevel {
+                        level_index: 0,
+                        entry_price: "99".parse().expect("decimal"),
+                        quantity: "1".parse().expect("decimal"),
+                        take_profit_bps: 120,
+                        trailing_bps: None,
+                    },
+                    GridLevel {
+                        level_index: 1,
+                        entry_price: "101".parse().expect("decimal"),
+                        quantity: "1".parse().expect("decimal"),
+                        take_profit_bps: 120,
+                        trailing_bps: None,
+                    },
+                ],
+                amount_mode: StrategyAmountMode::Quote,
+                futures_margin_mode: Some(shared_domain::strategy::FuturesMarginMode::Isolated),
+                leverage: Some(5),
+                budget: "2".to_string(),
+                grid_spacing_bps: 100,
+                membership_ready: false,
+                exchange_ready: false,
+                permissions_ready: false,
+                withdrawals_disabled: false,
+                hedge_mode_ready: false,
+                symbol_ready: false,
+                filters_ready: false,
+                margin_ready: false,
+                conflict_ready: false,
+                balance_ready: false,
+                overall_take_profit_bps: None,
+                overall_stop_loss_bps: None,
+                reference_price_source: ReferencePriceSource::Market,
+                post_trigger_action: PostTriggerAction::Stop,
+            },
+        };
+
+        db.insert_template(&template).expect("insert template");
+
+        let stored = db
+            .find_template("template-classic-roundtrip")
+            .expect("find template")
+            .expect("template persisted");
+        assert_eq!(stored.strategy_type, StrategyType::ClassicBilateralGrid);
+        assert_eq!(stored.reference_price_source, ReferencePriceSource::Market);
     }
 
     #[test]

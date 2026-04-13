@@ -11,7 +11,7 @@ use shared_domain::strategy::{
 };
 
 use crate::{
-    parse_strategy_status, strategy_status_to_str, SharedDbError, StoredStrategy,
+    parse_strategy_status, strategy_status_to_str, AuditLogRecord, SharedDbError, StoredStrategy,
     StoredStrategyTemplate,
 };
 
@@ -394,6 +394,7 @@ impl StrategyRepository {
                     symbol,
                     market,
                     mode,
+                    strategy_type,
                     generation,
                     levels,
                     amount_mode,
@@ -413,6 +414,7 @@ impl StrategyRepository {
                     balance_ready,
                     overall_take_profit_bps,
                     overall_stop_loss_bps,
+                    reference_price_source,
                     post_trigger_action
              FROM strategy_templates
              ORDER BY sequence_id ASC",
@@ -434,6 +436,7 @@ impl StrategyRepository {
                     symbol,
                     market,
                     mode,
+                    strategy_type,
                     generation,
                     levels,
                     amount_mode,
@@ -453,6 +456,7 @@ impl StrategyRepository {
                     balance_ready,
                     overall_take_profit_bps,
                     overall_stop_loss_bps,
+                    reference_price_source,
                     post_trigger_action
              FROM strategy_templates
              WHERE id = $1",
@@ -469,157 +473,48 @@ impl StrategyRepository {
         &self,
         template: &StoredStrategyTemplate,
     ) -> Result<(), SharedDbError> {
-        let levels = serde_json::to_value(&template.template.levels)
-            .map_err(|error| SharedDbError::new(error.to_string()))?;
-        sqlx::query(
-            "INSERT INTO strategy_templates (
-                id,
-                sequence_id,
-                name,
-                symbol,
-                market,
-                mode,
-                generation,
-                levels,
-                amount_mode,
-                futures_margin_mode,
-                leverage,
-                budget,
-                grid_spacing_bps,
-                membership_ready,
-                exchange_ready,
-                permissions_ready,
-                withdrawals_disabled,
-                hedge_mode_ready,
-                symbol_ready,
-                filters_ready,
-                margin_ready,
-                conflict_ready,
-                balance_ready,
-                overall_take_profit_bps,
-                overall_stop_loss_bps,
-                post_trigger_action,
-                created_at,
-                updated_at
-             ) VALUES (
-                $1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
-                $11, $12, $13, $14, $15, $16, $17, $18, $19, $20,
-                $21, $22, $23, $24, $25, $26, now(), now()
-             )",
-        )
-        .bind(&template.template.id)
-        .bind(template.sequence_id as i64)
-        .bind(&template.template.name)
-        .bind(&template.template.symbol)
-        .bind(strategy_market_to_str(template.template.market))
-        .bind(strategy_mode_to_str(template.template.mode))
-        .bind(grid_generation_to_str(template.template.generation))
-        .bind(levels)
-        .bind(strategy_amount_mode_to_str(template.template.amount_mode))
-        .bind(
-            template
-                .template
-                .futures_margin_mode
-                .map(futures_margin_mode_to_str),
-        )
-        .bind(template.template.leverage.map(|value| value as i32))
-        .bind(&template.template.budget)
-        .bind(template.template.grid_spacing_bps as i32)
-        .bind(template.template.membership_ready)
-        .bind(template.template.exchange_ready)
-        .bind(template.template.permissions_ready)
-        .bind(template.template.withdrawals_disabled)
-        .bind(template.template.hedge_mode_ready)
-        .bind(template.template.symbol_ready)
-        .bind(template.template.filters_ready)
-        .bind(template.template.margin_ready)
-        .bind(template.template.conflict_ready)
-        .bind(template.template.balance_ready)
-        .bind(
-            template
-                .template
-                .overall_take_profit_bps
-                .map(|value| value as i32),
-        )
-        .bind(
-            template
-                .template
-                .overall_stop_loss_bps
-                .map(|value| value as i32),
-        )
-        .bind(post_trigger_action_to_str(
-            template.template.post_trigger_action,
-        ))
-        .execute(&self.pool)
-        .await
-        .map_err(SharedDbError::from)?;
+        let mut transaction = self.pool.begin().await.map_err(SharedDbError::from)?;
+        insert_template_in(&mut transaction, template).await?;
+        transaction.commit().await.map_err(SharedDbError::from)?;
+        Ok(())
+    }
+
+    pub async fn insert_template_with_audit(
+        &self,
+        template: &StoredStrategyTemplate,
+        audit: &AuditLogRecord,
+    ) -> Result<(), SharedDbError> {
+        let mut transaction = self.pool.begin().await.map_err(SharedDbError::from)?;
+        insert_template_in(&mut transaction, template).await?;
+        insert_audit_log_in(&mut transaction, audit).await?;
+        transaction.commit().await.map_err(SharedDbError::from)?;
         Ok(())
     }
 
     pub async fn update_template(
         &self,
-        template: &StrategyTemplate,
+        template: &StoredStrategyTemplate,
     ) -> Result<usize, SharedDbError> {
-        let levels = serde_json::to_value(&template.levels)
-            .map_err(|error| SharedDbError::new(error.to_string()))?;
-        let updated = sqlx::query(
-            "UPDATE strategy_templates
-             SET name = $2,
-                 symbol = $3,
-                 market = $4,
-                 mode = $5,
-                 generation = $6,
-                 levels = $7,
-                 amount_mode = $8,
-                 futures_margin_mode = $9,
-                 leverage = $10,
-                 budget = $11,
-                 grid_spacing_bps = $12,
-                 membership_ready = $13,
-                 exchange_ready = $14,
-                 permissions_ready = $15,
-                 withdrawals_disabled = $16,
-                 hedge_mode_ready = $17,
-                 symbol_ready = $18,
-                 filters_ready = $19,
-                 margin_ready = $20,
-                 conflict_ready = $21,
-                 balance_ready = $22,
-                 overall_take_profit_bps = $23,
-                 overall_stop_loss_bps = $24,
-                 post_trigger_action = $25,
-                 updated_at = now()
-             WHERE id = $1",
-        )
-        .bind(&template.id)
-        .bind(&template.name)
-        .bind(&template.symbol)
-        .bind(strategy_market_to_str(template.market))
-        .bind(strategy_mode_to_str(template.mode))
-        .bind(grid_generation_to_str(template.generation))
-        .bind(levels)
-        .bind(strategy_amount_mode_to_str(template.amount_mode))
-        .bind(template.futures_margin_mode.map(futures_margin_mode_to_str))
-        .bind(template.leverage.map(|value| value as i32))
-        .bind(&template.budget)
-        .bind(template.grid_spacing_bps as i32)
-        .bind(template.membership_ready)
-        .bind(template.exchange_ready)
-        .bind(template.permissions_ready)
-        .bind(template.withdrawals_disabled)
-        .bind(template.hedge_mode_ready)
-        .bind(template.symbol_ready)
-        .bind(template.filters_ready)
-        .bind(template.margin_ready)
-        .bind(template.conflict_ready)
-        .bind(template.balance_ready)
-        .bind(template.overall_take_profit_bps.map(|value| value as i32))
-        .bind(template.overall_stop_loss_bps.map(|value| value as i32))
-        .bind(post_trigger_action_to_str(template.post_trigger_action))
-        .execute(&self.pool)
-        .await
-        .map_err(SharedDbError::from)?;
-        Ok(updated.rows_affected() as usize)
+        let mut transaction = self.pool.begin().await.map_err(SharedDbError::from)?;
+        let updated = update_template_in(&mut transaction, template).await?;
+        transaction.commit().await.map_err(SharedDbError::from)?;
+        Ok(updated)
+    }
+
+    pub async fn update_template_with_audit(
+        &self,
+        template: &StoredStrategyTemplate,
+        audit: &AuditLogRecord,
+    ) -> Result<usize, SharedDbError> {
+        let mut transaction = self.pool.begin().await.map_err(SharedDbError::from)?;
+        let updated = update_template_in(&mut transaction, template).await?;
+        if updated == 0 {
+            transaction.rollback().await.map_err(SharedDbError::from)?;
+            return Ok(0);
+        }
+        insert_audit_log_in(&mut transaction, audit).await?;
+        transaction.commit().await.map_err(SharedDbError::from)?;
+        Ok(updated)
     }
 
     pub async fn insert_profit_snapshot(
@@ -668,6 +563,218 @@ impl StrategyRepository {
     }
 }
 
+async fn insert_template_in(
+    transaction: &mut Transaction<'_, Postgres>,
+    template: &StoredStrategyTemplate,
+) -> Result<(), SharedDbError> {
+    let levels = serde_json::to_value(&template.template.levels)
+        .map_err(|error| SharedDbError::new(error.to_string()))?;
+    sqlx::query(
+        "INSERT INTO strategy_templates (
+            id,
+            sequence_id,
+            name,
+            symbol,
+            market,
+            mode,
+            strategy_type,
+            generation,
+            levels,
+            amount_mode,
+            futures_margin_mode,
+            leverage,
+            budget,
+            grid_spacing_bps,
+            membership_ready,
+            exchange_ready,
+            permissions_ready,
+            withdrawals_disabled,
+            hedge_mode_ready,
+            symbol_ready,
+            filters_ready,
+            margin_ready,
+            conflict_ready,
+            balance_ready,
+            overall_take_profit_bps,
+            overall_stop_loss_bps,
+            reference_price_source,
+            post_trigger_action,
+            created_at,
+            updated_at
+         ) VALUES (
+            $1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
+            $11, $12, $13, $14, $15, $16, $17, $18, $19, $20,
+            $21, $22, $23, $24, $25, $26, $27, $28, now(), now()
+         )",
+    )
+    .bind(&template.template.id)
+    .bind(template.sequence_id as i64)
+    .bind(&template.template.name)
+    .bind(&template.template.symbol)
+    .bind(strategy_market_to_str(template.template.market))
+    .bind(strategy_mode_to_str(template.template.mode))
+    .bind(strategy_type_to_str(template.template.strategy_type))
+    .bind(grid_generation_to_str(template.template.generation))
+    .bind(levels)
+    .bind(strategy_amount_mode_to_str(template.template.amount_mode))
+    .bind(
+        template
+            .template
+            .futures_margin_mode
+            .map(futures_margin_mode_to_str),
+    )
+    .bind(template.template.leverage.map(|value| value as i32))
+    .bind(&template.template.budget)
+    .bind(template.template.grid_spacing_bps as i32)
+    .bind(template.template.membership_ready)
+    .bind(template.template.exchange_ready)
+    .bind(template.template.permissions_ready)
+    .bind(template.template.withdrawals_disabled)
+    .bind(template.template.hedge_mode_ready)
+    .bind(template.template.symbol_ready)
+    .bind(template.template.filters_ready)
+    .bind(template.template.margin_ready)
+    .bind(template.template.conflict_ready)
+    .bind(template.template.balance_ready)
+    .bind(
+        template
+            .template
+            .overall_take_profit_bps
+            .map(|value| value as i32),
+    )
+    .bind(
+        template
+            .template
+            .overall_stop_loss_bps
+            .map(|value| value as i32),
+    )
+    .bind(reference_price_source_to_str(
+        template.template.reference_price_source,
+    ))
+    .bind(post_trigger_action_to_str(
+        template.template.post_trigger_action,
+    ))
+    .execute(&mut **transaction)
+    .await
+    .map_err(SharedDbError::from)?;
+    Ok(())
+}
+
+async fn update_template_in(
+    transaction: &mut Transaction<'_, Postgres>,
+    template: &StoredStrategyTemplate,
+) -> Result<usize, SharedDbError> {
+    let levels = serde_json::to_value(&template.template.levels)
+        .map_err(|error| SharedDbError::new(error.to_string()))?;
+    let updated = sqlx::query(
+        "UPDATE strategy_templates
+         SET name = $2,
+             symbol = $3,
+             market = $4,
+             mode = $5,
+             strategy_type = $6,
+             generation = $7,
+             levels = $8,
+             amount_mode = $9,
+             futures_margin_mode = $10,
+             leverage = $11,
+             budget = $12,
+             grid_spacing_bps = $13,
+             membership_ready = $14,
+             exchange_ready = $15,
+             permissions_ready = $16,
+             withdrawals_disabled = $17,
+             hedge_mode_ready = $18,
+             symbol_ready = $19,
+             filters_ready = $20,
+             margin_ready = $21,
+             conflict_ready = $22,
+             balance_ready = $23,
+             overall_take_profit_bps = $24,
+             overall_stop_loss_bps = $25,
+             reference_price_source = $26,
+             post_trigger_action = $27,
+             updated_at = now()
+         WHERE id = $1",
+    )
+    .bind(&template.template.id)
+    .bind(&template.template.name)
+    .bind(&template.template.symbol)
+    .bind(strategy_market_to_str(template.template.market))
+    .bind(strategy_mode_to_str(template.template.mode))
+    .bind(strategy_type_to_str(template.template.strategy_type))
+    .bind(grid_generation_to_str(template.template.generation))
+    .bind(levels)
+    .bind(strategy_amount_mode_to_str(template.template.amount_mode))
+    .bind(
+        template
+            .template
+            .futures_margin_mode
+            .map(futures_margin_mode_to_str),
+    )
+    .bind(template.template.leverage.map(|value| value as i32))
+    .bind(&template.template.budget)
+    .bind(template.template.grid_spacing_bps as i32)
+    .bind(template.template.membership_ready)
+    .bind(template.template.exchange_ready)
+    .bind(template.template.permissions_ready)
+    .bind(template.template.withdrawals_disabled)
+    .bind(template.template.hedge_mode_ready)
+    .bind(template.template.symbol_ready)
+    .bind(template.template.filters_ready)
+    .bind(template.template.margin_ready)
+    .bind(template.template.conflict_ready)
+    .bind(template.template.balance_ready)
+    .bind(
+        template
+            .template
+            .overall_take_profit_bps
+            .map(|value| value as i32),
+    )
+    .bind(
+        template
+            .template
+            .overall_stop_loss_bps
+            .map(|value| value as i32),
+    )
+    .bind(reference_price_source_to_str(
+        template.template.reference_price_source,
+    ))
+    .bind(post_trigger_action_to_str(
+        template.template.post_trigger_action,
+    ))
+    .execute(&mut **transaction)
+    .await
+    .map_err(SharedDbError::from)?;
+    Ok(updated.rows_affected() as usize)
+}
+
+async fn insert_audit_log_in(
+    transaction: &mut Transaction<'_, Postgres>,
+    record: &AuditLogRecord,
+) -> Result<(), SharedDbError> {
+    sqlx::query(
+        "INSERT INTO audit_logs (
+            actor_email,
+            action,
+            target_type,
+            target_id,
+            payload,
+            created_at
+         ) VALUES ($1, $2, $3, $4, $5, $6)",
+    )
+    .bind(&record.actor_email)
+    .bind(&record.action)
+    .bind(&record.target_type)
+    .bind(&record.target_id)
+    .bind(&record.payload)
+    .bind(record.created_at)
+    .execute(&mut **transaction)
+    .await
+    .map_err(SharedDbError::from)?;
+    Ok(())
+}
+
 fn template_from_row(row: sqlx::postgres::PgRow) -> Result<StrategyTemplate, SharedDbError> {
     let levels_value: Value = row.try_get("levels").map_err(SharedDbError::from)?;
     let levels: Vec<GridLevel> = serde_json::from_value(levels_value)
@@ -683,6 +790,10 @@ fn template_from_row(row: sqlx::postgres::PgRow) -> Result<StrategyTemplate, Sha
         )?,
         mode: parse_strategy_mode(
             &row.try_get::<String, _>("mode")
+                .map_err(SharedDbError::from)?,
+        )?,
+        strategy_type: parse_strategy_type(
+            &row.try_get::<String, _>("strategy_type")
                 .map_err(SharedDbError::from)?,
         )?,
         generation: parse_grid_generation(
@@ -733,6 +844,10 @@ fn template_from_row(row: sqlx::postgres::PgRow) -> Result<StrategyTemplate, Sha
             .try_get::<Option<i32>, _>("overall_stop_loss_bps")
             .map_err(SharedDbError::from)?
             .map(|value| value as u32),
+        reference_price_source: parse_reference_price_source(
+            &row.try_get::<String, _>("reference_price_source")
+                .map_err(SharedDbError::from)?,
+        )?,
         post_trigger_action: parse_post_trigger_action(
             &row.try_get::<String, _>("post_trigger_action")
                 .map_err(SharedDbError::from)?,
@@ -1138,9 +1253,10 @@ fn default_revision() -> StrategyRevision {
     }
 }
 
-fn parse_strategy_type(value: &str) -> Result<StrategyType, SharedDbError> {
+pub(crate) fn parse_strategy_type(value: &str) -> Result<StrategyType, SharedDbError> {
     match value {
         "ordinary_grid" => Ok(StrategyType::OrdinaryGrid),
+        "classic_bilateral_grid" => Ok(StrategyType::ClassicBilateralGrid),
         _ => Err(SharedDbError::new(format!(
             "unknown strategy type: {value}"
         ))),
@@ -1150,12 +1266,16 @@ fn parse_strategy_type(value: &str) -> Result<StrategyType, SharedDbError> {
 fn strategy_type_to_str(value: StrategyType) -> &'static str {
     match value {
         StrategyType::OrdinaryGrid => "ordinary_grid",
+        StrategyType::ClassicBilateralGrid => "classic_bilateral_grid",
     }
 }
 
-fn parse_reference_price_source(value: &str) -> Result<ReferencePriceSource, SharedDbError> {
+pub(crate) fn parse_reference_price_source(
+    value: &str,
+) -> Result<ReferencePriceSource, SharedDbError> {
     match value {
         "manual" => Ok(ReferencePriceSource::Manual),
+        "market" => Ok(ReferencePriceSource::Market),
         _ => Err(SharedDbError::new(format!(
             "unknown reference price source: {value}"
         ))),
@@ -1165,6 +1285,7 @@ fn parse_reference_price_source(value: &str) -> Result<ReferencePriceSource, Sha
 fn reference_price_source_to_str(value: ReferencePriceSource) -> &'static str {
     match value {
         ReferencePriceSource::Manual => "manual",
+        ReferencePriceSource::Market => "market",
     }
 }
 

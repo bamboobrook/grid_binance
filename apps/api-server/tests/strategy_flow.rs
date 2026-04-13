@@ -105,6 +105,146 @@ async fn strategy_create_and_update_accept_payloads_without_client_readiness_fla
 }
 
 #[tokio::test]
+async fn ordinary_grid_rejects_bilateral_configuration_fields() {
+    let app = app();
+    let user_token = register_and_login(&app, "ordinary-validation@example.com", "pass1234").await;
+
+    let response = create_strategy(
+        &app,
+        &user_token,
+        json!({
+            "name": "Bad Ordinary",
+            "symbol": "BTCUSDT",
+            "market": "Spot",
+            "mode": "SpotClassic",
+            "generation": "Custom",
+            "levels": [grid_level("100.00", "0.0100", 120, None)],
+            "strategy_type": "ordinary_grid",
+            "reference_price": "100.00",
+            "levels_per_side": 3,
+            "spacing_mode": "geometric",
+            "grid_spacing_bps": 100,
+            "overall_take_profit_bps": 500,
+            "overall_stop_loss_bps": 200,
+            "post_trigger_action": "Stop"
+        }),
+    )
+    .await;
+
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    assert!(response_text(response)
+        .await
+        .contains("ordinary grid does not accept bilateral fields"));
+}
+
+#[tokio::test]
+async fn classic_bilateral_create_and_list_round_trips_strategy_type() {
+    let app = app();
+    let user_token = register_and_login(&app, "classic-roundtrip@example.com", "pass1234").await;
+
+    let created = create_strategy(
+        &app,
+        &user_token,
+        json!({
+            "name": "Classic Persisted",
+            "symbol": "ETHUSDT",
+            "market": "FuturesUsdM",
+            "mode": "FuturesNeutral",
+            "generation": "Custom",
+            "amount_mode": "Quote",
+            "futures_margin_mode": "Isolated",
+            "leverage": 5,
+            "strategy_type": "classic_bilateral_grid",
+            "reference_price_source": "manual",
+            "reference_price": "100.00",
+            "levels_per_side": 2,
+            "spacing_mode": "fixed_step",
+            "grid_spacing_bps": 100,
+            "overall_take_profit_bps": null,
+            "overall_stop_loss_bps": null,
+            "post_trigger_action": "Stop"
+        }),
+    )
+    .await;
+
+    assert_eq!(created.status(), StatusCode::CREATED);
+    let created_body = response_json(created).await;
+    assert_eq!(created_body["strategy_type"], "classic_bilateral_grid");
+    assert_eq!(
+        created_body["draft_revision"]["strategy_type"],
+        "classic_bilateral_grid"
+    );
+
+    let listed = list_strategies(&app, &user_token).await;
+    assert_eq!(listed.status(), StatusCode::OK);
+    let listed_body = response_json(listed).await;
+    let strategy = find_strategy(
+        &listed_body,
+        created_body["id"].as_str().expect("strategy id"),
+    );
+    assert_eq!(strategy["strategy_type"], "classic_bilateral_grid");
+    assert_eq!(
+        strategy["draft_revision"]["strategy_type"],
+        "classic_bilateral_grid"
+    );
+}
+
+#[tokio::test]
+async fn futures_classic_bilateral_preflight_fails_without_hedge_mode() {
+    let db = SharedDb::ephemeral().expect("ephemeral db");
+    let app = app_with_state(AppState::from_shared_db(db.clone()).expect("state"));
+    let email = "hedge-check@example.com";
+    let user_token = register_and_login(&app, email, "pass1234").await;
+
+    seed_active_membership(&db, email);
+    seed_exchange_context(
+        &db,
+        email,
+        &["usdm"],
+        true,
+        false,
+        &[symbol_record(email, "usdm", "ETHUSDT")],
+    );
+
+    let created = create_strategy(
+        &app,
+        &user_token,
+        json!({
+            "name": "ETH Bilateral",
+            "symbol": "ETHUSDT",
+            "market": "FuturesUsdM",
+            "mode": "FuturesNeutral",
+            "generation": "Custom",
+            "amount_mode": "Quote",
+            "futures_margin_mode": "Isolated",
+            "leverage": 5,
+            "strategy_type": "classic_bilateral_grid",
+            "reference_price_source": "manual",
+            "reference_price": "100.00",
+            "levels_per_side": 3,
+            "spacing_mode": "fixed_step",
+            "grid_spacing_bps": 100,
+            "overall_take_profit_bps": null,
+            "overall_stop_loss_bps": null,
+            "post_trigger_action": "Stop"
+        }),
+    )
+    .await;
+
+    assert_eq!(created.status(), StatusCode::CREATED);
+    let strategy_id = response_json(created).await["id"]
+        .as_str()
+        .expect("strategy id")
+        .to_owned();
+
+    let preflight = preflight_strategy(&app, &user_token, &strategy_id).await;
+    assert_eq!(preflight.status(), StatusCode::OK);
+    let body = response_json(preflight).await;
+    assert_eq!(body["ok"], false);
+    assert_eq!(body["failures"][0]["step"], "hedge_mode");
+}
+
+#[tokio::test]
 async fn strategy_revisions_runtime_contracts_and_soft_archive_follow_frozen_lifecycle() {
     let db = SharedDb::ephemeral().expect("ephemeral db");
     let app = app_with_state(AppState::from_shared_db(db.clone()).expect("state"));
@@ -1942,6 +2082,13 @@ async fn response_json(response: axum::response::Response) -> Value {
         .await
         .expect("response body");
     serde_json::from_slice(&bytes).expect("valid json")
+}
+
+async fn response_text(response: axum::response::Response) -> String {
+    let bytes = to_bytes(response.into_body(), usize::MAX)
+        .await
+        .expect("response body");
+    String::from_utf8(bytes.to_vec()).expect("utf8 body")
 }
 
 fn seed_active_membership(db: &SharedDb, email: &str) {
