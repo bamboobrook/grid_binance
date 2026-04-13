@@ -91,6 +91,7 @@ pub struct ExchangeCredentialCheckDto {
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
+#[serde(default)]
 struct StoredExchangeMetadata {
     api_key_masked: Option<String>,
     connection_status: String,
@@ -103,6 +104,7 @@ struct StoredExchangeMetadata {
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
+#[serde(default)]
 struct StoredValidationSnapshot {
     api_connectivity_ok: bool,
     timestamp_in_sync: bool,
@@ -111,6 +113,7 @@ struct StoredValidationSnapshot {
     can_read_coinm: bool,
     hedge_mode_ok: bool,
     permissions_ok: bool,
+    #[serde(default, alias = "withdrawal_disabled")]
     withdrawals_disabled: bool,
     market_access_ok: bool,
 }

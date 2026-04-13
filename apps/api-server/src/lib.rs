@@ -134,17 +134,17 @@ pub fn app() -> Router {
     app_with_state(AppState::ephemeral().expect("test app state should initialize"))
 }
 
-pub fn app_with_persistent_state(
+pub fn build_persistent_state(
     database_url: impl AsRef<str>,
     redis_url: impl AsRef<str>,
-) -> Result<Router, AppBuildError> {
+) -> Result<AppState, AppBuildError> {
     let db = SharedDb::connect(database_url, redis_url).map_err(AppBuildError::from)?;
     let auth = if std::env::var("APP_ENV").ok().as_deref() == Some("test") {
         AuthService::new_capture(db.clone())
     } else {
         AuthService::new_strict(db.clone()).map_err(AppBuildError::from)?
     };
-    let state = AppState {
+    Ok(AppState {
         analytics: AnalyticsService::new(db.clone()),
         auth,
         db: db.clone(),
@@ -152,8 +152,18 @@ pub fn app_with_persistent_state(
         membership: MembershipService::new(db.clone()),
         strategy: StrategyService::new(db.clone()),
         telegram: TelegramService::new_strict(db).map_err(AppBuildError::from)?,
-    };
-    Ok(app_with_state(state))
+    })
+}
+
+pub fn spawn_background_workers(state: &AppState) {
+    state.telegram.spawn_bot_update_poller();
+}
+
+pub fn app_with_persistent_state(
+    database_url: impl AsRef<str>,
+    redis_url: impl AsRef<str>,
+) -> Result<Router, AppBuildError> {
+    Ok(app_with_state(build_persistent_state(database_url, redis_url)?))
 }
 
 pub fn app_with_state(state: AppState) -> Router {

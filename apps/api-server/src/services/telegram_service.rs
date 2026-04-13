@@ -1,6 +1,6 @@
 use std::{
     collections::HashMap,
-    env,
+    env, thread,
     sync::{Arc, Mutex, OnceLock},
     time::Duration as StdDuration,
 };
@@ -14,7 +14,7 @@ use chrono::{DateTime, Duration, Utc};
 use getrandom::getrandom;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use shared_db::{NotificationLogRecord, SharedDb, TelegramBindingRecord};
+use shared_db::{NotificationLogRecord, SharedDb, SystemConfigRecord, TelegramBindingRecord};
 use shared_events::{NotificationEvent, NotificationKind, NotificationRecord};
 
 use crate::services::auth_service::AuthError;
@@ -24,6 +24,10 @@ const MAX_BIND_CODE_TTL_SECONDS: i64 = 86_400;
 const NOTIFICATION_INBOX_LIMIT: usize = 100;
 const DEFAULT_TELEGRAM_BOT_BIND_SECRET: &str = "grid-binance-dev-telegram-bot-bind-secret";
 const DEFAULT_TELEGRAM_API_BASE_URL: &str = "https://api.telegram.org";
+const TELEGRAM_BOT_UPDATE_OFFSET_CONFIG_KEY: &str = "telegram.bot.last_update_id";
+const TELEGRAM_BOT_POLL_TIMEOUT_SECONDS: u64 = 2;
+const TELEGRAM_BOT_IDLE_SLEEP_MILLIS: u64 = 500;
+const TELEGRAM_BOT_ERROR_SLEEP_MILLIS: u64 = 2_000;
 
 #[derive(Clone)]
 pub struct TelegramService {
@@ -132,6 +136,36 @@ pub struct NotificationInboxResponse {
     pub items: Vec<NotificationInboxItem>,
 }
 
+#[derive(Debug, Deserialize)]
+struct TelegramGetUpdatesResponse {
+    ok: bool,
+    result: Vec<TelegramBotUpdate>,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+struct TelegramBotUpdate {
+    update_id: i64,
+    message: Option<TelegramBotMessage>,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+struct TelegramBotMessage {
+    text: Option<String>,
+    chat: TelegramBotChat,
+    from: Option<TelegramBotUser>,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+struct TelegramBotChat {
+    id: i64,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+struct TelegramBotUser {
+    id: i64,
+    username: Option<String>,
+}
+
 impl TelegramService {
     pub fn new(db: SharedDb) -> Self {
         Self {
@@ -178,6 +212,155 @@ impl TelegramService {
                     .unwrap_or_else(|| DEFAULT_TELEGRAM_API_BASE_URL.to_string()),
             ),
         })
+    }
+
+    pub fn spawn_bot_update_poller(&self) {
+        static POLLER_STARTED: OnceLock<()> = OnceLock::new();
+        if self.telegram_bot_token.as_ref().as_ref().is_none() {
+            return;
+        }
+        if POLLER_STARTED.set(()).is_err() {
+            return;
+        }
+
+        let service = self.clone();
+        thread::spawn(move || service.run_bot_update_poller());
+    }
+
+    fn run_bot_update_poller(self) {
+        let Some(bot_token) = self.telegram_bot_token.as_ref().as_ref().cloned() else {
+            return;
+        };
+        let mut offset = self.read_bot_update_offset().unwrap_or(0);
+
+        loop {
+            match self.fetch_bot_updates(&bot_token, offset) {
+                Ok(updates) => {
+                    for update in updates {
+                        if update.update_id >= offset {
+                            offset = update.update_id + 1;
+                        }
+                        if let Some(message) = update.message.as_ref() {
+                            match self.process_bind_command_message(message) {
+                                Ok(Some(reply)) => {
+                                    let _ = self.send_telegram_message(
+                                        &bot_token,
+                                        &message.chat.id.to_string(),
+                                        "GridBinance",
+                                        &reply,
+                                    );
+                                }
+                                Ok(None) => {}
+                                Err(error) => {
+                                    eprintln!(
+                                        "telegram bot update processing failed: {}",
+                                        error.message
+                                    );
+                                    let _ = self.send_telegram_message(
+                                        &bot_token,
+                                        &message.chat.id.to_string(),
+                                        "GridBinance",
+                                        "系统暂时无法处理绑定，请稍后重试。",
+                                    );
+                                }
+                            }
+                        }
+                        let _ = self.store_bot_update_offset(offset);
+                    }
+                    thread::sleep(StdDuration::from_millis(TELEGRAM_BOT_IDLE_SLEEP_MILLIS));
+                }
+                Err(error) => {
+                    eprintln!("telegram bot polling failed: {}", error.message);
+                    thread::sleep(StdDuration::from_millis(TELEGRAM_BOT_ERROR_SLEEP_MILLIS));
+                }
+            }
+        }
+    }
+
+    fn fetch_bot_updates(&self, bot_token: &str, offset: i64) -> Result<Vec<TelegramBotUpdate>, TelegramError> {
+        let http = telegram_http_client()?;
+        let mut request = http
+            .get(&format!(
+                "{}/bot{}/getUpdates",
+                self.telegram_api_base_url.as_str(),
+                bot_token
+            ))
+            .query("timeout", &TELEGRAM_BOT_POLL_TIMEOUT_SECONDS.to_string())
+            .query("limit", "20");
+        if offset > 0 {
+            request = request.query("offset", &offset.to_string());
+        }
+
+        let response: TelegramGetUpdatesResponse = request
+            .call()
+            .map_err(|error| TelegramError::storage_message(error.to_string()))?
+            .into_json()
+            .map_err(|error| TelegramError::storage_message(error.to_string()))?;
+        if !response.ok {
+            return Err(TelegramError::storage_message(
+                "telegram getUpdates returned not ok".to_string(),
+            ));
+        }
+        Ok(response.result)
+    }
+
+    fn read_bot_update_offset(&self) -> Result<i64, TelegramError> {
+        Ok(self
+            .db
+            .get_system_config(TELEGRAM_BOT_UPDATE_OFFSET_CONFIG_KEY)
+            .map_err(TelegramError::storage)?
+            .and_then(|record| record.config_value.as_i64())
+            .unwrap_or(0))
+    }
+
+    fn store_bot_update_offset(&self, offset: i64) -> Result<(), TelegramError> {
+        self.db
+            .upsert_system_config(&SystemConfigRecord {
+                config_key: TELEGRAM_BOT_UPDATE_OFFSET_CONFIG_KEY.to_string(),
+                config_value: serde_json::json!(offset),
+                updated_at: Utc::now(),
+            })
+            .map_err(TelegramError::storage)
+    }
+
+    fn process_bind_command_message(
+        &self,
+        message: &TelegramBotMessage,
+    ) -> Result<Option<String>, TelegramError> {
+        let text = message.text.as_deref().map(str::trim).unwrap_or("");
+        if text.is_empty() {
+            return Ok(None);
+        }
+
+        if let Some(code) = extract_bind_code_from_message(text) {
+            let Some(from) = message.from.as_ref() else {
+                return Ok(Some("无法识别你的 Telegram 账户，请稍后重试。".to_string()));
+            };
+
+            return match self.bind_telegram_from_bot(BotBindTelegramRequest {
+                code,
+                telegram_user_id: from.id.to_string(),
+                chat_id: message.chat.id.to_string(),
+                username: from.username.clone(),
+            }) {
+                Ok(_) => Ok(Some("绑定成功，回到网页刷新即可看到已绑定状态。".to_string())),
+                Err(error) if error.status == StatusCode::NOT_FOUND => Ok(Some(
+                    "绑定码无效、已过期或已被使用，请回到网页重新生成绑定码。".to_string(),
+                )),
+                Err(error) if error.status == StatusCode::BAD_REQUEST => Ok(Some(
+                    "绑定消息格式不正确，请从网页重新打开机器人链接。".to_string(),
+                )),
+                Err(error) => Err(error),
+            };
+        }
+
+        if is_start_command(text) {
+            return Ok(Some(
+                "请先回到网页生成绑定码，再把网页给你的那串 tg-bind 代码发给我。".to_string(),
+            ));
+        }
+
+        Ok(None)
     }
 
     pub fn bind_code_owner(&self, code: &str) -> Option<String> {
@@ -562,6 +745,29 @@ fn telegram_http_client() -> Result<&'static ureq::Agent, TelegramError> {
     }))
 }
 
+fn extract_bind_code_from_message(text: &str) -> Option<String> {
+    let trimmed = text.trim();
+    if trimmed.starts_with("tg-bind-") {
+        return Some(trimmed.to_string());
+    }
+
+    let mut parts = trimmed.split_whitespace();
+    let first = parts.next()?;
+    if first.starts_with("/start") {
+        let code = parts.next()?.trim();
+        if code.starts_with("tg-bind-") {
+            return Some(code.to_string());
+        }
+    }
+
+    None
+}
+
+fn is_start_command(text: &str) -> bool {
+    let trimmed = text.trim();
+    trimmed == "/start" || trimmed.starts_with("/start@")
+}
+
 fn normalize_email(email: &str) -> String {
     email.trim().to_lowercase()
 }
@@ -631,5 +837,47 @@ fn json_scalar_to_string(value: Value) -> String {
             .collect::<Vec<_>>()
             .join(","),
         Value::Object(_) => value.to_string(),
+    }
+}
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use shared_db::SharedDb;
+
+    #[test]
+    fn start_message_with_bind_code_binds_the_sender() {
+        let db = SharedDb::ephemeral().expect("ephemeral db");
+        let service = TelegramService::new(db.clone());
+        let created = service
+            .create_bind_code(CreateTelegramBindCodeRequest {
+                email: "bind-from-start@example.com".to_string(),
+                ttl_seconds: Some(300),
+            })
+            .expect("create bind code");
+
+        let reply = service
+            .process_bind_command_message(&TelegramBotMessage {
+                text: Some(format!("/start {}", created.code)),
+                chat: TelegramBotChat { id: 778899 },
+                from: Some(TelegramBotUser {
+                    id: 112233,
+                    username: Some("grid_user".to_string()),
+                }),
+            })
+            .expect("process bind command")
+            .expect("reply text");
+
+        assert!(reply.contains("绑定成功"));
+
+        let binding = service
+            .binding_status(TelegramBindingStatusQuery {
+                email: "bind-from-start@example.com".to_string(),
+            })
+            .expect("binding status");
+        assert!(binding.bound);
+        assert_eq!(binding.chat_id.as_deref(), Some("778899"));
+        assert_eq!(binding.telegram_user_id.as_deref(), Some("112233"));
     }
 }

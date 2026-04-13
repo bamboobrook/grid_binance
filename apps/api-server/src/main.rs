@@ -10,13 +10,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let database_url = configured_database_url()?;
     let redis_url = configured_redis_url()?;
     let listener = TcpListener::bind(("0.0.0.0", configured_port(DEFAULT_PORT))).await?;
-    let app =
-        Router::new()
-            .route("/healthz", get(healthz))
-            .merge(api_server::app_with_persistent_state(
-                database_url,
-                redis_url,
-            )?);
+    let state = api_server::build_persistent_state(&database_url, &redis_url)?;
+    api_server::spawn_background_workers(&state);
+    let app = Router::new()
+        .route("/healthz", get(healthz))
+        .merge(api_server::app_with_state(state));
 
     axum::serve(listener, app).await?;
     Ok(())

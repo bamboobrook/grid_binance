@@ -162,6 +162,66 @@ async fn read_account_survives_partial_persistence_and_preserves_saved_state() {
 }
 
 #[tokio::test]
+async fn read_account_accepts_legacy_validation_metadata_with_withdrawal_disabled_field() {
+    let _guard = exchange_env_lock().lock().expect("env lock");
+    std::env::set_var(
+        "EXCHANGE_CREDENTIALS_MASTER_KEY",
+        "exchange-flow-test-master-key",
+    );
+    let db = SharedDb::ephemeral().expect("ephemeral db");
+    let app = app_with_state(AppState::from_shared_db(db.clone()).expect("app state"));
+    let session_token = register_and_login(&app, "exchange-legacy@example.com").await;
+
+    db.upsert_exchange_account(&shared_db::UserExchangeAccountRecord {
+        user_email: "exchange-legacy@example.com".to_string(),
+        exchange: "binance".to_string(),
+        account_label: "Binance".to_string(),
+        market_scope: "spot,usdm,coinm".to_string(),
+        is_active: true,
+        checked_at: Some(chrono::Utc::now()),
+        metadata: json!({
+            "api_key_masked": "demo****1234",
+            "connection_status": "healthy",
+            "sync_status": "success",
+            "last_synced_at": chrono::Utc::now().to_rfc3339(),
+            "expected_hedge_mode": true,
+            "selected_markets": ["spot", "usdm", "coinm"],
+            "validation": {
+                "api_connectivity_ok": true,
+                "timestamp_in_sync": true,
+                "can_read_spot": true,
+                "can_read_usdm": true,
+                "can_read_coinm": true,
+                "hedge_mode_ok": true,
+                "permissions_ok": true,
+                "withdrawal_disabled": true,
+                "market_access_ok": true
+            },
+            "symbol_counts": {
+                "spot": 2,
+                "usdm": 2,
+                "coinm": 2
+            }
+        }),
+    })
+    .expect("seed account");
+
+    db.upsert_exchange_credentials(&shared_db::UserExchangeCredentialRecord {
+        user_email: "exchange-legacy@example.com".to_string(),
+        exchange: "binance".to_string(),
+        api_key_masked: "demo****1234".to_string(),
+        encrypted_secret: "ciphertext".to_string(),
+    })
+    .expect("seed credentials");
+
+    let read = read_account(&app, Some(&session_token)).await;
+    assert_eq!(read.status(), StatusCode::OK);
+    let body = response_json(read).await;
+    assert_eq!(body["account"]["binding_state"], "saved");
+    assert_eq!(body["account"]["validation"]["withdrawals_disabled"], true);
+}
+
+#[tokio::test]
 async fn credential_updates_require_running_strategies_to_be_paused_first() {
     let _guard = exchange_env_lock().lock().expect("env lock");
     std::env::set_var(
