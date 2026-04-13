@@ -1249,6 +1249,13 @@ fn validate_strategy_request(request: &SaveStrategyRequest) -> Result<(), Strate
     if request.levels.is_empty() {
         return Err(StrategyError::bad_request("levels are required"));
     }
+    if matches!(request.strategy_type, StrategyType::ClassicBilateralGrid)
+        && request.levels.len() < 2
+    {
+        return Err(StrategyError::bad_request(
+            "classic bilateral grid requires at least 2 levels",
+        ));
+    }
     if !strategy_mode_matches_market(request.market, request.mode) {
         return Err(StrategyError::bad_request(
             "market and mode are incompatible",
@@ -1315,6 +1322,17 @@ fn levels_follow_execution_order(
     match expected_level_direction(strategy_type, mode) {
         LevelDirection::Ascending => levels.windows(2).all(|pair| pair[0] < pair[1]),
         LevelDirection::Descending => levels.windows(2).all(|pair| pair[0] > pair[1]),
+    }
+}
+
+fn grid_levels_follow_execution_order(
+    levels: &[GridLevel],
+    strategy_type: StrategyType,
+    mode: StrategyMode,
+) -> bool {
+    match expected_level_direction(strategy_type, mode) {
+        LevelDirection::Ascending => levels.windows(2).all(|pair| pair[0].entry_price < pair[1].entry_price),
+        LevelDirection::Descending => levels.windows(2).all(|pair| pair[0].entry_price > pair[1].entry_price),
     }
 }
 
@@ -1682,12 +1700,11 @@ impl StrategyService {
                 normalize_to_step(level.quantity, quantity_step.or(fallback_quantity_step));
         }
 
-        if strategy
-            .draft_revision
-            .levels
-            .windows(2)
-            .any(|pair| pair[0].entry_price >= pair[1].entry_price)
-        {
+        if !grid_levels_follow_execution_order(
+            &strategy.draft_revision.levels,
+            strategy.strategy_type,
+            strategy.mode,
+        ) {
             return Err(StrategyError::bad_request(
                 "levels collapse after exchange filter normalization; widen grid spacing or reduce precision",
             ));
@@ -1806,11 +1823,11 @@ fn summarize_spacing_bps_from_grid_levels(levels: &[GridLevel]) -> u32 {
 
     let first = levels[0].entry_price;
     let second = levels[1].entry_price;
-    if first <= Decimal::ZERO || second <= first {
+    if first <= Decimal::ZERO || second <= Decimal::ZERO || second == first {
         return 1;
     }
 
-    let spacing = ((second - first) / first) * Decimal::from(10_000u32);
+    let spacing = ((second - first).abs() / first) * Decimal::from(10_000u32);
     spacing
         .round()
         .to_string()

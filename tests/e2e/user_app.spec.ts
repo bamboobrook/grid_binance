@@ -195,6 +195,10 @@ test("strategy workspace can apply batch defaults into per-grid custom editing",
 
   const editor = page.locator('[data-level-editor="true"]');
   await expect(editor.getByText("L4", { exact: true })).toBeVisible();
+  await expect(editor.getByLabel("Grid Price").first()).toHaveValue("100");
+  await expect(editor.getByLabel("Grid Price").nth(1)).toHaveValue("97.33333333");
+  await expect(editor.getByLabel("Grid Price").nth(2)).toHaveValue("94.66666667");
+  await expect(editor.getByLabel("Grid Price").nth(3)).toHaveValue("92");
   await expect(editor.getByLabel("Spacing vs Prev (%)").nth(1)).not.toHaveValue("");
   await expect(editor.getByLabel("Spacing vs Prev (%)").nth(2)).not.toHaveValue("");
   await expect(editor.getByLabel("Spacing vs Prev (%)").nth(3)).not.toHaveValue("");
@@ -299,7 +303,7 @@ test("strategy preview updates immediately for ordinary and classic layouts with
 });
 
 
-test("classic bilateral batch builder keeps a single level when grid count is 1", async ({ page }) => {
+test("classic bilateral single level cannot apply batch defaults or submit", async ({ page }) => {
   const email = uniqueEmail("strategy-classic-one-level");
   const password = "pass1234";
 
@@ -313,9 +317,12 @@ test("classic bilateral batch builder keeps a single level when grid count is 1"
   await page.getByLabel("Upper Range (%)").fill("4");
   await page.getByLabel("Lower Range (%)").fill("3");
 
-  const editor = page.locator('[data-level-editor="true"]');
-  await expect(editor.getByText("L1", { exact: true })).toBeVisible();
-  await expect(editor.getByText("L2", { exact: true })).toHaveCount(0);
+  const applyBatch = page.getByRole("button", { name: "Apply Batch Defaults" });
+  await expect(applyBatch).toBeDisabled();
+
+  await page.getByRole("button", { name: "Create Bot" }).click();
+  await expect(page).toHaveURL(/\/app\/strategies\/new\?error=/);
+  await expect(page.getByText("Classic bilateral grid requires at least 2 levels", { exact: false })).toBeVisible();
 });
 
 test("classic bilateral create preserves strategy type and reference source on detail", async ({ page }) => {

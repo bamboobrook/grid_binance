@@ -10,6 +10,7 @@ test("new strategy workspace exposes real symbol selection and strategy-type-awa
   const pageSource = read("/home/bumblebee/Project/grid_binance/.worktrees/full-v1/apps/web/app/[locale]/app/strategies/new/page.tsx");
   const formSource = read("/home/bumblebee/Project/grid_binance/.worktrees/full-v1/apps/web/components/strategies/strategy-workspace-form.tsx");
   const createRoute = read("/home/bumblebee/Project/grid_binance/.worktrees/full-v1/apps/web/app/api/user/strategies/create/route.ts");
+  const saveRoute = read("/home/bumblebee/Project/grid_binance/.worktrees/full-v1/apps/web/app/api/user/strategies/[id]/route.ts");
   const detailSource = read("/home/bumblebee/Project/grid_binance/.worktrees/full-v1/apps/web/app/[locale]/app/strategies/[id]/page.tsx");
 
   assert.match(pageSource, /StrategyWorkspaceForm/, "new strategy page should delegate to the shared strategy workspace form");
@@ -37,8 +38,19 @@ test("new strategy workspace exposes real symbol selection and strategy-type-awa
   assert.doesNotMatch(createRoute, /readField\(formData, "symbol"\) \|\| "BTCUSDT"/, "create route should not silently fall back to BTCUSDT");
   assert.match(createRoute, /search results|搜索结果/, "create route should surface an explicit symbol-selection error");
   assert.doesNotMatch(createRoute, /buildBatchLevels|buildBatchPriceLevels|resolveReferencePrice/, "create route should not generate batch levels or fetch reference prices on the server");
+  assert.match(createRoute, /const strategyType = readField\(formData,\s*"strategyType"\) \|\| "ordinary_grid";/, "create route should resolve strategy_type from the submitted form field");
+  assert.match(createRoute, /strategy_type:\s*strategyType/, "create route should forward strategy_type from the form");
+  assert.match(createRoute, /reference_price_source:\s*mapReferencePriceSource\(readField\(formData,\s*"referencePriceMode"\)/, "create route should forward reference_price_source from the form");
+  assert.match(createRoute, /levels:\s*parseLevelsJson\(readField\(formData,\s*"levels_json"\),\s*strategyType\)/, "create route should only parse submitted levels_json");
   assert.doesNotMatch(createRoute, /mapModeForStrategy|mapStrategyType|mapOrdinarySide/, "create route should forward the already-resolved mode instead of re-deriving strategy type semantics");
+  assert.match(saveRoute, /const strategyType = mapStrategyType\(readField\(formData,\s*"strategyType"\)\)/, "save route should resolve strategy_type from the submitted form field");
+  assert.match(saveRoute, /strategy_type:\s*strategyType/, "save route should forward strategy_type from the form");
+  assert.match(saveRoute, /reference_price_source:\s*mapReferencePriceSource\(readField\(formData,\s*"referencePriceMode"\)\)/, "save route should forward reference_price_source from the form");
+  assert.match(saveRoute, /levels:\s*parseLevelsJson\(readField\(formData,\s*"levels_json"\),\s*current\.draft_revision\.levels,\s*strategyType\)/, "save route should only parse submitted levels_json");
+  assert.doesNotMatch(saveRoute, /buildBatchLevels|buildBatchPriceLevels|midpoint|resolveReferencePrice/, "save route should not rebuild levels or derive midpoint batches");
   assert.match(detailSource, /strategyType:/, "strategy detail page should map backend drafts into the new strategy type workspace model");
+  assert.match(detailSource, /const strategyType = mapStrategyTypeToForm\(strategy\.strategy_type/, "detail page should prefer the backend strategy_type");
+  assert.match(detailSource, /referencePriceMode:\s*mapReferencePriceModeToForm\(strategy\.draft_revision\.reference_price_source\)/, "detail page should map the backend reference price source");
   assert.doesNotMatch(detailSource, /fetchAnalytics|AnalyticsReport|Realized PnL|Net PnL|\/app\/analytics/, "strategy detail page should not include Task 7 analytics surfaces");
 });
 

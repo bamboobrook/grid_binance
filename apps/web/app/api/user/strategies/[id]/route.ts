@@ -148,13 +148,16 @@ async function buildUpdatePayload(formData: FormData, current: BackendStrategy) 
   const generation = mapGeneration(readField(formData, "generation")) || current.draft_revision.generation;
   const market = mapMarket(readField(formData, "marketType")) || current.market;
   const symbol = readField(formData, "symbol") || current.symbol;
+  const strategyType = mapStrategyType(readField(formData, "strategyType")) || current.strategy_type || "ordinary_grid";
+
+  validateClassicGridCount(formData, strategyType);
 
   return {
     name: readField(formData, "name") || current.name,
     symbol,
     market,
     mode: mapMode(readField(formData, "mode")) || current.mode,
-    strategy_type: mapStrategyType(readField(formData, "strategyType")) || current.strategy_type || "ordinary_grid",
+    strategy_type: strategyType,
     generation,
     amount_mode: mapAmountMode(readField(formData, "amountMode")) || current.draft_revision.amount_mode || "Quote",
     futures_margin_mode: market === "Spot"
@@ -163,7 +166,7 @@ async function buildUpdatePayload(formData: FormData, current: BackendStrategy) 
     leverage: market === "Spot"
       ? null
       : readPositiveInteger(formData, "leverage", "Leverage"),
-    levels: parseLevelsJson(readField(formData, "levels_json"), current.draft_revision.levels),
+    levels: parseLevelsJson(readField(formData, "levels_json"), current.draft_revision.levels, strategyType),
     overall_take_profit_bps: readPercentField(formData, "overallTakeProfit", current.draft_revision.overall_take_profit_bps),
     overall_stop_loss_bps: readPercentField(formData, "overallStopLoss", current.draft_revision.overall_stop_loss_bps),
     reference_price_source: mapReferencePriceSource(readField(formData, "referencePriceMode"))
@@ -173,8 +176,26 @@ async function buildUpdatePayload(formData: FormData, current: BackendStrategy) 
   };
 }
 
-function parseLevelsJson(raw: string, fallback: BackendStrategy["draft_revision"]["levels"]): ParsedGridLevel[] {
+function validateClassicGridCount(formData: FormData, strategyType: BackendStrategy["strategy_type"] | string) {
+  if (strategyType !== "classic_bilateral_grid") {
+    return;
+  }
+
+  const gridCount = Number.parseInt(readField(formData, "gridCount"), 10);
+  if (!Number.isFinite(gridCount) || gridCount < 2) {
+    throw new Error("Classic bilateral grid requires at least 2 levels.");
+  }
+}
+
+function parseLevelsJson(
+  raw: string,
+  fallback: BackendStrategy["draft_revision"]["levels"],
+  strategyType: BackendStrategy["strategy_type"] | string,
+): ParsedGridLevel[] {
   if (!raw) {
+    if (strategyType === "classic_bilateral_grid" && fallback.length < 2) {
+      throw new Error("Classic bilateral grid requires at least 2 levels.");
+    }
     return fallback;
   }
 
@@ -189,7 +210,12 @@ function parseLevelsJson(raw: string, fallback: BackendStrategy["draft_revision"
     throw new Error("Grid levels JSON must be a non-empty array.");
   }
 
-  return parsed.map((level, index) => parseLevel(level, index));
+  const levels = parsed.map((level, index) => parseLevel(level, index));
+  if (strategyType === "classic_bilateral_grid" && levels.length < 2) {
+    throw new Error("Classic bilateral grid requires at least 2 levels.");
+  }
+
+  return levels;
 }
 
 function parseLevel(level: unknown, index: number): ParsedGridLevel {

@@ -46,22 +46,25 @@ export async function POST(request: Request) {
 function buildStrategyPayload(formData: FormData) {
   const market = mapMarket(readField(formData, "marketType") || "spot");
   const generation = mapGeneration(readField(formData, "generation") || "custom");
+  const strategyType = readField(formData, "strategyType") || "ordinary_grid";
   const symbol = readField(formData, "symbol");
   if (!symbol) {
     throw new Error("Symbol must be selected from the search results.");
   }
+
+  validateClassicGridCount(formData, strategyType);
 
   return {
     name: readField(formData, "name") || "Strategy Draft",
     symbol,
     market,
     mode: mapMode(readField(formData, "mode") || "classic"),
-    strategy_type: readField(formData, "strategyType") || "ordinary_grid",
+    strategy_type: strategyType,
     generation,
     amount_mode: mapAmountMode(readField(formData, "amountMode") || "quote"),
     futures_margin_mode: market === "Spot" ? null : mapFuturesMarginMode(readField(formData, "futuresMarginMode") || "isolated"),
     leverage: market === "Spot" ? null : readPositiveInteger(formData, "leverage", "Leverage"),
-    levels: parseLevelsJson(readField(formData, "levels_json")),
+    levels: parseLevelsJson(readField(formData, "levels_json"), strategyType),
     overall_take_profit_bps: readPercentField(formData, "overallTakeProfit", true),
     overall_stop_loss_bps: readPercentField(formData, "overallStopLoss", false),
     reference_price_source: mapReferencePriceSource(readField(formData, "referencePriceMode") || "manual"),
@@ -69,7 +72,18 @@ function buildStrategyPayload(formData: FormData) {
   };
 }
 
-function parseLevelsJson(raw: string): ParsedGridLevel[] {
+function validateClassicGridCount(formData: FormData, strategyType: string) {
+  if (strategyType !== "classic_bilateral_grid") {
+    return;
+  }
+
+  const gridCount = Number.parseInt(readField(formData, "gridCount"), 10);
+  if (!Number.isFinite(gridCount) || gridCount < 2) {
+    throw new Error("Classic bilateral grid requires at least 2 levels.");
+  }
+}
+
+function parseLevelsJson(raw: string, strategyType: string): ParsedGridLevel[] {
   if (!raw) {
     throw new Error("Grid levels JSON is required.");
   }
@@ -85,7 +99,12 @@ function parseLevelsJson(raw: string): ParsedGridLevel[] {
     throw new Error("Grid levels JSON must be a non-empty array.");
   }
 
-  return parsed.map((level, index) => parseLevel(level, index));
+  const levels = parsed.map((level, index) => parseLevel(level, index));
+  if (strategyType === "classic_bilateral_grid" && levels.length < 2) {
+    throw new Error("Classic bilateral grid requires at least 2 levels.");
+  }
+
+  return levels;
 }
 
 function parseLevel(level: unknown, index: number): ParsedGridLevel {

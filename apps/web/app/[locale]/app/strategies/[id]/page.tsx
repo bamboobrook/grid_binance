@@ -103,7 +103,7 @@ export default async function StrategyDetailPage({ params, searchParams }: PageP
   const firstLevel = strategy.draft_revision.levels[0];
   const levelsJson = JSON.stringify(strategy.draft_revision.levels, null, 2);
   const detailPagePath = withLocale(locale, `/app/strategies/${strategy.id}`);
-  const strategyType = mapStrategyTypeToForm(strategy.strategy_type ?? strategy.draft_revision.strategy_type ?? strategy.mode);
+  const strategyType = mapStrategyTypeToForm(strategy.strategy_type ?? "ordinary_grid");
   const ordinarySide = mapOrdinarySideToForm(strategy.mode);
   const bounds = deriveWorkspaceBounds(strategy.draft_revision.levels, strategyType);
   const values: StrategyWorkspaceValues = {
@@ -301,14 +301,7 @@ function mapGenerationToForm(value: string): StrategyWorkspaceValues["generation
 }
 
 function mapStrategyTypeToForm(value: string): StrategyWorkspaceValues["strategyType"] {
-  switch (value) {
-    case "classic_bilateral_grid":
-    case "SpotClassic":
-    case "FuturesNeutral":
-      return "classic_bilateral_grid";
-    default:
-      return "ordinary_grid";
-  }
+  return value === "classic_bilateral_grid" ? "classic_bilateral_grid" : "ordinary_grid";
 }
 
 function mapReferencePriceModeToForm(value?: string): StrategyWorkspaceValues["referencePriceMode"] {

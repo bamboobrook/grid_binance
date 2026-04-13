@@ -707,7 +707,7 @@ export function StrategyWorkspaceForm({
                           </Field>
                           <div className="flex items-end justify-end gap-2">
                             <Button
-                              disabled={levels.length <= 1 && !batchModeActive}
+                              disabled={levels.length <= minimumLevelCountForStrategy(strategyType) && !batchModeActive}
                               onClick={() => {
                                 setEditorMode("custom");
                                 setLevels((current) => removeEditableLevel(current, index, amountMode, strategyType, marketType, ordinarySide));
@@ -854,6 +854,10 @@ function parseLevelsJson(raw: string): EditableGridLevel[] {
   }
 }
 
+function minimumLevelCountForStrategy(strategyType: StrategyWorkspaceValues["strategyType"]) {
+  return strategyType === "classic_bilateral_grid" ? 2 : 1;
+}
+
 function generateBatchEditableLevels(input: {
   amountMode: StrategyWorkspaceValues["amountMode"];
   baseQuantity: string;
@@ -877,7 +881,7 @@ function generateBatchEditableLevels(input: {
   const quoteAmount = Number.parseFloat(input.quoteAmount);
   const baseQuantity = Number.parseFloat(input.baseQuantity);
 
-  if (!Number.isFinite(count) || count <= 0 || !Number.isFinite(reference) || reference <= 0 || !Number.isFinite(takeProfit) || takeProfit <= 0) {
+  if (!Number.isFinite(count) || count < minimumLevelCountForStrategy(input.strategyType) || !Number.isFinite(reference) || reference <= 0 || !Number.isFinite(takeProfit) || takeProfit <= 0) {
     return [];
   }
 
@@ -1013,7 +1017,7 @@ function canGenerateEditorSeed(input: {
     ? Number.isFinite(ordinaryRange) && ordinaryRange > 0
     : Number.isFinite(upperRange) && upperRange > 0 && Number.isFinite(lowerRange) && lowerRange > 0;
 
-  return Number.isFinite(count) && count > 0
+  return Number.isFinite(count) && count >= minimumLevelCountForStrategy(input.strategyType)
     && Number.isFinite(reference) && reference > 0
     && Number.isFinite(takeProfit) && takeProfit > 0
     && Number.isFinite(amount) && amount > 0
@@ -1045,21 +1049,32 @@ function ordinaryLevelsAscend(
   return strategyType === "ordinary_grid" && marketType !== "spot" && ordinarySide === "upper";
 }
 
-function sortEditableLevels(
+function compareEditableLevelPrice(left: EditableGridLevel, right: EditableGridLevel, direction: -1 | 1) {
+  const leftPrice = Number.parseFloat(left.entryPrice);
+  const rightPrice = Number.parseFloat(right.entryPrice);
+  if (!Number.isFinite(leftPrice) || !Number.isFinite(rightPrice)) {
+    return 0;
+  }
+  return direction * (leftPrice - rightPrice);
+}
+
+function orderEditableLevels(
   levels: EditableGridLevel[],
   strategyType: StrategyWorkspaceValues["strategyType"],
   marketType: StrategyWorkspaceValues["marketType"],
   ordinarySide: StrategyWorkspaceValues["ordinarySide"],
 ) {
-  const direction = ordinaryLevelsAscend(strategyType, marketType, ordinarySide) ? 1 : strategyType === "ordinary_grid" ? -1 : 1;
-  return [...levels].sort((left, right) => {
-    const leftPrice = Number.parseFloat(left.entryPrice);
-    const rightPrice = Number.parseFloat(right.entryPrice);
-    if (!Number.isFinite(leftPrice) || !Number.isFinite(rightPrice)) {
-      return 0;
-    }
-    return direction * (leftPrice - rightPrice);
-  });
+  if (levels.length <= 1) {
+    return [...levels];
+  }
+
+  if (strategyType !== "ordinary_grid") {
+    return [...levels].sort((left, right) => compareEditableLevelPrice(left, right, 1));
+  }
+
+  const [anchor, ...tail] = levels;
+  const direction: -1 | 1 = ordinaryLevelsAscend(strategyType, marketType, ordinarySide) ? 1 : -1;
+  return [anchor, ...tail.sort((left, right) => compareEditableLevelPrice(left, right, direction))];
 }
 
 function normalizeEditableLevels(
@@ -1069,7 +1084,7 @@ function normalizeEditableLevels(
   marketType: StrategyWorkspaceValues["marketType"],
   ordinarySide: StrategyWorkspaceValues["ordinarySide"],
 ) {
-  const ordered = sortEditableLevels(levels, strategyType, marketType, ordinarySide);
+  const ordered = orderEditableLevels(levels, strategyType, marketType, ordinarySide);
   return ordered.map((level, index) => {
     const prev = ordered[index - 1];
     const entryPrice = Number.parseFloat(level.entryPrice);
@@ -1166,7 +1181,7 @@ function removeEditableLevel(
   marketType: StrategyWorkspaceValues["marketType"],
   ordinarySide: StrategyWorkspaceValues["ordinarySide"],
 ) {
-  if (levels.length <= 1) {
+  if (levels.length <= minimumLevelCountForStrategy(strategyType)) {
     return levels;
   }
   return normalizeEditableLevels(levels.filter((_, currentIndex) => currentIndex !== index), amountMode, strategyType, marketType, ordinarySide);
