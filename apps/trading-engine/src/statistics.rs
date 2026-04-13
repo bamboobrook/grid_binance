@@ -27,6 +27,10 @@ pub fn compute_strategy_summaries(fills: &[FillProfitView]) -> Vec<StrategyProfi
                 cost_basis: Decimal::ZERO,
                 position_quantity: Decimal::ZERO,
                 average_entry_price: Decimal::ZERO,
+                long_position_quantity: Decimal::ZERO,
+                long_average_entry_price: Decimal::ZERO,
+                short_position_quantity: Decimal::ZERO,
+                short_average_entry_price: Decimal::ZERO,
                 realized_pnl: Decimal::ZERO,
                 unrealized_pnl: Decimal::ZERO,
                 fees_paid: Decimal::ZERO,
@@ -135,7 +139,11 @@ pub fn export_fill_views_csv(fills: &[FillProfitView]) -> String {
 }
 
 fn project_fill(fill: &TradeFillInput) -> FillProfitView {
-    let realized_pnl = (fill.exit_price - fill.entry_price) * fill.quantity;
+    let realized_pnl = if fill.is_short {
+        (fill.entry_price - fill.exit_price) * fill.quantity
+    } else {
+        (fill.exit_price - fill.entry_price) * fill.quantity
+    };
     let net_pnl = realized_pnl - fill.fee + fill.funding;
 
     FillProfitView {
@@ -149,5 +157,30 @@ fn project_fill(fill: &TradeFillInput) -> FillProfitView {
         fee: fill.fee,
         funding: fill.funding,
         net_pnl,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::compute_fill_views;
+    use rust_decimal::Decimal;
+    use shared_domain::analytics::TradeFillInput;
+
+    #[test]
+    fn compute_fill_views_projects_short_realized_pnl_with_short_formula() {
+        let fills = compute_fill_views(&[TradeFillInput {
+            strategy_id: "strategy-short".to_string(),
+            user_id: "trader@example.com".to_string(),
+            symbol: "BTCUSDT".to_string(),
+            quantity: Decimal::new(2, 0),
+            entry_price: Decimal::new(100, 0),
+            exit_price: Decimal::new(90, 0),
+            fee: Decimal::new(4, 1),
+            funding: Decimal::ZERO,
+            is_short: true,
+        }]);
+
+        assert_eq!(fills[0].realized_pnl, Decimal::new(20, 0));
+        assert_eq!(fills[0].net_pnl, Decimal::new(196, 1));
     }
 }

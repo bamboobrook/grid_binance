@@ -374,23 +374,36 @@ fn run_strategy_snapshot_sync_once(db: &SharedDb) -> Result<usize, shared_db::Sh
     let mut inserted = 0usize;
     let mut account_snapshots_by_user: BTreeMap<String, Vec<AccountProfitSnapshotRecord>> =
         BTreeMap::new();
-    let mut market_cost_basis_totals: BTreeMap<(String, String), rust_decimal::Decimal> =
+    let mut market_strategy_counts: BTreeMap<(String, String), usize> = BTreeMap::new();
+    let mut symbol_strategy_counts: BTreeMap<(String, String, String), usize> = BTreeMap::new();
+    let mut funding_by_user_exchange_symbol: BTreeMap<(String, String), BTreeMap<String, rust_decimal::Decimal>> =
         BTreeMap::new();
-
     for strategy in &strategies {
         account_snapshots_by_user
             .entry(strategy.owner_email.clone())
             .or_insert(db.list_account_profit_snapshots(&strategy.owner_email)?);
-        let cost_basis = strategy_cost_basis(strategy);
-        if cost_basis > rust_decimal::Decimal::ZERO {
-            let key = (
+        *market_strategy_counts
+            .entry((
                 strategy.owner_email.clone(),
                 strategy_account_exchange(strategy.market).to_string(),
-            );
-            let entry = market_cost_basis_totals
-                .entry(key)
-                .or_insert(rust_decimal::Decimal::ZERO);
-            *entry += cost_basis;
+            ))
+            .or_insert(0) += 1;
+        *symbol_strategy_counts
+            .entry((
+                strategy.owner_email.clone(),
+                strategy_account_exchange(strategy.market).to_string(),
+                strategy.symbol.clone(),
+            ))
+            .or_insert(0) += 1;
+        if !matches!(strategy.market, shared_domain::strategy::StrategyMarket::Spot) {
+            let market_key = strategy_market_scope(strategy.market).to_string();
+            let exchange_key = strategy_account_exchange(strategy.market).to_string();
+            let cache_key = (strategy.owner_email.clone(), exchange_key.clone());
+            if !funding_by_user_exchange_symbol.contains_key(&cache_key) {
+                let totals = fetch_live_funding_fee_totals(db, &strategy.owner_email, &market_key)
+                    .unwrap_or_default();
+                funding_by_user_exchange_symbol.insert(cache_key, totals);
+            }
         }
     }
 
@@ -407,7 +420,6 @@ fn run_strategy_snapshot_sync_once(db: &SharedDb) -> Result<usize, shared_db::Sh
             .iter()
             .filter_map(|fill| fill.fee_amount)
             .fold(rust_decimal::Decimal::ZERO, |acc, value| acc + value);
-        let cost_basis = strategy_cost_basis(&strategy);
         let account_snapshot = account_snapshots_by_user
             .get(&strategy.owner_email)
             .and_then(|snapshots| {
@@ -416,34 +428,44 @@ fn run_strategy_snapshot_sync_once(db: &SharedDb) -> Result<usize, shared_db::Sh
                     strategy_account_exchange(strategy.market),
                 )
             });
-        let group_total = market_cost_basis_totals
-            .get(&(
-                strategy.owner_email.clone(),
-                strategy_account_exchange(strategy.market).to_string(),
-            ))
-            .copied()
-            .unwrap_or(rust_decimal::Decimal::ZERO);
-        let share = if cost_basis > rust_decimal::Decimal::ZERO
-            && group_total > rust_decimal::Decimal::ZERO
-        {
-            cost_basis / group_total
-        } else {
-            rust_decimal::Decimal::ZERO
-        };
-        let unrealized = account_snapshot
-            .and_then(|snapshot| parse_snapshot_decimal(&snapshot.unrealized_pnl))
-            .map(|value| (value * share).normalize())
-            .unwrap_or(rust_decimal::Decimal::ZERO);
-        let funding = account_snapshot
-            .and_then(|snapshot| snapshot.funding.as_deref())
-            .and_then(parse_snapshot_decimal)
-            .map(|value| (value * share).normalize());
+        let unrealized = current_strategy_unrealized(&strategy)
+            .unwrap_or(rust_decimal::Decimal::ZERO)
+            .normalize();
+        let exchange_key = strategy_account_exchange(strategy.market).to_string();
+        let funding = funding_by_user_exchange_symbol
+            .get(&(strategy.owner_email.clone(), exchange_key.clone()))
+            .and_then(|totals| {
+                (symbol_strategy_counts
+                    .get(&(
+                        strategy.owner_email.clone(),
+                        exchange_key.clone(),
+                        strategy.symbol.clone(),
+                    ))
+                    .copied()
+                    .unwrap_or(0)
+                    == 1)
+                    .then(|| totals.get(&strategy.symbol).copied())
+                    .flatten()
+            })
+            .or_else(|| {
+                (market_strategy_counts
+                    .get(&(strategy.owner_email.clone(), exchange_key.clone()))
+                    .copied()
+                    .unwrap_or(0)
+                    == 1)
+                    .then(|| {
+                        account_snapshot
+                            .and_then(|snapshot| snapshot.funding.as_deref())
+                            .and_then(parse_snapshot_decimal)
+                    })
+                    .flatten()
+            });
         db.insert_strategy_profit_snapshot(&shared_db::StrategyProfitSnapshotRecord {
             strategy_id: strategy.id,
             realized_pnl: realized.normalize().to_string(),
-            unrealized_pnl: unrealized.normalize().to_string(),
+            unrealized_pnl: unrealized.to_string(),
             fees: fees.normalize().to_string(),
-            funding: funding.map(|value| value.to_string()),
+            funding: funding.map(|value| value.normalize().to_string()),
             captured_at: Utc::now(),
         })?;
         inserted += 1;
@@ -451,14 +473,45 @@ fn run_strategy_snapshot_sync_once(db: &SharedDb) -> Result<usize, shared_db::Sh
     Ok(inserted)
 }
 
-fn strategy_cost_basis(strategy: &shared_domain::strategy::Strategy) -> rust_decimal::Decimal {
-    strategy
-        .runtime
-        .positions
-        .iter()
-        .fold(rust_decimal::Decimal::ZERO, |acc, position| {
-            acc + (position.quantity * position.average_entry_price)
-        })
+fn fetch_live_funding_fee_totals(
+    db: &SharedDb,
+    user_email: &str,
+    market_scope: &str,
+) -> Result<BTreeMap<String, rust_decimal::Decimal>, shared_db::SharedDbError> {
+    let Some(credentials) = db.find_exchange_credentials(user_email, BINANCE_EXCHANGE)? else {
+        return Ok(BTreeMap::new());
+    };
+    let cipher = credential_cipher().map_err(|error| shared_db::SharedDbError::new(error.to_string()))?;
+    let (api_key, api_secret) = cipher
+        .decrypt(&credentials.encrypted_secret)
+        .map_err(|error| shared_db::SharedDbError::new(error.to_string()))?;
+    let client = BinanceClient::new(api_key, api_secret);
+    client
+        .funding_fee_totals_by_symbol(market_scope)
+        .map_err(|error| shared_db::SharedDbError::new(error.to_string()))
+}
+
+fn current_strategy_unrealized(
+    strategy: &shared_domain::strategy::Strategy,
+) -> Option<rust_decimal::Decimal> {
+    if strategy.runtime.positions.is_empty() {
+        return Some(rust_decimal::Decimal::ZERO);
+    }
+
+    let client = BinanceClient::new(String::new(), String::new());
+    let price = client
+        .symbol_price(strategy_market_scope(strategy.market), &strategy.symbol)
+        .ok()?;
+    Some(strategy.runtime.positions.iter().fold(rust_decimal::Decimal::ZERO, |acc, position| {
+        let pnl = match position.mode {
+            shared_domain::strategy::StrategyMode::SpotSellOnly
+            | shared_domain::strategy::StrategyMode::FuturesShort => {
+                (position.average_entry_price - price) * position.quantity
+            }
+            _ => (price - position.average_entry_price) * position.quantity,
+        };
+        acc + pnl
+    }))
 }
 
 fn parse_snapshot_decimal(value: &str) -> Option<rust_decimal::Decimal> {
@@ -473,6 +526,14 @@ fn latest_account_snapshot_for_exchange<'a>(
         .iter()
         .filter(|snapshot| snapshot.exchange == exchange)
         .max_by_key(|snapshot| snapshot.captured_at)
+}
+
+fn strategy_market_scope(market: shared_domain::strategy::StrategyMarket) -> &'static str {
+    match market {
+        shared_domain::strategy::StrategyMarket::Spot => "spot",
+        shared_domain::strategy::StrategyMarket::FuturesUsdM => "usdm",
+        shared_domain::strategy::StrategyMarket::FuturesCoinM => "coinm",
+    }
 }
 
 fn strategy_account_exchange(market: shared_domain::strategy::StrategyMarket) -> &'static str {
@@ -1058,8 +1119,18 @@ mod tests {
     }
 
     #[test]
-    fn persistent_strategy_snapshot_sync_carries_unrealized_and_funding_from_latest_account_snapshot(
-    ) {
+    fn persistent_strategy_snapshot_sync_carries_funding_from_latest_account_snapshot() {
+        let _guard = env_lock().lock().expect("env lock");
+        std::env::set_var("BINANCE_LIVE_MODE", "1");
+        let server = spawn_test_server(vec![
+            TestRoute {
+                path_prefix: "/api/v3/ticker/price?symbol=BTCUSDT",
+                status_line: "HTTP/1.1 200 OK",
+                body: r#"{"symbol":"BTCUSDT","price":"24.8"}"#,
+            },
+        ]);
+        std::env::set_var("BINANCE_SPOT_REST_BASE_URL", &server.base_url);
+
         let db = SharedDb::ephemeral().expect("db");
         let mut strategy = strategy_for_snapshot("snapshot-strategy", "snap@example.com");
         strategy.runtime.positions = vec![shared_domain::strategy::StrategyRuntimePosition {
@@ -1096,6 +1167,216 @@ mod tests {
     }
 
     #[test]
+    fn persistent_strategy_snapshot_sync_uses_symbol_price_instead_of_account_share() {
+        let _guard = env_lock().lock().expect("env lock");
+        std::env::set_var("BINANCE_LIVE_MODE", "1");
+        let server = spawn_test_server(vec![
+            TestRoute {
+                path_prefix: "/api/v3/ticker/price?symbol=BTCUSDT",
+                status_line: "HTTP/1.1 200 OK",
+                body: r#"{"symbol":"BTCUSDT","price":"150"}"#,
+            },
+        ]);
+        std::env::set_var("BINANCE_SPOT_REST_BASE_URL", &server.base_url);
+
+        let db = SharedDb::ephemeral().expect("db");
+        let mut strategy = strategy_for_snapshot("snapshot-strategy", "snap@example.com");
+        strategy.runtime.positions = vec![shared_domain::strategy::StrategyRuntimePosition {
+            market: shared_domain::strategy::StrategyMarket::Spot,
+            mode: shared_domain::strategy::StrategyMode::SpotClassic,
+            quantity: rust_decimal::Decimal::new(15, 1),
+            average_entry_price: rust_decimal::Decimal::new(100, 0),
+        }];
+        db.insert_strategy(&shared_db::StoredStrategy {
+            sequence_id: 1,
+            strategy,
+        })
+        .expect("strategy");
+        db.insert_account_profit_snapshot(&shared_db::AccountProfitSnapshotRecord {
+            user_email: "snap@example.com".to_string(),
+            exchange: "binance".to_string(),
+            realized_pnl: "12.5".to_string(),
+            unrealized_pnl: "999".to_string(),
+            fees: "0.7".to_string(),
+            funding: Some("-0.4".to_string()),
+            captured_at: Utc::now(),
+        })
+        .expect("account snapshot");
+
+        let inserted = run_strategy_snapshot_sync_once(&db).expect("snapshot sync");
+
+        assert_eq!(inserted, 1);
+        let snapshots = db
+            .list_strategy_profit_snapshots("snap@example.com")
+            .expect("strategy snapshots");
+        assert_eq!(snapshots.len(), 1);
+        assert_eq!(snapshots[0].unrealized_pnl, "75");
+    }
+
+    #[test]
+    fn persistent_strategy_snapshot_sync_does_not_split_unrealized_by_account_share() {
+        let _guard = env_lock().lock().expect("env lock");
+        std::env::set_var("BINANCE_LIVE_MODE", "1");
+        let server = spawn_test_server(vec![
+            TestRoute {
+                path_prefix: "/api/v3/ticker/price?symbol=BTCUSDT",
+                status_line: "HTTP/1.1 200 OK",
+                body: r#"{"symbol":"BTCUSDT","price":"120"}"#,
+            },
+            TestRoute {
+                path_prefix: "/api/v3/ticker/price?symbol=ETHUSDT",
+                status_line: "HTTP/1.1 200 OK",
+                body: r#"{"symbol":"ETHUSDT","price":"240"}"#,
+            },
+        ]);
+        std::env::set_var("BINANCE_SPOT_REST_BASE_URL", &server.base_url);
+
+        let db = SharedDb::ephemeral().expect("db");
+        let mut btc = strategy_for_snapshot("snapshot-btc", "snap@example.com");
+        btc.runtime.positions = vec![shared_domain::strategy::StrategyRuntimePosition {
+            market: shared_domain::strategy::StrategyMarket::Spot,
+            mode: shared_domain::strategy::StrategyMode::SpotClassic,
+            quantity: rust_decimal::Decimal::new(1, 0),
+            average_entry_price: rust_decimal::Decimal::new(100, 0),
+        }];
+        let mut eth = strategy_for_snapshot("snapshot-eth", "snap@example.com");
+        eth.symbol = "ETHUSDT".to_string();
+        eth.runtime.positions = vec![shared_domain::strategy::StrategyRuntimePosition {
+            market: shared_domain::strategy::StrategyMarket::Spot,
+            mode: shared_domain::strategy::StrategyMode::SpotClassic,
+            quantity: rust_decimal::Decimal::new(2, 0),
+            average_entry_price: rust_decimal::Decimal::new(200, 0),
+        }];
+        db.insert_strategy(&shared_db::StoredStrategy { sequence_id: 1, strategy: btc }).expect("btc");
+        db.insert_strategy(&shared_db::StoredStrategy { sequence_id: 2, strategy: eth }).expect("eth");
+        db.insert_account_profit_snapshot(&shared_db::AccountProfitSnapshotRecord {
+            user_email: "snap@example.com".to_string(),
+            exchange: "binance".to_string(),
+            realized_pnl: "0".to_string(),
+            unrealized_pnl: "500".to_string(),
+            fees: "0".to_string(),
+            funding: None,
+            captured_at: Utc::now(),
+        })
+        .expect("account snapshot");
+
+        run_strategy_snapshot_sync_once(&db).expect("snapshot sync");
+
+        let snapshots = db
+            .list_strategy_profit_snapshots("snap@example.com")
+            .expect("strategy snapshots");
+        let btc = snapshots.iter().find(|item| item.strategy_id == "snapshot-btc").unwrap();
+        let eth = snapshots.iter().find(|item| item.strategy_id == "snapshot-eth").unwrap();
+        assert_eq!(btc.unrealized_pnl, "20");
+        assert_eq!(eth.unrealized_pnl, "80");
+    }
+
+    #[test]
+    fn persistent_strategy_snapshot_sync_uses_futures_mark_price_for_unrealized() {
+        let _guard = env_lock().lock().expect("env lock");
+        std::env::set_var("BINANCE_LIVE_MODE", "1");
+        let server = spawn_test_server(vec![
+            TestRoute {
+                path_prefix: "/fapi/v1/premiumIndex?symbol=BTCUSDT",
+                status_line: "HTTP/1.1 200 OK",
+                body: r#"{"symbol":"BTCUSDT","markPrice":"110"}"#,
+            },
+        ]);
+        std::env::set_var("BINANCE_USDM_REST_BASE_URL", &server.base_url);
+
+        let db = SharedDb::ephemeral().expect("db");
+        let mut strategy = strategy_for_snapshot("snapshot-futures", "snap@example.com");
+        strategy.market = shared_domain::strategy::StrategyMarket::FuturesUsdM;
+        strategy.mode = shared_domain::strategy::StrategyMode::FuturesLong;
+        strategy.runtime.positions = vec![shared_domain::strategy::StrategyRuntimePosition {
+            market: shared_domain::strategy::StrategyMarket::FuturesUsdM,
+            mode: shared_domain::strategy::StrategyMode::FuturesLong,
+            quantity: rust_decimal::Decimal::new(2, 0),
+            average_entry_price: rust_decimal::Decimal::new(100, 0),
+        }];
+        db.insert_strategy(&shared_db::StoredStrategy { sequence_id: 1, strategy }).expect("strategy");
+
+        run_strategy_snapshot_sync_once(&db).expect("snapshot sync");
+
+        let snapshots = db.list_strategy_profit_snapshots("snap@example.com").expect("snapshots");
+        assert_eq!(snapshots[0].unrealized_pnl, "20");
+    }
+
+    #[test]
+    fn persistent_strategy_snapshot_sync_does_not_duplicate_funding_across_multiple_strategies() {
+        let db = SharedDb::ephemeral().expect("db");
+        let btc = strategy_for_snapshot("snapshot-btc", "snap@example.com");
+        let mut eth = strategy_for_snapshot("snapshot-eth", "snap@example.com");
+        eth.symbol = "ETHUSDT".to_string();
+        db.insert_strategy(&shared_db::StoredStrategy { sequence_id: 1, strategy: btc }).expect("btc");
+        db.insert_strategy(&shared_db::StoredStrategy { sequence_id: 2, strategy: eth }).expect("eth");
+        db.insert_account_profit_snapshot(&shared_db::AccountProfitSnapshotRecord {
+            user_email: "snap@example.com".to_string(),
+            exchange: "binance".to_string(),
+            realized_pnl: "0".to_string(),
+            unrealized_pnl: "0".to_string(),
+            fees: "0".to_string(),
+            funding: Some("-1.2".to_string()),
+            captured_at: Utc::now(),
+        })
+        .expect("account snapshot");
+
+        run_strategy_snapshot_sync_once(&db).expect("snapshot sync");
+
+        let snapshots = db.list_strategy_profit_snapshots("snap@example.com").expect("snapshots");
+        assert!(snapshots.iter().all(|item| item.funding.is_none()));
+    }
+
+    #[test]
+    fn persistent_strategy_snapshot_sync_uses_symbol_funding_when_available() {
+        let _guard = env_lock().lock().expect("env lock");
+        std::env::set_var("EXCHANGE_CREDENTIALS_MASTER_KEY", "scheduler-funding-symbol-test-key");
+        std::env::set_var("BINANCE_LIVE_MODE", "1");
+        let server = spawn_test_server(vec![
+            TestRoute {
+                path_prefix: "/fapi/v1/time",
+                status_line: "HTTP/1.1 200 OK",
+                body: r#"{"serverTime": 1710000000000}"#,
+            },
+            TestRoute {
+                path_prefix: "/fapi/v1/income?",
+                status_line: "HTTP/1.1 200 OK",
+                body: r#"[{"symbol":"BTCUSDT","income":"-0.25"}]"#,
+            },
+            TestRoute {
+                path_prefix: "/fapi/v1/premiumIndex?symbol=BTCUSDT",
+                status_line: "HTTP/1.1 200 OK",
+                body: r#"{"symbol":"BTCUSDT","markPrice":"110"}"#,
+            },
+        ]);
+        std::env::set_var("BINANCE_USDM_REST_BASE_URL", &server.base_url);
+        let db = SharedDb::ephemeral().expect("db");
+        let cipher = CredentialCipher::new("scheduler-funding-symbol-test-key");
+        db.upsert_exchange_credentials(&shared_db::UserExchangeCredentialRecord {
+            user_email: "snap@example.com".to_string(),
+            exchange: "binance".to_string(),
+            api_key_masked: "live****key".to_string(),
+            encrypted_secret: cipher.encrypt("live-key", "live-secret").expect("encrypt"),
+        })
+        .expect("credentials");
+        let mut strategy = strategy_for_snapshot("snapshot-futures", "snap@example.com");
+        strategy.market = shared_domain::strategy::StrategyMarket::FuturesUsdM;
+        strategy.mode = shared_domain::strategy::StrategyMode::FuturesLong;
+        strategy.runtime.positions = vec![shared_domain::strategy::StrategyRuntimePosition {
+            market: shared_domain::strategy::StrategyMarket::FuturesUsdM,
+            mode: shared_domain::strategy::StrategyMode::FuturesLong,
+            quantity: rust_decimal::Decimal::new(1, 0),
+            average_entry_price: rust_decimal::Decimal::new(100, 0),
+        }];
+        db.insert_strategy(&shared_db::StoredStrategy { sequence_id: 1, strategy }).expect("strategy");
+
+        run_strategy_snapshot_sync_once(&db).expect("snapshot sync");
+
+        let snapshots = db.list_strategy_profit_snapshots("snap@example.com").expect("snapshots");
+        assert_eq!(snapshots[0].funding.as_deref(), Some("-0.25"));
+    }
+
+    #[test]
     fn persistent_snapshot_sync_persists_account_and_wallet_snapshots() {
         let _guard = env_lock().lock().expect("env lock");
         std::env::set_var(
@@ -1113,6 +1394,11 @@ mod tests {
                 path_prefix: "/fapi/v2/account?",
                 status_line: "HTTP/1.1 200 OK",
                 body: r#"{"totalWalletBalance":"200.5","totalUnrealizedProfit":"3.25","assets":[{"asset":"USDT","walletBalance":"200.5","unrealizedProfit":"3.25"}]}"#,
+            },
+            TestRoute {
+                path_prefix: "/fapi/v1/income?",
+                status_line: "HTTP/1.1 200 OK",
+                body: r#"[{"income":"-0.4"}]"#,
             },
         ]);
         std::env::set_var("BINANCE_SPOT_REST_BASE_URL", &server.base_url);

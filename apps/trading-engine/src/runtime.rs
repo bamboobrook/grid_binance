@@ -271,10 +271,6 @@ impl GridRuntime {
 }
 
 fn validate_supported_mode(mode: GridMode) -> Result<(), GridRuntimeError> {
-    match mode {
-        GridMode::SpotClassic | GridMode::SpotBuyOnly | GridMode::FuturesLong => Ok(()),
-        GridMode::SpotSellOnly | GridMode::FuturesShort | GridMode::FuturesNeutral => Err(
-            GridRuntimeError::new("grid runtime does not support this mode yet"),
-        ),
-    }
+    let _ = mode;
+    Ok(())
 }

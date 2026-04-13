@@ -60,7 +60,7 @@ export default async function HelpArticlePage({
           <CardHeader>
             <CardTitle>{article.title}</CardTitle>
             <CardDescription>
-              {pickText(lang, "公开帮助路由会展示与应用内帮助中心相同的仓库文档内容。", "The public help route renders the same repository-backed content as the in-app help center.")}
+              {pickText(lang, "公开帮助页展示的是同一套用户说明，未登录也能看。", "The public help page shows the same user guides, even before sign-in.")}
             </CardDescription>
           </CardHeader>
           <CardBody>

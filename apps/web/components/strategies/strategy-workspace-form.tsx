@@ -5,6 +5,7 @@ import { Plus, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 import { Button, Field, FormStack, Input, Select } from "@/components/ui/form";
+import { StatusBanner } from "@/components/ui/status-banner";
 import { StrategySymbolPicker, type StrategySymbolItem } from "@/components/strategies/strategy-symbol-picker";
 import { StrategyVisualPreview, type StrategyPreviewLevel } from "@/components/strategies/strategy-visual-preview";
 import { pickText, type UiLanguage } from "@/lib/ui/preferences";
@@ -165,14 +166,14 @@ export function StrategyWorkspaceForm({
     }
     let cancelled = false;
     setReferencePrice("");
-    fetch(marketPriceUrl(selectedSymbol, marketType), { cache: "no-store" })
+    fetch(marketPreviewUrl(selectedSymbol, marketType), { cache: "no-store" })
       .then(async (response) => {
         if (!response.ok) {
           throw new Error("price fetch failed");
         }
-        const payload = (await response.json()) as { price?: string };
-        if (!cancelled && typeof payload.price === "string") {
-          setReferencePrice(normalizeNumericString(payload.price));
+        const payload = (await response.json()) as { latest_price?: string | null };
+        if (!cancelled && typeof payload.latest_price === "string") {
+          setReferencePrice(normalizeNumericString(payload.latest_price));
         }
       })
       .catch(() => {
@@ -199,10 +200,16 @@ export function StrategyWorkspaceForm({
     quoteAmount,
     referencePrice,
   });
+  const workspaceWarnings = buildWorkspaceWarnings({
+    batchTakeProfit,
+    lang,
+    levels,
+    overallTakeProfit,
+  });
 
   return (
-    <div className="flex flex-col max-w-2xl mx-auto gap-6">
-      <div className="space-y-4">
+    <div className="grid gap-6 xl:grid-cols-[minmax(0,0.92fr)_minmax(0,1.08fr)] xl:items-start">
+      <div className="space-y-4 xl:sticky xl:top-24">
         <StrategyVisualPreview
           amountMode={amountMode}
           generation={generation}
@@ -217,7 +224,7 @@ export function StrategyWorkspaceForm({
         />
       </div>
 
-      <FormStack action={formAction} className="space-y-4 rounded-2xl border border-border bg-card p-4" method="post">
+      <FormStack action={formAction} className="space-y-4 rounded-2xl border border-border bg-card p-4 shadow-sm" method="post">
         <div className="rounded-2xl border border-border/70 bg-background/60 p-4">
           <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             {pickText(lang, "创建流程", "Build Flow")}
@@ -229,6 +236,14 @@ export function StrategyWorkspaceForm({
             {pickText(lang, "逐格自定义时，可以先把批量参数一键铺到全部网格，再逐格修改。", "In per-grid custom mode, you can first apply the batch defaults to every level and then edit them one by one.")}
           </p>
         </div>
+        {workspaceWarnings.map((warning) => (
+          <StatusBanner
+            key={warning.id}
+            description={warning.description}
+            title={warning.title}
+            tone="warning"
+          />
+        ))}
 
         <Field label={pickText(lang, "策略名称", "Strategy Name")}>
           <Input defaultValue={values.name} name="name" required />
@@ -489,13 +504,7 @@ export function StrategyWorkspaceForm({
         </div>
         </SectionBlock>
 
-        <details className="group mt-4 rounded-2xl border border-border bg-card p-2 open:bg-background/50 transition-colors">
-          <summary className="cursor-pointer px-4 py-3 text-sm font-bold text-foreground hover:text-primary outline-none marker:text-primary">
-            {pickText(lang, "高级风控与逐格设置 (Advanced Risk & Editor)", "Advanced Risk & Editor")}
-          </summary>
-          <div className="space-y-6 pt-4 px-2 pb-2">
-        
-        <details className="group mt-4 rounded-2xl border border-border bg-card p-2 open:bg-background/50 transition-colors">
+        <details className="group mt-4 rounded-2xl border border-border bg-card p-2 open:bg-background/50 transition-colors" open>
           <summary className="cursor-pointer px-4 py-3 text-sm font-bold text-foreground hover:text-primary outline-none marker:text-primary">
             {pickText(lang, "高级风控与逐格设置 (Advanced Risk & Editor)", "Advanced Risk & Editor")}
           </summary>
@@ -1043,6 +1052,7 @@ function toPreviewLevels(levels: EditableGridLevel[], amountMode: StrategyWorksp
       return {
         entryPrice: level.entryPrice.trim(),
         quantity,
+        spacingPercent: level.spacingPercent.trim() || null,
         takeProfitPercent: level.takeProfitPercent.trim(),
         trailingPercent: level.trailingPercent.trim() || null,
       } satisfies StrategyPreviewLevel;
@@ -1100,14 +1110,54 @@ function formatPercent(value: number) {
   return value.toFixed(4).replace(/0+$/, "").replace(/\.$/, "");
 }
 
-function marketPriceUrl(symbol: string, marketType: StrategyWorkspaceValues["marketType"]) {
-  const encodedSymbol = encodeURIComponent(symbol.trim().toUpperCase());
-  switch (marketType) {
-    case "usd-m":
-      return `https://fapi.binance.com/fapi/v1/ticker/price?symbol=${encodedSymbol}`;
-    case "coin-m":
-      return `https://dapi.binance.com/dapi/v1/ticker/price?symbol=${encodedSymbol}`;
-    default:
-      return `https://api.binance.com/api/v3/ticker/price?symbol=${encodedSymbol}`;
+function marketPreviewUrl(symbol: string, marketType: StrategyWorkspaceValues["marketType"]) {
+  const params = new URLSearchParams({
+    marketType,
+    symbol: symbol.trim().toUpperCase(),
+  });
+  return `/api/market/preview?${params.toString()}`;
+}
+
+function buildWorkspaceWarnings(input: {
+  batchTakeProfit: string;
+  lang: UiLanguage;
+  levels: EditableGridLevel[];
+  overallTakeProfit: string;
+}) {
+  const warnings: Array<{ id: string; title: string; description: string }> = [];
+  const overallTakeProfit = Number.parseFloat(input.overallTakeProfit);
+  const initialGridTakeProfit = Number.parseFloat(input.batchTakeProfit);
+  const minGridTakeProfit = input.levels.reduce<number | null>((current, level) => {
+    const next = Number.parseFloat(level.takeProfitPercent);
+    if (!Number.isFinite(next) || next <= 0) {
+      return current;
+    }
+    if (current === null) {
+      return next;
+    }
+    return Math.min(current, next);
+  }, Number.isFinite(initialGridTakeProfit) && initialGridTakeProfit > 0 ? initialGridTakeProfit : null);
+
+  if (
+    Number.isFinite(overallTakeProfit)
+    && overallTakeProfit > 0
+    && minGridTakeProfit !== null
+    && overallTakeProfit <= minGridTakeProfit
+  ) {
+    warnings.push({
+      description: pickText(
+        input.lang,
+        `当前整体止盈为 ${formatPercent(overallTakeProfit)}%，最小网格止盈为 ${formatPercent(minGridTakeProfit)}%。整体止盈可能先触发，导致单格止盈计划还没走完就整套平仓。`,
+        `Overall take profit is ${formatPercent(overallTakeProfit)}%, while the smallest grid take profit is ${formatPercent(minGridTakeProfit)}%. Overall take profit may trigger before the grid take-profit plan finishes.`,
+      ),
+      id: "overall-vs-grid-tp",
+      title: pickText(
+        input.lang,
+        "整体止盈可能先于网格止盈触发",
+        "Overall take profit may trigger before the grid take-profit plan",
+      ),
+    });
   }
+
+  return warnings;
 }

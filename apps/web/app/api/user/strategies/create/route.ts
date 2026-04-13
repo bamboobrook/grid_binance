@@ -20,7 +20,7 @@ export async function POST(request: Request) {
 
   let payload;
   try {
-    payload = buildStrategyPayload(formData);
+    payload = await buildStrategyPayload(formData);
   } catch (error) {
     return redirectToApp(request, `/strategies/new?error=${encodeURIComponent(readErrorMessage(error))}`);
   }
@@ -43,36 +43,41 @@ export async function POST(request: Request) {
   return redirectToApp(request, `/strategies/${created.id}?notice=draft-saved`);
 }
 
-function buildStrategyPayload(formData: FormData) {
+async function buildStrategyPayload(formData: FormData) {
   const market = mapMarket(readField(formData, "marketType") || "spot");
   const generation = mapGeneration(readField(formData, "generation") || "custom");
 
+  const symbol = readField(formData, "symbol");
+  if (!symbol) {
+    throw new Error("Symbol must be selected from the search results.");
+  }
+
   return {
     name: readField(formData, "name") || "Strategy Draft",
-    symbol: readField(formData, "symbol") || "BTCUSDT",
+    symbol,
     market,
     mode: mapMode(readField(formData, "mode") || "classic"),
     generation,
     amount_mode: mapAmountMode(readField(formData, "amountMode") || "quote"),
     futures_margin_mode: market === "Spot" ? null : mapFuturesMarginMode(readField(formData, "futuresMarginMode") || "isolated"),
     leverage: market === "Spot" ? null : readPositiveInteger(formData, "leverage", "Leverage"),
-    levels: readLevels(formData, generation),
+    levels: await readLevels(formData, generation, market, symbol),
     overall_take_profit_bps: readPercentField(formData, "overallTakeProfit", true),
     overall_stop_loss_bps: readPercentField(formData, "overallStopLoss", false),
     post_trigger_action: mapPostTrigger(readField(formData, "postTrigger") || "rebuild"),
   };
 }
 
-function readLevels(formData: FormData, generation: "Arithmetic" | "Geometric" | "Custom") {
+async function readLevels(formData: FormData, generation: "Arithmetic" | "Geometric" | "Custom", market: "Spot" | "FuturesUsdM" | "FuturesCoinM", symbol: string) {
   const editorMode = readField(formData, "editorMode") || "custom";
   if (editorMode === "batch" && generation !== "Custom") {
-    return buildBatchLevels(formData, generation);
+    return buildBatchLevels(formData, generation, market, symbol);
   }
   return parseLevelsJson(readField(formData, "levels_json"));
 }
 
-function buildBatchLevels(formData: FormData, generation: "Arithmetic" | "Geometric") {
-  const referencePrice = readPositiveNumber(formData, "referencePrice", "Reference price");
+async function buildBatchLevels(formData: FormData, generation: "Arithmetic" | "Geometric", market: "Spot" | "FuturesUsdM" | "FuturesCoinM", symbol: string) {
+  const referencePrice = await resolveReferencePrice(formData, market, symbol);
   const gridCount = readPositiveInteger(formData, "gridCount", "Grid count");
   const gridSpacingPercent = readPositiveNumber(formData, "gridSpacingPercent", "Batch spacing (%)");
   const takeProfitPercent = readPositiveNumber(formData, "batchTakeProfit", "Batch take profit (%)");
@@ -233,6 +238,42 @@ function readPositiveInteger(formData: FormData, key: string, label: string) {
 function formatDecimal(value: number, scale: number) {
   const normalized = value.toFixed(scale).replace(/\.0+$/, "").replace(/(\.\d*?)0+$/, "$1");
   return normalized === "-0" ? "0" : normalized;
+}
+
+async function resolveReferencePrice(
+  formData: FormData,
+  market: "Spot" | "FuturesUsdM" | "FuturesCoinM",
+  symbol: string,
+) {
+  const mode = readField(formData, "referencePriceMode") || "manual";
+  if (mode !== "market") {
+    return readPositiveNumber(formData, "referencePrice", "Reference price");
+  }
+  const response = await fetch(binanceTickerUrl(market, symbol), { cache: "no-store" });
+  if (!response.ok) {
+    throw new Error("Current market price is temporarily unavailable.");
+  }
+  const payload = (await response.json()) as { price?: string };
+  const parsed = Number.parseFloat(String(payload.price ?? ""));
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    throw new Error("Current market price is temporarily unavailable.");
+  }
+  return parsed;
+}
+
+function binanceTickerUrl(
+  market: "Spot" | "FuturesUsdM" | "FuturesCoinM",
+  symbol: string,
+) {
+  const encodedSymbol = encodeURIComponent(symbol.trim().toUpperCase());
+  switch (market) {
+    case "FuturesUsdM":
+      return `https://fapi.binance.com/fapi/v1/ticker/price?symbol=${encodedSymbol}`;
+    case "FuturesCoinM":
+      return `https://dapi.binance.com/dapi/v1/ticker/price?symbol=${encodedSymbol}`;
+    default:
+      return `https://api.binance.com/api/v3/ticker/price?symbol=${encodedSymbol}`;
+  }
 }
 
 function readField(formData: FormData, key: string) {

@@ -6,7 +6,7 @@ import { Card, CardBody, CardDescription, CardFooter, CardHeader, CardTitle } fr
 import { Button, ButtonRow, Field, FormStack, Input } from "@/components/ui/form";
 import { StatusBanner } from "@/components/ui/status-banner";
 import { firstValue } from "@/lib/auth";
-import { pickText, resolveUiLanguage, UI_LANGUAGE_COOKIE } from "@/lib/ui/preferences";
+import { pickText, resolveUiLanguageFromRoute, UI_LANGUAGE_COOKIE } from "@/lib/ui/preferences";
 
 type PasswordResetPageProps = {
   params: Promise<{ locale: string }>;
@@ -23,7 +23,7 @@ export default async function PasswordResetPage({ params, searchParams }: Passwo
   const { locale } = await params;
   const [searchParamsValue, cookieStore] = await Promise.all([searchParams, cookies()]);
   const resolved = searchParamsValue ?? {};
-  const lang = resolveUiLanguage(cookieStore.get(UI_LANGUAGE_COOKIE)?.value);
+  const lang = resolveUiLanguageFromRoute(locale, cookieStore.get(UI_LANGUAGE_COOKIE)?.value);
   const email = firstValue(resolved.email) ?? "";
   const code = firstValue(resolved.code) ?? "";
   const error = firstValue(resolved.error);

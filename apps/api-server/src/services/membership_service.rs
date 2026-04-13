@@ -16,6 +16,7 @@ use shared_domain::membership::{MembershipSnapshot, MembershipStatus};
 use shared_events::{NotificationEvent, NotificationKind, NotificationRecord};
 use std::{
     collections::{BTreeMap, HashSet},
+    env,
     sync::OnceLock,
     time::Duration as StdDuration,
 };
@@ -24,6 +25,7 @@ use crate::services::auth_service::{AdminRole, AuthError};
 
 const GRACE_HOURS: i64 = 48;
 const MANUAL_CREDIT_CONFIRMATION: &str = "MANUAL_CREDIT_MEMBERSHIP";
+const UI_MANUAL_CREDIT_CONFIRMATION: &str = "confirm manual credit";
 
 const DEFAULT_PLAN_CONFIG: [(&str, &str, i32, &str); 3] = [
     ("monthly", "Monthly", 30, "20.00000000"),
@@ -226,6 +228,7 @@ pub struct AdminDepositView {
     pub amount: String,
     pub status: String,
     pub review_reason: Option<String>,
+    pub review_reason_label: Option<String>,
     pub order_id: Option<u64>,
     pub matched_order_id: Option<u64>,
 }
@@ -1186,6 +1189,10 @@ impl MembershipService {
                 address: deposit.address,
                 amount: deposit.amount,
                 status: deposit.status,
+                review_reason_label: deposit
+                    .review_reason
+                    .as_deref()
+                    .map(human_review_reason),
                 review_reason: deposit.review_reason,
                 order_id: deposit.order_id,
                 matched_order_id: deposit.matched_order_id,
@@ -1261,7 +1268,7 @@ impl MembershipService {
                     .ok_or_else(|| {
                         MembershipError::bad_request("manual credit confirmation is required")
                     })?;
-                if confirmation != MANUAL_CREDIT_CONFIRMATION {
+                if !matches_manual_credit_confirmation(confirmation) {
                     return Err(MembershipError::bad_request(
                         "manual credit confirmation is required",
                     ));
@@ -1575,25 +1582,27 @@ impl MembershipService {
             }
         }
 
-        for (chain, addresses) in [
-            ("ETH", DEFAULT_ETH_ADDRESSES.as_slice()),
-            ("BSC", DEFAULT_BSC_ADDRESSES.as_slice()),
-            ("SOL", DEFAULT_SOL_ADDRESSES.as_slice()),
-        ] {
-            for address in addresses {
-                if existing_addresses
-                    .iter()
-                    .any(|record| record.chain == chain && record.address == *address)
-                {
-                    continue;
+        if should_seed_placeholder_address_pool() {
+            for (chain, addresses) in [
+                ("ETH", DEFAULT_ETH_ADDRESSES.as_slice()),
+                ("BSC", DEFAULT_BSC_ADDRESSES.as_slice()),
+                ("SOL", DEFAULT_SOL_ADDRESSES.as_slice()),
+            ] {
+                for address in addresses {
+                    if existing_addresses
+                        .iter()
+                        .any(|record| record.chain == chain && record.address == *address)
+                    {
+                        continue;
+                    }
+                    self.db
+                        .upsert_deposit_address(&DepositAddressPoolRecord {
+                            chain: chain.to_owned(),
+                            address: (*address).to_owned(),
+                            is_enabled: true,
+                        })
+                        .map_err(MembershipError::storage)?;
                 }
-                self.db
-                    .upsert_deposit_address(&DepositAddressPoolRecord {
-                        chain: chain.to_owned(),
-                        address: (*address).to_owned(),
-                        is_enabled: true,
-                    })
-                    .map_err(MembershipError::storage)?;
             }
         }
 
@@ -1986,6 +1995,26 @@ fn abnormal_deposit_after_summary(status: &str, decision: &str, order_id: Option
     }
 }
 
+fn matches_manual_credit_confirmation(value: &str) -> bool {
+    matches!(
+        value.trim(),
+        MANUAL_CREDIT_CONFIRMATION | UI_MANUAL_CREDIT_CONFIRMATION
+    )
+}
+
+fn human_review_reason(reason: &str) -> String {
+    match reason {
+        "awaiting_confirmations" => "Awaiting confirmations".to_string(),
+        "ambiguous_match" => "Ambiguous match".to_string(),
+        "wrong_asset" => "Wrong asset".to_string(),
+        "exact_amount_required" => "Exact amount required".to_string(),
+        "order_expired" => "Order expired".to_string(),
+        "order_not_found" => "Order not found".to_string(),
+        other if !other.is_empty() => other.to_string(),
+        _ => "Unspecified".to_string(),
+    }
+}
+
 fn persist_deposit_confirmation_notification(
     db: &SharedDb,
     email: &str,
@@ -2259,6 +2288,10 @@ fn normalize_chain_tx_hash(chain: &str, tx_hash: &str) -> String {
         "ETH" | "BSC" => tx_hash.trim().to_ascii_lowercase(),
         _ => tx_hash.trim().to_owned(),
     }
+}
+
+fn should_seed_placeholder_address_pool() -> bool {
+    !matches!(env::var("APP_ENV").ok().as_deref(), Some("production"))
 }
 
 fn normalize_email(email: &str) -> String {

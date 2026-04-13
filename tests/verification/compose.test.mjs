@@ -109,9 +109,8 @@ test("nginx config and smoke workflow refresh upstream resolution after web cont
   assert.match(nginxConfig, /resolver 127\.0\.0\.11/);
   assert.match(nginxConfig, /set \$api_upstream api-server:8080;/);
   assert.match(nginxConfig, /set \$web_upstream web:3000;/);
-  assert.match(nginxConfig, /rewrite \^\/api\/(.*)\$ \/\$1 break;/);
-  assert.match(nginxConfig, /proxy_pass http:\/\/\$api_upstream;/);
-  assert.match(nginxConfig, /proxy_pass http:\/\/\$web_upstream;/);
+  assert.match(nginxConfig, /location = \/api\/healthz \{[\s\S]*rewrite \^\/api\/(.*)\$ \/\$1 break;[\s\S]*proxy_pass http:\/\/\$api_upstream;/);
+  assert.match(nginxConfig, /location \/api\/ \{[\s\S]*proxy_pass http:\/\/\$web_upstream;/);
 });
 
 test("compose docs consistently require explicit root env file and quoted web healthcheck", () => {

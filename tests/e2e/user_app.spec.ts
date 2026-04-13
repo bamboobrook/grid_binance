@@ -4,11 +4,11 @@ import { expectSessionCookie, loginViaPage, registerViaPage, uniqueEmail } from 
 test("anonymous user is redirected away from app pages", async ({ page }) => {
   await page.goto("/app/dashboard");
 
-  await expect(page).toHaveURL(/\/login\?next=%2Fapp%2Fdashboard$/);
+  await expect(page).toHaveURL(/\/(?:en|zh)\/login\?next=%2F(?:en|zh)%2Fapp%2Fdashboard$/);
   await expect(page.getByRole("heading", { name: "Login" })).toBeVisible();
 });
 
-test("user can register verify email and login through the browser before reviewing app areas", async ({
+test("user can register and login through the browser before reviewing app areas", async ({
   page,
   context,
 }) => {
@@ -20,25 +20,15 @@ test("user can register verify email and login through the browser before review
   await page.getByLabel("Password").fill(password);
   await page.getByRole("button", { name: "Create account" }).click();
 
-  await expect(page).toHaveURL(/\/verify-email\?/);
-  await expect(page.getByRole("heading", { name: "Verify Email" })).toBeVisible();
-  await expect(page.getByLabel("Email")).toHaveValue(email);
-
-  const cookies = await page.context().cookies();
-  const verificationCode = cookies.find((cookie) => cookie.name === "pending_verify_code")?.value ?? "";
-  expect(verificationCode).toMatch(/^\d{6}$/);
-  await page.getByLabel("Verification code").fill(verificationCode);
-
-  await page.getByRole("button", { name: "Verify email" }).click();
   await expect(page).toHaveURL(/\/login\?/);
-  await expect(page.getByText("Email verified", { exact: false })).toBeVisible();
+  await expect(page.getByText("Account created", { exact: false })).toBeVisible();
   await expect(page.getByLabel("Email")).toHaveValue(email);
 
   await loginViaPage(page, email, password);
   await expect(page).toHaveURL(/\/app\/dashboard$/);
   await expectSessionCookie(page);
-  await expect(page.getByRole("heading", { name: "User Dashboard" })).toBeVisible();
-  await expect(page.getByText("Expiry reminder flow", { exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Trading Cockpit" })).toBeVisible();
+  await expect(page.getByText("Recent Fills", { exact: false })).toBeVisible();
 
   await page.goto("/app/security");
   await expect(page).toHaveURL(/\/app\/security$/);
@@ -46,24 +36,28 @@ test("user can register verify email and login through the browser before review
 
   await page.goto("/app/billing");
   await expect(page).toHaveURL(/\/app\/billing$/);
-  await expect(page.getByRole("heading", { name: "Billing Center" })).toBeVisible();
-  await expect(page.getByText("Exact chain, token, and amount are all required for automatic confirmation.", { exact: false })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Membership Center" })).toBeVisible();
+  await expect(page.getByText("must match exactly", { exact: false }).first()).toBeVisible();
 
   await page.goto("/app/strategies");
   await expect(page).toHaveURL(/\/app\/strategies$/);
-  await expect(page.getByRole("heading", { name: "Strategies" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Strategy Inventory" })).toBeVisible();
 
   await page.goto("/app/orders");
   await expect(page).toHaveURL(/\/app\/orders$/);
   await expect(page.getByRole("heading", { name: "Orders & History" })).toBeVisible();
 
+  await page.goto("/app/notifications");
+  await expect(page).toHaveURL(/\/app\/notifications$/);
+  await expect(page.getByRole("heading", { name: "Notifications" })).toBeVisible();
+
   await page.goto("/help/expiry-reminder");
   await expect(page).toHaveURL(/\/help\/expiry-reminder$/);
-  await expect(page.getByRole("heading", { name: "Expiry Reminder" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Expiry Reminder" }).first()).toBeVisible();
 
   await context.clearCookies();
   await page.goto("/app/dashboard");
-  await expect(page).toHaveURL(/\/login\?next=%2Fapp%2Fdashboard$/);
+  await expect(page).toHaveURL(/\/(?:en|zh)\/login\?next=%2F(?:en|zh)%2Fapp%2Fdashboard$/);
   await loginViaPage(page, email, password);
   await expect(page).toHaveURL(/\/app\/dashboard$/);
   await expectSessionCookie(page);
@@ -112,12 +106,8 @@ test("user can request and confirm a password reset through the browser", async 
   await page.getByLabel("Email").fill(email);
   await page.getByLabel("Password").fill(password);
   await page.getByRole("button", { name: "Create account" }).click();
-  await expect(page).toHaveURL(/\/verify-email\?/);
-  const registerCookies = await page.context().cookies();
-  const initialVerificationCode = registerCookies.find((cookie) => cookie.name === "pending_verify_code")?.value ?? "";
-  await page.getByLabel("Verification code").fill(initialVerificationCode);
-  await page.getByRole("button", { name: "Verify email" }).click();
   await expect(page).toHaveURL(/\/login\?/);
+  await expect(page.getByText("Account created", { exact: false })).toBeVisible();
 
   await page.goto("/password-reset");
   await page.getByLabel("Email").fill(email);
@@ -147,4 +137,110 @@ test("invalid help slug returns 404", async ({ page }) => {
 
   expect(response?.status()).toBe(404);
   await expect(page.getByText("404")).toBeVisible();
+});
+
+test("strategy workspace supports per-grid custom editing and draft deletion", async ({ page }) => {
+  const email = uniqueEmail("strategy");
+  const password = "pass1234";
+
+  await registerViaPage(page, email, password);
+  await page.goto("/app/strategies/new");
+  await expect(page).toHaveURL(/\/app\/strategies\/new$/);
+
+  await page.getByLabel("Grid Count").fill("3");
+  await page.getByLabel("Editor Mode").selectOption("custom");
+  await expect(page.locator('[data-level-editor="true"]')).toBeVisible();
+
+  const editor = page.locator('[data-level-editor="true"]');
+  await editor.getByLabel("Entry Price").first().fill("1700");
+  await editor.getByLabel("Entry Price").nth(1).fill("1750");
+  await editor.getByLabel("Entry Price").nth(2).fill("1800");
+  await editor.getByLabel("Quote Amount (USDT)").first().fill("50");
+  await editor.getByLabel("Quote Amount (USDT)").nth(1).fill("60");
+  await editor.getByLabel("Quote Amount (USDT)").nth(2).fill("70");
+  await editor.getByLabel("Grid Take Profit (%)").first().fill("1.2");
+  await editor.getByLabel("Grid Take Profit (%)").nth(1).fill("1.4");
+  await editor.getByLabel("Grid Take Profit (%)").nth(2).fill("1.6");
+  await page.getByRole("button", { name: /ETHUSDT/ }).first().click();
+
+  await page.getByRole("button", { name: "Create Bot" }).click();
+  await expect(page).toHaveURL(/\/app\/strategies\/[^/]+\?notice=draft-saved/);
+  await expect(page.getByRole("button", { name: "Delete Strategy" })).toBeVisible();
+
+  await page.getByRole("button", { name: "Delete Strategy" }).click();
+  await expect(page).toHaveURL(/\/app\/strategies\?notice=strategy-deleted/);
+  await expect(page.getByText("ETH Trend Grid", { exact: true })).not.toBeVisible();
+});
+
+test("strategy workspace can apply batch defaults into per-grid custom editing", async ({ page }) => {
+  const email = uniqueEmail("strategy-batch-defaults");
+  const password = "pass1234";
+
+  await registerViaPage(page, email, password);
+  await page.goto("/app/strategies/new");
+  await expect(page).toHaveURL(/\/app\/strategies\/new$/);
+
+  await page.getByLabel("Editor Mode").selectOption("custom");
+  await expect(page.getByLabel("Grid Count")).not.toHaveAttribute("readonly", "");
+  await expect(page.getByLabel("Batch Spacing (%)")).not.toHaveAttribute("readonly", "");
+  await page.getByLabel("Grid Count").fill("4");
+  await page.getByLabel("Batch Spacing (%)").fill("0.5");
+  await page.getByLabel("Per-grid Quote Amount (USDT)").fill("88");
+  await page.getByLabel("Grid Take Profit (%)").first().fill("1.3");
+  await page.getByRole("button", { name: "Apply Batch Defaults" }).click();
+
+  const editor = page.locator('[data-level-editor="true"]');
+  await expect(editor.getByText("L4", { exact: true })).toBeVisible();
+  await expect(editor.getByLabel("Spacing vs Prev (%)").nth(1)).toHaveValue("0.5");
+  await expect(editor.getByLabel("Spacing vs Prev (%)").nth(2)).toHaveValue("0.5");
+  await expect(editor.getByLabel("Spacing vs Prev (%)").nth(3)).toHaveValue("0.5");
+  await expect(editor.getByLabel("Quote Amount (USDT)").first()).toHaveValue("88");
+  await expect(editor.getByLabel("Quote Amount (USDT)").nth(1)).toHaveValue("88");
+  await expect(editor.getByLabel("Grid Take Profit (%)").first()).toHaveValue("1.3");
+  await expect(editor.getByLabel("Grid Take Profit (%)").nth(3)).toHaveValue("1.3");
+});
+
+test("strategy workspace warns when overall take profit may preempt per-grid exits", async ({ page }) => {
+  const email = uniqueEmail("strategy-warning");
+  const password = "pass1234";
+
+  await registerViaPage(page, email, password);
+  await page.goto("/app/strategies/new");
+  await expect(page).toHaveURL(/\/app\/strategies\/new$/);
+
+  await page.getByRole("button", { name: /ETHUSDT/ }).first().click();
+  await page.getByLabel("Reference Price").fill("100");
+  await page.getByLabel("Grid Count").fill("4");
+  await page.getByLabel("Batch Spacing (%)").fill("1");
+  await page.getByLabel("Grid Take Profit (%)").first().fill("2");
+  await page.getByLabel("Overall Take Profit (%)").fill("1");
+
+  await expect(
+    page.getByRole("heading", { name: "Overall take profit may trigger before the grid take-profit plan" }),
+  ).toBeVisible();
+});
+
+test("new strategy requires explicit symbol selection and batch actions stay opt-in", async ({ page }) => {
+  const email = uniqueEmail("strategy-selection");
+  const password = "pass1234";
+
+  await registerViaPage(page, email, password);
+  await page.goto("/app/strategies/new");
+  await expect(page.locator('input[name="symbol"]')).toHaveValue("");
+
+  await page.getByRole("button", { name: "Create Bot" }).click();
+  await expect(page).toHaveURL(/\/app\/strategies\/new\?error=/);
+  await expect(page.getByText("Symbol must be selected from the search results.", { exact: false })).toBeVisible();
+
+  await page.getByRole("button", { name: /ETHUSDT/ }).first().click();
+  await expect(page.locator('input[name="symbol"]')).toHaveValue("ETHUSDT");
+
+  await page.getByRole("button", { name: "Create Bot" }).click();
+  await expect(page).toHaveURL(/\/app\/strategies\/[^/]+\?notice=draft-saved/);
+
+  await page.goto("/app/strategies");
+  await expect(page.getByRole("button", { name: "Batch Start" })).toBeDisabled();
+  const selector = page.locator('tbody input[type="checkbox"]').first();
+  await selector.check();
+  await expect(page.getByRole("button", { name: "Batch Start" })).toBeEnabled();
 });

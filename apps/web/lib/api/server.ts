@@ -2,6 +2,7 @@ import "server-only";
 
 import { cookies } from "next/headers";
 
+import { describeMembershipStatus } from "../ui/domain-copy";
 import { pickText, resolveUiLanguageFromRoute, UI_LANGUAGE_COOKIE, type UiLanguage } from "../ui/preferences";
 
 import { buildAdminShellSnapshot } from "./admin-product-state";
@@ -69,6 +70,7 @@ type StrategyListResponse = {
 
 type NotificationRecord = {
   event: {
+    kind?: string;
     message: string;
     title: string;
   };
@@ -101,6 +103,7 @@ export async function getUserShellSnapshot(routeLocale?: string | null): Promise
   const lang = await currentUiLanguage(routeLocale);
   const sessionToken = await currentSessionToken();
   const base = clone(buildUserShellSnapshot(lang));
+  base.banners = [];
 
   if (!sessionToken) {
     return base;
@@ -117,21 +120,29 @@ export async function getUserShellSnapshot(routeLocale?: string | null): Promise
     base.identity.name = profile.email;
   }
 
-  const membershipStatus = billing?.membership?.status ?? pickText(lang, "未知", "Unknown");
-  base.identity.role = membershipStatus;
+  const membershipStatus = billing?.membership?.status ?? pickText(lang, "待开通", "Pending");
+  const membershipLabel = describeMembershipStatus(lang, billing?.membership?.status);
+  base.identity.role = membershipLabel;
   if (billing?.membership?.active_until) {
     const renewalDate = billing.membership.active_until.slice(0, 10);
     const graceDate = billing.membership.grace_until?.slice(0, 10);
     base.identity.context = graceDate
-      ? pickText(lang, `会员状态 ${membershipStatus}，下次续费 ${renewalDate}，宽限期截止 ${graceDate}。`, `Membership ${membershipStatus}. Next renewal ${renewalDate}. Grace ends ${graceDate}.`)
-      : pickText(lang, `会员状态 ${membershipStatus}，下次续费 ${renewalDate}。`, `Membership ${membershipStatus}. Next renewal ${renewalDate}.`);
+      ? pickText(lang, `会员状态 ${membershipLabel}，下次续费 ${renewalDate}，宽限期截止 ${graceDate}。`, `Membership ${membershipLabel}. Next renewal ${renewalDate}. Grace ends ${graceDate}.`)
+      : pickText(lang, `会员状态 ${membershipLabel}，下次续费 ${renewalDate}。`, `Membership ${membershipLabel}. Next renewal ${renewalDate}.`);
+  } else if (billing?.membership?.grace_until) {
+    const graceDate = billing.membership.grace_until.slice(0, 10);
+    base.identity.context = pickText(lang, `会员当前处于 ${membershipLabel}，宽限期截止 ${graceDate}。`, `Membership is ${membershipLabel}. Grace ends ${graceDate}.`);
+  } else {
+    base.identity.context = pickText(lang, "会员尚未激活；先完成会员开通、交易所连接和通知设置。", "Membership is not active yet. Complete billing, exchange setup, and notifications first.");
   }
 
   const runningCount = strategies.filter((item) => item.status === "Running").length;
+  const errorPausedCount = strategies.filter((item) => item.status === "ErrorPaused").length;
   base.quickStats = [
     { label: pickText(lang, "净收益", "Net PnL"), value: analytics?.user?.net_pnl ?? "-" },
     { label: pickText(lang, "运行中", "Running"), value: pickText(lang, `${runningCount} 个策略`, `${runningCount} strategies`) },
-    { label: pickText(lang, "会员状态", "Grace"), value: membershipStatus },
+    { label: pickText(lang, "会员状态", "Membership Status"), value: membershipLabel },
+    { label: pickText(lang, "异常阻塞", "ErrorPaused"), value: String(errorPausedCount) },
   ];
 
   return base;
@@ -154,7 +165,11 @@ export async function getUserExpiryNotification(): Promise<NotificationRecord | 
 
 export async function getAdminShellSnapshot(routeLocale?: string | null): Promise<AdminShellSnapshot> {
   const lang = await currentUiLanguage(routeLocale);
-  return buildAdminShellSnapshot(lang);
+  try {
+    return await buildAdminShellSnapshot(lang);
+  } catch {
+    return buildFallbackAdminShellSnapshot(lang);
+  }
 }
 
 export async function getUserDashboardSnapshot() {
@@ -257,6 +272,43 @@ async function currentUiLanguage(routeLocale?: string | null): Promise<UiLanguag
 async function currentSessionToken() {
   const cookieStore = await cookies();
   return cookieStore.get("session_token")?.value ?? null;
+}
+
+function buildFallbackAdminShellSnapshot(lang: UiLanguage): AdminShellSnapshot {
+  return clone({
+    banners: [
+      {
+        description: pickText(
+          lang,
+          "后台基础资料暂时不可用，管理工作台已切换到最小回退壳体。",
+          "Admin baseline data is temporarily unavailable. The shell switched to a minimal fallback surface.",
+        ),
+        title: pickText(lang, "管理工作台回退中", "Admin shell fallback"),
+        tone: "warning",
+      },
+    ],
+    brand: "GridBinance Ops",
+    description: pickText(lang, "后台数据异常时的最小管理壳体。", "Minimal admin shell shown when backend data is unavailable."),
+    identity: {
+      context: pickText(lang, "等待后台恢复后再刷新页面。", "Refresh after the admin backend recovers."),
+      name: pickText(lang, "管理员会话", "Admin session"),
+      role: pickText(lang, "回退模式", "Fallback mode"),
+    },
+    nav: [
+      { href: "/admin/dashboard", label: pickText(lang, "总览", "Dashboard") },
+      { href: "/admin/users", label: pickText(lang, "用户", "Users") },
+      { href: "/admin/memberships", label: pickText(lang, "会员", "Memberships") },
+      { href: "/admin/deposits", label: pickText(lang, "充值单", "Deposits") },
+      { href: "/admin/system", label: pickText(lang, "系统", "System") },
+    ],
+    quickStats: [
+      { label: pickText(lang, "待处理充值", "Open deposits"), value: "0" },
+      { label: pickText(lang, "会员风险", "Membership risk"), value: "0" },
+      { label: pickText(lang, "数据状态", "Data state"), value: pickText(lang, "回退中", "Fallback") },
+    ],
+    subtitle: pickText(lang, "管理员控制台", "Admin control plane"),
+    title: pickText(lang, "管理工作台", "Administration shell"),
+  });
 }
 
 async function fetchProfile(sessionToken: string): Promise<ProfileResponse | null> {

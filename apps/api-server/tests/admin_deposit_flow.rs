@@ -5,7 +5,7 @@ use axum::{
 };
 use serde_json::{json, Value};
 
-use shared_db::SharedDb;
+use shared_db::{AuditLogRecord, SharedDb};
 use std::{
     fs,
     net::TcpListener,
@@ -19,9 +19,10 @@ use tower::ServiceExt;
 
 mod support;
 
-use support::{login_and_get_token, register_and_login, register_and_verify};
+use support::{register_and_login, register_and_verify};
 
 const MANUAL_CREDIT_CONFIRMATION: &str = "MANUAL_CREDIT_MEMBERSHIP";
+const UI_MANUAL_CREDIT_CONFIRMATION: &str = "confirm manual credit";
 
 #[tokio::test]
 async fn wrong_asset_transfer_requires_manual_review_and_admin_can_credit_membership() {
@@ -72,6 +73,7 @@ async fn wrong_asset_transfer_requires_manual_review_and_admin_can_credit_member
         .find(|record| record["tx_hash"] == "tx-wrong-asset")
         .expect("tx listed");
     assert_eq!(deposit["review_reason"], "wrong_asset");
+    assert_eq!(deposit["review_reason_label"], "Wrong asset");
     assert_eq!(deposit["status"], "manual_review_required");
 
     let missing_confirmation = process_abnormal_deposit(
@@ -117,7 +119,7 @@ async fn wrong_asset_transfer_requires_manual_review_and_admin_can_credit_member
         "tx-wrong-asset",
         "credit_membership",
         Some(order_id),
-        Some(MANUAL_CREDIT_CONFIRMATION),
+        Some(UI_MANUAL_CREDIT_CONFIRMATION),
         Some("operator reviewed wrong-asset transfer and validated order ownership"),
         "2026-04-01T00:06:00Z",
     )
@@ -155,7 +157,7 @@ async fn wrong_asset_transfer_requires_manual_review_and_admin_can_credit_member
     );
     assert_eq!(
         credited_audit.payload["confirmation"],
-        MANUAL_CREDIT_CONFIRMATION
+        UI_MANUAL_CREDIT_CONFIRMATION
     );
     assert_eq!(
         credited_audit.payload["justification"],
@@ -530,6 +532,114 @@ async fn super_admin_sweep_creates_pending_job_without_fake_tx_hashes() {
     assert!(stored[0].completed_at.is_none());
     assert_eq!(stored[0].transfers.len(), 1);
     assert!(stored[0].transfers[0].tx_hash.is_none());
+
+    let sweep_job_id = stored[0].sweep_job_id;
+    assert!(db
+        .mark_sweep_job_submitting(sweep_job_id)
+        .expect("mark sweep job submitting"));
+
+    let submitted_at = parse_time("2026-04-01T00:15:00Z");
+    assert!(db
+        .mark_sweep_transfer_submitted_with_audit(
+            sweep_job_id,
+            "bsc-addr-1",
+            "0xsweep-submitted",
+            submitted_at,
+            &sweep_transition_audit(
+                "treasury.sweep_transfer_submitted",
+                "sweep_transfer",
+                &format!("{sweep_job_id}:bsc-addr-1"),
+                submitted_at,
+                json!({
+                    "chain": "BSC",
+                    "asset": "USDT",
+                    "from_address": "bsc-addr-1",
+                    "to_address": "bsc-treasury-1",
+                    "status": "submitted",
+                    "tx_hash": "0xsweep-submitted",
+                }),
+            ),
+        )
+        .expect("mark sweep transfer submitted with audit"));
+    assert!(db
+        .mark_sweep_job_submitted_with_audit(
+            sweep_job_id,
+            submitted_at,
+            &sweep_transition_audit(
+                "treasury.sweep_job_submitted",
+                "sweep_job",
+                &sweep_job_id.to_string(),
+                submitted_at,
+                json!({
+                    "chain": "BSC",
+                    "asset": "USDT",
+                    "status": "submitted",
+                    "transfer_count": 1,
+                }),
+            ),
+        )
+        .expect("mark sweep job submitted with audit"));
+
+    let confirmed_at = parse_time("2026-04-01T00:16:00Z");
+    assert!(db
+        .mark_sweep_transfer_confirmed_with_audit(
+            sweep_job_id,
+            "bsc-addr-1",
+            confirmed_at,
+            &sweep_transition_audit(
+                "treasury.sweep_transfer_confirmed",
+                "sweep_transfer",
+                &format!("{sweep_job_id}:bsc-addr-1"),
+                confirmed_at,
+                json!({
+                    "chain": "BSC",
+                    "asset": "USDT",
+                    "from_address": "bsc-addr-1",
+                    "status": "confirmed",
+                    "tx_hash": "0xsweep-submitted",
+                }),
+            ),
+        )
+        .expect("mark sweep transfer confirmed with audit"));
+    assert!(db
+        .mark_sweep_job_confirmed_with_audit(
+            sweep_job_id,
+            confirmed_at,
+            &sweep_transition_audit(
+                "treasury.sweep_job_confirmed",
+                "sweep_job",
+                &sweep_job_id.to_string(),
+                confirmed_at,
+                json!({
+                    "chain": "BSC",
+                    "asset": "USDT",
+                    "status": "confirmed",
+                    "transfer_count": 1,
+                }),
+            ),
+        )
+        .expect("mark sweep job confirmed with audit"));
+
+    let audit_logs = db.list_audit_logs().expect("audit logs");
+    assert!(audit_logs
+        .iter()
+        .any(|record| record.action == "treasury.sweep_requested"));
+    assert!(audit_logs.iter().any(|record| {
+        record.action == "treasury.sweep_transfer_submitted"
+            && record.actor_email == "billing-chain-listener"
+            && record.payload["tx_hash"] == "0xsweep-submitted"
+    }));
+    assert!(audit_logs.iter().any(|record| {
+        record.action == "treasury.sweep_job_submitted"
+            && record.target_id == sweep_job_id.to_string()
+    }));
+    assert!(audit_logs.iter().any(|record| {
+        record.action == "treasury.sweep_transfer_confirmed"
+            && record.payload["status"] == "confirmed"
+    }));
+    assert!(audit_logs.iter().any(|record| {
+        record.action == "treasury.sweep_job_confirmed" && record.payload["transfer_count"] == 1
+    }));
 }
 
 #[tokio::test]
@@ -1204,6 +1314,7 @@ async fn bootstrap_admin_totp(app: &axum::Router, email: &str, password: &str) -
     response_json(response).await
 }
 
+#[allow(dead_code)]
 async fn enable_totp(app: &axum::Router, email: &str, session_token: &str) -> Value {
     let response = app
         .clone()
@@ -1457,6 +1568,29 @@ async fn response_json(response: axum::response::Response) -> Value {
         .await
         .expect("response body");
     serde_json::from_slice(&bytes).expect("valid json")
+}
+
+fn parse_time(value: &str) -> chrono::DateTime<chrono::Utc> {
+    chrono::DateTime::parse_from_rfc3339(value)
+        .expect("valid time")
+        .with_timezone(&chrono::Utc)
+}
+
+fn sweep_transition_audit(
+    action: &str,
+    target_type: &str,
+    target_id: &str,
+    created_at: chrono::DateTime<chrono::Utc>,
+    payload: Value,
+) -> AuditLogRecord {
+    AuditLogRecord {
+        actor_email: "billing-chain-listener".to_string(),
+        action: action.to_string(),
+        target_type: target_type.to_string(),
+        target_id: target_id.to_string(),
+        payload,
+        created_at,
+    }
 }
 
 struct ApiServerHarness {

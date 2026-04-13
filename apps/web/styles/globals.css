@@ -191,7 +191,7 @@
   }
 
   .shell-link--active {
-    @apply bg-primary/10 text-primary ring-1 ring-primary/20;
+    @apply bg-secondary text-primary font-bold ring-1 ring-primary;
   }
 
   .brand-mark {

@@ -5,13 +5,14 @@ use shared_domain::strategy::{
     StrategyMode, StrategyRevision, StrategyRuntime, StrategyRuntimeOrder, StrategyRuntimePosition,
     StrategyStatus,
 };
-use trading_engine::order_sync::{sync_strategy_orders, BinanceOrderGateway};
+use trading_engine::order_sync::{sync_strategy_orders, BinanceOrderGateway, OrderQuantizationRules};
 
 #[derive(Default)]
 struct FakeGateway {
     placed: std::sync::Mutex<Vec<BinanceOrderRequest>>,
     canceled: std::sync::Mutex<Vec<(String, String, Option<String>, Option<String>)>>,
     filled_order_ids: std::sync::Mutex<std::collections::HashSet<String>>,
+    remote_statuses: std::sync::Mutex<std::collections::HashMap<String, String>>,
 }
 
 impl BinanceOrderGateway for FakeGateway {
@@ -70,19 +71,24 @@ impl BinanceOrderGateway for FakeGateway {
         order_id: Option<&str>,
         client_order_id: Option<&str>,
     ) -> Result<BinanceOrderResponse, String> {
-        let status = if client_order_id
-            .is_some_and(|value| self.filled_order_ids.lock().unwrap().contains(value))
-        {
-            "FILLED"
-        } else {
-            "CANCELED"
-        };
+        let status = client_order_id
+            .and_then(|value| self.remote_statuses.lock().unwrap().get(value).cloned())
+            .or_else(|| order_id.and_then(|value| self.remote_statuses.lock().unwrap().get(value).cloned()))
+            .unwrap_or_else(|| {
+                if client_order_id
+                    .is_some_and(|value| self.filled_order_ids.lock().unwrap().contains(value))
+                {
+                    "FILLED".to_string()
+                } else {
+                    "CANCELED".to_string()
+                }
+            });
         Ok(BinanceOrderResponse {
             market: market.to_string(),
             symbol: symbol.to_string(),
             order_id: order_id.unwrap_or_default().to_string(),
             client_order_id: client_order_id.map(ToOwned::to_owned),
-            status: status.to_string(),
+            status,
             side: None,
             order_type: None,
             price: None,
@@ -100,7 +106,7 @@ fn running_strategy_submits_missing_live_orders() {
         StrategyMode::SpotClassic,
     );
 
-    let result = sync_strategy_orders(&mut strategy, &gateway);
+    let result = sync_strategy_orders(&mut strategy, &gateway, None);
 
     assert_eq!(result.submitted, 1);
     assert_eq!(result.canceled, 0);
@@ -119,6 +125,45 @@ fn running_strategy_submits_missing_live_orders() {
 }
 
 #[test]
+fn running_strategy_submits_market_close_intent_orders_without_local_close() {
+    let gateway = FakeGateway::default();
+    let mut strategy = sample_strategy(
+        StrategyStatus::Running,
+        StrategyMarket::Spot,
+        StrategyMode::SpotClassic,
+    );
+    strategy.runtime.positions = vec![StrategyRuntimePosition {
+        market: StrategyMarket::Spot,
+        mode: StrategyMode::SpotClassic,
+        quantity: Decimal::new(1, 0),
+        average_entry_price: Decimal::new(100, 0),
+    }];
+    strategy.runtime.orders[0] = StrategyRuntimeOrder {
+        order_id: "strategy-1-trail-0".to_string(),
+        exchange_order_id: None,
+        level_index: Some(0),
+        side: "Sell".to_string(),
+        order_type: "Market".to_string(),
+        price: None,
+        quantity: Decimal::new(1, 0),
+        status: "ClosingRequested".to_string(),
+    };
+
+    let result = sync_strategy_orders(&mut strategy, &gateway, None);
+
+    assert_eq!(result.submitted, 1);
+    assert_eq!(strategy.runtime.positions.len(), 1);
+    assert_eq!(strategy.runtime.orders[0].status, "Placed");
+    let placed = gateway.placed.lock().unwrap();
+    assert_eq!(placed.len(), 1);
+    assert_eq!(placed[0].order_type, "MARKET");
+    assert_eq!(
+        placed[0].client_order_id.as_deref(),
+        Some("strategy-1-trail-0")
+    );
+}
+
+#[test]
 fn paused_strategy_cancels_known_live_orders() {
     let gateway = FakeGateway::default();
     let mut strategy = sample_strategy(
@@ -129,7 +174,7 @@ fn paused_strategy_cancels_known_live_orders() {
     strategy.runtime.orders[0].status = "Canceled".to_string();
     strategy.runtime.orders[0].exchange_order_id = Some("555".to_string());
 
-    let result = sync_strategy_orders(&mut strategy, &gateway);
+    let result = sync_strategy_orders(&mut strategy, &gateway, None);
 
     assert_eq!(result.submitted, 0);
     assert_eq!(result.canceled, 1);
@@ -151,7 +196,7 @@ fn placed_order_pulls_remote_status_back_into_runtime() {
     strategy.runtime.orders[0].status = "Placed".to_string();
     strategy.runtime.orders[0].exchange_order_id = Some("555".to_string());
 
-    let result = sync_strategy_orders(&mut strategy, &gateway);
+    let result = sync_strategy_orders(&mut strategy, &gateway, None);
 
     assert_eq!(result.submitted, 0);
     assert_eq!(result.refreshed, 1);
@@ -175,7 +220,7 @@ fn stopping_strategy_submits_reduce_only_market_close_orders() {
     strategy.runtime.orders[0].status = "Placed".to_string();
     strategy.runtime.orders[0].exchange_order_id = Some("grid-1".to_string());
 
-    let result = sync_strategy_orders(&mut strategy, &gateway);
+    let result = sync_strategy_orders(&mut strategy, &gateway, None);
 
     assert_eq!(result.canceled, 1);
     assert_eq!(result.submitted, 1);
@@ -227,11 +272,50 @@ fn stopping_strategy_moves_to_stopped_after_close_fill_refresh() {
         .unwrap()
         .insert("strategy-1-stop-close-0".to_string());
 
-    let result = sync_strategy_orders(&mut strategy, &gateway);
+    let result = sync_strategy_orders(&mut strategy, &gateway, None);
 
     assert_eq!(result.refreshed, 1);
     assert!(strategy.runtime.positions.is_empty());
     assert_eq!(strategy.status, StrategyStatus::Stopped);
+}
+
+#[test]
+fn stopping_strategy_keeps_partially_filled_close_orders_pending() {
+    let gateway = FakeGateway::default();
+    let mut strategy = sample_strategy(
+        StrategyStatus::Stopping,
+        StrategyMarket::FuturesUsdM,
+        StrategyMode::FuturesLong,
+    );
+    strategy.runtime.positions = vec![StrategyRuntimePosition {
+        market: StrategyMarket::FuturesUsdM,
+        mode: StrategyMode::FuturesLong,
+        quantity: Decimal::new(2, 0),
+        average_entry_price: Decimal::new(100, 0),
+    }];
+    strategy.runtime.orders.clear();
+    strategy.runtime.orders.push(StrategyRuntimeOrder {
+        order_id: "strategy-1-stop-close-0".to_string(),
+        exchange_order_id: Some("close-1".to_string()),
+        level_index: None,
+        side: "Sell".to_string(),
+        order_type: "Market".to_string(),
+        price: None,
+        quantity: Decimal::new(2, 0),
+        status: "PartiallyFilled".to_string(),
+    });
+    gateway
+        .remote_statuses
+        .lock()
+        .unwrap()
+        .insert("strategy-1-stop-close-0".to_string(), "PARTIALLY_FILLED".to_string());
+
+    let result = sync_strategy_orders(&mut strategy, &gateway, None);
+
+    assert_eq!(result.refreshed, 1);
+    assert_eq!(strategy.runtime.positions.len(), 1);
+    assert_eq!(strategy.runtime.orders[0].status, "PartiallyFilled");
+    assert_eq!(strategy.status, StrategyStatus::Stopping);
 }
 
 #[test]
@@ -253,13 +337,37 @@ fn futures_neutral_maps_buy_and_sell_to_hedge_position_sides() {
         status: "Working".to_string(),
     });
 
-    let result = sync_strategy_orders(&mut strategy, &gateway);
+    let result = sync_strategy_orders(&mut strategy, &gateway, None);
 
     assert_eq!(result.submitted, 2);
     let placed = gateway.placed.lock().unwrap();
     assert_eq!(placed[0].market, "usdm");
     assert_eq!(placed[0].position_side.as_deref(), Some("LONG"));
     assert_eq!(placed[1].position_side.as_deref(), Some("SHORT"));
+}
+
+#[test]
+fn running_strategy_quantizes_price_and_quantity_before_submission() {
+    let gateway = FakeGateway::default();
+    let mut strategy = sample_strategy(
+        StrategyStatus::Running,
+        StrategyMarket::Spot,
+        StrategyMode::SpotClassic,
+    );
+    strategy.runtime.orders[0].price = Some(Decimal::new(10013, 2));
+    strategy.runtime.orders[0].quantity = Decimal::new(1237, 4);
+
+    let rules = OrderQuantizationRules {
+        price_tick_size: Some(Decimal::new(5, 2)),
+        quantity_step_size: Some(Decimal::new(1, 3)),
+    };
+
+    let result = sync_strategy_orders(&mut strategy, &gateway, Some(&rules));
+
+    assert_eq!(result.submitted, 1);
+    let placed = gateway.placed.lock().unwrap();
+    assert_eq!(placed[0].price.as_deref(), Some("100.1"));
+    assert_eq!(placed[0].quantity, "0.123");
 }
 
 fn sample_strategy(status: StrategyStatus, market: StrategyMarket, mode: StrategyMode) -> Strategy {

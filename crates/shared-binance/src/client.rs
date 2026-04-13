@@ -175,15 +175,40 @@ struct ServerTimeResponse {
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
+struct SymbolPriceResponse {
+    price: FlexibleValue,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct MarkPriceResponse {
+    mark_price: FlexibleValue,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct SpotAccountResponse {
     #[serde(default)]
     can_trade: bool,
     #[serde(default)]
     can_withdraw: bool,
     #[serde(default)]
+    account_type: Option<String>,
+    #[serde(default)]
     permissions: Vec<String>,
     #[serde(default)]
     balances: Vec<SpotAccountBalance>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct SpotApiRestrictionsResponse {
+    #[serde(default)]
+    enable_reading: bool,
+    #[serde(default)]
+    enable_withdrawals: bool,
+    #[serde(default)]
+    enable_spot_and_margin_trading: bool,
 }
 
 #[derive(Debug, Deserialize)]
@@ -199,7 +224,6 @@ struct SpotAccountBalance {
 struct FuturesAccountResponse {
     #[serde(default)]
     can_trade: bool,
-    total_wallet_balance: Option<FlexibleValue>,
     total_unrealized_profit: Option<FlexibleValue>,
     #[serde(default)]
     assets: Vec<FuturesAssetBalance>,
@@ -210,7 +234,6 @@ struct FuturesAccountResponse {
 struct FuturesAssetBalance {
     asset: String,
     wallet_balance: FlexibleValue,
-    unrealized_profit: Option<FlexibleValue>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -229,7 +252,8 @@ struct ExchangeInfoResponse {
 #[serde(rename_all = "camelCase")]
 struct ExchangeInfoSymbol {
     symbol: String,
-    status: String,
+    #[serde(default, alias = "contractStatus")]
+    status: Option<String>,
     base_asset: String,
     quote_asset: String,
     quote_precision: Option<u32>,
@@ -418,6 +442,14 @@ pub struct BinanceWalletSnapshot {
     pub exchange: String,
     pub wallet_type: String,
     pub balances: BTreeMap<String, String>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct IncomeRecordPayload {
+    income: FlexibleValue,
+    #[serde(default)]
+    symbol: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -693,6 +725,103 @@ impl BinanceClient {
             .collect())
     }
 
+    pub fn symbol_price(
+        &self,
+        market: &str,
+        symbol: &str,
+    ) -> Result<Decimal, CredentialValidationError> {
+        if !self.live_config.enabled {
+            return Err(CredentialValidationError::new(
+                "binance live mode is disabled",
+            ));
+        }
+        let market = BinanceMarket::from_scope(market)?;
+        let http = self.live_http_client()?;
+        if let Some(path) = market.mark_price_path() {
+            let response = http
+                .get(&format!("{}{}", self.live_config.base_url(market), path))
+                .query(&[("symbol", symbol)])
+                .send()
+                .map_err(|error| CredentialValidationError::new(format!("binance request failed: {error}")))?;
+            let payload: MarkPriceResponse = parse_json_response(response)?;
+            return parse_decimal_str(&flexible_value_ref_to_string(&payload.mark_price));
+        }
+        let response = http
+            .get(&format!(
+                "{}{}",
+                self.live_config.base_url(market),
+                market.ticker_price_path()
+            ))
+            .query(&[("symbol", symbol)])
+            .send()
+            .map_err(|error| CredentialValidationError::new(format!("binance request failed: {error}")))?;
+        let payload: SymbolPriceResponse = parse_json_response(response)?;
+        parse_decimal_str(&flexible_value_ref_to_string(&payload.price))
+    }
+
+    pub fn funding_fee_totals_by_symbol(
+        &self,
+        market: &str,
+    ) -> Result<BTreeMap<String, Decimal>, CredentialValidationError> {
+        if !self.live_config.enabled {
+            return Err(CredentialValidationError::new(
+                "binance live mode is disabled",
+            ));
+        }
+        let market = BinanceMarket::from_scope(market)?;
+        let Some(path) = market.income_path() else {
+            return Ok(BTreeMap::new());
+        };
+        let http = self.live_http_client()?;
+        let server_time = self.fetch_server_time(&http, market)?;
+        let payload: Vec<IncomeRecordPayload> = self.signed_request(
+            &http,
+            "GET",
+            self.live_config.base_url(market),
+            path,
+            server_time,
+            &[
+                ("incomeType".to_string(), "FUNDING_FEE".to_string()),
+                ("limit".to_string(), "1000".to_string()),
+            ],
+        )?;
+        let mut totals = BTreeMap::new();
+        for item in payload {
+            let Some(symbol) = item.symbol.filter(|value| !value.trim().is_empty()) else {
+                continue;
+            };
+            let value = parse_decimal_str(&flexible_value_ref_to_string(&item.income))?;
+            *totals.entry(symbol).or_insert(Decimal::ZERO) += value;
+        }
+        Ok(totals)
+    }
+
+    fn funding_fee_total(
+        &self,
+        http: &HttpClient,
+        market: BinanceMarket,
+        server_time: i64,
+    ) -> Result<Option<String>, CredentialValidationError> {
+        let Some(path) = market.income_path() else {
+            return Ok(None);
+        };
+        let payload: Vec<IncomeRecordPayload> = self.signed_request(
+            http,
+            "GET",
+            self.live_config.base_url(market),
+            path,
+            server_time,
+            &[
+                ("incomeType".to_string(), "FUNDING_FEE".to_string()),
+                ("limit".to_string(), "1000".to_string()),
+            ],
+        )?;
+        let total = payload.into_iter().try_fold(Decimal::ZERO, |acc, item| {
+            Ok::<_, CredentialValidationError>(acc + parse_decimal_str(&flexible_value_ref_to_string(&item.income))?)
+        })?;
+        Ok(Some(total.normalize().to_string()))
+    }
+
     pub fn snapshot_bundle(
         &self,
         selected_markets: &[String],
@@ -753,7 +882,7 @@ impl BinanceClient {
                             .map(flexible_value_ref_to_string)
                             .unwrap_or_else(|| "0".to_string()),
                         fees: "0".to_string(),
-                        funding: None,
+                        funding: self.funding_fee_total(&http, market, now)?,
                     });
                     bundle.wallet_snapshots.push(BinanceWalletSnapshot {
                         exchange,
@@ -954,14 +1083,16 @@ impl BinanceClient {
         state.saw_timestamp = true;
         state.timestamp_in_sync &= timestamp_is_in_sync(server_time);
         let account = self.fetch_spot_account(http, server_time)?;
+        let restrictions = self.fetch_spot_api_restrictions(http, server_time)?;
         state.api_connectivity_ok = true;
-        state.permissions_ok &= account.can_trade;
-        state.withdrawal_disabled &= !account.can_withdraw;
-        state.can_read_spot = account.permissions.is_empty()
-            || account
-                .permissions
-                .iter()
-                .any(|permission| permission.eq_ignore_ascii_case("SPOT"));
+        state.permissions_ok &= account.can_trade
+            && restrictions.enable_reading
+            && restrictions.enable_spot_and_margin_trading;
+        state.withdrawal_disabled &= !restrictions.enable_withdrawals;
+        state.can_read_spot = account.account_type.as_deref() == Some("SPOT")
+            || !account.balances.is_empty()
+            || !account.permissions.is_empty()
+            || account.can_withdraw;
         Ok(())
     }
 
@@ -1038,6 +1169,19 @@ impl BinanceClient {
             http,
             self.live_config.base_url(BinanceMarket::Spot),
             BinanceMarket::Spot.account_path(),
+            server_time,
+        )
+    }
+
+    fn fetch_spot_api_restrictions(
+        &self,
+        http: &HttpClient,
+        server_time: i64,
+    ) -> Result<SpotApiRestrictionsResponse, CredentialValidationError> {
+        self.signed_get(
+            http,
+            self.live_config.base_url(BinanceMarket::Spot),
+            "/sapi/v1/account/apiRestrictions",
             server_time,
         )
     }
@@ -1220,6 +1364,22 @@ impl BinanceMarket {
         }
     }
 
+    fn ticker_price_path(self) -> &'static str {
+        match self {
+            Self::Spot => "/api/v3/ticker/price",
+            Self::Usdm => "/fapi/v1/ticker/price",
+            Self::Coinm => "/dapi/v1/ticker/price",
+        }
+    }
+
+    fn mark_price_path(self) -> Option<&'static str> {
+        match self {
+            Self::Spot => None,
+            Self::Usdm => Some("/fapi/v1/premiumIndex"),
+            Self::Coinm => Some("/dapi/v1/premiumIndex"),
+        }
+    }
+
     fn account_path(self) -> &'static str {
         match self {
             Self::Spot => "/api/v3/account",
@@ -1241,6 +1401,14 @@ impl BinanceMarket {
             Self::Spot => "/api/v3/myTrades",
             Self::Usdm => "/fapi/v1/userTrades",
             Self::Coinm => "/dapi/v1/userTrades",
+        }
+    }
+
+    fn income_path(self) -> Option<&'static str> {
+        match self {
+            Self::Spot => None,
+            Self::Usdm => Some("/fapi/v1/income"),
+            Self::Coinm => Some("/dapi/v1/income"),
         }
     }
 
@@ -1460,34 +1628,6 @@ fn failed_live_check(request: &CredentialValidationRequest) -> ExchangeCredentia
         permissions_ok: false,
         withdrawal_disabled: false,
         market_access_ok: false,
-    }
-}
-
-fn spot_balance_locked_total(balances: &[SpotAccountBalance]) -> String {
-    balances
-        .iter()
-        .filter_map(|balance| flexible_value_ref_to_decimal(&balance.locked))
-        .fold(Decimal::ZERO, |acc, value| acc + value)
-        .normalize()
-        .to_string()
-}
-
-fn futures_balance_locked_total(assets: &[FuturesAssetBalance]) -> String {
-    assets
-        .iter()
-        .filter_map(|asset| asset.unrealized_profit.as_ref())
-        .filter_map(flexible_value_ref_to_decimal)
-        .map(|value| value.abs())
-        .fold(Decimal::ZERO, |acc, value| acc + value)
-        .normalize()
-        .to_string()
-}
-
-fn flexible_value_ref_to_decimal(value: &FlexibleValue) -> Option<Decimal> {
-    match value {
-        FlexibleValue::Text(text) => text.parse::<Decimal>().ok(),
-        FlexibleValue::Integer(number) => Some(Decimal::from(*number)),
-        FlexibleValue::Float(number) => Decimal::from_str_exact(&number.to_string()).ok(),
     }
 }
 
@@ -1728,7 +1868,7 @@ fn map_exchange_info_symbol(market: BinanceMarket, symbol: ExchangeInfoSymbol) -
     SymbolMetadata::new(
         symbol.symbol,
         market.as_str(),
-        symbol.status,
+        symbol.status.unwrap_or_else(|| "UNKNOWN".to_string()),
         symbol.base_asset,
         symbol.quote_asset,
         symbol
@@ -1957,7 +2097,6 @@ mod tests {
         CredentialValidationError, CredentialValidationRequest,
     };
     use std::{
-        collections::VecDeque,
         env,
         io::{Read, Write},
         net::TcpListener,
@@ -2016,40 +2155,39 @@ mod tests {
     fn spawn_test_server(routes: Vec<TestRoute>) -> TestServer {
         let listener = TcpListener::bind("127.0.0.1:0").expect("bind local test server");
         let address = listener.local_addr().expect("test server address");
-        let queue = Arc::new(Mutex::new(VecDeque::from(routes)));
+        let queue = Arc::new(Mutex::new(Vec::from(routes)));
         let queue_for_thread = queue.clone();
-        let join_handle = thread::spawn(move || {
-            while let Some(route) = queue_for_thread
-                .lock()
-                .expect("route queue poisoned")
-                .pop_front()
-            {
-                let (mut stream, _) = listener.accept().expect("accept test request");
-                let mut buffer = [0u8; 4096];
-                let read = stream.read(&mut buffer).expect("read test request");
-                let request = String::from_utf8_lossy(&buffer[..read]);
-                let path = request
-                    .lines()
-                    .next()
-                    .and_then(|line| line.split_whitespace().nth(1))
-                    .expect("request path");
-                assert!(
-                    path.starts_with(route.path_prefix),
-                    "expected path prefix {} but received {}",
-                    route.path_prefix,
-                    path
-                );
-
-                let response = format!(
-                    "{}\r\ncontent-type: application/json\r\ncontent-length: {}\r\nconnection: close\r\n\r\n{}",
-                    route.status_line,
-                    route.body.len(),
-                    route.body
-                );
-                stream
-                    .write_all(response.as_bytes())
-                    .expect("write test response");
+        let join_handle = thread::spawn(move || loop {
+            let route_count = queue_for_thread.lock().expect("route queue poisoned").len();
+            if route_count == 0 {
+                break;
             }
+            let (mut stream, _) = listener.accept().expect("accept test request");
+            let mut buffer = [0u8; 4096];
+            let read = stream.read(&mut buffer).expect("read test request");
+            let request = String::from_utf8_lossy(&buffer[..read]);
+            let path = request
+                .lines()
+                .next()
+                .and_then(|line| line.split_whitespace().nth(1))
+                .expect("request path");
+            let route = {
+                let mut guard = queue_for_thread.lock().expect("route queue poisoned");
+                let Some(index) = guard.iter().position(|candidate| path.starts_with(candidate.path_prefix)) else {
+                    panic!("no route matched request path {}", path);
+                };
+                guard.remove(index)
+            };
+
+            let response = format!(
+                "{}\r\ncontent-type: application/json\r\ncontent-length: {}\r\nconnection: close\r\n\r\n{}",
+                route.status_line,
+                route.body.len(),
+                route.body
+            );
+            stream
+                .write_all(response.as_bytes())
+                .expect("write test response");
         });
 
         TestServer {
@@ -2072,6 +2210,11 @@ mod tests {
 
     #[test]
     fn validation_respects_selected_markets_and_timestamp_health() {
+        let _guard = env_lock().lock().unwrap();
+        env::remove_var("BINANCE_LIVE_MODE");
+        env::remove_var("BINANCE_SPOT_REST_BASE_URL");
+        env::remove_var("BINANCE_USDM_REST_BASE_URL");
+        env::remove_var("BINANCE_COINM_REST_BASE_URL");
         let client = BinanceClient::new("demo-key-nocoinm-1234", "demo-secret-skew");
         let request =
             CredentialValidationRequest::new(true, &["spot".to_owned(), "coinm".to_owned()])
@@ -2089,6 +2232,11 @@ mod tests {
 
     #[test]
     fn validation_rejects_empty_and_unsupported_market_selection() {
+        let _guard = env_lock().lock().unwrap();
+        env::remove_var("BINANCE_LIVE_MODE");
+        env::remove_var("BINANCE_SPOT_REST_BASE_URL");
+        env::remove_var("BINANCE_USDM_REST_BASE_URL");
+        env::remove_var("BINANCE_COINM_REST_BASE_URL");
         let empty = CredentialValidationRequest::new(true, &[]);
         assert_eq!(
             empty,
@@ -2157,7 +2305,7 @@ mod tests {
                 body: r#"{
                     "symbols": [{
                         "symbol": "BTCUSD_PERP",
-                        "status": "TRADING",
+                        "contractStatus": "TRADING",
                         "baseAsset": "BTC",
                         "quoteAsset": "USD",
                         "pricePrecision": 1,
@@ -2283,6 +2431,11 @@ mod tests {
                 status_line: "HTTP/1.1 200 OK",
                 body: r#"{"totalWalletBalance":"200.5","totalUnrealizedProfit":"3.25","assets":[{"asset":"USDT","walletBalance":"200.5","unrealizedProfit":"3.25"}]}"#,
             },
+            TestRoute {
+                path_prefix: "/fapi/v1/income?",
+                status_line: "HTTP/1.1 200 OK",
+                body: r#"[{"income":"-0.4"},{"income":"0.1"}]"#,
+            },
         ]);
         let _live_mode = set_env("BINANCE_LIVE_MODE", "1");
         let _spot_base = set_env("BINANCE_SPOT_REST_BASE_URL", &server.base_url);
@@ -2301,6 +2454,7 @@ mod tests {
         assert_eq!(bundle.wallet_snapshots[0].balances["BTC"], "0.01");
         assert_eq!(bundle.account_snapshots[1].exchange, "binance-usdm");
         assert_eq!(bundle.account_snapshots[1].unrealized_pnl, "3.25");
+        assert_eq!(bundle.account_snapshots[1].funding.as_deref(), Some("-0.3"));
         assert_eq!(bundle.wallet_snapshots[1].balances["USDT"], "200.5");
     }
 
@@ -2375,11 +2529,17 @@ mod tests {
     #[test]
     fn live_get_order_reads_spot_order_status() {
         let _guard = env_lock().lock().unwrap();
+        let current_now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("time should be after epoch")
+            .as_millis() as i64;
+        let current_now_payload =
+            Box::leak(format!(r#"{{"serverTime": {current_now}}}"#).into_boxed_str());
         let server = spawn_test_server(vec![
             TestRoute {
                 path_prefix: "/api/v3/time",
                 status_line: "HTTP/1.1 200 OK",
-                body: r#"{"serverTime": 1710000000003}"#,
+                body: current_now_payload,
             },
             TestRoute {
                 path_prefix: "/api/v3/order?",
@@ -2431,6 +2591,48 @@ mod tests {
     }
 
     #[test]
+    fn live_spot_validation_accepts_non_spot_literal_permissions_and_uses_api_restrictions() {
+        let _guard = env_lock().lock().unwrap();
+        let current_now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("time should be after epoch")
+            .as_millis() as i64;
+        let current_now_payload =
+            Box::leak(format!(r#"{{"serverTime": {current_now}}}"#).into_boxed_str());
+        let server = spawn_test_server(vec![
+            TestRoute {
+                path_prefix: "/api/v3/time",
+                status_line: "HTTP/1.1 200 OK",
+                body: current_now_payload,
+            },
+            TestRoute {
+                path_prefix: "/api/v3/account?",
+                status_line: "HTTP/1.1 200 OK",
+                body: r#"{"accountType":"SPOT","canTrade":true,"canWithdraw":true,"permissions":["TRD_GRP_236","PRE_MARKET"],"balances":[{"asset":"USDT","free":"1.00","locked":"0.00"}]}"#,
+            },
+            TestRoute {
+                path_prefix: "/sapi/v1/account/apiRestrictions?",
+                status_line: "HTTP/1.1 200 OK",
+                body: r#"{"enableReading":true,"enableWithdrawals":false,"enableSpotAndMarginTrading":true}"#,
+            },
+        ]);
+        let _live_mode = set_env("BINANCE_LIVE_MODE", "1");
+        let _spot_base = set_env("BINANCE_SPOT_REST_BASE_URL", &server.base_url);
+
+        let client = BinanceClient::new("live-key", "live-secret");
+        let request = CredentialValidationRequest::new(true, &["spot".to_owned()]).expect("request");
+
+        let check = client.check_credentials_for(&request);
+
+        assert!(check.api_connectivity_ok);
+        assert!(check.can_read_spot);
+        assert!(check.permissions_ok);
+        assert!(check.withdrawal_disabled);
+        assert!(check.market_access_ok);
+        assert_eq!(check.connection_status(), "healthy");
+    }
+
+    #[test]
     fn live_validation_checks_time_skew_hedge_mode_and_market_access() {
         let _guard = env_lock().lock().unwrap();
         let skewed_now = SystemTime::now()
@@ -2449,7 +2651,12 @@ mod tests {
             TestRoute {
                 path_prefix: "/api/v3/account?",
                 status_line: "HTTP/1.1 200 OK",
-                body: r#"{"canTrade": true, "canWithdraw": false, "permissions": ["SPOT"]}"#,
+                body: r#"{"accountType":"SPOT","canTrade":true,"canWithdraw":true,"permissions":["TRD_GRP_236","PRE_MARKET"]}"#,
+            },
+            TestRoute {
+                path_prefix: "/sapi/v1/account/apiRestrictions?",
+                status_line: "HTTP/1.1 200 OK",
+                body: r#"{"enableReading":true,"enableWithdrawals":false,"enableSpotAndMarginTrading":true}"#,
             },
             TestRoute {
                 path_prefix: "/fapi/v1/time",

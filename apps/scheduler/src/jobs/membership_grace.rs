@@ -162,7 +162,10 @@ fn send_telegram_message(
 fn pause_strategy_for_grace(strategy: &mut Strategy, paused_at: DateTime<Utc>) {
     strategy.status = StrategyStatus::Paused;
     for order in &mut strategy.runtime.orders {
-        if order.status == "Working" {
+        if matches!(
+            order.status.as_str(),
+            "Working" | "Placed" | "Monitoring" | "Armed"
+        ) {
             order.status = "Canceled".to_string();
         }
     }
@@ -306,6 +309,64 @@ mod tests {
             .expect("notifications");
         assert_eq!(notifications.len(), 1);
         assert!(notifications[0].title.contains("Membership grace expired"));
+    }
+
+    #[test]
+    fn grace_job_marks_live_placed_orders_for_exchange_cancellation() {
+        let db = SharedDb::ephemeral().expect("db");
+        let now = parse_time("2026-05-05T00:00:00Z");
+        db.upsert_membership_record(
+            "due@example.com",
+            &MembershipRecord {
+                activated_at: Some(parse_time("2026-04-01T00:00:00Z")),
+                active_until: Some(parse_time("2026-05-03T00:00:00Z")),
+                grace_until: Some(parse_time("2026-05-04T23:59:59Z")),
+                override_status: None,
+            },
+        )
+        .expect("membership");
+        let mut running = strategy("due@example.com", "running-live", StrategyStatus::Running);
+        running.runtime.orders = vec![
+            StrategyRuntimeOrder {
+                order_id: "running-live-order-0".to_string(),
+                exchange_order_id: Some("exchange-1".to_string()),
+                level_index: Some(0),
+                side: "Buy".to_string(),
+                order_type: "Limit".to_string(),
+                price: Some(Decimal::new(100, 0)),
+                quantity: Decimal::new(1, 0),
+                status: "Placed".to_string(),
+            },
+            StrategyRuntimeOrder {
+                order_id: "running-live-order-1".to_string(),
+                exchange_order_id: None,
+                level_index: Some(1),
+                side: "Sell".to_string(),
+                order_type: "Limit".to_string(),
+                price: Some(Decimal::new(110, 0)),
+                quantity: Decimal::new(1, 0),
+                status: "Working".to_string(),
+            },
+        ];
+        db.insert_strategy(&StoredStrategy {
+            sequence_id: 1,
+            strategy: running,
+        })
+        .expect("strategy");
+
+        let paused = run_membership_grace_once(&db, now).expect("job result");
+
+        assert_eq!(paused, 1);
+        let stored = db
+            .find_strategy("due@example.com", "running-live")
+            .expect("find")
+            .expect("stored strategy");
+        assert_eq!(stored.status, StrategyStatus::Paused);
+        assert!(stored.runtime.orders.iter().all(|order| order.status == "Canceled"));
+        assert_eq!(
+            stored.runtime.orders[0].exchange_order_id.as_deref(),
+            Some("exchange-1")
+        );
     }
 
     #[test]

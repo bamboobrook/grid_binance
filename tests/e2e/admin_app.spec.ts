@@ -6,6 +6,8 @@ const SUPER_ADMIN_EMAIL = "admin-app-super@example.com";
 
 let adminSessionToken = "";
 
+test.describe.configure({ mode: "serial" });
+
 test.beforeAll(async ({ request }) => {
   adminSessionToken = await createAdminSession(request, SUPER_ADMIN_EMAIL);
 });
@@ -13,7 +15,7 @@ test.beforeAll(async ({ request }) => {
 test("anonymous user is redirected away from admin pages", async ({ page }) => {
   await page.goto("/admin/dashboard");
 
-  await expect(page).toHaveURL(/\/login\?next=%2Fadmin%2Fdashboard$/);
+  await expect(page).toHaveURL(/\/(?:en|zh)\/login\?next=%2F(?:en|zh)%2Fadmin%2Fdashboard$/);
   await expect(page.getByRole("heading", { name: "Login" })).toBeVisible();
 });
 
@@ -24,7 +26,7 @@ test("admin can browse the current admin page map with a TOTP-backed session", a
   await addAdminSessionCookie(context);
 
   const pages = [
-    { heading: "Admin Dashboard", path: "/admin/dashboard" },
+    { heading: "Operations Overview", path: "/admin/dashboard" },
     { heading: "User Management", path: "/admin/users" },
     { heading: "Membership Operations", path: "/admin/memberships" },
     { heading: "Abnormal Deposit Handling", path: "/admin/deposits" },
@@ -32,7 +34,7 @@ test("admin can browse the current admin page map with a TOTP-backed session", a
     { heading: "Template Management", path: "/admin/templates" },
     { heading: "Strategy Oversight", path: "/admin/strategies" },
     { heading: "Sweep Operations", path: "/admin/sweeps" },
-    { heading: "System Configuration", path: "/admin/system" },
+    { heading: "System Settings", path: "/admin/system" },
     { heading: "Audit Review", path: "/admin/audit" },
   ] as const;
 
@@ -70,16 +72,12 @@ async function addAdminSessionCookie(context: BrowserContext) {
 
 async function createAdminSession(request: APIRequestContext, email: string) {
   await ensureVerifiedUser(request, email, ADMIN_PASSWORD);
-  const preTotpSessionToken = await login(request, email, ADMIN_PASSWORD);
-  const enabled = await request.post(`${AUTH_API_BASE_URL}/security/totp/enable`, {
-    data: { email },
-    headers: {
-      authorization: `Bearer ${preTotpSessionToken}`,
-    },
+  const bootstrap = await request.post(`${AUTH_API_BASE_URL}/auth/admin-bootstrap`, {
+    data: { email, password: ADMIN_PASSWORD },
   });
 
-  expect(enabled.ok()).toBeTruthy();
-  const payload = (await enabled.json()) as { code?: string };
+  expect(bootstrap.ok()).toBeTruthy();
+  const payload = (await bootstrap.json()) as { code?: string };
   expect(typeof payload.code).toBe("string");
 
   const sessionToken = await login(request, email, ADMIN_PASSWORD, payload.code);
@@ -109,13 +107,8 @@ async function ensureVerifiedUser(request: APIRequestContext, email: string, pas
   }
 
   expect(register.ok()).toBeTruthy();
-  const payload = (await register.json()) as { verification_code?: string };
-  expect(typeof payload.verification_code).toBe("string");
-
-  const verify = await request.post(`${AUTH_API_BASE_URL}/auth/verify-email`, {
-    data: { code: payload.verification_code, email },
-  });
-  expect(verify.ok()).toBeTruthy();
+  const payload = (await register.json()) as { user_id?: number };
+  expect(typeof payload.user_id).toBe("number");
 }
 
 async function login(

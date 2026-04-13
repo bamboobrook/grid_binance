@@ -6,6 +6,7 @@ import { Chip } from "@/components/ui/chip";
 import { StatusBanner } from "@/components/ui/status-banner";
 import { DataTable } from "@/components/ui/table";
 import { UI_LANGUAGE_COOKIE, pickText, resolveUiLanguageFromRoute, type UiLanguage } from "@/lib/ui/preferences";
+import { formatTaipeiDateTime } from "@/lib/ui/time";
 
 const DEFAULT_AUTH_API_BASE_URL = "http://127.0.0.1:8080";
 
@@ -116,14 +117,14 @@ export default async function OrdersPage({ params }: { params: Promise<{ locale:
                 columns={[
                   { key: "orderId", label: pickText(lang, "订单号", "Order ID") },
                   { key: "strategy", label: pickText(lang, "策略", "Strategy") },
-                  { key: "symbol", label: pickText(lang, "交易对", "Symbol") },
+                  { key: "detail", label: pickText(lang, "明细", "Detail") },
                   { key: "state", label: pickText(lang, "状态", "State"), align: "right" },
                 ]}
                 rows={orderRows.map((row) => ({
                   id: row.id,
                   orderId: row.orderId,
                   strategy: row.strategy,
-                  symbol: row.symbol + " · " + describeSide(lang, row.side),
+                  detail: row.symbol + " · " + describeSide(lang, row.side),
                   state: <Chip tone={orderTone(row.state)}>{describeOrderState(lang, row.state)}</Chip>,
                 }))}
               />
@@ -139,12 +140,14 @@ export default async function OrdersPage({ params }: { params: Promise<{ locale:
                 columns={[
                   { key: "event", label: pickText(lang, "事件", "Event") },
                   { key: "symbol", label: pickText(lang, "交易对", "Symbol") },
+                  { key: "detail", label: pickText(lang, "明细", "Detail") },
                   { key: "pnl", label: pickText(lang, "收益", "PnL"), align: "right" },
                 ]}
                 rows={fillRows.map((row) => ({
                   id: row.id,
                   event: row.event,
                   symbol: row.symbol,
+                  detail: row.event,
                   pnl: row.pnl,
                 }))}
               />
@@ -168,7 +171,7 @@ export default async function OrdersPage({ params }: { params: Promise<{ locale:
               ]}
               rows={exchangeTrades.map((row) => ({
                 id: row.trade_id,
-                at: row.traded_at.replace("T", " ").slice(0, 16),
+                at: formatTaipeiDateTime(row.traded_at, lang),
                 symbol: row.symbol,
                 detail: row.exchange + " · " + describeSide(lang, row.side) + " · " + row.quantity + " @ " + row.price,
                 fee: row.fee_amount ? (row.fee_amount + " " + (row.fee_asset ?? "")).trim() : "-",
@@ -190,7 +193,7 @@ export default async function OrdersPage({ params }: { params: Promise<{ locale:
               ]}
               rows={accountSnapshots.map((row, index) => ({
                 id: row.exchange + "-" + index,
-                capturedAt: row.captured_at,
+                capturedAt: formatTaipeiDateTime(row.captured_at, lang),
                 exchange: row.exchange,
                 detail: pickText(lang, "手续费 " + row.fees_paid + " | 资金费 " + row.funding_total, "Fees " + row.fees_paid + " | Funding " + row.funding_total),
               }))}

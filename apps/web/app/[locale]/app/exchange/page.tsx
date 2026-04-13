@@ -20,6 +20,7 @@ type ExchangePageProps = {
 
 type ExchangeAccountSnapshot = {
   api_key_masked: string;
+  binding_state: string;
   connection_status: string;
   sync_status: string;
   selected_markets: string[];
@@ -62,8 +63,12 @@ export default async function ExchangePage({ params, searchParams }: ExchangePag
   const testResult = readExchangeTestResult(cookieStore);
   const snapshot = testResult?.account ?? account?.account ?? null;
   const positionMode = snapshot ? (snapshot.validation.hedge_mode_ok ? "hedge" : "one-way") : "hedge";
-  const selectedMarkets = snapshot?.selected_markets?.length ? snapshot.selected_markets : ["spot", "usdm", "coinm"];
-  const supportedScopes = selectedMarkets.map((value) => labelForMarket(lang, value));
+  const configuredMarkets = snapshot?.selected_markets ?? [];
+  const selectedMarkets = configuredMarkets.length > 0 ? configuredMarkets : ["spot", "usdm", "coinm"];
+  const hasSavedCredentialState = Boolean(snapshot && snapshot.binding_state !== "missing");
+  const supportedScopes = hasSavedCredentialState
+    ? (configuredMarkets.length > 0 ? configuredMarkets.map((value) => labelForMarket(lang, value)) : [pickText(lang, "待重新校验", "Needs re-validation")])
+    : [pickText(lang, "未配置", "Not configured")];
   const state = describeConnectionState(lang, snapshot);
 
   return (
@@ -166,8 +171,8 @@ export default async function ExchangePage({ params, searchParams }: ExchangePag
             </CardHeader>
             <CardBody>
               <ul className="text-list">
-                <li>{pickText(lang, "掩码 API Key", "Masked API key")}: {snapshot?.api_key_masked ?? pickText(lang, "尚未保存", "Not saved yet")}</li>
-                <li>{pickText(lang, "API Secret", "API secret")}: {snapshot ? "••••••••••••••••" : pickText(lang, "尚未保存", "Not saved yet")}</li>
+                <li>{pickText(lang, "掩码 API Key", "Masked API key")}: {(snapshot?.api_key_masked || (hasSavedCredentialState ? pickText(lang, "已保存，待恢复摘要", "Saved, summary pending") : "")) || pickText(lang, "尚未保存", "Not saved yet")}</li>
+                <li>{pickText(lang, "API Secret", "API secret")}: {hasSavedCredentialState ? "••••••••••••••••" : pickText(lang, "尚未保存", "Not saved yet")}</li>
                 <li>{pickText(lang, "连接状态", "Connection status")}: {state.label}</li>
                 <li>{pickText(lang, "支持范围", "Supported scopes")}: {supportedScopes.join(", ")}</li>
                 <li>{pickText(lang, "校验结果", "Validation posture")}: {state.detail}</li>
@@ -198,6 +203,7 @@ export default async function ExchangePage({ params, searchParams }: ExchangePag
       </Card>
       <DialogFrame
         description={pickText(lang, "如果对冲模式、余额或交易所过滤器不满足要求，策略预检必须明确报出失败原因。", "If hedge mode, balance, or exchange filters do not match runtime requirements, strategy pre-flight must fail fast with the exact reason.")}
+        lang={lang}
         title={pickText(lang, "交易级风险提醒", "Trading-critical warning")}
       />
     </>
@@ -205,10 +211,16 @@ export default async function ExchangePage({ params, searchParams }: ExchangePag
 }
 
 function describeConnectionState(lang: UiLanguage, snapshot: ExchangeAccountSnapshot | null) {
-  if (!snapshot?.api_key_masked) {
+  if (!snapshot || snapshot.binding_state === "missing") {
     return {
       label: pickText(lang, "尚未连接", "Not connected yet"),
       detail: pickText(lang, "尚未绑定", "Not connected yet"),
+    };
+  }
+  if (snapshot.binding_state === "partial") {
+    return {
+      label: pickText(lang, "已保存待恢复", "Saved, needs recovery"),
+      detail: pickText(lang, "凭证仍在系统里，但摘要记录不完整，请重新运行一次连接测试。", "The credentials are still saved, but the summary record is incomplete. Run the connection test again."),
     };
   }
   if (snapshot.connection_status === "healthy") {
@@ -230,7 +242,7 @@ function describeConnectionState(lang: UiLanguage, snapshot: ExchangeAccountSnap
 }
 
 function describeValidationValue(lang: UiLanguage, snapshot: ExchangeAccountSnapshot | null, value?: boolean) {
-  if (!snapshot?.api_key_masked) {
+  if (!snapshot || snapshot.binding_state === "missing") {
     return pickText(lang, "未配置", "Not configured");
   }
   return value ? pickText(lang, "是", "Yes") : pickText(lang, "否", "No");

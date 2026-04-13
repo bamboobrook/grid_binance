@@ -269,6 +269,62 @@ async fn profile_admin_access_granted_tracks_current_bearer_session() {
 }
 
 #[tokio::test]
+async fn profile_super_admin_access_grants_full_permissions() {
+    let db = SharedDb::ephemeral().expect("ephemeral db");
+    let app = app_with_shared_db(&db);
+
+    register_and_verify(&app, "super-admin@example.com", "pass1234").await;
+
+    let blocked_login = app
+        .clone()
+        .oneshot(login_request("super-admin@example.com", "pass1234", None))
+        .await
+        .unwrap();
+    assert_eq!(blocked_login.status(), StatusCode::UNAUTHORIZED);
+    assert_eq!(
+        response_json(blocked_login).await["error"],
+        "admin totp setup required"
+    );
+
+    let bootstrap = bootstrap_admin_totp(&app, "super-admin@example.com", "pass1234").await;
+    let totp_code = bootstrap["code"].as_str().expect("totp code").to_owned();
+
+    let admin_session = login_and_get_token(
+        &app,
+        "super-admin@example.com",
+        "pass1234",
+        Some(&totp_code),
+    )
+    .await;
+    let current_profile = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri("/profile")
+                .header("authorization", format!("Bearer {admin_session}"))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(current_profile.status(), StatusCode::OK);
+    let current_body = response_json(current_profile).await;
+    assert_eq!(current_body["admin_access_granted"], true);
+    assert_eq!(current_body["admin_role"], "super_admin");
+    assert_eq!(
+        current_body["admin_permissions"]["can_manage_memberships"],
+        true
+    );
+    assert_eq!(
+        current_body["admin_permissions"]["can_manage_templates"],
+        true
+    );
+    assert_eq!(current_body["admin_permissions"]["can_manage_system"], true);
+}
+
+#[tokio::test]
 async fn profile_requires_authenticated_session() {
     let response = app()
         .oneshot(
@@ -364,6 +420,53 @@ async fn totp_disable_rejects_session_email_mismatch() {
     assert_eq!(disabled.status(), StatusCode::FORBIDDEN);
 }
 
+#[tokio::test]
+async fn configured_admin_totp_disable_attempt_keeps_profile_totp_enabled() {
+    let db = SharedDb::ephemeral().expect("ephemeral db");
+    let app = app_with_shared_db(&db);
+
+    let _verification_code = register_and_verify(&app, "admin@example.com", "pass1234").await;
+    let bootstrap = bootstrap_admin_totp(&app, "admin@example.com", "pass1234").await;
+    let totp_code = bootstrap["code"].as_str().expect("totp code").to_owned();
+    let admin_session =
+        login_and_get_token(&app, "admin@example.com", "pass1234", Some(&totp_code)).await;
+
+    let disabled = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/security/totp/disable")
+                .header("authorization", format!("Bearer {admin_session}"))
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    json!({ "email": "admin@example.com" }).to_string(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(disabled.status(), StatusCode::FORBIDDEN);
+
+    let profile = app
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri("/profile")
+                .header("authorization", format!("Bearer {admin_session}"))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(profile.status(), StatusCode::OK);
+
+    let profile_body = response_json(profile).await;
+    assert_eq!(profile_body["totp_enabled"], true);
+    assert_eq!(profile_body["admin_totp_required"], true);
+    assert_eq!(profile_body["admin_access_granted"], true);
+}
+
 async fn register_and_verify(app: &axum::Router, email: &str, password: &str) -> String {
     let register = app
         .clone()
@@ -384,32 +487,33 @@ async fn register_and_verify(app: &axum::Router, email: &str, password: &str) ->
         .await
         .unwrap();
     assert_eq!(register.status(), StatusCode::CREATED);
-    let verification_code = response_json(register).await["verification_code"]
-        .as_str()
-        .expect("verification code")
-        .to_owned();
+    let register_body = response_json(register).await;
 
-    let verify = app
-        .clone()
-        .oneshot(
-            Request::builder()
-                .method("POST")
-                .uri("/auth/verify-email")
-                .header("content-type", "application/json")
-                .body(Body::from(
-                    json!({
-                        "email": email,
-                        "code": verification_code,
-                    })
-                    .to_string(),
-                ))
-                .unwrap(),
-        )
-        .await
-        .unwrap();
-    assert_eq!(verify.status(), StatusCode::OK);
+    if let Some(verification_code) = register_body["verification_code"].as_str() {
+        let verify = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/auth/verify-email")
+                    .header("content-type", "application/json")
+                    .body(Body::from(
+                        json!({
+                            "email": email,
+                            "code": verification_code,
+                        })
+                        .to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(verify.status(), StatusCode::OK);
 
-    verification_code
+        verification_code.to_owned()
+    } else {
+        "auto-verified".to_owned()
+    }
 }
 
 async fn login_and_get_token(

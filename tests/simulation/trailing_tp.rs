@@ -78,8 +78,11 @@ fn trailing_take_profit_uses_post_activation_high_and_taker_close() {
     assert_eq!(events.len(), 1);
     assert_eq!(events[0].event_type, "taker_trailing_take_profit");
     assert_eq!(events[0].price, Some(decimal(114, 0)));
-    assert_eq!(runtime.fills.len(), 2);
-    assert_eq!(runtime.positions.len(), 0);
+    assert_eq!(runtime.fills.len(), 1);
+    assert_eq!(runtime.positions.len(), 1);
+    assert!(runtime.orders.iter().any(|order| {
+        order.order_type == "Market" && order.status == "ClosingRequested"
+    }));
     assert_eq!(
         runtime.events.last().expect("final event").event_type,
         "taker_trailing_take_profit"

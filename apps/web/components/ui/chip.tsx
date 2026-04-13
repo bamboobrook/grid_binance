@@ -17,10 +17,10 @@ export function Chip({
         "inline-flex items-center justify-center px-2 py-0.5 rounded-[2px] text-[10px] font-bold uppercase tracking-widest border",
         {
           "bg-secondary/50 text-muted-foreground border-border/50": tone === "default",
-          "bg-blue-500/10 text-blue-400 border-blue-500/20": tone === "info",
-          "bg-emerald-500/10 text-emerald-400 border-emerald-500/20": tone === "success",
-          "bg-amber-500/10 text-amber-400 border-amber-500/20": tone === "warning",
-          "bg-red-500/10 text-red-400 border-red-500/20": tone === "danger",
+          "bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-500/10 dark:text-blue-300 dark:border-blue-500/20": tone === "info",
+          "bg-emerald-100 text-emerald-800 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300 dark:border-emerald-500/20": tone === "success",
+          "bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-500/10 dark:text-amber-300 dark:border-amber-500/20": tone === "warning",
+          "bg-red-100 text-red-800 border-red-200 dark:bg-red-500/10 dark:text-red-300 dark:border-red-500/20": tone === "danger",
         },
         className,
       )}

@@ -1,4 +1,5 @@
 use chrono::Utc;
+use rust_decimal::Decimal;
 use shared_binance::{BinanceClient, BinanceOrderRequest, BinanceOrderResponse};
 use shared_domain::strategy::{
     Strategy, StrategyMarket, StrategyMode, StrategyRuntimeOrder, StrategyRuntimePosition,
@@ -26,6 +27,12 @@ pub trait BinanceOrderGateway {
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct OrderQuantizationRules {
+    pub price_tick_size: Option<Decimal>,
+    pub quantity_step_size: Option<Decimal>,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct OrderSyncResult {
     pub submitted: usize,
     pub canceled: usize,
@@ -36,11 +43,39 @@ pub struct OrderSyncResult {
 pub fn sync_strategy_orders(
     strategy: &mut Strategy,
     gateway: &impl BinanceOrderGateway,
+    quantization: Option<&OrderQuantizationRules>,
 ) -> OrderSyncResult {
     let mut result = OrderSyncResult::default();
     match strategy.status {
         StrategyStatus::Running => {
             for order in &mut strategy.runtime.orders {
+                if order.status == "ClosingRequested" && order.exchange_order_id.is_none() {
+                    let (_, quantity) = quantize_order(order, quantization);
+                    let request = BinanceOrderRequest {
+                        market: market_scope(strategy.market).to_string(),
+                        symbol: strategy.symbol.clone(),
+                        side: order.side.to_ascii_uppercase(),
+                        order_type: "MARKET".to_string(),
+                        quantity,
+                        price: None,
+                        time_in_force: None,
+                        reduce_only: (!matches!(strategy.market, StrategyMarket::Spot))
+                            .then_some(true),
+                        position_side: position_side(strategy.mode, &order.side),
+                        client_order_id: Some(order.order_id.clone()),
+                    };
+                    match gateway.place_order(request) {
+                        Ok(response) => {
+                            order.exchange_order_id = Some(response.order_id);
+                            order.status = "Placed".to_string();
+                            result.submitted += 1;
+                        }
+                        Err(_) => {
+                            result.failed += 1;
+                        }
+                    }
+                    continue;
+                }
                 if order.status == "Placed" {
                     if let Some(exchange_order_id) = order.exchange_order_id.clone() {
                         match gateway.get_order(
@@ -64,13 +99,14 @@ pub fn sync_strategy_orders(
                 if order.status != "Working" || order.exchange_order_id.is_some() {
                     continue;
                 }
+                let (price, quantity) = quantize_order(order, quantization);
                 let request = BinanceOrderRequest {
                     market: market_scope(strategy.market).to_string(),
                     symbol: strategy.symbol.clone(),
                     side: order.side.to_ascii_uppercase(),
                     order_type: order.order_type.to_ascii_uppercase(),
-                    quantity: order.quantity.normalize().to_string(),
-                    price: order.price.map(|value| value.normalize().to_string()),
+                    quantity,
+                    price,
                     time_in_force: (order.order_type.eq_ignore_ascii_case("Limit"))
                         .then(|| "GTC".to_string()),
                     reduce_only: None,
@@ -200,12 +236,13 @@ fn submit_close_orders(
         {
             continue;
         }
+        let (_, quantity) = quantize_order(order, None);
         let request = BinanceOrderRequest {
             market: market_scope(market).to_string(),
             symbol: symbol.clone(),
             side: order.side.to_ascii_uppercase(),
             order_type: "MARKET".to_string(),
-            quantity: order.quantity.normalize().to_string(),
+            quantity,
             price: None,
             time_in_force: None,
             reduce_only: (!matches!(market, StrategyMarket::Spot)).then_some(true),
@@ -230,7 +267,10 @@ fn refresh_close_orders(
 ) {
     let mut filled_indices = Vec::new();
     for order in &mut strategy.runtime.orders {
-        if !is_close_order(order) || order.exchange_order_id.is_none() || order.status != "Placed" {
+        if !is_close_order(order)
+            || order.exchange_order_id.is_none()
+            || !matches!(order.status.as_str(), "Placed" | "PartiallyFilled")
+        {
             continue;
         }
         let exchange_order_id = order.exchange_order_id.clone();
@@ -247,6 +287,9 @@ fn refresh_close_orders(
                     if let Some(index) = close_order_index(&order.order_id) {
                         filled_indices.push(index);
                     }
+                } else if response.status.eq_ignore_ascii_case("PARTIALLY_FILLED") {
+                    order.status = "PartiallyFilled".to_string();
+                    result.refreshed += 1;
                 } else if response.status.eq_ignore_ascii_case("CANCELED") {
                     order.status = "ClosingRequested".to_string();
                     order.exchange_order_id = None;
@@ -265,11 +308,43 @@ fn refresh_close_orders(
     }
 }
 
+fn quantize_order(
+    order: &StrategyRuntimeOrder,
+    rules: Option<&OrderQuantizationRules>,
+) -> (Option<String>, String) {
+    let quantity = normalize_to_step(
+        order.quantity,
+        rules.and_then(|rules| rules.quantity_step_size),
+    )
+    .normalize()
+    .to_string();
+    let price = order.price.map(|price| {
+        normalize_to_step(price, rules.and_then(|rules| rules.price_tick_size))
+            .normalize()
+            .to_string()
+    });
+    (price, quantity)
+}
+
+fn normalize_to_step(value: Decimal, step: Option<Decimal>) -> Decimal {
+    let Some(step) = step.filter(|step| *step > Decimal::ZERO) else {
+        return value;
+    };
+    ((value / step).floor() * step).normalize()
+}
+
 fn finalize_stop_if_ready(strategy: &mut Strategy) {
     let has_pending_close = strategy.runtime.orders.iter().any(|order| {
-        is_close_order(order) && matches!(order.status.as_str(), "ClosingRequested" | "Placed")
+        is_close_order(order)
+            && matches!(
+                order.status.as_str(),
+                "ClosingRequested" | "Placed" | "PartiallyFilled"
+            )
     });
     if strategy.runtime.positions.is_empty() && !has_pending_close {
+        if pending_rebuild_after_stop(strategy) {
+            return;
+        }
         strategy.status = StrategyStatus::Stopped;
         strategy
             .runtime
@@ -285,6 +360,31 @@ fn finalize_stop_if_ready(strategy: &mut Strategy) {
 
 fn is_close_order(order: &StrategyRuntimeOrder) -> bool {
     order.order_id.contains("-stop-close-")
+}
+
+fn pending_rebuild_after_stop(strategy: &Strategy) -> bool {
+    let reset_index = strategy
+        .runtime
+        .events
+        .iter()
+        .rposition(|event| {
+            matches!(
+                event.event_type.as_str(),
+                "strategy_started" | "strategy_resumed" | "strategy_rebuilt"
+            )
+        })
+        .unwrap_or(0);
+    strategy
+        .runtime
+        .events
+        .iter()
+        .skip(reset_index)
+        .rev()
+        .find(|event| {
+            event.event_type.starts_with("overall_take_profit")
+                || event.event_type.starts_with("overall_stop_loss")
+        })
+        .is_some_and(|event| event.event_type.ends_with("_rebuild"))
 }
 
 fn close_order_id(strategy_id: &str, index: usize) -> String {

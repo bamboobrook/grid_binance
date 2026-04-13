@@ -1824,6 +1824,229 @@ impl SharedDb {
         }
     }
 
+    pub fn mark_sweep_transfer_submitted_with_audit(
+        &self,
+        sweep_job_id: u64,
+        from_address: &str,
+        tx_hash: &str,
+        submitted_at: DateTime<Utc>,
+        audit: &AuditLogRecord,
+    ) -> Result<bool, SharedDbError> {
+        match &self.backend {
+            SharedDbBackend::Runtime { .. } => {
+                let repo = self.billing_repo();
+                let from_address = from_address.to_owned();
+                let tx_hash = tx_hash.to_owned();
+                let audit = audit.clone();
+                Self::block_on(async move {
+                    repo.mark_sweep_transfer_submitted_with_audit(
+                        sweep_job_id,
+                        &from_address,
+                        &tx_hash,
+                        submitted_at,
+                        &audit,
+                    )
+                    .await
+                })
+            }
+            SharedDbBackend::Ephemeral(state) => mutate_ephemeral_atomically(state, |state| {
+                let Some(job) = state.sweep_jobs.get_mut(&sweep_job_id) else {
+                    return Ok(false);
+                };
+                let Some(transfer) = job.transfers.iter_mut().find(|transfer| {
+                    transfer.from_address == from_address && transfer.status == "pending"
+                }) else {
+                    return Ok(false);
+                };
+                transfer.status = "submitted".to_string();
+                transfer.tx_hash = Some(tx_hash.to_string());
+                transfer.submitted_at = Some(submitted_at);
+                transfer.failed_at = None;
+                transfer.error_message = None;
+                state.audit_logs.push(audit.clone());
+                Ok(true)
+            }),
+        }
+    }
+
+    pub fn mark_sweep_transfer_failed_with_audit(
+        &self,
+        sweep_job_id: u64,
+        from_address: &str,
+        failed_at: DateTime<Utc>,
+        error_message: &str,
+        audit: &AuditLogRecord,
+    ) -> Result<bool, SharedDbError> {
+        match &self.backend {
+            SharedDbBackend::Runtime { .. } => {
+                let repo = self.billing_repo();
+                let from_address = from_address.to_owned();
+                let error_message = error_message.to_owned();
+                let audit = audit.clone();
+                Self::block_on(async move {
+                    repo.mark_sweep_transfer_failed_with_audit(
+                        sweep_job_id,
+                        &from_address,
+                        failed_at,
+                        &error_message,
+                        &audit,
+                    )
+                    .await
+                })
+            }
+            SharedDbBackend::Ephemeral(state) => mutate_ephemeral_atomically(state, |state| {
+                let Some(job) = state.sweep_jobs.get_mut(&sweep_job_id) else {
+                    return Ok(false);
+                };
+                let Some(transfer) = job.transfers.iter_mut().find(|transfer| {
+                    transfer.from_address == from_address
+                        && matches!(transfer.status.as_str(), "pending" | "submitted")
+                }) else {
+                    return Ok(false);
+                };
+                transfer.status = "failed".to_string();
+                transfer.failed_at = Some(failed_at);
+                transfer.error_message = Some(error_message.to_string());
+                state.audit_logs.push(audit.clone());
+                Ok(true)
+            }),
+        }
+    }
+
+    pub fn mark_sweep_transfer_confirmed_with_audit(
+        &self,
+        sweep_job_id: u64,
+        from_address: &str,
+        confirmed_at: DateTime<Utc>,
+        audit: &AuditLogRecord,
+    ) -> Result<bool, SharedDbError> {
+        match &self.backend {
+            SharedDbBackend::Runtime { .. } => {
+                let repo = self.billing_repo();
+                let from_address = from_address.to_owned();
+                let audit = audit.clone();
+                Self::block_on(async move {
+                    repo.mark_sweep_transfer_confirmed_with_audit(
+                        sweep_job_id,
+                        &from_address,
+                        confirmed_at,
+                        &audit,
+                    )
+                    .await
+                })
+            }
+            SharedDbBackend::Ephemeral(state) => mutate_ephemeral_atomically(state, |state| {
+                let Some(job) = state.sweep_jobs.get_mut(&sweep_job_id) else {
+                    return Ok(false);
+                };
+                let Some(transfer) = job.transfers.iter_mut().find(|transfer| {
+                    transfer.from_address == from_address && transfer.status == "submitted"
+                }) else {
+                    return Ok(false);
+                };
+                transfer.status = "confirmed".to_string();
+                transfer.confirmed_at = Some(confirmed_at);
+                state.audit_logs.push(audit.clone());
+                Ok(true)
+            }),
+        }
+    }
+
+    pub fn mark_sweep_job_submitted_with_audit(
+        &self,
+        sweep_job_id: u64,
+        submitted_at: DateTime<Utc>,
+        audit: &AuditLogRecord,
+    ) -> Result<bool, SharedDbError> {
+        match &self.backend {
+            SharedDbBackend::Runtime { .. } => {
+                let repo = self.billing_repo();
+                let audit = audit.clone();
+                Self::block_on(async move {
+                    repo.mark_sweep_job_submitted_with_audit(sweep_job_id, submitted_at, &audit)
+                        .await
+                })
+            }
+            SharedDbBackend::Ephemeral(state) => mutate_ephemeral_atomically(state, |state| {
+                let Some(job) = state.sweep_jobs.get_mut(&sweep_job_id) else {
+                    return Ok(false);
+                };
+                if job.status != "submitting" {
+                    return Ok(false);
+                }
+                job.status = "submitted".to_string();
+                job.submitted_at = Some(submitted_at);
+                job.failed_at = None;
+                job.last_error = None;
+                state.audit_logs.push(audit.clone());
+                Ok(true)
+            }),
+        }
+    }
+
+    pub fn mark_sweep_job_failed_with_audit(
+        &self,
+        sweep_job_id: u64,
+        failed_at: DateTime<Utc>,
+        last_error: &str,
+        audit: &AuditLogRecord,
+    ) -> Result<bool, SharedDbError> {
+        match &self.backend {
+            SharedDbBackend::Runtime { .. } => {
+                let repo = self.billing_repo();
+                let last_error = last_error.to_owned();
+                let audit = audit.clone();
+                Self::block_on(async move {
+                    repo.mark_sweep_job_failed_with_audit(
+                        sweep_job_id,
+                        failed_at,
+                        &last_error,
+                        &audit,
+                    )
+                    .await
+                })
+            }
+            SharedDbBackend::Ephemeral(state) => mutate_ephemeral_atomically(state, |state| {
+                let Some(job) = state.sweep_jobs.get_mut(&sweep_job_id) else {
+                    return Ok(false);
+                };
+                job.status = "failed".to_string();
+                job.failed_at = Some(failed_at);
+                job.last_error = Some(last_error.to_string());
+                state.audit_logs.push(audit.clone());
+                Ok(true)
+            }),
+        }
+    }
+
+    pub fn mark_sweep_job_confirmed_with_audit(
+        &self,
+        sweep_job_id: u64,
+        completed_at: DateTime<Utc>,
+        audit: &AuditLogRecord,
+    ) -> Result<bool, SharedDbError> {
+        match &self.backend {
+            SharedDbBackend::Runtime { .. } => {
+                let repo = self.billing_repo();
+                let audit = audit.clone();
+                Self::block_on(async move {
+                    repo.mark_sweep_job_confirmed_with_audit(sweep_job_id, completed_at, &audit)
+                        .await
+                })
+            }
+            SharedDbBackend::Ephemeral(state) => mutate_ephemeral_atomically(state, |state| {
+                let Some(job) = state.sweep_jobs.get_mut(&sweep_job_id) else {
+                    return Ok(false);
+                };
+                job.status = "confirmed".to_string();
+                job.completed_at = Some(completed_at);
+                job.last_error = None;
+                state.audit_logs.push(audit.clone());
+                Ok(true)
+            }),
+        }
+    }
+
     pub fn record_seen_transfer(
         &self,
         tx_hash: &str,
@@ -2785,8 +3008,8 @@ mod tests {
     use chrono::{TimeZone, Utc};
     use serde_json::json;
     use shared_domain::strategy::{
-        GridGeneration, GridLevel, PostTriggerAction, Strategy, StrategyMarket, StrategyMode,
-        StrategyRevision, StrategyRuntime, StrategyStatus,
+        GridGeneration, GridLevel, PostTriggerAction, Strategy, StrategyAmountMode,
+        StrategyMarket, StrategyMode, StrategyRevision, StrategyRuntime, StrategyStatus,
     };
 
     #[test]
@@ -2854,6 +3077,9 @@ mod tests {
                     take_profit_bps: 120,
                     trailing_bps: None,
                 }],
+                amount_mode: StrategyAmountMode::Quote,
+                futures_margin_mode: None,
+                leverage: None,
                 overall_take_profit_bps: None,
                 overall_stop_loss_bps: None,
                 post_trigger_action: PostTriggerAction::Stop,

@@ -13,13 +13,9 @@ export async function registerViaPage(
   await page.getByLabel("Email").fill(email);
   await page.getByLabel("Password").fill(password);
   await page.getByRole("button", { name: "Create account" }).click();
-  await expect(page).toHaveURL(/\/verify-email\?/);
-  await expect(page.getByRole("heading", { name: "Verify Email" })).toBeVisible();
-  const cookies = await page.context().cookies();
-  const verificationCode = cookies.find((cookie) => cookie.name === "pending_verify_code")?.value ?? "";
-  await page.getByLabel("Verification code").fill(verificationCode);
-  await page.getByRole("button", { name: "Verify email" }).click();
   await expect(page).toHaveURL(/\/login\?/);
+  await expect(page.getByText("Account created", { exact: false })).toBeVisible();
+  await expect(page.getByLabel("Email")).toHaveValue(email);
   await loginViaPage(page, email, password);
 }
 

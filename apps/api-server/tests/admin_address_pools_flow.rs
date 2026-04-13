@@ -6,7 +6,7 @@ use axum::{
 use chrono::{DateTime, Utc};
 use serde_json::{json, Value};
 
-use shared_db::{DepositTransactionRecord, SharedDb};
+use shared_db::{AuditLogRecord, DepositTransactionRecord, SharedDb};
 use std::{
     fs,
     net::TcpListener,
@@ -19,7 +19,7 @@ use tower::ServiceExt;
 
 mod support;
 
-use support::{login_and_get_token, register_and_login, register_and_verify};
+use support::{register_and_login, register_and_verify};
 
 #[tokio::test]
 async fn operator_admin_cannot_update_plan_config_and_existing_defaults_remain_in_effect() {
@@ -252,7 +252,95 @@ async fn operator_admin_cannot_mutate_address_pools_but_can_review_current_pool_
 }
 
 #[tokio::test]
+async fn pool_backed_sweep_failures_write_transfer_and_job_audit_logs() {
+    let db = SharedDb::ephemeral().expect("db");
+    let app = app_with_state(AppState::from_shared_db(db.clone()).expect("state"));
+    let super_admin_token =
+        register_privileged_admin_and_login(&app, "super-admin@example.com").await;
 
+    let created = create_sweep_job(
+        &app,
+        &super_admin_token,
+        json!({
+            "chain": "BSC",
+            "asset": "USDT",
+            "treasury_address": "bsc-treasury-1",
+            "requested_at": "2026-04-01T00:14:00Z",
+            "transfers": [
+                {
+                    "from_address": "bsc-addr-1",
+                    "amount": "20.00000000"
+                }
+            ]
+        }),
+    )
+    .await;
+    assert_eq!(created.status(), StatusCode::CREATED);
+    let created_body = response_json(created).await;
+    let sweep_job_id = created_body["sweep_job_id"].as_u64().expect("sweep job id");
+
+    assert!(db
+        .mark_sweep_job_submitting(sweep_job_id)
+        .expect("mark sweep job submitting"));
+    let failed_at = parse_time("2026-04-01T00:15:00Z");
+    assert!(db
+        .mark_sweep_transfer_failed_with_audit(
+            sweep_job_id,
+            "bsc-addr-1",
+            failed_at,
+            "executor offline",
+            &sweep_transition_audit(
+                "treasury.sweep_transfer_failed",
+                "sweep_transfer",
+                &format!("{sweep_job_id}:bsc-addr-1"),
+                failed_at,
+                json!({
+                    "chain": "BSC",
+                    "asset": "USDT",
+                    "from_address": "bsc-addr-1",
+                    "status": "failed",
+                    "error_message": "executor offline",
+                }),
+            ),
+        )
+        .expect("mark sweep transfer failed with audit"));
+    assert!(db
+        .mark_sweep_job_failed_with_audit(
+            sweep_job_id,
+            failed_at,
+            "executor offline",
+            &sweep_transition_audit(
+                "treasury.sweep_job_failed",
+                "sweep_job",
+                &sweep_job_id.to_string(),
+                failed_at,
+                json!({
+                    "chain": "BSC",
+                    "asset": "USDT",
+                    "status": "failed",
+                    "last_error": "executor offline",
+                }),
+            ),
+        )
+        .expect("mark sweep job failed with audit"));
+
+    let audit_logs = db.list_audit_logs().expect("audit logs");
+    assert!(audit_logs
+        .iter()
+        .any(|record| record.action == "treasury.sweep_requested"));
+    assert!(audit_logs.iter().any(|record| {
+        record.action == "treasury.sweep_transfer_failed"
+            && record.actor_email == "billing-chain-listener"
+            && record.payload["error_message"] == "executor offline"
+    }));
+    assert!(audit_logs.iter().any(|record| {
+        record.action == "treasury.sweep_job_failed"
+            && record.target_id == sweep_job_id.to_string()
+            && record.payload["last_error"] == "executor offline"
+    }));
+}
+
+#[tokio::test]
 async fn super_admin_plan_and_address_pool_updates_fail_when_audit_write_fails() {
     let server = ApiServerHarness::start("address-pool-audit");
     let super_admin_token =
@@ -515,6 +603,7 @@ async fn bootstrap_admin_totp(app: &axum::Router, email: &str, password: &str) -
     response_json(response).await
 }
 
+#[allow(dead_code)]
 async fn enable_totp(app: &axum::Router, email: &str, session_token: &str) -> Value {
     let response = app
         .clone()
@@ -631,6 +720,25 @@ async fn list_address_pools(app: &axum::Router, session_token: &str) -> axum::re
         .unwrap()
 }
 
+async fn create_sweep_job(
+    app: &axum::Router,
+    session_token: &str,
+    payload: Value,
+) -> axum::response::Response {
+    app.clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/admin/sweeps")
+                .header("authorization", format!("Bearer {session_token}"))
+                .header("content-type", "application/json")
+                .body(Body::from(payload.to_string()))
+                .unwrap(),
+        )
+        .await
+        .unwrap()
+}
+
 async fn create_order(
     app: &axum::Router,
     session_token: &str,
@@ -709,6 +817,23 @@ async fn response_json(response: axum::response::Response) -> Value {
         .await
         .expect("response body");
     serde_json::from_slice(&bytes).expect("valid json")
+}
+
+fn sweep_transition_audit(
+    action: &str,
+    target_type: &str,
+    target_id: &str,
+    created_at: DateTime<Utc>,
+    payload: Value,
+) -> AuditLogRecord {
+    AuditLogRecord {
+        actor_email: "billing-chain-listener".to_string(),
+        action: action.to_string(),
+        target_type: target_type.to_string(),
+        target_id: target_id.to_string(),
+        payload,
+        created_at,
+    }
 }
 
 struct ApiServerHarness {
@@ -790,39 +915,6 @@ impl Drop for ApiServerHarness {
         let _ = self.child.kill();
         let _ = self.child.wait();
     }
-}
-
-fn register_and_login_via_http(server: &ApiServerHarness, email: &str, password: &str) -> String {
-    let (register_status, register_body) = http_json(
-        "POST",
-        &format!("{}/auth/register", server.base_url()),
-        None,
-        Some(json!({ "email": email, "password": password })),
-    );
-    assert_eq!(register_status, StatusCode::CREATED.as_u16());
-    let verification_code = register_body["verification_code"]
-        .as_str()
-        .expect("verification code");
-
-    let (verify_status, _) = http_json(
-        "POST",
-        &format!("{}/auth/verify-email", server.base_url()),
-        None,
-        Some(json!({ "email": email, "code": verification_code })),
-    );
-    assert_eq!(verify_status, StatusCode::OK.as_u16());
-
-    let (login_status, login_body) = http_json(
-        "POST",
-        &format!("{}/auth/login", server.base_url()),
-        None,
-        Some(json!({ "email": email, "password": password })),
-    );
-    assert_eq!(login_status, StatusCode::OK.as_u16());
-    login_body["session_token"]
-        .as_str()
-        .expect("session token")
-        .to_owned()
 }
 
 fn register_and_verify_via_http(server: &ApiServerHarness, email: &str, password: &str) {

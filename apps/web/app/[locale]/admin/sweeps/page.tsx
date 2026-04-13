@@ -12,6 +12,7 @@ import {
   getCurrentAdminProfile,
 } from "@/lib/api/admin-product-state";
 import { pickText, resolveUiLanguageFromRoute, UI_LANGUAGE_COOKIE } from "@/lib/ui/preferences";
+import { formatTaipeiDateTime } from "@/lib/ui/time";
 
 type PageProps = {
   params: Promise<{ locale: string }>;
@@ -102,9 +103,9 @@ export default async function AdminSweepsPage({ params, searchParams }: PageProp
               id: String(item.sweep_job_id),
               chain: item.chain + " / " + item.asset,
               lifecycle: item.failed_at
-                ? pickText(lang, "失败时间 " + item.failed_at.slice(0, 19).replace("T", " ") + "，原因：" + (item.last_error ?? "无错误详情"), "Failed at " + item.failed_at.slice(0, 19).replace("T", " ") + ", error: " + (item.last_error ?? "no error detail"))
+                ? pickText(lang, "失败时间 " + formatTaipeiDateTime(item.failed_at, lang) + "，原因：" + (item.last_error ?? "无错误详情"), "Failed at " + formatTaipeiDateTime(item.failed_at, lang) + ", error: " + (item.last_error ?? "no error detail"))
                 : item.submitted_at
-                  ? pickText(lang, "提交时间 " + item.submitted_at.slice(0, 19).replace("T", " ") + "，转账数 " + String(item.transfer_count), "Submitted at " + item.submitted_at.slice(0, 19).replace("T", " ") + ", transfers " + String(item.transfer_count))
+                  ? pickText(lang, "提交时间 " + formatTaipeiDateTime(item.submitted_at, lang) + "，转账数 " + String(item.transfer_count), "Submitted at " + formatTaipeiDateTime(item.submitted_at, lang) + ", transfers " + String(item.transfer_count))
                   : pickText(lang, String(item.transfer_count) + " 笔待转账", String(item.transfer_count) + " pending transfers"),
               status: item.status,
               treasury: item.treasury_address,

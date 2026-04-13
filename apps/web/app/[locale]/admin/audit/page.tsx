@@ -6,6 +6,7 @@ import { Card, CardBody, CardDescription, CardHeader, CardTitle } from "@/compon
 import { DataTable } from "@/components/ui/table";
 import { getAdminAuditData, getCurrentAdminProfile } from "@/lib/api/admin-product-state";
 import { pickText, resolveUiLanguageFromRoute, UI_LANGUAGE_COOKIE, type UiLanguage } from "@/lib/ui/preferences";
+import { formatTaipeiDateTime } from "@/lib/ui/time";
 
 type PageProps = {
   params: Promise<{ locale: string }>;
@@ -86,7 +87,7 @@ export default async function AdminAuditPage({ params }: PageProps) {
                   id: item.action + String(index),
                   session: sessionSummary(lang, item.payload),
                   target: item.target_type + ":" + item.target_id,
-                  time: item.created_at.replace("T", " ").slice(0, 16),
+                  time: formatTaipeiDateTime(item.created_at, lang),
                 }))}
               />
               </div>

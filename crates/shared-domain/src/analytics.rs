@@ -18,6 +18,7 @@ pub struct TradeFillInput {
     pub fee: Decimal,
     #[serde(with = "rust_decimal::serde::str")]
     pub funding: Decimal,
+    pub is_short: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -55,6 +56,14 @@ pub struct StrategyProfitSummary {
     pub position_quantity: Decimal,
     #[serde(with = "rust_decimal::serde::str")]
     pub average_entry_price: Decimal,
+    #[serde(with = "rust_decimal::serde::str")]
+    pub long_position_quantity: Decimal,
+    #[serde(with = "rust_decimal::serde::str")]
+    pub long_average_entry_price: Decimal,
+    #[serde(with = "rust_decimal::serde::str")]
+    pub short_position_quantity: Decimal,
+    #[serde(with = "rust_decimal::serde::str")]
+    pub short_average_entry_price: Decimal,
     #[serde(with = "rust_decimal::serde::str")]
     pub realized_pnl: Decimal,
     #[serde(with = "rust_decimal::serde::str")]

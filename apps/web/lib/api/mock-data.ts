@@ -120,11 +120,12 @@ function buildUserNav(lang: UiLanguage): NavItem[] {
   return [
     { href: "/app/dashboard", label: pickText(lang, "总览", "Dashboard") },
     { href: "/app/exchange", label: pickText(lang, "交易所", "Exchange") },
-    { href: "/app/strategies", label: pickText(lang, "策略", "Strategies"), badge: "8" },
+    { href: "/app/notifications", label: pickText(lang, "通知", "Notifications") },
+    { href: "/app/strategies", label: pickText(lang, "策略", "Strategies") },
     { href: "/app/orders", label: pickText(lang, "订单", "Orders") },
     { href: "/app/analytics", label: pickText(lang, "统计", "Analytics") },
     { href: "/app/billing", label: pickText(lang, "会员中心", "Membership Center") },
-    { href: "/app/telegram", label: pickText(lang, "Telegram", "Telegram"), badge: "3" },
+    { href: "/app/telegram", label: pickText(lang, "Telegram", "Telegram") },
     { href: "/app/security", label: pickText(lang, "安全", "Security") },
     { href: "/app/help", label: pickText(lang, "帮助", "Help") },
   ];
@@ -150,24 +151,17 @@ export function buildUserShellSnapshot(lang: UiLanguage): UserShellSnapshot {
     title: pickText(lang, "交易工作台", "Trading workspace shell"),
     description: pickText(lang, "所有用户页面共享导航、会员可见性和运行告警入口。", "Shared navigation, membership visibility, and runtime warning surfaces across all user pages."),
     identity: {
-      name: "Luna Chen",
-      role: pickText(lang, "已验证会员", "Verified member"),
-      context: pickText(lang, "套餐将在 13 天后续费，币安合约账号当前仍为双向持仓模式。", "Plan renews in 13 days. Binance futures account remains in hedge mode."),
+      name: pickText(lang, "账户会话", "Account session"),
+      role: pickText(lang, "待同步", "Pending sync"),
+      context: pickText(lang, "会员、交易所和通知状态会在登录后按真实数据加载。", "Membership, exchange, and notification status load from live account data after sign-in."),
     },
     nav: buildUserNav(lang),
     quickStats: [
-      { label: pickText(lang, "净收益", "Net PnL"), value: "+1,284.20 USDT" },
-      { label: pickText(lang, "运行中", "Running"), value: pickText(lang, "5 个策略", "5 strategies") },
-      { label: pickText(lang, "宽限期", "Grace"), value: pickText(lang, "未触发", "Inactive") },
+      { label: pickText(lang, "净收益", "Net PnL"), value: "-" },
+      { label: pickText(lang, "运行中", "Running"), value: pickText(lang, "等待加载", "Loading") },
+      { label: pickText(lang, "会员状态", "Membership Status"), value: pickText(lang, "待同步", "Pending sync") },
     ],
-    banners: [
-      {
-        tone: "warning",
-        title: pickText(lang, "续费窗口即将到来", "Renewal window approaching"),
-        description: pickText(lang, "会员过期后会进入 48 小时宽限期，只有在该窗口内已运行策略才能继续。", "Membership enters a 48-hour grace period after expiry. Existing running strategies may continue only during that window."),
-        action: { href: "/app/billing", label: pickText(lang, "打开会员中心", "Open membership center") },
-      },
-    ],
+    banners: [],
   };
 }
 
@@ -221,7 +215,7 @@ export const userDashboardSnapshot = {
   tabs: [
     { href: "/app/dashboard", label: "Overview" },
     { href: "/app/orders", label: "Orders" },
-    { href: "/app/strategies", label: "Strategies", badge: "8" }
+    { href: "/app/strategies", label: "Strategies" }
   ],
   metrics: [
     { label: "Wallet balance", value: "18,420 USDT", detail: "Spot + futures + locked billing reserves" },

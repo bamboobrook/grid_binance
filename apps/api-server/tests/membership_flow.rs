@@ -18,7 +18,7 @@ use tower::ServiceExt;
 
 mod support;
 
-use support::{login_and_get_token, register_and_login, register_and_verify};
+use support::{register_and_login, register_and_verify};
 
 #[tokio::test]
 async fn supports_all_three_chains_and_stablecoin_pricing_rules() {
@@ -1184,6 +1184,7 @@ async fn bootstrap_admin_totp(app: &axum::Router, email: &str, password: &str) -
     response_json(response).await
 }
 
+#[allow(dead_code)]
 async fn enable_totp(app: &axum::Router, email: &str, session_token: &str) -> Value {
     let response = app
         .clone()

@@ -20,7 +20,7 @@ const SUPPORTED_PRICE_MATRIX = SUPPORTED_CHAINS.flatMap((chain) =>
 
 type PageProps = {
   params: Promise<{ locale: string }>;
-  searchParams?: Promise<{ action?: string; planError?: string; planSaved?: string; target?: string }>;
+  searchParams?: Promise<{ action?: string; plan?: string; planError?: string; planSaved?: string; target?: string }>;
 };
 
 function membershipStatusLabel(lang: UiLanguage, status: string) {
@@ -67,12 +67,13 @@ export default async function AdminMembershipsPage({ params, searchParams }: Pag
   const lang = resolveUiLanguageFromRoute(locale, cookieStore.get(UI_LANGUAGE_COOKIE)?.value);
   const targetEmail = typeof query.target === "string" ? query.target : "";
   const lastAction = typeof query.action === "string" ? query.action : "";
+  const selectedPlanCode = typeof query.plan === "string" ? query.plan : "";
   const planSaved = typeof query.planSaved === "string" ? query.planSaved : "";
   const planError = typeof query.planError === "string" ? query.planError : "";
   const updatedMembership = memberships.items.find((item) => item.email === targetEmail) ?? null;
   const canManage = profile.admin_permissions?.can_manage_memberships ?? false;
   const canManagePlans = profile.admin_permissions?.can_manage_plans ?? false;
-  const defaultPlan = plans.plans.find((plan) => plan.code === "monthly") ?? plans.plans[0] ?? null;
+  const defaultPlan = plans.plans.find((plan) => plan.code === selectedPlanCode) ?? plans.plans[0] ?? null;
   const activePlanCount = plans.plans.filter((plan) => plan.is_active).length;
   const riskCount = memberships.items.filter((item) => ["Grace", "Frozen", "Revoked"].includes(item.status)).length;
   const priceFor = (chain: string, asset: string) => defaultPlan?.prices.find((price) => price.chain === chain && price.asset === asset)?.amount ?? "";
@@ -99,7 +100,7 @@ export default async function AdminMembershipsPage({ params, searchParams }: Pag
       {planSaved ? <StatusBanner description={pickText(lang, "已保存计划：" + planSaved, "Saved plan: " + planSaved)} title={pickText(lang, "价格矩阵已保存", "Price Matrix Saved")} /> : null}
       {planError ? <StatusBanner description={planError} title={pickText(lang, "价格矩阵未保存", "Price Matrix Not Saved")} /> : null}
       <AppShellSection
-        description={pickText(lang, "值班席位同时处理会员生命周期与价格矩阵，但当前编辑面板默认加载 monthly 计划，其他计划以清单核对。", "The desk handles lifecycle and pricing, but the editor currently preloads the monthly plan while other plans remain visible in the snapshot table.")}
+        description={pickText(lang, "值班席位同时处理会员生命周期与价格矩阵；价格编辑始终绑定当前选中的计划。", "The desk handles lifecycle and pricing, and the editor always binds to the currently selected plan.")}
         eyebrow={pickText(lang, "会员生命周期", "Membership Lifecycle")}
         title={pickText(lang, "会员运营", "Membership Operations")}
       >
@@ -130,28 +131,40 @@ export default async function AdminMembershipsPage({ params, searchParams }: Pag
           <Card>
             <CardHeader>
               <CardTitle>{pickText(lang, "价格矩阵", "Price Matrix")}</CardTitle>
-              <CardDescription>{pickText(lang, "当前默认加载 monthly 计划进行维护，完整计划列表在下方核对。", "The editor currently targets the monthly plan by default; verify all plans in the table below.")}</CardDescription>
+              <CardDescription>{pickText(lang, "先选择一个计划，再编辑它的展示名称、时长和链上报价。", "Choose a plan first, then edit its name, duration, and on-chain prices.")}</CardDescription>
             </CardHeader>
             <CardBody>
               {canManagePlans ? (
-                <FormStack action="/api/admin/memberships" method="post">
-                  <input name="intent" type="hidden" value="save-plan" />
-                  <Field label={pickText(lang, "计划代码", "Plan Code")}>
-                    <Input defaultValue={defaultPlan?.code ?? "monthly"} name="code" />
-                  </Field>
-                  <Field label={pickText(lang, "展示名称", "Display Name")}>
-                    <Input defaultValue={defaultPlan?.name ?? "Monthly"} name="name" />
-                  </Field>
-                  <Field label={pickText(lang, "计划天数", "Duration Days")}>
-                    <Input defaultValue={String(defaultPlan?.duration_days ?? 30)} inputMode="numeric" name="durationDays" />
-                  </Field>
-                  {SUPPORTED_PRICE_MATRIX.map(({ chain, asset, fieldName }) => (
-                    <Field key={fieldName} label={pickText(lang, chain + " / " + asset + " 价格", chain + " / " + asset + " Price")}>
-                      <Input defaultValue={priceFor(chain, asset)} name={fieldName} />
+                <>
+                  <FormStack action={`/${locale}/admin/memberships`} className="mb-4" method="get">
+                    <Field label={pickText(lang, "当前计划", "Selected Plan")}>
+                      <select className="flex h-9 w-full rounded-sm border border-border bg-input px-3 py-1 text-sm shadow-sm" defaultValue={defaultPlan?.code ?? ""} name="plan">
+                        {plans.plans.map((plan) => (
+                          <option key={plan.code} value={plan.code}>{plan.code}</option>
+                        ))}
+                      </select>
                     </Field>
-                  ))}
-                  <Button type="submit">{pickText(lang, "保存价格矩阵", "Save Price Matrix")}</Button>
-                </FormStack>
+                    <Button type="submit">{pickText(lang, "加载计划", "Load Plan")}</Button>
+                  </FormStack>
+                  <FormStack action="/api/admin/memberships" method="post">
+                    <input name="intent" type="hidden" value="save-plan" />
+                    <Field label={pickText(lang, "计划代码", "Plan Code")}>
+                      <Input defaultValue={defaultPlan?.code ?? ""} name="code" />
+                    </Field>
+                    <Field label={pickText(lang, "展示名称", "Display Name")}>
+                      <Input defaultValue={defaultPlan?.name ?? ""} name="name" />
+                    </Field>
+                    <Field label={pickText(lang, "计划天数", "Duration Days")}>
+                      <Input defaultValue={String(defaultPlan?.duration_days ?? 30)} inputMode="numeric" name="durationDays" />
+                    </Field>
+                    {SUPPORTED_PRICE_MATRIX.map(({ chain, asset, fieldName }) => (
+                      <Field key={fieldName} label={pickText(lang, chain + " / " + asset + " 价格", chain + " / " + asset + " Price")}>
+                        <Input defaultValue={priceFor(chain, asset)} name={fieldName} />
+                      </Field>
+                    ))}
+                    <Button type="submit">{pickText(lang, "保存价格矩阵", "Save Price Matrix")}</Button>
+                  </FormStack>
+                </>
               ) : (
                 <p>{pickText(lang, "需要 super_admin 才能改价格矩阵；当前席位只展示价格快照。", "A super_admin session is required to change the price matrix.")}</p>
               )}
@@ -187,7 +200,7 @@ export default async function AdminMembershipsPage({ params, searchParams }: Pag
           <CardDescription>{pickText(lang, "展示全部计划的当前天数与链上报价，避免把当前能力夸大成“全计划都可直接编辑”。", "Shows all plans with duration and chain pricing so the desk does not overstate what is directly editable.")}</CardDescription>
         </CardHeader>
         <CardBody>
-          <div className="overflow-x-auto whitespace-nowrap min-w-full pb-4 rounded-lg">
+          <div className="overflow-x-auto min-w-full rounded-lg pb-4">
           <DataTable
             columns={[
               { key: "code", label: pickText(lang, "计划", "Plan") },
@@ -212,40 +225,39 @@ export default async function AdminMembershipsPage({ params, searchParams }: Pag
           <CardDescription>{pickText(lang, "显式展示生命周期状态和可执行动作。", "Lifecycle status and available desk actions remain explicit.")}</CardDescription>
         </CardHeader>
         <CardBody>
-          <div className="overflow-x-auto whitespace-nowrap min-w-full pb-4 rounded-lg">
+          <div className="overflow-x-auto min-w-full rounded-lg pb-4">
           <DataTable
             columns={membershipColumns}
             rows={memberships.items.map((item) => ({
               id: item.email,
               activeUntil: item.active_until?.slice(0, 10) ?? "-",
               actions: canManage ? (
-                <div>
-                  <FormStack action="/api/admin/memberships" method="post">
-                    <input name="email" type="hidden" value={item.email} />
-                    <Field label={pickText(lang, "延长天数", "Extend Days")}>
-                      <Input defaultValue="15" inputMode="numeric" name="durationDays" />
-                    </Field>
-                    <input name="action" type="hidden" value="extend" />
-                    <Button type="submit">{pickText(lang, "延长会员", "Extend Membership")}</Button>
-                  </FormStack>
-                  {item.status === "Frozen" ? (
+                <div className="min-w-[220px] space-y-3">
+                  <div className="rounded-xl border border-border bg-background px-3 py-3">
+                    <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                      {pickText(lang, "延长会员", "Extend membership")}
+                    </p>
+                    <FormStack action="/api/admin/memberships" className="gap-2" method="post">
+                      <input name="email" type="hidden" value={item.email} />
+                      <Field label={pickText(lang, "延长天数", "Extend Days")}>
+                        <Input defaultValue="15" inputMode="numeric" name="durationDays" />
+                      </Field>
+                      <input name="action" type="hidden" value="extend" />
+                      <Button type="submit">{pickText(lang, "延长会员", "Extend Membership")}</Button>
+                    </FormStack>
+                  </div>
+                  <div className="grid gap-2 md:grid-cols-2">
                     <FormStack action="/api/admin/memberships" method="post">
                       <input name="email" type="hidden" value={item.email} />
-                      <input name="action" type="hidden" value="unfreeze" />
-                      <Button type="submit">{pickText(lang, "解除冻结", "Unfreeze")}</Button>
+                      <input name="action" type="hidden" value={item.status === "Frozen" ? "unfreeze" : "freeze"} />
+                      <Button type="submit">{item.status === "Frozen" ? pickText(lang, "解除冻结", "Unfreeze") : pickText(lang, "冻结会员", "Freeze")}</Button>
                     </FormStack>
-                  ) : (
                     <FormStack action="/api/admin/memberships" method="post">
                       <input name="email" type="hidden" value={item.email} />
-                      <input name="action" type="hidden" value="freeze" />
-                      <Button type="submit">{pickText(lang, "冻结会员", "Freeze")}</Button>
+                      <input name="action" type="hidden" value="revoke" />
+                      <Button type="submit">{pickText(lang, "撤销会员", "Revoke")}</Button>
                     </FormStack>
-                  )}
-                  <FormStack action="/api/admin/memberships" method="post">
-                    <input name="email" type="hidden" value={item.email} />
-                    <input name="action" type="hidden" value="revoke" />
-                    <Button type="submit">{pickText(lang, "撤销会员", "Revoke")}</Button>
-                  </FormStack>
+                  </div>
                 </div>
               ) : null,
               email: item.email,

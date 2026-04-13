@@ -82,7 +82,7 @@ export default async function StrategyNewPage({ params, searchParams }: PageProp
   };
 
   return (
-    <div className="mx-auto flex h-full max-w-2xl flex-col gap-6 pb-12">
+    <div className="mx-auto flex h-full max-w-[1800px] flex-col gap-6 pb-12">
       {error ? <StatusBanner description={error} title={pickText(lang, "创建策略失败", "Strategy creation failed")} /> : null}
       <div className="flex items-center gap-3">
         <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-md shadow-primary/20">

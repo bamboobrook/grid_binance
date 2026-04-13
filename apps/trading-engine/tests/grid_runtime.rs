@@ -210,7 +210,7 @@ fn pause_resume_stop_and_rebuild_follow_runtime_lifecycle() {
 }
 
 #[test]
-fn runtime_rejects_unsupported_modes() {
+fn runtime_rejects_plan_mode_mismatch() {
     let plan = GridBuilder::custom(
         GridMode::FuturesShort,
         vec![decimal(90, 0), decimal(100, 0), decimal(110, 0)],
@@ -218,7 +218,7 @@ fn runtime_rejects_unsupported_modes() {
     .expect("custom grid should build");
 
     let config = GridRuntimeConfig {
-        mode: GridMode::FuturesShort,
+        mode: GridMode::SpotClassic,
         plan,
         quantity: decimal(1, 0),
         maker_take_profit: None,
@@ -230,6 +230,36 @@ fn runtime_rejects_unsupported_modes() {
     let result = GridRuntime::new(config);
 
     assert!(result.is_err());
+}
+
+#[test]
+fn runtime_accepts_required_sell_short_and_neutral_modes() {
+    for mode in [
+        GridMode::SpotSellOnly,
+        GridMode::FuturesShort,
+        GridMode::FuturesNeutral,
+    ] {
+        let plan = GridBuilder::custom(
+            mode,
+            vec![decimal(90, 0), decimal(100, 0), decimal(110, 0)],
+        )
+        .expect("custom grid should build");
+        let config = GridRuntimeConfig {
+            mode,
+            plan,
+            quantity: decimal(1, 0),
+            maker_take_profit: None,
+            trailing_take_profit: None,
+            overall_take_profit: None,
+            overall_stop_loss: None,
+        };
+
+        let runtime = GridRuntime::new(config);
+        assert!(
+            runtime.is_ok(),
+            "mode {mode:?} should be accepted by runtime"
+        );
+    }
 }
 
 #[test]

@@ -200,6 +200,8 @@ async fn bot_side_binding_and_expanded_notification_payloads_are_logged_durably(
     let inbox_body = response_json(inbox).await;
     let items = inbox_body["items"].as_array().expect("notification items");
     assert_eq!(items.len(), 7);
+    assert!(items[0]["created_at"].is_string());
+    assert!(items[0]["event"]["message"].is_string());
     assert_eq!(items[0]["event"]["kind"], "ApiCredentialsInvalidated");
     assert_eq!(items[1]["event"]["kind"], "GridFillExecuted");
     assert_eq!(items[2]["event"]["kind"], "FillProfitReported");

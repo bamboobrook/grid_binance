@@ -1,5 +1,6 @@
 import { cn } from "@/lib/utils";
 import type { ReactNode } from "react";
+import { pickText, resolveUiLanguage } from "@/lib/ui/preferences";
 
 export type DataTableColumn = {
   align?: "left" | "right" | "center";
@@ -22,11 +23,11 @@ export function DataTable({
   emptyMessage?: string;
   rows: readonly DataTableRow[];
 }) {
-  const resolvedEmptyMessage = emptyMessage ?? "No matching records.";
+  const resolvedEmptyMessage = emptyMessage ?? defaultEmptyMessage();
 
   return (
-    <div className="w-full overflow-x-auto rounded-sm border border-border bg-card">
-      <table className="w-full text-left text-sm">
+    <div className="ui-table__scroller w-full overflow-x-auto rounded-sm border border-border bg-card">
+      <table className="ui-table w-full text-left text-sm">
         {caption ? (
           <caption className="text-xs text-muted-foreground font-bold uppercase tracking-wider text-left p-4 pb-2">
             {caption}
@@ -48,7 +49,7 @@ export function DataTable({
             ))}
           </tr>
         </thead>
-        <tbody className="divide-y divide-slate-800/50">
+        <tbody className="divide-y divide-border">
           {rows.length === 0 ? (
             <tr>
               <td className="px-4 py-8 text-center text-xs text-muted-foreground" colSpan={columns.length}>
@@ -60,7 +61,7 @@ export function DataTable({
             <tr key={row.id} className="hover:bg-secondary/30 transition-colors">
               {columns.map((column) => (
                 <td 
-                  className={cn("px-4 py-3 text-xs text-foreground font-mono", {
+                  className={cn("px-4 py-3 text-sm text-foreground align-top", {
                     "text-right": column.align === "right",
                     "text-center": column.align === "center",
                   })} 
@@ -75,4 +76,11 @@ export function DataTable({
       </table>
     </div>
   );
+}
+
+function defaultEmptyMessage() {
+  const lang = typeof document !== "undefined"
+    ? resolveUiLanguage(document.documentElement.lang)
+    : "zh";
+  return pickText(lang, "暂无匹配记录。", "No matching records.");
 }

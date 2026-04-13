@@ -4,22 +4,35 @@ Use `/app/strategies/new` to create a draft before the first launch.
 
 ## Draft Flow
 
-1. Search the symbol with the fuzzy symbol search box.
+1. Search the symbol with the fuzzy symbol search box and click a result to lock it.
 2. Choose the market type and strategy mode.
-3. Pick a generation mode:
-   - Arithmetic for fixed percentage spacing around the reference price.
-   - Geometric for compounded spacing around the reference price.
-   - Fully custom when every grid will be edited manually.
-4. Choose the editor mode:
-   - Batch ladder builder for fast setup.
-   - Custom JSON for every-grid overrides.
+3. Pick the generation mode:
+   - Arithmetic for fixed-percentage spacing.
+   - Geometric for compounded spacing.
+   - Fully custom when every grid is edited manually.
+4. Pick the editor mode:
+   - Batch builder for fast ladder generation.
+   - Per-grid custom when you want to edit every level in the GUI.
 
-## Amount Mode
+## Reference Price
 
-- Amount mode lets you size each grid by quote capital or base asset size.
-- `Quote amount (USDT)` keeps every grid near the same USDT exposure.
-- `Base asset quantity` keeps every grid at the same coin quantity.
-- Batch mode converts the chosen amount mode into the real per-grid quantity saved in `levels_json`.
+- `Reference source` supports either manual price or current market price.
+- Manual mode uses the exact number you enter.
+- Current-price mode pulls the latest Binance ticker price before saving the draft.
+- When you use per-grid custom mode, the reference price becomes a helper for preview and row creation instead of overriding your manual rows.
+
+## Amount And Level Editing
+
+- `Quote amount (USDT)` keeps each grid near the same quote exposure.
+- `Base quantity` keeps each grid at the same asset quantity.
+- Spot classic and spot sell-only also need enough base-asset inventory for sell-side grids during pre-flight.
+- Per-grid custom mode lets you edit each row directly:
+  - entry price
+  - spacing versus the previous level
+  - per-grid amount
+  - grid take profit range
+  - optional trailing take profit
+- The page still serializes these rows into `levels_json` internally, but users no longer need to hand-edit JSON for normal usage.
 
 ## Batch Ladder Controls
 
@@ -28,18 +41,18 @@ Batch mode uses these fields:
 - `Reference price`
 - `Grid count`
 - `Batch spacing (%)`
-- `Batch take profit (%)`
+- `Grid take profit (%)`
 - `Trailing take profit (%)`
 
-Use batch mode when you want a quick ladder. Switch to custom JSON when you need to set every grid entry price, quantity, take-profit range, and trailing rule separately.
+Use batch mode when you want a quick ladder. Switch to per-grid custom when you need to edit each grid independently.
 
 ## Profit And Risk Controls
 
-- `Overall take profit (%)` closes the whole strategy when the total profit target is reached.
-- `Overall stop loss (%)` is optional.
+- `Overall take profit (%)` closes the whole strategy when the total active exposure reaches the configured profit target.
+- `Overall stop loss (%)` is optional. Leave it empty to disable it.
 - `Trailing take profit (%)` is optional.
 - When trailing take profit is enabled, the close is taker-style, so fees may be higher than maker-style limit take profit.
-- Trailing take profit must not exceed the grid take-profit range.
+- Trailing take profit must not exceed the corresponding grid take-profit range.
 
 ## Templates
 

@@ -11,6 +11,7 @@ import {
 } from "../../../../lib/auth";
 
 const PENDING_VERIFY_CODE_COOKIE = "pending_verify_code";
+const LEGACY_VERIFY_NOTICE = "legacy-only";
 
 export async function POST(request: Request) {
   const formData = await request.formData();
@@ -35,8 +36,11 @@ export async function POST(request: Request) {
     if (next) {
       url.searchParams.set("next", localizedPath(request, safeRedirectTarget(next, localizedAppPath(request, "/dashboard"))));
     }
+    url.searchParams.set("notice", LEGACY_VERIFY_NOTICE);
     url.searchParams.set("error", errorMessage(error));
-    return NextResponse.redirect(url, { status: 303 });
+    const response = NextResponse.redirect(url, { status: 303 });
+    response.cookies.delete(PENDING_VERIFY_CODE_COOKIE);
+    return response;
   }
 }
 
@@ -50,5 +54,5 @@ function errorMessage(error: unknown) {
     return error.message;
   }
 
-  return "verify email request failed";
+  return "legacy verification request failed";
 }

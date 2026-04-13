@@ -7,7 +7,9 @@ import { Card, CardBody, CardDescription, CardHeader, CardTitle } from "@/compon
 import { DialogFrame } from "@/components/ui/dialog";
 import { StatusBanner } from "@/components/ui/status-banner";
 import { DataTable } from "@/components/ui/table";
+import { describeMembershipStatus } from "@/lib/ui/domain-copy";
 import { pickText, type UiLanguage } from "@/lib/ui/preferences";
+import { formatTaipeiDateTime } from "@/lib/ui/time";
 
 const DEFAULT_AUTH_API_BASE_URL = "http://127.0.0.1:8080";
 
@@ -111,7 +113,7 @@ export default async function BillingPage({ params, searchParams }: PageProps) {
           </CardHeader>
           <CardBody>
             <ul className="text-list">
-              <li>{pickText(lang, "会员状态", "Membership status")}: {membership?.status ?? pickText(lang, "未知", "Unknown")}</li>
+              <li>{pickText(lang, "会员状态", "Membership status")}: {describeMembershipStatus(lang, membership?.status)}</li>
               <li>{pickText(lang, "续费叠加", "Renewal stacking")}: {pickText(lang, "允许", "Allowed")}</li>
               <li>{pickText(lang, "宽限期截止", "Grace period ends")}: {membership?.grace_until?.slice(0, 10) ?? pickText(lang, "暂无", "Unavailable")}</li>
               <li><Link href={`/${locale}/app/strategies`}>{pickText(lang, "前往策略工作台", "Open strategy workspace")}</Link></li>
@@ -139,7 +141,7 @@ export default async function BillingPage({ params, searchParams }: PageProps) {
                 order: "ORD-" + String(row.order_id).padStart(4, "0"),
                 chainToken: row.chain + " / " + row.asset,
                 details: row.address
-                  ? pickText(lang, "已分配地址：", "Assigned address: ") + row.address + " | " + pickText(lang, "锁定到期：", "Address lock expires: ") + (row.expires_at?.slice(0, 19).replace("T", " ") ?? pickText(lang, "处理中", "pending"))
+                  ? pickText(lang, "已分配地址：", "Assigned address: ") + row.address + " | " + pickText(lang, "锁定到期：", "Address lock expires: ") + formatTaipeiDateTime(row.expires_at, lang, { fallback: pickText(lang, "处理中", "pending") })
                   : pickText(lang, "排队序号：", "Queue position: ") + String(row.queue_position ?? pickText(lang, "处理中", "pending")) + " | " + pickText(lang, "等待分配地址", "Assigned address pending"),
                 amount: row.amount,
                 state: row.status,
@@ -149,6 +151,7 @@ export default async function BillingPage({ params, searchParams }: PageProps) {
         </Card>
         <DialogFrame
           description={pickText(lang, "支付金额必须完全一致。多转、少转或转错币种都会进入人工复核。", "Payment amount must match exactly. Overpayment, underpayment, or wrong token will require manual review before membership can be extended.")}
+          lang={lang}
           title={pickText(lang, "支付金额必须精确匹配", "Payment amount must match exactly")}
         />
       </div>

@@ -6,7 +6,7 @@ import { Card, CardBody, CardDescription, CardHeader, CardTitle } from "@/compon
 import { Button, Field, FormStack, Input } from "@/components/ui/form";
 import { StatusBanner } from "@/components/ui/status-banner";
 import { firstValue } from "@/lib/auth";
-import { pickText, resolveUiLanguage, UI_LANGUAGE_COOKIE } from "@/lib/ui/preferences";
+import { pickText, resolveUiLanguageFromRoute, UI_LANGUAGE_COOKIE } from "@/lib/ui/preferences";
 
 type PageProps = {
   params: Promise<{ locale: string }>;
@@ -28,7 +28,7 @@ export default async function AdminBootstrapPage({ params, searchParams }: PageP
   const email = firstValue(resolved.email) ?? "";
   const error = firstValue(resolved.error);
   const setup = firstValue(resolved.setup) === "ready";
-  const lang = resolveUiLanguage(cookieStore.get(UI_LANGUAGE_COOKIE)?.value);
+  const lang = resolveUiLanguageFromRoute(locale, cookieStore.get(UI_LANGUAGE_COOKIE)?.value);
   const secret = cookieStore.get(PENDING_ADMIN_TOTP_SECRET_COOKIE)?.value ?? "";
   const code = cookieStore.get(PENDING_ADMIN_TOTP_CODE_COOKIE)?.value ?? "";
   const bootstrapEmail = cookieStore.get(PENDING_ADMIN_TOTP_EMAIL_COOKIE)?.value ?? email;

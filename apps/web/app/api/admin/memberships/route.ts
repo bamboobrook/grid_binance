@@ -45,9 +45,9 @@ export async function POST(request: Request) {
     if (!response.ok) {
       const payload = await response.json().catch(() => null) as { error?: string } | null;
       const error = payload?.error ?? "plan pricing save failed";
-      return redirectTo(request, `/admin/memberships?planError=${encodeURIComponent(error)}`);
+      return redirectTo(request, `/admin/memberships?plan=${encodeURIComponent(code)}&planError=${encodeURIComponent(error)}`);
     }
-    return redirectTo(request, `/admin/memberships?planSaved=${encodeURIComponent(code)}`);
+    return redirectTo(request, `/admin/memberships?plan=${encodeURIComponent(code)}&planSaved=${encodeURIComponent(code)}`);
   }
 
   const email = readField(formData, "email");

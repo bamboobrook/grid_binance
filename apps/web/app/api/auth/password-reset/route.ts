@@ -5,10 +5,11 @@ import {
   authApiPost,
   localizedPublicPath,
   publicUrl,
+  shouldUseSecureCookie,
 } from "../../../../lib/auth";
 
 export async function POST(request: Request) {
-  const secureCookie = process.env.NODE_ENV === "production";
+  const secureCookie = shouldUseSecureCookie(request);
   const formData = await request.formData();
   const intent = readField(formData, "intent") || "request";
   const email = readField(formData, "email");

@@ -2,7 +2,11 @@ import type { ReactNode } from "react";
 import { cookies } from "next/headers";
 
 import { UserShell } from "@/components/shell/user-shell";
-import { getUserShellSnapshot } from "@/lib/api/server";
+import {
+  getUserExpiryNotification,
+  getUserShellSnapshot,
+} from "@/lib/api/server";
+import { localizeNotificationMessage, localizeNotificationTitle } from "@/lib/ui/domain-copy";
 import {
   resolveUiLanguageFromRoute,
   resolveUiTheme,
@@ -20,10 +24,19 @@ export default async function UserAppLayout({
   const [{ locale }, cookieStore] = await Promise.all([params, cookies()]);
   const lang = resolveUiLanguageFromRoute(locale, cookieStore.get(UI_LANGUAGE_COOKIE)?.value);
   const theme = resolveUiTheme(cookieStore.get(UI_THEME_COOKIE)?.value);
-  const snapshot = await getUserShellSnapshot(locale);
+  const [snapshot, expiryNotice] = await Promise.all([
+    getUserShellSnapshot(locale),
+    getUserExpiryNotification(),
+  ]);
+  const expiryReminder = expiryNotice
+    ? {
+        description: localizeNotificationMessage(lang, expiryNotice.event.kind, expiryNotice.event.message),
+        title: localizeNotificationTitle(lang, expiryNotice.event.kind, expiryNotice.event.title),
+      }
+    : null;
 
   return (
-    <UserShell lang={lang} locale={locale} snapshot={snapshot} theme={theme}>
+    <UserShell expiryReminder={expiryReminder} lang={lang} locale={locale} snapshot={snapshot} theme={theme}>
       {children}
     </UserShell>
   );

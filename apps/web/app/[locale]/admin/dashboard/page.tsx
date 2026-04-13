@@ -16,6 +16,7 @@ import {
   fetchAdminJson,
 } from "@/lib/api/admin-product-state";
 import { pickText, resolveUiLanguageFromRoute, UI_LANGUAGE_COOKIE, type UiLanguage } from "@/lib/ui/preferences";
+import { formatTaipeiDateTime } from "@/lib/ui/time";
 
 type PageProps = {
   params: Promise<{ locale: string }>;
@@ -265,7 +266,7 @@ export default async function AdminDashboardPage({ params }: PageProps) {
               rows={auditEvents.map((item, index) => ({
                 id: item.action + "-" + String(index),
                 action: auditActionLabel(lang, item.action),
-                createdAt: item.created_at.replace("T", " ").slice(0, 16),
+                createdAt: formatTaipeiDateTime(item.created_at, lang),
                 target: item.target_type + ":" + item.target_id,
               }))}
               emptyMessage={restricted ? pickText(lang, "当前席位只能查看审计摘要，请切换到超级管理员会话查看明细。", "Summary only in this session. Use a Super Admin session for full audit detail.") : pickText(lang, "暂无审计事件。", "No audit events yet.")}

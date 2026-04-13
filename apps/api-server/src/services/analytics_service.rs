@@ -168,16 +168,29 @@ impl AnalyticsService {
     fn trade_fill_inputs(&self, strategies: &[Strategy]) -> Vec<TradeFillInput> {
         let mut fills = Vec::new();
         for strategy in strategies {
+            let order_sides = strategy
+                .runtime
+                .orders
+                .iter()
+                .map(|order| (order.order_id.as_str(), order.side.as_str()))
+                .collect::<BTreeMap<_, _>>();
             for fill in &strategy.runtime.fills {
+                let is_short = resolve_fill_direction(strategy, fill, &order_sides);
                 fills.push(TradeFillInput {
                     strategy_id: strategy.id.clone(),
                     user_id: strategy.owner_email.clone(),
                     symbol: strategy.symbol.clone(),
                     quantity: fill.quantity,
-                    entry_price: derive_entry_price(fill.price, fill.quantity, fill.realized_pnl),
+                    entry_price: derive_entry_price(
+                        fill.price,
+                        fill.quantity,
+                        fill.realized_pnl,
+                        is_short,
+                    ),
                     exit_price: fill.price,
                     fee: fill.fee_amount.unwrap_or(Decimal::ZERO),
                     funding: Decimal::ZERO,
+                    is_short,
                 });
             }
         }
@@ -202,16 +215,18 @@ fn strategy_summary(
         .filter_map(|fill| fill.fee_amount)
         .fold(Decimal::ZERO, |acc, value| acc + value);
 
-    let position = aggregate_position(&strategy.runtime.positions)?;
-    let cost_basis = position
-        .map(|(quantity, average_entry_price)| quantity * average_entry_price)
-        .unwrap_or(Decimal::ZERO);
-    let position_quantity = position
-        .map(|(quantity, _)| quantity)
-        .unwrap_or(Decimal::ZERO);
-    let average_entry_price = position
-        .map(|(_, average_entry_price)| average_entry_price)
-        .unwrap_or(Decimal::ZERO);
+    let position = aggregate_position(&strategy.runtime.positions);
+    let cost_basis = position.long_quantity * position.long_average_entry_price
+        + position.short_quantity * position.short_average_entry_price;
+    let (position_quantity, average_entry_price) = if position.has_single_side() {
+        if position.long_quantity.is_zero() {
+            (position.short_quantity, position.short_average_entry_price)
+        } else {
+            (position.long_quantity, position.long_average_entry_price)
+        }
+    } else {
+        (Decimal::ZERO, Decimal::ZERO)
+    };
     let realized_pnl = snapshot
         .map(|snapshot| snapshot.realized_pnl)
         .unwrap_or(realized_from_fills);
@@ -236,6 +251,10 @@ fn strategy_summary(
         cost_basis: cost_basis.normalize(),
         position_quantity: position_quantity.normalize(),
         average_entry_price: average_entry_price.normalize(),
+        long_position_quantity: position.long_quantity.normalize(),
+        long_average_entry_price: position.long_average_entry_price.normalize(),
+        short_position_quantity: position.short_quantity.normalize(),
+        short_average_entry_price: position.short_average_entry_price.normalize(),
         realized_pnl: realized_pnl.normalize(),
         unrealized_pnl: unrealized_pnl.normalize(),
         fees_paid: fees_paid.normalize(),
@@ -488,32 +507,72 @@ fn latest_wallets_by_exchange(
     latest
 }
 
-fn aggregate_position(
-    positions: &[StrategyRuntimePosition],
-) -> Result<Option<(Decimal, Decimal)>, SharedDbError> {
-    let total_quantity = positions
-        .iter()
-        .fold(Decimal::ZERO, |acc, position| acc + position.quantity);
-    if total_quantity.is_zero() {
-        return Ok(None);
+fn aggregate_position(positions: &[StrategyRuntimePosition]) -> PositionAggregation {
+    let mut aggregation = PositionAggregation::default();
+
+    for position in positions {
+        let weighted_cost = position.quantity * position.average_entry_price;
+        if matches!(
+            position.mode,
+            shared_domain::strategy::StrategyMode::SpotSellOnly
+                | shared_domain::strategy::StrategyMode::FuturesShort
+        ) {
+            aggregation.short_quantity += position.quantity;
+            aggregation.short_weighted_cost += weighted_cost;
+        } else {
+            aggregation.long_quantity += position.quantity;
+            aggregation.long_weighted_cost += weighted_cost;
+        }
     }
 
-    let weighted_cost = positions.iter().fold(Decimal::ZERO, |acc, position| {
-        acc + (position.quantity * position.average_entry_price)
-    });
-    Ok(Some((total_quantity, weighted_cost / total_quantity)))
+    if !aggregation.long_quantity.is_zero() {
+        aggregation.long_average_entry_price =
+            aggregation.long_weighted_cost / aggregation.long_quantity;
+    }
+    if !aggregation.short_quantity.is_zero() {
+        aggregation.short_average_entry_price =
+            aggregation.short_weighted_cost / aggregation.short_quantity;
+    }
+
+    aggregation
+}
+
+fn resolve_fill_direction(
+    strategy: &Strategy,
+    fill: &shared_domain::strategy::StrategyRuntimeFill,
+    order_sides: &BTreeMap<&str, &str>,
+) -> bool {
+    if let Some(order_side) = fill
+        .order_id
+        .as_deref()
+        .and_then(|order_id| order_sides.get(order_id).copied())
+    {
+        return if fill.realized_pnl.is_some() {
+            order_side.eq_ignore_ascii_case("Buy")
+        } else {
+            order_side.eq_ignore_ascii_case("Sell")
+        };
+    }
+
+    matches!(
+        strategy.mode,
+        shared_domain::strategy::StrategyMode::SpotSellOnly
+            | shared_domain::strategy::StrategyMode::FuturesShort
+    )
 }
 
 fn derive_entry_price(
     exit_price: Decimal,
     quantity: Decimal,
     realized_pnl: Option<Decimal>,
+    is_short: bool,
 ) -> Decimal {
     if quantity.is_zero() {
         return exit_price;
     }
 
     match realized_pnl {
+        Some(realized_pnl) if is_short => exit_price + (realized_pnl / quantity),
         Some(realized_pnl) => exit_price - (realized_pnl / quantity),
         None => exit_price,
     }
@@ -558,6 +617,22 @@ fn parse_optional_decimal(value: Option<&str>) -> Result<Decimal, SharedDbError>
 
 fn format_decimal(value: Decimal) -> String {
     value.normalize().to_string()
+}
+
+#[derive(Default)]
+struct PositionAggregation {
+    long_quantity: Decimal,
+    long_average_entry_price: Decimal,
+    long_weighted_cost: Decimal,
+    short_quantity: Decimal,
+    short_average_entry_price: Decimal,
+    short_weighted_cost: Decimal,
+}
+
+impl PositionAggregation {
+    fn has_single_side(&self) -> bool {
+        self.long_quantity.is_zero() ^ self.short_quantity.is_zero()
+    }
 }
 
 struct StrategySnapshotNumbers {

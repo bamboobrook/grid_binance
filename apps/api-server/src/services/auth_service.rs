@@ -70,7 +70,6 @@ struct EmailMessage {
 
 #[derive(Debug, Clone, Copy)]
 enum EmailCodeKind {
-    Verification,
     PasswordReset,
 }
 
@@ -253,27 +252,13 @@ impl AuthService {
         validate_password(&request.password)?;
 
         if let Some(existing) = self.db.find_auth_user(&email).map_err(AuthError::storage)? {
-            let verification_seed = self
-                .db
-                .next_sequence("auth_seed")
-                .map_err(AuthError::storage)?;
-            let verification_code = issue_email_code(verification_seed);
-            self.send_email_code(&email, &verification_code, EmailCodeKind::Verification)?;
-            self.db
-                .update_auth_email_verification(
-                    &email,
-                    existing.email_verified,
-                    Some(&verification_code),
-                )
-                .map_err(AuthError::storage)?;
-
             return Ok(RegisterUserResponse {
                 user_id: existing.user_id,
-                code_delivery: "email",
+                code_delivery: "none",
                 verification_code: self
                     .config
                     .email_delivery
-                    .capture_code(Some(verification_code)),
+                    .capture_code(existing.verification_code),
             });
         }
 
@@ -287,14 +272,12 @@ impl AuthService {
             .map_err(AuthError::storage)?;
         let verification_code = issue_email_code(verification_seed);
 
-        self.send_email_code(&email, &verification_code, EmailCodeKind::Verification)?;
-
         self.db
             .insert_auth_user(&AuthUserRecord {
                 user_id,
                 email: email.clone(),
                 password_hash: hash_password(&request.password),
-                email_verified: false,
+                email_verified: true,
                 verification_code: Some(verification_code.clone()),
                 reset_code: None,
                 totp_secret: None,
@@ -303,7 +286,7 @@ impl AuthService {
 
         Ok(RegisterUserResponse {
             user_id,
-            code_delivery: "email",
+            code_delivery: "none",
             verification_code: self
                 .config
                 .email_delivery
@@ -592,6 +575,13 @@ impl AuthService {
             .find_auth_user(&email)
             .map_err(AuthError::storage)?
             .ok_or_else(|| AuthError::not_found("user not found"))?;
+
+        if resolved_admin_role(&self.config, &email).is_some() {
+            return Err(AuthError::forbidden(
+                "configured admin accounts cannot disable totp via the shared security flow",
+            ));
+        }
+
         if user.totp_secret.is_none() {
             return Err(AuthError::bad_request("totp is not enabled"));
         }
@@ -754,34 +744,20 @@ impl AdminPermissions {
 
 impl EmailCodeKind {
     fn subject(self) -> &'static str {
-        match self {
-            Self::Verification => "Grid Binance verification code",
-            Self::PasswordReset => "Grid Binance password reset code",
-        }
+        "Grid Binance password reset code"
     }
 
     fn body(self, code: &str) -> String {
-        match self {
-            Self::Verification => format!(
-                "Your Grid Binance verification code is {code}.
-
-Enter this code on the verify email page before your first login.
-If you did not request this account, you can ignore this email."
-            ),
-            Self::PasswordReset => format!(
-                "Your Grid Binance password reset code is {code}.
+        format!(
+            "Your Grid Binance password reset code is {code}.
 
 Enter this code on the password reset page to choose a new password.
 If you did not request a reset, you can ignore this email."
-            ),
-        }
+        )
     }
 
     fn delivery_failure_message(self) -> &'static str {
-        match self {
-            Self::Verification => "verification email delivery failed",
-            Self::PasswordReset => "password reset email delivery failed",
-        }
+        "password reset email delivery failed"
     }
 }
 
@@ -1311,7 +1287,7 @@ fn validate_password(password: &str) -> Result<(), AuthError> {
 
 #[cfg(test)]
 mod tests {
-    use super::{AuthService, LoginRequest, RegisterUserRequest, VerifyEmailRequest};
+    use super::{AuthService, LoginRequest, RegisterUserRequest};
     use shared_db::SharedDb;
 
     #[test]
@@ -1377,12 +1353,7 @@ mod tests {
             })
             .expect("register user");
 
-        service
-            .verify_email(VerifyEmailRequest {
-                email: "user@example.com".to_string(),
-                code: registered.verification_code.expect("verification code"),
-            })
-            .expect("verify email");
+        let _registered = registered;
 
         let login = service
             .login(LoginRequest {

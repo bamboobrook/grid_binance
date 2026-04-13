@@ -42,6 +42,13 @@ pub struct SaveBinanceCredentialsResponse {
 }
 
 #[derive(Debug, Serialize)]
+pub struct TestBinanceCredentialsResponse {
+    pub account: BinanceAccountReadModel,
+    pub synced_symbols: usize,
+    pub persisted: bool,
+}
+
+#[derive(Debug, Serialize)]
 pub struct ReadBinanceAccountResponse {
     pub account: BinanceAccountReadModel,
 }
@@ -60,6 +67,7 @@ pub struct SearchSymbolsResponse {
 pub struct BinanceAccountReadModel {
     pub exchange: String,
     pub api_key_masked: String,
+    pub binding_state: String,
     pub connection_status: String,
     pub sync_status: String,
     pub last_checked_at: Option<String>,
@@ -69,7 +77,7 @@ pub struct BinanceAccountReadModel {
     pub symbol_counts: ExchangeSymbolCountsDto,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Default)]
 pub struct ExchangeCredentialCheckDto {
     pub api_connectivity_ok: bool,
     pub timestamp_in_sync: bool,
@@ -84,6 +92,7 @@ pub struct ExchangeCredentialCheckDto {
 
 #[derive(Debug, Serialize, Deserialize, Default)]
 struct StoredExchangeMetadata {
+    api_key_masked: Option<String>,
     connection_status: String,
     sync_status: String,
     last_synced_at: Option<String>,
@@ -106,11 +115,21 @@ struct StoredValidationSnapshot {
     market_access_ok: bool,
 }
 
-#[derive(Debug, Serialize, Deserialize, Default)]
+#[derive(Debug, Serialize, Deserialize, Default, Clone)]
 pub struct ExchangeSymbolCountsDto {
     pub spot: usize,
     pub usdm: usize,
     pub coinm: usize,
+}
+
+struct ValidatedBinanceCredentials {
+    api_key: String,
+    api_secret: String,
+    expected_hedge_mode: bool,
+    check: ExchangeCredentialCheck,
+    symbols: Vec<SymbolMetadata>,
+    symbol_counts: ExchangeSymbolCountsDto,
+    checked_at: DateTime<Utc>,
 }
 
 impl ExchangeService {
@@ -128,14 +147,6 @@ impl ExchangeService {
         user_email: &str,
         request: SaveBinanceCredentialsRequest,
     ) -> Result<SaveBinanceCredentialsResponse, ExchangeError> {
-        let api_key = request.api_key.trim().to_owned();
-        let api_secret = request.api_secret.trim().to_owned();
-        if api_key.is_empty() || api_secret.is_empty() {
-            return Err(ExchangeError::bad_request(
-                "api_key and api_secret are required",
-            ));
-        }
-
         let user_email = normalize_email(user_email);
         self.ensure_no_running_strategies_for_credential_update(&user_email)?;
         let previous_metadata = self
@@ -144,53 +155,44 @@ impl ExchangeService {
             .map_err(ExchangeError::storage)?
             .and_then(|record| parse_account_metadata(&record.metadata).ok());
 
-        let selected_markets = request.selected_markets.unwrap_or_default();
-        let validation_request =
-            CredentialValidationRequest::new(request.expected_hedge_mode, &selected_markets)
-                .map_err(|error| ExchangeError::bad_request(error.to_string()))?;
-        let client = BinanceClient::new(api_key.clone(), api_secret.clone());
-        let check = client.check_credentials_for(&validation_request);
-        let symbols = sync_symbol_metadata_strict(&client, &check).map_err(|error| {
-            ExchangeError::service_unavailable(format!("binance symbol sync unavailable: {error}"))
-        })?;
-        let symbol_counts = ExchangeSymbolCountsDto::from_symbols(&symbols);
-        let now = Utc::now();
-
+        let validated = self.validate_binance_credentials(request)?;
         let stored_metadata = StoredExchangeMetadata {
-            connection_status: check.connection_status().to_owned(),
+            api_key_masked: Some(mask_api_key(&validated.api_key)),
+            connection_status: validated.check.connection_status().to_owned(),
             sync_status: "success".to_owned(),
-            last_synced_at: Some(now.to_rfc3339()),
-            expected_hedge_mode: request.expected_hedge_mode,
-            selected_markets: check.selected_markets.clone(),
-            validation: StoredValidationSnapshot::from(&check),
-            symbol_counts,
+            last_synced_at: Some(validated.checked_at.to_rfc3339()),
+            expected_hedge_mode: validated.expected_hedge_mode,
+            selected_markets: validated.check.selected_markets.clone(),
+            validation: StoredValidationSnapshot::from(&validated.check),
+            symbol_counts: validated.symbol_counts.clone(),
         };
 
         let cipher = credential_cipher().map_err(map_cipher_storage_error)?;
-        let encrypted_secret = cipher.encrypt(&api_key, &api_secret).map_err(|error| {
-            ExchangeError::storage(shared_db::SharedDbError::new(error.to_string()))
-        })?;
+        let encrypted_secret = cipher
+            .encrypt(&validated.api_key, &validated.api_secret)
+            .map_err(|error| ExchangeError::storage(shared_db::SharedDbError::new(error.to_string())))?;
 
         let account_record = UserExchangeAccountRecord {
             user_email: user_email.clone(),
             exchange: BINANCE_EXCHANGE.to_owned(),
             account_label: "Binance".to_owned(),
-            market_scope: check.selected_markets.join(","),
+            market_scope: validated.check.selected_markets.join(","),
             is_active: true,
-            checked_at: Some(now),
+            checked_at: Some(validated.checked_at),
             metadata: serde_json::to_value(&stored_metadata).map_err(map_serde_storage_error)?,
         };
 
         let credential_record = UserExchangeCredentialRecord {
             user_email: user_email.clone(),
             exchange: BINANCE_EXCHANGE.to_owned(),
-            api_key_masked: mask_api_key(&api_key),
+            api_key_masked: mask_api_key(&validated.api_key),
             encrypted_secret,
         };
 
-        let symbol_records = symbols
+        let symbol_records = validated
+            .symbols
             .into_iter()
-            .map(|symbol| to_symbol_record(&user_email, symbol, now))
+            .map(|symbol| to_symbol_record(&user_email, symbol, validated.checked_at))
             .collect::<Vec<_>>();
 
         let synced_symbols = self
@@ -200,13 +202,32 @@ impl ExchangeService {
         self.persist_api_invalidation_notification_if_needed(
             &user_email,
             previous_metadata.as_ref(),
-            &check,
-            now,
+            &validated.check,
+            validated.checked_at,
         )?;
 
         Ok(SaveBinanceCredentialsResponse {
             account: self.read_account_model(&user_email)?,
             synced_symbols,
+        })
+    }
+
+    pub fn test_binance_credentials(
+        &self,
+        _user_email: &str,
+        request: SaveBinanceCredentialsRequest,
+    ) -> Result<TestBinanceCredentialsResponse, ExchangeError> {
+        let validated = self.validate_binance_credentials(request)?;
+        Ok(TestBinanceCredentialsResponse {
+            account: self.build_account_read_model(
+                &validated.api_key,
+                &validated.check,
+                validated.symbol_counts.clone(),
+                validated.checked_at,
+                "success",
+            ),
+            synced_symbols: validated.symbols.len(),
+            persisted: false,
         })
     }
 
@@ -217,6 +238,61 @@ impl ExchangeService {
         Ok(ReadBinanceAccountResponse {
             account: self.read_account_model(user_email)?,
         })
+    }
+
+    fn validate_binance_credentials(
+        &self,
+        request: SaveBinanceCredentialsRequest,
+    ) -> Result<ValidatedBinanceCredentials, ExchangeError> {
+        let api_key = request.api_key.trim().to_owned();
+        let api_secret = request.api_secret.trim().to_owned();
+        if api_key.is_empty() || api_secret.is_empty() {
+            return Err(ExchangeError::bad_request(
+                "api_key and api_secret are required",
+            ));
+        }
+
+        let selected_markets = request.selected_markets.unwrap_or_default();
+        let validation_request =
+            CredentialValidationRequest::new(request.expected_hedge_mode, &selected_markets)
+                .map_err(|error| ExchangeError::bad_request(error.to_string()))?;
+        let client = BinanceClient::new(api_key.clone(), api_secret.clone());
+        let check = client.check_credentials_for(&validation_request);
+        let symbols = sync_symbol_metadata_strict(&client, &check).map_err(|error| {
+            ExchangeError::service_unavailable(format!("binance symbol sync unavailable: {error}"))
+        })?;
+
+        Ok(ValidatedBinanceCredentials {
+            api_key,
+            api_secret,
+            expected_hedge_mode: request.expected_hedge_mode,
+            symbol_counts: ExchangeSymbolCountsDto::from_symbols(&symbols),
+            symbols,
+            check,
+            checked_at: Utc::now(),
+        })
+    }
+
+    fn build_account_read_model(
+        &self,
+        api_key: &str,
+        check: &ExchangeCredentialCheck,
+        symbol_counts: ExchangeSymbolCountsDto,
+        checked_at: DateTime<Utc>,
+        sync_status: &str,
+    ) -> BinanceAccountReadModel {
+        BinanceAccountReadModel {
+            exchange: BINANCE_EXCHANGE.to_owned(),
+            api_key_masked: mask_api_key(api_key),
+            binding_state: "saved".to_owned(),
+            connection_status: check.connection_status().to_owned(),
+            sync_status: sync_status.to_owned(),
+            last_checked_at: Some(format_timestamp(checked_at)),
+            last_synced_at: Some(checked_at.to_rfc3339()),
+            selected_markets: check.selected_markets.clone(),
+            validation: ExchangeCredentialCheckDto::from(check),
+            symbol_counts,
+        }
     }
 
     pub fn search_symbols(
@@ -288,6 +364,7 @@ impl ExchangeService {
                 .refresh_exchange_account_bundle(
                     &UserExchangeAccountRecord {
                         metadata: serde_json::to_value(StoredExchangeMetadata {
+                            api_key_masked: stored.api_key_masked.clone(),
                             connection_status: check.connection_status().to_owned(),
                             sync_status: "success".to_owned(),
                             last_synced_at: Some(synced_at.to_rfc3339()),
@@ -329,15 +406,21 @@ impl ExchangeService {
             return Ok(());
         }
 
-        let has_running_strategy = self
+        let strategies = self
             .db
             .list_strategies(user_email)
-            .map_err(ExchangeError::storage)?
-            .into_iter()
-            .any(|strategy| strategy.status == StrategyStatus::Running);
-        if has_running_strategy {
+            .map_err(ExchangeError::storage)?;
+        if strategies
+            .iter()
+            .any(|strategy| strategy.status == StrategyStatus::Running)
+        {
             return Err(ExchangeError::conflict(
                 "pause running strategies before updating exchange credentials",
+            ));
+        }
+        if strategies.into_iter().any(strategy_blocks_credential_rotation) {
+            return Err(ExchangeError::conflict(
+                "fully stop strategies and close remaining positions before updating exchange credentials",
             ));
         }
 
@@ -439,31 +522,87 @@ impl ExchangeService {
         let account = self
             .db
             .find_exchange_account(&user_email, BINANCE_EXCHANGE)
-            .map_err(ExchangeError::storage)?
-            .ok_or_else(|| ExchangeError::not_found("exchange account not found"))?;
+            .map_err(ExchangeError::storage)?;
         let credentials = self
             .db
             .find_exchange_credentials(&user_email, BINANCE_EXCHANGE)
-            .map_err(ExchangeError::storage)?
-            .ok_or_else(|| ExchangeError::not_found("exchange account not found"))?;
-        let metadata = parse_account_metadata(&account.metadata)?;
+            .map_err(ExchangeError::storage)?;
 
-        Ok(BinanceAccountReadModel {
-            exchange: account.exchange,
-            api_key_masked: credentials.api_key_masked,
-            connection_status: metadata.connection_status,
-            sync_status: metadata.sync_status,
-            last_checked_at: account.checked_at.map(format_timestamp),
-            last_synced_at: metadata.last_synced_at,
-            selected_markets: metadata.selected_markets,
-            validation: ExchangeCredentialCheckDto::from(metadata.validation),
-            symbol_counts: metadata.symbol_counts,
-        })
+        match (account, credentials) {
+            (Some(account), Some(credentials)) => {
+                let metadata = parse_account_metadata(&account.metadata)?;
+                Ok(BinanceAccountReadModel {
+                    exchange: account.exchange,
+                    api_key_masked: credentials.api_key_masked,
+                    binding_state: "saved".to_owned(),
+                    connection_status: metadata.connection_status,
+                    sync_status: metadata.sync_status,
+                    last_checked_at: account.checked_at.map(format_timestamp),
+                    last_synced_at: metadata.last_synced_at,
+                    selected_markets: metadata.selected_markets,
+                    validation: ExchangeCredentialCheckDto::from(metadata.validation),
+                    symbol_counts: metadata.symbol_counts,
+                })
+            }
+            (Some(account), None) => {
+                let metadata = parse_account_metadata(&account.metadata)?;
+                Ok(BinanceAccountReadModel {
+                    exchange: account.exchange,
+                    api_key_masked: metadata.api_key_masked.unwrap_or_default(),
+                    binding_state: "partial".to_owned(),
+                    connection_status: if metadata.connection_status.is_empty() {
+                        "untested".to_owned()
+                    } else {
+                        metadata.connection_status
+                    },
+                    sync_status: if metadata.sync_status.is_empty() {
+                        "pending".to_owned()
+                    } else {
+                        metadata.sync_status
+                    },
+                    last_checked_at: account.checked_at.map(format_timestamp),
+                    last_synced_at: metadata.last_synced_at,
+                    selected_markets: metadata.selected_markets,
+                    validation: ExchangeCredentialCheckDto::from(metadata.validation),
+                    symbol_counts: metadata.symbol_counts,
+                })
+            }
+            (None, Some(credentials)) => Ok(BinanceAccountReadModel {
+                exchange: BINANCE_EXCHANGE.to_owned(),
+                api_key_masked: credentials.api_key_masked,
+                binding_state: "partial".to_owned(),
+                connection_status: "untested".to_owned(),
+                sync_status: "pending".to_owned(),
+                last_checked_at: None,
+                last_synced_at: None,
+                selected_markets: Vec::new(),
+                validation: ExchangeCredentialCheckDto::default(),
+                symbol_counts: ExchangeSymbolCountsDto::default(),
+            }),
+            (None, None) => Err(ExchangeError::not_found("exchange account not found")),
+        }
     }
 }
 
-impl From<ExchangeCredentialCheck> for ExchangeCredentialCheckDto {
-    fn from(value: ExchangeCredentialCheck) -> Self {
+fn strategy_blocks_credential_rotation(strategy: shared_domain::strategy::Strategy) -> bool {
+    if strategy.status == StrategyStatus::Stopping {
+        return true;
+    }
+
+    if !strategy.runtime.positions.is_empty() {
+        return true;
+    }
+
+    strategy.runtime.orders.iter().any(|order| {
+        matches!(
+            order.status.as_str(),
+            "Working" | "Placed" | "Monitoring" | "Armed" | "ClosingRequested" | "PartiallyFilled"
+        )
+    })
+}
+
+impl From<&ExchangeCredentialCheck> for ExchangeCredentialCheckDto {
+    fn from(value: &ExchangeCredentialCheck) -> Self {
         Self {
             api_connectivity_ok: value.api_connectivity_ok,
             timestamp_in_sync: value.timestamp_in_sync,
@@ -763,6 +902,11 @@ mod tests {
                 body:
                     r#"{"canTrade":true,"canWithdraw":false,"permissions":["SPOT"],"balances":[]}"#
                         .to_string(),
+            },
+            TestRoute {
+                path_prefix: "/sapi/v1/account/apiRestrictions?",
+                status_line: "HTTP/1.1 200 OK",
+                body: r#"{"enableReading":true,"enableWithdrawals":false,"enableSpotAndMarginTrading":true}"#.to_string(),
             },
             TestRoute {
                 path_prefix: "/api/v3/exchangeInfo",

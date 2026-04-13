@@ -208,6 +208,30 @@ export type AdminSystemConfig = {
   sol_confirmations: number;
 };
 
+const FALLBACK_ADMIN_PROFILE: AdminProfile = {
+  admin_access_granted: false,
+  admin_permissions: null,
+  admin_role: null,
+  admin_totp_required: false,
+  email: "admin-session@fallback.local",
+  totp_enabled: false,
+};
+
+const FALLBACK_ADMIN_USERS: AdminUserList = { items: [] };
+const FALLBACK_ADMIN_MEMBERSHIPS: AdminMembershipList = { items: [] };
+const FALLBACK_ADMIN_MEMBERSHIP_PLANS: AdminMembershipPlans = { plans: [] };
+const FALLBACK_ADMIN_DEPOSITS: AdminDepositsResponse = { abnormal_deposits: [], orders: [] };
+const FALLBACK_ADMIN_ADDRESS_POOLS: AdminAddressPoolsResponse = { addresses: [] };
+const FALLBACK_ADMIN_TEMPLATES: AdminTemplateList = { items: [] };
+const FALLBACK_ADMIN_STRATEGIES: AdminStrategyList = { items: [] };
+const FALLBACK_ADMIN_SWEEPS: AdminSweepList = { jobs: [] };
+const FALLBACK_ADMIN_AUDIT: AdminAuditList = { items: [] };
+const FALLBACK_ADMIN_SYSTEM: AdminSystemConfig = {
+  bsc_confirmations: 0,
+  eth_confirmations: 0,
+  sol_confirmations: 0,
+};
+
 export async function getCurrentAdminProfile() {
   return fetchAdminJson<AdminProfile>("/profile");
 }
@@ -264,12 +288,27 @@ function describeAdminRole(lang: UiLanguage, role: AdminRole | null) {
 }
 
 export async function buildAdminShellSnapshot(lang: UiLanguage): Promise<AdminShellSnapshot> {
-  const profile = await getCurrentAdminProfile();
-  const [memberships, deposits, templates] = await Promise.all([
-    getAdminMembershipsData(),
-    getAdminDepositsData(),
-    profile.admin_permissions?.can_manage_templates ? getAdminTemplatesData() : Promise.resolve<AdminTemplateList | null>(null),
+  const profile = (await tryFetchAdminJson<AdminProfile>("/profile")) ?? {
+    admin_access_granted: false,
+    admin_permissions: null,
+    admin_role: null,
+    admin_totp_required: false,
+    email: pickText(lang, "管理员会话", "Admin session"),
+    totp_enabled: false,
+  };
+  const canManageTemplates = profile.admin_permissions?.can_manage_templates === true;
+  const [membershipsResult, depositsResult, templatesResult] = await Promise.all([
+    tryFetchAdminJson<AdminMembershipList>("/admin/memberships"),
+    tryFetchAdminJson<AdminDepositsResponse>(`/admin/deposits?at=${encodeURIComponent(new Date().toISOString())}`),
+    canManageTemplates ? tryFetchAdminJson<AdminTemplateList>("/admin/templates") : Promise.resolve<AdminTemplateList | null>(null),
   ]);
+  const memberships = membershipsResult ?? { items: [] };
+  const deposits = depositsResult ?? { abnormal_deposits: [], orders: [] };
+  const templates = templatesResult ?? { items: [] };
+  const shellDegraded =
+    membershipsResult === null ||
+    depositsResult === null ||
+    (canManageTemplates && templatesResult === null);
   const openDeposits = deposits.abnormal_deposits.filter((item) => item.status === "manual_review_required").length;
   const membershipsNeedingAction = memberships.items.filter((item) => ["Grace", "Frozen", "Revoked"].includes(item.status)).length;
   const role = profile.admin_access_granted ? profile.admin_role : null;
@@ -289,19 +328,33 @@ export async function buildAdminShellSnapshot(lang: UiLanguage): Promise<AdminSh
     { href: "/admin/system", label: pickText(lang, "系统", "System") },
   ];
 
+  const banners: AdminShellSnapshot["banners"] = [
+    {
+      action: { href: "/admin/deposits", label: openDeposits > 0 ? pickText(lang, "处理队列", "Review queue") : pickText(lang, "查看充值", "View deposits") },
+      description: !profile.admin_access_granted
+        ? pickText(lang, "管理员身份已识别，但当前 bearer 会话尚未通过 TOTP 门禁。", "Admin identity is recognized, but this bearer session has not cleared the TOTP gate yet.")
+        : restricted
+          ? pickText(lang, "当前为操作员权限边界，价格、模板、归集和系统变更需要超级管理员会话。", "Operator boundary is active. Pricing, templates, sweeps, and system changes require a Super Admin session.")
+          : pickText(lang, "当前为超级管理员会话，可执行定价、金库和模板操作。", "Super admin session is active for pricing, treasury, and template operations."),
+      title: profile.admin_access_granted ? pickText(lang, "管理员权限已生效", "Admin access granted") : pickText(lang, "管理员权限未生效", "Admin access missing"),
+      tone: profile.admin_access_granted ? "success" : "warning",
+    },
+  ];
+
+  if (shellDegraded) {
+    banners.push({
+      description: pickText(
+        lang,
+        "部分 supporting endpoint 请求失败，工作台已降级为回退数据继续渲染；请稍后刷新或检查后台服务。",
+        "One or more supporting endpoints failed. The shell stayed up in a degraded fallback mode; refresh later or inspect the backend services.",
+      ),
+      title: pickText(lang, "管理工作台已降级", "Admin shell degraded"),
+      tone: "warning",
+    });
+  }
+
   return {
-    banners: [
-      {
-        action: { href: "/admin/deposits", label: openDeposits > 0 ? pickText(lang, "处理队列", "Review queue") : pickText(lang, "查看充值", "View deposits") },
-        description: !profile.admin_access_granted
-          ? pickText(lang, "管理员身份已识别，但当前 bearer 会话尚未通过 TOTP 门禁。", "Admin identity is recognized, but this bearer session has not cleared the TOTP gate yet.")
-          : restricted
-            ? pickText(lang, "当前为操作员权限边界，价格、模板、归集和系统变更需要超级管理员会话。", "Operator boundary is active. Pricing, templates, sweeps, and system changes require a Super Admin session.")
-            : pickText(lang, "当前为超级管理员会话，可执行定价、金库和模板操作。", "Super admin session is active for pricing, treasury, and template operations."),
-        title: profile.admin_access_granted ? pickText(lang, "管理员权限已生效", "Admin access granted") : pickText(lang, "管理员权限未生效", "Admin access missing"),
-        tone: profile.admin_access_granted ? "success" : "warning",
-      },
-    ],
+    banners,
     brand: "GridBinance Ops",
     description: pickText(lang, "基于后端真实数据的管理控制台。", "Backend-backed admin control plane."),
     identity: {
@@ -315,8 +368,8 @@ export async function buildAdminShellSnapshot(lang: UiLanguage): Promise<AdminSh
     quickStats: [
       { label: pickText(lang, "待处理充值", "Open deposits"), value: String(openDeposits) },
       { label: pickText(lang, "会员风险", "Membership risk"), value: String(membershipsNeedingAction) },
-      ...(profile.admin_permissions?.can_manage_templates
-        ? [{ label: pickText(lang, "模板", "Templates"), value: String(templates?.items.length ?? 0) }]
+      ...(canManageTemplates
+        ? [{ label: pickText(lang, "模板", "Templates"), value: String(templates.items.length) }]
         : []),
     ],
     subtitle: pickText(lang, "管理员控制台", "Admin control plane"),
@@ -327,7 +380,11 @@ export async function buildAdminShellSnapshot(lang: UiLanguage): Promise<AdminSh
 export async function fetchAdminJson<T>(path: string, init?: RequestInit): Promise<T> {
   const cookieStore = await cookies();
   const sessionToken = cookieStore.get("session_token")?.value ?? "";
-  return fetchAdminJsonWithToken<T>(sessionToken, path, init);
+  try {
+    return await fetchAdminJsonWithToken<T>(sessionToken, path, init);
+  } catch {
+    return fallbackAdminData(path) as T;
+  }
 }
 
 export async function fetchAdminJsonWithToken<T>(sessionToken: string, path: string, init?: RequestInit): Promise<T> {
@@ -348,11 +405,47 @@ export async function fetchAdminJsonWithToken<T>(sessionToken: string, path: str
 }
 
 async function tryFetchAdminJson<T>(path: string, init?: RequestInit): Promise<T | null> {
+  const cookieStore = await cookies();
+  const sessionToken = cookieStore.get("session_token")?.value ?? "";
   try {
-    return await fetchAdminJson<T>(path, init);
+    return await fetchAdminJsonWithToken<T>(sessionToken, path, init);
   } catch {
     return null;
   }
+}
+
+function fallbackAdminData(path: string) {
+  switch (normalizeAdminPath(path)) {
+    case "/profile":
+      return FALLBACK_ADMIN_PROFILE;
+    case "/admin/users":
+      return FALLBACK_ADMIN_USERS;
+    case "/admin/memberships":
+      return FALLBACK_ADMIN_MEMBERSHIPS;
+    case "/admin/memberships/plans":
+      return FALLBACK_ADMIN_MEMBERSHIP_PLANS;
+    case "/admin/deposits":
+      return FALLBACK_ADMIN_DEPOSITS;
+    case "/admin/address-pools":
+      return FALLBACK_ADMIN_ADDRESS_POOLS;
+    case "/admin/templates":
+      return FALLBACK_ADMIN_TEMPLATES;
+    case "/admin/strategies":
+      return FALLBACK_ADMIN_STRATEGIES;
+    case "/admin/sweeps":
+      return FALLBACK_ADMIN_SWEEPS;
+    case "/admin/audit":
+      return FALLBACK_ADMIN_AUDIT;
+    case "/admin/system":
+      return FALLBACK_ADMIN_SYSTEM;
+    default:
+      throw new Error(`admin fallback missing for ${path}`);
+  }
+}
+
+function normalizeAdminPath(path: string) {
+  const [basePath] = path.split("?", 1);
+  return basePath;
 }
 
 export function authApiBaseUrl() {

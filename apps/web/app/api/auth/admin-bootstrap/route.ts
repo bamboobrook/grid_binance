@@ -1,6 +1,12 @@
 import { NextResponse } from "next/server";
 
-import { AuthProxyError, authApiPost } from "../../../../lib/auth";
+import {
+  AuthProxyError,
+  authApiPost,
+  localizedPublicPath,
+  publicUrl,
+  shouldUseSecureCookie,
+} from "../../../../lib/auth";
 
 
 const PENDING_ADMIN_TOTP_SECRET_COOKIE = "pending_admin_totp_secret";
@@ -11,14 +17,17 @@ export async function POST(request: Request) {
   const formData = await request.formData();
   const email = readField(formData, "email");
   const password = readField(formData, "password");
+  const secureCookie = shouldUseSecureCookie(request);
 
   try {
     const response = await authApiPost<{ secret: string; code: string }>("/auth/admin-bootstrap", {
       email,
       password,
     });
-    const secureCookie = process.env.NODE_ENV === "production";
-    const redirect = NextResponse.redirect(new URL(`/admin-bootstrap?setup=ready&email=${encodeURIComponent(email)}`, request.url), { status: 303 });
+    const url = publicUrl(request, localizedPublicPath(request, "/admin-bootstrap"));
+    url.searchParams.set("setup", "ready");
+    url.searchParams.set("email", email);
+    const redirect = NextResponse.redirect(url, { status: 303 });
     redirect.cookies.set(PENDING_ADMIN_TOTP_SECRET_COOKIE, response.secret, {
       httpOnly: true,
       path: "/",
@@ -40,7 +49,10 @@ export async function POST(request: Request) {
     return redirect;
   } catch (error) {
     const message = error instanceof AuthProxyError ? error.message : "admin bootstrap request failed";
-    return NextResponse.redirect(new URL(`/admin-bootstrap?error=${encodeURIComponent(message)}&email=${encodeURIComponent(email)}`, request.url), { status: 303 });
+    const url = publicUrl(request, localizedPublicPath(request, "/admin-bootstrap"));
+    url.searchParams.set("error", message);
+    url.searchParams.set("email", email);
+    return NextResponse.redirect(url, { status: 303 });
   }
 }
 

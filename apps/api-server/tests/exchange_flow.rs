@@ -3,8 +3,10 @@ use axum::{
     body::{to_bytes, Body},
     http::{Request, StatusCode},
 };
+use rust_decimal::Decimal;
 use serde_json::{json, Value};
 use shared_db::{MembershipRecord, SharedDb};
+use shared_domain::strategy::{StrategyMarket, StrategyMode, StrategyRuntimePosition, StrategyStatus};
 use std::sync::{Mutex, OnceLock};
 use tower::ServiceExt;
 
@@ -55,6 +57,40 @@ async fn save_credentials_persists_masked_account_health_and_three_market_symbol
 }
 
 #[tokio::test]
+async fn test_credentials_uses_current_input_without_persisting_exchange_account() {
+    let _guard = exchange_env_lock().lock().expect("env lock");
+    std::env::set_var(
+        "EXCHANGE_CREDENTIALS_MASTER_KEY",
+        "exchange-flow-test-master-key",
+    );
+    let db = SharedDb::ephemeral().expect("ephemeral db");
+    let app = app_with_state(AppState::from_shared_db(db.clone()).expect("app state"));
+    let session_token = register_and_login(&app, "exchange-test-only@example.com").await;
+
+    let response = test_credentials(
+        &app,
+        Some(&session_token),
+        "demo-key-1234",
+        "demo-secret",
+        true,
+    )
+    .await;
+
+    assert_eq!(response.status(), StatusCode::OK);
+    let body = response_json(response).await;
+    assert_eq!(body["persisted"], false);
+    assert_eq!(body["account"]["api_key_masked"], "demo****1234");
+    assert_eq!(body["account"]["connection_status"], "healthy");
+    assert_eq!(body["account"]["validation"]["can_read_spot"], true);
+    assert_eq!(body["account"]["validation"]["can_read_usdm"], true);
+    assert_eq!(body["account"]["validation"]["can_read_coinm"], true);
+    assert_eq!(body["synced_symbols"], 6);
+
+    let read = read_account(&app, Some(&session_token)).await;
+    assert_eq!(read.status(), StatusCode::NOT_FOUND);
+}
+
+#[tokio::test]
 async fn one_user_only_has_one_binance_account_and_updates_replace_the_masked_read_model() {
     let _guard = exchange_env_lock().lock().expect("env lock");
     std::env::set_var(
@@ -96,6 +132,33 @@ async fn one_user_only_has_one_binance_account_and_updates_replace_the_masked_re
     assert_eq!(read_body["account"]["symbol_counts"]["spot"], 2);
     assert_eq!(read_body["account"]["symbol_counts"]["usdm"], 2);
     assert_eq!(read_body["account"]["symbol_counts"]["coinm"], 2);
+}
+
+#[tokio::test]
+async fn read_account_survives_partial_persistence_and_preserves_saved_state() {
+    let _guard = exchange_env_lock().lock().expect("env lock");
+    std::env::set_var(
+        "EXCHANGE_CREDENTIALS_MASTER_KEY",
+        "exchange-flow-test-master-key",
+    );
+    let db = SharedDb::ephemeral().expect("ephemeral db");
+    let app = app_with_state(AppState::from_shared_db(db.clone()).expect("app state"));
+    let session_token = register_and_login(&app, "exchange-partial@example.com").await;
+
+    db.upsert_exchange_credentials(&shared_db::UserExchangeCredentialRecord {
+        user_email: "exchange-partial@example.com".to_string(),
+        exchange: "binance".to_string(),
+        api_key_masked: "demo****1234".to_string(),
+        encrypted_secret: "ciphertext".to_string(),
+    })
+    .expect("seed credentials");
+
+    let read = read_account(&app, Some(&session_token)).await;
+    assert_eq!(read.status(), StatusCode::OK);
+    let body = response_json(read).await;
+    assert_eq!(body["account"]["api_key_masked"], "demo****1234");
+    assert_eq!(body["account"]["binding_state"], "partial");
+    assert_eq!(body["account"]["connection_status"], "untested");
 }
 
 #[tokio::test]
@@ -215,6 +278,114 @@ async fn credential_updates_require_running_strategies_to_be_paused_first() {
     assert_eq!(
         response_json(retried).await["account"]["api_key_masked"],
         "next****5678"
+    );
+}
+
+#[tokio::test]
+async fn credential_updates_are_blocked_when_paused_strategy_still_has_positions() {
+    let _guard = exchange_env_lock().lock().expect("env lock");
+    std::env::set_var(
+        "EXCHANGE_CREDENTIALS_MASTER_KEY",
+        "exchange-flow-test-master-key",
+    );
+    let db = SharedDb::ephemeral().expect("ephemeral db");
+    let app = app_with_state(AppState::from_shared_db(db.clone()).expect("app state"));
+    let session_token = register_and_login(&app, "exchange-paused-open@example.com").await;
+    let now = chrono::Utc::now();
+    db.upsert_membership_record(
+        "exchange-paused-open@example.com",
+        &MembershipRecord {
+            activated_at: Some(now),
+            active_until: Some(now + chrono::Duration::days(30)),
+            grace_until: Some(now + chrono::Duration::days(32)),
+            override_status: None,
+        },
+    )
+    .expect("membership");
+
+    let first = save_credentials(
+        &app,
+        Some(&session_token),
+        "demo-key-1234",
+        "demo-secret",
+        true,
+    )
+    .await;
+    assert_eq!(first.status(), StatusCode::OK);
+    db.insert_exchange_wallet_snapshot(&shared_db::ExchangeWalletSnapshotRecord {
+        user_email: "exchange-paused-open@example.com".to_string(),
+        exchange: "binance".to_string(),
+        wallet_type: "spot".to_string(),
+        balances: json!({ "USDT": "1000" }),
+        captured_at: chrono::Utc::now(),
+    })
+    .expect("wallet snapshot");
+
+    let strategy = create_strategy(
+        &app,
+        &session_token,
+        json!({
+            "name": "paused with holdings",
+            "symbol": "BTCUSDT",
+            "market": "Spot",
+            "mode": "SpotClassic",
+            "generation": "Custom",
+            "levels": [{
+                "entry_price": "100.00",
+                "quantity": "0.1000",
+                "take_profit_bps": 100,
+                "trailing_bps": null
+            }],
+            "membership_ready": true,
+            "exchange_ready": true,
+            "symbol_ready": true,
+            "permissions_ready": true,
+            "withdrawals_disabled": true,
+            "hedge_mode_ready": true,
+            "filters_ready": true,
+            "margin_ready": true,
+            "conflict_ready": true,
+            "balance_ready": true,
+            "overall_take_profit_bps": null,
+            "overall_stop_loss_bps": null,
+            "post_trigger_action": "Stop"
+        }),
+    )
+    .await;
+    assert_eq!(strategy.status(), StatusCode::CREATED);
+    let strategy_id = response_json(strategy).await["id"]
+        .as_str()
+        .expect("strategy id")
+        .to_owned();
+
+    let paused = pause_strategies(&app, &session_token, &[&strategy_id]).await;
+    assert_eq!(paused.status(), StatusCode::OK);
+
+    let mut stored = db
+        .find_strategy("exchange-paused-open@example.com", &strategy_id)
+        .expect("find strategy")
+        .expect("strategy");
+    stored.status = StrategyStatus::Paused;
+    stored.runtime.positions = vec![StrategyRuntimePosition {
+        market: StrategyMarket::Spot,
+        mode: StrategyMode::SpotClassic,
+        quantity: Decimal::new(1, 1),
+        average_entry_price: Decimal::new(100, 0),
+    }];
+    db.update_strategy(&stored).expect("update strategy");
+
+    let blocked = save_credentials(
+        &app,
+        Some(&session_token),
+        "next-key-5678",
+        "demo-secret",
+        true,
+    )
+    .await;
+    assert_eq!(blocked.status(), StatusCode::CONFLICT);
+    assert_eq!(
+        response_json(blocked).await["error"],
+        "fully stop strategies and close remaining positions before updating exchange credentials"
     );
 }
 
@@ -594,6 +765,58 @@ async fn save_credentials(
         &["spot", "usdm", "coinm"],
     )
     .await
+}
+
+async fn test_credentials(
+    app: &axum::Router,
+    session_token: Option<&str>,
+    api_key: &str,
+    api_secret: &str,
+    expected_hedge_mode: bool,
+) -> axum::response::Response {
+    test_credentials_for_markets(
+        app,
+        session_token,
+        api_key,
+        api_secret,
+        expected_hedge_mode,
+        &["spot", "usdm", "coinm"],
+    )
+    .await
+}
+
+async fn test_credentials_for_markets(
+    app: &axum::Router,
+    session_token: Option<&str>,
+    api_key: &str,
+    api_secret: &str,
+    expected_hedge_mode: bool,
+    selected_markets: &[&str],
+) -> axum::response::Response {
+    let mut request = Request::builder()
+        .method("POST")
+        .uri("/exchange/binance/credentials/test")
+        .header("content-type", "application/json");
+    if let Some(session_token) = session_token {
+        request = request.header("authorization", format!("Bearer {session_token}"));
+    }
+
+    app.clone()
+        .oneshot(
+            request
+                .body(Body::from(
+                    json!({
+                        "api_key": api_key,
+                        "api_secret": api_secret,
+                        "expected_hedge_mode": expected_hedge_mode,
+                        "selected_markets": selected_markets,
+                    })
+                    .to_string(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap()
 }
 
 async fn save_credentials_for_markets(

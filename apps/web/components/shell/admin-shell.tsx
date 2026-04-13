@@ -4,9 +4,10 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 
+import { LogOut } from "lucide-react";
 import type { AdminShellSnapshot } from "../../lib/api/mock-data";
 import { pickText, type UiLanguage, type UiTheme } from "../../lib/ui/preferences";
-import { Card, CardBody, CardDescription, CardHeader, CardTitle } from "../ui/card";
+import { Card, CardBody, CardDescription, CardFooter, CardHeader, CardTitle } from "../ui/card";
 import { Chip } from "../ui/chip";
 import { StatusBanner } from "../ui/status-banner";
 import { ShellPreferences } from "./shell-preferences";

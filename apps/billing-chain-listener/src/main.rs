@@ -17,7 +17,8 @@ use billing_chain_listener::{
     },
 };
 use reqwest::Client;
-use shared_db::SharedDb;
+use serde_json::json;
+use shared_db::{AuditLogRecord, SharedDb, SweepJobRecord, SweepTransferRecord};
 use std::{
     io::{Error as IoError, ErrorKind},
     sync::{Arc, Mutex},
@@ -167,78 +168,140 @@ async fn sweep_submission_loop(db: SharedDb, http: Client, executor: SweepExecut
     let mut ticker = interval(TokioDuration::from_secs(30));
     loop {
         ticker.tick().await;
-        let jobs = match db.list_sweep_jobs() {
-            Ok(jobs) => jobs,
-            Err(error) => {
-                eprintln!("billing-chain-listener failed to list sweep jobs: {error}");
-                continue;
-            }
-        };
-        for job in jobs.into_iter().filter(|job| job.status == "pending") {
-            if !db
-                .mark_sweep_job_submitting(job.sweep_job_id)
-                .unwrap_or(false)
+        process_sweep_submission_once(&db, &http, &executor).await;
+    }
+}
+
+async fn process_sweep_submission_once(
+    db: &SharedDb,
+    http: &Client,
+    executor: &SweepExecutorConfig,
+) {
+    let jobs = match db.list_sweep_jobs() {
+        Ok(jobs) => jobs,
+        Err(error) => {
+            eprintln!("billing-chain-listener failed to list sweep jobs: {error}");
+            return;
+        }
+    };
+    for job in jobs.into_iter().filter(|job| job.status == "pending") {
+        if !db
+            .mark_sweep_job_submitting(job.sweep_job_id)
+            .unwrap_or(false)
+        {
+            continue;
+        }
+        let mut submission_failed = None::<String>;
+        let submitted_at = chrono::Utc::now();
+        let mut submitted_any = false;
+        for transfer in job
+            .transfers
+            .iter()
+            .filter(|transfer| transfer.status == "pending")
+        {
+            match submit_sweep_transfer(
+                http,
+                executor,
+                job.sweep_job_id,
+                &job.chain,
+                &job.asset,
+                &transfer.from_address,
+                &transfer.to_address,
+                &transfer.amount,
+            )
+            .await
             {
-                continue;
-            }
-            let mut submission_failed = None::<String>;
-            let submitted_at = chrono::Utc::now();
-            let mut submitted_any = false;
-            for transfer in job
-                .transfers
-                .iter()
-                .filter(|transfer| transfer.status == "pending")
-            {
-                match submit_sweep_transfer(
-                    &http,
-                    &executor,
-                    job.sweep_job_id,
-                    &job.chain,
-                    &job.asset,
-                    &transfer.from_address,
-                    &transfer.to_address,
-                    &transfer.amount,
-                )
-                .await
-                {
-                    Ok(tx_hash) => {
-                        if let Err(error) = db.mark_sweep_transfer_submitted(
-                            job.sweep_job_id,
-                            &transfer.from_address,
-                            &tx_hash,
-                            submitted_at,
-                        ) {
-                            submission_failed = Some(error.to_string());
-                            break;
-                        }
-                        submitted_any = true;
-                    }
-                    Err(error) => {
-                        let message = error.to_string();
-                        let _ = db.mark_sweep_transfer_failed(
-                            job.sweep_job_id,
-                            &transfer.from_address,
-                            submitted_at,
-                            &message,
-                        );
-                        submission_failed = Some(message);
+                Ok(tx_hash) => {
+                    let audit = sweep_transfer_audit(
+                        "treasury.sweep_transfer_submitted",
+                        &job,
+                        transfer,
+                        submitted_at,
+                        "submitted",
+                        Some(&tx_hash),
+                        None,
+                    );
+                    if let Err(error) = db.mark_sweep_transfer_submitted_with_audit(
+                        job.sweep_job_id,
+                        &transfer.from_address,
+                        &tx_hash,
+                        submitted_at,
+                        &audit,
+                    ) {
+                        submission_failed = Some(error.to_string());
                         break;
                     }
+                    submitted_any = true;
+                }
+                Err(error) => {
+                    let message = error.to_string();
+                    let audit = sweep_transfer_audit(
+                        "treasury.sweep_transfer_failed",
+                        &job,
+                        transfer,
+                        submitted_at,
+                        "failed",
+                        transfer.tx_hash.as_deref(),
+                        Some(&message),
+                    );
+                    match db.mark_sweep_transfer_failed_with_audit(
+                        job.sweep_job_id,
+                        &transfer.from_address,
+                        submitted_at,
+                        &message,
+                        &audit,
+                    ) {
+                        Ok(_) => {
+                            submission_failed = Some(message);
+                        }
+                        Err(storage_error) => {
+                            submission_failed = Some(storage_error.to_string());
+                        }
+                    }
+                    break;
                 }
             }
-            if let Some(message) = submission_failed {
-                let _ = db.mark_sweep_job_failed(job.sweep_job_id, submitted_at, &message);
-                continue;
-            }
-            if submitted_any {
-                let _ = db.mark_sweep_job_submitted(job.sweep_job_id, submitted_at);
-            } else {
-                let _ = db.mark_sweep_job_failed(
-                    job.sweep_job_id,
-                    submitted_at,
-                    "sweep job has no pending transfers",
-                );
-            }
+        }
+        if let Some(message) = submission_failed {
+            let audit = sweep_job_audit(
+                "treasury.sweep_job_failed",
+                &job,
+                submitted_at,
+                "failed",
+                Some(&message),
+            );
+            let _ = db.mark_sweep_job_failed_with_audit(
+                job.sweep_job_id,
+                submitted_at,
+                &message,
+                &audit,
+            );
+            continue;
+        }
+        if submitted_any {
+            let audit = sweep_job_audit(
+                "treasury.sweep_job_submitted",
+                &job,
+                submitted_at,
+                "submitted",
+                None,
+            );
+            let _ = db.mark_sweep_job_submitted_with_audit(job.sweep_job_id, submitted_at, &audit);
+        } else {
+            let message = "sweep job has no pending transfers";
+            let audit = sweep_job_audit(
+                "treasury.sweep_job_failed",
+                &job,
+                submitted_at,
+                "failed",
+                Some(message),
+            );
+            let _ = db.mark_sweep_job_failed_with_audit(
+                job.sweep_job_id,
+                submitted_at,
+                message,
+                &audit,
+            );
         }
     }
 }
@@ -247,59 +310,150 @@ async fn sweep_confirmation_loop(db: SharedDb, http: Client, config: RpcRuntimeC
     let mut ticker = interval(TokioDuration::from_secs(30));
     loop {
         ticker.tick().await;
-        let jobs = match db.list_sweep_jobs() {
-            Ok(jobs) => jobs,
-            Err(error) => {
-                eprintln!("billing-chain-listener failed to list submitted sweeps: {error}");
+        process_sweep_confirmation_once(&db, &http, &config).await;
+    }
+}
+
+async fn process_sweep_confirmation_once(db: &SharedDb, http: &Client, config: &RpcRuntimeConfig) {
+    let jobs = match db.list_sweep_jobs() {
+        Ok(jobs) => jobs,
+        Err(error) => {
+            eprintln!("billing-chain-listener failed to list submitted sweeps: {error}");
+            return;
+        }
+    };
+    for job in jobs.into_iter().filter(|job| job.status == "submitted") {
+        let mut all_confirmed = true;
+        for transfer in job
+            .transfers
+            .iter()
+            .filter(|transfer| transfer.status == "submitted")
+        {
+            let Some(tx_hash) = transfer.tx_hash.as_deref() else {
+                all_confirmed = false;
                 continue;
-            }
-        };
-        for job in jobs.into_iter().filter(|job| job.status == "submitted") {
-            let mut all_confirmed = true;
-            for transfer in job
-                .transfers
-                .iter()
-                .filter(|transfer| transfer.status == "submitted")
-            {
-                let Some(tx_hash) = transfer.tx_hash.as_deref() else {
-                    all_confirmed = false;
-                    continue;
-                };
-                match sweep_transfer_confirmed(&http, &config, &job.chain, tx_hash).await {
-                    Ok(true) => {
-                        let _ = db.mark_sweep_transfer_confirmed(
-                            job.sweep_job_id,
-                            &transfer.from_address,
-                            chrono::Utc::now(),
-                        );
-                    }
-                    Ok(false) => {
-                        all_confirmed = false;
-                    }
-                    Err(error) => {
+            };
+            match sweep_transfer_confirmed(http, config, &job.chain, tx_hash).await {
+                Ok(true) => {
+                    let confirmed_at = chrono::Utc::now();
+                    let audit = sweep_transfer_audit(
+                        "treasury.sweep_transfer_confirmed",
+                        &job,
+                        transfer,
+                        confirmed_at,
+                        "confirmed",
+                        Some(tx_hash),
+                        None,
+                    );
+                    if let Err(error) = db.mark_sweep_transfer_confirmed_with_audit(
+                        job.sweep_job_id,
+                        &transfer.from_address,
+                        confirmed_at,
+                        &audit,
+                    ) {
                         eprintln!(
-                            "billing-chain-listener failed to confirm sweep transfer {}: {}",
+                            "billing-chain-listener failed to persist confirmed sweep transfer {}: {}",
                             tx_hash, error
                         );
                         all_confirmed = false;
                     }
                 }
-            }
-            if all_confirmed {
-                let refreshed = db.list_sweep_jobs().unwrap_or_default();
-                if refreshed
-                    .iter()
-                    .find(|item| item.sweep_job_id == job.sweep_job_id)
-                    .is_some_and(|item| {
-                        item.transfers
-                            .iter()
-                            .all(|transfer| transfer.status == "confirmed")
-                    })
-                {
-                    let _ = db.mark_sweep_job_confirmed(job.sweep_job_id, chrono::Utc::now());
+                Ok(false) => {
+                    all_confirmed = false;
+                }
+                Err(error) => {
+                    eprintln!(
+                        "billing-chain-listener failed to confirm sweep transfer {}: {}",
+                        tx_hash, error
+                    );
+                    all_confirmed = false;
                 }
             }
         }
+        if all_confirmed {
+            let refreshed = db.list_sweep_jobs().unwrap_or_default();
+            if refreshed
+                .iter()
+                .find(|item| item.sweep_job_id == job.sweep_job_id)
+                .is_some_and(|item| {
+                    item.transfers
+                        .iter()
+                        .all(|transfer| transfer.status == "confirmed")
+                })
+            {
+                let completed_at = chrono::Utc::now();
+                let audit = sweep_job_audit(
+                    "treasury.sweep_job_confirmed",
+                    &job,
+                    completed_at,
+                    "confirmed",
+                    None,
+                );
+                let _ =
+                    db.mark_sweep_job_confirmed_with_audit(job.sweep_job_id, completed_at, &audit);
+            }
+        }
+    }
+}
+
+fn sweep_transfer_audit(
+    action: &str,
+    job: &SweepJobRecord,
+    transfer: &SweepTransferRecord,
+    created_at: chrono::DateTime<chrono::Utc>,
+    status: &str,
+    tx_hash: Option<&str>,
+    error_message: Option<&str>,
+) -> AuditLogRecord {
+    let mut payload = serde_json::Map::from_iter([
+        ("chain".to_string(), json!(job.chain)),
+        ("asset".to_string(), json!(job.asset)),
+        ("sweep_job_id".to_string(), json!(job.sweep_job_id)),
+        ("from_address".to_string(), json!(transfer.from_address)),
+        ("to_address".to_string(), json!(transfer.to_address)),
+        ("amount".to_string(), json!(transfer.amount)),
+        ("status".to_string(), json!(status)),
+    ]);
+    if let Some(tx_hash) = tx_hash {
+        payload.insert("tx_hash".to_string(), json!(tx_hash));
+    }
+    if let Some(error_message) = error_message {
+        payload.insert("error_message".to_string(), json!(error_message));
+    }
+    AuditLogRecord {
+        actor_email: SERVICE_NAME.to_string(),
+        action: action.to_string(),
+        target_type: "sweep_transfer".to_string(),
+        target_id: format!("{}:{}", job.sweep_job_id, transfer.from_address),
+        payload: serde_json::Value::Object(payload),
+        created_at,
+    }
+}
+
+fn sweep_job_audit(
+    action: &str,
+    job: &SweepJobRecord,
+    created_at: chrono::DateTime<chrono::Utc>,
+    status: &str,
+    last_error: Option<&str>,
+) -> AuditLogRecord {
+    let mut payload = serde_json::Map::from_iter([
+        ("chain".to_string(), json!(job.chain)),
+        ("asset".to_string(), json!(job.asset)),
+        ("sweep_job_id".to_string(), json!(job.sweep_job_id)),
+        ("status".to_string(), json!(status)),
+        ("transfer_count".to_string(), json!(job.transfers.len())),
+    ]);
+    if let Some(last_error) = last_error {
+        payload.insert("last_error".to_string(), json!(last_error));
+    }
+    AuditLogRecord {
+        actor_email: SERVICE_NAME.to_string(),
+        action: action.to_string(),
+        target_type: "sweep_job".to_string(),
+        target_id: job.sweep_job_id.to_string(),
+        payload: serde_json::Value::Object(payload),
+        created_at,
     }
 }
 
@@ -439,18 +593,222 @@ fn internal_ingest_enabled() -> bool {
 mod tests {
     use super::{
         build_router, configured_port, health_payload, internal_ingest_enabled, parse_port,
-        required_env, ListenerMetrics, ListenerState, DEFAULT_PORT, SERVICE_NAME,
+        process_sweep_confirmation_once, process_sweep_submission_once, required_env,
+        ListenerMetrics, ListenerState, RpcRuntimeConfig, SweepExecutorConfig, DEFAULT_PORT,
+        SERVICE_NAME,
     };
     use axum::body::{to_bytes, Body};
     use axum::http::{Request, StatusCode};
+    use chrono::{TimeZone, Utc};
     use serde_json::json;
-    use shared_db::SharedDb;
-    use std::sync::{Arc, Mutex, OnceLock};
+    use shared_db::{SharedDb, SweepJobRecord, SweepTransferRecord};
+    use std::{
+        collections::BTreeMap,
+        sync::{Arc, Mutex, OnceLock},
+    };
     use tower::ServiceExt;
 
     fn env_lock() -> &'static Mutex<()> {
         static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
         LOCK.get_or_init(|| Mutex::new(()))
+    }
+
+    async fn spawn_json_server(router: axum::Router) -> String {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("bind test server");
+        let address = listener.local_addr().expect("test server addr");
+        tokio::spawn(async move {
+            axum::serve(listener, router)
+                .await
+                .expect("serve test server");
+        });
+        format!("http://{address}")
+    }
+
+    fn sample_sweep_job(
+        status: &str,
+        transfer_status: &str,
+        tx_hash: Option<&str>,
+        submitted_at: Option<chrono::DateTime<chrono::Utc>>,
+    ) -> SweepJobRecord {
+        let requested_at = Utc.with_ymd_and_hms(2026, 4, 1, 0, 14, 0).single().unwrap();
+        SweepJobRecord {
+            sweep_job_id: 41,
+            chain: "BSC".to_string(),
+            asset: "USDT".to_string(),
+            status: status.to_string(),
+            requested_by: "super-admin@example.com".to_string(),
+            requested_at,
+            treasury_address: "bsc-treasury-1".to_string(),
+            submitted_at,
+            completed_at: None,
+            failed_at: None,
+            last_error: None,
+            attempt_count: 0,
+            transfers: vec![SweepTransferRecord {
+                from_address: "bsc-addr-1".to_string(),
+                to_address: "bsc-treasury-1".to_string(),
+                amount: "20.00000000".to_string(),
+                tx_hash: tx_hash.map(str::to_string),
+                status: transfer_status.to_string(),
+                submitted_at,
+                confirmed_at: None,
+                failed_at: None,
+                error_message: None,
+            }],
+        }
+    }
+
+    #[tokio::test]
+    async fn sweep_submission_records_submitted_audit_logs() {
+        let db = SharedDb::ephemeral().expect("db");
+        db.create_sweep_job(&sample_sweep_job("pending", "pending", None, None))
+            .expect("create sweep job");
+        let url = spawn_json_server(axum::Router::new().route(
+            "/",
+            axum::routing::post(|| async { axum::Json(json!({ "tx_hash": "0xsweep-submitted" })) }),
+        ))
+        .await;
+
+        process_sweep_submission_once(
+            &db,
+            &reqwest::Client::new(),
+            &SweepExecutorConfig {
+                url,
+                auth_token: None,
+            },
+        )
+        .await;
+
+        let jobs = db.list_sweep_jobs().expect("sweep jobs");
+        assert_eq!(jobs[0].status, "submitted");
+        assert_eq!(jobs[0].transfers[0].status, "submitted");
+        assert_eq!(
+            jobs[0].transfers[0].tx_hash.as_deref(),
+            Some("0xsweep-submitted")
+        );
+
+        let audit_logs = db.list_audit_logs().expect("audit logs");
+        assert!(audit_logs.iter().any(|record| {
+            record.action == "treasury.sweep_transfer_submitted"
+                && record.target_id == "41:bsc-addr-1"
+                && record.payload["tx_hash"] == "0xsweep-submitted"
+        }));
+        assert!(audit_logs.iter().any(|record| {
+            record.action == "treasury.sweep_job_submitted"
+                && record.target_id == "41"
+                && record.payload["status"] == "submitted"
+        }));
+    }
+
+    #[tokio::test]
+    async fn sweep_submission_failures_record_failed_audit_logs() {
+        let db = SharedDb::ephemeral().expect("db");
+        db.create_sweep_job(&sample_sweep_job("pending", "pending", None, None))
+            .expect("create sweep job");
+        let url = spawn_json_server(axum::Router::new().route(
+            "/",
+            axum::routing::post(|| async {
+                (
+                    StatusCode::BAD_GATEWAY,
+                    axum::Json(json!({ "error": "executor offline" })),
+                )
+            }),
+        ))
+        .await;
+
+        process_sweep_submission_once(
+            &db,
+            &reqwest::Client::new(),
+            &SweepExecutorConfig {
+                url,
+                auth_token: None,
+            },
+        )
+        .await;
+
+        let jobs = db.list_sweep_jobs().expect("sweep jobs");
+        assert_eq!(jobs[0].status, "failed");
+        assert_eq!(jobs[0].transfers[0].status, "failed");
+        assert!(jobs[0]
+            .last_error
+            .as_deref()
+            .unwrap_or_default()
+            .contains("502"));
+
+        let audit_logs = db.list_audit_logs().expect("audit logs");
+        assert!(audit_logs.iter().any(|record| {
+            record.action == "treasury.sweep_transfer_failed"
+                && record.target_id == "41:bsc-addr-1"
+                && record.payload["error_message"]
+                    .as_str()
+                    .unwrap_or_default()
+                    .contains("502")
+        }));
+        assert!(audit_logs.iter().any(|record| {
+            record.action == "treasury.sweep_job_failed"
+                && record.target_id == "41"
+                && record.payload["last_error"]
+                    .as_str()
+                    .unwrap_or_default()
+                    .contains("502")
+        }));
+    }
+
+    #[tokio::test]
+    async fn sweep_confirmation_records_confirmed_audit_logs() {
+        let submitted_at = Utc.with_ymd_and_hms(2026, 4, 1, 0, 15, 0).single().unwrap();
+        let db = SharedDb::ephemeral().expect("db");
+        db.create_sweep_job(&sample_sweep_job(
+            "submitted",
+            "submitted",
+            Some("0xsweep-submitted"),
+            Some(submitted_at),
+        ))
+        .expect("create submitted sweep job");
+        let url = spawn_json_server(axum::Router::new().route(
+            "/",
+            axum::routing::post(|| async {
+                axum::Json(json!({
+                    "jsonrpc": "2.0",
+                    "id": 1,
+                    "result": { "status": "0x1" }
+                }))
+            }),
+        ))
+        .await;
+
+        process_sweep_confirmation_once(
+            &db,
+            &reqwest::Client::new(),
+            &RpcRuntimeConfig {
+                eth_rpc_url: url.clone(),
+                bsc_rpc_url: url.clone(),
+                sol_rpc_url: url,
+                token_registry: BTreeMap::new(),
+                evm_initial_lookback_blocks: 64,
+                sol_signature_limit: 50,
+            },
+        )
+        .await;
+
+        let jobs = db.list_sweep_jobs().expect("sweep jobs");
+        assert_eq!(jobs[0].status, "confirmed");
+        assert_eq!(jobs[0].transfers[0].status, "confirmed");
+        assert!(jobs[0].completed_at.is_some());
+
+        let audit_logs = db.list_audit_logs().expect("audit logs");
+        assert!(audit_logs.iter().any(|record| {
+            record.action == "treasury.sweep_transfer_confirmed"
+                && record.target_id == "41:bsc-addr-1"
+                && record.payload["tx_hash"] == "0xsweep-submitted"
+        }));
+        assert!(audit_logs.iter().any(|record| {
+            record.action == "treasury.sweep_job_confirmed"
+                && record.target_id == "41"
+                && record.payload["status"] == "confirmed"
+        }));
     }
 
     #[test]

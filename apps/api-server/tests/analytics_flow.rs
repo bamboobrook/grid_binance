@@ -232,6 +232,130 @@ async fn compute_strategy_and_account_snapshots_from_persisted_trading_and_excha
     assert_eq!(payment_lines[2], "502,trader@example.com,BSC,USDC,quarterly,54.00000000,pending,bsc-addr-3,2026-03-02T00:00:00+00:00,,");
 }
 
+#[tokio::test]
+async fn analytics_projects_short_fill_entry_price_from_short_direction() {
+    let db = SharedDb::ephemeral().expect("ephemeral db");
+    let mut strategy = stored_strategy(
+        "strategy-short",
+        "trader@example.com",
+        "Short BTC",
+        "BTCUSDT",
+        StrategyStatus::Stopped,
+        vec![],
+        vec![runtime_order(
+            "short-close-1",
+            "Buy",
+            "Limit",
+            Some("90"),
+            "2",
+            "Filled",
+        )],
+        vec![runtime_fill(
+            "short-fill-1",
+            Some("short-close-1"),
+            "GridTakeProfit",
+            "90",
+            "2",
+            Some("20"),
+            Some("0.4"),
+            Some("USDT"),
+        )],
+    );
+    strategy.market = StrategyMarket::FuturesUsdM;
+    strategy.mode = StrategyMode::FuturesShort;
+
+    db.insert_strategy(&StoredStrategy {
+        sequence_id: 1,
+        strategy,
+    })
+    .expect("short strategy");
+
+    let app = app_with_state(AppState::from_shared_db(db).expect("app state"));
+    let session_token = register_and_login(&app, "trader@example.com", "pass1234").await;
+
+    let analytics = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri("/analytics")
+                .header("authorization", format!("Bearer {session_token}"))
+                .body(Body::empty())
+                .expect("analytics request"),
+        )
+        .await
+        .expect("analytics response");
+
+    assert_eq!(analytics.status(), StatusCode::OK);
+    let analytics_body = response_json(analytics).await;
+    let fill = find_fill(&analytics_body, "strategy-short");
+
+    assert_eq!(fill["entry_price"], "100");
+    assert_eq!(fill["exit_price"], "90");
+    assert_eq!(fill["realized_pnl"], "20");
+}
+
+#[tokio::test]
+async fn analytics_preserves_hedged_position_breakdown_in_strategy_summary() {
+    let db = SharedDb::ephemeral().expect("ephemeral db");
+    let mut strategy = stored_strategy(
+        "strategy-hedged",
+        "trader@example.com",
+        "Hedged SOL",
+        "SOLUSDT",
+        StrategyStatus::Running,
+        vec![
+            StrategyRuntimePosition {
+                market: StrategyMarket::FuturesUsdM,
+                mode: StrategyMode::FuturesLong,
+                quantity: decimal("1.5"),
+                average_entry_price: decimal("100"),
+            },
+            StrategyRuntimePosition {
+                market: StrategyMarket::FuturesUsdM,
+                mode: StrategyMode::FuturesShort,
+                quantity: decimal("0.75"),
+                average_entry_price: decimal("120"),
+            },
+        ],
+        vec![],
+        vec![],
+    );
+    strategy.market = StrategyMarket::FuturesUsdM;
+    strategy.mode = StrategyMode::FuturesNeutral;
+
+    db.insert_strategy(&StoredStrategy {
+        sequence_id: 1,
+        strategy,
+    })
+    .expect("hedged strategy");
+
+    let app = app_with_state(AppState::from_shared_db(db).expect("app state"));
+    let session_token = register_and_login(&app, "trader@example.com", "pass1234").await;
+
+    let analytics = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri("/analytics")
+                .header("authorization", format!("Bearer {session_token}"))
+                .body(Body::empty())
+                .expect("analytics request"),
+        )
+        .await
+        .expect("analytics response");
+
+    assert_eq!(analytics.status(), StatusCode::OK);
+    let analytics_body = response_json(analytics).await;
+    let strategy = find_strategy(&analytics_body, "strategy-hedged");
+
+    assert_eq!(strategy["position_quantity"], "0");
+    assert_eq!(strategy["average_entry_price"], "0");
+    assert_eq!(strategy["long_position_quantity"], "1.5");
+    assert_eq!(strategy["long_average_entry_price"], "100");
+    assert_eq!(strategy["short_position_quantity"], "0.75");
+    assert_eq!(strategy["short_average_entry_price"], "120");
+}
+
 async fn response_json(response: axum::response::Response) -> Value {
     let body = response.into_body();
     let bytes = to_bytes(body, usize::MAX).await.expect("body bytes");
@@ -737,4 +861,22 @@ fn exchange_trade(
 
 fn decimal(value: &str) -> rust_decimal::Decimal {
     value.parse().expect("valid decimal")
+}
+
+fn find_fill<'a>(analytics_body: &'a Value, strategy_id: &str) -> &'a Value {
+    analytics_body["fills"]
+        .as_array()
+        .expect("fills array")
+        .iter()
+        .find(|fill| fill["strategy_id"] == strategy_id)
+        .expect("fill exists")
+}
+
+fn find_strategy<'a>(analytics_body: &'a Value, strategy_id: &str) -> &'a Value {
+    analytics_body["strategies"]
+        .as_array()
+        .expect("strategies array")
+        .iter()
+        .find(|strategy| strategy["strategy_id"] == strategy_id)
+        .expect("strategy exists")
 }

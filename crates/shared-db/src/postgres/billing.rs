@@ -8,6 +8,7 @@ use sqlx::{PgPool, Postgres, Row, Transaction};
 use shared_chain::assignment::AddressAssignment;
 use shared_domain::membership::MembershipStatus;
 
+use crate::postgres::admin::{insert_audit_log_in, AuditLogRecord};
 use crate::{membership_status_to_str, parse_membership_status, SharedDbError};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -1110,6 +1111,197 @@ impl BillingRepository {
         .await
         .map_err(SharedDbError::from)?;
         Ok(result.rows_affected() > 0)
+    }
+
+    pub async fn mark_sweep_transfer_submitted_with_audit(
+        &self,
+        sweep_job_id: u64,
+        from_address: &str,
+        tx_hash: &str,
+        submitted_at: DateTime<Utc>,
+        audit: &AuditLogRecord,
+    ) -> Result<bool, SharedDbError> {
+        let mut transaction = self.pool.begin().await.map_err(SharedDbError::from)?;
+        let result = sqlx::query(
+            "UPDATE fund_sweep_transfers
+             SET status = 'submitted',
+                 tx_hash = $3,
+                 submitted_at = $4,
+                 error_message = NULL,
+                 failed_at = NULL
+             WHERE sweep_job_id = $1
+               AND from_address = $2
+               AND status = 'pending'",
+        )
+        .bind(sweep_job_id as i64)
+        .bind(from_address)
+        .bind(tx_hash)
+        .bind(submitted_at)
+        .execute(&mut *transaction)
+        .await
+        .map_err(SharedDbError::from)?;
+        if result.rows_affected() == 0 {
+            transaction.rollback().await.map_err(SharedDbError::from)?;
+            return Ok(false);
+        }
+        insert_audit_log_in(&mut transaction, audit).await?;
+        transaction.commit().await.map_err(SharedDbError::from)?;
+        Ok(true)
+    }
+
+    pub async fn mark_sweep_transfer_failed_with_audit(
+        &self,
+        sweep_job_id: u64,
+        from_address: &str,
+        failed_at: DateTime<Utc>,
+        error_message: &str,
+        audit: &AuditLogRecord,
+    ) -> Result<bool, SharedDbError> {
+        let mut transaction = self.pool.begin().await.map_err(SharedDbError::from)?;
+        let result = sqlx::query(
+            "UPDATE fund_sweep_transfers
+             SET status = 'failed',
+                 failed_at = $3,
+                 error_message = $4
+             WHERE sweep_job_id = $1
+               AND from_address = $2
+               AND status IN ('pending', 'submitted')",
+        )
+        .bind(sweep_job_id as i64)
+        .bind(from_address)
+        .bind(failed_at)
+        .bind(error_message)
+        .execute(&mut *transaction)
+        .await
+        .map_err(SharedDbError::from)?;
+        if result.rows_affected() == 0 {
+            transaction.rollback().await.map_err(SharedDbError::from)?;
+            return Ok(false);
+        }
+        insert_audit_log_in(&mut transaction, audit).await?;
+        transaction.commit().await.map_err(SharedDbError::from)?;
+        Ok(true)
+    }
+
+    pub async fn mark_sweep_transfer_confirmed_with_audit(
+        &self,
+        sweep_job_id: u64,
+        from_address: &str,
+        confirmed_at: DateTime<Utc>,
+        audit: &AuditLogRecord,
+    ) -> Result<bool, SharedDbError> {
+        let mut transaction = self.pool.begin().await.map_err(SharedDbError::from)?;
+        let result = sqlx::query(
+            "UPDATE fund_sweep_transfers
+             SET status = 'confirmed',
+                 confirmed_at = $3
+             WHERE sweep_job_id = $1
+               AND from_address = $2
+               AND status = 'submitted'",
+        )
+        .bind(sweep_job_id as i64)
+        .bind(from_address)
+        .bind(confirmed_at)
+        .execute(&mut *transaction)
+        .await
+        .map_err(SharedDbError::from)?;
+        if result.rows_affected() == 0 {
+            transaction.rollback().await.map_err(SharedDbError::from)?;
+            return Ok(false);
+        }
+        insert_audit_log_in(&mut transaction, audit).await?;
+        transaction.commit().await.map_err(SharedDbError::from)?;
+        Ok(true)
+    }
+
+    pub async fn mark_sweep_job_submitted_with_audit(
+        &self,
+        sweep_job_id: u64,
+        submitted_at: DateTime<Utc>,
+        audit: &AuditLogRecord,
+    ) -> Result<bool, SharedDbError> {
+        let mut transaction = self.pool.begin().await.map_err(SharedDbError::from)?;
+        let result = sqlx::query(
+            "UPDATE fund_sweep_jobs
+             SET status = 'submitted',
+                 submitted_at = $2,
+                 last_error = NULL,
+                 failed_at = NULL
+             WHERE sweep_job_id = $1
+               AND status = 'submitting'",
+        )
+        .bind(sweep_job_id as i64)
+        .bind(submitted_at)
+        .execute(&mut *transaction)
+        .await
+        .map_err(SharedDbError::from)?;
+        if result.rows_affected() == 0 {
+            transaction.rollback().await.map_err(SharedDbError::from)?;
+            return Ok(false);
+        }
+        insert_audit_log_in(&mut transaction, audit).await?;
+        transaction.commit().await.map_err(SharedDbError::from)?;
+        Ok(true)
+    }
+
+    pub async fn mark_sweep_job_failed_with_audit(
+        &self,
+        sweep_job_id: u64,
+        failed_at: DateTime<Utc>,
+        last_error: &str,
+        audit: &AuditLogRecord,
+    ) -> Result<bool, SharedDbError> {
+        let mut transaction = self.pool.begin().await.map_err(SharedDbError::from)?;
+        let result = sqlx::query(
+            "UPDATE fund_sweep_jobs
+             SET status = 'failed',
+                 failed_at = $2,
+                 last_error = $3
+             WHERE sweep_job_id = $1
+               AND status IN ('pending', 'submitting', 'submitted')",
+        )
+        .bind(sweep_job_id as i64)
+        .bind(failed_at)
+        .bind(last_error)
+        .execute(&mut *transaction)
+        .await
+        .map_err(SharedDbError::from)?;
+        if result.rows_affected() == 0 {
+            transaction.rollback().await.map_err(SharedDbError::from)?;
+            return Ok(false);
+        }
+        insert_audit_log_in(&mut transaction, audit).await?;
+        transaction.commit().await.map_err(SharedDbError::from)?;
+        Ok(true)
+    }
+
+    pub async fn mark_sweep_job_confirmed_with_audit(
+        &self,
+        sweep_job_id: u64,
+        completed_at: DateTime<Utc>,
+        audit: &AuditLogRecord,
+    ) -> Result<bool, SharedDbError> {
+        let mut transaction = self.pool.begin().await.map_err(SharedDbError::from)?;
+        let result = sqlx::query(
+            "UPDATE fund_sweep_jobs
+             SET status = 'confirmed',
+                 completed_at = $2,
+                 last_error = NULL
+             WHERE sweep_job_id = $1
+               AND status = 'submitted'",
+        )
+        .bind(sweep_job_id as i64)
+        .bind(completed_at)
+        .execute(&mut *transaction)
+        .await
+        .map_err(SharedDbError::from)?;
+        if result.rows_affected() == 0 {
+            transaction.rollback().await.map_err(SharedDbError::from)?;
+            return Ok(false);
+        }
+        insert_audit_log_in(&mut transaction, audit).await?;
+        transaction.commit().await.map_err(SharedDbError::from)?;
+        Ok(true)
     }
 }
 

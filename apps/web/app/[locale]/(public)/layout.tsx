@@ -1,9 +1,9 @@
 import type { ReactNode } from "react";
-import { getTranslations } from "next-intl/server";
 import { Bot } from "lucide-react";
 import Link from "next/link";
 import { LocaleToggle } from "@/components/ui/locale-toggle";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
+import { pickText } from "@/lib/ui/preferences";
 
 export default async function PublicLayout({
   children,
@@ -13,6 +13,7 @@ export default async function PublicLayout({
   params: Promise<{ locale: string }>;
 }) {
   const { locale } = await params;
+  const lang = locale === "en" ? "en" : "zh";
   
   return (
     <div className="min-h-screen bg-muted text-foreground flex flex-col font-sans selection:bg-primary/30">
@@ -37,7 +38,7 @@ export default async function PublicLayout({
 
       {/* Simple Footer */}
       <footer className="py-6 text-center text-xs text-muted-foreground">
-        © 2026 Grid Trading Console. Designed for professionals.
+        {pickText(lang, "© 2026 Grid Trading Console。面向专业交易者。", "© 2026 Grid Trading Console. Designed for professionals.")}
       </footer>
     </div>
   );

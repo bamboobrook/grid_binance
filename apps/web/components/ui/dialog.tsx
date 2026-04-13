@@ -1,34 +1,35 @@
-"use client";
-
 import type { ReactNode } from "react";
 
-import { Chip, useUiCopy } from "./chip";
+import { pickText, type UiLanguage } from "@/lib/ui/preferences";
 
-function resolveToneLabel(tone: "info" | "warning" | "danger", copy: (zh: string, en: string) => string) {
+import { Chip } from "./chip";
+
+function resolveToneLabel(tone: "info" | "warning" | "danger", lang: UiLanguage) {
   if (tone === "warning") {
-    return copy("警示", "Warning");
+    return pickText(lang, "警示", "Warning");
   }
   if (tone === "danger") {
-    return copy("严重", "Critical");
+    return pickText(lang, "严重", "Critical");
   }
-  return copy("提示", "Heads up");
+  return pickText(lang, "提示", "Heads up");
 }
 
 export function DialogFrame({
   children,
   description,
+  lang = "en",
   title,
   tone = "info",
   modal = false,
 }: {
   children?: ReactNode;
   description: string;
+  lang?: UiLanguage;
   title: string;
   tone?: "info" | "warning" | "danger";
   modal?: boolean;
 }) {
-  const copy = useUiCopy;
-  const toneLabel = resolveToneLabel(tone, copy);
+  const toneLabel = resolveToneLabel(tone, lang);
 
   return (
     <section aria-modal={modal ? "true" : "false"} className={`ui-dialog ui-dialog--${tone}`} role="dialog">

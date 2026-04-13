@@ -53,18 +53,24 @@ export async function POST(
   }
 
   if (intent === "pause") {
+    if (current.status !== "Running") {
+      return redirectWithError(request, id, pauseErrorForStatus(current.status));
+    }
     const paused = await strategyPost(sessionToken, "/strategies/batch/pause", { ids: [id] });
     if (!paused.ok) {
       return redirectWithError(request, id, await readError(paused.response));
     }
-    const pausedPayload = (await paused.response.json()) as { paused?: number };
+    const pausedPayload = (await paused.response.json()) as { paused?: number; failures?: Array<{ error?: string }> };
     if ((pausedPayload.paused ?? 0) === 0) {
-      return redirectWithError(request, id, "No running strategy was paused.");
+      return redirectWithError(request, id, pausedPayload.failures?.[0]?.error ?? "Strategy action failed.");
     }
     return redirectToDetail(request, id, "?notice=strategy-paused");
   }
 
   if (intent === "stop") {
+    if (current.status !== "Running" && current.status !== "Paused") {
+      return redirectWithError(request, id, stopErrorForStatus(current.status));
+    }
     const stopped = await strategyPost(sessionToken, `/strategies/${id}/stop`, null);
     if (!stopped.ok) {
       return redirectWithError(request, id, await readError(stopped.response));
@@ -73,13 +79,16 @@ export async function POST(
   }
 
   if (intent === "delete") {
+    if (current.status === "Running") {
+      return redirectWithError(request, id, deleteErrorForStatus(current.status));
+    }
     const deleted = await strategyPost(sessionToken, "/strategies/batch/delete", { ids: [id] });
     if (!deleted.ok) {
       return redirectWithError(request, id, await readError(deleted.response));
     }
-    const deletedPayload = (await deleted.response.json()) as { deleted?: number };
+    const deletedPayload = (await deleted.response.json()) as { deleted?: number; failures?: Array<{ error?: string }> };
     if ((deletedPayload.deleted ?? 0) === 0) {
-      return redirectWithError(request, id, "Strategy cannot be deleted while orders or positions remain.");
+      return redirectWithError(request, id, deletedPayload.failures?.[0]?.error ?? "Strategy action failed.");
     }
     return redirectToApp(request, "/strategies?notice=strategy-deleted");
   }
@@ -90,7 +99,7 @@ export async function POST(
     }
     let payload;
     try {
-      payload = buildUpdatePayload(formData, current);
+      payload = await buildUpdatePayload(formData, current);
     } catch (error) {
       return redirectWithError(request, id, readErrorMessage(error));
     }
@@ -133,12 +142,14 @@ export async function POST(
   return redirectToDetail(request, id, "?notice=strategy-started");
 }
 
-function buildUpdatePayload(formData: FormData, current: BackendStrategy) {
+async function buildUpdatePayload(formData: FormData, current: BackendStrategy) {
   const generation = (mapGeneration(readField(formData, "generation")) || current.draft_revision.generation);
   const market = mapMarket(readField(formData, "marketType")) || current.market;
+  const symbol = readField(formData, "symbol") || current.symbol;
+
   return {
     name: readField(formData, "name") || current.name,
-    symbol: readField(formData, "symbol") || current.symbol,
+    symbol,
     market,
     mode: mapMode(readField(formData, "mode")) || current.mode,
     generation,
@@ -149,27 +160,29 @@ function buildUpdatePayload(formData: FormData, current: BackendStrategy) {
     leverage: market === "Spot"
       ? null
       : readPositiveInteger(formData, "leverage", "Leverage"),
-    levels: readLevels(formData, generation, current.draft_revision.levels),
+    levels: await readLevels(formData, generation, market, symbol, current.draft_revision.levels),
     overall_take_profit_bps: readPercentField(formData, "overallTakeProfit", current.draft_revision.overall_take_profit_bps),
     overall_stop_loss_bps: readPercentField(formData, "overallStopLoss", current.draft_revision.overall_stop_loss_bps),
     post_trigger_action: mapPostTrigger(readField(formData, "postTrigger")) || current.draft_revision.post_trigger_action,
   };
 }
 
-function readLevels(
+async function readLevels(
   formData: FormData,
   generation: BackendStrategy["draft_revision"]["generation"],
+  market: BackendStrategy["market"],
+  symbol: string,
   fallback: BackendStrategy["draft_revision"]["levels"],
-): ParsedGridLevel[] {
+): Promise<ParsedGridLevel[]> {
   const editorMode = readField(formData, "editorMode") || "custom";
   if (editorMode === "batch" && generation !== "Custom") {
-    return buildBatchLevels(formData, generation);
+    return buildBatchLevels(formData, generation, market, symbol);
   }
   return parseLevelsJson(readField(formData, "levels_json"), fallback);
 }
 
-function buildBatchLevels(formData: FormData, generation: "Arithmetic" | "Geometric") {
-  const referencePrice = readPositiveNumber(formData, "referencePrice", "Reference price");
+async function buildBatchLevels(formData: FormData, generation: "Arithmetic" | "Geometric", market: BackendStrategy["market"], symbol: string) {
+  const referencePrice = await resolveReferencePrice(formData, market, symbol);
   const gridCount = readPositiveInteger(formData, "gridCount", "Grid count");
   const gridSpacingPercent = readPositiveNumber(formData, "gridSpacingPercent", "Batch spacing (%)");
   const takeProfitPercent = readPositiveNumber(formData, "batchTakeProfit", "Batch take profit (%)");
@@ -328,6 +341,39 @@ function formatDecimal(value: number, scale: number) {
   return normalized === "-0" ? "0" : normalized;
 }
 
+async function resolveReferencePrice(
+  formData: FormData,
+  market: BackendStrategy["market"],
+  symbol: string,
+) {
+  const mode = readField(formData, "referencePriceMode") || "manual";
+  if (mode !== "market") {
+    return readPositiveNumber(formData, "referencePrice", "Reference price");
+  }
+  const response = await fetch(binanceTickerUrl(market, symbol), { cache: "no-store" });
+  if (!response.ok) {
+    throw new Error("Current market price is temporarily unavailable.");
+  }
+  const payload = (await response.json()) as { price?: string };
+  const parsed = Number.parseFloat(String(payload.price ?? ""));
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    throw new Error("Current market price is temporarily unavailable.");
+  }
+  return parsed;
+}
+
+function binanceTickerUrl(market: BackendStrategy["market"], symbol: string) {
+  const encodedSymbol = encodeURIComponent(symbol.trim().toUpperCase());
+  switch (market) {
+    case "FuturesUsdM":
+      return `https://fapi.binance.com/fapi/v1/ticker/price?symbol=${encodedSymbol}`;
+    case "FuturesCoinM":
+      return `https://dapi.binance.com/dapi/v1/ticker/price?symbol=${encodedSymbol}`;
+    default:
+      return `https://api.binance.com/api/v3/ticker/price?symbol=${encodedSymbol}`;
+  }
+}
+
 async function fetchStrategy(sessionToken: string, strategyId: string) {
   const response = await fetch(`${authApiBaseUrl()}/strategies`, {
     method: "GET",
@@ -472,10 +518,44 @@ async function readStrategyError(response: Response) {
 
 function humanizeFailure(step: string, message: string) {
   const detail = message.trim();
-  if (step === "membership") {
+  if (step === "membership" || step === "membership_status") {
     return detail || "请先续费或恢复会员资格后再启动该策略。 / Renew or reactivate membership before starting this strategy.";
   }
   return detail || `请先处理 ${step} 预检项后再重试。 / Resolve the ${step} pre-flight check before retrying.`;
+}
+
+function pauseErrorForStatus(status: string) {
+  switch (status) {
+    case "Draft":
+    case "Stopped":
+      return "Strategy has not started yet; only running strategies can pause.";
+    case "Paused":
+      return "Strategy is already paused.";
+    case "ErrorPaused":
+      return "Strategy is already blocked. Review the runtime error before retrying.";
+    case "Archived":
+      return "Strategy has already been deleted.";
+    default:
+      return "Strategy is not in a pausable state.";
+  }
+}
+
+function stopErrorForStatus(status: string) {
+  if (status === "Archived") {
+    return "Strategy has already been deleted.";
+  }
+  return "Strategy has not started yet; only running or paused strategies can stop.";
+}
+
+function deleteErrorForStatus(status: string) {
+  switch (status) {
+    case "Running":
+      return "Pause or stop the running strategy before deleting it.";
+    case "Archived":
+      return "Strategy has already been deleted.";
+    default:
+      return "Strategy cannot be deleted while orders or positions remain.";
+  }
 }
 
 function readSessionToken(request: Request) {

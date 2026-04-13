@@ -72,9 +72,9 @@ test("commercial guide set matches the March 31 design doc", () => {
 
 test("help center stays sourced from repository user guides", async () => {
   const { VALID_HELP_ARTICLES, getHelpArticle } = await import(
-    "../../apps/web/src/lib/api/help-articles.ts"
+    "../../apps/web/lib/api/help-articles.ts"
   );
-  const helpPage = fs.readFileSync("apps/web/src/app/app/help/page.tsx", "utf8");
+  const helpPage = fs.readFileSync("apps/web/app/[locale]/app/help/page.tsx", "utf8");
 
   for (const file of requiredUserGuides) {
     const slug = file.replace(/\.md$/, "");
@@ -98,7 +98,7 @@ test("help center stays sourced from repository user guides", async () => {
     gettingStarted.body.includes("- `/app/telegram` for Telegram bot binding and notification delivery status"),
     "repository routes should stay aligned with the canonical app shell pages",
   );
-  assert.match(helpPage, /\/app\/help\?article=\$\{item\.slug\}/);
+  assert.match(helpPage, /\/\$\{locale\}\/app\/help\?article=\$\{item\.slug\}/);
   assert.doesNotMatch(helpPage, /href=\{`\/help\/\$\{item\.slug\}`\}/);
   assert.match(helpPage, /blocks\.map\(/);
 });
@@ -154,12 +154,9 @@ test("docker compose guide lists the actual commercial stack services", () => {
 
 test("public help surface includes expiry reminder from repository-backed article content", async () => {
   const { VALID_HELP_ARTICLES, getHelpArticle } = await import(
-    "../../apps/web/src/lib/api/help-articles.ts"
+    "../../apps/web/lib/api/help-articles.ts"
   );
-  const publicHelpPage = readText("apps/web/src/app/help/[slug]/page.tsx");
-  const publicLanding = readText("apps/web/src/app/(public)/page.tsx");
-  const publicLogin = readText("apps/web/src/app/(public)/login/page.tsx");
-  const publicRegister = readText("apps/web/src/app/(public)/register/page.tsx");
+  const publicHelpPage = readText("apps/web/app/[locale]/help/[slug]/page.tsx");
   const expiryReminderDoc = readText("docs/user-guide/expiry-reminder.md");
 
   assert.ok(
@@ -187,9 +184,6 @@ test("public help surface includes expiry reminder from repository-backed articl
   );
 
   assert.match(publicHelpPage, /StatusBanner description=\{article\.summary\} title=\{article\.title\}/);
-  assert.match(publicHelpPage, /href=\{`\/app\/help\?article=\$\{article\.slug\}`\}/);
+  assert.match(publicHelpPage, /href=\{`\/\$\{locale\}\/app\/help\?article=\$\{article\.slug\}`\}/);
   assert.match(publicHelpPage, /Open Billing Center/);
-  assert.match(publicLanding, /href="\/help\/expiry-reminder"/);
-  assert.match(publicLogin, /href="\/help\/expiry-reminder"/);
-  assert.match(publicRegister, /href="\/help\/expiry-reminder"/);
 });

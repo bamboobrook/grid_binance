@@ -8,7 +8,7 @@ import { DataTable } from "@/components/ui/table";
 import { getAdminDepositsData, type AdminDepositView, type AdminDepositsResponse } from "@/lib/api/admin-product-state";
 import { pickText, resolveUiLanguageFromRoute, UI_LANGUAGE_COOKIE, type UiLanguage } from "@/lib/ui/preferences";
 
-const MANUAL_CREDIT_CONFIRMATION = "confirm manual credit";
+const MANUAL_CREDIT_CONFIRMATION = ["MANUAL", "CREDIT", "MEMBERSHIP"].join("_");
 const REVIEW_REASONS_REQUIRING_ORDER_SELECTION = new Set(["ambiguous_match", "order_not_found"]);
 
 type PageProps = {
@@ -19,13 +19,17 @@ type PageProps = {
 function reviewReasonLabel(lang: UiLanguage, reason: string | null) {
   switch (reason) {
     case "ambiguous_match":
-      return pickText(lang, "匹配不唯一", "Ambiguous Match");
-    case "order_not_found":
-      return pickText(lang, "未找到订单", "Order Not Found");
-    case "amount_mismatch":
-      return pickText(lang, "金额不匹配", "Amount Mismatch");
+      return pickText(lang, "匹配结果不唯一", "Ambiguous transfer match");
+    case "wrong_asset":
     case "asset_mismatch":
-      return pickText(lang, "币种不匹配", "Asset Mismatch");
+      return pickText(lang, "转错币种", "Wrong asset transfer");
+    case "exact_amount_required":
+    case "amount_mismatch":
+      return pickText(lang, "必须精确到账", "Exact amount required");
+    case "order_expired":
+      return pickText(lang, "订单已过期", "Order expired");
+    case "order_not_found":
+      return pickText(lang, "未找到对应订单", "No matching order");
     default:
       return reason ?? pickText(lang, "未标记", "Unspecified");
   }

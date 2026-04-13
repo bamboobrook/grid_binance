@@ -247,13 +247,10 @@ async fn strategy_revisions_runtime_contracts_and_soft_archive_follow_frozen_lif
             .count(),
         2
     );
-    assert_eq!(
-        started_body["runtime"]["orders"]
-            .as_array()
-            .expect("orders")
-            .len(),
-        3
-    );
+    let started_orders = started_body["runtime"]["orders"].as_array().expect("orders");
+    assert_eq!(started_orders.len(), 2);
+    assert_eq!(started_orders[0]["side"], "Buy");
+    assert_eq!(started_orders[1]["side"], "Sell");
     assert_eq!(
         started_body["runtime"]["positions"]
             .as_array()
@@ -269,7 +266,7 @@ async fn strategy_revisions_runtime_contracts_and_soft_archive_follow_frozen_lif
     let orders = list_strategy_orders(&app, &user_token, &strategy_id).await;
     assert_eq!(orders.status(), StatusCode::OK);
     let orders_body = response_json(orders).await;
-    assert_eq!(orders_body["orders"].as_array().expect("orders").len(), 3);
+    assert_eq!(orders_body["orders"].as_array().expect("orders").len(), 2);
     assert_eq!(
         orders_body["positions"]
             .as_array()
@@ -301,7 +298,7 @@ async fn strategy_revisions_runtime_contracts_and_soft_archive_follow_frozen_lif
             .iter()
             .filter(|order| order["status"] == "Canceled")
             .count(),
-        3
+        2
     );
 
     let edited_while_paused = update_strategy(
@@ -389,11 +386,166 @@ async fn strategy_revisions_runtime_contracts_and_soft_archive_follow_frozen_lif
     let listed_after_delete = list_strategies(&app, &user_token).await;
     assert_eq!(listed_after_delete.status(), StatusCode::OK);
     let listed_after_delete_body = response_json(listed_after_delete).await;
-    let archived = find_strategy(&listed_after_delete_body, &strategy_id);
-    assert_eq!(archived["status"], "Archived");
-    assert!(archived["archived_at"].is_string());
+    assert!(listed_after_delete_body["items"]
+        .as_array()
+        .expect("items")
+        .iter()
+        .all(|item| item["id"] != strategy_id));
 }
 
+#[tokio::test]
+async fn draft_lifecycle_actions_report_clear_failures_and_allow_delete() {
+    let db = SharedDb::ephemeral().expect("ephemeral db");
+    let app = app_with_state(AppState::from_shared_db(db).expect("state"));
+    let email = "draft-lifecycle@example.com";
+    let user_token = register_and_login(&app, email, "pass1234").await;
+
+    let created = create_strategy(
+        &app,
+        &user_token,
+        json!({
+            "name": "Draft lifecycle",
+            "symbol": "BTCUSDT",
+            "market": "Spot",
+            "mode": "SpotClassic",
+            "generation": "Custom",
+            "levels": [grid_level("100.00", "0.0100", 120, None)],
+            "overall_take_profit_bps": 500,
+            "overall_stop_loss_bps": 200,
+            "post_trigger_action": "Stop"
+        }),
+    )
+    .await;
+    assert_eq!(created.status(), StatusCode::CREATED);
+    let strategy_id = response_json(created).await["id"]
+        .as_str()
+        .expect("strategy id")
+        .to_string();
+
+    let paused = pause_strategies(&app, &user_token, &[&strategy_id]).await;
+    assert_eq!(paused.status(), StatusCode::OK);
+    let paused_body = response_json(paused).await;
+    assert_eq!(paused_body["paused"], 0);
+    assert_eq!(paused_body["failures"][0]["strategy_id"], strategy_id);
+    assert_eq!(
+        paused_body["failures"][0]["error"],
+        "Strategy has not started yet; only running strategies can be paused."
+    );
+
+    let stopped = stop_strategy(&app, &user_token, &strategy_id).await;
+    assert_eq!(stopped.status(), StatusCode::CONFLICT);
+    assert_eq!(
+        response_json(stopped).await["error"],
+        "Stop is only available for running or paused strategies; this draft has never been started."
+    );
+
+    let deleted = delete_strategies(&app, &user_token, &[&strategy_id]).await;
+    assert_eq!(deleted.status(), StatusCode::OK);
+    let deleted_body = response_json(deleted).await;
+    assert_eq!(deleted_body["deleted"], 1);
+    assert_eq!(
+        deleted_body["failures"].as_array().expect("failures").len(),
+        0
+    );
+}
+
+#[tokio::test]
+async fn draft_strategy_can_be_deleted_without_starting() {
+    let app = app();
+    let user_token = register_and_login(&app, "draft-delete@example.com", "pass1234").await;
+
+    let created = create_strategy(
+        &app,
+        &user_token,
+        strategy_payload(
+            "draft delete",
+            "BTCUSDT",
+            "Custom",
+            &[grid_level("100.00", "0.0100", 120, None)],
+            true,
+            true,
+            true,
+            None,
+            None,
+            "Stop",
+        ),
+    )
+    .await;
+    assert_eq!(created.status(), StatusCode::CREATED);
+    let strategy_id = response_json(created).await["id"]
+        .as_str()
+        .expect("strategy id")
+        .to_string();
+
+    let deleted = delete_strategies(&app, &user_token, &[&strategy_id]).await;
+    assert_eq!(deleted.status(), StatusCode::OK);
+    assert_eq!(response_json(deleted).await["deleted"], 1);
+
+    let listed_after_delete = list_strategies(&app, &user_token).await;
+    assert_eq!(listed_after_delete.status(), StatusCode::OK);
+    let listed_body = response_json(listed_after_delete).await;
+    assert!(listed_body["items"]
+        .as_array()
+        .expect("items")
+        .iter()
+        .all(|item| item["id"] != strategy_id));
+}
+
+#[tokio::test]
+async fn running_strategy_delete_reports_blocker() {
+    let db = SharedDb::ephemeral().expect("ephemeral db");
+    let app = app_with_state(AppState::from_shared_db(db.clone()).expect("state"));
+    let email = "running-delete@example.com";
+    let user_token = register_and_login(&app, email, "pass1234").await;
+    seed_active_membership(&db, email);
+    seed_exchange_context(
+        &db,
+        email,
+        &["spot"],
+        true,
+        true,
+        &[symbol_record(email, "spot", "BTCUSDT")],
+    );
+
+    let created = create_strategy(
+        &app,
+        &user_token,
+        strategy_payload(
+            "running delete",
+            "BTCUSDT",
+            "Custom",
+            &[grid_level("100.00", "0.0100", 120, None)],
+            true,
+            true,
+            true,
+            None,
+            None,
+            "Stop",
+        ),
+    )
+    .await;
+    assert_eq!(created.status(), StatusCode::CREATED);
+    let strategy_id = response_json(created).await["id"]
+        .as_str()
+        .expect("strategy id")
+        .to_string();
+
+    assert_eq!(
+        start_strategy(&app, &user_token, &strategy_id)
+            .await
+            .status(),
+        StatusCode::OK
+    );
+
+    let deleted = delete_strategies(&app, &user_token, &[&strategy_id]).await;
+    assert_eq!(deleted.status(), StatusCode::OK);
+    let deleted_body = response_json(deleted).await;
+    assert_eq!(deleted_body["deleted"], 0);
+    assert_eq!(
+        deleted_body["failures"][0]["error"],
+        "Strategy must be stopped before it can be deleted."
+    );
+}
 #[tokio::test]
 async fn batch_start_starts_draft_stopped_and_paused_strategies() {
     let db = SharedDb::ephemeral().expect("ephemeral db");
@@ -1815,6 +1967,13 @@ fn seed_exchange_context(
     .expect("seed account");
     db.replace_exchange_symbols(email, "binance", symbols)
         .expect("seed symbols");
+    let mut balances = json!({ "USDT": "1000", "USD": "1000" });
+    if let Some(map) = balances.as_object_mut() {
+        for symbol in symbols.iter().filter(|symbol| symbol.market == "spot") {
+            map.entry(symbol.base_asset.clone())
+                .or_insert_with(|| json!("100"));
+        }
+    }
     db.insert_exchange_wallet_snapshot(&ExchangeWalletSnapshotRecord {
         user_email: email.to_string(),
         exchange: "binance".to_string(),
@@ -1823,7 +1982,7 @@ fn seed_exchange_context(
             .copied()
             .unwrap_or("spot")
             .to_string(),
-        balances: json!({ "USDT": "1000", "USD": "1000" }),
+        balances,
         captured_at: now,
     })
     .expect("seed wallet");

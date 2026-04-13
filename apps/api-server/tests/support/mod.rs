@@ -26,30 +26,28 @@ pub async fn register_and_verify(app: &axum::Router, email: &str, password: &str
         .unwrap();
     assert_eq!(register.status(), StatusCode::CREATED);
 
-    let verification_code = response_json(register).await["verification_code"]
-        .as_str()
-        .expect("verification code")
-        .to_owned();
-
-    let verify = app
-        .clone()
-        .oneshot(
-            Request::builder()
-                .method("POST")
-                .uri("/auth/verify-email")
-                .header("content-type", "application/json")
-                .body(Body::from(
-                    json!({
-                        "email": email,
-                        "code": verification_code,
-                    })
-                    .to_string(),
-                ))
-                .unwrap(),
-        )
-        .await
-        .unwrap();
-    assert_eq!(verify.status(), StatusCode::OK);
+    let register_body = response_json(register).await;
+    if let Some(verification_code) = register_body["verification_code"].as_str() {
+        let verify = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/auth/verify-email")
+                    .header("content-type", "application/json")
+                    .body(Body::from(
+                        json!({
+                            "email": email,
+                            "code": verification_code,
+                        })
+                        .to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(verify.status(), StatusCode::OK);
+    }
 }
 
 pub async fn register_and_login(app: &axum::Router, email: &str, password: &str) -> String {

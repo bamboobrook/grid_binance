@@ -51,11 +51,17 @@ export async function POST(request: Request) {
     return redirectWithError(request, await readError(response));
   }
 
-  const payload = (await response.json()) as { started?: number; paused?: number; deleted?: number; failures?: Array<{ error?: string }> };
+  const payload = (await response.json()) as {
+    started?: number;
+    paused?: number;
+    deleted?: number;
+    failures?: Array<{ error?: string }>;
+  };
   const changed = intent === "start" ? payload.started ?? 0 : intent === "pause" ? payload.paused ?? 0 : payload.deleted ?? 0;
   if (changed === 0) {
-    if (intent === "start" && payload.failures?.[0]?.error) {
-      return redirectWithError(request, payload.failures[0].error);
+    const firstFailure = payload.failures?.[0]?.error;
+    if (firstFailure) {
+      return redirectWithError(request, firstFailure);
     }
     return redirectWithError(request, intent === "start" ? "No selected strategy could be started." : intent === "pause" ? "No running strategy was paused." : "Selected strategies could not be deleted.");
   }

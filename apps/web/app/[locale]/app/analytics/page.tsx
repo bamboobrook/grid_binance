@@ -5,6 +5,7 @@ import { Card, CardBody, CardDescription, CardHeader, CardTitle } from "@/compon
 import { DataTable } from "@/components/ui/table";
 import { StatusBanner } from "@/components/ui/status-banner";
 import { UI_LANGUAGE_COOKIE, pickText, resolveUiLanguageFromRoute, type UiLanguage } from "@/lib/ui/preferences";
+import { formatTaipeiDateTime } from "@/lib/ui/time";
 
 const DEFAULT_AUTH_API_BASE_URL = "http://127.0.0.1:8080";
 
@@ -22,10 +23,19 @@ type AnalyticsReport = {
     traded_at: string;
   }>;
   strategies: Array<{
+    cost_basis: string;
     current_state: string;
     fees_paid: string;
+    fill_count: number;
     funding_total: string;
     net_pnl: string;
+    order_count: number;
+    position_quantity: string;
+    average_entry_price: string;
+    long_position_quantity?: string;
+    long_average_entry_price?: string;
+    short_position_quantity?: string;
+    short_average_entry_price?: string;
     realized_pnl: string;
     strategy_id: string;
     symbol: string;
@@ -57,15 +67,14 @@ export default async function AnalyticsPage({ params }: { params: Promise<{ loca
   return (
     <>
       <StatusBanner
-        description={pickText(lang, "分析页直接展示后端报表，包括策略汇总、钱包快照与交易所成交。", "Analytics renders the backend report directly, including strategy totals, wallet snapshots, and exchange trades.")}
+        description={pickText(lang, "分析页直接展示后端报表，包括策略级统计、钱包快照与交易所成交。", "Analytics renders the backend report directly, including strategy-level stats, wallet snapshots, and exchange trades.")}
         title={pickText(lang, "分析状态条", "Analytics status strip")}
-       
       />
       <AppShellSection
-        description={pickText(lang, "账户级与策略级统计集中展示，便于收益与成本复盘。", "Account-level and strategy-level statistics stay together for PnL and cost review.")}
+        actions={<div className="flex items-center gap-2"><a className="inline-flex h-9 items-center justify-center rounded-sm px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-secondary" href="/api/user/exports/strategy-stats">{pickText(lang, "导出策略统计 CSV", "Download strategy stats CSV")}</a><a className="inline-flex h-9 items-center justify-center rounded-sm px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-secondary" href="/api/user/exports/payments">{pickText(lang, "导出付款 CSV", "Download payments CSV")}</a></div>}
+        description={pickText(lang, "账户级和策略级收益、成本、持仓都集中在这里，便于复盘。", "Account-level and strategy-level profit, cost, and position data stay together here for review.")}
         eyebrow={pickText(lang, "分析", "Analytics")}
         title={pickText(lang, "分析面板", "Analytics")}
-        actions={<div className="flex items-center gap-2"><a className="inline-flex items-center justify-center rounded-sm text-sm font-medium h-9 px-4 py-2 hover:bg-secondary text-foreground transition-colors" href="/api/user/exports/strategy-stats">{pickText(lang, "导出策略统计 CSV", "Download strategy stats CSV")}</a><a className="inline-flex items-center justify-center rounded-sm text-sm font-medium h-9 px-4 py-2 hover:bg-secondary text-foreground transition-colors" href="/api/user/exports/payments">{pickText(lang, "导出付款 CSV", "Download payments CSV")}</a></div>}
       >
         <div className="content-grid content-grid--metrics">
           {[
@@ -85,11 +94,11 @@ export default async function AnalyticsPage({ params }: { params: Promise<{ loca
           ))}
         </div>
       </AppShellSection>
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
         <Card>
           <CardHeader>
             <CardTitle>{pickText(lang, "策略统计", "Strategy statistics")}</CardTitle>
-            <CardDescription>{pickText(lang, "这里看每个策略的收益、费用和当前状态。", "Review realized, unrealized, fee, funding, and net totals per strategy.")}</CardDescription>
+            <CardDescription>{pickText(lang, "每个策略都会展开收益、成本、持仓和执行数量。", "Each strategy expands realized, unrealized, cost, position, and execution counts.")}</CardDescription>
           </CardHeader>
           <CardBody>
             <DataTable
@@ -131,7 +140,7 @@ export default async function AnalyticsPage({ params }: { params: Promise<{ loca
           </CardBody>
         </Card>
       </div>
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
         <Card>
           <CardHeader>
             <CardTitle>{pickText(lang, "最近交易所成交", "Recent exchange trades")}</CardTitle>
@@ -147,7 +156,7 @@ export default async function AnalyticsPage({ params }: { params: Promise<{ loca
               ]}
               rows={(analytics?.exchange_trades ?? []).map((row) => ({
                 id: row.trade_id,
-                at: row.traded_at.replace("T", " ").slice(0, 16),
+                at: formatTaipeiDateTime(row.traded_at, lang),
                 symbol: row.symbol,
                 detail: row.exchange + " · " + describeSide(lang, row.side) + " · " + row.quantity + " @ " + row.price,
                 fee: row.fee_amount ? (row.fee_amount + " " + (row.fee_asset ?? "")).trim() : "-",
@@ -174,7 +183,35 @@ export default async function AnalyticsPage({ params }: { params: Promise<{ loca
 }
 
 function describeStrategyDetail(lang: UiLanguage, row: AnalyticsReport["strategies"][number]) {
-  return pickText(lang, "状态 ", "State ") + row.current_state + " · " + pickText(lang, "已实现 ", "Realized ") + row.realized_pnl + " · " + pickText(lang, "手续费 ", "Fees ") + row.fees_paid + " · " + pickText(lang, "资金费 ", "Funding ") + row.funding_total;
+  const details = [
+    pickText(lang, "状态 ", "State ") + row.current_state,
+    pickText(lang, "已实现 ", "Realized ") + row.realized_pnl,
+    pickText(lang, "未实现 ", "Unrealized ") + row.unrealized_pnl,
+    pickText(lang, "手续费 ", "Fees ") + row.fees_paid,
+    pickText(lang, "资金费 ", "Funding ") + row.funding_total,
+    pickText(lang, "成本 ", "Cost ") + row.cost_basis,
+  ];
+
+  const longQty = row.long_position_quantity ?? "0";
+  const shortQty = row.short_position_quantity ?? "0";
+  if (longQty !== "0") {
+    details.push(
+      pickText(lang, "多仓 ", "Long ") + longQty + pickText(lang, " @ ", " @ ") + (row.long_average_entry_price ?? "0"),
+    );
+  }
+  if (shortQty !== "0") {
+    details.push(
+      pickText(lang, "空仓 ", "Short ") + shortQty + pickText(lang, " @ ", " @ ") + (row.short_average_entry_price ?? "0"),
+    );
+  }
+  if (longQty === "0" && shortQty === "0") {
+    details.push(pickText(lang, "持仓量 ", "Position ") + row.position_quantity);
+    details.push(pickText(lang, "均价 ", "Avg ") + row.average_entry_price);
+  }
+
+  details.push(pickText(lang, "成交数 ", "Fills ") + String(row.fill_count));
+  details.push(pickText(lang, "订单数 ", "Orders ") + String(row.order_count));
+  return details.join(" · ");
 }
 
 function describeSide(lang: UiLanguage, side: string) {
@@ -184,7 +221,7 @@ function describeSide(lang: UiLanguage, side: string) {
 async function fetchAnalytics(): Promise<AnalyticsReport | null> {
   const cookieStore = await cookies();
   const sessionToken = cookieStore.get("session_token")?.value ?? "";
-  if (sessionToken === "") {
+  if (!sessionToken) {
     return null;
   }
 

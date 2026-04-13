@@ -15,7 +15,7 @@ use tokio::{net::TcpListener, task::JoinHandle, time::sleep};
 use tokio_tungstenite::{connect_async, tungstenite::Message};
 use trading_engine::{
     execution_effects::persist_execution_effects, execution_sync::apply_execution_update,
-    order_sync::sync_strategy_orders, strategy_runtime::StrategyRuntimeEngine,
+    order_sync::{sync_strategy_orders, OrderQuantizationRules}, strategy_runtime::StrategyRuntimeEngine,
     trade_sync::sync_strategy_trades,
 };
 
@@ -195,7 +195,8 @@ fn sync_live_orders(
         .decrypt(&credentials.encrypted_secret)
         .map_err(|error| shared_db::SharedDbError::new(error.to_string()))?;
     let client = shared_binance::BinanceClient::new(api_key, api_secret);
-    let result = sync_strategy_orders(strategy, &client);
+    let quantization = strategy_quantization_rules(db, strategy)?;
+    let result = sync_strategy_orders(strategy, &client, quantization.as_ref());
     let trade_result = sync_strategy_trades(db, strategy, &client)?;
     if result.submitted > 0 {
         strategy.runtime.events.push(StrategyRuntimeEvent {
@@ -228,6 +229,40 @@ fn sync_live_orders(
         || result.canceled > 0
         || result.failed > 0
         || trade_result.new_fills > 0)
+}
+
+fn strategy_quantization_rules(
+    db: &SharedDb,
+    strategy: &Strategy,
+) -> Result<Option<OrderQuantizationRules>, shared_db::SharedDbError> {
+    let market_key = match strategy.market {
+        shared_domain::strategy::StrategyMarket::Spot => "spot",
+        shared_domain::strategy::StrategyMarket::FuturesUsdM => "usdm",
+        shared_domain::strategy::StrategyMarket::FuturesCoinM => "coinm",
+    };
+    let symbol = db
+        .list_exchange_symbols(&strategy.owner_email, BINANCE_EXCHANGE)?
+        .into_iter()
+        .find(|record| record.market == market_key && record.symbol.eq_ignore_ascii_case(&strategy.symbol));
+    let Some(symbol) = symbol else {
+        return Ok(None);
+    };
+    let price_tick_size = symbol
+        .metadata
+        .get("filters")
+        .and_then(|filters| filters.get("price_tick_size"))
+        .and_then(|value| value.as_str())
+        .and_then(|value| value.parse::<rust_decimal::Decimal>().ok());
+    let quantity_step_size = symbol
+        .metadata
+        .get("filters")
+        .and_then(|filters| filters.get("quantity_step_size"))
+        .and_then(|value| value.as_str())
+        .and_then(|value| value.parse::<rust_decimal::Decimal>().ok());
+    Ok(Some(OrderQuantizationRules {
+        price_tick_size,
+        quantity_step_size,
+    }))
 }
 
 fn apply_live_sync_failure(
@@ -348,11 +383,18 @@ fn apply_market_ticks(
     }
 
     let next_runtime = engine.snapshot().clone();
+    let overall_close_requested = snapshot.events.iter().skip(before_event_count).any(|event| {
+        event.event_type.starts_with("overall_take_profit")
+            || event.event_type.starts_with("overall_stop_loss")
+    });
     if next_runtime != strategy.runtime {
         strategy.runtime = next_runtime;
         changed = true;
     }
-    if !engine.is_running() && strategy.status == StrategyStatus::Running {
+    if overall_close_requested && strategy.status == StrategyStatus::Running {
+        strategy.status = StrategyStatus::Stopping;
+        changed = true;
+    } else if !engine.is_running() && strategy.status == StrategyStatus::Running {
         strategy.status = StrategyStatus::Stopped;
         changed = true;
     }
@@ -988,6 +1030,74 @@ mod tests {
         assert!(notifications
             .iter()
             .any(|record| record.template_key.as_deref() == Some("OverallTakeProfitTriggered")));
+    }
+
+    #[test]
+    fn reconcile_moves_overall_take_profit_into_stopping_without_local_flattening() {
+        let db = SharedDb::ephemeral().expect("db");
+        let metrics = Arc::new(Mutex::new(RuntimeMetrics::default()));
+        let mut running = strategy("stopping-tp", StrategyStatus::Running);
+        running.runtime.positions = vec![shared_domain::strategy::StrategyRuntimePosition {
+            market: StrategyMarket::Spot,
+            mode: StrategyMode::SpotClassic,
+            quantity: Decimal::new(1, 0),
+            average_entry_price: Decimal::new(100, 0),
+        }];
+        running.runtime.orders = vec![shared_domain::strategy::StrategyRuntimeOrder {
+            order_id: "stopping-tp-tp-0".to_string(),
+            exchange_order_id: Some("live-tp-1".to_string()),
+            level_index: Some(0),
+            side: "Sell".to_string(),
+            order_type: "Limit".to_string(),
+            price: Some(Decimal::new(101, 0)),
+            quantity: Decimal::new(1, 0),
+            status: "Placed".to_string(),
+        }];
+        running.active_revision = Some(shared_domain::strategy::StrategyRevision {
+            revision_id: "notify-revision".to_string(),
+            version: 1,
+            generation: GridGeneration::Custom,
+            amount_mode: StrategyAmountMode::Quote,
+            futures_margin_mode: None,
+            leverage: None,
+            levels: vec![GridLevel {
+                level_index: 0,
+                entry_price: Decimal::new(100, 0),
+                quantity: Decimal::new(1, 0),
+                take_profit_bps: 100,
+                trailing_bps: None,
+            }],
+            overall_take_profit_bps: Some(100),
+            overall_stop_loss_bps: None,
+            post_trigger_action: PostTriggerAction::Stop,
+        });
+        db.insert_strategy(&StoredStrategy {
+            sequence_id: 1,
+            strategy: running,
+        })
+        .expect("strategy");
+        db.enqueue_market_tick(&shared_events::MarketTick {
+            symbol: "BTCUSDT".to_string(),
+            market: "spot".to_string(),
+            price: Decimal::new(101, 0),
+            event_time_ms: 1_000,
+        })
+        .expect("tick");
+
+        reconcile_once(&db, &metrics).expect("reconcile");
+
+        let stored = db
+            .find_strategy("engine@example.com", "stopping-tp")
+            .expect("find")
+            .expect("strategy");
+        assert_eq!(stored.status, StrategyStatus::Stopping);
+        assert_eq!(stored.runtime.positions.len(), 1);
+        assert!(stored.runtime.fills.is_empty());
+        assert!(stored
+            .runtime
+            .events
+            .iter()
+            .any(|event| event.event_type == "overall_take_profit_stop"));
     }
 
     #[test]

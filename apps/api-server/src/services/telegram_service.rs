@@ -117,9 +117,19 @@ pub struct NotificationInboxQuery {
 }
 
 #[derive(Debug, Serialize)]
+pub struct NotificationInboxItem {
+    pub event: NotificationEvent,
+    pub telegram_delivered: bool,
+    pub in_app_delivered: bool,
+    pub show_expiry_popup: bool,
+    pub created_at: DateTime<Utc>,
+    pub delivered_at: Option<DateTime<Utc>>,
+}
+
+#[derive(Debug, Serialize)]
 pub struct NotificationInboxResponse {
     pub email: String,
-    pub items: Vec<NotificationRecord>,
+    pub items: Vec<NotificationInboxItem>,
 }
 
 impl TelegramService {
@@ -436,10 +446,18 @@ impl TelegramService {
             .into_iter()
             .filter(|record| record.channel == "in_app")
             .map(|record| {
-                serde_json::from_value(record.payload)
-                    .map_err(|error| TelegramError::storage_message(error.to_string()))
+                let parsed: NotificationRecord = serde_json::from_value(record.payload)
+                    .map_err(|error| TelegramError::storage_message(error.to_string()))?;
+                Ok(NotificationInboxItem {
+                    created_at: record.created_at,
+                    delivered_at: record.delivered_at,
+                    event: parsed.event,
+                    in_app_delivered: parsed.in_app_delivered,
+                    show_expiry_popup: parsed.show_expiry_popup,
+                    telegram_delivered: parsed.telegram_delivered,
+                })
             })
-            .collect::<Result<Vec<NotificationRecord>, TelegramError>>()?;
+            .collect::<Result<Vec<NotificationInboxItem>, TelegramError>>()?;
 
         Ok(NotificationInboxResponse { email, items })
     }

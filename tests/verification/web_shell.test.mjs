@@ -7,9 +7,9 @@ test("web shell and workspace hygiene are present", () => {
     "apps/web/package.json",
     "apps/web/eslint.config.mjs",
     "apps/web/postcss.config.cjs",
-    "apps/web/src/app/layout.tsx",
-    "apps/web/src/app/(public)/layout.tsx",
-    "apps/web/src/app/(public)/page.tsx",
+    "apps/web/app/[locale]/layout.tsx",
+    "apps/web/app/[locale]/(public)/layout.tsx",
+    "apps/web/app/[locale]/page.tsx",
     "Cargo.lock",
     "pnpm-lock.yaml",
   ]) {
