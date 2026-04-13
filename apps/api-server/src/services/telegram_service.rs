@@ -332,10 +332,19 @@ impl TelegramService {
             return Ok(None);
         }
 
-        if let Some(code) = extract_bind_code_from_message(text) {
+        if let Some(code) = extract_bind_code_from_bind_command(text) {
             let Some(from) = message.from.as_ref() else {
                 return Ok(Some("无法识别你的 Telegram 账户，请稍后重试。".to_string()));
             };
+            let owner_email = self.bind_code_owner(&code);
+            let replacing_existing_binding = owner_email
+                .as_deref()
+                .and_then(|email| self.db.find_telegram_binding(email).ok().flatten())
+                .map(|binding| {
+                    binding.telegram_chat_id != message.chat.id.to_string()
+                        || binding.telegram_user_id != from.id.to_string()
+                })
+                .unwrap_or(false);
 
             return match self.bind_telegram_from_bot(BotBindTelegramRequest {
                 code,
@@ -343,21 +352,44 @@ impl TelegramService {
                 chat_id: message.chat.id.to_string(),
                 username: from.username.clone(),
             }) {
+                Ok(_) if replacing_existing_binding => Ok(Some(
+                    "新的 Telegram 账号已绑定成功，旧绑定已自动失效。回到网页刷新即可查看最新状态。".to_string(),
+                )),
                 Ok(_) => Ok(Some("绑定成功，回到网页刷新即可看到已绑定状态。".to_string())),
                 Err(error) if error.status == StatusCode::NOT_FOUND => Ok(Some(
                     "绑定码无效、已过期或已被使用，请回到网页重新生成绑定码。".to_string(),
                 )),
                 Err(error) if error.status == StatusCode::BAD_REQUEST => Ok(Some(
-                    "绑定消息格式不正确，请从网页重新打开机器人链接。".to_string(),
+                    "绑定命令格式不正确，请使用 /bind 绑定码。".to_string(),
                 )),
                 Err(error) => Err(error),
             };
         }
 
+        if let Some(code) = extract_bind_code_from_start_command(text) {
+            return Ok(Some(format!(
+                "欢迎使用 GridBinance 机器人。请继续发送 /bind {} 完成 Telegram 绑定。",
+                code
+            )));
+        }
+
         if is_start_command(text) {
             return Ok(Some(
-                "请先回到网页生成绑定码，再把网页给你的那串 tg-bind 代码发给我。".to_string(),
+                "欢迎使用 GridBinance 机器人。请先回到网页生成绑定码，然后发送 /bind 绑定码 完成绑定。".to_string(),
             ));
+        }
+
+        if is_bind_command(text) {
+            return Ok(Some(
+                "绑定格式：/bind 绑定码。请先在网页生成新的绑定码后再发送。".to_string(),
+            ));
+        }
+
+        if text.starts_with("tg-bind-") {
+            return Ok(Some(format!(
+                "请发送 /bind {} 完成绑定。",
+                text
+            )));
         }
 
         Ok(None)
@@ -745,27 +777,42 @@ fn telegram_http_client() -> Result<&'static ureq::Agent, TelegramError> {
     }))
 }
 
-fn extract_bind_code_from_message(text: &str) -> Option<String> {
+fn extract_bind_code_from_bind_command(text: &str) -> Option<String> {
     let trimmed = text.trim();
-    if trimmed.starts_with("tg-bind-") {
-        return Some(trimmed.to_string());
-    }
-
     let mut parts = trimmed.split_whitespace();
-    let first = parts.next()?;
-    if first.starts_with("/start") {
-        let code = parts.next()?.trim();
-        if code.starts_with("tg-bind-") {
-            return Some(code.to_string());
-        }
+    let command = parts.next()?;
+    if !command.starts_with("/bind") {
+        return None;
     }
+    let code = parts.next()?.trim();
+    if code.starts_with("tg-bind-") {
+        return Some(code.to_string());
+    }
+    None
+}
 
+fn extract_bind_code_from_start_command(text: &str) -> Option<String> {
+    let trimmed = text.trim();
+    let mut parts = trimmed.split_whitespace();
+    let command = parts.next()?;
+    if !command.starts_with("/start") {
+        return None;
+    }
+    let code = parts.next()?.trim();
+    if code.starts_with("tg-bind-") {
+        return Some(code.to_string());
+    }
     None
 }
 
 fn is_start_command(text: &str) -> bool {
     let trimmed = text.trim();
     trimmed == "/start" || trimmed.starts_with("/start@")
+}
+
+fn is_bind_command(text: &str) -> bool {
+    let trimmed = text.trim();
+    trimmed == "/bind" || trimmed.starts_with("/bind@")
 }
 
 fn normalize_email(email: &str) -> String {
@@ -847,7 +894,67 @@ mod tests {
     use shared_db::SharedDb;
 
     #[test]
-    fn start_message_with_bind_code_binds_the_sender() {
+    fn start_message_returns_welcome_copy_without_binding() {
+        let db = SharedDb::ephemeral().expect("ephemeral db");
+        let service = TelegramService::new(db.clone());
+
+        let reply = service
+            .process_bind_command_message(&TelegramBotMessage {
+                text: Some("/start".to_string()),
+                chat: TelegramBotChat { id: 778899 },
+                from: Some(TelegramBotUser {
+                    id: 112233,
+                    username: Some("grid_user".to_string()),
+                }),
+            })
+            .expect("process bind command")
+            .expect("reply text");
+
+        assert!(reply.contains("欢迎"));
+        assert!(reply.contains("/bind"));
+        let status = service
+            .binding_status(TelegramBindingStatusQuery {
+                email: "bind-from-start@example.com".to_string(),
+            })
+            .expect("binding status");
+        assert!(!status.bound);
+    }
+
+    #[test]
+    fn start_message_with_bind_code_returns_guidance_instead_of_binding_immediately() {
+        let db = SharedDb::ephemeral().expect("ephemeral db");
+        let service = TelegramService::new(db.clone());
+        let created = service
+            .create_bind_code(CreateTelegramBindCodeRequest {
+                email: "start-guidance@example.com".to_string(),
+                ttl_seconds: Some(300),
+            })
+            .expect("create bind code");
+
+        let reply = service
+            .process_bind_command_message(&TelegramBotMessage {
+                text: Some(format!("/start {}", created.code)),
+                chat: TelegramBotChat { id: 889900 },
+                from: Some(TelegramBotUser {
+                    id: 778800,
+                    username: Some("start_user".to_string()),
+                }),
+            })
+            .expect("process start with bind code")
+            .expect("reply text");
+
+        assert!(reply.contains("欢迎"));
+        assert!(reply.contains("/bind"));
+        let status = service
+            .binding_status(TelegramBindingStatusQuery {
+                email: "start-guidance@example.com".to_string(),
+            })
+            .expect("binding status");
+        assert!(!status.bound);
+    }
+
+    #[test]
+    fn bind_command_binds_the_sender() {
         let db = SharedDb::ephemeral().expect("ephemeral db");
         let service = TelegramService::new(db.clone());
         let created = service
@@ -859,7 +966,7 @@ mod tests {
 
         let reply = service
             .process_bind_command_message(&TelegramBotMessage {
-                text: Some(format!("/start {}", created.code)),
+                text: Some(format!("/bind {}", created.code)),
                 chat: TelegramBotChat { id: 778899 },
                 from: Some(TelegramBotUser {
                     id: 112233,
@@ -879,5 +986,58 @@ mod tests {
         assert!(binding.bound);
         assert_eq!(binding.chat_id.as_deref(), Some("778899"));
         assert_eq!(binding.telegram_user_id.as_deref(), Some("112233"));
+    }
+
+    #[test]
+    fn bind_command_replaces_previous_telegram_binding_without_old_account_confirmation() {
+        let db = SharedDb::ephemeral().expect("ephemeral db");
+        let service = TelegramService::new(db.clone());
+
+        let first = service
+            .create_bind_code(CreateTelegramBindCodeRequest {
+                email: "rebind@example.com".to_string(),
+                ttl_seconds: Some(300),
+            })
+            .expect("first bind code");
+        let first_reply = service
+            .process_bind_command_message(&TelegramBotMessage {
+                text: Some(format!("/bind {}", first.code)),
+                chat: TelegramBotChat { id: 1001 },
+                from: Some(TelegramBotUser {
+                    id: 2001,
+                    username: Some("first_user".to_string()),
+                }),
+            })
+            .expect("first bind")
+            .expect("first reply");
+        assert!(first_reply.contains("绑定成功"));
+
+        let second = service
+            .create_bind_code(CreateTelegramBindCodeRequest {
+                email: "rebind@example.com".to_string(),
+                ttl_seconds: Some(300),
+            })
+            .expect("second bind code");
+        let second_reply = service
+            .process_bind_command_message(&TelegramBotMessage {
+                text: Some(format!("/bind {}", second.code)),
+                chat: TelegramBotChat { id: 1002 },
+                from: Some(TelegramBotUser {
+                    id: 2002,
+                    username: Some("second_user".to_string()),
+                }),
+            })
+            .expect("second bind")
+            .expect("second reply");
+        assert!(second_reply.contains("绑定成功"));
+
+        let binding = service
+            .binding_status(TelegramBindingStatusQuery {
+                email: "rebind@example.com".to_string(),
+            })
+            .expect("binding status");
+        assert!(binding.bound);
+        assert_eq!(binding.chat_id.as_deref(), Some("1002"));
+        assert_eq!(binding.telegram_user_id.as_deref(), Some("2002"));
     }
 }
