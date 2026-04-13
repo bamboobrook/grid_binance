@@ -11,9 +11,10 @@ use shared_db::{
     ExchangeWalletSnapshotRecord, SharedDb, StoredStrategy, StrategyProfitSnapshotRecord,
 };
 use shared_domain::strategy::{
-    GridGeneration, PostTriggerAction, Strategy, StrategyAmountMode, StrategyMarket, StrategyMode,
-    StrategyRevision, StrategyRuntime, StrategyRuntimeFill, StrategyRuntimeOrder,
-    StrategyRuntimePosition, StrategyStatus,
+    GridGeneration, PostTriggerAction, ReferencePriceSource, RuntimeControls, Strategy,
+    StrategyAmountMode, StrategyMarket, StrategyMode, StrategyRevision, StrategyRuntime,
+    StrategyRuntimeFill, StrategyRuntimeOrder, StrategyRuntimePhase, StrategyRuntimePosition,
+    StrategyStatus, StrategyType,
 };
 use tower::ServiceExt;
 
@@ -739,10 +740,12 @@ fn stored_strategy(
     let revision = StrategyRevision {
         revision_id: format!("{strategy_id}-rev-1"),
         version: 1,
+        strategy_type: StrategyType::OrdinaryGrid,
         generation: GridGeneration::Custom,
         amount_mode: StrategyAmountMode::Quote,
         futures_margin_mode: None,
         leverage: None,
+        reference_price_source: ReferencePriceSource::Manual,
         levels: Vec::new(),
         overall_take_profit_bps: None,
         overall_stop_loss_bps: None,
@@ -768,8 +771,11 @@ fn stored_strategy(
         margin_ready: true,
         conflict_ready: true,
         balance_ready: true,
+        strategy_type: StrategyType::OrdinaryGrid,
         market: StrategyMarket::Spot,
         mode: StrategyMode::SpotClassic,
+        runtime_phase: StrategyRuntimePhase::Draft,
+        runtime_controls: RuntimeControls::default(),
         draft_revision: revision.clone(),
         active_revision: Some(revision),
         runtime: StrategyRuntime {

@@ -2206,8 +2206,9 @@ mod tests {
     use shared_db::{MembershipRecord, SharedDb, UserExchangeAccountRecord};
     use shared_domain::strategy::{
         FuturesMarginMode, GridGeneration, GridLevel, PostTriggerAction, PreflightStepStatus,
-        Strategy, StrategyAmountMode, StrategyMarket, StrategyMode, StrategyRevision,
-        StrategyRuntime, StrategyRuntimeFill, StrategyRuntimePosition, StrategyStatus,
+        ReferencePriceSource, RuntimeControls, Strategy, StrategyAmountMode, StrategyMarket,
+        StrategyMode, StrategyRevision, StrategyRuntime, StrategyRuntimeFill, StrategyRuntimePhase,
+        StrategyRuntimePosition, StrategyStatus, StrategyType,
     };
     use std::{
         fs,
