@@ -11,10 +11,10 @@ use shared_db::{
     ExchangeWalletSnapshotRecord, SharedDb, StoredStrategy, StrategyProfitSnapshotRecord,
 };
 use shared_domain::strategy::{
-    GridGeneration, PostTriggerAction, ReferencePriceSource, RuntimeControls, Strategy,
-    StrategyAmountMode, StrategyMarket, StrategyMode, StrategyRevision, StrategyRuntime,
-    StrategyRuntimeFill, StrategyRuntimeOrder, StrategyRuntimePhase, StrategyRuntimePosition,
-    StrategyStatus, StrategyType,
+    GridGeneration, GridLevel, PostTriggerAction, ReferencePriceSource, RuntimeControls,
+    Strategy, StrategyAmountMode, StrategyMarket, StrategyMode, StrategyRevision,
+    StrategyRuntime, StrategyRuntimeFill, StrategyRuntimeOrder, StrategyRuntimePhase,
+    StrategyRuntimePosition, StrategyStatus, StrategyType,
 };
 use tower::ServiceExt;
 
@@ -355,6 +355,261 @@ async fn analytics_preserves_hedged_position_breakdown_in_strategy_summary() {
     assert_eq!(strategy["long_average_entry_price"], "100");
     assert_eq!(strategy["short_position_quantity"], "0.75");
     assert_eq!(strategy["short_average_entry_price"], "120");
+}
+
+#[tokio::test]
+async fn first_level_market_fill_is_counted_in_level_statistics() {
+    let db = SharedDb::ephemeral().expect("ephemeral db");
+    let mut strategy = stored_strategy(
+        "strategy-ordinary-levels",
+        "trader@example.com",
+        "Ordinary BTC",
+        "BTCUSDT",
+        StrategyStatus::Running,
+        vec![],
+        vec![
+            runtime_order_with_level(
+                "ordinary-level-1-entry",
+                1,
+                "Buy",
+                "Limit",
+                Some("68000"),
+                "0.02",
+                "Filled",
+            ),
+            runtime_order_with_level(
+                "ordinary-level-1-tp",
+                1,
+                "Sell",
+                "Limit",
+                Some("69000"),
+                "0.02",
+                "Filled",
+            ),
+        ],
+        vec![
+            runtime_fill_with_level(
+                "ordinary-level-0-entry",
+                Some(0),
+                None,
+                "Entry",
+                "70000",
+                "0.001",
+                None,
+                Some("35.00"),
+                Some("USDT"),
+            ),
+            runtime_fill_with_level(
+                "ordinary-level-1-entry",
+                Some(1),
+                Some("ordinary-level-1-entry"),
+                "Entry",
+                "68000",
+                "0.02",
+                None,
+                Some("1.00"),
+                Some("USDT"),
+            ),
+            runtime_fill_with_level(
+                "ordinary-level-1-exit",
+                Some(1),
+                Some("ordinary-level-1-tp"),
+                "Exit",
+                "69000",
+                "0.02",
+                Some("20.00"),
+                Some("2.00"),
+                Some("USDT"),
+            ),
+        ],
+    );
+    let levels = vec![
+        grid_level(0, "70000", "0.001", 200, None),
+        grid_level(1, "68000", "0.02", 147, None),
+    ];
+    strategy.draft_revision.levels = levels.clone();
+    strategy
+        .active_revision
+        .as_mut()
+        .expect("active revision")
+        .levels = levels;
+
+    db.insert_strategy(&StoredStrategy {
+        sequence_id: 1,
+        strategy,
+    })
+    .expect("ordinary strategy");
+
+    let app = app_with_state(AppState::from_shared_db(db).expect("app state"));
+    let session_token = register_and_login(&app, "trader@example.com", "pass1234").await;
+
+    let analytics = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri("/analytics")
+                .header("authorization", format!("Bearer {session_token}"))
+                .body(Body::empty())
+                .expect("analytics request"),
+        )
+        .await
+        .expect("analytics response");
+
+    assert_eq!(analytics.status(), StatusCode::OK);
+    let analytics_body = response_json(analytics).await;
+    let fills: Vec<&Value> = analytics_body["fills"]
+        .as_array()
+        .expect("fills array")
+        .iter()
+        .filter(|fill| fill["strategy_id"] == "strategy-ordinary-levels")
+        .collect();
+
+    assert_eq!(
+        fills.len(),
+        2,
+        "ordinary grid fills should project one row per filled level"
+    );
+    assert_eq!(fills[0]["level_index"], 0);
+    assert_eq!(fills[0]["entry_price"], "70000");
+    assert_eq!(fills[0]["exit_price"], "70000");
+    assert_eq!(fills[0]["quantity"], "0.001");
+    assert_eq!(fills[0]["fee"], "35.00");
+    assert_eq!(fills[0]["realized_pnl"], "0");
+
+    assert_eq!(fills[1]["level_index"], 1);
+    assert_eq!(fills[1]["entry_price"], "68000");
+    assert_eq!(fills[1]["exit_price"], "69000");
+    assert_eq!(fills[1]["quantity"], "0.02");
+    assert_eq!(fills[1]["fee"], "3.00");
+    assert_eq!(fills[1]["realized_pnl"], "20.00");
+
+    let strategy = find_strategy(&analytics_body, "strategy-ordinary-levels");
+    assert_eq!(strategy["fill_count"], 3);
+    assert_eq!(strategy["realized_pnl"], "20");
+    assert_eq!(strategy["fees_paid"], "38");
+
+    let strategy_stats_csv = export_csv(&app, &session_token, "/exports/strategy-stats.csv").await;
+    let strategy_line = strategy_stats_csv
+        .trim()
+        .lines()
+        .find(|line| line.starts_with("strategy-ordinary-levels,"))
+        .expect("ordinary strategy stats line");
+    assert_eq!(
+        strategy_line,
+        "strategy-ordinary-levels,trader@example.com,BTCUSDT,Running,3,2,0,0,0,20,0,38,0,-18"
+    );
+}
+
+#[tokio::test]
+async fn legacy_ordinary_fills_recover_level_identity_from_order_links_and_first_fill_fallback() {
+    let db = SharedDb::ephemeral().expect("ephemeral db");
+    let mut strategy = stored_strategy(
+        "strategy-ordinary-legacy",
+        "trader@example.com",
+        "Legacy Ordinary BTC",
+        "BTCUSDT",
+        StrategyStatus::Running,
+        vec![],
+        vec![
+            runtime_order_with_level(
+                "legacy-level-1-entry",
+                1,
+                "Buy",
+                "Limit",
+                Some("68000"),
+                "0.02",
+                "Filled",
+            ),
+            runtime_order_with_level(
+                "legacy-level-1-tp",
+                1,
+                "Sell",
+                "Limit",
+                Some("69000"),
+                "0.02",
+                "Filled",
+            ),
+        ],
+        vec![
+            runtime_fill(
+                "legacy-level-0-entry",
+                None,
+                "Entry",
+                "70000",
+                "0.001",
+                None,
+                Some("35.00"),
+                Some("USDT"),
+            ),
+            runtime_fill(
+                "legacy-level-1-entry",
+                Some("legacy-level-1-entry"),
+                "Entry",
+                "68000",
+                "0.02",
+                None,
+                Some("1.00"),
+                Some("USDT"),
+            ),
+            runtime_fill(
+                "legacy-level-1-exit",
+                Some("legacy-level-1-tp"),
+                "Exit",
+                "69000",
+                "0.02",
+                Some("20.00"),
+                Some("2.00"),
+                Some("USDT"),
+            ),
+        ],
+    );
+    let levels = vec![
+        grid_level(0, "70000", "0.001", 200, None),
+        grid_level(1, "68000", "0.02", 147, None),
+    ];
+    strategy.draft_revision.levels = levels.clone();
+    strategy
+        .active_revision
+        .as_mut()
+        .expect("active revision")
+        .levels = levels;
+
+    db.insert_strategy(&StoredStrategy {
+        sequence_id: 1,
+        strategy,
+    })
+    .expect("legacy ordinary strategy");
+
+    let app = app_with_state(AppState::from_shared_db(db).expect("app state"));
+    let session_token = register_and_login(&app, "trader@example.com", "pass1234").await;
+
+    let analytics = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri("/analytics")
+                .header("authorization", format!("Bearer {session_token}"))
+                .body(Body::empty())
+                .expect("analytics request"),
+        )
+        .await
+        .expect("analytics response");
+
+    assert_eq!(analytics.status(), StatusCode::OK);
+    let analytics_body = response_json(analytics).await;
+    let fills: Vec<&Value> = analytics_body["fills"]
+        .as_array()
+        .expect("fills array")
+        .iter()
+        .filter(|fill| fill["strategy_id"] == "strategy-ordinary-legacy")
+        .collect();
+
+    assert_eq!(fills.len(), 2);
+    assert_eq!(fills[0]["level_index"], 0);
+    assert_eq!(fills[0]["entry_price"], "70000");
+    assert_eq!(fills[1]["level_index"], 1);
+    assert_eq!(fills[1]["entry_price"], "68000");
+    assert_eq!(fills[1]["exit_price"], "69000");
 }
 
 async fn response_json(response: axum::response::Response) -> Value {
@@ -838,6 +1093,61 @@ fn runtime_fill(
         realized_pnl: realized_pnl.map(decimal),
         fee_amount: fee_amount.map(decimal),
         fee_asset: fee_asset.map(ToOwned::to_owned),
+    }
+}
+
+fn runtime_order_with_level(
+    order_id: &str,
+    level_index: u32,
+    side: &str,
+    order_type: &str,
+    price: Option<&str>,
+    quantity: &str,
+    status: &str,
+) -> StrategyRuntimeOrder {
+    let mut order = runtime_order(order_id, side, order_type, price, quantity, status);
+    order.level_index = Some(level_index);
+    order
+}
+
+fn runtime_fill_with_level(
+    fill_id: &str,
+    level_index: Option<u32>,
+    order_id: Option<&str>,
+    fill_type: &str,
+    price: &str,
+    quantity: &str,
+    realized_pnl: Option<&str>,
+    fee_amount: Option<&str>,
+    fee_asset: Option<&str>,
+) -> StrategyRuntimeFill {
+    let mut fill = runtime_fill(
+        fill_id,
+        order_id,
+        fill_type,
+        price,
+        quantity,
+        realized_pnl,
+        fee_amount,
+        fee_asset,
+    );
+    fill.level_index = level_index;
+    fill
+}
+
+fn grid_level(
+    level_index: u32,
+    entry_price: &str,
+    quantity: &str,
+    take_profit_bps: u32,
+    trailing_bps: Option<u32>,
+) -> GridLevel {
+    GridLevel {
+        level_index,
+        entry_price: decimal(entry_price),
+        quantity: decimal(quantity),
+        take_profit_bps,
+        trailing_bps,
     }
 }
 

@@ -7,9 +7,10 @@ use shared_db::{
 };
 use shared_domain::analytics::{
     AccountSnapshotView, AnalyticsReport, CostAggregation, ExchangeTradeHistoryView,
-    StrategyProfitSummary, StrategySnapshotView, TradeFillInput, UserAggregate, WalletSnapshotView,
+    FillProfitView, StrategyProfitSummary, StrategySnapshotView, TradeFillInput, UserAggregate,
+    WalletSnapshotView,
 };
-use shared_domain::strategy::{Strategy, StrategyRuntimePosition};
+use shared_domain::strategy::{Strategy, StrategyRuntimePosition, StrategyType};
 use trading_engine::statistics::compute_fill_views;
 
 #[derive(Clone)]
@@ -35,7 +36,8 @@ impl AnalyticsService {
         let wallet_snapshot_records = self.db.list_exchange_wallet_snapshots(user_email)?;
         let trade_history_records = self.db.list_exchange_trade_history(user_email)?;
 
-        let fills = compute_fill_views(&self.trade_fill_inputs(&strategies));
+        let fill_inputs = self.trade_fill_inputs(&strategies);
+        let fills = compute_fill_views(&fill_inputs);
         let strategy_snapshots = to_strategy_snapshot_views(&strategy_snapshot_records)?;
         let account_snapshots = to_account_snapshot_views(&account_snapshot_records)?;
         let wallets = to_wallet_snapshot_views(&wallet_snapshot_records);
@@ -47,7 +49,14 @@ impl AnalyticsService {
 
         let strategies = strategies
             .iter()
-            .map(|strategy| strategy_summary(strategy, latest_strategy_snapshots.get(&strategy.id)))
+            .map(|strategy| {
+                let projected_fills = fills_for_strategy(&fills, &strategy.id);
+                strategy_summary(
+                    strategy,
+                    latest_strategy_snapshots.get(&strategy.id),
+                    &projected_fills,
+                )
+            })
             .collect::<Result<Vec<_>, SharedDbError>>()?;
 
         let user = user_aggregate(
@@ -121,9 +130,18 @@ impl AnalyticsService {
         let strategies = self.db.list_strategies(user_email)?;
         let latest_strategy_snapshots =
             latest_strategy_snapshot_map(&self.db.list_strategy_profit_snapshots(user_email)?)?;
+        let fill_inputs = self.trade_fill_inputs(&strategies);
+        let fills = compute_fill_views(&fill_inputs);
         let summaries = strategies
             .iter()
-            .map(|strategy| strategy_summary(strategy, latest_strategy_snapshots.get(&strategy.id)))
+            .map(|strategy| {
+                let projected_fills = fills_for_strategy(&fills, &strategy.id);
+                strategy_summary(
+                    strategy,
+                    latest_strategy_snapshots.get(&strategy.id),
+                    &projected_fills,
+                )
+            })
             .collect::<Result<Vec<_>, SharedDbError>>()?;
 
         let mut csv = String::from(
@@ -174,46 +192,59 @@ impl AnalyticsService {
                 .iter()
                 .map(|order| (order.order_id.as_str(), order.side.as_str()))
                 .collect::<BTreeMap<_, _>>();
-            for fill in &strategy.runtime.fills {
-                let is_short = resolve_fill_direction(strategy, fill, &order_sides);
-                fills.push(TradeFillInput {
-                    strategy_id: strategy.id.clone(),
-                    user_id: strategy.owner_email.clone(),
-                    symbol: strategy.symbol.clone(),
-                    quantity: fill.quantity,
-                    entry_price: derive_entry_price(
-                        fill.price,
-                        fill.quantity,
-                        fill.realized_pnl,
-                        is_short,
-                    ),
-                    exit_price: fill.price,
-                    fee: fill.fee_amount.unwrap_or(Decimal::ZERO),
-                    funding: Decimal::ZERO,
-                    is_short,
-                });
+            let order_levels = strategy
+                .runtime
+                .orders
+                .iter()
+                .filter_map(|order| {
+                    order
+                        .level_index
+                        .map(|level_index| (order.order_id.as_str(), level_index))
+                })
+                .collect::<BTreeMap<_, _>>();
+
+            if strategy.strategy_type == StrategyType::OrdinaryGrid {
+                fills.extend(project_ordinary_level_fill_inputs(
+                    strategy,
+                    &order_sides,
+                    &order_levels,
+                ));
+                continue;
             }
+
+            fills.extend(
+                strategy
+                    .runtime
+                    .fills
+                    .iter()
+                    .map(|fill| trade_fill_input(strategy, fill, &order_sides, &order_levels)),
+            );
         }
         fills
     }
 }
 
+#[derive(Default)]
+struct OrdinaryLevelFillProjection {
+    level_index: u32,
+    entry_quantity: Decimal,
+    entry_notional: Decimal,
+    exit_quantity: Decimal,
+    exit_notional: Decimal,
+    realized_pnl: Decimal,
+    fee: Decimal,
+    is_short: Option<bool>,
+}
+
 fn strategy_summary(
     strategy: &Strategy,
     snapshot: Option<&StrategySnapshotNumbers>,
+    fills: &[FillProfitView],
 ) -> Result<StrategyProfitSummary, SharedDbError> {
-    let realized_from_fills = strategy
-        .runtime
-        .fills
+    let realized_from_fills = fills
         .iter()
-        .filter_map(|fill| fill.realized_pnl)
-        .fold(Decimal::ZERO, |acc, value| acc + value);
-    let fees_from_fills = strategy
-        .runtime
-        .fills
-        .iter()
-        .filter_map(|fill| fill.fee_amount)
-        .fold(Decimal::ZERO, |acc, value| acc + value);
+        .fold(Decimal::ZERO, |acc, fill| acc + fill.realized_pnl);
+    let fees_from_fills = fills.iter().fold(Decimal::ZERO, |acc, fill| acc + fill.fee);
 
     let position = aggregate_position(&strategy.runtime.positions);
     let cost_basis = position.long_quantity * position.long_average_entry_price
@@ -505,6 +536,164 @@ fn latest_wallets_by_exchange(
         );
     }
     latest
+}
+
+fn fills_for_strategy(fills: &[FillProfitView], strategy_id: &str) -> Vec<FillProfitView> {
+    fills
+        .iter()
+        .filter(|fill| fill.strategy_id == strategy_id)
+        .cloned()
+        .collect()
+}
+
+fn project_ordinary_level_fill_inputs(
+    strategy: &Strategy,
+    order_sides: &BTreeMap<&str, &str>,
+    order_levels: &BTreeMap<&str, u32>,
+) -> Vec<TradeFillInput> {
+    let mut levels = BTreeMap::<u32, OrdinaryLevelFillProjection>::new();
+    let mut unscoped_fills = Vec::new();
+    let mut startup_level_fallback = first_level_index(strategy);
+
+    for fill in &strategy.runtime.fills {
+        let level_index = resolve_fill_level_index(fill, order_levels)
+            .or_else(|| fallback_first_ordinary_level(fill, &mut startup_level_fallback));
+        let Some(level_index) = level_index else {
+            unscoped_fills.push(trade_fill_input(strategy, fill, order_sides, order_levels));
+            continue;
+        };
+
+        let level = levels.entry(level_index).or_insert_with(|| OrdinaryLevelFillProjection {
+            level_index,
+            ..OrdinaryLevelFillProjection::default()
+        });
+        level
+            .is_short
+            .get_or_insert_with(|| resolve_fill_direction(strategy, fill, order_sides));
+        level.fee += fill.fee_amount.unwrap_or(Decimal::ZERO);
+
+        if is_exit_fill(fill) {
+            level.exit_quantity += fill.quantity;
+            level.exit_notional += fill.price * fill.quantity;
+            level.realized_pnl += fill.realized_pnl.unwrap_or(Decimal::ZERO);
+        } else {
+            level.entry_quantity += fill.quantity;
+            level.entry_notional += fill.price * fill.quantity;
+        }
+    }
+
+    let mut projected = levels
+        .into_values()
+        .filter_map(|level| ordinary_level_fill_input(strategy, level))
+        .collect::<Vec<_>>();
+    projected.extend(unscoped_fills);
+    projected
+}
+
+fn ordinary_level_fill_input(
+    strategy: &Strategy,
+    level: OrdinaryLevelFillProjection,
+) -> Option<TradeFillInput> {
+    let quantity = if level.entry_quantity.is_zero() {
+        level.exit_quantity
+    } else {
+        level.entry_quantity
+    };
+    if quantity.is_zero() {
+        return None;
+    }
+
+    let is_short = level.is_short.unwrap_or(matches!(
+        strategy.mode,
+        shared_domain::strategy::StrategyMode::SpotSellOnly
+            | shared_domain::strategy::StrategyMode::FuturesShort
+    ));
+    let entry_price = if level.entry_quantity.is_zero() {
+        let exit_price = if level.exit_quantity.is_zero() {
+            Decimal::ZERO
+        } else {
+            level.exit_notional / level.exit_quantity
+        };
+        derive_entry_price(exit_price, quantity, Some(level.realized_pnl), is_short)
+    } else {
+        level.entry_notional / level.entry_quantity
+    };
+    let exit_price = if level.exit_quantity.is_zero() {
+        entry_price
+    } else {
+        level.exit_notional / level.exit_quantity
+    };
+
+    Some(TradeFillInput {
+        strategy_id: strategy.id.clone(),
+        user_id: strategy.owner_email.clone(),
+        symbol: strategy.symbol.clone(),
+        level_index: Some(level.level_index),
+        quantity,
+        entry_price,
+        exit_price,
+        fee: level.fee,
+        funding: Decimal::ZERO,
+        is_short,
+    })
+}
+
+fn trade_fill_input(
+    strategy: &Strategy,
+    fill: &shared_domain::strategy::StrategyRuntimeFill,
+    order_sides: &BTreeMap<&str, &str>,
+    order_levels: &BTreeMap<&str, u32>,
+) -> TradeFillInput {
+    let is_short = resolve_fill_direction(strategy, fill, order_sides);
+
+    TradeFillInput {
+        strategy_id: strategy.id.clone(),
+        user_id: strategy.owner_email.clone(),
+        symbol: strategy.symbol.clone(),
+        level_index: resolve_fill_level_index(fill, order_levels),
+        quantity: fill.quantity,
+        entry_price: derive_entry_price(fill.price, fill.quantity, fill.realized_pnl, is_short),
+        exit_price: fill.price,
+        fee: fill.fee_amount.unwrap_or(Decimal::ZERO),
+        funding: Decimal::ZERO,
+        is_short,
+    }
+}
+
+fn is_exit_fill(fill: &shared_domain::strategy::StrategyRuntimeFill) -> bool {
+    fill.realized_pnl.is_some() || fill.fill_type.eq_ignore_ascii_case("exit")
+}
+
+fn resolve_fill_level_index(
+    fill: &shared_domain::strategy::StrategyRuntimeFill,
+    order_levels: &BTreeMap<&str, u32>,
+) -> Option<u32> {
+    fill.level_index.or_else(|| {
+        fill.order_id
+            .as_deref()
+            .and_then(|order_id| order_levels.get(order_id).copied())
+    })
+}
+
+fn fallback_first_ordinary_level(
+    fill: &shared_domain::strategy::StrategyRuntimeFill,
+    startup_level_fallback: &mut Option<u32>,
+) -> Option<u32> {
+    if fill.order_id.is_some() || is_exit_fill(fill) {
+        return None;
+    }
+
+    startup_level_fallback.take()
+}
+
+fn first_level_index(strategy: &Strategy) -> Option<u32> {
+    strategy
+        .active_revision
+        .as_ref()
+        .unwrap_or(&strategy.draft_revision)
+        .levels
+        .first()
+        .map(|level| level.level_index)
 }
 
 fn aggregate_position(positions: &[StrategyRuntimePosition]) -> PositionAggregation {

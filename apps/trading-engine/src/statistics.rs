@@ -150,6 +150,7 @@ fn project_fill(fill: &TradeFillInput) -> FillProfitView {
         strategy_id: fill.strategy_id.clone(),
         user_id: fill.user_id.clone(),
         symbol: fill.symbol.clone(),
+        level_index: fill.level_index,
         quantity: fill.quantity,
         entry_price: fill.entry_price,
         exit_price: fill.exit_price,
@@ -172,6 +173,7 @@ mod tests {
             strategy_id: "strategy-short".to_string(),
             user_id: "trader@example.com".to_string(),
             symbol: "BTCUSDT".to_string(),
+            level_index: Some(3),
             quantity: Decimal::new(2, 0),
             entry_price: Decimal::new(100, 0),
             exit_price: Decimal::new(90, 0),
@@ -180,6 +182,7 @@ mod tests {
             is_short: true,
         }]);
 
+        assert_eq!(fills[0].level_index, Some(3));
         assert_eq!(fills[0].realized_pnl, Decimal::new(20, 0));
         assert_eq!(fills[0].net_pnl, Decimal::new(196, 1));
     }

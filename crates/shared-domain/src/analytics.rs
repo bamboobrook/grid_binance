@@ -8,6 +8,7 @@ pub struct TradeFillInput {
     pub strategy_id: String,
     pub user_id: String,
     pub symbol: String,
+    pub level_index: Option<u32>,
     #[serde(with = "rust_decimal::serde::str")]
     pub quantity: Decimal,
     #[serde(with = "rust_decimal::serde::str")]
@@ -26,6 +27,7 @@ pub struct FillProfitView {
     pub strategy_id: String,
     pub user_id: String,
     pub symbol: String,
+    pub level_index: Option<u32>,
     #[serde(with = "rust_decimal::serde::str")]
     pub quantity: Decimal,
     #[serde(with = "rust_decimal::serde::str")]
