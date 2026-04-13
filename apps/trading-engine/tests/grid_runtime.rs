@@ -1,6 +1,8 @@
 use rust_decimal::Decimal;
 use trading_engine::grid_builder::GridBuilder;
-use trading_engine::runtime::{GridMode, GridRuntime, GridRuntimeConfig, RuntimeStatus};
+use trading_engine::runtime::{
+    GridMode, GridRuntime, GridRuntimeConfig, RuntimeOrderKind, RuntimeStatus,
+};
 use trading_engine::stop_loss::OverallStopLoss;
 use trading_engine::take_profit::{MakerTakeProfit, OverallTakeProfit, TrailingTakeProfit};
 
@@ -19,6 +21,26 @@ fn runtime_config() -> GridRuntimeConfig {
         mode: GridMode::SpotGrid,
         plan,
         quantity: decimal(1, 0),
+        ordinary_take_profit_bps: 100,
+        maker_take_profit: None,
+        trailing_take_profit: None,
+        overall_take_profit: None,
+        overall_stop_loss: None,
+    }
+}
+
+fn short_runtime_config() -> GridRuntimeConfig {
+    let plan = GridBuilder::custom(
+        GridMode::FuturesShort,
+        vec![decimal(90, 0), decimal(100, 0), decimal(110, 0)],
+    )
+    .expect("custom short grid should build");
+
+    GridRuntimeConfig {
+        mode: GridMode::FuturesShort,
+        plan,
+        quantity: decimal(1, 0),
+        ordinary_take_profit_bps: 100,
         maker_take_profit: None,
         trailing_take_profit: None,
         overall_take_profit: None,
@@ -116,6 +138,80 @@ fn custom_grid_rejects_levels_with_wrong_mode_order() {
         vec![decimal(1075, 1), decimal(100, 0), decimal(95, 0)],
     );
     assert!(short_result.is_err());
+}
+
+#[test]
+fn ordinary_grid_start_executes_level_one_and_places_only_one_take_profit_plus_lower_entries() {
+    let mut runtime = GridRuntime::new(runtime_config()).expect("spot long runtime should build");
+
+    runtime.start().expect("ordinary runtime should start");
+
+    let position = runtime
+        .position()
+        .expect("anchor level should fill on start");
+    assert_eq!(position.entry_price, decimal(110, 0));
+    assert_eq!(position.quantity, decimal(1, 0));
+
+    let orders = runtime.ordinary_orders();
+    assert_eq!(
+        orders
+            .iter()
+            .filter(|order| order.kind() == RuntimeOrderKind::TakeProfit)
+            .count(),
+        1
+    );
+    let take_profit = orders
+        .iter()
+        .find(|order| order.level_index() == 0 && order.kind() == RuntimeOrderKind::TakeProfit)
+        .expect("level zero take profit should exist");
+    assert_eq!(take_profit.price(), decimal(11110, 2));
+    assert_eq!(
+        orders
+            .iter()
+            .filter(|order| order.kind() == RuntimeOrderKind::Entry)
+            .map(|order| order.level_index())
+            .collect::<Vec<_>>(),
+        vec![1, 2]
+    );
+}
+
+#[test]
+fn ordinary_grid_creates_take_profit_only_after_the_corresponding_level_fills() {
+    let mut runtime = GridRuntime::new(runtime_config()).expect("spot long runtime should build");
+
+    runtime.start().expect("ordinary runtime should start");
+    assert!(!runtime
+        .ordinary_orders()
+        .iter()
+        .any(|order| { order.level_index() == 1 && order.kind() == RuntimeOrderKind::TakeProfit }));
+
+    runtime
+        .fill_ordinary_entry(1)
+        .expect("replenishment entry should fill");
+
+    let orders = runtime.ordinary_orders();
+    let take_profit = orders
+        .iter()
+        .find(|order| order.level_index() == 1 && order.kind() == RuntimeOrderKind::TakeProfit)
+        .expect("filled replenishment level should create take profit");
+    assert_eq!(take_profit.price(), decimal(101, 0));
+    assert!(orders
+        .iter()
+        .any(|order| order.level_index() == 2 && order.kind() == RuntimeOrderKind::Entry));
+}
+
+#[test]
+fn ordinary_short_grid_take_profit_uses_fill_price_and_points_down() {
+    let mut runtime = GridRuntime::new(short_runtime_config()).expect("short runtime should build");
+
+    runtime.start().expect("short runtime should start");
+
+    let take_profit = runtime
+        .ordinary_orders()
+        .iter()
+        .find(|order| order.level_index() == 0 && order.kind() == RuntimeOrderKind::TakeProfit)
+        .expect("short anchor take profit should exist");
+    assert_eq!(take_profit.price(), decimal(891, 1));
 }
 
 #[test]
@@ -259,6 +355,7 @@ fn runtime_rejects_plan_mode_mismatch() {
         mode: GridMode::SpotGrid,
         plan,
         quantity: decimal(1, 0),
+        ordinary_take_profit_bps: 100,
         maker_take_profit: None,
         trailing_take_profit: None,
         overall_take_profit: None,
@@ -300,6 +397,7 @@ fn runtime_accepts_built_plans_for_all_task_two_modes() {
             mode: plan.mode,
             plan,
             quantity: decimal(1, 0),
+            ordinary_take_profit_bps: 100,
             maker_take_profit: None,
             trailing_take_profit: None,
             overall_take_profit: None,
@@ -322,6 +420,7 @@ fn runtime_rejects_mode_matched_plan_with_invalid_shape() {
             upper_levels: Vec::new(),
         },
         quantity: decimal(1, 0),
+        ordinary_take_profit_bps: 100,
         maker_take_profit: None,
         trailing_take_profit: None,
         overall_take_profit: None,
@@ -344,6 +443,7 @@ fn runtime_rejects_directly_constructed_ordinary_plan_with_non_positive_level() 
             upper_levels: Vec::new(),
         },
         quantity: decimal(1, 0),
+        ordinary_take_profit_bps: 100,
         maker_take_profit: None,
         trailing_take_profit: None,
         overall_take_profit: None,

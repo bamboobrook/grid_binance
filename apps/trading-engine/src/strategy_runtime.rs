@@ -5,6 +5,8 @@ use shared_domain::strategy::{
     StrategyRuntimeEvent, StrategyRuntimeFill, StrategyRuntimeOrder, StrategyRuntimePosition,
 };
 
+use crate::take_profit::take_profit_price_from_bps;
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct StrategyRuntimeError {
     message: String,
@@ -108,8 +110,14 @@ impl StrategyRuntimeEngine {
                         quantity: position.quantity,
                         take_profit_bps: template_level.take_profit_bps,
                         trailing_bps: template_level.trailing_bps,
-                        trailing_extreme: latest_trailing_anchor(&runtime, template_level.level_index),
-                        is_short: matches!(position.mode, StrategyMode::SpotSellOnly | StrategyMode::FuturesShort),
+                        trailing_extreme: latest_trailing_anchor(
+                            &runtime,
+                            template_level.level_index,
+                        ),
+                        is_short: matches!(
+                            position.mode,
+                            StrategyMode::SpotSellOnly | StrategyMode::FuturesShort
+                        ),
                         closing_requested: false,
                     })
                 })
@@ -125,7 +133,16 @@ impl StrategyRuntimeEngine {
 
     pub fn start(&mut self) -> Result<(), StrategyRuntimeError> {
         self.running = true;
-        self.runtime.orders = self.build_active_orders(None);
+        if ordinary_entry_side(self.mode).is_some()
+            && self.runtime.orders.is_empty()
+            && self.runtime.fills.is_empty()
+            && self.runtime.positions.is_empty()
+            && self.open_levels.is_empty()
+        {
+            self.start_ordinary_grid()?;
+        } else {
+            self.runtime.orders = self.build_active_orders(None);
+        }
         push_event(
             &mut self.runtime.events,
             "strategy_started",
@@ -166,7 +183,8 @@ impl StrategyRuntimeEngine {
             fee_amount: None,
             fee_asset: None,
         });
-        self.open_levels.retain(|state| state.level_index != level_index);
+        self.open_levels
+            .retain(|state| state.level_index != level_index);
         self.open_levels.push(OpenLevelState {
             level_index,
             entry_price: level.entry_price,
@@ -177,7 +195,14 @@ impl StrategyRuntimeEngine {
             is_short: side.eq_ignore_ascii_case("Sell"),
             closing_requested: false,
         });
-        self.upsert_exit_order(level_index, level.entry_price, level.quantity, level.take_profit_bps, level.trailing_bps, side.eq_ignore_ascii_case("Sell"));
+        self.upsert_exit_order(
+            level_index,
+            level.entry_price,
+            level.quantity,
+            level.take_profit_bps,
+            level.trailing_bps,
+            side.eq_ignore_ascii_case("Sell"),
+        );
         self.recompute_position();
         push_event(
             &mut self.runtime.events,
@@ -193,11 +218,16 @@ impl StrategyRuntimeEngine {
         level_index: u32,
         exit_price: Decimal,
     ) -> Result<(), StrategyRuntimeError> {
-        if !self.open_levels.iter().any(|state| state.level_index == level_index) {
+        if !self
+            .open_levels
+            .iter()
+            .any(|state| state.level_index == level_index)
+        {
             return Err(StrategyRuntimeError::new("open level not found"));
         }
         let _ = self.close_level(level_index, exit_price, "maker_take_profit", true);
-        self.open_levels.retain(|state| state.level_index != level_index);
+        self.open_levels
+            .retain(|state| state.level_index != level_index);
         self.recompute_position();
         Ok(())
     }
@@ -224,7 +254,8 @@ impl StrategyRuntimeEngine {
             if state.closing_requested {
                 continue;
             }
-            let tp_price = take_profit_price(state.entry_price, state.take_profit_bps, state.is_short);
+            let tp_price =
+                take_profit_price(state.entry_price, state.take_profit_bps, state.is_short);
             let Some(trailing_bps) = state.trailing_bps else {
                 continue;
             };
@@ -240,7 +271,11 @@ impl StrategyRuntimeEngine {
                     );
                     let retrace_price = new_low * short_trailing_factor(trailing_bps);
                     if price >= retrace_price {
-                        pending_closures.push((state.level_index, price, "taker_trailing_take_profit"));
+                        pending_closures.push((
+                            state.level_index,
+                            price,
+                            "taker_trailing_take_profit",
+                        ));
                     }
                 } else {
                     let new_high = extreme.max(price);
@@ -253,7 +288,11 @@ impl StrategyRuntimeEngine {
                     );
                     let retrace_price = new_high * trailing_factor(trailing_bps);
                     if price <= retrace_price {
-                        pending_closures.push((state.level_index, price, "taker_trailing_take_profit"));
+                        pending_closures.push((
+                            state.level_index,
+                            price,
+                            "taker_trailing_take_profit",
+                        ));
                     }
                 }
             } else if price_reaches_take_profit(price, tp_price, state.is_short) {
@@ -279,7 +318,10 @@ impl StrategyRuntimeEngine {
     pub fn pause(&mut self) {
         self.running = false;
         for order in &mut self.runtime.orders {
-            if matches!(order.status.as_str(), "Working" | "Placed" | "Monitoring" | "Armed") {
+            if matches!(
+                order.status.as_str(),
+                "Working" | "Placed" | "Monitoring" | "Armed"
+            ) {
                 order.status = "Canceled".to_string();
             }
         }
@@ -409,12 +451,21 @@ impl StrategyRuntimeEngine {
         self.fill_sequence += 1;
         self.runtime.fills.push(StrategyRuntimeFill {
             fill_id: format!("{}-fill-{}", self.strategy_id, self.fill_sequence),
-            order_id: Some(active_exit_order_id(&self.strategy_id, level_index, state.trailing_bps)),
+            order_id: Some(active_exit_order_id(
+                &self.strategy_id,
+                level_index,
+                state.trailing_bps,
+            )),
             level_index: Some(level_index),
             fill_type: "Exit".to_string(),
             price,
             quantity: state.quantity,
-            realized_pnl: Some(realized_pnl(state.entry_price, price, state.quantity, state.is_short)),
+            realized_pnl: Some(realized_pnl(
+                state.entry_price,
+                price,
+                state.quantity,
+                state.is_short,
+            )),
             fee_amount: None,
             fee_asset: None,
         });
@@ -428,7 +479,12 @@ impl StrategyRuntimeEngine {
             self.activate_entry_order(level_index);
         }
         self.recompute_position();
-        push_event(&mut self.runtime.events, event_type, event_type, Some(price))
+        push_event(
+            &mut self.runtime.events,
+            event_type,
+            event_type,
+            Some(price),
+        )
     }
 
     fn request_level_close(
@@ -444,7 +500,12 @@ impl StrategyRuntimeEngine {
             .expect("open level must exist");
         state.closing_requested = true;
         let order_id = active_exit_order_id(&self.strategy_id, level_index, state.trailing_bps);
-        if let Some(order) = self.runtime.orders.iter_mut().find(|order| order.order_id == order_id) {
+        if let Some(order) = self
+            .runtime
+            .orders
+            .iter_mut()
+            .find(|order| order.order_id == order_id)
+        {
             order.exchange_order_id = None;
             order.side = exit_side(state.is_short).to_string();
             order.order_type = "Market".to_string();
@@ -452,7 +513,12 @@ impl StrategyRuntimeEngine {
             order.quantity = state.quantity;
             order.status = "ClosingRequested".to_string();
         }
-        push_event(&mut self.runtime.events, event_type, event_type, Some(price))
+        push_event(
+            &mut self.runtime.events,
+            event_type,
+            event_type,
+            Some(price),
+        )
     }
 
     fn recompute_position(&mut self) {
@@ -508,7 +574,11 @@ impl StrategyRuntimeEngine {
         let mut orders = Vec::new();
         let reference_price = self.reference_price(reference_price);
         for level in &self.revision.levels {
-            if self.open_levels.iter().any(|state| state.level_index == level.level_index) {
+            if self
+                .open_levels
+                .iter()
+                .any(|state| state.level_index == level.level_index)
+            {
                 continue;
             }
             let Some(side) = initial_entry_side(
@@ -538,9 +608,17 @@ impl StrategyRuntimeEngine {
                     level_index: Some(state.level_index),
                     side: exit_side(state.is_short).to_string(),
                     order_type: "TrailMonitor".to_string(),
-                    price: Some(take_profit_price(state.entry_price, state.take_profit_bps, state.is_short)),
+                    price: Some(take_profit_price(
+                        state.entry_price,
+                        state.take_profit_bps,
+                        state.is_short,
+                    )),
                     quantity: state.quantity,
-                    status: if state.trailing_extreme.is_some() { "Armed".to_string() } else { "Monitoring".to_string() },
+                    status: if state.trailing_extreme.is_some() {
+                        "Armed".to_string()
+                    } else {
+                        "Monitoring".to_string()
+                    },
                 });
                 let _ = trailing_bps;
             } else {
@@ -550,7 +628,11 @@ impl StrategyRuntimeEngine {
                     level_index: Some(state.level_index),
                     side: exit_side(state.is_short).to_string(),
                     order_type: "Limit".to_string(),
-                    price: Some(take_profit_price(state.entry_price, state.take_profit_bps, state.is_short)),
+                    price: Some(take_profit_price(
+                        state.entry_price,
+                        state.take_profit_bps,
+                        state.is_short,
+                    )),
                     quantity: state.quantity,
                     status: "Working".to_string(),
                 });
@@ -560,7 +642,50 @@ impl StrategyRuntimeEngine {
         orders
     }
 
-    fn level_for(&self, level_index: u32) -> Result<&shared_domain::strategy::GridLevel, StrategyRuntimeError> {
+    fn start_ordinary_grid(&mut self) -> Result<(), StrategyRuntimeError> {
+        let Some(level) = self.revision.levels.first().cloned() else {
+            return Err(StrategyRuntimeError::new(
+                "ordinary grid requires at least one level",
+            ));
+        };
+        let Some(side) = ordinary_entry_side(self.mode) else {
+            return Err(StrategyRuntimeError::new(
+                "ordinary grid start requires a single-sided mode",
+            ));
+        };
+
+        self.runtime.orders.clear();
+        self.runtime.orders.push(StrategyRuntimeOrder {
+            order_id: entry_order_id(&self.strategy_id, level.level_index),
+            exchange_order_id: None,
+            level_index: Some(level.level_index),
+            side: side.to_string(),
+            order_type: "Limit".to_string(),
+            price: Some(level.entry_price),
+            quantity: level.quantity,
+            status: "Working".to_string(),
+        });
+        self.fill_entry(level.level_index)?;
+        let remaining_levels = self
+            .revision
+            .levels
+            .iter()
+            .skip(1)
+            .map(|level| level.level_index)
+            .collect::<Vec<_>>();
+        for level_index in remaining_levels {
+            self.activate_entry_order(level_index);
+        }
+        self.runtime
+            .orders
+            .sort_by_key(|order| order.level_index.unwrap_or(u32::MAX));
+        Ok(())
+    }
+
+    fn level_for(
+        &self,
+        level_index: u32,
+    ) -> Result<&shared_domain::strategy::GridLevel, StrategyRuntimeError> {
         self.revision
             .levels
             .iter()
@@ -569,9 +694,10 @@ impl StrategyRuntimeEngine {
     }
 
     fn entry_order_mut(&mut self, level_index: u32) -> Option<&mut StrategyRuntimeOrder> {
-        self.runtime.orders.iter_mut().find(|order| {
-            order.level_index == Some(level_index) && is_entry_order(order)
-        })
+        self.runtime
+            .orders
+            .iter_mut()
+            .find(|order| order.level_index == Some(level_index) && is_entry_order(order))
     }
 
     fn upsert_exit_order(
@@ -584,10 +710,23 @@ impl StrategyRuntimeEngine {
         is_short: bool,
     ) {
         let order_id = active_exit_order_id(&self.strategy_id, level_index, trailing_bps);
-        let order_type = if trailing_bps.is_some() { "TrailMonitor" } else { "Limit" };
+        let order_type = if trailing_bps.is_some() {
+            "TrailMonitor"
+        } else {
+            "Limit"
+        };
         let price = Some(take_profit_price(entry_price, take_profit_bps, is_short));
-        let status = if trailing_bps.is_some() { "Monitoring" } else { "Working" };
-        if let Some(order) = self.runtime.orders.iter_mut().find(|order| order.order_id == order_id) {
+        let status = if trailing_bps.is_some() {
+            "Monitoring"
+        } else {
+            "Working"
+        };
+        if let Some(order) = self
+            .runtime
+            .orders
+            .iter_mut()
+            .find(|order| order.order_id == order_id)
+        {
             order.exchange_order_id = None;
             order.level_index = Some(level_index);
             order.side = exit_side(is_short).to_string();
@@ -658,12 +797,22 @@ impl StrategyRuntimeEngine {
                     .iter()
                     .fold(Decimal::ZERO, |acc, position| acc + position.quantity);
                 (total_quantity > Decimal::ZERO).then(|| {
-                    self.runtime.positions.iter().fold(Decimal::ZERO, |acc, position| {
-                        acc + (position.average_entry_price * position.quantity)
-                    }) / total_quantity
+                    self.runtime
+                        .positions
+                        .iter()
+                        .fold(Decimal::ZERO, |acc, position| {
+                            acc + (position.average_entry_price * position.quantity)
+                        })
+                        / total_quantity
                 })
             })
-            .or_else(|| self.runtime.fills.iter().rev().find_map(|fill| (fill.price > Decimal::ZERO).then_some(fill.price)))
+            .or_else(|| {
+                self.runtime
+                    .fills
+                    .iter()
+                    .rev()
+                    .find_map(|fill| (fill.price > Decimal::ZERO).then_some(fill.price))
+            })
             .unwrap_or_else(|| effective_reference_price(&self.revision))
     }
 }
@@ -677,7 +826,10 @@ fn derive_open_levels(
         if !(is_take_profit_order(order) || is_trailing_monitor_order(order)) {
             continue;
         }
-        if !matches!(order.status.as_str(), "Working" | "Placed" | "Monitoring" | "Armed") {
+        if !matches!(
+            order.status.as_str(),
+            "Working" | "Placed" | "Monitoring" | "Armed"
+        ) {
             continue;
         }
         let Some(level_index) = order.level_index else {
@@ -696,8 +848,10 @@ fn derive_open_levels(
             trailing_bps: level.trailing_bps,
             trailing_extreme: latest_trailing_anchor(runtime, level_index),
             is_short: order.side.eq_ignore_ascii_case("Buy"),
-            closing_requested: matches!(order.status.as_str(), "ClosingRequested" | "PartiallyFilled")
-                || order.order_type.eq_ignore_ascii_case("Market"),
+            closing_requested: matches!(
+                order.status.as_str(),
+                "ClosingRequested" | "PartiallyFilled"
+            ) || order.order_type.eq_ignore_ascii_case("Market"),
         });
     }
     Ok(items)
@@ -724,12 +878,24 @@ fn effective_reference_price(revision: &StrategyRevision) -> Decimal {
     }
 }
 
+fn ordinary_entry_side(mode: StrategyMode) -> Option<&'static str> {
+    match mode {
+        StrategyMode::SpotBuyOnly | StrategyMode::FuturesLong => Some("Buy"),
+        StrategyMode::SpotSellOnly | StrategyMode::FuturesShort => Some("Sell"),
+        StrategyMode::SpotClassic | StrategyMode::FuturesNeutral => None,
+    }
+}
+
 fn initial_entry_side(
     mode: StrategyMode,
     level_index: u32,
     level_price: Decimal,
     reference_price: Decimal,
 ) -> Option<&'static str> {
+    if let Some(side) = ordinary_entry_side(mode) {
+        return Some(side);
+    }
+
     match mode {
         StrategyMode::SpotClassic => {
             if level_price < reference_price {
@@ -751,21 +917,15 @@ fn initial_entry_side(
                 Some("Sell")
             }
         }
-        StrategyMode::SpotBuyOnly | StrategyMode::FuturesLong => {
-            if level_price <= reference_price { Some("Buy") } else { None }
-        }
-        StrategyMode::SpotSellOnly | StrategyMode::FuturesShort => {
-            if level_price >= reference_price { Some("Sell") } else { None }
-        }
+        StrategyMode::SpotBuyOnly
+        | StrategyMode::SpotSellOnly
+        | StrategyMode::FuturesLong
+        | StrategyMode::FuturesShort => unreachable!("ordinary mode handled above"),
     }
 }
 
 fn take_profit_price(entry_price: Decimal, take_profit_bps: u32, is_short: bool) -> Decimal {
-    if is_short {
-        entry_price * (Decimal::ONE - Decimal::from(take_profit_bps) / Decimal::from(10_000u32))
-    } else {
-        entry_price * (Decimal::ONE + Decimal::from(take_profit_bps) / Decimal::from(10_000u32))
-    }
+    take_profit_price_from_bps(entry_price, take_profit_bps, is_short)
 }
 
 fn trailing_factor(bps: u32) -> Decimal {
@@ -784,7 +944,12 @@ fn price_reaches_take_profit(price: Decimal, threshold: Decimal, is_short: bool)
     }
 }
 
-fn realized_pnl(entry_price: Decimal, exit_price: Decimal, quantity: Decimal, is_short: bool) -> Decimal {
+fn realized_pnl(
+    entry_price: Decimal,
+    exit_price: Decimal,
+    quantity: Decimal,
+    is_short: bool,
+) -> Decimal {
     if is_short {
         (entry_price - exit_price) * quantity
     } else {
@@ -825,7 +990,11 @@ fn is_trailing_monitor_order(order: &StrategyRuntimeOrder) -> bool {
 }
 
 fn exit_side(is_short: bool) -> &'static str {
-    if is_short { "Buy" } else { "Sell" }
+    if is_short {
+        "Buy"
+    } else {
+        "Sell"
+    }
 }
 
 fn push_event(
