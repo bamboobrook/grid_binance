@@ -61,15 +61,26 @@ export default async function ExchangePage({ params, searchParams }: ExchangePag
   const sessionToken = cookieStore.get("session_token")?.value ?? "";
   const account = await fetchExchangeAccount(sessionToken);
   const testResult = readExchangeTestResult(cookieStore);
-  const snapshot = testResult?.account ?? account?.account ?? null;
-  const positionMode = snapshot ? (snapshot.validation.hedge_mode_ok ? "hedge" : "one-way") : "hedge";
-  const configuredMarkets = snapshot?.selected_markets ?? [];
+  const persistedSnapshot = account?.account ?? null;
+  const validationSnapshot = testResult?.account ?? persistedSnapshot;
+  const summarySnapshot = persistedSnapshot ?? validationSnapshot;
+  const positionMode = validationSnapshot ? (validationSnapshot.validation.hedge_mode_ok ? "hedge" : "one-way") : "hedge";
+  const configuredMarkets = validationSnapshot?.selected_markets ?? [];
   const selectedMarkets = configuredMarkets.length > 0 ? configuredMarkets : ["spot", "usdm", "coinm"];
-  const hasSavedCredentialState = Boolean(snapshot && snapshot.binding_state !== "missing");
+  const summaryMarkets = summarySnapshot?.selected_markets ?? [];
+  const hasSavedCredentialState = Boolean(summarySnapshot && summarySnapshot.binding_state !== "missing");
   const supportedScopes = hasSavedCredentialState
-    ? (configuredMarkets.length > 0 ? configuredMarkets.map((value) => labelForMarket(lang, value)) : [pickText(lang, "待重新校验", "Needs re-validation")])
+    ? (summaryMarkets.length > 0 ? summaryMarkets.map((value) => labelForMarket(lang, value)) : [pickText(lang, "待重新校验", "Needs re-validation")])
     : [pickText(lang, "未配置", "Not configured")];
-  const state = describeConnectionState(lang, snapshot);
+  const state = describeConnectionState(lang, summarySnapshot);
+  const summaryTitle = persistedSnapshot || !testResult
+    ? pickText(lang, "凭证摘要", "Credential summary")
+    : pickText(lang, "当前测试结果（未自动保存）", "Current test result (not auto-saved)");
+  const summaryDescription = persistedSnapshot
+    ? (testResult
+        ? pickText(lang, "上方横幅显示本次测试结果，下面继续保留已保存的凭证摘要。", "The banner above shows the latest validation result while the saved credential summary stays visible below.")
+        : pickText(lang, "保存后仍会持续展示掩码与运行要求。", "Masked values and runtime requirements remain visible after save."))
+    : pickText(lang, "这里只展示当前未落库的即时校验结果；测试通过时系统会自动保存，只有失败或自动保存失败时才会停留在这里。", "This panel only shows validation results that were not persisted. Successful tests auto-save, so only failures or auto-save failures remain here.");
 
   return (
     <>
@@ -162,16 +173,12 @@ export default async function ExchangePage({ params, searchParams }: ExchangePag
           </Card>
           <Card>
             <CardHeader>
-              <CardTitle>{testResult ? pickText(lang, "当前测试结果（未自动保存）", "Current test result (not auto-saved)") : pickText(lang, "凭证摘要", "Credential summary")}</CardTitle>
-              <CardDescription>
-                {testResult
-                  ? pickText(lang, "这里只展示当前未落库的即时校验结果；测试通过时系统会自动保存，只有失败或自动保存失败时才会停留在这里。", "This panel only shows validation results that were not persisted. Successful tests auto-save, so only failures or auto-save failures remain here.")
-                  : pickText(lang, "保存后仍会持续展示掩码与运行要求。", "Masked values and runtime requirements remain visible after save.")}
-              </CardDescription>
+              <CardTitle>{summaryTitle}</CardTitle>
+              <CardDescription>{summaryDescription}</CardDescription>
             </CardHeader>
             <CardBody>
               <ul className="text-list">
-                <li>{pickText(lang, "掩码 API Key", "Masked API key")}: {(snapshot?.api_key_masked || (hasSavedCredentialState ? pickText(lang, "已保存，待恢复摘要", "Saved, summary pending") : "")) || pickText(lang, "尚未保存", "Not saved yet")}</li>
+                <li>{pickText(lang, "掩码 API Key", "Masked API key")}: {(summarySnapshot?.api_key_masked || (hasSavedCredentialState ? pickText(lang, "已保存，待恢复摘要", "Saved, summary pending") : "")) || pickText(lang, "尚未保存", "Not saved yet")}</li>
                 <li>{pickText(lang, "API Secret", "API secret")}: {hasSavedCredentialState ? "••••••••••••••••" : pickText(lang, "尚未保存", "Not saved yet")}</li>
                 <li>{pickText(lang, "连接状态", "Connection status")}: {state.label}</li>
                 <li>{pickText(lang, "支持范围", "Supported scopes")}: {supportedScopes.join(", ")}</li>
@@ -189,15 +196,15 @@ export default async function ExchangePage({ params, searchParams }: ExchangePag
         </CardHeader>
         <CardBody>
           <ul className="text-list">
-            <li>{pickText(lang, "API 连通性", "API connectivity")}: {describeValidationValue(lang, snapshot, snapshot?.validation.api_connectivity_ok)}</li>
-            <li>{pickText(lang, "时间戳同步", "Timestamp sync")}: {describeValidationValue(lang, snapshot, snapshot?.validation.timestamp_in_sync)}</li>
-            <li>{pickText(lang, "现货可读", "Spot readable")}: {describeValidationValue(lang, snapshot, snapshot?.validation.can_read_spot)}</li>
-            <li>{pickText(lang, "U本位可读", "USDⓈ-M readable")}: {describeValidationValue(lang, snapshot, snapshot?.validation.can_read_usdm)}</li>
-            <li>{pickText(lang, "币本位可读", "COIN-M readable")}: {describeValidationValue(lang, snapshot, snapshot?.validation.can_read_coinm)}</li>
-            <li>{pickText(lang, "权限通过", "Permissions OK")}: {describeValidationValue(lang, snapshot, snapshot?.validation.permissions_ok)}</li>
-            <li>{pickText(lang, "提现权限已关闭", "Withdrawals disabled")}: {describeValidationValue(lang, snapshot, snapshot?.validation.withdrawals_disabled)}</li>
-            <li>{pickText(lang, "市场访问通过", "Market access OK")}: {describeValidationValue(lang, snapshot, snapshot?.validation.market_access_ok)}</li>
-            <li>{pickText(lang, "对冲模式通过", "Hedge mode OK")}: {describeValidationValue(lang, snapshot, snapshot?.validation.hedge_mode_ok)}</li>
+            <li>{pickText(lang, "API 连通性", "API connectivity")}: {describeValidationValue(lang, validationSnapshot, validationSnapshot?.validation.api_connectivity_ok)}</li>
+            <li>{pickText(lang, "时间戳同步", "Timestamp sync")}: {describeValidationValue(lang, validationSnapshot, validationSnapshot?.validation.timestamp_in_sync)}</li>
+            <li>{pickText(lang, "现货可读", "Spot readable")}: {describeValidationValue(lang, validationSnapshot, validationSnapshot?.validation.can_read_spot)}</li>
+            <li>{pickText(lang, "U本位可读", "USDⓈ-M readable")}: {describeValidationValue(lang, validationSnapshot, validationSnapshot?.validation.can_read_usdm)}</li>
+            <li>{pickText(lang, "币本位可读", "COIN-M readable")}: {describeValidationValue(lang, validationSnapshot, validationSnapshot?.validation.can_read_coinm)}</li>
+            <li>{pickText(lang, "权限通过", "Permissions OK")}: {describeValidationValue(lang, validationSnapshot, validationSnapshot?.validation.permissions_ok)}</li>
+            <li>{pickText(lang, "提现权限已关闭", "Withdrawals disabled")}: {describeValidationValue(lang, validationSnapshot, validationSnapshot?.validation.withdrawals_disabled)}</li>
+            <li>{pickText(lang, "市场访问通过", "Market access OK")}: {describeValidationValue(lang, validationSnapshot, validationSnapshot?.validation.market_access_ok)}</li>
+            <li>{pickText(lang, "对冲模式通过", "Hedge mode OK")}: {describeValidationValue(lang, validationSnapshot, validationSnapshot?.validation.hedge_mode_ok)}</li>
           </ul>
         </CardBody>
       </Card>

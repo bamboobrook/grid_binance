@@ -16,6 +16,7 @@ export function formatTaipeiDateTime(
     day: "2-digit",
     hour: "2-digit",
     hour12: false,
+    hourCycle: "h23",
     minute: "2-digit",
     month: "2-digit",
     second: options?.withSeconds ? "2-digit" : undefined,
@@ -30,8 +31,9 @@ export function formatTaipeiDateTime(
       .map((part) => [part.type, part.value]),
   ) as Record<string, string>;
 
+  const hour = parts.hour === "24" ? "00" : (parts.hour ?? "00");
   const seconds = options?.withSeconds ? `:${parts.second ?? "00"}` : "";
-  return `${parts.year}-${parts.month}-${parts.day} ${parts.hour}:${parts.minute}${seconds}`;
+  return `${parts.year}-${parts.month}-${parts.day} ${hour}:${parts.minute ?? "00"}${seconds}`;
 }
 
 export function formatTaipeiDate(

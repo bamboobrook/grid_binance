@@ -179,6 +179,14 @@ test("user shell and dashboard avoid fabricated placeholder identity and expose 
   assert.doesNotMatch(preview, /theme: "dark"/, "TradingView preview theme should follow the current site theme");
 });
 
+test("exchange page preserves persisted credential summary even when a stale test cookie exists", () => {
+  const exchangePage = read("apps/web/app/[locale]/app/exchange/page.tsx");
+
+  assert.match(exchangePage, /const persistedSnapshot = account\?\.account \?\? null;/, "exchange page should isolate the persisted server snapshot");
+  assert.match(exchangePage, /const validationSnapshot = testResult\?\.account \?\? persistedSnapshot;/, "exchange page should only use the test cookie for validation details");
+  assert.match(exchangePage, /const summarySnapshot = persistedSnapshot \?\? validationSnapshot;/, "exchange page summary should prefer the saved account state over the cookie");
+});
+
 test("shared status and table copy localizes instead of leaking fixed english labels", () => {
   const banner = read("apps/web/components/ui/status-banner.tsx");
   const dialog = read("apps/web/components/ui/dialog.tsx");

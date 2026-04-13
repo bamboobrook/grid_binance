@@ -27,3 +27,31 @@ test("user and admin pages route visible timestamps through the shared UTC+8 for
     assert.doesNotMatch(source, /replace\("T", " "\)\.slice\(0, 16\)|slice\(0, 19\)\.replace\("T", " "\)/, `${file} should not hand-format timestamps anymore`);
   }
 });
+
+
+test("shared UTC+8 formatter normalizes midnight hour 24 to 00", async () => {
+  const original = Intl.DateTimeFormat;
+  class FakeDateTimeFormat {
+    formatToParts() {
+      return [
+        { type: "year", value: "2026" },
+        { type: "literal", value: "-" },
+        { type: "month", value: "04" },
+        { type: "literal", value: "-" },
+        { type: "day", value: "11" },
+        { type: "literal", value: " " },
+        { type: "hour", value: "24" },
+        { type: "literal", value: ":" },
+        { type: "minute", value: "46" },
+      ];
+    }
+  }
+
+  Intl.DateTimeFormat = FakeDateTimeFormat;
+  try {
+    const { formatTaipeiDateTime } = await import("../../apps/web/lib/ui/time.ts");
+    assert.equal(formatTaipeiDateTime("2026-04-10T16:46:00Z", "zh"), "2026-04-11 00:46");
+  } finally {
+    Intl.DateTimeFormat = original;
+  }
+});
