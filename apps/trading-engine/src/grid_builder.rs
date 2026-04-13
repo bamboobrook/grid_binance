@@ -11,6 +11,47 @@ pub struct GridPlan {
 }
 
 impl GridPlan {
+    pub fn validate_shape(&self) -> Result<(), GridBuildError> {
+        match self.mode {
+            GridMode::SpotGrid | GridMode::FuturesLong | GridMode::FuturesShort => {
+                if self.levels.is_empty() {
+                    return Err(GridBuildError::new(
+                        "ordinary grid plan requires at least one level",
+                    ));
+                }
+
+                if !self.lower_levels.is_empty() || !self.upper_levels.is_empty() {
+                    return Err(GridBuildError::new(
+                        "ordinary grid plan cannot include bilateral levels",
+                    ));
+                }
+
+                Ok(())
+            }
+            GridMode::ClassicBilateralSpot | GridMode::ClassicBilateralFutures => {
+                if !self.levels.is_empty() {
+                    return Err(GridBuildError::new(
+                        "classic bilateral grid plan cannot include ordinary levels",
+                    ));
+                }
+
+                if self.lower_levels.is_empty() || self.upper_levels.is_empty() {
+                    return Err(GridBuildError::new(
+                        "classic bilateral grid plan requires lower and upper levels",
+                    ));
+                }
+
+                if self.lower_levels.len() != self.upper_levels.len() {
+                    return Err(GridBuildError::new(
+                        "classic bilateral grid plan requires symmetric side counts",
+                    ));
+                }
+
+                validate_bilateral_levels(&self.lower_levels, &self.upper_levels)
+            }
+        }
+    }
+
     fn ordinary(mode: GridMode, levels: Vec<Decimal>) -> Self {
         Self {
             mode,
@@ -86,7 +127,10 @@ impl GridBuilder {
         }
 
         validate_ordinary_direction(mode, &levels)?;
-        Ok(GridPlan::ordinary(mode, levels))
+
+        let plan = GridPlan::ordinary(mode, levels);
+        plan.validate_shape()?;
+        Ok(plan)
     }
 
     pub fn classic_bilateral_fixed(
@@ -116,8 +160,9 @@ impl GridBuilder {
             upper_levels.push(upper);
         }
 
-        validate_bilateral_levels(&lower_levels, &upper_levels)?;
-        Ok(GridPlan::bilateral(mode, lower_levels, upper_levels))
+        let plan = GridPlan::bilateral(mode, lower_levels, upper_levels);
+        plan.validate_shape()?;
+        Ok(plan)
     }
 
     pub fn classic_bilateral_geometric(
@@ -155,11 +200,14 @@ impl GridBuilder {
             upper_levels.push(upper);
         }
 
-        validate_bilateral_levels(&lower_levels, &upper_levels)?;
-        Ok(GridPlan::bilateral(mode, lower_levels, upper_levels))
+        let plan = GridPlan::bilateral(mode, lower_levels, upper_levels);
+        plan.validate_shape()?;
+        Ok(plan)
     }
 
     pub fn custom(mode: GridMode, levels: Vec<Decimal>) -> Result<GridPlan, GridBuildError> {
+        validate_ordinary_mode(mode)?;
+
         if levels.is_empty() {
             return Err(GridBuildError::new("grid requires at least one level"));
         }
@@ -170,7 +218,9 @@ impl GridBuilder {
             ));
         }
 
-        Ok(GridPlan::ordinary(mode, levels))
+        let plan = GridPlan::ordinary(mode, levels);
+        plan.validate_shape()?;
+        Ok(plan)
     }
 }
 

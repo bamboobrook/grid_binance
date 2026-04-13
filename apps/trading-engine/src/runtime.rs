@@ -115,6 +115,8 @@ impl GridRuntime {
             ));
         }
 
+        validate_plan_shape(&config.plan)?;
+
         if config.quantity <= Decimal::ZERO {
             return Err(GridRuntimeError::new("default quantity must be positive"));
         }
@@ -236,6 +238,7 @@ impl GridRuntime {
 
     pub fn rebuild(&mut self, plan: GridPlan) -> Result<(), GridRuntimeError> {
         validate_supported_mode(plan.mode)?;
+        validate_plan_shape(&plan)?;
         self.mode = plan.mode;
         self.plan = plan;
         self.status = RuntimeStatus::Running;
@@ -287,4 +290,9 @@ impl GridRuntime {
 
 fn validate_supported_mode(_mode: GridMode) -> Result<(), GridRuntimeError> {
     Ok(())
+}
+
+fn validate_plan_shape(plan: &GridPlan) -> Result<(), GridRuntimeError> {
+    plan.validate_shape()
+        .map_err(|err| GridRuntimeError::new(format!("invalid grid plan shape: {err}")))
 }

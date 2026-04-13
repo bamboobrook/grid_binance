@@ -245,19 +245,33 @@ fn runtime_rejects_plan_mode_mismatch() {
 }
 
 #[test]
-fn runtime_accepts_all_task_two_grid_modes() {
-    for mode in [
-        GridMode::SpotGrid,
-        GridMode::FuturesLong,
-        GridMode::FuturesShort,
-        GridMode::ClassicBilateralSpot,
-        GridMode::ClassicBilateralFutures,
-    ] {
-        let plan =
-            GridBuilder::custom(mode, vec![decimal(90, 0), decimal(100, 0), decimal(110, 0)])
-                .expect("custom grid should build");
+fn runtime_accepts_built_plans_for_all_task_two_modes() {
+    let plans = vec![
+        GridBuilder::ordinary_fixed_step(GridMode::SpotGrid, decimal(70000, 0), 100, 3)
+            .expect("spot grid should build"),
+        GridBuilder::ordinary_fixed_step(GridMode::FuturesLong, decimal(70000, 0), 100, 3)
+            .expect("futures long grid should build"),
+        GridBuilder::ordinary_fixed_step(GridMode::FuturesShort, decimal(70000, 0), 100, 3)
+            .expect("futures short grid should build"),
+        GridBuilder::classic_bilateral_fixed(
+            GridMode::ClassicBilateralSpot,
+            decimal(70000, 0),
+            100,
+            2,
+        )
+        .expect("spot bilateral grid should build"),
+        GridBuilder::classic_bilateral_fixed(
+            GridMode::ClassicBilateralFutures,
+            decimal(70000, 0),
+            100,
+            2,
+        )
+        .expect("futures bilateral grid should build"),
+    ];
+
+    for plan in plans {
         let config = GridRuntimeConfig {
-            mode,
+            mode: plan.mode,
             plan,
             quantity: decimal(1, 0),
             maker_take_profit: None,
@@ -267,11 +281,47 @@ fn runtime_accepts_all_task_two_grid_modes() {
         };
 
         let runtime = GridRuntime::new(config);
-        assert!(
-            runtime.is_ok(),
-            "mode {mode:?} should be accepted by runtime"
-        );
+        assert!(runtime.is_ok(), "built plan should be accepted by runtime");
     }
+}
+
+#[test]
+fn runtime_rejects_mode_matched_plan_with_invalid_shape() {
+    let config = GridRuntimeConfig {
+        mode: GridMode::ClassicBilateralSpot,
+        plan: trading_engine::grid_builder::GridPlan {
+            mode: GridMode::ClassicBilateralSpot,
+            levels: vec![decimal(90, 0), decimal(100, 0), decimal(110, 0)],
+            lower_levels: Vec::new(),
+            upper_levels: Vec::new(),
+        },
+        quantity: decimal(1, 0),
+        maker_take_profit: None,
+        trailing_take_profit: None,
+        overall_take_profit: None,
+        overall_stop_loss: None,
+    };
+
+    let result = GridRuntime::new(config);
+
+    assert!(result.is_err());
+}
+
+#[test]
+fn bilateral_mode_cannot_use_ordinary_shaped_custom_plan() {
+    let result = GridBuilder::custom(
+        GridMode::ClassicBilateralSpot,
+        vec![decimal(90, 0), decimal(100, 0), decimal(110, 0)],
+    );
+
+    assert!(result.is_err());
+}
+
+#[test]
+fn ordinary_fixed_step_rejects_non_positive_generated_levels() {
+    let result = GridBuilder::ordinary_fixed_step(GridMode::SpotGrid, decimal(100, 0), 6000, 3);
+
+    assert!(result.is_err());
 }
 
 #[test]
