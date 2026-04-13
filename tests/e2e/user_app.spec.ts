@@ -149,12 +149,14 @@ test("strategy workspace supports per-grid custom editing and draft deletion", a
 
   await page.getByLabel("Grid Count").fill("3");
   await page.getByLabel("Editor Mode").selectOption("custom");
+  await page.getByRole("button", { name: /ETHUSDT/ }).first().click();
+  await page.getByRole("button", { name: "Apply Batch Defaults" }).click();
   await expect(page.locator('[data-level-editor="true"]')).toBeVisible();
 
   const editor = page.locator('[data-level-editor="true"]');
-  await editor.getByLabel("Entry Price").first().fill("1700");
-  await editor.getByLabel("Entry Price").nth(1).fill("1750");
-  await editor.getByLabel("Entry Price").nth(2).fill("1800");
+  await editor.getByLabel("Grid Price").first().fill("1700");
+  await editor.getByLabel("Grid Price").nth(1).fill("1750");
+  await editor.getByLabel("Grid Price").nth(2).fill("1800");
   await editor.getByLabel("Quote Amount (USDT)").first().fill("50");
   await editor.getByLabel("Quote Amount (USDT)").nth(1).fill("60");
   await editor.getByLabel("Quote Amount (USDT)").nth(2).fill("70");
@@ -166,6 +168,7 @@ test("strategy workspace supports per-grid custom editing and draft deletion", a
   await page.getByRole("button", { name: "Create Bot" }).click();
   await expect(page).toHaveURL(/\/app\/strategies\/[^/]+\?notice=draft-saved/);
   await expect(page.getByRole("button", { name: "Delete Strategy" })).toBeVisible();
+  await expect(page.getByText("Realized PnL", { exact: false })).toHaveCount(0);
 
   await page.getByRole("button", { name: "Delete Strategy" }).click();
   await expect(page).toHaveURL(/\/app\/strategies\?notice=strategy-deleted/);
@@ -182,18 +185,18 @@ test("strategy workspace can apply batch defaults into per-grid custom editing",
 
   await page.getByLabel("Editor Mode").selectOption("custom");
   await expect(page.getByLabel("Grid Count")).not.toHaveAttribute("readonly", "");
-  await expect(page.getByLabel("Batch Spacing (%)")).not.toHaveAttribute("readonly", "");
+  await expect(page.getByLabel("Covered Range (%)")).toBeVisible();
   await page.getByLabel("Grid Count").fill("4");
-  await page.getByLabel("Batch Spacing (%)").fill("0.5");
+  await page.getByLabel("Covered Range (%)").fill("8");
   await page.getByLabel("Per-grid Quote Amount (USDT)").fill("88");
   await page.getByLabel("Grid Take Profit (%)").first().fill("1.3");
   await page.getByRole("button", { name: "Apply Batch Defaults" }).click();
 
   const editor = page.locator('[data-level-editor="true"]');
   await expect(editor.getByText("L4", { exact: true })).toBeVisible();
-  await expect(editor.getByLabel("Spacing vs Prev (%)").nth(1)).toHaveValue("0.5");
-  await expect(editor.getByLabel("Spacing vs Prev (%)").nth(2)).toHaveValue("0.5");
-  await expect(editor.getByLabel("Spacing vs Prev (%)").nth(3)).toHaveValue("0.5");
+  await expect(editor.getByLabel("Spacing vs Prev (%)").nth(1)).not.toHaveValue("");
+  await expect(editor.getByLabel("Spacing vs Prev (%)").nth(2)).not.toHaveValue("");
+  await expect(editor.getByLabel("Spacing vs Prev (%)").nth(3)).not.toHaveValue("");
   await expect(editor.getByLabel("Quote Amount (USDT)").first()).toHaveValue("88");
   await expect(editor.getByLabel("Quote Amount (USDT)").nth(1)).toHaveValue("88");
   await expect(editor.getByLabel("Grid Take Profit (%)").first()).toHaveValue("1.3");
@@ -209,9 +212,9 @@ test("strategy workspace warns when overall take profit may preempt per-grid exi
   await expect(page).toHaveURL(/\/app\/strategies\/new$/);
 
   await page.getByRole("button", { name: /ETHUSDT/ }).first().click();
-  await page.getByLabel("Reference Price").fill("100");
+  await page.getByLabel("Anchor Price").fill("100");
   await page.getByLabel("Grid Count").fill("4");
-  await page.getByLabel("Batch Spacing (%)").fill("1");
+  await page.getByLabel("Covered Range (%)").fill("4");
   await page.getByLabel("Grid Take Profit (%)").first().fill("2");
   await page.getByLabel("Overall Take Profit (%)").fill("1");
 
@@ -243,4 +246,73 @@ test("new strategy requires explicit symbol selection and batch actions stay opt
   const selector = page.locator('tbody input[type="checkbox"]').first();
   await selector.check();
   await expect(page.getByRole("button", { name: "Batch Start" })).toBeEnabled();
+});
+
+
+test("strategy workspace splits ordinary and classic definition sections", async ({ page }) => {
+  const email = uniqueEmail("strategy-type-split");
+  const password = "pass1234";
+
+  await registerViaPage(page, email, password);
+  await page.goto("/app/strategies/new");
+  await expect(page).toHaveURL(/\/app\/strategies\/new$/);
+
+  await page.getByRole("button", { name: /ETHUSDT/ }).first().click();
+  await expect(page.getByLabel("Strategy Type")).toHaveValue("ordinary_grid");
+  await expect(page.getByLabel("Covered Range (%)")).toBeVisible();
+  await expect(page.getByLabel("Upper Range (%)")).toHaveCount(0);
+  await expect(page.getByLabel("Lower Range (%)")).toHaveCount(0);
+
+  await page.getByLabel("Strategy Type").selectOption("classic_bilateral_grid");
+  await expect(page.getByLabel("Covered Range (%)")).toHaveCount(0);
+  await expect(page.getByLabel("Upper Range (%)")).toBeVisible();
+  await expect(page.getByLabel("Lower Range (%)")).toBeVisible();
+});
+
+test("strategy preview updates immediately for ordinary and classic layouts without TP guides", async ({ page }) => {
+  const email = uniqueEmail("strategy-preview-contract");
+  const password = "pass1234";
+
+  await registerViaPage(page, email, password);
+  await page.goto("/app/strategies/new");
+  await expect(page).toHaveURL(/\/app\/strategies\/new$/);
+
+  await page.getByRole("button", { name: /ETHUSDT/ }).first().click();
+  const preview = page.locator('[data-strategy-preview="true"]');
+  await expect(preview.locator('[data-preview-layout="ordinary"]')).toBeVisible();
+  await expect(preview.locator('[data-preview-anchor="true"]')).toContainText("Anchor Price");
+  await expect(preview.locator('[data-preview-range="ordinary"]')).toContainText("6");
+  await expect(preview.getByText("TP", { exact: false })).toHaveCount(0);
+
+  await page.getByLabel("Covered Range (%)").fill("9");
+  await expect(preview.locator('[data-preview-range="ordinary"]')).toContainText("9");
+
+  await page.getByLabel("Strategy Type").selectOption("classic_bilateral_grid");
+  await page.getByLabel("Upper Range (%)").fill("4");
+  await page.getByLabel("Lower Range (%)").fill("3");
+  await expect(preview.locator('[data-preview-layout="classic"]')).toBeVisible();
+  await expect(preview.locator('[data-preview-center="true"]')).toContainText("Center Price");
+  await expect(preview.locator('[data-preview-range="classic-upper"]')).toContainText("4");
+  await expect(preview.locator('[data-preview-range="classic-lower"]')).toContainText("3");
+  await expect(preview.getByText("TP", { exact: false })).toHaveCount(0);
+});
+
+
+test("classic bilateral batch builder keeps a single level when grid count is 1", async ({ page }) => {
+  const email = uniqueEmail("strategy-classic-one-level");
+  const password = "pass1234";
+
+  await registerViaPage(page, email, password);
+  await page.goto("/app/strategies/new");
+  await expect(page).toHaveURL(/\/app\/strategies\/new$/);
+
+  await page.getByRole("button", { name: /ETHUSDT/ }).first().click();
+  await page.getByLabel("Strategy Type").selectOption("classic_bilateral_grid");
+  await page.getByLabel("Grid Count").fill("1");
+  await page.getByLabel("Upper Range (%)").fill("4");
+  await page.getByLabel("Lower Range (%)").fill("3");
+
+  const editor = page.locator('[data-level-editor="true"]');
+  await expect(editor.getByText("L1", { exact: true })).toBeVisible();
+  await expect(editor.getByText("L2", { exact: true })).toHaveCount(0);
 });

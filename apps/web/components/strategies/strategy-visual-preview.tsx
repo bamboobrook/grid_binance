@@ -16,14 +16,17 @@ export type StrategyPreviewLevel = {
 
 type Props = {
   amountMode: "quote" | "base";
+  coveredRangePercent: string;
   generation: "arithmetic" | "geometric" | "custom";
   gridCount: string;
   lang: UiLanguage;
+  lowerRangePercent: string;
   marketType: "spot" | "usd-m" | "coin-m";
-  mode: string;
+  ordinarySide: "lower" | "upper";
   referencePrice: string;
   selectedSymbol: string;
-  spacingPercent: string;
+  strategyType: "ordinary_grid" | "classic_bilateral_grid";
+  upperRangePercent: string;
   levels: StrategyPreviewLevel[];
 };
 
@@ -41,23 +44,27 @@ type PreviewSnapshot = {
   latest_price: string | null;
 };
 
-type ResolvedPreviewLevel = StrategyPreviewLevel & {
+type ResolvedPreviewLevel = {
   direction: "buy" | "sell";
+  entryPrice: string;
   entryPriceNumber: number;
-  takeProfitPrice: string;
-  takeProfitPriceNumber: number;
+  quantity: string;
+  spacingPercent: string | null;
 };
 
 export function StrategyVisualPreview({
   amountMode,
+  coveredRangePercent,
   generation,
   gridCount,
   lang,
+  lowerRangePercent,
   marketType,
-  mode,
+  ordinarySide,
   referencePrice,
   selectedSymbol,
-  spacingPercent,
+  strategyType,
+  upperRangePercent,
   levels,
 }: Props) {
   const [siteTheme, setSiteTheme] = useState<"light" | "dark">("light");
@@ -119,7 +126,7 @@ export function StrategyVisualPreview({
   const headline = selectedSymbol || pickText(lang, "等待选择交易对", "Waiting for a symbol");
   const referenceNumber = parsePositiveNumber(referencePrice) ?? parsePositiveNumber(marketSnapshot?.latest_price ?? "");
   const latestPriceNumber = parsePositiveNumber(marketSnapshot?.latest_price ?? "") ?? referenceNumber;
-  const resolvedLevels = resolvePreviewLevels(levels, mode, referenceNumber);
+  const resolvedLevels = resolvePreviewLevels(levels, strategyType, ordinarySide, referenceNumber);
   const compactLevels = resolvedLevels.slice(0, 6);
   const candles = marketSnapshot?.candles.length
     ? marketSnapshot.candles
@@ -127,9 +134,10 @@ export function StrategyVisualPreview({
   const chart = buildChartScene(candles, resolvedLevels, referenceNumber, latestPriceNumber, siteTheme);
   const firstLevel = resolvedLevels[0];
   const lastLevel = resolvedLevels[resolvedLevels.length - 1];
+  const ordinaryLayout = strategyType === "ordinary_grid";
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4" data-strategy-preview="true">
       <Card className="overflow-hidden border-border bg-card shadow-sm">
         <CardHeader className="border-b border-border py-3">
           <CardTitle className="flex items-center gap-2 text-sm font-semibold text-foreground">
@@ -140,9 +148,9 @@ export function StrategyVisualPreview({
         <CardBody className="space-y-4 p-4">
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             <Metric label={pickText(lang, "交易对", "Symbol")} value={headline} />
-            <Metric label={pickText(lang, "市场 / 模式", "Market / Mode")} value={`${describeMarket(lang, marketType)} · ${describeMode(lang, mode)}`} />
-            <Metric label={pickText(lang, "生成 / 网格", "Generation / Grids")} value={`${describeGeneration(lang, generation)} · ${gridCount || "-"} · ${spacingPercent || "-"}`} />
-            <Metric label={pickText(lang, "参考价 / 市价", "Reference / Market")} value={`${referencePrice || "-"} · ${marketSnapshot?.latest_price ?? "-"}`} />
+            <Metric label={pickText(lang, "市场 / 类型", "Market / Type")} value={`${describeMarket(lang, marketType)} · ${describeStrategyType(lang, strategyType)}`} />
+            <Metric label={pickText(lang, "生成 / 网格", "Generation / Grids")} value={`${describeGeneration(lang, generation)} · ${gridCount || "-"}`} />
+            <Metric label={pickText(lang, ordinaryLayout ? "锚点 / 市价" : "中心 / 市价", ordinaryLayout ? "Anchor / Market" : "Center / Market")} value={`${referencePrice || "-"} · ${marketSnapshot?.latest_price ?? "-"}`} />
           </div>
 
           <div className="overflow-hidden rounded-3xl border border-border bg-muted/20" data-strategy-preview-chart="true">
@@ -155,6 +163,18 @@ export function StrategyVisualPreview({
                   viewBox="0 0 720 360"
                 >
                   <rect fill={chart.palette.background} height="360" rx="22" width="720" x="0" y="0" />
+
+                  {chart.rangeBand ? (
+                    <rect
+                      fill={chart.palette.band}
+                      height={Math.max(8, chart.rangeBand.bottom - chart.rangeBand.top)}
+                      opacity="0.24"
+                      rx="16"
+                      width="648"
+                      x="48"
+                      y={chart.rangeBand.top}
+                    />
+                  ) : null}
 
                   {chart.priceGuides.map((guide) => (
                     <g key={guide.label}>
@@ -227,30 +247,6 @@ export function StrategyVisualPreview({
                     </g>
                   ))}
 
-                  {chart.takeProfitLines.map((gridLine) => (
-                    <g key={gridLine.key}>
-                      <line
-                        stroke={gridLine.color}
-                        strokeDasharray="8 6"
-                        strokeWidth="1.2"
-                        x1="48"
-                        x2="696"
-                        y1={gridLine.y}
-                        y2={gridLine.y}
-                      />
-                      <text
-                        fill={gridLine.color}
-                        fontFamily="monospace"
-                        fontSize="11"
-                        textAnchor="end"
-                        x="690"
-                        y={gridLine.y - 4}
-                      >
-                        {gridLine.label}
-                      </text>
-                    </g>
-                  ))}
-
                   {chart.referenceLine ? (
                     <g>
                       <line
@@ -298,9 +294,9 @@ export function StrategyVisualPreview({
                 </svg>
 
                 <div className="grid gap-2 sm:grid-cols-3">
-                  <LegendPill colorClass="bg-emerald-500" label={pickText(lang, "买入/做多网格", "Buy / long grid")} />
-                  <LegendPill colorClass="bg-orange-500" label={pickText(lang, "卖出/做空网格", "Sell / short grid")} />
-                  <LegendPill colorClass="bg-sky-500" label={pickText(lang, "市价 / TP 参考线", "Market / TP guides")} />
+                  <LegendPill colorClass="bg-emerald-500" label={pickText(lang, "买入 / 做多网格", "Buy / long grid")} />
+                  <LegendPill colorClass="bg-orange-500" label={pickText(lang, "卖出 / 做空网格", "Sell / short grid")} />
+                  <LegendPill colorClass="bg-sky-500" label={pickText(lang, "锚点 / 市价参考线", "Anchor / market guides")} />
                 </div>
 
                 {marketLoading ? (
@@ -309,34 +305,43 @@ export function StrategyVisualPreview({
                   </p>
                 ) : null}
                 {marketError ? (
-                  <p className="text-xs text-amber-600 dark:text-amber-300">
-                    {marketError}
-                  </p>
+                  <p className="text-xs text-amber-600 dark:text-amber-300">{marketError}</p>
                 ) : null}
               </div>
             ) : (
               <div className="flex h-[360px] items-center justify-center px-6 text-center text-sm text-muted-foreground">
-                {pickText(lang, "选择交易对后，左侧会显示 K 线、网格线和止盈线预览。", "Choose a symbol to render candles, grid lines, and take-profit lines here.")}
+                {pickText(lang, "选择交易对后，左侧会显示锚点/中心、网格线与覆盖范围。", "Choose a symbol to render the anchor or center, grid lines, and covered range here.")}
               </div>
             )}
           </div>
         </CardBody>
       </Card>
 
+      <div data-preview-layout={ordinaryLayout ? "ordinary" : "classic"}>
       <Card className="border-border bg-card">
         <CardHeader className="border-b border-border py-3">
           <CardTitle className="flex items-center gap-2 text-sm font-semibold text-foreground">
             <Layers3 className="h-4 w-4 text-primary" />
-            {pickText(lang, "网格阶梯快照", "Ladder Snapshot")}
+            {pickText(lang, ordinaryLayout ? "普通网格预览摘要" : "经典双边预览摘要", ordinaryLayout ? "Ordinary Grid Summary" : "Classic Bilateral Summary")}
           </CardTitle>
         </CardHeader>
         <CardBody className="space-y-4 p-4">
-          <div className="grid gap-3 sm:grid-cols-4">
-            <Metric label={pickText(lang, "首层入场", "First Entry")} value={firstLevel?.entryPrice ?? "-"} />
-            <Metric label={pickText(lang, "末层入场", "Last Entry")} value={lastLevel?.entryPrice ?? "-"} />
-            <Metric label={pickText(lang, "首层 TP 价", "First TP Price")} value={firstLevel?.takeProfitPrice ?? "-"} />
-            <Metric label={pickText(lang, "计量模式", "Amount Mode")} value={amountMode === "quote" ? pickText(lang, "按 USDT", "Quote Amount") : pickText(lang, "按币数量", "Base Quantity")} />
-          </div>
+          {ordinaryLayout ? (
+            <div className="grid gap-3 sm:grid-cols-4">
+              <Metric dataTag="data-preview-anchor" label={pickText(lang, "锚点价格", "Anchor Price")} value={referencePrice || "-"} />
+              <Metric dataTag="data-preview-range" dataTagValue="ordinary" label={pickText(lang, "覆盖范围", "Covered Range")} value={`${coveredRangePercent || "-"}%`} />
+              <Metric label={pickText(lang, ordinarySide === "lower" ? "单侧方向" : "单侧方向", ordinarySide === "lower" ? "Ordinary Side" : "Ordinary Side")} value={describeOrdinarySide(lang, ordinarySide, marketType)} />
+              <Metric label={pickText(lang, "当前市价", "Current Price")} value={marketSnapshot?.latest_price ?? "-"} />
+            </div>
+          ) : (
+            <div className="grid gap-3 sm:grid-cols-4">
+              <Metric dataTag="data-preview-center" label={pickText(lang, "中心价格", "Center Price")} value={referencePrice || "-"} />
+              <Metric dataTag="data-preview-range" dataTagValue="classic-upper" label={pickText(lang, "上边范围", "Upper Range")} value={`${upperRangePercent || "-"}%`} />
+              <Metric dataTag="data-preview-range" dataTagValue="classic-lower" label={pickText(lang, "下边范围", "Lower Range")} value={`${lowerRangePercent || "-"}%`} />
+              <Metric label={pickText(lang, "当前市价", "Current Price")} value={marketSnapshot?.latest_price ?? "-"} />
+            </div>
+          )}
+
           {compactLevels.length > 0 ? (
             <div className="space-y-2">
               {compactLevels.map((level, index) => (
@@ -359,18 +364,16 @@ export function StrategyVisualPreview({
                       </span>
                     </div>
                     <div className="font-mono text-sm font-semibold text-foreground">
-                      {pickText(lang, "入场", "Entry")} {level.entryPrice}
+                      {pickText(lang, "网格价", "Grid Price")} {level.entryPrice}
                     </div>
                     <div className="text-xs text-muted-foreground">
-                      {pickText(lang, "止盈价", "TP Price")} {level.takeProfitPrice}
-                      {level.spacingPercent ? ` · ${pickText(lang, "间距", "Spacing")} ${level.spacingPercent}%` : ""}
+                      {level.spacingPercent ? `${pickText(lang, "相邻间距", "Spacing")} ${level.spacingPercent}%` : pickText(lang, "首层锚定参考线", "Anchored to the reference line")}
                     </div>
                   </div>
                   <div className="text-right">
                     <div className="font-mono text-sm text-foreground">{level.quantity}</div>
                     <div className="text-xs text-muted-foreground">
-                      TP {level.takeProfitPercent}%
-                      {level.trailingPercent ? ` · Trail ${level.trailingPercent}%` : ""}
+                      {amountMode === "quote" ? pickText(lang, "按 USDT 预算换算", "Derived from quote budget") : pickText(lang, "按基础币数量下单", "Uses base-asset size")}
                     </div>
                   </div>
                 </div>
@@ -381,8 +384,16 @@ export function StrategyVisualPreview({
               {pickText(lang, "当前参数还没有生成可预览的网格。", "The current inputs have not generated any previewable levels yet.")}
             </div>
           )}
+
+          <div className="grid gap-3 sm:grid-cols-4">
+            <Metric label={pickText(lang, "首层网格", "First Grid")} value={firstLevel?.entryPrice ?? "-"} />
+            <Metric label={pickText(lang, "末层网格", "Last Grid")} value={lastLevel?.entryPrice ?? "-"} />
+            <Metric label={pickText(lang, "网格覆盖", "Covered Span")} value={resolveCoveredSpan(firstLevel, lastLevel)} />
+            <Metric label={pickText(lang, "计量模式", "Amount Mode")} value={amountMode === "quote" ? pickText(lang, "按 USDT", "Quote Amount") : pickText(lang, "按币数量", "Base Quantity")} />
+          </div>
         </CardBody>
       </Card>
+    </div>
 
       <Card className="border-border bg-card">
         <CardBody className="grid gap-3 p-4 sm:grid-cols-3">
@@ -394,12 +405,12 @@ export function StrategyVisualPreview({
           <MiniInsight
             icon={<TrendingUp className="h-4 w-4 text-primary" />}
             label={pickText(lang, "市价参考", "Market Reference")}
-            value={pickText(lang, "切到市价后，会用最新价格和 K 线重新生成左侧预览。", "Switching to market reference rebuilds the preview with the latest price and candles.")}
+            value={pickText(lang, "切到市价后，会用最新价格和 K 线重新绘制左侧预览。", "Switching to market reference redraws the preview with the latest price and candles.")}
           />
           <MiniInsight
             icon={<Layers3 className="h-4 w-4 text-primary" />}
             label={pickText(lang, "预览用途", "Preview Use")}
-            value={pickText(lang, "先核对网格方向、TP 价格和层级，再保存或启动策略。", "Review level direction, TP prices, and ladder structure before saving or starting.")}
+            value={pickText(lang, "先核对锚点/中心、覆盖范围和层级分布，再保存或启动策略。", "Review the anchor or center, covered range, and ladder structure before saving or starting.")}
           />
         </CardBody>
       </Card>
@@ -407,9 +418,20 @@ export function StrategyVisualPreview({
   );
 }
 
-function Metric({ label, value }: { label: string; value: string }) {
+function Metric({
+  dataTag,
+  dataTagValue,
+  label,
+  value,
+}: {
+  dataTag?: string;
+  dataTagValue?: string;
+  label: string;
+  value: string;
+}) {
+  const dataProps = dataTag ? { [dataTag]: dataTagValue ?? true } : {};
   return (
-    <div className="rounded-2xl border border-border bg-background px-3 py-3">
+    <div className="rounded-2xl border border-border bg-background px-3 py-3" {...dataProps}>
       <div className="text-xs uppercase tracking-wide text-muted-foreground">{label}</div>
       <div className="mt-1 text-sm font-semibold text-foreground">{value}</div>
     </div>
@@ -448,21 +470,10 @@ function describeMarket(lang: UiLanguage, market: Props["marketType"]) {
   }
 }
 
-function describeMode(lang: UiLanguage, mode: string) {
-  switch (mode) {
-    case "buy-only":
-      return pickText(lang, "只买", "Buy Only");
-    case "sell-only":
-      return pickText(lang, "只卖", "Sell Only");
-    case "long":
-      return pickText(lang, "做多", "Long");
-    case "short":
-      return pickText(lang, "做空", "Short");
-    case "neutral":
-      return pickText(lang, "中性", "Neutral");
-    default:
-      return pickText(lang, "经典", "Classic");
-  }
+function describeStrategyType(lang: UiLanguage, strategyType: Props["strategyType"]) {
+  return strategyType === "classic_bilateral_grid"
+    ? pickText(lang, "经典双边", "Classic Bilateral Grid")
+    : pickText(lang, "普通网格", "Ordinary Grid");
 }
 
 function describeGeneration(lang: UiLanguage, generation: Props["generation"]) {
@@ -476,6 +487,17 @@ function describeGeneration(lang: UiLanguage, generation: Props["generation"]) {
   }
 }
 
+function describeOrdinarySide(lang: UiLanguage, side: Props["ordinarySide"], marketType: Props["marketType"]) {
+  if (side === "upper") {
+    return marketType === "spot"
+      ? pickText(lang, "上侧卖出", "Upper sell side")
+      : pickText(lang, "上侧做空", "Upper short side");
+  }
+  return marketType === "spot"
+    ? pickText(lang, "下侧买入", "Lower buy side")
+    : pickText(lang, "下侧做多", "Lower long side");
+}
+
 function describeDirection(lang: UiLanguage, direction: "buy" | "sell") {
   return direction === "sell"
     ? pickText(lang, "卖出 / 做空", "Sell / short")
@@ -484,54 +506,44 @@ function describeDirection(lang: UiLanguage, direction: "buy" | "sell") {
 
 function resolvePreviewLevels(
   levels: StrategyPreviewLevel[],
-  mode: string,
+  strategyType: Props["strategyType"],
+  ordinarySide: Props["ordinarySide"],
   referencePrice: number | null,
 ) {
   return levels
     .map((level) => {
       const entryPriceNumber = parsePositiveNumber(level.entryPrice);
-      const takeProfitPercent = parsePositiveNumber(level.takeProfitPercent);
-      if (entryPriceNumber === null || takeProfitPercent === null) {
+      if (entryPriceNumber === null) {
         return null;
       }
-      const direction = inferDirection(mode, entryPriceNumber, referencePrice);
-      const takeProfitPriceNumber = computeTakeProfitPrice(entryPriceNumber, takeProfitPercent, direction === "sell");
       return {
-        ...level,
-        direction,
+        direction: inferDirection(strategyType, ordinarySide, entryPriceNumber, referencePrice),
+        entryPrice: level.entryPrice,
         entryPriceNumber,
-        takeProfitPrice: formatDecimal(takeProfitPriceNumber),
-        takeProfitPriceNumber,
+        quantity: level.quantity,
+        spacingPercent: level.spacingPercent,
       } satisfies ResolvedPreviewLevel;
     })
     .filter((item): item is ResolvedPreviewLevel => item !== null);
 }
 
-function inferDirection(mode: string, entryPrice: number, referencePrice: number | null): "buy" | "sell" {
-  switch (mode) {
-    case "sell-only":
-    case "short":
-      return "sell";
-    case "buy-only":
-    case "long":
-      return "buy";
-    default:
-      if (referencePrice !== null) {
-        return entryPrice <= referencePrice ? "buy" : "sell";
-      }
-      return "buy";
+function inferDirection(
+  strategyType: Props["strategyType"],
+  ordinarySide: Props["ordinarySide"],
+  entryPrice: number,
+  referencePrice: number | null,
+): "buy" | "sell" {
+  if (strategyType === "ordinary_grid") {
+    return ordinarySide === "upper" ? "sell" : "buy";
   }
-}
-
-function computeTakeProfitPrice(entryPrice: number, takeProfitPercent: number, isShort: boolean) {
-  const factor = takeProfitPercent / 100;
-  return isShort ? entryPrice * (1 - factor) : entryPrice * (1 + factor);
+  if (referencePrice !== null) {
+    return entryPrice <= referencePrice ? "buy" : "sell";
+  }
+  return "buy";
 }
 
 function buildFallbackCandles(referencePrice: number | null, levels: ResolvedPreviewLevel[]) {
-  const anchor = referencePrice
-    ?? levels[0]?.entryPriceNumber
-    ?? 100;
+  const anchor = referencePrice ?? levels[0]?.entryPriceNumber ?? 100;
   const candles: PreviewCandle[] = [];
   const baseTime = Date.now() - 48 * 15 * 60 * 1000;
   for (let index = 0; index < 48; index += 1) {
@@ -564,6 +576,7 @@ function buildChartScene(
     ? {
         axis: "#1e293b",
         background: "#07111f",
+        band: "#38bdf8",
         bodyDown: "#fb7185",
         bodyUp: "#2dd4bf",
         current: "#38bdf8",
@@ -571,12 +584,11 @@ function buildChartScene(
         entrySell: "#fb923c",
         muted: "#94a3b8",
         reference: "#facc15",
-        takeProfitBuy: "#22d3ee",
-        takeProfitSell: "#c084fc",
       }
     : {
         axis: "#d9e2f0",
         background: "#f8fafc",
+        band: "#7dd3fc",
         bodyDown: "#ef4444",
         bodyUp: "#10b981",
         current: "#0284c7",
@@ -584,13 +596,11 @@ function buildChartScene(
         entrySell: "#ea580c",
         muted: "#64748b",
         reference: "#ca8a04",
-        takeProfitBuy: "#0891b2",
-        takeProfitSell: "#9333ea",
       };
   const plot = { bottom: 320, left: 48, right: 696, top: 20 };
   const priceCandidates = [
     ...candles.flatMap((item) => [item.low, item.high]),
-    ...levels.flatMap((item) => [item.entryPriceNumber, item.takeProfitPriceNumber]),
+    ...levels.map((item) => item.entryPriceNumber),
     referencePrice ?? null,
     latestPrice ?? null,
   ].filter((item): item is number => Number.isFinite(item));
@@ -629,13 +639,6 @@ function buildChartScene(
     y: scaleY(level.entryPriceNumber),
   }));
 
-  const takeProfitLines = levels.map((level, index) => ({
-    color: level.direction === "sell" ? palette.takeProfitSell : palette.takeProfitBuy,
-    key: `tp-${index}-${level.takeProfitPrice}`,
-    label: `TP ${level.takeProfitPrice}`,
-    y: scaleY(level.takeProfitPriceNumber),
-  }));
-
   const step = (upperBound - lowerBound) / 4;
   const priceGuides = Array.from({ length: 5 }, (_value, index) => {
     const price = lowerBound + step * index;
@@ -645,6 +648,9 @@ function buildChartScene(
     };
   });
 
+  const minLevelPrice = levels.length > 0 ? Math.min(...levels.map((level) => level.entryPriceNumber)) : null;
+  const maxLevelPrice = levels.length > 0 ? Math.max(...levels.map((level) => level.entryPriceNumber)) : null;
+
   return {
     candleSeries,
     gridLines,
@@ -653,10 +659,12 @@ function buildChartScene(
       : null,
     palette,
     priceGuides,
+    rangeBand: minLevelPrice !== null && maxLevelPrice !== null
+      ? { bottom: scaleY(minLevelPrice), top: scaleY(maxLevelPrice) }
+      : null,
     referenceLine: referencePrice !== null
       ? { label: `Ref ${formatDecimal(referencePrice)}`, y: scaleY(referencePrice) }
       : null,
-    takeProfitLines,
   };
 }
 
@@ -668,4 +676,11 @@ function parsePositiveNumber(value: string) {
 function formatDecimal(value: number) {
   const normalized = value.toFixed(6).replace(/\.0+$/, "").replace(/(\.\d*?)0+$/, "$1");
   return normalized === "-0" ? "0" : normalized;
+}
+
+function resolveCoveredSpan(firstLevel?: ResolvedPreviewLevel, lastLevel?: ResolvedPreviewLevel) {
+  if (!firstLevel || !lastLevel) {
+    return "-";
+  }
+  return `${firstLevel.entryPrice} - ${lastLevel.entryPrice}`;
 }
