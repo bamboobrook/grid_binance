@@ -12,11 +12,11 @@ const REQUIRED_MIGRATIONS: [&str; 12] = [
     "0005_admin_and_notifications.sql",
     "0006_membership_billing_runtime_hardening.sql",
     "0007_strategy_runtime_hardening.sql",
-    "0008_strategy_engine_rewrite.sql",
     "0008_strategy_runtime_mode_alignment.sql",
     "0009_strategy_snapshot_funding.sql",
     "0010_sweep_lifecycle_columns.sql",
     "0011_strategy_template_futures_fields.sql",
+    "0012_strategy_engine_rewrite.sql",
 ];
 
 pub async fn run(pool: &PgPool) -> Result<(), SharedDbError> {

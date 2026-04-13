@@ -3012,6 +3012,13 @@ mod tests {
         Strategy, StrategyAmountMode, StrategyMarket, StrategyMode, StrategyRevision,
         StrategyRuntime, StrategyRuntimePhase, StrategyStatus, StrategyType,
     };
+    use std::{
+        fs,
+        net::TcpListener,
+        path::PathBuf,
+        process::Command,
+        time::{SystemTime, UNIX_EPOCH},
+    };
 
     #[test]
     fn bootstrap_label_reflects_postgres_and_redis_runtime() {
@@ -3030,13 +3037,41 @@ mod tests {
                 "0005_admin_and_notifications.sql",
                 "0006_membership_billing_runtime_hardening.sql",
                 "0007_strategy_runtime_hardening.sql",
-                "0008_strategy_engine_rewrite.sql",
                 "0008_strategy_runtime_mode_alignment.sql",
                 "0009_strategy_snapshot_funding.sql",
                 "0010_sweep_lifecycle_columns.sql",
                 "0011_strategy_template_futures_fields.sql",
+                "0012_strategy_engine_rewrite.sql",
             ]
         );
+    }
+
+    #[test]
+    fn migration_manifest_uses_unique_versions() {
+        let versions = postgres::migrations::required_migrations()
+            .iter()
+            .map(|name| name.split('_').next().expect("migration version"))
+            .collect::<Vec<_>>();
+        let unique = versions
+            .iter()
+            .copied()
+            .collect::<std::collections::BTreeSet<_>>();
+        assert_eq!(
+            versions.len(),
+            unique.len(),
+            "migration versions must be unique"
+        );
+    }
+
+    #[test]
+    fn migration_manifest_is_sorted_by_version() {
+        let versions = postgres::migrations::required_migrations()
+            .iter()
+            .map(|name| name.split('_').next().expect("migration version"))
+            .collect::<Vec<_>>();
+        let mut sorted = versions.clone();
+        sorted.sort_unstable();
+        assert_eq!(versions, sorted, "migration versions must be sorted");
     }
 
     #[test]
@@ -3116,6 +3151,79 @@ mod tests {
             .expect("strategy should remain persisted");
         assert_eq!(archived.status, StrategyStatus::Archived);
         assert!(archived.archived_at.unwrap_or_else(Utc::now) <= Utc::now());
+    }
+
+    #[test]
+    fn runtime_strategy_round_trip_persists_engine_rewrite_fields() {
+        let runtime = PersistentRuntimeHarness::start("shared-db-strategy");
+        let db =
+            SharedDb::connect(runtime.database_url(), runtime.redis_url()).expect("runtime db");
+        let strategy = Strategy {
+            id: "strategy-runtime-roundtrip".to_string(),
+            owner_email: "roundtrip@example.com".to_string(),
+            name: "roundtrip".to_string(),
+            symbol: "BTCUSDT".to_string(),
+            budget: "1".to_string(),
+            grid_spacing_bps: 100,
+            status: StrategyStatus::Draft,
+            source_template_id: None,
+            membership_ready: true,
+            exchange_ready: true,
+            permissions_ready: true,
+            withdrawals_disabled: true,
+            hedge_mode_ready: true,
+            symbol_ready: true,
+            filters_ready: true,
+            margin_ready: true,
+            conflict_ready: true,
+            balance_ready: true,
+            strategy_type: StrategyType::OrdinaryGrid,
+            market: StrategyMarket::Spot,
+            mode: StrategyMode::SpotClassic,
+            runtime_phase: StrategyRuntimePhase::Draft,
+            runtime_controls: RuntimeControls::default(),
+            draft_revision: StrategyRevision {
+                revision_id: "strategy-runtime-roundtrip-revision-1".to_string(),
+                version: 1,
+                strategy_type: StrategyType::OrdinaryGrid,
+                generation: GridGeneration::Custom,
+                levels: vec![GridLevel {
+                    level_index: 0,
+                    entry_price: "100".parse().expect("decimal"),
+                    quantity: "1".parse().expect("decimal"),
+                    take_profit_bps: 120,
+                    trailing_bps: None,
+                }],
+                amount_mode: StrategyAmountMode::Quote,
+                futures_margin_mode: None,
+                leverage: None,
+                reference_price_source: ReferencePriceSource::Manual,
+                overall_take_profit_bps: None,
+                overall_stop_loss_bps: None,
+                post_trigger_action: PostTriggerAction::Stop,
+            },
+            active_revision: None,
+            runtime: StrategyRuntime::default(),
+            archived_at: None,
+        };
+
+        db.insert_strategy(&StoredStrategy {
+            sequence_id: 1,
+            strategy,
+        })
+        .expect("insert strategy");
+
+        let stored = db
+            .find_strategy("roundtrip@example.com", "strategy-runtime-roundtrip")
+            .expect("find strategy")
+            .expect("strategy persisted");
+        assert_eq!(stored.strategy_type, StrategyType::OrdinaryGrid);
+        assert_eq!(stored.runtime_phase, StrategyRuntimePhase::Draft);
+        assert_eq!(stored.runtime_controls, RuntimeControls::default());
+        assert_eq!(
+            stored.draft_revision.reference_price_source,
+            ReferencePriceSource::Manual
+        );
     }
 
     #[test]
@@ -3235,5 +3343,136 @@ mod tests {
         let audit_logs = db.list_audit_logs().expect("audit logs");
         assert_eq!(audit_logs.len(), 1);
         assert_eq!(audit_logs[0].target_id, "BSC:tx-first");
+    }
+
+    struct PersistentRuntimeHarness {
+        project_name: String,
+        override_file: PathBuf,
+        postgres_port: u16,
+        redis_port: u16,
+    }
+
+    impl PersistentRuntimeHarness {
+        fn start(prefix: &str) -> Self {
+            let workspace_root = workspace_root();
+            let postgres_port = pick_unused_port();
+            let redis_port = pick_unused_port();
+            let project_name = format!(
+                "{prefix}-{}-{}",
+                std::process::id(),
+                SystemTime::now()
+                    .duration_since(UNIX_EPOCH)
+                    .expect("unix time")
+                    .as_nanos()
+            );
+            let override_file = std::env::temp_dir().join(format!("{project_name}.yml"));
+            fs::write(
+                &override_file,
+                format!(
+                    "services:
+  postgres:
+    ports:
+      - \"{postgres_port}:5432\"
+
+  redis:
+    ports:
+      - \"{redis_port}:6379\"
+"
+                ),
+            )
+            .expect("write compose override");
+            run_command(
+                Command::new("docker")
+                    .arg("compose")
+                    .arg("-p")
+                    .arg(&project_name)
+                    .arg("--env-file")
+                    .arg(workspace_root.join(".env.example"))
+                    .arg("-f")
+                    .arg(workspace_root.join("deploy/docker/docker-compose.yml"))
+                    .arg("-f")
+                    .arg(&override_file)
+                    .arg("up")
+                    .arg("-d")
+                    .arg("--wait")
+                    .arg("postgres")
+                    .arg("redis"),
+                "start persistent runtime",
+            );
+
+            Self {
+                project_name,
+                override_file,
+                postgres_port,
+                redis_port,
+            }
+        }
+
+        fn database_url(&self) -> String {
+            format!(
+                "postgres://postgres:postgres@127.0.0.1:{}/grid_binance",
+                self.postgres_port
+            )
+        }
+
+        fn redis_url(&self) -> String {
+            format!("redis://127.0.0.1:{}/0", self.redis_port)
+        }
+    }
+
+    impl Drop for PersistentRuntimeHarness {
+        fn drop(&mut self) {
+            let workspace_root = workspace_root();
+            let _ = Command::new("docker")
+                .arg("compose")
+                .arg("-p")
+                .arg(&self.project_name)
+                .arg("--env-file")
+                .arg(workspace_root.join(".env.example"))
+                .arg("-f")
+                .arg(workspace_root.join("deploy/docker/docker-compose.yml"))
+                .arg("-f")
+                .arg(&self.override_file)
+                .arg("down")
+                .arg("-v")
+                .status();
+            let _ = fs::remove_file(&self.override_file);
+        }
+    }
+
+    fn workspace_root() -> PathBuf {
+        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .expect("workspace crates dir")
+            .parent()
+            .expect("workspace root")
+            .to_path_buf()
+    }
+
+    fn pick_unused_port() -> u16 {
+        TcpListener::bind("127.0.0.1:0")
+            .expect("bind unused port")
+            .local_addr()
+            .expect("local addr")
+            .port()
+    }
+
+    fn run_command(command: &mut Command, context: &str) {
+        let output = command.output().unwrap_or_else(|error| {
+            panic!("{context}: failed to spawn command: {error}");
+        });
+        if output.status.success() {
+            return;
+        }
+        panic!(
+            "{context}: status {:?}
+stdout:
+{}
+stderr:
+{}",
+            output.status.code(),
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
     }
 }
