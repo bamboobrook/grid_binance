@@ -5,8 +5,11 @@ use shared_domain::strategy::{
     GridGeneration, GridLevel, PostTriggerAction, Strategy, StrategyAmountMode, StrategyMarket,
     StrategyMode, StrategyRevision, StrategyRuntime, StrategyRuntimeOrder, StrategyStatus,
 };
-use trading_engine::execution_effects::persist_execution_effects;
+use trading_engine::execution_effects::{
+    enable_only_sell_no_buy, persist_execution_effects, record_take_profit_fill,
+};
 use trading_engine::execution_sync::apply_execution_update;
+use trading_engine::strategy_runtime::StrategyRuntimeEngine;
 
 #[test]
 fn execution_effects_persist_trade_history_and_notifications_once() {
@@ -176,6 +179,101 @@ fn execution_effects_record_failed_telegram_logs_when_binding_exists_without_bot
             && record.status == "failed"));
 }
 
+#[test]
+fn only_sell_no_buy_cancels_entries_and_enters_draining() {
+    let mut runtime = seeded_running_ordinary_runtime();
+
+    let effects = enable_only_sell_no_buy(&mut runtime).expect("draining should start");
+
+    assert!(runtime.is_draining());
+    assert_eq!(
+        effects.cancel_order_ids,
+        vec![
+            "strategy-1-order-1".to_string(),
+            "strategy-1-order-2".to_string()
+        ]
+    );
+    assert!(runtime
+        .snapshot()
+        .orders
+        .iter()
+        .any(|order| { order.order_id == "strategy-1-tp-0" && order.status == "Working" }));
+    assert!(!runtime.snapshot().orders.iter().any(|order| {
+        order.order_id.contains("-order-")
+            && matches!(
+                order.status.as_str(),
+                "Working" | "Placed" | "PartiallyFilled"
+            )
+    }));
+}
+
+#[test]
+fn stop_after_take_profit_stops_after_draining_position_is_fully_closed() {
+    let mut runtime = seeded_running_ordinary_runtime_with_two_levels();
+    runtime.set_stop_after_take_profit(true);
+    enable_only_sell_no_buy(&mut runtime).expect("draining should start");
+
+    let first = record_take_profit_fill(&mut runtime, 0, decimal(11110, 2))
+        .expect("first exit should succeed");
+
+    assert!(!first.stopped);
+    assert!(runtime.is_running());
+    assert!(runtime.is_draining());
+    assert_eq!(runtime.snapshot().positions.len(), 1);
+    assert!(!runtime
+        .snapshot()
+        .orders
+        .iter()
+        .any(|order| { order.order_id.contains("-order-") && order.status == "Working" }));
+
+    let second = record_take_profit_fill(&mut runtime, 1, decimal(101, 0))
+        .expect("final exit should succeed");
+
+    assert!(second.stopped);
+    assert!(!runtime.is_running());
+    assert!(!runtime.is_draining());
+    assert!(runtime.snapshot().positions.is_empty());
+}
+
+#[test]
+fn draining_snapshot_resume_does_not_recreate_entry_orders() {
+    let mut runtime = seeded_running_ordinary_runtime_with_two_levels();
+    enable_only_sell_no_buy(&mut runtime).expect("draining should start");
+
+    let mut restored = restore_runtime(runtime.snapshot().clone(), false);
+    restored.resume().expect("restored runtime should resume");
+
+    assert!(restored.is_draining());
+    assert!(restored
+        .snapshot()
+        .orders
+        .iter()
+        .all(|order| !order.order_id.contains("-order-")));
+    assert_eq!(restored.snapshot().positions.len(), 1);
+}
+
+#[test]
+fn restored_draining_stop_after_take_profit_still_stops_on_final_exit() {
+    let mut runtime = seeded_running_ordinary_runtime_with_two_levels();
+    runtime.set_stop_after_take_profit(true);
+    enable_only_sell_no_buy(&mut runtime).expect("draining should start");
+
+    let mut restored = restore_runtime(runtime.snapshot().clone(), false);
+    restored.resume().expect("restored runtime should resume");
+
+    let first = record_take_profit_fill(&mut restored, 0, decimal(11110, 2))
+        .expect("first exit should succeed");
+    assert!(!first.stopped);
+    assert!(restored.is_running());
+    assert!(restored.is_draining());
+
+    let second = record_take_profit_fill(&mut restored, 1, decimal(101, 0))
+        .expect("final exit should succeed");
+    assert!(second.stopped);
+    assert!(!restored.is_running());
+    assert!(!restored.is_draining());
+}
+
 #[derive(Clone)]
 struct TestRoute {
     path_prefix: &'static str,
@@ -266,6 +364,79 @@ impl Drop for EnvGuard {
             Some(value) => std::env::set_var(self.key, value),
             None => std::env::remove_var(self.key),
         }
+    }
+}
+
+fn decimal(value: i64, scale: u32) -> Decimal {
+    Decimal::new(value, scale)
+}
+
+fn seeded_running_ordinary_runtime() -> StrategyRuntimeEngine {
+    let mut runtime = StrategyRuntimeEngine::new(
+        "strategy-1",
+        StrategyMarket::Spot,
+        StrategyMode::SpotBuyOnly,
+        ordinary_revision(),
+    )
+    .expect("runtime");
+    runtime.start().expect("ordinary runtime should start");
+    runtime
+}
+
+fn seeded_running_ordinary_runtime_with_two_levels() -> StrategyRuntimeEngine {
+    let mut runtime = seeded_running_ordinary_runtime();
+    runtime.fill_entry(1).expect("second level should fill");
+    runtime
+}
+
+fn restore_runtime(snapshot: StrategyRuntime, running: bool) -> StrategyRuntimeEngine {
+    StrategyRuntimeEngine::from_runtime_snapshot(
+        "strategy-1",
+        StrategyMarket::Spot,
+        StrategyMode::SpotBuyOnly,
+        ordinary_revision(),
+        snapshot,
+        running,
+    )
+    .expect("runtime snapshot should restore")
+}
+
+fn ordinary_revision() -> StrategyRevision {
+    StrategyRevision {
+        revision_id: "rev-ordinary".to_string(),
+        version: 1,
+        strategy_type: shared_domain::strategy::StrategyType::OrdinaryGrid,
+        generation: GridGeneration::Custom,
+        amount_mode: StrategyAmountMode::Quote,
+        futures_margin_mode: None,
+        leverage: None,
+        reference_price_source: shared_domain::strategy::ReferencePriceSource::Manual,
+        levels: vec![
+            GridLevel {
+                level_index: 0,
+                entry_price: decimal(110, 0),
+                quantity: decimal(1, 0),
+                take_profit_bps: 100,
+                trailing_bps: None,
+            },
+            GridLevel {
+                level_index: 1,
+                entry_price: decimal(100, 0),
+                quantity: decimal(1, 0),
+                take_profit_bps: 100,
+                trailing_bps: None,
+            },
+            GridLevel {
+                level_index: 2,
+                entry_price: decimal(90, 0),
+                quantity: decimal(1, 0),
+                take_profit_bps: 100,
+                trailing_bps: None,
+            },
+        ],
+        overall_take_profit_bps: None,
+        overall_stop_loss_bps: None,
+        post_trigger_action: PostTriggerAction::Stop,
     }
 }
 

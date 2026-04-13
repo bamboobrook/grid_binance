@@ -6,6 +6,8 @@ use shared_db::{ExchangeTradeHistoryRecord, NotificationLogRecord, SharedDb};
 use shared_domain::strategy::Strategy;
 use std::{sync::OnceLock, time::Duration as StdDuration};
 
+use crate::strategy_runtime::{RuntimeControlEffects, StrategyRuntimeEngine, StrategyRuntimeError};
+
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct ExecutionEffectsResult {
     pub new_trades: usize,
@@ -158,6 +160,20 @@ pub fn persist_execution_effects(
     }
 
     Ok(ExecutionEffectsResult { new_trades: 1 })
+}
+
+pub fn enable_only_sell_no_buy(
+    engine: &mut StrategyRuntimeEngine,
+) -> Result<RuntimeControlEffects, StrategyRuntimeError> {
+    engine.enable_only_sell_no_buy()
+}
+
+pub fn record_take_profit_fill(
+    engine: &mut StrategyRuntimeEngine,
+    level_index: u32,
+    exit_price: Decimal,
+) -> Result<RuntimeControlEffects, StrategyRuntimeError> {
+    engine.record_take_profit_fill(level_index, exit_price)
 }
 
 fn telegram_bot_token() -> Option<String> {

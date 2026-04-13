@@ -40,6 +40,12 @@ struct OpenLevelState {
     closing_requested: bool,
 }
 
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct RuntimeControlEffects {
+    pub cancel_order_ids: Vec<String>,
+    pub stopped: bool,
+}
+
 #[derive(Debug)]
 pub struct StrategyRuntimeEngine {
     strategy_id: String,
@@ -49,6 +55,8 @@ pub struct StrategyRuntimeEngine {
     runtime: StrategyRuntime,
     open_levels: Vec<OpenLevelState>,
     running: bool,
+    draining: bool,
+    stop_after_take_profit: bool,
     fill_sequence: u64,
 }
 
@@ -76,6 +84,8 @@ impl StrategyRuntimeEngine {
             runtime: StrategyRuntime::default(),
             open_levels: Vec::new(),
             running: false,
+            draining: false,
+            stop_after_take_profit: false,
             fill_sequence: 0,
         })
     }
@@ -91,6 +101,8 @@ impl StrategyRuntimeEngine {
         let mut engine = Self::new(strategy_id, market, mode, revision.clone())?;
         engine.runtime = runtime.clone();
         engine.running = running;
+        engine.draining = restore_draining_state(&runtime);
+        engine.stop_after_take_profit = restore_stop_after_take_profit(&runtime);
         engine.fill_sequence = runtime.fills.len() as u64;
         engine.open_levels = derive_open_levels(&runtime, &revision)?;
         if engine.open_levels.is_empty() && !runtime.positions.is_empty() {
@@ -129,6 +141,99 @@ impl StrategyRuntimeEngine {
 
     pub fn is_running(&self) -> bool {
         self.running
+    }
+
+    pub fn is_draining(&self) -> bool {
+        self.draining
+    }
+
+    pub fn set_stop_after_take_profit(&mut self, enabled: bool) {
+        if self.stop_after_take_profit == enabled {
+            return;
+        }
+        self.stop_after_take_profit = enabled;
+        push_event(
+            &mut self.runtime.events,
+            if enabled {
+                "stop_after_take_profit_enabled"
+            } else {
+                "stop_after_take_profit_disabled"
+            },
+            if enabled {
+                "stop_after_take_profit enabled"
+            } else {
+                "stop_after_take_profit disabled"
+            },
+            None,
+        );
+    }
+
+    pub fn enable_only_sell_no_buy(
+        &mut self,
+    ) -> Result<RuntimeControlEffects, StrategyRuntimeError> {
+        if ordinary_entry_side(self.mode).is_none() {
+            return Err(StrategyRuntimeError::new(
+                "only_sell_no_buy only supports ordinary single-sided grids",
+            ));
+        }
+        if !self.running {
+            return Err(StrategyRuntimeError::new(
+                "only_sell_no_buy requires a running strategy",
+            ));
+        }
+        if self.draining {
+            return Ok(RuntimeControlEffects::default());
+        }
+
+        self.draining = true;
+        let mut cancel_order_ids = Vec::new();
+        for order in &mut self.runtime.orders {
+            if is_entry_order(order)
+                && matches!(
+                    order.status.as_str(),
+                    "Working" | "Placed" | "PartiallyFilled"
+                )
+            {
+                order.exchange_order_id = None;
+                order.status = "Canceled".to_string();
+                cancel_order_ids.push(order.order_id.clone());
+            }
+        }
+        cancel_order_ids.sort();
+        push_event(
+            &mut self.runtime.events,
+            "strategy_draining_started",
+            "strategy draining started",
+            None,
+        );
+        Ok(RuntimeControlEffects {
+            cancel_order_ids,
+            stopped: false,
+        })
+    }
+
+    pub fn record_take_profit_fill(
+        &mut self,
+        level_index: u32,
+        exit_price: Decimal,
+    ) -> Result<RuntimeControlEffects, StrategyRuntimeError> {
+        if !self
+            .open_levels
+            .iter()
+            .any(|state| state.level_index == level_index)
+        {
+            return Err(StrategyRuntimeError::new("open level not found"));
+        }
+        let _ = self.close_level(level_index, exit_price, "maker_take_profit", true);
+        self.open_levels
+            .retain(|state| state.level_index != level_index);
+        self.recompute_position();
+
+        let stopped = self.maybe_stop_after_draining();
+        Ok(RuntimeControlEffects {
+            cancel_order_ids: Vec::new(),
+            stopped,
+        })
     }
 
     pub fn start(&mut self) -> Result<(), StrategyRuntimeError> {
@@ -218,17 +323,7 @@ impl StrategyRuntimeEngine {
         level_index: u32,
         exit_price: Decimal,
     ) -> Result<(), StrategyRuntimeError> {
-        if !self
-            .open_levels
-            .iter()
-            .any(|state| state.level_index == level_index)
-        {
-            return Err(StrategyRuntimeError::new("open level not found"));
-        }
-        let _ = self.close_level(level_index, exit_price, "maker_take_profit", true);
-        self.open_levels
-            .retain(|state| state.level_index != level_index);
-        self.recompute_position();
+        let _ = self.record_take_profit_fill(level_index, exit_price)?;
         Ok(())
     }
 
@@ -475,7 +570,7 @@ impl StrategyRuntimeEngine {
         }) {
             order.status = "Filled".to_string();
         }
-        if reopen_entry {
+        if reopen_entry && !self.draining {
             self.activate_entry_order(level_index);
         }
         self.recompute_position();
@@ -519,6 +614,21 @@ impl StrategyRuntimeEngine {
             event_type,
             Some(price),
         )
+    }
+
+    fn maybe_stop_after_draining(&mut self) -> bool {
+        if self.stop_after_take_profit && self.draining && self.open_levels.is_empty() {
+            self.draining = false;
+            self.running = false;
+            push_event(
+                &mut self.runtime.events,
+                "strategy_stopped_after_draining",
+                "strategy stopped after draining",
+                None,
+            );
+            return true;
+        }
+        false
     }
 
     fn recompute_position(&mut self) {
@@ -573,35 +683,52 @@ impl StrategyRuntimeEngine {
     fn build_active_orders(&self, reference_price: Option<Decimal>) -> Vec<StrategyRuntimeOrder> {
         let mut orders = Vec::new();
         let reference_price = self.reference_price(reference_price);
-        for level in &self.revision.levels {
-            if self
-                .open_levels
-                .iter()
-                .any(|state| state.level_index == level.level_index)
-            {
-                continue;
+        if !self.draining {
+            for level in &self.revision.levels {
+                if self
+                    .open_levels
+                    .iter()
+                    .any(|state| state.level_index == level.level_index)
+                {
+                    continue;
+                }
+                let Some(side) = initial_entry_side(
+                    self.mode,
+                    level.level_index,
+                    level.entry_price,
+                    reference_price,
+                ) else {
+                    continue;
+                };
+                orders.push(StrategyRuntimeOrder {
+                    order_id: entry_order_id(&self.strategy_id, level.level_index),
+                    exchange_order_id: None,
+                    level_index: Some(level.level_index),
+                    side: side.to_string(),
+                    order_type: "Limit".to_string(),
+                    price: Some(level.entry_price),
+                    quantity: level.quantity,
+                    status: "Working".to_string(),
+                });
             }
-            let Some(side) = initial_entry_side(
-                self.mode,
-                level.level_index,
-                level.entry_price,
-                reference_price,
-            ) else {
-                continue;
-            };
-            orders.push(StrategyRuntimeOrder {
-                order_id: entry_order_id(&self.strategy_id, level.level_index),
-                exchange_order_id: None,
-                level_index: Some(level.level_index),
-                side: side.to_string(),
-                order_type: "Limit".to_string(),
-                price: Some(level.entry_price),
-                quantity: level.quantity,
-                status: "Working".to_string(),
-            });
         }
         for state in &self.open_levels {
-            if let Some(trailing_bps) = state.trailing_bps {
+            if state.closing_requested {
+                orders.push(StrategyRuntimeOrder {
+                    order_id: active_exit_order_id(
+                        &self.strategy_id,
+                        state.level_index,
+                        state.trailing_bps,
+                    ),
+                    exchange_order_id: None,
+                    level_index: Some(state.level_index),
+                    side: exit_side(state.is_short).to_string(),
+                    order_type: "Market".to_string(),
+                    price: None,
+                    quantity: state.quantity,
+                    status: "ClosingRequested".to_string(),
+                });
+            } else if let Some(trailing_bps) = state.trailing_bps {
                 orders.push(StrategyRuntimeOrder {
                     order_id: trailing_order_id(&self.strategy_id, state.level_index),
                     exchange_order_id: None,
@@ -828,7 +955,7 @@ fn derive_open_levels(
         }
         if !matches!(
             order.status.as_str(),
-            "Working" | "Placed" | "Monitoring" | "Armed"
+            "Working" | "Placed" | "Monitoring" | "Armed" | "ClosingRequested" | "PartiallyFilled"
         ) {
             continue;
         }
@@ -864,6 +991,36 @@ fn latest_trailing_anchor(runtime: &StrategyRuntime, level_index: u32) -> Option
         .rev()
         .find(|event| event.event_type == format!("trailing_anchor_{level_index}"))
         .and_then(|event| event.price)
+}
+
+fn restore_draining_state(runtime: &StrategyRuntime) -> bool {
+    let started_at = runtime
+        .events
+        .iter()
+        .rposition(|event| event.event_type == "strategy_draining_started");
+    let stopped_at = runtime
+        .events
+        .iter()
+        .rposition(|event| event.event_type == "strategy_stopped_after_draining");
+
+    match (started_at, stopped_at) {
+        (Some(started_at), Some(stopped_at)) => started_at > stopped_at,
+        (Some(_), None) => true,
+        _ => false,
+    }
+}
+
+fn restore_stop_after_take_profit(runtime: &StrategyRuntime) -> bool {
+    runtime
+        .events
+        .iter()
+        .rev()
+        .find_map(|event| match event.event_type.as_str() {
+            "stop_after_take_profit_enabled" => Some(true),
+            "stop_after_take_profit_disabled" => Some(false),
+            _ => None,
+        })
+        .unwrap_or(false)
 }
 
 fn effective_reference_price(revision: &StrategyRevision) -> Decimal {
