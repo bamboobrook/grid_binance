@@ -19,10 +19,11 @@ use shared_domain::{
     membership::MembershipStatus,
     strategy::{
         FuturesMarginMode, GridGeneration, GridLevel, PostTriggerAction, PreflightFailure,
-        PreflightReport, PreflightStepResult, PreflightStepStatus, Strategy, StrategyAmountMode,
-        StrategyMarket, StrategyMode, StrategyRevision, StrategyRuntime, StrategyRuntimeEvent,
-        StrategyRuntimeFill, StrategyRuntimeOrder, StrategyRuntimePosition, StrategyStatus,
-        StrategyTemplate,
+        PreflightReport, PreflightStepResult, PreflightStepStatus, ReferencePriceSource,
+        RuntimeControls, Strategy, StrategyAmountMode, StrategyMarket, StrategyMode,
+        StrategyRevision, StrategyRuntime, StrategyRuntimeEvent, StrategyRuntimeFill,
+        StrategyRuntimeOrder, StrategyRuntimePhase, StrategyRuntimePosition, StrategyStatus,
+        StrategyTemplate, StrategyType,
     },
 };
 
@@ -1068,8 +1069,11 @@ fn build_strategy(
         margin_ready: false,
         conflict_ready: matches!(request.market, StrategyMarket::Spot),
         balance_ready: false,
+        strategy_type: StrategyType::OrdinaryGrid,
         market: request.market,
         mode: request.mode,
+        runtime_phase: StrategyRuntimePhase::Draft,
+        runtime_controls: RuntimeControls::default(),
         draft_revision,
         active_revision,
         runtime,
@@ -1106,11 +1110,13 @@ fn build_revision(
     Ok(StrategyRevision {
         revision_id: format!("{strategy_id}-revision-{version}"),
         version,
+        strategy_type: StrategyType::OrdinaryGrid,
         generation,
         levels,
         amount_mode,
         futures_margin_mode,
         leverage,
+        reference_price_source: ReferencePriceSource::Manual,
         overall_take_profit_bps,
         overall_stop_loss_bps,
         post_trigger_action,
@@ -1350,14 +1356,10 @@ impl StrategyService {
         let fallback_quantity_step = precision_step(symbol.quantity_precision);
 
         for level in &mut strategy.draft_revision.levels {
-            level.entry_price = normalize_to_step(
-                level.entry_price,
-                price_tick.or(fallback_price_step),
-            );
-            level.quantity = normalize_to_step(
-                level.quantity,
-                quantity_step.or(fallback_quantity_step),
-            );
+            level.entry_price =
+                normalize_to_step(level.entry_price, price_tick.or(fallback_price_step));
+            level.quantity =
+                normalize_to_step(level.quantity, quantity_step.or(fallback_quantity_step));
         }
 
         if strategy
@@ -1372,7 +1374,8 @@ impl StrategyService {
         }
 
         strategy.budget = summarize_budget_from_grid_levels(&strategy.draft_revision.levels);
-        strategy.grid_spacing_bps = summarize_spacing_bps_from_grid_levels(&strategy.draft_revision.levels);
+        strategy.grid_spacing_bps =
+            summarize_spacing_bps_from_grid_levels(&strategy.draft_revision.levels);
         Ok(())
     }
 
@@ -1396,19 +1399,35 @@ impl StrategyService {
             .draft_revision
             .levels
             .iter()
-            .filter(|level| matches!(
-                initial_entry_side(strategy.mode, level.level_index, level.entry_price, reference_price),
-                Some("Buy")
-            ))
-            .fold(Decimal::ZERO, |acc, level| acc + (level.entry_price * level.quantity));
+            .filter(|level| {
+                matches!(
+                    initial_entry_side(
+                        strategy.mode,
+                        level.level_index,
+                        level.entry_price,
+                        reference_price
+                    ),
+                    Some("Buy")
+                )
+            })
+            .fold(Decimal::ZERO, |acc, level| {
+                acc + (level.entry_price * level.quantity)
+            });
         let base_needed = strategy
             .draft_revision
             .levels
             .iter()
-            .filter(|level| matches!(
-                initial_entry_side(strategy.mode, level.level_index, level.entry_price, reference_price),
-                Some("Sell")
-            ))
+            .filter(|level| {
+                matches!(
+                    initial_entry_side(
+                        strategy.mode,
+                        level.level_index,
+                        level.entry_price,
+                        reference_price
+                    ),
+                    Some("Sell")
+                )
+            })
             .fold(Decimal::ZERO, |acc, level| acc + level.quantity);
 
         if matches!(strategy.market, StrategyMarket::Spot) {
@@ -1507,8 +1526,10 @@ fn run_preflight_with_state(
     let mut failures = Vec::new();
 
     let balance_reason = if matches!(strategy.market, StrategyMarket::Spot)
-        && matches!(strategy.mode, StrategyMode::SpotClassic | StrategyMode::SpotSellOnly)
-    {
+        && matches!(
+            strategy.mode,
+            StrategyMode::SpotClassic | StrategyMode::SpotSellOnly
+        ) {
         "insufficient quote or base inventory for the configured spot grid"
     } else {
         "insufficient available balance or collateral"
@@ -1798,7 +1819,12 @@ fn rebuild_runtime(
             .levels
             .iter()
             .filter_map(|level| {
-                let side = initial_entry_side(strategy.mode, level.level_index, level.entry_price, reference_price)?;
+                let side = initial_entry_side(
+                    strategy.mode,
+                    level.level_index,
+                    level.entry_price,
+                    reference_price,
+                )?;
                 Some(StrategyRuntimeOrder {
                     order_id: format!("{}-order-{}", strategy.id, level.level_index),
                     exchange_order_id: None,
@@ -1925,7 +1951,10 @@ fn effective_reference_price(levels: &[GridLevel]) -> Decimal {
     match levels {
         [] => Decimal::ZERO,
         [single] => single.entry_price,
-        _ => (levels.first().expect("first").entry_price + levels.last().expect("last").entry_price) / Decimal::from(2u32),
+        _ => {
+            (levels.first().expect("first").entry_price + levels.last().expect("last").entry_price)
+                / Decimal::from(2u32)
+        }
     }
 }
 
@@ -1954,9 +1983,12 @@ fn runtime_reference_price(
         return Some(weighted_price / total_quantity);
     }
 
-    strategy.runtime.fills.iter().rev().find_map(|fill| {
-        (fill.price > Decimal::ZERO).then_some(fill.price)
-    })
+    strategy
+        .runtime
+        .fills
+        .iter()
+        .rev()
+        .find_map(|fill| (fill.price > Decimal::ZERO).then_some(fill.price))
 }
 
 fn cancel_working_orders(orders: &mut [StrategyRuntimeOrder]) {
@@ -1971,7 +2003,10 @@ fn delete_failure_reason(strategy: &Strategy) -> Option<String> {
     if strategy.status == StrategyStatus::Archived {
         return Some("Strategy has already been deleted.".to_string());
     }
-    if matches!(strategy.status, StrategyStatus::Running | StrategyStatus::Stopping) {
+    if matches!(
+        strategy.status,
+        StrategyStatus::Running | StrategyStatus::Stopping
+    ) {
         return Some("Strategy must be stopped before it can be deleted.".to_string());
     }
     if !strategy.runtime.positions.is_empty() {
@@ -1983,7 +2018,9 @@ fn delete_failure_reason(strategy: &Strategy) -> Option<String> {
         .iter()
         .any(|order| matches!(order.status.as_str(), "Working" | "Placed"))
     {
-        return Some("Strategy cannot be deleted while there are working orders; stop it first.".to_string());
+        return Some(
+            "Strategy cannot be deleted while there are working orders; stop it first.".to_string(),
+        );
     }
     None
 }
@@ -2160,17 +2197,17 @@ impl From<AuthError> for StrategyError {
 #[cfg(test)]
 mod tests {
     use super::{
-        rebuild_runtime, run_preflight, CreateTemplateRequest, SaveGridLevelRequest, SaveStrategyRequest,
-        StrategyError, StrategyService,
+        rebuild_runtime, run_preflight, CreateTemplateRequest, SaveGridLevelRequest,
+        SaveStrategyRequest, StrategyError, StrategyService,
     };
     use crate::services::auth_service::AdminRole;
     use axum::http::StatusCode;
     use chrono::Utc;
     use shared_db::{MembershipRecord, SharedDb, UserExchangeAccountRecord};
     use shared_domain::strategy::{
-        FuturesMarginMode, GridGeneration, GridLevel, PostTriggerAction, PreflightStepStatus, Strategy,
-        StrategyAmountMode, StrategyMarket, StrategyMode, StrategyRevision, StrategyRuntime,
-        StrategyRuntimeFill, StrategyRuntimePosition, StrategyStatus,
+        FuturesMarginMode, GridGeneration, GridLevel, PostTriggerAction, PreflightStepStatus,
+        Strategy, StrategyAmountMode, StrategyMarket, StrategyMode, StrategyRevision,
+        StrategyRuntime, StrategyRuntimeFill, StrategyRuntimePosition, StrategyStatus,
     };
     use std::{
         fs,
@@ -2741,6 +2778,7 @@ mod tests {
         let revision = StrategyRevision {
             revision_id: "rev-classic".to_string(),
             version: 1,
+            strategy_type: StrategyType::OrdinaryGrid,
             generation: GridGeneration::Custom,
             levels: vec![
                 GridLevel {
@@ -2761,6 +2799,7 @@ mod tests {
             amount_mode: StrategyAmountMode::Quote,
             futures_margin_mode: None,
             leverage: None,
+            reference_price_source: ReferencePriceSource::Manual,
             overall_take_profit_bps: None,
             overall_stop_loss_bps: None,
             post_trigger_action: PostTriggerAction::Stop,
@@ -2784,8 +2823,11 @@ mod tests {
             margin_ready: true,
             conflict_ready: true,
             balance_ready: true,
+            strategy_type: StrategyType::OrdinaryGrid,
             market: StrategyMarket::Spot,
             mode: StrategyMode::SpotClassic,
+            runtime_phase: StrategyRuntimePhase::Draft,
+            runtime_controls: RuntimeControls::default(),
             draft_revision: revision.clone(),
             active_revision: Some(revision),
             runtime: StrategyRuntime::default(),
@@ -2804,6 +2846,7 @@ mod tests {
         let revision = StrategyRevision {
             revision_id: "rev-neutral".to_string(),
             version: 1,
+            strategy_type: StrategyType::OrdinaryGrid,
             generation: GridGeneration::Custom,
             levels: vec![
                 GridLevel {
@@ -2824,6 +2867,7 @@ mod tests {
             amount_mode: StrategyAmountMode::Quote,
             futures_margin_mode: Some(FuturesMarginMode::Cross),
             leverage: Some(5),
+            reference_price_source: ReferencePriceSource::Manual,
             overall_take_profit_bps: None,
             overall_stop_loss_bps: None,
             post_trigger_action: PostTriggerAction::Stop,
@@ -2847,8 +2891,11 @@ mod tests {
             margin_ready: true,
             conflict_ready: true,
             balance_ready: true,
+            strategy_type: StrategyType::OrdinaryGrid,
             market: StrategyMarket::FuturesUsdM,
             mode: StrategyMode::FuturesNeutral,
+            runtime_phase: StrategyRuntimePhase::Draft,
+            runtime_controls: RuntimeControls::default(),
             draft_revision: revision.clone(),
             active_revision: Some(revision),
             runtime: StrategyRuntime::default(),
@@ -3154,11 +3201,14 @@ mod tests {
 
         assert_eq!(resumed.runtime.positions.len(), 1);
         assert_eq!(resumed.runtime.fills.len(), 1);
-        assert!(resumed
-            .runtime
-            .orders
-            .iter()
-            .any(|order| order.order_id.ends_with("-tp-0") || order.order_id.ends_with("-trail-0")));
+        assert!(
+            resumed
+                .runtime
+                .orders
+                .iter()
+                .any(|order| order.order_id.ends_with("-tp-0")
+                    || order.order_id.ends_with("-trail-0"))
+        );
     }
 
     #[test]
@@ -3386,5 +3436,4 @@ mod tests {
             "0.123".parse().expect("decimal")
         );
     }
-
 }

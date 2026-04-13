@@ -3008,8 +3008,9 @@ mod tests {
     use chrono::{TimeZone, Utc};
     use serde_json::json;
     use shared_domain::strategy::{
-        GridGeneration, GridLevel, PostTriggerAction, Strategy, StrategyAmountMode,
-        StrategyMarket, StrategyMode, StrategyRevision, StrategyRuntime, StrategyStatus,
+        GridGeneration, GridLevel, PostTriggerAction, ReferencePriceSource, RuntimeControls,
+        Strategy, StrategyAmountMode, StrategyMarket, StrategyMode, StrategyRevision,
+        StrategyRuntime, StrategyRuntimePhase, StrategyStatus, StrategyType,
     };
 
     #[test]
@@ -3029,7 +3030,11 @@ mod tests {
                 "0005_admin_and_notifications.sql",
                 "0006_membership_billing_runtime_hardening.sql",
                 "0007_strategy_runtime_hardening.sql",
+                "0008_strategy_engine_rewrite.sql",
                 "0008_strategy_runtime_mode_alignment.sql",
+                "0009_strategy_snapshot_funding.sql",
+                "0010_sweep_lifecycle_columns.sql",
+                "0011_strategy_template_futures_fields.sql",
             ]
         );
     }
@@ -3064,11 +3069,15 @@ mod tests {
             margin_ready: true,
             conflict_ready: true,
             balance_ready: true,
+            strategy_type: StrategyType::OrdinaryGrid,
             market: StrategyMarket::Spot,
             mode: StrategyMode::SpotClassic,
+            runtime_phase: StrategyRuntimePhase::Draft,
+            runtime_controls: RuntimeControls::default(),
             draft_revision: StrategyRevision {
                 revision_id: "strategy-1-revision-1".to_string(),
                 version: 1,
+                strategy_type: StrategyType::OrdinaryGrid,
                 generation: GridGeneration::Custom,
                 levels: vec![GridLevel {
                     level_index: 0,
@@ -3080,6 +3089,7 @@ mod tests {
                 amount_mode: StrategyAmountMode::Quote,
                 futures_margin_mode: None,
                 leverage: None,
+                reference_price_source: ReferencePriceSource::Manual,
                 overall_take_profit_bps: None,
                 overall_stop_loss_bps: None,
                 post_trigger_action: PostTriggerAction::Stop,

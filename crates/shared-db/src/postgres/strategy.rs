@@ -3,10 +3,11 @@ use serde_json::{json, Value};
 use sqlx::{PgPool, Postgres, Row, Transaction};
 
 use shared_domain::strategy::{
-    FuturesMarginMode, GridGeneration, GridLevel, PostTriggerAction, PreflightReport, Strategy,
-    StrategyAmountMode, StrategyMarket, StrategyMode, StrategyRevision, StrategyRuntime,
-    StrategyRuntimeEvent, StrategyRuntimeFill, StrategyRuntimeOrder, StrategyRuntimePosition,
-    StrategyTemplate,
+    FuturesMarginMode, GridGeneration, GridLevel, PostTriggerAction, PreflightReport,
+    ReferencePriceSource, Strategy, StrategyAmountMode, StrategyMarket, StrategyMode,
+    StrategyRevision, StrategyRuntime, StrategyRuntimeEvent, StrategyRuntimeFill,
+    StrategyRuntimeOrder, StrategyRuntimePhase, StrategyRuntimePosition, StrategyTemplate,
+    StrategyType,
 };
 
 use crate::{
@@ -70,8 +71,11 @@ impl StrategyRepository {
                     margin_ready,
                     conflict_ready,
                     balance_ready,
+                    strategy_type,
                     market,
                     mode,
+                    runtime_phase,
+                    runtime_controls,
                     archived_at
              FROM strategies
              WHERE lower(owner_email) = lower($1)
@@ -109,8 +113,11 @@ impl StrategyRepository {
                     margin_ready,
                     conflict_ready,
                     balance_ready,
+                    strategy_type,
                     market,
                     mode,
+                    runtime_phase,
+                    runtime_controls,
                     archived_at
              FROM strategies
              ORDER BY sequence_id ASC",
@@ -150,8 +157,11 @@ impl StrategyRepository {
                     margin_ready,
                     conflict_ready,
                     balance_ready,
+                    strategy_type,
                     market,
                     mode,
+                    runtime_phase,
+                    runtime_controls,
                     archived_at
              FROM strategies
              WHERE lower(owner_email) = lower($1) AND id = $2",
@@ -191,12 +201,15 @@ impl StrategyRepository {
                 margin_ready,
                 conflict_ready,
                 balance_ready,
+                strategy_type,
                 market,
                 mode,
+                runtime_phase,
+                runtime_controls,
                 archived_at,
                 created_at,
                 updated_at
-             ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, now(), now())",
+             ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, now(), now())",
         )
         .bind(&strategy.strategy.id)
         .bind(strategy.sequence_id as i64)
@@ -217,8 +230,11 @@ impl StrategyRepository {
         .bind(strategy.strategy.margin_ready)
         .bind(strategy.strategy.conflict_ready)
         .bind(strategy.strategy.balance_ready)
+        .bind(strategy_type_to_str(strategy.strategy.strategy_type))
         .bind(strategy_market_to_str(strategy.strategy.market))
         .bind(strategy_mode_to_str(strategy.strategy.mode))
+        .bind(strategy_runtime_phase_to_str(strategy.strategy.runtime_phase))
+        .bind(serde_json::to_value(&strategy.strategy.runtime_controls).map_err(|error| SharedDbError::new(error.to_string()))?)
         .bind(strategy.strategy.archived_at)
         .execute(&mut *transaction)
         .await
@@ -250,9 +266,12 @@ impl StrategyRepository {
                  margin_ready = $16,
                  conflict_ready = $17,
                  balance_ready = $18,
-                 market = $19,
-                 mode = $20,
-                 archived_at = $21,
+                 strategy_type = $19,
+                 market = $20,
+                 mode = $21,
+                 runtime_phase = $22,
+                 runtime_controls = $23,
+                 archived_at = $24,
                  updated_at = now()
              WHERE id = $1 AND lower(owner_email) = lower($2)",
         )
@@ -274,8 +293,14 @@ impl StrategyRepository {
         .bind(strategy.margin_ready)
         .bind(strategy.conflict_ready)
         .bind(strategy.balance_ready)
+        .bind(strategy_type_to_str(strategy.strategy_type))
         .bind(strategy_market_to_str(strategy.market))
         .bind(strategy_mode_to_str(strategy.mode))
+        .bind(strategy_runtime_phase_to_str(strategy.runtime_phase))
+        .bind(
+            serde_json::to_value(&strategy.runtime_controls)
+                .map_err(|error| SharedDbError::new(error.to_string()))?,
+        )
         .bind(strategy.archived_at)
         .execute(&mut *transaction)
         .await
@@ -314,11 +339,31 @@ impl StrategyRepository {
         record: &StrategyRevisionRecord,
     ) -> Result<(), SharedDbError> {
         sqlx::query(
-            "INSERT INTO strategy_revisions (strategy_id, revision_kind, config, created_at)
-             VALUES ($1, $2, $3, $4)",
+            "INSERT INTO strategy_revisions (
+                strategy_id,
+                revision_kind,
+                strategy_type,
+                reference_price_source,
+                config,
+                created_at
+             ) VALUES ($1, $2, $3, $4, $5, $6)",
         )
         .bind(&record.strategy_id)
         .bind(&record.revision_kind)
+        .bind(strategy_type_to_str(parse_strategy_type(
+            record
+                .config
+                .get("strategy_type")
+                .and_then(Value::as_str)
+                .unwrap_or("ordinary_grid"),
+        )?))
+        .bind(reference_price_source_to_str(parse_reference_price_source(
+            record
+                .config
+                .get("reference_price_source")
+                .and_then(Value::as_str)
+                .unwrap_or("manual"),
+        )?))
         .bind(&record.config)
         .bind(record.created_at)
         .execute(&self.pool)
@@ -714,8 +759,13 @@ async fn strategy_from_row(
 ) -> Result<Strategy, SharedDbError> {
     let id: String = row.try_get("id").map_err(SharedDbError::from)?;
     let status: String = row.try_get("status").map_err(SharedDbError::from)?;
+    let strategy_type: String = row.try_get("strategy_type").map_err(SharedDbError::from)?;
     let market: String = row.try_get("market").map_err(SharedDbError::from)?;
     let mode: String = row.try_get("mode").map_err(SharedDbError::from)?;
+    let runtime_phase: String = row.try_get("runtime_phase").map_err(SharedDbError::from)?;
+    let runtime_controls: Value = row
+        .try_get("runtime_controls")
+        .map_err(SharedDbError::from)?;
     let draft_revision = load_revision(pool, &id, "draft")
         .await?
         .unwrap_or_else(default_revision);
@@ -759,8 +809,12 @@ async fn strategy_from_row(
         margin_ready: row.try_get("margin_ready").map_err(SharedDbError::from)?,
         conflict_ready: row.try_get("conflict_ready").map_err(SharedDbError::from)?,
         balance_ready: row.try_get("balance_ready").map_err(SharedDbError::from)?,
+        strategy_type: parse_strategy_type(&strategy_type)?,
         market: parse_strategy_market(&market)?,
         mode: parse_strategy_mode(&mode)?,
+        runtime_phase: parse_strategy_runtime_phase(&runtime_phase)?,
+        runtime_controls: serde_json::from_value(runtime_controls)
+            .map_err(|error| SharedDbError::new(error.to_string()))?,
         draft_revision,
         active_revision,
         runtime,
@@ -774,7 +828,7 @@ async fn load_revision(
     revision_kind: &str,
 ) -> Result<Option<StrategyRevision>, SharedDbError> {
     let row = sqlx::query(
-        "SELECT config
+        "SELECT config, strategy_type, reference_price_source
          FROM strategy_revisions
          WHERE strategy_id = $1 AND revision_kind = $2
          ORDER BY revision_id DESC
@@ -787,7 +841,19 @@ async fn load_revision(
     .map_err(SharedDbError::from)?;
 
     row.map(|row| {
-        let config: Value = row.try_get("config").map_err(SharedDbError::from)?;
+        let mut config: Value = row.try_get("config").map_err(SharedDbError::from)?;
+        let strategy_type: String = row.try_get("strategy_type").map_err(SharedDbError::from)?;
+        let reference_price_source: String = row
+            .try_get("reference_price_source")
+            .map_err(SharedDbError::from)?;
+        if let Value::Object(ref mut object) = config {
+            object
+                .entry("strategy_type".to_string())
+                .or_insert(Value::String(strategy_type));
+            object
+                .entry("reference_price_source".to_string())
+                .or_insert(Value::String(reference_price_source));
+        }
         serde_json::from_value(config).map_err(|error| SharedDbError::new(error.to_string()))
     })
     .transpose()
@@ -833,12 +899,22 @@ async fn insert_revision_with_levels_in(
     revision: &StrategyRevision,
 ) -> Result<i64, SharedDbError> {
     let row = sqlx::query(
-        "INSERT INTO strategy_revisions (strategy_id, revision_kind, config, created_at)
-         VALUES ($1, $2, $3, now())
+        "INSERT INTO strategy_revisions (
+            strategy_id,
+            revision_kind,
+            strategy_type,
+            reference_price_source,
+            config,
+            created_at
+         ) VALUES ($1, $2, $3, $4, $5, now())
          RETURNING revision_id",
     )
     .bind(strategy_id)
     .bind(revision_kind)
+    .bind(strategy_type_to_str(revision.strategy_type))
+    .bind(reference_price_source_to_str(
+        revision.reference_price_source,
+    ))
     .bind(serde_json::to_value(revision).map_err(|error| SharedDbError::new(error.to_string()))?)
     .fetch_one(&mut **transaction)
     .await
@@ -1049,14 +1125,61 @@ fn default_revision() -> StrategyRevision {
     StrategyRevision {
         revision_id: "draft-revision-0".to_string(),
         version: 0,
+        strategy_type: StrategyType::OrdinaryGrid,
         generation: GridGeneration::Custom,
         levels: Vec::new(),
         amount_mode: StrategyAmountMode::Quote,
         futures_margin_mode: None,
         leverage: None,
+        reference_price_source: ReferencePriceSource::Manual,
         overall_take_profit_bps: None,
         overall_stop_loss_bps: None,
         post_trigger_action: PostTriggerAction::Stop,
+    }
+}
+
+fn parse_strategy_type(value: &str) -> Result<StrategyType, SharedDbError> {
+    match value {
+        "ordinary_grid" => Ok(StrategyType::OrdinaryGrid),
+        _ => Err(SharedDbError::new(format!(
+            "unknown strategy type: {value}"
+        ))),
+    }
+}
+
+fn strategy_type_to_str(value: StrategyType) -> &'static str {
+    match value {
+        StrategyType::OrdinaryGrid => "ordinary_grid",
+    }
+}
+
+fn parse_reference_price_source(value: &str) -> Result<ReferencePriceSource, SharedDbError> {
+    match value {
+        "manual" => Ok(ReferencePriceSource::Manual),
+        _ => Err(SharedDbError::new(format!(
+            "unknown reference price source: {value}"
+        ))),
+    }
+}
+
+fn reference_price_source_to_str(value: ReferencePriceSource) -> &'static str {
+    match value {
+        ReferencePriceSource::Manual => "manual",
+    }
+}
+
+fn parse_strategy_runtime_phase(value: &str) -> Result<StrategyRuntimePhase, SharedDbError> {
+    match value {
+        "draft" => Ok(StrategyRuntimePhase::Draft),
+        _ => Err(SharedDbError::new(format!(
+            "unknown strategy runtime phase: {value}"
+        ))),
+    }
+}
+
+fn strategy_runtime_phase_to_str(value: StrategyRuntimePhase) -> &'static str {
+    match value {
+        StrategyRuntimePhase::Draft => "draft",
     }
 }
 

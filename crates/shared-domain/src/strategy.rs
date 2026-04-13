@@ -69,6 +69,45 @@ pub enum FuturesMarginMode {
     Cross,
 }
 
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum StrategyType {
+    OrdinaryGrid,
+}
+
+impl Default for StrategyType {
+    fn default() -> Self {
+        Self::OrdinaryGrid
+    }
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum ReferencePriceSource {
+    Manual,
+}
+
+impl Default for ReferencePriceSource {
+    fn default() -> Self {
+        Self::Manual
+    }
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum StrategyRuntimePhase {
+    Draft,
+}
+
+impl Default for StrategyRuntimePhase {
+    fn default() -> Self {
+        Self::Draft
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
+pub struct RuntimeControls {}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct PreflightFailure {
     pub step: String,
@@ -104,6 +143,8 @@ pub struct GridLevel {
 pub struct StrategyRevision {
     pub revision_id: String,
     pub version: u32,
+    #[serde(default)]
+    pub strategy_type: StrategyType,
     pub generation: GridGeneration,
     pub levels: Vec<GridLevel>,
     #[serde(default)]
@@ -112,6 +153,8 @@ pub struct StrategyRevision {
     pub futures_margin_mode: Option<FuturesMarginMode>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub leverage: Option<u32>,
+    #[serde(default)]
+    pub reference_price_source: ReferencePriceSource,
     pub overall_take_profit_bps: Option<u32>,
     pub overall_stop_loss_bps: Option<u32>,
     pub post_trigger_action: PostTriggerAction,
@@ -201,8 +244,14 @@ pub struct Strategy {
     pub margin_ready: bool,
     pub conflict_ready: bool,
     pub balance_ready: bool,
+    #[serde(default)]
+    pub strategy_type: StrategyType,
     pub market: StrategyMarket,
     pub mode: StrategyMode,
+    #[serde(default)]
+    pub runtime_phase: StrategyRuntimePhase,
+    #[serde(default)]
+    pub runtime_controls: RuntimeControls,
     pub draft_revision: StrategyRevision,
     pub active_revision: Option<StrategyRevision>,
     pub runtime: StrategyRuntime,

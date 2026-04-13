@@ -16,6 +16,38 @@ mod support;
 use support::register_and_login;
 
 #[tokio::test]
+async fn create_strategy_returns_explicit_strategy_type_and_runtime_phase() {
+    let app = app();
+    let user_token = register_and_login(&app, "strategy-kind@example.com", "pass1234").await;
+
+    let created = create_strategy(
+        &app,
+        &user_token,
+        json!({
+            "name": "Typed draft",
+            "symbol": "BTCUSDT",
+            "market": "Spot",
+            "mode": "SpotClassic",
+            "generation": "Custom",
+            "levels": [grid_level("100.00", "0.0100", 120, None)],
+            "overall_take_profit_bps": 500,
+            "overall_stop_loss_bps": 200,
+            "post_trigger_action": "Stop"
+        }),
+    )
+    .await;
+    assert_eq!(created.status(), StatusCode::CREATED);
+
+    let created_body = response_json(created).await;
+    assert_eq!(created_body["strategy_type"], "ordinary_grid");
+    assert_eq!(created_body["runtime_phase"], "draft");
+    assert_eq!(
+        created_body["draft_revision"]["reference_price_source"],
+        "manual"
+    );
+}
+
+#[tokio::test]
 async fn strategy_create_and_update_accept_payloads_without_client_readiness_flags() {
     let app = app();
     let user_token = register_and_login(&app, "payload@example.com", "pass1234").await;
@@ -247,7 +279,9 @@ async fn strategy_revisions_runtime_contracts_and_soft_archive_follow_frozen_lif
             .count(),
         2
     );
-    let started_orders = started_body["runtime"]["orders"].as_array().expect("orders");
+    let started_orders = started_body["runtime"]["orders"]
+        .as_array()
+        .expect("orders");
     assert_eq!(started_orders.len(), 2);
     assert_eq!(started_orders[0]["side"], "Buy");
     assert_eq!(started_orders[1]["side"], "Sell");
