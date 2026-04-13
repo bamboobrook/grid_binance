@@ -56,6 +56,7 @@ function buildStrategyPayload(formData: FormData) {
     symbol,
     market,
     mode: mapMode(readField(formData, "mode") || "classic"),
+    strategy_type: readField(formData, "strategyType") || "ordinary_grid",
     generation,
     amount_mode: mapAmountMode(readField(formData, "amountMode") || "quote"),
     futures_margin_mode: market === "Spot" ? null : mapFuturesMarginMode(readField(formData, "futuresMarginMode") || "isolated"),
@@ -63,6 +64,7 @@ function buildStrategyPayload(formData: FormData) {
     levels: parseLevelsJson(readField(formData, "levels_json")),
     overall_take_profit_bps: readPercentField(formData, "overallTakeProfit", true),
     overall_stop_loss_bps: readPercentField(formData, "overallStopLoss", false),
+    reference_price_source: mapReferencePriceSource(readField(formData, "referencePriceMode") || "manual"),
     post_trigger_action: mapPostTrigger(readField(formData, "postTrigger") || "rebuild"),
   };
 }
@@ -211,6 +213,10 @@ function mapGeneration(value: string) {
     default:
       return "Custom" as const;
   }
+}
+
+function mapReferencePriceSource(value: string) {
+  return value === "market" ? "market" : "manual";
 }
 
 function mapPostTrigger(value: string) {

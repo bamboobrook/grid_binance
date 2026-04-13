@@ -159,6 +159,7 @@ export function StrategyWorkspaceForm({
       generation,
       gridCount,
       lowerRangePercent,
+      marketType,
       ordinarySide,
       quoteAmount,
       referencePrice,
@@ -181,6 +182,7 @@ export function StrategyWorkspaceForm({
     gridCount,
     lowerRangePercent,
     ordinarySide,
+    marketType,
     quoteAmount,
     referencePrice,
     strategyType,
@@ -553,6 +555,7 @@ export function StrategyWorkspaceForm({
                     generation,
                     gridCount,
                     lowerRangePercent,
+                    marketType,
                     ordinarySide,
                     quoteAmount,
                     referencePrice,
@@ -634,7 +637,7 @@ export function StrategyWorkspaceForm({
                     <Button
                       onClick={() => {
                         setEditorMode("custom");
-                        setLevels((current) => addEditableLevel(current, amountMode, gridSpacingPercent, referencePrice, ordinarySide));
+                        setLevels((current) => addEditableLevel(current, amountMode, gridSpacingPercent, referencePrice, strategyType, marketType, ordinarySide));
                       }}
                       size="sm"
                       tone="outline"
@@ -665,7 +668,7 @@ export function StrategyWorkspaceForm({
                           <Field label={pickText(lang, "网格价", "Grid Price")}>
                             <Input
                               inputMode="decimal"
-                              onChange={(event) => setLevels((current) => updateLevelField(current, index, "entryPrice", event.target.value, amountMode))}
+                              onChange={(event) => setLevels((current) => updateLevelField(current, index, "entryPrice", event.target.value, amountMode, strategyType, marketType, ordinarySide))}
                               readOnly={batchModeActive}
                               value={level.entryPrice}
                             />
@@ -673,7 +676,7 @@ export function StrategyWorkspaceForm({
                           <Field label={pickText(lang, "与上一格间距 (%)", "Spacing vs Prev (%)")}>
                             <Input
                               inputMode="decimal"
-                              onChange={(event) => setLevels((current) => updateLevelSpacing(current, index, event.target.value, amountMode, ordinarySide))}
+                              onChange={(event) => setLevels((current) => updateLevelSpacing(current, index, event.target.value, amountMode, strategyType, marketType, ordinarySide))}
                               readOnly={index === 0}
                               value={index === 0 ? "" : level.spacingPercent}
                             />
@@ -681,7 +684,7 @@ export function StrategyWorkspaceForm({
                           <Field label={amountMode === "quote" ? pickText(lang, "投入金额 (USDT)", "Quote Amount (USDT)") : pickText(lang, "币数量", "Base Quantity")}>
                             <Input
                               inputMode="decimal"
-                              onChange={(event) => setLevels((current) => updateLevelField(current, index, amountMode === "quote" ? "quoteAmount" : "quantity", event.target.value, amountMode))}
+                              onChange={(event) => setLevels((current) => updateLevelField(current, index, amountMode === "quote" ? "quoteAmount" : "quantity", event.target.value, amountMode, strategyType, marketType, ordinarySide))}
                               readOnly={batchModeActive}
                               value={amountMode === "quote" ? level.quoteAmount : level.quantity}
                             />
@@ -689,7 +692,7 @@ export function StrategyWorkspaceForm({
                           <Field hint={secondaryAmount} label={pickText(lang, "网格止盈 (%)", "Grid Take Profit (%)")}>
                             <Input
                               inputMode="decimal"
-                              onChange={(event) => setLevels((current) => updateLevelField(current, index, "takeProfitPercent", event.target.value, amountMode))}
+                              onChange={(event) => setLevels((current) => updateLevelField(current, index, "takeProfitPercent", event.target.value, amountMode, strategyType, marketType, ordinarySide))}
                               readOnly={batchModeActive}
                               value={level.takeProfitPercent}
                             />
@@ -697,7 +700,7 @@ export function StrategyWorkspaceForm({
                           <Field label={pickText(lang, "追踪止盈 (%)", "Trailing Take Profit (%)")}>
                             <Input
                               inputMode="decimal"
-                              onChange={(event) => setLevels((current) => updateLevelField(current, index, "trailingPercent", event.target.value, amountMode))}
+                              onChange={(event) => setLevels((current) => updateLevelField(current, index, "trailingPercent", event.target.value, amountMode, strategyType, marketType, ordinarySide))}
                               readOnly={batchModeActive}
                               value={level.trailingPercent}
                             />
@@ -707,7 +710,7 @@ export function StrategyWorkspaceForm({
                               disabled={levels.length <= 1 && !batchModeActive}
                               onClick={() => {
                                 setEditorMode("custom");
-                                setLevels((current) => removeEditableLevel(current, index, amountMode));
+                                setLevels((current) => removeEditableLevel(current, index, amountMode, strategyType, marketType, ordinarySide));
                               }}
                               size="icon"
                               tone="outline"
@@ -791,7 +794,7 @@ function normalizeMarket(market: string): StrategyWorkspaceValues["marketType"] 
 function deriveInitialLevels(values: StrategyWorkspaceValues): EditableGridLevel[] {
   const parsed = parseLevelsJson(values.levelsJson);
   if (parsed.length > 0) {
-    return normalizeEditableLevels(parsed, values.amountMode);
+    return normalizeEditableLevels(parsed, values.amountMode, values.strategyType, values.marketType, values.ordinarySide);
   }
   const generated = generateBatchEditableLevels({
     amountMode: values.amountMode,
@@ -802,6 +805,7 @@ function deriveInitialLevels(values: StrategyWorkspaceValues): EditableGridLevel
     generation: values.generation,
     gridCount: values.gridCount,
     lowerRangePercent: values.lowerRangePercent,
+    marketType: values.marketType,
     ordinarySide: values.ordinarySide,
     quoteAmount: values.quoteAmount,
     referencePrice: values.referencePrice,
@@ -859,6 +863,7 @@ function generateBatchEditableLevels(input: {
   generation: StrategyWorkspaceValues["generation"];
   gridCount: string;
   lowerRangePercent: string;
+  marketType: StrategyWorkspaceValues["marketType"];
   ordinarySide: StrategyWorkspaceValues["ordinarySide"];
   quoteAmount: string;
   referencePrice: string;
@@ -881,6 +886,7 @@ function generateBatchEditableLevels(input: {
     count,
     generation: input.generation,
     lowerRangePercent: input.lowerRangePercent,
+    marketType: input.marketType,
     ordinarySide: input.ordinarySide,
     reference,
     strategyType: input.strategyType,
@@ -902,7 +908,7 @@ function generateBatchEditableLevels(input: {
       trailingPercent: trailing !== null && Number.isFinite(trailing) && trailing > 0 ? formatPercent(trailing) : "",
     }));
   }
-  return normalizeEditableLevels(items, input.amountMode);
+  return normalizeEditableLevels(items, input.amountMode, input.strategyType, input.marketType, input.ordinarySide);
 }
 
 function buildBatchPriceLevels(input: {
@@ -910,6 +916,7 @@ function buildBatchPriceLevels(input: {
   count: number;
   generation: StrategyWorkspaceValues["generation"];
   lowerRangePercent: string;
+  marketType: StrategyWorkspaceValues["marketType"];
   ordinarySide: StrategyWorkspaceValues["ordinarySide"];
   reference: number;
   strategyType: StrategyWorkspaceValues["strategyType"];
@@ -921,19 +928,19 @@ function buildBatchPriceLevels(input: {
     if (!Number.isFinite(coveredRange) || coveredRange <= 0) {
       return [];
     }
-    const prices = Array.from({ length: input.count }, (_value, index) => {
-      const progress = input.count === 1 ? 1 : (index + 1) / input.count;
-      const factor = coveredRange / 100;
+    const factor = coveredRange / 100;
+    const ascending = ordinaryLevelsAscend(input.strategyType, input.marketType, input.ordinarySide);
+    return Array.from({ length: input.count }, (_value, index) => {
+      const progress = input.count === 1 ? 0 : index / (input.count - 1);
       if (mode === "geometric") {
-        return input.ordinarySide === "upper"
+        return ascending
           ? input.reference * Math.pow(1 + factor, progress)
           : input.reference * Math.pow(Math.max(0.0001, 1 - factor), progress);
       }
-      return input.ordinarySide === "upper"
+      return ascending
         ? input.reference * (1 + factor * progress)
         : input.reference * (1 - factor * progress);
     }).filter((price) => Number.isFinite(price) && price > 0);
-    return input.ordinarySide === "upper" ? prices : prices.sort((left, right) => left - right);
   }
 
   const upperRange = Number.parseFloat(input.upperRangePercent);
@@ -971,6 +978,7 @@ function generateEditorSeedLevels(input: {
   generation: StrategyWorkspaceValues["generation"];
   gridCount: string;
   lowerRangePercent: string;
+  marketType: StrategyWorkspaceValues["marketType"];
   ordinarySide: StrategyWorkspaceValues["ordinarySide"];
   quoteAmount: string;
   referencePrice: string;
@@ -1029,15 +1037,39 @@ function createEditableLevel(index: number, partial?: Partial<EditableGridLevel>
   };
 }
 
-function normalizeEditableLevels(levels: EditableGridLevel[], amountMode: StrategyWorkspaceValues["amountMode"]) {
-  const ordered = [...levels].sort((left, right) => {
+function ordinaryLevelsAscend(
+  strategyType: StrategyWorkspaceValues["strategyType"],
+  marketType: StrategyWorkspaceValues["marketType"],
+  ordinarySide: StrategyWorkspaceValues["ordinarySide"],
+) {
+  return strategyType === "ordinary_grid" && marketType !== "spot" && ordinarySide === "upper";
+}
+
+function sortEditableLevels(
+  levels: EditableGridLevel[],
+  strategyType: StrategyWorkspaceValues["strategyType"],
+  marketType: StrategyWorkspaceValues["marketType"],
+  ordinarySide: StrategyWorkspaceValues["ordinarySide"],
+) {
+  const direction = ordinaryLevelsAscend(strategyType, marketType, ordinarySide) ? 1 : strategyType === "ordinary_grid" ? -1 : 1;
+  return [...levels].sort((left, right) => {
     const leftPrice = Number.parseFloat(left.entryPrice);
     const rightPrice = Number.parseFloat(right.entryPrice);
     if (!Number.isFinite(leftPrice) || !Number.isFinite(rightPrice)) {
       return 0;
     }
-    return leftPrice - rightPrice;
+    return direction * (leftPrice - rightPrice);
   });
+}
+
+function normalizeEditableLevels(
+  levels: EditableGridLevel[],
+  amountMode: StrategyWorkspaceValues["amountMode"],
+  strategyType: StrategyWorkspaceValues["strategyType"],
+  marketType: StrategyWorkspaceValues["marketType"],
+  ordinarySide: StrategyWorkspaceValues["ordinarySide"],
+) {
+  const ordered = sortEditableLevels(levels, strategyType, marketType, ordinarySide);
   return ordered.map((level, index) => {
     const prev = ordered[index - 1];
     const entryPrice = Number.parseFloat(level.entryPrice);
@@ -1068,9 +1100,12 @@ function updateLevelField(
   field: keyof Pick<EditableGridLevel, "entryPrice" | "quantity" | "quoteAmount" | "takeProfitPercent" | "trailingPercent">,
   value: string,
   amountMode: StrategyWorkspaceValues["amountMode"],
+  strategyType: StrategyWorkspaceValues["strategyType"],
+  marketType: StrategyWorkspaceValues["marketType"],
+  ordinarySide: StrategyWorkspaceValues["ordinarySide"],
 ) {
   const next = levels.map((level, currentIndex) => currentIndex === index ? { ...level, [field]: value } : { ...level });
-  return normalizeEditableLevels(next, amountMode);
+  return normalizeEditableLevels(next, amountMode, strategyType, marketType, ordinarySide);
 }
 
 function updateLevelSpacing(
@@ -1078,6 +1113,8 @@ function updateLevelSpacing(
   index: number,
   value: string,
   amountMode: StrategyWorkspaceValues["amountMode"],
+  strategyType: StrategyWorkspaceValues["strategyType"],
+  marketType: StrategyWorkspaceValues["marketType"],
   ordinarySide: StrategyWorkspaceValues["ordinarySide"],
 ) {
   if (index === 0) {
@@ -1089,9 +1126,9 @@ function updateLevelSpacing(
   const spacing = Number.parseFloat(value);
   if (Number.isFinite(previousPrice) && previousPrice > 0 && Number.isFinite(spacing) && spacing > -100) {
     const factor = 1 + spacing / 100;
-    next[index].entryPrice = formatDecimal(ordinarySide === "upper" ? previousPrice * factor : previousPrice * factor);
+    next[index].entryPrice = formatDecimal(previousPrice * factor);
   }
-  return normalizeEditableLevels(next, amountMode);
+  return normalizeEditableLevels(next, amountMode, strategyType, marketType, ordinarySide);
 }
 
 function addEditableLevel(
@@ -1099,6 +1136,8 @@ function addEditableLevel(
   amountMode: StrategyWorkspaceValues["amountMode"],
   fallbackSpacing: string,
   fallbackReferencePrice: string,
+  strategyType: StrategyWorkspaceValues["strategyType"],
+  marketType: StrategyWorkspaceValues["marketType"],
   ordinarySide: StrategyWorkspaceValues["ordinarySide"],
 ) {
   const next = levels.map((level) => ({ ...level }));
@@ -1107,7 +1146,7 @@ function addEditableLevel(
   const spacing = Number.parseFloat(last?.spacingPercent || fallbackSpacing || "1");
   const factor = 1 + ((Number.isFinite(spacing) ? spacing : 1) / 100);
   const nextPrice = Number.isFinite(lastPrice) && lastPrice > 0
-    ? (ordinarySide === "upper" ? lastPrice * factor : lastPrice * factor)
+    ? lastPrice * factor
     : Number.parseFloat(fallbackReferencePrice || "0");
   next.push(createEditableLevel(next.length, {
     entryPrice: Number.isFinite(nextPrice) && nextPrice > 0 ? formatDecimal(nextPrice) : "",
@@ -1116,14 +1155,21 @@ function addEditableLevel(
     takeProfitPercent: last?.takeProfitPercent ?? "",
     trailingPercent: last?.trailingPercent ?? "",
   }));
-  return normalizeEditableLevels(next, amountMode);
+  return normalizeEditableLevels(next, amountMode, strategyType, marketType, ordinarySide);
 }
 
-function removeEditableLevel(levels: EditableGridLevel[], index: number, amountMode: StrategyWorkspaceValues["amountMode"]) {
+function removeEditableLevel(
+  levels: EditableGridLevel[],
+  index: number,
+  amountMode: StrategyWorkspaceValues["amountMode"],
+  strategyType: StrategyWorkspaceValues["strategyType"],
+  marketType: StrategyWorkspaceValues["marketType"],
+  ordinarySide: StrategyWorkspaceValues["ordinarySide"],
+) {
   if (levels.length <= 1) {
     return levels;
   }
-  return normalizeEditableLevels(levels.filter((_, currentIndex) => currentIndex !== index), amountMode);
+  return normalizeEditableLevels(levels.filter((_, currentIndex) => currentIndex !== index), amountMode, strategyType, marketType, ordinarySide);
 }
 
 function serializeLevels(levels: EditableGridLevel[], amountMode: StrategyWorkspaceValues["amountMode"]) {

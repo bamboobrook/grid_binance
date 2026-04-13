@@ -1279,9 +1279,9 @@ fn validate_strategy_request(request: &SaveStrategyRequest) -> Result<(), Strate
         parsed.push(entry_price);
     }
 
-    if parsed.windows(2).any(|pair| pair[0] >= pair[1]) {
+    if !levels_follow_execution_order(&parsed, request.strategy_type, request.mode) {
         return Err(StrategyError::bad_request(
-            "levels must be strictly increasing by entry_price",
+            expected_levels_order_message(request.strategy_type, request.mode),
         ));
     }
 
@@ -1305,6 +1305,43 @@ fn validate_strategy_request(request: &SaveStrategyRequest) -> Result<(), Strate
     }
 
     Ok(())
+}
+
+fn levels_follow_execution_order(
+    levels: &[Decimal],
+    strategy_type: StrategyType,
+    mode: StrategyMode,
+) -> bool {
+    match expected_level_direction(strategy_type, mode) {
+        LevelDirection::Ascending => levels.windows(2).all(|pair| pair[0] < pair[1]),
+        LevelDirection::Descending => levels.windows(2).all(|pair| pair[0] > pair[1]),
+    }
+}
+
+fn expected_levels_order_message(strategy_type: StrategyType, mode: StrategyMode) -> &'static str {
+    match expected_level_direction(strategy_type, mode) {
+        LevelDirection::Ascending => "levels must be strictly increasing by entry_price",
+        LevelDirection::Descending => "levels must be strictly decreasing by entry_price",
+    }
+}
+
+#[derive(Clone, Copy)]
+enum LevelDirection {
+    Ascending,
+    Descending,
+}
+
+fn expected_level_direction(strategy_type: StrategyType, mode: StrategyMode) -> LevelDirection {
+    if matches!(strategy_type, StrategyType::ClassicBilateralGrid)
+        || matches!(
+            mode,
+            StrategyMode::SpotClassic | StrategyMode::FuturesNeutral | StrategyMode::FuturesShort
+        )
+    {
+        LevelDirection::Ascending
+    } else {
+        LevelDirection::Descending
+    }
 }
 
 fn build_strategy(
@@ -1426,11 +1463,11 @@ fn summarize_spacing_bps(levels: &[SaveGridLevelRequest]) -> Result<u32, Strateg
 
     let first = parse_decimal(&levels[0].entry_price, "entry_price")?;
     let second = parse_decimal(&levels[1].entry_price, "entry_price")?;
-    if first <= Decimal::ZERO || second <= first {
+    if first <= Decimal::ZERO || second <= Decimal::ZERO || second == first {
         return Ok(1);
     }
 
-    let spacing = ((second - first) / first) * Decimal::from(10_000u32);
+    let spacing = ((second - first).abs() / first) * Decimal::from(10_000u32);
     let spacing = spacing.round().to_string().parse::<u32>().unwrap_or(1);
     Ok(spacing.max(1))
 }

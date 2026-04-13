@@ -190,6 +190,137 @@ async fn classic_bilateral_create_and_list_round_trips_strategy_type() {
 }
 
 #[tokio::test]
+async fn ordinary_grid_accepts_and_preserves_execution_order_by_mode() {
+    let app = app();
+    let user_token =
+        register_and_login(&app, "ordinary-order@example.com", "pass1234").await;
+
+    let created = create_strategy(
+        &app,
+        &user_token,
+        json!({
+            "name": "Spot Ordinary Ordered",
+            "symbol": "BTCUSDT",
+            "market": "Spot",
+            "mode": "SpotBuyOnly",
+            "generation": "Custom",
+            "strategy_type": "ordinary_grid",
+            "reference_price_source": "market",
+            "levels": [
+                grid_level("100.00", "0.0100", 120, None),
+                grid_level("96.00", "0.0100", 120, None),
+                grid_level("92.00", "0.0100", 120, None)
+            ],
+            "overall_take_profit_bps": 500,
+            "overall_stop_loss_bps": 200,
+            "post_trigger_action": "Stop"
+        }),
+    )
+    .await;
+    assert_eq!(created.status(), StatusCode::CREATED);
+    let created_body = response_json(created).await;
+    let strategy_id = created_body["id"].as_str().expect("strategy id");
+    assert_eq!(
+        created_body["draft_revision"]["reference_price_source"],
+        "market"
+    );
+    assert_eq!(
+        created_body["draft_revision"]["levels"][0]["entry_price"],
+        "100.00"
+    );
+    assert_eq!(
+        created_body["draft_revision"]["levels"][1]["entry_price"],
+        "96.00"
+    );
+    assert_eq!(
+        created_body["draft_revision"]["levels"][2]["entry_price"],
+        "92.00"
+    );
+
+    let updated = update_strategy(
+        &app,
+        &user_token,
+        strategy_id,
+        json!({
+            "name": "Spot Ordinary Ordered Updated",
+            "symbol": "BTCUSDT",
+            "market": "Spot",
+            "mode": "SpotBuyOnly",
+            "generation": "Custom",
+            "strategy_type": "ordinary_grid",
+            "reference_price_source": "manual",
+            "levels": [
+                grid_level("110.00", "0.0100", 130, None),
+                grid_level("105.00", "0.0100", 130, None),
+                grid_level("100.00", "0.0100", 130, None)
+            ],
+            "overall_take_profit_bps": 600,
+            "overall_stop_loss_bps": 250,
+            "post_trigger_action": "Rebuild"
+        }),
+    )
+    .await;
+    assert_eq!(updated.status(), StatusCode::OK);
+    let updated_body = response_json(updated).await;
+    assert_eq!(
+        updated_body["draft_revision"]["reference_price_source"],
+        "manual"
+    );
+    assert_eq!(
+        updated_body["draft_revision"]["levels"][0]["entry_price"],
+        "110.00"
+    );
+    assert_eq!(
+        updated_body["draft_revision"]["levels"][1]["entry_price"],
+        "105.00"
+    );
+    assert_eq!(
+        updated_body["draft_revision"]["levels"][2]["entry_price"],
+        "100.00"
+    );
+
+    let short_created = create_strategy(
+        &app,
+        &user_token,
+        json!({
+            "name": "Short Ordinary Ordered",
+            "symbol": "ETHUSDT",
+            "market": "FuturesUsdM",
+            "mode": "FuturesShort",
+            "generation": "Custom",
+            "amount_mode": "Quote",
+            "futures_margin_mode": "Cross",
+            "leverage": 5,
+            "strategy_type": "ordinary_grid",
+            "reference_price_source": "manual",
+            "levels": [
+                grid_level("100.00", "0.0100", 120, None),
+                grid_level("104.00", "0.0100", 120, None),
+                grid_level("108.00", "0.0100", 120, None)
+            ],
+            "overall_take_profit_bps": 500,
+            "overall_stop_loss_bps": 200,
+            "post_trigger_action": "Stop"
+        }),
+    )
+    .await;
+    assert_eq!(short_created.status(), StatusCode::CREATED);
+    let short_body = response_json(short_created).await;
+    assert_eq!(
+        short_body["draft_revision"]["levels"][0]["entry_price"],
+        "100.00"
+    );
+    assert_eq!(
+        short_body["draft_revision"]["levels"][1]["entry_price"],
+        "104.00"
+    );
+    assert_eq!(
+        short_body["draft_revision"]["levels"][2]["entry_price"],
+        "108.00"
+    );
+}
+
+#[tokio::test]
 async fn futures_classic_bilateral_preflight_fails_without_hedge_mode() {
     let db = SharedDb::ephemeral().expect("ephemeral db");
     let app = app_with_state(AppState::from_shared_db(db.clone()).expect("state"));

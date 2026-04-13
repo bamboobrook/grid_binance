@@ -26,6 +26,7 @@ type PageProps = {
 
 type BackendStrategy = {
   budget: string;
+  strategy_type?: string;
   draft_revision: {
     amount_mode?: "Quote" | "Base";
     futures_margin_mode?: "Isolated" | "Cross" | null;
@@ -40,6 +41,8 @@ type BackendStrategy = {
     overall_stop_loss_bps: number | null;
     overall_take_profit_bps: number | null;
     post_trigger_action: string;
+    reference_price_source?: string;
+    strategy_type?: string;
   };
   id: string;
   market: string;
@@ -100,9 +103,9 @@ export default async function StrategyDetailPage({ params, searchParams }: PageP
   const firstLevel = strategy.draft_revision.levels[0];
   const levelsJson = JSON.stringify(strategy.draft_revision.levels, null, 2);
   const detailPagePath = withLocale(locale, `/app/strategies/${strategy.id}`);
-  const strategyType = mapStrategyTypeToForm(strategy.mode);
+  const strategyType = mapStrategyTypeToForm(strategy.strategy_type ?? strategy.draft_revision.strategy_type ?? strategy.mode);
   const ordinarySide = mapOrdinarySideToForm(strategy.mode);
-  const bounds = deriveWorkspaceBounds(strategy.draft_revision.levels, strategyType, ordinarySide);
+  const bounds = deriveWorkspaceBounds(strategy.draft_revision.levels, strategyType);
   const values: StrategyWorkspaceValues = {
     amountMode: strategy.draft_revision.amount_mode === "Base" ? "base" : "quote",
     baseQuantity: firstLevel?.quantity ?? "",
@@ -126,7 +129,7 @@ export default async function StrategyDetailPage({ params, searchParams }: PageP
     postTrigger: mapPostTriggerToForm(strategy.draft_revision.post_trigger_action),
     quoteAmount: firstLevel ? formatQuote(firstLevel.entry_price, firstLevel.quantity) : "",
     referencePrice: bounds.referencePrice,
-    referencePriceMode: "manual",
+    referencePriceMode: mapReferencePriceModeToForm(strategy.draft_revision.reference_price_source),
     strategyType,
     symbol: strategy.symbol,
     upperRangePercent: bounds.upperRangePercent,
@@ -299,12 +302,17 @@ function mapGenerationToForm(value: string): StrategyWorkspaceValues["generation
 
 function mapStrategyTypeToForm(value: string): StrategyWorkspaceValues["strategyType"] {
   switch (value) {
+    case "classic_bilateral_grid":
     case "SpotClassic":
     case "FuturesNeutral":
       return "classic_bilateral_grid";
     default:
       return "ordinary_grid";
   }
+}
+
+function mapReferencePriceModeToForm(value?: string): StrategyWorkspaceValues["referencePriceMode"] {
+  return value === "market" ? "market" : "manual";
 }
 
 function mapOrdinarySideToForm(value: string): StrategyWorkspaceValues["ordinarySide"] {
@@ -320,12 +328,11 @@ function mapOrdinarySideToForm(value: string): StrategyWorkspaceValues["ordinary
 function deriveWorkspaceBounds(
   levels: BackendStrategy["draft_revision"]["levels"],
   strategyType: StrategyWorkspaceValues["strategyType"],
-  ordinarySide: StrategyWorkspaceValues["ordinarySide"],
 ) {
-  const prices = levels
+  const orderedPrices = levels
     .map((level) => Number.parseFloat(level.entry_price))
-    .filter((price): price is number => Number.isFinite(price) && price > 0)
-    .sort((left, right) => left - right);
+    .filter((price): price is number => Number.isFinite(price) && price > 0);
+  const prices = [...orderedPrices].sort((left, right) => left - right);
   if (prices.length === 0) {
     return {
       coveredRangePercent: "",
@@ -338,8 +345,8 @@ function deriveWorkspaceBounds(
   const minPrice = prices[0];
   const maxPrice = prices[prices.length - 1];
   if (strategyType === "ordinary_grid") {
-    const anchor = ordinarySide === "upper" ? minPrice : maxPrice;
-    const edge = ordinarySide === "upper" ? maxPrice : minPrice;
+    const anchor = orderedPrices[0] ?? minPrice;
+    const edge = orderedPrices[orderedPrices.length - 1] ?? maxPrice;
     return {
       coveredRangePercent: formatPercentFromPrices(anchor, edge),
       lowerRangePercent: "",

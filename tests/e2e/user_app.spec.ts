@@ -148,6 +148,7 @@ test("strategy workspace supports per-grid custom editing and draft deletion", a
   await expect(page).toHaveURL(/\/app\/strategies\/new$/);
 
   await page.getByLabel("Grid Count").fill("3");
+  await page.getByLabel("Generation").selectOption("custom");
   await page.getByLabel("Editor Mode").selectOption("custom");
   await page.getByRole("button", { name: /ETHUSDT/ }).first().click();
   await page.getByRole("button", { name: "Apply Batch Defaults" }).click();
@@ -316,3 +317,68 @@ test("classic bilateral batch builder keeps a single level when grid count is 1"
   await expect(editor.getByText("L1", { exact: true })).toBeVisible();
   await expect(editor.getByText("L2", { exact: true })).toHaveCount(0);
 });
+
+test("classic bilateral create preserves strategy type and reference source on detail", async ({ page }) => {
+  const email = uniqueEmail("strategy-classic-detail");
+  const password = "pass1234";
+
+  await registerViaPage(page, email, password);
+  await page.goto("/app/strategies/new");
+  await expect(page).toHaveURL(/\/app\/strategies\/new$/);
+
+  await page.getByRole("button", { name: /ETHUSDT/ }).first().click();
+  await page.getByLabel("Strategy Type").selectOption("classic_bilateral_grid");
+  await page.getByLabel("Reference Source").selectOption("market");
+  await page.getByLabel("Grid Count").fill("3");
+  await page.getByLabel("Upper Range (%)").fill("4");
+  await page.getByLabel("Lower Range (%)").fill("3");
+
+  await page.getByRole("button", { name: "Create Bot" }).click();
+  await expect(page).toHaveURL(/\/app\/strategies\/[^/]+\?notice=draft-saved/);
+  await expect(page.getByLabel("Strategy Type")).toHaveValue("classic_bilateral_grid");
+  await expect(page.getByLabel("Reference Source")).toHaveValue("market");
+  await expect(page.getByLabel("Upper Range (%)")).toBeVisible();
+  await expect(page.getByLabel("Lower Range (%)")).toBeVisible();
+  await expect(page.getByLabel("Covered Range (%)")).toHaveCount(0);
+});
+
+test("ordinary detail save preserves execution-ordered levels shape", async ({ page }) => {
+  const email = uniqueEmail("strategy-save-shape");
+  const password = "pass1234";
+
+  await registerViaPage(page, email, password);
+  await page.goto("/app/strategies/new");
+  await expect(page).toHaveURL(/\/app\/strategies\/new$/);
+
+  await page.getByLabel("Grid Count").fill("3");
+  await page.getByLabel("Generation").selectOption("custom");
+  await page.getByLabel("Editor Mode").selectOption("custom");
+  await page.getByRole("button", { name: /ETHUSDT/ }).first().click();
+  await page.getByRole("button", { name: "Apply Batch Defaults" }).click();
+
+  const editor = page.locator('[data-level-editor="true"]');
+  await editor.getByLabel("Grid Price").nth(0).fill("1800");
+  await editor.getByLabel("Grid Price").nth(1).fill("1740");
+  await editor.getByLabel("Grid Price").nth(2).fill("1680");
+  await editor.getByLabel("Quote Amount (USDT)").nth(0).fill("50");
+  await editor.getByLabel("Quote Amount (USDT)").nth(1).fill("60");
+  await editor.getByLabel("Quote Amount (USDT)").nth(2).fill("70");
+  await editor.getByLabel("Grid Take Profit (%)").nth(0).fill("1.2");
+  await editor.getByLabel("Grid Take Profit (%)").nth(1).fill("1.4");
+  await editor.getByLabel("Grid Take Profit (%)").nth(2).fill("1.6");
+
+  await page.getByRole("button", { name: "Create Bot" }).click();
+  await expect(page).toHaveURL(/\/app\/strategies\/[^/]+\?notice=draft-saved/);
+
+  const detailEditor = page.locator('[data-level-editor="true"]');
+  await expect(detailEditor.getByLabel("Grid Price").nth(0)).toHaveValue("1800");
+  await expect(detailEditor.getByLabel("Grid Price").nth(1)).toHaveValue("1740");
+  await expect(detailEditor.getByLabel("Grid Price").nth(2)).toHaveValue("1680");
+
+  await page.getByRole("button", { name: "Save Changes" }).click();
+  await expect(page).toHaveURL(/notice=edits-saved/);
+  await expect(detailEditor.getByLabel("Grid Price").nth(0)).toHaveValue("1800");
+  await expect(detailEditor.getByLabel("Grid Price").nth(1)).toHaveValue("1740");
+  await expect(detailEditor.getByLabel("Grid Price").nth(2)).toHaveValue("1680");
+});
+

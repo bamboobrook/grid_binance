@@ -10,6 +10,7 @@ type BackendStrategy = {
   symbol: string;
   market: "Spot" | "FuturesUsdM" | "FuturesCoinM";
   mode: "SpotClassic" | "SpotBuyOnly" | "SpotSellOnly" | "FuturesLong" | "FuturesShort" | "FuturesNeutral";
+  strategy_type?: "ordinary_grid" | "classic_bilateral_grid";
   draft_revision: {
     generation: "Arithmetic" | "Geometric" | "Custom";
     levels: Array<{
@@ -24,6 +25,7 @@ type BackendStrategy = {
     overall_take_profit_bps: number | null;
     overall_stop_loss_bps: number | null;
     post_trigger_action: "Stop" | "Rebuild";
+    reference_price_source?: "manual" | "market";
   };
   status: string;
 };
@@ -143,7 +145,7 @@ export async function POST(
 }
 
 async function buildUpdatePayload(formData: FormData, current: BackendStrategy) {
-  const generation = (mapGeneration(readField(formData, "generation")) || current.draft_revision.generation);
+  const generation = mapGeneration(readField(formData, "generation")) || current.draft_revision.generation;
   const market = mapMarket(readField(formData, "marketType")) || current.market;
   const symbol = readField(formData, "symbol") || current.symbol;
 
@@ -152,6 +154,7 @@ async function buildUpdatePayload(formData: FormData, current: BackendStrategy) 
     symbol,
     market,
     mode: mapMode(readField(formData, "mode")) || current.mode,
+    strategy_type: mapStrategyType(readField(formData, "strategyType")) || current.strategy_type || "ordinary_grid",
     generation,
     amount_mode: mapAmountMode(readField(formData, "amountMode")) || current.draft_revision.amount_mode || "Quote",
     futures_margin_mode: market === "Spot"
@@ -160,70 +163,14 @@ async function buildUpdatePayload(formData: FormData, current: BackendStrategy) 
     leverage: market === "Spot"
       ? null
       : readPositiveInteger(formData, "leverage", "Leverage"),
-    levels: await readLevels(formData, generation, market, symbol, current.draft_revision.levels),
+    levels: parseLevelsJson(readField(formData, "levels_json"), current.draft_revision.levels),
     overall_take_profit_bps: readPercentField(formData, "overallTakeProfit", current.draft_revision.overall_take_profit_bps),
     overall_stop_loss_bps: readPercentField(formData, "overallStopLoss", current.draft_revision.overall_stop_loss_bps),
+    reference_price_source: mapReferencePriceSource(readField(formData, "referencePriceMode"))
+      || current.draft_revision.reference_price_source
+      || "manual",
     post_trigger_action: mapPostTrigger(readField(formData, "postTrigger")) || current.draft_revision.post_trigger_action,
   };
-}
-
-async function readLevels(
-  formData: FormData,
-  generation: BackendStrategy["draft_revision"]["generation"],
-  market: BackendStrategy["market"],
-  symbol: string,
-  fallback: BackendStrategy["draft_revision"]["levels"],
-): Promise<ParsedGridLevel[]> {
-  const editorMode = readField(formData, "editorMode") || "custom";
-  if (editorMode === "batch" && generation !== "Custom") {
-    return buildBatchLevels(formData, generation, market, symbol);
-  }
-  return parseLevelsJson(readField(formData, "levels_json"), fallback);
-}
-
-async function buildBatchLevels(formData: FormData, generation: "Arithmetic" | "Geometric", market: BackendStrategy["market"], symbol: string) {
-  const referencePrice = await resolveReferencePrice(formData, market, symbol);
-  const gridCount = readPositiveInteger(formData, "gridCount", "Grid count");
-  const gridSpacingPercent = readPositiveNumber(formData, "gridSpacingPercent", "Batch spacing (%)");
-  const takeProfitPercent = readPositiveNumber(formData, "batchTakeProfit", "Batch take profit (%)");
-  const trailingPercent = readOptionalPositiveNumber(formData, "batchTrailing", "Batch trailing take profit (%)");
-  const amountMode = readField(formData, "amountMode") || "quote";
-  const baseQuantity = amountMode === "base"
-    ? readPositiveNumber(formData, "baseQuantity", "Base asset quantity")
-    : null;
-  const quoteAmount = amountMode === "quote"
-    ? readPositiveNumber(formData, "quoteAmount", "Quote amount (USDT)")
-    : null;
-  const takeProfitBps = Math.round(takeProfitPercent * 100);
-  const trailingBps = trailingPercent === null ? null : Math.round(trailingPercent * 100);
-
-  if (trailingBps !== null && trailingBps > takeProfitBps) {
-    throw new Error("Batch trailing take profit (%) cannot exceed batch take profit (%).");
-  }
-
-  const midpoint = (gridCount - 1) / 2;
-  return Array.from({ length: gridCount }, (_value, index) => {
-    const offset = index - midpoint;
-    const spacingFactor = gridSpacingPercent / 100;
-    const rawPrice = generation === "Geometric"
-      ? referencePrice * Math.pow(1 + spacingFactor, offset)
-      : referencePrice * (1 + spacingFactor * offset);
-    if (!Number.isFinite(rawPrice) || rawPrice <= 0) {
-      throw new Error("Generated grid price must stay above 0. Reduce spacing or grid count.");
-    }
-    const quantity = amountMode === "quote"
-      ? (quoteAmount ?? 0) / rawPrice
-      : (baseQuantity ?? 0);
-    if (!Number.isFinite(quantity) || quantity <= 0) {
-      throw new Error("Generated grid quantity must stay above 0.");
-    }
-    return {
-      entry_price: formatDecimal(rawPrice, 8),
-      quantity: formatDecimal(quantity, 8),
-      take_profit_bps: takeProfitBps,
-      trailing_bps: trailingBps,
-    };
-  });
 }
 
 function parseLevelsJson(raw: string, fallback: BackendStrategy["draft_revision"]["levels"]): ParsedGridLevel[] {
@@ -308,70 +255,12 @@ function readPercentField(formData: FormData, key: string, fallback: number | nu
   return Math.round(parsed * 100);
 }
 
-function readPositiveNumber(formData: FormData, key: string, label: string) {
-  const parsed = Number.parseFloat(readField(formData, key));
-  if (!Number.isFinite(parsed) || parsed <= 0) {
-    throw new Error(`${label} must be a positive number.`);
-  }
-  return parsed;
-}
-
-function readOptionalPositiveNumber(formData: FormData, key: string, label: string) {
-  const value = readField(formData, key);
-  if (!value) {
-    return null;
-  }
-  const parsed = Number.parseFloat(value);
-  if (!Number.isFinite(parsed) || parsed <= 0) {
-    throw new Error(`${label} must be a positive number when provided.`);
-  }
-  return parsed;
-}
-
 function readPositiveInteger(formData: FormData, key: string, label: string) {
   const parsed = Number.parseInt(readField(formData, key), 10);
   if (!Number.isFinite(parsed) || parsed <= 0) {
     throw new Error(`${label} must be a positive integer.`);
   }
   return parsed;
-}
-
-function formatDecimal(value: number, scale: number) {
-  const normalized = value.toFixed(scale).replace(/\.0+$/, "").replace(/(\.\d*?)0+$/, "$1");
-  return normalized === "-0" ? "0" : normalized;
-}
-
-async function resolveReferencePrice(
-  formData: FormData,
-  market: BackendStrategy["market"],
-  symbol: string,
-) {
-  const mode = readField(formData, "referencePriceMode") || "manual";
-  if (mode !== "market") {
-    return readPositiveNumber(formData, "referencePrice", "Reference price");
-  }
-  const response = await fetch(binanceTickerUrl(market, symbol), { cache: "no-store" });
-  if (!response.ok) {
-    throw new Error("Current market price is temporarily unavailable.");
-  }
-  const payload = (await response.json()) as { price?: string };
-  const parsed = Number.parseFloat(String(payload.price ?? ""));
-  if (!Number.isFinite(parsed) || parsed <= 0) {
-    throw new Error("Current market price is temporarily unavailable.");
-  }
-  return parsed;
-}
-
-function binanceTickerUrl(market: BackendStrategy["market"], symbol: string) {
-  const encodedSymbol = encodeURIComponent(symbol.trim().toUpperCase());
-  switch (market) {
-    case "FuturesUsdM":
-      return `https://fapi.binance.com/fapi/v1/ticker/price?symbol=${encodedSymbol}`;
-    case "FuturesCoinM":
-      return `https://dapi.binance.com/dapi/v1/ticker/price?symbol=${encodedSymbol}`;
-    default:
-      return `https://api.binance.com/api/v3/ticker/price?symbol=${encodedSymbol}`;
-  }
 }
 
 async function fetchStrategy(sessionToken: string, strategyId: string) {
@@ -471,6 +360,20 @@ function mapGeneration(value: string) {
     default:
       return null;
   }
+}
+
+function mapStrategyType(value: string) {
+  if (value === "ordinary_grid" || value === "classic_bilateral_grid") {
+    return value;
+  }
+  return null;
+}
+
+function mapReferencePriceSource(value: string) {
+  if (value === "manual" || value === "market") {
+    return value;
+  }
+  return null;
 }
 
 function mapPostTrigger(value: string) {
