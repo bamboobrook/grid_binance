@@ -79,53 +79,75 @@ export default async function DashboardPage({ params }: { params: Promise<{ loca
   ];
 
   return (
-    <div className="flex flex-col space-y-4 max-w-[1600px] mx-auto h-full">
+    <div className="flex flex-col space-y-6 max-w-[1600px] mx-auto h-full text-slate-200">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-xl font-bold tracking-tight text-foreground">{t("title")}</h1>
+          <h1 className="text-2xl font-black tracking-tight text-white">{t("title")}</h1>
         </div>
         <div className="flex flex-wrap items-center gap-3">
-          <Button className="h-8 px-3 text-xs bg-transparent border border-border text-foreground hover:bg-secondary/70">
-            <History className="w-3.5 h-3.5 mr-1.5" />
+          <Button className="h-9 px-4 text-xs font-semibold bg-[#1f2937] hover:bg-[#374151] text-white border border-slate-700 rounded-lg transition-colors">
+            <History className="w-4 h-4 mr-2 text-slate-400" />
             {pickText(lang, "最近24小时", "Last 24h")}
           </Button>
           <Link href={`/${locale}/app/strategies/new`}>
-            <Button className="h-8 px-4 text-xs font-semibold">
-              <Zap className="w-3.5 h-3.5 mr-1.5" />
+            <Button className="h-9 px-5 text-sm font-bold bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/20 rounded-lg transition-all">
+              <Zap className="w-4 h-4 mr-2" />
               {pickText(lang, "新建机器人", "New Bot")}
             </Button>
           </Link>
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-4 xl:grid-cols-8">
-        {metrics.map((metric) => (
-          <div key={metric.label} className="bg-card border border-border/60 rounded-xl p-4 flex flex-col justify-center">
-            <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider mb-1">{metric.label}</span>
-            <span className={`text-xl font-mono font-semibold ${metric.color}`}>{metric.value}</span>
+      {/* Bento Grid: Metrics Overview */}
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
+        <div className="col-span-2 bg-gradient-to-br from-[#1e293b] to-[#111827] border border-slate-700/60 rounded-2xl p-5 flex flex-col justify-between relative overflow-hidden group">
+          <div className="absolute -right-6 -top-6 w-32 h-32 bg-primary/10 rounded-full blur-3xl group-hover:bg-primary/20 transition-colors"></div>
+          <span className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 relative z-10">{t("metrics.netPnL")}</span>
+          <span className={`text-4xl font-mono font-black relative z-10 ${Number.parseFloat(analytics?.user.net_pnl || "0") >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+            {Number.parseFloat(analytics?.user.net_pnl || "0") >= 0 ? "+" : ""}{analytics?.user.net_pnl ?? "0.00"}
+          </span>
+          <div className="mt-4 flex items-center gap-4 text-xs font-medium text-slate-500 relative z-10">
+            <div className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-500"></span> {t("metrics.runningBots")}: {runningCount}</div>
+            <div className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-500"></span> Error: {errorPausedCount}</div>
           </div>
-        ))}
+        </div>
+
+        <div className="bg-[#111827] border border-slate-800 rounded-2xl p-5 flex flex-col justify-center hover:border-slate-700 transition-colors">
+          <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">{t("metrics.realizedPnL")}</span>
+          <span className="text-xl font-mono font-bold text-emerald-400">+{analytics?.user.realized_pnl ?? "0.00"}</span>
+        </div>
+        <div className="bg-[#111827] border border-slate-800 rounded-2xl p-5 flex flex-col justify-center hover:border-slate-700 transition-colors">
+          <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">{t("metrics.unrealizedPnL")}</span>
+          <span className={`text-xl font-mono font-bold ${Number.parseFloat(analytics?.user.unrealized_pnl || "0") >= 0 ? "text-blue-400" : "text-amber-400"}`}>
+            {Number.parseFloat(analytics?.user.unrealized_pnl || "0") >= 0 ? "+" : ""}{analytics?.user.unrealized_pnl ?? "0.00"}
+          </span>
+        </div>
+        <div className="bg-[#111827] border border-slate-800 rounded-2xl p-5 flex flex-col justify-center hover:border-slate-700 transition-colors">
+          <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">{pickText(lang, "资金费", "Funding")}</span>
+          <span className="text-xl font-mono font-bold text-slate-300">{analytics?.user.funding_total ?? "0.00"}</span>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-[1.35fr_0.95fr] gap-4">
-        <div className="flex flex-col gap-4">
-          <Card className="bg-card border-border shadow-none">
-            <div className="bg-secondary/30 px-4 py-2.5 border-b border-border flex items-center justify-between">
-              <span className="text-xs font-bold text-foreground uppercase tracking-wider flex items-center gap-2">
+      {/* Bento Grid: Main Content */}
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_400px] gap-6">
+        <div className="flex flex-col gap-6">
+          <Card className="bg-[#111827] border-slate-800 shadow-none rounded-2xl overflow-hidden">
+            <div className="bg-[#1f2937]/50 px-5 py-3.5 border-b border-slate-800 flex items-center justify-between">
+              <span className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-2">
                 <Activity className="w-4 h-4 text-primary" />
                 {t("sections.recentFills")}
               </span>
-              <Link href={`/${locale}/app/orders`} className="text-[11px] text-primary hover:underline">
+              <Link href={`/${locale}/app/orders`} className="text-[11px] font-semibold text-primary hover:text-primary/80 transition-colors">
                 {pickText(lang, "查看历史", "View history")}
               </Link>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-left text-sm">
-                <thead className="bg-muted text-muted-foreground text-[10px] uppercase tracking-wider">
+                <thead className="bg-[#0f141f] text-slate-500 text-[10px] uppercase tracking-wider">
                   <tr>
-                    <th className="px-4 py-2 font-medium">{pickText(lang, "交易对", "Pair")}</th>
-                    <th className="px-4 py-2 font-medium text-right">{pickText(lang, "收益", "PnL")}</th>
-                    <th className="px-4 py-2 font-medium text-right">{pickText(lang, "状态", "Status")}</th>
+                    <th className="px-5 py-3 font-semibold">{pickText(lang, "交易对", "Pair")}</th>
+                    <th className="px-5 py-3 font-semibold text-right">{pickText(lang, "收益", "PnL")}</th>
+                    <th className="px-5 py-3 font-semibold text-right">{pickText(lang, "状态", "Status")}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800/50">
@@ -133,14 +155,14 @@ export default async function DashboardPage({ params }: { params: Promise<{ loca
                     const pnl = Number.parseFloat(fill.net_pnl || fill.realized_pnl || "0");
                     const isPositive = pnl >= 0;
                     return (
-                      <tr key={index} className="hover:bg-secondary/30 transition-colors">
-                        <td className="px-4 py-2.5 font-mono text-xs text-foreground font-semibold">{fill.symbol}</td>
-                        <td className={`px-4 py-2.5 text-right font-mono text-xs font-bold ${isPositive ? "text-emerald-500" : "text-red-500"}`}>
+                      <tr key={index} className="hover:bg-[#1f2937]/30 transition-colors">
+                        <td className="px-5 py-3.5 font-mono text-xs text-slate-200 font-bold">{fill.symbol}</td>
+                        <td className={`px-5 py-3.5 text-right font-mono text-xs font-bold ${isPositive ? "text-emerald-400" : "text-red-400"}`}>
                           {isPositive ? "+" : ""}{pnl.toFixed(4)}
                         </td>
-                        <td className="px-4 py-2.5 text-right">
-                          <span className={`px-1.5 py-0.5 rounded-sm text-[10px] font-bold ${isPositive ? "bg-emerald-500/10 text-emerald-500" : "bg-red-500/10 text-red-500"}`}>
-                            {isPositive ? pickText(lang, "已平仓", "Closed") : pickText(lang, "追踪止盈中", "Trailing")}
+                        <td className="px-5 py-3.5 text-right">
+                          <span className={`px-2 py-1 rounded text-[10px] font-bold ${isPositive ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" : "bg-red-500/10 text-red-400 border border-red-500/20"}`}>
+                            {isPositive ? pickText(lang, "已平仓", "Closed") : pickText(lang, "追踪中", "Trailing")}
                           </span>
                         </td>
                       </tr>
@@ -148,7 +170,7 @@ export default async function DashboardPage({ params }: { params: Promise<{ loca
                   })}
                   {(!analytics?.fills || analytics.fills.length === 0) && (
                     <tr>
-                      <td colSpan={3} className="px-4 py-8 text-center text-xs text-muted-foreground">
+                      <td colSpan={3} className="px-5 py-12 text-center text-xs text-slate-500">
                         {pickText(lang, "暂时还没有最近成交，先创建机器人开始运行。", "No recent deals yet. Start a bot to see activity.")}
                       </td>
                     </tr>
@@ -158,35 +180,35 @@ export default async function DashboardPage({ params }: { params: Promise<{ loca
             </div>
           </Card>
 
-          <Card className="bg-card border-border shadow-none">
-            <div className="bg-secondary/30 px-4 py-2.5 border-b border-border flex items-center justify-between">
-              <span className="text-xs font-bold text-foreground uppercase tracking-wider flex items-center gap-2">
-                <History className="w-4 h-4 text-primary" />
+          <Card className="bg-[#111827] border-slate-800 shadow-none rounded-2xl overflow-hidden">
+            <div className="bg-[#1f2937]/50 px-5 py-3.5 border-b border-slate-800 flex items-center justify-between">
+              <span className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                <History className="w-4 h-4 text-indigo-400" />
                 {pickText(lang, "近期账户活动", "Recent account activity")}
               </span>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-left text-sm">
-                <thead className="bg-muted text-muted-foreground text-[10px] uppercase tracking-wider">
+                <thead className="bg-[#0f141f] text-slate-500 text-[10px] uppercase tracking-wider">
                   <tr>
-                    <th className="px-4 py-2 font-medium">{pickText(lang, "时间", "Captured At")}</th>
-                    <th className="px-4 py-2 font-medium">{pickText(lang, "账户", "Account")}</th>
-                    <th className="px-4 py-2 font-medium text-right">{pickText(lang, "资金费", "Funding")}</th>
-                    <th className="px-4 py-2 font-medium text-right">{pickText(lang, "手续费", "Fees")}</th>
+                    <th className="px-5 py-3 font-semibold">{pickText(lang, "时间", "Captured At")}</th>
+                    <th className="px-5 py-3 font-semibold">{pickText(lang, "账户", "Account")}</th>
+                    <th className="px-5 py-3 font-semibold text-right">{pickText(lang, "资金费", "Funding")}</th>
+                    <th className="px-5 py-3 font-semibold text-right">{pickText(lang, "手续费", "Fees")}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800/50">
                   {(analytics?.account_snapshots ?? []).slice(0, 6).map((snapshot, index) => (
-                    <tr key={`${snapshot.exchange}-${snapshot.captured_at}-${index}`} className="hover:bg-secondary/30 transition-colors">
-                      <td className="px-4 py-2.5 text-xs text-foreground">{formatTaipeiDateTime(snapshot.captured_at, lang)}</td>
-                      <td className="px-4 py-2.5 text-xs text-foreground">{snapshot.exchange}</td>
-                      <td className="px-4 py-2.5 text-right font-mono text-xs text-foreground">{snapshot.funding_total}</td>
-                      <td className="px-4 py-2.5 text-right font-mono text-xs text-foreground">{snapshot.fees_paid}</td>
+                    <tr key={`${snapshot.exchange}-${snapshot.captured_at}-${index}`} className="hover:bg-[#1f2937]/30 transition-colors">
+                      <td className="px-5 py-3.5 text-xs text-slate-300">{formatTaipeiDateTime(snapshot.captured_at, lang)}</td>
+                      <td className="px-5 py-3.5 text-xs text-slate-300 font-medium">{snapshot.exchange}</td>
+                      <td className="px-5 py-3.5 text-right font-mono text-xs text-slate-300">{snapshot.funding_total}</td>
+                      <td className="px-5 py-3.5 text-right font-mono text-xs text-slate-400">{snapshot.fees_paid}</td>
                     </tr>
                   ))}
                   {(!analytics?.account_snapshots || analytics.account_snapshots.length === 0) && (
                     <tr>
-                      <td colSpan={4} className="px-4 py-8 text-center text-xs text-muted-foreground">
+                      <td colSpan={4} className="px-5 py-12 text-center text-xs text-slate-500">
                         {pickText(lang, "当前还没有账户活动快照。", "No account activity snapshots yet.")}
                       </td>
                     </tr>
@@ -197,72 +219,41 @@ export default async function DashboardPage({ params }: { params: Promise<{ loca
           </Card>
         </div>
 
-        <div className="flex flex-col gap-4">
-          <Card className="bg-card border-border shadow-none">
-            <div className="bg-secondary/30 px-4 py-2.5 border-b border-border">
-              <span className="text-xs font-bold text-foreground uppercase tracking-wider flex items-center gap-2">
-                <Wallet className="w-4 h-4 text-emerald-500" />
+        <div className="flex flex-col gap-6">
+          <Card className="bg-[#111827] border-slate-800 shadow-none rounded-2xl overflow-hidden">
+            <div className="bg-[#1f2937]/50 px-5 py-3.5 border-b border-slate-800">
+              <span className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                <Wallet className="w-4 h-4 text-emerald-400" />
                 {pickText(lang, "资产分布", "Asset Allocation")}
               </span>
             </div>
-            <div className="p-4 space-y-4">
+            <div className="p-5 space-y-5">
               {assetAllocation.length > 0 ? (
                 <>
-                  <div className="rounded-2xl border border-border/60 bg-background/40 p-3" data-asset-allocation-chart="true">
+                  <div className="rounded-xl border border-slate-700/50 bg-[#0f141f] p-4 flex justify-center" data-asset-allocation-chart="true">
                     <AssetAllocationChart items={assetAllocation.slice(0, 6)} lang={lang} />
                   </div>
-                  <div className="space-y-2">
+                  <div className="space-y-3">
                     {assetAllocation.slice(0, 5).map((item) => (
                       <div key={item.asset} className="flex items-center justify-between gap-3 text-xs">
-                        <div className="flex items-center gap-2">
-                          <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: item.color }} />
-                          <span className="text-foreground font-medium">{item.asset}</span>
+                        <div className="flex items-center gap-2.5">
+                          <span className="h-3 w-3 rounded-sm shadow-sm" style={{ backgroundColor: item.color }} />
+                          <span className="text-slate-200 font-bold">{item.asset}</span>
                         </div>
                         <div className="text-right">
-                          <div className="font-mono text-foreground">{item.balance}</div>
-                          <div className="text-[11px] text-muted-foreground">{item.share}%</div>
+                          <div className="font-mono font-bold text-white">{item.balance}</div>
+                          <div className="text-[10px] font-medium text-slate-500">{item.share}%</div>
                         </div>
                       </div>
                     ))}
                   </div>
-                  <p className="text-[11px] text-muted-foreground">
-                    {pickText(lang, "按最新账户快照中的余额字段汇总展示，时间统一按 ", "This chart summarizes the latest wallet snapshot balances. Time zone: ") + DISPLAY_TIME_ZONE}
+                  <p className="text-[10px] text-slate-500 pt-2 border-t border-slate-800/50">
+                    {pickText(lang, "按最新快照合并计算 (", "Merged from latest snapshots (") + DISPLAY_TIME_ZONE + ")"}
                   </p>
                 </>
               ) : (
-                <p className="text-xs text-muted-foreground text-center py-2">{pickText(lang, "暂无余额数据", "No balance data")}</p>
+                <p className="text-xs text-slate-500 text-center py-8">{pickText(lang, "暂无余额数据", "No balance data")}</p>
               )}
-            </div>
-          </Card>
-
-          <Card className="bg-card border-border shadow-none">
-            <div className="bg-secondary/30 px-4 py-2.5 border-b border-border">
-              <span className="text-xs font-bold text-foreground uppercase tracking-wider flex items-center gap-2">
-                <AlertTriangle className="w-4 h-4 text-blue-500" />
-                {pickText(lang, "会员与运行状态", "Membership & Runtime")}
-              </span>
-            </div>
-            <div className="p-4 space-y-3">
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-muted-foreground">{pickText(lang, "会员状态", "Membership Status")}</span>
-                <span className="text-foreground font-semibold">{membershipStatus}</span>
-              </div>
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-muted-foreground">{pickText(lang, "宽限期截止", "Grace Until")}</span>
-                <span className="text-foreground font-mono">{formatTaipeiDate(billing?.membership?.grace_until, lang)}</span>
-              </div>
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-muted-foreground">{pickText(lang, "运行中策略", "Running Bots")}</span>
-                <span className="text-foreground font-mono">{String(runningCount)}</span>
-              </div>
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-muted-foreground">{pickText(lang, "异常阻塞", "ErrorPaused")}</span>
-                <span className={errorPausedCount > 0 ? "text-red-500 font-semibold" : "text-foreground font-semibold"}>{String(errorPausedCount)}</span>
-              </div>
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-muted-foreground">{pickText(lang, "钱包资产数", "Wallet Assets")}</span>
-                <span className="text-foreground font-mono">{String(analytics?.user.wallet_asset_count ?? 0)}</span>
-              </div>
             </div>
           </Card>
         </div>

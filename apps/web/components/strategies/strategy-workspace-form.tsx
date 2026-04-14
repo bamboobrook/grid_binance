@@ -228,8 +228,8 @@ export function StrategyWorkspaceForm({
     && (marketPricePending || referencePrice.trim() === "");
 
   return (
-    <div className="grid gap-6 xl:grid-cols-[minmax(0,0.92fr)_minmax(0,1.08fr)] xl:items-start">
-      <div className="space-y-4 xl:sticky xl:top-24">
+    <div className="grid gap-6 xl:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)] xl:items-start w-full max-w-[1600px] mx-auto">
+      <div className="space-y-4 xl:sticky xl:top-20">
         <StrategyVisualPreview
           amountMode={amountMode}
           coveredRangePercent={coveredRangePercent}
@@ -269,7 +269,7 @@ export function StrategyWorkspaceForm({
         ))}
 
         <Field label={pickText(lang, "策略名称", "Strategy Name")}>
-          <Input defaultValue={values.name} name="name" required />
+          <Input defaultValue={values.name} name="name" />
         </Field>
 
         <input name="symbol" type="hidden" value={selectedSymbol} />
