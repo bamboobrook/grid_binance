@@ -1,5 +1,6 @@
 import createMiddleware from "next-intl/middleware";
 import { NextResponse, type NextRequest } from "next/server";
+import { publicUrl } from "@/lib/auth";
 
 const locales = ["en", "zh"] as const;
 const defaultLocale = "zh";
@@ -19,7 +20,7 @@ export default function proxy(request: NextRequest) {
   const sessionToken = request.cookies.get("session_token")?.value ?? "";
 
   if (!sessionToken && (pathname.startsWith("/app") || pathname.startsWith("/admin"))) {
-    const url = new URL(`/${locale}/login`, request.url);
+    const url = publicUrl(request, `/${locale}/login`);
     url.searchParams.set("next", request.nextUrl.pathname);
     return NextResponse.redirect(url);
   }
