@@ -2,8 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import type { ReactNode } from "react";
-import { LogOut, Bot, LayoutDashboard, CreditCard, Bell, ScrollText, ShieldCheck, HelpCircle, Activity, Box } from "lucide-react";
+import { useState, type ReactNode } from "react";
+import { PanelLeftClose, PanelLeft, LogOut, Bot, LayoutDashboard, CreditCard, Bell, ScrollText, ShieldCheck, HelpCircle, Activity, Box } from "lucide-react";
 
 import type { UserShellSnapshot } from "../../lib/api/mock-data";
 import { pickText, type UiLanguage, type UiTheme } from "../../lib/ui/preferences";
@@ -60,18 +60,24 @@ export function UserShell({
   expiryReminder?: { description: string; title: string } | null;
 }) {
   const pathname = usePathname();
+  const [isExpanded, setIsExpanded] = useState(false);
 
   return (
     <div className="flex h-screen flex-col bg-[#0f141f] text-slate-200">
       {/* Top Navbar */}
       <header className="flex h-14 shrink-0 items-center justify-between border-b border-slate-800 bg-[#111827] px-4 shadow-sm z-20">
         <div className="flex items-center gap-4">
-          <Link className="flex items-center gap-2 text-lg font-black tracking-tight text-white hover:text-primary transition-colors" href={withLocale(locale, "/app/dashboard")}>
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-sm">
-              <Bot className="h-4 w-4" />
-            </div>
-            <span className="hidden sm:inline">{snapshot.brand}</span>
-          </Link>
+          <div className="flex items-center gap-3">
+            <button onClick={() => setIsExpanded(!isExpanded)} className="hidden sm:flex text-slate-400 hover:text-white transition-colors" title={pickText(lang, "展开/收起侧边栏", "Toggle Sidebar")}>
+              {isExpanded ? <PanelLeftClose className="h-5 w-5" /> : <PanelLeft className="h-5 w-5" />}
+            </button>
+            <Link className="flex items-center gap-2 text-lg font-black tracking-tight text-white hover:text-primary transition-colors" href={withLocale(locale, "/app/dashboard")}>
+              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-sm">
+                <Bot className="h-4 w-4" />
+              </div>
+              <span className="hidden sm:inline">{snapshot.brand}</span>
+            </Link>
+          </div>
           <div className="hidden md:flex items-center gap-2 px-2 py-1 rounded bg-[#1f2937] text-xs font-medium text-slate-300 border border-slate-700">
             {pickText(lang, "用户工作区", "User Workspace")}
           </div>
@@ -103,14 +109,16 @@ export function UserShell({
 
       <div className="flex flex-1 overflow-hidden relative pb-16 sm:pb-0">
         {/* Minimalist Sidebar (Bottom Nav on Mobile) */}
-        <aside className="fixed bottom-0 left-0 right-0 sm:relative sm:w-16 md:w-20 shrink-0 flex-row sm:flex-col items-center sm:border-r border-t sm:border-t-0 border-slate-800 bg-[#111827] py-2 sm:py-4 flex z-20 sm:z-10 justify-around sm:justify-start">
-          <nav className="flex flex-row sm:flex-col w-full gap-1 sm:gap-3 px-2 sm:px-2 justify-around sm:justify-start">
+        <aside className={`fixed bottom-0 left-0 right-0 sm:relative z-20 sm:z-10 flex flex-row sm:flex-col shrink-0 items-center sm:items-start justify-around sm:justify-start border-t sm:border-t-0 sm:border-r border-slate-800 bg-[#111827] py-2 sm:py-4 transition-all duration-300 ${isExpanded ? "sm:w-48 md:w-56 px-2 sm:px-4" : "sm:w-16 md:w-20 px-2 sm:px-2 items-center"}`}>
+          <nav className="flex flex-row sm:flex-col w-full gap-1 sm:gap-3 justify-around sm:justify-start">
             {snapshot.nav.map((item) => {
               const localizedHref = withLocale(locale, item.href);
               const isActive = isNavHrefActive(pathname, locale, item.href);
               return (
                 <Link
-                  className={`group relative flex h-12 w-12 sm:w-full flex-col items-center justify-center rounded-xl transition-all ${
+                  className={`group relative flex h-12 w-12 sm:w-full transition-all rounded-xl ${
+                    isExpanded ? "flex-row items-center justify-start px-4 gap-3" : "flex-col items-center justify-center"
+                  } ${
                     isActive ? "bg-primary/10 text-primary shadow-[inset_0_0_0_1px_rgba(59,130,246,0.2)]" : "text-slate-400 hover:bg-[#1f2937] hover:text-white"
                   }`}
                   href={localizedHref}
@@ -118,8 +126,8 @@ export function UserShell({
                   title={item.label}
                 >
                   {getNavIcon(item.href)}
-                  <span className="mt-1 text-[9px] font-medium opacity-0 group-hover:opacity-100 transition-opacity hidden md:block whitespace-nowrap truncate max-w-full px-1">{item.label}</span>
-                  {item.badge ? <span className="absolute top-1 right-2 h-2 w-2 rounded-full bg-amber-500 ring-2 ring-[#111827]"></span> : null}
+                  <span className={`${isExpanded ? "mt-0 text-sm font-semibold opacity-100 block" : "mt-1 text-[9px] font-medium opacity-0 group-hover:opacity-100 hidden md:block"} transition-all whitespace-nowrap truncate max-w-full px-1`}>{item.label}</span>
+                  {item.badge ? <span className={`absolute rounded-full bg-amber-500 ring-2 ring-[#111827] ${isExpanded ? "top-1/2 -translate-y-1/2 right-3 h-2 w-2" : "top-1 right-2 h-2 w-2"}`}></span> : null}
                 </Link>
               );
             })}
