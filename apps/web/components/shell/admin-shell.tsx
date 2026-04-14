@@ -3,22 +3,24 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
-import { LogOut, Bot, LayoutDashboard, CreditCard, Bell, ScrollText, ShieldCheck, HelpCircle, Activity, Box, Users, Settings, FileText, ArrowLeftRight } from "lucide-react";
+import {
+  Activity,
+  ArrowLeftRight,
+  Bot,
+  Box,
+  CreditCard,
+  FileText,
+  LayoutDashboard,
+  LogOut,
+  Settings,
+  ShieldCheck,
+  Users,
+} from "lucide-react";
 
 import type { AdminShellSnapshot } from "../../lib/api/mock-data";
 import { pickText, type UiLanguage, type UiTheme } from "../../lib/ui/preferences";
 import { StatusBanner } from "../ui/status-banner";
 import { ShellPreferences } from "./shell-preferences";
-
-function describeLanguage(lang: UiLanguage) {
-  return pickText(lang, "中文", "English");
-}
-
-function describeTheme(lang: UiLanguage, theme: UiTheme | null) {
-  if (theme === "dark") return pickText(lang, "深色", "Dark");
-  if (theme === "light") return pickText(lang, "浅色", "Light");
-  return pickText(lang, "跟随系统", "System");
-}
 
 function withLocale(locale: string, href: string) {
   if (!href.startsWith("/")) return href;
@@ -59,38 +61,44 @@ export function AdminShell({
   const pathname = usePathname();
 
   return (
-    <div className="flex h-screen flex-col bg-[#0a0e17] text-slate-200">
-      {/* Top Navbar */}
-      <header className="flex h-14 shrink-0 items-center justify-between border-b border-indigo-900/50 bg-[#111827] px-4 shadow-sm z-20">
+    <div className="flex h-screen flex-col bg-background text-foreground">
+      <header className="z-20 flex h-14 shrink-0 items-center justify-between border-b border-border bg-card/95 px-4 shadow-sm backdrop-blur">
         <div className="flex items-center gap-4">
-          <Link className="flex items-center gap-2 text-lg font-black tracking-tight text-white hover:text-indigo-400 transition-colors" href={withLocale(locale, "/admin/dashboard")}>
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-500 text-white shadow-sm">
+          <Link
+            className="flex items-center gap-2 text-lg font-black tracking-tight text-foreground transition-colors hover:text-primary"
+            href={withLocale(locale, "/admin/dashboard")}
+          >
+            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-sm">
               <ShieldCheck className="h-4 w-4" />
             </div>
             {snapshot.brand}
           </Link>
-          <div className="hidden md:flex items-center gap-2 px-2 py-1 rounded bg-indigo-500/10 text-xs font-medium text-indigo-400 border border-indigo-500/20">
+          <div className="hidden items-center gap-2 rounded border border-primary/20 bg-primary/10 px-2 py-1 text-xs font-medium text-primary md:flex">
             {pickText(lang, "管理终端", "Admin Console")}
           </div>
         </div>
         <div className="flex items-center gap-4">
-          <div className="hidden lg:flex items-center gap-3">
+          <div className="hidden items-center gap-3 lg:flex">
             {snapshot.quickStats.map((item) => (
-              <div key={item.label} className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#1f2937] border border-slate-700 text-xs">
-                <span className="text-slate-400">{item.label}</span>
-                <strong className="text-white font-bold">{item.value}</strong>
+              <div key={item.label} className="flex items-center gap-2 rounded-lg border border-border bg-secondary px-3 py-1.5 text-xs">
+                <span className="text-muted-foreground">{item.label}</span>
+                <strong className="font-bold text-foreground">{item.value}</strong>
               </div>
             ))}
           </div>
           <ShellPreferences lang={lang} theme={theme} />
-          <div className="h-6 w-px bg-slate-700 mx-1"></div>
+          <div className="mx-1 h-6 w-px bg-border" />
           <div className="flex items-center gap-3">
             <div className="flex flex-col items-end">
-              <span className="text-xs font-bold text-white">{snapshot.identity.name}</span>
-              <span className="text-[10px] text-slate-400">{snapshot.identity.role}</span>
+              <span className="text-xs font-bold text-foreground">{snapshot.identity.name}</span>
+              <span className="text-[10px] text-muted-foreground">{snapshot.identity.role}</span>
             </div>
             <form action={`/api/auth/logout?locale=${locale}`} method="post">
-              <button type="submit" className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-500/10 text-red-500 hover:bg-red-500/20 transition-colors" title={pickText(lang, "退出登录", "Log Out")}>
+              <button
+                type="submit"
+                className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-500/10 text-red-500 transition-colors hover:bg-red-500/20"
+                title={pickText(lang, "退出登录", "Log Out")}
+              >
                 <LogOut className="h-4 w-4" />
               </button>
             </form>
@@ -98,37 +106,39 @@ export function AdminShell({
         </div>
       </header>
 
-      <div className="flex flex-1 overflow-hidden">
-        {/* Minimalist Sidebar */}
-        <aside className="w-16 sm:w-20 shrink-0 flex-col items-center border-r border-slate-800 bg-[#111827] py-4 flex z-10">
-          <nav className="flex w-full flex-col gap-3 px-2">
+      <div className="flex flex-1 overflow-hidden relative pb-16 sm:pb-0">
+        <aside className="fixed bottom-0 left-0 right-0 sm:relative z-20 sm:z-10 flex flex-row sm:flex-col w-full sm:w-16 md:w-20 shrink-0 items-center justify-around sm:justify-start border-t sm:border-t-0 sm:border-r border-border bg-card/95 py-2 sm:py-4">
+          <nav className="flex flex-row sm:flex-col w-full gap-1 sm:gap-3 px-2 sm:px-2 justify-around sm:justify-start">
             {snapshot.nav.map((item) => {
               const localizedHref = withLocale(locale, item.href);
               const isActive = isNavHrefActive(pathname, locale, item.href);
               return (
                 <Link
-                  className={`group relative flex h-12 w-full flex-col items-center justify-center rounded-xl transition-all ${
-                    isActive ? "bg-indigo-500/10 text-indigo-400 shadow-[inset_0_0_0_1px_rgba(99,102,241,0.2)]" : "text-slate-400 hover:bg-[#1f2937] hover:text-white"
+                  className={`group relative flex h-12 w-12 sm:w-full flex-col items-center justify-center rounded-xl transition-all ${
+                    isActive
+                      ? "bg-primary/10 text-primary ring-1 ring-primary/20"
+                      : "text-muted-foreground hover:bg-secondary hover:text-foreground"
                   }`}
                   href={localizedHref}
                   key={item.href}
                   title={item.label}
                 >
                   {getNavIcon(item.href)}
-                  <span className="mt-1 text-[9px] font-medium opacity-0 group-hover:opacity-100 transition-opacity hidden sm:block whitespace-nowrap truncate max-w-full px-1">{item.label}</span>
-                  {item.badge ? <span className="absolute top-1 right-2 h-2 w-2 rounded-full bg-amber-500 ring-2 ring-[#111827]"></span> : null}
+                  <span className="mt-1 hidden max-w-full truncate whitespace-nowrap px-1 text-[9px] font-medium opacity-0 transition-opacity group-hover:opacity-100 md:block">
+                    {item.label}
+                  </span>
+                  {item.badge ? <span className="absolute right-2 top-1 h-2 w-2 rounded-full bg-amber-500 ring-2 ring-background" /> : null}
                 </Link>
               );
             })}
           </nav>
         </aside>
 
-        {/* Main Content */}
-        <main className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8">
-          <div className="mx-auto flex h-full max-w-[1600px] flex-col gap-6">
+        <main className="flex-1 overflow-y-auto p-3 sm:p-4 md:p-6 lg:p-8 w-full">
+          <div className="mx-auto flex h-full max-w-[1600px] flex-col gap-4 sm:gap-6">
             <header className="flex flex-col gap-1">
-              <h1 className="text-2xl font-bold tracking-tight text-white">{snapshot.title}</h1>
-              <p className="text-sm text-slate-400">{snapshot.description}</p>
+              <h1 className="text-2xl font-bold tracking-tight text-foreground">{snapshot.title}</h1>
+              <p className="text-sm text-muted-foreground">{snapshot.description}</p>
             </header>
 
             <div className="flex flex-col gap-3">
@@ -143,9 +153,7 @@ export function AdminShell({
               ))}
             </div>
 
-            <div className="flex-1">
-              {children}
-            </div>
+            <div className="flex-1">{children}</div>
           </div>
         </main>
       </div>

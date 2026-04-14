@@ -228,7 +228,7 @@ export function StrategyWorkspaceForm({
     && (marketPricePending || referencePrice.trim() === "");
 
   return (
-    <div className="grid gap-6 xl:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)] xl:items-start w-full max-w-[1600px] mx-auto">
+    <div className="flex flex-col xl:grid gap-6 xl:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)] xl:items-start w-full max-w-[1600px] mx-auto">
       <div className="space-y-4 xl:sticky xl:top-20">
         <StrategyVisualPreview
           amountMode={amountMode}
@@ -679,80 +679,109 @@ export function StrategyWorkspaceForm({
                   </div>
                 </div>
 
-                <div className="space-y-3">
+                <div className="space-y-2 mt-2">
+                  <div className="hidden sm:grid gap-2 sm:grid-cols-[0.5fr_1fr_1fr_1fr_1fr_1fr_auto] px-3 py-2 text-[10px] font-semibold uppercase tracking-wide text-slate-400 bg-[#0f141f] border border-slate-800 rounded-lg">
+                    <div>L</div>
+                    <div>{pickText(lang, "网格价", "Price")}</div>
+                    <div>{pickText(lang, "间距 (%)", "Spacing")}</div>
+                    <div>{amountMode === "quote" ? pickText(lang, "金额 (USDT)", "Quote") : pickText(lang, "币量", "Base")}</div>
+                    <div>{pickText(lang, "网格止盈 (%)", "Take Profit")}</div>
+                    <div>{pickText(lang, "追踪 (%)", "Trailing")}</div>
+                    <div className="w-8"></div>
+                  </div>
+                  <div className="space-y-3 sm:space-y-1">
                   {levels.map((level, index) => {
                     const secondaryAmount = amountMode === "quote"
                       ? pickText(lang, `约 ${displayRowQuantity(level)} 币`, `Approx. ${displayRowQuantity(level)} units`)
                       : pickText(lang, `约 ${displayRowQuote(level)} USDT`, `Approx. ${displayRowQuote(level)} USDT`);
                     return (
-                      <div className="rounded-2xl border border-border bg-card p-3" key={level.id}>
-                        <div className="grid gap-3 xl:grid-cols-[0.65fr_1fr_1fr_1fr_1fr_1fr_auto]">
-                          <div className="space-y-1">
-                            <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">L{index + 1}</div>
-                            <div className="text-xs text-muted-foreground">
+                      <div className="rounded-xl border border-slate-800 bg-[#111827] p-3 sm:p-2 sm:border-transparent sm:bg-transparent hover:bg-[#1f2937]/30 transition-colors" key={level.id}>
+                        <div className="grid gap-3 sm:gap-2 grid-cols-2 sm:grid-cols-[0.5fr_1fr_1fr_1fr_1fr_1fr_auto] items-center">
+                          <div className="col-span-2 sm:col-span-1 flex items-center gap-2 sm:block space-y-0 sm:space-y-1">
+                            <div className="text-[10px] font-bold text-slate-300 bg-slate-800 px-1.5 py-0.5 rounded w-max">L{index + 1}</div>
+                            <div className="text-[10px] text-slate-500 hidden sm:block">
                               {index === 0
-                                ? pickText(lang, "第一格", "First level")
-                                : pickText(lang, `相邻间距 ${level.spacingPercent || "-"}%`, `Spacing ${level.spacingPercent || "-"}%`)}
+                                ? pickText(lang, "起点", "Start")
+                                : `${level.spacingPercent || "-"}%`}
                             </div>
                           </div>
-                          <Field label={pickText(lang, "网格价", "Grid Price")}>
+                          
+                          <div className="flex flex-col sm:block">
+                            <span className="text-[10px] text-slate-500 uppercase font-bold sm:hidden mb-1">{pickText(lang, "网格价", "Price")}</span>
                             <Input
+                              className="h-9 sm:h-8 px-2 text-xs bg-[#1f2937] border-slate-700"
                               inputMode="decimal"
                               onChange={(event) => setLevels((current) => updateLevelField(current, index, "entryPrice", event.target.value, amountMode, strategyType, marketType, ordinarySide))}
                               readOnly={batchModeActive}
                               value={level.entryPrice}
                             />
-                          </Field>
-                          <Field label={pickText(lang, "与上一格间距 (%)", "Spacing vs Prev (%)")}>
+                          </div>
+                          
+                          <div className="flex flex-col sm:block">
+                            <span className="text-[10px] text-slate-500 uppercase font-bold sm:hidden mb-1">{pickText(lang, "与上格间距 (%)", "Spacing vs Prev")}</span>
                             <Input
+                              className="h-9 sm:h-8 px-2 text-xs bg-[#1f2937] border-slate-700"
                               inputMode="decimal"
                               onChange={(event) => setLevels((current) => updateLevelSpacing(current, index, event.target.value, amountMode, strategyType, marketType, ordinarySide))}
                               readOnly={index === 0}
                               value={index === 0 ? "" : level.spacingPercent}
                             />
-                          </Field>
-                          <Field label={amountMode === "quote" ? pickText(lang, "投入金额 (USDT)", "Quote Amount (USDT)") : pickText(lang, "币数量", "Base Quantity")}>
+                          </div>
+                          
+                          <div className="flex flex-col sm:block">
+                            <span className="text-[10px] text-slate-500 uppercase font-bold sm:hidden mb-1">{amountMode === "quote" ? "USDT" : pickText(lang, "币量", "Base")}</span>
                             <Input
+                              className="h-9 sm:h-8 px-2 text-xs bg-[#1f2937] border-slate-700"
                               inputMode="decimal"
                               onChange={(event) => setLevels((current) => updateLevelField(current, index, amountMode === "quote" ? "quoteAmount" : "quantity", event.target.value, amountMode, strategyType, marketType, ordinarySide))}
                               readOnly={batchModeActive}
                               value={amountMode === "quote" ? level.quoteAmount : level.quantity}
+                              title={secondaryAmount}
                             />
-                          </Field>
-                          <Field hint={secondaryAmount} label={pickText(lang, "网格止盈 (%)", "Grid Take Profit (%)")}>
+                          </div>
+                          
+                          <div className="flex flex-col sm:block">
+                            <span className="text-[10px] text-slate-500 uppercase font-bold sm:hidden mb-1">{pickText(lang, "网格止盈 (%)", "Take Profit")}</span>
                             <Input
+                              className="h-9 sm:h-8 px-2 text-xs bg-[#1f2937] border-slate-700"
                               inputMode="decimal"
                               onChange={(event) => setLevels((current) => updateLevelField(current, index, "takeProfitPercent", event.target.value, amountMode, strategyType, marketType, ordinarySide))}
                               readOnly={batchModeActive}
                               value={level.takeProfitPercent}
                             />
-                          </Field>
-                          <Field label={pickText(lang, "追踪止盈 (%)", "Trailing Take Profit (%)")}>
+                          </div>
+                          
+                          <div className="flex flex-col sm:block">
+                            <span className="text-[10px] text-slate-500 uppercase font-bold sm:hidden mb-1">{pickText(lang, "追踪止盈 (%)", "Trailing TP")}</span>
                             <Input
+                              className="h-9 sm:h-8 px-2 text-xs bg-[#1f2937] border-slate-700"
                               inputMode="decimal"
                               onChange={(event) => setLevels((current) => updateLevelField(current, index, "trailingPercent", event.target.value, amountMode, strategyType, marketType, ordinarySide))}
                               readOnly={batchModeActive}
                               value={level.trailingPercent}
                             />
-                          </Field>
-                          <div className="flex items-end justify-end gap-2">
+                          </div>
+                          
+                          <div className="col-span-2 sm:col-span-1 flex items-center sm:justify-end mt-2 sm:mt-0">
                             <Button
+                              className="w-full sm:w-8 h-9 sm:h-8 px-0 bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/20"
                               disabled={levels.length <= minimumLevelCountForStrategy(strategyType) && !batchModeActive}
                               onClick={() => {
                                 setEditorMode("custom");
                                 setLevels((current) => removeEditableLevel(current, index, amountMode, strategyType, marketType, ordinarySide));
                               }}
-                              size="icon"
-                              tone="outline"
                               type="button"
+                              title={pickText(lang, "删除此格", "Delete Level")}
                             >
                               <Trash2 className="h-4 w-4" />
+                              <span className="ml-2 sm:hidden">{pickText(lang, "删除此格", "Delete Level")}</span>
                             </Button>
                           </div>
                         </div>
                       </div>
                     );
                   })}
+                  </div>
                 </div>
               </div>
             </div>
