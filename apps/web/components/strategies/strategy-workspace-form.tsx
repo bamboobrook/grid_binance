@@ -680,7 +680,7 @@ export function StrategyWorkspaceForm({
                 </div>
 
                 <div className="space-y-2 mt-2">
-                  <div className="hidden sm:grid gap-2 sm:grid-cols-[0.5fr_1fr_1fr_1fr_1fr_1fr_auto] px-3 py-2 text-[10px] font-semibold uppercase tracking-wide text-slate-400 bg-[#0f141f] border border-slate-800 rounded-lg">
+                  <div className="hidden sm:grid gap-2 sm:grid-cols-[0.5fr_1fr_1fr_1fr_1fr_1fr_auto] px-3 py-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground bg-background border border-border rounded-lg">
                     <div>L</div>
                     <div>{pickText(lang, "网格价", "Price")}</div>
                     <div>{pickText(lang, "间距 (%)", "Spacing")}</div>
@@ -695,11 +695,11 @@ export function StrategyWorkspaceForm({
                       ? pickText(lang, `约 ${displayRowQuantity(level)} 币`, `Approx. ${displayRowQuantity(level)} units`)
                       : pickText(lang, `约 ${displayRowQuote(level)} USDT`, `Approx. ${displayRowQuote(level)} USDT`);
                     return (
-                      <div className="rounded-xl border border-slate-800 bg-[#111827] p-3 sm:p-2 sm:border-transparent sm:bg-transparent hover:bg-[#1f2937]/30 transition-colors" key={level.id}>
+                      <div className="rounded-xl border border-border bg-card p-3 sm:p-2 sm:border-transparent sm:bg-transparent hover:bg-secondary/30 transition-colors" key={level.id}>
                         <div className="grid gap-3 sm:gap-2 grid-cols-2 sm:grid-cols-[0.5fr_1fr_1fr_1fr_1fr_1fr_auto] items-center">
                           <div className="col-span-2 sm:col-span-1 flex items-center gap-2 sm:block space-y-0 sm:space-y-1">
-                            <div className="text-[10px] font-bold text-slate-300 bg-slate-800 px-1.5 py-0.5 rounded w-max">L{index + 1}</div>
-                            <div className="text-[10px] text-slate-500 hidden sm:block">
+                            <div className="text-[10px] font-bold text-foreground bg-slate-800 px-1.5 py-0.5 rounded w-max">L{index + 1}</div>
+                            <div className="text-[10px] text-muted-foreground hidden sm:block">
                               {index === 0
                                 ? pickText(lang, "起点", "Start")
                                 : `${level.spacingPercent || "-"}%`}
@@ -707,9 +707,9 @@ export function StrategyWorkspaceForm({
                           </div>
                           
                           <div className="flex flex-col sm:block">
-                            <span className="text-[10px] text-slate-500 uppercase font-bold sm:hidden mb-1">{pickText(lang, "网格价", "Price")}</span>
+                            <span className="text-[10px] text-muted-foreground uppercase font-bold sm:hidden mb-1">{pickText(lang, "网格价", "Price")}</span>
                             <Input
-                              className="h-9 sm:h-8 px-2 text-xs bg-[#1f2937] border-slate-700"
+                              className="h-9 sm:h-8 px-2 text-xs bg-secondary border-border"
                               inputMode="decimal"
                               onChange={(event) => setLevels((current) => updateLevelField(current, index, "entryPrice", event.target.value, amountMode, strategyType, marketType, ordinarySide))}
                               readOnly={batchModeActive}
@@ -718,9 +718,9 @@ export function StrategyWorkspaceForm({
                           </div>
                           
                           <div className="flex flex-col sm:block">
-                            <span className="text-[10px] text-slate-500 uppercase font-bold sm:hidden mb-1">{pickText(lang, "与上格间距 (%)", "Spacing vs Prev")}</span>
+                            <span className="text-[10px] text-muted-foreground uppercase font-bold sm:hidden mb-1">{pickText(lang, "与上格间距 (%)", "Spacing vs Prev")}</span>
                             <Input
-                              className="h-9 sm:h-8 px-2 text-xs bg-[#1f2937] border-slate-700"
+                              className="h-9 sm:h-8 px-2 text-xs bg-secondary border-border"
                               inputMode="decimal"
                               onChange={(event) => setLevels((current) => updateLevelSpacing(current, index, event.target.value, amountMode, strategyType, marketType, ordinarySide))}
                               readOnly={index === 0}
@@ -729,9 +729,9 @@ export function StrategyWorkspaceForm({
                           </div>
                           
                           <div className="flex flex-col sm:block">
-                            <span className="text-[10px] text-slate-500 uppercase font-bold sm:hidden mb-1">{amountMode === "quote" ? "USDT" : pickText(lang, "币量", "Base")}</span>
+                            <span className="text-[10px] text-muted-foreground uppercase font-bold sm:hidden mb-1">{amountMode === "quote" ? "USDT" : pickText(lang, "币量", "Base")}</span>
                             <Input
-                              className="h-9 sm:h-8 px-2 text-xs bg-[#1f2937] border-slate-700"
+                              className="h-9 sm:h-8 px-2 text-xs bg-secondary border-border"
                               inputMode="decimal"
                               onChange={(event) => setLevels((current) => updateLevelField(current, index, amountMode === "quote" ? "quoteAmount" : "quantity", event.target.value, amountMode, strategyType, marketType, ordinarySide))}
                               readOnly={batchModeActive}
@@ -741,9 +741,9 @@ export function StrategyWorkspaceForm({
                           </div>
                           
                           <div className="flex flex-col sm:block">
-                            <span className="text-[10px] text-slate-500 uppercase font-bold sm:hidden mb-1">{pickText(lang, "网格止盈 (%)", "Take Profit")}</span>
+                            <span className="text-[10px] text-muted-foreground uppercase font-bold sm:hidden mb-1">{pickText(lang, "网格止盈 (%)", "Take Profit")}</span>
                             <Input
-                              className="h-9 sm:h-8 px-2 text-xs bg-[#1f2937] border-slate-700"
+                              className="h-9 sm:h-8 px-2 text-xs bg-secondary border-border"
                               inputMode="decimal"
                               onChange={(event) => setLevels((current) => updateLevelField(current, index, "takeProfitPercent", event.target.value, amountMode, strategyType, marketType, ordinarySide))}
                               readOnly={batchModeActive}
@@ -752,9 +752,9 @@ export function StrategyWorkspaceForm({
                           </div>
                           
                           <div className="flex flex-col sm:block">
-                            <span className="text-[10px] text-slate-500 uppercase font-bold sm:hidden mb-1">{pickText(lang, "追踪止盈 (%)", "Trailing TP")}</span>
+                            <span className="text-[10px] text-muted-foreground uppercase font-bold sm:hidden mb-1">{pickText(lang, "追踪止盈 (%)", "Trailing TP")}</span>
                             <Input
-                              className="h-9 sm:h-8 px-2 text-xs bg-[#1f2937] border-slate-700"
+                              className="h-9 sm:h-8 px-2 text-xs bg-secondary border-border"
                               inputMode="decimal"
                               onChange={(event) => setLevels((current) => updateLevelField(current, index, "trailingPercent", event.target.value, amountMode, strategyType, marketType, ordinarySide))}
                               readOnly={batchModeActive}

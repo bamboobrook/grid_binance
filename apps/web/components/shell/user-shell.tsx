@@ -63,31 +63,31 @@ export function UserShell({
   const [isExpanded, setIsExpanded] = useState(false);
 
   return (
-    <div className="flex h-screen flex-col bg-[#0f141f] text-slate-200">
+    <div className="flex h-screen flex-col bg-background text-foreground">
       {/* Top Navbar */}
-      <header className="flex h-14 shrink-0 items-center justify-between border-b border-slate-800 bg-[#111827] px-4 shadow-sm z-20">
+      <header className="flex h-14 shrink-0 items-center justify-between border-b border-border bg-card px-4 shadow-sm z-20">
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-3">
-            <button onClick={() => setIsExpanded(!isExpanded)} className="hidden sm:flex text-slate-400 hover:text-white transition-colors" title={pickText(lang, "展开/收起侧边栏", "Toggle Sidebar")}>
+            <button onClick={() => setIsExpanded(!isExpanded)} className="hidden sm:flex text-muted-foreground hover:text-foreground transition-colors" title={pickText(lang, "展开/收起侧边栏", "Toggle Sidebar")}>
               {isExpanded ? <PanelLeftClose className="h-5 w-5" /> : <PanelLeft className="h-5 w-5" />}
             </button>
-            <Link className="flex items-center gap-2 text-lg font-black tracking-tight text-white hover:text-primary transition-colors" href={withLocale(locale, "/app/dashboard")}>
+            <Link className="flex items-center gap-2 text-lg font-black tracking-tight text-foreground hover:text-primary transition-colors" href={withLocale(locale, "/app/dashboard")}>
               <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-sm">
                 <Bot className="h-4 w-4" />
               </div>
               <span className="hidden sm:inline">{snapshot.brand}</span>
             </Link>
           </div>
-          <div className="hidden md:flex items-center gap-2 px-2 py-1 rounded bg-[#1f2937] text-xs font-medium text-slate-300 border border-slate-700">
+          <div className="hidden md:flex items-center gap-2 px-2 py-1 rounded bg-secondary text-xs font-medium text-foreground border border-border">
             {pickText(lang, "用户工作区", "User Workspace")}
           </div>
         </div>
         <div className="flex items-center gap-2 sm:gap-4">
           <div className="hidden lg:flex items-center gap-3">
             {snapshot.quickStats.map((item) => (
-              <div key={item.label} className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#1f2937] border border-slate-700 text-xs">
-                <span className="text-slate-400">{item.label}</span>
-                <strong className="text-white font-bold">{item.value}</strong>
+              <div key={item.label} className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-secondary border border-border text-xs">
+                <span className="text-muted-foreground">{item.label}</span>
+                <strong className="text-foreground font-bold">{item.value}</strong>
               </div>
             ))}
           </div>
@@ -95,8 +95,8 @@ export function UserShell({
           <div className="h-6 w-px bg-slate-700 mx-0 sm:mx-1"></div>
           <div className="flex items-center gap-2 sm:gap-3">
             <div className="hidden sm:flex flex-col items-end">
-              <span className="text-xs font-bold text-white">{snapshot.identity.name}</span>
-              <span className="text-[10px] text-slate-400">{snapshot.identity.role}</span>
+              <span className="text-xs font-bold text-foreground">{snapshot.identity.name}</span>
+              <span className="text-[10px] text-muted-foreground">{snapshot.identity.role}</span>
             </div>
             <form action={`/api/auth/logout?locale=${locale}`} method="post">
               <button type="submit" className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-500/10 text-red-500 hover:bg-red-500/20 transition-colors" title={pickText(lang, "退出登录", "Log Out")}>
@@ -109,7 +109,7 @@ export function UserShell({
 
       <div className="flex flex-1 overflow-hidden relative pb-16 sm:pb-0">
         {/* Minimalist Sidebar (Bottom Nav on Mobile) */}
-        <aside className={`fixed bottom-0 left-0 right-0 sm:relative z-20 sm:z-10 flex flex-row sm:flex-col shrink-0 items-center sm:items-start justify-around sm:justify-start border-t sm:border-t-0 sm:border-r border-slate-800 bg-[#111827] py-2 sm:py-4 transition-all duration-300 ${isExpanded ? "sm:w-48 md:w-56 px-2 sm:px-4" : "sm:w-16 md:w-20 px-2 sm:px-2 items-center"}`}>
+        <aside className={`fixed bottom-0 left-0 right-0 sm:relative z-20 sm:z-10 flex flex-row sm:flex-col shrink-0 items-center sm:items-start justify-around sm:justify-start border-t sm:border-t-0 sm:border-r border-border bg-card py-2 sm:py-4 transition-all duration-300 ${isExpanded ? "sm:w-48 md:w-56 px-2 sm:px-4" : "sm:w-16 md:w-20 px-2 sm:px-2 items-center"}`}>
           <nav className="flex flex-row sm:flex-col w-full gap-1 sm:gap-3 justify-around sm:justify-start">
             {snapshot.nav.map((item) => {
               const localizedHref = withLocale(locale, item.href);
@@ -119,7 +119,7 @@ export function UserShell({
                   className={`group relative flex h-12 w-12 sm:w-full transition-all rounded-xl ${
                     isExpanded ? "flex-row items-center justify-start px-4 gap-3" : "flex-col items-center justify-center"
                   } ${
-                    isActive ? "bg-primary/10 text-primary shadow-[inset_0_0_0_1px_rgba(59,130,246,0.2)]" : "text-slate-400 hover:bg-[#1f2937] hover:text-white"
+                    isActive ? "bg-primary/10 text-primary shadow-[inset_0_0_0_1px_rgba(59,130,246,0.2)]" : "text-muted-foreground hover:bg-secondary hover:text-foreground"
                   }`}
                   href={localizedHref}
                   key={item.href}
@@ -135,11 +135,11 @@ export function UserShell({
         </aside>
 
         {/* Main Content */}
-        <main className="flex-1 overflow-y-auto bg-[#0a0e17] p-3 sm:p-4 md:p-6 lg:p-8 w-full">
+        <main className="flex-1 overflow-y-auto bg-background p-3 sm:p-4 md:p-6 lg:p-8 w-full">
           <div className="mx-auto flex h-full w-full max-w-[1600px] flex-col gap-4 sm:gap-6">
             <header className="flex flex-col gap-1">
-              <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white">{snapshot.title}</h1>
-              <p className="text-xs sm:text-sm text-slate-400">{snapshot.description}</p>
+              <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground">{snapshot.title}</h1>
+              <p className="text-xs sm:text-sm text-muted-foreground">{snapshot.description}</p>
             </header>
 
             <div className="flex flex-col gap-3">

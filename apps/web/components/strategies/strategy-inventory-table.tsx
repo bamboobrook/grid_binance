@@ -50,9 +50,9 @@ export function StrategyInventoryTable({
           {pickText(lang, "批量删除", "Batch Delete")}
         </Button>
       </div>
-      <div className="mt-4 rounded-xl border border-slate-800 overflow-hidden bg-[#111827]">
+      <div className="mt-4 overflow-hidden rounded-xl border border-border bg-card">
         <table className="w-full text-left text-sm whitespace-nowrap">
-          <thead className="bg-[#0f141f] text-[10px] uppercase tracking-wider text-slate-500 border-b border-slate-800">
+          <thead className="border-b border-border bg-secondary/80 text-[10px] uppercase tracking-wider text-muted-foreground">
             <tr>
               <th className="w-10 px-3 py-2.5 text-center font-bold">{pickText(lang, "选择", "Pick")}</th>
               <th className="px-4 py-2.5 font-bold">{pickText(lang, "策略", "Strategy")}</th>
@@ -62,10 +62,10 @@ export function StrategyInventoryTable({
               <th className="px-4 py-2.5 text-right font-bold">{pickText(lang, "动作", "Actions")}</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-800/50">
+          <tbody className="divide-y divide-border/60">
             {items.length > 0 ? (
               items.map((strategy) => (
-                <tr key={strategy.id} className="group transition-colors hover:bg-[#1f2937]/50">
+                <tr key={strategy.id} className="group transition-colors hover:bg-secondary/60">
                   <td className="px-3 py-1.5 text-center">
                     <input
                       aria-label={pickText(lang, `选择策略 ${strategy.name}`, `Select strategy ${strategy.name}`)}
@@ -73,27 +73,27 @@ export function StrategyInventoryTable({
                       name="ids"
                       onChange={() => toggleSelection(strategy.id)}
                       type="checkbox"
-                      className="accent-primary w-3.5 h-3.5 bg-slate-800 border-slate-600 rounded"
+                      className="h-3.5 w-3.5 rounded border-border bg-background accent-primary"
                       value={strategy.id}
                     />
                   </td>
                   <td className="px-4 py-1.5">
                     <div className="flex flex-col">
-                      <Link className="text-xs font-bold text-slate-200 transition-colors hover:text-primary" href={`/${locale}/app/strategies/${strategy.id}`}>
+                      <Link className="text-xs font-bold text-foreground transition-colors hover:text-primary" href={`/${locale}/app/strategies/${strategy.id}`}>
                         {strategy.name}
                       </Link>
-                      <span className="font-mono text-[9px] font-medium tracking-wide text-slate-500">{strategy.symbol}</span>
+                      <span className="font-mono text-[9px] font-medium tracking-wide text-muted-foreground">{strategy.symbol}</span>
                     </div>
                   </td>
                   <td className="px-3 py-1.5">
-                    <span className="rounded border border-slate-700 bg-slate-800 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-widest text-slate-300">
+                    <span className="rounded border border-border bg-secondary px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-widest text-foreground">
                       {describeMarket(lang, strategy.market)}
                     </span>
                   </td>
                   <td className="px-3 py-1.5 text-center">
                     <StatusBadge lang={lang} status={strategy.status} />
                   </td>
-                  <td className="px-4 py-1.5 text-right font-mono text-[11px] font-bold text-white">
+                  <td className="px-4 py-1.5 text-right font-mono text-[11px] font-bold text-foreground">
                     ${strategy.budget}
                   </td>
                   <td className="px-4 py-1.5 text-right">
@@ -118,7 +118,7 @@ export function StrategyInventoryTable({
               ))
             ) : (
               <tr>
-                <td className="px-4 py-10 text-center text-xs text-slate-500" colSpan={6}>
+                <td className="px-4 py-10 text-center text-xs text-muted-foreground" colSpan={6}>
                   {pickText(lang, "当前没有符合条件的策略，先创建你的第一个机器人。", "No active strategies yet. Create your first bot to get started.")}
                 </td>
               </tr>
@@ -217,7 +217,7 @@ function StatusBadge({ lang, status }: { lang: UiLanguage; status: string }) {
       status === "Paused" ? "bg-amber-500/10 text-amber-400 border-amber-500/20" :
       status === "Draft" ? "bg-blue-500/10 text-blue-400 border-blue-500/20" :
       status === "ErrorPaused" ? "bg-red-500/10 text-red-400 border-red-500/20" :
-      "bg-slate-800 text-slate-400 border-slate-700"
+      "bg-secondary text-muted-foreground border-border"
     }`}>
       {label}
     </span>

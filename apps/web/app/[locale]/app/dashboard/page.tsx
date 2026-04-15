@@ -79,14 +79,14 @@ export default async function DashboardPage({ params }: { params: Promise<{ loca
   ];
 
   return (
-    <div className="flex flex-col space-y-6 max-w-[1600px] mx-auto h-full text-slate-200">
+    <div className="mx-auto flex h-full max-w-[1600px] flex-col space-y-6 text-foreground">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-black tracking-tight text-white">{t("title")}</h1>
+          <h1 className="text-2xl font-black tracking-tight text-foreground">{t("title")}</h1>
         </div>
         <div className="flex flex-wrap items-center gap-3">
-          <Button className="h-9 px-4 text-xs font-semibold bg-[#1f2937] hover:bg-[#374151] text-white border border-slate-700 rounded-lg transition-colors">
-            <History className="w-4 h-4 mr-2 text-slate-400" />
+          <Button className="h-9 rounded-lg border border-border bg-secondary px-4 text-xs font-semibold text-foreground transition-colors hover:bg-accent/60">
+            <History className="mr-2 h-4 w-4 text-muted-foreground" />
             {pickText(lang, "最近24小时", "Last 24h")}
           </Button>
           <Link href={`/${locale}/app/strategies/new`}>
@@ -100,40 +100,40 @@ export default async function DashboardPage({ params }: { params: Promise<{ loca
 
       {/* Bento Grid: Metrics Overview */}
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
-        <div className="col-span-2 bg-gradient-to-br from-[#1e293b] to-[#111827] border border-slate-700/60 rounded-2xl p-5 flex flex-col justify-between relative overflow-hidden group">
+        <div className="group relative col-span-2 flex flex-col justify-between overflow-hidden rounded-2xl border border-border bg-gradient-to-br from-card to-secondary p-5">
           <div className="absolute -right-6 -top-6 w-32 h-32 bg-primary/10 rounded-full blur-3xl group-hover:bg-primary/20 transition-colors"></div>
-          <span className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 relative z-10">{t("metrics.netPnL")}</span>
+          <span className="relative z-10 mb-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">{t("metrics.netPnL")}</span>
           <span className={`text-4xl font-mono font-black relative z-10 ${Number.parseFloat(analytics?.user.net_pnl || "0") >= 0 ? "text-emerald-400" : "text-red-400"}`}>
             {Number.parseFloat(analytics?.user.net_pnl || "0") >= 0 ? "+" : ""}{analytics?.user.net_pnl ?? "0.00"}
           </span>
-          <div className="mt-4 flex items-center gap-4 text-xs font-medium text-slate-500 relative z-10">
+          <div className="relative z-10 mt-4 flex items-center gap-4 text-xs font-medium text-muted-foreground">
             <div className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-500"></span> {t("metrics.runningBots")}: {runningCount}</div>
             <div className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-500"></span> Error: {errorPausedCount}</div>
           </div>
         </div>
 
-        <div className="bg-[#111827] border border-slate-800 rounded-2xl p-5 flex flex-col justify-center hover:border-slate-700 transition-colors">
-          <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">{t("metrics.realizedPnL")}</span>
+        <div className="flex flex-col justify-center rounded-2xl border border-border bg-card p-5 transition-colors hover:border-primary/30">
+          <span className="mb-1 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{t("metrics.realizedPnL")}</span>
           <span className="text-xl font-mono font-bold text-emerald-400">+{analytics?.user.realized_pnl ?? "0.00"}</span>
         </div>
-        <div className="bg-[#111827] border border-slate-800 rounded-2xl p-5 flex flex-col justify-center hover:border-slate-700 transition-colors">
-          <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">{t("metrics.unrealizedPnL")}</span>
+        <div className="flex flex-col justify-center rounded-2xl border border-border bg-card p-5 transition-colors hover:border-primary/30">
+          <span className="mb-1 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{t("metrics.unrealizedPnL")}</span>
           <span className={`text-xl font-mono font-bold ${Number.parseFloat(analytics?.user.unrealized_pnl || "0") >= 0 ? "text-blue-400" : "text-amber-400"}`}>
             {Number.parseFloat(analytics?.user.unrealized_pnl || "0") >= 0 ? "+" : ""}{analytics?.user.unrealized_pnl ?? "0.00"}
           </span>
         </div>
-        <div className="bg-[#111827] border border-slate-800 rounded-2xl p-5 flex flex-col justify-center hover:border-slate-700 transition-colors">
-          <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">{pickText(lang, "资金费", "Funding")}</span>
-          <span className="text-xl font-mono font-bold text-slate-300">{analytics?.user.funding_total ?? "0.00"}</span>
+        <div className="flex flex-col justify-center rounded-2xl border border-border bg-card p-5 transition-colors hover:border-primary/30">
+          <span className="mb-1 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{pickText(lang, "资金费", "Funding")}</span>
+          <span className="text-xl font-mono font-bold text-foreground">{analytics?.user.funding_total ?? "0.00"}</span>
         </div>
       </div>
 
       {/* Bento Grid: Main Content */}
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_400px] gap-6">
         <div className="flex flex-col gap-6">
-          <Card className="bg-[#111827] border-slate-800 shadow-none rounded-2xl overflow-hidden">
-            <div className="bg-[#1f2937]/50 px-5 py-3.5 border-b border-slate-800 flex items-center justify-between">
-              <span className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-2">
+          <Card className="overflow-hidden rounded-2xl border-border bg-card shadow-none">
+            <div className="flex items-center justify-between border-b border-border bg-secondary/60 px-5 py-3.5">
+              <span className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-foreground">
                 <Activity className="w-4 h-4 text-primary" />
                 {t("sections.recentFills")}
               </span>
@@ -143,7 +143,7 @@ export default async function DashboardPage({ params }: { params: Promise<{ loca
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-left text-sm">
-                <thead className="bg-[#0f141f] text-slate-500 text-[10px] uppercase tracking-wider">
+                <thead className="bg-secondary/80 text-[10px] uppercase tracking-wider text-muted-foreground">
                   <tr>
                     <th className="px-5 py-3 font-semibold">{pickText(lang, "交易对", "Pair")}</th>
                     <th className="px-5 py-3 font-semibold text-right">{pickText(lang, "收益", "PnL")}</th>
@@ -155,8 +155,8 @@ export default async function DashboardPage({ params }: { params: Promise<{ loca
                     const pnl = Number.parseFloat(fill.net_pnl || fill.realized_pnl || "0");
                     const isPositive = pnl >= 0;
                     return (
-                      <tr key={index} className="hover:bg-[#1f2937]/30 transition-colors">
-                        <td className="px-5 py-3.5 font-mono text-xs text-slate-200 font-bold">{fill.symbol}</td>
+                      <tr key={index} className="transition-colors hover:bg-secondary/50">
+                        <td className="px-5 py-3.5 font-mono text-xs font-bold text-foreground">{fill.symbol}</td>
                         <td className={`px-5 py-3.5 text-right font-mono text-xs font-bold ${isPositive ? "text-emerald-400" : "text-red-400"}`}>
                           {isPositive ? "+" : ""}{pnl.toFixed(4)}
                         </td>
@@ -170,7 +170,7 @@ export default async function DashboardPage({ params }: { params: Promise<{ loca
                   })}
                   {(!analytics?.fills || analytics.fills.length === 0) && (
                     <tr>
-                      <td colSpan={3} className="px-5 py-12 text-center text-xs text-slate-500">
+                      <td colSpan={3} className="px-5 py-12 text-center text-xs text-muted-foreground">
                         {pickText(lang, "暂时还没有最近成交，先创建机器人开始运行。", "No recent deals yet. Start a bot to see activity.")}
                       </td>
                     </tr>
@@ -180,16 +180,16 @@ export default async function DashboardPage({ params }: { params: Promise<{ loca
             </div>
           </Card>
 
-          <Card className="bg-[#111827] border-slate-800 shadow-none rounded-2xl overflow-hidden">
-            <div className="bg-[#1f2937]/50 px-5 py-3.5 border-b border-slate-800 flex items-center justify-between">
-              <span className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-2">
-                <History className="w-4 h-4 text-indigo-400" />
+          <Card className="overflow-hidden rounded-2xl border-border bg-card shadow-none">
+            <div className="flex items-center justify-between border-b border-border bg-secondary/60 px-5 py-3.5">
+              <span className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-foreground">
+                <History className="w-4 h-4 text-primary" />
                 {pickText(lang, "近期账户活动", "Recent account activity")}
               </span>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-left text-sm">
-                <thead className="bg-[#0f141f] text-slate-500 text-[10px] uppercase tracking-wider">
+                <thead className="bg-secondary/80 text-[10px] uppercase tracking-wider text-muted-foreground">
                   <tr>
                     <th className="px-5 py-3 font-semibold">{pickText(lang, "时间", "Captured At")}</th>
                     <th className="px-5 py-3 font-semibold">{pickText(lang, "账户", "Account")}</th>
@@ -199,16 +199,16 @@ export default async function DashboardPage({ params }: { params: Promise<{ loca
                 </thead>
                 <tbody className="divide-y divide-slate-800/50">
                   {(analytics?.account_snapshots ?? []).slice(0, 6).map((snapshot, index) => (
-                    <tr key={`${snapshot.exchange}-${snapshot.captured_at}-${index}`} className="hover:bg-[#1f2937]/30 transition-colors">
-                      <td className="px-5 py-3.5 text-xs text-slate-300">{formatTaipeiDateTime(snapshot.captured_at, lang)}</td>
-                      <td className="px-5 py-3.5 text-xs text-slate-300 font-medium">{snapshot.exchange}</td>
-                      <td className="px-5 py-3.5 text-right font-mono text-xs text-slate-300">{snapshot.funding_total}</td>
-                      <td className="px-5 py-3.5 text-right font-mono text-xs text-slate-400">{snapshot.fees_paid}</td>
+                    <tr key={`${snapshot.exchange}-${snapshot.captured_at}-${index}`} className="transition-colors hover:bg-secondary/50">
+                      <td className="px-5 py-3.5 text-xs text-foreground">{formatTaipeiDateTime(snapshot.captured_at, lang)}</td>
+                      <td className="px-5 py-3.5 text-xs font-medium text-foreground">{snapshot.exchange}</td>
+                      <td className="px-5 py-3.5 text-right font-mono text-xs text-foreground">{snapshot.funding_total}</td>
+                      <td className="px-5 py-3.5 text-right font-mono text-xs text-muted-foreground">{snapshot.fees_paid}</td>
                     </tr>
                   ))}
                   {(!analytics?.account_snapshots || analytics.account_snapshots.length === 0) && (
                     <tr>
-                      <td colSpan={4} className="px-5 py-12 text-center text-xs text-slate-500">
+                      <td colSpan={4} className="px-5 py-12 text-center text-xs text-muted-foreground">
                         {pickText(lang, "当前还没有账户活动快照。", "No account activity snapshots yet.")}
                       </td>
                     </tr>
@@ -220,9 +220,9 @@ export default async function DashboardPage({ params }: { params: Promise<{ loca
         </div>
 
         <div className="flex flex-col gap-6">
-          <Card className="bg-[#111827] border-slate-800 shadow-none rounded-2xl overflow-hidden">
-            <div className="bg-[#1f2937]/50 px-5 py-3.5 border-b border-slate-800">
-              <span className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-2">
+          <Card className="overflow-hidden rounded-2xl border-border bg-card shadow-none">
+            <div className="border-b border-border bg-secondary/60 px-5 py-3.5">
+              <span className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-foreground">
                 <Wallet className="w-4 h-4 text-emerald-400" />
                 {pickText(lang, "资产分布", "Asset Allocation")}
               </span>
@@ -230,7 +230,7 @@ export default async function DashboardPage({ params }: { params: Promise<{ loca
             <div className="p-5 space-y-5">
               {assetAllocation.length > 0 ? (
                 <>
-                  <div className="rounded-xl border border-slate-700/50 bg-[#0f141f] p-4 flex justify-center" data-asset-allocation-chart="true">
+                  <div className="flex justify-center rounded-xl border border-border bg-secondary/70 p-4" data-asset-allocation-chart="true">
                     <AssetAllocationChart items={assetAllocation.slice(0, 6)} lang={lang} />
                   </div>
                   <div className="space-y-3">
@@ -238,21 +238,21 @@ export default async function DashboardPage({ params }: { params: Promise<{ loca
                       <div key={item.asset} className="flex items-center justify-between gap-3 text-xs">
                         <div className="flex items-center gap-2.5">
                           <span className="h-3 w-3 rounded-sm shadow-sm" style={{ backgroundColor: item.color }} />
-                          <span className="text-slate-200 font-bold">{item.asset}</span>
+                          <span className="text-foreground font-bold">{item.asset}</span>
                         </div>
                         <div className="text-right">
-                          <div className="font-mono font-bold text-white">{item.balance}</div>
-                          <div className="text-[10px] font-medium text-slate-500">{item.share}%</div>
+                          <div className="font-mono font-bold text-foreground">{item.balance}</div>
+                          <div className="text-[10px] font-medium text-muted-foreground">{item.share}%</div>
                         </div>
                       </div>
                     ))}
                   </div>
-                  <p className="text-[10px] text-slate-500 pt-2 border-t border-slate-800/50">
+                  <p className="border-t border-border pt-2 text-[10px] text-muted-foreground">
                     {pickText(lang, "按最新快照合并计算 (", "Merged from latest snapshots (") + DISPLAY_TIME_ZONE + ")"}
                   </p>
                 </>
               ) : (
-                <p className="text-xs text-slate-500 text-center py-8">{pickText(lang, "暂无余额数据", "No balance data")}</p>
+                <p className="py-8 text-center text-xs text-muted-foreground">{pickText(lang, "暂无余额数据", "No balance data")}</p>
               )}
             </div>
           </Card>
