@@ -67,6 +67,8 @@ export default async function AnalyticsPage({ params }: { params: Promise<{ loca
   return (
     <>
       <StatusBanner
+              tone="info"
+              lang={lang}
         description={pickText(lang, "分析页直接展示后端报表，包括策略级统计、钱包快照与交易所成交。", "Analytics renders the backend report directly, including strategy-level stats, wallet snapshots, and exchange trades.")}
         title={pickText(lang, "分析状态条", "Analytics status strip")}
       />

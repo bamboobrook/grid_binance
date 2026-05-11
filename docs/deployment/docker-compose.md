@@ -76,3 +76,16 @@ docker compose --env-file .env -f deploy/docker/docker-compose.yml down
 ```
 
 Use `docker compose --env-file .env -f deploy/docker/docker-compose.yml down -v` only when you intentionally want to remove the named volumes `postgres-data`, `redis-data`, and `prometheus-data`.
+
+## Martingale Backtest Worker
+
+The compose stack may include a `backtest-worker` service for martingale Portfolio searches and two-stage backtests. Configure it through the repository-root `.env` file:
+
+- `BACKTEST_ARTIFACT_ROOT` controls where compact JSONL artifacts and manifests are written.
+- `BACKTEST_WORKER_MAX_THREADS` limits per-worker CPU usage.
+- `BACKTEST_WORKER_POLL_MS` controls how often the worker polls for queued tasks and pause/cancel changes.
+- `BACKTEST_MARKET_DATA_DB_PATH` points to the external market data SQLite database used by the worker. When set, the worker opens it read-only for K-line screening and aggTrades refinement; without it, martingale worker tasks fail instead of generating synthetic candidates.
+
+Mount `BACKTEST_ARTIFACT_ROOT` on persistent storage. If API or web processes need to download or inspect artifacts, they must mount the same artifact volume or access the same host path.
+
+When an external market data database is mounted for this worker, it is read-only input. The backtest worker should open it read-only and must not modify it with schema migrations, index creation, VACUUM, checkpoint, or cleanup jobs. If the source database is produced by another project, keep ownership of that file with the producer project and treat this stack as a read-only consumer.

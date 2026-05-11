@@ -45,11 +45,11 @@ export default async function AdminBootstrapPage({ params, searchParams }: PageP
       </div>
 
       {error ? (
-        <StatusBanner description={error} title={pickText(lang, "管理员 TOTP 初始化失败", "Admin TOTP bootstrap failed")} tone="danger" />
+        <StatusBanner description={error} lang={lang} title={pickText(lang, "管理员 TOTP 初始化失败", "Admin TOTP bootstrap failed")} tone="error" />
       ) : setup && secret ? (
-        <StatusBanner description={pickText(lang, "请把密钥保存到验证器应用中，再用页面显示的当前验证码完成首次管理员登录。", "Store the secret in your authenticator app, then use the shown code to complete the first admin login.")} title={pickText(lang, "管理员 TOTP 已就绪", "Admin TOTP ready")} tone="success" />
+        <StatusBanner description={pickText(lang, "请把密钥保存到验证器应用中，再用页面显示的当前验证码完成首次管理员登录。", "Store the secret in your authenticator app, then use the shown code to complete the first admin login.")} lang={lang} title={pickText(lang, "管理员 TOTP 已就绪", "Admin TOTP ready")} tone="success" />
       ) : (
-        <StatusBanner description={pickText(lang, "已配置的管理员账号必须先完成 TOTP 初始化，才能进入管理后台。", "Configured admin accounts must complete TOTP setup before they can access the admin control plane.")} title={pickText(lang, "初始化要求", "Bootstrap Required")} tone="info" />
+        <StatusBanner description={pickText(lang, "已配置的管理员账号必须先完成 TOTP 初始化，才能进入管理后台。", "Configured admin accounts must complete TOTP setup before they can access the admin control plane.")} lang={lang} title={pickText(lang, "初始化要求", "Bootstrap Required")} tone="info" />
       )}
 
       {!setup ? (

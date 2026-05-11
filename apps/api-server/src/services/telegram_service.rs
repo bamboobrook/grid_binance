@@ -1,7 +1,8 @@
 use std::{
     collections::HashMap,
-    env, thread,
+    env,
     sync::{Arc, Mutex, OnceLock},
+    thread,
     time::Duration as StdDuration,
 };
 
@@ -277,7 +278,11 @@ impl TelegramService {
         }
     }
 
-    fn fetch_bot_updates(&self, bot_token: &str, offset: i64) -> Result<Vec<TelegramBotUpdate>, TelegramError> {
+    fn fetch_bot_updates(
+        &self,
+        bot_token: &str,
+        offset: i64,
+    ) -> Result<Vec<TelegramBotUpdate>, TelegramError> {
         let http = telegram_http_client()?;
         let mut request = http
             .get(&format!(
@@ -386,10 +391,7 @@ impl TelegramService {
         }
 
         if text.starts_with("tg-bind-") {
-            return Ok(Some(format!(
-                "请发送 /bind {} 完成绑定。",
-                text
-            )));
+            return Ok(Some(format!("请发送 /bind {} 完成绑定。", text)));
         }
 
         Ok(None)
@@ -678,6 +680,77 @@ impl TelegramService {
     }
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NotificationPreferences {
+    pub email: String,
+    #[serde(default = "default_true")]
+    pub take_profit: bool,
+    #[serde(default = "default_true")]
+    pub stop_loss: bool,
+    #[serde(default = "default_true")]
+    pub error: bool,
+    #[serde(default = "default_true")]
+    pub daily_report: bool,
+}
+
+fn default_true() -> bool {
+    true
+}
+
+impl TelegramService {
+    pub fn update_notification_preferences(
+        &self,
+        preferences: NotificationPreferences,
+    ) -> Result<NotificationPreferences, TelegramError> {
+        let prefs = shared_db::postgres::notification::NotificationPreferencesRecord {
+            take_profit: preferences.take_profit,
+            stop_loss: preferences.stop_loss,
+            error: preferences.error,
+            daily_report: preferences.daily_report,
+        };
+        let db = self.db.clone();
+        let email = preferences.email.clone();
+        let result = tokio::task::block_in_place(|| {
+            tokio::runtime::Handle::current().block_on(async {
+                db.notification_repo()
+                    .upsert_notification_preferences(&email, &prefs)
+                    .await
+            })
+        })
+        .map_err(|e| TelegramError::storage_message(e.to_string()))?;
+        Ok(NotificationPreferences {
+            email,
+            take_profit: result.take_profit,
+            stop_loss: result.stop_loss,
+            error: result.error,
+            daily_report: result.daily_report,
+        })
+    }
+
+    pub fn read_notification_preferences(
+        &self,
+        email: &str,
+    ) -> Result<NotificationPreferences, TelegramError> {
+        let db = self.db.clone();
+        let email_owned = email.to_string();
+        let result = tokio::task::block_in_place(|| {
+            tokio::runtime::Handle::current().block_on(async {
+                db.notification_repo()
+                    .read_notification_preferences(&email_owned)
+                    .await
+            })
+        })
+        .map_err(|e| TelegramError::storage_message(e.to_string()))?;
+        Ok(NotificationPreferences {
+            email: email.to_string(),
+            take_profit: result.take_profit,
+            stop_loss: result.stop_loss,
+            error: result.error,
+            daily_report: result.daily_report,
+        })
+    }
+}
+
 #[derive(Debug)]
 pub struct TelegramError {
     status: StatusCode,
@@ -886,7 +959,6 @@ fn json_scalar_to_string(value: Value) -> String {
         Value::Object(_) => value.to_string(),
     }
 }
-
 
 #[cfg(test)]
 mod tests {

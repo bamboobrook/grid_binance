@@ -2,8 +2,9 @@ use rust_decimal::Decimal;
 use shared_binance::{BinanceOrderResponse, BinanceUserTrade};
 use shared_db::SharedDb;
 use shared_domain::strategy::{
-    GridGeneration, GridLevel, PostTriggerAction, Strategy, StrategyAmountMode, StrategyMarket,
-    StrategyMode, StrategyRevision, StrategyRuntime, StrategyRuntimeOrder, StrategyStatus,
+    GridGeneration, GridLevel, PostTriggerAction, ReferencePriceSource, RuntimeControls, Strategy,
+    StrategyAmountMode, StrategyMarket, StrategyMode, StrategyRevision, StrategyRuntime,
+    StrategyRuntimeOrder, StrategyRuntimePhase, StrategyStatus, StrategyType,
 };
 use trading_engine::trade_sync::{sync_strategy_trades, BinanceTradeGateway};
 
@@ -34,7 +35,11 @@ impl BinanceTradeGateway for FakeTradeGateway {
             symbol: symbol.to_string(),
             order_id: order_id.to_string(),
             client_order_id: None,
-            status: self.order_statuses.get(order_id).cloned().unwrap_or_else(|| "FILLED".to_string()),
+            status: self
+                .order_statuses
+                .get(order_id)
+                .cloned()
+                .unwrap_or_else(|| "FILLED".to_string()),
             side: None,
             order_type: None,
             price: None,
@@ -95,6 +100,44 @@ fn trade_sync_records_new_exchange_fill_and_notification() {
         .orders
         .iter()
         .any(|order| order.order_id.contains("-tp-") && order.side == "Sell"));
+}
+
+#[test]
+fn martingale_fill_places_next_safety_leg_in_production_trade_sync() {
+    let db = SharedDb::ephemeral().expect("db");
+    let gateway = FakeTradeGateway {
+        trades: vec![BinanceUserTrade {
+            market: "usdm".to_string(),
+            trade_id: "mg-1001".to_string(),
+            order_id: Some("98765".to_string()),
+            symbol: "BTCUSDT".to_string(),
+            side: "BUY".to_string(),
+            price: "100".to_string(),
+            quantity: "10".to_string(),
+            fee_amount: None,
+            fee_asset: None,
+            realized_profit: None,
+            traded_at_ms: 1_710_000_000_123,
+        }],
+        ..Default::default()
+    };
+    let mut strategy = sample_strategy();
+    strategy.strategy_type = StrategyType::MartingaleGrid;
+    strategy.market = StrategyMarket::FuturesUsdM;
+    strategy.mode = StrategyMode::FuturesLong;
+    strategy.grid_spacing_bps = 100;
+    strategy.runtime.orders[0].order_id = "mg-strategy-1-rev-1-cycle-1-long-leg-0".to_string();
+    strategy.runtime.orders[0].price = Some(Decimal::new(100, 0));
+    strategy.runtime.orders[0].quantity = Decimal::new(10, 0);
+
+    let result = sync_strategy_trades(&db, &mut strategy, &gateway).expect("sync trades");
+
+    assert_eq!(result.new_fills, 1);
+    assert!(strategy.runtime.orders.iter().any(|order| {
+        order.order_id.ends_with("-leg-1")
+            && order.price == Some(Decimal::new(99, 0))
+            && order.status == "Working"
+    }));
 }
 
 #[test]
@@ -237,12 +280,15 @@ fn trade_sync_derives_spot_realized_profit_when_exchange_omits_it() {
         ..Default::default()
     };
     let mut strategy = sample_strategy();
-    strategy.runtime.positions.push(shared_domain::strategy::StrategyRuntimePosition {
-        market: StrategyMarket::Spot,
-        mode: StrategyMode::SpotClassic,
-        quantity: Decimal::new(1, 3),
-        average_entry_price: Decimal::new(42000, 0),
-    });
+    strategy
+        .runtime
+        .positions
+        .push(shared_domain::strategy::StrategyRuntimePosition {
+            market: StrategyMarket::Spot,
+            mode: StrategyMode::SpotClassic,
+            quantity: Decimal::new(1, 3),
+            average_entry_price: Decimal::new(42000, 0),
+        });
     strategy.runtime.orders[0].status = "Filled".to_string();
     strategy.runtime.orders[0].exchange_order_id = Some("entry-999".to_string());
     strategy.runtime.orders.push(StrategyRuntimeOrder {
@@ -255,17 +301,20 @@ fn trade_sync_derives_spot_realized_profit_when_exchange_omits_it() {
         quantity: Decimal::new(1, 3),
         status: "Placed".to_string(),
     });
-    strategy.runtime.fills.push(shared_domain::strategy::StrategyRuntimeFill {
-        fill_id: "entry-seed".to_string(),
-        order_id: Some("strategy-1-order-0".to_string()),
-        level_index: Some(0),
-        fill_type: "ExecutionUpdateFill".to_string(),
-        price: Decimal::new(42000, 0),
-        quantity: Decimal::new(1, 3),
-        realized_pnl: None,
-        fee_amount: Some(Decimal::new(5, 2)),
-        fee_asset: Some("USDT".to_string()),
-    });
+    strategy
+        .runtime
+        .fills
+        .push(shared_domain::strategy::StrategyRuntimeFill {
+            fill_id: "entry-seed".to_string(),
+            order_id: Some("strategy-1-order-0".to_string()),
+            level_index: Some(0),
+            fill_type: "ExecutionUpdateFill".to_string(),
+            price: Decimal::new(42000, 0),
+            quantity: Decimal::new(1, 3),
+            realized_pnl: None,
+            fee_amount: Some(Decimal::new(5, 2)),
+            fee_asset: Some("USDT".to_string()),
+        });
 
     sync_strategy_trades(&db, &mut strategy, &gateway).expect("sync trades");
 
@@ -324,18 +373,11 @@ fn trade_sync_dedupes_existing_trade_ids() {
 fn trade_sync_sends_telegram_for_bound_user_when_configured() {
     let _guard = env_lock().lock().unwrap();
     let _token = EnvGuard::set("TELEGRAM_BOT_TOKEN", "bot-test-token");
-    let server = TestServer::start(vec![
-        TestRoute {
-            path_prefix: "/botbot-test-token/sendMessage",
-            status_line: "HTTP/1.1 200 OK",
-            body: r#"{"ok":true,"result":{"message_id":1}}"#,
-        },
-        TestRoute {
-            path_prefix: "/botbot-test-token/sendMessage",
-            status_line: "HTTP/1.1 200 OK",
-            body: r#"{"ok":true,"result":{"message_id":2}}"#,
-        },
-    ]);
+    let server = TestServer::start(vec![TestRoute {
+        path_prefix: "/botbot-test-token/sendMessage",
+        status_line: "HTTP/1.1 200 OK",
+        body: r#"{"ok":true,"result":{"message_id":1}}"#,
+    }]);
     let _base = EnvGuard::set("TELEGRAM_API_BASE_URL", &server.base_url);
     let db = SharedDb::ephemeral().expect("db");
     db.upsert_telegram_binding(&shared_db::TelegramBindingRecord {
@@ -367,16 +409,16 @@ fn trade_sync_sends_telegram_for_bound_user_when_configured() {
 
     assert_eq!(result.new_fills, 1);
     let notifications = db.list_notification_logs("trader@example.com", 10).unwrap();
-    assert!(notifications
+    let telegram_logs = notifications
         .iter()
-        .any(|record| record.channel == "telegram"
-            && record.template_key.as_deref() == Some("GridFillExecuted")
-            && record.status == "delivered"));
-    assert!(notifications
-        .iter()
-        .any(|record| record.channel == "telegram"
-            && record.template_key.as_deref() == Some("FillProfitReported")
-            && record.status == "delivered"));
+        .filter(|record| record.channel == "telegram")
+        .collect::<Vec<_>>();
+    assert_eq!(telegram_logs.len(), 1);
+    assert_eq!(telegram_logs[0].status, "delivered");
+    assert!(telegram_logs[0].title.contains("开仓"));
+    assert!(telegram_logs[0].body.contains("策略：Grid"));
+    assert!(telegram_logs[0].body.contains("交易对：BTCUSDT"));
+    assert!(telegram_logs[0].body.contains("成交价：42000"));
 }
 
 #[test]
@@ -414,16 +456,97 @@ fn trade_sync_records_failed_telegram_logs_when_binding_exists_without_bot_token
     sync_strategy_trades(&db, &mut strategy, &gateway).unwrap();
 
     let notifications = db.list_notification_logs("trader@example.com", 10).unwrap();
-    assert!(notifications
+    let telegram_logs = notifications
         .iter()
-        .any(|record| record.channel == "telegram"
-            && record.template_key.as_deref() == Some("GridFillExecuted")
-            && record.status == "failed"));
-    assert!(notifications
+        .filter(|record| record.channel == "telegram")
+        .collect::<Vec<_>>();
+    assert_eq!(telegram_logs.len(), 1);
+    assert_eq!(telegram_logs[0].status, "failed");
+    assert!(telegram_logs[0].title.contains("开仓"));
+}
+
+#[test]
+fn trade_sync_sends_human_readable_close_profit_telegram_for_take_profit_fill() {
+    let _guard = env_lock().lock().unwrap();
+    let _token = EnvGuard::set("TELEGRAM_BOT_TOKEN", "bot-test-token");
+    let server = TestServer::start(vec![TestRoute {
+        path_prefix: "/botbot-test-token/sendMessage",
+        status_line: "HTTP/1.1 200 OK",
+        body: r#"{"ok":true,"result":{"message_id":9}}"#,
+    }]);
+    let _base = EnvGuard::set("TELEGRAM_API_BASE_URL", &server.base_url);
+    let db = SharedDb::ephemeral().expect("db");
+    db.upsert_telegram_binding(&shared_db::TelegramBindingRecord {
+        user_email: "trader@example.com".to_string(),
+        telegram_user_id: "tg-1".to_string(),
+        telegram_chat_id: "chat-1".to_string(),
+        bound_at: chrono::Utc::now(),
+    })
+    .unwrap();
+    let gateway = FakeTradeGateway {
+        trades: vec![BinanceUserTrade {
+            market: "spot".to_string(),
+            trade_id: "close-1001".to_string(),
+            order_id: Some("tp-999".to_string()),
+            symbol: "BTCUSDT".to_string(),
+            side: "SELL".to_string(),
+            price: "42420".to_string(),
+            quantity: "0.001".to_string(),
+            fee_amount: Some("0.05".to_string()),
+            fee_asset: Some("USDT".to_string()),
+            realized_profit: None,
+            traded_at_ms: 1_710_000_000_140,
+        }],
+        ..Default::default()
+    };
+    let mut strategy = sample_strategy();
+    strategy
+        .runtime
+        .positions
+        .push(shared_domain::strategy::StrategyRuntimePosition {
+            market: StrategyMarket::Spot,
+            mode: StrategyMode::SpotClassic,
+            quantity: Decimal::new(1, 3),
+            average_entry_price: Decimal::new(42000, 0),
+        });
+    strategy.runtime.orders[0].status = "Filled".to_string();
+    strategy.runtime.orders[0].exchange_order_id = Some("entry-999".to_string());
+    strategy.runtime.orders.push(StrategyRuntimeOrder {
+        order_id: "strategy-1-tp-0".to_string(),
+        exchange_order_id: Some("tp-999".to_string()),
+        level_index: Some(0),
+        side: "Sell".to_string(),
+        order_type: "Limit".to_string(),
+        price: Some(Decimal::new(42420, 0)),
+        quantity: Decimal::new(1, 3),
+        status: "Placed".to_string(),
+    });
+    strategy
+        .runtime
+        .fills
+        .push(shared_domain::strategy::StrategyRuntimeFill {
+            fill_id: "entry-seed".to_string(),
+            order_id: Some("strategy-1-order-0".to_string()),
+            level_index: Some(0),
+            fill_type: "ExecutionUpdateFill".to_string(),
+            price: Decimal::new(42000, 0),
+            quantity: Decimal::new(1, 3),
+            realized_pnl: None,
+            fee_amount: Some(Decimal::new(5, 2)),
+            fee_asset: Some("USDT".to_string()),
+        });
+
+    sync_strategy_trades(&db, &mut strategy, &gateway).expect("sync trades");
+
+    let notifications = db.list_notification_logs("trader@example.com", 10).unwrap();
+    let telegram_logs = notifications
         .iter()
-        .any(|record| record.channel == "telegram"
-            && record.template_key.as_deref() == Some("FillProfitReported")
-            && record.status == "failed"));
+        .filter(|record| record.channel == "telegram")
+        .collect::<Vec<_>>();
+    assert_eq!(telegram_logs.len(), 1);
+    assert!(telegram_logs[0].title.contains("平仓"));
+    assert!(telegram_logs[0].body.contains("本格净收益：0.37"));
+    assert!(telegram_logs[0].body.contains("策略累计净收益：0.32"));
 }
 
 #[test]
@@ -469,7 +592,12 @@ fn trade_sync_groups_multiple_trades_for_filled_order_into_single_grid_fill() {
     assert_eq!(strategy.runtime.fills[0].quantity, Decimal::new(10, 3));
     assert_eq!(strategy.runtime.positions.len(), 1);
     assert_eq!(strategy.runtime.positions[0].quantity, Decimal::new(10, 3));
-    assert_eq!(db.list_exchange_trade_history("trader@example.com").unwrap().len(), 2);
+    assert_eq!(
+        db.list_exchange_trade_history("trader@example.com")
+            .unwrap()
+            .len(),
+        2
+    );
 }
 
 #[test]
@@ -489,7 +617,10 @@ fn trade_sync_records_partial_order_before_remote_fill_completion() {
             realized_profit: None,
             traded_at_ms: 1_710_000_000_210,
         }],
-        order_statuses: std::collections::HashMap::from([("98765".to_string(), "PARTIALLY_FILLED".to_string())]),
+        order_statuses: std::collections::HashMap::from([(
+            "98765".to_string(),
+            "PARTIALLY_FILLED".to_string(),
+        )]),
     };
     let mut strategy = sample_strategy();
 
@@ -620,8 +751,11 @@ fn sample_strategy() -> Strategy {
         margin_ready: true,
         conflict_ready: true,
         balance_ready: true,
+        strategy_type: StrategyType::OrdinaryGrid,
         market: StrategyMarket::Spot,
         mode: StrategyMode::SpotClassic,
+        runtime_phase: StrategyRuntimePhase::Draft,
+        runtime_controls: RuntimeControls::default(),
         draft_revision: revision(),
         active_revision: Some(revision()),
         runtime: StrategyRuntime {
@@ -640,6 +774,8 @@ fn sample_strategy() -> Strategy {
             events: Vec::new(),
             last_preflight: None,
         },
+        tags: Vec::new(),
+        notes: String::new(),
         archived_at: None,
     }
 }
@@ -648,10 +784,13 @@ fn revision() -> StrategyRevision {
     StrategyRevision {
         revision_id: "rev-1".to_string(),
         version: 1,
+        strategy_type: StrategyType::OrdinaryGrid,
         generation: GridGeneration::Custom,
         amount_mode: StrategyAmountMode::Quote,
         futures_margin_mode: None,
         leverage: None,
+        reference_price_source: ReferencePriceSource::Manual,
+        reference_price: None,
         levels: vec![GridLevel {
             level_index: 0,
             entry_price: Decimal::new(42000, 0),

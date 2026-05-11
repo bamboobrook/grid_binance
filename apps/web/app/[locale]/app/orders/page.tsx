@@ -82,7 +82,7 @@ export default async function OrdersPage({ params }: { params: Promise<{ locale:
   const results = await Promise.all([fetchAnalytics(), fetchStrategies()]);
   const analytics = results[0];
   const strategies = results[1];
-  const runtimes = await fetchStrategyRuntimes(strategies);
+  const runtimes = await fetchStrategyRuntimes(strategies.map((s) => s.id));
   const orderRows = flattenOrders(strategies, runtimes);
   const fillRows = flattenFills(strategies, runtimes);
   const accountSnapshots = analytics?.account_snapshots ?? [];
@@ -91,6 +91,8 @@ export default async function OrdersPage({ params }: { params: Promise<{ locale:
   return (
     <>
       <StatusBanner
+              tone="info"
+              lang={lang}
         description={pickText(lang, "订单、成交和交易所侧成交记录统一来自后端运行态与分析接口。", "Orders, fills, and exchange-side trades come directly from backend runtime and analytics data.")}
         title={pickText(lang, "订单状态条", "Orders status strip")}
        
@@ -274,28 +276,26 @@ async function fetchStrategies(): Promise<StrategyListResponse["items"]> {
   return ((await response.json()) as StrategyListResponse).items;
 }
 
-async function fetchStrategyRuntimes(strategies: StrategyListResponse["items"]) {
+async function fetchStrategyRuntimes(strategyIds: string[]) {
   const cookieStore = await cookies();
   const sessionToken = cookieStore.get("session_token")?.value ?? "";
-  if (sessionToken === "") {
+  if (sessionToken === "" || strategyIds.length === 0) {
     return [] as StrategyRuntimeResponse[];
   }
 
-  const responses = await Promise.all(
-    strategies.map(async (strategy) => {
-      const response = await fetch(authApiBaseUrl() + "/strategies/" + strategy.id + "/orders", {
-        method: "GET",
-        headers: { authorization: "Bearer " + sessionToken },
-        cache: "no-store",
-      });
-      if (!response.ok) {
-        return null;
-      }
-      return (await response.json()) as StrategyRuntimeResponse;
-    }),
+  const response = await fetch(
+    authApiBaseUrl() + "/strategies/batch/runtimes?ids=" + strategyIds.join(","),
+    {
+      method: "GET",
+      headers: { authorization: "Bearer " + sessionToken },
+      cache: "no-store",
+    }
   );
-
-  return responses.filter((item): item is StrategyRuntimeResponse => item !== null);
+  if (!response.ok) {
+    return [] as StrategyRuntimeResponse[];
+  }
+  const data = (await response.json()) as { items: StrategyRuntimeResponse[] };
+  return data.items ?? [];
 }
 
 function flattenOrders(

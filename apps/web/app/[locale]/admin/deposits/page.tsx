@@ -134,8 +134,8 @@ export default async function AdminDepositsPage({ params, searchParams }: PagePr
 
   return (
     <>
-      {result ? <StatusBanner description={pickText(lang, "处理结果：" + result + (tx ? "，交易 " + tx : ""), "Result: " + result + (tx ? ", tx " + tx : ""))} title={pickText(lang, "充值案件已更新", "Deposit Case Updated")} /> : null}
-      {error ? <StatusBanner description={tx ? error + " (" + tx + ")" : error} title={pickText(lang, "充值动作失败", "Deposit Action Failed")} /> : null}
+      {result ? <StatusBanner description={pickText(lang, "处理结果：" + result + (tx ? "，交易 " + tx : ""), "Result: " + result + (tx ? ", tx " + tx : ""))} title={pickText(lang, "充值案件已更新", "Deposit Case Updated")}  tone="info" lang={lang} /> : null}
+      {error ? <StatusBanner description={tx ? error + " (" + tx + ")" : error} title={pickText(lang, "充值动作失败", "Deposit Action Failed")}  tone="info" lang={lang} /> : null}
       <AppShellSection
         description={pickText(lang, "值班席位直接处理充值异常、订单匹配和人工入账说明，确保术语与风险提示都对人可读。", "The desk handles deposit exceptions, order matching, and manual credit notes with human-readable risk prompts.")}
         eyebrow={pickText(lang, "充值审核", "Deposit Review")}

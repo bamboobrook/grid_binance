@@ -1,7 +1,7 @@
 use rust_decimal::Decimal;
 use shared_domain::strategy::{
-    GridGeneration, GridLevel, PostTriggerAction, StrategyAmountMode, StrategyMarket, StrategyMode,
-    StrategyRevision,
+    GridGeneration, GridLevel, PostTriggerAction, ReferencePriceSource, StrategyAmountMode,
+    StrategyMarket, StrategyMode, StrategyRevision, StrategyType,
 };
 use trading_engine::strategy_runtime::StrategyRuntimeEngine;
 
@@ -13,10 +13,13 @@ fn revision_with_trailing(trailing_bps: Option<u32>) -> StrategyRevision {
     StrategyRevision {
         revision_id: "revision-1".to_string(),
         version: 1,
+        strategy_type: StrategyType::OrdinaryGrid,
         generation: GridGeneration::Custom,
         amount_mode: StrategyAmountMode::Quote,
         futures_margin_mode: None,
         leverage: None,
+        reference_price_source: ReferencePriceSource::Manual,
+        reference_price: None,
         levels: vec![GridLevel {
             level_index: 0,
             entry_price: decimal(100, 0),
@@ -80,9 +83,10 @@ fn trailing_take_profit_uses_post_activation_high_and_taker_close() {
     assert_eq!(events[0].price, Some(decimal(114, 0)));
     assert_eq!(runtime.fills.len(), 1);
     assert_eq!(runtime.positions.len(), 1);
-    assert!(runtime.orders.iter().any(|order| {
-        order.order_type == "Market" && order.status == "ClosingRequested"
-    }));
+    assert!(runtime
+        .orders
+        .iter()
+        .any(|order| { order.order_type == "Market" && order.status == "ClosingRequested" }));
     assert_eq!(
         runtime.events.last().expect("final event").event_type,
         "taker_trailing_take_profit"

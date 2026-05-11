@@ -55,7 +55,7 @@ export default async function HelpArticlePage({
   return (
     <main className="shell shell--public">
       <div className="public-shell__content py-6">
-        <StatusBanner description={article.summary} title={article.title} />
+        <StatusBanner description={article.summary} title={article.title}  tone="info" lang={lang} />
         <Card>
           <CardHeader>
             <CardTitle>{article.title}</CardTitle>

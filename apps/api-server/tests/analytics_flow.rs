@@ -11,10 +11,10 @@ use shared_db::{
     ExchangeWalletSnapshotRecord, SharedDb, StoredStrategy, StrategyProfitSnapshotRecord,
 };
 use shared_domain::strategy::{
-    GridGeneration, GridLevel, PostTriggerAction, ReferencePriceSource, RuntimeControls,
-    Strategy, StrategyAmountMode, StrategyMarket, StrategyMode, StrategyRevision,
-    StrategyRuntime, StrategyRuntimeFill, StrategyRuntimeOrder, StrategyRuntimePhase,
-    StrategyRuntimePosition, StrategyStatus, StrategyType,
+    GridGeneration, GridLevel, PostTriggerAction, ReferencePriceSource, RuntimeControls, Strategy,
+    StrategyAmountMode, StrategyMarket, StrategyMode, StrategyRevision, StrategyRuntime,
+    StrategyRuntimeFill, StrategyRuntimeOrder, StrategyRuntimePhase, StrategyRuntimePosition,
+    StrategyStatus, StrategyType,
 };
 use tower::ServiceExt;
 
@@ -140,11 +140,11 @@ async fn compute_strategy_and_account_snapshots_from_persisted_trading_and_excha
     assert_eq!(strategies[3]["funding_total"], "0.15");
 
     assert_eq!(analytics_body["user"]["user_id"], "trader@example.com");
-    assert_eq!(analytics_body["user"]["realized_pnl"], "18");
-    assert_eq!(analytics_body["user"]["unrealized_pnl"], "7.7");
-    assert_eq!(analytics_body["user"]["fees_paid"], "2.75");
-    assert_eq!(analytics_body["user"]["funding_total"], "-1.5");
-    assert_eq!(analytics_body["user"]["net_pnl"], "21.45");
+    assert_eq!(analytics_body["user"]["realized_pnl"], "15");
+    assert_eq!(analytics_body["user"]["unrealized_pnl"], "6.7");
+    assert_eq!(analytics_body["user"]["fees_paid"], "2.25");
+    assert_eq!(analytics_body["user"]["funding_total"], "-0.3");
+    assert_eq!(analytics_body["user"]["net_pnl"], "19.15");
     assert_eq!(analytics_body["user"]["wallet_asset_count"], 3);
     assert_eq!(analytics_body["user"]["exchange_trade_count"], 4);
 
@@ -157,8 +157,8 @@ async fn compute_strategy_and_account_snapshots_from_persisted_trading_and_excha
     assert_eq!(exchange_trades[3]["trade_id"], "trade-4");
     assert_eq!(exchange_trades[3]["fee_amount"], "0.25");
 
-    assert_eq!(analytics_body["costs"]["fees_paid"], "2.75");
-    assert_eq!(analytics_body["costs"]["funding_total"], "-1.5");
+    assert_eq!(analytics_body["costs"]["fees_paid"], "2.25");
+    assert_eq!(analytics_body["costs"]["funding_total"], "-0.3");
 
     let wallet_snapshots = analytics_body["wallets"].as_array().expect("wallets");
     assert_eq!(wallet_snapshots.len(), 1);
@@ -231,6 +231,35 @@ async fn compute_strategy_and_account_snapshots_from_persisted_trading_and_excha
         "order_id,email,chain,asset,plan_code,amount,status,address,requested_at,paid_at,tx_hash"
     );
     assert_eq!(payment_lines[2], "502,trader@example.com,BSC,USDC,quarterly,54.00000000,pending,bsc-addr-3,2026-03-02T00:00:00+00:00,,");
+}
+
+#[tokio::test]
+async fn analytics_strategy_summaries_endpoint_returns_lightweight_items() {
+    let db = SharedDb::ephemeral().expect("ephemeral db");
+    seed_analytics_data(&db);
+    let app = app_with_state(AppState::from_shared_db(db).expect("app state"));
+    let session_token = register_and_login(&app, "trader@example.com", "pass1234").await;
+
+    let response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri("/analytics/strategies")
+                .header("authorization", format!("Bearer {session_token}"))
+                .body(Body::empty())
+                .expect("analytics request"),
+        )
+        .await
+        .expect("analytics response");
+
+    assert_eq!(response.status(), StatusCode::OK);
+    let body = response_json(response).await;
+    let items = body.as_array().expect("strategy summaries array");
+    assert_eq!(items.len(), 4);
+    assert_eq!(items[0]["strategy_id"], "strategy-alpha");
+    assert_eq!(items[2]["strategy_id"], "strategy-gamma");
+    assert_eq!(items[2]["net_pnl"], "3.8");
+    assert!(items[0].get("exchange_trades").is_none());
 }
 
 #[tokio::test]
@@ -1041,6 +1070,8 @@ fn stored_strategy(
             events: Vec::new(),
             last_preflight: None,
         },
+        tags: Vec::new(),
+        notes: String::new(),
         archived_at: None,
     }
 }

@@ -19,6 +19,8 @@ test("web app shell structure aligns with localized public, user, and admin rout
     "apps/web/app/[locale]/app/analytics/page.tsx",
     "apps/web/app/[locale]/app/telegram/page.tsx",
     "apps/web/app/[locale]/app/help/page.tsx",
+    "apps/web/app/[locale]/app/martingale-portfolios/page.tsx",
+    "apps/web/app/[locale]/app/martingale-portfolios/[id]/page.tsx",
     "apps/web/app/[locale]/admin/layout.tsx",
     "apps/web/app/[locale]/admin/memberships/page.tsx",
     "apps/web/app/[locale]/admin/deposits/page.tsx",
@@ -52,6 +54,7 @@ test("web app shell structure aligns with localized public, user, and admin rout
   const publicLayout = read("apps/web/app/[locale]/(public)/layout.tsx");
   const userLayout = read("apps/web/app/[locale]/app/layout.tsx");
   const adminLayout = read("apps/web/app/[locale]/admin/layout.tsx");
+  const sidebar = read("apps/web/components/layout/sidebar.tsx");
   const publicShell = read("apps/web/components/shell/public-shell.tsx");
   const userShell = read("apps/web/components/shell/user-shell.tsx");
   const adminShell = read("apps/web/components/shell/admin-shell.tsx");
@@ -66,6 +69,8 @@ test("web app shell structure aligns with localized public, user, and admin rout
   assert.match(userLayout, /getUserShellSnapshot/);
   assert.match(adminLayout, /getAdminShellSnapshot/);
   assert.match(adminLayout, /getCurrentAdminProfile/);
+  assert.match(sidebar, /martingale-portfolios/);
+  assert.match(sidebar, /Martingale Portfolios|马丁组合/i);
 
   assert.match(publicShell, /usePathname/);
   assert.match(userShell, /usePathname/);

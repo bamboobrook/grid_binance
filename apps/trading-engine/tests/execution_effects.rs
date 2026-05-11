@@ -13,7 +13,7 @@ use trading_engine::strategy_runtime::StrategyRuntimeEngine;
 
 #[test]
 fn execution_effects_persist_trade_history_and_notifications_once() {
-    let _guard = env_lock().lock().unwrap();
+    let _guard = env_lock().lock().unwrap_or_else(|e| e.into_inner());
     std::env::remove_var("TELEGRAM_BOT_TOKEN");
     std::env::remove_var("TELEGRAM_API_BASE_URL");
     let db = SharedDb::ephemeral().expect("db");
@@ -66,7 +66,7 @@ fn execution_effects_persist_trade_history_and_notifications_once() {
 
 #[test]
 fn execution_effects_emit_telegram_logs_when_bound_and_configured() {
-    let _guard = env_lock().lock().unwrap();
+    let _guard = env_lock().lock().unwrap_or_else(|e| e.into_inner());
     let _token = EnvGuard::set("TELEGRAM_BOT_TOKEN", "bot-test-token");
     let server = TestServer::start(vec![
         TestRoute {
@@ -129,7 +129,7 @@ fn execution_effects_emit_telegram_logs_when_bound_and_configured() {
 
 #[test]
 fn execution_effects_record_failed_telegram_logs_when_binding_exists_without_bot_token() {
-    let _guard = env_lock().lock().unwrap();
+    let _guard = env_lock().lock().unwrap_or_else(|e| e.into_inner());
     std::env::remove_var("TELEGRAM_BOT_TOKEN");
     std::env::remove_var("TELEGRAM_API_BASE_URL");
     std::env::remove_var("TELEGRAM_BOT_TOKEN");
@@ -504,6 +504,8 @@ fn sample_strategy() -> Strategy {
             events: Vec::new(),
             last_preflight: None,
         },
+        tags: Vec::new(),
+        notes: String::new(),
         archived_at: None,
     }
 }

@@ -1,0 +1,7 @@
+CREATE TABLE IF NOT EXISTS notification_preferences (
+    user_id BIGINT PRIMARY KEY REFERENCES users(user_id),
+    take_profit BOOLEAN NOT NULL DEFAULT TRUE,
+    stop_loss BOOLEAN NOT NULL DEFAULT FALSE,
+    error BOOLEAN NOT NULL DEFAULT TRUE,
+    daily_report BOOLEAN NOT NULL DEFAULT FALSE
+);

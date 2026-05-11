@@ -44,13 +44,17 @@ export default async function SecurityPage({ params, searchParams }: SecurityPag
   return (
     <>
       <StatusBanner
+              tone="info"
+              lang={lang}
         description={pickText(lang, "密码与 TOTP 操作直接走后端安全接口，只有后端接受后才显示成功。", "Password and TOTP actions are wired to real backend security endpoints and only show success after backend acceptance.")}
         title={pickText(lang, "安全状态条", "Security status strip")}
        
       />
-      {error ? <StatusBanner description={error} title={pickText(lang, "安全操作失败", "Security action failed")} /> : null}
+      {error ? <StatusBanner description={error} title={pickText(lang, "安全操作失败", "Security action failed")}  tone="info" lang={lang} /> : null}
       {security === "totp-enabled" ? (
         <StatusBanner
+                tone="info"
+                lang={lang}
           description={pickText(lang, "请把 TOTP 密钥保存到验证器，并在下次登录挑战时使用当前验证码。", "Store the TOTP secret in your authenticator app and use the current code during the next login challenge.")}
           title={pickText(lang, "TOTP 已启用", "TOTP enabled")}
          

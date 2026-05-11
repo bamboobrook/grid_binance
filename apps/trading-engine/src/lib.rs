@@ -1,10 +1,13 @@
 pub mod execution_effects;
 pub mod execution_sync;
 pub mod grid_builder;
+pub mod martingale_recovery;
+pub mod martingale_runtime;
 pub mod order_sync;
 pub mod runtime;
 pub mod statistics;
 pub mod stop_loss;
 pub mod strategy_runtime;
 pub mod take_profit;
+pub mod telegram_notify;
 pub mod trade_sync;

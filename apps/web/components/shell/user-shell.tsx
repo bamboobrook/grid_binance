@@ -10,6 +10,7 @@ import { pickText, type UiLanguage, type UiTheme } from "../../lib/ui/preference
 import { DialogFrame } from "../ui/dialog";
 import { StatusBanner } from "../ui/status-banner";
 import { ShellPreferences } from "./shell-preferences";
+import { MobileBottomNav } from "../layout/mobile-bottom-nav";
 
 function describeLanguage(lang: UiLanguage) {
   return pickText(lang, "中文", "English");
@@ -68,7 +69,7 @@ export function UserShell({
       <header className="flex h-14 shrink-0 items-center justify-between border-b border-border bg-card px-4 shadow-sm z-20">
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-3">
-            <button onClick={() => setIsExpanded(!isExpanded)} className="hidden sm:flex text-muted-foreground hover:text-foreground transition-colors" title={pickText(lang, "展开/收起侧边栏", "Toggle Sidebar")}>
+            <button onClick={() => setIsExpanded(!isExpanded)} className="hidden sm:flex h-10 w-10 items-center justify-center rounded-lg text-muted-foreground hover:text-foreground transition-colors" title={pickText(lang, "展开/收起侧边栏", "Toggle Sidebar")}>
               {isExpanded ? <PanelLeftClose className="h-5 w-5" /> : <PanelLeft className="h-5 w-5" />}
             </button>
             <Link className="flex items-center gap-2 text-lg font-black tracking-tight text-foreground hover:text-primary transition-colors" href={withLocale(locale, "/app/dashboard")}>
@@ -99,7 +100,7 @@ export function UserShell({
               <span className="text-[10px] text-muted-foreground">{snapshot.identity.role}</span>
             </div>
             <form action={`/api/auth/logout?locale=${locale}`} method="post">
-              <button type="submit" className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-500/10 text-red-500 hover:bg-red-500/20 transition-colors" title={pickText(lang, "退出登录", "Log Out")}>
+              <button type="submit" className="flex h-10 w-10 sm:h-8 sm:w-8 items-center justify-center rounded-lg bg-red-500/10 text-red-500 hover:bg-red-500/20 transition-colors" title={pickText(lang, "退出登录", "Log Out")}>
                 <LogOut className="h-4 w-4" />
               </button>
             </form>
@@ -108,16 +109,16 @@ export function UserShell({
       </header>
 
       <div className="flex flex-1 overflow-hidden relative pb-16 sm:pb-0">
-        {/* Minimalist Sidebar (Bottom Nav on Mobile) */}
-        <aside className={`fixed bottom-0 left-0 right-0 sm:relative z-20 sm:z-10 flex flex-row sm:flex-col shrink-0 items-center sm:items-start justify-around sm:justify-start border-t sm:border-t-0 sm:border-r border-border bg-card py-2 sm:py-4 transition-all duration-300 ${isExpanded ? "sm:w-48 md:w-56 px-2 sm:px-4" : "sm:w-16 md:w-20 px-2 sm:px-2 items-center"}`}>
-          <nav className="flex flex-row sm:flex-col w-full gap-1 sm:gap-3 justify-around sm:justify-start">
+        {/* Sidebar (desktop only) */}
+        <aside className={`hidden sm:flex shrink-0 flex-col border-r border-border bg-card py-4 transition-all duration-300 ${isExpanded ? "w-48 md:w-56 px-4" : "w-16 md:w-20 px-2 items-center"}`}>
+          <nav className="flex flex-col w-full gap-3">
             {snapshot.nav.map((item) => {
               const localizedHref = withLocale(locale, item.href);
               const isActive = isNavHrefActive(pathname, locale, item.href);
               return (
                 <Link
-                  className={`group relative flex h-12 w-12 sm:w-full transition-all rounded-xl ${
-                    isExpanded ? "flex-row items-center justify-start px-4 gap-3" : "flex-col items-center justify-center"
+                  className={`group relative flex w-full transition-all rounded-xl ${
+                    isExpanded ? "flex-row items-center justify-start px-4 gap-3 h-10" : "flex-col items-center justify-center h-12"
                   } ${
                     isActive ? "bg-primary/10 text-primary shadow-[inset_0_0_0_1px_rgba(59,130,246,0.2)]" : "text-muted-foreground hover:bg-secondary hover:text-foreground"
                   }`}
@@ -126,13 +127,16 @@ export function UserShell({
                   title={item.label}
                 >
                   {getNavIcon(item.href)}
-                  <span className={`${isExpanded ? "mt-0 text-sm font-semibold opacity-100 block" : "mt-1 text-[9px] font-medium opacity-0 group-hover:opacity-100 hidden md:block"} transition-all whitespace-nowrap truncate max-w-full px-1`}>{item.label}</span>
+                  <span className={`${isExpanded ? "text-sm font-semibold opacity-100" : "mt-1 text-[9px] font-medium opacity-0 group-hover:opacity-100 hidden md:block"} transition-all whitespace-nowrap truncate max-w-full px-1`}>{item.label}</span>
                   {item.badge ? <span className={`absolute rounded-full bg-amber-500 ring-2 ring-[#111827] ${isExpanded ? "top-1/2 -translate-y-1/2 right-3 h-2 w-2" : "top-1 right-2 h-2 w-2"}`}></span> : null}
                 </Link>
               );
             })}
           </nav>
         </aside>
+
+        {/* Mobile Bottom Nav */}
+        <MobileBottomNav />
 
         {/* Main Content */}
         <main className="flex-1 overflow-y-auto bg-background p-3 sm:p-4 md:p-6 lg:p-8 w-full">
@@ -152,11 +156,12 @@ export function UserShell({
               ) : null}
               {snapshot.banners.map((banner) => (
                 <StatusBanner
+                        tone="info"
+                        lang={lang}
                   action={banner.action ? { ...banner.action, href: withLocale(locale, banner.action.href) } : undefined}
                   description={banner.description}
                   key={banner.title}
                   title={banner.title}
-                  tone={banner.tone}
                 />
               ))}
             </div>

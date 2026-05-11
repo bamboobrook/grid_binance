@@ -4,9 +4,9 @@ use serde_json::json;
 use shared_binance::BinanceExecutionUpdate;
 use shared_db::{ExchangeTradeHistoryRecord, NotificationLogRecord, SharedDb};
 use shared_domain::strategy::Strategy;
-use std::{sync::OnceLock, time::Duration as StdDuration};
 
 use crate::strategy_runtime::{RuntimeControlEffects, StrategyRuntimeEngine, StrategyRuntimeError};
+use crate::telegram_notify::persist_telegram_notification;
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct ExecutionEffectsResult {
@@ -75,25 +75,15 @@ pub fn persist_execution_effects(
         created_at: traded_at,
         delivered_at: Some(traded_at),
     })?;
-    if let Some(binding) = db.find_telegram_binding(&strategy.owner_email)? {
-        let delivered = if let Some(token) = telegram_bot_token() {
-            send_telegram_message(&token, &binding.telegram_chat_id, &fill_title, &fill_body)
-                .is_ok()
-        } else {
-            false
-        };
-        db.insert_notification_log(&NotificationLogRecord {
-            user_email: strategy.owner_email.clone(),
-            channel: "telegram".to_string(),
-            template_key: Some("GridFillExecuted".to_string()),
-            title: fill_title,
-            body: fill_body,
-            status: if delivered { "delivered" } else { "failed" }.to_string(),
-            payload: fill_payload,
-            created_at: traded_at,
-            delivered_at: delivered.then_some(traded_at),
-        })?;
-    }
+    persist_telegram_notification(
+        db,
+        strategy,
+        "GridFillExecuted",
+        fill_title,
+        fill_body,
+        fill_payload,
+        traded_at,
+    )?;
 
     let realized_pnl = update
         .realized_profit
@@ -134,30 +124,15 @@ pub fn persist_execution_effects(
         created_at: traded_at,
         delivered_at: Some(traded_at),
     })?;
-    if let Some(binding) = db.find_telegram_binding(&strategy.owner_email)? {
-        let delivered = if let Some(token) = telegram_bot_token() {
-            send_telegram_message(
-                &token,
-                &binding.telegram_chat_id,
-                &profit_title,
-                &profit_body,
-            )
-            .is_ok()
-        } else {
-            false
-        };
-        db.insert_notification_log(&NotificationLogRecord {
-            user_email: strategy.owner_email.clone(),
-            channel: "telegram".to_string(),
-            template_key: Some("FillProfitReported".to_string()),
-            title: profit_title,
-            body: profit_body,
-            status: if delivered { "delivered" } else { "failed" }.to_string(),
-            payload: profit_payload,
-            created_at: traded_at,
-            delivered_at: delivered.then_some(traded_at),
-        })?;
-    }
+    persist_telegram_notification(
+        db,
+        strategy,
+        "FillProfitReported",
+        profit_title,
+        profit_body,
+        profit_payload,
+        traded_at,
+    )?;
 
     Ok(ExecutionEffectsResult { new_trades: 1 })
 }
@@ -174,48 +149,4 @@ pub fn record_take_profit_fill(
     exit_price: Decimal,
 ) -> Result<RuntimeControlEffects, StrategyRuntimeError> {
     engine.record_take_profit_fill(level_index, exit_price)
-}
-
-fn telegram_bot_token() -> Option<String> {
-    std::env::var("TELEGRAM_BOT_TOKEN")
-        .ok()
-        .map(|value| value.trim().to_owned())
-        .filter(|value| !value.is_empty())
-}
-
-fn telegram_api_base_url() -> String {
-    std::env::var("TELEGRAM_API_BASE_URL")
-        .ok()
-        .map(|value| value.trim().trim_end_matches('/').to_owned())
-        .filter(|value| !value.is_empty())
-        .unwrap_or_else(|| "https://api.telegram.org".to_string())
-}
-
-fn telegram_http_agent() -> &'static ureq::Agent {
-    static AGENT: OnceLock<ureq::Agent> = OnceLock::new();
-    AGENT.get_or_init(|| {
-        ureq::AgentBuilder::new()
-            .timeout(StdDuration::from_secs(5))
-            .build()
-    })
-}
-
-fn send_telegram_message(
-    bot_token: &str,
-    chat_id: &str,
-    title: &str,
-    body: &str,
-) -> Result<(), shared_db::SharedDbError> {
-    telegram_http_agent()
-        .post(&format!(
-            "{}/bot{}/sendMessage",
-            telegram_api_base_url(),
-            bot_token
-        ))
-        .send_json(ureq::json!({
-            "chat_id": chat_id,
-            "text": format!("{}\n{}", title, body),
-        }))
-        .map_err(|error| shared_db::SharedDbError::new(error.to_string()))?;
-    Ok(())
 }

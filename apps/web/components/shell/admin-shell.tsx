@@ -145,11 +145,12 @@ export function AdminShell({
             <div className="flex flex-col gap-3">
               {snapshot.banners.map((banner) => (
                 <StatusBanner
+                        tone="info"
+                        lang={lang}
                   action={banner.action ? { ...banner.action, href: withLocale(locale, banner.action.href) } : undefined}
                   description={banner.description}
                   key={banner.title}
                   title={banner.title}
-                  tone={banner.tone}
                 />
               ))}
             </div>

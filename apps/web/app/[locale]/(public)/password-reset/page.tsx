@@ -44,9 +44,11 @@ export default async function PasswordResetPage({ params, searchParams }: Passwo
       </div>
 
       {error ? (
-        <StatusBanner description={error} title={pickText(lang, "密码重置失败", "Password reset failed")} tone="danger" />
+        <StatusBanner description={error} lang={lang} title={pickText(lang, "密码重置失败", "Password reset failed")} tone="error" />
       ) : (
         <StatusBanner
+                tone="info"
+                lang={lang}
           description={step === "confirm" && notice === "reset-code-issued"
             ? pickText(lang, "请先去邮箱查收重置验证码，再输入新密码完成修改。", "Check your email for the issued reset code, then enter it with your new password.")
             : pickText(lang, "先申请重置验证码，再去邮箱确认并设置新密码。", "Request a reset code, then check your email and confirm the new password.")}
@@ -55,7 +57,6 @@ export default async function PasswordResetPage({ params, searchParams }: Passwo
             : step === "confirm"
               ? pickText(lang, "确认重置密码", "Confirm Password Reset")
               : pickText(lang, "密码重置", "Password Reset")}
-          tone="info"
         />
       )}
 

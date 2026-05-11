@@ -5,6 +5,7 @@ import { cookies } from "next/headers";
 import { AppShellSection } from "@/components/shell/app-shell-section";
 import { Card, CardBody, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatusBanner } from "@/components/ui/status-banner";
+import { HelpStrategyTypes, HelpRiskParams, HelpFAQ } from "@/components/help/help-content";
 import { getHelpArticle, listHelpArticles, normalizeHelpArticle, type HelpArticleBlock } from "@/lib/api/help-articles";
 import { UI_LANGUAGE_COOKIE, pickText, resolveUiLanguageFromRoute } from "@/lib/ui/preferences";
 
@@ -67,6 +68,8 @@ export default async function HelpPage({ params, searchParams }: HelpPageProps) 
   return (
     <>
       <StatusBanner
+              tone="info"
+              lang={lang}
         description={pickText(lang, "这里展示的是给用户看的操作说明，重点是怎么做，不是开发文档。", "These guides focus on what to do next in plain language instead of developer-facing notes.")}
         title={pickText(lang, "帮助中心", "Help center")}
        
@@ -106,6 +109,26 @@ export default async function HelpPage({ params, searchParams }: HelpPageProps) 
               </CardDescription>
             </CardHeader>
             <CardBody>{selectedArticle.blocks.map((block, index) => renderArticleBlock(block, index))}</CardBody>
+          </Card>
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mt-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>{pickText(lang, "策略类型说明", "Strategy Types")}</CardTitle>
+            </CardHeader>
+            <CardBody><HelpStrategyTypes lang={lang} /></CardBody>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle>{pickText(lang, "风控参数说明", "Risk Parameters")}</CardTitle>
+            </CardHeader>
+            <CardBody><HelpRiskParams lang={lang} /></CardBody>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle>{pickText(lang, "常见问题", "FAQ")}</CardTitle>
+            </CardHeader>
+            <CardBody><HelpFAQ lang={lang} /></CardBody>
           </Card>
         </div>
       </AppShellSection>

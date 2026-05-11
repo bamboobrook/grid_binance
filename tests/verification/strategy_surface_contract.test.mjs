@@ -6,6 +6,43 @@ function read(path) {
   return fs.readFileSync(path, "utf8");
 }
 
+function extractRustEnumWithAttributes(source, enumName) {
+  const enumMatch = new RegExp(`((?:\\s*(?:#\\[[^\\]]+\\]|//[^\\n]*|/\\*[\\s\\S]*?\\*/))*\\s*)pub\\s+enum\\s+${enumName}\\s*\\{([\\s\\S]*?)\\n\\}`).exec(source);
+  assert.ok(enumMatch, `${enumName} enum should exist`);
+  return { attributes: enumMatch[1], body: enumMatch[2] };
+}
+
+function extractRustEnumVariant(body, variantName) {
+  const variantMatch = new RegExp(`((?:\\s*(?:#\\[[^\\]]+\\]|//[^\\n]*|/\\*[\\s\\S]*?\\*/))*\\s*)\\b(${variantName})\\b\\s*,`).exec(body);
+  assert.ok(variantMatch, `StrategyType should keep the ${variantName} variant`);
+  return { attributes: variantMatch[1], name: variantMatch[2] };
+}
+
+function toSnakeCaseVariant(variant) {
+  return variant
+    .replace(/([A-Z])([A-Z][a-z])/g, "$1_$2")
+    .replace(/([a-z0-9])([A-Z])/g, "$1_$2")
+    .toLowerCase();
+}
+
+test("shared strategy domain keeps existing strategy type surface additive", () => {
+  const strategySource = read("/home/bumblebee/Project/grid_binance/.worktrees/full-v1/crates/shared-domain/src/strategy.rs");
+  const strategyType = extractRustEnumWithAttributes(strategySource, "StrategyType");
+  const expectedStrategyTypes = {
+    OrdinaryGrid: "ordinary_grid",
+    ClassicBilateralGrid: "classic_bilateral_grid",
+    MartingaleGrid: "martingale_grid",
+  };
+
+  assert.match(strategyType.attributes, /#\[serde\([\s\S]*rename_all\s*=\s*"snake_case"[\s\S]*\)\]/, "StrategyType should continue to serialize API strings as snake_case");
+
+  for (const [variantName, apiString] of Object.entries(expectedStrategyTypes)) {
+    const variant = extractRustEnumVariant(strategyType.body, variantName);
+    assert.doesNotMatch(variant.attributes, /#\[serde\([\s\S]*\brename\s*(?:=|\()/, `${variantName} should not override the StrategyType snake_case rename_all contract`);
+    assert.equal(toSnakeCaseVariant(variant.name), apiString, `${variantName} should map to the stable ${apiString} API string`);
+  }
+});
+
 test("new strategy workspace exposes real symbol selection and strategy-type-aware controls", () => {
   const pageSource = read("/home/bumblebee/Project/grid_binance/.worktrees/full-v1/apps/web/app/[locale]/app/strategies/new/page.tsx");
   const formSource = read("/home/bumblebee/Project/grid_binance/.worktrees/full-v1/apps/web/components/strategies/strategy-workspace-form.tsx");
@@ -27,6 +64,9 @@ test("new strategy workspace exposes real symbol selection and strategy-type-awa
   assert.match(formSource, /marketType !== "spot"/, "workspace form should hide futures-only controls for spot strategies");
   assert.match(formSource, /router\.(push|replace)\(/, "workspace form should support refreshing symbol-search results without posting the create form");
   assert.match(formSource, /referencePriceMode/, "workspace form should expose a reference-price source selector");
+  assert.match(pageSource, /referencePriceMode:\s*"market"/, "new strategy page should default the reference-price source to current market");
+  assert.match(pageSource, /name:\s*""/, "new strategy page should leave the strategy name empty by default");
+  assert.doesNotMatch(formSource, /<Input defaultValue=\{values\.name\} name="name" required \/>/, "workspace form should allow an empty strategy name");
   assert.match(formSource, /data-level-editor/, "workspace form should render a real every-grid editor instead of JSON-only editing");
   assert.match(formSource, /Grid Take Profit|网格止盈/, "workspace form should keep real per-grid take-profit fields for the editor");
   assert.match(formSource, /Apply Batch Defaults|应用批量参数到逐格/, "workspace form should let operators seed the per-grid editor from batch defaults");
@@ -41,6 +81,7 @@ test("new strategy workspace exposes real symbol selection and strategy-type-awa
   assert.match(createRoute, /const strategyType = readField\(formData,\s*"strategyType"\) \|\| "ordinary_grid";/, "create route should resolve strategy_type from the submitted form field");
   assert.match(createRoute, /strategy_type:\s*strategyType/, "create route should forward strategy_type from the form");
   assert.match(createRoute, /reference_price_source:\s*mapReferencePriceSource\(readField\(formData,\s*"referencePriceMode"\)/, "create route should forward reference_price_source from the form");
+  assert.doesNotMatch(createRoute, /name:\s*readField\(formData,\s*"name"\)\s*\|\|\s*"Strategy Draft"/, "create route should not force a fallback draft name");
   assert.match(createRoute, /levels:\s*parseLevelsJson\(readField\(formData,\s*"levels_json"\),\s*strategyType\)/, "create route should only parse submitted levels_json");
   assert.doesNotMatch(createRoute, /mapModeForStrategy|mapStrategyType|mapOrdinarySide/, "create route should forward the already-resolved mode instead of re-deriving strategy type semantics");
   assert.match(saveRoute, /const strategyType = mapStrategyType\(readField\(formData,\s*"strategyType"\)\)/, "save route should resolve strategy_type from the submitted form field");
@@ -95,4 +136,16 @@ test("strategy inventory exposes batch lifecycle actions and row-level actions t
   assert.doesNotMatch(detailSource, /if \(status === "Running"\) \{\s*return \[\s*\.\.\.common/s, "running strategies should not inherit save or pre-flight actions");
   assert.match(detailSource, /Pause Strategy|暂停策略/, "running strategies should still expose pause");
   assert.match(detailSource, /Stop Strategy|停止策略/, "running strategies should still expose stop");
+});
+
+test("market reference preview only blocks save-like form submits", () => {
+  const source = read("/home/bumblebee/Project/grid_binance/.worktrees/full-v1/apps/web/components/strategies/strategy-workspace-form.tsx");
+  assert.match(source, /isSubmitBlockedByMarketReference/, "form should use intent-aware block helper");
+  assert.doesNotMatch(source, /button\.value === "delete" \? false : marketReferenceSubmitBlocked/, "form should no longer use blanket delete-exempt pattern");
+  assert.match(source, /marketReferenceBlockedIntents/, "form should define blocked intents set");
+  assert.match(source, /"save"/, "blocked intents should include save");
+  assert.doesNotMatch(source, /marketReferenceBlockedIntents[^;]+"pause"/s, "blocked intents should not include pause");
+  assert.doesNotMatch(source, /marketReferenceBlockedIntents[^;]+"stop"/s, "blocked intents should not include stop");
+  assert.doesNotMatch(source, /marketReferenceBlockedIntents[^;]+"resume"/s, "blocked intents should not include resume");
+  assert.doesNotMatch(source, /marketReferenceBlockedIntents[^;]+"preflight"/s, "blocked intents should not include preflight");
 });

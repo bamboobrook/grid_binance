@@ -6,7 +6,9 @@ use axum::{
 use rust_decimal::Decimal;
 use serde_json::{json, Value};
 use shared_db::{MembershipRecord, SharedDb};
-use shared_domain::strategy::{StrategyMarket, StrategyMode, StrategyRuntimePosition, StrategyStatus};
+use shared_domain::strategy::{
+    StrategyMarket, StrategyMode, StrategyRuntimePosition, StrategyStatus,
+};
 use std::sync::{Mutex, OnceLock};
 use tower::ServiceExt;
 
@@ -268,7 +270,8 @@ async fn credential_updates_require_running_strategies_to_be_paused_first() {
             "name": "needs pause",
             "symbol": "BTCUSDT",
             "market": "Spot",
-            "mode": "SpotClassic",
+            "mode": "SpotBuyOnly",
+            "strategy_type": "ordinary_grid",
             "generation": "Custom",
             "levels": [{
                 "entry_price": "100.00",
@@ -392,6 +395,11 @@ async fn credential_updates_are_blocked_when_paused_strategy_still_has_positions
             "generation": "Custom",
             "levels": [{
                 "entry_price": "100.00",
+                "quantity": "0.1000",
+                "take_profit_bps": 100,
+                "trailing_bps": null
+            }, {
+                "entry_price": "105.00",
                 "quantity": "0.1000",
                 "take_profit_bps": 100,
                 "trailing_bps": null

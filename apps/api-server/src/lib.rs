@@ -1,6 +1,7 @@
 mod routes {
     pub mod admin_address_pools;
     pub mod admin_audit;
+    pub mod admin_backtest;
     pub mod admin_deposits;
     pub mod admin_memberships;
     pub mod admin_strategies;
@@ -11,9 +12,11 @@ mod routes {
     pub mod analytics;
     pub mod auth;
     pub mod auth_guard;
+    pub mod backtest;
     pub mod billing;
     pub mod exchange;
     pub mod exports;
+    pub mod martingale_portfolios;
     pub mod membership;
     pub mod orders;
     pub mod profile;
@@ -25,7 +28,9 @@ mod routes {
 mod services {
     pub mod analytics_service;
     pub mod auth_service;
+    pub mod backtest_service;
     pub mod exchange_service;
+    pub mod martingale_publish_service;
     pub mod membership_service;
     pub mod strategy_service;
     pub mod telegram_service;
@@ -35,7 +40,9 @@ use axum::{extract::FromRef, Router};
 use services::{
     analytics_service::AnalyticsService,
     auth_service::{AuthConfigError, AuthService},
+    backtest_service::BacktestService,
     exchange_service::ExchangeService,
+    martingale_publish_service::MartingalePublishService,
     membership_service::MembershipService,
     strategy_service::StrategyService,
     telegram_service::TelegramService,
@@ -45,10 +52,12 @@ use shared_db::{SharedDb, SharedDbError};
 #[derive(Clone)]
 pub struct AppState {
     analytics: AnalyticsService,
+    backtest: BacktestService,
     auth: AuthService,
     db: SharedDb,
     exchange: ExchangeService,
     membership: MembershipService,
+    martingale_publish: MartingalePublishService,
     strategy: StrategyService,
     telegram: TelegramService,
 }
@@ -63,25 +72,31 @@ impl AppState {
         redis_url: impl AsRef<str>,
     ) -> Result<Self, SharedDbError> {
         let db = SharedDb::connect(database_url, redis_url)?;
+        let martingale_publish = MartingalePublishService::new(db.clone());
         Ok(Self {
             analytics: AnalyticsService::new(db.clone()),
             auth: AuthService::new_strict(db.clone())
                 .map_err(|error| SharedDbError::new(error.to_string()))?,
+            backtest: BacktestService::new(db.clone(), martingale_publish.clone()),
             db: db.clone(),
             exchange: ExchangeService::new_strict(db.clone())?,
             membership: MembershipService::new(db.clone()),
+            martingale_publish,
             strategy: StrategyService::new(db.clone()),
             telegram: TelegramService::new_strict(db)?,
         })
     }
 
     pub fn from_shared_db(db: SharedDb) -> Result<Self, SharedDbError> {
+        let martingale_publish = MartingalePublishService::new(db.clone());
         Ok(Self {
             analytics: AnalyticsService::new(db.clone()),
             auth: AuthService::new_capture(db.clone()),
+            backtest: BacktestService::new(db.clone(), martingale_publish.clone()),
             db: db.clone(),
             exchange: ExchangeService::new(db.clone()),
             membership: MembershipService::new(db.clone()),
+            martingale_publish,
             strategy: StrategyService::new(db.clone()),
             telegram: TelegramService::new(db),
         })
@@ -106,9 +121,21 @@ impl FromRef<AppState> for AnalyticsService {
     }
 }
 
+impl FromRef<AppState> for BacktestService {
+    fn from_ref(input: &AppState) -> Self {
+        input.backtest.clone()
+    }
+}
+
 impl FromRef<AppState> for MembershipService {
     fn from_ref(input: &AppState) -> Self {
         input.membership.clone()
+    }
+}
+
+impl FromRef<AppState> for MartingalePublishService {
+    fn from_ref(input: &AppState) -> Self {
+        input.martingale_publish.clone()
     }
 }
 
@@ -144,12 +171,15 @@ pub fn build_persistent_state(
     } else {
         AuthService::new_strict(db.clone()).map_err(AppBuildError::from)?
     };
+    let martingale_publish = MartingalePublishService::new(db.clone());
     Ok(AppState {
         analytics: AnalyticsService::new(db.clone()),
         auth,
+        backtest: BacktestService::new(db.clone(), martingale_publish.clone()),
         db: db.clone(),
         exchange: ExchangeService::new_strict(db.clone()).map_err(AppBuildError::from)?,
         membership: MembershipService::new(db.clone()),
+        martingale_publish,
         strategy: StrategyService::new(db.clone()),
         telegram: TelegramService::new_strict(db).map_err(AppBuildError::from)?,
     })
@@ -163,12 +193,16 @@ pub fn app_with_persistent_state(
     database_url: impl AsRef<str>,
     redis_url: impl AsRef<str>,
 ) -> Result<Router, AppBuildError> {
-    Ok(app_with_state(build_persistent_state(database_url, redis_url)?))
+    Ok(app_with_state(build_persistent_state(
+        database_url,
+        redis_url,
+    )?))
 }
 
 pub fn app_with_state(state: AppState) -> Router {
     Router::new()
         .merge(routes::admin_address_pools::router())
+        .merge(routes::admin_backtest::router())
         .merge(routes::admin_audit::router())
         .merge(routes::admin_deposits::router())
         .merge(routes::admin_memberships::router())
@@ -179,10 +213,12 @@ pub fn app_with_state(state: AppState) -> Router {
         .merge(routes::admin_users::router())
         .merge(routes::analytics::router())
         .merge(routes::auth::router())
+        .merge(routes::backtest::router())
         .merge(routes::billing::router())
         .merge(routes::exchange::router())
         .merge(routes::exports::router())
         .merge(routes::membership::router())
+        .merge(routes::martingale_portfolios::router())
         .merge(routes::orders::router())
         .merge(routes::profile::router())
         .merge(routes::security::router())

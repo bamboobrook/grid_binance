@@ -199,11 +199,11 @@
   }
 
   .metric-strip {
-    @apply grid grid-cols-2 gap-2 sm:grid-cols-3;
+    @apply flex flex-nowrap items-stretch gap-2 overflow-x-auto pb-1;
   }
 
   .metric-strip__item {
-    @apply rounded-xl border border-border bg-secondary px-3 py-2 text-xs text-muted-foreground;
+    @apply min-w-[10rem] flex-1 rounded-xl border border-border bg-secondary px-3 py-2 text-xs text-muted-foreground;
   }
 
   .metric-strip__item strong {

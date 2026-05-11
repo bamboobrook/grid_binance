@@ -50,7 +50,7 @@ function auditActionLabel(lang: UiLanguage, action: string) {
 
 function actionButtonClass(disabled: boolean) {
   return disabled
-    ? "inline-flex items-center justify-center rounded-lg px-4 py-2 text-sm font-semibold bg-slate-800 text-slate-500 cursor-not-allowed"
+    ? "inline-flex items-center justify-center rounded-lg px-4 py-2 text-sm font-semibold bg-secondary text-muted-foreground cursor-not-allowed"
     : "inline-flex items-center justify-center rounded-lg px-4 py-2 text-sm font-semibold bg-primary text-primary-foreground hover:bg-primary/90 transition-colors";
 }
 
@@ -147,11 +147,12 @@ export default async function AdminDashboardPage({ params }: PageProps) {
   return (
     <>
       <StatusBanner
+              tone="info"
+              lang={lang}
         description={restricted
           ? pickText(lang, "当前为操作员权限边界，可继续处理审核与巡检；模板、归集、系统配置与完整审计仍受限制。", "Operator boundary is active. Reviews and supervision stay available, while templates, sweeps, system configuration, and full audit remain restricted.")
           : pickText(lang, "当前为超级管理员会话，可直接处理模板、系统配置、归集与完整审计。", "Super Admin session is active for templates, system configuration, sweeps, and full audit." )}
         title={profile.admin_access_granted ? pickText(lang, "管理员权限已生效", "Admin access granted") : pickText(lang, "管理员权限未生效", "Admin access missing")}
-        tone={profile.admin_access_granted ? "success" : "warning"}
       />
       <AppShellSection
         description={pickText(lang, "后台首页只保留当前最关键的处理面板与状态看板，进入后可以直接点击处理。", "The homepage keeps only the most important control panels and status boards so operators can act immediately.")}

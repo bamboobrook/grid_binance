@@ -46,7 +46,7 @@ export function Input({ className, ...props }: InputHTMLAttributes<HTMLInputElem
   return (
     <input 
       className={cn(
-        "flex h-9 w-full rounded-sm border border-border bg-input px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50", 
+        "flex h-11 sm:h-9 w-full rounded-sm border border-border bg-input px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50",
         className
       )} 
       {...props} 
@@ -106,10 +106,10 @@ export function Button({
           "border border-border bg-transparent shadow-sm hover:bg-accent hover:text-accent-foreground": tone === "outline",
         },
         {
-          "h-9 px-4 py-2": size === "default",
-          "h-8 rounded-sm px-3 text-xs": size === "sm",
-          "h-10 rounded-sm px-8": size === "lg",
-          "h-9 w-9": size === "icon",
+          "h-11 sm:h-9 px-4 py-2": size === "default",
+          "h-10 sm:h-8 rounded-sm px-3 text-xs": size === "sm",
+          "h-12 sm:h-10 rounded-sm px-8": size === "lg",
+          "h-11 sm:h-9 w-11 sm:w-9": size === "icon",
         },
         className,
       )}

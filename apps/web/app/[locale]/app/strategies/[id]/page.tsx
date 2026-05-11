@@ -1,652 +1,367 @@
-import Link from "next/link";
 import { cookies } from "next/headers";
-import { notFound } from "next/navigation";
-
-import { StrategyWorkspaceForm, type StrategyWorkspaceIntentButton, type StrategyWorkspaceValues } from "@/components/strategies/strategy-workspace-form";
-import { AppShellSection } from "@/components/shell/app-shell-section";
-import { Card, CardBody, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Chip } from "@/components/ui/chip";
-import { StatusBanner } from "@/components/ui/status-banner";
-import { DataTable } from "@/components/ui/table";
 import { pickText, type UiLanguage } from "@/lib/ui/preferences";
+import { LivePriceDisplay } from "@/components/ui/live-price-display";
+import { StrategyStatusBadge } from "@/components/ui/strategy-status-badge";
+import { StrategyWorkspaceForm, type StrategyWorkspaceValues } from "@/components/strategies/strategy-workspace-form";
+import { formatPnl, formatPrice, pnlColor } from "@/lib/ui/format";
 import { formatTaipeiDateTime } from "@/lib/ui/time";
 
 const DEFAULT_AUTH_API_BASE_URL = "http://127.0.0.1:8080";
 
-type PageProps = {
-  params: Promise<{ locale: string; id: string }>;
-  searchParams?: Promise<{
-    error?: string | string[];
-    notice?: string | string[];
-    reason?: string | string[];
-    step?: string | string[];
-    symbolQuery?: string | string[];
-  }>;
+type RuntimeEvent = {
+  event_type: string;
+  timestamp: string;
+  detail?: string;
 };
 
-type BackendStrategy = {
-  budget: string;
-  strategy_type?: string;
-  draft_revision: {
-    amount_mode?: "Quote" | "Base";
-    futures_margin_mode?: "Isolated" | "Cross" | null;
-    generation: string;
-    leverage?: number | null;
-    levels: Array<{
-      entry_price: string;
-      quantity: string;
-      take_profit_bps: number;
-      trailing_bps: number | null;
-    }>;
-    overall_stop_loss_bps: number | null;
-    overall_take_profit_bps: number | null;
-    post_trigger_action: string;
-    reference_price?: string | null;
-    reference_price_source?: string;
-    strategy_type?: string;
-  };
-  id: string;
+type RuntimeFill = {
+  fill_id: string;
+  price: string;
+  quantity: string;
+  side: string;
+  realized_pnl: string | null;
+  timestamp: string;
+};
+
+type RuntimePosition = {
   market: string;
   mode: string;
+  quantity: string;
+  average_entry_price: string;
+};
+
+type StrategyDetail = {
+  id: string;
   name: string;
-  runtime: {
-    events: Array<{ created_at: string; detail: string; event_type: string }>;
-    fills: Array<{ realized_pnl: string | null }>;
-    orders: Array<unknown>;
-    positions: Array<{ average_entry_price: string; quantity: string }>;
-  };
   status: string;
   symbol: string;
-};
-
-type PreflightReport = {
-  failures: Array<{ reason?: string; step: string }>;
-  ok: boolean;
-  steps: Array<{ reason?: string | null; status: string; step: string }>;
-};
-
-type SymbolSearchResponse = {
-  items: Array<{ base_asset: string; market: string; quote_asset: string; symbol: string }>;
-};
-
-const FALLBACK_SYMBOLS: SymbolSearchResponse["items"] = [
-  { base_asset: "BTC", market: "spot", quote_asset: "USDT", symbol: "BTCUSDT" },
-  { base_asset: "ETH", market: "spot", quote_asset: "USDT", symbol: "ETHUSDT" },
-  { base_asset: "SOL", market: "spot", quote_asset: "USDT", symbol: "SOLUSDT" },
-  { base_asset: "BNB", market: "spot", quote_asset: "USDT", symbol: "BNBUSDT" },
-];
-
-export default async function StrategyDetailPage({ params, searchParams }: PageProps) {
-  const { locale, id } = await params;
-  const lang: UiLanguage = locale === "en" ? "en" : "zh";
-  const strategyResult = await fetchStrategy(id, lang);
-  const strategy = strategyResult.strategy;
-  const paramsValue = (await searchParams) ?? {};
-  const notice = firstValue(paramsValue.notice);
-  const symbolQuery = firstValue(paramsValue.symbolQuery) ?? strategy?.symbol ?? "";
-  const error = firstValue(paramsValue.error);
-  const reason = firstValue(paramsValue.reason);
-  const step = firstValue(paramsValue.step);
-  const [preflightResult, symbolMatchesResult] = await Promise.all([
-    fetchPreflight(id, lang),
-    fetchSymbolMatches(firstValue(paramsValue.symbolQuery) ?? strategy?.symbol ?? "", lang),
-  ]);
-  const preflight = preflightResult.preflight;
-
-  if (!strategy && !strategyResult.error) {
-    notFound();
-  }
-
-  if (!strategy) {
-    return <StatusBanner title={localize(lang, "策略工作台不可用", "Strategy workspace unavailable")} description={strategyResult.error ?? localize(lang, "策略工作台暂不可用。", "Strategy workspace is temporarily unavailable.")} />;
-  }
-
-  const firstLevel = strategy.draft_revision.levels[0];
-  const levelsJson = JSON.stringify(strategy.draft_revision.levels, null, 2);
-  const detailPagePath = withLocale(locale, `/app/strategies/${strategy.id}`);
-  const strategyType = mapStrategyTypeToForm(strategy.strategy_type ?? "ordinary_grid");
-  const ordinarySide = mapOrdinarySideToForm(strategy.mode);
-  const bounds = deriveWorkspaceBounds(
-    strategy.draft_revision.levels,
-    strategyType,
-    strategy.draft_revision.reference_price ?? null,
-  );
-  const values: StrategyWorkspaceValues = {
-    amountMode: strategy.draft_revision.amount_mode === "Base" ? "base" : "quote",
-    baseQuantity: firstLevel?.quantity ?? "",
-    batchTakeProfit: firstLevel ? formatBps(firstLevel.take_profit_bps) : "",
-    batchTrailing: firstLevel?.trailing_bps ? formatBps(firstLevel.trailing_bps) : "",
-    coveredRangePercent: bounds.coveredRangePercent,
-    editorMode: strategy.draft_revision.generation === "Custom" ? "custom" : "batch",
-    futuresMarginMode: strategy.draft_revision.futures_margin_mode === "Cross" ? "cross" : "isolated",
-    generation: mapGenerationToForm(strategy.draft_revision.generation),
-    gridCount: String(strategy.draft_revision.levels.length || 0),
-    gridSpacingPercent: computeSpacingPercent(strategy.draft_revision.levels[0]?.entry_price, strategy.draft_revision.levels[1]?.entry_price),
-    levelsJson,
-    leverage: strategy.draft_revision.leverage ? String(strategy.draft_revision.leverage) : "5",
-    lowerRangePercent: bounds.lowerRangePercent,
-    marketType: mapMarketToForm(strategy.market),
-    mode: mapModeToForm(strategy.mode),
-    name: strategy.name,
-    ordinarySide,
-    overallStopLoss: formatBps(strategy.draft_revision.overall_stop_loss_bps),
-    overallTakeProfit: formatBps(strategy.draft_revision.overall_take_profit_bps),
-    postTrigger: mapPostTriggerToForm(strategy.draft_revision.post_trigger_action),
-    quoteAmount: firstLevel ? formatQuote(firstLevel.entry_price, firstLevel.quantity) : "",
-    referencePrice: bounds.referencePrice,
-    referencePriceMode: mapReferencePriceModeToForm(strategy.draft_revision.reference_price_source),
-    strategyType,
-    symbol: strategy.symbol,
-    upperRangePercent: bounds.upperRangePercent,
+  market: string;
+  strategy_type: string;
+  budget: string;
+  reference_price: string | null;
+  reference_price_source: string | null;
+  draft_revision: { reference_price_source: string | null };
+  grid_count: number;
+  lower_price: string;
+  upper_price: string;
+  realized_pnl: string | null;
+  unrealized_pnl: string | null;
+  net_pnl: string | null;
+  tags: string[];
+  notes: string;
+  runtime?: {
+    events?: RuntimeEvent[];
+    fills?: RuntimeFill[];
+    positions?: RuntimePosition[];
   };
+};
 
-  const actionButtons = buildActionButtons(lang, strategy.status);
+export default async function StrategyDetailPage({
+  params,
+}: {
+  params: Promise<{ locale: string; id: string }>;
+}) {
+  const { locale, id } = await params;
+  const lang = (locale === "zh" ? "zh" : "en") as UiLanguage;
+  const cookieStore = await cookies();
+  const sessionToken = cookieStore.get("session_token")?.value ?? "";
+  const strategy = sessionToken ? await fetchStrategy(sessionToken, id) : null;
+  if (!strategy) {
+    return (
+      <div className="space-y-6">
+        <h1 className="text-2xl font-bold">{pickText(lang, "策略详情", "Strategy Detail")}</h1>
+        <p className="text-muted-foreground">{pickText(lang, "策略不存在或未登录。", "Strategy not found or not logged in.")}</p>
+      </div>
+    );
+  }
+
+  const realizedPnl = strategy.realized_pnl ? Number(strategy.realized_pnl) : null;
+  const netPnl = strategy.net_pnl ? Number(strategy.net_pnl) : null;
+  const refPrice = strategy.reference_price ? Number(strategy.reference_price) : null;
+  const strategyType = mapStrategyTypeToForm(strategy.strategy_type);
+  const referencePriceMode = mapReferencePriceModeToForm(strategy.draft_revision.reference_price_source);
 
   return (
-    <>
-      {notice ? (
-        <StatusBanner
-          description={reason ? `${localize(lang, "原因", "Reason")}: ${reason}` : localize(lang, "最新策略动作已写入工作区。", "The latest strategy action has been written to the workspace.")}
-          title={formatNotice(lang, notice)}
-          tone={notice.includes("failed") || error ? "warning" : "success"}
-        />
-      ) : null}
-      {step ? <StatusBanner description={`${localize(lang, "阻塞检查", "Blocking step")}: ${describePreflightStep(lang, step)}`} title={localize(lang, "预检提示", "Pre-flight hint")} tone="warning" /> : null}
-      {error ? <StatusBanner description={error} title={localize(lang, "策略动作失败", "Strategy action failed")} /> : null}
-      {strategyResult.error ? <StatusBanner description={strategyResult.error} title={localize(lang, "策略数据不可用", "Strategy data unavailable")} /> : null}
-      {preflightResult.error ? <StatusBanner description={preflightResult.error} title={localize(lang, "预检状态不可用", "Pre-flight status unavailable")} /> : null}
-      {symbolMatchesResult.error ? <StatusBanner description={symbolMatchesResult.error} title={localize(lang, "交易对搜索不可用", "Symbol search unavailable")} /> : null}
-
-      <AppShellSection
-        actions={
-          <div className="flex items-center gap-2">
-            <Link className="inline-flex items-center justify-center rounded-sm px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-secondary" href={withLocale(locale, "/app/orders")}>
-              {localize(lang, "订单", "Orders")}
-            </Link>
-          </div>
-        }
-        description={localize(lang, "编辑前先确认预检、运行事件和预览映射，再决定保存、恢复还是停止。", "Check pre-flight, runtime events, and preview mapping before deciding to save, resume, or stop.")}
-        eyebrow={localize(lang, "策略工作台", "Strategy Workspace")}
-        title={localize(lang, "策略详情", "Strategy Detail")}
-      >
-        <div className="content-grid content-grid--metrics">
-          {[
-            [localize(lang, "交易对", "Symbol"), strategy.symbol],
-            [localize(lang, "市场 / 模式", "Market / Mode"), `${describeMarket(lang, strategy.market)} · ${describeMode(lang, strategy.mode)}`],
-            [localize(lang, "当前状态", "Current State"), describeStrategyStatus(lang, strategy.status)],
-            [localize(lang, "当前持仓", "Current Holdings"), describeHoldings(lang, strategy.runtime.positions)],
-          ].map(([label, value]) => (
-            <Card key={label}>
-              <CardHeader>
-                <CardTitle>{value}</CardTitle>
-                <CardDescription>{label}</CardDescription>
-              </CardHeader>
-            </Card>
-          ))}
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <h1 className="text-2xl font-bold" data-testid="strategy-detail-header">
+            {strategy.name}
+          </h1>
+          <StrategyStatusBadge status={strategy.status} lang={lang} />
         </div>
-      </AppShellSection>
-
-      <StrategyWorkspaceForm
-        editingLocked={strategy.status === "Running"}
-        formAction={`/api/user/strategies/${strategy.id}`}
-        intentButtons={actionButtons}
-        lang={lang}
-        searchPath={detailPagePath}
-        searchQuery={symbolQuery}
-        symbolMatches={symbolMatchesResult.items}
-        values={values}
-      />
-
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle>{localize(lang, "预检清单", "Pre-flight Checklist")}</CardTitle>
-            <CardDescription>{localize(lang, "启动前必须逐项通过；失败项会显示当前最先阻塞的步骤。", "Every required step must pass before start; failed rows show the first blocking step.")}</CardDescription>
-          </CardHeader>
-          <CardBody>
-            <DataTable
-              columns={[
-                { key: "item", label: localize(lang, "检查项", "Check") },
-                { key: "result", label: localize(lang, "结果", "Result"), align: "right" },
-              ]}
-              emptyMessage={localize(lang, "暂无预检数据。", "No pre-flight data yet.")}
-              rows={(preflight?.steps ?? []).map((row) => ({
-                id: row.step,
-                item: describePreflightStep(lang, row.step),
-                result: <Chip tone={row.status === "Passed" ? "success" : row.status === "Failed" ? "danger" : "info"}>{describePreflightStatus(lang, row.status)}</Chip>,
-              }))}
-            />
-          </CardBody>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>{localize(lang, "运行事件", "Runtime Events")}</CardTitle>
-            <CardDescription>{localize(lang, "这里直接显示暂停、停止、恢复和异常原因，不再只剩下一句泛化报错。", "Pause, stop, resume, and exception reasons stay visible here instead of collapsing into a generic failure banner.")}</CardDescription>
-          </CardHeader>
-          <CardBody>
-            <DataTable
-              columns={[
-                { key: "at", label: localize(lang, "时间", "Timestamp") },
-                { key: "event", label: localize(lang, "事件", "Event") },
-                { key: "detail", label: localize(lang, "详情", "Detail") },
-              ]}
-              emptyMessage={localize(lang, "暂无运行事件。", "No runtime events yet.")}
-              rows={strategy.runtime.events.map((event, index) => ({
-                id: `${strategy.id}-event-${index}`,
-                at: formatTaipeiDateTime(event.created_at, lang),
-                event: describeRuntimeEvent(lang, event.event_type),
-                detail: describeRuntimeEventDetail(lang, event.event_type, event.detail),
-              }))}
-            />
-          </CardBody>
-        </Card>
+        <div className="flex gap-2">
+          {strategy.status === "Running" && (
+            <>
+              <form action={`/api/user/strategies/${id}`} method="post">
+                <input name="intent" type="hidden" value="pause" />
+                <button className="inline-flex items-center rounded-md border border-amber-500/20 bg-amber-500/10 px-3 py-1.5 text-sm font-medium text-amber-500 hover:bg-amber-500/20" type="submit">
+                  {pickText(lang, "暂停策略", "Pause Strategy")}
+                </button>
+              </form>
+              <form action={`/api/user/strategies/${id}`} method="post">
+                <input name="intent" type="hidden" value="stop" />
+                <button className="inline-flex items-center rounded-md border border-red-500/20 bg-red-500/10 px-3 py-1.5 text-sm font-medium text-red-500 hover:bg-red-500/20" type="submit">
+                  {pickText(lang, "停止策略", "Stop Strategy")}
+                </button>
+              </form>
+            </>
+          )}
+          {(strategy.status === "Paused" || strategy.status === "ErrorPaused") && (
+            <>
+              <form action={`/api/user/strategies/${id}`} method="post">
+                <input name="intent" type="hidden" value="start" />
+                <button className="inline-flex items-center rounded-md border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5 text-sm font-medium text-emerald-500 hover:bg-emerald-500/20" type="submit">
+                  {pickText(lang, "恢复", "Resume")}
+                </button>
+              </form>
+              <form action={`/api/user/strategies/${id}`} method="post">
+                <input name="intent" type="hidden" value="stop" />
+                <button className="inline-flex items-center rounded-md border border-red-500/20 bg-red-500/10 px-3 py-1.5 text-sm font-medium text-red-500 hover:bg-red-500/20" type="submit">
+                  {pickText(lang, "停止策略", "Stop Strategy")}
+                </button>
+              </form>
+            </>
+          )}
+          <a
+            href={`/${locale}/app/strategies/new?mode=advanced&clone=${id}`}
+            className="inline-flex items-center rounded-md border px-3 py-1.5 text-sm font-medium hover:bg-muted"
+          >
+            {pickText(lang, "复制策略", "Clone Strategy")}
+          </a>
+        </div>
       </div>
-    </>
+
+      <div className="grid gap-4 sm:grid-cols-3">
+        <div className="rounded-lg border p-4">
+          <p className="text-xs text-muted-foreground">
+            {pickText(lang, "当前价格", "Current Price")}
+          </p>
+          <LivePriceDisplay symbol={strategy.symbol ?? id} lang={lang} />
+        </div>
+        <div className="rounded-lg border p-4">
+          <p className="text-xs text-muted-foreground">
+            {pickText(lang, "参考价", "Reference Price")}
+          </p>
+          <p className="mt-1 text-lg font-semibold">{formatPrice(refPrice)}</p>
+        </div>
+        <div className="rounded-lg border p-4">
+          <p className="text-xs text-muted-foreground">
+            {pickText(lang, "累计收益", "Total PnL")}
+          </p>
+          <p className={`mt-1 text-lg font-semibold ${pnlColor(netPnl)}`}>
+            {formatPnl(netPnl)}
+          </p>
+        </div>
+      </div>
+
+      <div className="rounded-lg border p-4">
+        <h2 className="mb-3 text-sm font-medium text-muted-foreground">
+          {pickText(lang, "策略信息", "Strategy Info")}
+        </h2>
+        <dl className="grid gap-2 text-sm sm:grid-cols-2 lg:grid-cols-3" data-testid="strategy-detail-info">
+          <div>
+            <dt className="text-muted-foreground">{pickText(lang, "策略ID", "Strategy ID")}</dt>
+            <dd className="font-mono">{id}</dd>
+          </div>
+          <div>
+            <dt className="text-muted-foreground">{pickText(lang, "交易对", "Symbol")}</dt>
+            <dd className="font-mono font-medium">{strategy.symbol}</dd>
+          </div>
+          <div>
+            <dt className="text-muted-foreground">{pickText(lang, "市场", "Market")}</dt>
+            <dd>{describeMarket(lang, strategy.market)}</dd>
+          </div>
+          <div>
+            <dt className="text-muted-foreground">{pickText(lang, "策略类型", "Strategy Type")}</dt>
+            <dd>{describeStrategyType(lang, strategy.strategy_type)}</dd>
+          </div>
+          <div>
+            <dt className="text-muted-foreground">{pickText(lang, "预算", "Budget")}</dt>
+            <dd>{strategy.budget}</dd>
+          </div>
+          <div>
+            <dt className="text-muted-foreground">{pickText(lang, "网格数量", "Grid Count")}</dt>
+            <dd>{strategy.grid_count}</dd>
+          </div>
+          <div>
+            <dt className="text-muted-foreground">{pickText(lang, "价格区间", "Price Range")}</dt>
+            <dd>{strategy.lower_price} — {strategy.upper_price}</dd>
+          </div>
+          {strategy.tags.length > 0 && (
+            <div>
+              <dt className="text-muted-foreground">{pickText(lang, "标签", "Tags")}</dt>
+              <dd className="flex flex-wrap gap-1">
+                {strategy.tags.map((tag) => (
+                  <span key={tag} className="rounded-full border bg-secondary px-2 py-0.5 text-xs">{tag}</span>
+                ))}
+              </dd>
+            </div>
+          )}
+          {strategy.notes && (
+            <div className="sm:col-span-2">
+              <dt className="text-muted-foreground">{pickText(lang, "备注", "Notes")}</dt>
+              <dd>{strategy.notes}</dd>
+            </div>
+          )}
+        </dl>
+      </div>
+
+      <div className="rounded-lg border p-4">
+        <h2 className="mb-3 text-sm font-medium text-muted-foreground">
+          {pickText(lang, "运行事件", "Runtime Events")}
+        </h2>
+        {strategy.runtime?.events && strategy.runtime.events.length > 0 ? (
+          <ul className="space-y-2 text-sm mb-4">
+            {strategy.runtime.events.slice(0, 10).map((event, idx) => (
+              <li key={idx} className="flex items-center justify-between">
+                <span>{describeRuntimeEventDetail(lang, event.event_type)}</span>
+                <span className="text-xs text-muted-foreground">{formatTaipeiDateTime(event.timestamp, lang)}</span>
+              </li>
+            ))}
+          </ul>
+        ) : strategy.status !== "Draft" ? (
+          <p className="text-xs text-muted-foreground mb-2">
+            {describeRuntimeEventDetail(lang, strategy.status === "Running" ? "GridFill" : "StrategyPaused")}
+          </p>
+        ) : null}
+
+        {strategy.runtime?.positions && strategy.runtime.positions.length > 0 && (
+          <div className="mb-4">
+            <h3 className="text-xs font-medium text-muted-foreground mb-2">{pickText(lang, "当前持仓", "Open Positions")}</h3>
+            <ul className="space-y-1 text-sm">
+              {strategy.runtime.positions.map((pos, idx) => (
+                <li key={idx} className="flex items-center justify-between">
+                  <span>{pos.quantity} @ {formatPrice(Number(pos.average_entry_price))}</span>
+                  <span className="text-xs text-muted-foreground">{describeMarket(lang, pos.market)}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {strategy.runtime?.fills && strategy.runtime.fills.length > 0 && (
+          <div className="mb-4">
+            <h3 className="text-xs font-medium text-muted-foreground mb-2">{pickText(lang, "最近成交", "Recent Fills")}</h3>
+            <ul className="space-y-1 text-sm">
+              {strategy.runtime.fills.slice(0, 10).map((fill) => (
+                <li key={fill.fill_id} className="flex items-center justify-between">
+                  <span className={fill.side === "Buy" ? "text-emerald-500" : "text-red-500"}>
+                    {fill.side} {fill.quantity} @ {formatPrice(Number(fill.price))}
+                  </span>
+                  <span className="text-xs text-muted-foreground">{formatTaipeiDateTime(fill.timestamp, lang)}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+        <StrategyWorkspaceForm
+          displayMode="advanced"
+          editingLocked={strategy.status === "Running"}
+          formAction={`/api/user/strategies/${id}`}
+          lang={lang}
+          searchPath={`/${locale}/app/strategies/new`}
+          searchQuery={strategy.symbol}
+          symbolMatches={[]}
+          values={{
+            amountMode: "quote",
+            baseQuantity: "0.05",
+            batchTakeProfit: "2.0",
+            batchTrailing: "",
+            coveredRangePercent: "6",
+            editorMode: "batch",
+            futuresMarginMode: "isolated",
+            generation: "arithmetic",
+            gridCount: String(strategy.grid_count),
+            gridSpacingPercent: "",
+            levelsJson: "[]",
+            leverage: "5",
+            lowerRangePercent: "6",
+            marketType: strategy.market === "FuturesUsdM" ? "usd-m" : strategy.market === "FuturesCoinM" ? "coin-m" : "spot",
+            mode: strategy.market === "Spot" ? "buy-only" : "long",
+            name: strategy.name,
+            ordinarySide: "lower",
+            overallStopLoss: "",
+            overallTakeProfit: "4.0",
+            postTrigger: "rebuild",
+            quoteAmount: strategy.budget,
+            referencePrice: strategy.reference_price ?? "",
+            referencePriceMode: mapReferencePriceModeToForm(strategy.draft_revision.reference_price_source) as "manual" | "market",
+            strategyType: strategyType as "ordinary_grid" | "classic_bilateral_grid",
+            symbol: strategy.symbol,
+            upperRangePercent: "6",
+          }}
+        />
+      </div>
+    </div>
   );
 }
 
-function describeHoldings(
-  lang: UiLanguage,
-  positions: Array<{ average_entry_price: string; quantity: string }>,
-) {
-  const live = positions.map((position) => `${position.quantity} @ ${position.average_entry_price}`).join(" | ");
-  return live || localize(lang, "暂无持仓", "No open holdings");
-}
-
-function firstValue(value?: string | string[]) {
-  return Array.isArray(value) ? value[0] : value;
-}
-
-function localize(lang: UiLanguage, zh: string, en: string) {
-  return pickText(lang, zh, en);
-}
-
-function withLocale(locale: string, path: string) {
-  return `/${locale}${path}`;
-}
-
-function mapMarketToForm(value: string): StrategyWorkspaceValues["marketType"] {
-  switch (value) {
-    case "FuturesUsdM":
-      return "usd-m";
-    case "FuturesCoinM":
-      return "coin-m";
-    default:
-      return "spot";
+function describeMarket(lang: UiLanguage, market: string) {
+  switch (market) {
+    case "Spot": return pickText(lang, "现货", "Spot");
+    case "FuturesUsdM": return pickText(lang, "U本位合约", "USD-M Futures");
+    case "FuturesCoinM": return pickText(lang, "币本位合约", "COIN-M Futures");
+    default: return market;
   }
 }
 
-function mapModeToForm(value: string): StrategyWorkspaceValues["mode"] {
-  switch (value) {
-    case "SpotBuyOnly":
-      return "buy-only";
-    case "SpotSellOnly":
-      return "sell-only";
-    case "FuturesLong":
-      return "long";
-    case "FuturesShort":
-      return "short";
-    case "FuturesNeutral":
-      return "neutral";
-    default:
-      return "classic";
+function describeStrategyType(lang: UiLanguage, strategyType: string) {
+  switch (strategyType) {
+    case "SpotGrid": return pickText(lang, "普通网格", "Spot Grid");
+    case "FuturesLong": return pickText(lang, "合约做多网格", "Futures Long Grid");
+    case "FuturesShort": return pickText(lang, "合约做空网格", "Futures Short Grid");
+    case "ClassicBilateralSpot": return pickText(lang, "经典双向网格", "Classic Bilateral Grid");
+    case "ClassicBilateralFutures": return pickText(lang, "经典双向合约网格", "Classic Bilateral Futures");
+    default: return strategyType;
   }
 }
 
-function mapGenerationToForm(value: string): StrategyWorkspaceValues["generation"] {
-  switch (value) {
-    case "Geometric":
-      return "geometric";
-    case "Custom":
-      return "custom";
-    default:
-      return "arithmetic";
+function mapStrategyTypeToForm(backendType: string): string {
+  switch (backendType) {
+    case "SpotGrid": return "ordinary_grid";
+    case "FuturesLong": return "ordinary_grid";
+    case "FuturesShort": return "ordinary_grid";
+    case "ClassicBilateralSpot": return "classic_bilateral_grid";
+    case "ClassicBilateralFutures": return "classic_bilateral_grid";
+    default: return "ordinary_grid";
   }
 }
 
-function mapStrategyTypeToForm(value: string): StrategyWorkspaceValues["strategyType"] {
-  return value === "classic_bilateral_grid" ? "classic_bilateral_grid" : "ordinary_grid";
-}
-
-function mapReferencePriceModeToForm(value?: string): StrategyWorkspaceValues["referencePriceMode"] {
-  return value === "market" ? "market" : "manual";
-}
-
-function mapOrdinarySideToForm(value: string): StrategyWorkspaceValues["ordinarySide"] {
-  switch (value) {
-    case "SpotSellOnly":
-    case "FuturesShort":
-      return "upper";
-    default:
-      return "lower";
+function mapReferencePriceModeToForm(source: string | null): string {
+  switch (source) {
+    case "last_price": return "market";
+    case "manual": return "manual";
+    default: return "market";
   }
 }
 
-function deriveWorkspaceBounds(
-  levels: BackendStrategy["draft_revision"]["levels"],
-  strategyType: StrategyWorkspaceValues["strategyType"],
-  storedReferencePrice?: string | null,
-) {
-  const orderedPrices = levels
-    .map((level) => Number.parseFloat(level.entry_price))
-    .filter((price): price is number => Number.isFinite(price) && price > 0);
-  const prices = [...orderedPrices].sort((left, right) => left - right);
-  if (prices.length === 0) {
-    return {
-      coveredRangePercent: "",
-      lowerRangePercent: "",
-      referencePrice: "",
-      upperRangePercent: "",
-    };
-  }
-
-  const minPrice = prices[0];
-  const maxPrice = prices[prices.length - 1];
-  const parsedStoredReference = Number.parseFloat(storedReferencePrice ?? "");
-  if (strategyType === "ordinary_grid") {
-    const anchor = Number.isFinite(parsedStoredReference) && parsedStoredReference > 0
-      ? parsedStoredReference
-      : (orderedPrices[0] ?? minPrice);
-    const edge = orderedPrices[orderedPrices.length - 1] ?? maxPrice;
-    return {
-      coveredRangePercent: formatPercentFromPrices(anchor, edge),
-      lowerRangePercent: "",
-      referencePrice: formatReferencePrice(anchor),
-      upperRangePercent: "",
-    };
-  }
-
-  const center = Number.isFinite(parsedStoredReference) && parsedStoredReference > 0
-    ? parsedStoredReference
-    : (minPrice + maxPrice) / 2;
-  return {
-    coveredRangePercent: "",
-    lowerRangePercent: formatPercentFromPrices(center, minPrice),
-    referencePrice: formatReferencePrice(center),
-    upperRangePercent: formatPercentFromPrices(center, maxPrice),
-  };
-}
-
-function formatPercentFromPrices(anchor: number, edge: number) {
-  if (!Number.isFinite(anchor) || anchor <= 0 || !Number.isFinite(edge) || edge <= 0) {
-    return "";
-  }
-  return formatReferencePrice((Math.abs(edge - anchor) / anchor) * 100);
-}
-
-function formatReferencePrice(value: number) {
-  const normalized = value.toFixed(4).replace(/\.0+$/, "").replace(/(\.\d*?)0+$/, "$1");
-  return normalized === "-0" ? "0" : normalized;
-}
-
-function mapPostTriggerToForm(value: string): StrategyWorkspaceValues["postTrigger"] {
-  return value === "Stop" ? "stop" : "rebuild";
-}
-
-function buildActionButtons(lang: UiLanguage, status: string): StrategyWorkspaceIntentButton[] {
-  const zh = lang === "zh";
-  if (status === "Running") {
-    return [
-      { label: zh ? "暂停策略" : "Pause Strategy", tone: "outline", value: "pause" },
-      { label: zh ? "停止策略" : "Stop Strategy", tone: "outline", value: "stop" },
-    ];
-  }
-  return [
-    { label: zh ? "保存修改" : "Save Changes", value: "save" },
-    { label: zh ? "运行预检" : "Run Pre-flight", tone: "secondary", value: "preflight" },
-    { label: status === "Paused" ? (zh ? "恢复策略" : "Resume Strategy") : (zh ? "启动策略" : "Start Strategy"), value: "start" },
-    { label: zh ? "停止策略" : "Stop Strategy", tone: "outline", value: "stop" },
-    { label: zh ? "删除策略" : "Delete Strategy", tone: "danger", value: "delete" },
-  ];
-}
-
-function describeMarket(lang: UiLanguage, value: string) {
-  switch (value) {
-    case "FuturesUsdM":
-      return localize(lang, "U 本位合约", "USD-M Futures");
-    case "FuturesCoinM":
-      return localize(lang, "币本位合约", "COIN-M Futures");
-    default:
-      return localize(lang, "现货", "Spot");
-  }
-}
-
-function describeMode(lang: UiLanguage, value: string) {
-  switch (value) {
-    case "SpotBuyOnly":
-      return localize(lang, "只买", "Buy Only");
-    case "SpotSellOnly":
-      return localize(lang, "只卖", "Sell Only");
-    case "FuturesLong":
-      return localize(lang, "做多", "Long");
-    case "FuturesShort":
-      return localize(lang, "做空", "Short");
-    case "FuturesNeutral":
-      return localize(lang, "中性", "Neutral");
-    default:
-      return localize(lang, "经典", "Classic");
-  }
-}
-
-function describeStrategyStatus(lang: UiLanguage, status: string) {
-  switch (status) {
-    case "Draft":
-      return localize(lang, "草稿", "Draft");
-    case "Running":
-      return localize(lang, "运行中", "Running");
-    case "Paused":
-      return localize(lang, "已暂停", "Paused");
-    case "ErrorPaused":
-      return localize(lang, "异常阻塞", "Blocked");
-    case "Stopped":
-      return localize(lang, "已停止", "Stopped");
-    case "Completed":
-      return localize(lang, "已完成", "Completed");
-    default:
-      return status;
-  }
-}
-
-function describePreflightStatus(lang: UiLanguage, status: string) {
-  switch (status) {
-    case "Passed":
-      return localize(lang, "通过", "Passed");
-    case "Failed":
-      return localize(lang, "失败", "Failed");
-    case "Skipped":
-      return localize(lang, "跳过", "Skipped");
-    default:
-      return status;
-  }
-}
-
-function describePreflightStep(lang: UiLanguage, step: string) {
-  switch (step) {
-    case "membership_status":
-      return localize(lang, "会员状态", "Membership Status");
-    case "exchange_connection":
-      return localize(lang, "交易所连接", "Exchange Connection");
-    case "exchange_permissions":
-      return localize(lang, "交易权限", "Exchange Permissions");
-    case "withdrawal_permission_disabled":
-      return localize(lang, "禁提校验", "Withdrawals Disabled");
-    case "hedge_mode":
-      return localize(lang, "双向持仓", "Hedge Mode");
-    case "symbol_support":
-      return localize(lang, "交易对支持", "Symbol Support");
-    case "filters_and_notional":
-      return localize(lang, "过滤器与最小名义", "Filters and Notional");
-    case "margin_or_leverage":
-      return localize(lang, "保证金或杠杆", "Margin or Leverage");
-    case "strategy_conflicts":
-      return localize(lang, "策略冲突", "Strategy Conflicts");
-    case "balance_or_collateral":
-      return localize(lang, "余额或保证金", "Balance or Collateral");
-    case "trailing_take_profit":
-      return localize(lang, "追踪止盈", "Trailing Take Profit");
-    default:
-      return step;
-  }
-}
-
-function describeRuntimeEvent(lang: UiLanguage, eventType: string) {
+function describeRuntimeEventDetail(lang: UiLanguage, eventType: string): string {
   switch (eventType) {
-    case "strategy_started":
-      return localize(lang, "策略已启动", "Strategy Started");
-    case "strategy_paused":
-      return localize(lang, "策略已暂停", "Strategy Paused");
-    case "strategy_stopped":
-      return localize(lang, "策略已停止", "Strategy Stopped");
-    case "strategy_resumed":
-      return localize(lang, "策略已恢复", "Strategy Resumed");
-    case "strategy_archived":
-      return localize(lang, "策略已归档", "Strategy Archived");
-    default:
-      return eventType.replace(/_/g, " ");
+    case "GridFill": return pickText(lang, "网格成交", "Grid Fill");
+    case "TakeProfit": return pickText(lang, "止盈触发", "Take Profit Triggered");
+    case "StopLoss": return pickText(lang, "止损触发", "Stop Loss Triggered");
+    case "PositionClosed": return pickText(lang, "仓位平仓", "Position Closed");
+    case "StrategyPaused": return pickText(lang, "策略暂停", "Strategy Paused");
+    case "StrategyStopped": return pickText(lang, "策略停止", "Strategy Stopped");
+    default: return eventType;
   }
 }
 
-function describeRuntimeEventDetail(
-  lang: UiLanguage,
-  eventType: string,
-  fallback: string,
-) {
-  switch (eventType) {
-    case "strategy_started":
-      return localize(lang, "策略已完成启动。", "The strategy finished starting.");
-    case "strategy_paused":
-      return localize(lang, "策略已暂停，现有持仓会保留。", "The strategy is paused and current holdings remain open.");
-    case "strategy_stopped":
-      return localize(lang, "策略已停止，系统会等待平仓链路完成。", "The strategy is stopped and waits for the close-out flow to finish.");
-    case "strategy_resumed":
-      return localize(lang, "策略已按当前账户状态重建并恢复。", "The strategy was rebuilt from the current account state and resumed.");
-    case "membership_grace_paused":
-      return localize(lang, "会员宽限期结束，系统已自动暂停策略。", "The membership grace period ended and the strategy was auto-paused.");
-    case "runtime_error_auto_paused":
-      return localize(lang, "运行异常触发自动暂停，请先处理提示原因。", "A runtime error auto-paused the strategy. Resolve the reported reason first.");
-    case "overall_take_profit_stop":
-      return localize(lang, "整体止盈触发，系统已进入平仓停止流程。", "Overall take profit triggered and the strategy entered close-and-stop.");
-    case "overall_take_profit_rebuild":
-      return localize(lang, "整体止盈触发，系统将在平仓完成后重建。", "Overall take profit triggered and the strategy will rebuild after closing.");
-    case "overall_stop_loss_stop":
-      return localize(lang, "整体止损触发，系统已进入平仓停止流程。", "Overall stop loss triggered and the strategy entered close-and-stop.");
-    case "overall_stop_loss_rebuild":
-      return localize(lang, "整体止损触发，系统将在平仓完成后重建。", "Overall stop loss triggered and the strategy will rebuild after closing.");
-    default:
-      return fallback;
+async function fetchStrategy(sessionToken: string, strategyId: string): Promise<StrategyDetail | null> {
+  try {
+    const response = await fetch(authApiBaseUrl() + "/strategies/" + strategyId, {
+      method: "GET",
+      headers: { authorization: "Bearer " + sessionToken },
+      cache: "no-store",
+    });
+    if (!response.ok) return null;
+    return (await response.json()) as StrategyDetail;
+  } catch {
+    return null;
   }
-}
-
-function formatNotice(lang: UiLanguage, value: string) {
-  switch (value) {
-    case "edits-saved":
-      return localize(lang, "修改已保存", "Edits Saved");
-    case "preflight-passed":
-      return localize(lang, "预检通过", "Pre-flight Passed");
-    case "preflight-failed":
-      return localize(lang, "预检失败", "Pre-flight Failed");
-    case "strategy-paused":
-      return localize(lang, "策略已暂停", "Strategy Paused");
-    case "strategy-stopped":
-      return localize(lang, "策略已停止", "Strategy Stopped");
-    case "strategy-started":
-      return localize(lang, "策略已启动", "Strategy Started");
-    case "strategy-deleted":
-      return localize(lang, "策略已删除", "Strategy Deleted");
-    case "start-failed":
-      return localize(lang, "启动失败", "Start Failed");
-    default:
-      return value;
-  }
-}
-
-function formatBps(value: number | null) {
-  return value ? (value / 100).toFixed(2) : "";
-}
-
-function formatQuote(entryPrice: string, quantity: string) {
-  const price = Number.parseFloat(entryPrice);
-  const size = Number.parseFloat(quantity);
-  if (!Number.isFinite(price) || !Number.isFinite(size)) {
-    return "";
-  }
-  return (price * size).toFixed(2);
-}
-
-function computeSpacingPercent(first?: string, second?: string) {
-  const firstValue = Number.parseFloat(first ?? "");
-  const secondValue = Number.parseFloat(second ?? "");
-  if (!Number.isFinite(firstValue) || !Number.isFinite(secondValue) || firstValue === 0) {
-    return "1.50";
-  }
-  return Math.abs(((secondValue - firstValue) / firstValue) * 100).toFixed(2);
-}
-
-async function fetchStrategy(strategyId: string, lang: UiLanguage): Promise<{ strategy: BackendStrategy | null; error: string | null }> {
-  const cookieStore = await cookies();
-  const sessionToken = cookieStore.get("session_token")?.value ?? "";
-  if (!sessionToken) {
-    return { strategy: null, error: localize(lang, "会话已过期。", "Session expired.") };
-  }
-  const response = await fetch(`${authApiBaseUrl()}/strategies`, {
-    method: "GET",
-    headers: { authorization: `Bearer ${sessionToken}` },
-    cache: "no-store",
-  });
-  if (!response.ok) {
-    return { strategy: null, error: localize(lang, "策略工作台暂不可用。", "Strategy workspace is temporarily unavailable.") };
-  }
-  const payload = (await response.json()) as { items: BackendStrategy[] };
-  return { strategy: payload.items.find((item) => item.id === strategyId) ?? null, error: null };
-}
-
-async function fetchPreflight(strategyId: string, lang: UiLanguage): Promise<{ preflight: PreflightReport | null; error: string | null }> {
-  const cookieStore = await cookies();
-  const sessionToken = cookieStore.get("session_token")?.value ?? "";
-  if (!sessionToken) {
-    return { preflight: null, error: localize(lang, "会话已过期。", "Session expired.") };
-  }
-  const response = await fetch(`${authApiBaseUrl()}/strategies/${strategyId}/preflight`, {
-    method: "POST",
-    headers: { authorization: `Bearer ${sessionToken}` },
-    cache: "no-store",
-  });
-  if (!response.ok) {
-    return { preflight: null, error: localize(lang, "无法加载预检状态。", "Unable to load pre-flight status.") };
-  }
-  return { preflight: (await response.json()) as PreflightReport, error: null };
-}
-
-async function fetchSymbolMatches(query: string, lang: UiLanguage): Promise<{ items: SymbolSearchResponse["items"]; error: string | null }> {
-  const cookieStore = await cookies();
-  const sessionToken = cookieStore.get("session_token")?.value ?? "";
-  if (!sessionToken || !query.trim()) {
-    return { items: fallbackSymbolMatches(query), error: null };
-  }
-  const response = await fetch(`${authApiBaseUrl()}/exchange/binance/symbols/search`, {
-    method: "POST",
-    headers: {
-      authorization: `Bearer ${sessionToken}`,
-      "content-type": "application/json",
-    },
-    body: JSON.stringify({ query }),
-    cache: "no-store",
-  });
-  if (!response.ok) {
-    return { items: fallbackSymbolMatches(query), error: localize(lang, "当前无法搜索交易对，已回退到常用候选。", "Unable to search symbols right now. Showing common candidates instead.") };
-  }
-  const items = ((await response.json()) as SymbolSearchResponse).items;
-  return { items: items.length > 0 ? items : fallbackSymbolMatches(query), error: null };
 }
 
 function authApiBaseUrl() {
   return process.env.AUTH_API_BASE_URL?.trim().replace(/\/+$/, "") || DEFAULT_AUTH_API_BASE_URL;
-}
-
-function fallbackSymbolMatches(query: string) {
-  const normalized = query.trim().toLowerCase();
-  return FALLBACK_SYMBOLS.filter((item) => {
-    return item.symbol.toLowerCase().includes(normalized) || item.base_asset.toLowerCase().includes(normalized) || item.quote_asset.toLowerCase().includes(normalized);
-  });
 }

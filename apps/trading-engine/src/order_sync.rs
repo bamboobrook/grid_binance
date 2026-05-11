@@ -3,7 +3,7 @@ use rust_decimal::Decimal;
 use shared_binance::{BinanceClient, BinanceOrderRequest, BinanceOrderResponse};
 use shared_domain::strategy::{
     Strategy, StrategyMarket, StrategyMode, StrategyRuntimeOrder, StrategyRuntimePosition,
-    StrategyStatus,
+    StrategyStatus, StrategyType,
 };
 
 pub trait BinanceOrderGateway {
@@ -24,6 +24,8 @@ pub trait BinanceOrderGateway {
         order_id: Option<&str>,
         client_order_id: Option<&str>,
     ) -> Result<BinanceOrderResponse, String>;
+
+    fn open_orders(&self, market: &str, symbol: &str) -> Result<Vec<BinanceOrderResponse>, String>;
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -45,9 +47,40 @@ pub fn sync_strategy_orders(
     gateway: &impl BinanceOrderGateway,
     quantization: Option<&OrderQuantizationRules>,
 ) -> OrderSyncResult {
+    if strategy.strategy_type == StrategyType::MartingaleGrid {
+        return sync_martingale_strategy_orders(strategy, gateway, quantization);
+    }
+
     let mut result = OrderSyncResult::default();
     match strategy.status {
         StrategyStatus::Running => {
+            let live_open_orders =
+                match gateway.open_orders(market_scope(strategy.market), &strategy.symbol) {
+                    Ok(orders) => Some(orders),
+                    Err(error) if is_transient_gateway_error(&error) => None,
+                    Err(_) => {
+                        result.failed += 1;
+                        None
+                    }
+                };
+            let live_order_ids = live_open_orders
+                .as_ref()
+                .map(|orders| {
+                    orders
+                        .iter()
+                        .map(|order| order.order_id.clone())
+                        .collect::<std::collections::HashSet<_>>()
+                })
+                .unwrap_or_default();
+            let live_client_order_ids = live_open_orders
+                .as_ref()
+                .map(|orders| {
+                    orders
+                        .iter()
+                        .filter_map(|order| order.client_order_id.clone())
+                        .collect::<std::collections::HashSet<_>>()
+                })
+                .unwrap_or_default();
             for order in &mut strategy.runtime.orders {
                 if order.status == "ClosingRequested" && order.exchange_order_id.is_none() {
                     let (_, quantity) = quantize_order(order, quantization);
@@ -77,21 +110,34 @@ pub fn sync_strategy_orders(
                     continue;
                 }
                 if order.status == "Placed" {
-                    if let Some(exchange_order_id) = order.exchange_order_id.clone() {
-                        match gateway.get_order(
-                            market_scope(strategy.market),
-                            &strategy.symbol,
-                            Some(&exchange_order_id),
-                            Some(&order.order_id),
-                        ) {
-                            Ok(response) => {
-                                if response.status.eq_ignore_ascii_case("CANCELED") {
-                                    order.status = "Canceled".to_string();
-                                    order.exchange_order_id = None;
-                                    result.refreshed += 1;
-                                }
+                    let Some(exchange_order_id) = order.exchange_order_id.clone() else {
+                        continue;
+                    };
+                    if live_order_ids.contains(&exchange_order_id)
+                        || live_client_order_ids.contains(&order.order_id)
+                    {
+                        continue;
+                    }
+                    if live_open_orders.is_none() {
+                        continue;
+                    }
+                    match gateway.get_order(
+                        market_scope(strategy.market),
+                        &strategy.symbol,
+                        Some(&exchange_order_id),
+                        Some(&order.order_id),
+                    ) {
+                        Ok(response) => {
+                            if response.status.eq_ignore_ascii_case("CANCELED") {
+                                order.status = "Canceled".to_string();
+                                order.exchange_order_id = None;
+                                result.refreshed += 1;
                             }
-                            Err(_) => result.failed += 1,
+                        }
+                        Err(error) => {
+                            if !is_transient_gateway_error(&error) {
+                                result.failed += 1;
+                            }
                         }
                     }
                     continue;
@@ -157,6 +203,113 @@ pub fn sync_strategy_orders(
         _ => {}
     }
     result
+}
+
+fn sync_martingale_strategy_orders(
+    strategy: &mut Strategy,
+    gateway: &impl BinanceOrderGateway,
+    quantization: Option<&OrderQuantizationRules>,
+) -> OrderSyncResult {
+    let mut result = OrderSyncResult::default();
+    if strategy.status != StrategyStatus::Running {
+        return result;
+    }
+
+    let live_open_orders =
+        match gateway.open_orders(market_scope(strategy.market), &strategy.symbol) {
+            Ok(orders) => orders,
+            Err(error) if is_transient_gateway_error(&error) => Vec::new(),
+            Err(_) => {
+                result.failed += 1;
+                Vec::new()
+            }
+        };
+    let live_client_order_ids = live_open_orders
+        .iter()
+        .filter_map(|order| order.client_order_id.clone())
+        .collect::<std::collections::HashSet<_>>();
+
+    for order in &mut strategy.runtime.orders {
+        if !is_martingale_client_order(&order.order_id) {
+            continue;
+        }
+        if order.status == "Working" && order.exchange_order_id.is_none() {
+            if let Some(remote) = live_open_orders
+                .iter()
+                .find(|remote| remote.client_order_id.as_deref() == Some(order.order_id.as_str()))
+            {
+                order.exchange_order_id = Some(remote.order_id.clone());
+                order.status = "Placed".to_string();
+                result.refreshed += 1;
+                continue;
+            }
+        }
+        if order.status == "Placed" && live_client_order_ids.contains(&order.order_id) {
+            continue;
+        }
+        if order.status != "Working" || order.exchange_order_id.is_some() {
+            continue;
+        }
+        let quantity_normalized = normalize_to_step(
+            order.quantity,
+            quantization.and_then(|rules| rules.quantity_step_size),
+        );
+        if quantity_normalized <= Decimal::ZERO {
+            result.failed += 1;
+            continue;
+        }
+        let price = order.price.map(|price| {
+            normalize_to_step(price, quantization.and_then(|rules| rules.price_tick_size))
+                .normalize()
+                .to_string()
+        });
+        let request = BinanceOrderRequest {
+            market: market_scope(strategy.market).to_string(),
+            symbol: strategy.symbol.clone(),
+            side: order.side.to_ascii_uppercase(),
+            order_type: order.order_type.to_ascii_uppercase(),
+            quantity: quantity_normalized.normalize().to_string(),
+            price,
+            time_in_force: (order.order_type.eq_ignore_ascii_case("Limit"))
+                .then(|| "GTC".to_string()),
+            reduce_only: None,
+            position_side: position_side(strategy.mode, &order.side),
+            client_order_id: Some(order.order_id.clone()),
+        };
+        match gateway.place_order(request) {
+            Ok(response) => {
+                order.exchange_order_id = Some(response.order_id);
+                order.status = "Placed".to_string();
+                result.submitted += 1;
+            }
+            Err(_) => result.failed += 1,
+        }
+    }
+    result
+}
+
+fn is_martingale_client_order(order_id: &str) -> bool {
+    order_id.starts_with("mg-") && order_id.contains("-leg-")
+}
+
+fn is_transient_gateway_error(error: &str) -> bool {
+    let error = error.to_ascii_lowercase();
+    [
+        "timed out",
+        "timeout",
+        "error sending request",
+        "connection reset",
+        "connection refused",
+        "connection aborted",
+        "peer closed connection",
+        "tls",
+        "unexpected eof",
+        "temporarily unavailable",
+        "network",
+        "dns error",
+    ]
+    .iter()
+    .any(|needle| error.contains(needle))
 }
 
 fn cancel_open_strategy_orders(
@@ -472,5 +625,9 @@ impl BinanceOrderGateway for BinanceClient {
     ) -> Result<BinanceOrderResponse, String> {
         BinanceClient::get_order(self, market, symbol, order_id, client_order_id)
             .map_err(|error| error.to_string())
+    }
+
+    fn open_orders(&self, market: &str, symbol: &str) -> Result<Vec<BinanceOrderResponse>, String> {
+        BinanceClient::open_orders(self, market, symbol).map_err(|error| error.to_string())
     }
 }

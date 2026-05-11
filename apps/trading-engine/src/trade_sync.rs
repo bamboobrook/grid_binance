@@ -3,10 +3,11 @@ use rust_decimal::Decimal;
 use serde_json::json;
 use shared_binance::{BinanceClient, BinanceExecutionUpdate, BinanceUserTrade};
 use shared_db::{ExchangeTradeHistoryRecord, NotificationLogRecord, SharedDb};
-use shared_domain::strategy::{Strategy, StrategyRuntimeEvent};
+use shared_domain::strategy::{Strategy, StrategyRuntimeEvent, StrategyType};
 
 use crate::execution_sync::{apply_execution_update, finalize_strategy_after_close};
-use std::{collections::{BTreeMap, HashSet}, sync::OnceLock, time::Duration as StdDuration};
+use crate::telegram_notify::{persist_telegram_notification, telegram_bot_token};
+use std::collections::{BTreeMap, HashSet};
 
 pub trait BinanceTradeGateway {
     fn user_trades(
@@ -67,6 +68,11 @@ pub fn sync_strategy_trades(
         else {
             continue;
         };
+        if strategy.strategy_type == StrategyType::MartingaleGrid
+            && !is_martingale_client_order(&order.order_id)
+        {
+            continue;
+        }
 
         let new_trades = order_trades
             .iter()
@@ -117,6 +123,9 @@ pub fn sync_strategy_trades(
         if !changed {
             continue;
         }
+        if strategy.strategy_type == StrategyType::MartingaleGrid {
+            append_martingale_safety_leg(strategy, &order, &aggregate)?;
+        }
 
         let traded_at = Utc
             .timestamp_millis_opt(aggregate.traded_at_ms)
@@ -147,7 +156,10 @@ pub fn sync_strategy_trades(
 
         strategy.runtime.events.push(StrategyRuntimeEvent {
             event_type: "grid_fill_executed".to_string(),
-            detail: format!("grid fill {} executed at {}", aggregate.trade_id, aggregate.price),
+            detail: format!(
+                "grid fill {} executed at {}",
+                aggregate.trade_id, aggregate.price
+            ),
             price: Some(price),
             created_at: traded_at,
         });
@@ -194,24 +206,6 @@ pub fn sync_strategy_trades(
             created_at: traded_at,
             delivered_at: Some(traded_at),
         })?;
-        if let Some(binding) = db.find_telegram_binding(&strategy.owner_email)? {
-            let delivered = if let Some(token) = telegram_bot_token() {
-                send_telegram_message(&token, &binding.telegram_chat_id, &title, &body).is_ok()
-            } else {
-                false
-            };
-            db.insert_notification_log(&NotificationLogRecord {
-                user_email: strategy.owner_email.clone(),
-                channel: "telegram".to_string(),
-                template_key: Some("GridFillExecuted".to_string()),
-                title,
-                body,
-                status: if delivered { "delivered" } else { "failed" }.to_string(),
-                payload: payload.clone(),
-                created_at: traded_at,
-                delivered_at: delivered.then_some(traded_at),
-            })?;
-        }
         let fill_profit_title = format!("Fill profit {}", aggregate.symbol);
         let realized_pnl = realized_pnl.unwrap_or(Decimal::ZERO);
         let net_pnl = realized_pnl - fee_amount.unwrap_or(Decimal::ZERO);
@@ -242,30 +236,15 @@ pub fn sync_strategy_trades(
             created_at: traded_at,
             delivered_at: Some(traded_at),
         })?;
-        if let Some(binding) = db.find_telegram_binding(&strategy.owner_email)? {
-            let delivered = if let Some(token) = telegram_bot_token() {
-                send_telegram_message(
-                    &token,
-                    &binding.telegram_chat_id,
-                    &fill_profit_title,
-                    &fill_profit_body,
-                )
-                .is_ok()
-            } else {
-                false
-            };
-            db.insert_notification_log(&NotificationLogRecord {
-                user_email: strategy.owner_email.clone(),
-                channel: "telegram".to_string(),
-                template_key: Some("FillProfitReported".to_string()),
-                title: fill_profit_title,
-                body: fill_profit_body,
-                status: if delivered { "delivered" } else { "failed" }.to_string(),
-                payload: fill_profit_payload,
-                created_at: traded_at,
-                delivered_at: delivered.then_some(traded_at),
-            })?;
-        }
+        persist_telegram_trade_notification(
+            db,
+            strategy,
+            &order,
+            &aggregate,
+            net_pnl,
+            cumulative_net_pnl,
+            traded_at,
+        )?;
         let reference_price = parse_decimal(&aggregate.price).ok();
         finalize_strategy_after_close(strategy, reference_price);
         new_fills += 1;
@@ -274,8 +253,186 @@ pub fn sync_strategy_trades(
     Ok(TradeSyncResult { new_fills })
 }
 
+fn append_martingale_safety_leg(
+    strategy: &mut Strategy,
+    filled_order: &shared_domain::strategy::StrategyRuntimeOrder,
+    aggregate: &AggregatedTradeGroup,
+) -> Result<(), shared_db::SharedDbError> {
+    let Some(leg_index) = filled_order.level_index else {
+        return Ok(());
+    };
+    let next_leg_index = leg_index + 1;
+    if strategy
+        .runtime
+        .orders
+        .iter()
+        .any(|order| order.level_index == Some(next_leg_index) && order.order_id.starts_with("mg-"))
+    {
+        return Ok(());
+    }
+    let fill_price = parse_decimal(&aggregate.price)?;
+    let step = fill_price * Decimal::from(strategy.grid_spacing_bps) / Decimal::from(10_000u32);
+    let is_short = filled_order.side.eq_ignore_ascii_case("Sell");
+    let next_price = if is_short {
+        fill_price + step
+    } else {
+        fill_price - step
+    };
+    if next_price <= Decimal::ZERO {
+        return Ok(());
+    }
+    let next_order_id = next_martingale_order_id(&filled_order.order_id, next_leg_index);
+    strategy
+        .runtime
+        .orders
+        .push(shared_domain::strategy::StrategyRuntimeOrder {
+            order_id: next_order_id,
+            exchange_order_id: None,
+            level_index: Some(next_leg_index),
+            side: filled_order.side.clone(),
+            order_type: "Limit".to_string(),
+            price: Some(next_price.normalize()),
+            quantity: filled_order.quantity,
+            status: "Working".to_string(),
+        });
+    Ok(())
+}
+
+fn next_martingale_order_id(order_id: &str, next_leg_index: u32) -> String {
+    if let Some(prefix) = order_id.rsplit_once("-leg-").map(|(prefix, _)| prefix) {
+        format!("{prefix}-leg-{next_leg_index}")
+    } else {
+        format!("{order_id}-leg-{next_leg_index}")
+    }
+}
+
+fn is_martingale_client_order(order_id: &str) -> bool {
+    order_id.starts_with("mg-") && order_id.contains("-leg-")
+}
+
 fn exchange_trade_fill_id(trade_id: &str) -> String {
     format!("exchange-trade-{trade_id}")
+}
+
+fn persist_telegram_trade_notification(
+    db: &SharedDb,
+    strategy: &Strategy,
+    order: &shared_domain::strategy::StrategyRuntimeOrder,
+    aggregate: &AggregatedTradeGroup,
+    net_pnl: Decimal,
+    cumulative_net_pnl: Decimal,
+    traded_at: chrono::DateTime<Utc>,
+) -> Result<(), shared_db::SharedDbError> {
+    let (template_key, title, body) =
+        telegram_trade_message(strategy, order, aggregate, net_pnl, cumulative_net_pnl);
+    let payload = json!({
+        "trade_id": aggregate.trade_id,
+        "order_id": order.order_id,
+        "symbol": aggregate.symbol,
+        "price": aggregate.price,
+        "quantity": aggregate.quantity,
+        "net_pnl": net_pnl.normalize().to_string(),
+        "cumulative_net_pnl": cumulative_net_pnl.normalize().to_string(),
+    });
+    persist_telegram_notification(db, strategy, template_key, title, body, payload, traded_at)
+}
+
+fn telegram_trade_message(
+    strategy: &Strategy,
+    order: &shared_domain::strategy::StrategyRuntimeOrder,
+    aggregate: &AggregatedTradeGroup,
+    net_pnl: Decimal,
+    cumulative_net_pnl: Decimal,
+) -> (&'static str, String, String) {
+    if is_close_trade_order(order) {
+        (
+            "FillProfitReported",
+            format!("平仓成交 {}", aggregate.symbol),
+            format!(
+                "策略：{}
+交易对：{}
+方向：{}
+成交价：{}
+成交数量：{}
+本格净收益：{}
+策略累计净收益：{}",
+                strategy.name,
+                aggregate.symbol,
+                describe_trade_direction(strategy, order, true),
+                aggregate.price,
+                aggregate.quantity,
+                net_pnl.normalize(),
+                cumulative_net_pnl.normalize(),
+            ),
+        )
+    } else {
+        (
+            "GridFillExecuted",
+            format!("开仓成交 {}", aggregate.symbol),
+            format!(
+                "策略：{}
+交易对：{}
+方向：{}
+成交价：{}
+成交数量：{}",
+                strategy.name,
+                aggregate.symbol,
+                describe_trade_direction(strategy, order, false),
+                aggregate.price,
+                aggregate.quantity,
+            ),
+        )
+    }
+}
+
+fn is_close_trade_order(order: &shared_domain::strategy::StrategyRuntimeOrder) -> bool {
+    order.order_id.contains("-tp-") || order.order_id.contains("-stop-close-")
+}
+
+fn describe_trade_direction(
+    strategy: &Strategy,
+    order: &shared_domain::strategy::StrategyRuntimeOrder,
+    is_close: bool,
+) -> &'static str {
+    match strategy.market {
+        shared_domain::strategy::StrategyMarket::Spot => {
+            if is_close {
+                "现货卖出"
+            } else {
+                "现货买入"
+            }
+        }
+        shared_domain::strategy::StrategyMarket::FuturesUsdM
+        | shared_domain::strategy::StrategyMarket::FuturesCoinM => match strategy.mode {
+            shared_domain::strategy::StrategyMode::FuturesShort => {
+                if is_close {
+                    "合约空单平仓"
+                } else {
+                    "合约空单开仓"
+                }
+            }
+            shared_domain::strategy::StrategyMode::FuturesNeutral => {
+                if order.side.eq_ignore_ascii_case("Sell") {
+                    if is_close {
+                        "合约空单平仓"
+                    } else {
+                        "合约空单开仓"
+                    }
+                } else if is_close {
+                    "合约多单平仓"
+                } else {
+                    "合约多单开仓"
+                }
+            }
+            _ => {
+                if is_close {
+                    "合约多单平仓"
+                } else {
+                    "合约多单开仓"
+                }
+            }
+        },
+    }
 }
 
 struct AggregatedTradeGroup {
@@ -291,8 +448,12 @@ struct AggregatedTradeGroup {
     traded_at_ms: i64,
 }
 
-fn aggregate_trade_group(trades: &[BinanceUserTrade]) -> Result<AggregatedTradeGroup, shared_db::SharedDbError> {
-    let first = trades.first().ok_or_else(|| shared_db::SharedDbError::new("trade group cannot be empty"))?;
+fn aggregate_trade_group(
+    trades: &[BinanceUserTrade],
+) -> Result<AggregatedTradeGroup, shared_db::SharedDbError> {
+    let first = trades
+        .first()
+        .ok_or_else(|| shared_db::SharedDbError::new("trade group cannot be empty"))?;
     let mut total_quantity = Decimal::ZERO;
     let mut weighted_price = Decimal::ZERO;
     let mut total_fee = Decimal::ZERO;
@@ -326,7 +487,9 @@ fn aggregate_trade_group(trades: &[BinanceUserTrade]) -> Result<AggregatedTradeG
     }
 
     if total_quantity <= Decimal::ZERO {
-        return Err(shared_db::SharedDbError::new("trade group quantity must be positive"));
+        return Err(shared_db::SharedDbError::new(
+            "trade group quantity must be positive",
+        ));
     }
 
     Ok(AggregatedTradeGroup {
@@ -376,48 +539,4 @@ impl BinanceTradeGateway for BinanceClient {
         BinanceClient::get_order(self, market, symbol, Some(order_id), None)
             .map_err(|error| error.to_string())
     }
-}
-
-fn telegram_bot_token() -> Option<String> {
-    std::env::var("TELEGRAM_BOT_TOKEN")
-        .ok()
-        .map(|value| value.trim().to_owned())
-        .filter(|value| !value.is_empty())
-}
-
-fn telegram_api_base_url() -> String {
-    std::env::var("TELEGRAM_API_BASE_URL")
-        .ok()
-        .map(|value| value.trim().trim_end_matches('/').to_owned())
-        .filter(|value| !value.is_empty())
-        .unwrap_or_else(|| "https://api.telegram.org".to_string())
-}
-
-fn telegram_http_agent() -> &'static ureq::Agent {
-    static AGENT: OnceLock<ureq::Agent> = OnceLock::new();
-    AGENT.get_or_init(|| {
-        ureq::AgentBuilder::new()
-            .timeout(StdDuration::from_secs(5))
-            .build()
-    })
-}
-
-fn send_telegram_message(
-    bot_token: &str,
-    chat_id: &str,
-    title: &str,
-    body: &str,
-) -> Result<(), shared_db::SharedDbError> {
-    telegram_http_agent()
-        .post(&format!(
-            "{}/bot{}/sendMessage",
-            telegram_api_base_url(),
-            bot_token
-        ))
-        .send_json(ureq::json!({
-            "chat_id": chat_id,
-            "text": format!("{}\n{}", title, body),
-        }))
-        .map_err(|error| shared_db::SharedDbError::new(error.to_string()))?;
-    Ok(())
 }

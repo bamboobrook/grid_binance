@@ -49,12 +49,15 @@ export default async function VerifyEmailPage({ params, searchParams }: VerifyEm
 
       {error ? (
         <StatusBanner
+                tone="info"
+                lang={lang}
           description={error}
           title={pickText(lang, "旧验证码提交失败", "Legacy verification failed")}
-          tone="danger"
         />
       ) : (
         <StatusBanner
+                tone="info"
+                lang={lang}
           description={isRegistrationNotice
             ? pickText(
                 lang,
@@ -73,7 +76,6 @@ export default async function VerifyEmailPage({ params, searchParams }: VerifyEm
                 "Most accounts no longer need email verification before sign-in. This form stays only as a legacy compatibility entrypoint.",
               )}
           title={pickText(lang, "账号已可登录", "Account ready")}
-          tone="info"
         />
       )}
 

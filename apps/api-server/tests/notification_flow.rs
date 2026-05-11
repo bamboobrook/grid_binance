@@ -212,22 +212,10 @@ async fn bot_side_binding_and_expanded_notification_payloads_are_logged_durably(
 }
 
 #[tokio::test]
-async fn strategy_start_and_pause_emit_telegram_logs_when_bound_and_configured() {
+async fn strategy_start_and_pause_do_not_emit_telegram_logs_when_bound_and_configured() {
     let _guard = env_lock().lock().unwrap();
-    let _bot_token = set_env("TELEGRAM_BOT_TOKEN", "bot-test-token");
-    let server = spawn_test_server(vec![
-        TestRoute {
-            path_prefix: "/botbot-test-token/sendMessage",
-            status_line: "HTTP/1.1 200 OK",
-            body: r#"{"ok":true,"result":{"message_id":1}}"#,
-        },
-        TestRoute {
-            path_prefix: "/botbot-test-token/sendMessage",
-            status_line: "HTTP/1.1 200 OK",
-            body: r#"{"ok":true,"result":{"message_id":2}}"#,
-        },
-    ]);
-    let _api_base = set_env("TELEGRAM_API_BASE_URL", &server.base_url);
+    std::env::remove_var("TELEGRAM_BOT_TOKEN");
+    std::env::remove_var("TELEGRAM_API_BASE_URL");
     let db = SharedDb::ephemeral().expect("db");
     let app = app_with_state(AppState::from_shared_db(db.clone()).expect("state"));
     let session_token = register_and_login(&app, "auto-telegram@example.com", "pass1234").await;
@@ -251,8 +239,10 @@ async fn strategy_start_and_pause_emit_telegram_logs_when_bound_and_configured()
             "name": "auto-start-telegram",
             "symbol": "BTCUSDT",
             "market": "Spot",
-            "mode": "SpotClassic",
+            "mode": "SpotBuyOnly",
             "generation": "Custom",
+            "strategy_type": "ordinary_grid",
+            "reference_price_source": "market",
             "levels": [{ "entry_price": "100.00", "quantity": "0.0100", "take_profit_bps": 120, "trailing_bps": null }],
             "membership_ready": true,
             "exchange_ready": true,
@@ -296,12 +286,10 @@ async fn strategy_start_and_pause_emit_telegram_logs_when_bound_and_configured()
     let logs = db
         .list_notification_logs("auto-telegram@example.com", 20)
         .expect("logs");
-    assert!(logs.iter().any(|record| record.channel == "telegram"
-        && record.template_key.as_deref() == Some("StrategyStarted")
-        && record.status == "delivered"));
-    assert!(logs.iter().any(|record| record.channel == "telegram"
-        && record.template_key.as_deref() == Some("StrategyPaused")
-        && record.status == "delivered"));
+    assert!(!logs.iter().any(|record| record.channel == "telegram"
+        && record.template_key.as_deref() == Some("StrategyStarted")));
+    assert!(!logs.iter().any(|record| record.channel == "telegram"
+        && record.template_key.as_deref() == Some("StrategyPaused")));
 }
 
 #[tokio::test]
@@ -323,8 +311,10 @@ async fn strategy_start_and_pause_emit_notifications_automatically() {
             "name": "auto-start",
             "symbol": "BTCUSDT",
             "market": "Spot",
-            "mode": "SpotClassic",
+            "mode": "SpotBuyOnly",
             "generation": "Custom",
+            "strategy_type": "ordinary_grid",
+            "reference_price_source": "market",
             "levels": [{ "entry_price": "100.00", "quantity": "0.0100", "take_profit_bps": 120, "trailing_bps": null }],
             "membership_ready": true,
             "exchange_ready": true,

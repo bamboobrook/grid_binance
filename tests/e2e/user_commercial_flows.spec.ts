@@ -126,6 +126,52 @@ test.describe("user commercial", () => {
     await expect(page.getByRole("heading", { name: "Create Grid Strategy", exact: true })).toBeVisible();
   });
 
+  test("telegram rebind keeps the fresh bind command visible until the new account completes binding", async ({
+    page,
+    request,
+  }) => {
+    const email = uniqueEmail("telegram-rebind");
+    const password = "pass1234";
+
+    await registerViaPage(page, email, password);
+    await page.goto("/app/telegram");
+    await expect(page.getByRole("heading", { name: "Telegram Notifications" })).toBeVisible();
+
+    await page.getByRole("button", { name: "Generate bind code" }).click();
+    await expect(page).toHaveURL(/\/app\/telegram\?notice=bind-code-issued/);
+    const firstBindCode =
+      (await page.locator("strong").allTextContents()).find((value) => value.startsWith("tg-bind-")) ?? "";
+    expect(firstBindCode).toMatch(/^tg-bind-[a-f0-9]+$/);
+
+    const firstBind = await request.post(`${AUTH_API_BASE_URL}/telegram/bot/bind`, {
+      data: {
+        code: firstBindCode,
+        telegram_user_id: `tg-initial-${Date.now()}`,
+        chat_id: `chat-initial-${Date.now()}`,
+        username: "initial_account",
+      },
+      headers: {
+        "content-type": "application/json",
+        "x-telegram-bot-secret": TELEGRAM_BOT_BIND_SECRET,
+      },
+    });
+    expect(firstBind.status(), await firstBind.text()).toBe(200);
+
+    await page.goto("/app/telegram");
+    await expect(page.getByText("Telegram bound at", { exact: false })).toBeVisible();
+
+    await page.getByRole("button", { name: "Rebind Telegram account" }).click();
+    await expect(page).toHaveURL(/\/app\/telegram\?notice=bind-code-issued/);
+    await expect(page.getByText("Bind code issued", { exact: false })).toBeVisible();
+
+    const secondBindCode =
+      (await page.locator("strong").allTextContents()).find((value) => value.startsWith("tg-bind-")) ?? "";
+    expect(secondBindCode).toMatch(/^tg-bind-[a-f0-9]+$/);
+    expect(secondBindCode).not.toBe(firstBindCode);
+    await expect(page.getByText(`/bind ${secondBindCode}`, { exact: false })).toBeVisible();
+    await expect(page.getByText("Generate new bind code", { exact: false })).toBeVisible();
+  });
+
   test("user commercial help center renders repository docs", async ({ page }) => {
     await page.goto("/help/telegram-notifications");
 

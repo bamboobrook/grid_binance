@@ -17,6 +17,14 @@ pub struct NotificationLogRecord {
     pub delivered_at: Option<DateTime<Utc>>,
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct NotificationPreferencesRecord {
+    pub take_profit: bool,
+    pub stop_loss: bool,
+    pub error: bool,
+    pub daily_report: bool,
+}
+
 #[derive(Clone)]
 pub struct NotificationRepository {
     pool: PgPool,
@@ -92,5 +100,67 @@ impl NotificationRepository {
                 })
             })
             .collect()
+    }
+
+    pub async fn read_notification_preferences(
+        &self,
+        user_email: &str,
+    ) -> Result<NotificationPreferencesRecord, SharedDbError> {
+        let row = sqlx::query(
+            "SELECT np.take_profit, np.stop_loss, np.error, np.daily_report
+             FROM notification_preferences np
+             JOIN users u ON u.user_id = np.user_id
+             WHERE lower(u.email) = lower($1)",
+        )
+        .bind(user_email)
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(SharedDbError::from)?;
+
+        match row {
+            Some(row) => Ok(NotificationPreferencesRecord {
+                take_profit: row.try_get("take_profit").map_err(SharedDbError::from)?,
+                stop_loss: row.try_get("stop_loss").map_err(SharedDbError::from)?,
+                error: row.try_get("error").map_err(SharedDbError::from)?,
+                daily_report: row.try_get("daily_report").map_err(SharedDbError::from)?,
+            }),
+            None => Ok(NotificationPreferencesRecord {
+                take_profit: true,
+                stop_loss: false,
+                error: true,
+                daily_report: false,
+            }),
+        }
+    }
+
+    pub async fn upsert_notification_preferences(
+        &self,
+        user_email: &str,
+        prefs: &NotificationPreferencesRecord,
+    ) -> Result<NotificationPreferencesRecord, SharedDbError> {
+        let row = sqlx::query(
+            "INSERT INTO notification_preferences (user_id, take_profit, stop_loss, error, daily_report)
+             SELECT u.user_id, $2, $3, $4, $5
+             FROM users u
+             WHERE lower(u.email) = lower($1)
+             ON CONFLICT (user_id)
+             DO UPDATE SET take_profit = $2, stop_loss = $3, error = $4, daily_report = $5
+             RETURNING take_profit, stop_loss, error, daily_report",
+        )
+        .bind(user_email)
+        .bind(prefs.take_profit)
+        .bind(prefs.stop_loss)
+        .bind(prefs.error)
+        .bind(prefs.daily_report)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(SharedDbError::from)?;
+
+        Ok(NotificationPreferencesRecord {
+            take_profit: row.try_get("take_profit").map_err(SharedDbError::from)?,
+            stop_loss: row.try_get("stop_loss").map_err(SharedDbError::from)?,
+            error: row.try_get("error").map_err(SharedDbError::from)?,
+            daily_report: row.try_get("daily_report").map_err(SharedDbError::from)?,
+        })
     }
 }

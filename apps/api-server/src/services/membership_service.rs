@@ -1189,10 +1189,7 @@ impl MembershipService {
                 address: deposit.address,
                 amount: deposit.amount,
                 status: deposit.status,
-                review_reason_label: deposit
-                    .review_reason
-                    .as_deref()
-                    .map(human_review_reason),
+                review_reason_label: deposit.review_reason.as_deref().map(human_review_reason),
                 review_reason: deposit.review_reason,
                 order_id: deposit.order_id,
                 matched_order_id: deposit.matched_order_id,

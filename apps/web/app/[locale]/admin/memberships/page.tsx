@@ -92,13 +92,15 @@ export default async function AdminMembershipsPage({ params, searchParams }: Pag
     <>
       {updatedMembership && lastAction ? (
         <StatusBanner
+                tone="info"
+                lang={lang}
           description={pickText(lang, "目标账号：" + updatedMembership.email + "，当前状态：" + membershipStatusLabel(lang, updatedMembership.status) + "，最近动作：" + actionLabel(lang, lastAction), "Target " + updatedMembership.email + ". Status " + membershipStatusLabel(lang, updatedMembership.status) + ". Last action " + actionLabel(lang, lastAction) + ".")}
           title={pickText(lang, "会员变更已记录", "Membership Change Recorded")}
          
         />
       ) : null}
-      {planSaved ? <StatusBanner description={pickText(lang, "已保存计划：" + planSaved, "Saved plan: " + planSaved)} title={pickText(lang, "价格矩阵已保存", "Price Matrix Saved")} /> : null}
-      {planError ? <StatusBanner description={planError} title={pickText(lang, "价格矩阵未保存", "Price Matrix Not Saved")} /> : null}
+      {planSaved ? <StatusBanner description={pickText(lang, "已保存计划：" + planSaved, "Saved plan: " + planSaved)} title={pickText(lang, "价格矩阵已保存", "Price Matrix Saved")}  tone="info" lang={lang} /> : null}
+      {planError ? <StatusBanner description={planError} title={pickText(lang, "价格矩阵未保存", "Price Matrix Not Saved")}  tone="info" lang={lang} /> : null}
       <AppShellSection
         description={pickText(lang, "值班席位同时处理会员生命周期与价格矩阵；价格编辑始终绑定当前选中的计划。", "The desk handles lifecycle and pricing, and the editor always binds to the currently selected plan.")}
         eyebrow={pickText(lang, "会员生命周期", "Membership Lifecycle")}

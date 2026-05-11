@@ -30,44 +30,39 @@ impl AnalyticsService {
     }
 
     pub fn report_for_user(&self, user_email: &str) -> Result<AnalyticsReport, SharedDbError> {
-        let strategies = self.db.list_strategies(user_email)?;
+        let strategy_records = self.db.list_strategies(user_email)?;
         let strategy_snapshot_records = self.db.list_strategy_profit_snapshots(user_email)?;
         let account_snapshot_records = self.db.list_account_profit_snapshots(user_email)?;
         let wallet_snapshot_records = self.db.list_exchange_wallet_snapshots(user_email)?;
         let trade_history_records = self.db.list_exchange_trade_history(user_email)?;
 
-        let fill_inputs = self.trade_fill_inputs(&strategies);
-        let fills = compute_fill_views(&fill_inputs);
+        let (fills, strategies) = self.build_fill_views_and_strategy_summaries(
+            &strategy_records,
+            &strategy_snapshot_records,
+        )?;
         let strategy_snapshots = to_strategy_snapshot_views(&strategy_snapshot_records)?;
         let account_snapshots = to_account_snapshot_views(&account_snapshot_records)?;
         let wallets = to_wallet_snapshot_views(&wallet_snapshot_records);
         let exchange_trades = to_exchange_trade_history_views(&trade_history_records);
-        let latest_strategy_snapshots = latest_strategy_snapshot_map(&strategy_snapshot_records)?;
         let latest_account_snapshots =
             latest_account_snapshots_by_exchange(&account_snapshot_records)?;
         let latest_wallets = latest_wallets_by_exchange(&wallet_snapshot_records);
 
-        let strategies = strategies
-            .iter()
-            .map(|strategy| {
-                let projected_fills = fills_for_strategy(&fills, &strategy.id);
-                strategy_summary(
-                    strategy,
-                    latest_strategy_snapshots.get(&strategy.id),
-                    &projected_fills,
-                )
-            })
-            .collect::<Result<Vec<_>, SharedDbError>>()?;
-
         let user = user_aggregate(
             user_email,
+            &strategies,
             &fills,
             &trade_history_records,
             &latest_account_snapshots,
             &latest_wallets,
             trade_history_records.len(),
         )?;
-        let costs = cost_aggregation(&fills, &trade_history_records, &latest_account_snapshots)?;
+        let costs = cost_aggregation(
+            &strategies,
+            &fills,
+            &trade_history_records,
+            &latest_account_snapshots,
+        )?;
 
         Ok(AnalyticsReport {
             fills,
@@ -78,6 +73,63 @@ impl AnalyticsService {
             account_snapshots,
             wallets,
             exchange_trades,
+        })
+    }
+
+    pub fn strategy_summaries_for_user(
+        &self,
+        user_email: &str,
+    ) -> Result<Vec<StrategyProfitSummary>, SharedDbError> {
+        let strategy_records = self.db.list_strategies(user_email)?;
+        let strategy_snapshot_records = self.db.list_strategy_profit_snapshots(user_email)?;
+        let (_, strategies) = self.build_fill_views_and_strategy_summaries(
+            &strategy_records,
+            &strategy_snapshot_records,
+        )?;
+        Ok(strategies)
+    }
+
+    pub fn overview_for_user(&self, user_email: &str) -> Result<AnalyticsReport, SharedDbError> {
+        let strategy_records = self.db.list_strategies(user_email)?;
+        let strategy_snapshot_records = self.db.list_strategy_profit_snapshots(user_email)?;
+        let account_snapshot_records = self.db.list_account_profit_snapshots(user_email)?;
+        let wallet_snapshot_records = self.db.list_exchange_wallet_snapshots(user_email)?;
+        let trade_history_records = self.db.list_exchange_trade_history(user_email)?;
+
+        let (fills, strategies) = self.build_fill_views_and_strategy_summaries(
+            &strategy_records,
+            &strategy_snapshot_records,
+        )?;
+        let account_snapshots = to_account_snapshot_views(&account_snapshot_records)?;
+        let wallets = to_wallet_snapshot_views(&wallet_snapshot_records);
+        let latest_account_snapshots =
+            latest_account_snapshots_by_exchange(&account_snapshot_records)?;
+        let latest_wallets = latest_wallets_by_exchange(&wallet_snapshot_records);
+        let user = user_aggregate(
+            user_email,
+            &strategies,
+            &fills,
+            &trade_history_records,
+            &latest_account_snapshots,
+            &latest_wallets,
+            trade_history_records.len(),
+        )?;
+        let costs = cost_aggregation(
+            &strategies,
+            &fills,
+            &trade_history_records,
+            &latest_account_snapshots,
+        )?;
+
+        Ok(AnalyticsReport {
+            fills,
+            strategies: Vec::new(),
+            user,
+            costs,
+            strategy_snapshots: Vec::new(),
+            account_snapshots,
+            wallets,
+            exchange_trades: Vec::new(),
         })
     }
 
@@ -181,6 +233,28 @@ impl AnalyticsService {
             csv.push_str(&payment_row(&order));
         }
         Ok(csv)
+    }
+
+    fn build_fill_views_and_strategy_summaries(
+        &self,
+        strategies: &[Strategy],
+        strategy_snapshot_records: &[StrategyProfitSnapshotRecord],
+    ) -> Result<(Vec<FillProfitView>, Vec<StrategyProfitSummary>), SharedDbError> {
+        let fill_inputs = self.trade_fill_inputs(strategies);
+        let fills = compute_fill_views(&fill_inputs);
+        let latest_strategy_snapshots = latest_strategy_snapshot_map(strategy_snapshot_records)?;
+        let summaries = strategies
+            .iter()
+            .map(|strategy| {
+                let projected_fills = fills_for_strategy(&fills, &strategy.id);
+                strategy_summary(
+                    strategy,
+                    latest_strategy_snapshots.get(&strategy.id),
+                    &projected_fills,
+                )
+            })
+            .collect::<Result<Vec<_>, SharedDbError>>()?;
+        Ok((fills, summaries))
     }
 
     fn trade_fill_inputs(&self, strategies: &[Strategy]) -> Vec<TradeFillInput> {
@@ -296,12 +370,25 @@ fn strategy_summary(
 
 fn user_aggregate(
     user_email: &str,
+    strategies: &[StrategyProfitSummary],
     fills: &[shared_domain::analytics::FillProfitView],
     trade_history_records: &[ExchangeTradeHistoryRecord],
     latest_account_snapshots: &BTreeMap<String, AccountSnapshotNumbers>,
     latest_wallets: &BTreeMap<String, WalletSnapshotView>,
     exchange_trade_count: usize,
 ) -> Result<UserAggregate, SharedDbError> {
+    let strategy_realized = strategies
+        .iter()
+        .fold(Decimal::ZERO, |acc, strategy| acc + strategy.realized_pnl);
+    let strategy_unrealized = strategies
+        .iter()
+        .fold(Decimal::ZERO, |acc, strategy| acc + strategy.unrealized_pnl);
+    let strategy_fees = strategies
+        .iter()
+        .fold(Decimal::ZERO, |acc, strategy| acc + strategy.fees_paid);
+    let strategy_funding = strategies
+        .iter()
+        .fold(Decimal::ZERO, |acc, strategy| acc + strategy.funding_total);
     let realized_from_fills = fills
         .iter()
         .fold(Decimal::ZERO, |acc, fill| acc + fill.realized_pnl);
@@ -309,36 +396,54 @@ fn user_aggregate(
     let funding_from_fills = fills
         .iter()
         .fold(Decimal::ZERO, |acc, fill| acc + fill.funding);
-
-    let snapshot_realized = latest_account_snapshots
-        .values()
-        .fold(Decimal::ZERO, |acc, snapshot| acc + snapshot.realized_pnl);
-    let realized_pnl = resolve_snapshot_total(
-        (!latest_account_snapshots.is_empty()).then_some(snapshot_realized),
-        realized_from_fills,
-    );
-    let unrealized_pnl = latest_account_snapshots
-        .values()
-        .fold(Decimal::ZERO, |acc, snapshot| acc + snapshot.unrealized_pnl);
     let trade_history_fees = trade_history_fee_total(trade_history_records)?;
-    let snapshot_fees = latest_account_snapshots
-        .values()
-        .fold(Decimal::ZERO, |acc, snapshot| acc + snapshot.fees_paid);
-    let fees_paid = resolve_fee_total(
-        (!latest_account_snapshots.is_empty()).then_some(snapshot_fees),
-        trade_history_fees,
-        fees_from_fills,
-    );
-    let snapshot_funding = latest_account_snapshots
-        .values()
-        .fold(Decimal::ZERO, |acc, snapshot| acc + snapshot.funding_total);
-    let funding_total = resolve_snapshot_total(
-        (!latest_account_snapshots.is_empty()).then_some(snapshot_funding),
-        funding_from_fills,
-    );
     let wallet_asset_count = latest_wallets
         .values()
         .fold(0_usize, |acc, wallet| acc + wallet.balances.len());
+
+    let (realized_pnl, unrealized_pnl, fees_paid, funding_total) = if !strategies.is_empty() {
+        (
+            strategy_realized,
+            strategy_unrealized,
+            if strategy_fees != Decimal::ZERO {
+                strategy_fees
+            } else if trade_history_fees != Decimal::ZERO {
+                trade_history_fees
+            } else {
+                fees_from_fills
+            },
+            strategy_funding,
+        )
+    } else {
+        let snapshot_realized = latest_account_snapshots
+            .values()
+            .fold(Decimal::ZERO, |acc, snapshot| acc + snapshot.realized_pnl);
+        let snapshot_unrealized = latest_account_snapshots
+            .values()
+            .fold(Decimal::ZERO, |acc, snapshot| acc + snapshot.unrealized_pnl);
+        let snapshot_fees = latest_account_snapshots
+            .values()
+            .fold(Decimal::ZERO, |acc, snapshot| acc + snapshot.fees_paid);
+        let snapshot_funding = latest_account_snapshots
+            .values()
+            .fold(Decimal::ZERO, |acc, snapshot| acc + snapshot.funding_total);
+        (
+            resolve_snapshot_total(
+                (!latest_account_snapshots.is_empty()).then_some(snapshot_realized),
+                realized_from_fills,
+            ),
+            snapshot_unrealized,
+            resolve_fee_total(
+                (!latest_account_snapshots.is_empty()).then_some(snapshot_fees),
+                trade_history_fees,
+                fees_from_fills,
+            ),
+            resolve_snapshot_total(
+                (!latest_account_snapshots.is_empty()).then_some(snapshot_funding),
+                funding_from_fills,
+            ),
+        )
+    };
 
     Ok(UserAggregate {
         user_id: user_email.to_string(),
@@ -353,30 +458,53 @@ fn user_aggregate(
 }
 
 fn cost_aggregation(
+    strategies: &[StrategyProfitSummary],
     fills: &[shared_domain::analytics::FillProfitView],
     trade_history_records: &[ExchangeTradeHistoryRecord],
     latest_account_snapshots: &BTreeMap<String, AccountSnapshotNumbers>,
 ) -> Result<CostAggregation, SharedDbError> {
+    let strategy_fees = strategies
+        .iter()
+        .fold(Decimal::ZERO, |acc, strategy| acc + strategy.fees_paid);
+    let strategy_funding = strategies
+        .iter()
+        .fold(Decimal::ZERO, |acc, strategy| acc + strategy.funding_total);
     let fill_fees = fills.iter().fold(Decimal::ZERO, |acc, fill| acc + fill.fee);
     let trade_history_fees = trade_history_fee_total(trade_history_records)?;
-    let snapshot_fees = latest_account_snapshots
-        .values()
-        .fold(Decimal::ZERO, |acc, snapshot| acc + snapshot.fees_paid);
-    let fees_paid = resolve_fee_total(
-        (!latest_account_snapshots.is_empty()).then_some(snapshot_fees),
-        trade_history_fees,
-        fill_fees,
-    );
-    let fill_funding = fills
-        .iter()
-        .fold(Decimal::ZERO, |acc, fill| acc + fill.funding);
-    let snapshot_funding = latest_account_snapshots
-        .values()
-        .fold(Decimal::ZERO, |acc, snapshot| acc + snapshot.funding_total);
-    let funding_total = resolve_snapshot_total(
-        (!latest_account_snapshots.is_empty()).then_some(snapshot_funding),
-        fill_funding,
-    );
+
+    let (fees_paid, funding_total) = if !strategies.is_empty() {
+        (
+            if strategy_fees != Decimal::ZERO {
+                strategy_fees
+            } else if trade_history_fees != Decimal::ZERO {
+                trade_history_fees
+            } else {
+                fill_fees
+            },
+            strategy_funding,
+        )
+    } else {
+        let snapshot_fees = latest_account_snapshots
+            .values()
+            .fold(Decimal::ZERO, |acc, snapshot| acc + snapshot.fees_paid);
+        let snapshot_funding = latest_account_snapshots
+            .values()
+            .fold(Decimal::ZERO, |acc, snapshot| acc + snapshot.funding_total);
+        let fill_funding = fills
+            .iter()
+            .fold(Decimal::ZERO, |acc, fill| acc + fill.funding);
+        (
+            resolve_fee_total(
+                (!latest_account_snapshots.is_empty()).then_some(snapshot_fees),
+                trade_history_fees,
+                fill_fees,
+            ),
+            resolve_snapshot_total(
+                (!latest_account_snapshots.is_empty()).then_some(snapshot_funding),
+                fill_funding,
+            ),
+        )
+    };
 
     Ok(CostAggregation {
         fees_paid: fees_paid.normalize(),
@@ -563,10 +691,12 @@ fn project_ordinary_level_fill_inputs(
             continue;
         };
 
-        let level = levels.entry(level_index).or_insert_with(|| OrdinaryLevelFillProjection {
-            level_index,
-            ..OrdinaryLevelFillProjection::default()
-        });
+        let level = levels
+            .entry(level_index)
+            .or_insert_with(|| OrdinaryLevelFillProjection {
+                level_index,
+                ..OrdinaryLevelFillProjection::default()
+            });
         level
             .is_short
             .get_or_insert_with(|| resolve_fill_direction(strategy, fill, order_sides));

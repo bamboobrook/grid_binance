@@ -1025,9 +1025,13 @@ fn restore_stop_after_take_profit(runtime: &StrategyRuntime) -> bool {
 
 fn effective_reference_price(revision: &StrategyRevision, mode: StrategyMode) -> Decimal {
     revision.reference_price.unwrap_or_else(|| {
-        if matches!(revision.strategy_type, shared_domain::strategy::StrategyType::ClassicBilateralGrid)
-            || matches!(mode, StrategyMode::SpotClassic | StrategyMode::FuturesNeutral)
-        {
+        if matches!(
+            revision.strategy_type,
+            shared_domain::strategy::StrategyType::ClassicBilateralGrid
+        ) || matches!(
+            mode,
+            StrategyMode::SpotClassic | StrategyMode::FuturesNeutral
+        ) {
             midpoint_reference_price(&revision.levels)
         } else {
             revision

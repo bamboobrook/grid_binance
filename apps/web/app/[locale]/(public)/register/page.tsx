@@ -36,9 +36,9 @@ export default async function RegisterPage({ params, searchParams }: RegisterPag
         </div>
 
         {error ? (
-          <StatusBanner description={error} title={pickText(lang, "注册失败", "Registration failed")} tone="danger" />
+          <StatusBanner description={error} lang={lang} title={pickText(lang, "注册失败", "Registration failed")} tone="error" />
         ) : snapshot.notice.description ? (
-          <StatusBanner description={snapshot.notice.description} title={snapshot.notice.title} tone={snapshot.notice.tone as any} />
+          <StatusBanner description={snapshot.notice.description} lang={lang} title={snapshot.notice.title} tone={snapshot.notice.tone as any} />
         ) : null}
 
         <Card className="bg-card border-border shadow-2xl rounded-2xl overflow-hidden">

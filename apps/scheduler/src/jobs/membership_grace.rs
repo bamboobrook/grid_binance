@@ -362,7 +362,11 @@ mod tests {
             .expect("find")
             .expect("stored strategy");
         assert_eq!(stored.status, StrategyStatus::Paused);
-        assert!(stored.runtime.orders.iter().all(|order| order.status == "Canceled"));
+        assert!(stored
+            .runtime
+            .orders
+            .iter()
+            .all(|order| order.status == "Canceled"));
         assert_eq!(
             stored.runtime.orders[0].exchange_order_id.as_deref(),
             Some("exchange-1")
@@ -432,8 +436,11 @@ mod tests {
             margin_ready: true,
             conflict_ready: true,
             balance_ready: true,
+            strategy_type: shared_domain::strategy::StrategyType::OrdinaryGrid,
             market: StrategyMarket::Spot,
             mode: StrategyMode::SpotClassic,
+            runtime_phase: shared_domain::strategy::StrategyRuntimePhase::Draft,
+            runtime_controls: shared_domain::strategy::RuntimeControls::default(),
             draft_revision: revision(),
             active_revision: Some(revision()),
             runtime: StrategyRuntime {
@@ -464,6 +471,8 @@ mod tests {
                 events: Vec::new(),
                 last_preflight: None,
             },
+            tags: Vec::new(),
+            notes: String::new(),
             archived_at: None,
         }
     }
@@ -472,10 +481,13 @@ mod tests {
         StrategyRevision {
             revision_id: "rev-1".to_string(),
             version: 1,
+            strategy_type: shared_domain::strategy::StrategyType::OrdinaryGrid,
             generation: GridGeneration::Custom,
             amount_mode: StrategyAmountMode::Quote,
             futures_margin_mode: None,
             leverage: None,
+            reference_price_source: shared_domain::strategy::ReferencePriceSource::Manual,
+            reference_price: None,
             levels: vec![GridLevel {
                 level_index: 0,
                 entry_price: Decimal::new(100_000, 2),

@@ -25,7 +25,7 @@ export default async function AdminAddressPoolsPage({ params, searchParams }: Pa
 
   return (
     <>
-      {updated ? <StatusBanner description={pickText(lang, "已更新地址：" + updated, "Updated address: " + updated)} title={pickText(lang, "地址池已更新", "Address Pool Updated")} /> : null}
+      {updated ? <StatusBanner description={pickText(lang, "已更新地址：" + updated, "Updated address: " + updated)} lang={lang} title={pickText(lang, "地址池已更新", "Address Pool Updated")} tone="success" /> : null}
       <AppShellSection
         description={pickText(lang, "值班席位追踪地址池压力、链路分配和启停状态，避免充值入口在高峰期失去冗余。", "The desk tracks pool pressure, chain allocation, and enablement so billing routes do not lose redundancy under load.")}
         eyebrow={pickText(lang, "地址池治理", "Address Pool Governance")}

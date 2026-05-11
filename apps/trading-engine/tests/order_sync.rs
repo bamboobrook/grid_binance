@@ -1,11 +1,14 @@
 use rust_decimal::Decimal;
 use shared_binance::{BinanceOrderRequest, BinanceOrderResponse};
 use shared_domain::strategy::{
-    GridGeneration, GridLevel, PostTriggerAction, Strategy, StrategyAmountMode, StrategyMarket,
-    StrategyMode, StrategyRevision, StrategyRuntime, StrategyRuntimeOrder, StrategyRuntimePosition,
-    StrategyStatus,
+    GridGeneration, GridLevel, PostTriggerAction, ReferencePriceSource, RuntimeControls, Strategy,
+    StrategyAmountMode, StrategyMarket, StrategyMode, StrategyRevision, StrategyRuntime,
+    StrategyRuntimeOrder, StrategyRuntimePhase, StrategyRuntimePosition, StrategyStatus,
+    StrategyType,
 };
-use trading_engine::order_sync::{sync_strategy_orders, BinanceOrderGateway, OrderQuantizationRules};
+use trading_engine::order_sync::{
+    sync_strategy_orders, BinanceOrderGateway, OrderQuantizationRules,
+};
 
 #[derive(Default)]
 struct FakeGateway {
@@ -13,6 +16,8 @@ struct FakeGateway {
     canceled: std::sync::Mutex<Vec<(String, String, Option<String>, Option<String>)>>,
     filled_order_ids: std::sync::Mutex<std::collections::HashSet<String>>,
     remote_statuses: std::sync::Mutex<std::collections::HashMap<String, String>>,
+    open_orders: std::sync::Mutex<Vec<BinanceOrderResponse>>,
+    get_order_errors: std::sync::Mutex<std::collections::HashMap<String, String>>,
 }
 
 impl BinanceOrderGateway for FakeGateway {
@@ -71,9 +76,19 @@ impl BinanceOrderGateway for FakeGateway {
         order_id: Option<&str>,
         client_order_id: Option<&str>,
     ) -> Result<BinanceOrderResponse, String> {
+        if let Some(error) = client_order_id
+            .and_then(|value| self.get_order_errors.lock().unwrap().get(value).cloned())
+            .or_else(|| {
+                order_id.and_then(|value| self.get_order_errors.lock().unwrap().get(value).cloned())
+            })
+        {
+            return Err(error);
+        }
         let status = client_order_id
             .and_then(|value| self.remote_statuses.lock().unwrap().get(value).cloned())
-            .or_else(|| order_id.and_then(|value| self.remote_statuses.lock().unwrap().get(value).cloned()))
+            .or_else(|| {
+                order_id.and_then(|value| self.remote_statuses.lock().unwrap().get(value).cloned())
+            })
             .unwrap_or_else(|| {
                 if client_order_id
                     .is_some_and(|value| self.filled_order_ids.lock().unwrap().contains(value))
@@ -94,6 +109,14 @@ impl BinanceOrderGateway for FakeGateway {
             price: None,
             quantity: None,
         })
+    }
+
+    fn open_orders(
+        &self,
+        _market: &str,
+        _symbol: &str,
+    ) -> Result<Vec<BinanceOrderResponse>, String> {
+        Ok(self.open_orders.lock().unwrap().clone())
     }
 }
 
@@ -121,6 +144,46 @@ fn running_strategy_submits_missing_live_orders() {
     assert_eq!(
         placed[0].client_order_id.as_deref(),
         Some("strategy-1-order-0")
+    );
+}
+
+#[test]
+fn martingale_working_order_adopts_existing_live_order_by_client_id() {
+    let gateway = FakeGateway::default();
+    let mut strategy = sample_strategy(
+        StrategyStatus::Running,
+        StrategyMarket::FuturesUsdM,
+        StrategyMode::FuturesLong,
+    );
+    strategy.strategy_type = StrategyType::MartingaleGrid;
+    strategy.runtime.orders[0].order_id = "mg-portfolio-instance-cycle-1-long-leg-0".to_string();
+    strategy.runtime.orders[0].exchange_order_id = None;
+    strategy.runtime.orders[0].status = "Working".to_string();
+    gateway
+        .open_orders
+        .lock()
+        .unwrap()
+        .push(BinanceOrderResponse {
+            market: "usdm".to_string(),
+            symbol: "BTCUSDT".to_string(),
+            order_id: "remote-123".to_string(),
+            client_order_id: Some("mg-portfolio-instance-cycle-1-long-leg-0".to_string()),
+            status: "NEW".to_string(),
+            side: Some("BUY".to_string()),
+            order_type: Some("LIMIT".to_string()),
+            price: Some("100".to_string()),
+            quantity: Some("1".to_string()),
+        });
+
+    let result = sync_strategy_orders(&mut strategy, &gateway, None);
+
+    assert_eq!(result.submitted, 0);
+    assert_eq!(result.refreshed, 1);
+    assert_eq!(gateway.placed.lock().unwrap().len(), 0);
+    assert_eq!(strategy.runtime.orders[0].status, "Placed");
+    assert_eq!(
+        strategy.runtime.orders[0].exchange_order_id.as_deref(),
+        Some("remote-123")
     );
 }
 
@@ -201,6 +264,86 @@ fn placed_order_pulls_remote_status_back_into_runtime() {
     assert_eq!(result.submitted, 0);
     assert_eq!(result.refreshed, 1);
     assert_eq!(strategy.runtime.orders[0].status, "Canceled");
+}
+
+#[test]
+fn running_strategy_ignores_transient_refresh_errors_for_live_orders() {
+    let gateway = FakeGateway::default();
+    let mut strategy = sample_strategy(
+        StrategyStatus::Running,
+        StrategyMarket::Spot,
+        StrategyMode::SpotClassic,
+    );
+    strategy.runtime.orders[0].status = "Placed".to_string();
+    strategy.runtime.orders[0].exchange_order_id = Some("555".to_string());
+    gateway.get_order_errors.lock().unwrap().insert(
+        "strategy-1-order-0".to_string(),
+        "binance signed request failed: error sending request for url (https://api.binance.com/api/v3/order): operation timed out".to_string(),
+    );
+
+    let result = sync_strategy_orders(&mut strategy, &gateway, None);
+
+    assert_eq!(result.failed, 0);
+    assert_eq!(result.refreshed, 0);
+    assert_eq!(strategy.runtime.orders[0].status, "Placed");
+    assert_eq!(
+        strategy.runtime.orders[0].exchange_order_id.as_deref(),
+        Some("555")
+    );
+}
+
+#[test]
+fn running_strategy_uses_open_order_snapshot_before_fallback_lookup() {
+    let gateway = FakeGateway::default();
+    let mut strategy = sample_strategy(
+        StrategyStatus::Running,
+        StrategyMarket::Spot,
+        StrategyMode::SpotClassic,
+    );
+    strategy.runtime.orders[0].status = "Placed".to_string();
+    strategy.runtime.orders[0].exchange_order_id = Some("555".to_string());
+    strategy.runtime.orders.push(StrategyRuntimeOrder {
+        order_id: "strategy-1-order-1".to_string(),
+        exchange_order_id: Some("666".to_string()),
+        level_index: Some(1),
+        side: "Buy".to_string(),
+        order_type: "Limit".to_string(),
+        price: Some(Decimal::new(99, 0)),
+        quantity: Decimal::new(1, 0),
+        status: "Placed".to_string(),
+    });
+    gateway
+        .open_orders
+        .lock()
+        .unwrap()
+        .push(BinanceOrderResponse {
+            market: "spot".to_string(),
+            symbol: "BTCUSDT".to_string(),
+            order_id: "555".to_string(),
+            client_order_id: Some("strategy-1-order-0".to_string()),
+            status: "NEW".to_string(),
+            side: Some("BUY".to_string()),
+            order_type: Some("LIMIT".to_string()),
+            price: Some("100".to_string()),
+            quantity: Some("1".to_string()),
+        });
+    gateway
+        .remote_statuses
+        .lock()
+        .unwrap()
+        .insert("strategy-1-order-1".to_string(), "CANCELED".to_string());
+    gateway.get_order_errors.lock().unwrap().insert(
+        "strategy-1-order-0".to_string(),
+        "still-open order should not require point lookup".to_string(),
+    );
+
+    let result = sync_strategy_orders(&mut strategy, &gateway, None);
+
+    assert_eq!(result.failed, 0);
+    assert_eq!(result.refreshed, 1);
+    assert_eq!(strategy.runtime.orders[0].status, "Placed");
+    assert_eq!(strategy.runtime.orders[1].status, "Canceled");
+    assert_eq!(strategy.runtime.orders[1].exchange_order_id, None);
 }
 
 #[test]
@@ -304,11 +447,10 @@ fn stopping_strategy_keeps_partially_filled_close_orders_pending() {
         quantity: Decimal::new(2, 0),
         status: "PartiallyFilled".to_string(),
     });
-    gateway
-        .remote_statuses
-        .lock()
-        .unwrap()
-        .insert("strategy-1-stop-close-0".to_string(), "PARTIALLY_FILLED".to_string());
+    gateway.remote_statuses.lock().unwrap().insert(
+        "strategy-1-stop-close-0".to_string(),
+        "PARTIALLY_FILLED".to_string(),
+    );
 
     let result = sync_strategy_orders(&mut strategy, &gateway, None);
 
@@ -390,8 +532,11 @@ fn sample_strategy(status: StrategyStatus, market: StrategyMarket, mode: Strateg
         margin_ready: true,
         conflict_ready: true,
         balance_ready: true,
+        strategy_type: StrategyType::OrdinaryGrid,
         market,
         mode,
+        runtime_phase: StrategyRuntimePhase::Draft,
+        runtime_controls: RuntimeControls::default(),
         draft_revision: revision(),
         active_revision: Some(revision()),
         runtime: StrategyRuntime {
@@ -410,6 +555,8 @@ fn sample_strategy(status: StrategyStatus, market: StrategyMarket, mode: Strateg
             events: Vec::new(),
             last_preflight: None,
         },
+        tags: Vec::new(),
+        notes: String::new(),
         archived_at: None,
     }
 }
@@ -418,10 +565,13 @@ fn revision() -> StrategyRevision {
     StrategyRevision {
         revision_id: "rev-1".to_string(),
         version: 1,
+        strategy_type: StrategyType::OrdinaryGrid,
         generation: GridGeneration::Custom,
         amount_mode: StrategyAmountMode::Quote,
         futures_margin_mode: None,
         leverage: None,
+        reference_price_source: ReferencePriceSource::Manual,
+        reference_price: None,
         levels: vec![GridLevel {
             level_index: 0,
             entry_price: Decimal::new(100, 0),

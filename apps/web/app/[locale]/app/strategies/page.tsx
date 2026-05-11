@@ -4,8 +4,8 @@ import { getTranslations } from "next-intl/server";
 import { Filter, LayoutGrid, List, Pause, Plus } from "lucide-react";
 
 import { StrategyInventoryTable } from "@/components/strategies/strategy-inventory-table";
-import { Button } from "@/components/ui/form";
 import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/form";
 import { pickText, type UiLanguage } from "@/lib/ui/preferences";
 
 const DEFAULT_AUTH_API_BASE_URL = "http://127.0.0.1:8080";
@@ -15,18 +15,54 @@ type PageProps = {
   searchParams?: Promise<{ notice?: string | string[]; error?: string | string[]; status?: string | string[]; symbol?: string | string[] }>;
 };
 
-type StrategyListItem = {
+type StrategyPosition = {
+  average_entry_price: string;
+  quantity: string;
+};
+
+type RawStrategyListItem = {
   budget: string;
   id: string;
   market: string;
   name: string;
   status: string;
   symbol: string;
+  draft_revision: { levels: Array<unknown> };
+  active_revision?: { levels: Array<unknown> } | null;
+  runtime: {
+    fills: Array<unknown>;
+    orders: Array<unknown>;
+    positions: StrategyPosition[];
+  };
+};
+
+type StrategyListItem = {
+  avgEntryPrice: string;
+  budget: string;
+  fillCount: number;
+  gridCount: number;
+  gridPnl: string;
+  id: string;
+  market: string;
+  name: string;
+  overallPnl: string;
+  status: string;
+  symbol: string;
+  tradeCount: number;
 };
 
 type StrategyListResponse = {
-  items: StrategyListItem[];
+  items: RawStrategyListItem[];
 };
+
+type StrategySummaries = Array<{
+  average_entry_price: string;
+  fill_count: number;
+  net_pnl: string;
+  order_count: number;
+  realized_pnl: string;
+  strategy_id: string;
+}>;
 
 export default async function StrategiesPage({ params, searchParams }: PageProps) {
   const { locale } = await params;
@@ -37,8 +73,9 @@ export default async function StrategiesPage({ params, searchParams }: PageProps
   const statusFilter = firstValue(searchParamsValue.status) ?? "all";
   const symbolFilter = firstValue(searchParamsValue.symbol) ?? "";
 
-  const strategyResult = await fetchStrategies(lang);
-  const strategies = strategyResult.items;
+  const [strategyResult, summariesPayload] = await Promise.all([fetchStrategies(lang), fetchAnalytics(lang)]);
+  const summaries = new Map((summariesPayload ?? []).map((item) => [item.strategy_id, item]));
+  const strategies = strategyResult.items.map((item) => buildInventoryItem(item, summaries.get(item.id)));
   const filteredStrategies = strategies.filter((item) => {
     const statusMatches = statusFilter === "all" || item.status === statusFilter;
     const query = symbolFilter.trim().toLowerCase();
@@ -47,12 +84,12 @@ export default async function StrategiesPage({ params, searchParams }: PageProps
   });
 
   return (
-    <div className="mx-auto flex h-full max-w-[1600px] flex-col gap-4">
+    <div className="mx-auto flex h-full max-w-[1760px] flex-col gap-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-xl font-bold tracking-tight text-foreground">{t("title")}</h1>
           <p className="text-sm text-muted-foreground">
-            {pickText(lang, "列表动作已按策略状态裁剪，避免再出现无意义的点击失败。", "Row actions are now filtered by strategy state to avoid meaningless failures.")}
+            {pickText(lang, "列表会直接展示网格数量、成交、均价和盈亏，处理策略时不必再频繁跳详情页。", "The list now keeps grid counts, fills, holding cost, and PnL visible so you can operate without constantly opening details.")}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
@@ -88,6 +125,7 @@ export default async function StrategiesPage({ params, searchParams }: PageProps
           <option value="Draft">{pickText(lang, "草稿", "Draft")}</option>
           <option value="Running">{pickText(lang, "运行中", "Running")}</option>
           <option value="Paused">{pickText(lang, "已暂停", "Paused")}</option>
+          <option value="Stopping">{pickText(lang, "停止中", "Stopping")}</option>
           <option value="ErrorPaused">{pickText(lang, "异常阻塞", "Blocked")}</option>
           <option value="Stopped">{pickText(lang, "已停止", "Stopped")}</option>
         </select>
@@ -109,6 +147,59 @@ export default async function StrategiesPage({ params, searchParams }: PageProps
   );
 }
 
+function buildInventoryItem(
+  strategy: RawStrategyListItem,
+  summary: StrategySummaries[number] | undefined,
+): StrategyListItem {
+  return {
+    avgEntryPrice: metricValue(summary?.average_entry_price) ?? fallbackAverageCost(strategy.runtime.positions),
+    budget: strategy.budget,
+    fillCount: summary?.fill_count ?? strategy.runtime.fills.length,
+    gridCount: strategy.active_revision?.levels?.length ?? strategy.draft_revision.levels.length,
+    gridPnl: metricValue(summary?.realized_pnl) ?? "0",
+    id: strategy.id,
+    market: strategy.market,
+    name: strategy.name,
+    overallPnl: metricValue(summary?.net_pnl) ?? "0",
+    status: strategy.status,
+    symbol: strategy.symbol,
+    tradeCount: summary?.fill_count ?? strategy.runtime.fills.length,
+  };
+}
+
+function fallbackAverageCost(positions: StrategyPosition[]) {
+  if (positions.length === 0) {
+    return "-";
+  }
+  let totalQuantity = 0;
+  let weightedCost = 0;
+  for (const position of positions) {
+    const quantity = Number.parseFloat(position.quantity);
+    const average = Number.parseFloat(position.average_entry_price);
+    if (!Number.isFinite(quantity) || !Number.isFinite(average)) {
+      continue;
+    }
+    totalQuantity += quantity;
+    weightedCost += quantity * average;
+  }
+  if (totalQuantity <= 0) {
+    return "-";
+  }
+  return trimNumeric(weightedCost / totalQuantity, 4);
+}
+
+function metricValue(value?: string | null) {
+  if (!value) {
+    return null;
+  }
+  const trimmed = value.trim();
+  return trimmed || null;
+}
+
+function trimNumeric(value: number, digits: number) {
+  return value.toFixed(digits).replace(/\.0+$/, "").replace(/(\.\d*?)0+$/, "$1");
+}
+
 function firstValue(value?: string | string[]) {
   return Array.isArray(value) ? value[0] : value;
 }
@@ -128,6 +219,24 @@ async function fetchStrategies(lang: UiLanguage): Promise<{ items: StrategyListR
     return { items: [], error: pickText(lang, "策略列表暂时不可用。", "Strategy catalog is temporarily unavailable.") };
   }
   return { items: ((await response.json()) as StrategyListResponse).items, error: null };
+}
+
+async function fetchAnalytics(lang: UiLanguage): Promise<StrategySummaries | null> {
+  const cookieStore = await cookies();
+  const sessionToken = cookieStore.get("session_token")?.value ?? "";
+  if (!sessionToken) {
+    return null;
+  }
+  const response = await fetch(authApiBaseUrl() + "/analytics/strategies", {
+    method: "GET",
+    headers: { authorization: "Bearer " + sessionToken },
+    cache: "no-store",
+  });
+  if (!response.ok) {
+    console.warn(pickText(lang, "策略页统计拉取失败，将退回运行态摘要。", "Strategy-page analytics fetch failed; falling back to runtime summaries."));
+    return null;
+  }
+  return (await response.json()) as StrategySummaries;
 }
 
 function authApiBaseUrl() {
