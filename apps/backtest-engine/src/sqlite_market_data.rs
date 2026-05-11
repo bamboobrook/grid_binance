@@ -30,10 +30,17 @@ const EXPECTED_SCHEMA: &[(&str, &[&str])] = &[
     ),
 ];
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum MarketDataSchema {
+    Canonical,
+    DiscordC2im,
+}
+
 #[derive(Debug)]
 pub struct SqliteMarketDataSource {
     path: PathBuf,
     conn: Connection,
+    schema: MarketDataSchema,
 }
 
 impl SqliteMarketDataSource {
@@ -73,11 +80,12 @@ impl SqliteMarketDataSource {
             ));
         }
 
-        let source = Self {
+        let mut source = Self {
             path: path.to_path_buf(),
             conn,
+            schema: MarketDataSchema::Canonical,
         };
-        source.validate_schema()?;
+        source.schema = source.detect_schema()?;
         Ok(source)
     }
 
@@ -108,16 +116,25 @@ impl SqliteMarketDataSource {
             .map_err(|err| format!("failed to query SQLite version: {err}"))
     }
 
-    fn validate_schema(&self) -> Result<(), String> {
+    fn detect_schema(&self) -> Result<MarketDataSchema, String> {
         let tables = self.table_names()?;
-        let mut diagnostics = Vec::new();
+        if self.schema_matches(&tables, EXPECTED_SCHEMA)? {
+            return Ok(MarketDataSchema::Canonical);
+        }
 
+        let discord_schema = &[
+            ("klines", &["symbol", "market_type", "timeframe", "open_time", "open", "high", "low", "close", "volume"] as &[&str]),
+        ];
+        if self.schema_matches(&tables, discord_schema)? {
+            return Ok(MarketDataSchema::DiscordC2im);
+        }
+
+        let mut diagnostics = Vec::new();
         for (table, columns) in EXPECTED_SCHEMA {
             if !tables.iter().any(|name| name == table) {
                 diagnostics.push(format!("missing table `{table}`"));
                 continue;
             }
-
             let actual_columns = self.table_columns(table)?;
             for column in *columns {
                 if !actual_columns.iter().any(|name| name == column) {
@@ -126,17 +143,26 @@ impl SqliteMarketDataSource {
             }
         }
 
-        if diagnostics.is_empty() {
-            Ok(())
-        } else {
-            Err(format!(
-                "SQLite market data schema mismatch for {}: {}; tables={:?}; expected={}",
-                self.path.display(),
-                diagnostics.join(", "),
-                tables,
-                expected_schema_description()
-            ))
+        Err(format!(
+            "SQLite market data schema mismatch for {}: {}; tables={:?}; expected={} or discord_c2im klines(symbol, market_type, timeframe, open_time, open, high, low, close, volume)",
+            self.path.display(),
+            diagnostics.join(", "),
+            tables,
+            expected_schema_description()
+        ))
+    }
+
+    fn schema_matches(&self, tables: &[String], schema: &[(&str, &[&str])]) -> Result<bool, String> {
+        for (table, columns) in schema {
+            if !tables.iter().any(|name| name == table) {
+                return Ok(false);
+            }
+            let actual_columns = self.table_columns(table)?;
+            if columns.iter().any(|column| !actual_columns.iter().any(|name| name == column)) {
+                return Ok(false);
+            }
         }
+        Ok(true)
     }
 
     fn table_columns(&self, table: &str) -> Result<Vec<String>, String> {
@@ -181,9 +207,19 @@ fn encode_uri_path(path: &Path) -> String {
 
 impl MarketDataSource for SqliteMarketDataSource {
     fn list_symbols(&self) -> Result<Vec<String>, String> {
+        let query = match self.schema {
+            MarketDataSchema::Canonical => "SELECT symbol FROM symbols ORDER BY symbol",
+            MarketDataSchema::DiscordC2im => {
+                if self.table_names()?.iter().any(|name| name == "market_universe") {
+                    "SELECT symbol FROM market_universe ORDER BY symbol"
+                } else {
+                    "SELECT DISTINCT symbol FROM klines ORDER BY symbol"
+                }
+            }
+        };
         let mut stmt = self
             .conn
-            .prepare("SELECT symbol FROM symbols ORDER BY symbol")
+            .prepare(query)
             .map_err(|err| format!("failed to prepare symbol query: {err}"))?;
         let rows = stmt
             .query_map([], |row| row.get::<_, String>(0))
@@ -200,14 +236,24 @@ impl MarketDataSource for SqliteMarketDataSource {
         end_ms: i64,
         interval: &str,
     ) -> Result<Vec<KlineBar>, String> {
-        let mut stmt = self
-            .conn
-            .prepare(
+        let query = match self.schema {
+            MarketDataSchema::Canonical => {
                 "SELECT symbol, open_time_ms, open, high, low, close, volume \
                  FROM klines \
                  WHERE symbol = ?1 AND interval = ?2 AND open_time_ms BETWEEN ?3 AND ?4 \
-                 ORDER BY open_time_ms",
-            )
+                 ORDER BY open_time_ms"
+            }
+            MarketDataSchema::DiscordC2im => {
+                "SELECT symbol, open_time, open, high, low, close, volume \
+                 FROM klines \
+                 WHERE symbol = ?1 AND timeframe = ?2 AND open_time BETWEEN ?3 AND ?4 \
+                   AND market_type = COALESCE((SELECT market_type FROM klines WHERE symbol = ?1 AND timeframe = ?2 AND market_type = 'futures_usdt_perp' LIMIT 1), market_type) \
+                 ORDER BY open_time"
+            }
+        };
+        let mut stmt = self
+            .conn
+            .prepare(query)
             .map_err(|err| format!("failed to prepare kline query: {err}"))?;
         let rows = stmt
             .query_map((symbol, interval, start_ms, end_ms), |row| {
@@ -233,6 +279,9 @@ impl MarketDataSource for SqliteMarketDataSource {
         start_ms: i64,
         end_ms: i64,
     ) -> Result<Vec<AggTrade>, String> {
+        if self.schema == MarketDataSchema::DiscordC2im {
+            return Ok(Vec::new());
+        }
         let mut stmt = self
             .conn
             .prepare(
@@ -344,6 +393,39 @@ mod tests {
         file
     }
 
+
+    fn discord_c2im_fixture_db() -> NamedTempFile {
+        let file = NamedTempFile::new().expect("temp sqlite file");
+        let conn = Connection::open(file.path()).expect("open discord fixture db");
+        conn.execute_batch(
+            "
+            CREATE TABLE market_universe(symbol TEXT PRIMARY KEY);
+            CREATE TABLE klines(
+                symbol TEXT NOT NULL,
+                market_type TEXT NOT NULL DEFAULT 'spot',
+                timeframe TEXT NOT NULL,
+                open_time INTEGER NOT NULL,
+                open REAL NOT NULL,
+                high REAL NOT NULL,
+                low REAL NOT NULL,
+                close REAL NOT NULL,
+                volume REAL NOT NULL,
+                close_time INTEGER NOT NULL,
+                PRIMARY KEY(symbol, market_type, timeframe, open_time)
+            );
+            INSERT INTO market_universe(symbol) VALUES ('BTCUSDT'), ('ETHUSDT');
+            INSERT INTO klines(symbol, market_type, timeframe, open_time, open, high, low, close, volume, close_time)
+                VALUES ('BTCUSDT', 'futures_usdt_perp', '1m', 1000, 10.0, 12.0, 9.0, 11.0, 5.0, 1999),
+                       ('BTCUSDT', 'futures_usdt_perp', '1m', 2000, 11.0, 13.0, 10.0, 12.0, 6.0, 2999),
+                       ('BTCUSDT', 'spot', '1m', 1000, 9.0, 10.0, 8.0, 9.5, 3.0, 1999),
+                       ('ETHUSDT', 'futures_usdt_perp', '1m', 1000, 20.0, 22.0, 19.0, 21.0, 7.0, 1999);
+            ",
+        )
+        .expect("seed discord fixture db");
+        drop(conn);
+        file
+    }
+
     fn live_wal_fixture_db() -> (NamedTempFile, Connection) {
         let file = NamedTempFile::new().expect("temp sqlite file");
         let conn = Connection::open(file.path()).expect("open live wal fixture db");
@@ -395,6 +477,23 @@ mod tests {
             std::path::PathBuf::from(format!("{path}-wal")),
             std::path::PathBuf::from(format!("{path}-shm")),
         )
+    }
+
+
+    #[test]
+    fn readonly_adapter_supports_discord_c2im_kline_schema_without_agg_trades() {
+        let file = discord_c2im_fixture_db();
+        let source = SqliteMarketDataSource::open_readonly(file.path()).expect("open readonly discord schema");
+
+        let symbols = source.list_symbols().expect("list symbols");
+        let bars = source.load_klines("BTCUSDT", 1000, 2000, "1m").expect("load klines");
+        let trades = source.load_agg_trades("BTCUSDT", 1000, 2000).expect("missing agg trades should degrade to empty");
+
+        assert_eq!(symbols, vec!["BTCUSDT".to_string(), "ETHUSDT".to_string()]);
+        assert_eq!(bars.len(), 2);
+        assert_eq!(bars[0].open_time_ms, 1000);
+        assert_eq!(bars[0].close, 11.0);
+        assert!(trades.is_empty());
     }
 
     #[test]

@@ -22,8 +22,11 @@ fn random_search_is_reproducible() {
     let space = SearchSpace {
         symbols: vec!["BTCUSDT".to_string(), "ETHUSDT".to_string()],
         directions: vec![MartingaleDirection::Long, MartingaleDirection::Short],
+        market: None,
+        margin_mode: None,
         step_bps: vec![50, 100, 150],
         first_order_quote: vec![Decimal::new(25, 0), Decimal::new(50, 0)],
+        multiplier: vec![Decimal::new(15, 1)],
         take_profit_bps: vec![60, 90],
         leverage: vec![1, 3],
         max_legs: vec![3, 4],
@@ -332,8 +335,11 @@ fn small_search_space() -> SearchSpace {
     SearchSpace {
         symbols: vec!["BTCUSDT".to_string()],
         directions: vec![MartingaleDirection::Long],
+        market: None,
+        margin_mode: None,
         step_bps: vec![100],
         first_order_quote: vec![Decimal::new(25, 0)],
+        multiplier: vec![Decimal::new(15, 1)],
         take_profit_bps: vec![80],
         leverage: vec![1],
         max_legs: vec![3],

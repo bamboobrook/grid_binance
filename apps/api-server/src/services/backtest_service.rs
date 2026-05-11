@@ -291,7 +291,37 @@ fn normalize_symbol(symbol: &str) -> String {
 }
 
 fn default_max_symbols() -> usize {
-    5
+    20
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use shared_db::SharedDb;
+
+    fn request_with_symbols(count: usize) -> CreateBacktestTaskRequest {
+        CreateBacktestTaskRequest {
+            strategy_type: "martingale_grid".to_owned(),
+            symbols: (0..count).map(|index| format!("SYM{index}USDT")).collect(),
+            extra: serde_json::Map::new(),
+        }
+    }
+
+    #[test]
+    fn default_quota_allows_twenty_symbols_and_rejects_twenty_one() {
+        let db = SharedDb::ephemeral().expect("db");
+        let publish = MartingalePublishService::new(db.clone());
+        let service = BacktestService::new(db, publish);
+
+        let accepted = service.create_task("user@example.com", request_with_symbols(20));
+        assert!(accepted.is_ok(), "default quota should allow 20 symbols");
+
+        let rejected = service
+            .create_task("user@example.com", request_with_symbols(21))
+            .unwrap_err();
+        assert_eq!(rejected.status, StatusCode::FORBIDDEN);
+        assert_eq!(rejected.message, "quota exceeded: max_symbols=20");
+    }
 }
 
 #[derive(Debug)]

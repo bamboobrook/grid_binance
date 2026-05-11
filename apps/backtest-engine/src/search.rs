@@ -11,8 +11,11 @@ use shared_domain::martingale::{
 pub struct SearchSpace {
     pub symbols: Vec<String>,
     pub directions: Vec<MartingaleDirection>,
+    pub market: Option<MartingaleMarketKind>,
+    pub margin_mode: Option<MartingaleMarginMode>,
     pub step_bps: Vec<u32>,
     pub first_order_quote: Vec<Decimal>,
+    pub multiplier: Vec<Decimal>,
     pub take_profit_bps: Vec<u32>,
     pub leverage: Vec<u32>,
     pub max_legs: Vec<u32>,
@@ -38,19 +41,20 @@ pub fn random_search(
         let direction = *pick(&space.directions, &mut rng)?;
         let step_bps = *pick(&space.step_bps, &mut rng)?;
         let first_order_quote = *pick(&space.first_order_quote, &mut rng)?;
+        let multiplier = *pick(&space.multiplier, &mut rng)?;
         let take_profit_bps = *pick(&space.take_profit_bps, &mut rng)?;
         let leverage = *pick(&space.leverage, &mut rng)?;
         let max_legs = *pick(&space.max_legs, &mut rng)?;
 
-        let market = if leverage > 1 {
+        let market = space.market.unwrap_or(if leverage > 1 {
             MartingaleMarketKind::UsdMFutures
         } else {
             MartingaleMarketKind::Spot
-        };
+        });
         let (margin_mode, leverage) = match market {
             MartingaleMarketKind::Spot => (None, None),
             MartingaleMarketKind::UsdMFutures => {
-                (Some(MartingaleMarginMode::Cross), Some(leverage))
+                (Some(space.margin_mode.unwrap_or(MartingaleMarginMode::Cross)), Some(leverage))
             }
         };
         let direction_mode = match direction {
@@ -68,7 +72,7 @@ pub fn random_search(
             spacing: MartingaleSpacingModel::FixedPercent { step_bps },
             sizing: MartingaleSizingModel::Multiplier {
                 first_order_quote,
-                multiplier: Decimal::new(15, 1),
+                multiplier,
                 max_legs,
             },
             take_profit: MartingaleTakeProfitModel::Percent {
@@ -99,6 +103,7 @@ fn validate_space(space: &SearchSpace) -> Result<(), String> {
         || space.directions.is_empty()
         || space.step_bps.is_empty()
         || space.first_order_quote.is_empty()
+        || space.multiplier.is_empty()
         || space.take_profit_bps.is_empty()
         || space.leverage.is_empty()
         || space.max_legs.is_empty()

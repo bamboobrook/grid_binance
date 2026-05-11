@@ -21,8 +21,9 @@ use backtest_engine::{
 };
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
-use serde_json::json;
+use serde_json::{json, Value};
 use shared_db::{BacktestRepository, NewBacktestCandidateRecord, SharedDb};
+use shared_domain::martingale::{MartingaleMarginMode, MartingaleMarketKind};
 
 const DEFAULT_MAX_THREADS: usize = 2;
 const DEFAULT_POLL_MS: u64 = 5_000;
@@ -53,6 +54,16 @@ struct WorkerTaskConfig {
     random_candidates: usize,
     intelligent_rounds: usize,
     top_n: usize,
+    #[serde(default)]
+    market: Option<String>,
+    #[serde(default)]
+    margin_mode: Option<String>,
+    #[serde(default)]
+    direction_mode: Option<String>,
+    #[serde(default)]
+    leverage_range: Option<[u32; 2]>,
+    #[serde(default)]
+    martingale_template: Option<Value>,
     #[serde(default = "default_interval")]
     interval: String,
     #[serde(default)]
@@ -69,6 +80,11 @@ impl Default for WorkerTaskConfig {
             random_candidates: 16,
             intelligent_rounds: 2,
             top_n: DEFAULT_TOP_N,
+            market: None,
+            margin_mode: None,
+            direction_mode: None,
+            leverage_range: None,
+            martingale_template: None,
             interval: default_interval(),
             start_ms: 0,
             end_ms: 0,
@@ -80,6 +96,31 @@ fn default_interval() -> String {
     "1h".to_owned()
 }
 
+
+fn stage_label(stage: &str) -> &'static str {
+    match stage {
+        "market_data_opening" => "打开行情库",
+        "search_started" => "参数搜索中",
+        "trade_refinement_top_1" => "精测 Top 1",
+        "trade_refinement_top_2" => "精测 Top 2",
+        "trade_refinement_top_3" => "精测 Top 3",
+        _ if stage.starts_with("trade_refinement_top_") => "候选精测中",
+        _ => "运行中",
+    }
+}
+
+fn stage_progress(stage: &str) -> u32 {
+    match stage {
+        "market_data_opening" => 10,
+        "search_started" => 30,
+        "trade_refinement_top_1" => 65,
+        "trade_refinement_top_2" => 75,
+        "trade_refinement_top_3" => 85,
+        _ if stage.starts_with("trade_refinement_top_") => 80,
+        _ => 50,
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct CandidateOutput {
     candidate_id: String,
@@ -88,6 +129,10 @@ struct CandidateOutput {
     config: serde_json::Value,
     artifact_path: String,
     checksum_sha256: String,
+    used_trade_refinement: bool,
+    total_return_pct: f64,
+    max_drawdown_pct: f64,
+    trade_count: u64,
 }
 
 #[tokio::main]
@@ -198,6 +243,7 @@ async fn process_task(
             )
             .await?;
         let refined = run_candidate_trade_refinement(&evaluated.candidate, &market_context)?;
+        let used_trade_refinement = !trades_for_candidate(&evaluated.candidate, &market_context.trades).is_empty();
         let rows = vec![json!({
             "task_id": task.task_id,
             "candidate_id": evaluated.candidate.candidate_id,
@@ -226,6 +272,10 @@ async fn process_task(
                 .map_err(|error| format!("serialize candidate config: {error}"))?,
             artifact_path: manifest.path.display().to_string(),
             checksum_sha256: manifest.checksum_sha256,
+            used_trade_refinement,
+            total_return_pct: refined.metrics.total_return_pct,
+            max_drawdown_pct: refined.metrics.max_drawdown_pct,
+            trade_count: refined.metrics.trade_count,
         });
         respect_pause_or_cancel(poller, &task.task_id).await?;
     }
@@ -242,16 +292,120 @@ async fn process_task(
 fn search_space_from_task(config: &WorkerTaskConfig) -> SearchSpace {
     SearchSpace {
         symbols: config.symbols.clone(),
-        directions: vec![
-            shared_domain::martingale::MartingaleDirection::Long,
-            shared_domain::martingale::MartingaleDirection::Short,
-        ],
-        step_bps: vec![25, 50, 100],
-        first_order_quote: vec![Decimal::new(100, 0), Decimal::new(250, 0)],
-        take_profit_bps: vec![30, 60, 100],
-        leverage: vec![1, 2, 3],
-        max_legs: vec![3, 5, 7],
+        directions: directions_from_mode(config.direction_mode.as_deref()),
+        market: market_kind(config.market.as_deref()),
+        margin_mode: margin_mode(config.margin_mode.as_deref()),
+        step_bps: search_space_u32(config, "spacing_bps")
+            .or_else(|| template_u32(config, &["spacing", "step_bps"]).map(|value| vec![value]))
+            .unwrap_or_else(|| vec![25, 50, 100]),
+        first_order_quote: search_space_decimal(config, "first_order_quote")
+            .or_else(|| template_decimal(config, &["sizing", "first_order_quote"]).map(|value| vec![value]))
+            .unwrap_or_else(|| vec![Decimal::new(100, 0), Decimal::new(250, 0)]),
+        multiplier: search_space_decimal(config, "order_multiplier")
+            .or_else(|| template_decimal(config, &["sizing", "multiplier"]).map(|value| vec![value]))
+            .unwrap_or_else(|| vec![Decimal::new(15, 1)]),
+        take_profit_bps: search_space_u32(config, "take_profit_bps")
+            .or_else(|| template_u32(config, &["take_profit", "bps"]).map(|value| vec![value]))
+            .unwrap_or_else(|| vec![30, 60, 100]),
+        leverage: leverage_values(config.leverage_range),
+        max_legs: search_space_u32(config, "max_legs")
+            .or_else(|| template_u32(config, &["sizing", "max_legs"]).map(|value| vec![value]))
+            .unwrap_or_else(|| vec![3, 5, 7]),
     }
+}
+
+fn market_kind(value: Option<&str>) -> Option<MartingaleMarketKind> {
+    match value {
+        Some("spot") => Some(MartingaleMarketKind::Spot),
+        Some("usd_m_futures") => Some(MartingaleMarketKind::UsdMFutures),
+        _ => None,
+    }
+}
+
+fn margin_mode(value: Option<&str>) -> Option<MartingaleMarginMode> {
+    match value {
+        Some("isolated") => Some(MartingaleMarginMode::Isolated),
+        Some("cross") => Some(MartingaleMarginMode::Cross),
+        _ => None,
+    }
+}
+
+fn search_space_value<'a>(config: &'a WorkerTaskConfig, key: &str) -> Option<&'a Value> {
+    config
+        .martingale_template
+        .as_ref()
+        .and_then(|template| template.get("search_space"))
+        .and_then(|space| space.get(key))
+}
+
+fn search_space_u32(config: &WorkerTaskConfig, key: &str) -> Option<Vec<u32>> {
+    let values = search_space_value(config, key)?.as_array()?;
+    let parsed: Vec<u32> = values
+        .iter()
+        .filter_map(Value::as_u64)
+        .filter_map(|value| u32::try_from(value).ok())
+        .filter(|value| *value > 0)
+        .collect();
+    (!parsed.is_empty()).then_some(parsed)
+}
+
+fn search_space_decimal(config: &WorkerTaskConfig, key: &str) -> Option<Vec<Decimal>> {
+    let values = search_space_value(config, key)?.as_array()?;
+    let parsed: Vec<Decimal> = values
+        .iter()
+        .filter_map(decimal_from_value)
+        .filter(|value| *value > Decimal::ZERO)
+        .collect();
+    (!parsed.is_empty()).then_some(parsed)
+}
+
+fn decimal_from_value(value: &Value) -> Option<Decimal> {
+    if let Some(number) = value.as_i64() {
+        return Some(Decimal::from(number));
+    }
+    value
+        .as_str()
+        .and_then(|text| text.parse::<Decimal>().ok())
+        .or_else(|| value.to_string().parse::<Decimal>().ok())
+}
+
+fn directions_from_mode(mode: Option<&str>) -> Vec<shared_domain::martingale::MartingaleDirection> {
+    use shared_domain::martingale::MartingaleDirection::{Long, Short};
+    match mode {
+        Some("long_only") => vec![Long],
+        Some("short_only") => vec![Short],
+        Some("long_and_short") => vec![Long, Short],
+        _ => vec![Long, Short],
+    }
+}
+
+fn leverage_values(range: Option<[u32; 2]>) -> Vec<u32> {
+    let Some([left, right]) = range else {
+        return vec![1, 2, 3];
+    };
+    let start = left.min(right).max(1);
+    let end = left.max(right).max(start);
+    (start..=end).collect()
+}
+
+fn template_value<'a>(config: &'a WorkerTaskConfig, path: &[&str]) -> Option<&'a Value> {
+    let mut current = config.martingale_template.as_ref()?;
+    for key in path {
+        current = current.get(*key)?;
+    }
+    Some(current)
+}
+
+fn template_u32(config: &WorkerTaskConfig, path: &[&str]) -> Option<u32> {
+    template_value(config, path)
+        .and_then(Value::as_u64)
+        .and_then(|value| u32::try_from(value).ok())
+        .filter(|value| *value > 0)
+}
+
+fn template_decimal(config: &WorkerTaskConfig, path: &[&str]) -> Option<Decimal> {
+    let value = template_value(config, path)?;
+    decimal_from_value(value).filter(|value| *value > Decimal::ZERO)
 }
 
 #[derive(Debug, Clone)]
@@ -291,12 +445,6 @@ impl MarketDataContext {
             }
             let mut symbol_trades =
                 source.load_agg_trades(&normalized, config.start_ms, config.end_ms)?;
-            if symbol_trades.is_empty() {
-                return Err(format!(
-                    "no aggTrades for {normalized} range={}..{}; trade refinement requires成交级数据",
-                    config.start_ms, config.end_ms
-                ));
-            }
             bars.append(&mut symbol_bars);
             trades.append(&mut symbol_trades);
         }
@@ -346,10 +494,14 @@ fn run_candidate_trade_refinement(
 ) -> Result<MartingaleBacktestResult, String> {
     let trades = trades_for_candidate(candidate, &market_context.trades);
     if trades.is_empty() {
-        return Err(format!(
-            "candidate {} has no matching aggTrades",
-            candidate.candidate_id
-        ));
+        let bars = bars_for_candidate(candidate, &market_context.bars);
+        if bars.is_empty() {
+            return Err(format!(
+                "candidate {} has no matching kline bars for candle-only refinement",
+                candidate.candidate_id
+            ));
+        }
+        return run_kline_screening(candidate.config.clone(), &bars);
     }
     run_trade_refinement(candidate.config.clone(), &trades)
 }
@@ -491,6 +643,13 @@ impl TaskPoller {
         self.repo
             .append_task_event(task_id, "heartbeat", json!({ "stage": stage }))
             .map_err(|error| format!("append heartbeat event: {error}"))?;
+        self.repo
+            .update_task_summary(task_id, json!({
+                "stage": stage,
+                "stage_label": stage_label(stage),
+                "progress_pct": stage_progress(stage),
+            }))
+            .map_err(|error| format!("update task summary: {error}"))?;
         Ok(())
     }
 
@@ -526,7 +685,14 @@ impl TaskPoller {
                         status: "ready".to_owned(),
                         rank: output.rank as i32,
                         config: output.config.clone(),
-                        summary: json!({ "score": output.score }),
+                        summary: json!({
+                "score": output.score,
+                "search_mode": "智能搜索",
+                "result_mode": if output.used_trade_refinement { "成交级精测" } else { "K线级回测" },
+                "total_return_pct": output.total_return_pct,
+                "max_drawdown_pct": output.max_drawdown_pct,
+                "trade_count": output.trade_count,
+            }),
                     },
                     "summary",
                     output.artifact_path.clone(),
@@ -542,6 +708,13 @@ impl TaskPoller {
 
     async fn mark_completed(&self, task_id: &str) -> Result<(), String> {
         self.repo
+            .update_task_summary(task_id, json!({
+                "stage": "completed",
+                "stage_label": "已完成",
+                "progress_pct": 100,
+            }))
+            .map_err(|error| format!("update completed summary: {error}"))?;
+        self.repo
             .transition_task(task_id, "succeeded")
             .map_err(|error| format!("mark task completed: {error}"))?;
         self.repo
@@ -551,6 +724,13 @@ impl TaskPoller {
     }
 
     async fn mark_failed(&self, task_id: &str, error: &str) -> Result<(), String> {
+        self.repo
+            .update_task_summary(task_id, json!({
+                "stage": "failed",
+                "stage_label": "失败",
+                "progress_pct": 100,
+            }))
+            .map_err(|error| format!("update failed summary: {error}"))?;
         self.repo
             .fail_task(task_id, error)
             .map_err(|error| format!("mark task failed: {error}"))?;
@@ -744,6 +924,11 @@ mod tests {
             random_candidates: 1,
             intelligent_rounds: 1,
             top_n: 1,
+            market: None,
+            margin_mode: None,
+            direction_mode: None,
+            leverage_range: None,
+            martingale_template: None,
             interval: "1h".to_owned(),
             start_ms: 1,
             end_ms: 2_000,
@@ -777,13 +962,64 @@ mod tests {
             random_candidates: 1,
             intelligent_rounds: 1,
             top_n: 1,
+            market: None,
+            margin_mode: None,
+            direction_mode: None,
+            leverage_range: None,
+            martingale_template: None,
             interval: "1h".to_owned(),
             start_ms: 1,
             end_ms: 2_000,
         };
 
-        let error = MarketDataContext::load(&source, &config).unwrap_err();
-        assert!(error.contains("no aggTrades"));
+        let context = MarketDataContext::load(&source, &config).expect("market context without trades");
+        assert!(context.trades.is_empty());
+    }
+
+    #[test]
+    fn search_space_uses_wizard_parameter_ranges() {
+        let config: WorkerTaskConfig = serde_json::from_value(serde_json::json!({
+            "symbols": ["BTCUSDT", "ETHUSDT"],
+            "random_seed": 7,
+            "random_candidates": 12,
+            "intelligent_rounds": 3,
+            "top_n": 5,
+            "market": "usd_m_futures",
+            "margin_mode": "isolated",
+            "direction_mode": "short_only",
+            "leverage_range": [2, 4],
+            "martingale_template": {
+                "spacing": { "model": "fixed_percent", "step_bps": 125 },
+                "sizing": {
+                    "model": "multiplier",
+                    "first_order_quote": 15,
+                    "multiplier": 2,
+                    "max_legs": 8
+                },
+                "take_profit": { "model": "percent", "bps": 90 },
+                "search_space": {
+                    "spacing_bps": [75, 125],
+                    "first_order_quote": [10, 15],
+                    "order_multiplier": [1.4, 2],
+                    "take_profit_bps": [80, 90],
+                    "max_legs": [6, 8]
+                }
+            }
+        }))
+        .expect("worker task config");
+
+        let space = search_space_from_task(&config);
+
+        assert_eq!(space.symbols, vec!["BTCUSDT", "ETHUSDT"]);
+        assert_eq!(space.directions, vec![shared_domain::martingale::MartingaleDirection::Short]);
+        assert_eq!(space.market, Some(MartingaleMarketKind::UsdMFutures));
+        assert_eq!(space.margin_mode, Some(MartingaleMarginMode::Isolated));
+        assert_eq!(space.step_bps, vec![75, 125]);
+        assert_eq!(space.first_order_quote, vec![Decimal::new(10, 0), Decimal::new(15, 0)]);
+        assert_eq!(space.multiplier, vec![Decimal::new(14, 1), Decimal::new(2, 0)]);
+        assert_eq!(space.take_profit_bps, vec![80, 90]);
+        assert_eq!(space.leverage, vec![2, 3, 4]);
+        assert_eq!(space.max_legs, vec![6, 8]);
     }
 }
 

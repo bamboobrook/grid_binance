@@ -379,6 +379,49 @@ impl BacktestRepository {
         }
     }
 
+
+    pub fn update_task_summary(
+        &self,
+        task_id: &str,
+        summary: serde_json::Value,
+    ) -> Result<(), SharedDbError> {
+        match &self.backend {
+            BacktestRepositoryBackend::Runtime(pool) => {
+                let pool = pool.clone();
+                let task_id = task_id.to_owned();
+                SharedDb::block_on(async move {
+                    let result = sqlx::query(
+                        "UPDATE backtest_tasks SET summary = summary || $2, updated_at = now() WHERE task_id = $1",
+                    )
+                    .bind(task_id)
+                    .bind(summary)
+                    .execute(&pool)
+                    .await
+                    .map_err(SharedDbError::from)?;
+                    if result.rows_affected() == 0 {
+                        return Err(SharedDbError::new("backtest task not found"));
+                    }
+                    Ok(())
+                })
+            }
+            BacktestRepositoryBackend::Ephemeral(state) => {
+                let mut state = lock_ephemeral(state)?;
+                let Some(task) = state.backtest_tasks.get_mut(task_id) else {
+                    return Err(SharedDbError::new(format!("backtest task not found: {task_id}")));
+                };
+                if let (Some(existing), Some(next)) = (task.summary.as_object_mut(), summary.as_object()) {
+                    for (key, value) in next {
+                        existing.insert(key.clone(), value.clone());
+                    }
+                } else {
+                    task.summary = summary;
+                }
+                task.updated_at = Utc::now();
+                Ok(())
+            }
+        }
+    }
+
     pub fn fail_task(&self, task_id: &str, error_message: &str) -> Result<(), SharedDbError> {
         match &self.backend {
             BacktestRepositoryBackend::Runtime(pool) => {
