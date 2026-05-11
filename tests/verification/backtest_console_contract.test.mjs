@@ -52,7 +52,7 @@ test("backtest console interactions stay in-page and use client fetch", () => {
 
   assert.match(professionalSource, /requestBacktestApi\("\/api\/user\/backtest\/tasks"/);
   assert.match(wizardSource, /requestBacktestApi\("\/api\/user\/backtest\/tasks"/);
-  assert.match(wizardSource, /Create wizard backtest task|创建向导回测任务/);
+  assert.match(wizardSource, /Start backtest|启动回测/);
   assert.match(taskListSource, /requestBacktestApi\(`\/api\/user\/backtest\/tasks\/\$\{id\}\/\$\{action\}`/);
   assert.match(reviewSource, /requestBacktestApi\(`\/api\/user\/backtest\/candidates\/\$\{candidate\.id\}\/publish-intent`/);
   assert.match(reviewSource, /portfolio_id/);
@@ -71,8 +71,8 @@ test("backtest console interactions stay in-page and use client fetch", () => {
   assert.doesNotMatch(professionalSource, /action="\/api\/user\/backtest\/tasks"/);
   assert.doesNotMatch(reviewSource, /method="post"/i);
 
-  assert.match(searchSource, /groupName="symbolPool"/);
-  assert.match(searchSource, /groupName="searchMode"/);
+  assert.match(searchSource, /name="symbolPoolMode"/);
+  assert.match(searchSource, /name="searchMode"/);
 });
 
 
@@ -106,4 +106,73 @@ test("user shell shows backtest labels without requiring sidebar hover", () => {
     mockData.indexOf('href: "/app/martingale-portfolios"') < mockData.indexOf('href: "/app/orders"'),
     "martingale portfolios should be in the core trading nav before orders/analytics",
   );
+});
+
+test("backtest wizard is a real editable launcher, not a static template", () => {
+  const wizardSource = readFileSync(
+    "apps/web/components/backtest/backtest-wizard.tsx",
+    "utf8",
+  );
+  const martingaleSource = readFileSync(
+    "apps/web/components/backtest/martingale-parameter-editor.tsx",
+    "utf8",
+  );
+  const searchSource = readFileSync(
+    "apps/web/components/backtest/search-config-editor.tsx",
+    "utf8",
+  );
+  const timeSource = readFileSync(
+    "apps/web/components/backtest/time-split-editor.tsx",
+    "utf8",
+  );
+  const riskSource = readFileSync(
+    "apps/web/components/backtest/risk-rule-editor.tsx",
+    "utf8",
+  );
+
+  assert.doesNotMatch(wizardSource, /const WIZARD_PAYLOAD/);
+  assert.match(wizardSource, /buildWizardPayload\(/);
+  assert.match(wizardSource, /resolveAutoTimeSplit\(/);
+  assert.match(wizardSource, /presetSearchSpaces/);
+  assert.match(wizardSource, /parameterPreset/);
+  assert.match(wizardSource, /timeMode: "auto_recent"/);
+  assert.match(wizardSource, /spacing_bps/);
+  assert.match(wizardSource, /first_order_quote/);
+  assert.match(wizardSource, /order_multiplier/);
+  assert.match(wizardSource, /parseSymbolList\(/);
+  assert.match(wizardSource, /MAX_SYMBOLS = 20/);
+  assert.match(wizardSource, /白名单最多支持 20 个币种|up to 20 symbols/);
+  assert.match(wizardSource, /JSON\.stringify\(buildWizardPayload\(form\)\)/);
+  assert.match(wizardSource, /启动回测|Start backtest/);
+
+  assert.match(searchSource, /textarea[\s\S]*name="whitelist"/);
+  assert.match(searchSource, /textarea[\s\S]*name="blacklist"/);
+  assert.match(searchSource, /value=\{form\.whitelist\}/);
+  assert.match(searchSource, /value=\{form\.blacklist\}/);
+  assert.match(searchSource, /onChange=\{onChange\}/);
+  assert.match(searchSource, /最多 20 个币种|up to 20 symbols/);
+
+  assert.match(martingaleSource, /SelectField[\s\S]*name="market"/);
+  assert.match(martingaleSource, /SelectField[\s\S]*name="directionMode"/);
+  assert.match(martingaleSource, /SelectField[\s\S]*name="marginMode"/);
+  assert.match(martingaleSource, /name="initialOrderUsdt"/);
+  assert.match(martingaleSource, /name="spacingPct"/);
+  assert.match(martingaleSource, /name="orderMultiplier"/);
+  assert.match(martingaleSource, /name="maxLegs"/);
+  assert.match(martingaleSource, /name="takeProfitPct"/);
+  assert.match(martingaleSource, /name="parameterPreset"/);
+  assert.match(martingaleSource, /保守|Conservative/);
+  assert.match(martingaleSource, /均衡|Balanced/);
+  assert.match(martingaleSource, /激进|Aggressive/);
+
+  assert.match(timeSource, /type="date"/);
+  assert.match(timeSource, /name="timeMode"/);
+  assert.match(timeSource, /自动最近区间|Automatic recent/);
+  assert.match(timeSource, /name="trainStart"/);
+  assert.match(timeSource, /name="testEnd"/);
+
+  assert.match(riskSource, /name="maxDrawdownPct"/);
+  assert.match(riskSource, /name="maxStopLossCount"/);
+  assert.match(riskSource, /name="portfolioStopLossPct"/);
+  assert.match(riskSource, /name="perStrategyStopLossPct"/);
 });

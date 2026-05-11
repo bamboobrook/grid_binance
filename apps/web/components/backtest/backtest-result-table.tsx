@@ -9,6 +9,9 @@ type BacktestCandidate = {
   searchMode: string;
   score: string;
   drawdown: string;
+  returnPct: string;
+  tradeCount: string;
+  parameters: string;
   decision: string;
 };
 
@@ -45,7 +48,10 @@ export function BacktestResultTable({
     direction: candidate.direction,
     searchMode: candidate.searchMode,
     score: candidate.score,
+    returnPct: candidate.returnPct,
     drawdown: candidate.drawdown,
+    tradeCount: candidate.tradeCount,
+    parameters: candidate.parameters,
     decision: candidate.decision,
   }));
 
@@ -68,9 +74,12 @@ export function BacktestResultTable({
         columns={[
           { key: "symbol", label: "Symbol" },
           { key: "direction", label: pickText(lang, "方向", "Direction") },
-          { key: "searchMode", label: pickText(lang, "搜索", "Search") },
-          { key: "score", label: pickText(lang, "评分", "Score"), align: "right" },
+          { key: "searchMode", label: pickText(lang, "回测级别", "Mode") },
+          { key: "parameters", label: pickText(lang, "马丁参数", "Martingale parameters") },
+          { key: "returnPct", label: pickText(lang, "收益", "Return"), align: "right" },
           { key: "drawdown", label: pickText(lang, "最大回撤", "Max DD"), align: "right" },
+          { key: "tradeCount", label: pickText(lang, "交易数", "Trades"), align: "right" },
+          { key: "score", label: pickText(lang, "评分", "Score"), align: "right" },
           { key: "decision", label: pickText(lang, "结论", "Decision") },
         ]}
         emptyMessage={pickText(lang, "暂无候选结果；请等待 Worker 完成海选和精测。", "No candidates yet; wait for the worker to finish screening and refinement.")}

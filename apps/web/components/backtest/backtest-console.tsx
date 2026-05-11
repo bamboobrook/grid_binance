@@ -48,6 +48,9 @@ type BacktestCandidate = {
   searchMode: string;
   score: string;
   drawdown: string;
+  returnPct: string;
+  tradeCount: string;
+  parameters: string;
   decision: string;
 };
 
@@ -223,7 +226,7 @@ function normalizeTask(task: ApiTask, lang: UiLanguage): BacktestTask {
   const config = task.config ?? {};
   const summary = task.summary ?? {};
   const symbols = readStringArray(config.symbols).join("/") || pickText(lang, "未选择 symbol", "No symbols");
-  const stage = readString(summary.stage) || readString(summary.current_stage) || statusStage(task.status, lang);
+  const stage = readString(summary.stage_label) || readString(summary.stage) || readString(summary.current_stage) || statusStage(task.status, lang);
   const progress = readProgress(summary);
   return {
     id: taskId,
@@ -252,16 +255,56 @@ function normalizeCandidate(candidate: ApiCandidate, lang: UiLanguage): Backtest
     || "—";
   const score = readNumber(summary.score);
   const drawdown = readNumber(summary.max_drawdown_pct) ?? readNumber(summary.drawdown_pct);
+  const returnPct = readNumber(summary.total_return_pct);
+  const tradeCount = readNumber(summary.trade_count);
+  const spacing = readObject(firstStrategy.spacing);
+  const sizing = readObject(firstStrategy.sizing);
+  const takeProfit = readObject(firstStrategy.take_profit);
   return {
     id: candidate.candidate_id ?? "",
     symbol: symbols,
     market: markets,
     direction: directions,
-    searchMode: readString(summary.search_mode) || readString(summary.source) || pickText(lang, "Worker 候选", "Worker candidate"),
-    score: score == null ? "—" : score.toFixed(2),
+    searchMode: readString(summary.result_mode) || readString(summary.search_mode) || readString(summary.source) || pickText(lang, "Worker 候选", "Worker candidate"),
+    score: formatScore(score),
     drawdown: drawdown == null ? "—" : `${drawdown.toFixed(2)}%`,
+    returnPct: returnPct == null ? "—" : `${returnPct.toFixed(2)}%`,
+    tradeCount: tradeCount == null ? "—" : String(Math.round(tradeCount)),
+    parameters: describeCandidateParameters(spacing, sizing, takeProfit, lang),
     decision: humanizeCandidateDecision(candidate.status, summary, lang),
   };
+}
+
+
+
+function formatScore(value: number | null) {
+  if (value == null) return "—";
+  if (Math.abs(value) >= 1_000_000) return value > 0 ? "生存通过" : "未通过";
+  return value.toFixed(2);
+}
+
+function describeCandidateParameters(
+  spacing: Record<string, unknown> | null,
+  sizing: Record<string, unknown> | null,
+  takeProfit: Record<string, unknown> | null,
+  lang: UiLanguage,
+) {
+  const fixed = readObject(spacing?.fixed_percent);
+  const multiplier = readObject(sizing?.multiplier);
+  const percent = readObject(takeProfit?.percent);
+  const spacingPct = readNumber(fixed?.step_bps);
+  const firstOrder = readNumber(multiplier?.first_order_quote);
+  const orderMultiplier = readNumber(multiplier?.multiplier);
+  const maxLegs = readNumber(multiplier?.max_legs);
+  const tp = readNumber(percent?.bps);
+  const parts = [
+    spacingPct == null ? null : pickText(lang, `间隔 ${(spacingPct / 100).toFixed(2)}%`, `Step ${(spacingPct / 100).toFixed(2)}%`),
+    firstOrder == null ? null : pickText(lang, `首单 ${firstOrder}U`, `Base ${firstOrder}U`),
+    orderMultiplier == null ? null : pickText(lang, `倍投 ${orderMultiplier}x`, `Scale ${orderMultiplier}x`),
+    maxLegs == null ? null : pickText(lang, `${maxLegs} 层`, `${maxLegs} legs`),
+    tp == null ? null : pickText(lang, `止盈 ${(tp / 100).toFixed(2)}%`, `TP ${(tp / 100).toFixed(2)}%`),
+  ].filter(Boolean);
+  return parts.join(" · ") || "—";
 }
 
 function TabButton({
