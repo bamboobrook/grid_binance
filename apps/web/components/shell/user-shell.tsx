@@ -63,7 +63,7 @@ export function UserShell({
   expiryReminder?: { description: string; title: string } | null;
 }) {
   const pathname = usePathname();
-  const [isExpanded, setIsExpanded] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(true);
 
   return (
     <div className="flex h-screen flex-col bg-background text-foreground">

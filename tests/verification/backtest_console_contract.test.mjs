@@ -91,3 +91,19 @@ test("backtest and martingale portfolio pages are reachable from user navigation
   assert.match(sidebar, /href: '\/app\/martingale-portfolios'/);
   assert.match(mobileBottomNav, /href: "\/app\/backtest"/);
 });
+
+
+test("user shell shows backtest labels without requiring sidebar hover", () => {
+  const userShell = readFileSync("apps/web/components/shell/user-shell.tsx", "utf8");
+  const mockData = readFileSync("apps/web/lib/api/mock-data.ts", "utf8");
+
+  assert.match(userShell, /useState\(true\)/, "user sidebar should default expanded so labels are visible");
+  assert.ok(
+    mockData.indexOf('href: "/app/backtest"') < mockData.indexOf('href: "/app/orders"'),
+    "backtest should be in the core trading nav before orders/analytics",
+  );
+  assert.ok(
+    mockData.indexOf('href: "/app/martingale-portfolios"') < mockData.indexOf('href: "/app/orders"'),
+    "martingale portfolios should be in the core trading nav before orders/analytics",
+  );
+});
