@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, type ReactNode } from "react";
-import { PanelLeftClose, PanelLeft, LogOut, Bot, LayoutDashboard, CreditCard, Bell, ScrollText, ShieldCheck, HelpCircle, Activity, Box } from "lucide-react";
+import { PanelLeftClose, PanelLeft, LogOut, Bot, LayoutDashboard, CreditCard, Bell, ScrollText, ShieldCheck, HelpCircle, Activity, Box, FlaskConical, Layers3 } from "lucide-react";
 
 import type { UserShellSnapshot } from "../../lib/api/mock-data";
 import { pickText, type UiLanguage, type UiTheme } from "../../lib/ui/preferences";
@@ -35,6 +35,8 @@ function isNavHrefActive(pathname: string, locale: string, href: string) {
 
 function getNavIcon(href: string) {
   if (href.includes("dashboard")) return <LayoutDashboard className="h-5 w-5" />;
+  if (href.includes("backtest")) return <FlaskConical className="h-5 w-5" />;
+  if (href.includes("martingale-portfolios")) return <Layers3 className="h-5 w-5" />;
   if (href.includes("strategies")) return <Bot className="h-5 w-5" />;
   if (href.includes("billing")) return <CreditCard className="h-5 w-5" />;
   if (href.includes("notifications")) return <Bell className="h-5 w-5" />;

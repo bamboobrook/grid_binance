@@ -1,3 +1,7 @@
+"use client";
+
+import { useState } from "react";
+import { requestBacktestApi } from "@/components/backtest/request-client";
 import { IndicatorRuleEditor } from "@/components/backtest/indicator-rule-editor";
 import { MartingaleParameterEditor } from "@/components/backtest/martingale-parameter-editor";
 import { RiskRuleEditor } from "@/components/backtest/risk-rule-editor";
@@ -43,7 +47,67 @@ const STEPS = [
   },
 ] as const;
 
-export function BacktestWizard({ lang }: { lang: UiLanguage }) {
+const WIZARD_PAYLOAD = {
+  strategy_type: "martingale_grid",
+  symbol_pool: {
+    mode: "all_usdt",
+    whitelist: ["BTCUSDT", "ETHUSDT"],
+    blacklist: [],
+  },
+  symbols: ["BTCUSDT", "ETHUSDT"],
+  market: "usd_m_futures",
+  direction_mode: "long_and_short",
+  hedge_mode_required: true,
+  margin_mode: "isolated",
+  leverage_range: [2, 4],
+  search: {
+    mode: "intelligent",
+    rounds: 4,
+    candidate_budget: 160,
+    top_n_refine: 20,
+    random_seed: 20260509,
+  },
+  time_split: {
+    mode: "walk_forward",
+    train_days: 120,
+    validate_days: 30,
+    test_days: 30,
+    stress_windows: ["flash_crash", "trend_up"],
+  },
+  scoring: {
+    profile: "survival_first",
+    max_drawdown_pct: 18,
+    max_stop_loss_count: 3,
+  },
+};
+
+export function BacktestWizard({
+  lang,
+  onTaskCreated,
+}: {
+  lang: UiLanguage;
+  onTaskCreated?: () => void | Promise<void>;
+}) {
+  const [feedback, setFeedback] = useState("");
+  const [pending, setPending] = useState(false);
+
+  async function createTask() {
+    setPending(true);
+    setFeedback(pickText(lang, "正在按向导配置创建回测任务…", "Creating a backtest task from the wizard configuration..."));
+    const result = await requestBacktestApi("/api/user/backtest/tasks", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(WIZARD_PAYLOAD),
+    });
+    setPending(false);
+    if (!result.ok) {
+      setFeedback(result.message);
+      return;
+    }
+    setFeedback(pickText(lang, "向导回测任务已创建，请等待 Worker 生成候选。", "Wizard backtest task created. Wait for the worker to produce candidates."));
+    await onTaskCreated?.();
+  }
+
   return (
     <div className="space-y-4">
       <div className="grid gap-3 md:grid-cols-5">
@@ -55,6 +119,30 @@ export function BacktestWizard({ lang }: { lang: UiLanguage }) {
             </p>
           </div>
         ))}
+      </div>
+
+      <div className="rounded-xl border border-border bg-background p-4">
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div>
+            <p className="text-sm font-semibold">{pickText(lang, "向导默认任务", "Wizard default task")}</p>
+            <p className="text-xs text-muted-foreground">
+              {pickText(
+                lang,
+                "使用当前向导展示的混合马丁模板创建真实回测任务；高级参数可切到 Professional Console 改 JSON。",
+                "Create a real backtest task from the wizard template; switch to Professional Console for advanced JSON edits.",
+              )}
+            </p>
+          </div>
+          <button
+            className="rounded-full bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-60"
+            disabled={pending}
+            onClick={() => void createTask()}
+            type="button"
+          >
+            {pickText(lang, "创建向导回测任务", "Create wizard backtest task")}
+          </button>
+        </div>
+        <p aria-live="polite" className="mt-3 text-sm text-muted-foreground">{feedback}</p>
       </div>
 
       <div className="grid gap-4">

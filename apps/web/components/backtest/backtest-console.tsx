@@ -61,7 +61,7 @@ const SURFACE_TAGS = [
   "生存优先",
 ] as const;
 
-export function BacktestConsole({ lang }: { lang: UiLanguage }) {
+export function BacktestConsole({ lang, locale }: { lang: UiLanguage; locale: string }) {
   const [activeTab, setActiveTab] = useState<ConsoleTab>("wizard");
   const [tasks, setTasks] = useState<BacktestTask[]>([]);
   const [candidates, setCandidates] = useState<BacktestCandidate[]>([]);
@@ -178,7 +178,7 @@ export function BacktestConsole({ lang }: { lang: UiLanguage }) {
 
             <div aria-labelledby={activeTabId} id={activePanelId} role="tabpanel">
               {activeTab === "wizard" ? (
-                <BacktestWizard lang={lang} />
+                <BacktestWizard lang={lang} onTaskCreated={refreshTasks} />
               ) : (
                 <BacktestProfessionalPanel lang={lang} onTaskCreated={refreshTasks} />
               )}
@@ -207,6 +207,7 @@ export function BacktestConsole({ lang }: { lang: UiLanguage }) {
           <PortfolioCandidateReview
             candidate={selectedCandidate}
             lang={lang}
+            locale={locale}
           />
           <p aria-live="polite" className="text-sm text-muted-foreground">
             {feedback}

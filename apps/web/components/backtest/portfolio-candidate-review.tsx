@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { requestBacktestApi } from "@/components/backtest/request-client";
 import { pickText, type UiLanguage } from "@/lib/ui/preferences";
@@ -18,12 +19,14 @@ type BacktestCandidate = {
 type PortfolioCandidateReviewProps = {
   candidate: BacktestCandidate | null;
   lang: UiLanguage;
+  locale: string;
 };
 
-export function PortfolioCandidateReview({ candidate, lang }: PortfolioCandidateReviewProps) {
+export function PortfolioCandidateReview({ candidate, lang, locale }: PortfolioCandidateReviewProps) {
   const [feedback, setFeedback] = useState<string>("");
   const [pending, setPending] = useState(false);
   const [riskSummary, setRiskSummary] = useState<Record<string, unknown> | null>(null);
+  const [portfolioId, setPortfolioId] = useState("");
 
   async function handlePublishIntent() {
     if (!candidate) {
@@ -33,6 +36,7 @@ export function PortfolioCandidateReview({ candidate, lang }: PortfolioCandidate
     setPending(true);
     setFeedback(pickText(lang, "正在生成发布风险摘要…", "Generating publish risk summary..."));
     setRiskSummary(null);
+    setPortfolioId("");
 
     const result = await requestBacktestApi(`/api/user/backtest/candidates/${candidate.id}/publish-intent`, {
       method: "POST",
@@ -43,7 +47,8 @@ export function PortfolioCandidateReview({ candidate, lang }: PortfolioCandidate
       const data = result.data && typeof result.data === "object" ? result.data as Record<string, unknown> : {};
       const summary = data.risk_summary && typeof data.risk_summary === "object" ? data.risk_summary as Record<string, unknown> : data;
       setRiskSummary(summary);
-      setFeedback(pickText(lang, "风险摘要已返回，可继续人工确认 Portfolio。", "Risk summary returned. Portfolio still requires manual confirmation."));
+      setPortfolioId(typeof data.portfolio_id === "string" ? data.portfolio_id : "");
+      setFeedback(pickText(lang, "已创建待确认 Portfolio，请打开组合页人工确认启动。", "Pending Portfolio created. Open the portfolio page to confirm live start."));
       return;
     }
 
@@ -79,6 +84,20 @@ export function PortfolioCandidateReview({ candidate, lang }: PortfolioCandidate
         )}
       </div>
 
+      {portfolioId ? (
+        <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-4 text-sm">
+          <p className="font-semibold text-emerald-700 dark:text-emerald-300">
+            {pickText(lang, "待确认 Portfolio 已创建", "Pending Portfolio created")}
+          </p>
+          <p className="mt-1 text-muted-foreground">
+            {pickText(lang, "下一步：进入马丁组合页，检查状态后点击“启动 Portfolio”。", "Next: open Martingale Portfolios, review the status, then click Start portfolio.")}
+          </p>
+          <Link className="mt-3 inline-flex rounded-full bg-primary px-4 py-2 text-sm font-medium text-primary-foreground" href={`/${locale}/app/martingale-portfolios`}>
+            {pickText(lang, "去确认启动", "Confirm start")} · {portfolioId}
+          </Link>
+        </div>
+      ) : null}
+
       {riskSummary ? (
         <div className="rounded-xl border border-border bg-background p-4 text-sm">
           <p className="font-semibold">{pickText(lang, "后端风险摘要", "Backend risk summary")}</p>
@@ -101,7 +120,7 @@ export function PortfolioCandidateReview({ candidate, lang }: PortfolioCandidate
           onClick={handlePublishIntent}
           type="button"
         >
-          {pickText(lang, "生成发布风险摘要", "Generate publish risk summary")}
+          {pickText(lang, "创建待确认 Portfolio", "Create pending Portfolio")}
         </button>
         <p aria-live="polite" className="text-sm text-muted-foreground">{feedback}</p>
       </div>

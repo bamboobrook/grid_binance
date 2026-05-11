@@ -9,5 +9,5 @@ export default async function BacktestPage({
   const { locale } = await params;
   const lang = (locale === "zh" ? "zh" : "en") as UiLanguage;
 
-  return <BacktestConsole lang={lang} />;
+  return <BacktestConsole lang={lang} locale={locale} />;
 }

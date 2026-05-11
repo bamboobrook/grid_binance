@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
-import { LayoutDashboard, ArrowLeftRight, History, User } from "lucide-react";
+import { LayoutDashboard, ArrowLeftRight, History, FlaskConical, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export function MobileBottomNav() {
@@ -15,6 +15,7 @@ export function MobileBottomNav() {
     { name: t("dashboard"), href: "/app/dashboard", icon: LayoutDashboard },
     { name: t("strategies"), href: "/app/strategies", icon: ArrowLeftRight },
     { name: t("orders"), href: "/app/orders", icon: History },
+    { name: locale === "zh" ? "回测" : "Backtest", href: "/app/backtest", icon: FlaskConical },
     { name: t("settings"), href: "/app/security", icon: User },
   ];
 
