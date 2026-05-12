@@ -5,32 +5,63 @@ use axum::{
 };
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-use shared_db::{BacktestCandidateRecord, SharedDb};
-use shared_domain::martingale::{MartingaleMarketKind, MartingalePortfolioConfig};
-use std::{
-    collections::BTreeMap,
-    sync::{Arc, Mutex},
+use shared_db::{
+    BacktestCandidateRecord, BacktestRepository, MartingalePortfolioRecord,
+    NewMartingalePortfolioItemRecord, NewMartingalePortfolioRecord, SharedDb,
 };
+use shared_domain::{
+    martingale::{MartingaleMarketKind, MartingalePortfolioConfig},
+    strategy::Decimal,
+};
+use std::collections::{BTreeMap, BTreeSet};
 
 #[derive(Clone)]
 pub struct MartingalePublishService {
-    state: Arc<Mutex<PublishState>>,
+    repo: BacktestRepository,
 }
 
-#[derive(Default)]
-struct PublishState {
-    next_portfolio_id: u64,
-    portfolios: BTreeMap<String, LivePortfolio>,
+pub type LivePortfolio = MartingalePortfolioRecord;
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct PublishPortfolioRequest {
+    pub name: String,
+    pub task_id: String,
+    pub market: String,
+    pub direction: String,
+    pub risk_profile: String,
+    pub total_weight_pct: Decimal,
+    pub items: Vec<PublishPortfolioItemRequest>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct LivePortfolio {
-    pub portfolio_id: String,
-    pub owner: String,
-    pub status: String,
+#[derive(Debug, Clone, Deserialize)]
+pub struct PublishPortfolioItemRequest {
     pub candidate_id: String,
-    pub config: MartingalePortfolioConfig,
+    pub symbol: String,
+    pub weight_pct: Decimal,
+    pub leverage: i32,
+    #[serde(default = "default_enabled")]
+    pub enabled: bool,
+    pub parameter_snapshot: Value,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct PublishPortfolioResponse {
+    pub portfolio_id: String,
+    pub status: String,
+    pub source_task_id: String,
+    pub instances: Vec<PublishedStrategyInstance>,
+    pub items: Vec<PublishedStrategyInstance>,
     pub risk_summary: Value,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct PublishedStrategyInstance {
+    pub strategy_instance_id: String,
+    pub candidate_id: String,
+    pub symbol: String,
+    pub weight_pct: Decimal,
+    pub leverage: i32,
+    pub status: String,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -42,9 +73,9 @@ pub struct PublishIntentResponse {
 }
 
 impl MartingalePublishService {
-    pub fn new(_db: SharedDb) -> Self {
+    pub fn new(db: SharedDb) -> Self {
         Self {
-            state: Arc::new(Mutex::new(PublishState::default())),
+            repo: db.backtest_repo(),
         }
     }
 
@@ -81,27 +112,110 @@ impl MartingalePublishService {
         config.validate().map_err(PublishError::bad_request)?;
         self.validate_futures_symbol_compatibility(owner, &config)?;
         let risk_summary = self.risk_summary_for_candidate(candidate)?;
-        let mut state = self
-            .state
-            .lock()
-            .map_err(|_| PublishError::internal("publish state lock poisoned"))?;
-        state.next_portfolio_id += 1;
-        let portfolio_id = format!("mp_{}", state.next_portfolio_id);
-        let portfolio = LivePortfolio {
-            portfolio_id: portfolio_id.clone(),
-            owner: owner.to_owned(),
-            status: "pending_confirmation".to_owned(),
-            candidate_id: candidate.candidate_id.clone(),
-            config,
-            risk_summary: risk_summary.clone(),
+        let symbol = config
+            .strategies
+            .first()
+            .map(|strategy| strategy.symbol.clone())
+            .or_else(|| {
+                candidate
+                    .config
+                    .get("symbol")
+                    .and_then(Value::as_str)
+                    .map(str::to_owned)
+            })
+            .unwrap_or_else(|| "UNKNOWN".to_owned());
+        let leverage = config
+            .strategies
+            .first()
+            .and_then(|strategy| strategy.leverage)
+            .unwrap_or(1) as i32;
+        let (market, direction) = candidate_publish_metadata(&config);
+        let request = PublishPortfolioRequest {
+            name: format!("{} publish intent", symbol),
+            task_id: candidate.task_id.clone(),
+            market,
+            direction,
+            risk_profile: "single_candidate".to_owned(),
+            total_weight_pct: Decimal::new(100, 0),
+            items: vec![PublishPortfolioItemRequest {
+                candidate_id: candidate.candidate_id.clone(),
+                symbol,
+                weight_pct: Decimal::new(100, 0),
+                leverage,
+                enabled: true,
+                parameter_snapshot: candidate.config.clone(),
+            }],
         };
-        state.portfolios.insert(portfolio_id.clone(), portfolio);
+        let response = self.publish_portfolio(owner, request, vec![candidate.clone()])?;
         Ok(PublishIntentResponse {
-            portfolio_id,
-            status: "pending_confirmation".to_owned(),
+            portfolio_id: response.portfolio_id,
+            status: response.status,
             candidate_id: candidate.candidate_id.clone(),
             risk_summary,
         })
+    }
+
+    pub fn publish_portfolio(
+        &self,
+        owner: &str,
+        request: PublishPortfolioRequest,
+        candidates: Vec<BacktestCandidateRecord>,
+    ) -> Result<PublishPortfolioResponse, PublishError> {
+        validate_publish_request(&request)?;
+        let candidates_by_id = candidates
+            .into_iter()
+            .map(|candidate| (candidate.candidate_id.clone(), candidate))
+            .collect::<BTreeMap<_, _>>();
+        for item in &request.items {
+            let candidate = candidates_by_id
+                .get(&item.candidate_id)
+                .ok_or_else(|| PublishError::bad_request("candidate not found"))?;
+            if candidate.task_id != request.task_id {
+                return Err(PublishError::bad_request(
+                    "candidate does not belong to task",
+                ));
+            }
+        }
+
+        let portfolio_id = format!("mp_{}", uuid_simple());
+        let risk_summary = portfolio_risk_summary(&request);
+        let item_records = request
+            .items
+            .iter()
+            .map(|item| {
+                let candidate = candidates_by_id
+                    .get(&item.candidate_id)
+                    .expect("candidate was validated");
+                NewMartingalePortfolioItemRecord {
+                    strategy_instance_id: format!("msi_{}", uuid_simple()),
+                    candidate_id: item.candidate_id.clone(),
+                    symbol: item.symbol.clone(),
+                    weight_pct: item.weight_pct,
+                    leverage: item.leverage,
+                    enabled: item.enabled,
+                    status: "pending_confirmation".to_owned(),
+                    parameter_snapshot: item.parameter_snapshot.clone(),
+                    metrics_snapshot: candidate.summary.clone(),
+                }
+            })
+            .collect::<Vec<_>>();
+        let record = self.repo.create_martingale_portfolio(
+            NewMartingalePortfolioRecord {
+                portfolio_id,
+                owner: owner.to_owned(),
+                name: request.name,
+                status: "pending_confirmation".to_owned(),
+                source_task_id: request.task_id,
+                market: request.market,
+                direction: request.direction,
+                risk_profile: request.risk_profile,
+                total_weight_pct: request.total_weight_pct,
+                config: json!({ "kind": "martingale_batch_portfolio" }),
+                risk_summary: risk_summary.clone(),
+            },
+            item_records,
+        )?;
+        Ok(PublishPortfolioResponse::from(record))
     }
 
     pub fn confirm_start_portfolio(
@@ -109,35 +223,16 @@ impl MartingalePublishService {
         owner: &str,
         portfolio_id: &str,
     ) -> Result<LivePortfolio, PublishError> {
-        let mut state = self
-            .state
-            .lock()
-            .map_err(|_| PublishError::internal("publish state lock poisoned"))?;
-        let portfolio = state
-            .portfolios
-            .get(portfolio_id)
-            .ok_or_else(|| PublishError::not_found("portfolio not found"))?;
-        if portfolio.owner != owner {
-            return Err(PublishError::not_found("portfolio not found"));
-        }
+        let portfolio = self.get_portfolio(owner, portfolio_id)?;
         if portfolio.status != "pending_confirmation" && portfolio.status != "paused" {
             return Err(PublishError::conflict(
                 "portfolio cannot be started from current status",
             ));
         }
-        validate_futures_symbol_compatibility_in_state(
-            &state,
-            owner,
-            &portfolio.config,
-            Some(portfolio_id),
-            &["running", "paused"],
-        )?;
-        let portfolio = state
-            .portfolios
-            .get_mut(portfolio_id)
-            .ok_or_else(|| PublishError::not_found("portfolio not found"))?;
-        portfolio.status = "running".to_owned();
-        Ok(portfolio.clone())
+        validate_running_futures_conflicts(&self.repo.list_martingale_portfolios(owner)?, &portfolio)?;
+        self.repo
+            .set_martingale_portfolio_status(owner, portfolio_id, "running")?
+            .ok_or_else(|| PublishError::not_found("portfolio not found"))
     }
 
     pub fn pause_portfolio(
@@ -157,16 +252,7 @@ impl MartingalePublishService {
     }
 
     pub fn list_portfolios(&self, owner: &str) -> Result<Vec<LivePortfolio>, PublishError> {
-        let state = self
-            .state
-            .lock()
-            .map_err(|_| PublishError::internal("publish state lock poisoned"))?;
-        Ok(state
-            .portfolios
-            .values()
-            .filter(|p| p.owner == owner)
-            .cloned()
-            .collect())
+        Ok(self.repo.list_martingale_portfolios(owner)?)
     }
 
     pub fn get_portfolio(
@@ -174,15 +260,8 @@ impl MartingalePublishService {
         owner: &str,
         portfolio_id: &str,
     ) -> Result<LivePortfolio, PublishError> {
-        let state = self
-            .state
-            .lock()
-            .map_err(|_| PublishError::internal("publish state lock poisoned"))?;
-        state
-            .portfolios
-            .get(portfolio_id)
-            .filter(|p| p.owner == owner)
-            .cloned()
+        self.repo
+            .get_martingale_portfolio(owner, portfolio_id)?
             .ok_or_else(|| PublishError::not_found("portfolio not found"))
     }
 
@@ -191,27 +270,24 @@ impl MartingalePublishService {
         owner: &str,
         config: &MartingalePortfolioConfig,
     ) -> Result<(), PublishError> {
-        self.validate_futures_symbol_compatibility_excluding(owner, config, None, &["running"])
-    }
-
-    fn validate_futures_symbol_compatibility_excluding(
-        &self,
-        owner: &str,
-        config: &MartingalePortfolioConfig,
-        excluded_portfolio_id: Option<&str>,
-        active_statuses: &[&str],
-    ) -> Result<(), PublishError> {
-        let state = self
-            .state
-            .lock()
-            .map_err(|_| PublishError::internal("publish state lock poisoned"))?;
-        validate_futures_symbol_compatibility_in_state(
-            &state,
-            owner,
-            config,
-            excluded_portfolio_id,
-            active_statuses,
-        )
+        let incoming = futures_symbols_from_config(config);
+        if incoming.is_empty() {
+            return Ok(());
+        }
+        for existing in self.repo.list_martingale_portfolios(owner)? {
+            if existing.status != "running" {
+                continue;
+            }
+            for item in existing.items {
+                if incoming.contains(&item.symbol.to_uppercase()) {
+                    return Err(PublishError::conflict(format!(
+                        "{} futures symbol conflict",
+                        item.symbol
+                    )));
+                }
+            }
+        }
+        Ok(())
     }
 
     fn set_portfolio_status(
@@ -220,60 +296,150 @@ impl MartingalePublishService {
         portfolio_id: &str,
         status: &str,
     ) -> Result<LivePortfolio, PublishError> {
-        let mut state = self
-            .state
-            .lock()
-            .map_err(|_| PublishError::internal("publish state lock poisoned"))?;
-        let portfolio = state
-            .portfolios
-            .get_mut(portfolio_id)
-            .ok_or_else(|| PublishError::not_found("portfolio not found"))?;
-        if portfolio.owner != owner {
-            return Err(PublishError::not_found("portfolio not found"));
-        }
-        portfolio.status = status.to_owned();
-        Ok(portfolio.clone())
+        self.repo
+            .set_martingale_portfolio_status(owner, portfolio_id, status)?
+            .ok_or_else(|| PublishError::not_found("portfolio not found"))
     }
 }
 
-fn validate_futures_symbol_compatibility_in_state(
-    state: &PublishState,
-    owner: &str,
-    config: &MartingalePortfolioConfig,
-    excluded_portfolio_id: Option<&str>,
-    active_statuses: &[&str],
+impl From<MartingalePortfolioRecord> for PublishPortfolioResponse {
+    fn from(record: MartingalePortfolioRecord) -> Self {
+        let instances = record
+            .items
+            .into_iter()
+            .map(|item| PublishedStrategyInstance {
+                strategy_instance_id: item.strategy_instance_id,
+                candidate_id: item.candidate_id,
+                symbol: item.symbol,
+                weight_pct: item.weight_pct,
+                leverage: item.leverage,
+                status: item.status,
+            })
+            .collect::<Vec<_>>();
+        Self {
+            portfolio_id: record.portfolio_id,
+            status: record.status,
+            source_task_id: record.source_task_id,
+            items: instances.clone(),
+            instances,
+            risk_summary: record.risk_summary,
+        }
+    }
+}
+
+fn validate_publish_request(request: &PublishPortfolioRequest) -> Result<(), PublishError> {
+    if request.items.is_empty() {
+        return Err(PublishError::bad_request("items must not be empty"));
+    }
+    if request.total_weight_pct != Decimal::new(100, 0) {
+        return Err(PublishError::bad_request("total_weight_pct must be 100"));
+    }
+    let mut enabled_weight = Decimal::new(0, 0);
+    for item in &request.items {
+        if item.weight_pct <= Decimal::new(0, 0) {
+            return Err(PublishError::bad_request("item weight must be positive"));
+        }
+        if !(1..=125).contains(&item.leverage) {
+            return Err(PublishError::bad_request(
+                "leverage must be between 1 and 125",
+            ));
+        }
+        if item.enabled {
+            enabled_weight += item.weight_pct;
+        }
+    }
+    if enabled_weight != Decimal::new(100, 0) {
+        return Err(PublishError::bad_request(
+            "enabled item weights must sum to 100",
+        ));
+    }
+    Ok(())
+}
+
+fn portfolio_risk_summary(request: &PublishPortfolioRequest) -> Value {
+    let symbols = request
+        .items
+        .iter()
+        .map(|item| item.symbol.clone())
+        .collect::<Vec<_>>();
+    let max_leverage = request
+        .items
+        .iter()
+        .map(|item| item.leverage)
+        .max()
+        .unwrap_or(1);
+    json!({
+        "strategy_count": request.items.len(),
+        "enabled_strategy_count": request.items.iter().filter(|item| item.enabled).count(),
+        "symbols": symbols,
+        "max_leverage": max_leverage,
+        "total_weight_pct": request.total_weight_pct,
+    })
+}
+
+fn candidate_publish_metadata(config: &MartingalePortfolioConfig) -> (String, String) {
+    let market = if config
+        .strategies
+        .iter()
+        .any(|strategy| strategy.market == MartingaleMarketKind::UsdMFutures)
+    {
+        "usd_m_futures"
+    } else {
+        "spot"
+    };
+    let has_long = config
+        .strategies
+        .iter()
+        .any(|strategy| matches!(strategy.direction, shared_domain::martingale::MartingaleDirection::Long));
+    let has_short = config
+        .strategies
+        .iter()
+        .any(|strategy| matches!(strategy.direction, shared_domain::martingale::MartingaleDirection::Short));
+    let direction = match (has_long, has_short) {
+        (true, true) => "long_short",
+        (false, true) => "short",
+        _ => "long",
+    };
+    (market.to_owned(), direction.to_owned())
+}
+
+fn validate_running_futures_conflicts(
+    portfolios: &[MartingalePortfolioRecord],
+    starting: &MartingalePortfolioRecord,
 ) -> Result<(), PublishError> {
-    for existing in state.portfolios.values().filter(|p| {
-        p.owner == owner
-            && Some(p.portfolio_id.as_str()) != excluded_portfolio_id
-            && active_statuses.contains(&p.status.as_str())
+    let incoming = starting
+        .items
+        .iter()
+        .map(|item| item.symbol.to_uppercase())
+        .collect::<BTreeSet<_>>();
+    if incoming.is_empty() || starting.market != "usd_m_futures" && starting.market != "futures" {
+        return Ok(());
+    }
+    for existing in portfolios.iter().filter(|portfolio| {
+        portfolio.portfolio_id != starting.portfolio_id && portfolio.status == "running"
     }) {
-        for active in &existing.config.strategies {
-            if active.market != MartingaleMarketKind::UsdMFutures {
-                continue;
-            }
-            for incoming in &config.strategies {
-                if incoming.market != MartingaleMarketKind::UsdMFutures
-                    || !active.symbol.eq_ignore_ascii_case(&incoming.symbol)
-                {
-                    continue;
-                }
-                if active.margin_mode != incoming.margin_mode {
-                    return Err(PublishError::conflict(format!(
-                        "{} margin_mode conflict",
-                        incoming.symbol
-                    )));
-                }
-                if active.leverage != incoming.leverage {
-                    return Err(PublishError::conflict(format!(
-                        "{} leverage conflict",
-                        incoming.symbol
-                    )));
-                }
+        if existing.market != "usd_m_futures" && existing.market != "futures" {
+            continue;
+        }
+        for item in &existing.items {
+            if incoming.contains(&item.symbol.to_uppercase()) {
+                return Err(PublishError::conflict(format!(
+                    "{} futures symbol conflict",
+                    item.symbol
+                )));
             }
         }
     }
     Ok(())
+}
+
+fn futures_symbols_from_config(config: &MartingalePortfolioConfig) -> BTreeSet<String> {
+    config
+        .strategies
+        .iter()
+        .filter(|strategy| strategy.market == MartingaleMarketKind::UsdMFutures)
+        .map(|strategy| strategy.symbol.to_uppercase())
+        .collect()
 }
 
 fn candidate_portfolio_config(
@@ -289,10 +455,20 @@ fn candidate_portfolio_config(
     })
 }
 
+fn default_enabled() -> bool {
+    true
+}
+
+fn uuid_simple() -> String {
+    let mut bytes = [0_u8; 16];
+    getrandom::getrandom(&mut bytes).expect("random id generation should succeed");
+    bytes.iter().map(|byte| format!("{byte:02x}")).collect()
+}
+
 #[derive(Debug)]
 pub struct PublishError {
-    status: StatusCode,
-    message: String,
+    pub(crate) status: StatusCode,
+    pub(crate) message: String,
 }
 
 impl PublishError {
@@ -323,10 +499,180 @@ impl PublishError {
             message: message.into(),
         }
     }
+    pub fn unauthorized(message: impl Into<String>) -> Self {
+        Self {
+            status: StatusCode::UNAUTHORIZED,
+            message: message.into(),
+        }
+    }
+}
+
+impl From<shared_db::SharedDbError> for PublishError {
+    fn from(error: shared_db::SharedDbError) -> Self {
+        Self::internal(error.to_string())
+    }
 }
 
 impl IntoResponse for PublishError {
     fn into_response(self) -> Response {
         (self.status, Json(json!({ "error": self.message }))).into_response()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use shared_db::{NewBacktestCandidateRecord, NewBacktestTaskRecord};
+    use shared_domain::strategy::Decimal;
+
+    fn publish_request(
+        task_id: &str,
+        first_candidate_id: &str,
+        second_candidate_id: &str,
+    ) -> PublishPortfolioRequest {
+        PublishPortfolioRequest {
+            name: "BTC basket".to_owned(),
+            task_id: task_id.to_owned(),
+            market: "futures".to_owned(),
+            direction: "long".to_owned(),
+            risk_profile: "balanced".to_owned(),
+            total_weight_pct: Decimal::new(100, 0),
+            items: vec![
+                PublishPortfolioItemRequest {
+                    candidate_id: first_candidate_id.to_owned(),
+                    symbol: "BTCUSDT".to_owned(),
+                    weight_pct: Decimal::new(50, 0),
+                    leverage: 3,
+                    enabled: true,
+                    parameter_snapshot: json!({ "spacing": "0.01" }),
+                },
+                PublishPortfolioItemRequest {
+                    candidate_id: second_candidate_id.to_owned(),
+                    symbol: "BTCUSDT".to_owned(),
+                    weight_pct: Decimal::new(50, 0),
+                    leverage: 5,
+                    enabled: true,
+                    parameter_snapshot: json!({ "spacing": "0.02" }),
+                },
+            ],
+        }
+    }
+
+    fn ready_candidate(task_id: &str, rank: i32) -> NewBacktestCandidateRecord {
+        NewBacktestCandidateRecord {
+            task_id: task_id.to_owned(),
+            status: "ready".to_owned(),
+            rank,
+            config: json!({ "symbol": "BTCUSDT", "rank": rank }),
+            summary: json!({ "score": rank }),
+        }
+    }
+
+    fn task_record(owner: &str) -> NewBacktestTaskRecord {
+        NewBacktestTaskRecord {
+            owner: owner.to_owned(),
+            strategy_type: "martingale_grid".to_owned(),
+            config: json!({ "symbol": "BTCUSDT", "timeframe": "1h" }),
+            summary: json!({}),
+        }
+    }
+
+    #[test]
+    fn publishes_two_btc_items_with_distinct_strategy_instances() {
+        let db = SharedDb::ephemeral().expect("db");
+        let repo = db.backtest_repo();
+        let task = repo
+            .create_task(task_record("user@example.com"))
+            .expect("task");
+        repo.transition_task(&task.task_id, "succeeded")
+            .expect("succeeded");
+        let first = repo
+            .save_candidate(ready_candidate(&task.task_id, 1))
+            .expect("first");
+        let second = repo
+            .save_candidate(ready_candidate(&task.task_id, 2))
+            .expect("second");
+        let service = MartingalePublishService::new(db.clone());
+
+        let response = service
+            .publish_portfolio(
+                "user@example.com",
+                publish_request(&task.task_id, &first.candidate_id, &second.candidate_id),
+                vec![first, second],
+            )
+            .expect("published");
+
+        assert_eq!(response.status, "pending_confirmation");
+        assert_eq!(response.source_task_id, task.task_id);
+        assert_eq!(response.items.len(), 2);
+        assert_ne!(
+            response.items[0].strategy_instance_id,
+            response.items[1].strategy_instance_id
+        );
+        assert!(response.items.iter().all(|item| item.symbol == "BTCUSDT"));
+        assert_eq!(
+            service
+                .get_portfolio("user@example.com", &response.portfolio_id)
+                .unwrap()
+                .items
+                .len(),
+            2
+        );
+    }
+
+    #[test]
+    fn rejects_enabled_weight_sum_below_one_hundred() {
+        let db = SharedDb::ephemeral().expect("db");
+        let repo = db.backtest_repo();
+        let task = repo
+            .create_task(task_record("user@example.com"))
+            .expect("task");
+        let first = repo
+            .save_candidate(ready_candidate(&task.task_id, 1))
+            .expect("first");
+        let second = repo
+            .save_candidate(ready_candidate(&task.task_id, 2))
+            .expect("second");
+        let mut request = publish_request(&task.task_id, &first.candidate_id, &second.candidate_id);
+        request.items[1].weight_pct = Decimal::new(40, 0);
+        let service = MartingalePublishService::new(db);
+
+        let error = service
+            .publish_portfolio("user@example.com", request, vec![first, second])
+            .unwrap_err();
+
+        assert_eq!(error.status, StatusCode::BAD_REQUEST);
+        assert_eq!(error.message, "enabled item weights must sum to 100");
+    }
+
+    #[test]
+    fn rejects_candidate_from_other_task_or_owner() {
+        let db = SharedDb::ephemeral().expect("db");
+        let repo = db.backtest_repo();
+        let owner_task = repo
+            .create_task(task_record("user@example.com"))
+            .expect("owner task");
+        let other_task = repo
+            .create_task(task_record("other@example.com"))
+            .expect("other task");
+        let first = repo
+            .save_candidate(ready_candidate(&owner_task.task_id, 1))
+            .expect("first");
+        let other = repo
+            .save_candidate(ready_candidate(&other_task.task_id, 2))
+            .expect("other");
+        let request = publish_request(
+            &owner_task.task_id,
+            &first.candidate_id,
+            &other.candidate_id,
+        );
+        let service = MartingalePublishService::new(db);
+
+        let error = service
+            .publish_portfolio("user@example.com", request, vec![first, other])
+            .unwrap_err();
+
+        assert_eq!(error.status, StatusCode::BAD_REQUEST);
+        assert_eq!(error.message, "candidate does not belong to task");
     }
 }

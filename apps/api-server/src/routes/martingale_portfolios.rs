@@ -9,10 +9,11 @@ use crate::{
     routes::auth_guard::require_user_session,
     services::{
         auth_service::AuthService,
-        martingale_publish_service::{LivePortfolio, MartingalePublishService, PublishError},
+        martingale_publish_service::{MartingalePublishService, PublishError},
     },
     AppState,
 };
+use shared_db::MartingalePortfolioRecord;
 
 pub fn router() -> Router<AppState> {
     Router::new()
@@ -26,9 +27,9 @@ async fn list_portfolios(
     State(auth): State<AuthService>,
     State(service): State<MartingalePublishService>,
     headers: HeaderMap,
-) -> Result<Json<Vec<LivePortfolio>>, PublishError> {
+) -> Result<Json<Vec<MartingalePortfolioRecord>>, PublishError> {
     let session = require_user_session(&auth, &headers)
-        .map_err(|_error| PublishError::bad_request("unauthorized"))?;
+        .map_err(|_error| PublishError::unauthorized("unauthorized"))?;
     Ok(Json(service.list_portfolios(&session.email)?))
 }
 
@@ -37,9 +38,9 @@ async fn get_portfolio(
     State(service): State<MartingalePublishService>,
     headers: HeaderMap,
     Path(id): Path<String>,
-) -> Result<Json<LivePortfolio>, PublishError> {
+) -> Result<Json<MartingalePortfolioRecord>, PublishError> {
     let session = require_user_session(&auth, &headers)
-        .map_err(|_error| PublishError::bad_request("unauthorized"))?;
+        .map_err(|_error| PublishError::unauthorized("unauthorized"))?;
     Ok(Json(service.get_portfolio(&session.email, &id)?))
 }
 
@@ -48,9 +49,9 @@ async fn pause_portfolio(
     State(service): State<MartingalePublishService>,
     headers: HeaderMap,
     Path(id): Path<String>,
-) -> Result<Json<LivePortfolio>, PublishError> {
+) -> Result<Json<MartingalePortfolioRecord>, PublishError> {
     let session = require_user_session(&auth, &headers)
-        .map_err(|_error| PublishError::bad_request("unauthorized"))?;
+        .map_err(|_error| PublishError::unauthorized("unauthorized"))?;
     Ok(Json(service.pause_portfolio(&session.email, &id)?))
 }
 
@@ -59,8 +60,8 @@ async fn stop_portfolio(
     State(service): State<MartingalePublishService>,
     headers: HeaderMap,
     Path(id): Path<String>,
-) -> Result<Json<LivePortfolio>, PublishError> {
+) -> Result<Json<MartingalePortfolioRecord>, PublishError> {
     let session = require_user_session(&auth, &headers)
-        .map_err(|_error| PublishError::bad_request("unauthorized"))?;
+        .map_err(|_error| PublishError::unauthorized("unauthorized"))?;
     Ok(Json(service.stop_portfolio(&session.email, &id)?))
 }

@@ -10,7 +10,7 @@ use std::{
 
 use backtest_engine::{
     artifacts::{verify_artifact, write_task_json_artifact},
-    intelligent_search::{intelligent_search, IntelligentSearchConfig},
+    intelligent_search::{intelligent_search, EvaluatedCandidate, IntelligentSearchConfig},
     market_data::{AggTrade, KlineBar, MarketDataSource},
     martingale::{
         kline_engine::run_kline_screening, metrics::MartingaleBacktestResult,
@@ -252,16 +252,14 @@ async fn process_task(
     let _ = cancel_watcher.join();
     respect_pause_or_cancel(poller, &task.task_id).await?;
 
-    let mut ranked = intelligent.candidates;
-    ranked.sort_by(|left, right| right.score.rank_score.total_cmp(&left.score.rank_score));
-    let refinement_limit = task
-        .config
-        .top_n
-        .max(task.config.symbols.len().max(1) * task.config.per_symbol_top_n.max(1))
-        .max(1);
+    let ranked = select_refinement_candidates_per_symbol(
+        intelligent.candidates,
+        task.config.symbols.len().max(1) * task.config.per_symbol_top_n.max(1),
+        task.config.per_symbol_top_n.max(1),
+    );
     let mut outputs = Vec::new();
 
-    for (index, evaluated) in ranked.into_iter().take(refinement_limit).enumerate() {
+    for (index, evaluated) in ranked.into_iter().enumerate() {
         poller
             .heartbeat(
                 &task.task_id,
@@ -322,6 +320,49 @@ async fn process_task(
     Ok(())
 }
 
+fn select_refinement_candidates_per_symbol(
+    mut candidates: Vec<EvaluatedCandidate>,
+    min_total: usize,
+    per_symbol_top_n: usize,
+) -> Vec<EvaluatedCandidate> {
+    use std::collections::BTreeMap;
+
+    candidates.sort_by(|left, right| right.score.rank_score.total_cmp(&left.score.rank_score));
+
+    let mut selected = Vec::new();
+    let mut selected_counts = BTreeMap::<String, usize>::new();
+
+    for candidate in candidates.iter() {
+        let symbol = search_candidate_symbol(&candidate.candidate)
+            .unwrap_or_else(|| candidate.candidate.candidate_id.clone());
+        let count = selected_counts.entry(symbol).or_default();
+        if *count >= per_symbol_top_n {
+            continue;
+        }
+        *count += 1;
+        selected.push(candidate.clone());
+    }
+
+    if selected.len() >= min_total {
+        return selected;
+    }
+
+    let mut selected_ids = selected
+        .iter()
+        .map(|candidate| candidate.candidate.candidate_id.clone())
+        .collect::<std::collections::BTreeSet<_>>();
+    for candidate in candidates {
+        if selected.len() >= min_total {
+            break;
+        }
+        if selected_ids.insert(candidate.candidate.candidate_id.clone()) {
+            selected.push(candidate);
+        }
+    }
+
+    selected
+}
+
 fn select_top_outputs_per_symbol(
     mut outputs: Vec<CandidateOutput>,
     per_symbol_top_n: usize,
@@ -374,12 +415,17 @@ fn select_top_outputs_per_symbol(
             let order_multiplier = output_order_multiplier(&output);
             let max_legs = output_max_legs(&output);
             let take_profit_bps = output_take_profit_bps(&output);
+            let trailing_take_profit_bps = output_trailing_take_profit_bps(&output);
+            let direction = output_direction(&output);
+            let overfit_flag = output_overfit_flag(&output);
+            let risk_summary_human = output_risk_summary_human(&output, risk_profile);
 
             output.rank = index + 1;
             output.summary = merge_json_objects(
                 output.summary,
                 json!({
                     "symbol": symbol,
+                    "direction": direction,
                     "parameter_rank_for_symbol": parameter_rank_for_symbol,
                     "recommended_weight_pct": recommended_weight_pct,
                     "recommended_leverage": recommended_leverage,
@@ -390,6 +436,13 @@ fn select_top_outputs_per_symbol(
                     "order_multiplier": order_multiplier,
                     "max_legs": max_legs,
                     "take_profit_bps": take_profit_bps,
+                    "trailing_take_profit_bps": trailing_take_profit_bps,
+                    "total_return_pct": output.total_return_pct,
+                    "max_drawdown_pct": output.max_drawdown_pct,
+                    "score": output.score,
+                    "overfit_flag": overfit_flag,
+                    "risk_summary_human": risk_summary_human,
+                    "artifact_path": output.artifact_path,
                 }),
             );
             output
@@ -424,6 +477,13 @@ fn output_symbol(output: &CandidateOutput) -> Option<String> {
         .and_then(Value::as_str)
         .map(|symbol| symbol.trim().to_uppercase())
         .filter(|symbol| !symbol.is_empty())
+}
+
+fn output_direction(output: &CandidateOutput) -> Value {
+    output_strategy(output)
+        .and_then(|strategy| strategy.get("direction"))
+        .cloned()
+        .unwrap_or(Value::Null)
 }
 
 fn output_leverage(output: &CandidateOutput) -> Option<u32> {
@@ -465,6 +525,28 @@ fn output_take_profit_bps(output: &CandidateOutput) -> Value {
     strategy_value_at(output, &["take_profit", "percent", "bps"])
         .cloned()
         .unwrap_or(Value::Null)
+}
+
+fn output_trailing_take_profit_bps(output: &CandidateOutput) -> Value {
+    strategy_value_at(output, &["take_profit", "trailing", "callback_bps"])
+        .cloned()
+        .unwrap_or(Value::Null)
+}
+
+fn output_overfit_flag(output: &CandidateOutput) -> bool {
+    output.trade_count < 5 || output.max_drawdown_pct > 50.0 || !output.score.is_finite()
+}
+
+fn output_risk_summary_human(output: &CandidateOutput, risk_profile: &str) -> String {
+    let overfit = if output_overfit_flag(output) {
+        "需复核过拟合风险"
+    } else {
+        "过拟合风险未触发"
+    };
+    format!(
+        "{} 风险档，收益 {:.2}%，最大回撤 {:.2}%，{}。",
+        risk_profile, output.total_return_pct, output.max_drawdown_pct, overfit
+    )
 }
 
 fn strategy_value_at<'a>(output: &'a CandidateOutput, path: &[&str]) -> Option<&'a Value> {
@@ -817,6 +899,15 @@ fn candidate_symbols(candidate: &SearchCandidate) -> std::collections::BTreeSet<
         .collect()
 }
 
+fn search_candidate_symbol(candidate: &SearchCandidate) -> Option<String> {
+    candidate
+        .config
+        .strategies
+        .first()
+        .map(|strategy| strategy.symbol.trim().to_uppercase())
+        .filter(|symbol| !symbol.is_empty())
+}
+
 fn spawn_status_cancel_watcher(
     poller: TaskPoller,
     task_id: String,
@@ -1084,7 +1175,14 @@ impl ClaimedTask {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use backtest_engine::martingale::scoring::CandidateScore;
     use std::path::PathBuf;
+
+    use shared_domain::martingale::{
+        MartingaleDirection, MartingaleDirectionMode, MartingalePortfolioConfig,
+        MartingaleRiskLimits, MartingaleSizingModel, MartingaleSpacingModel,
+        MartingaleStrategyConfig, MartingaleTakeProfitModel,
+    };
 
     struct MemoryMarketDataSource {
         symbols: Vec<String>,
@@ -1194,6 +1292,78 @@ mod tests {
         }
     }
 
+    fn evaluated_candidate(symbol: &str, id: &str, score: f64) -> EvaluatedCandidate {
+        let strategy = MartingaleStrategyConfig {
+            strategy_id: id.to_owned(),
+            symbol: symbol.to_owned(),
+            market: MartingaleMarketKind::UsdMFutures,
+            direction: MartingaleDirection::Long,
+            direction_mode: MartingaleDirectionMode::LongOnly,
+            margin_mode: Some(MartingaleMarginMode::Isolated),
+            leverage: Some(2),
+            spacing: MartingaleSpacingModel::FixedPercent { step_bps: 100 },
+            sizing: MartingaleSizingModel::Multiplier {
+                first_order_quote: Decimal::new(10, 0),
+                multiplier: Decimal::new(2, 0),
+                max_legs: 5,
+            },
+            take_profit: MartingaleTakeProfitModel::Percent { bps: 100 },
+            stop_loss: None,
+            indicators: Vec::new(),
+            entry_triggers: Vec::new(),
+            risk_limits: MartingaleRiskLimits::default(),
+        };
+        EvaluatedCandidate {
+            candidate: SearchCandidate {
+                candidate_id: id.to_owned(),
+                config: MartingalePortfolioConfig {
+                    direction_mode: MartingaleDirectionMode::LongOnly,
+                    strategies: vec![strategy],
+                    risk_limits: MartingaleRiskLimits::default(),
+                },
+            },
+            score: CandidateScore {
+                survival_valid: true,
+                rank_score: score,
+                raw_score: score,
+                rejection_reasons: Vec::new(),
+            },
+        }
+    }
+
+    #[test]
+    fn refinement_selection_keeps_top_five_per_symbol_before_global_cutoff() {
+        let mut candidates = Vec::new();
+        for index in 0..8 {
+            candidates.push(evaluated_candidate(
+                "ETHUSDT",
+                &format!("eth-{index}"),
+                100.0 - index as f64,
+            ));
+        }
+        for index in 0..5 {
+            candidates.push(evaluated_candidate(
+                "BTCUSDT",
+                &format!("btc-{index}"),
+                50.0 - index as f64,
+            ));
+        }
+
+        let selected = select_refinement_candidates_per_symbol(candidates, 10, 5);
+        let eth_count = selected
+            .iter()
+            .filter(|candidate| search_candidate_symbol(&candidate.candidate).as_deref() == Some("ETHUSDT"))
+            .count();
+        let btc_count = selected
+            .iter()
+            .filter(|candidate| search_candidate_symbol(&candidate.candidate).as_deref() == Some("BTCUSDT"))
+            .count();
+
+        assert_eq!(selected.len(), 10);
+        assert_eq!(eth_count, 5);
+        assert_eq!(btc_count, 5);
+    }
+
     #[test]
     fn candidate_outputs_keep_top_five_per_symbol_and_enrich_summary() {
         let outputs = vec![
@@ -1221,6 +1391,40 @@ mod tests {
         assert_eq!(btc_first.summary["recommended_weight_pct"], 20.0);
         assert_eq!(btc_first.summary["recommended_leverage"], 3);
         assert_eq!(btc_first.summary["risk_profile"], "balanced");
+    }
+
+    #[test]
+    fn selected_outputs_include_ui_required_summary_fields() {
+        let outputs = vec![candidate_output("BTCUSDT", "btc-1", 1, 90.0, 3)];
+
+        let selected = select_top_outputs_per_symbol(outputs, 5, "balanced");
+        let output = selected.first().unwrap();
+        let summary = output.summary.as_object().unwrap();
+
+        for field in [
+            "symbol",
+            "direction",
+            "spacing_bps",
+            "first_order_quote",
+            "order_multiplier",
+            "max_legs",
+            "take_profit_bps",
+            "trailing_take_profit_bps",
+            "recommended_weight_pct",
+            "recommended_leverage",
+            "parameter_rank_for_symbol",
+            "risk_profile",
+            "total_return_pct",
+            "max_drawdown_pct",
+            "score",
+            "overfit_flag",
+            "risk_summary_human",
+        ] {
+            assert!(summary.contains_key(field), "missing summary field: {field}");
+        }
+        assert!(summary.contains_key("artifact_path") || summary.contains_key("equity_curve"));
+        assert_eq!(summary["artifact_path"], output.artifact_path);
+        assert!(!summary.contains_key("equity_curve"));
     }
 
     #[test]

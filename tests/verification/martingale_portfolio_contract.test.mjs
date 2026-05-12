@@ -122,3 +122,17 @@ test("martingale portfolio controls source guarantees loading cleanup, pending c
   );
   assert.match(sidebar, /aria-current=\{active \? "page" : undefined\}/, "active sidebar link should expose aria-current");
 });
+
+test("martingale batch portfolio publish API contract is wired end to end", () => {
+  const routesSource = readFileSync("apps/api-server/src/routes/backtest.rs", "utf8");
+  const publishServiceSource = readFileSync("apps/api-server/src/services/martingale_publish_service.rs", "utf8");
+  const liveControlsSource = readFileSync("apps/web/components/backtest/live-portfolio-controls.tsx", "utf8");
+
+  assert.match(routesSource, /\/backtest\/portfolios\/publish/);
+  assert.match(publishServiceSource, /struct\s+PublishPortfolioRequest[\s\S]*total_weight_pct[\s\S]*items/);
+  assert.match(publishServiceSource, /struct\s+PublishPortfolioItemRequest[\s\S]*candidate_id[\s\S]*weight_pct[\s\S]*leverage/);
+  assert.match(publishServiceSource, /struct\s+PublishPortfolioResponse[\s\S]*instances:\s*Vec<PublishedStrategyInstance>[\s\S]*items:\s*Vec<PublishedStrategyInstance>/);
+  assert.match(publishServiceSource, /strategy_instance_id/);
+  assert.match(liveControlsSource, /策略实例|Strategy instance/);
+  assert.match(liveControlsSource, /来源候选|Source candidate/);
+});

@@ -17,6 +17,7 @@ use crate::{
         },
         martingale_publish_service::{
             LivePortfolio, MartingalePublishService, PublishError, PublishIntentResponse,
+            PublishPortfolioRequest, PublishPortfolioResponse,
         },
     },
     AppState,
@@ -36,6 +37,7 @@ pub fn router() -> Router<AppState> {
             "/backtest/candidates/{id}/publish-intent",
             post(create_publish_intent),
         )
+        .route("/backtest/portfolios/publish", post(publish_portfolio))
         .route(
             "/backtest/portfolios/{id}/confirm-start",
             post(confirm_start_portfolio),
@@ -134,6 +136,19 @@ async fn create_publish_intent(
     Ok(Json(service.create_publish_intent(&session.email, &id)?))
 }
 
+async fn publish_portfolio(
+    State(auth): State<AuthService>,
+    State(service): State<BacktestService>,
+    headers: HeaderMap,
+    Json(request): Json<PublishPortfolioRequest>,
+) -> Result<(axum::http::StatusCode, Json<PublishPortfolioResponse>), TaskBacktestError> {
+    let session = require_user_session(&auth, &headers).map_err(TaskBacktestError::from)?;
+    Ok((
+        axum::http::StatusCode::CREATED,
+        Json(service.publish_portfolio(&session.email, request)?),
+    ))
+}
+
 async fn confirm_start_portfolio(
     State(auth): State<AuthService>,
     State(service): State<MartingalePublishService>,
@@ -141,7 +156,7 @@ async fn confirm_start_portfolio(
     Path(id): Path<String>,
 ) -> Result<Json<LivePortfolio>, PublishError> {
     let session = require_user_session(&auth, &headers)
-        .map_err(|_error| PublishError::bad_request("unauthorized"))?;
+        .map_err(|_error| PublishError::unauthorized("unauthorized"))?;
     Ok(Json(service.confirm_start_portfolio(&session.email, &id)?))
 }
 

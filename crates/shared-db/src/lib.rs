@@ -25,8 +25,9 @@ pub mod redis;
 
 pub use crate::backtest::{
     BacktestArtifactRecord, BacktestCandidateRecord, BacktestQuotaPolicyRecord, BacktestRepository,
-    BacktestTaskRecord, NewBacktestArtifactRecord, NewBacktestCandidateRecord,
-    NewBacktestTaskRecord,
+    BacktestTaskRecord, MartingalePortfolioItemRecord, MartingalePortfolioRecord,
+    NewBacktestArtifactRecord, NewBacktestCandidateRecord, NewBacktestTaskRecord,
+    NewMartingalePortfolioItemRecord, NewMartingalePortfolioRecord,
 };
 
 pub use crate::postgres::admin::{AuditLogRecord, SystemConfigRecord};
@@ -92,6 +93,7 @@ struct EphemeralState {
     backtest_task_events: Vec<backtest::BacktestTaskEventRecord>,
     backtest_candidates: BTreeMap<String, BacktestCandidateRecord>,
     backtest_artifacts: BTreeMap<String, BacktestArtifactRecord>,
+    martingale_portfolios: BTreeMap<String, backtest::MartingalePortfolioRecord>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -3093,6 +3095,10 @@ mod tests {
                 "0012_strategy_engine_rewrite.sql",
                 "0013_strategy_type_and_reference_source_template_support.sql",
                 "0014_strategy_template_reference_price_support.sql",
+                "0015_strategy_tags_and_notes.sql",
+                "0016_notification_preferences.sql",
+                "0017_martingale_backtest_portfolios.sql",
+                "0018_martingale_batch_portfolio_publish.sql",
             ]
         );
     }

@@ -11,6 +11,9 @@ use shared_db::{
 };
 use std::collections::BTreeSet;
 
+use crate::services::martingale_publish_service::{
+    PublishPortfolioRequest, PublishPortfolioResponse,
+};
 use crate::services::{
     auth_service::AuthError,
     martingale_publish_service::{MartingalePublishService, PublishError, PublishIntentResponse},
@@ -164,6 +167,33 @@ impl BacktestService {
         let candidate = self.get_candidate(owner, candidate_id)?;
         self.publish
             .create_pending_portfolio(owner, &candidate)
+            .map_err(BacktestError::from)
+    }
+
+    pub fn publish_portfolio(
+        &self,
+        owner: &str,
+        request: PublishPortfolioRequest,
+    ) -> Result<PublishPortfolioResponse, BacktestError> {
+        let task = self.owned_task(owner, &request.task_id)?;
+        if !matches!(task.status.as_str(), "succeeded" | "completed") {
+            return Err(BacktestError::conflict(
+                "task must be succeeded before publishing portfolio",
+            ));
+        }
+        let requested_candidate_ids = request
+            .items
+            .iter()
+            .map(|item| item.candidate_id.as_str())
+            .collect::<BTreeSet<_>>();
+        let candidates = self
+            .repo
+            .list_candidates(&request.task_id)?
+            .into_iter()
+            .filter(|candidate| requested_candidate_ids.contains(candidate.candidate_id.as_str()))
+            .collect::<Vec<_>>();
+        self.publish
+            .publish_portfolio(owner, request, candidates)
             .map_err(BacktestError::from)
     }
 
