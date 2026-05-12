@@ -354,6 +354,11 @@ function normalizeCandidate(candidate: ApiCandidate, lang: UiLanguage): Backtest
       stress_return_pct: readNumber(summary.stress_return_pct) ?? undefined,
       overfitting_risk: typeof summary.overfitting_risk === "boolean" ? summary.overfitting_risk : undefined,
       data_quality_score: readNumber(summary.data_quality_score) ?? undefined,
+      recommended_weight_pct: readNumber(summary.recommended_weight_pct) ?? undefined,
+      recommended_leverage: readNumber(summary.recommended_leverage) ?? undefined,
+      parameter_rank_for_symbol: readNumber(summary.parameter_rank_for_symbol) ?? undefined,
+      risk_profile: readString(summary.risk_profile) || undefined,
+      portfolio_group_key: readString(summary.portfolio_group_key) || undefined,
     },
   };
 }

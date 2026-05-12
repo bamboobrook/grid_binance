@@ -1,9 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { requestBacktestApi } from "@/components/backtest/request-client";
-import type { MartingaleRiskSummary } from "@/lib/api-types";
+import type { MartingaleBacktestCandidateSummary, MartingaleRiskSummary } from "@/lib/api-types";
 import { pickText, type UiLanguage } from "@/lib/ui/preferences";
 
 type BacktestCandidate = {
@@ -18,7 +18,18 @@ type BacktestCandidate = {
   tradeCount: string;
   parameters: string;
   decision: string;
+  summary?: MartingaleBacktestCandidateSummary | null;
   riskSummary?: MartingaleRiskSummary | null;
+};
+
+type BasketItem = {
+  candidateId: string;
+  symbol: string;
+  parameters: string;
+  recommendedWeightPct: number | null;
+  recommendedLeverage: number | null;
+  weightPct: string;
+  leverage: string;
 };
 
 function readObject(value: unknown): Record<string, unknown> | null {
@@ -129,6 +140,28 @@ export function PortfolioCandidateReview({
   const [pending, setPending] = useState(false);
   const [riskSummary, setRiskSummary] = useState<MartingaleRiskSummary | null>(null);
   const [portfolioId, setPortfolioId] = useState("");
+  const [basketItems, setBasketItems] = useState<BasketItem[]>([]);
+
+  useEffect(() => {
+    if (!candidate) {
+      setBasketItems([]);
+      return;
+    }
+
+    const recommendedWeightPct = candidate.summary?.recommended_weight_pct ?? 100;
+    const recommendedLeverage = candidate.summary?.recommended_leverage ?? null;
+    setBasketItems([
+      {
+        candidateId: candidate.id,
+        symbol: candidate.symbol,
+        parameters: candidate.parameters,
+        recommendedWeightPct,
+        recommendedLeverage,
+        weightPct: String(recommendedWeightPct),
+        leverage: recommendedLeverage == null ? "" : String(recommendedLeverage),
+      },
+    ]);
+  }, [candidate]);
 
   async function handlePublishIntent() {
     if (!candidate) {
@@ -171,6 +204,8 @@ export function PortfolioCandidateReview({
   }
 
   const risk = riskSummary ?? candidate.riskSummary;
+  const weightTotal = basketItems.reduce((sum, item) => sum + (readNumber(item.weightPct) ?? 0), 0);
+  const weightTotalBalanced = basketItems.length > 0 && Math.abs(weightTotal - 100) <= 0.01;
 
   return (
     <section className="rounded-2xl border border-border bg-card p-4 shadow-sm space-y-4">
@@ -213,6 +248,84 @@ export function PortfolioCandidateReview({
           {pickText(lang, "尚未发起发布意图，风险摘要暂不可用", "No publish intent issued yet, risk summary unavailable")}
         </p>
       )}
+
+      <div className="rounded-xl border border-border bg-background p-4">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h3 className="text-sm font-semibold">
+              {pickText(lang, "组合篮子", "Portfolio basket")}
+            </h3>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {pickText(lang, "当前先按已选候选生成一行篮子，可调整权重与杠杆；发布交互仍保持单候选。", "The basket currently stages the selected candidate as one row with editable weight and leverage; publish remains single-candidate.")}
+            </p>
+          </div>
+          <div className="text-right text-[11px] text-muted-foreground">
+            <div>recommended_weight_pct</div>
+            <div>recommended_leverage</div>
+          </div>
+        </div>
+
+        <div className="mt-4 space-y-3">
+          {basketItems.map((item, index) => (
+            <div className="grid gap-3 rounded-xl border border-border bg-card p-3 md:grid-cols-[minmax(0,1.6fr)_repeat(4,minmax(0,0.8fr))]" key={`${item.candidateId}-${index}`}>
+              <div className="space-y-1">
+                <p className="text-sm font-medium">{item.symbol}</p>
+                <p className="text-xs text-muted-foreground">{item.candidateId}</p>
+                <p className="text-xs text-muted-foreground">{item.parameters}</p>
+              </div>
+              <div className="space-y-1">
+                <p className="text-[11px] uppercase tracking-wide text-muted-foreground">recommended_weight_pct</p>
+                <p className="text-sm font-medium">{fmtNum(item.recommendedWeightPct, 2)}%</p>
+              </div>
+              <div className="space-y-1">
+                <p className="text-[11px] uppercase tracking-wide text-muted-foreground">recommended_leverage</p>
+                <p className="text-sm font-medium">{item.recommendedLeverage == null ? "—" : `${item.recommendedLeverage}x`}</p>
+              </div>
+              <label className="space-y-1 text-sm">
+                <span className="text-[11px] uppercase tracking-wide text-muted-foreground">{pickText(lang, "权重 %", "Weight %")}</span>
+                <input
+                  className="w-full rounded-lg border border-border bg-background px-3 py-2"
+                  min="0"
+                  name={`basket-weight-${index}`}
+                  onChange={(event) => {
+                    const value = event.currentTarget.value;
+                    setBasketItems((current) => current.map((basketItem, basketIndex) => (
+                      basketIndex === index ? { ...basketItem, weightPct: value } : basketItem
+                    )));
+                  }}
+                  step="0.01"
+                  type="number"
+                  value={item.weightPct}
+                />
+              </label>
+              <label className="space-y-1 text-sm">
+                <span className="text-[11px] uppercase tracking-wide text-muted-foreground">{pickText(lang, "杠杆", "Leverage")}</span>
+                <input
+                  className="w-full rounded-lg border border-border bg-background px-3 py-2"
+                  min="0"
+                  name={`basket-leverage-${index}`}
+                  onChange={(event) => {
+                    const value = event.currentTarget.value;
+                    setBasketItems((current) => current.map((basketItem, basketIndex) => (
+                      basketIndex === index ? { ...basketItem, leverage: value } : basketItem
+                    )));
+                  }}
+                  step="1"
+                  type="number"
+                  value={item.leverage}
+                />
+              </label>
+            </div>
+          ))}
+        </div>
+
+        <div className="mt-4 flex items-center justify-between rounded-lg border border-border bg-card px-3 py-2 text-sm">
+          <span className="text-muted-foreground">{pickText(lang, "权重合计", "Weight total")}</span>
+          <span className={weightTotalBalanced ? "font-semibold text-emerald-600" : "font-semibold text-amber-600"}>
+            {fmtNum(weightTotal, 2)}%
+          </span>
+        </div>
+      </div>
 
       {portfolioId ? (
         <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-4 text-sm">

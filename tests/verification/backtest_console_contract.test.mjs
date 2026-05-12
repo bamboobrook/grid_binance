@@ -136,6 +136,11 @@ test("backtest wizard is a real editable launcher, not a static template", () =>
   assert.match(wizardSource, /presetSearchSpaces/);
   assert.match(wizardSource, /parameterPreset/);
   assert.match(wizardSource, /timeMode: "auto_recent"/);
+  assert.match(wizardSource, /per_symbol_top_n: 5/);
+  assert.match(wizardSource, /risk_profile: form\.parameterPreset/);
+  assert.match(wizardSource, /lastDayOfPreviousMonth/);
+  assert.match(wizardSource, /trainStart: "2023-01-01"/);
+  assert.match(wizardSource, /portfolio_basket/);
   assert.match(wizardSource, /spacing_bps/);
   assert.match(wizardSource, /first_order_quote/);
   assert.match(wizardSource, /order_multiplier/);
@@ -196,4 +201,20 @@ test("backtest wizard is a real editable launcher, not a static template", () =>
   assert.match(scoringSource, /weight_capital_utilization/);
   assert.match(scoringSource, /weight_trade_stability/);
   assert.doesNotMatch(scoringSource, /weight_survival/);
+
+  const parameterSource = readFileSync(
+    "apps/web/components/backtest/martingale-parameter-editor.tsx",
+    "utf8",
+  );
+  assert.match(parameterSource, /移动止盈回撤|Moving take-profit retracement/);
+  assert.match(parameterSource, /不是止损|not a stop loss/i);
+
+  const reviewSource = readFileSync(
+    "apps/web/components/backtest/portfolio-candidate-review.tsx",
+    "utf8",
+  );
+  assert.match(reviewSource, /组合篮子|Portfolio basket/);
+  assert.match(reviewSource, /权重合计|Weight total/);
+  assert.match(reviewSource, /recommended_weight_pct/);
+  assert.match(reviewSource, /recommended_leverage/);
 });

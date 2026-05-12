@@ -24,6 +24,11 @@ export interface MartingaleBacktestCandidateSummary {
   stress_return_pct?: number;
   overfitting_risk?: boolean;
   data_quality_score?: number;
+  recommended_weight_pct?: number;
+  recommended_leverage?: number;
+  parameter_rank_for_symbol?: number;
+  risk_profile?: string;
+  portfolio_group_key?: string;
 }
 
 export interface MartingaleRiskSummary {

@@ -56,6 +56,10 @@ struct WorkerTaskConfig {
     random_candidates: usize,
     intelligent_rounds: usize,
     top_n: usize,
+    #[serde(default = "default_per_symbol_top_n")]
+    per_symbol_top_n: usize,
+    #[serde(default = "default_risk_profile")]
+    risk_profile: String,
     #[serde(default)]
     market: Option<String>,
     #[serde(default)]
@@ -84,6 +88,8 @@ impl Default for WorkerTaskConfig {
             random_candidates: 16,
             intelligent_rounds: 2,
             top_n: DEFAULT_TOP_N,
+            per_symbol_top_n: default_per_symbol_top_n(),
+            risk_profile: default_risk_profile(),
             market: None,
             margin_mode: None,
             direction_mode: None,
@@ -101,6 +107,13 @@ fn default_interval() -> String {
     "1h".to_owned()
 }
 
+fn default_per_symbol_top_n() -> usize {
+    5
+}
+
+fn default_risk_profile() -> String {
+    "balanced".to_owned()
+}
 
 fn stage_label(stage: &str) -> &'static str {
     match stage {
@@ -132,6 +145,7 @@ struct CandidateOutput {
     rank: usize,
     score: f64,
     config: serde_json::Value,
+    summary: serde_json::Value,
     artifact_path: String,
     checksum_sha256: String,
     used_trade_refinement: bool,
@@ -240,13 +254,14 @@ async fn process_task(
 
     let mut ranked = intelligent.candidates;
     ranked.sort_by(|left, right| right.score.rank_score.total_cmp(&left.score.rank_score));
+    let refinement_limit = task
+        .config
+        .top_n
+        .max(task.config.symbols.len().max(1) * task.config.per_symbol_top_n.max(1))
+        .max(1);
     let mut outputs = Vec::new();
 
-    for (index, evaluated) in ranked
-        .into_iter()
-        .take(task.config.top_n.max(1))
-        .enumerate()
-    {
+    for (index, evaluated) in ranked.into_iter().take(refinement_limit).enumerate() {
         poller
             .heartbeat(
                 &task.task_id,
@@ -254,7 +269,8 @@ async fn process_task(
             )
             .await?;
         let refined = run_candidate_trade_refinement(&evaluated.candidate, &market_context)?;
-        let used_trade_refinement = !trades_for_candidate(&evaluated.candidate, &market_context.trades).is_empty();
+        let used_trade_refinement =
+            !trades_for_candidate(&evaluated.candidate, &market_context.trades).is_empty();
         let rows = vec![json!({
             "task_id": task.task_id,
             "candidate_id": evaluated.candidate.candidate_id,
@@ -281,6 +297,7 @@ async fn process_task(
             score: evaluated.score.rank_score,
             config: serde_json::to_value(&evaluated.candidate.config)
                 .map_err(|error| format!("serialize candidate config: {error}"))?,
+            summary: json!({}),
             artifact_path: manifest.path.display().to_string(),
             checksum_sha256: manifest.checksum_sha256,
             used_trade_refinement,
@@ -291,6 +308,11 @@ async fn process_task(
         respect_pause_or_cancel(poller, &task.task_id).await?;
     }
 
+    let outputs = select_top_outputs_per_symbol(
+        outputs,
+        task.config.per_symbol_top_n.max(1),
+        &task.config.risk_profile,
+    );
     respect_pause_or_cancel(poller, &task.task_id).await?;
     poller
         .save_candidates_and_artifacts(&task.task_id, random_candidates.len(), &outputs)
@@ -298,6 +320,159 @@ async fn process_task(
     respect_pause_or_cancel(poller, &task.task_id).await?;
     poller.mark_completed(&task.task_id).await?;
     Ok(())
+}
+
+fn select_top_outputs_per_symbol(
+    mut outputs: Vec<CandidateOutput>,
+    per_symbol_top_n: usize,
+    risk_profile: &str,
+) -> Vec<CandidateOutput> {
+    use std::collections::BTreeMap;
+
+    outputs.sort_by(|left, right| right.score.total_cmp(&left.score));
+
+    let mut selected = Vec::new();
+    let mut selected_counts = BTreeMap::<String, usize>::new();
+
+    for output in outputs {
+        let symbol = output_symbol(&output).unwrap_or_else(|| output.candidate_id.clone());
+        let count = selected_counts.entry(symbol).or_default();
+        if *count >= per_symbol_top_n {
+            continue;
+        }
+        *count += 1;
+        selected.push(output);
+    }
+
+    let total_selected_by_symbol = selected.iter().fold(BTreeMap::new(), |mut counts, output| {
+        let symbol = output_symbol(output).unwrap_or_else(|| output.candidate_id.clone());
+        *counts.entry(symbol).or_insert(0usize) += 1;
+        counts
+    });
+    let mut rank_by_symbol = BTreeMap::<String, usize>::new();
+
+    selected
+        .into_iter()
+        .enumerate()
+        .map(|(index, mut output)| {
+            let symbol = output_symbol(&output).unwrap_or_else(|| output.candidate_id.clone());
+            let parameter_rank_for_symbol = {
+                let rank = rank_by_symbol.entry(symbol.clone()).or_insert(0usize);
+                *rank += 1;
+                *rank
+            };
+            let selected_for_symbol = total_selected_by_symbol
+                .get(&symbol)
+                .copied()
+                .unwrap_or(1)
+                .max(1);
+            let recommended_weight_pct = 100.0 / selected_for_symbol as f64;
+            let recommended_leverage = output_leverage(&output).unwrap_or(1);
+            let portfolio_group_key = output_portfolio_group_key(&output);
+            let spacing_bps = output_spacing_bps(&output);
+            let first_order_quote = output_first_order_quote(&output);
+            let order_multiplier = output_order_multiplier(&output);
+            let max_legs = output_max_legs(&output);
+            let take_profit_bps = output_take_profit_bps(&output);
+
+            output.rank = index + 1;
+            output.summary = merge_json_objects(
+                output.summary,
+                json!({
+                    "symbol": symbol,
+                    "parameter_rank_for_symbol": parameter_rank_for_symbol,
+                    "recommended_weight_pct": recommended_weight_pct,
+                    "recommended_leverage": recommended_leverage,
+                    "risk_profile": risk_profile,
+                    "portfolio_group_key": portfolio_group_key,
+                    "spacing_bps": spacing_bps,
+                    "first_order_quote": first_order_quote,
+                    "order_multiplier": order_multiplier,
+                    "max_legs": max_legs,
+                    "take_profit_bps": take_profit_bps,
+                }),
+            );
+            output
+        })
+        .collect()
+}
+
+fn merge_json_objects(base: Value, patch: Value) -> Value {
+    let mut merged = match base {
+        Value::Object(map) => map,
+        _ => serde_json::Map::new(),
+    };
+    if let Value::Object(patch_map) = patch {
+        for (key, value) in patch_map {
+            merged.insert(key, value);
+        }
+    }
+    Value::Object(merged)
+}
+
+fn output_strategy(output: &CandidateOutput) -> Option<&Value> {
+    output
+        .config
+        .get("strategies")
+        .and_then(Value::as_array)
+        .and_then(|strategies| strategies.first())
+}
+
+fn output_symbol(output: &CandidateOutput) -> Option<String> {
+    output_strategy(output)
+        .and_then(|strategy| strategy.get("symbol"))
+        .and_then(Value::as_str)
+        .map(|symbol| symbol.trim().to_uppercase())
+        .filter(|symbol| !symbol.is_empty())
+}
+
+fn output_leverage(output: &CandidateOutput) -> Option<u32> {
+    output_strategy(output)
+        .and_then(|strategy| strategy.get("leverage"))
+        .and_then(Value::as_u64)
+        .map(|value| value as u32)
+}
+
+fn output_portfolio_group_key(output: &CandidateOutput) -> String {
+    output_symbol(output).unwrap_or_else(|| output.candidate_id.clone())
+}
+
+fn output_spacing_bps(output: &CandidateOutput) -> Value {
+    strategy_value_at(output, &["spacing", "fixed_percent", "step_bps"])
+        .cloned()
+        .unwrap_or(Value::Null)
+}
+
+fn output_first_order_quote(output: &CandidateOutput) -> Value {
+    strategy_value_at(output, &["sizing", "multiplier", "first_order_quote"])
+        .cloned()
+        .unwrap_or(Value::Null)
+}
+
+fn output_order_multiplier(output: &CandidateOutput) -> Value {
+    strategy_value_at(output, &["sizing", "multiplier", "multiplier"])
+        .cloned()
+        .unwrap_or(Value::Null)
+}
+
+fn output_max_legs(output: &CandidateOutput) -> Value {
+    strategy_value_at(output, &["sizing", "multiplier", "max_legs"])
+        .cloned()
+        .unwrap_or(Value::Null)
+}
+
+fn output_take_profit_bps(output: &CandidateOutput) -> Value {
+    strategy_value_at(output, &["take_profit", "percent", "bps"])
+        .cloned()
+        .unwrap_or(Value::Null)
+}
+
+fn strategy_value_at<'a>(output: &'a CandidateOutput, path: &[&str]) -> Option<&'a Value> {
+    let mut value = output_strategy(output)?;
+    for key in path {
+        value = value.get(*key)?;
+    }
+    Some(value)
 }
 
 fn search_space_from_task(config: &WorkerTaskConfig) -> SearchSpace {
@@ -310,10 +485,14 @@ fn search_space_from_task(config: &WorkerTaskConfig) -> SearchSpace {
             .or_else(|| template_u32(config, &["spacing", "step_bps"]).map(|value| vec![value]))
             .unwrap_or_else(|| vec![25, 50, 100]),
         first_order_quote: search_space_decimal(config, "first_order_quote")
-            .or_else(|| template_decimal(config, &["sizing", "first_order_quote"]).map(|value| vec![value]))
+            .or_else(|| {
+                template_decimal(config, &["sizing", "first_order_quote"]).map(|value| vec![value])
+            })
             .unwrap_or_else(|| vec![Decimal::new(100, 0), Decimal::new(250, 0)]),
         multiplier: search_space_decimal(config, "order_multiplier")
-            .or_else(|| template_decimal(config, &["sizing", "multiplier"]).map(|value| vec![value]))
+            .or_else(|| {
+                template_decimal(config, &["sizing", "multiplier"]).map(|value| vec![value])
+            })
             .unwrap_or_else(|| vec![Decimal::new(15, 1)]),
         take_profit_bps: search_space_u32(config, "take_profit_bps")
             .or_else(|| template_u32(config, &["take_profit", "bps"]).map(|value| vec![value]))
@@ -340,7 +519,11 @@ fn scoring_config_from_task(config: &WorkerTaskConfig) -> ScoringConfig {
             assign_f64(weights, "weight_calmar", &mut scoring.weight_calmar);
             assign_f64(weights, "weight_sortino", &mut scoring.weight_sortino);
             assign_f64(weights, "weight_drawdown", &mut scoring.weight_drawdown);
-            assign_f64(weights, "weight_stop_frequency", &mut scoring.weight_stop_frequency);
+            assign_f64(
+                weights,
+                "weight_stop_frequency",
+                &mut scoring.weight_stop_frequency,
+            );
             assign_f64(
                 weights,
                 "weight_capital_utilization",
@@ -746,11 +929,14 @@ impl TaskPoller {
             .append_task_event(task_id, "heartbeat", json!({ "stage": stage }))
             .map_err(|error| format!("append heartbeat event: {error}"))?;
         self.repo
-            .update_task_summary(task_id, json!({
-                "stage": stage,
-                "stage_label": stage_label(stage),
-                "progress_pct": stage_progress(stage),
-            }))
+            .update_task_summary(
+                task_id,
+                json!({
+                    "stage": stage,
+                    "stage_label": stage_label(stage),
+                    "progress_pct": stage_progress(stage),
+                }),
+            )
             .map_err(|error| format!("update task summary: {error}"))?;
         Ok(())
     }
@@ -787,14 +973,17 @@ impl TaskPoller {
                         status: "ready".to_owned(),
                         rank: output.rank as i32,
                         config: output.config.clone(),
-                        summary: json!({
-                "score": output.score,
-                "search_mode": "智能搜索",
-                "result_mode": if output.used_trade_refinement { "成交级精测" } else { "K线级回测" },
-                "total_return_pct": output.total_return_pct,
-                "max_drawdown_pct": output.max_drawdown_pct,
-                "trade_count": output.trade_count,
-            }),
+                        summary: merge_json_objects(
+                            json!({
+                                "score": output.score,
+                                "search_mode": "智能搜索",
+                                "result_mode": if output.used_trade_refinement { "成交级精测" } else { "K线级回测" },
+                                "total_return_pct": output.total_return_pct,
+                                "max_drawdown_pct": output.max_drawdown_pct,
+                                "trade_count": output.trade_count,
+                            }),
+                            output.summary.clone(),
+                        ),
                     },
                     "summary",
                     output.artifact_path.clone(),
@@ -810,11 +999,14 @@ impl TaskPoller {
 
     async fn mark_completed(&self, task_id: &str) -> Result<(), String> {
         self.repo
-            .update_task_summary(task_id, json!({
-                "stage": "completed",
-                "stage_label": "已完成",
-                "progress_pct": 100,
-            }))
+            .update_task_summary(
+                task_id,
+                json!({
+                    "stage": "completed",
+                    "stage_label": "已完成",
+                    "progress_pct": 100,
+                }),
+            )
             .map_err(|error| format!("update completed summary: {error}"))?;
         self.repo
             .transition_task(task_id, "succeeded")
@@ -827,11 +1019,14 @@ impl TaskPoller {
 
     async fn mark_failed(&self, task_id: &str, error: &str) -> Result<(), String> {
         self.repo
-            .update_task_summary(task_id, json!({
-                "stage": "failed",
-                "stage_label": "失败",
-                "progress_pct": 100,
-            }))
+            .update_task_summary(
+                task_id,
+                json!({
+                    "stage": "failed",
+                    "stage_label": "失败",
+                    "progress_pct": 100,
+                }),
+            )
             .map_err(|error| format!("update failed summary: {error}"))?;
         self.repo
             .fail_task(task_id, error)
@@ -963,6 +1158,71 @@ mod tests {
         assert!(ClaimedTask::Record(record).into_task().is_err());
     }
 
+    fn candidate_output(
+        symbol: &str,
+        id: &str,
+        rank: usize,
+        score: f64,
+        leverage: u32,
+    ) -> CandidateOutput {
+        CandidateOutput {
+            candidate_id: id.to_owned(),
+            rank,
+            score,
+            config: serde_json::json!({
+                "strategies": [{
+                    "symbol": symbol,
+                    "leverage": leverage,
+                    "spacing": { "fixed_percent": { "step_bps": 100 } },
+                    "sizing": {
+                        "multiplier": {
+                            "first_order_quote": "10",
+                            "multiplier": "1.5",
+                            "max_legs": 4
+                        }
+                    },
+                    "take_profit": { "percent": { "bps": 80 } }
+                }]
+            }),
+            summary: serde_json::json!({}),
+            artifact_path: format!("/tmp/{id}.json"),
+            checksum_sha256: "sha256".to_owned(),
+            used_trade_refinement: false,
+            total_return_pct: score,
+            max_drawdown_pct: 5.0,
+            trade_count: 10,
+        }
+    }
+
+    #[test]
+    fn candidate_outputs_keep_top_five_per_symbol_and_enrich_summary() {
+        let outputs = vec![
+            candidate_output("BTCUSDT", "btc-1", 1, 90.0, 3),
+            candidate_output("BTCUSDT", "btc-2", 2, 80.0, 3),
+            candidate_output("BTCUSDT", "btc-3", 3, 70.0, 3),
+            candidate_output("BTCUSDT", "btc-4", 4, 60.0, 3),
+            candidate_output("BTCUSDT", "btc-5", 5, 50.0, 3),
+            candidate_output("BTCUSDT", "btc-6", 6, 40.0, 3),
+            candidate_output("ETHUSDT", "eth-1", 1, 30.0, 2),
+        ];
+
+        let selected = select_top_outputs_per_symbol(outputs, 5, "balanced");
+
+        assert_eq!(selected.len(), 6);
+        assert!(selected.iter().any(|output| output.candidate_id == "btc-5"));
+        assert!(!selected.iter().any(|output| output.candidate_id == "btc-6"));
+
+        let btc_first = selected
+            .iter()
+            .find(|output| output.candidate_id == "btc-1")
+            .unwrap();
+        assert_eq!(btc_first.summary["symbol"], "BTCUSDT");
+        assert_eq!(btc_first.summary["parameter_rank_for_symbol"], 1);
+        assert_eq!(btc_first.summary["recommended_weight_pct"], 20.0);
+        assert_eq!(btc_first.summary["recommended_leverage"], 3);
+        assert_eq!(btc_first.summary["risk_profile"], "balanced");
+    }
+
     #[test]
     fn worker_requires_market_data_path_instead_of_synthetic_candidates() {
         let config = WorkerConfig {
@@ -1026,6 +1286,8 @@ mod tests {
             random_candidates: 1,
             intelligent_rounds: 1,
             top_n: 1,
+            per_symbol_top_n: default_per_symbol_top_n(),
+            risk_profile: default_risk_profile(),
             market: None,
             margin_mode: None,
             direction_mode: None,
@@ -1065,6 +1327,8 @@ mod tests {
             random_candidates: 1,
             intelligent_rounds: 1,
             top_n: 1,
+            per_symbol_top_n: default_per_symbol_top_n(),
+            risk_profile: default_risk_profile(),
             market: None,
             margin_mode: None,
             direction_mode: None,
@@ -1076,7 +1340,8 @@ mod tests {
             end_ms: 2_000,
         };
 
-        let context = MarketDataContext::load(&source, &config).expect("market context without trades");
+        let context =
+            MarketDataContext::load(&source, &config).expect("market context without trades");
         assert!(context.trades.is_empty());
     }
 
@@ -1115,12 +1380,21 @@ mod tests {
         let space = search_space_from_task(&config);
 
         assert_eq!(space.symbols, vec!["BTCUSDT", "ETHUSDT"]);
-        assert_eq!(space.directions, vec![shared_domain::martingale::MartingaleDirection::Short]);
+        assert_eq!(
+            space.directions,
+            vec![shared_domain::martingale::MartingaleDirection::Short]
+        );
         assert_eq!(space.market, Some(MartingaleMarketKind::UsdMFutures));
         assert_eq!(space.margin_mode, Some(MartingaleMarginMode::Isolated));
         assert_eq!(space.step_bps, vec![75, 125]);
-        assert_eq!(space.first_order_quote, vec![Decimal::new(10, 0), Decimal::new(15, 0)]);
-        assert_eq!(space.multiplier, vec![Decimal::new(14, 1), Decimal::new(2, 0)]);
+        assert_eq!(
+            space.first_order_quote,
+            vec![Decimal::new(10, 0), Decimal::new(15, 0)]
+        );
+        assert_eq!(
+            space.multiplier,
+            vec![Decimal::new(14, 1), Decimal::new(2, 0)]
+        );
         assert_eq!(space.take_profit_bps, vec![80, 90]);
         assert_eq!(space.leverage, vec![2, 3, 4]);
         assert_eq!(space.max_legs, vec![6, 8]);
@@ -1172,8 +1446,14 @@ mod tests {
             .remove(0);
         let candidate = apply_task_overrides_to_candidate(candidate, &config);
         let strategy = &candidate.config.strategies[0];
-        assert!(matches!(strategy.indicators[0], MartingaleIndicatorConfig::Atr { period: 21 }));
-        assert!(matches!(strategy.indicators[1], MartingaleIndicatorConfig::Rsi { .. }));
+        assert!(matches!(
+            strategy.indicators[0],
+            MartingaleIndicatorConfig::Atr { period: 21 }
+        ));
+        assert!(matches!(
+            strategy.indicators[1],
+            MartingaleIndicatorConfig::Rsi { .. }
+        ));
         assert!(matches!(
             strategy.entry_triggers[0],
             MartingaleEntryTrigger::IndicatorExpression { .. }

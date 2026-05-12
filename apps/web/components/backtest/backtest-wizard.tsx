@@ -1,6 +1,6 @@
 "use client";
 
-import { type ChangeEvent, useCallback, useState } from "react";
+import { type ChangeEvent, useState } from "react";
 import { requestBacktestApi } from "@/components/backtest/request-client";
 import { IndicatorRuleEditor } from "@/components/backtest/indicator-rule-editor";
 import { MartingaleParameterEditor } from "@/components/backtest/martingale-parameter-editor";
@@ -97,7 +97,7 @@ const INITIAL_FORM: WizardForm = {
 };
 
 export function BacktestWizard({ lang, onTaskCreated }: { lang: UiLanguage; onTaskCreated?: () => void | Promise<void> }) {
-  const [form, setForm] = useState<WizardForm>(INITIAL_FORM);
+  const [form, setForm] = useState<WizardForm>(() => ({ ...INITIAL_FORM, ...resolveAutoTimeSplit() }));
   const [feedback, setFeedback] = useState("");
   const [pending, setPending] = useState(false);
   const [indicators, setIndicators] = useState<Record<string, unknown>>({});
@@ -207,17 +207,23 @@ function dateToMs(value: string, endOfDay = false) {
 }
 
 export function resolveAutoTimeSplit(now = new Date()) {
-  const end = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
-  const start = addDays(end, -365);
-  const trainEnd = addDays(start, 255);
-  const validateEnd = addDays(trainEnd, 55);
+  const trainStart = "2023-01-01";
+  const trainStartDate = new Date(`${trainStart}T00:00:00.000Z`);
+  const lastDayOfPreviousMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 0));
+  const totalDays = daysBetweenInclusive(trainStartDate, lastDayOfPreviousMonth);
+  const trainDays = Math.max(1, Math.floor(totalDays * 0.7));
+  const validateDays = Math.max(1, Math.floor(totalDays * 0.15));
+  const trainEnd = addDays(trainStartDate, trainDays - 1);
+  const validateStart = addDays(trainEnd, 1);
+  const validateEnd = addDays(validateStart, validateDays - 1);
+  const testStart = addDays(validateEnd, 1);
   return {
-    trainStart: formatDate(start),
+    trainStart: "2023-01-01",
     trainEnd: formatDate(trainEnd),
-    validateStart: formatDate(addDays(trainEnd, 1)),
+    validateStart: formatDate(validateStart),
     validateEnd: formatDate(validateEnd),
-    testStart: formatDate(addDays(validateEnd, 1)),
-    testEnd: formatDate(end),
+    testStart: formatDate(testStart),
+    testEnd: formatDate(lastDayOfPreviousMonth),
   };
 }
 
@@ -231,22 +237,50 @@ function formatDate(date: Date) {
   return date.toISOString().slice(0, 10);
 }
 
+function daysBetweenInclusive(start: Date, end: Date) {
+  const msPerDay = 24 * 60 * 60 * 1000;
+  return Math.max(1, Math.floor((end.getTime() - start.getTime()) / msPerDay) + 1);
+}
+
 export function presetSearchSpaces(form: WizardForm) {
+  const customLeverage = [integerValue(form.minLeverage, 1), integerValue(form.maxLeverage, integerValue(form.minLeverage, 1))];
   const custom = {
     spacing_bps: [percentToBps(form.spacingPct, 1)],
     first_order_quote: [numberValue(form.initialOrderUsdt, 10)],
     order_multiplier: [numberValue(form.orderMultiplier, 2)],
     take_profit_bps: [percentToBps(form.takeProfitPct, 1)],
     max_legs: [integerValue(form.maxLegs, 6)],
+    leverage: form.market === "spot" ? [] : Array.from(new Set(customLeverage)).sort((left, right) => left - right),
   };
   if (form.parameterPreset === "conservative") {
-    return { spacing_bps: [100, 150, 200], first_order_quote: [10, 15], order_multiplier: [1.2, 1.4], take_profit_bps: [60, 80], max_legs: [4, 5] };
+    return {
+      spacing_bps: [120, 160, 220, 300],
+      first_order_quote: [8, 10, 15],
+      order_multiplier: [1.25, 1.4, 1.6],
+      take_profit_bps: [60, 80, 100],
+      max_legs: [3, 4, 5],
+      leverage: form.market === "spot" ? [] : [1, 2],
+    };
   }
   if (form.parameterPreset === "aggressive") {
-    return { spacing_bps: [50, 75, 100], first_order_quote: [10, 25, 50], order_multiplier: [1.8, 2, 2.4], take_profit_bps: [100, 140, 200], max_legs: [6, 8, 10] };
+    return {
+      spacing_bps: [50, 80, 120, 160],
+      first_order_quote: [10, 20, 35],
+      order_multiplier: [1.6, 2, 2.4],
+      take_profit_bps: [100, 130, 180],
+      max_legs: [5, 6, 8],
+      leverage: form.market === "spot" ? [] : [3, 5, 8],
+    };
   }
   if (form.parameterPreset === "balanced") {
-    return { spacing_bps: [75, 100, 125], first_order_quote: [10, 20], order_multiplier: [1.4, 1.6, 2], take_profit_bps: [80, 100, 120], max_legs: [5, 6, 7] };
+    return {
+      spacing_bps: [80, 120, 160, 220],
+      first_order_quote: [10, 15, 25],
+      order_multiplier: [1.4, 1.6, 2],
+      take_profit_bps: [80, 100, 130],
+      max_legs: [4, 5, 6],
+      leverage: form.market === "spot" ? [] : [2, 3, 4],
+    };
   }
   return custom;
 }
@@ -268,6 +302,8 @@ export function buildWizardPayload(form: WizardForm, indicators?: Record<string,
   return {
     strategy_type: "martingale_grid",
     symbols,
+    risk_profile: form.parameterPreset,
+    per_symbol_top_n: 5,
     random_seed: integerValue(form.randomSeed, 1),
     random_candidates: integerValue(form.candidateBudget, 16),
     intelligent_rounds: form.searchMode === "intelligent" ? integerValue(form.intelligentRounds, 2) : 1,
@@ -341,13 +377,18 @@ export function buildWizardPayload(form: WizardForm, indicators?: Record<string,
         max_global_drawdown_quote: null,
       },
     },
+    portfolio_basket: {
+      mode: "manual_selection_after_backtest",
+      weight_total_pct: 100,
+      selection: [],
+    },
     time_split: {
       mode: form.timeMode,
       generated_at: formatDate(new Date()),
       train: { start: timeSplit.trainStart, end: timeSplit.trainEnd },
       validate: { start: timeSplit.validateStart, end: timeSplit.validateEnd },
       test: { start: timeSplit.testStart, end: timeSplit.testEnd },
-      stress_windows: ["flash_crash", "trend_up"],
+      stress_windows: ["flash_crash", "trend_up", "trend_down", "high_volatility"],
     },
     scoring: {
       profile: "survival_first",

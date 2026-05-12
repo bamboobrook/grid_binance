@@ -7,7 +7,7 @@ export function MartingaleParameterEditor({ form, lang, onChange }: { form: Wiza
     <section className="rounded-2xl border border-border bg-card p-4">
       <div className="mb-4">
         <h3 className="text-lg font-semibold">{pickText(lang, "马丁参数编辑器", "Martingale parameter editor")}</h3>
-        <p className="text-sm text-muted-foreground">{pickText(lang, "可设置币本组合、倍投间隔、加仓倍率、整体止盈和止损。", "Configure symbols, spacing, multipliers, portfolio take-profit, and stop-loss.")}</p>
+        <p className="text-sm text-muted-foreground">{pickText(lang, "可设置币本组合、倍投间隔、加仓倍率、整体止盈，以及止损框架。", "Configure symbols, spacing, multipliers, portfolio take-profit, and the stop-loss framework.")}</p>
       </div>
       <div className="grid gap-4 lg:grid-cols-2">
         <FieldCard title={pickText(lang, "参数预设", "Parameter preset")}>
@@ -56,8 +56,11 @@ export function MartingaleParameterEditor({ form, lang, onChange }: { form: Wiza
         <FieldCard title={pickText(lang, "止盈与止损", "Take-profit and stop-loss")}>
           <div className="grid gap-3 sm:grid-cols-2">
             <InputField label={pickText(lang, "整体止盈 %", "Portfolio TP %")} name="takeProfitPct" onChange={onChange} step="0.1" value={form.takeProfitPct} />
-            <InputField label={pickText(lang, "移动回撤 %", "Trailing %")} name="trailingPct" onChange={onChange} step="0.1" value={form.trailingPct} />
+            <InputField label={pickText(lang, "移动止盈回撤 %", "Moving take-profit retracement %")} name="trailingPct" onChange={onChange} step="0.1" value={form.trailingPct} />
           </div>
+          <p className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-3 py-2 text-xs text-muted-foreground">
+            {pickText(lang, "达到整体止盈后才激活，不是止损。", "Activates only after take-profit, not a stop loss.")}
+          </p>
           <SelectField label={pickText(lang, "止损模式", "Stop-loss mode")} name="stopLossMode" onChange={onChange} value={form.stopLossMode}>
             <option value="range">{pickText(lang, "区间止损", "Range stop")}</option>
             <option value="atr">ATR</option>
