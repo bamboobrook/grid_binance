@@ -1,5 +1,8 @@
 "use client";
 
+import Link from "next/link";
+import { useState } from "react";
+import { requestBacktestApi } from "@/components/backtest/request-client";
 import type { MartingaleRiskSummary } from "@/lib/api-types";
 import { pickText, type UiLanguage } from "@/lib/ui/preferences";
 
@@ -122,6 +125,38 @@ export function PortfolioCandidateReview({
   lang: UiLanguage;
   locale: string;
 }) {
+  const [feedback, setFeedback] = useState("");
+  const [pending, setPending] = useState(false);
+  const [riskSummary, setRiskSummary] = useState<MartingaleRiskSummary | null>(null);
+  const [portfolioId, setPortfolioId] = useState("");
+
+  async function handlePublishIntent() {
+    if (!candidate) {
+      setFeedback(pickText(lang, "请先选择一个候选。", "Select a candidate first."));
+      return;
+    }
+    setPending(true);
+    setFeedback(pickText(lang, "正在生成发布风险摘要…", "Generating publish risk summary..."));
+    setRiskSummary(null);
+    setPortfolioId("");
+
+    const result = await requestBacktestApi(`/api/user/backtest/candidates/${candidate.id}/publish-intent`, {
+      method: "POST",
+    });
+
+    setPending(false);
+    if (!result.ok) {
+      setFeedback(result.message);
+      return;
+    }
+
+    const data = readObject(result.data) ?? {};
+    const summary = readRiskSummary(data.risk_summary) ?? readRiskSummary(data);
+    setRiskSummary(summary);
+    setPortfolioId(readString(data.portfolio_id));
+    setFeedback(pickText(lang, "已创建待确认 Portfolio，请打开组合页人工确认启动。", "Pending Portfolio created. Open the portfolio page to confirm live start."));
+  }
+
   if (!candidate) {
     return (
       <section className="rounded-2xl border border-border bg-card p-4 shadow-sm">
@@ -135,13 +170,21 @@ export function PortfolioCandidateReview({
     );
   }
 
-  const risk = candidate.riskSummary;
+  const risk = riskSummary ?? candidate.riskSummary;
 
   return (
     <section className="rounded-2xl border border-border bg-card p-4 shadow-sm space-y-4">
-      <h2 className="text-lg font-semibold">
-        {pickText(lang, "候选复核", "Candidate review")}
-      </h2>
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <h2 className="text-lg font-semibold">
+            {pickText(lang, "候选复核", "Candidate review")}
+          </h2>
+          <p className="text-sm text-muted-foreground">
+            {pickText(lang, "发布前先生成风险摘要；实盘启动仍需手动确认。", "Generate the risk summary first; live start remains manual.")}
+          </p>
+        </div>
+        <code className="hidden rounded bg-secondary/50 px-3 py-1 text-xs md:block">POST /api/user/backtest/candidates/:id/publish-intent</code>
+      </div>
 
       {/* Key metrics */}
       <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
@@ -170,6 +213,43 @@ export function PortfolioCandidateReview({
           {pickText(lang, "尚未发起发布意图，风险摘要暂不可用", "No publish intent issued yet, risk summary unavailable")}
         </p>
       )}
+
+      {portfolioId ? (
+        <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-4 text-sm">
+          <p className="font-semibold text-emerald-700 dark:text-emerald-300">
+            {pickText(lang, "待确认 Portfolio 已创建", "Pending Portfolio created")}
+          </p>
+          <p className="mt-1 text-muted-foreground">
+            {pickText(lang, "下一步：进入马丁组合页，检查状态后点击启动。", "Next: open Martingale Portfolios, review status, then start manually.")}
+          </p>
+          <Link className="mt-3 inline-flex rounded-full bg-primary px-4 py-2 text-sm font-medium text-primary-foreground" href={`/${locale}/app/martingale-portfolios`}>
+            {pickText(lang, "去确认启动", "Confirm start")} · {portfolioId}
+          </Link>
+        </div>
+      ) : null}
+
+      <ul className="space-y-2 text-sm text-muted-foreground">
+        <li>{pickText(lang, "不会自动启动实盘，必须人工确认。", "Live launch is never automatic and requires manual confirmation.")}</li>
+        <li>{pickText(lang, "同 symbol 杠杆和保证金模式冲突会被后端阻断。", "Same-symbol leverage and margin conflicts are blocked server-side.")}</li>
+        <li>{pickText(lang, "Long+Short 发布前继续要求 Binance Hedge Mode。", "Long+Short still requires Binance Hedge Mode before publishing.")}</li>
+      </ul>
+
+      <div className="space-y-3">
+        <button
+          className="w-full rounded-full bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-60"
+          disabled={pending || !candidate}
+          onClick={handlePublishIntent}
+          type="button"
+        >
+          {pending ? pickText(lang, "生成中…", "Generating...") : pickText(lang, "创建待确认 Portfolio", "Create pending Portfolio")}
+        </button>
+        <p aria-live="polite" className="text-sm text-muted-foreground">{feedback}</p>
+      </div>
     </section>
   );
+}
+
+function readRiskSummary(value: unknown): MartingaleRiskSummary | null {
+  const object = readObject(value);
+  return object ? object as MartingaleRiskSummary : null;
 }

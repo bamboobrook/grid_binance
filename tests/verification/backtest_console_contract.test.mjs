@@ -142,7 +142,12 @@ test("backtest wizard is a real editable launcher, not a static template", () =>
   assert.match(wizardSource, /parseSymbolList\(/);
   assert.match(wizardSource, /MAX_SYMBOLS = 20/);
   assert.match(wizardSource, /白名单最多支持 20 个币种|up to 20 symbols/);
-  assert.match(wizardSource, /JSON\.stringify\(buildWizardPayload\(form\)\)/);
+  assert.match(wizardSource, /JSON\.stringify\(buildWizardPayload\(form, indicators, scoringWeights\)\)/);
+  assert.match(wizardSource, /indicatorConfigsForPayload/);
+  assert.match(wizardSource, /entryTriggersForPayload/);
+  assert.match(wizardSource, /indicator_expression/);
+  assert.match(wizardSource, /return \["immediate"\]/);
+  assert.match(wizardSource, /weights: scoringWeights/);
   assert.match(wizardSource, /启动回测|Start backtest/);
 
   assert.match(searchSource, /textarea[\s\S]*name="whitelist"/);
@@ -175,4 +180,20 @@ test("backtest wizard is a real editable launcher, not a static template", () =>
   assert.match(riskSource, /name="maxStopLossCount"/);
   assert.match(riskSource, /name="portfolioStopLossPct"/);
   assert.match(riskSource, /name="perStrategyStopLossPct"/);
+
+  const indicatorSource = readFileSync(
+    "apps/web/components/backtest/indicator-rule-editor.tsx",
+    "utf8",
+  );
+  const scoringSource = readFileSync(
+    "apps/web/components/backtest/scoring-weight-editor.tsx",
+    "utf8",
+  );
+  assert.match(indicatorSource, /kind: "atr"/);
+  assert.match(indicatorSource, /kind: "rsi"/);
+  assert.match(indicatorSource, /onChange\(payload\)/);
+  assert.match(scoringSource, /weight_stop_frequency/);
+  assert.match(scoringSource, /weight_capital_utilization/);
+  assert.match(scoringSource, /weight_trade_stability/);
+  assert.doesNotMatch(scoringSource, /weight_survival/);
 });

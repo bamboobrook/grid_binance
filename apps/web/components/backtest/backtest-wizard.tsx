@@ -262,6 +262,9 @@ export function buildWizardPayload(form: WizardForm, indicators?: Record<string,
   const leverage = market === "spot" ? null : leverageRange[0];
   const marginMode = market === "spot" ? null : form.marginMode;
 
+  const indicatorConfigs = indicatorConfigsForPayload(indicators);
+  const entryTriggers = entryTriggersForPayload(indicators);
+
   return {
     strategy_type: "martingale_grid",
     symbols,
@@ -299,6 +302,8 @@ export function buildWizardPayload(form: WizardForm, indicators?: Record<string,
         multiplier: numberValue(form.orderMultiplier, 2),
         max_legs: integerValue(form.maxLegs, 6),
       },
+      indicators: indicatorConfigs,
+      entry_triggers: entryTriggers,
       search_space: searchSpace,
       take_profit: { model: "percent", bps: percentToBps(form.takeProfitPct, 1) },
       trailing_take_profit: { retracement_bps: percentToBps(form.trailingPct, 0.4) },
@@ -328,8 +333,8 @@ export function buildWizardPayload(form: WizardForm, indicators?: Record<string,
         },
         take_profit: { percent: { bps: percentToBps(form.takeProfitPct, 1) } },
         stop_loss: { strategy_drawdown_pct: { pct_bps: percentToBps(form.perStrategyStopLossPct, 8) } },
-        indicators: indicators && Object.keys(indicators).length > 0 ? indicators : [],
-        entry_triggers: [{ immediate: null }],
+        indicators: indicatorConfigs,
+        entry_triggers: entryTriggers,
         risk_limits: {},
       })),
       risk_limits: {
@@ -351,4 +356,64 @@ export function buildWizardPayload(form: WizardForm, indicators?: Record<string,
       ...(scoringWeights ? { weights: scoringWeights } : {}),
     },
   };
+}
+
+function indicatorConfigsForPayload(indicators?: Record<string, unknown>) {
+  if (!indicators || Object.keys(indicators).length === 0) return [];
+  const configs: Array<Record<string, unknown>> = [];
+  const source = indicators as Record<string, Record<string, unknown>>;
+  if (source.atr) configs.push({ atr: { period: integerFromUnknown(source.atr.period, 14) } });
+  if (source.sma) configs.push({ sma: { period: integerFromUnknown(source.sma.slow_period ?? source.sma.period, 25) } });
+  if (source.ema) configs.push({ ema: { period: integerFromUnknown(source.ema.slow_period ?? source.ema.period, 26) } });
+  if (source.rsi) {
+    configs.push({
+      rsi: {
+        period: integerFromUnknown(source.rsi.period, 14),
+        overbought: numberFromUnknown(source.rsi.overbought, 70).toString(),
+        oversold: numberFromUnknown(source.rsi.oversold, 30).toString(),
+      },
+    });
+  }
+  if (source.bollinger) {
+    configs.push({
+      bollinger: {
+        period: integerFromUnknown(source.bollinger.period, 20),
+        std_dev: numberFromUnknown(source.bollinger.std_dev, 2).toString(),
+      },
+    });
+  }
+  if (source.adx) configs.push({ adx: { period: integerFromUnknown(source.adx.period, 14) } });
+  return configs;
+}
+
+function entryTriggersForPayload(indicators?: Record<string, unknown>) {
+  if (!indicators || Object.keys(indicators).length === 0) return ["immediate"];
+  const source = indicators as Record<string, Record<string, unknown>>;
+  const expressions: string[] = [];
+  if (source.sma) {
+    expressions.push(`sma(${integerFromUnknown(source.sma.fast_period, 7)}) >= sma(${integerFromUnknown(source.sma.slow_period, 25)})`);
+  }
+  if (source.ema) {
+    expressions.push(`ema(${integerFromUnknown(source.ema.fast_period, 12)}) >= ema(${integerFromUnknown(source.ema.slow_period, 26)})`);
+  }
+  if (source.rsi) {
+    expressions.push(`rsi(${integerFromUnknown(source.rsi.period, 14)}) <= ${numberFromUnknown(source.rsi.overbought, 70)}`);
+  }
+  if (source.bollinger) {
+    expressions.push(`close <= bb_upper(${integerFromUnknown(source.bollinger.period, 20)},${numberFromUnknown(source.bollinger.std_dev, 2)})`);
+  }
+  if (source.adx) {
+    expressions.push(`adx(${integerFromUnknown(source.adx.period, 14)}) >= ${numberFromUnknown(source.adx.threshold, 25)}`);
+  }
+  return expressions.length > 0 ? expressions.map((expression) => ({ indicator_expression: { expression } })) : ["immediate"];
+}
+
+function integerFromUnknown(value: unknown, fallback: number) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? Math.max(1, Math.round(parsed)) : fallback;
+}
+
+function numberFromUnknown(value: unknown, fallback: number) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
 }

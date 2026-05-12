@@ -23,7 +23,9 @@ use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use shared_db::{BacktestRepository, NewBacktestCandidateRecord, SharedDb};
-use shared_domain::martingale::{MartingaleMarginMode, MartingaleMarketKind};
+use shared_domain::martingale::{
+    MartingaleEntryTrigger, MartingaleIndicatorConfig, MartingaleMarginMode, MartingaleMarketKind,
+};
 
 const DEFAULT_MAX_THREADS: usize = 2;
 const DEFAULT_POLL_MS: u64 = 5_000;
@@ -64,6 +66,8 @@ struct WorkerTaskConfig {
     leverage_range: Option<[u32; 2]>,
     #[serde(default)]
     martingale_template: Option<Value>,
+    #[serde(default)]
+    scoring: Option<Value>,
     #[serde(default = "default_interval")]
     interval: String,
     #[serde(default)]
@@ -85,6 +89,7 @@ impl Default for WorkerTaskConfig {
             direction_mode: None,
             leverage_range: None,
             martingale_template: None,
+            scoring: None,
             interval: default_interval(),
             start_ms: 0,
             end_ms: 0,
@@ -194,11 +199,14 @@ async fn process_task(
     poller.heartbeat(&task.task_id, "search_started").await?;
 
     let search_space = search_space_from_task(&task.config);
-    let random_candidates = random_search(
-        &search_space,
-        task.config.random_candidates,
-        task.config.random_seed,
-    )?;
+    let random_candidates = apply_task_overrides(
+        random_search(
+            &search_space,
+            task.config.random_candidates,
+            task.config.random_seed,
+        )?,
+        &task.config,
+    );
     respect_pause_or_cancel(poller, &task.task_id).await?;
 
     let cancel = Arc::new(AtomicBool::new(false));
@@ -218,10 +226,13 @@ async fn process_task(
                 * task.config.intelligent_rounds.max(1),
             survivor_percentile: 0.25,
             timeout: None,
-            scoring: ScoringConfig::default(),
+            scoring: scoring_config_from_task(&task.config),
         },
         Some(cancel.as_ref()),
-        |candidate| run_candidate_kline_screening(candidate, &market_context),
+        |candidate| {
+            let candidate = apply_task_overrides_to_candidate(candidate.clone(), &task.config);
+            run_candidate_kline_screening(&candidate, &market_context)
+        },
     )?;
     cancel.store(true, Ordering::SeqCst);
     let _ = cancel_watcher.join();
@@ -312,6 +323,97 @@ fn search_space_from_task(config: &WorkerTaskConfig) -> SearchSpace {
             .or_else(|| template_u32(config, &["sizing", "max_legs"]).map(|value| vec![value]))
             .unwrap_or_else(|| vec![3, 5, 7]),
     }
+}
+
+fn scoring_config_from_task(config: &WorkerTaskConfig) -> ScoringConfig {
+    let mut scoring = ScoringConfig::default();
+    if let Some(value) = config.scoring.as_ref() {
+        if let Some(max_drawdown_pct) = value.get("max_drawdown_pct").and_then(Value::as_f64) {
+            scoring.max_global_drawdown_pct = max_drawdown_pct;
+            scoring.max_strategy_drawdown_pct = max_drawdown_pct;
+        }
+        if let Some(max_stop_count) = value.get("max_stop_loss_count").and_then(Value::as_u64) {
+            scoring.max_stop_count = max_stop_count;
+        }
+        if let Some(weights) = value.get("weights") {
+            assign_f64(weights, "weight_return", &mut scoring.weight_return);
+            assign_f64(weights, "weight_calmar", &mut scoring.weight_calmar);
+            assign_f64(weights, "weight_sortino", &mut scoring.weight_sortino);
+            assign_f64(weights, "weight_drawdown", &mut scoring.weight_drawdown);
+            assign_f64(weights, "weight_stop_frequency", &mut scoring.weight_stop_frequency);
+            assign_f64(
+                weights,
+                "weight_capital_utilization",
+                &mut scoring.weight_capital_utilization,
+            );
+            assign_f64(
+                weights,
+                "weight_trade_stability",
+                &mut scoring.weight_trade_stability,
+            );
+        }
+    }
+    scoring
+}
+
+fn assign_f64(source: &Value, key: &str, target: &mut f64) {
+    if let Some(value) = source.get(key).and_then(Value::as_f64) {
+        if value.is_finite() {
+            *target = value;
+        }
+    }
+}
+
+fn apply_task_overrides(
+    candidates: Vec<SearchCandidate>,
+    config: &WorkerTaskConfig,
+) -> Vec<SearchCandidate> {
+    candidates
+        .into_iter()
+        .map(|candidate| apply_task_overrides_to_candidate(candidate, config))
+        .collect()
+}
+
+fn apply_task_overrides_to_candidate(
+    mut candidate: SearchCandidate,
+    config: &WorkerTaskConfig,
+) -> SearchCandidate {
+    let indicators = indicator_configs_from_task(config);
+    let entry_triggers = entry_triggers_from_task(config);
+    if indicators.is_empty() && entry_triggers.is_empty() {
+        return candidate;
+    }
+    for strategy in &mut candidate.config.strategies {
+        if !indicators.is_empty() {
+            strategy.indicators = indicators.clone();
+        }
+        if !entry_triggers.is_empty() {
+            strategy.entry_triggers = entry_triggers.clone();
+        }
+    }
+    candidate
+}
+
+fn indicator_configs_from_task(config: &WorkerTaskConfig) -> Vec<MartingaleIndicatorConfig> {
+    let Some(indicators) = config
+        .martingale_template
+        .as_ref()
+        .and_then(|template| template.get("indicators"))
+    else {
+        return Vec::new();
+    };
+    serde_json::from_value(indicators.clone()).unwrap_or_default()
+}
+
+fn entry_triggers_from_task(config: &WorkerTaskConfig) -> Vec<MartingaleEntryTrigger> {
+    let Some(entry_triggers) = config
+        .martingale_template
+        .as_ref()
+        .and_then(|template| template.get("entry_triggers"))
+    else {
+        return Vec::new();
+    };
+    serde_json::from_value(entry_triggers.clone()).unwrap_or_default()
 }
 
 fn market_kind(value: Option<&str>) -> Option<MartingaleMarketKind> {
@@ -929,6 +1031,7 @@ mod tests {
             direction_mode: None,
             leverage_range: None,
             martingale_template: None,
+            scoring: None,
             interval: "1h".to_owned(),
             start_ms: 1,
             end_ms: 2_000,
@@ -967,6 +1070,7 @@ mod tests {
             direction_mode: None,
             leverage_range: None,
             martingale_template: None,
+            scoring: None,
             interval: "1h".to_owned(),
             start_ms: 1,
             end_ms: 2_000,
@@ -1020,6 +1124,60 @@ mod tests {
         assert_eq!(space.take_profit_bps, vec![80, 90]);
         assert_eq!(space.leverage, vec![2, 3, 4]);
         assert_eq!(space.max_legs, vec![6, 8]);
+    }
+
+    #[test]
+    fn worker_applies_wizard_scoring_and_indicator_overrides() {
+        let config: WorkerTaskConfig = serde_json::from_value(serde_json::json!({
+            "symbols": ["BTCUSDT"],
+            "random_seed": 7,
+            "random_candidates": 1,
+            "intelligent_rounds": 1,
+            "top_n": 1,
+            "scoring": {
+                "max_drawdown_pct": 12.5,
+                "max_stop_loss_count": 2,
+                "weights": {
+                    "weight_return": 0.2,
+                    "weight_calmar": 0.3,
+                    "weight_sortino": 0.1,
+                    "weight_drawdown": 0.4,
+                    "weight_stop_frequency": 0.6,
+                    "weight_capital_utilization": 0.7,
+                    "weight_trade_stability": 0.8
+                }
+            },
+            "martingale_template": {
+                "indicators": [
+                    { "atr": { "period": 21 } },
+                    { "rsi": { "period": 14, "overbought": "68", "oversold": "32" } }
+                ],
+                "entry_triggers": [
+                    { "indicator_expression": { "expression": "rsi(14) <= 68" } }
+                ]
+            }
+        }))
+        .expect("worker task config");
+
+        let scoring = scoring_config_from_task(&config);
+        assert_eq!(scoring.max_global_drawdown_pct, 12.5);
+        assert_eq!(scoring.max_strategy_drawdown_pct, 12.5);
+        assert_eq!(scoring.max_stop_count, 2);
+        assert_eq!(scoring.weight_stop_frequency, 0.6);
+        assert_eq!(scoring.weight_capital_utilization, 0.7);
+        assert_eq!(scoring.weight_trade_stability, 0.8);
+
+        let candidate = random_search(&search_space_from_task(&config), 1, 7)
+            .expect("candidate")
+            .remove(0);
+        let candidate = apply_task_overrides_to_candidate(candidate, &config);
+        let strategy = &candidate.config.strategies[0];
+        assert!(matches!(strategy.indicators[0], MartingaleIndicatorConfig::Atr { period: 21 }));
+        assert!(matches!(strategy.indicators[1], MartingaleIndicatorConfig::Rsi { .. }));
+        assert!(matches!(
+            strategy.entry_triggers[0],
+            MartingaleEntryTrigger::IndicatorExpression { .. }
+        ));
     }
 }
 
