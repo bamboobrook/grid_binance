@@ -6,8 +6,10 @@ import { BacktestProfessionalPanel } from "@/components/backtest/backtest-profes
 import { BacktestResultTable } from "@/components/backtest/backtest-result-table";
 import { BacktestTaskList } from "@/components/backtest/backtest-task-list";
 import { BacktestWizard } from "@/components/backtest/backtest-wizard";
+import { MartingaleRiskWarning } from "@/components/backtest/martingale-risk-warning";
 import { PortfolioCandidateReview } from "@/components/backtest/portfolio-candidate-review";
 import { requestBacktestApi } from "@/components/backtest/request-client";
+import type { MartingaleBacktestCandidateSummary } from "@/lib/api-types";
 import { pickText, type UiLanguage } from "@/lib/ui/preferences";
 import { cn } from "@/lib/utils";
 
@@ -52,6 +54,7 @@ type BacktestCandidate = {
   tradeCount: string;
   parameters: string;
   decision: string;
+  summary: MartingaleBacktestCandidateSummary;
 };
 
 const SURFACE_TAGS = [
@@ -123,8 +126,11 @@ export function BacktestConsole({ lang, locale }: { lang: UiLanguage; locale: st
     [selectedTaskId, tasks],
   );
 
+  const selectedSummary = selectedCandidate?.summary ?? {};
+
   return (
     <div className="space-y-6">
+      <MartingaleRiskWarning lang={lang} compact />
       <section className="rounded-2xl border border-border bg-card p-6 shadow-sm">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div className="space-y-2">
@@ -154,6 +160,22 @@ export function BacktestConsole({ lang, locale }: { lang: UiLanguage; locale: st
           </div>
         </div>
       </section>
+
+      {/* Overfitting risk banner */}
+      {selectedSummary.overfitting_risk && (
+        <div className="rounded-xl border border-amber-500/40 bg-amber-500/5 px-4 py-3 text-sm">
+          <p className="font-semibold text-amber-700 dark:text-amber-300">
+            {pickText(lang, "过拟合风险", "Overfitting risk")}
+          </p>
+          <p className="mt-1 text-muted-foreground">
+            {pickText(
+              lang,
+              "该候选在训练段表现优秀，但验证或压力段表现显著下降，存在过拟合风险。",
+              "This candidate performed well in training but degraded significantly in validation or stress windows, indicating overfitting risk.",
+            )}
+          </p>
+        </div>
+      )}
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1.6fr)_minmax(320px,0.9fr)]">
         <div className="space-y-6">
@@ -188,13 +210,38 @@ export function BacktestConsole({ lang, locale }: { lang: UiLanguage; locale: st
             </div>
           </section>
 
-          <BacktestCharts lang={lang} />
+          {/* Real-data charts */}
+          <section className="rounded-2xl border border-border bg-card p-4 shadow-sm">
+            <h2 className="text-lg font-semibold mb-3">
+              {pickText(lang, "回测图表", "Backtest charts")}
+            </h2>
+            <BacktestCharts summary={selectedSummary} />
+          </section>
+
+          {/* Segment performance comparison */}
+          {hasSegmentData(selectedSummary) && (
+            <section className="rounded-2xl border border-border bg-card p-4 shadow-sm">
+              <h2 className="text-lg font-semibold mb-3">
+                {pickText(lang, "分段表现对比", "Segment performance")}
+              </h2>
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                <SegmentBlock label={pickText(lang, "训练", "Train")} value={selectedSummary.train_return_pct} />
+                <SegmentBlock label={pickText(lang, "验证", "Validate")} value={selectedSummary.validate_return_pct} />
+                <SegmentBlock label={pickText(lang, "测试", "Test")} value={selectedSummary.test_return_pct} />
+                <SegmentBlock label={pickText(lang, "压力", "Stress")} value={selectedSummary.stress_return_pct} />
+              </div>
+            </section>
+          )}
+
           <BacktestResultTable
             candidates={candidates}
             lang={lang}
             selectedId={selectedCandidate?.id ?? ""}
             taskName={selectedTaskName}
-            onSelect={(candidate) => setSelectedCandidate(candidate)}
+            onSelect={(candidate) => {
+              const full = candidates.find((c) => c.id === candidate.id) ?? null;
+              setSelectedCandidate(full);
+            }}
           />
         </div>
 
@@ -219,6 +266,23 @@ export function BacktestConsole({ lang, locale }: { lang: UiLanguage; locale: st
       </div>
     </div>
   );
+}
+
+function SegmentBlock({ label, value }: { label: string; value: number | undefined }) {
+  if (value == null) return null;
+  const pct = value.toFixed(2);
+  return (
+    <div className="rounded-lg border border-border bg-background p-3 text-center">
+      <p className="text-xs text-muted-foreground">{label}</p>
+      <p className={`mt-1 text-sm font-semibold ${value >= 0 ? "text-emerald-600" : "text-red-600"}`}>
+        {pct}%
+      </p>
+    </div>
+  );
+}
+
+function hasSegmentData(s: MartingaleBacktestCandidateSummary): boolean {
+  return s.train_return_pct != null || s.validate_return_pct != null || s.test_return_pct != null || s.stress_return_pct != null;
 }
 
 function normalizeTask(task: ApiTask, lang: UiLanguage): BacktestTask {
@@ -272,6 +336,25 @@ function normalizeCandidate(candidate: ApiCandidate, lang: UiLanguage): Backtest
     tradeCount: tradeCount == null ? "—" : String(Math.round(tradeCount)),
     parameters: describeCandidateParameters(spacing, sizing, takeProfit, lang),
     decision: humanizeCandidateDecision(candidate.status, summary, lang),
+    summary: {
+      score: readNumber(summary.score) ?? undefined,
+      total_return_pct: readNumber(summary.total_return_pct) ?? undefined,
+      max_drawdown: readNumber(summary.max_drawdown_pct) != null ? (readNumber(summary.max_drawdown_pct)! / 100) : undefined,
+      trade_count: readNumber(summary.trade_count) ?? undefined,
+      stop_count: readNumber(summary.stop_count) ?? undefined,
+      max_capital_used_quote: readNumber(summary.max_capital_used_quote) ?? undefined,
+      survival_passed: typeof summary.survival_passed === "boolean" ? summary.survival_passed : undefined,
+      rejection_reasons: Array.isArray(summary.rejection_reasons) ? summary.rejection_reasons as string[] : undefined,
+      stress_window_scores: typeof summary.stress_window_scores === "object" && summary.stress_window_scores != null ? summary.stress_window_scores as Record<string, number> : undefined,
+      equity_curve: Array.isArray(summary.equity_curve) ? summary.equity_curve as { ts: number; equity: number; drawdown?: number }[] : undefined,
+      stop_loss_events: Array.isArray(summary.stop_loss_events) ? summary.stop_loss_events as { ts: number; symbol: string; reason: string; loss_pct: number }[] : undefined,
+      train_return_pct: readNumber(summary.train_return_pct) ?? undefined,
+      validate_return_pct: readNumber(summary.validate_return_pct) ?? undefined,
+      test_return_pct: readNumber(summary.test_return_pct) ?? undefined,
+      stress_return_pct: readNumber(summary.stress_return_pct) ?? undefined,
+      overfitting_risk: typeof summary.overfitting_risk === "boolean" ? summary.overfitting_risk : undefined,
+      data_quality_score: readNumber(summary.data_quality_score) ?? undefined,
+    },
   };
 }
 

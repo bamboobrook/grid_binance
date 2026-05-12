@@ -4,6 +4,7 @@ import Link from "next/link";
 import { startTransition, useEffect, useState } from "react";
 
 import { requestBacktestApi } from "@/components/backtest/request-client";
+import { MartingaleRiskWarning } from "@/components/backtest/martingale-risk-warning";
 import { AppShellSection } from "@/components/shell/app-shell-section";
 import { Card, CardBody, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Chip } from "@/components/ui/chip";
@@ -120,6 +121,7 @@ export function MartingalePortfolioList({
       eyebrow={pickText(lang, "Martingale Portfolio", "Martingale Portfolio")}
       title={pickText(lang, "Portfolio 运行总览", "Portfolio operations")}
     >
+      <MartingaleRiskWarning lang={lang} compact />
       {error ? (
         <StatusBanner
           description={error}
@@ -276,6 +278,7 @@ export function MartingalePortfolioDetail({
       eyebrow={pickText(lang, "Live Portfolio", "Live Portfolio")}
       title={portfolio ? portfolioName(portfolio) : portfolioId}
     >
+      <MartingaleRiskWarning lang={lang} compact />
       {loading ? <LoadingCard lang={lang} /> : null}
       {!loading && error ? (
         <StatusBanner

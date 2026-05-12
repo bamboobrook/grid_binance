@@ -1,10 +1,12 @@
 "use client";
 
-import { type ChangeEvent, useState } from "react";
+import { type ChangeEvent, useCallback, useState } from "react";
 import { requestBacktestApi } from "@/components/backtest/request-client";
 import { IndicatorRuleEditor } from "@/components/backtest/indicator-rule-editor";
 import { MartingaleParameterEditor } from "@/components/backtest/martingale-parameter-editor";
+import { MartingaleRiskWarning } from "@/components/backtest/martingale-risk-warning";
 import { RiskRuleEditor } from "@/components/backtest/risk-rule-editor";
+import { ScoringWeightEditor } from "@/components/backtest/scoring-weight-editor";
 import { SearchConfigEditor } from "@/components/backtest/search-config-editor";
 import { TimeSplitEditor } from "@/components/backtest/time-split-editor";
 import { pickText, type UiLanguage } from "@/lib/ui/preferences";
@@ -98,6 +100,8 @@ export function BacktestWizard({ lang, onTaskCreated }: { lang: UiLanguage; onTa
   const [form, setForm] = useState<WizardForm>(INITIAL_FORM);
   const [feedback, setFeedback] = useState("");
   const [pending, setPending] = useState(false);
+  const [indicators, setIndicators] = useState<Record<string, unknown>>({});
+  const [scoringWeights, setScoringWeights] = useState<Record<string, number> | null>(null);
 
   function onChange(event: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) {
     const { name, type, value } = event.currentTarget;
@@ -121,7 +125,7 @@ export function BacktestWizard({ lang, onTaskCreated }: { lang: UiLanguage; onTa
     const result = await requestBacktestApi("/api/user/backtest/tasks", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify(buildWizardPayload(form)),
+      body: JSON.stringify(buildWizardPayload(form, indicators, scoringWeights)),
     });
     setPending(false);
     if (!result.ok) {
@@ -134,6 +138,8 @@ export function BacktestWizard({ lang, onTaskCreated }: { lang: UiLanguage; onTa
 
   return (
     <div className="space-y-4">
+      <MartingaleRiskWarning lang={lang} />
+
       <div className="grid gap-3 md:grid-cols-5">
         {STEPS.map((step) => (
           <div className="rounded-xl border border-border bg-background p-3" key={step.key}>
@@ -161,9 +167,10 @@ export function BacktestWizard({ lang, onTaskCreated }: { lang: UiLanguage; onTa
       <div className="grid gap-4">
         <SearchConfigEditor form={form} lang={lang} onChange={onChange} />
         <MartingaleParameterEditor form={form} lang={lang} onChange={onChange} />
-        <IndicatorRuleEditor lang={lang} />
+        <IndicatorRuleEditor lang={lang} onChange={setIndicators} />
         <TimeSplitEditor form={form} lang={lang} onChange={onChange} />
         <RiskRuleEditor form={form} lang={lang} onChange={onChange} />
+        <ScoringWeightEditor lang={lang} onChange={setScoringWeights} />
       </div>
     </div>
   );
@@ -244,7 +251,7 @@ export function presetSearchSpaces(form: WizardForm) {
   return custom;
 }
 
-export function buildWizardPayload(form: WizardForm) {
+export function buildWizardPayload(form: WizardForm, indicators?: Record<string, unknown>, scoringWeights?: Record<string, number> | null) {
   const symbols = symbolsForForm(form);
   const minLeverage = integerValue(form.minLeverage, 1);
   const maxLeverage = integerValue(form.maxLeverage, minLeverage);
@@ -321,7 +328,7 @@ export function buildWizardPayload(form: WizardForm) {
         },
         take_profit: { percent: { bps: percentToBps(form.takeProfitPct, 1) } },
         stop_loss: { strategy_drawdown_pct: { pct_bps: percentToBps(form.perStrategyStopLossPct, 8) } },
-        indicators: [],
+        indicators: indicators && Object.keys(indicators).length > 0 ? indicators : [],
         entry_triggers: [{ immediate: null }],
         risk_limits: {},
       })),
@@ -341,6 +348,7 @@ export function buildWizardPayload(form: WizardForm) {
       profile: "survival_first",
       max_drawdown_pct: numberValue(form.maxDrawdownPct, 18),
       max_stop_loss_count: integerValue(form.maxStopLossCount, 3),
+      ...(scoringWeights ? { weights: scoringWeights } : {}),
     },
   };
 }
