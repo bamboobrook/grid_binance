@@ -7,8 +7,8 @@ import { BacktestResultTable } from "@/components/backtest/backtest-result-table
 import { BacktestTaskList } from "@/components/backtest/backtest-task-list";
 import { BacktestWizard } from "@/components/backtest/backtest-wizard";
 import { MartingaleRiskWarning } from "@/components/backtest/martingale-risk-warning";
-import { PortfolioCandidateReview } from "@/components/backtest/portfolio-candidate-review";
-import { requestBacktestApi } from "@/components/backtest/request-client";
+import { PortfolioCandidateReview, type PortfolioBasketItem } from "@/components/backtest/portfolio-candidate-review";
+import { publishPortfolio, requestBacktestApi } from "@/components/backtest/request-client";
 import type { MartingaleBacktestCandidateSummary } from "@/lib/api-types";
 import { pickText, type UiLanguage } from "@/lib/ui/preferences";
 import { cn } from "@/lib/utils";
@@ -37,6 +37,7 @@ type BacktestTask = {
   id: string;
   name: string;
   status: string;
+  rawStatus: string;
   progress: string;
   stage: string;
   updatedAt: string;
@@ -54,7 +55,12 @@ type BacktestCandidate = {
   tradeCount: string;
   parameters: string;
   decision: string;
+  rank?: number;
   summary: MartingaleBacktestCandidateSummary;
+};
+
+type RefreshTasksOptions = {
+  selectLatest?: boolean;
 };
 
 const SURFACE_TAGS = [
@@ -73,12 +79,13 @@ export function BacktestConsole({ lang, locale }: { lang: UiLanguage; locale: st
   const [candidates, setCandidates] = useState<BacktestCandidate[]>([]);
   const [selectedTaskId, setSelectedTaskId] = useState("");
   const [selectedCandidate, setSelectedCandidate] = useState<BacktestCandidate | null>(null);
+  const [basketItems, setBasketItems] = useState<PortfolioBasketItem[]>([]);
   const [feedback, setFeedback] = useState("");
   const [loading, setLoading] = useState(true);
   const activePanelId = activeTab === "wizard" ? "backtest-wizard-panel" : "backtest-professional-panel";
   const activeTabId = activeTab === "wizard" ? "backtest-wizard-tab" : "backtest-professional-tab";
 
-  const refreshTasks = useCallback(async () => {
+  const refreshTasks = useCallback(async (options: RefreshTasksOptions = {}) => {
     setLoading(true);
     const result = await requestBacktestApi("/api/user/backtest/tasks", { cache: "no-store" });
     setLoading(false);
@@ -90,7 +97,11 @@ export function BacktestConsole({ lang, locale }: { lang: UiLanguage; locale: st
     const normalized = apiTasks.map((task) => normalizeTask(task, lang));
     setTasks(normalized);
     const firstTaskId = normalized[0]?.id ?? "";
-    setSelectedTaskId((current) => current || firstTaskId);
+    setSelectedTaskId((current) => {
+      if (options.selectLatest) return firstTaskId;
+      if (current && normalized.some((task) => task.id === current)) return current;
+      return firstTaskId;
+    });
     setFeedback("");
   }, [lang]);
 
@@ -121,12 +132,54 @@ export function BacktestConsole({ lang, locale }: { lang: UiLanguage; locale: st
     void refreshCandidates(selectedTaskId);
   }, [refreshCandidates, selectedTaskId]);
 
-  const selectedTaskName = useMemo(
-    () => tasks.find((task) => task.id === selectedTaskId)?.name ?? selectedTaskId,
+  const selectedTask = useMemo(
+    () => tasks.find((task) => task.id === selectedTaskId) ?? null,
     [selectedTaskId, tasks],
   );
 
+  useEffect(() => {
+    if (!selectedTaskId || isTerminalTaskStatus(selectedTask?.rawStatus)) return;
+    const timer = window.setInterval(() => {
+      void refreshTasks();
+      void refreshCandidates(selectedTaskId);
+    }, 5000);
+    return () => window.clearInterval(timer);
+  }, [refreshCandidates, refreshTasks, selectedTask?.rawStatus, selectedTaskId]);
+
+  const selectedTaskName = useMemo(
+    () => selectedTask?.name ?? selectedTaskId,
+    [selectedTask, selectedTaskId],
+  );
+
   const selectedSummary = selectedCandidate?.summary ?? {};
+
+  function addCandidateToBasket(candidate: BacktestCandidate) {
+    const recommendedWeightPct = candidate.summary.recommended_weight_pct ?? (basketItems.length === 0 ? 100 : 0);
+    const recommendedLeverage = candidate.summary.recommended_leverage ?? 1;
+    const summarySnapshot = candidate.summary as Record<string, unknown>;
+    const parameterSnapshot = readObject(summarySnapshot.parameters) ?? readObject(summarySnapshot.config) ?? { description: candidate.parameters };
+    setBasketItems((current) => [
+      ...current,
+      {
+        localId: `${candidate.id}-${Date.now()}-${current.length}`,
+        candidateId: candidate.id,
+        taskId: selectedTaskId,
+        selectedTaskId,
+        symbol: candidate.symbol,
+        market: candidate.market,
+        direction: candidate.direction,
+        riskProfile: candidate.summary.risk_profile ?? "balanced",
+        parameters: candidate.parameters,
+        recommended_weight_pct: recommendedWeightPct,
+        recommended_leverage: recommendedLeverage,
+        weightPct: String(recommendedWeightPct),
+        leverage: String(recommendedLeverage),
+        enabled: true,
+        parameterSnapshot,
+        metricsSnapshot: { ...candidate.summary },
+      },
+    ]);
+  }
 
   return (
     <div className="space-y-6">
@@ -203,9 +256,9 @@ export function BacktestConsole({ lang, locale }: { lang: UiLanguage; locale: st
 
             <div aria-labelledby={activeTabId} id={activePanelId} role="tabpanel">
               {activeTab === "wizard" ? (
-                <BacktestWizard lang={lang} onTaskCreated={refreshTasks} />
+                <BacktestWizard lang={lang} onTaskCreated={() => refreshTasks({ selectLatest: true })} />
               ) : (
-                <BacktestProfessionalPanel lang={lang} onTaskCreated={refreshTasks} />
+                <BacktestProfessionalPanel lang={lang} onTaskCreated={() => refreshTasks({ selectLatest: true })} />
               )}
             </div>
           </section>
@@ -236,7 +289,13 @@ export function BacktestConsole({ lang, locale }: { lang: UiLanguage; locale: st
           <BacktestResultTable
             candidates={candidates}
             lang={lang}
+            onAddToBasket={(candidate) => {
+              setSelectedCandidate(candidate);
+              addCandidateToBasket(candidate);
+              setFeedback(pickText(lang, `已加入组合篮子：${candidate.symbol}`, `Added to portfolio basket: ${candidate.symbol}`));
+            }}
             selectedId={selectedCandidate?.id ?? ""}
+            selectedTaskStatus={selectedTask?.rawStatus ?? ""}
             taskName={selectedTaskName}
             onSelect={(candidate) => {
               const full = candidates.find((c) => c.id === candidate.id) ?? null;
@@ -255,9 +314,15 @@ export function BacktestConsole({ lang, locale }: { lang: UiLanguage; locale: st
             tasks={tasks}
           />
           <PortfolioCandidateReview
+            basketItems={basketItems}
             candidate={selectedCandidate}
             lang={lang}
             locale={locale}
+            onPublish={publishPortfolio}
+            onRemove={(localId) => setBasketItems((current) => current.filter((item) => item.localId !== localId))}
+            onUpdate={(localId, patch) => setBasketItems((current) => current.map((item) => (
+              item.localId === localId ? { ...item, ...patch } : item
+            )))}
           />
           <p aria-live="polite" className="text-sm text-muted-foreground">
             {feedback}
@@ -289,13 +354,15 @@ function normalizeTask(task: ApiTask, lang: UiLanguage): BacktestTask {
   const taskId = task.task_id ?? "";
   const config = task.config ?? {};
   const summary = task.summary ?? {};
-  const symbols = readStringArray(config.symbols).join("/") || pickText(lang, "未选择 symbol", "No symbols");
+  const taskSymbols = readTaskSymbols(config);
+  const symbols = taskSymbols.join("/") || pickText(lang, "未选择 symbol", "No symbols");
   const stage = readString(summary.stage_label) || readString(summary.stage) || readString(summary.current_stage) || statusStage(task.status, lang);
-  const progress = readProgress(summary);
+  const progress = readProgress(summary, taskSymbols.length, lang);
   return {
     id: taskId,
     name: `${symbols} · ${task.strategy_type ?? "martingale_grid"}`,
     status: humanizeStatus(task.status, lang),
+    rawStatus: task.status ?? "",
     progress,
     stage,
     updatedAt: formatDate(task.updated_at || task.created_at),
@@ -308,7 +375,8 @@ function normalizeCandidate(candidate: ApiCandidate, lang: UiLanguage): Backtest
   const portfolio = readObject(config.portfolio_config) ?? config;
   const strategies = readArray(readObject(portfolio)?.strategies);
   const firstStrategy = readObject(strategies[0]) ?? {};
-  const symbols = uniqueStrings(strategies.map((strategy) => readObject(strategy)?.symbol)).join("/")
+  const symbols = readString(summary.symbol)
+    || uniqueStrings(strategies.map((strategy) => readObject(strategy)?.symbol)).join("/")
     || readString(firstStrategy.symbol)
     || "—";
   const markets = uniqueStrings(strategies.map((strategy) => readObject(strategy)?.market)).join("/")
@@ -336,6 +404,7 @@ function normalizeCandidate(candidate: ApiCandidate, lang: UiLanguage): Backtest
     tradeCount: tradeCount == null ? "—" : String(Math.round(tradeCount)),
     parameters: describeCandidateParameters(spacing, sizing, takeProfit, lang),
     decision: humanizeCandidateDecision(candidate.status, summary, lang),
+    rank: candidate.rank,
     summary: {
       score: readNumber(summary.score) ?? undefined,
       total_return_pct: readNumber(summary.total_return_pct) ?? undefined,
@@ -347,6 +416,8 @@ function normalizeCandidate(candidate: ApiCandidate, lang: UiLanguage): Backtest
       rejection_reasons: Array.isArray(summary.rejection_reasons) ? summary.rejection_reasons as string[] : undefined,
       stress_window_scores: typeof summary.stress_window_scores === "object" && summary.stress_window_scores != null ? summary.stress_window_scores as Record<string, number> : undefined,
       equity_curve: Array.isArray(summary.equity_curve) ? summary.equity_curve as { ts: number; equity: number; drawdown?: number }[] : undefined,
+      drawdown_curve: Array.isArray(summary.drawdown_curve) ? summary.drawdown_curve as { ts: number; equity: number; drawdown?: number }[] : undefined,
+      artifact_path: readString(summary.artifact_path) || undefined,
       stop_loss_events: Array.isArray(summary.stop_loss_events) ? summary.stop_loss_events as { ts: number; symbol: string; reason: string; loss_pct: number }[] : undefined,
       train_return_pct: readNumber(summary.train_return_pct) ?? undefined,
       validate_return_pct: readNumber(summary.validate_return_pct) ?? undefined,
@@ -358,6 +429,7 @@ function normalizeCandidate(candidate: ApiCandidate, lang: UiLanguage): Backtest
       recommended_leverage: readNumber(summary.recommended_leverage) ?? undefined,
       parameter_rank_for_symbol: readNumber(summary.parameter_rank_for_symbol) ?? undefined,
       risk_profile: readString(summary.risk_profile) || undefined,
+      risk_summary_human: readString(summary.risk_summary_human) || undefined,
       portfolio_group_key: readString(summary.portfolio_group_key) || undefined,
     },
   };
@@ -456,9 +528,31 @@ function readNumber(value: unknown): number | null {
   return null;
 }
 
-function readProgress(summary: Record<string, unknown>) {
+function readProgress(summary: Record<string, unknown>, fallbackTotalSymbols: number, lang: UiLanguage) {
   const progress = readNumber(summary.progress_pct) ?? readNumber(summary.progress);
-  return progress == null ? "—" : `${Math.round(progress)}%`;
+  const evaluatedCandidates = readNumber(summary.evaluated_candidates) ?? readNumber(summary.candidates_evaluated);
+  const completedSymbolsValue = summary.completed_symbols;
+  const completedSymbols = Array.isArray(completedSymbolsValue)
+    ? completedSymbolsValue.length
+    : readNumber(completedSymbolsValue) ?? readNumber(summary.completed_symbol_count);
+  const totalSymbols = readNumber(summary.total_symbols) ?? readNumber(summary.symbol_count) ?? fallbackTotalSymbols;
+  const parts = [
+    progress == null ? null : `${Math.round(progress)}%`,
+    evaluatedCandidates == null ? null : pickText(lang, `已评估候选 ${evaluatedCandidates}`, `${evaluatedCandidates} evaluated candidates`),
+    completedSymbols == null ? null : pickText(lang, `已完成币种 ${completedSymbols}/${totalSymbols || "?"}`, `${completedSymbols}/${totalSymbols || "?"} completed symbols`),
+  ].filter(Boolean);
+  return parts.join(" · ") || "—";
+}
+
+function readTaskSymbols(config: Record<string, unknown>) {
+  const directSymbols = readStringArray(config.symbols);
+  if (directSymbols.length > 0) return directSymbols;
+  const symbolPool = readObject(config.symbol_pool);
+  return readStringArray(symbolPool?.whitelist);
+}
+
+function isTerminalTaskStatus(status: string | undefined) {
+  return ["succeeded", "completed", "failed", "cancelled", "canceled"].includes(status ?? "");
 }
 
 function uniqueStrings(values: unknown[]) {

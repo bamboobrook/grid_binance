@@ -100,7 +100,7 @@ export function BacktestTaskList({
           { key: "updatedAt", label: pickText(lang, "更新时间", "Updated"), align: "right" },
           { key: "actions", label: pickText(lang, "操作", "Actions") },
         ]}
-        emptyMessage={pickText(lang, "暂无回测任务。", "No backtest tasks yet.")}
+        emptyMessage={pickText(lang, "暂无回测任务，选择币种后开始自动搜索 Top 5", "No backtest tasks yet; select symbols to start automatic Top 5 search.")}
         rows={rows}
       />
       <p aria-live="polite" className="text-sm text-muted-foreground">{feedback}</p>

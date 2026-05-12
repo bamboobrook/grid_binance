@@ -22,12 +22,18 @@ type PortfolioRiskLimits = {
 
 type PortfolioStrategy = {
   strategy_id: string;
+  strategy_instance_id: string;
+  candidate_id?: string | null;
   symbol: string;
   market: string;
   direction: string;
   runtime_status?: StrategyStatus | null;
   margin_mode?: string | null;
   leverage?: number | null;
+  weight_pct?: number | null;
+  enabled?: boolean | null;
+  parameter_snapshot?: Record<string, unknown> | null;
+  metrics_snapshot?: Record<string, unknown> | null;
   sizing?: Record<string, unknown> | null;
   spacing?: Record<string, unknown> | null;
   take_profit?: Record<string, unknown> | null;
@@ -42,9 +48,16 @@ type PortfolioConfig = {
 
 type LivePortfolio = {
   portfolio_id: string;
+  name?: string;
   owner?: string;
   status: string;
   candidate_id?: string;
+  source_task_id?: string;
+  market?: string;
+  direction?: string;
+  risk_profile?: string;
+  total_weight_pct?: number | null;
+  created_at?: string;
   risk_summary?: Record<string, unknown> | null;
   config: PortfolioConfig;
 };
@@ -115,8 +128,8 @@ export function MartingalePortfolioList({
       }
       description={pickText(
         lang,
-        "列表页直接汇总状态、预算上限、全局回撤阈值、活跃策略数，以及需要人工处理或孤儿实例风险。",
-        "This list keeps status, equity cap, portfolio drawdown threshold, active strategy count, and operator/orphan warnings visible.",
+        "发布后的组合列表展示名称、状态、市场、方向、风险档位、策略实例数量、总权重与创建时间。",
+        "Published portfolios show name, status, market, direction, risk profile, strategy instance count, total weight, and created time.",
       )}
       eyebrow={pickText(lang, "Martingale Portfolio", "Martingale Portfolio")}
       title={pickText(lang, "Portfolio 运行总览", "Portfolio operations")}
@@ -136,12 +149,12 @@ export function MartingalePortfolioList({
         ) : portfolios.length === 0 ? (
           <Card className="xl:col-span-2">
             <CardHeader>
-              <CardTitle>{pickText(lang, "还没有 Portfolio", "No portfolios yet")}</CardTitle>
+              <CardTitle>{pickText(lang, "暂无实盘马丁组合", "No live martingale portfolios")}</CardTitle>
               <CardDescription>
                 {pickText(
                   lang,
-                  "先在回测台发布候选，再回到这里管理运行状态。",
-                  "Publish a candidate from the backtest desk first, then manage it here.",
+                  "暂无实盘马丁组合，可先从回测结果篮子批量发布。",
+                  "No live martingale portfolios yet. Batch publish from the backtest result basket first.",
                 )}
               </CardDescription>
             </CardHeader>
@@ -155,9 +168,7 @@ export function MartingalePortfolioList({
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div className="space-y-1">
                       <CardTitle>{portfolioName(portfolio)}</CardTitle>
-                      <CardDescription>
-                        {portfolio.config.strategies.map((strategy) => strategy.symbol).join(" / ") || portfolio.portfolio_id}
-                      </CardDescription>
+                      <CardDescription>{portfolio.portfolio_id}</CardDescription>
                     </div>
                     <Chip tone={statusTone(portfolio.status)}>{humanizeStatus(lang, portfolio.status)}</Chip>
                   </div>
@@ -165,20 +176,28 @@ export function MartingalePortfolioList({
                 <CardBody className="space-y-4">
                   <dl className="grid grid-cols-2 gap-3 text-sm">
                     <MetricBlock
-                      label={pickText(lang, "总权益上限", "Total equity cap")}
-                      value={formatQuote(readNumber(portfolio.config.risk_limits?.max_global_budget_quote), lang)}
+                      label={pickText(lang, "市场", "Market")}
+                      value={humanizeMarket(lang, portfolio.market ?? portfolio.config.strategies[0]?.market ?? "spot")}
                     />
                     <MetricBlock
-                      label={pickText(lang, "全局回撤阈值", "Portfolio drawdown")}
-                      value={formatQuote(readNumber(portfolio.config.risk_limits?.max_global_drawdown_quote), lang)}
+                      label={pickText(lang, "方向", "Direction")}
+                      value={humanizeDirection(lang, portfolio.direction ?? portfolio.config.direction_mode ?? portfolio.config.strategies[0]?.direction ?? "long")}
                     />
                     <MetricBlock
-                      label={pickText(lang, "明确运行策略", "Explicit running strategies")}
-                      value={String(activeStrategyCount(portfolio))}
+                      label={pickText(lang, "风险档位", "Risk profile")}
+                      value={portfolio.risk_profile || "-"}
                     />
                     <MetricBlock
-                      label={pickText(lang, "风险摘要", "Risk summary")}
-                      value={riskSummaryText(lang, portfolio)}
+                      label={pickText(lang, "策略实例", "Strategy instances")}
+                      value={String(portfolio.config.strategies.length)}
+                    />
+                    <MetricBlock
+                      label={pickText(lang, "总权重", "Total weight")}
+                      value={formatPercent(portfolio.total_weight_pct)}
+                    />
+                    <MetricBlock
+                      label={pickText(lang, "创建时间", "Created time")}
+                      value={formatDateTime(portfolio.created_at, lang)}
                     />
                   </dl>
                   <div className="flex flex-wrap gap-2">
@@ -305,11 +324,11 @@ export function MartingalePortfolioDetail({
               value={humanizeStatus(lang, portfolio.status)}
             />
             <StatCard
-              label={pickText(lang, "明确运行策略", "Explicit running strategies")}
-              value={String(activeStrategyCount(portfolio))}
+              label={pickText(lang, "策略实例", "Strategy instances")}
+              value={String(portfolio.config.strategies.length)}
             />
             <StatCard
-              label={pickText(lang, "Symbol 暴露", "Symbol exposure")}
+              label={pickText(lang, "币种级统计", "Symbol-level stats")}
               value={String(uniqueSymbols(portfolio).length)}
             />
             <StatCard
@@ -326,8 +345,8 @@ export function MartingalePortfolioDetail({
                   <CardDescription>
                     {pickText(
                       lang,
-                      "当前“暂停新开仓”会复用 Portfolio pause 接口，把组合切到 paused；后端补齐专用 runtime 动作前，这里按临时语义展示。",
-                      "The current pause-new-entries action reuses the portfolio pause endpoint and moves the portfolio into paused. Until a dedicated runtime action exists, the UI labels this as a temporary semantic fallback.",
+                      "Start/Pause/Stop 当前确认组合记录状态；实盘自动下单需连接策略执行器后启用。",
+                      "Start/Pause/Stop currently confirms portfolio record status; live automated orders require a connected strategy executor.",
                     )}
                   </CardDescription>
                 </div>
@@ -349,10 +368,10 @@ export function MartingalePortfolioDetail({
                   <CardHeader>
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <div className="space-y-1">
-                        <CardTitle>{group.symbol}</CardTitle>
+                      <CardTitle>{group.symbol}</CardTitle>
                         <CardDescription>{group.label}</CardDescription>
                       </div>
-                      <Chip tone="info">{pickText(lang, "实例组", "Instance group")}</Chip>
+                      <Chip tone="info">{pickText(lang, "策略实例级统计", "Strategy instance-level stats")}</Chip>
                     </div>
                   </CardHeader>
                   <CardBody className="space-y-4">
@@ -360,15 +379,15 @@ export function MartingalePortfolioDetail({
                       const statusSource = resolveStrategyStatus(
                         strategy,
                         portfolio.status,
-                        strategy.strategy_id ? strategyStatuses[strategy.strategy_id] : undefined,
+                        strategy.strategy_instance_id ? strategyStatuses[strategy.strategy_instance_id] : undefined,
                       );
                       return (
-                        <div className="rounded-sm border border-border/70 p-4" key={strategy.strategy_id || `${strategy.symbol}-${strategy.direction}`}>
+                        <div className="rounded-sm border border-border/70 p-4" key={strategy.strategy_instance_id || `${strategy.symbol}-${strategy.direction}`}>
                           <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                             <div className="space-y-3">
                               <div className="flex flex-wrap items-center gap-2">
                                 <span className="text-sm font-semibold text-foreground">
-                                  {strategy.strategy_id || pickText(lang, "未绑定实例 ID", "Missing strategy instance id")}
+                                  {strategy.strategy_instance_id || pickText(lang, "未绑定策略实例", "Missing strategy instance")}
                                 </span>
                                 <Chip tone={strategyStatusTone(statusSource)}>{renderStrategyStatusLabel(lang, statusSource)}</Chip>
                               </div>
@@ -376,6 +395,14 @@ export function MartingalePortfolioDetail({
                                 {renderStrategyStatusDescription(lang, statusSource)}
                               </p>
                               <dl className="grid grid-cols-2 gap-3 text-sm">
+                                <MetricBlock
+                                  label={pickText(lang, "策略实例", "Strategy instance")}
+                                  value={strategy.strategy_instance_id || "-"}
+                                />
+                                <MetricBlock
+                                  label={pickText(lang, "来源候选", "Source candidate")}
+                                  value={strategy.candidate_id || portfolio.candidate_id || "-"}
+                                />
                                 <MetricBlock
                                   label={pickText(lang, "方向", "Direction")}
                                   value={humanizeDirection(lang, strategy.direction)}
@@ -385,12 +412,12 @@ export function MartingalePortfolioDetail({
                                   value={humanizeMarket(lang, strategy.market)}
                                 />
                                 <MetricBlock
-                                  label={pickText(lang, "首单", "First order")}
-                                  value={formatQuote(readNumber(readSizingValue(strategy.sizing, "first_order_quote")), lang)}
+                                  label={pickText(lang, "权重", "Weight")}
+                                  value={formatPercent(strategy.weight_pct)}
                                 />
                                 <MetricBlock
-                                  label={pickText(lang, "最大腿数", "Max legs")}
-                                  value={String(readNumber(readSizingValue(strategy.sizing, "max_legs")) ?? "-")}
+                                  label={pickText(lang, "启用状态", "Enabled")}
+                                  value={strategy.enabled === null ? "-" : strategy.enabled ? pickText(lang, "已启用", "Enabled") : pickText(lang, "已禁用", "Disabled")}
                                 />
                                 <MetricBlock
                                   label={pickText(lang, "杠杆 / 保证金", "Leverage / margin")}
@@ -400,21 +427,25 @@ export function MartingalePortfolioDetail({
                                   ].filter(Boolean).join(" · ") || "-"}
                                 />
                                 <MetricBlock
-                                  label={pickText(lang, "单策略预算", "Strategy budget")}
-                                  value={formatQuote(strategyBudget(strategy), lang)}
+                                  label={pickText(lang, "参数摘要", "Parameter summary")}
+                                  value={snapshotSummary(strategy.parameter_snapshot ?? strategy.sizing)}
+                                />
+                                <MetricBlock
+                                  label={pickText(lang, "指标快照", "Metrics snapshot")}
+                                  value={snapshotSummary(strategy.metrics_snapshot)}
                                 />
                               </dl>
                             </div>
                             <LivePortfolioControls
-                              entity={{ kind: "strategy", strategyId: strategy.strategy_id, statusSource }}
+                              entity={{ kind: "strategy", strategyId: strategy.strategy_instance_id, statusSource }}
                               lang={lang}
                               onStrategyChange={(next) => {
-                                if (!strategy.strategy_id) {
+                                if (!strategy.strategy_instance_id) {
                                   return;
                                 }
                                 setStrategyStatuses((current) => ({
                                   ...current,
-                                  [strategy.strategy_id]: next,
+                                  [strategy.strategy_instance_id]: next,
                                 }));
                               }}
                             />
@@ -430,12 +461,12 @@ export function MartingalePortfolioDetail({
             <div className="space-y-4">
               <Card>
                 <CardHeader>
-                  <CardTitle>{pickText(lang, "Symbol 暴露", "Symbol exposure")}</CardTitle>
+                  <CardTitle>{pickText(lang, "币种级统计", "Symbol-level stats")}</CardTitle>
                   <CardDescription>
                     {pickText(
                       lang,
-                      "按 symbol 汇总预算与方向覆盖，方便复核集中暴露。",
-                      "Budget and direction coverage are aggregated by symbol for quick concentration checks.",
+                      "组合级统计、币种级统计、策略实例级统计分层展示；暂无 live stats 时仅展示发布快照。",
+                      "Portfolio-level stats, symbol-level stats, and strategy instance-level stats are separated; without live stats, only publish snapshots are shown.",
                     )}
                   </CardDescription>
                 </CardHeader>
@@ -446,7 +477,7 @@ export function MartingalePortfolioDetail({
                       { key: "directions", label: pickText(lang, "方向", "Directions") },
                       { key: "budget", label: pickText(lang, "预算", "Budget"), align: "right" },
                     ]}
-                    emptyMessage={pickText(lang, "暂无 symbol 暴露。", "No symbol exposure yet.")}
+                    emptyMessage={pickText(lang, "暂无 live stats，等待运行时同步。", "No live stats yet; waiting for runtime sync.")}
                     rows={exposureRows}
                   />
                 </CardBody>
@@ -454,7 +485,7 @@ export function MartingalePortfolioDetail({
 
               <Card>
                 <CardHeader>
-                  <CardTitle>{pickText(lang, "Portfolio 风险边界", "Portfolio risk guardrails")}</CardTitle>
+                  <CardTitle>{pickText(lang, "组合级统计", "Portfolio-level stats")}</CardTitle>
                 </CardHeader>
                 <CardBody className="space-y-2 text-sm text-muted-foreground">
                   <p>
@@ -543,6 +574,13 @@ function LivePortfolioControls({
 
       if (entity.kind === "portfolio") {
         const nextStatus = action === "pause" ? "paused" : action === "stop" ? "stopped" : "running";
+        setMessage(
+          pickText(
+            lang,
+            `已确认组合记录状态：${humanizeStatus(lang, nextStatus)}。实盘自动下单需连接策略执行器后启用。`,
+            `Confirmed portfolio record status: ${humanizeStatus(lang, nextStatus)}. Live automated orders require a connected strategy executor.`,
+          ),
+        );
         startTransition(() => onPortfolioChange?.(nextStatus));
         return;
       }
@@ -575,8 +613,8 @@ function LivePortfolioControls({
             type="button"
           >
             {entity.status === "pending_confirmation"
-              ? pickText(lang, "启动 Portfolio", "Start portfolio")
-              : pickText(lang, "恢复运行", "Resume running")}
+              ? pickText(lang, "确认启用组合记录", "Confirm portfolio record")
+              : pickText(lang, "确认恢复组合记录", "Confirm resume record")}
           </Button>
         ) : null}
         {entity.kind === "portfolio" && entity.status === "running" ? (
@@ -588,7 +626,7 @@ function LivePortfolioControls({
             tone="outline"
             type="button"
           >
-            {pickText(lang, "暂停新开仓", "Pause new entries")}
+            {pickText(lang, "确认暂停组合记录", "Confirm pause record")}
           </Button>
         ) : null}
         {entity.kind === "strategy" && inferredStatus === "running" ? (
@@ -630,6 +668,15 @@ function LivePortfolioControls({
           </Button>
         ) : null}
       </div>
+      {entity.kind === "portfolio" ? (
+        <p className="text-xs text-muted-foreground">
+          {pickText(
+            lang,
+            "禁用原因：操作提交中或组合已停止；这些按钮只记录生命周期状态，不代表已经自动真实下单。",
+            "Disabled when an action is pending or the portfolio is stopped; these buttons record lifecycle status only and do not imply live orders.",
+          )}
+        </p>
+      ) : null}
       {message ? <p aria-live="polite" className="text-xs text-destructive" role="status">{message}</p> : null}
     </div>
   );
@@ -638,18 +685,33 @@ function LivePortfolioControls({
 function normalizePortfolio(value: unknown): LivePortfolio {
   const source = value && typeof value === "object" ? (value as Record<string, unknown>) : {};
   const configSource = source.config && typeof source.config === "object" ? (source.config as Record<string, unknown>) : {};
-  const strategiesSource = Array.isArray(configSource.strategies) ? configSource.strategies : [];
+  const strategiesSource = Array.isArray(source.items)
+    ? source.items
+    : Array.isArray(configSource.strategies)
+      ? configSource.strategies
+      : [];
 
   return {
     portfolio_id: String(source.portfolio_id ?? "unknown-portfolio"),
+    name: typeof source.name === "string" ? source.name : undefined,
     owner: typeof source.owner === "string" ? source.owner : undefined,
     status: typeof source.status === "string" ? source.status : "pending_confirmation",
     candidate_id: typeof source.candidate_id === "string" ? source.candidate_id : undefined,
+    source_task_id: typeof source.source_task_id === "string" ? source.source_task_id : undefined,
+    market: typeof source.market === "string" ? source.market : undefined,
+    direction: typeof source.direction === "string" ? source.direction : undefined,
+    risk_profile: typeof source.risk_profile === "string" ? source.risk_profile : undefined,
+    total_weight_pct: readNumber(source.total_weight_pct),
+    created_at: typeof source.created_at === "string" ? source.created_at : undefined,
     risk_summary: source.risk_summary && typeof source.risk_summary === "object"
       ? (source.risk_summary as Record<string, unknown>)
       : null,
     config: {
-      direction_mode: typeof configSource.direction_mode === "string" ? configSource.direction_mode : undefined,
+      direction_mode: typeof configSource.direction_mode === "string"
+        ? configSource.direction_mode
+        : typeof source.direction === "string"
+          ? source.direction
+          : undefined,
       risk_limits: normalizeRiskLimits(configSource.risk_limits),
       strategies: strategiesSource.map((entry, index) => normalizeStrategy(entry, index)),
     },
@@ -658,21 +720,30 @@ function normalizePortfolio(value: unknown): LivePortfolio {
 
 function normalizeStrategy(value: unknown, index: number): PortfolioStrategy {
   const source = value && typeof value === "object" ? (value as Record<string, unknown>) : {};
+  const parameterSnapshot = readObject(source.parameter_snapshot);
   return {
-    strategy_id: typeof source.strategy_id === "string" ? source.strategy_id : "",
+    strategy_id: typeof source.strategy_id === "string" ? source.strategy_id : typeof source.strategy_instance_id === "string" ? source.strategy_instance_id : "",
+    strategy_instance_id: typeof source.strategy_instance_id === "string" ? source.strategy_instance_id : typeof source.strategy_id === "string" ? source.strategy_id : "",
+    candidate_id: typeof source.candidate_id === "string" ? source.candidate_id : null,
     symbol: typeof source.symbol === "string" ? source.symbol : "UNKNOWN",
     market: typeof source.market === "string" ? source.market : "spot",
     direction: typeof source.direction === "string" ? source.direction : "long",
     runtime_status: readStrategyStatus(source.runtime_status) ?? readStrategyStatus(source.status),
     margin_mode: typeof source.margin_mode === "string" ? source.margin_mode : null,
     leverage: readNumber(source.leverage),
-    sizing: source.sizing && typeof source.sizing === "object" ? (source.sizing as Record<string, unknown>) : null,
-    spacing: source.spacing && typeof source.spacing === "object" ? (source.spacing as Record<string, unknown>) : null,
-    take_profit: source.take_profit && typeof source.take_profit === "object"
-      ? (source.take_profit as Record<string, unknown>)
-      : null,
+    weight_pct: readNumber(source.weight_pct),
+    enabled: typeof source.enabled === "boolean" ? source.enabled : null,
+    parameter_snapshot: parameterSnapshot,
+    metrics_snapshot: readObject(source.metrics_snapshot),
+    sizing: readObject(source.sizing) ?? readObject(parameterSnapshot?.sizing),
+    spacing: readObject(source.spacing) ?? readObject(parameterSnapshot?.spacing),
+    take_profit: readObject(source.take_profit) ?? readObject(parameterSnapshot?.take_profit),
     risk_limits: normalizeRiskLimits(source.risk_limits),
   };
+}
+
+function readObject(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : null;
 }
 
 function normalizeRiskLimits(value: unknown): PortfolioRiskLimits | null {
@@ -683,6 +754,9 @@ function normalizeRiskLimits(value: unknown): PortfolioRiskLimits | null {
 }
 
 function portfolioName(portfolio: LivePortfolio) {
+  if (portfolio.name) {
+    return portfolio.name;
+  }
   const leadSymbol = portfolio.config.strategies[0]?.symbol ?? portfolio.portfolio_id;
   return `Martingale Portfolio ${leadSymbol}`;
 }
@@ -824,6 +898,53 @@ function readNumber(value: unknown): number | null {
     return Number.isFinite(parsed) ? parsed : null;
   }
   return null;
+}
+
+function formatPercent(value: number | null | undefined) {
+  if (value === null || value === undefined) {
+    return "-";
+  }
+  return `${new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 }).format(value)}%`;
+}
+
+function formatDateTime(value: string | undefined, lang: UiLanguage) {
+  if (!value) {
+    return "-";
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+  return new Intl.DateTimeFormat(lang === "zh" ? "zh-CN" : "en-US", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(date);
+}
+
+function snapshotSummary(snapshot: Record<string, unknown> | null | undefined) {
+  if (!snapshot || Object.keys(snapshot).length === 0) {
+    return "-";
+  }
+  return Object.entries(snapshot)
+    .slice(0, 3)
+    .map(([key, value]) => `${key}: ${formatSnapshotValue(value)}`)
+    .join(" · ");
+}
+
+function formatSnapshotValue(value: unknown) {
+  if (value === null || value === undefined) {
+    return "-";
+  }
+  if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
+    return String(value);
+  }
+  if (Array.isArray(value)) {
+    return `[${value.length}]`;
+  }
+  if (typeof value === "object") {
+    return "{...}";
+  }
+  return String(value);
 }
 
 function formatQuote(value: number | null, lang: UiLanguage) {

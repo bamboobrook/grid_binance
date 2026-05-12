@@ -1,6 +1,6 @@
 "use client";
 
-import { type ChangeEvent, useState } from "react";
+import { type ChangeEvent, type ReactNode, useState } from "react";
 import { requestBacktestApi } from "@/components/backtest/request-client";
 import { IndicatorRuleEditor } from "@/components/backtest/indicator-rule-editor";
 import { MartingaleParameterEditor } from "@/components/backtest/martingale-parameter-editor";
@@ -154,26 +154,79 @@ export function BacktestWizard({ lang, onTaskCreated }: { lang: UiLanguage; onTa
           <div>
             <p className="text-sm font-semibold">{pickText(lang, "可编辑向导任务", "Editable wizard task")}</p>
             <p className="text-xs text-muted-foreground">
-              {pickText(lang, "按下面表单设置币种、马丁参数、时间区间和风险规则，然后启动真实回测。", "Set symbols, martingale parameters, time ranges, and risk rules below, then start a real backtest.")}
+              {pickText(lang, "只需填写币种、市场、方向与风险档位，系统自动搜索每个币种 Top 5。", "Only fill symbols, market, direction, and risk profile; the system searches each symbol's Top 5 automatically.")}
             </p>
           </div>
           <button className="rounded-full bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-60" disabled={pending} onClick={() => void createTask()} type="button">
-            {pending ? pickText(lang, "创建中…", "Creating...") : pickText(lang, "启动回测", "Start backtest")}
+            {pending ? pickText(lang, "创建中…", "Creating...") : pickText(lang, "开始自动搜索 Top 5", "Start automatic Top 5 search")}
           </button>
         </div>
         <p aria-live="polite" className="mt-3 text-sm text-muted-foreground">{feedback}</p>
       </div>
 
       <div className="grid gap-4">
-        <SearchConfigEditor form={form} lang={lang} onChange={onChange} />
-        <MartingaleParameterEditor form={form} lang={lang} onChange={onChange} />
-        <IndicatorRuleEditor lang={lang} onChange={setIndicators} />
-        <TimeSplitEditor form={form} lang={lang} onChange={onChange} />
-        <RiskRuleEditor form={form} lang={lang} onChange={onChange} />
-        <ScoringWeightEditor lang={lang} onChange={setScoringWeights} />
+        <AutomaticSearchPanel form={form} lang={lang} onChange={onChange} />
+        <details className="rounded-2xl border border-dashed border-border bg-card/60 p-4 text-muted-foreground">
+          <summary className="cursor-pointer text-base font-semibold text-foreground">
+            {pickText(lang, "高级参数搜索范围", "Advanced parameter search space")}
+          </summary>
+          <div className="mt-4 grid gap-4 opacity-90">
+            <SearchConfigEditor form={form} lang={lang} onChange={onChange} />
+            <MartingaleParameterEditor form={form} lang={lang} onChange={onChange} />
+            <IndicatorRuleEditor lang={lang} onChange={setIndicators} />
+            <TimeSplitEditor form={form} lang={lang} onChange={onChange} />
+            <RiskRuleEditor form={form} lang={lang} onChange={onChange} />
+            <ScoringWeightEditor lang={lang} onChange={setScoringWeights} />
+          </div>
+        </details>
       </div>
     </div>
   );
+}
+
+function AutomaticSearchPanel({ form, lang, onChange }: { form: WizardForm; lang: UiLanguage; onChange: (event: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => void }) {
+  return (
+    <section className="rounded-2xl border border-primary/20 bg-card p-4 shadow-sm">
+      <div className="mb-4">
+        <h3 className="text-lg font-semibold">{pickText(lang, "自动搜索向导", "Automatic search wizard")}</h3>
+        <p className="text-sm text-muted-foreground">{pickText(lang, "默认提交 automatic search payload；高级参数已折叠，可按风险档位自动生成搜索范围。", "Submits an automatic search payload by default; advanced parameters stay collapsed and are generated from the risk profile.")}</p>
+      </div>
+      <div className="grid gap-4 lg:grid-cols-2">
+        <label className="flex flex-col gap-1 text-sm lg:col-span-2">
+          <span className="text-xs uppercase tracking-wide text-muted-foreground">whitelist · max 20</span>
+          <textarea className="min-h-20 rounded-lg border border-border bg-background px-3 py-2" name="whitelist" onChange={onChange} placeholder="BTCUSDT, ETHUSDT" value={form.whitelist} />
+        </label>
+        <label className="flex flex-col gap-1 text-sm lg:col-span-2">
+          <span className="text-xs uppercase tracking-wide text-muted-foreground">{pickText(lang, "blacklist（可选）", "blacklist (optional)")}</span>
+          <textarea className="min-h-16 rounded-lg border border-border bg-background px-3 py-2 text-muted-foreground" name="blacklist" onChange={onChange} placeholder="DOGEUSDT, PEPEUSDT" value={form.blacklist} />
+        </label>
+        <WizardSelect label={pickText(lang, "市场", "Market")} name="market" onChange={onChange} value={form.market}>
+          <option value="spot">Spot</option>
+          <option value="usd_m_futures">USDT-M Futures</option>
+        </WizardSelect>
+        <WizardSelect label={pickText(lang, "方向", "Direction")} name="directionMode" onChange={onChange} value={form.directionMode}>
+          <option value="long_only">Long</option>
+          <option value="short_only">Short</option>
+          <option value="long_and_short">Long + Short</option>
+        </WizardSelect>
+        <WizardSelect label={pickText(lang, "风险档位", "Risk profile")} name="parameterPreset" onChange={onChange} value={form.parameterPreset}>
+          <option value="conservative">{pickText(lang, "保守", "Conservative")}</option>
+          <option value="balanced">{pickText(lang, "均衡", "Balanced")}</option>
+          <option value="aggressive">{pickText(lang, "激进", "Aggressive")}</option>
+          <option value="custom">{pickText(lang, "手动", "Custom")}</option>
+        </WizardSelect>
+        <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3 text-sm">
+          <p className="text-xs uppercase tracking-wide text-muted-foreground">{pickText(lang, "自动时间范围", "Automatic time range")}</p>
+          <p className="mt-1 font-semibold">{form.trainStart} → {form.testEnd}</p>
+          <p className="mt-1 text-xs text-muted-foreground">{pickText(lang, "固定从 2023-01-01 开始，结束于浏览器当前日期的上个月月底。", "Fixed from 2023-01-01 through the previous month end from the browser's current date.")}</p>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function WizardSelect({ children, label, name, onChange, value }: { children: ReactNode; label: string; name: keyof WizardForm; onChange: (event: ChangeEvent<HTMLSelectElement>) => void; value: string }) {
+  return <label className="flex flex-col gap-1 text-sm"><span className="text-xs uppercase tracking-wide text-muted-foreground">{label}</span><select className="rounded-lg border border-border bg-background px-3 py-2" name={name} onChange={onChange} value={value}>{children}</select></label>;
 }
 
 export function parseSymbolList(value: string) {
@@ -206,10 +259,17 @@ function dateToMs(value: string, endOfDay = false) {
   return Number.isFinite(ms) ? ms : 0;
 }
 
+export function resolveAutomaticTimeRange(now = new Date()) {
+  return {
+    trainStart: "2023-01-01",
+    testEnd: formatLocalDate(new Date(now.getFullYear(), now.getMonth(), 0)),
+  };
+}
+
 export function resolveAutoTimeSplit(now = new Date()) {
-  const trainStart = "2023-01-01";
+  const { trainStart, testEnd } = resolveAutomaticTimeRange(now);
   const trainStartDate = new Date(`${trainStart}T00:00:00.000Z`);
-  const lastDayOfPreviousMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 0));
+  const lastDayOfPreviousMonth = new Date(`${testEnd}T00:00:00.000Z`);
   const totalDays = daysBetweenInclusive(trainStartDate, lastDayOfPreviousMonth);
   const trainDays = Math.max(1, Math.floor(totalDays * 0.7));
   const validateDays = Math.max(1, Math.floor(totalDays * 0.15));
@@ -218,12 +278,12 @@ export function resolveAutoTimeSplit(now = new Date()) {
   const validateEnd = addDays(validateStart, validateDays - 1);
   const testStart = addDays(validateEnd, 1);
   return {
-    trainStart: "2023-01-01",
+    trainStart,
     trainEnd: formatDate(trainEnd),
     validateStart: formatDate(validateStart),
     validateEnd: formatDate(validateEnd),
     testStart: formatDate(testStart),
-    testEnd: formatDate(lastDayOfPreviousMonth),
+    testEnd,
   };
 }
 
@@ -235,6 +295,13 @@ function addDays(date: Date, days: number) {
 
 function formatDate(date: Date) {
   return date.toISOString().slice(0, 10);
+}
+
+function formatLocalDate(date: Date) {
+  const year = date.getFullYear();
+  const month = `${date.getMonth() + 1}`.padStart(2, "0");
+  const day = `${date.getDate()}`.padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
 function daysBetweenInclusive(start: Date, end: Date) {
@@ -301,9 +368,13 @@ export function buildWizardPayload(form: WizardForm, indicators?: Record<string,
 
   return {
     strategy_type: "martingale_grid",
+    time_range_mode: "auto_previous_month_end",
     symbols,
     risk_profile: form.parameterPreset,
     per_symbol_top_n: 5,
+    search_space_mode: "risk_profile_auto",
+    train_start: "2023-01-01",
+    test_end: timeSplit.testEnd,
     random_seed: integerValue(form.randomSeed, 1),
     random_candidates: integerValue(form.candidateBudget, 16),
     intelligent_rounds: form.searchMode === "intelligent" ? integerValue(form.intelligentRounds, 2) : 1,
@@ -383,7 +454,7 @@ export function buildWizardPayload(form: WizardForm, indicators?: Record<string,
       selection: [],
     },
     time_split: {
-      mode: form.timeMode,
+      mode: form.timeMode === "auto_recent" ? "auto_previous_month_end" : "manual",
       generated_at: formatDate(new Date()),
       train: { start: timeSplit.trainStart, end: timeSplit.trainEnd },
       validate: { start: timeSplit.validateStart, end: timeSplit.validateEnd },

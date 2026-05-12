@@ -3,12 +3,28 @@
 import { useMemo } from "react";
 import type { MartingaleEquityPoint, MartingaleBacktestCandidateSummary } from "@/lib/api-types";
 
+type RawChartPoint = MartingaleEquityPoint & { t?: number };
+
+interface EquityPoint {
+  ts: number;
+  equity: number;
+}
+
+interface DrawdownPoint {
+  ts: number;
+  drawdown: number;
+}
+
 /* ------------------------------------------------------------------ */
 /*  Helpers                                                           */
 /* ------------------------------------------------------------------ */
 
 function fmtPct(v: number): string {
   return `${(v * 100).toFixed(1)}%`;
+}
+
+function fmtPctValue(v: number): string {
+  return `${v.toFixed(2)}%`;
 }
 
 function fmtNum(v: number, decimals = 2): string {
@@ -18,12 +34,47 @@ function fmtNum(v: number, decimals = 2): string {
   });
 }
 
+function readFiniteNumber(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+function readPointTime(point: RawChartPoint): number | null {
+  return readFiniteNumber(point.ts) ?? readFiniteNumber(point.t);
+}
+
+function normalizeEquityCurve(points: unknown): EquityPoint[] {
+  if (!Array.isArray(points)) return [];
+  return points
+    .map((point) => {
+      const rawPoint = point as RawChartPoint;
+      const ts = readPointTime(rawPoint);
+      const equity = readFiniteNumber(rawPoint.equity);
+      return ts == null || equity == null ? null : { ts, equity };
+    })
+    .filter((point): point is EquityPoint => point != null)
+    .sort((left, right) => left.ts - right.ts);
+}
+
+function normalizeDrawdownCurve(drawdownCurve: unknown, fallbackEquityCurve: unknown): DrawdownPoint[] {
+  const rawPoints = Array.isArray(drawdownCurve) && drawdownCurve.length > 0 ? drawdownCurve : fallbackEquityCurve;
+  if (!Array.isArray(rawPoints)) return [];
+  return rawPoints
+    .map((point) => {
+      const rawPoint = point as RawChartPoint;
+      const ts = readPointTime(rawPoint);
+      const drawdown = readFiniteNumber(rawPoint.drawdown);
+      return ts == null || drawdown == null ? null : { ts, drawdown };
+    })
+    .filter((point): point is DrawdownPoint => point != null)
+    .sort((left, right) => left.ts - right.ts);
+}
+
 /* ------------------------------------------------------------------ */
 /*  Mini sparkline from equity curve data                             */
 /* ------------------------------------------------------------------ */
 
 interface EquitySparklineProps {
-  points: MartingaleEquityPoint[];
+  points: EquityPoint[];
   width?: number;
   height?: number;
   stroke?: string;
@@ -84,7 +135,7 @@ function EquitySparkline({
 /* ------------------------------------------------------------------ */
 
 interface DrawdownSparklineProps {
-  points: MartingaleEquityPoint[];
+  points: DrawdownPoint[];
   width?: number;
   height?: number;
 }
@@ -93,7 +144,7 @@ function DrawdownSparkline({ points, width = 280, height = 60 }: DrawdownSparkli
   const path = useMemo(() => {
     if (!points || points.length < 2) return null;
     const xs = points.map((p) => p.ts);
-    const ys = points.map((p) => p.drawdown ?? 0);
+    const ys = points.map((p) => p.drawdown);
     const xMin = Math.min(...xs);
     const xMax = Math.max(...xs);
     const yMin = Math.min(...ys);
@@ -106,7 +157,7 @@ function DrawdownSparkline({ points, width = 280, height = 60 }: DrawdownSparkli
 
     const coords = points.map((p) => ({
       x: pad + ((p.ts - xMin) / xRange) * w,
-      y: pad + h - (((p.drawdown ?? 0) - yMin) / yRange) * h,
+      y: pad + h - ((p.drawdown - yMin) / yRange) * h,
     }));
 
     const line = coords.map((c, i) => `${i === 0 ? "M" : "L"}${c.x.toFixed(1)},${c.y.toFixed(1)}`).join(" ");
@@ -212,31 +263,66 @@ export interface BacktestChartsProps {
 }
 
 export function BacktestCharts({ summary, equityCurve, stopLossEvents }: BacktestChartsProps) {
-  const points = equityCurve ?? summary?.equity_curve ?? [];
+  const equityPoints = normalizeEquityCurve(equityCurve ?? summary?.equity_curve);
+  const drawdownPoints = normalizeDrawdownCurve(summary?.drawdown_curve, equityCurve ?? summary?.equity_curve);
+  const artifactPath = summary?.artifact_path;
+  const maxDrawdownPct = summary?.max_drawdown_pct ?? (summary?.max_drawdown == null ? undefined : summary.max_drawdown * 100);
+  const hasAnyChartData = equityPoints.length > 0 || drawdownPoints.length > 0;
+  const hasSummaryMetrics =
+    summary?.total_return_pct != null
+    || maxDrawdownPct != null
+    || summary?.score != null
+    || Boolean(summary?.risk_summary_human);
 
   return (
     <div className="space-y-4">
-      {/* Equity curve */}
-      <div>
-        <h4 className="text-sm font-medium mb-1">Equity Curve</h4>
-        <EquitySparkline points={points} />
-        {points.length > 0 && (
-          <div className="flex gap-4 text-xs text-muted-foreground mt-1">
-            <span>Start: {fmtNum(points[0].equity)}</span>
-            <span>Peak: {fmtNum(Math.max(...points.map((p) => p.equity)))}</span>
-            <span>End: {fmtNum(points[points.length - 1].equity)}</span>
-          </div>
-        )}
-      </div>
+      {!hasAnyChartData && artifactPath ? (
+        <div className="rounded-lg border border-dashed border-border bg-secondary/20 p-3 text-sm text-muted-foreground">
+          图表数据需要从 artifact 加载：{artifactPath}
+        </div>
+      ) : null}
 
-      {/* Drawdown curve */}
-      <div>
-        <h4 className="text-sm font-medium mb-1">Drawdown</h4>
-        <DrawdownSparkline points={points} />
-        {summary?.max_drawdown != null && (
-          <div className="text-xs text-muted-foreground mt-1">
-            Max Drawdown: <span className="text-red-600 font-semibold">{fmtPct(summary.max_drawdown)}</span>
+      {!hasAnyChartData && !artifactPath ? (
+        <div className="rounded-lg border border-dashed border-border bg-secondary/20 p-3 text-sm text-muted-foreground">
+          图表数据缺失：该候选没有保存资金曲线或回撤曲线
+        </div>
+      ) : null}
+
+      {equityPoints.length > 0 ? (
+        <div>
+          <h4 className="text-sm font-medium mb-1">资金曲线 / Equity curve</h4>
+          <EquitySparkline points={equityPoints} />
+          <div className="flex gap-4 text-xs text-muted-foreground mt-1">
+            <span>Start: {fmtNum(equityPoints[0].equity)}</span>
+            <span>Peak: {fmtNum(Math.max(...equityPoints.map((p) => p.equity)))}</span>
+            <span>End: {fmtNum(equityPoints[equityPoints.length - 1].equity)}</span>
           </div>
+        </div>
+      ) : null}
+
+      {drawdownPoints.length > 0 ? (
+        <div>
+          <h4 className="text-sm font-medium mb-1">回撤曲线 / Drawdown curve</h4>
+          <DrawdownSparkline points={drawdownPoints} />
+          {maxDrawdownPct != null && (
+          <div className="text-xs text-muted-foreground mt-1">
+            Max Drawdown: <span className="text-red-600 font-semibold">{fmtPctValue(maxDrawdownPct)}</span>
+          </div>
+          )}
+        </div>
+      ) : null}
+
+      <div>
+        <h4 className="text-sm font-medium mb-1">候选对比 / Candidate comparison</h4>
+        {hasSummaryMetrics ? (
+          <div className="grid grid-cols-2 gap-2 text-xs sm:grid-cols-4">
+            <MetricCard label="Return" value={summary?.total_return_pct == null ? "—" : fmtPctValue(summary.total_return_pct)} />
+            <MetricCard label="Max DD" value={maxDrawdownPct == null ? "—" : fmtPctValue(maxDrawdownPct)} />
+            <MetricCard label="Score" value={summary?.score == null ? "—" : fmtNum(summary.score, 2)} />
+            <MetricCard label="Risk" value={summary?.risk_summary_human || "—"} />
+          </div>
+        ) : (
+          <span className="text-muted-foreground text-sm">暂无候选对比或风险摘要数据</span>
         )}
       </div>
 
@@ -251,6 +337,15 @@ export function BacktestCharts({ summary, equityCurve, stopLossEvents }: Backtes
         <h4 className="text-sm font-medium mb-1">Stop-Loss Events</h4>
         <StopLossEvents events={stopLossEvents ?? summary?.stop_loss_events ?? []} />
       </div>
+    </div>
+  );
+}
+
+function MetricCard({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-lg border border-border bg-secondary/20 p-2">
+      <p className="text-muted-foreground">{label}</p>
+      <p className="mt-1 truncate font-semibold" title={value}>{value}</p>
     </div>
   );
 }

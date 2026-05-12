@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
-import { requestBacktestApi } from "@/components/backtest/request-client";
+import { useState } from "react";
+import { publishPortfolio, requestBacktestApi } from "@/components/backtest/request-client";
 import type { MartingaleBacktestCandidateSummary, MartingaleRiskSummary } from "@/lib/api-types";
 import { pickText, type UiLanguage } from "@/lib/ui/preferences";
 
@@ -22,14 +22,23 @@ type BacktestCandidate = {
   riskSummary?: MartingaleRiskSummary | null;
 };
 
-type BasketItem = {
+export type PortfolioBasketItem = {
+  localId: string;
   candidateId: string;
+  taskId: string;
+  selectedTaskId: string;
   symbol: string;
+  market: string;
+  direction: string;
+  riskProfile: string;
   parameters: string;
-  recommendedWeightPct: number | null;
-  recommendedLeverage: number | null;
+  recommended_weight_pct?: number;
+  recommended_leverage?: number;
   weightPct: string;
   leverage: string;
+  enabled: boolean;
+  parameterSnapshot: Record<string, unknown>;
+  metricsSnapshot: Record<string, unknown>;
 };
 
 function readObject(value: unknown): Record<string, unknown> | null {
@@ -49,10 +58,6 @@ function readString(value: unknown): string {
   return typeof value === "string" ? value : "";
 }
 
-function readStringArray(value: unknown): string[] {
-  return Array.isArray(value) ? value.filter((v): v is string => typeof v === "string") : [];
-}
-
 function fmtPct(v: number | null | undefined): string {
   if (v == null) return "—";
   return `${(v * 100).toFixed(2)}%`;
@@ -62,10 +67,6 @@ function fmtNum(v: number | null | undefined, decimals = 2): string {
   if (v == null) return "—";
   return v.toLocaleString(undefined, { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
 }
-
-/* ------------------------------------------------------------------ */
-/*  Human-readable risk summary                                       */
-/* ------------------------------------------------------------------ */
 
 function RiskSummaryDisplay({ risk, lang }: { risk: MartingaleRiskSummary; lang: UiLanguage }) {
   return (
@@ -87,8 +88,8 @@ function RiskSummaryDisplay({ risk, lang }: { risk: MartingaleRiskSummary; lang:
             {pickText(lang, "风险警告", "Risk warnings")}
           </p>
           <ul className="list-disc list-inside text-xs text-muted-foreground space-y-0.5">
-            {risk.warnings.map((w, i) => (
-              <li key={i}>{w}</li>
+            {risk.warnings.map((warning, index) => (
+              <li key={index}>{warning}</li>
             ))}
           </ul>
         </div>
@@ -123,45 +124,28 @@ function ReviewRow({
   );
 }
 
-/* ------------------------------------------------------------------ */
-/*  Main component                                                    */
-/* ------------------------------------------------------------------ */
-
 export function PortfolioCandidateReview({
+  basketItems,
   candidate,
   lang,
   locale,
+  onPublish,
+  onRemove,
+  onUpdate,
 }: {
+  basketItems: PortfolioBasketItem[];
   candidate: BacktestCandidate | null;
   lang: UiLanguage;
   locale: string;
+  onPublish: (payload: Record<string, unknown>) => Promise<unknown>;
+  onRemove: (localId: string) => void;
+  onUpdate: (localId: string, patch: Partial<PortfolioBasketItem>) => void;
 }) {
   const [feedback, setFeedback] = useState("");
   const [pending, setPending] = useState(false);
   const [riskSummary, setRiskSummary] = useState<MartingaleRiskSummary | null>(null);
   const [portfolioId, setPortfolioId] = useState("");
-  const [basketItems, setBasketItems] = useState<BasketItem[]>([]);
-
-  useEffect(() => {
-    if (!candidate) {
-      setBasketItems([]);
-      return;
-    }
-
-    const recommendedWeightPct = candidate.summary?.recommended_weight_pct ?? 100;
-    const recommendedLeverage = candidate.summary?.recommended_leverage ?? null;
-    setBasketItems([
-      {
-        candidateId: candidate.id,
-        symbol: candidate.symbol,
-        parameters: candidate.parameters,
-        recommendedWeightPct,
-        recommendedLeverage,
-        weightPct: String(recommendedWeightPct),
-        leverage: recommendedLeverage == null ? "" : String(recommendedLeverage),
-      },
-    ]);
-  }, [candidate]);
+  const [portfolioName, setPortfolioName] = useState("");
 
   async function handlePublishIntent() {
     if (!candidate) {
@@ -187,65 +171,104 @@ export function PortfolioCandidateReview({
     const summary = readRiskSummary(data.risk_summary) ?? readRiskSummary(data);
     setRiskSummary(summary);
     setPortfolioId(readString(data.portfolio_id));
-    setFeedback(pickText(lang, "已创建待确认 Portfolio，请打开组合页人工确认启动。", "Pending Portfolio created. Open the portfolio page to confirm live start."));
+    setFeedback(pickText(lang, "已创建单候选待确认 Portfolio；也可继续使用组合篮子批量发布。", "Single-candidate pending Portfolio created; you can also batch publish from the basket."));
   }
 
-  if (!candidate) {
-    return (
-      <section className="rounded-2xl border border-border bg-card p-4 shadow-sm">
-        <h2 className="text-lg font-semibold mb-2">
-          {pickText(lang, "候选复核", "Candidate review")}
-        </h2>
-        <p className="text-sm text-muted-foreground">
-          {pickText(lang, "请先选择一个候选以查看详情", "Select a candidate to view details")}
-        </p>
-      </section>
-    );
+  async function handleBatchPublish() {
+    const enabledItems = basketItems.filter((item) => item.enabled);
+    if (enabledItems.length === 0) {
+      setFeedback(pickText(lang, "请先向组合篮子加入候选。", "Add candidates to the portfolio basket first."));
+      return;
+    }
+    if (!weightTotalBalanced) {
+      setFeedback(pickText(lang, "权重合计必须为 100%。", "Weight total must be 100%."));
+      return;
+    }
+
+    const first = enabledItems[0];
+    const payload = {
+      name: portfolioName.trim() || `${first.symbol} basket`,
+      task_id: first.taskId || first.selectedTaskId,
+      market: first.market,
+      direction: first.direction,
+      risk_profile: first.riskProfile || "balanced",
+      total_weight_pct: 100,
+      items: enabledItems.map((item) => ({
+        candidate_id: item.candidateId,
+        symbol: item.symbol,
+        weight_pct: readNumber(item.weightPct) ?? 0,
+        leverage: readNumber(item.leverage) ?? 1,
+        enabled: item.enabled,
+        parameter_snapshot: item.parameterSnapshot,
+      })),
+    };
+
+    setPending(true);
+    setFeedback(pickText(lang, "正在批量发布实盘组合…", "Batch publishing live portfolio..."));
+    setPortfolioId("");
+    const result = await onPublish(payload) as Awaited<ReturnType<typeof publishPortfolio>>;
+    setPending(false);
+    if (!result.ok) {
+      setFeedback(result.message);
+      return;
+    }
+
+    const data = readObject(result.data) ?? {};
+    const createdPortfolioId = readString(data.portfolio_id) || readString(data.id);
+    setPortfolioId(createdPortfolioId);
+    setFeedback(pickText(lang, "已批量发布实盘组合，仍需在组合页确认启动。", "Live portfolio batch published; confirm start on the portfolio page."));
   }
 
-  const risk = riskSummary ?? candidate.riskSummary;
-  const weightTotal = basketItems.reduce((sum, item) => sum + (readNumber(item.weightPct) ?? 0), 0);
+  const risk = riskSummary ?? candidate?.riskSummary;
+  const weightTotal = basketItems.filter((item) => item.enabled).reduce((sum, item) => sum + (readNumber(item.weightPct) ?? 0), 0);
   const weightTotalBalanced = basketItems.length > 0 && Math.abs(weightTotal - 100) <= 0.01;
+  const portfolioHref = portfolioId ? `/${locale}/app/martingale-portfolios/${portfolioId}` : `/${locale}/app/martingale-portfolios`;
 
   return (
     <section className="rounded-2xl border border-border bg-card p-4 shadow-sm space-y-4">
       <div className="flex items-center justify-between gap-3">
         <div>
           <h2 className="text-lg font-semibold">
-            {pickText(lang, "候选复核", "Candidate review")}
+            {pickText(lang, "候选复核与组合篮子", "Candidate review and portfolio basket")}
           </h2>
           <p className="text-sm text-muted-foreground">
-            {pickText(lang, "发布前先生成风险摘要；实盘启动仍需手动确认。", "Generate the risk summary first; live start remains manual.")}
+            {pickText(lang, "可先查看单候选风险摘要，再把多个候选加入组合篮子批量发布。", "Review single-candidate risk, then add multiple candidates to the basket for batch publish.")}
           </p>
         </div>
-        <code className="hidden rounded bg-secondary/50 px-3 py-1 text-xs md:block">POST /api/user/backtest/candidates/:id/publish-intent</code>
+        <code className="hidden rounded bg-secondary/50 px-3 py-1 text-xs md:block">POST /api/user/backtest/portfolios/publish</code>
       </div>
 
-      {/* Key metrics */}
-      <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
-        <ReviewRow label={pickText(lang, "交易对", "Symbol")} value={candidate.symbol} />
-        <ReviewRow label={pickText(lang, "市场", "Market")} value={candidate.market} />
-        <ReviewRow label={pickText(lang, "方向", "Direction")} value={candidate.direction} />
-        <ReviewRow label={pickText(lang, "搜索模式", "Search mode")} value={candidate.searchMode} />
-        <ReviewRow label={pickText(lang, "评分", "Score")} value={candidate.score} highlight="success" />
-        <ReviewRow label={pickText(lang, "最大回撤", "Max drawdown")} value={candidate.drawdown} highlight="danger" />
-        <ReviewRow label={pickText(lang, "总收益", "Return")} value={candidate.returnPct} />
-        <ReviewRow label={pickText(lang, "交易次数", "Trades")} value={candidate.tradeCount} />
-        <ReviewRow label={pickText(lang, "参数摘要", "Parameters")} value={candidate.parameters} />
-        <ReviewRow label={pickText(lang, "决策", "Decision")} value={candidate.decision} />
-      </div>
+      {candidate ? (
+        <div className="space-y-3">
+          <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+            <ReviewRow label={pickText(lang, "交易对", "Symbol")} value={candidate.symbol} />
+            <ReviewRow label={pickText(lang, "市场", "Market")} value={candidate.market} />
+            <ReviewRow label={pickText(lang, "方向", "Direction")} value={candidate.direction} />
+            <ReviewRow label={pickText(lang, "搜索模式", "Search mode")} value={candidate.searchMode} />
+            <ReviewRow label={pickText(lang, "评分", "Score")} value={candidate.score} highlight="success" />
+            <ReviewRow label={pickText(lang, "最大回撤", "Max drawdown")} value={candidate.drawdown} highlight="danger" />
+            <ReviewRow label={pickText(lang, "总收益", "Return")} value={candidate.returnPct} />
+            <ReviewRow label={pickText(lang, "交易次数", "Trades")} value={candidate.tradeCount} />
+            <ReviewRow label={pickText(lang, "参数摘要", "Parameters")} value={candidate.parameters} />
+            <ReviewRow label={pickText(lang, "决策", "Decision")} value={candidate.decision} />
+          </div>
 
-      {/* Risk summary — human readable */}
-      {risk ? (
-        <div>
-          <h3 className="text-sm font-semibold mb-2">
-            {pickText(lang, "发布风险摘要", "Publish risk summary")}
-          </h3>
-          <RiskSummaryDisplay risk={risk} lang={lang} />
+          {risk ? (
+            <div>
+              <h3 className="text-sm font-semibold mb-2">
+                {pickText(lang, "单候选风险摘要", "Single-candidate risk summary")}
+              </h3>
+              <RiskSummaryDisplay risk={risk} lang={lang} />
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              {pickText(lang, "尚未发起单候选发布意图，风险摘要暂不可用。", "No single-candidate publish intent issued yet; risk summary unavailable.")}
+            </p>
+          )}
         </div>
       ) : (
         <p className="text-sm text-muted-foreground">
-          {pickText(lang, "尚未发起发布意图，风险摘要暂不可用", "No publish intent issued yet, risk summary unavailable")}
+          {pickText(lang, "选择候选可查看详情；也可以直接从结果表加入组合篮子。", "Select a candidate to view details, or add candidates from the result table directly to the basket.")}
         </p>
       )}
 
@@ -256,43 +279,50 @@ export function PortfolioCandidateReview({
               {pickText(lang, "组合篮子", "Portfolio basket")}
             </h3>
             <p className="mt-1 text-xs text-muted-foreground">
-              {pickText(lang, "当前先按已选候选生成一行篮子，可调整权重与杠杆；发布交互仍保持单候选。", "The basket currently stages the selected candidate as one row with editable weight and leverage; publish remains single-candidate.")}
+              {pickText(lang, "从结果表加入多个候选，调整 enabled、权重与杠杆；权重合计为 100% 后可批量发布。", "Add multiple candidates from the result table, adjust enabled, weight and leverage; publish when total weight is 100%.")}
             </p>
-          </div>
-          <div className="text-right text-[11px] text-muted-foreground">
-            <div>recommended_weight_pct</div>
-            <div>recommended_leverage</div>
           </div>
         </div>
 
+        <label className="mt-4 block space-y-1 text-sm">
+          <span className="text-[11px] uppercase tracking-wide text-muted-foreground">portfolio name</span>
+          <input
+            className="w-full rounded-lg border border-border bg-background px-3 py-2"
+            onChange={(event) => setPortfolioName(event.currentTarget.value)}
+            placeholder={pickText(lang, "例如：BTC/ETH 马丁组合", "Example: BTC/ETH martingale basket")}
+            value={portfolioName}
+          />
+        </label>
+
         <div className="mt-4 space-y-3">
-          {basketItems.map((item, index) => (
-            <div className="grid gap-3 rounded-xl border border-border bg-card p-3 md:grid-cols-[minmax(0,1.6fr)_repeat(4,minmax(0,0.8fr))]" key={`${item.candidateId}-${index}`}>
+          {basketItems.length === 0 ? (
+            <p className="rounded-xl border border-dashed border-border p-4 text-sm text-muted-foreground">
+              {pickText(lang, "组合篮子为空，请从结果表点击“加入组合”。", "Portfolio basket is empty; click Add to basket in the result table.")}
+            </p>
+          ) : basketItems.map((item) => (
+            <div className="grid gap-3 rounded-xl border border-border bg-card p-3 md:grid-cols-[minmax(0,1.5fr)_0.6fr_0.8fr_0.8fr_auto]" key={item.localId}>
               <div className="space-y-1">
                 <p className="text-sm font-medium">{item.symbol}</p>
                 <p className="text-xs text-muted-foreground">{item.candidateId}</p>
                 <p className="text-xs text-muted-foreground">{item.parameters}</p>
+                <p className="text-xs text-muted-foreground">
+                  {pickText(lang, "推荐权重", "Recommended weight")}: {item.recommended_weight_pct ?? "—"}% · {pickText(lang, "推荐杠杆", "Recommended leverage")}: {item.recommended_leverage == null ? "—" : `${item.recommended_leverage}x`}
+                </p>
               </div>
-              <div className="space-y-1">
-                <p className="text-[11px] uppercase tracking-wide text-muted-foreground">recommended_weight_pct</p>
-                <p className="text-sm font-medium">{fmtNum(item.recommendedWeightPct, 2)}%</p>
-              </div>
-              <div className="space-y-1">
-                <p className="text-[11px] uppercase tracking-wide text-muted-foreground">recommended_leverage</p>
-                <p className="text-sm font-medium">{item.recommendedLeverage == null ? "—" : `${item.recommendedLeverage}x`}</p>
-              </div>
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  checked={item.enabled}
+                  onChange={(event) => onUpdate(item.localId, { enabled: event.currentTarget.checked })}
+                  type="checkbox"
+                />
+                <span>{pickText(lang, "启用", "Enabled")}</span>
+              </label>
               <label className="space-y-1 text-sm">
                 <span className="text-[11px] uppercase tracking-wide text-muted-foreground">{pickText(lang, "权重 %", "Weight %")}</span>
                 <input
                   className="w-full rounded-lg border border-border bg-background px-3 py-2"
                   min="0"
-                  name={`basket-weight-${index}`}
-                  onChange={(event) => {
-                    const value = event.currentTarget.value;
-                    setBasketItems((current) => current.map((basketItem, basketIndex) => (
-                      basketIndex === index ? { ...basketItem, weightPct: value } : basketItem
-                    )));
-                  }}
+                  onChange={(event) => onUpdate(item.localId, { weightPct: event.currentTarget.value })}
                   step="0.01"
                   type="number"
                   value={item.weightPct}
@@ -303,18 +333,19 @@ export function PortfolioCandidateReview({
                 <input
                   className="w-full rounded-lg border border-border bg-background px-3 py-2"
                   min="0"
-                  name={`basket-leverage-${index}`}
-                  onChange={(event) => {
-                    const value = event.currentTarget.value;
-                    setBasketItems((current) => current.map((basketItem, basketIndex) => (
-                      basketIndex === index ? { ...basketItem, leverage: value } : basketItem
-                    )));
-                  }}
+                  onChange={(event) => onUpdate(item.localId, { leverage: event.currentTarget.value })}
                   step="1"
                   type="number"
                   value={item.leverage}
                 />
               </label>
+              <button
+                className="self-end rounded-full border border-border px-3 py-2 text-xs font-medium"
+                onClick={() => onRemove(item.localId)}
+                type="button"
+              >
+                {pickText(lang, "移除", "Remove")}
+              </button>
             </div>
           ))}
         </div>
@@ -330,13 +361,10 @@ export function PortfolioCandidateReview({
       {portfolioId ? (
         <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-4 text-sm">
           <p className="font-semibold text-emerald-700 dark:text-emerald-300">
-            {pickText(lang, "待确认 Portfolio 已创建", "Pending Portfolio created")}
+            {pickText(lang, "Portfolio 已创建", "Portfolio created")} · {portfolioId}
           </p>
-          <p className="mt-1 text-muted-foreground">
-            {pickText(lang, "下一步：进入马丁组合页，检查状态后点击启动。", "Next: open Martingale Portfolios, review status, then start manually.")}
-          </p>
-          <Link className="mt-3 inline-flex rounded-full bg-primary px-4 py-2 text-sm font-medium text-primary-foreground" href={`/${locale}/app/martingale-portfolios`}>
-            {pickText(lang, "去确认启动", "Confirm start")} · {portfolioId}
+          <Link className="mt-3 inline-flex rounded-full bg-primary px-4 py-2 text-sm font-medium text-primary-foreground" href={portfolioHref}>
+            {pickText(lang, "打开实盘组合", "Open live portfolio")}
           </Link>
         </div>
       ) : null}
@@ -350,11 +378,19 @@ export function PortfolioCandidateReview({
       <div className="space-y-3">
         <button
           className="w-full rounded-full bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-60"
+          disabled={pending || basketItems.length === 0 || !weightTotalBalanced}
+          onClick={handleBatchPublish}
+          type="button"
+        >
+          {pending ? pickText(lang, "发布中…", "Publishing...") : pickText(lang, "批量发布实盘组合", "Batch publish live portfolio")}
+        </button>
+        <button
+          className="w-full rounded-full border border-border px-4 py-2 text-sm font-medium disabled:opacity-60"
           disabled={pending || !candidate}
           onClick={handlePublishIntent}
           type="button"
         >
-          {pending ? pickText(lang, "生成中…", "Generating...") : pickText(lang, "创建待确认 Portfolio", "Create pending Portfolio")}
+          {pending ? pickText(lang, "生成中…", "Generating...") : pickText(lang, "生成单候选风险摘要", "Generate single-candidate risk summary")}
         </button>
         <p aria-live="polite" className="text-sm text-muted-foreground">{feedback}</p>
       </div>

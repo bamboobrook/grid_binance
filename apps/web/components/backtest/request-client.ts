@@ -33,6 +33,16 @@ export async function requestBacktestApi(input: string, init?: RequestInit) {
   }
 }
 
+export async function publishPortfolio(payload: unknown) {
+  return requestBacktestApi("/api/user/backtest/portfolios/publish", {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+}
+
 function looksLikeJson(text: string, contentType: string) {
   if (contentType.includes("application/json")) {
     return true;
