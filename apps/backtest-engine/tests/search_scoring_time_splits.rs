@@ -286,6 +286,38 @@ fn portfolio_optimizer_can_drop_bad_symbols_and_caps_same_symbol() {
 }
 
 #[test]
+fn portfolio_optimizer_keeps_searchable_candidates_beyond_same_symbol_package_cap() {
+    let candidates = vec![
+        OptimizerCandidate::new("btc-overfit-1", "BTCUSDT", 90.0, 50.0, vec![100.0, 50.0]),
+        OptimizerCandidate::new("btc-overfit-2", "BTCUSDT", 80.0, 50.0, vec![100.0, 55.0]),
+        OptimizerCandidate::new("btc-stable", "BTCUSDT", 20.0, 5.0, vec![100.0, 110.0]),
+        OptimizerCandidate::new("eth-stable", "ETHUSDT", 20.0, 5.0, vec![100.0, 110.0]),
+    ];
+    let config = OptimizerConfig {
+        max_drawdown_pct: 10.0,
+        max_packages_per_symbol: 1,
+        max_symbol_weight_pct: 50.0,
+        max_package_weight_pct: 50.0,
+    };
+
+    let portfolios = optimize_portfolios(&candidates, &config, 10).unwrap();
+
+    assert!(!portfolios.is_empty());
+    assert!(portfolios[0]
+        .items
+        .iter()
+        .any(|item| item.candidate_id == "btc-stable"));
+    assert_eq!(portfolios[0].weight_by_symbol("BTCUSDT"), 50.0);
+}
+
+#[test]
+fn portfolio_optimizer_returns_empty_for_empty_input() {
+    let portfolios = optimize_portfolios(&[], &OptimizerConfig::balanced(25.0), 10).unwrap();
+
+    assert!(portfolios.is_empty());
+}
+
+#[test]
 fn portfolio_optimizer_enforces_package_and_symbol_caps_as_hard_limits() {
     let candidates = vec![
         OptimizerCandidate::new("btc-1", "BTCUSDT", 60.0, 10.0, vec![100.0, 110.0]),
@@ -351,7 +383,7 @@ fn portfolio_optimizer_filters_non_finite_candidates() {
 fn portfolio_optimizer_falls_back_to_weighted_drawdown_for_unaligned_curves() {
     let candidates = vec![
         OptimizerCandidate::new("btc-1", "BTCUSDT", 30.0, 20.0, vec![100.0, 110.0]),
-        OptimizerCandidate::new("eth-1", "ETHUSDT", 25.0, 20.0, Vec::new()),
+        OptimizerCandidate::new("eth-1", "ETHUSDT", 25.0, 20.0, vec![100.0, 105.0, 110.0]),
     ];
     let config = OptimizerConfig {
         max_drawdown_pct: 10.0,
@@ -362,6 +394,24 @@ fn portfolio_optimizer_falls_back_to_weighted_drawdown_for_unaligned_curves() {
     let portfolios = optimize_portfolios(&candidates, &config, 10).unwrap();
 
     assert!(portfolios.is_empty());
+}
+
+#[test]
+fn portfolio_optimizer_uses_equity_curve_drawdown_when_curves_are_aligned() {
+    let candidates = vec![
+        OptimizerCandidate::new("btc-1", "BTCUSDT", 30.0, 80.0, vec![100.0, 110.0, 120.0]),
+        OptimizerCandidate::new("eth-1", "ETHUSDT", 25.0, 80.0, vec![100.0, 108.0, 116.0]),
+    ];
+    let config = OptimizerConfig {
+        max_drawdown_pct: 10.0,
+        max_packages_per_symbol: 1,
+        max_symbol_weight_pct: 50.0,
+        max_package_weight_pct: 50.0,
+    };
+    let portfolios = optimize_portfolios(&candidates, &config, 10).unwrap();
+
+    assert!(!portfolios.is_empty());
+    assert_eq!(portfolios[0].max_drawdown_pct, 0.0);
 }
 
 #[test]

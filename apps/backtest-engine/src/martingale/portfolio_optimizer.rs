@@ -112,7 +112,7 @@ pub fn optimize_portfolios(
         return Ok(Vec::new());
     }
 
-    let filtered = eligible_candidates(candidates, config.max_packages_per_symbol);
+    let filtered = eligible_candidates(candidates);
     if !can_reach_full_weight(&filtered, config) {
         return Ok(Vec::new());
     }
@@ -160,23 +160,11 @@ fn validate_pct(name: &str, value: f64) -> Result<(), String> {
     Ok(())
 }
 
-fn eligible_candidates<'a>(
-    candidates: &'a [OptimizerCandidate],
-    max_packages_per_symbol: usize,
-) -> Vec<&'a OptimizerCandidate> {
-    let mut by_symbol: HashMap<&str, Vec<&OptimizerCandidate>> = HashMap::new();
-    for candidate in candidates.iter().filter(|candidate| is_eligible(candidate)) {
-        by_symbol
-            .entry(candidate.symbol.as_str())
-            .or_default()
-            .push(candidate);
-    }
-
-    let mut filtered = Vec::new();
-    for candidates in by_symbol.values_mut() {
-        candidates.sort_by(compare_candidates);
-        filtered.extend(candidates.iter().take(max_packages_per_symbol).copied());
-    }
+fn eligible_candidates(candidates: &[OptimizerCandidate]) -> Vec<&OptimizerCandidate> {
+    let mut filtered = candidates
+        .iter()
+        .filter(|candidate| is_eligible(candidate))
+        .collect::<Vec<_>>();
     filtered.sort_by(compare_candidates);
     filtered
 }
@@ -624,4 +612,33 @@ fn weight_key(weights: &[u32]) -> String {
 
 fn round_weight(value: f64) -> f64 {
     (value * 1_000_000.0).round() / 1_000_000.0
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn refinement_only_expands_retained_coarse_neighbors() {
+        let candidates = vec![
+            OptimizerCandidate::new("coarse-a", "BTCUSDT", 100.0, 1.0, Vec::new()),
+            OptimizerCandidate::new("coarse-b", "ETHUSDT", 90.0, 1.0, Vec::new()),
+            OptimizerCandidate::new("global-five-pct-best", "SOLUSDT", 1_000.0, 1.0, Vec::new()),
+        ];
+        let candidate_refs = candidates.iter().collect::<Vec<_>>();
+        let config = OptimizerConfig {
+            max_drawdown_pct: 100.0,
+            max_packages_per_symbol: 1,
+            max_symbol_weight_pct: 100.0,
+            max_package_weight_pct: 100.0,
+        };
+        let coarse_weights = vec![vec![50, 50, 0]];
+        let mut portfolios = BTreeMap::new();
+
+        refine_weights(&candidate_refs, &config, &coarse_weights, 32, &mut portfolios);
+
+        assert!(portfolios.contains_key("55-45-0"));
+        assert!(portfolios.contains_key("45-50-5"));
+        assert!(!portfolios.contains_key("0-0-100"));
+    }
 }
