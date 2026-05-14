@@ -270,6 +270,9 @@ function numberValue(value: string, fallback: number) {
 }
 
 function integerValue(value: string, fallback: number) {
+  if (value.trim() === "") {
+    return Math.max(1, Math.round(fallback));
+  }
   return Math.max(1, Math.round(numberValue(value, fallback)));
 }
 

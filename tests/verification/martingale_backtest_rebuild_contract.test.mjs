@@ -99,6 +99,14 @@ test("martingale wizard payload preserves dynamic search and manual risk overrid
   assert.equal(payload.scoring.max_stop_loss_count, 9);
 });
 
+test("martingale wizard empty stop loss override falls back to risk preset defaults", () => {
+  const { buildWizardPayload } = loadWizardPayloadHelpers();
+
+  assert.equal(buildWizardPayload({ ...baseForm, parameterPreset: "balanced", maxStopLossCount: "" }).scoring.max_stop_loss_count, 3);
+  assert.equal(buildWizardPayload({ ...baseForm, parameterPreset: "aggressive", maxStopLossCount: "" }).scoring.max_stop_loss_count, 8);
+  assert.equal(buildWizardPayload({ ...baseForm, parameterPreset: "balanced", maxStopLossCount: "   " }).scoring.max_stop_loss_count, 3);
+});
+
 test("martingale wizard risk defaults map 20/25/30 while allowing manual drawdown override", () => {
   const { buildWizardPayload } = loadWizardPayloadHelpers();
 
