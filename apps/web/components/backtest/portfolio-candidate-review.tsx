@@ -84,7 +84,7 @@ function fmtPct(v: number | null | undefined): string {
 }
 
 function fmtNum(v: number | null | undefined, decimals = 2): string {
-  if (v == null) return "—";
+  if (v == null || !Number.isFinite(v)) return "—";
   return v.toLocaleString(undefined, { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
 }
 
@@ -95,18 +95,30 @@ function fmtBool(v: boolean | undefined, lang: UiLanguage): string {
 
 function readReturnDrawdownRatio(summary: DynamicReviewSummary | null | undefined) {
   if (!summary) return null;
-  if (typeof summary.return_drawdown_ratio === "number") return summary.return_drawdown_ratio;
-  if (typeof summary.profit_drawdown_ratio === "number") return summary.profit_drawdown_ratio;
-  const maxDrawdown = typeof summary.max_drawdown_pct === "number" ? Math.abs(summary.max_drawdown_pct) : null;
-  return typeof summary.total_return_pct === "number" && maxDrawdown && maxDrawdown > 0 ? summary.total_return_pct / maxDrawdown : null;
+  const explicitRatio = readFiniteNumber(summary.return_drawdown_ratio) ?? readFiniteNumber(summary.profit_drawdown_ratio);
+  if (explicitRatio != null) return explicitRatio;
+  const maxDrawdown = readFiniteNumber(summary.max_drawdown_pct);
+  const totalReturn = readFiniteNumber(summary.total_return_pct);
+  const absDrawdown = maxDrawdown == null ? null : Math.abs(maxDrawdown);
+  return totalReturn != null && absDrawdown != null && absDrawdown > 0 ? totalReturn / absDrawdown : null;
 }
 
 function readTradingCost(summary: DynamicReviewSummary | null | undefined) {
   const costSummary = summary?.cost_summary;
   if (!costSummary) return null;
   return [costSummary.fee_quote, costSummary.slippage_quote, costSummary.stop_loss_quote, costSummary.forced_exit_quote]
-    .filter((value): value is number => typeof value === "number" && Number.isFinite(value))
+    .map(readFiniteNumber)
+    .filter((value): value is number => value != null)
     .reduce((sum, value) => sum + value, 0);
+}
+
+function readFiniteNumber(value: unknown): number | null {
+  if (typeof value === "number") return Number.isFinite(value) ? value : null;
+  if (typeof value === "string" && value.trim()) {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
 }
 
 function readDiscardedSymbols(summary: DynamicReviewSummary | null | undefined) {

@@ -218,10 +218,12 @@ function DiscardedSymbolsNotice({ candidates, lang }: { candidates: BacktestCand
 }
 
 function readReturnDrawdownRatio(summary: DynamicResultSummary) {
-  if (typeof summary.return_drawdown_ratio === "number") return summary.return_drawdown_ratio;
-  if (typeof summary.profit_drawdown_ratio === "number") return summary.profit_drawdown_ratio;
-  const maxDrawdown = typeof summary.max_drawdown_pct === "number" ? Math.abs(summary.max_drawdown_pct) : null;
-  return typeof summary.total_return_pct === "number" && maxDrawdown && maxDrawdown > 0 ? summary.total_return_pct / maxDrawdown : null;
+  const explicitRatio = readFiniteNumber(summary.return_drawdown_ratio) ?? readFiniteNumber(summary.profit_drawdown_ratio);
+  if (explicitRatio != null) return explicitRatio;
+  const maxDrawdown = readFiniteNumber(summary.max_drawdown_pct);
+  const totalReturn = readFiniteNumber(summary.total_return_pct);
+  const absDrawdown = maxDrawdown == null ? null : Math.abs(maxDrawdown);
+  return totalReturn != null && absDrawdown != null && absDrawdown > 0 ? totalReturn / absDrawdown : null;
 }
 
 function readDiscardedSymbols(summary: DynamicResultSummary) {
@@ -229,7 +231,7 @@ function readDiscardedSymbols(summary: DynamicResultSummary) {
 }
 
 function formatOptionalNumber(value: number | null | undefined, decimals: number) {
-  return value == null ? "—" : value.toLocaleString(undefined, { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+  return value == null || !Number.isFinite(value) ? "—" : value.toLocaleString(undefined, { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
 }
 
 function formatBool(value: boolean | undefined, lang: UiLanguage) {
@@ -240,9 +242,19 @@ function formatBool(value: boolean | undefined, lang: UiLanguage) {
 function formatCostSummary(costSummary: DynamicResultSummary["cost_summary"]) {
   if (!costSummary) return "—";
   const total = [costSummary.fee_quote, costSummary.slippage_quote, costSummary.stop_loss_quote, costSummary.forced_exit_quote]
-    .filter((value): value is number => typeof value === "number" && Number.isFinite(value))
+    .map(readFiniteNumber)
+    .filter((value): value is number => value != null)
     .reduce((sum, value) => sum + value, 0);
   return `${formatOptionalNumber(total, 2)}U`;
+}
+
+function readFiniteNumber(value: unknown): number | null {
+  if (typeof value === "number") return Number.isFinite(value) ? value : null;
+  if (typeof value === "string" && value.trim()) {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
 }
 
 function readFirstOrderQuote(summary: MartingaleBacktestCandidateSummary) {

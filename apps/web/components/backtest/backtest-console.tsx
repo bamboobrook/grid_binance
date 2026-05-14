@@ -392,6 +392,7 @@ function normalizeCandidate(candidate: ApiCandidate, lang: UiLanguage): Backtest
   const spacing = readObject(firstStrategy.spacing);
   const sizing = readObject(firstStrategy.sizing);
   const takeProfit = readObject(firstStrategy.take_profit);
+  const costSummary = normalizeCostSummary(readObject(summary.cost_summary));
   return {
     id: candidate.candidate_id ?? "",
     symbol: symbols,
@@ -405,7 +406,7 @@ function normalizeCandidate(candidate: ApiCandidate, lang: UiLanguage): Backtest
     parameters: describeCandidateParameters(spacing, sizing, takeProfit, lang),
     decision: humanizeCandidateDecision(candidate.status, summary, lang),
     rank: candidate.rank,
-    summary: {
+    summary: ({
       score: readNumber(summary.score) ?? undefined,
       total_return_pct: readNumber(summary.total_return_pct) ?? undefined,
       max_drawdown: readNumber(summary.max_drawdown_pct) != null ? (readNumber(summary.max_drawdown_pct)! / 100) : undefined,
@@ -431,8 +432,32 @@ function normalizeCandidate(candidate: ApiCandidate, lang: UiLanguage): Backtest
       risk_profile: readString(summary.risk_profile) || undefined,
       risk_summary_human: readString(summary.risk_summary_human) || undefined,
       portfolio_group_key: readString(summary.portfolio_group_key) || undefined,
-    },
+      allocation_curve: Array.isArray(summary.allocation_curve) ? summary.allocation_curve as never : undefined,
+      regime_timeline: Array.isArray(summary.regime_timeline) ? summary.regime_timeline as never : undefined,
+      cost_summary: costSummary,
+      return_drawdown_ratio: readNumber(summary.return_drawdown_ratio) ?? undefined,
+      profit_drawdown_ratio: readNumber(summary.profit_drawdown_ratio) ?? undefined,
+      rebalance_count: readNumber(summary.rebalance_count) ?? undefined,
+      forced_exit_count: readNumber(summary.forced_exit_count) ?? undefined,
+      average_allocation_hold_hours: readNumber(summary.average_allocation_hold_hours) ?? undefined,
+      live_recommended: typeof summary.live_recommended === "boolean" ? summary.live_recommended : undefined,
+      can_recommend_live: typeof summary.can_recommend_live === "boolean" ? summary.can_recommend_live : undefined,
+      max_drawdown_limit_passed: typeof summary.max_drawdown_limit_passed === "boolean" ? summary.max_drawdown_limit_passed : undefined,
+      discarded_symbols_from_portfolio_top10: readStringArray(summary.discarded_symbols_from_portfolio_top10),
+      portfolio_top10_discarded_symbols: readStringArray(summary.portfolio_top10_discarded_symbols),
+    } as MartingaleBacktestCandidateSummary),
   };
+}
+
+function normalizeCostSummary(costSummary: Record<string, unknown> | null) {
+  if (!costSummary) return undefined;
+  const normalized = Object.fromEntries(Object.entries({
+    fee_quote: readNumber(costSummary.fee_quote) ?? undefined,
+    slippage_quote: readNumber(costSummary.slippage_quote) ?? undefined,
+    stop_loss_quote: readNumber(costSummary.stop_loss_quote) ?? undefined,
+    forced_exit_quote: readNumber(costSummary.forced_exit_quote) ?? undefined,
+  }).filter(([, value]) => value != null));
+  return Object.values(normalized).some((value) => value != null) ? normalized : undefined;
 }
 
 

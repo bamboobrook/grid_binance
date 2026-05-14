@@ -23,6 +23,55 @@ function loadWizardPayloadHelpers() {
   return context.exports;
 }
 
+function loadBacktestConsoleHelpers() {
+  const source = read("apps/web/components/backtest/backtest-console.tsx");
+  const helperStart = source.indexOf("function normalizeCandidate");
+  const helperEnd = source.indexOf("function formatDate");
+  assert.notEqual(helperStart, -1);
+  assert.notEqual(helperEnd, -1);
+  const helperSource = `type UiLanguage = "zh" | "en";\n${source.slice(helperStart, helperEnd)}\nexports.normalizeCandidate = normalizeCandidate;`;
+  const compiled = ts.transpileModule(helperSource, {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX },
+  }).outputText;
+  const pickText = (lang, zh, en) => (lang === "zh" ? zh : en);
+  const context = {
+    exports: {},
+    module: { exports: {} },
+    require: (id) => (id === "react/jsx-runtime" ? { jsx: () => null, jsxs: () => null, Fragment: Symbol("Fragment") } : require(id)),
+    pickText,
+    Number,
+    Math,
+    Array,
+    Object,
+    String,
+  };
+  vm.runInNewContext(compiled, context);
+  return context.exports;
+}
+
+function loadBacktestChartHelpers() {
+  const source = read("apps/web/components/backtest/backtest-charts.tsx");
+  const helperStart = source.indexOf("function fmtNum");
+  const helperEnd = source.indexOf("/* ------------------------------------------------------------------ */\n/*  Stress window badges");
+  assert.notEqual(helperStart, -1);
+  assert.notEqual(helperEnd, -1);
+  const helperSource = `${source.slice(helperStart, helperEnd)}\nexports.normalizeCostSummary = normalizeCostSummary;\nexports.formatCost = formatCost;\nexports.formatCount = formatCount;\nexports.formatHours = formatHours;`;
+  const compiled = ts.transpileModule(helperSource, {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX },
+  }).outputText;
+  const context = {
+    exports: {},
+    module: { exports: {} },
+    require: (id) => (id === "react/jsx-runtime" ? { jsx: () => null, jsxs: () => null, Fragment: Symbol("Fragment") } : require(id)),
+    Number,
+    Array,
+    Object,
+    String,
+  };
+  vm.runInNewContext(compiled, context);
+  return context.exports;
+}
+
 const baseForm = {
   symbolPoolMode: "whitelist",
   whitelist: "BTCUSDT, ETHUSDT",
@@ -144,9 +193,67 @@ test("backtest console exposes progress, grouped top ten, charts, and basket pub
   assert.match(chartSource, /symbol_regime/);
   assert.match(chartSource, /forced_exit_count/);
   assert.match(chartSource, /cost_summary/);
+  assert.match(resultSource, /收益回撤比|Return\/DD ratio/);
+  assert.match(resultSource, /调仓次数|Rebalances/);
+  assert.match(resultSource, /强平次数|Forced exits/);
+  assert.match(resultSource, /交易成本|Trading cost/);
+  assert.match(resultSource, /是否满足最大回撤限制|Max DD limit passed/);
+  assert.match(resultSource, /是否可推荐实盘|Live recommendable/);
+  assert.match(resultSource, /组合 Top10 已剔除币种|Discarded symbols from portfolio Top10/);
   assert.match(basketSource, /组合篮子|Portfolio basket/i);
   assert.match(basketSource, /权重合计|Weight total/i);
   assert.match(basketSource, /批量发布实盘组合|Batch publish live portfolio/);
+});
+
+test("backtest console normalization passes dynamic martingale metrics through", () => {
+  const { normalizeCandidate } = loadBacktestConsoleHelpers();
+  const normalized = normalizeCandidate({
+    candidate_id: "c-1",
+    status: "succeeded",
+    config: {},
+    summary: {
+      symbol: "BTCUSDT",
+      allocation_curve: [{ timestamp_ms: 1, symbol: "BTCUSDT", long_weight_pct: "60", short_weight_pct: 40 }],
+      regime_timeline: [{ timestamp_ms: 1, btc_regime: "bull", symbol_regime: "range" }],
+      cost_summary: { fee_quote: "1.5", slippage_quote: "bad", forced_exit_quote: 2 },
+      return_drawdown_ratio: "1.8",
+      rebalance_count: "4",
+      forced_exit_count: "0",
+      average_allocation_hold_hours: "12.5",
+      live_recommended: true,
+      max_drawdown_limit_passed: false,
+      discarded_symbols_from_portfolio_top10: ["DOGEUSDT", 123],
+    },
+  }, "zh");
+
+  assert.deepEqual(normalized.summary.allocation_curve, [{ timestamp_ms: 1, symbol: "BTCUSDT", long_weight_pct: "60", short_weight_pct: 40 }]);
+  assert.deepEqual(normalized.summary.regime_timeline, [{ timestamp_ms: 1, btc_regime: "bull", symbol_regime: "range" }]);
+  assert.deepEqual(normalized.summary.cost_summary, { fee_quote: 1.5, forced_exit_quote: 2 });
+  assert.equal(normalized.summary.return_drawdown_ratio, 1.8);
+  assert.equal(normalized.summary.rebalance_count, 4);
+  assert.equal(normalized.summary.forced_exit_count, 0);
+  assert.equal(normalized.summary.average_allocation_hold_hours, 12.5);
+  assert.equal(normalized.summary.live_recommended, true);
+  assert.equal(normalized.summary.max_drawdown_limit_passed, false);
+  assert.deepEqual(normalized.summary.discarded_symbols_from_portfolio_top10, ["DOGEUSDT"]);
+});
+
+test("backtest chart cost helpers use top-level dynamic values and avoid NaN fallbacks", () => {
+  const { normalizeCostSummary, formatCost, formatCount, formatHours } = loadBacktestChartHelpers();
+  const summary = normalizeCostSummary({
+    cost_summary: { fee_quote: "3.25", slippage_quote: "oops", stop_loss_quote: Number.NaN },
+    rebalance_count: "6",
+    forced_exit_count: "bad",
+    average_allocation_hold_hours: Number.POSITIVE_INFINITY,
+  });
+
+  assert.deepEqual(summary, { fee_quote: 3.25, rebalance_count: 6 });
+  assert.equal(formatCost(summary.fee_quote), "3.25 USDT");
+  assert.equal(formatCost(summary.slippage_quote), "—");
+  assert.equal(formatCount(summary.rebalance_count), "6");
+  assert.equal(formatCount(summary.forced_exit_count), "—");
+  assert.equal(formatHours(summary.average_allocation_hold_hours), "—");
+  assert.doesNotMatch(`${formatCost(summary.slippage_quote)} ${formatHours(summary.average_allocation_hold_hours)}`, /NaN/);
 });
 
 test("frontend has proxy route for batch portfolio publish", () => {

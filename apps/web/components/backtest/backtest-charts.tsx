@@ -48,6 +48,9 @@ type DynamicAllocationSummary = MartingaleBacktestCandidateSummary & {
   candidate_artifact?: { allocation_curve?: unknown };
   regime_timeline?: unknown;
   cost_summary?: CostSummary;
+  rebalance_count?: unknown;
+  forced_exit_count?: unknown;
+  average_allocation_hold_hours?: unknown;
 };
 
 interface EquityPoint {
@@ -104,7 +107,12 @@ function fmtShortDate(ts: number): string {
 }
 
 function readFiniteNumber(value: unknown): number | null {
-  return typeof value === "number" && Number.isFinite(value) ? value : null;
+  if (typeof value === "number") return Number.isFinite(value) ? value : null;
+  if (typeof value === "string" && value.trim()) {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
 }
 
 function readObject(value: unknown): Record<string, unknown> | null {
@@ -194,6 +202,24 @@ function normalizeRegimeTimeline(summary: DynamicAllocationSummary): RegimePoint
       } satisfies RegimePoint;
     })
     .filter((point): point is RegimePoint => point != null);
+}
+
+function optionalFiniteNumber(value: unknown): number | undefined {
+  return readFiniteNumber(value) ?? undefined;
+}
+
+function normalizeCostSummary(summary: DynamicAllocationSummary): CostSummary | undefined {
+  const costSummary = readObject(summary.cost_summary) ?? {};
+  const normalized = Object.fromEntries(Object.entries({
+    fee_quote: optionalFiniteNumber(costSummary.fee_quote),
+    slippage_quote: optionalFiniteNumber(costSummary.slippage_quote),
+    stop_loss_quote: optionalFiniteNumber(costSummary.stop_loss_quote),
+    forced_exit_quote: optionalFiniteNumber(costSummary.forced_exit_quote),
+    rebalance_count: optionalFiniteNumber(summary.rebalance_count),
+    forced_exit_count: optionalFiniteNumber(summary.forced_exit_count),
+    average_allocation_hold_hours: optionalFiniteNumber(summary.average_allocation_hold_hours),
+  }).filter(([, value]) => value != null)) as CostSummary;
+  return Object.values(normalized).some((value) => value != null) ? normalized : undefined;
 }
 
 interface EquitySparklineProps {
@@ -384,15 +410,15 @@ function CostSummaryCards({ costSummary }: { costSummary?: CostSummary }) {
 }
 
 function formatCost(value: number | undefined) {
-  return value == null ? "—" : `${fmtNum(value, 2)} USDT`;
+  return value == null || !Number.isFinite(value) ? "—" : `${fmtNum(value, 2)} USDT`;
 }
 
 function formatCount(value: number | undefined) {
-  return value == null ? "—" : fmtNum(value, 0);
+  return value == null || !Number.isFinite(value) ? "—" : fmtNum(value, 0);
 }
 
 function formatHours(value: number | undefined) {
-  return value == null ? "—" : `${fmtNum(value, 2)}h`;
+  return value == null || !Number.isFinite(value) ? "—" : `${fmtNum(value, 2)}h`;
 }
 
 /* ------------------------------------------------------------------ */
@@ -480,6 +506,7 @@ export function BacktestCharts({ summary, equityCurve, stopLossEvents }: Backtes
   const drawdownPoints = normalizeDrawdownCurve(summary?.drawdown_curve, equityCurve ?? summary?.equity_curve);
   const allocationPoints = normalizeAllocationCurve(dynamicSummary);
   const regimeTimeline = normalizeRegimeTimeline(dynamicSummary);
+  const costSummary = normalizeCostSummary(dynamicSummary);
   const artifactPath = summary?.artifact_path;
   const maxDrawdownPct = summary?.max_drawdown_pct ?? (summary?.max_drawdown == null ? undefined : summary.max_drawdown * 100);
   const hasAnyChartData = equityPoints.length > 0 || drawdownPoints.length > 0;
@@ -552,7 +579,7 @@ export function BacktestCharts({ summary, equityCurve, stopLossEvents }: Backtes
 
       <div>
         <h4 className="text-sm font-medium mb-1">Cost Summary</h4>
-        <CostSummaryCards costSummary={dynamicSummary.cost_summary} />
+        <CostSummaryCards costSummary={costSummary} />
       </div>
 
       <div>
