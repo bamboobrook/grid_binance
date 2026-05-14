@@ -4,6 +4,8 @@ import { useMemo } from "react";
 import {
   Area,
   AreaChart,
+  Bar,
+  BarChart,
   CartesianGrid,
   Line,
   ResponsiveContainer,
@@ -42,6 +44,9 @@ type CostSummary = {
   average_allocation_hold_hours?: number;
 };
 
+type PortfolioWeightPoint = { name: string; weight_pct: number };
+type PackageContributionPoint = { candidate_id: string; symbol: string; weight_pct: number; return_contribution_pct?: number; drawdown_contribution_pct?: number };
+
 type DynamicAllocationSummary = MartingaleBacktestCandidateSummary & {
   allocation_curve?: unknown;
   artifact?: { allocation_curve?: unknown };
@@ -51,6 +56,8 @@ type DynamicAllocationSummary = MartingaleBacktestCandidateSummary & {
   rebalance_count?: unknown;
   forced_exit_count?: unknown;
   average_allocation_hold_hours?: unknown;
+  symbol_weights?: unknown;
+  package_contributions?: unknown;
 };
 
 interface EquityPoint {
@@ -220,6 +227,72 @@ function normalizeCostSummary(summary: DynamicAllocationSummary): CostSummary | 
     average_allocation_hold_hours: optionalFiniteNumber(summary.average_allocation_hold_hours),
   }).filter(([, value]) => value != null)) as CostSummary;
   return Object.values(normalized).some((value) => value != null) ? normalized : undefined;
+}
+
+function normalizeSymbolWeights(summary: DynamicAllocationSummary): PortfolioWeightPoint[] {
+  const weights = readObject(summary.symbol_weights);
+  if (!weights) return [];
+  return Object.entries(weights)
+    .map(([name, value]) => {
+      const weight = readFiniteNumber(value);
+      return weight == null ? null : { name, weight_pct: weight };
+    })
+    .filter((point): point is PortfolioWeightPoint => point != null)
+    .sort((left, right) => right.weight_pct - left.weight_pct);
+}
+
+function normalizePackageContributions(summary: DynamicAllocationSummary): PackageContributionPoint[] {
+  const raw = Array.isArray(summary.package_contributions) ? summary.package_contributions : [];
+  return raw
+    .map((item): PackageContributionPoint | null => {
+      const object = readObject(item);
+      if (!object) return null;
+      const candidateId = readString(object.candidate_id);
+      const symbol = readString(object.symbol);
+      const weight = readFiniteNumber(object.weight_pct);
+      if (!candidateId || !symbol || weight == null) return null;
+      return {
+        candidate_id: candidateId,
+        symbol,
+        weight_pct: weight,
+        return_contribution_pct: optionalFiniteNumber(object.return_contribution_pct),
+        drawdown_contribution_pct: optionalFiniteNumber(object.drawdown_contribution_pct),
+      };
+    })
+    .filter((point): point is PackageContributionPoint => point != null);
+}
+
+function PortfolioAllocationChart({ weights }: { weights: PortfolioWeightPoint[] }) {
+  if (weights.length === 0) return <span className="text-muted-foreground text-sm">No portfolio allocation data</span>;
+  return (
+    <div className="h-52">
+      <ResponsiveContainer width="100%" height="100%">
+        <BarChart data={weights}>
+          <CartesianGrid strokeDasharray="3 3" />
+          <XAxis dataKey="name" tick={{ fontSize: 11 }} />
+          <YAxis domain={[0, 100]} tickFormatter={(value) => `${value}%`} width={42} />
+          <Tooltip formatter={(value) => [`${fmtNum(Number(value), 2)}%`, "资金占比"]} />
+          <Bar dataKey="weight_pct" fill="#6366f1" name="symbol_weight_pct" />
+        </BarChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
+function PackageContributionTable({ contributions }: { contributions: PackageContributionPoint[] }) {
+  if (contributions.length === 0) return <span className="text-muted-foreground text-sm">No package contribution data</span>;
+  return (
+    <div className="max-h-48 overflow-y-auto rounded-lg border border-border">
+      {contributions.slice(0, 20).map((item) => (
+        <div className="grid grid-cols-[1fr_80px_90px_90px] gap-2 border-b border-border px-3 py-2 text-xs last:border-b-0" key={item.candidate_id}>
+          <span className="truncate" title={item.candidate_id}>{item.symbol} · {item.candidate_id}</span>
+          <span>{fmtPctValue(item.weight_pct)}</span>
+          <span>{item.return_contribution_pct == null ? "—" : fmtPctValue(item.return_contribution_pct)}</span>
+          <span>{item.drawdown_contribution_pct == null ? "—" : fmtPctValue(item.drawdown_contribution_pct)}</span>
+        </div>
+      ))}
+    </div>
+  );
 }
 
 interface EquitySparklineProps {
@@ -507,6 +580,8 @@ export function BacktestCharts({ summary, equityCurve, stopLossEvents }: Backtes
   const allocationPoints = normalizeAllocationCurve(dynamicSummary);
   const regimeTimeline = normalizeRegimeTimeline(dynamicSummary);
   const costSummary = normalizeCostSummary(dynamicSummary);
+  const portfolioSymbolWeights = normalizeSymbolWeights(dynamicSummary);
+  const packageContributions = normalizePackageContributions(dynamicSummary);
   const artifactPath = summary?.artifact_path;
   const maxDrawdownPct = summary?.max_drawdown_pct ?? (summary?.max_drawdown == null ? undefined : summary.max_drawdown * 100);
   const hasAnyChartData = equityPoints.length > 0 || drawdownPoints.length > 0;
@@ -580,6 +655,16 @@ export function BacktestCharts({ summary, equityCurve, stopLossEvents }: Backtes
       <div>
         <h4 className="text-sm font-medium mb-1">Cost Summary</h4>
         <CostSummaryCards costSummary={costSummary} />
+      </div>
+
+      <div>
+        <h4 className="text-sm font-medium mb-1">组合资金分配 / Portfolio allocation</h4>
+        <PortfolioAllocationChart weights={portfolioSymbolWeights} />
+      </div>
+
+      <div>
+        <h4 className="text-sm font-medium mb-1">各策略包收益/回撤贡献 / Package contributions</h4>
+        <PackageContributionTable contributions={packageContributions} />
       </div>
 
       <div>

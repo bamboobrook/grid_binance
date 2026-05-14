@@ -9,3 +9,13 @@ export async function GET(
     backendPath: `/backtest/tasks/${id}`,
   });
 }
+
+export async function DELETE(
+  request: Request,
+  context: { params: Promise<{ id: string }> },
+) {
+  const { id } = await context.params;
+  return proxyBacktestRequest(request, {
+    backendPath: `/backtest/tasks/${id}`,
+  });
+}

@@ -193,6 +193,11 @@ test("backtest console exposes progress, grouped top ten, charts, and basket pub
   assert.match(chartSource, /symbol_regime/);
   assert.match(chartSource, /forced_exit_count/);
   assert.match(chartSource, /cost_summary/);
+  assert.match(chartSource, /组合资金分配|Portfolio allocation/);
+  assert.match(chartSource, /symbol_weight_pct/);
+  assert.match(chartSource, /Package contributions/);
+  assert.match(chartSource, /return_contribution_pct/);
+  assert.match(chartSource, /drawdown_contribution_pct/);
   assert.match(resultSource, /收益回撤比|Return\/DD ratio/);
   assert.match(resultSource, /调仓次数|Rebalances/);
   assert.match(resultSource, /强平次数|Forced exits/);

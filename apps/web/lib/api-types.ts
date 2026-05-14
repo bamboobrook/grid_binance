@@ -88,6 +88,13 @@ export interface MartingaleBacktestCandidateSummary {
   max_drawdown_limit_passed?: boolean;
   discarded_symbols_from_portfolio_top10?: string[];
   portfolio_top10_discarded_symbols?: string[];
+  portfolio_candidate_id?: string;
+  items?: Array<{ candidate_id?: string; symbol?: string; weight_pct?: ApiDecimal; recommended_leverage?: number; return_contribution_pct?: ApiDecimal; drawdown_contribution_pct?: ApiDecimal }>;
+  symbols?: string[];
+  symbol_weights?: Record<string, ApiDecimal>;
+  package_contributions?: Array<{ candidate_id?: string; symbol?: string; weight_pct?: ApiDecimal; return_contribution_pct?: ApiDecimal; drawdown_contribution_pct?: ApiDecimal }>;
+  cost_burden_quote?: ApiDecimal;
+  average_correlation?: ApiDecimal | null;
 }
 
 export interface MartingaleTradeEvent {
