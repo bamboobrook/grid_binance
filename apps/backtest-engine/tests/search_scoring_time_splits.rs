@@ -328,6 +328,58 @@ fn long_short_search_generates_short_candidates_with_drawdown_or_atr_stop() {
 }
 
 #[test]
+fn short_only_futures_search_generates_short_candidates_with_drawdown_stop() {
+    let space = short_stop_search_space(
+        MartingaleDirectionMode::ShortOnly,
+        vec![MartingaleDirection::Short],
+        Some(MartingaleMarketKind::UsdMFutures),
+    );
+
+    let candidates = random_search(&space, 2, 12).expect("search");
+
+    assert!(candidates.iter().all(|candidate| {
+        let strategy = &candidate.config.strategies[0];
+        strategy.direction == MartingaleDirection::Short
+            && matches!(
+                strategy.stop_loss,
+                Some(MartingaleStopLossModel::StrategyDrawdownPct { pct_bps: 2_000 })
+            )
+    }));
+}
+
+#[test]
+fn long_only_futures_search_does_not_inject_short_stop() {
+    let space = short_stop_search_space(
+        MartingaleDirectionMode::LongOnly,
+        vec![MartingaleDirection::Long],
+        Some(MartingaleMarketKind::UsdMFutures),
+    );
+
+    let candidates = random_search(&space, 2, 13).expect("search");
+
+    assert!(candidates.iter().all(|candidate| {
+        let strategy = &candidate.config.strategies[0];
+        strategy.direction == MartingaleDirection::Long && strategy.stop_loss.is_none()
+    }));
+}
+
+#[test]
+fn spot_short_search_does_not_inject_futures_short_stop() {
+    let space = short_stop_search_space(
+        MartingaleDirectionMode::ShortOnly,
+        vec![MartingaleDirection::Short],
+        Some(MartingaleMarketKind::Spot),
+    );
+
+    let candidates = random_search(&space, 2, 14).expect("search");
+
+    assert!(candidates.iter().all(|candidate| {
+        let strategy = &candidate.config.strategies[0];
+        strategy.direction == MartingaleDirection::Short && strategy.stop_loss.is_none()
+    }));
+}
+
+#[test]
 fn allocation_closes_short_weight_when_btc_and_symbol_are_strong_up() {
     let config = AllocationConfig::balanced();
     let state = AllocationState::default();
@@ -1240,6 +1292,30 @@ fn small_search_space() -> SearchSpace {
         take_profit_bps: vec![80],
         leverage: vec![1],
         max_legs: vec![3],
+        dynamic_allocation_enabled: false,
+        short_stop_drawdown_pct_candidates: Vec::new(),
+        short_atr_stop_multiplier_candidates: Vec::new(),
+        allocation_cooldown_hours_candidates: Vec::new(),
+    }
+}
+
+fn short_stop_search_space(
+    direction_mode: MartingaleDirectionMode,
+    directions: Vec<MartingaleDirection>,
+    market: Option<MartingaleMarketKind>,
+) -> SearchSpace {
+    SearchSpace {
+        symbols: vec!["BTCUSDT".to_string()],
+        direction_mode,
+        directions,
+        market,
+        margin_mode: None,
+        step_bps: vec![100],
+        first_order_quote: vec![Decimal::new(10, 0)],
+        multiplier: vec![Decimal::new(2, 0)],
+        take_profit_bps: vec![100],
+        leverage: vec![3],
+        max_legs: vec![4],
         dynamic_allocation_enabled: false,
         short_stop_drawdown_pct_candidates: Vec::new(),
         short_atr_stop_multiplier_candidates: Vec::new(),

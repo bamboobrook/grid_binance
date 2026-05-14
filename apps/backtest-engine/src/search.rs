@@ -108,10 +108,7 @@ fn default_stop_loss(
     direction: MartingaleDirection,
     rng: &mut StdRng,
 ) -> Result<Option<MartingaleStopLossModel>, String> {
-    if market != MartingaleMarketKind::UsdMFutures
-        || direction != MartingaleDirection::Short
-        || space.direction_mode != MartingaleDirectionMode::LongAndShort
-    {
+    if market != MartingaleMarketKind::UsdMFutures || direction != MartingaleDirection::Short {
         return Ok(None);
     }
 
