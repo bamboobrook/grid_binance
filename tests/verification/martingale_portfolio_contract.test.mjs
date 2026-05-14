@@ -127,21 +127,33 @@ test("martingale batch portfolio publish API contract is wired end to end", () =
   const routesSource = readFileSync("apps/api-server/src/routes/backtest.rs", "utf8");
   const publishServiceSource = readFileSync("apps/api-server/src/services/martingale_publish_service.rs", "utf8");
   const liveControlsSource = readFileSync("apps/web/components/backtest/live-portfolio-controls.tsx", "utf8");
+  const candidateReviewSource = readFileSync("apps/web/components/backtest/portfolio-candidate-review.tsx", "utf8");
 
   assert.match(routesSource, /\/backtest\/portfolios\/publish/);
   assert.match(publishServiceSource, /struct\s+PublishPortfolioRequest[\s\S]*total_weight_pct[\s\S]*items/);
   assert.match(publishServiceSource, /dynamic_allocation_rules/);
   assert.match(publishServiceSource, /live_readiness_blockers/);
   assert.match(publishServiceSource, /live_ready/);
+  assert.match(publishServiceSource, /requires_dynamic_allocation_rules\(request\)/);
+  assert.match(publishServiceSource, /validate_live_ready_for_start\(&portfolio\)\?/);
   assert.match(publishServiceSource, /struct\s+PublishPortfolioItemRequest[\s\S]*candidate_id[\s\S]*weight_pct[\s\S]*leverage/);
   assert.match(publishServiceSource, /struct\s+PublishPortfolioResponse[\s\S]*instances:\s*Vec<PublishedStrategyInstance>[\s\S]*items:\s*Vec<PublishedStrategyInstance>/);
   assert.match(publishServiceSource, /strategy_instance_id/);
+  assert.match(candidateReviewSource, /function\s+readDynamicAllocationRules/);
+  assert.match(candidateReviewSource, /const\s+dynamicAllocationRules\s*=\s*readDynamicAllocationRules\(enabledItems\)/);
+  assert.match(
+    candidateReviewSource,
+    /const\s+payload\s*=\s*\{[\s\S]*total_weight_pct:\s*100,[\s\S]*dynamic_allocation_rules:\s*dynamicAllocationRules[\s\S]*items:/,
+    "portfolio-candidate-review must place dynamic_allocation_rules at the top level of the real publish payload",
+  );
   assert.match(liveControlsSource, /dynamic_allocation_rules/);
   assert.match(liveControlsSource, /liveReadinessBlockers/);
   assert.match(liveControlsSource, /实盘就绪阻断项|Live readiness blockers/);
   assert.match(liveControlsSource, /直接发布实盘|Direct live publish/);
   assert.match(liveControlsSource, /保存为待启用组合|Save as pending portfolio/);
+  assert.match(liveControlsSource, /const\s+directLiveDisabled\s*=\s*pending\s*!==\s*""\s*\|\|\s*liveReadinessBlockers\.length\s*>\s*0/);
   assert.match(liveControlsSource, /disabled=\{directLiveDisabled\}/);
+  assert.match(liveControlsSource, /保存为待启用组合[\s\S]*disabled=\{pending !== ""\}/);
   assert.match(liveControlsSource, /策略实例|Strategy instance/);
   assert.match(liveControlsSource, /来源候选|Source candidate/);
 });

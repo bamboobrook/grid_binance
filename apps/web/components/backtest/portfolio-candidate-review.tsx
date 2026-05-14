@@ -78,6 +78,19 @@ function readString(value: unknown): string {
   return typeof value === "string" ? value : "";
 }
 
+function readDynamicAllocationRules(items: PortfolioBasketItem[]): Record<string, unknown> | null {
+  for (const item of items) {
+    const fromParameterSnapshot = readObject(item.parameterSnapshot.dynamic_allocation_rules);
+    if (fromParameterSnapshot) return fromParameterSnapshot;
+    const fromMetricsSnapshot = readObject(item.metricsSnapshot.dynamic_allocation_rules);
+    if (fromMetricsSnapshot) return fromMetricsSnapshot;
+    const summary = readObject(item.metricsSnapshot.summary);
+    const fromSummary = readObject(summary?.dynamic_allocation_rules);
+    if (fromSummary) return fromSummary;
+  }
+  return null;
+}
+
 function fmtPct(v: number | null | undefined): string {
   if (v == null) return "—";
   return `${(v * 100).toFixed(2)}%`;
@@ -243,6 +256,7 @@ export function PortfolioCandidateReview({
     }
 
     const first = enabledItems[0];
+    const dynamicAllocationRules = readDynamicAllocationRules(enabledItems);
     const payload = {
       name: portfolioName.trim() || `${first.symbol} basket`,
       task_id: first.taskId || first.selectedTaskId,
@@ -250,6 +264,7 @@ export function PortfolioCandidateReview({
       direction: first.direction,
       risk_profile: first.riskProfile || "balanced",
       total_weight_pct: 100,
+      ...(dynamicAllocationRules ? { dynamic_allocation_rules: dynamicAllocationRules } : {}),
       items: enabledItems.map((item) => ({
         candidate_id: item.candidateId,
         symbol: item.symbol,

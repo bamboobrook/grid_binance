@@ -253,6 +253,7 @@ impl MartingalePublishService {
                 "portfolio cannot be started from current status",
             ));
         }
+        validate_live_ready_for_start(&portfolio)?;
         validate_running_futures_conflicts(
             &self.repo.list_martingale_portfolios(owner)?,
             &portfolio,
@@ -308,7 +309,7 @@ impl MartingalePublishService {
             for item in existing.items {
                 if incoming.contains(&item.symbol.to_uppercase()) {
                     return Err(PublishError::conflict(format!(
-                        "{} futures symbol conflict",
+                        "{} leverage conflict",
                         item.symbol
                     )));
                 }
@@ -377,13 +378,16 @@ fn live_readiness_blockers(
     candidates_by_id: &BTreeMap<String, BacktestCandidateRecord>,
 ) -> Vec<String> {
     let mut blockers = Vec::new();
-    let Some(rules) = request
-        .dynamic_allocation_rules
-        .as_ref()
-        .filter(|value| value.is_object())
-    else {
-        blockers
-            .push("dynamic allocation rules are required before direct live publish".to_owned());
+    let Some(raw_rules) = request.dynamic_allocation_rules.as_ref() else {
+        if requires_dynamic_allocation_rules(request) {
+            blockers.push(
+                "dynamic allocation rules are required before direct live publish".to_owned(),
+            );
+        }
+        return blockers;
+    };
+    let Some(rules) = raw_rules.as_object() else {
+        blockers.push("dynamic allocation rules must be a JSON object".to_owned());
         return blockers;
     };
 
@@ -461,6 +465,46 @@ fn live_readiness_blockers(
         );
     }
     blockers
+}
+
+fn requires_dynamic_allocation_rules(request: &PublishPortfolioRequest) -> bool {
+    request.risk_profile.contains("dynamic")
+}
+
+fn validate_live_ready_for_start(
+    portfolio: &MartingalePortfolioRecord,
+) -> Result<(), PublishError> {
+    let blockers = portfolio_live_readiness_blockers(portfolio);
+    if !blockers.is_empty() {
+        return Err(PublishError::conflict(format!(
+            "portfolio is not live-ready: {}",
+            blockers.join("; ")
+        )));
+    }
+    let live_ready = portfolio
+        .config
+        .get("live_ready")
+        .and_then(Value::as_bool)
+        .unwrap_or(true);
+    if !live_ready {
+        return Err(PublishError::conflict("portfolio is not live-ready"));
+    }
+    Ok(())
+}
+
+fn portfolio_live_readiness_blockers(portfolio: &MartingalePortfolioRecord) -> Vec<String> {
+    portfolio
+        .config
+        .get("live_readiness_blockers")
+        .and_then(Value::as_array)
+        .map(|blockers| {
+            blockers
+                .iter()
+                .filter_map(Value::as_str)
+                .map(str::to_owned)
+                .collect()
+        })
+        .unwrap_or_default()
 }
 
 fn validate_publish_request(request: &PublishPortfolioRequest) -> Result<(), PublishError> {
@@ -556,7 +600,8 @@ fn validate_running_futures_conflicts(
         return Ok(());
     }
     for existing in portfolios.iter().filter(|portfolio| {
-        portfolio.portfolio_id != starting.portfolio_id && portfolio.status == "running"
+        portfolio.portfolio_id != starting.portfolio_id
+            && (portfolio.status == "running" || portfolio.status == "paused")
     }) {
         if existing.market != "usd_m_futures" && existing.market != "futures" {
             continue;
@@ -564,7 +609,7 @@ fn validate_running_futures_conflicts(
         for item in &existing.items {
             if incoming.contains(&item.symbol.to_uppercase()) {
                 return Err(PublishError::conflict(format!(
-                    "{} futures symbol conflict",
+                    "{} leverage conflict",
                     item.symbol
                 )));
             }

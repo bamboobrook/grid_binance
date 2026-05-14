@@ -281,6 +281,164 @@ async fn martingale_dynamic_publish_preserves_rules_and_reports_live_readiness()
 }
 
 #[tokio::test]
+async fn martingale_dynamic_publish_without_rules_blocks_confirm_start() {
+    let db = SharedDb::ephemeral().expect("db");
+    let app = app_with_state(AppState::from_shared_db(db.clone()).expect("state"));
+    let token = register_and_login(
+        &app,
+        "backtest-dynamic-missing-rules@example.com",
+        "pass1234",
+    )
+    .await;
+
+    let task_id = create_task_with_portfolio(&app, &token, futures_portfolio_config(3)).await;
+    let candidate_id = save_ready_candidate(&db, &task_id, futures_portfolio_config(3));
+    db.backtest_repo()
+        .transition_task(&task_id, "succeeded")
+        .expect("succeeded");
+
+    let response = authed_json(
+        &app,
+        "POST",
+        "/backtest/portfolios/publish",
+        &token,
+        json!({
+            "name": "Dynamic missing rules basket",
+            "task_id": task_id,
+            "market": "usd_m_futures",
+            "direction": "long_short",
+            "risk_profile": "dynamic_long_short",
+            "total_weight_pct": 100,
+            "items": [{
+                "candidate_id": candidate_id,
+                "symbol": "BTCUSDT",
+                "weight_pct": 100,
+                "leverage": 3,
+                "enabled": true,
+                "parameter_snapshot": { "direction_mode": "long_and_short" }
+            }]
+        }),
+    )
+    .await;
+
+    assert_eq!(response.status(), StatusCode::CREATED);
+    let body = response_json(response).await;
+    assert_eq!(body["live_ready"], false);
+    assert!(
+        body["live_readiness_blockers"]
+            .as_array()
+            .is_some_and(|blockers| blockers.iter().any(|blocker| blocker
+                .as_str()
+                .is_some_and(|text| text.contains("dynamic allocation rules are required"))))
+    );
+    let portfolio_id = body["portfolio_id"].as_str().unwrap().to_owned();
+
+    let started = authed_empty(
+        &app,
+        "POST",
+        &format!("/backtest/portfolios/{portfolio_id}/confirm-start"),
+        &token,
+    )
+    .await;
+    assert_eq!(started.status(), StatusCode::CONFLICT);
+    assert!(
+        response_json(started).await["error"]
+            .as_str()
+            .unwrap_or_default()
+            .contains("not live-ready")
+    );
+}
+
+#[tokio::test]
+async fn martingale_dynamic_publish_with_invalid_rules_type_blocks_confirm_start() {
+    let db = SharedDb::ephemeral().expect("db");
+    let app = app_with_state(AppState::from_shared_db(db.clone()).expect("state"));
+    let token = register_and_login(
+        &app,
+        "backtest-dynamic-invalid-rules@example.com",
+        "pass1234",
+    )
+    .await;
+
+    let task_id = create_task_with_portfolio(&app, &token, futures_portfolio_config(3)).await;
+    let candidate_id = save_ready_candidate(&db, &task_id, futures_portfolio_config(3));
+    db.backtest_repo()
+        .transition_task(&task_id, "succeeded")
+        .expect("succeeded");
+
+    let response = authed_json(
+        &app,
+        "POST",
+        "/backtest/portfolios/publish",
+        &token,
+        json!({
+            "name": "Dynamic invalid rules basket",
+            "task_id": task_id,
+            "market": "usd_m_futures",
+            "direction": "long_short",
+            "risk_profile": "dynamic_long_short",
+            "total_weight_pct": 100,
+            "dynamic_allocation_rules": ["not", "an", "object"],
+            "items": [{
+                "candidate_id": candidate_id,
+                "symbol": "BTCUSDT",
+                "weight_pct": 100,
+                "leverage": 3,
+                "enabled": true,
+                "parameter_snapshot": { "direction_mode": "long_and_short" }
+            }]
+        }),
+    )
+    .await;
+
+    assert_eq!(response.status(), StatusCode::CREATED);
+    let body = response_json(response).await;
+    assert_eq!(body["live_ready"], false);
+    assert!(
+        body["live_readiness_blockers"]
+            .as_array()
+            .is_some_and(|blockers| blockers.iter().any(|blocker| blocker
+                .as_str()
+                .is_some_and(|text| text.contains("must be a JSON object"))))
+    );
+}
+
+#[tokio::test]
+async fn non_dynamic_publish_intent_can_confirm_start_without_dynamic_rules() {
+    let db = SharedDb::ephemeral().expect("db");
+    let app = app_with_state(AppState::from_shared_db(db.clone()).expect("state"));
+    let token =
+        register_and_login(&app, "backtest-non-dynamic-confirm@example.com", "pass1234").await;
+
+    let task_id = create_task_with_portfolio(&app, &token, futures_portfolio_config(3)).await;
+    let candidate_id = save_ready_candidate(&db, &task_id, futures_portfolio_config(3));
+
+    let intent = authed_json(
+        &app,
+        "POST",
+        &format!("/backtest/candidates/{candidate_id}/publish-intent"),
+        &token,
+        json!({}),
+    )
+    .await;
+    assert_eq!(intent.status(), StatusCode::OK);
+    let portfolio_id = response_json(intent).await["portfolio_id"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+
+    let started = authed_empty(
+        &app,
+        "POST",
+        &format!("/backtest/portfolios/{portfolio_id}/confirm-start"),
+        &token,
+    )
+    .await;
+    assert_eq!(started.status(), StatusCode::OK);
+    assert_eq!(response_json(started).await["status"], "running");
+}
+
+#[tokio::test]
 async fn publish_rejects_same_symbol_leverage_conflict() {
     let db = SharedDb::ephemeral().expect("db");
     let app = app_with_state(AppState::from_shared_db(db.clone()).expect("state"));
