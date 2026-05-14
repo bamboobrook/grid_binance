@@ -1023,6 +1023,53 @@ fn low_data_quality_rejects_even_with_enough_trades() {
 }
 
 #[test]
+fn scoring_rejects_candidates_above_drawdown_limit_even_with_high_return() {
+    let mut candidate = result(true, 1_000.0, 55.0, 200, 0, 500.0, vec![]);
+    candidate.metrics.global_drawdown_pct = Some(55.0);
+    candidate.metrics.max_strategy_drawdown_pct = Some(12.0);
+
+    let score = score_candidate(
+        &candidate,
+        &ScoringConfig {
+            max_global_drawdown_pct: 40.0,
+            max_strategy_drawdown_pct: 40.0,
+            min_trade_count: 1,
+            min_data_quality_score: 0.0,
+            ..ScoringConfig::default()
+        },
+    );
+
+    assert!(!score.survival_valid);
+    assert!(score.rank_score < 0.0);
+    assert!(score
+        .rejection_reasons
+        .iter()
+        .any(|reason| reason == "global_drawdown_exceeded"));
+}
+
+#[test]
+fn scoring_penalizes_rebalance_and_forced_exit_churn() {
+    let stable = result(true, 12.0, 4.0, 200, 0, 500.0, vec![]);
+    let mut churned = stable.clone();
+    churned.rebalance_count = 30;
+    churned.forced_exit_count = 3;
+    churned.average_allocation_hold_hours = Some(3.0);
+
+    let config = ScoringConfig {
+        min_trade_count: 1,
+        min_data_quality_score: 0.0,
+        ..ScoringConfig::default()
+    };
+    let stable_score = score_candidate(&stable, &config);
+    let churned_score = score_candidate(&churned, &config);
+
+    assert!(stable_score.survival_valid);
+    assert!(churned_score.survival_valid);
+    assert!(stable_score.raw_score > churned_score.raw_score);
+    assert!(stable_score.rank_score > churned_score.rank_score);
+}
+
+#[test]
 fn dynamic_allocation_metrics_serialize_for_worker_artifacts() {
     let result = MartingaleBacktestResult {
         metrics: MartingaleMetrics {

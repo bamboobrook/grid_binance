@@ -15,6 +15,9 @@ pub struct ScoringConfig {
     pub weight_stop_frequency: f64,
     pub weight_capital_utilization: f64,
     pub weight_trade_stability: f64,
+    pub weight_rebalance_churn: f64,
+    pub weight_forced_exit: f64,
+    pub min_allocation_hold_hours: f64,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -45,6 +48,9 @@ impl Default for ScoringConfig {
             weight_stop_frequency: 0.5,
             weight_capital_utilization: 0.3,
             weight_trade_stability: 0.3,
+            weight_rebalance_churn: 0.35,
+            weight_forced_exit: 1.25,
+            min_allocation_hold_hours: 12.0,
         }
     }
 }
@@ -108,6 +114,10 @@ pub fn score_candidate(
             0.5
         };
     let trade_stability = (metrics.trade_count as f64 / 30.0).clamp(0.0, 1.0);
+    let hold_hours_shortfall = result
+        .average_allocation_hold_hours
+        .map(|hours| (config.min_allocation_hold_hours - hours).max(0.0))
+        .unwrap_or(0.0);
 
     let raw_score = config.weight_return * metrics.total_return_pct
         + config.weight_calmar * calmar
@@ -115,7 +125,10 @@ pub fn score_candidate(
         - config.weight_drawdown * drawdown
         - config.weight_stop_frequency * stop_frequency * 100.0
         + config.weight_capital_utilization * capital_utilization * 100.0
-        + config.weight_trade_stability * trade_stability * 100.0;
+        + config.weight_trade_stability * trade_stability * 100.0
+        - config.weight_rebalance_churn * result.rebalance_count as f64
+        - config.weight_forced_exit * result.forced_exit_count as f64
+        - config.weight_rebalance_churn * hold_hours_shortfall;
     let raw_score = finite_or(raw_score, f64::MIN / 4.0);
     let bounded_score = raw_score.clamp(-RANK_SCORE_SPREAD, RANK_SCORE_SPREAD);
     let rank_score = if survival_valid {
