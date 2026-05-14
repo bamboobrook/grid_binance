@@ -232,6 +232,36 @@ fn dynamic_allocation_metrics_serialize_for_worker_artifacts() {
 }
 
 #[test]
+fn legacy_backtest_result_json_deserializes_dynamic_metrics_defaults() {
+    let json = serde_json::json!({
+        "metrics": {
+            "total_return_pct": 1.0,
+            "max_drawdown_pct": 2.0,
+            "global_drawdown_pct": null,
+            "max_strategy_drawdown_pct": null,
+            "data_quality_score": null,
+            "trade_count": 3,
+            "stop_count": 0,
+            "max_capital_used_quote": 100.0,
+            "survival_passed": true
+        },
+        "events": [],
+        "equity_curve": [],
+        "rejection_reasons": []
+    });
+
+    let result = serde_json::from_value::<MartingaleBacktestResult>(json)
+        .expect("deserialize legacy backtest result");
+
+    assert_eq!(result.allocation_curve, Vec::new());
+    assert_eq!(result.regime_timeline, Vec::new());
+    assert_eq!(result.cost_summary, CostSummary::default());
+    assert_eq!(result.rebalance_count, 0);
+    assert_eq!(result.forced_exit_count, 0);
+    assert_eq!(result.average_allocation_hold_hours, None);
+}
+
+#[test]
 fn trade_refinement_preserves_same_timestamp_trade_order() {
     let result = run_trade_refinement(
         spot_portfolio("BTCUSDT"),

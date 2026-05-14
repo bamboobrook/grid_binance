@@ -98,3 +98,25 @@ pub struct MartingaleBacktestResult {
     #[serde(default)]
     pub average_allocation_hold_hours: Option<f64>,
 }
+
+impl MartingaleBacktestResult {
+    pub fn with_core(
+        metrics: MartingaleMetrics,
+        events: Vec<MartingaleBacktestEvent>,
+        equity_curve: Vec<EquityPoint>,
+        rejection_reasons: Vec<String>,
+    ) -> Self {
+        Self {
+            metrics,
+            events,
+            equity_curve,
+            rejection_reasons,
+            allocation_curve: Vec::new(),
+            regime_timeline: Vec::new(),
+            cost_summary: CostSummary::default(),
+            rebalance_count: 0,
+            forced_exit_count: 0,
+            average_allocation_hold_hours: None,
+        }
+    }
+}

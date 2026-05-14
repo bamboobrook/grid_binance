@@ -12,8 +12,7 @@ use crate::martingale::exit_rules::{
     evaluate_exit_priority, take_profit_price, weighted_average_entry, ExitDecision,
 };
 use crate::martingale::metrics::{
-    CostSummary, EquityPoint, MartingaleBacktestEvent, MartingaleBacktestResult,
-    MartingaleMetrics,
+    EquityPoint, MartingaleBacktestEvent, MartingaleBacktestResult, MartingaleMetrics,
 };
 use crate::martingale::rules::{compute_leg_notionals, compute_leg_trigger_prices};
 use crate::martingale::state::MartingaleLegState;
@@ -312,8 +311,8 @@ pub fn run_kline_screening(
         0.0
     };
 
-    Ok(MartingaleBacktestResult {
-        metrics: MartingaleMetrics {
+    Ok(MartingaleBacktestResult::with_core(
+        MartingaleMetrics {
             total_return_pct: finite_or_zero(total_return_pct),
             max_drawdown_pct: finite_or_zero(max_drawdown_pct),
             global_drawdown_pct: Some(finite_or_zero(max_drawdown_pct)),
@@ -327,13 +326,7 @@ pub fn run_kline_screening(
         events,
         equity_curve,
         rejection_reasons,
-        allocation_curve: Vec::new(),
-        regime_timeline: Vec::new(),
-        cost_summary: CostSummary::default(),
-        rebalance_count: 0,
-        forced_exit_count: 0,
-        average_allocation_hold_hours: None,
-    })
+    ))
 }
 
 struct StrategyRuntime<'a> {
@@ -585,8 +578,8 @@ fn direction_active_capital(states: &[StrategyRuntime<'_>], direction: Martingal
 }
 
 fn rejected_result(rejection_reasons: Vec<String>) -> MartingaleBacktestResult {
-    MartingaleBacktestResult {
-        metrics: MartingaleMetrics {
+    MartingaleBacktestResult::with_core(
+        MartingaleMetrics {
             total_return_pct: 0.0,
             max_drawdown_pct: 0.0,
             global_drawdown_pct: Some(0.0),
@@ -597,16 +590,10 @@ fn rejected_result(rejection_reasons: Vec<String>) -> MartingaleBacktestResult {
             max_capital_used_quote: 0.0,
             survival_passed: false,
         },
-        events: Vec::new(),
-        equity_curve: Vec::new(),
+        Vec::new(),
+        Vec::new(),
         rejection_reasons,
-        allocation_curve: Vec::new(),
-        regime_timeline: Vec::new(),
-        cost_summary: CostSummary::default(),
-        rebalance_count: 0,
-        forced_exit_count: 0,
-        average_allocation_hold_hours: None,
-    }
+    )
 }
 
 fn reject_budget(
