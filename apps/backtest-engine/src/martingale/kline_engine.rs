@@ -68,7 +68,7 @@ pub fn run_kline_screening(
     let mut forced_exit_count = 0_u64;
     let mut allocation_hold_ms_total = 0_i64;
     let mut allocation_hold_segments = 0_u64;
-    let mut allocation_last_change_ms: Option<i64> = None;
+    let mut allocation_hold_states: BTreeMap<String, AllocationHoldState> = BTreeMap::new();
 
     let mut bar_index = 0;
     while bar_index < bars.len() {
@@ -131,12 +131,22 @@ pub fn run_kline_screening(
                     .map(|previous| previous != &snapshot)
                     .unwrap_or(true);
 
+                let hold_state = allocation_hold_states.entry(symbol.clone()).or_insert_with(|| {
+                    AllocationHoldState::new(
+                        timestamp_ms,
+                        decision.long_weight_pct,
+                        decision.short_weight_pct,
+                    )
+                });
+                if hold_state.weights_changed(decision.long_weight_pct, decision.short_weight_pct) {
+                    allocation_hold_ms_total += timestamp_ms.saturating_sub(hold_state.last_change_ms);
+                    allocation_hold_segments += 1;
+                    hold_state.last_change_ms = timestamp_ms;
+                    hold_state.long_weight_pct = decision.long_weight_pct;
+                    hold_state.short_weight_pct = decision.short_weight_pct;
+                }
+
                 if changed {
-                    if let Some(last_change_ms) = allocation_last_change_ms {
-                        allocation_hold_ms_total += timestamp_ms.saturating_sub(last_change_ms);
-                        allocation_hold_segments += 1;
-                    }
-                    allocation_last_change_ms = Some(timestamp_ms);
                     allocation_state.last_change_ms = Some(timestamp_ms);
                     allocation_state.long_weight_pct = decision.long_weight_pct;
                     allocation_state.short_weight_pct = decision.short_weight_pct;
@@ -498,10 +508,15 @@ pub fn run_kline_screening(
         0.0
     };
 
-    if let Some(last_change_ms) = allocation_last_change_ms {
-        if let Some(last_point) = equity_curve.last() {
-            allocation_hold_ms_total += last_point.timestamp_ms.saturating_sub(last_change_ms);
-            allocation_hold_segments += 1;
+    if let Some(last_point) = equity_curve.last() {
+        for hold_state in allocation_hold_states.values() {
+            let duration_ms = last_point.timestamp_ms.saturating_sub(hold_state.last_change_ms);
+            if duration_ms > 0 {
+                allocation_hold_ms_total += duration_ms;
+                allocation_hold_segments += 1;
+            } else if allocation_hold_segments == 0 {
+                allocation_hold_segments += 1;
+            }
         }
     }
 
@@ -550,6 +565,28 @@ struct AllocationGate {
     reason: String,
     last_paused_long_reason: Option<String>,
     last_paused_short_reason: Option<String>,
+}
+
+#[derive(Debug, Clone)]
+struct AllocationHoldState {
+    last_change_ms: i64,
+    long_weight_pct: f64,
+    short_weight_pct: f64,
+}
+
+impl AllocationHoldState {
+    fn new(last_change_ms: i64, long_weight_pct: f64, short_weight_pct: f64) -> Self {
+        Self {
+            last_change_ms,
+            long_weight_pct,
+            short_weight_pct,
+        }
+    }
+
+    fn weights_changed(&self, long_weight_pct: f64, short_weight_pct: f64) -> bool {
+        (self.long_weight_pct - long_weight_pct).abs() > f64::EPSILON
+            || (self.short_weight_pct - short_weight_pct).abs() > f64::EPSILON
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -934,13 +971,17 @@ fn allocation_pause_reason(
             MartingaleDirection::Long => &mut gate.last_paused_long_reason,
             MartingaleDirection::Short => &mut gate.last_paused_short_reason,
         };
-        if last_reason.as_deref() == Some(reason.as_str()) {
+        if last_reason.is_some() {
             None
         } else {
             *last_reason = Some(reason.clone());
             Some(reason)
         }
     } else {
+        match state.strategy.direction {
+            MartingaleDirection::Long => gate.last_paused_long_reason = None,
+            MartingaleDirection::Short => gate.last_paused_short_reason = None,
+        }
         None
     }
 }

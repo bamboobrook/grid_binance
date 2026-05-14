@@ -190,6 +190,63 @@ fn dynamic_allocation_warmup_bars(count: i64) -> Vec<KlineBar> {
         .collect()
 }
 
+fn dynamic_allocation_two_symbol_parallel_bars(count: i64) -> Vec<KlineBar> {
+    let mut bars = Vec::new();
+    for index in 0..count {
+        let open = 100.0 + index as f64;
+        let close = open + 0.8;
+        for symbol in ["BTCUSDT", "ETHUSDT"] {
+            bars.push(symbol_kline_bar(
+                symbol,
+                index * 60_000,
+                open,
+                close + 0.3,
+                open - 0.2,
+                close,
+            ));
+        }
+    }
+    bars
+}
+
+fn dynamic_allocation_multi_symbol_portfolio() -> MartingalePortfolioConfig {
+    let mut portfolio = dynamic_allocation_long_short_portfolio();
+    let mut eth_strategies = portfolio.strategies.clone();
+    for strategy in &mut eth_strategies {
+        strategy.symbol = "ETHUSDT".to_string();
+        strategy.strategy_id = format!("ETHUSDT-{:?}", strategy.direction).to_ascii_lowercase();
+    }
+    portfolio.strategies.extend(eth_strategies);
+    portfolio
+}
+
+fn dynamic_allocation_pause_recover_pause_bars() -> Vec<KlineBar> {
+    let mut bars = dynamic_allocation_rising_bars();
+    bars.extend((80..160).map(|index| {
+        symbol_kline_bar(
+            "BTCUSDT",
+            index * 60_000,
+            100.0,
+            100.2,
+            99.8,
+            100.0,
+        )
+    }));
+    bars.extend((160..240).map(|index| {
+        let open = 100.0 + (index - 160) as f64;
+        let close = open + 0.8;
+        symbol_kline_bar(
+            "BTCUSDT",
+            index * 60_000,
+            open,
+            close + 0.3,
+            open - 0.2,
+            close,
+        )
+    }));
+    bars
+}
+
 fn event_detail_number(detail: &str, key: &str) -> f64 {
     detail
         .split(';')
@@ -586,6 +643,41 @@ fn dynamic_allocation_deduplicates_rebalance_holds_and_pause_events() {
     assert!(result.rebalance_count < 5, "rebalance_count={}", result.rebalance_count);
     assert!(paused_count <= 2, "paused_count={paused_count}");
     assert!(result.average_allocation_hold_hours.unwrap_or_default() > 0.0);
+}
+
+#[test]
+fn dynamic_allocation_hold_hours_are_tracked_per_symbol() {
+    let result = run_kline_screening(
+        dynamic_allocation_multi_symbol_portfolio(),
+        &dynamic_allocation_two_symbol_parallel_bars(80),
+    )
+    .expect("multi-symbol dynamic allocation");
+
+    let average_hold_hours = result.average_allocation_hold_hours.unwrap_or_default();
+    assert!(average_hold_hours > 0.0, "average_hold_hours={average_hold_hours}");
+    assert!(average_hold_hours >= 0.5, "average_hold_hours={average_hold_hours}");
+}
+
+#[test]
+fn dynamic_allocation_pause_event_records_new_episode_after_recovery() {
+    let mut portfolio = dynamic_allocation_long_short_portfolio();
+    portfolio.strategies.retain(|strategy| strategy.direction == MartingaleDirection::Short);
+    for strategy in &mut portfolio.strategies {
+        strategy.entry_triggers = vec![MartingaleEntryTrigger::TimeWindow {
+            start: "00:00".to_string(),
+            end: "00:00".to_string(),
+        }];
+    }
+
+    let result = run_kline_screening(portfolio, &dynamic_allocation_pause_recover_pause_bars())
+        .expect("pause recover pause dynamic allocation");
+    let paused_count = result
+        .events
+        .iter()
+        .filter(|event| event.event_type == "direction_paused")
+        .count();
+
+    assert_eq!(paused_count, 2);
 }
 
 #[test]
