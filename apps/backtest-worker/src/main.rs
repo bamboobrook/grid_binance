@@ -13,8 +13,11 @@ use backtest_engine::{
     intelligent_search::{intelligent_search, EvaluatedCandidate, IntelligentSearchConfig},
     market_data::{AggTrade, KlineBar, MarketDataSource},
     martingale::{
-        kline_engine::run_kline_screening, metrics::MartingaleBacktestResult,
-        scoring::ScoringConfig, trade_engine::run_trade_refinement,
+        kline_engine::run_kline_screening,
+        metrics::MartingaleBacktestResult,
+        portfolio_optimizer::{self, OptimizerCandidate, OptimizerConfig},
+        scoring::ScoringConfig,
+        trade_engine::run_trade_refinement,
     },
     search::{random_search, SearchCandidate, SearchSpace},
     sqlite_market_data::SqliteMarketDataSource,
@@ -30,6 +33,8 @@ use shared_domain::martingale::{
 const DEFAULT_MAX_THREADS: usize = 2;
 const DEFAULT_POLL_MS: u64 = 5_000;
 const DEFAULT_TOP_N: usize = 3;
+const DYNAMIC_PER_SYMBOL_TOP_N: usize = 10;
+const PORTFOLIO_TOP_N: usize = 10;
 
 #[derive(Debug, Clone)]
 struct WorkerConfig {
@@ -121,6 +126,19 @@ fn default_interval() -> String {
 
 fn default_per_symbol_top_n() -> usize {
     5
+}
+
+fn effective_per_symbol_top_n(config: &WorkerTaskConfig) -> usize {
+    let requested_direction_mode = direction_mode_from_task(config.direction_mode.as_deref());
+    let dynamic_allocation_enabled = config.dynamic_allocation_enabled.unwrap_or(
+        requested_direction_mode
+            == shared_domain::martingale::MartingaleDirectionMode::LongAndShort,
+    );
+    if dynamic_allocation_enabled && config.per_symbol_top_n == default_per_symbol_top_n() {
+        DYNAMIC_PER_SYMBOL_TOP_N
+    } else {
+        config.per_symbol_top_n.max(1)
+    }
 }
 
 fn default_risk_profile() -> String {
@@ -264,10 +282,11 @@ async fn process_task(
     let _ = cancel_watcher.join();
     respect_pause_or_cancel(poller, &task.task_id).await?;
 
+    let per_symbol_top_n = effective_per_symbol_top_n(&task.config);
     let ranked = select_refinement_candidates_per_symbol(
         intelligent.candidates,
-        task.config.symbols.len().max(1) * task.config.per_symbol_top_n.max(1),
-        task.config.per_symbol_top_n.max(1),
+        task.config.symbols.len().max(1) * per_symbol_top_n,
+        per_symbol_top_n,
     );
     let mut outputs = Vec::new();
 
@@ -307,7 +326,7 @@ async fn process_task(
             score: evaluated.score.rank_score,
             config: serde_json::to_value(&evaluated.candidate.config)
                 .map_err(|error| format!("serialize candidate config: {error}"))?,
-            summary: json!({}),
+            summary: result_summary_fields(&refined),
             artifact_path: manifest.path.display().to_string(),
             checksum_sha256: manifest.checksum_sha256,
             used_trade_refinement,
@@ -320,12 +339,19 @@ async fn process_task(
 
     let outputs = select_top_outputs_per_symbol(
         outputs,
-        task.config.per_symbol_top_n.max(1),
+        per_symbol_top_n,
         &task.config.risk_profile,
+        scoring_config_from_task(&task.config).max_global_drawdown_pct,
     );
     respect_pause_or_cancel(poller, &task.task_id).await?;
+    let portfolio_candidates = optimize_output_portfolios(&outputs, &task.config)?;
     poller
-        .save_candidates_and_artifacts(&task.task_id, random_candidates.len(), &outputs)
+        .save_candidates_and_artifacts(
+            &task.task_id,
+            random_candidates.len(),
+            &outputs,
+            &portfolio_candidates,
+        )
         .await?;
     respect_pause_or_cancel(poller, &task.task_id).await?;
     poller.mark_completed(&task.task_id).await?;
@@ -379,6 +405,7 @@ fn select_top_outputs_per_symbol(
     mut outputs: Vec<CandidateOutput>,
     per_symbol_top_n: usize,
     risk_profile: &str,
+    max_drawdown_limit_pct: f64,
 ) -> Vec<CandidateOutput> {
     use std::collections::BTreeMap;
 
@@ -431,6 +458,22 @@ fn select_top_outputs_per_symbol(
             let direction = output_direction(&output);
             let overfit_flag = output_overfit_flag(&output);
             let risk_summary_human = output_risk_summary_human(&output, risk_profile);
+            let allocation_curve = output_summary_value_or(&output, "allocation_curve", json!([]));
+            let regime_timeline = output_summary_value_or(&output, "regime_timeline", json!([]));
+            let cost_summary = output_summary_value_or(
+                &output,
+                "cost_summary",
+                json!({
+                    "fee_quote": 0.0,
+                    "slippage_quote": 0.0,
+                    "stop_loss_quote": 0.0,
+                    "forced_exit_quote": 0.0,
+                }),
+            );
+            let rebalance_count = output_summary_value_or(&output, "rebalance_count", json!(0));
+            let forced_exit_count = output_summary_value_or(&output, "forced_exit_count", json!(0));
+            let average_allocation_hold_hours =
+                output_summary_value_or(&output, "average_allocation_hold_hours", Value::Null);
 
             output.rank = index + 1;
             output.summary = merge_json_objects(
@@ -439,9 +482,19 @@ fn select_top_outputs_per_symbol(
                     "symbol": symbol,
                     "direction": direction,
                     "parameter_rank_for_symbol": parameter_rank_for_symbol,
+                    "per_symbol_rank": parameter_rank_for_symbol,
+                    "portfolio_top_n": PORTFOLIO_TOP_N,
                     "recommended_weight_pct": recommended_weight_pct,
                     "recommended_leverage": recommended_leverage,
                     "risk_profile": risk_profile,
+                    "max_drawdown_limit_pct": max_drawdown_limit_pct,
+                    "dynamic_allocation_rules": dynamic_allocation_rules(),
+                    "allocation_curve": allocation_curve,
+                    "regime_timeline": regime_timeline,
+                    "cost_summary": cost_summary,
+                    "rebalance_count": rebalance_count,
+                    "forced_exit_count": forced_exit_count,
+                    "average_allocation_hold_hours": average_allocation_hold_hours,
                     "portfolio_group_key": portfolio_group_key,
                     "spacing_bps": spacing_bps,
                     "first_order_quote": first_order_quote,
@@ -473,6 +526,40 @@ fn merge_json_objects(base: Value, patch: Value) -> Value {
         }
     }
     Value::Object(merged)
+}
+
+fn result_summary_fields(result: &MartingaleBacktestResult) -> Value {
+    let cost_burden_quote = result.cost_summary.fee_quote
+        + result.cost_summary.slippage_quote
+        + result.cost_summary.stop_loss_quote
+        + result.cost_summary.forced_exit_quote;
+    json!({
+        "allocation_curve": result.allocation_curve,
+        "regime_timeline": result.regime_timeline,
+        "cost_summary": result.cost_summary,
+        "rebalance_count": result.rebalance_count,
+        "forced_exit_count": result.forced_exit_count,
+        "average_allocation_hold_hours": result.average_allocation_hold_hours,
+        "stop_loss_count_human": format!("止损次数 {} 次", result.metrics.stop_count),
+        "forced_exit_count_human": format!("强制退出 {} 次", result.forced_exit_count),
+        "cost_burden_quote": cost_burden_quote,
+        "cost_burden_human": format!("成本负担 {:.2} U", cost_burden_quote),
+    })
+}
+
+fn dynamic_allocation_rules() -> Value {
+    json!({
+        "timeframes": ["4h", "1d"],
+        "btc_filter": true,
+        "funding_rate_used": false,
+        "weight_buckets": [[100, 0], [80, 20], [60, 40], [50, 50], [40, 60], [20, 80], [0, 100]],
+        "cooldown_hours": 16,
+        "existing_position_policy": "tiered_pause_cancel_force_exit",
+    })
+}
+
+fn output_summary_value_or(output: &CandidateOutput, key: &str, default: Value) -> Value {
+    output.summary.get(key).cloned().unwrap_or(default)
 }
 
 fn output_strategy(output: &CandidateOutput) -> Option<&Value> {
@@ -555,10 +642,87 @@ fn output_risk_summary_human(output: &CandidateOutput, risk_profile: &str) -> St
     } else {
         "过拟合风险未触发"
     };
+    let stop_loss_count = output
+        .summary
+        .get("stop_loss_count_human")
+        .and_then(Value::as_str)
+        .unwrap_or("止损次数 0 次");
+    let forced_exit_count = output
+        .summary
+        .get("forced_exit_count_human")
+        .and_then(Value::as_str)
+        .unwrap_or("强制退出 0 次");
+    let cost_burden = output
+        .summary
+        .get("cost_burden_human")
+        .and_then(Value::as_str)
+        .unwrap_or("成本负担 0.00 U");
     format!(
-        "{} 风险档，收益 {:.2}%，最大回撤 {:.2}%，{}。",
-        risk_profile, output.total_return_pct, output.max_drawdown_pct, overfit
+        "{} 风险档，收益 {:.2}%，最大回撤 {:.2}%，{}，{}，{}，{}。",
+        risk_profile,
+        output.total_return_pct,
+        output.max_drawdown_pct,
+        stop_loss_count,
+        forced_exit_count,
+        cost_burden,
+        overfit
     )
+}
+
+fn optimize_output_portfolios(
+    outputs: &[CandidateOutput],
+    config: &WorkerTaskConfig,
+) -> Result<Vec<Value>, String> {
+    let candidates = outputs
+        .iter()
+        .filter_map(|output| {
+            Some(OptimizerCandidate::new(
+                output.candidate_id.clone(),
+                output_symbol(output)?,
+                output.total_return_pct,
+                output.max_drawdown_pct,
+                output_equity_curve(output),
+            ))
+        })
+        .collect::<Vec<_>>();
+    let optimizer_config = optimizer_config_from_task(config);
+    let portfolios =
+        portfolio_optimizer::optimize_portfolios(&candidates, &optimizer_config, PORTFOLIO_TOP_N)?;
+    Ok(portfolios
+        .into_iter()
+        .enumerate()
+        .map(|(index, portfolio)| {
+            json!({
+                "rank": index + 1,
+                "items": portfolio.items.into_iter().map(|item| json!({
+                    "candidate_id": item.candidate_id,
+                    "symbol": item.symbol,
+                    "weight_pct": item.weight_pct,
+                })).collect::<Vec<_>>(),
+                "total_return_pct": portfolio.total_return_pct,
+                "max_drawdown_pct": portfolio.max_drawdown_pct,
+                "return_drawdown_ratio": portfolio.return_drawdown_ratio,
+            })
+        })
+        .collect())
+}
+
+fn optimizer_config_from_task(config: &WorkerTaskConfig) -> OptimizerConfig {
+    let max_drawdown_pct = scoring_config_from_task(config).max_global_drawdown_pct;
+    match config.risk_profile.as_str() {
+        "conservative" => OptimizerConfig::conservative(max_drawdown_pct),
+        "aggressive" => OptimizerConfig::aggressive(max_drawdown_pct),
+        _ => OptimizerConfig::balanced(max_drawdown_pct),
+    }
+}
+
+fn output_equity_curve(output: &CandidateOutput) -> Vec<f64> {
+    output
+        .summary
+        .get("equity_curve")
+        .and_then(Value::as_array)
+        .map(|values| values.iter().filter_map(Value::as_f64).collect())
+        .unwrap_or_else(|| vec![0.0, output.total_return_pct])
 }
 
 fn strategy_value_at<'a>(output: &'a CandidateOutput, path: &[&str]) -> Option<&'a Value> {
@@ -1127,6 +1291,7 @@ impl TaskPoller {
         task_id: &str,
         screened_count: usize,
         outputs: &[CandidateOutput],
+        portfolio_candidates: &[Value],
     ) -> Result<(), String> {
         self.repo
             .append_task_event(
@@ -1164,6 +1329,15 @@ impl TaskPoller {
                 )
                 .map_err(|error| format!("save candidate artifact bundle: {error}"))?;
         }
+        self.repo
+            .update_task_summary(
+                task_id,
+                json!({
+                    "portfolio_top_n": PORTFOLIO_TOP_N,
+                    "portfolio_candidates": portfolio_candidates,
+                }),
+            )
+            .map_err(|error| format!("update portfolio candidate summary: {error}"))?;
         Ok(())
     }
 
@@ -1459,7 +1633,7 @@ mod tests {
             candidate_output("ETHUSDT", "eth-1", 1, 30.0, 2),
         ];
 
-        let selected = select_top_outputs_per_symbol(outputs, 5, "balanced");
+        let selected = select_top_outputs_per_symbol(outputs, 5, "balanced", 40.0);
 
         assert_eq!(selected.len(), 6);
         assert!(selected.iter().any(|output| output.candidate_id == "btc-5"));
@@ -1480,7 +1654,7 @@ mod tests {
     fn selected_outputs_include_ui_required_summary_fields() {
         let outputs = vec![candidate_output("BTCUSDT", "btc-1", 1, 90.0, 3)];
 
-        let selected = select_top_outputs_per_symbol(outputs, 5, "balanced");
+        let selected = select_top_outputs_per_symbol(outputs, 5, "balanced", 40.0);
         let output = selected.first().unwrap();
         let summary = output.summary.as_object().unwrap();
 
@@ -1511,6 +1685,13 @@ mod tests {
         assert!(summary.contains_key("artifact_path") || summary.contains_key("equity_curve"));
         assert_eq!(summary["artifact_path"], output.artifact_path);
         assert!(!summary.contains_key("equity_curve"));
+        assert!(summary.get("allocation_curve").is_some());
+        assert!(summary.get("regime_timeline").is_some());
+        assert!(summary.get("cost_summary").is_some());
+        assert_eq!(summary["per_symbol_rank"], 1);
+        assert_eq!(summary["portfolio_top_n"], 10);
+        assert!(summary.get("dynamic_allocation_rules").is_some());
+        assert!(summary.get("max_drawdown_limit_pct").is_some());
     }
 
     #[test]
@@ -1713,6 +1894,7 @@ mod tests {
         assert!(space.leverage.contains(&1));
         assert_eq!(default_interval(), "1h");
         assert_eq!(default_per_symbol_top_n(), 5);
+        assert_eq!(effective_per_symbol_top_n(&config), 5);
     }
 
     #[test]
@@ -1734,6 +1916,7 @@ mod tests {
         let space = search_space_from_task(&config);
 
         assert!(space.dynamic_allocation_enabled);
+        assert_eq!(effective_per_symbol_top_n(&config), 10);
         assert_eq!(
             space.short_atr_stop_multiplier_candidates,
             vec![1.5, 2.0, 2.5, 3.0]

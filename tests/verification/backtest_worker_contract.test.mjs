@@ -9,6 +9,11 @@ test("backtest worker uses read-only market data instead of synthetic candidates
   assert.match(worker, /MarketDataContext::load/);
   assert.match(worker, /run_kline_screening\(candidate\.config\.clone\(\), &bars\)/);
   assert.match(worker, /run_trade_refinement\(candidate\.config\.clone\(\), &trades\)/);
+  assert.match(worker, /allocation_curve/);
+  assert.match(worker, /regime_timeline/);
+  assert.match(worker, /portfolio_top_n/);
+  assert.match(worker, /dynamic_allocation_rules/);
+  assert.match(worker, /max_drawdown_limit_pct/);
   assert.doesNotMatch(worker, /deterministic_result/);
 });
 
