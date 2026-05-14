@@ -115,7 +115,7 @@ fn allocation_closes_short_weight_when_btc_and_symbol_are_strong_up() {
     assert!(!decision.force_exit_long);
     assert!(!decision.in_cooldown);
     assert_eq!(decision.point.symbol, "ETHUSDT");
-    assert!(!decision.point.reason.is_empty());
+    assert!(decision.point.reason.contains("both"));
 }
 
 #[test]
@@ -138,6 +138,8 @@ fn allocation_closes_short_weight_when_btc_is_strong_up_and_symbol_ranges() {
     assert_eq!(decision.action, AllocationAction::DirectionForcedExit);
     assert!(decision.force_exit_short);
     assert!(!decision.force_exit_long);
+    assert!(decision.point.reason.contains("btc"));
+    assert!(!decision.point.reason.contains("both"));
 }
 
 #[test]
@@ -160,6 +162,8 @@ fn allocation_closes_long_weight_when_btc_is_strong_down_and_symbol_ranges() {
     assert_eq!(decision.action, AllocationAction::DirectionForcedExit);
     assert!(decision.force_exit_long);
     assert!(!decision.force_exit_short);
+    assert!(decision.point.reason.contains("btc"));
+    assert!(!decision.point.reason.contains("both"));
 }
 
 #[test]

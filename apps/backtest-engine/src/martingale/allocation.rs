@@ -177,22 +177,42 @@ fn target_weights(
     if *btc_regime == MarketRegimeLabel::StrongUptrend
         || *symbol_regime == MarketRegimeLabel::StrongUptrend
     {
+        let reason = match (
+            *btc_regime == MarketRegimeLabel::StrongUptrend,
+            *symbol_regime == MarketRegimeLabel::StrongUptrend,
+        ) {
+            (true, true) => "btc_and_symbol_both_strong_uptrend_filter",
+            (true, false) => "btc_strong_uptrend_filter",
+            (false, true) => "symbol_strong_uptrend_filter",
+            (false, false) => unreachable!(),
+        };
+
         return (
             100.0,
             0.0,
             AllocationAction::DirectionForcedExit,
-            "btc and symbol are both strong uptrend".to_string(),
+            reason.to_string(),
         );
     }
 
     if *btc_regime == MarketRegimeLabel::StrongDowntrend
         || *symbol_regime == MarketRegimeLabel::StrongDowntrend
     {
+        let reason = match (
+            *btc_regime == MarketRegimeLabel::StrongDowntrend,
+            *symbol_regime == MarketRegimeLabel::StrongDowntrend,
+        ) {
+            (true, true) => "btc_and_symbol_both_strong_downtrend_filter",
+            (true, false) => "btc_strong_downtrend_filter",
+            (false, true) => "symbol_strong_downtrend_filter",
+            (false, false) => unreachable!(),
+        };
+
         return (
             0.0,
             100.0,
             AllocationAction::DirectionForcedExit,
-            "btc and symbol are both strong downtrend".to_string(),
+            reason.to_string(),
         );
     }
 
