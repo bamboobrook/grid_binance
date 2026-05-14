@@ -1392,15 +1392,18 @@ impl TaskPoller {
                         rank: output.rank as i32,
                         config: output.config.clone(),
                         summary: merge_json_objects(
-                            json!({
-                                "score": output.score,
-                                "search_mode": "智能搜索",
-                                "result_mode": if output.used_trade_refinement { "成交级精测" } else { "K线级回测" },
-                                "total_return_pct": output.total_return_pct,
-                                "max_drawdown_pct": output.max_drawdown_pct,
-                                "trade_count": output.trade_count,
-                            }),
-                            output.summary.clone(),
+                            merge_json_objects(
+                                json!({
+                                    "score": output.score,
+                                    "search_mode": "智能搜索",
+                                    "result_mode": if output.used_trade_refinement { "成交级精测" } else { "K线级回测" },
+                                    "total_return_pct": output.total_return_pct,
+                                    "max_drawdown_pct": output.max_drawdown_pct,
+                                    "trade_count": output.trade_count,
+                                }),
+                                output.summary.clone(),
+                            ),
+                            json!({ "artifact_path": artifact_path }),
                         ),
                     },
                     "summary",
@@ -1506,7 +1509,7 @@ impl ClaimedTask {
 mod tests {
     use super::*;
     use backtest_engine::martingale::scoring::CandidateScore;
-    use std::path::PathBuf;
+    use std::{fs, path::PathBuf};
 
     use shared_domain::martingale::{
         MartingaleDirection, MartingaleDirectionMode, MartingalePortfolioConfig,
@@ -1787,6 +1790,171 @@ mod tests {
         assert_eq!(summary["portfolio_top_n"], 10);
         assert!(summary.get("dynamic_allocation_rules").is_some());
         assert!(summary.get("max_drawdown_limit_pct").is_some());
+    }
+
+    #[tokio::test]
+    async fn save_candidates_and_artifacts_persists_ui_contract_fields() {
+        let db = SharedDb::ephemeral().expect("ephemeral shared db");
+        let repo = db.backtest_repo();
+        let task = repo
+            .create_task(shared_db::NewBacktestTaskRecord {
+                owner: "user@example.com".to_owned(),
+                strategy_type: "martingale_grid".to_owned(),
+                config: serde_json::json!({ "symbol": "BTCUSDT", "timeframe": "1h" }),
+                summary: serde_json::json!({}),
+            })
+            .expect("create backtest task");
+        let poller = TaskPoller {
+            repo: repo.clone(),
+            poll_ms: 1,
+        };
+        let artifact_root = std::env::temp_dir().join(format!(
+            "backtest-worker-persistence-{}-{}",
+            std::process::id(),
+            chrono::Utc::now().timestamp_nanos_opt().unwrap_or_default()
+        ));
+        fs::create_dir_all(&artifact_root).expect("create artifact temp dir");
+
+        let output = select_top_outputs_per_symbol(
+            vec![candidate_output_with_curve(
+                "BTCUSDT",
+                "btc-1",
+                90.0,
+                serde_json::json!([
+                    { "equity": 1000.0 },
+                    { "equity_quote": 1010.0 }
+                ]),
+            )],
+            5,
+            "balanced",
+            40.0,
+        )
+        .remove(0);
+        let portfolio_optimization = PortfolioOptimizationOutput {
+            candidates: vec![serde_json::json!({
+                "rank": 1,
+                "items": [{
+                    "candidate_id": "btc-1",
+                    "symbol": "BTCUSDT",
+                    "weight_pct": 100.0,
+                }],
+                "total_return_pct": 90.0,
+                "max_drawdown_pct": 5.0,
+                "return_drawdown_ratio": 18.0,
+            })],
+            warning: None,
+        };
+
+        poller
+            .save_candidates_and_artifacts(
+                &task.task_id,
+                &artifact_root,
+                1,
+                std::slice::from_ref(&output),
+                &portfolio_optimization,
+            )
+            .await
+            .expect("save candidates and artifacts");
+
+        let candidates = repo
+            .list_candidates(&task.task_id)
+            .expect("list persisted candidates");
+        assert_eq!(candidates.len(), 1);
+        let candidate_summary = &candidates[0].summary;
+        for field in [
+            "equity_curve",
+            "per_symbol_rank",
+            "symbol",
+            "direction",
+            "spacing_bps",
+            "first_order_quote",
+            "order_multiplier",
+            "max_legs",
+            "take_profit_bps",
+            "trailing_take_profit_bps",
+            "recommended_weight_pct",
+            "recommended_leverage",
+            "risk_profile",
+            "total_return_pct",
+            "max_drawdown_pct",
+            "score",
+            "overfit_flag",
+            "risk_summary_human",
+        ] {
+            assert!(
+                candidate_summary.get(field).is_some(),
+                "missing persisted candidate summary field: {field}"
+            );
+        }
+
+        let task_after_save = repo
+            .find_task(&task.task_id)
+            .expect("find task after save")
+            .expect("task after save exists");
+        assert_eq!(task_after_save.summary["portfolio_top_n"], PORTFOLIO_TOP_N);
+        assert_eq!(
+            task_after_save.summary["portfolio_candidates"]
+                .as_array()
+                .expect("portfolio candidates array")
+                .len(),
+            1
+        );
+
+        poller
+            .mark_completed(&task.task_id)
+            .await
+            .expect("mark task completed");
+        let task_after_completed = repo
+            .find_task(&task.task_id)
+            .expect("find task after completed")
+            .expect("task after completed exists");
+        assert_eq!(
+            task_after_completed.summary["portfolio_top_n"],
+            PORTFOLIO_TOP_N
+        );
+        assert_eq!(
+            task_after_completed.summary["portfolio_candidates"]
+                .as_array()
+                .expect("portfolio candidates survive completion")
+                .len(),
+            1
+        );
+
+        let artifact_path = candidate_summary["artifact_path"]
+            .as_str()
+            .expect("persisted artifact path");
+        assert!(
+            std::path::Path::new(artifact_path).exists(),
+            "artifact file should exist: {artifact_path}"
+        );
+        let artifact_contents =
+            fs::read_to_string(artifact_path).expect("read persisted artifact file");
+        let artifact_row: Value = serde_json::from_str(
+            artifact_contents
+                .lines()
+                .next()
+                .expect("artifact JSONL summary row"),
+        )
+        .expect("parse persisted artifact JSONL row");
+        for field in [
+            "allocation_curve",
+            "regime_timeline",
+            "cost_summary",
+            "rebalance_count",
+            "forced_exit_count",
+            "average_allocation_hold_hours",
+            "dynamic_allocation_rules",
+            "portfolio_top_n",
+            "risk_summary_human",
+            "max_drawdown_limit_pct",
+        ] {
+            assert!(
+                artifact_row.get(field).is_some(),
+                "missing persisted artifact row field: {field}"
+            );
+        }
+
+        fs::remove_dir_all(&artifact_root).expect("remove artifact temp dir");
     }
 
     #[test]
