@@ -12,15 +12,9 @@ const requestClientUrl = pathToFileURL(
   path.resolve("apps/web/components/backtest/request-client.ts"),
 ).href;
 
-function loadBooleanHelper(source, name) {
-  const match = source.match(new RegExp(`export\\s+function\\s+${name}\\(([^)]*)\\):\\s*boolean\\s*\\{\\s*return\\s+([^;]+);\\s*\\}`));
-  assert.ok(match, `${name} helper should be exported as a pure boolean function`);
-  const params = match[1]
-    .split(",")
-    .map((param) => param.trim().replace(/:.*/, ""))
-    .filter(Boolean);
-  return Function(...params, `return (${match[2]});`);
-}
+const liveControlsUtilsUrl = pathToFileURL(
+  path.resolve("apps/web/components/backtest/live-portfolio-controls-utils.ts"),
+).href;
 
 test("martingale portfolio proxy routes preserve method, body, query, cookie, and status", async () => {
   const { proxyBacktestRequest } = await import(proxyHelperUrl);
@@ -133,10 +127,12 @@ test("martingale portfolio controls source guarantees loading cleanup, pending c
   assert.match(sidebar, /aria-current=\{active \? "page" : undefined\}/, "active sidebar link should expose aria-current");
 });
 
-test("martingale batch portfolio publish API contract is wired end to end", () => {
+test("martingale batch portfolio publish API contract is wired end to end", async () => {
+  const { canDirectPublish, canSaveDraft } = await import(liveControlsUtilsUrl);
   const routesSource = readFileSync("apps/api-server/src/routes/backtest.rs", "utf8");
   const publishServiceSource = readFileSync("apps/api-server/src/services/martingale_publish_service.rs", "utf8");
   const liveControlsSource = readFileSync("apps/web/components/backtest/live-portfolio-controls.tsx", "utf8");
+  const liveControlsUtilsSource = readFileSync("apps/web/components/backtest/live-portfolio-controls-utils.ts", "utf8");
   const candidateReviewSource = readFileSync("apps/web/components/backtest/portfolio-candidate-review.tsx", "utf8");
 
   assert.match(routesSource, /\/backtest\/portfolios\/publish/);
@@ -163,8 +159,9 @@ test("martingale batch portfolio publish API contract is wired end to end", () =
   assert.match(liveControlsSource, /实盘就绪阻断项|Live readiness blockers/);
   assert.match(liveControlsSource, /直接发布实盘|Direct live publish/);
   assert.match(liveControlsSource, /保存为待启用组合|Save as pending portfolio/);
-  const canDirectPublish = loadBooleanHelper(liveControlsSource, "canDirectPublish");
-  const canSaveDraft = loadBooleanHelper(liveControlsSource, "canSaveDraft");
+  assert.match(liveControlsSource, /canDirectPublish/);
+  assert.match(liveControlsUtilsSource, /export\s+function\s+canDirectPublish/);
+  assert.match(liveControlsUtilsSource, /export\s+function\s+canSaveDraft/);
   assert.equal(canDirectPublish("", []), true);
   assert.equal(canDirectPublish("", ["dynamic allocation rules are required"]), false);
   assert.equal(canSaveDraft(""), true);

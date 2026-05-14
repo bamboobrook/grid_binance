@@ -477,8 +477,7 @@ fn requires_dynamic_allocation_rules(
     request: &PublishPortfolioRequest,
     candidates_by_id: &BTreeMap<String, BacktestCandidateRecord>,
 ) -> bool {
-    request.risk_profile.contains("dynamic")
-        || request.dynamic_allocation_enabled
+    request.dynamic_allocation_enabled
         || is_long_and_short(request.direction.as_str())
         || request
             .direction_mode
@@ -927,5 +926,26 @@ mod tests {
 
         assert_eq!(error.status, StatusCode::BAD_REQUEST);
         assert_eq!(error.message, "candidate does not belong to task");
+    }
+
+    #[test]
+    fn dynamic_rules_requirement_ignores_risk_profile_text() {
+        let candidates_by_id = BTreeMap::new();
+        let mut request = publish_request("bt_task", "candidate-1", "candidate-2");
+        request.risk_profile = "anything".to_owned();
+        request.direction = "long".to_owned();
+        request.direction_mode = None;
+        request.dynamic_allocation_enabled = false;
+        request.items[0].parameter_snapshot = json!({
+            "direction_mode": "long_and_short",
+            "dynamic_allocation_enabled": true
+        });
+
+        assert!(requires_dynamic_allocation_rules(&request, &candidates_by_id));
+
+        request.risk_profile = "dynamic marketing copy only".to_owned();
+        request.items[0].parameter_snapshot = json!({ "direction_mode": "long_only" });
+
+        assert!(!requires_dynamic_allocation_rules(&request, &candidates_by_id));
     }
 }

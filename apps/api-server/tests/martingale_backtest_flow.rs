@@ -376,7 +376,7 @@ async fn martingale_balanced_long_short_dynamic_payload_without_rules_blocks_con
             "task_id": task_id,
             "market": "usd_m_futures",
             "direction": "long_short",
-            "risk_profile": "balanced",
+            "risk_profile": "anything",
             "total_weight_pct": 100,
             "items": [{
                 "candidate_id": candidate_id,
@@ -442,7 +442,7 @@ async fn martingale_balanced_candidate_direction_mode_without_rules_blocks_confi
             "task_id": task_id,
             "market": "usd_m_futures",
             "direction": "long",
-            "risk_profile": "balanced",
+            "risk_profile": "dynamic marketing copy only",
             "total_weight_pct": 100,
             "items": [{
                 "candidate_id": candidate_id,
@@ -506,7 +506,7 @@ async fn martingale_balanced_non_dynamic_payload_without_rules_can_confirm_start
             "task_id": task_id,
             "market": "usd_m_futures",
             "direction": "long",
-            "risk_profile": "balanced",
+            "risk_profile": "dynamic marketing copy only",
             "total_weight_pct": 100,
             "items": [{
                 "candidate_id": candidate_id,

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { startTransition, useEffect, useState } from "react";
 
 import { requestBacktestApi } from "@/components/backtest/request-client";
+import { canDirectPublish, canSaveDraft } from "@/components/backtest/live-portfolio-controls-utils";
 import { MartingaleRiskWarning } from "@/components/backtest/martingale-risk-warning";
 import { AppShellSection } from "@/components/shell/app-shell-section";
 import { Card, CardBody, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -73,14 +74,6 @@ type StrategyStatusSource =
   | { kind: "explicit"; status: StrategyStatus }
   | { kind: "inherited"; status: StrategyStatus | null }
   | { kind: "local"; status: StrategyStatus };
-
-export function canDirectPublish(pending: string, liveReadinessBlockers: readonly string[]): boolean {
-  return pending === "" && liveReadinessBlockers.length === 0;
-}
-
-export function canSaveDraft(pending: string): boolean {
-  return pending === "";
-}
 
 export function MartingalePortfolioList({
   lang,
