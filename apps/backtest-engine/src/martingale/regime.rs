@@ -16,12 +16,12 @@ pub struct RegimeConfig {
 impl Default for RegimeConfig {
     fn default() -> Self {
         Self {
-            fast_ema_period: 12,
-            slow_ema_period: 26,
+            fast_ema_period: 20,
+            slow_ema_period: 50,
             adx_period: 14,
             atr_period: 14,
             strong_adx: 25.0,
-            high_volatility_atr_pct: 5.0,
+            high_volatility_atr_pct: 6.0,
             slope_bps: 20.0,
         }
     }

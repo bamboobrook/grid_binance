@@ -105,6 +105,19 @@ fn regime_classifier_detects_strong_uptrend_and_range() {
 }
 
 #[test]
+fn regime_classifier_default_config_matches_plan() {
+    let config = RegimeConfig::default();
+
+    assert_eq!(config.fast_ema_period, 20);
+    assert_eq!(config.slow_ema_period, 50);
+    assert_eq!(config.adx_period, 14);
+    assert_eq!(config.atr_period, 14);
+    assert_eq!(config.strong_adx, 25.0);
+    assert_eq!(config.high_volatility_atr_pct, 6.0);
+    assert_eq!(config.slope_bps, 20.0);
+}
+
+#[test]
 fn regime_classifier_rejects_invalid_or_insufficient_bars() {
     let config = RegimeConfig::default();
     assert!(classify_regime(&[], &config).is_err());
