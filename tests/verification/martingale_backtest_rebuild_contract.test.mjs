@@ -137,6 +137,13 @@ test("backtest console exposes progress, grouped top ten, charts, and basket pub
   assert.match(chartSource, /资金曲线|Equity curve/i);
   assert.match(chartSource, /回撤曲线|Drawdown curve/i);
   assert.match(chartSource, /图表数据缺失|chart data is missing/i);
+  assert.match(chartSource, /Long\/Short Allocation/);
+  assert.match(chartSource, /long_weight_pct/);
+  assert.match(chartSource, /short_weight_pct/);
+  assert.match(chartSource, /btc_regime/);
+  assert.match(chartSource, /symbol_regime/);
+  assert.match(chartSource, /forced_exit_count/);
+  assert.match(chartSource, /cost_summary/);
   assert.match(basketSource, /组合篮子|Portfolio basket/i);
   assert.match(basketSource, /权重合计|Weight total/i);
   assert.match(basketSource, /批量发布实盘组合|Batch publish live portfolio/);

@@ -1,9 +1,54 @@
 "use client";
 
 import { useMemo } from "react";
+import {
+  Area,
+  AreaChart,
+  CartesianGrid,
+  Line,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
 import type { MartingaleEquityPoint, MartingaleBacktestCandidateSummary } from "@/lib/api-types";
 
 type RawChartPoint = MartingaleEquityPoint & { t?: number };
+
+type AllocationPoint = {
+  timestamp_ms: number;
+  symbol: string;
+  long_weight_pct: number;
+  short_weight_pct: number;
+  action?: string;
+  reason?: string;
+  in_cooldown?: boolean;
+};
+
+type RegimePoint = {
+  timestamp_ms?: number;
+  btc_regime?: string;
+  symbol_regime?: string;
+  symbol?: string;
+};
+
+type CostSummary = {
+  fee_quote?: number;
+  slippage_quote?: number;
+  stop_loss_quote?: number;
+  forced_exit_quote?: number;
+  rebalance_count?: number;
+  forced_exit_count?: number;
+  average_allocation_hold_hours?: number;
+};
+
+type DynamicAllocationSummary = MartingaleBacktestCandidateSummary & {
+  allocation_curve?: unknown;
+  artifact?: { allocation_curve?: unknown };
+  candidate_artifact?: { allocation_curve?: unknown };
+  regime_timeline?: unknown;
+  cost_summary?: CostSummary;
+};
 
 interface EquityPoint {
   ts: number;
@@ -13,6 +58,16 @@ interface EquityPoint {
 interface DrawdownPoint {
   ts: number;
   drawdown: number;
+}
+
+interface EquityChartPoint extends EquityPoint {
+  date: string;
+  returnPct: number;
+}
+
+interface DrawdownChartPoint extends DrawdownPoint {
+  date: string;
+  drawdownPct: number;
 }
 
 /* ------------------------------------------------------------------ */
@@ -34,8 +89,34 @@ function fmtNum(v: number, decimals = 2): string {
   });
 }
 
+function fmtDateTime(ts: number): string {
+  return new Date(ts).toLocaleString(undefined, {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function fmtShortDate(ts: number): string {
+  return new Date(ts).toLocaleDateString(undefined, { month: "2-digit", day: "2-digit" });
+}
+
 function readFiniteNumber(value: unknown): number | null {
   return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+function readObject(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : null;
+}
+
+function readString(value: unknown): string {
+  return typeof value === "string" ? value : "";
+}
+
+function readBoolean(value: unknown): boolean | undefined {
+  return typeof value === "boolean" ? value : undefined;
 }
 
 function readPointTime(point: RawChartPoint): number | null {
@@ -69,64 +150,106 @@ function normalizeDrawdownCurve(drawdownCurve: unknown, fallbackEquityCurve: unk
     .sort((left, right) => left.ts - right.ts);
 }
 
-/* ------------------------------------------------------------------ */
-/*  Mini sparkline from equity curve data                             */
-/* ------------------------------------------------------------------ */
+function normalizeAllocationCurve(summary: DynamicAllocationSummary): AllocationPoint[] {
+  const rawCurve = Array.isArray(summary.allocation_curve) && summary.allocation_curve.length > 0
+    ? summary.allocation_curve
+    : Array.isArray(summary.artifact?.allocation_curve) && summary.artifact.allocation_curve.length > 0
+      ? summary.artifact.allocation_curve
+      : summary.candidate_artifact?.allocation_curve;
+
+  if (!Array.isArray(rawCurve)) return [];
+  return rawCurve
+    .map((point): AllocationPoint | null => {
+      const object = readObject(point);
+      if (!object) return null;
+      const timestamp = readFiniteNumber(object.timestamp_ms) ?? readFiniteNumber(object.ts) ?? readFiniteNumber(object.t);
+      const longWeight = readFiniteNumber(object.long_weight_pct);
+      const shortWeight = readFiniteNumber(object.short_weight_pct);
+      if (timestamp == null || longWeight == null || shortWeight == null) return null;
+      return {
+        timestamp_ms: timestamp,
+        symbol: readString(object.symbol) || summary.symbol || "—",
+        long_weight_pct: longWeight,
+        short_weight_pct: shortWeight,
+        action: readString(object.action),
+        reason: readString(object.reason),
+        in_cooldown: readBoolean(object.in_cooldown),
+      } satisfies AllocationPoint;
+    })
+    .filter((point): point is AllocationPoint => point != null)
+    .sort((left, right) => left.timestamp_ms - right.timestamp_ms);
+}
+
+function normalizeRegimeTimeline(summary: DynamicAllocationSummary): RegimePoint[] {
+  if (!Array.isArray(summary.regime_timeline)) return [];
+  return summary.regime_timeline
+    .map((point): RegimePoint | null => {
+      const object = readObject(point);
+      if (!object) return null;
+      return {
+        timestamp_ms: readFiniteNumber(object.timestamp_ms) ?? readFiniteNumber(object.ts) ?? undefined,
+        btc_regime: readString(object.btc_regime),
+        symbol_regime: readString(object.symbol_regime),
+        symbol: readString(object.symbol),
+      } satisfies RegimePoint;
+    })
+    .filter((point): point is RegimePoint => point != null);
+}
 
 interface EquitySparklineProps {
   points: EquityPoint[];
-  width?: number;
   height?: number;
-  stroke?: string;
-  fill?: string;
 }
 
 function EquitySparkline({
   points,
-  width = 280,
-  height = 80,
-  stroke = "var(--chart-1, #3b82f6)",
-  fill = "var(--chart-1-alpha, rgba(59,130,246,0.10))",
+  height = 220,
 }: EquitySparklineProps) {
-  const path = useMemo(() => {
-    if (!points || points.length < 2) return null;
-    const xs = points.map((p) => p.ts);
-    const ys = points.map((p) => p.equity);
-    const xMin = Math.min(...xs);
-    const xMax = Math.max(...xs);
-    const yMin = Math.min(...ys);
-    const yMax = Math.max(...ys);
-    const xRange = xMax - xMin || 1;
-    const yRange = yMax - yMin || 1;
-    const pad = 4;
-    const w = width - pad * 2;
-    const h = height - pad * 2;
-
-    const coords = points.map((p) => ({
-      x: pad + ((p.ts - xMin) / xRange) * w,
-      y: pad + h - ((p.equity - yMin) / yRange) * h,
+  const data = useMemo<EquityChartPoint[]>(() => {
+    const startEquity = points[0]?.equity ?? 0;
+    return points.map((point) => ({
+      ...point,
+      date: fmtShortDate(point.ts),
+      returnPct: startEquity > 0 ? ((point.equity - startEquity) / startEquity) * 100 : 0,
     }));
+  }, [points]);
 
-    const line = coords.map((c, i) => `${i === 0 ? "M" : "L"}${c.x.toFixed(1)},${c.y.toFixed(1)}`).join(" ");
-    const area = `${line} L${coords[coords.length - 1].x.toFixed(1)},${pad + h} L${pad},${pad + h} Z`;
-    return { line, area };
-  }, [points, width, height]);
-
-  if (!path) {
+  if (data.length < 2) {
     return (
-      <svg width={width} height={height} className="opacity-40">
-        <text x={width / 2} y={height / 2} textAnchor="middle" className="fill-muted-foreground text-xs">
+      <div className="flex items-center justify-center text-xs text-muted-foreground opacity-60" style={{ height }}>
           No equity data
-        </text>
-      </svg>
+      </div>
     );
   }
 
   return (
-    <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`}>
-      <path d={path.area} fill={fill} />
-      <path d={path.line} fill="none" stroke={stroke} strokeWidth={1.5} />
-    </svg>
+    <ResponsiveContainer width="100%" height={height}>
+      <AreaChart data={data} margin={{ top: 8, right: 12, left: 4, bottom: 0 }}>
+        <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" opacity={0.55} />
+        <XAxis dataKey="date" minTickGap={28} tick={{ fontSize: 10, fill: "var(--muted-foreground)" }} tickLine={false} />
+        <YAxis
+          domain={["dataMin", "dataMax"]}
+          tick={{ fontSize: 10, fill: "var(--muted-foreground)" }}
+          tickFormatter={(value: number) => fmtNum(value, 0)}
+          tickLine={false}
+          width={52}
+        />
+        <Tooltip
+          contentStyle={{ backgroundColor: "var(--card)", border: "1px solid var(--border)", borderRadius: 8, fontSize: 12 }}
+          labelFormatter={(_, payload) => {
+            const point = payload?.[0]?.payload as EquityChartPoint | undefined;
+            return point ? fmtDateTime(point.ts) : "—";
+          }}
+          formatter={(value, name, item) => {
+            const point = item.payload as EquityChartPoint;
+            if (name === "equity") return [fmtNum(Number(value)), "资金"];
+            return [`${fmtNum(point.returnPct, 2)}%`, "相对起点"];
+          }}
+        />
+        <Area type="monotone" dataKey="equity" stroke="#2563eb" fill="#2563eb" fillOpacity={0.14} strokeWidth={2} name="equity" />
+        <Line type="monotone" dataKey="returnPct" stroke="transparent" dot={false} activeDot={false} name="returnPct" />
+      </AreaChart>
+    </ResponsiveContainer>
   );
 }
 
@@ -136,51 +259,140 @@ function EquitySparkline({
 
 interface DrawdownSparklineProps {
   points: DrawdownPoint[];
-  width?: number;
   height?: number;
 }
 
-function DrawdownSparkline({ points, width = 280, height = 60 }: DrawdownSparklineProps) {
-  const path = useMemo(() => {
-    if (!points || points.length < 2) return null;
-    const xs = points.map((p) => p.ts);
-    const ys = points.map((p) => p.drawdown);
-    const xMin = Math.min(...xs);
-    const xMax = Math.max(...xs);
-    const yMin = Math.min(...ys);
-    const yMax = 0;
-    const xRange = xMax - xMin || 1;
-    const yRange = yMax - yMin || 1;
-    const pad = 4;
-    const w = width - pad * 2;
-    const h = height - pad * 2;
-
-    const coords = points.map((p) => ({
-      x: pad + ((p.ts - xMin) / xRange) * w,
-      y: pad + h - ((p.drawdown - yMin) / yRange) * h,
+function DrawdownSparkline({ points, height = 180 }: DrawdownSparklineProps) {
+  const data = useMemo<DrawdownChartPoint[]>(() => {
+    return points.map((point) => ({
+      ...point,
+      date: fmtShortDate(point.ts),
+      drawdownPct: point.drawdown * 100,
     }));
+  }, [points]);
 
-    const line = coords.map((c, i) => `${i === 0 ? "M" : "L"}${c.x.toFixed(1)},${c.y.toFixed(1)}`).join(" ");
-    const area = `${line} L${coords[coords.length - 1].x.toFixed(1)},${pad + h} L${pad},${pad + h} Z`;
-    return { line, area };
-  }, [points, width, height]);
-
-  if (!path) {
+  if (data.length < 2) {
     return (
-      <svg width={width} height={height} className="opacity-40">
-        <text x={width / 2} y={height / 2} textAnchor="middle" className="fill-muted-foreground text-xs">
+      <div className="flex items-center justify-center text-xs text-muted-foreground opacity-60" style={{ height }}>
           No drawdown data
-        </text>
-      </svg>
+      </div>
     );
   }
 
   return (
-    <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`}>
-      <path d={path.area} fill="rgba(239,68,68,0.10)" />
-      <path d={path.line} fill="none" stroke="#ef4444" strokeWidth={1.5} />
-    </svg>
+    <ResponsiveContainer width="100%" height={height}>
+      <AreaChart data={data} margin={{ top: 8, right: 12, left: 4, bottom: 0 }}>
+        <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" opacity={0.55} />
+        <XAxis dataKey="date" minTickGap={28} tick={{ fontSize: 10, fill: "var(--muted-foreground)" }} tickLine={false} />
+        <YAxis
+          domain={["dataMin", 0]}
+          tick={{ fontSize: 10, fill: "var(--muted-foreground)" }}
+          tickFormatter={(value: number) => `${fmtNum(value, 1)}%`}
+          tickLine={false}
+          width={52}
+        />
+        <Tooltip
+          contentStyle={{ backgroundColor: "var(--card)", border: "1px solid var(--border)", borderRadius: 8, fontSize: 12 }}
+          labelFormatter={(_, payload) => {
+            const point = payload?.[0]?.payload as DrawdownChartPoint | undefined;
+            return point ? fmtDateTime(point.ts) : "—";
+          }}
+          formatter={(value) => [`${fmtNum(Number(value), 2)}%`, "回撤"]}
+        />
+        <Area type="monotone" dataKey="drawdownPct" stroke="#ef4444" fill="#ef4444" fillOpacity={0.12} strokeWidth={2} />
+      </AreaChart>
+    </ResponsiveContainer>
   );
+}
+
+function AllocationChart({ points }: { points: AllocationPoint[] }) {
+  const data = useMemo(() => points.map((point) => ({
+    ...point,
+    date: fmtShortDate(point.timestamp_ms),
+  })), [points]);
+
+  if (data.length < 2) {
+    return <span className="text-muted-foreground text-sm">No allocation data</span>;
+  }
+
+  return (
+    <ResponsiveContainer width="100%" height={190}>
+      <AreaChart data={data} margin={{ top: 8, right: 12, left: 4, bottom: 0 }}>
+        <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" opacity={0.55} />
+        <XAxis dataKey="date" minTickGap={28} tick={{ fontSize: 10, fill: "var(--muted-foreground)" }} tickLine={false} />
+        <YAxis
+          domain={[0, 100]}
+          tick={{ fontSize: 10, fill: "var(--muted-foreground)" }}
+          tickFormatter={(value: number) => `${fmtNum(value, 0)}%`}
+          tickLine={false}
+          width={48}
+        />
+        <Tooltip
+          contentStyle={{ backgroundColor: "var(--card)", border: "1px solid var(--border)", borderRadius: 8, fontSize: 12 }}
+          labelFormatter={(_, payload) => {
+            const point = payload?.[0]?.payload as AllocationPoint | undefined;
+            return point ? fmtDateTime(point.timestamp_ms) : "—";
+          }}
+          formatter={(value, name, item) => {
+            const point = item.payload as AllocationPoint;
+            const label = name === "long_weight_pct" ? "Long %" : "Short %";
+            return [
+              `${fmtNum(Number(value), 2)}% · ${point.action || "—"} · ${point.reason || "—"} · cooldown=${point.in_cooldown ? "yes" : "no"}`,
+              label,
+            ];
+          }}
+        />
+        <Area type="monotone" dataKey="long_weight_pct" name="long_weight_pct" stroke="#16a34a" fill="#16a34a" fillOpacity={0.12} strokeWidth={2} />
+        <Area type="monotone" dataKey="short_weight_pct" name="short_weight_pct" stroke="#dc2626" fill="#dc2626" fillOpacity={0.10} strokeWidth={2} />
+      </AreaChart>
+    </ResponsiveContainer>
+  );
+}
+
+function RegimeSummaryCards({ regimes }: { regimes: RegimePoint[] }) {
+  if (regimes.length === 0) {
+    return <span className="text-muted-foreground text-sm">No regime timeline data</span>;
+  }
+  const latest = regimes[regimes.length - 1];
+  const btcRegimes = new Set(regimes.map((point) => point.btc_regime).filter(Boolean)).size;
+  const symbolRegimes = new Set(regimes.map((point) => point.symbol_regime).filter(Boolean)).size;
+  return (
+    <div className="grid grid-cols-2 gap-2 text-xs sm:grid-cols-4">
+      <MetricCard label="btc_regime" value={latest.btc_regime || "—"} />
+      <MetricCard label="symbol_regime" value={latest.symbol_regime || "—"} />
+      <MetricCard label="BTC Regime Types" value={String(btcRegimes)} />
+      <MetricCard label="Symbol Regime Types" value={String(symbolRegimes)} />
+    </div>
+  );
+}
+
+function CostSummaryCards({ costSummary }: { costSummary?: CostSummary }) {
+  if (!costSummary) {
+    return <span className="text-muted-foreground text-sm">No cost_summary data</span>;
+  }
+  return (
+    <div className="grid grid-cols-2 gap-2 text-xs sm:grid-cols-4">
+      <MetricCard label="fee_quote" value={formatCost(costSummary.fee_quote)} />
+      <MetricCard label="slippage_quote" value={formatCost(costSummary.slippage_quote)} />
+      <MetricCard label="stop_loss_quote" value={formatCost(costSummary.stop_loss_quote)} />
+      <MetricCard label="forced_exit_quote" value={formatCost(costSummary.forced_exit_quote)} />
+      <MetricCard label="rebalance_count" value={formatCount(costSummary.rebalance_count)} />
+      <MetricCard label="forced_exit_count" value={formatCount(costSummary.forced_exit_count)} />
+      <MetricCard label="average_allocation_hold_hours" value={formatHours(costSummary.average_allocation_hold_hours)} />
+    </div>
+  );
+}
+
+function formatCost(value: number | undefined) {
+  return value == null ? "—" : `${fmtNum(value, 2)} USDT`;
+}
+
+function formatCount(value: number | undefined) {
+  return value == null ? "—" : fmtNum(value, 0);
+}
+
+function formatHours(value: number | undefined) {
+  return value == null ? "—" : `${fmtNum(value, 2)}h`;
 }
 
 /* ------------------------------------------------------------------ */
@@ -263,16 +475,22 @@ export interface BacktestChartsProps {
 }
 
 export function BacktestCharts({ summary, equityCurve, stopLossEvents }: BacktestChartsProps) {
+  const dynamicSummary = summary as DynamicAllocationSummary;
   const equityPoints = normalizeEquityCurve(equityCurve ?? summary?.equity_curve);
   const drawdownPoints = normalizeDrawdownCurve(summary?.drawdown_curve, equityCurve ?? summary?.equity_curve);
+  const allocationPoints = normalizeAllocationCurve(dynamicSummary);
+  const regimeTimeline = normalizeRegimeTimeline(dynamicSummary);
   const artifactPath = summary?.artifact_path;
   const maxDrawdownPct = summary?.max_drawdown_pct ?? (summary?.max_drawdown == null ? undefined : summary.max_drawdown * 100);
   const hasAnyChartData = equityPoints.length > 0 || drawdownPoints.length > 0;
   const hasSummaryMetrics =
     summary?.total_return_pct != null
+    || summary?.annualized_return_pct != null
     || maxDrawdownPct != null
     || summary?.score != null
     || Boolean(summary?.risk_summary_human);
+  const tradeEvents = summary?.sampled_trade_events ?? summary?.trade_events ?? [];
+  const coverage = summary?.data_coverage;
 
   return (
     <div className="space-y-4">
@@ -300,6 +518,16 @@ export function BacktestCharts({ summary, equityCurve, stopLossEvents }: Backtes
         </div>
       ) : null}
 
+      {coverage ? (
+        <div className="rounded-lg border border-border bg-secondary/20 p-3 text-xs text-muted-foreground">
+          <span className="font-medium text-foreground">数据覆盖：</span>
+          interval={coverage.interval ?? "—"} · bars={coverage.bar_count ?? "—"} · aggTrades={coverage.agg_trade_count ?? "—"}
+          {coverage.first_bar_ms && coverage.last_bar_ms ? ` · ${new Date(coverage.first_bar_ms).toLocaleDateString()} → ${new Date(coverage.last_bar_ms).toLocaleDateString()}` : ""}
+          {coverage.used_full_minute_coverage ? " · 已使用 1m 全量覆盖" : " · 请检查是否为全量 1m 数据"}
+          {summary?.backtest_years != null ? ` · ${summary.backtest_years.toFixed(2)} 年` : ""}
+        </div>
+      ) : null}
+
       {drawdownPoints.length > 0 ? (
         <div>
           <h4 className="text-sm font-medium mb-1">回撤曲线 / Drawdown curve</h4>
@@ -313,10 +541,26 @@ export function BacktestCharts({ summary, equityCurve, stopLossEvents }: Backtes
       ) : null}
 
       <div>
+        <h4 className="text-sm font-medium mb-1">Long/Short Allocation</h4>
+        <AllocationChart points={allocationPoints} />
+      </div>
+
+      <div>
+        <h4 className="text-sm font-medium mb-1">Regime Summary</h4>
+        <RegimeSummaryCards regimes={regimeTimeline} />
+      </div>
+
+      <div>
+        <h4 className="text-sm font-medium mb-1">Cost Summary</h4>
+        <CostSummaryCards costSummary={dynamicSummary.cost_summary} />
+      </div>
+
+      <div>
         <h4 className="text-sm font-medium mb-1">候选对比 / Candidate comparison</h4>
         {hasSummaryMetrics ? (
           <div className="grid grid-cols-2 gap-2 text-xs sm:grid-cols-4">
-            <MetricCard label="Return" value={summary?.total_return_pct == null ? "—" : fmtPctValue(summary.total_return_pct)} />
+            <MetricCard label="Total Return" value={summary?.total_return_pct == null ? "—" : fmtPctValue(summary.total_return_pct)} />
+            <MetricCard label="Annualized" value={summary?.annualized_return_pct == null ? "—" : fmtPctValue(summary.annualized_return_pct)} />
             <MetricCard label="Max DD" value={maxDrawdownPct == null ? "—" : fmtPctValue(maxDrawdownPct)} />
             <MetricCard label="Score" value={summary?.score == null ? "—" : fmtNum(summary.score, 2)} />
             <MetricCard label="Risk" value={summary?.risk_summary_human || "—"} />
@@ -336,6 +580,27 @@ export function BacktestCharts({ summary, equityCurve, stopLossEvents }: Backtes
       <div>
         <h4 className="text-sm font-medium mb-1">Stop-Loss Events</h4>
         <StopLossEvents events={stopLossEvents ?? summary?.stop_loss_events ?? []} />
+      </div>
+
+      <div>
+        <h4 className="text-sm font-medium mb-1">交易明细 / Trade events</h4>
+        {tradeEvents.length > 0 ? (
+          <>
+            <p className="mb-2 text-xs text-muted-foreground">按全周期均匀抽样展示，包含首尾交易事件；完整统计见交易数与资金曲线。</p>
+          <div className="max-h-56 overflow-y-auto rounded-lg border border-border">
+            {tradeEvents.slice(0, 80).map((event, index) => (
+              <div className="grid grid-cols-[110px_90px_90px_minmax(0,1fr)] gap-2 border-b border-border px-3 py-2 text-xs last:border-b-0" key={`${event.ts}-${event.type}-${index}`}>
+                <span className="text-muted-foreground">{new Date(event.ts).toLocaleDateString()}</span>
+                <span className="font-medium">{event.type}</span>
+                <span>{event.symbol}</span>
+                <span className="truncate text-muted-foreground" title={event.detail ?? ""}>{event.detail ?? "—"}</span>
+              </div>
+            ))}
+          </div>
+          </>
+        ) : (
+          <span className="text-muted-foreground text-sm">暂无交易明细</span>
+        )}
       </div>
     </div>
   );

@@ -22,6 +22,26 @@ type BacktestCandidate = {
   riskSummary?: MartingaleRiskSummary | null;
 };
 
+type DynamicReviewSummary = MartingaleBacktestCandidateSummary & {
+  return_drawdown_ratio?: number;
+  profit_drawdown_ratio?: number;
+  rebalance_count?: number;
+  forced_exit_count?: number;
+  max_drawdown_limit_passed?: boolean;
+  live_recommended?: boolean;
+  can_recommend_live?: boolean;
+  discarded_symbols_from_portfolio_top10?: string[];
+  portfolio_top10_discarded_symbols?: string[];
+  cost_summary?: {
+    fee_quote?: number;
+    slippage_quote?: number;
+    stop_loss_quote?: number;
+    forced_exit_quote?: number;
+    rebalance_count?: number;
+    forced_exit_count?: number;
+  };
+};
+
 export type PortfolioBasketItem = {
   localId: string;
   candidateId: string;
@@ -66,6 +86,31 @@ function fmtPct(v: number | null | undefined): string {
 function fmtNum(v: number | null | undefined, decimals = 2): string {
   if (v == null) return "—";
   return v.toLocaleString(undefined, { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+}
+
+function fmtBool(v: boolean | undefined, lang: UiLanguage): string {
+  if (v == null) return "—";
+  return v ? pickText(lang, "是", "Yes") : pickText(lang, "否", "No");
+}
+
+function readReturnDrawdownRatio(summary: DynamicReviewSummary | null | undefined) {
+  if (!summary) return null;
+  if (typeof summary.return_drawdown_ratio === "number") return summary.return_drawdown_ratio;
+  if (typeof summary.profit_drawdown_ratio === "number") return summary.profit_drawdown_ratio;
+  const maxDrawdown = typeof summary.max_drawdown_pct === "number" ? Math.abs(summary.max_drawdown_pct) : null;
+  return typeof summary.total_return_pct === "number" && maxDrawdown && maxDrawdown > 0 ? summary.total_return_pct / maxDrawdown : null;
+}
+
+function readTradingCost(summary: DynamicReviewSummary | null | undefined) {
+  const costSummary = summary?.cost_summary;
+  if (!costSummary) return null;
+  return [costSummary.fee_quote, costSummary.slippage_quote, costSummary.stop_loss_quote, costSummary.forced_exit_quote]
+    .filter((value): value is number => typeof value === "number" && Number.isFinite(value))
+    .reduce((sum, value) => sum + value, 0);
+}
+
+function readDiscardedSymbols(summary: DynamicReviewSummary | null | undefined) {
+  return summary?.discarded_symbols_from_portfolio_top10 ?? summary?.portfolio_top10_discarded_symbols ?? [];
 }
 
 function RiskSummaryDisplay({ risk, lang }: { risk: MartingaleRiskSummary; lang: UiLanguage }) {
@@ -220,6 +265,10 @@ export function PortfolioCandidateReview({
   }
 
   const risk = riskSummary ?? candidate?.riskSummary;
+  const dynamicSummary = candidate?.summary as DynamicReviewSummary | null | undefined;
+  const rebalanceCount = dynamicSummary?.rebalance_count ?? dynamicSummary?.cost_summary?.rebalance_count;
+  const forcedExitCount = dynamicSummary?.forced_exit_count ?? dynamicSummary?.cost_summary?.forced_exit_count;
+  const discardedSymbols = readDiscardedSymbols(dynamicSummary);
   const weightTotal = basketItems.filter((item) => item.enabled).reduce((sum, item) => sum + (readNumber(item.weightPct) ?? 0), 0);
   const weightTotalBalanced = basketItems.length > 0 && Math.abs(weightTotal - 100) <= 0.01;
   const portfolioHref = portfolioId ? `/${locale}/app/martingale-portfolios/${portfolioId}` : `/${locale}/app/martingale-portfolios`;
@@ -249,9 +298,22 @@ export function PortfolioCandidateReview({
             <ReviewRow label={pickText(lang, "最大回撤", "Max drawdown")} value={candidate.drawdown} highlight="danger" />
             <ReviewRow label={pickText(lang, "总收益", "Return")} value={candidate.returnPct} />
             <ReviewRow label={pickText(lang, "交易次数", "Trades")} value={candidate.tradeCount} />
+            <ReviewRow label={pickText(lang, "收益回撤比", "Return/DD ratio")} value={fmtNum(readReturnDrawdownRatio(dynamicSummary), 2)} />
+            <ReviewRow label={pickText(lang, "调仓次数", "Rebalances")} value={fmtNum(rebalanceCount, 0)} />
+            <ReviewRow label={pickText(lang, "强平次数", "Forced exits")} value={fmtNum(forcedExitCount, 0)} />
+            <ReviewRow label={pickText(lang, "交易成本", "Trading cost")} value={fmtNum(readTradingCost(dynamicSummary), 2)} suffix=" USDT" />
+            <ReviewRow label={pickText(lang, "是否满足最大回撤限制", "Max DD limit passed")} value={fmtBool(dynamicSummary?.max_drawdown_limit_passed, lang)} />
+            <ReviewRow label={pickText(lang, "是否可推荐实盘", "Live recommendable")} value={fmtBool(dynamicSummary?.live_recommended ?? dynamicSummary?.can_recommend_live, lang)} />
             <ReviewRow label={pickText(lang, "参数摘要", "Parameters")} value={candidate.parameters} />
             <ReviewRow label={pickText(lang, "决策", "Decision")} value={candidate.decision} />
           </div>
+
+          {discardedSymbols.length > 0 ? (
+            <p className="rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs text-muted-foreground">
+              {pickText(lang, "组合 Top10 已剔除币种", "Discarded symbols from portfolio Top10")}: {discardedSymbols.join(", ")}
+              {pickText(lang, "；通常因为风控、回撤或权重约束未通过。", "; usually due to risk, drawdown, or weight constraints.")}
+            </p>
+          ) : null}
 
           {risk ? (
             <div>

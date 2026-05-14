@@ -18,6 +18,26 @@ type BacktestCandidate = {
   summary: MartingaleBacktestCandidateSummary;
 };
 
+type DynamicResultSummary = MartingaleBacktestCandidateSummary & {
+  return_drawdown_ratio?: number;
+  profit_drawdown_ratio?: number;
+  rebalance_count?: number;
+  forced_exit_count?: number;
+  max_drawdown_limit_passed?: boolean;
+  live_recommended?: boolean;
+  can_recommend_live?: boolean;
+  discarded_symbols_from_portfolio_top10?: string[];
+  portfolio_top10_discarded_symbols?: string[];
+  cost_summary?: {
+    fee_quote?: number;
+    slippage_quote?: number;
+    stop_loss_quote?: number;
+    forced_exit_quote?: number;
+    rebalance_count?: number;
+    forced_exit_count?: number;
+  };
+};
+
 type BacktestResultTableProps = {
   candidates: BacktestCandidate[];
   lang: UiLanguage;
@@ -48,7 +68,7 @@ export function BacktestResultTable({
           <p className="text-sm text-muted-foreground">
             {taskName
               ? pickText(lang, `当前任务：${taskName}`, `Current task: ${taskName}`)
-              : pickText(lang, "暂无回测任务，选择币种后开始自动搜索 Top 5", "No backtest tasks yet; select symbols to start automatic Top 5 search.")}
+              : pickText(lang, "暂无回测任务，选择币种后开始自动搜索 Top 10", "No backtest tasks yet; select symbols to start automatic Top 10 search.")}
           </p>
         </div>
         <code className="rounded bg-secondary/50 px-3 py-1 text-xs">GET /api/user/backtest/tasks/:id/candidates</code>
@@ -56,26 +76,27 @@ export function BacktestResultTable({
 
       {groupedCandidates.length === 0 ? (
         <DataTable
-          caption={pickText(lang, "每个币种 Top 5", "Per-symbol Top 5")}
+          caption={pickText(lang, "每个币种 Top 10", "Per-symbol Top 10")}
           columns={candidateColumns(lang)}
           emptyMessage={isSuccessfulWithoutCandidates
             ? pickText(lang, "回测完成但没有可用候选，请放宽风控或参数范围后重试。", "Backtest completed but no usable candidates were found; relax risk rules or parameter ranges and retry.")
-            : pickText(lang, "暂无回测任务，选择币种后开始自动搜索 Top 5", "No backtest tasks yet; select symbols to start automatic Top 5 search.")}
+            : pickText(lang, "暂无回测任务，选择币种后开始自动搜索 Top 10", "No backtest tasks yet; select symbols to start automatic Top 10 search.")}
           rows={[]}
         />
       ) : (
         groupedCandidates.map((group) => (
           <div className="space-y-2" key={group.symbol}>
             <div>
-              <h3 className="text-base font-semibold">{pickText(lang, `每个币种 Top 5 · ${group.symbol}`, `Per-symbol Top 5 · ${group.symbol}`)}</h3>
+              <h3 className="text-base font-semibold">{pickText(lang, `每个币种 Top 10 · ${group.symbol}`, `Per-symbol Top 10 · ${group.symbol}`)}</h3>
               <p className="text-xs text-muted-foreground">{pickText(lang, "按参数排名挑选每个币种最优候选。", "Sorted by parameter rank for each symbol.")}</p>
             </div>
             <DataTable
-              caption={pickText(lang, "每个币种 Top 5", "Per-symbol Top 5")}
+              caption={pickText(lang, "每个币种 Top 10", "Per-symbol Top 10")}
               columns={candidateColumns(lang)}
               emptyMessage={pickText(lang, "暂无候选结果；请等待 Worker 完成海选和精测。", "No candidates yet; wait for the worker to finish screening and refinement.")}
               rows={group.candidates.map((candidate) => candidateRow(candidate, lang, selectedId, onSelect, onAddToBasket))}
             />
+            <DiscardedSymbolsNotice candidates={group.candidates} lang={lang} />
           </div>
         ))
       )}
@@ -93,7 +114,7 @@ function groupCandidatesBySymbol(candidates: BacktestCandidate[]) {
     symbol,
     candidates: [...groupCandidates]
       .sort((left, right) => candidateRank(left) - candidateRank(right))
-      .slice(0, 5),
+      .slice(0, 10),
   }));
 }
 
@@ -106,11 +127,13 @@ function candidateColumns(lang: UiLanguage) {
     { key: "symbol", label: "Symbol" },
     { key: "parameterRank", label: pickText(lang, "参数排名", "Parameter rank"), align: "right" as const },
     { key: "direction", label: pickText(lang, "方向", "Direction") },
+    { key: "leverage", label: pickText(lang, "杠杆 / 仓位", "Leverage / notional") },
     { key: "searchMode", label: pickText(lang, "回测级别", "Mode") },
     { key: "parameters", label: pickText(lang, "马丁参数", "Martingale parameters") },
     { key: "returnPct", label: pickText(lang, "收益", "Return"), align: "right" as const },
     { key: "drawdown", label: pickText(lang, "最大回撤", "Max DD"), align: "right" as const },
     { key: "tradeCount", label: pickText(lang, "交易数", "Trades"), align: "right" as const },
+    { key: "dynamicMetrics", label: pickText(lang, "动态指标", "Dynamic metrics") },
     { key: "score", label: pickText(lang, "评分", "Score"), align: "right" as const },
     { key: "decision", label: pickText(lang, "结论", "Decision") },
     { key: "actions", label: pickText(lang, "操作", "Actions") },
@@ -126,6 +149,11 @@ function candidateRow(
 ): DataTableRow {
   const parameterRank = candidate.summary?.parameter_rank_for_symbol;
   const displayRank = parameterRank ?? candidate.rank;
+  const leverage = candidate.summary?.recommended_leverage;
+  const initialMargin = readFirstOrderQuote(candidate.summary);
+  const initialNotional = initialMargin == null ? null : initialMargin * (leverage ?? 1);
+  const totalMarginBudget = readTotalMarginBudgetQuote(candidate.summary);
+  const dynamicSummary = candidate.summary as DynamicResultSummary;
   return {
     id: candidate.id,
     symbol: (
@@ -138,12 +166,21 @@ function candidateRow(
       </button>
     ),
     parameterRank: displayRank == null ? "—" : `#${displayRank}`,
-    direction: candidate.direction,
+    direction: formatDirection(candidate.summary, candidate.direction, lang),
+    leverage: (
+      <div className="space-y-0.5 text-xs">
+        <p className="font-medium">{leverage == null ? "—" : `${leverage}x`}</p>
+        <p className="text-muted-foreground">{initialMargin == null ? "—" : pickText(lang, `首单保证金 ${formatQuote(initialMargin)}U`, `Initial margin ${formatQuote(initialMargin)}U`)}</p>
+        <p className="text-muted-foreground">{initialNotional == null ? "—" : pickText(lang, `首单仓位 ${formatQuote(initialNotional)}U`, `Initial notional ${formatQuote(initialNotional)}U`)}</p>
+        <p className="text-muted-foreground">{totalMarginBudget == null ? "—" : pickText(lang, `总投入 ${formatQuote(totalMarginBudget)}U`, `Total margin ${formatQuote(totalMarginBudget)}U`)}</p>
+      </div>
+    ),
     searchMode: candidate.searchMode,
     score: candidate.score,
     returnPct: candidate.returnPct,
     drawdown: candidate.drawdown,
     tradeCount: candidate.tradeCount,
+    dynamicMetrics: <DynamicMetrics summary={dynamicSummary} lang={lang} />,
     parameters: candidate.parameters,
     decision: candidate.decision,
     actions: (
@@ -152,4 +189,94 @@ function candidateRow(
       </button>
     ),
   };
+}
+
+function DynamicMetrics({ summary, lang }: { summary: DynamicResultSummary; lang: UiLanguage }) {
+  const rebalanceCount = summary.rebalance_count ?? summary.cost_summary?.rebalance_count;
+  const forcedExitCount = summary.forced_exit_count ?? summary.cost_summary?.forced_exit_count;
+  return (
+    <div className="space-y-0.5 text-xs">
+      <p>{pickText(lang, "收益回撤比", "Return/DD ratio")}: {formatOptionalNumber(readReturnDrawdownRatio(summary), 2)}</p>
+      <p>{pickText(lang, "调仓次数", "Rebalances")}: {formatOptionalNumber(rebalanceCount, 0)}</p>
+      <p>{pickText(lang, "强平次数", "Forced exits")}: {formatOptionalNumber(forcedExitCount, 0)}</p>
+      <p>{pickText(lang, "交易成本", "Trading cost")}: {formatCostSummary(summary.cost_summary)}</p>
+      <p>{pickText(lang, "是否满足最大回撤限制", "Max DD limit passed")}: {formatBool(summary.max_drawdown_limit_passed, lang)}</p>
+      <p>{pickText(lang, "是否可推荐实盘", "Live recommendable")}: {formatBool(summary.live_recommended ?? summary.can_recommend_live, lang)}</p>
+    </div>
+  );
+}
+
+function DiscardedSymbolsNotice({ candidates, lang }: { candidates: BacktestCandidate[]; lang: UiLanguage }) {
+  const symbols = Array.from(new Set(candidates.flatMap((candidate) => readDiscardedSymbols(candidate.summary as DynamicResultSummary))));
+  if (symbols.length === 0) return null;
+  return (
+    <p className="rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs text-muted-foreground">
+      {pickText(lang, "组合 Top10 已剔除币种", "Discarded symbols from portfolio Top10")}: {symbols.join(", ")}
+      {pickText(lang, "；通常因为风控、回撤或权重约束未通过。", "; usually due to risk, drawdown, or weight constraints.")}
+    </p>
+  );
+}
+
+function readReturnDrawdownRatio(summary: DynamicResultSummary) {
+  if (typeof summary.return_drawdown_ratio === "number") return summary.return_drawdown_ratio;
+  if (typeof summary.profit_drawdown_ratio === "number") return summary.profit_drawdown_ratio;
+  const maxDrawdown = typeof summary.max_drawdown_pct === "number" ? Math.abs(summary.max_drawdown_pct) : null;
+  return typeof summary.total_return_pct === "number" && maxDrawdown && maxDrawdown > 0 ? summary.total_return_pct / maxDrawdown : null;
+}
+
+function readDiscardedSymbols(summary: DynamicResultSummary) {
+  return summary.discarded_symbols_from_portfolio_top10 ?? summary.portfolio_top10_discarded_symbols ?? [];
+}
+
+function formatOptionalNumber(value: number | null | undefined, decimals: number) {
+  return value == null ? "—" : value.toLocaleString(undefined, { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+}
+
+function formatBool(value: boolean | undefined, lang: UiLanguage) {
+  if (value == null) return "—";
+  return value ? pickText(lang, "是", "Yes") : pickText(lang, "否", "No");
+}
+
+function formatCostSummary(costSummary: DynamicResultSummary["cost_summary"]) {
+  if (!costSummary) return "—";
+  const total = [costSummary.fee_quote, costSummary.slippage_quote, costSummary.stop_loss_quote, costSummary.forced_exit_quote]
+    .filter((value): value is number => typeof value === "number" && Number.isFinite(value))
+    .reduce((sum, value) => sum + value, 0);
+  return `${formatOptionalNumber(total, 2)}U`;
+}
+
+function readFirstOrderQuote(summary: MartingaleBacktestCandidateSummary) {
+  const value = summary.first_order_quote;
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+function readTotalMarginBudgetQuote(summary: MartingaleBacktestCandidateSummary) {
+  const value = summary.total_margin_budget_quote;
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+function formatQuote(value: number) {
+  return Number.isInteger(value) ? String(value) : value.toFixed(2);
+}
+
+
+function formatDirection(summary: MartingaleBacktestCandidateSummary, fallback: string, lang: UiLanguage) {
+  if (summary.direction === "long_and_short") {
+    const legs = summary.strategy_legs ?? [];
+    const legText = legs
+      .map((leg) => {
+        const direction = leg.direction === "short" ? "Short" : leg.direction === "long" ? "Long" : "—";
+        const spacing = typeof leg.spacing_bps === "number" ? `${(leg.spacing_bps / 100).toFixed(2)}%` : "—";
+        const takeProfit = typeof leg.take_profit_bps === "number" ? `${(leg.take_profit_bps / 100).toFixed(2)}%` : "—";
+        return `${direction} ${spacing}/${takeProfit}`;
+      })
+      .join(" · ");
+    return (
+      <div className="space-y-0.5 text-xs">
+        <p className="font-medium">Long + Short</p>
+        <p className="text-muted-foreground">{legText || pickText(lang, "双向组合", "Dual-leg portfolio")}</p>
+      </div>
+    );
+  }
+  return fallback;
 }
