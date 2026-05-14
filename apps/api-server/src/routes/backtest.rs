@@ -27,7 +27,8 @@ pub fn router() -> Router<AppState> {
     Router::new()
         .route("/backtest/run", post(run_backtest))
         .route("/backtest/tasks", post(create_task).get(list_tasks))
-        .route("/backtest/tasks/{id}", get(get_task))
+        .route("/backtest/tasks/{id}", get(get_task).delete(delete_task))
+        .route("/backtest/tasks/{id}/archive", post(archive_task))
         .route("/backtest/tasks/{id}/pause", post(pause_task))
         .route("/backtest/tasks/{id}/resume", post(resume_task))
         .route("/backtest/tasks/{id}/cancel", post(cancel_task))
@@ -104,6 +105,27 @@ async fn cancel_task(
 ) -> Result<Json<shared_db::BacktestTaskRecord>, TaskBacktestError> {
     let session = require_user_session(&auth, &headers).map_err(TaskBacktestError::from)?;
     Ok(Json(service.cancel_task(&session.email, &id)?))
+}
+
+async fn archive_task(
+    State(auth): State<AuthService>,
+    State(service): State<BacktestService>,
+    headers: HeaderMap,
+    Path(id): Path<String>,
+) -> Result<Json<shared_db::BacktestTaskRecord>, TaskBacktestError> {
+    let session = require_user_session(&auth, &headers).map_err(TaskBacktestError::from)?;
+    Ok(Json(service.archive_task(&session.email, &id)?))
+}
+
+async fn delete_task(
+    State(auth): State<AuthService>,
+    State(service): State<BacktestService>,
+    headers: HeaderMap,
+    Path(id): Path<String>,
+) -> Result<Json<crate::services::backtest_service::DeleteBacktestTaskResponse>, TaskBacktestError>
+{
+    let session = require_user_session(&auth, &headers).map_err(TaskBacktestError::from)?;
+    Ok(Json(service.delete_task(&session.email, &id)?))
 }
 
 async fn list_candidates(

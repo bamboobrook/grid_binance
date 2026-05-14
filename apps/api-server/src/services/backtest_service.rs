@@ -46,6 +46,12 @@ pub struct QuotaPolicyResponse {
     pub policy: Value,
 }
 
+#[derive(Debug, Serialize)]
+pub struct DeleteBacktestTaskResponse {
+    pub task_id: String,
+    pub deleted: bool,
+}
+
 impl BacktestService {
     pub fn new(db: SharedDb, publish: MartingalePublishService) -> Self {
         Self {
@@ -129,6 +135,42 @@ impl BacktestService {
         }
         self.repo.transition_task(task_id, "cancelled")?;
         self.owned_task(owner, task_id)
+    }
+
+    pub fn archive_task(
+        &self,
+        owner: &str,
+        task_id: &str,
+    ) -> Result<BacktestTaskRecord, BacktestError> {
+        self.owned_task(owner, task_id)?;
+        Ok(self.repo.archive_task(task_id)?)
+    }
+
+    pub fn delete_task(
+        &self,
+        owner: &str,
+        task_id: &str,
+    ) -> Result<DeleteBacktestTaskResponse, BacktestError> {
+        let task = self.owned_task(owner, task_id)?;
+        if matches!(task.status.as_str(), "queued" | "running" | "paused") {
+            return Err(BacktestError::conflict(
+                "task must be cancelled or completed before delete",
+            ));
+        }
+        self.repo.delete_task(owner, task_id).map_err(|error| {
+            let message = error.to_string();
+            if message.contains("portfolio") || message.contains("cancelled or completed") {
+                BacktestError::conflict(message)
+            } else if message.contains("not found") {
+                BacktestError::not_found("task not found")
+            } else {
+                BacktestError::from(error)
+            }
+        })?;
+        Ok(DeleteBacktestTaskResponse {
+            task_id: task_id.to_owned(),
+            deleted: true,
+        })
     }
 
     pub fn list_candidates(

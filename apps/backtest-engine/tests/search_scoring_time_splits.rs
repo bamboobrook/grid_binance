@@ -29,6 +29,8 @@ use shared_domain::martingale::{
     MartingaleTakeProfitModel,
 };
 
+const FOUR_HOURS_MS: i64 = 4 * 60 * 60 * 1_000;
+
 fn kline_bar(open_time_ms: i64, open: f64, high: f64, low: f64, close: f64) -> KlineBar {
     KlineBar {
         symbol: "BTCUSDT".to_string(),
@@ -46,7 +48,7 @@ fn synthetic_trend_bars() -> Vec<KlineBar> {
         .map(|index| {
             let open = 100.0 + index as f64 * 1.0;
             let close = open + 0.8;
-            kline_bar(index * 60_000, open, close + 0.3, open - 0.2, close)
+            kline_bar(index * FOUR_HOURS_MS, open, close + 0.3, open - 0.2, close)
         })
         .collect()
 }
@@ -56,7 +58,7 @@ fn synthetic_range_bars() -> Vec<KlineBar> {
         .map(|index| {
             let center = 100.0 + (index % 6) as f64 * 0.04;
             let close = center + if index % 2 == 0 { 0.03 } else { -0.03 };
-            kline_bar(index * 60_000, center, center + 0.15, center - 0.15, close)
+            kline_bar(index * FOUR_HOURS_MS, center, center + 0.15, center - 0.15, close)
         })
         .collect()
 }
@@ -120,7 +122,7 @@ fn dynamic_allocation_rising_bars() -> Vec<KlineBar> {
             let close = open + 0.8;
             symbol_kline_bar(
                 "BTCUSDT",
-                index * 60_000,
+                index * FOUR_HOURS_MS,
                 open,
                 close + 0.3,
                 open - 0.2,
@@ -137,7 +139,7 @@ fn dynamic_allocation_two_symbol_stale_btc_bars() -> Vec<KlineBar> {
         let close = open + 0.8;
         bars.push(symbol_kline_bar(
             "BTCUSDT",
-            index * 60_000,
+            index * FOUR_HOURS_MS,
             open,
             close + 0.3,
             open - 0.2,
@@ -148,7 +150,7 @@ fn dynamic_allocation_two_symbol_stale_btc_bars() -> Vec<KlineBar> {
         let center = 200.0 + (index % 4) as f64 * 0.02;
         bars.push(symbol_kline_bar(
             "ETHUSDT",
-            index * 60_000,
+            index * FOUR_HOURS_MS,
             center,
             center + 0.1,
             center - 0.1,
@@ -169,7 +171,7 @@ fn dynamic_allocation_two_symbol_portfolio(symbol: &str) -> MartingalePortfolioC
 
 fn dynamic_allocation_warmup_bars(count: i64) -> Vec<KlineBar> {
     (0..count)
-        .map(|index| symbol_kline_bar("BTCUSDT", index * 60_000, 100.0, 100.2, 99.8, 100.0))
+        .map(|index| symbol_kline_bar("BTCUSDT", index * FOUR_HOURS_MS, 100.0, 100.2, 99.8, 100.0))
         .collect()
 }
 
@@ -181,7 +183,7 @@ fn dynamic_allocation_two_symbol_parallel_bars(count: i64) -> Vec<KlineBar> {
         for symbol in ["BTCUSDT", "ETHUSDT"] {
             bars.push(symbol_kline_bar(
                 symbol,
-                index * 60_000,
+                index * FOUR_HOURS_MS,
                 open,
                 close + 0.3,
                 open - 0.2,
@@ -207,14 +209,14 @@ fn dynamic_allocation_pause_recover_pause_bars() -> Vec<KlineBar> {
     let mut bars = dynamic_allocation_rising_bars();
     bars.extend(
         (80..160)
-            .map(|index| symbol_kline_bar("BTCUSDT", index * 60_000, 100.0, 100.2, 99.8, 100.0)),
+            .map(|index| symbol_kline_bar("BTCUSDT", index * FOUR_HOURS_MS, 100.0, 100.2, 99.8, 100.0)),
     );
     bars.extend((160..240).map(|index| {
         let open = 100.0 + (index - 160) as f64;
         let close = open + 0.8;
         symbol_kline_bar(
             "BTCUSDT",
-            index * 60_000,
+            index * FOUR_HOURS_MS,
             open,
             close + 0.3,
             open - 0.2,

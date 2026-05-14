@@ -7,8 +7,10 @@ test("backtest worker uses read-only market data instead of synthetic candidates
   assert.match(worker, /BACKTEST_MARKET_DATA_DB_PATH is required/);
   assert.match(worker, /SqliteMarketDataSource::open_readonly/);
   assert.match(worker, /MarketDataContext::load/);
-  assert.match(worker, /run_kline_screening\(candidate\.config\.clone\(\), &bars\)/);
-  assert.match(worker, /run_trade_refinement\(candidate\.config\.clone\(\), &trades\)/);
+  assert.match(worker, /run_kline_screening\(candidate\.config\.clone\(\), bars\.as_ref\(\)\)/);
+  assert.match(worker, /run_trade_refinement\(candidate\.config\.clone\(\), trades\.as_ref\(\)\)/);
+  assert.match(worker, /MAX_TRADE_REFINEMENT_ROWS/);
+  assert.match(worker, /aggregate_bars\(bars, 15 \* 60 \* 1_000\)/);
   assert.match(worker, /allocation_curve/);
   assert.match(worker, /regime_timeline/);
   assert.match(worker, /portfolio_top_n/);

@@ -9,13 +9,13 @@ use shared_domain::martingale::{
 
 use crate::indicators::{adx, atr, bollinger, ema, rsi, sma, IndicatorCandle};
 use crate::market_data::KlineBar;
+use crate::martingale::allocation::{decide_allocation, AllocationConfig, AllocationState};
 use crate::martingale::exit_rules::{
     evaluate_exit_priority, take_profit_price, weighted_average_entry, ExitDecision,
 };
-use crate::martingale::allocation::{decide_allocation, AllocationConfig, AllocationState};
 use crate::martingale::metrics::{
-    AllocationAction, CostSummary, EquityPoint, MartingaleBacktestEvent, MartingaleBacktestResult,
-    MartingaleMetrics, MarketRegimeLabel, RegimeTimelinePoint,
+    AllocationAction, CostSummary, EquityPoint, MarketRegimeLabel, MartingaleBacktestEvent,
+    MartingaleBacktestResult, MartingaleMetrics, RegimeTimelinePoint,
 };
 use crate::martingale::regime::{classify_regime, RegimeConfig};
 use crate::martingale::rules::{compute_leg_notionals, compute_leg_trigger_prices};
@@ -24,6 +24,8 @@ use crate::martingale::state::MartingaleLegState;
 const DEFAULT_EXCHANGE_MIN_NOTIONAL: f64 = 0.0;
 const DEFAULT_FEE_BPS: f64 = 4.0;
 const DEFAULT_SLIPPAGE_BPS: f64 = 2.0;
+const ALLOCATION_EVALUATION_INTERVAL_MS: i64 = 4 * 60 * 60 * 1_000;
+const ALLOCATION_REGIME_LOOKBACK_BARS: usize = 240;
 
 pub fn run_kline_screening(
     portfolio: MartingalePortfolioConfig,
@@ -55,20 +57,23 @@ pub fn run_kline_screening(
     let mut max_drawdown_pct = 0.0_f64;
     let mut latest_close_by_symbol = BTreeMap::new();
     let mut indicator_context = IndicatorRuntimeContext::default();
-    let dynamic_allocation_enabled = portfolio.direction_mode == MartingaleDirectionMode::LongAndShort;
+    let dynamic_allocation_enabled =
+        portfolio.direction_mode == MartingaleDirectionMode::LongAndShort;
     let allocation_config = AllocationConfig::balanced();
     let regime_config = RegimeConfig::default();
     let mut allocation_states: BTreeMap<String, AllocationState> = BTreeMap::new();
     let mut allocation_gates: BTreeMap<String, AllocationGate> = BTreeMap::new();
     let mut allocation_curve = Vec::new();
     let mut regime_timeline = Vec::new();
-    let mut last_allocation_points: BTreeMap<String, AllocationCurvePointSnapshot> = BTreeMap::new();
+    let mut last_allocation_points: BTreeMap<String, AllocationCurvePointSnapshot> =
+        BTreeMap::new();
     let mut cost_summary = CostSummary::default();
     let mut rebalance_count = 0_u64;
     let mut forced_exit_count = 0_u64;
     let mut allocation_hold_ms_total = 0_i64;
     let mut allocation_hold_segments = 0_u64;
     let mut allocation_hold_states: BTreeMap<String, AllocationHoldState> = BTreeMap::new();
+    let mut allocation_indicator_context = AllocationIndicatorContext::default();
 
     let mut bar_index = 0;
     while bar_index < bars.len() {
@@ -83,28 +88,23 @@ pub fn run_kline_screening(
         let group = &bars[group_start..bar_index];
 
         if dynamic_allocation_enabled {
-            let symbols = group_symbols(group);
+            let symbols = allocation_indicator_context.push_group(group);
             for symbol in symbols {
-                let symbol_regime = classify_symbol_regime(
-                    &indicator_context,
-                    &symbol,
-                    &regime_config,
-                )
-                .unwrap_or(MarketRegimeLabel::Range);
+                let symbol_regime =
+                    classify_symbol_regime(&allocation_indicator_context.indicators, &symbol, &regime_config)
+                        .unwrap_or(MarketRegimeLabel::Range);
                 let current_group_has_btc = group.iter().any(|bar| bar.symbol == "BTCUSDT");
                 let btc_regime = if current_group_has_btc
-                    || latest_bar_timestamp(&indicator_context, "BTCUSDT") == Some(timestamp_ms)
+                    || latest_bar_timestamp(&allocation_indicator_context.indicators, "BTCUSDT")
+                        == Some(allocation_bucket_start_ms(timestamp_ms))
                 {
-                    classify_symbol_regime(&indicator_context, "BTCUSDT", &regime_config)
+                    classify_symbol_regime(&allocation_indicator_context.indicators, "BTCUSDT", &regime_config)
                         .unwrap_or(MarketRegimeLabel::Range)
                 } else {
                     symbol_regime.clone()
                 };
-                let adverse_loss_pct = adverse_direction_loss_pct(
-                    &strategy_states,
-                    &latest_close_by_symbol,
-                    &symbol,
-                )?;
+                let adverse_loss_pct =
+                    adverse_direction_loss_pct(&strategy_states, &latest_close_by_symbol, &symbol)?;
                 let allocation_state = allocation_states.entry(symbol.clone()).or_default();
                 let decision = decide_allocation(
                     timestamp_ms,
@@ -131,15 +131,19 @@ pub fn run_kline_screening(
                     .map(|previous| previous != &snapshot)
                     .unwrap_or(true);
 
-                let hold_state = allocation_hold_states.entry(symbol.clone()).or_insert_with(|| {
-                    AllocationHoldState::new(
-                        timestamp_ms,
-                        decision.long_weight_pct,
-                        decision.short_weight_pct,
-                    )
-                });
+                let hold_state =
+                    allocation_hold_states
+                        .entry(symbol.clone())
+                        .or_insert_with(|| {
+                            AllocationHoldState::new(
+                                timestamp_ms,
+                                decision.long_weight_pct,
+                                decision.short_weight_pct,
+                            )
+                        });
                 if hold_state.weights_changed(decision.long_weight_pct, decision.short_weight_pct) {
-                    allocation_hold_ms_total += timestamp_ms.saturating_sub(hold_state.last_change_ms);
+                    allocation_hold_ms_total +=
+                        timestamp_ms.saturating_sub(hold_state.last_change_ms);
                     allocation_hold_segments += 1;
                     hold_state.last_change_ms = timestamp_ms;
                     hold_state.long_weight_pct = decision.long_weight_pct;
@@ -510,7 +514,9 @@ pub fn run_kline_screening(
 
     if let Some(last_point) = equity_curve.last() {
         for hold_state in allocation_hold_states.values() {
-            let duration_ms = last_point.timestamp_ms.saturating_sub(hold_state.last_change_ms);
+            let duration_ms = last_point
+                .timestamp_ms
+                .saturating_sub(hold_state.last_change_ms);
             if duration_ms > 0 {
                 allocation_hold_ms_total += duration_ms;
                 allocation_hold_segments += 1;
@@ -521,11 +527,7 @@ pub fn run_kline_screening(
     }
 
     let average_allocation_hold_hours = if allocation_hold_segments > 0 {
-        Some(
-            allocation_hold_ms_total.max(0) as f64
-                / allocation_hold_segments as f64
-                / 3_600_000.0,
-        )
+        Some(allocation_hold_ms_total.max(0) as f64 / allocation_hold_segments as f64 / 3_600_000.0)
     } else if !allocation_curve.is_empty() {
         Some(0.0)
     } else {
@@ -902,16 +904,6 @@ fn reject_budget(
     state.new_legs_blocked = true;
 }
 
-fn group_symbols(group: &[KlineBar]) -> Vec<String> {
-    let mut symbols = Vec::new();
-    for bar in group {
-        if !symbols.iter().any(|symbol| symbol == &bar.symbol) {
-            symbols.push(bar.symbol.clone());
-        }
-    }
-    symbols
-}
-
 fn classify_symbol_regime(
     indicator_context: &IndicatorRuntimeContext,
     symbol: &str,
@@ -920,8 +912,13 @@ fn classify_symbol_regime(
     indicator_context
         .bars_by_symbol
         .get(symbol)
-        .and_then(|bars| classify_regime(bars, config).ok())
+        .and_then(|bars| classify_regime(regime_lookback_window(bars), config).ok())
         .map(|snapshot| snapshot.label)
+}
+
+fn regime_lookback_window(bars: &[KlineBar]) -> &[KlineBar] {
+    let start = bars.len().saturating_sub(ALLOCATION_REGIME_LOOKBACK_BARS);
+    &bars[start..]
 }
 
 fn latest_bar_timestamp(indicator_context: &IndicatorRuntimeContext, symbol: &str) -> Option<i64> {
@@ -992,7 +989,10 @@ fn adverse_direction_loss_pct(
     symbol: &str,
 ) -> Result<f64, String> {
     let mut worst_loss_pct = 0.0_f64;
-    for state in states.iter().filter(|state| state.strategy.symbol == symbol) {
+    for state in states
+        .iter()
+        .filter(|state| state.strategy.symbol == symbol)
+    {
         if state.legs.is_empty() {
             continue;
         }
@@ -1004,7 +1004,9 @@ fn adverse_direction_loss_pct(
             continue;
         }
         let gross_pnl = close_pnl(state.strategy.direction, &state.legs, close_price)?;
-        let net_pnl = gross_pnl - entry_cost_quote(&state.legs) - exit_cost_quote(&state.legs, close_price).total();
+        let net_pnl = gross_pnl
+            - entry_cost_quote(&state.legs)
+            - exit_cost_quote(&state.legs, close_price).total();
         let loss_pct = (-net_pnl).max(0.0) / invested * 100.0;
         if loss_pct.is_finite() {
             worst_loss_pct = worst_loss_pct.max(loss_pct);
@@ -1033,7 +1035,9 @@ fn force_exit_direction(
     let mut count = 0_u64;
 
     for state in states.iter_mut().filter(|state| {
-        state.strategy.symbol == symbol && state.strategy.direction == direction && !state.legs.is_empty()
+        state.strategy.symbol == symbol
+            && state.strategy.direction == direction
+            && !state.legs.is_empty()
     }) {
         let close_gross_pnl = close_pnl(state.strategy.direction, &state.legs, close_price)?;
         let entry_fee = entry_fee_quote(&state.legs);
@@ -1491,6 +1495,82 @@ fn entry_triggers_allow_entry(
 #[derive(Default)]
 struct IndicatorRuntimeContext {
     bars_by_symbol: BTreeMap<String, Vec<KlineBar>>,
+}
+
+#[derive(Default)]
+struct AllocationIndicatorContext {
+    indicators: IndicatorRuntimeContext,
+    active_buckets: BTreeMap<String, KlineBar>,
+}
+
+impl AllocationIndicatorContext {
+    fn push_group(&mut self, group: &[KlineBar]) -> Vec<String> {
+        let mut completed_symbols = Vec::new();
+        for bar in group {
+            if let Some(completed) = self.push_bar(bar) {
+                if !completed_symbols.iter().any(|symbol| symbol == &completed.symbol) {
+                    completed_symbols.push(completed.symbol.clone());
+                }
+                self.indicators.push_bar(&completed);
+            }
+        }
+        completed_symbols
+    }
+
+    fn push_bar(&mut self, bar: &KlineBar) -> Option<KlineBar> {
+        let bucket_start_ms = allocation_bucket_start_ms(bar.open_time_ms);
+        match self.active_buckets.get_mut(&bar.symbol) {
+            Some(active) if active.open_time_ms == bucket_start_ms => {
+                active.high = active.high.max(bar.high);
+                active.low = active.low.min(bar.low);
+                active.close = bar.close;
+                active.volume += bar.volume;
+                None
+            }
+            Some(_) => {
+                let completed = self.active_buckets.insert(
+                    bar.symbol.clone(),
+                    KlineBar {
+                        symbol: bar.symbol.clone(),
+                        open_time_ms: bucket_start_ms,
+                        open: bar.open,
+                        high: bar.high,
+                        low: bar.low,
+                        close: bar.close,
+                        volume: bar.volume,
+                    },
+                );
+                completed
+            }
+            None => {
+                self.active_buckets.insert(
+                    bar.symbol.clone(),
+                    KlineBar {
+                        symbol: bar.symbol.clone(),
+                        open_time_ms: bucket_start_ms,
+                        open: bar.open,
+                        high: bar.high,
+                        low: bar.low,
+                        close: bar.close,
+                        volume: bar.volume,
+                    },
+                );
+                Some(KlineBar {
+                    symbol: bar.symbol.clone(),
+                    open_time_ms: bucket_start_ms,
+                    open: bar.open,
+                    high: bar.high,
+                    low: bar.low,
+                    close: bar.close,
+                    volume: bar.volume,
+                })
+            }
+        }
+    }
+}
+
+fn allocation_bucket_start_ms(timestamp_ms: i64) -> i64 {
+    timestamp_ms.div_euclid(ALLOCATION_EVALUATION_INTERVAL_MS) * ALLOCATION_EVALUATION_INTERVAL_MS
 }
 
 impl IndicatorRuntimeContext {
@@ -2023,6 +2103,18 @@ mod tests {
         second.strategy_id = "eth-grid".to_string();
         second.symbol = "ETHUSDT".to_string();
         portfolio.strategies.push(second);
+        portfolio
+    }
+
+    fn long_short_portfolio() -> MartingalePortfolioConfig {
+        let mut portfolio = single_strategy_portfolio(1_000);
+        portfolio.direction_mode = MartingaleDirectionMode::LongAndShort;
+        portfolio.strategies[0].direction_mode = MartingaleDirectionMode::LongAndShort;
+        portfolio.strategies[0].direction = MartingaleDirection::Long;
+        let mut short = portfolio.strategies[0].clone();
+        short.strategy_id = "Short-grid".to_string();
+        short.direction = MartingaleDirection::Short;
+        portfolio.strategies.push(short);
         portfolio
     }
 
@@ -2659,6 +2751,34 @@ mod tests {
         assert!(!capacity_allows_entry(1, 1));
         assert!(!capacity_allows_entry(1, 2));
         assert!(!capacity_allows_entry(0, 0));
+    }
+
+    #[test]
+    fn dynamic_allocation_evaluates_on_four_hour_cadence_for_one_minute_bars() {
+        let minute_ms = 60_000_i64;
+        let bars = (0..1_440)
+            .map(|index| {
+                let price = 100.0 + (index as f64 * 0.001);
+                bar(index * minute_ms, price, price * 1.001, price * 0.999, price)
+            })
+            .collect::<Vec<_>>();
+
+        let result = run_kline_screening(long_short_portfolio(), &bars).unwrap();
+
+        assert_eq!(result.allocation_curve.len(), 6);
+        assert_eq!(result.regime_timeline.len(), 6);
+    }
+
+    #[test]
+    fn regime_lookback_window_caps_dynamic_indicator_history() {
+        let bars = (0..1_000)
+            .map(|index| bar(index, 100.0, 101.0, 99.0, 100.0))
+            .collect::<Vec<_>>();
+
+        let window = super::regime_lookback_window(&bars);
+
+        assert_eq!(window.len(), super::ALLOCATION_REGIME_LOOKBACK_BARS);
+        assert_eq!(window[0].open_time_ms, 760);
     }
 
     #[test]

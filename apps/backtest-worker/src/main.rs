@@ -1,4 +1,5 @@
 use std::{
+    borrow::Cow,
     env,
     path::PathBuf,
     sync::{
@@ -35,6 +36,8 @@ const DEFAULT_POLL_MS: u64 = 5_000;
 const DEFAULT_TOP_N: usize = 3;
 const DYNAMIC_PER_SYMBOL_TOP_N: usize = 10;
 const PORTFOLIO_TOP_N: usize = 10;
+const MAX_TRADE_REFINEMENT_ROWS: usize = 250_000;
+const MAX_CHART_POINTS: usize = 2_000;
 
 #[derive(Debug, Clone)]
 struct WorkerConfig {
@@ -303,9 +306,8 @@ async fn process_task(
                 &format!("trade_refinement_top_{}", index + 1),
             )
             .await?;
-        let refined = run_candidate_trade_refinement(&evaluated.candidate, &market_context)?;
-        let used_trade_refinement =
-            !trades_for_candidate(&evaluated.candidate, &market_context.trades).is_empty();
+        let (refined, used_trade_refinement) =
+            run_candidate_trade_refinement(&evaluated.candidate, &market_context)?;
         let candidate_id = evaluated.candidate.candidate_id.clone();
         outputs.push(CandidateOutput {
             candidate_id: candidate_id.clone(),
@@ -448,6 +450,7 @@ fn select_top_outputs_per_symbol(
             let max_legs = output_max_legs(&output);
             let take_profit_bps = output_take_profit_bps(&output);
             let trailing_take_profit_bps = output_trailing_take_profit_bps(&output);
+            let total_margin_budget_quote = output_total_margin_budget_quote(&output);
             let direction = output_direction(&output);
             let overfit_flag = output_overfit_flag(&output);
             let risk_summary_human = output_risk_summary_human(&output, risk_profile);
@@ -494,9 +497,11 @@ fn select_top_outputs_per_symbol(
                     "max_legs": max_legs,
                     "take_profit_bps": take_profit_bps,
                     "trailing_take_profit_bps": trailing_take_profit_bps,
+                    "total_margin_budget_quote": total_margin_budget_quote,
                     "total_return_pct": output.total_return_pct,
                     "max_drawdown_pct": output.max_drawdown_pct,
-                    "score": output.score,
+                    "score": score_100(output.score, output.total_return_pct, output.max_drawdown_pct, max_drawdown_limit_pct),
+                    "rank_score_raw": output.score,
                     "overfit_flag": overfit_flag,
                     "risk_summary_human": risk_summary_human,
                     "artifact_path": output.artifact_path,
@@ -526,9 +531,9 @@ fn result_summary_fields(result: &MartingaleBacktestResult) -> Value {
         + result.cost_summary.stop_loss_quote
         + result.cost_summary.forced_exit_quote;
     json!({
-        "equity_curve": result.equity_curve,
-        "allocation_curve": result.allocation_curve,
-        "regime_timeline": result.regime_timeline,
+        "equity_curve": sampled_values(&result.equity_curve),
+        "allocation_curve": sampled_values(&result.allocation_curve),
+        "regime_timeline": sampled_values(&result.regime_timeline),
         "cost_summary": result.cost_summary,
         "rebalance_count": result.rebalance_count,
         "forced_exit_count": result.forced_exit_count,
@@ -549,6 +554,31 @@ fn dynamic_allocation_rules() -> Value {
         "cooldown_hours": 16,
         "existing_position_policy": "tiered_pause_cancel_force_exit",
     })
+}
+
+fn sampled_values<T>(values: &[T]) -> Vec<Value>
+where
+    T: serde::Serialize,
+{
+    if values.len() <= MAX_CHART_POINTS {
+        return values
+            .iter()
+            .filter_map(|value| serde_json::to_value(value).ok())
+            .collect();
+    }
+    let step = values.len().div_ceil(MAX_CHART_POINTS).max(1);
+    let mut sampled = values
+        .iter()
+        .enumerate()
+        .filter(|(index, _)| index % step == 0)
+        .filter_map(|(_, value)| serde_json::to_value(value).ok())
+        .collect::<Vec<_>>();
+    if let Some(last) = values.last().and_then(|value| serde_json::to_value(value).ok()) {
+        if sampled.last() != Some(&last) {
+            sampled.push(last);
+        }
+    }
+    sampled
 }
 
 fn output_summary_value_or(output: &CandidateOutput, key: &str, default: Value) -> Value {
@@ -625,6 +655,25 @@ fn output_trailing_take_profit_bps(output: &CandidateOutput) -> Value {
         .unwrap_or(Value::Null)
 }
 
+fn output_total_margin_budget_quote(output: &CandidateOutput) -> Value {
+    let first = output_first_order_quote(output);
+    let multiplier = output_order_multiplier(output);
+    let max_legs = output_max_legs(output);
+    let Some(first) = json_number(&first) else { return Value::Null; };
+    let Some(multiplier) = json_number(&multiplier) else { return Value::Null; };
+    let Some(max_legs) = max_legs.as_u64() else { return Value::Null; };
+    if max_legs == 0 || first <= 0.0 || multiplier <= 0.0 {
+        return Value::Null;
+    }
+    let mut total = 0.0;
+    let mut leg = first;
+    for _ in 0..max_legs {
+        total += leg;
+        leg *= multiplier;
+    }
+    json!((total * 100.0).round() / 100.0)
+}
+
 fn output_overfit_flag(output: &CandidateOutput) -> bool {
     output.trade_count < 5 || output.max_drawdown_pct > 50.0 || !output.score.is_finite()
 }
@@ -684,42 +733,239 @@ fn optimize_output_portfolios(
             if equity_curve.is_empty() {
                 return None;
             }
-            Some(OptimizerCandidate::new(
-                output.candidate_id.clone(),
-                output_symbol(output)?,
-                output.total_return_pct,
-                output.max_drawdown_pct,
+            Some(OptimizerCandidate {
+                candidate_id: output.candidate_id.clone(),
+                symbol: output_symbol(output)?,
+                total_return_pct: output.total_return_pct,
+                max_drawdown_pct: output.max_drawdown_pct,
                 equity_curve,
-            ))
+                rebalance_count: output_summary_u64(output, "rebalance_count"),
+                forced_exit_count: output_summary_u64(output, "forced_exit_count"),
+                cost_burden_quote: output_summary_f64(output, "cost_burden_quote"),
+            })
         })
         .collect::<Vec<_>>();
 
     match portfolio_optimizer::optimize_portfolios(&candidates, &optimizer_config, PORTFOLIO_TOP_N)
     {
         Ok(portfolios) => PortfolioOptimizationOutput {
-            candidates: portfolios
-                .into_iter()
-                .enumerate()
-                .map(|(index, portfolio)| {
-                    json!({
-                        "rank": index + 1,
-                        "items": portfolio.items.into_iter().map(|item| json!({
-                            "candidate_id": item.candidate_id,
-                            "symbol": item.symbol,
-                            "weight_pct": item.weight_pct,
-                        })).collect::<Vec<_>>(),
-                        "total_return_pct": portfolio.total_return_pct,
-                        "max_drawdown_pct": portfolio.max_drawdown_pct,
-                        "return_drawdown_ratio": portfolio.return_drawdown_ratio,
-                    })
-                })
-                .collect(),
+            candidates: portfolio_summary_json(
+                portfolios,
+                outputs,
+                config,
+                optimizer_config.max_drawdown_pct,
+            ),
             warning: None,
         },
         Err(error) => PortfolioOptimizationOutput {
             candidates: Vec::new(),
             warning: Some(format!("portfolio optimizer skipped: {error}")),
         },
+    }
+}
+
+fn portfolio_summary_json(
+    mut portfolios: Vec<portfolio_optimizer::PortfolioCandidate>,
+    outputs: &[CandidateOutput],
+    config: &WorkerTaskConfig,
+    max_drawdown_limit_pct: f64,
+) -> Vec<Value> {
+    if portfolios.is_empty() {
+        if let Some(fallback) = fallback_portfolio_candidate(outputs) {
+            portfolios.push(fallback);
+        }
+    }
+
+    portfolios
+        .into_iter()
+        .enumerate()
+        .map(|(index, portfolio)| {
+            let items = portfolio.items;
+            let symbol_weights = portfolio_symbol_weights(&items);
+            let equity_curve = portfolio.equity_curve;
+            let drawdown_curve = portfolio_drawdown_curve(&equity_curve);
+            let backtest_years = backtest_years(config);
+            let max_drawdown_limit_passed = portfolio.max_drawdown_pct <= max_drawdown_limit_pct;
+            json!({
+                "rank": index + 1,
+                "portfolio_candidate_id": format!("portfolio-top-{}", index + 1),
+                "items": items.iter().map(|item| json!({
+                    "candidate_id": item.candidate_id,
+                    "symbol": item.symbol,
+                    "weight_pct": item.weight_pct,
+                    "recommended_leverage": output_by_candidate_id(outputs, &item.candidate_id).and_then(output_leverage),
+                    "return_contribution_pct": output_by_candidate_id(outputs, &item.candidate_id).map(|output| output.total_return_pct * item.weight_pct / 100.0),
+                    "drawdown_contribution_pct": output_by_candidate_id(outputs, &item.candidate_id).map(|output| output.max_drawdown_pct * item.weight_pct / 100.0),
+                })).collect::<Vec<_>>(),
+                "symbols": symbol_weights.keys().cloned().collect::<Vec<_>>(),
+                "symbol_weights": symbol_weights,
+                "package_contributions": items.iter().map(|item| json!({
+                    "candidate_id": item.candidate_id,
+                    "symbol": item.symbol,
+                    "weight_pct": item.weight_pct,
+                    "return_contribution_pct": output_by_candidate_id(outputs, &item.candidate_id).map(|output| output.total_return_pct * item.weight_pct / 100.0),
+                    "drawdown_contribution_pct": output_by_candidate_id(outputs, &item.candidate_id).map(|output| output.max_drawdown_pct * item.weight_pct / 100.0),
+                })).collect::<Vec<_>>(),
+                "total_return_pct": portfolio.total_return_pct,
+                "annualized_return_pct": annualized_return_pct(portfolio.total_return_pct, backtest_years),
+                "backtest_years": backtest_years,
+                "max_drawdown_pct": portfolio.max_drawdown_pct,
+                "return_drawdown_ratio": portfolio.return_drawdown_ratio,
+                "score": score_100(portfolio.return_drawdown_ratio, portfolio.total_return_pct, portfolio.max_drawdown_pct, max_drawdown_limit_pct),
+                "equity_curve": sampled_values(&equity_curve.iter().enumerate().map(|(point_index, equity)| json!({ "ts": point_index, "equity": equity })).collect::<Vec<_>>()),
+                "drawdown_curve": sampled_values(&drawdown_curve),
+                "rebalance_count": portfolio.rebalance_count,
+                "forced_exit_count": portfolio.forced_exit_count,
+                "cost_burden_quote": portfolio.cost_burden_quote,
+                "average_correlation": portfolio.average_correlation,
+                "overfit_flag": false,
+                "max_drawdown_limit_passed": max_drawdown_limit_passed,
+                "can_recommend_live": max_drawdown_limit_passed,
+                "risk_summary_human": if max_drawdown_limit_passed {
+                    "满足最大回撤限制，可进入组合复核。"
+                } else {
+                    "未找到满足最大回撤限制的组合；此为最接近候选，仅供复核，不建议直接实盘。"
+                },
+            })
+        })
+        .collect()
+}
+
+fn fallback_portfolio_candidate(outputs: &[CandidateOutput]) -> Option<portfolio_optimizer::PortfolioCandidate> {
+    let mut best_by_symbol = std::collections::BTreeMap::<String, &CandidateOutput>::new();
+    for output in outputs {
+        if output_equity_curve(output).is_empty() {
+            continue;
+        }
+        let symbol = output_symbol(output)?;
+        best_by_symbol
+            .entry(symbol)
+            .and_modify(|current| {
+                if fallback_output_order(output, current).is_lt() {
+                    *current = output;
+                }
+            })
+            .or_insert(output);
+    }
+    if best_by_symbol.is_empty() {
+        return None;
+    }
+    let mut expected_curve_len = None;
+    for output in best_by_symbol.values() {
+        let len = output_equity_curve(output).len();
+        if let Some(expected) = expected_curve_len {
+            if expected != len {
+                return None;
+            }
+        } else {
+            expected_curve_len = Some(len);
+        }
+    }
+    let weight = 100.0 / best_by_symbol.len() as f64;
+    let mut items = Vec::new();
+    let mut total_return_pct = 0.0;
+    let mut max_drawdown_pct = 0.0_f64;
+    let mut equity_curve = Vec::new();
+    let mut rebalance_count = 0_u64;
+    let mut forced_exit_count = 0_u64;
+    let mut cost_burden_quote = 0.0;
+    for output in best_by_symbol.values() {
+        let symbol = output_symbol(output)?;
+        items.push(portfolio_optimizer::PortfolioItem {
+            candidate_id: output.candidate_id.clone(),
+            symbol,
+            weight_pct: weight,
+        });
+        total_return_pct += output.total_return_pct * weight / 100.0;
+        max_drawdown_pct = max_drawdown_pct.max(output.max_drawdown_pct);
+        rebalance_count += output_summary_u64(output, "rebalance_count");
+        forced_exit_count += output_summary_u64(output, "forced_exit_count");
+        cost_burden_quote += output_summary_f64(output, "cost_burden_quote") * weight / 100.0;
+        if equity_curve.is_empty() {
+            equity_curve = output_equity_curve(output);
+        }
+    }
+    Some(portfolio_optimizer::PortfolioCandidate {
+        items,
+        total_return_pct,
+        max_drawdown_pct,
+        return_drawdown_ratio: if max_drawdown_pct <= f64::EPSILON { total_return_pct } else { total_return_pct / max_drawdown_pct },
+        rebalance_count,
+        forced_exit_count,
+        cost_burden_quote,
+        average_correlation: None,
+        equity_curve,
+    })
+}
+
+fn fallback_output_order(left: &CandidateOutput, right: &CandidateOutput) -> std::cmp::Ordering {
+    left.max_drawdown_pct
+        .total_cmp(&right.max_drawdown_pct)
+        .then_with(|| right.total_return_pct.total_cmp(&left.total_return_pct))
+}
+
+fn score_100(rank_score: f64, total_return_pct: f64, max_drawdown_pct: f64, max_drawdown_limit_pct: f64) -> f64 {
+    let drawdown_score = if max_drawdown_limit_pct > 0.0 {
+        (1.0 - (max_drawdown_pct / max_drawdown_limit_pct)).clamp(0.0, 1.0) * 45.0
+    } else {
+        0.0
+    };
+    let return_score = (total_return_pct / 100.0).clamp(-1.0, 1.0) * 35.0 + 35.0;
+    let rank_bonus = if rank_score.is_finite() && rank_score > 0.0 { 20.0 } else { 0.0 };
+    ((drawdown_score + return_score + rank_bonus).clamp(0.0, 100.0) * 100.0).round() / 100.0
+}
+
+fn output_summary_f64(output: &CandidateOutput, key: &str) -> f64 {
+    output.summary.get(key).and_then(json_number).unwrap_or(0.0)
+}
+
+fn output_summary_u64(output: &CandidateOutput, key: &str) -> u64 {
+    output.summary.get(key).and_then(Value::as_u64).unwrap_or(0)
+}
+
+fn json_number(value: &Value) -> Option<f64> {
+    value.as_f64().or_else(|| value.as_str()?.parse::<f64>().ok()).filter(|value| value.is_finite())
+}
+
+fn output_by_candidate_id<'a>(outputs: &'a [CandidateOutput], candidate_id: &str) -> Option<&'a CandidateOutput> {
+    outputs.iter().find(|output| output.candidate_id == candidate_id)
+}
+
+fn portfolio_symbol_weights(items: &[portfolio_optimizer::PortfolioItem]) -> std::collections::BTreeMap<String, f64> {
+    let mut weights = std::collections::BTreeMap::<String, f64>::new();
+    for item in items {
+        *weights.entry(item.symbol.clone()).or_default() += item.weight_pct;
+    }
+    weights
+}
+
+fn portfolio_drawdown_curve(equity_curve: &[f64]) -> Vec<Value> {
+    let mut peak = f64::NEG_INFINITY;
+    equity_curve
+        .iter()
+        .enumerate()
+        .map(|(index, equity)| {
+            peak = peak.max(*equity);
+            let drawdown = if peak > 0.0 { ((peak - equity) / peak).max(0.0) } else { 0.0 };
+            json!({ "ts": index, "drawdown": drawdown })
+        })
+        .collect()
+}
+
+fn backtest_years(config: &WorkerTaskConfig) -> f64 {
+    let millis = (config.end_ms - config.start_ms).max(1) as f64;
+    (millis / (365.25 * 24.0 * 60.0 * 60.0 * 1000.0)).max(1.0 / 365.25)
+}
+
+fn annualized_return_pct(total_return_pct: f64, years: f64) -> f64 {
+    if !total_return_pct.is_finite() || !years.is_finite() || years <= 0.0 {
+        return 0.0;
+    }
+    let growth = 1.0 + total_return_pct / 100.0;
+    if growth <= 0.0 {
+        -100.0
+    } else {
+        (growth.powf(1.0 / years) - 1.0) * 100.0
     }
 }
 
@@ -895,8 +1141,30 @@ fn allocation_cooldown_hours_candidates(risk_profile: &str) -> Vec<u32> {
     }
 }
 
+fn apply_risk_profile_scoring_defaults(risk_profile: &str, scoring: &mut ScoringConfig) {
+    match risk_profile {
+        "conservative" => {
+            scoring.max_global_drawdown_pct = 20.0;
+            scoring.max_strategy_drawdown_pct = 20.0;
+            scoring.weight_drawdown *= 1.35;
+            scoring.weight_return *= 0.75;
+        }
+        "aggressive" => {
+            scoring.max_global_drawdown_pct = 30.0;
+            scoring.max_strategy_drawdown_pct = 30.0;
+            scoring.weight_drawdown *= 0.75;
+            scoring.weight_return *= 1.35;
+        }
+        _ => {
+            scoring.max_global_drawdown_pct = 25.0;
+            scoring.max_strategy_drawdown_pct = 25.0;
+        }
+    }
+}
+
 fn scoring_config_from_task(config: &WorkerTaskConfig) -> ScoringConfig {
     let mut scoring = ScoringConfig::default();
+    apply_risk_profile_scoring_defaults(&config.risk_profile, &mut scoring);
     if let Some(value) = config.scoring.as_ref() {
         if let Some(max_drawdown_pct) = value.get("max_drawdown_pct").and_then(Value::as_f64) {
             scoring.max_global_drawdown_pct = max_drawdown_pct;
@@ -1100,8 +1368,9 @@ fn template_decimal(config: &WorkerTaskConfig, path: &[&str]) -> Option<Decimal>
 
 #[derive(Debug, Clone)]
 struct MarketDataContext {
-    bars: Vec<KlineBar>,
-    trades: Vec<AggTrade>,
+    screening_bars_by_symbol: std::collections::BTreeMap<String, Vec<KlineBar>>,
+    refinement_bars_by_symbol: std::collections::BTreeMap<String, Vec<KlineBar>>,
+    trades_by_symbol: std::collections::BTreeMap<String, Vec<AggTrade>>,
 }
 
 impl MarketDataContext {
@@ -1148,7 +1417,33 @@ impl MarketDataContext {
                 .cmp(&right.trade_time_ms)
                 .then_with(|| left.symbol.cmp(&right.symbol))
         });
-        Ok(Self { bars, trades })
+        let mut bars_by_symbol = std::collections::BTreeMap::<String, Vec<KlineBar>>::new();
+        for bar in &bars {
+            bars_by_symbol
+                .entry(bar.symbol.trim().to_uppercase())
+                .or_default()
+                .push(bar.clone());
+        }
+        let screening_bars_by_symbol = bars_by_symbol
+            .iter()
+            .map(|(symbol, bars)| (symbol.clone(), aggregate_bars(bars, 4 * 60 * 60 * 1_000)))
+            .collect();
+        let refinement_bars_by_symbol = bars_by_symbol
+            .iter()
+            .map(|(symbol, bars)| (symbol.clone(), aggregate_bars(bars, 15 * 60 * 1_000)))
+            .collect();
+        let mut trades_by_symbol = std::collections::BTreeMap::<String, Vec<AggTrade>>::new();
+        for trade in &trades {
+            trades_by_symbol
+                .entry(trade.symbol.trim().to_uppercase())
+                .or_default()
+                .push(trade.clone());
+        }
+        Ok(Self {
+            screening_bars_by_symbol,
+            refinement_bars_by_symbol,
+            trades_by_symbol,
+        })
     }
 }
 
@@ -1168,49 +1463,109 @@ fn run_candidate_kline_screening(
     candidate: &SearchCandidate,
     market_context: &MarketDataContext,
 ) -> Result<MartingaleBacktestResult, String> {
-    let bars = bars_for_candidate(candidate, &market_context.bars);
+    let bars = bars_for_candidate(candidate, &market_context.screening_bars_by_symbol);
     if bars.is_empty() {
         return Err(format!(
             "candidate {} has no matching kline bars",
             candidate.candidate_id
         ));
     }
-    run_kline_screening(candidate.config.clone(), &bars)
+    run_kline_screening(candidate.config.clone(), bars.as_ref())
+}
+
+fn aggregate_bars(bars: &[KlineBar], interval_ms: i64) -> Vec<KlineBar> {
+    let mut aggregated: Vec<KlineBar> = Vec::new();
+    for bar in bars {
+        let bucket_start = bar.open_time_ms.div_euclid(interval_ms) * interval_ms;
+        match aggregated.last_mut() {
+            Some(active) if active.symbol == bar.symbol && active.open_time_ms == bucket_start => {
+                active.high = active.high.max(bar.high);
+                active.low = active.low.min(bar.low);
+                active.close = bar.close;
+                active.volume += bar.volume;
+            }
+            _ => aggregated.push(KlineBar {
+                symbol: bar.symbol.clone(),
+                open_time_ms: bucket_start,
+                open: bar.open,
+                high: bar.high,
+                low: bar.low,
+                close: bar.close,
+                volume: bar.volume,
+            }),
+        }
+    }
+    aggregated
 }
 
 fn run_candidate_trade_refinement(
     candidate: &SearchCandidate,
     market_context: &MarketDataContext,
-) -> Result<MartingaleBacktestResult, String> {
-    let trades = trades_for_candidate(candidate, &market_context.trades);
-    if trades.is_empty() {
-        let bars = bars_for_candidate(candidate, &market_context.bars);
+) -> Result<(MartingaleBacktestResult, bool), String> {
+    let trades = trades_for_candidate(candidate, &market_context.trades_by_symbol);
+    if trades.is_empty() || trades.len() > MAX_TRADE_REFINEMENT_ROWS {
+        let bars = bars_for_candidate(candidate, &market_context.refinement_bars_by_symbol);
         if bars.is_empty() {
             return Err(format!(
                 "candidate {} has no matching kline bars for candle-only refinement",
                 candidate.candidate_id
             ));
         }
-        return run_kline_screening(candidate.config.clone(), &bars);
+        return run_kline_screening(candidate.config.clone(), bars.as_ref()).map(|result| (result, false));
     }
-    run_trade_refinement(candidate.config.clone(), &trades)
+    run_trade_refinement(candidate.config.clone(), trades.as_ref()).map(|result| (result, true))
 }
 
-fn bars_for_candidate(candidate: &SearchCandidate, bars: &[KlineBar]) -> Vec<KlineBar> {
+fn bars_for_candidate<'a>(
+    candidate: &SearchCandidate,
+    bars_by_symbol: &'a std::collections::BTreeMap<String, Vec<KlineBar>>,
+) -> Cow<'a, [KlineBar]> {
     let symbols = candidate_symbols(candidate);
-    bars.iter()
-        .filter(|bar| symbols.contains(&bar.symbol.trim().to_uppercase()))
-        .cloned()
-        .collect()
-}
-
-fn trades_for_candidate(candidate: &SearchCandidate, trades: &[AggTrade]) -> Vec<AggTrade> {
-    let symbols = candidate_symbols(candidate);
-    trades
+    if symbols.len() == 1 {
+        if let Some(bars) = symbols.iter().next().and_then(|symbol| bars_by_symbol.get(symbol)) {
+            return Cow::Borrowed(bars.as_slice());
+        }
+        return Cow::Borrowed(&[]);
+    }
+    let mut bars = symbols
         .iter()
-        .filter(|trade| symbols.contains(&trade.symbol.trim().to_uppercase()))
-        .cloned()
-        .collect()
+        .filter_map(|symbol| bars_by_symbol.get(symbol))
+        .flat_map(|bars| bars.iter().cloned())
+        .collect::<Vec<_>>();
+    bars.sort_by(|left, right| {
+        left.open_time_ms
+            .cmp(&right.open_time_ms)
+            .then_with(|| left.symbol.cmp(&right.symbol))
+    });
+    Cow::Owned(bars)
+}
+
+fn trades_for_candidate<'a>(
+    candidate: &SearchCandidate,
+    trades_by_symbol: &'a std::collections::BTreeMap<String, Vec<AggTrade>>,
+) -> Cow<'a, [AggTrade]> {
+    let symbols = candidate_symbols(candidate);
+    if symbols.len() == 1 {
+        if let Some(trades) = symbols
+            .iter()
+            .next()
+            .and_then(|symbol| trades_by_symbol.get(symbol))
+        {
+            return Cow::Borrowed(trades.as_slice());
+        }
+        return Cow::Borrowed(&[]);
+    }
+    let mut trades = symbols
+        .iter()
+        .filter_map(|symbol| trades_by_symbol.get(symbol))
+        .flat_map(|trades| trades.iter().cloned())
+        .collect::<Vec<_>>();
+    trades.sort_by(|left, right| {
+        left.trade_time_ms
+            .cmp(&right.trade_time_ms)
+            .then_with(|| left.symbol.cmp(&right.symbol))
+    });
+    Cow::Owned(trades)
 }
 
 fn candidate_symbols(candidate: &SearchCandidate) -> std::collections::BTreeSet<String> {
@@ -1797,7 +2152,50 @@ mod tests {
         assert!(btc_first.summary.get("parameter_rank_for_symbol").is_none());
         assert_eq!(btc_first.summary["recommended_weight_pct"], 20.0);
         assert_eq!(btc_first.summary["recommended_leverage"], 3);
+        assert_eq!(btc_first.summary["total_margin_budget_quote"], 81.25);
         assert_eq!(btc_first.summary["risk_profile"], "balanced");
+    }
+
+    #[test]
+    fn risk_profiles_apply_distinct_scoring_limits_and_weights() {
+        let conservative: WorkerTaskConfig = serde_json::from_value(serde_json::json!({
+            "symbols": ["BTCUSDT"],
+            "random_seed": 1,
+            "random_candidates": 1,
+            "intelligent_rounds": 1,
+            "top_n": 1,
+            "risk_profile": "conservative"
+        }))
+        .expect("conservative config");
+        let balanced: WorkerTaskConfig = serde_json::from_value(serde_json::json!({
+            "symbols": ["BTCUSDT"],
+            "random_seed": 1,
+            "random_candidates": 1,
+            "intelligent_rounds": 1,
+            "top_n": 1,
+            "risk_profile": "balanced"
+        }))
+        .expect("balanced config");
+        let aggressive: WorkerTaskConfig = serde_json::from_value(serde_json::json!({
+            "symbols": ["BTCUSDT"],
+            "random_seed": 1,
+            "random_candidates": 1,
+            "intelligent_rounds": 1,
+            "top_n": 1,
+            "risk_profile": "aggressive"
+        }))
+        .expect("aggressive config");
+
+        let conservative_scoring = scoring_config_from_task(&conservative);
+        let balanced_scoring = scoring_config_from_task(&balanced);
+        let aggressive_scoring = scoring_config_from_task(&aggressive);
+
+        assert!(conservative_scoring.max_global_drawdown_pct < balanced_scoring.max_global_drawdown_pct);
+        assert!(balanced_scoring.max_global_drawdown_pct < aggressive_scoring.max_global_drawdown_pct);
+        assert!(conservative_scoring.weight_drawdown > balanced_scoring.weight_drawdown);
+        assert!(balanced_scoring.weight_drawdown > aggressive_scoring.weight_drawdown);
+        assert!(aggressive_scoring.weight_return > balanced_scoring.weight_return);
+        assert!(balanced_scoring.weight_return > conservative_scoring.weight_return);
     }
 
     #[test]
@@ -2121,10 +2519,28 @@ mod tests {
             assert_eq!(candidate["rank"], index + 1);
         }
         assert_eq!(summary["portfolio_top_n"], PORTFOLIO_TOP_N);
-        assert_eq!(
-            summary["portfolio_candidates"].as_array().unwrap().len(),
-            PORTFOLIO_TOP_N
-        );
+        let portfolios = summary["portfolio_candidates"].as_array().unwrap();
+        assert_eq!(portfolios.len(), PORTFOLIO_TOP_N);
+        let first = &portfolios[0];
+        for field in [
+            "portfolio_candidate_id",
+            "items",
+            "symbols",
+            "symbol_weights",
+            "package_contributions",
+            "annualized_return_pct",
+            "backtest_years",
+            "equity_curve",
+            "drawdown_curve",
+            "rebalance_count",
+            "forced_exit_count",
+            "cost_burden_quote",
+            "average_correlation",
+            "max_drawdown_limit_passed",
+            "can_recommend_live",
+        ] {
+            assert!(first.get(field).is_some(), "missing portfolio field {field}");
+        }
     }
 
     #[test]
@@ -2235,10 +2651,38 @@ mod tests {
         };
 
         let context = MarketDataContext::load(&source, &config).expect("market context");
-        assert_eq!(context.bars.len(), 1);
-        assert_eq!(context.bars[0].symbol, "BTCUSDT");
-        assert_eq!(context.trades.len(), 1);
-        assert_eq!(context.trades[0].symbol, "BTCUSDT");
+        let bars = context
+            .refinement_bars_by_symbol
+            .get("BTCUSDT")
+            .expect("btc refinement bars");
+        let trades = context.trades_by_symbol.get("BTCUSDT").expect("btc trades");
+        assert_eq!(bars.len(), 1);
+        assert_eq!(bars[0].symbol, "BTCUSDT");
+        assert_eq!(trades.len(), 1);
+        assert_eq!(trades[0].symbol, "BTCUSDT");
+        let screening_bars = context
+            .screening_bars_by_symbol
+            .get("BTCUSDT")
+            .expect("btc screening bars");
+        assert_eq!(screening_bars.len(), 1);
+    }
+
+    #[test]
+    fn screening_bars_are_aggregated_to_four_hours() {
+        let bars = vec![
+            KlineBar { symbol: "BTCUSDT".to_owned(), open_time_ms: 0, open: 100.0, high: 101.0, low: 99.0, close: 100.5, volume: 1.0 },
+            KlineBar { symbol: "BTCUSDT".to_owned(), open_time_ms: 60_000, open: 100.5, high: 102.0, low: 98.0, close: 101.0, volume: 2.0 },
+            KlineBar { symbol: "BTCUSDT".to_owned(), open_time_ms: 4 * 60 * 60 * 1_000, open: 101.0, high: 103.0, low: 100.0, close: 102.0, volume: 3.0 },
+        ];
+
+        let aggregated = aggregate_bars(&bars, 4 * 60 * 60 * 1_000);
+
+        assert_eq!(aggregated.len(), 2);
+        assert_eq!(aggregated[0].open, 100.0);
+        assert_eq!(aggregated[0].high, 102.0);
+        assert_eq!(aggregated[0].low, 98.0);
+        assert_eq!(aggregated[0].close, 101.0);
+        assert_eq!(aggregated[0].volume, 3.0);
     }
 
     #[test]
@@ -2281,7 +2725,7 @@ mod tests {
 
         let context =
             MarketDataContext::load(&source, &config).expect("market context without trades");
-        assert!(context.trades.is_empty());
+        assert!(context.trades_by_symbol.is_empty());
     }
 
     #[test]

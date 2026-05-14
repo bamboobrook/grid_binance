@@ -15,6 +15,9 @@ pub struct OptimizerCandidate {
     pub total_return_pct: f64,
     pub max_drawdown_pct: f64,
     pub equity_curve: Vec<f64>,
+    pub rebalance_count: u64,
+    pub forced_exit_count: u64,
+    pub cost_burden_quote: f64,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -30,6 +33,11 @@ pub struct PortfolioCandidate {
     pub total_return_pct: f64,
     pub max_drawdown_pct: f64,
     pub return_drawdown_ratio: f64,
+    pub rebalance_count: u64,
+    pub forced_exit_count: u64,
+    pub cost_burden_quote: f64,
+    pub average_correlation: Option<f64>,
+    pub equity_curve: Vec<f64>,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -83,6 +91,9 @@ impl OptimizerCandidate {
             total_return_pct,
             max_drawdown_pct,
             equity_curve,
+            rebalance_count: 0,
+            forced_exit_count: 0,
+            cost_burden_quote: 0.0,
         }
     }
 }
@@ -185,6 +196,8 @@ fn is_eligible(candidate: &OptimizerCandidate) -> bool {
         && candidate.max_drawdown_pct >= 0.0
         && candidate.total_return_pct >= 0.0
         && candidate.equity_curve.iter().all(|value| value.is_finite())
+        && candidate.cost_burden_quote.is_finite()
+        && candidate.rebalance_count < u64::MAX
 }
 
 fn can_reach_full_weight(candidates: &[&OptimizerCandidate], config: &OptimizerConfig) -> bool {
@@ -561,6 +574,19 @@ fn build_portfolio(
     if max_drawdown_pct > config.max_drawdown_pct + f64::EPSILON {
         return None;
     }
+    let portfolio_equity_curve = weighted_equity_curve(candidates, weights).unwrap_or_default();
+    let average_correlation = average_active_correlation(candidates, weights);
+    if same_symbol_high_correlation(candidates, weights) {
+        return None;
+    }
+    let rebalance_count = weighted_u64(candidates, weights, |candidate| candidate.rebalance_count);
+    let forced_exit_count = weighted_u64(candidates, weights, |candidate| candidate.forced_exit_count);
+    let cost_burden_quote = candidates
+        .iter()
+        .zip(weights.iter().copied())
+        .map(|(candidate, weight)| candidate.cost_burden_quote * weight as f64 / 100.0)
+        .sum::<f64>();
+    let churn_penalty = rebalance_count as f64 * 0.02 + forced_exit_count as f64 * 0.25 + cost_burden_quote * 0.0001;
 
     Some(PortfolioCandidate {
         items,
@@ -569,9 +595,134 @@ fn build_portfolio(
         return_drawdown_ratio: if max_drawdown_pct <= f64::EPSILON {
             total_return_pct
         } else {
-            total_return_pct / max_drawdown_pct
+            (total_return_pct / max_drawdown_pct - churn_penalty).max(0.0)
         },
+        rebalance_count,
+        forced_exit_count,
+        cost_burden_quote,
+        average_correlation,
+        equity_curve: portfolio_equity_curve,
     })
+}
+
+fn weighted_u64(
+    candidates: &[&OptimizerCandidate],
+    weights: &[u32],
+    value: impl Fn(&OptimizerCandidate) -> u64,
+) -> u64 {
+    candidates
+        .iter()
+        .zip(weights.iter().copied())
+        .map(|(candidate, weight)| value(candidate) as f64 * weight as f64 / 100.0)
+        .sum::<f64>()
+        .round() as u64
+}
+
+fn same_symbol_high_correlation(candidates: &[&OptimizerCandidate], weights: &[u32]) -> bool {
+    active_correlations(candidates, weights)
+        .into_iter()
+        .any(|correlation| correlation.same_symbol && correlation.coefficient >= 0.98)
+}
+
+fn average_active_correlation(candidates: &[&OptimizerCandidate], weights: &[u32]) -> Option<f64> {
+    let correlations = active_correlations(candidates, weights);
+    if correlations.is_empty() {
+        return None;
+    }
+    Some(correlations.iter().map(|item| item.coefficient).sum::<f64>() / correlations.len() as f64)
+}
+
+struct PairCorrelation {
+    coefficient: f64,
+    same_symbol: bool,
+}
+
+fn active_correlations(candidates: &[&OptimizerCandidate], weights: &[u32]) -> Vec<PairCorrelation> {
+    let active = candidates
+        .iter()
+        .zip(weights.iter().copied())
+        .filter(|(_, weight)| *weight > 0)
+        .map(|(candidate, _)| *candidate)
+        .collect::<Vec<_>>();
+    let mut correlations = Vec::new();
+    for left_index in 0..active.len() {
+        for right_index in (left_index + 1)..active.len() {
+            let left = active[left_index];
+            let right = active[right_index];
+            if let Some(coefficient) = equity_return_correlation(&left.equity_curve, &right.equity_curve) {
+                correlations.push(PairCorrelation {
+                    coefficient,
+                    same_symbol: left.symbol == right.symbol,
+                });
+            }
+        }
+    }
+    correlations
+}
+
+fn weighted_equity_curve(candidates: &[&OptimizerCandidate], weights: &[u32]) -> Option<Vec<f64>> {
+    let active = candidates
+        .iter()
+        .zip(weights.iter().copied())
+        .filter(|(_, weight)| *weight > 0)
+        .collect::<Vec<_>>();
+    if active.is_empty() {
+        return None;
+    }
+    let len = active[0].0.equity_curve.len();
+    if len == 0 || !active.iter().all(|(candidate, _)| candidate.equity_curve.len() == len) {
+        return None;
+    }
+    Some((0..len)
+        .map(|index| {
+            active
+                .iter()
+                .map(|(candidate, weight)| candidate.equity_curve[index] * *weight as f64 / 100.0)
+                .sum::<f64>()
+        })
+        .collect())
+}
+
+fn equity_return_correlation(left: &[f64], right: &[f64]) -> Option<f64> {
+    if left.len() != right.len() || left.len() < 3 {
+        return None;
+    }
+    let left_returns = pct_returns(left)?;
+    let right_returns = pct_returns(right)?;
+    pearson(&left_returns, &right_returns)
+}
+
+fn pct_returns(values: &[f64]) -> Option<Vec<f64>> {
+    let mut returns = Vec::with_capacity(values.len().saturating_sub(1));
+    for window in values.windows(2) {
+        if window[0].abs() <= f64::EPSILON {
+            return None;
+        }
+        returns.push((window[1] - window[0]) / window[0]);
+    }
+    Some(returns)
+}
+
+fn pearson(left: &[f64], right: &[f64]) -> Option<f64> {
+    if left.len() != right.len() || left.is_empty() {
+        return None;
+    }
+    let left_mean = left.iter().sum::<f64>() / left.len() as f64;
+    let right_mean = right.iter().sum::<f64>() / right.len() as f64;
+    let mut covariance = 0.0;
+    let mut left_var = 0.0;
+    let mut right_var = 0.0;
+    for (left_value, right_value) in left.iter().zip(right.iter()) {
+        let left_delta = left_value - left_mean;
+        let right_delta = right_value - right_mean;
+        covariance += left_delta * right_delta;
+        left_var += left_delta * left_delta;
+        right_var += right_delta * right_delta;
+    }
+    if left_var <= f64::EPSILON || right_var <= f64::EPSILON {
+        return None;
+    }
+    Some((covariance / (left_var.sqrt() * right_var.sqrt())).clamp(-1.0, 1.0))
 }
 
 fn portfolio_drawdown_pct(candidates: &[&OptimizerCandidate], weights: &[u32]) -> f64 {

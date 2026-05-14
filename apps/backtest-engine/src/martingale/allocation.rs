@@ -1,6 +1,4 @@
-use crate::martingale::metrics::{
-    AllocationAction, AllocationCurvePoint, MarketRegimeLabel,
-};
+use crate::martingale::metrics::{AllocationAction, AllocationCurvePoint, MarketRegimeLabel};
 
 const HOUR_MS: i64 = 60 * 60 * 1000;
 
@@ -122,8 +120,7 @@ pub fn decide_allocation(
             state.short_weight_pct,
             target_long_weight_pct,
             target_short_weight_pct,
-        )
-        {
+        ) {
             AllocationAction::Rebalance
         } else {
             AllocationAction::None
@@ -233,9 +230,7 @@ fn target_weights(
         );
     }
 
-    if *btc_regime == MarketRegimeLabel::Uptrend
-        && *symbol_regime == MarketRegimeLabel::Uptrend
-    {
+    if *btc_regime == MarketRegimeLabel::Uptrend && *symbol_regime == MarketRegimeLabel::Uptrend {
         return (
             80.0,
             20.0,
@@ -244,8 +239,7 @@ fn target_weights(
         );
     }
 
-    if *btc_regime == MarketRegimeLabel::Downtrend
-        && *symbol_regime == MarketRegimeLabel::Downtrend
+    if *btc_regime == MarketRegimeLabel::Downtrend && *symbol_regime == MarketRegimeLabel::Downtrend
     {
         return (
             20.0,
@@ -273,7 +267,8 @@ enum MarketBias {
 fn market_bias(btc_regime: &MarketRegimeLabel, symbol_regime: &MarketRegimeLabel) -> MarketBias {
     if *btc_regime == MarketRegimeLabel::StrongUptrend
         || *symbol_regime == MarketRegimeLabel::StrongUptrend
-        || (*btc_regime == MarketRegimeLabel::Uptrend && *symbol_regime == MarketRegimeLabel::Uptrend)
+        || (*btc_regime == MarketRegimeLabel::Uptrend
+            && *symbol_regime == MarketRegimeLabel::Uptrend)
     {
         MarketBias::Up
     } else if *btc_regime == MarketRegimeLabel::StrongDowntrend

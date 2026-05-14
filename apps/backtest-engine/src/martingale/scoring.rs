@@ -39,7 +39,7 @@ impl Default for ScoringConfig {
             max_strategy_drawdown_pct: 40.0,
             max_budget_quote: f64::MAX,
             max_stop_count: u64::MAX,
-            min_trade_count: 1,
+            min_trade_count: 100,
             min_data_quality_score: 0.95,
             weight_return: 1.0,
             weight_calmar: 0.8,

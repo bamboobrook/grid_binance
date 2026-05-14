@@ -36,10 +36,7 @@ pub struct RegimeSnapshot {
     pub atr_pct: f64,
 }
 
-pub fn classify_regime(
-    bars: &[KlineBar],
-    config: &RegimeConfig,
-) -> Result<RegimeSnapshot, String> {
+pub fn classify_regime(bars: &[KlineBar], config: &RegimeConfig) -> Result<RegimeSnapshot, String> {
     validate_bars(bars)?;
     let latest = bars.last().expect("validated non-empty bars");
     validate_config(config)?;
@@ -127,7 +124,9 @@ fn validate_bars(bars: &[KlineBar]) -> Result<(), String> {
         validate_price(bar.close, index, "close")?;
 
         if bar.high < bar.low {
-            return Err(format!("bar {index} high must be greater than or equal to low"));
+            return Err(format!(
+                "bar {index} high must be greater than or equal to low"
+            ));
         }
     }
 
@@ -138,7 +137,9 @@ fn validate_price(value: f64, index: usize, field: &str) -> Result<(), String> {
     if value.is_finite() && value > 0.0 {
         Ok(())
     } else {
-        Err(format!("bar {index} {field} must be finite and greater than zero"))
+        Err(format!(
+            "bar {index} {field} must be finite and greater than zero"
+        ))
     }
 }
 
