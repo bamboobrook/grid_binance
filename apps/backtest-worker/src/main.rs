@@ -184,6 +184,12 @@ struct CandidateOutput {
     trade_count: u64,
 }
 
+#[derive(Debug, Clone)]
+struct PortfolioOptimizationOutput {
+    candidates: Vec<Value>,
+    warning: Option<String>,
+}
+
 #[tokio::main]
 async fn main() -> Result<(), String> {
     let config = WorkerConfig::from_env()?;
@@ -300,35 +306,21 @@ async fn process_task(
         let refined = run_candidate_trade_refinement(&evaluated.candidate, &market_context)?;
         let used_trade_refinement =
             !trades_for_candidate(&evaluated.candidate, &market_context.trades).is_empty();
-        let rows = vec![json!({
-            "task_id": task.task_id,
-            "candidate_id": evaluated.candidate.candidate_id,
-            "rank": index + 1,
-            "kline_score": evaluated.score.rank_score,
-            "trade_metrics": {
-                "total_return_pct": refined.metrics.total_return_pct,
-                "max_drawdown_pct": refined.metrics.max_drawdown_pct,
-                "trade_count": refined.metrics.trade_count,
-            },
-        })];
-        respect_pause_or_cancel(poller, &task.task_id).await?;
-        let manifest = write_task_json_artifact(
-            &config.artifact_root,
-            &task.task_id,
-            &evaluated.candidate.candidate_id,
-            "summary",
-            &rows,
-        )?;
-        verify_artifact(&manifest)?;
+        let candidate_id = evaluated.candidate.candidate_id.clone();
         outputs.push(CandidateOutput {
-            candidate_id: evaluated.candidate.candidate_id,
+            candidate_id: candidate_id.clone(),
             rank: index + 1,
             score: evaluated.score.rank_score,
             config: serde_json::to_value(&evaluated.candidate.config)
                 .map_err(|error| format!("serialize candidate config: {error}"))?,
             summary: result_summary_fields(&refined),
-            artifact_path: manifest.path.display().to_string(),
-            checksum_sha256: manifest.checksum_sha256,
+            artifact_path: config
+                .artifact_root
+                .join(&task.task_id)
+                .join(format!("{candidate_id}-summary.jsonl"))
+                .display()
+                .to_string(),
+            checksum_sha256: String::new(),
             used_trade_refinement,
             total_return_pct: refined.metrics.total_return_pct,
             max_drawdown_pct: refined.metrics.max_drawdown_pct,
@@ -344,13 +336,14 @@ async fn process_task(
         scoring_config_from_task(&task.config).max_global_drawdown_pct,
     );
     respect_pause_or_cancel(poller, &task.task_id).await?;
-    let portfolio_candidates = optimize_output_portfolios(&outputs, &task.config)?;
+    let portfolio_optimization = optimize_output_portfolios(&outputs, &task.config);
     poller
         .save_candidates_and_artifacts(
             &task.task_id,
+            &config.artifact_root,
             random_candidates.len(),
             &outputs,
-            &portfolio_candidates,
+            &portfolio_optimization,
         )
         .await?;
     respect_pause_or_cancel(poller, &task.task_id).await?;
@@ -436,7 +429,7 @@ fn select_top_outputs_per_symbol(
         .enumerate()
         .map(|(index, mut output)| {
             let symbol = output_symbol(&output).unwrap_or_else(|| output.candidate_id.clone());
-            let parameter_rank_for_symbol = {
+            let per_symbol_rank = {
                 let rank = rank_by_symbol.entry(symbol.clone()).or_insert(0usize);
                 *rank += 1;
                 *rank
@@ -481,8 +474,7 @@ fn select_top_outputs_per_symbol(
                 json!({
                     "symbol": symbol,
                     "direction": direction,
-                    "parameter_rank_for_symbol": parameter_rank_for_symbol,
-                    "per_symbol_rank": parameter_rank_for_symbol,
+                    "per_symbol_rank": per_symbol_rank,
                     "portfolio_top_n": PORTFOLIO_TOP_N,
                     "recommended_weight_pct": recommended_weight_pct,
                     "recommended_leverage": recommended_leverage,
@@ -534,6 +526,7 @@ fn result_summary_fields(result: &MartingaleBacktestResult) -> Value {
         + result.cost_summary.stop_loss_quote
         + result.cost_summary.forced_exit_quote;
     json!({
+        "equity_curve": result.equity_curve,
         "allocation_curve": result.allocation_curve,
         "regime_timeline": result.regime_timeline,
         "cost_summary": result.cost_summary,
@@ -672,39 +665,116 @@ fn output_risk_summary_human(output: &CandidateOutput, risk_profile: &str) -> St
 fn optimize_output_portfolios(
     outputs: &[CandidateOutput],
     config: &WorkerTaskConfig,
-) -> Result<Vec<Value>, String> {
+) -> PortfolioOptimizationOutput {
+    let optimizer_config = optimizer_config_from_task(config);
+    if !optimizer_config.max_drawdown_pct.is_finite() || optimizer_config.max_drawdown_pct < 0.0 {
+        return PortfolioOptimizationOutput {
+            candidates: Vec::new(),
+            warning: Some(format!(
+                "portfolio optimizer skipped: invalid max_drawdown_pct {}",
+                optimizer_config.max_drawdown_pct
+            )),
+        };
+    }
+
     let candidates = outputs
         .iter()
         .filter_map(|output| {
+            let equity_curve = output_equity_curve(output);
+            if equity_curve.is_empty() {
+                return None;
+            }
             Some(OptimizerCandidate::new(
                 output.candidate_id.clone(),
                 output_symbol(output)?,
                 output.total_return_pct,
                 output.max_drawdown_pct,
-                output_equity_curve(output),
+                equity_curve,
             ))
         })
         .collect::<Vec<_>>();
-    let optimizer_config = optimizer_config_from_task(config);
-    let portfolios =
-        portfolio_optimizer::optimize_portfolios(&candidates, &optimizer_config, PORTFOLIO_TOP_N)?;
-    Ok(portfolios
-        .into_iter()
-        .enumerate()
-        .map(|(index, portfolio)| {
+
+    match portfolio_optimizer::optimize_portfolios(&candidates, &optimizer_config, PORTFOLIO_TOP_N)
+    {
+        Ok(portfolios) => PortfolioOptimizationOutput {
+            candidates: portfolios
+                .into_iter()
+                .enumerate()
+                .map(|(index, portfolio)| {
+                    json!({
+                        "rank": index + 1,
+                        "items": portfolio.items.into_iter().map(|item| json!({
+                            "candidate_id": item.candidate_id,
+                            "symbol": item.symbol,
+                            "weight_pct": item.weight_pct,
+                        })).collect::<Vec<_>>(),
+                        "total_return_pct": portfolio.total_return_pct,
+                        "max_drawdown_pct": portfolio.max_drawdown_pct,
+                        "return_drawdown_ratio": portfolio.return_drawdown_ratio,
+                    })
+                })
+                .collect(),
+            warning: None,
+        },
+        Err(error) => PortfolioOptimizationOutput {
+            candidates: Vec::new(),
+            warning: Some(format!("portfolio optimizer skipped: {error}")),
+        },
+    }
+}
+
+fn candidate_summary_artifact_row(task_id: &str, output: &CandidateOutput) -> Value {
+    merge_json_objects(
+        json!({
+            "task_id": task_id,
+            "candidate_id": output.candidate_id,
+            "rank": output.rank,
+            "kline_score": output.score,
+            "trade_metrics": {
+                "total_return_pct": output.total_return_pct,
+                "max_drawdown_pct": output.max_drawdown_pct,
+                "trade_count": output.trade_count,
+            },
+        }),
+        output.summary.clone(),
+    )
+}
+
+fn task_portfolio_summary(portfolio_optimization: &PortfolioOptimizationOutput) -> Value {
+    let mut summary = json!({
+        "portfolio_top_n": PORTFOLIO_TOP_N,
+        "portfolio_candidates": portfolio_optimization.candidates,
+    });
+    if let Some(warning) = &portfolio_optimization.warning {
+        summary = merge_json_objects(
+            summary,
             json!({
-                "rank": index + 1,
-                "items": portfolio.items.into_iter().map(|item| json!({
-                    "candidate_id": item.candidate_id,
-                    "symbol": item.symbol,
-                    "weight_pct": item.weight_pct,
-                })).collect::<Vec<_>>(),
-                "total_return_pct": portfolio.total_return_pct,
-                "max_drawdown_pct": portfolio.max_drawdown_pct,
-                "return_drawdown_ratio": portfolio.return_drawdown_ratio,
-            })
-        })
-        .collect())
+                "portfolio_optimizer_warning": warning,
+                "warnings": [warning],
+            }),
+        );
+    }
+    summary
+}
+
+fn write_candidate_summary_artifact(
+    artifact_root: &std::path::Path,
+    task_id: &str,
+    output: &CandidateOutput,
+) -> Result<(String, String), String> {
+    let rows = vec![candidate_summary_artifact_row(task_id, output)];
+    let manifest = write_task_json_artifact(
+        artifact_root,
+        task_id,
+        &output.candidate_id,
+        "summary",
+        &rows,
+    )?;
+    verify_artifact(&manifest)?;
+    Ok((
+        manifest.path.display().to_string(),
+        manifest.checksum_sha256,
+    ))
 }
 
 fn optimizer_config_from_task(config: &WorkerTaskConfig) -> OptimizerConfig {
@@ -721,8 +791,18 @@ fn output_equity_curve(output: &CandidateOutput) -> Vec<f64> {
         .summary
         .get("equity_curve")
         .and_then(Value::as_array)
-        .map(|values| values.iter().filter_map(Value::as_f64).collect())
-        .unwrap_or_else(|| vec![0.0, output.total_return_pct])
+        .map(|values| values.iter().filter_map(equity_point_value).collect())
+        .unwrap_or_default()
+}
+
+fn equity_point_value(value: &Value) -> Option<f64> {
+    value.as_f64().or_else(|| {
+        value.as_object().and_then(|object| {
+            ["equity_quote", "equity", "capital", "value"]
+                .iter()
+                .find_map(|key| object.get(*key).and_then(Value::as_f64))
+        })
+    })
 }
 
 fn strategy_value_at<'a>(output: &'a CandidateOutput, path: &[&str]) -> Option<&'a Value> {
@@ -1289,9 +1369,10 @@ impl TaskPoller {
     async fn save_candidates_and_artifacts(
         &self,
         task_id: &str,
+        artifact_root: &std::path::Path,
         screened_count: usize,
         outputs: &[CandidateOutput],
-        portfolio_candidates: &[Value],
+        portfolio_optimization: &PortfolioOptimizationOutput,
     ) -> Result<(), String> {
         self.repo
             .append_task_event(
@@ -1301,6 +1382,8 @@ impl TaskPoller {
             )
             .map_err(|error| format!("append screening event: {error}"))?;
         for output in outputs {
+            let (artifact_path, checksum_sha256) =
+                write_candidate_summary_artifact(artifact_root, task_id, output)?;
             self.repo
                 .save_candidate_with_artifact(
                     NewBacktestCandidateRecord {
@@ -1321,22 +1404,16 @@ impl TaskPoller {
                         ),
                     },
                     "summary",
-                    output.artifact_path.clone(),
+                    artifact_path,
                     json!({
-                        "checksum_sha256": output.checksum_sha256,
+                        "checksum_sha256": checksum_sha256,
                         "source_candidate_id": output.candidate_id,
                     }),
                 )
                 .map_err(|error| format!("save candidate artifact bundle: {error}"))?;
         }
         self.repo
-            .update_task_summary(
-                task_id,
-                json!({
-                    "portfolio_top_n": PORTFOLIO_TOP_N,
-                    "portfolio_candidates": portfolio_candidates,
-                }),
-            )
+            .update_task_summary(task_id, task_portfolio_summary(portfolio_optimization))
             .map_err(|error| format!("update portfolio candidate summary: {error}"))?;
         Ok(())
     }
@@ -1545,6 +1622,24 @@ mod tests {
         }
     }
 
+    fn candidate_output_with_curve(
+        symbol: &str,
+        id: &str,
+        score: f64,
+        equity_curve: Value,
+    ) -> CandidateOutput {
+        let mut output = candidate_output(symbol, id, 1, score, 3);
+        output.summary = serde_json::json!({ "equity_curve": equity_curve });
+        output
+    }
+
+    fn worker_task_config_with_scoring(max_drawdown_pct: Value) -> WorkerTaskConfig {
+        WorkerTaskConfig {
+            scoring: Some(serde_json::json!({ "max_drawdown_pct": max_drawdown_pct })),
+            ..WorkerTaskConfig::default()
+        }
+    }
+
     fn evaluated_candidate(symbol: &str, id: &str, score: f64) -> EvaluatedCandidate {
         let strategy = MartingaleStrategyConfig {
             strategy_id: id.to_owned(),
@@ -1644,7 +1739,8 @@ mod tests {
             .find(|output| output.candidate_id == "btc-1")
             .unwrap();
         assert_eq!(btc_first.summary["symbol"], "BTCUSDT");
-        assert_eq!(btc_first.summary["parameter_rank_for_symbol"], 1);
+        assert_eq!(btc_first.summary["per_symbol_rank"], 1);
+        assert!(btc_first.summary.get("parameter_rank_for_symbol").is_none());
         assert_eq!(btc_first.summary["recommended_weight_pct"], 20.0);
         assert_eq!(btc_first.summary["recommended_leverage"], 3);
         assert_eq!(btc_first.summary["risk_profile"], "balanced");
@@ -1669,7 +1765,7 @@ mod tests {
             "trailing_take_profit_bps",
             "recommended_weight_pct",
             "recommended_leverage",
-            "parameter_rank_for_symbol",
+            "per_symbol_rank",
             "risk_profile",
             "total_return_pct",
             "max_drawdown_pct",
@@ -1684,7 +1780,6 @@ mod tests {
         }
         assert!(summary.contains_key("artifact_path") || summary.contains_key("equity_curve"));
         assert_eq!(summary["artifact_path"], output.artifact_path);
-        assert!(!summary.contains_key("equity_curve"));
         assert!(summary.get("allocation_curve").is_some());
         assert!(summary.get("regime_timeline").is_some());
         assert!(summary.get("cost_summary").is_some());
@@ -1692,6 +1787,153 @@ mod tests {
         assert_eq!(summary["portfolio_top_n"], 10);
         assert!(summary.get("dynamic_allocation_rules").is_some());
         assert!(summary.get("max_drawdown_limit_pct").is_some());
+    }
+
+    #[test]
+    fn candidate_summary_artifact_row_contains_ui_required_fields() {
+        let output = select_top_outputs_per_symbol(
+            vec![candidate_output_with_curve(
+                "BTCUSDT",
+                "btc-1",
+                90.0,
+                serde_json::json!([1000.0, 1010.0]),
+            )],
+            5,
+            "balanced",
+            40.0,
+        )
+        .remove(0);
+
+        let row = candidate_summary_artifact_row("task-1", &output);
+
+        for field in [
+            "portfolio_top_n",
+            "allocation_curve",
+            "regime_timeline",
+            "cost_summary",
+            "rebalance_count",
+            "forced_exit_count",
+            "average_allocation_hold_hours",
+            "dynamic_allocation_rules",
+            "risk_summary_human",
+            "per_symbol_rank",
+            "equity_curve",
+        ] {
+            assert!(row.get(field).is_some(), "missing artifact field: {field}");
+        }
+        assert!(row.get("parameter_rank_for_symbol").is_none());
+        assert_eq!(row["portfolio_top_n"], PORTFOLIO_TOP_N);
+        assert_eq!(row["trade_metrics"]["total_return_pct"], 90.0);
+    }
+
+    #[test]
+    fn output_equity_curve_reads_arrays_and_common_point_objects() {
+        let numeric = candidate_output_with_curve(
+            "BTCUSDT",
+            "btc-1",
+            90.0,
+            serde_json::json!([1000.0, 990.0, 1015.0]),
+        );
+        let objects = candidate_output_with_curve(
+            "ETHUSDT",
+            "eth-1",
+            80.0,
+            serde_json::json!([
+                { "equity": 1000.0 },
+                { "capital": 995.0 },
+                { "value": 1010.0 },
+                { "equity_quote": 1020.0 }
+            ]),
+        );
+        let missing = candidate_output("SOLUSDT", "sol-1", 1, 70.0, 2);
+
+        assert_eq!(output_equity_curve(&numeric), vec![1000.0, 990.0, 1015.0]);
+        assert_eq!(
+            output_equity_curve(&objects),
+            vec![1000.0, 995.0, 1010.0, 1020.0]
+        );
+        assert!(output_equity_curve(&missing).is_empty());
+    }
+
+    #[test]
+    fn portfolio_optimizer_degrades_on_invalid_drawdown_limit() {
+        let output = candidate_output_with_curve(
+            "BTCUSDT",
+            "btc-1",
+            90.0,
+            serde_json::json!([1000.0, 1010.0]),
+        );
+        let config = worker_task_config_with_scoring(serde_json::json!(-1.0));
+
+        let optimized = optimize_output_portfolios(&[output], &config);
+        let summary = task_portfolio_summary(&optimized);
+
+        assert!(optimized.candidates.is_empty());
+        assert!(optimized
+            .warning
+            .unwrap()
+            .contains("invalid max_drawdown_pct"));
+        assert_eq!(summary["portfolio_top_n"], PORTFOLIO_TOP_N);
+        assert_eq!(summary["portfolio_candidates"].as_array().unwrap().len(), 0);
+        assert!(summary["portfolio_optimizer_warning"]
+            .as_str()
+            .unwrap()
+            .contains("invalid max_drawdown_pct"));
+    }
+
+    #[test]
+    fn portfolio_optimizer_uses_real_curves_and_keeps_top10_rank_order() {
+        let mut outputs = Vec::new();
+        for index in 0..10 {
+            outputs.push(candidate_output_with_curve(
+                &format!("SYM{index}USDT"),
+                &format!("candidate-{index}"),
+                100.0 - index as f64,
+                serde_json::json!([1000.0, 1005.0 + index as f64, 1010.0 + index as f64]),
+            ));
+        }
+        let config = worker_task_config_with_scoring(serde_json::json!(40.0));
+
+        let optimized = optimize_output_portfolios(&outputs, &config);
+        let summary = task_portfolio_summary(&optimized);
+
+        assert_eq!(optimized.warning, None);
+        assert_eq!(optimized.candidates.len(), PORTFOLIO_TOP_N);
+        for (index, candidate) in optimized.candidates.iter().enumerate() {
+            assert_eq!(candidate["rank"], index + 1);
+        }
+        assert_eq!(summary["portfolio_top_n"], PORTFOLIO_TOP_N);
+        assert_eq!(
+            summary["portfolio_candidates"].as_array().unwrap().len(),
+            PORTFOLIO_TOP_N
+        );
+    }
+
+    #[test]
+    fn portfolio_optimizer_skips_empty_and_irregular_curves_without_fabricating() {
+        let missing = candidate_output("BTCUSDT", "btc-1", 1, 90.0, 3);
+        let irregular_left = candidate_output_with_curve(
+            "ETHUSDT",
+            "eth-1",
+            80.0,
+            serde_json::json!([1000.0, 1005.0, 1010.0]),
+        );
+        let irregular_right = candidate_output_with_curve(
+            "SOLUSDT",
+            "sol-1",
+            70.0,
+            serde_json::json!([1000.0, 1002.0]),
+        );
+        let config = worker_task_config_with_scoring(serde_json::json!(40.0));
+
+        let empty_result = optimize_output_portfolios(&[missing], &config);
+        let irregular_result =
+            optimize_output_portfolios(&[irregular_left, irregular_right], &config);
+
+        assert!(empty_result.candidates.is_empty());
+        assert_eq!(empty_result.warning, None);
+        assert!(irregular_result.candidates.is_empty());
+        assert_eq!(irregular_result.warning, None);
     }
 
     #[test]
