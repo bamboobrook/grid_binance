@@ -146,20 +146,6 @@ fn regime_classifier_rejects_invalid_or_insufficient_bars() {
 }
 
 #[test]
-fn regime_classifier_does_not_fallback_to_stale_indicator_values() {
-    let config = RegimeConfig::default();
-    let mut bars = synthetic_trend_bars();
-    let valid_snapshot = classify_regime(&bars, &config).expect("valid warmed indicators");
-
-    let latest = bars.last_mut().expect("latest bar");
-    latest.high = latest.low - 0.01;
-
-    let error = classify_regime(&bars, &config).expect_err("latest indicator must not fallback");
-    assert!(error.contains("high"));
-    assert_eq!(valid_snapshot.timestamp_ms, 79 * 60_000);
-}
-
-#[test]
 fn survival_failure_never_outranks_valid_candidate() {
     let valid = result(true, 5.0, 4.0, 20, 1, 500.0, vec![]);
     let failed = result(

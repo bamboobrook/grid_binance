@@ -160,3 +160,28 @@ fn validate_config(config: &RegimeConfig) -> Result<(), String> {
 
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::latest_required_indicator;
+
+    #[test]
+    fn regime_classifier_latest_required_indicator_rejects_missing_latest_without_fallback() {
+        let values = vec![Some(10.0), Some(11.0), None];
+
+        let error = latest_required_indicator(&values, "indicator unavailable")
+            .expect_err("latest indicator is missing");
+
+        assert_eq!(error, "indicator unavailable");
+    }
+
+    #[test]
+    fn regime_classifier_latest_required_indicator_rejects_non_finite_latest_without_fallback() {
+        let values = vec![Some(10.0), Some(11.0), Some(f64::NAN)];
+
+        let error = latest_required_indicator(&values, "indicator unavailable")
+            .expect_err("latest indicator is non-finite");
+
+        assert_eq!(error, "indicator unavailable");
+    }
+}
