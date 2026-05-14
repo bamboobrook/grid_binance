@@ -10,9 +10,9 @@ use backtest_engine::market_data::{AggTrade, KlineBar};
 use backtest_engine::martingale::allocation::{
     decide_allocation, AllocationConfig, AllocationState,
 };
+use backtest_engine::martingale::kline_engine::run_kline_screening;
 use backtest_engine::martingale::regime::{classify_regime, RegimeConfig};
 use backtest_engine::martingale::scoring::{score_candidate, ScoringConfig};
-use backtest_engine::martingale::kline_engine::run_kline_screening;
 use backtest_engine::martingale::trade_engine::{
     run_trade_refinement, trades_to_ordered_price_bars,
 };
@@ -20,9 +20,9 @@ use backtest_engine::search::{random_search, SearchSpace};
 use backtest_engine::time_splits::{named_stress_windows, walk_forward_windows, WalkForwardConfig};
 use rust_decimal::Decimal;
 use shared_domain::martingale::{
-    MartingaleDirection, MartingaleDirectionMode, MartingaleMarketKind, MartingalePortfolioConfig,
-    MartingaleMarginMode, MartingaleRiskLimits, MartingaleSizingModel, MartingaleSpacingModel,
-    MartingaleStrategyConfig, MartingaleTakeProfitModel,
+    MartingaleDirection, MartingaleDirectionMode, MartingaleEntryTrigger, MartingaleMarketKind,
+    MartingaleMarginMode, MartingalePortfolioConfig, MartingaleRiskLimits, MartingaleSizingModel,
+    MartingaleSpacingModel, MartingaleStrategyConfig, MartingaleTakeProfitModel,
 };
 
 fn kline_bar(open_time_ms: i64, open: f64, high: f64, low: f64, close: f64) -> KlineBar {
@@ -136,6 +136,66 @@ fn dynamic_allocation_rising_bars() -> Vec<KlineBar> {
             )
         })
         .collect()
+}
+
+fn dynamic_allocation_two_symbol_stale_btc_bars() -> Vec<KlineBar> {
+    let mut bars = Vec::new();
+    for index in 0..80 {
+        let open = 100.0 + index as f64;
+        let close = open + 0.8;
+        bars.push(symbol_kline_bar(
+            "BTCUSDT",
+            index * 60_000,
+            open,
+            close + 0.3,
+            open - 0.2,
+            close,
+        ));
+    }
+    for index in 80..90 {
+        let center = 200.0 + (index % 4) as f64 * 0.02;
+        bars.push(symbol_kline_bar(
+            "ETHUSDT",
+            index * 60_000,
+            center,
+            center + 0.1,
+            center - 0.1,
+            center,
+        ));
+    }
+    bars
+}
+
+fn dynamic_allocation_two_symbol_portfolio(symbol: &str) -> MartingalePortfolioConfig {
+    let mut portfolio = dynamic_allocation_long_short_portfolio();
+    for strategy in &mut portfolio.strategies {
+        strategy.symbol = symbol.to_string();
+        strategy.strategy_id = format!("{symbol}-{:?}", strategy.direction).to_ascii_lowercase();
+    }
+    portfolio
+}
+
+fn dynamic_allocation_warmup_bars(count: i64) -> Vec<KlineBar> {
+    (0..count)
+        .map(|index| {
+            symbol_kline_bar(
+                "BTCUSDT",
+                index * 60_000,
+                100.0,
+                100.2,
+                99.8,
+                100.0,
+            )
+        })
+        .collect()
+}
+
+fn event_detail_number(detail: &str, key: &str) -> f64 {
+    detail
+        .split(';')
+        .find_map(|part| part.strip_prefix(&format!("{key}=")))
+        .and_then(|value| value.parse::<f64>().ok())
+        .unwrap_or_else(|| panic!("missing {key} in {detail}"))
 }
 
 #[test]
@@ -428,6 +488,104 @@ fn dynamic_allocation_forced_exit_records_costs_and_weight_curve() {
         .events
         .iter()
         .any(|event| event.event_type == "direction_forced_exit"));
+}
+
+#[test]
+fn dynamic_allocation_ignores_stale_btc_regime_when_current_group_lacks_btc() {
+    let result = run_kline_screening(
+        dynamic_allocation_two_symbol_portfolio("ETHUSDT"),
+        &dynamic_allocation_two_symbol_stale_btc_bars(),
+    )
+    .expect("dynamic allocation with stale BTC bars");
+
+    assert_eq!(result.forced_exit_count, 0);
+    assert!(result
+        .regime_timeline
+        .iter()
+        .filter(|point| point.symbol == "ETHUSDT")
+        .all(|point| point.btc_regime == point.symbol_regime));
+}
+
+#[test]
+fn dynamic_allocation_forced_exit_cost_summary_splits_entry_and_exit_costs() {
+    let result = run_kline_screening(
+        dynamic_allocation_long_short_portfolio(),
+        &dynamic_allocation_rising_bars(),
+    )
+    .expect("dynamic allocation kline backtest");
+
+    assert!(result.cost_summary.fee_quote > 0.0);
+    assert!(result.cost_summary.slippage_quote > 0.0);
+    assert!(
+        (result.cost_summary.fee_quote - result.cost_summary.slippage_quote * 2.0).abs() < 1.0e-9,
+        "fee/slippage should respect configured bps split: {:?}",
+        result.cost_summary
+    );
+    assert!(result.cost_summary.slippage_quote > 0.12);
+}
+
+#[test]
+fn dynamic_allocation_warmup_groups_emit_range_points() {
+    let bars = dynamic_allocation_warmup_bars(5);
+    let result = run_kline_screening(dynamic_allocation_long_short_portfolio(), &bars)
+        .expect("warmup dynamic allocation");
+
+    assert_eq!(result.allocation_curve.len(), bars.len());
+    assert_eq!(result.regime_timeline.len(), bars.len());
+    assert!(result
+        .regime_timeline
+        .iter()
+        .all(|point| point.btc_regime == MarketRegimeLabel::Range
+            && point.symbol_regime == MarketRegimeLabel::Range));
+}
+
+#[test]
+fn dynamic_allocation_weights_scale_entry_notionals() {
+    let result = run_kline_screening(
+        dynamic_allocation_long_short_portfolio(),
+        &dynamic_allocation_rising_bars(),
+    )
+    .expect("weighted dynamic allocation");
+
+    let long_entry = result
+        .events
+        .iter()
+        .find(|event| event.event_type == "entry" && event.strategy_instance_id.contains("long"))
+        .expect("long entry");
+    let short_entry = result
+        .events
+        .iter()
+        .find(|event| event.event_type == "entry" && event.strategy_instance_id.contains("short"))
+        .expect("short entry");
+    let long_notional = event_detail_number(&long_entry.detail, "notional_quote");
+    let short_notional = event_detail_number(&short_entry.detail, "notional_quote");
+
+    assert_eq!(long_notional, 180.0);
+    assert_eq!(short_notional, 120.0);
+    assert_ne!(long_notional, short_notional);
+}
+
+#[test]
+fn dynamic_allocation_deduplicates_rebalance_holds_and_pause_events() {
+    let mut portfolio = dynamic_allocation_long_short_portfolio();
+    for strategy in &mut portfolio.strategies {
+        strategy.entry_triggers = vec![MartingaleEntryTrigger::TimeWindow {
+            start: "00:00".to_string(),
+            end: "00:00".to_string(),
+        }];
+    }
+    let result = run_kline_screening(portfolio, &dynamic_allocation_rising_bars())
+        .expect("deduplicated dynamic allocation");
+
+    let paused_count = result
+        .events
+        .iter()
+        .filter(|event| event.event_type == "direction_paused")
+        .count();
+
+    assert!(result.rebalance_count < 5, "rebalance_count={}", result.rebalance_count);
+    assert!(paused_count <= 2, "paused_count={paused_count}");
+    assert!(result.average_allocation_hold_hours.unwrap_or_default() > 0.0);
 }
 
 #[test]

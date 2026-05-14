@@ -62,11 +62,13 @@ pub fn run_kline_screening(
     let mut allocation_gates: BTreeMap<String, AllocationGate> = BTreeMap::new();
     let mut allocation_curve = Vec::new();
     let mut regime_timeline = Vec::new();
+    let mut last_allocation_points: BTreeMap<String, AllocationCurvePointSnapshot> = BTreeMap::new();
     let mut cost_summary = CostSummary::default();
     let mut rebalance_count = 0_u64;
     let mut forced_exit_count = 0_u64;
     let mut allocation_hold_ms_total = 0_i64;
     let mut allocation_hold_segments = 0_u64;
+    let mut allocation_last_change_ms: Option<i64> = None;
 
     let mut bar_index = 0;
     while bar_index < bars.len() {
@@ -83,24 +85,21 @@ pub fn run_kline_screening(
         if dynamic_allocation_enabled {
             let symbols = group_symbols(group);
             for symbol in symbols {
-                let Some(symbol_regime) = classify_symbol_regime(
+                let symbol_regime = classify_symbol_regime(
                     &indicator_context,
                     &symbol,
                     &regime_config,
-                ) else {
-                    continue;
-                };
-                let btc_symbol = if indicator_context.has_symbol("BTCUSDT") {
-                    "BTCUSDT"
-                } else {
-                    &symbol
-                };
-                let btc_regime = classify_symbol_regime(
-                    &indicator_context,
-                    btc_symbol,
-                    &regime_config,
                 )
-                .unwrap_or(symbol_regime.clone());
+                .unwrap_or(MarketRegimeLabel::Range);
+                let current_group_has_btc = group.iter().any(|bar| bar.symbol == "BTCUSDT");
+                let btc_regime = if current_group_has_btc
+                    || latest_bar_timestamp(&indicator_context, "BTCUSDT") == Some(timestamp_ms)
+                {
+                    classify_symbol_regime(&indicator_context, "BTCUSDT", &regime_config)
+                        .unwrap_or(MarketRegimeLabel::Range)
+                } else {
+                    symbol_regime.clone()
+                };
                 let adverse_loss_pct = adverse_direction_loss_pct(
                     &strategy_states,
                     &latest_close_by_symbol,
@@ -126,23 +125,31 @@ pub fn run_kline_screening(
                 });
                 allocation_curve.push(decision.point.clone());
 
-                if decision.action != AllocationAction::None {
-                    if let Some(last_change_ms) = allocation_state.last_change_ms {
+                let snapshot = AllocationCurvePointSnapshot::from_decision(&decision);
+                let changed = last_allocation_points
+                    .get(&symbol)
+                    .map(|previous| previous != &snapshot)
+                    .unwrap_or(true);
+
+                if changed {
+                    if let Some(last_change_ms) = allocation_last_change_ms {
                         allocation_hold_ms_total += timestamp_ms.saturating_sub(last_change_ms);
                         allocation_hold_segments += 1;
                     }
+                    allocation_last_change_ms = Some(timestamp_ms);
                     allocation_state.last_change_ms = Some(timestamp_ms);
                     allocation_state.long_weight_pct = decision.long_weight_pct;
                     allocation_state.short_weight_pct = decision.short_weight_pct;
-                }
+                    last_allocation_points.insert(symbol.clone(), snapshot);
 
-                if matches!(
-                    decision.action,
-                    AllocationAction::Rebalance
-                        | AllocationAction::DirectionOrdersCancelled
-                        | AllocationAction::DirectionForcedExit
-                ) {
-                    rebalance_count += 1;
+                    if matches!(
+                        decision.action,
+                        AllocationAction::Rebalance
+                            | AllocationAction::DirectionOrdersCancelled
+                            | AllocationAction::DirectionForcedExit
+                    ) {
+                        rebalance_count += 1;
+                    }
                 }
 
                 if decision.action == AllocationAction::DirectionForcedExit {
@@ -179,6 +186,7 @@ pub fn run_kline_screening(
                     }
                 }
 
+                let previous_gate = allocation_gates.remove(&symbol);
                 allocation_gates.insert(
                     symbol,
                     AllocationGate {
@@ -186,6 +194,12 @@ pub fn run_kline_screening(
                         short_weight_pct: decision.short_weight_pct,
                         action: decision.action,
                         reason: decision.point.reason,
+                        last_paused_long_reason: previous_gate
+                            .as_ref()
+                            .and_then(|gate| gate.last_paused_long_reason.clone()),
+                        last_paused_short_reason: previous_gate
+                            .as_ref()
+                            .and_then(|gate| gate.last_paused_short_reason.clone()),
                     },
                 );
             }
@@ -203,7 +217,7 @@ pub fn run_kline_screening(
 
                 if strategy_states[state_index].legs.is_empty() {
                     if let Some(reason) = allocation_pause_reason(
-                        &allocation_gates,
+                        &mut allocation_gates,
                         &strategy_states[state_index],
                     ) {
                         events.push(event(
@@ -225,7 +239,15 @@ pub fn run_kline_screening(
                         continue;
                     }
 
-                    let notional = strategy_states[state_index].notionals[0];
+                    let notional = effective_notional(
+                        &allocation_gates,
+                        &strategy_states[state_index],
+                        strategy_states[state_index].notionals[0],
+                    );
+                    if notional <= 0.0 {
+                        state_index += 1;
+                        continue;
+                    }
                     let entry_cost = trading_cost_quote(notional);
                     let capital_required = notional
                         / strategy_leverage_multiplier(strategy_states[state_index].strategy);
@@ -270,7 +292,7 @@ pub fn run_kline_screening(
                         trigger_price,
                     ) {
                         if let Some(reason) = allocation_pause_reason(
-                            &allocation_gates,
+                            &mut allocation_gates,
                             &strategy_states[state_index],
                         ) {
                             events.push(event(
@@ -283,7 +305,15 @@ pub fn run_kline_screening(
                             continue;
                         }
 
-                        let notional = strategy_states[state_index].notionals[next_leg_index];
+                        let notional = effective_notional(
+                            &allocation_gates,
+                            &strategy_states[state_index],
+                            strategy_states[state_index].notionals[next_leg_index],
+                        );
+                        if notional <= 0.0 {
+                            state_index += 1;
+                            continue;
+                        }
                         let entry_cost = trading_cost_quote(notional);
                         let capital_required = notional
                             / strategy_leverage_multiplier(strategy_states[state_index].strategy);
@@ -468,8 +498,19 @@ pub fn run_kline_screening(
         0.0
     };
 
+    if let Some(last_change_ms) = allocation_last_change_ms {
+        if let Some(last_point) = equity_curve.last() {
+            allocation_hold_ms_total += last_point.timestamp_ms.saturating_sub(last_change_ms);
+            allocation_hold_segments += 1;
+        }
+    }
+
     let average_allocation_hold_hours = if allocation_hold_segments > 0 {
-        Some(allocation_hold_ms_total.max(0) as f64 / allocation_hold_segments as f64 / 3_600_000.0)
+        Some(
+            allocation_hold_ms_total.max(0) as f64
+                / allocation_hold_segments as f64
+                / 3_600_000.0,
+        )
     } else if !allocation_curve.is_empty() {
         Some(0.0)
     } else {
@@ -507,6 +548,29 @@ struct AllocationGate {
     short_weight_pct: f64,
     action: AllocationAction,
     reason: String,
+    last_paused_long_reason: Option<String>,
+    last_paused_short_reason: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+struct AllocationCurvePointSnapshot {
+    long_weight_pct: f64,
+    short_weight_pct: f64,
+    action: AllocationAction,
+    reason: String,
+    in_cooldown: bool,
+}
+
+impl AllocationCurvePointSnapshot {
+    fn from_decision(decision: &crate::martingale::allocation::AllocationDecision) -> Self {
+        Self {
+            long_weight_pct: decision.long_weight_pct,
+            short_weight_pct: decision.short_weight_pct,
+            action: decision.action.clone(),
+            reason: decision.point.reason.clone(),
+            in_cooldown: decision.in_cooldown,
+        }
+    }
 }
 
 struct StrategyRuntime<'a> {
@@ -823,20 +887,59 @@ fn classify_symbol_regime(
         .map(|snapshot| snapshot.label)
 }
 
-fn allocation_pause_reason(
+fn latest_bar_timestamp(indicator_context: &IndicatorRuntimeContext, symbol: &str) -> Option<i64> {
+    indicator_context
+        .bars_by_symbol
+        .get(symbol)
+        .and_then(|bars| bars.last())
+        .map(|bar| bar.open_time_ms)
+}
+
+fn direction_weight_pct(
     gates: &BTreeMap<String, AllocationGate>,
     state: &StrategyRuntime<'_>,
+) -> f64 {
+    let Some(gate) = gates.get(&state.strategy.symbol) else {
+        return 100.0;
+    };
+    match state.strategy.direction {
+        MartingaleDirection::Long => gate.long_weight_pct,
+        MartingaleDirection::Short => gate.short_weight_pct,
+    }
+}
+
+fn effective_notional(
+    gates: &BTreeMap<String, AllocationGate>,
+    state: &StrategyRuntime<'_>,
+    base_notional: f64,
+) -> f64 {
+    base_notional * direction_weight_pct(gates, state) / 100.0
+}
+
+fn allocation_pause_reason(
+    gates: &mut BTreeMap<String, AllocationGate>,
+    state: &StrategyRuntime<'_>,
 ) -> Option<String> {
-    let gate = gates.get(&state.strategy.symbol)?;
+    let gate = gates.get_mut(&state.strategy.symbol)?;
     let weight = match state.strategy.direction {
         MartingaleDirection::Long => gate.long_weight_pct,
         MartingaleDirection::Short => gate.short_weight_pct,
     };
     if weight <= 0.0 || gate.action == AllocationAction::DirectionPaused {
-        Some(format!(
+        let reason = format!(
             "direction={:?};weight_pct={weight};action={:?};reason={}",
             state.strategy.direction, gate.action, gate.reason
-        ))
+        );
+        let last_reason = match state.strategy.direction {
+            MartingaleDirection::Long => &mut gate.last_paused_long_reason,
+            MartingaleDirection::Short => &mut gate.last_paused_short_reason,
+        };
+        if last_reason.as_deref() == Some(reason.as_str()) {
+            None
+        } else {
+            *last_reason = Some(reason.clone());
+            Some(reason)
+        }
     } else {
         None
     }
@@ -892,7 +995,9 @@ fn force_exit_direction(
         state.strategy.symbol == symbol && state.strategy.direction == direction && !state.legs.is_empty()
     }) {
         let close_gross_pnl = close_pnl(state.strategy.direction, &state.legs, close_price)?;
-        let entry_cost = entry_cost_quote(&state.legs);
+        let entry_fee = entry_fee_quote(&state.legs);
+        let entry_slippage = entry_slippage_quote(&state.legs);
+        let entry_cost = entry_fee + entry_slippage;
         let exit_cost = exit_cost_quote(&state.legs, close_price);
         let exit_total = exit_cost.total();
         let pnl = close_gross_pnl - entry_cost - exit_total;
@@ -904,8 +1009,8 @@ fn force_exit_direction(
             *capital_used_quote = 0.0;
         }
         state.realized_pnl_quote += pnl;
-        cost_summary.fee_quote += entry_cost + exit_cost.fee_quote;
-        cost_summary.slippage_quote += exit_cost.slippage_quote;
+        cost_summary.fee_quote += entry_fee + exit_cost.fee_quote;
+        cost_summary.slippage_quote += entry_slippage + exit_cost.slippage_quote;
         cost_summary.forced_exit_quote += exit_total;
         *trade_count += 1;
         count += 1;
@@ -1348,10 +1453,6 @@ struct IndicatorRuntimeContext {
 }
 
 impl IndicatorRuntimeContext {
-    fn has_symbol(&self, symbol: &str) -> bool {
-        self.bars_by_symbol.contains_key(symbol)
-    }
-
     fn push_bar(&mut self, bar: &KlineBar) {
         self.bars_by_symbol
             .entry(bar.symbol.clone())
@@ -1664,6 +1765,14 @@ fn entry_cost_quote(legs: &[MartingaleLegState]) -> f64 {
     legs.iter()
         .map(|leg| leg.fee_quote + leg.slippage_quote)
         .sum()
+}
+
+fn entry_fee_quote(legs: &[MartingaleLegState]) -> f64 {
+    legs.iter().map(|leg| leg.fee_quote).sum()
+}
+
+fn entry_slippage_quote(legs: &[MartingaleLegState]) -> f64 {
+    legs.iter().map(|leg| leg.slippage_quote).sum()
 }
 
 fn unrealized_pnl(
