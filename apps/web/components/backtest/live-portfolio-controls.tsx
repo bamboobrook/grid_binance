@@ -42,6 +42,9 @@ type PortfolioStrategy = {
 
 type PortfolioConfig = {
   direction_mode?: string;
+  dynamic_allocation_rules?: Record<string, unknown> | null;
+  live_ready?: boolean;
+  live_readiness_blockers?: string[];
   strategies: PortfolioStrategy[];
   risk_limits?: PortfolioRiskLimits | null;
 };
@@ -59,6 +62,9 @@ type LivePortfolio = {
   total_weight_pct?: number | null;
   created_at?: string;
   risk_summary?: Record<string, unknown> | null;
+  dynamic_allocation_rules?: Record<string, unknown> | null;
+  live_ready?: boolean;
+  live_readiness_blockers?: string[];
   config: PortfolioConfig;
 };
 
@@ -351,7 +357,12 @@ export function MartingalePortfolioDetail({
                   </CardDescription>
                 </div>
                 <LivePortfolioControls
-                  entity={{ kind: "portfolio", portfolioId: portfolio.portfolio_id, status: portfolio.status }}
+                  entity={{
+                    kind: "portfolio",
+                    portfolioId: portfolio.portfolio_id,
+                    status: portfolio.status,
+                    liveReadinessBlockers: portfolio.live_readiness_blockers ?? [],
+                  }}
                   lang={lang}
                   onPortfolioChange={(next) => {
                     setPortfolio((current) => (current ? { ...current, status: next } : current));
@@ -524,7 +535,7 @@ function LivePortfolioControls({
   onStrategyChange,
 }: {
   entity:
-    | { kind: "portfolio"; portfolioId: string; status: string }
+    | { kind: "portfolio"; portfolioId: string; status: string; liveReadinessBlockers?: string[] }
     | { kind: "strategy"; strategyId: string; statusSource: StrategyStatusSource };
   lang: UiLanguage;
   onPortfolioChange?: (status: string) => void;
@@ -600,21 +611,41 @@ function LivePortfolioControls({
   }
 
   const inferredStatus = entity.kind === "strategy" ? effectiveStrategyControlStatus(entity.statusSource) : null;
+  const liveReadinessBlockers = entity.kind === "portfolio" ? entity.liveReadinessBlockers ?? [] : [];
+  const directLiveDisabled = pending !== "" || liveReadinessBlockers.length > 0;
 
   return (
     <div className="space-y-2">
+      {entity.kind === "portfolio" && liveReadinessBlockers.length > 0 ? (
+        <div className="rounded-sm border border-amber-500/30 bg-amber-500/5 p-3 text-xs text-muted-foreground" role="status">
+          <p className="font-medium text-amber-700 dark:text-amber-300">
+            {pickText(lang, "实盘就绪阻断项", "Live readiness blockers")}
+          </p>
+          <ul className="mt-2 list-disc space-y-1 pl-4">
+            {liveReadinessBlockers.map((blocker) => <li key={blocker}>{blocker}</li>)}
+          </ul>
+          <p className="mt-2">
+            {pickText(lang, "直接发布实盘已禁用；仍可保存为待启用组合。", "Direct live publish is disabled; saving as a pending portfolio is still allowed.")}
+          </p>
+        </div>
+      ) : null}
       <div className="flex flex-wrap gap-2">
         {entity.kind === "portfolio" && (entity.status === "pending_confirmation" || entity.status === "paused") ? (
           <Button
             aria-busy={pending === "start"}
-            disabled={pending !== ""}
+            disabled={directLiveDisabled}
             onClick={() => void run("start")}
             size="sm"
             type="button"
           >
             {entity.status === "pending_confirmation"
-              ? pickText(lang, "确认启用组合记录", "Confirm portfolio record")
-              : pickText(lang, "确认恢复组合记录", "Confirm resume record")}
+              ? pickText(lang, "直接发布实盘", "Direct live publish")
+              : pickText(lang, "直接恢复实盘", "Direct live resume")}
+          </Button>
+        ) : null}
+        {entity.kind === "portfolio" && entity.status === "pending_confirmation" && liveReadinessBlockers.length > 0 ? (
+          <Button disabled={pending !== ""} size="sm" tone="outline" type="button">
+            {pickText(lang, "保存为待启用组合", "Save as pending portfolio")}
           </Button>
         ) : null}
         {entity.kind === "portfolio" && entity.status === "running" ? (
@@ -672,8 +703,8 @@ function LivePortfolioControls({
         <p className="text-xs text-muted-foreground">
           {pickText(
             lang,
-            "禁用原因：操作提交中或组合已停止；这些按钮只记录生命周期状态，不代表已经自动真实下单。",
-            "Disabled when an action is pending or the portfolio is stopped; these buttons record lifecycle status only and do not imply live orders.",
+            "禁用原因：操作提交中、组合已停止，或存在实盘就绪阻断项；这些按钮只记录生命周期状态，不代表已经自动真实下单。",
+            "Disabled when an action is pending, the portfolio is stopped, or live readiness blockers exist; these buttons record lifecycle status only and do not imply live orders.",
           )}
         </p>
       ) : null}
@@ -706,16 +737,37 @@ function normalizePortfolio(value: unknown): LivePortfolio {
     risk_summary: source.risk_summary && typeof source.risk_summary === "object"
       ? (source.risk_summary as Record<string, unknown>)
       : null,
+    dynamic_allocation_rules: readObject(source.dynamic_allocation_rules) ?? readObject(configSource.dynamic_allocation_rules),
+    live_ready: typeof source.live_ready === "boolean"
+      ? source.live_ready
+      : typeof configSource.live_ready === "boolean"
+        ? configSource.live_ready
+        : undefined,
+    live_readiness_blockers: readStringArray(source.live_readiness_blockers) ?? readStringArray(configSource.live_readiness_blockers) ?? [],
     config: {
       direction_mode: typeof configSource.direction_mode === "string"
         ? configSource.direction_mode
         : typeof source.direction === "string"
           ? source.direction
           : undefined,
+      dynamic_allocation_rules: readObject(configSource.dynamic_allocation_rules) ?? readObject(source.dynamic_allocation_rules),
+      live_ready: typeof configSource.live_ready === "boolean"
+        ? configSource.live_ready
+        : typeof source.live_ready === "boolean"
+          ? source.live_ready
+          : undefined,
+      live_readiness_blockers: readStringArray(configSource.live_readiness_blockers) ?? readStringArray(source.live_readiness_blockers) ?? [],
       risk_limits: normalizeRiskLimits(configSource.risk_limits),
       strategies: strategiesSource.map((entry, index) => normalizeStrategy(entry, index)),
     },
   };
+}
+
+function readStringArray(value: unknown) {
+  if (!Array.isArray(value)) {
+    return null;
+  }
+  return value.filter((entry): entry is string => typeof entry === "string" && entry.trim() !== "");
 }
 
 function normalizeStrategy(value: unknown, index: number): PortfolioStrategy {

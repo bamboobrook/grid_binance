@@ -1,10 +1,10 @@
 use axum::{
+    Json,
     http::StatusCode,
     response::{IntoResponse, Response},
-    Json,
 };
 use serde::{Deserialize, Serialize};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use shared_db::{
     BacktestCandidateRecord, BacktestRepository, MartingalePortfolioRecord,
     NewMartingalePortfolioItemRecord, NewMartingalePortfolioRecord, SharedDb,
@@ -30,6 +30,8 @@ pub struct PublishPortfolioRequest {
     pub direction: String,
     pub risk_profile: String,
     pub total_weight_pct: Decimal,
+    #[serde(default)]
+    pub dynamic_allocation_rules: Option<Value>,
     pub items: Vec<PublishPortfolioItemRequest>,
 }
 
@@ -52,6 +54,9 @@ pub struct PublishPortfolioResponse {
     pub instances: Vec<PublishedStrategyInstance>,
     pub items: Vec<PublishedStrategyInstance>,
     pub risk_summary: Value,
+    pub dynamic_allocation_rules: Option<Value>,
+    pub live_ready: bool,
+    pub live_readiness_blockers: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -137,6 +142,7 @@ impl MartingalePublishService {
             direction,
             risk_profile: "single_candidate".to_owned(),
             total_weight_pct: Decimal::new(100, 0),
+            dynamic_allocation_rules: None,
             items: vec![PublishPortfolioItemRequest {
                 candidate_id: candidate.candidate_id.clone(),
                 symbol,
@@ -178,7 +184,25 @@ impl MartingalePublishService {
         }
 
         let portfolio_id = format!("mp_{}", uuid_simple());
-        let risk_summary = portfolio_risk_summary(&request);
+        let live_readiness_blockers = live_readiness_blockers(&request, &candidates_by_id);
+        let live_ready = live_readiness_blockers.is_empty();
+        let mut risk_summary = portfolio_risk_summary(&request);
+        if let Some(summary) = risk_summary.as_object_mut() {
+            summary.insert("live_ready".to_owned(), json!(live_ready));
+            summary.insert(
+                "live_readiness_blockers".to_owned(),
+                json!(live_readiness_blockers.clone()),
+            );
+            if let Some(rules) = request.dynamic_allocation_rules.clone() {
+                summary.insert("dynamic_allocation_rules".to_owned(), rules);
+            }
+        }
+        let config = json!({
+            "kind": "martingale_batch_portfolio",
+            "dynamic_allocation_rules": request.dynamic_allocation_rules.clone(),
+            "live_ready": live_ready,
+            "live_readiness_blockers": live_readiness_blockers.clone(),
+        });
         let item_records = request
             .items
             .iter()
@@ -210,7 +234,7 @@ impl MartingalePublishService {
                 direction: request.direction,
                 risk_profile: request.risk_profile,
                 total_weight_pct: request.total_weight_pct,
-                config: json!({ "kind": "martingale_batch_portfolio" }),
+                config,
                 risk_summary: risk_summary.clone(),
             },
             item_records,
@@ -229,7 +253,10 @@ impl MartingalePublishService {
                 "portfolio cannot be started from current status",
             ));
         }
-        validate_running_futures_conflicts(&self.repo.list_martingale_portfolios(owner)?, &portfolio)?;
+        validate_running_futures_conflicts(
+            &self.repo.list_martingale_portfolios(owner)?,
+            &portfolio,
+        )?;
         self.repo
             .set_martingale_portfolio_status(owner, portfolio_id, "running")?
             .ok_or_else(|| PublishError::not_found("portfolio not found"))
@@ -323,8 +350,117 @@ impl From<MartingalePortfolioRecord> for PublishPortfolioResponse {
             items: instances.clone(),
             instances,
             risk_summary: record.risk_summary,
+            dynamic_allocation_rules: record.config.get("dynamic_allocation_rules").cloned(),
+            live_ready: record
+                .config
+                .get("live_ready")
+                .and_then(Value::as_bool)
+                .unwrap_or(false),
+            live_readiness_blockers: record
+                .config
+                .get("live_readiness_blockers")
+                .and_then(Value::as_array)
+                .map(|blockers| {
+                    blockers
+                        .iter()
+                        .filter_map(Value::as_str)
+                        .map(str::to_owned)
+                        .collect()
+                })
+                .unwrap_or_default(),
         }
     }
+}
+
+fn live_readiness_blockers(
+    request: &PublishPortfolioRequest,
+    candidates_by_id: &BTreeMap<String, BacktestCandidateRecord>,
+) -> Vec<String> {
+    let mut blockers = Vec::new();
+    let Some(rules) = request
+        .dynamic_allocation_rules
+        .as_ref()
+        .filter(|value| value.is_object())
+    else {
+        blockers
+            .push("dynamic allocation rules are required before direct live publish".to_owned());
+        return blockers;
+    };
+
+    let requires_forced_exit = rules
+        .get("existing_position_policy")
+        .and_then(Value::as_str)
+        .is_some_and(|policy| policy.contains("force_exit"));
+    let mut has_long_and_short =
+        request.direction == "long_short" || request.direction == "long_and_short";
+    let mut has_futures_prerequisites =
+        request.market == "usd_m_futures" || request.market == "futures";
+    let mut forced_exit_marked = rules
+        .get("forced_exit_supported")
+        .and_then(Value::as_bool)
+        .is_some()
+        || rules
+            .get("forced_exit_blocked_reason")
+            .and_then(Value::as_str)
+            .is_some_and(|reason| !reason.trim().is_empty());
+
+    for item in &request.items {
+        if let Some(candidate) = candidates_by_id.get(&item.candidate_id) {
+            let config = candidate
+                .config
+                .get("portfolio_config")
+                .unwrap_or(&candidate.config);
+            has_long_and_short |= config
+                .get("direction_mode")
+                .and_then(Value::as_str)
+                .is_some_and(|mode| mode == "long_and_short");
+            has_futures_prerequisites |= config
+                .get("strategies")
+                .and_then(Value::as_array)
+                .is_some_and(|strategies| {
+                    strategies.iter().any(|strategy| {
+                        strategy
+                            .get("market")
+                            .and_then(Value::as_str)
+                            .is_some_and(|market| market == "usd_m_futures" || market == "futures")
+                            && strategy
+                                .get("margin_mode")
+                                .and_then(Value::as_str)
+                                .is_some_and(|mode| !mode.is_empty())
+                            && strategy.get("leverage").is_some()
+                    })
+                });
+            forced_exit_marked |= candidate
+                .summary
+                .get("forced_exit_supported")
+                .and_then(Value::as_bool)
+                .is_some()
+                || candidate
+                    .summary
+                    .get("forced_exit_blocked_reason")
+                    .and_then(Value::as_str)
+                    .is_some_and(|reason| !reason.trim().is_empty());
+        }
+        has_long_and_short |= item
+            .parameter_snapshot
+            .get("direction_mode")
+            .and_then(Value::as_str)
+            .is_some_and(|mode| mode == "long_and_short");
+    }
+
+    if !has_long_and_short {
+        blockers
+            .push("dynamic long/short package requires direction mode long_and_short".to_owned());
+    }
+    if !has_futures_prerequisites {
+        blockers.push("futures hedge and margin prerequisites are not represented".to_owned());
+    }
+    if requires_forced_exit && !forced_exit_marked {
+        blockers.push(
+            "forced exit capability is not explicitly marked supported or blocked".to_owned(),
+        );
+    }
+    blockers
 }
 
 fn validate_publish_request(request: &PublishPortfolioRequest) -> Result<(), PublishError> {
@@ -387,14 +523,18 @@ fn candidate_publish_metadata(config: &MartingalePortfolioConfig) -> (String, St
     } else {
         "spot"
     };
-    let has_long = config
-        .strategies
-        .iter()
-        .any(|strategy| matches!(strategy.direction, shared_domain::martingale::MartingaleDirection::Long));
-    let has_short = config
-        .strategies
-        .iter()
-        .any(|strategy| matches!(strategy.direction, shared_domain::martingale::MartingaleDirection::Short));
+    let has_long = config.strategies.iter().any(|strategy| {
+        matches!(
+            strategy.direction,
+            shared_domain::martingale::MartingaleDirection::Long
+        )
+    });
+    let has_short = config.strategies.iter().any(|strategy| {
+        matches!(
+            strategy.direction,
+            shared_domain::martingale::MartingaleDirection::Short
+        )
+    });
     let direction = match (has_long, has_short) {
         (true, true) => "long_short",
         (false, true) => "short",
@@ -537,6 +677,7 @@ mod tests {
             direction: "long".to_owned(),
             risk_profile: "balanced".to_owned(),
             total_weight_pct: Decimal::new(100, 0),
+            dynamic_allocation_rules: None,
             items: vec![
                 PublishPortfolioItemRequest {
                     candidate_id: first_candidate_id.to_owned(),

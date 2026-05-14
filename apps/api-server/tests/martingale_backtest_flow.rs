@@ -1,11 +1,11 @@
 mod support;
 
-use api_server::{app, app_with_state, AppState};
+use api_server::{AppState, app, app_with_state};
 use axum::{
     body::Body,
     http::{Request, StatusCode},
 };
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use shared_db::{NewBacktestCandidateRecord, SharedDb};
 use support::register_and_login;
 use tower::ServiceExt;
@@ -36,10 +36,12 @@ async fn user_can_create_martingale_backtest_task() {
     let body = response_json(response).await;
     assert_eq!(body["status"], "queued");
     assert_eq!(body["strategy_type"], "martingale_grid");
-    assert!(body["task_id"]
-        .as_str()
-        .unwrap_or_default()
-        .starts_with("bt_"));
+    assert!(
+        body["task_id"]
+            .as_str()
+            .unwrap_or_default()
+            .starts_with("bt_")
+    );
 }
 
 #[tokio::test]
@@ -124,6 +126,56 @@ async fn task_pause_resume_cancel_transitions_status() {
 }
 
 #[tokio::test]
+async fn user_can_archive_and_delete_cancelled_backtest_task() {
+    let app = app();
+    let token = register_and_login(&app, "backtest-manage@example.com", "pass1234").await;
+    let task_id = create_task_with_portfolio(&app, &token, futures_portfolio_config(3)).await;
+
+    let archived = authed_empty(
+        &app,
+        "POST",
+        &format!("/backtest/tasks/{task_id}/archive"),
+        &token,
+    )
+    .await;
+    assert_eq!(archived.status(), StatusCode::OK);
+    assert_eq!(response_json(archived).await["summary"]["archived"], true);
+
+    let delete_active = authed_empty(
+        &app,
+        "DELETE",
+        &format!("/backtest/tasks/{task_id}"),
+        &token,
+    )
+    .await;
+    assert_eq!(delete_active.status(), StatusCode::CONFLICT);
+
+    let cancelled = authed_empty(
+        &app,
+        "POST",
+        &format!("/backtest/tasks/{task_id}/cancel"),
+        &token,
+    )
+    .await;
+    assert_eq!(cancelled.status(), StatusCode::OK);
+
+    let deleted = authed_empty(
+        &app,
+        "DELETE",
+        &format!("/backtest/tasks/{task_id}"),
+        &token,
+    )
+    .await;
+    assert_eq!(deleted.status(), StatusCode::OK);
+    let body = response_json(deleted).await;
+    assert_eq!(body["task_id"], task_id);
+    assert_eq!(body["deleted"], true);
+
+    let missing = authed_empty(&app, "GET", &format!("/backtest/tasks/{task_id}"), &token).await;
+    assert_eq!(missing.status(), StatusCode::NOT_FOUND);
+}
+
+#[tokio::test]
 async fn task_creation_does_not_publish_unverified_placeholder_candidates() {
     let app = app();
     let token = register_and_login(&app, "backtest-no-placeholder@example.com", "pass1234").await;
@@ -164,6 +216,68 @@ async fn publish_intent_returns_risk_summary() {
     assert_eq!(body["status"], "pending_confirmation");
     assert_eq!(body["risk_summary"]["strategy_count"], 1);
     assert_eq!(body["risk_summary"]["symbols"], json!(["BTCUSDT"]));
+}
+
+#[tokio::test]
+async fn martingale_dynamic_publish_preserves_rules_and_reports_live_readiness() {
+    let db = SharedDb::ephemeral().expect("db");
+    let app = app_with_state(AppState::from_shared_db(db.clone()).expect("state"));
+    let token = register_and_login(&app, "backtest-dynamic-publish@example.com", "pass1234").await;
+
+    let task_id = create_task_with_portfolio(&app, &token, futures_portfolio_config(3)).await;
+    let candidate_id = save_ready_candidate(&db, &task_id, futures_portfolio_config(3));
+    db.backtest_repo()
+        .transition_task(&task_id, "succeeded")
+        .expect("succeeded");
+
+    let dynamic_allocation_rules = json!({
+        "btc_filter": true,
+        "funding_rate_used": false,
+        "timeframes": ["4h", "1d"],
+        "existing_position_policy": "tiered_pause_cancel_force_exit"
+    });
+    let response = authed_json(
+        &app,
+        "POST",
+        "/backtest/portfolios/publish",
+        &token,
+        json!({
+            "name": "Dynamic BTC basket",
+            "task_id": task_id,
+            "market": "usd_m_futures",
+            "direction": "long_short",
+            "risk_profile": "dynamic_long_short",
+            "total_weight_pct": 100,
+            "dynamic_allocation_rules": dynamic_allocation_rules,
+            "items": [{
+                "candidate_id": candidate_id,
+                "symbol": "BTCUSDT",
+                "weight_pct": 100,
+                "leverage": 3,
+                "enabled": true,
+                "parameter_snapshot": { "direction_mode": "long_and_short" }
+            }]
+        }),
+    )
+    .await;
+
+    assert_eq!(response.status(), StatusCode::CREATED);
+    let body = response_json(response).await;
+    assert_eq!(body["dynamic_allocation_rules"], dynamic_allocation_rules);
+    assert_eq!(
+        body["risk_summary"]["dynamic_allocation_rules"],
+        dynamic_allocation_rules
+    );
+    assert!(
+        body["live_ready"].as_bool() == Some(true)
+            || body["live_readiness_blockers"]
+                .as_array()
+                .is_some_and(|blockers| !blockers.is_empty()
+                    && blockers
+                        .iter()
+                        .all(|blocker| blocker.as_str().is_some_and(|text| !text.is_empty()))),
+        "response must expose either live_ready=true or human-readable blockers: {body:?}"
+    );
 }
 
 #[tokio::test]
@@ -209,10 +323,12 @@ async fn publish_rejects_same_symbol_leverage_conflict() {
 
     assert_eq!(conflict.status(), StatusCode::CONFLICT);
     let body = response_json(conflict).await;
-    assert!(body["error"]
-        .as_str()
-        .unwrap_or_default()
-        .contains("leverage conflict"));
+    assert!(
+        body["error"]
+            .as_str()
+            .unwrap_or_default()
+            .contains("leverage conflict")
+    );
 }
 
 #[tokio::test]
@@ -258,10 +374,12 @@ async fn admin_quota_upsert_persists_and_enforces_task_creation() {
     )
     .await;
     assert_eq!(rejected.status(), StatusCode::FORBIDDEN);
-    assert!(response_json(rejected).await["error"]
-        .as_str()
-        .unwrap_or_default()
-        .contains("quota"));
+    assert!(
+        response_json(rejected).await["error"]
+            .as_str()
+            .unwrap_or_default()
+            .contains("quota")
+    );
 }
 
 #[tokio::test]
@@ -297,10 +415,12 @@ async fn quota_uses_portfolio_strategy_symbols_when_symbols_is_empty() {
     )
     .await;
     assert_eq!(rejected.status(), StatusCode::FORBIDDEN);
-    assert!(response_json(rejected).await["error"]
-        .as_str()
-        .unwrap_or_default()
-        .contains("quota"));
+    assert!(
+        response_json(rejected).await["error"]
+            .as_str()
+            .unwrap_or_default()
+            .contains("quota")
+    );
 }
 
 #[tokio::test]
@@ -325,10 +445,12 @@ async fn martingale_task_rejects_mismatched_symbols_and_portfolio_config() {
     )
     .await;
     assert_eq!(response.status(), StatusCode::BAD_REQUEST);
-    assert!(response_json(response).await["error"]
-        .as_str()
-        .unwrap_or_default()
-        .contains("symbols do not match"));
+    assert!(
+        response_json(response).await["error"]
+            .as_str()
+            .unwrap_or_default()
+            .contains("symbols do not match")
+    );
 }
 
 #[tokio::test]
@@ -392,10 +514,12 @@ async fn confirm_start_rechecks_conflicts_after_paused_portfolio() {
     )
     .await;
     assert_eq!(second_started.status(), StatusCode::CONFLICT);
-    assert!(response_json(second_started).await["error"]
-        .as_str()
-        .unwrap_or_default()
-        .contains("leverage conflict"));
+    assert!(
+        response_json(second_started).await["error"]
+            .as_str()
+            .unwrap_or_default()
+            .contains("leverage conflict")
+    );
 }
 
 #[tokio::test]
@@ -453,10 +577,12 @@ async fn conflicting_pending_portfolios_allow_only_one_confirm() {
     )
     .await;
     assert_eq!(second_started.status(), StatusCode::CONFLICT);
-    assert!(response_json(second_started).await["error"]
-        .as_str()
-        .unwrap_or_default()
-        .contains("leverage conflict"));
+    assert!(
+        response_json(second_started).await["error"]
+            .as_str()
+            .unwrap_or_default()
+            .contains("leverage conflict")
+    );
 }
 
 async fn create_task_with_portfolio(
