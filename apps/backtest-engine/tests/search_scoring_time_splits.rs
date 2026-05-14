@@ -119,6 +119,118 @@ fn allocation_closes_short_weight_when_btc_and_symbol_are_strong_up() {
 }
 
 #[test]
+fn allocation_closes_short_weight_when_btc_is_strong_up_and_symbol_ranges() {
+    let config = AllocationConfig::balanced();
+    let state = AllocationState::default();
+
+    let decision = decide_allocation(
+        0,
+        "ETHUSDT",
+        MarketRegimeLabel::StrongUptrend,
+        MarketRegimeLabel::Range,
+        0.0,
+        &config,
+        &state,
+    );
+
+    assert_eq!(decision.long_weight_pct, 100.0);
+    assert_eq!(decision.short_weight_pct, 0.0);
+    assert_eq!(decision.action, AllocationAction::DirectionForcedExit);
+    assert!(decision.force_exit_short);
+    assert!(!decision.force_exit_long);
+}
+
+#[test]
+fn allocation_closes_long_weight_when_btc_is_strong_down_and_symbol_ranges() {
+    let config = AllocationConfig::balanced();
+    let state = AllocationState::default();
+
+    let decision = decide_allocation(
+        0,
+        "ETHUSDT",
+        MarketRegimeLabel::StrongDowntrend,
+        MarketRegimeLabel::Range,
+        0.0,
+        &config,
+        &state,
+    );
+
+    assert_eq!(decision.long_weight_pct, 0.0);
+    assert_eq!(decision.short_weight_pct, 100.0);
+    assert_eq!(decision.action, AllocationAction::DirectionForcedExit);
+    assert!(decision.force_exit_long);
+    assert!(!decision.force_exit_short);
+}
+
+#[test]
+fn allocation_first_neutral_default_state_does_not_rebalance() {
+    let config = AllocationConfig::balanced();
+    let state = AllocationState::default();
+
+    let decision = decide_allocation(
+        0,
+        "ETHUSDT",
+        MarketRegimeLabel::Range,
+        MarketRegimeLabel::Range,
+        0.0,
+        &config,
+        &state,
+    );
+
+    assert_eq!(decision.long_weight_pct, 60.0);
+    assert_eq!(decision.short_weight_pct, 40.0);
+    assert_eq!(decision.action, AllocationAction::None);
+    assert!(!decision.force_exit_long);
+    assert!(!decision.force_exit_short);
+}
+
+#[test]
+fn allocation_loss_threshold_forced_exit_has_direction_flag() {
+    let config = AllocationConfig::balanced();
+    let state = AllocationState {
+        last_change_ms: Some(0),
+        long_weight_pct: 100.0,
+        short_weight_pct: 0.0,
+    };
+
+    let decision = decide_allocation(
+        4 * 60 * 60 * 1000,
+        "ETHUSDT",
+        MarketRegimeLabel::Range,
+        MarketRegimeLabel::Range,
+        config.forced_exit_loss_pct,
+        &config,
+        &state,
+    );
+
+    assert_eq!(decision.action, AllocationAction::DirectionForcedExit);
+    assert!(decision.force_exit_short || decision.force_exit_long);
+    assert!(decision.force_exit_short);
+}
+
+#[test]
+fn allocation_ignores_nan_or_negative_loss_for_forced_exit() {
+    let config = AllocationConfig::balanced();
+    let state = AllocationState::default();
+
+    for adverse_loss in [f64::NAN, -1.0] {
+        let decision = decide_allocation(
+            0,
+            "ETHUSDT",
+            MarketRegimeLabel::Range,
+            MarketRegimeLabel::Range,
+            adverse_loss,
+            &config,
+            &state,
+        );
+
+        assert_ne!(decision.action, AllocationAction::DirectionForcedExit);
+        assert!(!decision.force_exit_long);
+        assert!(!decision.force_exit_short);
+    }
+}
+
+#[test]
 fn allocation_cooldown_blocks_small_weight_flip() {
     let config = AllocationConfig::balanced();
     let state = AllocationState {

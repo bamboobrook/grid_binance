@@ -72,14 +72,25 @@ pub fn decide_allocation(
 ) -> AllocationDecision {
     let (target_long_weight_pct, target_short_weight_pct, base_action, regime_reason) =
         target_weights(&btc_regime, &symbol_regime);
+    let market_bias = market_bias(&btc_regime, &symbol_regime);
     let extreme_strong_up = btc_regime == MarketRegimeLabel::StrongUptrend
-        && symbol_regime == MarketRegimeLabel::StrongUptrend;
+        || symbol_regime == MarketRegimeLabel::StrongUptrend;
     let extreme_strong_down = btc_regime == MarketRegimeLabel::StrongDowntrend
-        && symbol_regime == MarketRegimeLabel::StrongDowntrend;
-    let loss_forced_exit = adverse_direction_loss_pct >= config.forced_exit_loss_pct;
+        || symbol_regime == MarketRegimeLabel::StrongDowntrend;
+    let loss_forced_exit = adverse_direction_loss_pct.is_finite()
+        && adverse_direction_loss_pct > 0.0
+        && adverse_direction_loss_pct >= config.forced_exit_loss_pct;
     let extreme_risk = extreme_strong_up || extreme_strong_down || loss_forced_exit;
-    let force_exit_short = extreme_strong_up && target_short_weight_pct == 0.0;
-    let force_exit_long = extreme_strong_down && target_long_weight_pct == 0.0;
+    let force_exit_short = extreme_strong_up
+        || (loss_forced_exit
+            && (state.short_weight_pct == 0.0
+                || target_short_weight_pct == 0.0
+                || market_bias == MarketBias::Up));
+    let force_exit_long = extreme_strong_down
+        || (loss_forced_exit
+            && (state.long_weight_pct == 0.0
+                || target_long_weight_pct == 0.0
+                || market_bias == MarketBias::Down));
 
     let cooldown_ms = config.cooldown_hours * HOUR_MS;
     let in_cooldown = state
@@ -102,7 +113,7 @@ pub fn decide_allocation(
             ),
         )
     } else {
-        let action = if force_exit_long || force_exit_short || loss_forced_exit {
+        let action = if force_exit_long || force_exit_short {
             AllocationAction::DirectionForcedExit
         } else if base_action == AllocationAction::DirectionPaused {
             AllocationAction::DirectionPaused
@@ -111,16 +122,21 @@ pub fn decide_allocation(
             state.short_weight_pct,
             target_long_weight_pct,
             target_short_weight_pct,
-        ) || state.last_change_ms.is_none()
+        )
         {
             AllocationAction::Rebalance
         } else {
             AllocationAction::None
         };
 
-        let reason = if loss_forced_exit {
+        let reason = if loss_forced_exit && (force_exit_long || force_exit_short) {
             format!(
                 "forced exit loss {:.2}% reached threshold {:.2}%: {regime_reason}",
+                adverse_direction_loss_pct, config.forced_exit_loss_pct
+            )
+        } else if loss_forced_exit {
+            format!(
+                "loss_threshold_ambiguous: loss {:.2}% reached threshold {:.2}% without directional evidence: {regime_reason}",
                 adverse_direction_loss_pct, config.forced_exit_loss_pct
             )
         } else {
@@ -159,7 +175,7 @@ fn target_weights(
     symbol_regime: &MarketRegimeLabel,
 ) -> (f64, f64, AllocationAction, String) {
     if *btc_regime == MarketRegimeLabel::StrongUptrend
-        && *symbol_regime == MarketRegimeLabel::StrongUptrend
+        || *symbol_regime == MarketRegimeLabel::StrongUptrend
     {
         return (
             100.0,
@@ -170,7 +186,7 @@ fn target_weights(
     }
 
     if *btc_regime == MarketRegimeLabel::StrongDowntrend
-        && *symbol_regime == MarketRegimeLabel::StrongDowntrend
+        || *symbol_regime == MarketRegimeLabel::StrongDowntrend
     {
         return (
             0.0,
@@ -219,6 +235,30 @@ fn target_weights(
         AllocationAction::None,
         "range or mixed regime keeps balanced allocation".to_string(),
     )
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum MarketBias {
+    Up,
+    Down,
+    Neutral,
+}
+
+fn market_bias(btc_regime: &MarketRegimeLabel, symbol_regime: &MarketRegimeLabel) -> MarketBias {
+    if *btc_regime == MarketRegimeLabel::StrongUptrend
+        || *symbol_regime == MarketRegimeLabel::StrongUptrend
+        || (*btc_regime == MarketRegimeLabel::Uptrend && *symbol_regime == MarketRegimeLabel::Uptrend)
+    {
+        MarketBias::Up
+    } else if *btc_regime == MarketRegimeLabel::StrongDowntrend
+        || *symbol_regime == MarketRegimeLabel::StrongDowntrend
+        || (*btc_regime == MarketRegimeLabel::Downtrend
+            && *symbol_regime == MarketRegimeLabel::Downtrend)
+    {
+        MarketBias::Down
+    } else {
+        MarketBias::Neutral
+    }
 }
 
 fn weights_changed(
