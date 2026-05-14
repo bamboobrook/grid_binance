@@ -2,6 +2,9 @@ use backtest_engine::martingale::metrics::{
     AllocationAction, AllocationCurvePoint, CostSummary, MarketRegimeLabel,
     MartingaleBacktestResult, MartingaleMetrics, RegimeTimelinePoint,
 };
+use backtest_engine::martingale::portfolio_optimizer::{
+    optimize_portfolios, OptimizerCandidate, OptimizerConfig,
+};
 use std::collections::BTreeSet;
 use std::sync::atomic::{AtomicBool, Ordering};
 
@@ -257,6 +260,24 @@ fn random_search_is_reproducible() {
     assert!(first
         .iter()
         .all(|candidate| candidate.config.validate().is_ok()));
+}
+
+#[test]
+fn portfolio_optimizer_can_drop_bad_symbols_and_caps_same_symbol() {
+    let candidates = vec![
+        OptimizerCandidate::new("btc-1", "BTCUSDT", 60.0, 12.0, vec![100.0, 110.0, 120.0]),
+        OptimizerCandidate::new("btc-2", "BTCUSDT", 55.0, 13.0, vec![100.0, 108.0, 116.0]),
+        OptimizerCandidate::new("btc-3", "BTCUSDT", 52.0, 14.0, vec![100.0, 107.0, 114.0]),
+        OptimizerCandidate::new("eth-1", "ETHUSDT", 40.0, 10.0, vec![100.0, 106.0, 112.0]),
+        OptimizerCandidate::new("doge-1", "DOGEUSDT", -5.0, 30.0, vec![100.0, 95.0, 90.0]),
+    ];
+    let config = OptimizerConfig::balanced(25.0);
+    let portfolios = optimize_portfolios(&candidates, &config, 10).unwrap();
+    let best = &portfolios[0];
+    assert!(best.items.iter().all(|item| item.symbol != "DOGEUSDT"));
+    assert!(best.weight_by_symbol("BTCUSDT") <= 35.0);
+    assert_eq!(best.total_weight_pct(), 100.0);
+    assert!(best.max_drawdown_pct <= 25.0);
 }
 
 #[test]
