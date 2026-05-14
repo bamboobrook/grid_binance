@@ -1,8 +1,64 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
+import { createRequire } from "node:module";
+import vm from "node:vm";
 import test from "node:test";
 
 const read = (path) => readFileSync(path, "utf8");
+const require = createRequire(import.meta.url);
+const ts = require("../../node_modules/.pnpm/typescript@5.9.3/node_modules/typescript");
+
+function loadWizardPayloadHelpers() {
+  const source = read("apps/web/components/backtest/backtest-wizard.tsx");
+  const helperStart = source.indexOf("const DEFAULT_SYMBOLS");
+  const helperEnd = source.indexOf("export function BacktestWizard");
+  const payloadStart = source.indexOf("export function parseSymbolList");
+  const payloadSource = source.slice(helperStart, helperEnd) + source.slice(payloadStart);
+  const withoutJsx = payloadSource.replace(/function AutomaticSearchPanel[\s\S]*$/, "");
+  const compiled = ts.transpileModule(withoutJsx, {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+  }).outputText;
+  const context = { exports: {}, module: { exports: {} } };
+  vm.runInNewContext(compiled, context);
+  return context.exports;
+}
+
+const baseForm = {
+  symbolPoolMode: "whitelist",
+  whitelist: "BTCUSDT, ETHUSDT",
+  blacklist: "",
+  searchMode: "intelligent",
+  parameterPreset: "balanced",
+  randomSeed: "20260509",
+  candidateBudget: "160",
+  intelligentRounds: "4",
+  topN: "20",
+  market: "usd_m_futures",
+  directionMode: "long_and_short",
+  hedgeModeRequired: true,
+  marginMode: "isolated",
+  minLeverage: "2",
+  maxLeverage: "10",
+  initialOrderUsdt: "10",
+  spacingPct: "1",
+  orderMultiplier: "2",
+  maxLegs: "6",
+  takeProfitPct: "1",
+  trailingPct: "0.4",
+  stopLossMode: "portfolio_drawdown",
+  timeMode: "manual",
+  trainStart: "2023-01-01",
+  trainEnd: "2024-12-31",
+  validateStart: "2025-01-01",
+  validateEnd: "2025-03-31",
+  testStart: "2025-04-01",
+  testEnd: "2025-06-30",
+  interval: "1m",
+  maxDrawdownPct: "25",
+  maxStopLossCount: "3",
+  portfolioStopLossPct: "18",
+  perStrategyStopLossPct: "8",
+};
 
 test("martingale wizard defaults to automatic search and current previous-month range", () => {
   const source = read("apps/web/components/backtest/backtest-wizard.tsx");
@@ -23,6 +79,36 @@ test("martingale wizard defaults to automatic search and current previous-month 
   assert.match(wizardSource, /dynamic_allocation_enabled/);
   assert.match(wizardSource, /per_symbol_top_n:\s*10/);
   assert.match(wizardSource, /portfolio_top_n:\s*10/);
+});
+
+test("martingale wizard payload preserves dynamic search and manual risk overrides", () => {
+  const { buildWizardPayload } = loadWizardPayloadHelpers();
+  assert.equal(typeof buildWizardPayload, "function");
+
+  const payload = buildWizardPayload({
+    ...baseForm,
+    parameterPreset: "balanced",
+    maxDrawdownPct: "17.5",
+    maxStopLossCount: "9",
+  });
+
+  assert.equal(payload.per_symbol_top_n, 10);
+  assert.equal(payload.portfolio_top_n, 10);
+  assert.equal(payload.dynamic_allocation_enabled, true);
+  assert.equal(payload.scoring.max_drawdown_pct, 17.5);
+  assert.equal(payload.scoring.max_stop_loss_count, 9);
+});
+
+test("martingale wizard risk defaults map 20/25/30 while allowing manual drawdown override", () => {
+  const { buildWizardPayload } = loadWizardPayloadHelpers();
+
+  assert.equal(buildWizardPayload({ ...baseForm, parameterPreset: "conservative", maxDrawdownPct: "20" }).scoring.max_drawdown_pct, 20);
+  assert.equal(buildWizardPayload({ ...baseForm, parameterPreset: "balanced", maxDrawdownPct: "25" }).scoring.max_drawdown_pct, 25);
+  assert.equal(buildWizardPayload({ ...baseForm, parameterPreset: "aggressive", maxDrawdownPct: "30" }).scoring.max_drawdown_pct, 30);
+  assert.equal(buildWizardPayload({ ...baseForm, parameterPreset: "aggressive", maxDrawdownPct: "12.5" }).scoring.max_drawdown_pct, 12.5);
+
+  const wizardSource = read("apps/web/components/backtest/backtest-wizard.tsx");
+  assert.match(wizardSource, /manualDrawdownOverride/);
 });
 
 test("backtest console exposes progress, grouped top ten, charts, and basket publish", () => {

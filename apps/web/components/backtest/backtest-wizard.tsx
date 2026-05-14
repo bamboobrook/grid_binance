@@ -407,7 +407,7 @@ export function buildWizardPayload(form: WizardForm, indicators?: Record<string,
   const maxDrawdownPct = numberValue(form.maxDrawdownPct, riskPreset.maxDrawdownPct);
   const existingScoring = {
     profile: "survival_first",
-    max_stop_loss_count: form.parameterPreset === "custom" ? integerValue(form.maxStopLossCount, 3) : riskPreset.maxStopLossCount,
+    max_stop_loss_count: integerValue(form.maxStopLossCount, riskPreset.maxStopLossCount),
     ...(scoringWeights ? { weights: scoringWeights } : {}),
   };
 
