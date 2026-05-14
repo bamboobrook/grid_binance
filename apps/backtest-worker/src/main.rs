@@ -1517,6 +1517,57 @@ mod tests {
         MartingaleStrategyConfig, MartingaleTakeProfitModel,
     };
 
+    mod tempfile {
+        use std::{
+            env, fs, io,
+            path::{Path, PathBuf},
+            sync::atomic::{AtomicU64, Ordering},
+            time::{SystemTime, UNIX_EPOCH},
+        };
+
+        static NEXT_ID: AtomicU64 = AtomicU64::new(0);
+
+        pub struct TempDir {
+            path: PathBuf,
+        }
+
+        impl TempDir {
+            pub fn new() -> io::Result<Self> {
+                for _ in 0..100 {
+                    let id = NEXT_ID.fetch_add(1, Ordering::Relaxed);
+                    let now_nanos = SystemTime::now()
+                        .duration_since(UNIX_EPOCH)
+                        .unwrap_or_default()
+                        .as_nanos();
+                    let path = env::temp_dir().join(format!(
+                        "backtest-worker-persistence-{}-{now_nanos}-{id}",
+                        std::process::id()
+                    ));
+                    match fs::create_dir(&path) {
+                        Ok(()) => return Ok(Self { path }),
+                        Err(error) if error.kind() == io::ErrorKind::AlreadyExists => continue,
+                        Err(error) => return Err(error),
+                    }
+                }
+
+                Err(io::Error::new(
+                    io::ErrorKind::AlreadyExists,
+                    "failed to create unique temporary directory",
+                ))
+            }
+
+            pub fn path(&self) -> &Path {
+                &self.path
+            }
+        }
+
+        impl Drop for TempDir {
+            fn drop(&mut self) {
+                let _ = fs::remove_dir_all(&self.path);
+            }
+        }
+    }
+
     struct MemoryMarketDataSource {
         symbols: Vec<String>,
         bars: Vec<KlineBar>,
@@ -1808,12 +1859,8 @@ mod tests {
             repo: repo.clone(),
             poll_ms: 1,
         };
-        let artifact_root = std::env::temp_dir().join(format!(
-            "backtest-worker-persistence-{}-{}",
-            std::process::id(),
-            chrono::Utc::now().timestamp_nanos_opt().unwrap_or_default()
-        ));
-        fs::create_dir_all(&artifact_root).expect("create artifact temp dir");
+        let artifact_temp_dir = tempfile::TempDir::new().expect("create artifact temp dir");
+        let artifact_root = artifact_temp_dir.path().to_path_buf();
 
         let output = select_top_outputs_per_symbol(
             vec![candidate_output_with_curve(
@@ -1923,6 +1970,11 @@ mod tests {
         let artifact_path = candidate_summary["artifact_path"]
             .as_str()
             .expect("persisted artifact path");
+        assert_ne!(artifact_path, output.artifact_path);
+        assert!(
+            std::path::Path::new(artifact_path).starts_with(&artifact_root),
+            "artifact file should be inside test artifact root: {artifact_path}"
+        );
         assert!(
             std::path::Path::new(artifact_path).exists(),
             "artifact file should exist: {artifact_path}"
@@ -1953,8 +2005,6 @@ mod tests {
                 "missing persisted artifact row field: {field}"
             );
         }
-
-        fs::remove_dir_all(&artifact_root).expect("remove artifact temp dir");
     }
 
     #[test]
