@@ -109,22 +109,41 @@ fn regime_classifier_rejects_invalid_or_insufficient_bars() {
     let config = RegimeConfig::default();
     assert!(classify_regime(&[], &config).is_err());
 
-    let mut nan_close = synthetic_trend_bars();
-    nan_close.last_mut().expect("latest bar").close = f64::NAN;
-    assert!(classify_regime(&nan_close, &config).is_err());
+    let invalid_bar_cases: Vec<(&str, Box<dyn Fn(&mut KlineBar)>)> = vec![
+        ("open_nan", Box::new(|bar| bar.open = f64::NAN)),
+        ("open_zero", Box::new(|bar| bar.open = 0.0)),
+        ("high_infinite", Box::new(|bar| bar.high = f64::INFINITY)),
+        ("high_zero", Box::new(|bar| bar.high = 0.0)),
+        ("low_nan", Box::new(|bar| bar.low = f64::NAN)),
+        ("low_zero", Box::new(|bar| bar.low = 0.0)),
+        ("close_nan", Box::new(|bar| bar.close = f64::NAN)),
+        ("close_zero", Box::new(|bar| bar.close = 0.0)),
+        ("high_below_low", Box::new(|bar| bar.high = bar.low - 0.01)),
+    ];
 
-    let mut zero_close = synthetic_trend_bars();
-    zero_close.last_mut().expect("latest bar").close = 0.0;
-    assert!(classify_regime(&zero_close, &config).is_err());
-
-    let mut reversed_range = synthetic_trend_bars();
-    let latest = reversed_range.last_mut().expect("latest bar");
-    latest.high = latest.low - 0.01;
-    assert!(classify_regime(&reversed_range, &config).is_err());
+    for (case, mutate_latest) in invalid_bar_cases {
+        let mut bars = synthetic_trend_bars();
+        mutate_latest(bars.last_mut().expect("latest bar"));
+        assert!(classify_regime(&bars, &config).is_err(), "case {case}");
+    }
 
     let insufficient = vec![kline_bar(0, 100.0, 101.0, 99.0, 100.5)];
     let error = classify_regime(&insufficient, &config).expect_err("insufficient bars");
     assert!(error.contains("insufficient") || error.contains("indicator unavailable"));
+}
+
+#[test]
+fn regime_classifier_does_not_fallback_to_stale_indicator_values() {
+    let config = RegimeConfig::default();
+    let mut bars = synthetic_trend_bars();
+    let valid_snapshot = classify_regime(&bars, &config).expect("valid warmed indicators");
+
+    let latest = bars.last_mut().expect("latest bar");
+    latest.high = latest.low - 0.01;
+
+    let error = classify_regime(&bars, &config).expect_err("latest indicator must not fallback");
+    assert!(error.contains("high"));
+    assert_eq!(valid_snapshot.timestamp_ms, 79 * 60_000);
 }
 
 #[test]
