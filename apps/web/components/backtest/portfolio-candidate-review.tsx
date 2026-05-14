@@ -78,6 +78,31 @@ function readString(value: unknown): string {
   return typeof value === "string" ? value : "";
 }
 
+function readDirectionMode(items: PortfolioBasketItem[]): string | null {
+  for (const item of items) {
+    const parameterDirectionMode = readString(item.parameterSnapshot.direction_mode);
+    if (parameterDirectionMode) return parameterDirectionMode;
+    const config = readObject(item.parameterSnapshot.portfolio_config);
+    const configDirectionMode = readString(config?.direction_mode);
+    if (configDirectionMode) return configDirectionMode;
+  }
+  return null;
+}
+
+function hasDynamicAllocationIntent(items: PortfolioBasketItem[], dynamicAllocationRules: Record<string, unknown> | null): boolean {
+  if (dynamicAllocationRules) return true;
+  return items.some((item) => {
+    const config = readObject(item.parameterSnapshot.portfolio_config);
+    const summary = readObject(item.metricsSnapshot.summary);
+    return item.parameterSnapshot.dynamic_allocation_enabled === true
+      || config?.dynamic_allocation_enabled === true
+      || item.metricsSnapshot.dynamic_allocation_enabled === true
+      || item.parameterSnapshot.dynamic_allocation_summary != null
+      || config?.dynamic_allocation_summary != null
+      || summary?.dynamic_allocation_summary != null;
+  });
+}
+
 function readDynamicAllocationRules(items: PortfolioBasketItem[]): Record<string, unknown> | null {
   for (const item of items) {
     const fromParameterSnapshot = readObject(item.parameterSnapshot.dynamic_allocation_rules);
@@ -257,12 +282,15 @@ export function PortfolioCandidateReview({
 
     const first = enabledItems[0];
     const dynamicAllocationRules = readDynamicAllocationRules(enabledItems);
+    const directionMode = readDirectionMode(enabledItems);
     const payload = {
       name: portfolioName.trim() || `${first.symbol} basket`,
       task_id: first.taskId || first.selectedTaskId,
       market: first.market,
       direction: first.direction,
       risk_profile: first.riskProfile || "balanced",
+      ...(directionMode ? { direction_mode: directionMode } : {}),
+      dynamic_allocation_enabled: hasDynamicAllocationIntent(enabledItems, dynamicAllocationRules),
       total_weight_pct: 100,
       ...(dynamicAllocationRules ? { dynamic_allocation_rules: dynamicAllocationRules } : {}),
       items: enabledItems.map((item) => ({

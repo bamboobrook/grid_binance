@@ -74,6 +74,14 @@ type StrategyStatusSource =
   | { kind: "inherited"; status: StrategyStatus | null }
   | { kind: "local"; status: StrategyStatus };
 
+export function canDirectPublish(pending: string, liveReadinessBlockers: readonly string[]): boolean {
+  return pending === "" && liveReadinessBlockers.length === 0;
+}
+
+export function canSaveDraft(pending: string): boolean {
+  return pending === "";
+}
+
 export function MartingalePortfolioList({
   lang,
   locale,
@@ -612,7 +620,7 @@ function LivePortfolioControls({
 
   const inferredStatus = entity.kind === "strategy" ? effectiveStrategyControlStatus(entity.statusSource) : null;
   const liveReadinessBlockers = entity.kind === "portfolio" ? entity.liveReadinessBlockers ?? [] : [];
-  const directLiveDisabled = pending !== "" || liveReadinessBlockers.length > 0;
+  const directLiveDisabled = !canDirectPublish(pending, liveReadinessBlockers);
 
   return (
     <div className="space-y-2">
@@ -644,7 +652,7 @@ function LivePortfolioControls({
           </Button>
         ) : null}
         {entity.kind === "portfolio" && entity.status === "pending_confirmation" && liveReadinessBlockers.length > 0 ? (
-          <Button disabled={pending !== ""} size="sm" tone="outline" type="button">
+          <Button disabled={!canSaveDraft(pending)} size="sm" tone="outline" type="button">
             {pickText(lang, "保存为待启用组合", "Save as pending portfolio")}
           </Button>
         ) : null}

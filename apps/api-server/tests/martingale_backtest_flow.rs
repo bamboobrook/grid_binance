@@ -350,6 +350,193 @@ async fn martingale_dynamic_publish_without_rules_blocks_confirm_start() {
 }
 
 #[tokio::test]
+async fn martingale_balanced_long_short_dynamic_payload_without_rules_blocks_confirm_start() {
+    let db = SharedDb::ephemeral().expect("db");
+    let app = app_with_state(AppState::from_shared_db(db.clone()).expect("state"));
+    let token = register_and_login(
+        &app,
+        "backtest-balanced-dynamic-missing-rules@example.com",
+        "pass1234",
+    )
+    .await;
+
+    let task_id = create_task_with_portfolio(&app, &token, futures_portfolio_config(3)).await;
+    let candidate_id = save_ready_candidate(&db, &task_id, futures_portfolio_config(3));
+    db.backtest_repo()
+        .transition_task(&task_id, "succeeded")
+        .expect("succeeded");
+
+    let response = authed_json(
+        &app,
+        "POST",
+        "/backtest/portfolios/publish",
+        &token,
+        json!({
+            "name": "Balanced dynamic missing rules basket",
+            "task_id": task_id,
+            "market": "usd_m_futures",
+            "direction": "long_short",
+            "risk_profile": "balanced",
+            "total_weight_pct": 100,
+            "items": [{
+                "candidate_id": candidate_id,
+                "symbol": "BTCUSDT",
+                "weight_pct": 100,
+                "leverage": 3,
+                "enabled": true,
+                "parameter_snapshot": {
+                    "direction_mode": "long_and_short",
+                    "dynamic_allocation_enabled": true
+                }
+            }]
+        }),
+    )
+    .await;
+
+    assert_eq!(response.status(), StatusCode::CREATED);
+    let body = response_json(response).await;
+    assert_eq!(body["live_ready"], false);
+    assert!(
+        body["live_readiness_blockers"]
+            .as_array()
+            .is_some_and(|blockers| blockers.iter().any(|blocker| blocker
+                .as_str()
+                .is_some_and(|text| text.contains("dynamic allocation rules are required"))))
+    );
+    let portfolio_id = body["portfolio_id"].as_str().unwrap().to_owned();
+
+    let started = authed_empty(
+        &app,
+        "POST",
+        &format!("/backtest/portfolios/{portfolio_id}/confirm-start"),
+        &token,
+    )
+    .await;
+    assert_eq!(started.status(), StatusCode::CONFLICT);
+}
+
+#[tokio::test]
+async fn martingale_balanced_candidate_direction_mode_without_rules_blocks_confirm_start() {
+    let db = SharedDb::ephemeral().expect("db");
+    let app = app_with_state(AppState::from_shared_db(db.clone()).expect("state"));
+    let token = register_and_login(
+        &app,
+        "backtest-balanced-candidate-direction-mode@example.com",
+        "pass1234",
+    )
+    .await;
+
+    let task_id = create_task_with_portfolio(&app, &token, futures_portfolio_config(3)).await;
+    let candidate_id = save_ready_candidate(&db, &task_id, futures_portfolio_config(3));
+    db.backtest_repo()
+        .transition_task(&task_id, "succeeded")
+        .expect("succeeded");
+
+    let response = authed_json(
+        &app,
+        "POST",
+        "/backtest/portfolios/publish",
+        &token,
+        json!({
+            "name": "Balanced candidate direction-mode basket",
+            "task_id": task_id,
+            "market": "usd_m_futures",
+            "direction": "long",
+            "risk_profile": "balanced",
+            "total_weight_pct": 100,
+            "items": [{
+                "candidate_id": candidate_id,
+                "symbol": "BTCUSDT",
+                "weight_pct": 100,
+                "leverage": 3,
+                "enabled": true,
+                "parameter_snapshot": {}
+            }]
+        }),
+    )
+    .await;
+
+    assert_eq!(response.status(), StatusCode::CREATED);
+    let body = response_json(response).await;
+    assert_eq!(body["live_ready"], false);
+    assert!(
+        body["live_readiness_blockers"]
+            .as_array()
+            .is_some_and(|blockers| blockers.iter().any(|blocker| blocker
+                .as_str()
+                .is_some_and(|text| text.contains("dynamic allocation rules are required"))))
+    );
+    let portfolio_id = body["portfolio_id"].as_str().unwrap().to_owned();
+
+    let started = authed_empty(
+        &app,
+        "POST",
+        &format!("/backtest/portfolios/{portfolio_id}/confirm-start"),
+        &token,
+    )
+    .await;
+    assert_eq!(started.status(), StatusCode::CONFLICT);
+}
+
+#[tokio::test]
+async fn martingale_balanced_non_dynamic_payload_without_rules_can_confirm_start() {
+    let db = SharedDb::ephemeral().expect("db");
+    let app = app_with_state(AppState::from_shared_db(db.clone()).expect("state"));
+    let token = register_and_login(
+        &app,
+        "backtest-balanced-static-without-rules@example.com",
+        "pass1234",
+    )
+    .await;
+
+    let task_id =
+        create_task_with_portfolio(&app, &token, static_futures_portfolio_config(3)).await;
+    let candidate_id = save_ready_candidate(&db, &task_id, static_futures_portfolio_config(3));
+    db.backtest_repo()
+        .transition_task(&task_id, "succeeded")
+        .expect("succeeded");
+
+    let response = authed_json(
+        &app,
+        "POST",
+        "/backtest/portfolios/publish",
+        &token,
+        json!({
+            "name": "Balanced static basket",
+            "task_id": task_id,
+            "market": "usd_m_futures",
+            "direction": "long",
+            "risk_profile": "balanced",
+            "total_weight_pct": 100,
+            "items": [{
+                "candidate_id": candidate_id,
+                "symbol": "BTCUSDT",
+                "weight_pct": 100,
+                "leverage": 3,
+                "enabled": true,
+                "parameter_snapshot": { "direction_mode": "long_only" }
+            }]
+        }),
+    )
+    .await;
+
+    assert_eq!(response.status(), StatusCode::CREATED);
+    let body = response_json(response).await;
+    assert_eq!(body["live_ready"], true);
+    assert_eq!(body["live_readiness_blockers"], json!([]));
+    let portfolio_id = body["portfolio_id"].as_str().unwrap().to_owned();
+
+    let started = authed_empty(
+        &app,
+        "POST",
+        &format!("/backtest/portfolios/{portfolio_id}/confirm-start"),
+        &token,
+    )
+    .await;
+    assert_eq!(started.status(), StatusCode::OK);
+}
+
+#[tokio::test]
 async fn martingale_dynamic_publish_with_invalid_rules_type_blocks_confirm_start() {
     let db = SharedDb::ephemeral().expect("db");
     let app = app_with_state(AppState::from_shared_db(db.clone()).expect("state"));
@@ -410,8 +597,9 @@ async fn non_dynamic_publish_intent_can_confirm_start_without_dynamic_rules() {
     let token =
         register_and_login(&app, "backtest-non-dynamic-confirm@example.com", "pass1234").await;
 
-    let task_id = create_task_with_portfolio(&app, &token, futures_portfolio_config(3)).await;
-    let candidate_id = save_ready_candidate(&db, &task_id, futures_portfolio_config(3));
+    let task_id =
+        create_task_with_portfolio(&app, &token, static_futures_portfolio_config(3)).await;
+    let candidate_id = save_ready_candidate(&db, &task_id, static_futures_portfolio_config(3));
 
     let intent = authed_json(
         &app,
@@ -444,8 +632,10 @@ async fn publish_rejects_same_symbol_leverage_conflict() {
     let app = app_with_state(AppState::from_shared_db(db.clone()).expect("state"));
     let token = register_and_login(&app, "backtest-conflict@example.com", "pass1234").await;
 
-    let first_task = create_task_with_portfolio(&app, &token, futures_portfolio_config(3)).await;
-    let first_candidate = save_ready_candidate(&db, &first_task, futures_portfolio_config(3));
+    let first_task =
+        create_task_with_portfolio(&app, &token, static_futures_portfolio_config(3)).await;
+    let first_candidate =
+        save_ready_candidate(&db, &first_task, static_futures_portfolio_config(3));
     let intent = authed_json(
         &app,
         "POST",
@@ -468,8 +658,10 @@ async fn publish_rejects_same_symbol_leverage_conflict() {
     .await;
     assert_eq!(confirmed.status(), StatusCode::OK);
 
-    let second_task = create_task_with_portfolio(&app, &token, futures_portfolio_config(5)).await;
-    let second_candidate = save_ready_candidate(&db, &second_task, futures_portfolio_config(5));
+    let second_task =
+        create_task_with_portfolio(&app, &token, static_futures_portfolio_config(5)).await;
+    let second_candidate =
+        save_ready_candidate(&db, &second_task, static_futures_portfolio_config(5));
     let conflict = authed_json(
         &app,
         "POST",
@@ -617,8 +809,10 @@ async fn confirm_start_rechecks_conflicts_after_paused_portfolio() {
     let app = app_with_state(AppState::from_shared_db(db.clone()).expect("state"));
     let token = register_and_login(&app, "backtest-resume-conflict@example.com", "pass1234").await;
 
-    let first_task = create_task_with_portfolio(&app, &token, futures_portfolio_config(3)).await;
-    let first_candidate = save_ready_candidate(&db, &first_task, futures_portfolio_config(3));
+    let first_task =
+        create_task_with_portfolio(&app, &token, static_futures_portfolio_config(3)).await;
+    let first_candidate =
+        save_ready_candidate(&db, &first_task, static_futures_portfolio_config(3));
     let first_intent = authed_json(
         &app,
         "POST",
@@ -649,8 +843,10 @@ async fn confirm_start_rechecks_conflicts_after_paused_portfolio() {
     .await;
     assert_eq!(paused.status(), StatusCode::OK);
 
-    let second_task = create_task_with_portfolio(&app, &token, futures_portfolio_config(5)).await;
-    let second_candidate = save_ready_candidate(&db, &second_task, futures_portfolio_config(5));
+    let second_task =
+        create_task_with_portfolio(&app, &token, static_futures_portfolio_config(5)).await;
+    let second_candidate =
+        save_ready_candidate(&db, &second_task, static_futures_portfolio_config(5));
     let second_intent = authed_json(
         &app,
         "POST",
@@ -686,8 +882,10 @@ async fn conflicting_pending_portfolios_allow_only_one_confirm() {
     let app = app_with_state(AppState::from_shared_db(db.clone()).expect("state"));
     let token = register_and_login(&app, "backtest-confirm-race@example.com", "pass1234").await;
 
-    let first_task = create_task_with_portfolio(&app, &token, futures_portfolio_config(3)).await;
-    let first_candidate = save_ready_candidate(&db, &first_task, futures_portfolio_config(3));
+    let first_task =
+        create_task_with_portfolio(&app, &token, static_futures_portfolio_config(3)).await;
+    let first_candidate =
+        save_ready_candidate(&db, &first_task, static_futures_portfolio_config(3));
     let first_intent = authed_json(
         &app,
         "POST",
@@ -702,8 +900,10 @@ async fn conflicting_pending_portfolios_allow_only_one_confirm() {
         .unwrap()
         .to_owned();
 
-    let second_task = create_task_with_portfolio(&app, &token, futures_portfolio_config(5)).await;
-    let second_candidate = save_ready_candidate(&db, &second_task, futures_portfolio_config(5));
+    let second_task =
+        create_task_with_portfolio(&app, &token, static_futures_portfolio_config(5)).await;
+    let second_candidate =
+        save_ready_candidate(&db, &second_task, static_futures_portfolio_config(5));
     let second_intent = authed_json(
         &app,
         "POST",
@@ -828,6 +1028,29 @@ fn futures_portfolio_config(leverage: u32) -> Value {
             "market": "usd_m_futures",
             "direction": "long",
             "direction_mode": "long_and_short",
+            "margin_mode": "isolated",
+            "leverage": leverage,
+            "spacing": { "fixed_percent": { "step_bps": 100 } },
+            "sizing": { "multiplier": { "first_order_quote": "10", "multiplier": "2", "max_legs": 3 } },
+            "take_profit": { "percent": { "bps": 120 } },
+            "stop_loss": null,
+            "indicators": [],
+            "entry_triggers": ["immediate"],
+            "risk_limits": { "max_strategy_budget_quote": "100" }
+        }]
+    })
+}
+
+fn static_futures_portfolio_config(leverage: u32) -> Value {
+    json!({
+        "direction_mode": "long_only",
+        "risk_limits": { "max_global_budget_quote": "1000" },
+        "strategies": [{
+            "strategy_id": "btc-long",
+            "symbol": "BTCUSDT",
+            "market": "usd_m_futures",
+            "direction": "long",
+            "direction_mode": "long_only",
             "margin_mode": "isolated",
             "leverage": leverage,
             "spacing": { "fixed_percent": { "step_bps": 100 } },

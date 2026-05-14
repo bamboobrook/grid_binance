@@ -29,6 +29,10 @@ pub struct PublishPortfolioRequest {
     pub market: String,
     pub direction: String,
     pub risk_profile: String,
+    #[serde(default)]
+    pub direction_mode: Option<String>,
+    #[serde(default)]
+    pub dynamic_allocation_enabled: bool,
     pub total_weight_pct: Decimal,
     #[serde(default)]
     pub dynamic_allocation_rules: Option<Value>,
@@ -141,6 +145,8 @@ impl MartingalePublishService {
             market,
             direction,
             risk_profile: "single_candidate".to_owned(),
+            direction_mode: None,
+            dynamic_allocation_enabled: false,
             total_weight_pct: Decimal::new(100, 0),
             dynamic_allocation_rules: None,
             items: vec![PublishPortfolioItemRequest {
@@ -379,7 +385,7 @@ fn live_readiness_blockers(
 ) -> Vec<String> {
     let mut blockers = Vec::new();
     let Some(raw_rules) = request.dynamic_allocation_rules.as_ref() else {
-        if requires_dynamic_allocation_rules(request) {
+        if requires_dynamic_allocation_rules(request, candidates_by_id) {
             blockers.push(
                 "dynamic allocation rules are required before direct live publish".to_owned(),
             );
@@ -467,8 +473,67 @@ fn live_readiness_blockers(
     blockers
 }
 
-fn requires_dynamic_allocation_rules(request: &PublishPortfolioRequest) -> bool {
+fn requires_dynamic_allocation_rules(
+    request: &PublishPortfolioRequest,
+    candidates_by_id: &BTreeMap<String, BacktestCandidateRecord>,
+) -> bool {
     request.risk_profile.contains("dynamic")
+        || request.dynamic_allocation_enabled
+        || is_long_and_short(request.direction.as_str())
+        || request
+            .direction_mode
+            .as_deref()
+            .is_some_and(is_long_and_short)
+        || request.items.iter().any(|item| {
+            value_has_long_and_short_direction(&item.parameter_snapshot)
+                || value_has_dynamic_allocation_marker(&item.parameter_snapshot)
+                || candidates_by_id
+                    .get(&item.candidate_id)
+                    .is_some_and(candidate_has_dynamic_allocation_intent)
+        })
+}
+
+fn candidate_has_dynamic_allocation_intent(candidate: &BacktestCandidateRecord) -> bool {
+    let config = candidate
+        .config
+        .get("portfolio_config")
+        .unwrap_or(&candidate.config);
+    value_has_long_and_short_direction(config)
+        || value_has_dynamic_allocation_marker(config)
+        || value_has_dynamic_allocation_marker(&candidate.summary)
+}
+
+fn value_has_dynamic_allocation_marker(value: &Value) -> bool {
+    value
+        .get("dynamic_allocation_enabled")
+        .and_then(Value::as_bool)
+        .unwrap_or(false)
+        || value.get("dynamic_allocation_rules").is_some()
+        || value
+            .get("dynamic_allocation_summary")
+            .is_some_and(|summary| !summary.is_null())
+        || value
+            .get("summary")
+            .is_some_and(value_has_dynamic_allocation_marker)
+        || value
+            .get("strategies")
+            .and_then(Value::as_array)
+            .is_some_and(|strategies| strategies.iter().any(value_has_dynamic_allocation_marker))
+}
+
+fn value_has_long_and_short_direction(value: &Value) -> bool {
+    value
+        .get("direction_mode")
+        .and_then(Value::as_str)
+        .is_some_and(is_long_and_short)
+        || value
+            .get("strategies")
+            .and_then(Value::as_array)
+            .is_some_and(|strategies| strategies.iter().any(value_has_long_and_short_direction))
+}
+
+fn is_long_and_short(value: &str) -> bool {
+    matches!(value, "long_short" | "long_and_short")
 }
 
 fn validate_live_ready_for_start(
@@ -721,6 +786,8 @@ mod tests {
             market: "futures".to_owned(),
             direction: "long".to_owned(),
             risk_profile: "balanced".to_owned(),
+            direction_mode: None,
+            dynamic_allocation_enabled: false,
             total_weight_pct: Decimal::new(100, 0),
             dynamic_allocation_rules: None,
             items: vec![

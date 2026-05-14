@@ -12,6 +12,16 @@ const requestClientUrl = pathToFileURL(
   path.resolve("apps/web/components/backtest/request-client.ts"),
 ).href;
 
+function loadBooleanHelper(source, name) {
+  const match = source.match(new RegExp(`export\\s+function\\s+${name}\\(([^)]*)\\):\\s*boolean\\s*\\{\\s*return\\s+([^;]+);\\s*\\}`));
+  assert.ok(match, `${name} helper should be exported as a pure boolean function`);
+  const params = match[1]
+    .split(",")
+    .map((param) => param.trim().replace(/:.*/, ""))
+    .filter(Boolean);
+  return Function(...params, `return (${match[2]});`);
+}
+
 test("martingale portfolio proxy routes preserve method, body, query, cookie, and status", async () => {
   const { proxyBacktestRequest } = await import(proxyHelperUrl);
 
@@ -134,7 +144,9 @@ test("martingale batch portfolio publish API contract is wired end to end", () =
   assert.match(publishServiceSource, /dynamic_allocation_rules/);
   assert.match(publishServiceSource, /live_readiness_blockers/);
   assert.match(publishServiceSource, /live_ready/);
-  assert.match(publishServiceSource, /requires_dynamic_allocation_rules\(request\)/);
+  assert.match(publishServiceSource, /requires_dynamic_allocation_rules\(request,\s*candidates_by_id\)/);
+  assert.match(publishServiceSource, /dynamic_allocation_enabled/);
+  assert.match(publishServiceSource, /direction_mode/);
   assert.match(publishServiceSource, /validate_live_ready_for_start\(&portfolio\)\?/);
   assert.match(publishServiceSource, /struct\s+PublishPortfolioItemRequest[\s\S]*candidate_id[\s\S]*weight_pct[\s\S]*leverage/);
   assert.match(publishServiceSource, /struct\s+PublishPortfolioResponse[\s\S]*instances:\s*Vec<PublishedStrategyInstance>[\s\S]*items:\s*Vec<PublishedStrategyInstance>/);
@@ -151,9 +163,14 @@ test("martingale batch portfolio publish API contract is wired end to end", () =
   assert.match(liveControlsSource, /实盘就绪阻断项|Live readiness blockers/);
   assert.match(liveControlsSource, /直接发布实盘|Direct live publish/);
   assert.match(liveControlsSource, /保存为待启用组合|Save as pending portfolio/);
-  assert.match(liveControlsSource, /const\s+directLiveDisabled\s*=\s*pending\s*!==\s*""\s*\|\|\s*liveReadinessBlockers\.length\s*>\s*0/);
+  const canDirectPublish = loadBooleanHelper(liveControlsSource, "canDirectPublish");
+  const canSaveDraft = loadBooleanHelper(liveControlsSource, "canSaveDraft");
+  assert.equal(canDirectPublish("", []), true);
+  assert.equal(canDirectPublish("", ["dynamic allocation rules are required"]), false);
+  assert.equal(canSaveDraft(""), true);
+  assert.equal(canSaveDraft("start"), false);
   assert.match(liveControlsSource, /disabled=\{directLiveDisabled\}/);
-  assert.match(liveControlsSource, /保存为待启用组合[\s\S]*disabled=\{pending !== ""\}/);
+  assert.match(liveControlsSource, /保存为待启用组合[\s\S]*disabled=\{!canSaveDraft\(pending\)\}/);
   assert.match(liveControlsSource, /策略实例|Strategy instance/);
   assert.match(liveControlsSource, /来源候选|Source candidate/);
 });
