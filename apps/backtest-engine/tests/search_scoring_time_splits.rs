@@ -167,6 +167,27 @@ fn allocation_closes_long_weight_when_btc_is_strong_down_and_symbol_ranges() {
 }
 
 #[test]
+fn allocation_symbol_strong_up_reason_names_symbol_source() {
+    let config = AllocationConfig::balanced();
+    let state = AllocationState::default();
+
+    let decision = decide_allocation(
+        0,
+        "ETHUSDT",
+        MarketRegimeLabel::Range,
+        MarketRegimeLabel::StrongUptrend,
+        0.0,
+        &config,
+        &state,
+    );
+
+    assert_eq!(decision.short_weight_pct, 0.0);
+    assert!(decision.force_exit_short);
+    assert!(decision.point.reason.contains("symbol"));
+    assert!(!decision.point.reason.contains("both"));
+}
+
+#[test]
 fn allocation_first_neutral_default_state_does_not_rebalance() {
     let config = AllocationConfig::balanced();
     let state = AllocationState::default();
@@ -210,6 +231,34 @@ fn allocation_loss_threshold_forced_exit_has_direction_flag() {
     assert_eq!(decision.action, AllocationAction::DirectionForcedExit);
     assert!(decision.force_exit_short || decision.force_exit_long);
     assert!(decision.force_exit_short);
+    assert_eq!(decision.short_weight_pct, 0.0);
+    assert_eq!(decision.point.short_weight_pct, 0.0);
+    assert!(decision.point.reason.contains("forced exit loss"));
+}
+
+#[test]
+fn allocation_loss_threshold_ambiguous_does_not_force_exit() {
+    let config = AllocationConfig::balanced();
+    let state = AllocationState {
+        last_change_ms: Some(0),
+        long_weight_pct: 60.0,
+        short_weight_pct: 40.0,
+    };
+
+    let decision = decide_allocation(
+        4 * 60 * 60 * 1000,
+        "ETHUSDT",
+        MarketRegimeLabel::Range,
+        MarketRegimeLabel::Range,
+        config.forced_exit_loss_pct,
+        &config,
+        &state,
+    );
+
+    assert_ne!(decision.action, AllocationAction::DirectionForcedExit);
+    assert!(!decision.force_exit_long);
+    assert!(!decision.force_exit_short);
+    assert!(decision.point.reason.contains("loss_threshold_ambiguous"));
 }
 
 #[test]

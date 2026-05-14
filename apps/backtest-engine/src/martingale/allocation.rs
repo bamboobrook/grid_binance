@@ -143,12 +143,18 @@ pub fn decide_allocation(
             regime_reason
         };
 
-        (
-            target_long_weight_pct,
-            target_short_weight_pct,
-            action,
-            reason,
-        )
+        let long_weight_pct = if force_exit_long {
+            0.0
+        } else {
+            target_long_weight_pct
+        };
+        let short_weight_pct = if force_exit_short {
+            0.0
+        } else {
+            target_short_weight_pct
+        };
+
+        (long_weight_pct, short_weight_pct, action, reason)
     };
 
     AllocationDecision {
