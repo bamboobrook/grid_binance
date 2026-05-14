@@ -40,7 +40,8 @@ pub fn classify_regime(
     bars: &[KlineBar],
     config: &RegimeConfig,
 ) -> Result<RegimeSnapshot, String> {
-    let latest = bars.last().ok_or_else(|| "bars must not be empty".to_string())?;
+    validate_bars(bars)?;
+    let latest = bars.last().expect("validated non-empty bars");
     validate_config(config)?;
 
     let closes: Vec<f64> = bars.iter().map(|bar| bar.close).collect();
@@ -53,16 +54,22 @@ pub fn classify_regime(
         })
         .collect();
 
-    let fast_ema = latest_indicator(
+    let fast_ema = latest_required_indicator(
         &ema(&closes, config.fast_ema_period),
-        "fast EMA is unavailable",
+        "fast EMA indicator unavailable: insufficient bars or invalid latest value",
     )?;
-    let slow_ema = latest_indicator(
+    let slow_ema = latest_required_indicator(
         &ema(&closes, config.slow_ema_period),
-        "slow EMA is unavailable",
+        "slow EMA indicator unavailable: insufficient bars or invalid latest value",
     )?;
-    let adx_value = latest_indicator(&adx(&candles, config.adx_period), "ADX is unavailable")?;
-    let atr_value = latest_indicator(&atr(&candles, config.atr_period), "ATR is unavailable")?;
+    let adx_value = latest_required_indicator(
+        &adx(&candles, config.adx_period),
+        "ADX indicator unavailable: insufficient bars or invalid latest value",
+    )?;
+    let atr_value = latest_required_indicator(
+        &atr(&candles, config.atr_period),
+        "ATR indicator unavailable: insufficient bars or invalid latest value",
+    )?;
 
     if latest.close == 0.0 || !latest.close.is_finite() || !slow_ema.is_finite() || slow_ema == 0.0
     {
@@ -99,14 +106,40 @@ pub fn classify_regime(
     })
 }
 
-fn latest_indicator(values: &[Option<f64>], message: &str) -> Result<f64, String> {
+fn latest_required_indicator(values: &[Option<f64>], message: &str) -> Result<f64, String> {
     values
-        .iter()
-        .rev()
-        .flatten()
+        .last()
         .copied()
-        .find(|value| value.is_finite())
+        .flatten()
+        .filter(|value| value.is_finite())
         .ok_or_else(|| message.to_string())
+}
+
+fn validate_bars(bars: &[KlineBar]) -> Result<(), String> {
+    if bars.is_empty() {
+        return Err("bars must not be empty".to_string());
+    }
+
+    for (index, bar) in bars.iter().enumerate() {
+        validate_price(bar.open, index, "open")?;
+        validate_price(bar.high, index, "high")?;
+        validate_price(bar.low, index, "low")?;
+        validate_price(bar.close, index, "close")?;
+
+        if bar.high < bar.low {
+            return Err(format!("bar {index} high must be greater than or equal to low"));
+        }
+    }
+
+    Ok(())
+}
+
+fn validate_price(value: f64, index: usize, field: &str) -> Result<(), String> {
+    if value.is_finite() && value > 0.0 {
+        Ok(())
+    } else {
+        Err(format!("bar {index} {field} must be finite and greater than zero"))
+    }
 }
 
 fn validate_config(config: &RegimeConfig) -> Result<(), String> {

@@ -105,6 +105,29 @@ fn regime_classifier_detects_strong_uptrend_and_range() {
 }
 
 #[test]
+fn regime_classifier_rejects_invalid_or_insufficient_bars() {
+    let config = RegimeConfig::default();
+    assert!(classify_regime(&[], &config).is_err());
+
+    let mut nan_close = synthetic_trend_bars();
+    nan_close.last_mut().expect("latest bar").close = f64::NAN;
+    assert!(classify_regime(&nan_close, &config).is_err());
+
+    let mut zero_close = synthetic_trend_bars();
+    zero_close.last_mut().expect("latest bar").close = 0.0;
+    assert!(classify_regime(&zero_close, &config).is_err());
+
+    let mut reversed_range = synthetic_trend_bars();
+    let latest = reversed_range.last_mut().expect("latest bar");
+    latest.high = latest.low - 0.01;
+    assert!(classify_regime(&reversed_range, &config).is_err());
+
+    let insufficient = vec![kline_bar(0, 100.0, 101.0, 99.0, 100.5)];
+    let error = classify_regime(&insufficient, &config).expect_err("insufficient bars");
+    assert!(error.contains("insufficient") || error.contains("indicator unavailable"));
+}
+
+#[test]
 fn survival_failure_never_outranks_valid_candidate() {
     let valid = result(true, 5.0, 4.0, 20, 1, 500.0, vec![]);
     let failed = result(
