@@ -112,6 +112,15 @@ fn default_stop_loss(
         return Ok(None);
     }
 
+    if !space.short_atr_stop_multiplier_candidates.is_empty()
+        && (space.short_stop_drawdown_pct_candidates.is_empty() || rng.gen_bool(0.5))
+    {
+        let multiplier = *pick(&space.short_atr_stop_multiplier_candidates, rng)?;
+        if let Some(multiplier) = decimal_from_f64(multiplier) {
+            return Ok(Some(MartingaleStopLossModel::Atr { multiplier }));
+        }
+    }
+
     let pct = if space.short_stop_drawdown_pct_candidates.is_empty() {
         20.0
     } else {
@@ -120,6 +129,13 @@ fn default_stop_loss(
     Ok(Some(MartingaleStopLossModel::StrategyDrawdownPct {
         pct_bps: pct_to_bps(pct).unwrap_or(2_000),
     }))
+}
+
+fn decimal_from_f64(value: f64) -> Option<Decimal> {
+    if !value.is_finite() || value <= 0.0 {
+        return None;
+    }
+    Decimal::try_from(value).ok()
 }
 
 fn pct_to_bps(pct: f64) -> Option<u32> {

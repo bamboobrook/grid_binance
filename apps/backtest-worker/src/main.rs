@@ -570,7 +570,19 @@ fn strategy_value_at<'a>(output: &'a CandidateOutput, path: &[&str]) -> Option<&
 }
 
 fn search_space_from_task(config: &WorkerTaskConfig) -> SearchSpace {
-    let direction_mode = direction_mode_from_task(config.direction_mode.as_deref());
+    let requested_direction_mode = direction_mode_from_task(config.direction_mode.as_deref());
+    let dynamic_allocation_enabled = config.dynamic_allocation_enabled.unwrap_or(
+        requested_direction_mode
+            == shared_domain::martingale::MartingaleDirectionMode::LongAndShort,
+    );
+    let direction_mode = if requested_direction_mode
+        == shared_domain::martingale::MartingaleDirectionMode::LongAndShort
+        && !dynamic_allocation_enabled
+    {
+        shared_domain::martingale::MartingaleDirectionMode::IndicatorSelected
+    } else {
+        requested_direction_mode
+    };
     SearchSpace {
         symbols: config.symbols.clone(),
         direction_mode,
@@ -597,9 +609,7 @@ fn search_space_from_task(config: &WorkerTaskConfig) -> SearchSpace {
         max_legs: search_space_u32(config, "max_legs")
             .or_else(|| template_u32(config, &["sizing", "max_legs"]).map(|value| vec![value]))
             .unwrap_or_else(|| vec![3, 5, 7]),
-        dynamic_allocation_enabled: config.dynamic_allocation_enabled.unwrap_or(
-            direction_mode == shared_domain::martingale::MartingaleDirectionMode::LongAndShort,
-        ),
+        dynamic_allocation_enabled,
         short_stop_drawdown_pct_candidates: config
             .short_stop_drawdown_pct_candidates
             .clone()
@@ -1734,6 +1744,58 @@ mod tests {
         assert!(space.short_stop_drawdown_pct_candidates.contains(&25.0));
         assert!(space.short_stop_drawdown_pct_candidates.contains(&30.0));
         assert!(!space.short_stop_drawdown_pct_candidates.contains(&12.5));
+    }
+
+    #[test]
+    fn dynamic_allocation_false_long_short_uses_single_direction_search_mode() {
+        let disabled: WorkerTaskConfig = serde_json::from_value(serde_json::json!({
+            "symbols": ["BTCUSDT"],
+            "random_seed": 7,
+            "random_candidates": 4,
+            "intelligent_rounds": 1,
+            "top_n": 2,
+            "direction_mode": "long_and_short",
+            "dynamic_allocation_enabled": false,
+            "market": "usd_m_futures"
+        }))
+        .expect("disabled config");
+        let enabled: WorkerTaskConfig = serde_json::from_value(serde_json::json!({
+            "symbols": ["BTCUSDT"],
+            "random_seed": 7,
+            "random_candidates": 4,
+            "intelligent_rounds": 1,
+            "top_n": 2,
+            "direction_mode": "long_and_short",
+            "dynamic_allocation_enabled": true,
+            "market": "usd_m_futures"
+        }))
+        .expect("enabled config");
+
+        let disabled_space = search_space_from_task(&disabled);
+        let enabled_space = search_space_from_task(&enabled);
+        let disabled_candidates = random_search(&disabled_space, 4, 7).expect("disabled search");
+        let enabled_candidates = random_search(&enabled_space, 4, 7).expect("enabled search");
+
+        assert_eq!(
+            disabled_space.direction_mode,
+            shared_domain::martingale::MartingaleDirectionMode::IndicatorSelected
+        );
+        assert!(!disabled_space.dynamic_allocation_enabled);
+        assert!(disabled_candidates.iter().all(|candidate| {
+            candidate.config.direction_mode
+                != shared_domain::martingale::MartingaleDirectionMode::LongAndShort
+                && candidate.config.strategies.len() == 1
+        }));
+        assert_eq!(
+            enabled_space.direction_mode,
+            shared_domain::martingale::MartingaleDirectionMode::LongAndShort
+        );
+        assert!(enabled_space.dynamic_allocation_enabled);
+        assert!(enabled_candidates.iter().all(|candidate| {
+            candidate.config.direction_mode
+                == shared_domain::martingale::MartingaleDirectionMode::LongAndShort
+                && candidate.config.strategies.len() == 2
+        }));
     }
 
     #[test]

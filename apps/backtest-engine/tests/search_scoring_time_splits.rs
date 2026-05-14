@@ -328,6 +328,40 @@ fn long_short_search_generates_short_candidates_with_drawdown_or_atr_stop() {
 }
 
 #[test]
+fn futures_short_search_generates_atr_stop_candidate_when_configured() {
+    let mut space = short_stop_search_space(
+        MartingaleDirectionMode::ShortOnly,
+        vec![MartingaleDirection::Short],
+        Some(MartingaleMarketKind::UsdMFutures),
+    );
+    space.short_atr_stop_multiplier_candidates = vec![2.0];
+
+    let candidates = random_search(&space, 8, 15).expect("search");
+
+    assert!(candidates.iter().any(|candidate| matches!(
+        candidate.config.strategies[0].stop_loss,
+        Some(MartingaleStopLossModel::Atr { multiplier }) if multiplier == Decimal::new(2, 0)
+    )));
+}
+
+#[test]
+fn allocation_cooldown_candidates_are_metadata_only_for_search_generation() {
+    let mut without_metadata = short_stop_search_space(
+        MartingaleDirectionMode::ShortOnly,
+        vec![MartingaleDirection::Short],
+        Some(MartingaleMarketKind::UsdMFutures),
+    );
+    let mut with_metadata = without_metadata.clone();
+    with_metadata.allocation_cooldown_hours_candidates = vec![6, 12, 24];
+
+    let left = random_search(&without_metadata, 4, 16).expect("search without metadata");
+    let right = random_search(&with_metadata, 4, 16).expect("search with metadata");
+
+    without_metadata.allocation_cooldown_hours_candidates = vec![6, 12, 24];
+    assert_eq!(left, right);
+}
+
+#[test]
 fn short_only_futures_search_generates_short_candidates_with_drawdown_stop() {
     let space = short_stop_search_space(
         MartingaleDirectionMode::ShortOnly,
