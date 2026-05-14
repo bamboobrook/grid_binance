@@ -6,7 +6,8 @@ use std::collections::BTreeSet;
 use std::sync::atomic::{AtomicBool, Ordering};
 
 use backtest_engine::intelligent_search::{intelligent_search, IntelligentSearchConfig};
-use backtest_engine::market_data::AggTrade;
+use backtest_engine::market_data::{AggTrade, KlineBar};
+use backtest_engine::martingale::regime::{classify_regime, RegimeConfig};
 use backtest_engine::martingale::scoring::{score_candidate, ScoringConfig};
 use backtest_engine::martingale::trade_engine::{
     run_trade_refinement, trades_to_ordered_price_bars,
@@ -19,6 +20,50 @@ use shared_domain::martingale::{
     MartingaleRiskLimits, MartingaleSizingModel, MartingaleSpacingModel, MartingaleStrategyConfig,
     MartingaleTakeProfitModel,
 };
+
+fn kline_bar(open_time_ms: i64, open: f64, high: f64, low: f64, close: f64) -> KlineBar {
+    KlineBar {
+        symbol: "BTCUSDT".to_string(),
+        open_time_ms,
+        open,
+        high,
+        low,
+        close,
+        volume: 1.0,
+    }
+}
+
+fn synthetic_trend_bars() -> Vec<KlineBar> {
+    (0..80)
+        .map(|index| {
+            let open = 100.0 + index as f64 * 1.0;
+            let close = open + 0.8;
+            kline_bar(
+                index * 60_000,
+                open,
+                close + 0.3,
+                open - 0.2,
+                close,
+            )
+        })
+        .collect()
+}
+
+fn synthetic_range_bars() -> Vec<KlineBar> {
+    (0..80)
+        .map(|index| {
+            let center = 100.0 + (index % 6) as f64 * 0.04;
+            let close = center + if index % 2 == 0 { 0.03 } else { -0.03 };
+            kline_bar(
+                index * 60_000,
+                center,
+                center + 0.15,
+                center - 0.15,
+                close,
+            )
+        })
+        .collect()
+}
 
 #[test]
 fn random_search_is_reproducible() {
@@ -43,6 +88,20 @@ fn random_search_is_reproducible() {
     assert!(first
         .iter()
         .all(|candidate| candidate.config.validate().is_ok()));
+}
+
+#[test]
+fn regime_classifier_detects_strong_uptrend_and_range() {
+    let config = RegimeConfig::default();
+
+    let uptrend = classify_regime(&synthetic_trend_bars(), &config).expect("uptrend regime");
+    assert_eq!(uptrend.label, MarketRegimeLabel::StrongUptrend);
+    assert!(uptrend.ema_spread_bps > 0.0);
+    assert!(uptrend.adx >= config.strong_adx);
+
+    let range = classify_regime(&synthetic_range_bars(), &config).expect("range regime");
+    assert_eq!(range.label, MarketRegimeLabel::Range);
+    assert!(range.ema_spread_bps.abs() < config.slope_bps);
 }
 
 #[test]
