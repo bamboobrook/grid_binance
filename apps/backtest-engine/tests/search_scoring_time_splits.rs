@@ -1,6 +1,6 @@
 use backtest_engine::martingale::metrics::{
-    AllocationAction, AllocationCurvePoint, CostSummary, MartingaleBacktestResult,
-    MartingaleMetrics, MarketRegimeLabel, RegimeTimelinePoint,
+    AllocationAction, AllocationCurvePoint, CostSummary, MarketRegimeLabel,
+    MartingaleBacktestResult, MartingaleMetrics, RegimeTimelinePoint,
 };
 use std::collections::BTreeSet;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -20,9 +20,10 @@ use backtest_engine::search::{random_search, SearchSpace};
 use backtest_engine::time_splits::{named_stress_windows, walk_forward_windows, WalkForwardConfig};
 use rust_decimal::Decimal;
 use shared_domain::martingale::{
-    MartingaleDirection, MartingaleDirectionMode, MartingaleEntryTrigger, MartingaleMarketKind,
-    MartingaleMarginMode, MartingalePortfolioConfig, MartingaleRiskLimits, MartingaleSizingModel,
-    MartingaleSpacingModel, MartingaleStrategyConfig, MartingaleTakeProfitModel,
+    MartingaleDirection, MartingaleDirectionMode, MartingaleEntryTrigger, MartingaleMarginMode,
+    MartingaleMarketKind, MartingalePortfolioConfig, MartingaleRiskLimits, MartingaleSizingModel,
+    MartingaleSpacingModel, MartingaleStopLossModel, MartingaleStrategyConfig,
+    MartingaleTakeProfitModel,
 };
 
 fn kline_bar(open_time_ms: i64, open: f64, high: f64, low: f64, close: f64) -> KlineBar {
@@ -42,13 +43,7 @@ fn synthetic_trend_bars() -> Vec<KlineBar> {
         .map(|index| {
             let open = 100.0 + index as f64 * 1.0;
             let close = open + 0.8;
-            kline_bar(
-                index * 60_000,
-                open,
-                close + 0.3,
-                open - 0.2,
-                close,
-            )
+            kline_bar(index * 60_000, open, close + 0.3, open - 0.2, close)
         })
         .collect()
 }
@@ -58,13 +53,7 @@ fn synthetic_range_bars() -> Vec<KlineBar> {
         .map(|index| {
             let center = 100.0 + (index % 6) as f64 * 0.04;
             let close = center + if index % 2 == 0 { 0.03 } else { -0.03 };
-            kline_bar(
-                index * 60_000,
-                center,
-                center + 0.15,
-                center - 0.15,
-                close,
-            )
+            kline_bar(index * 60_000, center, center + 0.15, center - 0.15, close)
         })
         .collect()
 }
@@ -177,16 +166,7 @@ fn dynamic_allocation_two_symbol_portfolio(symbol: &str) -> MartingalePortfolioC
 
 fn dynamic_allocation_warmup_bars(count: i64) -> Vec<KlineBar> {
     (0..count)
-        .map(|index| {
-            symbol_kline_bar(
-                "BTCUSDT",
-                index * 60_000,
-                100.0,
-                100.2,
-                99.8,
-                100.0,
-            )
-        })
+        .map(|index| symbol_kline_bar("BTCUSDT", index * 60_000, 100.0, 100.2, 99.8, 100.0))
         .collect()
 }
 
@@ -222,16 +202,10 @@ fn dynamic_allocation_multi_symbol_portfolio() -> MartingalePortfolioConfig {
 
 fn dynamic_allocation_pause_recover_pause_bars() -> Vec<KlineBar> {
     let mut bars = dynamic_allocation_rising_bars();
-    bars.extend((80..160).map(|index| {
-        symbol_kline_bar(
-            "BTCUSDT",
-            index * 60_000,
-            100.0,
-            100.2,
-            99.8,
-            100.0,
-        )
-    }));
+    bars.extend(
+        (80..160)
+            .map(|index| symbol_kline_bar("BTCUSDT", index * 60_000, 100.0, 100.2, 99.8, 100.0)),
+    );
     bars.extend((160..240).map(|index| {
         let open = 100.0 + (index - 160) as f64;
         let close = open + 0.8;
@@ -269,6 +243,10 @@ fn random_search_is_reproducible() {
         take_profit_bps: vec![60, 90],
         leverage: vec![1, 3],
         max_legs: vec![3, 4],
+        dynamic_allocation_enabled: false,
+        short_stop_drawdown_pct_candidates: Vec::new(),
+        short_atr_stop_multiplier_candidates: Vec::new(),
+        allocation_cooldown_hours_candidates: Vec::new(),
     };
 
     let first = random_search(&space, 8, 42).expect("first search");
@@ -295,6 +273,10 @@ fn long_and_short_search_builds_one_candidate_with_two_directional_legs() {
         take_profit_bps: vec![80, 120],
         leverage: vec![3],
         max_legs: vec![4, 5],
+        dynamic_allocation_enabled: true,
+        short_stop_drawdown_pct_candidates: Vec::new(),
+        short_atr_stop_multiplier_candidates: Vec::new(),
+        allocation_cooldown_hours_candidates: Vec::new(),
     };
 
     let candidates = random_search(&space, 1, 7).expect("search");
@@ -308,6 +290,41 @@ fn long_and_short_search_builds_one_candidate_with_two_directional_legs() {
     assert_eq!(strategies[0].direction, MartingaleDirection::Long);
     assert_eq!(strategies[1].direction, MartingaleDirection::Short);
     assert_ne!(strategies[0].strategy_id, strategies[1].strategy_id);
+}
+
+#[test]
+fn long_short_search_generates_short_candidates_with_drawdown_or_atr_stop() {
+    let space = SearchSpace {
+        symbols: vec!["BTCUSDT".to_string()],
+        direction_mode: MartingaleDirectionMode::LongAndShort,
+        directions: vec![MartingaleDirection::Long, MartingaleDirection::Short],
+        market: Some(MartingaleMarketKind::UsdMFutures),
+        margin_mode: None,
+        step_bps: vec![100],
+        first_order_quote: vec![Decimal::new(10, 0)],
+        multiplier: vec![Decimal::new(2, 0)],
+        take_profit_bps: vec![100],
+        leverage: vec![3],
+        max_legs: vec![4],
+        dynamic_allocation_enabled: true,
+        short_stop_drawdown_pct_candidates: Vec::new(),
+        short_atr_stop_multiplier_candidates: Vec::new(),
+        allocation_cooldown_hours_candidates: Vec::new(),
+    };
+
+    let candidates = random_search(&space, 3, 11).expect("search");
+    let short_strategies: Vec<_> = candidates
+        .iter()
+        .flat_map(|candidate| candidate.config.strategies.iter())
+        .filter(|strategy| strategy.direction == MartingaleDirection::Short)
+        .collect();
+
+    assert!(!short_strategies.is_empty());
+    assert!(short_strategies.iter().all(|strategy| matches!(
+        strategy.stop_loss,
+        Some(MartingaleStopLossModel::StrategyDrawdownPct { .. })
+            | Some(MartingaleStopLossModel::Atr { .. })
+    )));
 }
 
 #[test]
@@ -640,7 +657,11 @@ fn dynamic_allocation_deduplicates_rebalance_holds_and_pause_events() {
         .filter(|event| event.event_type == "direction_paused")
         .count();
 
-    assert!(result.rebalance_count < 5, "rebalance_count={}", result.rebalance_count);
+    assert!(
+        result.rebalance_count < 5,
+        "rebalance_count={}",
+        result.rebalance_count
+    );
     assert!(paused_count <= 2, "paused_count={paused_count}");
     assert!(result.average_allocation_hold_hours.unwrap_or_default() > 0.0);
 }
@@ -654,14 +675,22 @@ fn dynamic_allocation_hold_hours_are_tracked_per_symbol() {
     .expect("multi-symbol dynamic allocation");
 
     let average_hold_hours = result.average_allocation_hold_hours.unwrap_or_default();
-    assert!(average_hold_hours > 0.0, "average_hold_hours={average_hold_hours}");
-    assert!(average_hold_hours >= 0.5, "average_hold_hours={average_hold_hours}");
+    assert!(
+        average_hold_hours > 0.0,
+        "average_hold_hours={average_hold_hours}"
+    );
+    assert!(
+        average_hold_hours >= 0.5,
+        "average_hold_hours={average_hold_hours}"
+    );
 }
 
 #[test]
 fn dynamic_allocation_pause_event_records_new_episode_after_recovery() {
     let mut portfolio = dynamic_allocation_long_short_portfolio();
-    portfolio.strategies.retain(|strategy| strategy.direction == MartingaleDirection::Short);
+    portfolio
+        .strategies
+        .retain(|strategy| strategy.direction == MartingaleDirection::Short);
     for strategy in &mut portfolio.strategies {
         strategy.entry_triggers = vec![MartingaleEntryTrigger::TimeWindow {
             start: "00:00".to_string(),
@@ -749,6 +778,10 @@ fn intelligent_search_keeps_same_symbol_long_short_futures_leverage_consistent()
         take_profit_bps: vec![80, 120],
         leverage: vec![2, 3, 4, 5, 6, 7, 8, 9, 10],
         max_legs: vec![4, 5],
+        dynamic_allocation_enabled: true,
+        short_stop_drawdown_pct_candidates: Vec::new(),
+        short_atr_stop_multiplier_candidates: Vec::new(),
+        allocation_cooldown_hours_candidates: Vec::new(),
     };
 
     let result = intelligent_search(
@@ -775,10 +808,11 @@ fn intelligent_search_keeps_same_symbol_long_short_futures_leverage_consistent()
     .expect("intelligent search");
 
     assert!(!result.candidates.is_empty());
-    assert!(result
-        .candidates
-        .iter()
-        .all(|candidate| candidate.candidate.config.validate().is_ok()));
+    assert!(result.candidates.iter().all(|candidate| candidate
+        .candidate
+        .config
+        .validate()
+        .is_ok()));
 }
 
 #[test]
@@ -948,15 +982,24 @@ fn dynamic_allocation_metrics_serialize_for_worker_artifacts() {
 
     let json = serde_json::to_value(&result).expect("serialize dynamic allocation metrics");
 
-    assert_eq!(json["allocation_curve"][0]["timestamp_ms"], 1_700_000_000_000_i64);
+    assert_eq!(
+        json["allocation_curve"][0]["timestamp_ms"],
+        1_700_000_000_000_i64
+    );
     assert_eq!(json["allocation_curve"][0]["symbol"], "BTCUSDT");
     assert_eq!(json["allocation_curve"][0]["long_weight_pct"], 65.0);
     assert_eq!(json["allocation_curve"][0]["short_weight_pct"], 35.0);
     assert_eq!(json["allocation_curve"][0]["action"], "rebalance");
-    assert_eq!(json["allocation_curve"][0]["reason"], "btc_range_symbol_uptrend");
+    assert_eq!(
+        json["allocation_curve"][0]["reason"],
+        "btc_range_symbol_uptrend"
+    );
     assert_eq!(json["allocation_curve"][0]["in_cooldown"], false);
     assert_eq!(json["regime_timeline"][0]["btc_regime"], "uptrend");
-    assert_eq!(json["regime_timeline"][0]["symbol_regime"], "high_volatility");
+    assert_eq!(
+        json["regime_timeline"][0]["symbol_regime"],
+        "high_volatility"
+    );
     assert_eq!(json["regime_timeline"][0]["extreme_risk"], true);
     assert_eq!(json["cost_summary"]["fee_quote"], 1.25);
     assert_eq!(json["cost_summary"]["slippage_quote"], 0.5);
@@ -1197,6 +1240,10 @@ fn small_search_space() -> SearchSpace {
         take_profit_bps: vec![80],
         leverage: vec![1],
         max_legs: vec![3],
+        dynamic_allocation_enabled: false,
+        short_stop_drawdown_pct_candidates: Vec::new(),
+        short_atr_stop_multiplier_candidates: Vec::new(),
+        allocation_cooldown_hours_candidates: Vec::new(),
     }
 }
 
