@@ -1,4 +1,7 @@
-use backtest_engine::martingale::metrics::{MartingaleBacktestResult, MartingaleMetrics};
+use backtest_engine::martingale::metrics::{
+    AllocationAction, AllocationCurvePoint, CostSummary, MartingaleBacktestResult,
+    MartingaleMetrics, MarketRegimeLabel, RegimeTimelinePoint,
+};
 use std::collections::BTreeSet;
 use std::sync::atomic::{AtomicBool, Ordering};
 
@@ -164,6 +167,71 @@ fn low_data_quality_rejects_even_with_enough_trades() {
 }
 
 #[test]
+fn dynamic_allocation_metrics_serialize_for_worker_artifacts() {
+    let result = MartingaleBacktestResult {
+        metrics: MartingaleMetrics {
+            total_return_pct: 1.5,
+            max_drawdown_pct: 2.5,
+            global_drawdown_pct: Some(2.5),
+            max_strategy_drawdown_pct: Some(1.0),
+            data_quality_score: Some(0.99),
+            trade_count: 8,
+            stop_count: 1,
+            max_capital_used_quote: 250.0,
+            survival_passed: true,
+        },
+        events: Vec::new(),
+        equity_curve: Vec::new(),
+        rejection_reasons: Vec::new(),
+        allocation_curve: vec![AllocationCurvePoint {
+            timestamp_ms: 1_700_000_000_000,
+            symbol: "BTCUSDT".to_string(),
+            long_weight_pct: 65.0,
+            short_weight_pct: 35.0,
+            action: AllocationAction::Rebalance,
+            reason: Some("trend_shift".to_string()),
+            in_cooldown: false,
+        }],
+        regime_timeline: vec![RegimeTimelinePoint {
+            timestamp_ms: 1_700_000_000_000,
+            symbol: "BTCUSDT".to_string(),
+            btc_regime: MarketRegimeLabel::Uptrend,
+            symbol_regime: MarketRegimeLabel::HighVolatility,
+            extreme_risk: true,
+        }],
+        cost_summary: CostSummary {
+            fee_quote: 1.25,
+            slippage_quote: 0.5,
+            stop_loss_quote: 2.0,
+            forced_exit_quote: 3.0,
+        },
+        rebalance_count: 4,
+        forced_exit_count: 2,
+        average_allocation_hold_hours: Some(6.5),
+    };
+
+    let json = serde_json::to_value(&result).expect("serialize dynamic allocation metrics");
+
+    assert_eq!(json["allocation_curve"][0]["timestamp_ms"], 1_700_000_000_000_i64);
+    assert_eq!(json["allocation_curve"][0]["symbol"], "BTCUSDT");
+    assert_eq!(json["allocation_curve"][0]["long_weight_pct"], 65.0);
+    assert_eq!(json["allocation_curve"][0]["short_weight_pct"], 35.0);
+    assert_eq!(json["allocation_curve"][0]["action"], "rebalance");
+    assert_eq!(json["allocation_curve"][0]["reason"], "trend_shift");
+    assert_eq!(json["allocation_curve"][0]["in_cooldown"], false);
+    assert_eq!(json["regime_timeline"][0]["btc_regime"], "uptrend");
+    assert_eq!(json["regime_timeline"][0]["symbol_regime"], "high_volatility");
+    assert_eq!(json["regime_timeline"][0]["extreme_risk"], true);
+    assert_eq!(json["cost_summary"]["fee_quote"], 1.25);
+    assert_eq!(json["cost_summary"]["slippage_quote"], 0.5);
+    assert_eq!(json["cost_summary"]["stop_loss_quote"], 2.0);
+    assert_eq!(json["cost_summary"]["forced_exit_quote"], 3.0);
+    assert_eq!(json["rebalance_count"], 4);
+    assert_eq!(json["forced_exit_count"], 2);
+    assert_eq!(json["average_allocation_hold_hours"], 6.5);
+}
+
+#[test]
 fn trade_refinement_preserves_same_timestamp_trade_order() {
     let result = run_trade_refinement(
         spot_portfolio("BTCUSDT"),
@@ -300,6 +368,12 @@ fn result(
         events: Vec::new(),
         equity_curve: Vec::new(),
         rejection_reasons,
+        allocation_curve: Vec::new(),
+        regime_timeline: Vec::new(),
+        cost_summary: CostSummary::default(),
+        rebalance_count: 0,
+        forced_exit_count: 0,
+        average_allocation_hold_hours: None,
     }
 }
 

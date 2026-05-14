@@ -12,7 +12,8 @@ use crate::martingale::exit_rules::{
     evaluate_exit_priority, take_profit_price, weighted_average_entry, ExitDecision,
 };
 use crate::martingale::metrics::{
-    EquityPoint, MartingaleBacktestEvent, MartingaleBacktestResult, MartingaleMetrics,
+    CostSummary, EquityPoint, MartingaleBacktestEvent, MartingaleBacktestResult,
+    MartingaleMetrics,
 };
 use crate::martingale::rules::{compute_leg_notionals, compute_leg_trigger_prices};
 use crate::martingale::state::MartingaleLegState;
@@ -326,6 +327,12 @@ pub fn run_kline_screening(
         events,
         equity_curve,
         rejection_reasons,
+        allocation_curve: Vec::new(),
+        regime_timeline: Vec::new(),
+        cost_summary: CostSummary::default(),
+        rebalance_count: 0,
+        forced_exit_count: 0,
+        average_allocation_hold_hours: None,
     })
 }
 
@@ -593,6 +600,12 @@ fn rejected_result(rejection_reasons: Vec<String>) -> MartingaleBacktestResult {
         events: Vec::new(),
         equity_curve: Vec::new(),
         rejection_reasons,
+        allocation_curve: Vec::new(),
+        regime_timeline: Vec::new(),
+        cost_summary: CostSummary::default(),
+        rebalance_count: 0,
+        forced_exit_count: 0,
+        average_allocation_hold_hours: None,
     }
 }
 
