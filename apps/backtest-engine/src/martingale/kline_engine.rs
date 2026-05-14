@@ -2,8 +2,9 @@ use std::collections::BTreeMap;
 
 use rust_decimal::prelude::ToPrimitive;
 use shared_domain::martingale::{
-    MartingaleDirection, MartingaleEntryTrigger, MartingalePortfolioConfig,
-    MartingaleStopLossModel, MartingaleStrategyConfig, MartingaleTakeProfitModel,
+    MartingaleDirection, MartingaleDirectionMode, MartingaleEntryTrigger, MartingaleMarketKind,
+    MartingalePortfolioConfig, MartingaleStopLossModel, MartingaleStrategyConfig,
+    MartingaleTakeProfitModel,
 };
 
 use crate::indicators::{adx, atr, bollinger, ema, rsi, sma, IndicatorCandle};
@@ -11,9 +12,12 @@ use crate::market_data::KlineBar;
 use crate::martingale::exit_rules::{
     evaluate_exit_priority, take_profit_price, weighted_average_entry, ExitDecision,
 };
+use crate::martingale::allocation::{decide_allocation, AllocationConfig, AllocationState};
 use crate::martingale::metrics::{
-    EquityPoint, MartingaleBacktestEvent, MartingaleBacktestResult, MartingaleMetrics,
+    AllocationAction, CostSummary, EquityPoint, MartingaleBacktestEvent, MartingaleBacktestResult,
+    MartingaleMetrics, MarketRegimeLabel, RegimeTimelinePoint,
 };
+use crate::martingale::regime::{classify_regime, RegimeConfig};
 use crate::martingale::rules::{compute_leg_notionals, compute_leg_trigger_prices};
 use crate::martingale::state::MartingaleLegState;
 
@@ -51,6 +55,18 @@ pub fn run_kline_screening(
     let mut max_drawdown_pct = 0.0_f64;
     let mut latest_close_by_symbol = BTreeMap::new();
     let mut indicator_context = IndicatorRuntimeContext::default();
+    let dynamic_allocation_enabled = portfolio.direction_mode == MartingaleDirectionMode::LongAndShort;
+    let allocation_config = AllocationConfig::balanced();
+    let regime_config = RegimeConfig::default();
+    let mut allocation_states: BTreeMap<String, AllocationState> = BTreeMap::new();
+    let mut allocation_gates: BTreeMap<String, AllocationGate> = BTreeMap::new();
+    let mut allocation_curve = Vec::new();
+    let mut regime_timeline = Vec::new();
+    let mut cost_summary = CostSummary::default();
+    let mut rebalance_count = 0_u64;
+    let mut forced_exit_count = 0_u64;
+    let mut allocation_hold_ms_total = 0_i64;
+    let mut allocation_hold_segments = 0_u64;
 
     let mut bar_index = 0;
     while bar_index < bars.len() {
@@ -64,6 +80,117 @@ pub fn run_kline_screening(
         }
         let group = &bars[group_start..bar_index];
 
+        if dynamic_allocation_enabled {
+            let symbols = group_symbols(group);
+            for symbol in symbols {
+                let Some(symbol_regime) = classify_symbol_regime(
+                    &indicator_context,
+                    &symbol,
+                    &regime_config,
+                ) else {
+                    continue;
+                };
+                let btc_symbol = if indicator_context.has_symbol("BTCUSDT") {
+                    "BTCUSDT"
+                } else {
+                    &symbol
+                };
+                let btc_regime = classify_symbol_regime(
+                    &indicator_context,
+                    btc_symbol,
+                    &regime_config,
+                )
+                .unwrap_or(symbol_regime.clone());
+                let adverse_loss_pct = adverse_direction_loss_pct(
+                    &strategy_states,
+                    &latest_close_by_symbol,
+                    &symbol,
+                )?;
+                let allocation_state = allocation_states.entry(symbol.clone()).or_default();
+                let decision = decide_allocation(
+                    timestamp_ms,
+                    &symbol,
+                    btc_regime.clone(),
+                    symbol_regime.clone(),
+                    adverse_loss_pct,
+                    &allocation_config,
+                    allocation_state,
+                );
+
+                regime_timeline.push(RegimeTimelinePoint {
+                    timestamp_ms,
+                    symbol: symbol.clone(),
+                    btc_regime,
+                    symbol_regime,
+                    extreme_risk: decision.force_exit_long || decision.force_exit_short,
+                });
+                allocation_curve.push(decision.point.clone());
+
+                if decision.action != AllocationAction::None {
+                    if let Some(last_change_ms) = allocation_state.last_change_ms {
+                        allocation_hold_ms_total += timestamp_ms.saturating_sub(last_change_ms);
+                        allocation_hold_segments += 1;
+                    }
+                    allocation_state.last_change_ms = Some(timestamp_ms);
+                    allocation_state.long_weight_pct = decision.long_weight_pct;
+                    allocation_state.short_weight_pct = decision.short_weight_pct;
+                }
+
+                if matches!(
+                    decision.action,
+                    AllocationAction::Rebalance
+                        | AllocationAction::DirectionOrdersCancelled
+                        | AllocationAction::DirectionForcedExit
+                ) {
+                    rebalance_count += 1;
+                }
+
+                if decision.action == AllocationAction::DirectionForcedExit {
+                    let close_price = latest_close_by_symbol.get(&symbol).copied();
+                    if decision.force_exit_long {
+                        forced_exit_count += force_exit_direction(
+                            &mut strategy_states,
+                            &symbol,
+                            MartingaleDirection::Long,
+                            timestamp_ms,
+                            close_price,
+                            &decision.point.reason,
+                            &mut events,
+                            &mut realized_pnl_quote,
+                            &mut capital_used_quote,
+                            &mut trade_count,
+                            &mut cost_summary,
+                        )?;
+                    }
+                    if decision.force_exit_short {
+                        forced_exit_count += force_exit_direction(
+                            &mut strategy_states,
+                            &symbol,
+                            MartingaleDirection::Short,
+                            timestamp_ms,
+                            close_price,
+                            &decision.point.reason,
+                            &mut events,
+                            &mut realized_pnl_quote,
+                            &mut capital_used_quote,
+                            &mut trade_count,
+                            &mut cost_summary,
+                        )?;
+                    }
+                }
+
+                allocation_gates.insert(
+                    symbol,
+                    AllocationGate {
+                        long_weight_pct: decision.long_weight_pct,
+                        short_weight_pct: decision.short_weight_pct,
+                        action: decision.action,
+                        reason: decision.point.reason,
+                    },
+                );
+            }
+        }
+
         for bar in group {
             let mut state_index = 0;
             while state_index < strategy_states.len() {
@@ -75,6 +202,20 @@ pub fn run_kline_screening(
                 }
 
                 if strategy_states[state_index].legs.is_empty() {
+                    if let Some(reason) = allocation_pause_reason(
+                        &allocation_gates,
+                        &strategy_states[state_index],
+                    ) {
+                        events.push(event(
+                            bar,
+                            &strategy_states[state_index],
+                            "direction_paused",
+                            reason,
+                        ));
+                        state_index += 1;
+                        continue;
+                    }
+
                     if !entry_triggers_allow_entry(
                         &strategy_states[state_index],
                         bar,
@@ -86,7 +227,8 @@ pub fn run_kline_screening(
 
                     let notional = strategy_states[state_index].notionals[0];
                     let entry_cost = trading_cost_quote(notional);
-                    let capital_required = notional + entry_cost.total();
+                    let capital_required = notional
+                        / strategy_leverage_multiplier(strategy_states[state_index].strategy);
                     if let Some(reason) = budget_rejection_reason(
                         &portfolio,
                         &strategy_states,
@@ -127,9 +269,24 @@ pub fn run_kline_screening(
                         bar,
                         trigger_price,
                     ) {
+                        if let Some(reason) = allocation_pause_reason(
+                            &allocation_gates,
+                            &strategy_states[state_index],
+                        ) {
+                            events.push(event(
+                                bar,
+                                &strategy_states[state_index],
+                                "direction_paused",
+                                reason,
+                            ));
+                            state_index += 1;
+                            continue;
+                        }
+
                         let notional = strategy_states[state_index].notionals[next_leg_index];
                         let entry_cost = trading_cost_quote(notional);
-                        let capital_required = notional + entry_cost.total();
+                        let capital_required = notional
+                            / strategy_leverage_multiplier(strategy_states[state_index].strategy);
                         if let Some(reason) = budget_rejection_reason(
                             &portfolio,
                             &strategy_states,
@@ -311,7 +468,15 @@ pub fn run_kline_screening(
         0.0
     };
 
-    Ok(MartingaleBacktestResult::with_core(
+    let average_allocation_hold_hours = if allocation_hold_segments > 0 {
+        Some(allocation_hold_ms_total.max(0) as f64 / allocation_hold_segments as f64 / 3_600_000.0)
+    } else if !allocation_curve.is_empty() {
+        Some(0.0)
+    } else {
+        None
+    };
+
+    let mut result = MartingaleBacktestResult::with_core(
         MartingaleMetrics {
             total_return_pct: finite_or_zero(total_return_pct),
             max_drawdown_pct: finite_or_zero(max_drawdown_pct),
@@ -326,7 +491,22 @@ pub fn run_kline_screening(
         events,
         equity_curve,
         rejection_reasons,
-    ))
+    );
+    result.allocation_curve = allocation_curve;
+    result.regime_timeline = regime_timeline;
+    result.cost_summary = cost_summary;
+    result.rebalance_count = rebalance_count;
+    result.forced_exit_count = forced_exit_count;
+    result.average_allocation_hold_hours = average_allocation_hold_hours;
+    Ok(result)
+}
+
+#[derive(Debug, Clone)]
+struct AllocationGate {
+    long_weight_pct: f64,
+    short_weight_pct: f64,
+    action: AllocationAction,
+    reason: String,
 }
 
 struct StrategyRuntime<'a> {
@@ -353,6 +533,12 @@ impl<'a> StrategyRuntime<'a> {
             ));
         }
 
+        let leverage = strategy_leverage_multiplier(strategy);
+        let notionals = notionals
+            .into_iter()
+            .map(|margin_quote| margin_quote * leverage)
+            .collect();
+
         Ok(Self {
             strategy,
             trigger_prices: Vec::new(),
@@ -372,14 +558,10 @@ impl<'a> StrategyRuntime<'a> {
         (next < self.notionals.len()).then_some(next)
     }
 
-    fn capital_used_quote(&self) -> f64 {
-        self.legs.iter().map(|leg| leg.notional_quote).sum()
-    }
-
     fn active_capital_used_quote(&self) -> f64 {
         self.legs
             .iter()
-            .map(|leg| leg.notional_quote + leg.fee_quote + leg.slippage_quote)
+            .map(|leg| leg_margin_quote(self.strategy, leg))
             .sum()
     }
 
@@ -425,6 +607,17 @@ fn add_leg(
         slippage_quote: entry_cost.slippage_quote,
     });
     Ok(())
+}
+
+fn strategy_leverage_multiplier(strategy: &MartingaleStrategyConfig) -> f64 {
+    match strategy.market {
+        MartingaleMarketKind::UsdMFutures => strategy.leverage.unwrap_or(1).max(1) as f64,
+        MartingaleMarketKind::Spot => 1.0,
+    }
+}
+
+fn leg_margin_quote(strategy: &MartingaleStrategyConfig, leg: &MartingaleLegState) -> f64 {
+    leg.notional_quote / strategy_leverage_multiplier(strategy)
 }
 
 fn portfolio_budget_quote(portfolio: &MartingalePortfolioConfig) -> Result<f64, String> {
@@ -606,6 +799,139 @@ fn reject_budget(
     rejection_reasons.push(reason.clone());
     events.push(event(bar, state, "rejected", reason));
     state.new_legs_blocked = true;
+}
+
+fn group_symbols(group: &[KlineBar]) -> Vec<String> {
+    let mut symbols = Vec::new();
+    for bar in group {
+        if !symbols.iter().any(|symbol| symbol == &bar.symbol) {
+            symbols.push(bar.symbol.clone());
+        }
+    }
+    symbols
+}
+
+fn classify_symbol_regime(
+    indicator_context: &IndicatorRuntimeContext,
+    symbol: &str,
+    config: &RegimeConfig,
+) -> Option<MarketRegimeLabel> {
+    indicator_context
+        .bars_by_symbol
+        .get(symbol)
+        .and_then(|bars| classify_regime(bars, config).ok())
+        .map(|snapshot| snapshot.label)
+}
+
+fn allocation_pause_reason(
+    gates: &BTreeMap<String, AllocationGate>,
+    state: &StrategyRuntime<'_>,
+) -> Option<String> {
+    let gate = gates.get(&state.strategy.symbol)?;
+    let weight = match state.strategy.direction {
+        MartingaleDirection::Long => gate.long_weight_pct,
+        MartingaleDirection::Short => gate.short_weight_pct,
+    };
+    if weight <= 0.0 || gate.action == AllocationAction::DirectionPaused {
+        Some(format!(
+            "direction={:?};weight_pct={weight};action={:?};reason={}",
+            state.strategy.direction, gate.action, gate.reason
+        ))
+    } else {
+        None
+    }
+}
+
+fn adverse_direction_loss_pct(
+    states: &[StrategyRuntime<'_>],
+    latest_close_by_symbol: &BTreeMap<String, f64>,
+    symbol: &str,
+) -> Result<f64, String> {
+    let mut worst_loss_pct = 0.0_f64;
+    for state in states.iter().filter(|state| state.strategy.symbol == symbol) {
+        if state.legs.is_empty() {
+            continue;
+        }
+        let Some(close_price) = latest_close_by_symbol.get(symbol).copied() else {
+            continue;
+        };
+        let invested = state.active_capital_used_quote();
+        if invested <= 0.0 {
+            continue;
+        }
+        let gross_pnl = close_pnl(state.strategy.direction, &state.legs, close_price)?;
+        let net_pnl = gross_pnl - entry_cost_quote(&state.legs) - exit_cost_quote(&state.legs, close_price).total();
+        let loss_pct = (-net_pnl).max(0.0) / invested * 100.0;
+        if loss_pct.is_finite() {
+            worst_loss_pct = worst_loss_pct.max(loss_pct);
+        }
+    }
+    Ok(worst_loss_pct)
+}
+
+fn force_exit_direction(
+    states: &mut [StrategyRuntime<'_>],
+    symbol: &str,
+    direction: MartingaleDirection,
+    timestamp_ms: i64,
+    close_price: Option<f64>,
+    reason: &str,
+    events: &mut Vec<MartingaleBacktestEvent>,
+    realized_pnl_quote: &mut f64,
+    capital_used_quote: &mut f64,
+    trade_count: &mut u64,
+    cost_summary: &mut CostSummary,
+) -> Result<u64, String> {
+    let Some(close_price) = close_price else {
+        return Ok(0);
+    };
+    validate_positive_f64("forced_exit.close_price", close_price)?;
+    let mut count = 0_u64;
+
+    for state in states.iter_mut().filter(|state| {
+        state.strategy.symbol == symbol && state.strategy.direction == direction && !state.legs.is_empty()
+    }) {
+        let close_gross_pnl = close_pnl(state.strategy.direction, &state.legs, close_price)?;
+        let entry_cost = entry_cost_quote(&state.legs);
+        let exit_cost = exit_cost_quote(&state.legs, close_price);
+        let exit_total = exit_cost.total();
+        let pnl = close_gross_pnl - entry_cost - exit_total;
+        let active_capital = state.active_capital_used_quote();
+
+        *realized_pnl_quote += pnl;
+        *capital_used_quote -= active_capital;
+        if *capital_used_quote < 0.0 && capital_used_quote.abs() < 1.0e-9 {
+            *capital_used_quote = 0.0;
+        }
+        state.realized_pnl_quote += pnl;
+        cost_summary.fee_quote += entry_cost + exit_cost.fee_quote;
+        cost_summary.slippage_quote += exit_cost.slippage_quote;
+        cost_summary.forced_exit_quote += exit_total;
+        *trade_count += 1;
+        count += 1;
+
+        let bar = KlineBar {
+            symbol: symbol.to_string(),
+            open_time_ms: timestamp_ms,
+            open: close_price,
+            high: close_price,
+            low: close_price,
+            close: close_price,
+            volume: 0.0,
+        };
+        events.push(event(
+            &bar,
+            state,
+            "direction_forced_exit",
+            format!(
+                "direction={direction:?};price={close_price};pnl_quote={pnl};entry_cost_quote={entry_cost};exit_fee_quote={};exit_slippage_quote={};reason={reason}",
+                exit_cost.fee_quote, exit_cost.slippage_quote
+            ),
+        ));
+        state.reset_cycle(timestamp_ms);
+    }
+
+    Ok(count)
 }
 
 fn event(
@@ -880,7 +1206,7 @@ fn triggered_stop(
             ..StopSignal::default()
         }),
         MartingaleStopLossModel::StrategyDrawdownPct { pct_bps } => {
-            let invested = state.capital_used_quote();
+            let invested = state.active_capital_used_quote();
             if invested <= 0.0 {
                 return Ok(StopSignal::default());
             }
@@ -1022,6 +1348,10 @@ struct IndicatorRuntimeContext {
 }
 
 impl IndicatorRuntimeContext {
+    fn has_symbol(&self, symbol: &str) -> bool {
+        self.bars_by_symbol.contains_key(symbol)
+    }
+
     fn push_bar(&mut self, bar: &KlineBar) {
         self.bars_by_symbol
             .entry(bar.symbol.clone())
@@ -1445,10 +1775,10 @@ fn finite_or_zero(value: f64) -> f64 {
 mod tests {
     use rust_decimal::Decimal;
     use shared_domain::martingale::{
-        MartingaleDirection, MartingaleDirectionMode, MartingaleEntryTrigger, MartingaleMarketKind,
-        MartingalePortfolioConfig, MartingaleRiskLimits, MartingaleSizingModel,
-        MartingaleSpacingModel, MartingaleStopLossModel, MartingaleStrategyConfig,
-        MartingaleTakeProfitModel,
+        MartingaleDirection, MartingaleDirectionMode, MartingaleEntryTrigger, MartingaleMarginMode,
+        MartingaleMarketKind, MartingalePortfolioConfig, MartingaleRiskLimits,
+        MartingaleSizingModel, MartingaleSpacingModel, MartingaleStopLossModel,
+        MartingaleStrategyConfig, MartingaleTakeProfitModel,
     };
 
     use crate::market_data::KlineBar;
@@ -1573,7 +1903,7 @@ mod tests {
         assert!(result.metrics.survival_passed);
         assert_eq!(result.metrics.trade_count, 3);
         assert_eq!(result.metrics.stop_count, 0);
-        assert!(result.metrics.max_capital_used_quote > 300.0);
+        assert!(result.metrics.max_capital_used_quote >= 300.0);
         assert!(result.metrics.total_return_pct > 0.0);
         assert!(result.rejection_reasons.is_empty());
         assert!(result
@@ -1588,12 +1918,74 @@ mod tests {
     }
 
     #[test]
+    fn futures_leverage_uses_margin_as_capital_and_notional_for_pnl() {
+        let mut portfolio = single_strategy_portfolio(10);
+        portfolio.strategies[0].market = MartingaleMarketKind::UsdMFutures;
+        portfolio.strategies[0].margin_mode = Some(MartingaleMarginMode::Isolated);
+        portfolio.strategies[0].leverage = Some(2);
+        portfolio.strategies[0].sizing = MartingaleSizingModel::CustomSequence {
+            notionals: vec![Decimal::new(10, 0)],
+        };
+        portfolio.strategies[0].take_profit = MartingaleTakeProfitModel::Percent { bps: 10_000 };
+
+        let result = run_kline_screening(
+            portfolio,
+            &[
+                bar(1_000, 100.0, 100.0, 100.0, 100.0),
+                bar(2_000, 100.0, 110.0, 100.0, 110.0),
+            ],
+        )
+        .unwrap();
+
+        assert!(result.metrics.survival_passed);
+        assert!(result.metrics.max_capital_used_quote > 9.9);
+        assert!(result.metrics.max_capital_used_quote < 10.1);
+        assert!(result.metrics.total_return_pct > 18.0);
+        assert!(result.metrics.total_return_pct < 20.0);
+        assert!(result.events.iter().any(|event| {
+            event.event_type == "entry" && event.detail.contains("notional_quote=20")
+        }));
+    }
+
+    #[test]
+    fn futures_return_and_drawdown_use_total_martingale_margin_budget() {
+        let mut portfolio = single_strategy_portfolio(150);
+        portfolio.strategies[0].market = MartingaleMarketKind::UsdMFutures;
+        portfolio.strategies[0].margin_mode = Some(MartingaleMarginMode::Isolated);
+        portfolio.strategies[0].leverage = Some(2);
+        portfolio.strategies[0].sizing = MartingaleSizingModel::CustomSequence {
+            notionals: vec![
+                Decimal::new(10, 0),
+                Decimal::new(20, 0),
+                Decimal::new(40, 0),
+                Decimal::new(80, 0),
+            ],
+        };
+        portfolio.strategies[0].take_profit = MartingaleTakeProfitModel::Percent { bps: 10_000 };
+
+        let result = run_kline_screening(
+            portfolio,
+            &[
+                bar(1_000, 100.0, 100.0, 100.0, 100.0),
+                bar(2_000, 100.0, 110.0, 100.0, 110.0),
+            ],
+        )
+        .unwrap();
+
+        assert!(result.metrics.survival_passed);
+        assert!(result.metrics.max_capital_used_quote > 9.9);
+        assert!(result.metrics.max_capital_used_quote < 10.1);
+        assert!(result.metrics.total_return_pct > 1.2);
+        assert!(result.metrics.total_return_pct < 1.4);
+    }
+
+    #[test]
     fn global_budget_blocks_new_leg() {
         let result = run_kline_screening(single_strategy_portfolio(150), &falling_bars()).unwrap();
 
         assert!(!result.metrics.survival_passed);
         assert_eq!(result.metrics.trade_count, 2);
-        assert!(result.metrics.max_capital_used_quote > 100.0);
+        assert!(result.metrics.max_capital_used_quote >= 100.0);
         assert!(result.metrics.max_capital_used_quote < 101.0);
         assert!(result
             .rejection_reasons
@@ -1755,7 +2147,7 @@ mod tests {
 
         assert!(result.metrics.survival_passed);
         assert_eq!(result.metrics.trade_count, 3);
-        assert!(result.metrics.max_capital_used_quote > 300.0);
+        assert!(result.metrics.max_capital_used_quote >= 300.0);
         assert!(result.metrics.total_return_pct > 0.0);
         assert!(result
             .events
@@ -2128,7 +2520,7 @@ mod tests {
 
         let result = run_kline_screening(stop_loss_portfolio(), &bars).unwrap();
 
-        assert!(result.metrics.max_capital_used_quote > 300.0);
+        assert!(result.metrics.max_capital_used_quote >= 300.0);
         assert_eq!(result.metrics.stop_count, 1);
     }
 }

@@ -12,6 +12,7 @@ use backtest_engine::martingale::allocation::{
 };
 use backtest_engine::martingale::regime::{classify_regime, RegimeConfig};
 use backtest_engine::martingale::scoring::{score_candidate, ScoringConfig};
+use backtest_engine::martingale::kline_engine::run_kline_screening;
 use backtest_engine::martingale::trade_engine::{
     run_trade_refinement, trades_to_ordered_price_bars,
 };
@@ -20,8 +21,8 @@ use backtest_engine::time_splits::{named_stress_windows, walk_forward_windows, W
 use rust_decimal::Decimal;
 use shared_domain::martingale::{
     MartingaleDirection, MartingaleDirectionMode, MartingaleMarketKind, MartingalePortfolioConfig,
-    MartingaleRiskLimits, MartingaleSizingModel, MartingaleSpacingModel, MartingaleStrategyConfig,
-    MartingaleTakeProfitModel,
+    MartingaleMarginMode, MartingaleRiskLimits, MartingaleSizingModel, MartingaleSpacingModel,
+    MartingaleStrategyConfig, MartingaleTakeProfitModel,
 };
 
 fn kline_bar(open_time_ms: i64, open: f64, high: f64, low: f64, close: f64) -> KlineBar {
@@ -68,10 +69,80 @@ fn synthetic_range_bars() -> Vec<KlineBar> {
         .collect()
 }
 
+fn symbol_kline_bar(
+    symbol: &str,
+    open_time_ms: i64,
+    open: f64,
+    high: f64,
+    low: f64,
+    close: f64,
+) -> KlineBar {
+    KlineBar {
+        symbol: symbol.to_string(),
+        open_time_ms,
+        open,
+        high,
+        low,
+        close,
+        volume: 1.0,
+    }
+}
+
+fn dynamic_allocation_long_short_portfolio() -> MartingalePortfolioConfig {
+    let base = MartingaleStrategyConfig {
+        strategy_id: "BTCUSDT-long".to_string(),
+        symbol: "BTCUSDT".to_string(),
+        market: MartingaleMarketKind::UsdMFutures,
+        direction: MartingaleDirection::Long,
+        direction_mode: MartingaleDirectionMode::LongAndShort,
+        margin_mode: Some(MartingaleMarginMode::Cross),
+        leverage: Some(3),
+        spacing: MartingaleSpacingModel::FixedPercent { step_bps: 50 },
+        sizing: MartingaleSizingModel::CustomSequence {
+            notionals: vec![Decimal::new(100, 0), Decimal::new(200, 0)],
+        },
+        take_profit: MartingaleTakeProfitModel::Percent { bps: 9_000 },
+        stop_loss: None,
+        indicators: Vec::new(),
+        entry_triggers: Vec::new(),
+        risk_limits: MartingaleRiskLimits::default(),
+    };
+    let mut short = base.clone();
+    short.strategy_id = "BTCUSDT-short".to_string();
+    short.direction = MartingaleDirection::Short;
+
+    MartingalePortfolioConfig {
+        direction_mode: MartingaleDirectionMode::LongAndShort,
+        strategies: vec![base, short],
+        risk_limits: MartingaleRiskLimits {
+            max_global_budget_quote: Some(Decimal::new(10_000, 0)),
+            ..MartingaleRiskLimits::default()
+        },
+    }
+}
+
+fn dynamic_allocation_rising_bars() -> Vec<KlineBar> {
+    (0..80)
+        .map(|index| {
+            let open = 100.0 + index as f64;
+            let close = open + 0.8;
+            symbol_kline_bar(
+                "BTCUSDT",
+                index * 60_000,
+                open,
+                close + 0.3,
+                open - 0.2,
+                close,
+            )
+        })
+        .collect()
+}
+
 #[test]
 fn random_search_is_reproducible() {
     let space = SearchSpace {
         symbols: vec!["BTCUSDT".to_string(), "ETHUSDT".to_string()],
+        direction_mode: MartingaleDirectionMode::IndicatorSelected,
         directions: vec![MartingaleDirection::Long, MartingaleDirection::Short],
         market: None,
         margin_mode: None,
@@ -91,6 +162,35 @@ fn random_search_is_reproducible() {
     assert!(first
         .iter()
         .all(|candidate| candidate.config.validate().is_ok()));
+}
+
+#[test]
+fn long_and_short_search_builds_one_candidate_with_two_directional_legs() {
+    let space = SearchSpace {
+        symbols: vec!["BTCUSDT".to_string()],
+        direction_mode: MartingaleDirectionMode::LongAndShort,
+        directions: vec![MartingaleDirection::Long, MartingaleDirection::Short],
+        market: Some(MartingaleMarketKind::UsdMFutures),
+        margin_mode: None,
+        step_bps: vec![80, 120],
+        first_order_quote: vec![Decimal::new(10, 0)],
+        multiplier: vec![Decimal::new(2, 0)],
+        take_profit_bps: vec![80, 120],
+        leverage: vec![3],
+        max_legs: vec![4, 5],
+    };
+
+    let candidates = random_search(&space, 1, 7).expect("search");
+    let strategies = &candidates[0].config.strategies;
+
+    assert_eq!(
+        candidates[0].config.direction_mode,
+        MartingaleDirectionMode::LongAndShort
+    );
+    assert_eq!(strategies.len(), 2);
+    assert_eq!(strategies[0].direction, MartingaleDirection::Long);
+    assert_eq!(strategies[1].direction, MartingaleDirection::Short);
+    assert_ne!(strategies[0].strategy_id, strategies[1].strategy_id);
 }
 
 #[test]
@@ -313,6 +413,24 @@ fn allocation_cooldown_blocks_small_weight_flip() {
 }
 
 #[test]
+fn dynamic_allocation_forced_exit_records_costs_and_weight_curve() {
+    let result = run_kline_screening(
+        dynamic_allocation_long_short_portfolio(),
+        &dynamic_allocation_rising_bars(),
+    )
+    .expect("dynamic allocation kline backtest");
+
+    assert!(!result.allocation_curve.is_empty());
+    assert!(result.forced_exit_count > 0);
+    assert!(result.cost_summary.fee_quote > 0.0);
+    assert!(result.cost_summary.slippage_quote > 0.0);
+    assert!(result
+        .events
+        .iter()
+        .any(|event| event.event_type == "direction_forced_exit"));
+}
+
+#[test]
 fn regime_classifier_detects_strong_uptrend_and_range() {
     let config = RegimeConfig::default();
 
@@ -368,13 +486,59 @@ fn regime_classifier_rejects_invalid_or_insufficient_bars() {
 }
 
 #[test]
+fn intelligent_search_keeps_same_symbol_long_short_futures_leverage_consistent() {
+    let space = SearchSpace {
+        symbols: vec!["BTCUSDT".to_string()],
+        direction_mode: MartingaleDirectionMode::LongAndShort,
+        directions: vec![MartingaleDirection::Long, MartingaleDirection::Short],
+        market: Some(MartingaleMarketKind::UsdMFutures),
+        margin_mode: None,
+        step_bps: vec![80, 120],
+        first_order_quote: vec![Decimal::new(10, 0)],
+        multiplier: vec![Decimal::new(2, 0)],
+        take_profit_bps: vec![80, 120],
+        leverage: vec![2, 3, 4, 5, 6, 7, 8, 9, 10],
+        max_legs: vec![4, 5],
+    };
+
+    let result = intelligent_search(
+        &space,
+        &IntelligentSearchConfig {
+            seed: 7,
+            random_round_size: 4,
+            max_rounds: 3,
+            max_candidates: 12,
+            survivor_percentile: 0.5,
+            timeout: None,
+            scoring: ScoringConfig {
+                min_trade_count: 1,
+                min_data_quality_score: 0.0,
+                ..ScoringConfig::default()
+            },
+        },
+        None,
+        |candidate| {
+            candidate.config.validate()?;
+            Ok(result(true, 5.0, 5.0, 10, 0, 100.0, Vec::new()))
+        },
+    )
+    .expect("intelligent search");
+
+    assert!(!result.candidates.is_empty());
+    assert!(result
+        .candidates
+        .iter()
+        .all(|candidate| candidate.candidate.config.validate().is_ok()));
+}
+
+#[test]
 fn survival_failure_never_outranks_valid_candidate() {
-    let valid = result(true, 5.0, 4.0, 20, 1, 500.0, vec![]);
+    let valid = result(true, 5.0, 4.0, 120, 1, 500.0, vec![]);
     let failed = result(
         false,
         50.0,
         1.0,
-        20,
+        120,
         0,
         500.0,
         vec!["global_drawdown_exceeded".to_string()],
@@ -584,6 +748,19 @@ fn legacy_backtest_result_json_deserializes_dynamic_metrics_defaults() {
 }
 
 #[test]
+fn default_scoring_rejects_sparse_multi_year_trade_samples() {
+    let candidate = result(true, 8.0, 4.0, 40, 0, 500.0, vec![]);
+
+    let score = score_candidate(&candidate, &ScoringConfig::default());
+
+    assert!(!score.survival_valid);
+    assert!(score
+        .rejection_reasons
+        .iter()
+        .any(|reason| reason == "insufficient_data_quality"));
+}
+
+#[test]
 fn trade_refinement_preserves_same_timestamp_trade_order() {
     let result = run_trade_refinement(
         spot_portfolio("BTCUSDT"),
@@ -760,6 +937,7 @@ fn spot_portfolio(symbol: &str) -> MartingalePortfolioConfig {
 fn small_search_space() -> SearchSpace {
     SearchSpace {
         symbols: vec!["BTCUSDT".to_string()],
+        direction_mode: MartingaleDirectionMode::LongOnly,
         directions: vec![MartingaleDirection::Long],
         market: None,
         margin_mode: None,
