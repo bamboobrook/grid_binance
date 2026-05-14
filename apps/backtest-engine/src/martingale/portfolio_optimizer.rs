@@ -6,6 +6,7 @@ const COARSE_STEP_PCT: u32 = 10;
 const REFINEMENT_STEP_PCT: u32 = 5;
 const REFINEMENT_RADIUS_PCT: u32 = 5;
 const MIN_RETAINED_PORTFOLIOS: usize = 32;
+const MIN_SEARCH_CANDIDATES_PER_SYMBOL: usize = 10;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct OptimizerCandidate {
@@ -113,22 +114,23 @@ pub fn optimize_portfolios(
     }
 
     let filtered = eligible_candidates(candidates);
-    if !can_reach_full_weight(&filtered, config) {
+    let search_candidates = limit_search_candidates_per_symbol(&filtered, config);
+    if !can_reach_full_weight(&search_candidates, config) {
         return Ok(Vec::new());
     }
 
     let retain_limit = retained_limit(limit);
-    let coarse_weights = search_coarse_weights(&filtered, config, retain_limit);
+    let coarse_weights = search_coarse_weights(&search_candidates, config, retain_limit);
     if coarse_weights.is_empty() {
         return Ok(Vec::new());
     }
 
     let mut portfolios = BTreeMap::new();
     for weights in &coarse_weights {
-        insert_portfolio(&filtered, config, weights, &mut portfolios);
+        insert_portfolio(&search_candidates, config, weights, &mut portfolios);
     }
     refine_weights(
-        &filtered,
+        &search_candidates,
         config,
         &coarse_weights,
         retain_limit,
@@ -204,6 +206,34 @@ fn symbol_counts(candidates: &[&OptimizerCandidate]) -> HashMap<String, usize> {
 
 fn retained_limit(limit: usize) -> usize {
     limit.saturating_mul(8).max(MIN_RETAINED_PORTFOLIOS)
+}
+
+fn limit_search_candidates_per_symbol<'a>(
+    candidates: &[&'a OptimizerCandidate],
+    config: &OptimizerConfig,
+) -> Vec<&'a OptimizerCandidate> {
+    let per_symbol_budget = per_symbol_candidate_budget(config);
+    let mut symbol_counts = HashMap::<&str, usize>::new();
+    candidates
+        .iter()
+        .copied()
+        .filter(|candidate| {
+            let count = symbol_counts.entry(candidate.symbol.as_str()).or_default();
+            if *count >= per_symbol_budget {
+                return false;
+            }
+            *count += 1;
+            true
+        })
+        .collect()
+}
+
+fn per_symbol_candidate_budget(config: &OptimizerConfig) -> usize {
+    let packages_needed_for_symbol_cap =
+        (config.max_symbol_weight_pct / config.max_package_weight_pct).ceil() as usize;
+    MIN_SEARCH_CANDIDATES_PER_SYMBOL
+        .max(config.max_packages_per_symbol)
+        .max(packages_needed_for_symbol_cap)
 }
 
 fn search_coarse_weights(
@@ -549,11 +579,19 @@ fn portfolio_drawdown_pct(candidates: &[&OptimizerCandidate], weights: &[u32]) -
         return drawdown;
     }
 
-    candidates
+    let weighted_drawdown = candidates
         .iter()
         .zip(weights.iter().copied())
         .map(|(candidate, weight)| candidate.max_drawdown_pct * weight as f64 / 100.0)
-        .sum()
+        .sum::<f64>();
+    let max_active_candidate_drawdown = candidates
+        .iter()
+        .zip(weights.iter().copied())
+        .filter(|(_, weight)| *weight > 0)
+        .map(|(candidate, _)| candidate.max_drawdown_pct)
+        .fold(0.0, f64::max);
+
+    weighted_drawdown.max(max_active_candidate_drawdown)
 }
 
 fn equity_curve_drawdown_pct(candidates: &[&OptimizerCandidate], weights: &[u32]) -> Option<f64> {
@@ -617,6 +655,34 @@ fn round_weight(value: f64) -> f64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn per_symbol_search_budget_keeps_top10_beyond_final_package_cap() {
+        let candidates = (0..12)
+            .map(|index| {
+                OptimizerCandidate::new(
+                    format!("btc-{index:02}"),
+                    "BTCUSDT",
+                    100.0 - index as f64,
+                    1.0,
+                    Vec::new(),
+                )
+            })
+            .collect::<Vec<_>>();
+        let candidate_refs = candidates.iter().collect::<Vec<_>>();
+        let config = OptimizerConfig {
+            max_drawdown_pct: 100.0,
+            max_packages_per_symbol: 2,
+            max_symbol_weight_pct: 50.0,
+            max_package_weight_pct: 25.0,
+        };
+
+        let limited = limit_search_candidates_per_symbol(&candidate_refs, &config);
+
+        assert_eq!(limited.len(), MIN_SEARCH_CANDIDATES_PER_SYMBOL);
+        assert_eq!(limited[0].candidate_id, "btc-00");
+        assert_eq!(limited[9].candidate_id, "btc-09");
+    }
 
     #[test]
     fn refinement_only_expands_retained_coarse_neighbors() {

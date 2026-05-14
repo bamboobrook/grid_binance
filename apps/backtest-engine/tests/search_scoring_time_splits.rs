@@ -397,6 +397,63 @@ fn portfolio_optimizer_falls_back_to_weighted_drawdown_for_unaligned_curves() {
 }
 
 #[test]
+fn portfolio_optimizer_fallback_drawdown_is_not_below_active_candidate_drawdown() {
+    let candidates = vec![
+        OptimizerCandidate::new("btc-1", "BTCUSDT", 30.0, 50.0, vec![100.0, 200.0, 100.0]),
+        OptimizerCandidate::new("eth-1", "ETHUSDT", 25.0, 0.0, Vec::new()),
+    ];
+    let config = OptimizerConfig {
+        max_drawdown_pct: 40.0,
+        max_packages_per_symbol: 1,
+        max_symbol_weight_pct: 50.0,
+        max_package_weight_pct: 50.0,
+    };
+    let portfolios = optimize_portfolios(&candidates, &config, 10).unwrap();
+
+    assert!(portfolios.is_empty());
+}
+
+#[test]
+fn portfolio_optimizer_hot_symbol_budget_still_finds_top10_candidate_without_exploding() {
+    let mut candidates = (0..80)
+        .map(|index| {
+            OptimizerCandidate::new(
+                format!("btc-{index:02}"),
+                "BTCUSDT",
+                100.0 - index as f64,
+                1.0,
+                Vec::new(),
+            )
+        })
+        .collect::<Vec<_>>();
+    candidates.extend((0..3).map(|index| {
+        OptimizerCandidate::new(
+            format!("alt-{index}"),
+            format!("ALT{index}USDT"),
+            50.0 - index as f64,
+            1.0,
+            Vec::new(),
+        )
+    }));
+    let config = OptimizerConfig {
+        max_drawdown_pct: 100.0,
+        max_packages_per_symbol: 2,
+        max_symbol_weight_pct: 50.0,
+        max_package_weight_pct: 25.0,
+    };
+    let portfolios = optimize_portfolios(&candidates, &config, 10).unwrap();
+
+    assert!(!portfolios.is_empty());
+    assert!(portfolios.iter().all(|portfolio| {
+        portfolio.items.iter().filter(|item| item.symbol == "BTCUSDT").count() <= 2
+    }));
+    assert!(portfolios.iter().any(|portfolio| portfolio
+        .items
+        .iter()
+        .any(|item| item.candidate_id == "btc-00")));
+}
+
+#[test]
 fn portfolio_optimizer_uses_equity_curve_drawdown_when_curves_are_aligned() {
     let candidates = vec![
         OptimizerCandidate::new("btc-1", "BTCUSDT", 30.0, 80.0, vec![100.0, 110.0, 120.0]),
