@@ -56,7 +56,13 @@ async fn quota_rejects_too_many_symbols() {
         &token,
         json!({
             "strategy_type": "martingale_grid",
-            "symbols": ["BTCUSDT", "ETHUSDT", "BNBUSDT", "SOLUSDT", "ADAUSDT", "XRPUSDT"],
+            "symbols": [
+                "SYM01USDT", "SYM02USDT", "SYM03USDT", "SYM04USDT", "SYM05USDT",
+                "SYM06USDT", "SYM07USDT", "SYM08USDT", "SYM09USDT", "SYM10USDT",
+                "SYM11USDT", "SYM12USDT", "SYM13USDT", "SYM14USDT", "SYM15USDT",
+                "SYM16USDT", "SYM17USDT", "SYM18USDT", "SYM19USDT", "SYM20USDT",
+                "SYM21USDT"
+            ],
             "market": "usd_m_futures",
             "timeframe": "1h",
             "start_date": "2024-01-01",
