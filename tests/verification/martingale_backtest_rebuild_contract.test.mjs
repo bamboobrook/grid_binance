@@ -238,6 +238,24 @@ test("backtest console normalization passes dynamic martingale metrics through",
   assert.deepEqual(normalized.summary.discarded_symbols_from_portfolio_top10, ["DOGEUSDT"]);
 });
 
+test("backtest console normalization safely falls back for empty dynamic payloads", () => {
+  const { normalizeCandidate } = loadBacktestConsoleHelpers();
+  const normalized = normalizeCandidate({ summary: {} }, "zh");
+
+  assert.equal(normalized.summary.cost_summary, undefined);
+  assert.equal(normalized.summary.return_drawdown_ratio, undefined);
+  assert.equal(normalized.summary.profit_drawdown_ratio, undefined);
+  assert.equal(normalized.summary.rebalance_count, undefined);
+  assert.equal(normalized.summary.forced_exit_count, undefined);
+  assert.equal(normalized.summary.average_allocation_hold_hours, undefined);
+  assert.equal(normalized.summary.live_recommended, undefined);
+  assert.equal(normalized.summary.can_recommend_live, undefined);
+  assert.equal(normalized.summary.max_drawdown_limit_passed, undefined);
+  assert.equal(normalized.summary.discarded_symbols_from_portfolio_top10.length, 0);
+  assert.equal(normalized.summary.portfolio_top10_discarded_symbols.length, 0);
+  assert.doesNotMatch(JSON.stringify(normalized.summary), /NaN/);
+});
+
 test("backtest chart cost helpers use top-level dynamic values and avoid NaN fallbacks", () => {
   const { normalizeCostSummary, formatCost, formatCount, formatHours } = loadBacktestChartHelpers();
   const summary = normalizeCostSummary({
@@ -254,6 +272,17 @@ test("backtest chart cost helpers use top-level dynamic values and avoid NaN fal
   assert.equal(formatCount(summary.forced_exit_count), "—");
   assert.equal(formatHours(summary.average_allocation_hold_hours), "—");
   assert.doesNotMatch(`${formatCost(summary.slippage_quote)} ${formatHours(summary.average_allocation_hold_hours)}`, /NaN/);
+});
+
+test("backtest chart cost helpers safely fallback for empty cost payloads", () => {
+  const { normalizeCostSummary, formatCost, formatCount, formatHours } = loadBacktestChartHelpers();
+
+  assert.equal(normalizeCostSummary({}), undefined);
+  assert.equal(normalizeCostSummary({ cost_summary: {} }), undefined);
+  assert.equal(formatCost(normalizeCostSummary({})?.fee_quote), "—");
+  assert.equal(formatCount(normalizeCostSummary({ cost_summary: {} })?.rebalance_count), "—");
+  assert.equal(formatHours(normalizeCostSummary({})?.average_allocation_hold_hours), "—");
+  assert.doesNotMatch(`${formatCost(normalizeCostSummary({})?.fee_quote)} ${formatCount(normalizeCostSummary({ cost_summary: {} })?.rebalance_count)}`, /NaN/);
 });
 
 test("frontend has proxy route for batch portfolio publish", () => {
