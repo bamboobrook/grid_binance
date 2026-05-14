@@ -1,6 +1,12 @@
 use std::cmp::Ordering;
 use std::collections::{BTreeMap, HashMap};
 
+const TOTAL_WEIGHT_PCT: u32 = 100;
+const COARSE_STEP_PCT: u32 = 10;
+const REFINEMENT_STEP_PCT: u32 = 5;
+const REFINEMENT_RADIUS_PCT: u32 = 5;
+const MIN_RETAINED_PORTFOLIOS: usize = 32;
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct OptimizerCandidate {
     pub candidate_id: String,
@@ -107,33 +113,25 @@ pub fn optimize_portfolios(
     }
 
     let filtered = eligible_candidates(candidates, config.max_packages_per_symbol);
-    if filtered.is_empty() {
+    if !can_reach_full_weight(&filtered, config) {
         return Ok(Vec::new());
     }
 
-    let symbol_cap_is_feasible =
-        unique_symbol_count(&filtered) as f64 * config.max_symbol_weight_pct >= 100.0;
-    let package_cap = if filtered.len() as f64 * config.max_package_weight_pct >= 100.0 {
-        config.max_package_weight_pct
-    } else {
-        100.0
-    };
+    let retain_limit = retained_limit(limit);
+    let coarse_weights = search_coarse_weights(&filtered, config, retain_limit);
+    if coarse_weights.is_empty() {
+        return Ok(Vec::new());
+    }
 
     let mut portfolios = BTreeMap::new();
-    search_weights(
+    for weights in &coarse_weights {
+        insert_portfolio(&filtered, config, weights, &mut portfolios);
+    }
+    refine_weights(
         &filtered,
         config,
-        package_cap,
-        symbol_cap_is_feasible,
-        10,
-        &mut portfolios,
-    );
-    search_weights(
-        &filtered,
-        config,
-        package_cap,
-        symbol_cap_is_feasible,
-        5,
+        &coarse_weights,
+        retain_limit,
         &mut portfolios,
     );
 
@@ -176,21 +174,19 @@ fn eligible_candidates<'a>(
 
     let mut filtered = Vec::new();
     for candidates in by_symbol.values_mut() {
-        candidates.sort_by(|left, right| {
-            right
-                .total_return_pct
-                .partial_cmp(&left.total_return_pct)
-                .unwrap_or(Ordering::Equal)
-        });
+        candidates.sort_by(compare_candidates);
         filtered.extend(candidates.iter().take(max_packages_per_symbol).copied());
     }
-    filtered.sort_by(|left, right| {
-        right
-            .total_return_pct
-            .partial_cmp(&left.total_return_pct)
-            .unwrap_or(Ordering::Equal)
-    });
+    filtered.sort_by(compare_candidates);
     filtered
+}
+
+fn compare_candidates(left: &&OptimizerCandidate, right: &&OptimizerCandidate) -> Ordering {
+    right
+        .total_return_pct
+        .partial_cmp(&left.total_return_pct)
+        .unwrap_or(Ordering::Equal)
+        .then_with(|| left.candidate_id.cmp(&right.candidate_id))
 }
 
 fn is_eligible(candidate: &OptimizerCandidate) -> bool {
@@ -201,108 +197,271 @@ fn is_eligible(candidate: &OptimizerCandidate) -> bool {
         && candidate.equity_curve.iter().all(|value| value.is_finite())
 }
 
-fn unique_symbol_count(candidates: &[&OptimizerCandidate]) -> usize {
-    candidates
-        .iter()
-        .map(|candidate| candidate.symbol.as_str())
-        .collect::<std::collections::BTreeSet<_>>()
-        .len()
+fn can_reach_full_weight(candidates: &[&OptimizerCandidate], config: &OptimizerConfig) -> bool {
+    if candidates.is_empty() {
+        return false;
+    }
+    let package_capacity = candidates.len() as f64 * config.max_package_weight_pct;
+    let symbol_capacity = symbol_counts(candidates).len() as f64 * config.max_symbol_weight_pct;
+    package_capacity + f64::EPSILON >= 100.0 && symbol_capacity + f64::EPSILON >= 100.0
 }
 
-fn search_weights(
-    candidates: &[&OptimizerCandidate],
-    config: &OptimizerConfig,
-    package_cap: f64,
-    symbol_cap_is_feasible: bool,
-    step_pct: u32,
-    portfolios: &mut BTreeMap<String, PortfolioCandidate>,
-) {
-    let mut weights = vec![0_u32; candidates.len()];
-    assign_weight(
-        candidates,
-        config,
-        package_cap,
-        symbol_cap_is_feasible,
-        step_pct,
-        0,
-        100,
-        &mut weights,
-        portfolios,
-    );
+fn symbol_counts(candidates: &[&OptimizerCandidate]) -> HashMap<String, usize> {
+    let mut counts = HashMap::new();
+    for candidate in candidates {
+        *counts.entry(candidate.symbol.clone()).or_default() += 1;
+    }
+    counts
 }
 
-#[allow(clippy::too_many_arguments)]
-fn assign_weight(
+fn retained_limit(limit: usize) -> usize {
+    limit.saturating_mul(8).max(MIN_RETAINED_PORTFOLIOS)
+}
+
+fn search_coarse_weights(
     candidates: &[&OptimizerCandidate],
     config: &OptimizerConfig,
-    package_cap: f64,
-    symbol_cap_is_feasible: bool,
-    step_pct: u32,
-    index: usize,
-    remaining_pct: u32,
-    weights: &mut [u32],
+    retain_limit: usize,
+) -> Vec<Vec<u32>> {
+    let mut search = WeightSearch::new(candidates, config, COARSE_STEP_PCT, retain_limit);
+    search.run();
+    search.into_weights()
+}
+
+fn refine_weights(
+    candidates: &[&OptimizerCandidate],
+    config: &OptimizerConfig,
+    coarse_weights: &[Vec<u32>],
+    retain_limit: usize,
     portfolios: &mut BTreeMap<String, PortfolioCandidate>,
 ) {
-    if index == candidates.len() - 1 {
-        weights[index] = remaining_pct;
-        if is_valid_weight_set(
-            candidates,
-            config,
-            package_cap,
-            symbol_cap_is_feasible,
-            weights,
-        ) {
-            if let Some(portfolio) = build_portfolio(candidates, config, weights) {
-                portfolios.insert(weight_key(weights), portfolio);
+    let mut generated = BTreeMap::<String, Vec<u32>>::new();
+    for weights in coarse_weights.iter().take(retain_limit) {
+        generated.insert(weight_key(weights), weights.clone());
+        for from_index in 0..weights.len() {
+            if weights[from_index] < REFINEMENT_STEP_PCT {
+                continue;
+            }
+            for to_index in 0..weights.len() {
+                if from_index == to_index {
+                    continue;
+                }
+                let mut refined = weights.clone();
+                refined[from_index] -= REFINEMENT_STEP_PCT;
+                refined[to_index] += REFINEMENT_STEP_PCT;
+                if refined[from_index].abs_diff(weights[from_index]) > REFINEMENT_RADIUS_PCT
+                    || refined[to_index].abs_diff(weights[to_index]) > REFINEMENT_RADIUS_PCT
+                {
+                    continue;
+                }
+                if is_valid_weight_set(candidates, config, &refined) {
+                    generated.insert(weight_key(&refined), refined);
+                }
             }
         }
-        weights[index] = 0;
-        return;
     }
 
-    let max_weight = remaining_pct.min(package_cap.round() as u32);
-    let mut weight = 0;
-    while weight <= max_weight {
-        weights[index] = weight;
-        assign_weight(
+    let mut refined_weights = generated.into_values().collect::<Vec<_>>();
+    refined_weights.sort_by(|left, right| compare_weight_sets(candidates, config, left, right));
+    refined_weights.truncate(retain_limit);
+    for weights in &refined_weights {
+        insert_portfolio(candidates, config, weights, portfolios);
+    }
+}
+
+struct WeightSearch<'a> {
+    candidates: &'a [&'a OptimizerCandidate],
+    config: &'a OptimizerConfig,
+    step_pct: u32,
+    retain_limit: usize,
+    max_package_weight_pct: u32,
+    max_symbol_weight_pct: u32,
+    weights: Vec<u32>,
+    symbol_weights: HashMap<&'a str, u32>,
+    symbol_packages: HashMap<&'a str, usize>,
+    best_weights: Vec<Vec<u32>>,
+}
+
+impl<'a> WeightSearch<'a> {
+    fn new(
+        candidates: &'a [&'a OptimizerCandidate],
+        config: &'a OptimizerConfig,
+        step_pct: u32,
+        retain_limit: usize,
+    ) -> Self {
+        Self {
             candidates,
             config,
-            package_cap,
-            symbol_cap_is_feasible,
             step_pct,
-            index + 1,
-            remaining_pct - weight,
-            weights,
-            portfolios,
-        );
+            retain_limit,
+            max_package_weight_pct: config.max_package_weight_pct.floor() as u32,
+            max_symbol_weight_pct: config.max_symbol_weight_pct.floor() as u32,
+            weights: vec![0; candidates.len()],
+            symbol_weights: HashMap::new(),
+            symbol_packages: HashMap::new(),
+            best_weights: Vec::new(),
+        }
+    }
+
+    fn run(&mut self) {
+        self.assign(0, TOTAL_WEIGHT_PCT);
+    }
+
+    fn into_weights(self) -> Vec<Vec<u32>> {
+        self.best_weights
+    }
+
+    fn assign(&mut self, index: usize, remaining_pct: u32) {
+        if index == self.candidates.len() {
+            if remaining_pct == 0 {
+                self.push_current();
+            }
+            return;
+        }
+
+        if !self.remaining_capacity_can_fill(index, remaining_pct) {
+            return;
+        }
+
+        let candidate = self.candidates[index];
+        let current_symbol_weight = self
+            .symbol_weights
+            .get(candidate.symbol.as_str())
+            .copied()
+            .unwrap_or_default();
+        let symbol_room = self
+            .max_symbol_weight_pct
+            .saturating_sub(current_symbol_weight);
+        let max_weight = remaining_pct
+            .min(self.max_package_weight_pct)
+            .min(symbol_room);
+
+        for weight in stepped_weights(max_weight, self.step_pct) {
+            if remaining_pct < weight {
+                break;
+            }
+            if self.can_assign(candidate, weight) {
+                self.apply_weight(candidate, weight);
+                self.weights[index] = weight;
+                self.assign(index + 1, remaining_pct - weight);
+                self.weights[index] = 0;
+                self.remove_weight(candidate, weight);
+            }
+        }
+    }
+
+    fn remaining_capacity_can_fill(&self, index: usize, remaining_pct: u32) -> bool {
+        let mut total_capacity = 0_u32;
+        let mut symbol_capacity = self.symbol_weights.clone();
+        for candidate in &self.candidates[index..] {
+            let symbol = candidate.symbol.as_str();
+            let symbol_room = self
+                .max_symbol_weight_pct
+                .saturating_sub(symbol_capacity.get(symbol).copied().unwrap_or_default());
+            let capacity = self.max_package_weight_pct.min(symbol_room);
+            if capacity > 0 {
+                total_capacity += capacity;
+                *symbol_capacity.entry(symbol).or_default() += capacity;
+            }
+        }
+        total_capacity >= remaining_pct
+    }
+
+    fn can_assign(&self, candidate: &OptimizerCandidate, weight: u32) -> bool {
+        if weight == 0 {
+            return true;
+        }
+        let symbol = candidate.symbol.as_str();
+        let package_count = self
+            .symbol_packages
+            .get(symbol)
+            .copied()
+            .unwrap_or_default();
+        let symbol_weight = self.symbol_weights.get(symbol).copied().unwrap_or_default();
+        package_count < self.config.max_packages_per_symbol
+            && symbol_weight + weight <= self.max_symbol_weight_pct
+            && weight <= self.max_package_weight_pct
+    }
+
+    fn apply_weight(&mut self, candidate: &'a OptimizerCandidate, weight: u32) {
+        if weight == 0 {
+            return;
+        }
+        *self
+            .symbol_weights
+            .entry(candidate.symbol.as_str())
+            .or_default() += weight;
+        *self
+            .symbol_packages
+            .entry(candidate.symbol.as_str())
+            .or_default() += 1;
+    }
+
+    fn remove_weight(&mut self, candidate: &'a OptimizerCandidate, weight: u32) {
+        if weight == 0 {
+            return;
+        }
+        let symbol = candidate.symbol.as_str();
+        if let Some(symbol_weight) = self.symbol_weights.get_mut(symbol) {
+            *symbol_weight -= weight;
+            if *symbol_weight == 0 {
+                self.symbol_weights.remove(symbol);
+            }
+        }
+        if let Some(package_count) = self.symbol_packages.get_mut(symbol) {
+            *package_count -= 1;
+            if *package_count == 0 {
+                self.symbol_packages.remove(symbol);
+            }
+        }
+    }
+
+    fn push_current(&mut self) {
+        if !is_valid_weight_set(self.candidates, self.config, &self.weights) {
+            return;
+        }
+        if build_portfolio(self.candidates, self.config, &self.weights).is_none() {
+            return;
+        }
+        self.best_weights.push(self.weights.clone());
+        self.best_weights
+            .sort_by(|left, right| compare_weight_sets(self.candidates, self.config, left, right));
+        self.best_weights.dedup();
+        self.best_weights.truncate(self.retain_limit);
+    }
+}
+
+fn stepped_weights(max_weight: u32, step_pct: u32) -> Vec<u32> {
+    let mut weights = Vec::new();
+    let mut weight = 0;
+    while weight <= max_weight {
+        weights.push(weight);
         weight += step_pct;
     }
-    weights[index] = 0;
+    if weights.last().copied() != Some(max_weight) {
+        weights.push(max_weight);
+    }
+    weights
 }
 
 fn is_valid_weight_set(
     candidates: &[&OptimizerCandidate],
     config: &OptimizerConfig,
-    package_cap: f64,
-    symbol_cap_is_feasible: bool,
     weights: &[u32],
 ) -> bool {
+    if weights.iter().sum::<u32>() != TOTAL_WEIGHT_PCT {
+        return false;
+    }
+
     let mut symbol_weights: HashMap<&str, f64> = HashMap::new();
     let mut symbol_packages: HashMap<&str, usize> = HashMap::new();
-    let mut available_packages: HashMap<&str, usize> = HashMap::new();
-
-    for candidate in candidates {
-        *available_packages
-            .entry(candidate.symbol.as_str())
-            .or_default() += 1;
-    }
 
     for (candidate, weight) in candidates.iter().zip(weights.iter().copied()) {
         if weight == 0 {
             continue;
         }
         let weight = weight as f64;
-        if weight > package_cap + f64::EPSILON {
+        if weight > config.max_package_weight_pct + f64::EPSILON {
             return false;
         }
         *symbol_weights.entry(candidate.symbol.as_str()).or_default() += weight;
@@ -312,13 +471,10 @@ fn is_valid_weight_set(
     }
 
     for (symbol, weight) in &symbol_weights {
-        let package_count = symbol_packages.get(symbol).copied().unwrap_or_default();
-        let available_package_count = available_packages.get(symbol).copied().unwrap_or_default();
-        if package_count > config.max_packages_per_symbol {
+        if *weight > config.max_symbol_weight_pct + f64::EPSILON {
             return false;
         }
-        if (symbol_cap_is_feasible || available_package_count > 1)
-            && *weight > config.max_symbol_weight_pct + f64::EPSILON
+        if symbol_packages.get(symbol).copied().unwrap_or_default() > config.max_packages_per_symbol
         {
             return false;
         }
@@ -327,11 +483,43 @@ fn is_valid_weight_set(
     true
 }
 
+fn compare_weight_sets(
+    candidates: &[&OptimizerCandidate],
+    config: &OptimizerConfig,
+    left: &[u32],
+    right: &[u32],
+) -> Ordering {
+    match (
+        build_portfolio(candidates, config, left),
+        build_portfolio(candidates, config, right),
+    ) {
+        (Some(left), Some(right)) => compare_portfolios(&left, &right),
+        (Some(_), None) => Ordering::Less,
+        (None, Some(_)) => Ordering::Greater,
+        (None, None) => left.cmp(right),
+    }
+}
+
+fn insert_portfolio(
+    candidates: &[&OptimizerCandidate],
+    config: &OptimizerConfig,
+    weights: &[u32],
+    portfolios: &mut BTreeMap<String, PortfolioCandidate>,
+) {
+    if let Some(portfolio) = build_portfolio(candidates, config, weights) {
+        portfolios.insert(weight_key(weights), portfolio);
+    }
+}
+
 fn build_portfolio(
     candidates: &[&OptimizerCandidate],
     config: &OptimizerConfig,
     weights: &[u32],
 ) -> Option<PortfolioCandidate> {
+    if !is_valid_weight_set(candidates, config, weights) {
+        return None;
+    }
+
     let items = candidates
         .iter()
         .zip(weights.iter().copied())
@@ -384,7 +572,7 @@ fn equity_curve_drawdown_pct(candidates: &[&OptimizerCandidate], weights: &[u32]
     let active = candidates
         .iter()
         .zip(weights.iter().copied())
-        .filter(|(candidate, weight)| *weight > 0 && !candidate.equity_curve.is_empty())
+        .filter(|(_, weight)| *weight > 0)
         .collect::<Vec<_>>();
     if active.is_empty() {
         return None;

@@ -269,6 +269,11 @@ fn portfolio_optimizer_can_drop_bad_symbols_and_caps_same_symbol() {
         OptimizerCandidate::new("btc-2", "BTCUSDT", 55.0, 13.0, vec![100.0, 108.0, 116.0]),
         OptimizerCandidate::new("btc-3", "BTCUSDT", 52.0, 14.0, vec![100.0, 107.0, 114.0]),
         OptimizerCandidate::new("eth-1", "ETHUSDT", 40.0, 10.0, vec![100.0, 106.0, 112.0]),
+        OptimizerCandidate::new("sol-1", "SOLUSDT", 38.0, 10.0, vec![100.0, 105.0, 111.0]),
+        OptimizerCandidate::new("bnb-1", "BNBUSDT", 35.0, 9.0, vec![100.0, 104.0, 110.0]),
+        OptimizerCandidate::new("ada-1", "ADAUSDT", 32.0, 8.0, vec![100.0, 103.0, 108.0]),
+        OptimizerCandidate::new("xrp-1", "XRPUSDT", 30.0, 8.0, vec![100.0, 103.0, 107.0]),
+        OptimizerCandidate::new("link-1", "LINKUSDT", 28.0, 7.0, vec![100.0, 102.0, 106.0]),
         OptimizerCandidate::new("doge-1", "DOGEUSDT", -5.0, 30.0, vec![100.0, 95.0, 90.0]),
     ];
     let config = OptimizerConfig::balanced(25.0);
@@ -278,6 +283,112 @@ fn portfolio_optimizer_can_drop_bad_symbols_and_caps_same_symbol() {
     assert!(best.weight_by_symbol("BTCUSDT") <= 35.0);
     assert_eq!(best.total_weight_pct(), 100.0);
     assert!(best.max_drawdown_pct <= 25.0);
+}
+
+#[test]
+fn portfolio_optimizer_enforces_package_and_symbol_caps_as_hard_limits() {
+    let candidates = vec![
+        OptimizerCandidate::new("btc-1", "BTCUSDT", 60.0, 10.0, vec![100.0, 110.0]),
+        OptimizerCandidate::new("eth-1", "ETHUSDT", 50.0, 10.0, vec![100.0, 108.0]),
+        OptimizerCandidate::new("sol-1", "SOLUSDT", 40.0, 10.0, vec![100.0, 106.0]),
+    ];
+    let portfolios =
+        optimize_portfolios(&candidates, &OptimizerConfig::balanced(25.0), 10).unwrap();
+
+    assert!(portfolios.is_empty());
+
+    let same_symbol_candidates = vec![
+        OptimizerCandidate::new("btc-1", "BTCUSDT", 60.0, 10.0, vec![100.0, 110.0]),
+        OptimizerCandidate::new("btc-2", "BTCUSDT", 55.0, 10.0, vec![100.0, 108.0]),
+        OptimizerCandidate::new("eth-1", "ETHUSDT", 40.0, 10.0, vec![100.0, 106.0]),
+        OptimizerCandidate::new("eth-2", "ETHUSDT", 35.0, 10.0, vec![100.0, 105.0]),
+    ];
+    let symbol_capped = OptimizerConfig {
+        max_drawdown_pct: 25.0,
+        max_packages_per_symbol: 2,
+        max_symbol_weight_pct: 35.0,
+        max_package_weight_pct: 50.0,
+    };
+    assert!(
+        optimize_portfolios(&same_symbol_candidates, &symbol_capped, 10)
+            .unwrap()
+            .is_empty()
+    );
+}
+
+#[test]
+fn portfolio_optimizer_filters_non_finite_candidates() {
+    let candidates = vec![
+        OptimizerCandidate::new("bad-return", "BAD1USDT", f64::NAN, 1.0, vec![100.0, 101.0]),
+        OptimizerCandidate::new(
+            "bad-drawdown",
+            "BAD2USDT",
+            10.0,
+            f64::INFINITY,
+            vec![100.0, 101.0],
+        ),
+        OptimizerCandidate::new("bad-curve", "BAD3USDT", 10.0, 1.0, vec![100.0, f64::NAN]),
+        OptimizerCandidate::new("btc-1", "BTCUSDT", 30.0, 5.0, vec![100.0, 105.0]),
+        OptimizerCandidate::new("eth-1", "ETHUSDT", 25.0, 5.0, vec![100.0, 104.0]),
+    ];
+    let config = OptimizerConfig {
+        max_drawdown_pct: 25.0,
+        max_packages_per_symbol: 1,
+        max_symbol_weight_pct: 50.0,
+        max_package_weight_pct: 50.0,
+    };
+    let portfolios = optimize_portfolios(&candidates, &config, 10).unwrap();
+    let best = &portfolios[0];
+
+    assert!(best
+        .items
+        .iter()
+        .all(|item| !item.candidate_id.starts_with("bad")));
+    assert_eq!(best.total_weight_pct(), 100.0);
+}
+
+#[test]
+fn portfolio_optimizer_falls_back_to_weighted_drawdown_for_unaligned_curves() {
+    let candidates = vec![
+        OptimizerCandidate::new("btc-1", "BTCUSDT", 30.0, 20.0, vec![100.0, 110.0]),
+        OptimizerCandidate::new("eth-1", "ETHUSDT", 25.0, 20.0, Vec::new()),
+    ];
+    let config = OptimizerConfig {
+        max_drawdown_pct: 10.0,
+        max_packages_per_symbol: 1,
+        max_symbol_weight_pct: 50.0,
+        max_package_weight_pct: 50.0,
+    };
+    let portfolios = optimize_portfolios(&candidates, &config, 10).unwrap();
+
+    assert!(portfolios.is_empty());
+}
+
+#[test]
+fn portfolio_optimizer_sorts_by_ratio_then_return() {
+    let candidates = vec![
+        OptimizerCandidate::new("steady-high", "BTCUSDT", 20.0, 5.0, Vec::new()),
+        OptimizerCandidate::new("steady-low", "ETHUSDT", 10.0, 5.0, Vec::new()),
+        OptimizerCandidate::new("volatile-high", "SOLUSDT", 50.0, 20.0, Vec::new()),
+        OptimizerCandidate::new("volatile-low", "BNBUSDT", 45.0, 20.0, Vec::new()),
+    ];
+    let config = OptimizerConfig {
+        max_drawdown_pct: 30.0,
+        max_packages_per_symbol: 1,
+        max_symbol_weight_pct: 50.0,
+        max_package_weight_pct: 50.0,
+    };
+    let portfolios = optimize_portfolios(&candidates, &config, 10).unwrap();
+
+    assert_eq!(
+        portfolios[0]
+            .items
+            .iter()
+            .map(|item| item.candidate_id.as_str())
+            .collect::<Vec<_>>(),
+        vec!["steady-high", "steady-low"]
+    );
+    assert!(portfolios[0].return_drawdown_ratio > portfolios[1].return_drawdown_ratio);
 }
 
 #[test]
