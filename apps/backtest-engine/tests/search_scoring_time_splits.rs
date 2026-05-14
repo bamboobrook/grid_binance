@@ -7,6 +7,9 @@ use std::sync::atomic::{AtomicBool, Ordering};
 
 use backtest_engine::intelligent_search::{intelligent_search, IntelligentSearchConfig};
 use backtest_engine::market_data::{AggTrade, KlineBar};
+use backtest_engine::martingale::allocation::{
+    decide_allocation, AllocationConfig, AllocationState,
+};
 use backtest_engine::martingale::regime::{classify_regime, RegimeConfig};
 use backtest_engine::martingale::scoring::{score_candidate, ScoringConfig};
 use backtest_engine::martingale::trade_engine::{
@@ -88,6 +91,60 @@ fn random_search_is_reproducible() {
     assert!(first
         .iter()
         .all(|candidate| candidate.config.validate().is_ok()));
+}
+
+#[test]
+fn allocation_closes_short_weight_when_btc_and_symbol_are_strong_up() {
+    let config = AllocationConfig::balanced();
+    let state = AllocationState::default();
+
+    let decision = decide_allocation(
+        0,
+        "ETHUSDT",
+        MarketRegimeLabel::StrongUptrend,
+        MarketRegimeLabel::StrongUptrend,
+        0.0,
+        &config,
+        &state,
+    );
+
+    assert_eq!(decision.long_weight_pct, 100.0);
+    assert_eq!(decision.short_weight_pct, 0.0);
+    assert_eq!(decision.action, AllocationAction::DirectionForcedExit);
+    assert!(decision.force_exit_short);
+    assert!(!decision.force_exit_long);
+    assert!(!decision.in_cooldown);
+    assert_eq!(decision.point.symbol, "ETHUSDT");
+    assert!(!decision.point.reason.is_empty());
+}
+
+#[test]
+fn allocation_cooldown_blocks_small_weight_flip() {
+    let config = AllocationConfig::balanced();
+    let state = AllocationState {
+        last_change_ms: Some(0),
+        long_weight_pct: 60.0,
+        short_weight_pct: 40.0,
+    };
+
+    let decision = decide_allocation(
+        4 * 60 * 60 * 1000,
+        "ETHUSDT",
+        MarketRegimeLabel::Uptrend,
+        MarketRegimeLabel::Uptrend,
+        0.0,
+        &config,
+        &state,
+    );
+
+    assert_eq!(decision.long_weight_pct, 60.0);
+    assert_eq!(decision.short_weight_pct, 40.0);
+    assert_eq!(decision.action, AllocationAction::None);
+    assert!(decision.in_cooldown);
+    assert!(!decision.force_exit_long);
+    assert!(!decision.force_exit_short);
+    assert!(decision.point.in_cooldown);
+    assert!(!decision.point.reason.is_empty());
 }
 
 #[test]

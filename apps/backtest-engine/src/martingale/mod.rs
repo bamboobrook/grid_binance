@@ -1,3 +1,4 @@
+pub mod allocation;
 pub mod exit_rules;
 pub mod rules;
 pub mod state;
