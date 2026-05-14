@@ -189,7 +189,7 @@ fn dynamic_allocation_metrics_serialize_for_worker_artifacts() {
             long_weight_pct: 65.0,
             short_weight_pct: 35.0,
             action: AllocationAction::Rebalance,
-            reason: Some("trend_shift".to_string()),
+            reason: "btc_range_symbol_uptrend".to_string(),
             in_cooldown: false,
         }],
         regime_timeline: vec![RegimeTimelinePoint {
@@ -217,7 +217,7 @@ fn dynamic_allocation_metrics_serialize_for_worker_artifacts() {
     assert_eq!(json["allocation_curve"][0]["long_weight_pct"], 65.0);
     assert_eq!(json["allocation_curve"][0]["short_weight_pct"], 35.0);
     assert_eq!(json["allocation_curve"][0]["action"], "rebalance");
-    assert_eq!(json["allocation_curve"][0]["reason"], "trend_shift");
+    assert_eq!(json["allocation_curve"][0]["reason"], "btc_range_symbol_uptrend");
     assert_eq!(json["allocation_curve"][0]["in_cooldown"], false);
     assert_eq!(json["regime_timeline"][0]["btc_regime"], "uptrend");
     assert_eq!(json["regime_timeline"][0]["symbol_regime"], "high_volatility");

@@ -58,7 +58,7 @@ pub struct AllocationCurvePoint {
     pub long_weight_pct: f64,
     pub short_weight_pct: f64,
     pub action: AllocationAction,
-    pub reason: Option<String>,
+    pub reason: String,
     pub in_cooldown: bool,
 }
 
