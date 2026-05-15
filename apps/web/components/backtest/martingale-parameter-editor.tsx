@@ -17,7 +17,7 @@ export function MartingaleParameterEditor({ form, lang, onChange }: { form: Wiza
             <option value="aggressive">{pickText(lang, "激进", "Aggressive")}</option>
             <option value="custom">{pickText(lang, "手动", "Custom")}</option>
           </SelectField>
-          <p className="text-xs text-muted-foreground">{pickText(lang, "系统会围绕预设自动组合间距、加仓倍率、止盈、层数等参数；首单金额保持固定，用于逐仓单策略预算基准。", "The system combines spacing, multiplier, take-profit, and max-leg ranges around the preset; initial order stays fixed as the isolated per-strategy budget anchor.")}</p>
+          <p className="text-xs text-muted-foreground">{pickText(lang, "系统会围绕预设自动组合间距、加仓倍率、止盈、层数等参数。", "The system combines spacing, multiplier, take-profit, and max-leg ranges around the preset.")}</p>
         </FieldCard>
 
         <FieldCard title={pickText(lang, "市场与方向", "Market and direction")}>
@@ -44,11 +44,10 @@ export function MartingaleParameterEditor({ form, lang, onChange }: { form: Wiza
             <InputField label={pickText(lang, "最小杠杆", "Min leverage")} name="minLeverage" onChange={onChange} value={form.minLeverage} />
             <InputField label={pickText(lang, "最大杠杆", "Max leverage")} name="maxLeverage" onChange={onChange} value={form.maxLeverage} />
           </div>
-          <p className="text-xs text-muted-foreground">{pickText(lang, "合约默认逐一回测 2x-10x；首单 USDT 按保证金理解，例如首单 10U + 2x 杠杆 = 实际仓位 20U，收益率/回撤按投入保证金口径计算。", "Futures tests every leverage from 2x to 10x; Initial USDT is margin, so 10U at 2x opens 20U notional, while return/drawdown are measured against margin capital.")}</p>
         </FieldCard>
         <FieldCard title={pickText(lang, "间距与加仓", "Spacing and sizing")}>
           <div className="grid gap-3 sm:grid-cols-2">
-            <InputField label={pickText(lang, "首单保证金 USDT", "Initial margin USDT")} name="initialOrderUsdt" onChange={onChange} value={form.initialOrderUsdt} />
+            <InputField label={pickText(lang, "首单 USDT", "Initial USDT")} name="initialOrderUsdt" onChange={onChange} value={form.initialOrderUsdt} />
             <InputField label={pickText(lang, "间隔 %", "Spacing %")} name="spacingPct" onChange={onChange} step="0.1" value={form.spacingPct} />
             <InputField label={pickText(lang, "加仓倍率", "Order multiplier")} name="orderMultiplier" onChange={onChange} step="0.1" value={form.orderMultiplier} />
             <InputField label={pickText(lang, "最大层数", "Max legs")} name="maxLegs" onChange={onChange} value={form.maxLegs} />

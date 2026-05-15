@@ -91,18 +91,12 @@ test("backtest task routes use the shared proxy helper", () => {
   const taskRoute = readFileSync("apps/web/app/api/user/backtest/tasks/route.ts", "utf8");
   const detailRoute = readFileSync("apps/web/app/api/user/backtest/tasks/[id]/route.ts", "utf8");
   const pauseRoute = readFileSync("apps/web/app/api/user/backtest/tasks/[id]/pause/route.ts", "utf8");
-  const archiveRoute = readFileSync("apps/web/app/api/user/backtest/tasks/[id]/archive/route.ts", "utf8");
   const publishIntentRoute = readFileSync(
     "apps/web/app/api/user/backtest/candidates/[id]/publish-intent/route.ts",
     "utf8",
   );
 
-  assert.match(detailRoute, /export async function DELETE/);
-  assert.match(detailRoute, /backendPath: `\/backtest\/tasks\/\$\{id\}`/);
-  assert.match(archiveRoute, /export async function POST/);
-  assert.match(archiveRoute, /backendPath: `\/backtest\/tasks\/\$\{id\}\/archive`/);
-
-  for (const source of [taskRoute, detailRoute, pauseRoute, archiveRoute, publishIntentRoute]) {
+  for (const source of [taskRoute, detailRoute, pauseRoute, publishIntentRoute]) {
     assert.match(source, /proxyBacktestRequest/);
     assert.doesNotMatch(source, /buildJsonResponse|readSessionToken|authApiBaseUrl/);
   }

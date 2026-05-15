@@ -13,17 +13,6 @@ import { pickText, type UiLanguage } from "@/lib/ui/preferences";
 
 const DEFAULT_SYMBOLS = ["BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT"];
 const MAX_SYMBOLS = 20;
-const DEFAULT_MAX_DRAWDOWN_BY_RISK = {
-  conservative: 20,
-  balanced: 25,
-  aggressive: 30,
-} as const;
-
-const RISK_PROFILE_DEFAULTS = {
-  conservative: { longWeightPct: 80, shortWeightPct: 20, maxDrawdownLimitPct: 20 },
-  balanced: { longWeightPct: 60, shortWeightPct: 40, maxDrawdownLimitPct: 25 },
-  aggressive: { longWeightPct: 50, shortWeightPct: 50, maxDrawdownLimitPct: 30 },
-} as const;
 
 const STEPS = [
   { key: "search", titleZh: "1. 市场与搜索", titleEn: "1. Market and search", descriptionZh: "配置 symbol 池、市场类型、搜索方式与候选数量。", descriptionEn: "Configure symbol pools, market type, search mode, and candidate budgets." },
@@ -65,8 +54,6 @@ export type WizardForm = {
   testEnd: string;
   interval: "1m" | "5m" | "15m" | "1h" | "4h" | "1d";
   maxDrawdownPct: string;
-  longWeightPct: string;
-  shortWeightPct: string;
   maxStopLossCount: string;
   portfolioStopLossPct: string;
   perStrategyStopLossPct: string;
@@ -87,7 +74,7 @@ const INITIAL_FORM: WizardForm = {
   hedgeModeRequired: true,
   marginMode: "isolated",
   minLeverage: "2",
-  maxLeverage: "10",
+  maxLeverage: "4",
   initialOrderUsdt: "10",
   spacingPct: "1",
   orderMultiplier: "2",
@@ -102,10 +89,8 @@ const INITIAL_FORM: WizardForm = {
   validateEnd: "2025-03-31",
   testStart: "2025-04-01",
   testEnd: "2025-06-30",
-  interval: "1m",
-  maxDrawdownPct: String(DEFAULT_MAX_DRAWDOWN_BY_RISK.balanced),
-  longWeightPct: String(RISK_PROFILE_DEFAULTS.balanced.longWeightPct),
-  shortWeightPct: String(RISK_PROFILE_DEFAULTS.balanced.shortWeightPct),
+  interval: "1h",
+  maxDrawdownPct: "18",
   maxStopLossCount: "3",
   portfolioStopLossPct: "18",
   perStrategyStopLossPct: "8",
@@ -117,41 +102,17 @@ export function BacktestWizard({ lang, onTaskCreated }: { lang: UiLanguage; onTa
   const [pending, setPending] = useState(false);
   const [indicators, setIndicators] = useState<Record<string, unknown>>({});
   const [scoringWeights, setScoringWeights] = useState<Record<string, number> | null>(null);
-  const [manualDrawdownOverride, setManualDrawdownOverride] = useState(false);
-  const [manualAllocationOverride, setManualAllocationOverride] = useState(false);
 
   function onChange(event: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) {
     const { name, type, value } = event.currentTarget;
     const nextValue = type === "checkbox" ? (event.currentTarget as HTMLInputElement).checked : value;
-    if (name === "maxDrawdownPct") {
-      setManualDrawdownOverride(true);
-    }
-    if (name === "longWeightPct" || name === "shortWeightPct") {
-      setManualAllocationOverride(true);
-    }
-    setForm((current) => {
-      const next = { ...current, [name]: nextValue };
-      if (name === "parameterPreset" && isDefaultRiskProfile(nextValue)) {
-        if (!manualDrawdownOverride) {
-          next.maxDrawdownPct = String(RISK_PROFILE_DEFAULTS[nextValue].maxDrawdownLimitPct);
-        }
-        if (!manualAllocationOverride) {
-          next.longWeightPct = String(RISK_PROFILE_DEFAULTS[nextValue].longWeightPct);
-          next.shortWeightPct = String(RISK_PROFILE_DEFAULTS[nextValue].shortWeightPct);
-        }
-      }
-      return next;
-    });
+    setForm((current) => ({ ...current, [name]: nextValue }));
   }
 
   async function createTask() {
     const symbols = symbolsForForm(form);
     if (symbols.length === 0) {
       setFeedback(pickText(lang, "请至少选择 1 个可回测币种。", "Select at least one symbol to backtest."));
-      return;
-    }
-    if (!validLongShortWeights(form)) {
-      setFeedback(pickText(lang, "Long 与 Short 比例合计必须等于 100%。", "Long and Short weights must sum to 100%."));
       return;
     }
     if (symbols.length > MAX_SYMBOLS) {
@@ -193,11 +154,11 @@ export function BacktestWizard({ lang, onTaskCreated }: { lang: UiLanguage; onTa
           <div>
             <p className="text-sm font-semibold">{pickText(lang, "可编辑向导任务", "Editable wizard task")}</p>
             <p className="text-xs text-muted-foreground">
-              {pickText(lang, "只需填写币种、市场、方向与风险档位，系统自动搜索每个币种 Top 10。", "Only fill symbols, market, direction, and risk profile; the system searches each symbol's Top 10 automatically.")}
+              {pickText(lang, "只需填写币种、市场、方向与风险档位，系统自动搜索每个币种 Top 5。", "Only fill symbols, market, direction, and risk profile; the system searches each symbol's Top 5 automatically.")}
             </p>
           </div>
           <button className="rounded-full bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-60" disabled={pending} onClick={() => void createTask()} type="button">
-            {pending ? pickText(lang, "创建中…", "Creating...") : pickText(lang, "开始自动搜索 Top 10", "Start automatic Top 10 search")}
+            {pending ? pickText(lang, "创建中…", "Creating...") : pickText(lang, "开始自动搜索 Top 5", "Start automatic Top 5 search")}
           </button>
         </div>
         <p aria-live="polite" className="mt-3 text-sm text-muted-foreground">{feedback}</p>
@@ -254,31 +215,6 @@ function AutomaticSearchPanel({ form, lang, onChange }: { form: WizardForm; lang
           <option value="aggressive">{pickText(lang, "激进", "Aggressive")}</option>
           <option value="custom">{pickText(lang, "手动", "Custom")}</option>
         </WizardSelect>
-        <label className="flex flex-col gap-1 text-sm">
-          <span className="text-xs uppercase tracking-wide text-muted-foreground">{pickText(lang, "最大回撤限制（%）", "Max drawdown limit (%)")}</span>
-          <input className="rounded-lg border border-border bg-background px-3 py-2" min="1" name="maxDrawdownPct" onChange={onChange} step="0.5" type="number" value={form.maxDrawdownPct} />
-          <span className="text-xs text-muted-foreground">{pickText(lang, "最大回撤是发布前硬约束（hard constraint）；搜索会优先只保留低于该回撤的候选，若没有候选达标，会展示最接近的结果并提示风险。", "Max drawdown is a pre-publish hard constraint; search first keeps candidates under this drawdown, and if none qualify it shows the closest high-risk results.")}</span>
-        </label>
-        {form.directionMode === "long_and_short" ? (
-          <div className="rounded-xl border border-border bg-background p-3 text-sm lg:col-span-2">
-            <p className="text-xs uppercase tracking-wide text-muted-foreground">{pickText(lang, "组合级多空比例", "Portfolio long/short allocation")}</p>
-            <div className="mt-2 grid gap-3 sm:grid-cols-2">
-              <label className="flex flex-col gap-1">
-                <span className="text-xs text-muted-foreground">Long %</span>
-                <input className="rounded-lg border border-border bg-card px-3 py-2" max="100" min="0" name="longWeightPct" onChange={onChange} step="1" type="number" value={form.longWeightPct} />
-              </label>
-              <label className="flex flex-col gap-1">
-                <span className="text-xs text-muted-foreground">Short %</span>
-                <input className="rounded-lg border border-border bg-card px-3 py-2" max="100" min="0" name="shortWeightPct" onChange={onChange} step="1" type="number" value={form.shortWeightPct} />
-              </label>
-            </div>
-            {!validLongShortWeights(form) ? (
-              <p role="alert" className="mt-2 text-xs text-destructive">{pickText(lang, "Long 与 Short 比例合计必须等于 100%", "Long and Short weights must sum to 100%")}</p>
-            ) : (
-              <p className="mt-2 text-xs text-muted-foreground">{pickText(lang, "默认关闭动态多空，按固定组合级比例搜索。", "Dynamic allocation is disabled; search uses fixed portfolio-level weights.")}</p>
-            )}
-          </div>
-        ) : null}
         <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3 text-sm">
           <p className="text-xs uppercase tracking-wide text-muted-foreground">{pickText(lang, "自动时间范围", "Automatic time range")}</p>
           <p className="mt-1 font-semibold">{form.trainStart} → {form.testEnd}</p>
@@ -304,26 +240,12 @@ export function symbolsForForm(form: WizardForm) {
   return source.filter((symbol) => !blacklist.has(symbol));
 }
 
-function validLongShortWeights(form: WizardForm) {
-  if (form.directionMode !== "long_and_short") return true;
-  const longWeightPct = numberValue(form.longWeightPct, Number.NaN);
-  const shortWeightPct = numberValue(form.shortWeightPct, Number.NaN);
-  return Number.isFinite(longWeightPct) && Number.isFinite(shortWeightPct) && longWeightPct >= 0 && shortWeightPct >= 0 && Math.abs(longWeightPct + shortWeightPct - 100) <= 0.001;
-}
-
-function isDefaultRiskProfile(profile: unknown): profile is keyof typeof DEFAULT_MAX_DRAWDOWN_BY_RISK {
-  return profile === "conservative" || profile === "balanced" || profile === "aggressive";
-}
-
 function numberValue(value: string, fallback: number) {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : fallback;
 }
 
 function integerValue(value: string, fallback: number) {
-  if (value.trim() === "") {
-    return Math.max(1, Math.round(fallback));
-  }
   return Math.max(1, Math.round(numberValue(value, fallback)));
 }
 
@@ -400,51 +322,34 @@ export function presetSearchSpaces(form: WizardForm) {
   if (form.parameterPreset === "conservative") {
     return {
       spacing_bps: [120, 160, 220, 300],
-      first_order_quote: [numberValue(form.initialOrderUsdt, 10)],
+      first_order_quote: [8, 10, 15],
       order_multiplier: [1.25, 1.4, 1.6],
       take_profit_bps: [60, 80, 100],
       max_legs: [3, 4, 5],
-      leverage: form.market === "spot" ? [] : Array.from({ length: 9 }, (_, index) => index + 2),
+      leverage: form.market === "spot" ? [] : [1, 2],
     };
   }
   if (form.parameterPreset === "aggressive") {
     return {
       spacing_bps: [50, 80, 120, 160],
-      first_order_quote: [numberValue(form.initialOrderUsdt, 10)],
+      first_order_quote: [10, 20, 35],
       order_multiplier: [1.6, 2, 2.4],
       take_profit_bps: [100, 130, 180],
       max_legs: [5, 6, 8],
-      leverage: form.market === "spot" ? [] : Array.from({ length: 9 }, (_, index) => index + 2),
+      leverage: form.market === "spot" ? [] : [3, 5, 8],
     };
   }
   if (form.parameterPreset === "balanced") {
     return {
       spacing_bps: [80, 120, 160, 220],
-      first_order_quote: [numberValue(form.initialOrderUsdt, 10)],
+      first_order_quote: [10, 15, 25],
       order_multiplier: [1.4, 1.6, 2],
       take_profit_bps: [80, 100, 130],
       max_legs: [4, 5, 6],
-      leverage: form.market === "spot" ? [] : Array.from({ length: 9 }, (_, index) => index + 2),
+      leverage: form.market === "spot" ? [] : [2, 3, 4],
     };
   }
   return custom;
-}
-
-function riskProfileDefaults(profile: WizardForm["parameterPreset"]) {
-  if (profile === "conservative") {
-    return { maxDrawdownPct: DEFAULT_MAX_DRAWDOWN_BY_RISK.conservative, maxStopLossCount: 1, perStrategyStopLossPct: 6 };
-  }
-  if (profile === "aggressive") {
-    return { maxDrawdownPct: DEFAULT_MAX_DRAWDOWN_BY_RISK.aggressive, maxStopLossCount: 8, perStrategyStopLossPct: 18 };
-  }
-  if (profile === "balanced") {
-    return { maxDrawdownPct: DEFAULT_MAX_DRAWDOWN_BY_RISK.balanced, maxStopLossCount: 3, perStrategyStopLossPct: 10 };
-  }
-  return {
-    maxDrawdownPct: numberValue(INITIAL_FORM.maxDrawdownPct, 18),
-    maxStopLossCount: integerValue(INITIAL_FORM.maxStopLossCount, 3),
-    perStrategyStopLossPct: numberValue(INITIAL_FORM.perStrategyStopLossPct, 8),
-  };
 }
 
 export function buildWizardPayload(form: WizardForm, indicators?: Record<string, unknown>, scoringWeights?: Record<string, number> | null) {
@@ -454,19 +359,9 @@ export function buildWizardPayload(form: WizardForm, indicators?: Record<string,
   const leverageRange = [Math.min(minLeverage, maxLeverage), Math.max(minLeverage, maxLeverage)];
   const timeSplit = form.timeMode === "auto_recent" ? resolveAutoTimeSplit() : form;
   const searchSpace = presetSearchSpaces(form);
-  const riskPreset = riskProfileDefaults(form.parameterPreset);
   const market = form.market;
   const leverage = market === "spot" ? null : leverageRange[0];
   const marginMode = market === "spot" ? null : form.marginMode;
-  const maxDrawdownPct = numberValue(form.maxDrawdownPct, riskPreset.maxDrawdownPct);
-  const riskAllocation = isDefaultRiskProfile(form.parameterPreset) ? RISK_PROFILE_DEFAULTS[form.parameterPreset] : RISK_PROFILE_DEFAULTS.balanced;
-  const longWeightPct = form.directionMode === "short_only" ? 0 : form.directionMode === "long_only" ? 100 : numberValue(form.longWeightPct, riskAllocation.longWeightPct);
-  const shortWeightPct = form.directionMode === "long_only" ? 0 : form.directionMode === "short_only" ? 100 : numberValue(form.shortWeightPct, riskAllocation.shortWeightPct);
-  const existingScoring = {
-    profile: "survival_first",
-    max_stop_loss_count: integerValue(form.maxStopLossCount, riskPreset.maxStopLossCount),
-    ...(scoringWeights ? { weights: scoringWeights } : {}),
-  };
 
   const indicatorConfigs = indicatorConfigsForPayload(indicators);
   const entryTriggers = entryTriggersForPayload(indicators);
@@ -476,18 +371,7 @@ export function buildWizardPayload(form: WizardForm, indicators?: Record<string,
     time_range_mode: "auto_previous_month_end",
     symbols,
     risk_profile: form.parameterPreset,
-    per_symbol_top_n: 10,
-    portfolio_top_n: 10,
-    allocation_mode: "fixed_by_risk_profile",
-    dynamic_allocation_enabled: false,
-    long_weight_pct: longWeightPct,
-    short_weight_pct: shortWeightPct,
-    target_annualized_return_pct: 50,
-    stop_model: {
-      kind: "layer_plus_atr",
-      extra_stop_spacing_multipliers: [1, 1.5, 2, 2.5, 3],
-      atr_stop_multipliers: [2, 2.5, 3, 3.5, 4],
-    },
+    per_symbol_top_n: 5,
     search_space_mode: "risk_profile_auto",
     train_start: "2023-01-01",
     test_end: timeSplit.testEnd,
@@ -532,11 +416,8 @@ export function buildWizardPayload(form: WizardForm, indicators?: Record<string,
       trailing_take_profit: { retracement_bps: percentToBps(form.trailingPct, 0.4) },
       stop_loss: {
         mode: form.stopLossMode,
-        model: "layer_plus_atr",
-        portfolio_stop_loss_bps: percentToBps(form.portfolioStopLossPct, riskPreset.maxDrawdownPct),
-        per_strategy_stop_loss_bps: percentToBps(form.perStrategyStopLossPct, riskPreset.perStrategyStopLossPct),
-        extra_stop_spacing_multipliers: [1, 1.5, 2, 2.5, 3],
-        atr_stop_multipliers: [2, 2.5, 3, 3.5, 4],
+        portfolio_stop_loss_bps: percentToBps(form.portfolioStopLossPct, 18),
+        per_strategy_stop_loss_bps: percentToBps(form.perStrategyStopLossPct, 8),
       },
     },
     portfolio_config: {
@@ -558,7 +439,7 @@ export function buildWizardPayload(form: WizardForm, indicators?: Record<string,
           },
         },
         take_profit: { percent: { bps: percentToBps(form.takeProfitPct, 1) } },
-        stop_loss: { strategy_drawdown_pct: { pct_bps: percentToBps(form.perStrategyStopLossPct, riskPreset.perStrategyStopLossPct) } },
+        stop_loss: { strategy_drawdown_pct: { pct_bps: percentToBps(form.perStrategyStopLossPct, 8) } },
         indicators: indicatorConfigs,
         entry_triggers: entryTriggers,
         risk_limits: {},
@@ -581,8 +462,10 @@ export function buildWizardPayload(form: WizardForm, indicators?: Record<string,
       stress_windows: ["flash_crash", "trend_up", "trend_down", "high_volatility"],
     },
     scoring: {
-      ...existingScoring,
-      max_drawdown_pct: maxDrawdownPct,
+      profile: "survival_first",
+      max_drawdown_pct: numberValue(form.maxDrawdownPct, 18),
+      max_stop_loss_count: integerValue(form.maxStopLossCount, 3),
+      ...(scoringWeights ? { weights: scoringWeights } : {}),
     },
   };
 }

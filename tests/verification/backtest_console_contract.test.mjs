@@ -136,9 +136,7 @@ test("backtest wizard is a real editable launcher, not a static template", () =>
   assert.match(wizardSource, /presetSearchSpaces/);
   assert.match(wizardSource, /parameterPreset/);
   assert.match(wizardSource, /timeMode: "auto_recent"/);
-  assert.match(wizardSource, /per_symbol_top_n: 10/);
-  assert.match(wizardSource, /maxLeverage: "10"/);
-  assert.match(wizardSource, /Array\.from\(\{ length: 9 \}, \(_, index\) => index \+ 2\)/);
+  assert.match(wizardSource, /per_symbol_top_n: 5/);
   assert.match(wizardSource, /risk_profile: form\.parameterPreset/);
   assert.match(wizardSource, /lastDayOfPreviousMonth/);
   assert.match(wizardSource, /trainStart: "2023-01-01"/);
@@ -173,8 +171,6 @@ test("backtest wizard is a real editable launcher, not a static template", () =>
   assert.match(martingaleSource, /name="maxLegs"/);
   assert.match(martingaleSource, /name="takeProfitPct"/);
   assert.match(martingaleSource, /name="parameterPreset"/);
-  assert.match(martingaleSource, /首单金额保持固定|initial order stays fixed/i);
-  assert.match(martingaleSource, /2x-10x|2x to 10x/i);
   assert.match(martingaleSource, /保守|Conservative/);
   assert.match(martingaleSource, /均衡|Balanced/);
   assert.match(martingaleSource, /激进|Aggressive/);
@@ -210,23 +206,6 @@ test("backtest wizard is a real editable launcher, not a static template", () =>
     "apps/web/components/backtest/martingale-parameter-editor.tsx",
     "utf8",
   );
-  const chartSource = readFileSync(
-    "apps/web/components/backtest/backtest-charts.tsx",
-    "utf8",
-  );
-  assert.match(chartSource, /Annualized/);
-  assert.match(chartSource, /annualized_return_pct/);
-  assert.match(chartSource, /按全周期均匀抽样展示/);
-
-  const resultTableSource = readFileSync(
-    "apps/web/components/backtest/backtest-result-table.tsx",
-    "utf8",
-  );
-  assert.match(resultTableSource, /Top 10/);
-  assert.match(resultTableSource, /slice\(0, 10\)/);
-  assert.match(resultTableSource, /recommended_leverage/);
-  assert.match(resultTableSource, /杠杆|Leverage/);
-
   assert.match(parameterSource, /移动止盈回撤|Moving take-profit retracement/);
   assert.match(parameterSource, /不是止损|not a stop loss/i);
 

@@ -6,7 +6,7 @@ A martingale grid places a first order and then adds larger safety orders at con
 
 ## Why it is risky
 
-Martingale trading does not guarantee profit. It lowers the average entry by increasing exposure, so losses can grow quickly during long one-way trends, low liquidity, wider slippage, adverse funding, exchange restrictions, or network/API incidents. Futures also add liquidation risk. In futures backtests, the initial order amount is treated as margin capital: 10 USDT initial margin at 2x opens about 20 USDT notional, while return, drawdown, and capital usage are measured against margin capital; fees and slippage are still charged on notional turnover. Before live use, configure global, symbol, direction, and strategy budgets, stop losses, circuit breakers, margin mode, leverage, and Hedge Mode requirements.
+Martingale trading does not guarantee profit. It lowers the average entry by increasing exposure, so losses can grow quickly during long one-way trends, low liquidity, wider slippage, adverse funding, exchange restrictions, or network/API incidents. Futures also add liquidation risk. Before live use, configure global, symbol, direction, and strategy budgets, stop losses, circuit breakers, margin mode, leverage, and Hedge Mode requirements.
 
 ## How two-stage backtesting works
 

@@ -29,26 +29,6 @@ const WARNINGS = [
     en: "Martingale strategies require infinite capital to keep averaging down in extreme markets; tail risk is unbounded",
   },
   {
-    key: "negative_return",
-    zh: "该候选收益为负，不建议实盘",
-    en: "Candidate has negative return; not recommend live trading",
-  },
-  {
-    key: "drawdown_exceeded",
-    zh: "该候选超过最大回撤限制，不建议实盘",
-    en: "Candidate exceeds max drawdown limit; not recommend live trading",
-  },
-  {
-    key: "stop_frequency",
-    zh: "该候选止损频率过高，可能被手续费和滑点磨损",
-    en: "Stop frequency is high and may be eroded by fees and slippage",
-  },
-  {
-    key: "target_missed",
-    zh: "未找到同时满足年化目标和回撤限制的组合",
-    en: "No portfolio met both annualized return target and drawdown limit",
-  },
-  {
     key: "backtest_disclaimer",
     zh: "回测结果不代表未来收益，历史表现无法保证未来盈利",
     en: "Backtest results do not guarantee future returns; past performance is not indicative of future results",

@@ -2,7 +2,7 @@ use axum::{
     body::Body,
     http::{Request, StatusCode},
 };
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 use tower::ServiceExt;
 
 pub async fn register_and_verify(app: &axum::Router, email: &str, password: &str) {

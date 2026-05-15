@@ -1,4 +1,3 @@
-use std::collections::BTreeMap;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
 
@@ -177,41 +176,10 @@ fn mutate_candidates(
                 *leverage = mutate_u32(*leverage, 1, rng).clamp(1, 125);
             }
         }
-        normalize_same_symbol_futures_settings(&mut candidate);
         candidate.config.validate()?;
         mutated.push(candidate);
     }
     Ok(mutated)
-}
-
-fn normalize_same_symbol_futures_settings(candidate: &mut SearchCandidate) {
-    let mut settings_by_symbol = BTreeMap::new();
-    for strategy in &candidate.config.strategies {
-        if strategy.market != shared_domain::martingale::MartingaleMarketKind::UsdMFutures {
-            continue;
-        }
-        let Some(margin_mode) = strategy.margin_mode else {
-            continue;
-        };
-        let Some(leverage) = strategy.leverage else {
-            continue;
-        };
-        settings_by_symbol
-            .entry(strategy.symbol.trim().to_uppercase())
-            .or_insert((margin_mode, leverage));
-    }
-    for strategy in &mut candidate.config.strategies {
-        if strategy.market != shared_domain::martingale::MartingaleMarketKind::UsdMFutures {
-            continue;
-        }
-        if let Some((margin_mode, leverage)) = settings_by_symbol
-            .get(&strategy.symbol.trim().to_uppercase())
-            .copied()
-        {
-            strategy.margin_mode = Some(margin_mode);
-            strategy.leverage = Some(leverage);
-        }
-    }
 }
 
 fn mutate_u32(value: u32, spread: u32, rng: &mut StdRng) -> u32 {

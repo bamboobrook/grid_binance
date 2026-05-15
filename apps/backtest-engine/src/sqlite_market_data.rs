@@ -122,20 +122,9 @@ impl SqliteMarketDataSource {
             return Ok(MarketDataSchema::Canonical);
         }
 
-        let discord_schema = &[(
-            "klines",
-            &[
-                "symbol",
-                "market_type",
-                "timeframe",
-                "open_time",
-                "open",
-                "high",
-                "low",
-                "close",
-                "volume",
-            ] as &[&str],
-        )];
+        let discord_schema = &[
+            ("klines", &["symbol", "market_type", "timeframe", "open_time", "open", "high", "low", "close", "volume"] as &[&str]),
+        ];
         if self.schema_matches(&tables, discord_schema)? {
             return Ok(MarketDataSchema::DiscordC2im);
         }
@@ -163,20 +152,13 @@ impl SqliteMarketDataSource {
         ))
     }
 
-    fn schema_matches(
-        &self,
-        tables: &[String],
-        schema: &[(&str, &[&str])],
-    ) -> Result<bool, String> {
+    fn schema_matches(&self, tables: &[String], schema: &[(&str, &[&str])]) -> Result<bool, String> {
         for (table, columns) in schema {
             if !tables.iter().any(|name| name == table) {
                 return Ok(false);
             }
             let actual_columns = self.table_columns(table)?;
-            if columns
-                .iter()
-                .any(|column| !actual_columns.iter().any(|name| name == column))
-            {
+            if columns.iter().any(|column| !actual_columns.iter().any(|name| name == column)) {
                 return Ok(false);
             }
         }
@@ -228,11 +210,7 @@ impl MarketDataSource for SqliteMarketDataSource {
         let query = match self.schema {
             MarketDataSchema::Canonical => "SELECT symbol FROM symbols ORDER BY symbol",
             MarketDataSchema::DiscordC2im => {
-                if self
-                    .table_names()?
-                    .iter()
-                    .any(|name| name == "market_universe")
-                {
+                if self.table_names()?.iter().any(|name| name == "market_universe") {
                     "SELECT symbol FROM market_universe ORDER BY symbol"
                 } else {
                     "SELECT DISTINCT symbol FROM klines ORDER BY symbol"
@@ -415,6 +393,7 @@ mod tests {
         file
     }
 
+
     fn discord_c2im_fixture_db() -> NamedTempFile {
         let file = NamedTempFile::new().expect("temp sqlite file");
         let conn = Connection::open(file.path()).expect("open discord fixture db");
@@ -500,19 +479,15 @@ mod tests {
         )
     }
 
+
     #[test]
     fn readonly_adapter_supports_discord_c2im_kline_schema_without_agg_trades() {
         let file = discord_c2im_fixture_db();
-        let source = SqliteMarketDataSource::open_readonly(file.path())
-            .expect("open readonly discord schema");
+        let source = SqliteMarketDataSource::open_readonly(file.path()).expect("open readonly discord schema");
 
         let symbols = source.list_symbols().expect("list symbols");
-        let bars = source
-            .load_klines("BTCUSDT", 1000, 2000, "1m")
-            .expect("load klines");
-        let trades = source
-            .load_agg_trades("BTCUSDT", 1000, 2000)
-            .expect("missing agg trades should degrade to empty");
+        let bars = source.load_klines("BTCUSDT", 1000, 2000, "1m").expect("load klines");
+        let trades = source.load_agg_trades("BTCUSDT", 1000, 2000).expect("missing agg trades should degrade to empty");
 
         assert_eq!(symbols, vec!["BTCUSDT".to_string(), "ETHUSDT".to_string()]);
         assert_eq!(bars.len(), 2);
