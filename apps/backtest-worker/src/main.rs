@@ -16,6 +16,7 @@ use backtest_engine::{
         kline_engine::run_kline_screening, metrics::{EquityPoint, MartingaleBacktestResult, MartingaleMetrics},
         scoring::ScoringConfig, trade_engine::run_trade_refinement,
     },
+    portfolio_search::{build_portfolio_top3, PortfolioArtifact},
     search::{
         drawdown_limit_sequence, fine_space_around, random_search, CoarseParameterPoint,
         LegParameters, SearchCandidate, SearchSpace, StagedMartingaleSearchSpace,
@@ -273,6 +274,18 @@ async fn run_profit_first_staged_search(
     refined.sort_by(|a, b| b.score.rank_score.total_cmp(&a.score.rank_score));
     refined.truncate(task.per_symbol_top_n.max(10));
     Ok(refined)
+}
+
+fn to_portfolio_candidates(candidates: &[EvaluatedCandidate]) -> Vec<backtest_engine::portfolio_search::EvaluatedCandidate> {
+    candidates.iter().map(|c| {
+        backtest_engine::portfolio_search::EvaluatedCandidate {
+            candidate: c.candidate.clone(),
+            score: c.score.rank_score,
+            return_pct: c.score.raw_score,
+            max_drawdown_pct: 0.0,
+            survival_passed: c.score.survival_valid,
+        }
+    }).collect()
 }
 
 fn search_space_from_staged(staged: &StagedMartingaleSearchSpace, symbol: &str, task: &WorkerTaskConfig) -> SearchSpace {

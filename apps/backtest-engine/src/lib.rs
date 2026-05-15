@@ -5,6 +5,7 @@ pub mod intelligent_search;
 pub mod market_data;
 pub mod martingale;
 pub mod model;
+pub mod portfolio_search;
 pub mod search;
 pub mod sqlite_market_data;
 pub mod time_splits;
