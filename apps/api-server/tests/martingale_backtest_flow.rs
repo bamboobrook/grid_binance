@@ -10,6 +10,33 @@ use shared_db::{NewBacktestCandidateRecord, SharedDb};
 use support::register_and_login;
 use tower::ServiceExt;
 
+#[test]
+fn martingale_auto_search_normalizes_profit_first_contract() {
+    let source = std::fs::read_to_string(
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("src/services/backtest_service.rs"),
+    )
+    .unwrap();
+
+    assert!(source.contains("pub fn normalize_martingale_auto_search_config"));
+    assert!(source.contains("\"futures\""));
+    assert!(source.contains("\"auto_since_2023_to_last_month_end\""));
+    assert!(source.contains("\"staged\""));
+    assert!(source.contains("\"conservative_futures_isolated\""));
+    assert!(contains_key_value_near(&source, "\"per_symbol_top_n\"", "10", 120));
+    assert!(contains_key_value_near(&source, "\"portfolio_top_n\"", "3", 120));
+}
+
+fn contains_key_value_near(source: &str, key: &str, value: &str, max_distance: usize) -> bool {
+    source.match_indices(key).any(|(index, _)| {
+        source[index..]
+            .chars()
+            .take(max_distance)
+            .collect::<String>()
+            .contains(value)
+    })
+}
+
 #[tokio::test]
 async fn user_can_create_martingale_backtest_task() {
     let app = app();

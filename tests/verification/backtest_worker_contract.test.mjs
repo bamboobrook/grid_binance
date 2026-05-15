@@ -20,3 +20,15 @@ test("api task creation does not create placeholder publish candidates", () => {
   assert.match(flow, /save_ready_candidate/);
   assert.match(flow, /worker_verified/);
 });
+
+test("backtest worker contains profit-first staged auto-search flow contract", () => {
+  const worker = readFileSync("apps/backtest-worker/src/main.rs", "utf8");
+  assert.match(worker, /per_symbol_top_n/);
+  assert.match(worker, /portfolio_top_n/);
+  assert.match(worker, /run_profit_first_staged_search/);
+  assert.match(worker, /relax_drawdown_limit/);
+  assert.match(worker, /reject_negative_return|positive_return/);
+  assert.match(worker, /build_portfolio_top3/);
+  assert.match(worker, /interval.*1m|"1m"/);
+  assert.match(worker, /usd_m_futures|futures/);
+});
