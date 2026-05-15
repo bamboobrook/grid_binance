@@ -131,6 +131,16 @@ fn pick<'a, T>(values: &'a [T], rng: &mut StdRng) -> Result<&'a T, String> {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+pub struct LegParameters {
+    pub spacing_bps: u32,
+    pub order_multiplier: f64,
+    pub max_legs: u32,
+    pub take_profit_bps: u32,
+    pub tail_stop_bps: u32,
+    pub weight_pct: u32,
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub struct StagedMartingaleSearchSpace {
     pub leverage: Vec<u32>,
     pub spacing_bps: Vec<u32>,

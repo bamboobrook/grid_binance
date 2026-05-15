@@ -13,12 +13,12 @@ use backtest_engine::{
     intelligent_search::{intelligent_search, EvaluatedCandidate, IntelligentSearchConfig},
     market_data::{AggTrade, KlineBar, MarketDataSource},
     martingale::{
-        kline_engine::run_kline_screening, metrics::MartingaleBacktestResult,
+        kline_engine::run_kline_screening, metrics::{EquityPoint, MartingaleBacktestResult, MartingaleMetrics},
         scoring::ScoringConfig, trade_engine::run_trade_refinement,
     },
     search::{
         drawdown_limit_sequence, fine_space_around, random_search, CoarseParameterPoint,
-        SearchCandidate, SearchSpace, StagedMartingaleSearchSpace,
+        LegParameters, SearchCandidate, SearchSpace, StagedMartingaleSearchSpace,
     },
     sqlite_market_data::SqliteMarketDataSource,
 };
@@ -28,8 +28,9 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use shared_db::{BacktestRepository, NewBacktestCandidateRecord, SharedDb};
 use shared_domain::martingale::{
-    MartingaleEntryTrigger, MartingaleIndicatorConfig, MartingaleMarginMode, MartingaleMarketKind,
-    MartingaleSpacingModel, MartingaleSizingModel, MartingaleTakeProfitModel,
+    MartingaleDirection, MartingaleDirectionMode, MartingaleEntryTrigger, MartingaleIndicatorConfig,
+    MartingaleMarginMode, MartingaleMarketKind, MartingalePortfolioConfig, MartingaleRiskLimits,
+    MartingaleSpacingModel, MartingaleSizingModel, MartingaleStrategyConfig, MartingaleTakeProfitModel,
 };
 
 const DEFAULT_MAX_THREADS: usize = 2;
@@ -319,6 +320,157 @@ fn coarse_parameter_point_from_candidate(candidate: &SearchCandidate) -> CoarseP
         long_weight_pct: 70,
         short_weight_pct: 30,
     }
+}
+
+fn build_long_short_config(
+    symbol: &str,
+    leverage: u32,
+    first_order_quote: Decimal,
+    long_leg: &LegParameters,
+    short_leg: &LegParameters,
+) -> MartingalePortfolioConfig {
+    let long_strategy = MartingaleStrategyConfig {
+        strategy_id: format!("{symbol}-long"),
+        symbol: symbol.to_owned(),
+        market: MartingaleMarketKind::UsdMFutures,
+        direction: MartingaleDirection::Long,
+        direction_mode: MartingaleDirectionMode::LongAndShort,
+        margin_mode: Some(MartingaleMarginMode::Cross),
+        leverage: Some(leverage),
+        spacing: MartingaleSpacingModel::FixedPercent { step_bps: long_leg.spacing_bps },
+        sizing: MartingaleSizingModel::Multiplier {
+            first_order_quote,
+            multiplier: Decimal::from_f64_retain(long_leg.order_multiplier).unwrap_or(Decimal::new(15, 1)),
+            max_legs: long_leg.max_legs,
+        },
+        take_profit: MartingaleTakeProfitModel::Percent { bps: long_leg.take_profit_bps },
+        stop_loss: None,
+        indicators: Vec::new(),
+        entry_triggers: vec![MartingaleEntryTrigger::Immediate],
+        risk_limits: MartingaleRiskLimits::default(),
+    };
+    let short_strategy = MartingaleStrategyConfig {
+        strategy_id: format!("{symbol}-short"),
+        direction: MartingaleDirection::Short,
+        spacing: MartingaleSpacingModel::FixedPercent { step_bps: short_leg.spacing_bps },
+        sizing: MartingaleSizingModel::Multiplier {
+            first_order_quote,
+            multiplier: Decimal::from_f64_retain(short_leg.order_multiplier).unwrap_or(Decimal::new(15, 1)),
+            max_legs: short_leg.max_legs,
+        },
+        take_profit: MartingaleTakeProfitModel::Percent { bps: short_leg.take_profit_bps },
+        ..long_strategy.clone()
+    };
+    MartingalePortfolioConfig {
+        direction_mode: MartingaleDirectionMode::LongAndShort,
+        strategies: vec![long_strategy, short_strategy],
+        risk_limits: MartingaleRiskLimits::default(),
+    }
+}
+
+fn combine_leg_results(long: MartingaleBacktestResult, short: MartingaleBacktestResult) -> MartingaleBacktestResult {
+    let combined_return_pct = long.metrics.total_return_pct + short.metrics.total_return_pct;
+    let combined_fee_quote = long.metrics.total_fee_quote.unwrap_or(0.0)
+        + short.metrics.total_fee_quote.unwrap_or(0.0);
+    let combined_slippage_quote = long.metrics.total_slippage_quote.unwrap_or(0.0)
+        + short.metrics.total_slippage_quote.unwrap_or(0.0);
+    let combined_planned_margin = long.metrics.planned_margin_quote.unwrap_or(0.0)
+        + short.metrics.planned_margin_quote.unwrap_or(0.0);
+    let combined_trade_count = long.metrics.trade_count + short.metrics.trade_count;
+    let combined_stop_count = long.metrics.stop_count + short.metrics.stop_count;
+    let combined_max_capital = long.metrics.max_capital_used_quote + short.metrics.max_capital_used_quote;
+
+    let combined_equity = merge_equity_curves_by_timestamp(long.equity_curve, short.equity_curve);
+    let max_drawdown_pct = max_drawdown_from_curve(&combined_equity);
+
+    let mut events = long.events;
+    events.extend(short.events);
+    events.sort_by_key(|e| e.timestamp_ms);
+
+    let mut rejection_reasons = long.rejection_reasons;
+    rejection_reasons.extend(short.rejection_reasons);
+
+    let survival_passed = long.metrics.survival_passed && short.metrics.survival_passed;
+
+    MartingaleBacktestResult {
+        metrics: MartingaleMetrics {
+            total_return_pct: combined_return_pct,
+            annualized_return_pct: None,
+            max_drawdown_pct,
+            global_drawdown_pct: Some(max_drawdown_pct),
+            max_strategy_drawdown_pct: Some(max_drawdown_pct),
+            monthly_win_rate_pct: None,
+            max_leverage_used: None,
+            min_liquidation_buffer_pct: None,
+            total_fee_quote: Some(combined_fee_quote),
+            total_slippage_quote: Some(combined_slippage_quote),
+            planned_margin_quote: Some(combined_planned_margin),
+            data_quality_score: Some(
+                long.metrics.data_quality_score.unwrap_or(1.0)
+                    .min(short.metrics.data_quality_score.unwrap_or(1.0)),
+            ),
+            trade_count: combined_trade_count,
+            stop_count: combined_stop_count,
+            max_capital_used_quote: combined_max_capital,
+            survival_passed,
+        },
+        events,
+        equity_curve: combined_equity,
+        rejection_reasons,
+    }
+}
+
+fn merge_equity_curves_by_timestamp(
+    mut long: Vec<EquityPoint>,
+    mut short: Vec<EquityPoint>,
+) -> Vec<EquityPoint> {
+    long.sort_by_key(|p| p.timestamp_ms);
+    short.sort_by_key(|p| p.timestamp_ms);
+
+    let mut merged = Vec::with_capacity(long.len().max(short.len()));
+    let mut li = 0usize;
+    let mut si = 0usize;
+    let mut last_long_eq = 0.0_f64;
+    let mut last_short_eq = 0.0_f64;
+
+    while li < long.len() || si < short.len() {
+        let long_ts = long.get(li).map(|p| p.timestamp_ms);
+        let short_ts = short.get(si).map(|p| p.timestamp_ms);
+        let ts = match (long_ts, short_ts) {
+            (Some(l), Some(s)) => l.min(s),
+            (Some(l), None) => l,
+            (None, Some(s)) => s,
+            (None, None) => break,
+        };
+        if li < long.len() && long[li].timestamp_ms == ts {
+            last_long_eq = long[li].equity_quote;
+            li += 1;
+        }
+        if si < short.len() && short[si].timestamp_ms == ts {
+            last_short_eq = short[si].equity_quote;
+            si += 1;
+        }
+        merged.push(EquityPoint {
+            timestamp_ms: ts,
+            equity_quote: last_long_eq + last_short_eq,
+        });
+    }
+    merged
+}
+
+fn max_drawdown_from_curve(curve: &[EquityPoint]) -> f64 {
+    let mut peak = 0.0_f64;
+    let mut max_dd = 0.0_f64;
+    for point in curve {
+        if point.equity_quote > peak {
+            peak = point.equity_quote;
+        }
+        if peak > 0.0 {
+            let dd = (peak - point.equity_quote) / peak * 100.0;
+            max_dd = max_dd.max(dd);
+        }
+    }
+    max_dd
 }
 
 async fn process_task(

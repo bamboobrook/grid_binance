@@ -8,13 +8,13 @@ use backtest_engine::martingale::scoring::{score_candidate, ScoringConfig};
 use backtest_engine::martingale::trade_engine::{
     run_trade_refinement, trades_to_ordered_price_bars,
 };
-use backtest_engine::search::{drawdown_limit_sequence, random_search, SearchSpace};
+use backtest_engine::search::{drawdown_limit_sequence, LegParameters, random_search, SearchSpace};
 use backtest_engine::time_splits::{named_stress_windows, walk_forward_windows, WalkForwardConfig};
 use rust_decimal::Decimal;
 use shared_domain::martingale::{
-    MartingaleDirection, MartingaleDirectionMode, MartingaleMarketKind, MartingalePortfolioConfig,
-    MartingaleRiskLimits, MartingaleSizingModel, MartingaleSpacingModel, MartingaleStrategyConfig,
-    MartingaleTakeProfitModel,
+    MartingaleDirection, MartingaleDirectionMode, MartingaleMarginMode, MartingaleMarketKind,
+    MartingalePortfolioConfig, MartingaleRiskLimits, MartingaleSizingModel, MartingaleSpacingModel,
+    MartingaleStrategyConfig, MartingaleTakeProfitModel,
 };
 
 #[test]
@@ -473,5 +473,77 @@ fn trade(trade_time_ms: i64, price: f64) -> AggTrade {
         price,
         quantity: 1.0,
         is_buyer_maker: false,
+    }
+}
+
+#[test]
+fn long_short_config_keeps_independent_leg_parameters() {
+    let config = build_long_short_config_for_test(
+        LegParameters { spacing_bps: 120, order_multiplier: 1.6, max_legs: 5, take_profit_bps: 90, tail_stop_bps: 1800, weight_pct: 70 },
+        LegParameters { spacing_bps: 180, order_multiplier: 1.4, max_legs: 4, take_profit_bps: 120, tail_stop_bps: 2200, weight_pct: 30 },
+    );
+
+    let long = config.strategies.iter().find(|s| s.direction == MartingaleDirection::Long).expect("long strategy");
+    let short = config.strategies.iter().find(|s| s.direction == MartingaleDirection::Short).expect("short strategy");
+
+    assert_eq!(long.direction, MartingaleDirection::Long);
+    assert_eq!(short.direction, MartingaleDirection::Short);
+    assert_eq!(config.direction_mode, MartingaleDirectionMode::LongAndShort);
+
+    match &long.spacing {
+        MartingaleSpacingModel::FixedPercent { step_bps } => assert_eq!(*step_bps, 120),
+        _ => panic!("expected FixedPercent spacing"),
+    }
+    match &short.spacing {
+        MartingaleSpacingModel::FixedPercent { step_bps } => assert_eq!(*step_bps, 180),
+        _ => panic!("expected FixedPercent spacing"),
+    }
+    match &long.take_profit {
+        MartingaleTakeProfitModel::Percent { bps } => assert_eq!(*bps, 90),
+        _ => panic!("expected Percent take_profit"),
+    }
+    match &short.take_profit {
+        MartingaleTakeProfitModel::Percent { bps } => assert_eq!(*bps, 120),
+        _ => panic!("expected Percent take_profit"),
+    }
+}
+
+fn build_long_short_config_for_test(long_leg: LegParameters, short_leg: LegParameters) -> MartingalePortfolioConfig {
+    let long_strategy = MartingaleStrategyConfig {
+        strategy_id: "BTCUSDT-long".to_owned(),
+        symbol: "BTCUSDT".to_owned(),
+        market: MartingaleMarketKind::UsdMFutures,
+        direction: MartingaleDirection::Long,
+        direction_mode: MartingaleDirectionMode::LongAndShort,
+        margin_mode: Some(MartingaleMarginMode::Cross),
+        leverage: Some(3),
+        spacing: MartingaleSpacingModel::FixedPercent { step_bps: long_leg.spacing_bps },
+        sizing: MartingaleSizingModel::Multiplier {
+            first_order_quote: Decimal::new(100, 0),
+            multiplier: Decimal::from_f64_retain(long_leg.order_multiplier).unwrap_or(Decimal::new(15, 1)),
+            max_legs: long_leg.max_legs,
+        },
+        take_profit: MartingaleTakeProfitModel::Percent { bps: long_leg.take_profit_bps },
+        stop_loss: None,
+        indicators: Vec::new(),
+        entry_triggers: Vec::new(),
+        risk_limits: MartingaleRiskLimits::default(),
+    };
+    let short_strategy = MartingaleStrategyConfig {
+        strategy_id: "BTCUSDT-short".to_owned(),
+        direction: MartingaleDirection::Short,
+        spacing: MartingaleSpacingModel::FixedPercent { step_bps: short_leg.spacing_bps },
+        sizing: MartingaleSizingModel::Multiplier {
+            first_order_quote: Decimal::new(100, 0),
+            multiplier: Decimal::from_f64_retain(short_leg.order_multiplier).unwrap_or(Decimal::new(15, 1)),
+            max_legs: short_leg.max_legs,
+        },
+        take_profit: MartingaleTakeProfitModel::Percent { bps: short_leg.take_profit_bps },
+        ..long_strategy.clone()
+    };
+    MartingalePortfolioConfig {
+        direction_mode: MartingaleDirectionMode::LongAndShort,
+        strategies: vec![long_strategy, short_strategy],
+        risk_limits: MartingaleRiskLimits::default(),
     }
 }
