@@ -65,6 +65,8 @@ struct WorkerTaskConfig {
     top_n: usize,
     #[serde(default = "default_per_symbol_top_n")]
     per_symbol_top_n: usize,
+    #[serde(default = "default_portfolio_top_n")]
+    portfolio_top_n: usize,
     #[serde(default = "default_risk_profile")]
     risk_profile: String,
     #[serde(default)]
@@ -96,6 +98,7 @@ impl Default for WorkerTaskConfig {
             intelligent_rounds: 2,
             top_n: DEFAULT_TOP_N,
             per_symbol_top_n: default_per_symbol_top_n(),
+            portfolio_top_n: default_portfolio_top_n(),
             risk_profile: default_risk_profile(),
             market: None,
             margin_mode: None,
@@ -115,7 +118,23 @@ fn default_interval() -> String {
 }
 
 fn default_per_symbol_top_n() -> usize {
-    5
+    10
+}
+
+fn default_portfolio_top_n() -> usize {
+    3
+}
+
+fn relax_drawdown_limit(risk_profile: &str, base_limit_pct: f64) -> f64 {
+    match risk_profile {
+        "conservative" => (base_limit_pct + 5.0).min(30.0),
+        "aggressive" => (base_limit_pct + 10.0).min(40.0),
+        _ => (base_limit_pct + 5.0).min(35.0),
+    }
+}
+
+fn reject_negative_return(return_pct: f64) -> bool {
+    return_pct <= 0.0
 }
 
 fn default_risk_profile() -> String {
@@ -2022,6 +2041,7 @@ mod tests {
             intelligent_rounds: 1,
             top_n: 1,
             per_symbol_top_n: default_per_symbol_top_n(),
+            portfolio_top_n: default_portfolio_top_n(),
             risk_profile: default_risk_profile(),
             market: None,
             margin_mode: None,
@@ -2063,6 +2083,7 @@ mod tests {
             intelligent_rounds: 1,
             top_n: 1,
             per_symbol_top_n: default_per_symbol_top_n(),
+            portfolio_top_n: default_portfolio_top_n(),
             risk_profile: default_risk_profile(),
             market: None,
             margin_mode: None,
