@@ -1060,6 +1060,12 @@ fn validate_time_range(config: &WorkerTaskConfig) -> Result<(), String> {
     if config.interval.trim().is_empty() {
         return Err("backtest interval cannot be empty".to_owned());
     }
+    if config.interval != "1m" {
+        eprintln!(
+            "WARNING: interval '{}' is not 1m; backtest accuracy may be reduced",
+            config.interval
+        );
+    }
     Ok(())
 }
 

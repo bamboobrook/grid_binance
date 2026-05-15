@@ -52,6 +52,9 @@ pub fn run_kline_screening(
     let mut latest_close_by_symbol = BTreeMap::new();
     let mut indicator_context = IndicatorRuntimeContext::default();
 
+    let mut total_fee_quote = 0.0_f64;
+    let mut total_slippage_quote = 0.0_f64;
+
     let mut bar_index = 0;
     while bar_index < bars.len() {
         let timestamp_ms = bars[bar_index].open_time_ms;
@@ -86,6 +89,8 @@ pub fn run_kline_screening(
 
                     let notional = strategy_states[state_index].notionals[0];
                     let entry_cost = trading_cost_quote(notional);
+                    total_fee_quote += entry_cost.fee_quote;
+                    total_slippage_quote += entry_cost.slippage_quote;
                     let capital_required = notional + entry_cost.total();
                     if let Some(reason) = budget_rejection_reason(
                         &portfolio,
@@ -129,6 +134,8 @@ pub fn run_kline_screening(
                     ) {
                         let notional = strategy_states[state_index].notionals[next_leg_index];
                         let entry_cost = trading_cost_quote(notional);
+                        total_fee_quote += entry_cost.fee_quote;
+                        total_slippage_quote += entry_cost.slippage_quote;
                         let capital_required = notional + entry_cost.total();
                         if let Some(reason) = budget_rejection_reason(
                             &portfolio,
@@ -199,6 +206,8 @@ pub fn run_kline_screening(
                     let entry_cost = entry_cost_quote(&strategy_states[state_index].legs);
                     let exit_cost =
                         exit_cost_quote(&strategy_states[state_index].legs, close_price);
+                    total_fee_quote += exit_cost.fee_quote;
+                    total_slippage_quote += exit_cost.slippage_quote;
                     let pnl = close_gross_pnl - entry_cost - exit_cost.total();
                     realized_pnl_quote += pnl;
                     capital_used_quote -= strategy_states[state_index].active_capital_used_quote();
@@ -236,6 +245,8 @@ pub fn run_kline_screening(
                     )?;
                     let entry_cost = entry_cost_quote(&strategy_states[state_index].legs);
                     let exit_cost = exit_cost_quote(&strategy_states[state_index].legs, stop_price);
+                    total_fee_quote += exit_cost.fee_quote;
+                    total_slippage_quote += exit_cost.slippage_quote;
                     let pnl = close_gross_pnl - entry_cost - exit_cost.total();
                     realized_pnl_quote += pnl;
                     capital_used_quote -= strategy_states[state_index].active_capital_used_quote();
@@ -263,6 +274,8 @@ pub fn run_kline_screening(
                     )?;
                     let entry_cost = entry_cost_quote(&strategy_states[state_index].legs);
                     let exit_cost = exit_cost_quote(&strategy_states[state_index].legs, tp_price);
+                    total_fee_quote += exit_cost.fee_quote;
+                    total_slippage_quote += exit_cost.slippage_quote;
                     let pnl = close_gross_pnl - entry_cost - exit_cost.total();
                     realized_pnl_quote += pnl;
                     capital_used_quote -= strategy_states[state_index].active_capital_used_quote();
@@ -301,6 +314,11 @@ pub fn run_kline_screening(
         }
     }
 
+    let total_planned_margin: f64 = strategy_states
+        .iter()
+        .map(|s| s.notionals.iter().sum::<f64>())
+        .sum();
+
     let final_equity_quote = equity_curve
         .last()
         .map(|point| point.equity_quote)
@@ -321,9 +339,9 @@ pub fn run_kline_screening(
             monthly_win_rate_pct: None,
             max_leverage_used: None,
             min_liquidation_buffer_pct: None,
-            total_fee_quote: None,
-            total_slippage_quote: None,
-            planned_margin_quote: None,
+            total_fee_quote: Some(total_fee_quote),
+            total_slippage_quote: Some(total_slippage_quote),
+            planned_margin_quote: Some(total_planned_margin),
             data_quality_score: Some(1.0),
             trade_count,
             stop_count,
