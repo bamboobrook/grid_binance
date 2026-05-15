@@ -16,7 +16,7 @@ use backtest_engine::{
         kline_engine::run_kline_screening, metrics::MartingaleBacktestResult,
         scoring::ScoringConfig, trade_engine::run_trade_refinement,
     },
-    search::{random_search, SearchCandidate, SearchSpace},
+    search::{drawdown_limit_sequence, random_search, SearchCandidate, SearchSpace},
     sqlite_market_data::SqliteMarketDataSource,
 };
 use rust_decimal::Decimal;
@@ -149,9 +149,18 @@ struct CandidateOutput {
     artifact_path: String,
     checksum_sha256: String,
     used_trade_refinement: bool,
+    used_drawdown_limit_pct: f64,
+    risk_relaxed: bool,
     total_return_pct: f64,
     max_drawdown_pct: f64,
     trade_count: u64,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+struct EvaluatedCandidateWithDrawdown {
+    candidate: EvaluatedCandidate,
+    used_drawdown_limit_pct: f64,
+    risk_relaxed: bool,
 }
 
 #[tokio::main]
@@ -230,36 +239,46 @@ async fn process_task(
         config.poll_ms,
         cancel.clone(),
     );
-    let intelligent = intelligent_search(
-        &search_space,
-        &IntelligentSearchConfig {
-            seed: task.config.random_seed,
-            random_round_size: task.config.random_candidates.max(1),
-            max_rounds: task.config.intelligent_rounds.max(1),
-            max_candidates: task.config.random_candidates.max(1)
-                * task.config.intelligent_rounds.max(1),
-            survivor_percentile: 0.25,
-            timeout: None,
-            scoring: scoring_config_from_task(&task.config),
-        },
+    let screened = search_candidates_with_drawdown_relaxation(
+        &task.config,
         Some(cancel.as_ref()),
-        |candidate| {
-            let candidate = apply_task_overrides_to_candidate(candidate.clone(), &task.config);
-            run_candidate_kline_screening(&candidate, &market_context)
+        |symbol, drawdown_limit_pct| {
+            let symbol_search_space = search_space_for_symbol(&search_space, symbol);
+            intelligent_search(
+                &symbol_search_space,
+                &IntelligentSearchConfig {
+                    seed: task.config.random_seed,
+                    random_round_size: task.config.random_candidates.max(1),
+                    max_rounds: task.config.intelligent_rounds.max(1),
+                    max_candidates: task.config.random_candidates.max(1)
+                        * task.config.intelligent_rounds.max(1),
+                    survivor_percentile: 0.25,
+                    timeout: None,
+                    scoring: scoring_config_from_task(&task.config, drawdown_limit_pct),
+                },
+                Some(cancel.as_ref()),
+                |candidate| {
+                    let candidate =
+                        apply_task_overrides_to_candidate(candidate.clone(), &task.config);
+                    run_candidate_kline_screening(&candidate, &market_context)
+                },
+            )
+            .map(|result| result.candidates)
         },
     )?;
     cancel.store(true, Ordering::SeqCst);
     let _ = cancel_watcher.join();
     respect_pause_or_cancel(poller, &task.task_id).await?;
 
-    let ranked = select_refinement_candidates_per_symbol(
-        intelligent.candidates,
+    let ranked = select_refinement_candidates_with_drawdown_metadata(
+        screened,
         task.config.symbols.len().max(1) * task.config.per_symbol_top_n.max(1),
         task.config.per_symbol_top_n.max(1),
     );
     let mut outputs = Vec::new();
 
-    for (index, evaluated) in ranked.into_iter().enumerate() {
+    for (index, evaluated_with_drawdown) in ranked.into_iter().enumerate() {
+        let evaluated = evaluated_with_drawdown.candidate;
         poller
             .heartbeat(
                 &task.task_id,
@@ -277,6 +296,8 @@ async fn process_task(
             "trade_metrics": {
                 "total_return_pct": refined.metrics.total_return_pct,
                 "max_drawdown_pct": refined.metrics.max_drawdown_pct,
+                "used_drawdown_limit_pct": evaluated_with_drawdown.used_drawdown_limit_pct,
+                "risk_relaxed": evaluated_with_drawdown.risk_relaxed,
                 "trade_count": refined.metrics.trade_count,
             },
         })];
@@ -299,6 +320,8 @@ async fn process_task(
             artifact_path: manifest.path.display().to_string(),
             checksum_sha256: manifest.checksum_sha256,
             used_trade_refinement,
+            used_drawdown_limit_pct: evaluated_with_drawdown.used_drawdown_limit_pct,
+            risk_relaxed: evaluated_with_drawdown.risk_relaxed,
             total_return_pct: refined.metrics.total_return_pct,
             max_drawdown_pct: refined.metrics.max_drawdown_pct,
             trade_count: refined.metrics.trade_count,
@@ -361,6 +384,92 @@ fn select_refinement_candidates_per_symbol(
     }
 
     selected
+}
+
+fn search_candidates_with_drawdown_relaxation<F>(
+    config: &WorkerTaskConfig,
+    cancel: Option<&AtomicBool>,
+    mut search_symbol: F,
+) -> Result<Vec<EvaluatedCandidateWithDrawdown>, String>
+where
+    F: FnMut(&str, f64) -> Result<Vec<EvaluatedCandidate>, String>,
+{
+    let drawdown_limits = drawdown_limit_sequence(&config.risk_profile);
+    let first_drawdown_limit = drawdown_limits.first().copied().unwrap_or(30.0);
+    let mut screened = Vec::new();
+
+    for symbol in &config.symbols {
+        if cancel
+            .map(|flag| flag.load(Ordering::SeqCst))
+            .unwrap_or(false)
+        {
+            return Err("cancelled".to_string());
+        }
+        let mut selected_for_symbol = None;
+        for drawdown_limit_pct in drawdown_limits.iter().copied() {
+            let candidates = search_symbol(symbol, drawdown_limit_pct)?;
+            let has_survival_valid = candidates
+                .iter()
+                .any(|candidate| candidate.score.survival_valid);
+            selected_for_symbol = Some((drawdown_limit_pct, candidates));
+            if has_survival_valid {
+                break;
+            }
+        }
+        let (used_drawdown_limit_pct, candidates) =
+            selected_for_symbol.ok_or_else(|| "drawdown limit sequence is empty".to_string())?;
+        let risk_relaxed = used_drawdown_limit_pct > first_drawdown_limit;
+        screened.extend(candidates.into_iter().filter_map(|candidate| {
+            if !candidate.score.survival_valid {
+                return None;
+            }
+            Some(EvaluatedCandidateWithDrawdown {
+                candidate,
+                used_drawdown_limit_pct,
+                risk_relaxed,
+            })
+        }));
+    }
+
+    Ok(screened)
+}
+
+fn select_refinement_candidates_with_drawdown_metadata(
+    mut candidates: Vec<EvaluatedCandidateWithDrawdown>,
+    _min_total: usize,
+    per_symbol_top_n: usize,
+) -> Vec<EvaluatedCandidateWithDrawdown> {
+    use std::collections::BTreeMap;
+
+    candidates.sort_by(|left, right| {
+        right
+            .candidate
+            .score
+            .rank_score
+            .total_cmp(&left.candidate.score.rank_score)
+    });
+
+    let mut selected = Vec::new();
+    let mut selected_counts = BTreeMap::<String, usize>::new();
+
+    for candidate in candidates.iter() {
+        let symbol = search_candidate_symbol(&candidate.candidate.candidate)
+            .unwrap_or_else(|| candidate.candidate.candidate.candidate_id.clone());
+        let count = selected_counts.entry(symbol).or_default();
+        if *count >= per_symbol_top_n {
+            continue;
+        }
+        *count += 1;
+        selected.push(candidate.clone());
+    }
+
+    selected
+}
+
+fn search_space_for_symbol(space: &SearchSpace, symbol: &str) -> SearchSpace {
+    let mut symbol_space = space.clone();
+    symbol_space.symbols = vec![symbol.to_owned()];
+    symbol_space
 }
 
 fn select_top_outputs_per_symbol(
@@ -439,6 +548,8 @@ fn select_top_outputs_per_symbol(
                     "trailing_take_profit_bps": trailing_take_profit_bps,
                     "total_return_pct": output.total_return_pct,
                     "max_drawdown_pct": output.max_drawdown_pct,
+                    "used_drawdown_limit_pct": output.used_drawdown_limit_pct,
+                    "risk_relaxed": output.risk_relaxed,
                     "score": output.score,
                     "overfit_flag": overfit_flag,
                     "risk_summary_human": risk_summary_human,
@@ -586,13 +697,11 @@ fn search_space_from_task(config: &WorkerTaskConfig) -> SearchSpace {
     }
 }
 
-fn scoring_config_from_task(config: &WorkerTaskConfig) -> ScoringConfig {
+fn scoring_config_from_task(config: &WorkerTaskConfig, max_drawdown_pct: f64) -> ScoringConfig {
     let mut scoring = ScoringConfig::default();
+    scoring.max_global_drawdown_pct = max_drawdown_pct;
+    scoring.max_strategy_drawdown_pct = max_drawdown_pct;
     if let Some(value) = config.scoring.as_ref() {
-        if let Some(max_drawdown_pct) = value.get("max_drawdown_pct").and_then(Value::as_f64) {
-            scoring.max_global_drawdown_pct = max_drawdown_pct;
-            scoring.max_strategy_drawdown_pct = max_drawdown_pct;
-        }
         if let Some(max_stop_count) = value.get("max_stop_loss_count").and_then(Value::as_u64) {
             scoring.max_stop_count = max_stop_count;
         }
@@ -1071,6 +1180,8 @@ impl TaskPoller {
                                 "result_mode": if output.used_trade_refinement { "成交级精测" } else { "K线级回测" },
                                 "total_return_pct": output.total_return_pct,
                                 "max_drawdown_pct": output.max_drawdown_pct,
+                                "used_drawdown_limit_pct": output.used_drawdown_limit_pct,
+                                "risk_relaxed": output.risk_relaxed,
                                 "trade_count": output.trade_count,
                             }),
                             output.summary.clone(),
@@ -1286,6 +1397,8 @@ mod tests {
             artifact_path: format!("/tmp/{id}.json"),
             checksum_sha256: "sha256".to_owned(),
             used_trade_refinement: false,
+            used_drawdown_limit_pct: 25.0,
+            risk_relaxed: false,
             total_return_pct: score,
             max_drawdown_pct: 5.0,
             trade_count: 10,
@@ -1332,6 +1445,119 @@ mod tests {
     }
 
     #[test]
+    fn drawdown_metadata_is_applied_independently_per_symbol() {
+        let mut btc = evaluated_candidate("BTCUSDT", "btc-1", 90.0);
+        let mut eth = evaluated_candidate("ETHUSDT", "eth-1", 80.0);
+        btc.score.survival_valid = true;
+        eth.score.survival_valid = true;
+
+        let selected = select_refinement_candidates_with_drawdown_metadata(
+            vec![
+                EvaluatedCandidateWithDrawdown {
+                    candidate: btc,
+                    used_drawdown_limit_pct: 25.0,
+                    risk_relaxed: false,
+                },
+                EvaluatedCandidateWithDrawdown {
+                    candidate: eth,
+                    used_drawdown_limit_pct: 30.0,
+                    risk_relaxed: true,
+                },
+            ],
+            2,
+            1,
+        );
+
+        let btc = selected
+            .iter()
+            .find(|candidate| {
+                search_candidate_symbol(&candidate.candidate.candidate).as_deref()
+                    == Some("BTCUSDT")
+            })
+            .unwrap();
+        let eth = selected
+            .iter()
+            .find(|candidate| {
+                search_candidate_symbol(&candidate.candidate.candidate).as_deref()
+                    == Some("ETHUSDT")
+            })
+            .unwrap();
+
+        assert_eq!(btc.used_drawdown_limit_pct, 25.0);
+        assert!(!btc.risk_relaxed);
+        assert_eq!(eth.used_drawdown_limit_pct, 30.0);
+        assert!(eth.risk_relaxed);
+    }
+
+    #[test]
+    fn drawdown_relaxation_stops_independently_for_each_symbol() {
+        let config = WorkerTaskConfig {
+            symbols: vec!["BTCUSDT".to_owned(), "ETHUSDT".to_owned()],
+            risk_profile: "balanced".to_owned(),
+            ..WorkerTaskConfig::default()
+        };
+        let mut calls = Vec::new();
+
+        let screened =
+            search_candidates_with_drawdown_relaxation(&config, None, |symbol, limit| {
+                calls.push((symbol.to_owned(), limit));
+                let mut candidate =
+                    evaluated_candidate(symbol, &format!("{symbol}-{limit}"), limit);
+                candidate.score.survival_valid = symbol == "BTCUSDT" || limit >= 30.0;
+                Ok(vec![candidate])
+            })
+            .unwrap();
+
+        assert_eq!(
+            calls,
+            vec![
+                ("BTCUSDT".to_owned(), 25.0),
+                ("ETHUSDT".to_owned(), 25.0),
+                ("ETHUSDT".to_owned(), 30.0),
+            ]
+        );
+        let btc = screened
+            .iter()
+            .find(|candidate| {
+                search_candidate_symbol(&candidate.candidate.candidate).as_deref()
+                    == Some("BTCUSDT")
+            })
+            .unwrap();
+        let eth = screened
+            .iter()
+            .find(|candidate| {
+                search_candidate_symbol(&candidate.candidate.candidate).as_deref()
+                    == Some("ETHUSDT")
+            })
+            .unwrap();
+
+        assert_eq!(btc.used_drawdown_limit_pct, 25.0);
+        assert!(!btc.risk_relaxed);
+        assert_eq!(eth.used_drawdown_limit_pct, 30.0);
+        assert!(eth.risk_relaxed);
+    }
+
+    #[test]
+    fn all_invalid_symbol_produces_no_refinement_candidates() {
+        let config = WorkerTaskConfig {
+            symbols: vec!["BTCUSDT".to_owned()],
+            risk_profile: "balanced".to_owned(),
+            ..WorkerTaskConfig::default()
+        };
+
+        let screened = search_candidates_with_drawdown_relaxation(&config, None, |symbol, limit| {
+            let mut candidate = evaluated_candidate(symbol, &format!("{symbol}-{limit}"), limit);
+            candidate.score.survival_valid = false;
+            candidate.score.rejection_reasons = vec!["global_drawdown_exceeded".to_owned()];
+            Ok(vec![candidate])
+        })
+        .unwrap();
+        let selected = select_refinement_candidates_with_drawdown_metadata(screened, 1, 1);
+
+        assert!(selected.is_empty());
+    }
+
+    #[test]
     fn refinement_selection_keeps_top_five_per_symbol_before_global_cutoff() {
         let mut candidates = Vec::new();
         for index in 0..8 {
@@ -1352,11 +1578,15 @@ mod tests {
         let selected = select_refinement_candidates_per_symbol(candidates, 10, 5);
         let eth_count = selected
             .iter()
-            .filter(|candidate| search_candidate_symbol(&candidate.candidate).as_deref() == Some("ETHUSDT"))
+            .filter(|candidate| {
+                search_candidate_symbol(&candidate.candidate).as_deref() == Some("ETHUSDT")
+            })
             .count();
         let btc_count = selected
             .iter()
-            .filter(|candidate| search_candidate_symbol(&candidate.candidate).as_deref() == Some("BTCUSDT"))
+            .filter(|candidate| {
+                search_candidate_symbol(&candidate.candidate).as_deref() == Some("BTCUSDT")
+            })
             .count();
 
         assert_eq!(selected.len(), 10);
@@ -1416,11 +1646,16 @@ mod tests {
             "risk_profile",
             "total_return_pct",
             "max_drawdown_pct",
+            "used_drawdown_limit_pct",
+            "risk_relaxed",
             "score",
             "overfit_flag",
             "risk_summary_human",
         ] {
-            assert!(summary.contains_key(field), "missing summary field: {field}");
+            assert!(
+                summary.contains_key(field),
+                "missing summary field: {field}"
+            );
         }
         assert!(summary.contains_key("artifact_path") || summary.contains_key("equity_curve"));
         assert_eq!(summary["artifact_path"], output.artifact_path);
@@ -1605,7 +1840,7 @@ mod tests {
     }
 
     #[test]
-    fn worker_applies_wizard_scoring_and_indicator_overrides() {
+    fn worker_applies_risk_profile_drawdown_and_wizard_overrides() {
         let config: WorkerTaskConfig = serde_json::from_value(serde_json::json!({
             "symbols": ["BTCUSDT"],
             "random_seed": 7,
@@ -1637,9 +1872,9 @@ mod tests {
         }))
         .expect("worker task config");
 
-        let scoring = scoring_config_from_task(&config);
-        assert_eq!(scoring.max_global_drawdown_pct, 12.5);
-        assert_eq!(scoring.max_strategy_drawdown_pct, 12.5);
+        let scoring = scoring_config_from_task(&config, 25.0);
+        assert_eq!(scoring.max_global_drawdown_pct, 25.0);
+        assert_eq!(scoring.max_strategy_drawdown_pct, 25.0);
         assert_eq!(scoring.max_stop_count, 2);
         assert_eq!(scoring.weight_stop_frequency, 0.6);
         assert_eq!(scoring.weight_capital_utilization, 0.7);

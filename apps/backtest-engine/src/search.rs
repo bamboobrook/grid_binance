@@ -27,6 +27,15 @@ pub struct SearchCandidate {
     pub config: MartingalePortfolioConfig,
 }
 
+pub fn drawdown_limit_sequence(risk_profile: &str) -> Vec<f64> {
+    match risk_profile {
+        "conservative" => vec![20.0, 25.0],
+        "balanced" => vec![25.0, 30.0],
+        "aggressive" => vec![30.0],
+        _ => vec![25.0, 30.0],
+    }
+}
+
 pub fn random_search(
     space: &SearchSpace,
     count: usize,

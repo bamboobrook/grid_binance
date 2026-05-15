@@ -8,7 +8,7 @@ use backtest_engine::martingale::scoring::{score_candidate, ScoringConfig};
 use backtest_engine::martingale::trade_engine::{
     run_trade_refinement, trades_to_ordered_price_bars,
 };
-use backtest_engine::search::{random_search, SearchSpace};
+use backtest_engine::search::{drawdown_limit_sequence, random_search, SearchSpace};
 use backtest_engine::time_splits::{named_stress_windows, walk_forward_windows, WalkForwardConfig};
 use rust_decimal::Decimal;
 use shared_domain::martingale::{
@@ -16,6 +16,18 @@ use shared_domain::martingale::{
     MartingaleRiskLimits, MartingaleSizingModel, MartingaleSpacingModel, MartingaleStrategyConfig,
     MartingaleTakeProfitModel,
 };
+
+#[test]
+fn risk_profile_drawdown_limits_relax_only_one_step() {
+    assert_eq!(drawdown_limit_sequence("conservative"), vec![20.0, 25.0]);
+    assert_eq!(drawdown_limit_sequence("balanced"), vec![25.0, 30.0]);
+    assert_eq!(drawdown_limit_sequence("aggressive"), vec![30.0]);
+}
+
+#[test]
+fn unknown_risk_profile_defaults_to_balanced_limits() {
+    assert_eq!(drawdown_limit_sequence("unknown"), vec![25.0, 30.0]);
+}
 
 #[test]
 fn scoring_rejects_negative_return_candidates() {
