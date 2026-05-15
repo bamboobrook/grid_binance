@@ -295,16 +295,24 @@ fn run_profit_first_staged_search(
     Ok(refined)
 }
 
-fn to_portfolio_candidates(candidates: &[EvaluatedCandidate]) -> Vec<backtest_engine::portfolio_search::EvaluatedCandidate> {
-    candidates.iter().map(|c| {
-        backtest_engine::portfolio_search::EvaluatedCandidate {
-            candidate: c.candidate.clone(),
-            score: c.score.rank_score,
-            return_pct: c.score.raw_score,
-            max_drawdown_pct: 0.0,
-            survival_passed: c.score.survival_valid,
-        }
-    }).collect()
+fn portfolio_candidates_from_outputs(outputs: &[CandidateOutput]) -> Vec<backtest_engine::portfolio_search::EvaluatedCandidate> {
+    outputs
+        .iter()
+        .filter_map(|output| {
+            let config = serde_json::from_value(output.config.clone()).ok()?;
+            Some(backtest_engine::portfolio_search::EvaluatedCandidate {
+                candidate: SearchCandidate {
+                    candidate_id: output.candidate_id.clone(),
+                    config,
+                },
+                score: output.score,
+                return_pct: output.total_return_pct,
+                max_drawdown_pct: output.max_drawdown_pct,
+                survival_passed: output.total_return_pct > 0.0
+                    && output.max_drawdown_pct <= output.used_drawdown_limit_pct,
+            })
+        })
+        .collect()
 }
 
 fn search_space_from_staged(staged: &StagedMartingaleSearchSpace, symbol: &str, task: &WorkerTaskConfig) -> SearchSpace {
@@ -621,7 +629,39 @@ async fn process_task(
         .save_candidates_and_artifacts(&task.task_id, evaluated_count, &outputs)
         .await?;
     respect_pause_or_cancel(poller, &task.task_id).await?;
-    poller.mark_completed(&task.task_id).await?;
+
+    let portfolio_candidates = portfolio_candidates_from_outputs(&outputs);
+    let max_portfolio_drawdown_pct = drawdown_limit_sequence(&task.config.risk_profile)
+        .first()
+        .copied()
+        .unwrap_or(25.0);
+    let portfolio_top3 = build_portfolio_top3(&portfolio_candidates, max_portfolio_drawdown_pct);
+    let portfolio_rows = portfolio_top3.top3.iter().map(|entry| json!({
+        "candidate_id": entry.candidate.candidate_id,
+        "score": entry.score,
+        "return_pct": entry.return_pct,
+        "max_drawdown_pct": entry.max_drawdown_pct,
+        "survival_passed": entry.survival_passed,
+    })).collect::<Vec<Value>>();
+    let portfolio_manifest = write_task_json_artifact(
+        &config.artifact_root,
+        &task.task_id,
+        "portfolio",
+        "top3",
+        &portfolio_rows,
+    )?;
+    verify_artifact(&portfolio_manifest)?;
+
+    poller
+        .mark_completed(
+            &task.task_id,
+            json!({
+                "portfolio_top_n": task.config.portfolio_top_n,
+                "portfolio_top3": portfolio_rows,
+                "portfolio_top3_artifact_path": portfolio_manifest.path.display().to_string(),
+            }),
+        )
+        .await?;
     Ok(())
 }
 
@@ -864,6 +904,16 @@ fn merge_json_objects(base: Value, patch: Value) -> Value {
         }
     }
     Value::Object(merged)
+}
+
+fn merge_json_objects_mut(base: &mut Value, patch: Value) {
+    if let Value::Object(patch_map) = patch {
+        if let Value::Object(base_map) = base {
+            for (key, value) in patch_map {
+                base_map.insert(key, value);
+            }
+        }
+    }
 }
 
 fn output_strategy(output: &CandidateOutput) -> Option<&Value> {
@@ -1497,16 +1547,15 @@ impl TaskPoller {
         Ok(())
     }
 
-    async fn mark_completed(&self, task_id: &str) -> Result<(), String> {
+    async fn mark_completed(&self, task_id: &str, extra_summary: Value) -> Result<(), String> {
+        let mut base = json!({
+            "stage": "completed",
+            "stage_label": "已完成",
+            "progress_pct": 100,
+        });
+        merge_json_objects_mut(&mut base, extra_summary);
         self.repo
-            .update_task_summary(
-                task_id,
-                json!({
-                    "stage": "completed",
-                    "stage_label": "已完成",
-                    "progress_pct": 100,
-                }),
-            )
+            .update_task_summary(task_id, base)
             .map_err(|error| format!("update completed summary: {error}"))?;
         self.repo
             .transition_task(task_id, "succeeded")

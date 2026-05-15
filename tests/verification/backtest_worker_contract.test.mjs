@@ -33,3 +33,11 @@ test("backtest worker contains profit-first staged auto-search flow contract", (
   assert.match(worker, /interval.*1m|"1m"/);
   assert.match(worker, /usd_m_futures|futures/);
 });
+
+test("backtest worker persists real portfolio Top 3 from outputs", () => {
+  const worker = readFileSync("apps/backtest-worker/src/main.rs", "utf8");
+  assert.match(worker, /portfolio_candidates_from_outputs/);
+  assert.match(worker, /update_task_summary\(/);
+  assert.match(worker, /portfolio_top3_artifact_path/);
+  assert.doesNotMatch(worker, /max_drawdown_pct:\s*0\.0/);
+});
