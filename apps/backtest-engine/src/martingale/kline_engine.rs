@@ -90,16 +90,23 @@ pub fn run_kline_screening(
         if dynamic_allocation_enabled {
             let symbols = allocation_indicator_context.push_group(group);
             for symbol in symbols {
-                let symbol_regime =
-                    classify_symbol_regime(&allocation_indicator_context.indicators, &symbol, &regime_config)
-                        .unwrap_or(MarketRegimeLabel::Range);
+                let symbol_regime = classify_symbol_regime(
+                    &allocation_indicator_context.indicators,
+                    &symbol,
+                    &regime_config,
+                )
+                .unwrap_or(MarketRegimeLabel::Range);
                 let current_group_has_btc = group.iter().any(|bar| bar.symbol == "BTCUSDT");
                 let btc_regime = if current_group_has_btc
                     || latest_bar_timestamp(&allocation_indicator_context.indicators, "BTCUSDT")
                         == Some(allocation_bucket_start_ms(timestamp_ms))
                 {
-                    classify_symbol_regime(&allocation_indicator_context.indicators, "BTCUSDT", &regime_config)
-                        .unwrap_or(MarketRegimeLabel::Range)
+                    classify_symbol_regime(
+                        &allocation_indicator_context.indicators,
+                        "BTCUSDT",
+                        &regime_config,
+                    )
+                    .unwrap_or(MarketRegimeLabel::Range)
                 } else {
                     symbol_regime.clone()
                 };
@@ -1388,16 +1395,17 @@ fn triggered_stop(
             })
         }
         MartingaleStopLossModel::Atr { multiplier } => {
+            if state.legs.len() < state.notionals.len() {
+                return Ok(StopSignal::default());
+            }
             let multiplier = decimal_to_positive_f64("stop_loss.atr_multiplier", multiplier)?;
             let Some(latest_atr) = latest_atr_for_strategy(indicator_context, state.strategy)
             else {
                 return Ok(StopSignal::default());
             };
             let average_entry = weighted_average_entry(&state.legs)?;
-            let stop_price = match state.strategy.direction {
-                MartingaleDirection::Long => average_entry - latest_atr * multiplier,
-                MartingaleDirection::Short => average_entry + latest_atr * multiplier,
-            };
+            let atr_distance = latest_atr * multiplier;
+            let stop_price = layer_plus_atr_stop_price(state, average_entry, atr_distance)?;
             validate_positive_f64("stop_loss.atr_price", stop_price)?;
             let triggered = match state.strategy.direction {
                 MartingaleDirection::Long => bar.low <= stop_price,
@@ -1508,7 +1516,10 @@ impl AllocationIndicatorContext {
         let mut completed_symbols = Vec::new();
         for bar in group {
             if let Some(completed) = self.push_bar(bar) {
-                if !completed_symbols.iter().any(|symbol| symbol == &completed.symbol) {
+                if !completed_symbols
+                    .iter()
+                    .any(|symbol| symbol == &completed.symbol)
+                {
                     completed_symbols.push(completed.symbol.clone());
                 }
                 self.indicators.push_bar(&completed);
@@ -1689,6 +1700,39 @@ impl IndicatorRuntimeContext {
         let bars = self.bars_by_symbol.get(symbol)?;
         let candles = bars.iter().map(indicator_candle).collect::<Vec<_>>();
         atr(&candles, period).last().copied().flatten()
+    }
+}
+
+fn layer_plus_atr_stop_price(
+    state: &StrategyRuntime<'_>,
+    average_entry: f64,
+    atr_distance: f64,
+) -> Result<f64, String> {
+    validate_positive_f64("stop_loss.average_entry", average_entry)?;
+    validate_positive_f64("stop_loss.atr_distance", atr_distance)?;
+    let fallback_layer_price = state
+        .legs
+        .last()
+        .map(|leg| leg.price)
+        .unwrap_or(average_entry);
+    let last_layer_price = state
+        .trigger_prices
+        .last()
+        .copied()
+        .unwrap_or(fallback_layer_price);
+    let spacing_distance = if state.trigger_prices.len() >= 2 {
+        let previous = state.trigger_prices[state.trigger_prices.len() - 2];
+        (last_layer_price - previous).abs()
+    } else {
+        (last_layer_price - average_entry)
+            .abs()
+            .max(average_entry * 0.01)
+    };
+    let layer_distance = spacing_distance.max(average_entry * 0.001);
+    let distance = atr_distance.max(layer_distance);
+    match state.strategy.direction {
+        MartingaleDirection::Long => Ok((last_layer_price - distance).max(0.00000001)),
+        MartingaleDirection::Short => Ok(last_layer_price + distance),
     }
 }
 
@@ -2474,6 +2518,39 @@ mod tests {
     }
 
     #[test]
+    fn atr_stop_loss_waits_until_beyond_last_layer_boundary() {
+        let mut portfolio = portfolio_with_stop_loss(MartingaleStopLossModel::Atr {
+            multiplier: Decimal::new(1, 0),
+        });
+        portfolio.strategies[0].sizing = MartingaleSizingModel::CustomSequence {
+            notionals: vec![
+                Decimal::new(100, 0),
+                Decimal::new(200, 0),
+                Decimal::new(400, 0),
+                Decimal::new(800, 0),
+            ],
+        };
+        portfolio.strategies[0].indicators =
+            vec![shared_domain::martingale::MartingaleIndicatorConfig::Atr { period: 2 }];
+        let bars = vec![
+            bar(1, 100.0, 100.5, 99.5, 100.0),
+            bar(2, 100.0, 100.5, 99.5, 100.0),
+            bar(3, 100.0, 100.5, 99.5, 100.0),
+            bar(4, 100.0, 100.5, 99.5, 100.0),
+            bar(5, 99.0, 99.5, 98.5, 99.0),
+            bar(6, 98.0, 98.5, 97.5, 98.0),
+            bar(7, 97.0, 97.5, 96.5, 97.0),
+        ];
+
+        let result = run_kline_screening(portfolio, &bars).unwrap();
+
+        assert!(!result
+            .events
+            .iter()
+            .any(|event| event.event_type == "stop_loss"));
+    }
+
+    #[test]
     fn indicator_stop_loss_triggers_when_expression_is_true() {
         let result = run_kline_screening(
             portfolio_with_stop_loss(MartingaleStopLossModel::Indicator {
@@ -2759,7 +2836,13 @@ mod tests {
         let bars = (0..1_440)
             .map(|index| {
                 let price = 100.0 + (index as f64 * 0.001);
-                bar(index * minute_ms, price, price * 1.001, price * 0.999, price)
+                bar(
+                    index * minute_ms,
+                    price,
+                    price * 1.001,
+                    price * 0.999,
+                    price,
+                )
             })
             .collect::<Vec<_>>();
 

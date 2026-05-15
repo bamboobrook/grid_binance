@@ -112,7 +112,7 @@ impl Default for WorkerTaskConfig {
             leverage_range: None,
             martingale_template: None,
             scoring: None,
-            dynamic_allocation_enabled: None,
+            dynamic_allocation_enabled: Some(false),
             short_stop_drawdown_pct_candidates: None,
             short_atr_stop_multiplier_candidates: None,
             allocation_cooldown_hours_candidates: None,
@@ -132,11 +132,7 @@ fn default_per_symbol_top_n() -> usize {
 }
 
 fn effective_per_symbol_top_n(config: &WorkerTaskConfig) -> usize {
-    let requested_direction_mode = direction_mode_from_task(config.direction_mode.as_deref());
-    let dynamic_allocation_enabled = config.dynamic_allocation_enabled.unwrap_or(
-        requested_direction_mode
-            == shared_domain::martingale::MartingaleDirectionMode::LongAndShort,
-    );
+    let dynamic_allocation_enabled = config.dynamic_allocation_enabled.unwrap_or(false);
     if dynamic_allocation_enabled && config.per_symbol_top_n == default_per_symbol_top_n() {
         DYNAMIC_PER_SYMBOL_TOP_N
     } else {
@@ -454,6 +450,29 @@ fn select_top_outputs_per_symbol(
             let direction = output_direction(&output);
             let overfit_flag = output_overfit_flag(&output);
             let risk_summary_human = output_risk_summary_human(&output, risk_profile);
+            let (long_weight_pct, short_weight_pct) = fixed_allocation_weights(risk_profile);
+            let annualized_return_pct = output_summary_f64(&output, "annualized_return_pct");
+            let annualized_return_pct = if annualized_return_pct.abs() > f64::EPSILON {
+                annualized_return_pct
+            } else {
+                output.total_return_pct
+            };
+            let max_drawdown_limit_passed = output.max_drawdown_pct <= max_drawdown_limit_pct;
+            let target_annualized_return_pct = 50.0;
+            let target_annualized_return_passed =
+                annualized_return_pct >= target_annualized_return_pct;
+            let can_recommend_live = max_drawdown_limit_passed
+                && target_annualized_return_passed
+                && annualized_return_pct > 0.0;
+            let warning_reason = if output.total_return_pct < 0.0 {
+                Some("negative_return")
+            } else if !max_drawdown_limit_passed {
+                Some("max_drawdown_limit_exceeded")
+            } else if !target_annualized_return_passed {
+                Some("target_annualized_return_not_met")
+            } else {
+                None
+            };
             let allocation_curve = output_summary_value_or(&output, "allocation_curve", json!([]));
             let regime_timeline = output_summary_value_or(&output, "regime_timeline", json!([]));
             let cost_summary = output_summary_value_or(
@@ -472,41 +491,109 @@ fn select_top_outputs_per_symbol(
                 output_summary_value_or(&output, "average_allocation_hold_hours", Value::Null);
 
             output.rank = index + 1;
-            output.summary = merge_json_objects(
-                output.summary,
-                json!({
-                    "symbol": symbol,
-                    "direction": direction,
-                    "per_symbol_rank": per_symbol_rank,
-                    "portfolio_top_n": PORTFOLIO_TOP_N,
-                    "recommended_weight_pct": recommended_weight_pct,
-                    "recommended_leverage": recommended_leverage,
-                    "risk_profile": risk_profile,
-                    "max_drawdown_limit_pct": max_drawdown_limit_pct,
-                    "dynamic_allocation_rules": dynamic_allocation_rules(),
-                    "allocation_curve": allocation_curve,
-                    "regime_timeline": regime_timeline,
-                    "cost_summary": cost_summary,
-                    "rebalance_count": rebalance_count,
-                    "forced_exit_count": forced_exit_count,
-                    "average_allocation_hold_hours": average_allocation_hold_hours,
-                    "portfolio_group_key": portfolio_group_key,
-                    "spacing_bps": spacing_bps,
-                    "first_order_quote": first_order_quote,
-                    "order_multiplier": order_multiplier,
-                    "max_legs": max_legs,
-                    "take_profit_bps": take_profit_bps,
-                    "trailing_take_profit_bps": trailing_take_profit_bps,
-                    "total_margin_budget_quote": total_margin_budget_quote,
-                    "total_return_pct": output.total_return_pct,
-                    "max_drawdown_pct": output.max_drawdown_pct,
-                    "score": score_100(output.score, output.total_return_pct, output.max_drawdown_pct, max_drawdown_limit_pct),
-                    "rank_score_raw": output.score,
-                    "overfit_flag": overfit_flag,
-                    "risk_summary_human": risk_summary_human,
-                    "artifact_path": output.artifact_path,
-                }),
+            let mut patch = serde_json::Map::new();
+            patch.insert("symbol".to_owned(), json!(symbol));
+            patch.insert("direction".to_owned(), json!(direction));
+            patch.insert("per_symbol_rank".to_owned(), json!(per_symbol_rank));
+            patch.insert("portfolio_top_n".to_owned(), json!(PORTFOLIO_TOP_N));
+            patch.insert(
+                "recommended_weight_pct".to_owned(),
+                json!(recommended_weight_pct),
             );
+            patch.insert(
+                "recommended_leverage".to_owned(),
+                json!(recommended_leverage),
+            );
+            patch.insert("risk_profile".to_owned(), json!(risk_profile));
+            patch.insert(
+                "max_drawdown_limit_pct".to_owned(),
+                json!(max_drawdown_limit_pct),
+            );
+            patch.insert("allocation_mode".to_owned(), json!("fixed_by_risk_profile"));
+            patch.insert("dynamic_allocation_enabled".to_owned(), json!(false));
+            patch.insert(
+                "dynamic_allocation_rules".to_owned(),
+                fixed_allocation_rules(risk_profile),
+            );
+            patch.insert("stop_model".to_owned(), json!("layer_plus_atr"));
+            patch.insert(
+                "extra_stop_spacing_multipliers".to_owned(),
+                json!([1.0, 1.5, 2.0, 2.5, 3.0]),
+            );
+            patch.insert(
+                "atr_stop_multipliers".to_owned(),
+                json!([2.0, 2.5, 3.0, 3.5, 4.0]),
+            );
+            patch.insert(
+                "target_annualized_return_pct".to_owned(),
+                json!(target_annualized_return_pct),
+            );
+            patch.insert(
+                "annualized_return_pct".to_owned(),
+                json!(annualized_return_pct),
+            );
+            patch.insert(
+                "target_annualized_return_passed".to_owned(),
+                json!(target_annualized_return_passed),
+            );
+            patch.insert(
+                "max_drawdown_limit_passed".to_owned(),
+                json!(max_drawdown_limit_passed),
+            );
+            patch.insert("can_recommend_live".to_owned(), json!(can_recommend_live));
+            patch.insert("warning_reason".to_owned(), json!(warning_reason));
+            patch.insert("long_weight_pct".to_owned(), json!(long_weight_pct));
+            patch.insert("short_weight_pct".to_owned(), json!(short_weight_pct));
+            patch.insert("actual_long_weight_pct".to_owned(), json!(long_weight_pct));
+            patch.insert(
+                "actual_short_weight_pct".to_owned(),
+                json!(short_weight_pct),
+            );
+            patch.insert("allocation_curve".to_owned(), allocation_curve);
+            patch.insert("regime_timeline".to_owned(), regime_timeline);
+            patch.insert("cost_summary".to_owned(), cost_summary);
+            patch.insert("rebalance_count".to_owned(), rebalance_count);
+            patch.insert("forced_exit_count".to_owned(), forced_exit_count);
+            patch.insert(
+                "average_allocation_hold_hours".to_owned(),
+                average_allocation_hold_hours,
+            );
+            patch.insert("portfolio_group_key".to_owned(), json!(portfolio_group_key));
+            patch.insert("spacing_bps".to_owned(), spacing_bps);
+            patch.insert("first_order_quote".to_owned(), first_order_quote);
+            patch.insert("order_multiplier".to_owned(), order_multiplier);
+            patch.insert("max_legs".to_owned(), max_legs);
+            patch.insert("take_profit_bps".to_owned(), take_profit_bps);
+            patch.insert(
+                "trailing_take_profit_bps".to_owned(),
+                trailing_take_profit_bps,
+            );
+            patch.insert(
+                "total_margin_budget_quote".to_owned(),
+                total_margin_budget_quote,
+            );
+            patch.insert(
+                "total_return_pct".to_owned(),
+                json!(output.total_return_pct),
+            );
+            patch.insert(
+                "max_drawdown_pct".to_owned(),
+                json!(output.max_drawdown_pct),
+            );
+            patch.insert(
+                "score".to_owned(),
+                json!(score_100(
+                    output.score,
+                    output.total_return_pct,
+                    output.max_drawdown_pct,
+                    max_drawdown_limit_pct
+                )),
+            );
+            patch.insert("rank_score_raw".to_owned(), json!(output.score));
+            patch.insert("overfit_flag".to_owned(), json!(overfit_flag));
+            patch.insert("risk_summary_human".to_owned(), json!(risk_summary_human));
+            patch.insert("artifact_path".to_owned(), json!(output.artifact_path));
+            output.summary = merge_json_objects(output.summary, Value::Object(patch));
             output
         })
         .collect()
@@ -545,14 +632,24 @@ fn result_summary_fields(result: &MartingaleBacktestResult) -> Value {
     })
 }
 
-fn dynamic_allocation_rules() -> Value {
+fn fixed_allocation_weights(risk_profile: &str) -> (f64, f64) {
+    match risk_profile {
+        "conservative" => (80.0, 20.0),
+        "aggressive" => (50.0, 50.0),
+        _ => (60.0, 40.0),
+    }
+}
+
+fn fixed_allocation_rules(risk_profile: &str) -> Value {
+    let (long_weight_pct, short_weight_pct) = fixed_allocation_weights(risk_profile);
     json!({
-        "timeframes": ["4h", "1d"],
-        "btc_filter": true,
-        "funding_rate_used": false,
-        "weight_buckets": [[100, 0], [80, 20], [60, 40], [50, 50], [40, 60], [20, 80], [0, 100]],
-        "cooldown_hours": 16,
-        "existing_position_policy": "tiered_pause_cancel_force_exit",
+        "allocation_mode": "fixed_by_risk_profile",
+        "dynamic_allocation_enabled": false,
+        "long_weight_pct": long_weight_pct,
+        "short_weight_pct": short_weight_pct,
+        "stop_model": "layer_plus_atr",
+        "extra_stop_spacing_multipliers": [1.0, 1.5, 2.0, 2.5, 3.0],
+        "atr_stop_multipliers": [2.0, 2.5, 3.0, 3.5, 4.0],
     })
 }
 
@@ -573,7 +670,10 @@ where
         .filter(|(index, _)| index % step == 0)
         .filter_map(|(_, value)| serde_json::to_value(value).ok())
         .collect::<Vec<_>>();
-    if let Some(last) = values.last().and_then(|value| serde_json::to_value(value).ok()) {
+    if let Some(last) = values
+        .last()
+        .and_then(|value| serde_json::to_value(value).ok())
+    {
         if sampled.last() != Some(&last) {
             sampled.push(last);
         }
@@ -659,9 +759,15 @@ fn output_total_margin_budget_quote(output: &CandidateOutput) -> Value {
     let first = output_first_order_quote(output);
     let multiplier = output_order_multiplier(output);
     let max_legs = output_max_legs(output);
-    let Some(first) = json_number(&first) else { return Value::Null; };
-    let Some(multiplier) = json_number(&multiplier) else { return Value::Null; };
-    let Some(max_legs) = max_legs.as_u64() else { return Value::Null; };
+    let Some(first) = json_number(&first) else {
+        return Value::Null;
+    };
+    let Some(multiplier) = json_number(&multiplier) else {
+        return Value::Null;
+    };
+    let Some(max_legs) = max_legs.as_u64() else {
+        return Value::Null;
+    };
     if max_legs == 0 || first <= 0.0 || multiplier <= 0.0 {
         return Value::Null;
     }
@@ -820,7 +926,13 @@ fn portfolio_summary_json(
                 "average_correlation": portfolio.average_correlation,
                 "overfit_flag": false,
                 "max_drawdown_limit_passed": max_drawdown_limit_passed,
-                "can_recommend_live": max_drawdown_limit_passed,
+                "target_annualized_return_pct": 50.0,
+                "target_annualized_return_passed": annualized_return_pct(portfolio.total_return_pct, backtest_years) >= 50.0,
+                "long_weight_pct": fixed_allocation_weights(&config.risk_profile).0,
+                "short_weight_pct": fixed_allocation_weights(&config.risk_profile).1,
+                "actual_long_weight_pct": fixed_allocation_weights(&config.risk_profile).0,
+                "actual_short_weight_pct": fixed_allocation_weights(&config.risk_profile).1,
+                "can_recommend_live": max_drawdown_limit_passed && annualized_return_pct(portfolio.total_return_pct, backtest_years) >= 50.0 && portfolio.total_return_pct > 0.0,
                 "risk_summary_human": if max_drawdown_limit_passed {
                     "满足最大回撤限制，可进入组合复核。"
                 } else {
@@ -831,7 +943,9 @@ fn portfolio_summary_json(
         .collect()
 }
 
-fn fallback_portfolio_candidate(outputs: &[CandidateOutput]) -> Option<portfolio_optimizer::PortfolioCandidate> {
+fn fallback_portfolio_candidate(
+    outputs: &[CandidateOutput],
+) -> Option<portfolio_optimizer::PortfolioCandidate> {
     let mut best_by_symbol = std::collections::BTreeMap::<String, &CandidateOutput>::new();
     for output in outputs {
         if output_equity_curve(output).is_empty() {
@@ -889,7 +1003,11 @@ fn fallback_portfolio_candidate(outputs: &[CandidateOutput]) -> Option<portfolio
         items,
         total_return_pct,
         max_drawdown_pct,
-        return_drawdown_ratio: if max_drawdown_pct <= f64::EPSILON { total_return_pct } else { total_return_pct / max_drawdown_pct },
+        return_drawdown_ratio: if max_drawdown_pct <= f64::EPSILON {
+            total_return_pct
+        } else {
+            total_return_pct / max_drawdown_pct
+        },
         rebalance_count,
         forced_exit_count,
         cost_burden_quote,
@@ -904,14 +1022,23 @@ fn fallback_output_order(left: &CandidateOutput, right: &CandidateOutput) -> std
         .then_with(|| right.total_return_pct.total_cmp(&left.total_return_pct))
 }
 
-fn score_100(rank_score: f64, total_return_pct: f64, max_drawdown_pct: f64, max_drawdown_limit_pct: f64) -> f64 {
+fn score_100(
+    rank_score: f64,
+    total_return_pct: f64,
+    max_drawdown_pct: f64,
+    max_drawdown_limit_pct: f64,
+) -> f64 {
     let drawdown_score = if max_drawdown_limit_pct > 0.0 {
         (1.0 - (max_drawdown_pct / max_drawdown_limit_pct)).clamp(0.0, 1.0) * 45.0
     } else {
         0.0
     };
     let return_score = (total_return_pct / 100.0).clamp(-1.0, 1.0) * 35.0 + 35.0;
-    let rank_bonus = if rank_score.is_finite() && rank_score > 0.0 { 20.0 } else { 0.0 };
+    let rank_bonus = if rank_score.is_finite() && rank_score > 0.0 {
+        20.0
+    } else {
+        0.0
+    };
     ((drawdown_score + return_score + rank_bonus).clamp(0.0, 100.0) * 100.0).round() / 100.0
 }
 
@@ -924,14 +1051,24 @@ fn output_summary_u64(output: &CandidateOutput, key: &str) -> u64 {
 }
 
 fn json_number(value: &Value) -> Option<f64> {
-    value.as_f64().or_else(|| value.as_str()?.parse::<f64>().ok()).filter(|value| value.is_finite())
+    value
+        .as_f64()
+        .or_else(|| value.as_str()?.parse::<f64>().ok())
+        .filter(|value| value.is_finite())
 }
 
-fn output_by_candidate_id<'a>(outputs: &'a [CandidateOutput], candidate_id: &str) -> Option<&'a CandidateOutput> {
-    outputs.iter().find(|output| output.candidate_id == candidate_id)
+fn output_by_candidate_id<'a>(
+    outputs: &'a [CandidateOutput],
+    candidate_id: &str,
+) -> Option<&'a CandidateOutput> {
+    outputs
+        .iter()
+        .find(|output| output.candidate_id == candidate_id)
 }
 
-fn portfolio_symbol_weights(items: &[portfolio_optimizer::PortfolioItem]) -> std::collections::BTreeMap<String, f64> {
+fn portfolio_symbol_weights(
+    items: &[portfolio_optimizer::PortfolioItem],
+) -> std::collections::BTreeMap<String, f64> {
     let mut weights = std::collections::BTreeMap::<String, f64>::new();
     for item in items {
         *weights.entry(item.symbol.clone()).or_default() += item.weight_pct;
@@ -946,7 +1083,11 @@ fn portfolio_drawdown_curve(equity_curve: &[f64]) -> Vec<Value> {
         .enumerate()
         .map(|(index, equity)| {
             peak = peak.max(*equity);
-            let drawdown = if peak > 0.0 { ((peak - equity) / peak).max(0.0) } else { 0.0 };
+            let drawdown = if peak > 0.0 {
+                ((peak - equity) / peak).max(0.0)
+            } else {
+                0.0
+            };
             json!({ "ts": index, "drawdown": drawdown })
         })
         .collect()
@@ -1061,10 +1202,7 @@ fn strategy_value_at<'a>(output: &'a CandidateOutput, path: &[&str]) -> Option<&
 
 fn search_space_from_task(config: &WorkerTaskConfig) -> SearchSpace {
     let requested_direction_mode = direction_mode_from_task(config.direction_mode.as_deref());
-    let dynamic_allocation_enabled = config.dynamic_allocation_enabled.unwrap_or(
-        requested_direction_mode
-            == shared_domain::martingale::MartingaleDirectionMode::LongAndShort,
-    );
+    let dynamic_allocation_enabled = config.dynamic_allocation_enabled.unwrap_or(false);
     let direction_mode = if requested_direction_mode
         == shared_domain::martingale::MartingaleDirectionMode::LongAndShort
         && !dynamic_allocation_enabled
@@ -1126,7 +1264,7 @@ fn short_stop_drawdown_pct_candidates(config: &WorkerTaskConfig) -> Vec<f64> {
         .and_then(Value::as_f64)
         .filter(|value| value.is_finite() && *value > 0.0)
         .unwrap_or(25.0);
-    let mut candidates = vec![limit * 0.64, limit * 0.8, limit, limit * 1.2];
+    let mut candidates = vec![limit, limit * 1.2, limit * 1.5, limit * 2.0, limit * 2.5];
     candidates.retain(|value| value.is_finite() && *value > 0.0);
     candidates.sort_by(|left, right| left.total_cmp(right));
     candidates.dedup_by(|left, right| (*left - *right).abs() < f64::EPSILON);
@@ -1511,7 +1649,8 @@ fn run_candidate_trade_refinement(
                 candidate.candidate_id
             ));
         }
-        return run_kline_screening(candidate.config.clone(), bars.as_ref()).map(|result| (result, false));
+        return run_kline_screening(candidate.config.clone(), bars.as_ref())
+            .map(|result| (result, false));
     }
     run_trade_refinement(candidate.config.clone(), trades.as_ref()).map(|result| (result, true))
 }
@@ -1522,7 +1661,11 @@ fn bars_for_candidate<'a>(
 ) -> Cow<'a, [KlineBar]> {
     let symbols = candidate_symbols(candidate);
     if symbols.len() == 1 {
-        if let Some(bars) = symbols.iter().next().and_then(|symbol| bars_by_symbol.get(symbol)) {
+        if let Some(bars) = symbols
+            .iter()
+            .next()
+            .and_then(|symbol| bars_by_symbol.get(symbol))
+        {
             return Cow::Borrowed(bars.as_slice());
         }
         return Cow::Borrowed(&[]);
@@ -2190,8 +2333,12 @@ mod tests {
         let balanced_scoring = scoring_config_from_task(&balanced);
         let aggressive_scoring = scoring_config_from_task(&aggressive);
 
-        assert!(conservative_scoring.max_global_drawdown_pct < balanced_scoring.max_global_drawdown_pct);
-        assert!(balanced_scoring.max_global_drawdown_pct < aggressive_scoring.max_global_drawdown_pct);
+        assert!(
+            conservative_scoring.max_global_drawdown_pct < balanced_scoring.max_global_drawdown_pct
+        );
+        assert!(
+            balanced_scoring.max_global_drawdown_pct < aggressive_scoring.max_global_drawdown_pct
+        );
         assert!(conservative_scoring.weight_drawdown > balanced_scoring.weight_drawdown);
         assert!(balanced_scoring.weight_drawdown > aggressive_scoring.weight_drawdown);
         assert!(aggressive_scoring.weight_return > balanced_scoring.weight_return);
@@ -2539,7 +2686,10 @@ mod tests {
             "max_drawdown_limit_passed",
             "can_recommend_live",
         ] {
-            assert!(first.get(field).is_some(), "missing portfolio field {field}");
+            assert!(
+                first.get(field).is_some(),
+                "missing portfolio field {field}"
+            );
         }
     }
 
@@ -2641,7 +2791,7 @@ mod tests {
             leverage_range: None,
             martingale_template: None,
             scoring: None,
-            dynamic_allocation_enabled: None,
+            dynamic_allocation_enabled: Some(false),
             short_stop_drawdown_pct_candidates: None,
             short_atr_stop_multiplier_candidates: None,
             allocation_cooldown_hours_candidates: None,
@@ -2670,9 +2820,33 @@ mod tests {
     #[test]
     fn screening_bars_are_aggregated_to_four_hours() {
         let bars = vec![
-            KlineBar { symbol: "BTCUSDT".to_owned(), open_time_ms: 0, open: 100.0, high: 101.0, low: 99.0, close: 100.5, volume: 1.0 },
-            KlineBar { symbol: "BTCUSDT".to_owned(), open_time_ms: 60_000, open: 100.5, high: 102.0, low: 98.0, close: 101.0, volume: 2.0 },
-            KlineBar { symbol: "BTCUSDT".to_owned(), open_time_ms: 4 * 60 * 60 * 1_000, open: 101.0, high: 103.0, low: 100.0, close: 102.0, volume: 3.0 },
+            KlineBar {
+                symbol: "BTCUSDT".to_owned(),
+                open_time_ms: 0,
+                open: 100.0,
+                high: 101.0,
+                low: 99.0,
+                close: 100.5,
+                volume: 1.0,
+            },
+            KlineBar {
+                symbol: "BTCUSDT".to_owned(),
+                open_time_ms: 60_000,
+                open: 100.5,
+                high: 102.0,
+                low: 98.0,
+                close: 101.0,
+                volume: 2.0,
+            },
+            KlineBar {
+                symbol: "BTCUSDT".to_owned(),
+                open_time_ms: 4 * 60 * 60 * 1_000,
+                open: 101.0,
+                high: 103.0,
+                low: 100.0,
+                close: 102.0,
+                volume: 3.0,
+            },
         ];
 
         let aggregated = aggregate_bars(&bars, 4 * 60 * 60 * 1_000);
@@ -2714,7 +2888,7 @@ mod tests {
             leverage_range: None,
             martingale_template: None,
             scoring: None,
-            dynamic_allocation_enabled: None,
+            dynamic_allocation_enabled: Some(false),
             short_stop_drawdown_pct_candidates: None,
             short_atr_stop_multiplier_candidates: None,
             allocation_cooldown_hours_candidates: None,
@@ -2802,7 +2976,7 @@ mod tests {
     }
 
     #[test]
-    fn dynamic_long_short_defaults_generate_search_metadata_candidates() {
+    fn fixed_long_short_defaults_disable_dynamic_search_metadata_candidates() {
         let config: WorkerTaskConfig = serde_json::from_value(serde_json::json!({
             "symbols": ["BTCUSDT"],
             "random_seed": 7,
@@ -2819,17 +2993,17 @@ mod tests {
 
         let space = search_space_from_task(&config);
 
-        assert!(space.dynamic_allocation_enabled);
-        assert_eq!(effective_per_symbol_top_n(&config), 10);
+        assert!(!space.dynamic_allocation_enabled);
+        assert_eq!(effective_per_symbol_top_n(&config), 5);
         assert_eq!(
             space.short_atr_stop_multiplier_candidates,
             vec![1.5, 2.0, 2.5, 3.0]
         );
         assert_eq!(space.allocation_cooldown_hours_candidates, vec![12, 16, 24]);
-        assert!(space.short_stop_drawdown_pct_candidates.contains(&16.0));
-        assert!(space.short_stop_drawdown_pct_candidates.contains(&20.0));
         assert!(space.short_stop_drawdown_pct_candidates.contains(&25.0));
         assert!(space.short_stop_drawdown_pct_candidates.contains(&30.0));
+        assert!(space.short_stop_drawdown_pct_candidates.contains(&37.5));
+        assert!(space.short_stop_drawdown_pct_candidates.contains(&50.0));
         assert!(!space.short_stop_drawdown_pct_candidates.contains(&12.5));
     }
 

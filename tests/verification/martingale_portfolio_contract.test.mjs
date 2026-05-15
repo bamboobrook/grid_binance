@@ -171,3 +171,10 @@ test("martingale batch portfolio publish API contract is wired end to end", asyn
   assert.match(liveControlsSource, /策略实例|Strategy instance/);
   assert.match(liveControlsSource, /来源候选|Source candidate/);
 });
+
+test("martingale publish service blocks non-recommended backtest candidates", () => {
+  const service = readFileSync("apps/api-server/src/services/martingale_publish_service.rs", "utf8");
+  assert.match(service, /can_recommend_live/);
+  assert.match(service, /max_drawdown_limit_passed/);
+  assert.match(service, /not recommended|不建议|cannot publish|risk/i);
+});

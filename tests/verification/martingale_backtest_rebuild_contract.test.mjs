@@ -130,7 +130,7 @@ test("martingale wizard defaults to automatic search and current previous-month 
   assert.match(wizardSource, /portfolio_top_n:\s*10/);
 });
 
-test("martingale wizard payload preserves dynamic search and manual risk overrides", () => {
+test("martingale wizard payload preserves fixed allocation search and manual risk overrides", () => {
   const { buildWizardPayload } = loadWizardPayloadHelpers();
   assert.equal(typeof buildWizardPayload, "function");
 
@@ -143,7 +143,12 @@ test("martingale wizard payload preserves dynamic search and manual risk overrid
 
   assert.equal(payload.per_symbol_top_n, 10);
   assert.equal(payload.portfolio_top_n, 10);
-  assert.equal(payload.dynamic_allocation_enabled, true);
+  assert.equal(payload.dynamic_allocation_enabled, false);
+  assert.equal(payload.allocation_mode, "fixed_by_risk_profile");
+  assert.equal(payload.long_weight_pct, 60);
+  assert.equal(payload.short_weight_pct, 40);
+  assert.equal(payload.target_annualized_return_pct, 50);
+  assert.equal(payload.stop_model.kind, "layer_plus_atr");
   assert.equal(payload.scoring.max_drawdown_pct, 17.5);
   assert.equal(payload.scoring.max_stop_loss_count, 9);
 });
@@ -294,4 +299,31 @@ test("frontend has proxy route for batch portfolio publish", () => {
   const route = read("apps/web/app/api/user/backtest/portfolios/publish/route.ts");
   assert.match(route, /backendPath:\s*["']\/backtest\/portfolios\/publish["']/);
   assert.match(route, /POST/);
+});
+
+test("martingale wizard exposes fixed long short defaults and manual validation", () => {
+  const wizard = read("apps/web/components/backtest/backtest-wizard.tsx");
+  assert.match(wizard, /conservative[\s\S]*longWeightPct:\s*80[\s\S]*shortWeightPct:\s*20/);
+  assert.match(wizard, /balanced[\s\S]*longWeightPct:\s*60[\s\S]*shortWeightPct:\s*40/);
+  assert.match(wizard, /aggressive[\s\S]*longWeightPct:\s*50[\s\S]*shortWeightPct:\s*50/);
+  assert.match(wizard, /dynamic_allocation_enabled:\s*false/);
+  assert.match(wizard, /longWeightPct/);
+  assert.match(wizard, /shortWeightPct/);
+  assert.match(wizard, /Long 与 Short 比例合计必须等于 100%|Long and Short weights must sum to 100%/);
+});
+
+test("martingale results explain score, annualized return, stops, and live recommendation", () => {
+  const table = read("apps/web/components/backtest/backtest-result-table.tsx");
+  const warning = read("apps/web/components/backtest/martingale-risk-warning.tsx");
+  assert.match(table, /annualized_return_pct|annualizedReturnPct/);
+  assert.match(table, /max_drawdown_pct|maxDrawdownPct/);
+  assert.match(table, /stop_loss_count|stopLossCount/);
+  assert.match(table, /fee_quote|feeQuote/);
+  assert.match(table, /slippage_quote|slippageQuote/);
+  assert.match(table, /can_recommend_live|canRecommendLive/);
+  assert.match(table, /\/100/);
+  assert.match(warning, /收益为负|negative return/i);
+  assert.match(warning, /超过最大回撤|drawdown/i);
+  assert.match(warning, /止损频率|stop/i);
+  assert.match(warning, /不建议实盘|not recommend/i);
 });

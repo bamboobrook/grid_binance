@@ -1,10 +1,10 @@
 use axum::{
-    Json,
     http::StatusCode,
     response::{IntoResponse, Response},
+    Json,
 };
 use serde::{Deserialize, Serialize};
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 use shared_db::{
     BacktestCandidateRecord, BacktestRepository, MartingalePortfolioRecord,
     NewMartingalePortfolioItemRecord, NewMartingalePortfolioRecord, SharedDb,
@@ -187,6 +187,7 @@ impl MartingalePublishService {
                     "candidate does not belong to task",
                 ));
             }
+            validate_candidate_live_recommendation(candidate)?;
         }
 
         let portfolio_id = format!("mp_{}", uuid_simple());
@@ -377,6 +378,25 @@ impl From<MartingalePortfolioRecord> for PublishPortfolioResponse {
                 .unwrap_or_default(),
         }
     }
+}
+
+fn validate_candidate_live_recommendation(
+    candidate: &BacktestCandidateRecord,
+) -> Result<(), PublishError> {
+    let can_recommend_live = candidate
+        .summary
+        .get("can_recommend_live")
+        .and_then(Value::as_bool);
+    let max_drawdown_limit_passed = candidate
+        .summary
+        .get("max_drawdown_limit_passed")
+        .and_then(Value::as_bool);
+    if can_recommend_live == Some(false) || max_drawdown_limit_passed == Some(false) {
+        return Err(PublishError::bad_request(
+            "candidate is not recommended for live publishing because risk checks failed",
+        ));
+    }
+    Ok(())
 }
 
 fn live_readiness_blockers(
@@ -941,11 +961,17 @@ mod tests {
             "dynamic_allocation_enabled": true
         });
 
-        assert!(requires_dynamic_allocation_rules(&request, &candidates_by_id));
+        assert!(requires_dynamic_allocation_rules(
+            &request,
+            &candidates_by_id
+        ));
 
         request.risk_profile = "dynamic marketing copy only".to_owned();
         request.items[0].parameter_snapshot = json!({ "direction_mode": "long_only" });
 
-        assert!(!requires_dynamic_allocation_rules(&request, &candidates_by_id));
+        assert!(!requires_dynamic_allocation_rules(
+            &request,
+            &candidates_by_id
+        ));
     }
 }

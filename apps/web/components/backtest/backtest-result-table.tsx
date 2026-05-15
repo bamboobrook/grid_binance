@@ -26,6 +26,15 @@ type DynamicResultSummary = MartingaleBacktestCandidateSummary & {
   max_drawdown_limit_passed?: boolean;
   live_recommended?: boolean;
   can_recommend_live?: boolean;
+  annualized_return_pct?: number;
+  max_drawdown_pct?: number;
+  stop_loss_count?: number;
+  fee_quote?: number;
+  slippage_quote?: number;
+  long_weight_pct?: number;
+  short_weight_pct?: number;
+  actual_long_weight_pct?: number;
+  actual_short_weight_pct?: number;
   discarded_symbols_from_portfolio_top10?: string[];
   portfolio_top10_discarded_symbols?: string[];
   cost_summary?: {
@@ -131,6 +140,7 @@ function candidateColumns(lang: UiLanguage) {
     { key: "searchMode", label: pickText(lang, "回测级别", "Mode") },
     { key: "parameters", label: pickText(lang, "马丁参数", "Martingale parameters") },
     { key: "returnPct", label: pickText(lang, "收益", "Return"), align: "right" as const },
+    { key: "score", label: "Score /100", align: "right" as const },
     { key: "drawdown", label: pickText(lang, "最大回撤", "Max DD"), align: "right" as const },
     { key: "tradeCount", label: pickText(lang, "交易数", "Trades"), align: "right" as const },
     { key: "dynamicMetrics", label: pickText(lang, "动态指标", "Dynamic metrics") },
@@ -196,6 +206,11 @@ function DynamicMetrics({ summary, lang }: { summary: DynamicResultSummary; lang
   const forcedExitCount = summary.forced_exit_count ?? summary.cost_summary?.forced_exit_count;
   return (
     <div className="space-y-0.5 text-xs">
+      <p>{pickText(lang, "年化收益", "Annualized return")}: {formatOptionalNumber(summary.annualized_return_pct, 2)}%</p>
+      <p>{pickText(lang, "最大回撤", "Max drawdown")}: {formatOptionalNumber(summary.max_drawdown_pct, 2)}%</p>
+      <p>{pickText(lang, "固定多空", "Fixed L/S")}: {formatOptionalNumber(summary.long_weight_pct, 0)}/{formatOptionalNumber(summary.short_weight_pct, 0)}</p>
+      <p>{pickText(lang, "实际多空", "Actual L/S")}: {formatOptionalNumber(summary.actual_long_weight_pct, 0)}/{formatOptionalNumber(summary.actual_short_weight_pct, 0)}</p>
+      <p>{pickText(lang, "止损次数", "Stop losses")}: {formatOptionalNumber(summary.stop_loss_count, 0)}</p>
       <p>{pickText(lang, "收益回撤比", "Return/DD ratio")}: {formatOptionalNumber(readReturnDrawdownRatio(summary), 2)}</p>
       <p>{pickText(lang, "调仓次数", "Rebalances")}: {formatOptionalNumber(rebalanceCount, 0)}</p>
       <p>{pickText(lang, "强平次数", "Forced exits")}: {formatOptionalNumber(forcedExitCount, 0)}</p>

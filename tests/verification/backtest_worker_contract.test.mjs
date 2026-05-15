@@ -64,3 +64,15 @@ test("api task creation does not create placeholder publish candidates", () => {
   assert.match(flow, /save_ready_candidate/);
   assert.match(flow, /worker_verified/);
 });
+
+test("martingale worker defaults to fixed allocation and layer plus ATR stops", () => {
+  const worker = readFileSync("apps/backtest-worker/src/main.rs", "utf8");
+  assert.match(worker, /dynamic_allocation_enabled/);
+  assert.match(worker, /unwrap_or\(false\)|dynamic_allocation_enabled:\s*Some\(false\)|dynamic_allocation_enabled\s*=\s*false/);
+  assert.match(worker, /fixed_by_risk_profile/);
+  assert.match(worker, /layer_plus_atr/);
+  assert.match(worker, /extra_stop_spacing_multipliers/);
+  assert.match(worker, /atr_stop_multipliers/);
+  assert.match(worker, /target_annualized_return_pct/);
+  assert.match(worker, /can_recommend_live/);
+});

@@ -19,6 +19,12 @@ const DEFAULT_MAX_DRAWDOWN_BY_RISK = {
   aggressive: 30,
 } as const;
 
+const RISK_PROFILE_DEFAULTS = {
+  conservative: { longWeightPct: 80, shortWeightPct: 20, maxDrawdownLimitPct: 20 },
+  balanced: { longWeightPct: 60, shortWeightPct: 40, maxDrawdownLimitPct: 25 },
+  aggressive: { longWeightPct: 50, shortWeightPct: 50, maxDrawdownLimitPct: 30 },
+} as const;
+
 const STEPS = [
   { key: "search", titleZh: "1. 市场与搜索", titleEn: "1. Market and search", descriptionZh: "配置 symbol 池、市场类型、搜索方式与候选数量。", descriptionEn: "Configure symbol pools, market type, search mode, and candidate budgets." },
   { key: "martingale", titleZh: "2. 马丁参数", titleEn: "2. Martingale parameters", descriptionZh: "定义方向、杠杆、间距、加仓、止盈和止损框架。", descriptionEn: "Define direction, leverage, spacing, sizing, take-profit, and stop-loss rules." },
@@ -59,6 +65,8 @@ export type WizardForm = {
   testEnd: string;
   interval: "1m" | "5m" | "15m" | "1h" | "4h" | "1d";
   maxDrawdownPct: string;
+  longWeightPct: string;
+  shortWeightPct: string;
   maxStopLossCount: string;
   portfolioStopLossPct: string;
   perStrategyStopLossPct: string;
@@ -96,6 +104,8 @@ const INITIAL_FORM: WizardForm = {
   testEnd: "2025-06-30",
   interval: "1m",
   maxDrawdownPct: String(DEFAULT_MAX_DRAWDOWN_BY_RISK.balanced),
+  longWeightPct: String(RISK_PROFILE_DEFAULTS.balanced.longWeightPct),
+  shortWeightPct: String(RISK_PROFILE_DEFAULTS.balanced.shortWeightPct),
   maxStopLossCount: "3",
   portfolioStopLossPct: "18",
   perStrategyStopLossPct: "8",
@@ -108,6 +118,7 @@ export function BacktestWizard({ lang, onTaskCreated }: { lang: UiLanguage; onTa
   const [indicators, setIndicators] = useState<Record<string, unknown>>({});
   const [scoringWeights, setScoringWeights] = useState<Record<string, number> | null>(null);
   const [manualDrawdownOverride, setManualDrawdownOverride] = useState(false);
+  const [manualAllocationOverride, setManualAllocationOverride] = useState(false);
 
   function onChange(event: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) {
     const { name, type, value } = event.currentTarget;
@@ -115,10 +126,19 @@ export function BacktestWizard({ lang, onTaskCreated }: { lang: UiLanguage; onTa
     if (name === "maxDrawdownPct") {
       setManualDrawdownOverride(true);
     }
+    if (name === "longWeightPct" || name === "shortWeightPct") {
+      setManualAllocationOverride(true);
+    }
     setForm((current) => {
       const next = { ...current, [name]: nextValue };
-      if (name === "parameterPreset" && !manualDrawdownOverride && isDefaultRiskProfile(nextValue)) {
-        next.maxDrawdownPct = String(DEFAULT_MAX_DRAWDOWN_BY_RISK[nextValue]);
+      if (name === "parameterPreset" && isDefaultRiskProfile(nextValue)) {
+        if (!manualDrawdownOverride) {
+          next.maxDrawdownPct = String(RISK_PROFILE_DEFAULTS[nextValue].maxDrawdownLimitPct);
+        }
+        if (!manualAllocationOverride) {
+          next.longWeightPct = String(RISK_PROFILE_DEFAULTS[nextValue].longWeightPct);
+          next.shortWeightPct = String(RISK_PROFILE_DEFAULTS[nextValue].shortWeightPct);
+        }
       }
       return next;
     });
@@ -128,6 +148,10 @@ export function BacktestWizard({ lang, onTaskCreated }: { lang: UiLanguage; onTa
     const symbols = symbolsForForm(form);
     if (symbols.length === 0) {
       setFeedback(pickText(lang, "请至少选择 1 个可回测币种。", "Select at least one symbol to backtest."));
+      return;
+    }
+    if (!validLongShortWeights(form)) {
+      setFeedback(pickText(lang, "Long 与 Short 比例合计必须等于 100%。", "Long and Short weights must sum to 100%."));
       return;
     }
     if (symbols.length > MAX_SYMBOLS) {
@@ -235,6 +259,26 @@ function AutomaticSearchPanel({ form, lang, onChange }: { form: WizardForm; lang
           <input className="rounded-lg border border-border bg-background px-3 py-2" min="1" name="maxDrawdownPct" onChange={onChange} step="0.5" type="number" value={form.maxDrawdownPct} />
           <span className="text-xs text-muted-foreground">{pickText(lang, "最大回撤是发布前硬约束（hard constraint）；搜索会优先只保留低于该回撤的候选，若没有候选达标，会展示最接近的结果并提示风险。", "Max drawdown is a pre-publish hard constraint; search first keeps candidates under this drawdown, and if none qualify it shows the closest high-risk results.")}</span>
         </label>
+        {form.directionMode === "long_and_short" ? (
+          <div className="rounded-xl border border-border bg-background p-3 text-sm lg:col-span-2">
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">{pickText(lang, "组合级多空比例", "Portfolio long/short allocation")}</p>
+            <div className="mt-2 grid gap-3 sm:grid-cols-2">
+              <label className="flex flex-col gap-1">
+                <span className="text-xs text-muted-foreground">Long %</span>
+                <input className="rounded-lg border border-border bg-card px-3 py-2" max="100" min="0" name="longWeightPct" onChange={onChange} step="1" type="number" value={form.longWeightPct} />
+              </label>
+              <label className="flex flex-col gap-1">
+                <span className="text-xs text-muted-foreground">Short %</span>
+                <input className="rounded-lg border border-border bg-card px-3 py-2" max="100" min="0" name="shortWeightPct" onChange={onChange} step="1" type="number" value={form.shortWeightPct} />
+              </label>
+            </div>
+            {!validLongShortWeights(form) ? (
+              <p role="alert" className="mt-2 text-xs text-destructive">{pickText(lang, "Long 与 Short 比例合计必须等于 100%", "Long and Short weights must sum to 100%")}</p>
+            ) : (
+              <p className="mt-2 text-xs text-muted-foreground">{pickText(lang, "默认关闭动态多空，按固定组合级比例搜索。", "Dynamic allocation is disabled; search uses fixed portfolio-level weights.")}</p>
+            )}
+          </div>
+        ) : null}
         <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3 text-sm">
           <p className="text-xs uppercase tracking-wide text-muted-foreground">{pickText(lang, "自动时间范围", "Automatic time range")}</p>
           <p className="mt-1 font-semibold">{form.trainStart} → {form.testEnd}</p>
@@ -258,6 +302,13 @@ export function symbolsForForm(form: WizardForm) {
   const blacklist = new Set(parseSymbolList(form.blacklist));
   const source = form.symbolPoolMode === "whitelist" ? whitelist : DEFAULT_SYMBOLS;
   return source.filter((symbol) => !blacklist.has(symbol));
+}
+
+function validLongShortWeights(form: WizardForm) {
+  if (form.directionMode !== "long_and_short") return true;
+  const longWeightPct = numberValue(form.longWeightPct, Number.NaN);
+  const shortWeightPct = numberValue(form.shortWeightPct, Number.NaN);
+  return Number.isFinite(longWeightPct) && Number.isFinite(shortWeightPct) && longWeightPct >= 0 && shortWeightPct >= 0 && Math.abs(longWeightPct + shortWeightPct - 100) <= 0.001;
 }
 
 function isDefaultRiskProfile(profile: unknown): profile is keyof typeof DEFAULT_MAX_DRAWDOWN_BY_RISK {
@@ -408,6 +459,9 @@ export function buildWizardPayload(form: WizardForm, indicators?: Record<string,
   const leverage = market === "spot" ? null : leverageRange[0];
   const marginMode = market === "spot" ? null : form.marginMode;
   const maxDrawdownPct = numberValue(form.maxDrawdownPct, riskPreset.maxDrawdownPct);
+  const riskAllocation = isDefaultRiskProfile(form.parameterPreset) ? RISK_PROFILE_DEFAULTS[form.parameterPreset] : RISK_PROFILE_DEFAULTS.balanced;
+  const longWeightPct = form.directionMode === "short_only" ? 0 : form.directionMode === "long_only" ? 100 : numberValue(form.longWeightPct, riskAllocation.longWeightPct);
+  const shortWeightPct = form.directionMode === "long_only" ? 0 : form.directionMode === "short_only" ? 100 : numberValue(form.shortWeightPct, riskAllocation.shortWeightPct);
   const existingScoring = {
     profile: "survival_first",
     max_stop_loss_count: integerValue(form.maxStopLossCount, riskPreset.maxStopLossCount),
@@ -424,7 +478,16 @@ export function buildWizardPayload(form: WizardForm, indicators?: Record<string,
     risk_profile: form.parameterPreset,
     per_symbol_top_n: 10,
     portfolio_top_n: 10,
-    dynamic_allocation_enabled: form.directionMode === "long_and_short",
+    allocation_mode: "fixed_by_risk_profile",
+    dynamic_allocation_enabled: false,
+    long_weight_pct: longWeightPct,
+    short_weight_pct: shortWeightPct,
+    target_annualized_return_pct: 50,
+    stop_model: {
+      kind: "layer_plus_atr",
+      extra_stop_spacing_multipliers: [1, 1.5, 2, 2.5, 3],
+      atr_stop_multipliers: [2, 2.5, 3, 3.5, 4],
+    },
     search_space_mode: "risk_profile_auto",
     train_start: "2023-01-01",
     test_end: timeSplit.testEnd,
@@ -469,8 +532,11 @@ export function buildWizardPayload(form: WizardForm, indicators?: Record<string,
       trailing_take_profit: { retracement_bps: percentToBps(form.trailingPct, 0.4) },
       stop_loss: {
         mode: form.stopLossMode,
+        model: "layer_plus_atr",
         portfolio_stop_loss_bps: percentToBps(form.portfolioStopLossPct, riskPreset.maxDrawdownPct),
         per_strategy_stop_loss_bps: percentToBps(form.perStrategyStopLossPct, riskPreset.perStrategyStopLossPct),
+        extra_stop_spacing_multipliers: [1, 1.5, 2, 2.5, 3],
+        atr_stop_multipliers: [2, 2.5, 3, 3.5, 4],
       },
     },
     portfolio_config: {
