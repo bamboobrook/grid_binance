@@ -41,3 +41,13 @@ test("backtest worker persists real portfolio Top 3 from outputs", () => {
   assert.match(worker, /portfolio_top3_artifact_path/);
   assert.doesNotMatch(worker, /max_drawdown_pct:\s*0\.0/);
 });
+
+test("backtest worker uses directions_from_mode for multi-direction search", () => {
+  const worker = readFileSync("apps/backtest-worker/src/main.rs", "utf8");
+  assert.match(worker, /directions_from_mode/);
+  assert.match(worker, /Long, Short/);
+  assert.doesNotMatch(worker, /fn build_long_short_config/);
+  assert.doesNotMatch(worker, /fn combine_leg_results/);
+  assert.doesNotMatch(worker, /fn merge_equity_curves_by_timestamp/);
+  assert.doesNotMatch(worker, /fn max_drawdown_from_curve/);
+});
