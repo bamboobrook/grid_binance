@@ -234,7 +234,7 @@ async fn main() -> Result<(), String> {
     }
 }
 
-async fn run_profit_first_staged_search(
+fn run_profit_first_staged_search(
     context: &MarketDataContext,
     symbol: &str,
     task: &WorkerTaskConfig,
@@ -518,53 +518,38 @@ async fn process_task(
     let market_context = MarketDataContext::load(&market_data, &task.config)?;
     poller.heartbeat(&task.task_id, "search_started").await?;
 
-    let search_space = search_space_from_task(&task.config);
-    let random_candidates = apply_task_overrides(
-        random_search(
-            &search_space,
-            task.config.random_candidates,
-            task.config.random_seed,
-        )?,
-        &task.config,
-    );
-    respect_pause_or_cancel(poller, &task.task_id).await?;
+    let drawdown_limits = drawdown_limit_sequence(&task.config.risk_profile);
+    let first_drawdown_limit = drawdown_limits.first().copied().unwrap_or(25.0);
+    let mut screened = Vec::new();
+    let mut evaluated_count = 0usize;
 
-    let cancel = Arc::new(AtomicBool::new(false));
-    let cancel_watcher = spawn_status_cancel_watcher(
-        poller.clone(),
-        task.task_id.clone(),
-        config.poll_ms,
-        cancel.clone(),
-    );
-    let screened = search_candidates_with_drawdown_relaxation(
-        &task.config,
-        Some(cancel.as_ref()),
-        |symbol, drawdown_limit_pct| {
-            let symbol_search_space = search_space_for_symbol(&search_space, symbol);
-            intelligent_search(
-                &symbol_search_space,
-                &IntelligentSearchConfig {
-                    seed: task.config.random_seed,
-                    random_round_size: task.config.random_candidates.max(1),
-                    max_rounds: task.config.intelligent_rounds.max(1),
-                    max_candidates: task.config.random_candidates.max(1)
-                        * task.config.intelligent_rounds.max(1),
-                    survivor_percentile: 0.25,
-                    timeout: None,
-                    scoring: scoring_config_from_task(&task.config, drawdown_limit_pct),
-                },
-                Some(cancel.as_ref()),
-                |candidate| {
-                    let candidate =
-                        apply_task_overrides_to_candidate(candidate.clone(), &task.config);
-                    run_candidate_kline_screening(&candidate, &market_context)
-                },
-            )
-            .map(|result| result.candidates)
-        },
-    )?;
-    cancel.store(true, Ordering::SeqCst);
-    let _ = cancel_watcher.join();
+    for symbol in &task.config.symbols {
+        respect_pause_or_cancel(poller, &task.task_id).await?;
+        for drawdown_limit_pct in &drawdown_limits {
+            let scoring = scoring_config_from_task(&task.config, *drawdown_limit_pct);
+            let candidates = run_profit_first_staged_search(
+                &market_context,
+                symbol,
+                &task.config,
+                &scoring,
+                *drawdown_limit_pct,
+            )?;
+            evaluated_count += candidates.len();
+            let valid: Vec<EvaluatedCandidateWithDrawdown> = candidates
+                .into_iter()
+                .filter(|candidate| candidate.score.survival_valid)
+                .map(|candidate| EvaluatedCandidateWithDrawdown {
+                    candidate,
+                    used_drawdown_limit_pct: *drawdown_limit_pct,
+                    risk_relaxed: *drawdown_limit_pct > first_drawdown_limit,
+                })
+                .collect();
+            if !valid.is_empty() {
+                screened.extend(valid);
+                break;
+            }
+        }
+    }
     respect_pause_or_cancel(poller, &task.task_id).await?;
 
     let ranked = select_refinement_candidates_with_drawdown_metadata(
@@ -633,7 +618,7 @@ async fn process_task(
     );
     respect_pause_or_cancel(poller, &task.task_id).await?;
     poller
-        .save_candidates_and_artifacts(&task.task_id, random_candidates.len(), &outputs)
+        .save_candidates_and_artifacts(&task.task_id, evaluated_count, &outputs)
         .await?;
     respect_pause_or_cancel(poller, &task.task_id).await?;
     poller.mark_completed(&task.task_id).await?;

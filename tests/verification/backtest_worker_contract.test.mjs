@@ -25,7 +25,8 @@ test("backtest worker contains profit-first staged auto-search flow contract", (
   const worker = readFileSync("apps/backtest-worker/src/main.rs", "utf8");
   assert.match(worker, /per_symbol_top_n/);
   assert.match(worker, /portfolio_top_n/);
-  assert.match(worker, /run_profit_first_staged_search/);
+  assert.match(worker, /run_profit_first_staged_search\(\s*&market_context,/);
+  assert.doesNotMatch(worker, /let random_candidates = apply_task_overrides\(\s*random_search\(/);
   assert.match(worker, /relax_drawdown_limit/);
   assert.match(worker, /reject_negative_return|positive_return/);
   assert.match(worker, /build_portfolio_top3/);
