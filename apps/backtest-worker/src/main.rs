@@ -16,15 +16,20 @@ use backtest_engine::{
         kline_engine::run_kline_screening, metrics::MartingaleBacktestResult,
         scoring::ScoringConfig, trade_engine::run_trade_refinement,
     },
-    search::{drawdown_limit_sequence, random_search, SearchCandidate, SearchSpace},
+    search::{
+        drawdown_limit_sequence, fine_space_around, random_search, CoarseParameterPoint,
+        SearchCandidate, SearchSpace, StagedMartingaleSearchSpace,
+    },
     sqlite_market_data::SqliteMarketDataSource,
 };
+use rust_decimal::prelude::ToPrimitive;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use shared_db::{BacktestRepository, NewBacktestCandidateRecord, SharedDb};
 use shared_domain::martingale::{
     MartingaleEntryTrigger, MartingaleIndicatorConfig, MartingaleMarginMode, MartingaleMarketKind,
+    MartingaleSpacingModel, MartingaleSizingModel, MartingaleTakeProfitModel,
 };
 
 const DEFAULT_MAX_THREADS: usize = 2;
@@ -205,6 +210,114 @@ async fn main() -> Result<(), String> {
             }
             None => tokio::time::sleep(Duration::from_millis(config.poll_ms)).await,
         }
+    }
+}
+
+async fn run_profit_first_staged_search(
+    context: &MarketDataContext,
+    symbol: &str,
+    task: &WorkerTaskConfig,
+    scoring: &ScoringConfig,
+    _drawdown_limit_pct: f64,
+) -> Result<Vec<EvaluatedCandidate>, String> {
+    let coarse_space = StagedMartingaleSearchSpace::for_profile(
+        &task.risk_profile,
+        task.direction_mode.as_deref().unwrap_or("long"),
+    );
+    let search_space = search_space_from_staged(&coarse_space, symbol, task);
+    let coarse_candidates = intelligent_search(
+        &search_space,
+        &IntelligentSearchConfig {
+            seed: task.random_seed,
+            random_round_size: task.random_candidates.max(1),
+            max_rounds: task.intelligent_rounds.max(1),
+            max_candidates: task.random_candidates.max(1) * task.intelligent_rounds.max(1),
+            survivor_percentile: 0.25,
+            timeout: None,
+            scoring: scoring.clone(),
+        },
+        None,
+        |candidate| run_candidate_kline_screening(&candidate, context),
+    )?;
+
+    let survivors: Vec<_> = coarse_candidates
+        .candidates
+        .into_iter()
+        .filter(|c| c.score.survival_valid)
+        .take(24)
+        .collect();
+
+    let mut refined = Vec::new();
+    for survivor in &survivors {
+        let parameter_point = coarse_parameter_point_from_candidate(&survivor.candidate);
+        let fine_space = fine_space_around(&parameter_point);
+        let fine_search_space = search_space_from_staged(&fine_space, symbol, task);
+        let fine_candidates = intelligent_search(
+            &fine_search_space,
+            &IntelligentSearchConfig {
+                seed: task.random_seed.wrapping_add(1),
+                random_round_size: task.random_candidates.max(1),
+                max_rounds: 1,
+                max_candidates: task.random_candidates.max(1),
+                survivor_percentile: 0.25,
+                timeout: None,
+                scoring: scoring.clone(),
+            },
+            None,
+            |candidate| run_candidate_kline_screening(&candidate, context),
+        )?;
+        refined.extend(fine_candidates.candidates);
+    }
+
+    refined.sort_by(|a, b| b.score.rank_score.total_cmp(&a.score.rank_score));
+    refined.truncate(task.per_symbol_top_n.max(10));
+    Ok(refined)
+}
+
+fn search_space_from_staged(staged: &StagedMartingaleSearchSpace, symbol: &str, task: &WorkerTaskConfig) -> SearchSpace {
+    SearchSpace {
+        symbols: vec![symbol.to_owned()],
+        directions: directions_from_mode(task.direction_mode.as_deref()),
+        market: market_kind(task.market.as_deref()),
+        margin_mode: margin_mode(task.margin_mode.as_deref()),
+        step_bps: staged.spacing_bps.clone(),
+        first_order_quote: search_space_decimal(task, "first_order_quote")
+            .or_else(|| template_decimal(task, &["sizing", "first_order_quote"]).map(|value| vec![value]))
+            .unwrap_or_else(|| vec![Decimal::new(100, 0), Decimal::new(250, 0)]),
+        multiplier: staged.order_multiplier.iter().map(|m| Decimal::from_f64_retain(*m).unwrap_or(Decimal::new(15, 1))).collect(),
+        take_profit_bps: staged.take_profit_bps.clone(),
+        leverage: staged.leverage.clone(),
+        max_legs: staged.max_legs.clone(),
+    }
+}
+
+fn coarse_parameter_point_from_candidate(candidate: &SearchCandidate) -> CoarseParameterPoint {
+    let strategy = candidate.config.strategies.first();
+    let leverage = strategy.and_then(|s| s.leverage).unwrap_or(2);
+    let spacing_bps = strategy.map(|s| match &s.spacing {
+        MartingaleSpacingModel::FixedPercent { step_bps } => *step_bps,
+        _ => 100,
+    }).unwrap_or(100);
+    let (order_multiplier, max_legs) = strategy.map(|s| match &s.sizing {
+        MartingaleSizingModel::Multiplier { multiplier, max_legs, .. } => {
+            (multiplier.to_f64().unwrap_or(1.5), *max_legs)
+        }
+        _ => (1.5, 5),
+    }).unwrap_or((1.5, 5));
+    let take_profit_bps = strategy.map(|s| match &s.take_profit {
+        MartingaleTakeProfitModel::Percent { bps } => *bps,
+        _ => 100,
+    }).unwrap_or(100);
+
+    CoarseParameterPoint {
+        leverage,
+        spacing_bps,
+        order_multiplier,
+        max_legs,
+        take_profit_bps,
+        tail_stop_bps: 1800,
+        long_weight_pct: 70,
+        short_weight_pct: 30,
     }
 }
 
@@ -1545,13 +1658,15 @@ mod tests {
             ..WorkerTaskConfig::default()
         };
 
-        let screened = search_candidates_with_drawdown_relaxation(&config, None, |symbol, limit| {
-            let mut candidate = evaluated_candidate(symbol, &format!("{symbol}-{limit}"), limit);
-            candidate.score.survival_valid = false;
-            candidate.score.rejection_reasons = vec!["global_drawdown_exceeded".to_owned()];
-            Ok(vec![candidate])
-        })
-        .unwrap();
+        let screened =
+            search_candidates_with_drawdown_relaxation(&config, None, |symbol, limit| {
+                let mut candidate =
+                    evaluated_candidate(symbol, &format!("{symbol}-{limit}"), limit);
+                candidate.score.survival_valid = false;
+                candidate.score.rejection_reasons = vec!["global_drawdown_exceeded".to_owned()];
+                Ok(vec![candidate])
+            })
+            .unwrap();
         let selected = select_refinement_candidates_with_drawdown_metadata(screened, 1, 1);
 
         assert!(selected.is_empty());
