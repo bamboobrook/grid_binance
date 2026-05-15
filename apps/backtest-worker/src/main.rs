@@ -757,6 +757,16 @@ fn select_top_outputs_per_symbol(
 ) -> Vec<CandidateOutput> {
     use std::collections::BTreeMap;
 
+    outputs.retain(|output| {
+        if output.total_return_pct <= 0.0 {
+            return false;
+        }
+        if output.max_drawdown_pct > output.used_drawdown_limit_pct {
+            return false;
+        }
+        true
+    });
+
     outputs.sort_by(|left, right| right.score.total_cmp(&left.score));
 
     let mut selected = Vec::new();
