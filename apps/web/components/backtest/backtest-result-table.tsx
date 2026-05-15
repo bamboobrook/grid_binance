@@ -26,6 +26,7 @@ type BacktestResultTableProps = {
   selectedId?: string;
   selectedTaskStatus?: string;
   taskName?: string;
+  portfolioTop3?: Array<{ symbol: string; return_pct: number; max_drawdown_pct: number; trade_count: number; score: number }>;
 };
 
 export function BacktestResultTable({
@@ -36,6 +37,7 @@ export function BacktestResultTable({
   selectedId,
   selectedTaskStatus,
   taskName,
+  portfolioTop3 = [],
 }: BacktestResultTableProps) {
   const groupedCandidates = groupCandidatesBySymbol(candidates);
   const isSuccessfulWithoutCandidates = candidates.length === 0 && ["succeeded", "completed"].includes(selectedTaskStatus ?? "");
@@ -67,7 +69,7 @@ export function BacktestResultTable({
         groupedCandidates.map((group) => (
           <div className="space-y-2" key={group.symbol}>
             <div>
-              <h3 className="text-base font-semibold">{pickText(lang, `每个币种 Top 5 · ${group.symbol}`, `Per-symbol Top 5 · ${group.symbol}`)}</h3>
+              <h3 className="text-base font-semibold">{pickText(lang, `每个币种 Top 10 · ${group.symbol}`, `Per-symbol Top 10 · ${group.symbol}`)}</h3>
               <p className="text-xs text-muted-foreground">{pickText(lang, "按参数排名挑选每个币种最优候选。", "Sorted by parameter rank for each symbol.")}</p>
             </div>
             <DataTable
@@ -78,6 +80,31 @@ export function BacktestResultTable({
             />
           </div>
         ))
+      )}
+      {portfolioTop3.length > 0 && (
+        <div className="mt-6 space-y-3">
+          <h3 className="text-base font-semibold">{pickText(lang, "组合 Top 3", "Portfolio Top 3")}</h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            {portfolioTop3.map((entry, idx) => (
+              <div key={idx} className="rounded-xl border border-border bg-card p-4 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-mono text-muted-foreground">#{idx + 1}</span>
+                  <span className="text-sm font-semibold">{entry.symbol}</span>
+                </div>
+                <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+                  <span className="text-muted-foreground">{pickText(lang, "收益", "Return")}</span>
+                  <span className={entry.return_pct >= 0 ? "text-green-600" : "text-red-600"}>{entry.return_pct.toFixed(2)}%</span>
+                  <span className="text-muted-foreground">{pickText(lang, "回撤", "Drawdown")}</span>
+                  <span className="text-red-600">{entry.max_drawdown_pct.toFixed(2)}%</span>
+                  <span className="text-muted-foreground">{pickText(lang, "交易", "Trades")}</span>
+                  <span>{entry.trade_count}</span>
+                  <span className="text-muted-foreground">{pickText(lang, "评分", "Score")}</span>
+                  <span className="font-semibold">{entry.score.toFixed(3)}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
       )}
     </section>
   );
@@ -93,7 +120,7 @@ function groupCandidatesBySymbol(candidates: BacktestCandidate[]) {
     symbol,
     candidates: [...groupCandidates]
       .sort((left, right) => candidateRank(left) - candidateRank(right))
-      .slice(0, 5),
+      .slice(0, 10),
   }));
 }
 
@@ -109,9 +136,11 @@ function candidateColumns(lang: UiLanguage) {
     { key: "searchMode", label: pickText(lang, "回测级别", "Mode") },
     { key: "parameters", label: pickText(lang, "马丁参数", "Martingale parameters") },
     { key: "returnPct", label: pickText(lang, "收益", "Return"), align: "right" as const },
+    { key: "annualized", label: pickText(lang, "年化收益", "Annualized"), align: "right" as const },
     { key: "drawdown", label: pickText(lang, "最大回撤", "Max DD"), align: "right" as const },
+    { key: "returnDrawdownRatio", label: pickText(lang, "收益回撤比", "Return/DD"), align: "right" as const },
     { key: "tradeCount", label: pickText(lang, "交易数", "Trades"), align: "right" as const },
-    { key: "score", label: pickText(lang, "评分", "Score"), align: "right" as const },
+    { key: "score", label: pickText(lang, "评分（百分制 0–100）", "Score (0–100 scale)"), align: "right" as const },
     { key: "decision", label: pickText(lang, "结论", "Decision") },
     { key: "actions", label: pickText(lang, "操作", "Actions") },
   ];
