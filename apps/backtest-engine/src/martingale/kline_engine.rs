@@ -314,9 +314,16 @@ pub fn run_kline_screening(
     Ok(MartingaleBacktestResult {
         metrics: MartingaleMetrics {
             total_return_pct: finite_or_zero(total_return_pct),
+            annualized_return_pct: None,
             max_drawdown_pct: finite_or_zero(max_drawdown_pct),
             global_drawdown_pct: Some(finite_or_zero(max_drawdown_pct)),
             max_strategy_drawdown_pct: Some(finite_or_zero(max_drawdown_pct)),
+            monthly_win_rate_pct: None,
+            max_leverage_used: None,
+            min_liquidation_buffer_pct: None,
+            total_fee_quote: None,
+            total_slippage_quote: None,
+            planned_margin_quote: None,
             data_quality_score: Some(1.0),
             trade_count,
             stop_count,
@@ -581,9 +588,16 @@ fn rejected_result(rejection_reasons: Vec<String>) -> MartingaleBacktestResult {
     MartingaleBacktestResult {
         metrics: MartingaleMetrics {
             total_return_pct: 0.0,
+            annualized_return_pct: None,
             max_drawdown_pct: 0.0,
             global_drawdown_pct: Some(0.0),
             max_strategy_drawdown_pct: Some(0.0),
+            monthly_win_rate_pct: None,
+            max_leverage_used: None,
+            min_liquidation_buffer_pct: None,
+            total_fee_quote: None,
+            total_slippage_quote: None,
+            planned_margin_quote: None,
             data_quality_score: Some(1.0),
             trade_count: 0,
             stop_count: 0,

@@ -25,9 +25,7 @@ pub struct CandidateScore {
     pub rejection_reasons: Vec<String>,
 }
 
-const VALID_RANK_BASE: f64 = 1.0e12;
-const INVALID_RANK_BASE: f64 = -1.0e12;
-const RANK_SCORE_SPREAD: f64 = 1.0e9;
+const VALID_RANK_EPSILON: f64 = f64::EPSILON;
 
 impl Default for ScoringConfig {
     fn default() -> Self {
@@ -62,6 +60,9 @@ pub fn score_candidate(
     if reasons.iter().any(|reason| reason.contains("liquidation")) {
         push_reason(&mut reasons, "liquidation_hit");
     }
+    if metrics.total_return_pct <= 0.0 {
+        push_reason(&mut reasons, "negative_return");
+    }
     let global_drawdown_pct = metrics
         .global_drawdown_pct
         .unwrap_or(metrics.max_drawdown_pct);
@@ -95,34 +96,79 @@ pub fn score_candidate(
         1.0
     };
     let drawdown = global_drawdown_pct.max(max_strategy_drawdown_pct).max(0.0);
-    let calmar = metrics.total_return_pct / drawdown.max(1.0);
-    let sortino = if metrics.total_return_pct >= 0.0 {
-        metrics.total_return_pct / (drawdown / 2.0).max(1.0)
-    } else {
-        metrics.total_return_pct
-    };
-    let capital_utilization =
-        if config.max_budget_quote.is_finite() && config.max_budget_quote > 0.0 {
-            (metrics.max_capital_used_quote / config.max_budget_quote).clamp(0.0, 1.0)
-        } else {
-            0.5
-        };
     let trade_stability = (metrics.trade_count as f64 / 30.0).clamp(0.0, 1.0);
 
-    let raw_score = config.weight_return * metrics.total_return_pct
-        + config.weight_calmar * calmar
-        + config.weight_sortino * sortino
-        - config.weight_drawdown * drawdown
-        - config.weight_stop_frequency * stop_frequency * 100.0
-        + config.weight_capital_utilization * capital_utilization * 100.0
-        + config.weight_trade_stability * trade_stability * 100.0;
-    let raw_score = finite_or(raw_score, f64::MIN / 4.0);
-    let bounded_score = raw_score.clamp(-RANK_SCORE_SPREAD, RANK_SCORE_SPREAD);
-    let rank_score = if survival_valid {
-        VALID_RANK_BASE + bounded_score
+    if !survival_valid {
+        return CandidateScore {
+            survival_valid,
+            rank_score: 0.0,
+            raw_score: 0.0,
+            rejection_reasons: reasons,
+        };
+    }
+
+    let ratio = return_drawdown_ratio(metrics.total_return_pct, drawdown);
+    let annualized = metrics
+        .annualized_return_pct
+        .unwrap_or(metrics.total_return_pct);
+    let stop_penalty = stop_frequency * 20.0;
+    let leverage_penalty = metrics.max_leverage_used.unwrap_or(1.0).max(1.0).ln() * 4.0;
+    let liquidation_penalty = if metrics.min_liquidation_buffer_pct.unwrap_or(100.0) < 15.0 {
+        20.0
     } else {
-        INVALID_RANK_BASE + bounded_score
+        0.0
     };
+
+    let return_points = weighted_points(config.weight_return, 35.0, (ratio / 4.0).clamp(0.0, 1.0));
+    let annualized_points = weighted_points(
+        config.weight_calmar,
+        25.0,
+        (annualized / 80.0).clamp(0.0, 1.0),
+    );
+    let drawdown_points = weighted_points(
+        config.weight_drawdown,
+        20.0,
+        ((100.0 - drawdown) / 100.0).clamp(0.0, 1.0),
+    );
+    let monthly_win_points = weighted_points(
+        config.weight_sortino,
+        10.0,
+        (metrics.monthly_win_rate_pct.unwrap_or(50.0) / 100.0).clamp(0.0, 1.0),
+    );
+    let trade_stability_points =
+        weighted_points(config.weight_trade_stability, 10.0, trade_stability);
+    let positive_weight = positive_weight_sum(&[
+        (config.weight_return, 35.0),
+        (config.weight_calmar, 25.0),
+        (config.weight_drawdown, 20.0),
+        (config.weight_sortino, 10.0),
+        (config.weight_trade_stability, 10.0),
+    ]);
+    let positive_score = if positive_weight > 0.0 {
+        (return_points
+            + annualized_points
+            + drawdown_points
+            + monthly_win_points
+            + trade_stability_points)
+            / positive_weight
+            * 100.0
+    } else {
+        0.0
+    };
+    let capital_bonus = if config.max_budget_quote.is_finite() && config.max_budget_quote > 0.0 {
+        (1.0 - (metrics.max_capital_used_quote / config.max_budget_quote).clamp(0.0, 1.0))
+            * 10.0
+            * config.weight_capital_utilization.max(0.0)
+    } else {
+        0.0
+    };
+
+    let raw_score = positive_score + capital_bonus
+        - config.weight_stop_frequency.max(0.0) * stop_penalty
+        - leverage_penalty
+        - liquidation_penalty;
+    let raw_score = clamp_score(raw_score);
+    let rank_score = (raw_score + VALID_RANK_EPSILON).min(100.0);
 
     CandidateScore {
         survival_valid,
@@ -138,10 +184,29 @@ fn push_reason(reasons: &mut Vec<String>, reason: &str) {
     }
 }
 
-fn finite_or(value: f64, fallback: f64) -> f64 {
+fn clamp_score(value: f64) -> f64 {
     if value.is_finite() {
-        value
+        value.clamp(0.0, 100.0)
     } else {
-        fallback
+        0.0
     }
+}
+
+fn return_drawdown_ratio(total_return_pct: f64, drawdown_pct: f64) -> f64 {
+    if total_return_pct <= 0.0 {
+        0.0
+    } else {
+        total_return_pct / drawdown_pct.max(1.0)
+    }
+}
+
+fn weighted_points(weight: f64, points: f64, factor: f64) -> f64 {
+    weight.max(0.0) * points * factor
+}
+
+fn positive_weight_sum(weights: &[(f64, f64)]) -> f64 {
+    weights
+        .iter()
+        .map(|(weight, points)| weight.max(0.0) * points)
+        .sum()
 }

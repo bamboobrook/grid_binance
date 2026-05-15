@@ -18,6 +18,103 @@ use shared_domain::martingale::{
 };
 
 #[test]
+fn scoring_rejects_negative_return_candidates() {
+    let mut result = fixture_martingale_result();
+    result.metrics.total_return_pct = -0.01;
+    result.metrics.annualized_return_pct = Some(-0.02);
+
+    let score = score_candidate(&result, &ScoringConfig::default());
+
+    assert!(!score.survival_valid);
+    assert!(score
+        .rejection_reasons
+        .iter()
+        .any(|reason| reason == "negative_return"));
+    assert_eq!(score.rank_score, 0.0);
+    assert_eq!(score.raw_score, 0.0);
+}
+
+#[test]
+fn scoring_outputs_human_readable_zero_to_one_hundred_score() {
+    let mut result = fixture_martingale_result();
+    result.metrics.total_return_pct = 42.0;
+    result.metrics.annualized_return_pct = Some(30.0);
+    result.metrics.max_drawdown_pct = 12.0;
+    result.metrics.global_drawdown_pct = Some(12.0);
+    result.metrics.trade_count = 240;
+    result.metrics.stop_count = 1;
+
+    let score = score_candidate(&result, &ScoringConfig::default());
+
+    assert!(score.survival_valid);
+    assert!(score.rank_score >= 0.0 && score.rank_score <= 100.0);
+    assert!(score.raw_score >= 0.0 && score.raw_score <= 100.0);
+}
+
+#[test]
+fn valid_zero_score_still_ranks_above_invalid_zero_score() {
+    let mut valid = fixture_martingale_result();
+    valid.metrics.total_return_pct = 0.001;
+    valid.metrics.annualized_return_pct = Some(0.0);
+    valid.metrics.max_drawdown_pct = 100.0;
+    valid.metrics.global_drawdown_pct = Some(100.0);
+    valid.metrics.max_strategy_drawdown_pct = Some(100.0);
+    valid.metrics.trade_count = 1;
+    valid.metrics.stop_count = 1;
+    valid.metrics.max_leverage_used = Some(100.0);
+    valid.metrics.min_liquidation_buffer_pct = Some(0.0);
+
+    let invalid = result(
+        false,
+        -1.0,
+        0.0,
+        1,
+        0,
+        100.0,
+        vec!["survival_failed".to_string()],
+    );
+
+    let config = ScoringConfig {
+        max_global_drawdown_pct: 100.0,
+        max_strategy_drawdown_pct: 100.0,
+        ..ScoringConfig::default()
+    };
+    let valid_score = score_candidate(&valid, &config);
+    let invalid_score = score_candidate(&invalid, &config);
+
+    assert!(valid_score.survival_valid);
+    assert!(!invalid_score.survival_valid);
+    assert_eq!(valid_score.raw_score, 0.0);
+    assert_eq!(invalid_score.rank_score, 0.0);
+    assert!(valid_score.rank_score > invalid_score.rank_score);
+}
+
+#[test]
+fn scoring_weights_affect_valid_candidate_score() {
+    let result = fixture_martingale_result();
+    let baseline = score_candidate(&result, &ScoringConfig::default());
+    let weighted = score_candidate(
+        &result,
+        &ScoringConfig {
+            weight_return: 0.1,
+            weight_calmar: 0.1,
+            weight_sortino: 0.1,
+            weight_drawdown: 2.0,
+            weight_stop_frequency: 2.0,
+            weight_capital_utilization: 0.1,
+            weight_trade_stability: 0.1,
+            ..ScoringConfig::default()
+        },
+    );
+
+    assert!(baseline.survival_valid);
+    assert!(weighted.survival_valid);
+    assert_ne!(baseline.raw_score, weighted.raw_score);
+    assert!(weighted.raw_score >= 0.0 && weighted.raw_score <= 100.0);
+    assert!(weighted.rank_score > 0.0 && weighted.rank_score <= 100.0);
+}
+
+#[test]
 fn random_search_is_reproducible() {
     let space = SearchSpace {
         symbols: vec!["BTCUSDT".to_string(), "ETHUSDT".to_string()],
@@ -64,8 +161,8 @@ fn survival_failure_never_outranks_valid_candidate() {
 }
 
 #[test]
-fn invalid_candidate_never_outranks_extreme_negative_valid_candidate() {
-    let mut valid = result(true, -1.0e300, 1.0e200, 100, 0, 100.0, vec![]);
+fn valid_candidate_never_loses_to_invalid_extreme_candidate() {
+    let mut valid = result(true, 1.0e300, 1.0e200, 100, 0, 100.0, vec![]);
     valid.metrics.global_drawdown_pct = Some(1.0);
     valid.metrics.max_strategy_drawdown_pct = Some(1.0);
     let failed = result(
@@ -288,9 +385,16 @@ fn result(
     MartingaleBacktestResult {
         metrics: MartingaleMetrics {
             total_return_pct,
+            annualized_return_pct: None,
             max_drawdown_pct,
             global_drawdown_pct: None,
             max_strategy_drawdown_pct: None,
+            monthly_win_rate_pct: None,
+            max_leverage_used: None,
+            min_liquidation_buffer_pct: None,
+            total_fee_quote: None,
+            total_slippage_quote: None,
+            planned_margin_quote: None,
             data_quality_score: None,
             trade_count,
             stop_count,
@@ -301,6 +405,10 @@ fn result(
         equity_curve: Vec::new(),
         rejection_reasons,
     }
+}
+
+fn fixture_martingale_result() -> MartingaleBacktestResult {
+    result(true, 8.0, 4.0, 20, 0, 500.0, vec![])
 }
 
 #[allow(dead_code)]
