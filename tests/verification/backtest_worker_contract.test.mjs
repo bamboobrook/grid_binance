@@ -27,8 +27,9 @@ test("backtest worker contains profit-first staged auto-search flow contract", (
   assert.match(worker, /portfolio_top_n/);
   assert.match(worker, /run_profit_first_staged_search\(\s*&market_context,/);
   assert.doesNotMatch(worker, /let random_candidates = apply_task_overrides\(\s*random_search\(/);
-  assert.match(worker, /relax_drawdown_limit/);
-  assert.match(worker, /reject_negative_return|positive_return/);
+  assert.match(worker, /drawdown_limit_sequence\(&task\.config\.risk_profile\)/);
+  assert.match(worker, /score\.survival_valid/);
+  assert.match(worker, /total_return_pct\s*<=\s*0\.0/);
   assert.match(worker, /build_portfolio_top3/);
   assert.match(worker, /interval.*1m|"1m"/);
   assert.match(worker, /usd_m_futures|futures/);

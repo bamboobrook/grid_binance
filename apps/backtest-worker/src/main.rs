@@ -1,10 +1,7 @@
 use std::{
     env,
     path::PathBuf,
-    sync::{
-        atomic::{AtomicBool, Ordering},
-        Arc,
-    },
+    sync::atomic::{AtomicBool, Ordering},
     time::Duration,
 };
 
@@ -18,7 +15,7 @@ use backtest_engine::{
     },
     portfolio_search::build_portfolio_top3,
     search::{
-        drawdown_limit_sequence, fine_space_around, random_search, CoarseParameterPoint,
+        drawdown_limit_sequence, fine_space_around, CoarseParameterPoint,
         SearchCandidate, SearchSpace, StagedMartingaleSearchSpace,
     },
     sqlite_market_data::SqliteMarketDataSource,
@@ -29,9 +26,9 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use shared_db::{BacktestRepository, NewBacktestCandidateRecord, SharedDb};
 use shared_domain::martingale::{
-    MartingaleDirection, MartingaleEntryTrigger, MartingaleIndicatorConfig,
-    MartingaleMarginMode, MartingaleMarketKind, MartingaleRiskLimits,
-    MartingaleSpacingModel, MartingaleSizingModel, MartingaleStrategyConfig, MartingaleTakeProfitModel,
+    MartingaleEntryTrigger, MartingaleIndicatorConfig,
+    MartingaleMarginMode, MartingaleMarketKind,
+    MartingaleSpacingModel, MartingaleSizingModel, MartingaleTakeProfitModel,
 };
 
 const DEFAULT_MAX_THREADS: usize = 2;
@@ -123,18 +120,6 @@ fn default_per_symbol_top_n() -> usize {
 
 fn default_portfolio_top_n() -> usize {
     3
-}
-
-fn relax_drawdown_limit(risk_profile: &str, base_limit_pct: f64) -> f64 {
-    match risk_profile {
-        "conservative" => (base_limit_pct + 5.0).min(30.0),
-        "aggressive" => (base_limit_pct + 10.0).min(40.0),
-        _ => (base_limit_pct + 5.0).min(35.0),
-    }
-}
-
-fn reject_negative_return(return_pct: f64) -> bool {
-    return_pct <= 0.0
 }
 
 fn default_risk_profile() -> String {
@@ -637,12 +622,6 @@ fn select_refinement_candidates_with_drawdown_metadata(
     selected
 }
 
-fn search_space_for_symbol(space: &SearchSpace, symbol: &str) -> SearchSpace {
-    let mut symbol_space = space.clone();
-    symbol_space.symbols = vec![symbol.to_owned()];
-    symbol_space
-}
-
 fn select_top_outputs_per_symbol(
     mut outputs: Vec<CandidateOutput>,
     per_symbol_top_n: usize,
@@ -929,16 +908,6 @@ fn assign_f64(source: &Value, key: &str, target: &mut f64) {
     }
 }
 
-fn apply_task_overrides(
-    candidates: Vec<SearchCandidate>,
-    config: &WorkerTaskConfig,
-) -> Vec<SearchCandidate> {
-    candidates
-        .into_iter()
-        .map(|candidate| apply_task_overrides_to_candidate(candidate, config))
-        .collect()
-}
-
 fn apply_task_overrides_to_candidate(
     mut candidate: SearchCandidate,
     config: &WorkerTaskConfig,
@@ -1214,35 +1183,6 @@ fn search_candidate_symbol(candidate: &SearchCandidate) -> Option<String> {
         .filter(|symbol| !symbol.is_empty())
 }
 
-fn spawn_status_cancel_watcher(
-    poller: TaskPoller,
-    task_id: String,
-    poll_ms: u64,
-    cancel: Arc<AtomicBool>,
-) -> std::thread::JoinHandle<()> {
-    std::thread::spawn(move || {
-        while !cancel.load(Ordering::SeqCst) {
-            match poller.current_status_sync(&task_id) {
-                Ok(Some(status))
-                    if matches!(
-                        status.as_str(),
-                        "paused" | "cancelled" | "failed" | "succeeded"
-                    ) =>
-                {
-                    cancel.store(true, Ordering::SeqCst);
-                    break;
-                }
-                Ok(Some(_)) => {}
-                Ok(None) | Err(_) => {
-                    cancel.store(true, Ordering::SeqCst);
-                    break;
-                }
-            }
-            std::thread::sleep(Duration::from_millis(poll_ms.max(1)));
-        }
-    })
-}
-
 async fn respect_pause_or_cancel(poller: &TaskPoller, task_id: &str) -> Result<(), String> {
     match poller.current_status(task_id).await?.as_deref() {
         Some("cancelled") => Err(format!("task cancelled: {task_id}")),
@@ -1483,6 +1423,7 @@ impl ClaimedTask {
 mod tests {
     use super::*;
     use backtest_engine::martingale::scoring::CandidateScore;
+    use backtest_engine::search::random_search;
     use std::path::PathBuf;
 
     use shared_domain::martingale::{
