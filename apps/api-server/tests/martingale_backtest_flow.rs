@@ -1,5 +1,6 @@
 mod support;
 
+use api_server::normalize_martingale_auto_search_config;
 use api_server::{app, app_with_state, AppState};
 use axum::{
     body::Body,
@@ -12,29 +13,42 @@ use tower::ServiceExt;
 
 #[test]
 fn martingale_auto_search_normalizes_profit_first_contract() {
-    let source = std::fs::read_to_string(
-        std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("src/services/backtest_service.rs"),
-    )
-    .unwrap();
+    let payload = json!({
+        "strategy_type": "martingale",
+        "symbols": ["BTCUSDT", "ETHUSDT"],
+        "risk_profile": "profit_first"
+    });
 
-    assert!(source.contains("pub fn normalize_martingale_auto_search_config"));
-    assert!(source.contains("\"futures\""));
-    assert!(source.contains("\"auto_since_2023_to_last_month_end\""));
-    assert!(source.contains("\"staged\""));
-    assert!(source.contains("\"conservative_futures_isolated\""));
-    assert!(contains_key_value_near(&source, "\"per_symbol_top_n\"", "10", 120));
-    assert!(contains_key_value_near(&source, "\"portfolio_top_n\"", "3", 120));
+    let normalized = normalize_martingale_auto_search_config(payload).unwrap();
+
+    assert_eq!(normalized["market"], "usd_m_futures");
+    assert_eq!(normalized["margin_mode"], "isolated");
+    assert_eq!(normalized["per_symbol_top_n"], 10);
+    assert_eq!(normalized["portfolio_top_n"], 3);
+    assert_eq!(
+        normalized["time_range_mode"],
+        "auto_since_2023_to_last_month_end"
+    );
+    assert_eq!(normalized["search_mode"], "staged");
+    assert_eq!(
+        normalized["execution_model"],
+        "conservative_futures_isolated"
+    );
+    assert_eq!(normalized["interval"], "1m");
+    assert!(normalized["start_ms"].as_i64().unwrap() > 0);
+    assert!(normalized["end_ms"].as_i64().unwrap() > normalized["start_ms"].as_i64().unwrap());
 }
 
-fn contains_key_value_near(source: &str, key: &str, value: &str, max_distance: usize) -> bool {
-    source.match_indices(key).any(|(index, _)| {
-        source[index..]
-            .chars()
-            .take(max_distance)
-            .collect::<String>()
-            .contains(value)
-    })
+#[test]
+fn martingale_auto_search_requires_symbols() {
+    let payload = json!({
+        "strategy_type": "martingale",
+        "risk_profile": "profit_first"
+    });
+
+    let error = normalize_martingale_auto_search_config(payload).unwrap_err();
+
+    assert_eq!(error, "symbols are required");
 }
 
 #[tokio::test]
@@ -67,6 +81,109 @@ async fn user_can_create_martingale_backtest_task() {
         .as_str()
         .unwrap_or_default()
         .starts_with("bt_"));
+}
+
+#[tokio::test]
+async fn martingale_auto_search_task_saves_normalized_config() {
+    let app = app();
+    let token = register_and_login(&app, "backtest-auto-search@example.com", "pass1234").await;
+
+    let response = authed_json(
+        &app,
+        "POST",
+        "/backtest/tasks",
+        &token,
+        json!({
+            "strategy_type": "martingale",
+            "symbols": ["BTCUSDT", "ETHUSDT"],
+            "risk_profile": "profit_first"
+        }),
+    )
+    .await;
+
+    assert_eq!(response.status(), StatusCode::CREATED);
+    let body = response_json(response).await;
+    assert_eq!(body["config"]["market"], "usd_m_futures");
+    assert_eq!(body["config"]["margin_mode"], "isolated");
+    assert_eq!(body["config"]["per_symbol_top_n"], 10);
+    assert_eq!(body["config"]["portfolio_top_n"], 3);
+    assert_eq!(
+        body["config"]["time_range_mode"],
+        "auto_since_2023_to_last_month_end"
+    );
+    assert_eq!(body["config"]["search_mode"], "staged");
+    assert_eq!(
+        body["config"]["execution_model"],
+        "conservative_futures_isolated"
+    );
+    assert_eq!(body["config"]["interval"], "1m");
+    assert!(body["config"]["start_ms"].as_i64().unwrap() > 0);
+    assert!(
+        body["config"]["end_ms"].as_i64().unwrap() > body["config"]["start_ms"].as_i64().unwrap()
+    );
+}
+
+#[tokio::test]
+async fn martingale_auto_search_does_not_rewrite_legacy_risk_profile_grid() {
+    let app = app();
+    let token = register_and_login(&app, "backtest-legacy-risk@example.com", "pass1234").await;
+
+    let response = authed_json(
+        &app,
+        "POST",
+        "/backtest/tasks",
+        &token,
+        json!({
+            "strategy_type": "martingale_grid",
+            "symbols": ["BTCUSDT"],
+            "market": "spot",
+            "risk_profile": "profit_first",
+            "timeframe": "1h",
+            "start_date": "2024-01-01",
+            "end_date": "2024-01-10"
+        }),
+    )
+    .await;
+
+    assert_eq!(response.status(), StatusCode::CREATED);
+    let body = response_json(response).await;
+    assert_eq!(body["config"]["market"], "spot");
+    assert!(body["config"].get("search_mode").is_none());
+    assert!(body["config"].get("execution_model").is_none());
+    assert!(body["config"].get("margin_mode").is_none());
+}
+
+#[tokio::test]
+async fn martingale_auto_search_normalizes_wizard_risk_profile_auto_grid() {
+    let app = app();
+    let token = register_and_login(&app, "backtest-wizard-auto@example.com", "pass1234").await;
+
+    let response = authed_json(
+        &app,
+        "POST",
+        "/backtest/tasks",
+        &token,
+        json!({
+            "strategy_type": "martingale_grid",
+            "symbols": ["BTCUSDT", "ETHUSDT"],
+            "search_space_mode": "risk_profile_auto",
+            "risk_profile": "profit_first"
+        }),
+    )
+    .await;
+
+    assert_eq!(response.status(), StatusCode::CREATED);
+    let body = response_json(response).await;
+    assert_eq!(body["config"]["market"], "usd_m_futures");
+    assert_eq!(body["config"]["margin_mode"], "isolated");
+    assert_eq!(body["config"]["search_mode"], "staged");
+    assert_eq!(
+        body["config"]["execution_model"],
+        "conservative_futures_isolated"
+    );
+    assert!(
+        body["config"]["end_ms"].as_i64().unwrap() > body["config"]["start_ms"].as_i64().unwrap()
+    );
 }
 
 #[tokio::test]

@@ -37,6 +37,7 @@ mod services {
 }
 
 use axum::{extract::FromRef, Router};
+pub use services::backtest_service::normalize_martingale_auto_search_config;
 use services::{
     analytics_service::AnalyticsService,
     auth_service::{AuthConfigError, AuthService},

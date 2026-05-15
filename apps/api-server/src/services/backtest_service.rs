@@ -3,6 +3,7 @@ use axum::{
     response::{IntoResponse, Response},
     Json,
 };
+use chrono::{Datelike, TimeZone, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use shared_db::{
@@ -61,10 +62,25 @@ impl BacktestService {
     ) -> Result<BacktestTaskRecord, BacktestError> {
         let strategy_type = request.strategy_type;
         let mut config = Value::Object(request.extra);
+        let mut auto_search_probe = config.clone();
+        if let Value::Object(map) = &mut auto_search_probe {
+            map.insert(
+                "strategy_type".to_owned(),
+                Value::String(strategy_type.clone()),
+            );
+        }
+        let martingale_auto_search = is_martingale_auto_search(&auto_search_probe);
         let effective_symbols = effective_task_symbols(&strategy_type, &request.symbols, &config)?;
+        if martingale_auto_search && effective_symbols.is_empty() {
+            return Err(BacktestError::bad_request("symbols are required"));
+        }
         self.validate_quota(owner, effective_symbols.len())?;
         if let Value::Object(map) = &mut config {
             map.insert("symbols".to_owned(), json!(effective_symbols));
+        }
+        if martingale_auto_search {
+            config = normalize_martingale_auto_search_config(config)
+                .map_err(BacktestError::bad_request)?;
         }
         Ok(self.repo.create_task(NewBacktestTaskRecord {
             owner: owner.to_owned(),
@@ -253,6 +269,67 @@ impl BacktestService {
         }
         Ok(())
     }
+}
+
+pub fn normalize_martingale_auto_search_config(mut config: Value) -> Result<Value, String> {
+    let object = config
+        .as_object_mut()
+        .ok_or_else(|| "backtest config must be a JSON object".to_owned())?;
+
+    object.insert(
+        "market".to_owned(),
+        Value::String("usd_m_futures".to_owned()),
+    );
+    object.insert(
+        "margin_mode".to_owned(),
+        Value::String("isolated".to_owned()),
+    );
+    object.insert("per_symbol_top_n".to_owned(), Value::Number(10.into()));
+    object.insert("portfolio_top_n".to_owned(), Value::Number(3.into()));
+    object.insert(
+        "time_range_mode".to_owned(),
+        Value::String("auto_since_2023_to_last_month_end".to_owned()),
+    );
+    object.insert("search_mode".to_owned(), Value::String("staged".to_owned()));
+    object.insert(
+        "execution_model".to_owned(),
+        Value::String("conservative_futures_isolated".to_owned()),
+    );
+    object.insert("interval".to_owned(), Value::String("1m".to_owned()));
+    object.insert("start_ms".to_owned(), Value::Number(START_2023_MS.into()));
+    object.insert(
+        "end_ms".to_owned(),
+        Value::Number(previous_month_end_ms().into()),
+    );
+
+    if !object.contains_key("symbols") {
+        return Err("symbols are required".to_owned());
+    }
+
+    Ok(config)
+}
+
+fn is_martingale_auto_search(config: &Value) -> bool {
+    let strategy_type = config.get("strategy_type").and_then(Value::as_str);
+    let martingale_strategy = matches!(strategy_type, Some("martingale" | "martingale_grid"));
+
+    strategy_type == Some("martingale")
+        || config.get("search_mode").and_then(Value::as_str) == Some("staged")
+        || config.get("execution_model").and_then(Value::as_str)
+            == Some("conservative_futures_isolated")
+        || (martingale_strategy
+            && config.get("search_space_mode").and_then(Value::as_str) == Some("risk_profile_auto"))
+}
+
+const START_2023_MS: i64 = 1_672_531_200_000;
+
+fn previous_month_end_ms() -> i64 {
+    let now = Utc::now();
+    let first_day_this_month = Utc
+        .with_ymd_and_hms(now.year(), now.month(), 1, 0, 0, 0)
+        .single()
+        .expect("valid first day of current month");
+    first_day_this_month.timestamp_millis() - 1
 }
 
 fn effective_task_symbols(
