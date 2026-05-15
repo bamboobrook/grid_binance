@@ -196,8 +196,8 @@ export function BacktestConsole({ lang, locale }: { lang: UiLanguage; locale: st
             <p className="max-w-3xl text-sm text-muted-foreground">
               {pickText(
                 lang,
-                "先做 K 线海选，再做成交级精测。任务、候选与发布复核均来自后端 API，不展示静态假数据。",
-                "Screen with candles first, then refine with trade-level replay. Tasks, candidates, and publish review come from backend APIs, not static mock data.",
+                "先做 K 线海选，再做成交级精测。输出每个币种 Top 10 与组合 Top 3。任务、候选与发布复核均来自后端 API，不展示静态假数据。",
+                "Screen with candles first, then refine with trade-level replay. Outputs per-symbol Top 10 and portfolio Top 3. Tasks, candidates, and publish review come from backend APIs, not static mock data.",
               )}
             </p>
           </div>

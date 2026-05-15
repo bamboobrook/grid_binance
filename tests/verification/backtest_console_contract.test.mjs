@@ -74,7 +74,7 @@ test("backtest console interactions stay in-page and use client fetch", () => {
   assert.match(searchSource, /name="symbolPoolMode"/);
   assert.match(searchSource, /name="searchMode"/);
 
-  assert.match(wizardSource, /交易对|Symbols/);
+  assert.match(wizardSource, /whitelist|Symbols/);
   assert.match(wizardSource, /方向|Direction/);
   assert.match(wizardSource, /风险档位|Risk profile/);
   assert.match(wizardSource, /系统自动搜索杠杆、间隔、倍率、层数、止盈、尾部保护、多空比例|automatically searches leverage/i);

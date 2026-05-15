@@ -64,7 +64,7 @@ const INITIAL_FORM: WizardForm = {
   whitelist: "BTCUSDT, ETHUSDT",
   blacklist: "",
   searchMode: "intelligent",
-  parameterPreset: "balanced",
+  parameterPreset: "conservative",
   randomSeed: "20260509",
   candidateBudget: "160",
   intelligentRounds: "4",
@@ -89,7 +89,7 @@ const INITIAL_FORM: WizardForm = {
   validateEnd: "2025-03-31",
   testStart: "2025-04-01",
   testEnd: "2025-06-30",
-  interval: "1h",
+  interval: "1m",
   maxDrawdownPct: "18",
   maxStopLossCount: "3",
   portfolioStopLossPct: "18",
@@ -154,11 +154,11 @@ export function BacktestWizard({ lang, onTaskCreated }: { lang: UiLanguage; onTa
           <div>
             <p className="text-sm font-semibold">{pickText(lang, "可编辑向导任务", "Editable wizard task")}</p>
             <p className="text-xs text-muted-foreground">
-              {pickText(lang, "只需填写币种、市场、方向与风险档位，系统自动搜索每个币种 Top 5。", "Only fill symbols, market, direction, and risk profile; the system searches each symbol's Top 5 automatically.")}
+              {pickText(lang, "只需填写币种、方向与风险档位，系统自动搜索每个币种 Top 10 与组合 Top 3。", "Only fill symbols, direction, and risk profile; the system searches each symbol's Top 10 and portfolio Top 3 automatically.")}
             </p>
           </div>
           <button className="rounded-full bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-60" disabled={pending} onClick={() => void createTask()} type="button">
-            {pending ? pickText(lang, "创建中…", "Creating...") : pickText(lang, "开始自动搜索 Top 5", "Start automatic Top 5 search")}
+            {pending ? pickText(lang, "创建中…", "Creating...") : pickText(lang, "开始自动搜索 Top 10", "Start automatic Top 10 search")}
           </button>
         </div>
         <p aria-live="polite" className="mt-3 text-sm text-muted-foreground">{feedback}</p>
@@ -189,7 +189,7 @@ function AutomaticSearchPanel({ form, lang, onChange }: { form: WizardForm; lang
     <section className="rounded-2xl border border-primary/20 bg-card p-4 shadow-sm">
       <div className="mb-4">
         <h3 className="text-lg font-semibold">{pickText(lang, "自动搜索向导", "Automatic search wizard")}</h3>
-        <p className="text-sm text-muted-foreground">{pickText(lang, "默认提交 automatic search payload；高级参数已折叠，可按风险档位自动生成搜索范围。", "Submits an automatic search payload by default; advanced parameters stay collapsed and are generated from the risk profile.")}</p>
+        <p className="text-sm text-muted-foreground">{pickText(lang, "系统会自动搜索杠杆、间隔、倍率、层数、止盈、尾部保护、多空比例，并输出每个币种 Top 10 与组合 Top 3。", "The system automatically searches leverage, spacing, multiplier, max legs, take-profit, tail protection, long/short weights, and outputs per-symbol Top 10 and portfolio Top 3.")}</p>
       </div>
       <div className="grid gap-4 lg:grid-cols-2">
         <label className="flex flex-col gap-1 text-sm lg:col-span-2">
@@ -200,10 +200,10 @@ function AutomaticSearchPanel({ form, lang, onChange }: { form: WizardForm; lang
           <span className="text-xs uppercase tracking-wide text-muted-foreground">{pickText(lang, "blacklist（可选）", "blacklist (optional)")}</span>
           <textarea className="min-h-16 rounded-lg border border-border bg-background px-3 py-2 text-muted-foreground" name="blacklist" onChange={onChange} placeholder="DOGEUSDT, PEPEUSDT" value={form.blacklist} />
         </label>
-        <WizardSelect label={pickText(lang, "市场", "Market")} name="market" onChange={onChange} value={form.market}>
-          <option value="spot">Spot</option>
-          <option value="usd_m_futures">USDT-M Futures</option>
-        </WizardSelect>
+        <div className="rounded-xl border border-border bg-muted/30 p-3 text-sm">
+          <p className="text-xs uppercase tracking-wide text-muted-foreground">{pickText(lang, "市场", "Market")}</p>
+          <p className="font-semibold">{pickText(lang, "USDT-M Futures · 逐仓模型", "USDT-M Futures · Isolated margin")}</p>
+        </div>
         <WizardSelect label={pickText(lang, "方向", "Direction")} name="directionMode" onChange={onChange} value={form.directionMode}>
           <option value="long_only">Long</option>
           <option value="short_only">Short</option>
@@ -371,7 +371,9 @@ export function buildWizardPayload(form: WizardForm, indicators?: Record<string,
     time_range_mode: "auto_previous_month_end",
     symbols,
     risk_profile: form.parameterPreset,
-    per_symbol_top_n: 5,
+    per_symbol_top_n: 10,
+    portfolio_top_n: 3,
+    search_mode: "staged",
     search_space_mode: "risk_profile_auto",
     train_start: "2023-01-01",
     test_end: timeSplit.testEnd,

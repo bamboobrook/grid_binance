@@ -48,7 +48,7 @@ export function BacktestResultTable({
           <p className="text-sm text-muted-foreground">
             {taskName
               ? pickText(lang, `当前任务：${taskName}`, `Current task: ${taskName}`)
-              : pickText(lang, "暂无回测任务，选择币种后开始自动搜索 Top 5", "No backtest tasks yet; select symbols to start automatic Top 5 search.")}
+              : pickText(lang, "暂无回测任务，选择币种后开始自动搜索 Top 10", "No backtest tasks yet; select symbols to start automatic Top 10 search.")}
           </p>
         </div>
         <code className="rounded bg-secondary/50 px-3 py-1 text-xs">GET /api/user/backtest/tasks/:id/candidates</code>
@@ -56,7 +56,7 @@ export function BacktestResultTable({
 
       {groupedCandidates.length === 0 ? (
         <DataTable
-          caption={pickText(lang, "每个币种 Top 5", "Per-symbol Top 5")}
+          caption={pickText(lang, "每个币种 Top 10", "Per-symbol Top 10")}
           columns={candidateColumns(lang)}
           emptyMessage={isSuccessfulWithoutCandidates
             ? pickText(lang, "回测完成但没有可用候选，请放宽风控或参数范围后重试。", "Backtest completed but no usable candidates were found; relax risk rules or parameter ranges and retry.")
@@ -71,7 +71,7 @@ export function BacktestResultTable({
               <p className="text-xs text-muted-foreground">{pickText(lang, "按参数排名挑选每个币种最优候选。", "Sorted by parameter rank for each symbol.")}</p>
             </div>
             <DataTable
-              caption={pickText(lang, "每个币种 Top 5", "Per-symbol Top 5")}
+              caption={pickText(lang, "每个币种 Top 10", "Per-symbol Top 10")}
               columns={candidateColumns(lang)}
               emptyMessage={pickText(lang, "暂无候选结果；请等待 Worker 完成海选和精测。", "No candidates yet; wait for the worker to finish screening and refinement.")}
               rows={group.candidates.map((candidate) => candidateRow(candidate, lang, selectedId, onSelect, onAddToBasket))}
