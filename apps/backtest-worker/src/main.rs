@@ -714,6 +714,7 @@ fn select_top_outputs_per_symbol(
             output.summary = merge_json_objects(
                 output.summary,
                 json!({
+                    "source_candidate_id": output.candidate_id,
                     "symbol": symbol,
                     "direction": direction,
                     "parameter_rank_for_symbol": parameter_rank_for_symbol,
@@ -1787,6 +1788,7 @@ mod tests {
         assert_eq!(btc_first.summary["recommended_weight_pct"], 20.0);
         assert_eq!(btc_first.summary["recommended_leverage"], 3);
         assert_eq!(btc_first.summary["risk_profile"], "balanced");
+        assert_eq!(btc_first.summary["source_candidate_id"], "btc-1");
     }
 
     #[test]
