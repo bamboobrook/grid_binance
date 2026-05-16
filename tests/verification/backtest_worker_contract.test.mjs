@@ -40,6 +40,10 @@ test("backtest worker persists real portfolio Top 3 from outputs", () => {
   assert.match(worker, /portfolio_candidates_from_outputs/);
   assert.match(worker, /update_task_summary\(/);
   assert.match(worker, /portfolio_top3_artifact_path/);
+  assert.match(worker, /source_candidate_id/);
+  assert.match(worker, /"symbol"/);
+  assert.match(worker, /"trade_count"/);
+  assert.match(worker, /persisted_candidates/);
   assert.doesNotMatch(worker, /max_drawdown_pct:\s*0\.0/);
 });
 

@@ -24,7 +24,7 @@ use rust_decimal::prelude::ToPrimitive;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-use shared_db::{BacktestRepository, NewBacktestCandidateRecord, SharedDb};
+use shared_db::{BacktestCandidateRecord, BacktestRepository, NewBacktestCandidateRecord, SharedDb};
 use shared_domain::martingale::{
     MartingaleEntryTrigger, MartingaleIndicatorConfig,
     MartingaleMarginMode, MartingaleMarketKind,
@@ -467,7 +467,7 @@ async fn process_task(
         &task.config.risk_profile,
     );
     respect_pause_or_cancel(poller, &task.task_id).await?;
-    poller
+    let persisted_candidates = poller
         .save_candidates_and_artifacts(&task.task_id, evaluated_count, &outputs)
         .await?;
     respect_pause_or_cancel(poller, &task.task_id).await?;
@@ -478,13 +478,22 @@ async fn process_task(
         .copied()
         .unwrap_or(25.0);
     let portfolio_top3 = build_portfolio_top3(&portfolio_candidates, max_portfolio_drawdown_pct);
-    let portfolio_rows = portfolio_top3.top3.iter().map(|entry| json!({
-        "candidate_id": entry.candidate.candidate_id,
-        "score": entry.score,
-        "return_pct": entry.return_pct,
-        "max_drawdown_pct": entry.max_drawdown_pct,
-        "survival_passed": entry.survival_passed,
-    })).collect::<Vec<Value>>();
+    let portfolio_rows = portfolio_top3.top3.iter().filter_map(|entry| {
+        let persisted = persisted_candidates.iter().find(|candidate| {
+            candidate.summary.get("source_candidate_id").and_then(Value::as_str)
+                == Some(entry.candidate.candidate_id.as_str())
+                || candidate.candidate_id == entry.candidate.candidate_id
+        })?;
+        Some(json!({
+            "candidate_id": persisted.candidate_id,
+            "source_candidate_id": entry.candidate.candidate_id,
+            "symbol": persisted.summary.get("symbol").cloned().unwrap_or(Value::Null),
+            "score": entry.score,
+            "return_pct": entry.return_pct,
+            "max_drawdown_pct": entry.max_drawdown_pct,
+            "trade_count": persisted.summary.get("trade_count").cloned().unwrap_or(Value::Null),
+        }))
+    }).collect::<Vec<Value>>();
     let portfolio_manifest = write_task_json_artifact(
         &config.artifact_root,
         &task.task_id,
@@ -1302,7 +1311,7 @@ impl TaskPoller {
         task_id: &str,
         screened_count: usize,
         outputs: &[CandidateOutput],
-    ) -> Result<(), String> {
+    ) -> Result<Vec<BacktestCandidateRecord>, String> {
         self.repo
             .append_task_event(
                 task_id,
@@ -1310,8 +1319,10 @@ impl TaskPoller {
                 json!({ "screened_count": screened_count, "selected_count": outputs.len() }),
             )
             .map_err(|error| format!("append screening event: {error}"))?;
+        let mut persisted = Vec::with_capacity(outputs.len());
         for output in outputs {
-            self.repo
+            let (record, _artifact) = self
+                .repo
                 .save_candidate_with_artifact(
                     NewBacktestCandidateRecord {
                         task_id: task_id.to_owned(),
@@ -1340,8 +1351,9 @@ impl TaskPoller {
                     }),
                 )
                 .map_err(|error| format!("save candidate artifact bundle: {error}"))?;
+            persisted.push(record);
         }
-        Ok(())
+        Ok(persisted)
     }
 
     async fn mark_completed(&self, task_id: &str, extra_summary: Value) -> Result<(), String> {
