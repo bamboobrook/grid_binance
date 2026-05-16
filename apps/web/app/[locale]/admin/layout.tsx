@@ -29,7 +29,7 @@ export default async function AdminAppLayout({
     const error = encodeURIComponent(
       pickText(lang, "请先使用管理员账号完成登录与 TOTP 验证。", "Sign in with an admin account and complete the TOTP challenge first."),
     );
-    redirect("/" + locale + "/login?error=" + error);
+    redirect("/" + locale + "/admin/login?error=" + error);
   }
 
   const snapshot = await getAdminShellSnapshot(locale);

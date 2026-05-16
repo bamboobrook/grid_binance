@@ -13,6 +13,8 @@ import {
   BarChart3,
   HelpCircle,
   Bot,
+  Layers3,
+  FlaskConical,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -20,12 +22,16 @@ export function Sidebar() {
   const t = useTranslations('common.sidebar');
   const locale = useLocale();
   const pathname = usePathname();
+  const backtestLabel = locale === "zh" ? "回测" : "Backtest";
+  const martingalePortfoliosLabel = locale === "zh" ? "马丁组合" : "Martingale Portfolios";
 
   const navItems = [
     { name: t('dashboard'), href: '/app/dashboard', icon: LayoutDashboard },
     { name: t('strategies'), href: '/app/strategies', icon: ArrowLeftRight },
     { name: t('orders'), href: '/app/orders', icon: History },
     { name: t('analytics'), href: '/app/analytics', icon: BarChart3 },
+    { name: backtestLabel, href: '/app/backtest', icon: FlaskConical },
+    { name: martingalePortfoliosLabel, href: '/app/martingale-portfolios', icon: Layers3 },
   ];
 
   const bottomItems = [
@@ -55,6 +61,7 @@ export function Sidebar() {
           return (
             <Link
               key={item.href}
+              aria-current={active ? "page" : undefined}
               href={`/${locale}${item.href}`}
               className={cn(
                 'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors',
@@ -74,6 +81,7 @@ export function Sidebar() {
           return (
             <Link
               key={item.href}
+              aria-current={active ? "page" : undefined}
               href={`/${locale}${item.href}`}
               className={cn(
                 'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors',
@@ -86,6 +94,7 @@ export function Sidebar() {
           );
         })}
         <Link
+          aria-current={isCurrent('/app/help') ? "page" : undefined}
           href={`/${locale}/app/help`}
           className={cn(
             'mt-4 flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors',

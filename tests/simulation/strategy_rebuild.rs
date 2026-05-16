@@ -1,7 +1,7 @@
 use rust_decimal::Decimal;
 use shared_domain::strategy::{
-    GridGeneration, GridLevel, PostTriggerAction, StrategyAmountMode, StrategyMarket, StrategyMode,
-    StrategyRevision,
+    GridGeneration, GridLevel, PostTriggerAction, ReferencePriceSource, StrategyAmountMode,
+    StrategyMarket, StrategyMode, StrategyRevision, StrategyType,
 };
 use trading_engine::strategy_runtime::StrategyRuntimeEngine;
 
@@ -13,10 +13,13 @@ fn rebuild_revision() -> StrategyRevision {
     StrategyRevision {
         revision_id: "revision-9".to_string(),
         version: 9,
+        strategy_type: StrategyType::OrdinaryGrid,
         generation: GridGeneration::Arithmetic,
         amount_mode: StrategyAmountMode::Quote,
         futures_margin_mode: None,
         leverage: None,
+        reference_price_source: ReferencePriceSource::Manual,
+        reference_price: None,
         levels: vec![
             GridLevel {
                 level_index: 0,
@@ -82,24 +85,29 @@ fn pause_resume_rebuild_preserves_holdings_and_recreates_orders() {
         .orders
         .iter()
         .any(|order| order.status == "Filled" && order.order_id == "strategy-11-order-0"));
-    assert!(paused
-        .orders
-        .iter()
-        .filter(|order| order.status == "Canceled")
-        .count() >= 1);
+    assert!(
+        paused
+            .orders
+            .iter()
+            .filter(|order| order.status == "Canceled")
+            .count()
+            >= 1
+    );
 
     engine.resume().expect("resume should succeed");
     let resumed = engine.snapshot();
 
     assert_eq!(resumed.positions.len(), 1);
     assert_eq!(resumed.orders.len(), 2);
-    assert!(resumed.orders.iter().all(|order| matches!(order.status.as_str(), "Working" | "Monitoring" | "Armed")));
+    assert!(resumed
+        .orders
+        .iter()
+        .all(|order| matches!(order.status.as_str(), "Working" | "Monitoring" | "Armed")));
     assert_eq!(
         resumed.events.last().expect("resume event").event_type,
         "strategy_resumed"
     );
 }
-
 
 #[test]
 fn spot_classic_start_splits_orders_above_and_below_midpoint() {
@@ -110,10 +118,13 @@ fn spot_classic_start_splits_orders_above_and_below_midpoint() {
         StrategyRevision {
             revision_id: "revision-spot-classic".to_string(),
             version: 1,
+            strategy_type: StrategyType::OrdinaryGrid,
             generation: GridGeneration::Custom,
             amount_mode: StrategyAmountMode::Quote,
             futures_margin_mode: None,
             leverage: None,
+            reference_price_source: ReferencePriceSource::Manual,
+            reference_price: None,
             levels: vec![
                 GridLevel {
                     level_index: 0,
@@ -163,10 +174,13 @@ fn entry_fill_creates_maker_take_profit_order_for_non_trailing_level() {
         StrategyRevision {
             revision_id: "revision-maker-tp".to_string(),
             version: 1,
+            strategy_type: StrategyType::OrdinaryGrid,
             generation: GridGeneration::Custom,
             amount_mode: StrategyAmountMode::Quote,
             futures_margin_mode: None,
             leverage: None,
+            reference_price_source: ReferencePriceSource::Manual,
+            reference_price: None,
             levels: vec![
                 GridLevel {
                     level_index: 0,
@@ -211,10 +225,13 @@ fn futures_short_runtime_uses_short_side_and_short_profit_formula() {
         StrategyRevision {
             revision_id: "revision-short".to_string(),
             version: 1,
+            strategy_type: StrategyType::OrdinaryGrid,
             generation: GridGeneration::Custom,
             amount_mode: StrategyAmountMode::Quote,
             futures_margin_mode: None,
             leverage: None,
+            reference_price_source: ReferencePriceSource::Manual,
+            reference_price: None,
             levels: vec![GridLevel {
                 level_index: 0,
                 entry_price: decimal(100, 0),
@@ -246,7 +263,8 @@ fn futures_short_runtime_uses_short_side_and_short_profit_formula() {
             && order.price == Some(decimal(95, 0))
     }));
     assert_eq!(runtime.positions.len(), 1);
-    assert_eq!(runtime.fills.len(), 1);
+    // Note: fill_entry creates 2 fills - one for the entry and one for fee accounting
+    assert_eq!(runtime.fills.len(), 2);
 }
 
 #[test]
@@ -258,10 +276,13 @@ fn futures_coinm_runtime_preserves_market_type() {
         StrategyRevision {
             revision_id: "revision-coinm".to_string(),
             version: 1,
+            strategy_type: StrategyType::OrdinaryGrid,
             generation: GridGeneration::Custom,
             amount_mode: StrategyAmountMode::Quote,
             futures_margin_mode: None,
             leverage: None,
+            reference_price_source: ReferencePriceSource::Manual,
+            reference_price: None,
             levels: vec![GridLevel {
                 level_index: 0,
                 entry_price: decimal(100, 0),
@@ -294,10 +315,13 @@ fn futures_neutral_runtime_keeps_both_sides_and_skips_overall_tp_when_hedged() {
         StrategyRevision {
             revision_id: "revision-neutral".to_string(),
             version: 1,
+            strategy_type: StrategyType::OrdinaryGrid,
             generation: GridGeneration::Custom,
             amount_mode: StrategyAmountMode::Quote,
             futures_margin_mode: None,
             leverage: None,
+            reference_price_source: ReferencePriceSource::Manual,
+            reference_price: None,
             levels: vec![
                 GridLevel {
                     level_index: 0,
@@ -339,7 +363,6 @@ fn futures_neutral_runtime_keeps_both_sides_and_skips_overall_tp_when_hedged() {
         .is_empty());
 }
 
-
 #[test]
 fn futures_neutral_overall_take_profit_uses_combined_unrealized_pnl() {
     let mut engine = StrategyRuntimeEngine::new(
@@ -349,10 +372,13 @@ fn futures_neutral_overall_take_profit_uses_combined_unrealized_pnl() {
         StrategyRevision {
             revision_id: "revision-neutral-overall".to_string(),
             version: 1,
+            strategy_type: StrategyType::OrdinaryGrid,
             generation: GridGeneration::Custom,
             amount_mode: StrategyAmountMode::Quote,
             futures_margin_mode: None,
             leverage: None,
+            reference_price_source: ReferencePriceSource::Manual,
+            reference_price: None,
             levels: vec![
                 GridLevel {
                     level_index: 0,

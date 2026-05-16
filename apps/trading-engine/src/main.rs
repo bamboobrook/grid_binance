@@ -1,10 +1,22 @@
 use axum::{extract::State, http::header, response::IntoResponse, routing::get, Router};
 use chrono::Utc;
-use futures_util::StreamExt;
-use shared_binance::{parse_user_data_message, BinanceClient, CredentialCipher};
+use futures_util::{SinkExt, StreamExt};
+use shared_binance::{
+    parse_user_data_message, BinanceClient, BinanceUserDataStream, CredentialCipher,
+};
 use shared_db::{NotificationLogRecord, SharedDb};
-use shared_domain::strategy::{Strategy, StrategyRuntimeEvent, StrategyStatus};
+use shared_domain::martingale::{
+    MartingaleDirection, MartingaleDirectionMode, MartingaleMarginMode, MartingaleMarketKind,
+    MartingalePortfolioConfig, MartingaleRiskLimits, MartingaleSizingModel, MartingaleSpacingModel,
+    MartingaleStrategyConfig, MartingaleTakeProfitModel,
+};
+use shared_domain::strategy::ReferencePriceSource;
+use shared_domain::strategy::{
+    RuntimeControls, Strategy, StrategyRuntimeEvent, StrategyRuntimeOrder, StrategyRuntimePhase,
+    StrategyStatus, StrategyType,
+};
 use shared_events::{MarketTick, NotificationKind};
+use std::sync::OnceLock;
 use std::{
     collections::{HashMap, HashSet},
     io::{Error as IoError, ErrorKind},
@@ -14,8 +26,15 @@ use std::{
 use tokio::{net::TcpListener, task::JoinHandle, time::sleep};
 use tokio_tungstenite::{connect_async, tungstenite::Message};
 use trading_engine::{
-    execution_effects::persist_execution_effects, execution_sync::apply_execution_update,
-    order_sync::{sync_strategy_orders, OrderQuantizationRules}, strategy_runtime::StrategyRuntimeEngine,
+    execution_effects::persist_execution_effects,
+    execution_sync::apply_execution_update,
+    martingale_recovery::{recover_martingale_runtime, MartingaleRecoveryInput, RecoveryPosition},
+    martingale_runtime::{
+        FuturesExchangeSettings, FuturesSymbolSettings, MartingaleRuntime, MartingaleRuntimeConfig,
+        MartingaleRuntimeContext,
+    },
+    order_sync::{sync_strategy_orders, OrderQuantizationRules},
+    strategy_runtime::StrategyRuntimeEngine,
     trade_sync::sync_strategy_trades,
 };
 
@@ -175,6 +194,7 @@ fn sync_live_orders(
         strategy.status,
         StrategyStatus::Running
             | StrategyStatus::Paused
+            | StrategyStatus::Stopping
             | StrategyStatus::Stopped
             | StrategyStatus::ErrorPaused
     ) {
@@ -195,6 +215,10 @@ fn sync_live_orders(
         .decrypt(&credentials.encrypted_secret)
         .map_err(|error| shared_db::SharedDbError::new(error.to_string()))?;
     let client = shared_binance::BinanceClient::new(api_key, api_secret);
+    if strategy.strategy_type == StrategyType::MartingaleGrid {
+        let settings = martingale_futures_settings_from_client(strategy, &client)?;
+        sync_martingale_production_start(strategy, settings)?;
+    }
     let quantization = strategy_quantization_rules(db, strategy)?;
     let result = sync_strategy_orders(strategy, &client, quantization.as_ref());
     let trade_result = sync_strategy_trades(db, strategy, &client)?;
@@ -243,7 +267,9 @@ fn strategy_quantization_rules(
     let symbol = db
         .list_exchange_symbols(&strategy.owner_email, BINANCE_EXCHANGE)?
         .into_iter()
-        .find(|record| record.market == market_key && record.symbol.eq_ignore_ascii_case(&strategy.symbol));
+        .find(|record| {
+            record.market == market_key && record.symbol.eq_ignore_ascii_case(&strategy.symbol)
+        });
     let Some(symbol) = symbol else {
         return Ok(None);
     };
@@ -297,6 +323,211 @@ fn apply_live_sync_failure(
         created_at,
     )?;
     Ok(true)
+}
+
+fn sync_martingale_production_start(
+    strategy: &mut Strategy,
+    settings: FuturesExchangeSettings,
+) -> Result<bool, shared_db::SharedDbError> {
+    if strategy.status != StrategyStatus::Running || martingale_has_runtime_orders(strategy) {
+        return Ok(false);
+    }
+
+    let config = martingale_runtime_config_from_strategy(strategy)?;
+    let mut runtime = MartingaleRuntime::new(config)
+        .map_err(|error| shared_db::SharedDbError::new(error.to_string()))?;
+    let recovery_report = recover_martingale_runtime(
+        &mut runtime,
+        MartingaleRecoveryInput {
+            positions: strategy
+                .runtime
+                .positions
+                .iter()
+                .map(|position| RecoveryPosition {
+                    symbol: strategy.symbol.clone(),
+                    quantity: position.quantity,
+                    entry_price: position.average_entry_price,
+                })
+                .collect(),
+            open_orders: Vec::new(),
+            trades: Vec::new(),
+        },
+    );
+    if !recovery_report.complete {
+        return Err(shared_db::SharedDbError::new(
+            "martingale recovery incomplete blocks live start",
+        ));
+    }
+    let anchor_price = martingale_anchor_price(strategy)?;
+    runtime
+        .start_cycle_with_futures_preflight(
+            &settings,
+            &strategy.id,
+            anchor_price,
+            MartingaleRuntimeContext::default(),
+        )
+        .map_err(|error| shared_db::SharedDbError::new(error.to_string()))?;
+
+    for order in runtime.orders() {
+        strategy.runtime.orders.push(StrategyRuntimeOrder {
+            order_id: order.client_order_id.clone(),
+            exchange_order_id: order.exchange_order_id.clone(),
+            level_index: Some(order.leg_index),
+            side: if order.side.eq_ignore_ascii_case("BUY") {
+                "Buy".to_string()
+            } else {
+                "Sell".to_string()
+            },
+            order_type: "Limit".to_string(),
+            price: Some(order.price),
+            quantity: order.quantity,
+            status: "Working".to_string(),
+        });
+    }
+    strategy.runtime.events.push(StrategyRuntimeEvent {
+        event_type: "martingale_runtime_started".to_string(),
+        detail: "martingale runtime started through futures preflight".to_string(),
+        price: Some(anchor_price),
+        created_at: Utc::now(),
+    });
+    Ok(true)
+}
+
+fn martingale_runtime_config_from_strategy(
+    strategy: &Strategy,
+) -> Result<MartingaleRuntimeConfig, shared_db::SharedDbError> {
+    let revision = strategy
+        .active_revision
+        .as_ref()
+        .unwrap_or(&strategy.draft_revision);
+    let margin_mode = revision
+        .futures_margin_mode
+        .map(|mode| match mode {
+            shared_domain::strategy::FuturesMarginMode::Isolated => MartingaleMarginMode::Isolated,
+            shared_domain::strategy::FuturesMarginMode::Cross => MartingaleMarginMode::Cross,
+        })
+        .unwrap_or(MartingaleMarginMode::Cross);
+    let leverage = revision.leverage.unwrap_or(1);
+    let direction = match strategy.mode {
+        shared_domain::strategy::StrategyMode::FuturesShort => MartingaleDirection::Short,
+        _ => MartingaleDirection::Long,
+    };
+    let market = match strategy.market {
+        shared_domain::strategy::StrategyMarket::Spot => MartingaleMarketKind::Spot,
+        shared_domain::strategy::StrategyMarket::FuturesUsdM => MartingaleMarketKind::UsdMFutures,
+        shared_domain::strategy::StrategyMarket::FuturesCoinM => {
+            return Err(shared_db::SharedDbError::new(
+                "martingale live runtime only supports spot and USDT-M futures",
+            ));
+        }
+    };
+    let strategy_config = MartingaleStrategyConfig {
+        strategy_id: strategy.id.clone(),
+        symbol: strategy.symbol.clone(),
+        market,
+        direction,
+        direction_mode: match direction {
+            MartingaleDirection::Long => MartingaleDirectionMode::LongOnly,
+            MartingaleDirection::Short => MartingaleDirectionMode::ShortOnly,
+        },
+        margin_mode: (market == MartingaleMarketKind::UsdMFutures).then_some(margin_mode),
+        leverage: (market == MartingaleMarketKind::UsdMFutures).then_some(leverage),
+        spacing: MartingaleSpacingModel::FixedPercent {
+            step_bps: strategy.grid_spacing_bps,
+        },
+        sizing: MartingaleSizingModel::Multiplier {
+            first_order_quote: strategy_budget(strategy),
+            multiplier: rust_decimal::Decimal::ONE,
+            max_legs: 3,
+        },
+        take_profit: MartingaleTakeProfitModel::Percent { bps: 100 },
+        stop_loss: None,
+        indicators: Vec::new(),
+        entry_triggers: Vec::new(),
+        risk_limits: MartingaleRiskLimits::default(),
+    };
+    Ok(MartingaleRuntimeConfig {
+        portfolio_id: strategy.id.clone(),
+        strategy_instance_id: revision.revision_id.clone(),
+        portfolio: MartingalePortfolioConfig {
+            direction_mode: strategy_config.direction_mode,
+            strategies: vec![strategy_config],
+            risk_limits: MartingaleRiskLimits::default(),
+        },
+        portfolio_budget_quote: strategy_budget(strategy),
+        exchange_min_notional: rust_decimal::Decimal::ZERO,
+    })
+}
+
+fn martingale_futures_settings_from_client(
+    strategy: &Strategy,
+    client: &impl MartingaleExchangeSettingsSource,
+) -> Result<FuturesExchangeSettings, shared_db::SharedDbError> {
+    client.martingale_futures_settings(strategy)
+}
+
+fn sync_martingale_production_start_from_exchange(
+    strategy: &mut Strategy,
+    source: &impl MartingaleExchangeSettingsSource,
+) -> Result<bool, shared_db::SharedDbError> {
+    let settings = martingale_futures_settings_from_client(strategy, source)?;
+    sync_martingale_production_start(strategy, settings)
+}
+
+trait MartingaleExchangeSettingsSource {
+    fn martingale_futures_settings(
+        &self,
+        strategy: &Strategy,
+    ) -> Result<FuturesExchangeSettings, shared_db::SharedDbError>;
+}
+
+impl MartingaleExchangeSettingsSource for BinanceClient {
+    fn martingale_futures_settings(
+        &self,
+        strategy: &Strategy,
+    ) -> Result<FuturesExchangeSettings, shared_db::SharedDbError> {
+        let _ = (self, strategy);
+        Err(shared_db::SharedDbError::new(
+            "exchange margin mode and leverage read is required for martingale preflight",
+        ))
+    }
+}
+
+fn martingale_anchor_price(
+    strategy: &Strategy,
+) -> Result<rust_decimal::Decimal, shared_db::SharedDbError> {
+    strategy
+        .active_revision
+        .as_ref()
+        .unwrap_or(&strategy.draft_revision)
+        .reference_price
+        .or_else(|| {
+            strategy
+                .active_revision
+                .as_ref()
+                .unwrap_or(&strategy.draft_revision)
+                .levels
+                .first()
+                .map(|level| level.entry_price)
+        })
+        .ok_or_else(|| shared_db::SharedDbError::new("martingale start requires anchor price"))
+}
+
+fn strategy_budget(strategy: &Strategy) -> rust_decimal::Decimal {
+    strategy
+        .budget
+        .parse::<rust_decimal::Decimal>()
+        .ok()
+        .filter(|value| *value > rust_decimal::Decimal::ZERO)
+        .unwrap_or(rust_decimal::Decimal::ONE)
+}
+
+fn martingale_has_runtime_orders(strategy: &Strategy) -> bool {
+    strategy
+        .runtime
+        .orders
+        .iter()
+        .any(|order| order.order_id.starts_with("mg-") && order.order_id.contains("-leg-"))
 }
 
 fn apply_market_ticks(
@@ -383,10 +614,14 @@ fn apply_market_ticks(
     }
 
     let next_runtime = engine.snapshot().clone();
-    let overall_close_requested = snapshot.events.iter().skip(before_event_count).any(|event| {
-        event.event_type.starts_with("overall_take_profit")
-            || event.event_type.starts_with("overall_stop_loss")
-    });
+    let overall_close_requested = snapshot
+        .events
+        .iter()
+        .skip(before_event_count)
+        .any(|event| {
+            event.event_type.starts_with("overall_take_profit")
+                || event.event_type.starts_with("overall_stop_loss")
+        });
     if next_runtime != strategy.runtime {
         strategy.runtime = next_runtime;
         changed = true;
@@ -410,6 +645,56 @@ fn strategy_market_code(market: shared_domain::strategy::StrategyMarket) -> &'st
     }
 }
 
+fn telegram_bot_token() -> Option<&'static str> {
+    static TOKEN: OnceLock<Option<String>> = OnceLock::new();
+    TOKEN
+        .get_or_init(|| {
+            std::env::var("TELEGRAM_BOT_TOKEN")
+                .ok()
+                .map(|v| v.trim().to_owned())
+                .filter(|v| !v.is_empty())
+        })
+        .as_deref()
+}
+
+fn telegram_api_base_url() -> &'static str {
+    static URL: OnceLock<String> = OnceLock::new();
+    URL.get_or_init(|| {
+        std::env::var("TELEGRAM_API_BASE_URL")
+            .ok()
+            .map(|v| v.trim().trim_end_matches('/').to_owned())
+            .filter(|v| !v.is_empty())
+            .unwrap_or_else(|| "https://api.telegram.org".to_string())
+    })
+}
+
+fn telegram_http_agent() -> &'static ureq::Agent {
+    static AGENT: OnceLock<ureq::Agent> = OnceLock::new();
+    AGENT.get_or_init(|| {
+        ureq::AgentBuilder::new()
+            .timeout(Duration::from_secs(5))
+            .build()
+    })
+}
+
+fn send_telegram_message(chat_id: &str, text: &str) -> Result<(), String> {
+    let Some(token) = telegram_bot_token() else {
+        return Err("TELEGRAM_BOT_TOKEN not configured".to_string());
+    };
+    telegram_http_agent()
+        .post(&format!(
+            "{}/bot{}/sendMessage",
+            telegram_api_base_url(),
+            token
+        ))
+        .send_json(ureq::json!({
+            "chat_id": chat_id,
+            "text": text,
+        }))
+        .map(|_| ())
+        .map_err(|e| format!("telegram send failed: {}", e))
+}
+
 fn persist_runtime_notification(
     db: &SharedDb,
     strategy: &Strategy,
@@ -419,13 +704,27 @@ fn persist_runtime_notification(
     payload: serde_json::Value,
     created_at: chrono::DateTime<Utc>,
 ) -> Result<(), shared_db::SharedDbError> {
-    let binding = db.find_telegram_binding(&strategy.owner_email)?;
+    let binding = db
+        .find_telegram_binding(&strategy.owner_email)
+        .ok()
+        .flatten();
     let telegram_delivered = match (binding.as_ref(), telegram_bot_token()) {
-        (Some(binding), Some(token)) => {
-            send_telegram_message(&token, &binding.telegram_chat_id, title, body).is_ok()
+        (Some(binding), Some(_token)) => {
+            let text = format!("<b>{}</b>\n{}", title, body);
+            match send_telegram_message(&binding.telegram_chat_id, &text) {
+                Ok(()) => true,
+                Err(err) => {
+                    eprintln!(
+                        "trading-engine telegram send failed for {}: {}",
+                        strategy.owner_email, err
+                    );
+                    false
+                }
+            }
         }
         _ => false,
     };
+
     let mut record_payload = payload.clone();
     if let Some(object) = record_payload.as_object_mut() {
         object.insert(
@@ -440,72 +739,32 @@ fn persist_runtime_notification(
         title: title.to_string(),
         body: body.to_string(),
         status: "delivered".to_string(),
-        payload: record_payload,
+        payload: record_payload.clone(),
         created_at,
         delivered_at: Some(created_at),
     })?;
-    if binding.is_some() {
-        db.insert_notification_log(&NotificationLogRecord {
-            user_email: strategy.owner_email.clone(),
-            channel: "telegram".to_string(),
-            template_key: Some(format!("{:?}", kind)),
-            title: title.to_string(),
-            body: body.to_string(),
-            status: if telegram_delivered {
-                "delivered"
-            } else {
-                "failed"
-            }
-            .to_string(),
-            payload,
-            created_at,
-            delivered_at: telegram_delivered.then_some(created_at),
-        })?;
-    }
-    Ok(())
-}
 
-fn telegram_bot_token() -> Option<String> {
-    std::env::var("TELEGRAM_BOT_TOKEN")
-        .ok()
-        .map(|value| value.trim().to_owned())
-        .filter(|value| !value.is_empty())
-}
+    let telegram_status = if telegram_delivered {
+        "delivered"
+    } else {
+        "failed"
+    };
+    db.insert_notification_log(&NotificationLogRecord {
+        user_email: strategy.owner_email.clone(),
+        channel: "telegram".to_string(),
+        template_key: Some(format!("{:?}", kind)),
+        title: title.to_string(),
+        body: body.to_string(),
+        status: telegram_status.to_string(),
+        payload: record_payload,
+        created_at,
+        delivered_at: if telegram_delivered {
+            Some(created_at)
+        } else {
+            None
+        },
+    })?;
 
-fn telegram_api_base_url() -> String {
-    std::env::var("TELEGRAM_API_BASE_URL")
-        .ok()
-        .map(|value| value.trim().trim_end_matches('/').to_owned())
-        .filter(|value| !value.is_empty())
-        .unwrap_or_else(|| "https://api.telegram.org".to_string())
-}
-
-fn telegram_http_agent() -> &'static ureq::Agent {
-    static AGENT: std::sync::OnceLock<ureq::Agent> = std::sync::OnceLock::new();
-    AGENT.get_or_init(|| {
-        ureq::AgentBuilder::new()
-            .timeout(Duration::from_secs(5))
-            .build()
-    })
-}
-
-fn send_telegram_message(
-    bot_token: &str,
-    chat_id: &str,
-    title: &str,
-    body: &str,
-) -> Result<(), shared_db::SharedDbError> {
-    telegram_http_agent()
-        .post(&format!(
-            "{}/bot{}/sendMessage",
-            telegram_api_base_url(),
-            bot_token
-        ))
-        .send_json(ureq::json!({
-            "chat_id": chat_id,
-            "text": format!("{}\n{}", title, body),
-        }))
-        .map_err(|error| shared_db::SharedDbError::new(error.to_string()))?;
     Ok(())
 }
 
@@ -598,29 +857,36 @@ async fn run_user_stream_once(
     let stream = client
         .start_user_data_stream(market)
         .map_err(|error| shared_db::SharedDbError::new(error.to_string()))?;
-    let keepalive_client = client.clone();
-    let keepalive_market = market.to_string();
-    let keepalive_email = email.to_string();
-    let keepalive_key = stream.listen_key.clone();
-    tokio::spawn(async move {
-        let mut interval = tokio::time::interval(Duration::from_secs(30 * 60));
-        loop {
-            interval.tick().await;
-            if let Err(error) =
-                keepalive_client.keepalive_user_data_stream(&keepalive_market, &keepalive_key)
-            {
-                eprintln!(
-                    "trading-engine user stream keepalive {} {} failed: {}",
-                    keepalive_email, keepalive_market, error
-                );
-                break;
+    if let Some(keepalive_key) = user_stream_keepalive_key(&stream) {
+        let keepalive_client = client.clone();
+        let keepalive_market = market.to_string();
+        let keepalive_email = email.to_string();
+        tokio::spawn(async move {
+            let mut interval = tokio::time::interval(Duration::from_secs(30 * 60));
+            loop {
+                interval.tick().await;
+                if let Err(error) =
+                    keepalive_client.keepalive_user_data_stream(&keepalive_market, &keepalive_key)
+                {
+                    eprintln!(
+                        "trading-engine user stream keepalive {} {} failed: {}",
+                        keepalive_email, keepalive_market, error
+                    );
+                    break;
+                }
             }
-        }
-    });
-    let (socket, _) = connect_async(stream.websocket_url)
+        });
+    }
+    let (socket, _) = connect_async(stream.websocket_url.as_str())
         .await
         .map_err(|error| shared_db::SharedDbError::new(error.to_string()))?;
-    let (_, mut read) = socket.split();
+    let (mut write, mut read) = socket.split();
+    if let Some(subscribe_request) = stream.subscribe_request.as_ref() {
+        write
+            .send(Message::Text(subscribe_request.clone().into()))
+            .await
+            .map_err(|error| shared_db::SharedDbError::new(error.to_string()))?;
+    }
 
     while let Some(message) = read.next().await {
         let message = message.map_err(|error| shared_db::SharedDbError::new(error.to_string()))?;
@@ -628,6 +894,14 @@ async fn run_user_stream_once(
             Message::Text(text) => text.to_string(),
             Message::Binary(bytes) => String::from_utf8(bytes.to_vec())
                 .map_err(|error| shared_db::SharedDbError::new(error.to_string()))?,
+            Message::Ping(payload) => {
+                write
+                    .send(Message::Pong(payload))
+                    .await
+                    .map_err(|error| shared_db::SharedDbError::new(error.to_string()))?;
+                continue;
+            }
+            Message::Pong(_) => continue,
             Message::Close(_) => break,
             _ => continue,
         };
@@ -636,6 +910,11 @@ async fn run_user_stream_once(
         }
     }
     Ok(())
+}
+
+fn user_stream_keepalive_key(stream: &BinanceUserDataStream) -> Option<String> {
+    let key = stream.listen_key.trim();
+    (!key.is_empty()).then(|| key.to_string())
 }
 
 fn apply_execution_update_effects(
@@ -746,12 +1025,17 @@ mod tests {
     };
     use chrono::Utc;
     use rust_decimal::Decimal;
+    use shared_binance::BinanceUserDataStream;
     use shared_db::{SharedDb, StoredStrategy};
     use shared_domain::strategy::{
-        GridGeneration, GridLevel, PostTriggerAction, Strategy, StrategyAmountMode, StrategyMarket,
-        StrategyMode, StrategyRevision, StrategyRuntime, StrategyStatus,
+        GridGeneration, GridLevel, PostTriggerAction, ReferencePriceSource, RuntimeControls,
+        Strategy, StrategyAmountMode, StrategyMarket, StrategyMode, StrategyRevision,
+        StrategyRuntime, StrategyRuntimePhase, StrategyStatus, StrategyType,
     };
-    use std::sync::{Arc, Mutex};
+    use std::{
+        collections::HashMap,
+        sync::{Arc, Mutex},
+    };
 
     #[test]
     fn engine_iteration_calls_stream_sync_on_successful_reconcile() {
@@ -832,6 +1116,35 @@ mod tests {
                 "alice@example.com:usdm".to_string(),
                 "bob@example.com:coinm".to_string(),
             ]
+        );
+    }
+
+    #[test]
+    fn spot_ws_api_stream_skips_keepalive() {
+        let stream = BinanceUserDataStream {
+            market: "spot".to_string(),
+            listen_key: String::new(),
+            websocket_url: "wss://ws-api.binance.com:443/ws-api/v3".to_string(),
+            subscribe_request: Some(
+                "{\"method\":\"userDataStream.subscribe.signature\"}".to_string(),
+            ),
+        };
+
+        assert_eq!(super::user_stream_keepalive_key(&stream), None);
+    }
+
+    #[test]
+    fn futures_listen_key_stream_keeps_keepalive() {
+        let stream = BinanceUserDataStream {
+            market: "usdm".to_string(),
+            listen_key: "listen-key-123".to_string(),
+            websocket_url: "wss://fstream.binance.com/ws/listen-key-123".to_string(),
+            subscribe_request: None,
+        };
+
+        assert_eq!(
+            super::user_stream_keepalive_key(&stream),
+            Some("listen-key-123".to_string())
         );
     }
 
@@ -940,10 +1253,13 @@ mod tests {
         running.active_revision = Some(shared_domain::strategy::StrategyRevision {
             revision_id: "notify-revision".to_string(),
             version: 1,
+            strategy_type: StrategyType::OrdinaryGrid,
             generation: GridGeneration::Custom,
             amount_mode: StrategyAmountMode::Quote,
             futures_margin_mode: None,
             leverage: None,
+            reference_price_source: ReferencePriceSource::Manual,
+            reference_price: None,
             levels: vec![GridLevel {
                 level_index: 0,
                 entry_price: Decimal::new(100, 0),
@@ -994,10 +1310,13 @@ mod tests {
         running.active_revision = Some(shared_domain::strategy::StrategyRevision {
             revision_id: "notify-revision".to_string(),
             version: 1,
+            strategy_type: StrategyType::OrdinaryGrid,
             generation: GridGeneration::Custom,
             amount_mode: StrategyAmountMode::Quote,
             futures_margin_mode: None,
             leverage: None,
+            reference_price_source: ReferencePriceSource::Manual,
+            reference_price: None,
             levels: vec![GridLevel {
                 level_index: 0,
                 entry_price: Decimal::new(100, 0),
@@ -1056,10 +1375,13 @@ mod tests {
         running.active_revision = Some(shared_domain::strategy::StrategyRevision {
             revision_id: "notify-revision".to_string(),
             version: 1,
+            strategy_type: StrategyType::OrdinaryGrid,
             generation: GridGeneration::Custom,
             amount_mode: StrategyAmountMode::Quote,
             futures_margin_mode: None,
             leverage: None,
+            reference_price_source: ReferencePriceSource::Manual,
+            reference_price: None,
             levels: vec![GridLevel {
                 level_index: 0,
                 entry_price: Decimal::new(100, 0),
@@ -1101,6 +1423,77 @@ mod tests {
     }
 
     #[test]
+    fn reconcile_moves_overall_take_profit_into_stopping_for_short_position_with_buy_exit() {
+        let db = SharedDb::ephemeral().expect("db");
+        let metrics = Arc::new(Mutex::new(RuntimeMetrics::default()));
+        let mut running = strategy("stopping-tp-short", StrategyStatus::Running);
+        running.mode = StrategyMode::FuturesShort;
+        running.runtime.positions = vec![shared_domain::strategy::StrategyRuntimePosition {
+            market: StrategyMarket::FuturesUsdM,
+            mode: StrategyMode::FuturesShort,
+            quantity: Decimal::new(1, 0),
+            average_entry_price: Decimal::new(100, 0),
+        }];
+        running.runtime.orders = vec![shared_domain::strategy::StrategyRuntimeOrder {
+            order_id: "stopping-tp-short-tp-0".to_string(),
+            exchange_order_id: Some("live-tp-short-1".to_string()),
+            level_index: Some(0),
+            side: "Buy".to_string(),
+            order_type: "Limit".to_string(),
+            price: Some(Decimal::new(99, 0)),
+            quantity: Decimal::new(1, 0),
+            status: "Placed".to_string(),
+        }];
+        running.active_revision = Some(shared_domain::strategy::StrategyRevision {
+            revision_id: "short-revision".to_string(),
+            version: 1,
+            strategy_type: StrategyType::OrdinaryGrid,
+            generation: GridGeneration::Custom,
+            amount_mode: StrategyAmountMode::Quote,
+            futures_margin_mode: None,
+            leverage: None,
+            reference_price_source: ReferencePriceSource::Manual,
+            reference_price: None,
+            levels: vec![GridLevel {
+                level_index: 0,
+                entry_price: Decimal::new(100, 0),
+                quantity: Decimal::new(1, 0),
+                take_profit_bps: 100,
+                trailing_bps: None,
+            }],
+            overall_take_profit_bps: Some(100),
+            overall_stop_loss_bps: None,
+            post_trigger_action: PostTriggerAction::Stop,
+        });
+        db.insert_strategy(&StoredStrategy {
+            sequence_id: 1,
+            strategy: running,
+        })
+        .expect("strategy");
+        db.enqueue_market_tick(&shared_events::MarketTick {
+            symbol: "BTCUSDT".to_string(),
+            market: "spot".to_string(),
+            price: Decimal::new(99, 0),
+            event_time_ms: 1_000,
+        })
+        .expect("tick");
+
+        reconcile_once(&db, &metrics).expect("reconcile");
+
+        let stored = db
+            .find_strategy("engine@example.com", "stopping-tp-short")
+            .expect("find")
+            .expect("strategy");
+        assert_eq!(stored.status, StrategyStatus::Stopping);
+        assert_eq!(stored.runtime.positions.len(), 1);
+        assert!(stored
+            .runtime
+            .events
+            .iter()
+            .any(|event| event.event_type == "overall_take_profit_stop"));
+    }
+
+    #[test]
     fn reconcile_failure_auto_pauses_and_emits_runtime_error_notification() {
         let db = SharedDb::ephemeral().expect("db");
         let metrics = Arc::new(Mutex::new(RuntimeMetrics::default()));
@@ -1108,10 +1501,13 @@ mod tests {
         broken.active_revision = Some(shared_domain::strategy::StrategyRevision {
             revision_id: "broken-revision".to_string(),
             version: 1,
+            strategy_type: StrategyType::OrdinaryGrid,
             generation: GridGeneration::Custom,
             amount_mode: StrategyAmountMode::Quote,
             futures_margin_mode: None,
             leverage: None,
+            reference_price_source: ReferencePriceSource::Manual,
+            reference_price: None,
             levels: vec![GridLevel {
                 level_index: 0,
                 entry_price: Decimal::new(100, 0),
@@ -1182,10 +1578,13 @@ mod tests {
         running.active_revision = Some(shared_domain::strategy::StrategyRevision {
             revision_id: "tick-revision".to_string(),
             version: 1,
+            strategy_type: StrategyType::OrdinaryGrid,
             generation: GridGeneration::Custom,
             amount_mode: StrategyAmountMode::Quote,
             futures_margin_mode: None,
             leverage: None,
+            reference_price_source: ReferencePriceSource::Manual,
+            reference_price: None,
             levels: vec![GridLevel {
                 level_index: 0,
                 entry_price: Decimal::new(100, 0),
@@ -1223,6 +1622,126 @@ mod tests {
             .any(|event| event.event_type.contains("overall_take_profit")));
     }
 
+    #[test]
+    fn martingale_production_start_uses_futures_preflight_entrypoint() {
+        let mut running = strategy("martingale-live", StrategyStatus::Running);
+        running.strategy_type = StrategyType::MartingaleGrid;
+        running.market = StrategyMarket::FuturesUsdM;
+        running.mode = StrategyMode::FuturesLong;
+        running.draft_revision.strategy_type = StrategyType::MartingaleGrid;
+        running.draft_revision.futures_margin_mode =
+            Some(shared_domain::strategy::FuturesMarginMode::Cross);
+        running.draft_revision.leverage = Some(3);
+        running.draft_revision.reference_price = Some(Decimal::new(100, 0));
+        running.active_revision = Some(running.draft_revision.clone());
+
+        struct FakeSettingsSource {
+            settings: trading_engine::martingale_runtime::FuturesExchangeSettings,
+        }
+
+        impl super::MartingaleExchangeSettingsSource for FakeSettingsSource {
+            fn martingale_futures_settings(
+                &self,
+                _strategy: &Strategy,
+            ) -> Result<
+                trading_engine::martingale_runtime::FuturesExchangeSettings,
+                shared_db::SharedDbError,
+            > {
+                Ok(self.settings.clone())
+            }
+        }
+
+        let rejected = super::sync_martingale_production_start_from_exchange(
+            &mut running.clone(),
+            &FakeSettingsSource {
+                settings: trading_engine::martingale_runtime::FuturesExchangeSettings {
+                    hedge_mode: true,
+                    symbols: HashMap::from([(
+                        "BTCUSDT".to_string(),
+                        trading_engine::martingale_runtime::FuturesSymbolSettings {
+                            margin_mode: shared_domain::martingale::MartingaleMarginMode::Isolated,
+                            leverage: 5,
+                        },
+                    )]),
+                },
+            },
+        )
+        .expect_err("production adapter must reject failed futures preflight");
+        assert!(
+            rejected.to_string().contains("margin mode")
+                || rejected.to_string().contains("leverage")
+        );
+
+        let changed = super::sync_martingale_production_start_from_exchange(
+            &mut running,
+            &FakeSettingsSource {
+                settings: trading_engine::martingale_runtime::FuturesExchangeSettings {
+                    hedge_mode: true,
+                    symbols: HashMap::from([(
+                        "BTCUSDT".to_string(),
+                        trading_engine::martingale_runtime::FuturesSymbolSettings {
+                            margin_mode: shared_domain::martingale::MartingaleMarginMode::Cross,
+                            leverage: 3,
+                        },
+                    )]),
+                },
+            },
+        )
+        .expect("production adapter should start through preflight entrypoint");
+
+        assert!(changed);
+        assert!(running
+            .runtime
+            .orders
+            .iter()
+            .any(|order| order.order_id.starts_with("mg-")));
+        assert!(running
+            .runtime
+            .events
+            .iter()
+            .any(|event| event.event_type == "martingale_runtime_started"));
+    }
+
+    #[test]
+    fn martingale_production_start_blocks_unattributed_recovered_position() {
+        let mut running = strategy("martingale-restart", StrategyStatus::Running);
+        running.strategy_type = StrategyType::MartingaleGrid;
+        running.market = StrategyMarket::FuturesUsdM;
+        running.mode = StrategyMode::FuturesLong;
+        running.draft_revision.strategy_type = StrategyType::MartingaleGrid;
+        running.draft_revision.futures_margin_mode =
+            Some(shared_domain::strategy::FuturesMarginMode::Cross);
+        running.draft_revision.leverage = Some(3);
+        running.draft_revision.reference_price = Some(Decimal::new(100, 0));
+        running.active_revision = Some(running.draft_revision.clone());
+        running
+            .runtime
+            .positions
+            .push(shared_domain::strategy::StrategyRuntimePosition {
+                market: StrategyMarket::FuturesUsdM,
+                mode: StrategyMode::FuturesLong,
+                quantity: Decimal::new(1, 0),
+                average_entry_price: Decimal::new(100, 0),
+            });
+
+        let error = super::sync_martingale_production_start(
+            &mut running,
+            trading_engine::martingale_runtime::FuturesExchangeSettings {
+                hedge_mode: true,
+                symbols: HashMap::from([(
+                    "BTCUSDT".to_string(),
+                    trading_engine::martingale_runtime::FuturesSymbolSettings {
+                        margin_mode: shared_domain::martingale::MartingaleMarginMode::Cross,
+                        leverage: 3,
+                    },
+                )]),
+            },
+        )
+        .expect_err("unattributed recovered position must block live start");
+
+        assert!(error.to_string().contains("recovery incomplete"));
+    }
+
     fn strategy(id: &str, status: StrategyStatus) -> Strategy {
         Strategy {
             id: id.to_string(),
@@ -1243,11 +1762,16 @@ mod tests {
             margin_ready: true,
             conflict_ready: true,
             balance_ready: true,
+            strategy_type: StrategyType::OrdinaryGrid,
             market: StrategyMarket::Spot,
             mode: StrategyMode::SpotClassic,
+            runtime_phase: StrategyRuntimePhase::Draft,
+            runtime_controls: RuntimeControls {},
             draft_revision: revision(),
             active_revision: Some(revision()),
             runtime: StrategyRuntime::default(),
+            tags: Vec::new(),
+            notes: String::new(),
             archived_at: None,
         }
     }
@@ -1256,10 +1780,13 @@ mod tests {
         StrategyRevision {
             revision_id: "rev-1".to_string(),
             version: 1,
+            strategy_type: StrategyType::OrdinaryGrid,
             generation: GridGeneration::Custom,
             amount_mode: StrategyAmountMode::Quote,
             futures_margin_mode: None,
             leverage: None,
+            reference_price_source: ReferencePriceSource::Manual,
+            reference_price: None,
             levels: vec![GridLevel {
                 level_index: 0,
                 entry_price: Decimal::new(100, 0),

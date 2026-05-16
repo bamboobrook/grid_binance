@@ -1,0 +1,549 @@
+use backtest_engine::martingale::metrics::{MartingaleBacktestResult, MartingaleMetrics};
+use std::collections::BTreeSet;
+use std::sync::atomic::{AtomicBool, Ordering};
+
+use backtest_engine::intelligent_search::{intelligent_search, IntelligentSearchConfig};
+use backtest_engine::market_data::AggTrade;
+use backtest_engine::martingale::scoring::{score_candidate, ScoringConfig};
+use backtest_engine::martingale::trade_engine::{
+    run_trade_refinement, trades_to_ordered_price_bars,
+};
+use backtest_engine::search::{drawdown_limit_sequence, LegParameters, random_search, SearchSpace};
+use backtest_engine::time_splits::{named_stress_windows, walk_forward_windows, WalkForwardConfig};
+use rust_decimal::Decimal;
+use shared_domain::martingale::{
+    MartingaleDirection, MartingaleDirectionMode, MartingaleMarginMode, MartingaleMarketKind,
+    MartingalePortfolioConfig, MartingaleRiskLimits, MartingaleSizingModel, MartingaleSpacingModel,
+    MartingaleStrategyConfig, MartingaleTakeProfitModel,
+};
+
+#[test]
+fn risk_profile_drawdown_limits_relax_only_one_step() {
+    assert_eq!(drawdown_limit_sequence("conservative"), vec![20.0, 25.0]);
+    assert_eq!(drawdown_limit_sequence("balanced"), vec![25.0, 30.0]);
+    assert_eq!(drawdown_limit_sequence("aggressive"), vec![30.0]);
+}
+
+#[test]
+fn unknown_risk_profile_defaults_to_balanced_limits() {
+    assert_eq!(drawdown_limit_sequence("unknown"), vec![25.0, 30.0]);
+}
+
+#[test]
+fn scoring_rejects_negative_return_candidates() {
+    let mut result = fixture_martingale_result();
+    result.metrics.total_return_pct = -0.01;
+    result.metrics.annualized_return_pct = Some(-0.02);
+
+    let score = score_candidate(&result, &ScoringConfig::default());
+
+    assert!(!score.survival_valid);
+    assert!(score
+        .rejection_reasons
+        .iter()
+        .any(|reason| reason == "negative_return"));
+    assert_eq!(score.rank_score, 0.0);
+    assert_eq!(score.raw_score, 0.0);
+}
+
+#[test]
+fn scoring_outputs_human_readable_zero_to_one_hundred_score() {
+    let mut result = fixture_martingale_result();
+    result.metrics.total_return_pct = 42.0;
+    result.metrics.annualized_return_pct = Some(30.0);
+    result.metrics.max_drawdown_pct = 12.0;
+    result.metrics.global_drawdown_pct = Some(12.0);
+    result.metrics.trade_count = 240;
+    result.metrics.stop_count = 1;
+
+    let score = score_candidate(&result, &ScoringConfig::default());
+
+    assert!(score.survival_valid);
+    assert!(score.rank_score >= 0.0 && score.rank_score <= 100.0);
+    assert!(score.raw_score >= 0.0 && score.raw_score <= 100.0);
+}
+
+#[test]
+fn valid_zero_score_still_ranks_above_invalid_zero_score() {
+    let mut valid = fixture_martingale_result();
+    valid.metrics.total_return_pct = 0.001;
+    valid.metrics.annualized_return_pct = Some(0.0);
+    valid.metrics.max_drawdown_pct = 100.0;
+    valid.metrics.global_drawdown_pct = Some(100.0);
+    valid.metrics.max_strategy_drawdown_pct = Some(100.0);
+    valid.metrics.trade_count = 1;
+    valid.metrics.stop_count = 1;
+    valid.metrics.max_leverage_used = Some(100.0);
+    valid.metrics.min_liquidation_buffer_pct = Some(0.0);
+
+    let invalid = result(
+        false,
+        -1.0,
+        0.0,
+        1,
+        0,
+        100.0,
+        vec!["survival_failed".to_string()],
+    );
+
+    let config = ScoringConfig {
+        max_global_drawdown_pct: 100.0,
+        max_strategy_drawdown_pct: 100.0,
+        ..ScoringConfig::default()
+    };
+    let valid_score = score_candidate(&valid, &config);
+    let invalid_score = score_candidate(&invalid, &config);
+
+    assert!(valid_score.survival_valid);
+    assert!(!invalid_score.survival_valid);
+    assert_eq!(valid_score.raw_score, 0.0);
+    assert_eq!(invalid_score.rank_score, 0.0);
+    assert!(valid_score.rank_score > invalid_score.rank_score);
+}
+
+#[test]
+fn scoring_weights_affect_valid_candidate_score() {
+    let result = fixture_martingale_result();
+    let baseline = score_candidate(&result, &ScoringConfig::default());
+    let weighted = score_candidate(
+        &result,
+        &ScoringConfig {
+            weight_return: 0.1,
+            weight_calmar: 0.1,
+            weight_sortino: 0.1,
+            weight_drawdown: 2.0,
+            weight_stop_frequency: 2.0,
+            weight_capital_utilization: 0.1,
+            weight_trade_stability: 0.1,
+            ..ScoringConfig::default()
+        },
+    );
+
+    assert!(baseline.survival_valid);
+    assert!(weighted.survival_valid);
+    assert_ne!(baseline.raw_score, weighted.raw_score);
+    assert!(weighted.raw_score >= 0.0 && weighted.raw_score <= 100.0);
+    assert!(weighted.rank_score > 0.0 && weighted.rank_score <= 100.0);
+}
+
+#[test]
+fn random_search_is_reproducible() {
+    let space = SearchSpace {
+        symbols: vec!["BTCUSDT".to_string(), "ETHUSDT".to_string()],
+        directions: vec![MartingaleDirection::Long, MartingaleDirection::Short],
+        market: None,
+        margin_mode: None,
+        step_bps: vec![50, 100, 150],
+        first_order_quote: vec![Decimal::new(25, 0), Decimal::new(50, 0)],
+        multiplier: vec![Decimal::new(15, 1)],
+        take_profit_bps: vec![60, 90],
+        leverage: vec![1, 3],
+        max_legs: vec![3, 4],
+    };
+
+    let first = random_search(&space, 8, 42).expect("first search");
+    let second = random_search(&space, 8, 42).expect("second search");
+
+    assert_eq!(first, second);
+    assert_eq!(first.len(), 8);
+    assert!(first
+        .iter()
+        .all(|candidate| candidate.config.validate().is_ok()));
+}
+
+#[test]
+fn survival_failure_never_outranks_valid_candidate() {
+    let valid = result(true, 5.0, 4.0, 20, 1, 500.0, vec![]);
+    let failed = result(
+        false,
+        50.0,
+        1.0,
+        20,
+        0,
+        500.0,
+        vec!["global_drawdown_exceeded".to_string()],
+    );
+
+    let valid_score = score_candidate(&valid, &ScoringConfig::default());
+    let failed_score = score_candidate(&failed, &ScoringConfig::default());
+
+    assert!(valid_score.survival_valid);
+    assert!(!failed_score.survival_valid);
+    assert!(valid_score.rank_score > failed_score.rank_score);
+}
+
+#[test]
+fn valid_candidate_never_loses_to_invalid_extreme_candidate() {
+    let mut valid = result(true, 1.0e300, 1.0e200, 100, 0, 100.0, vec![]);
+    valid.metrics.global_drawdown_pct = Some(1.0);
+    valid.metrics.max_strategy_drawdown_pct = Some(1.0);
+    let failed = result(
+        false,
+        1.0e300,
+        0.0,
+        100,
+        0,
+        100.0,
+        vec!["liquidation_hit".to_string()],
+    );
+
+    let valid_score = score_candidate(&valid, &ScoringConfig::default());
+    let failed_score = score_candidate(&failed, &ScoringConfig::default());
+
+    assert!(valid_score.raw_score.is_finite());
+    assert!(failed_score.raw_score.is_finite());
+    assert!(valid_score.survival_valid);
+    assert!(!failed_score.survival_valid);
+    assert!(valid_score.rank_score > failed_score.rank_score);
+}
+
+#[test]
+fn walk_forward_windows_are_generated_in_order() {
+    let windows = walk_forward_windows(WalkForwardConfig {
+        start_ms: 0,
+        end_ms: 10_000,
+        train_ms: 3_000,
+        validate_ms: 1_000,
+        test_ms: 1_000,
+        step_ms: 2_000,
+    })
+    .expect("windows");
+
+    assert_eq!(windows.len(), 3);
+    assert_eq!(windows[0].train.start_ms, 0);
+    assert_eq!(windows[0].train.end_ms, 3_000);
+    assert_eq!(windows[0].validate.start_ms, 3_000);
+    assert_eq!(windows[0].test.end_ms, 5_000);
+    assert!(windows
+        .windows(2)
+        .all(|pair| pair[0].train.start_ms < pair[1].train.start_ms));
+    assert!(windows
+        .iter()
+        .all(|window| window.train.end_ms <= window.validate.start_ms));
+    assert!(windows
+        .iter()
+        .all(|window| window.validate.end_ms <= window.test.start_ms));
+}
+
+#[test]
+fn strategy_drawdown_rejects_when_global_drawdown_is_valid() {
+    let mut candidate = result(true, 8.0, 4.0, 20, 0, 500.0, vec![]);
+    candidate.metrics.global_drawdown_pct = Some(4.0);
+    candidate.metrics.max_strategy_drawdown_pct = Some(25.0);
+
+    let score = score_candidate(
+        &candidate,
+        &ScoringConfig {
+            max_global_drawdown_pct: 10.0,
+            max_strategy_drawdown_pct: 20.0,
+            ..ScoringConfig::default()
+        },
+    );
+
+    assert!(!score.survival_valid);
+    assert!(score
+        .rejection_reasons
+        .iter()
+        .any(|reason| reason == "strategy_drawdown_exceeded"));
+    assert!(!score
+        .rejection_reasons
+        .iter()
+        .any(|reason| reason == "global_drawdown_exceeded"));
+}
+
+#[test]
+fn low_data_quality_rejects_even_with_enough_trades() {
+    let mut candidate = result(true, 8.0, 4.0, 20, 0, 500.0, vec![]);
+    candidate.metrics.data_quality_score = Some(0.75);
+
+    let score = score_candidate(
+        &candidate,
+        &ScoringConfig {
+            min_trade_count: 10,
+            min_data_quality_score: 0.95,
+            ..ScoringConfig::default()
+        },
+    );
+
+    assert!(!score.survival_valid);
+    assert!(score
+        .rejection_reasons
+        .iter()
+        .any(|reason| reason == "insufficient_data_quality"));
+}
+
+#[test]
+fn trade_refinement_preserves_same_timestamp_trade_order() {
+    let result = run_trade_refinement(
+        spot_portfolio("BTCUSDT"),
+        &[trade(1_000, 100.0), trade(1_000, 101.5), trade(1_000, 98.5)],
+    )
+    .expect("trade refinement");
+
+    let first_exit = result
+        .events
+        .iter()
+        .find(|event| event.event_type == "take_profit" || event.event_type == "safety_order")
+        .expect("exit or safety event");
+
+    assert_eq!(first_exit.event_type, "take_profit");
+}
+
+#[test]
+fn trade_refinement_rejects_timestamp_increment_overflow() {
+    let error = trades_to_ordered_price_bars(&[trade(i64::MAX, 100.0), trade(i64::MAX, 101.0)])
+        .expect_err("timestamp conflict at i64::MAX must fail");
+
+    assert!(error.contains("timestamp"));
+    assert!(error.contains("overflow"));
+}
+
+#[test]
+fn walk_forward_windows_reject_timestamp_overflow() {
+    let error = walk_forward_windows(WalkForwardConfig {
+        start_ms: i64::MAX - 10,
+        end_ms: i64::MAX,
+        train_ms: 8,
+        validate_ms: 8,
+        test_ms: 8,
+        step_ms: 1,
+    })
+    .expect_err("span overflow must fail");
+
+    assert!(error.contains("overflow"));
+}
+
+#[test]
+fn intelligent_search_stops_at_max_candidates_inside_round() {
+    let space = small_search_space();
+    let mut evaluations = 0;
+
+    let result = intelligent_search(
+        &space,
+        &IntelligentSearchConfig {
+            random_round_size: 8,
+            max_rounds: 2,
+            max_candidates: 3,
+            ..IntelligentSearchConfig::default()
+        },
+        None,
+        |_| {
+            evaluations += 1;
+            Ok(result(true, 1.0, 1.0, 10, 0, 100.0, vec![]))
+        },
+    )
+    .expect("intelligent search");
+
+    assert_eq!(evaluations, 3);
+    assert_eq!(result.candidates.len(), 3);
+    assert_eq!(result.stopped_reason, "max_candidates");
+}
+
+#[test]
+fn intelligent_search_stops_inside_candidate_loop_when_cancelled() {
+    let space = small_search_space();
+    let cancel = AtomicBool::new(false);
+    let mut evaluations = 0;
+
+    let result = intelligent_search(
+        &space,
+        &IntelligentSearchConfig {
+            random_round_size: 8,
+            max_rounds: 2,
+            max_candidates: 16,
+            ..IntelligentSearchConfig::default()
+        },
+        Some(&cancel),
+        |_| {
+            evaluations += 1;
+            cancel.store(true, Ordering::Relaxed);
+            Ok(result(true, 1.0, 1.0, 10, 0, 100.0, vec![]))
+        },
+    )
+    .expect("intelligent search");
+
+    assert_eq!(evaluations, 1);
+    assert_eq!(result.stopped_reason, "cancelled");
+}
+
+#[test]
+fn named_stress_windows_cover_required_regimes() {
+    let names: BTreeSet<_> = named_stress_windows()
+        .into_iter()
+        .map(|window| window.name)
+        .collect();
+
+    for expected in [
+        "crash",
+        "melt_up",
+        "high_volatility_chop",
+        "low_volatility_range",
+        "long_unidirectional_trend",
+        "wick_spike",
+    ] {
+        assert!(names.contains(expected), "missing {expected}");
+    }
+}
+
+fn result(
+    survival_passed: bool,
+    total_return_pct: f64,
+    max_drawdown_pct: f64,
+    trade_count: u64,
+    stop_count: u64,
+    max_capital_used_quote: f64,
+    rejection_reasons: Vec<String>,
+) -> MartingaleBacktestResult {
+    MartingaleBacktestResult {
+        metrics: MartingaleMetrics {
+            total_return_pct,
+            annualized_return_pct: None,
+            max_drawdown_pct,
+            global_drawdown_pct: None,
+            max_strategy_drawdown_pct: None,
+            monthly_win_rate_pct: None,
+            max_leverage_used: None,
+            min_liquidation_buffer_pct: None,
+            total_fee_quote: None,
+            total_slippage_quote: None,
+            planned_margin_quote: None,
+            data_quality_score: None,
+            trade_count,
+            stop_count,
+            max_capital_used_quote,
+            survival_passed,
+        },
+        events: Vec::new(),
+        equity_curve: Vec::new(),
+        rejection_reasons,
+    }
+}
+
+fn fixture_martingale_result() -> MartingaleBacktestResult {
+    result(true, 8.0, 4.0, 20, 0, 500.0, vec![])
+}
+
+#[allow(dead_code)]
+fn spot_portfolio(symbol: &str) -> MartingalePortfolioConfig {
+    MartingalePortfolioConfig {
+        direction_mode: MartingaleDirectionMode::LongOnly,
+        strategies: vec![MartingaleStrategyConfig {
+            strategy_id: format!("{symbol}-long"),
+            symbol: symbol.to_string(),
+            market: MartingaleMarketKind::Spot,
+            direction: MartingaleDirection::Long,
+            direction_mode: MartingaleDirectionMode::LongOnly,
+            margin_mode: None,
+            leverage: None,
+            spacing: MartingaleSpacingModel::FixedPercent { step_bps: 100 },
+            sizing: MartingaleSizingModel::Multiplier {
+                first_order_quote: Decimal::new(25, 0),
+                multiplier: Decimal::new(15, 1),
+                max_legs: 3,
+            },
+            take_profit: MartingaleTakeProfitModel::Percent { bps: 80 },
+            stop_loss: None,
+            indicators: Vec::new(),
+            entry_triggers: Vec::new(),
+            risk_limits: MartingaleRiskLimits::default(),
+        }],
+        risk_limits: MartingaleRiskLimits::default(),
+    }
+}
+
+fn small_search_space() -> SearchSpace {
+    SearchSpace {
+        symbols: vec!["BTCUSDT".to_string()],
+        directions: vec![MartingaleDirection::Long],
+        market: None,
+        margin_mode: None,
+        step_bps: vec![100],
+        first_order_quote: vec![Decimal::new(25, 0)],
+        multiplier: vec![Decimal::new(15, 1)],
+        take_profit_bps: vec![80],
+        leverage: vec![1],
+        max_legs: vec![3],
+    }
+}
+
+fn trade(trade_time_ms: i64, price: f64) -> AggTrade {
+    AggTrade {
+        symbol: "BTCUSDT".to_string(),
+        trade_time_ms,
+        price,
+        quantity: 1.0,
+        is_buyer_maker: false,
+    }
+}
+
+#[test]
+fn long_short_config_keeps_independent_leg_parameters() {
+    let config = build_long_short_config_for_test(
+        LegParameters { spacing_bps: 120, order_multiplier: 1.6, max_legs: 5, take_profit_bps: 90, tail_stop_bps: 1800, weight_pct: 70 },
+        LegParameters { spacing_bps: 180, order_multiplier: 1.4, max_legs: 4, take_profit_bps: 120, tail_stop_bps: 2200, weight_pct: 30 },
+    );
+
+    let long = config.strategies.iter().find(|s| s.direction == MartingaleDirection::Long).expect("long strategy");
+    let short = config.strategies.iter().find(|s| s.direction == MartingaleDirection::Short).expect("short strategy");
+
+    assert_eq!(long.direction, MartingaleDirection::Long);
+    assert_eq!(short.direction, MartingaleDirection::Short);
+    assert_eq!(config.direction_mode, MartingaleDirectionMode::LongAndShort);
+
+    match &long.spacing {
+        MartingaleSpacingModel::FixedPercent { step_bps } => assert_eq!(*step_bps, 120),
+        _ => panic!("expected FixedPercent spacing"),
+    }
+    match &short.spacing {
+        MartingaleSpacingModel::FixedPercent { step_bps } => assert_eq!(*step_bps, 180),
+        _ => panic!("expected FixedPercent spacing"),
+    }
+    match &long.take_profit {
+        MartingaleTakeProfitModel::Percent { bps } => assert_eq!(*bps, 90),
+        _ => panic!("expected Percent take_profit"),
+    }
+    match &short.take_profit {
+        MartingaleTakeProfitModel::Percent { bps } => assert_eq!(*bps, 120),
+        _ => panic!("expected Percent take_profit"),
+    }
+}
+
+fn build_long_short_config_for_test(long_leg: LegParameters, short_leg: LegParameters) -> MartingalePortfolioConfig {
+    let long_strategy = MartingaleStrategyConfig {
+        strategy_id: "BTCUSDT-long".to_owned(),
+        symbol: "BTCUSDT".to_owned(),
+        market: MartingaleMarketKind::UsdMFutures,
+        direction: MartingaleDirection::Long,
+        direction_mode: MartingaleDirectionMode::LongAndShort,
+        margin_mode: Some(MartingaleMarginMode::Cross),
+        leverage: Some(3),
+        spacing: MartingaleSpacingModel::FixedPercent { step_bps: long_leg.spacing_bps },
+        sizing: MartingaleSizingModel::Multiplier {
+            first_order_quote: Decimal::new(100, 0),
+            multiplier: Decimal::from_f64_retain(long_leg.order_multiplier).unwrap_or(Decimal::new(15, 1)),
+            max_legs: long_leg.max_legs,
+        },
+        take_profit: MartingaleTakeProfitModel::Percent { bps: long_leg.take_profit_bps },
+        stop_loss: None,
+        indicators: Vec::new(),
+        entry_triggers: Vec::new(),
+        risk_limits: MartingaleRiskLimits::default(),
+    };
+    let short_strategy = MartingaleStrategyConfig {
+        strategy_id: "BTCUSDT-short".to_owned(),
+        direction: MartingaleDirection::Short,
+        spacing: MartingaleSpacingModel::FixedPercent { step_bps: short_leg.spacing_bps },
+        sizing: MartingaleSizingModel::Multiplier {
+            first_order_quote: Decimal::new(100, 0),
+            multiplier: Decimal::from_f64_retain(short_leg.order_multiplier).unwrap_or(Decimal::new(15, 1)),
+            max_legs: short_leg.max_legs,
+        },
+        take_profit: MartingaleTakeProfitModel::Percent { bps: short_leg.take_profit_bps },
+        ..long_strategy.clone()
+    };
+    MartingalePortfolioConfig {
+        direction_mode: MartingaleDirectionMode::LongAndShort,
+        strategies: vec![long_strategy, short_strategy],
+        risk_limits: MartingaleRiskLimits::default(),
+    }
+}

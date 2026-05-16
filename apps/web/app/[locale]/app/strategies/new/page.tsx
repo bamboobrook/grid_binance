@@ -20,7 +20,7 @@ const DEFAULT_LEVELS_JSON = JSON.stringify(
 
 type PageProps = {
   params: Promise<{ locale: string }>;
-  searchParams?: Promise<{ error?: string | string[]; symbolQuery?: string | string[] }>;
+  searchParams?: Promise<{ error?: string | string[]; mode?: string | string[]; symbolQuery?: string | string[] }>;
 };
 
 type SymbolSearchResponse = {
@@ -50,6 +50,8 @@ export default async function StrategyNewPage({ params, searchParams }: PageProp
 
   const searchParamsValue = (await searchParams) ?? {};
   const error = firstValue(searchParamsValue.error);
+  const modeParam = firstValue(searchParamsValue.mode);
+  const displayMode = modeParam === "advanced" ? "advanced" as const : "wizard" as const;
   const symbolQuery = firstValue(searchParamsValue.symbolQuery) ?? "ETHUSDT";
   const results = await Promise.all([fetchTemplates(lang), fetchSymbolMatches(symbolQuery, lang)]);
   const templates = results[0].items;
@@ -73,14 +75,14 @@ export default async function StrategyNewPage({ params, searchParams }: PageProp
     lowerRangePercent: "6",
     marketType: selectedMarket,
     mode: selectedMarket === "spot" ? "buy-only" : "long",
-    name: "ETH Trend Grid",
+    name: "",
     ordinarySide: "lower",
     overallStopLoss: "",
     overallTakeProfit: "4.0",
     postTrigger: "rebuild",
     quoteAmount: "1000",
-    referencePrice: "1800",
-    referencePriceMode: "manual",
+    referencePrice: "",
+    referencePriceMode: "market",
     strategyType: "ordinary_grid",
     symbol: selectedSymbol,
     upperRangePercent: "6",
@@ -88,7 +90,7 @@ export default async function StrategyNewPage({ params, searchParams }: PageProp
 
   return (
     <div className="mx-auto flex h-full max-w-[1800px] flex-col gap-6 pb-12">
-      {error ? <StatusBanner description={error} title={pickText(lang, "创建策略失败", "Strategy creation failed")} /> : null}
+      {error ? <StatusBanner description={error} title={pickText(lang, "创建策略失败", "Strategy creation failed")}  tone="info" lang={lang} /> : null}
       <div className="flex items-center gap-3">
         <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-md shadow-primary/20">
           <Bot className="h-5 w-5" />
@@ -102,6 +104,7 @@ export default async function StrategyNewPage({ params, searchParams }: PageProp
       </div>
 
       <StrategyWorkspaceForm
+        displayMode={displayMode}
         formAction="/api/user/strategies/create"
         lang={lang}
         searchPath={`/${locale}/app/strategies/new`}

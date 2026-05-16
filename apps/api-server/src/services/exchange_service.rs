@@ -173,7 +173,9 @@ impl ExchangeService {
         let cipher = credential_cipher().map_err(map_cipher_storage_error)?;
         let encrypted_secret = cipher
             .encrypt(&validated.api_key, &validated.api_secret)
-            .map_err(|error| ExchangeError::storage(shared_db::SharedDbError::new(error.to_string())))?;
+            .map_err(|error| {
+                ExchangeError::storage(shared_db::SharedDbError::new(error.to_string()))
+            })?;
 
         let account_record = UserExchangeAccountRecord {
             user_email: user_email.clone(),
@@ -421,7 +423,10 @@ impl ExchangeService {
                 "pause running strategies before updating exchange credentials",
             ));
         }
-        if strategies.into_iter().any(strategy_blocks_credential_rotation) {
+        if strategies
+            .into_iter()
+            .any(strategy_blocks_credential_rotation)
+        {
             return Err(ExchangeError::conflict(
                 "fully stop strategies and close remaining positions before updating exchange credentials",
             ));

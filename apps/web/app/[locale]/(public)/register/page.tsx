@@ -28,20 +28,20 @@ export default async function RegisterPage({ params, searchParams }: RegisterPag
   const next = safeRedirectTarget(firstValue(searchParamsValue.next), "/" + locale + "/app/dashboard");
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-[85vh] py-12 px-4 sm:px-6 lg:px-8 bg-[#0a0e17] text-slate-200 w-full">
+    <div className="flex flex-col items-center justify-center min-h-[85vh] py-12 px-4 sm:px-6 lg:px-8 bg-background text-foreground w-full">
       <div className="w-full max-w-md space-y-8">
         <div className="text-center">
-          <h1 className="text-3xl font-extrabold tracking-tight text-white">{snapshot.title}</h1>
-          <p className="mt-2 text-sm text-slate-400">{snapshot.description}</p>
+          <h1 className="text-3xl font-extrabold tracking-tight text-foreground">{snapshot.title}</h1>
+          <p className="mt-2 text-sm text-muted-foreground">{snapshot.description}</p>
         </div>
 
         {error ? (
-          <StatusBanner description={error} title={pickText(lang, "注册失败", "Registration failed")} tone="danger" />
+          <StatusBanner description={error} lang={lang} title={pickText(lang, "注册失败", "Registration failed")} tone="error" />
         ) : snapshot.notice.description ? (
-          <StatusBanner description={snapshot.notice.description} title={snapshot.notice.title} tone={snapshot.notice.tone as any} />
+          <StatusBanner description={snapshot.notice.description} lang={lang} title={snapshot.notice.title} tone={snapshot.notice.tone as any} />
         ) : null}
 
-        <Card className="bg-[#111827] border-slate-800 shadow-2xl rounded-2xl overflow-hidden">
+        <Card className="bg-card border-border shadow-2xl rounded-2xl overflow-hidden">
           <CardBody className="p-8">
             <FormStack action={"/api/auth/register?locale=" + locale} method="post" className="space-y-6">
               <input name="next" type="hidden" value={next} />
@@ -53,7 +53,7 @@ export default async function RegisterPage({ params, searchParams }: RegisterPag
                   name="email"
                   required
                   type="email"
-                  className="bg-[#1f2937] border-slate-700 text-white focus:ring-primary focus:border-primary h-12 rounded-lg px-4 w-full"
+                  className="bg-secondary border-border text-foreground focus:ring-primary focus:border-primary h-12 rounded-lg px-4 w-full"
                   placeholder={pickText(lang, "name@example.com", "name@example.com")}
                 />
               </Field>
@@ -64,7 +64,7 @@ export default async function RegisterPage({ params, searchParams }: RegisterPag
                   name="password"
                   required
                   type="password"
-                  className="bg-[#1f2937] border-slate-700 text-white focus:ring-primary focus:border-primary h-12 rounded-lg px-4 w-full"
+                  className="bg-secondary border-border text-foreground focus:ring-primary focus:border-primary h-12 rounded-lg px-4 w-full"
                   placeholder="••••••••"
                 />
               </Field>
@@ -75,7 +75,7 @@ export default async function RegisterPage({ params, searchParams }: RegisterPag
               </Button>
             </FormStack>
           </CardBody>
-          <div className="border-t border-slate-800 bg-[#0f141f] p-5 text-center flex flex-col gap-3">
+          <div className="border-t border-border bg-background p-5 text-center flex flex-col gap-3">
             <Link href={"/" + locale + "/login"} className="text-sm text-primary hover:text-primary-foreground font-semibold hover:underline transition-colors">
               {snapshot.alternateLabel}
             </Link>
@@ -83,7 +83,7 @@ export default async function RegisterPage({ params, searchParams }: RegisterPag
         </Card>
 
         <div className="text-center mt-6">
-          <p className="text-xs text-slate-500 max-w-xs mx-auto leading-relaxed">
+          <p className="text-xs text-muted-foreground max-w-xs mx-auto leading-relaxed">
             {pickText(lang, "注册即表示您同意我们的服务条款和隐私政策。一账户仅限绑定一个交易所 API。", "By registering, you agree to our Terms of Service and Privacy Policy. One exchange API per account.")}
           </p>
         </div>

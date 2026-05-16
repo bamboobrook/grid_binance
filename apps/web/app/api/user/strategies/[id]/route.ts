@@ -11,6 +11,8 @@ type BackendStrategy = {
   market: "Spot" | "FuturesUsdM" | "FuturesCoinM";
   mode: "SpotClassic" | "SpotBuyOnly" | "SpotSellOnly" | "FuturesLong" | "FuturesShort" | "FuturesNeutral";
   strategy_type?: "ordinary_grid" | "classic_bilateral_grid";
+  tags: string[];
+  notes: string;
   draft_revision: {
     generation: "Arithmetic" | "Geometric" | "Custom";
     levels: Array<{
@@ -44,6 +46,7 @@ export async function POST(
   const { id } = await context.params;
   const formData = await request.formData();
   const intent = readField(formData, "intent");
+  const returnTo = readField(formData, "returnTo");
   const sessionToken = readSessionToken(request);
   if (!sessionToken) {
     return redirectToPublic(request, "/login?error=session+expired");
@@ -51,81 +54,83 @@ export async function POST(
 
   const current = await fetchStrategy(sessionToken, id);
   if (!current) {
-    return redirectToDetail(request, id, "?error=strategy+workspace+is+temporarily+unavailable");
+    return redirectWithError(request, id, "strategy workspace is temporarily unavailable", returnTo);
   }
 
   if (intent === "pause") {
     if (current.status !== "Running") {
-      return redirectWithError(request, id, pauseErrorForStatus(current.status));
+      return redirectWithError(request, id, pauseErrorForStatus(current.status), returnTo);
     }
     const paused = await strategyPost(sessionToken, "/strategies/batch/pause", { ids: [id] });
     if (!paused.ok) {
-      return redirectWithError(request, id, await readError(paused.response));
+      return redirectWithError(request, id, await readError(paused.response), returnTo);
     }
     const pausedPayload = (await paused.response.json()) as { paused?: number; failures?: Array<{ error?: string }> };
     if ((pausedPayload.paused ?? 0) === 0) {
-      return redirectWithError(request, id, pausedPayload.failures?.[0]?.error ?? "Strategy action failed.");
+      return redirectWithError(request, id, pausedPayload.failures?.[0]?.error ?? "Strategy action failed.", returnTo);
     }
-    return redirectToDetail(request, id, "?notice=strategy-paused");
+    return redirectWithNotice(request, id, "strategy-paused", returnTo);
   }
 
   if (intent === "stop") {
-    if (current.status !== "Running" && current.status !== "Paused") {
-      return redirectWithError(request, id, stopErrorForStatus(current.status));
+    if (current.status !== "Running" && current.status !== "Paused" && current.status !== "ErrorPaused") {
+      return redirectWithError(request, id, stopErrorForStatus(current.status), returnTo);
     }
     const stopped = await strategyPost(sessionToken, `/strategies/${id}/stop`, null);
     if (!stopped.ok) {
-      return redirectWithError(request, id, await readError(stopped.response));
+      return redirectWithError(request, id, await readError(stopped.response), returnTo);
     }
-    return redirectToDetail(request, id, "?notice=strategy-stopped");
+    return redirectWithNotice(request, id, "strategy-stopped", returnTo);
   }
 
   if (intent === "delete") {
     if (current.status === "Running") {
-      return redirectWithError(request, id, deleteErrorForStatus(current.status));
+      return redirectWithError(request, id, deleteErrorForStatus(current.status), returnTo);
     }
     const deleted = await strategyPost(sessionToken, "/strategies/batch/delete", { ids: [id] });
     if (!deleted.ok) {
-      return redirectWithError(request, id, await readError(deleted.response));
+      return redirectWithError(request, id, await readError(deleted.response), returnTo);
     }
     const deletedPayload = (await deleted.response.json()) as { deleted?: number; failures?: Array<{ error?: string }> };
     if ((deletedPayload.deleted ?? 0) === 0) {
-      return redirectWithError(request, id, deletedPayload.failures?.[0]?.error ?? "Strategy action failed.");
+      return redirectWithError(request, id, deletedPayload.failures?.[0]?.error ?? "Strategy action failed.", returnTo);
     }
-    return redirectToApp(request, "/strategies?notice=strategy-deleted");
+    return redirectWithNotice(request, id, "strategy-deleted", returnTo);
   }
 
   if (intent === "save") {
     if (current.status === "Running") {
-      return redirectWithError(request, id, "Strategy must be paused before editing and saving changes.");
+      return redirectWithError(request, id, "Strategy must be paused before editing and saving changes.", returnTo);
     }
     let payload;
     try {
       payload = await buildUpdatePayload(formData, current);
     } catch (error) {
-      return redirectWithError(request, id, readErrorMessage(error));
+      return redirectWithError(request, id, readErrorMessage(error), returnTo);
     }
     const saved = await strategyPut(sessionToken, `/strategies/${id}`, payload);
     if (!saved.ok) {
-      return redirectWithError(request, id, await readError(saved.response));
+      return redirectWithError(request, id, await readError(saved.response), returnTo);
     }
-    return redirectToDetail(request, id, "?notice=edits-saved");
+    return redirectWithNotice(request, id, "edits-saved", returnTo);
   }
 
   if (intent === "preflight") {
     const preflight = await strategyPost(sessionToken, `/strategies/${id}/preflight`, null);
     if (!preflight.ok) {
-      return redirectWithError(request, id, await readError(preflight.response));
+      return redirectWithError(request, id, await readError(preflight.response), returnTo);
     }
     const payload = (await preflight.response.json()) as { ok: boolean; failures?: Array<{ guidance?: string; reason?: string; step: string }> };
     if (payload.ok) {
-      return redirectToDetail(request, id, "?notice=preflight-passed");
+      return redirectWithNotice(request, id, "preflight-passed", returnTo);
     }
     const failure = payload.failures?.[0];
-    const url = publicUrl(request, localizedAppPath(request, `/strategies/${id}`));
+    const url = preferredStrategyUrl(request, id, returnTo);
     url.searchParams.set("notice", "preflight-failed");
-    if (failure?.step) url.searchParams.set("step", failure.step);
-    if (failure) url.searchParams.set("reason", humanizeFailure(failure.step, failure.guidance ?? failure.reason ?? ""));
+    if (returnTo !== "list") {
+      if (failure?.step) url.searchParams.set("step", failure.step);
+      if (failure) url.searchParams.set("reason", humanizeFailure(failure.step, failure.guidance ?? failure.reason ?? ""));
+    }
     return NextResponse.redirect(url, { status: 303 });
   }
 
@@ -133,15 +138,15 @@ export async function POST(
   const started = await strategyPost(sessionToken, path, null);
   if (!started.ok) {
     const parsed = await readStrategyError(started.response);
-    const url = publicUrl(request, localizedAppPath(request, `/strategies/${id}`));
+    const url = preferredStrategyUrl(request, id, returnTo);
     url.searchParams.set("notice", "start-failed");
     url.searchParams.set("error", parsed.error);
-    if (parsed.reason) {
+    if (parsed.reason && returnTo !== "list") {
       url.searchParams.set("reason", parsed.reason);
     }
     return NextResponse.redirect(url, { status: 303 });
   }
-  return redirectToDetail(request, id, "?notice=strategy-started");
+  return redirectWithNotice(request, id, "strategy-started", returnTo);
 }
 
 async function buildUpdatePayload(formData: FormData, current: BackendStrategy) {
@@ -153,9 +158,12 @@ async function buildUpdatePayload(formData: FormData, current: BackendStrategy) 
   validateClassicGridCount(formData, strategyType);
 
   const referencePrice = readField(formData, "referencePrice");
+  const tagsRaw = readField(formData, "tags");
+  const tags = tagsRaw ? tagsRaw.split(",").map((t) => t.trim()).filter((t) => t.length > 0) : current.tags;
+  const notes = formData.has("notes") ? readField(formData, "notes") : current.notes;
 
   return {
-    name: readField(formData, "name") || current.name,
+    name: formData.has("name") ? readField(formData, "name") : current.name,
     symbol,
     market,
     mode: mapMode(readField(formData, "mode")) || current.mode,
@@ -176,6 +184,8 @@ async function buildUpdatePayload(formData: FormData, current: BackendStrategy) 
       || "manual",
     ...(referencePrice ? { reference_price: referencePrice } : {}),
     post_trigger_action: mapPostTrigger(readField(formData, "postTrigger")) || current.draft_revision.post_trigger_action,
+    tags,
+    notes,
   };
 }
 
@@ -293,7 +303,7 @@ function readPositiveInteger(formData: FormData, key: string, label: string) {
 }
 
 async function fetchStrategy(sessionToken: string, strategyId: string) {
-  const response = await fetch(`${authApiBaseUrl()}/strategies`, {
+  const response = await fetch(`${authApiBaseUrl()}/strategies/${strategyId}`, {
     method: "GET",
     headers: { authorization: `Bearer ${sessionToken}` },
     cache: "no-store",
@@ -301,8 +311,7 @@ async function fetchStrategy(sessionToken: string, strategyId: string) {
   if (!response.ok) {
     return null;
   }
-  const payload = (await response.json()) as { items: BackendStrategy[] };
-  return payload.items.find((item) => item.id === strategyId) ?? null;
+  return (await response.json()) as BackendStrategy | null;
 }
 
 async function strategyPost(sessionToken: string, path: string, body: unknown) {
@@ -415,8 +424,23 @@ function mapPostTrigger(value: string) {
   return null;
 }
 
-function redirectWithError(request: Request, strategyId: string, error: string) {
-  return redirectToDetail(request, strategyId, `?error=${encodeURIComponent(error)}`);
+function redirectWithError(request: Request, strategyId: string, error: string, returnTo = "") {
+  const url = preferredStrategyUrl(request, strategyId, returnTo);
+  url.searchParams.set("error", error);
+  return NextResponse.redirect(url, { status: 303 });
+}
+
+function redirectWithNotice(request: Request, strategyId: string, notice: string, returnTo = "") {
+  if (returnTo === "list") {
+    if (notice === "strategy-started") {
+      return redirectToApp(request, "/strategies?notice=strategy-started");
+    }
+    if (notice === "strategy-stopped") {
+      return redirectToApp(request, "/strategies?notice=strategy-stopped");
+    }
+    return redirectToApp(request, `/strategies?notice=${notice}`);
+  }
+  return redirectToDetail(request, strategyId, `?notice=${notice}`);
 }
 
 async function readError(response: Response) {
@@ -476,7 +500,7 @@ function stopErrorForStatus(status: string) {
   if (status === "Archived") {
     return "Strategy has already been deleted.";
   }
-  return "Strategy has not started yet; only running or paused strategies can stop.";
+  return "Strategy has not started yet; only running, blocked, or paused strategies can stop.";
 }
 
 function deleteErrorForStatus(status: string) {
@@ -498,6 +522,13 @@ function readSessionToken(request: Request) {
 
 function authApiBaseUrl() {
   return process.env.AUTH_API_BASE_URL?.trim().replace(/\/+$/, "") || DEFAULT_AUTH_API_BASE_URL;
+}
+
+function preferredStrategyUrl(request: Request, strategyId: string, returnTo = "") {
+  if (returnTo === "list") {
+    return publicUrl(request, localizedAppPath(request, "/strategies"));
+  }
+  return publicUrl(request, localizedAppPath(request, `/strategies/${strategyId}`));
 }
 
 function redirectToApp(request: Request, pathname: string) {

@@ -155,11 +155,11 @@ export function StrategyVisualPreview({
 
           <div className="overflow-hidden rounded-3xl border border-border bg-muted/20" data-strategy-preview-chart="true">
             {selectedSymbol ? (
-              <div className="space-y-3 p-3">
+              <div className="space-y-3 p-2 sm:p-3">
                 <svg
                   aria-label={pickText(lang, "网格 K 线预览", "Grid candle preview")}
-                  className="h-[360px] w-full"
-                  preserveAspectRatio="none"
+                  className="h-[240px] sm:h-[360px] w-full"
+                  preserveAspectRatio="xMidYMid meet"
                   viewBox="0 0 720 360"
                 >
                   <rect fill={chart.palette.background} height="360" rx="22" width="720" x="0" y="0" />
@@ -309,7 +309,7 @@ export function StrategyVisualPreview({
                 ) : null}
               </div>
             ) : (
-              <div className="flex h-[360px] items-center justify-center px-6 text-center text-sm text-muted-foreground">
+              <div className="flex h-[240px] sm:h-[360px] items-center justify-center px-6 text-center text-sm text-muted-foreground">
                 {pickText(lang, "选择交易对后，左侧会显示锚点/中心、网格线与覆盖范围。", "Choose a symbol to render the anchor or center, grid lines, and covered range here.")}
               </div>
             )}

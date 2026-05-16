@@ -26,7 +26,7 @@ export default async function AdminSystemPage({ params, searchParams }: PageProp
   return (
     <>
       {hasSaved ? (
-        <StatusBanner description={pickText(lang, "ETH " + eth + "，BSC " + bsc + "，SOL " + sol, "ETH " + eth + ", BSC " + bsc + ", SOL " + sol)} title={pickText(lang, "确认数策略已保存", "Confirmation Policy Saved")} />
+        <StatusBanner description={pickText(lang, "ETH " + eth + "，BSC " + bsc + "，SOL " + sol, "ETH " + eth + ", BSC " + bsc + ", SOL " + sol)} title={pickText(lang, "确认数策略已保存", "Confirmation Policy Saved")}  tone="info" lang={lang} />
       ) : null}
       <AppShellSection
         description={pickText(lang, "值班席位通过系统配置页维护各链确认数策略，并显式暴露变更影响和权限边界。", "The desk uses system configuration to maintain chain confirmation policy with explicit change impact and permission boundaries.")}

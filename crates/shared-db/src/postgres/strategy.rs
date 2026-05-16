@@ -23,6 +23,12 @@ pub struct StrategyRevisionRecord {
     pub created_at: DateTime<Utc>,
 }
 
+#[derive(Debug, Clone)]
+struct RevisionsPair {
+    draft: Option<StrategyRevision>,
+    active: Option<StrategyRevision>,
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct StrategyEventRecord {
     pub strategy_id: String,
@@ -52,6 +58,7 @@ impl StrategyRepository {
     }
 
     pub async fn list_strategies(&self, owner_email: &str) -> Result<Vec<Strategy>, SharedDbError> {
+        // First, fetch all strategies
         let rows = sqlx::query(
             "SELECT id,
                     owner_email,
@@ -76,6 +83,8 @@ impl StrategyRepository {
                     mode,
                     runtime_phase,
                     runtime_controls,
+                    tags,
+                    notes,
                     archived_at
              FROM strategies
              WHERE lower(owner_email) = lower($1)
@@ -86,11 +95,175 @@ impl StrategyRepository {
         .await
         .map_err(SharedDbError::from)?;
 
+        if rows.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        // Collect all strategy IDs for batch fetching
+        let strategy_ids: Vec<String> = rows
+            .iter()
+            .map(|row| row.try_get::<String, _>("id").unwrap_or_default())
+            .filter(|id| !id.is_empty())
+            .collect();
+
+        // Batch fetch all revisions
+        let revisions = self.fetch_revisions_batch(&strategy_ids).await?;
+
+        // Batch fetch all runtimes
+        let runtimes = self.fetch_runtimes_batch(&strategy_ids).await?;
+
+        // Build strategies with pre-fetched data
         let mut items = Vec::with_capacity(rows.len());
         for row in rows {
-            items.push(strategy_from_row(&self.pool, row).await?);
+            let id: String = row.try_get("id").map_err(SharedDbError::from)?;
+
+            let draft_revision = revisions
+                .get(&id)
+                .and_then(|r| r.draft.clone())
+                .unwrap_or_else(default_revision);
+            let active_revision = revisions.get(&id).and_then(|r| r.active.clone());
+            let runtime = runtimes
+                .get(&id)
+                .cloned()
+                .unwrap_or_else(|| StrategyRuntime {
+                    positions: Vec::new(),
+                    orders: Vec::new(),
+                    fills: Vec::new(),
+                    events: Vec::new(),
+                    last_preflight: None,
+                });
+
+            items.push(build_strategy_from_row(
+                row,
+                draft_revision,
+                active_revision,
+                runtime,
+            )?);
         }
         Ok(items)
+    }
+
+    async fn fetch_revisions_batch(
+        &self,
+        strategy_ids: &[String],
+    ) -> Result<std::collections::HashMap<String, RevisionsPair>, SharedDbError> {
+        let mut revisions_map: std::collections::HashMap<String, RevisionsPair> =
+            std::collections::HashMap::new();
+
+        if strategy_ids.is_empty() {
+            return Ok(revisions_map);
+        }
+
+        // Fetch draft revisions
+        let draft_rows = sqlx::query(
+            "SELECT DISTINCT ON (strategy_id) strategy_id, config, strategy_type, reference_price_source
+             FROM strategy_revisions
+             WHERE strategy_id = ANY($1) AND revision_kind = 'draft'
+             ORDER BY strategy_id, revision_id DESC",
+        )
+        .bind(strategy_ids)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(SharedDbError::from)?;
+
+        for row in draft_rows {
+            let strategy_id: String = row.try_get("strategy_id").map_err(SharedDbError::from)?;
+            let mut config: Value = row.try_get("config").map_err(SharedDbError::from)?;
+            let strategy_type: String =
+                row.try_get("strategy_type").map_err(SharedDbError::from)?;
+            let reference_price_source: String = row
+                .try_get("reference_price_source")
+                .map_err(SharedDbError::from)?;
+            if let Value::Object(ref mut object) = config {
+                object.insert("strategy_type".to_string(), Value::String(strategy_type));
+                object.insert(
+                    "reference_price_source".to_string(),
+                    Value::String(reference_price_source),
+                );
+            }
+            let revision: StrategyRevision = serde_json::from_value(config)
+                .map_err(|error| SharedDbError::new(error.to_string()))?;
+            revisions_map
+                .entry(strategy_id)
+                .or_insert_with(|| RevisionsPair {
+                    draft: None,
+                    active: None,
+                })
+                .draft = Some(revision);
+        }
+
+        // Fetch active revisions
+        let active_rows = sqlx::query(
+            "SELECT DISTINCT ON (strategy_id) strategy_id, config, strategy_type, reference_price_source
+             FROM strategy_revisions
+             WHERE strategy_id = ANY($1) AND revision_kind = 'active'
+             ORDER BY strategy_id, revision_id DESC",
+        )
+        .bind(strategy_ids)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(SharedDbError::from)?;
+
+        for row in active_rows {
+            let strategy_id: String = row.try_get("strategy_id").map_err(SharedDbError::from)?;
+            let mut config: Value = row.try_get("config").map_err(SharedDbError::from)?;
+            let strategy_type: String =
+                row.try_get("strategy_type").map_err(SharedDbError::from)?;
+            let reference_price_source: String = row
+                .try_get("reference_price_source")
+                .map_err(SharedDbError::from)?;
+            if let Value::Object(ref mut object) = config {
+                object.insert("strategy_type".to_string(), Value::String(strategy_type));
+                object.insert(
+                    "reference_price_source".to_string(),
+                    Value::String(reference_price_source),
+                );
+            }
+            let revision: StrategyRevision = serde_json::from_value(config)
+                .map_err(|error| SharedDbError::new(error.to_string()))?;
+            revisions_map
+                .entry(strategy_id)
+                .or_insert_with(|| RevisionsPair {
+                    draft: None,
+                    active: None,
+                })
+                .active = Some(revision);
+        }
+
+        Ok(revisions_map)
+    }
+
+    async fn fetch_runtimes_batch(
+        &self,
+        strategy_ids: &[String],
+    ) -> Result<std::collections::HashMap<String, StrategyRuntime>, SharedDbError> {
+        let mut runtimes_map: std::collections::HashMap<String, StrategyRuntime> =
+            std::collections::HashMap::new();
+
+        if strategy_ids.is_empty() {
+            return Ok(runtimes_map);
+        }
+
+        let rows = sqlx::query(
+            "SELECT DISTINCT ON (strategy_id) strategy_id, payload
+             FROM strategy_events
+             WHERE strategy_id = ANY($1) AND event_type = 'runtime_snapshot'
+             ORDER BY strategy_id, event_id DESC",
+        )
+        .bind(strategy_ids)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(SharedDbError::from)?;
+
+        for row in rows {
+            let strategy_id: String = row.try_get("strategy_id").map_err(SharedDbError::from)?;
+            let payload: Value = row.try_get("payload").map_err(SharedDbError::from)?;
+            let runtime: StrategyRuntime = serde_json::from_value(payload)
+                .map_err(|error| SharedDbError::new(error.to_string()))?;
+            runtimes_map.insert(strategy_id, runtime);
+        }
+
+        Ok(runtimes_map)
     }
 
     pub async fn list_all_strategies(&self) -> Result<Vec<Strategy>, SharedDbError> {
@@ -118,6 +291,8 @@ impl StrategyRepository {
                     mode,
                     runtime_phase,
                     runtime_controls,
+                    tags,
+                    notes,
                     archived_at
              FROM strategies
              ORDER BY sequence_id ASC",
@@ -162,6 +337,8 @@ impl StrategyRepository {
                     mode,
                     runtime_phase,
                     runtime_controls,
+                    tags,
+                    notes,
                     archived_at
              FROM strategies
              WHERE lower(owner_email) = lower($1) AND id = $2",
@@ -206,10 +383,12 @@ impl StrategyRepository {
                 mode,
                 runtime_phase,
                 runtime_controls,
+                tags,
+                notes,
                 archived_at,
                 created_at,
                 updated_at
-             ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, now(), now())",
+             ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, now(), now())",
         )
         .bind(&strategy.strategy.id)
         .bind(strategy.sequence_id as i64)
@@ -234,7 +413,12 @@ impl StrategyRepository {
         .bind(strategy_market_to_str(strategy.strategy.market))
         .bind(strategy_mode_to_str(strategy.strategy.mode))
         .bind(strategy_runtime_phase_to_str(strategy.strategy.runtime_phase))
-        .bind(serde_json::to_value(&strategy.strategy.runtime_controls).map_err(|error| SharedDbError::new(error.to_string()))?)
+        .bind(
+            serde_json::to_value(&strategy.strategy.runtime_controls)
+                .map_err(|error| SharedDbError::new(error.to_string()))?,
+        )
+        .bind(&strategy.strategy.tags)
+        .bind(&strategy.strategy.notes)
         .bind(strategy.strategy.archived_at)
         .execute(&mut *transaction)
         .await
@@ -271,9 +455,13 @@ impl StrategyRepository {
                  mode = $21,
                  runtime_phase = $22,
                  runtime_controls = $23,
-                 archived_at = $24,
+                 tags = $24,
+                 notes = $25,
+                 archived_at = $26,
                  updated_at = now()
-             WHERE id = $1 AND lower(owner_email) = lower($2)",
+             WHERE id = $1
+               AND lower(owner_email) = lower($2)
+               AND status <> 'Archived'",
         )
         .bind(&strategy.id)
         .bind(&strategy.owner_email)
@@ -301,15 +489,23 @@ impl StrategyRepository {
             serde_json::to_value(&strategy.runtime_controls)
                 .map_err(|error| SharedDbError::new(error.to_string()))?,
         )
+        .bind(&strategy.tags)
+        .bind(&strategy.notes)
         .bind(strategy.archived_at)
         .execute(&mut *transaction)
         .await
         .map_err(SharedDbError::from)?;
 
+        let affected = updated.rows_affected() as usize;
+        if affected == 0 {
+            transaction.rollback().await.map_err(SharedDbError::from)?;
+            return Ok(0);
+        }
+
         replace_revisions_in(&mut transaction, strategy).await?;
         replace_runtime_in(&mut transaction, strategy).await?;
         transaction.commit().await.map_err(SharedDbError::from)?;
-        Ok(updated.rows_affected() as usize)
+        Ok(affected)
     }
 
     pub async fn delete_strategy(
@@ -788,7 +984,11 @@ fn template_from_row(row: sqlx::postgres::PgRow) -> Result<StrategyTemplate, Sha
     let reference_price = row
         .try_get::<Option<String>, _>("reference_price")
         .map_err(SharedDbError::from)?
-        .map(|value| value.parse::<Decimal>().map_err(|error| SharedDbError::new(error.to_string())))
+        .map(|value| {
+            value
+                .parse::<Decimal>()
+                .map_err(|error| SharedDbError::new(error.to_string()))
+        })
         .transpose()?;
 
     let template = StrategyTemplate {
@@ -943,6 +1143,69 @@ async fn strategy_from_row(
         runtime_phase: parse_strategy_runtime_phase(&runtime_phase)?,
         runtime_controls: serde_json::from_value(runtime_controls)
             .map_err(|error| SharedDbError::new(error.to_string()))?,
+        tags: row.try_get("tags").unwrap_or_else(|_| Vec::new()),
+        notes: row.try_get("notes").unwrap_or_else(|_| String::new()),
+        draft_revision,
+        active_revision,
+        runtime,
+        archived_at: row.try_get("archived_at").map_err(SharedDbError::from)?,
+    })
+}
+
+fn build_strategy_from_row(
+    row: sqlx::postgres::PgRow,
+    draft_revision: StrategyRevision,
+    active_revision: Option<StrategyRevision>,
+    runtime: StrategyRuntime,
+) -> Result<Strategy, SharedDbError> {
+    let status: String = row.try_get("status").map_err(SharedDbError::from)?;
+    let strategy_type: String = row.try_get("strategy_type").map_err(SharedDbError::from)?;
+    let market: String = row.try_get("market").map_err(SharedDbError::from)?;
+    let mode: String = row.try_get("mode").map_err(SharedDbError::from)?;
+    let runtime_phase: String = row.try_get("runtime_phase").map_err(SharedDbError::from)?;
+    let runtime_controls: Value = row
+        .try_get("runtime_controls")
+        .map_err(SharedDbError::from)?;
+
+    Ok(Strategy {
+        id: row.try_get("id").map_err(SharedDbError::from)?,
+        owner_email: row.try_get("owner_email").map_err(SharedDbError::from)?,
+        name: row.try_get("name").map_err(SharedDbError::from)?,
+        symbol: row.try_get("symbol").map_err(SharedDbError::from)?,
+        budget: row.try_get("budget").map_err(SharedDbError::from)?,
+        grid_spacing_bps: row
+            .try_get::<i32, _>("grid_spacing_bps")
+            .map_err(SharedDbError::from)? as u32,
+        status: parse_strategy_status(&status)?,
+        source_template_id: row
+            .try_get("source_template_id")
+            .map_err(SharedDbError::from)?,
+        membership_ready: row
+            .try_get("membership_ready")
+            .map_err(SharedDbError::from)?,
+        exchange_ready: row.try_get("exchange_ready").map_err(SharedDbError::from)?,
+        permissions_ready: row
+            .try_get("permissions_ready")
+            .map_err(SharedDbError::from)?,
+        withdrawals_disabled: row
+            .try_get("withdrawals_disabled")
+            .map_err(SharedDbError::from)?,
+        hedge_mode_ready: row
+            .try_get("hedge_mode_ready")
+            .map_err(SharedDbError::from)?,
+        symbol_ready: row.try_get("symbol_ready").map_err(SharedDbError::from)?,
+        filters_ready: row.try_get("filters_ready").map_err(SharedDbError::from)?,
+        margin_ready: row.try_get("margin_ready").map_err(SharedDbError::from)?,
+        conflict_ready: row.try_get("conflict_ready").map_err(SharedDbError::from)?,
+        balance_ready: row.try_get("balance_ready").map_err(SharedDbError::from)?,
+        strategy_type: parse_strategy_type(&strategy_type)?,
+        market: parse_strategy_market(&market)?,
+        mode: parse_strategy_mode(&mode)?,
+        runtime_phase: parse_strategy_runtime_phase(&runtime_phase)?,
+        runtime_controls: serde_json::from_value(runtime_controls)
+            .map_err(|error| SharedDbError::new(error.to_string()))?,
+        tags: row.try_get("tags").unwrap_or_else(|_| Vec::new()),
+        notes: row.try_get("notes").unwrap_or_else(|_| String::new()),
         draft_revision,
         active_revision,
         runtime,
@@ -1271,6 +1534,7 @@ pub(crate) fn parse_strategy_type(value: &str) -> Result<StrategyType, SharedDbE
     match value {
         "ordinary_grid" => Ok(StrategyType::OrdinaryGrid),
         "classic_bilateral_grid" => Ok(StrategyType::ClassicBilateralGrid),
+        "martingale_grid" => Ok(StrategyType::MartingaleGrid),
         _ => Err(SharedDbError::new(format!(
             "unknown strategy type: {value}"
         ))),
@@ -1281,6 +1545,7 @@ fn strategy_type_to_str(value: StrategyType) -> &'static str {
     match value {
         StrategyType::OrdinaryGrid => "ordinary_grid",
         StrategyType::ClassicBilateralGrid => "classic_bilateral_grid",
+        StrategyType::MartingaleGrid => "martingale_grid",
     }
 }
 

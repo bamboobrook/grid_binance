@@ -55,9 +55,12 @@ function buildStrategyPayload(formData: FormData) {
   validateClassicGridCount(formData, strategyType);
 
   const referencePrice = readField(formData, "referencePrice");
+  const tagsRaw = readField(formData, "tags");
+  const tags = tagsRaw ? tagsRaw.split(",").map((t) => t.trim()).filter((t) => t.length > 0) : [];
+  const notes = readField(formData, "notes");
 
   return {
-    name: readField(formData, "name") || "Strategy Draft",
+    name: readField(formData, "name"),
     symbol,
     market,
     mode: mapMode(readField(formData, "mode") || "classic"),
@@ -69,9 +72,11 @@ function buildStrategyPayload(formData: FormData) {
     levels: parseLevelsJson(readField(formData, "levels_json"), strategyType),
     overall_take_profit_bps: readPercentField(formData, "overallTakeProfit", true),
     overall_stop_loss_bps: readPercentField(formData, "overallStopLoss", false),
-    reference_price_source: mapReferencePriceSource(readField(formData, "referencePriceMode") || "manual"),
+    reference_price_source: mapReferencePriceSource(readField(formData, "referencePriceMode") || "market"),
     ...(referencePrice ? { reference_price: referencePrice } : {}),
     post_trigger_action: mapPostTrigger(readField(formData, "postTrigger") || "rebuild"),
+    tags,
+    notes,
   };
 }
 

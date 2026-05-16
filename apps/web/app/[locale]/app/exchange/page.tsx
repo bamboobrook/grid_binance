@@ -5,6 +5,7 @@ import { Card, CardBody, CardDescription, CardHeader, CardTitle } from "@/compon
 import { DialogFrame } from "@/components/ui/dialog";
 import { Button, ButtonRow, Field, FormStack, Input, Select } from "@/components/ui/form";
 import { StatusBanner } from "@/components/ui/status-banner";
+import { ApiUsageDashboard } from "@/components/ui/api-usage-dashboard";
 import { pickText, type UiLanguage } from "@/lib/ui/preferences";
 
 const DEFAULT_AUTH_API_BASE_URL = "http://127.0.0.1:8080";
@@ -85,36 +86,48 @@ export default async function ExchangePage({ params, searchParams }: ExchangePag
   return (
     <>
       <StatusBanner
+              tone="info"
+              lang={lang}
         description={pickText(lang, "一个用户只能绑定一个币安账户，保存后的密钥会立即加密并掩码显示。", "One user can bind only one Binance account, and saved API secrets stay encrypted and masked.")}
         title={pickText(lang, "交易所凭证工作区", "Exchange credential workspace")}
       />
-      {error ? <StatusBanner description={error} title={pickText(lang, "交易所操作失败", "Exchange action failed")} /> : null}
+      {error ? <StatusBanner description={error} title={pickText(lang, "交易所操作失败", "Exchange action failed")}  tone="info" lang={lang} /> : null}
       {testResult ? (
         <StatusBanner
+                tone="info"
+                lang={lang}
           description={buildTestResultDescription(lang, testResult)}
           title={pickText(lang, "当前测试结果", "Current test result")}
         />
       ) : null}
       {notice === "credentials-saved" ? (
         <StatusBanner
+                tone="info"
+                lang={lang}
           description={pickText(lang, "密钥保存后会立刻变成掩码显示，并且提现权限必须保持关闭。", "The key is masked immediately after persistence and withdrawal permission must remain disabled.")}
           title={pickText(lang, "凭证已保存", "Credentials saved")}
         />
       ) : null}
       {!testResult && notice === "test-passed-saved" ? (
         <StatusBanner
+                tone="info"
+                lang={lang}
           description={pickText(lang, "当前输入已通过校验并自动保存，无需再点击保存凭证。", "The current input passed validation and was auto-saved, so no second save click is required.")}
           title={pickText(lang, "连接测试通过并已自动保存", "Connection test passed and auto-saved")}
         />
       ) : null}
       {!testResult && notice === "test-passed" ? (
         <StatusBanner
+                tone="info"
+                lang={lang}
           description={pickText(lang, "当前勾选的市场范围已通过校验；如需运行合约，仍必须保持对冲模式。", "The selected market scope passed validation. Futures still require hedge mode before strategy pre-flight can pass.")}
           title={pickText(lang, "连接测试通过", "Connection test passed")}
         />
       ) : null}
       {!testResult && notice === "test-failed" ? (
         <StatusBanner
+                tone="info"
+                lang={lang}
           description={pickText(lang, "账户虽然可达，但你当前勾选的市场范围仍有未通过项。", "The Binance account is reachable, but the currently selected market scope still has failing checks.")}
           title={pickText(lang, "连接测试失败", "Connection test failed")}
         />
@@ -213,6 +226,15 @@ export default async function ExchangePage({ params, searchParams }: ExchangePag
         lang={lang}
         title={pickText(lang, "交易级风险提醒", "Trading-critical warning")}
       />
+      <Card>
+        <CardHeader>
+          <CardTitle>{pickText(lang, "API 用量监控", "API Usage Monitor")}</CardTitle>
+          <CardDescription>{pickText(lang, "实时展示 Binance API 调用量和限流状态。", "Real-time Binance API call volume and rate limit status.")}</CardDescription>
+        </CardHeader>
+        <CardBody>
+          <ApiUsageDashboard lang={lang} />
+        </CardBody>
+      </Card>
     </>
   );
 }

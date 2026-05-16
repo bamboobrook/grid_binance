@@ -1,7 +1,7 @@
 use axum::{
-    extract::{Path, State},
+    extract::{Path, Query, State},
     http::HeaderMap,
-    routing::{get, post, put},
+    routing::{get, post},
     Json, Router,
 };
 
@@ -25,7 +25,10 @@ pub fn router() -> Router<AppState> {
             "/strategies/templates/{template_id}/apply",
             post(apply_template),
         )
-        .route("/strategies/{strategy_id}", put(update_strategy))
+        .route(
+            "/strategies/{strategy_id}",
+            get(get_strategy).put(update_strategy),
+        )
         .route(
             "/strategies/{strategy_id}/preflight",
             post(preflight_strategy),
@@ -33,19 +36,45 @@ pub fn router() -> Router<AppState> {
         .route("/strategies/{strategy_id}/start", post(start_strategy))
         .route("/strategies/{strategy_id}/resume", post(resume_strategy))
         .route("/strategies/{strategy_id}/stop", post(stop_strategy))
+        .route("/strategies/{strategy_id}/clone", post(clone_strategy))
         .route("/strategies/batch/start", post(start_strategies))
         .route("/strategies/batch/pause", post(pause_strategies))
         .route("/strategies/batch/delete", post(delete_strategies))
         .route("/strategies/stop-all", post(stop_all_strategies))
 }
 
+#[derive(Debug, serde::Deserialize)]
+struct ListStrategiesQuery {
+    page: Option<u32>,
+    per_page: Option<u32>,
+}
+
 async fn list_strategies(
     State(auth): State<AuthService>,
     State(service): State<StrategyService>,
     headers: HeaderMap,
+    Query(query): Query<ListStrategiesQuery>,
 ) -> Result<Json<StrategyListResponse>, StrategyError> {
     let session = require_user_session(&auth, &headers).map_err(StrategyError::from)?;
-    Ok(Json(service.list_strategies(&session.email)))
+    let email = &session.email;
+    match (query.page, query.per_page) {
+        (Some(page), Some(per_page)) => {
+            let page = page.max(1);
+            let per_page = per_page.clamp(1, 100);
+            Ok(Json(
+                service.list_strategies_paginated(email, page, per_page),
+            ))
+        }
+        (Some(page), None) => {
+            let page = page.max(1);
+            Ok(Json(service.list_strategies_paginated(email, page, 20)))
+        }
+        (None, Some(per_page)) => {
+            let per_page = per_page.clamp(1, 100);
+            Ok(Json(service.list_strategies_paginated(email, 1, per_page)))
+        }
+        (None, None) => Ok(Json(service.list_strategies(email))),
+    }
 }
 
 async fn list_templates(
@@ -97,6 +126,22 @@ async fn update_strategy(
         &strategy_id,
         request,
     )?))
+}
+
+async fn get_strategy(
+    State(auth): State<AuthService>,
+    State(service): State<StrategyService>,
+    headers: HeaderMap,
+    Path(strategy_id): Path<String>,
+) -> Result<Json<Strategy>, StrategyError> {
+    let session = require_user_session(&auth, &headers).map_err(StrategyError::from)?;
+    let strategies = service.list_strategies(&session.email);
+    let strategy = strategies
+        .items
+        .into_iter()
+        .find(|s| s.id == strategy_id)
+        .ok_or_else(|| StrategyError::not_found("strategy not found"))?;
+    Ok(Json(strategy))
 }
 
 async fn preflight_strategy(
@@ -178,4 +223,17 @@ async fn stop_all_strategies(
 ) -> Result<Json<StopAllResponse>, StrategyError> {
     let session = require_user_session(&auth, &headers).map_err(StrategyError::from)?;
     Ok(Json(service.stop_all(&session.email)))
+}
+
+async fn clone_strategy(
+    State(auth): State<AuthService>,
+    State(service): State<StrategyService>,
+    headers: HeaderMap,
+    Path(strategy_id): Path<String>,
+) -> Result<(axum::http::StatusCode, Json<Strategy>), StrategyError> {
+    let session = require_user_session(&auth, &headers).map_err(StrategyError::from)?;
+    Ok((
+        axum::http::StatusCode::CREATED,
+        Json(service.clone_strategy(&session.email, &strategy_id)?),
+    ))
 }

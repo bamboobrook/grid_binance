@@ -65,11 +65,13 @@ export default async function BillingPage({ params, searchParams }: PageProps) {
   return (
     <>
       <StatusBanner
+              tone="info"
+              lang={lang}
         description={pickText(lang, "会员到期后会进入48小时宽限期，宽限期内已运行策略可继续运行。", "Membership enters a 48-hour grace period after expiry. Existing strategies may continue only during that window.")}
         title={pickText(lang, "宽限期规则已启用", "Grace-period reminder enabled")}
       />
-      {notice ? <StatusBanner description={notice} title={pickText(lang, "等待精确到账", "Awaiting exact transfer")} /> : null}
-      {error ? <StatusBanner description={error} title={pickText(lang, "会员请求失败", "Membership request failed")} /> : null}
+      {notice ? <StatusBanner description={notice} title={pickText(lang, "等待精确到账", "Awaiting exact transfer")}  tone="info" lang={lang} /> : null}
+      {error ? <StatusBanner description={error} title={pickText(lang, "会员请求失败", "Membership request failed")}  tone="info" lang={lang} /> : null}
       <AppShellSection
         description={pickText(lang, "在这里创建续费订单、确认精确金额，并查看会员时间线。", "Create renewal orders, confirm the exact amount, and review membership timing here.")}
         eyebrow={pickText(lang, "会员服务", "Membership service")}

@@ -46,6 +46,7 @@ export type StrategyWorkspaceIntentButton = {
 };
 
 type Props = {
+  displayMode?: "wizard" | "advanced";
   editingLocked?: boolean;
   formAction: string;
   intentButtons?: StrategyWorkspaceIntentButton[];
@@ -67,6 +68,7 @@ type EditableGridLevel = {
 };
 
 export function StrategyWorkspaceForm({
+  displayMode = "advanced",
   editingLocked = false,
   formAction,
   intentButtons,
@@ -77,6 +79,7 @@ export function StrategyWorkspaceForm({
   values,
 }: Props) {
   const router = useRouter();
+  const [wizardStep, setWizardStep] = useState(0);
   const [query, setQuery] = useState(searchQuery);
   const [selectedSymbol, setSelectedSymbol] = useState(values.symbol);
   const [marketType, setMarketType] = useState<StrategyWorkspaceValues["marketType"]>(values.marketType);
@@ -103,6 +106,19 @@ export function StrategyWorkspaceForm({
   const [overallStopLoss, setOverallStopLoss] = useState(values.overallStopLoss);
   const [postTrigger, setPostTrigger] = useState(values.postTrigger);
   const [levels, setLevels] = useState<EditableGridLevel[]>(() => deriveInitialLevels(values));
+
+  const isWizard = displayMode === "wizard";
+  const WIZARD_STEPS = [
+    { key: "symbol", label: pickText(lang, "交易对与类型", "Symbol & Type") },
+    { key: "grid", label: pickText(lang, "网格参数", "Grid Params") },
+    { key: "risk", label: pickText(lang, "风控设置", "Risk Control") },
+    { key: "confirm", label: pickText(lang, "确认预览", "Confirm") },
+  ];
+  const stepMap: Record<string, number> = { symbol: 0, grid: 1, risk: 2, confirm: 3 };
+  const isStepVisible = (step?: string) => {
+    if (!isWizard || !step) return true;
+    return stepMap[step] === wizardStep;
+  };
 
   const futuresVisible = marketType !== "spot";
   const ordinaryGridActive = strategyType === "ordinary_grid";
@@ -226,10 +242,14 @@ export function StrategyWorkspaceForm({
   });
   const marketReferenceSubmitBlocked = referencePriceMode === "market"
     && (marketPricePending || referencePrice.trim() === "");
+  const marketReferenceBlockedIntents = new Set<string | undefined>([undefined, "save", "create", "draft"]);
+  const isSubmitBlockedByMarketReference = (intent?: string) => (
+    marketReferenceSubmitBlocked && marketReferenceBlockedIntents.has(intent)
+  );
 
   return (
-    <div className="grid gap-6 xl:grid-cols-[minmax(0,0.92fr)_minmax(0,1.08fr)] xl:items-start">
-      <div className="space-y-4 xl:sticky xl:top-24">
+    <div className="flex flex-col xl:grid gap-6 xl:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)] xl:items-start w-full max-w-[1600px] mx-auto">
+      <div className="space-y-4 xl:sticky xl:top-20">
         <StrategyVisualPreview
           amountMode={amountMode}
           coveredRangePercent={coveredRangePercent}
@@ -249,28 +269,86 @@ export function StrategyWorkspaceForm({
 
       <FormStack action={formAction} className="space-y-4 rounded-2xl border border-border bg-card p-4 shadow-sm" method="post">
         <div className="rounded-2xl border border-border/70 bg-background/60 p-4">
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            {pickText(lang, "创建流程", "Build Flow")}
-          </p>
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              {pickText(lang, "创建流程", "Build Flow")}
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                const next = isWizard ? "advanced" : "wizard";
+                window.location.href = `${searchPath}?mode=${next}${searchQuery ? `&symbolQuery=${encodeURIComponent(searchQuery)}` : ""}`;
+              }}
+              className="text-xs text-primary hover:underline"
+            >
+              {isWizard ? pickText(lang, "高级模式", "Advanced Mode") : pickText(lang, "向导模式", "Wizard Mode")}
+            </button>
+          </div>
           <p className="mt-1 text-sm text-foreground">
-            {pickText(lang, "先选策略类型，再锁定交易对和市场，最后用右侧参数直接驱动左侧预览。", "Choose the strategy type first, then lock the symbol and market, and let the form drive the preview on the left in real time.")}
+            {isWizard
+              ? pickText(lang, "按步骤创建策略，每步完成后点击下一步。", "Follow the steps to create your strategy. Click Next after each step.")
+              : pickText(lang, "先选策略类型，再锁定交易对和市场，最后用右侧参数直接驱动左侧预览。", "Choose the strategy type first, then lock the symbol and market, and let the form drive the preview on the left in real time.")}
           </p>
           <p className="mt-1 text-sm text-muted-foreground">
             {pickText(lang, "普通网格只定义单侧覆盖范围；经典双边定义中心和上下范围。", "Ordinary grid defines one covered side only, while classic bilateral defines a center plus upper and lower ranges.")}
           </p>
         </div>
+        {isWizard && (
+          <div className="flex items-center gap-1 sm:gap-2">
+            {WIZARD_STEPS.map((step, i) => (
+              <div key={step.key} className="flex items-center gap-1 sm:gap-2 flex-1">
+                <button
+                  type="button"
+                  onClick={() => setWizardStep(i)}
+                  className={`flex items-center gap-1.5 rounded-lg px-2 sm:px-3 py-1.5 text-xs sm:text-sm font-medium transition-colors w-full ${
+                    i === wizardStep
+                      ? "bg-primary/10 text-primary border border-primary/20"
+                      : i < wizardStep
+                        ? "bg-emerald-500/10 text-emerald-500 border border-emerald-500/20"
+                        : "bg-muted text-muted-foreground border border-border"
+                  }`}
+                >
+                  <span className={`flex h-5 w-5 sm:h-6 sm:w-6 shrink-0 items-center justify-center rounded-full text-[10px] sm:text-xs font-bold ${
+                    i === wizardStep
+                      ? "bg-primary text-primary-foreground"
+                      : i < wizardStep
+                        ? "bg-emerald-500 text-white"
+                        : "bg-muted-foreground/20 text-muted-foreground"
+                  }`}>
+                    {i < wizardStep ? "✓" : i + 1}
+                  </span>
+                  <span className="truncate hidden sm:inline">{step.label}</span>
+                </button>
+                {i < WIZARD_STEPS.length - 1 && (
+                  <div className={`h-px flex-1 max-w-[20px] sm:max-w-[40px] ${i < wizardStep ? "bg-emerald-500" : "bg-border"}`} />
+                )}
+              </div>
+            ))}
+          </div>
+        )}
         {workspaceWarnings.map((warning) => (
           <StatusBanner
+                  tone="info"
+                  lang={lang}
             key={warning.id}
             description={warning.description}
             title={warning.title}
-            tone="warning"
           />
         ))}
 
-        <Field label={pickText(lang, "策略名称", "Strategy Name")}>
-          <Input defaultValue={values.name} name="name" required />
-        </Field>
+        <div style={isWizard && !isStepVisible("confirm") ? { display: "none" } : undefined}>
+          <Field label={pickText(lang, "策略名称", "Strategy Name")}>
+            <Input defaultValue={values.name} name="name" />
+          </Field>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-2">
+            <Field label={pickText(lang, "标签", "Tags")} hint={pickText(lang, "逗号分隔", "Comma separated")}>
+              <Input defaultValue={(values as Record<string, unknown>).tags as string ?? ""} name="tags" placeholder="BTC, 稳定收益" />
+            </Field>
+            <Field label={pickText(lang, "备注", "Notes")}>
+              <Input defaultValue={(values as Record<string, unknown>).notes as string ?? ""} name="notes" placeholder={pickText(lang, "可选备注", "Optional notes")} />
+            </Field>
+          </div>
+        </div>
 
         <input name="symbol" type="hidden" value={selectedSymbol} />
         <input name="referencePriceMode" type="hidden" value={referencePriceMode} />
@@ -280,6 +358,7 @@ export function StrategyWorkspaceForm({
 
         <fieldset className="contents" disabled={editingLocked}>
           <SectionBlock
+            step="symbol" hidden={!isStepVisible("symbol")}
             description={pickText(lang, "先从搜索结果中选中交易对，再决定现货/合约与策略类型。", "Choose the symbol from search results first, then decide the market and strategy type.")}
             title={pickText(lang, "交易对与策略类型", "Symbol & Strategy Type")}
           >
@@ -359,10 +438,7 @@ export function StrategyWorkspaceForm({
             </div>
           </SectionBlock>
 
-          <SectionBlock
-            description={pickText(lang, "决定采用批量生成还是逐格自定义，并设置每格按 USDT 还是按币数量下单。", "Choose between batch generation and per-grid editing, then decide whether each level uses quote amount or base quantity.")}
-            title={pickText(lang, "建仓与计量", "Builder & Sizing")}
-          >
+          <SectionBlock step="grid" hidden={!isStepVisible("grid")} title={pickText(lang, "建仓与计量", "Builder & Sizing")} description={pickText(lang, "决定采用批量生成还是逐格自定义，并设置每格按 USDT 还是按币数量下单。", "Choose between batch generation and per-grid editing, then decide whether each level uses quote amount or base quantity.")}>
             <div className="grid gap-3 md:grid-cols-2">
               <Field label={pickText(lang, "生成方式", "Generation")}>
                 <Select
@@ -453,6 +529,7 @@ export function StrategyWorkspaceForm({
           </SectionBlock>
 
           <SectionBlock
+            step="grid" hidden={!isStepVisible("grid")}
             description={pickText(lang, ordinaryGridActive ? "普通网格只定义锚点与单侧覆盖范围。" : "经典双边用中心价联动上下范围。", ordinaryGridActive ? "Ordinary grid only defines an anchor and one covered side." : "Classic bilateral uses the center price plus upper and lower ranges.")}
             title={pickText(lang, "策略定义", "Strategy Definition")}
           >
@@ -541,6 +618,7 @@ export function StrategyWorkspaceForm({
           </SectionBlock>
 
           <SectionBlock
+            step="grid" hidden={!isStepVisible("grid")}
             description={pickText(lang, "这里配置整套网格的批量默认值；逐格自定义时，也可以把这些默认值一键应用到全部网格。", "Configure the batch defaults here. In per-grid custom mode, these defaults can also be applied to every level in one click.")}
             title={pickText(lang, "网格默认参数", "Grid Defaults")}
           >
@@ -607,7 +685,7 @@ export function StrategyWorkspaceForm({
             </div>
           </SectionBlock>
 
-          <details className="group mt-4 rounded-2xl border border-border bg-card p-2 transition-colors open:bg-background/50" open>
+          <details className="group mt-4 rounded-2xl border border-border bg-card p-2 transition-colors open:bg-background/50" open style={isWizard && !isStepVisible("risk") ? { display: "none" } : undefined}>
             <summary className="cursor-pointer px-4 py-3 text-sm font-bold text-foreground outline-none hover:text-primary marker:text-primary">
               {pickText(lang, "高级风控与逐格设置", "Advanced Risk & Editor")}
             </summary>
@@ -619,6 +697,7 @@ export function StrategyWorkspaceForm({
               ) : null}
 
               <SectionBlock
+                step="risk" hidden={!isStepVisible("risk")}
                 description={pickText(lang, "整体止盈止损作用于整套策略，不是单个网格。", "Overall take profit and stop loss apply to the whole strategy, not a single level.")}
                 title={pickText(lang, "整体风控", "Portfolio Risk")}
               >
@@ -679,90 +758,163 @@ export function StrategyWorkspaceForm({
                   </div>
                 </div>
 
-                <div className="space-y-3">
+                <div className="space-y-2 mt-2">
+                  <div className="hidden sm:grid gap-2 sm:grid-cols-[0.5fr_1fr_1fr_1fr_1fr_1fr_auto] px-3 py-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground bg-background border border-border rounded-lg">
+                    <div>L</div>
+                    <div>{pickText(lang, "网格价", "Price")}</div>
+                    <div>{pickText(lang, "间距 (%)", "Spacing")}</div>
+                    <div>{amountMode === "quote" ? pickText(lang, "金额 (USDT)", "Quote") : pickText(lang, "币量", "Base")}</div>
+                    <div>{pickText(lang, "网格止盈 (%)", "Take Profit")}</div>
+                    <div>{pickText(lang, "追踪 (%)", "Trailing")}</div>
+                    <div className="w-8"></div>
+                  </div>
+                  <div className="space-y-3 sm:space-y-1">
                   {levels.map((level, index) => {
                     const secondaryAmount = amountMode === "quote"
                       ? pickText(lang, `约 ${displayRowQuantity(level)} 币`, `Approx. ${displayRowQuantity(level)} units`)
                       : pickText(lang, `约 ${displayRowQuote(level)} USDT`, `Approx. ${displayRowQuote(level)} USDT`);
                     return (
-                      <div className="rounded-2xl border border-border bg-card p-3" key={level.id}>
-                        <div className="grid gap-3 xl:grid-cols-[0.65fr_1fr_1fr_1fr_1fr_1fr_auto]">
-                          <div className="space-y-1">
-                            <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">L{index + 1}</div>
-                            <div className="text-xs text-muted-foreground">
+                      <div className="rounded-xl border border-border bg-card p-3 sm:p-2 sm:border-transparent sm:bg-transparent hover:bg-secondary/30 transition-colors" key={level.id}>
+                        <div className="grid gap-3 sm:gap-2 grid-cols-2 sm:grid-cols-[0.5fr_1fr_1fr_1fr_1fr_1fr_auto] items-center">
+                          <div className="col-span-2 sm:col-span-1 flex items-center gap-2 sm:block space-y-0 sm:space-y-1">
+                            <div className="text-[10px] font-bold text-foreground bg-slate-800 px-1.5 py-0.5 rounded w-max">L{index + 1}</div>
+                            <div className="text-[10px] text-muted-foreground hidden sm:block">
                               {index === 0
-                                ? pickText(lang, "第一格", "First level")
-                                : pickText(lang, `相邻间距 ${level.spacingPercent || "-"}%`, `Spacing ${level.spacingPercent || "-"}%`)}
+                                ? pickText(lang, "起点", "Start")
+                                : `${level.spacingPercent || "-"}%`}
                             </div>
                           </div>
-                          <Field label={pickText(lang, "网格价", "Grid Price")}>
+                          
+                          <div className="flex flex-col sm:block">
+                            <span className="text-[10px] text-muted-foreground uppercase font-bold sm:hidden mb-1">{pickText(lang, "网格价", "Price")}</span>
                             <Input
+                              className="h-9 sm:h-8 px-2 text-xs bg-secondary border-border"
                               inputMode="decimal"
                               onChange={(event) => setLevels((current) => updateLevelField(current, index, "entryPrice", event.target.value, amountMode, strategyType, marketType, ordinarySide))}
                               readOnly={batchModeActive}
                               value={level.entryPrice}
                             />
-                          </Field>
-                          <Field label={pickText(lang, "与上一格间距 (%)", "Spacing vs Prev (%)")}>
+                          </div>
+                          
+                          <div className="flex flex-col sm:block">
+                            <span className="text-[10px] text-muted-foreground uppercase font-bold sm:hidden mb-1">{pickText(lang, "与上格间距 (%)", "Spacing vs Prev")}</span>
                             <Input
+                              className="h-9 sm:h-8 px-2 text-xs bg-secondary border-border"
                               inputMode="decimal"
                               onChange={(event) => setLevels((current) => updateLevelSpacing(current, index, event.target.value, amountMode, strategyType, marketType, ordinarySide))}
                               readOnly={index === 0}
                               value={index === 0 ? "" : level.spacingPercent}
                             />
-                          </Field>
-                          <Field label={amountMode === "quote" ? pickText(lang, "投入金额 (USDT)", "Quote Amount (USDT)") : pickText(lang, "币数量", "Base Quantity")}>
+                          </div>
+                          
+                          <div className="flex flex-col sm:block">
+                            <span className="text-[10px] text-muted-foreground uppercase font-bold sm:hidden mb-1">{amountMode === "quote" ? "USDT" : pickText(lang, "币量", "Base")}</span>
                             <Input
+                              className="h-9 sm:h-8 px-2 text-xs bg-secondary border-border"
                               inputMode="decimal"
                               onChange={(event) => setLevels((current) => updateLevelField(current, index, amountMode === "quote" ? "quoteAmount" : "quantity", event.target.value, amountMode, strategyType, marketType, ordinarySide))}
                               readOnly={batchModeActive}
                               value={amountMode === "quote" ? level.quoteAmount : level.quantity}
+                              title={secondaryAmount}
                             />
-                          </Field>
-                          <Field hint={secondaryAmount} label={pickText(lang, "网格止盈 (%)", "Grid Take Profit (%)")}>
+                          </div>
+                          
+                          <div className="flex flex-col sm:block">
+                            <span className="text-[10px] text-muted-foreground uppercase font-bold sm:hidden mb-1">{pickText(lang, "网格止盈 (%)", "Take Profit")}</span>
                             <Input
+                              className="h-9 sm:h-8 px-2 text-xs bg-secondary border-border"
                               inputMode="decimal"
                               onChange={(event) => setLevels((current) => updateLevelField(current, index, "takeProfitPercent", event.target.value, amountMode, strategyType, marketType, ordinarySide))}
                               readOnly={batchModeActive}
                               value={level.takeProfitPercent}
                             />
-                          </Field>
-                          <Field label={pickText(lang, "追踪止盈 (%)", "Trailing Take Profit (%)")}>
+                          </div>
+                          
+                          <div className="flex flex-col sm:block">
+                            <span className="text-[10px] text-muted-foreground uppercase font-bold sm:hidden mb-1">{pickText(lang, "追踪止盈 (%)", "Trailing TP")}</span>
                             <Input
+                              className="h-9 sm:h-8 px-2 text-xs bg-secondary border-border"
                               inputMode="decimal"
                               onChange={(event) => setLevels((current) => updateLevelField(current, index, "trailingPercent", event.target.value, amountMode, strategyType, marketType, ordinarySide))}
                               readOnly={batchModeActive}
                               value={level.trailingPercent}
                             />
-                          </Field>
-                          <div className="flex items-end justify-end gap-2">
+                          </div>
+                          
+                          <div className="col-span-2 sm:col-span-1 flex items-center sm:justify-end mt-2 sm:mt-0">
                             <Button
+                              className="w-full sm:w-8 h-9 sm:h-8 px-0 bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/20"
                               disabled={levels.length <= minimumLevelCountForStrategy(strategyType) && !batchModeActive}
                               onClick={() => {
                                 setEditorMode("custom");
                                 setLevels((current) => removeEditableLevel(current, index, amountMode, strategyType, marketType, ordinarySide));
                               }}
-                              size="icon"
-                              tone="outline"
                               type="button"
+                              title={pickText(lang, "删除此格", "Delete Level")}
                             >
                               <Trash2 className="h-4 w-4" />
+                              <span className="ml-2 sm:hidden">{pickText(lang, "删除此格", "Delete Level")}</span>
                             </Button>
                           </div>
                         </div>
                       </div>
                     );
                   })}
+                  </div>
                 </div>
               </div>
             </div>
           </details>
         </fieldset>
 
+        {isWizard && (
+          <div className="flex items-center justify-between pt-2 border-t border-border">
+            <button
+              type="button"
+              onClick={() => setWizardStep(Math.max(0, wizardStep - 1))}
+              disabled={wizardStep === 0}
+              className={`rounded-lg px-4 py-2.5 text-sm font-medium transition-colors ${
+                wizardStep === 0
+                  ? "text-muted-foreground cursor-not-allowed"
+                  : "bg-secondary text-foreground hover:bg-secondary/80"
+              }`}
+            >
+              {pickText(lang, "上一步", "Previous")}
+            </button>
+            <span className="text-xs text-muted-foreground">
+              {wizardStep + 1} / {WIZARD_STEPS.length}
+            </span>
+            {wizardStep < WIZARD_STEPS.length - 1 ? (
+              <button
+                type="button"
+                onClick={() => setWizardStep(wizardStep + 1)}
+                className="rounded-lg px-4 py-2.5 text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+              >
+                {pickText(lang, "下一步", "Next")}
+              </button>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {intentRow.map((button, index) => (
+                  <Button
+                    disabled={isSubmitBlockedByMarketReference(button.value)}
+                    key={`wizard-${button.label}-${index}`}
+                    name={button.value ? "intent" : undefined}
+                    tone={button.tone ?? (button.value === "delete" ? "danger" : button.value === "pause" || button.value === "stop" ? "outline" : "primary")}
+                    type="submit"
+                    value={button.value}
+                  >
+                    {button.label}
+                  </Button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+        {!isWizard && (
         <div className="flex flex-wrap gap-2">
           {intentRow.map((button, index) => (
             <Button
-              disabled={button.value === "delete" ? false : marketReferenceSubmitBlocked}
+              disabled={isSubmitBlockedByMarketReference(button.value)}
               key={`${button.label}-${index}`}
               name={button.value ? "intent" : undefined}
               tone={button.tone ?? (button.value === "delete" ? "danger" : button.value === "pause" || button.value === "stop" ? "outline" : "primary")}
@@ -773,6 +925,7 @@ export function StrategyWorkspaceForm({
             </Button>
           ))}
         </div>
+        )}
       </FormStack>
     </div>
   );
@@ -780,15 +933,21 @@ export function StrategyWorkspaceForm({
 
 function SectionBlock({
   children,
+  className,
   description,
+  hidden,
+  step,
   title,
 }: {
   children: ReactNode;
+  className?: string;
   description?: string;
+  hidden?: boolean;
+  step?: string;
   title: string;
 }) {
   return (
-    <section className="space-y-4 rounded-2xl border border-border/70 bg-background/45 p-4">
+    <section className={className ?? "space-y-4 rounded-2xl border border-border/70 bg-background/45 p-4"} data-step={step} style={hidden ? { display: "none" } : undefined}>
       <div className="space-y-1">
         <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{title}</p>
         {description ? <p className="text-sm text-muted-foreground">{description}</p> : null}

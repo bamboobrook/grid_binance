@@ -1,10 +1,64 @@
 use rust_decimal::Decimal;
 use shared_binance::BinanceExecutionUpdate;
 use shared_domain::strategy::{
-    GridGeneration, GridLevel, PostTriggerAction, Strategy, StrategyAmountMode, StrategyMarket,
-    StrategyMode, StrategyRevision, StrategyRuntime, StrategyRuntimeOrder, StrategyStatus,
+    GridGeneration, GridLevel, PostTriggerAction, ReferencePriceSource, RuntimeControls, Strategy,
+    StrategyAmountMode, StrategyMarket, StrategyMode, StrategyRevision, StrategyRuntime,
+    StrategyRuntimeOrder, StrategyRuntimePhase, StrategyStatus, StrategyType,
 };
 use trading_engine::execution_sync::apply_execution_update;
+
+#[test]
+fn anchor_market_fill_creates_take_profit_and_activates_remaining_entries() {
+    let mut strategy = sample_started_ordinary_strategy();
+
+    let changed = apply_execution_update(
+        &mut strategy,
+        &BinanceExecutionUpdate {
+            market: "spot".to_string(),
+            symbol: "BTCUSDT".to_string(),
+            order_id: "anchor-1".to_string(),
+            client_order_id: Some("strategy-1-order-0".to_string()),
+            side: Some("BUY".to_string()),
+            order_type: Some("MARKET".to_string()),
+            status: "FILLED".to_string(),
+            execution_type: Some("TRADE".to_string()),
+            order_price: Some("42000".to_string()),
+            last_fill_price: Some("42000".to_string()),
+            last_fill_quantity: Some("0.001".to_string()),
+            cumulative_fill_quantity: Some("0.001".to_string()),
+            fee_amount: Some("0.05".to_string()),
+            fee_asset: Some("USDT".to_string()),
+            position_side: None,
+            trade_id: Some("anchor-fill-1".to_string()),
+            realized_profit: None,
+            event_time_ms: 1_710_000,
+        },
+    );
+
+    assert!(changed);
+    assert_eq!(strategy.runtime.positions.len(), 1);
+    assert!(strategy
+        .runtime
+        .orders
+        .iter()
+        .any(|order| order.order_id == "strategy-1-tp-0"
+            && order.side == "Sell"
+            && order.status == "Working"));
+    assert!(strategy
+        .runtime
+        .orders
+        .iter()
+        .any(|order| order.order_id == "strategy-1-order-1"
+            && order.side == "Buy"
+            && order.status == "Working"));
+    assert!(strategy
+        .runtime
+        .orders
+        .iter()
+        .any(|order| order.order_id == "strategy-1-order-2"
+            && order.side == "Buy"
+            && order.status == "Working"));
+}
 
 #[test]
 fn execution_update_marks_order_canceled_and_records_event() {
@@ -232,14 +286,58 @@ fn partial_entry_fill_updates_runtime_position_and_exit_order_incrementally() {
 }
 
 #[test]
+fn spot_buy_fee_paid_in_base_asset_reduces_position_and_take_profit_quantity() {
+    let mut strategy = sample_strategy();
+
+    let changed = apply_execution_update(
+        &mut strategy,
+        &BinanceExecutionUpdate {
+            market: "spot".to_string(),
+            symbol: "BTCUSDT".to_string(),
+            order_id: "999".to_string(),
+            client_order_id: Some("strategy-1-order-0".to_string()),
+            side: Some("BUY".to_string()),
+            order_type: Some("LIMIT".to_string()),
+            status: "FILLED".to_string(),
+            execution_type: Some("TRADE".to_string()),
+            order_price: Some("42000".to_string()),
+            last_fill_price: Some("42000".to_string()),
+            last_fill_quantity: Some("0.001".to_string()),
+            cumulative_fill_quantity: Some("0.001".to_string()),
+            fee_amount: Some("0.000001".to_string()),
+            fee_asset: Some("BTC".to_string()),
+            position_side: None,
+            trade_id: Some("entry-base-fee-1".to_string()),
+            realized_profit: None,
+            event_time_ms: 1_710_016,
+        },
+    );
+
+    assert!(changed);
+    assert_eq!(strategy.runtime.positions.len(), 1);
+    assert_eq!(strategy.runtime.positions[0].quantity, Decimal::new(999, 6));
+    assert!(strategy.runtime.positions[0].average_entry_price > Decimal::new(42000, 0));
+    let take_profit = strategy
+        .runtime
+        .orders
+        .iter()
+        .find(|order| order.order_id == "strategy-1-tp-0")
+        .expect("take profit order should exist after base-asset-fee entry");
+    assert_eq!(take_profit.quantity, Decimal::new(999, 6));
+}
+
+#[test]
 fn take_profit_fill_recreates_entry_order_for_next_grid_cycle() {
     let mut strategy = sample_strategy();
-    strategy.runtime.positions.push(shared_domain::strategy::StrategyRuntimePosition {
-        market: StrategyMarket::Spot,
-        mode: StrategyMode::SpotClassic,
-        quantity: Decimal::new(1, 3),
-        average_entry_price: Decimal::new(42000, 0),
-    });
+    strategy
+        .runtime
+        .positions
+        .push(shared_domain::strategy::StrategyRuntimePosition {
+            market: StrategyMarket::Spot,
+            mode: StrategyMode::SpotClassic,
+            quantity: Decimal::new(1, 3),
+            average_entry_price: Decimal::new(42000, 0),
+        });
     strategy.runtime.orders.push(StrategyRuntimeOrder {
         order_id: "strategy-1-tp-0".to_string(),
         exchange_order_id: Some("tp-999".to_string()),
@@ -281,7 +379,9 @@ fn take_profit_fill_recreates_entry_order_for_next_grid_cycle() {
         .runtime
         .orders
         .iter()
-        .any(|order| order.order_id == "strategy-1-order-0" && order.side == "Buy" && order.status == "Working"));
+        .any(|order| order.order_id == "strategy-1-order-0"
+            && order.side == "Buy"
+            && order.status == "Working"));
 }
 
 #[test]
@@ -305,7 +405,10 @@ fn take_profit_fill_is_attributed_by_level_instead_of_quantity_only() {
         margin_ready: true,
         conflict_ready: true,
         balance_ready: true,
+        strategy_type: StrategyType::OrdinaryGrid,
         market: StrategyMarket::Spot,
+        runtime_phase: StrategyRuntimePhase::Draft,
+        runtime_controls: RuntimeControls::default(),
         mode: StrategyMode::SpotClassic,
         draft_revision: StrategyRevision {
             revision_id: "rev-2".to_string(),
@@ -314,6 +417,9 @@ fn take_profit_fill_is_attributed_by_level_instead_of_quantity_only() {
             amount_mode: StrategyAmountMode::Quote,
             futures_margin_mode: None,
             leverage: None,
+            strategy_type: StrategyType::OrdinaryGrid,
+            reference_price_source: ReferencePriceSource::Manual,
+            reference_price: None,
             levels: vec![
                 GridLevel {
                     level_index: 0,
@@ -411,6 +517,8 @@ fn take_profit_fill_is_attributed_by_level_instead_of_quantity_only() {
             events: Vec::new(),
             last_preflight: None,
         },
+        tags: Vec::new(),
+        notes: String::new(),
         archived_at: None,
     };
 
@@ -446,9 +554,7 @@ fn take_profit_fill_is_attributed_by_level_instead_of_quantity_only() {
         Decimal::new(100, 0)
     );
     assert!(strategy.runtime.orders.iter().any(|order| {
-        order.order_id == "strategy-1-order-1"
-            && order.side == "Buy"
-            && order.status == "Working"
+        order.order_id == "strategy-1-order-1" && order.side == "Buy" && order.status == "Working"
     }));
 }
 
@@ -456,12 +562,15 @@ fn take_profit_fill_is_attributed_by_level_instead_of_quantity_only() {
 fn partial_stop_close_fill_reduces_position_without_leaving_stale_quantity() {
     let mut strategy = sample_strategy();
     strategy.status = StrategyStatus::Stopping;
-    strategy.runtime.positions.push(shared_domain::strategy::StrategyRuntimePosition {
-        market: StrategyMarket::Spot,
-        mode: StrategyMode::SpotClassic,
-        quantity: Decimal::new(10, 3),
-        average_entry_price: Decimal::new(42000, 0),
-    });
+    strategy
+        .runtime
+        .positions
+        .push(shared_domain::strategy::StrategyRuntimePosition {
+            market: StrategyMarket::Spot,
+            mode: StrategyMode::SpotClassic,
+            quantity: Decimal::new(10, 3),
+            average_entry_price: Decimal::new(42000, 0),
+        });
     strategy.runtime.orders.clear();
     strategy.runtime.orders.push(StrategyRuntimeOrder {
         order_id: "strategy-1-stop-close-0".to_string(),
@@ -653,6 +762,90 @@ fn final_fill_uses_cumulative_quantity_for_runtime_position_and_take_profit_orde
     assert_eq!(take_profit.quantity, Decimal::new(10, 3));
 }
 
+fn sample_started_ordinary_strategy() -> Strategy {
+    Strategy {
+        id: "strategy-1".to_string(),
+        owner_email: "trader@example.com".to_string(),
+        name: "Grid".to_string(),
+        symbol: "BTCUSDT".to_string(),
+        budget: "1000".to_string(),
+        grid_spacing_bps: 100,
+        status: StrategyStatus::Running,
+        source_template_id: None,
+        membership_ready: true,
+        exchange_ready: true,
+        permissions_ready: true,
+        withdrawals_disabled: true,
+        hedge_mode_ready: true,
+        symbol_ready: true,
+        filters_ready: true,
+        margin_ready: true,
+        conflict_ready: true,
+        balance_ready: true,
+        strategy_type: StrategyType::OrdinaryGrid,
+        market: StrategyMarket::Spot,
+        mode: StrategyMode::SpotBuyOnly,
+        runtime_phase: StrategyRuntimePhase::Draft,
+        runtime_controls: RuntimeControls::default(),
+        draft_revision: StrategyRevision {
+            revision_id: "rev-start-1".to_string(),
+            version: 1,
+            generation: GridGeneration::Custom,
+            amount_mode: StrategyAmountMode::Quote,
+            futures_margin_mode: None,
+            leverage: None,
+            strategy_type: StrategyType::OrdinaryGrid,
+            reference_price_source: ReferencePriceSource::Manual,
+            reference_price: None,
+            levels: vec![
+                GridLevel {
+                    level_index: 0,
+                    entry_price: Decimal::new(42000, 0),
+                    quantity: Decimal::new(1, 3),
+                    take_profit_bps: 100,
+                    trailing_bps: None,
+                },
+                GridLevel {
+                    level_index: 1,
+                    entry_price: Decimal::new(41000, 0),
+                    quantity: Decimal::new(1, 3),
+                    take_profit_bps: 100,
+                    trailing_bps: None,
+                },
+                GridLevel {
+                    level_index: 2,
+                    entry_price: Decimal::new(40000, 0),
+                    quantity: Decimal::new(1, 3),
+                    take_profit_bps: 100,
+                    trailing_bps: None,
+                },
+            ],
+            overall_take_profit_bps: None,
+            overall_stop_loss_bps: None,
+            post_trigger_action: PostTriggerAction::Stop,
+        },
+        active_revision: None,
+        runtime: StrategyRuntime {
+            positions: Vec::new(),
+            orders: vec![StrategyRuntimeOrder {
+                order_id: "strategy-1-order-0".to_string(),
+                exchange_order_id: None,
+                level_index: Some(0),
+                side: "Buy".to_string(),
+                order_type: "Market".to_string(),
+                price: Some(Decimal::new(42000, 0)),
+                quantity: Decimal::new(1, 3),
+                status: "Working".to_string(),
+            }],
+            fills: Vec::new(),
+            events: Vec::new(),
+            last_preflight: None,
+        },
+        tags: Vec::new(),
+        notes: String::new(),
+        archived_at: None,
+    }
+}
 
 fn sample_strategy() -> Strategy {
     Strategy {
@@ -674,8 +867,11 @@ fn sample_strategy() -> Strategy {
         margin_ready: true,
         conflict_ready: true,
         balance_ready: true,
+        strategy_type: StrategyType::OrdinaryGrid,
         market: StrategyMarket::Spot,
         mode: StrategyMode::SpotClassic,
+        runtime_phase: StrategyRuntimePhase::Draft,
+        runtime_controls: RuntimeControls::default(),
         draft_revision: StrategyRevision {
             revision_id: "rev-1".to_string(),
             version: 1,
@@ -683,6 +879,9 @@ fn sample_strategy() -> Strategy {
             amount_mode: StrategyAmountMode::Quote,
             futures_margin_mode: None,
             leverage: None,
+            strategy_type: StrategyType::OrdinaryGrid,
+            reference_price_source: ReferencePriceSource::Manual,
+            reference_price: None,
             levels: vec![GridLevel {
                 level_index: 0,
                 entry_price: Decimal::new(42000, 0),
@@ -711,6 +910,8 @@ fn sample_strategy() -> Strategy {
             events: Vec::new(),
             last_preflight: None,
         },
+        tags: Vec::new(),
+        notes: String::new(),
         archived_at: None,
     }
 }

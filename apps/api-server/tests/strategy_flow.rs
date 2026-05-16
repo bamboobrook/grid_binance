@@ -48,6 +48,39 @@ async fn create_strategy_returns_explicit_strategy_type_and_runtime_phase() {
 }
 
 #[tokio::test]
+async fn create_strategy_allows_blank_name() {
+    let app = app();
+    let user_token = register_and_login(&app, "blank-name@example.com", "pass1234").await;
+
+    let created = create_strategy(
+        &app,
+        &user_token,
+        json!({
+            "name": "",
+            "symbol": "BTCUSDT",
+            "market": "Spot",
+            "mode": "SpotBuyOnly",
+            "generation": "Custom",
+            "strategy_type": "ordinary_grid",
+            "reference_price_source": "market",
+            "levels": [grid_level("100.00", "0.0100", 120, None)],
+            "overall_take_profit_bps": 500,
+            "overall_stop_loss_bps": 200,
+            "post_trigger_action": "Stop"
+        }),
+    )
+    .await;
+    assert_eq!(created.status(), StatusCode::CREATED);
+
+    let created_body = response_json(created).await;
+    assert_eq!(created_body["name"], "");
+    assert_eq!(
+        created_body["draft_revision"]["reference_price_source"],
+        "market"
+    );
+}
+
+#[tokio::test]
 async fn strategy_create_and_update_accept_payloads_without_client_readiness_flags() {
     let app = app();
     let user_token = register_and_login(&app, "payload@example.com", "pass1234").await;
@@ -233,10 +266,7 @@ async fn classic_bilateral_asymmetric_reference_price_persists_and_drives_entry_
 
     assert_eq!(created.status(), StatusCode::CREATED);
     let created_body = response_json(created).await;
-    assert_eq!(
-        created_body["draft_revision"]["reference_price"],
-        "100.00"
-    );
+    assert_eq!(created_body["draft_revision"]["reference_price"], "100.00");
     let strategy_id = created_body["id"].as_str().expect("strategy id");
 
     let listed = list_strategies(&app, &user_token).await;
@@ -275,10 +305,7 @@ async fn classic_bilateral_asymmetric_reference_price_persists_and_drives_entry_
     .await;
     assert_eq!(updated.status(), StatusCode::OK);
     let updated_body = response_json(updated).await;
-    assert_eq!(
-        updated_body["draft_revision"]["reference_price"],
-        "100.00"
-    );
+    assert_eq!(updated_body["draft_revision"]["reference_price"], "100.00");
 
     let ready = update_strategy(
         &app,
@@ -345,8 +372,7 @@ async fn classic_bilateral_asymmetric_reference_price_persists_and_drives_entry_
 #[tokio::test]
 async fn classic_bilateral_rejects_single_level_payloads() {
     let app = app();
-    let user_token =
-        register_and_login(&app, "classic-single-level@example.com", "pass1234").await;
+    let user_token = register_and_login(&app, "classic-single-level@example.com", "pass1234").await;
 
     let response = create_strategy(
         &app,
@@ -376,8 +402,7 @@ async fn classic_bilateral_rejects_single_level_payloads() {
 #[tokio::test]
 async fn ordinary_grid_accepts_and_preserves_execution_order_by_mode() {
     let app = app();
-    let user_token =
-        register_and_login(&app, "ordinary-order@example.com", "pass1234").await;
+    let user_token = register_and_login(&app, "ordinary-order@example.com", "pass1234").await;
 
     let created = create_strategy(
         &app,
@@ -559,6 +584,51 @@ async fn ordinary_grid_normalization_keeps_anchor_first_after_exchange_rounding(
         spot_body["draft_revision"]["levels"][2]["entry_price"],
         "92"
     );
+    assert_eq!(
+        spot_body["draft_revision"]["reference_price"],
+        spot_body["draft_revision"]["levels"][0]["entry_price"]
+    );
+
+    let spot_sell_created = create_strategy(
+        &app,
+        &user_token,
+        json!({
+            "name": "Spot Sell Ordinary Normalized",
+            "symbol": "BTCUSDT",
+            "market": "Spot",
+            "mode": "SpotSellOnly",
+            "generation": "Custom",
+            "strategy_type": "ordinary_grid",
+            "reference_price_source": "manual",
+            "levels": [
+                grid_level("100.009", "0.0104", 120, None),
+                grid_level("104.004", "0.0104", 120, None),
+                grid_level("108.001", "0.0104", 120, None)
+            ],
+            "overall_take_profit_bps": 500,
+            "overall_stop_loss_bps": 800,
+            "post_trigger_action": "Stop"
+        }),
+    )
+    .await;
+    assert_eq!(spot_sell_created.status(), StatusCode::CREATED);
+    let spot_sell_body = response_json(spot_sell_created).await;
+    assert_eq!(
+        spot_sell_body["draft_revision"]["levels"][0]["entry_price"],
+        "100"
+    );
+    assert_eq!(
+        spot_sell_body["draft_revision"]["levels"][1]["entry_price"],
+        "104"
+    );
+    assert_eq!(
+        spot_sell_body["draft_revision"]["levels"][2]["entry_price"],
+        "108"
+    );
+    assert_eq!(
+        spot_sell_body["draft_revision"]["reference_price"],
+        spot_sell_body["draft_revision"]["levels"][0]["entry_price"]
+    );
 
     let short_created = create_strategy(
         &app,
@@ -599,6 +669,52 @@ async fn ordinary_grid_normalization_keeps_anchor_first_after_exchange_rounding(
         short_body["draft_revision"]["levels"][2]["entry_price"],
         "108"
     );
+    assert_eq!(
+        short_body["draft_revision"]["reference_price"],
+        short_body["draft_revision"]["levels"][0]["entry_price"]
+    );
+}
+
+#[tokio::test]
+async fn classic_mode_without_explicit_strategy_type_infers_bilateral() {
+    let db = SharedDb::ephemeral().expect("ephemeral db");
+    let app = app_with_state(AppState::from_shared_db(db.clone()).expect("state"));
+    let email = "classic-infer@example.com";
+    let user_token = register_and_login(&app, email, "pass1234").await;
+
+    seed_active_membership(&db, email);
+    seed_exchange_context(
+        &db,
+        email,
+        &["spot"],
+        true,
+        true,
+        &[symbol_record(email, "spot", "BTCUSDT")],
+    );
+
+    let created = create_strategy(
+        &app,
+        &user_token,
+        json!({
+            "name": "Classic Infer Test",
+            "symbol": "BTCUSDT",
+            "market": "Spot",
+            "mode": "SpotClassic",
+            "generation": "Custom",
+            "levels": [
+                grid_level("100.00", "0.0100", 120, None),
+                grid_level("105.00", "0.0100", 120, None),
+                grid_level("110.00", "0.0100", 120, None)
+            ],
+            "overall_take_profit_bps": 500,
+            "overall_stop_loss_bps": 800,
+            "post_trigger_action": "Stop"
+        }),
+    )
+    .await;
+    assert_eq!(created.status(), StatusCode::CREATED);
+    let body = response_json(created).await;
+    assert_eq!(body["strategy_type"], "classic_bilateral_grid");
 }
 
 #[tokio::test]
@@ -852,7 +968,8 @@ async fn strategy_revisions_runtime_contracts_and_soft_archive_follow_frozen_lif
     let orders = list_strategy_orders(&app, &user_token, &strategy_id).await;
     assert_eq!(orders.status(), StatusCode::OK);
     let orders_body = response_json(orders).await;
-    assert_eq!(orders_body["orders"].as_array().expect("orders").len(), 3);
+    let live_orders = orders_body["orders"].as_array().expect("orders");
+    assert_eq!(live_orders.len(), 3);
     assert_eq!(
         orders_body["positions"]
             .as_array()
@@ -1630,7 +1747,7 @@ async fn strategy_creation_rejects_market_and_mode_mismatch() {
             "amount_mode": "Quote",
             "futures_margin_mode": "Isolated",
             "leverage": 5,
-            "levels": [grid_level("100.00", "0.0100", 120, Option::<u32>::None)],
+            "levels": [grid_level("100.00", "0.0100", 120, Option::<u32>::None), grid_level("105.00", "0.0100", 120, Option::<u32>::None)],
             "overall_take_profit_bps": null,
             "overall_stop_loss_bps": null,
             "post_trigger_action": "Stop"
@@ -1669,7 +1786,7 @@ async fn strategy_creation_rejects_strategy_type_and_mode_mismatch() {
     assert_eq!(invalid_ordinary.status(), StatusCode::BAD_REQUEST);
     assert_eq!(
         response_json(invalid_ordinary).await["error"],
-        "strategy type and mode are incompatible"
+        "ordinary_grid is incompatible with SpotClassic/FuturesNeutral mode; use classic_bilateral_grid or omit strategy_type"
     );
 }
 
@@ -1894,6 +2011,81 @@ async fn preflight_prefers_server_derived_membership_exchange_and_symbol_truths(
     let started = start_strategy(&app, &user_token, &strategy_id).await;
     assert_eq!(started.status(), StatusCode::OK);
     assert_eq!(response_json(started).await["preflight"]["ok"], true);
+}
+
+#[tokio::test]
+async fn ordinary_grid_start_bootstraps_with_market_anchor_only() {
+    let db = SharedDb::ephemeral().expect("ephemeral db");
+    let app = app_with_state(AppState::from_shared_db(db.clone()).expect("state"));
+    let email = "ordinary-start-anchor@example.com";
+    let user_token = register_and_login(&app, email, "pass1234").await;
+
+    seed_active_membership(&db, email);
+    seed_exchange_context(
+        &db,
+        email,
+        &["spot"],
+        true,
+        true,
+        &[symbol_record(email, "spot", "BTCUSDT")],
+    );
+
+    let created = create_strategy(
+        &app,
+        &user_token,
+        json!({
+            "name": "Ordinary Anchor",
+            "symbol": "BTCUSDT",
+            "market": "Spot",
+            "mode": "SpotBuyOnly",
+            "strategy_type": "ordinary_grid",
+            "generation": "Custom",
+            "levels": [
+                grid_level("100.00", "0.0100", 120, None),
+                grid_level("99.00", "0.0100", 120, None),
+                grid_level("98.00", "0.0100", 120, None)
+            ],
+            "membership_ready": true,
+            "exchange_ready": true,
+            "permissions_ready": true,
+            "withdrawals_disabled": true,
+            "hedge_mode_ready": true,
+            "symbol_ready": true,
+            "filters_ready": true,
+            "margin_ready": true,
+            "conflict_ready": true,
+            "balance_ready": true,
+            "overall_take_profit_bps": null,
+            "overall_stop_loss_bps": null,
+            "post_trigger_action": "Stop"
+        }),
+    )
+    .await;
+    assert_eq!(created.status(), StatusCode::CREATED);
+    let strategy_id = response_json(created).await["id"]
+        .as_str()
+        .expect("strategy id")
+        .to_string();
+
+    let started = start_strategy(&app, &user_token, &strategy_id).await;
+    assert_eq!(started.status(), StatusCode::OK);
+    let body = response_json(started).await;
+    let orders = body["runtime"]["orders"].as_array().expect("orders");
+    assert_eq!(orders.len(), 3);
+    assert_eq!(orders[0]["side"], "Buy");
+    assert_eq!(orders[0]["price"], "100");
+    assert_eq!(orders[1]["side"], "Buy");
+    assert_eq!(orders[1]["price"], "99");
+    assert_eq!(orders[2]["side"], "Buy");
+    assert_eq!(orders[2]["price"], "98");
+    assert_eq!(
+        body["runtime"]["positions"]
+            .as_array()
+            .expect("positions")
+            .len(),
+        0
+    );
+    assert_eq!(body["runtime"]["fills"].as_array().expect("fills").len(), 0);
 }
 
 #[tokio::test]
@@ -2252,7 +2444,6 @@ async fn regular_user_cannot_create_admin_template() {
     assert_eq!(response.status(), StatusCode::FORBIDDEN);
 }
 
-
 #[tokio::test]
 async fn admin_template_create_update_apply_preserves_classic_reference_price() {
     let app = app();
@@ -2444,7 +2635,14 @@ async fn create_template(
 }
 
 async fn list_templates(app: &axum::Router, session_token: &str) -> axum::response::Response {
-    request(app, Some(session_token), "GET", "/admin/templates", Value::Null).await
+    request(
+        app,
+        Some(session_token),
+        "GET",
+        "/admin/templates",
+        Value::Null,
+    )
+    .await
 }
 
 async fn update_template(

@@ -18,11 +18,11 @@ use trading_engine::strategy_runtime::StrategyRuntimeEngine;
 use shared_domain::{
     membership::MembershipStatus,
     strategy::{
+        set_strategy_template_reference_price, strategy_template_reference_price,
         FuturesMarginMode, GridGeneration, GridLevel, PostTriggerAction, PreflightFailure,
         PreflightReport, PreflightStepResult, PreflightStepStatus, ReferencePriceSource,
         RuntimeControls, Strategy, StrategyAmountMode, StrategyMarket, StrategyMode,
         StrategyRevision, StrategyRuntime, StrategyRuntimeEvent, StrategyRuntimeFill,
-        strategy_template_reference_price, set_strategy_template_reference_price,
         StrategyRuntimeOrder, StrategyRuntimePhase, StrategyRuntimePosition, StrategyStatus,
         StrategyTemplate, StrategyType,
     },
@@ -51,7 +51,7 @@ pub struct SaveStrategyRequest {
     pub market: StrategyMarket,
     pub mode: StrategyMode,
     #[serde(default)]
-    pub strategy_type: StrategyType,
+    pub strategy_type: Option<StrategyType>,
     pub generation: GridGeneration,
     #[serde(default)]
     pub amount_mode: StrategyAmountMode,
@@ -86,8 +86,18 @@ pub struct SaveStrategyRequest {
     #[serde(default)]
     pub reference_price_source: ReferencePriceSource,
     pub post_trigger_action: PostTriggerAction,
+    #[serde(default)]
+    pub tags: Vec<String>,
+    #[serde(default)]
+    pub notes: String,
     #[serde(flatten, default)]
     pub extra: BTreeMap<String, Value>,
+}
+
+impl SaveStrategyRequest {
+    pub fn resolved_strategy_type(&self) -> StrategyType {
+        self.strategy_type.unwrap_or(StrategyType::OrdinaryGrid)
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -151,6 +161,11 @@ pub struct StrategyRuntimeResponse {
     pub fills: Vec<StrategyRuntimeFill>,
     pub positions: Vec<StrategyRuntimePosition>,
     pub events: Vec<StrategyRuntimeEvent>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct BatchStrategyRuntimeResponse {
+    pub items: Vec<StrategyRuntimeResponse>,
 }
 
 #[derive(Debug, Serialize)]
@@ -346,11 +361,37 @@ impl StrategyService {
         })
     }
 
+    pub fn batch_get_strategy_runtimes(
+        &self,
+        owner_email: &str,
+        strategy_ids: &[String],
+    ) -> Result<BatchStrategyRuntimeResponse, StrategyError> {
+        let items = strategy_ids
+            .iter()
+            .filter_map(|id| self.get_strategy_runtime(owner_email, id).ok())
+            .collect();
+        Ok(BatchStrategyRuntimeResponse { items })
+    }
+
+    pub fn list_strategies_paginated(
+        &self,
+        owner_email: &str,
+        page: u32,
+        per_page: u32,
+    ) -> StrategyListResponse {
+        let all = self.list_strategies(owner_email);
+        let start = ((page - 1) * per_page) as usize;
+        let per_page = per_page as usize;
+        let items: Vec<Strategy> = all.items.into_iter().skip(start).take(per_page).collect();
+        StrategyListResponse { items }
+    }
+
     pub fn create_strategy(
         &self,
         owner_email: &str,
         request: SaveStrategyRequest,
     ) -> Result<Strategy, StrategyError> {
+        let has_explicit_reference = parse_decimal_extra(&request, "reference_price")?.is_some();
         let request = normalize_strategy_request(request)?;
         validate_strategy_request(&request)?;
 
@@ -368,6 +409,15 @@ impl StrategyService {
             None,
         )?;
         self.normalize_strategy_levels(&mut strategy)?;
+        if !has_explicit_reference {
+            if let Some(derived) = derived_reference_price_from_grid_levels(
+                strategy.strategy_type,
+                strategy.mode,
+                &strategy.draft_revision.levels,
+            ) {
+                strategy.draft_revision.reference_price = Some(derived);
+            }
+        }
         self.db
             .insert_strategy(&StoredStrategy {
                 sequence_id,
@@ -383,6 +433,7 @@ impl StrategyService {
         strategy_id: &str,
         request: SaveStrategyRequest,
     ) -> Result<Strategy, StrategyError> {
+        let has_explicit_reference = parse_decimal_extra(&request, "reference_price")?.is_some();
         let request = normalize_strategy_request(request)?;
         validate_strategy_request(&request)?;
 
@@ -405,11 +456,12 @@ impl StrategyService {
         }
 
         let reference_price = reference_price_for_request(&request)?;
+        let resolved_strategy_type = request.resolved_strategy_type();
         strategy.name = request.name;
         strategy.symbol = request.symbol;
         strategy.market = request.market;
         strategy.mode = request.mode;
-        strategy.strategy_type = request.strategy_type;
+        strategy.strategy_type = resolved_strategy_type;
         strategy.budget = summarize_budget(&request.levels)?;
         strategy.grid_spacing_bps = summarize_spacing_bps(&request.levels)?;
         strategy.membership_ready = false;
@@ -425,7 +477,7 @@ impl StrategyService {
         strategy.draft_revision = build_revision(
             &strategy.id,
             strategy.draft_revision.version + 1,
-            request.strategy_type,
+            resolved_strategy_type,
             request.generation,
             request.amount_mode,
             request.futures_margin_mode,
@@ -438,11 +490,72 @@ impl StrategyService {
             request.post_trigger_action,
         )?;
         self.normalize_strategy_levels(&mut strategy)?;
+        if !has_explicit_reference {
+            if let Some(derived) = derived_reference_price_from_grid_levels(
+                strategy.strategy_type,
+                strategy.mode,
+                &strategy.draft_revision.levels,
+            ) {
+                strategy.draft_revision.reference_price = Some(derived);
+            }
+        }
 
         self.db
             .update_strategy(&strategy)
             .map_err(StrategyError::storage)?;
         Ok(strategy)
+    }
+
+    pub fn clone_strategy(
+        &self,
+        owner_email: &str,
+        strategy_id: &str,
+    ) -> Result<Strategy, StrategyError> {
+        let source = self
+            .db
+            .find_strategy(owner_email, strategy_id)
+            .map_err(StrategyError::storage)?
+            .ok_or_else(|| StrategyError::not_found("strategy not found"))?;
+        let rev = &source.draft_revision;
+        let request = SaveStrategyRequest {
+            name: format!("{} (Copy)", source.name),
+            symbol: source.symbol.clone(),
+            market: source.market,
+            mode: source.mode,
+            strategy_type: Some(source.strategy_type),
+            generation: rev.generation,
+            levels: rev
+                .levels
+                .iter()
+                .map(|l| SaveGridLevelRequest {
+                    entry_price: l.entry_price.to_string(),
+                    quantity: l.quantity.to_string(),
+                    take_profit_bps: l.take_profit_bps,
+                    trailing_bps: l.trailing_bps,
+                })
+                .collect(),
+            amount_mode: rev.amount_mode,
+            futures_margin_mode: rev.futures_margin_mode,
+            leverage: rev.leverage,
+            membership_ready: source.membership_ready,
+            exchange_ready: source.exchange_ready,
+            permissions_ready: source.permissions_ready,
+            withdrawals_disabled: source.withdrawals_disabled,
+            hedge_mode_ready: source.hedge_mode_ready,
+            symbol_ready: source.symbol_ready,
+            filters_ready: source.filters_ready,
+            margin_ready: source.margin_ready,
+            conflict_ready: source.conflict_ready,
+            balance_ready: source.balance_ready,
+            overall_take_profit_bps: rev.overall_take_profit_bps,
+            overall_stop_loss_bps: rev.overall_stop_loss_bps,
+            reference_price_source: rev.reference_price_source,
+            post_trigger_action: rev.post_trigger_action,
+            tags: source.tags.clone(),
+            notes: source.notes.clone(),
+            extra: BTreeMap::new(),
+        };
+        self.create_strategy(owner_email, request)
     }
 
     pub fn preflight_strategy(
@@ -765,6 +878,8 @@ impl StrategyService {
         session_sid: u64,
         request: CreateTemplateRequest,
     ) -> Result<StrategyTemplate, StrategyError> {
+        let has_explicit_reference =
+            parse_decimal_extra(&request.strategy, "reference_price")?.is_some();
         let strategy = normalize_strategy_request(request.strategy)?;
         validate_strategy_request(&strategy)?;
 
@@ -773,11 +888,72 @@ impl StrategyService {
             .next_sequence("strategy_template")
             .map_err(StrategyError::storage)?;
         let template_id = format!("template-{sequence_id}");
-        let template = build_template(&template_id, strategy.clone())?;
+        let mut template = build_template(&template_id, strategy.clone())?;
+
+        let mut temp_strategy = Strategy {
+            id: template_id.clone(),
+            owner_email: actor_email.to_string(),
+            name: template.name.clone(),
+            symbol: template.symbol.clone(),
+            budget: template.budget.clone(),
+            grid_spacing_bps: template.grid_spacing_bps,
+            status: StrategyStatus::Draft,
+            source_template_id: None,
+            membership_ready: false,
+            exchange_ready: false,
+            permissions_ready: false,
+            withdrawals_disabled: false,
+            hedge_mode_ready: false,
+            symbol_ready: false,
+            filters_ready: false,
+            margin_ready: false,
+            conflict_ready: matches!(template.market, StrategyMarket::Spot),
+            balance_ready: false,
+            strategy_type: template.strategy_type,
+            market: template.market,
+            mode: template.mode,
+            runtime_phase: StrategyRuntimePhase::Draft,
+            runtime_controls: RuntimeControls::default(),
+            draft_revision: StrategyRevision {
+                revision_id: format!("{template_id}-revision-1"),
+                version: 1,
+                strategy_type: template.strategy_type,
+                generation: template.generation,
+                levels: template.levels.clone(),
+                amount_mode: template.amount_mode,
+                futures_margin_mode: template.futures_margin_mode,
+                leverage: template.leverage,
+                reference_price_source: template.reference_price_source,
+                reference_price: strategy_template_reference_price(&template),
+                overall_take_profit_bps: template.overall_take_profit_bps,
+                overall_stop_loss_bps: template.overall_stop_loss_bps,
+                post_trigger_action: template.post_trigger_action,
+            },
+            tags: Vec::new(),
+            notes: String::new(),
+            active_revision: None,
+            runtime: default_runtime(),
+            archived_at: None,
+        };
+        self.normalize_strategy_levels(&mut temp_strategy)?;
+        template.levels = temp_strategy.draft_revision.levels.clone();
+        template.budget = summarize_budget_from_grid_levels(&template.levels);
+        template.grid_spacing_bps = summarize_spacing_bps_from_grid_levels(&template.levels);
+        if !has_explicit_reference {
+            if let Some(derived) = derived_reference_price_from_grid_levels(
+                template.strategy_type,
+                template.mode,
+                &template.levels,
+            ) {
+                set_strategy_template_reference_price(&template.id, Some(derived));
+            }
+        }
+
         let stored_template = StoredStrategyTemplate {
             sequence_id,
             template: template.clone(),
-            reference_price: strategy_template_reference_price(&template).map(|value| value.to_string()),
+            reference_price: strategy_template_reference_price(&template)
+                .map(|value| value.to_string()),
         };
         let audit = build_template_audit(
             actor_email,
@@ -801,6 +977,8 @@ impl StrategyService {
         template_id: &str,
         request: UpdateTemplateRequest,
     ) -> Result<StrategyTemplate, StrategyError> {
+        let has_explicit_reference =
+            parse_decimal_extra(&request.strategy, "reference_price")?.is_some();
         let strategy = normalize_strategy_request(request.strategy)?;
         validate_strategy_request(&strategy)?;
 
@@ -809,7 +987,67 @@ impl StrategyService {
             .find_template(template_id)
             .map_err(StrategyError::storage)?
             .ok_or_else(|| StrategyError::not_found("template not found"))?;
-        let template = build_template(template_id, strategy.clone())?;
+        let mut template = build_template(template_id, strategy.clone())?;
+
+        let mut temp_strategy = Strategy {
+            id: template_id.to_string(),
+            owner_email: actor_email.to_string(),
+            name: template.name.clone(),
+            symbol: template.symbol.clone(),
+            budget: template.budget.clone(),
+            grid_spacing_bps: template.grid_spacing_bps,
+            status: StrategyStatus::Draft,
+            source_template_id: None,
+            membership_ready: false,
+            exchange_ready: false,
+            permissions_ready: false,
+            withdrawals_disabled: false,
+            hedge_mode_ready: false,
+            symbol_ready: false,
+            filters_ready: false,
+            margin_ready: false,
+            conflict_ready: matches!(template.market, StrategyMarket::Spot),
+            balance_ready: false,
+            strategy_type: template.strategy_type,
+            market: template.market,
+            mode: template.mode,
+            runtime_phase: StrategyRuntimePhase::Draft,
+            runtime_controls: RuntimeControls::default(),
+            draft_revision: StrategyRevision {
+                revision_id: format!("{template_id}-revision-1"),
+                version: 1,
+                strategy_type: template.strategy_type,
+                generation: template.generation,
+                levels: template.levels.clone(),
+                amount_mode: template.amount_mode,
+                futures_margin_mode: template.futures_margin_mode,
+                leverage: template.leverage,
+                reference_price_source: template.reference_price_source,
+                reference_price: strategy_template_reference_price(&template),
+                overall_take_profit_bps: template.overall_take_profit_bps,
+                overall_stop_loss_bps: template.overall_stop_loss_bps,
+                post_trigger_action: template.post_trigger_action,
+            },
+            tags: Vec::new(),
+            notes: String::new(),
+            active_revision: None,
+            runtime: default_runtime(),
+            archived_at: None,
+        };
+        self.normalize_strategy_levels(&mut temp_strategy)?;
+        template.levels = temp_strategy.draft_revision.levels.clone();
+        template.budget = summarize_budget_from_grid_levels(&template.levels);
+        template.grid_spacing_bps = summarize_spacing_bps_from_grid_levels(&template.levels);
+        if !has_explicit_reference {
+            if let Some(derived) = derived_reference_price_from_grid_levels(
+                template.strategy_type,
+                template.mode,
+                &template.levels,
+            ) {
+                set_strategy_template_reference_price(&template.id, Some(derived));
+            }
+        }
+
         let stored_template = StoredStrategyTemplate {
             sequence_id: existing
                 .id
@@ -817,7 +1055,8 @@ impl StrategyService {
                 .parse::<u64>()
                 .unwrap_or_default(),
             template: template.clone(),
-            reference_price: strategy_template_reference_price(&template).map(|value| value.to_string()),
+            reference_price: strategy_template_reference_price(&template)
+                .map(|value| value.to_string()),
         };
         let audit = build_template_audit(
             actor_email,
@@ -884,7 +1123,7 @@ fn build_template(
     let revision = build_revision(
         template_id,
         1,
-        request.strategy_type,
+        request.resolved_strategy_type(),
         request.generation,
         request.amount_mode,
         request.futures_margin_mode,
@@ -986,7 +1225,7 @@ fn template_to_save_request(template: &StrategyTemplate, name: String) -> SaveSt
         symbol: template.symbol.clone(),
         market: template.market,
         mode: template.mode,
-        strategy_type: template.strategy_type,
+        strategy_type: Some(template.strategy_type),
         generation: template.generation,
         levels: template
             .levels
@@ -1015,6 +1254,8 @@ fn template_to_save_request(template: &StrategyTemplate, name: String) -> SaveSt
         overall_stop_loss_bps: template.overall_stop_loss_bps,
         reference_price_source: template.reference_price_source,
         post_trigger_action: template.post_trigger_action,
+        tags: Vec::new(),
+        notes: String::new(),
         extra,
     }
 }
@@ -1022,6 +1263,31 @@ fn template_to_save_request(template: &StrategyTemplate, name: String) -> SaveSt
 fn normalize_strategy_request(
     mut request: SaveStrategyRequest,
 ) -> Result<SaveStrategyRequest, StrategyError> {
+    match request.strategy_type {
+        None => {
+            request.strategy_type = Some(
+                if matches!(
+                    request.mode,
+                    StrategyMode::SpotClassic | StrategyMode::FuturesNeutral
+                ) {
+                    StrategyType::ClassicBilateralGrid
+                } else {
+                    StrategyType::OrdinaryGrid
+                },
+            );
+        }
+        Some(StrategyType::OrdinaryGrid)
+            if matches!(
+                request.mode,
+                StrategyMode::SpotClassic | StrategyMode::FuturesNeutral
+            ) =>
+        {
+            return Err(StrategyError::bad_request(
+                "ordinary_grid is incompatible with SpotClassic/FuturesNeutral mode; use classic_bilateral_grid or omit strategy_type",
+            ));
+        }
+        _ => {}
+    }
     let hints = bilateral_request_hints(&request)?;
     match hints.strategy_type {
         StrategyType::OrdinaryGrid => {
@@ -1034,6 +1300,7 @@ fn normalize_strategy_request(
         StrategyType::ClassicBilateralGrid => {
             apply_classic_bilateral_defaults(&mut request, hints)?;
         }
+        StrategyType::MartingaleGrid => {}
     }
     Ok(request)
 }
@@ -1042,7 +1309,7 @@ fn bilateral_request_hints(
     request: &SaveStrategyRequest,
 ) -> Result<BilateralRequestHints, StrategyError> {
     Ok(BilateralRequestHints {
-        strategy_type: request.strategy_type,
+        strategy_type: request.resolved_strategy_type(),
         levels_per_side: parse_u32_extra(request, "levels_per_side")?,
         spacing_mode: parse_spacing_mode(request)?,
         grid_spacing_bps: parse_u32_extra(request, "grid_spacing_bps")?,
@@ -1256,17 +1523,16 @@ fn decimal_power(base: Decimal, exponent: u32) -> Decimal {
 }
 
 fn validate_strategy_request(request: &SaveStrategyRequest) -> Result<(), StrategyError> {
-    if request.name.trim().is_empty() {
-        return Err(StrategyError::bad_request("name is required"));
-    }
     if request.symbol.trim().is_empty() {
         return Err(StrategyError::bad_request("symbol is required"));
     }
     if request.levels.is_empty() {
         return Err(StrategyError::bad_request("levels are required"));
     }
-    if matches!(request.strategy_type, StrategyType::ClassicBilateralGrid)
-        && request.levels.len() < 2
+    if matches!(
+        request.resolved_strategy_type(),
+        StrategyType::ClassicBilateralGrid
+    ) && request.levels.len() < 2
     {
         return Err(StrategyError::bad_request(
             "classic bilateral grid requires at least 2 levels",
@@ -1277,7 +1543,7 @@ fn validate_strategy_request(request: &SaveStrategyRequest) -> Result<(), Strate
             "market and mode are incompatible",
         ));
     }
-    if !strategy_type_matches_mode(request.strategy_type, request.mode) {
+    if !strategy_type_matches_mode(request.resolved_strategy_type(), request.mode) {
         return Err(StrategyError::bad_request(
             "strategy type and mode are incompatible",
         ));
@@ -1307,10 +1573,11 @@ fn validate_strategy_request(request: &SaveStrategyRequest) -> Result<(), Strate
         parsed.push(entry_price);
     }
 
-    if !levels_follow_execution_order(&parsed, request.strategy_type, request.mode) {
-        return Err(StrategyError::bad_request(
-            expected_levels_order_message(request.strategy_type, request.mode),
-        ));
+    if !levels_follow_execution_order(&parsed, request.resolved_strategy_type(), request.mode) {
+        return Err(StrategyError::bad_request(expected_levels_order_message(
+            request.resolved_strategy_type(),
+            request.mode,
+        )));
     }
 
     if matches!(request.market, StrategyMarket::Spot) {
@@ -1352,8 +1619,12 @@ fn grid_levels_follow_execution_order(
     mode: StrategyMode,
 ) -> bool {
     match expected_level_direction(strategy_type, mode) {
-        LevelDirection::Ascending => levels.windows(2).all(|pair| pair[0].entry_price < pair[1].entry_price),
-        LevelDirection::Descending => levels.windows(2).all(|pair| pair[0].entry_price > pair[1].entry_price),
+        LevelDirection::Ascending => levels
+            .windows(2)
+            .all(|pair| pair[0].entry_price < pair[1].entry_price),
+        LevelDirection::Descending => levels
+            .windows(2)
+            .all(|pair| pair[0].entry_price > pair[1].entry_price),
     }
 }
 
@@ -1371,15 +1642,15 @@ enum LevelDirection {
 }
 
 fn expected_level_direction(strategy_type: StrategyType, mode: StrategyMode) -> LevelDirection {
-    if matches!(strategy_type, StrategyType::ClassicBilateralGrid)
-        || matches!(
-            mode,
-            StrategyMode::SpotClassic | StrategyMode::FuturesNeutral | StrategyMode::FuturesShort
-        )
-    {
-        LevelDirection::Ascending
-    } else {
-        LevelDirection::Descending
+    if matches!(strategy_type, StrategyType::ClassicBilateralGrid) {
+        return LevelDirection::Ascending;
+    }
+    match mode {
+        StrategyMode::SpotClassic
+        | StrategyMode::SpotSellOnly
+        | StrategyMode::FuturesNeutral
+        | StrategyMode::FuturesShort => LevelDirection::Ascending,
+        StrategyMode::SpotBuyOnly | StrategyMode::FuturesLong => LevelDirection::Descending,
     }
 }
 
@@ -1392,11 +1663,12 @@ fn build_strategy(
     active_revision: Option<StrategyRevision>,
     archived_at: Option<chrono::DateTime<Utc>>,
 ) -> Result<Strategy, StrategyError> {
+    let resolved_strategy_type = request.resolved_strategy_type();
     let reference_price = reference_price_for_request(&request)?;
     let draft_revision = build_revision(
         &format!("strategy-{sequence_id}"),
         1,
-        request.strategy_type,
+        resolved_strategy_type,
         request.generation,
         request.amount_mode,
         request.futures_margin_mode,
@@ -1428,7 +1700,7 @@ fn build_strategy(
         margin_ready: false,
         conflict_ready: matches!(request.market, StrategyMarket::Spot),
         balance_ready: false,
-        strategy_type: request.strategy_type,
+        strategy_type: resolved_strategy_type,
         market: request.market,
         mode: request.mode,
         runtime_phase: StrategyRuntimePhase::Draft,
@@ -1436,6 +1708,8 @@ fn build_strategy(
         draft_revision,
         active_revision,
         runtime,
+        tags: request.tags,
+        notes: request.notes,
         archived_at,
     })
 }
@@ -1486,12 +1760,31 @@ fn build_revision(
     })
 }
 
+fn derived_reference_price_from_grid_levels(
+    strategy_type: StrategyType,
+    mode: StrategyMode,
+    levels: &[GridLevel],
+) -> Option<Decimal> {
+    if levels.is_empty() {
+        return None;
+    }
+    let prices: Vec<Decimal> = levels.iter().map(|l| l.entry_price).collect();
+    Some(if uses_center_reference(strategy_type, mode) {
+        midpoint_reference_price(&prices)
+    } else {
+        prices[0]
+    })
+}
+
 fn reference_price_for_request(
     request: &SaveStrategyRequest,
 ) -> Result<Option<Decimal>, StrategyError> {
     Ok(
-        parse_decimal_extra(request, "reference_price")?
-            .or(reference_price_from_levels(request.strategy_type, request.mode, &request.levels)?),
+        parse_decimal_extra(request, "reference_price")?.or(reference_price_from_levels(
+            request.resolved_strategy_type(),
+            request.mode,
+            &request.levels,
+        )?),
     )
 }
 
@@ -1518,16 +1811,21 @@ fn reference_price_from_levels(
 
 fn uses_center_reference(strategy_type: StrategyType, mode: StrategyMode) -> bool {
     matches!(strategy_type, StrategyType::ClassicBilateralGrid)
-        || matches!(mode, StrategyMode::SpotClassic | StrategyMode::FuturesNeutral)
+        || matches!(
+            mode,
+            StrategyMode::SpotClassic | StrategyMode::FuturesNeutral
+        )
 }
 
 fn midpoint_reference_price(prices: &[Decimal]) -> Decimal {
     match prices {
         [] => Decimal::ZERO,
         [single] => *single,
-        _ => (prices.first().copied().unwrap_or(Decimal::ZERO)
-            + prices.last().copied().unwrap_or(Decimal::ZERO))
-            / Decimal::from(2u32),
+        _ => {
+            (prices.first().copied().unwrap_or(Decimal::ZERO)
+                + prices.last().copied().unwrap_or(Decimal::ZERO))
+                / Decimal::from(2u32)
+        }
     }
 }
 
@@ -2304,8 +2602,18 @@ fn strategy_type_matches_mode(strategy_type: StrategyType, mode: StrategyMode) -
                 | StrategyMode::FuturesShort
         ),
         StrategyType::ClassicBilateralGrid => {
-            matches!(mode, StrategyMode::SpotClassic | StrategyMode::FuturesNeutral)
+            matches!(
+                mode,
+                StrategyMode::SpotClassic | StrategyMode::FuturesNeutral
+            )
         }
+        StrategyType::MartingaleGrid => matches!(
+            mode,
+            StrategyMode::SpotBuyOnly
+                | StrategyMode::SpotSellOnly
+                | StrategyMode::FuturesLong
+                | StrategyMode::FuturesShort
+        ),
     }
 }
 
@@ -2565,7 +2873,7 @@ impl StrategyError {
         }
     }
 
-    fn not_found(message: &str) -> Self {
+    pub fn not_found(message: &str) -> Self {
         Self {
             status: StatusCode::NOT_FOUND,
             message: message.to_string(),
@@ -2629,14 +2937,14 @@ impl From<AuthError> for StrategyError {
 mod tests {
     use super::{
         rebuild_runtime, run_preflight, strategy_template_reference_price,
-        template_to_save_request, ApplyTemplateRequest,
-        CreateTemplateRequest, SaveGridLevelRequest, SaveStrategyRequest, StrategyError,
-        StrategyService, UpdateTemplateRequest,
+        template_to_save_request, ApplyTemplateRequest, CreateTemplateRequest,
+        SaveGridLevelRequest, SaveStrategyRequest, StrategyError, StrategyService,
+        UpdateTemplateRequest,
     };
     use crate::services::auth_service::AdminRole;
     use axum::http::StatusCode;
     use chrono::Utc;
-    use serde_json::json;
+    use serde_json::{json, Value};
     use shared_db::{MembershipRecord, SharedDb, UserExchangeAccountRecord};
     use shared_domain::strategy::{
         FuturesMarginMode, GridGeneration, GridLevel, PostTriggerAction, PreflightStepStatus,
@@ -2652,6 +2960,26 @@ mod tests {
         process::Command,
         time::{SystemTime, UNIX_EPOCH},
     };
+
+    #[test]
+    fn martingale_grid_strategy_type_matches_supported_modes() {
+        assert!(super::strategy_type_matches_mode(
+            StrategyType::MartingaleGrid,
+            StrategyMode::SpotBuyOnly
+        ));
+        assert!(super::strategy_type_matches_mode(
+            StrategyType::MartingaleGrid,
+            StrategyMode::FuturesLong
+        ));
+        assert!(super::strategy_type_matches_mode(
+            StrategyType::MartingaleGrid,
+            StrategyMode::FuturesShort
+        ));
+        assert!(!super::strategy_type_matches_mode(
+            StrategyType::MartingaleGrid,
+            StrategyMode::SpotClassic
+        ));
+    }
 
     #[test]
     fn create_template_fails_when_audit_write_fails() {
@@ -2721,7 +3049,22 @@ mod tests {
         let db = SharedDb::ephemeral().expect("db");
         let service = StrategyService::new(db);
         let mut request = template_request("Classic Template");
-        request.strategy_type = StrategyType::ClassicBilateralGrid;
+        request.strategy_type = Some(StrategyType::ClassicBilateralGrid);
+        request.mode = StrategyMode::SpotClassic;
+        request.levels = vec![
+            SaveGridLevelRequest {
+                entry_price: "95".to_string(),
+                quantity: "1".to_string(),
+                take_profit_bps: 100,
+                trailing_bps: None,
+            },
+            SaveGridLevelRequest {
+                entry_price: "105".to_string(),
+                quantity: "1".to_string(),
+                take_profit_bps: 100,
+                trailing_bps: None,
+            },
+        ];
         request.reference_price_source = ReferencePriceSource::Market;
         request
             .extra
@@ -2806,15 +3149,23 @@ mod tests {
             name: name.to_string(),
             symbol: "BTCUSDT".to_string(),
             market: StrategyMarket::Spot,
-            mode: StrategyMode::SpotClassic,
-            strategy_type: StrategyType::OrdinaryGrid,
+            mode: StrategyMode::SpotBuyOnly,
+            strategy_type: Some(StrategyType::OrdinaryGrid),
             generation: GridGeneration::Custom,
-            levels: vec![SaveGridLevelRequest {
-                entry_price: "100".to_string(),
-                quantity: "1".to_string(),
-                take_profit_bps: 100,
-                trailing_bps: None,
-            }],
+            levels: vec![
+                SaveGridLevelRequest {
+                    entry_price: "105".to_string(),
+                    quantity: "1".to_string(),
+                    take_profit_bps: 100,
+                    trailing_bps: None,
+                },
+                SaveGridLevelRequest {
+                    entry_price: "95".to_string(),
+                    quantity: "1".to_string(),
+                    take_profit_bps: 100,
+                    trailing_bps: None,
+                },
+            ],
             amount_mode: StrategyAmountMode::Quote,
             futures_margin_mode: None,
             leverage: None,
@@ -2832,6 +3183,8 @@ mod tests {
             overall_stop_loss_bps: None,
             reference_price_source: ReferencePriceSource::Manual,
             post_trigger_action: PostTriggerAction::Stop,
+            tags: Vec::new(),
+            notes: String::new(),
             extra: BTreeMap::new(),
         }
     }
@@ -2998,8 +3351,8 @@ mod tests {
                     name: "draft".to_string(),
                     symbol: "BTCUSDT".to_string(),
                     market: StrategyMarket::Spot,
-                    mode: StrategyMode::SpotClassic,
-                    strategy_type: StrategyType::OrdinaryGrid,
+                    mode: StrategyMode::SpotBuyOnly,
+                    strategy_type: Some(StrategyType::OrdinaryGrid),
                     generation: GridGeneration::Custom,
                     levels: vec![SaveGridLevelRequest {
                         entry_price: "100".to_string(),
@@ -3024,6 +3377,8 @@ mod tests {
                     overall_stop_loss_bps: None,
                     reference_price_source: ReferencePriceSource::Manual,
                     post_trigger_action: PostTriggerAction::Stop,
+                    tags: Vec::new(),
+                    notes: String::new(),
                     extra: BTreeMap::new(),
                 },
             )
@@ -3051,8 +3406,8 @@ mod tests {
                     name: "spot".to_string(),
                     symbol: "BTCUSDT".to_string(),
                     market: StrategyMarket::Spot,
-                    mode: StrategyMode::SpotClassic,
-                    strategy_type: StrategyType::OrdinaryGrid,
+                    mode: StrategyMode::SpotBuyOnly,
+                    strategy_type: Some(StrategyType::OrdinaryGrid),
                     generation: GridGeneration::Custom,
                     levels: vec![SaveGridLevelRequest {
                         entry_price: "100".to_string(),
@@ -3077,6 +3432,8 @@ mod tests {
                     overall_stop_loss_bps: None,
                     reference_price_source: ReferencePriceSource::Manual,
                     post_trigger_action: PostTriggerAction::Stop,
+                    tags: Vec::new(),
+                    notes: String::new(),
                     extra: BTreeMap::new(),
                 },
             )
@@ -3181,8 +3538,8 @@ mod tests {
                     name: "spot".to_string(),
                     symbol: "BTCUSDT".to_string(),
                     market: StrategyMarket::Spot,
-                    mode: StrategyMode::SpotClassic,
-                    strategy_type: StrategyType::OrdinaryGrid,
+                    mode: StrategyMode::SpotBuyOnly,
+                    strategy_type: Some(StrategyType::OrdinaryGrid),
                     generation: GridGeneration::Custom,
                     levels: vec![SaveGridLevelRequest {
                         entry_price: "100".to_string(),
@@ -3207,6 +3564,8 @@ mod tests {
                     overall_stop_loss_bps: None,
                     reference_price_source: ReferencePriceSource::Manual,
                     post_trigger_action: PostTriggerAction::Stop,
+                    tags: Vec::new(),
+                    notes: String::new(),
                     extra: BTreeMap::new(),
                 },
             )
@@ -3256,7 +3615,7 @@ mod tests {
                     symbol: "BTCUSDT".to_string(),
                     market: StrategyMarket::FuturesUsdM,
                     mode: StrategyMode::FuturesLong,
-                    strategy_type: StrategyType::OrdinaryGrid,
+                    strategy_type: Some(StrategyType::OrdinaryGrid),
                     generation: GridGeneration::Custom,
                     levels: vec![SaveGridLevelRequest {
                         entry_price: "100".to_string(),
@@ -3281,6 +3640,8 @@ mod tests {
                     overall_stop_loss_bps: None,
                     reference_price_source: ReferencePriceSource::Manual,
                     post_trigger_action: PostTriggerAction::Stop,
+                    tags: Vec::new(),
+                    notes: String::new(),
                     extra: BTreeMap::new(),
                 },
             )
@@ -3336,6 +3697,7 @@ mod tests {
             futures_margin_mode: None,
             leverage: None,
             reference_price_source: ReferencePriceSource::Manual,
+            reference_price: None,
             overall_take_profit_bps: None,
             overall_stop_loss_bps: None,
             post_trigger_action: PostTriggerAction::Stop,
@@ -3367,6 +3729,8 @@ mod tests {
             draft_revision: revision.clone(),
             active_revision: Some(revision),
             runtime: StrategyRuntime::default(),
+            tags: Vec::new(),
+            notes: String::new(),
             archived_at: None,
         };
 
@@ -3404,6 +3768,7 @@ mod tests {
             futures_margin_mode: Some(FuturesMarginMode::Cross),
             leverage: Some(5),
             reference_price_source: ReferencePriceSource::Manual,
+            reference_price: None,
             overall_take_profit_bps: None,
             overall_stop_loss_bps: None,
             post_trigger_action: PostTriggerAction::Stop,
@@ -3435,6 +3800,8 @@ mod tests {
             draft_revision: revision.clone(),
             active_revision: Some(revision),
             runtime: StrategyRuntime::default(),
+            tags: Vec::new(),
+            notes: String::new(),
             archived_at: None,
         };
 
@@ -3518,8 +3885,8 @@ mod tests {
                     name: "paused".to_string(),
                     symbol: "BTCUSDT".to_string(),
                     market: StrategyMarket::Spot,
-                    mode: StrategyMode::SpotClassic,
-                    strategy_type: StrategyType::OrdinaryGrid,
+                    mode: StrategyMode::SpotBuyOnly,
+                    strategy_type: Some(StrategyType::OrdinaryGrid),
                     generation: GridGeneration::Custom,
                     levels: vec![SaveGridLevelRequest {
                         entry_price: "100".to_string(),
@@ -3544,6 +3911,8 @@ mod tests {
                     overall_stop_loss_bps: None,
                     reference_price_source: ReferencePriceSource::Manual,
                     post_trigger_action: PostTriggerAction::Stop,
+                    tags: Vec::new(),
+                    notes: String::new(),
                     extra: BTreeMap::new(),
                 },
             )
@@ -3568,8 +3937,8 @@ mod tests {
                     name: "paused edited".to_string(),
                     symbol: "BTCUSDT".to_string(),
                     market: StrategyMarket::Spot,
-                    mode: StrategyMode::SpotClassic,
-                    strategy_type: StrategyType::OrdinaryGrid,
+                    mode: StrategyMode::SpotBuyOnly,
+                    strategy_type: Some(StrategyType::OrdinaryGrid),
                     generation: GridGeneration::Custom,
                     levels: vec![SaveGridLevelRequest {
                         entry_price: "95".to_string(),
@@ -3594,6 +3963,8 @@ mod tests {
                     overall_stop_loss_bps: None,
                     reference_price_source: ReferencePriceSource::Manual,
                     post_trigger_action: PostTriggerAction::Stop,
+                    tags: Vec::new(),
+                    notes: String::new(),
                     extra: BTreeMap::new(),
                 },
             )
@@ -3685,8 +4056,8 @@ mod tests {
                     name: "paused".to_string(),
                     symbol: "BTCUSDT".to_string(),
                     market: StrategyMarket::Spot,
-                    mode: StrategyMode::SpotClassic,
-                    strategy_type: StrategyType::OrdinaryGrid,
+                    mode: StrategyMode::SpotBuyOnly,
+                    strategy_type: Some(StrategyType::OrdinaryGrid),
                     generation: GridGeneration::Custom,
                     levels: vec![SaveGridLevelRequest {
                         entry_price: "100".to_string(),
@@ -3711,6 +4082,8 @@ mod tests {
                     overall_stop_loss_bps: None,
                     reference_price_source: ReferencePriceSource::Manual,
                     post_trigger_action: PostTriggerAction::Stop,
+                    tags: Vec::new(),
+                    notes: String::new(),
                     extra: BTreeMap::new(),
                 },
             )
@@ -3829,18 +4202,18 @@ mod tests {
                     name: "paused".to_string(),
                     symbol: "BTCUSDT".to_string(),
                     market: StrategyMarket::Spot,
-                    mode: StrategyMode::SpotClassic,
-                    strategy_type: StrategyType::OrdinaryGrid,
+                    mode: StrategyMode::SpotBuyOnly,
+                    strategy_type: Some(StrategyType::OrdinaryGrid),
                     generation: GridGeneration::Custom,
                     levels: vec![
                         SaveGridLevelRequest {
-                            entry_price: "100".to_string(),
+                            entry_price: "110".to_string(),
                             quantity: "1".to_string(),
                             take_profit_bps: 100,
                             trailing_bps: None,
                         },
                         SaveGridLevelRequest {
-                            entry_price: "110".to_string(),
+                            entry_price: "100".to_string(),
                             quantity: "1".to_string(),
                             take_profit_bps: 100,
                             trailing_bps: None,
@@ -3863,6 +4236,8 @@ mod tests {
                     overall_stop_loss_bps: None,
                     reference_price_source: ReferencePriceSource::Manual,
                     post_trigger_action: PostTriggerAction::Stop,
+                    tags: Vec::new(),
+                    notes: String::new(),
                     extra: BTreeMap::new(),
                 },
             )
@@ -3873,7 +4248,7 @@ mod tests {
         paused.active_revision = Some(paused.draft_revision.clone());
         paused.runtime.positions = vec![StrategyRuntimePosition {
             market: StrategyMarket::Spot,
-            mode: StrategyMode::SpotClassic,
+            mode: StrategyMode::SpotBuyOnly,
             quantity: "1".parse().expect("decimal"),
             average_entry_price: "140".parse().expect("decimal"),
         }];
@@ -3948,7 +4323,7 @@ mod tests {
                     symbol: "BTCUSDT".to_string(),
                     market: StrategyMarket::Spot,
                     mode: StrategyMode::SpotBuyOnly,
-                    strategy_type: StrategyType::OrdinaryGrid,
+                    strategy_type: Some(StrategyType::OrdinaryGrid),
                     generation: GridGeneration::Custom,
                     levels: vec![SaveGridLevelRequest {
                         entry_price: "100.13".to_string(),
@@ -3973,6 +4348,8 @@ mod tests {
                     overall_stop_loss_bps: None,
                     reference_price_source: ReferencePriceSource::Manual,
                     post_trigger_action: PostTriggerAction::Stop,
+                    tags: Vec::new(),
+                    notes: String::new(),
                     extra: BTreeMap::new(),
                 },
             )
@@ -3985,6 +4362,61 @@ mod tests {
         assert_eq!(
             strategy.draft_revision.levels[0].quantity,
             "0.123".parse().expect("decimal")
+        );
+        assert_eq!(
+            strategy.draft_revision.reference_price,
+            Some("100.10".parse().expect("decimal"))
+        );
+
+        let mut explicit_extra = BTreeMap::new();
+        explicit_extra.insert(
+            "reference_price".to_string(),
+            Value::String("101.23".to_string()),
+        );
+        let strategy_with_explicit_reference = service
+            .create_strategy(
+                "trader@example.com",
+                SaveStrategyRequest {
+                    name: "explicit-ref".to_string(),
+                    symbol: "BTCUSDT".to_string(),
+                    market: StrategyMarket::Spot,
+                    mode: StrategyMode::SpotBuyOnly,
+                    strategy_type: Some(StrategyType::OrdinaryGrid),
+                    generation: GridGeneration::Custom,
+                    levels: vec![SaveGridLevelRequest {
+                        entry_price: "100.13".to_string(),
+                        quantity: "0.1237".to_string(),
+                        take_profit_bps: 100,
+                        trailing_bps: None,
+                    }],
+                    amount_mode: StrategyAmountMode::Quote,
+                    futures_margin_mode: None,
+                    leverage: None,
+                    membership_ready: true,
+                    exchange_ready: true,
+                    permissions_ready: true,
+                    withdrawals_disabled: true,
+                    hedge_mode_ready: true,
+                    symbol_ready: true,
+                    filters_ready: true,
+                    margin_ready: true,
+                    conflict_ready: true,
+                    balance_ready: true,
+                    overall_take_profit_bps: None,
+                    overall_stop_loss_bps: None,
+                    reference_price_source: ReferencePriceSource::Manual,
+                    post_trigger_action: PostTriggerAction::Stop,
+                    tags: Vec::new(),
+                    notes: String::new(),
+                    extra: explicit_extra,
+                },
+            )
+            .expect("strategy with explicit reference");
+        assert_eq!(
+            strategy_with_explicit_reference
+                .draft_revision
+                .reference_price,
+            Some("101.23".parse().expect("decimal"))
         );
     }
 }

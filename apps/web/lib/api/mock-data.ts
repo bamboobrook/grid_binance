@@ -122,6 +122,8 @@ function buildUserNav(lang: UiLanguage): NavItem[] {
     { href: "/app/exchange", label: pickText(lang, "交易所", "Exchange") },
     { href: "/app/notifications", label: pickText(lang, "通知", "Notifications") },
     { href: "/app/strategies", label: pickText(lang, "策略", "Strategies") },
+    { href: "/app/backtest", label: pickText(lang, "回测", "Backtest") },
+    { href: "/app/martingale-portfolios", label: pickText(lang, "马丁组合", "Martingale Portfolios") },
     { href: "/app/orders", label: pickText(lang, "订单", "Orders") },
     { href: "/app/analytics", label: pickText(lang, "统计", "Analytics") },
     { href: "/app/billing", label: pickText(lang, "会员中心", "Membership Center") },

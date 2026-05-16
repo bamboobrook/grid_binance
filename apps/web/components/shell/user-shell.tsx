@@ -2,44 +2,49 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
+import { PanelLeftClose, PanelLeft, LogOut, Bot, LayoutDashboard, CreditCard, Bell, ScrollText, ShieldCheck, HelpCircle, Activity, Box, FlaskConical, Layers3 } from "lucide-react";
 
-import { LogOut } from "lucide-react";
 import type { UserShellSnapshot } from "../../lib/api/mock-data";
 import { pickText, type UiLanguage, type UiTheme } from "../../lib/ui/preferences";
-import { Card, CardBody, CardDescription, CardFooter, CardHeader, CardTitle } from "../ui/card";
-import { Chip } from "../ui/chip";
 import { DialogFrame } from "../ui/dialog";
 import { StatusBanner } from "../ui/status-banner";
 import { ShellPreferences } from "./shell-preferences";
+import { MobileBottomNav } from "../layout/mobile-bottom-nav";
 
 function describeLanguage(lang: UiLanguage) {
   return pickText(lang, "中文", "English");
 }
 
 function describeTheme(lang: UiLanguage, theme: UiTheme | null) {
-  if (theme === "dark") {
-    return pickText(lang, "深色", "Dark");
-  }
-  if (theme === "light") {
-    return pickText(lang, "浅色", "Light");
-  }
+  if (theme === "dark") return pickText(lang, "深色", "Dark");
+  if (theme === "light") return pickText(lang, "浅色", "Light");
   return pickText(lang, "跟随系统", "System");
 }
 
 function withLocale(locale: string, href: string) {
-  if (!href.startsWith("/")) {
-    return href;
-  }
-  if (href === "/") {
-    return `/${locale}`;
-  }
+  if (!href.startsWith("/")) return href;
+  if (href === "/") return `/${locale}`;
   return `/${locale}${href}`;
 }
 
 function isNavHrefActive(pathname: string, locale: string, href: string) {
   const localized = withLocale(locale, href);
   return pathname === localized || pathname.startsWith(`${localized}/`);
+}
+
+function getNavIcon(href: string) {
+  if (href.includes("dashboard")) return <LayoutDashboard className="h-5 w-5" />;
+  if (href.includes("backtest")) return <FlaskConical className="h-5 w-5" />;
+  if (href.includes("martingale-portfolios")) return <Layers3 className="h-5 w-5" />;
+  if (href.includes("strategies")) return <Bot className="h-5 w-5" />;
+  if (href.includes("billing")) return <CreditCard className="h-5 w-5" />;
+  if (href.includes("notifications")) return <Bell className="h-5 w-5" />;
+  if (href.includes("orders")) return <ScrollText className="h-5 w-5" />;
+  if (href.includes("security")) return <ShieldCheck className="h-5 w-5" />;
+  if (href.includes("help") || href.includes("telegram")) return <HelpCircle className="h-5 w-5" />;
+  if (href.includes("analytics")) return <Activity className="h-5 w-5" />;
+  return <Box className="h-5 w-5" />;
 }
 
 export function UserShell({
@@ -55,124 +60,119 @@ export function UserShell({
   lang: UiLanguage;
   locale: string;
   theme: UiTheme | null;
-  expiryReminder?: {
-    description: string;
-    title: string;
-  } | null;
+  expiryReminder?: { description: string; title: string } | null;
 }) {
   const pathname = usePathname();
-  const consoleStatus = [
-    { label: pickText(lang, "工作区", "Workspace"), value: pickText(lang, "用户", "User") },
-    { label: pickText(lang, "语言", "Language"), value: describeLanguage(lang) },
-    { label: pickText(lang, "主题", "Theme"), value: describeTheme(lang, theme) },
-  ];
+  const [isExpanded, setIsExpanded] = useState(true);
 
   return (
-    <div className="shell shell--workspace">
-      <aside className="shell-sidebar">
-        <div className="shell-sidebar__brand">
-          <div className="shell-sidebar__meta">
-            <Chip>{pickText(lang, "用户终端", "User console")}</Chip>
-            <span>{snapshot.subtitle}</span>
+    <div className="flex h-screen flex-col bg-background text-foreground">
+      {/* Top Navbar */}
+      <header className="flex h-14 shrink-0 items-center justify-between border-b border-border bg-card px-4 shadow-sm z-20">
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
+            <button onClick={() => setIsExpanded(!isExpanded)} className="hidden sm:flex h-10 w-10 items-center justify-center rounded-lg text-muted-foreground hover:text-foreground transition-colors" title={pickText(lang, "展开/收起侧边栏", "Toggle Sidebar")}>
+              {isExpanded ? <PanelLeftClose className="h-5 w-5" /> : <PanelLeft className="h-5 w-5" />}
+            </button>
+            <Link className="flex items-center gap-2 text-lg font-black tracking-tight text-foreground hover:text-primary transition-colors" href={withLocale(locale, "/app/dashboard")}>
+              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-sm">
+                <Bot className="h-4 w-4" />
+              </div>
+              <span className="hidden sm:inline">{snapshot.brand}</span>
+            </Link>
           </div>
-          <Link className="brand-mark" href={withLocale(locale, "/app/dashboard")}>
-            {snapshot.brand}
-          </Link>
-          <p>{snapshot.subtitle}</p>
+          <div className="hidden md:flex items-center gap-2 px-2 py-1 rounded bg-secondary text-xs font-medium text-foreground border border-border">
+            {pickText(lang, "用户工作区", "User Workspace")}
+          </div>
         </div>
-        <div className="shell-sidebar__section">
-          <p className="shell-sidebar__label">{pickText(lang, "导航", "Navigation")}</p>
-          <nav aria-label={pickText(lang, "用户导航", "User workspace")} className="shell-sidebar__nav">
+        <div className="flex items-center gap-2 sm:gap-4">
+          <div className="hidden lg:flex items-center gap-3">
+            {snapshot.quickStats.map((item) => (
+              <div key={item.label} className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-secondary border border-border text-xs">
+                <span className="text-muted-foreground">{item.label}</span>
+                <strong className="text-foreground font-bold">{item.value}</strong>
+              </div>
+            ))}
+          </div>
+          <ShellPreferences lang={lang} theme={theme} />
+          <div className="h-6 w-px bg-slate-700 mx-0 sm:mx-1"></div>
+          <div className="flex items-center gap-2 sm:gap-3">
+            <div className="hidden sm:flex flex-col items-end">
+              <span className="text-xs font-bold text-foreground">{snapshot.identity.name}</span>
+              <span className="text-[10px] text-muted-foreground">{snapshot.identity.role}</span>
+            </div>
+            <form action={`/api/auth/logout?locale=${locale}`} method="post">
+              <button type="submit" className="flex h-10 w-10 sm:h-8 sm:w-8 items-center justify-center rounded-lg bg-red-500/10 text-red-500 hover:bg-red-500/20 transition-colors" title={pickText(lang, "退出登录", "Log Out")}>
+                <LogOut className="h-4 w-4" />
+              </button>
+            </form>
+          </div>
+        </div>
+      </header>
+
+      <div className="flex flex-1 overflow-hidden relative pb-16 sm:pb-0">
+        {/* Sidebar (desktop only) */}
+        <aside className={`hidden sm:flex shrink-0 flex-col border-r border-border bg-card py-4 transition-all duration-300 ${isExpanded ? "w-48 md:w-56 px-4" : "w-16 md:w-20 px-2 items-center"}`}>
+          <nav className="flex flex-col w-full gap-3">
             {snapshot.nav.map((item) => {
               const localizedHref = withLocale(locale, item.href);
               const isActive = isNavHrefActive(pathname, locale, item.href);
               return (
-                <Link className={isActive ? "shell-link shell-link--active" : "shell-link"} href={localizedHref} key={item.href}>
-                  <span>{item.label}</span>
-                  {item.badge ? <Chip tone={isActive ? "warning" : "default"}>{item.badge}</Chip> : null}
+                <Link
+                  className={`group relative flex w-full transition-all rounded-xl ${
+                    isExpanded ? "flex-row items-center justify-start px-4 gap-3 h-10" : "flex-col items-center justify-center h-12"
+                  } ${
+                    isActive ? "bg-primary/10 text-primary shadow-[inset_0_0_0_1px_rgba(59,130,246,0.2)]" : "text-muted-foreground hover:bg-secondary hover:text-foreground"
+                  }`}
+                  href={localizedHref}
+                  key={item.href}
+                  title={item.label}
+                >
+                  {getNavIcon(item.href)}
+                  <span className={`${isExpanded ? "text-sm font-semibold opacity-100" : "mt-1 text-[9px] font-medium opacity-0 group-hover:opacity-100 hidden md:block"} transition-all whitespace-nowrap truncate max-w-full px-1`}>{item.label}</span>
+                  {item.badge ? <span className={`absolute rounded-full bg-amber-500 ring-2 ring-[#111827] ${isExpanded ? "top-1/2 -translate-y-1/2 right-3 h-2 w-2" : "top-1 right-2 h-2 w-2"}`}></span> : null}
                 </Link>
               );
             })}
           </nav>
-        </div>
-        <div className="shell-sidebar__section">
-          <p className="shell-sidebar__label">{pickText(lang, "会话", "Session")}</p>
-          <Card className="shell-sidebar__identity">
-            <CardHeader>
-              <CardTitle>{snapshot.identity.name}</CardTitle>
-              <CardDescription>{snapshot.identity.role}</CardDescription>
-            </CardHeader>
-            <CardBody>
-              <p>{snapshot.identity.context}</p>
-            </CardBody>
-            <CardFooter className="pt-0">
-              <form action={`/api/auth/logout?locale=${locale}`} method="post" className="w-full">
-                <button type="submit" className="flex w-full items-center justify-center gap-2 rounded-lg bg-red-500/10 px-3 py-2 text-sm font-medium text-red-500 transition-colors hover:bg-red-500/20 hover:text-red-600">
-                  <LogOut className="h-4 w-4" />
-                  {pickText(lang, "退出登录", "Log Out")}
-                </button>
-              </form>
-            </CardFooter>
-          </Card>
-        </div>
-      </aside>
-      <div className="shell-content">
-        <header className="shell-topbar">
-          <div className="shell-topbar__copy shell-topbar__console">
-            <div className="shell-topbar__meta">
-              {consoleStatus.map((item) => (
-                <div className="shell-topbar__status" key={item.label}>
-                  <span>{item.label}</span>
-                  <strong>{item.value}</strong>
-                </div>
+        </aside>
+
+        {/* Mobile Bottom Nav */}
+        <MobileBottomNav />
+
+        {/* Main Content */}
+        <main className="flex-1 overflow-y-auto bg-background p-3 sm:p-4 md:p-6 lg:p-8 w-full">
+          <div className="mx-auto flex h-full w-full max-w-[1600px] flex-col gap-4 sm:gap-6">
+            <header className="flex flex-col gap-1">
+              <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground">{snapshot.title}</h1>
+              <p className="text-xs sm:text-sm text-muted-foreground">{snapshot.description}</p>
+            </header>
+
+            <div className="flex flex-col gap-3">
+              {expiryReminder ? (
+                <DialogFrame description={expiryReminder.description} lang={lang} modal title={expiryReminder.title} tone="warning">
+                  <Link className="button button--ghost" href={withLocale(locale, "/app/billing")}>
+                    {pickText(lang, "打开会员中心", "Open membership center")}
+                  </Link>
+                </DialogFrame>
+              ) : null}
+              {snapshot.banners.map((banner) => (
+                <StatusBanner
+                        tone="info"
+                        lang={lang}
+                  action={banner.action ? { ...banner.action, href: withLocale(locale, banner.action.href) } : undefined}
+                  description={banner.description}
+                  key={banner.title}
+                  title={banner.title}
+                />
               ))}
             </div>
-            <p className="shell-topbar__eyebrow">{pickText(lang, "用户控制台", "User workspace")}</p>
-            <h1>{snapshot.title}</h1>
-            <p className="shell-topbar__subtitle">{snapshot.description}</p>
-          </div>
-          <div className="shell-topbar__actions">
-            <ShellPreferences lang={lang} theme={theme} />
-            <div className="metric-strip">
-              {snapshot.quickStats.map((item) => (
-                <div className="metric-strip__item" key={item.label}>
-                  <span>{item.label}</span>
-                  <strong>{item.value}</strong>
-                </div>
-              ))}
+
+            <div className="flex-1 w-full">
+              {children}
             </div>
           </div>
-        </header>
-        <div className="shell-banner-stack">
-          {expiryReminder ? (
-            <DialogFrame
-              description={expiryReminder.description}
-              lang={lang}
-              modal
-              title={expiryReminder.title}
-              tone="warning"
-            >
-              <div className="flex flex-wrap items-center gap-2">
-                <Link
-                  className="button button--ghost"
-                  href={withLocale(locale, "/app/billing")}
-                >
-                  {pickText(lang, "打开会员中心", "Open membership center")}
-                </Link>
-              </div>
-            </DialogFrame>
-          ) : null}
-          {snapshot.banners.map((banner) => (
-            <StatusBanner
-              action={banner.action ? { ...banner.action, href: withLocale(locale, banner.action.href) } : undefined}
-              description={banner.description}
-              key={banner.title}
-              title={banner.title}
-              tone={banner.tone}
-            />
-          ))}
-        </div>
-        <main className="shell-main">{children}</main>
+        </main>
       </div>
     </div>
   );

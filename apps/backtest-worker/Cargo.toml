@@ -1,0 +1,14 @@
+[package]
+name = "backtest-worker"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+backtest-engine = { path = "../backtest-engine" }
+chrono = { workspace = true }
+rust_decimal = "1"
+serde = { workspace = true }
+serde_json = { workspace = true }
+shared-db = { path = "../../crates/shared-db" }
+shared-domain = { path = "../../crates/shared-domain" }
+tokio = { workspace = true, features = ["macros", "rt-multi-thread", "time"] }

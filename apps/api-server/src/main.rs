@@ -12,9 +12,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let listener = TcpListener::bind(("0.0.0.0", configured_port(DEFAULT_PORT))).await?;
     let state = api_server::build_persistent_state(&database_url, &redis_url)?;
     api_server::spawn_background_workers(&state);
-    let app = Router::new()
-        .route("/healthz", get(healthz))
-        .merge(api_server::app_with_state(state));
+    let app = api_server::app_with_persistent_state(&database_url, &redis_url)?
+        .route("/healthz", get(healthz));
 
     axum::serve(listener, app).await?;
     Ok(())

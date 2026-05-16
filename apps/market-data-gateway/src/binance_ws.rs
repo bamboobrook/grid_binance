@@ -9,8 +9,14 @@ use shared_events::MarketTick;
 use std::{
     io::{Error as IoError, ErrorKind},
     sync::{Arc, Mutex},
+    time::Duration,
 };
+use tokio::time::sleep;
 use tokio_tungstenite::{connect_async, tungstenite::Message};
+
+const INITIAL_RECONNECT_DELAY_MS: u64 = 1000;
+const MAX_RECONNECT_DELAY_MS: u64 = 60000;
+const MAX_RECONNECT_ATTEMPTS: u32 = 10;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BinanceTradeEvent {
@@ -118,35 +124,79 @@ pub async fn run_market_stream(
     runtime: Arc<Mutex<GatewayRuntime>>,
     db: SharedDb,
 ) -> Result<(), IoError> {
-    let (stream, _) = connect_async(&plan.url)
-        .await
-        .map_err(|error| IoError::new(ErrorKind::Other, error.to_string()))?;
-    let (_, mut read) = stream.split();
+    let mut reconnect_attempt: u32 = 0;
 
-    while let Some(message) = read.next().await {
-        let message = message.map_err(|error| IoError::new(ErrorKind::Other, error.to_string()))?;
-        let payload = match message {
-            Message::Text(text) => text.to_string(),
-            Message::Binary(bytes) => String::from_utf8(bytes.to_vec())
-                .map_err(|error| IoError::new(ErrorKind::InvalidData, error.to_string()))?,
-            Message::Close(_) => break,
-            _ => continue,
-        };
+    loop {
+        match connect_async(&plan.url).await {
+            Ok((stream, _)) => {
+                reconnect_attempt = 0; // Reset on successful connection
+                let (_, mut read) = stream.split();
 
-        if let Some(event) = parse_trade_message(&plan.market, &payload) {
-            let mut guard = runtime.lock().expect("gateway runtime poisoned");
-            if let Some(tick) = guard.emit_tick(event) {
-                db.enqueue_market_tick(&tick)
-                    .map_err(|error| IoError::new(ErrorKind::Other, error.to_string()))?;
+                while let Some(message) = read.next().await {
+                    let message = match message {
+                        Ok(msg) => msg,
+                        Err(error) => {
+                            eprintln!("WebSocket error for {}: {}", plan.market, error);
+                            break;
+                        }
+                    };
+
+                    let payload = match message {
+                        Message::Text(text) => text.to_string(),
+                        Message::Binary(bytes) => match String::from_utf8(bytes.to_vec()) {
+                            Ok(text) => text,
+                            Err(error) => {
+                                eprintln!("Invalid UTF-8 from {}: {}", plan.market, error);
+                                continue;
+                            }
+                        },
+                        Message::Close(frame) => {
+                            eprintln!("WebSocket closed for {}: {:?}", plan.market, frame);
+                            break;
+                        }
+                        _ => continue,
+                    };
+
+                    if let Some(event) = parse_trade_message(&plan.market, &payload) {
+                        if let Ok(mut guard) = runtime.lock() {
+                            if let Some(tick) = guard.emit_tick(event) {
+                                if let Err(error) = db.enqueue_market_tick(&tick) {
+                                    eprintln!("Failed to enqueue tick: {}", error);
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if let Ok(mut guard) = runtime.lock() {
+                    guard.disconnect();
+                }
+            }
+            Err(error) => {
+                eprintln!("Failed to connect to {}: {}", plan.market, error);
             }
         }
-    }
 
-    runtime
-        .lock()
-        .expect("gateway runtime poisoned")
-        .disconnect();
-    Ok(())
+        // Calculate exponential backoff delay
+        reconnect_attempt += 1;
+        if reconnect_attempt >= MAX_RECONNECT_ATTEMPTS {
+            return Err(IoError::new(
+                ErrorKind::Other,
+                format!(
+                    "Max reconnect attempts ({}) exceeded for {}",
+                    MAX_RECONNECT_ATTEMPTS, plan.market
+                ),
+            ));
+        }
+
+        let delay_ms = INITIAL_RECONNECT_DELAY_MS * 2_u64.pow(reconnect_attempt - 1);
+        let delay_ms = delay_ms.min(MAX_RECONNECT_DELAY_MS);
+        eprintln!(
+            "Reconnecting to {} in {}ms (attempt {}/{})...",
+            plan.market, delay_ms, reconnect_attempt, MAX_RECONNECT_ATTEMPTS
+        );
+        sleep(Duration::from_millis(delay_ms)).await;
+    }
 }
 
 pub fn parse_trade_message(default_market: &str, payload: &str) -> Option<BinanceTradeEvent> {

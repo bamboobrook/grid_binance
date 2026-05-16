@@ -1,11 +1,11 @@
+use crate::strategy_runtime::StrategyRuntimeEngine;
 use chrono::{TimeZone, Utc};
 use rust_decimal::Decimal;
 use shared_binance::BinanceExecutionUpdate;
 use shared_domain::strategy::{
-    Strategy, StrategyMarket, StrategyMode, StrategyRuntimeOrder,
+    Strategy, StrategyMarket, StrategyMode, StrategyRuntimeFill, StrategyRuntimeOrder,
     StrategyRuntimePosition,
 };
-use crate::strategy_runtime::StrategyRuntimeEngine;
 
 pub fn apply_execution_update(strategy: &mut Strategy, update: &BinanceExecutionUpdate) -> bool {
     if !strategy.symbol.eq_ignore_ascii_case(&update.symbol) {
@@ -184,16 +184,15 @@ fn advance_grid_cycle_after_fill(strategy: &mut Strategy, order_index: usize) {
     handle_entry_fill(strategy, level_index, &order);
 }
 
-fn handle_entry_fill(
-    strategy: &mut Strategy,
-    level_index: u32,
-    order: &StrategyRuntimeOrder,
-) {
+fn handle_entry_fill(strategy: &mut Strategy, level_index: u32, order: &StrategyRuntimeOrder) {
     let Some(level_state) = level_state(strategy, level_index) else {
         return;
     };
     recompute_positions(strategy);
     sync_exit_order(strategy, level_index, &level_state, order);
+    if should_activate_ordinary_replenishment_orders(strategy, level_index, order) {
+        activate_ordinary_replenishment_orders(strategy, level_index, &order.side);
+    }
 }
 
 fn handle_take_profit_fill(
@@ -244,6 +243,44 @@ struct LevelState {
     is_short: bool,
 }
 
+fn effective_entry_fill_quantity(strategy: &Strategy, fill: &StrategyRuntimeFill) -> Decimal {
+    if strategy.market != StrategyMarket::Spot {
+        return fill.quantity;
+    }
+    let Some(order_id) = fill.order_id.as_deref() else {
+        return fill.quantity;
+    };
+    let Some(order) = strategy
+        .runtime
+        .orders
+        .iter()
+        .find(|candidate| candidate.order_id == order_id)
+    else {
+        return fill.quantity;
+    };
+    if !order.side.eq_ignore_ascii_case("Buy") {
+        return fill.quantity;
+    }
+    let Some(fee_asset) = fill.fee_asset.as_deref() else {
+        return fill.quantity;
+    };
+    if fee_asset.is_empty()
+        || !strategy
+            .symbol
+            .to_ascii_uppercase()
+            .starts_with(&fee_asset.to_ascii_uppercase())
+    {
+        return fill.quantity;
+    }
+    let fee_amount = fill.fee_amount.unwrap_or(Decimal::ZERO);
+    let adjusted = fill.quantity - fee_amount;
+    if adjusted > Decimal::ZERO {
+        adjusted
+    } else {
+        Decimal::ZERO
+    }
+}
+
 fn level_state(strategy: &Strategy, level_index: u32) -> Option<LevelState> {
     let entry_order_id = entry_order_id(&strategy.id, level_index);
     let mut remaining_quantity = Decimal::ZERO;
@@ -256,7 +293,7 @@ fn level_state(strategy: &Strategy, level_index: u32) -> Option<LevelState> {
         .filter(|fill| fill.level_index == Some(level_index))
     {
         if fill.order_id.as_deref() == Some(entry_order_id.as_str()) {
-            remaining_quantity += fill.quantity;
+            remaining_quantity += effective_entry_fill_quantity(strategy, fill);
             remaining_cost += fill.price * fill.quantity;
             continue;
         }
@@ -409,6 +446,80 @@ fn level_for(strategy: &Strategy, level_index: u32) -> Option<&shared_domain::st
         .find(|level| level.level_index == level_index)
 }
 
+fn should_activate_ordinary_replenishment_orders(
+    strategy: &Strategy,
+    level_index: u32,
+    order: &StrategyRuntimeOrder,
+) -> bool {
+    if strategy.strategy_type != shared_domain::strategy::StrategyType::OrdinaryGrid
+        || !order.status.eq_ignore_ascii_case("Filled")
+    {
+        return false;
+    }
+    let Some(first_level) = strategy
+        .active_revision
+        .as_ref()
+        .unwrap_or(&strategy.draft_revision)
+        .levels
+        .first()
+    else {
+        return false;
+    };
+    if first_level.level_index != level_index {
+        return false;
+    }
+    matches!(
+        strategy.mode,
+        StrategyMode::SpotBuyOnly
+            | StrategyMode::SpotSellOnly
+            | StrategyMode::FuturesLong
+            | StrategyMode::FuturesShort
+    )
+}
+
+fn activate_ordinary_replenishment_orders(
+    strategy: &mut Strategy,
+    anchor_level_index: u32,
+    side: &str,
+) {
+    let revision = strategy
+        .active_revision
+        .as_ref()
+        .unwrap_or(&strategy.draft_revision);
+    let Some(first_level) = revision.levels.first() else {
+        return;
+    };
+    if first_level.level_index != anchor_level_index {
+        return;
+    }
+
+    for level in revision.levels.iter().skip(1) {
+        let order_id = entry_order_id(&strategy.id, level.level_index);
+        if strategy
+            .runtime
+            .orders
+            .iter()
+            .any(|order| order.order_id == order_id)
+        {
+            continue;
+        }
+        strategy.runtime.orders.push(StrategyRuntimeOrder {
+            order_id,
+            exchange_order_id: None,
+            level_index: Some(level.level_index),
+            side: side.to_string(),
+            order_type: "Limit".to_string(),
+            price: Some(level.entry_price),
+            quantity: level.quantity,
+            status: "Working".to_string(),
+        });
+    }
+    strategy
+        .runtime
+        .orders
+        .sort_by_key(|candidate| candidate.level_index.unwrap_or(u32::MAX));
+}
+
 fn position_mode_for_entry(market: StrategyMarket, mode: StrategyMode, side: &str) -> StrategyMode {
     match market {
         StrategyMarket::Spot => {
@@ -513,12 +624,15 @@ pub(crate) fn finalize_strategy_after_close(
             if engine.resume_with_reference_price(reference_price).is_ok() {
                 strategy.runtime = engine.snapshot().clone();
                 strategy.status = shared_domain::strategy::StrategyStatus::Running;
-                strategy.runtime.events.push(shared_domain::strategy::StrategyRuntimeEvent {
-                    event_type: "strategy_rebuilt".to_string(),
-                    detail: "strategy rebuilt from current market reference".to_string(),
-                    price: reference_price,
-                    created_at: Utc::now(),
-                });
+                strategy
+                    .runtime
+                    .events
+                    .push(shared_domain::strategy::StrategyRuntimeEvent {
+                        event_type: "strategy_rebuilt".to_string(),
+                        detail: "strategy rebuilt from current market reference".to_string(),
+                        price: reference_price,
+                        created_at: Utc::now(),
+                    });
                 return;
             }
         }
@@ -582,7 +696,8 @@ fn derive_realized_pnl_for_fill(
     quantity: Decimal,
     exchange_realized_profit: Option<&str>,
 ) -> Option<Decimal> {
-    if let Some(realized) = exchange_realized_profit.and_then(|value| value.parse::<Decimal>().ok()) {
+    if let Some(realized) = exchange_realized_profit.and_then(|value| value.parse::<Decimal>().ok())
+    {
         return Some(realized);
     }
     if is_entry_order(order_id) {
@@ -625,8 +740,15 @@ fn close_level_state(strategy: &Strategy, order_id: &str) -> Option<LevelState> 
             strategy.runtime.positions.iter().find(|position| {
                 matches!(
                     (close_side.eq_ignore_ascii_case("Sell"), position.mode),
-                    (true, StrategyMode::SpotClassic | StrategyMode::SpotBuyOnly | StrategyMode::FuturesLong)
-                        | (false, StrategyMode::SpotSellOnly | StrategyMode::FuturesShort)
+                    (
+                        true,
+                        StrategyMode::SpotClassic
+                            | StrategyMode::SpotBuyOnly
+                            | StrategyMode::FuturesLong
+                    ) | (
+                        false,
+                        StrategyMode::SpotSellOnly | StrategyMode::FuturesShort
+                    )
                 )
             })
         })?;
@@ -671,8 +793,15 @@ fn apply_close_fill(
             strategy.runtime.positions.iter().position(|position| {
                 matches!(
                     (order_side.eq_ignore_ascii_case("Sell"), position.mode),
-                    (true, StrategyMode::SpotClassic | StrategyMode::SpotBuyOnly | StrategyMode::FuturesLong)
-                        | (false, StrategyMode::SpotSellOnly | StrategyMode::FuturesShort)
+                    (
+                        true,
+                        StrategyMode::SpotClassic
+                            | StrategyMode::SpotBuyOnly
+                            | StrategyMode::FuturesLong
+                    ) | (
+                        false,
+                        StrategyMode::SpotSellOnly | StrategyMode::FuturesShort
+                    )
                 )
             })
         });

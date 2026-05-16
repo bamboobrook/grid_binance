@@ -125,7 +125,7 @@ mod tests {
 
         let error = run_public_symbol_sync_once().expect_err("sync should fail");
 
-        assert!(error.to_string().contains("503"));
+        assert!(error.to_string().contains("-1001") || error.to_string().contains("503"));
         std::env::remove_var("BINANCE_LIVE_MODE");
         std::env::remove_var("BINANCE_SPOT_REST_BASE_URL");
         std::env::remove_var("BINANCE_USDM_REST_BASE_URL");

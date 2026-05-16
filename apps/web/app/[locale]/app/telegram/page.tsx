@@ -62,6 +62,8 @@ export default async function TelegramPage({ params, searchParams }: TelegramPag
   return (
     <>
       <StatusBanner
+              tone="info"
+              lang={lang}
         action={telegramBotLink ? {
           href: telegramBotLink,
           label: pickText(lang, "打开 Telegram 机器人", "Open Telegram Bot"),
@@ -70,15 +72,16 @@ export default async function TelegramPage({ params, searchParams }: TelegramPag
         title={pickText(lang, "Telegram 绑定状态条", "Telegram bind status strip")}
        
       />
-      {error ? <StatusBanner description={error} title={pickText(lang, "Telegram 操作失败", "Telegram action failed")} /> : null}
+      {error ? <StatusBanner description={error} title={pickText(lang, "Telegram 操作失败", "Telegram action failed")}  tone="info" lang={lang} /> : null}
       {notice === "bind-code-issued" ? (
         <StatusBanner
+                tone="info"
+                lang={lang}
           action={telegramBotLink ? {
             href: telegramBotLink,
             label: pickText(lang, "打开 Telegram 机器人", "Open Telegram Bot"),
           } : undefined}
           description={pickText(lang, "先打开机器人领取欢迎语，再把下面的 /bind 命令发给机器人，收到回复后刷新页面。", "Open the Telegram bot first, then send the /bind command shown below and refresh after the bot replies.")}
-          extra={telegramBotLink ? pickText(lang, "按钮只负责打开机器人会话，不会自动提交绑定码。", "The button only opens the bot chat. It does not submit the bind code automatically.") : undefined}
           title={pickText(lang, "绑定码已签发", "Bind code issued")}
          
         />
@@ -100,24 +103,12 @@ export default async function TelegramPage({ params, searchParams }: TelegramPag
               <CardDescription>{pickText(lang, "一个用户只能绑定一个 Telegram 身份。", "One user binds one Telegram identity only.")}</CardDescription>
             </CardHeader>
             <CardBody>
-              {binding?.bound ? (
-                <>
-                  <ul className="text-list">
-                    <li>{pickText(lang, "绑定时间", "Telegram bound at")}: {formatTaipeiDateTime(binding.bound_at, lang)}</li>
-                    <li>{pickText(lang, "聊天 ID", "Telegram chat id")}: {binding.chat_id ?? "-"}</li>
-                    <li>{pickText(lang, "用户 ID", "Telegram user id")}: {binding.telegram_user_id ?? "-"}</li>
-                    <li>{pickText(lang, "站内信与 Telegram 都已启用。", "Web inbox and Telegram are both active.")}</li>
-                  </ul>
-                  <p className="text-sm text-muted-foreground">{pickText(lang, "如果要更换绑定账号，直接生成新的绑定码，并用新的 Telegram 账号发送 /bind 命令即可。", "To switch to another Telegram account, generate a new bind code and send the /bind command from the new Telegram account.")}</p>
-                  <FormStack action="/api/user/telegram" method="post">
-                    <Button name="intent" type="submit" value="generate">
-                      {pickText(lang, "更换绑定账号", "Rebind Telegram account")}
-                    </Button>
-                  </FormStack>
-                </>
-              ) : bindCode !== "" ? (
+              {bindCode !== "" ? (
                 <>
                   <p>{pickText(lang, "新的绑定码已生成。", "A fresh bind code is ready.")}</p>
+                  {binding?.bound ? (
+                    <p className="text-sm text-muted-foreground">{pickText(lang, "当前旧的 Telegram 绑定仍然有效；请使用新的账号发送下面这条 /bind 命令，绑定成功后旧账号会自动失效。", "Your previous Telegram binding stays active until the new account sends the /bind command below. After that, the previous binding is replaced automatically.")}</p>
+                  ) : null}
                   <p>
                     <strong>{bindCode}</strong>
                   </p>
@@ -143,6 +134,21 @@ export default async function TelegramPage({ params, searchParams }: TelegramPag
                   <FormStack action="/api/user/telegram" method="post">
                     <Button name="intent" type="submit" value="generate">
                       {pickText(lang, "重新生成绑定码", "Generate new bind code")}
+                    </Button>
+                  </FormStack>
+                </>
+              ) : binding?.bound ? (
+                <>
+                  <ul className="text-list">
+                    <li>{pickText(lang, "绑定时间", "Telegram bound at")}: {formatTaipeiDateTime(binding.bound_at, lang)}</li>
+                    <li>{pickText(lang, "聊天 ID", "Telegram chat id")}: {binding.chat_id ?? "-"}</li>
+                    <li>{pickText(lang, "用户 ID", "Telegram user id")}: {binding.telegram_user_id ?? "-"}</li>
+                    <li>{pickText(lang, "站内信与 Telegram 都已启用。", "Web inbox and Telegram are both active.")}</li>
+                  </ul>
+                  <p className="text-sm text-muted-foreground">{pickText(lang, "如果要更换绑定账号，直接生成新的绑定码，并用新的 Telegram 账号发送 /bind 命令即可。", "To switch to another Telegram account, generate a new bind code and send the /bind command from the new Telegram account.")}</p>
+                  <FormStack action="/api/user/telegram" method="post">
+                    <Button name="intent" type="submit" value="generate">
+                      {pickText(lang, "更换绑定账号", "Rebind Telegram account")}
                     </Button>
                   </FormStack>
                 </>

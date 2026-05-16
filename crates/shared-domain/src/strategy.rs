@@ -1,7 +1,10 @@
 use chrono::{DateTime, Utc};
 pub use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
-use std::{collections::HashMap, sync::{Mutex, OnceLock}};
+use std::{
+    collections::HashMap,
+    sync::{Mutex, OnceLock},
+};
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 pub enum StrategyStatus {
@@ -75,6 +78,7 @@ pub enum FuturesMarginMode {
 pub enum StrategyType {
     OrdinaryGrid,
     ClassicBilateralGrid,
+    MartingaleGrid,
 }
 
 impl Default for StrategyType {
@@ -253,6 +257,8 @@ pub struct Strategy {
     #[serde(default)]
     pub runtime_controls: RuntimeControls,
     pub draft_revision: StrategyRevision,
+    pub tags: Vec<String>,
+    pub notes: String,
     pub active_revision: Option<StrategyRevision>,
     pub runtime: StrategyRuntime,
     pub archived_at: Option<DateTime<Utc>>,

@@ -1,9 +1,10 @@
 use axum::{
     extract::{Query, State},
     http::{HeaderMap, StatusCode},
-    routing::{get, post},
+    routing::{get, post, put},
     Json, Router,
 };
+use serde::Deserialize;
 
 use crate::{
     routes::auth_guard::{require_session_email, require_user_session},
@@ -11,21 +12,60 @@ use crate::{
     services::telegram_service::{
         BindTelegramRequest, BindTelegramResponse, BotBindTelegramRequest,
         CreateTelegramBindCodeRequest, CreateTelegramBindCodeResponse, DispatchNotificationRequest,
-        NotificationInboxQuery, NotificationInboxResponse, TelegramBindingStatusQuery,
-        TelegramBindingStatusResponse, TelegramService,
+        NotificationInboxQuery, NotificationInboxResponse, NotificationPreferences,
+        TelegramBindingStatusQuery, TelegramBindingStatusResponse, TelegramService,
     },
     AppState,
 };
 use shared_events::NotificationRecord;
 
+#[derive(Debug, Deserialize)]
+struct PreferencesQuery {
+    email: String,
+}
+
 pub fn router() -> Router<AppState> {
     Router::new()
         .route("/telegram/bind-codes", post(create_bind_code))
         .route("/telegram/bind", post(bind_telegram))
+        .route(
+            "/notifications/preferences",
+            put(update_notification_preferences).get(read_notification_preferences),
+        )
         .route("/telegram/bot/bind", post(bind_telegram_from_bot))
         .route("/telegram/binding", get(read_binding_status))
         .route("/notifications/dispatch", post(dispatch_notification))
         .route("/notifications", get(list_notifications))
+}
+
+async fn update_notification_preferences(
+    State(auth): State<AuthService>,
+    State(service): State<TelegramService>,
+    headers: HeaderMap,
+    Json(preferences): Json<NotificationPreferences>,
+) -> Result<Json<NotificationPreferences>, AuthError> {
+    let session = require_user_session(&auth, &headers)?;
+    require_session_email(&session, &preferences.email)?;
+    Ok(Json(
+        service
+            .update_notification_preferences(preferences)
+            .map_err(AuthError::from)?,
+    ))
+}
+
+async fn read_notification_preferences(
+    State(auth): State<AuthService>,
+    State(service): State<TelegramService>,
+    headers: HeaderMap,
+    Query(query): Query<PreferencesQuery>,
+) -> Result<Json<NotificationPreferences>, AuthError> {
+    let session = require_user_session(&auth, &headers)?;
+    require_session_email(&session, &query.email)?;
+    Ok(Json(
+        service
+            .read_notification_preferences(&query.email)
+            .map_err(AuthError::from)?,
+    ))
 }
 
 async fn create_bind_code(

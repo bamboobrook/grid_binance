@@ -25,12 +25,18 @@ const SPOT_REST_BASE_URL_ENV: &str = "BINANCE_SPOT_REST_BASE_URL";
 const USDM_REST_BASE_URL_ENV: &str = "BINANCE_USDM_REST_BASE_URL";
 const COINM_REST_BASE_URL_ENV: &str = "BINANCE_COINM_REST_BASE_URL";
 const SPOT_WS_BASE_URL_ENV: &str = "BINANCE_SPOT_WS_BASE_URL";
+const SPOT_WS_API_BASE_URL_ENV: &str = "BINANCE_SPOT_WS_API_BASE_URL";
 const USDM_WS_BASE_URL_ENV: &str = "BINANCE_USDM_WS_BASE_URL";
 const COINM_WS_BASE_URL_ENV: &str = "BINANCE_COINM_WS_BASE_URL";
+
+const MAX_RETRIES: u32 = 3;
+const BASE_RETRY_DELAY_MS: u64 = 100;
+const MAX_RETRY_DELAY_MS: u64 = 5000;
 const SPOT_REST_BASE_URL: &str = "https://api.binance.com";
 const USDM_REST_BASE_URL: &str = "https://fapi.binance.com";
 const COINM_REST_BASE_URL: &str = "https://dapi.binance.com";
 const SPOT_WS_BASE_URL: &str = "wss://stream.binance.com:9443/ws";
+const SPOT_WS_API_BASE_URL: &str = "wss://ws-api.binance.com:443/ws-api/v3";
 const USDM_WS_BASE_URL: &str = "wss://fstream.binance.com/ws";
 const COINM_WS_BASE_URL: &str = "wss://dstream.binance.com/ws";
 
@@ -45,6 +51,16 @@ pub struct CredentialValidationRequest {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CredentialValidationError {
     message: String,
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct KlineRecord {
+    pub time: String,
+    pub open: f64,
+    pub high: f64,
+    pub low: f64,
+    pub close: f64,
+    pub volume: f64,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -93,6 +109,7 @@ pub struct BinanceUserDataStream {
     pub market: String,
     pub listen_key: String,
     pub websocket_url: String,
+    pub subscribe_request: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -147,13 +164,43 @@ pub struct CredentialCipherError {
     message: String,
 }
 
-#[derive(Debug, Clone)]
-struct BinanceLiveConfig {
+fn is_retryable_error(error: &str) -> bool {
+    let error_lower = error.to_ascii_lowercase();
+    [
+        "timed out",
+        "timeout",
+        "error sending request",
+        "connection reset",
+        "connection refused",
+        "connection aborted",
+        "peer closed connection",
+        "tls",
+        "unexpected eof",
+        "temporarily unavailable",
+        "network",
+        "dns error",
+        "429", // Rate limit
+        "502", // Bad Gateway
+        "503", // Service Unavailable
+        "504", // Gateway Timeout
+    ]
+    .iter()
+    .any(|pattern| error_lower.contains(pattern))
+}
+
+fn retry_delay(attempt: u32) -> Duration {
+    let delay = BASE_RETRY_DELAY_MS * 2_u64.pow(attempt);
+    Duration::from_millis(delay.min(MAX_RETRY_DELAY_MS))
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct BinanceLiveConfig {
     enabled: bool,
     spot_rest_base_url: String,
     usdm_rest_base_url: String,
     coinm_rest_base_url: String,
     spot_ws_base_url: String,
+    spot_ws_api_base_url: String,
     usdm_ws_base_url: String,
     coinm_ws_base_url: String,
     timeout: Duration,
@@ -323,6 +370,12 @@ struct UserTradePayload {
 #[serde(rename_all = "camelCase")]
 struct ListenKeyResponse {
     listen_key: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct SpotWsApiEventEnvelope {
+    #[serde(default)]
+    event: Option<serde_json::Value>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -531,40 +584,61 @@ impl BinanceClient {
         }
         let market = BinanceMarket::from_scope(&request.market)?;
         let http = self.live_http_client()?;
-        let server_time = self.fetch_server_time(&http, market)?;
-        let mut params = vec![
-            ("symbol".to_string(), request.symbol),
-            ("side".to_string(), request.side),
-            ("type".to_string(), request.order_type),
-            ("quantity".to_string(), request.quantity),
-        ];
-        if let Some(price) = request.price {
-            params.push(("price".to_string(), price));
+
+        let mut last_error = None;
+        for attempt in 0..MAX_RETRIES {
+            let server_time = self.fetch_server_time(&http, market)?;
+            let mut params = vec![
+                ("symbol".to_string(), request.symbol.clone()),
+                ("side".to_string(), request.side.clone()),
+                ("type".to_string(), request.order_type.clone()),
+                ("quantity".to_string(), request.quantity.clone()),
+            ];
+            if let Some(ref price) = request.price {
+                params.push(("price".to_string(), price.clone()));
+            }
+            if let Some(ref time_in_force) = request.time_in_force {
+                params.push(("timeInForce".to_string(), time_in_force.clone()));
+            }
+            if let Some(reduce_only) = request.reduce_only {
+                params.push((
+                    "reduceOnly".to_string(),
+                    if reduce_only { "true" } else { "false" }.to_string(),
+                ));
+            }
+            if let Some(ref position_side) = request.position_side {
+                params.push(("positionSide".to_string(), position_side.clone()));
+            }
+            if let Some(ref client_order_id) = request.client_order_id {
+                params.push(("newClientOrderId".to_string(), client_order_id.clone()));
+            }
+
+            match self.signed_request::<OrderResponsePayload>(
+                &http,
+                "POST",
+                self.live_config.base_url(market),
+                market.order_path(),
+                server_time,
+                &params,
+            ) {
+                Ok(payload) => {
+                    return Ok(BinanceOrderResponse::from_payload(market, payload));
+                }
+                Err(error) => {
+                    let error_msg = error.to_string();
+                    if !is_retryable_error(&error_msg) {
+                        return Err(error);
+                    }
+                    last_error = Some(error);
+                    if attempt < MAX_RETRIES - 1 {
+                        std::thread::sleep(retry_delay(attempt));
+                    }
+                }
+            }
         }
-        if let Some(time_in_force) = request.time_in_force {
-            params.push(("timeInForce".to_string(), time_in_force));
-        }
-        if let Some(reduce_only) = request.reduce_only {
-            params.push((
-                "reduceOnly".to_string(),
-                if reduce_only { "true" } else { "false" }.to_string(),
-            ));
-        }
-        if let Some(position_side) = request.position_side {
-            params.push(("positionSide".to_string(), position_side));
-        }
-        if let Some(client_order_id) = request.client_order_id {
-            params.push(("newClientOrderId".to_string(), client_order_id));
-        }
-        let payload: OrderResponsePayload = self.signed_request(
-            &http,
-            "POST",
-            self.live_config.base_url(market),
-            market.order_path(),
-            server_time,
-            &params,
-        )?;
-        Ok(BinanceOrderResponse::from_payload(market, payload))
+        Err(last_error.unwrap_or_else(|| {
+            CredentialValidationError::new("max retries exceeded for place_order")
+        }))
     }
 
     pub fn cancel_order(
@@ -586,23 +660,44 @@ impl BinanceClient {
         }
         let market = BinanceMarket::from_scope(market)?;
         let http = self.live_http_client()?;
-        let server_time = self.fetch_server_time(&http, market)?;
-        let mut params = vec![("symbol".to_string(), symbol.to_string())];
-        if let Some(order_id) = order_id {
-            params.push(("orderId".to_string(), order_id.to_string()));
+
+        let mut last_error = None;
+        for attempt in 0..MAX_RETRIES {
+            let server_time = self.fetch_server_time(&http, market)?;
+            let mut params = vec![("symbol".to_string(), symbol.to_string())];
+            if let Some(order_id) = order_id {
+                params.push(("orderId".to_string(), order_id.to_string()));
+            }
+            if let Some(client_order_id) = client_order_id {
+                params.push(("origClientOrderId".to_string(), client_order_id.to_string()));
+            }
+
+            match self.signed_request::<OrderResponsePayload>(
+                &http,
+                "DELETE",
+                self.live_config.base_url(market),
+                market.order_path(),
+                server_time,
+                &params,
+            ) {
+                Ok(payload) => {
+                    return Ok(BinanceOrderResponse::from_payload(market, payload));
+                }
+                Err(error) => {
+                    let error_msg = error.to_string();
+                    if !is_retryable_error(&error_msg) {
+                        return Err(error);
+                    }
+                    last_error = Some(error);
+                    if attempt < MAX_RETRIES - 1 {
+                        std::thread::sleep(retry_delay(attempt));
+                    }
+                }
+            }
         }
-        if let Some(client_order_id) = client_order_id {
-            params.push(("origClientOrderId".to_string(), client_order_id.to_string()));
-        }
-        let payload: OrderResponsePayload = self.signed_request(
-            &http,
-            "DELETE",
-            self.live_config.base_url(market),
-            market.order_path(),
-            server_time,
-            &params,
-        )?;
-        Ok(BinanceOrderResponse::from_payload(market, payload))
+        Err(last_error.unwrap_or_else(|| {
+            CredentialValidationError::new("max retries exceeded for cancel_order")
+        }))
     }
 
     pub fn keepalive_user_data_stream(
@@ -616,6 +711,9 @@ impl BinanceClient {
             ));
         }
         let market = BinanceMarket::from_scope(market)?;
+        if matches!(market, BinanceMarket::Spot) || listen_key.trim().is_empty() {
+            return Ok(());
+        }
         let http = self.live_http_client()?;
         self.api_key_request::<serde_json::Value>(
             &http,
@@ -638,6 +736,17 @@ impl BinanceClient {
         }
         let market = BinanceMarket::from_scope(market)?;
         let http = self.live_http_client()?;
+        if matches!(market, BinanceMarket::Spot) {
+            let server_time = self.fetch_server_time(&http, market)?;
+            return Ok(BinanceUserDataStream {
+                market: market.as_str().to_string(),
+                websocket_url: self.live_config.spot_ws_api_base_url.clone(),
+                listen_key: String::new(),
+                subscribe_request: Some(
+                    self.build_spot_user_data_stream_subscribe_request(server_time)?,
+                ),
+            });
+        }
         let response: ListenKeyResponse = self.api_key_request(
             &http,
             "POST",
@@ -653,7 +762,35 @@ impl BinanceClient {
                 response.listen_key
             ),
             listen_key: response.listen_key,
+            subscribe_request: None,
         })
+    }
+
+    pub fn open_orders(
+        &self,
+        market: &str,
+        symbol: &str,
+    ) -> Result<Vec<BinanceOrderResponse>, CredentialValidationError> {
+        if !self.live_config.enabled {
+            return Err(CredentialValidationError::new(
+                "binance live mode is disabled",
+            ));
+        }
+        let market = BinanceMarket::from_scope(market)?;
+        let http = self.live_http_client()?;
+        let server_time = self.fetch_server_time(&http, market)?;
+        let payload: Vec<OrderResponsePayload> = self.signed_request(
+            &http,
+            "GET",
+            self.live_config.base_url(market),
+            market.open_orders_path(),
+            server_time,
+            &[("symbol".to_string(), symbol.to_string())],
+        )?;
+        Ok(payload
+            .into_iter()
+            .map(|order| BinanceOrderResponse::from_payload(market, order))
+            .collect())
     }
 
     pub fn get_order(
@@ -675,23 +812,44 @@ impl BinanceClient {
         }
         let market = BinanceMarket::from_scope(market)?;
         let http = self.live_http_client()?;
-        let server_time = self.fetch_server_time(&http, market)?;
-        let mut params = vec![("symbol".to_string(), symbol.to_string())];
-        if let Some(order_id) = order_id {
-            params.push(("orderId".to_string(), order_id.to_string()));
+
+        let mut last_error = None;
+        for attempt in 0..MAX_RETRIES {
+            let server_time = self.fetch_server_time(&http, market)?;
+            let mut params = vec![("symbol".to_string(), symbol.to_string())];
+            if let Some(order_id) = order_id {
+                params.push(("orderId".to_string(), order_id.to_string()));
+            }
+            if let Some(client_order_id) = client_order_id {
+                params.push(("origClientOrderId".to_string(), client_order_id.to_string()));
+            }
+
+            match self.signed_request::<OrderResponsePayload>(
+                &http,
+                "GET",
+                self.live_config.base_url(market),
+                market.order_path(),
+                server_time,
+                &params,
+            ) {
+                Ok(payload) => {
+                    return Ok(BinanceOrderResponse::from_payload(market, payload));
+                }
+                Err(error) => {
+                    let error_msg = error.to_string();
+                    if !is_retryable_error(&error_msg) {
+                        return Err(error);
+                    }
+                    last_error = Some(error);
+                    if attempt < MAX_RETRIES - 1 {
+                        std::thread::sleep(retry_delay(attempt));
+                    }
+                }
+            }
         }
-        if let Some(client_order_id) = client_order_id {
-            params.push(("origClientOrderId".to_string(), client_order_id.to_string()));
-        }
-        let payload: OrderResponsePayload = self.signed_request(
-            &http,
-            "GET",
-            self.live_config.base_url(market),
-            market.order_path(),
-            server_time,
-            &params,
-        )?;
-        Ok(BinanceOrderResponse::from_payload(market, payload))
+        Err(last_error.unwrap_or_else(|| {
+            CredentialValidationError::new("max retries exceeded for get_order")
+        }))
     }
 
     pub fn user_trades(
@@ -742,7 +900,9 @@ impl BinanceClient {
                 .get(&format!("{}{}", self.live_config.base_url(market), path))
                 .query(&[("symbol", symbol)])
                 .send()
-                .map_err(|error| CredentialValidationError::new(format!("binance request failed: {error}")))?;
+                .map_err(|error| {
+                    CredentialValidationError::new(format!("binance request failed: {error}"))
+                })?;
             let payload: MarkPriceResponse = parse_json_response(response)?;
             return parse_decimal_str(&flexible_value_ref_to_string(&payload.mark_price));
         }
@@ -754,7 +914,9 @@ impl BinanceClient {
             ))
             .query(&[("symbol", symbol)])
             .send()
-            .map_err(|error| CredentialValidationError::new(format!("binance request failed: {error}")))?;
+            .map_err(|error| {
+                CredentialValidationError::new(format!("binance request failed: {error}"))
+            })?;
         let payload: SymbolPriceResponse = parse_json_response(response)?;
         parse_decimal_str(&flexible_value_ref_to_string(&payload.price))
     }
@@ -817,7 +979,9 @@ impl BinanceClient {
             ],
         )?;
         let total = payload.into_iter().try_fold(Decimal::ZERO, |acc, item| {
-            Ok::<_, CredentialValidationError>(acc + parse_decimal_str(&flexible_value_ref_to_string(&item.income))?)
+            Ok::<_, CredentialValidationError>(
+                acc + parse_decimal_str(&flexible_value_ref_to_string(&item.income))?,
+            )
         })?;
         Ok(Some(total.normalize().to_string()))
     }
@@ -897,6 +1061,97 @@ impl BinanceClient {
 
     pub fn account_state(&self) -> &BinanceAccountState {
         &self.account_state
+    }
+
+    pub fn fetch_klines(
+        &self,
+        market: &str,
+        symbol: &str,
+        interval: &str,
+        start_ms: i64,
+        end_ms: i64,
+        limit: u32,
+    ) -> Result<Vec<KlineRecord>, CredentialValidationError> {
+        if !self.live_config.enabled {
+            return Err(CredentialValidationError::new(
+                "binance live mode is disabled",
+            ));
+        }
+        let market = BinanceMarket::from_scope(market)?;
+        let http = self.live_http_client()?;
+        let mut all_klines: Vec<KlineRecord> = Vec::new();
+        let mut current_start = start_ms;
+
+        while current_start < end_ms {
+            let response = http
+                .get(&format!(
+                    "{}{}",
+                    self.live_config.base_url(market),
+                    market.klines_path()
+                ))
+                .query(&[
+                    ("symbol", symbol),
+                    ("interval", interval),
+                    ("startTime", &current_start.to_string()),
+                    ("endTime", &end_ms.to_string()),
+                    ("limit", &limit.to_string()),
+                ])
+                .send()
+                .map_err(|error| {
+                    CredentialValidationError::new(format!(
+                        "binance klines request failed: {error}"
+                    ))
+                })?;
+
+            let raw: Vec<Vec<serde_json::Value>> = parse_json_response(response)?;
+            if raw.is_empty() {
+                break;
+            }
+
+            for candle in &raw {
+                if candle.len() < 6 {
+                    continue;
+                }
+                let open_time = candle[0].as_i64().unwrap_or(0);
+                let open = candle[1]
+                    .as_str()
+                    .and_then(|s| s.parse::<f64>().ok())
+                    .unwrap_or(0.0);
+                let high = candle[2]
+                    .as_str()
+                    .and_then(|s| s.parse::<f64>().ok())
+                    .unwrap_or(0.0);
+                let low = candle[3]
+                    .as_str()
+                    .and_then(|s| s.parse::<f64>().ok())
+                    .unwrap_or(0.0);
+                let close = candle[4]
+                    .as_str()
+                    .and_then(|s| s.parse::<f64>().ok())
+                    .unwrap_or(0.0);
+                let volume = candle[5]
+                    .as_str()
+                    .and_then(|s| s.parse::<f64>().ok())
+                    .unwrap_or(0.0);
+
+                all_klines.push(KlineRecord {
+                    time: open_time.to_string(),
+                    open,
+                    high,
+                    low,
+                    close,
+                    volume,
+                });
+
+                current_start = open_time + 1;
+            }
+
+            if raw.len() < limit as usize {
+                break;
+            }
+        }
+
+        Ok(all_klines)
     }
 
     pub fn spot_symbols(&self) -> Vec<SymbolMetadata> {
@@ -1005,9 +1260,7 @@ impl BinanceClient {
         for market in &request.selected_markets {
             match market.as_str() {
                 "spot" => {
-                    if self.check_live_spot_market(&http, &mut state).is_err() {
-                        state.withdrawal_disabled = false;
-                    }
+                    let _ = self.check_live_spot_market(&http, &mut state);
                 }
                 "usdm" => {
                     let _ = self.check_live_futures_market(
@@ -1260,6 +1513,39 @@ impl BinanceClient {
         self.signed_request(http, "GET", base_url, path, server_time, &[])
     }
 
+    fn build_spot_user_data_stream_subscribe_request(
+        &self,
+        server_time: i64,
+    ) -> Result<String, CredentialValidationError> {
+        let params = BTreeMap::from([
+            ("apiKey".to_string(), self.api_key.clone()),
+            (
+                "recvWindow".to_string(),
+                self.live_config.recv_window_ms.to_string(),
+            ),
+            ("timestamp".to_string(), server_time.to_string()),
+        ]);
+        let payload = params
+            .iter()
+            .map(|(key, value)| format!("{key}={value}"))
+            .collect::<Vec<_>>()
+            .join("&");
+        let signature = sign_query(&self.api_secret, &payload)?;
+        serde_json::to_string(&serde_json::json!({
+            "id": format!("spot-user-stream-{server_time}"),
+            "method": "userDataStream.subscribe.signature",
+            "params": {
+                "apiKey": self.api_key,
+                "recvWindow": self.live_config.recv_window_ms,
+                "timestamp": server_time,
+                "signature": signature,
+            }
+        }))
+        .map_err(|error| {
+            CredentialValidationError::new(format!("invalid spot ws api request: {error}"))
+        })
+    }
+
     fn signed_request<T: DeserializeOwned>(
         &self,
         http: &HttpClient,
@@ -1396,6 +1682,14 @@ impl BinanceMarket {
         }
     }
 
+    fn open_orders_path(self) -> &'static str {
+        match self {
+            Self::Spot => "/api/v3/openOrders",
+            Self::Usdm => "/fapi/v1/openOrders",
+            Self::Coinm => "/dapi/v1/openOrders",
+        }
+    }
+
     fn user_trades_path(self) -> &'static str {
         match self {
             Self::Spot => "/api/v3/myTrades",
@@ -1427,6 +1721,14 @@ impl BinanceMarket {
             Self::Coinm => "/dapi/v1/positionSide/dual",
         }
     }
+
+    fn klines_path(self) -> &'static str {
+        match self {
+            Self::Spot => "/api/v3/klines",
+            Self::Usdm => "/fapi/v1/klines",
+            Self::Coinm => "/dapi/v1/klines",
+        }
+    }
 }
 
 impl BinanceLiveConfig {
@@ -1437,6 +1739,7 @@ impl BinanceLiveConfig {
             usdm_rest_base_url: env_url(USDM_REST_BASE_URL_ENV, USDM_REST_BASE_URL),
             coinm_rest_base_url: env_url(COINM_REST_BASE_URL_ENV, COINM_REST_BASE_URL),
             spot_ws_base_url: env_url(SPOT_WS_BASE_URL_ENV, SPOT_WS_BASE_URL),
+            spot_ws_api_base_url: env_url(SPOT_WS_API_BASE_URL_ENV, SPOT_WS_API_BASE_URL),
             usdm_ws_base_url: env_url(USDM_WS_BASE_URL_ENV, USDM_WS_BASE_URL),
             coinm_ws_base_url: env_url(COINM_WS_BASE_URL_ENV, COINM_WS_BASE_URL),
             timeout: Duration::from_millis(DEFAULT_HTTP_TIMEOUT_MS),
@@ -1673,18 +1976,42 @@ fn current_timestamp_ms() -> i64 {
         .as_millis() as i64
 }
 
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct BinanceErrorResponse {
+    code: i64,
+    msg: String,
+}
+
 fn parse_json_response<T: DeserializeOwned>(
     response: reqwest::blocking::Response,
 ) -> Result<T, CredentialValidationError> {
-    response
-        .error_for_status()
-        .map_err(|error| {
-            CredentialValidationError::new(format!("binance request failed: {error}"))
-        })?
-        .json::<T>()
-        .map_err(|error| {
+    let status = response.status();
+    let text = response.text().map_err(|error| {
+        CredentialValidationError::new(format!("binance response read failed: {error}"))
+    })?;
+
+    // Try to parse as error response first
+    if let Ok(error_response) = serde_json::from_str::<BinanceErrorResponse>(&text) {
+        if error_response.code != 0 {
+            return Err(CredentialValidationError::new(format!(
+                "binance error ({}): {}",
+                error_response.code, error_response.msg
+            )));
+        }
+    }
+
+    // Parse as expected type
+    serde_json::from_str::<T>(&text).map_err(|error| {
+        if status.is_success() {
             CredentialValidationError::new(format!("binance response decode failed: {error}"))
-        })
+        } else {
+            CredentialValidationError::new(format!(
+                "binance request failed with status {}: {}",
+                status, text
+            ))
+        }
+    })
 }
 
 fn flexible_value_ref_to_string(value: &FlexibleValue) -> String {
@@ -1710,6 +2037,12 @@ pub fn parse_user_data_message(
     default_market: &str,
     payload: &str,
 ) -> Option<BinanceExecutionUpdate> {
+    if let Ok(wrapper) = serde_json::from_str::<SpotWsApiEventEnvelope>(payload) {
+        if let Some(event) = wrapper.event {
+            let event_payload = serde_json::to_string(&event).ok()?;
+            return parse_user_data_message(default_market, &event_payload);
+        }
+    }
     if let Ok(spot) = serde_json::from_str::<SpotExecutionReportPayload>(payload) {
         if spot.event_type == "executionReport" {
             return Some(BinanceExecutionUpdate {
@@ -2093,7 +2426,7 @@ fn symbol_requirements(
 #[cfg(test)]
 mod tests {
     use super::{
-        parse_user_data_message, BinanceClient, BinanceOrderRequest, CredentialCipher,
+        parse_user_data_message, sign_query, BinanceClient, BinanceOrderRequest, CredentialCipher,
         CredentialValidationError, CredentialValidationRequest,
     };
     use std::{
@@ -2173,7 +2506,10 @@ mod tests {
                 .expect("request path");
             let route = {
                 let mut guard = queue_for_thread.lock().expect("route queue poisoned");
-                let Some(index) = guard.iter().position(|candidate| path.starts_with(candidate.path_prefix)) else {
+                let Some(index) = guard
+                    .iter()
+                    .position(|candidate| path.starts_with(candidate.path_prefix))
+                else {
                     panic!("no route matched request path {}", path);
                 };
                 guard.remove(index)
@@ -2459,29 +2795,40 @@ mod tests {
     }
 
     #[test]
-    fn live_user_data_stream_returns_listen_key_and_ws_url() {
+    fn live_user_data_stream_returns_spot_ws_api_subscription_request() {
         let _guard = env_lock().lock().unwrap();
         let server = spawn_test_server(vec![TestRoute {
-            path_prefix: "/api/v3/userDataStream",
+            path_prefix: "/api/v3/time",
             status_line: "HTTP/1.1 200 OK",
-            body: r#"{"listenKey":"spot-key-123"}"#,
+            body: r#"{"serverTime":1710000}"#,
         }]);
         let _live_mode = set_env("BINANCE_LIVE_MODE", "1");
         let _spot_base = set_env("BINANCE_SPOT_REST_BASE_URL", &server.base_url);
-        let _spot_ws = set_env(
-            "BINANCE_SPOT_WS_BASE_URL",
-            "wss://stream.binance.com:9443/ws",
+        let _spot_ws_api = set_env(
+            "BINANCE_SPOT_WS_API_BASE_URL",
+            "wss://ws-api.binance.com:443/ws-api/v3",
         );
 
         let client = BinanceClient::new("live-key", "live-secret");
-        let stream = client.start_user_data_stream("spot").expect("listen key");
+        let stream = client
+            .start_user_data_stream("spot")
+            .expect("spot ws api stream");
 
         assert_eq!(stream.market, "spot");
-        assert_eq!(stream.listen_key, "spot-key-123");
+        assert_eq!(stream.listen_key, "");
         assert_eq!(
             stream.websocket_url,
-            "wss://stream.binance.com:9443/ws/spot-key-123"
+            "wss://ws-api.binance.com:443/ws-api/v3"
         );
+        let request = stream.subscribe_request.expect("spot subscribe request");
+        let payload: serde_json::Value = serde_json::from_str(&request).expect("json request");
+        assert_eq!(payload["method"], "userDataStream.subscribe.signature");
+        assert_eq!(payload["params"]["apiKey"], "live-key");
+        assert_eq!(payload["params"]["timestamp"], 1710000);
+        assert_eq!(payload["params"]["recvWindow"], 5000);
+        let signature_payload = "apiKey=live-key&recvWindow=5000&timestamp=1710000";
+        let expected_signature = sign_query("live-secret", signature_payload).expect("signature");
+        assert_eq!(payload["params"]["signature"], expected_signature);
     }
 
     #[test]
@@ -2497,6 +2844,15 @@ mod tests {
         assert_eq!(spot.last_fill_quantity.as_deref(), Some("0.001"));
         assert_eq!(spot.trade_id.as_deref(), Some("-1"));
 
+        let wrapped_spot = parse_user_data_message(
+            "spot",
+            r#"{"subscriptionId":7,"event":{"e":"executionReport","E":1710000,"s":"BTCUSDT","c":"grid-order-1","S":"BUY","o":"LIMIT","x":"TRADE","X":"FILLED","i":555,"p":"42000","L":"42000","l":"0.001","z":"0.001","n":"0.05","N":"USDT","t":-1}}"#,
+        )
+        .expect("wrapped spot execution report");
+        assert_eq!(wrapped_spot.market, "spot");
+        assert_eq!(wrapped_spot.order_id, "555");
+        assert_eq!(wrapped_spot.status, "FILLED");
+
         let futures = parse_user_data_message(
             "usdm",
             r#"{"e":"ORDER_TRADE_UPDATE","E":1710001,"o":{"s":"BTCUSDT","c":"grid-order-2","S":"SELL","o":"LIMIT","x":"TRADE","X":"PARTIALLY_FILLED","i":777,"p":"43000","L":"43000","l":"0.002","z":"0.003","n":"0.06","N":"USDT","ps":"SHORT","t":0,"rp":"1.25"}}"#,
@@ -2510,20 +2866,47 @@ mod tests {
     }
 
     #[test]
-    fn live_keepalive_user_data_stream_reuses_listen_key() {
+    fn live_keepalive_user_data_stream_is_noop_for_spot_ws_api() {
         let _guard = env_lock().lock().unwrap();
-        let server = spawn_test_server(vec![TestRoute {
-            path_prefix: "/api/v3/userDataStream",
-            status_line: "HTTP/1.1 200 OK",
-            body: r#"{}"#,
-        }]);
+        let _live_mode = set_env("BINANCE_LIVE_MODE", "1");
+
+        let client = BinanceClient::new("live-key", "live-secret");
+        client
+            .keepalive_user_data_stream("spot", "")
+            .expect("spot ws api keepalive noop");
+    }
+
+    #[test]
+    fn live_open_orders_reads_spot_open_orders() {
+        let _guard = env_lock().lock().unwrap();
+        let current_now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("time should be after epoch")
+            .as_millis() as i64;
+        let current_now_payload =
+            Box::leak(format!(r#"{{"serverTime": {current_now}}}"#).into_boxed_str());
+        let server = spawn_test_server(vec![
+            TestRoute {
+                path_prefix: "/api/v3/time",
+                status_line: "HTTP/1.1 200 OK",
+                body: current_now_payload,
+            },
+            TestRoute {
+                path_prefix: "/api/v3/openOrders?",
+                status_line: "HTTP/1.1 200 OK",
+                body: r#"[{"symbol":"BTCUSDT","orderId":555,"clientOrderId":"grid-order-1","status":"NEW","price":"42000","origQty":"0.001","side":"BUY","type":"LIMIT"}]"#,
+            },
+        ]);
         let _live_mode = set_env("BINANCE_LIVE_MODE", "1");
         let _spot_base = set_env("BINANCE_SPOT_REST_BASE_URL", &server.base_url);
 
         let client = BinanceClient::new("live-key", "live-secret");
-        client
-            .keepalive_user_data_stream("spot", "spot-key-123")
-            .expect("keepalive");
+        let orders = client.open_orders("spot", "BTCUSDT").expect("open orders");
+
+        assert_eq!(orders.len(), 1);
+        assert_eq!(orders[0].order_id, "555");
+        assert_eq!(orders[0].client_order_id.as_deref(), Some("grid-order-1"));
+        assert_eq!(orders[0].status, "NEW");
     }
 
     #[test]
@@ -2620,7 +3003,8 @@ mod tests {
         let _spot_base = set_env("BINANCE_SPOT_REST_BASE_URL", &server.base_url);
 
         let client = BinanceClient::new("live-key", "live-secret");
-        let request = CredentialValidationRequest::new(true, &["spot".to_owned()]).expect("request");
+        let request =
+            CredentialValidationRequest::new(true, &["spot".to_owned()]).expect("request");
 
         let check = client.check_credentials_for(&request);
 
@@ -2630,6 +3014,46 @@ mod tests {
         assert!(check.withdrawal_disabled);
         assert!(check.market_access_ok);
         assert_eq!(check.connection_status(), "healthy");
+    }
+
+    #[test]
+    fn live_spot_validation_does_not_invent_withdrawal_error_when_api_restrictions_call_fails() {
+        let _guard = env_lock().lock().unwrap();
+        let current_now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("time should be after epoch")
+            .as_millis() as i64;
+        let current_now_payload =
+            Box::leak(format!(r#"{{"serverTime": {current_now}}}"#).into_boxed_str());
+        let server = spawn_test_server(vec![
+            TestRoute {
+                path_prefix: "/api/v3/time",
+                status_line: "HTTP/1.1 200 OK",
+                body: current_now_payload,
+            },
+            TestRoute {
+                path_prefix: "/api/v3/account?",
+                status_line: "HTTP/1.1 200 OK",
+                body: r#"{"accountType":"SPOT","canTrade":true,"canWithdraw":true,"permissions":["TRD_GRP_236"],"balances":[{"asset":"USDT","free":"1.00","locked":"0.00"}]}"#,
+            },
+            TestRoute {
+                path_prefix: "/sapi/v1/account/apiRestrictions?",
+                status_line: "HTTP/1.1 500 Internal Server Error",
+                body: r#"{"code":-1,"msg":"boom"}"#,
+            },
+        ]);
+        let _live_mode = set_env("BINANCE_LIVE_MODE", "1");
+        let _spot_base = set_env("BINANCE_SPOT_REST_BASE_URL", &server.base_url);
+
+        let client = BinanceClient::new("live-key", "live-secret");
+        let request =
+            CredentialValidationRequest::new(true, &["spot".to_owned()]).expect("request");
+
+        let check = client.check_credentials_for(&request);
+
+        assert!(!check.api_connectivity_ok);
+        assert!(check.withdrawal_disabled);
+        assert!(!check.market_access_ok);
     }
 
     #[test]

@@ -1,73 +1,87 @@
-import { cn } from "@/lib/utils";
-import type { ReactNode } from "react";
-import { AlertTriangle, Info, CheckCircle, XCircle } from "lucide-react";
+"use client";
 
-type BannerTone = "info" | "success" | "warning" | "danger";
+import { pickText, type UiLanguage } from "@/lib/ui/preferences";
 
-type Action = {
-  href: string;
+type BannerTone = "info" | "warning" | "error" | "success";
+
+const TONE_STYLES: Record<BannerTone, string> = {
+  info: "border-blue-200 bg-blue-50 text-blue-800 dark:border-blue-800 dark:bg-blue-950/30 dark:text-blue-300",
+  warning: "border-yellow-200 bg-yellow-50 text-yellow-800 dark:border-yellow-800 dark:bg-yellow-950/30 dark:text-yellow-300",
+  error: "border-red-200 bg-red-50 text-red-800 dark:border-red-800 dark:bg-red-950/30 dark:text-red-300",
+  success: "border-green-200 bg-green-50 text-green-800 dark:border-green-800 dark:bg-green-950/30 dark:text-green-300",
+};
+
+type ActionLink = {
   label: string;
+  href: string;
 };
 
 export function StatusBanner({
-  action,
-  description,
-  extra,
+  tone,
   title,
-  tone = "info",
+  description,
+  action,
+  lang,
 }: {
-  action?: Action;
-  description: ReactNode;
-  extra?: ReactNode;
+  tone: BannerTone;
   title: string;
-  tone?: BannerTone;
+  description?: string;
+  action?: ActionLink;
+  lang: UiLanguage;
 }) {
-  const Icon = tone === "danger" ? XCircle : tone === "warning" ? AlertTriangle : tone === "success" ? CheckCircle : Info;
-
   return (
     <div
-      className={cn(
-        "status-banner rounded-sm border p-4 flex flex-col gap-4 justify-between md:flex-row md:items-start",
-        {
-          "bg-blue-50 border-blue-200 text-foreground dark:bg-blue-500/10 dark:border-blue-500/20": tone === "info",
-          "bg-emerald-50 border-emerald-200 text-foreground dark:bg-emerald-500/10 dark:border-emerald-500/20": tone === "success",
-          "bg-amber-50 border-amber-200 text-foreground dark:bg-amber-500/10 dark:border-amber-500/20": tone === "warning",
-          "bg-red-50 border-red-200 text-foreground dark:bg-red-500/10 dark:border-red-500/20": tone === "danger",
-        }
-      )}
-      role={tone === "danger" || tone === "warning" ? "alert" : "status"}
+      aria-live="polite"
+      className={`status-banner rounded-lg border p-4 ${TONE_STYLES[tone]}`}
+      role="status"
     >
-      <div className="status-banner__meta flex gap-3">
-        <Icon
-          className={cn("w-5 h-5 shrink-0 mt-0.5", {
-            "text-blue-700 dark:text-blue-300": tone === "info",
-            "text-emerald-700 dark:text-emerald-300": tone === "success",
-            "text-amber-700 dark:text-amber-300": tone === "warning",
-            "text-red-700 dark:text-red-300": tone === "danger",
-          })}
-        />
-        <div className="status-banner__copy space-y-1">
-          <h4 className="text-sm font-bold text-foreground">{title}</h4>
-          <div className="max-w-3xl text-xs leading-relaxed text-muted-foreground">{description}</div>
-          {extra && <div className="pt-2 text-xs text-muted-foreground">{extra}</div>}
+      <div className="flex items-start gap-3">
+        <span className="text-lg">
+          {tone === "error" ? "⚠" : tone === "warning" ? "⚡" : tone === "success" ? "✓" : "ℹ"}
+        </span>
+        <div className="status-banner__meta flex-1">
+          <p className="font-medium">{title}</p>
+          {description && (
+            <p className="mt-1 text-sm opacity-80">{description}</p>
+          )}
+          {action && (
+            <a
+              href={action.href}
+              className="status-banner__actions mt-2 inline-block rounded-md bg-white/50 px-3 py-1 text-xs font-medium hover:bg-white/70 dark:bg-black/20 dark:hover:bg-black/30"
+            >
+              {action.label}
+            </a>
+          )}
         </div>
       </div>
-      {action && (
-        <a 
-          href={action.href}
-          className={cn(
-            "status-banner__actions shrink-0 inline-flex items-center justify-center rounded-sm px-3 py-1.5 text-xs font-semibold transition-colors",
-            {
-              "bg-blue-100 hover:bg-blue-200 text-blue-900 dark:bg-blue-500/20 dark:hover:bg-blue-500/30 dark:text-blue-100": tone === "info",
-              "bg-emerald-100 hover:bg-emerald-200 text-emerald-900 dark:bg-emerald-500/20 dark:hover:bg-emerald-500/30 dark:text-emerald-100": tone === "success",
-              "bg-amber-100 hover:bg-amber-200 text-amber-900 dark:bg-amber-500/20 dark:hover:bg-amber-500/30 dark:text-amber-100": tone === "warning",
-              "bg-red-100 hover:bg-red-200 text-red-900 dark:bg-red-500/20 dark:hover:bg-red-500/30 dark:text-red-100": tone === "danger",
-            }
-          )}
-        >
-          {action.label}
-        </a>
-      )}
     </div>
+  );
+}
+
+export function ErrorBanner({
+  error,
+  lang,
+  retry,
+  helpHref,
+}: {
+  error: string;
+  lang: UiLanguage;
+  retry?: () => void;
+  helpHref?: string;
+}) {
+  return (
+    <StatusBanner
+      tone="error"
+      title={pickText(lang, "操作失败", "Action Failed")}
+      description={error}
+      action={
+        retry
+          ? { label: pickText(lang, "重试", "Retry"), href: "#" }
+          : helpHref
+            ? { label: pickText(lang, "查看帮助", "View Help"), href: helpHref }
+            : undefined
+      }
+      lang={lang}
+    />
   );
 }

@@ -92,3 +92,14 @@ Optional but required for automatic billing detection on the corresponding asset
 - Rotate secrets during incident response or administrator turnover.
 - Treat `.env.example` as a template only; never deploy placeholder values.
 - When running services outside compose, override `DATABASE_URL` and `REDIS_URL` to host-reachable addresses such as `127.0.0.1`.
+
+## Martingale Backtest Worker Configuration
+
+Set these values when enabling the martingale backtest worker:
+
+- `BACKTEST_ARTIFACT_ROOT`: directory where the worker writes JSONL result artifacts. In Docker Compose this should be backed by a persistent volume shared with services that need to read artifacts.
+- `BACKTEST_WORKER_MAX_THREADS`: maximum CPU worker threads a single backtest worker process may use.
+- `BACKTEST_WORKER_POLL_MS`: polling interval, in milliseconds, for queued task checks and pause/cancel observation.
+- `BACKTEST_MARKET_DATA_DB_PATH`: path to the external SQLite market data database used for K-line screening and trade refinement. The worker opens this database read-only; if the variable is omitted, martingale worker tasks fail rather than producing synthetic candidates.
+
+When `BACKTEST_MARKET_DATA_DB_PATH` is enabled in an environment, it must point to an external market database opened in read-only mode. Do not grant the backtest worker write privileges to that source database, and do not run migrations, index creation, VACUUM, checkpoint, or repair operations against it from this application.

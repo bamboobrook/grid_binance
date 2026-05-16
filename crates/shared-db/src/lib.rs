@@ -15,14 +15,20 @@ use ::redis::RedisError;
 use chrono::{DateTime, Duration, Utc};
 use shared_domain::{
     membership::MembershipStatus,
-    strategy::{
-        set_strategy_template_reference_price, Strategy, StrategyStatus, StrategyTemplate,
-    },
+    strategy::{set_strategy_template_reference_price, Strategy, StrategyStatus, StrategyTemplate},
 };
 use shared_events::MarketTick;
 
+pub mod backtest;
 pub mod postgres;
 pub mod redis;
+
+pub use crate::backtest::{
+    BacktestArtifactRecord, BacktestCandidateRecord, BacktestQuotaPolicyRecord, BacktestRepository,
+    BacktestTaskRecord, MartingalePortfolioItemRecord, MartingalePortfolioRecord,
+    NewBacktestArtifactRecord, NewBacktestCandidateRecord, NewBacktestTaskRecord,
+    NewMartingalePortfolioItemRecord, NewMartingalePortfolioRecord,
+};
 
 pub use crate::postgres::admin::{AuditLogRecord, SystemConfigRecord};
 pub use crate::postgres::billing::{
@@ -82,6 +88,12 @@ struct EphemeralState {
     strategy_profit_snapshots: Vec<StrategyProfitSnapshotRecord>,
     strategies: BTreeMap<u64, Strategy>,
     templates: BTreeMap<u64, StoredStrategyTemplate>,
+    backtest_quota_policies: HashMap<String, BacktestQuotaPolicyRecord>,
+    backtest_tasks: BTreeMap<String, BacktestTaskRecord>,
+    backtest_task_events: Vec<backtest::BacktestTaskEventRecord>,
+    backtest_candidates: BTreeMap<String, BacktestCandidateRecord>,
+    backtest_artifacts: BTreeMap<String, BacktestArtifactRecord>,
+    martingale_portfolios: BTreeMap<String, backtest::MartingalePortfolioRecord>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -535,6 +547,15 @@ impl SharedDb {
 
     pub fn admin_repo(&self) -> AdminRepository {
         AdminRepository::new(self.postgres().pool().clone())
+    }
+
+    pub fn backtest_repo(&self) -> BacktestRepository {
+        match &self.backend {
+            SharedDbBackend::Runtime { postgres, .. } => {
+                BacktestRepository::new(postgres.pool().clone())
+            }
+            SharedDbBackend::Ephemeral(state) => BacktestRepository::ephemeral(state.clone()),
+        }
     }
 
     pub fn next_sequence(&self, name: &str) -> Result<u64, SharedDbError> {
@@ -2620,6 +2641,9 @@ impl SharedDb {
                 }) else {
                     return Ok(0);
                 };
+                if stored.status == StrategyStatus::Archived {
+                    return Ok(0);
+                }
                 *stored = strategy.clone();
                 Ok(1)
             }
@@ -3036,7 +3060,8 @@ mod tests {
     use shared_domain::strategy::{
         GridGeneration, GridLevel, PostTriggerAction, ReferencePriceSource, RuntimeControls,
         Strategy, StrategyAmountMode, StrategyMarket, StrategyMode, StrategyRevision,
-        StrategyRuntime, StrategyRuntimePhase, StrategyStatus, StrategyTemplate, StrategyType,
+        StrategyRuntime, StrategyRuntimeEvent, StrategyRuntimePhase, StrategyStatus,
+        StrategyTemplate, StrategyType,
     };
     use std::{
         fs,
@@ -3070,6 +3095,10 @@ mod tests {
                 "0012_strategy_engine_rewrite.sql",
                 "0013_strategy_type_and_reference_source_template_support.sql",
                 "0014_strategy_template_reference_price_support.sql",
+                "0015_strategy_tags_and_notes.sql",
+                "0016_notification_preferences.sql",
+                "0017_martingale_backtest_portfolios.sql",
+                "0018_martingale_batch_portfolio_publish.sql",
             ]
         );
     }
@@ -3160,6 +3189,8 @@ mod tests {
             },
             active_revision: None,
             runtime: StrategyRuntime::default(),
+            tags: Vec::new(),
+            notes: String::new(),
             archived_at: None,
         };
 
@@ -3180,6 +3211,104 @@ mod tests {
             .expect("strategy should remain persisted");
         assert_eq!(archived.status, StrategyStatus::Archived);
         assert!(archived.archived_at.unwrap_or_else(Utc::now) <= Utc::now());
+    }
+
+    #[test]
+    fn runtime_archived_strategy_cannot_be_resurrected_by_stale_update() {
+        let runtime = PersistentRuntimeHarness::start("shared-db-archive-guard");
+        let db =
+            SharedDb::connect(runtime.database_url(), runtime.redis_url()).expect("runtime db");
+        let strategy = Strategy {
+            id: "strategy-archive-guard".to_string(),
+            owner_email: "guard@example.com".to_string(),
+            name: "guard".to_string(),
+            symbol: "BTCUSDT".to_string(),
+            budget: "1".to_string(),
+            grid_spacing_bps: 100,
+            status: StrategyStatus::Stopped,
+            source_template_id: None,
+            membership_ready: true,
+            exchange_ready: true,
+            permissions_ready: true,
+            withdrawals_disabled: true,
+            hedge_mode_ready: true,
+            symbol_ready: true,
+            filters_ready: true,
+            margin_ready: true,
+            conflict_ready: true,
+            balance_ready: true,
+            strategy_type: StrategyType::OrdinaryGrid,
+            market: StrategyMarket::Spot,
+            mode: StrategyMode::SpotClassic,
+            runtime_phase: StrategyRuntimePhase::Draft,
+            runtime_controls: RuntimeControls::default(),
+            draft_revision: StrategyRevision {
+                revision_id: "strategy-archive-guard-revision-1".to_string(),
+                version: 1,
+                strategy_type: StrategyType::OrdinaryGrid,
+                generation: GridGeneration::Custom,
+                levels: vec![GridLevel {
+                    level_index: 0,
+                    entry_price: "100".parse().expect("decimal"),
+                    quantity: "1".parse().expect("decimal"),
+                    take_profit_bps: 120,
+                    trailing_bps: None,
+                }],
+                amount_mode: StrategyAmountMode::Quote,
+                futures_margin_mode: None,
+                leverage: None,
+                reference_price_source: ReferencePriceSource::Manual,
+                reference_price: None,
+                overall_take_profit_bps: None,
+                overall_stop_loss_bps: None,
+                post_trigger_action: PostTriggerAction::Stop,
+            },
+            active_revision: None,
+            runtime: StrategyRuntime::default(),
+            tags: Vec::new(),
+            notes: String::new(),
+            archived_at: None,
+        };
+
+        db.insert_strategy(&StoredStrategy {
+            sequence_id: 1,
+            strategy,
+        })
+        .expect("insert strategy");
+
+        let mut stale = db
+            .find_strategy("guard@example.com", "strategy-archive-guard")
+            .expect("find strategy")
+            .expect("strategy persisted");
+
+        let affected = db
+            .delete_strategy("guard@example.com", "strategy-archive-guard")
+            .expect("archive strategy");
+        assert_eq!(affected, 1);
+
+        stale.status = StrategyStatus::Stopped;
+        stale.archived_at = None;
+        stale.runtime.events.push(StrategyRuntimeEvent {
+            event_type: "stale_rewrite".to_string(),
+            detail: "stale runtime rewrite should be ignored".to_string(),
+            price: None,
+            created_at: Utc::now(),
+        });
+
+        let updated = db.update_strategy(&stale).expect("stale update");
+        assert_eq!(updated, 0);
+
+        let archived = db
+            .find_strategy("guard@example.com", "strategy-archive-guard")
+            .expect("find archived strategy")
+            .expect("strategy should remain persisted");
+        assert_eq!(archived.status, StrategyStatus::Archived);
+        assert!(archived.archived_at.is_some());
+        assert!(archived
+            .runtime
+            .events
+            .iter()
+            .all(|event| event.event_type != "stale_rewrite"));
     }
 
     #[test]
@@ -3234,6 +3363,8 @@ mod tests {
             },
             active_revision: None,
             runtime: StrategyRuntime::default(),
+            tags: Vec::new(),
+            notes: String::new(),
             archived_at: None,
         };
 
@@ -3317,6 +3448,8 @@ mod tests {
             },
             active_revision: None,
             runtime: StrategyRuntime::default(),
+            tags: Vec::new(),
+            notes: String::new(),
             archived_at: None,
         };
 
