@@ -1,9 +1,11 @@
 use std::{
     env,
     path::PathBuf,
-    sync::atomic::{AtomicBool, Ordering},
     time::Duration,
 };
+
+#[cfg(test)]
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use backtest_engine::{
     artifacts::{verify_artifact, write_task_json_artifact},
@@ -516,6 +518,7 @@ async fn process_task(
     Ok(())
 }
 
+#[cfg(test)]
 fn select_refinement_candidates_per_symbol(
     mut candidates: Vec<EvaluatedCandidate>,
     min_total: usize,
@@ -559,6 +562,7 @@ fn select_refinement_candidates_per_symbol(
     selected
 }
 
+#[cfg(test)]
 fn search_candidates_with_drawdown_relaxation<F>(
     config: &WorkerTaskConfig,
     cancel: Option<&AtomicBool>,
@@ -855,6 +859,7 @@ fn strategy_value_at<'a>(output: &'a CandidateOutput, path: &[&str]) -> Option<&
     Some(value)
 }
 
+#[cfg(test)]
 fn search_space_from_task(config: &WorkerTaskConfig) -> SearchSpace {
     SearchSpace {
         symbols: config.symbols.clone(),
@@ -1032,6 +1037,7 @@ fn directions_from_mode(mode: Option<&str>) -> Vec<shared_domain::martingale::Ma
     }
 }
 
+#[cfg(test)]
 fn leverage_values(range: Option<[u32; 2]>) -> Vec<u32> {
     let Some([left, right]) = range else {
         return vec![1, 2, 3];
@@ -1049,6 +1055,7 @@ fn template_value<'a>(config: &'a WorkerTaskConfig, path: &[&str]) -> Option<&'a
     Some(current)
 }
 
+#[cfg(test)]
 fn template_u32(config: &WorkerTaskConfig, path: &[&str]) -> Option<u32> {
     template_value(config, path)
         .and_then(Value::as_u64)
