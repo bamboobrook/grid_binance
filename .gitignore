@@ -38,4 +38,4 @@ artifacts/
 *.sqlite3
 
 # Local git worktrees
-# .worktrees/
+.worktrees/
