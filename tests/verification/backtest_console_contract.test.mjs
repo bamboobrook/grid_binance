@@ -45,6 +45,14 @@ test("backtest console interactions stay in-page and use client fetch", () => {
     "apps/web/components/backtest/backtest-wizard.tsx",
     "utf8",
   );
+  const consoleSource = readFileSync(
+    "apps/web/components/backtest/backtest-console.tsx",
+    "utf8",
+  );
+  const resultTableSource = readFileSync(
+    "apps/web/components/backtest/backtest-result-table.tsx",
+    "utf8",
+  );
 
   assert.match(professionalSource, /^"use client";/m);
   assert.match(taskListSource, /^"use client";/m);
@@ -59,13 +67,13 @@ test("backtest console interactions stay in-page and use client fetch", () => {
   assert.match(reviewSource, /`\/\$\{locale\}\/app\/martingale-portfolios`/);
   assert.match(requestClientSource, /fetch\(input, init\)/);
 
-  const consoleSource = readFileSync(
-    "apps/web/components/backtest/backtest-console.tsx",
-    "utf8",
-  );
   assert.match(consoleSource, /requestBacktestApi\("\/api\/user\/backtest\/tasks"/);
   assert.match(consoleSource, /requestBacktestApi\(`\/api\/user\/backtest\/tasks\/\$\{taskId\}\/candidates`/);
   assert.doesNotMatch(consoleSource, /SAMPLE_TASKS|SAMPLE_CANDIDATES|cand-btc-a/);
+  assert.match(consoleSource, /portfolioTop3FromTask/);
+  assert.match(consoleSource, /summary\?:/);
+
+  assert.match(resultTableSource, /candidate_id.*source_candidate_id/);
 
   assert.match(professionalSource, /preventDefault\(\)/);
   assert.doesNotMatch(professionalSource, /action="\/api\/user\/backtest\/tasks"/);

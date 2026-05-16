@@ -38,6 +38,8 @@ test("backtest console exposes progress, per-symbol Top 10, portfolio Top 3, cha
   assert.match(resultSource, /加入组合|Add to basket/);
   assert.match(resultSource, /参数排名|Parameter rank/i);
   assert.match(resultSource, /parameter_rank_for_symbol/);
+  assert.match(tableSource, /trade_count|tradeCount/i);
+  assert.match(tableSource, /source_candidate_id|sourceCandidateId/i);
   assert.match(chartSource, /资金曲线|Equity curve/i);
   assert.match(chartSource, /回撤曲线|Drawdown curve/i);
   assert.match(chartSource, /图表数据缺失|chart data is missing/i);

@@ -26,7 +26,7 @@ type BacktestResultTableProps = {
   selectedId?: string;
   selectedTaskStatus?: string;
   taskName?: string;
-  portfolioTop3?: Array<{ symbol: string; return_pct: number; max_drawdown_pct: number; trade_count: number; score: number }>;
+  portfolioTop3?: Array<{ candidate_id: string; source_candidate_id: string; symbol: string; return_pct: number; max_drawdown_pct: number; trade_count: number; score: number }>;
 };
 
 export function BacktestResultTable({

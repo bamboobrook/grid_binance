@@ -41,6 +41,7 @@ type BacktestTask = {
   progress: string;
   stage: string;
   updatedAt: string;
+  summary: Record<string, unknown> | null;
 };
 
 type BacktestCandidate = {
@@ -297,6 +298,7 @@ export function BacktestConsole({ lang, locale }: { lang: UiLanguage; locale: st
             selectedId={selectedCandidate?.id ?? ""}
             selectedTaskStatus={selectedTask?.rawStatus ?? ""}
             taskName={selectedTaskName}
+            portfolioTop3={portfolioTop3FromTask(selectedTask)}
             onSelect={(candidate) => {
               const full = candidates.find((c) => c.id === candidate.id) ?? null;
               setSelectedCandidate(full);
@@ -366,6 +368,7 @@ function normalizeTask(task: ApiTask, lang: UiLanguage): BacktestTask {
     progress,
     stage,
     updatedAt: formatDate(task.updated_at || task.created_at),
+    summary: isRecord(task.summary) ? task.summary : null,
   };
 }
 
@@ -614,4 +617,35 @@ function formatDate(value: unknown) {
     return value;
   }
   return date.toLocaleString();
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+type PortfolioTop3Row = {
+  candidate_id: string;
+  source_candidate_id: string;
+  symbol: string;
+  score: number;
+  return_pct: number;
+  max_drawdown_pct: number;
+  trade_count: number;
+};
+
+function portfolioTop3FromTask(task: BacktestTask | null): PortfolioTop3Row[] {
+  const rows = task?.summary?.portfolio_top3;
+  if (!Array.isArray(rows)) return [];
+  return rows.map((row: unknown) => {
+    const record = isRecord(row) ? row : {};
+    return {
+      candidate_id: readString(record.candidate_id) || "",
+      source_candidate_id: readString(record.source_candidate_id) || "",
+      symbol: readString(record.symbol) || "",
+      score: readNumber(record.score) ?? 0,
+      return_pct: readNumber(record.return_pct) ?? 0,
+      max_drawdown_pct: readNumber(record.max_drawdown_pct) ?? 0,
+      trade_count: readNumber(record.trade_count) ?? 0,
+    };
+  });
 }
