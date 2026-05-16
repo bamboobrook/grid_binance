@@ -52,3 +52,10 @@ test("backtest worker uses directions_from_mode for multi-direction search", () 
   assert.doesNotMatch(worker, /fn merge_equity_curves_by_timestamp/);
   assert.doesNotMatch(worker, /fn max_drawdown_from_curve/);
 });
+
+test("backtest worker applies task overrides before screening and refinement", () => {
+  const worker = readFileSync("apps/backtest-worker/src/main.rs", "utf8");
+  assert.match(worker, /apply_task_overrides_to_candidate\(candidate\.clone\(\), task\)/);
+  assert.match(worker, /run_candidate_kline_screening\(&overridden, context\)/);
+  assert.match(worker, /run_candidate_trade_refinement\(&overridden_candidate, &market_context\)/);
+});

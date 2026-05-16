@@ -243,7 +243,10 @@ fn run_profit_first_staged_search(
             scoring: scoring.clone(),
         },
         None,
-        |candidate| run_candidate_kline_screening(&candidate, context),
+        |candidate| {
+            let overridden = apply_task_overrides_to_candidate(candidate.clone(), task);
+            run_candidate_kline_screening(&overridden, context)
+        },
     )?;
 
     let survivors: Vec<_> = coarse_candidates
@@ -270,7 +273,10 @@ fn run_profit_first_staged_search(
                 scoring: scoring.clone(),
             },
             None,
-            |candidate| run_candidate_kline_screening(&candidate, context),
+            |candidate| {
+                let overridden = apply_task_overrides_to_candidate(candidate.clone(), task);
+                run_candidate_kline_screening(&overridden, context)
+            },
         )?;
         refined.extend(fine_candidates.candidates);
     }
@@ -306,14 +312,15 @@ fn search_space_from_staged(staged: &StagedMartingaleSearchSpace, symbol: &str, 
         directions: directions_from_mode(task.direction_mode.as_deref()),
         market: market_kind(task.market.as_deref()),
         margin_mode: margin_mode(task.margin_mode.as_deref()),
-        step_bps: staged.spacing_bps.clone(),
+        step_bps: search_space_u32(task, "spacing_bps").unwrap_or_else(|| staged.spacing_bps.clone()),
         first_order_quote: search_space_decimal(task, "first_order_quote")
             .or_else(|| template_decimal(task, &["sizing", "first_order_quote"]).map(|value| vec![value]))
             .unwrap_or_else(|| vec![Decimal::new(100, 0), Decimal::new(250, 0)]),
-        multiplier: staged.order_multiplier.iter().map(|m| Decimal::from_f64_retain(*m).unwrap_or(Decimal::new(15, 1))).collect(),
-        take_profit_bps: staged.take_profit_bps.clone(),
-        leverage: staged.leverage.clone(),
-        max_legs: staged.max_legs.clone(),
+        multiplier: search_space_decimal(task, "order_multiplier")
+            .unwrap_or_else(|| staged.order_multiplier.iter().filter_map(|m| Decimal::from_f64_retain(*m)).collect()),
+        take_profit_bps: search_space_u32(task, "take_profit_bps").unwrap_or_else(|| staged.take_profit_bps.clone()),
+        leverage: search_space_u32(task, "leverage").unwrap_or_else(|| staged.leverage.clone()),
+        max_legs: search_space_u32(task, "max_legs").unwrap_or_else(|| staged.max_legs.clone()),
     }
 }
 
@@ -409,7 +416,8 @@ async fn process_task(
                 &format!("trade_refinement_top_{}", index + 1),
             )
             .await?;
-        let refined = run_candidate_trade_refinement(&evaluated.candidate, &market_context)?;
+        let overridden_candidate = apply_task_overrides_to_candidate(evaluated.candidate.clone(), &task.config);
+        let refined = run_candidate_trade_refinement(&overridden_candidate, &market_context)?;
         let used_trade_refinement =
             !trades_for_candidate(&evaluated.candidate, &market_context.trades).is_empty();
         let rows = vec![json!({
@@ -438,7 +446,7 @@ async fn process_task(
             candidate_id: evaluated.candidate.candidate_id,
             rank: index + 1,
             score: evaluated.score.rank_score,
-            config: serde_json::to_value(&evaluated.candidate.config)
+            config: serde_json::to_value(&overridden_candidate.config)
                 .map_err(|error| format!("serialize candidate config: {error}"))?,
             summary: json!({}),
             artifact_path: manifest.path.display().to_string(),
@@ -1978,6 +1986,28 @@ mod tests {
         assert_eq!(space.take_profit_bps, vec![80, 90]);
         assert_eq!(space.leverage, vec![2, 3, 4]);
         assert_eq!(space.max_legs, vec![6, 8]);
+    }
+
+    #[test]
+    fn staged_search_space_uses_task_search_space_overrides() {
+        let mut config = WorkerTaskConfig::default();
+        config.symbols = vec!["BTCUSDT".to_owned()];
+        config.martingale_template = Some(json!({
+            "search_space": {
+                "spacing_bps": [77],
+                "order_multiplier": ["1.7"],
+                "max_legs": [4],
+                "take_profit_bps": [88],
+                "leverage": [6]
+            }
+        }));
+        let staged = StagedMartingaleSearchSpace::for_profile("balanced", "long_only");
+        let space = search_space_from_staged(&staged, "BTCUSDT", &config);
+        assert_eq!(space.step_bps, vec![77]);
+        assert_eq!(space.max_legs, vec![4]);
+        assert_eq!(space.take_profit_bps, vec![88]);
+        assert_eq!(space.leverage, vec![6]);
+        assert_eq!(space.multiplier, vec![Decimal::new(17, 1)]);
     }
 
     #[test]
