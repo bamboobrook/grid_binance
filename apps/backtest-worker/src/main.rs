@@ -2210,6 +2210,24 @@ mod tests {
             MartingaleEntryTrigger::IndicatorExpression { .. }
         ));
     }
+
+    #[test]
+    fn worker_task_config_deserializes_missing_search_counts_with_defaults() {
+        let config: WorkerTaskConfig = serde_json::from_value(json!({
+            "symbols": ["BTCUSDT", "ETHUSDT"],
+            "risk_profile": "balanced",
+            "direction_mode": "long_short",
+            "start_ms": 1672531200000_i64,
+            "end_ms": 1673308800000_i64
+        })).expect("worker config");
+
+        assert_eq!(config.random_seed, 1);
+        assert_eq!(config.random_candidates, 16);
+        assert_eq!(config.intelligent_rounds, 1);
+        assert_eq!(config.top_n, 10);
+        assert_eq!(config.per_symbol_top_n, 10);
+        assert_eq!(config.portfolio_top_n, 3);
+    }
 }
 
 impl WorkerConfig {
