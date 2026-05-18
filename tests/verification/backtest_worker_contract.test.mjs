@@ -63,3 +63,27 @@ test("backtest worker applies task overrides before screening and refinement", (
   assert.match(worker, /run_candidate_kline_screening\(&overridden, context\)/);
   assert.match(worker, /run_candidate_trade_refinement\(&overridden_candidate, &market_context\)/);
 });
+
+test("worker emits complete martingale artifacts and true portfolio combinations", () => {
+  const worker = readFileSync("apps/backtest-worker/src/main.rs", "utf8");
+  const portfolio = readFileSync("apps/backtest-engine/src/portfolio_search.rs", "utf8");
+  const metrics = readFileSync("apps/backtest-engine/src/martingale/metrics.rs", "utf8");
+
+  assert.match(worker, /annualized_return_pct/);
+  assert.match(worker, /drawdown_curve/);
+  assert.match(worker, /trades_preview|trade_details|trades/);
+  assert.match(worker, /eligible_candidates|eligible_candidate_count/);
+  assert.match(worker, /long_short|LongShort|MartingaleDirectionMode::LongShort/);
+  assert.match(worker, /planned_margin_quote/);
+  assert.match(worker, /max_leverage_used|leverage/);
+
+  assert.match(portfolio, /PortfolioMember/);
+  assert.match(portfolio, /allocation_pct/);
+  assert.match(portfolio, /combine_equity_curves|weighted_portfolio_equity/);
+  assert.match(portfolio, /member_count/);
+  assert.doesNotMatch(portfolio, /ranked\.iter\(\)\.take\(3\).*cloned/s);
+
+  assert.match(metrics, /calculate_annualized_return_pct/);
+  assert.match(metrics, /planned_margin_quote/);
+  assert.match(metrics, /notional_quote/);
+});

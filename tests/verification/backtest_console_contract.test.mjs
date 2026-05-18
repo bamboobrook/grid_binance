@@ -234,3 +234,31 @@ test("backtest wizard is a real editable launcher, not a static template", () =>
   assert.match(reviewSource, /recommended_weight_pct/);
   assert.match(reviewSource, /recommended_leverage/);
 });
+
+test("backtest UI shows complete candidate details with annualized, drawdown curve, trades, and leverage", () => {
+  const tableSource = readFileSync("apps/web/components/backtest/backtest-result-table.tsx", "utf8");
+  const chartSource = readFileSync("apps/web/components/backtest/backtest-charts.tsx", "utf8");
+  const typesSource = readFileSync("apps/web/lib/api-types.ts", "utf8");
+
+  assert.match(tableSource, /annualized_return_pct|annualizedReturnPct/);
+  assert.match(tableSource, /max_leverage_used|maxLeverageUsed/);
+  assert.match(tableSource, /trade_count|tradeCount/);
+  assert.match(tableSource, /查看详情|View details/);
+  assert.match(chartSource, /drawdown_curve|drawdownCurve/);
+  assert.match(chartSource, /trades_preview|tradesPreview|trade_details|tradeDetails/);
+  assert.match(typesSource, /annualized_return_pct/);
+  assert.match(typesSource, /drawdown_curve/);
+  assert.match(typesSource, /trades_preview/);
+  assert.match(typesSource, /planned_margin_quote/);
+  assert.match(typesSource, /max_leverage_used/);
+});
+
+test("portfolio review shows true weighted members with allocation and member count", () => {
+  const reviewSource = readFileSync("apps/web/components/backtest/portfolio-candidate-review.tsx", "utf8");
+  const typesSource = readFileSync("apps/web/lib/api-types.ts", "utf8");
+
+  assert.match(reviewSource, /allocation_pct|allocationPct/);
+  assert.match(reviewSource, /member_count|memberCount/);
+  assert.match(typesSource, /PortfolioMember/);
+  assert.match(typesSource, /allocation_pct/);
+});
