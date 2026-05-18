@@ -1,9 +1,11 @@
 use std::{
     env,
     path::PathBuf,
-    sync::atomic::{AtomicBool, Ordering},
     time::Duration,
 };
+
+#[cfg(test)]
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use backtest_engine::{
     artifacts::{verify_artifact, write_task_json_artifact},
@@ -671,6 +673,7 @@ async fn process_task(
     Ok(())
 }
 
+#[cfg(test)]
 fn select_refinement_candidates_per_symbol(
     mut candidates: Vec<EvaluatedCandidate>,
     min_total: usize,
@@ -714,6 +717,7 @@ fn select_refinement_candidates_per_symbol(
     selected
 }
 
+#[cfg(test)]
 fn search_candidates_with_drawdown_relaxation<F>(
     config: &WorkerTaskConfig,
     cancel: Option<&AtomicBool>,
@@ -815,9 +819,14 @@ fn select_top_outputs_per_symbol(
 
     let mut selected = Vec::new();
     let mut selected_counts = BTreeMap::<String, usize>::new();
+    let mut selected_signatures = std::collections::BTreeSet::<String>::new();
 
     for output in outputs {
         let symbol = output_symbol(&output).unwrap_or_else(|| output.candidate_id.clone());
+        let signature = output_parameter_signature(&output);
+        if !selected_signatures.insert(signature) {
+            continue;
+        }
         let count = selected_counts.entry(symbol).or_default();
         if *count >= per_symbol_top_n {
             continue;
@@ -865,6 +874,7 @@ fn select_top_outputs_per_symbol(
             output.summary = merge_json_objects(
                 output.summary,
                 json!({
+                    "source_candidate_id": output.candidate_id,
                     "symbol": symbol,
                     "direction": direction,
                     "parameter_rank_for_symbol": parameter_rank_for_symbol,
@@ -969,6 +979,10 @@ fn output_leverage(output: &CandidateOutput) -> Option<u32> {
         .map(|value| value as u32)
 }
 
+fn output_parameter_signature(output: &CandidateOutput) -> String {
+    serde_json::to_string(&output.config).unwrap_or_else(|_| output.candidate_id.clone())
+}
+
 fn output_portfolio_group_key(output: &CandidateOutput) -> String {
     output_symbol(output).unwrap_or_else(|| output.candidate_id.clone())
 }
@@ -1033,6 +1047,7 @@ fn strategy_value_at<'a>(output: &'a CandidateOutput, path: &[&str]) -> Option<&
     Some(value)
 }
 
+#[cfg(test)]
 fn search_space_from_task(config: &WorkerTaskConfig) -> SearchSpace {
     SearchSpace {
         symbols: config.symbols.clone(),
@@ -1210,6 +1225,7 @@ fn directions_from_mode(mode: Option<&str>) -> Vec<shared_domain::martingale::Ma
     }
 }
 
+#[cfg(test)]
 fn leverage_values(range: Option<[u32; 2]>) -> Vec<u32> {
     let Some([left, right]) = range else {
         return vec![1, 2, 3];
@@ -1227,6 +1243,7 @@ fn template_value<'a>(config: &'a WorkerTaskConfig, path: &[&str]) -> Option<&'a
     Some(current)
 }
 
+#[cfg(test)]
 fn template_u32(config: &WorkerTaskConfig, path: &[&str]) -> Option<u32> {
     template_value(config, path)
         .and_then(Value::as_u64)
@@ -1724,7 +1741,7 @@ mod tests {
                 "strategies": [{
                     "symbol": symbol,
                     "leverage": leverage,
-                    "spacing": { "fixed_percent": { "step_bps": 100 } },
+                    "spacing": { "fixed_percent": { "step_bps": 100 + rank as u32 } },
                     "sizing": {
                         "multiplier": {
                             "first_order_quote": "10",
@@ -1947,7 +1964,10 @@ mod tests {
 
     #[test]
     fn candidate_outputs_keep_top_five_per_symbol_and_enrich_summary() {
+        let mut btc_duplicate = candidate_output("BTCUSDT", "btc-duplicate", 1, 95.0, 3);
+        btc_duplicate.config = candidate_output("BTCUSDT", "btc-1", 1, 90.0, 3).config;
         let outputs = vec![
+            btc_duplicate,
             candidate_output("BTCUSDT", "btc-1", 1, 90.0, 3),
             candidate_output("BTCUSDT", "btc-2", 2, 80.0, 3),
             candidate_output("BTCUSDT", "btc-3", 3, 70.0, 3),
@@ -1960,18 +1980,21 @@ mod tests {
         let selected = select_top_outputs_per_symbol(outputs, 5, "balanced");
 
         assert_eq!(selected.len(), 6);
+        assert!(selected.iter().any(|output| output.candidate_id == "btc-duplicate"));
+        assert!(!selected.iter().any(|output| output.candidate_id == "btc-1"));
         assert!(selected.iter().any(|output| output.candidate_id == "btc-5"));
         assert!(!selected.iter().any(|output| output.candidate_id == "btc-6"));
 
         let btc_first = selected
             .iter()
-            .find(|output| output.candidate_id == "btc-1")
+            .find(|output| output.candidate_id == "btc-duplicate")
             .unwrap();
         assert_eq!(btc_first.summary["symbol"], "BTCUSDT");
         assert_eq!(btc_first.summary["parameter_rank_for_symbol"], 1);
         assert_eq!(btc_first.summary["recommended_weight_pct"], 20.0);
         assert_eq!(btc_first.summary["recommended_leverage"], 3);
         assert_eq!(btc_first.summary["risk_profile"], "balanced");
+        assert_eq!(btc_first.summary["source_candidate_id"], "btc-duplicate");
     }
 
     #[test]
