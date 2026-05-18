@@ -287,7 +287,7 @@ fn build_single_direction_candidate(
     max_legs: u32,
     take_profit_bps: u32,
     tail_stop_bps: u32,
-    weight_pct: u32,
+    _weight_pct: u32,
     id_counter: &mut usize,
 ) -> Result<SearchCandidate, String> {
     let direction_mode = match direction {
@@ -341,8 +341,8 @@ fn build_long_short_candidate(
     max_legs: u32,
     take_profit_bps: u32,
     tail_stop_bps: u32,
-    long_weight_pct: u32,
-    short_weight_pct: u32,
+    _long_weight_pct: u32,
+    _short_weight_pct: u32,
     id_counter: &mut usize,
 ) -> Result<SearchCandidate, String> {
     let market = if leverage > 1 { MartingaleMarketKind::UsdMFutures } else { MartingaleMarketKind::Spot };

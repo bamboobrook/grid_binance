@@ -175,10 +175,17 @@ function candidateRow(
     tradeCount: candidate.tradeCount,
     parameters: candidate.parameters,
     decision: candidate.decision,
+    annualized_return_pct: candidate.summary?.annualized_return_pct != null ? `${candidate.summary.annualized_return_pct.toFixed(2)}%` : "—",
+    max_leverage_used: candidate.summary?.max_leverage_used != null ? `${candidate.summary.max_leverage_used}x` : "—",
     actions: (
-      <button className="rounded-full border border-border px-3 py-1 text-xs font-medium" onClick={() => onAddToBasket?.(candidate)} type="button">
-        {pickText(lang, "加入组合", "Add to basket")}
-      </button>
+      <div className="flex gap-2">
+        <button className="rounded-full border border-border px-3 py-1 text-xs font-medium" onClick={() => onSelect?.(candidate)} type="button">
+          {pickText(lang, "查看详情", "View details")}
+        </button>
+        <button className="rounded-full border border-border px-3 py-1 text-xs font-medium" onClick={() => onAddToBasket?.(candidate)} type="button">
+          {pickText(lang, "加入组合", "Add to basket")}
+        </button>
+      </div>
     ),
   };
 }

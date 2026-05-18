@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import type { MartingaleEquityPoint, MartingaleBacktestCandidateSummary } from "@/lib/api-types";
+import type { MartingaleEquityPoint, MartingaleBacktestCandidateSummary, MartingaleTradeDetail } from "@/lib/api-types";
 
 type RawChartPoint = MartingaleEquityPoint & { t?: number };
 
@@ -336,6 +336,12 @@ export function BacktestCharts({ summary, equityCurve, stopLossEvents }: Backtes
       <div>
         <h4 className="text-sm font-medium mb-1">Stop-Loss Events</h4>
         <StopLossEvents events={stopLossEvents ?? summary?.stop_loss_events ?? []} />
+      </div>
+
+      {/* Trade details */}
+      <div>
+        <h4 className="text-sm font-medium mb-1">交易明细 / Trade details</h4>
+        <TradeDetailsPreview trades={summary?.trades_preview ?? []} />
       </div>
     </div>
   );

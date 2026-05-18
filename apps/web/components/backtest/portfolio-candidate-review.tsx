@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { publishPortfolio, requestBacktestApi } from "@/components/backtest/request-client";
-import type { MartingaleBacktestCandidateSummary, MartingaleRiskSummary } from "@/lib/api-types";
+import type { MartingaleBacktestCandidateSummary, MartingaleRiskSummary, MartingalePortfolioMember } from "@/lib/api-types";
 import { pickText, type UiLanguage } from "@/lib/ui/preferences";
 
 type BacktestCandidate = {
@@ -132,6 +132,9 @@ export function PortfolioCandidateReview({
   onPublish,
   onRemove,
   onUpdate,
+  portfolioMembers,
+  memberCount,
+  eligibleCandidateCount,
 }: {
   basketItems: PortfolioBasketItem[];
   candidate: BacktestCandidate | null;
@@ -140,6 +143,9 @@ export function PortfolioCandidateReview({
   onPublish: (payload: Record<string, unknown>) => Promise<unknown>;
   onRemove: (localId: string) => void;
   onUpdate: (localId: string, patch: Partial<PortfolioBasketItem>) => void;
+  portfolioMembers?: MartingalePortfolioMember[];
+  memberCount?: number;
+  eligibleCandidateCount?: number;
 }) {
   const [feedback, setFeedback] = useState("");
   const [pending, setPending] = useState(false);
@@ -270,6 +276,47 @@ export function PortfolioCandidateReview({
         <p className="text-sm text-muted-foreground">
           {pickText(lang, "选择候选可查看详情；也可以直接从结果表加入组合篮子。", "Select a candidate to view details, or add candidates from the result table directly to the basket.")}
         </p>
+      )}
+
+      {portfolioMembers && portfolioMembers.length > 0 && (
+        <div className="space-y-3">
+          <h3 className="text-sm font-semibold">
+            {pickText(lang, `组合成员 (${memberCount ?? portfolioMembers.length})`, `Portfolio members (${memberCount ?? portfolioMembers.length})`)}
+          </h3>
+          {eligibleCandidateCount != null && (
+            <p className="text-xs text-muted-foreground">
+              {pickText(lang, `合格候选数：${eligibleCandidateCount}`, `Eligible candidates: ${eligibleCandidateCount}`)}
+            </p>
+          )}
+          <div className="overflow-x-auto">
+            <table className="min-w-full text-xs">
+              <thead>
+                <tr className="border-b border-border">
+                  <th className="px-2 py-1 text-left text-muted-foreground">Candidate</th>
+                  <th className="px-2 py-1 text-left text-muted-foreground">Symbol</th>
+                  <th className="px-2 py-1 text-left text-muted-foreground">Direction</th>
+                  <th className="px-2 py-1 text-right text-muted-foreground">allocation_pct</th>
+                  <th className="px-2 py-1 text-right text-muted-foreground">Return</th>
+                  <th className="px-2 py-1 text-right text-muted-foreground">Max DD</th>
+                  <th className="px-2 py-1 text-right text-muted-foreground">Score</th>
+                </tr>
+              </thead>
+              <tbody>
+                {portfolioMembers.map((m, i) => (
+                  <tr key={i} className="border-b border-border">
+                    <td className="px-2 py-1">{m.candidate_id}</td>
+                    <td className="px-2 py-1">{m.symbol}</td>
+                    <td className="px-2 py-1">{m.direction}</td>
+                    <td className="px-2 py-1 text-right">{m.allocation_pct.toFixed(1)}%</td>
+                    <td className="px-2 py-1 text-right">{m.return_pct?.toFixed(2) ?? "—"}%</td>
+                    <td className="px-2 py-1 text-right">{m.max_drawdown_pct?.toFixed(2) ?? "—"}%</td>
+                    <td className="px-2 py-1 text-right">{m.score?.toFixed(3) ?? "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
       )}
 
       <div className="rounded-xl border border-border bg-background p-4">

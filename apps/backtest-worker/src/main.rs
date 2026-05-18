@@ -165,6 +165,13 @@ struct CandidateOutput {
     total_return_pct: f64,
     max_drawdown_pct: f64,
     trade_count: u64,
+    annualized_return_pct: Option<f64>,
+    return_drawdown_ratio: Option<f64>,
+    planned_margin_quote: Option<f64>,
+    max_leverage_used: Option<f64>,
+    equity_curve: Vec<backtest_engine::martingale::metrics::EquityPoint>,
+    drawdown_curve: Vec<backtest_engine::martingale::metrics::DrawdownPoint>,
+    trades_preview: Vec<backtest_engine::martingale::metrics::MartingaleTradeDetail>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -291,6 +298,26 @@ fn portfolio_candidates_from_outputs(outputs: &[CandidateOutput]) -> Vec<backtes
         .iter()
         .filter_map(|output| {
             let config = serde_json::from_value(output.config.clone()).ok()?;
+            let summary = &output.summary;
+            let equity_curve: Vec<backtest_engine::martingale::metrics::EquityPoint> = summary
+                .get("equity_curve")
+                .and_then(|v| serde_json::from_value(v.clone()).ok())
+                .unwrap_or_default();
+            let drawdown_curve: Vec<backtest_engine::martingale::metrics::DrawdownPoint> = summary
+                .get("drawdown_curve")
+                .and_then(|v| serde_json::from_value(v.clone()).ok())
+                .unwrap_or_default();
+            let planned_margin_quote: f64 = summary
+                .get("planned_margin_quote")
+                .and_then(|v| v.as_f64())
+                .unwrap_or(0.0);
+            let annualized_return_pct: Option<f64> = summary
+                .get("annualized_return_pct")
+                .and_then(|v| v.as_f64());
+            let trades: Vec<backtest_engine::martingale::metrics::MartingaleTradeDetail> = summary
+                .get("trades_preview")
+                .and_then(|v| serde_json::from_value(v.clone()).ok())
+                .unwrap_or_default();
             Some(backtest_engine::portfolio_search::EvaluatedCandidate {
                 candidate: SearchCandidate {
                     candidate_id: output.candidate_id.clone(),
@@ -301,6 +328,12 @@ fn portfolio_candidates_from_outputs(outputs: &[CandidateOutput]) -> Vec<backtes
                 max_drawdown_pct: output.max_drawdown_pct,
                 survival_passed: output.total_return_pct > 0.0
                     && output.max_drawdown_pct <= output.used_drawdown_limit_pct,
+                planned_margin_quote,
+                trade_count: output.trade_count,
+                annualized_return_pct,
+                equity_curve: if equity_curve.is_empty() { output.equity_curve.clone() } else { equity_curve },
+                drawdown_curve: if drawdown_curve.is_empty() { output.drawdown_curve.clone() } else { drawdown_curve },
+                trades: if trades.is_empty() { output.trades_preview.clone() } else { trades },
             })
         })
         .collect()
@@ -457,6 +490,13 @@ async fn process_task(
             total_return_pct: refined.metrics.total_return_pct,
             max_drawdown_pct: refined.metrics.max_drawdown_pct,
             trade_count: refined.metrics.trade_count,
+            annualized_return_pct: refined.metrics.annualized_return_pct,
+            return_drawdown_ratio: refined.metrics.return_drawdown_ratio,
+            planned_margin_quote: refined.metrics.planned_margin_quote,
+            max_leverage_used: refined.metrics.max_leverage_used,
+            equity_curve: refined.equity_curve.clone(),
+            drawdown_curve: refined.drawdown_curve.clone(),
+            trades_preview: refined.trades.clone(),
         });
         respect_pause_or_cancel(poller, &task.task_id).await?;
     }
@@ -478,21 +518,29 @@ async fn process_task(
         .copied()
         .unwrap_or(25.0);
     let portfolio_top3 = build_portfolio_top3(&portfolio_candidates, max_portfolio_drawdown_pct);
-    let portfolio_rows = portfolio_top3.top3.iter().filter_map(|entry| {
-        let persisted = persisted_candidates.iter().find(|candidate| {
-            candidate.summary.get("source_candidate_id").and_then(Value::as_str)
-                == Some(entry.candidate.candidate_id.as_str())
-                || candidate.candidate_id == entry.candidate.candidate_id
-        })?;
-        Some(json!({
-            "candidate_id": persisted.candidate_id,
-            "source_candidate_id": entry.candidate.candidate_id,
-            "symbol": persisted.summary.get("symbol").cloned().unwrap_or(Value::Null),
-            "score": entry.score,
-            "return_pct": entry.return_pct,
-            "max_drawdown_pct": entry.max_drawdown_pct,
-            "trade_count": persisted.summary.get("trade_count").cloned().unwrap_or(Value::Null),
-        }))
+    let portfolio_rows = portfolio_top3.top3.iter().map(|portfolio| {
+        json!({
+            "portfolio_id": format!("portfolio-{}", portfolio.member_count),
+            "member_count": portfolio.member_count,
+            "members": portfolio.members.iter().map(|m| json!({
+                "candidate_id": m.candidate_id,
+                "symbol": m.symbol,
+                "direction": m.direction,
+                "allocation_pct": m.allocation_pct,
+                "return_pct": m.return_pct,
+                "max_drawdown_pct": m.max_drawdown_pct,
+                "score": m.score,
+                "trade_count": m.trade_count,
+            })).collect::<Vec<Value>>(),
+            "total_return_pct": portfolio.return_pct,
+            "max_drawdown_pct": portfolio.max_drawdown_pct,
+            "annualized_return_pct": portfolio.annualized_return_pct,
+            "score": portfolio.score,
+            "trade_count": portfolio.trade_count,
+            "equity_curve": portfolio.equity_curve,
+            "drawdown_curve": portfolio.drawdown_curve,
+            "eligible_candidate_count": portfolio_top3.eligible_candidate_count,
+        })
     }).collect::<Vec<Value>>();
     let portfolio_manifest = write_task_json_artifact(
         &config.artifact_root,
@@ -510,6 +558,19 @@ async fn process_task(
                 "portfolio_top_n": task.config.portfolio_top_n,
                 "portfolio_top3": portfolio_rows,
                 "portfolio_top3_artifact_path": portfolio_manifest.path.display().to_string(),
+                "eligible_candidate_count": portfolio_top3.eligible_candidate_count,
+                "eligible_candidates": portfolio_candidates.iter().map(|c| json!({
+                    "candidate_id": c.candidate.candidate_id,
+                    "symbol": c.candidate.config.strategies.first().map(|s| s.symbol.clone()).unwrap_or_default(),
+                    "direction": format!("{:?}", c.candidate.config.direction_mode),
+                    "score": c.score,
+                    "return_pct": c.return_pct,
+                    "max_drawdown_pct": c.max_drawdown_pct,
+                    "annualized_return_pct": c.annualized_return_pct,
+                    "planned_margin_quote": c.planned_margin_quote,
+                    "trade_count": c.trade_count,
+                    "survival_passed": c.survival_passed,
+                })).collect::<Vec<Value>>(),
             }),
         )
         .await?;
@@ -1339,6 +1400,13 @@ impl TaskPoller {
                                 "used_drawdown_limit_pct": output.used_drawdown_limit_pct,
                                 "risk_relaxed": output.risk_relaxed,
                                 "trade_count": output.trade_count,
+                                "annualized_return_pct": output.annualized_return_pct,
+                                "return_drawdown_ratio": output.return_drawdown_ratio,
+                                "planned_margin_quote": output.planned_margin_quote,
+                                "max_leverage_used": output.max_leverage_used,
+                                "equity_curve": output.equity_curve,
+                                "drawdown_curve": output.drawdown_curve,
+                                "trades_preview": output.trades_preview,
                             }),
                             output.summary.clone(),
                         ),
@@ -1559,6 +1627,13 @@ mod tests {
             total_return_pct: score,
             max_drawdown_pct: 5.0,
             trade_count: 10,
+            annualized_return_pct: Some(score / 2.0),
+            return_drawdown_ratio: Some(score / 5.0),
+            planned_margin_quote: Some(150.0),
+            max_leverage_used: Some(leverage as f64),
+            equity_curve: Vec::new(),
+            drawdown_curve: Vec::new(),
+            trades_preview: Vec::new(),
         }
     }
 

@@ -412,9 +412,12 @@ fn result(
             stop_count,
             max_capital_used_quote,
             survival_passed,
+            return_drawdown_ratio: None,
         },
         events: Vec::new(),
         equity_curve: Vec::new(),
+        drawdown_curve: Vec::new(),
+        trades: Vec::new(),
         rejection_reasons,
     }
 }
@@ -596,8 +599,7 @@ fn long_short_candidate_contains_both_direction_legs() {
 
 #[test]
 fn portfolio_top3_combines_multiple_members_not_single_pick() {
-    use backtest_engine::portfolio_search::{build_portfolio_top3, EvaluatedCandidate};
-    use backtest_engine::martingale::metrics::EquityPoint;
+    use backtest_engine::portfolio_search::build_portfolio_top3;
 
     let candidates = fixture_evaluated_candidates_with_curves(6);
     let artifact = build_portfolio_top3(&candidates, 20.0);
@@ -613,8 +615,9 @@ fn portfolio_top3_combines_multiple_members_not_single_pick() {
     }
 }
 
-fn fixture_evaluated_candidates_with_curves(count: usize) -> Vec<EvaluatedCandidate> {
+fn fixture_evaluated_candidates_with_curves(count: usize) -> Vec<backtest_engine::portfolio_search::EvaluatedCandidate> {
     use backtest_engine::search::SearchCandidate;
+    use backtest_engine::portfolio_search::EvaluatedCandidate;
     use backtest_engine::martingale::metrics::EquityPoint;
     use shared_domain::martingale::{
         MartingaleDirection, MartingaleDirectionMode, MartingaleMarketKind, MartingalePortfolioConfig,

@@ -73,7 +73,7 @@ test("worker emits complete martingale artifacts and true portfolio combinations
   assert.match(worker, /drawdown_curve/);
   assert.match(worker, /trades_preview|trade_details|trades/);
   assert.match(worker, /eligible_candidates|eligible_candidate_count/);
-  assert.match(worker, /long_short|LongShort|MartingaleDirectionMode::LongShort/);
+  assert.match(worker, /long_short|long_and_short|LongAndShort|MartingaleDirectionMode::LongAndShort/);
   assert.match(worker, /planned_margin_quote/);
   assert.match(worker, /max_leverage_used|leverage/);
 
