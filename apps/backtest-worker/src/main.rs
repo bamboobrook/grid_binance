@@ -428,61 +428,6 @@ fn coarse_parameter_point_from_candidate(candidate: &SearchCandidate) -> CoarseP
     }
 }
 
-fn portfolio_summary_json(
-    rank: usize,
-    portfolio: &backtest_engine::portfolio_search::WeightedPortfolio,
-    eligible_candidate_count: usize,
-    preview_only: bool,
-) -> Value {
-    let member_id_hash: String = portfolio.members.iter()
-        .map(|member| member.candidate_id.as_str())
-        .collect::<Vec<&str>>()
-        .join("-");
-    let equity_curve = if preview_only {
-        sampled_preview(&portfolio.equity_curve, 500)
-    } else {
-        portfolio.equity_curve.clone()
-    };
-    let drawdown_curve = if preview_only {
-        sampled_preview(&portfolio.drawdown_curve, 500)
-    } else {
-        portfolio.drawdown_curve.clone()
-    };
-    let trades_preview = if preview_only {
-        sampled_preview(&portfolio.trades_preview, 100)
-    } else {
-        portfolio.trades_preview.clone()
-    };
-
-    json!({
-        "portfolio_id": format!("portfolio-{}-{}", rank + 1, member_id_hash),
-        "portfolio_rank": rank + 1,
-        "member_count": portfolio.member_count,
-        "members": portfolio.members.iter().map(|member| json!({
-            "candidate_id": member.candidate_id,
-            "symbol": member.symbol,
-            "direction": member.direction,
-            "allocation_pct": member.allocation_pct,
-            "return_pct": member.return_pct,
-            "max_drawdown_pct": member.max_drawdown_pct,
-            "annualized_return_pct": member.annualized_return_pct,
-            "score": member.score,
-            "trade_count": member.trade_count,
-        })).collect::<Vec<Value>>(),
-        "total_return_pct": portfolio.return_pct,
-        "return_pct": portfolio.return_pct,
-        "max_drawdown_pct": portfolio.max_drawdown_pct,
-        "annualized_return_pct": portfolio.annualized_return_pct,
-        "score": portfolio.score,
-        "trade_count": portfolio.trade_count,
-        "equity_curve": equity_curve,
-        "drawdown_curve": drawdown_curve,
-        "trades_preview": trades_preview,
-        "eligible_candidate_count": eligible_candidate_count,
-        "artifact_contains_full_curves": preview_only,
-    })
-}
-
 async fn process_task(
     config: &WorkerConfig,
     poller: &TaskPoller,
@@ -619,18 +564,44 @@ async fn process_task(
         .copied()
         .unwrap_or(25.0);
     let portfolio_top3 = build_portfolio_top3(&portfolio_candidates, max_portfolio_drawdown_pct);
-    let portfolio_full_rows = portfolio_top3.top3.iter().enumerate().map(|(rank, portfolio)| {
-        portfolio_summary_json(rank, portfolio, portfolio_top3.eligible_candidate_count, false)
-    }).collect::<Vec<Value>>();
     let portfolio_rows = portfolio_top3.top3.iter().enumerate().map(|(rank, portfolio)| {
-        portfolio_summary_json(rank, portfolio, portfolio_top3.eligible_candidate_count, true)
+        let member_id_hash: String = portfolio.members.iter()
+            .map(|m| m.candidate_id.as_str())
+            .collect::<Vec<&str>>()
+            .join("-");
+        json!({
+            "portfolio_id": format!("portfolio-{}-{}", rank + 1, member_id_hash),
+            "portfolio_rank": rank + 1,
+            "member_count": portfolio.member_count,
+            "members": portfolio.members.iter().map(|m| json!({
+                "candidate_id": m.candidate_id,
+                "symbol": m.symbol,
+                "direction": m.direction,
+                "allocation_pct": m.allocation_pct,
+                "return_pct": m.return_pct,
+                "max_drawdown_pct": m.max_drawdown_pct,
+                "annualized_return_pct": m.annualized_return_pct,
+                "score": m.score,
+                "trade_count": m.trade_count,
+            })).collect::<Vec<Value>>(),
+            "total_return_pct": portfolio.return_pct,
+            "return_pct": portfolio.return_pct,
+            "max_drawdown_pct": portfolio.max_drawdown_pct,
+            "annualized_return_pct": portfolio.annualized_return_pct,
+            "score": portfolio.score,
+            "trade_count": portfolio.trade_count,
+            "equity_curve": portfolio.equity_curve,
+            "drawdown_curve": portfolio.drawdown_curve,
+            "trades_preview": portfolio.trades_preview,
+            "eligible_candidate_count": portfolio_top3.eligible_candidate_count,
+        })
     }).collect::<Vec<Value>>();
     let portfolio_manifest = write_task_json_artifact(
         &config.artifact_root,
         &task.task_id,
         "portfolio",
         "top3",
-        &portfolio_full_rows,
+        &portfolio_rows,
     )?;
     verify_artifact(&portfolio_manifest)?;
 
@@ -908,22 +879,6 @@ fn select_top_outputs_per_symbol(
                 }),
             );
             output
-        })
-        .collect()
-}
-
-fn sampled_preview<T: Clone>(items: &[T], max_items: usize) -> Vec<T> {
-    if max_items == 0 || items.is_empty() {
-        return Vec::new();
-    }
-    if items.len() <= max_items {
-        return items.to_vec();
-    }
-    let last_index = items.len() - 1;
-    (0..max_items)
-        .map(|index| {
-            let source_index = index * last_index / (max_items - 1);
-            items[source_index].clone()
         })
         .collect()
 }
@@ -1540,9 +1495,9 @@ impl TaskPoller {
                                 "return_drawdown_ratio": output.return_drawdown_ratio,
                                 "planned_margin_quote": output.planned_margin_quote,
                                 "max_leverage_used": output.max_leverage_used,
-                                "equity_curve": sampled_preview(&output.equity_curve, 500),
-                                "drawdown_curve": sampled_preview(&output.drawdown_curve, 500),
-                                "trades_preview": sampled_preview(&output.trades_preview, 100),
+                                "equity_curve": output.equity_curve,
+                                "drawdown_curve": output.drawdown_curve,
+                                "trades_preview": output.trades_preview,
                             }),
                             output.summary.clone(),
                         ),
@@ -2036,16 +1991,6 @@ mod tests {
         assert!(summary.contains_key("artifact_path") || summary.contains_key("equity_curve"));
         assert_eq!(summary["artifact_path"], output.artifact_path);
         assert!(!summary.contains_key("equity_curve"));
-    }
-
-    #[test]
-    fn sampled_preview_caps_large_series_and_keeps_edges() {
-        let values = (0..1_000).collect::<Vec<_>>();
-        let preview = sampled_preview(&values, 10);
-
-        assert_eq!(preview.len(), 10);
-        assert_eq!(preview.first().copied(), Some(0));
-        assert_eq!(preview.last().copied(), Some(999));
     }
 
     #[test]
