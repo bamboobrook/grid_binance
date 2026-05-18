@@ -968,6 +968,17 @@ fn output_symbol(output: &CandidateOutput) -> Option<String> {
 }
 
 fn output_direction(output: &CandidateOutput) -> Value {
+    if let Some(direction_mode) = output
+        .config
+        .get("direction_mode")
+        .and_then(Value::as_str)
+    {
+        if direction_mode.eq_ignore_ascii_case("long_and_short")
+            || direction_mode.eq_ignore_ascii_case("long_short")
+        {
+            return Value::String("long_short".to_owned());
+        }
+    }
     output_strategy(output)
         .and_then(|strategy| strategy.get("direction"))
         .cloned()
