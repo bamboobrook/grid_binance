@@ -550,7 +550,7 @@ async fn process_task(
         .copied()
         .unwrap_or(25.0);
     let portfolio_top3 = build_portfolio_top3(&portfolio_candidates, max_portfolio_drawdown_pct);
-    let portfolio_rows = portfolio_top3.top3.iter().enumerate().map(|(rank, portfolio)| {
+    let portfolio_full_rows = portfolio_top3.top3.iter().enumerate().map(|(rank, portfolio)| {
         let member_id_hash: String = portfolio.members.iter()
             .map(|m| m.candidate_id.as_str())
             .collect::<Vec<&str>>()
@@ -582,12 +582,44 @@ async fn process_task(
             "eligible_candidate_count": portfolio_top3.eligible_candidate_count,
         })
     }).collect::<Vec<Value>>();
+    let portfolio_rows = portfolio_top3.top3.iter().enumerate().map(|(rank, portfolio)| {
+        let member_id_hash: String = portfolio.members.iter()
+            .map(|m| m.candidate_id.as_str())
+            .collect::<Vec<&str>>()
+            .join("-");
+        json!({
+            "portfolio_id": format!("portfolio-{}-{}", rank + 1, member_id_hash),
+            "portfolio_rank": rank + 1,
+            "member_count": portfolio.member_count,
+            "members": portfolio.members.iter().map(|m| json!({
+                "candidate_id": m.candidate_id,
+                "symbol": m.symbol,
+                "direction": m.direction,
+                "allocation_pct": m.allocation_pct,
+                "return_pct": m.return_pct,
+                "max_drawdown_pct": m.max_drawdown_pct,
+                "annualized_return_pct": m.annualized_return_pct,
+                "score": m.score,
+                "trade_count": m.trade_count,
+            })).collect::<Vec<Value>>(),
+            "total_return_pct": portfolio.return_pct,
+            "return_pct": portfolio.return_pct,
+            "max_drawdown_pct": portfolio.max_drawdown_pct,
+            "annualized_return_pct": portfolio.annualized_return_pct,
+            "score": portfolio.score,
+            "trade_count": portfolio.trade_count,
+            "equity_curve": sampled_preview(&portfolio.equity_curve, 500),
+            "drawdown_curve": sampled_preview(&portfolio.drawdown_curve, 500),
+            "trades_preview": sampled_preview(&portfolio.trades_preview, 100),
+            "eligible_candidate_count": portfolio_top3.eligible_candidate_count,
+        })
+    }).collect::<Vec<Value>>();
     let portfolio_manifest = write_task_json_artifact(
         &config.artifact_root,
         &task.task_id,
         "portfolio",
         "top3",
-        &portfolio_rows,
+        &portfolio_full_rows,
     )?;
     verify_artifact(&portfolio_manifest)?;
 
@@ -861,6 +893,22 @@ fn select_top_outputs_per_symbol(
         .collect()
 }
 
+fn sampled_preview<T: Clone>(items: &[T], max_items: usize) -> Vec<T> {
+    if max_items == 0 || items.is_empty() {
+        return Vec::new();
+    }
+    if items.len() <= max_items {
+        return items.to_vec();
+    }
+    let last_index = items.len() - 1;
+    (0..max_items)
+        .map(|index| {
+            let source_index = index * last_index / (max_items - 1);
+            items[source_index].clone()
+        })
+        .collect()
+}
+
 fn merge_json_objects(base: Value, patch: Value) -> Value {
     let mut merged = match base {
         Value::Object(map) => map,
@@ -901,6 +949,13 @@ fn output_symbol(output: &CandidateOutput) -> Option<String> {
 }
 
 fn output_direction(output: &CandidateOutput) -> Value {
+    if let Some(direction_mode) = output.config.get("direction_mode").and_then(Value::as_str) {
+        if direction_mode.eq_ignore_ascii_case("long_and_short")
+            || direction_mode.eq_ignore_ascii_case("long_short")
+        {
+            return Value::String("long_short".to_owned());
+        }
+    }
     output_strategy(output)
         .and_then(|strategy| strategy.get("direction"))
         .cloned()
@@ -1466,9 +1521,9 @@ impl TaskPoller {
                                 "return_drawdown_ratio": output.return_drawdown_ratio,
                                 "planned_margin_quote": output.planned_margin_quote,
                                 "max_leverage_used": output.max_leverage_used,
-                                "equity_curve": output.equity_curve,
-                                "drawdown_curve": output.drawdown_curve,
-                                "trades_preview": output.trades_preview,
+                                "equity_curve": sampled_preview(&output.equity_curve, 500),
+                                "drawdown_curve": sampled_preview(&output.drawdown_curve, 500),
+                                "trades_preview": sampled_preview(&output.trades_preview, 100),
                             }),
                             output.summary.clone(),
                         ),
