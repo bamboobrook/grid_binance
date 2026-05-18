@@ -341,8 +341,8 @@ fn build_long_short_candidate(
     max_legs: u32,
     take_profit_bps: u32,
     tail_stop_bps: u32,
-    _long_weight_pct: u32,
-    _short_weight_pct: u32,
+    long_weight_pct: u32,
+    short_weight_pct: u32,
     id_counter: &mut usize,
 ) -> Result<SearchCandidate, String> {
     let market = if leverage > 1 { MartingaleMarketKind::UsdMFutures } else { MartingaleMarketKind::Spot };
@@ -351,6 +351,8 @@ fn build_long_short_candidate(
         MartingaleMarketKind::UsdMFutures => (Some(MartingaleMarginMode::Cross), Some(leverage)),
     };
     let multiplier_decimal = Decimal::from_f64_retain(multiplier).unwrap_or(Decimal::new(15, 1));
+    let long_first_order = Decimal::new(100, 0) * Decimal::from(long_weight_pct) / Decimal::from(100u32);
+    let short_first_order = Decimal::new(100, 0) * Decimal::from(short_weight_pct) / Decimal::from(100u32);
     let long_strategy = MartingaleStrategyConfig {
         strategy_id: format!("staged-{}-long", *id_counter),
         symbol: symbol.to_owned(),
@@ -361,7 +363,7 @@ fn build_long_short_candidate(
         leverage: leverage_val,
         spacing: MartingaleSpacingModel::FixedPercent { step_bps: spacing_bps },
         sizing: MartingaleSizingModel::Multiplier {
-            first_order_quote: Decimal::new(100, 0),
+            first_order_quote: long_first_order,
             multiplier: multiplier_decimal,
             max_legs,
         },
@@ -373,6 +375,11 @@ fn build_long_short_candidate(
     };
     let short_strategy = MartingaleStrategyConfig {
         strategy_id: format!("staged-{}-short", *id_counter),
+        sizing: MartingaleSizingModel::Multiplier {
+            first_order_quote: short_first_order,
+            multiplier: multiplier_decimal,
+            max_legs,
+        },
         direction: MartingaleDirection::Short,
         ..long_strategy.clone()
     };

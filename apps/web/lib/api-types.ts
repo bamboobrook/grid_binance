@@ -29,6 +29,7 @@ export interface MartingalePortfolioMember {
   allocation_pct: number;
   return_pct?: number;
   max_drawdown_pct?: number;
+  annualized_return_pct?: number | null;
   score?: number;
   trade_count?: number;
 }

@@ -26,7 +26,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use shared_db::{BacktestCandidateRecord, BacktestRepository, NewBacktestCandidateRecord, SharedDb};
 use shared_domain::martingale::{
-    MartingaleEntryTrigger, MartingaleIndicatorConfig,
+    MartingaleDirection, MartingaleDirectionMode, MartingaleEntryTrigger, MartingaleIndicatorConfig,
     MartingaleMarginMode, MartingaleMarketKind,
     MartingaleSpacingModel, MartingaleSizingModel, MartingaleTakeProfitModel,
 };
@@ -375,6 +375,25 @@ fn coarse_parameter_point_from_candidate(candidate: &SearchCandidate) -> CoarseP
         _ => 100,
     }).unwrap_or(100);
 
+    let (long_weight_pct, short_weight_pct) = if candidate.config.direction_mode == MartingaleDirectionMode::LongAndShort {
+        let long_first = candidate.config.strategies.iter()
+            .find(|s| s.direction == MartingaleDirection::Long)
+            .and_then(|s| match &s.sizing { MartingaleSizingModel::Multiplier { first_order_quote, .. } => Some(first_order_quote.to_f64().unwrap_or(0.0)), _ => None })
+            .unwrap_or(0.0);
+        let short_first = candidate.config.strategies.iter()
+            .find(|s| s.direction == MartingaleDirection::Short)
+            .and_then(|s| match &s.sizing { MartingaleSizingModel::Multiplier { first_order_quote, .. } => Some(first_order_quote.to_f64().unwrap_or(0.0)), _ => None })
+            .unwrap_or(0.0);
+        let total = long_first + short_first;
+        if total > 0.0 {
+            ((long_first / total * 100.0) as u32, (short_first / total * 100.0) as u32)
+        } else {
+            (50, 50)
+        }
+    } else {
+        (100, 0)
+    };
+
     CoarseParameterPoint {
         leverage,
         spacing_bps,
@@ -382,8 +401,8 @@ fn coarse_parameter_point_from_candidate(candidate: &SearchCandidate) -> CoarseP
         max_legs,
         take_profit_bps,
         tail_stop_bps: 1800,
-        long_weight_pct: 70,
-        short_weight_pct: 30,
+        long_weight_pct,
+        short_weight_pct,
     }
 }
 
@@ -501,26 +520,36 @@ async fn process_task(
         respect_pause_or_cancel(poller, &task.task_id).await?;
     }
 
-    let outputs = select_top_outputs_per_symbol(
+    let portfolio_pool_outputs = select_top_outputs_per_symbol(
+        outputs.clone(),
+        task.config.per_symbol_top_n.max(20),
+        &task.config.risk_profile,
+    );
+    let display_outputs = select_top_outputs_per_symbol(
         outputs,
         task.config.per_symbol_top_n.max(1),
         &task.config.risk_profile,
     );
     respect_pause_or_cancel(poller, &task.task_id).await?;
-    let persisted_candidates = poller
-        .save_candidates_and_artifacts(&task.task_id, evaluated_count, &outputs)
+    let _persisted_candidates = poller
+        .save_candidates_and_artifacts(&task.task_id, evaluated_count, &display_outputs)
         .await?;
     respect_pause_or_cancel(poller, &task.task_id).await?;
 
-    let portfolio_candidates = portfolio_candidates_from_outputs(&outputs);
+    let portfolio_candidates = portfolio_candidates_from_outputs(&portfolio_pool_outputs);
     let max_portfolio_drawdown_pct = drawdown_limit_sequence(&task.config.risk_profile)
         .first()
         .copied()
         .unwrap_or(25.0);
     let portfolio_top3 = build_portfolio_top3(&portfolio_candidates, max_portfolio_drawdown_pct);
-    let portfolio_rows = portfolio_top3.top3.iter().map(|portfolio| {
+    let portfolio_rows = portfolio_top3.top3.iter().enumerate().map(|(rank, portfolio)| {
+        let member_id_hash: String = portfolio.members.iter()
+            .map(|m| m.candidate_id.as_str())
+            .collect::<Vec<&str>>()
+            .join("-");
         json!({
-            "portfolio_id": format!("portfolio-{}", portfolio.member_count),
+            "portfolio_id": format!("portfolio-{}-{}", rank + 1, member_id_hash),
+            "portfolio_rank": rank + 1,
             "member_count": portfolio.member_count,
             "members": portfolio.members.iter().map(|m| json!({
                 "candidate_id": m.candidate_id,
@@ -529,16 +558,19 @@ async fn process_task(
                 "allocation_pct": m.allocation_pct,
                 "return_pct": m.return_pct,
                 "max_drawdown_pct": m.max_drawdown_pct,
+                "annualized_return_pct": m.annualized_return_pct,
                 "score": m.score,
                 "trade_count": m.trade_count,
             })).collect::<Vec<Value>>(),
             "total_return_pct": portfolio.return_pct,
+            "return_pct": portfolio.return_pct,
             "max_drawdown_pct": portfolio.max_drawdown_pct,
             "annualized_return_pct": portfolio.annualized_return_pct,
             "score": portfolio.score,
             "trade_count": portfolio.trade_count,
             "equity_curve": portfolio.equity_curve,
             "drawdown_curve": portfolio.drawdown_curve,
+            "trades_preview": portfolio.trades_preview,
             "eligible_candidate_count": portfolio_top3.eligible_candidate_count,
         })
     }).collect::<Vec<Value>>();
@@ -559,18 +591,40 @@ async fn process_task(
                 "portfolio_top3": portfolio_rows,
                 "portfolio_top3_artifact_path": portfolio_manifest.path.display().to_string(),
                 "eligible_candidate_count": portfolio_top3.eligible_candidate_count,
-                "eligible_candidates": portfolio_candidates.iter().map(|c| json!({
-                    "candidate_id": c.candidate.candidate_id,
-                    "symbol": c.candidate.config.strategies.first().map(|s| s.symbol.clone()).unwrap_or_default(),
-                    "direction": format!("{:?}", c.candidate.config.direction_mode),
-                    "score": c.score,
-                    "return_pct": c.return_pct,
-                    "max_drawdown_pct": c.max_drawdown_pct,
-                    "annualized_return_pct": c.annualized_return_pct,
-                    "planned_margin_quote": c.planned_margin_quote,
-                    "trade_count": c.trade_count,
-                    "survival_passed": c.survival_passed,
-                })).collect::<Vec<Value>>(),
+                "eligible_candidates": portfolio_candidates.iter().map(|c| {
+                    let (long_weight_pct, short_weight_pct) = if c.candidate.config.direction_mode == MartingaleDirectionMode::LongAndShort {
+                        let long_first = c.candidate.config.strategies.iter()
+                            .find(|s| s.direction == MartingaleDirection::Long)
+                            .and_then(|s| match &s.sizing { MartingaleSizingModel::Multiplier { first_order_quote, .. } => Some(first_order_quote.to_f64().unwrap_or(0.0)), _ => None })
+                            .unwrap_or(0.0);
+                        let short_first = c.candidate.config.strategies.iter()
+                            .find(|s| s.direction == MartingaleDirection::Short)
+                            .and_then(|s| match &s.sizing { MartingaleSizingModel::Multiplier { first_order_quote, .. } => Some(first_order_quote.to_f64().unwrap_or(0.0)), _ => None })
+                            .unwrap_or(0.0);
+                        let total = long_first + short_first;
+                        if total > 0.0 {
+                            ((long_first / total * 100.0) as u32, (short_first / total * 100.0) as u32)
+                        } else {
+                            (50, 50)
+                        }
+                    } else {
+                        (0, 0)
+                    };
+                    json!({
+                        "candidate_id": c.candidate.candidate_id,
+                        "symbol": c.candidate.config.strategies.first().map(|s| s.symbol.clone()).unwrap_or_default(),
+                        "direction": format!("{:?}", c.candidate.config.direction_mode),
+                        "score": c.score,
+                        "return_pct": c.return_pct,
+                        "max_drawdown_pct": c.max_drawdown_pct,
+                        "annualized_return_pct": c.annualized_return_pct,
+                        "planned_margin_quote": c.planned_margin_quote,
+                        "trade_count": c.trade_count,
+                        "survival_passed": c.survival_passed,
+                        "long_weight_pct": long_weight_pct,
+                        "short_weight_pct": short_weight_pct,
+                    })
+                }).collect::<Vec<Value>>(),
             }),
         )
         .await?;

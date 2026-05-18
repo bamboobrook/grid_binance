@@ -66,23 +66,57 @@ pub fn build_portfolio_top3(candidates: &[EvaluatedCandidate], max_drawdown_pct:
         };
     }
 
+    let allocation_templates: Vec<Vec<f64>> = vec![
+        vec![0.5, 0.5],
+        vec![0.6, 0.4],
+        vec![0.4, 0.6],
+        vec![0.34, 0.33, 0.33],
+        vec![0.5, 0.25, 0.25],
+    ];
+
     let mut scored_portfolios: Vec<WeightedPortfolio> = Vec::new();
-    let max_combos = 60usize;
+    let max_combos = 120usize;
     let mut combo_count = 0usize;
 
     for i in 0..eligible_count {
         for j in (i + 1)..eligible_count {
-            for k in (j + 1)..eligible_count.min(j + 4) {
-                let members_idx = if eligible_count >= 3 && k < eligible_count {
-                    vec![i, j, k]
-                } else {
-                    vec![i, j]
-                };
-                let portfolio = build_weighted_portfolio(&eligible, &members_idx);
-                if let Some(p) = portfolio {
+            // Try 2-member combination first
+            let mut tried = false;
+            for template in &allocation_templates {
+                if template.len() != 2 {
+                    continue;
+                }
+                if let Some(p) = build_weighted_portfolio(&eligible, &[i, j], template) {
                     scored_portfolios.push(p);
                 }
                 combo_count += 1;
+                tried = true;
+                if combo_count >= max_combos {
+                    break;
+                }
+            }
+            if combo_count >= max_combos || !tried {
+                if combo_count >= max_combos { break; }
+                continue;
+            }
+
+            // Try 3-member combinations
+            for k in (j + 1)..eligible_count.min(j + 4) {
+                if k >= eligible_count {
+                    break;
+                }
+                for template in &allocation_templates {
+                    if template.len() != 3 {
+                        continue;
+                    }
+                    if let Some(p) = build_weighted_portfolio(&eligible, &[i, j, k], template) {
+                        scored_portfolios.push(p);
+                    }
+                    combo_count += 1;
+                    if combo_count >= max_combos {
+                        break;
+                    }
+                }
                 if combo_count >= max_combos {
                     break;
                 }
@@ -105,24 +139,29 @@ pub fn build_portfolio_top3(candidates: &[EvaluatedCandidate], max_drawdown_pct:
     }
 }
 
-fn build_weighted_portfolio(eligible: &[&EvaluatedCandidate], member_indices: &[usize]) -> Option<WeightedPortfolio> {
+fn build_weighted_portfolio(eligible: &[&EvaluatedCandidate], member_indices: &[usize], allocations: &[f64]) -> Option<WeightedPortfolio> {
     let members_data: Vec<&EvaluatedCandidate> = member_indices.iter().map(|&i| eligible[i]).collect();
 
-    let symbols: Vec<&str> = members_data
+    // Require unique candidate IDs (allow same symbol with different strategies)
+    let unique_ids: std::collections::HashSet<&str> = members_data
         .iter()
-        .map(|c| c.candidate.config.strategies.first().map(|s| s.symbol.as_str()).unwrap_or(""))
+        .map(|c| c.candidate.candidate_id.as_str())
         .collect();
-    let unique_symbols: Vec<&str> = symbols.iter().copied().collect::<std::collections::HashSet<_>>().into_iter().collect();
-    if unique_symbols.len() < members_data.len().min(2) {
+    if unique_ids.len() < 2 {
         return None;
     }
 
-    let n = members_data.len() as f64;
-    let equal_weight = 100.0 / n;
+    let initial_portfolio_capital = 10_000.0;
 
-    let portfolio_members: Vec<PortfolioMember> = members_data
+    let member_pairs: Vec<(&EvaluatedCandidate, f64)> = members_data
         .iter()
-        .map(|c| {
+        .zip(allocations.iter())
+        .map(|(c, alloc)| (*c, *alloc * 100.0))
+        .collect();
+
+    let portfolio_members: Vec<PortfolioMember> = member_pairs
+        .iter()
+        .map(|(c, allocation_pct)| {
             let symbol = c
                 .candidate
                 .config
@@ -141,7 +180,7 @@ fn build_weighted_portfolio(eligible: &[&EvaluatedCandidate], member_indices: &[
                 candidate_id: c.candidate.candidate_id.clone(),
                 symbol,
                 direction,
-                allocation_pct: equal_weight,
+                allocation_pct: *allocation_pct,
                 return_pct: c.return_pct,
                 max_drawdown_pct: c.max_drawdown_pct,
                 annualized_return_pct: c.annualized_return_pct,
@@ -151,34 +190,44 @@ fn build_weighted_portfolio(eligible: &[&EvaluatedCandidate], member_indices: &[
         })
         .collect();
 
-    let combined_curve = combine_equity_curves(&members_data, equal_weight / 100.0);
+    let combined_curve = combine_equity_curves(&member_pairs, initial_portfolio_capital);
 
-    let return_pct = if combined_curve.is_empty() {
-        0.0
-    } else {
+    if combined_curve.len() < 2 {
+        return None;
+    }
+
+    let return_pct = {
         let first = combined_curve.first().map(|p| p.equity_quote).unwrap_or(1.0);
         let last = combined_curve.last().map(|p| p.equity_quote).unwrap_or(1.0);
         if first > 0.0 { (last / first - 1.0) * 100.0 } else { 0.0 }
     };
 
+    if return_pct <= 0.0 {
+        return None;
+    }
+
     let drawdown_curve = build_drawdown_curve(&combined_curve);
     let max_drawdown_pct = drawdown_curve.iter().map(|p| p.drawdown_pct).fold(0.0_f64, f64::max);
 
     let trade_count: u64 = members_data.iter().map(|c| c.trade_count).sum();
-    let days = if !combined_curve.is_empty() {
+    let days = {
         let first_ts = combined_curve.first().map(|p| p.timestamp_ms).unwrap_or(0);
         let last_ts = combined_curve.last().map(|p| p.timestamp_ms).unwrap_or(0);
         ((last_ts - first_ts) as f64) / 86_400_000.0
-    } else {
-        0.0
     };
     let initial = combined_curve.first().map(|p| p.equity_quote).unwrap_or(1.0);
     let ending = combined_curve.last().map(|p| p.equity_quote).unwrap_or(1.0);
     let annualized_return_pct = calculate_annualized_return_pct(initial, ending, days);
 
+    let mut trades_preview = members_data.iter().flat_map(|c| c.trades.clone()).collect::<Vec<_>>();
+    trades_preview.sort_by_key(|trade| trade.timestamp_ms);
+    trades_preview.truncate(200);
+
     let calmar = if max_drawdown_pct > 0.0 { return_pct / max_drawdown_pct } else { 0.0 };
     let diversification_bonus = 1.0 + (portfolio_members.len() as f64 - 1.0) * 0.05;
-    let score = calmar * diversification_bonus;
+    let unique_symbol_count = portfolio_members.iter().map(|m| m.symbol.as_str()).collect::<std::collections::HashSet<_>>().len();
+    let concentration_penalty = if unique_symbol_count == 1 { 0.85 } else { 1.0 };
+    let score = calmar * diversification_bonus * concentration_penalty;
 
     Some(WeightedPortfolio {
         members: portfolio_members,
@@ -191,31 +240,36 @@ fn build_weighted_portfolio(eligible: &[&EvaluatedCandidate], member_indices: &[
         score,
         equity_curve: combined_curve,
         drawdown_curve,
-        trades_preview: Vec::new(),
+        trades_preview,
     })
 }
 
-fn combine_equity_curves(candidates: &[&EvaluatedCandidate], weight: f64) -> Vec<EquityPoint> {
-    if candidates.is_empty() {
+fn combine_equity_curves(members: &[(&EvaluatedCandidate, f64)], initial_portfolio_capital: f64) -> Vec<EquityPoint> {
+    if members.is_empty() {
         return Vec::new();
     }
-    if candidates.len() == 1 {
-        return candidates[0].equity_curve.clone();
+    if members.len() == 1 {
+        return members[0].0.equity_curve.clone();
     }
 
-    let min_len = candidates.iter().map(|c| c.equity_curve.len()).min().unwrap_or(0);
+    let min_len = members.iter().map(|(c, _)| c.equity_curve.len()).min().unwrap_or(0);
     if min_len == 0 {
         return Vec::new();
     }
 
     (0..min_len)
         .map(|i| {
-            let timestamp_ms = candidates[0].equity_curve[i].timestamp_ms;
-            let weighted_equity: f64 = candidates
+            let timestamp_ms = members[0].0.equity_curve[i].timestamp_ms;
+            let equity_quote: f64 = members
                 .iter()
-                .map(|c| c.equity_curve.get(i).map(|p| p.equity_quote).unwrap_or(0.0) * weight)
+                .map(|(candidate, allocation_pct)| {
+                    let allocated_capital = initial_portfolio_capital * (*allocation_pct / 100.0);
+                    let initial_candidate_margin = candidate.planned_margin_quote.max(0.000001);
+                    let candidate_equity = candidate.equity_curve[i].equity_quote;
+                    allocated_capital * candidate_equity / initial_candidate_margin
+                })
                 .sum();
-            EquityPoint { timestamp_ms, equity_quote: weighted_equity }
+            EquityPoint { timestamp_ms, equity_quote }
         })
         .collect()
 }
