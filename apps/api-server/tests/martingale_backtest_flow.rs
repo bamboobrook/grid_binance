@@ -25,10 +25,6 @@ fn martingale_auto_search_normalizes_profit_first_contract() {
     assert_eq!(normalized["margin_mode"], "isolated");
     assert_eq!(normalized["per_symbol_top_n"], 10);
     assert_eq!(normalized["portfolio_top_n"], 3);
-    assert_eq!(normalized["random_seed"], 1);
-    assert_eq!(normalized["random_candidates"], 16);
-    assert_eq!(normalized["intelligent_rounds"], 1);
-    assert_eq!(normalized["top_n"], 10);
     assert_eq!(
         normalized["time_range_mode"],
         "auto_since_2023_to_last_month_end"

@@ -58,13 +58,9 @@ struct BacktestTask {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct WorkerTaskConfig {
     symbols: Vec<String>,
-    #[serde(default = "default_random_seed")]
     random_seed: u64,
-    #[serde(default = "default_random_candidates")]
     random_candidates: usize,
-    #[serde(default = "default_intelligent_rounds")]
     intelligent_rounds: usize,
-    #[serde(default = "default_top_n")]
     top_n: usize,
     #[serde(default = "default_per_symbol_top_n")]
     per_symbol_top_n: usize,
@@ -130,22 +126,6 @@ fn default_portfolio_top_n() -> usize {
 
 fn default_risk_profile() -> String {
     "balanced".to_owned()
-}
-
-fn default_random_seed() -> u64 {
-    1
-}
-
-fn default_random_candidates() -> usize {
-    16
-}
-
-fn default_intelligent_rounds() -> usize {
-    1
-}
-
-fn default_top_n() -> usize {
-    10
 }
 
 fn stage_label(stage: &str) -> &'static str {
