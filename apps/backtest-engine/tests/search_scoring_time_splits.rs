@@ -412,9 +412,12 @@ fn result(
             stop_count,
             max_capital_used_quote,
             survival_passed,
+            return_drawdown_ratio: None,
         },
         events: Vec::new(),
         equity_curve: Vec::new(),
+        drawdown_curve: Vec::new(),
+        trades: Vec::new(),
         rejection_reasons,
     }
 }
@@ -546,4 +549,131 @@ fn build_long_short_config_for_test(long_leg: LegParameters, short_leg: LegParam
         strategies: vec![long_strategy, short_strategy],
         risk_limits: MartingaleRiskLimits::default(),
     }
+}
+
+/* ------------------------------------------------------------------ */
+/*  Completeness contract tests                                       */
+/* ------------------------------------------------------------------ */
+
+#[test]
+fn planned_margin_and_leverage_return_use_pre_leverage_capital() {
+    use backtest_engine::martingale::metrics::{leveraged_position_pnl_quote, planned_margin_quote};
+
+    let planned = planned_margin_quote(10.0, 2.0, 4);
+    assert!((planned - 150.0).abs() < 0.000001);
+
+    let pnl = leveraged_position_pnl_quote(10.0, 2.0, 0.01);
+    assert!((pnl - 0.2).abs() < 0.000001);
+
+    let return_pct = pnl / planned * 100.0;
+    assert!((return_pct - 0.13333333333333333).abs() < 0.000001);
+}
+
+#[test]
+fn annualized_return_uses_backtest_days() {
+    use backtest_engine::martingale::metrics::calculate_annualized_return_pct;
+
+    let annualized = calculate_annualized_return_pct(1000.0, 1100.0, 365.0).unwrap();
+    assert!((annualized - 10.0).abs() < 0.000001);
+
+    let half_year = calculate_annualized_return_pct(1000.0, 1100.0, 182.5).unwrap();
+    assert!(half_year > 20.0);
+
+    assert!(calculate_annualized_return_pct(1000.0, 1100.0, 0.0).is_none());
+}
+
+#[test]
+fn long_short_candidate_contains_both_direction_legs() {
+    use backtest_engine::search::{generate_staged_candidates_for_symbol, StagedMartingaleSearchSpace};
+    use shared_domain::martingale::{MartingaleDirection, MartingaleDirectionMode};
+
+    let space = StagedMartingaleSearchSpace::for_profile("balanced", "long_short");
+    let candidates = generate_staged_candidates_for_symbol("BTCUSDT", "long_short", &space, 16)
+        .expect("long_short candidates");
+
+    let candidate = candidates.iter().find(|c| c.config.direction_mode == MartingaleDirectionMode::LongAndShort)
+        .expect("at least one long_short candidate");
+    assert!(candidate.config.strategies.iter().any(|s| s.direction == MartingaleDirection::Long));
+    assert!(candidate.config.strategies.iter().any(|s| s.direction == MartingaleDirection::Short));
+}
+
+#[test]
+fn portfolio_top3_combines_multiple_members_not_single_pick() {
+    use backtest_engine::portfolio_search::build_portfolio_top3;
+
+    let candidates = fixture_evaluated_candidates_with_curves(6);
+    let artifact = build_portfolio_top3(&candidates, 20.0);
+
+    assert!(!artifact.top3.is_empty());
+    for portfolio in &artifact.top3 {
+        assert!(portfolio.member_count >= 2);
+        let allocation_sum: f64 = portfolio.members.iter().map(|m| m.allocation_pct).sum();
+        assert!((allocation_sum - 100.0).abs() < 0.000001);
+        assert!(!portfolio.equity_curve.is_empty());
+        assert!(!portfolio.drawdown_curve.is_empty());
+        assert!(portfolio.max_drawdown_pct <= 20.0);
+    }
+}
+
+fn fixture_evaluated_candidates_with_curves(count: usize) -> Vec<backtest_engine::portfolio_search::EvaluatedCandidate> {
+    use backtest_engine::search::SearchCandidate;
+    use backtest_engine::portfolio_search::EvaluatedCandidate;
+    use backtest_engine::martingale::metrics::EquityPoint;
+    use shared_domain::martingale::{
+        MartingaleDirection, MartingaleDirectionMode, MartingaleMarketKind, MartingalePortfolioConfig,
+        MartingaleRiskLimits, MartingaleSizingModel, MartingaleSpacingModel, MartingaleStrategyConfig,
+        MartingaleTakeProfitModel,
+    };
+    use rust_decimal::Decimal;
+
+    let symbols = ["BTCUSDT", "ETHUSDT", "SOLUSDT"];
+    (0..count).map(|i| {
+        let symbol = symbols[i % symbols.len()];
+        let strategy = MartingaleStrategyConfig {
+            strategy_id: format!("{}-long-{}", symbol, i),
+            symbol: symbol.to_owned(),
+            market: MartingaleMarketKind::UsdMFutures,
+            direction: MartingaleDirection::Long,
+            direction_mode: MartingaleDirectionMode::LongOnly,
+            margin_mode: None,
+            leverage: Some(3),
+            spacing: MartingaleSpacingModel::FixedPercent { step_bps: 100 },
+            sizing: MartingaleSizingModel::Multiplier {
+                first_order_quote: Decimal::new(100, 0),
+                multiplier: Decimal::new(15, 1),
+                max_legs: 5,
+            },
+            take_profit: MartingaleTakeProfitModel::Percent { bps: 100 },
+            stop_loss: None,
+            indicators: Vec::new(),
+            entry_triggers: Vec::new(),
+            risk_limits: MartingaleRiskLimits::default(),
+        };
+        let candidate = SearchCandidate {
+            candidate_id: format!("cand-{}", i),
+            config: MartingalePortfolioConfig {
+                direction_mode: MartingaleDirectionMode::LongOnly,
+                strategies: vec![strategy],
+                risk_limits: MartingaleRiskLimits::default(),
+            },
+        };
+        let base_equity = 100.0 + (i as f64) * 10.0;
+        let equity_curve: Vec<EquityPoint> = (0..100).map(|t| EquityPoint {
+            timestamp_ms: 1672531200000 + t * 86400000,
+            equity_quote: base_equity + (t as f64) * 0.5 * (1.0 + (i as f64) * 0.1),
+        }).collect();
+        EvaluatedCandidate {
+            candidate,
+            score: 1.0 + (i as f64) * 0.5,
+            return_pct: 10.0 + (i as f64) * 5.0,
+            max_drawdown_pct: 8.0 + (i as f64) * 1.0,
+            survival_passed: true,
+            planned_margin_quote: 150.0,
+            trade_count: 100 + i as u64,
+            annualized_return_pct: Some(5.0 + (i as f64) * 1.0),
+            equity_curve,
+            drawdown_curve: Vec::new(),
+            trades: Vec::new(),
+        }
+    }).collect()
 }

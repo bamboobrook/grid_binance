@@ -623,14 +623,33 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-type PortfolioTop3Row = {
+type PortfolioMember = {
   candidate_id: string;
-  source_candidate_id: string;
   symbol: string;
-  score: number;
+  direction: string;
+  allocation_pct: number;
   return_pct: number;
   max_drawdown_pct: number;
+  annualized_return_pct?: number | null;
+  score: number;
   trade_count: number;
+};
+
+type PortfolioTop3Row = {
+  portfolio_id: string;
+  portfolio_rank: number;
+  member_count: number;
+  members: PortfolioMember[];
+  total_return_pct: number;
+  return_pct: number;
+  max_drawdown_pct: number;
+  annualized_return_pct?: number | null;
+  score: number;
+  trade_count: number;
+  equity_curve?: unknown[];
+  drawdown_curve?: unknown[];
+  trades_preview?: unknown[];
+  eligible_candidate_count?: number | null;
 };
 
 function portfolioTop3FromTask(task: BacktestTask | null): PortfolioTop3Row[] {
@@ -638,14 +657,36 @@ function portfolioTop3FromTask(task: BacktestTask | null): PortfolioTop3Row[] {
   if (!Array.isArray(rows)) return [];
   return rows.map((row: unknown) => {
     const record = isRecord(row) ? row : {};
+    const rawMembers = Array.isArray(record.members) ? record.members : [];
+    const members: PortfolioMember[] = rawMembers.map((m: unknown) => {
+      const mr = isRecord(m) ? m : {};
+      return {
+        candidate_id: readString(mr.candidate_id) || "",
+        symbol: readString(mr.symbol) || "",
+        direction: readString(mr.direction) || "",
+        allocation_pct: readNumber(mr.allocation_pct) ?? 0,
+        return_pct: readNumber(mr.return_pct) ?? 0,
+        max_drawdown_pct: readNumber(mr.max_drawdown_pct) ?? 0,
+        annualized_return_pct: readNumber(mr.annualized_return_pct) ?? null,
+        score: readNumber(mr.score) ?? 0,
+        trade_count: readNumber(mr.trade_count) ?? 0,
+      };
+    });
     return {
-      candidate_id: readString(record.candidate_id) || "",
-      source_candidate_id: readString(record.source_candidate_id) || "",
-      symbol: readString(record.symbol) || "",
-      score: readNumber(record.score) ?? 0,
+      portfolio_id: readString(record.portfolio_id) || "",
+      portfolio_rank: readNumber(record.portfolio_rank) ?? 0,
+      member_count: readNumber(record.member_count) ?? members.length,
+      members,
+      total_return_pct: readNumber(record.total_return_pct) ?? readNumber(record.return_pct) ?? 0,
       return_pct: readNumber(record.return_pct) ?? 0,
       max_drawdown_pct: readNumber(record.max_drawdown_pct) ?? 0,
+      annualized_return_pct: readNumber(record.annualized_return_pct) ?? null,
+      score: readNumber(record.score) ?? 0,
       trade_count: readNumber(record.trade_count) ?? 0,
+      equity_curve: Array.isArray(record.equity_curve) ? record.equity_curve : undefined,
+      drawdown_curve: Array.isArray(record.drawdown_curve) ? record.drawdown_curve : undefined,
+      trades_preview: Array.isArray(record.trades_preview) ? record.trades_preview : undefined,
+      eligible_candidate_count: readNumber(record.eligible_candidate_count) ?? null,
     };
   });
 }

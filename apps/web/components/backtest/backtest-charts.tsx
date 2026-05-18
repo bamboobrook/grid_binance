@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import type { MartingaleEquityPoint, MartingaleBacktestCandidateSummary } from "@/lib/api-types";
+import type { MartingaleEquityPoint, MartingaleBacktestCandidateSummary, MartingaleTradeDetail } from "@/lib/api-types";
 
 type RawChartPoint = MartingaleEquityPoint & { t?: number };
 
@@ -337,6 +337,42 @@ export function BacktestCharts({ summary, equityCurve, stopLossEvents }: Backtes
         <h4 className="text-sm font-medium mb-1">Stop-Loss Events</h4>
         <StopLossEvents events={stopLossEvents ?? summary?.stop_loss_events ?? []} />
       </div>
+
+      {/* Trade details */}
+      <div>
+        <h4 className="text-sm font-medium mb-1">交易明细 / Trade details</h4>
+        <TradeDetailsPreview trades={summary?.trades_preview ?? []} />
+      </div>
+    </div>
+  );
+}
+
+function TradeDetailsPreview({ trades }: { trades: MartingaleTradeDetail[] }) {
+  if (trades.length === 0) return <p className="text-xs text-muted-foreground">No trade details available.</p>;
+  const preview = trades.slice(0, 20);
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full text-xs">
+        <thead>
+          <tr className="border-b border-border">
+            <th className="px-1 py-0.5 text-left">Time</th>
+            <th className="px-1 py-0.5 text-left">Symbol</th>
+            <th className="px-1 py-0.5 text-left">Event</th>
+            <th className="px-1 py-0.5 text-right">PnL</th>
+          </tr>
+        </thead>
+        <tbody>
+          {preview.map((trade, i) => (
+            <tr key={i} className="border-b border-border/50">
+              <td className="px-1 py-0.5">{new Date(trade.timestamp_ms).toLocaleDateString()}</td>
+              <td className="px-1 py-0.5">{trade.symbol}</td>
+              <td className="px-1 py-0.5">{trade.event_type}</td>
+              <td className="px-1 py-0.5 text-right">{trade.realized_pnl_quote.toFixed(2)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      {trades.length > 20 && <p className="text-xs text-muted-foreground mt-1">Showing 20 of {trades.length} trades.</p>}
     </div>
   );
 }

@@ -18,6 +18,35 @@ type BacktestCandidate = {
   summary: MartingaleBacktestCandidateSummary;
 };
 
+type PortfolioMember = {
+  candidate_id: string;
+  symbol: string;
+  direction: string;
+  allocation_pct: number;
+  return_pct: number;
+  max_drawdown_pct: number;
+  annualized_return_pct?: number | null;
+  score: number;
+  trade_count: number;
+};
+
+type PortfolioTop3Row = {
+  portfolio_id: string;
+  portfolio_rank: number;
+  member_count: number;
+  members: PortfolioMember[];
+  total_return_pct: number;
+  return_pct: number;
+  max_drawdown_pct: number;
+  annualized_return_pct?: number | null;
+  score: number;
+  trade_count: number;
+  equity_curve?: unknown[];
+  drawdown_curve?: unknown[];
+  trades_preview?: unknown[];
+  eligible_candidate_count?: number | null;
+};
+
 type BacktestResultTableProps = {
   candidates: BacktestCandidate[];
   lang: UiLanguage;
@@ -26,7 +55,7 @@ type BacktestResultTableProps = {
   selectedId?: string;
   selectedTaskStatus?: string;
   taskName?: string;
-  portfolioTop3?: Array<{ candidate_id: string; source_candidate_id: string; symbol: string; return_pct: number; max_drawdown_pct: number; trade_count: number; score: number }>;
+  portfolioTop3?: PortfolioTop3Row[];
 };
 
 export function BacktestResultTable({
@@ -86,21 +115,34 @@ export function BacktestResultTable({
           <h3 className="text-base font-semibold">{pickText(lang, "组合 Top 3", "Portfolio Top 3")}</h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             {portfolioTop3.map((entry, idx) => (
-              <div key={idx} className="rounded-xl border border-border bg-card p-4 space-y-2">
+              <div key={entry.portfolio_id || idx} className="rounded-xl border border-border bg-card p-4 space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-mono text-muted-foreground">#{idx + 1}</span>
-                  <span className="text-sm font-semibold">{entry.symbol}</span>
+                  <span className="text-xs font-mono text-muted-foreground">#{entry.portfolio_rank || idx + 1}</span>
+                  <span className="text-sm font-semibold">{pickText(lang, `${entry.member_count} 成员组合`, `${entry.member_count}-member portfolio`)}</span>
                 </div>
                 <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
-                  <span className="text-muted-foreground">{pickText(lang, "收益", "Return")}</span>
+                  <span className="text-muted-foreground">{pickText(lang, "组合收益", "Portfolio return")}</span>
                   <span className={entry.return_pct >= 0 ? "text-green-600" : "text-red-600"}>{entry.return_pct.toFixed(2)}%</span>
-                  <span className="text-muted-foreground">{pickText(lang, "回撤", "Drawdown")}</span>
+                  <span className="text-muted-foreground">{pickText(lang, "组合年化", "Annualized")}</span>
+                  <span>{entry.annualized_return_pct != null ? `${entry.annualized_return_pct.toFixed(2)}%` : "—"}</span>
+                  <span className="text-muted-foreground">{pickText(lang, "组合回撤", "Drawdown")}</span>
                   <span className="text-red-600">{entry.max_drawdown_pct.toFixed(2)}%</span>
                   <span className="text-muted-foreground">{pickText(lang, "交易", "Trades")}</span>
                   <span>{entry.trade_count}</span>
                   <span className="text-muted-foreground">{pickText(lang, "评分", "Score")}</span>
                   <span className="font-semibold">{entry.score.toFixed(3)}</span>
                 </div>
+                {entry.members.length > 0 && (
+                  <div className="mt-2 space-y-1">
+                    <p className="text-xs font-medium text-muted-foreground">{pickText(lang, "成员权重", "Member weights")}</p>
+                    {entry.members.map((m) => (
+                      <div key={m.candidate_id} className="flex items-center justify-between text-xs">
+                        <span>{m.symbol} ({m.direction})</span>
+                        <span>{m.allocation_pct.toFixed(1)}%</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -139,6 +181,7 @@ function candidateColumns(lang: UiLanguage) {
     { key: "annualized", label: pickText(lang, "年化收益", "Annualized"), align: "right" as const },
     { key: "drawdown", label: pickText(lang, "最大回撤", "Max DD"), align: "right" as const },
     { key: "returnDrawdownRatio", label: pickText(lang, "收益回撤比", "Return/DD"), align: "right" as const },
+    { key: "leverage", label: pickText(lang, "杠杆", "Leverage"), align: "right" as const },
     { key: "tradeCount", label: pickText(lang, "交易数", "Trades"), align: "right" as const },
     { key: "score", label: pickText(lang, "评分（百分制 0–100）", "Score (0–100 scale)"), align: "right" as const },
     { key: "decision", label: pickText(lang, "结论", "Decision") },
@@ -175,10 +218,18 @@ function candidateRow(
     tradeCount: candidate.tradeCount,
     parameters: candidate.parameters,
     decision: candidate.decision,
+    annualized: candidate.summary?.annualized_return_pct != null ? `${candidate.summary.annualized_return_pct.toFixed(2)}%` : "—",
+    leverage: candidate.summary?.max_leverage_used != null ? `${candidate.summary.max_leverage_used}x` : "—",
+    returnDrawdownRatio: candidate.summary?.return_drawdown_ratio != null ? candidate.summary.return_drawdown_ratio.toFixed(2) : "—",
     actions: (
-      <button className="rounded-full border border-border px-3 py-1 text-xs font-medium" onClick={() => onAddToBasket?.(candidate)} type="button">
-        {pickText(lang, "加入组合", "Add to basket")}
-      </button>
+      <div className="flex gap-2">
+        <button className="rounded-full border border-border px-3 py-1 text-xs font-medium" onClick={() => onSelect?.(candidate)} type="button">
+          {pickText(lang, "查看详情", "View details")}
+        </button>
+        <button className="rounded-full border border-border px-3 py-1 text-xs font-medium" onClick={() => onAddToBasket?.(candidate)} type="button">
+          {pickText(lang, "加入组合", "Add to basket")}
+        </button>
+      </div>
     ),
   };
 }

@@ -73,7 +73,8 @@ test("backtest console interactions stay in-page and use client fetch", () => {
   assert.match(consoleSource, /portfolioTop3FromTask/);
   assert.match(consoleSource, /summary\?:/);
 
-  assert.match(resultTableSource, /candidate_id.*source_candidate_id/);
+  assert.match(resultTableSource, /candidate_id/);
+  assert.match(resultTableSource, /allocation_pct/);
 
   assert.match(professionalSource, /preventDefault\(\)/);
   assert.doesNotMatch(professionalSource, /action="\/api\/user\/backtest\/tasks"/);
@@ -233,4 +234,57 @@ test("backtest wizard is a real editable launcher, not a static template", () =>
   assert.match(reviewSource, /权重合计|Weight total/);
   assert.match(reviewSource, /recommended_weight_pct/);
   assert.match(reviewSource, /recommended_leverage/);
+});
+
+test("backtest UI shows complete candidate details with annualized, drawdown curve, trades, and leverage", () => {
+  const tableSource = readFileSync("apps/web/components/backtest/backtest-result-table.tsx", "utf8");
+  const chartSource = readFileSync("apps/web/components/backtest/backtest-charts.tsx", "utf8");
+  const typesSource = readFileSync("apps/web/lib/api-types.ts", "utf8");
+
+  assert.match(tableSource, /annualized_return_pct|annualizedReturnPct/);
+  assert.match(tableSource, /max_leverage_used|maxLeverageUsed/);
+  assert.match(tableSource, /trade_count|tradeCount/);
+  assert.match(tableSource, /查看详情|View details/);
+  assert.match(chartSource, /drawdown_curve|drawdownCurve/);
+  assert.match(chartSource, /trades_preview|tradesPreview|trade_details|tradeDetails/);
+  assert.match(typesSource, /annualized_return_pct/);
+  assert.match(typesSource, /drawdown_curve/);
+  assert.match(typesSource, /trades_preview/);
+  assert.match(typesSource, /planned_margin_quote/);
+  assert.match(typesSource, /max_leverage_used/);
+});
+
+test("portfolio review shows true weighted members with allocation and member count", () => {
+  const reviewSource = readFileSync("apps/web/components/backtest/portfolio-candidate-review.tsx", "utf8");
+  const typesSource = readFileSync("apps/web/lib/api-types.ts", "utf8");
+
+  assert.match(reviewSource, /allocation_pct|allocationPct/);
+  assert.match(reviewSource, /member_count|memberCount/);
+  assert.match(typesSource, /PortfolioMember/);
+  assert.match(typesSource, /allocation_pct/);
+});
+
+test("backtest console reads real portfolio Top3 fields with members and curves", () => {
+  const consoleSource = readFileSync("apps/web/components/backtest/backtest-console.tsx", "utf8");
+
+  // P1: console reads members, not just source_candidate_id
+  assert.match(consoleSource, /members/);
+  assert.match(consoleSource, /allocation_pct/);
+  assert.match(consoleSource, /portfolio_id/);
+  assert.match(consoleSource, /equity_curve/);
+  assert.match(consoleSource, /drawdown_curve/);
+
+  // P1: console does NOT use old single-candidate source_candidate_id mapping
+  assert.doesNotMatch(consoleSource, /source_candidate_id:\s*readString\(record\.source_candidate_id\)/);
+});
+
+test("result table row keys match column keys and leverage column exists", () => {
+  const tableSource = readFileSync("apps/web/components/backtest/backtest-result-table.tsx", "utf8");
+
+  // P1: annualized column key matches row key
+  assert.match(tableSource, /key:\s*["']annualized["']/);
+  assert.match(tableSource, /annualized:/);
+
+  // P1: leverage column exists
+  assert.match(tableSource, /杠杆|Leverage/);
 });

@@ -6,6 +6,34 @@ export interface MartingaleEquityPoint {
   drawdown?: number;
 }
 
+export interface MartingaleTradeDetail {
+  timestamp_ms: number;
+  symbol: string;
+  direction: string;
+  event_type: string;
+  leg_index?: number | null;
+  price: number;
+  margin_quote: number;
+  notional_quote: number;
+  leverage: number;
+  fee_quote: number;
+  slippage_quote: number;
+  realized_pnl_quote: number;
+  equity_after_quote: number;
+}
+
+export interface MartingalePortfolioMember {
+  candidate_id: string;
+  symbol: string;
+  direction: string;
+  allocation_pct: number;
+  return_pct?: number;
+  max_drawdown_pct?: number;
+  annualized_return_pct?: number | null;
+  score?: number;
+  trade_count?: number;
+}
+
 export interface MartingaleBacktestCandidateSummary {
   symbol?: string;
   direction?: string;
@@ -42,6 +70,13 @@ export interface MartingaleBacktestCandidateSummary {
   drawdown_curve?: MartingaleEquityPoint[];
   artifact_path?: string;
   portfolio_group_key?: string;
+  annualized_return_pct?: number | null;
+  return_drawdown_ratio?: number | null;
+  planned_margin_quote?: number | null;
+  max_leverage_used?: number | null;
+  trades_preview?: MartingaleTradeDetail[];
+  eligible_candidate_count_for_symbol?: number | null;
+  rejection_breakdown?: Record<string, number>;
 }
 
 export interface MartingaleRiskSummary {

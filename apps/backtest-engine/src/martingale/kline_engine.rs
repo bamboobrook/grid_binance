@@ -12,7 +12,7 @@ use crate::martingale::exit_rules::{
     evaluate_exit_priority, take_profit_price, weighted_average_entry, ExitDecision,
 };
 use crate::martingale::metrics::{
-    EquityPoint, MartingaleBacktestEvent, MartingaleBacktestResult, MartingaleMetrics,
+    build_drawdown_curve, EquityPoint, MartingaleBacktestEvent, MartingaleBacktestResult, MartingaleMetrics,
 };
 use crate::martingale::rules::{compute_leg_notionals, compute_leg_trigger_prices};
 use crate::martingale::state::MartingaleLegState;
@@ -342,6 +342,7 @@ pub fn run_kline_screening(
             total_fee_quote: Some(total_fee_quote),
             total_slippage_quote: Some(total_slippage_quote),
             planned_margin_quote: Some(total_planned_margin),
+            return_drawdown_ratio: if max_drawdown_pct > 0.0 { Some(total_return_pct / max_drawdown_pct) } else { None },
             data_quality_score: Some(1.0),
             trade_count,
             stop_count,
@@ -349,7 +350,9 @@ pub fn run_kline_screening(
             survival_passed: rejection_reasons.is_empty(),
         },
         events,
+        drawdown_curve: build_drawdown_curve(&equity_curve),
         equity_curve,
+        trades: Vec::new(),
         rejection_reasons,
     })
 }
@@ -616,6 +619,7 @@ fn rejected_result(rejection_reasons: Vec<String>) -> MartingaleBacktestResult {
             total_fee_quote: None,
             total_slippage_quote: None,
             planned_margin_quote: None,
+            return_drawdown_ratio: None,
             data_quality_score: Some(1.0),
             trade_count: 0,
             stop_count: 0,
@@ -624,6 +628,8 @@ fn rejected_result(rejection_reasons: Vec<String>) -> MartingaleBacktestResult {
         },
         events: Vec::new(),
         equity_curve: Vec::new(),
+        drawdown_curve: Vec::new(),
+        trades: Vec::new(),
         rejection_reasons,
     }
 }
