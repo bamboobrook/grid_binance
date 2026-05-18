@@ -416,7 +416,8 @@ fn validate_running_futures_conflicts(
         return Ok(());
     }
     for existing in portfolios.iter().filter(|portfolio| {
-        portfolio.portfolio_id != starting.portfolio_id && portfolio.status == "running"
+        portfolio.portfolio_id != starting.portfolio_id
+            && matches!(portfolio.status.as_str(), "running" | "paused")
     }) {
         if existing.market != "usd_m_futures" && existing.market != "futures" {
             continue;

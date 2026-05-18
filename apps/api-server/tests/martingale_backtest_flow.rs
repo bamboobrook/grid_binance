@@ -193,13 +193,24 @@ async fn martingale_auto_search_normalizes_wizard_risk_profile_auto_grid() {
 #[tokio::test]
 async fn quota_rejects_too_many_symbols() {
     let app = app();
-    let token = register_and_login(&app, "backtest-quota@example.com", "pass1234").await;
+    let admin_token = register_admin_and_login(&app, "admin@example.com").await;
+    let user_token = register_and_login(&app, "backtest-quota@example.com", "pass1234").await;
+
+    let upsert = authed_json(
+        &app,
+        "PUT",
+        "/admin/backtest/quotas/backtest-quota@example.com",
+        &admin_token,
+        json!({ "max_symbols": 3 }),
+    )
+    .await;
+    assert_eq!(upsert.status(), StatusCode::OK);
 
     let response = authed_json(
         &app,
         "POST",
         "/backtest/tasks",
-        &token,
+        &user_token,
         json!({
             "strategy_type": "martingale_grid",
             "symbols": ["BTCUSDT", "ETHUSDT", "BNBUSDT", "SOLUSDT", "ADAUSDT", "XRPUSDT"],
@@ -360,7 +371,7 @@ async fn publish_rejects_same_symbol_leverage_conflict() {
     assert!(body["error"]
         .as_str()
         .unwrap_or_default()
-        .contains("leverage conflict"));
+        .contains("symbol conflict"));
 }
 
 #[tokio::test]
@@ -543,7 +554,7 @@ async fn confirm_start_rechecks_conflicts_after_paused_portfolio() {
     assert!(response_json(second_started).await["error"]
         .as_str()
         .unwrap_or_default()
-        .contains("leverage conflict"));
+        .contains("symbol conflict"));
 }
 
 #[tokio::test]
@@ -604,7 +615,7 @@ async fn conflicting_pending_portfolios_allow_only_one_confirm() {
     assert!(response_json(second_started).await["error"]
         .as_str()
         .unwrap_or_default()
-        .contains("leverage conflict"));
+        .contains("symbol conflict"));
 }
 
 async fn create_task_with_portfolio(
