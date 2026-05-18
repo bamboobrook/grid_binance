@@ -2314,6 +2314,16 @@ mod tests {
         assert_eq!(config.per_symbol_top_n, 10);
         assert_eq!(config.portfolio_top_n, 3);
     }
+
+    #[test]
+    fn sampled_preview_caps_large_series_and_keeps_edges() {
+        let values = (0..1_000).collect::<Vec<_>>();
+        let preview = sampled_preview(&values, 10);
+
+        assert_eq!(preview.len(), 10);
+        assert_eq!(preview.first().copied(), Some(0));
+        assert_eq!(preview.last().copied(), Some(999));
+    }
 }
 
 impl WorkerConfig {
