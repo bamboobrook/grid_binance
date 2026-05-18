@@ -86,4 +86,16 @@ test("worker emits complete martingale artifacts and true portfolio combinations
   assert.match(metrics, /calculate_annualized_return_pct/);
   assert.match(metrics, /planned_margin_quote/);
   assert.match(metrics, /notional_quote/);
+
+  // P1: portfolio preserves full candidate pool before display truncation
+  assert.match(worker, /portfolio_candidates_from_outputs|eligible_pool|eligible_candidates/);
+
+  // P1: each portfolio has a unique, non-template ID (not just portfolio-{member_count})
+  assert.doesNotMatch(worker, /"portfolio_id":\s*format!\("portfolio-\{\}"\s*,\s*portfolio\.member_count\)/);
+
+  // P1: long_short candidates carry per-leg weight
+  assert.match(worker, /long_weight_pct|short_weight_pct/);
+
+  // P1: WeightedPortfolio carries trades_preview
+  assert.match(worker, /trades_preview/);
 });

@@ -27,6 +27,7 @@ pub struct WeightedPortfolio {
     pub score: f64,
     pub equity_curve: Vec<EquityPoint>,
     pub drawdown_curve: Vec<DrawdownPoint>,
+    pub trades_preview: Vec<crate::martingale::metrics::MartingaleTradeDetail>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -190,6 +191,7 @@ fn build_weighted_portfolio(eligible: &[&EvaluatedCandidate], member_indices: &[
         score,
         equity_curve: combined_curve,
         drawdown_curve,
+        trades_preview: Vec::new(),
     })
 }
 
@@ -316,5 +318,158 @@ mod tests {
         let artifact = build_portfolio_top3(&candidates, 20.0);
         assert_eq!(artifact.eligible_candidate_count, 1);
         assert!(artifact.top3.is_empty());
+    }
+
+    fn candidate_with_curve(
+        id: &str,
+        symbol: &str,
+        return_pct: f64,
+        dd: f64,
+        score: f64,
+        planned_margin: f64,
+        equity_values: Vec<f64>,
+    ) -> EvaluatedCandidate {
+        let strategy = MartingaleStrategyConfig {
+            strategy_id: format!("test-{}", id),
+            symbol: symbol.to_owned(),
+            market: MartingaleMarketKind::UsdMFutures,
+            direction: MartingaleDirection::Long,
+            direction_mode: MartingaleDirectionMode::LongOnly,
+            margin_mode: None,
+            leverage: Some(3),
+            spacing: MartingaleSpacingModel::FixedPercent { step_bps: 100 },
+            sizing: MartingaleSizingModel::Multiplier {
+                first_order_quote: Decimal::new(100, 0),
+                multiplier: Decimal::new(15, 1),
+                max_legs: 5,
+            },
+            take_profit: MartingaleTakeProfitModel::Percent { bps: 100 },
+            stop_loss: None,
+            indicators: Vec::new(),
+            entry_triggers: Vec::new(),
+            risk_limits: MartingaleRiskLimits::default(),
+        };
+        let equity_curve: Vec<EquityPoint> = equity_values
+            .into_iter()
+            .enumerate()
+            .map(|(t, eq)| EquityPoint {
+                timestamp_ms: 1672531200000 + t as i64 * 86400000,
+                equity_quote: eq,
+            })
+            .collect();
+        EvaluatedCandidate {
+            candidate: SearchCandidate {
+                candidate_id: id.to_owned(),
+                config: MartingalePortfolioConfig {
+                    direction_mode: MartingaleDirectionMode::LongOnly,
+                    strategies: vec![strategy],
+                    risk_limits: MartingaleRiskLimits::default(),
+                },
+            },
+            score,
+            return_pct,
+            max_drawdown_pct: dd,
+            survival_passed: true,
+            planned_margin_quote: planned_margin,
+            trade_count: 100,
+            annualized_return_pct: Some(return_pct / 2.0),
+            equity_curve,
+            drawdown_curve: Vec::new(),
+            trades: Vec::new(),
+        }
+    }
+
+    #[test]
+    fn portfolio_curve_normalizes_member_equity_by_planned_margin_and_allocation() {
+        let a = candidate_with_curve("a", "BTCUSDT", 20.0, 5.0, 3.0, 100.0, vec![100.0, 120.0]);
+        let b = candidate_with_curve("b", "ETHUSDT", 10.0, 5.0, 2.0, 200.0, vec![200.0, 220.0]);
+
+        let artifact = build_portfolio_top3(&[a, b], 20.0);
+        assert!(!artifact.top3.is_empty());
+
+        let portfolio = &artifact.top3[0];
+        assert_eq!(portfolio.member_count, 2);
+        let allocation_sum: f64 = portfolio.members.iter().map(|m| m.allocation_pct).sum();
+        assert!((allocation_sum - 100.0).abs() < 0.000001);
+
+        // Portfolio equity must start at a meaningful initial capital (not raw sum of equity values)
+        // With normalization: allocated_capital * equity / planned_margin
+        // The initial point should reflect allocated capital, not raw 100+200=300
+        let initial_equity = portfolio.equity_curve.first().map(|p| p.equity_quote).unwrap_or(0.0);
+        // Raw sum would be 300.0; normalized should be different.
+        assert!(initial_equity > 0.0);
+        assert!(
+            (initial_equity - 300.0).abs() > 1.0,
+            "initial equity should be normalized by planned_margin, not raw sum; got {}",
+            initial_equity
+        );
+    }
+
+    #[test]
+    fn portfolio_allows_multiple_strategies_on_same_symbol_when_candidate_ids_differ() {
+        let a = candidate_with_curve("btc-fast", "BTCUSDT", 15.0, 5.0, 3.0, 100.0, vec![100.0, 115.0]);
+        let b = candidate_with_curve("btc-slow", "BTCUSDT", 8.0, 5.0, 2.0, 100.0, vec![100.0, 108.0]);
+        let c = candidate_with_curve("eth", "ETHUSDT", 4.0, 5.0, 1.5, 100.0, vec![100.0, 104.0]);
+
+        let artifact = build_portfolio_top3(&[a, b, c], 20.0);
+
+        assert!(
+            !artifact.top3.is_empty(),
+            "should produce at least one portfolio from same-symbol + cross-symbol candidates"
+        );
+        assert!(
+            artifact.top3.iter().any(|p| {
+                let btc_members = p.members.iter().filter(|m| m.symbol == "BTCUSDT").count();
+                btc_members >= 2
+            }),
+            "at least one portfolio should combine two BTCUSDT strategies"
+        );
+    }
+
+    #[test]
+    fn portfolio_carries_combined_trade_preview() {
+        use crate::martingale::metrics::MartingaleTradeDetail;
+
+        let mut a = candidate_with_curve("a", "BTCUSDT", 20.0, 5.0, 3.0, 100.0, vec![100.0, 120.0]);
+        a.trades = vec![MartingaleTradeDetail {
+            timestamp_ms: 1672531200000,
+            symbol: "BTCUSDT".to_owned(),
+            direction: "Long".to_owned(),
+            event_type: "take_profit".to_owned(),
+            leg_index: Some(0),
+            price: 30000.0,
+            margin_quote: 100.0,
+            notional_quote: 30000.0,
+            leverage: 3.0,
+            fee_quote: 0.9,
+            slippage_quote: 0.0,
+            realized_pnl_quote: 5.0,
+            equity_after_quote: 105.0,
+        }];
+
+        let mut b = candidate_with_curve("b", "ETHUSDT", 10.0, 5.0, 2.0, 100.0, vec![100.0, 110.0]);
+        b.trades = vec![MartingaleTradeDetail {
+            timestamp_ms: 1672531260000,
+            symbol: "ETHUSDT".to_owned(),
+            direction: "Long".to_owned(),
+            event_type: "take_profit".to_owned(),
+            leg_index: Some(0),
+            price: 2000.0,
+            margin_quote: 100.0,
+            notional_quote: 2000.0,
+            leverage: 3.0,
+            fee_quote: 0.6,
+            slippage_quote: 0.0,
+            realized_pnl_quote: 3.0,
+            equity_after_quote: 103.0,
+        }];
+
+        let artifact = build_portfolio_top3(&[a, b], 20.0);
+        let portfolio = artifact.top3.first().expect("at least one portfolio");
+
+        assert!(
+            !portfolio.trades_preview.is_empty(),
+            "portfolio should carry combined trade details from members"
+        );
     }
 }

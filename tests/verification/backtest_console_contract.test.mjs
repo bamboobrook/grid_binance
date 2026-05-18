@@ -262,3 +262,28 @@ test("portfolio review shows true weighted members with allocation and member co
   assert.match(typesSource, /PortfolioMember/);
   assert.match(typesSource, /allocation_pct/);
 });
+
+test("backtest console reads real portfolio Top3 fields with members and curves", () => {
+  const consoleSource = readFileSync("apps/web/components/backtest/backtest-console.tsx", "utf8");
+
+  // P1: console reads members, not just source_candidate_id
+  assert.match(consoleSource, /members/);
+  assert.match(consoleSource, /allocation_pct/);
+  assert.match(consoleSource, /portfolio_id/);
+  assert.match(consoleSource, /equity_curve/);
+  assert.match(consoleSource, /drawdown_curve/);
+
+  // P1: console does NOT use old single-candidate source_candidate_id mapping
+  assert.doesNotMatch(consoleSource, /source_candidate_id:\s*readString\(record\.source_candidate_id\)/);
+});
+
+test("result table row keys match column keys and leverage column exists", () => {
+  const tableSource = readFileSync("apps/web/components/backtest/backtest-result-table.tsx", "utf8");
+
+  // P1: annualized column key matches row key
+  assert.match(tableSource, /key:\s*["']annualized["']/);
+  assert.match(tableSource, /annualized:/);
+
+  // P1: leverage column exists
+  assert.match(tableSource, /杠杆|Leverage/);
+});
