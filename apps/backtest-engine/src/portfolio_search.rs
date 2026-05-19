@@ -7,7 +7,9 @@ pub struct PortfolioMember {
     pub candidate_id: String,
     pub symbol: String,
     pub direction: String,
+    pub direction_mode: String,
     pub allocation_pct: f64,
+    pub weight_pct: f64,
     pub return_pct: f64,
     pub max_drawdown_pct: f64,
     pub annualized_return_pct: Option<f64>,
@@ -169,18 +171,24 @@ fn build_weighted_portfolio(eligible: &[&EvaluatedCandidate], member_indices: &[
                 .first()
                 .map(|s| s.symbol.clone())
                 .unwrap_or_default();
-            let direction = c
-                .candidate
-                .config
-                .strategies
-                .first()
-                .map(|s| format!("{:?}", s.direction))
-                .unwrap_or_default();
+            let direction = match c.candidate.config.direction_mode {
+                shared_domain::martingale::MartingaleDirectionMode::LongAndShort => "long_short".to_owned(),
+                _ => c
+                    .candidate
+                    .config
+                    .strategies
+                    .first()
+                    .map(|s| format!("{:?}", s.direction))
+                    .unwrap_or_default(),
+            };
+            let direction_mode = format!("{:?}", c.candidate.config.direction_mode).to_lowercase();
             PortfolioMember {
                 candidate_id: c.candidate.candidate_id.clone(),
                 symbol,
                 direction,
+                direction_mode,
                 allocation_pct: *allocation_pct,
+                weight_pct: *allocation_pct,
                 return_pct: c.return_pct,
                 max_drawdown_pct: c.max_drawdown_pct,
                 annualized_return_pct: c.annualized_return_pct,
