@@ -99,3 +99,12 @@ test("worker emits complete martingale artifacts and true portfolio combinations
   // P1: WeightedPortfolio carries trades_preview
   assert.match(worker, /trades_preview/);
 });
+
+test("worker cannot complete martingale tasks with zero selected candidates silently", () => {
+  const worker = readFileSync("apps/backtest-worker/src/main.rs", "utf8");
+  assert.match(worker, /ensure_non_empty_selection_for_task/);
+  assert.match(worker, /no martingale candidates selected/);
+  assert.match(worker, /screened_count/);
+  assert.match(worker, /selected_count=0/);
+  assert.match(worker, /select_candidates_or_best_fallback_for_task/);
+});
