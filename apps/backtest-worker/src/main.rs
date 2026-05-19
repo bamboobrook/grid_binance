@@ -447,19 +447,161 @@ fn run_profit_first_staged_search(
     Ok((refined, rejection_samples))
 }
 
+fn long_short_drawdown_limit_sequence(risk_profile: &str) -> Vec<f64> {
+    // long_short mode naturally has higher drawdowns because both long and short
+    // legs can draw down simultaneously. Use relaxed limits.
+    match risk_profile {
+        "conservative" => vec![30.0, 40.0],
+        "balanced" => vec![40.0, 50.0],
+        "aggressive" => vec![50.0, 60.0],
+        _ => vec![40.0, 50.0],
+    }
+}
+
 fn apply_search_space_overrides_to_staged(
     staged: &StagedMartingaleSearchSpace,
     task: &WorkerTaskConfig,
 ) -> StagedMartingaleSearchSpace {
+    let direction_mode = task.direction_mode.as_deref().unwrap_or("long");
+    let is_long_short = direction_mode == "long_short" || direction_mode == "long_and_short";
+
+    let user_spacing = search_space_u32(task, "spacing_bps");
+    let user_multiplier = search_space_f64(task, "order_multiplier");
+    let user_max_legs = search_space_u32(task, "max_legs");
+    let user_take_profit = search_space_u32(task, "take_profit_bps");
+
+    // For long_short with a small user search space, expand toward lower-churn
+    // neighbors to avoid screening only tight/high-fee configurations.
+    // long_short on 1m interval needs much wider spacing to avoid fee drag.
+    let spacing_bps = if let Some(ref vals) = user_spacing {
+        if is_long_short && vals.len() <= 2 {
+            let mut expanded: Vec<u32> = vals.clone();
+            for &v in vals {
+                for &neighbor in &[v + 60, v + 120, v + 180, v + 300, v + 420, v + 600] {
+                    if !expanded.contains(&neighbor) && neighbor <= 1200 {
+                        expanded.push(neighbor);
+                    }
+                }
+            }
+            expanded.sort();
+            expanded.dedup();
+            expanded
+        } else {
+            vals.clone()
+        }
+    } else {
+        staged.spacing_bps.clone()
+    };
+
+    let order_multiplier = if let Some(ref vals) = user_multiplier {
+        if is_long_short && vals.len() <= 2 {
+            let mut expanded: Vec<f64> = vals.clone();
+            for &v in vals {
+                for &neighbor in &[v - 0.05, v - 0.10, v - 0.15] {
+                    if neighbor >= 1.05 && !expanded.iter().any(|e| (e - neighbor).abs() < 0.001) {
+                        expanded.push(neighbor);
+                    }
+                }
+                for &neighbor in &[v + 0.05] {
+                    if neighbor <= 2.0 && !expanded.iter().any(|e| (e - neighbor).abs() < 0.001) {
+                        expanded.push(neighbor);
+                    }
+                }
+            }
+            expanded.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+            expanded.dedup_by(|a, b| (*a - *b).abs() < 0.001);
+            expanded
+        } else {
+            vals.clone()
+        }
+    } else {
+        staged.order_multiplier.clone()
+    };
+
+    let max_legs = if let Some(ref vals) = user_max_legs {
+        if is_long_short && vals.len() == 1 {
+            let mut expanded = vals.clone();
+            if vals[0] > 2 && !expanded.contains(&(vals[0] - 1)) {
+                expanded.push(vals[0] - 1);
+            }
+            expanded.sort();
+            expanded
+        } else {
+            vals.clone()
+        }
+    } else {
+        staged.max_legs.clone()
+    };
+
+    let take_profit_bps = if let Some(ref vals) = user_take_profit {
+        if is_long_short && vals.len() <= 2 {
+            let mut expanded: Vec<u32> = vals.clone();
+            for &v in vals {
+                for &neighbor in &[v + 20, v + 40, v + 80, v + 140] {
+                    if !expanded.contains(&neighbor) && neighbor <= 500 {
+                        expanded.push(neighbor);
+                    }
+                }
+            }
+            expanded.sort();
+            expanded.dedup();
+            expanded
+        } else {
+            vals.clone()
+        }
+    } else {
+        staged.take_profit_bps.clone()
+    };
+
     StagedMartingaleSearchSpace {
         leverage: search_space_u32(task, "leverage").unwrap_or_else(|| staged.leverage.clone()),
-        spacing_bps: search_space_u32(task, "spacing_bps").unwrap_or_else(|| staged.spacing_bps.clone()),
-        order_multiplier: search_space_f64(task, "order_multiplier").unwrap_or_else(|| staged.order_multiplier.clone()),
-        max_legs: search_space_u32(task, "max_legs").unwrap_or_else(|| staged.max_legs.clone()),
-        take_profit_bps: search_space_u32(task, "take_profit_bps").unwrap_or_else(|| staged.take_profit_bps.clone()),
+        spacing_bps,
+        order_multiplier,
+        max_legs,
+        take_profit_bps,
         tail_stop_bps: search_space_u32(task, "tail_stop_bps").unwrap_or_else(|| staged.tail_stop_bps.clone()),
         long_short_weight_pct: search_space_long_short_weights(task).unwrap_or_else(|| staged.long_short_weight_pct.clone()),
     }
+}
+
+fn interleave_candidates_by_spacing(candidates: Vec<SearchCandidate>, limit: usize) -> Vec<SearchCandidate> {
+    if candidates.len() <= limit {
+        return candidates;
+    }
+    // Group candidates by spacing_bps, then interleave across groups
+    let mut buckets: std::collections::BTreeMap<u32, Vec<SearchCandidate>> = std::collections::BTreeMap::new();
+    for candidate in candidates {
+        let spacing = candidate.config.strategies.first()
+            .and_then(|s| match &s.spacing {
+                MartingaleSpacingModel::FixedPercent { step_bps } => Some(*step_bps),
+                _ => None,
+            })
+            .unwrap_or(0);
+        buckets.entry(spacing).or_default().push(candidate);
+    }
+    let mut result = Vec::with_capacity(limit);
+    let bucket_keys: Vec<u32> = buckets.keys().copied().collect();
+    let mut indices: std::collections::BTreeMap<u32, usize> = std::collections::BTreeMap::new();
+    while result.len() < limit {
+        let mut added = false;
+        for &spacing in &bucket_keys {
+            if let Some(bucket) = buckets.get(&spacing) {
+                let idx = indices.get(&spacing).copied().unwrap_or(0);
+                if idx < bucket.len() {
+                    result.push(bucket[idx].clone());
+                    indices.insert(spacing, idx + 1);
+                    added = true;
+                    if result.len() >= limit {
+                        break;
+                    }
+                }
+            }
+        }
+        if !added {
+            break;
+        }
+    }
+    result
 }
 
 fn run_long_short_staged_search(
@@ -474,19 +616,20 @@ fn run_long_short_staged_search(
 
     let direction_mode = task.direction_mode.as_deref().unwrap_or("long");
 
-    // Apply user search_space overrides so custom small spaces are respected
+    // Apply user search_space overrides with lower-churn neighbor expansion
     let effective_staged = apply_search_space_overrides_to_staged(staged, task);
 
     // Hard cap: do not screen more candidates than random_candidates allows per round.
-    // For long_short we still allow the explicit cap (no .max(80) boost) so smoke payloads
-    // with tiny spaces finish quickly.
     let cap = task.random_candidates.max(1) * task.intelligent_rounds.max(1);
-    let candidates = generate_staged_candidates_for_symbol(
+    let all_candidates = generate_staged_candidates_for_symbol(
         symbol,
         direction_mode,
         &effective_staged,
-        cap,
+        1024, // generate up to 1024 for interleaving, then sample down to cap
     )?;
+
+    // Interleave by spacing so we don't screen only tight/high-churn configs first
+    let candidates = interleave_candidates_by_spacing(all_candidates, cap);
 
     let mut evaluated = Vec::new();
     let mut rejection_samples = Vec::new();
@@ -675,7 +818,13 @@ async fn process_task(
     let market_context = MarketDataContext::load(&market_data, &task.config)?;
     poller.heartbeat(&task.task_id, "search_started").await?;
 
-    let drawdown_limits = drawdown_limit_sequence(&task.config.risk_profile);
+    let direction_mode = task.config.direction_mode.as_deref().unwrap_or("long");
+    let is_long_short = direction_mode == "long_short" || direction_mode == "long_and_short";
+    let drawdown_limits = if is_long_short {
+        long_short_drawdown_limit_sequence(&task.config.risk_profile)
+    } else {
+        drawdown_limit_sequence(&task.config.risk_profile)
+    };
     let first_drawdown_limit = drawdown_limits.first().copied().unwrap_or(25.0);
     let mut screened = Vec::new();
     let mut evaluated_count = 0usize;
@@ -820,10 +969,17 @@ async fn process_task(
     respect_pause_or_cancel(poller, &task.task_id).await?;
 
     let portfolio_candidates = portfolio_candidates_from_outputs(&portfolio_pool_outputs);
-    let max_portfolio_drawdown_pct = drawdown_limit_sequence(&task.config.risk_profile)
-        .first()
-        .copied()
-        .unwrap_or(25.0);
+    let max_portfolio_drawdown_pct = if is_long_short {
+        long_short_drawdown_limit_sequence(&task.config.risk_profile)
+            .first()
+            .copied()
+            .unwrap_or(40.0)
+    } else {
+        drawdown_limit_sequence(&task.config.risk_profile)
+            .first()
+            .copied()
+            .unwrap_or(25.0)
+    };
     let portfolio_top3 = build_portfolio_top3(&portfolio_candidates, max_portfolio_drawdown_pct);
     let portfolio_full_rows = portfolio_top3.top3.iter().enumerate().map(|(rank, portfolio)| {
         let member_id_hash: String = portfolio.members.iter()
@@ -3070,6 +3226,119 @@ mod tests {
         assert!(error.contains("BTCUSDT"));
         assert!(error.contains("long_short"));
         assert!(error.contains("estimated_screenings=16"));
+    }
+
+    #[test]
+    fn long_short_drawdown_limits_are_relaxed() {
+        let balanced = long_short_drawdown_limit_sequence("balanced");
+        assert!(balanced[0] >= 40.0, "long_short balanced drawdown limit should be >= 40: {:?}", balanced);
+        let conservative = long_short_drawdown_limit_sequence("conservative");
+        assert!(conservative[0] >= 30.0, "long_short conservative drawdown limit should be >= 30: {:?}", conservative);
+        // Standard limits should be tighter
+        let standard = drawdown_limit_sequence("balanced");
+        assert!(balanced[0] > standard[0], "long_short limits should be more relaxed than standard: {} vs {}", balanced[0], standard[0]);
+    }
+
+    #[test]
+    fn lower_churn_expansion_adds_wider_spacing_neighbors() {
+        let staged = StagedMartingaleSearchSpace::for_profile("balanced", "long_short");
+        let task = WorkerTaskConfig {
+            symbols: vec!["BTCUSDT".to_owned()],
+            direction_mode: Some("long_short".to_owned()),
+            risk_profile: "balanced".to_owned(),
+            search_space: Some(serde_json::json!({
+                "leverage": [2],
+                "spacing_bps": [120],
+                "order_multiplier": [1.25],
+                "max_legs": [3],
+                "take_profit_bps": [60],
+                "tail_stop_bps": [2000],
+                "long_short_weight_pct": [[60, 40], [50, 50]]
+            })),
+            ..WorkerTaskConfig::default()
+        };
+        let expanded = apply_search_space_overrides_to_staged(&staged, &task);
+        assert!(expanded.spacing_bps.contains(&120), "should keep original 120");
+        assert!(expanded.spacing_bps.contains(&180), "should add 180: {:?}", expanded.spacing_bps);
+        assert!(expanded.spacing_bps.contains(&300), "should add 300: {:?}", expanded.spacing_bps);
+        assert!(expanded.spacing_bps.contains(&420), "should add 420: {:?}", expanded.spacing_bps);
+        assert!(expanded.spacing_bps.contains(&720), "should add 720: {:?}", expanded.spacing_bps);
+    }
+
+    #[test]
+    fn lower_churn_expansion_adds_lower_multiplier_neighbors() {
+        let staged = StagedMartingaleSearchSpace::for_profile("balanced", "long_short");
+        let task = WorkerTaskConfig {
+            symbols: vec!["BTCUSDT".to_owned()],
+            direction_mode: Some("long_short".to_owned()),
+            risk_profile: "balanced".to_owned(),
+            search_space: Some(serde_json::json!({
+                "leverage": [2],
+                "spacing_bps": [120],
+                "order_multiplier": [1.4],
+                "max_legs": [3],
+                "take_profit_bps": [60],
+                "tail_stop_bps": [2000],
+                "long_short_weight_pct": [[60, 40]]
+            })),
+            ..WorkerTaskConfig::default()
+        };
+        let expanded = apply_search_space_overrides_to_staged(&staged, &task);
+        assert!(expanded.order_multiplier.len() > 1, "order_multiplier should expand: {:?}", expanded.order_multiplier);
+        assert!(expanded.order_multiplier.iter().any(|&m| m < 1.4), "should add lower multiplier: {:?}", expanded.order_multiplier);
+    }
+
+    #[test]
+    fn lower_churn_expansion_adds_higher_take_profit() {
+        let staged = StagedMartingaleSearchSpace::for_profile("balanced", "long_short");
+        let task = WorkerTaskConfig {
+            symbols: vec!["BTCUSDT".to_owned()],
+            direction_mode: Some("long_short".to_owned()),
+            risk_profile: "balanced".to_owned(),
+            search_space: Some(serde_json::json!({
+                "leverage": [2],
+                "spacing_bps": [120],
+                "order_multiplier": [1.25],
+                "max_legs": [3],
+                "take_profit_bps": [60],
+                "tail_stop_bps": [2000],
+                "long_short_weight_pct": [[60, 40]]
+            })),
+            ..WorkerTaskConfig::default()
+        };
+        let expanded = apply_search_space_overrides_to_staged(&staged, &task);
+        assert!(expanded.take_profit_bps.contains(&60), "should keep original 60");
+        assert!(expanded.take_profit_bps.contains(&100), "should add 100: {:?}", expanded.take_profit_bps);
+        assert!(expanded.take_profit_bps.contains(&140), "should add 140: {:?}", expanded.take_profit_bps);
+        assert!(expanded.take_profit_bps.contains(&200), "should add 200: {:?}", expanded.take_profit_bps);
+    }
+
+    #[test]
+    fn expanded_search_estimate_stays_bounded() {
+        let staged = StagedMartingaleSearchSpace::for_profile("balanced", "long_short");
+        let task = WorkerTaskConfig {
+            symbols: vec!["BTCUSDT".to_owned()],
+            direction_mode: Some("long_short".to_owned()),
+            risk_profile: "balanced".to_owned(),
+            random_candidates: 16,
+            intelligent_rounds: 1,
+            search_space: Some(serde_json::json!({
+                "leverage": [2],
+                "spacing_bps": [120],
+                "order_multiplier": [1.25],
+                "max_legs": [3],
+                "take_profit_bps": [60],
+                "tail_stop_bps": [2000],
+                "long_short_weight_pct": [[60, 40], [50, 50]]
+            })),
+            ..WorkerTaskConfig::default()
+        };
+        let expanded = apply_search_space_overrides_to_staged(&staged, &task);
+        let estimate = estimate_staged_search_work_for_task(&task);
+        // Even with expansion, screenings must respect random_candidates cap
+        assert!(estimate.max_screenings_per_symbol <= 16, "screenings must respect cap: {:?}", estimate);
+        // Generated candidates should be reasonable (not thousands)
+        assert!(estimate.generated_candidates_per_symbol <= 1024, "generated should be bounded: {:?}", estimate);
     }
 }
 
