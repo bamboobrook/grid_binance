@@ -593,6 +593,7 @@ async fn process_task(
         &task.config.risk_profile,
     );
     respect_pause_or_cancel(poller, &task.task_id).await?;
+    ensure_non_empty_selection_for_task(&task.config, display_outputs.len(), evaluated_count)?;
     let _persisted_candidates = poller
         .save_candidates_and_artifacts(&task.task_id, evaluated_count, &display_outputs)
         .await?;
@@ -816,6 +817,23 @@ where
     }
 
     Ok(screened)
+}
+
+fn ensure_non_empty_selection_for_task(
+    config: &WorkerTaskConfig,
+    selected_count: usize,
+    screened_count: usize,
+) -> Result<(), String> {
+    if selected_count > 0 {
+        return Ok(());
+    }
+    Err(format!(
+        "no martingale candidates selected: direction_mode={} symbols={} screened_count={} selected_count=0 risk_profile={}",
+        config.direction_mode.as_deref().unwrap_or("long"),
+        config.symbols.join(","),
+        screened_count,
+        config.risk_profile,
+    ))
 }
 
 fn select_refinement_candidates_with_drawdown_metadata(
@@ -2460,6 +2478,138 @@ mod tests {
                 has_long && has_short
             }),
             "each long_short portfolio candidate must include both long and short strategy legs"
+        );
+    }
+
+    #[cfg(test)]
+    fn evaluated_candidate_for_tests(
+        candidate_id: &str,
+        symbol: &str,
+        direction_mode: MartingaleDirectionMode,
+        leverage: u32,
+        return_pct: f64,
+        _max_drawdown_pct: f64,
+        survival_valid: bool,
+    ) -> EvaluatedCandidate {
+        use backtest_engine::martingale::scoring::CandidateScore;
+        use backtest_engine::search::SearchCandidate;
+        use shared_domain::martingale::{MartingalePortfolioConfig, MartingaleRiskLimits};
+
+        let strategies = match direction_mode {
+            MartingaleDirectionMode::LongAndShort => vec![
+                MartingaleStrategyConfig {
+                    strategy_id: format!("{candidate_id}-long"),
+                    symbol: symbol.to_owned(),
+                    market: MartingaleMarketKind::UsdMFutures,
+                    direction: MartingaleDirection::Long,
+                    direction_mode,
+                    margin_mode: Some(MartingaleMarginMode::Isolated),
+                    leverage: Some(leverage),
+                    spacing: MartingaleSpacingModel::FixedPercent { step_bps: 120 },
+                    sizing: MartingaleSizingModel::Multiplier {
+                        first_order_quote: Decimal::new(60, 0),
+                        multiplier: Decimal::new(125, 2),
+                        max_legs: 3,
+                    },
+                    take_profit: MartingaleTakeProfitModel::Percent { bps: 60 },
+                    stop_loss: None,
+                    indicators: vec![],
+                    entry_triggers: vec![],
+                    risk_limits: MartingaleRiskLimits::default(),
+                },
+                MartingaleStrategyConfig {
+                    strategy_id: format!("{candidate_id}-short"),
+                    symbol: symbol.to_owned(),
+                    market: MartingaleMarketKind::UsdMFutures,
+                    direction: MartingaleDirection::Short,
+                    direction_mode,
+                    margin_mode: Some(MartingaleMarginMode::Isolated),
+                    leverage: Some(leverage),
+                    spacing: MartingaleSpacingModel::FixedPercent { step_bps: 120 },
+                    sizing: MartingaleSizingModel::Multiplier {
+                        first_order_quote: Decimal::new(40, 0),
+                        multiplier: Decimal::new(125, 2),
+                        max_legs: 3,
+                    },
+                    take_profit: MartingaleTakeProfitModel::Percent { bps: 60 },
+                    stop_loss: None,
+                    indicators: vec![],
+                    entry_triggers: vec![],
+                    risk_limits: MartingaleRiskLimits::default(),
+                },
+            ],
+            _ => vec![],
+        };
+
+        EvaluatedCandidate {
+            candidate: SearchCandidate {
+                candidate_id: candidate_id.to_owned(),
+                config: MartingalePortfolioConfig {
+                    direction_mode,
+                    strategies,
+                    risk_limits: MartingaleRiskLimits::default(),
+                },
+            },
+            score: CandidateScore {
+                survival_valid,
+                rank_score: return_pct,
+                raw_score: return_pct,
+                rejection_reasons: if survival_valid { vec![] } else { vec!["survival_failed".to_owned()] },
+            },
+        }
+    }
+
+    #[test]
+    fn zero_selected_candidates_is_not_reported_as_success() {
+        let config = WorkerTaskConfig {
+            symbols: vec!["BTCUSDT".to_owned(), "ETHUSDT".to_owned()],
+            direction_mode: Some("long_short".to_owned()),
+            risk_profile: "balanced".to_owned(),
+            random_seed: 1,
+            random_candidates: 16,
+            intelligent_rounds: 1,
+            per_symbol_top_n: 10,
+            top_n: 10,
+            portfolio_top_n: 3,
+            market: Some("usd_m_futures".to_owned()),
+            margin_mode: Some("isolated".to_owned()),
+            leverage_range: Some([2, 2]),
+            martingale_template: Some(serde_json::json!({
+                "search_space": {
+                    "leverage": [2],
+                    "spacing_bps": [120],
+                    "order_multiplier": [1.25],
+                    "max_legs": [3],
+                    "take_profit_bps": [60],
+                    "tail_stop_bps": [2000],
+                    "long_short_weight_pct": [[60, 40], [50, 50]]
+                }
+            })),
+            ..WorkerTaskConfig::default()
+        };
+
+        let screened = search_candidates_with_drawdown_relaxation(&config, None, |_symbol, _drawdown_limit_pct| {
+            Ok(vec![evaluated_candidate_for_tests(
+                "invalid-long-short",
+                "BTCUSDT",
+                MartingaleDirectionMode::LongAndShort,
+                2,
+                10.0,
+                99.0,
+                false,
+            )])
+        })
+        .expect("search should execute");
+
+        assert!(screened.is_empty(), "test setup must reproduce zero selected candidates");
+
+        let error = ensure_non_empty_selection_for_task(&config, screened.len(), 2)
+            .expect_err("zero selected candidates must be an error, not a successful task");
+        assert!(
+            error.contains("no martingale candidates selected")
+                && error.contains("screened_count=2")
+                && error.contains("direction_mode=long_short"),
+            "error should be actionable: {error}"
         );
     }
 }
