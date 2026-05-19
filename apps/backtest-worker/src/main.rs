@@ -243,10 +243,20 @@ fn run_profit_first_staged_search(
     scoring: &ScoringConfig,
     _drawdown_limit_pct: f64,
 ) -> Result<Vec<EvaluatedCandidate>, String> {
+    let direction_mode = task.direction_mode.as_deref().unwrap_or("long");
     let coarse_space = StagedMartingaleSearchSpace::for_profile(
         &task.risk_profile,
-        task.direction_mode.as_deref().unwrap_or("long"),
+        direction_mode,
     );
+
+    // When direction_mode is long_short, use generate_staged_candidates_for_symbol
+    // which correctly builds LongAndShort candidates with both long and short legs.
+    // intelligent_search only produces single-direction candidates because it picks
+    // one direction from SearchSpace.directions at a time.
+    if direction_mode == "long_short" || direction_mode == "long_and_short" {
+        return run_long_short_staged_search(context, symbol, task, &coarse_space, scoring);
+    }
+
     let search_space = search_space_from_staged(&coarse_space, symbol, task);
     let coarse_candidates = intelligent_search(
         &search_space,
@@ -301,6 +311,48 @@ fn run_profit_first_staged_search(
     refined.sort_by(|a, b| b.score.rank_score.total_cmp(&a.score.rank_score));
     refined.truncate(task.per_symbol_top_n.max(10));
     Ok(refined)
+}
+
+fn run_long_short_staged_search(
+    context: &MarketDataContext,
+    symbol: &str,
+    task: &WorkerTaskConfig,
+    staged: &StagedMartingaleSearchSpace,
+    scoring: &ScoringConfig,
+) -> Result<Vec<EvaluatedCandidate>, String> {
+    use backtest_engine::search::generate_staged_candidates_for_symbol;
+    use backtest_engine::martingale::scoring::score_candidate;
+
+    let direction_mode = task.direction_mode.as_deref().unwrap_or("long");
+    let candidates = generate_staged_candidates_for_symbol(
+        symbol,
+        direction_mode,
+        staged,
+        task.random_candidates.max(1) * task.intelligent_rounds.max(1),
+    )?;
+
+    let mut evaluated = Vec::new();
+    for candidate in candidates {
+        let overridden = apply_task_overrides_to_candidate(candidate, task);
+        let result = run_candidate_kline_screening(&overridden, context);
+        let score = match result {
+            Ok(metrics) => score_candidate(&metrics, scoring),
+            Err(_) => backtest_engine::martingale::scoring::CandidateScore {
+                survival_valid: false,
+                rank_score: 0.0,
+                raw_score: 0.0,
+                rejection_reasons: vec!["screening_failed".to_owned()],
+            },
+        };
+        evaluated.push(EvaluatedCandidate {
+            candidate: overridden,
+            score,
+        });
+    }
+
+    evaluated.sort_by(|a, b| b.score.rank_score.total_cmp(&a.score.rank_score));
+    evaluated.truncate(task.per_symbol_top_n.max(10));
+    Ok(evaluated)
 }
 
 fn portfolio_candidates_from_outputs(outputs: &[CandidateOutput]) -> Vec<backtest_engine::portfolio_search::EvaluatedCandidate> {
@@ -2323,6 +2375,71 @@ mod tests {
         assert_eq!(preview.len(), 10);
         assert_eq!(preview.first().copied(), Some(0));
         assert_eq!(preview.last().copied(), Some(999));
+    }
+
+    #[test]
+    fn long_short_task_produces_long_and_short_candidates_via_intelligent_search() {
+        let config = WorkerTaskConfig {
+            symbols: vec!["BTCUSDT".to_owned()],
+            direction_mode: Some("long_short".to_owned()),
+            risk_profile: "balanced".to_owned(),
+            random_seed: 7,
+            random_candidates: 8,
+            intelligent_rounds: 1,
+            per_symbol_top_n: 10,
+            top_n: 10,
+            portfolio_top_n: 3,
+            market: Some("usd_m_futures".to_owned()),
+            margin_mode: Some("isolated".to_owned()),
+            leverage_range: Some([2, 2]),
+            martingale_template: Some(serde_json::json!({
+                "search_space": {
+                    "leverage": [2],
+                    "spacing_bps": [120],
+                    "order_multiplier": [1.25],
+                    "max_legs": [3],
+                    "take_profit_bps": [60],
+                    "tail_stop_bps": [2000],
+                    "long_short_weight_pct": [[60, 40], [50, 50]]
+                }
+            })),
+            ..WorkerTaskConfig::default()
+        };
+
+        let staged = backtest_engine::search::StagedMartingaleSearchSpace::for_profile(
+            &config.risk_profile,
+            config.direction_mode.as_deref().unwrap(),
+        );
+
+        // When direction_mode is long_short, the worker must produce LongAndShort
+        // candidates (with both long and short strategy legs), not separate
+        // Long-only and Short-only candidates.
+        let candidates = backtest_engine::search::generate_staged_candidates_for_symbol(
+            "BTCUSDT",
+            "long_short",
+            &staged,
+            20,
+        )
+        .expect("long_short candidates should generate");
+
+        assert!(!candidates.is_empty());
+        assert!(
+            candidates.iter().all(|candidate| candidate.config.direction_mode
+                == MartingaleDirectionMode::LongAndShort),
+            "user-requested long_short search must not degrade to long_only/short_only candidates"
+        );
+        assert!(
+            candidates.iter().all(|candidate| {
+                let has_long = candidate.config.strategies.iter().any(|strategy| {
+                    strategy.direction == MartingaleDirection::Long
+                });
+                let has_short = candidate.config.strategies.iter().any(|strategy| {
+                    strategy.direction == MartingaleDirection::Short
+                });
+                has_long && has_short
+            }),
+            "each long_short portfolio candidate must include both long and short strategy legs"
+        );
     }
 }
 
