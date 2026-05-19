@@ -83,6 +83,8 @@ struct WorkerTaskConfig {
     #[serde(default)]
     martingale_template: Option<Value>,
     #[serde(default)]
+    search_space: Option<Value>,
+    #[serde(default)]
     scoring: Option<Value>,
     #[serde(default = "default_interval")]
     interval: String,
@@ -108,6 +110,7 @@ impl Default for WorkerTaskConfig {
             direction_mode: None,
             leverage_range: None,
             martingale_template: None,
+            search_space: None,
             scoring: None,
             interval: default_interval(),
             start_ms: 0,
@@ -158,6 +161,18 @@ fn stage_progress(stage: &str) -> u32 {
         _ if stage.starts_with("trade_refinement_top_") => 80,
         _ => 50,
     }
+}
+
+fn martingale_search_timeout_error(
+    symbol: &str,
+    direction_mode: &str,
+    estimated_screenings: usize,
+    timeout_secs: u64,
+) -> String {
+    format!(
+        "martingale search timed out: symbol={} direction_mode={} estimated_screenings={} timeout_secs={}",
+        symbol, direction_mode, estimated_screenings, timeout_secs
+    )
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -246,6 +261,51 @@ impl CandidateRejectionDiagnostics {
             best_by_return,
             lowest_drawdown,
         }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+struct SearchWorkEstimate {
+    generated_candidates_per_symbol: usize,
+    max_screenings_per_symbol: usize,
+}
+
+fn estimate_staged_search_work_for_task(config: &WorkerTaskConfig) -> SearchWorkEstimate {
+    let direction_mode = config.direction_mode.as_deref().unwrap_or("long");
+    let staged = StagedMartingaleSearchSpace::for_profile(
+        &config.risk_profile,
+        direction_mode,
+    );
+
+    // Apply user search_space overrides if present
+    let leverage = search_space_u32(config, "leverage").unwrap_or_else(|| staged.leverage.clone());
+    let spacing_bps = search_space_u32(config, "spacing_bps").unwrap_or_else(|| staged.spacing_bps.clone());
+    let order_multiplier = search_space_f64(config, "order_multiplier").unwrap_or_else(|| staged.order_multiplier.clone());
+    let max_legs = search_space_u32(config, "max_legs").unwrap_or_else(|| staged.max_legs.clone());
+    let take_profit_bps = search_space_u32(config, "take_profit_bps").unwrap_or_else(|| staged.take_profit_bps.clone());
+    let tail_stop_bps = search_space_u32(config, "tail_stop_bps").unwrap_or_else(|| staged.tail_stop_bps.clone());
+
+    let weight_count = if direction_mode == "long_short" || direction_mode == "long_and_short" {
+        search_space_long_short_weights(config)
+            .map(|w| w.len())
+            .unwrap_or_else(|| staged.long_short_weight_pct.len())
+            .max(1)
+    } else {
+        1
+    };
+
+    let generated = leverage.len().max(1)
+        * spacing_bps.len().max(1)
+        * order_multiplier.len().max(1)
+        * max_legs.len().max(1)
+        * take_profit_bps.len().max(1)
+        * tail_stop_bps.len().max(1)
+        * weight_count;
+
+    let cap = config.random_candidates.max(1) * config.intelligent_rounds.max(1);
+    SearchWorkEstimate {
+        generated_candidates_per_symbol: generated,
+        max_screenings_per_symbol: generated.min(cap.max(1)),
     }
 }
 
@@ -387,6 +447,21 @@ fn run_profit_first_staged_search(
     Ok((refined, rejection_samples))
 }
 
+fn apply_search_space_overrides_to_staged(
+    staged: &StagedMartingaleSearchSpace,
+    task: &WorkerTaskConfig,
+) -> StagedMartingaleSearchSpace {
+    StagedMartingaleSearchSpace {
+        leverage: search_space_u32(task, "leverage").unwrap_or_else(|| staged.leverage.clone()),
+        spacing_bps: search_space_u32(task, "spacing_bps").unwrap_or_else(|| staged.spacing_bps.clone()),
+        order_multiplier: search_space_f64(task, "order_multiplier").unwrap_or_else(|| staged.order_multiplier.clone()),
+        max_legs: search_space_u32(task, "max_legs").unwrap_or_else(|| staged.max_legs.clone()),
+        take_profit_bps: search_space_u32(task, "take_profit_bps").unwrap_or_else(|| staged.take_profit_bps.clone()),
+        tail_stop_bps: search_space_u32(task, "tail_stop_bps").unwrap_or_else(|| staged.tail_stop_bps.clone()),
+        long_short_weight_pct: search_space_long_short_weights(task).unwrap_or_else(|| staged.long_short_weight_pct.clone()),
+    }
+}
+
 fn run_long_short_staged_search(
     context: &MarketDataContext,
     symbol: &str,
@@ -398,25 +473,34 @@ fn run_long_short_staged_search(
     use backtest_engine::martingale::scoring::score_candidate;
 
     let direction_mode = task.direction_mode.as_deref().unwrap_or("long");
-    let limit = if direction_mode == "long_short" || direction_mode == "long_and_short" {
-        // Long_short generates candidates via cartesian product of all parameter
-        // combinations. The default limit (random_candidates * intelligent_rounds = 32)
-        // is too small for the full parameter space (up to 6720 combinations).
-        // Use a larger limit to ensure diverse parameter coverage.
-        (task.random_candidates.max(1) * task.intelligent_rounds.max(1)).max(80)
-    } else {
-        task.random_candidates.max(1) * task.intelligent_rounds.max(1)
-    };
+
+    // Apply user search_space overrides so custom small spaces are respected
+    let effective_staged = apply_search_space_overrides_to_staged(staged, task);
+
+    // Hard cap: do not screen more candidates than random_candidates allows per round.
+    // For long_short we still allow the explicit cap (no .max(80) boost) so smoke payloads
+    // with tiny spaces finish quickly.
+    let cap = task.random_candidates.max(1) * task.intelligent_rounds.max(1);
     let candidates = generate_staged_candidates_for_symbol(
         symbol,
         direction_mode,
-        staged,
-        limit,
+        &effective_staged,
+        cap,
     )?;
 
     let mut evaluated = Vec::new();
     let mut rejection_samples = Vec::new();
-    for candidate in candidates {
+    let start = std::time::Instant::now();
+    let timeout_secs: u64 = 120;
+
+    for (idx, candidate) in candidates.into_iter().enumerate() {
+        if idx > 0 && idx % 5 == 0 {
+            if start.elapsed().as_secs() > timeout_secs {
+                return Err(martingale_search_timeout_error(
+                    symbol, direction_mode, cap, timeout_secs,
+                ));
+            }
+        }
         let overridden = apply_task_overrides_to_candidate(candidate, task);
         let result = run_candidate_kline_screening(&overridden, context);
         let (score, sample) = match result {
@@ -599,6 +683,19 @@ async fn process_task(
 
     for symbol in &task.config.symbols {
         respect_pause_or_cancel(poller, &task.task_id).await?;
+        let estimate = estimate_staged_search_work_for_task(&task.config);
+        poller
+            .update_task_summary_fragment(
+                &task.task_id,
+                json!({
+                    "stage": "search_symbol",
+                    "stage_label": format!("搜索 {} 参数中", symbol),
+                    "progress_pct": 35,
+                    "current_symbol": symbol,
+                    "estimated_screenings": estimate.max_screenings_per_symbol,
+                }),
+            )
+            .await?;
         for drawdown_limit_pct in &drawdown_limits {
             let scoring = scoring_config_from_task(&task.config, *drawdown_limit_pct);
             let (candidates, rejection_samples) = run_profit_first_staged_search(
@@ -1455,10 +1552,40 @@ fn margin_mode(value: Option<&str>) -> Option<MartingaleMarginMode> {
 
 fn search_space_value<'a>(config: &'a WorkerTaskConfig, key: &str) -> Option<&'a Value> {
     config
-        .martingale_template
+        .search_space
         .as_ref()
-        .and_then(|template| template.get("search_space"))
         .and_then(|space| space.get(key))
+        .or_else(|| {
+            config
+                .martingale_template
+                .as_ref()
+                .and_then(|template| template.get("search_space"))
+                .and_then(|space| space.get(key))
+        })
+}
+
+fn search_space_f64(config: &WorkerTaskConfig, key: &str) -> Option<Vec<f64>> {
+    let values = search_space_value(config, key)?.as_array()?;
+    let parsed: Vec<f64> = values
+        .iter()
+        .filter_map(|v| v.as_f64())
+        .filter(|v| *v > 0.0)
+        .collect();
+    (!parsed.is_empty()).then_some(parsed)
+}
+
+fn search_space_long_short_weights(config: &WorkerTaskConfig) -> Option<Vec<(u32, u32)>> {
+    let values = search_space_value(config, "long_short_weight_pct")?.as_array()?;
+    let parsed: Vec<(u32, u32)> = values
+        .iter()
+        .filter_map(|v| v.as_array())
+        .filter_map(|arr| {
+            let first = arr.first().and_then(|v| v.as_u64()).and_then(|v| u32::try_from(v).ok())?;
+            let second = arr.get(1).and_then(|v| v.as_u64()).and_then(|v| u32::try_from(v).ok())?;
+            Some((first, second))
+        })
+        .collect();
+    (!parsed.is_empty()).then_some(parsed)
 }
 
 fn search_space_u32(config: &WorkerTaskConfig, key: &str) -> Option<Vec<u32>> {
@@ -2398,6 +2525,7 @@ mod tests {
             direction_mode: None,
             leverage_range: None,
             martingale_template: None,
+            search_space: None,
             scoring: None,
             interval: "1h".to_owned(),
             start_ms: 1,
@@ -2440,6 +2568,7 @@ mod tests {
             direction_mode: None,
             leverage_range: None,
             martingale_template: None,
+            search_space: None,
             scoring: None,
             interval: "1h".to_owned(),
             start_ms: 1,
@@ -2882,6 +3011,65 @@ mod tests {
         assert_eq!(selected[0].candidate.candidate.candidate_id, "best-positive-risk-relaxed");
         assert!(selected[0].risk_relaxed);
         assert_eq!(selected[0].used_drawdown_limit_pct, 25.0);
+    }
+
+    #[test]
+    fn long_short_smoke_search_estimate_is_bounded() {
+        let config = WorkerTaskConfig {
+            symbols: vec!["BTCUSDT".to_owned(), "ETHUSDT".to_owned()],
+            direction_mode: Some("long_short".to_owned()),
+            risk_profile: "balanced".to_owned(),
+            random_candidates: 16,
+            intelligent_rounds: 1,
+            search_space: Some(serde_json::json!({
+                "leverage": [2],
+                "spacing_bps": [120],
+                "order_multiplier": [1.25],
+                "max_legs": [3],
+                "take_profit_bps": [60],
+                "tail_stop_bps": [2000],
+                "long_short_weight_pct": [[60, 40], [50, 50]]
+            })),
+            ..WorkerTaskConfig::default()
+        };
+
+        let estimate = estimate_staged_search_work_for_task(&config);
+        assert!(estimate.generated_candidates_per_symbol <= 64, "too many generated candidates per symbol: {:?}", estimate);
+        assert!(estimate.max_screenings_per_symbol <= 64, "too many screenings per symbol: {:?}", estimate);
+    }
+
+    #[test]
+    fn long_short_smoke_search_uses_random_candidates_as_screening_cap() {
+        let config = WorkerTaskConfig {
+            symbols: vec!["BTCUSDT".to_owned()],
+            direction_mode: Some("long_short".to_owned()),
+            risk_profile: "balanced".to_owned(),
+            random_candidates: 16,
+            intelligent_rounds: 1,
+            search_space: Some(serde_json::json!({
+                "leverage": [2],
+                "spacing_bps": [120],
+                "order_multiplier": [1.25],
+                "max_legs": [3],
+                "take_profit_bps": [60],
+                "tail_stop_bps": [2000],
+                "long_short_weight_pct": [[60, 40], [50, 50]]
+            })),
+            ..WorkerTaskConfig::default()
+        };
+
+        let estimate = estimate_staged_search_work_for_task(&config);
+        assert!(estimate.generated_candidates_per_symbol <= 64, "estimate: {:?}", estimate);
+        assert!(estimate.max_screenings_per_symbol <= 16, "screenings must respect random_candidates: {:?}", estimate);
+    }
+
+    #[test]
+    fn martingale_search_timeout_error_is_actionable() {
+        let error = martingale_search_timeout_error("BTCUSDT", "long_short", 16, 120);
+        assert!(error.contains("martingale search timed out"));
+        assert!(error.contains("BTCUSDT"));
+        assert!(error.contains("long_short"));
+        assert!(error.contains("estimated_screenings=16"));
     }
 }
 
