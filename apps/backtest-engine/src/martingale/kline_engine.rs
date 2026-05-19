@@ -12,7 +12,7 @@ use crate::martingale::exit_rules::{
     evaluate_exit_priority, take_profit_price, weighted_average_entry, ExitDecision,
 };
 use crate::martingale::metrics::{
-    build_drawdown_curve, EquityPoint, MartingaleBacktestEvent, MartingaleBacktestResult, MartingaleMetrics,
+    build_drawdown_curve, calculate_annualized_return_pct, EquityPoint, MartingaleBacktestEvent, MartingaleBacktestResult, MartingaleMetrics,
 };
 use crate::martingale::rules::{compute_leg_notionals, compute_leg_trigger_prices};
 use crate::martingale::state::MartingaleLegState;
@@ -329,10 +329,22 @@ pub fn run_kline_screening(
         0.0
     };
 
+    let annualized_return_pct = {
+        let first = equity_curve.first();
+        let last = equity_curve.last();
+        match (first, last) {
+            (Some(f), Some(l)) => {
+                let days = ((l.timestamp_ms - f.timestamp_ms) as f64) / 86_400_000.0;
+                calculate_annualized_return_pct(f.equity_quote, l.equity_quote, days)
+            }
+            _ => None,
+        }
+    };
+
     Ok(MartingaleBacktestResult {
         metrics: MartingaleMetrics {
             total_return_pct: finite_or_zero(total_return_pct),
-            annualized_return_pct: None,
+            annualized_return_pct,
             max_drawdown_pct: finite_or_zero(max_drawdown_pct),
             global_drawdown_pct: Some(finite_or_zero(max_drawdown_pct)),
             max_strategy_drawdown_pct: Some(finite_or_zero(max_drawdown_pct)),
