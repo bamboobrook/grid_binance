@@ -189,10 +189,11 @@ struct CandidateRejectionSample {
     candidate_id: String,
     symbol: String,
     direction_mode: String,
-    total_return_pct: f64,
-    max_drawdown_pct: f64,
+    total_return_pct: Option<f64>,
+    max_drawdown_pct: Option<f64>,
     trade_count: usize,
     survival_valid: bool,
+    rejection_reason: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -210,19 +211,30 @@ impl CandidateRejectionDiagnostics {
     fn from_samples(samples: Vec<CandidateRejectionSample>) -> Self {
         let total = samples.len();
         let survival_valid_count = samples.iter().filter(|s| s.survival_valid).count();
-        let negative_return_count = samples.iter().filter(|s| s.total_return_pct <= 0.0).count();
+        let negative_return_count = samples
+            .iter()
+            .filter(|s| s.total_return_pct.map(|v| v <= 0.0).unwrap_or(false))
+            .count();
         let drawdown_rejected_count = samples
             .iter()
-            .filter(|s| s.total_return_pct > 0.0 && !s.survival_valid)
+            .filter(|s| s.total_return_pct.map(|v| v > 0.0).unwrap_or(false) && !s.survival_valid)
             .count();
         let zero_trade_count = samples.iter().filter(|s| s.trade_count == 0).count();
 
         let mut best_by_return = samples.clone();
-        best_by_return.sort_by(|a, b| b.total_return_pct.total_cmp(&a.total_return_pct));
+        best_by_return.sort_by(|a, b| {
+            b.total_return_pct
+                .unwrap_or(f64::NEG_INFINITY)
+                .total_cmp(&a.total_return_pct.unwrap_or(f64::NEG_INFINITY))
+        });
         best_by_return.truncate(5);
 
         let mut lowest_drawdown = samples;
-        lowest_drawdown.sort_by(|a, b| a.max_drawdown_pct.total_cmp(&b.max_drawdown_pct));
+        lowest_drawdown.sort_by(|a, b| {
+            a.max_drawdown_pct
+                .unwrap_or(f64::INFINITY)
+                .total_cmp(&b.max_drawdown_pct.unwrap_or(f64::INFINITY))
+        });
         lowest_drawdown.truncate(5);
 
         Self {
@@ -414,10 +426,11 @@ fn run_long_short_staged_search(
                     candidate_id: overridden.candidate_id.clone(),
                     symbol: symbol.to_owned(),
                     direction_mode: direction_mode.to_owned(),
-                    total_return_pct: metrics.metrics.total_return_pct,
-                    max_drawdown_pct: metrics.metrics.max_drawdown_pct,
+                    total_return_pct: Some(metrics.metrics.total_return_pct),
+                    max_drawdown_pct: Some(metrics.metrics.max_drawdown_pct),
                     trade_count: metrics.metrics.trade_count as usize,
                     survival_valid: s.survival_valid,
+                    rejection_reason: None,
                 };
                 (s, sample)
             }
@@ -426,10 +439,11 @@ fn run_long_short_staged_search(
                     candidate_id: overridden.candidate_id.clone(),
                     symbol: symbol.to_owned(),
                     direction_mode: direction_mode.to_owned(),
-                    total_return_pct: 0.0,
-                    max_drawdown_pct: 0.0,
+                    total_return_pct: None,
+                    max_drawdown_pct: None,
                     trade_count: 0,
                     survival_valid: false,
+                    rejection_reason: Some("screening_failed".to_owned()),
                 };
                 (backtest_engine::martingale::scoring::CandidateScore {
                     survival_valid: false,
@@ -996,18 +1010,22 @@ fn rejection_sample_from_evaluated(
 ) -> CandidateRejectionSample {
     let has_negative_return = evaluated.score.rejection_reasons.iter()
         .any(|r| r.contains("negative_return"));
-    let has_drawdown_exceeded = evaluated.score.rejection_reasons.iter()
-        .any(|r| r.contains("drawdown_exceeded") || r.contains("global_drawdown") || r.contains("strategy_drawdown"));
     let has_zero_trades = evaluated.score.rejection_reasons.iter()
         .any(|r| r.contains("insufficient_data_quality") || r.contains("screening_failed"));
+    let rejection_reason = if evaluated.score.rejection_reasons.is_empty() {
+        None
+    } else {
+        Some(evaluated.score.rejection_reasons.join("; "))
+    };
     CandidateRejectionSample {
         candidate_id: evaluated.candidate.candidate_id.clone(),
         symbol: symbol.to_owned(),
         direction_mode: direction_mode.to_owned(),
-        total_return_pct: if has_negative_return { -1.0 } else { evaluated.score.raw_score },
-        max_drawdown_pct: if has_drawdown_exceeded { 99.0 } else { 0.0 },
+        total_return_pct: if has_negative_return { None } else { Some(evaluated.score.raw_score) },
+        max_drawdown_pct: None,
         trade_count: if has_zero_trades { 0 } else { 1 },
         survival_valid: evaluated.score.survival_valid,
+        rejection_reason,
     }
 }
 
@@ -2750,12 +2768,13 @@ mod tests {
     ) -> CandidateRejectionSample {
         CandidateRejectionSample {
             candidate_id: candidate_id.to_owned(),
-            total_return_pct,
-            max_drawdown_pct,
+            total_return_pct: Some(total_return_pct),
+            max_drawdown_pct: Some(max_drawdown_pct),
             trade_count,
             survival_valid,
             direction_mode: "long_short".to_owned(),
             symbol: "BTCUSDT".to_owned(),
+            rejection_reason: None,
         }
     }
 
@@ -2810,6 +2829,27 @@ mod tests {
         assert!(error.contains("negative_return=1"));
         assert!(error.contains("drawdown_rejected=1"));
         assert!(error.contains("survival_valid=1"));
+    }
+
+    #[test]
+    fn screening_failed_rejection_sample_does_not_fake_zero_drawdown() {
+        let sample = CandidateRejectionSample {
+            candidate_id: "failed".to_owned(),
+            symbol: "BTCUSDT".to_owned(),
+            direction_mode: "long_short".to_owned(),
+            total_return_pct: None,
+            max_drawdown_pct: None,
+            trade_count: 0,
+            survival_valid: false,
+            rejection_reason: Some("screening_failed".to_owned()),
+        };
+
+        let diagnostics = CandidateRejectionDiagnostics::from_samples(vec![sample]);
+        assert_eq!(diagnostics.negative_return_count, 0);
+        assert_eq!(diagnostics.drawdown_rejected_count, 0);
+        assert_eq!(diagnostics.zero_trade_count, 1);
+        assert_eq!(diagnostics.best_by_return[0].rejection_reason.as_deref(), Some("screening_failed"));
+        assert!(diagnostics.best_by_return[0].max_drawdown_pct.is_none());
     }
 
     #[test]
