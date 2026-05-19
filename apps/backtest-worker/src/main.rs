@@ -621,12 +621,48 @@ fn run_long_short_staged_search(
 
     // Hard cap: do not screen more candidates than random_candidates allows per round.
     let cap = task.random_candidates.max(1) * task.intelligent_rounds.max(1);
-    let all_candidates = generate_staged_candidates_for_symbol(
+
+    // For long_short mode, also generate single-direction candidates because
+    // combined LongAndShort candidates on 1m interval often produce negative
+    // returns due to fee drag, while single-direction candidates can be positive.
+    // The portfolio builder can combine best long + short candidates later.
+    let long_short_candidates = generate_staged_candidates_for_symbol(
         symbol,
         direction_mode,
         &effective_staged,
-        1024, // generate up to 1024 for interleaving, then sample down to cap
+        512,
     )?;
+
+    // Generate single-direction candidates with the same search space.
+    // Use a separate staged space with weight_pct = (100,0) / (0,100) to
+    // avoid duplicating long_short candidates.
+    let long_staged = StagedMartingaleSearchSpace {
+        long_short_weight_pct: vec![(100, 0)],
+        ..effective_staged.clone()
+    };
+    let short_staged = StagedMartingaleSearchSpace {
+        long_short_weight_pct: vec![(0, 100)],
+        ..effective_staged.clone()
+    };
+
+    let long_candidates = generate_staged_candidates_for_symbol(
+        symbol,
+        "long",
+        &long_staged,
+        256,
+    )?;
+    let short_candidates = generate_staged_candidates_for_symbol(
+        symbol,
+        "short",
+        &short_staged,
+        256,
+    )?;
+
+    // Merge all candidates, prioritizing single-direction (lower churn) first
+    let mut all_candidates: Vec<SearchCandidate> = Vec::new();
+    all_candidates.extend(long_candidates);
+    all_candidates.extend(short_candidates);
+    all_candidates.extend(long_short_candidates);
 
     // Interleave by spacing so we don't screen only tight/high-churn configs first
     let candidates = interleave_candidates_by_spacing(all_candidates, cap);
