@@ -239,52 +239,77 @@ pub fn generate_staged_candidates_for_symbol(
     let mut candidates = Vec::new();
     let mut id_counter = 0usize;
 
-    // long_short uses independent long/short leg iteration for true asymmetry
+    // long_short uses random uniform sampling across all dimensions so every
+    // parameter axis (leverage, spacing, multiplier, max_legs, take_profit,
+    // tail_stop, weights) gets explored, rather than exhausting inner loops
+    // before outer loops advance.
     if direction == "long_short" || direction == "long_and_short" {
-        for leverage in &space.leverage {
-            for long_spacing_bps in &space.spacing_bps {
-                for multiplier in &space.order_multiplier {
-                    for max_legs in &space.max_legs {
-                        for long_take_profit_bps in &space.take_profit_bps {
-                            for tail_stop_bps in &space.tail_stop_bps {
-                                for (long_weight_pct, short_weight_pct) in &space.long_short_weight_pct {
-                                    let long_params = LegParameters {
-                                        spacing_bps: *long_spacing_bps,
-                                        order_multiplier: *multiplier,
-                                        max_legs: *max_legs,
-                                        take_profit_bps: *long_take_profit_bps,
-                                        tail_stop_bps: *tail_stop_bps,
-                                        weight_pct: *long_weight_pct,
-                                    };
+        let mut rng = rand::thread_rng();
+        let mut seen: std::collections::HashSet<(
+            usize, usize, usize, usize, usize, usize, usize, usize, usize,
+        )> = std::collections::HashSet::new();
 
-                                    for short_spacing_bps in &space.spacing_bps {
-                                        for short_take_profit_bps in &space.take_profit_bps {
-                                            let short_params = LegParameters {
-                                                spacing_bps: *short_spacing_bps,
-                                                order_multiplier: *multiplier,
-                                                max_legs: *max_legs,
-                                                take_profit_bps: *short_take_profit_bps,
-                                                tail_stop_bps: *tail_stop_bps,
-                                                weight_pct: *short_weight_pct,
-                                            };
-                                            candidates.push(build_long_short_candidate_from_legs(
-                                                symbol,
-                                                *leverage,
-                                                long_params.clone(),
-                                                short_params,
-                                                &mut id_counter,
-                                            )?);
-                                            if candidates.len() >= limit {
-                                                return Ok(candidates);
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
+        while candidates.len() < limit {
+            let li = rng.gen_range(0..space.leverage.len());
+            let lsi = rng.gen_range(0..space.spacing_bps.len());
+            let mi = rng.gen_range(0..space.order_multiplier.len());
+            let mli = rng.gen_range(0..space.max_legs.len());
+            let ltpi = rng.gen_range(0..space.take_profit_bps.len());
+            let tsi = rng.gen_range(0..space.tail_stop_bps.len());
+            let wi = rng.gen_range(0..space.long_short_weight_pct.len());
+            let ssi = rng.gen_range(0..space.spacing_bps.len());
+            let stpi = rng.gen_range(0..space.take_profit_bps.len());
+
+            let key = (li, lsi, mi, mli, ltpi, tsi, wi, ssi, stpi);
+            if !seen.insert(key) {
+                if seen.len() >= space.leverage.len()
+                    * space.spacing_bps.len()
+                    * space.order_multiplier.len()
+                    * space.max_legs.len()
+                    * space.take_profit_bps.len()
+                    * space.tail_stop_bps.len()
+                    * space.long_short_weight_pct.len()
+                    * space.spacing_bps.len()
+                    * space.take_profit_bps.len()
+                {
+                    break; // exhausted all combinations
                 }
+                continue;
             }
+
+            let leverage = space.leverage[li];
+            let long_spacing_bps = space.spacing_bps[lsi];
+            let multiplier = space.order_multiplier[mi];
+            let max_legs = space.max_legs[mli];
+            let long_take_profit_bps = space.take_profit_bps[ltpi];
+            let tail_stop_bps = space.tail_stop_bps[tsi];
+            let (long_weight_pct, short_weight_pct) = space.long_short_weight_pct[wi];
+            let short_spacing_bps = space.spacing_bps[ssi];
+            let short_take_profit_bps = space.take_profit_bps[stpi];
+
+            let long_params = LegParameters {
+                spacing_bps: long_spacing_bps,
+                order_multiplier: multiplier,
+                max_legs,
+                take_profit_bps: long_take_profit_bps,
+                tail_stop_bps,
+                weight_pct: long_weight_pct,
+            };
+            let short_params = LegParameters {
+                spacing_bps: short_spacing_bps,
+                order_multiplier: multiplier,
+                max_legs,
+                take_profit_bps: short_take_profit_bps,
+                tail_stop_bps,
+                weight_pct: short_weight_pct,
+            };
+            candidates.push(build_long_short_candidate_from_legs(
+                symbol,
+                leverage,
+                long_params,
+                short_params,
+                &mut id_counter,
+            )?);
         }
         return Ok(candidates);
     }
