@@ -601,7 +601,6 @@ async fn process_task(
                 candidates,
                 *drawdown_limit_pct,
                 risk_relaxed,
-                &rejection_samples,
             );
             if !valid.is_empty() {
                 screened.extend(valid);
@@ -2815,15 +2814,6 @@ mod tests {
 
     #[test]
     fn selection_keeps_best_positive_candidates_when_survival_filter_is_empty() {
-        let config = WorkerTaskConfig {
-            symbols: vec!["BTCUSDT".to_owned()],
-            direction_mode: Some("long_short".to_owned()),
-            risk_profile: "balanced".to_owned(),
-            per_symbol_top_n: 10,
-            top_n: 10,
-            ..WorkerTaskConfig::default()
-        };
-
         let candidates = vec![
             evaluated_candidate_for_tests(
                 "bad-negative", "BTCUSDT",
