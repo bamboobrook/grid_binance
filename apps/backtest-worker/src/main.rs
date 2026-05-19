@@ -30,7 +30,7 @@ use shared_db::{BacktestCandidateRecord, BacktestRepository, NewBacktestCandidat
 use shared_domain::martingale::{
     MartingaleDirection, MartingaleDirectionMode, MartingaleEntryTrigger, MartingaleIndicatorConfig,
     MartingaleMarginMode, MartingaleMarketKind,
-    MartingaleSpacingModel, MartingaleSizingModel, MartingaleTakeProfitModel,
+    MartingaleSpacingModel, MartingaleSizingModel, MartingaleStrategyConfig, MartingaleTakeProfitModel,
 };
 
 const DEFAULT_MAX_THREADS: usize = 2;
@@ -612,14 +612,73 @@ fn generate_long_short_candidates_for_task(
     use backtest_engine::search::generate_staged_candidates_for_symbol;
 
     let effective_staged = apply_search_space_overrides_to_staged(staged, task);
-    let cap = task.random_candidates.max(1) * task.intelligent_rounds.max(1);
+    let requested_cap = task.random_candidates.max(1) * task.intelligent_rounds.max(1);
+    let cap = requested_cap.max(task.per_symbol_top_n.max(10) * 6).min(96);
     let candidates = generate_staged_candidates_for_symbol(
         symbol,
         "long_short",
         &effective_staged,
-        512,
+        20_000,
     )?;
-    Ok(interleave_candidates_by_spacing(candidates, cap))
+    Ok(stratified_long_short_candidates(candidates, cap))
+}
+
+fn stratified_long_short_candidates(candidates: Vec<SearchCandidate>, limit: usize) -> Vec<SearchCandidate> {
+    if candidates.len() <= limit {
+        return candidates;
+    }
+
+    let mut buckets: std::collections::BTreeMap<(u32, u32), Vec<SearchCandidate>> = std::collections::BTreeMap::new();
+    for candidate in candidates {
+        let long = candidate.config.strategies.iter().find(|s| s.direction == MartingaleDirection::Long);
+        let short = candidate.config.strategies.iter().find(|s| s.direction == MartingaleDirection::Short);
+        let key = match (long, short) {
+            (Some(long), Some(short)) => (
+                strategy_spacing_bps(long).unwrap_or(0),
+                strategy_spacing_bps(short).unwrap_or(0),
+            ),
+            _ => (0, 0),
+        };
+        buckets.entry(key).or_default().push(candidate);
+    }
+
+    let keys: Vec<_> = buckets.keys().copied().collect();
+    let mut indices = std::collections::BTreeMap::<(u32, u32), usize>::new();
+    let mut selected = Vec::with_capacity(limit);
+    while selected.len() < limit {
+        let mut added = false;
+        for key in &keys {
+            let index = indices.get(key).copied().unwrap_or(0);
+            if let Some(bucket) = buckets.get(key) {
+                if let Some(candidate) = bucket.get(index) {
+                    selected.push(candidate.clone());
+                    indices.insert(*key, index + 1);
+                    added = true;
+                    if selected.len() >= limit {
+                        break;
+                    }
+                }
+            }
+        }
+        if !added {
+            break;
+        }
+    }
+    selected
+}
+
+fn strategy_spacing_bps(strategy: &MartingaleStrategyConfig) -> Option<u32> {
+    match &strategy.spacing {
+        MartingaleSpacingModel::FixedPercent { step_bps } => Some(*step_bps),
+        _ => None,
+    }
+}
+
+fn strategy_take_profit_bps(strategy: &MartingaleStrategyConfig) -> Option<u32> {
+    match &strategy.take_profit {
+        MartingaleTakeProfitModel::Percent { bps } => Some(*bps),
+        _ => None,
+    }
 }
 
 fn run_long_short_staged_search(
