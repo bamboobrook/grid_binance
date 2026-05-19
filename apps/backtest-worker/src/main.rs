@@ -929,9 +929,11 @@ fn select_top_outputs_per_symbol(
                     "source_candidate_id": output.candidate_id,
                     "symbol": symbol,
                     "direction": direction,
+                    "direction_mode": output.config.get("direction_mode").cloned().unwrap_or(Value::Null),
                     "parameter_rank_for_symbol": parameter_rank_for_symbol,
                     "recommended_weight_pct": recommended_weight_pct,
                     "recommended_leverage": recommended_leverage,
+                    "max_leverage_used": output.max_leverage_used.unwrap_or(recommended_leverage as f64),
                     "risk_profile": risk_profile,
                     "portfolio_group_key": portfolio_group_key,
                     "spacing_bps": spacing_bps,
@@ -940,14 +942,19 @@ fn select_top_outputs_per_symbol(
                     "max_legs": max_legs,
                     "take_profit_bps": take_profit_bps,
                     "trailing_take_profit_bps": trailing_take_profit_bps,
+                    "return_pct": output.total_return_pct,
                     "total_return_pct": output.total_return_pct,
                     "max_drawdown_pct": output.max_drawdown_pct,
+                    "annualized_return_pct": output.annualized_return_pct,
                     "used_drawdown_limit_pct": output.used_drawdown_limit_pct,
                     "risk_relaxed": output.risk_relaxed,
                     "score": output.score,
                     "overfit_flag": overfit_flag,
                     "risk_summary_human": risk_summary_human,
                     "artifact_path": output.artifact_path,
+                    "equity_curve": sampled_preview(&output.equity_curve, 500),
+                    "drawdown_curve": sampled_preview(&output.drawdown_curve, 500),
+                    "trades_preview": sampled_preview(&output.trades_preview, 100),
                 }),
             );
             output
@@ -1025,10 +1032,17 @@ fn output_direction(output: &CandidateOutput) -> Value {
 }
 
 fn output_leverage(output: &CandidateOutput) -> Option<u32> {
-    output_strategy(output)
-        .and_then(|strategy| strategy.get("leverage"))
-        .and_then(Value::as_u64)
-        .map(|value| value as u32)
+    output
+        .config
+        .get("strategies")
+        .and_then(Value::as_array)
+        .map(|strategies| {
+            strategies
+                .iter()
+                .filter_map(|strategy| strategy.get("leverage").and_then(Value::as_u64).map(|v| v as u32))
+                .max()
+                .unwrap_or(1)
+        })
 }
 
 fn output_parameter_signature(output: &CandidateOutput) -> String {
@@ -1790,6 +1804,7 @@ mod tests {
             rank,
             score,
             config: serde_json::json!({
+                "direction_mode": "long_only",
                 "strategies": [{
                     "symbol": symbol,
                     "leverage": leverage,
@@ -2060,6 +2075,7 @@ mod tests {
         for field in [
             "symbol",
             "direction",
+            "direction_mode",
             "spacing_bps",
             "first_order_quote",
             "order_multiplier",
@@ -2068,24 +2084,29 @@ mod tests {
             "trailing_take_profit_bps",
             "recommended_weight_pct",
             "recommended_leverage",
+            "max_leverage_used",
             "parameter_rank_for_symbol",
             "risk_profile",
+            "return_pct",
             "total_return_pct",
             "max_drawdown_pct",
+            "annualized_return_pct",
             "used_drawdown_limit_pct",
             "risk_relaxed",
             "score",
             "overfit_flag",
             "risk_summary_human",
+            "equity_curve",
+            "drawdown_curve",
+            "trades_preview",
         ] {
             assert!(
                 summary.contains_key(field),
                 "missing summary field: {field}"
             );
         }
-        assert!(summary.contains_key("artifact_path") || summary.contains_key("equity_curve"));
+        assert!(summary.contains_key("artifact_path"));
         assert_eq!(summary["artifact_path"], output.artifact_path);
-        assert!(!summary.contains_key("equity_curve"));
     }
 
     #[test]
