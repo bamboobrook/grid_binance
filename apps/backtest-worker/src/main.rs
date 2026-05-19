@@ -604,6 +604,24 @@ fn interleave_candidates_by_spacing(candidates: Vec<SearchCandidate>, limit: usi
     result
 }
 
+fn generate_long_short_candidates_for_task(
+    symbol: &str,
+    task: &WorkerTaskConfig,
+    staged: &StagedMartingaleSearchSpace,
+) -> Result<Vec<SearchCandidate>, String> {
+    use backtest_engine::search::generate_staged_candidates_for_symbol;
+
+    let effective_staged = apply_search_space_overrides_to_staged(staged, task);
+    let cap = task.random_candidates.max(1) * task.intelligent_rounds.max(1);
+    let candidates = generate_staged_candidates_for_symbol(
+        symbol,
+        "long_short",
+        &effective_staged,
+        512,
+    )?;
+    Ok(interleave_candidates_by_spacing(candidates, cap))
+}
+
 fn run_long_short_staged_search(
     context: &MarketDataContext,
     symbol: &str,
@@ -611,61 +629,14 @@ fn run_long_short_staged_search(
     staged: &StagedMartingaleSearchSpace,
     scoring: &ScoringConfig,
 ) -> Result<(Vec<EvaluatedCandidate>, Vec<CandidateRejectionSample>), String> {
-    use backtest_engine::search::generate_staged_candidates_for_symbol;
     use backtest_engine::martingale::scoring::score_candidate;
 
     let direction_mode = task.direction_mode.as_deref().unwrap_or("long");
 
     // Apply user search_space overrides with lower-churn neighbor expansion
-    let effective_staged = apply_search_space_overrides_to_staged(staged, task);
-
-    // Hard cap: do not screen more candidates than random_candidates allows per round.
+    // and cap candidates to random_candidates * intelligent_rounds.
+    let candidates = generate_long_short_candidates_for_task(symbol, task, staged)?;
     let cap = task.random_candidates.max(1) * task.intelligent_rounds.max(1);
-
-    // For long_short mode, also generate single-direction candidates because
-    // combined LongAndShort candidates on 1m interval often produce negative
-    // returns due to fee drag, while single-direction candidates can be positive.
-    // The portfolio builder can combine best long + short candidates later.
-    let long_short_candidates = generate_staged_candidates_for_symbol(
-        symbol,
-        direction_mode,
-        &effective_staged,
-        512,
-    )?;
-
-    // Generate single-direction candidates with the same search space.
-    // Use a separate staged space with weight_pct = (100,0) / (0,100) to
-    // avoid duplicating long_short candidates.
-    let long_staged = StagedMartingaleSearchSpace {
-        long_short_weight_pct: vec![(100, 0)],
-        ..effective_staged.clone()
-    };
-    let short_staged = StagedMartingaleSearchSpace {
-        long_short_weight_pct: vec![(0, 100)],
-        ..effective_staged.clone()
-    };
-
-    let long_candidates = generate_staged_candidates_for_symbol(
-        symbol,
-        "long",
-        &long_staged,
-        256,
-    )?;
-    let short_candidates = generate_staged_candidates_for_symbol(
-        symbol,
-        "short",
-        &short_staged,
-        256,
-    )?;
-
-    // Merge all candidates, prioritizing single-direction (lower churn) first
-    let mut all_candidates: Vec<SearchCandidate> = Vec::new();
-    all_candidates.extend(long_candidates);
-    all_candidates.extend(short_candidates);
-    all_candidates.extend(long_short_candidates);
-
-    // Interleave by spacing so we don't screen only tight/high-churn configs first
-    let candidates = interleave_candidates_by_spacing(all_candidates, cap);
 
     let mut evaluated = Vec::new();
     let mut rejection_samples = Vec::new();
@@ -3171,6 +3142,45 @@ mod tests {
         assert_eq!(diagnostics.zero_trade_count, 1);
         assert_eq!(diagnostics.best_by_return[0].rejection_reason.as_deref(), Some("screening_failed"));
         assert!(diagnostics.best_by_return[0].max_drawdown_pct.is_none());
+    }
+
+    #[test]
+    fn long_short_search_does_not_generate_single_direction_substitutes() {
+        let task = WorkerTaskConfig {
+            symbols: vec!["BTCUSDT".to_owned()],
+            direction_mode: Some("long_short".to_owned()),
+            risk_profile: "balanced".to_owned(),
+            random_candidates: 24,
+            intelligent_rounds: 1,
+            search_space: Some(serde_json::json!({
+                "leverage": [2],
+                "spacing_bps": [120],
+                "order_multiplier": [1.25],
+                "max_legs": [3],
+                "take_profit_bps": [60],
+                "tail_stop_bps": [2000],
+                "long_short_weight_pct": [[60, 40], [50, 50]]
+            })),
+            ..WorkerTaskConfig::default()
+        };
+
+        let staged = StagedMartingaleSearchSpace::for_profile("balanced", "long_short");
+        let candidates = generate_long_short_candidates_for_task("BTCUSDT", &task, &staged)
+            .expect("candidates should generate");
+
+        assert!(!candidates.is_empty());
+        assert!(
+            candidates.iter().all(|candidate| candidate.config.direction_mode == MartingaleDirectionMode::LongAndShort),
+            "long_short request must only generate LongAndShort portfolio candidates"
+        );
+        assert!(
+            candidates.iter().all(|candidate| {
+                let has_long = candidate.config.strategies.iter().any(|s| s.direction == MartingaleDirection::Long);
+                let has_short = candidate.config.strategies.iter().any(|s| s.direction == MartingaleDirection::Short);
+                has_long && has_short
+            }),
+            "every long_short candidate must contain both long and short legs"
+        );
     }
 
     #[test]
