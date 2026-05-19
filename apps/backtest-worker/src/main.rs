@@ -448,13 +448,13 @@ fn run_profit_first_staged_search(
 }
 
 fn long_short_drawdown_limit_sequence(risk_profile: &str) -> Vec<f64> {
-    // long_short mode naturally has higher drawdowns because both long and short
-    // legs can draw down simultaneously. Use relaxed limits.
+    // Preserve the same first-pass risk standards as single-direction search.
+    // The second value is only a controlled fallback; do not jump to 40/50/60.
     match risk_profile {
-        "conservative" => vec![30.0, 40.0],
-        "balanced" => vec![40.0, 50.0],
-        "aggressive" => vec![50.0, 60.0],
-        _ => vec![40.0, 50.0],
+        "conservative" => vec![20.0, 25.0],
+        "balanced" => vec![25.0, 30.0],
+        "aggressive" => vec![30.0, 35.0],
+        _ => vec![25.0, 30.0],
     }
 }
 
@@ -3275,14 +3275,10 @@ mod tests {
     }
 
     #[test]
-    fn long_short_drawdown_limits_are_relaxed() {
-        let balanced = long_short_drawdown_limit_sequence("balanced");
-        assert!(balanced[0] >= 40.0, "long_short balanced drawdown limit should be >= 40: {:?}", balanced);
-        let conservative = long_short_drawdown_limit_sequence("conservative");
-        assert!(conservative[0] >= 30.0, "long_short conservative drawdown limit should be >= 30: {:?}", conservative);
-        // Standard limits should be tighter
-        let standard = drawdown_limit_sequence("balanced");
-        assert!(balanced[0] > standard[0], "long_short limits should be more relaxed than standard: {} vs {}", balanced[0], standard[0]);
+    fn long_short_uses_configured_risk_profile_drawdown_limits() {
+        assert_eq!(long_short_drawdown_limit_sequence("conservative")[0], 20.0);
+        assert_eq!(long_short_drawdown_limit_sequence("balanced")[0], 25.0);
+        assert_eq!(long_short_drawdown_limit_sequence("aggressive")[0], 30.0);
     }
 
     #[test]
