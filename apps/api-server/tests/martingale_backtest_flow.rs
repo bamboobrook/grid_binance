@@ -812,3 +812,99 @@ async fn response_json(response: axum::response::Response) -> Value {
         .unwrap();
     serde_json::from_slice(&bytes).unwrap()
 }
+
+#[tokio::test]
+async fn martingale_long_short_candidate_detail_exposes_complete_summary() {
+    let db = SharedDb::ephemeral().expect("db");
+    let app = app_with_state(AppState::from_shared_db(db.clone()).expect("state"));
+    let token = register_and_login(&app, "long-short-detail@example.com", "pass1234").await;
+
+    let task_response = authed_json(
+        &app,
+        "POST",
+        "/backtest/tasks",
+        &token,
+        json!({
+            "strategy_type": "martingale",
+            "symbols": ["BTCUSDT"],
+            "direction": "long_short",
+            "direction_mode": "long_short",
+            "risk_profile": "balanced"
+        }),
+    )
+    .await;
+    assert_eq!(task_response.status(), StatusCode::CREATED);
+    let task_id = response_json(task_response).await["task_id"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+
+    let candidate_id = db.backtest_repo()
+        .save_candidate(NewBacktestCandidateRecord {
+            task_id: task_id.clone(),
+            status: "ready".to_owned(),
+            rank: 1,
+            config: json!({
+                "direction_mode": "long_short",
+                "strategies": [
+                    {
+                        "strategy_id": "btc-long",
+                        "symbol": "BTCUSDT",
+                        "direction": "long",
+                        "leverage": 2,
+                        "spacing": { "fixed_percent": { "step_bps": 120 } },
+                        "sizing": { "multiplier": { "first_order_quote": "10", "multiplier": "1.25", "max_legs": 3 } },
+                        "take_profit": { "percent": { "bps": 60 } }
+                    },
+                    {
+                        "strategy_id": "btc-short",
+                        "symbol": "BTCUSDT",
+                        "direction": "short",
+                        "leverage": 2,
+                        "spacing": { "fixed_percent": { "step_bps": 120 } },
+                        "sizing": { "multiplier": { "first_order_quote": "10", "multiplier": "1.25", "max_legs": 3 } },
+                        "take_profit": { "percent": { "bps": 60 } }
+                    }
+                ]
+            }),
+            summary: json!({
+                "direction": "long_short",
+                "direction_mode": "long_short",
+                "symbol": "BTCUSDT",
+                "recommended_leverage": 2,
+                "max_leverage_used": 2,
+                "return_pct": 12.34,
+                "total_return_pct": 12.34,
+                "annualized_return_pct": 31.8,
+                "max_drawdown_pct": 17.8,
+                "equity_curve": [{"timestamp_ms": 1, "equity_quote": 100.0}, {"timestamp_ms": 2, "equity_quote": 112.34}],
+                "drawdown_curve": [{"timestamp_ms": 1, "drawdown_pct": 0.0}, {"timestamp_ms": 2, "drawdown_pct": 17.8}],
+                "trades_preview": [{"entry_time_ms": 1, "exit_time_ms": 2, "pnl_quote": 5.0}]
+            }),
+        })
+        .expect("save candidate")
+        .candidate_id;
+
+    let candidates_response = authed_json(
+        &app,
+        "GET",
+        &format!("/backtest/tasks/{task_id}/candidates"),
+        &token,
+        json!({}),
+    )
+    .await;
+    assert_eq!(candidates_response.status(), StatusCode::OK);
+    let candidates = response_json(candidates_response).await;
+    let candidate = candidates.as_array().unwrap().iter()
+        .find(|c| c["candidate_id"] == candidate_id)
+        .unwrap();
+    let summary = &candidate["summary"];
+
+    assert_eq!(summary["direction_mode"], "long_short");
+    assert_eq!(summary["direction"], "long_short");
+    assert!(summary["annualized_return_pct"].is_number());
+    assert!(summary["recommended_leverage"].is_number());
+    assert!(summary["equity_curve"].as_array().unwrap().len() > 0);
+    assert!(summary["drawdown_curve"].as_array().unwrap().len() > 0);
+    assert!(summary["trades_preview"].as_array().unwrap().len() > 0);
+}
