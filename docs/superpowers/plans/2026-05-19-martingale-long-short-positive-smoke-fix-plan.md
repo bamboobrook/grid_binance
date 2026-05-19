@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Make `direction_mode=long_short` produce real simultaneous dual-direction martingale candidates with positive annualized returns and controlled drawdown in the BTC/ETH balanced smoke, without reverting to single-direction substitutes or relaxing risk standards.
+**Goal:** First prove the martingale backtest engine itself is correct, then make `direction_mode=long_short` run a broad real dual-direction parameter search that can produce positive annualized returns and controlled drawdown in BTC/ETH balanced smoke, without reverting to single-direction substitutes or relaxing risk standards.
 
-**Architecture:** Keep the contract fix from the previous plan: `long_short` must only generate `LongAndShort` candidates and balanced first-pass drawdown remains 25%. Fix the actual optimizer/model issues causing all dual-leg candidates to be massively negative: long/short legs currently share identical spacing/TP/SL and start every bar with both legs, causing extreme over-trading, fee drag, and absurd drawdowns. Introduce asymmetric long/short leg parameter generation plus cooldown/entry gating for true dual-leg candidates, then require Docker smoke evidence before merge.
+**Architecture:** Keep the contract fix from the previous plan: `long_short` must only generate `LongAndShort` candidates and balanced first-pass drawdown remains 25%. Before tuning search, add deterministic engine-level tests for long-only, short-only, and long+short martingale cycles so we know PnL, leverage, fees, stop-loss, and cycle reset are modeled correctly. Then fix optimizer/model issues causing all dual-leg candidates to be massively negative: long/short legs currently share identical spacing/TP/SL and start every bar with both legs, causing extreme over-trading, fee drag, and absurd drawdowns. Introduce asymmetric long/short leg parameter generation, independent stop-loss ranges, cooldown/entry gating, and broad staged search for true dual-leg candidates, then require Docker smoke evidence before merge.
 
 **Tech Stack:** Rust `backtest-engine`, Rust `backtest-worker`, Node contract tests, Docker compose stack on host `8080`.
 
@@ -37,6 +37,19 @@ Diagnostics showed every candidate was true `long_short`, but all were unusable:
 
 This is not an acceptable final state. It proves the previous fix preserved direction contract but did not restore a useful long/short optimizer.
 
+## Updated Diagnosis Direction
+
+Treat the current all-negative result as a possible **backtest engine/model correctness bug**, not merely a weak parameter set. A true long+short martingale portfolio should be able to test different long and short spacing/TP/SL/leg/weight combinations independently. If every candidate is around `-39,000%` with millions of trades, the likely root cause is one or more of:
+
+- entry logic opens a fresh cycle on nearly every 1m bar after each close;
+- long and short legs are forced to identical spacing/TP/SL instead of independently searched;
+- stop-loss range is fixed by user input instead of searched per leg;
+- leverage/margin budget or realized/unrealized PnL is double-counted;
+- trade count counts internal events incorrectly or churns because cooldown/entry filters are missing;
+- search cap samples a tiny prefix of generated combinations instead of broad combinations, making results look like “randomly tried a few”.
+
+Claude must investigate these hypotheses with small deterministic tests before attempting another optimizer patch.
+
 ## Non-Negotiable Product Standards
 
 - `long_short` must mean simultaneous dual-leg portfolio candidates containing both long and short strategies.
@@ -47,6 +60,204 @@ This is not an acceptable final state. It proves the previous fix preserved dire
   - aggressive first-pass max drawdown: `30%`
 - Negative-return candidates are diagnostic only; they must not become selected results or portfolio members.
 - Smoke success requires real positive candidate(s), real annualized return, real curve/trades, and real portfolio Top3 when at least two eligible candidates exist.
+- Search must be broad enough to be meaningful: if the requested search space is tiny, the worker should expand long/short spacing, TP, stop-loss, multiplier, max legs, leverage, and weights into a bounded but diverse set. Do not screen only a handful of prefix combinations.
+
+---
+
+### Task 0: Prove martingale engine correctness before optimizer work
+
+**Files:**
+- Modify: `apps/backtest-engine/src/martingale/kline_engine.rs`
+- Modify: `apps/backtest-engine/src/martingale/metrics.rs`
+- Modify: `apps/backtest-engine/src/search.rs`
+
+- [ ] **Step 1: Add deterministic long martingale profit-cycle test**
+
+Add to `apps/backtest-engine/src/martingale/kline_engine.rs` tests:
+
+```rust
+#[test]
+fn deterministic_long_martingale_cycle_adds_safety_order_and_exits_positive_after_fees() {
+    let bars = vec![
+        test_bar("BTCUSDT", 0, 100.0, 100.0, 100.0, 100.0),
+        test_bar("BTCUSDT", 60_000, 100.0, 100.0, 98.8, 99.0),
+        test_bar("BTCUSDT", 120_000, 99.0, 101.0, 99.0, 100.8),
+    ];
+
+    let mut portfolio = single_strategy_portfolio(1_000);
+    let strategy = &mut portfolio.strategies[0];
+    strategy.direction = MartingaleDirection::Long;
+    strategy.spacing = MartingaleSpacingModel::FixedPercent { step_bps: 100 };
+    strategy.sizing = MartingaleSizingModel::Multiplier {
+        first_order_quote: Decimal::new(10, 0),
+        multiplier: Decimal::new(2, 0),
+        max_legs: 2,
+    };
+    strategy.take_profit = MartingaleTakeProfitModel::Percent { bps: 60 };
+    strategy.stop_loss = Some(MartingaleStopLossModel::StrategyDrawdownPct { pct_bps: 2_000 });
+
+    let result = run_kline_screening(portfolio, &bars).expect("long cycle should run");
+    assert!(result.metrics.total_return_pct > 0.0, "expected positive long martingale cycle after fees: {:?}", result.metrics);
+    assert!(result.events.iter().any(|event| event.event_type == "safety_order"));
+    assert!(result.events.iter().any(|event| event.event_type == "take_profit"));
+    assert!(result.metrics.trade_count <= 3, "trade count should count orders/exits, not churn: {}", result.metrics.trade_count);
+}
+```
+
+If `test_bar()` is unavailable, add this helper in the test module:
+
+```rust
+fn test_bar(symbol: &str, open_time_ms: i64, open: f64, high: f64, low: f64, close: f64) -> KlineBar {
+    KlineBar {
+        symbol: symbol.to_owned(),
+        interval: "1m".to_owned(),
+        open_time_ms,
+        open: Decimal::from_f64_retain(open).unwrap(),
+        high: Decimal::from_f64_retain(high).unwrap(),
+        low: Decimal::from_f64_retain(low).unwrap(),
+        close: Decimal::from_f64_retain(close).unwrap(),
+        volume: Decimal::new(1000, 0),
+        close_time_ms: open_time_ms + 59_999,
+    }
+}
+```
+
+- [ ] **Step 2: Add deterministic short martingale profit-cycle test**
+
+Add to `apps/backtest-engine/src/martingale/kline_engine.rs` tests:
+
+```rust
+#[test]
+fn deterministic_short_martingale_cycle_adds_safety_order_and_exits_positive_after_fees() {
+    let bars = vec![
+        test_bar("BTCUSDT", 0, 100.0, 100.0, 100.0, 100.0),
+        test_bar("BTCUSDT", 60_000, 100.0, 101.2, 100.0, 101.0),
+        test_bar("BTCUSDT", 120_000, 101.0, 101.0, 99.0, 99.2),
+    ];
+
+    let mut portfolio = single_strategy_portfolio(1_000);
+    let strategy = &mut portfolio.strategies[0];
+    strategy.direction = MartingaleDirection::Short;
+    strategy.direction_mode = shared_domain::martingale::MartingaleDirectionMode::ShortOnly;
+    strategy.spacing = MartingaleSpacingModel::FixedPercent { step_bps: 100 };
+    strategy.sizing = MartingaleSizingModel::Multiplier {
+        first_order_quote: Decimal::new(10, 0),
+        multiplier: Decimal::new(2, 0),
+        max_legs: 2,
+    };
+    strategy.take_profit = MartingaleTakeProfitModel::Percent { bps: 60 };
+    strategy.stop_loss = Some(MartingaleStopLossModel::StrategyDrawdownPct { pct_bps: 2_000 });
+
+    let result = run_kline_screening(portfolio, &bars).expect("short cycle should run");
+    assert!(result.metrics.total_return_pct > 0.0, "expected positive short martingale cycle after fees: {:?}", result.metrics);
+    assert!(result.events.iter().any(|event| event.event_type == "safety_order"));
+    assert!(result.events.iter().any(|event| event.event_type == "take_profit"));
+    assert!(result.metrics.trade_count <= 3, "trade count should count orders/exits, not churn: {}", result.metrics.trade_count);
+}
+```
+
+- [ ] **Step 3: Add deterministic long_short independent-leg test**
+
+Add to `apps/backtest-engine/src/martingale/kline_engine.rs` tests:
+
+```rust
+#[test]
+fn deterministic_long_short_allows_independent_leg_parameters_and_positive_survivor() {
+    let bars = vec![
+        test_bar("BTCUSDT", 0, 100.0, 100.0, 100.0, 100.0),
+        test_bar("BTCUSDT", 60_000, 100.0, 100.0, 98.8, 99.0),
+        test_bar("BTCUSDT", 120_000, 99.0, 101.0, 99.0, 100.8),
+        test_bar("BTCUSDT", 180_000, 100.8, 100.9, 100.5, 100.7),
+    ];
+
+    let mut portfolio = single_strategy_portfolio(1_000);
+    portfolio.direction_mode = shared_domain::martingale::MartingaleDirectionMode::LongAndShort;
+
+    let mut long_strategy = portfolio.strategies[0].clone();
+    long_strategy.strategy_id = "long-leg".to_owned();
+    long_strategy.direction = MartingaleDirection::Long;
+    long_strategy.direction_mode = shared_domain::martingale::MartingaleDirectionMode::LongAndShort;
+    long_strategy.spacing = MartingaleSpacingModel::FixedPercent { step_bps: 100 };
+    long_strategy.take_profit = MartingaleTakeProfitModel::Percent { bps: 60 };
+    long_strategy.stop_loss = Some(MartingaleStopLossModel::StrategyDrawdownPct { pct_bps: 2_000 });
+
+    let mut short_strategy = long_strategy.clone();
+    short_strategy.strategy_id = "short-leg".to_owned();
+    short_strategy.direction = MartingaleDirection::Short;
+    short_strategy.spacing = MartingaleSpacingModel::FixedPercent { step_bps: 300 };
+    short_strategy.take_profit = MartingaleTakeProfitModel::Percent { bps: 140 };
+    short_strategy.stop_loss = Some(MartingaleStopLossModel::StrategyDrawdownPct { pct_bps: 800 });
+
+    portfolio.strategies = vec![long_strategy, short_strategy];
+
+    let result = run_kline_screening(portfolio, &bars).expect("long_short cycle should run");
+    assert!(result.metrics.trade_count > 0);
+    assert!(result.metrics.trade_count < 10, "long_short deterministic test should not churn: {}", result.metrics.trade_count);
+    assert!(result.events.iter().any(|event| event.strategy_id == "long-leg"));
+    assert!(result.events.iter().any(|event| event.strategy_id == "short-leg"));
+    assert!(result.metrics.total_return_pct.is_finite());
+    assert!(result.metrics.max_drawdown_pct.is_finite());
+}
+```
+
+This test does not demand the combined long_short sample always profits; it proves both legs can coexist, use independent parameters, and avoid impossible churn. If this fails, fix engine execution before touching optimizer.
+
+- [ ] **Step 4: Add leveraged denominator test for dual-leg portfolio**
+
+Add to `apps/backtest-engine/src/martingale/metrics.rs` tests or `kline_engine.rs` tests:
+
+```rust
+#[test]
+fn long_short_return_and_drawdown_use_planned_margin_not_notional_or_first_order_only() {
+    let bars = vec![
+        test_bar("BTCUSDT", 0, 100.0, 100.0, 100.0, 100.0),
+        test_bar("BTCUSDT", 60_000, 100.0, 100.0, 98.8, 99.0),
+        test_bar("BTCUSDT", 120_000, 99.0, 101.0, 99.0, 100.8),
+    ];
+
+    let mut portfolio = single_strategy_portfolio(1_000);
+    portfolio.direction_mode = shared_domain::martingale::MartingaleDirectionMode::LongAndShort;
+    portfolio.strategies[0].leverage = Some(2);
+    portfolio.strategies[0].margin_mode = Some(MartingaleMarginMode::Isolated);
+    portfolio.strategies[0].sizing = MartingaleSizingModel::Multiplier {
+        first_order_quote: Decimal::new(10, 0),
+        multiplier: Decimal::new(2, 0),
+        max_legs: 3,
+    };
+    portfolio.strategies[0].risk_limits.max_strategy_budget_quote = Some(Decimal::new(70, 0));
+
+    let mut short_strategy = portfolio.strategies[0].clone();
+    short_strategy.strategy_id = "short-leg".to_owned();
+    short_strategy.direction = MartingaleDirection::Short;
+    short_strategy.risk_limits.max_strategy_budget_quote = Some(Decimal::new(30, 0));
+    portfolio.strategies.push(short_strategy);
+
+    let result = run_kline_screening(portfolio, &bars).expect("screening should run");
+    assert_eq!(result.metrics.planned_margin_quote, Some(100.0));
+    assert!(result.metrics.total_return_pct.abs() < 100.0, "return should be normalized by 100U planned margin, got {}", result.metrics.total_return_pct);
+    assert!(result.metrics.max_drawdown_pct < 100.0, "drawdown should be normalized by planned margin, got {}", result.metrics.max_drawdown_pct);
+}
+```
+
+- [ ] **Step 5: Run deterministic engine tests first**
+
+Run:
+
+```bash
+cargo test -p backtest-engine deterministic_long_martingale_cycle_adds_safety_order_and_exits_positive_after_fees -- --nocapture
+cargo test -p backtest-engine deterministic_short_martingale_cycle_adds_safety_order_and_exits_positive_after_fees -- --nocapture
+cargo test -p backtest-engine deterministic_long_short_allows_independent_leg_parameters_and_positive_survivor -- --nocapture
+cargo test -p backtest-engine long_short_return_and_drawdown_use_planned_margin_not_notional_or_first_order_only -- --nocapture
+```
+
+Expected before fixes may be FAIL. If any fail, stop optimizer work and fix the engine root cause first.
+
+- [ ] **Step 6: Commit engine characterization tests**
+
+```bash
+git add apps/backtest-engine/src/martingale/kline_engine.rs apps/backtest-engine/src/martingale/metrics.rs apps/backtest-engine/src/search.rs
+git commit -m "test: 问题描述 锁定马丁回测引擎基础正确性"
+```
 
 ---
 
@@ -539,6 +750,223 @@ Expected: PASS.
 ```bash
 git add apps/backtest-worker/src/main.rs tests/verification/backtest_worker_contract.test.mjs
 git commit -m "test: 问题描述 锁定马丁多空风险标准与候选数量"
+```
+
+---
+
+### Task 4.5: Make search broad enough to find real positives
+
+**Files:**
+- Modify: `apps/backtest-worker/src/main.rs`
+- Modify: `apps/backtest-engine/src/search.rs`
+- Modify: `tests/verification/backtest_worker_contract.test.mjs`
+
+- [ ] **Step 1: Add explicit search breadth test**
+
+Add to `apps/backtest-worker/src/main.rs` tests:
+
+```rust
+#[test]
+fn long_short_balanced_auto_search_expands_all_key_dimensions() {
+    let task = WorkerTaskConfig {
+        symbols: vec!["BTCUSDT".to_owned(), "ETHUSDT".to_owned()],
+        direction_mode: Some("long_short".to_owned()),
+        risk_profile: "balanced".to_owned(),
+        random_candidates: 16,
+        intelligent_rounds: 1,
+        per_symbol_top_n: 10,
+        search_space: Some(serde_json::json!({
+            "leverage": [2],
+            "spacing_bps": [120],
+            "order_multiplier": [1.25],
+            "max_legs": [3],
+            "take_profit_bps": [60],
+            "tail_stop_bps": [2000],
+            "long_short_weight_pct": [[60, 40], [50, 50]]
+        })),
+        ..WorkerTaskConfig::default()
+    };
+
+    let staged = StagedMartingaleSearchSpace::for_profile("balanced", "long_short");
+    let expanded = apply_search_space_overrides_to_staged(&staged, &task);
+
+    assert!(expanded.leverage.len() >= 3, "must test multiple leverage values: {:?}", expanded.leverage);
+    assert!(expanded.spacing_bps.len() >= 8, "must test broad spacing values: {:?}", expanded.spacing_bps);
+    assert!(expanded.order_multiplier.len() >= 4, "must test multiple multipliers: {:?}", expanded.order_multiplier);
+    assert!(expanded.max_legs.len() >= 3, "must test multiple max leg counts: {:?}", expanded.max_legs);
+    assert!(expanded.take_profit_bps.len() >= 6, "must test broad TP values: {:?}", expanded.take_profit_bps);
+    assert!(expanded.tail_stop_bps.len() >= 6, "must test broad stop-loss values: {:?}", expanded.tail_stop_bps);
+    assert!(expanded.long_short_weight_pct.len() >= 5, "must test multiple long/short weights: {:?}", expanded.long_short_weight_pct);
+}
+```
+
+- [ ] **Step 2: Expand user-tiny search spaces into bounded broad dimensions**
+
+In `apps/backtest-worker/src/main.rs`, update `apply_search_space_overrides_to_staged()` for `is_long_short` so a tiny user payload does not reduce the optimizer to a few candidates. Required behavior:
+
+```rust
+// For long_short auto-search, user-provided values are anchors, not the whole search universe.
+// Expand around them so the system can discover better values automatically.
+```
+
+The expanded balanced long_short smoke should include at least:
+
+```rust
+leverage: [2, 3, 4, 5]
+spacing_bps: [80, 120, 180, 240, 360, 480, 720, 960]
+order_multiplier: [1.05, 1.10, 1.15, 1.25, 1.40]
+max_legs: [2, 3, 4, 5]
+take_profit_bps: [50, 60, 80, 100, 140, 200]
+tail_stop_bps: [600, 1000, 1400, 2000, 2600, 3200]
+long_short_weight_pct: [(80,20), (70,30), (60,40), (50,50), (40,60)]
+```
+
+Do not screen the full cartesian product with 1m data blindly. Generate broad candidates, then sample/interleave across dimensions with a deterministic cap.
+
+- [ ] **Step 3: Replace prefix truncation with dimension-aware sampling**
+
+Current generation can still take the first `N` combinations in nested-loop order. Replace prefix truncation for long_short with deterministic stratified sampling.
+
+Add a helper in `apps/backtest-worker/src/main.rs`:
+
+```rust
+fn stratified_long_short_candidates(candidates: Vec<SearchCandidate>, limit: usize) -> Vec<SearchCandidate> {
+    if candidates.len() <= limit {
+        return candidates;
+    }
+
+    let mut buckets: std::collections::BTreeMap<(u32, u32, u32, u32), Vec<SearchCandidate>> = std::collections::BTreeMap::new();
+    for candidate in candidates {
+        let long = candidate.config.strategies.iter().find(|s| s.direction == MartingaleDirection::Long);
+        let short = candidate.config.strategies.iter().find(|s| s.direction == MartingaleDirection::Short);
+        let key = match (long, short) {
+            (Some(long), Some(short)) => (
+                strategy_spacing_bps(long).unwrap_or(0),
+                strategy_spacing_bps(short).unwrap_or(0),
+                strategy_take_profit_bps(long).unwrap_or(0),
+                strategy_take_profit_bps(short).unwrap_or(0),
+            ),
+            _ => (0, 0, 0, 0),
+        };
+        buckets.entry(key).or_default().push(candidate);
+    }
+
+    let keys: Vec<_> = buckets.keys().copied().collect();
+    let mut indices = std::collections::BTreeMap::<(u32, u32, u32, u32), usize>::new();
+    let mut selected = Vec::with_capacity(limit);
+    while selected.len() < limit {
+        let mut added = false;
+        for key in &keys {
+            let index = indices.get(key).copied().unwrap_or(0);
+            if let Some(bucket) = buckets.get(key) {
+                if let Some(candidate) = bucket.get(index) {
+                    selected.push(candidate.clone());
+                    indices.insert(*key, index + 1);
+                    added = true;
+                    if selected.len() >= limit {
+                        break;
+                    }
+                }
+            }
+        }
+        if !added {
+            break;
+        }
+    }
+    selected
+}
+```
+
+Add exact helpers used above:
+
+```rust
+fn strategy_spacing_bps(strategy: &MartingaleStrategyConfig) -> Option<u32> {
+    match &strategy.spacing {
+        MartingaleSpacingModel::FixedPercent { step_bps } => Some(*step_bps),
+        _ => None,
+    }
+}
+
+fn strategy_take_profit_bps(strategy: &MartingaleStrategyConfig) -> Option<u32> {
+    match &strategy.take_profit {
+        MartingaleTakeProfitModel::Percent { bps } => Some(*bps),
+        _ => None,
+    }
+}
+```
+
+Then use this helper in `generate_long_short_candidates_for_task()` instead of simple prefix/interleave by only first-leg spacing.
+
+- [ ] **Step 4: Add test proving screened candidates are not prefix-only**
+
+Add to `apps/backtest-worker/src/main.rs` tests:
+
+```rust
+#[test]
+fn long_short_screening_samples_late_dimension_values_not_only_prefix() {
+    let task = WorkerTaskConfig {
+        symbols: vec!["BTCUSDT".to_owned()],
+        direction_mode: Some("long_short".to_owned()),
+        risk_profile: "balanced".to_owned(),
+        random_candidates: 16,
+        intelligent_rounds: 1,
+        per_symbol_top_n: 10,
+        search_space: Some(serde_json::json!({
+            "leverage": [2],
+            "spacing_bps": [120],
+            "order_multiplier": [1.25],
+            "max_legs": [3],
+            "take_profit_bps": [60],
+            "tail_stop_bps": [2000],
+            "long_short_weight_pct": [[60, 40], [50, 50]]
+        })),
+        ..WorkerTaskConfig::default()
+    };
+
+    let staged = StagedMartingaleSearchSpace::for_profile("balanced", "long_short");
+    let candidates = generate_long_short_candidates_for_task("BTCUSDT", &task, &staged)
+        .expect("candidates should generate");
+
+    let mut spacings = std::collections::BTreeSet::new();
+    let mut take_profits = std::collections::BTreeSet::new();
+    let mut stops = std::collections::BTreeSet::new();
+    let mut weights = std::collections::BTreeSet::new();
+
+    for candidate in &candidates {
+        let long = candidate.config.strategies.iter().find(|s| s.direction == MartingaleDirection::Long).unwrap();
+        let short = candidate.config.strategies.iter().find(|s| s.direction == MartingaleDirection::Short).unwrap();
+        spacings.insert((strategy_spacing_bps(long).unwrap(), strategy_spacing_bps(short).unwrap()));
+        take_profits.insert((strategy_take_profit_bps(long).unwrap(), strategy_take_profit_bps(short).unwrap()));
+        if let Some(MartingaleStopLossModel::StrategyDrawdownPct { pct_bps }) = &long.stop_loss {
+            stops.insert(*pct_bps);
+        }
+        if let Some(MartingaleSizingModel::Multiplier { first_order_quote, .. }) = &long.sizing {
+            weights.insert(first_order_quote.to_string());
+        }
+    }
+
+    assert!(spacings.len() >= 8, "expected broad long/short spacing pairs: {spacings:?}");
+    assert!(take_profits.len() >= 4, "expected broad TP pairs: {take_profits:?}");
+    assert!(stops.len() >= 3, "expected multiple stop-loss ranges: {stops:?}");
+    assert!(weights.len() >= 3, "expected multiple long/short weights: {weights:?}");
+}
+```
+
+- [ ] **Step 5: Run search breadth tests**
+
+```bash
+cargo test -p backtest-worker long_short_balanced_auto_search_expands_all_key_dimensions -- --nocapture
+cargo test -p backtest-worker long_short_screening_samples_late_dimension_values_not_only_prefix -- --nocapture
+cargo test -p backtest-worker long_short_smoke_payload_expands_to_diverse_dual_leg_candidates -- --nocapture
+```
+
+Expected: PASS.
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add apps/backtest-worker/src/main.rs apps/backtest-engine/src/search.rs tests/verification/backtest_worker_contract.test.mjs
+git commit -m "fix: 修复思路 扩大马丁多空真实参数搜索覆盖"
 ```
 
 ---
