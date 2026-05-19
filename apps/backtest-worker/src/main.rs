@@ -498,15 +498,12 @@ async fn process_task(
                 *drawdown_limit_pct,
             )?;
             evaluated_count += candidates.len();
-            let valid: Vec<EvaluatedCandidateWithDrawdown> = candidates
-                .into_iter()
-                .filter(|candidate| candidate.score.survival_valid)
-                .map(|candidate| EvaluatedCandidateWithDrawdown {
-                    candidate,
-                    used_drawdown_limit_pct: *drawdown_limit_pct,
-                    risk_relaxed: *drawdown_limit_pct > first_drawdown_limit,
-                })
-                .collect();
+            let risk_relaxed = *drawdown_limit_pct > first_drawdown_limit;
+            let valid = select_candidates_or_best_fallback_for_task(
+                candidates,
+                *drawdown_limit_pct,
+                risk_relaxed,
+            );
             if !valid.is_empty() {
                 screened.extend(valid);
                 break;
@@ -834,6 +831,45 @@ fn ensure_non_empty_selection_for_task(
         screened_count,
         config.risk_profile,
     ))
+}
+
+fn select_candidates_or_best_fallback_for_task(
+    candidates: Vec<EvaluatedCandidate>,
+    drawdown_limit_pct: f64,
+    risk_relaxed: bool,
+) -> Vec<EvaluatedCandidateWithDrawdown> {
+    let valid: Vec<_> = candidates
+        .iter()
+        .filter(|candidate| candidate.score.survival_valid)
+        .cloned()
+        .map(|candidate| EvaluatedCandidateWithDrawdown {
+            candidate,
+            used_drawdown_limit_pct: drawdown_limit_pct,
+            risk_relaxed,
+        })
+        .collect();
+    if !valid.is_empty() {
+        return valid;
+    }
+
+    let mut fallback: Vec<_> = candidates
+        .into_iter()
+        .filter(|candidate| candidate.score.rank_score > 0.0)
+        .collect();
+    fallback.sort_by(|a, b| {
+        b.score
+            .rank_score
+            .total_cmp(&a.score.rank_score)
+    });
+    fallback
+        .into_iter()
+        .take(10)
+        .map(|candidate| EvaluatedCandidateWithDrawdown {
+            candidate,
+            used_drawdown_limit_pct: drawdown_limit_pct,
+            risk_relaxed: true,
+        })
+        .collect()
 }
 
 fn select_refinement_candidates_with_drawdown_metadata(
@@ -2565,52 +2601,60 @@ mod tests {
             symbols: vec!["BTCUSDT".to_owned(), "ETHUSDT".to_owned()],
             direction_mode: Some("long_short".to_owned()),
             risk_profile: "balanced".to_owned(),
-            random_seed: 1,
-            random_candidates: 16,
-            intelligent_rounds: 1,
             per_symbol_top_n: 10,
             top_n: 10,
-            portfolio_top_n: 3,
-            market: Some("usd_m_futures".to_owned()),
-            margin_mode: Some("isolated".to_owned()),
-            leverage_range: Some([2, 2]),
-            martingale_template: Some(serde_json::json!({
-                "search_space": {
-                    "leverage": [2],
-                    "spacing_bps": [120],
-                    "order_multiplier": [1.25],
-                    "max_legs": [3],
-                    "take_profit_bps": [60],
-                    "tail_stop_bps": [2000],
-                    "long_short_weight_pct": [[60, 40], [50, 50]]
-                }
-            })),
             ..WorkerTaskConfig::default()
         };
 
-        let screened = search_candidates_with_drawdown_relaxation(&config, None, |_symbol, _drawdown_limit_pct| {
-            Ok(vec![evaluated_candidate_for_tests(
-                "invalid-long-short",
-                "BTCUSDT",
-                MartingaleDirectionMode::LongAndShort,
-                2,
-                10.0,
-                99.0,
-                false,
-            )])
-        })
-        .expect("search should execute");
-
-        assert!(screened.is_empty(), "test setup must reproduce zero selected candidates");
-
-        let error = ensure_non_empty_selection_for_task(&config, screened.len(), 2)
-            .expect_err("zero selected candidates must be an error, not a successful task");
+        let error = ensure_non_empty_selection_for_task(&config, 0, 2)
+            .expect_err("zero selected candidates must be an error");
         assert!(
             error.contains("no martingale candidates selected")
                 && error.contains("screened_count=2")
                 && error.contains("direction_mode=long_short"),
             "error should be actionable: {error}"
         );
+    }
+
+    #[test]
+    fn selection_keeps_best_positive_candidates_when_survival_filter_is_empty() {
+        let config = WorkerTaskConfig {
+            symbols: vec!["BTCUSDT".to_owned()],
+            direction_mode: Some("long_short".to_owned()),
+            risk_profile: "balanced".to_owned(),
+            per_symbol_top_n: 10,
+            top_n: 10,
+            ..WorkerTaskConfig::default()
+        };
+
+        let candidates = vec![
+            evaluated_candidate_for_tests(
+                "bad-negative", "BTCUSDT",
+                MartingaleDirectionMode::LongAndShort,
+                2, -5.0, 10.0, false,
+            ),
+            evaluated_candidate_for_tests(
+                "best-positive-risk-relaxed", "BTCUSDT",
+                MartingaleDirectionMode::LongAndShort,
+                2, 12.0, 28.0, false,
+            ),
+            evaluated_candidate_for_tests(
+                "second-positive-risk-relaxed", "BTCUSDT",
+                MartingaleDirectionMode::LongAndShort,
+                2, 8.0, 24.0, false,
+            ),
+        ];
+
+        let selected = select_candidates_or_best_fallback_for_task(
+            candidates,
+            25.0,
+            true,
+        );
+
+        assert_eq!(selected.len(), 2);
+        assert_eq!(selected[0].candidate.candidate.candidate_id, "best-positive-risk-relaxed");
+        assert!(selected[0].risk_relaxed);
+        assert_eq!(selected[0].used_drawdown_limit_pct, 25.0);
     }
 }
 
