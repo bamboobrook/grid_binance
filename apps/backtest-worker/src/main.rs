@@ -3184,6 +3184,40 @@ mod tests {
     }
 
     #[test]
+    fn long_short_lower_churn_candidates_remain_dual_leg() {
+        let task = WorkerTaskConfig {
+            symbols: vec!["BTCUSDT".to_owned()],
+            direction_mode: Some("long_short".to_owned()),
+            risk_profile: "balanced".to_owned(),
+            random_candidates: 24,
+            intelligent_rounds: 1,
+            search_space: Some(serde_json::json!({
+                "leverage": [2],
+                "spacing_bps": [120],
+                "order_multiplier": [1.25],
+                "max_legs": [3],
+                "take_profit_bps": [60],
+                "tail_stop_bps": [2000],
+                "long_short_weight_pct": [[60, 40], [50, 50]]
+            })),
+            ..WorkerTaskConfig::default()
+        };
+
+        let staged = StagedMartingaleSearchSpace::for_profile("balanced", "long_short");
+        let candidates = generate_long_short_candidates_for_task("BTCUSDT", &task, &staged)
+            .expect("candidates should generate");
+
+        let spacings: std::collections::BTreeSet<u32> = candidates.iter()
+            .filter_map(|c| c.config.strategies.first().and_then(|s| match &s.spacing {
+                MartingaleSpacingModel::FixedPercent { step_bps } => Some(*step_bps),
+                _ => None,
+            }))
+            .collect();
+        assert!(spacings.iter().any(|value| *value >= 240), "should screen wider spacing candidates: {:?}", spacings);
+        assert!(candidates.iter().all(|candidate| candidate.config.direction_mode == MartingaleDirectionMode::LongAndShort));
+    }
+
+    #[test]
     fn selection_keeps_best_positive_candidates_when_survival_filter_is_empty() {
         let candidates = vec![
             evaluated_candidate_for_tests(
