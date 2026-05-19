@@ -1495,10 +1495,10 @@ fn finite_or_zero(value: f64) -> f64 {
 mod tests {
     use rust_decimal::Decimal;
     use shared_domain::martingale::{
-        MartingaleDirection, MartingaleDirectionMode, MartingaleEntryTrigger, MartingaleMarketKind,
-        MartingalePortfolioConfig, MartingaleRiskLimits, MartingaleSizingModel,
-        MartingaleSpacingModel, MartingaleStopLossModel, MartingaleStrategyConfig,
-        MartingaleTakeProfitModel,
+        MartingaleDirection, MartingaleDirectionMode, MartingaleEntryTrigger, MartingaleMarginMode,
+        MartingaleMarketKind, MartingalePortfolioConfig, MartingaleRiskLimits,
+        MartingaleSizingModel, MartingaleSpacingModel, MartingaleStopLossModel,
+        MartingaleStrategyConfig, MartingaleTakeProfitModel,
     };
 
     use crate::market_data::KlineBar;
@@ -2180,5 +2180,157 @@ mod tests {
 
         assert!(result.metrics.max_capital_used_quote > 300.0);
         assert_eq!(result.metrics.stop_count, 1);
+    }
+
+    // --- Task 0: deterministic correctness tests ---
+
+    fn test_bar(open_time_ms: i64, open: f64, high: f64, low: f64, close: f64) -> KlineBar {
+        bar(open_time_ms, open, high, low, close)
+    }
+
+    #[test]
+    fn deterministic_long_martingale_cycle_adds_safety_order_and_exits_positive_after_fees() {
+        let bars = vec![
+            test_bar(0, 100.0, 100.0, 100.0, 100.0),
+            test_bar(60_000, 100.0, 100.0, 98.8, 99.0),
+            test_bar(120_000, 99.0, 101.0, 99.0, 100.8),
+        ];
+
+        let mut portfolio = single_strategy_portfolio(1_000);
+        let strategy = &mut portfolio.strategies[0];
+        strategy.direction = MartingaleDirection::Long;
+        strategy.spacing = MartingaleSpacingModel::FixedPercent { step_bps: 100 };
+        strategy.sizing = MartingaleSizingModel::Multiplier {
+            first_order_quote: Decimal::new(10, 0),
+            multiplier: Decimal::new(2, 0),
+            max_legs: 2,
+        };
+        strategy.take_profit = MartingaleTakeProfitModel::Percent { bps: 60 };
+        strategy.stop_loss = Some(MartingaleStopLossModel::StrategyDrawdownPct { pct_bps: 2_000 });
+
+        let result = run_kline_screening(portfolio, &bars).expect("long cycle should run");
+        assert!(result.metrics.total_return_pct > 0.0, "expected positive long martingale cycle after fees: {:?}", result.metrics);
+        assert!(result.events.iter().any(|event| event.event_type == "safety_order"));
+        assert!(result.events.iter().any(|event| event.event_type == "take_profit"));
+        assert!(result.metrics.trade_count <= 10, "trade count should count orders/exits, not churn: {}", result.metrics.trade_count);
+    }
+
+    #[test]
+    fn deterministic_short_martingale_cycle_adds_safety_order_and_exits_positive_after_fees() {
+        let bars = vec![
+            test_bar(0, 100.0, 100.0, 100.0, 100.0),
+            test_bar(60_000, 100.0, 101.2, 100.0, 101.0),
+            test_bar(120_000, 101.0, 101.0, 99.0, 99.2),
+        ];
+
+        let mut portfolio = single_strategy_portfolio(1_000);
+        let strategy = &mut portfolio.strategies[0];
+        strategy.direction = MartingaleDirection::Short;
+        strategy.direction_mode = MartingaleDirectionMode::ShortOnly;
+        strategy.spacing = MartingaleSpacingModel::FixedPercent { step_bps: 100 };
+        strategy.sizing = MartingaleSizingModel::Multiplier {
+            first_order_quote: Decimal::new(10, 0),
+            multiplier: Decimal::new(2, 0),
+            max_legs: 2,
+        };
+        strategy.take_profit = MartingaleTakeProfitModel::Percent { bps: 60 };
+        strategy.stop_loss = Some(MartingaleStopLossModel::StrategyDrawdownPct { pct_bps: 2_000 });
+
+        let result = run_kline_screening(portfolio, &bars).expect("short cycle should run");
+        assert!(result.metrics.total_return_pct > 0.0, "expected positive short martingale cycle after fees: {:?}", result.metrics);
+        assert!(result.events.iter().any(|event| event.event_type == "safety_order"));
+        assert!(result.events.iter().any(|event| event.event_type == "take_profit"));
+        assert!(result.metrics.trade_count <= 10, "trade count should count orders/exits, not churn: {}", result.metrics.trade_count);
+    }
+
+    #[test]
+    fn deterministic_long_short_allows_independent_leg_parameters_and_positive_survivor() {
+        let bars = vec![
+            test_bar(0, 100.0, 100.0, 100.0, 100.0),
+            test_bar(60_000, 100.0, 100.0, 98.8, 99.0),
+            test_bar(120_000, 99.0, 101.0, 99.0, 100.8),
+            test_bar(180_000, 100.8, 100.9, 100.5, 100.7),
+        ];
+
+        let mut portfolio = single_strategy_portfolio(1_000);
+        portfolio.direction_mode = MartingaleDirectionMode::LongAndShort;
+
+        let mut long_strategy = portfolio.strategies[0].clone();
+        long_strategy.strategy_id = "long-leg".to_owned();
+        long_strategy.direction = MartingaleDirection::Long;
+        long_strategy.direction_mode = MartingaleDirectionMode::LongAndShort;
+        long_strategy.spacing = MartingaleSpacingModel::FixedPercent { step_bps: 100 };
+        long_strategy.take_profit = MartingaleTakeProfitModel::Percent { bps: 60 };
+        long_strategy.stop_loss = Some(MartingaleStopLossModel::StrategyDrawdownPct { pct_bps: 2_000 });
+
+        let mut short_strategy = long_strategy.clone();
+        short_strategy.strategy_id = "short-leg".to_owned();
+        short_strategy.direction = MartingaleDirection::Short;
+        short_strategy.spacing = MartingaleSpacingModel::FixedPercent { step_bps: 300 };
+        short_strategy.take_profit = MartingaleTakeProfitModel::Percent { bps: 140 };
+        short_strategy.stop_loss = Some(MartingaleStopLossModel::StrategyDrawdownPct { pct_bps: 800 });
+
+        portfolio.strategies = vec![long_strategy, short_strategy];
+
+        let result = run_kline_screening(portfolio, &bars).expect("long_short cycle should run");
+        assert!(result.metrics.trade_count > 0);
+        assert!(result.metrics.trade_count < 10, "long_short deterministic test should not churn: {}", result.metrics.trade_count);
+        assert!(result.events.iter().any(|event| event.strategy_instance_id == "long-leg"));
+        assert!(result.events.iter().any(|event| event.strategy_instance_id == "short-leg"));
+        assert!(result.metrics.total_return_pct.is_finite());
+        assert!(result.metrics.max_drawdown_pct.is_finite());
+    }
+
+    #[test]
+    fn long_short_return_and_drawdown_use_planned_margin_not_notional_or_first_order_only() {
+        let bars = vec![
+            test_bar(0, 100.0, 100.0, 100.0, 100.0),
+            test_bar(60_000, 100.0, 100.0, 98.8, 99.0),
+            test_bar(120_000, 99.0, 101.0, 99.0, 100.8),
+        ];
+
+        let mut portfolio = MartingalePortfolioConfig {
+            direction_mode: MartingaleDirectionMode::LongAndShort,
+            strategies: vec![MartingaleStrategyConfig {
+                strategy_id: "long-leg".to_string(),
+                symbol: "BTCUSDT".to_string(),
+                market: MartingaleMarketKind::UsdMFutures,
+                direction: MartingaleDirection::Long,
+                direction_mode: MartingaleDirectionMode::LongAndShort,
+                margin_mode: Some(MartingaleMarginMode::Isolated),
+                leverage: Some(2),
+                spacing: MartingaleSpacingModel::FixedPercent { step_bps: 100 },
+                sizing: MartingaleSizingModel::Multiplier {
+                    first_order_quote: Decimal::new(10, 0),
+                    multiplier: Decimal::new(2, 0),
+                    max_legs: 3,
+                },
+                take_profit: MartingaleTakeProfitModel::Percent { bps: 60 },
+                stop_loss: Some(MartingaleStopLossModel::StrategyDrawdownPct { pct_bps: 2_000 }),
+                indicators: Vec::new(),
+                entry_triggers: vec![MartingaleEntryTrigger::Immediate],
+                risk_limits: MartingaleRiskLimits {
+                    max_strategy_budget_quote: Some(Decimal::new(70, 0)),
+                    ..MartingaleRiskLimits::default()
+                },
+            }],
+            risk_limits: MartingaleRiskLimits {
+                max_global_budget_quote: Some(Decimal::new(100, 0)),
+                ..MartingaleRiskLimits::default()
+            },
+        };
+
+        let mut short_strategy = portfolio.strategies[0].clone();
+        short_strategy.strategy_id = "short-leg".to_owned();
+        short_strategy.direction = MartingaleDirection::Short;
+        short_strategy.risk_limits.max_strategy_budget_quote = Some(Decimal::new(30, 0));
+        portfolio.strategies.push(short_strategy);
+
+        let result = run_kline_screening(portfolio, &bars).expect("screening should run");
+        assert!(result.metrics.planned_margin_quote.is_some_and(|m| m > 0.0), "planned_margin should be positive");
+        assert!(result.metrics.total_return_pct.is_finite());
+        assert!(result.metrics.max_drawdown_pct.is_finite());
+        assert!(result.metrics.total_return_pct.abs() < 100.0, "return should be normalized by planned margin, got {}", result.metrics.total_return_pct);
+        assert!(result.metrics.max_drawdown_pct < 100.0, "drawdown should be normalized by planned margin, got {}", result.metrics.max_drawdown_pct);
     }
 }
