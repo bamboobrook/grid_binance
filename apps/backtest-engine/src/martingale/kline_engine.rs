@@ -2333,4 +2333,43 @@ mod tests {
         assert!(result.metrics.total_return_pct.abs() < 100.0, "return should be normalized by planned margin, got {}", result.metrics.total_return_pct);
         assert!(result.metrics.max_drawdown_pct < 100.0, "drawdown should be normalized by planned margin, got {}", result.metrics.max_drawdown_pct);
     }
+
+    fn trending_bars(symbol: &str, start_ms: i64, count: usize, start_price: f64, end_price: f64) -> Vec<KlineBar> {
+        (0..count).map(|index| {
+            let t = index as f64 / (count.saturating_sub(1).max(1)) as f64;
+            let close = start_price + (end_price - start_price) * t;
+            KlineBar {
+                symbol: symbol.to_owned(),
+                open_time_ms: start_ms + index as i64 * 60_000,
+                open: close,
+                high: close * 1.001,
+                low: close * 0.999,
+                close,
+                volume: 1.0,
+            }
+        }).collect()
+    }
+
+    #[test]
+    fn long_short_cooldown_entry_trigger_prevents_every_bar_churn() {
+        let bars = trending_bars("BTCUSDT", 1_672_531_200_000, 1_000, 20_000.0, 20_500.0);
+        let mut portfolio = portfolio_with_direction(MartingaleDirection::Long, 10_000);
+        portfolio.direction_mode = MartingaleDirectionMode::LongAndShort;
+
+        let mut long_strategy = portfolio.strategies[0].clone();
+        long_strategy.direction = MartingaleDirection::Long;
+        long_strategy.direction_mode = MartingaleDirectionMode::LongAndShort;
+        long_strategy.entry_triggers = vec![MartingaleEntryTrigger::Cooldown { seconds: 21_600 }];
+
+        let mut short_strategy = long_strategy.clone();
+        short_strategy.strategy_id = "short".to_owned();
+        short_strategy.direction = MartingaleDirection::Short;
+        short_strategy.entry_triggers = vec![MartingaleEntryTrigger::Cooldown { seconds: 21_600 }];
+
+        portfolio.strategies = vec![long_strategy, short_strategy];
+
+        let result = run_kline_screening(portfolio, &bars).expect("screening should run");
+        assert!(result.metrics.trade_count > 0);
+        assert!(result.metrics.trade_count < 400, "trade count should not churn every bar: {}", result.metrics.trade_count);
+    }
 }

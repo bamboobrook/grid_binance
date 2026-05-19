@@ -2,9 +2,10 @@ use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
 use rust_decimal::Decimal;
 use shared_domain::martingale::{
-    MartingaleDirection, MartingaleDirectionMode, MartingaleMarginMode, MartingaleMarketKind,
-    MartingalePortfolioConfig, MartingaleRiskLimits, MartingaleSizingModel, MartingaleSpacingModel,
-    MartingaleStrategyConfig, MartingaleTakeProfitModel,
+    MartingaleDirection, MartingaleDirectionMode, MartingaleEntryTrigger, MartingaleMarginMode,
+    MartingaleMarketKind, MartingalePortfolioConfig, MartingaleRiskLimits,
+    MartingaleSizingModel, MartingaleSpacingModel, MartingaleStrategyConfig,
+    MartingaleTakeProfitModel,
 };
 
 #[derive(Debug, Clone, PartialEq)]
@@ -90,7 +91,7 @@ pub fn random_search(
             },
             stop_loss: None,
             indicators: Vec::new(),
-            entry_triggers: Vec::new(),
+            entry_triggers: vec![MartingaleEntryTrigger::Cooldown { seconds: 21_600 }],
             risk_limits: MartingaleRiskLimits::default(),
         };
         let config = MartingalePortfolioConfig {
@@ -363,7 +364,7 @@ fn build_single_direction_candidate(
         take_profit: MartingaleTakeProfitModel::Percent { bps: take_profit_bps },
         stop_loss: Some(shared_domain::martingale::MartingaleStopLossModel::StrategyDrawdownPct { pct_bps: tail_stop_bps }),
         indicators: Vec::new(),
-        entry_triggers: Vec::new(),
+        entry_triggers: vec![MartingaleEntryTrigger::Cooldown { seconds: 21_600 }],
         risk_limits: MartingaleRiskLimits::default(),
     };
     *id_counter += 1;
@@ -457,7 +458,7 @@ fn strategy_from_leg_params(
             pct_bps: params.tail_stop_bps,
         }),
         indicators: Vec::new(),
-        entry_triggers: Vec::new(),
+        entry_triggers: vec![MartingaleEntryTrigger::Cooldown { seconds: 21_600 }],
         risk_limits: MartingaleRiskLimits::default(),
     })
 }
