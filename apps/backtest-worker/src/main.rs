@@ -386,11 +386,20 @@ fn run_long_short_staged_search(
     use backtest_engine::martingale::scoring::score_candidate;
 
     let direction_mode = task.direction_mode.as_deref().unwrap_or("long");
+    let limit = if direction_mode == "long_short" || direction_mode == "long_and_short" {
+        // Long_short generates candidates via cartesian product of all parameter
+        // combinations. The default limit (random_candidates * intelligent_rounds = 32)
+        // is too small for the full parameter space (up to 6720 combinations).
+        // Use a larger limit to ensure diverse parameter coverage.
+        (task.random_candidates.max(1) * task.intelligent_rounds.max(1)).max(80)
+    } else {
+        task.random_candidates.max(1) * task.intelligent_rounds.max(1)
+    };
     let candidates = generate_staged_candidates_for_symbol(
         symbol,
         direction_mode,
         staged,
-        task.random_candidates.max(1) * task.intelligent_rounds.max(1),
+        limit,
     )?;
 
     let mut evaluated = Vec::new();
@@ -592,6 +601,7 @@ async fn process_task(
                 candidates,
                 *drawdown_limit_pct,
                 risk_relaxed,
+                &rejection_samples,
             );
             if !valid.is_empty() {
                 screened.extend(valid);
