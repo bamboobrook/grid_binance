@@ -3416,6 +3416,50 @@ mod tests {
         // Generated candidates should be reasonable (not thousands)
         assert!(estimate.generated_candidates_per_symbol <= 1024, "generated should be bounded: {:?}", estimate);
     }
+
+    #[test]
+    fn long_short_smoke_payload_expands_to_diverse_dual_leg_candidates() {
+        let task = WorkerTaskConfig {
+            symbols: vec!["BTCUSDT".to_owned(), "ETHUSDT".to_owned()],
+            direction_mode: Some("long_short".to_owned()),
+            risk_profile: "balanced".to_owned(),
+            random_candidates: 16,
+            intelligent_rounds: 1,
+            per_symbol_top_n: 10,
+            search_space: Some(serde_json::json!({
+                "leverage": [2],
+                "spacing_bps": [120],
+                "order_multiplier": [1.25],
+                "max_legs": [3],
+                "take_profit_bps": [60],
+                "tail_stop_bps": [2000],
+                "long_short_weight_pct": [[60, 40], [50, 50]]
+            })),
+            ..WorkerTaskConfig::default()
+        };
+
+        let staged = StagedMartingaleSearchSpace::for_profile("balanced", "long_short");
+        let candidates = generate_long_short_candidates_for_task("BTCUSDT", &task, &staged)
+            .expect("smoke candidates should generate");
+
+        assert!(candidates.len() >= 16);
+        assert!(candidates.iter().all(|candidate| {
+            candidate.config.direction_mode == MartingaleDirectionMode::LongAndShort
+                && candidate.config.strategies.len() == 2
+        }));
+
+        let spacing_pairs: std::collections::BTreeSet<(u32, u32)> = candidates.iter().filter_map(|candidate| {
+            let long = candidate.config.strategies.iter().find(|s| s.direction == MartingaleDirection::Long)?;
+            let short = candidate.config.strategies.iter().find(|s| s.direction == MartingaleDirection::Short)?;
+            match (&long.spacing, &short.spacing) {
+                (MartingaleSpacingModel::FixedPercent { step_bps: long_step }, MartingaleSpacingModel::FixedPercent { step_bps: short_step }) => Some((*long_step, *short_step)),
+                _ => None,
+            }
+        }).collect();
+
+        assert!(spacing_pairs.len() >= 8, "expected diverse long/short spacing pairs, got {spacing_pairs:?}");
+        assert!(spacing_pairs.iter().any(|(long_step, short_step)| long_step != short_step));
+    }
 }
 
 impl WorkerConfig {

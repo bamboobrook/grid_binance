@@ -439,4 +439,47 @@ mod staged_tests {
         assert!(fine.long_short_weight_pct.contains(&(65, 35)));
         assert!(fine.long_short_weight_pct.contains(&(75, 25)));
     }
+
+    #[test]
+    fn long_short_staged_candidates_include_asymmetric_leg_parameters() {
+        let space = StagedMartingaleSearchSpace {
+            leverage: vec![2],
+            spacing_bps: vec![120, 240],
+            order_multiplier: vec![1.10, 1.25],
+            max_legs: vec![2, 3],
+            take_profit_bps: vec![60, 120],
+            tail_stop_bps: vec![2000, 3000],
+            long_short_weight_pct: vec![(60, 40), (50, 50)],
+        };
+
+        let candidates = generate_staged_candidates_for_symbol("BTCUSDT", "long_short", &space, 256)
+            .expect("long_short candidates should generate");
+
+        assert!(candidates.iter().all(|candidate| {
+            candidate.config.direction_mode == MartingaleDirectionMode::LongAndShort
+                && candidate.config.strategies.len() == 2
+                && candidate.config.strategies.iter().any(|s| s.direction == MartingaleDirection::Long)
+                && candidate.config.strategies.iter().any(|s| s.direction == MartingaleDirection::Short)
+        }));
+
+        let has_asymmetric_spacing = candidates.iter().any(|candidate| {
+            let long = candidate.config.strategies.iter().find(|s| s.direction == MartingaleDirection::Long).unwrap();
+            let short = candidate.config.strategies.iter().find(|s| s.direction == MartingaleDirection::Short).unwrap();
+            match (&long.spacing, &short.spacing) {
+                (MartingaleSpacingModel::FixedPercent { step_bps: long_step }, MartingaleSpacingModel::FixedPercent { step_bps: short_step }) => long_step != short_step,
+                _ => false,
+            }
+        });
+        assert!(has_asymmetric_spacing, "long_short search must include different long/short spacing combinations");
+
+        let has_asymmetric_tp = candidates.iter().any(|candidate| {
+            let long = candidate.config.strategies.iter().find(|s| s.direction == MartingaleDirection::Long).unwrap();
+            let short = candidate.config.strategies.iter().find(|s| s.direction == MartingaleDirection::Short).unwrap();
+            match (&long.take_profit, &short.take_profit) {
+                (MartingaleTakeProfitModel::Percent { bps: long_tp }, MartingaleTakeProfitModel::Percent { bps: short_tp }) => long_tp != short_tp,
+                _ => false,
+            }
+        });
+        assert!(has_asymmetric_tp, "long_short search must include different long/short take-profit combinations");
+    }
 }

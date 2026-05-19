@@ -129,3 +129,10 @@ test("long_short worker path does not substitute single-direction candidates", (
   assert.doesNotMatch(body, /\blet long_candidates\b/);
   assert.doesNotMatch(body, /\blet short_candidates\b/);
 });
+
+test("long_short worker rejects negative-only smoke instead of reporting success", () => {
+  const worker = readFileSync("apps/backtest-worker/src/main.rs", "utf8");
+  assert.match(worker, /no martingale candidates selected/);
+  assert.match(worker, /negative_return/);
+  assert.doesNotMatch(worker, /single_direction_candidates|LongOnly.*fallback|ShortOnly.*fallback/);
+});
