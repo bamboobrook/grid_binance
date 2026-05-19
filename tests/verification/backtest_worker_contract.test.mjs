@@ -118,3 +118,14 @@ test("worker records rejection diagnostics when martingale selection is empty", 
   assert.match(worker, /best_by_return/);
   assert.match(worker, /lowest_drawdown/);
 });
+
+test("long_short worker path does not substitute single-direction candidates", () => {
+  const worker = readFileSync("apps/backtest-worker/src/main.rs", "utf8");
+  const fnMatch = worker.match(/fn run_long_short_staged_search[\s\S]*?\n}\n\nfn /);
+  assert.ok(fnMatch, "run_long_short_staged_search should exist");
+  const body = fnMatch[0];
+  assert.doesNotMatch(body, /generate_staged_candidates_for_symbol\([^\)]*"long"/);
+  assert.doesNotMatch(body, /generate_staged_candidates_for_symbol\([^\)]*"short"/);
+  assert.doesNotMatch(body, /\blet long_candidates\b/);
+  assert.doesNotMatch(body, /\blet short_candidates\b/);
+});
