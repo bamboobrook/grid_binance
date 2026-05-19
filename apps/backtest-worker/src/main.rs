@@ -184,6 +184,59 @@ struct CandidateOutput {
     trades_preview: Vec<backtest_engine::martingale::metrics::MartingaleTradeDetail>,
 }
 
+#[derive(Debug, Clone, Serialize)]
+struct CandidateRejectionSample {
+    candidate_id: String,
+    symbol: String,
+    direction_mode: String,
+    total_return_pct: f64,
+    max_drawdown_pct: f64,
+    trade_count: usize,
+    survival_valid: bool,
+}
+
+#[derive(Debug, Clone, Serialize)]
+struct CandidateRejectionDiagnostics {
+    total: usize,
+    survival_valid_count: usize,
+    negative_return_count: usize,
+    drawdown_rejected_count: usize,
+    zero_trade_count: usize,
+    best_by_return: Vec<CandidateRejectionSample>,
+    lowest_drawdown: Vec<CandidateRejectionSample>,
+}
+
+impl CandidateRejectionDiagnostics {
+    fn from_samples(samples: Vec<CandidateRejectionSample>) -> Self {
+        let total = samples.len();
+        let survival_valid_count = samples.iter().filter(|s| s.survival_valid).count();
+        let negative_return_count = samples.iter().filter(|s| s.total_return_pct <= 0.0).count();
+        let drawdown_rejected_count = samples
+            .iter()
+            .filter(|s| s.total_return_pct > 0.0 && !s.survival_valid)
+            .count();
+        let zero_trade_count = samples.iter().filter(|s| s.trade_count == 0).count();
+
+        let mut best_by_return = samples.clone();
+        best_by_return.sort_by(|a, b| b.total_return_pct.total_cmp(&a.total_return_pct));
+        best_by_return.truncate(5);
+
+        let mut lowest_drawdown = samples;
+        lowest_drawdown.sort_by(|a, b| a.max_drawdown_pct.total_cmp(&b.max_drawdown_pct));
+        lowest_drawdown.truncate(5);
+
+        Self {
+            total,
+            survival_valid_count,
+            negative_return_count,
+            drawdown_rejected_count,
+            zero_trade_count,
+            best_by_return,
+            lowest_drawdown,
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 struct EvaluatedCandidateWithDrawdown {
     candidate: EvaluatedCandidate,
@@ -242,7 +295,7 @@ fn run_profit_first_staged_search(
     task: &WorkerTaskConfig,
     scoring: &ScoringConfig,
     _drawdown_limit_pct: f64,
-) -> Result<Vec<EvaluatedCandidate>, String> {
+) -> Result<(Vec<EvaluatedCandidate>, Vec<CandidateRejectionSample>), String> {
     let direction_mode = task.direction_mode.as_deref().unwrap_or("long");
     let coarse_space = StagedMartingaleSearchSpace::for_profile(
         &task.risk_profile,
@@ -276,6 +329,12 @@ fn run_profit_first_staged_search(
         },
     )?;
 
+    let mut rejection_samples: Vec<CandidateRejectionSample> = coarse_candidates
+        .candidates
+        .iter()
+        .map(|c| rejection_sample_from_evaluated(c, symbol, direction_mode))
+        .collect();
+
     let survivors: Vec<_> = coarse_candidates
         .candidates
         .into_iter()
@@ -305,12 +364,15 @@ fn run_profit_first_staged_search(
                 run_candidate_kline_screening(&overridden, context)
             },
         )?;
+        for c in &fine_candidates.candidates {
+            rejection_samples.push(rejection_sample_from_evaluated(c, symbol, direction_mode));
+        }
         refined.extend(fine_candidates.candidates);
     }
 
     refined.sort_by(|a, b| b.score.rank_score.total_cmp(&a.score.rank_score));
     refined.truncate(task.per_symbol_top_n.max(10));
-    Ok(refined)
+    Ok((refined, rejection_samples))
 }
 
 fn run_long_short_staged_search(
@@ -319,7 +381,7 @@ fn run_long_short_staged_search(
     task: &WorkerTaskConfig,
     staged: &StagedMartingaleSearchSpace,
     scoring: &ScoringConfig,
-) -> Result<Vec<EvaluatedCandidate>, String> {
+) -> Result<(Vec<EvaluatedCandidate>, Vec<CandidateRejectionSample>), String> {
     use backtest_engine::search::generate_staged_candidates_for_symbol;
     use backtest_engine::martingale::scoring::score_candidate;
 
@@ -332,18 +394,43 @@ fn run_long_short_staged_search(
     )?;
 
     let mut evaluated = Vec::new();
+    let mut rejection_samples = Vec::new();
     for candidate in candidates {
         let overridden = apply_task_overrides_to_candidate(candidate, task);
         let result = run_candidate_kline_screening(&overridden, context);
-        let score = match result {
-            Ok(metrics) => score_candidate(&metrics, scoring),
-            Err(_) => backtest_engine::martingale::scoring::CandidateScore {
-                survival_valid: false,
-                rank_score: 0.0,
-                raw_score: 0.0,
-                rejection_reasons: vec!["screening_failed".to_owned()],
-            },
+        let (score, sample) = match result {
+            Ok(ref metrics) => {
+                let s = score_candidate(metrics, scoring);
+                let sample = CandidateRejectionSample {
+                    candidate_id: overridden.candidate_id.clone(),
+                    symbol: symbol.to_owned(),
+                    direction_mode: direction_mode.to_owned(),
+                    total_return_pct: metrics.metrics.total_return_pct,
+                    max_drawdown_pct: metrics.metrics.max_drawdown_pct,
+                    trade_count: metrics.metrics.trade_count as usize,
+                    survival_valid: s.survival_valid,
+                };
+                (s, sample)
+            }
+            Err(_) => {
+                let sample = CandidateRejectionSample {
+                    candidate_id: overridden.candidate_id.clone(),
+                    symbol: symbol.to_owned(),
+                    direction_mode: direction_mode.to_owned(),
+                    total_return_pct: 0.0,
+                    max_drawdown_pct: 0.0,
+                    trade_count: 0,
+                    survival_valid: false,
+                };
+                (backtest_engine::martingale::scoring::CandidateScore {
+                    survival_valid: false,
+                    rank_score: 0.0,
+                    raw_score: 0.0,
+                    rejection_reasons: vec!["screening_failed".to_owned()],
+                }, sample)
+            }
         };
+        rejection_samples.push(sample);
         evaluated.push(EvaluatedCandidate {
             candidate: overridden,
             score,
@@ -352,7 +439,7 @@ fn run_long_short_staged_search(
 
     evaluated.sort_by(|a, b| b.score.rank_score.total_cmp(&a.score.rank_score));
     evaluated.truncate(task.per_symbol_top_n.max(10));
-    Ok(evaluated)
+    Ok((evaluated, rejection_samples))
 }
 
 fn portfolio_candidates_from_outputs(outputs: &[CandidateOutput]) -> Vec<backtest_engine::portfolio_search::EvaluatedCandidate> {
@@ -485,12 +572,13 @@ async fn process_task(
     let first_drawdown_limit = drawdown_limits.first().copied().unwrap_or(25.0);
     let mut screened = Vec::new();
     let mut evaluated_count = 0usize;
+    let mut all_rejection_samples: Vec<CandidateRejectionSample> = Vec::new();
 
     for symbol in &task.config.symbols {
         respect_pause_or_cancel(poller, &task.task_id).await?;
         for drawdown_limit_pct in &drawdown_limits {
             let scoring = scoring_config_from_task(&task.config, *drawdown_limit_pct);
-            let candidates = run_profit_first_staged_search(
+            let (candidates, rejection_samples) = run_profit_first_staged_search(
                 &market_context,
                 symbol,
                 &task.config,
@@ -498,6 +586,7 @@ async fn process_task(
                 *drawdown_limit_pct,
             )?;
             evaluated_count += candidates.len();
+            all_rejection_samples.extend(rejection_samples);
             let risk_relaxed = *drawdown_limit_pct > first_drawdown_limit;
             let valid = select_candidates_or_best_fallback_for_task(
                 candidates,
@@ -590,7 +679,21 @@ async fn process_task(
         &task.config.risk_profile,
     );
     respect_pause_or_cancel(poller, &task.task_id).await?;
-    ensure_non_empty_selection_for_task(&task.config, display_outputs.len(), evaluated_count)?;
+    let diagnostics = CandidateRejectionDiagnostics::from_samples(all_rejection_samples);
+    if display_outputs.is_empty() {
+        let _ = poller
+            .update_task_summary_fragment(
+                &task.task_id,
+                json!({
+                    "stage": "failed",
+                    "stage_label": "失败",
+                    "progress_pct": 100,
+                    "rejection_diagnostics": diagnostics,
+                }),
+            )
+            .await;
+    }
+    ensure_non_empty_selection_for_task(&task.config, display_outputs.len(), evaluated_count, &diagnostics)?;
     let _persisted_candidates = poller
         .save_candidates_and_artifacts(&task.task_id, evaluated_count, &display_outputs)
         .await?;
@@ -820,16 +923,21 @@ fn ensure_non_empty_selection_for_task(
     config: &WorkerTaskConfig,
     selected_count: usize,
     screened_count: usize,
+    diagnostics: &CandidateRejectionDiagnostics,
 ) -> Result<(), String> {
     if selected_count > 0 {
         return Ok(());
     }
     Err(format!(
-        "no martingale candidates selected: direction_mode={} symbols={} screened_count={} selected_count=0 risk_profile={}",
+        "no martingale candidates selected: direction_mode={} symbols={} screened_count={} selected_count=0 risk_profile={} negative_return={} drawdown_rejected={} zero_trade={} survival_valid={}",
         config.direction_mode.as_deref().unwrap_or("long"),
         config.symbols.join(","),
         screened_count,
         config.risk_profile,
+        diagnostics.negative_return_count,
+        diagnostics.drawdown_rejected_count,
+        diagnostics.zero_trade_count,
+        diagnostics.survival_valid_count,
     ))
 }
 
@@ -870,6 +978,28 @@ fn select_candidates_or_best_fallback_for_task(
             risk_relaxed: true,
         })
         .collect()
+}
+
+fn rejection_sample_from_evaluated(
+    evaluated: &EvaluatedCandidate,
+    symbol: &str,
+    direction_mode: &str,
+) -> CandidateRejectionSample {
+    let has_negative_return = evaluated.score.rejection_reasons.iter()
+        .any(|r| r.contains("negative_return"));
+    let has_drawdown_exceeded = evaluated.score.rejection_reasons.iter()
+        .any(|r| r.contains("drawdown_exceeded") || r.contains("global_drawdown") || r.contains("strategy_drawdown"));
+    let has_zero_trades = evaluated.score.rejection_reasons.iter()
+        .any(|r| r.contains("insufficient_data_quality") || r.contains("screening_failed"));
+    CandidateRejectionSample {
+        candidate_id: evaluated.candidate.candidate_id.clone(),
+        symbol: symbol.to_owned(),
+        direction_mode: direction_mode.to_owned(),
+        total_return_pct: if has_negative_return { -1.0 } else { evaluated.score.raw_score },
+        max_drawdown_pct: if has_drawdown_exceeded { 99.0 } else { 0.0 },
+        trade_count: if has_zero_trades { 0 } else { 1 },
+        survival_valid: evaluated.score.survival_valid,
+    }
 }
 
 fn select_refinement_candidates_with_drawdown_metadata(
@@ -1607,6 +1737,13 @@ impl TaskPoller {
                 }),
             )
             .map_err(|error| format!("update task summary: {error}"))?;
+        Ok(())
+    }
+
+    async fn update_task_summary_fragment(&self, task_id: &str, fragment: Value) -> Result<(), String> {
+        self.repo
+            .update_task_summary(task_id, fragment)
+            .map_err(|error| format!("update task summary fragment: {error}"))?;
         Ok(())
     }
 
@@ -2595,6 +2732,24 @@ mod tests {
         }
     }
 
+    fn candidate_rejection_sample_for_tests(
+        candidate_id: &str,
+        total_return_pct: f64,
+        max_drawdown_pct: f64,
+        trade_count: usize,
+        survival_valid: bool,
+    ) -> CandidateRejectionSample {
+        CandidateRejectionSample {
+            candidate_id: candidate_id.to_owned(),
+            total_return_pct,
+            max_drawdown_pct,
+            trade_count,
+            survival_valid,
+            direction_mode: "long_short".to_owned(),
+            symbol: "BTCUSDT".to_owned(),
+        }
+    }
+
     #[test]
     fn zero_selected_candidates_is_not_reported_as_success() {
         let config = WorkerTaskConfig {
@@ -2606,7 +2761,8 @@ mod tests {
             ..WorkerTaskConfig::default()
         };
 
-        let error = ensure_non_empty_selection_for_task(&config, 0, 2)
+        let diagnostics = CandidateRejectionDiagnostics::from_samples(vec![]);
+        let error = ensure_non_empty_selection_for_task(&config, 0, 2, &diagnostics)
             .expect_err("zero selected candidates must be an error");
         assert!(
             error.contains("no martingale candidates selected")
@@ -2614,6 +2770,37 @@ mod tests {
                 && error.contains("direction_mode=long_short"),
             "error should be actionable: {error}"
         );
+    }
+
+    #[test]
+    fn zero_selection_error_includes_candidate_rejection_diagnostics() {
+        let config = WorkerTaskConfig {
+            symbols: vec!["BTCUSDT".to_owned(), "ETHUSDT".to_owned()],
+            direction_mode: Some("long_short".to_owned()),
+            risk_profile: "balanced".to_owned(),
+            per_symbol_top_n: 10,
+            top_n: 10,
+            ..WorkerTaskConfig::default()
+        };
+
+        let diagnostics = CandidateRejectionDiagnostics::from_samples(vec![
+            candidate_rejection_sample_for_tests("loss", -2.0, 10.0, 50, false),
+            candidate_rejection_sample_for_tests("drawdown", 8.0, 31.0, 120, false),
+            candidate_rejection_sample_for_tests("valid", 6.0, 18.0, 80, true),
+        ]);
+
+        assert_eq!(diagnostics.total, 3);
+        assert_eq!(diagnostics.negative_return_count, 1);
+        assert_eq!(diagnostics.drawdown_rejected_count, 1);
+        assert_eq!(diagnostics.survival_valid_count, 1);
+        assert_eq!(diagnostics.best_by_return[0].candidate_id, "drawdown");
+
+        let error = ensure_non_empty_selection_for_task(&config, 0, 3, &diagnostics)
+            .expect_err("should be error");
+        assert!(error.contains("no martingale candidates selected"));
+        assert!(error.contains("negative_return=1"));
+        assert!(error.contains("drawdown_rejected=1"));
+        assert!(error.contains("survival_valid=1"));
     }
 
     #[test]

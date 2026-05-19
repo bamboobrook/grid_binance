@@ -108,3 +108,13 @@ test("worker cannot complete martingale tasks with zero selected candidates sile
   assert.match(worker, /selected_count=0/);
   assert.match(worker, /select_candidates_or_best_fallback_for_task/);
 });
+
+test("worker records rejection diagnostics when martingale selection is empty", () => {
+  const worker = readFileSync("apps/backtest-worker/src/main.rs", "utf8");
+  assert.match(worker, /CandidateRejectionDiagnostics/);
+  assert.match(worker, /rejection_diagnostics/);
+  assert.match(worker, /negative_return_count/);
+  assert.match(worker, /drawdown_rejected_count/);
+  assert.match(worker, /best_by_return/);
+  assert.match(worker, /lowest_drawdown/);
+});
