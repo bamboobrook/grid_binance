@@ -433,6 +433,7 @@ fn run_profit_first_staged_search(
     task: &WorkerTaskConfig,
     scoring: &ScoringConfig,
     _drawdown_limit_pct: f64,
+    max_threads: usize,
 ) -> Result<(Vec<EvaluatedCandidate>, Vec<CandidateRejectionSample>), String> {
     let direction_mode = task.direction_mode.as_deref().unwrap_or("long");
     let coarse_space = StagedMartingaleSearchSpace::for_profile(&task.risk_profile, direction_mode);
@@ -442,7 +443,14 @@ fn run_profit_first_staged_search(
     // intelligent_search only produces single-direction candidates because it picks
     // one direction from SearchSpace.directions at a time.
     if direction_mode == "long_short" || direction_mode == "long_and_short" {
-        return run_long_short_staged_search(context, symbol, task, &coarse_space, scoring);
+        return run_long_short_staged_search(
+            context,
+            symbol,
+            task,
+            &coarse_space,
+            scoring,
+            max_threads,
+        );
     }
 
     let search_space = search_space_from_staged(&coarse_space, symbol, task);
@@ -938,6 +946,7 @@ fn run_long_short_staged_search(
     task: &WorkerTaskConfig,
     staged: &StagedMartingaleSearchSpace,
     scoring: &ScoringConfig,
+    _max_threads: usize,
 ) -> Result<(Vec<EvaluatedCandidate>, Vec<CandidateRejectionSample>), String> {
     use backtest_engine::martingale::scoring::score_candidate;
 
@@ -1385,6 +1394,7 @@ async fn process_task(
                 &task.config,
                 &scoring,
                 *drawdown_limit_pct,
+                config.max_threads,
             )?;
             evaluated_count += candidates.len();
             all_rejection_samples.extend(rejection_samples);
