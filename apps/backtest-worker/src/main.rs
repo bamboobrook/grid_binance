@@ -679,46 +679,6 @@ fn apply_search_space_overrides_to_staged(
     }
 }
 
-fn interleave_candidates_by_spacing(candidates: Vec<SearchCandidate>, limit: usize) -> Vec<SearchCandidate> {
-    if candidates.len() <= limit {
-        return candidates;
-    }
-    // Group candidates by spacing_bps, then interleave across groups
-    let mut buckets: std::collections::BTreeMap<u32, Vec<SearchCandidate>> = std::collections::BTreeMap::new();
-    for candidate in candidates {
-        let spacing = candidate.config.strategies.first()
-            .and_then(|s| match &s.spacing {
-                MartingaleSpacingModel::FixedPercent { step_bps } => Some(*step_bps),
-                _ => None,
-            })
-            .unwrap_or(0);
-        buckets.entry(spacing).or_default().push(candidate);
-    }
-    let mut result = Vec::with_capacity(limit);
-    let bucket_keys: Vec<u32> = buckets.keys().copied().collect();
-    let mut indices: std::collections::BTreeMap<u32, usize> = std::collections::BTreeMap::new();
-    while result.len() < limit {
-        let mut added = false;
-        for &spacing in &bucket_keys {
-            if let Some(bucket) = buckets.get(&spacing) {
-                let idx = indices.get(&spacing).copied().unwrap_or(0);
-                if idx < bucket.len() {
-                    result.push(bucket[idx].clone());
-                    indices.insert(spacing, idx + 1);
-                    added = true;
-                    if result.len() >= limit {
-                        break;
-                    }
-                }
-            }
-        }
-        if !added {
-            break;
-        }
-    }
-    result
-}
-
 fn generate_long_short_candidates_for_task(
     symbol: &str,
     task: &WorkerTaskConfig,
@@ -789,6 +749,7 @@ fn strategy_spacing_bps(strategy: &MartingaleStrategyConfig) -> Option<u32> {
     }
 }
 
+#[cfg(test)]
 fn strategy_take_profit_bps(strategy: &MartingaleStrategyConfig) -> Option<u32> {
     match &strategy.take_profit {
         MartingaleTakeProfitModel::Percent { bps } => Some(*bps),
