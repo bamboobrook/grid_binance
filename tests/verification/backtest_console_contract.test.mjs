@@ -288,3 +288,14 @@ test("result table row keys match column keys and leverage column exists", () =>
   // P1: leverage column exists
   assert.match(tableSource, /杠杆|Leverage/);
 });
+
+test("backtest result exposes long_short per-leg parameters for human review", () => {
+  const worker = readFileSync("apps/backtest-worker/src/main.rs", "utf8");
+  assert.match(worker, /long_short_legs/);
+  assert.match(worker, /spacing_bps/);
+  assert.match(worker, /take_profit_bps/);
+  assert.match(worker, /stop_loss_bps/);
+
+  const typesSource = readFileSync("apps/web/lib/api-types.ts", "utf8");
+  assert.match(typesSource, /long_short_legs|longShortLegs/);
+});

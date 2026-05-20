@@ -1270,6 +1270,7 @@ async fn process_task(
                         "candidate_id": c.candidate.candidate_id,
                         "symbol": c.candidate.config.strategies.first().map(|s| s.symbol.clone()).unwrap_or_default(),
                         "direction": format!("{:?}", c.candidate.config.direction_mode),
+                        "long_short_legs": serde_json::to_value(&c.candidate.config).ok().as_ref().map(|v| long_short_leg_summary_from_config(v)).unwrap_or(json!({})),
                         "score": c.score,
                         "return_pct": c.return_pct,
                         "max_drawdown_pct": c.max_drawdown_pct,
@@ -1571,6 +1572,9 @@ fn select_top_outputs_per_symbol(
             let overfit_flag = output_overfit_flag(&output);
             let risk_summary_human = output_risk_summary_human(&output, risk_profile);
 
+            let direction_mode = output.config.get("direction_mode").cloned().unwrap_or(Value::Null);
+            let long_short_legs = long_short_leg_summary_from_config(&output.config);
+
             output.rank = index + 1;
             output.summary = merge_json_objects(
                 output.summary,
@@ -1578,7 +1582,8 @@ fn select_top_outputs_per_symbol(
                     "source_candidate_id": output.candidate_id,
                     "symbol": symbol,
                     "direction": direction,
-                    "direction_mode": output.config.get("direction_mode").cloned().unwrap_or(Value::Null),
+                    "direction_mode": direction_mode,
+                    "long_short_legs": long_short_legs,
                     "parameter_rank_for_symbol": parameter_rank_for_symbol,
                     "recommended_weight_pct": recommended_weight_pct,
                     "recommended_leverage": recommended_leverage,
@@ -1760,6 +1765,53 @@ fn strategy_value_at<'a>(output: &'a CandidateOutput, path: &[&str]) -> Option<&
         value = value.get(*key)?;
     }
     Some(value)
+}
+
+fn long_short_leg_summary_from_config(config: &Value) -> Value {
+    let Some(strategies) = config.get("strategies").and_then(|v| v.as_array()) else {
+        return json!({});
+    };
+
+    let mut result = serde_json::Map::new();
+    for strategy in strategies {
+        let direction = strategy
+            .get("direction")
+            .and_then(|v| v.as_str())
+            .unwrap_or_default()
+            .to_lowercase();
+        let key = if direction.contains("long") {
+            "long"
+        } else if direction.contains("short") {
+            "short"
+        } else {
+            continue;
+        };
+        let spacing_key = strategy
+            .get("spacing")
+            .and_then(|v| v.as_object())
+            .map(|obj| obj.keys().next().cloned().unwrap_or_default())
+            .unwrap_or_default();
+        let sizing_key = strategy
+            .get("sizing")
+            .and_then(|v| v.as_object())
+            .map(|obj| obj.keys().next().cloned().unwrap_or_default())
+            .unwrap_or_default();
+        let take_profit_key = strategy
+            .get("take_profit")
+            .and_then(|v| v.as_object())
+            .map(|obj| obj.keys().next().cloned().unwrap_or_default())
+            .unwrap_or_default();
+        result.insert(key.to_owned(), json!({
+            "first_order_quote": strategy.pointer(&format!("/sizing/{sizing_key}/first_order_quote")).cloned().unwrap_or(Value::Null),
+            "order_multiplier": strategy.pointer(&format!("/sizing/{sizing_key}/multiplier")).cloned().unwrap_or(Value::Null),
+            "max_legs": strategy.pointer(&format!("/sizing/{sizing_key}/max_legs")).cloned().unwrap_or(Value::Null),
+            "spacing_bps": strategy.pointer(&format!("/spacing/{spacing_key}/step_bps")).or_else(|| strategy.pointer(&format!("/spacing/{spacing_key}/first_step_bps"))).cloned().unwrap_or(Value::Null),
+            "take_profit_bps": strategy.pointer(&format!("/take_profit/{take_profit_key}/bps")).cloned().unwrap_or(Value::Null),
+            "stop_loss_bps": strategy.pointer("/stop_loss/strategy_drawdown_pct/pct_bps").cloned().unwrap_or(Value::Null),
+            "leverage": strategy.get("leverage").cloned().unwrap_or(Value::Null),
+        }));
+    }
+    Value::Object(result)
 }
 
 #[cfg(test)]
@@ -2762,6 +2814,7 @@ mod tests {
             "symbol",
             "direction",
             "direction_mode",
+            "long_short_legs",
             "spacing_bps",
             "first_order_quote",
             "order_multiplier",
