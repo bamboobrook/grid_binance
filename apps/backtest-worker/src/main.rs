@@ -1050,56 +1050,41 @@ fn run_long_short_staged_search(
     for survivor in &survivors {
         let fine_space = long_short_fine_space_around_candidate(&survivor.candidate);
         let fine_task = task_with_long_short_refinement_space(task, &fine_space);
-        let fine_candidates = generate_long_short_candidates_for_task(symbol, &fine_task, staged)?;
-        for (fine_index, mut fine_candidate) in fine_candidates.into_iter().enumerate() {
+        let mut fine_candidates = generate_long_short_candidates_for_task(symbol, &fine_task, staged)?;
+        for (fine_index, fine_candidate) in fine_candidates.iter_mut().enumerate() {
             fine_candidate.candidate_id = format!(
                 "{}-fine-{fine_index}-{}",
                 survivor.candidate.candidate_id, fine_candidate.candidate_id
             );
-            let overridden = apply_task_overrides_to_candidate(fine_candidate, task);
-            let result = run_candidate_kline_screening(&overridden, context);
-            let (score, sample) = match result {
-                Ok(ref metrics) => {
-                    let s = backtest_engine::martingale::scoring::score_candidate(metrics, scoring);
-                    let sample = CandidateRejectionSample {
-                        candidate_id: overridden.candidate_id.clone(),
-                        symbol: symbol.to_owned(),
-                        direction_mode: direction_mode.to_owned(),
-                        total_return_pct: Some(metrics.metrics.total_return_pct),
-                        max_drawdown_pct: Some(metrics.metrics.max_drawdown_pct),
-                        trade_count: metrics.metrics.trade_count as usize,
-                        survival_valid: s.survival_valid,
-                        rejection_reason: None,
-                    };
-                    (s, sample)
-                }
-                Err(_) => {
-                    let sample = CandidateRejectionSample {
-                        candidate_id: overridden.candidate_id.clone(),
-                        symbol: symbol.to_owned(),
-                        direction_mode: direction_mode.to_owned(),
-                        total_return_pct: None,
-                        max_drawdown_pct: None,
-                        trade_count: 0,
-                        survival_valid: false,
-                        rejection_reason: Some("screening_failed".to_owned()),
-                    };
-                    (
-                        backtest_engine::martingale::scoring::CandidateScore {
-                            survival_valid: false,
-                            rank_score: 0.0,
-                            raw_score: 0.0,
-                            rejection_reasons: vec!["screening_failed".to_owned()],
-                        },
-                        sample,
-                    )
-                }
-            };
+        }
+
+        let fine_results = screen_candidates_bounded_parallel(
+            fine_candidates,
+            max_threads,
+            |candidate| {
+                evaluate_long_short_candidate_for_screening(
+                    candidate,
+                    context,
+                    task,
+                    symbol,
+                    direction_mode,
+                    scoring,
+                )
+            },
+        );
+
+        for (candidate, sample) in fine_results {
             rejection_samples.push(sample);
-            refined.push(EvaluatedCandidate {
-                candidate: overridden,
-                score,
-            });
+            refined.push(candidate);
+        }
+
+        if start.elapsed().as_secs() > timeout_secs {
+            return Err(martingale_search_timeout_error(
+                symbol,
+                direction_mode,
+                candidate_count,
+                timeout_secs,
+            ));
         }
     }
 
