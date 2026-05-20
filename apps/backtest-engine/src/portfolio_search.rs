@@ -65,6 +65,21 @@ fn candidate_symbol(candidate: &EvaluatedCandidate) -> String {
         .unwrap_or_default()
 }
 
+fn best_indices_by_symbol(eligible: &[&EvaluatedCandidate], per_symbol: usize) -> Vec<usize> {
+    let mut grouped: std::collections::BTreeMap<String, Vec<(usize, &EvaluatedCandidate)>> = std::collections::BTreeMap::new();
+    for (index, candidate) in eligible.iter().enumerate() {
+        grouped.entry(candidate_symbol(candidate)).or_default().push((index, *candidate));
+    }
+    let mut result = Vec::new();
+    for (_symbol, mut rows) in grouped {
+        rows.sort_by(|a, b| b.1.score.partial_cmp(&a.1.score).unwrap_or(std::cmp::Ordering::Equal));
+        result.extend(rows.into_iter().take(per_symbol).map(|(index, _)| index));
+    }
+    result.sort_unstable();
+    result.dedup();
+    result
+}
+
 pub fn build_portfolio_top3(candidates: &[EvaluatedCandidate], max_drawdown_pct: f64) -> PortfolioTop3Artifact {
     let eligible: Vec<&EvaluatedCandidate> = candidates
         .iter()
@@ -102,6 +117,38 @@ pub fn build_portfolio_top3(candidates: &[EvaluatedCandidate], max_drawdown_pct:
     let max_combos = 120usize;
     let mut combo_count = 0usize;
 
+    // Step A: Generate cross-symbol combinations first when multiple symbols are eligible.
+    if unique_eligible_symbol_count >= 2 {
+        let diversified_indices = best_indices_by_symbol(&eligible, 3);
+        for i_pos in 0..diversified_indices.len() {
+            for j_pos in (i_pos + 1)..diversified_indices.len() {
+                let i = diversified_indices[i_pos];
+                let j = diversified_indices[j_pos];
+                if candidate_symbol(eligible[i]) == candidate_symbol(eligible[j]) {
+                    continue;
+                }
+                for template in &allocation_templates {
+                    if template.len() == 2 {
+                        if let Some(portfolio) = build_weighted_portfolio(&eligible, &[i, j], template) {
+                            scored_portfolios.push(portfolio);
+                        }
+                        combo_count += 1;
+                        if combo_count >= max_combos {
+                            break;
+                        }
+                    }
+                }
+                if combo_count >= max_combos {
+                    break;
+                }
+            }
+            if combo_count >= max_combos {
+                break;
+            }
+        }
+    }
+
+    // Step B: Generate all combinations (same + cross symbol).
     for i in 0..eligible_count {
         for j in (i + 1)..eligible_count {
             // Try 2-member combination first
@@ -154,7 +201,24 @@ pub fn build_portfolio_top3(candidates: &[EvaluatedCandidate], max_drawdown_pct:
         }
     }
 
+    // Step C: Sort by score, then force diversified portfolios to the top when eligible.
     scored_portfolios.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap_or(std::cmp::Ordering::Equal));
+
+    if unique_eligible_symbol_count >= 2 {
+        let mut diversified: Vec<_> = scored_portfolios
+            .iter()
+            .cloned()
+            .filter(|p| p.members.iter().map(|m| m.symbol.as_str()).collect::<std::collections::HashSet<_>>().len() >= 2)
+            .collect();
+        let mut concentrated: Vec<_> = scored_portfolios
+            .iter()
+            .cloned()
+            .filter(|p| p.members.iter().map(|m| m.symbol.as_str()).collect::<std::collections::HashSet<_>>().len() < 2)
+            .collect();
+        diversified.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap_or(std::cmp::Ordering::Equal));
+        concentrated.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap_or(std::cmp::Ordering::Equal));
+        scored_portfolios = diversified.into_iter().chain(concentrated.into_iter()).collect();
+    }
     scored_portfolios.truncate(3);
 
     PortfolioTop3Artifact {
