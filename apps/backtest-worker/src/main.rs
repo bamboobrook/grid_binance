@@ -310,7 +310,9 @@ fn estimate_staged_search_work_for_task(config: &WorkerTaskConfig) -> SearchWork
         * weight_count;
 
     let requested_cap = config.random_candidates.max(1) * config.intelligent_rounds.max(1);
-    let cap = if direction_mode == "long_short" || direction_mode == "long_and_short" {
+    let cap = if (direction_mode == "long_short" || direction_mode == "long_and_short")
+        && config.search_space.is_none()
+    {
         requested_cap
             .max(config.per_symbol_top_n.max(10) * 20)
             .min(300)
@@ -704,9 +706,11 @@ fn generate_long_short_candidates_for_task(
 
     let effective_staged = apply_search_space_overrides_to_staged(staged, task);
     let requested_cap = task.random_candidates.max(1) * task.intelligent_rounds.max(1);
-    let cap = requested_cap
-        .max(task.per_symbol_top_n.max(10) * 20)
-        .min(300);
+    let cap = if task.search_space.is_some() {
+        requested_cap
+    } else {
+        requested_cap.max(task.per_symbol_top_n.max(10) * 20).min(300)
+    };
     let candidates =
         generate_staged_candidates_for_symbol(symbol, "long_short", &effective_staged, 20_000)?;
     Ok(stratified_long_short_candidates(candidates, cap))
@@ -3851,6 +3855,34 @@ mod tests {
         assert!(
             estimate.generated_candidates_per_symbol <= 1024,
             "generated should be bounded: {:?}",
+            estimate
+        );
+    }
+
+    #[test]
+    fn explicit_long_short_search_budget_is_respected_for_wide_multisymbol_runs() {
+        let config = WorkerTaskConfig {
+            symbols: vec!["ADAUSDT".to_owned(), "BNBUSDT".to_owned()],
+            direction_mode: Some("long_short".to_owned()),
+            risk_profile: "balanced".to_owned(),
+            random_candidates: 24,
+            intelligent_rounds: 2,
+            search_space: Some(serde_json::json!({
+                "leverage": [2, 3, 4],
+                "spacing_bps": [80, 120, 180],
+                "order_multiplier": [1.15, 1.25, 1.4],
+                "max_legs": [3, 4],
+                "take_profit_bps": [50, 70, 100],
+                "tail_stop_bps": [1800, 2400, 3000],
+                "long_short_weight_pct": [[70, 30], [60, 40], [50, 50], [40, 60]]
+            })),
+            ..WorkerTaskConfig::default()
+        };
+
+        let estimate = estimate_staged_search_work_for_task(&config);
+        assert_eq!(
+            estimate.max_screenings_per_symbol, 48,
+            "explicit budget should not be inflated: {:?}",
             estimate
         );
     }
