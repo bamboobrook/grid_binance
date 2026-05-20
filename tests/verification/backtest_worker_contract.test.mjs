@@ -136,3 +136,11 @@ test("long_short worker rejects negative-only smoke instead of reporting success
   assert.match(worker, /negative_return/);
   assert.doesNotMatch(worker, /single_direction_candidates|LongOnly.*fallback|ShortOnly.*fallback/);
 });
+
+test("worker summary exposes eligible symbols and portfolio unique symbol count", () => {
+  const worker = readFileSync("apps/backtest-worker/src/main.rs", "utf8");
+  assert.match(worker, /eligible_symbols/);
+  assert.match(worker, /unique_eligible_symbol_count/);
+  assert.match(worker, /portfolio_unique_symbol_count/);
+  assert.match(worker, /portfolio_symbols/);
+});
