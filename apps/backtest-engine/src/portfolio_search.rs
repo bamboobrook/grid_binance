@@ -36,6 +36,8 @@ pub struct WeightedPortfolio {
 pub struct PortfolioTop3Artifact {
     pub top3: Vec<WeightedPortfolio>,
     pub eligible_candidate_count: usize,
+    pub eligible_symbols: Vec<String>,
+    pub unique_eligible_symbol_count: usize,
 }
 
 #[derive(Debug, Clone)]
@@ -53,6 +55,16 @@ pub struct EvaluatedCandidate {
     pub trades: Vec<crate::martingale::metrics::MartingaleTradeDetail>,
 }
 
+fn candidate_symbol(candidate: &EvaluatedCandidate) -> String {
+    candidate
+        .candidate
+        .config
+        .strategies
+        .first()
+        .map(|strategy| strategy.symbol.clone())
+        .unwrap_or_default()
+}
+
 pub fn build_portfolio_top3(candidates: &[EvaluatedCandidate], max_drawdown_pct: f64) -> PortfolioTop3Artifact {
     let eligible: Vec<&EvaluatedCandidate> = candidates
         .iter()
@@ -61,10 +73,20 @@ pub fn build_portfolio_top3(candidates: &[EvaluatedCandidate], max_drawdown_pct:
 
     let eligible_count = eligible.len();
 
+    let eligible_symbols: Vec<String> = eligible
+        .iter()
+        .map(|candidate| candidate_symbol(candidate))
+        .collect::<std::collections::BTreeSet<_>>()
+        .into_iter()
+        .collect();
+    let unique_eligible_symbol_count = eligible_symbols.len();
+
     if eligible_count < 2 {
         return PortfolioTop3Artifact {
             top3: Vec::new(),
             eligible_candidate_count: eligible_count,
+            eligible_symbols,
+            unique_eligible_symbol_count,
         };
     }
 
@@ -138,6 +160,8 @@ pub fn build_portfolio_top3(candidates: &[EvaluatedCandidate], max_drawdown_pct:
     PortfolioTop3Artifact {
         top3: scored_portfolios,
         eligible_candidate_count: eligible_count,
+        eligible_symbols,
+        unique_eligible_symbol_count,
     }
 }
 
@@ -400,11 +424,46 @@ mod tests {
     }
 
     #[test]
+    fn portfolio_top1_uses_cross_symbol_even_when_second_symbol_has_lower_return() {
+        let mut btc_a = fixture_candidate("btc-a", "BTCUSDT", 62.0, 19.0, 62.0);
+        btc_a.annualized_return_pct = Some(15.6);
+        let mut btc_b = fixture_candidate("btc-b", "BTCUSDT", 64.0, 20.0, 62.0);
+        btc_b.annualized_return_pct = Some(16.0);
+        let mut btc_c = fixture_candidate("btc-c", "BTCUSDT", 53.0, 20.0, 55.0);
+        btc_c.annualized_return_pct = Some(13.6);
+
+        let mut eth_a = fixture_candidate("eth-a", "ETHUSDT", 15.0, 28.9, 20.0);
+        eth_a.annualized_return_pct = Some(4.2);
+        let mut eth_b = fixture_candidate("eth-b", "ETHUSDT", 1.1, 29.2, 5.0);
+        eth_b.annualized_return_pct = Some(0.3);
+
+        let artifact = build_portfolio_top3(&[btc_a, btc_b, btc_c, eth_a, eth_b], 30.0);
+        assert!(!artifact.top3.is_empty());
+        let first = &artifact.top3[0];
+        let symbols: std::collections::HashSet<&str> = first.members.iter().map(|m| m.symbol.as_str()).collect();
+        assert!(symbols.contains("BTCUSDT"));
+        assert!(symbols.contains("ETHUSDT"), "Top1 must diversify when ETH eligible exists: {:?}", first.members);
+    }
+
+    #[test]
+    fn portfolio_artifact_reports_eligible_symbols() {
+        let artifact = build_portfolio_top3(&[
+            fixture_candidate("btc", "BTCUSDT", 30.0, 10.0, 3.0),
+            fixture_candidate("eth", "ETHUSDT", 10.0, 20.0, 2.0),
+        ], 30.0);
+
+        assert_eq!(artifact.unique_eligible_symbol_count, 2);
+        assert_eq!(artifact.eligible_symbols, vec!["BTCUSDT".to_owned(), "ETHUSDT".to_owned()]);
+    }
+
+    #[test]
     fn portfolio_top3_returns_empty_when_insufficient_eligible() {
         let candidates = vec![fixture_candidate("a", "BTCUSDT", 30.0, 10.0, 3.0)];
         let artifact = build_portfolio_top3(&candidates, 20.0);
         assert!(artifact.top3.is_empty());
         assert_eq!(artifact.eligible_candidate_count, 1);
+        assert_eq!(artifact.unique_eligible_symbol_count, 1);
+        assert_eq!(artifact.eligible_symbols, vec!["BTCUSDT".to_owned()]);
     }
 
     #[test]
