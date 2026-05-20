@@ -940,16 +940,72 @@ fn strategy_take_profit_bps(strategy: &MartingaleStrategyConfig) -> Option<u32> 
     }
 }
 
+fn evaluate_long_short_candidate_for_screening(
+    candidate: SearchCandidate,
+    context: &MarketDataContext,
+    task: &WorkerTaskConfig,
+    symbol: &str,
+    direction_mode: &str,
+    scoring: &ScoringConfig,
+) -> (EvaluatedCandidate, CandidateRejectionSample) {
+    use backtest_engine::martingale::scoring::score_candidate;
+
+    let overridden = apply_task_overrides_to_candidate(candidate, task);
+    let result = run_candidate_kline_screening(&overridden, context);
+    let (score, sample) = match result {
+        Ok(ref metrics) => {
+            let s = score_candidate(metrics, scoring);
+            let sample = CandidateRejectionSample {
+                candidate_id: overridden.candidate_id.clone(),
+                symbol: symbol.to_owned(),
+                direction_mode: direction_mode.to_owned(),
+                total_return_pct: Some(metrics.metrics.total_return_pct),
+                max_drawdown_pct: Some(metrics.metrics.max_drawdown_pct),
+                trade_count: metrics.metrics.trade_count as usize,
+                survival_valid: s.survival_valid,
+                rejection_reason: None,
+            };
+            (s, sample)
+        }
+        Err(_) => {
+            let sample = CandidateRejectionSample {
+                candidate_id: overridden.candidate_id.clone(),
+                symbol: symbol.to_owned(),
+                direction_mode: direction_mode.to_owned(),
+                total_return_pct: None,
+                max_drawdown_pct: None,
+                trade_count: 0,
+                survival_valid: false,
+                rejection_reason: Some("screening_failed".to_owned()),
+            };
+            (
+                backtest_engine::martingale::scoring::CandidateScore {
+                    survival_valid: false,
+                    rank_score: 0.0,
+                    raw_score: 0.0,
+                    rejection_reasons: vec!["screening_failed".to_owned()],
+                },
+                sample,
+            )
+        }
+    };
+    (
+        EvaluatedCandidate {
+            candidate: overridden,
+            score,
+        },
+        sample,
+    )
+}
+
 fn run_long_short_staged_search(
     context: &MarketDataContext,
     symbol: &str,
     task: &WorkerTaskConfig,
     staged: &StagedMartingaleSearchSpace,
     scoring: &ScoringConfig,
-    _max_threads: usize,
+    max_threads: usize,
 ) -> Result<(Vec<EvaluatedCandidate>, Vec<CandidateRejectionSample>), String> {
-    use backtest_engine::martingale::scoring::score_candidate;
-
     let direction_mode = task.direction_mode.as_deref().unwrap_or("long");
 
     // Apply user search_space overrides with lower-churn neighbor expansion
@@ -957,67 +1013,30 @@ fn run_long_short_staged_search(
     let candidates = generate_long_short_candidates_for_task(symbol, task, staged)?;
     let candidate_count = candidates.len();
 
-    let mut evaluated = Vec::new();
-    let mut rejection_samples = Vec::new();
     let start = std::time::Instant::now();
     let timeout_secs: u64 = 600;
 
-    for (idx, candidate) in candidates.into_iter().enumerate() {
-        if idx > 0 && idx % 5 == 0 {
-            if start.elapsed().as_secs() > timeout_secs {
-                return Err(martingale_search_timeout_error(
-                    symbol,
-                    direction_mode,
-                    candidate_count,
-                    timeout_secs,
-                ));
-            }
-        }
-        let overridden = apply_task_overrides_to_candidate(candidate, task);
-        let result = run_candidate_kline_screening(&overridden, context);
-        let (score, sample) = match result {
-            Ok(ref metrics) => {
-                let s = score_candidate(metrics, scoring);
-                let sample = CandidateRejectionSample {
-                    candidate_id: overridden.candidate_id.clone(),
-                    symbol: symbol.to_owned(),
-                    direction_mode: direction_mode.to_owned(),
-                    total_return_pct: Some(metrics.metrics.total_return_pct),
-                    max_drawdown_pct: Some(metrics.metrics.max_drawdown_pct),
-                    trade_count: metrics.metrics.trade_count as usize,
-                    survival_valid: s.survival_valid,
-                    rejection_reason: None,
-                };
-                (s, sample)
-            }
-            Err(_) => {
-                let sample = CandidateRejectionSample {
-                    candidate_id: overridden.candidate_id.clone(),
-                    symbol: symbol.to_owned(),
-                    direction_mode: direction_mode.to_owned(),
-                    total_return_pct: None,
-                    max_drawdown_pct: None,
-                    trade_count: 0,
-                    survival_valid: false,
-                    rejection_reason: Some("screening_failed".to_owned()),
-                };
-                (
-                    backtest_engine::martingale::scoring::CandidateScore {
-                        survival_valid: false,
-                        rank_score: 0.0,
-                        raw_score: 0.0,
-                        rejection_reasons: vec!["screening_failed".to_owned()],
-                    },
-                    sample,
-                )
-            }
-        };
-        rejection_samples.push(sample);
-        evaluated.push(EvaluatedCandidate {
-            candidate: overridden,
-            score,
-        });
+    let coarse_results = screen_candidates_bounded_parallel(candidates, max_threads, |candidate| {
+        evaluate_long_short_candidate_for_screening(
+            candidate,
+            context,
+            task,
+            symbol,
+            direction_mode,
+            scoring,
+        )
+    });
+    if start.elapsed().as_secs() > timeout_secs {
+        return Err(martingale_search_timeout_error(
+            symbol,
+            direction_mode,
+            candidate_count,
+            timeout_secs,
+        ));
     }
+
+    let (mut evaluated, mut rejection_samples): (Vec<_>, Vec<_>) =
+        coarse_results.into_iter().unzip();
 
     evaluated.sort_by(|a, b| b.score.rank_score.total_cmp(&a.score.rank_score));
     let survivors: Vec<_> = evaluated
@@ -1041,7 +1060,7 @@ fn run_long_short_staged_search(
             let result = run_candidate_kline_screening(&overridden, context);
             let (score, sample) = match result {
                 Ok(ref metrics) => {
-                    let s = score_candidate(metrics, scoring);
+                    let s = backtest_engine::martingale::scoring::score_candidate(metrics, scoring);
                     let sample = CandidateRejectionSample {
                         candidate_id: overridden.candidate_id.clone(),
                         symbol: symbol.to_owned(),
