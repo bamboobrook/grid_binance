@@ -186,6 +186,23 @@ fn bounded_parallel_width(max_threads: usize) -> usize {
     max_threads.max(1)
 }
 
+fn long_short_search_timeout_secs(
+    task: &WorkerTaskConfig,
+    coarse_candidate_count: usize,
+    max_threads: usize,
+) -> u64 {
+    let survivor_count = task
+        .per_symbol_top_n
+        .max(10)
+        .min(24)
+        .min(coarse_candidate_count);
+    let fine_candidate_count = task.random_candidates.max(12);
+    let estimated_screenings = coarse_candidate_count + survivor_count * fine_candidate_count;
+    let threads = bounded_parallel_width(max_threads);
+    let estimated_parallel_batches = (estimated_screenings + threads - 1) / threads;
+    (estimated_parallel_batches as u64 * 90).clamp(600, 3_600)
+}
+
 fn screen_candidates_bounded_parallel<F>(
     candidates: Vec<SearchCandidate>,
     max_threads: usize,
@@ -1014,7 +1031,7 @@ fn run_long_short_staged_search(
     let candidate_count = candidates.len();
 
     let start = std::time::Instant::now();
-    let timeout_secs: u64 = 600;
+    let timeout_secs = long_short_search_timeout_secs(task, candidate_count, max_threads);
 
     let coarse_results = screen_candidates_bounded_parallel(candidates, max_threads, |candidate| {
         evaluate_long_short_candidate_for_screening(
@@ -1050,7 +1067,8 @@ fn run_long_short_staged_search(
     for survivor in &survivors {
         let fine_space = long_short_fine_space_around_candidate(&survivor.candidate);
         let fine_task = task_with_long_short_refinement_space(task, &fine_space);
-        let mut fine_candidates = generate_long_short_candidates_for_task(symbol, &fine_task, staged)?;
+        let mut fine_candidates =
+            generate_long_short_candidates_for_task(symbol, &fine_task, staged)?;
         for (fine_index, fine_candidate) in fine_candidates.iter_mut().enumerate() {
             fine_candidate.candidate_id = format!(
                 "{}-fine-{fine_index}-{}",
@@ -1058,10 +1076,8 @@ fn run_long_short_staged_search(
             );
         }
 
-        let fine_results = screen_candidates_bounded_parallel(
-            fine_candidates,
-            max_threads,
-            |candidate| {
+        let fine_results =
+            screen_candidates_bounded_parallel(fine_candidates, max_threads, |candidate| {
                 evaluate_long_short_candidate_for_screening(
                     candidate,
                     context,
@@ -1070,8 +1086,7 @@ fn run_long_short_staged_search(
                     direction_mode,
                     scoring,
                 )
-            },
-        );
+            });
 
         for (candidate, sample) in fine_results {
             rejection_samples.push(sample);
@@ -3718,6 +3733,23 @@ mod tests {
         assert_eq!(bounded_parallel_width(0), 1);
         assert_eq!(bounded_parallel_width(1), 1);
         assert_eq!(bounded_parallel_width(24), 24);
+    }
+    #[test]
+    fn long_short_timeout_scales_with_refinement_budget() {
+        let small = WorkerTaskConfig {
+            random_candidates: 6,
+            per_symbol_top_n: 10,
+            ..WorkerTaskConfig::default()
+        };
+        let wide = WorkerTaskConfig {
+            random_candidates: 36,
+            per_symbol_top_n: 10,
+            ..WorkerTaskConfig::default()
+        };
+
+        assert_eq!(long_short_search_timeout_secs(&small, 6, 24), 600);
+        assert!(long_short_search_timeout_secs(&wide, 72, 24) > 600);
+        assert!(long_short_search_timeout_secs(&wide, 72, 24) <= 3_600);
     }
 
     #[cfg(test)]
