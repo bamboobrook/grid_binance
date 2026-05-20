@@ -77,6 +77,22 @@ export interface MartingaleBacktestCandidateSummary {
   trades_preview?: MartingaleTradeDetail[];
   eligible_candidate_count_for_symbol?: number | null;
   rejection_breakdown?: Record<string, number>;
+  long_short_legs?: MartingaleLongShortLegSummary;
+}
+
+export interface MartingaleLongShortLegSummary {
+  long?: MartingaleLegDetail;
+  short?: MartingaleLegDetail;
+}
+
+export interface MartingaleLegDetail {
+  first_order_quote?: number | string | null;
+  order_multiplier?: number | string | null;
+  max_legs?: number | null;
+  spacing_bps?: number | null;
+  take_profit_bps?: number | null;
+  stop_loss_bps?: number | null;
+  leverage?: number | null;
 }
 
 export interface MartingaleRiskSummary {

@@ -153,6 +153,13 @@ fn build_weighted_portfolio(eligible: &[&EvaluatedCandidate], member_indices: &[
         return None;
     }
 
+    if members_data.iter().any(|c| !c.planned_margin_quote.is_finite() || c.planned_margin_quote <= 0.0) {
+        return None;
+    }
+    if members_data.iter().any(|c| c.equity_curve.is_empty()) {
+        return None;
+    }
+
     let initial_portfolio_capital = 10_000.0;
 
     let member_pairs: Vec<(&EvaluatedCandidate, f64)> = members_data
@@ -204,6 +211,11 @@ fn build_weighted_portfolio(eligible: &[&EvaluatedCandidate], member_indices: &[
         return None;
     }
 
+    let first_equity = combined_curve.first().map(|p| p.equity_quote).unwrap_or(0.0);
+    if !first_equity.is_finite() || first_equity <= 0.0 || (first_equity - initial_portfolio_capital).abs() > 0.01 {
+        return None;
+    }
+
     let return_pct = {
         let first = combined_curve.first().map(|p| p.equity_quote).unwrap_or(1.0);
         let last = combined_curve.last().map(|p| p.equity_quote).unwrap_or(1.0);
@@ -232,9 +244,15 @@ fn build_weighted_portfolio(eligible: &[&EvaluatedCandidate], member_indices: &[
     trades_preview.truncate(200);
 
     let calmar = if max_drawdown_pct > 0.0 { return_pct / max_drawdown_pct } else { 0.0 };
-    let diversification_bonus = 1.0 + (portfolio_members.len() as f64 - 1.0) * 0.05;
-    let unique_symbol_count = portfolio_members.iter().map(|m| m.symbol.as_str()).collect::<std::collections::HashSet<_>>().len();
-    let concentration_penalty = if unique_symbol_count == 1 { 0.85 } else { 1.0 };
+    let unique_symbol_count = portfolio_members
+        .iter()
+        .map(|m| m.symbol.as_str())
+        .collect::<std::collections::HashSet<_>>()
+        .len();
+    let member_count = portfolio_members.len().max(1);
+    let diversification_factor = unique_symbol_count as f64 / member_count as f64;
+    let concentration_penalty = if unique_symbol_count == 1 { 0.50 } else { 1.0 };
+    let diversification_bonus = 1.0 + diversification_factor * 0.35;
     let score = calmar * diversification_bonus * concentration_penalty;
 
     Some(WeightedPortfolio {
@@ -265,16 +283,35 @@ fn combine_equity_curves(members: &[(&EvaluatedCandidate, f64)], initial_portfol
         return Vec::new();
     }
 
+    // Precompute initial equity for each member so the first combined point
+    // equals initial_portfolio_capital regardless of raw candidate equity scale.
+    let initial_equities: Vec<f64> = members
+        .iter()
+        .map(|(candidate, _)| {
+            candidate
+                .equity_curve
+                .first()
+                .map(|point| point.equity_quote)
+                .filter(|value| value.is_finite() && *value > 0.0)
+                .unwrap_or(candidate.planned_margin_quote)
+        })
+        .collect();
+
     (0..min_len)
         .map(|i| {
             let timestamp_ms = members[0].0.equity_curve[i].timestamp_ms;
             let equity_quote: f64 = members
                 .iter()
-                .map(|(candidate, allocation_pct)| {
+                .enumerate()
+                .map(|(idx, (candidate, allocation_pct))| {
                     let allocated_capital = initial_portfolio_capital * (*allocation_pct / 100.0);
-                    let initial_candidate_margin = candidate.planned_margin_quote.max(0.000001);
+                    let initial_candidate_equity = initial_equities[idx];
+                    if !initial_candidate_equity.is_finite() || initial_candidate_equity <= 0.0 {
+                        return 0.0;
+                    }
                     let candidate_equity = candidate.equity_curve[i].equity_quote;
-                    allocated_capital * candidate_equity / initial_candidate_margin
+                    let candidate_return_factor = candidate_equity / initial_candidate_equity;
+                    allocated_capital * candidate_return_factor
                 })
                 .sum();
             EquityPoint { timestamp_ms, equity_quote }
@@ -533,5 +570,68 @@ mod tests {
             !portfolio.trades_preview.is_empty(),
             "portfolio should carry combined trade details from members"
         );
+    }
+
+    #[test]
+    fn weighted_portfolio_equity_curve_starts_near_initial_portfolio_capital() {
+        let mut btc = fixture_candidate("btc", "BTCUSDT", 30.0, 10.0, 3.0);
+        btc.planned_margin_quote = 500.0;
+        btc.equity_curve = vec![
+            EquityPoint { timestamp_ms: 1, equity_quote: 500.0 },
+            EquityPoint { timestamp_ms: 2, equity_quote: 650.0 },
+        ];
+
+        let mut eth = fixture_candidate("eth", "ETHUSDT", 20.0, 8.0, 2.0);
+        eth.planned_margin_quote = 250.0;
+        eth.equity_curve = vec![
+            EquityPoint { timestamp_ms: 1, equity_quote: 250.0 },
+            EquityPoint { timestamp_ms: 2, equity_quote: 300.0 },
+        ];
+
+        let portfolio = build_weighted_portfolio(&[&btc, &eth], &[0, 1], &[0.6, 0.4])
+            .expect("portfolio should build");
+
+        let first = portfolio.equity_curve.first().unwrap().equity_quote;
+        let last = portfolio.equity_curve.last().unwrap().equity_quote;
+        assert!((first - 10_000.0).abs() < 0.0001, "first equity should equal initial portfolio capital, got {first}");
+        assert!(last > first, "last equity should grow proportionally, first={first}, last={last}");
+        assert!(last < 13_000.0, "last equity should be realistically scaled, got {last}");
+    }
+
+    #[test]
+    fn portfolio_top3_prefers_cross_symbol_members_when_available() {
+        // Use equity curves with drawdowns so calmar scoring is meaningful.
+        // BTC candidates have high return but higher drawdown; ETH has lower return
+        // but also lower drawdown. Cross-symbol should win via diversification bonus.
+        let btc_a = candidate_with_curve("btc-a", "BTCUSDT", 30.0, 15.0, 3.0, 500.0, vec![500.0, 480.0, 520.0, 650.0]);
+        let btc_b = candidate_with_curve("btc-b", "BTCUSDT", 28.0, 16.0, 2.9, 500.0, vec![500.0, 470.0, 510.0, 640.0]);
+        let eth_a = candidate_with_curve("eth-a", "ETHUSDT", 20.0, 5.0, 2.0, 250.0, vec![250.0, 245.0, 260.0, 300.0]);
+        let eth_b = candidate_with_curve("eth-b", "ETHUSDT", 18.0, 6.0, 1.8, 250.0, vec![250.0, 243.0, 255.0, 295.0]);
+
+        let artifact = build_portfolio_top3(&[btc_a, btc_b, eth_a, eth_b], 25.0);
+        assert!(!artifact.top3.is_empty());
+        let first = &artifact.top3[0];
+        let symbols: std::collections::HashSet<&str> = first.members.iter().map(|member| member.symbol.as_str()).collect();
+        assert!(symbols.contains("BTCUSDT"));
+        assert!(symbols.contains("ETHUSDT"), "first portfolio should diversify across eligible requested symbols: {:?}", first.members);
+    }
+
+    #[test]
+    fn weighted_portfolio_rejects_zero_or_missing_planned_margin() {
+        let mut btc = fixture_candidate("btc", "BTCUSDT", 30.0, 10.0, 3.0);
+        btc.planned_margin_quote = 0.0;
+        btc.equity_curve = vec![
+            EquityPoint { timestamp_ms: 1, equity_quote: 500.0 },
+            EquityPoint { timestamp_ms: 2, equity_quote: 650.0 },
+        ];
+
+        let mut eth = fixture_candidate("eth", "ETHUSDT", 20.0, 8.0, 2.0);
+        eth.planned_margin_quote = 250.0;
+        eth.equity_curve = vec![
+            EquityPoint { timestamp_ms: 1, equity_quote: 250.0 },
+            EquityPoint { timestamp_ms: 2, equity_quote: 300.0 },
+        ];
+
+        assert!(build_weighted_portfolio(&[&btc, &eth], &[0, 1], &[0.6, 0.4]).is_none());
     }
 }
