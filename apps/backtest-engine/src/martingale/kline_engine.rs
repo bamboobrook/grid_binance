@@ -12,7 +12,8 @@ use crate::martingale::exit_rules::{
     evaluate_exit_priority, take_profit_price, weighted_average_entry, ExitDecision,
 };
 use crate::martingale::metrics::{
-    build_drawdown_curve, calculate_annualized_return_pct, EquityPoint, MartingaleBacktestEvent, MartingaleBacktestResult, MartingaleMetrics,
+    build_drawdown_curve, calculate_annualized_return_pct, EquityPoint, MartingaleBacktestEvent,
+    MartingaleBacktestResult, MartingaleMetrics, MartingaleTradeDetail,
 };
 use crate::martingale::rules::{compute_leg_notionals, compute_leg_trigger_prices};
 use crate::martingale::state::MartingaleLegState;
@@ -341,6 +342,8 @@ pub fn run_kline_screening(
         }
     };
 
+    let trades = trade_details_from_events(&events, &equity_curve);
+
     Ok(MartingaleBacktestResult {
         metrics: MartingaleMetrics {
             total_return_pct: finite_or_zero(total_return_pct),
@@ -354,7 +357,11 @@ pub fn run_kline_screening(
             total_fee_quote: Some(total_fee_quote),
             total_slippage_quote: Some(total_slippage_quote),
             planned_margin_quote: Some(total_planned_margin),
-            return_drawdown_ratio: if max_drawdown_pct > 0.0 { Some(total_return_pct / max_drawdown_pct) } else { None },
+            return_drawdown_ratio: if max_drawdown_pct > 0.0 {
+                Some(total_return_pct / max_drawdown_pct)
+            } else {
+                None
+            },
             data_quality_score: Some(1.0),
             trade_count,
             stop_count,
@@ -364,9 +371,88 @@ pub fn run_kline_screening(
         events,
         drawdown_curve: build_drawdown_curve(&equity_curve),
         equity_curve,
-        trades: Vec::new(),
+        trades,
         rejection_reasons,
     })
+}
+
+fn trade_details_from_events(
+    events: &[MartingaleBacktestEvent],
+    equity_curve: &[EquityPoint],
+) -> Vec<MartingaleTradeDetail> {
+    events
+        .iter()
+        .filter_map(|event| {
+            let event_type = match event.event_type.as_str() {
+                "entry" => "open_leg",
+                "safety_order" => "open_leg",
+                "take_profit" => "close_cycle",
+                "stop_loss" | "global_stop_loss" | "symbol_stop_loss" => "stop_loss",
+                _ => return None,
+            };
+            let detail = parse_event_detail(&event.detail);
+            let price = detail
+                .get("price")
+                .copied()
+                .or_else(|| {
+                    equity_curve
+                        .iter()
+                        .find(|point| point.timestamp_ms == event.timestamp_ms)
+                        .map(|_| 0.0)
+                })
+                .unwrap_or(0.0);
+            let notional_quote = detail.get("notional_quote").copied().unwrap_or(0.0);
+            let fee_quote = detail
+                .get("fee_quote")
+                .copied()
+                .or_else(|| detail.get("exit_fee_quote").copied())
+                .unwrap_or(0.0);
+            let slippage_quote = detail
+                .get("slippage_quote")
+                .copied()
+                .or_else(|| detail.get("exit_slippage_quote").copied())
+                .unwrap_or(0.0);
+            let realized_pnl_quote = detail.get("pnl_quote").copied().unwrap_or(0.0);
+            let equity_after_quote = equity_curve
+                .iter()
+                .rev()
+                .find(|point| point.timestamp_ms <= event.timestamp_ms)
+                .or_else(|| equity_curve.first())
+                .map(|point| point.equity_quote)
+                .unwrap_or(0.0);
+            Some(MartingaleTradeDetail {
+                timestamp_ms: event.timestamp_ms,
+                symbol: event.symbol.clone(),
+                direction: event
+                    .strategy_instance_id
+                    .split('-')
+                    .next_back()
+                    .unwrap_or_default()
+                    .to_owned(),
+                event_type: event_type.to_owned(),
+                leg_index: detail.get("leg_index").map(|value| *value as u32),
+                price,
+                margin_quote: notional_quote,
+                notional_quote,
+                leverage: 1.0,
+                fee_quote,
+                slippage_quote,
+                realized_pnl_quote,
+                equity_after_quote,
+            })
+        })
+        .collect()
+}
+
+fn parse_event_detail(detail: &str) -> BTreeMap<String, f64> {
+    detail
+        .split(';')
+        .filter_map(|part| {
+            let (key, value) = part.split_once('=')?;
+            let parsed = value.parse::<f64>().ok()?;
+            Some((key.to_owned(), parsed))
+        })
+        .collect()
 }
 
 struct StrategyRuntime<'a> {
@@ -2209,10 +2295,32 @@ mod tests {
         strategy.stop_loss = Some(MartingaleStopLossModel::StrategyDrawdownPct { pct_bps: 2_000 });
 
         let result = run_kline_screening(portfolio, &bars).expect("long cycle should run");
-        assert!(result.metrics.total_return_pct > 0.0, "expected positive long martingale cycle after fees: {:?}", result.metrics);
-        assert!(result.events.iter().any(|event| event.event_type == "safety_order"));
-        assert!(result.events.iter().any(|event| event.event_type == "take_profit"));
-        assert!(result.metrics.trade_count <= 10, "trade count should count orders/exits, not churn: {}", result.metrics.trade_count);
+        assert!(
+            result.metrics.total_return_pct > 0.0,
+            "expected positive long martingale cycle after fees: {:?}",
+            result.metrics
+        );
+        assert!(result
+            .events
+            .iter()
+            .any(|event| event.event_type == "safety_order"));
+        assert!(result
+            .events
+            .iter()
+            .any(|event| event.event_type == "take_profit"));
+        assert!(result
+            .trades
+            .iter()
+            .any(|trade| trade.event_type == "open_leg"));
+        assert!(result
+            .trades
+            .iter()
+            .any(|trade| trade.event_type == "close_cycle"));
+        assert!(
+            result.metrics.trade_count <= 10,
+            "trade count should count orders/exits, not churn: {}",
+            result.metrics.trade_count
+        );
     }
 
     #[test]
@@ -2237,10 +2345,24 @@ mod tests {
         strategy.stop_loss = Some(MartingaleStopLossModel::StrategyDrawdownPct { pct_bps: 2_000 });
 
         let result = run_kline_screening(portfolio, &bars).expect("short cycle should run");
-        assert!(result.metrics.total_return_pct > 0.0, "expected positive short martingale cycle after fees: {:?}", result.metrics);
-        assert!(result.events.iter().any(|event| event.event_type == "safety_order"));
-        assert!(result.events.iter().any(|event| event.event_type == "take_profit"));
-        assert!(result.metrics.trade_count <= 10, "trade count should count orders/exits, not churn: {}", result.metrics.trade_count);
+        assert!(
+            result.metrics.total_return_pct > 0.0,
+            "expected positive short martingale cycle after fees: {:?}",
+            result.metrics
+        );
+        assert!(result
+            .events
+            .iter()
+            .any(|event| event.event_type == "safety_order"));
+        assert!(result
+            .events
+            .iter()
+            .any(|event| event.event_type == "take_profit"));
+        assert!(
+            result.metrics.trade_count <= 10,
+            "trade count should count orders/exits, not churn: {}",
+            result.metrics.trade_count
+        );
     }
 
     #[test]
@@ -2261,22 +2383,34 @@ mod tests {
         long_strategy.direction_mode = MartingaleDirectionMode::LongAndShort;
         long_strategy.spacing = MartingaleSpacingModel::FixedPercent { step_bps: 100 };
         long_strategy.take_profit = MartingaleTakeProfitModel::Percent { bps: 60 };
-        long_strategy.stop_loss = Some(MartingaleStopLossModel::StrategyDrawdownPct { pct_bps: 2_000 });
+        long_strategy.stop_loss =
+            Some(MartingaleStopLossModel::StrategyDrawdownPct { pct_bps: 2_000 });
 
         let mut short_strategy = long_strategy.clone();
         short_strategy.strategy_id = "short-leg".to_owned();
         short_strategy.direction = MartingaleDirection::Short;
         short_strategy.spacing = MartingaleSpacingModel::FixedPercent { step_bps: 300 };
         short_strategy.take_profit = MartingaleTakeProfitModel::Percent { bps: 140 };
-        short_strategy.stop_loss = Some(MartingaleStopLossModel::StrategyDrawdownPct { pct_bps: 800 });
+        short_strategy.stop_loss =
+            Some(MartingaleStopLossModel::StrategyDrawdownPct { pct_bps: 800 });
 
         portfolio.strategies = vec![long_strategy, short_strategy];
 
         let result = run_kline_screening(portfolio, &bars).expect("long_short cycle should run");
         assert!(result.metrics.trade_count > 0);
-        assert!(result.metrics.trade_count < 10, "long_short deterministic test should not churn: {}", result.metrics.trade_count);
-        assert!(result.events.iter().any(|event| event.strategy_instance_id == "long-leg"));
-        assert!(result.events.iter().any(|event| event.strategy_instance_id == "short-leg"));
+        assert!(
+            result.metrics.trade_count < 10,
+            "long_short deterministic test should not churn: {}",
+            result.metrics.trade_count
+        );
+        assert!(result
+            .events
+            .iter()
+            .any(|event| event.strategy_instance_id == "long-leg"));
+        assert!(result
+            .events
+            .iter()
+            .any(|event| event.strategy_instance_id == "short-leg"));
         assert!(result.metrics.total_return_pct.is_finite());
         assert!(result.metrics.max_drawdown_pct.is_finite());
     }
@@ -2327,27 +2461,46 @@ mod tests {
         portfolio.strategies.push(short_strategy);
 
         let result = run_kline_screening(portfolio, &bars).expect("screening should run");
-        assert!(result.metrics.planned_margin_quote.is_some_and(|m| m > 0.0), "planned_margin should be positive");
+        assert!(
+            result.metrics.planned_margin_quote.is_some_and(|m| m > 0.0),
+            "planned_margin should be positive"
+        );
         assert!(result.metrics.total_return_pct.is_finite());
         assert!(result.metrics.max_drawdown_pct.is_finite());
-        assert!(result.metrics.total_return_pct.abs() < 100.0, "return should be normalized by planned margin, got {}", result.metrics.total_return_pct);
-        assert!(result.metrics.max_drawdown_pct < 100.0, "drawdown should be normalized by planned margin, got {}", result.metrics.max_drawdown_pct);
+        assert!(
+            result.metrics.total_return_pct.abs() < 100.0,
+            "return should be normalized by planned margin, got {}",
+            result.metrics.total_return_pct
+        );
+        assert!(
+            result.metrics.max_drawdown_pct < 100.0,
+            "drawdown should be normalized by planned margin, got {}",
+            result.metrics.max_drawdown_pct
+        );
     }
 
-    fn trending_bars(symbol: &str, start_ms: i64, count: usize, start_price: f64, end_price: f64) -> Vec<KlineBar> {
-        (0..count).map(|index| {
-            let t = index as f64 / (count.saturating_sub(1).max(1)) as f64;
-            let close = start_price + (end_price - start_price) * t;
-            KlineBar {
-                symbol: symbol.to_owned(),
-                open_time_ms: start_ms + index as i64 * 60_000,
-                open: close,
-                high: close * 1.001,
-                low: close * 0.999,
-                close,
-                volume: 1.0,
-            }
-        }).collect()
+    fn trending_bars(
+        symbol: &str,
+        start_ms: i64,
+        count: usize,
+        start_price: f64,
+        end_price: f64,
+    ) -> Vec<KlineBar> {
+        (0..count)
+            .map(|index| {
+                let t = index as f64 / (count.saturating_sub(1).max(1)) as f64;
+                let close = start_price + (end_price - start_price) * t;
+                KlineBar {
+                    symbol: symbol.to_owned(),
+                    open_time_ms: start_ms + index as i64 * 60_000,
+                    open: close,
+                    high: close * 1.001,
+                    low: close * 0.999,
+                    close,
+                    volume: 1.0,
+                }
+            })
+            .collect()
     }
 
     #[test]
@@ -2370,6 +2523,10 @@ mod tests {
 
         let result = run_kline_screening(portfolio, &bars).expect("screening should run");
         assert!(result.metrics.trade_count > 0);
-        assert!(result.metrics.trade_count < 400, "trade count should not churn every bar: {}", result.metrics.trade_count);
+        assert!(
+            result.metrics.trade_count < 400,
+            "trade count should not churn every bar: {}",
+            result.metrics.trade_count
+        );
     }
 }

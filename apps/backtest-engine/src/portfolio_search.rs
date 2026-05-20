@@ -1,4 +1,6 @@
-use crate::martingale::metrics::{build_drawdown_curve, calculate_annualized_return_pct, DrawdownPoint, EquityPoint};
+use crate::martingale::metrics::{
+    build_drawdown_curve, calculate_annualized_return_pct, DrawdownPoint, EquityPoint,
+};
 use crate::search::SearchCandidate;
 use serde::{Deserialize, Serialize};
 
@@ -66,13 +68,21 @@ fn candidate_symbol(candidate: &EvaluatedCandidate) -> String {
 }
 
 fn best_indices_by_symbol(eligible: &[&EvaluatedCandidate], per_symbol: usize) -> Vec<usize> {
-    let mut grouped: std::collections::BTreeMap<String, Vec<(usize, &EvaluatedCandidate)>> = std::collections::BTreeMap::new();
+    let mut grouped: std::collections::BTreeMap<String, Vec<(usize, &EvaluatedCandidate)>> =
+        std::collections::BTreeMap::new();
     for (index, candidate) in eligible.iter().enumerate() {
-        grouped.entry(candidate_symbol(candidate)).or_default().push((index, *candidate));
+        grouped
+            .entry(candidate_symbol(candidate))
+            .or_default()
+            .push((index, *candidate));
     }
     let mut result = Vec::new();
     for (_symbol, mut rows) in grouped {
-        rows.sort_by(|a, b| b.1.score.partial_cmp(&a.1.score).unwrap_or(std::cmp::Ordering::Equal));
+        rows.sort_by(|a, b| {
+            b.1.score
+                .partial_cmp(&a.1.score)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
         result.extend(rows.into_iter().take(per_symbol).map(|(index, _)| index));
     }
     result.sort_unstable();
@@ -80,10 +90,15 @@ fn best_indices_by_symbol(eligible: &[&EvaluatedCandidate], per_symbol: usize) -
     result
 }
 
-pub fn build_portfolio_top3(candidates: &[EvaluatedCandidate], max_drawdown_pct: f64) -> PortfolioTop3Artifact {
+pub fn build_portfolio_top3(
+    candidates: &[EvaluatedCandidate],
+    max_drawdown_pct: f64,
+) -> PortfolioTop3Artifact {
     let eligible: Vec<&EvaluatedCandidate> = candidates
         .iter()
-        .filter(|c| c.survival_passed && c.max_drawdown_pct <= max_drawdown_pct && c.return_pct > 0.0)
+        .filter(|c| {
+            c.survival_passed && c.max_drawdown_pct <= max_drawdown_pct && c.return_pct > 0.0
+        })
         .collect();
 
     let eligible_count = eligible.len();
@@ -129,7 +144,9 @@ pub fn build_portfolio_top3(candidates: &[EvaluatedCandidate], max_drawdown_pct:
                 }
                 for template in &allocation_templates {
                     if template.len() == 2 {
-                        if let Some(portfolio) = build_weighted_portfolio(&eligible, &[i, j], template) {
+                        if let Some(portfolio) =
+                            build_weighted_portfolio(&eligible, &[i, j], template)
+                        {
                             scored_portfolios.push(portfolio);
                         }
                         combo_count += 1;
@@ -167,7 +184,9 @@ pub fn build_portfolio_top3(candidates: &[EvaluatedCandidate], max_drawdown_pct:
                 }
             }
             if combo_count >= max_combos || !tried {
-                if combo_count >= max_combos { break; }
+                if combo_count >= max_combos {
+                    break;
+                }
                 continue;
             }
 
@@ -202,22 +221,51 @@ pub fn build_portfolio_top3(candidates: &[EvaluatedCandidate], max_drawdown_pct:
     }
 
     // Step C: Sort by score, then force diversified portfolios to the top when eligible.
-    scored_portfolios.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap_or(std::cmp::Ordering::Equal));
+    scored_portfolios.sort_by(|a, b| {
+        b.score
+            .partial_cmp(&a.score)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
 
     if unique_eligible_symbol_count >= 2 {
         let mut diversified: Vec<_> = scored_portfolios
             .iter()
             .cloned()
-            .filter(|p| p.members.iter().map(|m| m.symbol.as_str()).collect::<std::collections::HashSet<_>>().len() >= 2)
+            .filter(|p| {
+                p.members
+                    .iter()
+                    .map(|m| m.symbol.as_str())
+                    .collect::<std::collections::HashSet<_>>()
+                    .len()
+                    >= 2
+            })
             .collect();
         let mut concentrated: Vec<_> = scored_portfolios
             .iter()
             .cloned()
-            .filter(|p| p.members.iter().map(|m| m.symbol.as_str()).collect::<std::collections::HashSet<_>>().len() < 2)
+            .filter(|p| {
+                p.members
+                    .iter()
+                    .map(|m| m.symbol.as_str())
+                    .collect::<std::collections::HashSet<_>>()
+                    .len()
+                    < 2
+            })
             .collect();
-        diversified.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap_or(std::cmp::Ordering::Equal));
-        concentrated.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap_or(std::cmp::Ordering::Equal));
-        scored_portfolios = diversified.into_iter().chain(concentrated.into_iter()).collect();
+        diversified.sort_by(|a, b| {
+            b.score
+                .partial_cmp(&a.score)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
+        concentrated.sort_by(|a, b| {
+            b.score
+                .partial_cmp(&a.score)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
+        scored_portfolios = diversified
+            .into_iter()
+            .chain(concentrated.into_iter())
+            .collect();
     }
     scored_portfolios.truncate(3);
 
@@ -229,8 +277,13 @@ pub fn build_portfolio_top3(candidates: &[EvaluatedCandidate], max_drawdown_pct:
     }
 }
 
-fn build_weighted_portfolio(eligible: &[&EvaluatedCandidate], member_indices: &[usize], allocations: &[f64]) -> Option<WeightedPortfolio> {
-    let members_data: Vec<&EvaluatedCandidate> = member_indices.iter().map(|&i| eligible[i]).collect();
+fn build_weighted_portfolio(
+    eligible: &[&EvaluatedCandidate],
+    member_indices: &[usize],
+    allocations: &[f64],
+) -> Option<WeightedPortfolio> {
+    let members_data: Vec<&EvaluatedCandidate> =
+        member_indices.iter().map(|&i| eligible[i]).collect();
 
     // Require unique candidate IDs (allow same symbol with different strategies)
     let unique_ids: std::collections::HashSet<&str> = members_data
@@ -241,7 +294,10 @@ fn build_weighted_portfolio(eligible: &[&EvaluatedCandidate], member_indices: &[
         return None;
     }
 
-    if members_data.iter().any(|c| !c.planned_margin_quote.is_finite() || c.planned_margin_quote <= 0.0) {
+    if members_data
+        .iter()
+        .any(|c| !c.planned_margin_quote.is_finite() || c.planned_margin_quote <= 0.0)
+    {
         return None;
     }
     if members_data.iter().any(|c| c.equity_curve.is_empty()) {
@@ -256,6 +312,18 @@ fn build_weighted_portfolio(eligible: &[&EvaluatedCandidate], member_indices: &[
         .map(|(c, alloc)| (*c, *alloc * 100.0))
         .collect();
 
+    let mut allocation_by_symbol = std::collections::BTreeMap::<String, f64>::new();
+    for (candidate, allocation_pct) in &member_pairs {
+        let symbol = candidate_symbol(candidate);
+        *allocation_by_symbol.entry(symbol).or_insert(0.0) += *allocation_pct;
+    }
+    if allocation_by_symbol
+        .values()
+        .any(|allocation_pct| *allocation_pct > 80.000001)
+    {
+        return None;
+    }
+
     let portfolio_members: Vec<PortfolioMember> = member_pairs
         .iter()
         .map(|(c, allocation_pct)| {
@@ -267,7 +335,9 @@ fn build_weighted_portfolio(eligible: &[&EvaluatedCandidate], member_indices: &[
                 .map(|s| s.symbol.clone())
                 .unwrap_or_default();
             let direction = match c.candidate.config.direction_mode {
-                shared_domain::martingale::MartingaleDirectionMode::LongAndShort => "long_short".to_owned(),
+                shared_domain::martingale::MartingaleDirectionMode::LongAndShort => {
+                    "long_short".to_owned()
+                }
                 _ => c
                     .candidate
                     .config
@@ -299,15 +369,28 @@ fn build_weighted_portfolio(eligible: &[&EvaluatedCandidate], member_indices: &[
         return None;
     }
 
-    let first_equity = combined_curve.first().map(|p| p.equity_quote).unwrap_or(0.0);
-    if !first_equity.is_finite() || first_equity <= 0.0 || (first_equity - initial_portfolio_capital).abs() > 0.01 {
+    let first_equity = combined_curve
+        .first()
+        .map(|p| p.equity_quote)
+        .unwrap_or(0.0);
+    if !first_equity.is_finite()
+        || first_equity <= 0.0
+        || (first_equity - initial_portfolio_capital).abs() > 0.01
+    {
         return None;
     }
 
     let return_pct = {
-        let first = combined_curve.first().map(|p| p.equity_quote).unwrap_or(1.0);
+        let first = combined_curve
+            .first()
+            .map(|p| p.equity_quote)
+            .unwrap_or(1.0);
         let last = combined_curve.last().map(|p| p.equity_quote).unwrap_or(1.0);
-        if first > 0.0 { (last / first - 1.0) * 100.0 } else { 0.0 }
+        if first > 0.0 {
+            (last / first - 1.0) * 100.0
+        } else {
+            0.0
+        }
     };
 
     if return_pct <= 0.0 {
@@ -315,7 +398,10 @@ fn build_weighted_portfolio(eligible: &[&EvaluatedCandidate], member_indices: &[
     }
 
     let drawdown_curve = build_drawdown_curve(&combined_curve);
-    let max_drawdown_pct = drawdown_curve.iter().map(|p| p.drawdown_pct).fold(0.0_f64, f64::max);
+    let max_drawdown_pct = drawdown_curve
+        .iter()
+        .map(|p| p.drawdown_pct)
+        .fold(0.0_f64, f64::max);
 
     let trade_count: u64 = members_data.iter().map(|c| c.trade_count).sum();
     let days = {
@@ -323,15 +409,25 @@ fn build_weighted_portfolio(eligible: &[&EvaluatedCandidate], member_indices: &[
         let last_ts = combined_curve.last().map(|p| p.timestamp_ms).unwrap_or(0);
         ((last_ts - first_ts) as f64) / 86_400_000.0
     };
-    let initial = combined_curve.first().map(|p| p.equity_quote).unwrap_or(1.0);
+    let initial = combined_curve
+        .first()
+        .map(|p| p.equity_quote)
+        .unwrap_or(1.0);
     let ending = combined_curve.last().map(|p| p.equity_quote).unwrap_or(1.0);
     let annualized_return_pct = calculate_annualized_return_pct(initial, ending, days);
 
-    let mut trades_preview = members_data.iter().flat_map(|c| c.trades.clone()).collect::<Vec<_>>();
+    let mut trades_preview = members_data
+        .iter()
+        .flat_map(|c| c.trades.clone())
+        .collect::<Vec<_>>();
     trades_preview.sort_by_key(|trade| trade.timestamp_ms);
     trades_preview.truncate(200);
 
-    let calmar = if max_drawdown_pct > 0.0 { return_pct / max_drawdown_pct } else { 0.0 };
+    let calmar = if max_drawdown_pct > 0.0 {
+        return_pct / max_drawdown_pct
+    } else {
+        0.0
+    };
     let unique_symbol_count = portfolio_members
         .iter()
         .map(|m| m.symbol.as_str())
@@ -358,7 +454,10 @@ fn build_weighted_portfolio(eligible: &[&EvaluatedCandidate], member_indices: &[
     })
 }
 
-fn combine_equity_curves(members: &[(&EvaluatedCandidate, f64)], initial_portfolio_capital: f64) -> Vec<EquityPoint> {
+fn combine_equity_curves(
+    members: &[(&EvaluatedCandidate, f64)],
+    initial_portfolio_capital: f64,
+) -> Vec<EquityPoint> {
     if members.is_empty() {
         return Vec::new();
     }
@@ -366,7 +465,11 @@ fn combine_equity_curves(members: &[(&EvaluatedCandidate, f64)], initial_portfol
         return members[0].0.equity_curve.clone();
     }
 
-    let min_len = members.iter().map(|(c, _)| c.equity_curve.len()).min().unwrap_or(0);
+    let min_len = members
+        .iter()
+        .map(|(c, _)| c.equity_curve.len())
+        .min()
+        .unwrap_or(0);
     if min_len == 0 {
         return Vec::new();
     }
@@ -402,7 +505,10 @@ fn combine_equity_curves(members: &[(&EvaluatedCandidate, f64)], initial_portfol
                     allocated_capital * candidate_return_factor
                 })
                 .sum();
-            EquityPoint { timestamp_ms, equity_quote }
+            EquityPoint {
+                timestamp_ms,
+                equity_quote,
+            }
         })
         .collect()
 }
@@ -411,14 +517,20 @@ fn combine_equity_curves(members: &[(&EvaluatedCandidate, f64)], initial_portfol
 mod tests {
     use super::*;
     use crate::martingale::metrics::EquityPoint;
-    use shared_domain::martingale::{
-        MartingaleDirection, MartingaleDirectionMode, MartingaleMarketKind, MartingalePortfolioConfig,
-        MartingaleRiskLimits, MartingaleSizingModel, MartingaleSpacingModel, MartingaleStrategyConfig,
-        MartingaleTakeProfitModel,
-    };
     use rust_decimal::Decimal;
+    use shared_domain::martingale::{
+        MartingaleDirection, MartingaleDirectionMode, MartingaleMarketKind,
+        MartingalePortfolioConfig, MartingaleRiskLimits, MartingaleSizingModel,
+        MartingaleSpacingModel, MartingaleStrategyConfig, MartingaleTakeProfitModel,
+    };
 
-    fn fixture_candidate(id: &str, symbol: &str, return_pct: f64, dd: f64, score: f64) -> EvaluatedCandidate {
+    fn fixture_candidate(
+        id: &str,
+        symbol: &str,
+        return_pct: f64,
+        dd: f64,
+        score: f64,
+    ) -> EvaluatedCandidate {
         let strategy = MartingaleStrategyConfig {
             strategy_id: format!("test-{}", id),
             symbol: symbol.to_owned(),
@@ -504,20 +616,31 @@ mod tests {
         let artifact = build_portfolio_top3(&[btc_a, btc_b, btc_c, eth_a, eth_b], 30.0);
         assert!(!artifact.top3.is_empty());
         let first = &artifact.top3[0];
-        let symbols: std::collections::HashSet<&str> = first.members.iter().map(|m| m.symbol.as_str()).collect();
+        let symbols: std::collections::HashSet<&str> =
+            first.members.iter().map(|m| m.symbol.as_str()).collect();
         assert!(symbols.contains("BTCUSDT"));
-        assert!(symbols.contains("ETHUSDT"), "Top1 must diversify when ETH eligible exists: {:?}", first.members);
+        assert!(
+            symbols.contains("ETHUSDT"),
+            "Top1 must diversify when ETH eligible exists: {:?}",
+            first.members
+        );
     }
 
     #[test]
     fn portfolio_artifact_reports_eligible_symbols() {
-        let artifact = build_portfolio_top3(&[
-            fixture_candidate("btc", "BTCUSDT", 30.0, 10.0, 3.0),
-            fixture_candidate("eth", "ETHUSDT", 10.0, 20.0, 2.0),
-        ], 30.0);
+        let artifact = build_portfolio_top3(
+            &[
+                fixture_candidate("btc", "BTCUSDT", 30.0, 10.0, 3.0),
+                fixture_candidate("eth", "ETHUSDT", 10.0, 20.0, 2.0),
+            ],
+            30.0,
+        );
 
         assert_eq!(artifact.unique_eligible_symbol_count, 2);
-        assert_eq!(artifact.eligible_symbols, vec!["BTCUSDT".to_owned(), "ETHUSDT".to_owned()]);
+        assert_eq!(
+            artifact.eligible_symbols,
+            vec!["BTCUSDT".to_owned(), "ETHUSDT".to_owned()]
+        );
     }
 
     #[test]
@@ -617,7 +740,11 @@ mod tests {
         // Portfolio equity must start at a meaningful initial capital (not raw sum of equity values)
         // With normalization: allocated_capital * equity / planned_margin
         // The initial point should reflect allocated capital, not raw 100+200=300
-        let initial_equity = portfolio.equity_curve.first().map(|p| p.equity_quote).unwrap_or(0.0);
+        let initial_equity = portfolio
+            .equity_curve
+            .first()
+            .map(|p| p.equity_quote)
+            .unwrap_or(0.0);
         // Raw sum would be 300.0; normalized should be different.
         assert!(initial_equity > 0.0);
         assert!(
@@ -629,22 +756,36 @@ mod tests {
 
     #[test]
     fn portfolio_allows_multiple_strategies_on_same_symbol_when_candidate_ids_differ() {
-        let a = candidate_with_curve("btc-fast", "BTCUSDT", 15.0, 5.0, 3.0, 100.0, vec![100.0, 115.0]);
-        let b = candidate_with_curve("btc-slow", "BTCUSDT", 8.0, 5.0, 2.0, 100.0, vec![100.0, 108.0]);
+        let a = candidate_with_curve(
+            "btc-fast",
+            "BTCUSDT",
+            15.0,
+            5.0,
+            3.0,
+            100.0,
+            vec![100.0, 115.0],
+        );
+        let b = candidate_with_curve(
+            "btc-slow",
+            "BTCUSDT",
+            8.0,
+            5.0,
+            2.0,
+            100.0,
+            vec![100.0, 108.0],
+        );
         let c = candidate_with_curve("eth", "ETHUSDT", 4.0, 5.0, 1.5, 100.0, vec![100.0, 104.0]);
 
-        let artifact = build_portfolio_top3(&[a, b, c], 20.0);
-
+        let portfolio = build_weighted_portfolio(&[&a, &b, &c], &[0, 1, 2], &[0.5, 0.25, 0.25])
+            .expect("same-symbol multi-strategy should be allowed under 80% symbol cap");
         assert!(
-            !artifact.top3.is_empty(),
-            "should produce at least one portfolio from same-symbol + cross-symbol candidates"
-        );
-        assert!(
-            artifact.top3.iter().any(|p| {
-                let btc_members = p.members.iter().filter(|m| m.symbol == "BTCUSDT").count();
-                btc_members >= 2
-            }),
-            "at least one portfolio should combine two BTCUSDT strategies"
+            portfolio
+                .members
+                .iter()
+                .filter(|m| m.symbol == "BTCUSDT")
+                .count()
+                >= 2,
+            "portfolio should combine two BTCUSDT strategies when total BTC allocation is capped"
         );
     }
 
@@ -700,15 +841,27 @@ mod tests {
         let mut btc = fixture_candidate("btc", "BTCUSDT", 30.0, 10.0, 3.0);
         btc.planned_margin_quote = 500.0;
         btc.equity_curve = vec![
-            EquityPoint { timestamp_ms: 1, equity_quote: 500.0 },
-            EquityPoint { timestamp_ms: 2, equity_quote: 650.0 },
+            EquityPoint {
+                timestamp_ms: 1,
+                equity_quote: 500.0,
+            },
+            EquityPoint {
+                timestamp_ms: 2,
+                equity_quote: 650.0,
+            },
         ];
 
         let mut eth = fixture_candidate("eth", "ETHUSDT", 20.0, 8.0, 2.0);
         eth.planned_margin_quote = 250.0;
         eth.equity_curve = vec![
-            EquityPoint { timestamp_ms: 1, equity_quote: 250.0 },
-            EquityPoint { timestamp_ms: 2, equity_quote: 300.0 },
+            EquityPoint {
+                timestamp_ms: 1,
+                equity_quote: 250.0,
+            },
+            EquityPoint {
+                timestamp_ms: 2,
+                equity_quote: 300.0,
+            },
         ];
 
         let portfolio = build_weighted_portfolio(&[&btc, &eth], &[0, 1], &[0.6, 0.4])
@@ -716,9 +869,18 @@ mod tests {
 
         let first = portfolio.equity_curve.first().unwrap().equity_quote;
         let last = portfolio.equity_curve.last().unwrap().equity_quote;
-        assert!((first - 10_000.0).abs() < 0.0001, "first equity should equal initial portfolio capital, got {first}");
-        assert!(last > first, "last equity should grow proportionally, first={first}, last={last}");
-        assert!(last < 13_000.0, "last equity should be realistically scaled, got {last}");
+        assert!(
+            (first - 10_000.0).abs() < 0.0001,
+            "first equity should equal initial portfolio capital, got {first}"
+        );
+        assert!(
+            last > first,
+            "last equity should grow proportionally, first={first}, last={last}"
+        );
+        assert!(
+            last < 13_000.0,
+            "last equity should be realistically scaled, got {last}"
+        );
     }
 
     #[test]
@@ -726,17 +888,57 @@ mod tests {
         // Use equity curves with drawdowns so calmar scoring is meaningful.
         // BTC candidates have high return but higher drawdown; ETH has lower return
         // but also lower drawdown. Cross-symbol should win via diversification bonus.
-        let btc_a = candidate_with_curve("btc-a", "BTCUSDT", 30.0, 15.0, 3.0, 500.0, vec![500.0, 480.0, 520.0, 650.0]);
-        let btc_b = candidate_with_curve("btc-b", "BTCUSDT", 28.0, 16.0, 2.9, 500.0, vec![500.0, 470.0, 510.0, 640.0]);
-        let eth_a = candidate_with_curve("eth-a", "ETHUSDT", 20.0, 5.0, 2.0, 250.0, vec![250.0, 245.0, 260.0, 300.0]);
-        let eth_b = candidate_with_curve("eth-b", "ETHUSDT", 18.0, 6.0, 1.8, 250.0, vec![250.0, 243.0, 255.0, 295.0]);
+        let btc_a = candidate_with_curve(
+            "btc-a",
+            "BTCUSDT",
+            30.0,
+            15.0,
+            3.0,
+            500.0,
+            vec![500.0, 480.0, 520.0, 650.0],
+        );
+        let btc_b = candidate_with_curve(
+            "btc-b",
+            "BTCUSDT",
+            28.0,
+            16.0,
+            2.9,
+            500.0,
+            vec![500.0, 470.0, 510.0, 640.0],
+        );
+        let eth_a = candidate_with_curve(
+            "eth-a",
+            "ETHUSDT",
+            20.0,
+            5.0,
+            2.0,
+            250.0,
+            vec![250.0, 245.0, 260.0, 300.0],
+        );
+        let eth_b = candidate_with_curve(
+            "eth-b",
+            "ETHUSDT",
+            18.0,
+            6.0,
+            1.8,
+            250.0,
+            vec![250.0, 243.0, 255.0, 295.0],
+        );
 
         let artifact = build_portfolio_top3(&[btc_a, btc_b, eth_a, eth_b], 25.0);
         assert!(!artifact.top3.is_empty());
         let first = &artifact.top3[0];
-        let symbols: std::collections::HashSet<&str> = first.members.iter().map(|member| member.symbol.as_str()).collect();
+        let symbols: std::collections::HashSet<&str> = first
+            .members
+            .iter()
+            .map(|member| member.symbol.as_str())
+            .collect();
         assert!(symbols.contains("BTCUSDT"));
-        assert!(symbols.contains("ETHUSDT"), "first portfolio should diversify across eligible requested symbols: {:?}", first.members);
+        assert!(
+            symbols.contains("ETHUSDT"),
+            "first portfolio should diversify across eligible requested symbols: {:?}",
+            first.members
+        );
     }
 
     #[test]
@@ -744,17 +946,63 @@ mod tests {
         let mut btc = fixture_candidate("btc", "BTCUSDT", 30.0, 10.0, 3.0);
         btc.planned_margin_quote = 0.0;
         btc.equity_curve = vec![
-            EquityPoint { timestamp_ms: 1, equity_quote: 500.0 },
-            EquityPoint { timestamp_ms: 2, equity_quote: 650.0 },
+            EquityPoint {
+                timestamp_ms: 1,
+                equity_quote: 500.0,
+            },
+            EquityPoint {
+                timestamp_ms: 2,
+                equity_quote: 650.0,
+            },
         ];
 
         let mut eth = fixture_candidate("eth", "ETHUSDT", 20.0, 8.0, 2.0);
         eth.planned_margin_quote = 250.0;
         eth.equity_curve = vec![
-            EquityPoint { timestamp_ms: 1, equity_quote: 250.0 },
-            EquityPoint { timestamp_ms: 2, equity_quote: 300.0 },
+            EquityPoint {
+                timestamp_ms: 1,
+                equity_quote: 250.0,
+            },
+            EquityPoint {
+                timestamp_ms: 2,
+                equity_quote: 300.0,
+            },
         ];
 
         assert!(build_weighted_portfolio(&[&btc, &eth], &[0, 1], &[0.6, 0.4]).is_none());
+    }
+
+    #[test]
+    fn weighted_portfolio_rejects_single_symbol_allocation_above_eighty_pct() {
+        let btc_a = candidate_with_curve(
+            "btc-a",
+            "BTCUSDT",
+            20.0,
+            5.0,
+            3.0,
+            100.0,
+            vec![100.0, 120.0],
+        );
+        let btc_b = candidate_with_curve(
+            "btc-b",
+            "BTCUSDT",
+            12.0,
+            5.0,
+            2.0,
+            100.0,
+            vec![100.0, 112.0],
+        );
+        let eth = candidate_with_curve("eth", "ETHUSDT", 8.0, 5.0, 1.0, 100.0, vec![100.0, 108.0]);
+
+        assert!(
+            build_weighted_portfolio(&[&btc_a, &btc_b, &eth], &[0, 1, 2], &[0.5, 0.25, 0.25])
+                .is_some(),
+            "75% BTC allocation should be allowed"
+        );
+        assert!(
+            build_weighted_portfolio(&[&btc_a, &btc_b, &eth], &[0, 1, 2], &[0.5, 0.34, 0.16])
+                .is_none(),
+            "84% BTC allocation must be rejected"
+        );
     }
 }
