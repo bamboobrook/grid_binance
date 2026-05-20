@@ -2,9 +2,10 @@ use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
 use rust_decimal::Decimal;
 use shared_domain::martingale::{
-    MartingaleDirection, MartingaleDirectionMode, MartingaleMarginMode, MartingaleMarketKind,
-    MartingalePortfolioConfig, MartingaleRiskLimits, MartingaleSizingModel, MartingaleSpacingModel,
-    MartingaleStrategyConfig, MartingaleTakeProfitModel,
+    MartingaleDirection, MartingaleDirectionMode, MartingaleEntryTrigger, MartingaleMarginMode,
+    MartingaleMarketKind, MartingalePortfolioConfig, MartingaleRiskLimits,
+    MartingaleSizingModel, MartingaleSpacingModel, MartingaleStrategyConfig,
+    MartingaleTakeProfitModel,
 };
 
 #[derive(Debug, Clone, PartialEq)]
@@ -90,7 +91,7 @@ pub fn random_search(
             },
             stop_loss: None,
             indicators: Vec::new(),
-            entry_triggers: Vec::new(),
+            entry_triggers: vec![MartingaleEntryTrigger::Cooldown { seconds: 21_600 }],
             risk_limits: MartingaleRiskLimits::default(),
         };
         let config = MartingalePortfolioConfig {
@@ -237,6 +238,83 @@ pub fn generate_staged_candidates_for_symbol(
 ) -> Result<Vec<SearchCandidate>, String> {
     let mut candidates = Vec::new();
     let mut id_counter = 0usize;
+
+    // long_short uses random uniform sampling across all dimensions so every
+    // parameter axis (leverage, spacing, multiplier, max_legs, take_profit,
+    // tail_stop, weights) gets explored, rather than exhausting inner loops
+    // before outer loops advance.
+    if direction == "long_short" || direction == "long_and_short" {
+        let mut rng = rand::thread_rng();
+        let mut seen: std::collections::HashSet<(
+            usize, usize, usize, usize, usize, usize, usize, usize, usize,
+        )> = std::collections::HashSet::new();
+
+        while candidates.len() < limit {
+            let li = rng.gen_range(0..space.leverage.len());
+            let lsi = rng.gen_range(0..space.spacing_bps.len());
+            let mi = rng.gen_range(0..space.order_multiplier.len());
+            let mli = rng.gen_range(0..space.max_legs.len());
+            let ltpi = rng.gen_range(0..space.take_profit_bps.len());
+            let tsi = rng.gen_range(0..space.tail_stop_bps.len());
+            let wi = rng.gen_range(0..space.long_short_weight_pct.len());
+            let ssi = rng.gen_range(0..space.spacing_bps.len());
+            let stpi = rng.gen_range(0..space.take_profit_bps.len());
+
+            let key = (li, lsi, mi, mli, ltpi, tsi, wi, ssi, stpi);
+            if !seen.insert(key) {
+                if seen.len() >= space.leverage.len()
+                    * space.spacing_bps.len()
+                    * space.order_multiplier.len()
+                    * space.max_legs.len()
+                    * space.take_profit_bps.len()
+                    * space.tail_stop_bps.len()
+                    * space.long_short_weight_pct.len()
+                    * space.spacing_bps.len()
+                    * space.take_profit_bps.len()
+                {
+                    break; // exhausted all combinations
+                }
+                continue;
+            }
+
+            let leverage = space.leverage[li];
+            let long_spacing_bps = space.spacing_bps[lsi];
+            let multiplier = space.order_multiplier[mi];
+            let max_legs = space.max_legs[mli];
+            let long_take_profit_bps = space.take_profit_bps[ltpi];
+            let tail_stop_bps = space.tail_stop_bps[tsi];
+            let (long_weight_pct, short_weight_pct) = space.long_short_weight_pct[wi];
+            let short_spacing_bps = space.spacing_bps[ssi];
+            let short_take_profit_bps = space.take_profit_bps[stpi];
+
+            let long_params = LegParameters {
+                spacing_bps: long_spacing_bps,
+                order_multiplier: multiplier,
+                max_legs,
+                take_profit_bps: long_take_profit_bps,
+                tail_stop_bps,
+                weight_pct: long_weight_pct,
+            };
+            let short_params = LegParameters {
+                spacing_bps: short_spacing_bps,
+                order_multiplier: multiplier,
+                max_legs,
+                take_profit_bps: short_take_profit_bps,
+                tail_stop_bps,
+                weight_pct: short_weight_pct,
+            };
+            candidates.push(build_long_short_candidate_from_legs(
+                symbol,
+                leverage,
+                long_params,
+                short_params,
+                &mut id_counter,
+            )?);
+        }
+        return Ok(candidates);
+    }
+
+    // single-direction path (unchanged outer loop)
     for leverage in &space.leverage {
         for spacing_bps in &space.spacing_bps {
             for multiplier in &space.order_multiplier {
@@ -255,14 +333,6 @@ pub fn generate_staged_candidates_for_symbol(
                                         symbol, MartingaleDirection::Short, *leverage, *spacing_bps,
                                         *multiplier, *max_legs, *take_profit_bps, *tail_stop_bps, 100, &mut id_counter,
                                     )?);
-                                }
-                                "long_short" | "long_and_short" => {
-                                    for (long_weight_pct, short_weight_pct) in &space.long_short_weight_pct {
-                                        candidates.push(build_long_short_candidate(
-                                            symbol, *leverage, *spacing_bps, *multiplier, *max_legs,
-                                            *take_profit_bps, *tail_stop_bps, *long_weight_pct, *short_weight_pct, &mut id_counter,
-                                        )?);
-                                    }
                                 }
                                 other => return Err(format!("unsupported direction: {other}")),
                             }
@@ -297,8 +367,10 @@ fn build_single_direction_candidate(
     let market = if leverage > 1 { MartingaleMarketKind::UsdMFutures } else { MartingaleMarketKind::Spot };
     let (margin_mode, leverage_val) = match market {
         MartingaleMarketKind::Spot => (None, None),
-        MartingaleMarketKind::UsdMFutures => (Some(MartingaleMarginMode::Cross), Some(leverage)),
+        MartingaleMarketKind::UsdMFutures => (Some(MartingaleMarginMode::Isolated), Some(leverage)),
     };
+
+    // (rest unchanged below this block — kept for the single-direction path)
     let multiplier_decimal = Decimal::from_f64_retain(multiplier).unwrap_or(Decimal::new(15, 1));
     let strategy = MartingaleStrategyConfig {
         strategy_id: format!("staged-{}", *id_counter),
@@ -317,7 +389,7 @@ fn build_single_direction_candidate(
         take_profit: MartingaleTakeProfitModel::Percent { bps: take_profit_bps },
         stop_loss: Some(shared_domain::martingale::MartingaleStopLossModel::StrategyDrawdownPct { pct_bps: tail_stop_bps }),
         indicators: Vec::new(),
-        entry_triggers: Vec::new(),
+        entry_triggers: vec![MartingaleEntryTrigger::Cooldown { seconds: 21_600 }],
         risk_limits: MartingaleRiskLimits::default(),
     };
     *id_counter += 1;
@@ -333,56 +405,40 @@ fn build_single_direction_candidate(
     })
 }
 
-fn build_long_short_candidate(
+// --- per-leg builder for asymmetric long_short candidates ---
+
+fn build_long_short_candidate_from_legs(
     symbol: &str,
     leverage: u32,
-    spacing_bps: u32,
-    multiplier: f64,
-    max_legs: u32,
-    take_profit_bps: u32,
-    tail_stop_bps: u32,
-    long_weight_pct: u32,
-    short_weight_pct: u32,
+    long_params: LegParameters,
+    short_params: LegParameters,
     id_counter: &mut usize,
 ) -> Result<SearchCandidate, String> {
     let market = if leverage > 1 { MartingaleMarketKind::UsdMFutures } else { MartingaleMarketKind::Spot };
     let (margin_mode, leverage_val) = match market {
         MartingaleMarketKind::Spot => (None, None),
-        MartingaleMarketKind::UsdMFutures => (Some(MartingaleMarginMode::Cross), Some(leverage)),
+        MartingaleMarketKind::UsdMFutures => (Some(MartingaleMarginMode::Isolated), Some(leverage)),
     };
-    let multiplier_decimal = Decimal::from_f64_retain(multiplier).unwrap_or(Decimal::new(15, 1));
-    let long_first_order = Decimal::new(100, 0) * Decimal::from(long_weight_pct) / Decimal::from(100u32);
-    let short_first_order = Decimal::new(100, 0) * Decimal::from(short_weight_pct) / Decimal::from(100u32);
-    let long_strategy = MartingaleStrategyConfig {
-        strategy_id: format!("staged-{}-long", *id_counter),
-        symbol: symbol.to_owned(),
+
+    let long_strategy = strategy_from_leg_params(
+        symbol,
+        MartingaleDirection::Long,
         market,
-        direction: MartingaleDirection::Long,
-        direction_mode: MartingaleDirectionMode::LongAndShort,
         margin_mode,
-        leverage: leverage_val,
-        spacing: MartingaleSpacingModel::FixedPercent { step_bps: spacing_bps },
-        sizing: MartingaleSizingModel::Multiplier {
-            first_order_quote: long_first_order,
-            multiplier: multiplier_decimal,
-            max_legs,
-        },
-        take_profit: MartingaleTakeProfitModel::Percent { bps: take_profit_bps },
-        stop_loss: Some(shared_domain::martingale::MartingaleStopLossModel::StrategyDrawdownPct { pct_bps: tail_stop_bps }),
-        indicators: Vec::new(),
-        entry_triggers: Vec::new(),
-        risk_limits: MartingaleRiskLimits::default(),
-    };
-    let short_strategy = MartingaleStrategyConfig {
-        strategy_id: format!("staged-{}-short", *id_counter),
-        sizing: MartingaleSizingModel::Multiplier {
-            first_order_quote: short_first_order,
-            multiplier: multiplier_decimal,
-            max_legs,
-        },
-        direction: MartingaleDirection::Short,
-        ..long_strategy.clone()
-    };
+        leverage_val,
+        long_params,
+        *id_counter,
+    )?;
+    let short_strategy = strategy_from_leg_params(
+        symbol,
+        MartingaleDirection::Short,
+        market,
+        margin_mode,
+        leverage_val,
+        short_params,
+        *id_counter,
+    )?;
+
     *id_counter += 1;
     let config = MartingalePortfolioConfig {
         direction_mode: MartingaleDirectionMode::LongAndShort,
@@ -395,6 +451,43 @@ fn build_long_short_candidate(
         config,
     })
 }
+
+fn strategy_from_leg_params(
+    symbol: &str,
+    direction: MartingaleDirection,
+    market: MartingaleMarketKind,
+    margin_mode: Option<MartingaleMarginMode>,
+    leverage: Option<u32>,
+    params: LegParameters,
+    id_counter: usize,
+) -> Result<MartingaleStrategyConfig, String> {
+    let multiplier = Decimal::from_f64_retain(params.order_multiplier)
+        .ok_or_else(|| format!("invalid multiplier {}", params.order_multiplier))?;
+    let first_order_quote = Decimal::new(100, 0) * Decimal::from(params.weight_pct) / Decimal::from(100u32);
+    Ok(MartingaleStrategyConfig {
+        strategy_id: format!("staged-{id_counter}-{direction:?}"),
+        symbol: symbol.to_owned(),
+        market,
+        direction,
+        direction_mode: MartingaleDirectionMode::LongAndShort,
+        margin_mode,
+        leverage,
+        spacing: MartingaleSpacingModel::FixedPercent { step_bps: params.spacing_bps },
+        sizing: MartingaleSizingModel::Multiplier {
+            first_order_quote,
+            multiplier,
+            max_legs: params.max_legs,
+        },
+        take_profit: MartingaleTakeProfitModel::Percent { bps: params.take_profit_bps },
+        stop_loss: Some(shared_domain::martingale::MartingaleStopLossModel::StrategyDrawdownPct {
+            pct_bps: params.tail_stop_bps,
+        }),
+        indicators: Vec::new(),
+        entry_triggers: vec![MartingaleEntryTrigger::Cooldown { seconds: 21_600 }],
+        risk_limits: MartingaleRiskLimits::default(),
+    })
+}
+
 
 #[cfg(test)]
 mod staged_tests {
@@ -438,5 +531,48 @@ mod staged_tests {
         assert!(fine.max_legs.contains(&6));
         assert!(fine.long_short_weight_pct.contains(&(65, 35)));
         assert!(fine.long_short_weight_pct.contains(&(75, 25)));
+    }
+
+    #[test]
+    fn long_short_staged_candidates_include_asymmetric_leg_parameters() {
+        let space = StagedMartingaleSearchSpace {
+            leverage: vec![2],
+            spacing_bps: vec![120, 240],
+            order_multiplier: vec![1.10, 1.25],
+            max_legs: vec![2, 3],
+            take_profit_bps: vec![60, 120],
+            tail_stop_bps: vec![2000, 3000],
+            long_short_weight_pct: vec![(60, 40), (50, 50)],
+        };
+
+        let candidates = generate_staged_candidates_for_symbol("BTCUSDT", "long_short", &space, 256)
+            .expect("long_short candidates should generate");
+
+        assert!(candidates.iter().all(|candidate| {
+            candidate.config.direction_mode == MartingaleDirectionMode::LongAndShort
+                && candidate.config.strategies.len() == 2
+                && candidate.config.strategies.iter().any(|s| s.direction == MartingaleDirection::Long)
+                && candidate.config.strategies.iter().any(|s| s.direction == MartingaleDirection::Short)
+        }));
+
+        let has_asymmetric_spacing = candidates.iter().any(|candidate| {
+            let long = candidate.config.strategies.iter().find(|s| s.direction == MartingaleDirection::Long).unwrap();
+            let short = candidate.config.strategies.iter().find(|s| s.direction == MartingaleDirection::Short).unwrap();
+            match (&long.spacing, &short.spacing) {
+                (MartingaleSpacingModel::FixedPercent { step_bps: long_step }, MartingaleSpacingModel::FixedPercent { step_bps: short_step }) => long_step != short_step,
+                _ => false,
+            }
+        });
+        assert!(has_asymmetric_spacing, "long_short search must include different long/short spacing combinations");
+
+        let has_asymmetric_tp = candidates.iter().any(|candidate| {
+            let long = candidate.config.strategies.iter().find(|s| s.direction == MartingaleDirection::Long).unwrap();
+            let short = candidate.config.strategies.iter().find(|s| s.direction == MartingaleDirection::Short).unwrap();
+            match (&long.take_profit, &short.take_profit) {
+                (MartingaleTakeProfitModel::Percent { bps: long_tp }, MartingaleTakeProfitModel::Percent { bps: short_tp }) => long_tp != short_tp,
+                _ => false,
+            }
+        });
+        assert!(has_asymmetric_tp, "long_short search must include different long/short take-profit combinations");
     }
 }
