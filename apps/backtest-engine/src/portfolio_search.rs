@@ -153,6 +153,13 @@ fn build_weighted_portfolio(eligible: &[&EvaluatedCandidate], member_indices: &[
         return None;
     }
 
+    if members_data.iter().any(|c| !c.planned_margin_quote.is_finite() || c.planned_margin_quote <= 0.0) {
+        return None;
+    }
+    if members_data.iter().any(|c| c.equity_curve.is_empty()) {
+        return None;
+    }
+
     let initial_portfolio_capital = 10_000.0;
 
     let member_pairs: Vec<(&EvaluatedCandidate, f64)> = members_data
@@ -201,6 +208,11 @@ fn build_weighted_portfolio(eligible: &[&EvaluatedCandidate], member_indices: &[
     let combined_curve = combine_equity_curves(&member_pairs, initial_portfolio_capital);
 
     if combined_curve.len() < 2 {
+        return None;
+    }
+
+    let first_equity = combined_curve.first().map(|p| p.equity_quote).unwrap_or(0.0);
+    if !first_equity.is_finite() || first_equity <= 0.0 || (first_equity - initial_portfolio_capital).abs() > 0.01 {
         return None;
     }
 
@@ -265,16 +277,35 @@ fn combine_equity_curves(members: &[(&EvaluatedCandidate, f64)], initial_portfol
         return Vec::new();
     }
 
+    // Precompute initial equity for each member so the first combined point
+    // equals initial_portfolio_capital regardless of raw candidate equity scale.
+    let initial_equities: Vec<f64> = members
+        .iter()
+        .map(|(candidate, _)| {
+            candidate
+                .equity_curve
+                .first()
+                .map(|point| point.equity_quote)
+                .filter(|value| value.is_finite() && *value > 0.0)
+                .unwrap_or(candidate.planned_margin_quote)
+        })
+        .collect();
+
     (0..min_len)
         .map(|i| {
             let timestamp_ms = members[0].0.equity_curve[i].timestamp_ms;
             let equity_quote: f64 = members
                 .iter()
-                .map(|(candidate, allocation_pct)| {
+                .enumerate()
+                .map(|(idx, (candidate, allocation_pct))| {
                     let allocated_capital = initial_portfolio_capital * (*allocation_pct / 100.0);
-                    let initial_candidate_margin = candidate.planned_margin_quote.max(0.000001);
+                    let initial_candidate_equity = initial_equities[idx];
+                    if !initial_candidate_equity.is_finite() || initial_candidate_equity <= 0.0 {
+                        return 0.0;
+                    }
                     let candidate_equity = candidate.equity_curve[i].equity_quote;
-                    allocated_capital * candidate_equity / initial_candidate_margin
+                    let candidate_return_factor = candidate_equity / initial_candidate_equity;
+                    allocated_capital * candidate_return_factor
                 })
                 .sum();
             EquityPoint { timestamp_ms, equity_quote }
