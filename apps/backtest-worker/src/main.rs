@@ -848,10 +848,7 @@ fn portfolio_candidates_from_outputs(outputs: &[CandidateOutput]) -> Vec<backtes
                 .get("drawdown_curve")
                 .and_then(|v| serde_json::from_value(v.clone()).ok())
                 .unwrap_or_default();
-            let planned_margin_quote: f64 = summary
-                .get("planned_margin_quote")
-                .and_then(|v| v.as_f64())
-                .unwrap_or(0.0);
+            let planned_margin_quote: f64 = output.planned_margin_quote.unwrap_or(0.0);
             let annualized_return_pct: Option<f64> = summary
                 .get("annualized_return_pct")
                 .and_then(|v| v.as_f64());
@@ -1549,6 +1546,7 @@ fn select_top_outputs_per_symbol(
                     "recommended_weight_pct": recommended_weight_pct,
                     "recommended_leverage": recommended_leverage,
                     "max_leverage_used": output.max_leverage_used.unwrap_or(recommended_leverage as f64),
+                    "planned_margin_quote": output.planned_margin_quote,
                     "risk_profile": risk_profile,
                     "portfolio_group_key": portfolio_group_key,
                     "spacing_bps": spacing_bps,
