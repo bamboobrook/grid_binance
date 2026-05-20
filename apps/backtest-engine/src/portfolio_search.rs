@@ -36,6 +36,8 @@ pub struct WeightedPortfolio {
 pub struct PortfolioTop3Artifact {
     pub top3: Vec<WeightedPortfolio>,
     pub eligible_candidate_count: usize,
+    pub eligible_symbols: Vec<String>,
+    pub unique_eligible_symbol_count: usize,
 }
 
 #[derive(Debug, Clone)]
@@ -53,6 +55,31 @@ pub struct EvaluatedCandidate {
     pub trades: Vec<crate::martingale::metrics::MartingaleTradeDetail>,
 }
 
+fn candidate_symbol(candidate: &EvaluatedCandidate) -> String {
+    candidate
+        .candidate
+        .config
+        .strategies
+        .first()
+        .map(|strategy| strategy.symbol.clone())
+        .unwrap_or_default()
+}
+
+fn best_indices_by_symbol(eligible: &[&EvaluatedCandidate], per_symbol: usize) -> Vec<usize> {
+    let mut grouped: std::collections::BTreeMap<String, Vec<(usize, &EvaluatedCandidate)>> = std::collections::BTreeMap::new();
+    for (index, candidate) in eligible.iter().enumerate() {
+        grouped.entry(candidate_symbol(candidate)).or_default().push((index, *candidate));
+    }
+    let mut result = Vec::new();
+    for (_symbol, mut rows) in grouped {
+        rows.sort_by(|a, b| b.1.score.partial_cmp(&a.1.score).unwrap_or(std::cmp::Ordering::Equal));
+        result.extend(rows.into_iter().take(per_symbol).map(|(index, _)| index));
+    }
+    result.sort_unstable();
+    result.dedup();
+    result
+}
+
 pub fn build_portfolio_top3(candidates: &[EvaluatedCandidate], max_drawdown_pct: f64) -> PortfolioTop3Artifact {
     let eligible: Vec<&EvaluatedCandidate> = candidates
         .iter()
@@ -61,10 +88,20 @@ pub fn build_portfolio_top3(candidates: &[EvaluatedCandidate], max_drawdown_pct:
 
     let eligible_count = eligible.len();
 
+    let eligible_symbols: Vec<String> = eligible
+        .iter()
+        .map(|candidate| candidate_symbol(candidate))
+        .collect::<std::collections::BTreeSet<_>>()
+        .into_iter()
+        .collect();
+    let unique_eligible_symbol_count = eligible_symbols.len();
+
     if eligible_count < 2 {
         return PortfolioTop3Artifact {
             top3: Vec::new(),
             eligible_candidate_count: eligible_count,
+            eligible_symbols,
+            unique_eligible_symbol_count,
         };
     }
 
@@ -80,6 +117,38 @@ pub fn build_portfolio_top3(candidates: &[EvaluatedCandidate], max_drawdown_pct:
     let max_combos = 120usize;
     let mut combo_count = 0usize;
 
+    // Step A: Generate cross-symbol combinations first when multiple symbols are eligible.
+    if unique_eligible_symbol_count >= 2 {
+        let diversified_indices = best_indices_by_symbol(&eligible, 3);
+        for i_pos in 0..diversified_indices.len() {
+            for j_pos in (i_pos + 1)..diversified_indices.len() {
+                let i = diversified_indices[i_pos];
+                let j = diversified_indices[j_pos];
+                if candidate_symbol(eligible[i]) == candidate_symbol(eligible[j]) {
+                    continue;
+                }
+                for template in &allocation_templates {
+                    if template.len() == 2 {
+                        if let Some(portfolio) = build_weighted_portfolio(&eligible, &[i, j], template) {
+                            scored_portfolios.push(portfolio);
+                        }
+                        combo_count += 1;
+                        if combo_count >= max_combos {
+                            break;
+                        }
+                    }
+                }
+                if combo_count >= max_combos {
+                    break;
+                }
+            }
+            if combo_count >= max_combos {
+                break;
+            }
+        }
+    }
+
+    // Step B: Generate all combinations (same + cross symbol).
     for i in 0..eligible_count {
         for j in (i + 1)..eligible_count {
             // Try 2-member combination first
@@ -132,12 +201,31 @@ pub fn build_portfolio_top3(candidates: &[EvaluatedCandidate], max_drawdown_pct:
         }
     }
 
+    // Step C: Sort by score, then force diversified portfolios to the top when eligible.
     scored_portfolios.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap_or(std::cmp::Ordering::Equal));
+
+    if unique_eligible_symbol_count >= 2 {
+        let mut diversified: Vec<_> = scored_portfolios
+            .iter()
+            .cloned()
+            .filter(|p| p.members.iter().map(|m| m.symbol.as_str()).collect::<std::collections::HashSet<_>>().len() >= 2)
+            .collect();
+        let mut concentrated: Vec<_> = scored_portfolios
+            .iter()
+            .cloned()
+            .filter(|p| p.members.iter().map(|m| m.symbol.as_str()).collect::<std::collections::HashSet<_>>().len() < 2)
+            .collect();
+        diversified.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap_or(std::cmp::Ordering::Equal));
+        concentrated.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap_or(std::cmp::Ordering::Equal));
+        scored_portfolios = diversified.into_iter().chain(concentrated.into_iter()).collect();
+    }
     scored_portfolios.truncate(3);
 
     PortfolioTop3Artifact {
         top3: scored_portfolios,
         eligible_candidate_count: eligible_count,
+        eligible_symbols,
+        unique_eligible_symbol_count,
     }
 }
 
@@ -400,11 +488,46 @@ mod tests {
     }
 
     #[test]
+    fn portfolio_top1_uses_cross_symbol_even_when_second_symbol_has_lower_return() {
+        let mut btc_a = fixture_candidate("btc-a", "BTCUSDT", 62.0, 19.0, 62.0);
+        btc_a.annualized_return_pct = Some(15.6);
+        let mut btc_b = fixture_candidate("btc-b", "BTCUSDT", 64.0, 20.0, 62.0);
+        btc_b.annualized_return_pct = Some(16.0);
+        let mut btc_c = fixture_candidate("btc-c", "BTCUSDT", 53.0, 20.0, 55.0);
+        btc_c.annualized_return_pct = Some(13.6);
+
+        let mut eth_a = fixture_candidate("eth-a", "ETHUSDT", 15.0, 28.9, 20.0);
+        eth_a.annualized_return_pct = Some(4.2);
+        let mut eth_b = fixture_candidate("eth-b", "ETHUSDT", 1.1, 29.2, 5.0);
+        eth_b.annualized_return_pct = Some(0.3);
+
+        let artifact = build_portfolio_top3(&[btc_a, btc_b, btc_c, eth_a, eth_b], 30.0);
+        assert!(!artifact.top3.is_empty());
+        let first = &artifact.top3[0];
+        let symbols: std::collections::HashSet<&str> = first.members.iter().map(|m| m.symbol.as_str()).collect();
+        assert!(symbols.contains("BTCUSDT"));
+        assert!(symbols.contains("ETHUSDT"), "Top1 must diversify when ETH eligible exists: {:?}", first.members);
+    }
+
+    #[test]
+    fn portfolio_artifact_reports_eligible_symbols() {
+        let artifact = build_portfolio_top3(&[
+            fixture_candidate("btc", "BTCUSDT", 30.0, 10.0, 3.0),
+            fixture_candidate("eth", "ETHUSDT", 10.0, 20.0, 2.0),
+        ], 30.0);
+
+        assert_eq!(artifact.unique_eligible_symbol_count, 2);
+        assert_eq!(artifact.eligible_symbols, vec!["BTCUSDT".to_owned(), "ETHUSDT".to_owned()]);
+    }
+
+    #[test]
     fn portfolio_top3_returns_empty_when_insufficient_eligible() {
         let candidates = vec![fixture_candidate("a", "BTCUSDT", 30.0, 10.0, 3.0)];
         let artifact = build_portfolio_top3(&candidates, 20.0);
         assert!(artifact.top3.is_empty());
         assert_eq!(artifact.eligible_candidate_count, 1);
+        assert_eq!(artifact.unique_eligible_symbol_count, 1);
+        assert_eq!(artifact.eligible_symbols, vec!["BTCUSDT".to_owned()]);
     }
 
     #[test]

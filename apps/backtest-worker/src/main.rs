@@ -1150,6 +1150,8 @@ async fn process_task(
             "drawdown_curve": portfolio.drawdown_curve,
             "trades_preview": portfolio.trades_preview,
             "eligible_candidate_count": portfolio_top3.eligible_candidate_count,
+            "eligible_symbols": portfolio_top3.eligible_symbols.clone(),
+            "unique_eligible_symbol_count": portfolio_top3.unique_eligible_symbol_count,
             "portfolio_symbols": portfolio.members.iter().map(|m| m.symbol.clone()).collect::<Vec<_>>(),
             "portfolio_unique_symbol_count": portfolio.members.iter().map(|m| m.symbol.as_str()).collect::<std::collections::HashSet<_>>().len(),
         })
@@ -1184,6 +1186,8 @@ async fn process_task(
             "drawdown_curve": sampled_preview(&portfolio.drawdown_curve, 500),
             "trades_preview": sampled_preview(&portfolio.trades_preview, 100),
             "eligible_candidate_count": portfolio_top3.eligible_candidate_count,
+            "eligible_symbols": portfolio_top3.eligible_symbols.clone(),
+            "unique_eligible_symbol_count": portfolio_top3.unique_eligible_symbol_count,
             "portfolio_symbols": portfolio.members.iter().map(|m| m.symbol.clone()).collect::<Vec<_>>(),
             "portfolio_unique_symbol_count": portfolio.members.iter().map(|m| m.symbol.as_str()).collect::<std::collections::HashSet<_>>().len(),
         })
@@ -1205,6 +1209,8 @@ async fn process_task(
                 "portfolio_top3": portfolio_rows,
                 "portfolio_top3_artifact_path": portfolio_manifest.path.display().to_string(),
                 "eligible_candidate_count": portfolio_top3.eligible_candidate_count,
+                "eligible_symbols": portfolio_top3.eligible_symbols,
+                "unique_eligible_symbol_count": portfolio_top3.unique_eligible_symbol_count,
                 "eligible_candidates": portfolio_candidates.iter().map(|c| {
                     let (long_weight_pct, short_weight_pct) = if c.candidate.config.direction_mode == MartingaleDirectionMode::LongAndShort {
                         let long_first = c.candidate.config.strategies.iter()
