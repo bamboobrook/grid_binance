@@ -182,6 +182,55 @@ fn martingale_search_timeout_error(
     )
 }
 
+fn bounded_parallel_width(max_threads: usize) -> usize {
+    max_threads.max(1)
+}
+
+fn screen_candidates_bounded_parallel<F>(
+    candidates: Vec<SearchCandidate>,
+    max_threads: usize,
+    evaluator: F,
+) -> Vec<(EvaluatedCandidate, CandidateRejectionSample)>
+where
+    F: Fn(SearchCandidate) -> (EvaluatedCandidate, CandidateRejectionSample) + Sync,
+{
+    let width = bounded_parallel_width(max_threads);
+    if candidates.is_empty() {
+        return Vec::new();
+    }
+    if width == 1 || candidates.len() == 1 {
+        return candidates.into_iter().map(evaluator).collect::<Vec<_>>();
+    }
+
+    let indexed = candidates.into_iter().enumerate().collect::<Vec<_>>();
+    let chunk_size = (indexed.len() + width - 1) / width;
+    let mut indexed_results = std::thread::scope(|scope| {
+        let mut handles = Vec::new();
+        for chunk in indexed.chunks(chunk_size.max(1)) {
+            let evaluator_ref = &evaluator;
+            let chunk_items = chunk.to_vec();
+            handles.push(scope.spawn(move || {
+                chunk_items
+                    .into_iter()
+                    .map(|(index, candidate)| (index, evaluator_ref(candidate)))
+                    .collect::<Vec<_>>()
+            }));
+        }
+
+        let mut merged = Vec::new();
+        for handle in handles {
+            merged.extend(handle.join().expect("candidate screening thread panicked"));
+        }
+        merged
+    });
+
+    indexed_results.sort_by_key(|(index, _)| *index);
+    indexed_results
+        .into_iter()
+        .map(|(_index, result)| result)
+        .collect()
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct CandidateOutput {
     candidate_id: String,
