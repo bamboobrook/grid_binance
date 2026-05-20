@@ -534,4 +534,49 @@ mod tests {
             "portfolio should carry combined trade details from members"
         );
     }
+
+    #[test]
+    fn weighted_portfolio_equity_curve_starts_near_initial_portfolio_capital() {
+        let mut btc = fixture_candidate("btc", "BTCUSDT", 30.0, 10.0, 3.0);
+        btc.planned_margin_quote = 500.0;
+        btc.equity_curve = vec![
+            EquityPoint { timestamp_ms: 1, equity_quote: 500.0 },
+            EquityPoint { timestamp_ms: 2, equity_quote: 650.0 },
+        ];
+
+        let mut eth = fixture_candidate("eth", "ETHUSDT", 20.0, 8.0, 2.0);
+        eth.planned_margin_quote = 250.0;
+        eth.equity_curve = vec![
+            EquityPoint { timestamp_ms: 1, equity_quote: 250.0 },
+            EquityPoint { timestamp_ms: 2, equity_quote: 300.0 },
+        ];
+
+        let portfolio = build_weighted_portfolio(&[&btc, &eth], &[0, 1], &[0.6, 0.4])
+            .expect("portfolio should build");
+
+        let first = portfolio.equity_curve.first().unwrap().equity_quote;
+        let last = portfolio.equity_curve.last().unwrap().equity_quote;
+        assert!((first - 10_000.0).abs() < 0.0001, "first equity should equal initial portfolio capital, got {first}");
+        assert!(last > first, "last equity should grow proportionally, first={first}, last={last}");
+        assert!(last < 13_000.0, "last equity should be realistically scaled, got {last}");
+    }
+
+    #[test]
+    fn weighted_portfolio_rejects_zero_or_missing_planned_margin() {
+        let mut btc = fixture_candidate("btc", "BTCUSDT", 30.0, 10.0, 3.0);
+        btc.planned_margin_quote = 0.0;
+        btc.equity_curve = vec![
+            EquityPoint { timestamp_ms: 1, equity_quote: 500.0 },
+            EquityPoint { timestamp_ms: 2, equity_quote: 650.0 },
+        ];
+
+        let mut eth = fixture_candidate("eth", "ETHUSDT", 20.0, 8.0, 2.0);
+        eth.planned_margin_quote = 250.0;
+        eth.equity_curve = vec![
+            EquityPoint { timestamp_ms: 1, equity_quote: 250.0 },
+            EquityPoint { timestamp_ms: 2, equity_quote: 300.0 },
+        ];
+
+        assert!(build_weighted_portfolio(&[&btc, &eth], &[0, 1], &[0.6, 0.4]).is_none());
+    }
 }
