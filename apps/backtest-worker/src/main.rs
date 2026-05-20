@@ -3563,6 +3563,100 @@ mod tests {
         );
     }
 
+    fn sample_candidate_for_parallel_test(id: &str) -> SearchCandidate {
+        let strategy = MartingaleStrategyConfig {
+            strategy_id: format!("strategy-{id}"),
+            symbol: "BTCUSDT".to_owned(),
+            market: MartingaleMarketKind::UsdMFutures,
+            direction: MartingaleDirection::Long,
+            direction_mode: MartingaleDirectionMode::LongOnly,
+            margin_mode: Some(MartingaleMarginMode::Isolated),
+            leverage: Some(2),
+            spacing: MartingaleSpacingModel::FixedPercent { step_bps: 100 },
+            sizing: MartingaleSizingModel::Multiplier {
+                first_order_quote: Decimal::new(100, 0),
+                multiplier: Decimal::new(15, 1),
+                max_legs: 4,
+            },
+            take_profit: MartingaleTakeProfitModel::Percent { bps: 80 },
+            stop_loss: Some(MartingaleStopLossModel::StrategyDrawdownPct { pct_bps: 2_500 }),
+            indicators: Vec::new(),
+            entry_triggers: Vec::new(),
+            risk_limits: shared_domain::martingale::MartingaleRiskLimits::default(),
+        };
+        SearchCandidate {
+            candidate_id: id.to_owned(),
+            config: shared_domain::martingale::MartingalePortfolioConfig {
+                direction_mode: MartingaleDirectionMode::LongOnly,
+                strategies: vec![strategy],
+                risk_limits: shared_domain::martingale::MartingaleRiskLimits::default(),
+            },
+        }
+    }
+
+    fn sample_parallel_score(
+        candidate_id: &str,
+    ) -> backtest_engine::martingale::scoring::CandidateScore {
+        let raw_score = candidate_id
+            .trim_start_matches("candidate-")
+            .parse::<f64>()
+            .unwrap_or(1.0);
+        backtest_engine::martingale::scoring::CandidateScore {
+            survival_valid: raw_score > 0.0,
+            rank_score: raw_score,
+            raw_score,
+            rejection_reasons: Vec::new(),
+        }
+    }
+
+    #[test]
+    fn parallel_candidate_screening_preserves_input_order() {
+        let candidates = (0..8)
+            .map(|index| sample_candidate_for_parallel_test(&format!("candidate-{index}")))
+            .collect::<Vec<_>>();
+
+        let evaluated = screen_candidates_bounded_parallel(candidates, 4, |candidate| {
+            let score = sample_parallel_score(&candidate.candidate_id);
+            let sample = CandidateRejectionSample {
+                candidate_id: candidate.candidate_id.clone(),
+                symbol: "BTCUSDT".to_owned(),
+                direction_mode: "long".to_owned(),
+                total_return_pct: Some(score.rank_score),
+                max_drawdown_pct: Some(1.0),
+                trade_count: 1,
+                survival_valid: score.survival_valid,
+                rejection_reason: None,
+            };
+            (EvaluatedCandidate { candidate, score }, sample)
+        });
+
+        let ids = evaluated
+            .into_iter()
+            .map(|(candidate, _sample)| candidate.candidate.candidate_id)
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            ids,
+            vec![
+                "candidate-0",
+                "candidate-1",
+                "candidate-2",
+                "candidate-3",
+                "candidate-4",
+                "candidate-5",
+                "candidate-6",
+                "candidate-7"
+            ]
+        );
+    }
+
+    #[test]
+    fn bounded_parallelism_clamps_zero_to_one() {
+        assert_eq!(bounded_parallel_width(0), 1);
+        assert_eq!(bounded_parallel_width(1), 1);
+        assert_eq!(bounded_parallel_width(24), 24);
+    }
+
     #[cfg(test)]
     fn evaluated_candidate_for_tests(
         candidate_id: &str,
