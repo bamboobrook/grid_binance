@@ -244,9 +244,15 @@ fn build_weighted_portfolio(eligible: &[&EvaluatedCandidate], member_indices: &[
     trades_preview.truncate(200);
 
     let calmar = if max_drawdown_pct > 0.0 { return_pct / max_drawdown_pct } else { 0.0 };
-    let diversification_bonus = 1.0 + (portfolio_members.len() as f64 - 1.0) * 0.05;
-    let unique_symbol_count = portfolio_members.iter().map(|m| m.symbol.as_str()).collect::<std::collections::HashSet<_>>().len();
-    let concentration_penalty = if unique_symbol_count == 1 { 0.85 } else { 1.0 };
+    let unique_symbol_count = portfolio_members
+        .iter()
+        .map(|m| m.symbol.as_str())
+        .collect::<std::collections::HashSet<_>>()
+        .len();
+    let member_count = portfolio_members.len().max(1);
+    let diversification_factor = unique_symbol_count as f64 / member_count as f64;
+    let concentration_penalty = if unique_symbol_count == 1 { 0.50 } else { 1.0 };
+    let diversification_bonus = 1.0 + diversification_factor * 0.35;
     let score = calmar * diversification_bonus * concentration_penalty;
 
     Some(WeightedPortfolio {
@@ -590,6 +596,24 @@ mod tests {
         assert!((first - 10_000.0).abs() < 0.0001, "first equity should equal initial portfolio capital, got {first}");
         assert!(last > first, "last equity should grow proportionally, first={first}, last={last}");
         assert!(last < 13_000.0, "last equity should be realistically scaled, got {last}");
+    }
+
+    #[test]
+    fn portfolio_top3_prefers_cross_symbol_members_when_available() {
+        // Use equity curves with drawdowns so calmar scoring is meaningful.
+        // BTC candidates have high return but higher drawdown; ETH has lower return
+        // but also lower drawdown. Cross-symbol should win via diversification bonus.
+        let btc_a = candidate_with_curve("btc-a", "BTCUSDT", 30.0, 15.0, 3.0, 500.0, vec![500.0, 480.0, 520.0, 650.0]);
+        let btc_b = candidate_with_curve("btc-b", "BTCUSDT", 28.0, 16.0, 2.9, 500.0, vec![500.0, 470.0, 510.0, 640.0]);
+        let eth_a = candidate_with_curve("eth-a", "ETHUSDT", 20.0, 5.0, 2.0, 250.0, vec![250.0, 245.0, 260.0, 300.0]);
+        let eth_b = candidate_with_curve("eth-b", "ETHUSDT", 18.0, 6.0, 1.8, 250.0, vec![250.0, 243.0, 255.0, 295.0]);
+
+        let artifact = build_portfolio_top3(&[btc_a, btc_b, eth_a, eth_b], 25.0);
+        assert!(!artifact.top3.is_empty());
+        let first = &artifact.top3[0];
+        let symbols: std::collections::HashSet<&str> = first.members.iter().map(|member| member.symbol.as_str()).collect();
+        assert!(symbols.contains("BTCUSDT"));
+        assert!(symbols.contains("ETHUSDT"), "first portfolio should diversify across eligible requested symbols: {:?}", first.members);
     }
 
     #[test]

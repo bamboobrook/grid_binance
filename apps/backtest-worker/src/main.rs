@@ -1192,6 +1192,8 @@ async fn process_task(
             "drawdown_curve": portfolio.drawdown_curve,
             "trades_preview": portfolio.trades_preview,
             "eligible_candidate_count": portfolio_top3.eligible_candidate_count,
+            "portfolio_symbols": portfolio.members.iter().map(|m| m.symbol.clone()).collect::<Vec<_>>(),
+            "portfolio_unique_symbol_count": portfolio.members.iter().map(|m| m.symbol.as_str()).collect::<std::collections::HashSet<_>>().len(),
         })
     }).collect::<Vec<Value>>();
     let portfolio_rows = portfolio_top3.top3.iter().enumerate().map(|(rank, portfolio)| {
@@ -1224,6 +1226,8 @@ async fn process_task(
             "drawdown_curve": sampled_preview(&portfolio.drawdown_curve, 500),
             "trades_preview": sampled_preview(&portfolio.trades_preview, 100),
             "eligible_candidate_count": portfolio_top3.eligible_candidate_count,
+            "portfolio_symbols": portfolio.members.iter().map(|m| m.symbol.clone()).collect::<Vec<_>>(),
+            "portfolio_unique_symbol_count": portfolio.members.iter().map(|m| m.symbol.as_str()).collect::<std::collections::HashSet<_>>().len(),
         })
     }).collect::<Vec<Value>>();
     let portfolio_manifest = write_task_json_artifact(
