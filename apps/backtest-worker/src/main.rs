@@ -195,11 +195,7 @@ fn long_short_search_timeout_secs(
     coarse_candidate_count: usize,
     max_threads: usize,
 ) -> u64 {
-    let survivor_count = task
-        .per_symbol_top_n
-        .max(10)
-        .min(24)
-        .min(coarse_candidate_count);
+    let survivor_count = long_short_survivor_limit(task).min(coarse_candidate_count);
     let fine_candidate_count = task.random_candidates.max(12);
     let estimated_screenings = coarse_candidate_count + survivor_count * fine_candidate_count;
     let threads = bounded_parallel_width(max_threads);
@@ -385,8 +381,8 @@ fn estimate_staged_search_work_for_task(config: &WorkerTaskConfig) -> SearchWork
         && config.search_space.is_none()
     {
         requested_cap
-            .max(config.per_symbol_top_n.max(10) * 20)
-            .min(300)
+            .max(config.per_symbol_top_n.max(10) * 40)
+            .min(700)
     } else {
         requested_cap
     };
@@ -401,6 +397,9 @@ struct EvaluatedCandidateWithDrawdown {
     candidate: EvaluatedCandidate,
     used_drawdown_limit_pct: f64,
     risk_relaxed: bool,
+    screening_total_return_pct: Option<f64>,
+    screening_max_drawdown_pct: Option<f64>,
+    screening_trade_count: Option<usize>,
 }
 
 #[tokio::main]
@@ -786,11 +785,17 @@ fn generate_long_short_candidates_for_task(
     let effective_staged = apply_search_space_overrides_to_staged(staged, task);
     let requested_cap = task.random_candidates.max(1) * task.intelligent_rounds.max(1);
     let cap = if task.search_space.is_some() {
-        requested_cap
+        if requested_cap >= task.per_symbol_top_n.max(10) {
+            requested_cap
+                .max(task.per_symbol_top_n.max(10) * 8)
+                .min(700)
+        } else {
+            requested_cap
+        }
     } else {
         requested_cap
-            .max(task.per_symbol_top_n.max(10) * 20)
-            .min(300)
+            .max(task.per_symbol_top_n.max(10) * 40)
+            .min(700)
     };
     let candidates =
         generate_staged_candidates_for_symbol(symbol, "long_short", &effective_staged, 20_000)?;
@@ -810,7 +815,7 @@ fn stratified_long_short_candidates(
         candidate_profit_priority(right).total_cmp(&candidate_profit_priority(left))
     });
 
-    let profit_quota = (limit / 2).max(1);
+    let profit_quota = (limit / 3).max(1);
     let mut selected = Vec::with_capacity(limit);
     let mut selected_ids = std::collections::BTreeSet::<String>::new();
     for candidate in globally_ranked.into_iter().take(profit_quota) {
@@ -818,7 +823,7 @@ fn stratified_long_short_candidates(
         selected.push(candidate);
     }
 
-    let mut buckets: std::collections::BTreeMap<(u32, u32), Vec<SearchCandidate>> =
+    let mut buckets: std::collections::BTreeMap<(u32, u32, u32), Vec<SearchCandidate>> =
         std::collections::BTreeMap::new();
     for candidate in candidates {
         let long = candidate
@@ -831,12 +836,20 @@ fn stratified_long_short_candidates(
             .strategies
             .iter()
             .find(|s| s.direction == MartingaleDirection::Short);
+        let leverage_bucket = candidate
+            .config
+            .strategies
+            .iter()
+            .filter_map(|strategy| strategy.leverage)
+            .max()
+            .unwrap_or(1);
         let key = match (long, short) {
             (Some(long), Some(short)) => (
+                leverage_bucket,
                 strategy_spacing_bps(long).unwrap_or(0),
                 strategy_spacing_bps(short).unwrap_or(0),
             ),
-            _ => (0, 0),
+            _ => (leverage_bucket, 0, 0),
         };
         buckets.entry(key).or_default().push(candidate);
     }
@@ -861,7 +874,7 @@ fn stratified_long_short_candidates(
             .unwrap_or(0.0);
         right_score.total_cmp(&left_score)
     });
-    let mut indices = std::collections::BTreeMap::<(u32, u32), usize>::new();
+    let mut indices = std::collections::BTreeMap::<(u32, u32, u32), usize>::new();
     while selected.len() < limit {
         let mut added = false;
         for key in &keys {
@@ -924,8 +937,8 @@ fn candidate_profit_priority(candidate: &SearchCandidate) -> f64 {
     let avg_max_legs = max_legs_sum / count;
     let avg_tail_stop = tail_stop_sum / count;
 
-    leverage * 12.0
-        + avg_multiplier * 18.0
+    leverage.min(6.0) * 3.0
+        + avg_multiplier * 20.0
         + avg_max_legs * 8.0
         + avg_take_profit / 8.0
         + avg_tail_stop / 600.0
@@ -1058,12 +1071,20 @@ fn run_long_short_staged_search(
 
     let (mut evaluated, mut rejection_samples): (Vec<_>, Vec<_>) =
         coarse_results.into_iter().unzip();
+    let mut screening_samples_by_id = rejection_samples
+        .iter()
+        .map(|sample| (sample.candidate_id.clone(), sample.clone()))
+        .collect::<std::collections::BTreeMap<_, _>>();
 
-    evaluated.sort_by(|a, b| b.score.rank_score.total_cmp(&a.score.rank_score));
+    sort_long_short_candidates_for_profile(
+        &mut evaluated,
+        &task.risk_profile,
+        Some(&screening_samples_by_id),
+    );
     let survivors: Vec<_> = evaluated
         .iter()
         .filter(|candidate| candidate.score.survival_valid)
-        .take(task.per_symbol_top_n.max(10).min(24))
+        .take(long_short_survivor_limit(task))
         .cloned()
         .collect();
 
@@ -1093,6 +1114,7 @@ fn run_long_short_staged_search(
             });
 
         for (candidate, sample) in fine_results {
+            screening_samples_by_id.insert(sample.candidate_id.clone(), sample.clone());
             rejection_samples.push(sample);
             refined.push(candidate);
         }
@@ -1108,10 +1130,14 @@ fn run_long_short_staged_search(
     }
 
     evaluated.extend(refined);
-    evaluated.sort_by(|a, b| b.score.rank_score.total_cmp(&a.score.rank_score));
+    sort_long_short_candidates_for_profile(
+        &mut evaluated,
+        &task.risk_profile,
+        Some(&screening_samples_by_id),
+    );
     let mut seen_ids = std::collections::BTreeSet::<String>::new();
     evaluated.retain(|candidate| seen_ids.insert(candidate.candidate.candidate_id.clone()));
-    evaluated.truncate(task.per_symbol_top_n.max(10));
+    evaluated.truncate(task.per_symbol_top_n.max(20).min(80));
     Ok((evaluated, rejection_samples))
 }
 
@@ -1199,7 +1225,7 @@ fn task_with_long_short_refinement_space(
         "tail_stop_bps": fine_space.tail_stop_bps,
         "long_short_weight_pct": fine_space.long_short_weight_pct,
     }));
-    refined_task.random_candidates = task.random_candidates.max(12);
+    refined_task.random_candidates = task.random_candidates.max(32);
     refined_task.intelligent_rounds = 1;
     refined_task
 }
@@ -1236,8 +1262,7 @@ fn portfolio_candidates_from_outputs(
                 score: output.score,
                 return_pct: output.total_return_pct,
                 max_drawdown_pct: output.max_drawdown_pct,
-                survival_passed: output.total_return_pct > 0.0
-                    && output.max_drawdown_pct <= output.used_drawdown_limit_pct,
+                survival_passed: output.total_return_pct > 0.0,
                 planned_margin_quote,
                 trade_count: output.trade_count,
                 annualized_return_pct,
@@ -1420,12 +1445,18 @@ async fn process_task(
                 config.max_threads,
             )?;
             evaluated_count += candidates.len();
+            let samples_by_id = rejection_samples
+                .iter()
+                .map(|sample| (sample.candidate_id.clone(), sample.clone()))
+                .collect::<std::collections::BTreeMap<_, _>>();
             all_rejection_samples.extend(rejection_samples);
             let risk_relaxed = *drawdown_limit_pct > first_drawdown_limit;
             let valid = select_candidates_or_best_fallback_for_task(
                 candidates,
                 *drawdown_limit_pct,
                 risk_relaxed,
+                &samples_by_id,
+                &task.config.risk_profile,
             );
             if !valid.is_empty() {
                 screened.extend(valid);
@@ -1438,7 +1469,8 @@ async fn process_task(
     let ranked = select_refinement_candidates_with_drawdown_metadata(
         screened,
         task.config.symbols.len().max(1) * task.config.per_symbol_top_n.max(1),
-        task.config.per_symbol_top_n.max(1),
+        task.config.per_symbol_top_n.max(20),
+        &task.config.risk_profile,
     );
     let mut outputs = Vec::new();
 
@@ -1503,7 +1535,7 @@ async fn process_task(
         respect_pause_or_cancel(poller, &task.task_id).await?;
     }
 
-    let portfolio_pool_outputs = select_top_outputs_per_symbol(
+    let portfolio_pool_outputs = select_portfolio_pool_outputs(
         outputs.clone(),
         task.config.per_symbol_top_n.max(20),
         &task.config.risk_profile,
@@ -1544,9 +1576,9 @@ async fn process_task(
     let portfolio_candidates = portfolio_candidates_from_outputs(&portfolio_pool_outputs);
     let max_portfolio_drawdown_pct = if is_long_short {
         long_short_drawdown_limit_sequence(&task.config.risk_profile)
-            .last()
+            .first()
             .copied()
-            .unwrap_or(40.0)
+            .unwrap_or(30.0)
     } else {
         drawdown_limit_sequence(&task.config.risk_profile)
             .first()
@@ -1775,6 +1807,9 @@ where
                 candidate,
                 used_drawdown_limit_pct,
                 risk_relaxed,
+                screening_total_return_pct: None,
+                screening_max_drawdown_pct: None,
+                screening_trade_count: None,
             })
         }));
     }
@@ -1808,18 +1843,19 @@ fn select_candidates_or_best_fallback_for_task(
     candidates: Vec<EvaluatedCandidate>,
     drawdown_limit_pct: f64,
     risk_relaxed: bool,
+    samples_by_id: &std::collections::BTreeMap<String, CandidateRejectionSample>,
+    risk_profile: &str,
 ) -> Vec<EvaluatedCandidateWithDrawdown> {
-    let valid: Vec<_> = candidates
+    let mut valid: Vec<_> = candidates
         .iter()
         .filter(|candidate| candidate.score.survival_valid)
         .cloned()
-        .map(|candidate| EvaluatedCandidateWithDrawdown {
-            candidate,
-            used_drawdown_limit_pct: drawdown_limit_pct,
-            risk_relaxed,
+        .map(|candidate| {
+            evaluated_with_drawdown(candidate, drawdown_limit_pct, risk_relaxed, samples_by_id)
         })
         .collect();
     if !valid.is_empty() {
+        sort_evaluated_with_drawdown_for_profile(&mut valid, risk_profile);
         return valid;
     }
 
@@ -1831,12 +1867,72 @@ fn select_candidates_or_best_fallback_for_task(
     fallback
         .into_iter()
         .take(10)
-        .map(|candidate| EvaluatedCandidateWithDrawdown {
-            candidate,
-            used_drawdown_limit_pct: drawdown_limit_pct,
-            risk_relaxed: true,
+        .map(|candidate| {
+            evaluated_with_drawdown(candidate, drawdown_limit_pct, true, samples_by_id)
         })
         .collect()
+}
+
+fn evaluated_with_drawdown(
+    candidate: EvaluatedCandidate,
+    drawdown_limit_pct: f64,
+    risk_relaxed: bool,
+    samples_by_id: &std::collections::BTreeMap<String, CandidateRejectionSample>,
+) -> EvaluatedCandidateWithDrawdown {
+    let sample = samples_by_id.get(&candidate.candidate.candidate_id);
+    EvaluatedCandidateWithDrawdown {
+        candidate,
+        used_drawdown_limit_pct: drawdown_limit_pct,
+        risk_relaxed,
+        screening_total_return_pct: sample.and_then(|sample| sample.total_return_pct),
+        screening_max_drawdown_pct: sample.and_then(|sample| sample.max_drawdown_pct),
+        screening_trade_count: sample.map(|sample| sample.trade_count),
+    }
+}
+
+fn sort_evaluated_with_drawdown_for_profile(
+    candidates: &mut [EvaluatedCandidateWithDrawdown],
+    risk_profile: &str,
+) {
+    if risk_profile.eq_ignore_ascii_case("aggressive") {
+        candidates.sort_by(|left, right| {
+            evaluated_profit_score(right)
+                .total_cmp(&evaluated_profit_score(left))
+                .then_with(|| {
+                    right
+                        .candidate
+                        .score
+                        .rank_score
+                        .total_cmp(&left.candidate.score.rank_score)
+                })
+        });
+    } else {
+        candidates.sort_by(|left, right| {
+            right
+                .candidate
+                .score
+                .rank_score
+                .total_cmp(&left.candidate.score.rank_score)
+                .then_with(|| {
+                    evaluated_profit_score(right).total_cmp(&evaluated_profit_score(left))
+                })
+        });
+    }
+}
+
+fn evaluated_profit_score(candidate: &EvaluatedCandidateWithDrawdown) -> f64 {
+    let total_return = candidate
+        .screening_total_return_pct
+        .unwrap_or(candidate.candidate.score.raw_score);
+    if total_return <= 0.0 {
+        return f64::NEG_INFINITY;
+    }
+    let drawdown = candidate
+        .screening_max_drawdown_pct
+        .unwrap_or(candidate.used_drawdown_limit_pct)
+        .max(1.0);
+    let trade_bonus = candidate.screening_trade_count.unwrap_or(0).min(300) as f64 / 300.0;
+    total_return + (total_return / drawdown) * 10.0 - drawdown * 0.15 + trade_bonus * 3.0
 }
 
 fn rejection_sample_from_evaluated(
@@ -1879,16 +1975,11 @@ fn select_refinement_candidates_with_drawdown_metadata(
     mut candidates: Vec<EvaluatedCandidateWithDrawdown>,
     _min_total: usize,
     per_symbol_top_n: usize,
+    risk_profile: &str,
 ) -> Vec<EvaluatedCandidateWithDrawdown> {
     use std::collections::BTreeMap;
 
-    candidates.sort_by(|left, right| {
-        right
-            .candidate
-            .score
-            .rank_score
-            .total_cmp(&left.candidate.score.rank_score)
-    });
+    sort_evaluated_with_drawdown_for_profile(&mut candidates, risk_profile);
 
     let mut selected = Vec::new();
     let mut selected_counts = BTreeMap::<String, usize>::new();
@@ -1902,6 +1993,85 @@ fn select_refinement_candidates_with_drawdown_metadata(
         }
         *count += 1;
         selected.push(candidate.clone());
+    }
+
+    selected
+}
+
+fn long_short_survivor_limit(task: &WorkerTaskConfig) -> usize {
+    task.per_symbol_top_n.max(20).min(48)
+}
+
+fn sort_long_short_candidates_for_profile(
+    candidates: &mut [EvaluatedCandidate],
+    risk_profile: &str,
+    samples_by_id: Option<&std::collections::BTreeMap<String, CandidateRejectionSample>>,
+) {
+    if risk_profile.eq_ignore_ascii_case("aggressive") {
+        candidates.sort_by(|left, right| {
+            let left_profit_score = aggressive_screening_profit_score(left, samples_by_id);
+            let right_profit_score = aggressive_screening_profit_score(right, samples_by_id);
+            right_profit_score
+                .total_cmp(&left_profit_score)
+                .then_with(|| right.score.rank_score.total_cmp(&left.score.rank_score))
+                .then_with(|| {
+                    right
+                        .candidate
+                        .candidate_id
+                        .cmp(&left.candidate.candidate_id)
+                })
+        });
+    } else {
+        candidates.sort_by(|left, right| right.score.rank_score.total_cmp(&left.score.rank_score));
+    }
+}
+
+fn aggressive_screening_profit_score(
+    candidate: &EvaluatedCandidate,
+    samples_by_id: Option<&std::collections::BTreeMap<String, CandidateRejectionSample>>,
+) -> f64 {
+    if !candidate.score.survival_valid {
+        return f64::NEG_INFINITY;
+    }
+    let Some(sample) =
+        samples_by_id.and_then(|samples| samples.get(&candidate.candidate.candidate_id))
+    else {
+        return candidate.score.rank_score;
+    };
+    let total_return = sample.total_return_pct.unwrap_or(0.0);
+    if total_return <= 0.0 {
+        return f64::NEG_INFINITY;
+    }
+    let drawdown = sample.max_drawdown_pct.unwrap_or(100.0).max(1.0);
+    total_return + (total_return / drawdown) * 8.0 - drawdown * 0.2
+}
+
+fn select_portfolio_pool_outputs(
+    mut outputs: Vec<CandidateOutput>,
+    per_symbol_top_n: usize,
+    risk_profile: &str,
+) -> Vec<CandidateOutput> {
+    use std::collections::BTreeMap;
+
+    outputs.retain(|output| output.total_return_pct > 0.0 && !output.equity_curve.is_empty());
+    sort_outputs_for_profile(&mut outputs, risk_profile);
+
+    let mut selected = Vec::new();
+    let mut selected_counts = BTreeMap::<String, usize>::new();
+    let mut selected_signatures = std::collections::BTreeSet::<String>::new();
+
+    for output in outputs {
+        let symbol = output_symbol(&output).unwrap_or_else(|| output.candidate_id.clone());
+        let signature = output_parameter_signature(&output);
+        if !selected_signatures.insert(signature) {
+            continue;
+        }
+        let count = selected_counts.entry(symbol).or_default();
+        if *count >= per_symbol_top_n {
+            continue;
+        }
+        *count += 1;
+        selected.push(output);
     }
 
     selected
@@ -1924,7 +2094,7 @@ fn select_top_outputs_per_symbol(
         true
     });
 
-    outputs.sort_by(|left, right| right.score.total_cmp(&left.score));
+    sort_outputs_for_profile(&mut outputs, risk_profile);
 
     let mut selected = Vec::new();
     let mut selected_counts = BTreeMap::<String, usize>::new();
@@ -2022,6 +2192,28 @@ fn select_top_outputs_per_symbol(
             output
         })
         .collect()
+}
+
+fn sort_outputs_for_profile(outputs: &mut [CandidateOutput], risk_profile: &str) {
+    if risk_profile.eq_ignore_ascii_case("aggressive") {
+        outputs.sort_by(|left, right| {
+            let left_annualized = left.annualized_return_pct.unwrap_or(left.total_return_pct);
+            let right_annualized = right
+                .annualized_return_pct
+                .unwrap_or(right.total_return_pct);
+            right_annualized
+                .total_cmp(&left_annualized)
+                .then_with(|| {
+                    right
+                        .return_drawdown_ratio
+                        .unwrap_or(0.0)
+                        .total_cmp(&left.return_drawdown_ratio.unwrap_or(0.0))
+                })
+                .then_with(|| left.max_drawdown_pct.total_cmp(&right.max_drawdown_pct))
+        });
+    } else {
+        outputs.sort_by(|left, right| right.score.total_cmp(&left.score));
+    }
 }
 
 fn symbols_from_outputs(outputs: &[CandidateOutput]) -> Vec<String> {
@@ -3088,15 +3280,22 @@ mod tests {
                     candidate: btc,
                     used_drawdown_limit_pct: 25.0,
                     risk_relaxed: false,
+                    screening_total_return_pct: Some(90.0),
+                    screening_max_drawdown_pct: Some(10.0),
+                    screening_trade_count: Some(20),
                 },
                 EvaluatedCandidateWithDrawdown {
                     candidate: eth,
                     used_drawdown_limit_pct: 30.0,
                     risk_relaxed: true,
+                    screening_total_return_pct: Some(80.0),
+                    screening_max_drawdown_pct: Some(12.0),
+                    screening_trade_count: Some(20),
                 },
             ],
             2,
             1,
+            "balanced",
         );
 
         let btc = selected
@@ -3185,7 +3384,8 @@ mod tests {
                 Ok(vec![candidate])
             })
             .unwrap();
-        let selected = select_refinement_candidates_with_drawdown_metadata(screened, 1, 1);
+        let selected =
+            select_refinement_candidates_with_drawdown_metadata(screened, 1, 1, "balanced");
 
         assert!(selected.is_empty());
     }
@@ -4137,7 +4337,31 @@ mod tests {
             ),
         ];
 
-        let selected = select_candidates_or_best_fallback_for_task(candidates, 25.0, true);
+        let samples_by_id = candidates
+            .iter()
+            .map(|candidate| {
+                (
+                    candidate.candidate.candidate_id.clone(),
+                    CandidateRejectionSample {
+                        candidate_id: candidate.candidate.candidate_id.clone(),
+                        symbol: "BTCUSDT".to_owned(),
+                        direction_mode: "long_short".to_owned(),
+                        total_return_pct: Some(candidate.score.raw_score),
+                        max_drawdown_pct: Some(20.0),
+                        trade_count: 10,
+                        survival_valid: candidate.score.survival_valid,
+                        rejection_reason: None,
+                    },
+                )
+            })
+            .collect::<std::collections::BTreeMap<_, _>>();
+        let selected = select_candidates_or_best_fallback_for_task(
+            candidates,
+            25.0,
+            true,
+            &samples_by_id,
+            "balanced",
+        );
 
         assert_eq!(selected.len(), 2);
         assert_eq!(

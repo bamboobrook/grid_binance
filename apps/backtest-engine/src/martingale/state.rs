@@ -35,6 +35,7 @@ pub struct MartingaleLegState {
     pub leg_index: u32,
     pub price: f64,
     pub quantity: f64,
+    pub margin_quote: f64,
     pub notional_quote: f64,
     pub fee_quote: f64,
     pub slippage_quote: f64,

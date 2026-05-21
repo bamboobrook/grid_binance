@@ -286,10 +286,18 @@ pub fn normalize_martingale_auto_search_config(mut config: Value) -> Result<Valu
     );
     object.insert("per_symbol_top_n".to_owned(), Value::Number(10.into()));
     object.insert("portfolio_top_n".to_owned(), Value::Number(3.into()));
-    object.entry("random_seed".to_owned()).or_insert_with(|| Value::Number(1.into()));
-    object.entry("random_candidates".to_owned()).or_insert_with(|| Value::Number(16.into()));
-    object.entry("intelligent_rounds".to_owned()).or_insert_with(|| Value::Number(1.into()));
-    object.entry("top_n".to_owned()).or_insert_with(|| Value::Number(10.into()));
+    object
+        .entry("random_seed".to_owned())
+        .or_insert_with(|| Value::Number(1.into()));
+    object
+        .entry("random_candidates".to_owned())
+        .or_insert_with(|| Value::Number(16.into()));
+    object
+        .entry("intelligent_rounds".to_owned())
+        .or_insert_with(|| Value::Number(1.into()));
+    object
+        .entry("top_n".to_owned())
+        .or_insert_with(|| Value::Number(10.into()));
     object.insert(
         "time_range_mode".to_owned(),
         Value::String("auto_since_2023_to_last_month_end".to_owned()),

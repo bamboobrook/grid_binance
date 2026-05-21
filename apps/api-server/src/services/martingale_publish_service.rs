@@ -229,7 +229,10 @@ impl MartingalePublishService {
                 "portfolio cannot be started from current status",
             ));
         }
-        validate_running_futures_conflicts(&self.repo.list_martingale_portfolios(owner)?, &portfolio)?;
+        validate_running_futures_conflicts(
+            &self.repo.list_martingale_portfolios(owner)?,
+            &portfolio,
+        )?;
         self.repo
             .set_martingale_portfolio_status(owner, portfolio_id, "running")?
             .ok_or_else(|| PublishError::not_found("portfolio not found"))
@@ -387,14 +390,18 @@ fn candidate_publish_metadata(config: &MartingalePortfolioConfig) -> (String, St
     } else {
         "spot"
     };
-    let has_long = config
-        .strategies
-        .iter()
-        .any(|strategy| matches!(strategy.direction, shared_domain::martingale::MartingaleDirection::Long));
-    let has_short = config
-        .strategies
-        .iter()
-        .any(|strategy| matches!(strategy.direction, shared_domain::martingale::MartingaleDirection::Short));
+    let has_long = config.strategies.iter().any(|strategy| {
+        matches!(
+            strategy.direction,
+            shared_domain::martingale::MartingaleDirection::Long
+        )
+    });
+    let has_short = config.strategies.iter().any(|strategy| {
+        matches!(
+            strategy.direction,
+            shared_domain::martingale::MartingaleDirection::Short
+        )
+    });
     let direction = match (has_long, has_short) {
         (true, true) => "long_short",
         (false, true) => "short",

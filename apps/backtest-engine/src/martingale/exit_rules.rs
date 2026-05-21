@@ -135,6 +135,7 @@ mod tests {
             leg_index: 0,
             price,
             quantity,
+            margin_quote: price * quantity,
             notional_quote: price * quantity,
             fee_quote: 0.0,
             slippage_quote: 0.0,

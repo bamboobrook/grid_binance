@@ -442,7 +442,6 @@ impl BacktestRepository {
         }
     }
 
-
     pub fn update_task_summary(
         &self,
         task_id: &str,
@@ -470,9 +469,13 @@ impl BacktestRepository {
             BacktestRepositoryBackend::Ephemeral(state) => {
                 let mut state = lock_ephemeral(state)?;
                 let Some(task) = state.backtest_tasks.get_mut(task_id) else {
-                    return Err(SharedDbError::new(format!("backtest task not found: {task_id}")));
+                    return Err(SharedDbError::new(format!(
+                        "backtest task not found: {task_id}"
+                    )));
                 };
-                if let (Some(existing), Some(next)) = (task.summary.as_object_mut(), summary.as_object()) {
+                if let (Some(existing), Some(next)) =
+                    (task.summary.as_object_mut(), summary.as_object())
+                {
                     for (key, value) in next {
                         existing.insert(key.clone(), value.clone());
                     }
@@ -906,13 +909,12 @@ impl BacktestRepository {
                     let mut tx = pool.begin().await.map_err(SharedDbError::from)?;
                     let owner = portfolio.owner.clone();
                     let source_task_id = portfolio.source_task_id.clone();
-                    let task_owner: Option<String> = sqlx::query_scalar(
-                        "SELECT owner FROM backtest_tasks WHERE task_id = $1",
-                    )
-                    .bind(&source_task_id)
-                    .fetch_optional(&mut *tx)
-                    .await
-                    .map_err(SharedDbError::from)?;
+                    let task_owner: Option<String> =
+                        sqlx::query_scalar("SELECT owner FROM backtest_tasks WHERE task_id = $1")
+                            .bind(&source_task_id)
+                            .fetch_optional(&mut *tx)
+                            .await
+                            .map_err(SharedDbError::from)?;
                     match task_owner {
                         Some(task_owner) if task_owner == owner => {}
                         Some(_) => {
@@ -1235,11 +1237,9 @@ impl BacktestRepository {
                     .await
                     .map_err(SharedDbError::from)?;
                     let mut portfolio = martingale_portfolio_from_row(row)?;
-                    portfolio.items = fetch_martingale_portfolio_items_tx(
-                        &mut tx,
-                        &portfolio.portfolio_id,
-                    )
-                    .await?;
+                    portfolio.items =
+                        fetch_martingale_portfolio_items_tx(&mut tx, &portfolio.portfolio_id)
+                            .await?;
                     tx.commit().await.map_err(SharedDbError::from)?;
                     Ok(Some(portfolio))
                 })
@@ -1262,7 +1262,6 @@ impl BacktestRepository {
             }
         }
     }
-
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -1404,9 +1403,9 @@ fn martingale_portfolio_item_from_row(
         portfolio_id: row.try_get("portfolio_id").map_err(SharedDbError::from)?,
         candidate_id: row.try_get("candidate_id").map_err(SharedDbError::from)?,
         symbol: row.try_get("symbol").map_err(SharedDbError::from)?,
-        weight_pct: weight_pct.parse().map_err(|error| {
-            SharedDbError::new(format!("invalid item weight decimal: {error}"))
-        })?,
+        weight_pct: weight_pct
+            .parse()
+            .map_err(|error| SharedDbError::new(format!("invalid item weight decimal: {error}")))?,
         leverage: row.try_get("leverage").map_err(SharedDbError::from)?,
         enabled: row.try_get("enabled").map_err(SharedDbError::from)?,
         status: row.try_get("status").map_err(SharedDbError::from)?,
@@ -1466,9 +1465,8 @@ async fn fetch_martingale_portfolio_items_tx(
 #[cfg(test)]
 mod tests {
     use crate::{
-        NewBacktestArtifactRecord, NewBacktestCandidateRecord,
-        NewMartingalePortfolioItemRecord, NewMartingalePortfolioRecord, NewBacktestTaskRecord,
-        SharedDb,
+        NewBacktestArtifactRecord, NewBacktestCandidateRecord, NewBacktestTaskRecord,
+        NewMartingalePortfolioItemRecord, NewMartingalePortfolioRecord, SharedDb,
     };
     use shared_domain::strategy::Decimal;
 
@@ -1613,11 +1611,12 @@ mod tests {
             .unwrap();
 
         assert_eq!(created.items.len(), 2);
-        assert_ne!(created.items[0].strategy_instance_id, created.items[1].strategy_instance_id);
+        assert_ne!(
+            created.items[0].strategy_instance_id,
+            created.items[1].strategy_instance_id
+        );
 
-        let listed = repo
-            .list_martingale_portfolios("user@example.com")
-            .unwrap();
+        let listed = repo.list_martingale_portfolios("user@example.com").unwrap();
         assert_eq!(listed.len(), 1);
         assert_eq!(listed[0].items.len(), 2);
         assert!(listed[0].items.iter().all(|item| item.symbol == "BTCUSDT"));

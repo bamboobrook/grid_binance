@@ -895,7 +895,10 @@ async fn martingale_long_short_candidate_detail_exposes_complete_summary() {
     .await;
     assert_eq!(candidates_response.status(), StatusCode::OK);
     let candidates = response_json(candidates_response).await;
-    let candidate = candidates.as_array().unwrap().iter()
+    let candidate = candidates
+        .as_array()
+        .unwrap()
+        .iter()
         .find(|c| c["candidate_id"] == candidate_id)
         .unwrap();
     let summary = &candidate["summary"];

@@ -96,9 +96,7 @@ pub fn build_portfolio_top3(
 ) -> PortfolioTop3Artifact {
     let eligible: Vec<&EvaluatedCandidate> = candidates
         .iter()
-        .filter(|c| {
-            c.survival_passed && c.max_drawdown_pct <= max_drawdown_pct && c.return_pct > 0.0
-        })
+        .filter(|c| c.return_pct > 0.0 && !c.equity_curve.is_empty())
         .collect();
 
     let eligible_count = eligible.len();
@@ -120,101 +118,26 @@ pub fn build_portfolio_top3(
         };
     }
 
-    let allocation_templates: Vec<Vec<f64>> = vec![
-        vec![0.5, 0.5],
-        vec![0.6, 0.4],
-        vec![0.4, 0.6],
-        vec![0.34, 0.33, 0.33],
-        vec![0.5, 0.25, 0.25],
-    ];
-
+    let allocation_templates = allocation_templates();
     let mut scored_portfolios: Vec<WeightedPortfolio> = Vec::new();
-    let max_combos = 120usize;
+    let max_combos = 8_000usize;
     let mut combo_count = 0usize;
 
-    // Step A: Generate cross-symbol combinations first when multiple symbols are eligible.
-    if unique_eligible_symbol_count >= 2 {
-        let diversified_indices = best_indices_by_symbol(&eligible, 3);
-        for i_pos in 0..diversified_indices.len() {
-            for j_pos in (i_pos + 1)..diversified_indices.len() {
-                let i = diversified_indices[i_pos];
-                let j = diversified_indices[j_pos];
-                if candidate_symbol(eligible[i]) == candidate_symbol(eligible[j]) {
-                    continue;
-                }
-                for template in &allocation_templates {
-                    if template.len() == 2 {
-                        if let Some(portfolio) =
-                            build_weighted_portfolio(&eligible, &[i, j], template)
-                        {
-                            scored_portfolios.push(portfolio);
-                        }
-                        combo_count += 1;
-                        if combo_count >= max_combos {
-                            break;
-                        }
-                    }
-                }
-                if combo_count >= max_combos {
-                    break;
-                }
-            }
-            if combo_count >= max_combos {
-                break;
-            }
-        }
-    }
-
-    // Step B: Generate all combinations (same + cross symbol).
-    for i in 0..eligible_count {
-        for j in (i + 1)..eligible_count {
-            // Try 2-member combination first
-            let mut tried = false;
-            for template in &allocation_templates {
-                if template.len() != 2 {
-                    continue;
-                }
-                if let Some(p) = build_weighted_portfolio(&eligible, &[i, j], template) {
-                    scored_portfolios.push(p);
-                }
-                combo_count += 1;
-                tried = true;
-                if combo_count >= max_combos {
-                    break;
-                }
-            }
-            if combo_count >= max_combos || !tried {
-                if combo_count >= max_combos {
-                    break;
-                }
-                continue;
-            }
-
-            // Try 3-member combinations
-            for k in (j + 1)..eligible_count.min(j + 4) {
-                if k >= eligible_count {
-                    break;
-                }
-                for template in &allocation_templates {
-                    if template.len() != 3 {
-                        continue;
-                    }
-                    if let Some(p) = build_weighted_portfolio(&eligible, &[i, j, k], template) {
-                        scored_portfolios.push(p);
-                    }
-                    combo_count += 1;
-                    if combo_count >= max_combos {
-                        break;
-                    }
-                }
-                if combo_count >= max_combos {
-                    break;
-                }
-            }
-            if combo_count >= max_combos {
-                break;
-            }
-        }
+    let focused_indices = best_indices_by_symbol(&eligible, 5);
+    for member_count in 2..=5.min(focused_indices.len()) {
+        let mut current = Vec::with_capacity(member_count);
+        enumerate_portfolio_index_combinations(
+            &eligible,
+            &focused_indices,
+            member_count,
+            0,
+            &mut current,
+            &allocation_templates,
+            &mut scored_portfolios,
+            &mut combo_count,
+            max_combos,
+            max_drawdown_pct,
+        );
         if combo_count >= max_combos {
             break;
         }
@@ -277,10 +200,133 @@ pub fn build_portfolio_top3(
     }
 }
 
+fn allocation_templates() -> Vec<Vec<f64>> {
+    vec![
+        vec![0.5, 0.5],
+        vec![0.6, 0.4],
+        vec![0.4, 0.6],
+        vec![0.7, 0.3],
+        vec![0.3, 0.7],
+        vec![0.34, 0.33, 0.33],
+        vec![0.5, 0.25, 0.25],
+        vec![0.25, 0.5, 0.25],
+        vec![0.25, 0.25, 0.5],
+        vec![0.6, 0.2, 0.2],
+        vec![0.2, 0.6, 0.2],
+        vec![0.2, 0.2, 0.6],
+        vec![0.7, 0.15, 0.15],
+        vec![0.15, 0.7, 0.15],
+        vec![0.15, 0.15, 0.7],
+        vec![0.4, 0.35, 0.25],
+        vec![0.25, 0.35, 0.4],
+        vec![0.25, 0.25, 0.25, 0.25],
+        vec![0.4, 0.2, 0.2, 0.2],
+        vec![0.2, 0.4, 0.2, 0.2],
+        vec![0.2, 0.2, 0.4, 0.2],
+        vec![0.2, 0.2, 0.2, 0.4],
+        vec![0.55, 0.15, 0.15, 0.15],
+        vec![0.15, 0.55, 0.15, 0.15],
+        vec![0.15, 0.15, 0.55, 0.15],
+        vec![0.15, 0.15, 0.15, 0.55],
+        vec![0.7, 0.1, 0.1, 0.1],
+        vec![0.1, 0.7, 0.1, 0.1],
+        vec![0.1, 0.1, 0.7, 0.1],
+        vec![0.1, 0.1, 0.1, 0.7],
+        vec![0.2, 0.2, 0.2, 0.2, 0.2],
+        vec![0.3, 0.25, 0.2, 0.15, 0.1],
+        vec![0.1, 0.15, 0.2, 0.25, 0.3],
+        vec![0.6, 0.1, 0.1, 0.1, 0.1],
+        vec![0.1, 0.6, 0.1, 0.1, 0.1],
+        vec![0.1, 0.1, 0.6, 0.1, 0.1],
+        vec![0.1, 0.1, 0.1, 0.6, 0.1],
+        vec![0.1, 0.1, 0.1, 0.1, 0.6],
+    ]
+}
+
+fn enumerate_portfolio_index_combinations(
+    eligible: &[&EvaluatedCandidate],
+    indices: &[usize],
+    target_len: usize,
+    start_pos: usize,
+    current: &mut Vec<usize>,
+    allocation_templates: &[Vec<f64>],
+    scored_portfolios: &mut Vec<WeightedPortfolio>,
+    combo_count: &mut usize,
+    max_combos: usize,
+    max_portfolio_drawdown_pct: f64,
+) {
+    if *combo_count >= max_combos {
+        return;
+    }
+    if current.len() == target_len {
+        let unique_symbols = current
+            .iter()
+            .map(|index| candidate_symbol(eligible[*index]))
+            .collect::<std::collections::HashSet<_>>()
+            .len();
+        if unique_symbols < 2 {
+            return;
+        }
+        for template in allocation_templates
+            .iter()
+            .filter(|tpl| tpl.len() == target_len)
+        {
+            if let Some(portfolio) =
+                build_weighted_portfolio(eligible, current, template, max_portfolio_drawdown_pct)
+            {
+                scored_portfolios.push(portfolio);
+                prune_scored_portfolios(scored_portfolios, 160, 64);
+            }
+            *combo_count += 1;
+            if *combo_count >= max_combos {
+                break;
+            }
+        }
+        return;
+    }
+
+    let remaining = target_len - current.len();
+    if indices.len().saturating_sub(start_pos) < remaining {
+        return;
+    }
+    for pos in start_pos..indices.len() {
+        current.push(indices[pos]);
+        enumerate_portfolio_index_combinations(
+            eligible,
+            indices,
+            target_len,
+            pos + 1,
+            current,
+            allocation_templates,
+            scored_portfolios,
+            combo_count,
+            max_combos,
+            max_portfolio_drawdown_pct,
+        );
+        current.pop();
+        if *combo_count >= max_combos {
+            break;
+        }
+    }
+}
+
+fn prune_scored_portfolios(portfolios: &mut Vec<WeightedPortfolio>, threshold: usize, keep: usize) {
+    if portfolios.len() <= threshold {
+        return;
+    }
+    portfolios.sort_by(|a, b| {
+        b.score
+            .partial_cmp(&a.score)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
+    portfolios.truncate(keep);
+}
+
 fn build_weighted_portfolio(
     eligible: &[&EvaluatedCandidate],
     member_indices: &[usize],
     allocations: &[f64],
+    max_portfolio_drawdown_pct: f64,
 ) -> Option<WeightedPortfolio> {
     let members_data: Vec<&EvaluatedCandidate> =
         member_indices.iter().map(|&i| eligible[i]).collect();
@@ -402,6 +448,9 @@ fn build_weighted_portfolio(
         .iter()
         .map(|p| p.drawdown_pct)
         .fold(0.0_f64, f64::max);
+    if max_drawdown_pct > max_portfolio_drawdown_pct {
+        return None;
+    }
 
     let trade_count: u64 = members_data.iter().map(|c| c.trade_count).sum();
     let days = {
@@ -423,10 +472,11 @@ fn build_weighted_portfolio(
     trades_preview.sort_by_key(|trade| trade.timestamp_ms);
     trades_preview.truncate(200);
 
+    let annualized = annualized_return_pct.unwrap_or(return_pct);
     let calmar = if max_drawdown_pct > 0.0 {
-        return_pct / max_drawdown_pct
+        annualized / max_drawdown_pct
     } else {
-        0.0
+        annualized.max(0.0)
     };
     let unique_symbol_count = portfolio_members
         .iter()
@@ -436,8 +486,19 @@ fn build_weighted_portfolio(
     let member_count = portfolio_members.len().max(1);
     let diversification_factor = unique_symbol_count as f64 / member_count as f64;
     let concentration_penalty = if unique_symbol_count == 1 { 0.50 } else { 1.0 };
-    let diversification_bonus = 1.0 + diversification_factor * 0.35;
-    let score = calmar * diversification_bonus * concentration_penalty;
+    let member_count_bonus = if member_count >= 4 {
+        1.35
+    } else if member_count == 3 {
+        1.15
+    } else {
+        1.0
+    };
+    let diversification_bonus =
+        (1.0 + diversification_factor * 0.30 + member_count.min(5) as f64 * 0.05)
+            * member_count_bonus;
+    let score = (calmar * 8.0 + annualized / 4.0 + return_pct / 20.0)
+        * diversification_bonus
+        * concentration_penalty;
 
     Some(WeightedPortfolio {
         members: portfolio_members,
@@ -661,8 +722,26 @@ mod tests {
             fixture_candidate("c", "SOLUSDT", -5.0, 8.0, 2.0),  // negative return
         ];
         let artifact = build_portfolio_top3(&candidates, 20.0);
-        assert_eq!(artifact.eligible_candidate_count, 1);
-        assert!(artifact.top3.is_empty());
+        assert_eq!(artifact.eligible_candidate_count, 2);
+        assert!(!artifact.top3.is_empty());
+        assert!(artifact
+            .top3
+            .iter()
+            .all(|portfolio| portfolio.max_drawdown_pct <= 20.0));
+    }
+
+    #[test]
+    fn allocation_templates_cover_profit_weighted_larger_portfolios() {
+        let templates = allocation_templates();
+
+        assert!(templates.iter().any(|tpl| tpl == &vec![0.7, 0.1, 0.1, 0.1]));
+        assert!(templates
+            .iter()
+            .any(|tpl| tpl == &vec![0.6, 0.1, 0.1, 0.1, 0.1]));
+        assert!(templates
+            .iter()
+            .filter(|tpl| tpl.len() == 5)
+            .all(|tpl| (tpl.iter().sum::<f64>() - 1.0).abs() < 0.000001));
     }
 
     fn candidate_with_curve(
@@ -776,8 +855,9 @@ mod tests {
         );
         let c = candidate_with_curve("eth", "ETHUSDT", 4.0, 5.0, 1.5, 100.0, vec![100.0, 104.0]);
 
-        let portfolio = build_weighted_portfolio(&[&a, &b, &c], &[0, 1, 2], &[0.5, 0.25, 0.25])
-            .expect("same-symbol multi-strategy should be allowed under 80% symbol cap");
+        let portfolio =
+            build_weighted_portfolio(&[&a, &b, &c], &[0, 1, 2], &[0.5, 0.25, 0.25], 30.0)
+                .expect("same-symbol multi-strategy should be allowed under 80% symbol cap");
         assert!(
             portfolio
                 .members
@@ -864,7 +944,7 @@ mod tests {
             },
         ];
 
-        let portfolio = build_weighted_portfolio(&[&btc, &eth], &[0, 1], &[0.6, 0.4])
+        let portfolio = build_weighted_portfolio(&[&btc, &eth], &[0, 1], &[0.6, 0.4], 30.0)
             .expect("portfolio should build");
 
         let first = portfolio.equity_curve.first().unwrap().equity_quote;
@@ -969,7 +1049,7 @@ mod tests {
             },
         ];
 
-        assert!(build_weighted_portfolio(&[&btc, &eth], &[0, 1], &[0.6, 0.4]).is_none());
+        assert!(build_weighted_portfolio(&[&btc, &eth], &[0, 1], &[0.6, 0.4], 30.0).is_none());
     }
 
     #[test]
@@ -995,13 +1075,23 @@ mod tests {
         let eth = candidate_with_curve("eth", "ETHUSDT", 8.0, 5.0, 1.0, 100.0, vec![100.0, 108.0]);
 
         assert!(
-            build_weighted_portfolio(&[&btc_a, &btc_b, &eth], &[0, 1, 2], &[0.5, 0.25, 0.25])
-                .is_some(),
+            build_weighted_portfolio(
+                &[&btc_a, &btc_b, &eth],
+                &[0, 1, 2],
+                &[0.5, 0.25, 0.25],
+                30.0
+            )
+            .is_some(),
             "75% BTC allocation should be allowed"
         );
         assert!(
-            build_weighted_portfolio(&[&btc_a, &btc_b, &eth], &[0, 1, 2], &[0.5, 0.34, 0.16])
-                .is_none(),
+            build_weighted_portfolio(
+                &[&btc_a, &btc_b, &eth],
+                &[0, 1, 2],
+                &[0.5, 0.34, 0.16],
+                30.0
+            )
+            .is_none(),
             "84% BTC allocation must be rejected"
         );
     }

@@ -12,8 +12,8 @@ use crate::martingale::exit_rules::{
     evaluate_exit_priority, take_profit_price, weighted_average_entry, ExitDecision,
 };
 use crate::martingale::metrics::{
-    build_drawdown_curve, calculate_annualized_return_pct, EquityPoint, MartingaleBacktestEvent,
-    MartingaleBacktestResult, MartingaleMetrics, MartingaleTradeDetail,
+    build_drawdown_curve, calculate_annualized_return_pct, notional_quote, EquityPoint,
+    MartingaleBacktestEvent, MartingaleBacktestResult, MartingaleMetrics, MartingaleTradeDetail,
 };
 use crate::martingale::rules::{compute_leg_notionals, compute_leg_trigger_prices};
 use crate::martingale::state::MartingaleLegState;
@@ -88,11 +88,12 @@ pub fn run_kline_screening(
                         continue;
                     }
 
+                    let margin = strategy_states[state_index].margins[0];
                     let notional = strategy_states[state_index].notionals[0];
                     let entry_cost = trading_cost_quote(notional);
                     total_fee_quote += entry_cost.fee_quote;
                     total_slippage_quote += entry_cost.slippage_quote;
-                    let capital_required = notional + entry_cost.total();
+                    let capital_required = margin + entry_cost.total();
                     if let Some(reason) = budget_rejection_reason(
                         &portfolio,
                         &strategy_states,
@@ -110,7 +111,13 @@ pub fn run_kline_screening(
                         state_index += 1;
                         continue;
                     }
-                    add_leg(&mut strategy_states[state_index], 0, bar.open, notional)?;
+                    add_leg(
+                        &mut strategy_states[state_index],
+                        0,
+                        bar.open,
+                        margin,
+                        notional,
+                    )?;
                     capital_used_quote += capital_required;
                     trade_count += 1;
                     max_capital_used_quote = max_capital_used_quote.max(capital_used_quote);
@@ -119,8 +126,10 @@ pub fn run_kline_screening(
                         &strategy_states[state_index],
                         "entry",
                         format!(
-                            "notional_quote={notional};fee_quote={};slippage_quote={}",
-                            entry_cost.fee_quote, entry_cost.slippage_quote
+                            "margin_quote={margin};notional_quote={notional};leverage={};fee_quote={};slippage_quote={}",
+                            strategy_states[state_index].strategy.leverage.unwrap_or(1),
+                            entry_cost.fee_quote,
+                            entry_cost.slippage_quote
                         ),
                     ));
                 }
@@ -133,11 +142,12 @@ pub fn run_kline_screening(
                         bar,
                         trigger_price,
                     ) {
+                        let margin = strategy_states[state_index].margins[next_leg_index];
                         let notional = strategy_states[state_index].notionals[next_leg_index];
                         let entry_cost = trading_cost_quote(notional);
                         total_fee_quote += entry_cost.fee_quote;
                         total_slippage_quote += entry_cost.slippage_quote;
-                        let capital_required = notional + entry_cost.total();
+                        let capital_required = margin + entry_cost.total();
                         if let Some(reason) = budget_rejection_reason(
                             &portfolio,
                             &strategy_states,
@@ -159,6 +169,7 @@ pub fn run_kline_screening(
                             &mut strategy_states[state_index],
                             next_leg_index,
                             trigger_price,
+                            margin,
                             notional,
                         )?;
                         capital_used_quote += capital_required;
@@ -169,8 +180,10 @@ pub fn run_kline_screening(
                             &strategy_states[state_index],
                             "safety_order",
                             format!(
-                                "leg_index={next_leg_index};notional_quote={notional};fee_quote={};slippage_quote={}",
-                                entry_cost.fee_quote, entry_cost.slippage_quote
+                                "leg_index={next_leg_index};margin_quote={margin};notional_quote={notional};leverage={};fee_quote={};slippage_quote={}",
+                                strategy_states[state_index].strategy.leverage.unwrap_or(1),
+                                entry_cost.fee_quote,
+                                entry_cost.slippage_quote
                             ),
                         ));
                     }
@@ -317,7 +330,7 @@ pub fn run_kline_screening(
 
     let total_planned_margin: f64 = strategy_states
         .iter()
-        .map(|s| s.notionals.iter().sum::<f64>())
+        .map(|s| s.margins.iter().sum::<f64>())
         .sum();
 
     let final_equity_quote = equity_curve
@@ -352,7 +365,10 @@ pub fn run_kline_screening(
             global_drawdown_pct: Some(finite_or_zero(max_drawdown_pct)),
             max_strategy_drawdown_pct: Some(finite_or_zero(max_drawdown_pct)),
             monthly_win_rate_pct: None,
-            max_leverage_used: None,
+            max_leverage_used: strategy_states
+                .iter()
+                .filter_map(|state| state.strategy.leverage.map(|value| value as f64))
+                .max_by(f64::total_cmp),
             min_liquidation_buffer_pct: None,
             total_fee_quote: Some(total_fee_quote),
             total_slippage_quote: Some(total_slippage_quote),
@@ -432,9 +448,12 @@ fn trade_details_from_events(
                 event_type: event_type.to_owned(),
                 leg_index: detail.get("leg_index").map(|value| *value as u32),
                 price,
-                margin_quote: notional_quote,
+                margin_quote: detail
+                    .get("margin_quote")
+                    .copied()
+                    .unwrap_or(notional_quote),
                 notional_quote,
-                leverage: 1.0,
+                leverage: detail.get("leverage").copied().unwrap_or(1.0),
                 fee_quote,
                 slippage_quote,
                 realized_pnl_quote,
@@ -457,6 +476,7 @@ fn parse_event_detail(detail: &str) -> BTreeMap<String, f64> {
 
 struct StrategyRuntime<'a> {
     strategy: &'a MartingaleStrategyConfig,
+    margins: Vec<f64>,
     notionals: Vec<f64>,
     trigger_prices: Vec<f64>,
     legs: Vec<MartingaleLegState>,
@@ -470,18 +490,24 @@ struct StrategyRuntime<'a> {
 
 impl<'a> StrategyRuntime<'a> {
     fn new(strategy: &'a MartingaleStrategyConfig) -> Result<Self, String> {
-        let notionals =
+        let margins =
             compute_leg_notionals(&strategy.sizing, f64::MAX, DEFAULT_EXCHANGE_MIN_NOTIONAL)?;
-        if notionals.is_empty() {
+        if margins.is_empty() {
             return Err(format!(
                 "strategy {} has no notionals",
                 strategy.strategy_id
             ));
         }
+        let leverage = strategy.leverage.unwrap_or(1) as f64;
+        let notionals = margins
+            .iter()
+            .map(|margin| notional_quote(*margin, leverage))
+            .collect::<Vec<_>>();
 
         Ok(Self {
             strategy,
             trigger_prices: Vec::new(),
+            margins,
             notionals,
             legs: Vec::new(),
             cycle_seq: 1,
@@ -499,13 +525,13 @@ impl<'a> StrategyRuntime<'a> {
     }
 
     fn capital_used_quote(&self) -> f64 {
-        self.legs.iter().map(|leg| leg.notional_quote).sum()
+        self.legs.iter().map(|leg| leg.margin_quote).sum()
     }
 
     fn active_capital_used_quote(&self) -> f64 {
         self.legs
             .iter()
-            .map(|leg| leg.notional_quote + leg.fee_quote + leg.slippage_quote)
+            .map(|leg| leg.margin_quote + leg.fee_quote + leg.slippage_quote)
             .sum()
     }
 
@@ -524,9 +550,11 @@ fn add_leg(
     state: &mut StrategyRuntime<'_>,
     leg_index: usize,
     price: f64,
+    margin_quote: f64,
     notional_quote: f64,
 ) -> Result<(), String> {
     validate_positive_f64("price", price)?;
+    validate_positive_f64("margin_quote", margin_quote)?;
     validate_positive_f64("notional_quote", notional_quote)?;
     let quantity = notional_quote / price;
     validate_positive_f64("quantity", quantity)?;
@@ -546,6 +574,7 @@ fn add_leg(
         leg_index: leg_index as u32,
         price,
         quantity,
+        margin_quote,
         notional_quote,
         fee_quote: entry_cost.fee_quote,
         slippage_quote: entry_cost.slippage_quote,
@@ -2476,6 +2505,50 @@ mod tests {
             result.metrics.max_drawdown_pct < 100.0,
             "drawdown should be normalized by planned margin, got {}",
             result.metrics.max_drawdown_pct
+        );
+    }
+
+    #[test]
+    fn futures_leverage_multiplies_notional_while_margin_stays_fixed() {
+        let bars = vec![
+            test_bar(0, 100.0, 100.0, 100.0, 100.0),
+            test_bar(60_000, 100.0, 101.0, 100.0, 101.0),
+        ];
+
+        let mut two_x = single_strategy_portfolio(1_000);
+        two_x.strategies[0].market = MartingaleMarketKind::UsdMFutures;
+        two_x.strategies[0].margin_mode = Some(MartingaleMarginMode::Isolated);
+        two_x.strategies[0].leverage = Some(2);
+        two_x.strategies[0].sizing = MartingaleSizingModel::Multiplier {
+            first_order_quote: Decimal::new(10, 0),
+            multiplier: Decimal::new(1, 0),
+            max_legs: 1,
+        };
+        two_x.strategies[0].take_profit = MartingaleTakeProfitModel::Percent { bps: 60 };
+        two_x.strategies[0].entry_triggers = vec![MartingaleEntryTrigger::Immediate];
+
+        let mut four_x = two_x.clone();
+        four_x.strategies[0].leverage = Some(4);
+
+        let two_x_result = run_kline_screening(two_x, &bars).expect("2x run should succeed");
+        let four_x_result = run_kline_screening(four_x, &bars).expect("4x run should succeed");
+
+        assert_eq!(two_x_result.metrics.planned_margin_quote, Some(10.0));
+        assert_eq!(four_x_result.metrics.planned_margin_quote, Some(10.0));
+        assert!(
+            four_x_result.metrics.total_return_pct > two_x_result.metrics.total_return_pct * 1.5,
+            "higher leverage should materially increase return on the same margin: 2x={}, 4x={}",
+            two_x_result.metrics.total_return_pct,
+            four_x_result.metrics.total_return_pct
+        );
+        assert!(
+            four_x_result
+                .trades
+                .iter()
+                .any(|trade| (trade.margin_quote - 10.0).abs() < 0.000001
+                    && (trade.notional_quote - 40.0).abs() < 0.000001),
+            "expected trade details to expose margin and notional separately: {:?}",
+            four_x_result.trades
         );
     }
 

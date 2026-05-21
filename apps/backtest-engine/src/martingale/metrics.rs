@@ -109,8 +109,15 @@ pub fn build_drawdown_curve(equity_curve: &[EquityPoint]) -> Vec<DrawdownPoint> 
                 return None;
             }
             peak = peak.max(point.equity_quote);
-            let drawdown_pct = if peak <= 0.0 { 0.0 } else { ((peak - point.equity_quote) / peak) * 100.0 };
-            Some(DrawdownPoint { timestamp_ms: point.timestamp_ms, drawdown_pct })
+            let drawdown_pct = if peak <= 0.0 {
+                0.0
+            } else {
+                ((peak - point.equity_quote) / peak) * 100.0
+            };
+            Some(DrawdownPoint {
+                timestamp_ms: point.timestamp_ms,
+                drawdown_pct,
+            })
         })
         .collect()
 }
@@ -159,10 +166,22 @@ mod margin_tests {
     #[test]
     fn drawdown_curve_tracks_peak_and_decline() {
         let equity_curve = vec![
-            EquityPoint { timestamp_ms: 1, equity_quote: 100.0 },
-            EquityPoint { timestamp_ms: 2, equity_quote: 110.0 },
-            EquityPoint { timestamp_ms: 3, equity_quote: 105.0 },
-            EquityPoint { timestamp_ms: 4, equity_quote: 95.0 },
+            EquityPoint {
+                timestamp_ms: 1,
+                equity_quote: 100.0,
+            },
+            EquityPoint {
+                timestamp_ms: 2,
+                equity_quote: 110.0,
+            },
+            EquityPoint {
+                timestamp_ms: 3,
+                equity_quote: 105.0,
+            },
+            EquityPoint {
+                timestamp_ms: 4,
+                equity_quote: 95.0,
+            },
         ];
         let dd = build_drawdown_curve(&equity_curve);
         assert_eq!(dd.len(), 4);
