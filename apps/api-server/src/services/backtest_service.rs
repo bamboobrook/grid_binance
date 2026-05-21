@@ -448,8 +448,16 @@ mod tests {
         });
 
         let normalized = normalize_martingale_auto_search_config(config.take()).unwrap();
-        assert_eq!(normalized.get("extended_universe").and_then(|v| v.as_bool()), Some(true));
-        assert_eq!(normalized.get("market").and_then(|v| v.as_str()), Some("usd_m_futures"));
+        assert_eq!(
+            normalized
+                .get("extended_universe")
+                .and_then(|v| v.as_bool()),
+            Some(true)
+        );
+        assert_eq!(
+            normalized.get("market").and_then(|v| v.as_str()),
+            Some("usd_m_futures")
+        );
     }
 
     #[test]

@@ -151,7 +151,9 @@ pub fn build_portfolio_top_n_v2(
 ) -> PortfolioTop3Artifact {
     let eligible: Vec<&EvaluatedCandidate> = candidates
         .iter()
-        .filter(|c| c.return_pct > 0.0 && c.planned_margin_quote > 0.0 && !c.equity_curve.is_empty())
+        .filter(|c| {
+            c.return_pct > 0.0 && c.planned_margin_quote > 0.0 && !c.equity_curve.is_empty()
+        })
         .collect();
 
     let eligible_count = eligible.len();
@@ -268,8 +270,7 @@ fn enumerate_member_combinations(
             if let Some(portfolio) =
                 build_weighted_portfolio(eligible, current, template, max_drawdown_pct)
             {
-                let correlation_factor =
-                    if unique_count >= 3 { 1.05 } else { 1.0 };
+                let correlation_factor = if unique_count >= 3 { 1.05 } else { 1.0 };
                 let mut adjusted = portfolio;
                 adjusted.score *= correlation_factor;
                 result.push(adjusted);
@@ -1303,9 +1304,15 @@ mod tests {
         );
 
         let artifact = build_portfolio_top_n_v2(&[high, low, loss], 30.0, 10);
-        let first = artifact.top3.first().expect("expected complementary portfolio");
+        let first = artifact
+            .top3
+            .first()
+            .expect("expected complementary portfolio");
 
-        assert!(first.max_drawdown_pct <= 30.0, "portfolio must obey hard drawdown: {first:?}");
+        assert!(
+            first.max_drawdown_pct <= 30.0,
+            "portfolio must obey hard drawdown: {first:?}"
+        );
         assert!(first.members.iter().any(|m| m.candidate_id == "btc-growth"));
         assert!(first.members.iter().any(|m| m.candidate_id == "eth-stable"));
         assert!(first.members.iter().all(|m| m.candidate_id != "ada-loss"));
@@ -1335,7 +1342,14 @@ mod tests {
 
         let artifact = build_portfolio_top_n_v2(&candidates, 30.0, 10);
         assert!(artifact.top3.len() >= 3);
-        assert!(artifact.all_portfolios.as_ref().map(|items| items.len()).unwrap_or(0) >= 10);
+        assert!(
+            artifact
+                .all_portfolios
+                .as_ref()
+                .map(|items| items.len())
+                .unwrap_or(0)
+                >= 10
+        );
     }
 
     #[test]

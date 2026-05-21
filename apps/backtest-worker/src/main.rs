@@ -158,9 +158,9 @@ fn default_risk_profile() -> String {
 
 fn default_expanded_universe_symbols() -> Vec<String> {
     [
-        "BTCUSDT", "ETHUSDT", "BNBUSDT", "SOLUSDT", "DOGEUSDT", "XRPUSDT", "ADAUSDT",
-        "ZECUSDT", "DASHUSDT", "NEARUSDT", "BCHUSDT", "LINKUSDT", "AVAXUSDT", "UNIUSDT",
-        "FILUSDT", "DOTUSDT", "AAVEUSDT", "INJUSDT",
+        "BTCUSDT", "ETHUSDT", "BNBUSDT", "SOLUSDT", "DOGEUSDT", "XRPUSDT", "ADAUSDT", "ZECUSDT",
+        "DASHUSDT", "NEARUSDT", "BCHUSDT", "LINKUSDT", "AVAXUSDT", "UNIUSDT", "FILUSDT", "DOTUSDT",
+        "AAVEUSDT", "INJUSDT",
     ]
     .into_iter()
     .map(str::to_owned)
@@ -1631,9 +1631,17 @@ async fn process_task(
     respect_pause_or_cancel(poller, &task.task_id).await?;
 
     let portfolio_candidates = portfolio_candidates_from_outputs(&portfolio_pool_outputs);
-    let portfolio_top_n = if should_use_profit_optimized_v2(&task.config) { 10 } else { 3 };
+    let portfolio_top_n = if should_use_profit_optimized_v2(&task.config) {
+        10
+    } else {
+        3
+    };
     let portfolio_top3 = if should_use_profit_optimized_v2(&task.config) {
-        build_portfolio_top_n_v2(&portfolio_candidates, max_portfolio_drawdown_pct, portfolio_top_n)
+        build_portfolio_top_n_v2(
+            &portfolio_candidates,
+            max_portfolio_drawdown_pct,
+            portfolio_top_n,
+        )
     } else {
         build_portfolio_top3(&portfolio_candidates, max_portfolio_drawdown_pct)
     };
@@ -2109,7 +2117,9 @@ fn aggressive_screening_profit_score(
 }
 
 fn output_profit_score(output: &CandidateOutput) -> f64 {
-    let annualized = output.annualized_return_pct.unwrap_or(output.total_return_pct);
+    let annualized = output
+        .annualized_return_pct
+        .unwrap_or(output.total_return_pct);
     if annualized <= 0.0 {
         return f64::NEG_INFINITY;
     }
@@ -2807,7 +2817,11 @@ struct MarketDataContext {
 }
 
 impl MarketDataContext {
-    fn load(source: &dyn MarketDataSource, config: &WorkerTaskConfig, symbols: &[String]) -> Result<Self, String> {
+    fn load(
+        source: &dyn MarketDataSource,
+        config: &WorkerTaskConfig,
+        symbols: &[String],
+    ) -> Result<Self, String> {
         validate_time_range(config)?;
         let available_symbols = source.list_symbols()?;
         let available_set = available_symbols
@@ -3717,7 +3731,8 @@ mod tests {
             end_ms: 2_000,
         };
 
-        let context = MarketDataContext::load(&source, &config, &config.symbols).expect("market context");
+        let context =
+            MarketDataContext::load(&source, &config, &config.symbols).expect("market context");
         assert_eq!(context.bars.len(), 1);
         assert_eq!(context.bars[0].symbol, "BTCUSDT");
         assert_eq!(context.trades.len(), 1);
@@ -3762,8 +3777,8 @@ mod tests {
             end_ms: 2_000,
         };
 
-        let context =
-            MarketDataContext::load(&source, &config, &config.symbols).expect("market context without trades");
+        let context = MarketDataContext::load(&source, &config, &config.symbols)
+            .expect("market context without trades");
         assert!(context.trades.is_empty());
     }
 
@@ -4991,16 +5006,32 @@ mod tests {
     #[test]
     fn expanded_universe_defaults_include_only_full_history_futures_symbols() {
         let symbols = default_expanded_universe_symbols();
-        assert!(symbols.len() >= 18, "expected at least 18 symbols, got {symbols:?}");
+        assert!(
+            symbols.len() >= 18,
+            "expected at least 18 symbols, got {symbols:?}"
+        );
         for required in [
             "BTCUSDT", "ETHUSDT", "BNBUSDT", "SOLUSDT", "DOGEUSDT", "XRPUSDT", "ADAUSDT",
             "ZECUSDT", "DASHUSDT", "NEARUSDT", "BCHUSDT", "LINKUSDT", "AVAXUSDT", "UNIUSDT",
             "FILUSDT", "DOTUSDT", "AAVEUSDT", "INJUSDT",
         ] {
-            assert!(symbols.contains(&required.to_owned()), "missing {required}: {symbols:?}");
+            assert!(
+                symbols.contains(&required.to_owned()),
+                "missing {required}: {symbols:?}"
+            );
         }
-        for excluded in ["SUIUSDT", "1000PEPEUSDT", "ONDOUSDT", "TONUSDT", "WLDUSDT", "ENAUSDT"] {
-            assert!(!symbols.contains(&excluded.to_owned()), "short-history symbol should not be default: {excluded}");
+        for excluded in [
+            "SUIUSDT",
+            "1000PEPEUSDT",
+            "ONDOUSDT",
+            "TONUSDT",
+            "WLDUSDT",
+            "ENAUSDT",
+        ] {
+            assert!(
+                !symbols.contains(&excluded.to_owned()),
+                "short-history symbol should not be default: {excluded}"
+            );
         }
     }
 
@@ -5035,12 +5066,22 @@ mod tests {
             max_drawdown_pct,
             trade_count: 100,
             annualized_return_pct: Some(total_return_pct / 2.0),
-            return_drawdown_ratio: if max_drawdown_pct > 0.0 { Some(total_return_pct / max_drawdown_pct) } else { None },
+            return_drawdown_ratio: if max_drawdown_pct > 0.0 {
+                Some(total_return_pct / max_drawdown_pct)
+            } else {
+                None
+            },
             planned_margin_quote: Some(planned_margin_quote),
             max_leverage_used: Some(3.0),
             equity_curve: vec![
-                backtest_engine::martingale::metrics::EquityPoint { timestamp_ms: 1, equity_quote: planned_margin_quote },
-                backtest_engine::martingale::metrics::EquityPoint { timestamp_ms: 2, equity_quote: planned_margin_quote * (1.0 + total_return_pct / 100.0) },
+                backtest_engine::martingale::metrics::EquityPoint {
+                    timestamp_ms: 1,
+                    equity_quote: planned_margin_quote,
+                },
+                backtest_engine::martingale::metrics::EquityPoint {
+                    timestamp_ms: 2,
+                    equity_quote: planned_margin_quote * (1.0 + total_return_pct / 100.0),
+                },
             ],
             drawdown_curve: Vec::new(),
             trades_preview: Vec::new(),
@@ -5058,7 +5099,8 @@ mod tests {
         ];
 
         let pool = select_portfolio_pool_outputs_v2(outputs, 25.0, 10, 10, 5);
-        let ids: std::collections::BTreeSet<_> = pool.iter().map(|o| o.candidate_id.as_str()).collect();
+        let ids: std::collections::BTreeSet<_> =
+            pool.iter().map(|o| o.candidate_id.as_str()).collect();
 
         assert!(ids.contains("btc-safe"));
         assert!(ids.contains("btc-growth"));
@@ -5070,30 +5112,46 @@ mod tests {
     #[test]
     fn profit_optimized_v2_selection_keeps_tail_parameter_candidates() {
         let space = StagedMartingaleSearchSpace::profit_optimized_v2("aggressive", "long_short");
-        let candidates =
-            backtest_engine::search::generate_staged_candidates_for_symbol("BTCUSDT", "long_short", &space, 96)
-                .expect("v2 candidates should generate");
+        let candidates = backtest_engine::search::generate_staged_candidates_for_symbol(
+            "BTCUSDT",
+            "long_short",
+            &space,
+            96,
+        )
+        .expect("v2 candidates should generate");
 
         // Verify tail coverage: wide spacing, high take-profit, high leverage
         let has_wide_spacing = candidates.iter().any(|c| {
-            c.config.strategies.iter().any(|s| {
-                strategy_spacing_bps(s).unwrap_or(0) >= 600
-            })
+            c.config
+                .strategies
+                .iter()
+                .any(|s| strategy_spacing_bps(s).unwrap_or(0) >= 600)
         });
         let has_high_tp = candidates.iter().any(|c| {
-            c.config.strategies.iter().any(|s| {
-                strategy_take_profit_bps(s).unwrap_or(0) >= 300
-            })
+            c.config
+                .strategies
+                .iter()
+                .any(|s| strategy_take_profit_bps(s).unwrap_or(0) >= 300)
         });
         let has_high_leverage = candidates.iter().any(|c| {
-            c.config.strategies.iter().any(|s| {
-                s.leverage.unwrap_or(1) >= 10
-            })
+            c.config
+                .strategies
+                .iter()
+                .any(|s| s.leverage.unwrap_or(1) >= 10)
         });
 
-        assert!(has_wide_spacing, "v2 must include wide spacing candidates (>=600)");
-        assert!(has_high_tp, "v2 must include high take-profit candidates (>=300)");
-        assert!(has_high_leverage, "v2 must include high leverage candidates (>=10)");
+        assert!(
+            has_wide_spacing,
+            "v2 must include wide spacing candidates (>=600)"
+        );
+        assert!(
+            has_high_tp,
+            "v2 must include high take-profit candidates (>=300)"
+        );
+        assert!(
+            has_high_leverage,
+            "v2 must include high leverage candidates (>=10)"
+        );
     }
 
     fn build_portfolio_summary_for_test(
@@ -5119,13 +5177,32 @@ mod tests {
             42,
             18,
             10,
-            Some("positive-return candidates include qualified, high-return and low-drawdown tiers"),
+            Some(
+                "positive-return candidates include qualified, high-return and low-drawdown tiers",
+            ),
         );
 
-        assert_eq!(summary.get("portfolio_pool_candidate_count").and_then(|v| v.as_u64()), Some(42));
-        assert_eq!(summary.get("expanded_universe_symbol_count").and_then(|v| v.as_u64()), Some(18));
-        assert_eq!(summary.get("portfolio_top_n").and_then(|v| v.as_u64()), Some(10));
-        assert!(summary.get("portfolio_pool_note").and_then(|v| v.as_str()).unwrap().contains("high-return"));
+        assert_eq!(
+            summary
+                .get("portfolio_pool_candidate_count")
+                .and_then(|v| v.as_u64()),
+            Some(42)
+        );
+        assert_eq!(
+            summary
+                .get("expanded_universe_symbol_count")
+                .and_then(|v| v.as_u64()),
+            Some(18)
+        );
+        assert_eq!(
+            summary.get("portfolio_top_n").and_then(|v| v.as_u64()),
+            Some(10)
+        );
+        assert!(summary
+            .get("portfolio_pool_note")
+            .and_then(|v| v.as_str())
+            .unwrap()
+            .contains("high-return"));
     }
 
     #[test]
