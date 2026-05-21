@@ -40,6 +40,8 @@ pub struct PortfolioTop3Artifact {
     pub eligible_candidate_count: usize,
     pub eligible_symbols: Vec<String>,
     pub unique_eligible_symbol_count: usize,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub all_portfolios: Option<Vec<WeightedPortfolio>>,
 }
 
 #[derive(Debug, Clone)]
@@ -90,6 +92,222 @@ fn best_indices_by_symbol(eligible: &[&EvaluatedCandidate], per_symbol: usize) -
     result
 }
 
+fn allocation_templates_v2() -> Vec<Vec<f64>> {
+    vec![
+        vec![0.7, 0.3],
+        vec![0.6, 0.4],
+        vec![0.5, 0.5],
+        vec![0.4, 0.6],
+        vec![0.3, 0.7],
+        vec![0.5, 0.3, 0.2],
+        vec![0.4, 0.3, 0.3],
+        vec![0.4, 0.35, 0.25],
+        vec![0.3, 0.25, 0.2, 0.15, 0.1],
+        vec![0.25, 0.25, 0.2, 0.15, 0.15],
+        vec![0.7, 0.1, 0.1, 0.1],
+        vec![0.6, 0.2, 0.1, 0.1],
+        vec![0.55, 0.15, 0.15, 0.15],
+        vec![0.4, 0.2, 0.2, 0.2],
+        vec![0.25, 0.25, 0.25, 0.25],
+    ]
+}
+
+fn daily_return_correlation_penalty(members: &[(&EvaluatedCandidate, f64)]) -> f64 {
+    let correlations = pairwise_curve_correlations(members);
+    if correlations.is_empty() {
+        return 1.0;
+    }
+    let avg = correlations.iter().sum::<f64>() / correlations.len() as f64;
+    if avg > 0.8 {
+        0.85
+    } else if avg > 0.6 {
+        0.93
+    } else {
+        1.0
+    }
+}
+
+fn pairwise_curve_correlations(_members: &[(&EvaluatedCandidate, f64)]) -> Vec<f64> {
+    // Simplified: sample every 100th point for correlation between pairs.
+    // For now return empty to skip correlation penalty (non-blocking).
+    // Full implementation would align timestamps and compute Pearson r.
+    Vec::new()
+}
+
+fn dedupe_portfolios_by_member_weight(portfolios: &mut Vec<WeightedPortfolio>) {
+    let mut seen: std::collections::BTreeSet<String> = std::collections::BTreeSet::new();
+    portfolios.retain(|p| {
+        let mut member_ids: Vec<&str> = p.members.iter().map(|m| m.candidate_id.as_str()).collect();
+        member_ids.sort();
+        let key = member_ids.join("|");
+        seen.insert(key)
+    });
+}
+
+pub fn build_portfolio_top_n_v2(
+    candidates: &[EvaluatedCandidate],
+    max_drawdown_pct: f64,
+    top_n: usize,
+) -> PortfolioTop3Artifact {
+    let eligible: Vec<&EvaluatedCandidate> = candidates
+        .iter()
+        .filter(|c| c.return_pct > 0.0 && c.planned_margin_quote > 0.0 && !c.equity_curve.is_empty())
+        .collect();
+
+    let eligible_count = eligible.len();
+    let eligible_symbols: Vec<String> = eligible
+        .iter()
+        .map(|c| candidate_symbol(c))
+        .collect::<std::collections::BTreeSet<_>>()
+        .into_iter()
+        .collect();
+    let unique_eligible_symbol_count = eligible_symbols.len();
+
+    if eligible.len() < 2 {
+        return PortfolioTop3Artifact {
+            top3: Vec::new(),
+            eligible_candidate_count: eligible_count,
+            eligible_symbols,
+            unique_eligible_symbol_count,
+            all_portfolios: None,
+        };
+    }
+
+    let top_n = top_n.max(3).min(10);
+    let all = build_ranked_portfolios_v2(&eligible, max_drawdown_pct, top_n);
+    let top3 = all.iter().take(3).cloned().collect();
+
+    PortfolioTop3Artifact {
+        top3,
+        eligible_candidate_count: eligible_count,
+        eligible_symbols,
+        unique_eligible_symbol_count,
+        all_portfolios: Some(all),
+    }
+}
+
+fn build_ranked_portfolios_v2(
+    eligible: &[&EvaluatedCandidate],
+    max_drawdown_pct: f64,
+    top_n: usize,
+) -> Vec<WeightedPortfolio> {
+    let seed_indices = best_indices_by_symbol(eligible, 8);
+    let templates = allocation_templates_v2();
+    let mut scored: Vec<WeightedPortfolio> = Vec::new();
+
+    enumerate_combinations_v2(
+        eligible,
+        &seed_indices,
+        &templates,
+        max_drawdown_pct,
+        &mut scored,
+    );
+
+    scored.sort_by(|a, b| b.score.total_cmp(&a.score));
+    dedupe_portfolios_by_member_weight(&mut scored);
+    scored.truncate(top_n);
+    scored
+}
+
+fn enumerate_combinations_v2(
+    eligible: &[&EvaluatedCandidate],
+    indices: &[usize],
+    templates: &[Vec<f64>],
+    max_drawdown_pct: f64,
+    result: &mut Vec<WeightedPortfolio>,
+) {
+    let max_combos = 12_000usize;
+    let mut combo_count = 0usize;
+
+    for member_count in 2..=8.min(indices.len()) {
+        let mut current: Vec<usize> = Vec::with_capacity(member_count);
+        enumerate_member_combinations(
+            eligible,
+            indices,
+            member_count,
+            0,
+            &mut current,
+            templates,
+            result,
+            &mut combo_count,
+            max_combos,
+            max_drawdown_pct,
+        );
+        if combo_count >= max_combos {
+            break;
+        }
+    }
+}
+
+fn enumerate_member_combinations(
+    eligible: &[&EvaluatedCandidate],
+    indices: &[usize],
+    target_len: usize,
+    start_pos: usize,
+    current: &mut Vec<usize>,
+    templates: &[Vec<f64>],
+    result: &mut Vec<WeightedPortfolio>,
+    combo_count: &mut usize,
+    max_combos: usize,
+    max_drawdown_pct: f64,
+) {
+    if *combo_count >= max_combos {
+        return;
+    }
+    if current.len() == target_len {
+        let unique_count: usize = current
+            .iter()
+            .map(|idx| candidate_symbol(eligible[*idx]))
+            .collect::<std::collections::BTreeSet<_>>()
+            .len();
+        if unique_count < 2 {
+            return;
+        }
+
+        for template in templates.iter().filter(|tpl| tpl.len() == target_len) {
+            if let Some(portfolio) =
+                build_weighted_portfolio(eligible, current, template, max_drawdown_pct)
+            {
+                let correlation_factor =
+                    if unique_count >= 3 { 1.05 } else { 1.0 };
+                let mut adjusted = portfolio;
+                adjusted.score *= correlation_factor;
+                result.push(adjusted);
+                prune_scored_portfolios(result, 200, 80);
+            }
+            *combo_count += 1;
+            if *combo_count >= max_combos {
+                break;
+            }
+        }
+        return;
+    }
+
+    let remaining = target_len - current.len();
+    if indices.len().saturating_sub(start_pos) < remaining {
+        return;
+    }
+    for pos in start_pos..indices.len() {
+        current.push(indices[pos]);
+        enumerate_member_combinations(
+            eligible,
+            indices,
+            target_len,
+            pos + 1,
+            current,
+            templates,
+            result,
+            combo_count,
+            max_combos,
+            max_drawdown_pct,
+        );
+        current.pop();
+        if *combo_count >= max_combos {
+            break;
+        }
+    }
+}
+
 pub fn build_portfolio_top3(
     candidates: &[EvaluatedCandidate],
     max_drawdown_pct: f64,
@@ -115,6 +333,7 @@ pub fn build_portfolio_top3(
             eligible_candidate_count: eligible_count,
             eligible_symbols,
             unique_eligible_symbol_count,
+            all_portfolios: None,
         };
     }
 
@@ -197,6 +416,7 @@ pub fn build_portfolio_top3(
         eligible_candidate_count: eligible_count,
         eligible_symbols,
         unique_eligible_symbol_count,
+        all_portfolios: None,
     }
 }
 
@@ -1050,6 +1270,87 @@ mod tests {
         ];
 
         assert!(build_weighted_portfolio(&[&btc, &eth], &[0, 1], &[0.6, 0.4], 30.0).is_none());
+    }
+
+    #[test]
+    fn portfolio_v2_combines_high_return_with_low_drawdown_stabilizer_under_hard_limit() {
+        let high = candidate_with_curve(
+            "btc-growth",
+            "BTCUSDT",
+            120.0,
+            55.0,
+            8.0,
+            100.0,
+            vec![100.0, 180.0, 125.0, 230.0],
+        );
+        let low = candidate_with_curve(
+            "eth-stable",
+            "ETHUSDT",
+            18.0,
+            6.0,
+            2.0,
+            100.0,
+            vec![100.0, 103.0, 106.0, 118.0],
+        );
+        let loss = candidate_with_curve(
+            "ada-loss",
+            "ADAUSDT",
+            -5.0,
+            3.0,
+            1.0,
+            100.0,
+            vec![100.0, 99.0, 98.0, 95.0],
+        );
+
+        let artifact = build_portfolio_top_n_v2(&[high, low, loss], 30.0, 10);
+        let first = artifact.top3.first().expect("expected complementary portfolio");
+
+        assert!(first.max_drawdown_pct <= 30.0, "portfolio must obey hard drawdown: {first:?}");
+        assert!(first.members.iter().any(|m| m.candidate_id == "btc-growth"));
+        assert!(first.members.iter().any(|m| m.candidate_id == "eth-stable"));
+        assert!(first.members.iter().all(|m| m.candidate_id != "ada-loss"));
+    }
+
+    #[test]
+    fn portfolio_v2_can_return_top_ten_ranked_portfolios() {
+        let mut candidates = Vec::new();
+        for index in 0..12 {
+            let symbol = if index % 3 == 0 {
+                "BTCUSDT"
+            } else if index % 3 == 1 {
+                "ETHUSDT"
+            } else {
+                "SOLUSDT"
+            };
+            candidates.push(candidate_with_curve(
+                &format!("c{index}"),
+                symbol,
+                20.0 + index as f64 * 3.0,
+                5.0 + index as f64,
+                2.0,
+                100.0,
+                vec![100.0, 105.0 + index as f64, 110.0 + index as f64],
+            ));
+        }
+
+        let artifact = build_portfolio_top_n_v2(&candidates, 30.0, 10);
+        assert!(artifact.top3.len() >= 3);
+        assert!(artifact.all_portfolios.as_ref().map(|items| items.len()).unwrap_or(0) >= 10);
+    }
+
+    #[test]
+    fn portfolio_artifact_never_reports_single_member_as_combination() {
+        let candidates = vec![candidate_with_curve(
+            "btc-only",
+            "BTCUSDT",
+            50.0,
+            10.0,
+            3.0,
+            100.0,
+            vec![100.0, 150.0],
+        )];
+        let artifact = build_portfolio_top_n_v2(&candidates, 30.0, 10);
+        assert!(artifact.top3.is_empty());
     }
 
     #[test]
