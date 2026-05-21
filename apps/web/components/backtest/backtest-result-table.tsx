@@ -56,6 +56,7 @@ type BacktestResultTableProps = {
   selectedTaskStatus?: string;
   taskName?: string;
   portfolioTop3?: PortfolioTop3Row[];
+  portfolioTopN?: number;
 };
 
 export function BacktestResultTable({
@@ -67,6 +68,7 @@ export function BacktestResultTable({
   selectedTaskStatus,
   taskName,
   portfolioTop3 = [],
+  portfolioTopN = 3,
 }: BacktestResultTableProps) {
   const groupedCandidates = groupCandidatesBySymbol(candidates);
   const isSuccessfulWithoutCandidates = candidates.length === 0 && ["succeeded", "completed"].includes(selectedTaskStatus ?? "");
@@ -112,8 +114,11 @@ export function BacktestResultTable({
       )}
       {portfolioTop3.length > 0 && (
         <div className="mt-6 space-y-3">
-          <h3 className="text-base font-semibold">{pickText(lang, "组合 Top 3", "Portfolio Top 3")}</h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <h3 className="text-base font-semibold">
+            {pickText(lang, `组合 Top ${portfolioTop3.length}`, `Portfolio Top ${portfolioTop3.length}`)}
+          </h3>
+          <div className={portfolioTop3.length > 3 ? "overflow-x-auto" : ""}>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3" style={portfolioTop3.length > 3 ? { minWidth: "900px" } : undefined}>
             {portfolioTop3.map((entry, idx) => (
               <div key={entry.portfolio_id || idx} className="rounded-xl border border-border bg-card p-4 space-y-2">
                 <div className="flex items-center justify-between">
@@ -131,6 +136,8 @@ export function BacktestResultTable({
                   <span>{entry.trade_count}</span>
                   <span className="text-muted-foreground">{pickText(lang, "评分", "Score")}</span>
                   <span className="font-semibold">{entry.score.toFixed(3)}</span>
+                  <span className="text-muted-foreground">{pickText(lang, "最大单币权重", "Max single weight")}</span>
+                  <span>{Math.max(...entry.members.map((m) => m.allocation_pct), 0).toFixed(1)}%</span>
                 </div>
                 {entry.members.length > 0 && (
                   <div className="mt-2 space-y-1">
@@ -145,6 +152,12 @@ export function BacktestResultTable({
                 )}
               </div>
             ))}
+          </div>
+          {portfolioTop3.length > 3 ? (
+            <p className="mt-2 text-xs text-muted-foreground">
+              {pickText(lang, "横向滚动查看更多组合 →", "Scroll horizontally for more portfolios →")}
+            </p>
+          ) : null}
           </div>
         </div>
       )}

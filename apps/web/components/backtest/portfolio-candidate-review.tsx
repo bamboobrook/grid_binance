@@ -63,6 +63,13 @@ function fmtPct(v: number | null | undefined): string {
   return `${(v * 100).toFixed(2)}%`;
 }
 
+function portfolioMemberReason(member: MartingalePortfolioMember): string {
+  if ((member.max_drawdown_pct ?? 0) <= 10) return "Low DD stabilizer";
+  if ((member.annualized_return_pct ?? member.return_pct ?? 0) >= 50) return "High return growth";
+  if ((member.annualized_return_pct ?? member.return_pct ?? 0) >= 25) return "Balanced contributor";
+  return "Diversification member";
+}
+
 function fmtNum(v: number | null | undefined, decimals = 2): string {
   if (v == null) return "—";
   return v.toLocaleString(undefined, { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
@@ -299,6 +306,7 @@ export function PortfolioCandidateReview({
                   <th className="px-2 py-1 text-right text-muted-foreground">Return</th>
                   <th className="px-2 py-1 text-right text-muted-foreground">Max DD</th>
                   <th className="px-2 py-1 text-right text-muted-foreground">Score</th>
+                  <th className="px-2 py-1 text-left text-muted-foreground">Role</th>
                 </tr>
               </thead>
               <tbody>
@@ -311,6 +319,7 @@ export function PortfolioCandidateReview({
                     <td className="px-2 py-1 text-right">{m.return_pct?.toFixed(2) ?? "—"}%</td>
                     <td className="px-2 py-1 text-right">{m.max_drawdown_pct?.toFixed(2) ?? "—"}%</td>
                     <td className="px-2 py-1 text-right">{m.score?.toFixed(3) ?? "—"}</td>
+                    <td className="px-2 py-1 text-xs text-muted-foreground">{portfolioMemberReason(m)}</td>
                   </tr>
                 ))}
               </tbody>

@@ -52,6 +52,7 @@ export type WizardForm = {
   validateEnd: string;
   testStart: string;
   testEnd: string;
+  extendedUniverse: boolean;
   interval: "1m" | "5m" | "15m" | "1h" | "4h" | "1d";
   maxDrawdownPct: string;
   maxStopLossCount: string;
@@ -82,6 +83,7 @@ const INITIAL_FORM: WizardForm = {
   takeProfitPct: "1",
   trailingPct: "0.4",
   stopLossMode: "portfolio_drawdown",
+  extendedUniverse: false,
   timeMode: "auto_recent",
   trainStart: "2023-01-01",
   trainEnd: "2024-12-31",
@@ -215,6 +217,20 @@ function AutomaticSearchPanel({ form, lang, onChange }: { form: WizardForm; lang
           <option value="aggressive">{pickText(lang, "激进", "Aggressive")}</option>
           <option value="custom">{pickText(lang, "手动", "Custom")}</option>
         </WizardSelect>
+        <label className="flex items-start gap-2 rounded-xl border border-amber-500/30 bg-amber-500/5 p-3 text-sm lg:col-span-2 cursor-pointer">
+          <input
+            checked={form.extendedUniverse}
+            name="extendedUniverse"
+            onChange={onChange}
+            type="checkbox"
+          />
+          <span>
+            <span className="font-medium">{pickText(lang, "扩展币种深搜", "Expanded universe deep search")}</span>
+            <span className="block text-muted-foreground">
+              {pickText(lang, "自动使用具备 2023-01-01 起完整 1m 合约数据的主流币种池。耗时更长，但更容易找到高收益/低回撤组合。", "Automatically uses mainstream futures symbols with full 1m data since 2023-01-01. Takes longer but more likely to find high-return/low-drawdown portfolios.")}
+            </span>
+          </span>
+        </label>
         <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3 text-sm">
           <p className="text-xs uppercase tracking-wide text-muted-foreground">{pickText(lang, "自动时间范围", "Automatic time range")}</p>
           <p className="mt-1 font-semibold">{form.trainStart} → {form.testEnd}</p>
@@ -372,8 +388,8 @@ export function buildWizardPayload(form: WizardForm, indicators?: Record<string,
     symbols,
     risk_profile: form.parameterPreset,
     per_symbol_top_n: 10,
-    portfolio_top_n: 3,
-    search_mode: "staged",
+    portfolio_top_n: form.extendedUniverse ? 10 : 3,
+    search_mode: form.extendedUniverse ? "profit_optimized_v2" : "staged",
     search_space_mode: "risk_profile_auto",
     train_start: "2023-01-01",
     test_end: timeSplit.testEnd,
@@ -382,6 +398,7 @@ export function buildWizardPayload(form: WizardForm, indicators?: Record<string,
     intelligent_rounds: form.searchMode === "intelligent" ? integerValue(form.intelligentRounds, 2) : 1,
     top_n: integerValue(form.topN, 10),
     interval: form.interval,
+    extended_universe: form.extendedUniverse || undefined,
     start_ms: dateToMs(timeSplit.trainStart),
     end_ms: dateToMs(timeSplit.testEnd, true),
     symbol_pool: {

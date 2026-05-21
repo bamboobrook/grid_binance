@@ -153,6 +153,11 @@ export function BacktestConsole({ lang, locale }: { lang: UiLanguage; locale: st
   );
 
   const selectedSummary = selectedCandidate?.summary ?? {};
+  const taskSummary = selectedTask?.summary ?? {};
+  const portfolioPoolNote = typeof taskSummary.portfolio_pool_note === "string" ? taskSummary.portfolio_pool_note : "";
+  const portfolioTopN = typeof taskSummary.portfolio_top_n === "number" ? taskSummary.portfolio_top_n : 3;
+  const expandedUniverseSymbolCount = typeof taskSummary.expanded_universe_symbol_count === "number" ? taskSummary.expanded_universe_symbol_count : null;
+  const portfolioPoolCandidateCount = typeof taskSummary.portfolio_pool_candidate_count === "number" ? taskSummary.portfolio_pool_candidate_count : null;
 
   function addCandidateToBasket(candidate: BacktestCandidate) {
     const recommendedWeightPct = candidate.summary.recommended_weight_pct ?? (basketItems.length === 0 ? 100 : 0);
@@ -231,6 +236,31 @@ export function BacktestConsole({ lang, locale }: { lang: UiLanguage; locale: st
         </div>
       )}
 
+      {/* Portfolio pool note */}
+      {portfolioPoolNote ? (
+        <div className="rounded-xl border border-indigo-500/30 bg-indigo-500/5 px-4 py-3 text-sm">
+          <p className="font-semibold">
+            {pickText(lang, "组合候选池说明", "Portfolio pool note")}
+          </p>
+          <p className="mt-1 text-muted-foreground">
+            {pickText(
+              lang,
+              "单策略 Top10 只展示自身满足回撤限制的策略；组合候选池还会保留正收益高弹性策略，最终组合仍会硬控最大回撤。",
+              "Single-strategy Top10 only shows strategies meeting their own drawdown limits; the portfolio candidate pool also retains positive-return high-growth strategies. Final portfolios still enforce hard drawdown limits.",
+            )}
+          </p>
+          <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+            {expandedUniverseSymbolCount != null && (
+              <span>{pickText(lang, `扩展币种：${expandedUniverseSymbolCount}`, `Expanded symbols: ${expandedUniverseSymbolCount}`)}</span>
+            )}
+            {portfolioPoolCandidateCount != null && (
+              <span>{pickText(lang, `候选池：${portfolioPoolCandidateCount}`, `Pool candidates: ${portfolioPoolCandidateCount}`)}</span>
+            )}
+            <span>{pickText(lang, `组合 Top${portfolioTopN}`, `Portfolio Top${portfolioTopN}`)}</span>
+          </div>
+        </div>
+      ) : null}
+
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1.6fr)_minmax(320px,0.9fr)]">
         <div className="space-y-6">
           <section className="rounded-2xl border border-border bg-card p-4 shadow-sm">
@@ -299,6 +329,7 @@ export function BacktestConsole({ lang, locale }: { lang: UiLanguage; locale: st
             selectedTaskStatus={selectedTask?.rawStatus ?? ""}
             taskName={selectedTaskName}
             portfolioTop3={portfolioTop3FromTask(selectedTask)}
+            portfolioTopN={portfolioTopN}
             onSelect={(candidate) => {
               const full = candidates.find((c) => c.id === candidate.id) ?? null;
               setSelectedCandidate(full);

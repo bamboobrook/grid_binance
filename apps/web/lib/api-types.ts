@@ -78,6 +78,10 @@ export interface MartingaleBacktestCandidateSummary {
   eligible_candidate_count_for_symbol?: number | null;
   rejection_breakdown?: Record<string, number>;
   long_short_legs?: MartingaleLongShortLegSummary;
+  portfolio_pool_candidate_count?: number;
+  expanded_universe_symbol_count?: number;
+  portfolio_top_n?: number;
+  portfolio_pool_note?: string;
 }
 
 export interface MartingaleLongShortLegSummary {
