@@ -25,22 +25,38 @@
 
 ## Tasks
 
-### Task 1: 7-Symbol Baseline
+### Task 1 (v1 - CANCELLED): 7-Symbol Baseline (wrong config)
 
 | 项目 | 值 |
 |------|-----|
 | Task ID | `validation-7-symbol-baseline` |
-| Symbols | BTCUSDT, ETHUSDT, SOLUSDT, BNBUSDT, XRPUSDT, DOGEUSDT, ADAUSDT |
-| Effective symbol count | 7 |
-| Status | RUNNING (started 2026-05-21 09:55 UTC) |
+| Status | CANCELLED - used `"direction"` instead of `"direction_mode"`, ran as long-only |
 
-### Task 2: 18-Symbol Expanded Universe
+### Task 2 (v1 - CANCELLED): 18-Symbol Expanded Universe (wrong config)
 
 | 项目 | 值 |
 |------|-----|
 | Task ID | `validation-18-symbol-expanded` |
-| Symbols | [] (extended_universe=true) |
-| Expected effective symbol count | 18 (BTCUSDT, ETHUSDT, BNBUSDT, SOLUSDT, DOGEUSDT, XRPUSDT, ADAUSDT, ZECUSDT, DASHUSDT, NEARUSDT, BCHUSDT, LINKUSDT, AVAXUSDT, UNIUSDT, FILUSDT, DOTUSDT, AAVEUSDT, INJUSDT) |
+| Status | CANCELLED - same direction_mode bug |
+
+### Task 1 (v2): 7-Symbol Baseline
+
+| 项目 | 值 |
+|------|-----|
+| Task ID | `validation-7-symbol-v2` |
+| Symbols | BTCUSDT, ETHUSDT, SOLUSDT, BNBUSDT, XRPUSDT, DOGEUSDT, ADAUSDT |
+| Effective symbol count | 7 |
+| Direction | long_short (true bidirectional) |
+| Status | RUNNING |
+
+### Task 2 (v2): 18-Symbol Expanded Universe
+
+| 项目 | 值 |
+|------|-----|
+| Task ID | `validation-18-symbol-v2` |
+| Symbols | [] (extended_universe=true, `direction_mode: "long_short"`) |
+| Expected effective symbol count | 18 |
+| Direction | long_short (true bidirectional) |
 | Status | QUEUED |
 
 ---
@@ -49,74 +65,24 @@
 
 > Results will be filled in once tasks complete.
 
-### 7-Symbol Baseline Results
+### 7-Symbol Baseline Results (v2 - long_short)
 
 | 指标 | 值 |
 |------|-----|
-| Status | **SUCCEEDED** |
-| Completed | 2026-05-21 ~10:00 UTC |
-| Effective symbols | 7 |
-| Eligible candidates | 11 |
-| Portfolio pool candidates | 11 |
-| Portfolio Top N config | 10 |
-| Actual portfolios generated | 3 |
-| Unique symbols in portfolios | 3 (ADAUSDT, ETHUSDT, XRPUSDT) |
+| Status | RUNNING |
+| Task ID | `validation-7-symbol-v2` |
+| Expected comparison baseline | 43.95% annualized / 29.32% max drawdown (previous benchmark) |
 
-**Portfolio Top 1 (Best):**
+### 18-Symbol Expanded Universe Results (v2 - long_short)
 
 | 指标 | 值 |
 |------|-----|
-| Total return | 26.94% |
-| Max drawdown | 29.69% |
-| Annualized return | 10.77% |
-| Members | 5 |
-| Unique symbols | 3 |
-| Score | 14.07 |
-| Trades | 22,815 |
+| Status | QUEUED |
+| Task ID | `validation-18-symbol-v2` |
 
-**Portfolio Top 2:**
+### Note: Previous v1 Run (CANCELLED)
 
-| 指标 | 值 |
-|------|-----|
-| Total return | 22.68% |
-| Max drawdown | 25.09% |
-| Annualized return | 9.16% |
-| Members | 5 |
-
-**Portfolio Top 3:**
-
-| 指标 | 值 |
-|------|-----|
-| Total return | 22.66% |
-| Max drawdown | 26.46% |
-| Annualized return | 9.16% |
-| Members | 5 |
-
-**Top Individual Candidates (eligible for portfolio):**
-
-| Symbol | Return | Max DD | Annualized | Score | Trades |
-|--------|--------|--------|------------|-------|--------|
-| BTCUSDT | 255.04% | 27.78% | 72.21% | 55.32 | 687 |
-| BTCUSDT | 252.62% | 26.22% | 71.73% | 69.06 | 582 |
-| BTCUSDT | 145.16% | 21.93% | 46.93% | 41.09 | 1070 |
-| BTCUSDT | 130.10% | 17.11% | 42.97% | 45.70 | 838 |
-| SOLUSDT | 65.47% | 21.87% | 24.11% | 27.87 | 3436 |
-| XRPUSDT | 51.00% | 16.82% | 19.34% | 33.92 | 2772 |
-| BNBUSDT | 47.50% | 29.72% | 18.14% | 54.17 | 535 |
-
-**Comparison vs Previous Benchmark (43.95% annualized / 29.32% max DD):**
-
-- Portfolio annualized (10.77%) is significantly **lower** than previous 43.95%
-- However, individual BTCUSDT candidates (72.21% annualized) exceed the benchmark
-- Portfolio combination degrades individual performance: best candidates (BTCUSDT) are not selected for final portfolios
-- Only 3 portfolios pass the 30% hard drawdown limit, all with 3 unique symbols each
-- Root cause: Cross-symbol equity curve combinations likely exceed the 30% hard drawdown when high-return BTCUSDT candidates are included
-
-### 18-Symbol Expanded Universe Results
-
-| 指标 | 值 |
-|------|-----|
-| Status | RUNNING (35% progress, search_symbol stage) |
+The initial `validation-7-symbol-baseline` and `validation-18-symbol-expanded` tasks were cancelled because they were created with `"direction": "long_short"` instead of `"direction_mode": "long_short"`. This caused the worker to default to long-only (`direction_mode.as_deref().unwrap_or("long")`). The v2 tasks use the correct `direction_mode` field.
 
 ---
 
