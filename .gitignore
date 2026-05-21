@@ -39,3 +39,6 @@ artifacts/
 
 # Local git worktrees
 .worktrees/
+
+# Claude Code workspace
+.claude/
