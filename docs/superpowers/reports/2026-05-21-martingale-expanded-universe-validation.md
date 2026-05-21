@@ -142,7 +142,13 @@
 |------|-----|
 | Status | **RUNNING** (35% progress, search_symbol stage) |
 | Task ID | `validation-18-symbol-v2` |
-| Started | 2026-05-21 ~18:40 UTC |
+| Started | 2026-05-21 10:36 UTC |
+| Running time | ~30 min (as of 11:06 UTC) |
+| Worker CPU | 2217% (22+ threads) |
+| Worker Memory | 16.34 GiB |
+| Expected completion | 1.5-2.5 hours from start |
+
+**Note:** 18 symbols × long_short bidirectional × profit_optimized_v2 search space is ~2.6x larger than 7-symbol. Estimated completion 12:00-13:00 UTC. This cron will update the report when the task completes.
 
 ### Note: Previous v1 Run (CANCELLED)
 
