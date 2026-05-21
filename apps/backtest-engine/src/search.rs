@@ -210,6 +210,28 @@ impl StagedMartingaleSearchSpace {
         }
         space
     }
+
+    pub fn profit_optimized_v2(risk_profile: &str, direction_mode: &str) -> Self {
+        let mut space = Self::for_profile(risk_profile, direction_mode);
+        space.leverage = vec![2, 3, 4, 5, 6, 8, 10];
+        space.spacing_bps = vec![35, 50, 70, 90, 120, 160, 220, 300, 420, 600];
+        space.order_multiplier = vec![1.15, 1.25, 1.4, 1.6, 1.8, 2.0, 2.2, 2.4];
+        space.max_legs = vec![3, 4, 5, 6, 7, 8, 9];
+        space.take_profit_bps = vec![30, 45, 60, 80, 100, 140, 200, 300];
+        if direction_mode == "long_short" {
+            space.long_short_weight_pct = vec![
+                (80, 20),
+                (70, 30),
+                (60, 40),
+                (50, 50),
+                (40, 60),
+                (30, 70),
+                (20, 80),
+            ];
+        }
+        space.tail_stop_bps = vec![800, 1200, 1800, 2400, 3000, 4000, 5500, 7000];
+        space
+    }
 }
 
 pub fn fine_space_around(winner: &CoarseParameterPoint) -> StagedMartingaleSearchSpace {
@@ -638,6 +660,19 @@ mod staged_tests {
         assert!(fine.max_legs.contains(&6));
         assert!(fine.long_short_weight_pct.contains(&(65, 35)));
         assert!(fine.long_short_weight_pct.contains(&(75, 25)));
+    }
+
+    #[test]
+    fn aggressive_profit_search_v2_covers_wide_spacing_and_profit_targets() {
+        let space = StagedMartingaleSearchSpace::profit_optimized_v2("aggressive", "long_short");
+        assert!(space.leverage.contains(&10));
+        assert!(space.spacing_bps.iter().any(|v| *v <= 35));
+        assert!(space.spacing_bps.iter().any(|v| *v >= 600));
+        assert!(space.take_profit_bps.iter().any(|v| *v <= 30));
+        assert!(space.take_profit_bps.iter().any(|v| *v >= 300));
+        assert!(space.max_legs.contains(&9));
+        assert!(space.order_multiplier.iter().any(|v| *v <= 1.15));
+        assert!(space.order_multiplier.iter().any(|v| *v >= 2.4));
     }
 
     #[test]

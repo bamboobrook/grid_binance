@@ -493,7 +493,11 @@ fn run_profit_first_staged_search(
     max_threads: usize,
 ) -> Result<(Vec<EvaluatedCandidate>, Vec<CandidateRejectionSample>), String> {
     let direction_mode = task.direction_mode.as_deref().unwrap_or("long");
-    let coarse_space = StagedMartingaleSearchSpace::for_profile(&task.risk_profile, direction_mode);
+    let coarse_space = if should_use_profit_optimized_v2(task) {
+        StagedMartingaleSearchSpace::profit_optimized_v2(&task.risk_profile, direction_mode)
+    } else {
+        StagedMartingaleSearchSpace::for_profile(&task.risk_profile, direction_mode)
+    };
 
     // When direction_mode is long_short, use generate_staged_candidates_for_symbol
     // which correctly builds LongAndShort candidates with both long and short legs.
@@ -1121,7 +1125,7 @@ fn run_long_short_staged_search(
     let survivors: Vec<_> = evaluated
         .iter()
         .filter(|candidate| candidate.score.survival_valid)
-        .take(long_short_survivor_limit(task))
+        .take(profit_v2_survivor_limit(task))
         .cloned()
         .collect();
 
@@ -2038,6 +2042,14 @@ fn select_refinement_candidates_with_drawdown_metadata(
 
 fn long_short_survivor_limit(task: &WorkerTaskConfig) -> usize {
     task.per_symbol_top_n.max(20).min(48)
+}
+
+fn profit_v2_survivor_limit(task: &WorkerTaskConfig) -> usize {
+    if should_use_profit_optimized_v2(task) {
+        task.per_symbol_top_n.max(20).min(80)
+    } else {
+        long_short_survivor_limit(task)
+    }
 }
 
 fn sort_long_short_candidates_for_profile(
@@ -4913,6 +4925,35 @@ mod tests {
         for excluded in ["SUIUSDT", "1000PEPEUSDT", "ONDOUSDT", "TONUSDT", "WLDUSDT", "ENAUSDT"] {
             assert!(!symbols.contains(&excluded.to_owned()), "short-history symbol should not be default: {excluded}");
         }
+    }
+
+    #[test]
+    fn profit_optimized_v2_selection_keeps_tail_parameter_candidates() {
+        let space = StagedMartingaleSearchSpace::profit_optimized_v2("aggressive", "long_short");
+        let candidates =
+            backtest_engine::search::generate_staged_candidates_for_symbol("BTCUSDT", "long_short", &space, 96)
+                .expect("v2 candidates should generate");
+
+        // Verify tail coverage: wide spacing, high take-profit, high leverage
+        let has_wide_spacing = candidates.iter().any(|c| {
+            c.config.strategies.iter().any(|s| {
+                strategy_spacing_bps(s).unwrap_or(0) >= 600
+            })
+        });
+        let has_high_tp = candidates.iter().any(|c| {
+            c.config.strategies.iter().any(|s| {
+                strategy_take_profit_bps(s).unwrap_or(0) >= 300
+            })
+        });
+        let has_high_leverage = candidates.iter().any(|c| {
+            c.config.strategies.iter().any(|s| {
+                s.leverage.unwrap_or(1) >= 10
+            })
+        });
+
+        assert!(has_wide_spacing, "v2 must include wide spacing candidates (>=600)");
+        assert!(has_high_tp, "v2 must include high take-profit candidates (>=300)");
+        assert!(has_high_leverage, "v2 must include high leverage candidates (>=10)");
     }
 
     #[test]
