@@ -11,7 +11,7 @@ use backtest_engine::{
         kline_engine::run_kline_screening, metrics::MartingaleBacktestResult,
         scoring::ScoringConfig, trade_engine::run_trade_refinement,
     },
-    portfolio_search::build_portfolio_top3,
+    portfolio_search::{build_portfolio_top3, build_portfolio_top_n_v2},
     search::{
         drawdown_limit_sequence, fine_space_around, CoarseParameterPoint, SearchCandidate,
         SearchSpace, StagedMartingaleSearchSpace,
@@ -1631,7 +1631,12 @@ async fn process_task(
     respect_pause_or_cancel(poller, &task.task_id).await?;
 
     let portfolio_candidates = portfolio_candidates_from_outputs(&portfolio_pool_outputs);
-    let portfolio_top3 = build_portfolio_top3(&portfolio_candidates, max_portfolio_drawdown_pct);
+    let portfolio_top_n = if should_use_profit_optimized_v2(&task.config) { 10 } else { 3 };
+    let portfolio_top3 = if should_use_profit_optimized_v2(&task.config) {
+        build_portfolio_top_n_v2(&portfolio_candidates, max_portfolio_drawdown_pct, portfolio_top_n)
+    } else {
+        build_portfolio_top3(&portfolio_candidates, max_portfolio_drawdown_pct)
+    };
     let portfolio_full_rows = portfolio_top3.top3.iter().enumerate().map(|(rank, portfolio)| {
         let member_id_hash: String = portfolio.members.iter()
             .map(|m| m.candidate_id.as_str())
@@ -1717,8 +1722,11 @@ async fn process_task(
         .mark_completed(
             &task.task_id,
             json!({
-                "portfolio_top_n": task.config.portfolio_top_n,
+                "portfolio_top_n": portfolio_top_n,
                 "portfolio_top3": portfolio_rows,
+                "expanded_universe_symbol_count": effective_symbols.len(),
+                "portfolio_pool_candidate_count": portfolio_pool_outputs.len(),
+                "portfolio_pool_note": "positive-return candidates include qualified, high-return and low-drawdown tiers; final portfolio still enforces hard drawdown limit",
                 "portfolio_top3_artifact_path": portfolio_manifest.path.display().to_string(),
                 "eligible_candidate_count": portfolio_top3.eligible_candidate_count,
                 "searched_symbols": task.config.symbols.clone(),
@@ -5086,6 +5094,38 @@ mod tests {
         assert!(has_wide_spacing, "v2 must include wide spacing candidates (>=600)");
         assert!(has_high_tp, "v2 must include high take-profit candidates (>=300)");
         assert!(has_high_leverage, "v2 must include high leverage candidates (>=10)");
+    }
+
+    fn build_portfolio_summary_for_test(
+        pool_count: usize,
+        universe_count: usize,
+        top_n: usize,
+        note: Option<&str>,
+    ) -> serde_json::Value {
+        let mut summary = serde_json::json!({
+            "portfolio_pool_candidate_count": pool_count,
+            "expanded_universe_symbol_count": universe_count,
+            "portfolio_top_n": top_n,
+        });
+        if let Some(note_str) = note {
+            summary["portfolio_pool_note"] = serde_json::Value::String(note_str.to_owned());
+        }
+        summary
+    }
+
+    #[test]
+    fn extended_universe_summary_reports_portfolio_top10_and_pool_counts() {
+        let summary = build_portfolio_summary_for_test(
+            42,
+            18,
+            10,
+            Some("positive-return candidates include qualified, high-return and low-drawdown tiers"),
+        );
+
+        assert_eq!(summary.get("portfolio_pool_candidate_count").and_then(|v| v.as_u64()), Some(42));
+        assert_eq!(summary.get("expanded_universe_symbol_count").and_then(|v| v.as_u64()), Some(18));
+        assert_eq!(summary.get("portfolio_top_n").and_then(|v| v.as_u64()), Some(10));
+        assert!(summary.get("portfolio_pool_note").and_then(|v| v.as_str()).unwrap().contains("high-return"));
     }
 
     #[test]
