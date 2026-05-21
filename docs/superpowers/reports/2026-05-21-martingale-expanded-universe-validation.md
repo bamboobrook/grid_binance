@@ -53,30 +53,86 @@
 
 | 指标 | 值 |
 |------|-----|
-| Status | PENDING |
-| Expected comparison baseline | 43.95% annualized / 29.32% max drawdown (previous benchmark) |
+| Status | **SUCCEEDED** |
+| Completed | 2026-05-21 ~10:00 UTC |
+| Effective symbols | 7 |
+| Eligible candidates | 11 |
+| Portfolio pool candidates | 11 |
+| Portfolio Top N config | 10 |
+| Actual portfolios generated | 3 |
+| Unique symbols in portfolios | 3 (ADAUSDT, ETHUSDT, XRPUSDT) |
+
+**Portfolio Top 1 (Best):**
+
+| 指标 | 值 |
+|------|-----|
+| Total return | 26.94% |
+| Max drawdown | 29.69% |
+| Annualized return | 10.77% |
+| Members | 5 |
+| Unique symbols | 3 |
+| Score | 14.07 |
+| Trades | 22,815 |
+
+**Portfolio Top 2:**
+
+| 指标 | 值 |
+|------|-----|
+| Total return | 22.68% |
+| Max drawdown | 25.09% |
+| Annualized return | 9.16% |
+| Members | 5 |
+
+**Portfolio Top 3:**
+
+| 指标 | 值 |
+|------|-----|
+| Total return | 22.66% |
+| Max drawdown | 26.46% |
+| Annualized return | 9.16% |
+| Members | 5 |
+
+**Top Individual Candidates (eligible for portfolio):**
+
+| Symbol | Return | Max DD | Annualized | Score | Trades |
+|--------|--------|--------|------------|-------|--------|
+| BTCUSDT | 255.04% | 27.78% | 72.21% | 55.32 | 687 |
+| BTCUSDT | 252.62% | 26.22% | 71.73% | 69.06 | 582 |
+| BTCUSDT | 145.16% | 21.93% | 46.93% | 41.09 | 1070 |
+| BTCUSDT | 130.10% | 17.11% | 42.97% | 45.70 | 838 |
+| SOLUSDT | 65.47% | 21.87% | 24.11% | 27.87 | 3436 |
+| XRPUSDT | 51.00% | 16.82% | 19.34% | 33.92 | 2772 |
+| BNBUSDT | 47.50% | 29.72% | 18.14% | 54.17 | 535 |
+
+**Comparison vs Previous Benchmark (43.95% annualized / 29.32% max DD):**
+
+- Portfolio annualized (10.77%) is significantly **lower** than previous 43.95%
+- However, individual BTCUSDT candidates (72.21% annualized) exceed the benchmark
+- Portfolio combination degrades individual performance: best candidates (BTCUSDT) are not selected for final portfolios
+- Only 3 portfolios pass the 30% hard drawdown limit, all with 3 unique symbols each
+- Root cause: Cross-symbol equity curve combinations likely exceed the 30% hard drawdown when high-return BTCUSDT candidates are included
 
 ### 18-Symbol Expanded Universe Results
 
 | 指标 | 值 |
 |------|-----|
-| Status | PENDING |
+| Status | RUNNING (35% progress, search_symbol stage) |
 
 ---
 
 ## 校验检查清单
 
-- [ ] `cargo test -p backtest-engine --lib` — 102 passed (2026-05-21 verified)
-- [ ] `cargo test -p backtest-worker` — 46 passed (2026-05-21 verified)
-- [ ] `cargo test -p api-server --lib` — 34 passed (2026-05-21 verified)
-- [ ] Frontend build passes (2026-05-21 verified)
-- [ ] 7-symbol task succeeds
+- [x] `cargo test -p backtest-engine --lib` — 102 passed (2026-05-21 verified)
+- [x] `cargo test -p backtest-worker` — 46 passed (2026-05-21 verified)
+- [x] `cargo test -p api-server --lib` — 34 passed (2026-05-21 verified)
+- [x] Frontend build passes (2026-05-21 verified)
+- [x] 7-symbol task succeeds (portfolio max DD 29.69% <= 30%)
 - [ ] 18-symbol task succeeds (>=18 effective symbols, portfolio Top10)
-- [ ] long_short outputs contain both long and short legs
-- [ ] Portfolio results have >=2 members
-- [ ] Single-symbol allocation <=80%
-- [ ] Portfolio max drawdown <= risk profile hard limit (30%)
-- [ ] Negative-return candidates do not enter final portfolio
+- [x] long_short outputs contain both long and short legs (verified: Short ETHUSDT and Long XRPUSDT in Top1)
+- [x] Portfolio results have >=2 members (5 members in Top1)
+- [x] Single-symbol allocation <=80% (max single symbol 55% ADAUSDT across 2 candidates)
+- [x] Portfolio max drawdown <= risk profile hard limit (29.69% <= 30%)
+- [x] Negative-return candidates do not enter final portfolio
 
 ---
 
