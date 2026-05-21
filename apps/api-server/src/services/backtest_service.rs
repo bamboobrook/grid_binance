@@ -288,8 +288,17 @@ pub fn normalize_martingale_auto_search_config(mut config: Value) -> Result<Valu
         "margin_mode".to_owned(),
         Value::String("isolated".to_owned()),
     );
-    object.insert("per_symbol_top_n".to_owned(), Value::Number(10.into()));
-    object.insert("portfolio_top_n".to_owned(), Value::Number(3.into()));
+    object
+        .entry("per_symbol_top_n".to_owned())
+        .or_insert_with(|| Value::Number(10.into()));
+    let extended_universe = object
+        .get("extended_universe")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
+    let default_portfolio_top_n: i32 = if extended_universe { 10 } else { 3 };
+    object
+        .entry("portfolio_top_n".to_owned())
+        .or_insert_with(|| Value::Number(default_portfolio_top_n.into()));
     object
         .entry("random_seed".to_owned())
         .or_insert_with(|| Value::Number(1.into()));
@@ -306,7 +315,14 @@ pub fn normalize_martingale_auto_search_config(mut config: Value) -> Result<Valu
         "time_range_mode".to_owned(),
         Value::String("auto_since_2023_to_last_month_end".to_owned()),
     );
-    object.insert("search_mode".to_owned(), Value::String("staged".to_owned()));
+    let default_search_mode = if extended_universe {
+        "profit_optimized_v2"
+    } else {
+        "staged"
+    };
+    object
+        .entry("search_mode".to_owned())
+        .or_insert_with(|| Value::String(default_search_mode.to_owned()));
     object.insert(
         "execution_model".to_owned(),
         Value::String("conservative_futures_isolated".to_owned()),
@@ -318,10 +334,6 @@ pub fn normalize_martingale_auto_search_config(mut config: Value) -> Result<Valu
         Value::Number(previous_month_end_ms().into()),
     );
 
-    let extended_universe = object
-        .get("extended_universe")
-        .and_then(|v| v.as_bool())
-        .unwrap_or(false);
     if !object.contains_key("symbols") && !extended_universe {
         return Err("symbols are required".to_owned());
     }
@@ -457,6 +469,74 @@ mod tests {
         assert_eq!(
             normalized.get("market").and_then(|v| v.as_str()),
             Some("usd_m_futures")
+        );
+    }
+
+    #[test]
+    fn profit_optimized_v2_and_top10_preserved_when_user_provides_them() {
+        let mut config = serde_json::json!({
+            "mode": "auto_search",
+            "symbols": ["BTCUSDT", "ETHUSDT"],
+            "direction": "long_short",
+            "risk_profile": "aggressive",
+            "search_mode": "profit_optimized_v2",
+            "portfolio_top_n": 10
+        });
+
+        let normalized = normalize_martingale_auto_search_config(config.take()).unwrap();
+        assert_eq!(
+            normalized.get("search_mode").and_then(|v| v.as_str()),
+            Some("profit_optimized_v2"),
+            "user-provided search_mode must be preserved"
+        );
+        assert_eq!(
+            normalized.get("portfolio_top_n").and_then(|v| v.as_i64()),
+            Some(10),
+            "user-provided portfolio_top_n must be preserved"
+        );
+    }
+
+    #[test]
+    fn extended_universe_defaults_to_profit_optimized_v2_and_top10() {
+        let mut config = serde_json::json!({
+            "mode": "auto_search",
+            "extended_universe": true,
+            "direction": "long_short",
+            "risk_profile": "aggressive"
+        });
+
+        let normalized = normalize_martingale_auto_search_config(config.take()).unwrap();
+        assert_eq!(
+            normalized.get("search_mode").and_then(|v| v.as_str()),
+            Some("profit_optimized_v2"),
+            "extended_universe should default search_mode to profit_optimized_v2"
+        );
+        assert_eq!(
+            normalized.get("portfolio_top_n").and_then(|v| v.as_i64()),
+            Some(10),
+            "extended_universe should default portfolio_top_n to 10"
+        );
+    }
+
+    #[test]
+    fn non_extended_task_keeps_staged_default() {
+        let mut config = serde_json::json!({
+            "mode": "auto_search",
+            "symbols": ["BTCUSDT"],
+            "direction": "long_short",
+            "risk_profile": "aggressive"
+        });
+
+        let normalized = normalize_martingale_auto_search_config(config.take()).unwrap();
+        assert_eq!(
+            normalized.get("search_mode").and_then(|v| v.as_str()),
+            Some("staged"),
+            "non-extended task should default to staged"
+        );
+        assert_eq!(
+            normalized.get("portfolio_top_n").and_then(|v| v.as_i64()),
+            Some(3),
+            "non-extended task should default to portfolio_top_n=3"
         );
     }
 

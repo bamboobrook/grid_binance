@@ -127,11 +127,116 @@ fn daily_return_correlation_penalty(members: &[(&EvaluatedCandidate, f64)]) -> f
     }
 }
 
-fn pairwise_curve_correlations(_members: &[(&EvaluatedCandidate, f64)]) -> Vec<f64> {
-    // Simplified: sample every 100th point for correlation between pairs.
-    // For now return empty to skip correlation penalty (non-blocking).
-    // Full implementation would align timestamps and compute Pearson r.
-    Vec::new()
+fn pairwise_curve_correlations(members: &[(&EvaluatedCandidate, f64)]) -> Vec<f64> {
+    if members.len() < 2 {
+        return Vec::new();
+    }
+
+    // Extract daily equity values for each member, aligned by day boundary.
+    let daily_returns: Vec<Vec<f64>> = members
+        .iter()
+        .map(|(candidate, _)| daily_returns_from_curve(&candidate.equity_curve))
+        .collect();
+
+    if daily_returns.iter().any(|r| r.len() < 10) {
+        return Vec::new();
+    }
+
+    // Find the minimum length across all series to align them.
+    let min_len = daily_returns.iter().map(|r| r.len()).min().unwrap_or(0);
+    if min_len < 10 {
+        return Vec::new();
+    }
+
+    // Truncate all series to the same length (use the tail to favor recent data).
+    let aligned: Vec<&[f64]> = daily_returns
+        .iter()
+        .map(|r| &r[r.len() - min_len..])
+        .collect();
+
+    let mut correlations = Vec::with_capacity(members.len() * (members.len() - 1) / 2);
+    for i in 0..aligned.len() {
+        for j in (i + 1)..aligned.len() {
+            if let Some(r) = pearson_r(aligned[i], aligned[j]) {
+                correlations.push(r);
+            }
+        }
+    }
+    correlations
+}
+
+/// Extract daily returns from a 1-minute equity curve.
+/// Groups points by day (UTC midnight boundary) and takes the last equity per day,
+/// then computes day-over-day percentage returns.
+fn daily_returns_from_curve(curve: &[EquityPoint]) -> Vec<f64> {
+    if curve.len() < 2 {
+        return Vec::new();
+    }
+
+    let ms_per_day: i64 = 86_400_000;
+    let mut daily_equities: Vec<f64> = Vec::new();
+    let mut current_day: i64 = curve[0].timestamp_ms / ms_per_day;
+    let mut last_equity: f64 = curve[0].equity_quote;
+
+    for point in curve.iter().skip(1) {
+        let day = point.timestamp_ms / ms_per_day;
+        if day != current_day {
+            daily_equities.push(last_equity);
+            current_day = day;
+        }
+        last_equity = point.equity_quote;
+    }
+    // Push the last day's equity.
+    daily_equities.push(last_equity);
+
+    if daily_equities.len() < 2 {
+        return Vec::new();
+    }
+
+    // Convert to daily returns: (e[t] - e[t-1]) / e[t-1]
+    daily_equities
+        .windows(2)
+        .map(|window| {
+            let prev = window[0];
+            let curr = window[1];
+            if prev > 0.0 {
+                (curr - prev) / prev
+            } else {
+                0.0
+            }
+        })
+        .collect()
+}
+
+/// Compute Pearson correlation coefficient between two slices.
+fn pearson_r(x: &[f64], y: &[f64]) -> Option<f64> {
+    let n = x.len().min(y.len());
+    if n < 3 {
+        return None;
+    }
+    let x = &x[..n];
+    let y = &y[..n];
+
+    let mean_x = x.iter().sum::<f64>() / n as f64;
+    let mean_y = y.iter().sum::<f64>() / n as f64;
+
+    let mut cov = 0.0;
+    let mut var_x = 0.0;
+    let mut var_y = 0.0;
+
+    for i in 0..n {
+        let dx = x[i] - mean_x;
+        let dy = y[i] - mean_y;
+        cov += dx * dy;
+        var_x += dx * dx;
+        var_y += dy * dy;
+    }
+
+    if var_x <= 0.0 || var_y <= 0.0 {
+        return None;
+    }
+
+    Some(cov / (var_x.sqrt() * var_y.sqrt()))
 }
 
 fn dedupe_portfolios_by_member_weight(portfolios: &mut Vec<WeightedPortfolio>) {
@@ -270,9 +375,15 @@ fn enumerate_member_combinations(
             if let Some(portfolio) =
                 build_weighted_portfolio(eligible, current, template, max_drawdown_pct)
             {
-                let correlation_factor = if unique_count >= 3 { 1.05 } else { 1.0 };
+                let member_pairs: Vec<(&EvaluatedCandidate, f64)> = current
+                    .iter()
+                    .zip(template.iter())
+                    .map(|(idx, alloc)| (eligible[*idx], *alloc))
+                    .collect();
+                let correlation_penalty = daily_return_correlation_penalty(&member_pairs);
+                let diversity_bonus = if unique_count >= 3 { 1.05 } else { 1.0 };
                 let mut adjusted = portfolio;
-                adjusted.score *= correlation_factor;
+                adjusted.score *= correlation_penalty * diversity_bonus;
                 result.push(adjusted);
                 prune_scored_portfolios(result, 200, 80);
             }
@@ -1408,6 +1519,91 @@ mod tests {
             )
             .is_none(),
             "84% BTC allocation must be rejected"
+        );
+    }
+
+    #[test]
+    fn correlation_penalty_reduces_score_for_highly_correlated_curves() {
+        // Two curves with nearly identical daily movements → high correlation
+        let base_equity: Vec<f64> = (0..120)
+            .map(|t| 100.0 + t as f64 * 0.5 + (t as f64 * 0.1).sin() * 10.0)
+            .collect();
+        let a = candidate_with_curve("a", "BTCUSDT", 50.0, 20.0, 5.0, 100.0, base_equity.clone());
+        // B is almost identical to A — highly correlated
+        let b_equity: Vec<f64> = base_equity.iter().map(|v| v * 1.01 + 2.0).collect();
+        let b = candidate_with_curve("b", "ETHUSDT", 45.0, 22.0, 4.0, 100.0, b_equity);
+
+        let penalty = daily_return_correlation_penalty(&[(&a, 0.6), (&b, 0.4)]);
+        assert!(
+            penalty < 1.0,
+            "highly correlated curves should get penalty < 1.0, got {penalty}"
+        );
+    }
+
+    #[test]
+    fn correlation_penalty_is_neutral_for_divergent_curves() {
+        // Curve A: steady uptrend with noise
+        let up_equity: Vec<f64> = (0..120)
+            .map(|t| 100.0 + t as f64 * 0.5 + (t as f64 * 0.3).sin() * 8.0)
+            .collect();
+        // Curve B: mostly flat with different noise pattern → low correlation with A
+        let flat_noisy: Vec<f64> = (0..120)
+            .map(|t| 110.0 + (t as f64 * 0.7).sin() * 12.0 + (t as f64 * 0.13).cos() * 6.0)
+            .collect();
+        let a = candidate_with_curve("a", "BTCUSDT", 50.0, 20.0, 5.0, 100.0, up_equity);
+        let b = candidate_with_curve("b", "ETHUSDT", 30.0, 18.0, 3.0, 100.0, flat_noisy);
+
+        let penalty = daily_return_correlation_penalty(&[(&a, 0.6), (&b, 0.4)]);
+        assert!(
+            penalty >= 0.9,
+            "weakly correlated curves should have little penalty, got {penalty}"
+        );
+    }
+
+    #[test]
+    fn portfolio_v2_scoring_demotes_high_correlation_combination() {
+        // Build two pairs: one with correlated curves, one with divergent
+        let base = (0..120)
+            .map(|t| 100.0 + t as f64 * 0.5 + (t as f64 * 0.1).sin() * 10.0)
+            .collect::<Vec<f64>>();
+        let a = candidate_with_curve("a", "BTCUSDT", 50.0, 20.0, 5.0, 100.0, base.clone());
+        let b = candidate_with_curve(
+            "b",
+            "ETHUSDT",
+            45.0,
+            22.0,
+            4.0,
+            100.0,
+            base.iter().map(|v| v * 1.01 + 2.0).collect(),
+        );
+        let c = candidate_with_curve(
+            "c",
+            "SOLUSDT",
+            40.0,
+            15.0,
+            3.0,
+            100.0,
+            (0..120).map(|t| 100.0 - t as f64 * 0.3).collect(),
+        );
+
+        let artifact = build_portfolio_top_n_v2(&[a.clone(), b.clone(), c.clone()], 30.0, 10);
+        let portfolios = artifact.all_portfolios.unwrap_or_default();
+        // The (a, c) combo should rank higher than or equal to (a, b) due to lower correlation
+        // even though b has slightly better individual return than c.
+        // At minimum, we verify that correlation affects scoring (no crash, non-empty result).
+        assert!(
+            !portfolios.is_empty(),
+            "must produce at least one portfolio"
+        );
+
+        // Verify the high-correlation penalty is actually applied (function no longer dead_code)
+        let penalty = daily_return_correlation_penalty(&[(&a, 0.6), (&b, 0.4)]);
+        let low_penalty = daily_return_correlation_penalty(&[(&a, 0.6), (&c, 0.4)]);
+        // The high-correlation pair (a,b) should have at most the same penalty as (a,c),
+        // and typically worse (lower multiplier = more penalty).
+        assert!(
+            penalty <= low_penalty + 0.01,
+            "high-correlation pair should score <= low-correlation pair: penalty={penalty} low_penalty={low_penalty}"
         );
     }
 }

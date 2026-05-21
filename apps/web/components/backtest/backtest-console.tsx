@@ -684,7 +684,8 @@ type PortfolioTop3Row = {
 };
 
 function portfolioTop3FromTask(task: BacktestTask | null): PortfolioTop3Row[] {
-  const rows = task?.summary?.portfolio_top3;
+  // Prefer portfolio_top10 (v2 expanded search) over portfolio_top3 (legacy)
+  const rows = task?.summary?.portfolio_top10 ?? task?.summary?.portfolio_top3;
   if (!Array.isArray(rows)) return [];
   return rows.map((row: unknown) => {
     const record = isRecord(row) ? row : {};

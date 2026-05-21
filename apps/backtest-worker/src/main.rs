@@ -1717,6 +1717,90 @@ async fn process_task(
             "portfolio_unique_symbol_count": portfolio.members.iter().map(|m| m.symbol.as_str()).collect::<std::collections::HashSet<_>>().len(),
         })
     }).collect::<Vec<Value>>();
+    let portfolio_top10_rows: Vec<Value> = portfolio_top3
+        .all_portfolios
+        .as_ref()
+        .map(|all| {
+            all.iter().enumerate().map(|(rank, portfolio)| {
+                let member_id_hash: String = portfolio.members.iter()
+                    .map(|m| m.candidate_id.as_str())
+                    .collect::<Vec<&str>>()
+                    .join("-");
+                json!({
+                    "portfolio_id": format!("portfolio-{}-{}", rank + 1, member_id_hash),
+                    "portfolio_rank": rank + 1,
+                    "member_count": portfolio.member_count,
+                    "members": portfolio.members.iter().map(|m| json!({
+                        "candidate_id": m.candidate_id,
+                        "symbol": m.symbol,
+                        "direction": m.direction,
+                        "allocation_pct": m.allocation_pct,
+                        "return_pct": m.return_pct,
+                        "max_drawdown_pct": m.max_drawdown_pct,
+                        "annualized_return_pct": m.annualized_return_pct,
+                        "score": m.score,
+                        "trade_count": m.trade_count,
+                    })).collect::<Vec<Value>>(),
+                    "total_return_pct": portfolio.return_pct,
+                    "return_pct": portfolio.return_pct,
+                    "max_drawdown_pct": portfolio.max_drawdown_pct,
+                    "annualized_return_pct": portfolio.annualized_return_pct,
+                    "score": portfolio.score,
+                    "trade_count": portfolio.trade_count,
+                    "equity_curve": sampled_preview(&portfolio.equity_curve, 500),
+                    "drawdown_curve": sampled_preview(&portfolio.drawdown_curve, 500),
+                    "trades_preview": sampled_preview(&portfolio.trades_preview, 100),
+                    "eligible_candidate_count": portfolio_top3.eligible_candidate_count,
+                    "eligible_symbols": portfolio_top3.eligible_symbols.clone(),
+                    "unique_eligible_symbol_count": portfolio_top3.unique_eligible_symbol_count,
+                    "portfolio_symbols": portfolio.members.iter().map(|m| m.symbol.clone()).collect::<Vec<_>>(),
+                    "portfolio_unique_symbol_count": portfolio.members.iter().map(|m| m.symbol.as_str()).collect::<std::collections::HashSet<_>>().len(),
+                })
+            }).collect()
+        })
+        .unwrap_or_default();
+    let portfolio_top10_full_rows: Vec<Value> = portfolio_top3
+        .all_portfolios
+        .as_ref()
+        .map(|all| {
+            all.iter().enumerate().map(|(rank, portfolio)| {
+                let member_id_hash: String = portfolio.members.iter()
+                    .map(|m| m.candidate_id.as_str())
+                    .collect::<Vec<&str>>()
+                    .join("-");
+                json!({
+                    "portfolio_id": format!("portfolio-{}-{}", rank + 1, member_id_hash),
+                    "portfolio_rank": rank + 1,
+                    "member_count": portfolio.member_count,
+                    "members": portfolio.members.iter().map(|m| json!({
+                        "candidate_id": m.candidate_id,
+                        "symbol": m.symbol,
+                        "direction": m.direction,
+                        "allocation_pct": m.allocation_pct,
+                        "return_pct": m.return_pct,
+                        "max_drawdown_pct": m.max_drawdown_pct,
+                        "annualized_return_pct": m.annualized_return_pct,
+                        "score": m.score,
+                        "trade_count": m.trade_count,
+                    })).collect::<Vec<Value>>(),
+                    "total_return_pct": portfolio.return_pct,
+                    "return_pct": portfolio.return_pct,
+                    "max_drawdown_pct": portfolio.max_drawdown_pct,
+                    "annualized_return_pct": portfolio.annualized_return_pct,
+                    "score": portfolio.score,
+                    "trade_count": portfolio.trade_count,
+                    "equity_curve": portfolio.equity_curve,
+                    "drawdown_curve": portfolio.drawdown_curve,
+                    "trades_preview": portfolio.trades_preview,
+                    "eligible_candidate_count": portfolio_top3.eligible_candidate_count,
+                    "eligible_symbols": portfolio_top3.eligible_symbols.clone(),
+                    "unique_eligible_symbol_count": portfolio_top3.unique_eligible_symbol_count,
+                    "portfolio_symbols": portfolio.members.iter().map(|m| m.symbol.clone()).collect::<Vec<_>>(),
+                    "portfolio_unique_symbol_count": portfolio.members.iter().map(|m| m.symbol.as_str()).collect::<std::collections::HashSet<_>>().len(),
+                })
+            }).collect()
+        })
+        .unwrap_or_default();
     let portfolio_manifest = write_task_json_artifact(
         &config.artifact_root,
         &task.task_id,
@@ -1725,6 +1809,17 @@ async fn process_task(
         &portfolio_full_rows,
     )?;
     verify_artifact(&portfolio_manifest)?;
+    let portfolio_top10_manifest = if !portfolio_top10_full_rows.is_empty() {
+        Some(write_task_json_artifact(
+            &config.artifact_root,
+            &task.task_id,
+            "portfolio",
+            "top10",
+            &portfolio_top10_full_rows,
+        )?)
+    } else {
+        None
+    };
 
     poller
         .mark_completed(
@@ -1732,10 +1827,12 @@ async fn process_task(
             json!({
                 "portfolio_top_n": portfolio_top_n,
                 "portfolio_top3": portfolio_rows,
+                "portfolio_top10": portfolio_top10_rows,
                 "expanded_universe_symbol_count": effective_symbols.len(),
                 "portfolio_pool_candidate_count": portfolio_pool_outputs.len(),
                 "portfolio_pool_note": "positive-return candidates include qualified, high-return and low-drawdown tiers; final portfolio still enforces hard drawdown limit",
                 "portfolio_top3_artifact_path": portfolio_manifest.path.display().to_string(),
+                "portfolio_top10_artifact_path": portfolio_top10_manifest.as_ref().map(|m| m.path.display().to_string()).unwrap_or_default(),
                 "eligible_candidate_count": portfolio_top3.eligible_candidate_count,
                 "searched_symbols": task.config.symbols.clone(),
                 "display_symbols": display_symbols,
