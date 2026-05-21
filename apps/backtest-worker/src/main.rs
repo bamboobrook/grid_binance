@@ -1577,11 +1577,26 @@ async fn process_task(
         respect_pause_or_cancel(poller, &task.task_id).await?;
     }
 
-    let portfolio_pool_outputs = select_portfolio_pool_outputs(
-        outputs.clone(),
-        task.config.per_symbol_top_n.max(20),
-        &task.config.risk_profile,
-    );
+    let max_portfolio_drawdown_pct = if is_long_short {
+        long_short_drawdown_limit_sequence(&task.config.risk_profile)
+            .first()
+            .copied()
+            .unwrap_or(30.0)
+    } else {
+        drawdown_limit_sequence(&task.config.risk_profile)
+            .first()
+            .copied()
+            .unwrap_or(25.0)
+    };
+    let portfolio_pool_outputs = if should_use_profit_optimized_v2(&task.config) {
+        select_portfolio_pool_outputs_v2(outputs.clone(), max_portfolio_drawdown_pct, 10, 10, 5)
+    } else {
+        select_portfolio_pool_outputs(
+            outputs.clone(),
+            task.config.per_symbol_top_n.max(20),
+            &task.config.risk_profile,
+        )
+    };
     let display_outputs = select_top_outputs_per_symbol(
         outputs,
         task.config.per_symbol_top_n.max(1),
@@ -1616,17 +1631,6 @@ async fn process_task(
     respect_pause_or_cancel(poller, &task.task_id).await?;
 
     let portfolio_candidates = portfolio_candidates_from_outputs(&portfolio_pool_outputs);
-    let max_portfolio_drawdown_pct = if is_long_short {
-        long_short_drawdown_limit_sequence(&task.config.risk_profile)
-            .first()
-            .copied()
-            .unwrap_or(30.0)
-    } else {
-        drawdown_limit_sequence(&task.config.risk_profile)
-            .first()
-            .copied()
-            .unwrap_or(25.0)
-    };
     let portfolio_top3 = build_portfolio_top3(&portfolio_candidates, max_portfolio_drawdown_pct);
     let portfolio_full_rows = portfolio_top3.top3.iter().enumerate().map(|(rank, portfolio)| {
         let member_id_hash: String = portfolio.members.iter()
@@ -2094,6 +2098,71 @@ fn aggressive_screening_profit_score(
     }
     let drawdown = sample.max_drawdown_pct.unwrap_or(100.0).max(1.0);
     total_return + (total_return / drawdown) * 8.0 - drawdown * 0.2
+}
+
+fn output_profit_score(output: &CandidateOutput) -> f64 {
+    let annualized = output.annualized_return_pct.unwrap_or(output.total_return_pct);
+    if annualized <= 0.0 {
+        return f64::NEG_INFINITY;
+    }
+    let drawdown = output.max_drawdown_pct.max(1.0);
+    annualized + (annualized / drawdown) * 10.0 - drawdown * 0.15
+}
+
+fn select_portfolio_pool_outputs_v2(
+    outputs: Vec<CandidateOutput>,
+    drawdown_limit_pct: f64,
+    qualified_top_n: usize,
+    growth_top_n: usize,
+    low_drawdown_top_n: usize,
+) -> Vec<CandidateOutput> {
+    let mut by_symbol: std::collections::BTreeMap<String, Vec<CandidateOutput>> =
+        std::collections::BTreeMap::new();
+    for output in outputs {
+        if output.total_return_pct <= 0.0 {
+            continue;
+        }
+        let symbol = output_symbol(&output).unwrap_or_else(|| output.candidate_id.clone());
+        by_symbol.entry(symbol).or_default().push(output);
+    }
+
+    let mut selected: Vec<CandidateOutput> = Vec::new();
+    let mut seen: std::collections::BTreeSet<String> = std::collections::BTreeSet::new();
+
+    for (_symbol, mut items) in by_symbol {
+        // Tier 1: qualified (within drawdown limit)
+        items.sort_by(|a, b| output_profit_score(b).total_cmp(&output_profit_score(a)));
+        for output in items
+            .iter()
+            .filter(|o| o.max_drawdown_pct <= drawdown_limit_pct)
+            .take(qualified_top_n)
+        {
+            if seen.insert(output.candidate_id.clone()) {
+                selected.push(output.clone());
+            }
+        }
+
+        // Tier 2: high return (may exceed drawdown limit)
+        items.sort_by(|a, b| {
+            b.annualized_return_pct
+                .unwrap_or(b.total_return_pct)
+                .total_cmp(&a.annualized_return_pct.unwrap_or(a.total_return_pct))
+        });
+        for output in items.iter().take(growth_top_n) {
+            if seen.insert(output.candidate_id.clone()) {
+                selected.push(output.clone());
+            }
+        }
+
+        // Tier 3: low drawdown stabilizers
+        items.sort_by(|a, b| a.max_drawdown_pct.total_cmp(&b.max_drawdown_pct));
+        for output in items.iter().take(low_drawdown_top_n) {
+            if seen.insert(output.candidate_id.clone()) {
+                selected.push(output.clone());
+            }
+        }
+    }
+    selected
 }
 
 fn select_portfolio_pool_outputs(
@@ -4925,6 +4994,69 @@ mod tests {
         for excluded in ["SUIUSDT", "1000PEPEUSDT", "ONDOUSDT", "TONUSDT", "WLDUSDT", "ENAUSDT"] {
             assert!(!symbols.contains(&excluded.to_owned()), "short-history symbol should not be default: {excluded}");
         }
+    }
+
+    fn candidate_output_fixture(
+        id: &str,
+        symbol: &str,
+        total_return_pct: f64,
+        max_drawdown_pct: f64,
+        planned_margin_quote: f64,
+    ) -> CandidateOutput {
+        CandidateOutput {
+            candidate_id: id.to_owned(),
+            rank: 1,
+            score: total_return_pct,
+            config: serde_json::json!({
+                "direction_mode": "long_only",
+                "strategies": [{
+                    "symbol": symbol,
+                    "leverage": 3,
+                    "spacing": { "fixed_percent": { "step_bps": 100 } },
+                    "sizing": { "multiplier": { "first_order_quote": "10", "multiplier": "1.5", "max_legs": 4 } },
+                    "take_profit": { "percent": { "bps": 80 } }
+                }]
+            }),
+            summary: serde_json::json!({}),
+            artifact_path: format!("/tmp/{id}.json"),
+            checksum_sha256: "sha256".to_owned(),
+            used_trade_refinement: false,
+            used_drawdown_limit_pct: 25.0,
+            risk_relaxed: false,
+            total_return_pct,
+            max_drawdown_pct,
+            trade_count: 100,
+            annualized_return_pct: Some(total_return_pct / 2.0),
+            return_drawdown_ratio: if max_drawdown_pct > 0.0 { Some(total_return_pct / max_drawdown_pct) } else { None },
+            planned_margin_quote: Some(planned_margin_quote),
+            max_leverage_used: Some(3.0),
+            equity_curve: vec![
+                backtest_engine::martingale::metrics::EquityPoint { timestamp_ms: 1, equity_quote: planned_margin_quote },
+                backtest_engine::martingale::metrics::EquityPoint { timestamp_ms: 2, equity_quote: planned_margin_quote * (1.0 + total_return_pct / 100.0) },
+            ],
+            drawdown_curve: Vec::new(),
+            trades_preview: Vec::new(),
+        }
+    }
+
+    #[test]
+    fn portfolio_pool_keeps_qualified_high_return_and_low_drawdown_tiers_per_symbol() {
+        let outputs = vec![
+            candidate_output_fixture("btc-safe", "BTCUSDT", 18.0, 8.0, 100.0),
+            candidate_output_fixture("btc-growth", "BTCUSDT", 80.0, 42.0, 100.0),
+            candidate_output_fixture("btc-loss", "BTCUSDT", -5.0, 4.0, 100.0),
+            candidate_output_fixture("eth-safe", "ETHUSDT", 12.0, 6.0, 100.0),
+            candidate_output_fixture("eth-growth", "ETHUSDT", 70.0, 38.0, 100.0),
+        ];
+
+        let pool = select_portfolio_pool_outputs_v2(outputs, 25.0, 10, 10, 5);
+        let ids: std::collections::BTreeSet<_> = pool.iter().map(|o| o.candidate_id.as_str()).collect();
+
+        assert!(ids.contains("btc-safe"));
+        assert!(ids.contains("btc-growth"));
+        assert!(ids.contains("eth-safe"));
+        assert!(ids.contains("eth-growth"));
+        assert!(!ids.contains("btc-loss"));
     }
 
     #[test]
