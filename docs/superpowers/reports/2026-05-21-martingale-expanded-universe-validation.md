@@ -496,3 +496,4 @@ The correlation penalty successfully:
 | Task 6 | `b27b172` | feat: 展示马丁扩展深搜组合结果 |
 | Format | `f0ef4f7` | chore: 格式化 Rust 代码 |
 | P0+P1 Fix | `6d4c93d` | fix: API保留v2深搜配置、worker输出Top10、实现真实相关性计算 |
+| v3 Report | `f626031` | docs: 完成 v3 马丁扩展深搜重验证报告（含相关性修复） |
