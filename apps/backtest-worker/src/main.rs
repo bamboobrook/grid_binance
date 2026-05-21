@@ -35,6 +35,10 @@ use shared_domain::martingale::{
 const DEFAULT_MAX_THREADS: usize = 2;
 const DEFAULT_POLL_MS: u64 = 5_000;
 const DEFAULT_TOP_N: usize = 3;
+const SCREENING_MAX_BARS_PER_SYMBOL: usize = 180_000;
+const SCREENING_RECENT_BARS_PER_SYMBOL: usize = 120_000;
+const SCREENING_EARLY_BARS_PER_SYMBOL: usize = 30_000;
+const SCREENING_MIDDLE_BARS_PER_SYMBOL: usize = 30_000;
 
 #[derive(Debug, Clone)]
 struct WorkerConfig {
@@ -2553,7 +2557,7 @@ fn run_candidate_kline_screening(
     candidate: &SearchCandidate,
     market_context: &MarketDataContext,
 ) -> Result<MartingaleBacktestResult, String> {
-    let bars = bars_for_candidate(candidate, &market_context.bars);
+    let bars = screening_bars_for_candidate(candidate, &market_context.bars);
     if bars.is_empty() {
         return Err(format!(
             "candidate {} has no matching kline bars",
@@ -2579,6 +2583,34 @@ fn run_candidate_trade_refinement(
         return run_kline_screening(candidate.config.clone(), &bars);
     }
     run_trade_refinement(candidate.config.clone(), &trades)
+}
+
+fn screening_bars_for_candidate(candidate: &SearchCandidate, bars: &[KlineBar]) -> Vec<KlineBar> {
+    let full_bars = bars_for_candidate(candidate, bars);
+    representative_screening_bars(&full_bars)
+}
+
+fn representative_screening_bars(bars: &[KlineBar]) -> Vec<KlineBar> {
+    if bars.len() <= SCREENING_MAX_BARS_PER_SYMBOL {
+        return bars.to_vec();
+    }
+
+    let mut selected = Vec::with_capacity(SCREENING_MAX_BARS_PER_SYMBOL);
+    selected.extend(bars.iter().take(SCREENING_EARLY_BARS_PER_SYMBOL).cloned());
+
+    let middle_start = bars.len().saturating_sub(SCREENING_MIDDLE_BARS_PER_SYMBOL) / 2;
+    selected.extend(
+        bars.iter()
+            .skip(middle_start)
+            .take(SCREENING_MIDDLE_BARS_PER_SYMBOL)
+            .cloned(),
+    );
+
+    let recent_start = bars.len().saturating_sub(SCREENING_RECENT_BARS_PER_SYMBOL);
+    selected.extend(bars.iter().skip(recent_start).cloned());
+    selected.sort_by_key(|bar| bar.open_time_ms);
+    selected.dedup_by_key(|bar| bar.open_time_ms);
+    selected
 }
 
 fn bars_for_candidate(candidate: &SearchCandidate, bars: &[KlineBar]) -> Vec<KlineBar> {
@@ -3734,6 +3766,55 @@ mod tests {
         assert_eq!(bounded_parallel_width(1), 1);
         assert_eq!(bounded_parallel_width(24), 24);
     }
+    #[test]
+    fn representative_screening_bars_keep_small_inputs_unchanged() {
+        let bars = (0..10)
+            .map(|index| KlineBar {
+                symbol: "BTCUSDT".to_owned(),
+                open_time_ms: index,
+                open: 1.0,
+                high: 1.0,
+                low: 1.0,
+                close: 1.0,
+                volume: 1.0,
+            })
+            .collect::<Vec<_>>();
+
+        let screened = representative_screening_bars(&bars);
+
+        assert_eq!(screened, bars);
+    }
+
+    #[test]
+    fn representative_screening_bars_sample_early_middle_and_recent_windows() {
+        let total = SCREENING_MAX_BARS_PER_SYMBOL + 20_000;
+        let bars = (0..total)
+            .map(|index| KlineBar {
+                symbol: "ADAUSDT".to_owned(),
+                open_time_ms: index as i64,
+                open: 1.0,
+                high: 1.0,
+                low: 1.0,
+                close: 1.0,
+                volume: 1.0,
+            })
+            .collect::<Vec<_>>();
+
+        let screened = representative_screening_bars(&bars);
+
+        assert!(screened.len() <= SCREENING_MAX_BARS_PER_SYMBOL);
+        assert!(screened.iter().any(|bar| bar.open_time_ms == 0));
+        assert!(screened
+            .iter()
+            .any(|bar| bar.open_time_ms == (total / 2) as i64));
+        assert!(screened
+            .iter()
+            .any(|bar| bar.open_time_ms == (total - 1) as i64));
+        assert!(screened
+            .windows(2)
+            .all(|window| window[0].open_time_ms < window[1].open_time_ms));
+    }
+
     #[test]
     fn long_short_timeout_scales_with_refinement_budget() {
         let small = WorkerTaskConfig {
