@@ -71,7 +71,11 @@ impl BacktestService {
         }
         let martingale_auto_search = is_martingale_auto_search(&auto_search_probe);
         let effective_symbols = effective_task_symbols(&strategy_type, &request.symbols, &config)?;
-        if martingale_auto_search && effective_symbols.is_empty() {
+        let extended_universe = config
+            .get("extended_universe")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false);
+        if martingale_auto_search && effective_symbols.is_empty() && !extended_universe {
             return Err(BacktestError::bad_request("symbols are required"));
         }
         self.validate_quota(owner, effective_symbols.len())?;
@@ -314,8 +318,15 @@ pub fn normalize_martingale_auto_search_config(mut config: Value) -> Result<Valu
         Value::Number(previous_month_end_ms().into()),
     );
 
-    if !object.contains_key("symbols") {
+    let extended_universe = object
+        .get("extended_universe")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
+    if !object.contains_key("symbols") && !extended_universe {
         return Err("symbols are required".to_owned());
+    }
+    if extended_universe && !object.contains_key("symbols") {
+        object.insert("symbols".to_owned(), Value::Array(vec![]));
     }
 
     Ok(config)
@@ -424,6 +435,21 @@ mod tests {
             symbols: (0..count).map(|index| format!("SYM{index}USDT")).collect(),
             extra: serde_json::Map::new(),
         }
+    }
+
+    #[test]
+    fn auto_search_allows_extended_universe_without_explicit_symbols() {
+        let mut config = serde_json::json!({
+            "mode": "auto_search",
+            "extended_universe": true,
+            "market": "futures",
+            "direction": "long_short",
+            "risk_profile": "aggressive"
+        });
+
+        let normalized = normalize_martingale_auto_search_config(config.take()).unwrap();
+        assert_eq!(normalized.get("extended_universe").and_then(|v| v.as_bool()), Some(true));
+        assert_eq!(normalized.get("market").and_then(|v| v.as_str()), Some("usd_m_futures"));
     }
 
     #[test]

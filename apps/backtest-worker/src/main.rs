@@ -89,6 +89,10 @@ struct WorkerTaskConfig {
     search_space: Option<Value>,
     #[serde(default)]
     scoring: Option<Value>,
+    #[serde(default)]
+    extended_universe: Option<bool>,
+    #[serde(default)]
+    search_mode: Option<String>,
     #[serde(default = "default_interval")]
     interval: String,
     #[serde(default)]
@@ -115,6 +119,8 @@ impl Default for WorkerTaskConfig {
             martingale_template: None,
             search_space: None,
             scoring: None,
+            extended_universe: None,
+            search_mode: None,
             interval: default_interval(),
             start_ms: 0,
             end_ms: 0,
@@ -148,6 +154,37 @@ fn default_portfolio_top_n() -> usize {
 
 fn default_risk_profile() -> String {
     "balanced".to_owned()
+}
+
+fn default_expanded_universe_symbols() -> Vec<String> {
+    [
+        "BTCUSDT", "ETHUSDT", "BNBUSDT", "SOLUSDT", "DOGEUSDT", "XRPUSDT", "ADAUSDT",
+        "ZECUSDT", "DASHUSDT", "NEARUSDT", "BCHUSDT", "LINKUSDT", "AVAXUSDT", "UNIUSDT",
+        "FILUSDT", "DOTUSDT", "AAVEUSDT", "INJUSDT",
+    ]
+    .into_iter()
+    .map(str::to_owned)
+    .collect()
+}
+
+fn effective_search_symbols(config: &WorkerTaskConfig) -> Vec<String> {
+    // Explicit user-provided symbols always take priority.
+    // A single-element vec!["BTCUSDT"] is treated as the Default and therefore
+    // *not* explicit — it means the caller didn't supply symbols.
+    let has_explicit_symbols = !config.symbols.is_empty()
+        && !(config.symbols.len() == 1 && config.symbols[0] == "BTCUSDT");
+    if has_explicit_symbols {
+        return config.symbols.clone();
+    }
+    if config.extended_universe.unwrap_or(false) {
+        return default_expanded_universe_symbols();
+    }
+    config.symbols.clone()
+}
+
+fn should_use_profit_optimized_v2(config: &WorkerTaskConfig) -> bool {
+    config.extended_universe.unwrap_or(false)
+        || config.search_mode.as_deref() == Some("profit_optimized_v2")
 }
 
 fn stage_label(stage: &str) -> &'static str {
@@ -1403,8 +1440,9 @@ async fn process_task(
     poller
         .heartbeat(&task.task_id, "market_data_opening")
         .await?;
+    let effective_symbols = effective_search_symbols(&task.config);
     let market_data = config.open_market_data()?;
-    let market_context = MarketDataContext::load(&market_data, &task.config)?;
+    let market_context = MarketDataContext::load(&market_data, &task.config, &effective_symbols)?;
     poller.heartbeat(&task.task_id, "search_started").await?;
 
     let direction_mode = task.config.direction_mode.as_deref().unwrap_or("long");
@@ -1419,7 +1457,7 @@ async fn process_task(
     let mut evaluated_count = 0usize;
     let mut all_rejection_samples: Vec<CandidateRejectionSample> = Vec::new();
 
-    for symbol in &task.config.symbols {
+    for symbol in &effective_symbols {
         respect_pause_or_cancel(poller, &task.task_id).await?;
         let estimate = estimate_staged_search_work_for_task(&task.config);
         poller
@@ -2680,7 +2718,7 @@ struct MarketDataContext {
 }
 
 impl MarketDataContext {
-    fn load(source: &dyn MarketDataSource, config: &WorkerTaskConfig) -> Result<Self, String> {
+    fn load(source: &dyn MarketDataSource, config: &WorkerTaskConfig, symbols: &[String]) -> Result<Self, String> {
         validate_time_range(config)?;
         let available_symbols = source.list_symbols()?;
         let available_set = available_symbols
@@ -2689,7 +2727,7 @@ impl MarketDataContext {
             .collect::<std::collections::BTreeSet<_>>();
         let mut bars = Vec::new();
         let mut trades = Vec::new();
-        for symbol in &config.symbols {
+        for symbol in symbols {
             let normalized = symbol.trim().to_uppercase();
             if !available_set.contains(&normalized) {
                 return Err(format!(
@@ -3583,12 +3621,14 @@ mod tests {
             martingale_template: None,
             search_space: None,
             scoring: None,
+            extended_universe: None,
+            search_mode: None,
             interval: "1h".to_owned(),
             start_ms: 1,
             end_ms: 2_000,
         };
 
-        let context = MarketDataContext::load(&source, &config).expect("market context");
+        let context = MarketDataContext::load(&source, &config, &config.symbols).expect("market context");
         assert_eq!(context.bars.len(), 1);
         assert_eq!(context.bars[0].symbol, "BTCUSDT");
         assert_eq!(context.trades.len(), 1);
@@ -3626,13 +3666,15 @@ mod tests {
             martingale_template: None,
             search_space: None,
             scoring: None,
+            extended_universe: None,
+            search_mode: None,
             interval: "1h".to_owned(),
             start_ms: 1,
             end_ms: 2_000,
         };
 
         let context =
-            MarketDataContext::load(&source, &config).expect("market context without trades");
+            MarketDataContext::load(&source, &config, &config.symbols).expect("market context without trades");
         assert!(context.trades.is_empty());
     }
 
@@ -4855,6 +4897,34 @@ mod tests {
             "must test multiple long/short weights: {:?}",
             expanded.long_short_weight_pct
         );
+    }
+
+    #[test]
+    fn expanded_universe_defaults_include_only_full_history_futures_symbols() {
+        let symbols = default_expanded_universe_symbols();
+        assert!(symbols.len() >= 18, "expected at least 18 symbols, got {symbols:?}");
+        for required in [
+            "BTCUSDT", "ETHUSDT", "BNBUSDT", "SOLUSDT", "DOGEUSDT", "XRPUSDT", "ADAUSDT",
+            "ZECUSDT", "DASHUSDT", "NEARUSDT", "BCHUSDT", "LINKUSDT", "AVAXUSDT", "UNIUSDT",
+            "FILUSDT", "DOTUSDT", "AAVEUSDT", "INJUSDT",
+        ] {
+            assert!(symbols.contains(&required.to_owned()), "missing {required}: {symbols:?}");
+        }
+        for excluded in ["SUIUSDT", "1000PEPEUSDT", "ONDOUSDT", "TONUSDT", "WLDUSDT", "ENAUSDT"] {
+            assert!(!symbols.contains(&excluded.to_owned()), "short-history symbol should not be default: {excluded}");
+        }
+    }
+
+    #[test]
+    fn explicit_symbols_are_not_replaced_by_expanded_universe() {
+        let mut config = WorkerTaskConfig {
+            symbols: vec!["BTCUSDT".to_owned(), "ETHUSDT".to_owned()],
+            ..WorkerTaskConfig::default()
+        };
+        config.extended_universe = Some(true);
+
+        let effective = effective_search_symbols(&config);
+        assert_eq!(effective, vec!["BTCUSDT".to_owned(), "ETHUSDT".to_owned()]);
     }
 
     #[test]
