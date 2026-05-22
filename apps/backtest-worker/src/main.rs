@@ -2896,10 +2896,10 @@ fn enforce_task_execution_model(
 ) -> SearchCandidate {
     let task_market = market_kind(task.market.as_deref());
     let task_margin_mode = margin_mode(task.margin_mode.as_deref());
-    let default_leverage = task
-        .leverage_range
-        .map(|range| range[0].max(1))
-        .unwrap_or(1);
+    let leverage_bounds = task.leverage_range.unwrap_or([1, 10]);
+    let min_leverage = leverage_bounds[0].min(leverage_bounds[1]).max(1);
+    let max_leverage = leverage_bounds[0].max(leverage_bounds[1]).max(min_leverage);
+    let default_leverage = min_leverage;
 
     for strategy in &mut candidate.config.strategies {
         if let Some(market) = task_market {
@@ -2908,10 +2908,9 @@ fn enforce_task_execution_model(
         if let Some(margin_mode) = task_margin_mode {
             strategy.margin_mode = Some(margin_mode);
         }
-        if matches!(strategy.market, MartingaleMarketKind::UsdMFutures)
-            && strategy.leverage.is_none()
-        {
-            strategy.leverage = Some(default_leverage);
+        if matches!(strategy.market, MartingaleMarketKind::UsdMFutures) {
+            let leverage = strategy.leverage.unwrap_or(default_leverage);
+            strategy.leverage = Some(leverage.clamp(min_leverage, max_leverage));
         }
     }
     candidate
