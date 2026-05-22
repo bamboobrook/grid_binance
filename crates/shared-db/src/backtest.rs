@@ -386,6 +386,95 @@ impl BacktestRepository {
         }
     }
 
+    pub fn delete_task(&self, task_id: &str) -> Result<(), SharedDbError> {
+        match &self.backend {
+            BacktestRepositoryBackend::Runtime(pool) => {
+                let pool = pool.clone();
+                let task_id = task_id.to_owned();
+                SharedDb::block_on(async move {
+                    let mut tx = pool.begin().await.map_err(SharedDbError::from)?;
+                    let row = sqlx::query(
+                        "SELECT status FROM backtest_tasks WHERE task_id = $1 FOR UPDATE",
+                    )
+                    .bind(&task_id)
+                    .fetch_optional(&mut *tx)
+                    .await
+                    .map_err(SharedDbError::from)?;
+                    let Some(row) = row else {
+                        return Err(SharedDbError::new(format!(
+                            "backtest task not found: {task_id}"
+                        )));
+                    };
+                    let status: String = row.try_get("status").map_err(SharedDbError::from)?;
+                    if matches!(status.as_str(), "queued" | "running" | "paused") {
+                        return Err(SharedDbError::new(format!(
+                            "backtest task is active: {task_id}"
+                        )));
+                    }
+
+                    sqlx::query("DELETE FROM martingale_portfolios WHERE source_task_id = $1")
+                        .bind(&task_id)
+                        .execute(&mut *tx)
+                        .await
+                        .map_err(SharedDbError::from)?;
+
+                    let result = sqlx::query("DELETE FROM backtest_tasks WHERE task_id = $1")
+                        .bind(&task_id)
+                        .execute(&mut *tx)
+                        .await
+                        .map_err(SharedDbError::from)?;
+                    tx.commit().await.map_err(SharedDbError::from)?;
+                    if result.rows_affected() == 0 {
+                        return Err(SharedDbError::new(format!(
+                            "backtest task not found: {task_id}"
+                        )));
+                    }
+                    Ok(())
+                })
+            }
+            BacktestRepositoryBackend::Ephemeral(state) => {
+                let mut state = lock_ephemeral(state)?;
+                let Some(task) = state.backtest_tasks.get(task_id) else {
+                    return Err(SharedDbError::new(format!(
+                        "backtest task not found: {task_id}"
+                    )));
+                };
+                if matches!(task.status.as_str(), "queued" | "running" | "paused") {
+                    return Err(SharedDbError::new(format!(
+                        "backtest task is active: {task_id}"
+                    )));
+                }
+
+                let candidate_ids = state
+                    .backtest_candidates
+                    .values()
+                    .filter(|candidate| candidate.task_id == task_id)
+                    .map(|candidate| candidate.candidate_id.clone())
+                    .collect::<std::collections::BTreeSet<_>>();
+                let portfolio_ids = state
+                    .martingale_portfolios
+                    .values()
+                    .filter(|portfolio| portfolio.source_task_id == task_id)
+                    .map(|portfolio| portfolio.portfolio_id.clone())
+                    .collect::<Vec<_>>();
+                for portfolio_id in portfolio_ids {
+                    state.martingale_portfolios.remove(&portfolio_id);
+                }
+                state
+                    .backtest_artifacts
+                    .retain(|_, artifact| !candidate_ids.contains(&artifact.candidate_id));
+                state
+                    .backtest_candidates
+                    .retain(|_, candidate| candidate.task_id != task_id);
+                state
+                    .backtest_task_events
+                    .retain(|event| event.task_id != task_id);
+                state.backtest_tasks.remove(task_id);
+                Ok(())
+            }
+        }
+    }
+
     pub fn transition_task(&self, task_id: &str, status: &str) -> Result<(), SharedDbError> {
         validate_task_status(status)?;
         match &self.backend {
@@ -1664,6 +1753,46 @@ mod tests {
         assert!(repo
             .save_artifact(NewBacktestArtifactRecord::fixture("missing-candidate"))
             .is_err());
+    }
+
+    #[test]
+    fn ephemeral_backtest_repo_deletes_terminal_task_dependents() {
+        let db = SharedDb::ephemeral().unwrap();
+        let repo = db.backtest_repo();
+        let task = repo
+            .create_task(NewBacktestTaskRecord::fixture("user@example.com"))
+            .unwrap();
+        let (candidate, _artifact) = repo
+            .save_candidate_with_artifact(
+                NewBacktestCandidateRecord::fixture(&task.task_id),
+                "equity_curve",
+                "memory://equity",
+                serde_json::json!({}),
+            )
+            .unwrap();
+        repo.append_task_event(&task.task_id, "completed", serde_json::json!({}))
+            .unwrap();
+        repo.transition_task(&task.task_id, "succeeded").unwrap();
+
+        repo.delete_task(&task.task_id).unwrap();
+
+        assert!(repo.find_task(&task.task_id).unwrap().is_none());
+        assert!(repo.list_candidates(&task.task_id).unwrap().is_empty());
+        assert!(repo
+            .save_artifact(NewBacktestArtifactRecord::fixture(&candidate.candidate_id))
+            .is_err());
+    }
+
+    #[test]
+    fn ephemeral_backtest_repo_rejects_active_task_delete() {
+        let db = SharedDb::ephemeral().unwrap();
+        let repo = db.backtest_repo();
+        let task = repo
+            .create_task(NewBacktestTaskRecord::fixture("user@example.com"))
+            .unwrap();
+
+        assert!(repo.delete_task(&task.task_id).is_err());
+        assert!(repo.find_task(&task.task_id).unwrap().is_some());
     }
 
     #[test]

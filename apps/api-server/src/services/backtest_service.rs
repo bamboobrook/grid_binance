@@ -106,6 +106,17 @@ impl BacktestService {
         self.owned_task(owner, task_id)
     }
 
+    pub fn delete_task(&self, owner: &str, task_id: &str) -> Result<(), BacktestError> {
+        let task = self.owned_task(owner, task_id)?;
+        if matches!(task.status.as_str(), "queued" | "running" | "paused") {
+            return Err(BacktestError::conflict(
+                "active backtest task cannot be deleted",
+            ));
+        }
+        self.repo.delete_task(task_id)?;
+        Ok(())
+    }
+
     pub fn pause_task(
         &self,
         owner: &str,
@@ -554,6 +565,41 @@ mod tests {
             .unwrap_err();
         assert_eq!(rejected.status, StatusCode::FORBIDDEN);
         assert_eq!(rejected.message, "quota exceeded: max_symbols=20");
+    }
+
+    #[test]
+    fn delete_task_removes_only_owned_terminal_task() {
+        let db = SharedDb::ephemeral().expect("db");
+        let repo = db.backtest_repo();
+        let publish = MartingalePublishService::new(db.clone());
+        let service = BacktestService::new(db, publish);
+        let task = service
+            .create_task("user@example.com", request_with_symbols(1))
+            .unwrap();
+        repo.transition_task(&task.task_id, "succeeded").unwrap();
+
+        assert!(service
+            .delete_task("other@example.com", &task.task_id)
+            .is_err());
+        service
+            .delete_task("user@example.com", &task.task_id)
+            .unwrap();
+        assert!(repo.find_task(&task.task_id).unwrap().is_none());
+    }
+
+    #[test]
+    fn delete_task_rejects_active_task() {
+        let db = SharedDb::ephemeral().expect("db");
+        let publish = MartingalePublishService::new(db.clone());
+        let service = BacktestService::new(db, publish);
+        let task = service
+            .create_task("user@example.com", request_with_symbols(1))
+            .unwrap();
+
+        let error = service
+            .delete_task("user@example.com", &task.task_id)
+            .expect_err("queued task should not be deleted");
+        assert_eq!(error.status, StatusCode::CONFLICT);
     }
 }
 

@@ -52,6 +52,29 @@ export function BacktestTaskList({
     setFeedback(result.message);
   }
 
+  async function handleDelete(id: string) {
+    const confirmed = window.confirm(pickText(lang, `确认删除回测任务 ${id}？此操作不可恢复。`, `Delete backtest task ${id}? This cannot be undone.`));
+    if (!confirmed) {
+      return;
+    }
+
+    setPendingKey(`${id}:delete`);
+    setFeedback(pickText(lang, "正在删除任务…", "Deleting task..."));
+
+    const result = await requestBacktestApi(`/api/user/backtest/tasks/${id}`, {
+      method: "DELETE",
+    });
+
+    setPendingKey("");
+    if (result.ok) {
+      setFeedback(pickText(lang, `任务 ${id} 已删除。`, `Task ${id} deleted.`));
+      await onRefresh?.();
+      return;
+    }
+
+    setFeedback(result.message);
+  }
+
   const rows: DataTableRow[] = tasks.map((task) => ({
     id: task.id,
     name: (
@@ -71,6 +94,14 @@ export function BacktestTaskList({
         <MiniAction action="pause" busy={pendingKey === `${task.id}:pause`} id={task.id} label={pickText(lang, "暂停", "Pause")} onAction={handleAction} />
         <MiniAction action="resume" busy={pendingKey === `${task.id}:resume`} id={task.id} label={pickText(lang, "继续", "Resume")} onAction={handleAction} />
         <MiniAction action="cancel" busy={pendingKey === `${task.id}:cancel`} id={task.id} label={pickText(lang, "取消", "Cancel")} onAction={handleAction} />
+        <button
+          className="rounded-full border border-destructive/40 px-3 py-1 text-xs font-medium text-destructive disabled:opacity-60"
+          disabled={pendingKey === `${task.id}:delete` || ["queued", "running", "paused"].includes(task.status)}
+          onClick={() => void handleDelete(task.id)}
+          type="button"
+        >
+          {pendingKey === `${task.id}:delete` ? "..." : pickText(lang, "删除", "Delete")}
+        </button>
       </div>
     ),
   }));

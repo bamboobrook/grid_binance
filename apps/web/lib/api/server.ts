@@ -41,7 +41,9 @@ import {
 
 const DEFAULT_AUTH_API_BASE_URL = "http://127.0.0.1:8080";
 
-type ProfileResponse = {
+export type ProfileResponse = {
+  admin_access_granted?: boolean;
+  admin_role?: string | null;
   admin_totp_required?: boolean;
   email?: string;
   email_verified?: boolean;
@@ -97,6 +99,11 @@ export async function getHomeSnapshot() {
 export async function getPublicAuthSnapshot(mode: "login" | "register", routeLocale?: string | null) {
   const lang = await currentUiLanguage(routeLocale);
   return clone(buildPublicAuthSnapshot(mode, lang));
+}
+
+export async function getCurrentProfile(): Promise<ProfileResponse | null> {
+  const sessionToken = await currentSessionToken();
+  return sessionToken ? fetchProfile(sessionToken) : null;
 }
 
 export async function getUserShellSnapshot(routeLocale?: string | null): Promise<UserShellSnapshot> {
