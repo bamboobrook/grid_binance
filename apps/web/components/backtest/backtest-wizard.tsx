@@ -85,7 +85,7 @@ const INITIAL_FORM: WizardForm = {
   whitelist: "BTCUSDT, ETHUSDT",
   blacklist: "",
   searchMode: "intelligent",
-  parameterPreset: "conservative",
+  parameterPreset: "balanced",
   randomSeed: "20260509",
   candidateBudget: "160",
   intelligentRounds: "4",
@@ -95,7 +95,7 @@ const INITIAL_FORM: WizardForm = {
   hedgeModeRequired: true,
   marginMode: "isolated",
   minLeverage: "2",
-  maxLeverage: "4",
+  maxLeverage: "8",
   initialOrderUsdt: "10",
   spacingPct: "1",
   orderMultiplier: "2",
@@ -112,8 +112,8 @@ const INITIAL_FORM: WizardForm = {
   testStart: "2025-04-01",
   testEnd: "2025-06-30",
   interval: "1m",
-  maxDrawdownPct: "18",
-  maxStopLossCount: "3",
+  maxDrawdownPct: "25",
+  maxStopLossCount: "",
   portfolioStopLossPct: "18",
   perStrategyStopLossPct: "8",
 };
@@ -129,7 +129,15 @@ export function BacktestWizard({ lang, onTaskCreated }: { lang: UiLanguage; onTa
   function onChange(event: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) {
     const { name, type, value } = event.currentTarget;
     const nextValue = type === "checkbox" ? (event.currentTarget as HTMLInputElement).checked : value;
-    setForm((current) => ({ ...current, [name]: nextValue }));
+    setForm((current) => {
+      const next = { ...current, [name]: nextValue };
+      if (name === "parameterPreset") {
+        if (nextValue === "conservative") next.maxDrawdownPct = "20";
+        if (nextValue === "balanced") next.maxDrawdownPct = "25";
+        if (nextValue === "aggressive") next.maxDrawdownPct = "30";
+      }
+      return next;
+    });
   }
 
   async function applyRecommendedSymbols() {
@@ -433,7 +441,7 @@ export function presetSearchSpaces(form: WizardForm) {
       order_multiplier: [1.4, 1.6, 2],
       take_profit_bps: [80, 100, 130],
       max_legs: [4, 5, 6],
-      leverage: form.market === "spot" ? [] : [2, 3, 4],
+      leverage: form.market === "spot" ? [] : [2, 3, 4, 5, 6, 8],
     };
   }
   return custom;
@@ -552,9 +560,9 @@ export function buildWizardPayload(form: WizardForm, indicators?: Record<string,
       stress_windows: ["flash_crash", "trend_up", "trend_down", "high_volatility"],
     },
     scoring: {
-      profile: "survival_first",
-      max_drawdown_pct: numberValue(form.maxDrawdownPct, 18),
-      max_stop_loss_count: integerValue(form.maxStopLossCount, 3),
+      profile: "profit_first_under_drawdown",
+      max_drawdown_pct: numberValue(form.maxDrawdownPct, 25),
+      ...(form.maxStopLossCount.trim() ? { max_stop_loss_count: integerValue(form.maxStopLossCount, 0) } : {}),
       ...(scoringWeights ? { weights: scoringWeights } : {}),
     },
   };

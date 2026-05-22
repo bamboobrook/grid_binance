@@ -31,9 +31,8 @@ const SAMPLE_PAYLOAD = JSON.stringify(
       stress_windows: ["flash_crash", "trend_up"],
     },
     scoring: {
-      profile: "survival_first",
-      max_drawdown_pct: 18,
-      max_stop_loss_count: 3,
+      profile: "profit_first_under_drawdown",
+      max_drawdown_pct: 25
     },
   },
   null,
