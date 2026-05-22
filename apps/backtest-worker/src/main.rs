@@ -2473,25 +2473,36 @@ fn output_market(output: &CandidateOutput) -> String {
 }
 
 fn sort_outputs_for_profile(outputs: &mut [CandidateOutput], risk_profile: &str) {
-    if risk_profile.eq_ignore_ascii_case("aggressive") {
-        outputs.sort_by(|left, right| {
-            let left_annualized = left.annualized_return_pct.unwrap_or(left.total_return_pct);
-            let right_annualized = right
-                .annualized_return_pct
-                .unwrap_or(right.total_return_pct);
-            right_annualized
-                .total_cmp(&left_annualized)
-                .then_with(|| {
-                    right
-                        .return_drawdown_ratio
-                        .unwrap_or(0.0)
-                        .total_cmp(&left.return_drawdown_ratio.unwrap_or(0.0))
-                })
-                .then_with(|| left.max_drawdown_pct.total_cmp(&right.max_drawdown_pct))
-        });
-    } else {
-        outputs.sort_by(|left, right| right.score.total_cmp(&left.score));
+    outputs.sort_by(|left, right| {
+        output_rank_score(right, risk_profile)
+            .total_cmp(&output_rank_score(left, risk_profile))
+            .then_with(|| left.max_drawdown_pct.total_cmp(&right.max_drawdown_pct))
+    });
+}
+
+fn output_rank_score(output: &CandidateOutput, risk_profile: &str) -> f64 {
+    let annualized = output
+        .annualized_return_pct
+        .unwrap_or(output.total_return_pct);
+    if annualized <= 0.0 {
+        return f64::NEG_INFINITY;
     }
+    let drawdown = output.max_drawdown_pct.max(1.0);
+    let ratio = output
+        .return_drawdown_ratio
+        .unwrap_or(annualized / drawdown);
+    let risk_relaxed_penalty = if output.risk_relaxed { 8.0 } else { 0.0 };
+    let drawdown_penalty = match risk_profile {
+        "conservative" => drawdown * 0.35,
+        "aggressive" => drawdown * 0.12,
+        _ => drawdown * 0.20,
+    };
+    let annualized_weight = if risk_profile == "aggressive" {
+        1.45
+    } else {
+        1.20
+    };
+    annualized * annualized_weight + ratio * 8.0 - drawdown_penalty - risk_relaxed_penalty
 }
 
 fn symbols_from_outputs(outputs: &[CandidateOutput]) -> Vec<String> {

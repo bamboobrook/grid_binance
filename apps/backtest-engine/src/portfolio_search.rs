@@ -385,10 +385,15 @@ fn enumerate_member_combinations(
                     .zip(template.iter())
                     .map(|(idx, alloc)| (eligible[*idx], *alloc))
                     .collect();
-                let correlation_penalty = daily_return_correlation_penalty(&member_pairs);
-                let diversity_bonus = if unique_count >= 3 { 1.05 } else { 1.0 };
+                let correlation_factor = daily_return_correlation_penalty(&member_pairs);
                 let mut adjusted = portfolio;
-                adjusted.score *= correlation_penalty * diversity_bonus;
+                let correlation_penalty = (1.0 - correlation_factor).max(0.0) * 4.0;
+                let diversity_bonus = if unique_count >= 3 {
+                    (unique_count as f64).ln() * 1.2
+                } else {
+                    0.0
+                };
+                adjusted.score = adjusted.score + diversity_bonus - correlation_penalty;
                 result.push(adjusted);
                 prune_scored_portfolios(result, 200, 80);
             }
@@ -816,38 +821,22 @@ fn build_weighted_portfolio(
     trades_preview.truncate(200);
 
     let annualized = annualized_return_pct.unwrap_or(return_pct);
-    let calmar = if max_drawdown_pct > 0.0 {
-        annualized / max_drawdown_pct
-    } else {
-        annualized.max(0.0)
-    };
+    let return_drawdown = annualized / max_drawdown_pct.max(1.0);
     let unique_symbol_count = portfolio_members
         .iter()
         .map(|m| m.symbol.as_str())
         .collect::<std::collections::HashSet<_>>()
         .len();
     let member_count = portfolio_members.len().max(1);
-    let diversification_factor = unique_symbol_count as f64 / member_count as f64;
-    let concentration_penalty = if unique_symbol_count == 1 { 0.50 } else { 1.0 };
-    let member_count_bonus = if unique_symbol_count >= 10 {
-        2.20
-    } else if unique_symbol_count >= 8 {
-        2.00
-    } else if unique_symbol_count >= 6 {
-        1.75
-    } else if unique_symbol_count >= 4 {
-        1.50
-    } else if member_count == 3 {
-        1.15
-    } else {
-        1.0
-    };
-    let diversification_bonus =
-        (1.0 + diversification_factor * 0.35 + unique_symbol_count.min(10) as f64 * 0.08)
-            * member_count_bonus;
-    let score = (calmar * 8.0 + annualized / 4.0 + return_pct / 20.0)
-        * diversification_bonus
-        * concentration_penalty;
+    let max_single_symbol_weight_pct = allocation_by_symbol
+        .values()
+        .copied()
+        .fold(0.0_f64, f64::max);
+    let member_bonus = (member_count as f64).ln() * 1.5;
+    let unique_bonus = (unique_symbol_count as f64).ln() * 2.0;
+    let concentration_penalty = max_single_symbol_weight_pct * 0.03;
+    let score =
+        annualized + return_drawdown * 12.0 + member_bonus + unique_bonus - concentration_penalty;
 
     Some(WeightedPortfolio {
         members: portfolio_members,
@@ -1316,7 +1305,7 @@ mod tests {
     }
 
     #[test]
-    fn portfolio_top3_prefers_four_or_more_symbols_when_available() {
+    fn portfolio_top3_uses_member_count_as_soft_reward_not_hard_target() {
         let candidates = vec![
             candidate_with_curve(
                 "btc",
@@ -1383,9 +1372,14 @@ mod tests {
             .map(|member| member.symbol.as_str())
             .collect::<std::collections::HashSet<_>>();
         assert!(
-            symbols.len() >= 4,
-            "top portfolio should use at least four symbols when available, got {:?}",
+            symbols.len() >= 2,
+            "portfolio should remain diversified, got {:?}",
             first.members
+        );
+        assert!(
+            first.annualized_return_pct.unwrap_or(first.return_pct) >= 12.0,
+            "soft member reward must not demote higher-return combinations: {:?}",
+            first
         );
     }
 
@@ -1521,6 +1515,63 @@ mod tests {
         assert!(first.members.iter().any(|m| m.candidate_id == "btc-growth"));
         assert!(first.members.iter().any(|m| m.candidate_id == "eth-stable"));
         assert!(first.members.iter().all(|m| m.candidate_id != "ada-loss"));
+    }
+
+    #[test]
+    fn portfolio_v2_prefers_high_yield_under_drawdown_limit_over_member_count() {
+        let btc = candidate_with_curve(
+            "btc-high",
+            "BTCUSDT",
+            230.0,
+            19.8,
+            9.0,
+            1000.0,
+            vec![1000.0, 980.0, 1300.0, 3300.0],
+        );
+        let xrp = candidate_with_curve(
+            "xrp-high",
+            "XRPUSDT",
+            200.0,
+            15.2,
+            8.5,
+            1000.0,
+            vec![1000.0, 990.0, 1250.0, 3000.0],
+        );
+        let doge = candidate_with_curve(
+            "doge-stable",
+            "DOGEUSDT",
+            99.0,
+            24.0,
+            5.0,
+            1000.0,
+            vec![1000.0, 990.0, 1150.0, 1990.0],
+        );
+        let link = candidate_with_curve(
+            "link-low",
+            "LINKUSDT",
+            73.0,
+            10.0,
+            4.5,
+            1000.0,
+            vec![1000.0, 995.0, 1100.0, 1730.0],
+        );
+
+        let artifact = build_portfolio_top_n_v2(&[btc, xrp, doge, link], 20.0, 10);
+        let first = artifact.top3.first().expect("top portfolio");
+        let ids = first
+            .members
+            .iter()
+            .map(|member| member.candidate_id.as_str())
+            .collect::<std::collections::HashSet<_>>();
+
+        assert!(
+            first.max_drawdown_pct <= 20.0,
+            "must obey hard drawdown limit: {first:?}"
+        );
+        assert!(
+            ids.contains("btc-high") || ids.contains("xrp-high"),
+            "high-yield candidates should not be lost: {first:?}"
+        );
     }
 
     #[test]
