@@ -12,6 +12,26 @@ import { TimeSplitEditor } from "@/components/backtest/time-split-editor";
 import { pickText, type UiLanguage } from "@/lib/ui/preferences";
 
 const DEFAULT_SYMBOLS = ["BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT"];
+const RECOMMENDED_2023_LIQUID_SYMBOLS = [
+  "BTCUSDT",
+  "ETHUSDT",
+  "BNBUSDT",
+  "SOLUSDT",
+  "DOGEUSDT",
+  "XRPUSDT",
+  "ADAUSDT",
+  "ZECUSDT",
+  "DASHUSDT",
+  "NEARUSDT",
+  "BCHUSDT",
+  "LINKUSDT",
+  "AVAXUSDT",
+  "UNIUSDT",
+  "FILUSDT",
+  "DOTUSDT",
+  "AAVEUSDT",
+  "INJUSDT",
+];
 const MAX_SYMBOLS = 20;
 
 const STEPS = [
@@ -102,6 +122,7 @@ export function BacktestWizard({ lang, onTaskCreated }: { lang: UiLanguage; onTa
   const [form, setForm] = useState<WizardForm>(() => ({ ...INITIAL_FORM, ...resolveAutoTimeSplit() }));
   const [feedback, setFeedback] = useState("");
   const [pending, setPending] = useState(false);
+  const [recommendedPending, setRecommendedPending] = useState(false);
   const [indicators, setIndicators] = useState<Record<string, unknown>>({});
   const [scoringWeights, setScoringWeights] = useState<Record<string, number> | null>(null);
 
@@ -109,6 +130,33 @@ export function BacktestWizard({ lang, onTaskCreated }: { lang: UiLanguage; onTa
     const { name, type, value } = event.currentTarget;
     const nextValue = type === "checkbox" ? (event.currentTarget as HTMLInputElement).checked : value;
     setForm((current) => ({ ...current, [name]: nextValue }));
+  }
+
+  async function applyRecommendedSymbols() {
+    setRecommendedPending(true);
+    setFeedback(pickText(lang, "正在查询本地行情库推荐币种…", "Loading recommended symbols from local market data..."));
+    const result = await requestBacktestApi("/api/user/backtest/recommended-symbols", { cache: "no-store" });
+    setRecommendedPending(false);
+
+    let symbols = RECOMMENDED_2023_LIQUID_SYMBOLS;
+    if (result.ok && result.data && typeof result.data === "object" && "symbols" in result.data && Array.isArray(result.data.symbols)) {
+      const remoteSymbols = result.data.symbols.filter((item): item is string => typeof item === "string" && item.trim().length > 0);
+      if (remoteSymbols.length > 0) {
+        symbols = remoteSymbols.slice(0, MAX_SYMBOLS);
+      }
+    } else {
+      setFeedback(pickText(lang, "推荐币种查询失败，已使用内置 18 币种兜底，可继续手动调整。", "Recommended symbol lookup failed; using built-in 18-symbol fallback. You can still edit manually."));
+    }
+
+    setForm((current) => ({
+      ...current,
+      extendedUniverse: true,
+      symbolPoolMode: "whitelist",
+      whitelist: symbols.join(", "),
+    }));
+    if (result.ok) {
+      setFeedback(pickText(lang, `已填入 ${symbols.length} 个推荐币种，可继续手动增删。`, `Filled ${symbols.length} recommended symbols. You can still edit manually.`));
+    }
   }
 
   async function createTask() {
@@ -167,7 +215,13 @@ export function BacktestWizard({ lang, onTaskCreated }: { lang: UiLanguage; onTa
       </div>
 
       <div className="grid gap-4">
-        <AutomaticSearchPanel form={form} lang={lang} onChange={onChange} />
+        <AutomaticSearchPanel
+          form={form}
+          lang={lang}
+          recommendedPending={recommendedPending}
+          onApplyRecommendedSymbols={() => void applyRecommendedSymbols()}
+          onChange={onChange}
+        />
         <details className="rounded-2xl border border-dashed border-border bg-card/60 p-4 text-muted-foreground">
           <summary className="cursor-pointer text-base font-semibold text-foreground">
             {pickText(lang, "高级参数搜索范围", "Advanced parameter search space")}
@@ -186,7 +240,7 @@ export function BacktestWizard({ lang, onTaskCreated }: { lang: UiLanguage; onTa
   );
 }
 
-function AutomaticSearchPanel({ form, lang, onChange }: { form: WizardForm; lang: UiLanguage; onChange: (event: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => void }) {
+function AutomaticSearchPanel({ form, lang, recommendedPending, onApplyRecommendedSymbols, onChange }: { form: WizardForm; lang: UiLanguage; recommendedPending: boolean; onApplyRecommendedSymbols: () => void; onChange: (event: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => void }) {
   return (
     <section className="rounded-2xl border border-primary/20 bg-card p-4 shadow-sm">
       <div className="mb-4">
@@ -194,10 +248,27 @@ function AutomaticSearchPanel({ form, lang, onChange }: { form: WizardForm; lang
         <p className="text-sm text-muted-foreground">{pickText(lang, "系统会自动搜索杠杆、间隔、倍率、层数、止盈、尾部保护、多空比例，并输出每个币种 Top 10 与组合 Top 3。", "The system automatically searches leverage, spacing, multiplier, max legs, take-profit, tail protection, long/short weights, and outputs per-symbol Top 10 and portfolio Top 3.")}</p>
       </div>
       <div className="grid gap-4 lg:grid-cols-2">
-        <label className="flex flex-col gap-1 text-sm lg:col-span-2">
-          <span className="text-xs uppercase tracking-wide text-muted-foreground">whitelist · max 20</span>
-          <textarea className="min-h-20 rounded-lg border border-border bg-background px-3 py-2" name="whitelist" onChange={onChange} placeholder="BTCUSDT, ETHUSDT" value={form.whitelist} />
-        </label>
+        <div className="space-y-2 lg:col-span-2">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <span className="text-xs uppercase tracking-wide text-muted-foreground">whitelist · max 20</span>
+            <button
+              className="rounded-full border border-border px-3 py-1 text-xs font-medium hover:bg-secondary disabled:opacity-60"
+              disabled={recommendedPending}
+              onClick={onApplyRecommendedSymbols}
+              type="button"
+            >
+              {recommendedPending ? pickText(lang, "查询中…", "Loading...") : pickText(lang, "查询并填入推荐 18 币种", "Load recommended 18 symbols")}
+            </button>
+          </div>
+          <textarea className="min-h-20 w-full rounded-lg border border-border bg-background px-3 py-2" name="whitelist" onChange={onChange} placeholder="BTCUSDT, ETHUSDT" value={form.whitelist} />
+          <p className="text-xs text-muted-foreground">
+            {pickText(
+              lang,
+              "推荐池来自本地 1m 行情库可覆盖 2023-01-01 起回测、且按主流成交活跃度筛选的币种；仍可手动增删。",
+              "The recommended pool uses symbols with local 1m data coverage since 2023-01-01 and mainstream liquidity ranking; you can still edit it manually.",
+            )}
+          </p>
+        </div>
         <label className="flex flex-col gap-1 text-sm lg:col-span-2">
           <span className="text-xs uppercase tracking-wide text-muted-foreground">{pickText(lang, "blacklist（可选）", "blacklist (optional)")}</span>
           <textarea className="min-h-16 rounded-lg border border-border bg-background px-3 py-2 text-muted-foreground" name="blacklist" onChange={onChange} placeholder="DOGEUSDT, PEPEUSDT" value={form.blacklist} />

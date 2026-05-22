@@ -93,6 +93,117 @@ impl SqliteMarketDataSource {
         &self.path
     }
 
+    pub fn recommended_liquid_symbols(
+        &self,
+        start_ms: i64,
+        latest_after_ms: i64,
+        limit: usize,
+    ) -> Result<Vec<String>, String> {
+        if limit == 0 {
+            return Ok(Vec::new());
+        }
+        match self.schema {
+            MarketDataSchema::DiscordC2im => {
+                self.recommended_liquid_symbols_discord_c2im(start_ms, latest_after_ms, limit)
+            }
+            MarketDataSchema::Canonical => {
+                self.recommended_liquid_symbols_canonical(start_ms, latest_after_ms, limit)
+            }
+        }
+    }
+
+    fn recommended_liquid_symbols_discord_c2im(
+        &self,
+        start_ms: i64,
+        latest_after_ms: i64,
+        limit: usize,
+    ) -> Result<Vec<String>, String> {
+        let mut stmt = self
+            .conn
+            .prepare(
+                "SELECT u.symbol \
+                 FROM market_universe u \
+                 WHERE u.market_type = 'futures_usdt_perp' \
+                   AND u.quote_asset = 'USDT' \
+                   AND EXISTS ( \
+                     SELECT 1 FROM klines k \
+                     WHERE k.symbol = u.symbol \
+                       AND k.market_type = 'futures_usdt_perp' \
+                       AND k.timeframe = '1m' \
+                       AND k.open_time BETWEEN ?1 AND ?2 \
+                     LIMIT 1 \
+                   ) \
+                   AND EXISTS ( \
+                     SELECT 1 FROM klines k \
+                     WHERE k.symbol = u.symbol \
+                       AND k.market_type = 'futures_usdt_perp' \
+                       AND k.timeframe = '1m' \
+                       AND k.open_time >= ?3 \
+                     LIMIT 1 \
+                   ) \
+                 ORDER BY COALESCE(u.volume_24h, 0) DESC, u.symbol ASC \
+                 LIMIT ?4",
+            )
+            .map_err(|err| format!("failed to prepare recommended symbol query: {err}"))?;
+        let rows = stmt
+            .query_map(
+                (
+                    start_ms,
+                    start_ms + 86_400_000,
+                    latest_after_ms,
+                    limit as i64,
+                ),
+                |row| row.get::<_, String>(0),
+            )
+            .map_err(|err| format!("failed to query recommended symbols: {err}"))?;
+
+        rows.collect::<Result<Vec<_>, _>>()
+            .map_err(|err| format!("failed to read recommended symbols: {err}"))
+    }
+
+    fn recommended_liquid_symbols_canonical(
+        &self,
+        start_ms: i64,
+        latest_after_ms: i64,
+        limit: usize,
+    ) -> Result<Vec<String>, String> {
+        let mut stmt = self
+            .conn
+            .prepare(
+                "SELECT symbol, SUM(volume) AS recent_volume \
+                 FROM klines \
+                 WHERE interval = '1m' \
+                   AND open_time_ms >= ?2 \
+                   AND EXISTS ( \
+                     SELECT 1 FROM klines early \
+                     WHERE early.symbol = klines.symbol \
+                       AND early.interval = '1m' \
+                       AND early.open_time_ms BETWEEN ?1 AND ?3 \
+                     LIMIT 1 \
+                   ) \
+                 GROUP BY symbol \
+                 ORDER BY recent_volume DESC, symbol ASC \
+                 LIMIT ?4",
+            )
+            .map_err(|err| {
+                format!("failed to prepare canonical recommended symbol query: {err}")
+            })?;
+        let rows = stmt
+            .query_map(
+                (
+                    start_ms,
+                    latest_after_ms,
+                    start_ms + 86_400_000,
+                    limit as i64,
+                ),
+                |row| row.get::<_, String>(0),
+            )
+            .map_err(|err| format!("failed to query canonical recommended symbols: {err}"))?;
+
+        rows.collect::<Result<Vec<_>, _>>()
+            .map_err(|err| format!("failed to read canonical recommended symbols: {err}"))
+    }
+
     pub fn table_names(&self) -> Result<Vec<String>, String> {
         let mut stmt = self
             .conn
@@ -420,7 +531,17 @@ mod tests {
         let conn = Connection::open(file.path()).expect("open discord fixture db");
         conn.execute_batch(
             "
-            CREATE TABLE market_universe(symbol TEXT PRIMARY KEY);
+            CREATE TABLE market_universe(
+                symbol TEXT NOT NULL,
+                market_type TEXT NOT NULL DEFAULT 'spot',
+                base_asset TEXT NOT NULL,
+                quote_asset TEXT NOT NULL,
+                coingecko_id TEXT,
+                market_cap REAL,
+                volume_24h REAL,
+                updated_at TEXT NOT NULL,
+                PRIMARY KEY(symbol, market_type)
+            );
             CREATE TABLE klines(
                 symbol TEXT NOT NULL,
                 market_type TEXT NOT NULL DEFAULT 'spot',
@@ -434,12 +555,18 @@ mod tests {
                 close_time INTEGER NOT NULL,
                 PRIMARY KEY(symbol, market_type, timeframe, open_time)
             );
-            INSERT INTO market_universe(symbol) VALUES ('BTCUSDT'), ('ETHUSDT');
+            INSERT INTO market_universe(symbol, market_type, base_asset, quote_asset, volume_24h, updated_at)
+                VALUES ('BTCUSDT', 'futures_usdt_perp', 'BTC', 'USDT', 1000.0, '2026-05-22'),
+                       ('ETHUSDT', 'futures_usdt_perp', 'ETH', 'USDT', 900.0, '2026-05-22'),
+                       ('OLDUSDT', 'futures_usdt_perp', 'OLD', 'USDT', 2000.0, '2026-05-22'),
+                       ('SPOTUSDT', 'spot', 'SPOT', 'USDT', 3000.0, '2026-05-22');
             INSERT INTO klines(symbol, market_type, timeframe, open_time, open, high, low, close, volume, close_time)
                 VALUES ('BTCUSDT', 'futures_usdt_perp', '1m', 1000, 10.0, 12.0, 9.0, 11.0, 5.0, 1999),
                        ('BTCUSDT', 'futures_usdt_perp', '1m', 2000, 11.0, 13.0, 10.0, 12.0, 6.0, 2999),
                        ('BTCUSDT', 'spot', '1m', 1000, 9.0, 10.0, 8.0, 9.5, 3.0, 1999),
-                       ('ETHUSDT', 'futures_usdt_perp', '1m', 1000, 20.0, 22.0, 19.0, 21.0, 7.0, 1999);
+                       ('ETHUSDT', 'futures_usdt_perp', '1m', 1000, 20.0, 22.0, 19.0, 21.0, 7.0, 1999),
+                       ('ETHUSDT', 'futures_usdt_perp', '1m', 5000, 21.0, 23.0, 20.0, 22.0, 8.0, 5999),
+                       ('OLDUSDT', 'futures_usdt_perp', '1m', 90_000_000, 1.0, 1.1, 0.9, 1.0, 100.0, 90_000_999);
             ",
         )
         .expect("seed discord fixture db");
@@ -519,6 +646,19 @@ mod tests {
         assert_eq!(bars[0].open_time_ms, 1000);
         assert_eq!(bars[0].close, 11.0);
         assert!(trades.is_empty());
+    }
+
+    #[test]
+    fn recommended_liquid_symbols_require_early_and_recent_futures_data() {
+        let file = discord_c2im_fixture_db();
+        let source = SqliteMarketDataSource::open_readonly(file.path())
+            .expect("open readonly discord schema");
+
+        let symbols = source
+            .recommended_liquid_symbols(1000, 4000, 18)
+            .expect("recommended symbols");
+
+        assert_eq!(symbols, vec!["ETHUSDT".to_string()]);
     }
 
     #[test]

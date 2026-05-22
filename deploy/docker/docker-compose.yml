@@ -71,7 +71,10 @@ services:
       TELEGRAM_BOT_BIND_SECRET: ${TELEGRAM_BOT_BIND_SECRET:?TELEGRAM_BOT_BIND_SECRET is required}
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
       TELEGRAM_API_BASE_URL: ${TELEGRAM_API_BASE_URL:-https://api.telegram.org}
+      BACKTEST_MARKET_DATA_DB_PATH: ${BACKTEST_MARKET_DATA_DB_PATH:-/market-data/market_data.db}
       PORT: "8080"
+    volumes:
+      - ${BACKTEST_MARKET_DATA_DB_HOST_PATH:-/home/bumblebee/Project/discord_c2im/pipeline/data/market_data.db}:/market-data/market_data.db:ro
     expose:
       - "8080"
     healthcheck:

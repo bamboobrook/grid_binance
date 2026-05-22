@@ -4,9 +4,10 @@ use axum::{
     routing::{get, post},
     Json, Router,
 };
-use backtest_engine::{BacktestConfig, BacktestEngine};
-use chrono::NaiveDate;
+use backtest_engine::{sqlite_market_data::SqliteMarketDataSource, BacktestConfig, BacktestEngine};
+use chrono::{NaiveDate, TimeZone, Utc};
 use serde::Deserialize;
+use serde::Serialize;
 
 use crate::{
     routes::auth_guard::require_user_session,
@@ -32,6 +33,7 @@ pub fn router() -> Router<AppState> {
         .route("/backtest/tasks/{id}/resume", post(resume_task))
         .route("/backtest/tasks/{id}/cancel", post(cancel_task))
         .route("/backtest/tasks/{id}/candidates", get(list_candidates))
+        .route("/backtest/recommended-symbols", get(recommended_symbols))
         .route("/backtest/candidates/{id}", get(get_candidate))
         .route(
             "/backtest/candidates/{id}/publish-intent",
@@ -42,6 +44,63 @@ pub fn router() -> Router<AppState> {
             "/backtest/portfolios/{id}/confirm-start",
             post(confirm_start_portfolio),
         )
+}
+
+#[derive(Debug, Serialize)]
+struct RecommendedSymbolsResponse {
+    symbols: Vec<String>,
+    source: String,
+    min_start_date: String,
+    market_type: String,
+    interval: String,
+}
+
+async fn recommended_symbols(
+    State(auth): State<AuthService>,
+    headers: HeaderMap,
+) -> Result<Json<RecommendedSymbolsResponse>, TaskBacktestError> {
+    let _session = require_user_session(&auth, &headers).map_err(TaskBacktestError::from)?;
+    let symbols = load_recommended_symbols().map_err(TaskBacktestError::bad_request)?;
+    Ok(Json(RecommendedSymbolsResponse {
+        symbols,
+        source: "local_market_data".to_owned(),
+        min_start_date: "2023-01-01".to_owned(),
+        market_type: "futures_usdt_perp".to_owned(),
+        interval: "1m".to_owned(),
+    }))
+}
+
+fn load_recommended_symbols() -> Result<Vec<String>, String> {
+    const LIMIT: usize = 18;
+    const FALLBACK: &[&str] = &[
+        "BTCUSDT", "ETHUSDT", "BNBUSDT", "SOLUSDT", "DOGEUSDT", "XRPUSDT", "ADAUSDT", "ZECUSDT",
+        "DASHUSDT", "NEARUSDT", "BCHUSDT", "LINKUSDT", "AVAXUSDT", "UNIUSDT", "FILUSDT", "DOTUSDT",
+        "AAVEUSDT", "INJUSDT",
+    ];
+
+    let path = std::env::var("BACKTEST_MARKET_DATA_DB_PATH")
+        .unwrap_or_else(|_| "/market-data/market_data.db".to_owned());
+    let source = SqliteMarketDataSource::open_readonly(&path)?;
+    let start_ms = Utc
+        .with_ymd_and_hms(2023, 1, 1, 0, 0, 0)
+        .single()
+        .ok_or_else(|| "invalid recommended symbol start date".to_owned())?
+        .timestamp_millis();
+    let end_ms = Utc::now().timestamp_millis();
+
+    let latest_after_ms = end_ms - 45 * 86_400_000;
+    let mut symbols = source.recommended_liquid_symbols(start_ms, latest_after_ms, LIMIT)?;
+    if symbols.len() < LIMIT {
+        for symbol in FALLBACK {
+            if !symbols.iter().any(|existing| existing == symbol) {
+                symbols.push((*symbol).to_owned());
+            }
+            if symbols.len() >= LIMIT {
+                break;
+            }
+        }
+    }
+    Ok(symbols)
 }
 
 async fn create_task(
