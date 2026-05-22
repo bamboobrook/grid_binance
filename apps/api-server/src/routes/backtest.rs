@@ -15,6 +15,7 @@ use crate::{
         auth_service::{AuthError, AuthService},
         backtest_service::{
             BacktestError as TaskBacktestError, BacktestService, CreateBacktestTaskRequest,
+            RecalculatePortfolioRequest, RecalculatePortfolioResponse,
         },
         martingale_publish_service::{
             LivePortfolio, MartingalePublishService, PublishError, PublishIntentResponse,
@@ -40,6 +41,10 @@ pub fn router() -> Router<AppState> {
             post(create_publish_intent),
         )
         .route("/backtest/portfolios/publish", post(publish_portfolio))
+        .route(
+            "/backtest/portfolios/recalculate",
+            post(recalculate_portfolio),
+        )
         .route(
             "/backtest/portfolios/{id}/confirm-start",
             post(confirm_start_portfolio),
@@ -218,6 +223,18 @@ async fn publish_portfolio(
     Ok((
         axum::http::StatusCode::CREATED,
         Json(service.publish_portfolio(&session.email, request)?),
+    ))
+}
+
+async fn recalculate_portfolio(
+    State(auth): State<AuthService>,
+    State(service): State<BacktestService>,
+    headers: HeaderMap,
+    Json(request): Json<RecalculatePortfolioRequest>,
+) -> Result<Json<RecalculatePortfolioResponse>, TaskBacktestError> {
+    let session = require_user_session(&auth, &headers).map_err(TaskBacktestError::from)?;
+    Ok(Json(
+        service.recalculate_portfolio(&session.email, request)?,
     ))
 }
 

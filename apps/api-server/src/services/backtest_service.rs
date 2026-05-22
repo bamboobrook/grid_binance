@@ -41,6 +41,50 @@ pub struct UpsertQuotaRequest {
     pub max_symbols: usize,
 }
 
+#[derive(Debug, Deserialize)]
+pub struct RecalculatePortfolioRequest {
+    pub task_id: String,
+    pub max_drawdown_pct: Option<f64>,
+    pub items: Vec<RecalculatePortfolioItemRequest>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct RecalculatePortfolioItemRequest {
+    pub candidate_id: String,
+    pub symbol: String,
+    pub weight_pct: f64,
+    pub leverage: f64,
+    #[serde(default = "default_true")]
+    pub enabled: bool,
+}
+
+#[derive(Debug, Serialize)]
+pub struct RecalculatePortfolioResponse {
+    pub portfolio_id: String,
+    pub member_count: usize,
+    pub total_return_pct: f64,
+    pub annualized_return_pct: Option<f64>,
+    pub max_drawdown_pct: f64,
+    pub return_drawdown_ratio: Option<f64>,
+    pub trade_count: u64,
+    pub satisfies_drawdown_limit: bool,
+    pub concentration_warnings: Vec<String>,
+    pub members: Vec<Value>,
+    pub equity_curve: Vec<Value>,
+    pub drawdown_curve: Vec<Value>,
+    pub trades_preview: Vec<Value>,
+}
+
+#[derive(Debug, Clone)]
+struct CurvePoint {
+    timestamp_ms: i64,
+    equity: f64,
+}
+
+fn default_true() -> bool {
+    true
+}
+
 #[derive(Debug, Serialize)]
 pub struct QuotaPolicyResponse {
     pub owner: String,
@@ -228,6 +272,154 @@ impl BacktestService {
             .map_err(BacktestError::from)
     }
 
+    pub fn recalculate_portfolio(
+        &self,
+        owner: &str,
+        request: RecalculatePortfolioRequest,
+    ) -> Result<RecalculatePortfolioResponse, BacktestError> {
+        let task = self.owned_task(owner, &request.task_id)?;
+        if !matches!(task.status.as_str(), "succeeded" | "completed") {
+            return Err(BacktestError::conflict(
+                "task must be succeeded before recalculating portfolio",
+            ));
+        }
+        let enabled_items = request
+            .items
+            .iter()
+            .filter(|item| item.enabled)
+            .collect::<Vec<_>>();
+        if enabled_items.is_empty() {
+            return Err(BacktestError::bad_request("enabled items are required"));
+        }
+        let total_weight: f64 = enabled_items.iter().map(|item| item.weight_pct).sum();
+        if (total_weight - 100.0).abs() > 0.01 {
+            return Err(BacktestError::bad_request(
+                "enabled item weights must sum to 100",
+            ));
+        }
+        if enabled_items
+            .iter()
+            .any(|item| item.leverage <= 0.0 || !item.leverage.is_finite())
+        {
+            return Err(BacktestError::bad_request("leverage must be positive"));
+        }
+
+        let candidates = self.repo.list_candidates(&request.task_id)?;
+        let mut member_curves = Vec::new();
+        let mut members = Vec::new();
+        let mut trades = Vec::new();
+        let mut trade_count = 0_u64;
+        let mut symbol_weights = std::collections::BTreeMap::<String, f64>::new();
+
+        for item in enabled_items {
+            let candidate = candidates
+                .iter()
+                .find(|candidate| candidate.candidate_id == item.candidate_id)
+                .ok_or_else(|| BacktestError::bad_request("candidate not found"))?;
+            let curve = read_equity_curve(&candidate.summary).ok_or_else(|| {
+                BacktestError::bad_request(format!(
+                    "candidate {} has no equity curve",
+                    candidate.candidate_id
+                ))
+            })?;
+            if curve.len() < 2 {
+                return Err(BacktestError::bad_request(format!(
+                    "candidate {} equity curve is too short",
+                    candidate.candidate_id
+                )));
+            }
+            let weight_fraction = item.weight_pct / 100.0;
+            *symbol_weights
+                .entry(item.symbol.trim().to_uppercase())
+                .or_insert(0.0) += item.weight_pct;
+            trade_count += candidate
+                .summary
+                .get("trade_count")
+                .and_then(Value::as_u64)
+                .unwrap_or(0);
+            if let Some(mut candidate_trades) = read_trades_preview(&candidate.summary) {
+                trades.append(&mut candidate_trades);
+            }
+            members.push(json!({
+                "candidate_id": candidate.candidate_id,
+                "symbol": item.symbol,
+                "weight_pct": item.weight_pct,
+                "allocation_pct": item.weight_pct,
+                "leverage": item.leverage,
+                "enabled": item.enabled,
+                "return_pct": candidate.summary.get("return_pct").or_else(|| candidate.summary.get("total_return_pct")).cloned().unwrap_or(Value::Null),
+                "annualized_return_pct": candidate.summary.get("annualized_return_pct").cloned().unwrap_or(Value::Null),
+                "max_drawdown_pct": candidate.summary.get("max_drawdown_pct").cloned().unwrap_or(Value::Null),
+            }));
+            member_curves.push((curve, weight_fraction));
+        }
+
+        let equity_curve = combine_member_curves(&member_curves, 10_000.0)?;
+        let drawdown_curve = build_service_drawdown_curve(&equity_curve);
+        let first_equity = equity_curve
+            .first()
+            .map(|point| point.equity)
+            .unwrap_or(0.0);
+        let last_equity = equity_curve.last().map(|point| point.equity).unwrap_or(0.0);
+        let total_return_pct = if first_equity > 0.0 {
+            (last_equity / first_equity - 1.0) * 100.0
+        } else {
+            0.0
+        };
+        let days = equity_curve
+            .first()
+            .zip(equity_curve.last())
+            .map(|(first, last)| (last.timestamp_ms - first.timestamp_ms) as f64 / 86_400_000.0)
+            .unwrap_or(0.0);
+        let annualized_return_pct = if first_equity > 0.0 && last_equity > 0.0 && days > 0.0 {
+            Some(((last_equity / first_equity).powf(365.0 / days) - 1.0) * 100.0)
+        } else {
+            None
+        };
+        let max_drawdown_pct = drawdown_curve
+            .iter()
+            .filter_map(|point| point.get("drawdown_pct").and_then(Value::as_f64))
+            .fold(0.0_f64, f64::max);
+        let return_drawdown_ratio =
+            annualized_return_pct.map(|annualized| annualized / max_drawdown_pct.max(1.0));
+        let max_drawdown_limit = request.max_drawdown_pct.unwrap_or(f64::INFINITY);
+        let mut concentration_warnings = Vec::new();
+        for (symbol, weight_pct) in &symbol_weights {
+            if *weight_pct > 80.0 {
+                concentration_warnings.push(format!("{symbol} weight exceeds 80%"));
+            }
+        }
+        trades.sort_by_key(|trade| {
+            trade
+                .get("timestamp_ms")
+                .and_then(Value::as_i64)
+                .unwrap_or(0)
+        });
+        trades.truncate(100);
+
+        Ok(RecalculatePortfolioResponse {
+            portfolio_id: format!("sandbox_{}", chrono::Utc::now().timestamp_millis()),
+            member_count: members.len(),
+            total_return_pct,
+            annualized_return_pct,
+            max_drawdown_pct,
+            return_drawdown_ratio,
+            trade_count,
+            satisfies_drawdown_limit: max_drawdown_pct <= max_drawdown_limit,
+            concentration_warnings,
+            members,
+            equity_curve: sample_values(
+                equity_curve
+                    .iter()
+                    .map(|point| json!({ "timestamp_ms": point.timestamp_ms, "equity_quote": point.equity }))
+                    .collect(),
+                500,
+            ),
+            drawdown_curve: sample_values(drawdown_curve, 500),
+            trades_preview: trades,
+        })
+    }
+
     pub fn get_quota_policy(&self, owner: &str) -> Result<QuotaPolicyResponse, BacktestError> {
         let policy = self
             .repo
@@ -353,6 +545,93 @@ pub fn normalize_martingale_auto_search_config(mut config: Value) -> Result<Valu
     }
 
     Ok(config)
+}
+
+fn read_equity_curve(summary: &Value) -> Option<Vec<CurvePoint>> {
+    let points = summary.get("equity_curve")?.as_array()?;
+    let parsed = points
+        .iter()
+        .filter_map(|point| {
+            let timestamp_ms = point
+                .get("timestamp_ms")
+                .or_else(|| point.get("ts"))
+                .and_then(Value::as_i64)?;
+            let equity = point
+                .get("equity_quote")
+                .or_else(|| point.get("equity"))
+                .and_then(Value::as_f64)?;
+            Some(CurvePoint {
+                timestamp_ms,
+                equity,
+            })
+        })
+        .collect::<Vec<_>>();
+    if parsed.is_empty() {
+        None
+    } else {
+        Some(parsed)
+    }
+}
+
+fn read_trades_preview(summary: &Value) -> Option<Vec<Value>> {
+    Some(summary.get("trades_preview")?.as_array()?.clone())
+}
+
+fn combine_member_curves(
+    member_curves: &[(Vec<CurvePoint>, f64)],
+    initial_capital: f64,
+) -> Result<Vec<CurvePoint>, BacktestError> {
+    let min_len = member_curves
+        .iter()
+        .map(|(curve, _)| curve.len())
+        .min()
+        .unwrap_or(0);
+    if min_len < 2 {
+        return Err(BacktestError::bad_request("not enough curve points"));
+    }
+    let mut combined = Vec::with_capacity(min_len);
+    for index in 0..min_len {
+        let timestamp_ms = member_curves[0].0[index].timestamp_ms;
+        let mut equity = 0.0;
+        for (curve, weight_fraction) in member_curves {
+            let first = curve.first().map(|point| point.equity).unwrap_or(0.0);
+            if first <= 0.0 || !first.is_finite() {
+                return Err(BacktestError::bad_request("invalid candidate equity curve"));
+            }
+            equity += initial_capital * weight_fraction * (curve[index].equity / first);
+        }
+        combined.push(CurvePoint {
+            timestamp_ms,
+            equity,
+        });
+    }
+    Ok(combined)
+}
+
+fn build_service_drawdown_curve(equity_curve: &[CurvePoint]) -> Vec<Value> {
+    let mut peak = 0.0_f64;
+    equity_curve
+        .iter()
+        .map(|point| {
+            peak = peak.max(point.equity);
+            let drawdown_pct = if peak > 0.0 {
+                (peak - point.equity).max(0.0) / peak * 100.0
+            } else {
+                0.0
+            };
+            json!({ "timestamp_ms": point.timestamp_ms, "drawdown_pct": drawdown_pct })
+        })
+        .collect()
+}
+
+fn sample_values(items: Vec<Value>, max_items: usize) -> Vec<Value> {
+    if max_items == 0 || items.len() <= max_items {
+        return items;
+    }
+    let last = items.len() - 1;
+    (0..max_items)
+        .map(|index| items[index * last / (max_items - 1)].clone())
+        .collect()
 }
 
 fn is_martingale_auto_search(config: &Value) -> bool {
@@ -565,6 +844,100 @@ mod tests {
             .unwrap_err();
         assert_eq!(rejected.status, StatusCode::FORBIDDEN);
         assert_eq!(rejected.message, "quota exceeded: max_symbols=20");
+    }
+
+    #[test]
+    fn recalculate_portfolio_combines_candidate_curves() {
+        let db = SharedDb::ephemeral().expect("db");
+        let publish = MartingalePublishService::new(db.clone());
+        let service = BacktestService::new(db.clone(), publish);
+        let repo = db.backtest_repo();
+        let task = repo
+            .create_task(NewBacktestTaskRecord {
+                owner: "user@example.com".to_owned(),
+                strategy_type: "martingale".to_owned(),
+                config: json!({ "symbols": ["BTCUSDT", "ETHUSDT"] }),
+                summary: json!({}),
+            })
+            .expect("task");
+        repo.transition_task(&task.task_id, "succeeded")
+            .expect("succeeded");
+        let first = repo
+            .save_candidate(shared_db::NewBacktestCandidateRecord {
+                task_id: task.task_id.clone(),
+                status: "ready".to_owned(),
+                rank: 1,
+                config: json!({ "strategies": [{"symbol": "BTCUSDT"}] }),
+                summary: json!({
+                    "symbol": "BTCUSDT",
+                    "trade_count": 2,
+                    "equity_curve": [
+                        {"timestamp_ms": 1672531200000_i64, "equity_quote": 100.0},
+                        {"timestamp_ms": 1672617600000_i64, "equity_quote": 110.0}
+                    ],
+                    "drawdown_curve": [
+                        {"timestamp_ms": 1672531200000_i64, "drawdown_pct": 0.0},
+                        {"timestamp_ms": 1672617600000_i64, "drawdown_pct": 0.0}
+                    ],
+                    "trades_preview": [
+                        {"timestamp_ms": 1672531200000_i64, "symbol": "BTCUSDT", "event_type": "take_profit", "realized_pnl_quote": 1.0}
+                    ]
+                }),
+            })
+            .expect("first");
+        let second = repo
+            .save_candidate(shared_db::NewBacktestCandidateRecord {
+                task_id: task.task_id.clone(),
+                status: "ready".to_owned(),
+                rank: 2,
+                config: json!({ "strategies": [{"symbol": "ETHUSDT"}] }),
+                summary: json!({
+                    "symbol": "ETHUSDT",
+                    "trade_count": 3,
+                    "equity_curve": [
+                        {"timestamp_ms": 1672531200000_i64, "equity_quote": 200.0},
+                        {"timestamp_ms": 1672617600000_i64, "equity_quote": 220.0}
+                    ],
+                    "drawdown_curve": [
+                        {"timestamp_ms": 1672531200000_i64, "drawdown_pct": 0.0},
+                        {"timestamp_ms": 1672617600000_i64, "drawdown_pct": 0.0}
+                    ]
+                }),
+            })
+            .expect("second");
+
+        let response = service
+            .recalculate_portfolio(
+                "user@example.com",
+                RecalculatePortfolioRequest {
+                    task_id: task.task_id,
+                    max_drawdown_pct: Some(20.0),
+                    items: vec![
+                        RecalculatePortfolioItemRequest {
+                            candidate_id: first.candidate_id,
+                            symbol: "BTCUSDT".to_owned(),
+                            weight_pct: 50.0,
+                            leverage: 2.0,
+                            enabled: true,
+                        },
+                        RecalculatePortfolioItemRequest {
+                            candidate_id: second.candidate_id,
+                            symbol: "ETHUSDT".to_owned(),
+                            weight_pct: 50.0,
+                            leverage: 2.0,
+                            enabled: true,
+                        },
+                    ],
+                },
+            )
+            .expect("recalculate");
+
+        assert_eq!(response.member_count, 2);
+        assert_eq!(response.equity_curve.len(), 2);
+        assert_eq!(response.drawdown_curve.len(), 2);
+        assert!(response.total_return_pct > 9.9);
+        assert_eq!(response.trade_count, 5);
+        assert!(response.satisfies_drawdown_limit);
     }
 
     #[test]
