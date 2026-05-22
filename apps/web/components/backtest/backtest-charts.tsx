@@ -3,7 +3,7 @@
 import { useMemo } from "react";
 import type { MartingaleEquityPoint, MartingaleBacktestCandidateSummary, MartingaleTradeDetail } from "@/lib/api-types";
 
-type RawChartPoint = MartingaleEquityPoint & { t?: number };
+type RawChartPoint = MartingaleEquityPoint & { t?: number; timestamp_ms?: number; equity_quote?: number; drawdown_pct?: number };
 
 interface EquityPoint {
   ts: number;
@@ -39,7 +39,7 @@ function readFiniteNumber(value: unknown): number | null {
 }
 
 function readPointTime(point: RawChartPoint): number | null {
-  return readFiniteNumber(point.ts) ?? readFiniteNumber(point.t);
+  return readFiniteNumber(point.ts) ?? readFiniteNumber(point.t) ?? readFiniteNumber(point.timestamp_ms);
 }
 
 function normalizeEquityCurve(points: unknown): EquityPoint[] {
@@ -48,7 +48,7 @@ function normalizeEquityCurve(points: unknown): EquityPoint[] {
     .map((point) => {
       const rawPoint = point as RawChartPoint;
       const ts = readPointTime(rawPoint);
-      const equity = readFiniteNumber(rawPoint.equity);
+      const equity = readFiniteNumber(rawPoint.equity) ?? readFiniteNumber(rawPoint.equity_quote);
       return ts == null || equity == null ? null : { ts, equity };
     })
     .filter((point): point is EquityPoint => point != null)
@@ -62,7 +62,7 @@ function normalizeDrawdownCurve(drawdownCurve: unknown, fallbackEquityCurve: unk
     .map((point) => {
       const rawPoint = point as RawChartPoint;
       const ts = readPointTime(rawPoint);
-      const drawdown = readFiniteNumber(rawPoint.drawdown);
+      const drawdown = readFiniteNumber(rawPoint.drawdown) ?? readFiniteNumber(rawPoint.drawdown_pct);
       return ts == null || drawdown == null ? null : { ts, drawdown };
     })
     .filter((point): point is DrawdownPoint => point != null)

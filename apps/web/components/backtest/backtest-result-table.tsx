@@ -18,7 +18,7 @@ type BacktestCandidate = {
   summary: MartingaleBacktestCandidateSummary;
 };
 
-type PortfolioMember = {
+export type PortfolioMember = {
   candidate_id: string;
   symbol: string;
   direction: string;
@@ -30,7 +30,7 @@ type PortfolioMember = {
   trade_count: number;
 };
 
-type PortfolioTop3Row = {
+export type PortfolioTop3Row = {
   portfolio_id: string;
   portfolio_rank: number;
   member_count: number;
@@ -52,11 +52,13 @@ type BacktestResultTableProps = {
   lang: UiLanguage;
   onAddToBasket?: (candidate: BacktestCandidate) => void;
   onSelect?: (candidate: BacktestCandidate) => void;
+  onSelectPortfolio?: (portfolio: PortfolioTop3Row) => void;
   selectedId?: string;
   selectedTaskStatus?: string;
   taskName?: string;
   portfolioTop3?: PortfolioTop3Row[];
   portfolioTopN?: number;
+  selectedPortfolioId?: string;
 };
 
 export function BacktestResultTable({
@@ -64,11 +66,13 @@ export function BacktestResultTable({
   lang,
   onAddToBasket,
   onSelect,
+  onSelectPortfolio,
   selectedId,
   selectedTaskStatus,
   taskName,
   portfolioTop3 = [],
   portfolioTopN = 3,
+  selectedPortfolioId,
 }: BacktestResultTableProps) {
   const groupedCandidates = groupCandidatesBySymbol(candidates);
   const isSuccessfulWithoutCandidates = candidates.length === 0 && ["succeeded", "completed"].includes(selectedTaskStatus ?? "");
@@ -120,7 +124,7 @@ export function BacktestResultTable({
           <div className={portfolioTop3.length > 3 ? "overflow-x-auto" : ""}>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3" style={portfolioTop3.length > 3 ? { minWidth: "900px" } : undefined}>
             {portfolioTop3.map((entry, idx) => (
-              <div key={entry.portfolio_id || idx} className="rounded-xl border border-border bg-card p-4 space-y-2">
+              <div key={entry.portfolio_id || idx} className={`rounded-xl border bg-card p-4 space-y-2 ${selectedPortfolioId === entry.portfolio_id ? "border-primary shadow-sm" : "border-border"}`}>
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-mono text-muted-foreground">#{entry.portfolio_rank || idx + 1}</span>
                   <span className="text-sm font-semibold">{pickText(lang, `${entry.member_count} 成员组合`, `${entry.member_count}-member portfolio`)}</span>
@@ -150,6 +154,13 @@ export function BacktestResultTable({
                     ))}
                   </div>
                 )}
+                <button
+                  className="mt-2 rounded-full border border-border px-3 py-1 text-xs font-medium"
+                  onClick={() => onSelectPortfolio?.(entry)}
+                  type="button"
+                >
+                  {pickText(lang, "查看组合图表/明细", "View portfolio charts/details")}
+                </button>
               </div>
             ))}
           </div>

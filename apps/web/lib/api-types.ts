@@ -82,6 +82,10 @@ export interface MartingaleBacktestCandidateSummary {
   expanded_universe_symbol_count?: number;
   portfolio_top_n?: number;
   portfolio_pool_note?: string;
+  members?: MartingalePortfolioMember[];
+  member_count?: number;
+  portfolio_id?: string;
+  portfolio_rank?: number;
 }
 
 export interface MartingaleLongShortLegSummary {

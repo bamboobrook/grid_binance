@@ -102,13 +102,18 @@ fn allocation_templates_v2() -> Vec<Vec<f64>> {
         vec![0.5, 0.3, 0.2],
         vec![0.4, 0.3, 0.3],
         vec![0.4, 0.35, 0.25],
-        vec![0.3, 0.25, 0.2, 0.15, 0.1],
-        vec![0.25, 0.25, 0.2, 0.15, 0.15],
         vec![0.7, 0.1, 0.1, 0.1],
         vec![0.6, 0.2, 0.1, 0.1],
         vec![0.55, 0.15, 0.15, 0.15],
         vec![0.4, 0.2, 0.2, 0.2],
         vec![0.25, 0.25, 0.25, 0.25],
+        vec![0.3, 0.25, 0.2, 0.15, 0.1],
+        vec![0.25, 0.25, 0.2, 0.15, 0.15],
+        vec![0.20, 0.18, 0.17, 0.16, 0.15, 0.14],
+        vec![0.30, 0.18, 0.15, 0.12, 0.10, 0.08, 0.07],
+        vec![0.25, 0.18, 0.15, 0.12, 0.10, 0.08, 0.07, 0.05],
+        vec![0.18, 0.16, 0.14, 0.12, 0.10, 0.09, 0.08, 0.07, 0.06],
+        vec![0.16, 0.14, 0.12, 0.11, 0.10, 0.09, 0.08, 0.07, 0.06, 0.07],
     ]
 }
 
@@ -298,7 +303,7 @@ fn build_ranked_portfolios_v2(
     max_drawdown_pct: f64,
     top_n: usize,
 ) -> Vec<WeightedPortfolio> {
-    let seed_indices = best_indices_by_symbol(eligible, 8);
+    let seed_indices = best_indices_by_symbol(eligible, 10);
     let templates = allocation_templates_v2();
     let mut scored: Vec<WeightedPortfolio> = Vec::new();
 
@@ -323,10 +328,10 @@ fn enumerate_combinations_v2(
     max_drawdown_pct: f64,
     result: &mut Vec<WeightedPortfolio>,
 ) {
-    let max_combos = 12_000usize;
+    let max_combos = 80_000usize;
     let mut combo_count = 0usize;
 
-    for member_count in 2..=8.min(indices.len()) {
+    for member_count in 2..=10.min(indices.len()) {
         let mut current: Vec<usize> = Vec::with_capacity(member_count);
         enumerate_member_combinations(
             eligible,
@@ -451,11 +456,14 @@ pub fn build_portfolio_top3(
 
     let allocation_templates = allocation_templates();
     let mut scored_portfolios: Vec<WeightedPortfolio> = Vec::new();
-    let max_combos = 8_000usize;
+    let max_combos = 40_000usize;
     let mut combo_count = 0usize;
 
-    let focused_indices = best_indices_by_symbol(&eligible, 5);
-    for member_count in 2..=5.min(focused_indices.len()) {
+    let focused_indices = best_indices_by_symbol(&eligible, 8);
+    let max_member_count = 8
+        .min(unique_eligible_symbol_count.max(2))
+        .min(focused_indices.len());
+    for member_count in 2..=max_member_count {
         let mut current = Vec::with_capacity(member_count);
         enumerate_portfolio_index_combinations(
             &eligible,
@@ -572,6 +580,9 @@ fn allocation_templates() -> Vec<Vec<f64>> {
         vec![0.1, 0.1, 0.6, 0.1, 0.1],
         vec![0.1, 0.1, 0.1, 0.6, 0.1],
         vec![0.1, 0.1, 0.1, 0.1, 0.6],
+        vec![0.20, 0.18, 0.17, 0.16, 0.15, 0.14],
+        vec![0.30, 0.18, 0.15, 0.12, 0.10, 0.08, 0.07],
+        vec![0.25, 0.18, 0.15, 0.12, 0.10, 0.08, 0.07, 0.05],
     ]
 }
 
@@ -818,15 +829,21 @@ fn build_weighted_portfolio(
     let member_count = portfolio_members.len().max(1);
     let diversification_factor = unique_symbol_count as f64 / member_count as f64;
     let concentration_penalty = if unique_symbol_count == 1 { 0.50 } else { 1.0 };
-    let member_count_bonus = if member_count >= 4 {
-        1.35
+    let member_count_bonus = if unique_symbol_count >= 10 {
+        2.20
+    } else if unique_symbol_count >= 8 {
+        2.00
+    } else if unique_symbol_count >= 6 {
+        1.75
+    } else if unique_symbol_count >= 4 {
+        1.50
     } else if member_count == 3 {
         1.15
     } else {
         1.0
     };
     let diversification_bonus =
-        (1.0 + diversification_factor * 0.30 + member_count.min(5) as f64 * 0.05)
+        (1.0 + diversification_factor * 0.35 + unique_symbol_count.min(10) as f64 * 0.08)
             * member_count_bonus;
     let score = (calmar * 8.0 + annualized / 4.0 + return_pct / 20.0)
         * diversification_bonus
@@ -1074,6 +1091,9 @@ mod tests {
             .iter()
             .filter(|tpl| tpl.len() == 5)
             .all(|tpl| (tpl.iter().sum::<f64>() - 1.0).abs() < 0.000001));
+        assert!(templates.iter().any(|tpl| tpl.len() == 6));
+        assert!(templates.iter().any(|tpl| tpl.len() == 7));
+        assert!(templates.iter().any(|tpl| tpl.len() == 8));
     }
 
     fn candidate_with_curve(
@@ -1292,6 +1312,80 @@ mod tests {
         assert!(
             last < 13_000.0,
             "last equity should be realistically scaled, got {last}"
+        );
+    }
+
+    #[test]
+    fn portfolio_top3_prefers_four_or_more_symbols_when_available() {
+        let candidates = vec![
+            candidate_with_curve(
+                "btc",
+                "BTCUSDT",
+                38.0,
+                12.0,
+                4.0,
+                500.0,
+                vec![500.0, 530.0, 520.0, 690.0],
+            ),
+            candidate_with_curve(
+                "eth",
+                "ETHUSDT",
+                30.0,
+                8.0,
+                3.5,
+                500.0,
+                vec![500.0, 515.0, 510.0, 650.0],
+            ),
+            candidate_with_curve(
+                "sol",
+                "SOLUSDT",
+                26.0,
+                9.0,
+                3.0,
+                500.0,
+                vec![500.0, 505.0, 540.0, 630.0],
+            ),
+            candidate_with_curve(
+                "bnb",
+                "BNBUSDT",
+                22.0,
+                7.0,
+                2.8,
+                500.0,
+                vec![500.0, 512.0, 518.0, 610.0],
+            ),
+            candidate_with_curve(
+                "xrp",
+                "XRPUSDT",
+                18.0,
+                6.0,
+                2.5,
+                500.0,
+                vec![500.0, 508.0, 515.0, 590.0],
+            ),
+            candidate_with_curve(
+                "doge",
+                "DOGEUSDT",
+                16.0,
+                6.0,
+                2.2,
+                500.0,
+                vec![500.0, 506.0, 512.0, 580.0],
+            ),
+        ];
+
+        let artifact = build_portfolio_top3(&candidates, 25.0);
+        assert!(!artifact.top3.is_empty());
+        let first = &artifact.top3[0];
+        let symbols = first
+            .members
+            .iter()
+            .map(|member| member.symbol.as_str())
+            .collect::<std::collections::HashSet<_>>();
+        assert!(
+            symbols.len() >= 4,
+            "top portfolio should use at least four symbols when available, got {:?}",
+            first.members
         );
     }
 

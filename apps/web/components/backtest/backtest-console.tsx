@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { BacktestCharts } from "@/components/backtest/backtest-charts";
 import { BacktestProfessionalPanel } from "@/components/backtest/backtest-professional-panel";
-import { BacktestResultTable } from "@/components/backtest/backtest-result-table";
+import { BacktestResultTable, type PortfolioMember, type PortfolioTop3Row } from "@/components/backtest/backtest-result-table";
 import { BacktestTaskList } from "@/components/backtest/backtest-task-list";
 import { BacktestWizard } from "@/components/backtest/backtest-wizard";
 import { MartingaleRiskWarning } from "@/components/backtest/martingale-risk-warning";
@@ -80,6 +80,7 @@ export function BacktestConsole({ lang, locale }: { lang: UiLanguage; locale: st
   const [candidates, setCandidates] = useState<BacktestCandidate[]>([]);
   const [selectedTaskId, setSelectedTaskId] = useState("");
   const [selectedCandidate, setSelectedCandidate] = useState<BacktestCandidate | null>(null);
+  const [selectedPortfolio, setSelectedPortfolio] = useState<PortfolioTop3Row | null>(null);
   const [basketItems, setBasketItems] = useState<PortfolioBasketItem[]>([]);
   const [feedback, setFeedback] = useState("");
   const [loading, setLoading] = useState(true);
@@ -123,6 +124,7 @@ export function BacktestConsole({ lang, locale }: { lang: UiLanguage; locale: st
     const normalized = apiCandidates.map((candidate) => normalizeCandidate(candidate, lang));
     setCandidates(normalized);
     setSelectedCandidate(normalized[0] ?? null);
+    setSelectedPortfolio(null);
   }, [lang]);
 
   useEffect(() => {
@@ -152,7 +154,12 @@ export function BacktestConsole({ lang, locale }: { lang: UiLanguage; locale: st
     [selectedTask, selectedTaskId],
   );
 
-  const selectedSummary = selectedCandidate?.summary ?? {};
+  const selectedSummary = selectedPortfolio ? portfolioSummaryForCharts(selectedPortfolio) : (selectedCandidate?.summary ?? {});
+  const selectedDetailTitle = selectedPortfolio
+    ? pickText(lang, `组合 #${selectedPortfolio.portfolio_rank || "?"} 图表与明细`, `Portfolio #${selectedPortfolio.portfolio_rank || "?"} charts and details`)
+    : selectedCandidate
+      ? pickText(lang, `${selectedCandidate.symbol} 候选图表与明细`, `${selectedCandidate.symbol} candidate charts and details`)
+      : pickText(lang, "回测图表", "Backtest charts");
   const taskSummary = selectedTask?.summary ?? {};
   const portfolioPoolNote = typeof taskSummary.portfolio_pool_note === "string" ? taskSummary.portfolio_pool_note : "";
   const portfolioTopN = typeof taskSummary.portfolio_top_n === "number" ? taskSummary.portfolio_top_n : 3;
@@ -297,7 +304,7 @@ export function BacktestConsole({ lang, locale }: { lang: UiLanguage; locale: st
           {/* Real-data charts */}
           <section className="rounded-2xl border border-border bg-card p-4 shadow-sm">
             <h2 className="text-lg font-semibold mb-3">
-              {pickText(lang, "回测图表", "Backtest charts")}
+              {selectedDetailTitle}
             </h2>
             <BacktestCharts summary={selectedSummary} />
           </section>
@@ -330,9 +337,15 @@ export function BacktestConsole({ lang, locale }: { lang: UiLanguage; locale: st
             taskName={selectedTaskName}
             portfolioTop3={portfolioTop3FromTask(selectedTask)}
             portfolioTopN={portfolioTopN}
+            selectedPortfolioId={selectedPortfolio?.portfolio_id ?? ""}
             onSelect={(candidate) => {
               const full = candidates.find((c) => c.id === candidate.id) ?? null;
               setSelectedCandidate(full);
+              setSelectedPortfolio(null);
+            }}
+            onSelectPortfolio={(portfolio) => {
+              setSelectedPortfolio(portfolio);
+              setSelectedCandidate(null);
             }}
           />
         </div>
@@ -654,34 +667,23 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-type PortfolioMember = {
-  candidate_id: string;
-  symbol: string;
-  direction: string;
-  allocation_pct: number;
-  return_pct: number;
-  max_drawdown_pct: number;
-  annualized_return_pct?: number | null;
-  score: number;
-  trade_count: number;
-};
-
-type PortfolioTop3Row = {
-  portfolio_id: string;
-  portfolio_rank: number;
-  member_count: number;
-  members: PortfolioMember[];
-  total_return_pct: number;
-  return_pct: number;
-  max_drawdown_pct: number;
-  annualized_return_pct?: number | null;
-  score: number;
-  trade_count: number;
-  equity_curve?: unknown[];
-  drawdown_curve?: unknown[];
-  trades_preview?: unknown[];
-  eligible_candidate_count?: number | null;
-};
+function portfolioSummaryForCharts(portfolio: PortfolioTop3Row): MartingaleBacktestCandidateSummary {
+  return {
+    annualized_return_pct: portfolio.annualized_return_pct ?? null,
+    drawdown_curve: portfolio.drawdown_curve as MartingaleBacktestCandidateSummary["drawdown_curve"],
+    equity_curve: portfolio.equity_curve as MartingaleBacktestCandidateSummary["equity_curve"],
+    max_drawdown_pct: portfolio.max_drawdown_pct,
+    member_count: portfolio.member_count,
+    members: portfolio.members,
+    portfolio_id: portfolio.portfolio_id,
+    portfolio_rank: portfolio.portfolio_rank,
+    risk_summary_human: `组合包含 ${portfolio.member_count} 个策略，最大单币权重 ${Math.max(...portfolio.members.map((member) => member.allocation_pct), 0).toFixed(1)}%`,
+    score: portfolio.score,
+    total_return_pct: portfolio.return_pct || portfolio.total_return_pct,
+    trade_count: portfolio.trade_count,
+    trades_preview: portfolio.trades_preview as MartingaleBacktestCandidateSummary["trades_preview"],
+  };
+}
 
 function portfolioTop3FromTask(task: BacktestTask | null): PortfolioTop3Row[] {
   // Prefer portfolio_top10 (v2 expanded search) over portfolio_top3 (legacy)
