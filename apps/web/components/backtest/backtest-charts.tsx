@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import type { MartingaleEquityPoint, MartingaleBacktestCandidateSummary, MartingaleTradeDetail } from "@/lib/api-types";
 
 type RawChartPoint = MartingaleEquityPoint & { t?: number; timestamp_ms?: number; equity_quote?: number; drawdown_pct?: number };
@@ -70,119 +70,112 @@ function normalizeDrawdownCurve(drawdownCurve: unknown, fallbackEquityCurve: unk
 }
 
 /* ------------------------------------------------------------------ */
-/*  Mini sparkline from equity curve data                             */
+/*  Wide interactive charts                                           */
 /* ------------------------------------------------------------------ */
 
-interface EquitySparklineProps {
-  points: EquityPoint[];
-  width?: number;
-  height?: number;
-  stroke?: string;
-  fill?: string;
+type InteractiveChartPoint = {
+  ts: number;
+  value: number;
+  equity?: number;
+};
+
+function buildLinePath(points: { x: number; y: number }[]) {
+  return points.map((point, index) => `${index === 0 ? "M" : "L"}${point.x.toFixed(1)},${point.y.toFixed(1)}`).join(" ");
 }
 
-function EquitySparkline({
+function InteractiveLineChart({
+  title,
   points,
-  width = 280,
-  height = 80,
-  stroke = "var(--chart-1, #3b82f6)",
-  fill = "var(--chart-1-alpha, rgba(59,130,246,0.10))",
-}: EquitySparklineProps) {
-  const path = useMemo(() => {
-    if (!points || points.length < 2) return null;
-    const xs = points.map((p) => p.ts);
-    const ys = points.map((p) => p.equity);
+  valueLabel,
+  valueFormatter,
+  stroke,
+  fill,
+  firstEquity,
+}: {
+  title: string;
+  points: InteractiveChartPoint[];
+  valueLabel: string;
+  valueFormatter: (value: number) => string;
+  stroke: string;
+  fill: string;
+  firstEquity?: number;
+}) {
+  const [hoverIndex, setHoverIndex] = useState<number | null>(null);
+  const width = 1000;
+  const height = 260;
+  const padX = 28;
+  const padY = 22;
+  const chartWidth = width - padX * 2;
+  const chartHeight = height - padY * 2;
+  const geometry = useMemo(() => {
+    if (points.length < 2) return null;
+    const xs = points.map((point) => point.ts);
+    const ys = points.map((point) => point.value);
     const xMin = Math.min(...xs);
     const xMax = Math.max(...xs);
     const yMin = Math.min(...ys);
     const yMax = Math.max(...ys);
     const xRange = xMax - xMin || 1;
     const yRange = yMax - yMin || 1;
-    const pad = 4;
-    const w = width - pad * 2;
-    const h = height - pad * 2;
-
-    const coords = points.map((p) => ({
-      x: pad + ((p.ts - xMin) / xRange) * w,
-      y: pad + h - ((p.equity - yMin) / yRange) * h,
+    const coords = points.map((point) => ({
+      x: padX + ((point.ts - xMin) / xRange) * chartWidth,
+      y: padY + chartHeight - ((point.value - yMin) / yRange) * chartHeight,
     }));
+    const line = buildLinePath(coords);
+    const area = `${line} L${coords[coords.length - 1].x.toFixed(1)},${padY + chartHeight} L${padX},${padY + chartHeight} Z`;
+    return { coords, line, area };
+  }, [points, chartWidth, chartHeight]);
 
-    const line = coords.map((c, i) => `${i === 0 ? "M" : "L"}${c.x.toFixed(1)},${c.y.toFixed(1)}`).join(" ");
-    const area = `${line} L${coords[coords.length - 1].x.toFixed(1)},${pad + h} L${pad},${pad + h} Z`;
-    return { line, area };
-  }, [points, width, height]);
-
-  if (!path) {
+  if (!geometry) {
     return (
-      <svg width={width} height={height} className="opacity-40">
-        <text x={width / 2} y={height / 2} textAnchor="middle" className="fill-muted-foreground text-xs">
-          No equity data
-        </text>
-      </svg>
+      <div className="rounded-xl border border-border bg-background p-3 text-sm text-muted-foreground">
+        {title}: No chart data
+      </div>
     );
   }
 
-  return (
-    <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`}>
-      <path d={path.area} fill={fill} />
-      <path d={path.line} fill="none" stroke={stroke} strokeWidth={1.5} />
-    </svg>
-  );
-}
-
-/* ------------------------------------------------------------------ */
-/*  Drawdown sparkline                                                */
-/* ------------------------------------------------------------------ */
-
-interface DrawdownSparklineProps {
-  points: DrawdownPoint[];
-  width?: number;
-  height?: number;
-}
-
-function DrawdownSparkline({ points, width = 280, height = 60 }: DrawdownSparklineProps) {
-  const path = useMemo(() => {
-    if (!points || points.length < 2) return null;
-    const xs = points.map((p) => p.ts);
-    const ys = points.map((p) => p.drawdown);
-    const xMin = Math.min(...xs);
-    const xMax = Math.max(...xs);
-    const yMin = Math.min(...ys);
-    const yMax = 0;
-    const xRange = xMax - xMin || 1;
-    const yRange = yMax - yMin || 1;
-    const pad = 4;
-    const w = width - pad * 2;
-    const h = height - pad * 2;
-
-    const coords = points.map((p) => ({
-      x: pad + ((p.ts - xMin) / xRange) * w,
-      y: pad + h - ((p.drawdown - yMin) / yRange) * h,
-    }));
-
-    const line = coords.map((c, i) => `${i === 0 ? "M" : "L"}${c.x.toFixed(1)},${c.y.toFixed(1)}`).join(" ");
-    const area = `${line} L${coords[coords.length - 1].x.toFixed(1)},${pad + h} L${pad},${pad + h} Z`;
-    return { line, area };
-  }, [points, width, height]);
-
-  if (!path) {
-    return (
-      <svg width={width} height={height} className="opacity-40">
-        <text x={width / 2} y={height / 2} textAnchor="middle" className="fill-muted-foreground text-xs">
-          No drawdown data
-        </text>
-      </svg>
-    );
-  }
+  const activeIndex = hoverIndex ?? points.length - 1;
+  const activePoint = points[activeIndex];
+  const activeCoord = geometry.coords[activeIndex];
+  const returnPct = firstEquity && activePoint.equity != null && firstEquity > 0
+    ? ((activePoint.equity / firstEquity - 1) * 100).toFixed(2)
+    : null;
 
   return (
-    <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`}>
-      <path d={path.area} fill="rgba(239,68,68,0.10)" />
-      <path d={path.line} fill="none" stroke="#ef4444" strokeWidth={1.5} />
-    </svg>
+    <div className="w-full rounded-xl border border-border bg-background p-3">
+      <div className="mb-2 flex items-center justify-between gap-3">
+        <h4 className="text-sm font-medium">{title}</h4>
+        <span className="text-xs text-muted-foreground">{points.length} points</span>
+      </div>
+      <div className="relative">
+        <svg
+          className="h-64 w-full touch-none select-none"
+          viewBox={`0 0 ${width} ${height}`}
+          onMouseLeave={() => setHoverIndex(null)}
+          onMouseMove={(event) => {
+            const rect = event.currentTarget.getBoundingClientRect();
+            const ratio = Math.min(1, Math.max(0, (event.clientX - rect.left) / rect.width));
+            setHoverIndex(Math.round(ratio * (points.length - 1)));
+          }}
+        >
+          <line x1={padX} y1={padY + chartHeight} x2={width - padX} y2={padY + chartHeight} stroke="currentColor" className="text-border" strokeWidth="1" />
+          <path d={geometry.area} fill={fill} />
+          <path d={geometry.line} fill="none" stroke={stroke} strokeWidth="2.5" />
+          <line x1={activeCoord.x} x2={activeCoord.x} y1={padY} y2={padY + chartHeight} stroke="currentColor" className="text-muted-foreground/60" strokeDasharray="4 4" />
+          <circle cx={activeCoord.x} cy={activeCoord.y} r="5" fill={stroke} stroke="white" strokeWidth="2" />
+        </svg>
+        <div
+          className="pointer-events-none absolute top-4 z-10 min-w-48 rounded-lg border border-border bg-popover p-2 text-xs shadow-lg"
+          style={{ left: `${Math.min(82, Math.max(2, (activeCoord.x / width) * 100))}%`, transform: activeCoord.x > width * 0.75 ? "translateX(-100%)" : undefined }}
+        >
+          <p className="font-medium">{new Date(activePoint.ts).toLocaleDateString()}</p>
+          <p className="text-muted-foreground">{valueLabel}: <span className="text-foreground font-semibold">{valueFormatter(activePoint.value)}</span></p>
+          {returnPct != null ? <p className="text-muted-foreground">收益: <span className="text-foreground font-semibold">{returnPct}%</span></p> : null}
+        </div>
+      </div>
+    </div>
   );
 }
-
 /* ------------------------------------------------------------------ */
 /*  Stress window badges from real data                              */
 /* ------------------------------------------------------------------ */
@@ -275,7 +268,7 @@ export function BacktestCharts({ summary, equityCurve, stopLossEvents }: Backtes
     || Boolean(summary?.risk_summary_human);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5 rounded-2xl border border-border bg-card p-4 lg:p-5">
       {!hasAnyChartData && artifactPath ? (
         <div className="rounded-lg border border-dashed border-border bg-secondary/20 p-3 text-sm text-muted-foreground">
           图表数据需要从 artifact 加载：{artifactPath}
@@ -289,26 +282,39 @@ export function BacktestCharts({ summary, equityCurve, stopLossEvents }: Backtes
       ) : null}
 
       {equityPoints.length > 0 ? (
-        <div>
-          <h4 className="text-sm font-medium mb-1">资金曲线 / Equity curve</h4>
-          <EquitySparkline points={equityPoints} />
-          <div className="flex gap-4 text-xs text-muted-foreground mt-1">
+        <div className="space-y-2">
+          <InteractiveLineChart
+            title="资金曲线 / Equity curve"
+            points={equityPoints.map((point) => ({ ts: point.ts, value: point.equity, equity: point.equity }))}
+            valueLabel="资金"
+            valueFormatter={(value) => fmtNum(value)}
+            stroke="#2563eb"
+            fill="rgba(37,99,235,0.10)"
+            firstEquity={equityPoints[0]?.equity}
+          />
+          <div className="flex gap-4 text-xs text-muted-foreground">
             <span>Start: {fmtNum(equityPoints[0].equity)}</span>
-            <span>Peak: {fmtNum(Math.max(...equityPoints.map((p) => p.equity)))}</span>
+            <span>Peak: {fmtNum(Math.max(...equityPoints.map((point) => point.equity)))}</span>
             <span>End: {fmtNum(equityPoints[equityPoints.length - 1].equity)}</span>
           </div>
         </div>
       ) : null}
 
       {drawdownPoints.length > 0 ? (
-        <div>
-          <h4 className="text-sm font-medium mb-1">回撤曲线 / Drawdown curve</h4>
-          <DrawdownSparkline points={drawdownPoints} />
-          {maxDrawdownPct != null && (
-          <div className="text-xs text-muted-foreground mt-1">
-            Max Drawdown: <span className="text-red-600 font-semibold">{fmtPctValue(maxDrawdownPct)}</span>
-          </div>
-          )}
+        <div className="space-y-2">
+          <InteractiveLineChart
+            title="回撤曲线 / Drawdown curve"
+            points={drawdownPoints.map((point) => ({ ts: point.ts, value: point.drawdown }))}
+            valueLabel="回撤"
+            valueFormatter={(value) => fmtPctValue(value)}
+            stroke="#ef4444"
+            fill="rgba(239,68,68,0.10)"
+          />
+          {maxDrawdownPct != null ? (
+            <div className="text-xs text-muted-foreground">
+              Max Drawdown: <span className="text-red-600 font-semibold">{fmtPctValue(maxDrawdownPct)}</span>
+            </div>
+          ) : null}
         </div>
       ) : null}
 
