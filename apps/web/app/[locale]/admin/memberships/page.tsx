@@ -8,6 +8,7 @@ import { DataTable, type DataTableColumn } from "@/components/ui/table";
 import {
   getAdminMembershipPlansData,
   getAdminMembershipsData,
+  getAdminUsersData,
   getCurrentAdminProfile,
 } from "@/lib/api/admin-product-state";
 import { pickText, resolveUiLanguageFromRoute, UI_LANGUAGE_COOKIE, type UiLanguage } from "@/lib/ui/preferences";
@@ -55,13 +56,21 @@ function actionLabel(lang: UiLanguage, action: string) {
   }
 }
 
+type MembershipDeskRow = {
+  active_until: string | null;
+  email: string;
+  grace_until: string | null;
+  status: string;
+};
+
 export default async function AdminMembershipsPage({ params, searchParams }: PageProps) {
   const { locale } = await params;
   const query = (await searchParams) ?? {};
-  const [cookieStore, profile, memberships, plans] = await Promise.all([
+  const [cookieStore, profile, memberships, users, plans] = await Promise.all([
     cookies(),
     getCurrentAdminProfile(),
     getAdminMembershipsData(),
+    getAdminUsersData(),
     getAdminMembershipPlansData(),
   ]);
   const lang = resolveUiLanguageFromRoute(locale, cookieStore.get(UI_LANGUAGE_COOKIE)?.value);
@@ -76,6 +85,18 @@ export default async function AdminMembershipsPage({ params, searchParams }: Pag
   const defaultPlan = plans.plans.find((plan) => plan.code === selectedPlanCode) ?? plans.plans[0] ?? null;
   const activePlanCount = plans.plans.filter((plan) => plan.is_active).length;
   const riskCount = memberships.items.filter((item) => ["Grace", "Frozen", "Revoked"].includes(item.status)).length;
+  const membershipByEmail = new Map(memberships.items.map((item) => [item.email, item]));
+  const memberRows: MembershipDeskRow[] = users.items
+    .filter((item) => item.admin_role == null)
+    .map((user) => {
+      const membership = membershipByEmail.get(user.email);
+      return {
+        active_until: membership?.active_until ?? null,
+        email: user.email,
+        grace_until: membership?.grace_until ?? null,
+        status: membership?.status ?? "Pending",
+      };
+    });
   const priceFor = (chain: string, asset: string) => defaultPlan?.prices.find((price) => price.chain === chain && price.asset === asset)?.amount ?? "";
   const membershipColumns: DataTableColumn[] = [
     { key: "email", label: pickText(lang, "会员", "Member") },
@@ -175,7 +196,7 @@ export default async function AdminMembershipsPage({ params, searchParams }: Pag
           <Card>
             <CardHeader>
               <CardTitle>{pickText(lang, "会员开通", "Open Membership")}</CardTitle>
-              <CardDescription>{pickText(lang, "用于补开、恢复或临时延长，不依赖预选行。", "Open, restore, or extend access without depending on a preselected row.")}</CardDescription>
+              <CardDescription>{pickText(lang, "可从下方会员列表直接开通或延长；这里保留紧急手动入口。", "Use the member list below for open or extend actions; this manual form is kept as an emergency fallback.")}</CardDescription>
             </CardHeader>
             <CardBody>
               {canManage ? (
@@ -223,31 +244,32 @@ export default async function AdminMembershipsPage({ params, searchParams }: Pag
       </Card>
       <Card>
         <CardHeader>
-          <CardTitle>{pickText(lang, "会员主表", "Membership Desk Table")}</CardTitle>
-          <CardDescription>{pickText(lang, "显式展示生命周期状态和可执行动作。", "Lifecycle status and available desk actions remain explicit.")}</CardDescription>
+          <CardTitle>{pickText(lang, "会员/用户主表", "Member/User Desk Table")}</CardTitle>
+          <CardDescription>{pickText(lang, "普通用户都会显示在这里：未开通可直接开通，已开通可延长、冻结或撤销。", "All regular users are listed here: open inactive accounts directly, or extend, freeze, and revoke active memberships.")}</CardDescription>
         </CardHeader>
         <CardBody>
           <div className="overflow-x-auto min-w-full rounded-lg pb-4">
           <DataTable
             columns={membershipColumns}
-            rows={memberships.items.map((item) => ({
+            rows={memberRows.map((item) => ({
               id: item.email,
               activeUntil: item.active_until?.slice(0, 10) ?? "-",
               actions: canManage ? (
                 <div className="min-w-[220px] space-y-3">
                   <div className="rounded-xl border border-border bg-background px-3 py-3">
                     <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                      {pickText(lang, "延长会员", "Extend membership")}
+                      {item.status === "Pending" ? pickText(lang, "开通会员", "Open membership") : pickText(lang, "延长会员", "Extend membership")}
                     </p>
                     <FormStack action="/api/admin/memberships" className="gap-2" method="post">
                       <input name="email" type="hidden" value={item.email} />
-                      <Field label={pickText(lang, "延长天数", "Extend Days")}>
-                        <Input defaultValue="15" inputMode="numeric" name="durationDays" />
+                      <Field label={item.status === "Pending" ? pickText(lang, "开通天数", "Duration Days") : pickText(lang, "延长天数", "Extend Days")}>
+                        <Input defaultValue={item.status === "Pending" ? "30" : "15"} inputMode="numeric" name="durationDays" />
                       </Field>
-                      <input name="action" type="hidden" value="extend" />
-                      <Button type="submit">{pickText(lang, "延长会员", "Extend Membership")}</Button>
+                      <input name="action" type="hidden" value={item.status === "Pending" ? "open" : "extend"} />
+                      <Button type="submit">{item.status === "Pending" ? pickText(lang, "开通会员", "Open Membership") : pickText(lang, "延长会员", "Extend Membership")}</Button>
                     </FormStack>
                   </div>
+                  {item.status !== "Pending" ? (
                   <div className="grid gap-2 md:grid-cols-2">
                     <FormStack action="/api/admin/memberships" method="post">
                       <input name="email" type="hidden" value={item.email} />
@@ -260,6 +282,7 @@ export default async function AdminMembershipsPage({ params, searchParams }: Pag
                       <Button type="submit">{pickText(lang, "撤销会员", "Revoke")}</Button>
                     </FormStack>
                   </div>
+                  ) : null}
                 </div>
               ) : null,
               email: item.email,

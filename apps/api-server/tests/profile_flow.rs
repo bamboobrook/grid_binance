@@ -325,6 +325,49 @@ async fn profile_super_admin_access_grants_full_permissions() {
 }
 
 #[tokio::test]
+async fn admin_users_list_excludes_privileged_accounts() {
+    let db = SharedDb::ephemeral().expect("ephemeral db");
+    let app = app_with_shared_db(&db);
+
+    register_and_verify(&app, "super-admin@example.com", "pass1234").await;
+    register_and_verify(&app, "flyingkid2022@outlook.com", "pass1234").await;
+
+    let bootstrap = bootstrap_admin_totp(&app, "super-admin@example.com", "pass1234").await;
+    let totp_code = bootstrap["code"].as_str().expect("totp code").to_owned();
+    let admin_session = login_and_get_token(
+        &app,
+        "super-admin@example.com",
+        "pass1234",
+        Some(&totp_code),
+    )
+    .await;
+
+    let response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri("/admin/users")
+                .header("authorization", format!("Bearer {admin_session}"))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+    let body = response_json(response).await;
+    let emails = body["items"]
+        .as_array()
+        .expect("items")
+        .iter()
+        .map(|item| item["email"].as_str().unwrap().to_owned())
+        .collect::<Vec<_>>();
+
+    assert_eq!(emails, vec!["flyingkid2022@outlook.com"]);
+}
+
+#[tokio::test]
 async fn profile_requires_authenticated_session() {
     let response = app()
         .oneshot(

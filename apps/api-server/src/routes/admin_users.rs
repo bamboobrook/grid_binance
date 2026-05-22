@@ -99,6 +99,7 @@ async fn list_users(
     let items = ordered_emails
         .into_iter()
         .filter_map(|email| items.remove(&email))
+        .filter(|item| item.admin_role.is_none())
         .collect();
 
     Ok(Json(AdminUserListResponse { items }))
