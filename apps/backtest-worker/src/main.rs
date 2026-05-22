@@ -1521,68 +1521,65 @@ async fn process_task(
         task.config.per_symbol_top_n.max(20),
         &task.config.risk_profile,
     );
+    poller
+        .update_task_summary_fragment(
+            &task.task_id,
+            json!({
+                "stage": "trade_refinement",
+                "stage_label": "候选精测中",
+                "progress_pct": 80,
+                "refinement_candidate_count": ranked.len(),
+            }),
+        )
+        .await?;
+    let refinement_inputs = ranked
+        .into_iter()
+        .enumerate()
+        .map(|(index, evaluated_with_drawdown)| (index, evaluated_with_drawdown))
+        .collect::<Vec<_>>();
+    let mut refinement_results = evaluate_refinement_candidates_parallel(
+        refinement_inputs,
+        &task.config,
+        &market_context,
+        config.max_threads,
+    )?;
+    refinement_results.sort_by_key(|(index, _)| *index);
     let mut outputs = Vec::new();
 
-    for (index, evaluated_with_drawdown) in ranked.into_iter().enumerate() {
-        let evaluated = evaluated_with_drawdown.candidate;
+    for (index, output) in refinement_results {
         poller
             .heartbeat(
                 &task.task_id,
                 &format!("trade_refinement_top_{}", index + 1),
             )
             .await?;
-        let overridden_candidate = enforce_task_execution_model(
-            apply_task_overrides_to_candidate(evaluated.candidate.clone(), &task.config),
-            &task.config,
-        );
-        let refined = run_candidate_trade_refinement(&overridden_candidate, &market_context)?;
-        let used_trade_refinement =
-            !trades_for_candidate(&evaluated.candidate, &market_context.trades).is_empty();
         let rows = vec![json!({
             "task_id": task.task_id,
-            "candidate_id": evaluated.candidate.candidate_id,
+            "candidate_id": output.candidate_id,
             "rank": index + 1,
-            "kline_score": evaluated.score.rank_score,
+            "kline_score": output.score,
             "trade_metrics": {
-                "total_return_pct": refined.metrics.total_return_pct,
-                "max_drawdown_pct": refined.metrics.max_drawdown_pct,
-                "used_drawdown_limit_pct": evaluated_with_drawdown.used_drawdown_limit_pct,
-                "risk_relaxed": evaluated_with_drawdown.risk_relaxed,
-                "trade_count": refined.metrics.trade_count,
+                "total_return_pct": output.total_return_pct,
+                "max_drawdown_pct": output.max_drawdown_pct,
+                "used_drawdown_limit_pct": output.used_drawdown_limit_pct,
+                "risk_relaxed": output.risk_relaxed,
+                "trade_count": output.trade_count,
             },
         })];
         respect_pause_or_cancel(poller, &task.task_id).await?;
         let manifest = write_task_json_artifact(
             &config.artifact_root,
             &task.task_id,
-            &evaluated.candidate.candidate_id,
+            &output.candidate_id,
             "summary",
             &rows,
         )?;
         verify_artifact(&manifest)?;
-        outputs.push(CandidateOutput {
-            candidate_id: evaluated.candidate.candidate_id,
-            rank: index + 1,
-            score: evaluated.score.rank_score,
-            config: serde_json::to_value(&overridden_candidate.config)
-                .map_err(|error| format!("serialize candidate config: {error}"))?,
-            summary: json!({}),
-            artifact_path: manifest.path.display().to_string(),
-            checksum_sha256: manifest.checksum_sha256,
-            used_trade_refinement,
-            used_drawdown_limit_pct: evaluated_with_drawdown.used_drawdown_limit_pct,
-            risk_relaxed: evaluated_with_drawdown.risk_relaxed,
-            total_return_pct: refined.metrics.total_return_pct,
-            max_drawdown_pct: refined.metrics.max_drawdown_pct,
-            trade_count: refined.metrics.trade_count,
-            annualized_return_pct: refined.metrics.annualized_return_pct,
-            return_drawdown_ratio: refined.metrics.return_drawdown_ratio,
-            planned_margin_quote: refined.metrics.planned_margin_quote,
-            max_leverage_used: refined.metrics.max_leverage_used,
-            equity_curve: refined.equity_curve.clone(),
-            drawdown_curve: refined.drawdown_curve.clone(),
-            trades_preview: refined.trades.clone(),
-        });
+        let mut output = output;
+        output.rank = index + 1;
+        output.artifact_path = manifest.path.display().to_string();
+        output.checksum_sha256 = manifest.checksum_sha256;
+        outputs.push(output);
         respect_pause_or_cancel(poller, &task.task_id).await?;
     }
 
@@ -2086,6 +2083,91 @@ fn sort_evaluated_with_drawdown_for_profile(
                 })
         });
     }
+}
+
+fn evaluate_refinement_candidates_parallel(
+    inputs: Vec<(usize, EvaluatedCandidateWithDrawdown)>,
+    task_config: &WorkerTaskConfig,
+    market_context: &MarketDataContext,
+    max_threads: usize,
+) -> Result<Vec<(usize, CandidateOutput)>, String> {
+    if inputs.is_empty() {
+        return Ok(Vec::new());
+    }
+    let width = max_threads.clamp(1, inputs.len());
+    let chunk_size = (inputs.len() + width - 1) / width;
+    let chunked = std::thread::scope(|scope| {
+        let mut handles = Vec::new();
+        for chunk in inputs.chunks(chunk_size.max(1)) {
+            let chunk_items = chunk.to_vec();
+            handles.push(scope.spawn(move || {
+                chunk_items
+                    .into_iter()
+                    .map(|(index, evaluated_with_drawdown)| {
+                        refine_candidate_output(
+                            index,
+                            evaluated_with_drawdown,
+                            task_config,
+                            market_context,
+                        )
+                    })
+                    .collect::<Vec<_>>()
+            }));
+        }
+        let mut merged = Vec::new();
+        for handle in handles {
+            merged.extend(handle.join().expect("candidate refinement thread panicked"));
+        }
+        merged
+    });
+
+    let mut outputs = Vec::with_capacity(chunked.len());
+    for item in chunked {
+        outputs.push(item?);
+    }
+    Ok(outputs)
+}
+
+fn refine_candidate_output(
+    index: usize,
+    evaluated_with_drawdown: EvaluatedCandidateWithDrawdown,
+    task_config: &WorkerTaskConfig,
+    market_context: &MarketDataContext,
+) -> Result<(usize, CandidateOutput), String> {
+    let evaluated = evaluated_with_drawdown.candidate;
+    let overridden_candidate = enforce_task_execution_model(
+        apply_task_overrides_to_candidate(evaluated.candidate.clone(), task_config),
+        task_config,
+    );
+    let refined = run_candidate_trade_refinement(&overridden_candidate, market_context)?;
+    let used_trade_refinement =
+        !trades_for_candidate(&evaluated.candidate, &market_context.trades).is_empty();
+    Ok((
+        index,
+        CandidateOutput {
+            candidate_id: evaluated.candidate.candidate_id,
+            rank: index + 1,
+            score: evaluated.score.rank_score,
+            config: serde_json::to_value(&overridden_candidate.config)
+                .map_err(|error| format!("serialize candidate config: {error}"))?,
+            summary: json!({}),
+            artifact_path: String::new(),
+            checksum_sha256: String::new(),
+            used_trade_refinement,
+            used_drawdown_limit_pct: evaluated_with_drawdown.used_drawdown_limit_pct,
+            risk_relaxed: evaluated_with_drawdown.risk_relaxed,
+            total_return_pct: refined.metrics.total_return_pct,
+            max_drawdown_pct: refined.metrics.max_drawdown_pct,
+            trade_count: refined.metrics.trade_count,
+            annualized_return_pct: refined.metrics.annualized_return_pct,
+            return_drawdown_ratio: refined.metrics.return_drawdown_ratio,
+            planned_margin_quote: refined.metrics.planned_margin_quote,
+            max_leverage_used: refined.metrics.max_leverage_used,
+            equity_curve: refined.equity_curve.clone(),
+            drawdown_curve: refined.drawdown_curve.clone(),
+            trades_preview: refined.trades.clone(),
+        },
+    ))
 }
 
 fn evaluated_profit_score(candidate: &EvaluatedCandidateWithDrawdown) -> f64 {
