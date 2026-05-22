@@ -194,7 +194,7 @@ impl MartingalePublishService {
                     leverage: item.leverage,
                     enabled: item.enabled,
                     status: "pending_confirmation".to_owned(),
-                    parameter_snapshot: item.parameter_snapshot.clone(),
+                    parameter_snapshot: publish_parameter_snapshot(item, candidate),
                     metrics_snapshot: candidate.summary.clone(),
                 }
             })
@@ -378,6 +378,17 @@ fn portfolio_risk_summary(request: &PublishPortfolioRequest) -> Value {
         "max_leverage": max_leverage,
         "total_weight_pct": request.total_weight_pct,
     })
+}
+
+fn publish_parameter_snapshot(
+    item: &PublishPortfolioItemRequest,
+    candidate: &BacktestCandidateRecord,
+) -> Value {
+    match &item.parameter_snapshot {
+        Value::Null => candidate.config.clone(),
+        Value::Object(map) if map.is_empty() => candidate.config.clone(),
+        _ => item.parameter_snapshot.clone(),
+    }
 }
 
 fn candidate_publish_metadata(config: &MartingalePortfolioConfig) -> (String, String) {
@@ -576,6 +587,69 @@ mod tests {
         }
     }
 
+    fn long_short_candidate(task_id: &str) -> NewBacktestCandidateRecord {
+        NewBacktestCandidateRecord {
+            task_id: task_id.to_owned(),
+            status: "ready".to_owned(),
+            rank: 1,
+            config: json!({
+                "portfolio_config": {
+                    "direction_mode": "long_and_short",
+                    "risk_limits": {},
+                    "strategies": [
+                        {
+                            "strategy_id": "BTCUSDT-long-v1",
+                            "symbol": "BTCUSDT",
+                            "market": "usd_m_futures",
+                            "direction": "long",
+                            "direction_mode": "long_and_short",
+                            "margin_mode": "isolated",
+                            "leverage": 4,
+                            "spacing": { "fixed_percent": { "step_bps": 90 } },
+                            "sizing": {
+                                "budget_scaled": {
+                                    "first_order_quote": "10",
+                                    "multiplier": "1.8",
+                                    "max_legs": 7,
+                                    "max_budget_quote": "150"
+                                }
+                            },
+                            "take_profit": { "percent": { "bps": 80 } },
+                            "stop_loss": { "strategy_drawdown_pct": { "pct_bps": 1800 } },
+                            "indicators": [],
+                            "entry_triggers": ["immediate"],
+                            "risk_limits": {}
+                        },
+                        {
+                            "strategy_id": "BTCUSDT-short-v1",
+                            "symbol": "BTCUSDT",
+                            "market": "usd_m_futures",
+                            "direction": "short",
+                            "direction_mode": "long_and_short",
+                            "margin_mode": "isolated",
+                            "leverage": 4,
+                            "spacing": { "fixed_percent": { "step_bps": 130 } },
+                            "sizing": {
+                                "budget_scaled": {
+                                    "first_order_quote": "8",
+                                    "multiplier": "1.6",
+                                    "max_legs": 6,
+                                    "max_budget_quote": "120"
+                                }
+                            },
+                            "take_profit": { "percent": { "bps": 95 } },
+                            "stop_loss": { "strategy_drawdown_pct": { "pct_bps": 1400 } },
+                            "indicators": [],
+                            "entry_triggers": ["immediate"],
+                            "risk_limits": {}
+                        }
+                    ]
+                }
+            }),
+            summary: json!({ "annualized_return_pct": 68.9, "max_drawdown_pct": 19.8 }),
+        }
+    }
+
     fn task_record(owner: &str) -> NewBacktestTaskRecord {
         NewBacktestTaskRecord {
             owner: owner.to_owned(),
@@ -682,5 +756,121 @@ mod tests {
 
         assert_eq!(error.status, StatusCode::BAD_REQUEST);
         assert_eq!(error.message, "candidate does not belong to task");
+    }
+
+    #[test]
+    fn publish_falls_back_to_complete_candidate_config_when_snapshot_is_empty() {
+        let db = SharedDb::ephemeral().expect("db");
+        let repo = db.backtest_repo();
+        let task = repo
+            .create_task(task_record("user@example.com"))
+            .expect("task");
+        repo.transition_task(&task.task_id, "succeeded")
+            .expect("succeeded");
+        let candidate = repo
+            .save_candidate(long_short_candidate(&task.task_id))
+            .expect("candidate");
+        let mut request = PublishPortfolioRequest {
+            name: "BTC long short sandbox".to_owned(),
+            task_id: task.task_id.clone(),
+            market: "usd_m_futures".to_owned(),
+            direction: "long_short".to_owned(),
+            risk_profile: "aggressive".to_owned(),
+            total_weight_pct: Decimal::new(100, 0),
+            items: vec![PublishPortfolioItemRequest {
+                candidate_id: candidate.candidate_id.clone(),
+                symbol: "BTCUSDT".to_owned(),
+                weight_pct: Decimal::new(100, 0),
+                leverage: 4,
+                enabled: true,
+                parameter_snapshot: json!({}),
+            }],
+        };
+        let service = MartingalePublishService::new(db.clone());
+
+        let response = service
+            .publish_portfolio("user@example.com", request.clone(), vec![candidate.clone()])
+            .expect("published with empty snapshot fallback");
+        let portfolio = service
+            .get_portfolio("user@example.com", &response.portfolio_id)
+            .expect("portfolio");
+        let snapshot = &portfolio.items[0].parameter_snapshot;
+        assert_eq!(snapshot, &candidate.config);
+        assert_eq!(
+            snapshot["portfolio_config"]["direction_mode"],
+            "long_and_short"
+        );
+        assert_eq!(
+            snapshot["portfolio_config"]["strategies"][0]["direction"],
+            "long"
+        );
+        assert_eq!(
+            snapshot["portfolio_config"]["strategies"][1]["direction"],
+            "short"
+        );
+        assert_eq!(
+            snapshot["portfolio_config"]["strategies"][0]["market"],
+            "usd_m_futures"
+        );
+        assert!(snapshot["portfolio_config"]["strategies"][0]["stop_loss"].is_object());
+        assert!(snapshot["portfolio_config"]["strategies"][1]["spacing"].is_object());
+
+        request.items[0].parameter_snapshot = Value::Null;
+        let null_response = service
+            .publish_portfolio("user@example.com", request, vec![candidate.clone()])
+            .expect("published with null snapshot fallback");
+        let null_portfolio = service
+            .get_portfolio("user@example.com", &null_response.portfolio_id)
+            .expect("null portfolio");
+        assert_eq!(null_portfolio.items[0].parameter_snapshot, candidate.config);
+    }
+
+    #[test]
+    fn confirm_start_portfolio_preserves_parameter_snapshot() {
+        let db = SharedDb::ephemeral().expect("db");
+        let repo = db.backtest_repo();
+        let task = repo
+            .create_task(task_record("user@example.com"))
+            .expect("task");
+        repo.transition_task(&task.task_id, "succeeded")
+            .expect("succeeded");
+        let candidate = repo
+            .save_candidate(long_short_candidate(&task.task_id))
+            .expect("candidate");
+        let service = MartingalePublishService::new(db.clone());
+        let response = service
+            .publish_portfolio(
+                "user@example.com",
+                PublishPortfolioRequest {
+                    name: "BTC long short live".to_owned(),
+                    task_id: task.task_id.clone(),
+                    market: "usd_m_futures".to_owned(),
+                    direction: "long_short".to_owned(),
+                    risk_profile: "balanced".to_owned(),
+                    total_weight_pct: Decimal::new(100, 0),
+                    items: vec![PublishPortfolioItemRequest {
+                        candidate_id: candidate.candidate_id.clone(),
+                        symbol: "BTCUSDT".to_owned(),
+                        weight_pct: Decimal::new(100, 0),
+                        leverage: 4,
+                        enabled: true,
+                        parameter_snapshot: candidate.config.clone(),
+                    }],
+                },
+                vec![candidate.clone()],
+            )
+            .expect("published");
+
+        let running = service
+            .confirm_start_portfolio("user@example.com", &response.portfolio_id)
+            .expect("running");
+
+        assert_eq!(running.status, "running");
+        assert_eq!(running.items.len(), 1);
+        assert_eq!(running.items[0].parameter_snapshot, candidate.config);
+        assert_eq!(
+            running.items[0].parameter_snapshot["portfolio_config"]["strategies"][1]["direction"],
+            "short"
+        );
     }
 }
