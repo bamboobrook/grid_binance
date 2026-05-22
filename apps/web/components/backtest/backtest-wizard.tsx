@@ -145,7 +145,7 @@ export function BacktestWizard({ lang, onTaskCreated }: { lang: UiLanguage; onTa
         symbols = remoteSymbols.slice(0, MAX_SYMBOLS);
       }
     } else {
-      setFeedback(pickText(lang, "推荐币种查询失败，已使用内置 18 币种兜底，可继续手动调整。", "Recommended symbol lookup failed; using built-in 18-symbol fallback. You can still edit manually."));
+      setFeedback(pickText(lang, "推荐币种查询失败，已使用内置币种兜底，可继续手动调整。", "Recommended symbol lookup failed; using the built-in fallback. You can still edit manually."));
     }
 
     setForm((current) => ({
@@ -257,15 +257,15 @@ function AutomaticSearchPanel({ form, lang, recommendedPending, onApplyRecommend
               onClick={onApplyRecommendedSymbols}
               type="button"
             >
-              {recommendedPending ? pickText(lang, "查询中…", "Loading...") : pickText(lang, "查询并填入推荐 18 币种", "Load recommended 18 symbols")}
+              {recommendedPending ? pickText(lang, "查询中…", "Loading...") : pickText(lang, "查询并填入推荐 Top50 币种", "Load recommended Top 50 symbols")}
             </button>
           </div>
           <textarea className="min-h-20 w-full rounded-lg border border-border bg-background px-3 py-2" name="whitelist" onChange={onChange} placeholder="BTCUSDT, ETHUSDT" value={form.whitelist} />
           <p className="text-xs text-muted-foreground">
             {pickText(
               lang,
-              "推荐池来自本地 1m 行情库可覆盖 2023-01-01 起回测、且按主流成交活跃度筛选的币种；仍可手动增删。",
-              "The recommended pool uses symbols with local 1m data coverage since 2023-01-01 and mainstream liquidity ranking; you can still edit it manually.",
+              "推荐池来自本地 1m 行情库：覆盖 2023-01-01 起数据、近期仍有数据、按 USDT 合约成交活跃度取前 50；可手动删减。",
+              "The recommended pool uses local 1m data coverage since 2023-01-01, recent futures data, and the top 50 USDT futures by liquidity; you can edit manually.",
             )}
           </p>
         </div>

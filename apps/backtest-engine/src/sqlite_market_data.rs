@@ -558,6 +558,8 @@ mod tests {
             INSERT INTO market_universe(symbol, market_type, base_asset, quote_asset, volume_24h, updated_at)
                 VALUES ('BTCUSDT', 'futures_usdt_perp', 'BTC', 'USDT', 1000.0, '2026-05-22'),
                        ('ETHUSDT', 'futures_usdt_perp', 'ETH', 'USDT', 900.0, '2026-05-22'),
+                       ('SOLUSDT', 'futures_usdt_perp', 'SOL', 'USDT', 1200.0, '2026-05-22'),
+                       ('BNBUSDT', 'futures_usdt_perp', 'BNB', 'USDT', 800.0, '2026-05-22'),
                        ('OLDUSDT', 'futures_usdt_perp', 'OLD', 'USDT', 2000.0, '2026-05-22'),
                        ('SPOTUSDT', 'spot', 'SPOT', 'USDT', 3000.0, '2026-05-22');
             INSERT INTO klines(symbol, market_type, timeframe, open_time, open, high, low, close, volume, close_time)
@@ -566,6 +568,10 @@ mod tests {
                        ('BTCUSDT', 'spot', '1m', 1000, 9.0, 10.0, 8.0, 9.5, 3.0, 1999),
                        ('ETHUSDT', 'futures_usdt_perp', '1m', 1000, 20.0, 22.0, 19.0, 21.0, 7.0, 1999),
                        ('ETHUSDT', 'futures_usdt_perp', '1m', 5000, 21.0, 23.0, 20.0, 22.0, 8.0, 5999),
+                       ('SOLUSDT', 'futures_usdt_perp', '1m', 1000, 30.0, 32.0, 29.0, 31.0, 9.0, 1999),
+                       ('SOLUSDT', 'futures_usdt_perp', '1m', 5000, 31.0, 33.0, 30.0, 32.0, 10.0, 5999),
+                       ('BNBUSDT', 'futures_usdt_perp', '1m', 1000, 40.0, 42.0, 39.0, 41.0, 11.0, 1999),
+                       ('BNBUSDT', 'futures_usdt_perp', '1m', 5000, 41.0, 43.0, 40.0, 42.0, 12.0, 5999),
                        ('OLDUSDT', 'futures_usdt_perp', '1m', 90_000_000, 1.0, 1.1, 0.9, 1.0, 100.0, 90_000_999);
             ",
         )
@@ -649,16 +655,25 @@ mod tests {
     }
 
     #[test]
-    fn recommended_liquid_symbols_require_early_and_recent_futures_data() {
+    fn recommended_liquid_symbols_are_futures_usdt_ranked_by_volume_with_coverage() {
         let file = discord_c2im_fixture_db();
         let source = SqliteMarketDataSource::open_readonly(file.path())
             .expect("open readonly discord schema");
 
         let symbols = source
-            .recommended_liquid_symbols(1000, 4000, 18)
+            .recommended_liquid_symbols(1000, 4000, 50)
             .expect("recommended symbols");
 
-        assert_eq!(symbols, vec!["ETHUSDT".to_string()]);
+        assert_eq!(
+            symbols,
+            vec![
+                "SOLUSDT".to_string(),
+                "ETHUSDT".to_string(),
+                "BNBUSDT".to_string()
+            ]
+        );
+        assert!(!symbols.contains(&"OLDUSDT".to_owned()));
+        assert!(!symbols.contains(&"SPOTUSDT".to_owned()));
     }
 
     #[test]

@@ -53,6 +53,7 @@ struct RecommendedSymbolsResponse {
     min_start_date: String,
     market_type: String,
     interval: String,
+    limit: usize,
 }
 
 async fn recommended_symbols(
@@ -67,11 +68,12 @@ async fn recommended_symbols(
         min_start_date: "2023-01-01".to_owned(),
         market_type: "futures_usdt_perp".to_owned(),
         interval: "1m".to_owned(),
+        limit: 50,
     }))
 }
 
 fn load_recommended_symbols() -> Result<Vec<String>, String> {
-    const LIMIT: usize = 18;
+    const LIMIT: usize = 50;
     const FALLBACK: &[&str] = &[
         "BTCUSDT", "ETHUSDT", "BNBUSDT", "SOLUSDT", "DOGEUSDT", "XRPUSDT", "ADAUSDT", "ZECUSDT",
         "DASHUSDT", "NEARUSDT", "BCHUSDT", "LINKUSDT", "AVAXUSDT", "UNIUSDT", "FILUSDT", "DOTUSDT",
