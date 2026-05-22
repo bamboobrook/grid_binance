@@ -74,6 +74,9 @@ export interface MartingaleBacktestCandidateSummary {
   return_drawdown_ratio?: number | null;
   planned_margin_quote?: number | null;
   max_leverage_used?: number | null;
+  market?: string;
+  publishable?: boolean;
+  candidate_warning?: string;
   trades_preview?: MartingaleTradeDetail[];
   eligible_candidate_count_for_symbol?: number | null;
   rejection_breakdown?: Record<string, number>;
@@ -117,6 +120,23 @@ export interface MartingaleRiskSummary {
 }
 
 export type ApiDecimal = number | string;
+
+
+export type PortfolioRecalculateResponse = {
+  portfolio_id: string;
+  member_count: number;
+  total_return_pct: number;
+  annualized_return_pct?: number | null;
+  max_drawdown_pct: number;
+  return_drawdown_ratio?: number | null;
+  trade_count: number;
+  satisfies_drawdown_limit: boolean;
+  concentration_warnings: string[];
+  members: unknown[];
+  equity_curve: unknown[];
+  drawdown_curve: unknown[];
+  trades_preview: unknown[];
+};
 
 export interface PublishPortfolioItemRequest {
   candidate_id: string;

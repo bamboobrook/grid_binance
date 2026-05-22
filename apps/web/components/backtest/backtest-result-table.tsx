@@ -28,6 +28,7 @@ export type PortfolioMember = {
   annualized_return_pct?: number | null;
   score: number;
   trade_count: number;
+  leverage?: number | null;
 };
 
 export type PortfolioTop3Row = {
@@ -53,6 +54,7 @@ type BacktestResultTableProps = {
   onAddToBasket?: (candidate: BacktestCandidate) => void;
   onSelect?: (candidate: BacktestCandidate) => void;
   onSelectPortfolio?: (portfolio: PortfolioTop3Row) => void;
+  onEditPortfolio?: (portfolio: PortfolioTop3Row) => void;
   selectedId?: string;
   selectedTaskStatus?: string;
   taskName?: string;
@@ -67,6 +69,7 @@ export function BacktestResultTable({
   onAddToBasket,
   onSelect,
   onSelectPortfolio,
+  onEditPortfolio,
   selectedId,
   selectedTaskStatus,
   taskName,
@@ -154,13 +157,22 @@ export function BacktestResultTable({
                     ))}
                   </div>
                 )}
-                <button
-                  className="mt-2 rounded-full border border-border px-3 py-1 text-xs font-medium"
-                  onClick={() => onSelectPortfolio?.(entry)}
-                  type="button"
-                >
-                  {pickText(lang, "查看组合图表/明细", "View portfolio charts/details")}
-                </button>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <button
+                    className="rounded-full border border-border px-3 py-1 text-xs font-medium"
+                    onClick={() => onSelectPortfolio?.(entry)}
+                    type="button"
+                  >
+                    {pickText(lang, "查看组合图表/明细", "View portfolio charts/details")}
+                  </button>
+                  <button
+                    className="rounded-full bg-primary px-3 py-1 text-xs font-medium text-primary-foreground"
+                    onClick={() => onEditPortfolio?.(entry)}
+                    type="button"
+                  >
+                    {pickText(lang, "编辑组合", "Edit portfolio")}
+                  </button>
+                </div>
               </div>
             ))}
           </div>

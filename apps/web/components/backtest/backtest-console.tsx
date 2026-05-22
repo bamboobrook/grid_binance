@@ -9,7 +9,7 @@ import { BacktestWizard } from "@/components/backtest/backtest-wizard";
 import { MartingaleRiskWarning } from "@/components/backtest/martingale-risk-warning";
 import { PortfolioCandidateReview, type PortfolioBasketItem } from "@/components/backtest/portfolio-candidate-review";
 import { publishPortfolio, requestBacktestApi } from "@/components/backtest/request-client";
-import type { MartingaleBacktestCandidateSummary } from "@/lib/api-types";
+import type { MartingaleBacktestCandidateSummary, PortfolioRecalculateResponse } from "@/lib/api-types";
 import { pickText, type UiLanguage } from "@/lib/ui/preferences";
 import { cn } from "@/lib/utils";
 
@@ -42,6 +42,7 @@ type BacktestTask = {
   stage: string;
   updatedAt: string;
   summary: Record<string, unknown> | null;
+  config?: Record<string, unknown> | null;
 };
 
 type BacktestCandidate = {
@@ -58,6 +59,7 @@ type BacktestCandidate = {
   decision: string;
   rank?: number;
   summary: MartingaleBacktestCandidateSummary;
+  rawConfig?: Record<string, unknown>;
 };
 
 type RefreshTasksOptions = {
@@ -82,6 +84,10 @@ export function BacktestConsole({ lang, locale }: { lang: UiLanguage; locale: st
   const [selectedCandidate, setSelectedCandidate] = useState<BacktestCandidate | null>(null);
   const [selectedPortfolio, setSelectedPortfolio] = useState<PortfolioTop3Row | null>(null);
   const [basketItems, setBasketItems] = useState<PortfolioBasketItem[]>([]);
+  const [sandboxItems, setSandboxItems] = useState<PortfolioBasketItem[]>([]);
+  const [sandboxResult, setSandboxResult] = useState<PortfolioRecalculateResponse | null>(null);
+  const [sandboxPending, setSandboxPending] = useState(false);
+  const [sandboxFeedback, setSandboxFeedback] = useState("");
   const [feedback, setFeedback] = useState("");
   const [loading, setLoading] = useState(true);
   const activePanelId = activeTab === "wizard" ? "backtest-wizard-panel" : "backtest-professional-panel";
@@ -154,7 +160,7 @@ export function BacktestConsole({ lang, locale }: { lang: UiLanguage; locale: st
     [selectedTask, selectedTaskId],
   );
 
-  const selectedSummary = selectedPortfolio ? portfolioSummaryForCharts(selectedPortfolio) : (selectedCandidate?.summary ?? {});
+  const selectedSummary = sandboxResult ? portfolioSandboxSummaryForCharts(sandboxResult) : selectedPortfolio ? portfolioSummaryForCharts(selectedPortfolio) : (selectedCandidate?.summary ?? {});
   const selectedDetailTitle = selectedPortfolio
     ? pickText(lang, `组合 #${selectedPortfolio.portfolio_rank || "?"} 图表与明细`, `Portfolio #${selectedPortfolio.portfolio_rank || "?"} charts and details`)
     : selectedCandidate
@@ -166,32 +172,105 @@ export function BacktestConsole({ lang, locale }: { lang: UiLanguage; locale: st
   const expandedUniverseSymbolCount = typeof taskSummary.expanded_universe_symbol_count === "number" ? taskSummary.expanded_universe_symbol_count : null;
   const portfolioPoolCandidateCount = typeof taskSummary.portfolio_pool_candidate_count === "number" ? taskSummary.portfolio_pool_candidate_count : null;
 
+  function candidateToBasketItem(candidate: BacktestCandidate, weightPct: number, index: number): PortfolioBasketItem {
+    const recommendedLeverage = candidate.summary.recommended_leverage ?? candidate.summary.max_leverage_used ?? 1;
+    return {
+      localId: `${candidate.id}-${Date.now()}-${index}`,
+      candidateId: candidate.id,
+      taskId: selectedTaskId,
+      selectedTaskId,
+      symbol: candidate.symbol,
+      market: candidate.market,
+      direction: candidate.direction,
+      riskProfile: candidate.summary.risk_profile ?? "balanced",
+      parameters: candidate.parameters,
+      recommended_weight_pct: weightPct,
+      recommended_leverage: recommendedLeverage,
+      weightPct: String(weightPct),
+      leverage: String(recommendedLeverage),
+      enabled: true,
+      parameterSnapshot: candidate.rawConfig ?? { description: candidate.parameters },
+      metricsSnapshot: { ...candidate.summary },
+    };
+  }
+
   function addCandidateToBasket(candidate: BacktestCandidate) {
     const recommendedWeightPct = candidate.summary.recommended_weight_pct ?? (basketItems.length === 0 ? 100 : 0);
-    const recommendedLeverage = candidate.summary.recommended_leverage ?? 1;
-    const summarySnapshot = candidate.summary as Record<string, unknown>;
-    const parameterSnapshot = readObject(summarySnapshot.parameters) ?? readObject(summarySnapshot.config) ?? { description: candidate.parameters };
-    setBasketItems((current) => [
-      ...current,
-      {
-        localId: `${candidate.id}-${Date.now()}-${current.length}`,
-        candidateId: candidate.id,
-        taskId: selectedTaskId,
-        selectedTaskId,
-        symbol: candidate.symbol,
-        market: candidate.market,
-        direction: candidate.direction,
-        riskProfile: candidate.summary.risk_profile ?? "balanced",
-        parameters: candidate.parameters,
-        recommended_weight_pct: recommendedWeightPct,
-        recommended_leverage: recommendedLeverage,
-        weightPct: String(recommendedWeightPct),
-        leverage: String(recommendedLeverage),
-        enabled: true,
-        parameterSnapshot,
-        metricsSnapshot: { ...candidate.summary },
-      },
-    ]);
+    setBasketItems((current) => [...current, candidateToBasketItem(candidate, recommendedWeightPct, current.length)]);
+  }
+
+  function addCandidateToSandbox(candidate: BacktestCandidate) {
+    if (candidate.summary.publishable === false) {
+      setSandboxFeedback(pickText(lang, "该候选超过回撤限制，只能作为诊断查看，不能加入沙盒。", "This candidate exceeds drawdown limits and cannot be added to the sandbox."));
+      return;
+    }
+    setSandboxItems((current) => [...current, candidateToBasketItem(candidate, current.length === 0 ? 100 : 0, current.length)]);
+  }
+
+  function editPortfolioSandbox(portfolio: PortfolioTop3Row) {
+    const items = portfolio.members.map((member, index) => {
+      const candidate = candidates.find((entry) => entry.id === member.candidate_id);
+      return candidate
+        ? candidateToBasketItem(candidate, member.allocation_pct, index)
+        : {
+            localId: `${member.candidate_id}-${Date.now()}-${index}`,
+            candidateId: member.candidate_id,
+            taskId: selectedTaskId,
+            selectedTaskId,
+            symbol: member.symbol,
+            market: "usd_m_futures",
+            direction: member.direction,
+            riskProfile: "balanced",
+            parameters: "From auto portfolio",
+            recommended_weight_pct: member.allocation_pct,
+            recommended_leverage: member.leverage ?? 1,
+            weightPct: String(member.allocation_pct),
+            leverage: String(member.leverage ?? 1),
+            enabled: true,
+            parameterSnapshot: {},
+            metricsSnapshot: {},
+          };
+    });
+    setSandboxItems(items);
+    setSandboxResult(portfolioToSandboxResult(portfolio));
+    setSelectedPortfolio(portfolio);
+    setSelectedCandidate(null);
+    setSandboxFeedback(pickText(lang, "已载入组合沙盒，可继续增删策略并重算。", "Portfolio loaded into sandbox; you can edit and recalculate."));
+  }
+
+  async function recalculateSandbox() {
+    const enabledItems = sandboxItems.filter((item) => item.enabled);
+    const totalWeight = enabledItems.reduce((sum, item) => sum + (Number(item.weightPct) || 0), 0);
+    if (Math.abs(totalWeight - 100) > 0.01) {
+      setSandboxFeedback(pickText(lang, "启用项权重合计必须为 100%。", "Enabled weights must sum to 100%."));
+      return;
+    }
+    setSandboxPending(true);
+    setSandboxFeedback(pickText(lang, "正在重算组合表现…", "Recalculating portfolio performance..."));
+    const response = await requestBacktestApi("/api/user/backtest/portfolios/recalculate", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        task_id: selectedTaskId,
+        max_drawdown_pct: readNumber(selectedTask?.summary?.max_drawdown_pct) ?? readNumber(readObject(selectedTask?.config?.scoring)?.max_drawdown_pct),
+        items: enabledItems.map((item) => ({
+          candidate_id: item.candidateId,
+          symbol: item.symbol,
+          weight_pct: Number(item.weightPct),
+          leverage: Number(item.leverage),
+          enabled: item.enabled,
+        })),
+      }),
+    });
+    setSandboxPending(false);
+    if (!response.ok) {
+      setSandboxFeedback(response.message);
+      return;
+    }
+    setSandboxResult(response.data as PortfolioRecalculateResponse);
+    setSelectedCandidate(null);
+    setSelectedPortfolio(null);
+    setSandboxFeedback(pickText(lang, "组合已重算，图表已切换到沙盒结果。", "Portfolio recalculated; charts now show the sandbox result."));
   }
 
   return (
@@ -346,7 +425,9 @@ export function BacktestConsole({ lang, locale }: { lang: UiLanguage; locale: st
             onSelectPortfolio={(portfolio) => {
               setSelectedPortfolio(portfolio);
               setSelectedCandidate(null);
+              setSandboxResult(null);
             }}
+            onEditPortfolio={(portfolio) => editPortfolioSandbox(portfolio)}
           />
         </div>
 
@@ -359,6 +440,46 @@ export function BacktestConsole({ lang, locale }: { lang: UiLanguage; locale: st
             selectedTaskId={selectedTaskId}
             tasks={tasks}
           />
+
+          <section className="rounded-2xl border border-border bg-card p-4 shadow-sm space-y-3">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <h2 className="text-lg font-semibold">{pickText(lang, "组合沙盒", "Portfolio sandbox")}</h2>
+                <p className="text-sm text-muted-foreground">{pickText(lang, "从自动组合点编辑，或把候选加入沙盒，调整权重/杠杆后重算组合表现。", "Edit an auto portfolio or add candidates, then adjust weights/leverage and recalculate.")}</p>
+              </div>
+              <button className="rounded-full border border-border px-3 py-1 text-xs font-medium" onClick={() => setBasketItems(sandboxItems)} type="button">
+                {pickText(lang, "用作发布篮子", "Use as publish basket")}
+              </button>
+            </div>
+            {selectedCandidate ? (
+              <button className="rounded-full bg-secondary px-3 py-1 text-xs font-medium" onClick={() => addCandidateToSandbox(selectedCandidate)} type="button">
+                {pickText(lang, `加入沙盒：${selectedCandidate.symbol}`, `Add to sandbox: ${selectedCandidate.symbol}`)}
+              </button>
+            ) : null}
+            {sandboxItems.length > 0 ? (
+              <div className="space-y-2">
+                {sandboxItems.map((item) => (
+                  <div className="grid gap-2 rounded-lg border border-border p-2 text-xs md:grid-cols-[1fr_90px_90px_80px]" key={item.localId}>
+                    <div>
+                      <p className="font-medium">{item.symbol}</p>
+                      <p className="text-muted-foreground">{item.direction} · {item.candidateId}</p>
+                    </div>
+                    <input className="rounded border border-border bg-background px-2 py-1" value={item.weightPct} onChange={(event) => setSandboxItems((current) => current.map((row) => row.localId === item.localId ? { ...row, weightPct: event.currentTarget.value } : row))} />
+                    <input className="rounded border border-border bg-background px-2 py-1" value={item.leverage} onChange={(event) => setSandboxItems((current) => current.map((row) => row.localId === item.localId ? { ...row, leverage: event.currentTarget.value } : row))} />
+                    <button className="rounded border border-border px-2 py-1" onClick={() => setSandboxItems((current) => current.filter((row) => row.localId !== item.localId))} type="button">{pickText(lang, "移除", "Remove")}</button>
+                  </div>
+                ))}
+                <div className="flex flex-wrap items-center gap-2">
+                  <button className="rounded-full bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-60" disabled={sandboxPending} onClick={() => void recalculateSandbox()} type="button">
+                    {sandboxPending ? pickText(lang, "重算中…", "Recalculating...") : pickText(lang, "重新计算组合表现", "Recalculate portfolio")}
+                  </button>
+                  {sandboxResult ? <span className="text-sm text-muted-foreground">{pickText(lang, `年化 ${sandboxResult.annualized_return_pct?.toFixed(2) ?? "—"}% · 回撤 ${sandboxResult.max_drawdown_pct.toFixed(2)}%`, `Annualized ${sandboxResult.annualized_return_pct?.toFixed(2) ?? "—"}% · DD ${sandboxResult.max_drawdown_pct.toFixed(2)}%`)}</span> : null}
+                </div>
+              </div>
+            ) : <p className="text-sm text-muted-foreground">{pickText(lang, "暂无沙盒成员。", "No sandbox members yet.")}</p>}
+            <p className="text-sm text-muted-foreground" aria-live="polite">{sandboxFeedback}</p>
+          </section>
+
           <PortfolioCandidateReview
             basketItems={basketItems}
             candidate={selectedCandidate}
@@ -478,7 +599,12 @@ function normalizeCandidate(candidate: ApiCandidate, lang: UiLanguage): Backtest
       risk_profile: readString(summary.risk_profile) || undefined,
       risk_summary_human: readString(summary.risk_summary_human) || undefined,
       portfolio_group_key: readString(summary.portfolio_group_key) || undefined,
+      market: readString(summary.market) || undefined,
+      publishable: typeof summary.publishable === "boolean" ? summary.publishable : undefined,
+      candidate_warning: readString(summary.candidate_warning) || undefined,
+      max_leverage_used: readNumber(summary.max_leverage_used) ?? undefined,
     },
+    rawConfig: config,
   };
 }
 
@@ -667,6 +793,42 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+
+function portfolioSandboxSummaryForCharts(result: PortfolioRecalculateResponse): MartingaleBacktestCandidateSummary {
+  return {
+    annualized_return_pct: result.annualized_return_pct ?? null,
+    drawdown_curve: result.drawdown_curve as MartingaleBacktestCandidateSummary["drawdown_curve"],
+    equity_curve: result.equity_curve as MartingaleBacktestCandidateSummary["equity_curve"],
+    max_drawdown_pct: result.max_drawdown_pct,
+    member_count: result.member_count,
+    members: result.members as MartingaleBacktestCandidateSummary["members"],
+    portfolio_id: result.portfolio_id,
+    risk_summary_human: `沙盒组合包含 ${result.member_count} 个策略，${result.satisfies_drawdown_limit ? "满足" : "超过"}回撤限制`,
+    total_return_pct: result.total_return_pct,
+    trade_count: result.trade_count,
+    trades_preview: result.trades_preview as MartingaleBacktestCandidateSummary["trades_preview"],
+    return_drawdown_ratio: result.return_drawdown_ratio ?? null,
+  };
+}
+
+function portfolioToSandboxResult(portfolio: PortfolioTop3Row): PortfolioRecalculateResponse {
+  return {
+    portfolio_id: portfolio.portfolio_id,
+    member_count: portfolio.member_count,
+    total_return_pct: portfolio.total_return_pct || portfolio.return_pct,
+    annualized_return_pct: portfolio.annualized_return_pct ?? null,
+    max_drawdown_pct: portfolio.max_drawdown_pct,
+    return_drawdown_ratio: null,
+    trade_count: portfolio.trade_count,
+    satisfies_drawdown_limit: true,
+    concentration_warnings: [],
+    members: portfolio.members,
+    equity_curve: portfolio.equity_curve ?? [],
+    drawdown_curve: portfolio.drawdown_curve ?? [],
+    trades_preview: portfolio.trades_preview ?? [],
+  };
+}
+
 function portfolioSummaryForCharts(portfolio: PortfolioTop3Row): MartingaleBacktestCandidateSummary {
   return {
     annualized_return_pct: portfolio.annualized_return_pct ?? null,
@@ -704,6 +866,7 @@ function portfolioTop3FromTask(task: BacktestTask | null): PortfolioTop3Row[] {
         annualized_return_pct: readNumber(mr.annualized_return_pct) ?? null,
         score: readNumber(mr.score) ?? 0,
         trade_count: readNumber(mr.trade_count) ?? 0,
+        leverage: readNumber(mr.leverage) ?? null,
       };
     });
     return {
