@@ -461,7 +461,7 @@ fn enumerate_seeded_diversified_portfolios_v2(
             .or_default()
             .push(idx);
     }
-    if by_symbol.len() < 10 {
+    if by_symbol.len() < 2 {
         return;
     }
 
@@ -511,35 +511,62 @@ fn enumerate_seeded_diversified_portfolios_v2(
     });
 
     let symbol_orders = vec![balanced_symbols, low_drawdown_symbols, high_return_symbols];
-    for member_count in 10..=12.min(by_symbol.len()) {
+    for member_count in 10..=12.min(indices.len()) {
         for order in &symbol_orders {
-            let current = order
-                .iter()
-                .take(member_count)
-                .map(|(_, idx)| *idx)
-                .collect::<Vec<_>>();
+            let current = repeated_distinct_indices_from_order(order, &by_symbol, member_count, 0);
             push_weighted_templates(eligible, &current, templates, max_drawdown_pct, result);
         }
     }
 
     let symbols = by_symbol.keys().cloned().collect::<Vec<_>>();
     for offset in 0..symbols.len().min(8) {
-        let mut current = Vec::new();
-        for symbol in symbols
+        let order = symbols
             .iter()
             .cycle()
             .skip(offset)
-            .take(10.min(symbols.len()))
-        {
-            if let Some(rows) = by_symbol.get(symbol) {
-                let index = current.len() % rows.len().max(1);
-                if let Some(idx) = rows.get(index) {
-                    current.push(*idx);
-                }
+            .take(symbols.len())
+            .filter_map(|symbol| {
+                by_symbol
+                    .get(symbol)
+                    .and_then(|rows| rows.first())
+                    .map(|idx| (symbol.clone(), *idx))
+            })
+            .collect::<Vec<_>>();
+        for member_count in 10..=12.min(indices.len()) {
+            let current =
+                repeated_distinct_indices_from_order(&order, &by_symbol, member_count, offset);
+            push_weighted_templates(eligible, &current, templates, max_drawdown_pct, result);
+        }
+    }
+}
+
+fn repeated_distinct_indices_from_order(
+    order: &[(String, usize)],
+    by_symbol: &std::collections::BTreeMap<String, Vec<usize>>,
+    member_count: usize,
+    offset: usize,
+) -> Vec<usize> {
+    let mut current = Vec::with_capacity(member_count);
+    let mut seen = std::collections::BTreeSet::<usize>::new();
+    for (position, (symbol, fallback_idx)) in order.iter().cycle().skip(offset).enumerate() {
+        if current.len() >= member_count || position > member_count * order.len().max(1) {
+            break;
+        }
+        let Some(rows) = by_symbol.get(symbol) else {
+            continue;
+        };
+        for shift in 0..rows.len().max(1) {
+            let candidate_idx = rows
+                .get((position + shift) % rows.len())
+                .copied()
+                .unwrap_or(*fallback_idx);
+            if seen.insert(candidate_idx) {
+                current.push(candidate_idx);
+                break;
             }
         }
-        push_weighted_templates(eligible, &current, templates, max_drawdown_pct, result);
     }
+    current
 }
 
 fn push_weighted_templates(
