@@ -232,8 +232,8 @@ fn long_short_search_timeout_secs(
     coarse_candidate_count: usize,
     max_threads: usize,
 ) -> u64 {
-    let survivor_count = long_short_survivor_limit(task).min(coarse_candidate_count);
-    let fine_candidate_count = task.random_candidates.max(12);
+    let survivor_count = profit_v2_survivor_limit(task).min(coarse_candidate_count);
+    let fine_candidate_count = fine_refinement_candidate_count(task);
     let estimated_screenings = coarse_candidate_count + survivor_count * fine_candidate_count;
     let threads = bounded_parallel_width(max_threads);
     let estimated_parallel_batches = (estimated_screenings + threads - 1) / threads;
@@ -1273,7 +1273,7 @@ fn task_with_long_short_refinement_space(
         "tail_stop_bps": fine_space.tail_stop_bps,
         "long_short_weight_pct": fine_space.long_short_weight_pct,
     }));
-    refined_task.random_candidates = task.random_candidates.max(32);
+    refined_task.random_candidates = fine_refinement_candidate_count(task);
     refined_task.intelligent_rounds = 1;
     refined_task
 }
@@ -2250,9 +2250,17 @@ fn long_short_survivor_limit(task: &WorkerTaskConfig) -> usize {
 
 fn profit_v2_survivor_limit(task: &WorkerTaskConfig) -> usize {
     if should_use_profit_optimized_v2(task) {
-        task.per_symbol_top_n.max(20).min(80)
+        task.per_symbol_top_n.max(10).min(16)
     } else {
         long_short_survivor_limit(task)
+    }
+}
+
+fn fine_refinement_candidate_count(task: &WorkerTaskConfig) -> usize {
+    if should_use_profit_optimized_v2(task) {
+        task.random_candidates.min(8).max(6)
+    } else {
+        task.random_candidates.max(12)
     }
 }
 
