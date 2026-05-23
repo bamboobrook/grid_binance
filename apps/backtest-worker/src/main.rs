@@ -1637,11 +1637,7 @@ async fn process_task(
     respect_pause_or_cancel(poller, &task.task_id).await?;
 
     let portfolio_candidates = portfolio_candidates_from_outputs(&portfolio_pool_outputs);
-    let portfolio_top_n = if should_use_profit_optimized_v2(&task.config) {
-        10
-    } else {
-        3
-    };
+    let portfolio_top_n = task.config.portfolio_top_n.max(1).min(10);
     let portfolio_top3 = if should_use_profit_optimized_v2(&task.config) {
         build_portfolio_top_n_v2(
             &portfolio_candidates,

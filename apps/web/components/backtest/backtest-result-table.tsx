@@ -2,6 +2,16 @@ import { DataTable, type DataTableRow } from "@/components/ui/table";
 import type { MartingaleBacktestCandidateSummary } from "@/lib/api-types";
 import { pickText, type UiLanguage } from "@/lib/ui/preferences";
 
+function normalizePercentPoint(value: number | null | undefined): number | null {
+  if (value == null || !Number.isFinite(value)) return null;
+  return Math.abs(value) > 1000 ? value / 100 : value;
+}
+
+function formatPercentPoint(value: number | null | undefined): string {
+  const normalized = normalizePercentPoint(value);
+  return normalized == null ? "—" : `${normalized.toFixed(2)}%`;
+}
+
 type BacktestCandidate = {
   id: string;
   symbol: string;
@@ -134,11 +144,11 @@ export function BacktestResultTable({
                 </div>
                 <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
                   <span className="text-muted-foreground">{pickText(lang, "组合收益", "Portfolio return")}</span>
-                  <span className={entry.return_pct >= 0 ? "text-green-600" : "text-red-600"}>{entry.return_pct.toFixed(2)}%</span>
+                  <span className={entry.return_pct >= 0 ? "text-green-600" : "text-red-600"}>{formatPercentPoint(entry.return_pct)}</span>
                   <span className="text-muted-foreground">{pickText(lang, "组合年化", "Annualized")}</span>
-                  <span>{entry.annualized_return_pct != null ? `${entry.annualized_return_pct.toFixed(2)}%` : "—"}</span>
+                  <span>{formatPercentPoint(entry.annualized_return_pct)}</span>
                   <span className="text-muted-foreground">{pickText(lang, "组合回撤", "Drawdown")}</span>
-                  <span className="text-red-600">{entry.max_drawdown_pct.toFixed(2)}%</span>
+                  <span className="text-red-600">{formatPercentPoint(entry.max_drawdown_pct)}</span>
                   <span className="text-muted-foreground">{pickText(lang, "交易", "Trades")}</span>
                   <span>{entry.trade_count}</span>
                   <span className="text-muted-foreground">{pickText(lang, "评分", "Score")}</span>
@@ -254,7 +264,7 @@ function candidateRow(
     tradeCount: candidate.tradeCount,
     parameters: candidate.parameters,
     decision: candidate.decision,
-    annualized: candidate.summary?.annualized_return_pct != null ? `${candidate.summary.annualized_return_pct.toFixed(2)}%` : "—",
+    annualized: formatPercentPoint(candidate.summary?.annualized_return_pct),
     leverage: candidate.summary?.max_leverage_used != null ? `${candidate.summary.max_leverage_used}x` : "—",
     returnDrawdownRatio: candidate.summary?.return_drawdown_ratio != null ? candidate.summary.return_drawdown_ratio.toFixed(2) : "—",
     actions: (

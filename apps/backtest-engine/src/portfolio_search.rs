@@ -93,28 +93,82 @@ fn best_indices_by_symbol(eligible: &[&EvaluatedCandidate], per_symbol: usize) -
 }
 
 fn allocation_templates_v2() -> Vec<Vec<f64>> {
-    vec![
-        vec![0.7, 0.3],
-        vec![0.6, 0.4],
-        vec![0.5, 0.5],
-        vec![0.4, 0.6],
-        vec![0.3, 0.7],
-        vec![0.5, 0.3, 0.2],
-        vec![0.4, 0.3, 0.3],
-        vec![0.4, 0.35, 0.25],
-        vec![0.7, 0.1, 0.1, 0.1],
-        vec![0.6, 0.2, 0.1, 0.1],
-        vec![0.55, 0.15, 0.15, 0.15],
-        vec![0.4, 0.2, 0.2, 0.2],
-        vec![0.25, 0.25, 0.25, 0.25],
-        vec![0.3, 0.25, 0.2, 0.15, 0.1],
-        vec![0.25, 0.25, 0.2, 0.15, 0.15],
-        vec![0.20, 0.18, 0.17, 0.16, 0.15, 0.14],
-        vec![0.30, 0.18, 0.15, 0.12, 0.10, 0.08, 0.07],
-        vec![0.25, 0.18, 0.15, 0.12, 0.10, 0.08, 0.07, 0.05],
-        vec![0.18, 0.16, 0.14, 0.12, 0.10, 0.09, 0.08, 0.07, 0.06],
-        vec![0.16, 0.14, 0.12, 0.11, 0.10, 0.09, 0.08, 0.07, 0.06, 0.07],
-    ]
+    let mut templates = Vec::new();
+    for member_count in 2..=12 {
+        templates.extend(allocation_templates_for_member_count(member_count));
+    }
+    templates
+}
+
+fn allocation_templates_for_member_count(member_count: usize) -> Vec<Vec<f64>> {
+    if member_count == 0 {
+        return Vec::new();
+    }
+    let n = member_count as f64;
+    let even = vec![1.0 / n; member_count];
+    let mut templates = vec![even];
+
+    if member_count >= 3 {
+        let leader = if member_count >= 10 {
+            0.16
+        } else {
+            0.34_f64.min(1.0 / n + 0.12)
+        };
+        let rest = (1.0 - leader) / (member_count - 1) as f64;
+        templates.push(
+            std::iter::once(leader)
+                .chain(std::iter::repeat(rest).take(member_count - 1))
+                .collect(),
+        );
+    }
+
+    if member_count >= 5 {
+        let first_bucket = (member_count / 3).max(1);
+        let second_bucket = (member_count / 3).max(1);
+        let third_bucket = member_count - first_bucket - second_bucket;
+        let mut tpl = Vec::with_capacity(member_count);
+        tpl.extend(std::iter::repeat(0.45 / first_bucket as f64).take(first_bucket));
+        tpl.extend(std::iter::repeat(0.35 / second_bucket as f64).take(second_bucket));
+        if third_bucket > 0 {
+            tpl.extend(std::iter::repeat(0.20 / third_bucket as f64).take(third_bucket));
+        }
+        templates.push(tpl);
+    }
+
+    if member_count >= 10 {
+        templates.push(
+            vec![
+                0.12, 0.11, 0.10, 0.10, 0.09, 0.09, 0.09, 0.08, 0.08, 0.07, 0.07,
+            ][..member_count.min(11)]
+                .to_vec(),
+        );
+        templates.push(vec![0.10; member_count]);
+    }
+
+    for tpl in &mut templates {
+        normalize_allocations(tpl);
+    }
+    templates.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+    templates.dedup_by(|a, b| allocations_key(a) == allocations_key(b));
+    templates
+}
+
+fn normalize_allocations(allocations: &mut [f64]) {
+    let sum: f64 = allocations.iter().sum();
+    if sum <= 0.0 {
+        return;
+    }
+    for value in allocations {
+        *value /= sum;
+    }
+}
+
+fn allocations_key(allocations: &[f64]) -> String {
+    allocations
+        .iter()
+        .map(|value| format!("{:.4}", value))
+        .collect::<Vec<_>>()
+        .join("|")
 }
 
 fn daily_return_correlation_penalty(members: &[(&EvaluatedCandidate, f64)]) -> f64 {
@@ -303,11 +357,18 @@ fn build_ranked_portfolios_v2(
     max_drawdown_pct: f64,
     top_n: usize,
 ) -> Vec<WeightedPortfolio> {
-    let seed_indices = best_indices_by_symbol(eligible, 10);
+    let seed_indices = best_indices_by_symbol(eligible, 12);
     let templates = allocation_templates_v2();
     let mut scored: Vec<WeightedPortfolio> = Vec::new();
 
-    enumerate_combinations_v2(
+    enumerate_compact_portfolios_v2(
+        eligible,
+        &seed_indices,
+        &templates,
+        max_drawdown_pct,
+        &mut scored,
+    );
+    enumerate_seeded_diversified_portfolios_v2(
         eligible,
         &seed_indices,
         &templates,
@@ -321,113 +382,169 @@ fn build_ranked_portfolios_v2(
     scored
 }
 
-fn enumerate_combinations_v2(
+fn enumerate_compact_portfolios_v2(
     eligible: &[&EvaluatedCandidate],
     indices: &[usize],
     templates: &[Vec<f64>],
     max_drawdown_pct: f64,
     result: &mut Vec<WeightedPortfolio>,
 ) {
-    let max_combos = 80_000usize;
-    let mut combo_count = 0usize;
-
-    for member_count in 2..=10.min(indices.len()) {
-        let mut current: Vec<usize> = Vec::with_capacity(member_count);
-        enumerate_member_combinations(
-            eligible,
-            indices,
-            member_count,
-            0,
-            &mut current,
-            templates,
-            result,
-            &mut combo_count,
-            max_combos,
-            max_drawdown_pct,
-        );
-        if combo_count >= max_combos {
-            break;
+    let unique_symbols = indices
+        .iter()
+        .map(|idx| candidate_symbol(eligible[*idx]))
+        .collect::<std::collections::BTreeSet<_>>()
+        .len();
+    let max_member_count = if unique_symbols >= 10 {
+        0
+    } else {
+        10.min(indices.len())
+    };
+    for member_count in 2..=max_member_count {
+        let windows = indices.len().saturating_sub(member_count).min(24);
+        for start in 0..=windows {
+            let current = indices
+                .iter()
+                .cycle()
+                .skip(start)
+                .take(member_count)
+                .copied()
+                .collect::<Vec<_>>();
+            push_weighted_templates(eligible, &current, templates, max_drawdown_pct, result);
         }
     }
 }
 
-fn enumerate_member_combinations(
+fn enumerate_seeded_diversified_portfolios_v2(
     eligible: &[&EvaluatedCandidate],
     indices: &[usize],
-    target_len: usize,
-    start_pos: usize,
-    current: &mut Vec<usize>,
     templates: &[Vec<f64>],
-    result: &mut Vec<WeightedPortfolio>,
-    combo_count: &mut usize,
-    max_combos: usize,
     max_drawdown_pct: f64,
+    result: &mut Vec<WeightedPortfolio>,
 ) {
-    if *combo_count >= max_combos {
+    let mut by_symbol = std::collections::BTreeMap::<String, Vec<usize>>::new();
+    for &idx in indices {
+        by_symbol
+            .entry(candidate_symbol(eligible[idx]))
+            .or_default()
+            .push(idx);
+    }
+    if by_symbol.len() < 10 {
         return;
     }
-    if current.len() == target_len {
-        let unique_count: usize = current
+
+    for rows in by_symbol.values_mut() {
+        rows.sort_by(|a, b| eligible[*b].score.total_cmp(&eligible[*a].score));
+        rows.truncate(4);
+    }
+
+    let mut balanced_symbols: Vec<(String, usize)> = by_symbol
+        .iter()
+        .filter_map(|(symbol, rows)| rows.first().map(|idx| (symbol.clone(), *idx)))
+        .collect();
+    balanced_symbols.sort_by(|a, b| eligible[b.1].score.total_cmp(&eligible[a.1].score));
+
+    let mut low_drawdown_symbols: Vec<(String, usize)> = by_symbol
+        .iter()
+        .filter_map(|(symbol, rows)| {
+            rows.iter()
+                .min_by(|a, b| {
+                    eligible[**a]
+                        .max_drawdown_pct
+                        .total_cmp(&eligible[**b].max_drawdown_pct)
+                })
+                .map(|idx| (symbol.clone(), *idx))
+        })
+        .collect();
+    low_drawdown_symbols.sort_by(|a, b| {
+        eligible[a.1]
+            .max_drawdown_pct
+            .total_cmp(&eligible[b.1].max_drawdown_pct)
+    });
+
+    let mut high_return_symbols: Vec<(String, usize)> = by_symbol
+        .iter()
+        .filter_map(|(symbol, rows)| {
+            rows.iter()
+                .max_by(|a, b| {
+                    candidate_annualized_or_return(eligible[**a])
+                        .total_cmp(&candidate_annualized_or_return(eligible[**b]))
+                })
+                .map(|idx| (symbol.clone(), *idx))
+        })
+        .collect();
+    high_return_symbols.sort_by(|a, b| {
+        candidate_annualized_or_return(eligible[b.1])
+            .total_cmp(&candidate_annualized_or_return(eligible[a.1]))
+    });
+
+    let symbol_orders = vec![balanced_symbols, low_drawdown_symbols, high_return_symbols];
+    for member_count in 10..=12.min(by_symbol.len()) {
+        for order in &symbol_orders {
+            let current = order
+                .iter()
+                .take(member_count)
+                .map(|(_, idx)| *idx)
+                .collect::<Vec<_>>();
+            push_weighted_templates(eligible, &current, templates, max_drawdown_pct, result);
+        }
+    }
+
+    let symbols = by_symbol.keys().cloned().collect::<Vec<_>>();
+    for offset in 0..symbols.len().min(8) {
+        let mut current = Vec::new();
+        for symbol in symbols
             .iter()
-            .map(|idx| candidate_symbol(eligible[*idx]))
-            .collect::<std::collections::BTreeSet<_>>()
-            .len();
-        if unique_count < 2 {
-            return;
-        }
-
-        for template in templates.iter().filter(|tpl| tpl.len() == target_len) {
-            if let Some(portfolio) =
-                build_weighted_portfolio(eligible, current, template, max_drawdown_pct)
-            {
-                let member_pairs: Vec<(&EvaluatedCandidate, f64)> = current
-                    .iter()
-                    .zip(template.iter())
-                    .map(|(idx, alloc)| (eligible[*idx], *alloc))
-                    .collect();
-                let correlation_factor = daily_return_correlation_penalty(&member_pairs);
-                let mut adjusted = portfolio;
-                let correlation_penalty = (1.0 - correlation_factor).max(0.0) * 4.0;
-                let diversity_bonus = if unique_count >= 3 {
-                    (unique_count as f64).ln() * 1.2
-                } else {
-                    0.0
-                };
-                adjusted.score = adjusted.score + diversity_bonus - correlation_penalty;
-                result.push(adjusted);
-                prune_scored_portfolios(result, 200, 80);
-            }
-            *combo_count += 1;
-            if *combo_count >= max_combos {
-                break;
+            .cycle()
+            .skip(offset)
+            .take(10.min(symbols.len()))
+        {
+            if let Some(rows) = by_symbol.get(symbol) {
+                let index = current.len() % rows.len().max(1);
+                if let Some(idx) = rows.get(index) {
+                    current.push(*idx);
+                }
             }
         }
-        return;
+        push_weighted_templates(eligible, &current, templates, max_drawdown_pct, result);
     }
+}
 
-    let remaining = target_len - current.len();
-    if indices.len().saturating_sub(start_pos) < remaining {
-        return;
-    }
-    for pos in start_pos..indices.len() {
-        current.push(indices[pos]);
-        enumerate_member_combinations(
-            eligible,
-            indices,
-            target_len,
-            pos + 1,
-            current,
-            templates,
-            result,
-            combo_count,
-            max_combos,
-            max_drawdown_pct,
-        );
-        current.pop();
-        if *combo_count >= max_combos {
-            break;
+fn push_weighted_templates(
+    eligible: &[&EvaluatedCandidate],
+    current: &[usize],
+    templates: &[Vec<f64>],
+    max_drawdown_pct: f64,
+    result: &mut Vec<WeightedPortfolio>,
+) {
+    for template in templates.iter().filter(|tpl| tpl.len() == current.len()) {
+        if let Some(portfolio) =
+            build_weighted_portfolio(eligible, current, template, max_drawdown_pct)
+        {
+            let member_pairs: Vec<(&EvaluatedCandidate, f64)> = current
+                .iter()
+                .zip(template.iter())
+                .map(|(idx, alloc)| (eligible[*idx], *alloc))
+                .collect();
+            let mut adjusted = portfolio;
+            let correlation_factor = daily_return_correlation_penalty(&member_pairs);
+            let correlation_penalty = (1.0 - correlation_factor).max(0.0) * 4.0;
+            let unique_count = adjusted
+                .members
+                .iter()
+                .map(|m| m.symbol.as_str())
+                .collect::<std::collections::HashSet<_>>()
+                .len();
+            adjusted.score += (unique_count as f64).ln() * 1.8 - correlation_penalty;
+            result.push(adjusted);
+            prune_scored_portfolios(result, 300, 120);
         }
     }
+}
+
+fn candidate_annualized_or_return(candidate: &EvaluatedCandidate) -> f64 {
+    candidate
+        .annualized_return_pct
+        .unwrap_or(candidate.return_pct)
 }
 
 pub fn build_portfolio_top3(
@@ -711,9 +828,16 @@ fn build_weighted_portfolio(
         let symbol = candidate_symbol(candidate);
         *allocation_by_symbol.entry(symbol).or_insert(0.0) += *allocation_pct;
     }
+    let unique_symbol_count_for_cap = allocation_by_symbol.len();
+    let max_symbol_allocation_pct =
+        if member_indices.len() >= 10 || unique_symbol_count_for_cap >= 10 {
+            40.000001
+        } else {
+            80.000001
+        };
     if allocation_by_symbol
         .values()
-        .any(|allocation_pct| *allocation_pct > 80.000001)
+        .any(|allocation_pct| *allocation_pct > max_symbol_allocation_pct)
     {
         return None;
     }
@@ -1606,6 +1730,64 @@ mod tests {
                 .unwrap_or(0)
                 >= 10
         );
+    }
+
+    #[test]
+    fn portfolio_v2_prefers_ten_plus_symbols_and_caps_single_symbol_weight() {
+        let mut candidates = Vec::new();
+        for index in 0..18 {
+            let symbol = format!("SYM{index}USDT");
+            candidates.push(candidate_with_curve(
+                &format!("{symbol}-growth"),
+                &symbol,
+                80.0 - index as f64,
+                12.0 + (index % 4) as f64,
+                80.0 - index as f64,
+                100.0,
+                vec![100.0, 108.0 + index as f64, 118.0 + index as f64],
+            ));
+            candidates.push(candidate_with_curve(
+                &format!("{symbol}-stable"),
+                &symbol,
+                24.0 - (index % 5) as f64,
+                3.0 + (index % 3) as f64,
+                30.0 - index as f64 * 0.2,
+                100.0,
+                vec![
+                    100.0,
+                    101.0 + index as f64 * 0.1,
+                    106.0 + index as f64 * 0.2,
+                ],
+            ));
+        }
+
+        let artifact = build_portfolio_top_n_v2(&candidates, 25.0, 10);
+        assert_eq!(artifact.top3.len(), 3);
+        for portfolio in &artifact.top3 {
+            let mut allocation_by_symbol = std::collections::BTreeMap::<String, f64>::new();
+            for member in &portfolio.members {
+                *allocation_by_symbol
+                    .entry(member.symbol.clone())
+                    .or_default() += member.allocation_pct;
+            }
+            assert!(
+                portfolio.member_count >= 10,
+                "v2 portfolio must be broad enough for live risk, got {:?}",
+                portfolio.members
+            );
+            assert!(
+                allocation_by_symbol.len() >= 10,
+                "v2 portfolio should cover at least 10 symbols, got {:?}",
+                allocation_by_symbol
+            );
+            assert!(
+                allocation_by_symbol
+                    .values()
+                    .all(|value| *value <= 40.000001),
+                "single symbol cap violated: {:?}",
+                allocation_by_symbol
+            );
+        }
     }
 
     #[test]
