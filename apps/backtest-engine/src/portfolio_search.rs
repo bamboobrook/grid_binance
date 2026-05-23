@@ -378,8 +378,41 @@ fn build_ranked_portfolios_v2(
 
     scored.sort_by(|a, b| b.score.total_cmp(&a.score));
     dedupe_portfolios_by_member_weight(&mut scored);
-    scored.truncate(top_n);
-    scored
+    let broad = scored
+        .iter()
+        .filter(|portfolio| portfolio_meets_live_diversity_floor(portfolio))
+        .cloned()
+        .collect::<Vec<_>>();
+    let mut ranked = if broad.len() >= 3 {
+        let mut broad_ranked = broad;
+        broad_ranked.sort_by(|a, b| b.score.total_cmp(&a.score));
+        let mut remaining = scored
+            .into_iter()
+            .filter(|portfolio| !portfolio_meets_live_diversity_floor(portfolio))
+            .collect::<Vec<_>>();
+        remaining.sort_by(|a, b| b.score.total_cmp(&a.score));
+        broad_ranked.extend(remaining);
+        broad_ranked
+    } else {
+        scored
+    };
+    ranked.truncate(top_n);
+    ranked
+}
+
+fn portfolio_meets_live_diversity_floor(portfolio: &WeightedPortfolio) -> bool {
+    if portfolio.member_count < 10 {
+        return false;
+    }
+    let mut allocation_by_symbol = std::collections::BTreeMap::<&str, f64>::new();
+    for member in &portfolio.members {
+        *allocation_by_symbol
+            .entry(member.symbol.as_str())
+            .or_default() += member.allocation_pct;
+    }
+    allocation_by_symbol
+        .values()
+        .all(|allocation_pct| *allocation_pct <= 40.000001)
 }
 
 fn enumerate_compact_portfolios_v2(
