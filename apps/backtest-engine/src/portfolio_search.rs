@@ -92,6 +92,52 @@ fn best_indices_by_symbol(eligible: &[&EvaluatedCandidate], per_symbol: usize) -
     result
 }
 
+fn portfolio_seed_indices_by_symbol(
+    eligible: &[&EvaluatedCandidate],
+    per_symbol_score: usize,
+    per_symbol_low_drawdown: usize,
+    per_symbol_high_return: usize,
+) -> Vec<usize> {
+    let mut grouped: std::collections::BTreeMap<String, Vec<(usize, &EvaluatedCandidate)>> =
+        std::collections::BTreeMap::new();
+    for (index, candidate) in eligible.iter().enumerate() {
+        grouped
+            .entry(candidate_symbol(candidate))
+            .or_default()
+            .push((index, *candidate));
+    }
+
+    let mut result = Vec::new();
+    for (_symbol, rows) in grouped {
+        let mut by_score = rows.clone();
+        by_score.sort_by(|a, b| b.1.score.total_cmp(&a.1.score));
+        result.extend(by_score.into_iter().take(per_symbol_score).map(|(index, _)| index));
+
+        let mut by_drawdown = rows.clone();
+        by_drawdown.sort_by(|a, b| a.1.max_drawdown_pct.total_cmp(&b.1.max_drawdown_pct));
+        result.extend(
+            by_drawdown
+                .into_iter()
+                .take(per_symbol_low_drawdown)
+                .map(|(index, _)| index),
+        );
+
+        let mut by_return = rows;
+        by_return.sort_by(|a, b| {
+            candidate_annualized_or_return(b.1).total_cmp(&candidate_annualized_or_return(a.1))
+        });
+        result.extend(
+            by_return
+                .into_iter()
+                .take(per_symbol_high_return)
+                .map(|(index, _)| index),
+        );
+    }
+    result.sort_unstable();
+    result.dedup();
+    result
+}
+
 fn allocation_templates_v2() -> Vec<Vec<f64>> {
     let mut templates = Vec::new();
     for member_count in 2..=12 {
@@ -301,9 +347,13 @@ fn pearson_r(x: &[f64], y: &[f64]) -> Option<f64> {
 fn dedupe_portfolios_by_member_weight(portfolios: &mut Vec<WeightedPortfolio>) {
     let mut seen: std::collections::BTreeSet<String> = std::collections::BTreeSet::new();
     portfolios.retain(|p| {
-        let mut member_ids: Vec<&str> = p.members.iter().map(|m| m.candidate_id.as_str()).collect();
-        member_ids.sort();
-        let key = member_ids.join("|");
+        let mut member_keys: Vec<String> = p
+            .members
+            .iter()
+            .map(|m| format!("{}:{:.2}", m.candidate_id, m.allocation_pct))
+            .collect();
+        member_keys.sort();
+        let key = member_keys.join("|");
         seen.insert(key)
     });
 }
@@ -357,7 +407,12 @@ fn build_ranked_portfolios_v2(
     max_drawdown_pct: f64,
     top_n: usize,
 ) -> Vec<WeightedPortfolio> {
-    let seed_indices = best_indices_by_symbol(eligible, 12);
+    let best_single_annualized = eligible
+        .iter()
+        .map(|candidate| candidate_annualized_or_return(candidate))
+        .fold(0.0_f64, f64::max);
+    let target_annualized = (best_single_annualized * 0.82).max(40.0);
+    let seed_indices = portfolio_seed_indices_by_symbol(eligible, 12, 8, 8);
     let templates = allocation_templates_v2();
     let mut scored: Vec<WeightedPortfolio> = Vec::new();
 
@@ -375,6 +430,19 @@ fn build_ranked_portfolios_v2(
         max_drawdown_pct,
         &mut scored,
     );
+    enumerate_risk_balanced_portfolios_v2(
+        eligible,
+        &seed_indices,
+        &templates,
+        max_drawdown_pct,
+        &mut scored,
+    );
+    enumerate_stochastic_risk_portfolios_v2(
+        eligible,
+        &seed_indices,
+        max_drawdown_pct,
+        &mut scored,
+    );
 
     scored.sort_by(|a, b| b.score.total_cmp(&a.score));
     dedupe_portfolios_by_member_weight(&mut scored);
@@ -385,19 +453,41 @@ fn build_ranked_portfolios_v2(
         .collect::<Vec<_>>();
     let mut ranked = if broad.len() >= 3 {
         let mut broad_ranked = broad;
-        broad_ranked.sort_by(|a, b| b.score.total_cmp(&a.score));
+        sort_portfolios_by_yield_then_risk(&mut broad_ranked, target_annualized);
         let mut remaining = scored
             .into_iter()
             .filter(|portfolio| !portfolio_meets_live_diversity_floor(portfolio))
             .collect::<Vec<_>>();
-        remaining.sort_by(|a, b| b.score.total_cmp(&a.score));
+        sort_portfolios_by_yield_then_risk(&mut remaining, target_annualized);
         broad_ranked.extend(remaining);
         broad_ranked
     } else {
+        sort_portfolios_by_yield_then_risk(&mut scored, target_annualized);
         scored
     };
     ranked.truncate(top_n);
     ranked
+}
+
+fn sort_portfolios_by_yield_then_risk(portfolios: &mut [WeightedPortfolio], target_annualized: f64) {
+    portfolios.sort_by(|a, b| {
+        let a_ann = a.annualized_return_pct.unwrap_or(a.return_pct);
+        let b_ann = b.annualized_return_pct.unwrap_or(b.return_pct);
+        let a_meets = a_ann >= target_annualized;
+        let b_meets = b_ann >= target_annualized;
+        match (a_meets, b_meets) {
+            (true, true) => (b_ann / b.max_drawdown_pct.max(1.0))
+                .total_cmp(&(a_ann / a.max_drawdown_pct.max(1.0)))
+                .then_with(|| a.max_drawdown_pct.total_cmp(&b.max_drawdown_pct))
+                .then_with(|| b_ann.total_cmp(&a_ann)),
+            (true, false) => std::cmp::Ordering::Less,
+            (false, true) => std::cmp::Ordering::Greater,
+            (false, false) => (b_ann / b.max_drawdown_pct.max(1.0))
+                .total_cmp(&(a_ann / a.max_drawdown_pct.max(1.0)))
+                .then_with(|| b_ann.total_cmp(&a_ann))
+                .then_with(|| a.max_drawdown_pct.total_cmp(&b.max_drawdown_pct)),
+        }
+    });
 }
 
 fn portfolio_meets_live_diversity_floor(portfolio: &WeightedPortfolio) -> bool {
@@ -540,6 +630,212 @@ fn enumerate_seeded_diversified_portfolios_v2(
     }
 }
 
+fn enumerate_risk_balanced_portfolios_v2(
+    eligible: &[&EvaluatedCandidate],
+    indices: &[usize],
+    templates: &[Vec<f64>],
+    max_drawdown_pct: f64,
+    result: &mut Vec<WeightedPortfolio>,
+) {
+    let mut high_return = indices.to_vec();
+    high_return.sort_by(|a, b| {
+        candidate_annualized_or_return(eligible[*b])
+            .total_cmp(&candidate_annualized_or_return(eligible[*a]))
+    });
+    high_return.truncate(18);
+
+    let mut low_drawdown = indices.to_vec();
+    low_drawdown.sort_by(|a, b| {
+        eligible[*a]
+            .max_drawdown_pct
+            .total_cmp(&eligible[*b].max_drawdown_pct)
+    });
+    low_drawdown.truncate(18);
+
+    let mut best_ratio = indices.to_vec();
+    best_ratio.sort_by(|a, b| {
+        (candidate_annualized_or_return(eligible[*b]) / eligible[*b].max_drawdown_pct.max(1.0))
+            .total_cmp(
+                &(candidate_annualized_or_return(eligible[*a])
+                    / eligible[*a].max_drawdown_pct.max(1.0)),
+            )
+    });
+    best_ratio.truncate(18);
+
+    let pools = [high_return, low_drawdown, best_ratio];
+    for member_count in 6..=12.min(indices.len()) {
+        for offset in 0..8 {
+            let mut current = Vec::with_capacity(member_count);
+            let mut seen = std::collections::BTreeSet::<usize>::new();
+            let mut guard = 0;
+            while current.len() < member_count && guard < member_count * pools.len() * 8 {
+                for (pool_index, pool) in pools.iter().enumerate() {
+                    if pool.is_empty() || current.len() >= member_count {
+                        continue;
+                    }
+                    let idx = pool[(offset + guard + pool_index) % pool.len()];
+                    if seen.insert(idx) {
+                        current.push(idx);
+                    }
+                }
+                guard += 1;
+            }
+            push_weighted_templates(eligible, &current, templates, max_drawdown_pct, result);
+        }
+    }
+}
+
+fn enumerate_stochastic_risk_portfolios_v2(
+    eligible: &[&EvaluatedCandidate],
+    indices: &[usize],
+    max_drawdown_pct: f64,
+    result: &mut Vec<WeightedPortfolio>,
+) {
+    if indices.len() < 2 {
+        return;
+    }
+
+    let mut pool = indices.to_vec();
+    pool.sort_by(|a, b| {
+        (candidate_annualized_or_return(eligible[*b]) / eligible[*b].max_drawdown_pct.max(1.0))
+            .total_cmp(
+                &(candidate_annualized_or_return(eligible[*a])
+                    / eligible[*a].max_drawdown_pct.max(1.0)),
+            )
+    });
+    pool.truncate(48);
+
+    let min_member_count = if pool.len() >= 10 { 10 } else { 2 };
+    let max_member_count = 12.min(pool.len());
+    let iterations = if pool.len() >= 18 { 600 } else { 300 };
+    let mut rng = DeterministicRng::new(0xD15E_A5E5_5EED_u64 ^ pool.len() as u64);
+
+    for _ in 0..iterations {
+        let member_count = rng.gen_range(min_member_count, max_member_count + 1);
+        let current = stochastic_member_indices(eligible, &pool, member_count, &mut rng);
+        if current.len() < 2 {
+            continue;
+        }
+        let weights = stochastic_allocations(eligible, &current, &mut rng);
+        if let Some(portfolio) = build_weighted_portfolio(eligible, &current, &weights, max_drawdown_pct)
+        {
+            result.push(portfolio);
+            prune_scored_portfolios(result, 1_500, 750);
+        }
+    }
+}
+
+fn stochastic_member_indices(
+    eligible: &[&EvaluatedCandidate],
+    pool: &[usize],
+    member_count: usize,
+    rng: &mut DeterministicRng,
+) -> Vec<usize> {
+    let mut by_symbol = std::collections::BTreeMap::<String, Vec<usize>>::new();
+    for &idx in pool {
+        by_symbol
+            .entry(candidate_symbol(eligible[idx]))
+            .or_default()
+            .push(idx);
+    }
+    for rows in by_symbol.values_mut() {
+        rows.sort_by(|a, b| {
+            (candidate_annualized_or_return(eligible[*b]) / eligible[*b].max_drawdown_pct.max(1.0))
+                .total_cmp(
+                    &(candidate_annualized_or_return(eligible[*a])
+                        / eligible[*a].max_drawdown_pct.max(1.0)),
+                )
+        });
+    }
+
+    let mut current = Vec::with_capacity(member_count);
+    let mut seen = std::collections::BTreeSet::<usize>::new();
+    let mut symbols = by_symbol.keys().cloned().collect::<Vec<_>>();
+    shuffle_with_rng(&mut symbols, rng);
+    for symbol in &symbols {
+        if current.len() >= member_count {
+            break;
+        }
+        let Some(rows) = by_symbol.get(symbol) else {
+            continue;
+        };
+        let cap = rows.len().min(6);
+        let idx = rows[rng.gen_range(0, cap)];
+        if seen.insert(idx) {
+            current.push(idx);
+        }
+    }
+
+    let mut guard = 0;
+    while current.len() < member_count && guard < pool.len() * 4 {
+        let idx = pool[rng.gen_range(0, pool.len())];
+        if seen.insert(idx) {
+            current.push(idx);
+        }
+        guard += 1;
+    }
+    current
+}
+
+fn stochastic_allocations(
+    eligible: &[&EvaluatedCandidate],
+    current: &[usize],
+    rng: &mut DeterministicRng,
+) -> Vec<f64> {
+    let mut weights = current
+        .iter()
+        .map(|idx| {
+            let candidate = eligible[*idx];
+            let quality = (candidate_annualized_or_return(candidate).max(0.0)
+                / candidate.max_drawdown_pct.max(1.0))
+                .max(0.05);
+            let jitter = 0.35 + rng.next_unit_f64() * 1.45;
+            quality.powf(0.70) * jitter
+        })
+        .collect::<Vec<_>>();
+    normalize_allocations(&mut weights);
+    weights
+}
+
+fn shuffle_with_rng<T>(items: &mut [T], rng: &mut DeterministicRng) {
+    if items.len() < 2 {
+        return;
+    }
+    for index in (1..items.len()).rev() {
+        let swap_with = rng.gen_range(0, index + 1);
+        items.swap(index, swap_with);
+    }
+}
+
+struct DeterministicRng {
+    state: u64,
+}
+
+impl DeterministicRng {
+    fn new(seed: u64) -> Self {
+        Self { state: seed }
+    }
+
+    fn next_u64(&mut self) -> u64 {
+        self.state = self
+            .state
+            .wrapping_mul(6364136223846793005)
+            .wrapping_add(1442695040888963407);
+        self.state
+    }
+
+    fn next_unit_f64(&mut self) -> f64 {
+        (self.next_u64() >> 11) as f64 / ((1_u64 << 53) as f64)
+    }
+
+    fn gen_range(&mut self, start: usize, end: usize) -> usize {
+        if end <= start + 1 {
+            return start;
+        }
+        start + (self.next_u64() as usize % (end - start))
+    }
+}
+
 fn repeated_distinct_indices_from_order(
     order: &[(String, usize)],
     by_symbol: &std::collections::BTreeMap<String, Vec<usize>>,
@@ -576,7 +872,15 @@ fn push_weighted_templates(
     max_drawdown_pct: f64,
     result: &mut Vec<WeightedPortfolio>,
 ) {
-    for template in templates.iter().filter(|tpl| tpl.len() == current.len()) {
+    let mut current_templates = templates
+        .iter()
+        .filter(|tpl| tpl.len() == current.len())
+        .cloned()
+        .collect::<Vec<_>>();
+    current_templates.sort_by(|a, b| allocations_key(a).cmp(&allocations_key(b)));
+    current_templates.dedup_by(|a, b| allocations_key(a) == allocations_key(b));
+
+    for template in &current_templates {
         if let Some(portfolio) =
             build_weighted_portfolio(eligible, current, template, max_drawdown_pct)
         {
@@ -596,7 +900,7 @@ fn push_weighted_templates(
                 .len();
             adjusted.score += (unique_count as f64).ln() * 1.8 - correlation_penalty;
             result.push(adjusted);
-            prune_scored_portfolios(result, 300, 120);
+            prune_scored_portfolios(result, 1_500, 750);
         }
     }
 }
@@ -839,12 +1143,20 @@ fn prune_scored_portfolios(portfolios: &mut Vec<WeightedPortfolio>, threshold: u
     if portfolios.len() <= threshold {
         return;
     }
-    portfolios.sort_by(|a, b| {
-        b.score
-            .partial_cmp(&a.score)
-            .unwrap_or(std::cmp::Ordering::Equal)
-    });
+    portfolios.sort_by(|a, b| portfolio_prune_rank(b).total_cmp(&portfolio_prune_rank(a)));
     portfolios.truncate(keep);
+}
+
+fn portfolio_prune_rank(portfolio: &WeightedPortfolio) -> f64 {
+    let annualized = portfolio.annualized_return_pct.unwrap_or(portfolio.return_pct);
+    let unique_symbols = portfolio
+        .members
+        .iter()
+        .map(|member| member.symbol.as_str())
+        .collect::<std::collections::HashSet<_>>()
+        .len() as f64;
+    let calmar = annualized / portfolio.max_drawdown_pct.max(1.0);
+    calmar * 10.0 + annualized * 0.2 + unique_symbols.ln() * 4.0 - portfolio.max_drawdown_pct * 0.2
 }
 
 fn build_weighted_portfolio(
@@ -1019,8 +1331,12 @@ fn build_weighted_portfolio(
     let member_bonus = (member_count as f64).ln() * 1.5;
     let unique_bonus = (unique_symbol_count as f64).ln() * 2.0;
     let concentration_penalty = max_single_symbol_weight_pct * 0.03;
-    let score =
-        annualized + return_drawdown * 12.0 + member_bonus + unique_bonus - concentration_penalty;
+    let score = annualized
+        + return_drawdown * 18.0
+        + member_bonus
+        + unique_bonus
+        - max_drawdown_pct * 0.65
+        - concentration_penalty;
 
     Some(WeightedPortfolio {
         members: portfolio_members,
@@ -1759,6 +2075,64 @@ mod tests {
     }
 
     #[test]
+    fn portfolio_v2_finds_lower_drawdown_without_sacrificing_yield() {
+        let volatile = candidate_with_curve(
+            "volatile-growth",
+            "BTCUSDT",
+            330.0,
+            30.0,
+            50.0,
+            100.0,
+            vec![100.0, 180.0, 120.0, 260.0, 430.0],
+        );
+        let steady_a = candidate_with_curve(
+            "steady-a",
+            "SOLUSDT",
+            250.0,
+            8.0,
+            30.0,
+            100.0,
+            vec![100.0, 125.0, 170.0, 250.0, 350.0],
+        );
+        let steady_b = candidate_with_curve(
+            "steady-b",
+            "DOGEUSDT",
+            240.0,
+            8.0,
+            28.0,
+            100.0,
+            vec![100.0, 130.0, 165.0, 245.0, 340.0],
+        );
+        let stabilizers = (0..9).map(|index| {
+            candidate_with_curve(
+                &format!("stabilizer-{index}"),
+                &["ETHUSDT", "XRPUSDT", "ADAUSDT", "BNBUSDT", "LINKUSDT", "AVAXUSDT", "DOTUSDT", "NEARUSDT", "AAVEUSDT"][index],
+                90.0 + index as f64,
+                4.0,
+                12.0,
+                100.0,
+                vec![100.0, 112.0, 125.0, 150.0, 190.0 + index as f64],
+            )
+        });
+        let candidates = std::iter::once(volatile)
+            .chain([steady_a, steady_b])
+            .chain(stabilizers)
+            .collect::<Vec<_>>();
+
+        let artifact = build_portfolio_top_n_v2(&candidates, 30.0, 10);
+        let first = artifact.top3.first().expect("top portfolio");
+
+        assert!(
+            first.annualized_return_pct.unwrap_or(first.return_pct) >= 45.0,
+            "portfolio should keep meaningful yield: {first:?}"
+        );
+        assert!(
+            first.max_drawdown_pct < 15.0,
+            "risk-balanced members should reduce drawdown materially: {first:?}"
+        );
+    }
+
+    #[test]
     fn portfolio_v2_can_return_top_ten_ranked_portfolios() {
         let mut candidates = Vec::new();
         for index in 0..12 {
@@ -1906,6 +2280,42 @@ mod tests {
             )
             .is_none(),
             "84% BTC allocation must be rejected"
+        );
+    }
+
+    #[test]
+    fn portfolio_dedupe_keeps_distinct_weight_allocations_for_same_members() {
+        let btc = candidate_with_curve(
+            "btc",
+            "BTCUSDT",
+            120.0,
+            30.0,
+            9.0,
+            100.0,
+            vec![100.0, 180.0, 120.0, 220.0],
+        );
+        let eth = candidate_with_curve(
+            "eth",
+            "ETHUSDT",
+            25.0,
+            4.0,
+            3.0,
+            100.0,
+            vec![100.0, 105.0, 110.0, 125.0],
+        );
+
+        let aggressive = build_weighted_portfolio(&[&btc, &eth], &[0, 1], &[0.8, 0.2], 50.0)
+            .expect("aggressive allocation should build");
+        let balanced = build_weighted_portfolio(&[&btc, &eth], &[0, 1], &[0.2, 0.8], 50.0)
+            .expect("balanced allocation should build");
+
+        let mut portfolios = vec![aggressive, balanced];
+        dedupe_portfolios_by_member_weight(&mut portfolios);
+
+        assert_eq!(
+            portfolios.len(),
+            2,
+            "same members with materially different weights are distinct portfolios"
         );
     }
 

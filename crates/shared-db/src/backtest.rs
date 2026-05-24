@@ -1243,6 +1243,44 @@ impl BacktestRepository {
         }
     }
 
+    pub fn list_running_martingale_portfolios(
+        &self,
+    ) -> Result<Vec<MartingalePortfolioRecord>, SharedDbError> {
+        match &self.backend {
+            BacktestRepositoryBackend::Runtime(pool) => {
+                let pool = pool.clone();
+                SharedDb::block_on(async move {
+                    let rows = sqlx::query(
+                        "SELECT portfolio_id, owner, name, status, source_task_id, market, direction,
+                             risk_profile, total_weight_pct::TEXT AS total_weight_pct, config, risk_summary,
+                             created_at, updated_at
+                         FROM martingale_portfolios
+                         WHERE status = 'running'
+                         ORDER BY created_at DESC, portfolio_id ASC",
+                    )
+                    .fetch_all(&pool)
+                    .await
+                    .map_err(SharedDbError::from)?;
+                    let mut portfolios = Vec::with_capacity(rows.len());
+                    for row in rows {
+                        let mut portfolio = martingale_portfolio_from_row(row)?;
+                        portfolio.items =
+                            fetch_martingale_portfolio_items(&pool, &portfolio.portfolio_id)
+                                .await?;
+                        portfolios.push(portfolio);
+                    }
+                    Ok(portfolios)
+                })
+            }
+            BacktestRepositoryBackend::Ephemeral(state) => Ok(lock_ephemeral(state)?
+                .martingale_portfolios
+                .values()
+                .filter(|record| record.status == "running")
+                .cloned()
+                .collect()),
+        }
+    }
+
     pub fn get_martingale_portfolio(
         &self,
         owner: &str,
@@ -1349,6 +1387,69 @@ impl BacktestRepository {
                 }
                 Ok(Some(record.clone()))
             }
+        }
+    }
+
+    pub fn upsert_martingale_live_snapshot(
+        &self,
+        portfolio: &MartingalePortfolioRecord,
+        summary: Value,
+    ) -> Result<(), SharedDbError> {
+        match &self.backend {
+            BacktestRepositoryBackend::Runtime(pool) => {
+                let pool = pool.clone();
+                let portfolio = portfolio.clone();
+                SharedDb::block_on(async move {
+                    let mut tx = pool.begin().await.map_err(SharedDbError::from)?;
+                    sqlx::query(
+                        "INSERT INTO martingale_live_portfolios (
+                             portfolio_id, owner, status, config, summary, created_at, updated_at, started_at
+                         )
+                         VALUES ($1, $2, $3, $4, $5, now(), now(), now())
+                         ON CONFLICT (portfolio_id) DO UPDATE
+                         SET status = EXCLUDED.status,
+                             config = EXCLUDED.config,
+                             summary = EXCLUDED.summary,
+                             updated_at = now(),
+                             started_at = COALESCE(martingale_live_portfolios.started_at, EXCLUDED.started_at)",
+                    )
+                    .bind(&portfolio.portfolio_id)
+                    .bind(&portfolio.owner)
+                    .bind(&portfolio.status)
+                    .bind(&portfolio.config)
+                    .bind(&summary)
+                    .execute(&mut *tx)
+                    .await
+                    .map_err(SharedDbError::from)?;
+
+                    for item in &portfolio.items {
+                        sqlx::query(
+                            "INSERT INTO martingale_live_strategy_instances (
+                                 instance_id, portfolio_id, owner, status, strategy_id, config, summary, created_at, updated_at
+                             )
+                             VALUES ($1, $2, $3, $4, $5, $6, $7, now(), now())
+                             ON CONFLICT (instance_id) DO UPDATE
+                             SET status = EXCLUDED.status,
+                                 config = EXCLUDED.config,
+                                 summary = EXCLUDED.summary,
+                                 updated_at = now()",
+                        )
+                        .bind(&item.strategy_instance_id)
+                        .bind(&portfolio.portfolio_id)
+                        .bind(&portfolio.owner)
+                        .bind(&item.status)
+                        .bind(&item.candidate_id)
+                        .bind(&item.parameter_snapshot)
+                        .bind(&item.metrics_snapshot)
+                        .execute(&mut *tx)
+                        .await
+                        .map_err(SharedDbError::from)?;
+                    }
+                    tx.commit().await.map_err(SharedDbError::from)?;
+                    Ok(())
+                })
+            }
+            BacktestRepositoryBackend::Ephemeral(_state) => Ok(()),
         }
     }
 }

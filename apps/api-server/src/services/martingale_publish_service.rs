@@ -199,6 +199,7 @@ impl MartingalePublishService {
                 }
             })
             .collect::<Vec<_>>();
+        let live_config = live_portfolio_config_snapshot(&request, &item_records);
         let record = self.repo.create_martingale_portfolio(
             NewMartingalePortfolioRecord {
                 portfolio_id,
@@ -210,7 +211,7 @@ impl MartingalePublishService {
                 direction: request.direction,
                 risk_profile: request.risk_profile,
                 total_weight_pct: request.total_weight_pct,
-                config: json!({ "kind": "martingale_batch_portfolio" }),
+                config: live_config,
                 risk_summary: risk_summary.clone(),
             },
             item_records,
@@ -389,6 +390,56 @@ fn publish_parameter_snapshot(
         Value::Object(map) if map.is_empty() => candidate.config.clone(),
         _ => item.parameter_snapshot.clone(),
     }
+}
+
+fn live_portfolio_config_snapshot(
+    request: &PublishPortfolioRequest,
+    items: &[NewMartingalePortfolioItemRecord],
+) -> Value {
+    let strategies = items
+        .iter()
+        .filter(|item| item.enabled)
+        .flat_map(|item| {
+            item.parameter_snapshot
+                .get("portfolio_config")
+                .and_then(|config| config.get("strategies"))
+                .and_then(Value::as_array)
+                .into_iter()
+                .flatten()
+                .map(|strategy| {
+                    let mut strategy = strategy.clone();
+                    if let Value::Object(ref mut map) = strategy {
+                        map.insert(
+                            "portfolio_weight_pct".to_owned(),
+                            Value::String(item.weight_pct.to_string()),
+                        );
+                        map.insert(
+                            "strategy_instance_id".to_owned(),
+                            Value::String(item.strategy_instance_id.clone()),
+                        );
+                    }
+                    strategy
+                })
+                .collect::<Vec<_>>()
+        })
+        .collect::<Vec<_>>();
+
+    json!({
+        "kind": "martingale_batch_portfolio",
+        "market": request.market,
+        "direction": request.direction,
+        "risk_profile": request.risk_profile,
+        "total_weight_pct": request.total_weight_pct,
+        "portfolio_config": {
+            "direction_mode": if request.direction == "long_short" { "long_and_short" } else { request.direction.as_str() },
+            "strategies": strategies,
+            "risk_limits": {},
+        },
+        "execution": {
+            "requires_connected_strategy_executor": true,
+            "source": "backtest_candidate_parameter_snapshot",
+        }
+    })
 }
 
 fn candidate_publish_metadata(config: &MartingalePortfolioConfig) -> (String, String) {
@@ -872,5 +923,19 @@ mod tests {
             running.items[0].parameter_snapshot["portfolio_config"]["strategies"][1]["direction"],
             "short"
         );
+        assert_eq!(
+            running.config["portfolio_config"]["direction_mode"],
+            "long_and_short"
+        );
+        assert_eq!(
+            running.config["portfolio_config"]["strategies"][0]["leverage"],
+            4
+        );
+        assert_eq!(
+            running.config["portfolio_config"]["strategies"][1]["direction"],
+            "short"
+        );
+        assert!(running.config["portfolio_config"]["strategies"][1]["stop_loss"].is_object());
+        assert!(running.config["portfolio_config"]["strategies"][0]["portfolio_weight_pct"].is_string());
     }
 }

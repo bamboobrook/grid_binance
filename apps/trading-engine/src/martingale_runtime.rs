@@ -414,7 +414,7 @@ impl MartingaleRuntime {
         leg_index: u32,
     ) -> Result<(), MartingaleRuntimeError> {
         let strategy = self.strategy(strategy_id)?;
-        let next_notional = leg_notional(
+        let next_margin = leg_notional(
             &strategy.config.sizing,
             self.portfolio_budget_quote,
             self.exchange_min_notional,
@@ -423,22 +423,22 @@ impl MartingaleRuntime {
         enforce_limit(
             "strategy budget",
             strategy.config.risk_limits.max_strategy_budget_quote,
-            self.strategy_exposure(strategy_id) + next_notional,
+            self.strategy_margin_exposure(strategy_id) + next_margin,
         )?;
         enforce_limit(
             "symbol budget",
             strategy.config.risk_limits.max_symbol_budget_quote,
-            self.symbol_exposure(&strategy.config.symbol) + next_notional,
+            self.symbol_margin_exposure(&strategy.config.symbol) + next_margin,
         )?;
         enforce_limit(
             "direction budget",
             strategy.config.risk_limits.max_direction_budget_quote,
-            self.direction_exposure(strategy.config.direction) + next_notional,
+            self.direction_margin_exposure(strategy.config.direction) + next_margin,
         )?;
         enforce_limit(
             "global budget",
             self.portfolio_risk_limits.max_global_budget_quote,
-            self.global_exposure() + next_notional,
+            self.global_margin_exposure() + next_margin,
         )?;
         Ok(())
     }
@@ -452,12 +452,14 @@ impl MartingaleRuntime {
         price: Decimal,
     ) -> Result<(), MartingaleRuntimeError> {
         let strategy = self.strategy(strategy_id)?.config.clone();
-        let notional_quote = leg_notional(
+        let margin_quote = leg_notional(
             &strategy.sizing,
             self.portfolio_budget_quote,
             self.exchange_min_notional,
             leg_index,
         )?;
+        let leverage = Decimal::from(strategy.leverage.unwrap_or(1).max(1));
+        let notional_quote = margin_quote * leverage;
         let quantity = notional_quote / price;
         let direction_label = direction_label(direction);
         let client_order_id = format!(
@@ -496,32 +498,45 @@ impl MartingaleRuntime {
             .ok_or_else(|| MartingaleRuntimeError::new("strategy not found"))
     }
 
-    fn strategy_exposure(&self, strategy_id: &str) -> Decimal {
+    fn strategy_margin_exposure(&self, strategy_id: &str) -> Decimal {
         self.orders
             .iter()
             .filter(|order| order.strategy_id == strategy_id)
-            .map(|order| order.notional_quote)
+            .map(|order| self.order_margin_quote(order))
             .sum()
     }
 
-    fn symbol_exposure(&self, symbol: &str) -> Decimal {
+    fn symbol_margin_exposure(&self, symbol: &str) -> Decimal {
         self.orders
             .iter()
             .filter(|order| order.symbol == symbol)
-            .map(|order| order.notional_quote)
+            .map(|order| self.order_margin_quote(order))
             .sum()
     }
 
-    fn direction_exposure(&self, direction: MartingaleDirection) -> Decimal {
+    fn direction_margin_exposure(&self, direction: MartingaleDirection) -> Decimal {
         self.orders
             .iter()
             .filter(|order| order.direction == direction)
-            .map(|order| order.notional_quote)
+            .map(|order| self.order_margin_quote(order))
             .sum()
     }
 
-    fn global_exposure(&self) -> Decimal {
-        self.orders.iter().map(|order| order.notional_quote).sum()
+    fn global_margin_exposure(&self) -> Decimal {
+        self.orders
+            .iter()
+            .map(|order| self.order_margin_quote(order))
+            .sum()
+    }
+
+    fn order_margin_quote(&self, order: &MartingaleRuntimeOrder) -> Decimal {
+        let leverage = self
+            .strategies
+            .get(&order.strategy_id)
+            .and_then(|strategy| strategy.config.leverage)
+            .unwrap_or(1)
+            .max(1);
+        order.notional_quote / Decimal::from(leverage)
     }
 }
 
