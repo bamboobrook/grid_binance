@@ -30,6 +30,7 @@ mod services {
     pub mod auth_service;
     pub mod backtest_service;
     pub mod exchange_service;
+    pub mod martingale_exchange_preconfigure_service;
     pub mod martingale_publish_service;
     pub mod membership_service;
     pub mod strategy_service;
