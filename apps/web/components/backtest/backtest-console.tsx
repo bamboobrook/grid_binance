@@ -88,6 +88,8 @@ export function BacktestConsole({ lang, locale }: { lang: UiLanguage; locale: st
   const [sandboxResult, setSandboxResult] = useState<PortfolioRecalculateResponse | null>(null);
   const [sandboxPending, setSandboxPending] = useState(false);
   const [sandboxFeedback, setSandboxFeedback] = useState("");
+  const [sandboxOpen, setSandboxOpen] = useState(false);
+  const [publishOpen, setPublishOpen] = useState(false);
   const [feedback, setFeedback] = useState("");
   const [loading, setLoading] = useState(true);
   const activePanelId = activeTab === "wizard" ? "backtest-wizard-panel" : "backtest-professional-panel";
@@ -232,6 +234,7 @@ export function BacktestConsole({ lang, locale }: { lang: UiLanguage; locale: st
           };
     });
     setSandboxItems(items);
+    setSandboxOpen(true);
     setSandboxResult(portfolioToSandboxResult(portfolio));
     setSelectedPortfolio(portfolio);
     setSelectedCandidate(null);
@@ -347,91 +350,36 @@ export function BacktestConsole({ lang, locale }: { lang: UiLanguage; locale: st
         </div>
       ) : null}
 
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.6fr)_minmax(320px,0.9fr)]">
-        <div className="space-y-6">
-          <section className="rounded-2xl border border-border bg-card p-4 shadow-sm">
-            <div
-              aria-label={pickText(lang, "回测配置模式", "Backtest configuration mode")}
-              className="mb-4 flex flex-wrap gap-2"
-              role="tablist"
-            >
-              <TabButton
-                active={activeTab === "wizard"}
-                controls="backtest-wizard-panel"
-                id="backtest-wizard-tab"
-                label={pickText(lang, "Wizard 模式", "Wizard mode")}
-                onClick={() => setActiveTab("wizard")}
-              />
-              <TabButton
-                active={activeTab === "professional"}
-                controls="backtest-professional-panel"
-                id="backtest-professional-tab"
-                label={pickText(lang, "Professional Console", "Professional console")}
-                onClick={() => setActiveTab("professional")}
-              />
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.1fr)_minmax(360px,0.9fr)]">
+        <section className="rounded-2xl border border-border bg-card p-4 shadow-sm">
+          <div className="mb-4 flex items-start justify-between gap-3">
+            <div>
+              <h2 className="text-lg font-semibold">{pickText(lang, "1. 创建回测任务", "1. Create backtest task")}</h2>
+              <p className="text-sm text-muted-foreground">{pickText(lang, "向导适合自动搜索，专业模式适合精细控制。", "Wizard is for auto search; professional mode is for detailed control.")}</p>
             </div>
+          </div>
+          <div
+            aria-label={pickText(lang, "回测配置模式", "Backtest configuration mode")}
+            className="mb-4 flex flex-wrap gap-2"
+            role="tablist"
+          >
+            <TabButton active={activeTab === "wizard"} controls="backtest-wizard-panel" id="backtest-wizard-tab" label={pickText(lang, "Wizard 模式", "Wizard mode")} onClick={() => setActiveTab("wizard")} />
+            <TabButton active={activeTab === "professional"} controls="backtest-professional-panel" id="backtest-professional-tab" label={pickText(lang, "Professional Console", "Professional console")} onClick={() => setActiveTab("professional")} />
+          </div>
+          <div aria-labelledby={activeTabId} id={activePanelId} role="tabpanel">
+            {activeTab === "wizard" ? (
+              <BacktestWizard lang={lang} onTaskCreated={() => refreshTasks({ selectLatest: true })} />
+            ) : (
+              <BacktestProfessionalPanel lang={lang} onTaskCreated={() => refreshTasks({ selectLatest: true })} />
+            )}
+          </div>
+        </section>
 
-            <div aria-labelledby={activeTabId} id={activePanelId} role="tabpanel">
-              {activeTab === "wizard" ? (
-                <BacktestWizard lang={lang} onTaskCreated={() => refreshTasks({ selectLatest: true })} />
-              ) : (
-                <BacktestProfessionalPanel lang={lang} onTaskCreated={() => refreshTasks({ selectLatest: true })} />
-              )}
-            </div>
-          </section>
-
-          {/* Real-data charts */}
-          <section className="rounded-2xl border border-border bg-card p-4 shadow-sm">
-            <h2 className="text-lg font-semibold mb-3">
-              {selectedDetailTitle}
-            </h2>
-            <BacktestCharts summary={selectedSummary} />
-          </section>
-
-          {/* Segment performance comparison */}
-          {hasSegmentData(selectedSummary) && (
-            <section className="rounded-2xl border border-border bg-card p-4 shadow-sm">
-              <h2 className="text-lg font-semibold mb-3">
-                {pickText(lang, "分段表现对比", "Segment performance")}
-              </h2>
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                <SegmentBlock label={pickText(lang, "训练", "Train")} value={selectedSummary.train_return_pct} />
-                <SegmentBlock label={pickText(lang, "验证", "Validate")} value={selectedSummary.validate_return_pct} />
-                <SegmentBlock label={pickText(lang, "测试", "Test")} value={selectedSummary.test_return_pct} />
-                <SegmentBlock label={pickText(lang, "压力", "Stress")} value={selectedSummary.stress_return_pct} />
-              </div>
-            </section>
-          )}
-
-          <BacktestResultTable
-            candidates={candidates}
-            lang={lang}
-            onAddToBasket={(candidate) => {
-              setSelectedCandidate(candidate);
-              addCandidateToBasket(candidate);
-              setFeedback(pickText(lang, `已加入组合篮子：${candidate.symbol}`, `Added to portfolio basket: ${candidate.symbol}`));
-            }}
-            selectedId={selectedCandidate?.id ?? ""}
-            selectedTaskStatus={selectedTask?.rawStatus ?? ""}
-            taskName={selectedTaskName}
-            portfolioTop3={portfolioTop3FromTask(selectedTask)}
-            portfolioTopN={portfolioTopN}
-            selectedPortfolioId={selectedPortfolio?.portfolio_id ?? ""}
-            onSelect={(candidate) => {
-              const full = candidates.find((c) => c.id === candidate.id) ?? null;
-              setSelectedCandidate(full);
-              setSelectedPortfolio(null);
-            }}
-            onSelectPortfolio={(portfolio) => {
-              setSelectedPortfolio(portfolio);
-              setSelectedCandidate(null);
-              setSandboxResult(null);
-            }}
-            onEditPortfolio={(portfolio) => editPortfolioSandbox(portfolio)}
-          />
-        </div>
-
-        <div className="space-y-6">
+        <section className="rounded-2xl border border-border bg-card p-4 shadow-sm">
+          <div className="mb-4">
+            <h2 className="text-lg font-semibold">{pickText(lang, "2. 任务列表与进度", "2. Tasks and progress")}</h2>
+            <p className="text-sm text-muted-foreground">{pickText(lang, "选择任务后，下方会全宽展示候选、组合、图表与交易明细。", "Select a task; candidates, portfolios, charts, and trade previews appear full-width below.")}</p>
+          </div>
           <BacktestTaskList
             lang={lang}
             loading={loading}
@@ -440,29 +388,85 @@ export function BacktestConsole({ lang, locale }: { lang: UiLanguage; locale: st
             selectedTaskId={selectedTaskId}
             tasks={tasks}
           />
+        </section>
+      </div>
 
-          <section className="rounded-2xl border border-border bg-card p-4 shadow-sm space-y-3">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <h2 className="text-lg font-semibold">{pickText(lang, "组合沙盒", "Portfolio sandbox")}</h2>
-                <p className="text-sm text-muted-foreground">{pickText(lang, "从自动组合点编辑，或把候选加入沙盒，调整权重/杠杆后重算组合表现。", "Edit an auto portfolio or add candidates, then adjust weights/leverage and recalculate.")}</p>
-              </div>
-              <button className="rounded-full border border-border px-3 py-1 text-xs font-medium" onClick={() => setBasketItems(sandboxItems)} type="button">
+      <section className="rounded-2xl border border-border bg-card p-4 shadow-sm">
+        <h2 className="mb-3 text-lg font-semibold">{pickText(lang, "3. 候选与自动组合结果", "3. Candidates and auto portfolios")}</h2>
+        <BacktestResultTable
+          candidates={candidates}
+          lang={lang}
+          onAddToBasket={(candidate) => {
+            setSelectedCandidate(candidate);
+            addCandidateToBasket(candidate);
+            setPublishOpen(true);
+            setFeedback(pickText(lang, `已加入组合篮子：${candidate.symbol}`, `Added to portfolio basket: ${candidate.symbol}`));
+          }}
+          selectedId={selectedCandidate?.id ?? ""}
+          selectedTaskStatus={selectedTask?.rawStatus ?? ""}
+          taskName={selectedTaskName}
+          portfolioTop3={portfolioTop3FromTask(selectedTask)}
+          portfolioTopN={portfolioTopN}
+          selectedPortfolioId={selectedPortfolio?.portfolio_id ?? ""}
+          onSelect={(candidate) => {
+            const full = candidates.find((c) => c.id === candidate.id) ?? null;
+            setSelectedCandidate(full);
+            setSelectedPortfolio(null);
+          }}
+          onSelectPortfolio={(portfolio) => {
+            setSelectedPortfolio(portfolio);
+            setSelectedCandidate(null);
+            setSandboxResult(null);
+          }}
+          onEditPortfolio={(portfolio) => editPortfolioSandbox(portfolio)}
+        />
+      </section>
+
+      <section className="rounded-2xl border border-border bg-card p-4 shadow-sm">
+        <h2 className="mb-3 text-lg font-semibold">{pickText(lang, "4. 图表与交易明细", "4. Charts and trade details")}</h2>
+        <p className="mb-4 text-sm text-muted-foreground">{selectedDetailTitle}</p>
+        <BacktestCharts summary={selectedSummary} />
+      </section>
+
+      {hasSegmentData(selectedSummary) && (
+        <section className="rounded-2xl border border-border bg-card p-4 shadow-sm">
+          <h2 className="mb-3 text-lg font-semibold">{pickText(lang, "5. 分段表现对比", "5. Segment performance")}</h2>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <SegmentBlock label={pickText(lang, "训练", "Train")} value={selectedSummary.train_return_pct} />
+            <SegmentBlock label={pickText(lang, "验证", "Validate")} value={selectedSummary.validate_return_pct} />
+            <SegmentBlock label={pickText(lang, "测试", "Test")} value={selectedSummary.test_return_pct} />
+            <SegmentBlock label={pickText(lang, "压力", "Stress")} value={selectedSummary.stress_return_pct} />
+          </div>
+        </section>
+      )}
+
+      <section className="rounded-2xl border border-border bg-card p-4 shadow-sm">
+        <button className="flex w-full items-center justify-between gap-3 text-left" onClick={() => setSandboxOpen((open) => !open)} type="button">
+          <span>
+            <span className="block text-lg font-semibold">{pickText(lang, "6. 组合沙盒", "6. Portfolio sandbox")}</span>
+            <span className="block text-sm text-muted-foreground">{pickText(lang, "从自动组合点编辑，或把候选加入沙盒，调整权重/杠杆后重算。", "Edit an auto portfolio or add candidates, then adjust weights/leverage and recalculate.")}</span>
+          </span>
+          <span className="rounded-full border border-border px-3 py-1 text-xs">{sandboxOpen ? pickText(lang, "收起", "Collapse") : pickText(lang, "展开", "Expand")}</span>
+        </button>
+        {sandboxOpen ? (
+          <div className="mt-4 space-y-3">
+            <div className="flex flex-wrap gap-2">
+              <button className="rounded-full border border-border px-3 py-1 text-xs font-medium" onClick={() => { setBasketItems(sandboxItems); setPublishOpen(true); }} type="button">
                 {pickText(lang, "用作发布篮子", "Use as publish basket")}
               </button>
+              {selectedCandidate ? (
+                <button className="rounded-full bg-secondary px-3 py-1 text-xs font-medium" onClick={() => addCandidateToSandbox(selectedCandidate)} type="button">
+                  {pickText(lang, `加入沙盒：${selectedCandidate.symbol}`, `Add to sandbox: ${selectedCandidate.symbol}`)}
+                </button>
+              ) : null}
             </div>
-            {selectedCandidate ? (
-              <button className="rounded-full bg-secondary px-3 py-1 text-xs font-medium" onClick={() => addCandidateToSandbox(selectedCandidate)} type="button">
-                {pickText(lang, `加入沙盒：${selectedCandidate.symbol}`, `Add to sandbox: ${selectedCandidate.symbol}`)}
-              </button>
-            ) : null}
             {sandboxItems.length > 0 ? (
               <div className="space-y-2">
                 {sandboxItems.map((item) => (
-                  <div className="grid gap-2 rounded-lg border border-border p-2 text-xs md:grid-cols-[1fr_90px_90px_80px]" key={item.localId}>
+                  <div className="grid gap-2 rounded-lg border border-border p-3 text-xs md:grid-cols-[minmax(0,1fr)_120px_120px_90px]" key={item.localId}>
                     <div>
                       <p className="font-medium">{item.symbol}</p>
-                      <p className="text-muted-foreground">{item.direction} · {item.leverage}x · {item.candidateId}</p>
+                      <p className="break-all text-muted-foreground">{item.direction} · {item.leverage}x · {item.candidateId}</p>
                     </div>
                     <label className="space-y-1"><span className="text-[10px] uppercase text-muted-foreground">权重%</span><input className="w-full rounded border border-border bg-background px-2 py-1" value={item.weightPct} onChange={(event) => setSandboxItems((current) => current.map((row) => row.localId === item.localId ? { ...row, weightPct: event.currentTarget.value } : row))} /></label>
                     <label className="space-y-1"><span className="text-[10px] uppercase text-muted-foreground">杠杆</span><input className="w-full rounded border border-border bg-background px-2 py-1" value={item.leverage} onChange={(event) => setSandboxItems((current) => current.map((row) => row.localId === item.localId ? { ...row, leverage: event.currentTarget.value } : row))} /></label>
@@ -478,24 +482,38 @@ export function BacktestConsole({ lang, locale }: { lang: UiLanguage; locale: st
               </div>
             ) : <p className="text-sm text-muted-foreground">{pickText(lang, "暂无沙盒成员。", "No sandbox members yet.")}</p>}
             <p className="text-sm text-muted-foreground" aria-live="polite">{sandboxFeedback}</p>
-          </section>
+          </div>
+        ) : null}
+      </section>
 
-          <PortfolioCandidateReview
-            basketItems={basketItems}
-            candidate={selectedCandidate}
-            lang={lang}
-            locale={locale}
-            onPublish={publishPortfolio}
-            onRemove={(localId) => setBasketItems((current) => current.filter((item) => item.localId !== localId))}
-            onUpdate={(localId, patch) => setBasketItems((current) => current.map((item) => (
-              item.localId === localId ? { ...item, ...patch } : item
-            )))}
-          />
-          <p aria-live="polite" className="text-sm text-muted-foreground">
-            {feedback}
-          </p>
-        </div>
-      </div>
+      <section className="rounded-2xl border border-border bg-card p-4 shadow-sm">
+        <button className="flex w-full items-center justify-between gap-3 text-left" onClick={() => setPublishOpen((open) => !open)} type="button">
+          <span>
+            <span className="block text-lg font-semibold">{pickText(lang, "7. 发布复核", "7. Publish review")}</span>
+            <span className="block text-sm text-muted-foreground">{pickText(lang, "发布前确认权重、杠杆、风险摘要和实盘参数映射。", "Confirm weights, leverage, risk summary, and live parameter mapping before publishing.")}</span>
+          </span>
+          <span className="rounded-full border border-border px-3 py-1 text-xs">{publishOpen ? pickText(lang, "收起", "Collapse") : pickText(lang, "展开", "Expand")}</span>
+        </button>
+        {publishOpen ? (
+          <div className="mt-4">
+            <PortfolioCandidateReview
+              basketItems={basketItems}
+              candidate={selectedCandidate}
+              lang={lang}
+              locale={locale}
+              onPublish={publishPortfolio}
+              onRemove={(localId) => setBasketItems((current) => current.filter((item) => item.localId !== localId))}
+              onUpdate={(localId, patch) => setBasketItems((current) => current.map((item) => (
+                item.localId === localId ? { ...item, ...patch } : item
+              )))}
+            />
+          </div>
+        ) : null}
+      </section>
+
+      <p aria-live="polite" className="text-sm text-muted-foreground">
+        {feedback}
+      </p>
     </div>
   );
 }
