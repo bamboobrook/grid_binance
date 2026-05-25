@@ -28,3 +28,9 @@ test("batch publish normalizes enabled item weights before payload submission", 
   assert.match(reviewSource, /weight_pct:\s*item\.normalizedWeightPct/);
   assert.match(reviewSource, /const normalizedTotal = normalized\.reduce/);
 });
+
+test("editing an auto portfolio does not create publishable placeholder candidates", () => {
+  assert.match(consoleSource, /missingMembers/);
+  assert.match(consoleSource, /setSandboxFeedback\(pickText\(lang, `组合中有 \$\{missingMembers\.length\} 个候选未入库/);
+  assert.doesNotMatch(consoleSource, /parameterSnapshot:\s*\{\},\s*\n\s*metricsSnapshot:\s*\{\},/);
+});

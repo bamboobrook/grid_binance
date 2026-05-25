@@ -210,34 +210,25 @@ export function BacktestConsole({ lang, locale }: { lang: UiLanguage; locale: st
   }
 
   function editPortfolioSandbox(portfolio: PortfolioTop3Row) {
-    const items = portfolio.members.map((member, index) => {
+    const missingMembers: PortfolioMember[] = [];
+    const items = portfolio.members.flatMap((member, index) => {
       const candidate = candidates.find((entry) => entry.id === member.candidate_id);
-      return candidate
-        ? candidateToBasketItem(candidate, member.allocation_pct, index)
-        : {
-            localId: `${member.candidate_id}-${Date.now()}-${index}`,
-            candidateId: member.candidate_id,
-            taskId: selectedTaskId,
-            selectedTaskId,
-            symbol: member.symbol,
-            market: "usd_m_futures",
-            direction: member.direction,
-            riskProfile: "balanced",
-            parameters: "From auto portfolio",
-            recommended_weight_pct: member.allocation_pct,
-            recommended_leverage: member.leverage ?? 1,
-            weightPct: String(member.allocation_pct),
-            leverage: String(member.leverage ?? 1),
-            enabled: true,
-            parameterSnapshot: {},
-            metricsSnapshot: {},
-          };
+      if (!candidate) {
+        missingMembers.push(member);
+        return [];
+      }
+      return [candidateToBasketItem(candidate, member.allocation_pct, index)];
     });
     setSandboxItems(items);
     setSandboxOpen(true);
     setSandboxResult(portfolioToSandboxResult(portfolio));
     setSelectedPortfolio(portfolio);
     setSelectedCandidate(null);
+    if (missingMembers.length > 0) {
+      setSandboxFeedback(pickText(lang, `组合中有 ${missingMembers.length} 个候选未入库，旧任务无法直接发布；请重新回测生成新组合，或只用已入库候选重新计算后发布。`, `${missingMembers.length} portfolio members were not persisted by this old task; rerun the backtest or recalculate using only persisted candidates before publishing.`));
+      setPublishOpen(false);
+      return;
+    }
     setSandboxFeedback(pickText(lang, "已载入组合沙盒，可继续增删策略并重算。", "Portfolio loaded into sandbox; you can edit and recalculate."));
   }
 

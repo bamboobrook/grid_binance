@@ -1631,8 +1631,10 @@ async fn process_task(
     )?;
     let display_symbols = symbols_from_outputs(&display_outputs);
     let portfolio_pool_symbols = symbols_from_outputs(&portfolio_pool_outputs);
+    let persistable_outputs =
+        merge_candidate_outputs_for_persistence(&display_outputs, &portfolio_pool_outputs);
     let _persisted_candidates = poller
-        .save_candidates_and_artifacts(&task.task_id, evaluated_count, &display_outputs)
+        .save_candidates_and_artifacts(&task.task_id, evaluated_count, &persistable_outputs)
         .await?;
     respect_pause_or_cancel(poller, &task.task_id).await?;
 
@@ -2602,6 +2604,20 @@ fn symbols_from_outputs(outputs: &[CandidateOutput]) -> Vec<String> {
         .collect::<std::collections::BTreeSet<_>>()
         .into_iter()
         .collect()
+}
+
+fn merge_candidate_outputs_for_persistence(
+    display_outputs: &[CandidateOutput],
+    portfolio_pool_outputs: &[CandidateOutput],
+) -> Vec<CandidateOutput> {
+    let mut seen = std::collections::BTreeSet::new();
+    let mut merged = Vec::with_capacity(display_outputs.len() + portfolio_pool_outputs.len());
+    for output in display_outputs.iter().chain(portfolio_pool_outputs.iter()) {
+        if seen.insert(output.candidate_id.clone()) {
+            merged.push(output.clone());
+        }
+    }
+    merged
 }
 
 fn sampled_preview<T: Clone>(items: &[T], max_items: usize) -> Vec<T> {

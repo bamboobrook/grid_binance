@@ -144,3 +144,16 @@ test("worker summary exposes eligible symbols and portfolio unique symbol count"
   assert.match(worker, /portfolio_unique_symbol_count/);
   assert.match(worker, /portfolio_symbols/);
 });
+
+test("worker persists every candidate referenced by auto portfolios before publishing", () => {
+  const worker = readFileSync("apps/backtest-worker/src/main.rs", "utf8");
+
+  assert.match(worker, /persistable_outputs/);
+  assert.match(worker, /merge_candidate_outputs_for_persistence/);
+  assert.match(worker, /save_candidates_and_artifacts\(&task\.task_id, evaluated_count, &persistable_outputs\)/);
+  assert.doesNotMatch(
+    worker,
+    /save_candidates_and_artifacts\(&task\.task_id, evaluated_count, &display_outputs\)/,
+    "saving only display_outputs leaves portfolio pool candidate_ids unpublished",
+  );
+});
