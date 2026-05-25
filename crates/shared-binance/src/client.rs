@@ -290,6 +290,23 @@ struct PositionSideModeResponse {
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct UsdmPositionRiskResponse {
+    symbol: String,
+    #[serde(default)]
+    margin_type: Option<String>,
+    #[serde(default)]
+    leverage: Option<FlexibleValue>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct UsdmSymbolExchangeSettings {
+    pub symbol: String,
+    pub margin_type: Option<String>,
+    pub leverage: Option<u32>,
+}
+
+#[derive(Debug, Deserialize)]
 struct ExchangeInfoResponse {
     #[serde(default)]
     symbols: Vec<ExchangeInfoSymbol>,
@@ -732,6 +749,60 @@ impl BinanceClient {
             ],
         )?;
         Ok(())
+    }
+
+    pub fn read_usdm_position_mode(&self) -> Result<bool, CredentialValidationError> {
+        if !self.live_config.enabled {
+            return Err(CredentialValidationError::new(
+                "binance live mode is disabled",
+            ));
+        }
+        let http = self.live_http_client()?;
+        let server_time = self.fetch_server_time(&http, BinanceMarket::Usdm)?;
+        Ok(self
+            .fetch_position_mode(&http, BinanceMarket::Usdm, server_time)?
+            .dual_side_position)
+    }
+
+    pub fn read_usdm_symbol_settings(
+        &self,
+        symbol: &str,
+    ) -> Result<UsdmSymbolExchangeSettings, CredentialValidationError> {
+        let symbol = symbol.trim().to_ascii_uppercase();
+        if symbol.is_empty() {
+            return Err(CredentialValidationError::new("usdm symbol is required"));
+        }
+        if !self.live_config.enabled {
+            return Err(CredentialValidationError::new(
+                "binance live mode is disabled",
+            ));
+        }
+        let http = self.live_http_client()?;
+        let server_time = self.fetch_server_time(&http, BinanceMarket::Usdm)?;
+        let positions: Vec<UsdmPositionRiskResponse> = self.signed_request(
+            &http,
+            "GET",
+            self.live_config.base_url(BinanceMarket::Usdm),
+            "/fapi/v2/positionRisk",
+            server_time,
+            &[("symbol".to_string(), symbol.clone())],
+        )?;
+        let Some(position) = positions
+            .into_iter()
+            .find(|position| position.symbol.eq_ignore_ascii_case(&symbol))
+        else {
+            return Err(CredentialValidationError::new(format!(
+                "{symbol} usdm position risk not found"
+            )));
+        };
+        Ok(UsdmSymbolExchangeSettings {
+            symbol,
+            margin_type: position.margin_type.map(|value| value.to_ascii_lowercase()),
+            leverage: position
+                .leverage
+                .as_ref()
+                .and_then(|value| flexible_value_ref_to_string(value).parse::<u32>().ok()),
+        })
     }
 
     pub fn cancel_order(
@@ -3054,6 +3125,53 @@ mod tests {
         client
             .set_usdm_position_mode(true)
             .expect("already target position mode should be success");
+    }
+
+    #[test]
+    fn usdm_exchange_setting_readback_uses_signed_gets() {
+        let _guard = env_lock().lock().unwrap();
+        let server = spawn_test_server(vec![
+            TestRoute {
+                path_prefix: "/fapi/v1/time",
+                status_line: "HTTP/1.1 200 OK",
+                body: r#"{"serverTime":1710000000000}"#,
+            },
+            TestRoute {
+                path_prefix: "/fapi/v1/positionSide/dual?",
+                status_line: "HTTP/1.1 200 OK",
+                body: r#"{"dualSidePosition":true}"#,
+            },
+            TestRoute {
+                path_prefix: "/fapi/v1/time",
+                status_line: "HTTP/1.1 200 OK",
+                body: r#"{"serverTime":1710000000001}"#,
+            },
+            TestRoute {
+                path_prefix: "/fapi/v2/positionRisk?",
+                status_line: "HTTP/1.1 200 OK",
+                body: r#"[{"symbol":"BTCUSDT","marginType":"isolated","leverage":"6"}]"#,
+            },
+        ]);
+        let _live_mode = set_env("BINANCE_LIVE_MODE", "1");
+        let _usdm_base = set_env("BINANCE_USDM_REST_BASE_URL", &server.base_url);
+        let client = BinanceClient::new("live-key", "live-secret");
+
+        assert!(client.read_usdm_position_mode().expect("position mode"));
+        let settings = client
+            .read_usdm_symbol_settings(" btcusdt ")
+            .expect("symbol settings");
+
+        assert_eq!(settings.symbol, "BTCUSDT");
+        assert_eq!(settings.margin_type.as_deref(), Some("isolated"));
+        assert_eq!(settings.leverage, Some(6));
+        let requests = server.requests();
+        assert!(requests
+            .iter()
+            .any(|request| request.path.starts_with("/fapi/v1/positionSide/dual?")));
+        assert!(requests.iter().any(|request| {
+            request.path.starts_with("/fapi/v2/positionRisk?")
+                && request.path.contains("symbol=BTCUSDT")
+        }));
     }
 
     #[test]

@@ -10,15 +10,15 @@ use crate::{
     services::{
         auth_service::AuthService,
         martingale_exchange_preconfigure_service::{
-            response_from_target_without_exchange_readback,
-            target_exchange_settings_from_portfolio, validate_preconfigure_confirmations,
-            ExchangePreconfigureRequest, ExchangePreconfigureResponse,
+            apply_exchange_preconfigure, preflight_exchange_settings, ExchangePreconfigureRequest,
+            ExchangePreconfigureResponse,
         },
         martingale_publish_service::{MartingalePublishService, PublishError},
     },
     AppState,
 };
 use shared_db::MartingalePortfolioRecord;
+use shared_db::SharedDb;
 
 pub fn router() -> Router<AppState> {
     Router::new()
@@ -60,24 +60,23 @@ async fn get_portfolio(
 async fn exchange_preflight_portfolio(
     State(auth): State<AuthService>,
     State(service): State<MartingalePublishService>,
+    State(db): State<SharedDb>,
     headers: HeaderMap,
     Path(id): Path<String>,
 ) -> Result<Json<ExchangePreconfigureResponse>, PublishError> {
     let session = require_user_session(&auth, &headers)
         .map_err(|_error| PublishError::unauthorized("unauthorized"))?;
     let portfolio = service.get_portfolio(&session.email, &id)?;
-    let target = target_exchange_settings_from_portfolio(&portfolio)
-        .map_err(|error| PublishError::bad_request(error.to_string()))?;
-    Ok(Json(response_from_target_without_exchange_readback(
-        target,
-        "readback_required",
-        "exchange readback is added in Task 3",
-    )))
+    Ok(Json(
+        preflight_exchange_settings(&db, &session.email, &portfolio)
+            .map_err(|error| PublishError::bad_request(error.to_string()))?,
+    ))
 }
 
 async fn exchange_preconfigure_portfolio(
     State(auth): State<AuthService>,
     State(service): State<MartingalePublishService>,
+    State(db): State<SharedDb>,
     headers: HeaderMap,
     Path(id): Path<String>,
     Json(request): Json<ExchangePreconfigureRequest>,
@@ -85,15 +84,10 @@ async fn exchange_preconfigure_portfolio(
     let session = require_user_session(&auth, &headers)
         .map_err(|_error| PublishError::unauthorized("unauthorized"))?;
     let portfolio = service.get_portfolio(&session.email, &id)?;
-    validate_preconfigure_confirmations(&portfolio, &request)
-        .map_err(|error| PublishError::bad_request(error.to_string()))?;
-    let target = target_exchange_settings_from_portfolio(&portfolio)
-        .map_err(|error| PublishError::bad_request(error.to_string()))?;
-    Ok(Json(response_from_target_without_exchange_readback(
-        target,
-        "readback_required",
-        "exchange readback is added in Task 3",
-    )))
+    Ok(Json(
+        apply_exchange_preconfigure(&db, &session.email, &portfolio, &request)
+            .map_err(|error| PublishError::bad_request(error.to_string()))?,
+    ))
 }
 
 async fn pause_portfolio(
