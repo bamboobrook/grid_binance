@@ -207,3 +207,29 @@ export interface MartingalePortfolioDetail {
 }
 
 export type MartingalePortfolioList = MartingalePortfolioDetail[];
+
+export type ExchangeHedgeModeCheck = {
+  target: boolean;
+  current?: boolean | null;
+  status: string;
+  message: string;
+};
+
+export type ExchangeSymbolCheck = {
+  symbol: string;
+  target_margin_mode: string;
+  current_margin_mode?: string | null;
+  target_leverage: number;
+  current_leverage?: number | null;
+  status: string;
+  message: string;
+};
+
+export type ExchangePreconfigureResponse = {
+  status: string;
+  hedge_mode: ExchangeHedgeModeCheck;
+  symbols: ExchangeSymbolCheck[];
+  warnings: string[];
+  checked_at?: string;
+  applied?: boolean;
+};

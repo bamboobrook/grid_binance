@@ -4,6 +4,7 @@ import Link from "next/link";
 import { startTransition, useEffect, useState } from "react";
 
 import { requestBacktestApi } from "@/components/backtest/request-client";
+import { ExchangePreconfigurePanel } from "@/components/backtest/exchange-preconfigure-panel";
 import { MartingaleRiskWarning } from "@/components/backtest/martingale-risk-warning";
 import { AppShellSection } from "@/components/shell/app-shell-section";
 import { Card, CardBody, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -291,8 +292,8 @@ export function MartingalePortfolioDetail({
       }
       description={pickText(
         lang,
-        "按 symbol / direction 归组查看实例，盯住 symbol 暴露、全局回撤线，并在页内直接执行 Portfolio 或单策略操作。",
-        "Inspect instances grouped by symbol and direction, monitor symbol exposure and portfolio drawdown, and execute portfolio or strategy operations in-page.",
+        "按概览、交易所预配置、策略成员、运行控制与统计分区检查组合，启动前先确认 Binance Futures 配置。",
+        "Review the portfolio by overview, exchange preconfigure, strategy members, run controls, and stats before starting live execution.",
       )}
       eyebrow={pickText(lang, "Live Portfolio", "Live Portfolio")}
       title={portfolio ? portfolioName(portfolio) : portfolioId}
@@ -341,12 +342,58 @@ export function MartingalePortfolioDetail({
             <CardHeader className="gap-3">
               <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                 <div className="space-y-1">
-                  <CardTitle>{pickText(lang, "Portfolio 操作", "Portfolio controls")}</CardTitle>
+                  <CardTitle>{pickText(lang, "1. 组合概览", "1. Portfolio overview")}</CardTitle>
                   <CardDescription>
                     {pickText(
                       lang,
-                      "Start/Pause/Stop 当前确认组合记录状态；实盘自动下单需连接策略执行器后启用。",
-                      "Start/Pause/Stop currently confirms portfolio record status; live automated orders require a connected strategy executor.",
+                      "先核对状态、市场、方向、风险档位、总权重和策略数量，再进入交易所预配置。",
+                      "Check status, market, direction, risk profile, total weight, and strategy count before exchange preconfiguration.",
+                    )}
+                  </CardDescription>
+                </div>
+                <Chip tone={statusTone(portfolio.status)}>{humanizeStatus(lang, portfolio.status)}</Chip>
+              </div>
+              <dl className="grid gap-3 text-sm md:grid-cols-3 xl:grid-cols-6">
+                <MetricBlock label={pickText(lang, "市场", "Market")} value={humanizeMarket(lang, portfolio.market ?? "futures")} />
+                <MetricBlock label={pickText(lang, "方向", "Direction")} value={humanizeDirection(lang, portfolio.direction ?? portfolio.config.direction_mode ?? "long")} />
+                <MetricBlock label={pickText(lang, "风险档位", "Risk profile")} value={portfolio.risk_profile || "-"} />
+                <MetricBlock label={pickText(lang, "策略实例", "Strategies")} value={String(portfolio.config.strategies.length)} />
+                <MetricBlock label={pickText(lang, "总权重", "Total weight")} value={formatPercent(portfolio.total_weight_pct)} />
+                <MetricBlock label={pickText(lang, "最高杠杆", "Max leverage")} value={maxStrategyLeverage(portfolio) ? `${maxStrategyLeverage(portfolio)}x` : "-"} />
+              </dl>
+            </CardHeader>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>{pickText(lang, "2. Binance Futures 预配置", "2. Binance Futures preconfigure")}</CardTitle>
+              <CardDescription>
+                {pickText(
+                  lang,
+                  "系统会读取并自动设置账户 Hedge Mode、每个交易对的逐仓/全仓与杠杆；此步骤不下单。",
+                  "The system reads and applies account Hedge Mode plus per-symbol margin type/leverage; this step places no orders.",
+                )}
+              </CardDescription>
+            </CardHeader>
+            <CardBody>
+              <ExchangePreconfigurePanel
+                disabled={portfolio.status !== "pending_confirmation" && portfolio.status !== "paused"}
+                lang={lang}
+                portfolioId={portfolio.portfolio_id}
+              />
+            </CardBody>
+          </Card>
+
+          <Card>
+            <CardHeader className="gap-3">
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                <div className="space-y-1">
+                  <CardTitle>{pickText(lang, "3. 运行控制", "3. Run controls")}</CardTitle>
+                  <CardDescription>
+                    {pickText(
+                      lang,
+                      "预配置 ready 后再确认启动；暂停/停止用于运行中的组合应急控制。",
+                      "Confirm start only after preconfigure is ready; pause/stop are emergency controls for running portfolios.",
                     )}
                   </CardDescription>
                 </div>
@@ -363,6 +410,7 @@ export function MartingalePortfolioDetail({
 
           <div className="grid gap-4 xl:grid-cols-[minmax(0,1.5fr)_minmax(320px,0.9fr)]">
             <div className="space-y-4">
+              <h2 className="text-lg font-semibold text-foreground">{pickText(lang, "4. 策略成员", "4. Strategy members")}</h2>
               {groups.map((group) => (
                 <Card key={group.key}>
                   <CardHeader>
@@ -459,6 +507,7 @@ export function MartingalePortfolioDetail({
             </div>
 
             <div className="space-y-4">
+              <h2 className="text-lg font-semibold text-foreground">{pickText(lang, "5. 暴露与统计", "5. Exposure and stats")}</h2>
               <Card>
                 <CardHeader>
                   <CardTitle>{pickText(lang, "币种级统计", "Symbol-level stats")}</CardTitle>
