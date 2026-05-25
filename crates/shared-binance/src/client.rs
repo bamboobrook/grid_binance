@@ -641,6 +641,99 @@ impl BinanceClient {
         }))
     }
 
+    pub fn set_usdm_position_mode(
+        &self,
+        dual_side_position: bool,
+    ) -> Result<(), CredentialValidationError> {
+        if !self.live_config.enabled {
+            return Err(CredentialValidationError::new(
+                "binance live mode is disabled",
+            ));
+        }
+        let http = self.live_http_client()?;
+        let server_time = self.fetch_server_time(&http, BinanceMarket::Usdm)?;
+        let value = if dual_side_position { "true" } else { "false" };
+        self.signed_request_accepting_success_code(
+            &http,
+            "POST",
+            self.live_config.base_url(BinanceMarket::Usdm),
+            "/fapi/v1/positionSide/dual",
+            server_time,
+            &[("dualSidePosition".to_string(), value.to_string())],
+            &[-4059],
+            &["no need to change position side"],
+        )
+    }
+
+    pub fn set_usdm_margin_type(
+        &self,
+        symbol: &str,
+        margin_type: &str,
+    ) -> Result<(), CredentialValidationError> {
+        let symbol = symbol.trim().to_ascii_uppercase();
+        let margin_type = match margin_type.trim().to_ascii_lowercase().as_str() {
+            "isolated" => "ISOLATED",
+            "cross" | "crossed" => "CROSSED",
+            _ => {
+                return Err(CredentialValidationError::new(
+                    "invalid usdm margin type; expected isolated, cross, or crossed",
+                ));
+            }
+        };
+        if !self.live_config.enabled {
+            return Err(CredentialValidationError::new(
+                "binance live mode is disabled",
+            ));
+        }
+        let http = self.live_http_client()?;
+        let server_time = self.fetch_server_time(&http, BinanceMarket::Usdm)?;
+        self.signed_request_accepting_success_code(
+            &http,
+            "POST",
+            self.live_config.base_url(BinanceMarket::Usdm),
+            "/fapi/v1/marginType",
+            server_time,
+            &[
+                ("symbol".to_string(), symbol),
+                ("marginType".to_string(), margin_type.to_string()),
+            ],
+            &[-4046],
+            &["no need to change margin type"],
+        )
+    }
+
+    pub fn set_usdm_leverage(
+        &self,
+        symbol: &str,
+        leverage: u32,
+    ) -> Result<(), CredentialValidationError> {
+        if !(1..=125).contains(&leverage) {
+            return Err(CredentialValidationError::new(
+                "usdm leverage must be between 1 and 125",
+            ));
+        }
+        let symbol = symbol.trim().to_ascii_uppercase();
+        if !self.live_config.enabled {
+            return Err(CredentialValidationError::new(
+                "binance live mode is disabled",
+            ));
+        }
+        let http = self.live_http_client()?;
+        let server_time = self.fetch_server_time(&http, BinanceMarket::Usdm)?;
+        let _: serde_json::Value = self.signed_request(
+            &http,
+            "POST",
+            self.live_config.base_url(BinanceMarket::Usdm),
+            "/fapi/v1/leverage",
+            server_time,
+            &[
+                ("symbol".to_string(), symbol),
+                ("leverage".to_string(), leverage.to_string()),
+            ],
+        )?;
+        Ok(())
+    }
+
     pub fn cancel_order(
         &self,
         market: &str,
@@ -1576,6 +1669,44 @@ impl BinanceClient {
             })?;
         parse_json_response(response)
     }
+
+    fn signed_request_accepting_success_code(
+        &self,
+        http: &HttpClient,
+        method: &str,
+        base_url: &str,
+        path: &str,
+        server_time: i64,
+        params: &[(String, String)],
+        noop_codes: &[i64],
+        noop_messages: &[&str],
+    ) -> Result<(), CredentialValidationError> {
+        match self.signed_request::<serde_json::Value>(
+            http,
+            method,
+            base_url,
+            path,
+            server_time,
+            params,
+        ) {
+            Ok(_) => Ok(()),
+            Err(error) => {
+                let message = error.to_string();
+                if message.contains("binance error (200)")
+                    || noop_codes
+                        .iter()
+                        .any(|code| message.contains(&format!("binance error ({code})")))
+                    || noop_messages
+                        .iter()
+                        .any(|needle| message.to_ascii_lowercase().contains(needle))
+                {
+                    Ok(())
+                } else {
+                    Err(error)
+                }
+            }
+        }
+    }
 }
 
 impl BinanceUserTrade {
@@ -2447,7 +2578,14 @@ mod tests {
 
     struct TestServer {
         base_url: String,
+        requests: Arc<Mutex<Vec<TestRequest>>>,
         join_handle: Option<thread::JoinHandle<()>>,
+    }
+
+    #[derive(Clone, Debug)]
+    struct TestRequest {
+        method: String,
+        path: String,
     }
 
     struct EnvGuard {
@@ -2489,7 +2627,9 @@ mod tests {
         let listener = TcpListener::bind("127.0.0.1:0").expect("bind local test server");
         let address = listener.local_addr().expect("test server address");
         let queue = Arc::new(Mutex::new(Vec::from(routes)));
+        let requests = Arc::new(Mutex::new(Vec::new()));
         let queue_for_thread = queue.clone();
+        let requests_for_thread = requests.clone();
         let join_handle = thread::spawn(move || loop {
             let route_count = queue_for_thread.lock().expect("route queue poisoned").len();
             if route_count == 0 {
@@ -2504,6 +2644,18 @@ mod tests {
                 .next()
                 .and_then(|line| line.split_whitespace().nth(1))
                 .expect("request path");
+            let method = request
+                .lines()
+                .next()
+                .and_then(|line| line.split_whitespace().next())
+                .expect("request method");
+            requests_for_thread
+                .lock()
+                .expect("requests list poisoned")
+                .push(TestRequest {
+                    method: method.to_string(),
+                    path: path.to_string(),
+                });
             let route = {
                 let mut guard = queue_for_thread.lock().expect("route queue poisoned");
                 let Some(index) = guard
@@ -2528,7 +2680,14 @@ mod tests {
 
         TestServer {
             base_url: format!("http://{}", address),
+            requests,
             join_handle: Some(join_handle),
+        }
+    }
+
+    impl TestServer {
+        fn requests(&self) -> Vec<TestRequest> {
+            self.requests.lock().expect("requests list poisoned").clone()
         }
     }
 
@@ -2751,6 +2910,184 @@ mod tests {
             .expect("cancel order");
         assert_eq!(canceled.order_id, "98765");
         assert_eq!(canceled.status, "CANCELED");
+    }
+
+    #[test]
+    fn usdm_exchange_setting_endpoints_submit_signed_posts() {
+        let _guard = env_lock().lock().unwrap();
+        let server = spawn_test_server(vec![
+            TestRoute {
+                path_prefix: "/fapi/v1/time",
+                status_line: "HTTP/1.1 200 OK",
+                body: r#"{"serverTime":1710000000000}"#,
+            },
+            TestRoute {
+                path_prefix: "/fapi/v1/positionSide/dual?",
+                status_line: "HTTP/1.1 200 OK",
+                body: r#"{"code":200,"msg":"success"}"#,
+            },
+            TestRoute {
+                path_prefix: "/fapi/v1/time",
+                status_line: "HTTP/1.1 200 OK",
+                body: r#"{"serverTime":1710000000001}"#,
+            },
+            TestRoute {
+                path_prefix: "/fapi/v1/marginType?",
+                status_line: "HTTP/1.1 200 OK",
+                body: r#"{"code":200,"msg":"success"}"#,
+            },
+            TestRoute {
+                path_prefix: "/fapi/v1/time",
+                status_line: "HTTP/1.1 200 OK",
+                body: r#"{"serverTime":1710000000002}"#,
+            },
+            TestRoute {
+                path_prefix: "/fapi/v1/leverage?",
+                status_line: "HTTP/1.1 200 OK",
+                body: r#"{"symbol":"BTCUSDT","leverage":6,"maxNotionalValue":"1000000"}"#,
+            },
+        ]);
+        let _live_mode = set_env("BINANCE_LIVE_MODE", "1");
+        let _usdm_base = set_env("BINANCE_USDM_REST_BASE_URL", &server.base_url);
+
+        let client = BinanceClient::new("live-key", "live-secret");
+
+        client
+            .set_usdm_position_mode(true)
+            .expect("set position mode");
+        client
+            .set_usdm_margin_type(" btcusdt ", "isolated")
+            .expect("set margin type");
+        client
+            .set_usdm_leverage(" btcusdt ", 6)
+            .expect("set leverage");
+
+        let requests = server.requests();
+        let signed_requests = requests
+            .iter()
+            .filter(|request| !request.path.ends_with("/time"))
+            .collect::<Vec<_>>();
+        assert_eq!(signed_requests[0].method, "POST");
+        assert!(signed_requests[0]
+            .path
+            .starts_with("/fapi/v1/positionSide/dual?"));
+        assert!(signed_requests[0].path.contains("dualSidePosition=true"));
+
+        assert_eq!(signed_requests[1].method, "POST");
+        assert!(signed_requests[1].path.starts_with("/fapi/v1/marginType?"));
+        assert!(signed_requests[1].path.contains("symbol=BTCUSDT"));
+        assert!(signed_requests[1].path.contains("marginType=ISOLATED"));
+
+        assert_eq!(signed_requests[2].method, "POST");
+        assert!(signed_requests[2].path.starts_with("/fapi/v1/leverage?"));
+        assert!(signed_requests[2].path.contains("symbol=BTCUSDT"));
+        assert!(signed_requests[2].path.contains("leverage=6"));
+    }
+
+    #[test]
+    fn usdm_margin_type_already_target_is_idempotent_success() {
+        let _guard = env_lock().lock().unwrap();
+        let server = spawn_test_server(vec![
+            TestRoute {
+                path_prefix: "/fapi/v1/time",
+                status_line: "HTTP/1.1 200 OK",
+                body: r#"{"serverTime":1710000000000}"#,
+            },
+            TestRoute {
+                path_prefix: "/fapi/v1/marginType?",
+                status_line: "HTTP/1.1 400 Bad Request",
+                body: r#"{"code":-4046,"msg":"No need to change margin type."}"#,
+            },
+        ]);
+        let _live_mode = set_env("BINANCE_LIVE_MODE", "1");
+        let _usdm_base = set_env("BINANCE_USDM_REST_BASE_URL", &server.base_url);
+        let client = BinanceClient::new("live-key", "live-secret");
+
+        client
+            .set_usdm_margin_type("BTCUSDT", "isolated")
+            .expect("already isolated should be success");
+    }
+
+    #[test]
+    fn usdm_margin_type_no_need_text_is_idempotent_success() {
+        let _guard = env_lock().lock().unwrap();
+        let server = spawn_test_server(vec![
+            TestRoute {
+                path_prefix: "/fapi/v1/time",
+                status_line: "HTTP/1.1 200 OK",
+                body: r#"{"serverTime":1710000000000}"#,
+            },
+            TestRoute {
+                path_prefix: "/fapi/v1/marginType?",
+                status_line: "HTTP/1.1 400 Bad Request",
+                body: r#"{"code":-1,"msg":"No need to change margin type."}"#,
+            },
+        ]);
+        let _live_mode = set_env("BINANCE_LIVE_MODE", "1");
+        let _usdm_base = set_env("BINANCE_USDM_REST_BASE_URL", &server.base_url);
+        let client = BinanceClient::new("live-key", "live-secret");
+
+        client
+            .set_usdm_margin_type("BTCUSDT", "isolated")
+            .expect("no need text should be success");
+    }
+
+    #[test]
+    fn usdm_position_mode_already_target_is_idempotent_success() {
+        let _guard = env_lock().lock().unwrap();
+        let server = spawn_test_server(vec![
+            TestRoute {
+                path_prefix: "/fapi/v1/time",
+                status_line: "HTTP/1.1 200 OK",
+                body: r#"{"serverTime":1710000000000}"#,
+            },
+            TestRoute {
+                path_prefix: "/fapi/v1/positionSide/dual?",
+                status_line: "HTTP/1.1 400 Bad Request",
+                body: r#"{"code":-4059,"msg":"No need to change position side."}"#,
+            },
+        ]);
+        let _live_mode = set_env("BINANCE_LIVE_MODE", "1");
+        let _usdm_base = set_env("BINANCE_USDM_REST_BASE_URL", &server.base_url);
+        let client = BinanceClient::new("live-key", "live-secret");
+
+        client
+            .set_usdm_position_mode(true)
+            .expect("already target position mode should be success");
+    }
+
+    #[test]
+    fn usdm_margin_type_rejects_invalid_value_before_network_call() {
+        let _guard = env_lock().lock().unwrap();
+        let _live_mode = set_env("BINANCE_LIVE_MODE", "1");
+        let client = BinanceClient::new("live-key", "live-secret");
+
+        let error = client
+            .set_usdm_margin_type("BTCUSDT", "portfolio")
+            .expect_err("invalid margin type should fail");
+
+        assert!(error.to_string().contains("invalid usdm margin type"));
+    }
+
+    #[test]
+    fn usdm_leverage_rejects_out_of_range_before_network_call() {
+        let _guard = env_lock().lock().unwrap();
+        let _live_mode = set_env("BINANCE_LIVE_MODE", "1");
+        let client = BinanceClient::new("live-key", "live-secret");
+
+        let low_error = client
+            .set_usdm_leverage("BTCUSDT", 0)
+            .expect_err("zero leverage should fail");
+        let high_error = client
+            .set_usdm_leverage("BTCUSDT", 126)
+            .expect_err("too high leverage should fail");
+
+        assert!(low_error
+            .to_string()
+            .contains("usdm leverage must be between 1 and 125"));
+        assert!(high_error
+            .to_string()
+            .contains("usdm leverage must be between 1 and 125"));
     }
 
     #[test]
