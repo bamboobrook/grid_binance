@@ -41,6 +41,30 @@ export type PortfolioBasketItem = {
   metricsSnapshot: Record<string, unknown>;
 };
 
+
+function normalizePublishItemsWeights(items: PortfolioBasketItem[]) {
+  const normalized = items.map((item) => ({
+    ...item,
+    normalizedWeightPct: roundWeight(readNumber(item.weightPct) ?? 0),
+  }));
+  if (normalized.length === 0) {
+    return normalized;
+  }
+  const normalizedTotal = normalized.reduce((sum, item) => sum + item.normalizedWeightPct, 0);
+  const drift = roundWeight(100 - normalizedTotal);
+  const adjustmentIndex = normalized.reduce((bestIndex, item, index) => (
+    item.normalizedWeightPct > normalized[bestIndex].normalizedWeightPct ? index : bestIndex
+  ), 0);
+  normalized[adjustmentIndex].normalizedWeightPct = roundWeight(
+    normalized[adjustmentIndex].normalizedWeightPct + drift,
+  );
+  return normalized;
+}
+
+function roundWeight(value: number) {
+  return Math.round(value * 100) / 100;
+}
+
 function readObject(value: unknown): Record<string, unknown> | null {
   return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : null;
 }
@@ -198,7 +222,14 @@ export function PortfolioCandidateReview({
       return;
     }
 
-    const first = enabledItems[0];
+    const normalizedItems = normalizePublishItemsWeights(enabledItems);
+    const normalizedTotal = normalizedItems.reduce((sum, item) => sum + item.normalizedWeightPct, 0);
+    if (Math.abs(normalizedTotal - 100) > 0.000001) {
+      setFeedback(pickText(lang, "权重归一化失败，请重新检查启用项权重。", "Weight normalization failed; please recheck enabled item weights."));
+      return;
+    }
+
+    const first = normalizedItems[0];
     const payload = {
       name: portfolioName.trim() || `${first.symbol} basket`,
       task_id: first.taskId || first.selectedTaskId,
@@ -206,10 +237,10 @@ export function PortfolioCandidateReview({
       direction: first.direction,
       risk_profile: first.riskProfile || "balanced",
       total_weight_pct: 100,
-      items: enabledItems.map((item) => ({
+      items: normalizedItems.map((item) => ({
         candidate_id: item.candidateId,
         symbol: item.symbol,
-        weight_pct: readNumber(item.weightPct) ?? 0,
+        weight_pct: item.normalizedWeightPct,
         leverage: readNumber(item.leverage) ?? 1,
         enabled: item.enabled,
         parameter_snapshot: item.parameterSnapshot,

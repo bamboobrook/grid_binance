@@ -450,16 +450,13 @@ export function BacktestConsole({ lang, locale }: { lang: UiLanguage; locale: st
         </button>
         {sandboxOpen ? (
           <div className="mt-4 space-y-3">
-            <div className="flex flex-wrap gap-2">
-              <button className="rounded-full border border-border px-3 py-1 text-xs font-medium" onClick={() => { setBasketItems(sandboxItems); setPublishOpen(true); }} type="button">
-                {pickText(lang, "用作发布篮子", "Use as publish basket")}
-              </button>
-              {selectedCandidate ? (
+            {selectedCandidate ? (
+              <div className="flex flex-wrap gap-2">
                 <button className="rounded-full bg-secondary px-3 py-1 text-xs font-medium" onClick={() => addCandidateToSandbox(selectedCandidate)} type="button">
                   {pickText(lang, `加入沙盒：${selectedCandidate.symbol}`, `Add to sandbox: ${selectedCandidate.symbol}`)}
                 </button>
-              ) : null}
-            </div>
+              </div>
+            ) : null}
             {sandboxItems.length > 0 ? (
               <div className="space-y-2">
                 {sandboxItems.map((item) => (
@@ -473,9 +470,12 @@ export function BacktestConsole({ lang, locale }: { lang: UiLanguage; locale: st
                     <button className="rounded border border-border px-2 py-1" onClick={() => setSandboxItems((current) => current.filter((row) => row.localId !== item.localId))} type="button">{pickText(lang, "移除", "Remove")}</button>
                   </div>
                 ))}
-                <div className="flex flex-wrap items-center gap-2">
+                <div className="flex flex-wrap items-center gap-3">
                   <button className="rounded-full bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-60" disabled={sandboxPending} onClick={() => void recalculateSandbox()} type="button">
                     {sandboxPending ? pickText(lang, "重算中…", "Recalculating...") : pickText(lang, "重新计算组合表现", "Recalculate portfolio")}
+                  </button>
+                  <button className="rounded-full border-2 border-amber-500 bg-amber-500/10 px-5 py-2 text-sm font-semibold text-amber-700 shadow-sm transition-colors hover:bg-amber-500/20 dark:text-amber-200" onClick={() => { setBasketItems(sandboxItems); setPublishOpen(true); }} type="button">
+                    {pickText(lang, "用作发布篮子", "Use as publish basket")}
                   </button>
                   {sandboxResult ? <span className="text-sm text-muted-foreground">{pickText(lang, `年化 ${sandboxResult.annualized_return_pct?.toFixed(2) ?? "—"}% · 回撤 ${sandboxResult.max_drawdown_pct.toFixed(2)}%`, `Annualized ${sandboxResult.annualized_return_pct?.toFixed(2) ?? "—"}% · DD ${sandboxResult.max_drawdown_pct.toFixed(2)}%`)}</span> : null}
                 </div>

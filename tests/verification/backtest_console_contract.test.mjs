@@ -88,7 +88,7 @@ test("backtest console interactions stay in-page and use client fetch", () => {
   assert.match(wizardSource, /风险档位|Risk profile/);
   assert.match(wizardSource, /系统自动搜索杠杆、间隔、倍率、层数、止盈、尾部保护、多空比例|automatically searches leverage/i);
   assert.match(wizardSource, /per_symbol_top_n:\s*10/);
-  assert.match(wizardSource, /portfolio_top_n:\s*3/);
+  assert.match(wizardSource, /portfolio_top_n:\s*form\.extendedUniverse\s*\?\s*10\s*:\s*3/);
   assert.doesNotMatch(wizardSource, /name="market"[\s\S]{0,300}<option value="spot"/);
 });
 
