@@ -462,10 +462,10 @@ export function BacktestConsole({ lang, locale }: { lang: UiLanguage; locale: st
                   <div className="grid gap-2 rounded-lg border border-border p-2 text-xs md:grid-cols-[1fr_90px_90px_80px]" key={item.localId}>
                     <div>
                       <p className="font-medium">{item.symbol}</p>
-                      <p className="text-muted-foreground">{item.direction} · {item.candidateId}</p>
+                      <p className="text-muted-foreground">{item.direction} · {item.leverage}x · {item.candidateId}</p>
                     </div>
-                    <input className="rounded border border-border bg-background px-2 py-1" value={item.weightPct} onChange={(event) => setSandboxItems((current) => current.map((row) => row.localId === item.localId ? { ...row, weightPct: event.currentTarget.value } : row))} />
-                    <input className="rounded border border-border bg-background px-2 py-1" value={item.leverage} onChange={(event) => setSandboxItems((current) => current.map((row) => row.localId === item.localId ? { ...row, leverage: event.currentTarget.value } : row))} />
+                    <label className="space-y-1"><span className="text-[10px] uppercase text-muted-foreground">权重%</span><input className="w-full rounded border border-border bg-background px-2 py-1" value={item.weightPct} onChange={(event) => setSandboxItems((current) => current.map((row) => row.localId === item.localId ? { ...row, weightPct: event.currentTarget.value } : row))} /></label>
+                    <label className="space-y-1"><span className="text-[10px] uppercase text-muted-foreground">杠杆</span><input className="w-full rounded border border-border bg-background px-2 py-1" value={item.leverage} onChange={(event) => setSandboxItems((current) => current.map((row) => row.localId === item.localId ? { ...row, leverage: event.currentTarget.value } : row))} /></label>
                     <button className="rounded border border-border px-2 py-1" onClick={() => setSandboxItems((current) => current.filter((row) => row.localId !== item.localId))} type="button">{pickText(lang, "移除", "Remove")}</button>
                   </div>
                 ))}

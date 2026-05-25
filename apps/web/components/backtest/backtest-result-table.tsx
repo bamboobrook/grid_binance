@@ -162,7 +162,7 @@ export function BacktestResultTable({
                     {entry.members.map((m) => (
                       <div key={m.candidate_id} className="flex items-center justify-between text-xs">
                         <span>{m.symbol} ({m.direction})</span>
-                        <span>{m.allocation_pct.toFixed(1)}%</span>
+                        <span>{m.allocation_pct.toFixed(1)}% · {m.leverage ? `${m.leverage}x` : "—"}</span>
                       </div>
                     ))}
                   </div>

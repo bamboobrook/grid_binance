@@ -17,6 +17,7 @@ pub struct PortfolioMember {
     pub annualized_return_pct: Option<f64>,
     pub trade_count: u64,
     pub score: f64,
+    pub leverage: Option<u32>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -1249,6 +1250,13 @@ fn build_weighted_portfolio(
                 annualized_return_pct: c.annualized_return_pct,
                 trade_count: c.trade_count,
                 score: c.score,
+                leverage: c
+                    .candidate
+                    .config
+                    .strategies
+                    .iter()
+                    .filter_map(|strategy| strategy.leverage)
+                    .max(),
             }
         })
         .collect();
@@ -1477,6 +1485,22 @@ mod tests {
             drawdown_curve: Vec::new(),
             trades: Vec::new(),
         }
+    }
+
+    #[test]
+    fn portfolio_members_include_backtested_leverage() {
+        let candidates = vec![
+            fixture_candidate("a", "BTCUSDT", 30.0, 10.0, 3.0),
+            fixture_candidate("b", "ETHUSDT", 25.0, 12.0, 2.5),
+        ];
+
+        let artifact = build_portfolio_top3(&candidates, 20.0);
+
+        assert!(!artifact.top3.is_empty());
+        assert!(artifact.top3[0]
+            .members
+            .iter()
+            .all(|member| member.leverage == Some(3)));
     }
 
     #[test]
