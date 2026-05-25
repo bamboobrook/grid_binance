@@ -234,6 +234,70 @@ pub fn apply_exchange_preconfigure(
     Ok(response)
 }
 
+#[cfg(test)]
+fn preconfigure_exchange_with_client(
+    portfolio: &MartingalePortfolioRecord,
+    request: &ExchangePreconfigureRequest,
+    exchange: &mut dyn TestExchangeSettingsClient,
+) -> Result<ExchangePreconfigureResponse, SharedDbError> {
+    validate_preconfigure_confirmations(portfolio, request)?;
+    let target = target_exchange_settings_from_portfolio(portfolio)?;
+    let before_hedge = exchange.read_usdm_hedge_mode()?;
+    if target.requires_hedge_mode && !before_hedge {
+        exchange.set_usdm_position_mode(true)?;
+    }
+    for (symbol, settings) in &target.symbols {
+        exchange.set_usdm_margin_type(symbol, &settings.margin_mode)?;
+        exchange.set_usdm_leverage(symbol, settings.leverage)?;
+    }
+    let current_hedge = exchange.read_usdm_hedge_mode()?;
+    let mut symbols = Vec::with_capacity(target.symbols.len());
+    for (symbol, settings) in target.symbols {
+        let current = exchange.read_usdm_symbol_settings(&symbol)?;
+        symbols.push(SymbolExchangeCheck {
+            symbol: symbol.clone(),
+            target_margin_mode: settings.margin_mode.clone(),
+            current_margin_mode: Some(current.margin_mode),
+            target_leverage: settings.leverage,
+            current_leverage: Some(current.leverage),
+            status: "ready".to_owned(),
+            message: "symbol margin mode and leverage match target".to_owned(),
+        });
+    }
+    Ok(ExchangePreconfigureResponse {
+        status: "ready".to_owned(),
+        hedge_mode: HedgeModeCheck {
+            target: true,
+            current: Some(current_hedge),
+            status: "ready".to_owned(),
+            message: "account position mode matches target".to_owned(),
+        },
+        symbols,
+        warnings: vec![],
+        checked_at: Utc::now().to_rfc3339(),
+        applied: true,
+    })
+}
+
+#[cfg(test)]
+#[derive(Debug, Clone)]
+struct TestCurrentSymbolSettings {
+    margin_mode: String,
+    leverage: u32,
+}
+
+#[cfg(test)]
+trait TestExchangeSettingsClient {
+    fn read_usdm_hedge_mode(&mut self) -> Result<bool, SharedDbError>;
+    fn set_usdm_position_mode(&mut self, dual_side_position: bool) -> Result<(), SharedDbError>;
+    fn set_usdm_margin_type(&mut self, symbol: &str, margin_mode: &str) -> Result<(), SharedDbError>;
+    fn set_usdm_leverage(&mut self, symbol: &str, leverage: u32) -> Result<(), SharedDbError>;
+    fn read_usdm_symbol_settings(
+        &mut self,
+        symbol: &str,
+    ) -> Result<TestCurrentSymbolSettings, SharedDbError>;
+}
+
 fn readback_response(
     client: &BinanceClient,
     target: TargetExchangeSettings,
@@ -422,6 +486,40 @@ mod tests {
     }
 
     #[test]
+    fn preconfigure_runs_hedge_then_margin_then_leverage_then_readback() {
+        let portfolio = portfolio_fixture(
+            "long_short",
+            vec![
+                strategy_fixture("BTCUSDT", "long", 6),
+                strategy_fixture("ETHUSDT", "short", 4),
+            ],
+        );
+        let mut exchange = FakeExchangeSettingsClient {
+            hedge_mode: false,
+            calls: Vec::new(),
+        };
+
+        let response = preconfigure_exchange_with_client(&portfolio, &confirmed_request(), &mut exchange)
+            .expect("preconfigure");
+
+        assert_eq!(response.status, "ready");
+        assert_eq!(
+            exchange.calls,
+            vec![
+                "read_hedge",
+                "set_hedge:true",
+                "set_margin_type:BTCUSDT:isolated",
+                "set_leverage:BTCUSDT:6",
+                "set_margin_type:ETHUSDT:isolated",
+                "set_leverage:ETHUSDT:4",
+                "read_hedge",
+                "read_symbol:BTCUSDT",
+                "read_symbol:ETHUSDT",
+            ]
+        );
+    }
+
+    #[test]
     fn target_only_scaffold_response_requires_readback() {
         let portfolio = portfolio_fixture("long", vec![strategy_fixture("BTCUSDT", "long", 6)]);
         let target = target_exchange_settings_from_portfolio(&portfolio).expect("target settings");
@@ -472,5 +570,44 @@ mod tests {
             "margin_mode": "isolated",
             "leverage": leverage,
         })
+    }
+
+    struct FakeExchangeSettingsClient {
+        hedge_mode: bool,
+        calls: Vec<String>,
+    }
+
+    impl TestExchangeSettingsClient for FakeExchangeSettingsClient {
+        fn read_usdm_hedge_mode(&mut self) -> Result<bool, SharedDbError> {
+            self.calls.push("read_hedge".to_owned());
+            Ok(self.hedge_mode)
+        }
+
+        fn set_usdm_position_mode(&mut self, dual_side_position: bool) -> Result<(), SharedDbError> {
+            self.calls.push(format!("set_hedge:{dual_side_position}"));
+            self.hedge_mode = dual_side_position;
+            Ok(())
+        }
+
+        fn set_usdm_margin_type(&mut self, symbol: &str, margin_mode: &str) -> Result<(), SharedDbError> {
+            self.calls.push(format!("set_margin_type:{symbol}:{margin_mode}"));
+            Ok(())
+        }
+
+        fn set_usdm_leverage(&mut self, symbol: &str, leverage: u32) -> Result<(), SharedDbError> {
+            self.calls.push(format!("set_leverage:{symbol}:{leverage}"));
+            Ok(())
+        }
+
+        fn read_usdm_symbol_settings(
+            &mut self,
+            symbol: &str,
+        ) -> Result<TestCurrentSymbolSettings, SharedDbError> {
+            self.calls.push(format!("read_symbol:{symbol}"));
+            Ok(TestCurrentSymbolSettings {
+                margin_mode: "isolated".to_owned(),
+                leverage: if symbol == "BTCUSDT" { 6 } else { 4 },
+            })
+        }
     }
 }
