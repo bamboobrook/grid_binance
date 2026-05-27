@@ -27,7 +27,7 @@ test("backtest worker contains profit-first staged auto-search flow contract", (
   assert.match(worker, /portfolio_top_n/);
   assert.match(worker, /run_profit_first_staged_search\(\s*&market_context,/);
   assert.doesNotMatch(worker, /let random_candidates = apply_task_overrides\(\s*random_search\(/);
-  assert.match(worker, /drawdown_limit_sequence\(&task\.config\.risk_profile\)/);
+  assert.match(worker, /drawdown_limits_for_direction_mode\(/);
   assert.match(worker, /score\.survival_valid/);
   assert.match(worker, /total_return_pct\s*<=\s*0\.0/);
   assert.match(worker, /build_portfolio_top3/);
@@ -57,11 +57,22 @@ test("backtest worker uses directions_from_mode for multi-direction search", () 
   assert.doesNotMatch(worker, /fn max_drawdown_from_curve/);
 });
 
+test("backtest worker supports mixed_best mode across long short and long_short", () => {
+  const worker = readFileSync("apps/backtest-worker/src/main.rs", "utf8");
+  assert.match(worker, /is_mixed_best_mode/);
+  assert.match(worker, /search_direction_modes_for_task/);
+  assert.match(worker, /"long_only"/);
+  assert.match(worker, /"short_only"/);
+  assert.match(worker, /"long_short"/);
+  assert.match(worker, /task_config_for_direction_mode/);
+  assert.match(worker, /mixed_best_direction_modes/);
+});
+
 test("backtest worker applies task overrides before screening and refinement", () => {
   const worker = readFileSync("apps/backtest-worker/src/main.rs", "utf8");
-  assert.match(worker, /apply_task_overrides_to_candidate\(candidate\.clone\(\), task\)/);
+  assert.match(worker, /apply_task_overrides_to_candidate\((candidate\.clone\(\)|candidate), task\)/);
   assert.match(worker, /run_candidate_kline_screening\(&overridden, context\)/);
-  assert.match(worker, /run_candidate_trade_refinement\(&overridden_candidate, &market_context\)/);
+  assert.match(worker, /run_candidate_trade_refinement\(&overridden_candidate, market_context\)/);
 });
 
 test("worker emits complete martingale artifacts and true portfolio combinations", () => {

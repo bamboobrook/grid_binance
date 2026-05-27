@@ -213,7 +213,7 @@ impl StagedMartingaleSearchSpace {
 
     pub fn profit_optimized_v2(risk_profile: &str, direction_mode: &str) -> Self {
         let mut space = Self::for_profile(risk_profile, direction_mode);
-        space.leverage = vec![2, 3, 4, 5, 6, 8, 10];
+        space.leverage = vec![2, 3, 4, 5, 6, 8, 10, 12, 15, 20];
         space.spacing_bps = vec![35, 50, 70, 90, 120, 160, 220, 300, 420, 600];
         space.order_multiplier = vec![1.15, 1.25, 1.4, 1.6, 1.8, 2.0, 2.2, 2.4];
         space.max_legs = vec![3, 4, 5, 6, 7, 8, 9];
@@ -360,6 +360,18 @@ pub fn generate_staged_candidates_for_symbol(
             let short_take_profit_bps = space.take_profit_bps[stpi];
             let short_tail_stop_bps = space.tail_stop_bps[stsi];
 
+            if !is_valid_fixed_percent_spacing(
+                MartingaleDirection::Long,
+                long_spacing_bps,
+                max_legs,
+            ) || !is_valid_fixed_percent_spacing(
+                MartingaleDirection::Short,
+                short_spacing_bps,
+                short_max_legs,
+            ) {
+                continue;
+            }
+
             let long_params = LegParameters {
                 spacing_bps: long_spacing_bps,
                 order_multiplier: multiplier,
@@ -387,54 +399,68 @@ pub fn generate_staged_candidates_for_symbol(
         return Ok(candidates);
     }
 
-    // single-direction path (unchanged outer loop)
-    for leverage in &space.leverage {
-        for spacing_bps in &space.spacing_bps {
-            for multiplier in &space.order_multiplier {
-                for max_legs in &space.max_legs {
-                    for take_profit_bps in &space.take_profit_bps {
-                        for tail_stop_bps in &space.tail_stop_bps {
-                            match direction {
-                                "long" | "long_only" => {
-                                    candidates.push(build_single_direction_candidate(
-                                        symbol,
-                                        MartingaleDirection::Long,
-                                        *leverage,
-                                        *spacing_bps,
-                                        *multiplier,
-                                        *max_legs,
-                                        *take_profit_bps,
-                                        *tail_stop_bps,
-                                        100,
-                                        &mut id_counter,
-                                    )?);
-                                }
-                                "short" | "short_only" => {
-                                    candidates.push(build_single_direction_candidate(
-                                        symbol,
-                                        MartingaleDirection::Short,
-                                        *leverage,
-                                        *spacing_bps,
-                                        *multiplier,
-                                        *max_legs,
-                                        *take_profit_bps,
-                                        *tail_stop_bps,
-                                        100,
-                                        &mut id_counter,
-                                    )?);
-                                }
-                                other => return Err(format!("unsupported direction: {other}")),
-                            }
-                            if candidates.len() >= limit {
-                                return Ok(candidates);
-                            }
-                        }
-                    }
-                }
-            }
+    let single_direction = match direction {
+        "long" | "long_only" => MartingaleDirection::Long,
+        "short" | "short_only" => MartingaleDirection::Short,
+        other => return Err(format!("unsupported direction: {other}")),
+    };
+    let mut rng = StdRng::seed_from_u64(staged_candidate_seed(symbol, direction, limit));
+    let mut seen = std::collections::HashSet::<(usize, usize, usize, usize, usize, usize)>::new();
+    let total_combinations = space.leverage.len()
+        * space.spacing_bps.len()
+        * space.order_multiplier.len()
+        * space.max_legs.len()
+        * space.take_profit_bps.len()
+        * space.tail_stop_bps.len();
+    while candidates.len() < limit && seen.len() < total_combinations {
+        let li = rng.gen_range(0..space.leverage.len());
+        let si = rng.gen_range(0..space.spacing_bps.len());
+        let mi = rng.gen_range(0..space.order_multiplier.len());
+        let mli = rng.gen_range(0..space.max_legs.len());
+        let tpi = rng.gen_range(0..space.take_profit_bps.len());
+        let tsi = rng.gen_range(0..space.tail_stop_bps.len());
+        if !seen.insert((li, si, mi, mli, tpi, tsi)) {
+            continue;
         }
+        let spacing_bps = space.spacing_bps[si];
+        let max_legs = space.max_legs[mli];
+        if !is_valid_fixed_percent_spacing(single_direction, spacing_bps, max_legs) {
+            continue;
+        }
+        candidates.push(build_single_direction_candidate(
+            symbol,
+            single_direction,
+            space.leverage[li],
+            spacing_bps,
+            space.order_multiplier[mi],
+            max_legs,
+            space.take_profit_bps[tpi],
+            space.tail_stop_bps[tsi],
+            100,
+            &mut id_counter,
+        )?);
     }
     Ok(candidates)
+}
+
+fn staged_candidate_seed(symbol: &str, direction: &str, limit: usize) -> u64 {
+    let mut seed = 0xA11C_E5E5_D15C_0DE5_u64 ^ limit as u64;
+    for byte in symbol.bytes().chain(direction.bytes()) {
+        seed = seed.wrapping_mul(1_099_511_628_211).wrapping_add(byte as u64);
+    }
+    seed
+}
+
+fn is_valid_fixed_percent_spacing(
+    direction: MartingaleDirection,
+    spacing_bps: u32,
+    max_legs: u32,
+) -> bool {
+    let max_distance_bps = spacing_bps.saturating_mul(max_legs);
+    match direction {
+        MartingaleDirection::Long => max_distance_bps < 9_500,
+        MartingaleDirection::Short => max_distance_bps <= 30_000,
+    }
 }
 
 fn build_single_direction_candidate(
@@ -673,6 +699,45 @@ mod staged_tests {
         assert!(space.max_legs.contains(&9));
         assert!(space.order_multiplier.iter().any(|v| *v <= 1.15));
         assert!(space.order_multiplier.iter().any(|v| *v >= 2.4));
+    }
+
+    #[test]
+    fn single_direction_staged_candidates_sample_tail_parameters() {
+        let space = StagedMartingaleSearchSpace::profit_optimized_v2("balanced", "long_only");
+
+        let candidates = generate_staged_candidates_for_symbol("BTCUSDT", "long_only", &space, 96)
+            .expect("single-direction candidates should generate");
+
+        assert!(
+            candidates.iter().any(|candidate| candidate
+                .config
+                .strategies
+                .iter()
+                .any(|strategy| strategy.leverage.unwrap_or(1) >= 10)),
+            "single-direction search must not only emit low-leverage prefix candidates"
+        );
+        assert!(
+            candidates.iter().any(|candidate| candidate
+                .config
+                .strategies
+                .iter()
+                .any(|strategy| match strategy.spacing {
+                    MartingaleSpacingModel::FixedPercent { step_bps } => step_bps >= 420,
+                    _ => false,
+                })),
+            "single-direction search must cover wide spacing tail candidates"
+        );
+        assert!(
+            candidates.iter().any(|candidate| candidate
+                .config
+                .strategies
+                .iter()
+                .any(|strategy| match strategy.take_profit {
+                    MartingaleTakeProfitModel::Percent { bps } => bps >= 200,
+                    _ => false,
+                })),
+            "single-direction search must cover higher take-profit tail candidates"
+        );
     }
 
     #[test]

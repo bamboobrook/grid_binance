@@ -251,7 +251,10 @@ fn futures_settings_from_portfolio(
             .and_then(serde_json::Value::as_u64)
             .ok_or_else(|| shared_db::SharedDbError::new("leverage is required"))?
             as u32;
-        let margin_mode = match strategy.get("margin_mode").and_then(serde_json::Value::as_str) {
+        let margin_mode = match strategy
+            .get("margin_mode")
+            .and_then(serde_json::Value::as_str)
+        {
             Some("isolated") => MartingaleMarginMode::Isolated,
             Some("cross") => MartingaleMarginMode::Cross,
             _ => return Err(shared_db::SharedDbError::new("margin_mode is required")),
@@ -561,9 +564,7 @@ fn martingale_runtime_config_from_portfolio(
         .ok_or_else(|| shared_db::SharedDbError::new("portfolio_config is required"))?;
     let config: MartingalePortfolioConfig = serde_json::from_value(config_value)
         .map_err(|error| shared_db::SharedDbError::new(error.to_string()))?;
-    config
-        .validate()
-        .map_err(shared_db::SharedDbError::new)?;
+    config.validate().map_err(shared_db::SharedDbError::new)?;
     let portfolio_budget_quote = portfolio
         .items
         .iter()
@@ -626,7 +627,11 @@ fn decimal_from_json(value: &serde_json::Value) -> Option<Decimal> {
                 text.parse::<Decimal>().ok()
             }
         })
-        .or_else(|| value.as_f64().and_then(|number| Decimal::try_from(number).ok()))
+        .or_else(|| {
+            value
+                .as_f64()
+                .and_then(|number| Decimal::try_from(number).ok())
+        })
 }
 
 fn decimal_pow_lossy(base: Decimal, exponent: u32) -> Decimal {
@@ -1200,7 +1205,9 @@ mod tests {
     use chrono::Utc;
     use rust_decimal::Decimal;
     use shared_binance::BinanceUserDataStream;
-    use shared_db::{MartingalePortfolioItemRecord, MartingalePortfolioRecord, SharedDb, StoredStrategy};
+    use shared_db::{
+        MartingalePortfolioItemRecord, MartingalePortfolioRecord, SharedDb, StoredStrategy,
+    };
     use shared_domain::strategy::{
         GridGeneration, GridLevel, PostTriggerAction, ReferencePriceSource, RuntimeControls,
         Strategy, StrategyAmountMode, StrategyMarket, StrategyMode, StrategyRevision,

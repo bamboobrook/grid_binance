@@ -936,6 +936,8 @@ mod tests {
             "short"
         );
         assert!(running.config["portfolio_config"]["strategies"][1]["stop_loss"].is_object());
-        assert!(running.config["portfolio_config"]["strategies"][0]["portfolio_weight_pct"].is_string());
+        assert!(
+            running.config["portfolio_config"]["strategies"][0]["portfolio_weight_pct"].is_string()
+        );
     }
 }

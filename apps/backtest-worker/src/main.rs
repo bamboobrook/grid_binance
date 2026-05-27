@@ -5,7 +5,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 
 use backtest_engine::{
     artifacts::{verify_artifact, write_task_json_artifact},
-    intelligent_search::{intelligent_search, EvaluatedCandidate, IntelligentSearchConfig},
+    intelligent_search::EvaluatedCandidate,
     market_data::{AggTrade, KlineBar, MarketDataSource},
     martingale::{
         kline_engine::run_kline_screening, metrics::MartingaleBacktestResult,
@@ -514,75 +514,97 @@ fn run_profit_first_staged_search(
         );
     }
 
-    let search_space = search_space_from_staged(&coarse_space, symbol, task);
-    let coarse_candidates = intelligent_search(
-        &search_space,
-        &IntelligentSearchConfig {
-            seed: task.random_seed,
-            random_round_size: task.random_candidates.max(1),
-            max_rounds: task.intelligent_rounds.max(1),
-            max_candidates: task.random_candidates.max(1) * task.intelligent_rounds.max(1),
-            survivor_percentile: 0.25,
-            timeout: None,
-            scoring: scoring.clone(),
-        },
-        None,
-        |candidate| {
-            let overridden = enforce_task_execution_model(
-                apply_task_overrides_to_candidate(candidate.clone(), task),
-                task,
-            );
-            run_candidate_kline_screening(&overridden, context)
-        },
-    )?;
+    let candidates = generate_long_short_candidates_for_task(symbol, task, &coarse_space)?;
+    let candidate_count = candidates.len();
+    let start_time = std::time::Instant::now();
+    let timeout_secs = long_short_search_timeout_secs(task, candidate_count, max_threads);
+    let coarse_results = screen_candidates_bounded_parallel(candidates, max_threads, |candidate| {
+        evaluate_long_short_candidate_for_screening(
+            candidate,
+            context,
+            task,
+            symbol,
+            direction_mode,
+            scoring,
+        )
+    });
+    if start_time.elapsed().as_secs() > timeout_secs {
+        return Err(martingale_search_timeout_error(
+            symbol,
+            direction_mode,
+            candidate_count,
+            timeout_secs,
+        ));
+    }
 
-    let mut rejection_samples: Vec<CandidateRejectionSample> = coarse_candidates
-        .candidates
+    let (mut evaluated, mut rejection_samples): (Vec<_>, Vec<_>) =
+        coarse_results.into_iter().unzip();
+    let mut screening_samples_by_id = rejection_samples
         .iter()
-        .map(|c| rejection_sample_from_evaluated(c, symbol, direction_mode))
-        .collect();
+        .map(|sample| (sample.candidate_id.clone(), sample.clone()))
+        .collect::<std::collections::BTreeMap<_, _>>();
 
-    let survivors: Vec<_> = coarse_candidates
-        .candidates
-        .into_iter()
-        .filter(|c| c.score.survival_valid)
-        .take(24)
+    sort_long_short_candidates_for_profile(
+        &mut evaluated,
+        &task.risk_profile,
+        Some(&screening_samples_by_id),
+    );
+    let survivors: Vec<_> = evaluated
+        .iter()
+        .filter(|candidate| candidate.score.survival_valid)
+        .take(profit_v2_survivor_limit(task).min(24))
+        .cloned()
         .collect();
 
     let mut refined = Vec::new();
     for survivor in &survivors {
         let parameter_point = coarse_parameter_point_from_candidate(&survivor.candidate);
         let fine_space = fine_space_around(&parameter_point);
-        let fine_search_space = search_space_from_staged(&fine_space, symbol, task);
-        let fine_candidates = intelligent_search(
-            &fine_search_space,
-            &IntelligentSearchConfig {
-                seed: task.random_seed.wrapping_add(1),
-                random_round_size: task.random_candidates.max(1),
-                max_rounds: 1,
-                max_candidates: task.random_candidates.max(1),
-                survivor_percentile: 0.25,
-                timeout: None,
-                scoring: scoring.clone(),
-            },
-            None,
-            |candidate| {
-                let overridden = enforce_task_execution_model(
-                    apply_task_overrides_to_candidate(candidate.clone(), task),
-                    task,
-                );
-                run_candidate_kline_screening(&overridden, context)
-            },
-        )?;
-        for c in &fine_candidates.candidates {
-            rejection_samples.push(rejection_sample_from_evaluated(c, symbol, direction_mode));
+        let fine_task = task_with_long_short_refinement_space(task, &fine_space);
+        let mut fine_candidates =
+            generate_long_short_candidates_for_task(symbol, &fine_task, &coarse_space)?;
+        for (fine_index, fine_candidate) in fine_candidates.iter_mut().enumerate() {
+            fine_candidate.candidate_id = format!(
+                "{}-fine-{fine_index}-{}",
+                survivor.candidate.candidate_id, fine_candidate.candidate_id
+            );
         }
-        refined.extend(fine_candidates.candidates);
+        let fine_results =
+            screen_candidates_bounded_parallel(fine_candidates, max_threads, |candidate| {
+                evaluate_long_short_candidate_for_screening(
+                    candidate,
+                    context,
+                    task,
+                    symbol,
+                    direction_mode,
+                    scoring,
+                )
+            });
+        for (candidate, sample) in fine_results {
+            screening_samples_by_id.insert(sample.candidate_id.clone(), sample.clone());
+            rejection_samples.push(sample);
+            refined.push(candidate);
+        }
+        if start_time.elapsed().as_secs() > timeout_secs {
+            return Err(martingale_search_timeout_error(
+                symbol,
+                direction_mode,
+                candidate_count,
+                timeout_secs,
+            ));
+        }
     }
 
-    refined.sort_by(|a, b| b.score.rank_score.total_cmp(&a.score.rank_score));
-    refined.truncate(task.per_symbol_top_n.max(10));
-    Ok((refined, rejection_samples))
+    evaluated.extend(refined);
+    sort_long_short_candidates_for_profile(
+        &mut evaluated,
+        &task.risk_profile,
+        Some(&screening_samples_by_id),
+    );
+    let mut seen_ids = std::collections::BTreeSet::<String>::new();
+    evaluated.retain(|candidate| seen_ids.insert(candidate.candidate.candidate_id.clone()));
+    evaluated.truncate(task.per_symbol_top_n.max(20).min(80));
+    Ok((evaluated, rejection_samples))
 }
 
 fn long_short_drawdown_limit_sequence(risk_profile: &str) -> Vec<f64> {
@@ -593,6 +615,64 @@ fn long_short_drawdown_limit_sequence(risk_profile: &str) -> Vec<f64> {
         "balanced" => vec![25.0, 30.0],
         "aggressive" => vec![30.0, 35.0],
         _ => vec![25.0, 30.0],
+    }
+}
+
+fn is_long_short_mode(direction_mode: &str) -> bool {
+    direction_mode == "long_short" || direction_mode == "long_and_short"
+}
+
+fn is_mixed_best_mode(config: &WorkerTaskConfig) -> bool {
+    config.search_mode.as_deref() == Some("mixed_best")
+        || config.direction_mode.as_deref() == Some("mixed_best")
+}
+
+fn mixed_best_direction_modes() -> Vec<&'static str> {
+    vec!["long_only", "short_only", "long_short"]
+}
+
+fn search_direction_modes_for_task(config: &WorkerTaskConfig) -> Vec<String> {
+    if is_mixed_best_mode(config) {
+        return mixed_best_direction_modes()
+            .into_iter()
+            .map(str::to_owned)
+            .collect();
+    }
+    vec![config
+        .direction_mode
+        .clone()
+        .unwrap_or_else(|| "long_only".to_owned())]
+}
+
+fn task_config_for_direction_mode(
+    config: &WorkerTaskConfig,
+    direction_mode: &str,
+) -> WorkerTaskConfig {
+    let mut scoped = config.clone();
+    scoped.direction_mode = Some(direction_mode.to_owned());
+    scoped
+}
+
+fn drawdown_limits_for_direction_mode(risk_profile: &str, direction_mode: &str) -> Vec<f64> {
+    if is_long_short_mode(direction_mode) {
+        long_short_drawdown_limit_sequence(risk_profile)
+    } else {
+        drawdown_limit_sequence(risk_profile)
+    }
+}
+
+fn portfolio_drawdown_limit_for_task(config: &WorkerTaskConfig) -> f64 {
+    if is_mixed_best_mode(config) {
+        long_short_drawdown_limit_sequence(&config.risk_profile)
+            .first()
+            .copied()
+            .unwrap_or(30.0)
+    } else {
+        let direction_mode = config.direction_mode.as_deref().unwrap_or("long_only");
+        drawdown_limits_for_direction_mode(&config.risk_profile, direction_mode)
+            .first()
+            .copied()
+            .unwrap_or(25.0)
     }
 }
 
@@ -643,7 +723,7 @@ fn apply_search_space_overrides_to_staged(
             }
             expanded
         } else {
-            vals.clone()
+            merge_u32_search_values(&staged.spacing_bps, vals, should_use_profit_optimized_v2(task))
         }
     } else {
         staged.spacing_bps.clone()
@@ -669,7 +749,7 @@ fn apply_search_space_overrides_to_staged(
             }
             expanded
         } else {
-            vals.clone()
+            merge_f64_search_values(&staged.order_multiplier, vals, should_use_profit_optimized_v2(task))
         }
     } else {
         staged.order_multiplier.clone()
@@ -691,7 +771,7 @@ fn apply_search_space_overrides_to_staged(
             }
             expanded
         } else {
-            vals.clone()
+            merge_u32_search_values(&staged.max_legs, vals, should_use_profit_optimized_v2(task))
         }
     } else {
         staged.max_legs.clone()
@@ -720,7 +800,7 @@ fn apply_search_space_overrides_to_staged(
             }
             expanded
         } else {
-            vals.clone()
+            merge_u32_search_values(&staged.take_profit_bps, vals, should_use_profit_optimized_v2(task))
         }
     } else {
         staged.take_profit_bps.clone()
@@ -755,7 +835,7 @@ fn apply_search_space_overrides_to_staged(
             }
             expanded
         } else {
-            vals.clone()
+            merge_u32_search_values(&staged.tail_stop_bps, vals, should_use_profit_optimized_v2(task))
         }
     } else {
         staged.tail_stop_bps.clone()
@@ -783,7 +863,11 @@ fn apply_search_space_overrides_to_staged(
             }
             expanded
         } else {
-            vals.clone()
+            merge_weight_search_values(
+                &staged.long_short_weight_pct,
+                vals,
+                should_use_profit_optimized_v2(task),
+            )
         }
     } else {
         staged.long_short_weight_pct.clone()
@@ -805,7 +889,7 @@ fn apply_search_space_overrides_to_staged(
             }
             expanded
         } else {
-            vals.clone()
+            merge_u32_search_values(&staged.leverage, vals, should_use_profit_optimized_v2(task))
         }
     } else {
         staged.leverage.clone()
@@ -820,6 +904,43 @@ fn apply_search_space_overrides_to_staged(
         tail_stop_bps,
         long_short_weight_pct,
     }
+}
+
+fn merge_u32_search_values(staged: &[u32], user_values: &[u32], widen: bool) -> Vec<u32> {
+    if !widen {
+        return user_values.to_vec();
+    }
+    let mut merged = staged.to_vec();
+    merged.extend(user_values.iter().copied());
+    merged.sort_unstable();
+    merged.dedup();
+    merged
+}
+
+fn merge_f64_search_values(staged: &[f64], user_values: &[f64], widen: bool) -> Vec<f64> {
+    if !widen {
+        return user_values.to_vec();
+    }
+    let mut merged = staged.to_vec();
+    merged.extend(user_values.iter().copied());
+    merged.sort_by(|left, right| left.total_cmp(right));
+    merged.dedup_by(|left, right| (*left - *right).abs() < 0.001);
+    merged
+}
+
+fn merge_weight_search_values(
+    staged: &[(u32, u32)],
+    user_values: &[(u32, u32)],
+    widen: bool,
+) -> Vec<(u32, u32)> {
+    if !widen {
+        return user_values.to_vec();
+    }
+    let mut merged = staged.to_vec();
+    merged.extend(user_values.iter().copied());
+    merged.sort_unstable();
+    merged.dedup();
+    merged
 }
 
 fn generate_long_short_candidates_for_task(
@@ -844,8 +965,18 @@ fn generate_long_short_candidates_for_task(
             .max(task.per_symbol_top_n.max(10) * 40)
             .min(700)
     };
-    let candidates =
-        generate_staged_candidates_for_symbol(symbol, "long_short", &effective_staged, 20_000)?;
+    let generation_direction =
+        if is_long_short_mode(task.direction_mode.as_deref().unwrap_or("long_only")) {
+            "long_short"
+        } else {
+            task.direction_mode.as_deref().unwrap_or("long_only")
+        };
+    let candidates = generate_staged_candidates_for_symbol(
+        symbol,
+        generation_direction,
+        &effective_staged,
+        20_000,
+    )?;
     Ok(stratified_long_short_candidates(candidates, cap))
 }
 
@@ -1295,9 +1426,11 @@ fn portfolio_candidates_from_outputs(
                 .and_then(|v| serde_json::from_value(v.clone()).ok())
                 .unwrap_or_default();
             let planned_margin_quote: f64 = output.planned_margin_quote.unwrap_or(0.0);
-            let annualized_return_pct: Option<f64> = summary
-                .get("annualized_return_pct")
-                .and_then(|v| v.as_f64());
+            let annualized_return_pct: Option<f64> = output.annualized_return_pct.or_else(|| {
+                summary
+                    .get("annualized_return_pct")
+                    .and_then(|v| v.as_f64())
+            });
             let trades: Vec<backtest_engine::martingale::metrics::MartingaleTradeDetail> = summary
                 .get("trades_preview")
                 .and_then(|v| serde_json::from_value(v.clone()).ok())
@@ -1456,14 +1589,7 @@ async fn process_task(
     let market_context = MarketDataContext::load(&market_data, &task.config, &effective_symbols)?;
     poller.heartbeat(&task.task_id, "search_started").await?;
 
-    let direction_mode = task.config.direction_mode.as_deref().unwrap_or("long");
-    let is_long_short = direction_mode == "long_short" || direction_mode == "long_and_short";
-    let drawdown_limits = if is_long_short {
-        long_short_drawdown_limit_sequence(&task.config.risk_profile)
-    } else {
-        drawdown_limit_sequence(&task.config.risk_profile)
-    };
-    let first_drawdown_limit = drawdown_limits.first().copied().unwrap_or(25.0);
+    let direction_modes = search_direction_modes_for_task(&task.config);
     let mut screened = Vec::new();
     let mut evaluated_count = 0usize;
     let mut all_rejection_samples: Vec<CandidateRejectionSample> = Vec::new();
@@ -1483,33 +1609,49 @@ async fn process_task(
                 }),
             )
             .await?;
-        for drawdown_limit_pct in &drawdown_limits {
-            let scoring = scoring_config_from_task(&task.config, *drawdown_limit_pct);
-            let (candidates, rejection_samples) = run_profit_first_staged_search(
-                &market_context,
-                symbol,
-                &task.config,
-                &scoring,
-                *drawdown_limit_pct,
-                config.max_threads,
-            )?;
-            evaluated_count += candidates.len();
-            let samples_by_id = rejection_samples
-                .iter()
-                .map(|sample| (sample.candidate_id.clone(), sample.clone()))
-                .collect::<std::collections::BTreeMap<_, _>>();
-            all_rejection_samples.extend(rejection_samples);
-            let risk_relaxed = *drawdown_limit_pct > first_drawdown_limit;
-            let valid = select_candidates_or_best_fallback_for_task(
-                candidates,
-                *drawdown_limit_pct,
-                risk_relaxed,
-                &samples_by_id,
-                &task.config.risk_profile,
-            );
-            if !valid.is_empty() {
-                screened.extend(valid);
-                break;
+        for direction_mode in &direction_modes {
+            let scoped_config = task_config_for_direction_mode(&task.config, direction_mode);
+            let drawdown_limits =
+                drawdown_limits_for_direction_mode(&scoped_config.risk_profile, direction_mode);
+            let first_drawdown_limit = drawdown_limits.first().copied().unwrap_or(25.0);
+            poller
+                .update_task_summary_fragment(
+                    &task.task_id,
+                    json!({
+                        "current_direction_mode": direction_mode,
+                        "mixed_best_direction_modes": direction_modes,
+                    }),
+                )
+                .await?;
+
+            for drawdown_limit_pct in &drawdown_limits {
+                let scoring = scoring_config_from_task(&scoped_config, *drawdown_limit_pct);
+                let (candidates, rejection_samples) = run_profit_first_staged_search(
+                    &market_context,
+                    symbol,
+                    &scoped_config,
+                    &scoring,
+                    *drawdown_limit_pct,
+                    config.max_threads,
+                )?;
+                evaluated_count += candidates.len();
+                let samples_by_id = rejection_samples
+                    .iter()
+                    .map(|sample| (sample.candidate_id.clone(), sample.clone()))
+                    .collect::<std::collections::BTreeMap<_, _>>();
+                all_rejection_samples.extend(rejection_samples);
+                let risk_relaxed = *drawdown_limit_pct > first_drawdown_limit;
+                let valid = select_candidates_or_best_fallback_for_task(
+                    candidates,
+                    *drawdown_limit_pct,
+                    risk_relaxed,
+                    &samples_by_id,
+                    &scoped_config.risk_profile,
+                );
+                if !valid.is_empty() {
+                    screened.extend(valid);
+                    break;
+                }
             }
         }
     }
@@ -1517,8 +1659,8 @@ async fn process_task(
 
     let ranked = select_refinement_candidates_with_drawdown_metadata(
         screened,
-        task.config.symbols.len().max(1) * task.config.per_symbol_top_n.max(1),
-        task.config.per_symbol_top_n.max(20),
+        effective_symbols.len().max(1) * task.config.per_symbol_top_n.max(1),
+        refinement_per_symbol_limit(&task.config, effective_symbols.len()),
         &task.config.risk_profile,
     );
     poller
@@ -1583,19 +1725,15 @@ async fn process_task(
         respect_pause_or_cancel(poller, &task.task_id).await?;
     }
 
-    let max_portfolio_drawdown_pct = if is_long_short {
-        long_short_drawdown_limit_sequence(&task.config.risk_profile)
-            .first()
-            .copied()
-            .unwrap_or(30.0)
-    } else {
-        drawdown_limit_sequence(&task.config.risk_profile)
-            .first()
-            .copied()
-            .unwrap_or(25.0)
-    };
+    let max_portfolio_drawdown_pct = portfolio_drawdown_limit_for_task(&task.config);
     let portfolio_pool_outputs = if should_use_profit_optimized_v2(&task.config) {
-        select_portfolio_pool_outputs_v2(outputs.clone(), max_portfolio_drawdown_pct, 10, 10, 5)
+        select_portfolio_pool_outputs_v2(
+            outputs.clone(),
+            max_portfolio_drawdown_pct,
+            task.config.per_symbol_top_n.max(20),
+            task.config.per_symbol_top_n.max(20),
+            (task.config.per_symbol_top_n / 2).max(10),
+        )
     } else {
         select_portfolio_pool_outputs(
             outputs.clone(),
@@ -2013,7 +2151,7 @@ fn select_candidates_or_best_fallback_for_task(
     samples_by_id: &std::collections::BTreeMap<String, CandidateRejectionSample>,
     risk_profile: &str,
 ) -> Vec<EvaluatedCandidateWithDrawdown> {
-    let mut valid: Vec<_> = candidates
+    let mut selected: Vec<_> = candidates
         .iter()
         .filter(|candidate| candidate.score.survival_valid)
         .cloned()
@@ -2021,23 +2159,60 @@ fn select_candidates_or_best_fallback_for_task(
             evaluated_with_drawdown(candidate, drawdown_limit_pct, risk_relaxed, samples_by_id)
         })
         .collect();
-    if !valid.is_empty() {
-        sort_evaluated_with_drawdown_for_profile(&mut valid, risk_profile);
-        return valid;
+
+    let mut seen_ids = selected
+        .iter()
+        .map(|candidate| candidate.candidate.candidate.candidate_id.clone())
+        .collect::<std::collections::BTreeSet<_>>();
+
+    let mut positive_extras = candidates
+        .into_iter()
+        .filter(|candidate| !seen_ids.contains(&candidate.candidate.candidate_id))
+        .filter(|candidate| candidate.score.rank_score > 0.0)
+        .filter(|candidate| {
+            samples_by_id
+                .get(&candidate.candidate.candidate_id)
+                .and_then(|sample| sample.total_return_pct)
+                .map(|return_pct| return_pct > 0.0)
+                .unwrap_or(true)
+        })
+        .collect::<Vec<_>>();
+
+    positive_extras.sort_by(|left, right| {
+        let left_sample = samples_by_id.get(&left.candidate.candidate_id);
+        let right_sample = samples_by_id.get(&right.candidate.candidate_id);
+        let left_return = left_sample
+            .and_then(|sample| sample.total_return_pct)
+            .unwrap_or(left.score.rank_score);
+        let right_return = right_sample
+            .and_then(|sample| sample.total_return_pct)
+            .unwrap_or(right.score.rank_score);
+        right_return.total_cmp(&left_return).then_with(|| {
+            left.score
+                .rank_score
+                .total_cmp(&right.score.rank_score)
+                .reverse()
+        })
+    });
+
+    let extra_limit = if selected.is_empty() {
+        10
+    } else {
+        selected.len().max(10)
+    };
+    for candidate in positive_extras.into_iter().take(extra_limit) {
+        if seen_ids.insert(candidate.candidate.candidate_id.clone()) {
+            selected.push(evaluated_with_drawdown(
+                candidate,
+                drawdown_limit_pct,
+                true,
+                samples_by_id,
+            ));
+        }
     }
 
-    let mut fallback: Vec<_> = candidates
-        .into_iter()
-        .filter(|candidate| candidate.score.rank_score > 0.0)
-        .collect();
-    fallback.sort_by(|a, b| b.score.rank_score.total_cmp(&a.score.rank_score));
-    fallback
-        .into_iter()
-        .take(10)
-        .map(|candidate| {
-            evaluated_with_drawdown(candidate, drawdown_limit_pct, true, samples_by_id)
-        })
-        .collect()
+    sort_evaluated_with_drawdown_for_profile(&mut selected, risk_profile);
+    selected
 }
 
 fn evaluated_with_drawdown(
@@ -2141,9 +2316,14 @@ fn refine_candidate_output(
         apply_task_overrides_to_candidate(evaluated.candidate.clone(), task_config),
         task_config,
     );
-    let refined = run_candidate_trade_refinement(&overridden_candidate, market_context)?;
-    let used_trade_refinement =
-        !trades_for_candidate(&evaluated.candidate, &market_context.trades).is_empty();
+    let use_kline_refinement = should_use_profit_optimized_v2(task_config);
+    let refined = if use_kline_refinement {
+        run_candidate_kline_screening(&overridden_candidate, market_context)?
+    } else {
+        run_candidate_trade_refinement(&overridden_candidate, market_context)?
+    };
+    let used_trade_refinement = !use_kline_refinement
+        && !trades_for_candidate(&evaluated.candidate, &market_context.trades).is_empty();
     Ok((
         index,
         CandidateOutput {
@@ -2223,6 +2403,11 @@ fn rejection_sample_from_evaluated(
     }
 }
 
+fn refinement_per_symbol_limit(task: &WorkerTaskConfig, symbol_count: usize) -> usize {
+    let base = if symbol_count >= 12 { 8 } else { 10 };
+    base.min(task.per_symbol_top_n.max(10))
+}
+
 fn select_refinement_candidates_with_drawdown_metadata(
     mut candidates: Vec<EvaluatedCandidateWithDrawdown>,
     _min_total: usize,
@@ -2235,10 +2420,15 @@ fn select_refinement_candidates_with_drawdown_metadata(
 
     let mut selected = Vec::new();
     let mut selected_counts = BTreeMap::<String, usize>::new();
+    let mut selected_signatures = std::collections::BTreeSet::<String>::new();
 
     for candidate in candidates.iter() {
         let symbol = search_candidate_symbol(&candidate.candidate.candidate)
             .unwrap_or_else(|| candidate.candidate.candidate.candidate_id.clone());
+        let signature = candidate_parameter_signature(&candidate.candidate.candidate);
+        if !selected_signatures.insert(format!("{symbol}:{signature}")) {
+            continue;
+        }
         let count = selected_counts.entry(symbol).or_default();
         if *count >= per_symbol_top_n {
             continue;
@@ -2247,6 +2437,7 @@ fn select_refinement_candidates_with_drawdown_metadata(
         selected.push(candidate.clone());
     }
 
+    selected.truncate(160);
     selected
 }
 
@@ -2314,6 +2505,39 @@ fn aggressive_screening_profit_score(
     total_return + (total_return / drawdown) * 8.0 - drawdown * 0.2
 }
 
+fn candidate_parameter_signature(candidate: &SearchCandidate) -> String {
+    candidate
+        .config
+        .strategies
+        .iter()
+        .map(|strategy| {
+            let spacing = strategy_spacing_bps(strategy).unwrap_or_default();
+            let take_profit = strategy_take_profit_bps_value(strategy).unwrap_or_default();
+            let stop = strategy_tail_stop_bps(strategy).unwrap_or_default();
+            let (multiplier, max_legs) = match &strategy.sizing {
+                MartingaleSizingModel::Multiplier {
+                    multiplier,
+                    max_legs,
+                    ..
+                } => (multiplier.to_f64().unwrap_or_default(), *max_legs),
+                _ => (0.0, 0),
+            };
+            format!(
+                "{:?}:{:?}:{}:{:.3}:{}:{}:{}:{}",
+                strategy.market,
+                strategy.direction,
+                strategy.leverage.unwrap_or_default(),
+                multiplier,
+                max_legs,
+                spacing,
+                take_profit,
+                stop
+            )
+        })
+        .collect::<Vec<_>>()
+        .join("|")
+}
+
 fn output_profit_score(output: &CandidateOutput) -> f64 {
     let annualized = output
         .annualized_return_pct
@@ -2323,6 +2547,20 @@ fn output_profit_score(output: &CandidateOutput) -> f64 {
     }
     let drawdown = output.max_drawdown_pct.max(1.0);
     annualized + (annualized / drawdown) * 10.0 - drawdown * 0.15
+}
+
+fn portfolio_pool_quality_eligible(output: &CandidateOutput) -> bool {
+    if output.total_return_pct <= 0.0 || output.equity_curve.is_empty() {
+        return false;
+    }
+    let annualized = output
+        .annualized_return_pct
+        .unwrap_or(output.total_return_pct);
+    let return_drawdown_ratio = annualized / output.max_drawdown_pct.max(1.0);
+    if annualized >= 8.0 || return_drawdown_ratio >= 1.0 {
+        return true;
+    }
+    output.trade_count <= 400 && annualized >= 3.0
 }
 
 fn select_portfolio_pool_outputs_v2(
@@ -2335,7 +2573,7 @@ fn select_portfolio_pool_outputs_v2(
     let mut by_symbol: std::collections::BTreeMap<String, Vec<CandidateOutput>> =
         std::collections::BTreeMap::new();
     for output in outputs {
-        if output.total_return_pct <= 0.0 {
+        if !portfolio_pool_quality_eligible(&output) {
             continue;
         }
         let symbol = output_symbol(&output).unwrap_or_else(|| output.candidate_id.clone());
@@ -3056,9 +3294,12 @@ fn decimal_from_value(value: &Value) -> Option<Decimal> {
 fn directions_from_mode(mode: Option<&str>) -> Vec<shared_domain::martingale::MartingaleDirection> {
     use shared_domain::martingale::MartingaleDirection::{Long, Short};
     match mode {
+        Some("long") => vec![Long],
         Some("long_only") => vec![Long],
+        Some("short") => vec![Short],
         Some("short_only") => vec![Short],
         Some("long_and_short") => vec![Long, Short],
+        Some("long_short") => vec![Long, Short],
         _ => vec![Long, Short],
     }
 }
@@ -4806,6 +5047,72 @@ mod tests {
     }
 
     #[test]
+    fn selection_keeps_high_return_positive_candidates_even_when_valid_exists() {
+        let candidates = vec![
+            evaluated_candidate_for_tests(
+                "valid-low-return",
+                "BTCUSDT",
+                MartingaleDirectionMode::LongAndShort,
+                2,
+                5.0,
+                12.0,
+                true,
+            ),
+            evaluated_candidate_for_tests(
+                "invalid-high-return",
+                "BTCUSDT",
+                MartingaleDirectionMode::LongAndShort,
+                2,
+                80.0,
+                42.0,
+                false,
+            ),
+        ];
+        let samples_by_id = candidates
+            .iter()
+            .map(|candidate| {
+                (
+                    candidate.candidate.candidate_id.clone(),
+                    CandidateRejectionSample {
+                        candidate_id: candidate.candidate.candidate_id.clone(),
+                        symbol: "BTCUSDT".to_owned(),
+                        direction_mode: "long_short".to_owned(),
+                        total_return_pct: Some(candidate.score.raw_score),
+                        max_drawdown_pct: Some(if candidate.score.survival_valid {
+                            12.0
+                        } else {
+                            42.0
+                        }),
+                        trade_count: 10,
+                        survival_valid: candidate.score.survival_valid,
+                        rejection_reason: None,
+                    },
+                )
+            })
+            .collect::<std::collections::BTreeMap<_, _>>();
+
+        let selected = select_candidates_or_best_fallback_for_task(
+            candidates,
+            25.0,
+            false,
+            &samples_by_id,
+            "balanced",
+        );
+
+        let ids = selected
+            .iter()
+            .map(|candidate| candidate.candidate.candidate.candidate_id.as_str())
+            .collect::<Vec<_>>();
+        assert!(ids.contains(&"valid-low-return"));
+        assert!(ids.contains(&"invalid-high-return"));
+        let high_return = selected
+            .iter()
+            .find(|candidate| candidate.candidate.candidate.candidate_id == "invalid-high-return")
+            .unwrap();
+        assert!(high_return.risk_relaxed);
+    }
+
+    #[test]
     fn long_short_smoke_search_estimate_is_bounded() {
         let config = WorkerTaskConfig {
             symbols: vec!["BTCUSDT".to_owned(), "ETHUSDT".to_owned()],
@@ -5376,6 +5683,25 @@ mod tests {
     }
 
     #[test]
+    fn portfolio_candidates_preserve_output_annualized_return() {
+        let mut output = candidate_output_fixture("btc-ann", "BTCUSDT", 80.0, 12.0, 100.0);
+        let candidate = backtest_engine::search::generate_staged_candidates_for_symbol(
+            "BTCUSDT",
+            "long_only",
+            &StagedMartingaleSearchSpace::profit_optimized_v2("balanced", "long_only"),
+            1,
+        )
+        .expect("candidate")
+        .remove(0);
+        output.config = serde_json::to_value(candidate.config).expect("candidate config json");
+
+        let candidates = portfolio_candidates_from_outputs(&[output]);
+
+        assert_eq!(candidates.len(), 1);
+        assert_eq!(candidates[0].annualized_return_pct, Some(40.0));
+    }
+
+    #[test]
     fn portfolio_pool_keeps_qualified_high_return_and_low_drawdown_tiers_per_symbol() {
         let outputs = vec![
             candidate_output_fixture("btc-safe", "BTCUSDT", 18.0, 8.0, 100.0),
@@ -5394,6 +5720,26 @@ mod tests {
         assert!(ids.contains("eth-safe"));
         assert!(ids.contains("eth-growth"));
         assert!(!ids.contains("btc-loss"));
+    }
+
+    #[test]
+    fn portfolio_pool_excludes_low_yield_high_churn_candidates() {
+        let mut low_yield = candidate_output_fixture("bnb-churn", "BNBUSDT", 2.0, 3.0, 100.0);
+        low_yield.annualized_return_pct = Some(0.6);
+        low_yield.trade_count = 1_105;
+        let outputs = vec![
+            low_yield,
+            candidate_output_fixture("bnb-useful", "BNBUSDT", 22.0, 8.0, 100.0),
+            candidate_output_fixture("eth-useful", "ETHUSDT", 20.0, 7.0, 100.0),
+        ];
+
+        let pool = select_portfolio_pool_outputs_v2(outputs, 25.0, 10, 10, 5);
+        let ids: std::collections::BTreeSet<_> =
+            pool.iter().map(|o| o.candidate_id.as_str()).collect();
+
+        assert!(!ids.contains("bnb-churn"));
+        assert!(ids.contains("bnb-useful"));
+        assert!(ids.contains("eth-useful"));
     }
 
     #[test]
@@ -5439,6 +5785,76 @@ mod tests {
             has_high_leverage,
             "v2 must include high leverage candidates (>=10)"
         );
+    }
+
+    #[test]
+    fn profit_optimized_v2_merges_narrow_user_presets_with_wide_tail() {
+        let task = WorkerTaskConfig {
+            random_candidates: 96,
+            intelligent_rounds: 1,
+            per_symbol_top_n: 10,
+            direction_mode: Some("long_short".to_owned()),
+            search_mode: Some("profit_optimized_v2".to_owned()),
+            search_space: Some(serde_json::json!({
+                "leverage": [2, 3, 4, 5, 6, 8],
+                "spacing_bps": [80, 120, 160, 220],
+                "order_multiplier": [1.4, 1.6, 2.0],
+                "max_legs": [4, 5, 6],
+                "take_profit_bps": [80, 100, 130],
+                "tail_stop_bps": [1800, 2200, 2600]
+            })),
+            ..WorkerTaskConfig::default()
+        };
+        let staged = StagedMartingaleSearchSpace::profit_optimized_v2("balanced", "long_short");
+
+        let candidates = generate_long_short_candidates_for_task("BTCUSDT", &task, &staged)
+            .expect("profit optimized candidates should generate");
+
+        assert!(candidates.iter().any(|candidate| candidate
+            .config
+            .strategies
+            .iter()
+            .any(|strategy| strategy.leverage.unwrap_or(1) >= 10)));
+        assert!(candidates.iter().any(|candidate| candidate
+            .config
+            .strategies
+            .iter()
+            .any(|strategy| strategy_spacing_bps(strategy).unwrap_or(0) >= 600)));
+        assert!(candidates.iter().any(|candidate| candidate
+            .config
+            .strategies
+            .iter()
+            .any(|strategy| strategy_take_profit_bps(strategy).unwrap_or(0) >= 300)));
+    }
+
+    #[test]
+    fn task_generation_cap_avoids_unbounded_single_direction_expansion() {
+        let task = WorkerTaskConfig {
+            random_candidates: 420,
+            intelligent_rounds: 2,
+            per_symbol_top_n: 40,
+            direction_mode: Some("long_only".to_owned()),
+            search_space: Some(serde_json::json!({
+                "leverage": [2, 3, 4, 5, 6, 7, 8, 10, 12, 15],
+                "spacing_bps": [18, 25, 35, 50, 70, 90, 120, 160, 220, 300, 420, 600, 900, 1200],
+                "order_multiplier": [1.05, 1.1, 1.15, 1.25, 1.4, 1.6, 1.8, 2.0, 2.2, 2.4, 2.8, 3.2],
+                "max_legs": [3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+                "take_profit_bps": [18, 25, 30, 45, 60, 80, 100, 140, 200, 300, 450, 650],
+                "tail_stop_bps": [450, 600, 800, 1200, 1800, 2400, 3000, 4000, 5500, 7000, 9000, 12000]
+            })),
+            ..WorkerTaskConfig::default()
+        };
+        let staged = StagedMartingaleSearchSpace::profit_optimized_v2("balanced", "long_only");
+
+        let candidates = generate_long_short_candidates_for_task("BTCUSDT", &task, &staged)
+            .expect("candidates should generate");
+
+        assert!(candidates.len() <= 700);
+        assert!(candidates.iter().any(|candidate| candidate
+            .config
+            .strategies
+            .iter()
+            .any(|strategy| strategy.leverage.unwrap_or(1) >= 10)));
     }
 
     fn build_portfolio_summary_for_test(
@@ -5540,6 +5956,93 @@ mod tests {
                 .and_then(Value::as_str),
             Some("drawdown_above_limit")
         );
+    }
+
+    #[test]
+    fn profit_optimized_refinement_prefers_kline_bars_over_agg_trades() {
+        let candidate = SearchCandidate {
+            candidate_id: "profit-v2-kline".to_owned(),
+            config: MartingalePortfolioConfig {
+                direction_mode: MartingaleDirectionMode::LongOnly,
+                risk_limits: MartingaleRiskLimits::default(),
+                strategies: vec![MartingaleStrategyConfig {
+                    strategy_id: "btc-long".to_owned(),
+                    symbol: "BTCUSDT".to_owned(),
+                    market: MartingaleMarketKind::UsdMFutures,
+                    direction: MartingaleDirection::Long,
+                    direction_mode: MartingaleDirectionMode::LongOnly,
+                    margin_mode: Some(MartingaleMarginMode::Isolated),
+                    leverage: Some(2),
+                    spacing: MartingaleSpacingModel::FixedPercent { step_bps: 100 },
+                    sizing: MartingaleSizingModel::Multiplier {
+                        first_order_quote: Decimal::new(10, 0),
+                        multiplier: Decimal::new(2, 0),
+                        max_legs: 3,
+                    },
+                    take_profit: MartingaleTakeProfitModel::Percent { bps: 100 },
+                    stop_loss: Some(MartingaleStopLossModel::StrategyDrawdownPct { pct_bps: 3_000 }),
+                    indicators: Vec::new(),
+                    entry_triggers: Vec::new(),
+                    risk_limits: MartingaleRiskLimits::default(),
+                }],
+            },
+        };
+        let evaluated = EvaluatedCandidateWithDrawdown {
+            candidate: EvaluatedCandidate {
+                candidate,
+                score: CandidateScore {
+                    raw_score: 10.0,
+                    rank_score: 10.0,
+                    survival_valid: true,
+                    rejection_reasons: Vec::new(),
+                },
+            },
+            used_drawdown_limit_pct: 20.0,
+            risk_relaxed: false,
+            screening_total_return_pct: Some(10.0),
+            screening_max_drawdown_pct: Some(5.0),
+            screening_trade_count: Some(2),
+        };
+        let task_config = WorkerTaskConfig {
+            search_mode: Some("profit_optimized_v2".to_owned()),
+            symbols: vec!["BTCUSDT".to_owned()],
+            interval: "1m".to_owned(),
+            ..WorkerTaskConfig::default()
+        };
+        let context = MarketDataContext {
+            bars: vec![
+                KlineBar {
+                    symbol: "BTCUSDT".to_owned(),
+                    open_time_ms: 1_000,
+                    open: 100.0,
+                    high: 101.5,
+                    low: 99.0,
+                    close: 101.2,
+                    volume: 10.0,
+                },
+                KlineBar {
+                    symbol: "BTCUSDT".to_owned(),
+                    open_time_ms: 61_000,
+                    open: 101.2,
+                    high: 103.0,
+                    low: 100.8,
+                    close: 102.5,
+                    volume: 10.0,
+                },
+            ],
+            trades: vec![AggTrade {
+                symbol: "BTCUSDT".to_owned(),
+                trade_time_ms: 1_000,
+                price: 100.0,
+                quantity: 1.0,
+                is_buyer_maker: false,
+            }],
+        };
+
+        let (_, output) = refine_candidate_output(0, evaluated, &task_config, &context)
+            .expect("profit optimized refinement should run");
+
+        assert!(!output.used_trade_refinement);
     }
 
     #[test]

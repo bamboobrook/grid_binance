@@ -2758,7 +2758,10 @@ mod tests {
 
     impl TestServer {
         fn requests(&self) -> Vec<TestRequest> {
-            self.requests.lock().expect("requests list poisoned").clone()
+            self.requests
+                .lock()
+                .expect("requests list poisoned")
+                .clone()
         }
     }
 

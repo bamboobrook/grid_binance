@@ -857,8 +857,8 @@ function portfolioSummaryForCharts(portfolio: PortfolioTop3Row): MartingaleBackt
 }
 
 function portfolioTop3FromTask(task: BacktestTask | null): PortfolioTop3Row[] {
-  // Prefer portfolio_top10 (v2 expanded search) over portfolio_top3 (legacy)
-  const rows = task?.summary?.portfolio_top10 ?? task?.summary?.portfolio_top3;
+  // Show only the curated Top3 portfolios by default; Top10 remains a backend artifact for compatibility.
+  const rows = task?.summary?.portfolio_top3 ?? task?.summary?.portfolio_top10;
   if (!Array.isArray(rows)) return [];
   return rows.map((row: unknown) => {
     const record = isRecord(row) ? row : {};

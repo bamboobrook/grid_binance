@@ -67,7 +67,9 @@ pub fn validate_preconfigure_confirmations(
         ));
     }
     if !request.confirm_no_auto_orders {
-        return Err(SharedDbError::new("no-auto-orders confirmation is required"));
+        return Err(SharedDbError::new(
+            "no-auto-orders confirmation is required",
+        ));
     }
     if !target.symbols.is_empty() && !request.confirm_symbol_margin_leverage_change {
         return Err(SharedDbError::new(
@@ -112,7 +114,10 @@ pub fn target_exchange_settings_from_portfolio(
             .ok_or_else(|| SharedDbError::new("strategy symbol is required"))?
             .trim()
             .to_uppercase();
-        let direction = strategy.get("direction").and_then(Value::as_str).unwrap_or("");
+        let direction = strategy
+            .get("direction")
+            .and_then(Value::as_str)
+            .unwrap_or("");
         has_long |= direction == "long";
         has_short |= direction == "short";
         let margin_mode = strategy
@@ -290,7 +295,11 @@ struct TestCurrentSymbolSettings {
 trait TestExchangeSettingsClient {
     fn read_usdm_hedge_mode(&mut self) -> Result<bool, SharedDbError>;
     fn set_usdm_position_mode(&mut self, dual_side_position: bool) -> Result<(), SharedDbError>;
-    fn set_usdm_margin_type(&mut self, symbol: &str, margin_mode: &str) -> Result<(), SharedDbError>;
+    fn set_usdm_margin_type(
+        &mut self,
+        symbol: &str,
+        margin_mode: &str,
+    ) -> Result<(), SharedDbError>;
     fn set_usdm_leverage(&mut self, symbol: &str, leverage: u32) -> Result<(), SharedDbError>;
     fn read_usdm_symbol_settings(
         &mut self,
@@ -316,10 +325,16 @@ fn readback_response(
         let current = client
             .read_usdm_symbol_settings(&symbol)
             .map_err(|error| SharedDbError::new(error.to_string()))?;
-        let current_margin = current.margin_type.map(|value| normalize_margin_mode(&value));
+        let current_margin = current
+            .margin_type
+            .map(|value| normalize_margin_mode(&value));
         let margin_ok = current_margin.as_deref() == Some(settings.margin_mode.as_str());
         let leverage_ok = current.leverage == Some(settings.leverage);
-        let status = if margin_ok && leverage_ok { "ready" } else { "mismatch" };
+        let status = if margin_ok && leverage_ok {
+            "ready"
+        } else {
+            "mismatch"
+        };
         symbols.push(SymbolExchangeCheck {
             symbol: symbol.clone(),
             target_margin_mode: settings.margin_mode.clone(),
@@ -372,7 +387,8 @@ fn persist_exchange_preconfigure_summary(
     if let Value::Object(map) = &mut risk_summary {
         map.insert(
             "exchange_preconfigure".to_owned(),
-            serde_json::to_value(response).map_err(|error| SharedDbError::new(error.to_string()))?,
+            serde_json::to_value(response)
+                .map_err(|error| SharedDbError::new(error.to_string()))?,
         );
     }
     db.backtest_repo()
@@ -480,9 +496,12 @@ mod tests {
         let mut portfolio = portfolio_fixture("long", vec![strategy_fixture("BTCUSDT", "long", 6)]);
         portfolio.status = "running".to_owned();
 
-        let error = validate_preconfigure_confirmations(&portfolio, &confirmed_request()).unwrap_err();
+        let error =
+            validate_preconfigure_confirmations(&portfolio, &confirmed_request()).unwrap_err();
 
-        assert!(error.to_string().contains("cannot be exchange-preconfigured"));
+        assert!(error
+            .to_string()
+            .contains("cannot be exchange-preconfigured"));
     }
 
     #[test]
@@ -499,8 +518,9 @@ mod tests {
             calls: Vec::new(),
         };
 
-        let response = preconfigure_exchange_with_client(&portfolio, &confirmed_request(), &mut exchange)
-            .expect("preconfigure");
+        let response =
+            preconfigure_exchange_with_client(&portfolio, &confirmed_request(), &mut exchange)
+                .expect("preconfigure");
 
         assert_eq!(response.status, "ready");
         assert_eq!(
@@ -583,14 +603,22 @@ mod tests {
             Ok(self.hedge_mode)
         }
 
-        fn set_usdm_position_mode(&mut self, dual_side_position: bool) -> Result<(), SharedDbError> {
+        fn set_usdm_position_mode(
+            &mut self,
+            dual_side_position: bool,
+        ) -> Result<(), SharedDbError> {
             self.calls.push(format!("set_hedge:{dual_side_position}"));
             self.hedge_mode = dual_side_position;
             Ok(())
         }
 
-        fn set_usdm_margin_type(&mut self, symbol: &str, margin_mode: &str) -> Result<(), SharedDbError> {
-            self.calls.push(format!("set_margin_type:{symbol}:{margin_mode}"));
+        fn set_usdm_margin_type(
+            &mut self,
+            symbol: &str,
+            margin_mode: &str,
+        ) -> Result<(), SharedDbError> {
+            self.calls
+                .push(format!("set_margin_type:{symbol}:{margin_mode}"));
             Ok(())
         }
 

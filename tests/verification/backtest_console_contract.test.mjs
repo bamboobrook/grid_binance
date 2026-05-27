@@ -71,6 +71,8 @@ test("backtest console interactions stay in-page and use client fetch", () => {
   assert.match(consoleSource, /requestBacktestApi\(`\/api\/user\/backtest\/tasks\/\$\{taskId\}\/candidates`/);
   assert.doesNotMatch(consoleSource, /SAMPLE_TASKS|SAMPLE_CANDIDATES|cand-btc-a/);
   assert.match(consoleSource, /portfolioTop3FromTask/);
+  assert.match(consoleSource, /portfolio_top3 \?\? task\?\.summary\?\.portfolio_top10/);
+  assert.doesNotMatch(consoleSource, /portfolio_top10 \?\? task\?\.summary\?\.portfolio_top3/);
   assert.match(consoleSource, /summary\?:/);
 
   assert.match(resultTableSource, /candidate_id/);

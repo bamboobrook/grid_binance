@@ -19,7 +19,7 @@ use crate::martingale::rules::{compute_leg_notionals, compute_leg_trigger_prices
 use crate::martingale::state::MartingaleLegState;
 
 const DEFAULT_EXCHANGE_MIN_NOTIONAL: f64 = 0.0;
-const DEFAULT_FEE_BPS: f64 = 4.0;
+const DEFAULT_FEE_BPS: f64 = 4.5;
 const DEFAULT_SLIPPAGE_BPS: f64 = 2.0;
 
 pub fn run_kline_screening(
@@ -2152,6 +2152,46 @@ mod tests {
         assert!(entry.detail.contains("slippage_quote="));
         assert!(result.metrics.total_return_pct > 0.0);
         assert!(result.metrics.total_return_pct < 0.1);
+    }
+
+    #[test]
+    fn default_cost_model_charges_0045_percent_fee_and_002_percent_slippage_per_fill() {
+        let result = run_kline_screening(
+            single_strategy_portfolio(1_000),
+            &[
+                bar(1_000, 100.0, 100.0, 100.0, 100.0),
+                bar(2_000, 100.0, 101.1, 100.0, 101.0),
+            ],
+        )
+        .unwrap();
+
+        let entry = result
+            .trades
+            .iter()
+            .find(|trade| trade.event_type == "open_leg")
+            .expect("entry trade should exist");
+        assert!((entry.notional_quote - 100.0).abs() < 1e-9);
+        assert!((entry.fee_quote - 0.045).abs() < 1e-9);
+        assert!((entry.slippage_quote - 0.02).abs() < 1e-9);
+
+        let exit = result
+            .trades
+            .iter()
+            .find(|trade| trade.event_type == "close_cycle")
+            .expect("exit trade should exist");
+        assert!(exit.fee_quote > 0.045, "exit fee uses close notional");
+        assert!(
+            exit.slippage_quote > 0.02,
+            "exit slippage uses close notional"
+        );
+        assert!(
+            result.metrics.total_fee_quote.unwrap() > entry.fee_quote,
+            "metrics include entry and exit fees"
+        );
+        assert!(
+            result.metrics.total_slippage_quote.unwrap() > entry.slippage_quote,
+            "metrics include entry and exit slippage"
+        );
     }
 
     #[test]
