@@ -15,7 +15,7 @@ use shared_domain::strategy::{
     Strategy, StrategyRuntimeEvent, StrategyRuntimeOrder, StrategyStatus, StrategyType,
 };
 use shared_events::{MarketTick, NotificationKind};
-use std::sync::OnceLock;
+use std::sync::{LazyLock, OnceLock};
 use std::{
     collections::{HashMap, HashSet},
     io::{Error as IoError, ErrorKind},
@@ -44,6 +44,20 @@ const BINANCE_EXCHANGE: &str = "binance";
 
 static LIVE_TICK_QUEUE: OnceLock<Arc<Mutex<Vec<MarketTick>>>> = OnceLock::new();
 static TICK_SUBSCRIBER_STARTED: OnceLock<()> = OnceLock::new();
+
+/// Per-strategy locks to prevent concurrent reads-modify-writes between reconcile
+/// and user-data-stream callbacks. Without this, updates from one path may silently
+/// overwrite updates from the other.
+static STRATEGY_LOCKS: LazyLock<Mutex<HashMap<String, Arc<Mutex<()>>>>> =
+    LazyLock::new(|| Mutex::new(HashMap::new()));
+
+fn strategy_lock(strategy_id: &str) -> Arc<Mutex<()>> {
+    let mut locks = STRATEGY_LOCKS.lock().expect("strategy locks poisoned");
+    locks
+        .entry(strategy_id.to_string())
+        .or_insert_with(|| Arc::new(Mutex::new(())))
+        .clone()
+}
 
 fn live_tick_queue() -> &'static Arc<Mutex<Vec<MarketTick>>> {
     LIVE_TICK_QUEUE.get_or_init(|| Arc::new(Mutex::new(Vec::new())))
@@ -102,12 +116,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let metrics_for_loop = metrics.clone();
     tokio::spawn(async move {
         loop {
-            if run_engine_iteration(
-                || reconcile_once(&db_for_loop, &metrics_for_loop),
-                || sync_user_streams(&db_for_loop),
-            )
-            .is_err()
-            {
+            let db = db_for_loop.clone();
+            let metrics = metrics_for_loop.clone();
+            let result = tokio::task::spawn_blocking(move || {
+                run_engine_iteration(|| reconcile_once(&db, &metrics), || sync_user_streams(&db))
+            })
+            .await;
+            if let Err(join_error) = result {
+                eprintln!("trading-engine reconcile panic: {join_error}");
+                let mut guard = metrics_for_loop.lock().expect("metrics poisoned");
+                guard.reconcile_failures_total += 1;
+                guard.last_reconcile_at = Some(Utc::now().timestamp());
+            } else if result.unwrap().is_err() {
                 let mut guard = metrics_for_loop.lock().expect("metrics poisoned");
                 guard.reconcile_failures_total += 1;
                 guard.last_reconcile_at = Some(Utc::now().timestamp());
@@ -168,6 +188,8 @@ fn reconcile_once(
     };
     reconcile_running_martingale_portfolios(db, cipher.as_ref())?;
     for mut strategy in db.list_all_strategies()? {
+        let strategy_lock_arc = strategy_lock(&strategy.id);
+        let _strategy_guard = strategy_lock_arc.lock().expect("strategy lock poisoned");
         let mut dirty = false;
         if let Some(cipher) = cipher.as_ref() {
             dirty |= sync_live_orders(db, &mut strategy, cipher)?;
@@ -1267,6 +1289,8 @@ fn apply_execution_update_for_user(
     update: &shared_binance::BinanceExecutionUpdate,
 ) -> Result<(), shared_db::SharedDbError> {
     for mut strategy in db.list_strategies(email)? {
+        let strategy_lock_arc = strategy_lock(&strategy.id);
+        let _strategy_guard = strategy_lock_arc.lock().expect("strategy lock poisoned");
         let changed = apply_execution_update_effects(db, &mut strategy, update)?;
         if changed {
             let _ = sync_strategy_trades(db, &mut strategy, client)?;

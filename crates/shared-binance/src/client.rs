@@ -875,7 +875,7 @@ impl BinanceClient {
             ));
         }
         let market = BinanceMarket::from_scope(market)?;
-        if matches!(market, BinanceMarket::Spot) || listen_key.trim().is_empty() {
+        if listen_key.trim().is_empty() {
             return Ok(());
         }
         let http = self.live_http_client()?;

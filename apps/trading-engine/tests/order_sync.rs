@@ -234,7 +234,7 @@ fn paused_strategy_cancels_known_live_orders() {
         StrategyMarket::Spot,
         StrategyMode::SpotClassic,
     );
-    strategy.runtime.orders[0].status = "Canceled".to_string();
+    strategy.runtime.orders[0].status = "Working".to_string();
     strategy.runtime.orders[0].exchange_order_id = Some("555".to_string());
 
     let result = sync_strategy_orders(&mut strategy, &gateway, None);
