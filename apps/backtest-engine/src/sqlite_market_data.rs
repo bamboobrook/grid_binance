@@ -647,7 +647,17 @@ mod tests {
             .load_agg_trades("BTCUSDT", 1000, 2000)
             .expect("missing agg trades should degrade to empty");
 
-        assert_eq!(symbols, vec!["BTCUSDT".to_string(), "ETHUSDT".to_string()]);
+        assert_eq!(
+            symbols,
+            vec![
+                "BNBUSDT".to_string(),
+                "BTCUSDT".to_string(),
+                "ETHUSDT".to_string(),
+                "OLDUSDT".to_string(),
+                "SOLUSDT".to_string(),
+                "SPOTUSDT".to_string(),
+            ]
+        );
         assert_eq!(bars.len(), 2);
         assert_eq!(bars[0].open_time_ms, 1000);
         assert_eq!(bars[0].close, 11.0);

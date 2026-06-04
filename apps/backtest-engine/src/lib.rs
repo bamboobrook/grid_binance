@@ -9,6 +9,7 @@ pub mod portfolio_search;
 pub mod search;
 pub mod sqlite_market_data;
 pub mod time_splits;
+pub mod walk_forward;
 
 pub use engine::{BacktestEngine, KlineRecord};
 pub use model::{BacktestConfig, BacktestResult};

@@ -204,6 +204,23 @@ fn allocation_templates_for_member_count(member_count: usize) -> Vec<Vec<f64>> {
         templates.push(vec![0.10; member_count]);
     }
 
+    if member_count >= 5 {
+        let mut low_leader = vec![0.08];
+        low_leader
+            .extend(std::iter::repeat(0.92 / (member_count - 1) as f64).take(member_count - 1));
+        templates.push(low_leader);
+
+        let mut medium_leader = vec![0.12];
+        medium_leader
+            .extend(std::iter::repeat(0.88 / (member_count - 1) as f64).take(member_count - 1));
+        templates.push(medium_leader);
+
+        let mut two_growth = vec![0.10, 0.08];
+        two_growth
+            .extend(std::iter::repeat(0.82 / (member_count - 2) as f64).take(member_count - 2));
+        templates.push(two_growth);
+    }
+
     for tpl in &mut templates {
         normalize_allocations(tpl);
     }
@@ -480,27 +497,18 @@ fn build_ranked_portfolios_v2(
 
 fn sort_portfolios_by_yield_then_risk(
     portfolios: &mut [WeightedPortfolio],
-    target_annualized: f64,
+    _target_annualized: f64,
 ) {
     portfolios.sort_by(|a, b| {
         let a_ann = a.annualized_return_pct.unwrap_or(a.return_pct);
         let b_ann = b.annualized_return_pct.unwrap_or(b.return_pct);
-        let a_meets = a_ann >= target_annualized;
-        let b_meets = b_ann >= target_annualized;
         let a_ratio = a_ann / a.max_drawdown_pct.max(1.0);
         let b_ratio = b_ann / b.max_drawdown_pct.max(1.0);
-        match (a_meets, b_meets) {
-            (true, true) => b_ratio
-                .total_cmp(&a_ratio)
-                .then_with(|| b_ann.total_cmp(&a_ann))
-                .then_with(|| a.max_drawdown_pct.total_cmp(&b.max_drawdown_pct)),
-            (true, false) => std::cmp::Ordering::Less,
-            (false, true) => std::cmp::Ordering::Greater,
-            (false, false) => b_ann
-                .total_cmp(&a_ann)
-                .then_with(|| b_ratio.total_cmp(&a_ratio))
-                .then_with(|| a.max_drawdown_pct.total_cmp(&b.max_drawdown_pct)),
-        }
+
+        b_ann
+            .total_cmp(&a_ann)
+            .then_with(|| b_ratio.total_cmp(&a_ratio))
+            .then_with(|| a.max_drawdown_pct.total_cmp(&b.max_drawdown_pct))
     });
 }
 
@@ -1486,16 +1494,23 @@ fn combine_equity_curves(
         return Vec::new();
     }
     if members.len() == 1 {
-        return members[0].0.equity_curve.clone();
-    }
-
-    let min_len = members
-        .iter()
-        .map(|(c, _)| c.equity_curve.len())
-        .min()
-        .unwrap_or(0);
-    if min_len == 0 {
-        return Vec::new();
+        let (candidate, allocation_pct) = members[0];
+        let initial_candidate_equity = candidate
+            .equity_curve
+            .first()
+            .map(|p| p.equity_quote)
+            .filter(|v| v.is_finite() && *v > 0.0)
+            .unwrap_or(candidate.planned_margin_quote);
+        let allocated_capital = initial_portfolio_capital * (allocation_pct / 100.0);
+        let scale = allocated_capital / initial_candidate_equity;
+        return candidate
+            .equity_curve
+            .iter()
+            .map(|point| EquityPoint {
+                timestamp_ms: point.timestamp_ms,
+                equity_quote: point.equity_quote * scale,
+            })
+            .collect();
     }
 
     // Precompute initial equity for each member so the first combined point
@@ -1512,19 +1527,46 @@ fn combine_equity_curves(
         })
         .collect();
 
-    (0..min_len)
-        .map(|i| {
-            let timestamp_ms = members[0].0.equity_curve[i].timestamp_ms;
+    let mut timestamps = members
+        .iter()
+        .flat_map(|(candidate, _)| {
+            candidate
+                .equity_curve
+                .iter()
+                .map(|point| point.timestamp_ms)
+        })
+        .collect::<Vec<_>>();
+    timestamps.sort_unstable();
+    timestamps.dedup();
+    if timestamps.is_empty() {
+        return Vec::new();
+    }
+
+    let mut member_positions = vec![0usize; members.len()];
+    let mut latest_equities = initial_equities.clone();
+
+    timestamps
+        .into_iter()
+        .map(|timestamp_ms| {
+            for (idx, (candidate, _)) in members.iter().enumerate() {
+                while member_positions[idx] < candidate.equity_curve.len()
+                    && candidate.equity_curve[member_positions[idx]].timestamp_ms <= timestamp_ms
+                {
+                    latest_equities[idx] =
+                        candidate.equity_curve[member_positions[idx]].equity_quote;
+                    member_positions[idx] += 1;
+                }
+            }
             let equity_quote: f64 = members
                 .iter()
                 .enumerate()
-                .map(|(idx, (candidate, allocation_pct))| {
+                .map(|(idx, (_, allocation_pct))| {
                     let allocated_capital = initial_portfolio_capital * (*allocation_pct / 100.0);
                     let initial_candidate_equity = initial_equities[idx];
                     if !initial_candidate_equity.is_finite() || initial_candidate_equity <= 0.0 {
                         return 0.0;
                     }
-                    let candidate_equity = candidate.equity_curve[i].equity_quote;
+                    let candidate_equity = latest_equities[idx];
                     let candidate_return_factor = candidate_equity / initial_candidate_equity;
                     allocated_capital * candidate_return_factor
                 })
@@ -2482,6 +2524,113 @@ mod tests {
     }
 
     #[test]
+    fn portfolio_v2_uses_low_weight_growth_leader_with_stabilizers_to_hit_drawdown_limit() {
+        let growth_curve: Vec<f64> = {
+            let mut curve = Vec::new();
+            let mut equity = 100.0;
+            for t in 0..120 {
+                if t < 10 {
+                    equity += 5.0;
+                } else if t < 25 {
+                    equity -= 6.0;
+                } else if t < 40 {
+                    equity += 1.0;
+                } else {
+                    equity += 2.0;
+                }
+                curve.push(equity);
+            }
+            curve
+        };
+        let growth_peak = growth_curve
+            .iter()
+            .cloned()
+            .fold(f64::NEG_INFINITY, f64::max);
+        let growth_trough = growth_curve.iter().cloned().fold(f64::INFINITY, f64::min);
+        let growth_dd = ((growth_peak - growth_trough) / growth_peak) * 100.0;
+        let growth_return = ((growth_curve.last().unwrap() - 100.0) / 100.0) * 100.0;
+
+        let growth = candidate_with_curve(
+            "growth-high-dd",
+            "BTCUSDT",
+            growth_return,
+            growth_dd.max(30.0),
+            5.0,
+            100.0,
+            growth_curve,
+        );
+
+        let stabilizers: Vec<EvaluatedCandidate> = (0..8)
+            .map(|index| {
+                let base = 100.0;
+                let final_equity = base + 24.0 + index as f64;
+                let curve: Vec<f64> = (0..120)
+                    .map(|t| {
+                        let progress = t as f64 / 119.0;
+                        base + (final_equity - base) * progress + (t as f64 * 0.3).sin() * 1.0
+                    })
+                    .collect();
+                let peak = curve.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
+                let trough = curve.iter().cloned().fold(f64::INFINITY, f64::min);
+                let dd = ((peak - trough) / peak) * 100.0;
+                let ret = ((curve.last().unwrap() - base) / base) * 100.0;
+                candidate_with_curve(
+                    &format!("stable-{index}"),
+                    &[
+                        "ETHUSDT", "BNBUSDT", "SOLUSDT", "XRPUSDT", "DOGEUSDT", "ADAUSDT",
+                        "LINKUSDT", "AVAXUSDT",
+                    ][index],
+                    ret,
+                    dd,
+                    2.0,
+                    100.0,
+                    curve,
+                )
+            })
+            .collect();
+
+        let mut candidates = vec![growth];
+        candidates.extend(stabilizers);
+
+        let artifact = build_portfolio_top_n_v2(&candidates, 20.0, 3);
+        assert!(
+            !artifact.top3.is_empty(),
+            "must produce at least one portfolio"
+        );
+        let first = artifact.top3.first().unwrap();
+
+        assert!(
+            first.max_drawdown_pct <= 20.0001,
+            "portfolio must obey hard DD limit 20%, got {}",
+            first.max_drawdown_pct
+        );
+
+        let has_growth = first
+            .members
+            .iter()
+            .any(|m| m.candidate_id == "growth-high-dd");
+        if has_growth {
+            let growth_member = first
+                .members
+                .iter()
+                .find(|m| m.candidate_id == "growth-high-dd")
+                .unwrap();
+            assert!(
+                growth_member.allocation_pct <= 30.0,
+                "growth leader should be at low weight, got {}%",
+                growth_member.allocation_pct
+            );
+        }
+
+        let portfolio_ann = first.annualized_return_pct.unwrap_or(first.return_pct);
+        assert!(
+            portfolio_ann >= 10.0,
+            "portfolio annualized should be meaningful, got {}",
+            portfolio_ann
+        );
+    }
+
+    #[test]
     fn correlation_penalty_is_neutral_for_divergent_curves() {
         // Curve A: steady uptrend with noise
         let up_equity: Vec<f64> = (0..120)
@@ -2498,6 +2647,75 @@ mod tests {
         assert!(
             penalty >= 0.9,
             "weakly correlated curves should have little penalty, got {penalty}"
+        );
+    }
+
+    #[test]
+    fn weighted_portfolio_aligns_member_equity_by_timestamp_not_index() {
+        let a = candidate_with_curve(
+            "a",
+            "BTCUSDT",
+            30.0,
+            10.0,
+            3.0,
+            100.0,
+            vec![
+                100.0, 105.0, 110.0, 108.0, 112.0, 115.0, 120.0, 118.0, 125.0, 130.0,
+            ],
+        );
+        let b_curve: Vec<f64> = vec![
+            100.0, 102.0, 104.0, 106.0, 108.0, 110.0, 112.0, 114.0, 116.0, 118.0,
+        ];
+        let mut b_equity = Vec::new();
+        for (i, v) in b_curve.into_iter().enumerate() {
+            if i % 2 == 0 {
+                b_equity.push(100.0 + (i as f64 + 1.0) * 2.0);
+            }
+            b_equity.push(v);
+        }
+        let b = candidate_with_curve("b", "ETHUSDT", 18.0, 6.0, 2.0, 100.0, b_equity);
+
+        let combined = combine_equity_curves(&[(&a, 50.0), (&b, 50.0)], 1000.0);
+
+        assert!(!combined.is_empty(), "combined curve must not be empty");
+        for i in 1..combined.len() {
+            assert!(
+                combined[i].timestamp_ms > combined[i - 1].timestamp_ms,
+                "combined curve must be strictly increasing by timestamp at index {i}"
+            );
+        }
+
+        let a_ts: std::collections::BTreeSet<i64> =
+            a.equity_curve.iter().map(|p| p.timestamp_ms).collect();
+        let b_ts: std::collections::BTreeSet<i64> =
+            b.equity_curve.iter().map(|p| p.timestamp_ms).collect();
+        let combined_ts: std::collections::BTreeSet<i64> =
+            combined.iter().map(|p| p.timestamp_ms).collect();
+
+        for ts in &a_ts {
+            assert!(
+                combined_ts.contains(ts),
+                "combined must contain all timestamps from member a, missing {ts}"
+            );
+        }
+        for ts in &b_ts {
+            assert!(
+                combined_ts.contains(ts),
+                "combined must contain all timestamps from member b, missing {ts}"
+            );
+        }
+        assert!(
+            combined_ts.len() >= a_ts.len(),
+            "combined must have at least as many points as a: {} vs {}",
+            combined_ts.len(),
+            a_ts.len()
+        );
+
+        let first = combined.first().unwrap();
+        assert!(
+            (first.equity_quote - 1000.0).abs() < 50.0,
+            "combined initial equity should be near 1000: got {}",
+            first.equity_quote
         );
     }
 

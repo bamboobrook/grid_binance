@@ -2,10 +2,23 @@ use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
 use rust_decimal::Decimal;
 use shared_domain::martingale::{
-    MartingaleDirection, MartingaleDirectionMode, MartingaleEntryTrigger, MartingaleMarginMode,
-    MartingaleMarketKind, MartingalePortfolioConfig, MartingaleRiskLimits, MartingaleSizingModel,
-    MartingaleSpacingModel, MartingaleStrategyConfig, MartingaleTakeProfitModel,
+    MartingaleDirection, MartingaleDirectionMode, MartingaleEntryTrigger,
+    MartingaleIndicatorConfig, MartingaleMarginMode, MartingaleMarketKind,
+    MartingalePortfolioConfig, MartingaleRiskLimits, MartingaleSizingModel, MartingaleSpacingModel,
+    MartingaleStrategyConfig, MartingaleTakeProfitModel,
 };
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum SpacingModelChoice {
+    FixedPercent,
+    Atr,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum TakeProfitModelChoice {
+    Percent,
+    Atr,
+}
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct SearchSpace {
@@ -138,6 +151,14 @@ pub struct LegParameters {
     pub take_profit_bps: u32,
     pub tail_stop_bps: u32,
     pub weight_pct: u32,
+    pub spacing_model: SpacingModelChoice,
+    pub take_profit_model: TakeProfitModelChoice,
+    pub atr_period: u32,
+    pub atr_spacing_multiplier_bps: u32,
+    pub atr_tp_multiplier_bps: u32,
+    pub adx_filter_enabled: bool,
+    pub adx_threshold_bps: u32,
+    pub adx_period: u32,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -149,6 +170,14 @@ pub struct StagedMartingaleSearchSpace {
     pub take_profit_bps: Vec<u32>,
     pub tail_stop_bps: Vec<u32>,
     pub long_short_weight_pct: Vec<(u32, u32)>,
+    pub spacing_model: Vec<SpacingModelChoice>,
+    pub take_profit_model: Vec<TakeProfitModelChoice>,
+    pub atr_period: Vec<u32>,
+    pub atr_spacing_multiplier_bps: Vec<u32>,
+    pub atr_tp_multiplier_bps: Vec<u32>,
+    pub adx_filter_enabled: Vec<bool>,
+    pub adx_threshold_bps: Vec<u32>,
+    pub adx_period: Vec<u32>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -161,6 +190,14 @@ pub struct CoarseParameterPoint {
     pub tail_stop_bps: u32,
     pub long_weight_pct: u32,
     pub short_weight_pct: u32,
+    pub spacing_model: SpacingModelChoice,
+    pub take_profit_model: TakeProfitModelChoice,
+    pub atr_period: u32,
+    pub atr_spacing_multiplier_bps: u32,
+    pub atr_tp_multiplier_bps: u32,
+    pub adx_filter_enabled: bool,
+    pub adx_threshold_bps: u32,
+    pub adx_period: u32,
 }
 
 impl StagedMartingaleSearchSpace {
@@ -174,6 +211,14 @@ impl StagedMartingaleSearchSpace {
                 take_profit_bps: vec![60, 80, 100, 130],
                 tail_stop_bps: vec![1500, 2000, 2500],
                 long_short_weight_pct: vec![(80, 20), (70, 30), (60, 40)],
+                spacing_model: vec![SpacingModelChoice::FixedPercent, SpacingModelChoice::Atr],
+                take_profit_model: vec![TakeProfitModelChoice::Percent, TakeProfitModelChoice::Atr],
+                atr_period: vec![7, 14, 21],
+                atr_spacing_multiplier_bps: vec![10000, 15000, 20000],
+                atr_tp_multiplier_bps: vec![10000, 15000, 20000],
+                adx_filter_enabled: vec![true, false],
+                adx_threshold_bps: vec![2000, 2500, 3000],
+                adx_period: vec![14, 21],
             },
             "aggressive" => Self {
                 leverage: vec![2, 3, 4, 5, 6, 8, 10],
@@ -190,6 +235,14 @@ impl StagedMartingaleSearchSpace {
                     (40, 60),
                     (30, 70),
                 ],
+                spacing_model: vec![SpacingModelChoice::FixedPercent, SpacingModelChoice::Atr],
+                take_profit_model: vec![TakeProfitModelChoice::Percent, TakeProfitModelChoice::Atr],
+                atr_period: vec![7, 14, 21, 28],
+                atr_spacing_multiplier_bps: vec![5000, 8000, 12000, 16000, 20000, 30000],
+                atr_tp_multiplier_bps: vec![5000, 8000, 12000, 16000, 20000, 30000],
+                adx_filter_enabled: vec![false],
+                adx_threshold_bps: vec![1500, 2000],
+                adx_period: vec![14],
             },
             _ => Self {
                 leverage: vec![2, 3, 4, 5, 6, 8, 10],
@@ -199,6 +252,14 @@ impl StagedMartingaleSearchSpace {
                 take_profit_bps: vec![80, 100, 130, 180],
                 tail_stop_bps: vec![1800, 2200, 2600],
                 long_short_weight_pct: vec![(80, 20), (70, 30), (60, 40), (50, 50)],
+                spacing_model: vec![SpacingModelChoice::FixedPercent, SpacingModelChoice::Atr],
+                take_profit_model: vec![TakeProfitModelChoice::Percent, TakeProfitModelChoice::Atr],
+                atr_period: vec![7, 14, 21, 28],
+                atr_spacing_multiplier_bps: vec![8000, 12000, 16000, 20000],
+                atr_tp_multiplier_bps: vec![8000, 12000, 16000, 20000],
+                adx_filter_enabled: vec![true, false],
+                adx_threshold_bps: vec![1500, 2000, 2500, 3000],
+                adx_period: vec![14, 21],
             },
         };
 
@@ -214,12 +275,13 @@ impl StagedMartingaleSearchSpace {
     pub fn profit_optimized_v2(risk_profile: &str, direction_mode: &str) -> Self {
         let mut space = Self::for_profile(risk_profile, direction_mode);
         space.leverage = vec![2, 3, 4, 5, 6, 8, 10, 12, 15, 20];
-        space.spacing_bps = vec![35, 50, 70, 90, 120, 160, 220, 300, 420, 600];
-        space.order_multiplier = vec![1.15, 1.25, 1.4, 1.6, 1.8, 2.0, 2.2, 2.4];
-        space.max_legs = vec![3, 4, 5, 6, 7, 8, 9];
-        space.take_profit_bps = vec![30, 45, 60, 80, 100, 140, 200, 300];
+        space.spacing_bps = vec![25, 35, 50, 70, 90, 120, 160, 220, 300, 420, 600, 800];
+        space.order_multiplier = vec![1.1, 1.15, 1.25, 1.4, 1.6, 1.8, 2.0, 2.2, 2.4, 2.8];
+        space.max_legs = vec![3, 4, 5, 6, 7, 8, 9, 10];
+        space.take_profit_bps = vec![25, 30, 45, 60, 80, 100, 140, 200, 300, 450];
         if direction_mode == "long_short" {
             space.long_short_weight_pct = vec![
+                (90, 10),
                 (80, 20),
                 (70, 30),
                 (60, 40),
@@ -227,9 +289,10 @@ impl StagedMartingaleSearchSpace {
                 (40, 60),
                 (30, 70),
                 (20, 80),
+                (10, 90),
             ];
         }
-        space.tail_stop_bps = vec![800, 1200, 1800, 2400, 3000, 4000, 5500, 7000];
+        space.tail_stop_bps = vec![600, 800, 1200, 1800, 2400, 3000, 4000, 5500, 7000, 9000];
         space
     }
 }
@@ -279,6 +342,29 @@ pub fn fine_space_around(winner: &CoarseParameterPoint) -> StagedMartingaleSearc
         take_profit_bps: tp_neighbors.to_vec(),
         tail_stop_bps: tail_neighbors.to_vec(),
         long_short_weight_pct: weight_neighbors.to_vec(),
+        spacing_model: vec![winner.spacing_model],
+        take_profit_model: vec![winner.take_profit_model],
+        atr_period: vec![winner.atr_period],
+        atr_spacing_multiplier_bps: vec![
+            winner
+                .atr_spacing_multiplier_bps
+                .saturating_sub(2000)
+                .max(5000),
+            winner.atr_spacing_multiplier_bps,
+            winner.atr_spacing_multiplier_bps + 2000,
+        ],
+        atr_tp_multiplier_bps: vec![
+            winner.atr_tp_multiplier_bps.saturating_sub(2000).max(5000),
+            winner.atr_tp_multiplier_bps,
+            winner.atr_tp_multiplier_bps + 2000,
+        ],
+        adx_filter_enabled: vec![winner.adx_filter_enabled, !winner.adx_filter_enabled],
+        adx_threshold_bps: vec![
+            winner.adx_threshold_bps.saturating_sub(500).max(1000),
+            winner.adx_threshold_bps,
+            winner.adx_threshold_bps + 500,
+        ],
+        adx_period: vec![winner.adx_period],
     }
 }
 
@@ -291,26 +377,9 @@ pub fn generate_staged_candidates_for_symbol(
     let mut candidates = Vec::new();
     let mut id_counter = 0usize;
 
-    // long_short uses random uniform sampling across all dimensions so every
-    // parameter axis (leverage, spacing, multiplier, max_legs, take_profit,
-    // tail_stop, weights) gets explored, rather than exhausting inner loops
-    // before outer loops advance.
     if direction == "long_short" || direction == "long_and_short" {
         let mut rng = rand::thread_rng();
-        let mut seen: std::collections::HashSet<(
-            usize,
-            usize,
-            usize,
-            usize,
-            usize,
-            usize,
-            usize,
-            usize,
-            usize,
-            usize,
-            usize,
-            usize,
-        )> = std::collections::HashSet::new();
+        let mut seen: std::collections::HashSet<u64> = std::collections::HashSet::new();
 
         while candidates.len() < limit {
             let li = rng.gen_range(0..space.leverage.len());
@@ -325,8 +394,18 @@ pub fn generate_staged_candidates_for_symbol(
             let ssi = rng.gen_range(0..space.spacing_bps.len());
             let stpi = rng.gen_range(0..space.take_profit_bps.len());
             let stsi = rng.gen_range(0..space.tail_stop_bps.len());
+            let spmi = rng.gen_range(0..space.spacing_model.len());
+            let tpmi = rng.gen_range(0..space.take_profit_model.len());
+            let api = rng.gen_range(0..space.atr_period.len());
+            let asmi = rng.gen_range(0..space.atr_spacing_multiplier_bps.len());
+            let atpmi = rng.gen_range(0..space.atr_tp_multiplier_bps.len());
+            let afei = rng.gen_range(0..space.adx_filter_enabled.len());
+            let athi = rng.gen_range(0..space.adx_threshold_bps.len());
 
-            let key = (li, lsi, mi, mli, ltpi, tsi, wi, smi, smli, ssi, stpi, stsi);
+            let key = fold_indices(&[
+                li, lsi, mi, mli, ltpi, tsi, wi, smi, smli, ssi, stpi, stsi, spmi, tpmi, api, asmi,
+                atpmi, afei, athi,
+            ]);
             if !seen.insert(key) {
                 if seen.len()
                     >= space.leverage.len()
@@ -341,8 +420,15 @@ pub fn generate_staged_candidates_for_symbol(
                         * space.spacing_bps.len()
                         * space.take_profit_bps.len()
                         * space.tail_stop_bps.len()
+                        * space.spacing_model.len()
+                        * space.take_profit_model.len()
+                        * space.atr_period.len()
+                        * space.atr_spacing_multiplier_bps.len()
+                        * space.atr_tp_multiplier_bps.len()
+                        * space.adx_filter_enabled.len()
+                        * space.adx_threshold_bps.len()
                 {
-                    break; // exhausted all combinations
+                    break;
                 }
                 continue;
             }
@@ -359,15 +445,38 @@ pub fn generate_staged_candidates_for_symbol(
             let short_spacing_bps = space.spacing_bps[ssi];
             let short_take_profit_bps = space.take_profit_bps[stpi];
             let short_tail_stop_bps = space.tail_stop_bps[stsi];
+            let spacing_model = space.spacing_model[spmi];
+            let take_profit_model = space.take_profit_model[tpmi];
+            let atr_period = space.atr_period[api];
+            let atr_spacing_multiplier_bps = space.atr_spacing_multiplier_bps[asmi];
+            let atr_tp_multiplier_bps = space.atr_tp_multiplier_bps[atpmi];
+            let adx_filter_enabled = space.adx_filter_enabled[afei];
+            let adx_threshold_bps = space.adx_threshold_bps[athi];
+            let adx_period = *space.adx_period.first().unwrap_or(&14);
 
-            if !is_valid_fixed_percent_spacing(
+            let indicator_context = IndicatorSamplingContext {
+                spacing_model,
+                take_profit_model,
+                atr_period,
+                atr_spacing_multiplier_bps,
+                atr_tp_multiplier_bps,
+                adx_filter_enabled,
+                adx_threshold_bps,
+                adx_period,
+            };
+
+            if !is_valid_spacing_for_model(
+                spacing_model,
                 MartingaleDirection::Long,
                 long_spacing_bps,
                 max_legs,
-            ) || !is_valid_fixed_percent_spacing(
+                atr_spacing_multiplier_bps,
+            ) || !is_valid_spacing_for_model(
+                spacing_model,
                 MartingaleDirection::Short,
                 short_spacing_bps,
                 short_max_legs,
+                atr_spacing_multiplier_bps,
             ) {
                 continue;
             }
@@ -379,6 +488,14 @@ pub fn generate_staged_candidates_for_symbol(
                 take_profit_bps: long_take_profit_bps,
                 tail_stop_bps,
                 weight_pct: long_weight_pct,
+                spacing_model,
+                take_profit_model,
+                atr_period,
+                atr_spacing_multiplier_bps,
+                atr_tp_multiplier_bps,
+                adx_filter_enabled,
+                adx_threshold_bps,
+                adx_period,
             };
             let short_params = LegParameters {
                 spacing_bps: short_spacing_bps,
@@ -387,12 +504,21 @@ pub fn generate_staged_candidates_for_symbol(
                 take_profit_bps: short_take_profit_bps,
                 tail_stop_bps: short_tail_stop_bps,
                 weight_pct: short_weight_pct,
+                spacing_model,
+                take_profit_model,
+                atr_period,
+                atr_spacing_multiplier_bps,
+                atr_tp_multiplier_bps,
+                adx_filter_enabled,
+                adx_threshold_bps,
+                adx_period,
             };
             candidates.push(build_long_short_candidate_from_legs(
                 symbol,
                 leverage,
                 long_params,
                 short_params,
+                &indicator_context,
                 &mut id_counter,
             )?);
         }
@@ -405,13 +531,20 @@ pub fn generate_staged_candidates_for_symbol(
         other => return Err(format!("unsupported direction: {other}")),
     };
     let mut rng = StdRng::seed_from_u64(staged_candidate_seed(symbol, direction, limit));
-    let mut seen = std::collections::HashSet::<(usize, usize, usize, usize, usize, usize)>::new();
+    let mut seen: std::collections::HashSet<u64> = std::collections::HashSet::new();
     let total_combinations = space.leverage.len()
         * space.spacing_bps.len()
         * space.order_multiplier.len()
         * space.max_legs.len()
         * space.take_profit_bps.len()
-        * space.tail_stop_bps.len();
+        * space.tail_stop_bps.len()
+        * space.spacing_model.len()
+        * space.take_profit_model.len()
+        * space.atr_period.len()
+        * space.atr_spacing_multiplier_bps.len()
+        * space.atr_tp_multiplier_bps.len()
+        * space.adx_filter_enabled.len()
+        * space.adx_threshold_bps.len();
     while candidates.len() < limit && seen.len() < total_combinations {
         let li = rng.gen_range(0..space.leverage.len());
         let si = rng.gen_range(0..space.spacing_bps.len());
@@ -419,12 +552,30 @@ pub fn generate_staged_candidates_for_symbol(
         let mli = rng.gen_range(0..space.max_legs.len());
         let tpi = rng.gen_range(0..space.take_profit_bps.len());
         let tsi = rng.gen_range(0..space.tail_stop_bps.len());
-        if !seen.insert((li, si, mi, mli, tpi, tsi)) {
+        let spmi = rng.gen_range(0..space.spacing_model.len());
+        let tpmi = rng.gen_range(0..space.take_profit_model.len());
+        let api = rng.gen_range(0..space.atr_period.len());
+        let asmi = rng.gen_range(0..space.atr_spacing_multiplier_bps.len());
+        let atpmi = rng.gen_range(0..space.atr_tp_multiplier_bps.len());
+        let afei = rng.gen_range(0..space.adx_filter_enabled.len());
+        let athi = rng.gen_range(0..space.adx_threshold_bps.len());
+        if !seen.insert(fold_indices(&[
+            li, si, mi, mli, tpi, tsi, spmi, tpmi, api, asmi, atpmi, afei, athi,
+        ])) {
             continue;
         }
         let spacing_bps = space.spacing_bps[si];
         let max_legs = space.max_legs[mli];
-        if !is_valid_fixed_percent_spacing(single_direction, spacing_bps, max_legs) {
+        let spacing_model = space.spacing_model[spmi];
+        let atr_spacing_multiplier_bps = space.atr_spacing_multiplier_bps[asmi];
+
+        if !is_valid_spacing_for_model(
+            spacing_model,
+            single_direction,
+            spacing_bps,
+            max_legs,
+            atr_spacing_multiplier_bps,
+        ) {
             continue;
         }
         candidates.push(build_single_direction_candidate(
@@ -437,6 +588,16 @@ pub fn generate_staged_candidates_for_symbol(
             space.take_profit_bps[tpi],
             space.tail_stop_bps[tsi],
             100,
+            &IndicatorSamplingContext {
+                spacing_model,
+                take_profit_model: space.take_profit_model[tpmi],
+                atr_period: space.atr_period[api],
+                atr_spacing_multiplier_bps,
+                atr_tp_multiplier_bps: space.atr_tp_multiplier_bps[atpmi],
+                adx_filter_enabled: space.adx_filter_enabled[afei],
+                adx_threshold_bps: space.adx_threshold_bps[athi],
+                adx_period: space.adx_period[0],
+            },
             &mut id_counter,
         )?);
     }
@@ -446,9 +607,19 @@ pub fn generate_staged_candidates_for_symbol(
 fn staged_candidate_seed(symbol: &str, direction: &str, limit: usize) -> u64 {
     let mut seed = 0xA11C_E5E5_D15C_0DE5_u64 ^ limit as u64;
     for byte in symbol.bytes().chain(direction.bytes()) {
-        seed = seed.wrapping_mul(1_099_511_628_211).wrapping_add(byte as u64);
+        seed = seed
+            .wrapping_mul(1_099_511_628_211)
+            .wrapping_add(byte as u64);
     }
     seed
+}
+
+fn fold_indices(indices: &[usize]) -> u64 {
+    let mut hasher = std::collections::hash_map::DefaultHasher::new();
+    for &i in indices {
+        std::hash::Hash::hash(&i, &mut hasher);
+    }
+    std::hash::Hasher::finish(&hasher)
 }
 
 fn is_valid_fixed_percent_spacing(
@@ -463,6 +634,100 @@ fn is_valid_fixed_percent_spacing(
     }
 }
 
+fn is_valid_spacing_for_model(
+    spacing_model: SpacingModelChoice,
+    direction: MartingaleDirection,
+    spacing_bps: u32,
+    max_legs: u32,
+    atr_spacing_multiplier_bps: u32,
+) -> bool {
+    match spacing_model {
+        SpacingModelChoice::FixedPercent => {
+            is_valid_fixed_percent_spacing(direction, spacing_bps, max_legs)
+        }
+        SpacingModelChoice::Atr => {
+            if atr_spacing_multiplier_bps == 0 {
+                return false;
+            }
+            let max_step_bps = (spacing_bps as u64 * 3).min(30_000u64) as u32;
+            let max_distance_bps = max_step_bps.saturating_mul(max_legs);
+            match direction {
+                MartingaleDirection::Long => max_distance_bps < 9_500,
+                MartingaleDirection::Short => max_distance_bps <= 30_000,
+            }
+        }
+    }
+}
+
+struct IndicatorSamplingContext {
+    spacing_model: SpacingModelChoice,
+    take_profit_model: TakeProfitModelChoice,
+    atr_period: u32,
+    atr_spacing_multiplier_bps: u32,
+    atr_tp_multiplier_bps: u32,
+    adx_filter_enabled: bool,
+    adx_threshold_bps: u32,
+    adx_period: u32,
+}
+
+fn build_indicators_and_triggers(
+    ctx: &IndicatorSamplingContext,
+) -> (Vec<MartingaleIndicatorConfig>, Vec<MartingaleEntryTrigger>) {
+    let mut indicators = Vec::new();
+    let mut triggers = vec![MartingaleEntryTrigger::Cooldown { seconds: 21_600 }];
+
+    indicators.push(MartingaleIndicatorConfig::Atr {
+        period: ctx.atr_period.max(2),
+    });
+
+    if ctx.adx_filter_enabled {
+        indicators.push(MartingaleIndicatorConfig::Adx {
+            period: ctx.adx_period.max(2),
+        });
+        let threshold = ctx.adx_threshold_bps as f64 / 100.0;
+        triggers.push(MartingaleEntryTrigger::IndicatorExpression {
+            expression: format!("adx({}) > {}", ctx.adx_period.max(2), threshold),
+        });
+    }
+
+    (indicators, triggers)
+}
+
+fn build_spacing_model(ctx: &IndicatorSamplingContext, spacing_bps: u32) -> MartingaleSpacingModel {
+    match ctx.spacing_model {
+        SpacingModelChoice::FixedPercent => MartingaleSpacingModel::FixedPercent {
+            step_bps: spacing_bps,
+        },
+        SpacingModelChoice::Atr => {
+            let multiplier = rust_decimal::Decimal::from(ctx.atr_spacing_multiplier_bps)
+                / rust_decimal::Decimal::from(10000u32);
+            let min_step_bps = (spacing_bps as u64 / 2).max(1) as u32;
+            let max_step_bps = (spacing_bps as u64 * 3).min(30_000u64) as u32;
+            MartingaleSpacingModel::Atr {
+                multiplier,
+                min_step_bps,
+                max_step_bps,
+            }
+        }
+    }
+}
+
+fn build_take_profit_model(
+    ctx: &IndicatorSamplingContext,
+    take_profit_bps: u32,
+) -> MartingaleTakeProfitModel {
+    match ctx.take_profit_model {
+        TakeProfitModelChoice::Percent => MartingaleTakeProfitModel::Percent {
+            bps: take_profit_bps,
+        },
+        TakeProfitModelChoice::Atr => {
+            let multiplier = rust_decimal::Decimal::from(ctx.atr_tp_multiplier_bps)
+                / rust_decimal::Decimal::from(10000u32);
+            MartingaleTakeProfitModel::Atr { multiplier }
+        }
+    }
+}
+
 fn build_single_direction_candidate(
     symbol: &str,
     direction: MartingaleDirection,
@@ -473,6 +738,7 @@ fn build_single_direction_candidate(
     take_profit_bps: u32,
     tail_stop_bps: u32,
     _weight_pct: u32,
+    ctx: &IndicatorSamplingContext,
     id_counter: &mut usize,
 ) -> Result<SearchCandidate, String> {
     let direction_mode = match direction {
@@ -489,8 +755,8 @@ fn build_single_direction_candidate(
         MartingaleMarketKind::UsdMFutures => (Some(MartingaleMarginMode::Isolated), Some(leverage)),
     };
 
-    // (rest unchanged below this block — kept for the single-direction path)
     let multiplier_decimal = Decimal::from_f64_retain(multiplier).unwrap_or(Decimal::new(15, 1));
+    let (indicators, entry_triggers) = build_indicators_and_triggers(ctx);
     let strategy = MartingaleStrategyConfig {
         strategy_id: format!("staged-{}", *id_counter),
         symbol: symbol.to_owned(),
@@ -499,24 +765,20 @@ fn build_single_direction_candidate(
         direction_mode,
         margin_mode,
         leverage: leverage_val,
-        spacing: MartingaleSpacingModel::FixedPercent {
-            step_bps: spacing_bps,
-        },
+        spacing: build_spacing_model(ctx, spacing_bps),
         sizing: MartingaleSizingModel::Multiplier {
             first_order_quote: Decimal::new(100, 0),
             multiplier: multiplier_decimal,
             max_legs,
         },
-        take_profit: MartingaleTakeProfitModel::Percent {
-            bps: take_profit_bps,
-        },
+        take_profit: build_take_profit_model(ctx, take_profit_bps),
         stop_loss: Some(
             shared_domain::martingale::MartingaleStopLossModel::StrategyDrawdownPct {
                 pct_bps: tail_stop_bps,
             },
         ),
-        indicators: Vec::new(),
-        entry_triggers: vec![MartingaleEntryTrigger::Cooldown { seconds: 21_600 }],
+        indicators,
+        entry_triggers,
         risk_limits: MartingaleRiskLimits::default(),
     };
     *id_counter += 1;
@@ -539,6 +801,7 @@ fn build_long_short_candidate_from_legs(
     leverage: u32,
     long_params: LegParameters,
     short_params: LegParameters,
+    ctx: &IndicatorSamplingContext,
     id_counter: &mut usize,
 ) -> Result<SearchCandidate, String> {
     let market = if leverage > 1 {
@@ -558,6 +821,7 @@ fn build_long_short_candidate_from_legs(
         margin_mode,
         leverage_val,
         long_params,
+        ctx,
         *id_counter,
     )?;
     let short_strategy = strategy_from_leg_params(
@@ -567,6 +831,7 @@ fn build_long_short_candidate_from_legs(
         margin_mode,
         leverage_val,
         short_params,
+        ctx,
         *id_counter,
     )?;
 
@@ -590,12 +855,14 @@ fn strategy_from_leg_params(
     margin_mode: Option<MartingaleMarginMode>,
     leverage: Option<u32>,
     params: LegParameters,
+    ctx: &IndicatorSamplingContext,
     id_counter: usize,
 ) -> Result<MartingaleStrategyConfig, String> {
     let multiplier = Decimal::from_f64_retain(params.order_multiplier)
         .ok_or_else(|| format!("invalid multiplier {}", params.order_multiplier))?;
     let first_order_quote =
         Decimal::new(100, 0) * Decimal::from(params.weight_pct) / Decimal::from(100u32);
+    let (indicators, entry_triggers) = build_indicators_and_triggers(ctx);
     Ok(MartingaleStrategyConfig {
         strategy_id: format!("staged-{id_counter}-{direction:?}"),
         symbol: symbol.to_owned(),
@@ -604,24 +871,20 @@ fn strategy_from_leg_params(
         direction_mode: MartingaleDirectionMode::LongAndShort,
         margin_mode,
         leverage,
-        spacing: MartingaleSpacingModel::FixedPercent {
-            step_bps: params.spacing_bps,
-        },
+        spacing: build_spacing_model(ctx, params.spacing_bps),
         sizing: MartingaleSizingModel::Multiplier {
             first_order_quote,
             multiplier,
             max_legs: params.max_legs,
         },
-        take_profit: MartingaleTakeProfitModel::Percent {
-            bps: params.take_profit_bps,
-        },
+        take_profit: build_take_profit_model(ctx, params.take_profit_bps),
         stop_loss: Some(
             shared_domain::martingale::MartingaleStopLossModel::StrategyDrawdownPct {
                 pct_bps: params.tail_stop_bps,
             },
         ),
-        indicators: Vec::new(),
-        entry_triggers: vec![MartingaleEntryTrigger::Cooldown { seconds: 21_600 }],
+        indicators,
+        entry_triggers,
         risk_limits: MartingaleRiskLimits::default(),
     })
 }
@@ -675,6 +938,14 @@ mod staged_tests {
             tail_stop_bps: 1800,
             long_weight_pct: 70,
             short_weight_pct: 30,
+            spacing_model: SpacingModelChoice::FixedPercent,
+            take_profit_model: TakeProfitModelChoice::Percent,
+            atr_period: 14,
+            atr_spacing_multiplier_bps: 15000,
+            atr_tp_multiplier_bps: 15000,
+            adx_filter_enabled: false,
+            adx_threshold_bps: 2500,
+            adx_period: 14,
         };
 
         let fine = fine_space_around(&winner);
@@ -717,25 +988,25 @@ mod staged_tests {
             "single-direction search must not only emit low-leverage prefix candidates"
         );
         assert!(
-            candidates.iter().any(|candidate| candidate
-                .config
-                .strategies
-                .iter()
-                .any(|strategy| match strategy.spacing {
-                    MartingaleSpacingModel::FixedPercent { step_bps } => step_bps >= 420,
-                    _ => false,
-                })),
+            candidates.iter().any(
+                |candidate| candidate.config.strategies.iter().any(|strategy| {
+                    match strategy.spacing {
+                        MartingaleSpacingModel::FixedPercent { step_bps } => step_bps >= 420,
+                        _ => false,
+                    }
+                })
+            ),
             "single-direction search must cover wide spacing tail candidates"
         );
         assert!(
-            candidates.iter().any(|candidate| candidate
-                .config
-                .strategies
-                .iter()
-                .any(|strategy| match strategy.take_profit {
-                    MartingaleTakeProfitModel::Percent { bps } => bps >= 200,
-                    _ => false,
-                })),
+            candidates.iter().any(
+                |candidate| candidate.config.strategies.iter().any(|strategy| {
+                    match strategy.take_profit {
+                        MartingaleTakeProfitModel::Percent { bps } => bps >= 200,
+                        _ => false,
+                    }
+                })
+            ),
             "single-direction search must cover higher take-profit tail candidates"
         );
     }
@@ -750,6 +1021,14 @@ mod staged_tests {
             take_profit_bps: vec![60, 120],
             tail_stop_bps: vec![2000, 3000],
             long_short_weight_pct: vec![(60, 40), (50, 50)],
+            spacing_model: vec![SpacingModelChoice::FixedPercent],
+            take_profit_model: vec![TakeProfitModelChoice::Percent],
+            atr_period: vec![14],
+            atr_spacing_multiplier_bps: vec![15000],
+            atr_tp_multiplier_bps: vec![15000],
+            adx_filter_enabled: vec![false],
+            adx_threshold_bps: vec![2500],
+            adx_period: vec![14],
         };
 
         let candidates =
@@ -860,5 +1139,164 @@ mod staged_tests {
             has_asymmetric_multiplier_or_depth,
             "long_short search must include different long/short multiplier or depth combinations"
         );
+    }
+
+    #[test]
+    fn atr_spacing_candidate_generates_atr_spacing_model() {
+        let space = StagedMartingaleSearchSpace {
+            leverage: vec![4],
+            spacing_bps: vec![120],
+            order_multiplier: vec![1.5],
+            max_legs: vec![4],
+            take_profit_bps: vec![80],
+            tail_stop_bps: vec![2000],
+            long_short_weight_pct: vec![(100, 0)],
+            spacing_model: vec![SpacingModelChoice::Atr],
+            take_profit_model: vec![TakeProfitModelChoice::Percent],
+            atr_period: vec![14],
+            atr_spacing_multiplier_bps: vec![15000],
+            atr_tp_multiplier_bps: vec![15000],
+            adx_filter_enabled: vec![false],
+            adx_threshold_bps: vec![2500],
+            adx_period: vec![14],
+        };
+
+        let candidates = generate_staged_candidates_for_symbol("BTCUSDT", "long_only", &space, 10)
+            .expect("candidates should generate");
+
+        assert!(!candidates.is_empty());
+        let strategy = &candidates[0].config.strategies[0];
+        assert!(
+            matches!(strategy.spacing, MartingaleSpacingModel::Atr { .. }),
+            "expected Atr spacing model, got {:?}",
+            strategy.spacing
+        );
+    }
+
+    #[test]
+    fn atr_take_profit_candidate_generates_atr_tp_model() {
+        let space = StagedMartingaleSearchSpace {
+            leverage: vec![4],
+            spacing_bps: vec![120],
+            order_multiplier: vec![1.5],
+            max_legs: vec![4],
+            take_profit_bps: vec![80],
+            tail_stop_bps: vec![2000],
+            long_short_weight_pct: vec![(100, 0)],
+            spacing_model: vec![SpacingModelChoice::FixedPercent],
+            take_profit_model: vec![TakeProfitModelChoice::Atr],
+            atr_period: vec![14],
+            atr_spacing_multiplier_bps: vec![15000],
+            atr_tp_multiplier_bps: vec![20000],
+            adx_filter_enabled: vec![false],
+            adx_threshold_bps: vec![2500],
+            adx_period: vec![14],
+        };
+
+        let candidates = generate_staged_candidates_for_symbol("BTCUSDT", "long_only", &space, 10)
+            .expect("candidates should generate");
+
+        assert!(!candidates.is_empty());
+        let strategy = &candidates[0].config.strategies[0];
+        assert!(
+            matches!(strategy.take_profit, MartingaleTakeProfitModel::Atr { .. }),
+            "expected Atr take profit model, got {:?}",
+            strategy.take_profit
+        );
+    }
+
+    #[test]
+    fn adx_filter_candidate_has_indicator_expression_trigger() {
+        let space = StagedMartingaleSearchSpace {
+            leverage: vec![4],
+            spacing_bps: vec![120],
+            order_multiplier: vec![1.5],
+            max_legs: vec![4],
+            take_profit_bps: vec![80],
+            tail_stop_bps: vec![2000],
+            long_short_weight_pct: vec![(100, 0)],
+            spacing_model: vec![SpacingModelChoice::FixedPercent],
+            take_profit_model: vec![TakeProfitModelChoice::Percent],
+            atr_period: vec![14],
+            atr_spacing_multiplier_bps: vec![15000],
+            atr_tp_multiplier_bps: vec![15000],
+            adx_filter_enabled: vec![true],
+            adx_threshold_bps: vec![2500],
+            adx_period: vec![14],
+        };
+
+        let candidates = generate_staged_candidates_for_symbol("BTCUSDT", "long_only", &space, 10)
+            .expect("candidates should generate");
+
+        assert!(!candidates.is_empty());
+        let strategy = &candidates[0].config.strategies[0];
+        assert!(
+            strategy
+                .entry_triggers
+                .iter()
+                .any(|t| matches!(t, MartingaleEntryTrigger::IndicatorExpression { .. })),
+            "expected IndicatorExpression trigger in entry_triggers"
+        );
+        assert!(
+            strategy
+                .indicators
+                .iter()
+                .any(|i| matches!(i, MartingaleIndicatorConfig::Adx { .. })),
+            "expected Adx indicator in indicators list"
+        );
+    }
+
+    #[test]
+    fn mixed_atr_and_fixed_percent_candidates_both_appear() {
+        let space = StagedMartingaleSearchSpace {
+            leverage: vec![4],
+            spacing_bps: vec![120],
+            order_multiplier: vec![1.5],
+            max_legs: vec![4],
+            take_profit_bps: vec![80],
+            tail_stop_bps: vec![2000],
+            long_short_weight_pct: vec![(100, 0)],
+            spacing_model: vec![SpacingModelChoice::FixedPercent, SpacingModelChoice::Atr],
+            take_profit_model: vec![TakeProfitModelChoice::Percent, TakeProfitModelChoice::Atr],
+            atr_period: vec![14],
+            atr_spacing_multiplier_bps: vec![15000],
+            atr_tp_multiplier_bps: vec![15000],
+            adx_filter_enabled: vec![false],
+            adx_threshold_bps: vec![2500],
+            adx_period: vec![14],
+        };
+
+        let candidates = generate_staged_candidates_for_symbol("BTCUSDT", "long_only", &space, 64)
+            .expect("candidates should generate");
+
+        let has_fixed = candidates.iter().any(|c| {
+            matches!(
+                c.config.strategies[0].spacing,
+                MartingaleSpacingModel::FixedPercent { .. }
+            )
+        });
+        let has_atr = candidates.iter().any(|c| {
+            matches!(
+                c.config.strategies[0].spacing,
+                MartingaleSpacingModel::Atr { .. }
+            )
+        });
+        assert!(has_fixed, "must include FixedPercent spacing candidates");
+        assert!(has_atr, "must include Atr spacing candidates");
+
+        let has_pct_tp = candidates.iter().any(|c| {
+            matches!(
+                c.config.strategies[0].take_profit,
+                MartingaleTakeProfitModel::Percent { .. }
+            )
+        });
+        let has_atr_tp = candidates.iter().any(|c| {
+            matches!(
+                c.config.strategies[0].take_profit,
+                MartingaleTakeProfitModel::Atr { .. }
+            )
+        });
+        assert!(has_pct_tp, "must include Percent take profit candidates");
+        assert!(has_atr_tp, "must include Atr take profit candidates");
     }
 }
