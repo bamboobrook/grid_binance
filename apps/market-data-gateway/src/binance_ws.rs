@@ -163,6 +163,7 @@ pub async fn run_market_stream(
                                 if let Err(error) = db.enqueue_market_tick(&tick) {
                                     eprintln!("Failed to enqueue tick: {}", error);
                                 }
+                                let _ = db.publish_market_tick(&tick);
                             }
                         }
                     }

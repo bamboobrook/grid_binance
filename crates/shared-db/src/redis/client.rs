@@ -4,6 +4,7 @@ use shared_events::MarketTick;
 use crate::SharedDbError;
 
 const MARKET_TICK_QUEUE_KEY: &str = "market_ticks";
+const MARKET_TICK_CHANNEL: &str = "market_ticks:live";
 
 use super::config::RedisConfig;
 
@@ -73,6 +74,61 @@ impl RedisStore {
             ticks.push(tick);
         }
         Ok(ticks)
+    }
+
+    pub async fn publish_market_tick(&self, tick: &MarketTick) -> Result<(), SharedDbError> {
+        let payload =
+            serde_json::to_string(tick).map_err(|error| SharedDbError::new(error.to_string()))?;
+        let mut connection = self
+            .client
+            .get_multiplexed_async_connection()
+            .await
+            .map_err(SharedDbError::from)?;
+        let _: i64 = cmd("PUBLISH")
+            .arg(MARKET_TICK_CHANNEL)
+            .arg(&payload)
+            .query_async(&mut connection)
+            .await
+            .map_err(SharedDbError::from)?;
+        Ok(())
+    }
+
+    pub async fn run_market_tick_subscriber(
+        &self,
+        tx: tokio::sync::mpsc::UnboundedSender<MarketTick>,
+    ) -> Result<(), SharedDbError> {
+        use futures::StreamExt;
+        let connection = self
+            .client
+            .get_async_connection()
+            .await
+            .map_err(SharedDbError::from)?;
+        let mut pubsub = connection.into_pubsub();
+        pubsub
+            .subscribe(MARKET_TICK_CHANNEL)
+            .await
+            .map_err(SharedDbError::from)?;
+        let mut stream = pubsub.into_on_message();
+        loop {
+            let msg = match stream.next().await {
+                Some(msg) => msg,
+                None => {
+                    return Err(SharedDbError::new("market tick pubsub stream ended"));
+                }
+            };
+            let payload: String = match msg.get_payload() {
+                Ok(payload) => payload,
+                Err(_) => continue,
+            };
+            let tick = match serde_json::from_str::<MarketTick>(&payload) {
+                Ok(tick) => tick,
+                Err(_) => continue,
+            };
+            if tx.send(tick).is_err() {
+                break;
+            }
+        }
+        Ok(())
     }
 
     pub async fn ping(&self) -> Result<String, SharedDbError> {

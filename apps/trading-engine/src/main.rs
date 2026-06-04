@@ -42,6 +42,39 @@ const SERVICE_NAME: &str = "trading-engine";
 const DEFAULT_RECONCILE_INTERVAL_SECS: u64 = 5;
 const BINANCE_EXCHANGE: &str = "binance";
 
+static LIVE_TICK_QUEUE: OnceLock<Arc<Mutex<Vec<MarketTick>>>> = OnceLock::new();
+static TICK_SUBSCRIBER_STARTED: OnceLock<()> = OnceLock::new();
+
+fn live_tick_queue() -> &'static Arc<Mutex<Vec<MarketTick>>> {
+    LIVE_TICK_QUEUE.get_or_init(|| Arc::new(Mutex::new(Vec::new())))
+}
+
+fn start_market_tick_subscriber(db: &SharedDb) {
+    TICK_SUBSCRIBER_STARTED.get_or_init(|| {
+        let redis = db.redis().clone();
+        let queue = live_tick_queue().clone();
+        let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
+        tokio::spawn(async move {
+            if let Err(error) = redis.run_market_tick_subscriber(tx).await {
+                eprintln!("trading-engine market tick subscriber failed: {error}");
+            }
+        });
+        tokio::spawn(async move {
+            while let Some(tick) = rx.recv().await {
+                if let Ok(mut guard) = queue.lock() {
+                    guard.push(tick);
+                }
+            }
+        });
+    });
+}
+
+fn drain_live_ticks(limit: usize) -> Vec<MarketTick> {
+    let mut guard = live_tick_queue().lock().expect("live tick queue poisoned");
+    let count = limit.min(guard.len());
+    guard.drain(0..count).collect()
+}
+
 #[derive(Debug, Clone, Default)]
 struct RuntimeMetrics {
     active_strategies: usize,
@@ -61,6 +94,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let database_url = required_env("DATABASE_URL")?;
     let redis_url = required_env("REDIS_URL")?;
     let db = SharedDb::connect(&database_url, &redis_url)?;
+    if live_mode_enabled() {
+        start_market_tick_subscriber(&db);
+    }
     let metrics = Arc::new(Mutex::new(RuntimeMetrics::default()));
     let db_for_loop = db.clone();
     let metrics_for_loop = metrics.clone();
@@ -125,7 +161,11 @@ fn reconcile_once(
     } else {
         None
     };
-    let market_ticks = db.drain_market_ticks(256)?;
+    let market_ticks = if live_mode {
+        drain_live_ticks(256)
+    } else {
+        db.drain_market_ticks(256)?
+    };
     reconcile_running_martingale_portfolios(db, cipher.as_ref())?;
     for mut strategy in db.list_all_strategies()? {
         let mut dirty = false;

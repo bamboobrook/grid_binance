@@ -1010,6 +1010,20 @@ impl SharedDb {
         }
     }
 
+    pub fn publish_market_tick(&self, tick: &MarketTick) -> Result<(), SharedDbError> {
+        match &self.backend {
+            SharedDbBackend::Runtime { .. } => {
+                let redis = self.redis().clone();
+                let tick = tick.clone();
+                Self::block_on(async move { redis.publish_market_tick(&tick).await })
+            }
+            SharedDbBackend::Ephemeral(state) => {
+                lock_ephemeral(state)?.market_ticks.push(tick.clone());
+                Ok(())
+            }
+        }
+    }
+
     pub fn drain_market_ticks(&self, limit: usize) -> Result<Vec<MarketTick>, SharedDbError> {
         match &self.backend {
             SharedDbBackend::Runtime { .. } => {
