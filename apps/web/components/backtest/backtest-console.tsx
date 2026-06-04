@@ -152,10 +152,9 @@ export function BacktestConsole({ lang, locale }: { lang: UiLanguage; locale: st
     if (!selectedTaskId || isTerminalTaskStatus(selectedTask?.rawStatus)) return;
     const timer = window.setInterval(() => {
       void refreshTasks();
-      void refreshCandidates(selectedTaskId);
-    }, 5000);
+    }, 30000);
     return () => window.clearInterval(timer);
-  }, [refreshCandidates, refreshTasks, selectedTask?.rawStatus, selectedTaskId]);
+  }, [refreshTasks, selectedTask?.rawStatus, selectedTaskId]);
 
   const selectedTaskName = useMemo(
     () => selectedTask?.name ?? selectedTaskId,

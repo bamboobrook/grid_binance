@@ -32,7 +32,7 @@ const SAMPLE_PAYLOAD = JSON.stringify(
     },
     scoring: {
       profile: "profit_first_under_drawdown",
-      max_drawdown_pct: 25
+      max_drawdown_pct: 20
     },
   },
   null,

@@ -112,7 +112,7 @@ const INITIAL_FORM: WizardForm = {
   testStart: "2025-04-01",
   testEnd: "2025-06-30",
   interval: "1m",
-  maxDrawdownPct: "25",
+  maxDrawdownPct: "20",
   maxStopLossCount: "",
   portfolioStopLossPct: "18",
   perStrategyStopLossPct: "8",
@@ -132,8 +132,8 @@ export function BacktestWizard({ lang, onTaskCreated }: { lang: UiLanguage; onTa
     setForm((current) => {
       const next = { ...current, [name]: nextValue };
       if (name === "parameterPreset") {
-        if (nextValue === "conservative") next.maxDrawdownPct = "20";
-        if (nextValue === "balanced") next.maxDrawdownPct = "25";
+        if (nextValue === "conservative") next.maxDrawdownPct = "10";
+        if (nextValue === "balanced") next.maxDrawdownPct = "20";
         if (nextValue === "aggressive") next.maxDrawdownPct = "30";
       }
       return next;
@@ -561,7 +561,7 @@ export function buildWizardPayload(form: WizardForm, indicators?: Record<string,
     },
     scoring: {
       profile: "profit_first_under_drawdown",
-      max_drawdown_pct: numberValue(form.maxDrawdownPct, 25),
+      max_drawdown_pct: numberValue(form.maxDrawdownPct, 20),
       ...(form.maxStopLossCount.trim() ? { max_stop_loss_count: integerValue(form.maxStopLossCount, 0) } : {}),
       ...(scoringWeights ? { weights: scoringWeights } : {}),
     },

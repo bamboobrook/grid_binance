@@ -157,6 +157,9 @@ test("backtest wizard is a real editable launcher, not a static template", () =>
   assert.match(wizardSource, /timeMode: "auto_recent"/);
   assert.match(wizardSource, /per_symbol_top_n: 10/);
   assert.match(wizardSource, /risk_profile: form\.parameterPreset/);
+  assert.match(wizardSource, /next\.maxDrawdownPct = "10"/);
+  assert.match(wizardSource, /next\.maxDrawdownPct = "20"/);
+  assert.match(wizardSource, /next\.maxDrawdownPct = "30"/);
   assert.match(wizardSource, /lastDayOfPreviousMonth/);
   assert.match(wizardSource, /trainStart: "2023-01-01"/);
   assert.match(wizardSource, /portfolio_basket/);
