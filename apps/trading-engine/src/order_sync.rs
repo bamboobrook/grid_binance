@@ -155,7 +155,9 @@ pub fn sync_strategy_orders(
                     price,
                     time_in_force: (order.order_type.eq_ignore_ascii_case("Limit"))
                         .then(|| "GTC".to_string()),
-                    reduce_only: None,
+                    reduce_only: (!matches!(strategy.market, StrategyMarket::Spot)
+                        && is_exit_order(order))
+                    .then_some(true),
                     position_side: position_side(strategy.mode, &order.side),
                     client_order_id: Some(order.order_id.clone()),
                 };
@@ -180,7 +182,7 @@ pub fn sync_strategy_orders(
         }
         StrategyStatus::Paused | StrategyStatus::Stopped | StrategyStatus::ErrorPaused => {
             for order in &mut strategy.runtime.orders {
-                if order.status != "Canceled" || order.exchange_order_id.is_none() {
+                if order.status == "Canceled" || order.exchange_order_id.is_none() {
                     continue;
                 }
                 let exchange_order_id = order.exchange_order_id.clone();
@@ -509,6 +511,10 @@ fn finalize_stop_if_ready(strategy: &mut Strategy) {
                 created_at: Utc::now(),
             });
     }
+}
+
+fn is_exit_order(order: &StrategyRuntimeOrder) -> bool {
+    order.order_id.contains("-tp-") || order.order_id.contains("-trail-")
 }
 
 fn is_close_order(order: &StrategyRuntimeOrder) -> bool {

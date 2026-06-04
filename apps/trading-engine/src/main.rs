@@ -126,7 +126,7 @@ fn reconcile_once(
         None
     };
     let market_ticks = db.drain_market_ticks(256)?;
-    reconcile_running_martingale_portfolios(db)?;
+    reconcile_running_martingale_portfolios(db, cipher.as_ref())?;
     for mut strategy in db.list_all_strategies()? {
         let mut dirty = false;
         if let Some(cipher) = cipher.as_ref() {
@@ -185,7 +185,10 @@ fn reconcile_once(
     Ok(())
 }
 
-fn reconcile_running_martingale_portfolios(db: &SharedDb) -> Result<(), shared_db::SharedDbError> {
+fn reconcile_running_martingale_portfolios(
+    db: &SharedDb,
+    cipher: Option<&CredentialCipher>,
+) -> Result<(), shared_db::SharedDbError> {
     for portfolio in db.backtest_repo().list_running_martingale_portfolios()? {
         if portfolio
             .risk_summary
@@ -195,10 +198,13 @@ fn reconcile_running_martingale_portfolios(db: &SharedDb) -> Result<(), shared_d
         {
             continue;
         }
+        let settings = futures_settings_from_portfolio(&portfolio)?;
+        if let Some(cipher) = cipher {
+            ensure_futures_exchange_settings(db, &portfolio, cipher, &settings)?;
+        }
         let config = martingale_runtime_config_from_portfolio(&portfolio)?;
         let mut runtime = MartingaleRuntime::new(config)
             .map_err(|error| shared_db::SharedDbError::new(error.to_string()))?;
-        let settings = futures_settings_from_portfolio(&portfolio)?;
         runtime
             .preflight_start(&settings)
             .map_err(|error| shared_db::SharedDbError::new(error.to_string()))?;
@@ -224,6 +230,38 @@ fn reconcile_running_martingale_portfolios(db: &SharedDb) -> Result<(), shared_d
         });
         db.backtest_repo()
             .upsert_martingale_live_snapshot(&portfolio, summary)?;
+    }
+    Ok(())
+}
+
+fn ensure_futures_exchange_settings(
+    db: &SharedDb,
+    portfolio: &MartingalePortfolioRecord,
+    cipher: &CredentialCipher,
+    settings: &FuturesExchangeSettings,
+) -> Result<(), shared_db::SharedDbError> {
+    let Some(credentials) = db.find_exchange_credentials(&portfolio.owner, BINANCE_EXCHANGE)?
+    else {
+        return Ok(());
+    };
+    let (api_key, api_secret) = cipher
+        .decrypt(&credentials.encrypted_secret)
+        .map_err(|error| shared_db::SharedDbError::new(error.to_string()))?;
+    let client = BinanceClient::new(api_key, api_secret);
+    client
+        .set_usdm_position_mode(settings.hedge_mode)
+        .map_err(|error| shared_db::SharedDbError::new(error.to_string()))?;
+    for (symbol, symbol_settings) in &settings.symbols {
+        let margin_type = match symbol_settings.margin_mode {
+            MartingaleMarginMode::Isolated => "isolated",
+            MartingaleMarginMode::Cross => "cross",
+        };
+        client
+            .set_usdm_margin_type(symbol, margin_type)
+            .map_err(|error| shared_db::SharedDbError::new(error.to_string()))?;
+        client
+            .set_usdm_leverage(symbol, symbol_settings.leverage)
+            .map_err(|error| shared_db::SharedDbError::new(error.to_string()))?;
     }
     Ok(())
 }
@@ -311,6 +349,7 @@ fn sync_live_orders(
         .map_err(|error| shared_db::SharedDbError::new(error.to_string()))?;
     let client = shared_binance::BinanceClient::new(api_key, api_secret);
     if strategy.strategy_type == StrategyType::MartingaleGrid {
+        ensure_single_martingale_exchange_settings(strategy, &client)?;
         let settings = martingale_futures_settings_from_client(strategy, &client)?;
         sync_martingale_production_start(strategy, settings)?;
     }
@@ -486,6 +525,40 @@ fn sync_martingale_production_start(
         created_at: Utc::now(),
     });
     Ok(true)
+}
+
+fn ensure_single_martingale_exchange_settings(
+    strategy: &Strategy,
+    client: &BinanceClient,
+) -> Result<(), shared_db::SharedDbError> {
+    if !matches!(
+        strategy.market,
+        shared_domain::strategy::StrategyMarket::FuturesUsdM
+    ) {
+        return Ok(());
+    }
+    let revision = strategy
+        .active_revision
+        .as_ref()
+        .unwrap_or(&strategy.draft_revision);
+    let margin_mode = revision
+        .futures_margin_mode
+        .map(|mode| match mode {
+            shared_domain::strategy::FuturesMarginMode::Isolated => "isolated",
+            shared_domain::strategy::FuturesMarginMode::Cross => "cross",
+        })
+        .unwrap_or("cross");
+    let leverage = revision.leverage.unwrap_or(1);
+    client
+        .set_usdm_position_mode(true)
+        .map_err(|error| shared_db::SharedDbError::new(error.to_string()))?;
+    client
+        .set_usdm_margin_type(&strategy.symbol, margin_mode)
+        .map_err(|error| shared_db::SharedDbError::new(error.to_string()))?;
+    client
+        .set_usdm_leverage(&strategy.symbol, leverage)
+        .map_err(|error| shared_db::SharedDbError::new(error.to_string()))?;
+    Ok(())
 }
 
 fn martingale_runtime_config_from_strategy(
@@ -665,10 +738,38 @@ impl MartingaleExchangeSettingsSource for BinanceClient {
         &self,
         strategy: &Strategy,
     ) -> Result<FuturesExchangeSettings, shared_db::SharedDbError> {
-        let _ = (self, strategy);
-        Err(shared_db::SharedDbError::new(
-            "exchange margin mode and leverage read is required for martingale preflight",
-        ))
+        if !matches!(
+            strategy.market,
+            shared_domain::strategy::StrategyMarket::FuturesUsdM
+        ) {
+            return Ok(FuturesExchangeSettings {
+                hedge_mode: false,
+                symbols: HashMap::new(),
+            });
+        }
+        let hedge_mode = self
+            .read_usdm_position_mode()
+            .map_err(|error| shared_db::SharedDbError::new(error.to_string()))?;
+        let symbol_settings = self
+            .read_usdm_symbol_settings(&strategy.symbol)
+            .map_err(|error| shared_db::SharedDbError::new(error.to_string()))?;
+        let margin_mode = match symbol_settings.margin_type.as_deref() {
+            Some("isolated") => MartingaleMarginMode::Isolated,
+            _ => MartingaleMarginMode::Cross,
+        };
+        let leverage = symbol_settings.leverage.unwrap_or(1);
+        let mut symbols = HashMap::new();
+        symbols.insert(
+            strategy.symbol.clone(),
+            FuturesSymbolSettings {
+                margin_mode,
+                leverage,
+            },
+        );
+        Ok(FuturesExchangeSettings {
+            hedge_mode,
+            symbols,
+        })
     }
 }
 
