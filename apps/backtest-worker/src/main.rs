@@ -17,6 +17,10 @@ use backtest_engine::{
         SearchSpace, StagedMartingaleSearchSpace,
     },
     sqlite_market_data::SqliteMarketDataSource,
+    walk_forward::{
+        default_backtest_walk_forward_config, run_walk_forward_validation, wfe_penalty_factor,
+        WalkForwardValidationResult,
+    },
 };
 use rust_decimal::prelude::ToPrimitive;
 use rust_decimal::Decimal;
@@ -237,7 +241,7 @@ fn long_short_search_timeout_secs(
     let estimated_screenings = coarse_candidate_count + survivor_count * fine_candidate_count;
     let threads = bounded_parallel_width(max_threads);
     let estimated_parallel_batches = (estimated_screenings + threads - 1) / threads;
-    (estimated_parallel_batches as u64 * 90).clamp(600, 3_600)
+    (estimated_parallel_batches as u64 * 240).clamp(600, 14_400)
 }
 
 fn screen_candidates_bounded_parallel<F>(
@@ -662,17 +666,12 @@ fn drawdown_limits_for_direction_mode(risk_profile: &str, direction_mode: &str) 
 }
 
 fn portfolio_drawdown_limit_for_task(config: &WorkerTaskConfig) -> f64 {
-    if is_mixed_best_mode(config) {
-        long_short_drawdown_limit_sequence(&config.risk_profile)
-            .first()
-            .copied()
-            .unwrap_or(30.0)
-    } else {
-        let direction_mode = config.direction_mode.as_deref().unwrap_or("long_only");
-        drawdown_limits_for_direction_mode(&config.risk_profile, direction_mode)
-            .first()
-            .copied()
-            .unwrap_or(25.0)
+    // Combined portfolio max drawdown, distinct from candidate-level search limits
+    match config.risk_profile.as_str() {
+        "conservative" => 10.0,
+        "balanced" => 20.0,
+        "aggressive" => 30.0,
+        _ => 20.0,
     }
 }
 
@@ -723,7 +722,11 @@ fn apply_search_space_overrides_to_staged(
             }
             expanded
         } else {
-            merge_u32_search_values(&staged.spacing_bps, vals, should_use_profit_optimized_v2(task))
+            merge_u32_search_values(
+                &staged.spacing_bps,
+                vals,
+                should_use_profit_optimized_v2(task),
+            )
         }
     } else {
         staged.spacing_bps.clone()
@@ -749,7 +752,11 @@ fn apply_search_space_overrides_to_staged(
             }
             expanded
         } else {
-            merge_f64_search_values(&staged.order_multiplier, vals, should_use_profit_optimized_v2(task))
+            merge_f64_search_values(
+                &staged.order_multiplier,
+                vals,
+                should_use_profit_optimized_v2(task),
+            )
         }
     } else {
         staged.order_multiplier.clone()
@@ -800,7 +807,11 @@ fn apply_search_space_overrides_to_staged(
             }
             expanded
         } else {
-            merge_u32_search_values(&staged.take_profit_bps, vals, should_use_profit_optimized_v2(task))
+            merge_u32_search_values(
+                &staged.take_profit_bps,
+                vals,
+                should_use_profit_optimized_v2(task),
+            )
         }
     } else {
         staged.take_profit_bps.clone()
@@ -835,7 +846,11 @@ fn apply_search_space_overrides_to_staged(
             }
             expanded
         } else {
-            merge_u32_search_values(&staged.tail_stop_bps, vals, should_use_profit_optimized_v2(task))
+            merge_u32_search_values(
+                &staged.tail_stop_bps,
+                vals,
+                should_use_profit_optimized_v2(task),
+            )
         }
     } else {
         staged.tail_stop_bps.clone()
@@ -903,6 +918,14 @@ fn apply_search_space_overrides_to_staged(
         take_profit_bps,
         tail_stop_bps,
         long_short_weight_pct,
+        spacing_model: staged.spacing_model.clone(),
+        take_profit_model: staged.take_profit_model.clone(),
+        atr_period: staged.atr_period.clone(),
+        atr_spacing_multiplier_bps: staged.atr_spacing_multiplier_bps.clone(),
+        atr_tp_multiplier_bps: staged.atr_tp_multiplier_bps.clone(),
+        adx_filter_enabled: staged.adx_filter_enabled.clone(),
+        adx_threshold_bps: staged.adx_threshold_bps.clone(),
+        adx_period: staged.adx_period.clone(),
     }
 }
 
@@ -1152,6 +1175,24 @@ fn strategy_take_profit_bps(strategy: &MartingaleStrategyConfig) -> Option<u32> 
     }
 }
 
+fn screening_candidate_evaluation(
+    candidate: &SearchCandidate,
+    market_context: &MarketDataContext,
+) -> Result<MartingaleBacktestResult, String> {
+    let bars = screening_bars_for_candidate(
+        candidate,
+        &market_context.bars,
+        Some(&market_context.screening_bars_by_symbol),
+    );
+    if bars.is_empty() {
+        return Err(format!(
+            "candidate {} has no matching kline bars for screening",
+            candidate.candidate_id
+        ));
+    }
+    run_kline_screening(candidate.config.clone(), &bars)
+}
+
 fn evaluate_long_short_candidate_for_screening(
     candidate: SearchCandidate,
     context: &MarketDataContext,
@@ -1164,7 +1205,7 @@ fn evaluate_long_short_candidate_for_screening(
 
     let overridden =
         enforce_task_execution_model(apply_task_overrides_to_candidate(candidate, task), task);
-    let result = run_candidate_kline_screening(&overridden, context);
+    let result = screening_candidate_evaluation(&overridden, context);
     let (score, sample) = match result {
         Ok(ref metrics) => {
             let s = score_candidate(metrics, scoring);
@@ -1447,20 +1488,20 @@ fn portfolio_candidates_from_outputs(
                 planned_margin_quote,
                 trade_count: output.trade_count,
                 annualized_return_pct,
-                equity_curve: if equity_curve.is_empty() {
-                    output.equity_curve.clone()
-                } else {
+                equity_curve: if output.equity_curve.is_empty() {
                     equity_curve
-                },
-                drawdown_curve: if drawdown_curve.is_empty() {
-                    output.drawdown_curve.clone()
                 } else {
+                    output.equity_curve.clone()
+                },
+                drawdown_curve: if output.drawdown_curve.is_empty() {
                     drawdown_curve
-                },
-                trades: if trades.is_empty() {
-                    output.trades_preview.clone()
                 } else {
+                    output.drawdown_curve.clone()
+                },
+                trades: if output.trades_preview.is_empty() {
                     trades
+                } else {
+                    output.trades_preview.clone()
                 },
             })
         })
@@ -1572,6 +1613,81 @@ fn coarse_parameter_point_from_candidate(candidate: &SearchCandidate) -> CoarseP
         tail_stop_bps: 1800,
         long_weight_pct,
         short_weight_pct,
+        spacing_model: match strategy.map(|s| &s.spacing) {
+            Some(MartingaleSpacingModel::Atr { .. }) => {
+                backtest_engine::search::SpacingModelChoice::Atr
+            }
+            _ => backtest_engine::search::SpacingModelChoice::FixedPercent,
+        },
+        take_profit_model: match strategy.map(|s| &s.take_profit) {
+            Some(MartingaleTakeProfitModel::Atr { .. }) => {
+                backtest_engine::search::TakeProfitModelChoice::Atr
+            }
+            _ => backtest_engine::search::TakeProfitModelChoice::Percent,
+        },
+        atr_period: strategy
+            .map(|s| {
+                s.indicators
+                    .iter()
+                    .find_map(|i| match i {
+                        MartingaleIndicatorConfig::Atr { period } => Some(*period),
+                        _ => None,
+                    })
+                    .unwrap_or(14)
+            })
+            .unwrap_or(14),
+        atr_spacing_multiplier_bps: match strategy.map(|s| &s.spacing) {
+            Some(MartingaleSpacingModel::Atr { multiplier, .. }) => {
+                (multiplier.to_f64().unwrap_or(1.5) * 10000.0) as u32
+            }
+            _ => 15000,
+        },
+        atr_tp_multiplier_bps: match strategy.map(|s| &s.take_profit) {
+            Some(MartingaleTakeProfitModel::Atr { multiplier }) => {
+                (multiplier.to_f64().unwrap_or(1.5) * 10000.0) as u32
+            }
+            _ => 15000,
+        },
+        adx_filter_enabled: strategy
+            .map(|s| {
+                s.indicators
+                    .iter()
+                    .any(|i| matches!(i, MartingaleIndicatorConfig::Adx { .. }))
+            })
+            .unwrap_or(false),
+        adx_threshold_bps: strategy
+            .and_then(|s| {
+                s.entry_triggers.iter().find_map(|t| match t {
+                    MartingaleEntryTrigger::IndicatorExpression { expression } => {
+                        if expression.contains("adx") {
+                            if let Some(gt_pos) = expression.find('>') {
+                                let threshold_str = expression[gt_pos + 1..].trim();
+                                threshold_str
+                                    .parse::<f64>()
+                                    .ok()
+                                    .map(|v| (v * 100.0) as u32)
+                            } else {
+                                None
+                            }
+                        } else {
+                            None
+                        }
+                    }
+                    _ => None,
+                })
+            })
+            .unwrap_or(2500),
+        adx_period: strategy
+            .map(|s| {
+                s.indicators
+                    .iter()
+                    .find_map(|i| match i {
+                        MartingaleIndicatorConfig::Adx { period } => Some(*period),
+                        _ => None,
+                    })
+                    .unwrap_or(14)
+            })
+            .unwrap_or(14),
     }
 }
 
@@ -1726,10 +1842,16 @@ async fn process_task(
     }
 
     let max_portfolio_drawdown_pct = portfolio_drawdown_limit_for_task(&task.config);
+    // Pool admission uses the relaxed (second) search drawdown limit to admit
+    // candidates that the search allowed but the stricter portfolio limit rejects
+    let pool_admission_dd_pct = long_short_drawdown_limit_sequence(&task.config.risk_profile)
+        .last()
+        .copied()
+        .unwrap_or(max_portfolio_drawdown_pct.max(25.0));
     let portfolio_pool_outputs = if should_use_profit_optimized_v2(&task.config) {
         select_portfolio_pool_outputs_v2(
             outputs.clone(),
-            max_portfolio_drawdown_pct,
+            pool_admission_dd_pct,
             task.config.per_symbol_top_n.max(20),
             task.config.per_symbol_top_n.max(20),
             (task.config.per_symbol_top_n / 2).max(10),
@@ -1851,8 +1973,8 @@ async fn process_task(
             "annualized_return_pct": portfolio.annualized_return_pct,
             "score": portfolio.score,
             "trade_count": portfolio.trade_count,
-            "equity_curve": sampled_preview(&portfolio.equity_curve, 500),
-            "drawdown_curve": sampled_preview(&portfolio.drawdown_curve, 500),
+            "equity_curve": sampled_preview(&portfolio.equity_curve, 5000),
+            "drawdown_curve": sampled_preview(&portfolio.drawdown_curve, 5000),
             "trades_preview": sampled_preview(&portfolio.trades_preview, 100),
             "eligible_candidate_count": portfolio_top3.eligible_candidate_count,
             "eligible_symbols": portfolio_top3.eligible_symbols.clone(),
@@ -1892,8 +2014,8 @@ async fn process_task(
                     "annualized_return_pct": portfolio.annualized_return_pct,
                     "score": portfolio.score,
                     "trade_count": portfolio.trade_count,
-                    "equity_curve": sampled_preview(&portfolio.equity_curve, 500),
-                    "drawdown_curve": sampled_preview(&portfolio.drawdown_curve, 500),
+                    "equity_curve": sampled_preview(&portfolio.equity_curve, 5000),
+                    "drawdown_curve": sampled_preview(&portfolio.drawdown_curve, 5000),
                     "trades_preview": sampled_preview(&portfolio.trades_preview, 100),
                     "eligible_candidate_count": portfolio_top3.eligible_candidate_count,
                     "eligible_symbols": portfolio_top3.eligible_symbols.clone(),
@@ -1967,6 +2089,75 @@ async fn process_task(
         None
     };
 
+    respect_pause_or_cancel(poller, &task.task_id).await?;
+    poller
+        .heartbeat(&task.task_id, "walk_forward_validation")
+        .await?;
+
+    let wf_config = default_backtest_walk_forward_config(task.config.start_ms, task.config.end_ms);
+    let mut wf_results: Vec<WalkForwardValidationResult> = Vec::new();
+    for portfolio in &portfolio_top3.top3 {
+        for member in &portfolio.members {
+            if let Some(ec) = portfolio_candidates
+                .iter()
+                .find(|c| c.candidate.candidate_id == member.candidate_id)
+            {
+                let result = run_walk_forward_validation(
+                    &ec.candidate.candidate_id,
+                    ec.candidate.config.clone(),
+                    &market_context.bars,
+                    wf_config.clone(),
+                );
+                if let Ok(wf) = result {
+                    wf_results.push(wf);
+                }
+            }
+        }
+    }
+
+    let wf_summary_rows: Vec<Value> = wf_results
+        .iter()
+        .map(|wf| {
+            json!({
+                "candidate_id": wf.candidate_id,
+                "total_windows": wf.total_windows,
+                "valid_windows": wf.windows.len(),
+                "avg_wfe": wf.avg_wfe,
+                "median_wfe": wf.median_wfe,
+                "min_wfe": wf.min_wfe,
+                "max_wfe": wf.max_wfe,
+                "overfit_windows": wf.overfit_windows_count,
+                "verdict": wf.verdict.to_string(),
+                "penalty_factor": wfe_penalty_factor(wf),
+                "windows": wf.windows.iter().map(|w| json!({
+                    "window_index": w.window_index,
+                    "window_name": w.window_name,
+                    "train_ann": w.train_annualized_return_pct,
+                    "train_dd": w.train_max_drawdown_pct,
+                    "train_trades": w.train_trade_count,
+                    "test_ann": w.test_annualized_return_pct,
+                    "test_dd": w.test_max_drawdown_pct,
+                    "test_trades": w.test_trade_count,
+                    "wfe": w.wfe,
+                })).collect::<Vec<Value>>(),
+            })
+        })
+        .collect::<Vec<Value>>();
+
+    let wf_artifact_path = if !wf_summary_rows.is_empty() {
+        let manifest = write_task_json_artifact(
+            &config.artifact_root,
+            &task.task_id,
+            "walk_forward",
+            "validation",
+            &wf_summary_rows,
+        )?;
+        verify_artifact(&manifest)?;
+        Some(manifest.path.display().to_string())
+    } else {
+        None
+    };
+
     poller
         .mark_completed(
             &task.task_id,
@@ -1979,6 +2170,8 @@ async fn process_task(
                 "portfolio_pool_note": "positive-return candidates include qualified, high-return and low-drawdown tiers; final portfolio still enforces hard drawdown limit",
                 "portfolio_top3_artifact_path": portfolio_manifest.path.display().to_string(),
                 "portfolio_top10_artifact_path": portfolio_top10_manifest.as_ref().map(|m| m.path.display().to_string()).unwrap_or_default(),
+                "walk_forward_artifact_path": wf_artifact_path.unwrap_or_default(),
+                "walk_forward_summary": wf_summary_rows,
                 "eligible_candidate_count": portfolio_top3.eligible_candidate_count,
                 "searched_symbols": task.config.symbols.clone(),
                 "display_symbols": display_symbols,
@@ -2004,6 +2197,7 @@ async fn process_task(
                     } else {
                         (0, 0)
                     };
+                    let wf_for_candidate = wf_results.iter().find(|wf| wf.candidate_id == c.candidate.candidate_id);
                     json!({
                         "candidate_id": c.candidate.candidate_id,
                         "symbol": c.candidate.config.strategies.first().map(|s| s.symbol.clone()).unwrap_or_default(),
@@ -2018,6 +2212,14 @@ async fn process_task(
                         "survival_passed": c.survival_passed,
                         "long_weight_pct": long_weight_pct,
                         "short_weight_pct": short_weight_pct,
+                        "walk_forward": wf_for_candidate.as_ref().map(|wf| json!({
+                            "median_wfe": wf.median_wfe,
+                            "avg_wfe": wf.avg_wfe,
+                            "overfit_windows": wf.overfit_windows_count,
+                            "total_windows": wf.total_windows,
+                            "verdict": wf.verdict.to_string(),
+                            "penalty_factor": wfe_penalty_factor(wf),
+                        })).unwrap_or(Value::Null),
                     })
                 }).collect::<Vec<Value>>(),
             }),
@@ -2549,18 +2751,40 @@ fn output_profit_score(output: &CandidateOutput) -> f64 {
     annualized + (annualized / drawdown) * 10.0 - drawdown * 0.15
 }
 
-fn portfolio_pool_quality_eligible(output: &CandidateOutput) -> bool {
-    if output.total_return_pct <= 0.0 || output.equity_curve.is_empty() {
+fn portfolio_pool_quality_eligible(output: &CandidateOutput, drawdown_limit_pct: f64) -> bool {
+    if output.total_return_pct <= 0.0 || output.equity_curve.is_empty() || output.trade_count < 5 {
         return false;
     }
     let annualized = output
         .annualized_return_pct
         .unwrap_or(output.total_return_pct);
-    let return_drawdown_ratio = annualized / output.max_drawdown_pct.max(1.0);
-    if annualized >= 8.0 || return_drawdown_ratio >= 1.0 {
+    if annualized <= 0.0 || !annualized.is_finite() || !output.max_drawdown_pct.is_finite() {
+        return false;
+    }
+
+    if output.max_drawdown_pct <= drawdown_limit_pct {
+        if annualized < 3.0 && output.trade_count > 1000 {
+            return false;
+        }
         return true;
     }
-    output.trade_count <= 400 && annualized >= 3.0
+
+    let hard_candidate_dd_cap = if drawdown_limit_pct <= 10.0 {
+        45.0
+    } else {
+        65.0
+    };
+    if output.max_drawdown_pct > hard_candidate_dd_cap {
+        return false;
+    }
+
+    let calmar = annualized / output.max_drawdown_pct.max(1.0);
+    let high_growth = annualized >= 35.0 && calmar >= 0.75;
+    let exceptional_growth = annualized >= 60.0 && calmar >= 0.55;
+    let useful_stabilizer =
+        output.max_drawdown_pct <= drawdown_limit_pct * 1.5 && annualized >= 5.0;
+
+    high_growth || exceptional_growth || useful_stabilizer
 }
 
 fn select_portfolio_pool_outputs_v2(
@@ -2573,7 +2797,7 @@ fn select_portfolio_pool_outputs_v2(
     let mut by_symbol: std::collections::BTreeMap<String, Vec<CandidateOutput>> =
         std::collections::BTreeMap::new();
     for output in outputs {
-        if !portfolio_pool_quality_eligible(&output) {
+        if !portfolio_pool_quality_eligible(&output, drawdown_limit_pct) {
             continue;
         }
         let symbol = output_symbol(&output).unwrap_or_else(|| output.candidate_id.clone());
@@ -2770,8 +2994,8 @@ fn select_top_outputs_per_symbol(
                     "overfit_flag": overfit_flag,
                     "risk_summary_human": risk_summary_human,
                     "artifact_path": output.artifact_path,
-                    "equity_curve": sampled_preview(&output.equity_curve, 500),
-                    "drawdown_curve": sampled_preview(&output.drawdown_curve, 500),
+                    "equity_curve": sampled_preview(&output.equity_curve, 5000),
+                    "drawdown_curve": sampled_preview(&output.drawdown_curve, 5000),
                     "trades_preview": sampled_preview(&output.trades_preview, 100),
                 }),
             );
@@ -3052,10 +3276,13 @@ fn long_short_leg_summary_from_config(config: &Value) -> Value {
             "first_order_quote": strategy.pointer(&format!("/sizing/{sizing_key}/first_order_quote")).cloned().unwrap_or(Value::Null),
             "order_multiplier": strategy.pointer(&format!("/sizing/{sizing_key}/multiplier")).cloned().unwrap_or(Value::Null),
             "max_legs": strategy.pointer(&format!("/sizing/{sizing_key}/max_legs")).cloned().unwrap_or(Value::Null),
-            "spacing_bps": strategy.pointer(&format!("/spacing/{spacing_key}/step_bps")).or_else(|| strategy.pointer(&format!("/spacing/{spacing_key}/first_step_bps"))).cloned().unwrap_or(Value::Null),
+            "spacing_model": spacing_key,
+            "spacing_bps": strategy.pointer(&format!("/spacing/{spacing_key}/step_bps")).or_else(|| strategy.pointer(&format!("/spacing/{spacing_key}/first_step_bps"))).or_else(|| strategy.pointer(&format!("/spacing/{spacing_key}/min_step_bps"))).cloned().unwrap_or(Value::Null),
+            "take_profit_model": take_profit_key,
             "take_profit_bps": strategy.pointer(&format!("/take_profit/{take_profit_key}/bps")).cloned().unwrap_or(Value::Null),
             "stop_loss_bps": strategy.pointer("/stop_loss/strategy_drawdown_pct/pct_bps").cloned().unwrap_or(Value::Null),
             "leverage": strategy.get("leverage").cloned().unwrap_or(Value::Null),
+            "indicators": strategy.get("indicators").cloned().unwrap_or(Value::Null),
         }));
     }
     Value::Object(result)
@@ -3339,6 +3566,9 @@ fn template_decimal(config: &WorkerTaskConfig, path: &[&str]) -> Option<Decimal>
 struct MarketDataContext {
     bars: Vec<KlineBar>,
     trades: Vec<AggTrade>,
+    bars_by_symbol: std::collections::BTreeMap<String, Vec<KlineBar>>,
+    screening_bars_by_symbol: std::collections::BTreeMap<String, Vec<KlineBar>>,
+    trades_by_symbol: std::collections::BTreeMap<String, Vec<AggTrade>>,
 }
 
 impl MarketDataContext {
@@ -3389,7 +3619,34 @@ impl MarketDataContext {
                 .cmp(&right.trade_time_ms)
                 .then_with(|| left.symbol.cmp(&right.symbol))
         });
-        Ok(Self { bars, trades })
+
+        let mut bars_by_symbol = std::collections::BTreeMap::new();
+        let mut screening_bars_by_symbol = std::collections::BTreeMap::new();
+        for bar in &bars {
+            bars_by_symbol
+                .entry(bar.symbol.clone())
+                .or_insert_with(Vec::new)
+                .push(bar.clone());
+        }
+        for (sym, sym_bars) in &bars_by_symbol {
+            screening_bars_by_symbol.insert(sym.clone(), representative_screening_bars(sym_bars));
+        }
+
+        let mut trades_by_symbol = std::collections::BTreeMap::new();
+        for trade in &trades {
+            trades_by_symbol
+                .entry(trade.symbol.clone())
+                .or_insert_with(Vec::new)
+                .push(trade.clone());
+        }
+
+        Ok(Self {
+            bars,
+            trades,
+            bars_by_symbol,
+            screening_bars_by_symbol,
+            trades_by_symbol,
+        })
     }
 }
 
@@ -3415,7 +3672,11 @@ fn run_candidate_kline_screening(
     candidate: &SearchCandidate,
     market_context: &MarketDataContext,
 ) -> Result<MartingaleBacktestResult, String> {
-    let bars = screening_bars_for_candidate(candidate, &market_context.bars);
+    let bars = bars_for_candidate_indexed(
+        candidate,
+        &market_context.bars,
+        Some(&market_context.bars_by_symbol),
+    );
     if bars.is_empty() {
         return Err(format!(
             "candidate {} has no matching kline bars",
@@ -3429,9 +3690,17 @@ fn run_candidate_trade_refinement(
     candidate: &SearchCandidate,
     market_context: &MarketDataContext,
 ) -> Result<MartingaleBacktestResult, String> {
-    let trades = trades_for_candidate(candidate, &market_context.trades);
+    let trades = trades_for_candidate_indexed(
+        candidate,
+        &market_context.trades,
+        Some(&market_context.trades_by_symbol),
+    );
     if trades.is_empty() {
-        let bars = bars_for_candidate(candidate, &market_context.bars);
+        let bars = bars_for_candidate_indexed(
+            candidate,
+            &market_context.bars,
+            Some(&market_context.bars_by_symbol),
+        );
         if bars.is_empty() {
             return Err(format!(
                 "candidate {} has no matching kline bars for candle-only refinement",
@@ -3443,7 +3712,10 @@ fn run_candidate_trade_refinement(
     run_trade_refinement(candidate.config.clone(), &trades)
 }
 
-fn screening_bars_for_candidate(candidate: &SearchCandidate, bars: &[KlineBar]) -> Vec<KlineBar> {
+fn screening_bars_for_candidate_legacy(
+    candidate: &SearchCandidate,
+    bars: &[KlineBar],
+) -> Vec<KlineBar> {
     let full_bars = bars_for_candidate(candidate, bars);
     representative_screening_bars(&full_bars)
 }
@@ -3472,18 +3744,99 @@ fn representative_screening_bars(bars: &[KlineBar]) -> Vec<KlineBar> {
 }
 
 fn bars_for_candidate(candidate: &SearchCandidate, bars: &[KlineBar]) -> Vec<KlineBar> {
-    let symbols = candidate_symbols(candidate);
-    bars.iter()
-        .filter(|bar| symbols.contains(&bar.symbol.trim().to_uppercase()))
+    bars_for_candidate_indexed(candidate, bars, None)
+}
+
+fn bars_for_candidate_indexed(
+    candidate: &SearchCandidate,
+    _fallback_bars: &[KlineBar],
+    index: Option<&std::collections::BTreeMap<String, Vec<KlineBar>>>,
+) -> Vec<KlineBar> {
+    let symbols: Vec<String> = candidate
+        .config
+        .strategies
+        .iter()
+        .map(|s| s.symbol.trim().to_uppercase())
+        .collect();
+    if let Some(idx) = index {
+        let mut result = Vec::new();
+        for sym in &symbols {
+            if let Some(sym_bars) = idx.get(sym) {
+                result.extend(sym_bars.iter().cloned());
+            }
+        }
+        if symbols.len() > 1 {
+            result.sort_by_key(|bar| bar.open_time_ms);
+        }
+        return result;
+    }
+    let sym_set: std::collections::BTreeSet<String> = symbols.into_iter().collect();
+    _fallback_bars
+        .iter()
+        .filter(|bar| sym_set.contains(&bar.symbol.trim().to_uppercase()))
         .cloned()
         .collect()
 }
 
-fn trades_for_candidate(candidate: &SearchCandidate, trades: &[AggTrade]) -> Vec<AggTrade> {
-    let symbols = candidate_symbols(candidate);
-    trades
+fn screening_bars_for_candidate(
+    candidate: &SearchCandidate,
+    _bars: &[KlineBar],
+    screening_index: Option<&std::collections::BTreeMap<String, Vec<KlineBar>>>,
+) -> Vec<KlineBar> {
+    let symbols: Vec<String> = candidate
+        .config
+        .strategies
         .iter()
-        .filter(|trade| symbols.contains(&trade.symbol.trim().to_uppercase()))
+        .map(|s| s.symbol.trim().to_uppercase())
+        .collect();
+    if let Some(idx) = screening_index {
+        let mut result = Vec::new();
+        for sym in &symbols {
+            if let Some(sym_bars) = idx.get(sym) {
+                result.extend(sym_bars.iter().cloned());
+            }
+        }
+        if symbols.len() > 1 {
+            result.sort_by_key(|bar| bar.open_time_ms);
+            result.dedup_by_key(|bar| bar.open_time_ms);
+        }
+        return result;
+    }
+    let full_bars = bars_for_candidate(candidate, _bars);
+    representative_screening_bars(&full_bars)
+}
+
+fn trades_for_candidate(candidate: &SearchCandidate, trades: &[AggTrade]) -> Vec<AggTrade> {
+    trades_for_candidate_indexed(candidate, trades, None)
+}
+
+fn trades_for_candidate_indexed(
+    candidate: &SearchCandidate,
+    _fallback_trades: &[AggTrade],
+    index: Option<&std::collections::BTreeMap<String, Vec<AggTrade>>>,
+) -> Vec<AggTrade> {
+    let symbols: Vec<String> = candidate
+        .config
+        .strategies
+        .iter()
+        .map(|s| s.symbol.trim().to_uppercase())
+        .collect();
+    if let Some(idx) = index {
+        let mut result = Vec::new();
+        for sym in &symbols {
+            if let Some(sym_trades) = idx.get(sym) {
+                result.extend(sym_trades.iter().cloned());
+            }
+        }
+        if symbols.len() > 1 {
+            result.sort_by_key(|t| t.trade_time_ms);
+        }
+        return result;
+    }
+    let sym_set: std::collections::BTreeSet<String> = symbols.into_iter().collect();
+    _fallback_trades
+        .iter()
+        .filter(|t| sym_set.contains(&t.symbol.trim().to_uppercase()))
         .cloned()
         .collect()
 }
@@ -3660,8 +4013,8 @@ impl TaskPoller {
                                 "return_drawdown_ratio": output.return_drawdown_ratio,
                                 "planned_margin_quote": output.planned_margin_quote,
                                 "max_leverage_used": output.max_leverage_used,
-                                "equity_curve": sampled_preview(&output.equity_curve, 500),
-                                "drawdown_curve": sampled_preview(&output.drawdown_curve, 500),
+                                "equity_curve": sampled_preview(&output.equity_curve, 5000),
+                                "drawdown_curve": sampled_preview(&output.drawdown_curve, 5000),
                                 "trades_preview": sampled_preview(&output.trades_preview, 100),
                             }),
                             output.summary.clone(),
@@ -4702,9 +5055,9 @@ mod tests {
             ..WorkerTaskConfig::default()
         };
 
-        assert_eq!(long_short_search_timeout_secs(&small, 6, 24), 600);
+        assert_eq!(long_short_search_timeout_secs(&small, 6, 24), 960);
         assert!(long_short_search_timeout_secs(&wide, 72, 24) > 600);
-        assert!(long_short_search_timeout_secs(&wide, 72, 24) <= 3_600);
+        assert!(long_short_search_timeout_secs(&wide, 72, 24) <= 14_400);
     }
 
     #[cfg(test)]
@@ -5683,6 +6036,112 @@ mod tests {
     }
 
     #[test]
+    fn portfolio_candidates_prefer_full_output_curve_over_summary_preview() {
+        use backtest_engine::martingale::metrics::EquityPoint;
+
+        let full_curve: Vec<EquityPoint> = (0..500)
+            .map(|t| EquityPoint {
+                timestamp_ms: 1672531200000 + t as i64 * 60000,
+                equity_quote: 100.0 + t as f64 * 0.05,
+            })
+            .collect();
+        let summary_curve: Vec<EquityPoint> = full_curve.iter().step_by(100).cloned().collect();
+
+        let mut output = candidate_output_fixture("btc-full", "BTCUSDT", 25.0, 8.0, 100.0);
+        output.equity_curve = full_curve.clone();
+        output.summary = serde_json::json!({
+            "equity_curve": summary_curve,
+            "drawdown_curve": [],
+            "trades_preview": []
+        });
+        let candidate = backtest_engine::search::generate_staged_candidates_for_symbol(
+            "BTCUSDT",
+            "long_only",
+            &StagedMartingaleSearchSpace::profit_optimized_v2("balanced", "long_only"),
+            1,
+        )
+        .expect("candidate")
+        .remove(0);
+        output.config = serde_json::to_value(candidate.config).expect("config json");
+
+        let candidates = portfolio_candidates_from_outputs(&[output]);
+        assert_eq!(candidates.len(), 1);
+        assert_eq!(
+            candidates[0].equity_curve.len(),
+            full_curve.len(),
+            "must use output.equity_curve ({} points), not summary preview ({} points)",
+            full_curve.len(),
+            summary_curve.len()
+        );
+    }
+
+    #[test]
+    fn final_kline_refinement_uses_full_symbol_history_not_screening_sample() {
+        let candidate = backtest_engine::search::generate_staged_candidates_for_symbol(
+            "BTCUSDT",
+            "long_only",
+            &StagedMartingaleSearchSpace::profit_optimized_v2("balanced", "long_only"),
+            1,
+        )
+        .expect("candidate")
+        .remove(0);
+
+        let full_bars: Vec<KlineBar> = (0..300_000)
+            .map(|i| KlineBar {
+                symbol: "BTCUSDT".to_owned(),
+                open_time_ms: 1672531200000 + i as i64 * 60000,
+                open: 20000.0 + (i as f64 * 0.01),
+                high: 20010.0 + (i as f64 * 0.01),
+                low: 19990.0 + (i as f64 * 0.01),
+                close: 20005.0 + (i as f64 * 0.01),
+                volume: 100.0,
+            })
+            .collect();
+
+        let market_context = MarketDataContext {
+            bars: full_bars.clone(),
+            trades: Vec::new(),
+            bars_by_symbol: {
+                let mut m = std::collections::BTreeMap::new();
+                m.insert("BTCUSDT".to_owned(), full_bars.clone());
+                m
+            },
+            screening_bars_by_symbol: {
+                let mut m = std::collections::BTreeMap::new();
+                let screened = representative_screening_bars(&full_bars);
+                m.insert("BTCUSDT".to_owned(), screened);
+                m
+            },
+            trades_by_symbol: std::collections::BTreeMap::new(),
+        };
+
+        let full = bars_for_candidate_indexed(
+            &candidate,
+            &market_context.bars,
+            Some(&market_context.bars_by_symbol),
+        );
+        let screened = screening_bars_for_candidate(
+            &candidate,
+            &market_context.bars,
+            Some(&market_context.screening_bars_by_symbol),
+        );
+
+        assert!(
+            full.len() > screened.len(),
+            "full bars ({}) must be larger than screening sample ({})",
+            full.len(),
+            screened.len()
+        );
+        assert_eq!(
+            full.len(),
+            full_bars.len(),
+            "bars_for_candidate must return all bars, got {} vs {}",
+            full.len(),
+            full_bars.len()
+        );
+    }
+
+    #[test]
     fn portfolio_candidates_preserve_output_annualized_return() {
         let mut output = candidate_output_fixture("btc-ann", "BTCUSDT", 80.0, 12.0, 100.0);
         let candidate = backtest_engine::search::generate_staged_candidates_for_symbol(
@@ -5699,6 +6158,59 @@ mod tests {
 
         assert_eq!(candidates.len(), 1);
         assert_eq!(candidates[0].annualized_return_pct, Some(40.0));
+    }
+
+    #[test]
+    fn portfolio_pool_admits_growth_candidates_above_single_strategy_drawdown_limit() {
+        let mut growth = candidate_output_fixture("btc-growth", "BTCUSDT", 180.0, 48.0, 100.0);
+        growth.annualized_return_pct = Some(90.0);
+        growth.trade_count = 200;
+        let stable = candidate_output_fixture("eth-stable", "ETHUSDT", 18.0, 4.0, 100.0);
+        let balanced = candidate_output_fixture("sol-balanced", "SOLUSDT", 55.0, 18.0, 100.0);
+        let mut loss = candidate_output_fixture("xrp-loss", "XRPUSDT", -15.0, 5.0, 100.0);
+        loss.total_return_pct = -15.0;
+        loss.annualized_return_pct = Some(-7.5);
+        let mut churn = candidate_output_fixture("doge-churn", "DOGEUSDT", 1.2, 3.0, 100.0);
+        churn.annualized_return_pct = Some(0.4);
+        churn.trade_count = 2500;
+        let mut extreme_dd = candidate_output_fixture("ada-extreme", "ADAUSDT", 40.0, 70.0, 100.0);
+        extreme_dd.annualized_return_pct = Some(20.0);
+        extreme_dd.max_drawdown_pct = 70.0;
+
+        let pool = select_portfolio_pool_outputs_v2(
+            vec![growth, stable, balanced, loss, churn, extreme_dd],
+            20.0,
+            10,
+            10,
+            10,
+        );
+        let ids: std::collections::BTreeSet<_> =
+            pool.iter().map(|o| o.candidate_id.as_str()).collect();
+
+        assert!(
+            ids.contains("btc-growth"),
+            "growth candidate (90% ann, 48% DD) must remain for low-weight portfolio allocation"
+        );
+        assert!(
+            ids.contains("eth-stable"),
+            "stabilizer candidate must remain available"
+        );
+        assert!(
+            ids.contains("sol-balanced"),
+            "qualified candidate must remain available"
+        );
+        assert!(
+            !ids.contains("xrp-loss"),
+            "negative return candidate must be filtered"
+        );
+        assert!(
+            !ids.contains("doge-churn"),
+            "low yield high churn candidate must be filtered"
+        );
+        assert!(
+            !ids.contains("ada-extreme"),
+            "extreme DD candidate above 65% hard cap must be filtered"
+        );
     }
 
     #[test]
@@ -5980,7 +6492,9 @@ mod tests {
                         max_legs: 3,
                     },
                     take_profit: MartingaleTakeProfitModel::Percent { bps: 100 },
-                    stop_loss: Some(MartingaleStopLossModel::StrategyDrawdownPct { pct_bps: 3_000 }),
+                    stop_loss: Some(MartingaleStopLossModel::StrategyDrawdownPct {
+                        pct_bps: 3_000,
+                    }),
                     indicators: Vec::new(),
                     entry_triggers: Vec::new(),
                     risk_limits: MartingaleRiskLimits::default(),
@@ -6037,6 +6551,33 @@ mod tests {
                 quantity: 1.0,
                 is_buyer_maker: false,
             }],
+            bars_by_symbol: {
+                let bars = vec![
+                    KlineBar {
+                        symbol: "BTCUSDT".to_owned(),
+                        open_time_ms: 1_000,
+                        open: 100.0,
+                        high: 101.5,
+                        low: 99.0,
+                        close: 101.2,
+                        volume: 10.0,
+                    },
+                    KlineBar {
+                        symbol: "BTCUSDT".to_owned(),
+                        open_time_ms: 61_000,
+                        open: 101.2,
+                        high: 103.0,
+                        low: 100.8,
+                        close: 102.5,
+                        volume: 10.0,
+                    },
+                ];
+                let mut m = std::collections::BTreeMap::new();
+                m.insert("BTCUSDT".to_owned(), bars);
+                m
+            },
+            screening_bars_by_symbol: std::collections::BTreeMap::new(),
+            trades_by_symbol: std::collections::BTreeMap::new(),
         };
 
         let (_, output) = refine_candidate_output(0, evaluated, &task_config, &context)
@@ -6133,14 +6674,16 @@ mod tests {
                 .iter()
                 .find(|s| s.direction == MartingaleDirection::Short)
                 .unwrap();
-            spacings.insert((
-                strategy_spacing_bps(long).unwrap(),
-                strategy_spacing_bps(short).unwrap(),
-            ));
-            take_profits.insert((
-                strategy_take_profit_bps(long).unwrap(),
-                strategy_take_profit_bps(short).unwrap(),
-            ));
+            if let (Some(ls), Some(ss)) = (strategy_spacing_bps(long), strategy_spacing_bps(short))
+            {
+                spacings.insert((ls, ss));
+            }
+            if let (Some(ltp), Some(stp)) = (
+                strategy_take_profit_bps_value(long),
+                strategy_take_profit_bps_value(short),
+            ) {
+                take_profits.insert((ltp, stp));
+            }
             if let Some(MartingaleStopLossModel::StrategyDrawdownPct { pct_bps }) = &long.stop_loss
             {
                 stops.insert(*pct_bps);
