@@ -2072,11 +2072,62 @@ impl CredentialCipherError {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct BinanceApiError {
+    pub code: i64,
+    pub message: String,
+}
+
 impl CredentialValidationError {
     pub fn new(message: impl Into<String>) -> Self {
         Self {
             message: message.into(),
         }
+    }
+
+    /// Extract the Binance error code from the error message, if present.
+    pub fn binance_error_code(&self) -> Option<i64> {
+        // Format: "binance error ({code}): {msg}"
+        let prefix = "binance error (";
+        let start = self.message.find(prefix)? + prefix.len();
+        let end = self.message[start..].find(')')?;
+        self.message[start..start + end].parse::<i64>().ok()
+    }
+
+    /// Returns true if this error is likely transient and worth retrying.
+    pub fn is_binance_retryable(&self) -> bool {
+        if let Some(code) = self.binance_error_code() {
+            // Rate limit violations, server errors
+            return matches!(
+                code,
+                -1003 | -1015 | -1021 | -2015 | -1000..=-1000 | 429 | 502 | 503 | 504
+            );
+        }
+        // Network-level errors
+        let msg = self.message.to_ascii_lowercase();
+        [
+            "timed out",
+            "timeout",
+            "connection reset",
+            "connection refused",
+            "temporarily unavailable",
+            "service unavailable",
+            "bad gateway",
+            "gateway timeout",
+            "dns error",
+        ]
+        .iter()
+        .any(|pattern| msg.contains(pattern))
+    }
+
+    /// Returns true if this error should stop the strategy (fatal).
+    pub fn is_binance_fatal(&self) -> bool {
+        if let Some(code) = self.binance_error_code() {
+            // -2010: insufficient balance, -2011: order rejected,
+            // -2013: order does not exist, -4061: order already filled/canceled
+            return matches!(code, -2010 | -2011);
+        }
+        false
     }
 }
 

@@ -40,6 +40,7 @@ pub struct OrderSyncResult {
     pub canceled: usize,
     pub refreshed: usize,
     pub failed: usize,
+    pub fatal: usize,
 }
 
 pub fn sync_strategy_orders(
@@ -58,8 +59,8 @@ pub fn sync_strategy_orders(
                 match gateway.open_orders(market_scope(strategy.market), &strategy.symbol) {
                     Ok(orders) => Some(orders),
                     Err(error) if is_transient_gateway_error(&error) => None,
-                    Err(_) => {
-                        result.failed += 1;
+                    Err(error) => {
+                        record_order_error(&mut result, &error);
                         None
                     }
                 };
@@ -103,8 +104,8 @@ pub fn sync_strategy_orders(
                             order.status = "Placed".to_string();
                             result.submitted += 1;
                         }
-                        Err(_) => {
-                            result.failed += 1;
+                        Err(error) => {
+                            record_order_error(&mut result, &error);
                         }
                     }
                     continue;
@@ -136,7 +137,7 @@ pub fn sync_strategy_orders(
                         }
                         Err(error) => {
                             if !is_transient_gateway_error(&error) {
-                                result.failed += 1;
+                                record_order_error(&mut result, &error);
                             }
                         }
                     }
@@ -167,8 +168,8 @@ pub fn sync_strategy_orders(
                         order.status = "Placed".to_string();
                         result.submitted += 1;
                     }
-                    Err(_) => {
-                        result.failed += 1;
+                    Err(error) => {
+                        record_order_error(&mut result, &error);
                     }
                 }
             }
@@ -176,8 +177,8 @@ pub fn sync_strategy_orders(
         StrategyStatus::Stopping => {
             cancel_open_strategy_orders(strategy, gateway, &mut result);
             ensure_close_orders(strategy);
-            submit_close_orders(strategy, gateway, &mut result);
-            refresh_close_orders(strategy, gateway, &mut result);
+            submit_close_orders(strategy, gateway, quantization, &mut result);
+            refresh_close_orders(strategy, gateway, quantization, &mut result);
             finalize_stop_if_ready(strategy);
         }
         StrategyStatus::Paused | StrategyStatus::Stopped | StrategyStatus::ErrorPaused => {
@@ -196,8 +197,8 @@ pub fn sync_strategy_orders(
                         order.exchange_order_id = None;
                         result.canceled += 1;
                     }
-                    Err(_) => {
-                        result.failed += 1;
+                    Err(error) => {
+                        record_order_error(&mut result, &error);
                     }
                 }
             }
@@ -221,8 +222,8 @@ fn sync_martingale_strategy_orders(
         match gateway.open_orders(market_scope(strategy.market), &strategy.symbol) {
             Ok(orders) => orders,
             Err(error) if is_transient_gateway_error(&error) => Vec::new(),
-            Err(_) => {
-                result.failed += 1;
+            Err(error) => {
+                record_order_error(&mut result, &error);
                 Vec::new()
             }
         };
@@ -284,7 +285,7 @@ fn sync_martingale_strategy_orders(
                 order.status = "Placed".to_string();
                 result.submitted += 1;
             }
-            Err(_) => result.failed += 1,
+            Err(error) => record_order_error(&mut result, &error),
         }
     }
     result
@@ -346,7 +347,7 @@ fn cancel_open_strategy_orders(
                 order.exchange_order_id = None;
                 result.canceled += 1;
             }
-            Err(_) => result.failed += 1,
+            Err(error) => record_order_error(result, &error),
         }
     }
 }
@@ -378,6 +379,7 @@ fn ensure_close_orders(strategy: &mut Strategy) {
 fn submit_close_orders(
     strategy: &mut Strategy,
     gateway: &impl BinanceOrderGateway,
+    quantization: Option<&OrderQuantizationRules>,
     result: &mut OrderSyncResult,
 ) {
     let positions = strategy.runtime.positions.clone();
@@ -391,7 +393,7 @@ fn submit_close_orders(
         {
             continue;
         }
-        let (_, quantity) = quantize_order(order, None);
+        let (_, quantity) = quantize_order(order, quantization);
         let request = BinanceOrderRequest {
             market: market_scope(market).to_string(),
             symbol: symbol.clone(),
@@ -410,7 +412,7 @@ fn submit_close_orders(
                 order.status = "Placed".to_string();
                 result.submitted += 1;
             }
-            Err(_) => result.failed += 1,
+            Err(error) => record_order_error(result, &error),
         }
     }
 }
@@ -418,6 +420,7 @@ fn submit_close_orders(
 fn refresh_close_orders(
     strategy: &mut Strategy,
     gateway: &impl BinanceOrderGateway,
+    _quantization: Option<&OrderQuantizationRules>,
     result: &mut OrderSyncResult,
 ) {
     let mut filled_indices = Vec::new();
@@ -451,7 +454,7 @@ fn refresh_close_orders(
                     result.refreshed += 1;
                 }
             }
-            Err(_) => result.failed += 1,
+            Err(error) => record_order_error(result, &error),
         }
     }
     filled_indices.sort_unstable();
@@ -515,6 +518,29 @@ fn finalize_stop_if_ready(strategy: &mut Strategy) {
 
 fn is_exit_order(order: &StrategyRuntimeOrder) -> bool {
     order.order_id.contains("-tp-") || order.order_id.contains("-trail-")
+}
+
+/// Parse a Binance error string and return true if it is a fatal error
+/// that should cause the strategy to pause (e.g. insufficient balance).
+fn is_fatal_binance_order_error(error: &str) -> bool {
+    // Format: "binance error ({code}): {msg}"
+    if let Some(rest) = error.strip_prefix("binance error (") {
+        if let Some(end) = rest.find(')') {
+            if let Ok(code) = rest[..end].parse::<i64>() {
+                // -2010: insufficient balance, -2011: order rejected
+                return matches!(code, -2010 | -2011);
+            }
+        }
+    }
+    false
+}
+
+fn record_order_error(result: &mut OrderSyncResult, error: &str) {
+    if is_fatal_binance_order_error(error) {
+        result.fatal += 1;
+    } else {
+        result.failed += 1;
+    }
 }
 
 fn is_close_order(order: &StrategyRuntimeOrder) -> bool {

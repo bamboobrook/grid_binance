@@ -420,12 +420,16 @@ fn sync_live_orders(
             created_at: Utc::now(),
         });
     }
-    if result.failed > 0 {
+    if result.fatal > 0 {
+        apply_live_sync_failure(db, strategy, result.fatal, Utc::now())?;
+        strategy.status = StrategyStatus::ErrorPaused;
+    } else if result.failed > 0 {
         apply_live_sync_failure(db, strategy, result.failed, Utc::now())?;
     }
     Ok(result.submitted > 0
         || result.canceled > 0
         || result.failed > 0
+        || result.fatal > 0
         || trade_result.new_fills > 0)
 }
 

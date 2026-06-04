@@ -98,6 +98,7 @@ impl RedisStore {
         tx: tokio::sync::mpsc::UnboundedSender<MarketTick>,
     ) -> Result<(), SharedDbError> {
         use futures::StreamExt;
+        #[allow(deprecated)]
         let connection = self
             .client
             .get_async_connection()
