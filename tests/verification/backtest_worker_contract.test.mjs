@@ -71,7 +71,7 @@ test("backtest worker supports mixed_best mode across long short and long_short"
 test("backtest worker applies task overrides before screening and refinement", () => {
   const worker = readFileSync("apps/backtest-worker/src/main.rs", "utf8");
   assert.match(worker, /apply_task_overrides_to_candidate\((candidate\.clone\(\)|candidate), task\)/);
-  assert.match(worker, /run_candidate_kline_screening\(&overridden, context\)/);
+  assert.match(worker, /run_candidate_kline_screening\(&overridden_candidate, market_context\)/);
   assert.match(worker, /run_candidate_trade_refinement\(&overridden_candidate, market_context\)/);
 });
 

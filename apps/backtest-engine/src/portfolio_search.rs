@@ -990,6 +990,30 @@ fn repeated_distinct_indices_from_order(
     current
 }
 
+fn portfolio_symbol_leverage_consistent(
+    eligible: &[&EvaluatedCandidate],
+    current: &[usize],
+) -> bool {
+    let mut symbol_leverage: std::collections::BTreeMap<String, u32> =
+        std::collections::BTreeMap::new();
+    for &idx in current {
+        let candidate = eligible[idx];
+        for strategy in &candidate.candidate.config.strategies {
+            let sym = strategy.symbol.trim().to_uppercase();
+            if let Some(lev) = strategy.leverage {
+                if let Some(&existing) = symbol_leverage.get(&sym) {
+                    if existing != lev {
+                        return false;
+                    }
+                } else {
+                    symbol_leverage.insert(sym, lev);
+                }
+            }
+        }
+    }
+    true
+}
+
 fn push_weighted_templates(
     eligible: &[&EvaluatedCandidate],
     current: &[usize],
@@ -1311,6 +1335,10 @@ fn build_weighted_portfolio(
         return None;
     }
     if members_data.iter().any(|c| c.equity_curve.is_empty()) {
+        return None;
+    }
+
+    if !portfolio_symbol_leverage_consistent(eligible, member_indices) {
         return None;
     }
 
@@ -2763,6 +2791,63 @@ mod tests {
         assert!(
             penalty <= low_penalty + 0.01,
             "high-correlation pair should score <= low-correlation pair: penalty={penalty} low_penalty={low_penalty}"
+        );
+    }
+
+    fn fixture_candidate_with_leverage(
+        id: &str,
+        symbol: &str,
+        return_pct: f64,
+        dd: f64,
+        score: f64,
+        leverage: u32,
+    ) -> EvaluatedCandidate {
+        let mut c = fixture_candidate(id, symbol, return_pct, dd, score);
+        c.candidate.config.strategies[0].leverage = Some(leverage);
+        c
+    }
+
+    #[test]
+    fn portfolio_rejects_same_symbol_different_leverage() {
+        let candidates = vec![
+            fixture_candidate_with_leverage("a", "BTCUSDT", 60.0, 15.0, 8.0, 3),
+            fixture_candidate_with_leverage("b", "BTCUSDT", 50.0, 10.0, 7.0, 8),
+            fixture_candidate_with_leverage("c", "ETHUSDT", 40.0, 12.0, 6.0, 3),
+        ];
+        let artifact = build_portfolio_top_n_v2(&candidates, 25.0, 3);
+        for portfolio in &artifact.top3 {
+            let btc_count = portfolio
+                .members
+                .iter()
+                .filter(|m| m.symbol == "BTCUSDT")
+                .count();
+            assert!(
+                btc_count <= 1,
+                "portfolio must not contain BTCUSDT twice with conflicting leverage, found {}",
+                btc_count
+            );
+        }
+        assert!(
+            !portfolio_symbol_leverage_consistent(&candidates.iter().collect::<Vec<_>>(), &[0, 1]),
+            "BTCUSDT leverage 3 vs 8 must be inconsistent"
+        );
+        assert!(
+            portfolio_symbol_leverage_consistent(&candidates.iter().collect::<Vec<_>>(), &[0, 2]),
+            "BTCUSDT lev 3 + ETHUSDT lev 3 must be consistent"
+        );
+    }
+
+    #[test]
+    fn portfolio_allows_same_symbol_same_leverage() {
+        let candidates = vec![
+            fixture_candidate_with_leverage("a", "BTCUSDT", 60.0, 15.0, 8.0, 5),
+            fixture_candidate_with_leverage("b", "ETHUSDT", 50.0, 10.0, 7.0, 5),
+            fixture_candidate_with_leverage("c", "SOLUSDT", 40.0, 12.0, 6.0, 5),
+        ];
+        let artifact = build_portfolio_top_n_v2(&candidates, 25.0, 3);
+        assert!(
+            !artifact.top3.is_empty(),
+            "same leverage across symbols should produce portfolios"
         );
     }
 }

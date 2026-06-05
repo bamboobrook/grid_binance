@@ -82,7 +82,7 @@ pub fn run_kline_screening(
                     if !entry_triggers_allow_entry(
                         &strategy_states[state_index],
                         bar,
-                        &indicator_context,
+                        &mut indicator_context,
                     )? {
                         state_index += 1;
                         continue;
@@ -197,7 +197,7 @@ pub fn run_kline_screening(
             &mut strategy_states,
             group,
             &latest_close_by_symbol,
-            &indicator_context,
+            &mut indicator_context,
         )?;
 
         for exit in exit_decisions {
@@ -816,7 +816,7 @@ struct TakeProfitSignal {
 fn take_profit_signal(
     state: &mut StrategyRuntime<'_>,
     bar: &KlineBar,
-    indicator_context: &IndicatorRuntimeContext,
+    indicator_context: &mut IndicatorRuntimeContext,
 ) -> Result<TakeProfitSignal, String> {
     let model = state.strategy.take_profit.clone();
     take_profit_signal_for_model(state, bar, &model, indicator_context)
@@ -826,7 +826,7 @@ fn take_profit_signal_for_model(
     state: &mut StrategyRuntime<'_>,
     bar: &KlineBar,
     model: &MartingaleTakeProfitModel,
-    indicator_context: &IndicatorRuntimeContext,
+    indicator_context: &mut IndicatorRuntimeContext,
 ) -> Result<TakeProfitSignal, String> {
     let average_entry = weighted_average_entry(&state.legs)?;
     match model {
@@ -987,7 +987,7 @@ fn exit_decision_snapshot(
     states: &mut [StrategyRuntime<'_>],
     bars: &[KlineBar],
     latest_close_by_symbol: &BTreeMap<String, f64>,
-    indicator_context: &IndicatorRuntimeContext,
+    indicator_context: &mut IndicatorRuntimeContext,
 ) -> Result<Vec<ExitSnapshot>, String> {
     let mut snapshots = Vec::new();
 
@@ -1032,7 +1032,7 @@ fn triggered_stop(
     bar: &KlineBar,
     states: &[StrategyRuntime<'_>],
     latest_close_by_symbol: &BTreeMap<String, f64>,
-    indicator_context: &IndicatorRuntimeContext,
+    indicator_context: &mut IndicatorRuntimeContext,
 ) -> Result<StopSignal, String> {
     let Some(stop_loss) = &state.strategy.stop_loss else {
         return Ok(StopSignal::default());
@@ -1130,7 +1130,7 @@ fn triggered_price_range_stop_price(
 fn entry_triggers_allow_entry(
     state: &StrategyRuntime<'_>,
     bar: &KlineBar,
-    indicator_context: &IndicatorRuntimeContext,
+    indicator_context: &mut IndicatorRuntimeContext,
 ) -> Result<bool, String> {
     if state.strategy.entry_triggers.is_empty() {
         return Ok(true);
@@ -1181,9 +1181,36 @@ fn entry_triggers_allow_entry(
     Ok(true)
 }
 
-#[derive(Default)]
+struct IncrementalIndicatorState {
+    previous_candle: Option<IndicatorCandle>,
+    warmup_ranges: Vec<f64>,
+    current_value: Option<f64>,
+}
+
+impl Default for IncrementalIndicatorState {
+    fn default() -> Self {
+        Self {
+            previous_candle: None,
+            warmup_ranges: Vec::new(),
+            current_value: None,
+        }
+    }
+}
+
+type IndicatorKey = (String, String, usize);
+
 struct IndicatorRuntimeContext {
     bars_by_symbol: BTreeMap<String, Vec<KlineBar>>,
+    incremental: BTreeMap<IndicatorKey, IncrementalIndicatorState>,
+}
+
+impl Default for IndicatorRuntimeContext {
+    fn default() -> Self {
+        Self {
+            bars_by_symbol: BTreeMap::new(),
+            incremental: BTreeMap::new(),
+        }
+    }
 }
 
 impl IndicatorRuntimeContext {
@@ -1192,6 +1219,91 @@ impl IndicatorRuntimeContext {
             .entry(bar.symbol.clone())
             .or_default()
             .push(bar.clone());
+        let candle = indicator_candle(bar);
+        let sym = bar.symbol.clone();
+        if candle.high.is_finite() && candle.low.is_finite() && candle.close.is_finite() {
+            for key in self.incremental.keys().filter(|k| k.0 == sym).cloned().collect::<Vec<_>>() {
+                if let Some(state) = self.incremental.get_mut(&key) {
+                    let (_, _, period) = &key;
+                    let period = *period;
+                    let range = crate::indicators::true_range(
+                        candle,
+                        state.previous_candle.map(|c| c.close).filter(|v| v.is_finite()),
+                    );
+                    state.previous_candle = Some(candle);
+                    let range = match range {
+                        Some(r) if r.is_finite() => r,
+                        _ => {
+                            state.warmup_ranges.clear();
+                            state.current_value = None;
+                            continue;
+                        }
+                    };
+                    state.current_value = match (state.current_value, range) {
+                        (Some(prev), _) => {
+                            Some(((prev * (period as f64 - 1.0)) + range) / period as f64)
+                        }
+                        (None, _) => {
+                            state.warmup_ranges.push(range);
+                            if state.warmup_ranges.len() == period {
+                                let sum: f64 = state.warmup_ranges.iter().sum();
+                                state.warmup_ranges.clear();
+                                Some(sum / period as f64)
+                            } else {
+                                None
+                            }
+                        }
+                    };
+                }
+            }
+        }
+    }
+
+    fn ensure_atr_cached(&mut self, symbol: &str, period: usize) {
+        let key = (symbol.to_string(), "atr".to_string(), period);
+        if self.incremental.contains_key(&key) {
+            return;
+        }
+        let bars = self.bars_by_symbol.get(symbol).cloned().unwrap_or_default();
+        let mut state = IncrementalIndicatorState::default();
+        for bar in &bars {
+            let candle = indicator_candle(bar);
+            if !candle.high.is_finite() || !candle.low.is_finite() || !candle.close.is_finite() {
+                state.warmup_ranges.clear();
+                state.current_value = None;
+                state.previous_candle = None;
+                continue;
+            }
+            let range = crate::indicators::true_range(
+                candle,
+                state.previous_candle.map(|c| c.close).filter(|v| v.is_finite()),
+            );
+            state.previous_candle = Some(candle);
+            let range = match range {
+                Some(r) if r.is_finite() => r,
+                _ => {
+                    state.warmup_ranges.clear();
+                    state.current_value = None;
+                    continue;
+                }
+            };
+            state.current_value = match (state.current_value, range) {
+                (Some(prev), _) => {
+                    Some(((prev * (period as f64 - 1.0)) + range) / period as f64)
+                }
+                (None, _) => {
+                    state.warmup_ranges.push(range);
+                    if state.warmup_ranges.len() == period {
+                        let sum: f64 = state.warmup_ranges.iter().sum();
+                        state.warmup_ranges.clear();
+                        Some(sum / period as f64)
+                    } else {
+                        None
+                    }
+                }
+            };
+        }
+        self.incremental.insert(key, state);
     }
 
     fn evaluate_expression(&self, symbol: &str, expression: &str) -> Result<Option<bool>, String> {
@@ -1298,15 +1410,15 @@ impl IndicatorRuntimeContext {
         Ok(value)
     }
 
-    fn latest_atr(&self, symbol: &str, period: usize) -> Option<f64> {
-        let bars = self.bars_by_symbol.get(symbol)?;
-        let candles = bars.iter().map(indicator_candle).collect::<Vec<_>>();
-        atr(&candles, period).last().copied().flatten()
+    fn latest_atr(&mut self, symbol: &str, period: usize) -> Option<f64> {
+        self.ensure_atr_cached(symbol, period);
+        let key = (symbol.to_string(), "atr".to_string(), period);
+        self.incremental.get(&key).and_then(|s| s.current_value)
     }
 }
 
 fn latest_atr_for_strategy(
-    indicator_context: &IndicatorRuntimeContext,
+    indicator_context: &mut IndicatorRuntimeContext,
     strategy: &MartingaleStrategyConfig,
 ) -> Option<f64> {
     let period = strategy

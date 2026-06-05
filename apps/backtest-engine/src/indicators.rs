@@ -290,7 +290,7 @@ fn is_valid_candle(candle: IndicatorCandle) -> bool {
         && candle.high >= candle.low
 }
 
-fn true_range(candle: IndicatorCandle, previous_close: Option<f64>) -> Option<f64> {
+pub fn true_range(candle: IndicatorCandle, previous_close: Option<f64>) -> Option<f64> {
     if !is_valid_candle(candle) {
         return None;
     }

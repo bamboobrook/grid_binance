@@ -219,7 +219,7 @@ services:
         condition: service_healthy
     volumes:
       - backtest-artifacts:/var/lib/grid-binance/backtest-artifacts
-      - ${BACKTEST_MARKET_DATA_DB_HOST_PATH:-/home/bumblebee/Project/discord_c2im/pipeline/data/market_data.db}:/market-data/market_data.db:ro
+      - ${BACKTEST_MARKET_DATA_DIR:-/home/bumblebee/Project/discord_c2im/pipeline/data}:/market-data:ro
 
   billing-chain-listener:
     build:
