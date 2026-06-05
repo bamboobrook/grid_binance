@@ -379,7 +379,8 @@ fn stopping_strategy_submits_reduce_only_market_close_orders() {
         .expect("close order");
     assert_eq!(close.order_type, "MARKET");
     assert_eq!(close.side, "SELL");
-    assert_eq!(close.reduce_only, Some(true));
+    // Hedge Mode: reduceOnly must be absent; positionSide replaces it
+    assert_eq!(close.reduce_only, None);
     assert_eq!(close.position_side.as_deref(), Some("LONG"));
     assert_eq!(strategy.status, StrategyStatus::Stopping);
 }
@@ -502,6 +503,7 @@ fn running_strategy_quantizes_price_and_quantity_before_submission() {
     let rules = OrderQuantizationRules {
         price_tick_size: Some(Decimal::new(5, 2)),
         quantity_step_size: Some(Decimal::new(1, 3)),
+        ..Default::default()
     };
 
     let result = sync_strategy_orders(&mut strategy, &gateway, Some(&rules));
@@ -583,4 +585,96 @@ fn revision() -> StrategyRevision {
         overall_stop_loss_bps: None,
         post_trigger_action: PostTriggerAction::Stop,
     }
+}
+
+#[test]
+fn rejects_order_with_client_order_id_exceeding_36_chars() {
+    let mut strategy = sample_strategy(
+        StrategyStatus::Running,
+        StrategyMarket::Spot,
+        StrategyMode::SpotClassic,
+    );
+    strategy.symbol = "BTCUSDT".to_owned();
+    strategy.runtime.orders[0].order_id = "x".repeat(37);
+    strategy.runtime.orders[0].status = "Working".to_owned();
+    strategy.runtime.orders[0].order_type = "Limit".to_owned();
+    strategy.runtime.orders[0].side = "Buy".to_owned();
+
+    let gateway = FakeGateway::default();
+    let rules = OrderQuantizationRules {
+        price_tick_size: Some(Decimal::new(1, 0)),
+        quantity_step_size: Some(Decimal::new(1, 0)),
+        client_order_id_max_len: 36,
+        ..Default::default()
+    };
+
+    let result = sync_strategy_orders(&mut strategy, &gateway, Some(&rules));
+
+    assert_eq!(result.submitted, 0);
+    assert!(
+        result.fatal > 0 || result.failed > 0,
+        "order with clientOrderId > 36 chars must be rejected before Binance call"
+    );
+    assert!(
+        gateway.placed.lock().unwrap().is_empty(),
+        "no order should have been placed"
+    );
+}
+
+#[test]
+fn rejects_order_below_min_quantity() {
+    let mut strategy = sample_strategy(
+        StrategyStatus::Running,
+        StrategyMarket::Spot,
+        StrategyMode::SpotClassic,
+    );
+    strategy.symbol = "BTCUSDT".to_owned();
+    strategy.runtime.orders[0].quantity = Decimal::new(1, 4); // 0.0001
+    strategy.runtime.orders[0].price = Some(Decimal::new(50000, 0));
+
+    let gateway = FakeGateway::default();
+    let rules = OrderQuantizationRules {
+        price_tick_size: Some(Decimal::new(1, 0)),
+        quantity_step_size: Some(Decimal::new(1, 0)),
+        min_quantity: Some(Decimal::new(1, 3)), // 0.001 minimum
+        ..Default::default()
+    };
+
+    let result = sync_strategy_orders(&mut strategy, &gateway, Some(&rules));
+
+    assert_eq!(result.submitted, 0);
+    assert!(
+        result.fatal > 0 || result.failed > 0,
+        "order with quantity below min must be rejected"
+    );
+    assert!(gateway.placed.lock().unwrap().is_empty());
+}
+
+#[test]
+fn rejects_order_below_min_notional() {
+    let mut strategy = sample_strategy(
+        StrategyStatus::Running,
+        StrategyMarket::Spot,
+        StrategyMode::SpotClassic,
+    );
+    strategy.symbol = "BTCUSDT".to_owned();
+    strategy.runtime.orders[0].quantity = Decimal::new(1, 3); // 0.001
+    strategy.runtime.orders[0].price = Some(Decimal::new(1, 0)); // price 1
+
+    let gateway = FakeGateway::default();
+    let rules = OrderQuantizationRules {
+        price_tick_size: Some(Decimal::new(1, 0)),
+        quantity_step_size: Some(Decimal::new(1, 0)),
+        min_notional: Some(Decimal::new(10, 0)), // 10 USDT minimum
+        ..Default::default()
+    };
+
+    let result = sync_strategy_orders(&mut strategy, &gateway, Some(&rules));
+
+    assert_eq!(result.submitted, 0);
+    assert!(
+        result.fatal > 0 || result.failed > 0,
+        "order with notional below min must be rejected"
+    );
+    assert!(gateway.placed.lock().unwrap().is_empty());
 }

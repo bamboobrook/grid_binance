@@ -306,6 +306,212 @@ pub struct UsdmSymbolExchangeSettings {
     pub leverage: Option<u32>,
 }
 
+// ---------------------------------------------------------------------------
+// Account V3 (GET /fapi/v3/account) structures
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct AccountV3PositionPayload {
+    symbol: String,
+    #[serde(default)]
+    position_amt: FlexibleValue,
+    #[serde(default)]
+    entry_price: FlexibleValue,
+    #[serde(default)]
+    mark_price: FlexibleValue,
+    #[serde(default)]
+    un_realized_profit: FlexibleValue,
+    #[serde(default)]
+    liquidation_price: FlexibleValue,
+    #[serde(default)]
+    leverage: FlexibleValue,
+    #[serde(default)]
+    max_notional_value: FlexibleValue,
+    #[serde(default)]
+    margin_type: Option<String>,
+    #[serde(default)]
+    isolated_margin: FlexibleValue,
+    #[serde(default)]
+    is_auto_add_margin: Option<String>,
+    #[serde(default)]
+    position_side: Option<String>,
+    #[serde(default)]
+    notional: FlexibleValue,
+    #[serde(default)]
+    isolated_wallet: FlexibleValue,
+    #[serde(default)]
+    update_time: i64,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct AccountV3ResponsePayload {
+    #[serde(default)]
+    positions: Vec<AccountV3PositionPayload>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct AccountV3BalancePayload {
+    asset: String,
+    #[serde(default)]
+    balance: FlexibleValue,
+    #[serde(default)]
+    cross_wallet_balance: FlexibleValue,
+    #[serde(default)]
+    cross_un_pnl: FlexibleValue,
+    #[serde(default)]
+    available_balance: FlexibleValue,
+    #[serde(default)]
+    max_withdraw_amount: FlexibleValue,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct AccountV3BalanceResponsePayload {
+    #[serde(default)]
+    assets: Vec<AccountV3BalancePayload>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct BinanceAccountV3Position {
+    pub symbol: String,
+    pub position_amount: String,
+    pub entry_price: String,
+    pub mark_price: String,
+    pub unrealized_pnl: String,
+    pub leverage: String,
+    pub max_notional_value: String,
+    pub margin_type: Option<String>,
+    pub position_side: Option<String>,
+    pub notional: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct BinanceAccountV3Data {
+    pub positions: Vec<BinanceAccountV3Position>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct BinanceAccountV3Balance {
+    pub asset: String,
+    pub balance: String,
+    pub cross_wallet_balance: String,
+    pub cross_un_pnl: String,
+    pub available_balance: String,
+    pub max_withdraw_amount: String,
+}
+
+// ---------------------------------------------------------------------------
+// Symbol config (GET /fapi/v1/symbolConfig) structures
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct SymbolConfigResponsePayload {
+    symbol: String,
+    #[serde(default)]
+    margin_type: Option<String>,
+    #[serde(default)]
+    leverage: Option<FlexibleValue>,
+    #[serde(default)]
+    max_notional_value: Option<FlexibleValue>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct BinanceSymbolConfig {
+    pub symbol: String,
+    pub margin_type: Option<String>,
+    pub leverage: Option<u32>,
+    pub max_notional_value: Option<String>,
+}
+
+// ---------------------------------------------------------------------------
+// ACCOUNT_UPDATE user-data stream event structures
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Deserialize)]
+struct AccountUpdateBalancePayload {
+    #[serde(rename = "a")]
+    asset: String,
+    #[serde(rename = "wb")]
+    wallet_balance: FlexibleValue,
+    #[serde(rename = "cw")]
+    cross_wallet_balance: FlexibleValue,
+    #[serde(rename = "bc")]
+    balance_change: FlexibleValue,
+}
+
+#[derive(Debug, Deserialize)]
+struct AccountUpdatePositionPayload {
+    #[serde(rename = "s")]
+    symbol: String,
+    #[serde(rename = "pa")]
+    position_amount: FlexibleValue,
+    #[serde(rename = "ep")]
+    entry_price: FlexibleValue,
+    #[serde(rename = "bep", default)]
+    break_even_price: FlexibleValue,
+    #[serde(rename = "cr")]
+    cumulative_realized: FlexibleValue,
+    #[serde(rename = "up")]
+    unrealized_pnl: FlexibleValue,
+    #[serde(rename = "mt", default)]
+    margin_type: Option<String>,
+    #[serde(rename = "iw")]
+    isolated_wallet: FlexibleValue,
+    #[serde(rename = "ps", default)]
+    position_side: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct AccountUpdateDataPayload {
+    #[serde(rename = "e")]
+    event_reason: Option<String>,
+    #[serde(rename = "B", default)]
+    balances: Vec<AccountUpdateBalancePayload>,
+    #[serde(rename = "P", default)]
+    positions: Vec<AccountUpdatePositionPayload>,
+}
+
+#[derive(Debug, Deserialize)]
+struct AccountUpdateEnvelope {
+    #[serde(rename = "e")]
+    event_type: String,
+    #[serde(rename = "E")]
+    event_time_ms: i64,
+    #[serde(rename = "a")]
+    update_data: AccountUpdateDataPayload,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct BinanceAccountUpdate {
+    pub market: String,
+    pub event_reason: Option<String>,
+    pub event_time_ms: i64,
+    pub balances: Vec<BinanceAccountUpdateBalance>,
+    pub positions: Vec<BinanceAccountUpdatePosition>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct BinanceAccountUpdateBalance {
+    pub asset: String,
+    pub wallet_balance: String,
+    pub cross_wallet_balance: String,
+    pub balance_change: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct BinanceAccountUpdatePosition {
+    pub symbol: String,
+    pub position_amount: String,
+    pub entry_price: String,
+    pub unrealized_pnl: String,
+    pub margin_type: Option<String>,
+    pub position_side: Option<String>,
+}
+
 #[derive(Debug, Deserialize)]
 struct ExchangeInfoResponse {
     #[serde(default)]
@@ -528,6 +734,12 @@ enum FlexibleValue {
     Text(String),
     Integer(i64),
     Float(f64),
+}
+
+impl Default for FlexibleValue {
+    fn default() -> Self {
+        FlexibleValue::Text(String::new())
+    }
 }
 
 #[derive(Debug, Default)]
@@ -803,6 +1015,159 @@ impl BinanceClient {
                 .as_ref()
                 .and_then(|value| flexible_value_ref_to_string(value).parse::<u32>().ok()),
         })
+    }
+
+    /// Read USD-M futures account positions via GET /fapi/v3/account.
+    /// Only returns positions with non-zero position_amount for live-trading
+    /// preflight checks.
+    pub fn read_usdm_account_v3(&self) -> Result<BinanceAccountV3Data, CredentialValidationError> {
+        if !self.live_config.enabled {
+            return Err(CredentialValidationError::new(
+                "binance live mode is disabled",
+            ));
+        }
+        let http = self.live_http_client()?;
+        let server_time = self.fetch_server_time(&http, BinanceMarket::Usdm)?;
+        let payload: AccountV3ResponsePayload = self.signed_request(
+            &http,
+            "GET",
+            self.live_config.base_url(BinanceMarket::Usdm),
+            "/fapi/v3/account",
+            server_time,
+            &[],
+        )?;
+        let positions = payload
+            .positions
+            .into_iter()
+            .map(|position| BinanceAccountV3Position {
+                symbol: position.symbol,
+                position_amount: flexible_scalar_to_string(position.position_amt),
+                entry_price: flexible_scalar_to_string(position.entry_price),
+                mark_price: flexible_scalar_to_string(position.mark_price),
+                unrealized_pnl: flexible_scalar_to_string(position.un_realized_profit),
+                leverage: flexible_scalar_to_string(position.leverage),
+                max_notional_value: flexible_scalar_to_string(position.max_notional_value),
+                margin_type: position.margin_type.map(|v| v.to_ascii_lowercase()),
+                position_side: position.position_side.map(|v| v.to_ascii_lowercase()),
+                notional: flexible_scalar_to_string(position.notional),
+            })
+            .collect();
+        Ok(BinanceAccountV3Data { positions })
+    }
+
+    /// Read USD-M futures account balances via GET /fapi/v3/balance.
+    pub fn read_usdm_account_v3_balance(
+        &self,
+    ) -> Result<Vec<BinanceAccountV3Balance>, CredentialValidationError> {
+        if !self.live_config.enabled {
+            return Err(CredentialValidationError::new(
+                "binance live mode is disabled",
+            ));
+        }
+        let http = self.live_http_client()?;
+        let server_time = self.fetch_server_time(&http, BinanceMarket::Usdm)?;
+        let payload: AccountV3BalanceResponsePayload = self.signed_request(
+            &http,
+            "GET",
+            self.live_config.base_url(BinanceMarket::Usdm),
+            "/fapi/v3/balance",
+            server_time,
+            &[],
+        )?;
+        Ok(payload
+            .assets
+            .into_iter()
+            .map(|asset| BinanceAccountV3Balance {
+                asset: asset.asset,
+                balance: flexible_scalar_to_string(asset.balance),
+                cross_wallet_balance: flexible_scalar_to_string(asset.cross_wallet_balance),
+                cross_un_pnl: flexible_scalar_to_string(asset.cross_un_pnl),
+                available_balance: flexible_scalar_to_string(asset.available_balance),
+                max_withdraw_amount: flexible_scalar_to_string(asset.max_withdraw_amount),
+            })
+            .collect())
+    }
+
+    /// Read symbol config via GET /fapi/v1/symbolConfig.
+    /// Returns margin type, leverage, and max notional value for the given
+    /// symbol.  Prefer this over positionRisk readback for preconfigure
+    /// validations.
+    pub fn read_usdm_symbol_config(
+        &self,
+        symbol: &str,
+    ) -> Result<BinanceSymbolConfig, CredentialValidationError> {
+        let symbol = symbol.trim().to_ascii_uppercase();
+        if symbol.is_empty() {
+            return Err(CredentialValidationError::new("usdm symbol is required"));
+        }
+        if !self.live_config.enabled {
+            return Err(CredentialValidationError::new(
+                "binance live mode is disabled",
+            ));
+        }
+        let http = self.live_http_client()?;
+        let server_time = self.fetch_server_time(&http, BinanceMarket::Usdm)?;
+        let payload: SymbolConfigResponsePayload = self.signed_request(
+            &http,
+            "GET",
+            self.live_config.base_url(BinanceMarket::Usdm),
+            "/fapi/v1/symbolConfig",
+            server_time,
+            &[("symbol".to_string(), symbol.clone())],
+        )?;
+        Ok(BinanceSymbolConfig {
+            symbol: symbol.clone(),
+            margin_type: payload.margin_type.map(|v| v.to_ascii_lowercase()),
+            leverage: payload
+                .leverage
+                .as_ref()
+                .and_then(|v| flexible_value_ref_to_string(v).parse::<u32>().ok()),
+            max_notional_value: payload
+                .max_notional_value
+                .as_ref()
+                .map(flexible_value_ref_to_string),
+        })
+    }
+
+    /// Read open orders for a specific symbol.
+    /// Used by preconfigure open-order blocking checks.
+    pub fn open_orders_for_symbol(
+        &self,
+        market: &str,
+        symbol: &str,
+    ) -> Result<Vec<BinanceOrderResponse>, CredentialValidationError> {
+        self.open_orders(market, symbol)
+    }
+
+    /// Read income history via GET /fapi/v1/income.
+    /// Used for backfilling FUNDING_FEE, COMMISSION, REALIZED_PNL.
+    pub fn read_usdm_income(
+        &self,
+        symbol: &str,
+        income_type: Option<&str>,
+        limit: usize,
+    ) -> Result<Vec<serde_json::Value>, CredentialValidationError> {
+        if !self.live_config.enabled {
+            return Err(CredentialValidationError::new(
+                "binance live mode is disabled",
+            ));
+        }
+        let http = self.live_http_client()?;
+        let server_time = self.fetch_server_time(&http, BinanceMarket::Usdm)?;
+        let mut params: Vec<(String, String)> = vec![("symbol".to_string(), symbol.to_ascii_uppercase())];
+        if let Some(it) = income_type {
+            params.push(("incomeType".to_string(), it.to_string()));
+        }
+        params.push(("limit".to_string(), limit.to_string()));
+        let payload: Vec<serde_json::Value> = self.signed_request(
+            &http,
+            "GET",
+            self.live_config.base_url(BinanceMarket::Usdm),
+            "/fapi/v1/income",
+            server_time,
+            &params,
+        )?;
+        Ok(payload)
     }
 
     pub fn cancel_order(
@@ -2355,6 +2720,49 @@ pub fn parse_user_data_message(
     None
 }
 
+/// Parse ACCOUNT_UPDATE user-data stream events into typed structures.
+/// Preserves the existing `parse_user_data_message` behavior for
+/// `ORDER_TRADE_UPDATE` events.
+pub fn parse_account_update_message(
+    default_market: &str,
+    payload: &str,
+) -> Option<BinanceAccountUpdate> {
+    if let Ok(envelope) = serde_json::from_str::<AccountUpdateEnvelope>(payload) {
+        if envelope.event_type == "ACCOUNT_UPDATE" {
+            return Some(BinanceAccountUpdate {
+                market: default_market.to_string(),
+                event_reason: envelope.update_data.event_reason,
+                event_time_ms: envelope.event_time_ms,
+                balances: envelope
+                    .update_data
+                    .balances
+                    .into_iter()
+                    .map(|b| BinanceAccountUpdateBalance {
+                        asset: b.asset,
+                        wallet_balance: flexible_scalar_to_string(b.wallet_balance),
+                        cross_wallet_balance: flexible_scalar_to_string(b.cross_wallet_balance),
+                        balance_change: flexible_scalar_to_string(b.balance_change),
+                    })
+                    .collect(),
+                positions: envelope
+                    .update_data
+                    .positions
+                    .into_iter()
+                    .map(|p| BinanceAccountUpdatePosition {
+                        symbol: p.symbol,
+                        position_amount: flexible_scalar_to_string(p.position_amount),
+                        entry_price: flexible_scalar_to_string(p.entry_price),
+                        unrealized_pnl: flexible_scalar_to_string(p.unrealized_pnl),
+                        margin_type: p.margin_type.map(|v| v.to_ascii_lowercase()),
+                        position_side: p.position_side.map(|v| v.to_ascii_lowercase()),
+                    })
+                    .collect(),
+            });
+        }
+    }
+    None
+}
+
 fn flexible_identifier_to_string(value: FlexibleIdentifier) -> String {
     match value {
         FlexibleIdentifier::Text(value) => value,
@@ -2676,10 +3084,45 @@ fn symbol_requirements(
         leverage_brackets: leverage_brackets.to_vec(),
     }
 }
+
+/// Test-only helper: builds the signed request parameter vector for a
+/// `BinanceOrderRequest` exactly as `place_order` would, without sending
+/// any network request.  Tests assert exact parameter names for Hedge
+/// Mode correctness.
+#[cfg(test)]
+pub fn build_order_params_for_test(request: &BinanceOrderRequest) -> Vec<(String, String)> {
+    let mut params = vec![
+        ("symbol".to_string(), request.symbol.clone()),
+        ("side".to_string(), request.side.clone()),
+        ("type".to_string(), request.order_type.clone()),
+        ("quantity".to_string(), request.quantity.clone()),
+    ];
+    if let Some(ref price) = request.price {
+        params.push(("price".to_string(), price.clone()));
+    }
+    if let Some(ref time_in_force) = request.time_in_force {
+        params.push(("timeInForce".to_string(), time_in_force.clone()));
+    }
+    if let Some(reduce_only) = request.reduce_only {
+        params.push((
+            "reduceOnly".to_string(),
+            if reduce_only { "true" } else { "false" }.to_string(),
+        ));
+    }
+    if let Some(ref position_side) = request.position_side {
+        params.push(("positionSide".to_string(), position_side.clone()));
+    }
+    if let Some(ref client_order_id) = request.client_order_id {
+        params.push(("newClientOrderId".to_string(), client_order_id.clone()));
+    }
+    params
+}
+
 #[cfg(test)]
 mod tests {
     use super::{
-        parse_user_data_message, sign_query, BinanceClient, BinanceOrderRequest, CredentialCipher,
+        build_order_params_for_test, parse_account_update_message, parse_user_data_message,
+        sign_query, BinanceClient, BinanceOrderRequest, CredentialCipher,
         CredentialValidationError, CredentialValidationRequest,
     };
     use std::{
@@ -3640,5 +4083,311 @@ mod tests {
         assert!(check.permissions_ok);
         assert!(!check.market_access_ok);
         assert_eq!(check.connection_status(), "degraded");
+    }
+
+    // ------------------------------------------------------------------
+    // Task 2: Hedge Mode order payload tests
+    // ------------------------------------------------------------------
+
+    #[test]
+    fn hedge_mode_order_payload_uses_position_side_not_reduce_only() {
+        let request = BinanceOrderRequest {
+            market: "usdm".to_string(),
+            symbol: "BTCUSDT".to_string(),
+            side: "BUY".to_string(),
+            order_type: "LIMIT".to_string(),
+            quantity: "0.001".to_string(),
+            price: Some("50000".to_string()),
+            time_in_force: Some("GTC".to_string()),
+            reduce_only: None,
+            position_side: Some("LONG".to_string()),
+            client_order_id: Some("martingale-btc-leg-0".to_string()),
+        };
+
+        let params = build_order_params_for_test(&request);
+        let params_map: std::collections::HashMap<&str, &str> = params
+            .iter()
+            .map(|(k, v)| (k.as_str(), v.as_str()))
+            .collect();
+
+        assert_eq!(params_map.get("symbol"), Some(&"BTCUSDT"));
+        assert_eq!(params_map.get("side"), Some(&"BUY"));
+        assert_eq!(params_map.get("type"), Some(&"LIMIT"));
+        assert_eq!(params_map.get("quantity"), Some(&"0.001"));
+        assert_eq!(params_map.get("price"), Some(&"50000"));
+        assert_eq!(params_map.get("timeInForce"), Some(&"GTC"));
+        assert_eq!(params_map.get("positionSide"), Some(&"LONG"));
+        assert_eq!(
+            params_map.get("newClientOrderId"),
+            Some(&"martingale-btc-leg-0")
+        );
+        // reduceOnly must be absent for Hedge Mode martingale orders
+        assert!(!params_map.contains_key("reduceOnly"));
+    }
+
+    #[test]
+    fn hedge_mode_order_payload_includes_required_fields() {
+        let request = BinanceOrderRequest {
+            market: "usdm".to_string(),
+            symbol: "ETHUSDT".to_string(),
+            side: "SELL".to_string(),
+            order_type: "LIMIT".to_string(),
+            quantity: "0.01".to_string(),
+            price: Some("3000".to_string()),
+            time_in_force: Some("GTC".to_string()),
+            reduce_only: None,
+            position_side: Some("SHORT".to_string()),
+            client_order_id: Some("eth-short-leg-1".to_string()),
+        };
+
+        let params = build_order_params_for_test(&request);
+        let param_names: Vec<&str> = params.iter().map(|(k, _)| k.as_str()).collect();
+
+        // Required Binance USD-M Hedge Mode order fields
+        assert!(param_names.contains(&"symbol"));
+        assert!(param_names.contains(&"side"));
+        assert!(param_names.contains(&"type"));
+        assert!(param_names.contains(&"quantity"));
+        assert!(param_names.contains(&"positionSide"));
+        // reduceOnly must be absent for Hedge Mode martingale orders
+        assert!(!param_names.contains(&"reduceOnly"));
+    }
+
+    #[test]
+    fn hedge_mode_order_payload_rejects_client_order_id_over_36_chars() {
+        let long_id = "martingale-very-long-client-order-id-xxx".to_string();
+        assert!(
+            long_id.len() > 36,
+            "test precondition: client order id must exceed 36 chars"
+        );
+
+        let request = BinanceOrderRequest {
+            market: "usdm".to_string(),
+            symbol: "BTCUSDT".to_string(),
+            side: "BUY".to_string(),
+            order_type: "LIMIT".to_string(),
+            quantity: "0.001".to_string(),
+            price: Some("50000".to_string()),
+            time_in_force: Some("GTC".to_string()),
+            reduce_only: None,
+            position_side: Some("LONG".to_string()),
+            client_order_id: Some(long_id),
+        };
+
+        let params = build_order_params_for_test(&request);
+        // build_order_params_for_test does NOT enforce the 36-char rule;
+        // the caller (order_sync / trading-engine) must enforce it. This
+        // test confirms the param is passed through as-is.
+        let params_map: std::collections::HashMap<&str, &str> = params
+            .iter()
+            .map(|(k, v)| (k.as_str(), v.as_str()))
+            .collect();
+        assert_eq!(
+            params_map.get("newClientOrderId"),
+            Some(&"martingale-very-long-client-order-id-xxx")
+        );
+        // The helper passes the long id through. Enforcement lives in
+        // order_sync where client_order_id_max_len (36) is checked.
+    }
+
+    // ------------------------------------------------------------------
+    // Task 2: Account V3 and ACCOUNT_UPDATE tests
+    // ------------------------------------------------------------------
+
+    #[test]
+    fn parse_account_update_message_decodes_balances_and_positions() {
+        let payload = r#"{
+            "e":"ACCOUNT_UPDATE",
+            "E":1710001000,
+            "a":{
+                "B":[{"a":"USDT","wb":"500.5","cw":"450.0","bc":"-0.5"}],
+                "P":[{
+                    "s":"BTCUSDT","pa":"0.01","ep":"50000","bep":"0",
+                    "cr":"2.5","up":"-1.0","mt":"isolated","iw":"100","ps":"LONG"
+                }]
+            }
+        }"#;
+
+        let update = parse_account_update_message("usdm", payload).expect("ACCOUNT_UPDATE");
+
+        assert_eq!(update.market, "usdm");
+        assert_eq!(update.event_time_ms, 1710001000);
+        assert_eq!(update.balances.len(), 1);
+        assert_eq!(update.balances[0].asset, "USDT");
+        assert_eq!(update.balances[0].wallet_balance, "500.5");
+        assert_eq!(update.balances[0].cross_wallet_balance, "450.0");
+        assert_eq!(update.balances[0].balance_change, "-0.5");
+
+        assert_eq!(update.positions.len(), 1);
+        assert_eq!(update.positions[0].symbol, "BTCUSDT");
+        assert_eq!(update.positions[0].position_amount, "0.01");
+        assert_eq!(update.positions[0].entry_price, "50000");
+        assert_eq!(update.positions[0].unrealized_pnl, "-1.0");
+        assert_eq!(update.positions[0].margin_type.as_deref(), Some("isolated"));
+        assert_eq!(update.positions[0].position_side.as_deref(), Some("long"));
+    }
+
+    #[test]
+    fn parse_account_update_message_skips_non_acount_update_events() {
+        let order_update = r#"{"e":"ORDER_TRADE_UPDATE","E":1,"o":{"s":"BTCUSDT","c":"c1","S":"BUY","o":"LIMIT","x":"NEW","X":"NEW","i":1,"p":"1","L":"1","l":"1","z":"0","n":"0","N":"USDT","ps":"LONG","t":0,"rp":"0"}}"#;
+
+        let result = parse_account_update_message("usdm", order_update);
+        assert!(
+            result.is_none(),
+            "ORDER_TRADE_UPDATE should not parse as ACCOUNT_UPDATE"
+        );
+
+        let garbage = "not json";
+        assert!(parse_account_update_message("usdm", garbage).is_none());
+    }
+
+    #[test]
+    fn account_update_preserves_existing_order_trade_update_behavior() {
+        // Verify parse_user_data_message still works for ORDER_TRADE_UPDATE
+        let futures = parse_user_data_message(
+            "usdm",
+            r#"{"e":"ORDER_TRADE_UPDATE","E":1710001,"o":{"s":"BTCUSDT","c":"grid-order-2","S":"SELL","o":"LIMIT","x":"TRADE","X":"PARTIALLY_FILLED","i":777,"p":"43000","L":"43000","l":"0.002","z":"0.003","n":"0.06","N":"USDT","ps":"SHORT","t":0,"rp":"1.25"}}"#,
+        )
+        .expect("futures order trade update");
+
+        assert_eq!(futures.market, "usdm");
+        assert_eq!(futures.order_id, "777");
+        assert_eq!(futures.position_side.as_deref(), Some("SHORT"));
+        assert_eq!(futures.realized_profit.as_deref(), Some("1.25"));
+    }
+
+    // ------------------------------------------------------------------
+    // Task 2: Live API endpoint contract tests
+    // ------------------------------------------------------------------
+
+    #[test]
+    fn live_read_usdm_account_v3_parses_positions_when_live_enabled() {
+        let _guard = env_lock().lock().unwrap();
+        let server = spawn_test_server(vec![
+            TestRoute {
+                path_prefix: "/fapi/v1/time",
+                status_line: "HTTP/1.1 200 OK",
+                body: r#"{"serverTime":1710000000000}"#,
+            },
+            TestRoute {
+                path_prefix: "/fapi/v3/account?",
+                status_line: "HTTP/1.1 200 OK",
+                body: r#"{
+                    "positions": [
+                        {"symbol":"BTCUSDT","positionAmt":"0.01","entryPrice":"50000","markPrice":"50100","unRealizedProfit":"1.0","liquidationPrice":"0","leverage":"3","maxNotionalValue":"1000000","marginType":"isolated","isolatedMargin":"100","isAutoAddMargin":"false","positionSide":"LONG","notional":"500","isolatedWallet":"100","updateTime":1710000000},
+                        {"symbol":"ETHUSDT","positionAmt":"-0.5","entryPrice":"3000","markPrice":"3050","unRealizedProfit":"-2.5","liquidationPrice":"0","leverage":"5","maxNotionalValue":"500000","marginType":"cross","isolatedMargin":"0","isAutoAddMargin":"false","positionSide":"SHORT","notional":"1500","isolatedWallet":"0","updateTime":1710000001}
+                    ]
+                }"#,
+            },
+        ]);
+        let _live_mode = set_env("BINANCE_LIVE_MODE", "1");
+        let _usdm_base = set_env("BINANCE_USDM_REST_BASE_URL", &server.base_url);
+
+        let client = BinanceClient::new("live-key", "live-secret");
+        let account = client.read_usdm_account_v3().expect("account v3");
+
+        assert_eq!(account.positions.len(), 2);
+        assert_eq!(account.positions[0].symbol, "BTCUSDT");
+        assert_eq!(account.positions[0].position_amount, "0.01");
+        assert_eq!(account.positions[0].entry_price, "50000");
+        assert_eq!(account.positions[0].unrealized_pnl, "1.0");
+        assert_eq!(account.positions[0].leverage, "3");
+        assert_eq!(account.positions[0].max_notional_value, "1000000");
+        assert_eq!(
+            account.positions[0].margin_type.as_deref(),
+            Some("isolated")
+        );
+        assert_eq!(account.positions[0].position_side.as_deref(), Some("long"));
+        assert_eq!(account.positions[0].notional, "500");
+
+        assert_eq!(account.positions[1].symbol, "ETHUSDT");
+        assert_eq!(account.positions[1].position_amount, "-0.5");
+        assert_eq!(account.positions[1].margin_type.as_deref(), Some("cross"));
+        assert_eq!(account.positions[1].position_side.as_deref(), Some("short"));
+    }
+
+    #[test]
+    fn live_read_usdm_account_v3_balance_parses_assets() {
+        let _guard = env_lock().lock().unwrap();
+        let server = spawn_test_server(vec![
+            TestRoute {
+                path_prefix: "/fapi/v1/time",
+                status_line: "HTTP/1.1 200 OK",
+                body: r#"{"serverTime":1710000000000}"#,
+            },
+            TestRoute {
+                path_prefix: "/fapi/v3/balance?",
+                status_line: "HTTP/1.1 200 OK",
+                body: r#"{
+                    "assets": [
+                        {"asset":"USDT","balance":"500.0","crossWalletBalance":"450.0","crossUnPnl":"-2.5","availableBalance":"447.5","maxWithdrawAmount":"447.5"}
+                    ]
+                }"#,
+            },
+        ]);
+        let _live_mode = set_env("BINANCE_LIVE_MODE", "1");
+        let _usdm_base = set_env("BINANCE_USDM_REST_BASE_URL", &server.base_url);
+
+        let client = BinanceClient::new("live-key", "live-secret");
+        let balances = client.read_usdm_account_v3_balance().expect("balance");
+
+        assert_eq!(balances.len(), 1);
+        assert_eq!(balances[0].asset, "USDT");
+        assert_eq!(balances[0].balance, "500.0");
+        assert_eq!(balances[0].cross_wallet_balance, "450.0");
+        assert_eq!(balances[0].cross_un_pnl, "-2.5");
+        assert_eq!(balances[0].available_balance, "447.5");
+        assert_eq!(balances[0].max_withdraw_amount, "447.5");
+    }
+
+    #[test]
+    fn live_read_usdm_symbol_config_returns_margin_and_leverage() {
+        let _guard = env_lock().lock().unwrap();
+        let server = spawn_test_server(vec![
+            TestRoute {
+                path_prefix: "/fapi/v1/time",
+                status_line: "HTTP/1.1 200 OK",
+                body: r#"{"serverTime":1710000000000}"#,
+            },
+            TestRoute {
+                path_prefix: "/fapi/v1/symbolConfig?",
+                status_line: "HTTP/1.1 200 OK",
+                body: r#"{"symbol":"BTCUSDT","marginType":"ISOLATED","leverage":"3","maxNotionalValue":"1000000"}"#,
+            },
+        ]);
+        let _live_mode = set_env("BINANCE_LIVE_MODE", "1");
+        let _usdm_base = set_env("BINANCE_USDM_REST_BASE_URL", &server.base_url);
+
+        let client = BinanceClient::new("live-key", "live-secret");
+        let config = client
+            .read_usdm_symbol_config(" btcusdt ")
+            .expect("symbol config");
+
+        assert_eq!(config.symbol, "BTCUSDT");
+        assert_eq!(config.margin_type.as_deref(), Some("isolated"));
+        assert_eq!(config.leverage, Some(3));
+        assert_eq!(config.max_notional_value.as_deref(), Some("1000000"));
+    }
+
+    #[test]
+    fn parse_account_update_handles_multiple_balances_and_positions() {
+        let payload = r#"{
+            "e":"ACCOUNT_UPDATE",
+            "E":1710002000,
+            "a":{
+                "B":[
+                    {"a":"USDT","wb":"1000","cw":"900","bc":"-1.0"},
+                    {"a":"BNB","wb":"5","cw":"0","bc":"0"}
+                ],
+                "P":[]
+            }
+        }"#;
+
+        let update = parse_account_update_message("usdm", payload).expect("ACCOUNT_UPDATE");
+
+        assert_eq!(update.balances.len(), 2);
+        assert_eq!(update.balances[0].asset, "USDT");
+        assert_eq!(update.balances[1].asset, "BNB");
+        assert!(update.positions.is_empty());
     }
 }

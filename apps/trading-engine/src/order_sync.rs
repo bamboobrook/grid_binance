@@ -32,6 +32,9 @@ pub trait BinanceOrderGateway {
 pub struct OrderQuantizationRules {
     pub price_tick_size: Option<Decimal>,
     pub quantity_step_size: Option<Decimal>,
+    pub min_quantity: Option<Decimal>,
+    pub min_notional: Option<Decimal>,
+    pub client_order_id_max_len: usize,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -85,6 +88,7 @@ pub fn sync_strategy_orders(
             for order in &mut strategy.runtime.orders {
                 if order.status == "ClosingRequested" && order.exchange_order_id.is_none() {
                     let (_, quantity) = quantize_order(order, quantization);
+                    let ps = position_side(strategy.mode, &order.side);
                     let request = BinanceOrderRequest {
                         market: market_scope(strategy.market).to_string(),
                         symbol: strategy.symbol.clone(),
@@ -93,11 +97,19 @@ pub fn sync_strategy_orders(
                         quantity,
                         price: None,
                         time_in_force: None,
-                        reduce_only: (!matches!(strategy.market, StrategyMarket::Spot))
-                            .then_some(true),
-                        position_side: position_side(strategy.mode, &order.side),
+                        // Hedge Mode: never send reduceOnly when positionSide is set
+                        reduce_only: if !matches!(strategy.market, StrategyMarket::Spot) && ps.is_none() {
+                            Some(true)
+                        } else {
+                            None
+                        },
+                        position_side: ps,
                         client_order_id: Some(order.order_id.clone()),
                     };
+                    if let Err(error) = validate_order_before_placement(&request, quantization) {
+                        record_order_error(&mut result, &error);
+                        continue;
+                    }
                     match gateway.place_order(request) {
                         Ok(response) => {
                             order.exchange_order_id = Some(response.order_id);
@@ -147,6 +159,7 @@ pub fn sync_strategy_orders(
                     continue;
                 }
                 let (price, quantity) = quantize_order(order, quantization);
+                let ps = position_side(strategy.mode, &order.side);
                 let request = BinanceOrderRequest {
                     market: market_scope(strategy.market).to_string(),
                     symbol: strategy.symbol.clone(),
@@ -156,12 +169,22 @@ pub fn sync_strategy_orders(
                     price,
                     time_in_force: (order.order_type.eq_ignore_ascii_case("Limit"))
                         .then(|| "GTC".to_string()),
-                    reduce_only: (!matches!(strategy.market, StrategyMarket::Spot)
-                        && is_exit_order(order))
-                    .then_some(true),
-                    position_side: position_side(strategy.mode, &order.side),
+                    // Hedge Mode: never send reduceOnly when positionSide is set
+                    reduce_only: if !matches!(strategy.market, StrategyMarket::Spot)
+                        && is_exit_order(order)
+                        && ps.is_none()
+                    {
+                        Some(true)
+                    } else {
+                        None
+                    },
+                    position_side: ps,
                     client_order_id: Some(order.order_id.clone()),
                 };
+                if let Err(error) = validate_order_before_placement(&request, quantization) {
+                    record_order_error(&mut result, &error);
+                    continue;
+                }
                 match gateway.place_order(request) {
                     Ok(response) => {
                         order.exchange_order_id = Some(response.order_id);
@@ -394,6 +417,7 @@ fn submit_close_orders(
             continue;
         }
         let (_, quantity) = quantize_order(order, quantization);
+        let position_side = close_position_side_for_order(&positions, market, mode, order);
         let request = BinanceOrderRequest {
             market: market_scope(market).to_string(),
             symbol: symbol.clone(),
@@ -402,8 +426,13 @@ fn submit_close_orders(
             quantity,
             price: None,
             time_in_force: None,
-            reduce_only: (!matches!(market, StrategyMarket::Spot)).then_some(true),
-            position_side: close_position_side_for_order(&positions, market, mode, order),
+            // Hedge Mode: never send reduceOnly (positionSide is used instead)
+            reduce_only: if !matches!(market, StrategyMarket::Spot) && position_side.is_none() {
+                Some(true)
+            } else {
+                None
+            },
+            position_side,
             client_order_id: Some(order.order_id.clone()),
         };
         match gateway.place_order(request) {
@@ -482,6 +511,65 @@ fn quantize_order(
             .to_string()
     });
     (price, quantity)
+}
+
+/// Validate an order before submitting to Binance. Returns an error string
+/// if the order would be rejected by the exchange due to:
+/// - client_order_id exceeding the maximum length
+/// - quantity below the minimum
+/// - notional value below the minimum
+fn validate_order_before_placement(
+    request: &BinanceOrderRequest,
+    rules: Option<&OrderQuantizationRules>,
+) -> Result<(), String> {
+    let Some(rules) = rules else {
+        return Ok(());
+    };
+    // Client order id length check
+    if let Some(ref client_order_id) = request.client_order_id {
+        if rules.client_order_id_max_len > 0
+            && client_order_id.len() > rules.client_order_id_max_len
+        {
+            return Err(format!(
+                "clientOrderId '{}' ({} chars) exceeds Binance limit of {} chars",
+                client_order_id,
+                client_order_id.len(),
+                rules.client_order_id_max_len
+            ));
+        }
+    }
+    // Minimum quantity check
+    if let Some(min_qty) = rules.min_quantity.filter(|v| *v > Decimal::ZERO) {
+        if let Ok(qty) = request.quantity.parse::<Decimal>() {
+            if qty < min_qty {
+                return Err(format!(
+                    "order quantity {} is below minimum {} for {}",
+                    qty.normalize(),
+                    min_qty.normalize(),
+                    request.symbol
+                ));
+            }
+        }
+    }
+    // Minimum notional check
+    if let Some(min_notional) = rules.min_notional.filter(|v| *v > Decimal::ZERO) {
+        if let (Ok(qty), Some(ref price_str)) =
+            (request.quantity.parse::<Decimal>(), request.price.as_ref())
+        {
+            if let Ok(price) = price_str.parse::<Decimal>() {
+                let notional = (qty * price).normalize();
+                if notional < min_notional {
+                    return Err(format!(
+                        "order notional {} is below minimum {} for {}",
+                        notional,
+                        min_notional.normalize(),
+                        request.symbol
+                    ));
+                }
+            }
+        }
+    }
+    Ok(())
 }
 
 fn normalize_to_step(value: Decimal, step: Option<Decimal>) -> Decimal {

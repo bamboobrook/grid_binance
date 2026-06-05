@@ -2,7 +2,8 @@ use axum::{extract::State, http::header, response::IntoResponse, routing::get, R
 use chrono::Utc;
 use futures_util::{SinkExt, StreamExt};
 use shared_binance::{
-    parse_user_data_message, BinanceClient, BinanceUserDataStream, CredentialCipher,
+    parse_account_update_message, parse_user_data_message, BinanceAccountUpdate, BinanceClient,
+    BinanceUserDataStream, CredentialCipher,
 };
 use shared_db::{MartingalePortfolioRecord, NotificationLogRecord, SharedDb};
 use shared_domain::martingale::{
@@ -12,7 +13,8 @@ use shared_domain::martingale::{
 };
 use shared_domain::strategy::Decimal;
 use shared_domain::strategy::{
-    Strategy, StrategyRuntimeEvent, StrategyRuntimeOrder, StrategyStatus, StrategyType,
+    Strategy, StrategyRuntimeEvent, StrategyRuntimeOrder, StrategyRuntimePosition,
+    StrategyStatus, StrategyType,
 };
 use shared_events::{MarketTick, NotificationKind};
 use std::sync::{LazyLock, OnceLock};
@@ -30,7 +32,7 @@ use trading_engine::{
     martingale_recovery::{recover_martingale_runtime, MartingaleRecoveryInput, RecoveryPosition},
     martingale_runtime::{
         FuturesExchangeSettings, FuturesSymbolSettings, MartingaleRuntime, MartingaleRuntimeConfig,
-        MartingaleRuntimeContext,
+        MartingaleRuntimeContext, MartingaleRuntimeOrder,
     },
     order_sync::{sync_strategy_orders, OrderQuantizationRules},
     strategy_runtime::StrategyRuntimeEngine,
@@ -249,7 +251,7 @@ fn reconcile_once(
 
 fn reconcile_running_martingale_portfolios(
     db: &SharedDb,
-    cipher: Option<&CredentialCipher>,
+    _cipher: Option<&CredentialCipher>,
 ) -> Result<(), shared_db::SharedDbError> {
     for portfolio in db.backtest_repo().list_running_martingale_portfolios()? {
         if portfolio
@@ -260,42 +262,160 @@ fn reconcile_running_martingale_portfolios(
         {
             continue;
         }
-        let settings = futures_settings_from_portfolio(&portfolio)?;
-        if let Some(cipher) = cipher {
-            ensure_futures_exchange_settings(db, &portfolio, cipher, &settings)?;
+        // Verify exchange preconfigure readiness; do NOT mutate exchange
+        // settings from the executor loop.
+        let preconfigure_status = portfolio
+            .risk_summary
+            .get("exchange_preconfigure")
+            .and_then(|v| v.get("status"))
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or("");
+        if preconfigure_status != "ready" {
+            eprintln!(
+                "trading-engine portfolio {} exchange_preconfigure status is '{}'; blocking",
+                portfolio.portfolio_id, preconfigure_status
+            );
+            continue;
         }
+        let _settings = futures_settings_from_portfolio(&portfolio)?;
         let config = martingale_runtime_config_from_portfolio(&portfolio)?;
-        let mut runtime = MartingaleRuntime::new(config)
-            .map_err(|error| shared_db::SharedDbError::new(error.to_string()))?;
-        runtime
-            .preflight_start(&settings)
-            .map_err(|error| shared_db::SharedDbError::new(error.to_string()))?;
+
+        // Per-strategy start_cycle + order generation
+        let strategies_config = portfolio
+            .config
+            .get("portfolio_config")
+            .and_then(|config| config.get("strategies"))
+            .and_then(serde_json::Value::as_array)
+            .cloned()
+            .unwrap_or_default();
+
+        let mut total_orders: usize = 0;
+        let mut cycle_results: Vec<serde_json::Value> = Vec::new();
+        let mut computed_orders: Vec<(String, Vec<MartingaleRuntimeOrder>)> = Vec::new();
+
+        for strategy_config in &strategies_config {
+            let strategy_id = strategy_config
+                .get("strategy_id")
+                .and_then(serde_json::Value::as_str)
+                .unwrap_or("");
+            if strategy_id.is_empty() {
+                continue;
+            }
+            // Anchor price: prefer config anchor_price, fallback to reference_price
+            let anchor_price = strategy_config
+                .get("anchor_price")
+                .and_then(serde_json::Value::as_str)
+                .and_then(|v| v.parse::<rust_decimal::Decimal>().ok())
+                .or_else(|| {
+                    strategy_config
+                        .get("reference_price")
+                        .and_then(serde_json::Value::as_str)
+                        .and_then(|v| v.parse::<rust_decimal::Decimal>().ok())
+                })
+                .filter(|v| *v > rust_decimal::Decimal::ZERO)
+                .unwrap_or(rust_decimal::Decimal::ZERO);
+            if anchor_price <= rust_decimal::Decimal::ZERO {
+                cycle_results.push(serde_json::json!({
+                    "strategy_id": strategy_id,
+                    "anchor_price": "0",
+                    "order_count": 0,
+                    "status": "blocked",
+                    "error": "no valid positive anchor_price or reference_price in strategy config",
+                }));
+                continue;
+            }
+
+            let mut runtime = MartingaleRuntime::new(config.clone())
+                .map_err(|error| shared_db::SharedDbError::new(error.to_string()))?;
+
+            match runtime.start_cycle_with_futures_preflight(
+                &_settings,
+                strategy_id,
+                anchor_price,
+                MartingaleRuntimeContext::default(),
+            ) {
+                Ok(()) => {
+                    let orders: Vec<MartingaleRuntimeOrder> = runtime.orders().to_vec();
+                    let count = orders.len();
+                    total_orders += count;
+                    computed_orders.push((strategy_id.to_string(), orders));
+                    cycle_results.push(serde_json::json!({
+                        "strategy_id": strategy_id,
+                        "anchor_price": anchor_price.normalize().to_string(),
+                        "order_count": count,
+                        "status": "ok",
+                    }));
+                }
+                Err(error) => {
+                    cycle_results.push(serde_json::json!({
+                        "strategy_id": strategy_id,
+                        "anchor_price": anchor_price.normalize().to_string(),
+                        "order_count": 0,
+                        "status": "error",
+                        "error": error.to_string(),
+                    }));
+                }
+            }
+        }
+
+        // Persist computed orders to Strategy runtime so live-stats can find them.
+        // Strategy.id matches config.strategy_id (e.g. "btc-long").
+        for (strategy_id, orders) in &computed_orders {
+            if orders.is_empty() {
+                continue;
+            }
+            if let Some(mut strategy) = db.find_strategy(&portfolio.owner, strategy_id)? {
+                let runtime_orders: Vec<StrategyRuntimeOrder> = orders
+                    .iter()
+                    .map(|o| StrategyRuntimeOrder {
+                        order_id: o.client_order_id.clone(),
+                        exchange_order_id: o.exchange_order_id.clone(),
+                        level_index: Some(o.leg_index),
+                        side: o.side.clone(),
+                        order_type: "Limit".to_string(),
+                        price: Some(o.price),
+                        quantity: o.quantity,
+                        status: match o.status {
+                            _ => "Working".to_string(),
+                        },
+                    })
+                    .collect();
+                strategy.runtime.orders = runtime_orders;
+                db.update_strategy(&strategy)?;
+            }
+        }
+
+        let started = total_orders > 0;
         let summary = serde_json::json!({
-            "live_executor_ready": true,
-            "strategy_count": portfolio.config
-                .get("portfolio_config")
-                .and_then(|config| config.get("strategies"))
-                .and_then(serde_json::Value::as_array)
-                .map(|strategies| strategies.len())
-                .unwrap_or(0),
-            "order_count": runtime.orders().len(),
-            "orders": runtime.orders().iter().map(|order| serde_json::json!({
-                "client_order_id": order.client_order_id,
-                "strategy_id": order.strategy_id,
-                "symbol": order.symbol,
-                "side": order.side,
-                "price": order.price.to_string(),
-                "quantity": order.quantity.to_string(),
-                "notional_quote": order.notional_quote.to_string(),
-                "status": format!("{:?}", order.status),
-            })).collect::<Vec<_>>(),
+            "live_executor_state": if started { "started" } else { "blocked" },
+            "live_executor_started": started,
+            "live_executor_ready": started,
+            "strategy_count": strategies_config.len(),
+            "order_count": total_orders,
+            "cycle_results": cycle_results,
         });
         db.backtest_repo()
             .upsert_martingale_live_snapshot(&portfolio, summary)?;
+        // Also write back to risk_summary so the skip check works next iteration
+        // and live-stats can fallback when Strategy runtime is empty.
+        let mut risk_summary = portfolio.risk_summary.clone();
+        risk_summary["live_executor_started"] = serde_json::json!(started);
+        risk_summary["live_executor_state"] =
+            serde_json::json!(if started { "started" } else { "blocked" });
+        risk_summary["order_count"] = serde_json::json!(total_orders);
+        risk_summary["strategy_count"] = serde_json::json!(strategies_config.len());
+        risk_summary["cycle_results"] = serde_json::json!(cycle_results);
+        db.backtest_repo()
+            .update_martingale_portfolio_risk_summary(
+                &portfolio.owner,
+                &portfolio.portfolio_id,
+                risk_summary,
+            )?;
     }
     Ok(())
 }
 
+#[allow(dead_code)]
 fn ensure_futures_exchange_settings(
     db: &SharedDb,
     portfolio: &MartingalePortfolioRecord,
@@ -485,9 +605,24 @@ fn strategy_quantization_rules(
         .and_then(|filters| filters.get("quantity_step_size"))
         .and_then(|value| value.as_str())
         .and_then(|value| value.parse::<rust_decimal::Decimal>().ok());
+    let min_quantity = symbol
+        .metadata
+        .get("filters")
+        .and_then(|filters| filters.get("min_quantity"))
+        .and_then(|value| value.as_str())
+        .and_then(|value| value.parse::<rust_decimal::Decimal>().ok());
+    let min_notional = symbol
+        .metadata
+        .get("filters")
+        .and_then(|filters| filters.get("min_notional"))
+        .and_then(|value| value.as_str())
+        .and_then(|value| value.parse::<rust_decimal::Decimal>().ok());
     Ok(Some(OrderQuantizationRules {
         price_tick_size,
         quantity_step_size,
+        min_quantity,
+        min_notional,
+        client_order_id_max_len: 36,
     }))
 }
 
@@ -1192,14 +1327,18 @@ async fn run_user_stream_once(
     email: &str,
     market: &str,
 ) -> Result<(), shared_db::SharedDbError> {
+    let cipher = credential_cipher()?;
     let Some(credentials) = db.find_exchange_credentials(email, BINANCE_EXCHANGE)? else {
         return Ok(());
     };
-    let cipher = credential_cipher()?;
     let (api_key, api_secret) = cipher
         .decrypt(&credentials.encrypted_secret)
         .map_err(|error| shared_db::SharedDbError::new(error.to_string()))?;
-    let client = BinanceClient::new(api_key, api_secret);
+    let client = BinanceClient::new(api_key.clone(), api_secret);
+    // REST reconciliation after stream (re)connect
+    if market == "usdm" {
+        run_user_stream_rest_backfill(db, email, &client, market)?;
+    }
     let stream = client
         .start_user_data_stream(market)
         .map_err(|error| shared_db::SharedDbError::new(error.to_string()))?;
@@ -1254,6 +1393,9 @@ async fn run_user_stream_once(
         if let Some(update) = parse_user_data_message(market, &payload) {
             apply_execution_update_for_user(db, email, &client, &update)?;
         }
+        if let Some(account_update) = parse_account_update_message(market, &payload) {
+            apply_account_update_for_user(db, email, &account_update)?;
+        }
     }
     Ok(())
 }
@@ -1280,6 +1422,420 @@ fn apply_execution_update_effects(
         created_at: Utc::now(),
     });
     Ok(true)
+}
+
+/// Run REST reconciliation after stream (re)connect.
+/// Backfills openOrders, userTrades, account and balance positions.
+fn run_user_stream_rest_backfill(
+    db: &SharedDb,
+    email: &str,
+    client: &BinanceClient,
+    market: &str,
+) -> Result<(), shared_db::SharedDbError> {
+    if market != "usdm" {
+        return Ok(());
+    }
+    // Reconcile open orders by client_order_id
+    for mut strategy in db.list_strategies(email)? {
+        if !matches!(
+            strategy.market,
+            shared_domain::strategy::StrategyMarket::FuturesUsdM
+        ) {
+            continue;
+        }
+        if let Ok(orders) = client.open_orders(market, &strategy.symbol) {
+            for order in &orders {
+                if let Some(ref client_id) = order.client_order_id {
+                    for runtime_order in &mut strategy.runtime.orders {
+                        if runtime_order.order_id == *client_id
+                            && runtime_order.exchange_order_id.is_none()
+                        {
+                            runtime_order.exchange_order_id = Some(order.order_id.clone());
+                            if runtime_order.status != "Filled" {
+                                runtime_order.status = "Placed".to_string();
+                            }
+                            break;
+                        }
+                    }
+                }
+            }
+            db.update_strategy(&strategy)?;
+        }
+    }
+    // Reconcile user trades idempotently --- write structured trade history
+    // with real commission from Binance userTrades.commission (not price*0.001).
+    for mut strategy in db.list_strategies(email)? {
+        if !matches!(
+            strategy.market,
+            shared_domain::strategy::StrategyMarket::FuturesUsdM
+        ) {
+            continue;
+        }
+        if let Ok(trades) = client.user_trades(market, &strategy.symbol, 100) {
+            for trade in &trades {
+                // Persist to exchange_account_trade_history idempotently by trade_id.
+                let existing = db
+                    .list_exchange_trade_history(email)?
+                    .iter()
+                    .any(|t| t.trade_id == trade.trade_id);
+                if !existing {
+                    let _ = db.insert_exchange_trade_history(
+                        &shared_db::ExchangeTradeHistoryRecord {
+                            trade_id: trade.trade_id.clone(),
+                            user_email: email.to_string(),
+                            exchange: "binance".to_string(),
+                            symbol: strategy.symbol.clone(),
+                            side: trade.side.clone(),
+                            quantity: trade.quantity.clone(),
+                            price: trade.price.clone(),
+                            fee_amount: trade.fee_amount.clone(),
+                            fee_asset: trade.fee_asset.clone(),
+                            traded_at: chrono::DateTime::from_timestamp_millis(
+                                trade.traded_at_ms,
+                            )
+                            .unwrap_or(Utc::now()),
+                        },
+                    );
+                }
+                let trade_id = format!(
+                    "{}_{}",
+                    trade.order_id.as_deref().unwrap_or(""),
+                    trade.trade_id
+                );
+                if strategy
+                    .runtime
+                    .events
+                    .iter()
+                    .any(|ev| ev.event_type == "trade" && ev.detail.contains(&trade_id))
+                {
+                    continue;
+                }
+                strategy.runtime.events.push(StrategyRuntimeEvent {
+                    event_type: "trade".to_string(),
+                    detail: format!(
+                        "backfilled trade {trade_id} price={} qty={}",
+                        trade.price, trade.quantity
+                    ),
+                    price: trade.price.parse::<rust_decimal::Decimal>().ok(),
+                    created_at: Utc::now(),
+                });
+            }
+            db.update_strategy(&strategy)?;
+        }
+    }
+    // Reconcile account positions (create if missing).
+    // Collect total_unrealized at function scope so it can be merged with income
+    // into a single account profit snapshot.
+    let mut total_unrealized: rust_decimal::Decimal = rust_decimal::Decimal::ZERO;
+    if let Ok(account) = client.read_usdm_account_v3() {
+        let mut seen_positions: HashSet<(String, String)> = HashSet::new();
+        for pos in &account.positions {
+            let side = pos.position_side.clone().unwrap_or_else(|| "long".to_string());
+            let key = (pos.symbol.to_ascii_uppercase(), side.clone());
+            if seen_positions.insert(key) {
+                let unrealized: rust_decimal::Decimal =
+                    pos.unrealized_pnl.parse().unwrap_or_default();
+                total_unrealized += unrealized;
+            }
+        }
+        for mut strategy in db.list_strategies(email)? {
+            let mut dirty = false;
+            for pos in &account.positions {
+                if !strategy.symbol.eq_ignore_ascii_case(&pos.symbol) {
+                    continue;
+                }
+                let amount: rust_decimal::Decimal = pos.position_amount.parse().unwrap_or_default();
+                if amount.is_zero() {
+                    continue;
+                }
+                if strategy.runtime.positions.is_empty() {
+                    strategy.runtime.positions.push(
+                        StrategyRuntimePosition {
+                        market: shared_domain::strategy::StrategyMarket::FuturesUsdM,
+                        mode: if pos.position_side.as_deref() == Some("short") {
+                            shared_domain::strategy::StrategyMode::FuturesShort
+                        } else {
+                            shared_domain::strategy::StrategyMode::FuturesLong
+                        },
+                        quantity: amount,
+                        average_entry_price: pos.entry_price.parse().unwrap_or_default(),
+                    });
+                    dirty = true;
+                    continue;
+                }
+                for runtime_pos in &mut strategy.runtime.positions {
+                    runtime_pos.quantity = amount;
+                    if let Ok(entry) = pos.entry_price.parse::<rust_decimal::Decimal>() {
+                        runtime_pos.average_entry_price = entry;
+                    }
+                    dirty = true;
+                }
+            }
+            if dirty {
+                db.update_strategy(&strategy)?;
+            }
+        }
+    }
+    // Reconcile income: FUNDING_FEE, COMMISSION, REALIZED_PNL --- collect totals
+    // then write a single merged account snapshot containing realized, fees, and funding.
+    let mut total_funding: rust_decimal::Decimal = rust_decimal::Decimal::ZERO;
+    let mut total_commission: rust_decimal::Decimal = rust_decimal::Decimal::ZERO;
+    let mut total_realized: rust_decimal::Decimal = rust_decimal::Decimal::ZERO;
+    for mut strategy in db.list_strategies(email)? {
+        if !matches!(strategy.market, shared_domain::strategy::StrategyMarket::FuturesUsdM) {
+            continue;
+        }
+        if let Ok(incomes) = client.read_usdm_income(&strategy.symbol, None, 100) {
+            for income in &incomes {
+                let income_type = income
+                    .get("incomeType")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("");
+                let income_id = income.get("tranId").and_then(|v| v.as_i64()).unwrap_or(0);
+                let income_uid = format!("income_{income_type}_{income_id}");
+                if strategy
+                    .runtime
+                    .events
+                    .iter()
+                    .any(|ev| ev.event_type == "income" && ev.detail.contains(&income_uid))
+                {
+                    continue;
+                }
+                let amount: rust_decimal::Decimal = income
+                    .get("income")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("0")
+                    .parse()
+                    .unwrap_or_default();
+                match income_type {
+                    "COMMISSION" => total_commission += amount,
+                    "FUNDING_FEE" => total_funding += amount,
+                    "REALIZED_PNL" => total_realized += amount,
+                    _ => {}
+                }
+                strategy.runtime.events.push(StrategyRuntimeEvent {
+                    event_type: "income".to_string(),
+                    detail: format!(
+                        "backfilled {} income={} asset={} id={}",
+                        income_uid,
+                        amount,
+                        income.get("asset").and_then(|v| v.as_str()).unwrap_or(""),
+                        income_id,
+                    ),
+                    price: Some(amount),
+                    created_at: Utc::now(),
+                });
+            }
+            db.update_strategy(&strategy)?;
+        }
+    }
+    // Write a single merged account snapshot with all fields populated
+    // (realized from income, unrealized from account_v3, fees/funding from income).
+    let needs_snapshot = total_realized != rust_decimal::Decimal::ZERO
+        || total_commission != rust_decimal::Decimal::ZERO
+        || total_funding != rust_decimal::Decimal::ZERO
+        || total_unrealized != rust_decimal::Decimal::ZERO;
+    if needs_snapshot {
+        let _ = db.insert_account_profit_snapshot(
+            &shared_db::AccountProfitSnapshotRecord {
+                user_email: email.to_string(),
+                exchange: "binance".to_string(),
+                realized_pnl: total_realized.to_string(),
+                unrealized_pnl: total_unrealized.to_string(),
+                fees: total_commission.to_string(),
+                funding: Some(total_funding.to_string()),
+                captured_at: Utc::now(),
+            },
+        );
+    }
+    // Reconcile balances --- persist to exchange_wallet_snapshots (structured table).
+    if let Ok(balances) = client.read_usdm_account_v3_balance() {
+        let mut wallet_balances: serde_json::Map<String, serde_json::Value> =
+            serde_json::Map::new();
+        for balance in &balances {
+            wallet_balances.insert(
+                balance.asset.clone(),
+                serde_json::json!(balance.balance),
+            );
+        }
+        let _ = db.insert_exchange_wallet_snapshot(
+            &shared_db::ExchangeWalletSnapshotRecord {
+                user_email: email.to_string(),
+                exchange: "binance".to_string(),
+                wallet_type: "futures".to_string(),
+                balances: serde_json::Value::Object(wallet_balances),
+                captured_at: Utc::now(),
+            },
+        );
+    }
+
+    // Persist last_rest_reconcile_at timestamp across all strategies
+    for mut strategy in db.list_strategies(email)? {
+        let ts = Utc::now().to_rfc3339();
+        if !strategy
+            .runtime
+            .events
+            .iter()
+            .any(|ev| ev.event_type == "last_rest_reconcile_at")
+        {
+            strategy.runtime.events.push(StrategyRuntimeEvent {
+                event_type: "last_rest_reconcile_at".to_string(),
+                detail: ts,
+                price: None,
+                created_at: Utc::now(),
+            });
+        } else {
+            for ev in &mut strategy.runtime.events {
+                if ev.event_type == "last_rest_reconcile_at" {
+                    ev.detail = ts.clone();
+                    ev.created_at = Utc::now();
+                }
+            }
+        }
+        db.update_strategy(&strategy)?;
+    }
+
+    Ok(())
+}
+
+/// Apply ACCOUNT_UPDATE event. Creates position snapshots when none exist,
+/// and writes structured wallet and profit snapshots.
+/// Deduplicates (symbol, positionSide) to avoid double-counting unrealized_pnl
+/// when the same exchange position maps to multiple strategies.
+fn apply_account_update_for_user(
+    db: &SharedDb,
+    email: &str,
+    update: &BinanceAccountUpdate,
+) -> Result<(), shared_db::SharedDbError> {
+    let mut seen_positions: HashSet<(String, String)> = HashSet::new();
+    let mut total_unrealized: rust_decimal::Decimal = rust_decimal::Decimal::ZERO;
+    let mut wallet_balances: serde_json::Map<String, serde_json::Value> =
+        serde_json::Map::new();
+
+    for pos_update in &update.positions {
+        let side = pos_update.position_side.clone().unwrap_or_else(|| "long".to_string());
+        let key = (pos_update.symbol.to_ascii_uppercase(), side.clone());
+        if seen_positions.insert(key) {
+            let unrealized: rust_decimal::Decimal =
+                pos_update.unrealized_pnl.parse().unwrap_or_default();
+            total_unrealized += unrealized;
+        }
+    }
+
+    for mut strategy in db.list_strategies(email)? {
+        let strategy_lock_arc = strategy_lock(&strategy.id);
+        let _strategy_guard = strategy_lock_arc.lock().expect("strategy lock poisoned");
+        let mut dirty = false;
+        for pos_update in &update.positions {
+            if !strategy.symbol.eq_ignore_ascii_case(&pos_update.symbol) {
+                continue;
+            }
+            let amount: rust_decimal::Decimal =
+                pos_update.position_amount.parse().unwrap_or_default();
+            let entry: rust_decimal::Decimal = pos_update.entry_price.parse().unwrap_or_default();
+            let mode = match pos_update.position_side.as_deref() {
+                Some("short") | Some("SHORT") => shared_domain::strategy::StrategyMode::FuturesShort,
+                _ => shared_domain::strategy::StrategyMode::FuturesLong,
+            };
+
+            let pos_index = strategy.runtime.positions.iter().position(|rp| {
+                rp.market == shared_domain::strategy::StrategyMarket::FuturesUsdM
+                    && rp.mode == mode
+            });
+
+            if amount.is_zero() {
+                if let Some(idx) = pos_index {
+                    strategy.runtime.positions[idx].quantity = rust_decimal::Decimal::ZERO;
+                    dirty = true;
+                }
+                continue;
+            }
+
+            match pos_index {
+                Some(idx) => {
+                    strategy.runtime.positions[idx].quantity = amount;
+                    if entry > rust_decimal::Decimal::ZERO {
+                        strategy.runtime.positions[idx].average_entry_price = entry;
+                    }
+                    dirty = true;
+                }
+                None => {
+                    strategy.runtime.positions.push(StrategyRuntimePosition {
+                        market: shared_domain::strategy::StrategyMarket::FuturesUsdM,
+                        mode,
+                        quantity: amount,
+                        average_entry_price: entry,
+                    });
+                    dirty = true;
+                }
+            }
+        }
+        // Collect wallet balances from ACCOUNT_UPDATE
+        for balance_update in &update.balances {
+            wallet_balances.insert(
+                balance_update.asset.clone(),
+                serde_json::json!(balance_update.wallet_balance),
+            );
+        }
+        // Persist last_stream_event_at timestamp
+        let ts = Utc::now().to_rfc3339();
+        if !strategy
+            .runtime
+            .events
+            .iter()
+            .any(|ev| ev.event_type == "last_stream_event_at")
+        {
+            strategy.runtime.events.push(StrategyRuntimeEvent {
+                event_type: "last_stream_event_at".to_string(),
+                detail: ts,
+                price: None,
+                created_at: Utc::now(),
+            });
+            dirty = true;
+        } else {
+            for ev in &mut strategy.runtime.events {
+                if ev.event_type == "last_stream_event_at" {
+                    ev.detail = ts.clone();
+                    ev.created_at = Utc::now();
+                    dirty = true;
+                }
+            }
+        }
+
+        if dirty {
+            db.update_strategy(&strategy)?;
+        }
+    }
+
+    // Write structured wallet snapshot
+    if !wallet_balances.is_empty() {
+        let _ = db.insert_exchange_wallet_snapshot(
+            &shared_db::ExchangeWalletSnapshotRecord {
+                user_email: email.to_string(),
+                exchange: "binance".to_string(),
+                wallet_type: "futures".to_string(),
+                balances: serde_json::Value::Object(wallet_balances),
+                captured_at: Utc::now(),
+            },
+        );
+    }
+
+    // Write account profit snapshot if we have unrealized data
+    if total_unrealized != rust_decimal::Decimal::ZERO {
+        let _ = db.insert_account_profit_snapshot(
+            &shared_db::AccountProfitSnapshotRecord {
+                user_email: email.to_string(),
+                exchange: "binance".to_string(),
+                realized_pnl: "0".to_string(),
+                unrealized_pnl: total_unrealized.to_string(),
+                fees: "0".to_string(),
+                funding: Some("0".to_string()),
+                captured_at: Utc::now(),
+            },
+        );
+    }
+
+    Ok(())
 }
 
 fn apply_execution_update_for_user(
@@ -1380,7 +1936,8 @@ mod tests {
     use shared_domain::strategy::{
         GridGeneration, GridLevel, PostTriggerAction, ReferencePriceSource, RuntimeControls,
         Strategy, StrategyAmountMode, StrategyMarket, StrategyMode, StrategyRevision,
-        StrategyRuntime, StrategyRuntimePhase, StrategyStatus, StrategyType,
+        StrategyRuntime, StrategyRuntimePhase, StrategyRuntimePosition, StrategyStatus,
+        StrategyType,
     };
     use std::{
         collections::HashMap,
@@ -1594,7 +2151,7 @@ mod tests {
         std::env::remove_var("TELEGRAM_BOT_TOKEN");
         let metrics = Arc::new(Mutex::new(RuntimeMetrics::default()));
         let mut running = strategy("notify-tg-fail", StrategyStatus::Running);
-        running.runtime.positions = vec![shared_domain::strategy::StrategyRuntimePosition {
+        running.runtime.positions = vec![StrategyRuntimePosition {
             market: StrategyMarket::Spot,
             mode: StrategyMode::SpotClassic,
             quantity: Decimal::new(1, 0),
@@ -1651,7 +2208,7 @@ mod tests {
         let db = SharedDb::ephemeral().expect("db");
         let metrics = Arc::new(Mutex::new(RuntimeMetrics::default()));
         let mut running = strategy("notify-tp", StrategyStatus::Running);
-        running.runtime.positions = vec![shared_domain::strategy::StrategyRuntimePosition {
+        running.runtime.positions = vec![StrategyRuntimePosition {
             market: StrategyMarket::Spot,
             mode: StrategyMode::SpotClassic,
             quantity: Decimal::new(1, 0),
@@ -1706,7 +2263,7 @@ mod tests {
         let db = SharedDb::ephemeral().expect("db");
         let metrics = Arc::new(Mutex::new(RuntimeMetrics::default()));
         let mut running = strategy("stopping-tp", StrategyStatus::Running);
-        running.runtime.positions = vec![shared_domain::strategy::StrategyRuntimePosition {
+        running.runtime.positions = vec![StrategyRuntimePosition {
             market: StrategyMarket::Spot,
             mode: StrategyMode::SpotClassic,
             quantity: Decimal::new(1, 0),
@@ -1778,7 +2335,7 @@ mod tests {
         let metrics = Arc::new(Mutex::new(RuntimeMetrics::default()));
         let mut running = strategy("stopping-tp-short", StrategyStatus::Running);
         running.mode = StrategyMode::FuturesShort;
-        running.runtime.positions = vec![shared_domain::strategy::StrategyRuntimePosition {
+        running.runtime.positions = vec![StrategyRuntimePosition {
             market: StrategyMarket::FuturesUsdM,
             mode: StrategyMode::FuturesShort,
             quantity: Decimal::new(1, 0),
@@ -1919,7 +2476,7 @@ mod tests {
         let db = SharedDb::ephemeral().expect("db");
         let metrics = Arc::new(Mutex::new(RuntimeMetrics::default()));
         let mut running = strategy("tick", StrategyStatus::Running);
-        running.runtime.positions = vec![shared_domain::strategy::StrategyRuntimePosition {
+        running.runtime.positions = vec![StrategyRuntimePosition {
             market: StrategyMarket::Spot,
             mode: StrategyMode::SpotClassic,
             quantity: Decimal::new(1, 0),
@@ -2185,7 +2742,7 @@ mod tests {
         running
             .runtime
             .positions
-            .push(shared_domain::strategy::StrategyRuntimePosition {
+            .push(StrategyRuntimePosition {
                 market: StrategyMarket::FuturesUsdM,
                 mode: StrategyMode::FuturesLong,
                 quantity: Decimal::new(1, 0),

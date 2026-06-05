@@ -3,6 +3,7 @@ use axum::{
     response::{IntoResponse, Response},
     Json,
 };
+use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use shared_db::{
@@ -230,10 +231,84 @@ impl MartingalePublishService {
                 "portfolio cannot be started from current status",
             ));
         }
+
+        // --- Readiness gate: exchange preconfigure must be ready and fresh ---
+        let preconfigure = portfolio
+            .risk_summary
+            .get("exchange_preconfigure")
+            .ok_or_else(|| {
+                PublishError::conflict(
+                    "exchange preconfigure is required before starting; run exchange preconfigure first",
+                )
+            })?;
+        let preconfigure_status = preconfigure
+            .get("status")
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or("");
+        if preconfigure_status != "ready" {
+            return Err(PublishError::conflict(format!(
+                "exchange preconfigure status is '{}'; re-run exchange preconfigure to confirm readiness",
+                preconfigure_status
+            )));
+        }
+        // Check TTL: preconfigure must be within 10 minutes
+        const PRECONFIGURE_TTL_SECS: i64 = 600;
+        if let Some(checked_at) = preconfigure.get("checked_at").and_then(|v| v.as_str()) {
+            if let Ok(checked_dt) = chrono::DateTime::parse_from_rfc3339(checked_at) {
+                let age_secs = (Utc::now() - checked_dt.with_timezone(&Utc)).num_seconds();
+                if age_secs > PRECONFIGURE_TTL_SECS {
+                    return Err(PublishError::conflict(
+                        "exchange preconfigure snapshot is stale; re-run exchange preconfigure",
+                    ));
+                }
+            }
+        }
+
+        // --- Strategy count check ---
+        let enabled_count = portfolio.items.iter().filter(|item| item.enabled).count();
+        if enabled_count == 0 {
+            return Err(PublishError::conflict(
+                "portfolio has no enabled strategy instances",
+            ));
+        }
+
+        // --- Config validation ---
+        let portfolio_config_value = portfolio
+            .config
+            .get("portfolio_config")
+            .ok_or_else(|| PublishError::conflict("portfolio_config is missing"))?;
+        let portfolio_config: shared_domain::martingale::MartingalePortfolioConfig =
+            serde_json::from_value(portfolio_config_value.clone()).map_err(|error| {
+                PublishError::conflict(format!("invalid portfolio config: {error}"))
+            })?;
+        portfolio_config.validate().map_err(|error| {
+            PublishError::conflict(format!("config validation failed: {error}"))
+        })?;
+
         validate_running_futures_conflicts(
             &self.repo.list_martingale_portfolios(owner)?,
             &portfolio,
         )?;
+
+        // --- Record start intent ---
+        let mut risk_summary = portfolio.risk_summary.clone();
+        if !risk_summary.is_object() {
+            risk_summary = serde_json::json!({});
+        }
+        if let serde_json::Value::Object(map) = &mut risk_summary {
+            map.insert(
+                "live_start".to_owned(),
+                serde_json::json!({
+                    "confirmed_at": Utc::now().to_rfc3339(),
+                    "executor_state": "pending_pickup",
+                    "strategy_count": enabled_count,
+                }),
+            );
+        }
+        self.repo
+            .update_martingale_portfolio_risk_summary(owner, portfolio_id, risk_summary)?
+            .ok_or_else(|| PublishError::not_found("portfolio not found"))?;
+
         self.repo
             .set_martingale_portfolio_status(owner, portfolio_id, "running")?
             .ok_or_else(|| PublishError::not_found("portfolio not found"))
@@ -911,6 +986,26 @@ mod tests {
                 vec![candidate.clone()],
             )
             .expect("published");
+
+        // Seed exchange_preconfigure readiness required by the start gate.
+        repo.update_martingale_portfolio_risk_summary(
+            "user@example.com",
+            &response.portfolio_id,
+            serde_json::json!({
+                "exchange_preconfigure": {
+                    "status": "ready",
+                    "checked_at": chrono::Utc::now().to_rfc3339(),
+                    "applied": true,
+                    "hedge_mode": {"status": "ready", "target": true, "current": true, "message": "ok"},
+                    "symbols": [{"symbol": "BTCUSDT", "status": "ready", "message": "ok"}],
+                    "warnings": [],
+                    "blocked_symbols": [],
+                    "open_order_count": 0,
+                    "nonzero_position_count": 0,
+                }
+            }),
+        )
+        .expect("seed exchange_preconfigure");
 
         let running = service
             .confirm_start_portfolio("user@example.com", &response.portfolio_id)

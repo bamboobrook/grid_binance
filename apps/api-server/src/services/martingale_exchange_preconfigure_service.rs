@@ -18,6 +18,9 @@ pub struct ExchangePreconfigureRequest {
 pub struct ExchangePreconfigureResponse {
     pub status: String,
     pub hedge_mode: HedgeModeCheck,
+    pub blocked_symbols: Vec<String>,
+    pub open_order_count: usize,
+    pub nonzero_position_count: usize,
     pub symbols: Vec<SymbolExchangeCheck>,
     pub warnings: Vec<String>,
     pub checked_at: String,
@@ -168,6 +171,20 @@ pub fn response_from_target_without_exchange_readback(
     status: &str,
     message: &str,
 ) -> ExchangePreconfigureResponse {
+    let blocked: Vec<String> = target.symbols.keys().cloned().collect();
+    let symbol_checks: Vec<SymbolExchangeCheck> = target
+        .symbols
+        .into_iter()
+        .map(|(symbol, settings)| SymbolExchangeCheck {
+            symbol,
+            target_margin_mode: settings.margin_mode,
+            current_margin_mode: None,
+            target_leverage: settings.leverage,
+            current_leverage: None,
+            status: "unknown".to_owned(),
+            message: message.to_owned(),
+        })
+        .collect();
     ExchangePreconfigureResponse {
         status: status.to_owned(),
         hedge_mode: HedgeModeCheck {
@@ -176,19 +193,10 @@ pub fn response_from_target_without_exchange_readback(
             status: "unknown".to_owned(),
             message: message.to_owned(),
         },
-        symbols: target
-            .symbols
-            .into_iter()
-            .map(|(symbol, settings)| SymbolExchangeCheck {
-                symbol,
-                target_margin_mode: settings.margin_mode,
-                current_margin_mode: None,
-                target_leverage: settings.leverage,
-                current_leverage: None,
-                status: "unknown".to_owned(),
-                message: message.to_owned(),
-            })
-            .collect(),
+        blocked_symbols: blocked,
+        open_order_count: 0,
+        nonzero_position_count: 0,
+        symbols: symbol_checks,
         warnings: vec![
             "exchange readback is required before reporting Binance settings as ready".to_owned(),
             message.to_owned(),
@@ -206,6 +214,12 @@ pub fn preflight_exchange_settings(
     validate_preconfigurable_status(portfolio)?;
     let target = target_exchange_settings_from_portfolio(portfolio)?;
     let client = binance_client_for_owner(db, owner)?;
+    let blockers = check_live_state_blockers(&client, &target)?;
+    if !blockers.is_empty() {
+        let blocked_response = build_blocked_response(target.clone(), &blockers)?;
+        persist_exchange_preconfigure_summary(db, portfolio, &blocked_response)?;
+        return Ok(blocked_response);
+    }
     let response = readback_response(&client, target, false)?;
     persist_exchange_preconfigure_summary(db, portfolio, &response)?;
     Ok(response)
@@ -220,8 +234,16 @@ pub fn apply_exchange_preconfigure(
     validate_preconfigure_confirmations(portfolio, request)?;
     let target = target_exchange_settings_from_portfolio(portfolio)?;
     let client = binance_client_for_owner(db, owner)?;
+    // Block if any target symbol has open orders or non-zero positions.
+    let blockers = check_live_state_blockers(&client, &target)?;
+    if !blockers.is_empty() {
+        let blocked_response = build_blocked_response(target.clone(), &blockers)?;
+        persist_exchange_preconfigure_summary(db, portfolio, &blocked_response)?;
+        return Ok(blocked_response);
+    }
     let before = readback_response(&client, target.clone(), false)?;
-    if target.requires_hedge_mode && before.hedge_mode.current != Some(true) {
+    let requires_hedge = target.requires_hedge_mode;
+    if requires_hedge && before.hedge_mode.current != Some(true) {
         client
             .set_usdm_position_mode(true)
             .map_err(|error| SharedDbError::new(error.to_string()))?;
@@ -239,6 +261,75 @@ pub fn apply_exchange_preconfigure(
     Ok(response)
 }
 
+/// Checks for open orders and non-zero positions on all target symbols.
+/// Returns the set of blocked symbols with reasons.
+fn check_live_state_blockers(
+    client: &BinanceClient,
+    target: &TargetExchangeSettings,
+) -> Result<Vec<String>, SharedDbError> {
+    let mut blocked: Vec<String> = Vec::new();
+
+    for (symbol, _settings) in &target.symbols {
+        let orders = client
+            .open_orders_for_symbol("usdm", symbol)
+            .map_err(|error| SharedDbError::new(error.to_string()))?;
+        if !orders.is_empty() {
+            blocked.push(format!(
+                "{symbol}: {} open order(s) — cancel or wait for fills before changing settings",
+                orders.len()
+            ));
+        }
+    }
+
+    let account = client
+        .read_usdm_account_v3()
+        .map_err(|error| SharedDbError::new(error.to_string()))?;
+    for pos in &account.positions {
+        let symbol_upper = pos.symbol.to_uppercase();
+        if !target.symbols.contains_key(&symbol_upper) {
+            continue;
+        }
+        let amount: f64 = pos.position_amount.parse().unwrap_or(0.0);
+        if amount != 0.0 {
+            blocked.push(format!(
+                "{symbol_upper}: non-zero position ({amount}) — close or reduce positions before changing settings",
+            ));
+        }
+    }
+
+    Ok(blocked)
+}
+
+fn build_blocked_response(
+    target: TargetExchangeSettings,
+    blocked_symbols: &[String],
+) -> Result<ExchangePreconfigureResponse, SharedDbError> {
+    let open_order_count = blocked_symbols
+        .iter()
+        .filter(|reason| reason.contains("open order"))
+        .count();
+    let nonzero_position_count = blocked_symbols
+        .iter()
+        .filter(|reason| reason.contains("non-zero position"))
+        .count();
+    let num_blocked = blocked_symbols.len();
+    let response = response_from_target_without_exchange_readback(
+        target,
+        "blocked",
+        &format!(
+            "{} symbol(s) blocked: {}",
+            num_blocked,
+            blocked_symbols.join("; ")
+        ),
+    );
+    Ok(ExchangePreconfigureResponse {
+        blocked_symbols: blocked_symbols.to_vec(),
+        open_order_count,
+        nonzero_position_count,
+        ..response
+    })
+}
+
 #[cfg(test)]
 fn preconfigure_exchange_with_client(
     portfolio: &MartingalePortfolioRecord,
@@ -247,8 +338,48 @@ fn preconfigure_exchange_with_client(
 ) -> Result<ExchangePreconfigureResponse, SharedDbError> {
     validate_preconfigure_confirmations(portfolio, request)?;
     let target = target_exchange_settings_from_portfolio(portfolio)?;
+
+    // Block if any target symbol has open orders or non-zero positions.
+    let mut blocked: Vec<String> = Vec::new();
+    for (symbol, _settings) in &target.symbols {
+        let orders = exchange.open_orders_for_symbol(symbol)?;
+        if !orders.is_empty() {
+            blocked.push(format!(
+                "{symbol}: {} open order(s) — cancel or wait for fills before changing settings",
+                orders.len()
+            ));
+        }
+    }
+    for pos in exchange.read_positions()? {
+        let symbol_upper = pos.symbol.to_uppercase();
+        if !target.symbols.contains_key(&symbol_upper) {
+            continue;
+        }
+        let amount: f64 = pos.position_amount.parse().unwrap_or(0.0);
+        if amount != 0.0 {
+            blocked.push(format!(
+                "{symbol_upper}: non-zero position ({amount}) — close or reduce positions before changing settings",
+            ));
+        }
+    }
+    if !blocked.is_empty() {
+        let blocked_detail = blocked.join("; ");
+        let blocked_msg = format!(
+            "{} symbol(s) have open orders or non-zero positions: {}",
+            blocked.len(),
+            blocked_detail
+        );
+        let response =
+            response_from_target_without_exchange_readback(target.clone(), "blocked", &blocked_msg);
+        return Ok(ExchangePreconfigureResponse {
+            blocked_symbols: blocked,
+            ..response
+        });
+    }
+
     let before_hedge = exchange.read_usdm_hedge_mode()?;
-    if target.requires_hedge_mode && !before_hedge {
+    let requires_hedge = target.requires_hedge_mode;
+    if requires_hedge && !before_hedge {
         exchange.set_usdm_position_mode(true)?;
     }
     for (symbol, settings) in &target.symbols {
@@ -281,6 +412,9 @@ fn preconfigure_exchange_with_client(
         warnings: vec![],
         checked_at: Utc::now().to_rfc3339(),
         applied: true,
+        blocked_symbols: vec![],
+        open_order_count: 0,
+        nonzero_position_count: 0,
     })
 }
 
@@ -305,6 +439,15 @@ trait TestExchangeSettingsClient {
         &mut self,
         symbol: &str,
     ) -> Result<TestCurrentSymbolSettings, SharedDbError>;
+    fn open_orders_for_symbol(&mut self, symbol: &str) -> Result<Vec<String>, SharedDbError>;
+    fn read_positions(&mut self) -> Result<Vec<TestPosition>, SharedDbError>;
+}
+
+#[cfg(test)]
+#[derive(Debug, Clone)]
+struct TestPosition {
+    pub symbol: String,
+    pub position_amount: String,
 }
 
 fn readback_response(
@@ -371,6 +514,9 @@ fn readback_response(
         symbols,
         warnings,
         checked_at: Utc::now().to_rfc3339(),
+        blocked_symbols: vec![],
+        open_order_count: 0,
+        nonzero_position_count: 0,
         applied,
     })
 }
@@ -516,6 +662,8 @@ mod tests {
         let mut exchange = FakeExchangeSettingsClient {
             hedge_mode: false,
             calls: Vec::new(),
+            open_orders: std::collections::HashMap::new(),
+            positions: Vec::new(),
         };
 
         let response =
@@ -526,6 +674,9 @@ mod tests {
         assert_eq!(
             exchange.calls,
             vec![
+                "open_orders:BTCUSDT",
+                "open_orders:ETHUSDT",
+                "read_positions",
                 "read_hedge",
                 "set_hedge:true",
                 "set_margin_type:BTCUSDT:isolated",
@@ -595,6 +746,8 @@ mod tests {
     struct FakeExchangeSettingsClient {
         hedge_mode: bool,
         calls: Vec<String>,
+        open_orders: std::collections::HashMap<String, Vec<String>>,
+        positions: Vec<TestPosition>,
     }
 
     impl TestExchangeSettingsClient for FakeExchangeSettingsClient {
@@ -637,5 +790,63 @@ mod tests {
                 leverage: if symbol == "BTCUSDT" { 6 } else { 4 },
             })
         }
+
+        fn open_orders_for_symbol(&mut self, symbol: &str) -> Result<Vec<String>, SharedDbError> {
+            self.calls.push(format!("open_orders:{symbol}"));
+            Ok(self.open_orders.get(symbol).cloned().unwrap_or_default())
+        }
+
+        fn read_positions(&mut self) -> Result<Vec<TestPosition>, SharedDbError> {
+            self.calls.push("read_positions".to_owned());
+            Ok(self.positions.clone())
+        }
+    }
+
+    #[test]
+    fn open_order_blocks_preconfigure() {
+        let portfolio = portfolio_fixture("long", vec![strategy_fixture("BTCUSDT", "long", 6)]);
+        let mut open_orders = std::collections::HashMap::new();
+        open_orders.insert("BTCUSDT".to_owned(), vec!["order-1".to_owned()]);
+        let mut exchange = FakeExchangeSettingsClient {
+            hedge_mode: false,
+            calls: Vec::new(),
+            open_orders,
+            positions: Vec::new(),
+        };
+
+        let response =
+            preconfigure_exchange_with_client(&portfolio, &confirmed_request(), &mut exchange)
+                .expect("preconfigure");
+
+        assert_eq!(response.status, "blocked");
+        assert!(!response.blocked_symbols.is_empty());
+        assert!(response
+            .warnings
+            .iter()
+            .any(|warning| warning.contains("open orders")));
+    }
+
+    #[test]
+    fn nonzero_position_blocks_preconfigure() {
+        let portfolio = portfolio_fixture("long", vec![strategy_fixture("BTCUSDT", "long", 6)]);
+        let mut exchange = FakeExchangeSettingsClient {
+            hedge_mode: false,
+            calls: Vec::new(),
+            open_orders: std::collections::HashMap::new(),
+            positions: vec![TestPosition {
+                symbol: "BTCUSDT".to_owned(),
+                position_amount: "0.01".to_owned(),
+            }],
+        };
+
+        let response =
+            preconfigure_exchange_with_client(&portfolio, &confirmed_request(), &mut exchange)
+                .expect("preconfigure");
+
+        assert_eq!(response.status, "blocked");
+        assert!(response
+            .warnings
+            .iter()
+            .any(|warning| warning.contains("non-zero position")));
     }
 }
