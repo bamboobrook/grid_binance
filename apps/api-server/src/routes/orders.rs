@@ -4,7 +4,6 @@ use axum::{
     routing::get,
     Json, Router,
 };
-use std::collections::HashMap;
 
 use crate::{
     routes::auth_guard::require_user_session,

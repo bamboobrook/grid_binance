@@ -226,6 +226,20 @@ export function MartingalePortfolioList({
   );
 }
 
+type LiveStatsData = {
+  open_order_count?: number;
+  position_count?: number;
+  realized_pnl?: string;
+  unrealized_pnl?: string;
+  fees_paid?: string;
+  funding_total?: string;
+  wallet_balance?: string;
+  last_user_stream_event_at?: string | null;
+  last_rest_reconcile_at?: string | null;
+  stats_stale?: boolean;
+  computed_at?: string;
+};
+
 export function MartingalePortfolioDetail({
   lang,
   locale,
@@ -239,6 +253,8 @@ export function MartingalePortfolioDetail({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [strategyStatuses, setStrategyStatuses] = useState<Record<string, StrategyStatus>>({});
+  const [liveStats, setLiveStats] = useState<LiveStatsData | null>(null);
+  const [liveStatsLoading, setLiveStatsLoading] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -270,6 +286,38 @@ export function MartingalePortfolioDetail({
     }
 
     void load();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [portfolioId]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadLiveStats() {
+      setLiveStatsLoading(true);
+      try {
+        const response = await requestBacktestApi(
+          `/api/user/martingale-portfolios/${portfolioId}/live-stats`,
+          { cache: "no-store" },
+        );
+
+        if (cancelled) {
+          return;
+        }
+
+        if (response.ok && response.data) {
+          setLiveStats(response.data as LiveStatsData);
+        }
+      } finally {
+        if (!cancelled) {
+          setLiveStatsLoading(false);
+        }
+      }
+    }
+
+    void loadLiveStats();
 
     return () => {
       cancelled = true;
@@ -508,18 +556,101 @@ export function MartingalePortfolioDetail({
 
             <div className="space-y-4">
               <h2 className="text-lg font-semibold text-foreground">{pickText(lang, "5. 暴露与统计", "5. Exposure and stats")}</h2>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>{pickText(lang, "实盘实时统计", "Live runtime stats")}</CardTitle>
+                  <CardDescription>
+                    {pickText(
+                      lang,
+                      "来自交易引擎的实时统计快照，含订单数、仓位、PnL、手续费、资金费率、钱包余额和同步状态。",
+                      "Real-time statistics snapshot from the trading engine: orders, positions, PnL, fees, funding, wallet balance, and sync status.",
+                    )}
+                  </CardDescription>
+                </CardHeader>
+                <CardBody>
+                  {liveStatsLoading ? (
+                    <p className="text-sm text-muted-foreground">
+                      {pickText(lang, "统计加载中...", "Loading live stats...")}
+                    </p>
+                  ) : liveStats ? (
+                    <div className="space-y-3">
+                      <div className="flex flex-wrap items-center gap-2">
+                        {liveStats.stats_stale ? (
+                          <Chip tone="warning">{pickText(lang, "数据过时", "Data stale")}</Chip>
+                        ) : (
+                          <Chip tone="success">{pickText(lang, "数据新鲜", "Data fresh")}</Chip>
+                        )}
+                        <span className="text-xs text-muted-foreground">
+                          {pickText(lang, "计算于", "Computed at")}:{" "}
+                          {liveStats.computed_at ? formatDateTime(liveStats.computed_at, lang) : "-"}
+                        </span>
+                      </div>
+                      <dl className="grid gap-3 text-sm md:grid-cols-2 xl:grid-cols-4">
+                        <MetricBlock
+                          label={pickText(lang, "挂单数", "Open orders")}
+                          value={String(liveStats.open_order_count ?? 0)}
+                        />
+                        <MetricBlock
+                          label={pickText(lang, "持仓数", "Positions")}
+                          value={String(liveStats.position_count ?? 0)}
+                        />
+                        <MetricBlock
+                          label={pickText(lang, "已实现盈亏", "Realized PnL")}
+                          value={formatLiveDecimal(liveStats.realized_pnl, lang)}
+                        />
+                        <MetricBlock
+                          label={pickText(lang, "未实现盈亏", "Unrealized PnL")}
+                          value={formatLiveDecimal(liveStats.unrealized_pnl, lang)}
+                        />
+                        <MetricBlock
+                          label={pickText(lang, "手续费", "Fees paid")}
+                          value={formatLiveDecimal(liveStats.fees_paid, lang)}
+                        />
+                        <MetricBlock
+                          label={pickText(lang, "资金费率", "Funding total")}
+                          value={formatLiveDecimal(liveStats.funding_total, lang)}
+                        />
+                        <MetricBlock
+                          label={pickText(lang, "钱包余额", "Wallet balance")}
+                          value={formatLiveDecimal(liveStats.wallet_balance, lang)}
+                        />
+                        <MetricBlock
+                          label={pickText(lang, "最后流事件", "Last stream event")}
+                          value={liveStats.last_user_stream_event_at ? formatDateTime(liveStats.last_user_stream_event_at, lang) : "-"}
+                        />
+                      </dl>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">
+                      {pickText(lang, "暂无 live stats，等待运行时同步。", "No live stats yet; waiting for runtime sync.")}
+                    </p>
+                  )}
+                </CardBody>
+              </Card>
+
               <Card>
                 <CardHeader>
                   <CardTitle>{pickText(lang, "币种级统计", "Symbol-level stats")}</CardTitle>
                   <CardDescription>
                     {pickText(
                       lang,
-                      "组合级统计、币种级统计、策略实例级统计分层展示；暂无 live stats 时仅展示发布快照。",
-                      "Portfolio-level stats, symbol-level stats, and strategy instance-level stats are separated; without live stats, only publish snapshots are shown.",
+                      "组合同步状态、币种级统计、策略实例级统计分层展示。",
+                      "Sync status, symbol-level stats, and strategy instance-level stats are separated.",
                     )}
                   </CardDescription>
                 </CardHeader>
                 <CardBody>
+                  <div className="space-y-2 text-sm text-muted-foreground">
+                    {liveStats?.last_rest_reconcile_at ? (
+                      <p>
+                        {pickText(lang, "最后 REST 同步", "Last REST reconcile")}:{" "}
+                        <span className="font-medium text-foreground">
+                          {formatDateTime(liveStats.last_rest_reconcile_at, lang)}
+                        </span>
+                      </p>
+                    ) : null}
+                  </div>
                   <DataTable
                     columns={[
                       { key: "symbol", label: pickText(lang, "交易对", "Symbol") },
@@ -1169,6 +1300,21 @@ function StatCard({
       </CardHeader>
     </Card>
   );
+}
+
+function formatLiveDecimal(value: string | undefined, lang: UiLanguage) {
+  if (!value) {
+    return "-";
+  }
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) {
+    return value;
+  }
+  return new Intl.NumberFormat(lang === "zh" ? "zh-CN" : "en-US", {
+    maximumFractionDigits: 4,
+    minimumFractionDigits: 2,
+    signDisplay: "exceptZero",
+  }).format(parsed);
 }
 
 function LoadingCard({ lang }: { lang: UiLanguage }) {
