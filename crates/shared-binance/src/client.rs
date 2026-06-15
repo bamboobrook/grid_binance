@@ -165,6 +165,15 @@ pub struct CredentialCipherError {
 }
 
 fn is_retryable_error(error: &str) -> bool {
+    // Binance-coded transient errors first, so place_order / cancel_order /
+    // get_order retry the right ones. See https://developers.binance.com/docs
+    //   -1001 DISCONNECTED, -1003 server rate limit, -1006/-1007 timeout,
+    //   -1021 timestamp for this request is outside recvWindow, -5022 server busy.
+    if let Some(code) = binance_error_code_from_str(error) {
+        if matches!(code, -1001 | -1003 | -1006 | -1007 | -1021 | -5022) {
+            return true;
+        }
+    }
     let error_lower = error.to_ascii_lowercase();
     [
         "timed out",
@@ -186,6 +195,13 @@ fn is_retryable_error(error: &str) -> bool {
     ]
     .iter()
     .any(|pattern| error_lower.contains(pattern))
+}
+
+/// Parse the numeric code from a `"binance error ({code}): {msg}"` string.
+fn binance_error_code_from_str(error: &str) -> Option<i64> {
+    let rest = error.strip_prefix("binance error (")?;
+    let end = rest.find(')')?;
+    rest[..end].parse::<i64>().ok()
 }
 
 fn retry_delay(attempt: u32) -> Duration {
@@ -2462,10 +2478,15 @@ impl CredentialValidationError {
     /// Returns true if this error is likely transient and worth retrying.
     pub fn is_binance_retryable(&self) -> bool {
         if let Some(code) = self.binance_error_code() {
-            // Rate limit violations, server errors
+            // Rate-limit violations and transient server errors.
+            // Note: previously this used `-1000..=-1000`, which is a
+            // single-value range (just `-1000`), not the intended
+            // `-1000`-family of general errors. The relevant transient
+            // codes are now listed explicitly.
             return matches!(
                 code,
-                -1003 | -1015 | -1021 | -2015 | -1000..=-1000 | 429 | 502 | 503 | 504
+                -1000 | -1001 | -1003 | -1006 | -1007 | -1015 | -1021 | -5022 | 429 | 502 | 503
+                    | 504
             );
         }
         // Network-level errors

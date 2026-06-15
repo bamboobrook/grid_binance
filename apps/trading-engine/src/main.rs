@@ -1563,7 +1563,20 @@ fn run_user_stream_rest_backfill(
                     dirty = true;
                     continue;
                 }
+                // Hedge mode: a single symbol may carry both LONG and SHORT
+                // positions. Only update the runtime position whose direction
+                // matches this exchange position; otherwise a SHORT position's
+                // (negative) amount would overwrite the LONG runtime position
+                // and vice versa, corrupting state on every stream reconnect.
+                let side_is_short = pos.position_side.as_deref() == Some("short");
                 for runtime_pos in &mut strategy.runtime.positions {
+                    let runtime_is_short = matches!(
+                        runtime_pos.mode,
+                        shared_domain::strategy::StrategyMode::FuturesShort
+                    );
+                    if side_is_short != runtime_is_short {
+                        continue;
+                    }
                     runtime_pos.quantity = amount;
                     if let Ok(entry) = pos.entry_price.parse::<rust_decimal::Decimal>() {
                         runtime_pos.average_entry_price = entry;
