@@ -1,7 +1,9 @@
 use backtest_engine::martingale::kline_engine::{DEFAULT_FEE_BPS, DEFAULT_SLIPPAGE_BPS};
 use rust_decimal::prelude::ToPrimitive;
 use rust_decimal::Decimal;
-use shared_domain::martingale::{MartingaleDirection, MartingaleStopLossModel, MartingaleStrategyConfig};
+use shared_domain::martingale::{
+    MartingaleDirection, MartingaleMarketKind, MartingaleStopLossModel, MartingaleStrategyConfig,
+};
 
 /// Margin-based net-PnL drawdown percent, matching backtest `strategy_net_pnl` / `capital_used_quote`.
 ///
@@ -24,7 +26,13 @@ pub fn martingale_strategy_drawdown_pct(
         Some(MartingaleStopLossModel::StrategyDrawdownPct { pct_bps }) => *pct_bps,
         _ => return None,
     };
-    let leverage = config.leverage.unwrap_or(1).max(1) as f64;
+    // Respect market: Spot is always 1.0x (matches backtest `effective_leverage`); futures
+    // honor the configured leverage.
+    let leverage = if config.market == MartingaleMarketKind::Spot {
+        1.0
+    } else {
+        config.leverage.unwrap_or(1).max(1) as f64
+    };
     let qty = quantity.abs().to_f64()?;
     let avg = average_entry_price.to_f64()?;
     let price = current_price.to_f64()?;

@@ -1861,13 +1861,17 @@ fn apply_martingale_market_ticks(
         // per-cycle marker, so summing all fills would mix in past cycles' PnL/fees. At
         // SL-evaluation time the current cycle is open and losing (no TP has fired), so
         // current-cycle realized PnL is ~0. Fall back to the position-based approximation:
-        // realized = 0, entry_fees = entry notional * DEFAULT_FEE_BPS (entry fee on the
-        // position's notional). The dominant SL term is the leverage-amplified unrealized loss.
+        // realized = 0, entry_fees = entry notional * (DEFAULT_FEE_BPS + DEFAULT_SLIPPAGE_BPS)
+        // to match backtest `entry_cost_quote` exactly (fee + slippage on entry notional).
+        // The dominant SL term is the leverage-amplified unrealized loss.
         let realized_pnl = Decimal::ZERO;
         let entry_fees = position.quantity.abs()
             * position.average_entry_price
-            * Decimal::from_f64_retain(backtest_engine::martingale::kline_engine::DEFAULT_FEE_BPS)
-                .unwrap_or(Decimal::ZERO)
+            * Decimal::from_f64_retain(
+                backtest_engine::martingale::kline_engine::DEFAULT_FEE_BPS
+                    + backtest_engine::martingale::kline_engine::DEFAULT_SLIPPAGE_BPS,
+            )
+            .unwrap_or(Decimal::ZERO)
             / Decimal::from(10_000_u32);
         let Some(exit) = martingale_exit_signal(
             &strategy_config,
