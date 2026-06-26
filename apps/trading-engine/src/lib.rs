@@ -1,6 +1,7 @@
 pub mod execution_effects;
 pub mod execution_sync;
 pub mod grid_builder;
+pub mod martingale_candle;
 pub mod martingale_exit;
 pub mod martingale_recovery;
 pub mod martingale_runtime;

@@ -34,6 +34,7 @@ use tokio_tungstenite::{connect_async, tungstenite::Message};
 use trading_engine::{
     execution_effects::persist_execution_effects,
     execution_sync::{apply_execution_update, recompute_strategy_positions},
+    martingale_candle::{complete_bars, LiveCandleBucket, MINUTE_MS},
     martingale_exit::martingale_strategy_drawdown_pct,
     martingale_recovery::{recover_martingale_runtime, MartingaleRecoveryInput, RecoveryPosition},
     martingale_runtime::{
@@ -83,86 +84,15 @@ fn save_indicator_context(
     feeds.insert(portfolio_id.to_owned(), ctx.clone());
 }
 
-#[derive(Debug, Clone)]
-struct LiveCandleBucket {
-    open_time_ms: i64,
-    open: f64,
-    high: f64,
-    low: f64,
-    close: f64,
-}
-
-impl LiveCandleBucket {
-    fn new(open_time_ms: i64, price: f64) -> Self {
-        Self {
-            open_time_ms,
-            open: price,
-            high: price,
-            low: price,
-            close: price,
-        }
-    }
-
-    fn update(&mut self, price: f64) {
-        self.high = self.high.max(price);
-        self.low = self.low.min(price);
-        self.close = price;
-    }
-
-    fn into_bar(self, symbol: String) -> KlineBar {
-        KlineBar {
-            symbol,
-            open_time_ms: self.open_time_ms,
-            open: self.open,
-            high: self.high,
-            low: self.low,
-            close: self.close,
-            volume: 0.0,
-        }
-    }
-}
-
 fn completed_martingale_indicator_bars(
     portfolio_id: &str,
     market_ticks: &[MarketTick],
 ) -> Vec<KlineBar> {
-    const HOUR_MS: i64 = 3_600_000;
     let mut feeds = martingale_candle_feeds()
         .lock()
         .expect("martingale candle feeds poisoned");
     let by_symbol = feeds.entry(portfolio_id.to_owned()).or_default();
-    let mut completed = Vec::new();
-
-    for tick in market_ticks {
-        if tick.market != "usdm" && tick.market != "futures" && tick.market != "usd_m_futures" {
-            continue;
-        }
-        let Some(price) = tick
-            .price
-            .to_f64()
-            .filter(|price| price.is_finite() && *price > 0.0)
-        else {
-            continue;
-        };
-        let bucket_open_ms = tick.event_time_ms.div_euclid(HOUR_MS) * HOUR_MS;
-        match by_symbol.get_mut(&tick.symbol) {
-            Some(bucket) if bucket.open_time_ms == bucket_open_ms => bucket.update(price),
-            Some(bucket) if bucket.open_time_ms < bucket_open_ms => {
-                let previous = bucket.clone().into_bar(tick.symbol.clone());
-                *bucket = LiveCandleBucket::new(bucket_open_ms, price);
-                completed.push(previous);
-            }
-            Some(_) => {}
-            None => {
-                by_symbol.insert(
-                    tick.symbol.clone(),
-                    LiveCandleBucket::new(bucket_open_ms, price),
-                );
-            }
-        }
-    }
-
-    completed
+    complete_bars(by_symbol, market_ticks, MINUTE_MS)
 }
 
 /// Per-strategy locks to prevent concurrent reads-modify-writes between reconcile
