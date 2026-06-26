@@ -524,3 +524,46 @@ fn atr_within_limit_allows_new_cycle() {
         .expect("low ATR should allow entry");
     assert_eq!(runtime.orders().len(), 1);
 }
+
+#[test]
+fn adx_above_45_skips_safety_leg() {
+    let mut strat = strategy("long-btc", MartingaleDirection::Long);
+    strat.indicators = vec![
+        MartingaleIndicatorConfig::Atr { period: 2 },
+        MartingaleIndicatorConfig::Adx { period: 14 },
+    ];
+    let mut runtime = MartingaleRuntime::new(runtime_config(vec![strat])).expect("runtime");
+    // Consistent tiny uptrend -> directional movement dominates (DX~100) so ADX > 45,
+    // while absolute ranges stay small so ATR/close << 2% (new-cycle ATR guard passes).
+    // ADX(period=14) needs ~2*period+1 bars to seed Wilder smoothing + the DX average.
+    let mut bars = Vec::new();
+    for i in 0..30 {
+        bars.push(kline("BTCUSDT", i * 60_000, 100.0 + i as f64 * 0.10));
+    }
+    runtime.warmup_indicators_from_bars(bars);
+    start_cycle_ok(&mut runtime, "long-btc", dec(100));
+    // first leg filled; safety leg should be skipped because ADX > 45
+    runtime
+        .mark_leg_filled_with_context(
+            "long-btc", MartingaleDirection::Long, 0, MartingaleRuntimeContext::default(),
+        )
+        .expect("ok (safety leg skipped silently)");
+    assert_eq!(runtime.orders().len(), 1, "safety leg must not be placed in strong trend");
+}
+
+#[test]
+fn adx_guard_ignored_when_strategy_has_no_adx_indicator() {
+    let mut strat = strategy("long-btc", MartingaleDirection::Long);
+    strat.indicators = vec![MartingaleIndicatorConfig::Atr { period: 2 }]; // no ADX
+    let mut runtime = MartingaleRuntime::new(runtime_config(vec![strat])).expect("runtime");
+    runtime.warmup_indicators_from_bars(vec![
+        kline("BTCUSDT", 0, 100.0), kline("BTCUSDT", 60_000, 100.0),
+    ]);
+    start_cycle_ok(&mut runtime, "long-btc", dec(100));
+    runtime
+        .mark_leg_filled_with_context(
+            "long-btc", MartingaleDirection::Long, 0, MartingaleRuntimeContext::default(),
+        )
+        .expect("ok");
+    assert_eq!(runtime.orders().len(), 2, "safety leg placed when no ADX configured");
+}

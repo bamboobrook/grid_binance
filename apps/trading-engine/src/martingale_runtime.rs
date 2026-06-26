@@ -7,9 +7,9 @@ use backtest_engine::martingale::rules::{compute_leg_notionals, compute_leg_trig
 use rust_decimal::prelude::ToPrimitive;
 use rust_decimal::Decimal;
 use shared_domain::martingale::{
-    MartingaleDirection, MartingaleDirectionMode, MartingaleEntryTrigger, MartingaleMarketKind,
-    MartingalePortfolioConfig, MartingaleRiskLimits, MartingaleSizingModel, MartingaleSpacingModel,
-    MartingaleStrategyConfig,
+    MartingaleDirection, MartingaleDirectionMode, MartingaleEntryTrigger, MartingaleIndicatorConfig,
+    MartingaleMarketKind, MartingalePortfolioConfig, MartingaleRiskLimits, MartingaleSizingModel,
+    MartingaleSpacingModel, MartingaleStrategyConfig,
 };
 use shared_domain::strategy::StrategyStatus;
 use std::collections::{hash_map::DefaultHasher, HashMap, HashSet};
@@ -373,12 +373,6 @@ impl MartingaleRuntime {
         let spacing = strategy.config.spacing.clone();
         let strategy_config = strategy.config.clone();
 
-        self.strategy_mut(strategy_id)?
-            .cycle
-            .as_mut()
-            .expect("cycle checked above")
-            .next_leg_index = next_leg_index;
-
         if let Some(order) = self.orders.iter_mut().find(|order| {
             order.strategy_id == strategy_id
                 && order.direction == direction
@@ -387,6 +381,31 @@ impl MartingaleRuntime {
         }) {
             order.status = MartingaleRuntimeOrderStatus::Filled;
         }
+
+        // ADX > 45 guard: skip the safety (averaging-down) leg in extreme trends
+        // (backtest parity — kline_engine.rs:229-251). Only fires for strategies
+        // that configure an ADX indicator; strategies without ADX are unaffected.
+        // Must run BEFORE advancing `next_leg_index` so a skipped leg retries on a
+        // later fill once ADX drops below 45 (matches backtest `continue`).
+        let adx_period = strategy_config.indicators.iter().find_map(|i| match i {
+            MartingaleIndicatorConfig::Adx { period } => Some(*period as usize),
+            _ => None,
+        });
+        if let Some(period) = adx_period {
+            if let Some(adx) = self.indicator_context.latest_adx(&strategy_config.symbol, period) {
+                if adx > 45.0 {
+                    // Do NOT advance next_leg_index — the just-filled leg is marked
+                    // Filled above, and the safety leg retries on the next fill.
+                    return Ok(());
+                }
+            }
+        }
+
+        self.strategy_mut(strategy_id)?
+            .cycle
+            .as_mut()
+            .expect("cycle checked above")
+            .next_leg_index = next_leg_index;
 
         if next_leg_index >= max_legs {
             return Ok(());
