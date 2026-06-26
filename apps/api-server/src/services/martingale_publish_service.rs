@@ -20,6 +20,10 @@ use crate::services::martingale_exchange_preconfigure_service::{
     binance_client_for_owner, check_live_state_blockers, target_exchange_settings_from_portfolio,
 };
 
+use backtest_engine::martingale::capital::{
+    project_portfolio_capital, PortfolioCapitalProjection,
+};
+
 #[derive(Clone)]
 pub struct MartingalePublishService {
     db: SharedDb,
@@ -336,25 +340,34 @@ impl MartingalePublishService {
             &portfolio,
         )?;
 
-        // --- Capital preflight: projected margin must fit the budget and the
-        // available USDT balance (with a 5% safety buffer + entry fees). This
-        // is the hard portfolio-wide gate before the portfolio can go running.
-        let (projected_margin, projected_notional, projected_fee) =
-            portfolio_projected_capital(&portfolio_config)?;
-        let required_with_buffer = projected_margin * 1.05 + projected_fee;
+        // --- Capital preflight: project the budget-capped margin the runtime
+        // will actually allow (capping each strategy's leg walk at the global
+        // margin pool), then gate on whether every strategy can place its first
+        // leg and whether the available USDT covers margin + fee buffer. The
+        // full uncapped geometric-series margin is recorded as a diagnostic
+        // only — it is NOT the gate (the runtime never places those legs).
+        const ENTRY_FEE_BPS: f64 = 4.5;
+        const FEE_BUFFER_PCT: f64 = 5.0;
+        let global_margin_cap = rust_decimal::prelude::ToPrimitive::to_f64(
+            &live_budget.unwrap_or_default(),
+        )
+        .unwrap_or(0.0);
+        let weights = extract_portfolio_weight_factors(&config_value);
+        let projection = project_portfolio_capital(
+            &portfolio_config.strategies,
+            &weights,
+            global_margin_cap,
+            0.0, // exchange_min_notional: diagnostic here (enforced at placement)
+            ENTRY_FEE_BPS,
+            FEE_BUFFER_PCT,
+        )
+        .map_err(|e| PublishError::conflict(format!("capital projection failed: {e}")))?;
+
+        // Keep the available-USDT probe (gated on the live-state check, which is
+        // disabled in tests, so available_usdt stays None there). It feeds both
+        // the preflight gate and the diagnostic JSON.
         let mut available_usdt: Option<f64> = None;
-        let mut preflight_rejection: Option<String> = None;
-        if let Some(budget_value) = rust_decimal::prelude::ToPrimitive::to_f64(&live_budget.unwrap_or_default()) {
-            if projected_margin > budget_value && budget_value > 0.0 {
-                preflight_rejection = Some(format!(
-                    "projected margin {projected_margin:.4} exceeds max_global_budget_quote {budget_value:.4}"
-                ));
-            }
-        }
-        if preflight_rejection.is_none()
-            && live_exchange_state_check_enabled()
-            && !target_settings.symbols.is_empty()
-        {
+        if live_exchange_state_check_enabled() && !target_settings.symbols.is_empty() {
             if let Ok(client) = binance_client_for_owner(&self.db, owner) {
                 if let Ok(balances) = client.read_usdm_account_v3_balance() {
                     if let Some(usdt) = balances
@@ -363,17 +376,12 @@ impl MartingalePublishService {
                     {
                         if let Ok(avail) = usdt.available_balance.parse::<f64>() {
                             available_usdt = Some(avail);
-                            if required_with_buffer > avail {
-                                preflight_rejection = Some(format!(
-                                    "required capital with 5% buffer {required_with_buffer:.4} exceeds available USDT {avail:.4}"
-                                ));
-                            }
                         }
                     }
                 }
             }
         }
-        if let Some(reason) = preflight_rejection {
+        if let Some(reason) = preflight_rejection_reason(&projection, available_usdt) {
             return Err(PublishError::conflict(reason));
         }
 
@@ -383,16 +391,52 @@ impl MartingalePublishService {
             risk_summary = serde_json::json!({});
         }
         if let serde_json::Value::Object(map) = &mut risk_summary {
+            let per_strategy: Vec<Value> = projection
+                .strategies
+                .iter()
+                .map(|s| {
+                    let skipped_legs: Vec<Value> = s
+                        .legs
+                        .iter()
+                        .filter(|leg| !leg.accepted)
+                        .map(|leg| {
+                            json!({
+                                "leg_index": leg.leg_index,
+                                "reason": leg.skip_reason.clone().unwrap_or_default(),
+                            })
+                        })
+                        .collect();
+                    json!({
+                        "strategy_id": s.strategy_id,
+                        "full_series_margin_quote": s.full_series_margin_quote,
+                        "full_series_notional_quote": s.full_series_notional_quote,
+                        "budget_capped_margin_quote": s.budget_capped_margin_quote,
+                        "budget_capped_notional_quote": s.budget_capped_notional_quote,
+                        "first_leg_margin_quote": s.first_leg_margin_quote,
+                        "first_leg_notional_quote": s.first_leg_notional_quote,
+                        "first_leg_accepted": s.first_leg_accepted,
+                        "strategy_margin_cap_quote": s.strategy_margin_cap_quote,
+                        "skipped_legs": skipped_legs,
+                    })
+                })
+                .collect();
             map.insert(
                 "live_start_preflight".to_owned(),
                 serde_json::json!({
                     "checked_at": Utc::now().to_rfc3339(),
-                    "projected_margin_quote": projected_margin,
-                    "projected_notional_quote": projected_notional,
-                    "projected_fee_quote": projected_fee,
-                    "required_with_buffer_quote": required_with_buffer,
-                    "available_usdt": available_usdt,
+                    "capital_model": "margin_budget_cap",
                     "max_global_budget_quote": live_budget.map(|value| value.to_string()),
+                    "full_series_projected_margin_quote": projection.full_series_margin_quote,
+                    "full_series_projected_notional_quote": projection.full_series_notional_quote,
+                    "budget_capped_projected_margin_quote": projection.budget_capped_margin_quote,
+                    "budget_capped_projected_notional_quote": projection.budget_capped_notional_quote,
+                    "first_leg_margin_quote": projection.first_leg_margin_quote,
+                    "first_leg_notional_quote": projection.first_leg_notional_quote,
+                    "projected_fee_quote": projection.projected_fee_quote,
+                    "required_with_buffer_quote": projection.required_with_buffer_quote,
+                    "available_usdt": available_usdt,
+                    "all_strategies_can_start": projection.all_strategies_can_start,
+                    "per_strategy": per_strategy,
                     "status": "passed",
                 }),
             );
@@ -634,39 +678,77 @@ fn live_portfolio_config_snapshot(
     })
 }
 
-/// Projected portfolio capital under the canonical margin model: total
-/// planned margin, total planned notional, and an entry-fee estimate (on
-/// notional). Used by the live-start preflight to check the strategy fits the
-/// budget and the available USDT balance.
-fn portfolio_projected_capital(
-    config: &MartingalePortfolioConfig,
-) -> Result<(f64, f64, f64), PublishError> {
-    use backtest_engine::martingale::capital::{
-        planned_margin_quote, planned_notional_quote, DEFAULT_EXCHANGE_MIN_NOTIONAL,
+/// Extract per-strategy weight factors (weight_pct/100) keyed by strategy_id,
+/// from the raw portfolio config JSON (the same source the runtime reads).
+/// Strategies missing a weight get no entry (project_portfolio_capital falls
+/// back to equal split).
+fn extract_portfolio_weight_factors(
+    config_value: &serde_json::Value,
+) -> std::collections::HashMap<String, f64> {
+    use std::collections::HashMap;
+    let mut weights: HashMap<String, f64> = HashMap::new();
+    let Some(strategies) = config_value
+        .get("portfolio_config")
+        .and_then(|pc| pc.get("strategies"))
+        .and_then(|s| s.as_array())
+    else {
+        return weights;
     };
-    const ENTRY_FEE_BPS: f64 = 4.5;
-    let mut projected_margin = 0.0_f64;
-    let mut projected_notional = 0.0_f64;
-    let mut projected_fee = 0.0_f64;
-    for strategy in &config.strategies {
-        let margin = planned_margin_quote(
-            &strategy.sizing,
-            strategy.market,
-            strategy.leverage,
-            DEFAULT_EXCHANGE_MIN_NOTIONAL,
-        )
-        .map_err(|error| {
-            PublishError::conflict(format!("planned margin compute failed: {error}"))
-        })?;
-        let notional = planned_notional_quote(&strategy.sizing, DEFAULT_EXCHANGE_MIN_NOTIONAL)
-            .map_err(|error| {
-                PublishError::conflict(format!("planned notional compute failed: {error}"))
-            })?;
-        projected_margin += margin;
-        projected_notional += notional;
-        projected_fee += notional * ENTRY_FEE_BPS / 10_000.0;
+    for strategy in strategies {
+        let Some(strategy_id) = strategy.get("strategy_id").and_then(|v| v.as_str()) else {
+            continue;
+        };
+        // `portfolio_weight_pct` is injected as a JSON string at publish time.
+        let weight = strategy
+            .get("portfolio_weight_pct")
+            .and_then(|v| {
+                v.as_str()
+                    .and_then(|s| s.parse::<f64>().ok())
+                    .or_else(|| v.as_f64())
+            })
+            .unwrap_or(0.0);
+        if weight > 0.0 {
+            weights.insert(strategy_id.to_owned(), weight / 100.0);
+        }
     }
-    Ok((projected_margin, projected_notional, projected_fee))
+    weights
+}
+
+/// Pure preflight gate. Returns Some(reason) to reject (409), None to pass.
+/// Reject when:
+///   - global margin cap <= 0 (defensive),
+///   - NOT all_strategies_can_start (some strategy's first leg cannot fit the
+///     global margin pool — reason must list which strategy_ids and why),
+///   - available_usdt is Some and < required_with_buffer_quote.
+fn preflight_rejection_reason(
+    projection: &PortfolioCapitalProjection,
+    available_usdt: Option<f64>,
+) -> Option<String> {
+    if projection.global_margin_cap_quote <= 0.0 {
+        return Some("max_global_budget_quote must be positive".to_owned());
+    }
+    if !projection.all_strategies_can_start {
+        let blocked: Vec<&str> = projection
+            .strategies
+            .iter()
+            .filter(|s| !s.first_leg_accepted)
+            .map(|s| s.strategy_id.as_str())
+            .collect();
+        return Some(format!(
+            "strategy first leg cannot fit global margin cap {:.4}; blocked strategies: {}; first-leg margin sum exceeds cap",
+            projection.global_margin_cap_quote,
+            blocked.join(", ")
+        ));
+    }
+    if let Some(usdt) = available_usdt {
+        if usdt < projection.required_with_buffer_quote {
+            return Some(format!(
+                "required capital with buffer {:.4} exceeds available USDT {:.4}",
+                projection.required_with_buffer_quote, usdt
+            ));
+        }
+    }
+    None
 }
 
 fn candidate_publish_metadata(config: &MartingalePortfolioConfig) -> (String, String) {
@@ -1286,11 +1368,142 @@ mod tests {
         assert_eq!(weights, vec!["50".to_owned(), "50".to_owned()]);
     }
 
+    // --- Budget-capped preflight pure tests ---------------------------------
+    //
+    // These exercise the pure gate (project_portfolio_capital ->
+    // preflight_rejection_reason) without touching the DB. Single Multiplier
+    // strategy: first_order_quote=250, multiplier=2, max_legs=4, leverage=5,
+    // weight factor 1.0. First-leg notional=250 -> first-leg margin=250/5=50.
+
+    fn multiplier_strategy_config() -> shared_domain::martingale::MartingalePortfolioConfig {
+        use shared_domain::martingale::{
+            MartingaleDirection, MartingaleDirectionMode, MartingaleMarginMode,
+            MartingaleMarketKind, MartingalePortfolioConfig, MartingaleRiskLimits,
+            MartingaleSizingModel, MartingaleSpacingModel, MartingaleStrategyConfig,
+            MartingaleTakeProfitModel,
+        };
+        let strategy = MartingaleStrategyConfig {
+            strategy_id: "s1".to_owned(),
+            symbol: "BTCUSDT".to_owned(),
+            market: MartingaleMarketKind::UsdMFutures,
+            direction: MartingaleDirection::Long,
+            direction_mode: MartingaleDirectionMode::LongOnly,
+            margin_mode: Some(MartingaleMarginMode::Isolated),
+            leverage: Some(5),
+            spacing: MartingaleSpacingModel::Multiplier {
+                first_step_bps: 100,
+                multiplier: Decimal::from(2),
+            },
+            sizing: MartingaleSizingModel::Multiplier {
+                first_order_quote: Decimal::from(250),
+                multiplier: Decimal::from(2),
+                max_legs: 4,
+            },
+            take_profit: MartingaleTakeProfitModel::Percent { bps: 80 },
+            stop_loss: None,
+            indicators: vec![],
+            entry_triggers: vec![],
+            risk_limits: MartingaleRiskLimits::default(),
+        };
+        MartingalePortfolioConfig {
+            direction_mode: MartingaleDirectionMode::LongOnly,
+            strategies: vec![strategy],
+            risk_limits: MartingaleRiskLimits {
+                max_global_budget_quote: Some(Decimal::from(50)),
+                ..Default::default()
+            },
+        }
+    }
+
+    fn multiplier_weights() -> std::collections::HashMap<String, f64> {
+        let mut w = std::collections::HashMap::new();
+        w.insert("s1".to_owned(), 1.0);
+        w
+    }
+
     #[test]
-    fn confirm_start_rejects_when_projected_margin_exceeds_budget() {
-        // Projected margin for the long_short fixture (~67.5 at leverage 4) must
-        // exceed a 10 USDT budget, so the start preflight rejects before the
-        // portfolio ever reaches "running".
+    fn confirm_start_accepts_multiplier_when_budget_capped_projection_fits_margin_cap() {
+        let config = multiplier_strategy_config();
+        let proj = backtest_engine::martingale::capital::project_portfolio_capital(
+            &config.strategies,
+            &multiplier_weights(),
+            50.0, // global_margin_cap
+            0.0,  // exchange_min_notional (diagnostic only here)
+            4.5,  // ENTRY_FEE_BPS
+            5.0,  // fee_buffer_pct (5% buffer)
+        )
+        .expect("projection");
+        // First-leg margin = 250 / 5 = 50; cap is 50 -> first leg accepted.
+        assert!((proj.first_leg_margin_quote - 50.0).abs() < 1e-6);
+        assert!(proj.strategies[0].first_leg_accepted);
+        assert!(proj.all_strategies_can_start);
+        // budget_capped margin is just the first leg (leg1 margin 100, cum 150 > 50).
+        assert!((proj.budget_capped_margin_quote - 50.0).abs() < 1e-6);
+        assert!(preflight_rejection_reason(&proj, None).is_none());
+    }
+
+    #[test]
+    fn confirm_start_does_not_treat_leveraged_notional_as_budget() {
+        let config = multiplier_strategy_config();
+        let proj = backtest_engine::martingale::capital::project_portfolio_capital(
+            &config.strategies,
+            &multiplier_weights(),
+            50.0,
+            0.0,
+            4.5,
+            5.0,
+        )
+        .expect("projection");
+        // First-leg notional is 250 — greater than the budget 50. Notional is
+        // position size, not margin; it must not gate the margin-budget preflight.
+        assert!((proj.first_leg_notional_quote - 250.0).abs() < 1e-6);
+        assert!(preflight_rejection_reason(&proj, None).is_none());
+    }
+
+    #[test]
+    fn confirm_start_rejects_when_first_leg_margin_exceeds_budget() {
+        let config = multiplier_strategy_config();
+        let proj = backtest_engine::martingale::capital::project_portfolio_capital(
+            &config.strategies,
+            &multiplier_weights(),
+            10.0, // global_margin_cap far below first-leg margin 50
+            0.0,
+            4.5,
+            5.0,
+        )
+        .expect("projection");
+        assert!(!proj.strategies[0].first_leg_accepted);
+        assert!(!proj.all_strategies_can_start);
+        let reason = preflight_rejection_reason(&proj, None).expect("must reject");
+        assert!(
+            reason.contains("first leg") || reason.contains("margin cap"),
+            "unexpected reason: {reason}"
+        );
+    }
+
+    #[test]
+    fn confirm_start_rejects_when_available_usdt_below_margin_plus_fee_buffer() {
+        let config = multiplier_strategy_config();
+        // Use the #1 projection (passes the margin gate): cap 50, first-leg
+        // margin 50, accepted notional 250 (leg1 skipped).
+        let proj = backtest_engine::martingale::capital::project_portfolio_capital(
+            &config.strategies,
+            &multiplier_weights(),
+            50.0,
+            0.0,
+            4.5,
+            5.0,
+        )
+        .expect("projection");
+        // fee = 250 * 4.5 / 10000 = 0.1125; required = 50 * 1.05 + 0.1125 = 52.6125.
+        assert!((proj.projected_fee_quote - 0.1125).abs() < 1e-6);
+        assert!((proj.required_with_buffer_quote - 52.6125).abs() < 1e-6);
+        let reason = preflight_rejection_reason(&proj, Some(40.0)).expect("must reject");
+        assert!(reason.contains("available USDT"), "unexpected reason: {reason}");
+    }
+
+    #[test]
+    fn confirm_start_records_full_series_and_budget_capped_projection() {
         let db = SharedDb::ephemeral().expect("db");
         let repo = db.backtest_repo();
         let task = repo
@@ -1306,7 +1519,7 @@ mod tests {
             .publish_portfolio(
                 "user@example.com",
                 PublishPortfolioRequest {
-                    name: "budget reject live".to_owned(),
+                    name: "preflight projection live".to_owned(),
                     task_id: task.task_id.clone(),
                     market: "usd_m_futures".to_owned(),
                     direction: "long_short".to_owned(),
@@ -1344,20 +1557,34 @@ mod tests {
         )
         .expect("seed exchange_preconfigure");
 
-        let result = service.confirm_start_portfolio(
-            "user@example.com",
-            &response.portfolio_id,
-            ConfirmStartPortfolioRequest {
-                max_global_budget_quote: Some(Decimal::new(10, 0)),
-            },
-        );
-        assert!(result.is_err(), "start must be rejected when budget is too small");
-        let still_pending = service
+        service
+            .confirm_start_portfolio(
+                "user@example.com",
+                &response.portfolio_id,
+                ConfirmStartPortfolioRequest {
+                    max_global_budget_quote: Some(Decimal::new(2000, 0)),
+                },
+            )
+            .expect("running");
+
+        let portfolio = service
             .get_portfolio("user@example.com", &response.portfolio_id)
             .expect("portfolio");
-        assert_ne!(
-            still_pending.status, "running",
-            "portfolio must not be running after preflight rejection"
+        let preflight = &portfolio.risk_summary["live_start_preflight"];
+        assert_eq!(preflight["capital_model"], "margin_budget_cap");
+        let full_margin = preflight["full_series_projected_margin_quote"]
+            .as_f64()
+            .expect("full_series_projected_margin_quote present");
+        assert!(full_margin > 0.0, "full-series margin must be recorded");
+        let capped_margin = preflight["budget_capped_projected_margin_quote"]
+            .as_f64()
+            .expect("budget_capped_projected_margin_quote present");
+        assert!(
+            capped_margin <= 2000.0,
+            "budget-capped margin must respect the cap: {capped_margin}"
         );
+        assert_eq!(preflight["all_strategies_can_start"], true);
+        let per_strategy = preflight["per_strategy"].as_array().expect("per_strategy array");
+        assert!(!per_strategy.is_empty(), "per_strategy must be non-empty");
     }
 }
