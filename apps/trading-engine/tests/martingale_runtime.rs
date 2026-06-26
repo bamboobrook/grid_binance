@@ -414,10 +414,13 @@ fn indicator_expression_blocks_entry_until_warmup_satisfies_condition() {
     assert!(error.to_string().contains("entry triggers"));
     assert!(runtime.orders().is_empty());
 
+    // Low-volatility warmup: ATR(2)/close ≈ 0.5% < 2% guard, and close(101) > sma(3)=100.33
+    // keeps the indicator-expression path satisfied. The original [100,100,105] bars produced
+    // ATR/close ≈ 2.38% which trips the ATR>2% new-cycle guard ported from backtest.
     runtime.warmup_indicators_from_bars(vec![
         kline("BTCUSDT", 0, 100.0),
         kline("BTCUSDT", 3_600_000, 100.0),
-        kline("BTCUSDT", 7_200_000, 105.0),
+        kline("BTCUSDT", 7_200_000, 101.0),
     ]);
     runtime
         .start_cycle_with_futures_preflight(
