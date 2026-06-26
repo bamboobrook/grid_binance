@@ -510,6 +510,31 @@ fn atr_above_two_percent_pauses_new_cycle() {
 }
 
 #[test]
+fn high_atr_does_not_block_safety_leg_after_fill() {
+    // Parity with backtest: the ATR>2% guard is new-cycle-only. A high-ATR
+    // condition must NOT block the averaging-down (safety) leg in
+    // mark_leg_filled_with_context, even though it blocks new cycles.
+    let mut strat = strategy("long-btc", MartingaleDirection::Long);
+    strat.indicators = vec![MartingaleIndicatorConfig::Atr { period: 2 }];
+    let mut runtime = MartingaleRuntime::new(runtime_config(vec![strat])).expect("runtime");
+    // Bars with a low range so the new cycle starts cleanly (ATR/close << 2%).
+    runtime.warmup_indicators_from_bars(vec![
+        kline("BTCUSDT", 0,       100.0),
+        kline("BTCUSDT", 60_000,  100.5),
+        kline("BTCUSDT", 120_000, 100.5),
+    ]);
+    start_cycle_ok(&mut runtime, "long-btc", dec(100));
+    // Warm up an extreme-volatility bar AFTER entry so ATR/close > 2% now.
+    runtime.warmup_indicators_from_bars(vec![kline("BTCUSDT", 180_000, 80.0)]);
+    runtime
+        .mark_leg_filled_with_context(
+            "long-btc", MartingaleDirection::Long, 0, MartingaleRuntimeContext::default(),
+        )
+        .expect("high ATR must not block the safety leg");
+    assert_eq!(runtime.orders().len(), 2, "safety leg placed despite high ATR");
+}
+
+#[test]
 fn atr_within_limit_allows_new_cycle() {
     let mut strat = strategy("long-btc", MartingaleDirection::Long);
     strat.indicators = vec![MartingaleIndicatorConfig::Atr { period: 2 }];

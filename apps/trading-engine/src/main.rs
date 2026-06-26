@@ -138,9 +138,20 @@ fn portfolio_drawdown_pct_for(
                 .find(|tick| tick.symbol == strategy_config.symbol)
                 .map(|tick| tick.price)
                 .unwrap_or(position.average_entry_price);
-            let pnl =
+            // Parity with backtest unrealized_pnl (kline_engine.rs:1464-1476):
+            // subtract entry+exit costs so live portfolio drawdown matches the
+            // backtest (fires slightly earlier / tighter).
+            let gross_pnl =
                 (latest_price - position.average_entry_price) * position.quantity * dir_sign;
-            unrealized += pnl;
+            let costs = (position.quantity * position.average_entry_price
+                + position.quantity * latest_price)
+                * Decimal::from_f64_retain(
+                    backtest_engine::martingale::kline_engine::DEFAULT_FEE_BPS
+                        + backtest_engine::martingale::kline_engine::DEFAULT_SLIPPAGE_BPS,
+                )
+                .unwrap_or(Decimal::ZERO)
+                / Decimal::from(10_000);
+            unrealized += gross_pnl - costs;
         }
     }
 

@@ -315,7 +315,7 @@ impl MartingaleRuntime {
         anchor_price: Decimal,
         context: MartingaleRuntimeContext,
     ) -> Result<(), MartingaleRuntimeError> {
-        self.enforce_new_entry_controls(strategy_id, context)?;
+        self.enforce_new_entry_controls(strategy_id, context, true)?;
         self.enforce_preflight_before_start(strategy_id)?;
         if anchor_price <= Decimal::ZERO {
             return Err(MartingaleRuntimeError::new("anchor price must be positive"));
@@ -358,7 +358,7 @@ impl MartingaleRuntime {
         leg_index: u32,
         context: MartingaleRuntimeContext,
     ) -> Result<(), MartingaleRuntimeError> {
-        self.enforce_new_entry_controls(strategy_id, context)?;
+        self.enforce_new_entry_controls(strategy_id, context, false)?;
         let strategy = self.strategy(strategy_id)?;
         if strategy.config.direction != direction {
             return Err(MartingaleRuntimeError::new(
@@ -519,8 +519,10 @@ impl MartingaleRuntime {
         &mut self,
         strategy_id: &str,
         context: MartingaleRuntimeContext,
+        new_cycle: bool,
     ) -> Result<(), MartingaleRuntimeError> {
         let strategy = self.strategy(strategy_id)?;
+        let strategy_config = strategy.config.clone();
         if strategy.stopped || matches!(context.strategy_status, StrategyStatus::Stopped) {
             return Err(MartingaleRuntimeError::new("strategy is stopped"));
         }
@@ -545,33 +547,39 @@ impl MartingaleRuntime {
                 ));
             }
         }
-        // Parity port of backtest guard (kline_engine.rs:142-146): portfolio
-        // drawdown > 6% pauses new cycles. `Some` carries a real equity-based
-        // percent from `main.rs`; `None` (tests / pre-wiring) skips the guard.
-        if let Some(dd) = context.portfolio_drawdown_pct {
-            if dd > 6.0 {
-                return Err(MartingaleRuntimeError::new(
-                    "portfolio drawdown above 6% pauses new entries",
-                ));
-            }
-        }
-
-        let strategy_config = strategy.config.clone();
-        // 方向3: 波动率过滤 — ATR > 2% of close 时暂停新 cycle（高波动期风险大）
-        // Parity port of backtest guard (kline_engine.rs:147-160). `&mut self` ATR
-        // read completes before `evaluate_entry_triggers` borrows `&mut self`.
-        if let Some(atr) = self.indicator_latest_atr(&strategy_config) {
-            let close = self
-                .indicator_context
-                .bars_by_symbol
-                .get(&strategy_config.symbol)
-                .and_then(|bars| bars.last())
-                .map(|bar| bar.close);
-            if let Some(close) = close {
-                if close > 0.0 && atr / close * 100.0 > 2.0 {
+        // The portfolio-DD>6% and ATR>2% guards are NEW-CYCLE-ONLY in the
+        // backtest (kline_engine.rs:142-160 — inside the new-cycle block). The
+        // safety-leg path (mark_leg_filled_with_context, new_cycle=false) must
+        // skip them so high-ATR / high-DD conditions do not block averaging
+        // that the backtest would have done. All guards above apply to both.
+        if new_cycle {
+            // Parity port of backtest guard (kline_engine.rs:142-146): portfolio
+            // drawdown > 6% pauses new cycles. `Some` carries a real equity-based
+            // percent from `main.rs`; `None` (tests / pre-wiring) skips the guard.
+            if let Some(dd) = context.portfolio_drawdown_pct {
+                if dd > 6.0 {
                     return Err(MartingaleRuntimeError::new(
-                        "atr volatility above 2% pauses new cycle",
+                        "portfolio drawdown above 6% pauses new entries",
                     ));
+                }
+            }
+
+            // 方向3: 波动率过滤 — ATR > 2% of close 时暂停新 cycle（高波动期风险大）
+            // Parity port of backtest guard (kline_engine.rs:147-160). `&mut self` ATR
+            // read completes before `evaluate_entry_triggers` borrows `&mut self`.
+            if let Some(atr) = self.indicator_latest_atr(&strategy_config) {
+                let close = self
+                    .indicator_context
+                    .bars_by_symbol
+                    .get(&strategy_config.symbol)
+                    .and_then(|bars| bars.last())
+                    .map(|bar| bar.close);
+                if let Some(close) = close {
+                    if close > 0.0 && atr / close * 100.0 > 2.0 {
+                        return Err(MartingaleRuntimeError::new(
+                            "atr volatility above 2% pauses new cycle",
+                        ));
+                    }
                 }
             }
         }
