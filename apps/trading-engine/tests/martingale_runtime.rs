@@ -441,3 +441,11 @@ fn kline(symbol: &str, open_time_ms: i64, close: f64) -> KlineBar {
         volume: 0.0,
     }
 }
+
+#[test]
+fn backtest_cost_constants_are_importable_for_live_stop_loss() {
+    use trading_engine::martingale_runtime as _;
+    use backtest_engine::martingale::kline_engine::{DEFAULT_FEE_BPS, DEFAULT_SLIPPAGE_BPS};
+    assert_eq!(DEFAULT_FEE_BPS, 4.5);
+    assert_eq!(DEFAULT_SLIPPAGE_BPS, 2.0);
+}

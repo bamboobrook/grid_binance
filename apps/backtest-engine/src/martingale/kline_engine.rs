@@ -20,8 +20,8 @@ use crate::martingale::rules::compute_leg_trigger_prices;
 use crate::martingale::state::MartingaleLegState;
 
 const DEFAULT_EXCHANGE_MIN_NOTIONAL: f64 = 0.0;
-const DEFAULT_FEE_BPS: f64 = 4.5;
-const DEFAULT_SLIPPAGE_BPS: f64 = 2.0;
+pub const DEFAULT_FEE_BPS: f64 = 4.5;
+pub const DEFAULT_SLIPPAGE_BPS: f64 = 2.0;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct FundingRatePoint {
