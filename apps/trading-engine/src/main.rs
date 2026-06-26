@@ -31,6 +31,7 @@ use std::{
 };
 use tokio::{net::TcpListener, task::JoinHandle, time::sleep};
 use tokio_tungstenite::{connect_async, tungstenite::Message};
+use trading_engine::martingale_budget::apply_global_budget_allocations;
 use trading_engine::{
     execution_effects::persist_execution_effects,
     execution_sync::{apply_execution_update, recompute_strategy_positions},
@@ -1566,66 +1567,6 @@ fn portfolio_weight_factors(
         weights.insert(strategy_id.to_owned(), weight_pct / Decimal::new(100, 0));
     }
     Ok(weights)
-}
-
-fn apply_global_budget_allocations(
-    config: &mut MartingalePortfolioConfig,
-    weights: &HashMap<String, Decimal>,
-) {
-    let Some(global_budget) = config
-        .risk_limits
-        .max_global_budget_quote
-        .filter(|value| *value > Decimal::ZERO)
-    else {
-        return;
-    };
-    let strategy_count = config.strategies.len();
-    if strategy_count == 0 {
-        return;
-    }
-    let equal_cap = global_budget / Decimal::from(strategy_count as u64);
-    for strategy in &mut config.strategies {
-        let budget_cap = weights
-            .get(&strategy.strategy_id)
-            .copied()
-            .filter(|weight_factor| *weight_factor > Decimal::ZERO)
-            .map(|weight_factor| global_budget * weight_factor)
-            .unwrap_or(equal_cap);
-        cap_strategy_budget(strategy, budget_cap);
-    }
-}
-
-fn cap_strategy_budget(strategy: &mut MartingaleStrategyConfig, budget_cap: Decimal) {
-    if budget_cap <= Decimal::ZERO {
-        return;
-    }
-    let effective_budget_cap = first_leg_budget_quote(strategy)
-        .filter(|value| *value > Decimal::ZERO)
-        .map(|first_leg| budget_cap.max(first_leg))
-        .unwrap_or(budget_cap);
-    cap_optional_budget_limit(
-        &mut strategy.risk_limits.max_strategy_budget_quote,
-        effective_budget_cap,
-    );
-}
-
-fn first_leg_budget_quote(strategy: &MartingaleStrategyConfig) -> Option<Decimal> {
-    match &strategy.sizing {
-        MartingaleSizingModel::Multiplier {
-            first_order_quote, ..
-        }
-        | MartingaleSizingModel::BudgetScaled {
-            first_order_quote, ..
-        } => Some(*first_order_quote),
-        MartingaleSizingModel::CustomSequence { notionals } => notionals.first().copied(),
-    }
-}
-
-fn cap_optional_budget_limit(limit: &mut Option<Decimal>, budget_cap: Decimal) {
-    *limit = Some(match *limit {
-        Some(current) if current > Decimal::ZERO => current.min(budget_cap),
-        _ => budget_cap,
-    });
 }
 
 fn strategy_planned_budget_quote(strategy: &MartingaleStrategyConfig) -> Option<Decimal> {
@@ -4358,9 +4299,12 @@ mod tests {
             super::strategy_planned_budget_quote(weighted_strategy),
             Some(Decimal::new(55, 0))
         );
+        // Cap is MARGIN units: global_budget(100) * weight_factor(0.05) = 5,
+        // floored at the first leg's MARGIN (foq 11 / leverage 3 ~= 3.67), so
+        // effective = max(5, 3.67) = 5 — NOT the first leg's NOTIONAL (11).
         assert_eq!(
             weighted_strategy.risk_limits.max_strategy_budget_quote,
-            Some(Decimal::new(11, 0))
+            Some(Decimal::new(5, 0))
         );
         let mut runtime = trading_engine::martingale_runtime::MartingaleRuntime::new(config)
             .expect("runtime should accept tiny weighted config");
