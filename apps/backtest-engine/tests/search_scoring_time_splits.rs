@@ -406,7 +406,9 @@ fn result(
             min_liquidation_buffer_pct: None,
             total_fee_quote: None,
             total_slippage_quote: None,
+            total_funding_quote: None,
             planned_margin_quote: None,
+            planned_notional_quote: None,
             data_quality_score: None,
             trade_count,
             stop_count,
@@ -607,19 +609,37 @@ fn build_long_short_config_for_test(
 /* ------------------------------------------------------------------ */
 
 #[test]
-fn planned_margin_and_leverage_return_use_pre_leverage_capital() {
+fn planned_margin_divides_notional_by_leverage() {
+    // Canonical capital model (see martingale::capital): the sizing geometric
+    // series is leveraged NOTIONAL (150 for 10/2x/4-leg); futures planned
+    // margin = notional / leverage (75 at leverage 2).
+    use backtest_engine::martingale::capital::{
+        planned_margin_quote as capital_planned_margin, planned_notional_quote,
+    };
     use backtest_engine::martingale::metrics::{
-        leveraged_position_pnl_quote, planned_margin_quote,
+        leveraged_position_pnl_quote, planned_notional_from_first_order,
     };
 
-    let planned = planned_margin_quote(10.0, 2.0, 4);
-    assert!((planned - 150.0).abs() < 0.000001);
+    let sizing = MartingaleSizingModel::Multiplier {
+        first_order_quote: Decimal::from(10),
+        multiplier: Decimal::from(2),
+        max_legs: 4,
+    };
+
+    let planned_notional = planned_notional_from_first_order(10.0, 2.0, 4);
+    assert!((planned_notional - 150.0).abs() < 1e-6);
+    assert!((planned_notional_quote(&sizing, 0.0).unwrap() - 150.0).abs() < 1e-6);
+
+    let planned_margin =
+        capital_planned_margin(&sizing, MartingaleMarketKind::UsdMFutures, Some(2), 0.0).unwrap();
+    assert!((planned_margin - 75.0).abs() < 1e-6);
 
     let pnl = leveraged_position_pnl_quote(10.0, 2.0, 0.01);
-    assert!((pnl - 0.2).abs() < 0.000001);
+    assert!((pnl - 0.2).abs() < 1e-6);
 
-    let return_pct = pnl / planned * 100.0;
-    assert!((return_pct - 0.13333333333333333).abs() < 0.000001);
+    // Return denominator is the MARGIN capital (75), not the notional (150).
+    let return_pct = pnl / planned_margin * 100.0;
+    assert!((return_pct - 0.26666666666666666).abs() < 1e-6);
 }
 
 #[test]

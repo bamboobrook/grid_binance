@@ -12,6 +12,14 @@ function formatPercentPoint(value: number | null | undefined): string {
   return normalized == null ? "—" : `${normalized.toFixed(2)}%`;
 }
 
+function formatScoreValue(value: number | null | undefined): string {
+  return value == null || !Number.isFinite(value) ? "—" : value.toFixed(3);
+}
+
+function formatLeverageValue(value: number | null | undefined): string {
+  return value == null || !Number.isFinite(value) || value <= 0 ? "—" : `${value}x`;
+}
+
 type BacktestCandidate = {
   id: string;
   symbol: string;
@@ -30,13 +38,14 @@ type BacktestCandidate = {
 
 export type PortfolioMember = {
   candidate_id: string;
+  source_candidate_id?: string;
   symbol: string;
   direction: string;
   allocation_pct: number;
   return_pct: number;
   max_drawdown_pct: number;
   annualized_return_pct?: number | null;
-  score: number;
+  score?: number;
   trade_count: number;
   leverage?: number | null;
 };
@@ -88,6 +97,7 @@ export function BacktestResultTable({
   selectedPortfolioId,
 }: BacktestResultTableProps) {
   const groupedCandidates = groupCandidatesBySymbol(candidates);
+  const candidateById = new Map(candidates.map((candidate) => [candidate.id, candidate]));
   const isSuccessfulWithoutCandidates = candidates.length === 0 && ["succeeded", "completed"].includes(selectedTaskStatus ?? "");
 
   return (
@@ -152,7 +162,9 @@ export function BacktestResultTable({
                   <span className="text-muted-foreground">{pickText(lang, "交易", "Trades")}</span>
                   <span>{entry.trade_count}</span>
                   <span className="text-muted-foreground">{pickText(lang, "评分", "Score")}</span>
-                  <span className="font-semibold">{entry.score.toFixed(3)}</span>
+                  <span className="font-semibold">{formatScoreValue(entry.score)}</span>
+                  <span className="text-muted-foreground">{pickText(lang, "最高杠杆", "Max leverage")}</span>
+                  <span>{formatLeverageValue(portfolioMaxLeverage(entry, candidateById))}</span>
                   <span className="text-muted-foreground">{pickText(lang, "最大单币权重", "Max single weight")}</span>
                   <span>{Math.max(...entry.members.map((m) => m.allocation_pct), 0).toFixed(1)}%</span>
                 </div>
@@ -162,7 +174,9 @@ export function BacktestResultTable({
                     {entry.members.map((m) => (
                       <div key={m.candidate_id} className="flex items-center justify-between text-xs">
                         <span>{m.symbol} ({m.direction})</span>
-                        <span>{m.allocation_pct.toFixed(1)}% · {m.leverage ? `${m.leverage}x` : "—"}</span>
+                        <span>
+                          {m.allocation_pct.toFixed(1)}% · {formatLeverageValue(memberLeverage(m, candidateById))} · {pickText(lang, "评分", "Score")} {formatScoreValue(memberScore(m, candidateById))}
+                        </span>
                       </div>
                     ))}
                   </div>
@@ -216,6 +230,32 @@ function candidateRank(candidate: BacktestCandidate) {
   return candidate.summary?.parameter_rank_for_symbol ?? candidate.rank ?? Number.POSITIVE_INFINITY;
 }
 
+function portfolioMaxLeverage(entry: PortfolioTop3Row, candidates: Map<string, BacktestCandidate>): number | null {
+  const values = entry.members
+    .map((member) => memberLeverage(member, candidates))
+    .filter((value): value is number => value != null && Number.isFinite(value) && value > 0);
+  return values.length === 0 ? null : Math.max(...values);
+}
+
+function memberLeverage(member: PortfolioMember, candidates: Map<string, BacktestCandidate>): number | null {
+  return member.leverage ?? memberCandidate(member, candidates)?.summary.max_leverage_used ?? null;
+}
+
+function memberScore(member: PortfolioMember, candidates: Map<string, BacktestCandidate>): number | null {
+  return member.score ?? memberCandidate(member, candidates)?.summary.score ?? scoreFromReturnAndDrawdown(member.annualized_return_pct ?? member.return_pct, member.max_drawdown_pct);
+}
+
+function memberCandidate(member: PortfolioMember, candidates: Map<string, BacktestCandidate>): BacktestCandidate | undefined {
+  return candidates.get(member.candidate_id) ?? (member.source_candidate_id ? candidates.get(member.source_candidate_id) : undefined);
+}
+
+function scoreFromReturnAndDrawdown(returnPct: number | null | undefined, drawdownPct: number | null | undefined): number | null {
+  if (returnPct == null || drawdownPct == null || !Number.isFinite(returnPct) || !Number.isFinite(drawdownPct)) {
+    return null;
+  }
+  return returnPct / Math.max(drawdownPct, 1);
+}
+
 function candidateColumns(lang: UiLanguage) {
   return [
     { key: "symbol", label: "Symbol" },
@@ -229,7 +269,7 @@ function candidateColumns(lang: UiLanguage) {
     { key: "returnDrawdownRatio", label: pickText(lang, "收益回撤比", "Return/DD"), align: "right" as const },
     { key: "leverage", label: pickText(lang, "杠杆", "Leverage"), align: "right" as const },
     { key: "tradeCount", label: pickText(lang, "交易数", "Trades"), align: "right" as const },
-    { key: "score", label: pickText(lang, "评分（百分制 0–100）", "Score (0–100 scale)"), align: "right" as const },
+    { key: "score", label: pickText(lang, "评分", "Score"), align: "right" as const },
     { key: "decision", label: pickText(lang, "结论", "Decision") },
     { key: "actions", label: pickText(lang, "操作", "Actions") },
   ];
@@ -265,7 +305,13 @@ function candidateRow(
     parameters: candidate.parameters,
     decision: candidate.decision,
     annualized: formatPercentPoint(candidate.summary?.annualized_return_pct),
-    leverage: candidate.summary?.max_leverage_used != null ? `${candidate.summary.max_leverage_used}x` : "—",
+    leverage: formatLeverageValue(
+      candidate.summary?.max_leverage_used
+        ?? candidate.summary?.max_leverage
+        ?? candidate.summary?.recommended_leverage
+        ?? candidate.summary?.leverage
+        ?? candidate.summary?.candidate_max_leverage,
+    ),
     returnDrawdownRatio: candidate.summary?.return_drawdown_ratio != null ? candidate.summary.return_drawdown_ratio.toFixed(2) : "—",
     actions: (
       <div className="flex gap-2">

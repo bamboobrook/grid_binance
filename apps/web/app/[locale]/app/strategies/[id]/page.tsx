@@ -65,7 +65,8 @@ export default async function StrategyDetailPage({
   const lang = (locale === "zh" ? "zh" : "en") as UiLanguage;
   const cookieStore = await cookies();
   const sessionToken = cookieStore.get("session_token")?.value ?? "";
-  const strategy = sessionToken ? await fetchStrategy(sessionToken, id) : null;
+  const previewMode = process.env.NEXT_PUBLIC_UI_PREVIEW === "1";
+  const strategy = sessionToken ? await fetchStrategy(sessionToken, id) : previewMode ? previewStrategyDetail(id) : null;
   if (!strategy) {
     return (
       <div className="space-y-6">
@@ -137,7 +138,7 @@ export default async function StrategyDetailPage({
           <p className="text-xs text-muted-foreground">
             {pickText(lang, "当前价格", "Current Price")}
           </p>
-          <LivePriceDisplay symbol={strategy.symbol ?? id} lang={lang} />
+          <LivePriceDisplay symbol={strategy.symbol ?? id} initialPrice={refPrice ?? undefined} lang={lang} />
         </div>
         <div className="rounded-lg border p-4">
           <p className="text-xs text-muted-foreground">
@@ -277,6 +278,13 @@ export default async function StrategyDetailPage({
             levelsJson: "[]",
             leverage: "5",
             lowerRangePercent: "6",
+            martingaleDirection: "long",
+            martingaleFirstOrderQuote: "25",
+            martingaleMaxLegs: "6",
+            martingaleOrderMultiplier: "1.6",
+            martingaleSpacingPercent: "1.2",
+            martingaleStopLossPercent: "12",
+            martingaleTakeProfitPercent: "1.4",
             marketType: strategy.market === "FuturesUsdM" ? "usd-m" : strategy.market === "FuturesCoinM" ? "coin-m" : "spot",
             mode: strategy.market === "Spot" ? "buy-only" : "long",
             name: strategy.name,
@@ -360,6 +368,132 @@ async function fetchStrategy(sessionToken: string, strategyId: string): Promise<
   } catch {
     return null;
   }
+}
+
+function previewStrategyDetail(strategyId: string): StrategyDetail | null {
+  const strategies: Record<string, StrategyDetail> = {
+    "preview-btc-grid": {
+      id: "preview-btc-grid",
+      name: "BTC 稳健网格",
+      status: "Running",
+      symbol: "BTCUSDT",
+      market: "Spot",
+      strategy_type: "SpotGrid",
+      budget: "1200",
+      reference_price: "68420.50",
+      reference_price_source: "last_price",
+      draft_revision: { reference_price_source: "last_price" },
+      grid_count: 36,
+      lower_price: "64200",
+      upper_price: "72100",
+      realized_pnl: "86.40",
+      unrealized_pnl: "42.24",
+      net_pnl: "128.64",
+      tags: ["小额试跑", "普通网格"],
+      notes: "用于检查普通网格运行时的订单、成交和收益展示。",
+      runtime: {
+        events: [
+          { event_type: "GridFill", timestamp: "2026-06-11T01:20:00Z" },
+          { event_type: "GridFill", timestamp: "2026-06-10T18:40:00Z" },
+          { event_type: "TakeProfit", timestamp: "2026-06-10T10:15:00Z" },
+        ],
+        fills: [
+          { fill_id: "btc-fill-1", price: "69020.40", quantity: "0.004", realized_pnl: "12.80", side: "Sell", timestamp: "2026-06-11T01:20:00Z" },
+          { fill_id: "btc-fill-2", price: "68110.10", quantity: "0.004", realized_pnl: "0.00", side: "Buy", timestamp: "2026-06-10T18:40:00Z" },
+        ],
+        positions: [
+          { average_entry_price: "68420.50", market: "Spot", mode: "grid", quantity: "0.018" },
+        ],
+      },
+    },
+    "preview-eth-grid": {
+      id: "preview-eth-grid",
+      name: "ETH 合约小额试跑",
+      status: "Paused",
+      symbol: "ETHUSDT",
+      market: "FuturesUsdM",
+      strategy_type: "FuturesLong",
+      budget: "800",
+      reference_price: "3568.20",
+      reference_price_source: "last_price",
+      draft_revision: { reference_price_source: "last_price" },
+      grid_count: 28,
+      lower_price: "3340",
+      upper_price: "3820",
+      realized_pnl: "24.15",
+      unrealized_pnl: "7.65",
+      net_pnl: "31.80",
+      tags: ["合约", "已暂停"],
+      notes: "用于检查暂停状态、恢复按钮和合约字段展示。",
+      runtime: {
+        events: [
+          { event_type: "StrategyPaused", timestamp: "2026-06-11T00:40:00Z" },
+          { event_type: "GridFill", timestamp: "2026-06-10T22:10:00Z" },
+        ],
+        fills: [
+          { fill_id: "eth-fill-1", price: "3598.20", quantity: "0.08", realized_pnl: "8.40", side: "Sell", timestamp: "2026-06-10T22:10:00Z" },
+        ],
+        positions: [
+          { average_entry_price: "3568.20", market: "FuturesUsdM", mode: "isolated", quantity: "0.22" },
+        ],
+      },
+    },
+    "preview-sol-dca": {
+      id: "preview-sol-dca",
+      name: "SOL 马丁观察仓",
+      status: "ErrorPaused",
+      symbol: "SOLUSDT",
+      market: "FuturesUsdM",
+      strategy_type: "FuturesLong",
+      budget: "500",
+      reference_price: "142.35",
+      reference_price_source: "manual",
+      draft_revision: { reference_price_source: "manual" },
+      grid_count: 24,
+      lower_price: "128",
+      upper_price: "156",
+      realized_pnl: "-12.60",
+      unrealized_pnl: "-6.12",
+      net_pnl: "-18.72",
+      tags: ["异常阻塞", "马丁观察"],
+      notes: "用于检查异常阻塞状态和负收益展示。",
+      runtime: {
+        events: [
+          { event_type: "StrategyPaused", timestamp: "2026-06-11T02:10:00Z" },
+          { event_type: "GridFill", timestamp: "2026-06-10T20:25:00Z" },
+        ],
+        fills: [
+          { fill_id: "sol-fill-1", price: "141.80", quantity: "2.4", realized_pnl: "-6.18", side: "Buy", timestamp: "2026-06-10T20:25:00Z" },
+        ],
+        positions: [
+          { average_entry_price: "142.35", market: "FuturesUsdM", mode: "isolated", quantity: "3.6" },
+        ],
+      },
+    },
+    "preview-bnb-draft": {
+      id: "preview-bnb-draft",
+      name: "BNB 新手模板草稿",
+      status: "Draft",
+      symbol: "BNBUSDT",
+      market: "Spot",
+      strategy_type: "SpotGrid",
+      budget: "300",
+      reference_price: "612.40",
+      reference_price_source: "last_price",
+      draft_revision: { reference_price_source: "last_price" },
+      grid_count: 18,
+      lower_price: "580",
+      upper_price: "650",
+      realized_pnl: "0",
+      unrealized_pnl: "0",
+      net_pnl: "0",
+      tags: ["草稿", "模板"],
+      notes: "用于检查草稿状态和未启动机器人展示。",
+      runtime: { events: [], fills: [], positions: [] },
+    },
+  };
+
+  return strategies[strategyId] ?? null;
 }
 
 function authApiBaseUrl() {

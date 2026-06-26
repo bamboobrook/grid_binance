@@ -70,6 +70,7 @@ pub fn sync_strategy_trades(
         };
         if strategy.strategy_type == StrategyType::MartingaleGrid
             && !is_martingale_client_order(&order.order_id)
+            && !is_close_trade_order(&order)
         {
             continue;
         }
@@ -386,7 +387,10 @@ fn telegram_trade_message(
 }
 
 fn is_close_trade_order(order: &shared_domain::strategy::StrategyRuntimeOrder) -> bool {
-    order.order_id.contains("-tp-") || order.order_id.contains("-stop-close-")
+    order.order_id.contains("-tp-")
+        || order.order_id.starts_with("cl-")
+        || order.order_id.contains("-stop-close-")
+        || order.order_id.starts_with("close-")
 }
 
 fn describe_trade_direction(

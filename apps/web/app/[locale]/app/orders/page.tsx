@@ -1,335 +1,112 @@
+import Link from "next/link";
 import { cookies } from "next/headers";
 
 import { AppShellSection } from "@/components/shell/app-shell-section";
 import { Card, CardBody, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Chip } from "@/components/ui/chip";
-import { StatusBanner } from "@/components/ui/status-banner";
-import { DataTable } from "@/components/ui/table";
+import { DataTable, type DataTableColumn, type DataTableRow } from "@/components/ui/table";
 import { UI_LANGUAGE_COOKIE, pickText, resolveUiLanguageFromRoute, type UiLanguage } from "@/lib/ui/preferences";
-import { formatTaipeiDateTime } from "@/lib/ui/time";
 
-const DEFAULT_AUTH_API_BASE_URL = "http://127.0.0.1:8080";
+import { getOrdersData } from "./order-data";
+import { accountSnapshotColumns, accountSnapshotRows, exchangeTradeColumns, exchangeTradeRows, fillColumns, fillRows, orderColumns, orderRows } from "./order-tables";
 
-type AnalyticsReport = {
-  account_snapshots: Array<{
-    captured_at: string;
-    exchange: string;
-    fees_paid: string;
-    funding_total: string;
-  }>;
-  exchange_trades: Array<{
-    exchange: string;
-    fee_amount: string | null;
-    fee_asset: string | null;
-    price: string;
-    quantity: string;
-    side: string;
-    symbol: string;
-    trade_id: string;
-    traded_at: string;
-  }>;
-};
-
-type StrategyListResponse = {
-  items: Array<{
-    id: string;
-    name: string;
-    status: string;
-    symbol: string;
-  }>;
-};
-
-type StrategyRuntimeResponse = {
-  fills: Array<{
-    fill_id: string;
-    fill_type: string;
-    order_id: string | null;
-    price: string;
-    quantity: string;
-    realized_pnl: string | null;
-  }>;
-  orders: Array<{
-    order_id: string;
-    order_type: string;
-    price: string | null;
-    quantity: string;
-    side: string;
-    status: string;
-  }>;
-  strategy_id: string;
-};
-
-type OrderRow = {
-  id: string;
-  orderId: string;
-  side: string;
-  state: string;
-  strategy: string;
-  symbol: string;
-};
-
-type FillRow = {
-  id: string;
-  event: string;
-  pnl: string;
-  symbol: string;
-};
+const PREVIEW_LIMIT = 5;
 
 export default async function OrdersPage({ params }: { params: Promise<{ locale: string }> }) {
   const { locale } = await params;
   const cookieStore = await cookies();
   const lang = resolveUiLanguageFromRoute(locale, cookieStore.get(UI_LANGUAGE_COOKIE)?.value);
-  const results = await Promise.all([fetchAnalytics(), fetchStrategies()]);
-  const analytics = results[0];
-  const strategies = results[1];
-  const runtimes = await fetchStrategyRuntimes(strategies.map((s) => s.id));
-  const orderRows = flattenOrders(strategies, runtimes);
-  const fillRows = flattenFills(strategies, runtimes);
-  const accountSnapshots = analytics?.account_snapshots ?? [];
-  const exchangeTrades = analytics?.exchange_trades ?? [];
+  const data = await getOrdersData(lang);
 
   return (
     <>
-      <StatusBanner
-              tone="info"
-              lang={lang}
-        description={pickText(lang, "订单、成交和交易所侧成交记录统一来自后端运行态与分析接口。", "Orders, fills, and exchange-side trades come directly from backend runtime and analytics data.")}
-        title={pickText(lang, "订单状态条", "Orders status strip")}
-       
-      />
       <AppShellSection
+        actions={
+          <a className="inline-flex h-9 items-center justify-center rounded-sm px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-secondary" href="/api/user/exports/fills">
+            {pickText(lang, "导出成交 CSV", "Download fills CSV")}
+          </a>
+        }
         description={pickText(lang, "这个页面用于核对挂单、成交与交易所侧执行，不离开用户工作台。", "Use this page to reconcile working orders, fills, and exchange executions without leaving the user shell.")}
         eyebrow={pickText(lang, "用户订单", "User orders")}
         title={pickText(lang, "订单与历史", "Orders & History")}
-        actions={
-          <div className="flex items-center gap-2">
-            <a className="inline-flex items-center justify-center rounded-sm text-sm font-medium h-9 px-4 py-2 hover:bg-secondary text-foreground transition-colors" href="/api/user/exports/orders">{pickText(lang, "导出订单 CSV", "Download orders CSV")}</a>
-            <a className="inline-flex items-center justify-center rounded-sm text-sm font-medium h-9 px-4 py-2 hover:bg-secondary text-foreground transition-colors" href="/api/user/exports/fills">{pickText(lang, "导出成交 CSV", "Download fills CSV")}</a>
-          </div>
-        }
       >
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>{pickText(lang, "策略挂单", "Strategy orders")}</CardTitle>
-              <CardDescription>{pickText(lang, "每一行都来自真实运行时订单簿。", "Every row is rendered from the live runtime order book.")}</CardDescription>
-            </CardHeader>
-            <CardBody>
-              <DataTable
-                columns={[
-                  { key: "orderId", label: pickText(lang, "订单号", "Order ID") },
-                  { key: "strategy", label: pickText(lang, "策略", "Strategy") },
-                  { key: "detail", label: pickText(lang, "明细", "Detail") },
-                  { key: "state", label: pickText(lang, "状态", "State"), align: "right" },
-                ]}
-                rows={orderRows.map((row) => ({
-                  id: row.id,
-                  orderId: row.orderId,
-                  strategy: row.strategy,
-                  detail: row.symbol + " · " + describeSide(lang, row.side),
-                  state: <Chip tone={orderTone(row.state)}>{describeOrderState(lang, row.state)}</Chip>,
-                }))}
-              />
-            </CardBody>
-          </Card>
-          <Card>
-            <CardHeader>
-              <CardTitle>{pickText(lang, "成交历史", "Fill history")}</CardTitle>
-              <CardDescription>{pickText(lang, "逐笔盈亏来自真实成交，不使用伪造汇总。", "Per-fill PnL comes from actual runtime fills, not fabricated summaries.")}</CardDescription>
-            </CardHeader>
-            <CardBody>
-              <DataTable
-                columns={[
-                  { key: "event", label: pickText(lang, "事件", "Event") },
-                  { key: "symbol", label: pickText(lang, "交易对", "Symbol") },
-                  { key: "detail", label: pickText(lang, "明细", "Detail") },
-                  { key: "pnl", label: pickText(lang, "收益", "PnL"), align: "right" },
-                ]}
-                rows={fillRows.map((row) => ({
-                  id: row.id,
-                  event: row.event,
-                  symbol: row.symbol,
-                  detail: row.event,
-                  pnl: row.pnl,
-                }))}
-              />
-            </CardBody>
-          </Card>
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          <OrdersSummaryCard
+            columns={orderColumns(lang)}
+            description={pickText(lang, "检查每个机器人现在还挂着哪些买入或卖出单。", "Check which buy or sell orders each bot is still working.")}
+            href={`/${locale}/app/orders/strategy-orders`}
+            lang={lang}
+            rows={orderRows(lang, data.orderRows).slice(0, PREVIEW_LIMIT)}
+            title={pickText(lang, "策略挂单", "Strategy orders")}
+            total={data.orderRows.length}
+          />
+          <OrdersSummaryCard
+            columns={fillColumns(lang)}
+            description={pickText(lang, "看已经成交的订单、数量和单笔收益。", "Review filled orders, quantities, and per-fill PnL.")}
+            href={`/${locale}/app/orders/fills`}
+            lang={lang}
+            rows={fillRows(data.fillRows).slice(0, PREVIEW_LIMIT)}
+            title={pickText(lang, "成交历史", "Fill history")}
+            total={data.fillRows.length}
+          />
         </div>
       </AppShellSection>
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <Card>
-          <CardHeader>
-            <CardTitle>{pickText(lang, "最近交易所成交", "Recent exchange trades")}</CardTitle>
-            <CardDescription>{pickText(lang, "这些记录用于对账 Binance 侧的实际执行。", "These rows help reconcile actual Binance-side executions.")}</CardDescription>
-          </CardHeader>
-          <CardBody>
-            <DataTable
-              columns={[
-                { key: "at", label: pickText(lang, "时间", "Timestamp") },
-                { key: "symbol", label: pickText(lang, "交易对", "Symbol") },
-                { key: "detail", label: pickText(lang, "明细", "Detail") },
-                { key: "fee", label: pickText(lang, "手续费", "Fee"), align: "right" },
-              ]}
-              rows={exchangeTrades.map((row) => ({
-                id: row.trade_id,
-                at: formatTaipeiDateTime(row.traded_at, lang),
-                symbol: row.symbol,
-                detail: row.exchange + " · " + describeSide(lang, row.side) + " · " + row.quantity + " @ " + row.price,
-                fee: row.fee_amount ? (row.fee_amount + " " + (row.fee_asset ?? "")).trim() : "-",
-              }))}
-            />
-          </CardBody>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle>{pickText(lang, "账户活动快照", "Exchange account activity")}</CardTitle>
-            <CardDescription>{pickText(lang, "账户级分析快照用于复盘成本与资金费。", "Account-level snapshots help review cost and funding drift.")}</CardDescription>
-          </CardHeader>
-          <CardBody>
-            <DataTable
-              columns={[
-                { key: "capturedAt", label: pickText(lang, "时间", "Timestamp") },
-                { key: "exchange", label: pickText(lang, "交易所", "Exchange") },
-                { key: "detail", label: pickText(lang, "明细", "Detail"), align: "right" },
-              ]}
-              rows={accountSnapshots.map((row, index) => ({
-                id: row.exchange + "-" + index,
-                capturedAt: formatTaipeiDateTime(row.captured_at, lang),
-                exchange: row.exchange,
-                detail: pickText(lang, "手续费 " + row.fees_paid + " | 资金费 " + row.funding_total, "Fees " + row.fees_paid + " | Funding " + row.funding_total),
-              }))}
-            />
-          </CardBody>
-        </Card>
+
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <OrdersSummaryCard
+          columns={exchangeTradeColumns(lang)}
+          description={pickText(lang, "和交易所侧成交记录对账。", "Reconcile against exchange-side fills.")}
+          href={`/${locale}/app/orders/exchange-trades`}
+          lang={lang}
+          rows={exchangeTradeRows(lang, data.exchangeTrades).slice(0, PREVIEW_LIMIT)}
+          title={pickText(lang, "最近交易所成交", "Recent exchange trades")}
+          total={data.exchangeTrades.length}
+        />
+        <OrdersSummaryCard
+          columns={accountSnapshotColumns(lang)}
+          description={pickText(lang, "看手续费、资金费和同步状态的变化。", "Review fees, funding, and sync status changes.")}
+          href={`/${locale}/app/orders/account-activity`}
+          lang={lang}
+          rows={accountSnapshotRows(lang, data.accountSnapshots).slice(0, PREVIEW_LIMIT)}
+          title={pickText(lang, "账户活动快照", "Exchange account activity")}
+          total={data.accountSnapshots.length}
+        />
       </div>
     </>
   );
 }
 
-function describeOrderState(lang: UiLanguage, state: string) {
-  switch (state) {
-    case "Placed":
-      return pickText(lang, "已下单", "Placed");
-    case "Working":
-      return pickText(lang, "挂单中", "Working");
-    case "Canceled":
-      return pickText(lang, "已取消", "Canceled");
-    case "Filled":
-      return pickText(lang, "已成交", "Filled");
-    default:
-      return state;
-  }
-}
-
-function describeSide(lang: UiLanguage, side: string) {
-  return side === "Buy" ? pickText(lang, "买入", "Buy") : side === "Sell" ? pickText(lang, "卖出", "Sell") : side;
-}
-
-function orderTone(state: string) {
-  if (state === "Placed" || state === "Working") {
-    return "success" as const;
-  }
-  if (state === "Canceled") {
-    return "warning" as const;
-  }
-  return "info" as const;
-}
-
-async function fetchAnalytics(): Promise<AnalyticsReport | null> {
-  const cookieStore = await cookies();
-  const sessionToken = cookieStore.get("session_token")?.value ?? "";
-  if (sessionToken === "") {
-    return null;
-  }
-
-  const response = await fetch(authApiBaseUrl() + "/analytics", {
-    method: "GET",
-    headers: { authorization: "Bearer " + sessionToken },
-    cache: "no-store",
-  });
-
-  if (!response.ok) {
-    return null;
-  }
-
-  return (await response.json()) as AnalyticsReport;
-}
-
-async function fetchStrategies(): Promise<StrategyListResponse["items"]> {
-  const cookieStore = await cookies();
-  const sessionToken = cookieStore.get("session_token")?.value ?? "";
-  if (sessionToken === "") {
-    return [];
-  }
-
-  const response = await fetch(authApiBaseUrl() + "/strategies", {
-    method: "GET",
-    headers: { authorization: "Bearer " + sessionToken },
-    cache: "no-store",
-  });
-
-  if (!response.ok) {
-    return [];
-  }
-
-  return ((await response.json()) as StrategyListResponse).items;
-}
-
-async function fetchStrategyRuntimes(strategyIds: string[]) {
-  const cookieStore = await cookies();
-  const sessionToken = cookieStore.get("session_token")?.value ?? "";
-  if (sessionToken === "" || strategyIds.length === 0) {
-    return [] as StrategyRuntimeResponse[];
-  }
-
-  const response = await fetch(
-    authApiBaseUrl() + "/strategies/batch/runtimes?ids=" + strategyIds.join(","),
-    {
-      method: "GET",
-      headers: { authorization: "Bearer " + sessionToken },
-      cache: "no-store",
-    }
+function OrdersSummaryCard({
+  columns,
+  description,
+  href,
+  lang,
+  rows,
+  title,
+  total,
+}: {
+  columns: readonly DataTableColumn[];
+  description: string;
+  href: string;
+  lang: UiLanguage;
+  rows: DataTableRow[];
+  title: string;
+  total: number;
+}) {
+  return (
+    <Card>
+      <CardHeader className="flex-row items-start justify-between gap-3 space-y-0">
+        <div className="min-w-0 space-y-1.5">
+          <CardTitle>{title}</CardTitle>
+          <CardDescription>{description}</CardDescription>
+        </div>
+        <Link className="shrink-0 rounded-sm px-2 py-1 text-xs font-semibold text-primary transition-colors hover:bg-primary/10" href={href}>
+          {pickText(lang, "更多", "More")}
+          {total > PREVIEW_LIMIT ? <span className="ml-1 text-muted-foreground">{total}</span> : null}
+        </Link>
+      </CardHeader>
+      <CardBody>
+        <DataTable columns={columns} rows={rows} />
+      </CardBody>
+    </Card>
   );
-  if (!response.ok) {
-    return [] as StrategyRuntimeResponse[];
-  }
-  const data = (await response.json()) as { items: StrategyRuntimeResponse[] };
-  return data.items ?? [];
-}
-
-function flattenOrders(
-  strategies: StrategyListResponse["items"],
-  runtimes: StrategyRuntimeResponse[],
-): OrderRow[] {
-  return runtimes.flatMap((runtime) => {
-    const strategy = strategies.find((item) => item.id === runtime.strategy_id);
-    return runtime.orders.map((order) => ({
-      id: runtime.strategy_id + "-" + order.order_id,
-      orderId: order.order_id,
-      side: order.side,
-      state: order.status,
-      strategy: strategy?.name ?? runtime.strategy_id,
-      symbol: strategy?.symbol ?? "-",
-    }));
-  });
-}
-
-function flattenFills(
-  strategies: StrategyListResponse["items"],
-  runtimes: StrategyRuntimeResponse[],
-): FillRow[] {
-  return runtimes.flatMap((runtime) => {
-    const strategy = strategies.find((item) => item.id === runtime.strategy_id);
-    return runtime.fills.map((fill) => ({
-      id: fill.fill_id,
-      event: fill.fill_type + (fill.order_id ? " · " + fill.order_id : ""),
-      pnl: fill.realized_pnl ?? "-",
-      symbol: strategy?.symbol ?? "-",
-    }));
-  });
-}
-
-function authApiBaseUrl() {
-  return process.env.AUTH_API_BASE_URL?.trim().replace(/\/+$/, "") || DEFAULT_AUTH_API_BASE_URL;
 }

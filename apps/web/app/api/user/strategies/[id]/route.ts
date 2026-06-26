@@ -47,6 +47,10 @@ export async function POST(
   const formData = await request.formData();
   const intent = readField(formData, "intent");
   const returnTo = readField(formData, "returnTo");
+  const view = readView(request);
+  if (process.env.NEXT_PUBLIC_UI_PREVIEW === "1" && (intent === "pause" || intent === "stop" || intent === "delete" || intent === "start")) {
+    return redirectWithNotice(request, id, `preview-${intent || "start"}`, returnTo, view);
+  }
   const sessionToken = readSessionToken(request);
   if (!sessionToken) {
     return redirectToPublic(request, "/login?error=session+expired");
@@ -54,48 +58,48 @@ export async function POST(
 
   const current = await fetchStrategy(sessionToken, id);
   if (!current) {
-    return redirectWithError(request, id, "strategy workspace is temporarily unavailable", returnTo);
+    return redirectWithError(request, id, "strategy workspace is temporarily unavailable", returnTo, view);
   }
 
   if (intent === "pause") {
     if (current.status !== "Running") {
-      return redirectWithError(request, id, pauseErrorForStatus(current.status), returnTo);
+      return redirectWithError(request, id, pauseErrorForStatus(current.status), returnTo, view);
     }
     const paused = await strategyPost(sessionToken, "/strategies/batch/pause", { ids: [id] });
     if (!paused.ok) {
-      return redirectWithError(request, id, await readError(paused.response), returnTo);
+      return redirectWithError(request, id, await readError(paused.response), returnTo, view);
     }
     const pausedPayload = (await paused.response.json()) as { paused?: number; failures?: Array<{ error?: string }> };
     if ((pausedPayload.paused ?? 0) === 0) {
-      return redirectWithError(request, id, pausedPayload.failures?.[0]?.error ?? "Strategy action failed.", returnTo);
+      return redirectWithError(request, id, pausedPayload.failures?.[0]?.error ?? "Strategy action failed.", returnTo, view);
     }
-    return redirectWithNotice(request, id, "strategy-paused", returnTo);
+    return redirectWithNotice(request, id, "strategy-paused", returnTo, view);
   }
 
   if (intent === "stop") {
     if (current.status !== "Running" && current.status !== "Paused" && current.status !== "ErrorPaused") {
-      return redirectWithError(request, id, stopErrorForStatus(current.status), returnTo);
+      return redirectWithError(request, id, stopErrorForStatus(current.status), returnTo, view);
     }
     const stopped = await strategyPost(sessionToken, `/strategies/${id}/stop`, null);
     if (!stopped.ok) {
-      return redirectWithError(request, id, await readError(stopped.response), returnTo);
+      return redirectWithError(request, id, await readError(stopped.response), returnTo, view);
     }
-    return redirectWithNotice(request, id, "strategy-stopped", returnTo);
+    return redirectWithNotice(request, id, "strategy-stopped", returnTo, view);
   }
 
   if (intent === "delete") {
     if (current.status === "Running") {
-      return redirectWithError(request, id, deleteErrorForStatus(current.status), returnTo);
+      return redirectWithError(request, id, deleteErrorForStatus(current.status), returnTo, view);
     }
     const deleted = await strategyPost(sessionToken, "/strategies/batch/delete", { ids: [id] });
     if (!deleted.ok) {
-      return redirectWithError(request, id, await readError(deleted.response), returnTo);
+      return redirectWithError(request, id, await readError(deleted.response), returnTo, view);
     }
     const deletedPayload = (await deleted.response.json()) as { deleted?: number; failures?: Array<{ error?: string }> };
     if ((deletedPayload.deleted ?? 0) === 0) {
-      return redirectWithError(request, id, deletedPayload.failures?.[0]?.error ?? "Strategy action failed.", returnTo);
+      return redirectWithError(request, id, deletedPayload.failures?.[0]?.error ?? "Strategy action failed.", returnTo, view);
     }
-    return redirectWithNotice(request, id, "strategy-deleted", returnTo);
+    return redirectWithNotice(request, id, "strategy-deleted", returnTo, view);
   }
 
   if (intent === "save") {
@@ -138,7 +142,7 @@ export async function POST(
   const started = await strategyPost(sessionToken, path, null);
   if (!started.ok) {
     const parsed = await readStrategyError(started.response);
-    const url = preferredStrategyUrl(request, id, returnTo);
+    const url = preferredStrategyUrl(request, id, returnTo, view);
     url.searchParams.set("notice", "start-failed");
     url.searchParams.set("error", parsed.error);
     if (parsed.reason && returnTo !== "list") {
@@ -146,7 +150,7 @@ export async function POST(
     }
     return NextResponse.redirect(url, { status: 303 });
   }
-  return redirectWithNotice(request, id, "strategy-started", returnTo);
+  return redirectWithNotice(request, id, "strategy-started", returnTo, view);
 }
 
 async function buildUpdatePayload(formData: FormData, current: BackendStrategy) {
@@ -424,21 +428,15 @@ function mapPostTrigger(value: string) {
   return null;
 }
 
-function redirectWithError(request: Request, strategyId: string, error: string, returnTo = "") {
-  const url = preferredStrategyUrl(request, strategyId, returnTo);
+function redirectWithError(request: Request, strategyId: string, error: string, returnTo = "", view = "") {
+  const url = preferredStrategyUrl(request, strategyId, returnTo, view);
   url.searchParams.set("error", error);
   return NextResponse.redirect(url, { status: 303 });
 }
 
-function redirectWithNotice(request: Request, strategyId: string, notice: string, returnTo = "") {
+function redirectWithNotice(request: Request, strategyId: string, notice: string, returnTo = "", view = "") {
   if (returnTo === "list") {
-    if (notice === "strategy-started") {
-      return redirectToApp(request, "/strategies?notice=strategy-started");
-    }
-    if (notice === "strategy-stopped") {
-      return redirectToApp(request, "/strategies?notice=strategy-stopped");
-    }
-    return redirectToApp(request, `/strategies?notice=${notice}`);
+    return redirectToApp(request, listPath({ notice, view }));
   }
   return redirectToDetail(request, strategyId, `?notice=${notice}`);
 }
@@ -520,15 +518,35 @@ function readSessionToken(request: Request) {
   return match ? decodeURIComponent(match[1]) : null;
 }
 
+function readView(request: Request) {
+  const value = new URL(request.url).searchParams.get("view");
+  return value === "cards" || value === "table" ? value : "";
+}
+
 function authApiBaseUrl() {
   return process.env.AUTH_API_BASE_URL?.trim().replace(/\/+$/, "") || DEFAULT_AUTH_API_BASE_URL;
 }
 
-function preferredStrategyUrl(request: Request, strategyId: string, returnTo = "") {
+function preferredStrategyUrl(request: Request, strategyId: string, returnTo = "", view = "") {
   if (returnTo === "list") {
-    return publicUrl(request, localizedAppPath(request, "/strategies"));
+    return publicUrl(request, localizedAppPath(request, listPath({ view })));
   }
   return publicUrl(request, localizedAppPath(request, `/strategies/${strategyId}`));
+}
+
+function listPath({ error, notice, view }: { error?: string; notice?: string; view?: string }) {
+  const params = new URLSearchParams();
+  if (view === "cards" || view === "table") {
+    params.set("view", view);
+  }
+  if (notice) {
+    params.set("notice", notice);
+  }
+  if (error) {
+    params.set("error", error);
+  }
+  const query = params.toString();
+  return query ? `/strategies?${query}` : "/strategies";
 }
 
 function redirectToApp(request: Request, pathname: string) {

@@ -1,12 +1,19 @@
+use backtest_engine::market_data::KlineBar;
+use backtest_engine::martingale::exit_rules::{take_profit_price, ExitDecision};
+use backtest_engine::martingale::indicator_runtime::{
+    latest_atr_for_strategy, IndicatorRuntimeContext,
+};
 use backtest_engine::martingale::rules::{compute_leg_notionals, compute_leg_trigger_prices};
 use rust_decimal::prelude::ToPrimitive;
 use rust_decimal::Decimal;
 use shared_domain::martingale::{
-    MartingaleDirection, MartingaleDirectionMode, MartingaleMarketKind, MartingalePortfolioConfig,
-    MartingaleRiskLimits, MartingaleSizingModel, MartingaleSpacingModel, MartingaleStrategyConfig,
+    MartingaleDirection, MartingaleDirectionMode, MartingaleEntryTrigger, MartingaleMarketKind,
+    MartingalePortfolioConfig, MartingaleRiskLimits, MartingaleSizingModel, MartingaleSpacingModel,
+    MartingaleStrategyConfig,
 };
 use shared_domain::strategy::StrategyStatus;
-use std::collections::{HashMap, HashSet};
+use std::collections::{hash_map::DefaultHasher, HashMap, HashSet};
+use std::hash::{Hash, Hasher};
 
 const BPS_DENOMINATOR: Decimal = Decimal::from_parts(10_000, 0, 0, false, 0);
 
@@ -24,6 +31,8 @@ pub struct MartingaleRuntimeContext {
     pub pause_new_entries: bool,
     pub strategy_status: StrategyStatus,
     pub global_drawdown_quote: Decimal,
+    pub now_ms: Option<i64>,
+    pub last_cycle_closed_at_ms: Option<i64>,
 }
 
 impl Default for MartingaleRuntimeContext {
@@ -32,6 +41,8 @@ impl Default for MartingaleRuntimeContext {
             pause_new_entries: false,
             strategy_status: StrategyStatus::Running,
             global_drawdown_quote: Decimal::ZERO,
+            now_ms: None,
+            last_cycle_closed_at_ms: None,
         }
     }
 }
@@ -57,6 +68,12 @@ pub struct MartingaleRuntimeOrder {
     pub price: Decimal,
     pub quantity: Decimal,
     pub notional_quote: Decimal,
+    /// Margin capital reserved by this order = `notional_quote / leverage`.
+    /// Persisted on the order so budget checks never recompute from a strategy
+    /// leverage that may change after order creation.
+    pub margin_quote: Decimal,
+    /// Planned leverage captured at order creation (`margin = notional / leverage`).
+    pub leverage: u32,
     pub status: MartingaleRuntimeOrderStatus,
 }
 
@@ -115,6 +132,7 @@ pub struct MartingaleRuntime {
     recovered_positions: Vec<MartingaleRecoveredPosition>,
     futures_preflight_passed: bool,
     cycle_sequence: u64,
+    indicator_context: IndicatorRuntimeContext,
 }
 
 impl MartingaleRuntime {
@@ -158,7 +176,111 @@ impl MartingaleRuntime {
             recovered_positions: Vec::new(),
             futures_preflight_passed: false,
             cycle_sequence: 0,
+            indicator_context: IndicatorRuntimeContext::default(),
         })
+    }
+
+    pub fn warmup_indicators_from_bars(&mut self, bars: Vec<KlineBar>) {
+        for bar in &bars {
+            self.indicator_context.push_bar(bar);
+        }
+    }
+
+    pub fn evaluate_entry_triggers(
+        &mut self,
+        strategy: &MartingaleStrategyConfig,
+        context: MartingaleRuntimeContext,
+    ) -> Result<bool, MartingaleRuntimeError> {
+        if strategy.entry_triggers.is_empty() {
+            return Ok(true);
+        }
+        for trigger in &strategy.entry_triggers {
+            match trigger {
+                MartingaleEntryTrigger::IndicatorExpression { expression } => {
+                    let result = match self
+                        .indicator_context
+                        .evaluate_expression(&strategy.symbol, expression)
+                    {
+                        Ok(result) => result,
+                        Err(error) if error.starts_with("no indicator bars") => return Ok(false),
+                        Err(error) => return Err(MartingaleRuntimeError::new(error)),
+                    };
+                    if !result.unwrap_or(false) {
+                        return Ok(false);
+                    }
+                }
+                MartingaleEntryTrigger::Cooldown { seconds } => {
+                    if let (Some(now_ms), Some(closed_at_ms)) =
+                        (context.now_ms, context.last_cycle_closed_at_ms)
+                    {
+                        let elapsed_ms = now_ms.saturating_sub(closed_at_ms);
+                        if elapsed_ms < (*seconds as i64).saturating_mul(1_000) {
+                            return Ok(false);
+                        }
+                    }
+                }
+                _ => {}
+            }
+        }
+        Ok(true)
+    }
+
+    pub fn indicator_latest_atr(&mut self, strategy: &MartingaleStrategyConfig) -> Option<f64> {
+        latest_atr_for_strategy(&mut self.indicator_context, strategy)
+    }
+
+    pub fn has_indicator_warmup_for(&self, symbol: &str, period: usize) -> bool {
+        self.indicator_context
+            .bars_by_symbol
+            .get(symbol)
+            .map(|bars| bars.len() >= period)
+            .unwrap_or(false)
+    }
+
+    /// 实盘 TP 评估：用回测相同的 exit_rules 纯函数计算止盈价。
+    /// 返回 (tp_price, ExitDecision) — 当 ExitDecision != None 时应平仓止盈。
+    pub fn evaluate_strategy_take_profit(
+        &mut self,
+        strategy_id: &str,
+        average_entry: f64,
+    ) -> Result<Option<(f64, ExitDecision)>, MartingaleRuntimeError> {
+        let (direction, take_profit_model, strategy_config) = {
+            let strategy = self
+                .strategies
+                .get(strategy_id)
+                .ok_or_else(|| MartingaleRuntimeError::new("strategy not found"))?;
+            (
+                strategy.config.direction,
+                strategy.config.take_profit.clone(),
+                strategy.config.clone(),
+            )
+        };
+        let latest_atr = if matches!(
+            take_profit_model,
+            shared_domain::martingale::MartingaleTakeProfitModel::Atr { .. }
+        ) {
+            self.indicator_latest_atr(&strategy_config)
+        } else {
+            None
+        };
+        let tp_price = take_profit_price(average_entry, direction, &take_profit_model, latest_atr)
+            .map_err(MartingaleRuntimeError::new)?;
+        let triggered = tp_price.is_finite() && tp_price > 0.0;
+        if triggered {
+            Ok(Some((tp_price, ExitDecision::TakeProfit)))
+        } else {
+            Ok(None)
+        }
+    }
+
+    /// 注入持久化的 indicator_context（跨 reconcile tick 保持指标状态）
+    pub fn set_indicator_context(&mut self, ctx: IndicatorRuntimeContext) {
+        self.indicator_context = ctx;
+    }
+
+    /// 导出当前 indicator_context（用于跨 tick 持久化）
+    pub fn indicator_context_clone(&self) -> IndicatorRuntimeContext {
+        self.indicator_context.clone()
     }
 
     pub fn preflight_start(
@@ -249,6 +371,7 @@ impl MartingaleRuntime {
         let next_leg_index = leg_index + 1;
         let max_legs = max_legs(&strategy.config.sizing);
         let spacing = strategy.config.spacing.clone();
+        let strategy_config = strategy.config.clone();
 
         self.strategy_mut(strategy_id)?
             .cycle
@@ -269,7 +392,14 @@ impl MartingaleRuntime {
             return Ok(());
         }
         self.enforce_budget_for_next_leg(strategy_id, next_leg_index)?;
-        let price = leg_trigger_price(anchor_price, direction, &spacing, next_leg_index)?;
+        let latest_atr = self.indicator_latest_atr(&strategy_config);
+        let price = leg_trigger_price(
+            anchor_price,
+            direction,
+            &spacing,
+            next_leg_index,
+            latest_atr,
+        )?;
         self.place_leg(strategy_id, direction, &cycle_id, next_leg_index, price)
     }
 
@@ -361,7 +491,7 @@ impl MartingaleRuntime {
     }
 
     fn enforce_new_entry_controls(
-        &self,
+        &mut self,
         strategy_id: &str,
         context: MartingaleRuntimeContext,
     ) -> Result<(), MartingaleRuntimeError> {
@@ -390,6 +520,13 @@ impl MartingaleRuntime {
                 ));
             }
         }
+
+        let strategy_config = strategy.config.clone();
+        if !self.evaluate_entry_triggers(&strategy_config, context)? {
+            return Err(MartingaleRuntimeError::new(
+                "entry triggers are not satisfied",
+            ));
+        }
         Ok(())
     }
 
@@ -414,12 +551,15 @@ impl MartingaleRuntime {
         leg_index: u32,
     ) -> Result<(), MartingaleRuntimeError> {
         let strategy = self.strategy(strategy_id)?;
-        let next_margin = leg_notional(
+        // Budget checks use MARGIN capital (= notional / leverage), matching
+        // the backtest capital model.
+        let next_notional = leg_notional(
             &strategy.config.sizing,
-            self.portfolio_budget_quote,
             self.exchange_min_notional,
             leg_index,
         )?;
+        let leverage = strategy.config.leverage.unwrap_or(1).max(1);
+        let next_margin = next_notional / Decimal::from(leverage);
         enforce_limit(
             "strategy budget",
             strategy.config.risk_limits.max_strategy_budget_quote,
@@ -435,9 +575,12 @@ impl MartingaleRuntime {
             strategy.config.risk_limits.max_direction_budget_quote,
             self.direction_margin_exposure(strategy.config.direction) + next_margin,
         )?;
+        // Global margin cap = portfolio_budget_quote, the portfolio's margin
+        // capital (equals max_global_budget when set, or the sum of planned
+        // margins as a fallback so the cap always exists).
         enforce_limit(
             "global budget",
-            self.portfolio_risk_limits.max_global_budget_quote,
+            Some(self.portfolio_budget_quote),
             self.global_margin_exposure() + next_margin,
         )?;
         Ok(())
@@ -452,19 +595,25 @@ impl MartingaleRuntime {
         price: Decimal,
     ) -> Result<(), MartingaleRuntimeError> {
         let strategy = self.strategy(strategy_id)?.config.clone();
-        let margin_quote = leg_notional(
+        // Canonical capital model (see backtest_engine::martingale::capital):
+        // the sizing geometric series is the LEVERAGED ORDER NOTIONAL (position
+        // size); margin = notional / leverage; quantity = notional / price.
+        let notional_quote = leg_notional(
             &strategy.sizing,
-            self.portfolio_budget_quote,
             self.exchange_min_notional,
             leg_index,
         )?;
-        let leverage = Decimal::from(strategy.leverage.unwrap_or(1).max(1));
-        let notional_quote = margin_quote * leverage;
+        let leverage = strategy.leverage.unwrap_or(1).max(1);
+        let margin_quote = notional_quote / Decimal::from(leverage);
         let quantity = notional_quote / price;
         let direction_label = direction_label(direction);
-        let client_order_id = format!(
-            "mg-{}-{}-{}-{}-leg-{}",
-            self.portfolio_id, self.strategy_instance_id, cycle_id, direction_label, leg_index
+        let client_order_id = martingale_client_order_id(
+            &self.portfolio_id,
+            &self.strategy_instance_id,
+            strategy_id,
+            cycle_id,
+            direction_label,
+            leg_index,
         );
         self.orders.push(MartingaleRuntimeOrder {
             client_order_id,
@@ -478,6 +627,8 @@ impl MartingaleRuntime {
             price,
             quantity,
             notional_quote,
+            margin_quote,
+            leverage,
             status: MartingaleRuntimeOrderStatus::Working,
         });
         Ok(())
@@ -530,13 +681,10 @@ impl MartingaleRuntime {
     }
 
     fn order_margin_quote(&self, order: &MartingaleRuntimeOrder) -> Decimal {
-        let leverage = self
-            .strategies
-            .get(&order.strategy_id)
-            .and_then(|strategy| strategy.config.leverage)
-            .unwrap_or(1)
-            .max(1);
-        order.notional_quote / Decimal::from(leverage)
+        // Margin is persisted on the order at creation time (margin =
+        // notional / planned leverage), so exposure accounting never depends
+        // on a strategy leverage that may change later.
+        order.margin_quote
     }
 }
 
@@ -587,11 +735,13 @@ pub fn validate_futures_settings_before_start(
                 strategy.symbol
             )));
         }
-        if Some(symbol_settings.leverage) != strategy.leverage {
-            return Err(MartingaleRuntimeError::new(format!(
-                "{} leverage conflicts with exchange settings",
-                strategy.symbol
-            )));
+        if let Some(strategy_leverage) = strategy.leverage {
+            if symbol_settings.leverage < strategy_leverage {
+                return Err(MartingaleRuntimeError::new(format!(
+                    "{} leverage conflicts with exchange settings",
+                    strategy.symbol
+                )));
+            }
         }
     }
 
@@ -607,15 +757,38 @@ pub fn validate_futures_settings_before_start(
     Ok(())
 }
 
+fn martingale_client_order_id(
+    portfolio_id: &str,
+    strategy_instance_id: &str,
+    strategy_id: &str,
+    cycle_id: &str,
+    direction_label: &str,
+    leg_index: u32,
+) -> String {
+    let mut hasher = DefaultHasher::new();
+    portfolio_id.hash(&mut hasher);
+    strategy_instance_id.hash(&mut hasher);
+    strategy_id.hash(&mut hasher);
+    cycle_id.hash(&mut hasher);
+    leg_index.hash(&mut hasher);
+    format!(
+        "mg-{hash:016x}-{direction_label}-leg-{leg_index}",
+        hash = hasher.finish()
+    )
+}
+
 fn leg_trigger_price(
     anchor_price: Decimal,
     direction: MartingaleDirection,
     spacing: &MartingaleSpacingModel,
     leg_index: u32,
+    latest_atr: Option<f64>,
 ) -> Result<Decimal, MartingaleRuntimeError> {
     let max_legs = leg_index.max(1);
     if let (Some(anchor), Some(_)) = (anchor_price.to_f64(), Decimal::ONE.to_f64()) {
-        if let Ok(prices) = compute_leg_trigger_prices(anchor, direction, spacing, None, max_legs) {
+        if let Ok(prices) =
+            compute_leg_trigger_prices(anchor, direction, spacing, latest_atr, max_legs)
+        {
             if let Some(price) = prices.get(leg_index.saturating_sub(1) as usize) {
                 return Decimal::try_from(*price)
                     .map(|price| price.normalize())
@@ -655,9 +828,11 @@ fn spacing_distance_bps(
             .copied()
             .map(Decimal::from)
             .ok_or_else(|| MartingaleRuntimeError::new("custom spacing leg not found")),
-        MartingaleSpacingModel::Atr { .. } => Err(MartingaleRuntimeError::new(
-            "unsupported spacing model for live runtime without indicators",
-        )),
+        MartingaleSpacingModel::Atr { .. } => {
+            Err(MartingaleRuntimeError::new(
+                "ATR spacing requires latest_atr to compute trigger prices; use compute_leg_trigger_prices path instead",
+            ))
+        }
         MartingaleSpacingModel::Mixed { phases } => phases
             .first()
             .ok_or_else(|| MartingaleRuntimeError::new("mixed spacing requires phases"))
@@ -667,15 +842,15 @@ fn spacing_distance_bps(
 
 fn leg_notional(
     sizing: &MartingaleSizingModel,
-    portfolio_budget_quote: Decimal,
     exchange_min_notional: Decimal,
     leg_index: u32,
 ) -> Result<Decimal, MartingaleRuntimeError> {
-    if let (Some(budget), Some(min_notional)) = (
-        portfolio_budget_quote.to_f64(),
-        exchange_min_notional.to_f64(),
-    ) {
-        if let Ok(notionals) = compute_leg_notionals(sizing, budget, min_notional) {
+    // Returns the leveraged order NOTIONAL (position size) for a leg. The
+    // margin budget is enforced separately in enforce_budget_for_next_leg
+    // (margin = notional / leverage vs the portfolio margin budget), matching
+    // the backtest capital model in backtest_engine::martingale::capital.
+    if let Some(min_notional) = exchange_min_notional.to_f64() {
+        if let Ok(notionals) = compute_leg_notionals(sizing, f64::MAX, min_notional) {
             if let Some(notional) = notionals.get(leg_index as usize) {
                 return Decimal::try_from(*notional)
                     .map(|notional| notional.normalize())
@@ -708,11 +883,6 @@ fn leg_notional(
     if notional < exchange_min_notional {
         return Err(MartingaleRuntimeError::new(
             "leg notional is below exchange minimum",
-        ));
-    }
-    if notional > portfolio_budget_quote {
-        return Err(MartingaleRuntimeError::new(
-            "leg notional exceeds portfolio budget",
         ));
     }
     Ok(notional.normalize())

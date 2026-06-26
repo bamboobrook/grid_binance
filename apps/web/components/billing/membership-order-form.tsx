@@ -88,36 +88,42 @@ export function MembershipOrderForm({
 
   return (
     <FormStack action="/api/user/billing" method="post" className="gap-4">
-      <p>
-        {pickText(lang, "下次续费时间", "Next renewal")}: {activeUntil?.slice(0, 10) ?? pickText(lang, "暂无", "Unavailable")}
-      </p>
-      <p>
-        {pickText(lang, "当前选择价格", "Selected price")}: {describeSelectedPrice(lang, selectedPrice)}
-      </p>
-      <Field label={pickText(lang, "套餐", "Plan")}>
-        <Select name="plan" value={selectedPlanCode} onChange={(event) => setSelectedPlanCode(event.target.value)}>
-          {plans.length === 0 ? <option value="">{pickText(lang, "暂无可用套餐", "No plans available")}</option> : null}
-          {plans.map((plan) => (
-            <option key={plan.code} value={plan.code}>{labelForPlan(lang, plan.code, plan.name)}</option>
-          ))}
-        </Select>
-      </Field>
-      <Field label={pickText(lang, "链路", "Chain")}>
-        <Select name="chain" value={selectedChain} onChange={(event) => setSelectedChain(event.target.value)}>
-          {chainOptions.length === 0 ? <option value="">{pickText(lang, "暂无可用链路", "No chain available")}</option> : null}
-          {chainOptions.map((chain) => (
-            <option key={chain} value={chain}>{chain}</option>
-          ))}
-        </Select>
-      </Field>
-      <Field label={pickText(lang, "稳定币", "Token")}>
-        <Select name="token" value={selectedToken} onChange={(event) => setSelectedToken(event.target.value)}>
-          {tokenOptions.length === 0 ? <option value="">{pickText(lang, "暂无可用币种", "No token available")}</option> : null}
-          {tokenOptions.map((token) => (
-            <option key={token} value={token}>{token}</option>
-          ))}
-        </Select>
-      </Field>
+      <div className="grid gap-2 sm:grid-cols-2">
+        <div className="rounded-sm border border-border bg-background px-3 py-2">
+          <p className="text-[10px] font-bold uppercase text-muted-foreground">{pickText(lang, "下次续费时间", "Next renewal")}</p>
+          <p className="mt-1 text-sm font-semibold text-foreground">{activeUntil?.slice(0, 10) ?? pickText(lang, "暂无", "Unavailable")}</p>
+        </div>
+        <div className="rounded-sm border border-border bg-background px-3 py-2">
+          <p className="text-[10px] font-bold uppercase text-muted-foreground">{pickText(lang, "当前价格", "Selected price")}</p>
+          <p className="mt-1 text-sm font-semibold text-foreground">{describeSelectedPrice(lang, selectedPrice)}</p>
+        </div>
+      </div>
+      <div className="grid gap-3 md:grid-cols-3">
+        <Field label={pickText(lang, "套餐", "Plan")}>
+          <Select name="plan" value={selectedPlanCode} onChange={(event) => setSelectedPlanCode(event.target.value)}>
+            {plans.length === 0 ? <option value="">{pickText(lang, "暂无可用套餐", "No plans available")}</option> : null}
+            {plans.map((plan) => (
+              <option key={plan.code} value={plan.code}>{labelForPlan(lang, plan.code, plan.name)}</option>
+            ))}
+          </Select>
+        </Field>
+        <Field label={pickText(lang, "链路", "Chain")}>
+          <Select name="chain" value={selectedChain} onChange={(event) => setSelectedChain(event.target.value)}>
+            {chainOptions.length === 0 ? <option value="">{pickText(lang, "暂无可用链路", "No chain available")}</option> : null}
+            {chainOptions.map((chain) => (
+              <option key={chain} value={chain}>{chain}</option>
+            ))}
+          </Select>
+        </Field>
+        <Field label={pickText(lang, "稳定币", "Token")}>
+          <Select name="token" value={selectedToken} onChange={(event) => setSelectedToken(event.target.value)}>
+            {tokenOptions.length === 0 ? <option value="">{pickText(lang, "暂无可用币种", "No token available")}</option> : null}
+            {tokenOptions.map((token) => (
+              <option key={token} value={token}>{token}</option>
+            ))}
+          </Select>
+        </Field>
+      </div>
       <Button type="submit">{pickText(lang, "创建支付订单", "Create payment order")}</Button>
     </FormStack>
   );

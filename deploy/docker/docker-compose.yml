@@ -74,7 +74,7 @@ services:
       BACKTEST_MARKET_DATA_DB_PATH: ${BACKTEST_MARKET_DATA_DB_PATH:-/market-data/market_data.db}
       PORT: "8080"
     volumes:
-      - ${BACKTEST_MARKET_DATA_DB_HOST_PATH:-/home/bumblebee/Project/discord_c2im/pipeline/data/market_data.db}:/market-data/market_data.db:ro
+      - ${BACKTEST_MARKET_DATA_DB_HOST_PATH:-/home/bumblebee/Project/grid_binance/data/market_data_full.db}:/market-data/market_data.db:ro
     expose:
       - "8080"
     healthcheck:
@@ -209,7 +209,7 @@ services:
       REDIS_URL: ${REDIS_URL:?REDIS_URL is required}
       BACKTEST_ARTIFACT_ROOT: ${BACKTEST_ARTIFACT_ROOT:-/var/lib/grid-binance/backtest-artifacts}
       BACKTEST_MARKET_DATA_DB_PATH: ${BACKTEST_MARKET_DATA_DB_PATH:-/market-data/market_data.db}
-      BACKTEST_WORKER_MAX_THREADS: ${BACKTEST_WORKER_MAX_THREADS:-24}
+      BACKTEST_WORKER_MAX_THREADS: ${BACKTEST_WORKER_MAX_THREADS:-12}
       BACKTEST_WORKER_POLL_MS: ${BACKTEST_WORKER_POLL_MS:-5000}
     restart: unless-stopped
     depends_on:
@@ -219,7 +219,7 @@ services:
         condition: service_healthy
     volumes:
       - backtest-artifacts:/var/lib/grid-binance/backtest-artifacts
-      - ${BACKTEST_MARKET_DATA_DIR:-/home/bumblebee/Project/discord_c2im/pipeline/data}:/market-data:ro
+      - ${BACKTEST_MARKET_DATA_DB_HOST_PATH:-/home/bumblebee/Project/grid_binance/data/market_data_full.db}:/market-data/market_data.db:ro
 
   billing-chain-listener:
     build:

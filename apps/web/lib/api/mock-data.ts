@@ -119,16 +119,14 @@ export function buildPublicAuthSnapshot(mode: "login" | "register", lang: UiLang
 function buildUserNav(lang: UiLanguage): NavItem[] {
   return [
     { href: "/app/dashboard", label: pickText(lang, "总览", "Dashboard") },
-    { href: "/app/exchange", label: pickText(lang, "交易所", "Exchange") },
-    { href: "/app/notifications", label: pickText(lang, "通知", "Notifications") },
-    { href: "/app/strategies", label: pickText(lang, "策略", "Strategies") },
-    { href: "/app/backtest", label: pickText(lang, "回测", "Backtest") },
-    { href: "/app/martingale-portfolios", label: pickText(lang, "马丁组合", "Martingale Portfolios") },
-    { href: "/app/orders", label: pickText(lang, "订单", "Orders") },
-    { href: "/app/analytics", label: pickText(lang, "统计", "Analytics") },
+    { href: "/app/exchange", label: pickText(lang, "连接币安", "Connect Binance") },
+    { href: "/app/notifications", label: pickText(lang, "提醒", "Alerts") },
+    { href: "/app/strategies", label: pickText(lang, "我的机器人", "My Bots") },
+    { href: "/app/backtest", label: pickText(lang, "测试模板", "Test Templates") },
+    { href: "/app/orders", label: pickText(lang, "订单成交", "Orders & Fills") },
+    { href: "/app/analytics", label: pickText(lang, "收益统计", "PnL Stats") },
     { href: "/app/billing", label: pickText(lang, "会员中心", "Membership Center") },
-    { href: "/app/telegram", label: pickText(lang, "Telegram", "Telegram") },
-    { href: "/app/security", label: pickText(lang, "安全", "Security") },
+    { href: "/app/security", label: pickText(lang, "账户安全", "Account Security") },
     { href: "/app/help", label: pickText(lang, "帮助", "Help") },
   ];
 }
@@ -153,15 +151,15 @@ export function buildUserShellSnapshot(lang: UiLanguage): UserShellSnapshot {
     title: pickText(lang, "交易工作台", "Trading workspace shell"),
     description: pickText(lang, "所有用户页面共享导航、会员可见性和运行告警入口。", "Shared navigation, membership visibility, and runtime warning surfaces across all user pages."),
     identity: {
-      name: pickText(lang, "账户会话", "Account session"),
-      role: pickText(lang, "待同步", "Pending sync"),
+      name: pickText(lang, "交易账户", "Trading account"),
+      role: pickText(lang, "预览中", "Preview"),
       context: pickText(lang, "会员、交易所和通知状态会在登录后按真实数据加载。", "Membership, exchange, and notification status load from live account data after sign-in."),
     },
     nav: buildUserNav(lang),
     quickStats: [
       { label: pickText(lang, "净收益", "Net PnL"), value: "-" },
       { label: pickText(lang, "运行中", "Running"), value: pickText(lang, "等待加载", "Loading") },
-      { label: pickText(lang, "会员状态", "Membership Status"), value: pickText(lang, "待同步", "Pending sync") },
+      { label: pickText(lang, "安全状态", "Safety"), value: pickText(lang, "待检查", "Pending") },
     ],
     banners: [],
   };
@@ -334,7 +332,7 @@ export const billingSnapshot = {
   tabs: [
     { href: "/app/billing", label: "Renewal" },
     { href: "/app/help", label: "Help" },
-    { href: "/app/telegram", label: "Telegram" }
+    { href: "/app/notifications", label: "Alerts" }
   ],
   plans: [
     { label: "Monthly", value: "20 USD eq." },
@@ -356,7 +354,7 @@ export const analyticsSnapshot = {
   tabs: [
     { href: "/app/orders", label: "Orders" },
     { href: "/app/strategies", label: "Strategies" },
-    { href: "/app/telegram", label: "Alerts" }
+    { href: "/app/notifications", label: "Alerts" }
   ],
   metrics: [
     { label: "Realized PnL", value: "+1,632.44" },
@@ -408,7 +406,7 @@ export const helpCenterSnapshot = {
     description: "The documented user help route now exists inside the shared user shell."
   },
   guides: [
-    { href: "/app/help?article=expiry-reminder", label: "Expiry reminder guide" },
+    { href: "/app/help", label: "FAQ" },
     { href: "/app/billing", label: "Billing center" },
     { href: "/app/security", label: "Security center" }
   ]

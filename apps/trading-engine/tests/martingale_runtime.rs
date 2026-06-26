@@ -1,8 +1,10 @@
+use backtest_engine::market_data::KlineBar;
 use rust_decimal::Decimal;
 use shared_domain::martingale::{
-    MartingaleDirection, MartingaleDirectionMode, MartingaleMarginMode, MartingaleMarketKind,
-    MartingalePortfolioConfig, MartingaleRiskLimits, MartingaleSizingModel, MartingaleSpacingModel,
-    MartingaleStrategyConfig, MartingaleTakeProfitModel,
+    MartingaleDirection, MartingaleDirectionMode, MartingaleEntryTrigger, MartingaleMarginMode,
+    MartingaleMarketKind, MartingalePortfolioConfig, MartingaleRiskLimits, MartingaleSizingModel,
+    MartingaleSpacingModel, MartingaleStopLossModel, MartingaleStrategyConfig,
+    MartingaleTakeProfitModel,
 };
 use shared_domain::strategy::StrategyStatus;
 use std::collections::HashMap;
@@ -95,10 +97,10 @@ fn long_cycle_places_first_order_then_safety_order() {
     assert_eq!(orders[0].status, MartingaleRuntimeOrderStatus::Filled);
     assert_eq!(orders[1].side, "BUY");
     assert_eq!(orders[1].price, dec(99));
-    assert!(orders[1].client_order_id.contains("portfolio-a"));
-    assert!(orders[1].client_order_id.contains("instance-a"));
-    assert!(orders[1].client_order_id.contains("long"));
+    assert!(orders[1].client_order_id.starts_with("mg-"));
+    assert!(orders[1].client_order_id.contains("-long-"));
     assert!(orders[1].client_order_id.ends_with("-leg-1"));
+    assert!(orders[1].client_order_id.len() <= 36);
 }
 
 #[test]
@@ -329,4 +331,113 @@ fn futures_start_cycle_requires_successful_preflight() {
         .expect_err("futures start must require preflight");
 
     assert!(error.to_string().contains("preflight"));
+}
+
+#[test]
+fn preflight_accepts_atr_spacing() {
+    let mut strat = strategy("atr-spacing-btc", MartingaleDirection::Long);
+    strat.spacing = MartingaleSpacingModel::Atr {
+        multiplier: dec(1),
+        min_step_bps: 50,
+        max_step_bps: 300,
+    };
+    let mut runtime =
+        MartingaleRuntime::new(runtime_config(vec![strat])).expect("runtime should build");
+    runtime
+        .start_cycle_with_futures_preflight(
+            &futures_settings(true),
+            "atr-spacing-btc",
+            dec(100),
+            MartingaleRuntimeContext::default(),
+        )
+        .expect("ATR spacing must be accepted by preflight");
+    let orders = runtime.orders();
+    assert_eq!(orders.len(), 1);
+    assert!(orders[0].client_order_id.contains("leg-0"));
+}
+
+#[test]
+fn preflight_accepts_atr_take_profit() {
+    let mut strat = strategy("atr-tp-btc", MartingaleDirection::Long);
+    strat.take_profit = MartingaleTakeProfitModel::Atr { multiplier: dec(2) };
+    let mut runtime =
+        MartingaleRuntime::new(runtime_config(vec![strat])).expect("runtime should build");
+    runtime
+        .start_cycle_with_futures_preflight(
+            &futures_settings(true),
+            "atr-tp-btc",
+            dec(100),
+            MartingaleRuntimeContext::default(),
+        )
+        .expect("ATR take-profit must be accepted by preflight");
+    let orders = runtime.orders();
+    assert_eq!(orders.len(), 1);
+    assert!(orders[0].client_order_id.contains("leg-0"));
+}
+
+#[test]
+fn preflight_accepts_atr_stop_loss() {
+    let mut strat = strategy("atr-sl-btc", MartingaleDirection::Long);
+    strat.stop_loss = Some(MartingaleStopLossModel::Atr { multiplier: dec(2) });
+    let mut runtime =
+        MartingaleRuntime::new(runtime_config(vec![strat])).expect("runtime should build");
+    runtime
+        .start_cycle_with_futures_preflight(
+            &futures_settings(true),
+            "atr-sl-btc",
+            dec(100),
+            MartingaleRuntimeContext::default(),
+        )
+        .expect("ATR stop-loss must be accepted by preflight");
+    let orders = runtime.orders();
+    assert_eq!(orders.len(), 1);
+    assert!(orders[0].client_order_id.contains("leg-0"));
+}
+
+#[test]
+fn indicator_expression_blocks_entry_until_warmup_satisfies_condition() {
+    let mut strat = strategy("adx-btc", MartingaleDirection::Long);
+    strat.entry_triggers = vec![MartingaleEntryTrigger::IndicatorExpression {
+        expression: "close > sma(3)".to_string(),
+    }];
+    let mut runtime =
+        MartingaleRuntime::new(runtime_config(vec![strat])).expect("runtime should build");
+
+    let error = runtime
+        .start_cycle_with_futures_preflight(
+            &futures_settings(true),
+            "adx-btc",
+            dec(100),
+            MartingaleRuntimeContext::default(),
+        )
+        .expect_err("indicator expression without warmup must block entry");
+    assert!(error.to_string().contains("entry triggers"));
+    assert!(runtime.orders().is_empty());
+
+    runtime.warmup_indicators_from_bars(vec![
+        kline("BTCUSDT", 0, 100.0),
+        kline("BTCUSDT", 3_600_000, 100.0),
+        kline("BTCUSDT", 7_200_000, 105.0),
+    ]);
+    runtime
+        .start_cycle_with_futures_preflight(
+            &futures_settings(true),
+            "adx-btc",
+            dec(100),
+            MartingaleRuntimeContext::default(),
+        )
+        .expect("satisfied indicator expression should allow entry");
+    assert_eq!(runtime.orders().len(), 1);
+}
+
+fn kline(symbol: &str, open_time_ms: i64, close: f64) -> KlineBar {
+    KlineBar {
+        symbol: symbol.to_owned(),
+        open_time_ms,
+        open: close,
+        high: close,
+        low: close,
+        close,
+        volume: 0.0,
+    }
 }

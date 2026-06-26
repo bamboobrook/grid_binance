@@ -2,21 +2,21 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useLocale, useTranslations } from "next-intl";
-import { LayoutDashboard, ArrowLeftRight, History, FlaskConical, User } from "lucide-react";
+import { useLocale } from "next-intl";
+import { Activity, Bot, History, LayoutDashboard, ShieldCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export function MobileBottomNav() {
-  const t = useTranslations("common.sidebar");
   const locale = useLocale();
   const pathname = usePathname();
+  const zh = locale === "zh";
 
   const items = [
-    { name: t("dashboard"), href: "/app/dashboard", icon: LayoutDashboard },
-    { name: t("strategies"), href: "/app/strategies", icon: ArrowLeftRight },
-    { name: t("orders"), href: "/app/orders", icon: History },
-    { name: locale === "zh" ? "回测" : "Backtest", href: "/app/backtest", icon: FlaskConical },
-    { name: t("settings"), href: "/app/security", icon: User },
+    { name: zh ? "总览" : "Home", href: "/app/dashboard", icon: LayoutDashboard },
+    { name: zh ? "机器人" : "Bots", href: "/app/strategies", icon: Bot },
+    { name: zh ? "记录" : "Orders", href: "/app/orders", icon: History },
+    { name: zh ? "统计" : "Stats", href: "/app/analytics", icon: Activity },
+    { name: zh ? "账户" : "Account", href: "/app/security", icon: ShieldCheck },
   ];
 
   const isCurrent = (href: string) =>

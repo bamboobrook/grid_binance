@@ -18,7 +18,13 @@ export async function POST(request: Request) {
   }
 
   if (intent === "password") {
-    return handlePasswordChange(request, sessionToken, readField(formData, "currentPassword"), readField(formData, "password"));
+    return handlePasswordChange(
+      request,
+      sessionToken,
+      readField(formData, "currentPassword"),
+      readField(formData, "password"),
+      readField(formData, "confirmPassword"),
+    );
   }
 
   if (intent === "enable-totp") {
@@ -29,7 +35,7 @@ export async function POST(request: Request) {
     );
 
     if (!result.ok) {
-      return redirectApp(request, `/security?error=${encodeURIComponent(result.error ?? "TOTP enable failed")}`);
+      return redirectApp(request, `/security?error=${encodeURIComponent(result.error ?? "启用两步验证失败")}`);
     }
 
     const secret = typeof result.data?.secret === "string" ? result.data.secret : "";
@@ -58,7 +64,7 @@ export async function POST(request: Request) {
     );
 
     if (!result.ok) {
-      return redirectApp(request, `/security?error=${encodeURIComponent(result.error ?? "TOTP disable failed")}`);
+      return redirectApp(request, `/security?error=${encodeURIComponent(result.error ?? "停用两步验证失败")}`);
     }
 
     const response = redirectPublic(request, "/login?security=totp-disabled");
@@ -71,7 +77,11 @@ export async function POST(request: Request) {
   return redirectApp(request, "/security");
 }
 
-async function handlePasswordChange(request: Request, sessionToken: string, currentPassword: string, newPassword: string) {
+async function handlePasswordChange(request: Request, sessionToken: string, currentPassword: string, newPassword: string, confirmPassword: string) {
+  if (newPassword !== confirmPassword) {
+    return redirectApp(request, `/security?error=${encodeURIComponent("两次输入的新密码不一致")}`);
+  }
+
   const result = await authPost(
     "/profile/password/change",
     sessionToken,
@@ -79,7 +89,7 @@ async function handlePasswordChange(request: Request, sessionToken: string, curr
   );
 
   if (!result.ok) {
-    return redirectApp(request, `/security?error=${encodeURIComponent(result.error ?? "Password change failed")}`);
+    return redirectApp(request, `/security?error=${encodeURIComponent(result.error ?? "修改密码失败")}`);
   }
 
   const response = redirectPublic(request, "/login?security=password-updated");

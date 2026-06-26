@@ -21,11 +21,15 @@ type Props = {
   gridCount: string;
   lang: UiLanguage;
   lowerRangePercent: string;
+  martingaleDirection?: "long" | "short";
+  martingaleOrderMultiplier?: string;
+  martingaleSpacingPercent?: string;
+  martingaleTakeProfitPercent?: string;
   marketType: "spot" | "usd-m" | "coin-m";
   ordinarySide: "lower" | "upper";
   referencePrice: string;
   selectedSymbol: string;
-  strategyType: "ordinary_grid" | "classic_bilateral_grid";
+  strategyType: "ordinary_grid" | "classic_bilateral_grid" | "martingale_grid";
   upperRangePercent: string;
   levels: StrategyPreviewLevel[];
 };
@@ -59,6 +63,10 @@ export function StrategyVisualPreview({
   gridCount,
   lang,
   lowerRangePercent,
+  martingaleDirection = "long",
+  martingaleOrderMultiplier = "",
+  martingaleSpacingPercent = "",
+  martingaleTakeProfitPercent = "",
   marketType,
   ordinarySide,
   referencePrice,
@@ -126,7 +134,7 @@ export function StrategyVisualPreview({
   const headline = selectedSymbol || pickText(lang, "等待选择交易对", "Waiting for a symbol");
   const referenceNumber = parsePositiveNumber(referencePrice) ?? parsePositiveNumber(marketSnapshot?.latest_price ?? "");
   const latestPriceNumber = parsePositiveNumber(marketSnapshot?.latest_price ?? "") ?? referenceNumber;
-  const resolvedLevels = resolvePreviewLevels(levels, strategyType, ordinarySide, referenceNumber);
+  const resolvedLevels = resolvePreviewLevels(levels, strategyType, ordinarySide, martingaleDirection, referenceNumber);
   const compactLevels = resolvedLevels.slice(0, 6);
   const candles = marketSnapshot?.candles.length
     ? marketSnapshot.candles
@@ -135,6 +143,7 @@ export function StrategyVisualPreview({
   const firstLevel = resolvedLevels[0];
   const lastLevel = resolvedLevels[resolvedLevels.length - 1];
   const ordinaryLayout = strategyType === "ordinary_grid";
+  const martingaleLayout = strategyType === "martingale_grid";
 
   return (
     <div className="space-y-4" data-strategy-preview="true">
@@ -149,8 +158,14 @@ export function StrategyVisualPreview({
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             <Metric label={pickText(lang, "交易对", "Symbol")} value={headline} />
             <Metric label={pickText(lang, "市场 / 类型", "Market / Type")} value={`${describeMarket(lang, marketType)} · ${describeStrategyType(lang, strategyType)}`} />
-            <Metric label={pickText(lang, "生成 / 网格", "Generation / Grids")} value={`${describeGeneration(lang, generation)} · ${gridCount || "-"}`} />
-            <Metric label={pickText(lang, ordinaryLayout ? "锚点 / 市价" : "中心 / 市价", ordinaryLayout ? "Anchor / Market" : "Center / Market")} value={`${referencePrice || "-"} · ${marketSnapshot?.latest_price ?? "-"}`} />
+            <Metric
+              label={pickText(lang, martingaleLayout ? "补仓 / 倍率" : "生成 / 网格", martingaleLayout ? "Safety Orders / Multiplier" : "Generation / Grids")}
+              value={martingaleLayout ? `${gridCount || "-"} · ${martingaleOrderMultiplier || "-"}x` : `${describeGeneration(lang, generation)} · ${gridCount || "-"}`}
+            />
+            <Metric
+              label={pickText(lang, martingaleLayout ? "起点 / 市价" : ordinaryLayout ? "锚点 / 市价" : "中心 / 市价", martingaleLayout ? "Start / Market" : ordinaryLayout ? "Anchor / Market" : "Center / Market")}
+              value={`${referencePrice || "-"} · ${marketSnapshot?.latest_price ?? "-"}`}
+            />
           </div>
 
           <div className="overflow-hidden rounded-3xl border border-border bg-muted/20" data-strategy-preview-chart="true">
@@ -294,8 +309,8 @@ export function StrategyVisualPreview({
                 </svg>
 
                 <div className="grid gap-2 sm:grid-cols-3">
-                  <LegendPill colorClass="bg-emerald-500" label={pickText(lang, "买入 / 做多网格", "Buy / long grid")} />
-                  <LegendPill colorClass="bg-orange-500" label={pickText(lang, "卖出 / 做空网格", "Sell / short grid")} />
+                  <LegendPill colorClass="bg-emerald-500" label={pickText(lang, martingaleLayout ? "做多补仓" : "买入 / 做多网格", martingaleLayout ? "Long safety order" : "Buy / long grid")} />
+                  <LegendPill colorClass="bg-orange-500" label={pickText(lang, martingaleLayout ? "做空补仓" : "卖出 / 做空网格", martingaleLayout ? "Short safety order" : "Sell / short grid")} />
                   <LegendPill colorClass="bg-sky-500" label={pickText(lang, "锚点 / 市价参考线", "Anchor / market guides")} />
                 </div>
 
@@ -317,16 +332,23 @@ export function StrategyVisualPreview({
         </CardBody>
       </Card>
 
-      <div data-preview-layout={ordinaryLayout ? "ordinary" : "classic"}>
+      <div data-preview-layout={martingaleLayout ? "martingale" : ordinaryLayout ? "ordinary" : "classic"}>
       <Card className="border-border bg-card">
         <CardHeader className="border-b border-border py-3">
           <CardTitle className="flex items-center gap-2 text-sm font-semibold text-foreground">
             <Layers3 className="h-4 w-4 text-primary" />
-            {pickText(lang, ordinaryLayout ? "普通网格预览摘要" : "经典双边预览摘要", ordinaryLayout ? "Ordinary Grid Summary" : "Classic Bilateral Summary")}
+            {pickText(lang, martingaleLayout ? "马丁策略预览摘要" : ordinaryLayout ? "普通网格预览摘要" : "经典双边预览摘要", martingaleLayout ? "DCA Strategy Summary" : ordinaryLayout ? "Ordinary Grid Summary" : "Classic Bilateral Summary")}
           </CardTitle>
         </CardHeader>
         <CardBody className="space-y-4 p-4">
-          {ordinaryLayout ? (
+          {martingaleLayout ? (
+            <div className="grid gap-3 sm:grid-cols-4">
+              <Metric dataTag="data-preview-anchor" label={pickText(lang, "起始价格", "Start Price")} value={referencePrice || "-"} />
+              <Metric label={pickText(lang, "补仓方向", "DCA Direction")} value={describeMartingaleDirection(lang, martingaleDirection, marketType)} />
+              <Metric label={pickText(lang, "补仓间隔", "Safety Step")} value={`${martingaleSpacingPercent || "-"}%`} />
+              <Metric label={pickText(lang, "整体止盈", "Take Profit")} value={`${martingaleTakeProfitPercent || "-"}%`} />
+            </div>
+          ) : ordinaryLayout ? (
             <div className="grid gap-3 sm:grid-cols-4">
               <Metric dataTag="data-preview-anchor" label={pickText(lang, "锚点价格", "Anchor Price")} value={referencePrice || "-"} />
               <Metric dataTag="data-preview-range" dataTagValue="ordinary" label={pickText(lang, "覆盖范围", "Covered Range")} value={`${coveredRangePercent || "-"}%`} />
@@ -364,16 +386,16 @@ export function StrategyVisualPreview({
                       </span>
                     </div>
                     <div className="font-mono text-sm font-semibold text-foreground">
-                      {pickText(lang, "网格价", "Grid Price")} {level.entryPrice}
+                      {pickText(lang, martingaleLayout ? "补仓价" : "网格价", martingaleLayout ? "Safety Price" : "Grid Price")} {level.entryPrice}
                     </div>
                     <div className="text-xs text-muted-foreground">
-                      {level.spacingPercent ? `${pickText(lang, "相邻间距", "Spacing")} ${level.spacingPercent}%` : pickText(lang, "首层锚定参考线", "Anchored to the reference line")}
+                      {level.spacingPercent ? `${pickText(lang, martingaleLayout ? "补仓间隔" : "相邻间距", martingaleLayout ? "Safety step" : "Spacing")} ${level.spacingPercent}%` : pickText(lang, martingaleLayout ? "首单靠近当前参考价" : "首层锚定参考线", martingaleLayout ? "First order near the reference price" : "Anchored to the reference line")}
                     </div>
                   </div>
                   <div className="text-right">
                     <div className="font-mono text-sm text-foreground">{level.quantity}</div>
                     <div className="text-xs text-muted-foreground">
-                      {amountMode === "quote" ? pickText(lang, "按 USDT 预算换算", "Derived from quote budget") : pickText(lang, "按基础币数量下单", "Uses base-asset size")}
+                      {martingaleLayout ? pickText(lang, "按金额递增换算", "Derived from growing order size") : amountMode === "quote" ? pickText(lang, "按 USDT 预算换算", "Derived from quote budget") : pickText(lang, "按基础币数量下单", "Uses base-asset size")}
                     </div>
                   </div>
                 </div>
@@ -381,15 +403,15 @@ export function StrategyVisualPreview({
             </div>
           ) : (
             <div className="rounded-xl border border-dashed border-border px-4 py-8 text-center text-sm text-muted-foreground">
-              {pickText(lang, "当前参数还没有生成可预览的网格。", "The current inputs have not generated any previewable levels yet.")}
+              {pickText(lang, martingaleLayout ? "当前参数还没有生成可预览的补仓阶梯。" : "当前参数还没有生成可预览的网格。", martingaleLayout ? "The current inputs have not generated a previewable DCA ladder yet." : "The current inputs have not generated any previewable levels yet.")}
             </div>
           )}
 
           <div className="grid gap-3 sm:grid-cols-4">
-            <Metric label={pickText(lang, "首层网格", "First Grid")} value={firstLevel?.entryPrice ?? "-"} />
-            <Metric label={pickText(lang, "末层网格", "Last Grid")} value={lastLevel?.entryPrice ?? "-"} />
-            <Metric label={pickText(lang, "网格覆盖", "Covered Span")} value={resolveCoveredSpan(firstLevel, lastLevel)} />
-            <Metric label={pickText(lang, "计量模式", "Amount Mode")} value={amountMode === "quote" ? pickText(lang, "按 USDT", "Quote Amount") : pickText(lang, "按币数量", "Base Quantity")} />
+            <Metric label={pickText(lang, martingaleLayout ? "首单价格" : "首层网格", martingaleLayout ? "First Order" : "First Grid")} value={firstLevel?.entryPrice ?? "-"} />
+            <Metric label={pickText(lang, martingaleLayout ? "最后补仓" : "末层网格", martingaleLayout ? "Last Safety Order" : "Last Grid")} value={lastLevel?.entryPrice ?? "-"} />
+            <Metric label={pickText(lang, martingaleLayout ? "补仓跨度" : "网格覆盖", martingaleLayout ? "DCA Span" : "Covered Span")} value={resolveCoveredSpan(firstLevel, lastLevel)} />
+            <Metric label={pickText(lang, martingaleLayout ? "订单方向" : "计量模式", martingaleLayout ? "Order Direction" : "Amount Mode")} value={martingaleLayout ? describeMartingaleDirection(lang, martingaleDirection, marketType) : amountMode === "quote" ? pickText(lang, "按 USDT", "Quote Amount") : pickText(lang, "按币数量", "Base Quantity")} />
           </div>
         </CardBody>
       </Card>
@@ -400,7 +422,7 @@ export function StrategyVisualPreview({
           <MiniInsight
             icon={<Activity className="h-4 w-4 text-primary" />}
             label={pickText(lang, "选择逻辑", "Selection Logic")}
-            value={pickText(lang, "右侧一改，左侧立即重算预览，不需要先保存。", "Every change on the right recomputes the preview immediately.")}
+            value={pickText(lang, "右侧一改，左侧立即重算预览。", "Every change on the right recomputes the preview immediately.")}
           />
           <MiniInsight
             icon={<TrendingUp className="h-4 w-4 text-primary" />}
@@ -471,6 +493,9 @@ function describeMarket(lang: UiLanguage, market: Props["marketType"]) {
 }
 
 function describeStrategyType(lang: UiLanguage, strategyType: Props["strategyType"]) {
+  if (strategyType === "martingale_grid") {
+    return pickText(lang, "马丁策略", "DCA Strategy");
+  }
   return strategyType === "classic_bilateral_grid"
     ? pickText(lang, "经典双边", "Classic Bilateral Grid")
     : pickText(lang, "普通网格", "Ordinary Grid");
@@ -498,6 +523,17 @@ function describeOrdinarySide(lang: UiLanguage, side: Props["ordinarySide"], mar
     : pickText(lang, "下侧做多", "Lower long side");
 }
 
+function describeMartingaleDirection(lang: UiLanguage, direction: "long" | "short", marketType: Props["marketType"]) {
+  if (direction === "short") {
+    return marketType === "spot"
+      ? pickText(lang, "分批卖出", "Staged sell")
+      : pickText(lang, "做空补仓", "Short DCA");
+  }
+  return marketType === "spot"
+    ? pickText(lang, "分批买入", "Staged buy")
+    : pickText(lang, "做多补仓", "Long DCA");
+}
+
 function describeDirection(lang: UiLanguage, direction: "buy" | "sell") {
   return direction === "sell"
     ? pickText(lang, "卖出 / 做空", "Sell / short")
@@ -508,6 +544,7 @@ function resolvePreviewLevels(
   levels: StrategyPreviewLevel[],
   strategyType: Props["strategyType"],
   ordinarySide: Props["ordinarySide"],
+  martingaleDirection: "long" | "short",
   referencePrice: number | null,
 ) {
   return levels
@@ -517,7 +554,7 @@ function resolvePreviewLevels(
         return null;
       }
       return {
-        direction: inferDirection(strategyType, ordinarySide, entryPriceNumber, referencePrice),
+        direction: inferDirection(strategyType, ordinarySide, martingaleDirection, entryPriceNumber, referencePrice),
         entryPrice: level.entryPrice,
         entryPriceNumber,
         quantity: level.quantity,
@@ -530,9 +567,13 @@ function resolvePreviewLevels(
 function inferDirection(
   strategyType: Props["strategyType"],
   ordinarySide: Props["ordinarySide"],
+  martingaleDirection: "long" | "short",
   entryPrice: number,
   referencePrice: number | null,
 ): "buy" | "sell" {
+  if (strategyType === "martingale_grid") {
+    return martingaleDirection === "short" ? "sell" : "buy";
+  }
   if (strategyType === "ordinary_grid") {
     return ordinarySide === "upper" ? "sell" : "buy";
   }

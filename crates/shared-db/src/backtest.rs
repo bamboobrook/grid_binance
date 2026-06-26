@@ -1444,6 +1444,63 @@ impl BacktestRepository {
         }
     }
 
+    pub fn update_martingale_portfolio_config_and_risk_summary(
+        &self,
+        owner: &str,
+        portfolio_id: &str,
+        config: Value,
+        risk_summary: Value,
+    ) -> Result<Option<MartingalePortfolioRecord>, SharedDbError> {
+        match &self.backend {
+            BacktestRepositoryBackend::Runtime(pool) => {
+                let pool = pool.clone();
+                let owner = owner.to_owned();
+                let portfolio_id = portfolio_id.to_owned();
+                SharedDb::block_on(async move {
+                    let mut tx = pool.begin().await.map_err(SharedDbError::from)?;
+                    let row = sqlx::query(
+                        "UPDATE martingale_portfolios
+                         SET config = $3, risk_summary = $4, updated_at = now()
+                         WHERE owner = $1 AND portfolio_id = $2
+                         RETURNING portfolio_id, owner, name, status, source_task_id, market, direction,
+                             risk_profile, total_weight_pct::TEXT AS total_weight_pct, config, risk_summary,
+                             created_at, updated_at",
+                    )
+                    .bind(&owner)
+                    .bind(&portfolio_id)
+                    .bind(&config)
+                    .bind(&risk_summary)
+                    .fetch_optional(&mut *tx)
+                    .await
+                    .map_err(SharedDbError::from)?;
+                    let Some(row) = row else {
+                        tx.commit().await.map_err(SharedDbError::from)?;
+                        return Ok(None);
+                    };
+                    let mut portfolio = martingale_portfolio_from_row(row)?;
+                    portfolio.items =
+                        fetch_martingale_portfolio_items_tx(&mut tx, &portfolio.portfolio_id)
+                            .await?;
+                    tx.commit().await.map_err(SharedDbError::from)?;
+                    Ok(Some(portfolio))
+                })
+            }
+            BacktestRepositoryBackend::Ephemeral(state) => {
+                let mut state = lock_ephemeral(state)?;
+                let Some(record) = state.martingale_portfolios.get_mut(portfolio_id) else {
+                    return Ok(None);
+                };
+                if record.owner != owner {
+                    return Ok(None);
+                }
+                record.config = config;
+                record.risk_summary = risk_summary;
+                record.updated_at = Utc::now();
+                Ok(Some(record.clone()))
+            }
+        }
+    }
+
     pub fn upsert_martingale_live_snapshot(
         &self,
         portfolio: &MartingalePortfolioRecord,

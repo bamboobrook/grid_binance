@@ -1,4 +1,5 @@
 use crate::market_data::{AggTrade, KlineBar, MarketDataSource};
+use crate::martingale::kline_engine::FundingRatePoint;
 use rusqlite::{Connection, OpenFlags};
 use sha2::{Digest, Sha256};
 use std::path::{Path, PathBuf};
@@ -320,6 +321,78 @@ fn readonly_uri(path: &Path, wal_sidecar_exists: bool) -> String {
 fn wal_sidecar_exists(path: &Path) -> bool {
     let path = path.to_string_lossy();
     PathBuf::from(format!("{path}-wal")).exists() || PathBuf::from(format!("{path}-shm")).exists()
+}
+
+pub fn load_funding_rates_readonly(
+    path: impl AsRef<Path>,
+    symbols: &[String],
+    start_ms: i64,
+    end_ms: i64,
+) -> Result<Vec<FundingRatePoint>, String> {
+    let path = path.as_ref();
+    let wal_sidecar_exists = wal_sidecar_exists(path);
+    let uri = readonly_uri(path, wal_sidecar_exists);
+    let conn = Connection::open_with_flags(
+        &uri,
+        OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_URI,
+    )
+    .map_err(|err| {
+        if !path.exists() {
+            format!(
+                "SQLite funding data file does not exist: {} ({err})",
+                path.display()
+            )
+        } else {
+            format!(
+                "failed to open SQLite funding data {}: {err}",
+                path.display()
+            )
+        }
+    })?;
+    if !path.exists() {
+        return Err(format!(
+            "SQLite funding data file does not exist: {}",
+            path.display()
+        ));
+    }
+
+    let normalized_symbols = symbols
+        .iter()
+        .map(|symbol| symbol.trim().to_uppercase())
+        .collect::<std::collections::BTreeSet<_>>();
+    if normalized_symbols.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    let mut stmt = conn
+        .prepare(
+            "SELECT symbol, funding_time, funding_rate, mark_price \
+             FROM funding_rates \
+             WHERE funding_time BETWEEN ?1 AND ?2 \
+             ORDER BY funding_time ASC, symbol ASC",
+        )
+        .map_err(|err| format!("failed to prepare funding rate query: {err}"))?;
+    let rows = stmt
+        .query_map((start_ms, end_ms), |row| {
+            let symbol: String = row.get(0)?;
+            let mark_price: Option<f64> = row.get(3)?;
+            Ok(FundingRatePoint {
+                symbol: symbol.trim().to_uppercase(),
+                funding_time_ms: row.get(1)?,
+                funding_rate: row.get(2)?,
+                mark_price: mark_price.filter(|price| price.is_finite() && *price > 0.0),
+            })
+        })
+        .map_err(|err| format!("failed to query funding rates: {err}"))?;
+
+    let mut funding_rates = Vec::new();
+    for row in rows {
+        let point = row.map_err(|err| format!("failed to read funding rate row: {err}"))?;
+        if normalized_symbols.contains(&point.symbol) {
+            funding_rates.push(point);
+        }
+    }
+    Ok(funding_rates)
 }
 
 fn encode_uri_path(path: &Path) -> String {

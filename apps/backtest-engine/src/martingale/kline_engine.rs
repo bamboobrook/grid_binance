@@ -6,29 +6,45 @@ use shared_domain::martingale::{
     MartingaleStopLossModel, MartingaleStrategyConfig, MartingaleTakeProfitModel,
 };
 
-use crate::indicators::{adx, atr, bollinger, ema, rsi, sma, IndicatorCandle};
 use crate::market_data::KlineBar;
 use crate::martingale::exit_rules::{
     evaluate_exit_priority, take_profit_price, weighted_average_entry, ExitDecision,
 };
+use crate::martingale::capital::{effective_leverage, leg_notional_series};
+use crate::martingale::indicator_runtime::{latest_atr_for_strategy, IndicatorRuntimeContext};
 use crate::martingale::metrics::{
-    build_drawdown_curve, calculate_annualized_return_pct, notional_quote, EquityPoint,
+    build_drawdown_curve, calculate_annualized_return_pct, EquityPoint,
     MartingaleBacktestEvent, MartingaleBacktestResult, MartingaleMetrics, MartingaleTradeDetail,
 };
-use crate::martingale::rules::{compute_leg_notionals, compute_leg_trigger_prices};
+use crate::martingale::rules::compute_leg_trigger_prices;
 use crate::martingale::state::MartingaleLegState;
 
 const DEFAULT_EXCHANGE_MIN_NOTIONAL: f64 = 0.0;
 const DEFAULT_FEE_BPS: f64 = 4.5;
 const DEFAULT_SLIPPAGE_BPS: f64 = 2.0;
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct FundingRatePoint {
+    pub symbol: String,
+    pub funding_time_ms: i64,
+    pub funding_rate: f64,
+    pub mark_price: Option<f64>,
+}
+
 pub fn run_kline_screening(
     portfolio: MartingalePortfolioConfig,
     bars: &[KlineBar],
 ) -> Result<MartingaleBacktestResult, String> {
+    run_kline_screening_with_funding(portfolio, bars, &[])
+}
+
+pub fn run_kline_screening_with_funding(
+    portfolio: MartingalePortfolioConfig,
+    bars: &[KlineBar],
+    funding_rates: &[FundingRatePoint],
+) -> Result<MartingaleBacktestResult, String> {
     portfolio.validate()?;
 
-    let budget_quote = portfolio_budget_quote(&portfolio)?;
     let preflight_rejections = preflight_rejection_reasons(&portfolio);
     if !preflight_rejections.is_empty() {
         return Ok(rejected_result(preflight_rejections));
@@ -40,6 +56,15 @@ pub fn run_kline_screening(
         .map(StrategyRuntime::new)
         .collect::<Result<Vec<_>, _>>()?;
 
+    // Equity base and return denominator is planned MARGIN capital (sum of leg
+    // margins across the portfolio) — not the leveraged notional and not the
+    // raw max_global_budget allocation. See `martingale::capital`.
+    let initial_margin_capital: f64 = strategy_states
+        .iter()
+        .map(|state| state.margins.iter().sum::<f64>())
+        .sum();
+    validate_positive_f64("initial_margin_capital", initial_margin_capital)?;
+
     let mut events = Vec::new();
     let mut equity_curve = Vec::new();
     let mut rejection_reasons = Vec::new();
@@ -48,13 +73,22 @@ pub fn run_kline_screening(
     let mut realized_pnl_quote = 0.0_f64;
     let mut capital_used_quote = 0.0_f64;
     let mut max_capital_used_quote = 0.0_f64;
-    let mut equity_peak_quote = budget_quote;
+    let mut equity_peak_quote = initial_margin_capital;
     let mut max_drawdown_pct = 0.0_f64;
+    let mut last_equity_quote = initial_margin_capital;
     let mut latest_close_by_symbol = BTreeMap::new();
     let mut indicator_context = IndicatorRuntimeContext::default();
 
     let mut total_fee_quote = 0.0_f64;
     let mut total_slippage_quote = 0.0_f64;
+    let mut total_funding_quote = 0.0_f64;
+    let mut sorted_funding_rates = funding_rates.to_vec();
+    sorted_funding_rates.sort_by(|left, right| {
+        left.funding_time_ms
+            .cmp(&right.funding_time_ms)
+            .then_with(|| left.symbol.cmp(&right.symbol))
+    });
+    let mut funding_index = 0_usize;
 
     let mut bar_index = 0;
     while bar_index < bars.len() {
@@ -68,6 +102,32 @@ pub fn run_kline_screening(
         }
         let group = &bars[group_start..bar_index];
 
+        // 方向2: 组合级动态降仓 — 计算当前回撤（基于上一 bar 结束时的 equity）
+        let portfolio_drawdown_pct = if equity_peak_quote > 0.0 {
+            ((equity_peak_quote - last_equity_quote) / equity_peak_quote * 100.0).max(0.0)
+        } else {
+            0.0
+        };
+
+        while funding_index < sorted_funding_rates.len()
+            && sorted_funding_rates[funding_index].funding_time_ms <= timestamp_ms
+        {
+            let funding = &sorted_funding_rates[funding_index];
+            if funding.funding_rate.is_finite() {
+                let funding_quote = apply_funding_rate(
+                    &mut strategy_states,
+                    funding,
+                    &latest_close_by_symbol,
+                    &mut events,
+                )?;
+                if funding_quote != 0.0 {
+                    total_funding_quote += funding_quote;
+                    realized_pnl_quote += funding_quote;
+                }
+            }
+            funding_index += 1;
+        }
+
         for bar in group {
             let mut state_index = 0;
             while state_index < strategy_states.len() {
@@ -79,6 +139,25 @@ pub fn run_kline_screening(
                 }
 
                 if strategy_states[state_index].legs.is_empty() {
+                    // 方向2: 组合级动态降仓 — 回撤超 6% 时暂停新 cycle
+                    if portfolio_drawdown_pct > 6.0 {
+                        state_index += 1;
+                        continue;
+                    }
+                    // 方向3: 波动率过滤 — ATR > 2% of price 时暂停新 cycle（高波动期风险大）
+                    {
+                        let atr_val = latest_atr_for_strategy(
+                            &mut indicator_context,
+                            &strategy_states[state_index].strategy,
+                        );
+                        if let Some(atr) = atr_val {
+                            let atr_pct = atr / bar.close * 100.0;
+                            if atr_pct > 2.0 {
+                                state_index += 1;
+                                continue;
+                            }
+                        }
+                    }
                     if !entry_triggers_allow_entry(
                         &strategy_states[state_index],
                         bar,
@@ -111,12 +190,17 @@ pub fn run_kline_screening(
                         state_index += 1;
                         continue;
                     }
+                    let latest_atr = latest_atr_for_strategy(
+                        &mut indicator_context,
+                        strategy_states[state_index].strategy,
+                    );
                     add_leg(
                         &mut strategy_states[state_index],
                         0,
                         bar.open,
                         margin,
                         notional,
+                        latest_atr,
                     )?;
                     capital_used_quote += capital_required;
                     trade_count += 1;
@@ -142,6 +226,29 @@ pub fn run_kline_screening(
                         bar,
                         trigger_price,
                     ) {
+                        // B-2 趋势过滤：ADX > 45%（极端趋势）时跳过加仓。
+                        // 仅在极端趋势中跳过（保留大部分平均加仓机会），避免 B-2 v1（用入场阈值18-30%）太激进。
+                        // 仅对有 ADX indicator 的策略生效；无 ADX 的策略不受影响。
+                        {
+                            let strategy = &strategy_states[state_index].strategy;
+                            let adx_period = strategy.indicators.iter().find_map(|i| match i {
+                                shared_domain::martingale::MartingaleIndicatorConfig::Adx {
+                                    period,
+                                } => Some(*period as usize),
+                                _ => None,
+                            });
+                            if let Some(period) = adx_period {
+                                if let Some(adx) =
+                                    indicator_context.latest_adx(&strategy.symbol, period)
+                                {
+                                    if adx > 45.0 {
+                                        // ADX > 45% = 极端趋势 → 跳过此 safety order
+                                        state_index += 1;
+                                        continue;
+                                    }
+                                }
+                            }
+                        }
                         let margin = strategy_states[state_index].margins[next_leg_index];
                         let notional = strategy_states[state_index].notionals[next_leg_index];
                         let entry_cost = trading_cost_quote(notional);
@@ -165,12 +272,17 @@ pub fn run_kline_screening(
                             state_index += 1;
                             continue;
                         }
+                        let latest_atr = latest_atr_for_strategy(
+                            &mut indicator_context,
+                            strategy_states[state_index].strategy,
+                        );
                         add_leg(
                             &mut strategy_states[state_index],
                             next_leg_index,
                             trigger_price,
                             margin,
                             notional,
+                            latest_atr,
                         )?;
                         capital_used_quote += capital_required;
                         trade_count += 1;
@@ -311,7 +423,7 @@ pub fn run_kline_screening(
             }
         }
 
-        let equity_quote = budget_quote
+        let equity_quote = initial_margin_capital
             + realized_pnl_quote
             + unrealized_pnl(&strategy_states, &latest_close_by_symbol)?;
         if equity_quote.is_finite() {
@@ -321,6 +433,7 @@ pub fn run_kline_screening(
                     ((equity_peak_quote - equity_quote) / equity_peak_quote * 100.0).max(0.0);
                 max_drawdown_pct = max_drawdown_pct.max(drawdown_pct);
             }
+            last_equity_quote = equity_quote;
             equity_curve.push(EquityPoint {
                 timestamp_ms,
                 equity_quote,
@@ -332,13 +445,17 @@ pub fn run_kline_screening(
         .iter()
         .map(|s| s.margins.iter().sum::<f64>())
         .sum();
+    let total_planned_notional: f64 = strategy_states
+        .iter()
+        .map(|s| s.notionals.iter().sum::<f64>())
+        .sum();
 
     let final_equity_quote = equity_curve
         .last()
         .map(|point| point.equity_quote)
-        .unwrap_or(budget_quote);
-    let total_return_pct = if budget_quote > 0.0 {
-        (final_equity_quote - budget_quote) / budget_quote * 100.0
+        .unwrap_or(initial_margin_capital);
+    let total_return_pct = if initial_margin_capital > 0.0 {
+        (final_equity_quote - initial_margin_capital) / initial_margin_capital * 100.0
     } else {
         0.0
     };
@@ -372,7 +489,9 @@ pub fn run_kline_screening(
             min_liquidation_buffer_pct: None,
             total_fee_quote: Some(total_fee_quote),
             total_slippage_quote: Some(total_slippage_quote),
+            total_funding_quote: Some(total_funding_quote),
             planned_margin_quote: Some(total_planned_margin),
+            planned_notional_quote: Some(total_planned_notional),
             return_drawdown_ratio: if max_drawdown_pct > 0.0 {
                 Some(total_return_pct / max_drawdown_pct)
             } else {
@@ -404,12 +523,14 @@ fn trade_details_from_events(
                 "safety_order" => "open_leg",
                 "take_profit" => "close_cycle",
                 "stop_loss" | "global_stop_loss" | "symbol_stop_loss" => "stop_loss",
+                "funding_fee" => "funding_fee",
                 _ => return None,
             };
             let detail = parse_event_detail(&event.detail);
             let price = detail
                 .get("price")
                 .copied()
+                .or_else(|| detail.get("mark_price").copied())
                 .or_else(|| {
                     equity_curve
                         .iter()
@@ -429,6 +550,10 @@ fn trade_details_from_events(
                 .or_else(|| detail.get("exit_slippage_quote").copied())
                 .unwrap_or(0.0);
             let realized_pnl_quote = detail.get("pnl_quote").copied().unwrap_or(0.0);
+            let realized_pnl_quote = detail
+                .get("funding_quote")
+                .copied()
+                .unwrap_or(realized_pnl_quote);
             let equity_after_quote = equity_curve
                 .iter()
                 .rev()
@@ -490,18 +615,22 @@ struct StrategyRuntime<'a> {
 
 impl<'a> StrategyRuntime<'a> {
     fn new(strategy: &'a MartingaleStrategyConfig) -> Result<Self, String> {
-        let margins =
-            compute_leg_notionals(&strategy.sizing, f64::MAX, DEFAULT_EXCHANGE_MIN_NOTIONAL)?;
-        if margins.is_empty() {
+        // Canonical capital model (see `martingale::capital`): the sizing
+        // geometric series is the LEVERAGED ORDER NOTIONAL (position size sent
+        // to the exchange); leg margin is `notional / effective_leverage`.
+        // Fees, PnL and quantity use notional; capital budgets and returns use
+        // margin.
+        let notionals = leg_notional_series(&strategy.sizing, DEFAULT_EXCHANGE_MIN_NOTIONAL)?;
+        if notionals.is_empty() {
             return Err(format!(
                 "strategy {} has no notionals",
                 strategy.strategy_id
             ));
         }
-        let leverage = strategy.leverage.unwrap_or(1) as f64;
-        let notionals = margins
+        let leverage = effective_leverage(strategy.market, strategy.leverage);
+        let margins = notionals
             .iter()
-            .map(|margin| notional_quote(*margin, leverage))
+            .map(|notional| notional / leverage)
             .collect::<Vec<_>>();
 
         Ok(Self {
@@ -552,6 +681,7 @@ fn add_leg(
     price: f64,
     margin_quote: f64,
     notional_quote: f64,
+    latest_atr: Option<f64>,
 ) -> Result<(), String> {
     validate_positive_f64("price", price)?;
     validate_positive_f64("margin_quote", margin_quote)?;
@@ -565,7 +695,7 @@ fn add_leg(
             price,
             state.strategy.direction,
             &state.strategy.spacing,
-            None,
+            latest_atr,
             state.notionals.len().saturating_sub(1) as u32,
         )?;
     }
@@ -580,25 +710,6 @@ fn add_leg(
         slippage_quote: entry_cost.slippage_quote,
     });
     Ok(())
-}
-
-fn portfolio_budget_quote(portfolio: &MartingalePortfolioConfig) -> Result<f64, String> {
-    if let Some(value) = portfolio.risk_limits.max_global_budget_quote {
-        let budget = value
-            .to_f64()
-            .ok_or_else(|| "max_global_budget_quote cannot be represented as f64".to_string())?;
-        validate_positive_f64("max_global_budget_quote", budget)?;
-        return Ok(budget);
-    }
-
-    let mut budget = 0.0;
-    for strategy in &portfolio.strategies {
-        budget += compute_leg_notionals(&strategy.sizing, f64::MAX, DEFAULT_EXCHANGE_MIN_NOTIONAL)?
-            .iter()
-            .sum::<f64>();
-    }
-    validate_positive_f64("portfolio_budget_quote", budget)?;
-    Ok(budget)
 }
 
 fn preflight_rejection_reasons(portfolio: &MartingalePortfolioConfig) -> Vec<String> {
@@ -745,7 +856,9 @@ fn rejected_result(rejection_reasons: Vec<String>) -> MartingaleBacktestResult {
             min_liquidation_buffer_pct: None,
             total_fee_quote: None,
             total_slippage_quote: None,
+            total_funding_quote: None,
             planned_margin_quote: None,
+            planned_notional_quote: None,
             return_drawdown_ratio: None,
             data_quality_score: Some(1.0),
             trade_count: 0,
@@ -771,6 +884,64 @@ fn reject_budget(
     rejection_reasons.push(reason.clone());
     events.push(event(bar, state, "rejected", reason));
     state.new_legs_blocked = true;
+}
+
+fn apply_funding_rate(
+    states: &mut [StrategyRuntime<'_>],
+    funding: &FundingRatePoint,
+    latest_close_by_symbol: &BTreeMap<String, f64>,
+    events: &mut Vec<MartingaleBacktestEvent>,
+) -> Result<f64, String> {
+    let mut total = 0.0;
+    for state in states.iter_mut() {
+        if state.strategy.symbol != funding.symbol || state.legs.is_empty() {
+            continue;
+        }
+        let mark_price = funding
+            .mark_price
+            .filter(|price| price.is_finite() && *price > 0.0)
+            .or_else(|| latest_close_by_symbol.get(&funding.symbol).copied())
+            .ok_or_else(|| {
+                format!(
+                    "missing mark/close price for funding symbol {} at {}",
+                    funding.symbol, funding.funding_time_ms
+                )
+            })?;
+        validate_positive_f64("funding.mark_price", mark_price)?;
+        let notional = state
+            .legs
+            .iter()
+            .map(|leg| leg.quantity * mark_price)
+            .sum::<f64>();
+        if notional <= 0.0 {
+            continue;
+        }
+        let direction_sign = match state.strategy.direction {
+            MartingaleDirection::Long => 1.0,
+            MartingaleDirection::Short => -1.0,
+        };
+        let funding_quote = -direction_sign * notional * funding.funding_rate;
+        if !funding_quote.is_finite() {
+            return Err(format!(
+                "non-finite funding quote for {} at {}",
+                funding.symbol, funding.funding_time_ms
+            ));
+        }
+        state.realized_pnl_quote += funding_quote;
+        total += funding_quote;
+        events.push(MartingaleBacktestEvent {
+            timestamp_ms: funding.funding_time_ms,
+            event_type: "funding_fee".to_string(),
+            symbol: state.strategy.symbol.clone(),
+            strategy_instance_id: state.strategy.strategy_id.clone(),
+            cycle_id: Some(state.cycle_id.clone()),
+            detail: format!(
+                "funding_rate={};mark_price={mark_price};notional_quote={notional};funding_quote={funding_quote}",
+                funding.funding_rate
+            ),
+        });
+    }
+    Ok(total)
 }
 
 fn event(
@@ -1180,329 +1351,6 @@ fn entry_triggers_allow_entry(
 
     Ok(true)
 }
-
-struct IncrementalIndicatorState {
-    previous_candle: Option<IndicatorCandle>,
-    warmup_ranges: Vec<f64>,
-    current_value: Option<f64>,
-}
-
-impl Default for IncrementalIndicatorState {
-    fn default() -> Self {
-        Self {
-            previous_candle: None,
-            warmup_ranges: Vec::new(),
-            current_value: None,
-        }
-    }
-}
-
-type IndicatorKey = (String, String, usize);
-
-struct IndicatorRuntimeContext {
-    bars_by_symbol: BTreeMap<String, Vec<KlineBar>>,
-    incremental: BTreeMap<IndicatorKey, IncrementalIndicatorState>,
-}
-
-impl Default for IndicatorRuntimeContext {
-    fn default() -> Self {
-        Self {
-            bars_by_symbol: BTreeMap::new(),
-            incremental: BTreeMap::new(),
-        }
-    }
-}
-
-impl IndicatorRuntimeContext {
-    fn push_bar(&mut self, bar: &KlineBar) {
-        self.bars_by_symbol
-            .entry(bar.symbol.clone())
-            .or_default()
-            .push(bar.clone());
-        let candle = indicator_candle(bar);
-        let sym = bar.symbol.clone();
-        if candle.high.is_finite() && candle.low.is_finite() && candle.close.is_finite() {
-            for key in self.incremental.keys().filter(|k| k.0 == sym).cloned().collect::<Vec<_>>() {
-                if let Some(state) = self.incremental.get_mut(&key) {
-                    let (_, _, period) = &key;
-                    let period = *period;
-                    let range = crate::indicators::true_range(
-                        candle,
-                        state.previous_candle.map(|c| c.close).filter(|v| v.is_finite()),
-                    );
-                    state.previous_candle = Some(candle);
-                    let range = match range {
-                        Some(r) if r.is_finite() => r,
-                        _ => {
-                            state.warmup_ranges.clear();
-                            state.current_value = None;
-                            continue;
-                        }
-                    };
-                    state.current_value = match (state.current_value, range) {
-                        (Some(prev), _) => {
-                            Some(((prev * (period as f64 - 1.0)) + range) / period as f64)
-                        }
-                        (None, _) => {
-                            state.warmup_ranges.push(range);
-                            if state.warmup_ranges.len() == period {
-                                let sum: f64 = state.warmup_ranges.iter().sum();
-                                state.warmup_ranges.clear();
-                                Some(sum / period as f64)
-                            } else {
-                                None
-                            }
-                        }
-                    };
-                }
-            }
-        }
-    }
-
-    fn ensure_atr_cached(&mut self, symbol: &str, period: usize) {
-        let key = (symbol.to_string(), "atr".to_string(), period);
-        if self.incremental.contains_key(&key) {
-            return;
-        }
-        let bars = self.bars_by_symbol.get(symbol).cloned().unwrap_or_default();
-        let mut state = IncrementalIndicatorState::default();
-        for bar in &bars {
-            let candle = indicator_candle(bar);
-            if !candle.high.is_finite() || !candle.low.is_finite() || !candle.close.is_finite() {
-                state.warmup_ranges.clear();
-                state.current_value = None;
-                state.previous_candle = None;
-                continue;
-            }
-            let range = crate::indicators::true_range(
-                candle,
-                state.previous_candle.map(|c| c.close).filter(|v| v.is_finite()),
-            );
-            state.previous_candle = Some(candle);
-            let range = match range {
-                Some(r) if r.is_finite() => r,
-                _ => {
-                    state.warmup_ranges.clear();
-                    state.current_value = None;
-                    continue;
-                }
-            };
-            state.current_value = match (state.current_value, range) {
-                (Some(prev), _) => {
-                    Some(((prev * (period as f64 - 1.0)) + range) / period as f64)
-                }
-                (None, _) => {
-                    state.warmup_ranges.push(range);
-                    if state.warmup_ranges.len() == period {
-                        let sum: f64 = state.warmup_ranges.iter().sum();
-                        state.warmup_ranges.clear();
-                        Some(sum / period as f64)
-                    } else {
-                        None
-                    }
-                }
-            };
-        }
-        self.incremental.insert(key, state);
-    }
-
-    fn evaluate_expression(&self, symbol: &str, expression: &str) -> Result<Option<bool>, String> {
-        let expression = expression.trim();
-        let Some((operator, left, right)) = split_comparison(expression) else {
-            return Err(format!("unsupported indicator expression: {expression}"));
-        };
-        let Some(left) = self.resolve_operand(symbol, left.trim())? else {
-            return Ok(None);
-        };
-        let Some(right) = self.resolve_operand(symbol, right.trim())? else {
-            return Ok(None);
-        };
-        Ok(Some(match operator {
-            ">" => left > right,
-            ">=" => left >= right,
-            "<" => left < right,
-            "<=" => left <= right,
-            "==" => (left - right).abs() <= f64::EPSILON,
-            "!=" => (left - right).abs() > f64::EPSILON,
-            _ => return Err(format!("unsupported indicator operator: {operator}")),
-        }))
-    }
-
-    fn resolve_operand(&self, symbol: &str, operand: &str) -> Result<Option<f64>, String> {
-        if let Ok(value) = operand.parse::<f64>() {
-            return Ok(Some(value));
-        }
-        let bars = self
-            .bars_by_symbol
-            .get(symbol)
-            .ok_or_else(|| format!("no indicator bars for symbol {symbol}"))?;
-        let latest = bars
-            .last()
-            .ok_or_else(|| format!("no indicator bars for symbol {symbol}"))?;
-        match operand.to_ascii_lowercase().as_str() {
-            "open" => return Ok(Some(latest.open)),
-            "high" => return Ok(Some(latest.high)),
-            "low" => return Ok(Some(latest.low)),
-            "close" => return Ok(Some(latest.close)),
-            _ => {}
-        }
-
-        let Some((name, args)) = parse_indicator_call(operand)? else {
-            return Err(format!("unsupported indicator operand: {operand}"));
-        };
-        let closes = bars.iter().map(|bar| bar.close).collect::<Vec<_>>();
-        let candles = bars.iter().map(indicator_candle).collect::<Vec<_>>();
-        let value = match name.as_str() {
-            "sma" => sma(&closes, one_usize_arg(&name, &args)?)
-                .last()
-                .copied()
-                .flatten(),
-            "ema" => ema(&closes, one_usize_arg(&name, &args)?)
-                .last()
-                .copied()
-                .flatten(),
-            "rsi" => rsi(&closes, one_usize_arg(&name, &args)?)
-                .last()
-                .copied()
-                .flatten(),
-            "atr" => atr(&candles, one_usize_arg(&name, &args)?)
-                .last()
-                .copied()
-                .flatten(),
-            "adx" => adx(&candles, one_usize_arg(&name, &args)?)
-                .last()
-                .copied()
-                .flatten(),
-            "bb_upper" => {
-                let (period, stddev) = bollinger_args(&name, &args)?;
-                bollinger(&closes, period, stddev)
-                    .last()
-                    .copied()
-                    .flatten()
-                    .map(|point| point.upper)
-            }
-            "bb_middle" => {
-                let (period, stddev) = bollinger_args(&name, &args)?;
-                bollinger(&closes, period, stddev)
-                    .last()
-                    .copied()
-                    .flatten()
-                    .map(|point| point.middle)
-            }
-            "bb_lower" => {
-                let (period, stddev) = bollinger_args(&name, &args)?;
-                bollinger(&closes, period, stddev)
-                    .last()
-                    .copied()
-                    .flatten()
-                    .map(|point| point.lower)
-            }
-            "bb_bandwidth" => {
-                let (period, stddev) = bollinger_args(&name, &args)?;
-                bollinger(&closes, period, stddev)
-                    .last()
-                    .copied()
-                    .flatten()
-                    .map(|point| point.bandwidth)
-            }
-            _ => return Err(format!("unsupported indicator operand: {operand}")),
-        };
-        Ok(value)
-    }
-
-    fn latest_atr(&mut self, symbol: &str, period: usize) -> Option<f64> {
-        self.ensure_atr_cached(symbol, period);
-        let key = (symbol.to_string(), "atr".to_string(), period);
-        self.incremental.get(&key).and_then(|s| s.current_value)
-    }
-}
-
-fn latest_atr_for_strategy(
-    indicator_context: &mut IndicatorRuntimeContext,
-    strategy: &MartingaleStrategyConfig,
-) -> Option<f64> {
-    let period = strategy
-        .indicators
-        .iter()
-        .find_map(|indicator| match indicator {
-            shared_domain::martingale::MartingaleIndicatorConfig::Atr { period } => {
-                Some(*period as usize)
-            }
-            _ => None,
-        })
-        .unwrap_or(2);
-    indicator_context.latest_atr(&strategy.symbol, period)
-}
-
-fn indicator_candle(bar: &KlineBar) -> IndicatorCandle {
-    IndicatorCandle {
-        high: bar.high,
-        low: bar.low,
-        close: bar.close,
-    }
-}
-
-fn split_comparison(expression: &str) -> Option<(&'static str, &str, &str)> {
-    for operator in [">=", "<=", "==", "!=", ">", "<"] {
-        if let Some(index) = expression.find(operator) {
-            let left = &expression[..index];
-            let right = &expression[index + operator.len()..];
-            if !left.trim().is_empty() && !right.trim().is_empty() {
-                return Some((operator, left, right));
-            }
-        }
-    }
-    None
-}
-
-fn parse_indicator_call(operand: &str) -> Result<Option<(String, Vec<String>)>, String> {
-    let operand = operand.trim().to_ascii_lowercase();
-    let Some(open_paren) = operand.find('(') else {
-        return Ok(None);
-    };
-    if !operand.ends_with(')') {
-        return Err(format!("invalid indicator operand: {operand}"));
-    }
-    let name = operand[..open_paren].trim().to_string();
-    let args = operand[open_paren + 1..operand.len() - 1]
-        .split(',')
-        .map(|arg| arg.trim().to_string())
-        .filter(|arg| !arg.is_empty())
-        .collect::<Vec<_>>();
-    Ok(Some((name, args)))
-}
-
-fn one_usize_arg(name: &str, args: &[String]) -> Result<usize, String> {
-    if args.len() != 1 {
-        return Err(format!("{name} requires exactly one period argument"));
-    }
-    let period = args[0]
-        .parse::<usize>()
-        .map_err(|_| format!("invalid indicator period for {name}"))?;
-    if period == 0 {
-        return Err(format!("indicator period must be > 0 for {name}"));
-    }
-    Ok(period)
-}
-
-fn bollinger_args(name: &str, args: &[String]) -> Result<(usize, f64), String> {
-    if !(1..=2).contains(&args.len()) {
-        return Err(format!(
-            "{name} requires period and optional stddev arguments"
-        ));
-    }
-    let period = one_usize_arg(name, &args[..1])?;
-    let stddev = if args.len() == 2 {
-        args[1]
-            .parse::<f64>()
-            .map_err(|_| format!("invalid bollinger stddev for {name}"))?
-    } else {
-        2.0
-    };
-    validate_positive_f64("bollinger.stddev", stddev)?;
-    Ok((period, stddev))
-}
-
 fn timestamp_in_time_window(timestamp_ms: i64, start: &str, end: &str) -> Result<bool, String> {
     let start_ms = parse_time_of_day_ms(start)?;
     let end_ms = parse_time_of_day_ms(end)?;
@@ -1729,7 +1577,10 @@ mod tests {
     };
 
     use crate::market_data::KlineBar;
-    use crate::martingale::kline_engine::{capacity_allows_entry, run_kline_screening};
+    use crate::martingale::kline_engine::{
+        capacity_allows_entry, run_kline_screening, run_kline_screening_with_funding,
+        FundingRatePoint,
+    };
 
     fn single_strategy_portfolio(budget_quote: i64) -> MartingalePortfolioConfig {
         portfolio_with_direction(MartingaleDirection::Long, budget_quote)
@@ -2096,10 +1947,12 @@ mod tests {
 
     #[test]
     fn atr_stop_loss_triggers_after_warmup() {
+        let mut portfolio = portfolio_with_stop_loss(MartingaleStopLossModel::Atr {
+            multiplier: Decimal::new(1, 0),
+        });
+        portfolio.strategies[0].take_profit = MartingaleTakeProfitModel::Percent { bps: 9_000 };
         let result = run_kline_screening(
-            portfolio_with_stop_loss(MartingaleStopLossModel::Atr {
-                multiplier: Decimal::new(1, 0),
-            }),
+            portfolio,
             &[
                 bar(1_000, 100.0, 101.0, 99.0, 100.0),
                 bar(2_000, 100.0, 101.0, 99.0, 100.0),
@@ -2263,7 +2116,10 @@ mod tests {
         assert!(entry.detail.contains("fee_quote="));
         assert!(entry.detail.contains("slippage_quote="));
         assert!(result.metrics.total_return_pct > 0.0);
-        assert!(result.metrics.total_return_pct < 0.1);
+        // Return is normalized by planned margin capital (here 300 for the spot
+        // [100,200] leg sequence), not the 1000 budget allocation, so the net
+        // return after costs is small but above the old budget-based bound.
+        assert!(result.metrics.total_return_pct < 0.5);
     }
 
     #[test]
@@ -2394,6 +2250,64 @@ mod tests {
         assert!(result.events.iter().any(|event| {
             event.event_type == "entry" && event.cycle_id.as_deref() == Some("Long-grid-cycle-2")
         }));
+    }
+
+    #[test]
+    fn long_position_pays_positive_funding_in_equity_curve() {
+        let mut portfolio = single_strategy_portfolio(1_000);
+        portfolio.strategies[0].take_profit = MartingaleTakeProfitModel::Percent { bps: 9_000 };
+        let bars = vec![
+            bar(1_000, 100.0, 100.0, 100.0, 100.0),
+            bar(2_000, 100.0, 100.0, 100.0, 100.0),
+        ];
+        let with_funding = run_kline_screening_with_funding(
+            portfolio.clone(),
+            &bars,
+            &[FundingRatePoint {
+                symbol: "BTCUSDT".to_string(),
+                funding_time_ms: 2_000,
+                funding_rate: 0.01,
+                mark_price: Some(100.0),
+            }],
+        )
+        .unwrap();
+        let without_funding = run_kline_screening(portfolio, &bars).unwrap();
+
+        assert_eq!(with_funding.metrics.total_funding_quote, Some(-1.0));
+        assert!(with_funding
+            .events
+            .iter()
+            .any(|event| event.event_type == "funding_fee"));
+        let funded_equity = with_funding.equity_curve.last().unwrap().equity_quote;
+        let plain_equity = without_funding.equity_curve.last().unwrap().equity_quote;
+        assert!((plain_equity - funded_equity - 1.0).abs() < 0.000001);
+    }
+
+    #[test]
+    fn short_position_receives_positive_funding_in_equity_curve() {
+        let mut portfolio = portfolio_with_direction(MartingaleDirection::Short, 1_000);
+        portfolio.strategies[0].take_profit = MartingaleTakeProfitModel::Percent { bps: 9_000 };
+        let bars = vec![
+            bar(1_000, 100.0, 100.0, 100.0, 100.0),
+            bar(2_000, 100.0, 100.0, 100.0, 100.0),
+        ];
+        let with_funding = run_kline_screening_with_funding(
+            portfolio.clone(),
+            &bars,
+            &[FundingRatePoint {
+                symbol: "BTCUSDT".to_string(),
+                funding_time_ms: 2_000,
+                funding_rate: 0.01,
+                mark_price: Some(100.0),
+            }],
+        )
+        .unwrap();
+        let without_funding = run_kline_screening(portfolio, &bars).unwrap();
+
+        assert_eq!(with_funding.metrics.total_funding_quote, Some(1.0));
+        let funded_equity = with_funding.equity_curve.last().unwrap().equity_quote;
+        let plain_equity = without_funding.equity_curve.last().unwrap().equity_quote;
+        assert!((funded_equity - plain_equity - 1.0).abs() < 0.000001);
     }
 
     #[test]
@@ -2661,7 +2575,7 @@ mod tests {
     }
 
     #[test]
-    fn futures_leverage_multiplies_notional_while_margin_stays_fixed() {
+    fn futures_leverage_reduces_margin_while_notional_stays_fixed() {
         let bars = vec![
             test_bar(0, 100.0, 100.0, 100.0, 100.0),
             test_bar(60_000, 100.0, 101.0, 100.0, 101.0),
@@ -2685,20 +2599,26 @@ mod tests {
         let two_x_result = run_kline_screening(two_x, &bars).expect("2x run should succeed");
         let four_x_result = run_kline_screening(four_x, &bars).expect("4x run should succeed");
 
-        assert_eq!(two_x_result.metrics.planned_margin_quote, Some(10.0));
-        assert_eq!(four_x_result.metrics.planned_margin_quote, Some(10.0));
+        // Notional is the leveraged position size and is independent of leverage.
+        assert_eq!(two_x_result.metrics.planned_notional_quote, Some(10.0));
+        assert_eq!(four_x_result.metrics.planned_notional_quote, Some(10.0));
+        // Margin = notional / leverage: 2x => 5, 4x => 2.5.
+        assert_eq!(two_x_result.metrics.planned_margin_quote, Some(5.0));
+        assert_eq!(four_x_result.metrics.planned_margin_quote, Some(2.5));
+        // Same PnL over a smaller margin base => higher return at higher leverage.
         assert!(
             four_x_result.metrics.total_return_pct > two_x_result.metrics.total_return_pct * 1.5,
-            "higher leverage should materially increase return on the same margin: 2x={}, 4x={}",
+            "higher leverage should materially increase return on the same notional: 2x={}, 4x={}",
             two_x_result.metrics.total_return_pct,
             four_x_result.metrics.total_return_pct
         );
+        // Trade details expose margin (= notional/leverage) and notional separately.
         assert!(
             four_x_result
                 .trades
                 .iter()
-                .any(|trade| (trade.margin_quote - 10.0).abs() < 0.000001
-                    && (trade.notional_quote - 40.0).abs() < 0.000001),
+                .any(|trade| (trade.margin_quote - 2.5).abs() < 0.000001
+                    && (trade.notional_quote - 10.0).abs() < 0.000001),
             "expected trade details to expose margin and notional separately: {:?}",
             four_x_result.trades
         );

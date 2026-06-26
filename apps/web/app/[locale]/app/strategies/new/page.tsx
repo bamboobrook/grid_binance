@@ -1,5 +1,6 @@
 import { cookies } from "next/headers";
 import { getTranslations } from "next-intl/server";
+import Link from "next/link";
 import { Bot, ChevronRight } from "lucide-react";
 
 import { StrategyWorkspaceForm, type StrategyWorkspaceValues } from "@/components/strategies/strategy-workspace-form";
@@ -20,7 +21,7 @@ const DEFAULT_LEVELS_JSON = JSON.stringify(
 
 type PageProps = {
   params: Promise<{ locale: string }>;
-  searchParams?: Promise<{ error?: string | string[]; mode?: string | string[]; symbolQuery?: string | string[] }>;
+  searchParams?: Promise<{ confirmCreate?: string | string[]; error?: string | string[]; mode?: string | string[]; step?: string | string[]; strategyType?: string | string[]; symbolQuery?: string | string[] }>;
 };
 
 type SymbolSearchResponse = {
@@ -43,6 +44,16 @@ type TemplateListResponse = {
   }>;
 };
 
+type TemplateCard = {
+  description: string;
+  href: string;
+  id: string;
+  market: string;
+  name: string;
+  symbol: string;
+  type: "grid" | "martingale";
+};
+
 export default async function StrategyNewPage({ params, searchParams }: PageProps) {
   const { locale } = await params;
   const lang: UiLanguage = locale === "en" ? "en" : "zh";
@@ -50,14 +61,17 @@ export default async function StrategyNewPage({ params, searchParams }: PageProp
 
   const searchParamsValue = (await searchParams) ?? {};
   const error = firstValue(searchParamsValue.error);
+  const confirmCreateOpen = firstValue(searchParamsValue.confirmCreate) === "1";
   const modeParam = firstValue(searchParamsValue.mode);
   const displayMode = modeParam === "advanced" ? "advanced" as const : "wizard" as const;
+  const initialStep = firstValue(searchParamsValue.step);
+  const selectedStrategyType = normalizeStrategyType(firstValue(searchParamsValue.strategyType));
   const symbolQuery = firstValue(searchParamsValue.symbolQuery) ?? "ETHUSDT";
   const results = await Promise.all([fetchTemplates(lang), fetchSymbolMatches(symbolQuery, lang)]);
   const templates = results[0].items;
   const symbolMatches = results[1].items;
-  const selectedSymbol = "";
-  const selectedMarket = "spot";
+  const selectedSymbol = symbolMatches[0]?.symbol ?? symbolQuery;
+  const selectedMarket = normalizeMarket(symbolMatches[0]?.market ?? "spot");
 
   const values: StrategyWorkspaceValues = {
     amountMode: "quote",
@@ -73,6 +87,13 @@ export default async function StrategyNewPage({ params, searchParams }: PageProp
     levelsJson: DEFAULT_LEVELS_JSON,
     leverage: "5",
     lowerRangePercent: "6",
+    martingaleDirection: "long",
+    martingaleFirstOrderQuote: "25",
+    martingaleMaxLegs: "6",
+    martingaleOrderMultiplier: "1.6",
+    martingaleSpacingPercent: "1.2",
+    martingaleStopLossPercent: "12",
+    martingaleTakeProfitPercent: "1.4",
     marketType: selectedMarket,
     mode: selectedMarket === "spot" ? "buy-only" : "long",
     name: "",
@@ -81,9 +102,9 @@ export default async function StrategyNewPage({ params, searchParams }: PageProp
     overallTakeProfit: "4.0",
     postTrigger: "rebuild",
     quoteAmount: "1000",
-    referencePrice: "",
+    referencePrice: previewReferencePrice(selectedSymbol),
     referencePriceMode: "market",
-    strategyType: "ordinary_grid",
+    strategyType: selectedStrategyType,
     symbol: selectedSymbol,
     upperRangePercent: "6",
   };
@@ -96,16 +117,18 @@ export default async function StrategyNewPage({ params, searchParams }: PageProp
           <Bot className="h-5 w-5" />
         </div>
         <div>
-          <h1 className="text-2xl font-extrabold tracking-tight text-foreground">{t("title")}</h1>
+          <h1 className="text-2xl font-extrabold tracking-tight text-foreground">{pickText(lang, "创建机器人", "Create Bot")}</h1>
           <p className="text-sm text-muted-foreground mt-0.5">
-            {pickText(lang, "仅需两步，快速部署您的网格机器人。", "Deploy your grid bot in just two steps.")}
+            {pickText(lang, "从同一个入口创建普通网格、经典双边或马丁策略。", "Create ordinary grid, classic bilateral, or DCA from one place.")}
           </p>
         </div>
       </div>
 
       <StrategyWorkspaceForm
         displayMode={displayMode}
-        formAction="/api/user/strategies/create"
+        formAction={selectedStrategyType === "martingale_grid" ? "/api/user/strategies/create-martingale" : "/api/user/strategies/create"}
+        confirmCreateOpen={confirmCreateOpen}
+        initialStep={initialStep}
         lang={lang}
         searchPath={`/${locale}/app/strategies/new`}
         searchQuery={symbolQuery}
@@ -118,23 +141,23 @@ export default async function StrategyNewPage({ params, searchParams }: PageProp
           <CardTitle className="text-sm font-semibold text-foreground">{t("templates.title")}</CardTitle>
         </CardHeader>
         <CardBody className="grid gap-3 p-4 md:grid-cols-2 xl:grid-cols-3">
-          {templates.length > 0 ? templates.map((tpl) => (
-            <form action="/api/user/strategies/templates" key={tpl.id} method="post" className="w-full">
-              <input name="templateId" type="hidden" value={tpl.id} />
-              <input name="name" type="hidden" value={`${tpl.name} Copy`} />
-              <button className="flex w-full items-center justify-between rounded-2xl border border-border bg-background px-4 py-4 text-left transition-colors hover:border-primary/50 hover:bg-muted/60" type="submit">
-                <div>
-                  <p className="text-sm font-semibold text-foreground">{tpl.name}</p>
-                  <p className="mt-1 text-xs text-muted-foreground">{tpl.symbol} · {describeMarket(lang, tpl.market)}</p>
+          {templateCards(lang, locale, templates).map((tpl) => (
+            <Link
+              className="flex min-h-32 w-full items-start justify-between gap-4 rounded-2xl border border-border bg-background px-4 py-4 text-left transition-colors hover:border-primary/50 hover:bg-muted/60"
+              href={tpl.href}
+              key={tpl.id}
+            >
+              <div className="min-w-0">
+                <div className="mb-2 inline-flex rounded-full border border-border bg-card px-2 py-0.5 text-[11px] font-bold text-muted-foreground">
+                  {tpl.type === "martingale" ? pickText(lang, "马丁模板", "DCA Template") : pickText(lang, "网格模板", "Grid Template")}
                 </div>
-                <ChevronRight className="h-4 w-4 text-muted-foreground" />
-              </button>
-            </form>
-          )) : (
-            <div className="rounded-2xl border border-dashed border-border px-4 py-8 text-center text-sm text-muted-foreground">
-              {pickText(lang, "当前没有可套用模板。", "No templates are available right now.")}
-            </div>
-          )}
+                <p className="text-sm font-semibold text-foreground">{tpl.name}</p>
+                <p className="mt-1 text-xs text-muted-foreground">{tpl.symbol} · {describeMarket(lang, tpl.market)}</p>
+                <p className="mt-3 text-xs leading-relaxed text-muted-foreground">{tpl.description}</p>
+              </div>
+              <ChevronRight className="mt-1 h-4 w-4 shrink-0 text-muted-foreground" />
+            </Link>
+          ))}
         </CardBody>
       </Card>
     </div>
@@ -143,6 +166,13 @@ export default async function StrategyNewPage({ params, searchParams }: PageProp
 
 function firstValue(value?: string | string[]) {
   return Array.isArray(value) ? value[0] : value;
+}
+
+function normalizeStrategyType(value?: string): StrategyWorkspaceValues["strategyType"] {
+  if (value === "classic_bilateral_grid" || value === "martingale_grid") {
+    return value;
+  }
+  return "ordinary_grid";
 }
 
 function normalizeMarket(market: string): StrategyWorkspaceValues["marketType"] {
@@ -166,6 +196,49 @@ function describeMarket(lang: UiLanguage, market: string) {
     default:
       return pickText(lang, "现货", "Spot");
   }
+}
+
+function templateCards(lang: UiLanguage, locale: string, backendTemplates: TemplateListResponse["items"]): TemplateCard[] {
+  const backendCards: TemplateCard[] = backendTemplates.map((tpl) => ({
+    description: pickText(lang, "套用已有网格模板，再按当前交易对微调。", "Apply an existing grid template, then tune it for the current symbol."),
+    href: `/${locale}/app/strategies/new?strategyType=ordinary_grid&symbolQuery=${encodeURIComponent(tpl.symbol)}`,
+    id: tpl.id,
+    market: tpl.market,
+    name: tpl.name,
+    symbol: tpl.symbol,
+    type: "grid",
+  }));
+
+  return [
+    ...backendCards,
+    {
+      description: pickText(lang, "适合震荡区间里分批买入，首单小、补仓次数少。", "For staged buying in a range with small first order and fewer safety orders."),
+      href: `/${locale}/app/strategies/new?strategyType=martingale_grid&symbolQuery=ETHUSDT`,
+      id: "martingale-balanced",
+      market: "spot",
+      name: pickText(lang, "ETH 小额马丁", "ETH Small DCA"),
+      symbol: "ETHUSDT",
+      type: "martingale",
+    },
+    {
+      description: pickText(lang, "适合合约小仓观察，控制补仓次数和杠杆。", "For a small futures watch bot with capped safety orders and leverage."),
+      href: `/${locale}/app/strategies/new?strategyType=martingale_grid&symbolQuery=SOLUSDT`,
+      id: "martingale-futures-watch",
+      market: "usdm",
+      name: pickText(lang, "SOL 合约马丁观察", "SOL Futures DCA Watch"),
+      symbol: "SOLUSDT",
+      type: "martingale",
+    },
+  ];
+}
+
+function previewReferencePrice(symbol: string) {
+  const normalized = symbol.toUpperCase();
+  if (normalized.includes("BTC")) return "65000";
+  if (normalized.includes("ETH")) return "1800";
+  if (normalized.includes("BNB")) return "600";
+  if (normalized.includes("SOL")) return "150";
+  return "100";
 }
 
 async function fetchTemplates(lang: UiLanguage): Promise<{ items: TemplateListResponse["items"]; error: string | null }> {

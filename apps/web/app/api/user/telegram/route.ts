@@ -19,7 +19,7 @@ export async function POST(request: Request) {
   }
 
   if (intent !== "generate") {
-    return redirectApp(request, "/telegram");
+    return redirectApp(request, "/notifications");
   }
 
   const response = await fetch(`${authApiBaseUrl()}/telegram/bind-codes`, {
@@ -34,11 +34,11 @@ export async function POST(request: Request) {
 
   if (!response.ok) {
     const error = await readError(response);
-    return redirectApp(request, `/telegram?error=${encodeURIComponent(error)}`);
+    return redirectApp(request, `/notifications?error=${encodeURIComponent(error)}`);
   }
 
   const payload = (await response.json()) as { code: string; expires_at: string };
-  const url = publicUrl(request, localizedAppPath(request, "/telegram"));
+  const url = publicUrl(request, localizedAppPath(request, "/notifications"));
   url.searchParams.set("notice", "bind-code-issued");
   url.searchParams.set("code", payload.code);
   url.searchParams.set("expires", payload.expires_at);

@@ -225,7 +225,7 @@ impl MartingalePortfolioConfig {
     pub fn validate(&self) -> Result<(), String> {
         use std::collections::HashMap;
 
-        let mut futures_by_symbol: HashMap<String, (MartingaleMarginMode, u32)> = HashMap::new();
+        let mut futures_by_symbol: HashMap<String, MartingaleMarginMode> = HashMap::new();
 
         for strategy in &self.strategies {
             strategy.validate()?;
@@ -234,28 +234,16 @@ impl MartingalePortfolioConfig {
                 let margin_mode = strategy
                     .margin_mode
                     .expect("validated futures strategy must have margin_mode");
-                let leverage = strategy
-                    .leverage
-                    .expect("validated futures strategy must have leverage");
-
                 let symbol_key = strategy.symbol.trim().to_uppercase();
-                if let Some((existing_margin_mode, existing_leverage)) =
-                    futures_by_symbol.get(&symbol_key)
-                {
+                if let Some(existing_margin_mode) = futures_by_symbol.get(&symbol_key) {
                     if *existing_margin_mode != margin_mode {
                         return Err(format!(
                             "{} margin_mode conflict for USDT-M futures strategies",
                             strategy.symbol
                         ));
                     }
-                    if *existing_leverage != leverage {
-                        return Err(format!(
-                            "{} leverage conflict for USDT-M futures strategies",
-                            strategy.symbol
-                        ));
-                    }
                 } else {
-                    futures_by_symbol.insert(symbol_key, (margin_mode, leverage));
+                    futures_by_symbol.insert(symbol_key, margin_mode);
                 }
             }
         }
@@ -347,14 +335,21 @@ mod tests {
     }
 
     #[test]
-    fn same_symbol_futures_margin_or_leverage_conflict_is_rejected() {
+    fn same_symbol_futures_leverage_difference_is_allowed() {
         let mut portfolio = MartingalePortfolioConfig::example_futures_long_short("BTCUSDT");
         portfolio.strategies[1].leverage = Some(5);
+        assert_eq!(portfolio.validate().unwrap(), ());
+    }
+
+    #[test]
+    fn same_symbol_futures_margin_mode_conflict_is_rejected() {
+        let mut portfolio = MartingalePortfolioConfig::example_futures_long_short("BTCUSDT");
+        portfolio.strategies[1].margin_mode = Some(MartingaleMarginMode::Isolated);
         let error = portfolio
             .validate()
-            .expect_err("conflicting leverage must fail");
+            .expect_err("conflicting margin mode must fail");
         assert!(error.contains("BTCUSDT"));
-        assert!(error.contains("leverage"));
+        assert!(error.contains("margin_mode"));
     }
 
     #[test]

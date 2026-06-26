@@ -37,6 +37,9 @@ artifacts/
 *.db
 *.sqlite3
 
+# Scratch monitoring output
+.monitor_*.txt
+
 # Local git worktrees
 .worktrees/
 

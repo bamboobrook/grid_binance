@@ -9,7 +9,7 @@ import { MartingaleRiskWarning } from "@/components/backtest/martingale-risk-war
 import { AppShellSection } from "@/components/shell/app-shell-section";
 import { Card, CardBody, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Chip } from "@/components/ui/chip";
-import { Button } from "@/components/ui/form";
+import { Button, Input } from "@/components/ui/form";
 import { StatusBanner } from "@/components/ui/status-banner";
 import { DataTable, type DataTableRow } from "@/components/ui/table";
 import { pickText, type UiLanguage } from "@/lib/ui/preferences";
@@ -39,6 +39,18 @@ type PortfolioStrategy = {
   spacing?: Record<string, unknown> | null;
   take_profit?: Record<string, unknown> | null;
   risk_limits?: PortfolioRiskLimits | null;
+};
+
+type PortfolioItemSnapshot = {
+  candidate_id?: string | null;
+  strategy_instance_id?: string | null;
+  symbol?: string | null;
+  weight_pct?: number | null;
+  leverage?: number | null;
+  enabled?: boolean | null;
+  status?: StrategyStatus | null;
+  parameter_snapshot?: Record<string, unknown> | null;
+  metrics_snapshot?: Record<string, unknown> | null;
 };
 
 type PortfolioConfig = {
@@ -119,14 +131,6 @@ export function MartingalePortfolioList({
 
   return (
     <AppShellSection
-      actions={
-        <Link
-          className="inline-flex items-center justify-center rounded-sm border border-border bg-background px-3 py-2 text-sm font-medium text-foreground transition-colors hover:bg-secondary"
-          href={`/${locale}/app/backtest`}
-        >
-          {pickText(lang, "去回测台", "Open backtest desk")}
-        </Link>
-      }
       description={pickText(
         lang,
         "发布后的组合列表展示名称、状态、市场、方向、风险档位、策略实例数量、总权重与创建时间。",
@@ -448,8 +452,12 @@ export function MartingalePortfolioDetail({
                 <LivePortfolioControls
                   entity={{ kind: "portfolio", portfolioId: portfolio.portfolio_id, status: portfolio.status }}
                   lang={lang}
+                  maxGlobalBudgetQuote={portfolio.config.risk_limits?.max_global_budget_quote}
                   onPortfolioChange={(next) => {
                     setPortfolio((current) => (current ? { ...current, status: next } : current));
+                  }}
+                  onPortfolioConfigChange={(nextConfig) => {
+                    setPortfolio((current) => (current ? { ...current, config: nextConfig } : current));
                   }}
                 />
               </div>
@@ -478,7 +486,7 @@ export function MartingalePortfolioDetail({
                         strategy.strategy_instance_id ? strategyStatuses[strategy.strategy_instance_id] : undefined,
                       );
                       return (
-                        <div className="rounded-sm border border-border/70 p-4" key={strategy.strategy_instance_id || `${strategy.symbol}-${strategy.direction}`}>
+                        <div className="rounded-sm border border-border/70 p-4" key={strategy.strategy_id || strategy.strategy_instance_id || `${strategy.symbol}-${strategy.direction}`}>
                           <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                             <div className="space-y-3">
                               <div className="flex flex-wrap items-center gap-2">
@@ -700,18 +708,29 @@ export function MartingalePortfolioDetail({
 function LivePortfolioControls({
   entity,
   lang,
+  maxGlobalBudgetQuote,
   onPortfolioChange,
+  onPortfolioConfigChange,
   onStrategyChange,
 }: {
   entity:
     | { kind: "portfolio"; portfolioId: string; status: string }
     | { kind: "strategy"; strategyId: string; statusSource: StrategyStatusSource };
   lang: UiLanguage;
+  maxGlobalBudgetQuote?: number | string | null;
   onPortfolioChange?: (status: string) => void;
+  onPortfolioConfigChange?: (config: PortfolioConfig) => void;
   onStrategyChange?: (status: StrategyStatus) => void;
 }) {
   const [pending, setPending] = useState("");
   const [message, setMessage] = useState("");
+  const [liveBudgetQuote, setLiveBudgetQuote] = useState(
+    initialLiveBudgetQuote(maxGlobalBudgetQuote),
+  );
+
+  useEffect(() => {
+    setLiveBudgetQuote(initialLiveBudgetQuote(maxGlobalBudgetQuote));
+  }, [maxGlobalBudgetQuote]);
 
   async function run(action: "pause" | "stop" | "start" | "resume") {
     setPending(action);
@@ -729,6 +748,19 @@ function LivePortfolioControls({
         input = `/api/user/martingale-portfolios/${entity.portfolioId}/confirm-start`;
       }
       init = { method: "POST" };
+      if (action === "start") {
+        const budget = Number(liveBudgetQuote);
+        if (!Number.isFinite(budget) || budget <= 0) {
+          setMessage(pickText(lang, "请先填写大于 0 的组合实盘资金上限。", "Enter a live capital cap greater than 0 first."));
+          setPending("");
+          return;
+        }
+        init = {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ max_global_budget_quote: liveBudgetQuote }),
+        };
+      }
     } else if (action === "pause") {
       input = "/api/user/martingale-portfolios/strategies/pause";
       init = {
@@ -761,6 +793,9 @@ function LivePortfolioControls({
             `Confirmed portfolio record status: ${humanizeStatus(lang, nextStatus)}. Live automated orders require a connected strategy executor.`,
           ),
         );
+        if (response.data && typeof response.data === "object") {
+          onPortfolioConfigChange?.(normalizePortfolio(response.data).config);
+        }
         startTransition(() => onPortfolioChange?.(nextStatus));
         return;
       }
@@ -783,6 +818,22 @@ function LivePortfolioControls({
 
   return (
     <div className="space-y-2">
+      {entity.kind === "portfolio" && (entity.status === "pending_confirmation" || entity.status === "paused") ? (
+        <label className="block max-w-xs space-y-1 text-sm">
+          <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+            {pickText(lang, "组合实盘资金上限 USDT", "Live capital cap USDT")}
+          </span>
+          <Input
+            disabled={pending !== ""}
+            min="0"
+            onChange={(event) => setLiveBudgetQuote(event.currentTarget.value)}
+            placeholder="2000"
+            step="0.01"
+            type="number"
+            value={liveBudgetQuote}
+          />
+        </label>
+      ) : null}
       <div className="flex flex-wrap gap-2">
         {entity.kind === "portfolio" && (entity.status === "pending_confirmation" || entity.status === "paused") ? (
           <Button
@@ -865,11 +916,15 @@ function LivePortfolioControls({
 function normalizePortfolio(value: unknown): LivePortfolio {
   const source = value && typeof value === "object" ? (value as Record<string, unknown>) : {};
   const configSource = source.config && typeof source.config === "object" ? (source.config as Record<string, unknown>) : {};
-  const strategiesSource = Array.isArray(source.items)
-    ? source.items
+  const portfolioConfigSource = readObject(configSource.portfolio_config);
+  const rawItems = Array.isArray(source.items) ? source.items : [];
+  const itemSnapshots = rawItems.map(normalizePortfolioItemSnapshot);
+  const strategySources = Array.isArray(portfolioConfigSource?.strategies)
+    ? portfolioConfigSource.strategies
     : Array.isArray(configSource.strategies)
       ? configSource.strategies
       : [];
+  const strategiesSource = strategySources.length > 0 ? strategySources : rawItems;
 
   return {
     portfolio_id: String(source.portfolio_id ?? "unknown-portfolio"),
@@ -887,39 +942,93 @@ function normalizePortfolio(value: unknown): LivePortfolio {
       ? (source.risk_summary as Record<string, unknown>)
       : null,
     config: {
-      direction_mode: typeof configSource.direction_mode === "string"
-        ? configSource.direction_mode
-        : typeof source.direction === "string"
-          ? source.direction
-          : undefined,
-      risk_limits: normalizeRiskLimits(configSource.risk_limits),
-      strategies: strategiesSource.map((entry, index) => normalizeStrategy(entry, index)),
+      direction_mode: typeof portfolioConfigSource?.direction_mode === "string"
+        ? portfolioConfigSource.direction_mode
+        : typeof configSource.direction_mode === "string"
+          ? configSource.direction_mode
+          : typeof source.direction === "string"
+            ? source.direction
+            : undefined,
+      risk_limits: normalizeRiskLimits(portfolioConfigSource?.risk_limits ?? configSource.risk_limits),
+      strategies: strategiesSource.map((entry, index) => normalizeStrategy(entry, index, itemSnapshots)),
     },
   };
 }
 
-function normalizeStrategy(value: unknown, index: number): PortfolioStrategy {
+function normalizePortfolioItemSnapshot(value: unknown): PortfolioItemSnapshot {
+  const source = value && typeof value === "object" ? (value as Record<string, unknown>) : {};
+  return {
+    candidate_id: typeof source.candidate_id === "string" ? source.candidate_id : null,
+    strategy_instance_id: typeof source.strategy_instance_id === "string" ? source.strategy_instance_id : null,
+    symbol: typeof source.symbol === "string" ? source.symbol : null,
+    weight_pct: readNumber(source.weight_pct),
+    leverage: readNumber(source.leverage),
+    enabled: typeof source.enabled === "boolean" ? source.enabled : null,
+    status: readStrategyStatus(source.runtime_status) ?? readStrategyStatus(source.status),
+    parameter_snapshot: readObject(source.parameter_snapshot),
+    metrics_snapshot: readObject(source.metrics_snapshot),
+  };
+}
+
+function normalizeStrategy(
+  value: unknown,
+  index: number,
+  itemSnapshots: PortfolioItemSnapshot[] = [],
+): PortfolioStrategy {
   const source = value && typeof value === "object" ? (value as Record<string, unknown>) : {};
   const parameterSnapshot = readObject(source.parameter_snapshot);
+  const matchingItem = findMatchingItemSnapshot(source, itemSnapshots, index);
+  const itemParameterSnapshot = matchingItem?.parameter_snapshot ?? null;
   return {
-    strategy_id: typeof source.strategy_id === "string" ? source.strategy_id : typeof source.strategy_instance_id === "string" ? source.strategy_instance_id : "",
-    strategy_instance_id: typeof source.strategy_instance_id === "string" ? source.strategy_instance_id : typeof source.strategy_id === "string" ? source.strategy_id : "",
-    candidate_id: typeof source.candidate_id === "string" ? source.candidate_id : null,
-    symbol: typeof source.symbol === "string" ? source.symbol : "UNKNOWN",
+    strategy_id: typeof source.strategy_id === "string"
+      ? source.strategy_id
+      : typeof source.strategy_instance_id === "string"
+        ? source.strategy_instance_id
+        : matchingItem?.strategy_instance_id ?? "",
+    strategy_instance_id: typeof source.strategy_instance_id === "string"
+      ? source.strategy_instance_id
+      : matchingItem?.strategy_instance_id ?? (typeof source.strategy_id === "string" ? source.strategy_id : ""),
+    candidate_id: typeof source.candidate_id === "string" ? source.candidate_id : matchingItem?.candidate_id ?? null,
+    symbol: typeof source.symbol === "string" ? source.symbol : matchingItem?.symbol ?? "UNKNOWN",
     market: typeof source.market === "string" ? source.market : "spot",
     direction: typeof source.direction === "string" ? source.direction : "long",
-    runtime_status: readStrategyStatus(source.runtime_status) ?? readStrategyStatus(source.status),
+    runtime_status: readStrategyStatus(source.runtime_status)
+      ?? readStrategyStatus(source.status)
+      ?? matchingItem?.status
+      ?? null,
     margin_mode: typeof source.margin_mode === "string" ? source.margin_mode : null,
-    leverage: readNumber(source.leverage),
-    weight_pct: readNumber(source.weight_pct),
-    enabled: typeof source.enabled === "boolean" ? source.enabled : null,
-    parameter_snapshot: parameterSnapshot,
-    metrics_snapshot: readObject(source.metrics_snapshot),
-    sizing: readObject(source.sizing) ?? readObject(parameterSnapshot?.sizing),
-    spacing: readObject(source.spacing) ?? readObject(parameterSnapshot?.spacing),
-    take_profit: readObject(source.take_profit) ?? readObject(parameterSnapshot?.take_profit),
+    leverage: readNumber(source.leverage) ?? matchingItem?.leverage ?? null,
+    weight_pct: readNumber(source.weight_pct) ?? matchingItem?.weight_pct ?? null,
+    enabled: typeof source.enabled === "boolean" ? source.enabled : matchingItem?.enabled ?? null,
+    parameter_snapshot: parameterSnapshot ?? itemParameterSnapshot,
+    metrics_snapshot: readObject(source.metrics_snapshot) ?? matchingItem?.metrics_snapshot ?? null,
+    sizing: readObject(source.sizing) ?? readObject(parameterSnapshot?.sizing) ?? readObject(itemParameterSnapshot?.sizing),
+    spacing: readObject(source.spacing) ?? readObject(parameterSnapshot?.spacing) ?? readObject(itemParameterSnapshot?.spacing),
+    take_profit: readObject(source.take_profit)
+      ?? readObject(parameterSnapshot?.take_profit)
+      ?? readObject(itemParameterSnapshot?.take_profit),
     risk_limits: normalizeRiskLimits(source.risk_limits),
   };
+}
+
+function findMatchingItemSnapshot(
+  source: Record<string, unknown>,
+  itemSnapshots: PortfolioItemSnapshot[],
+  index: number,
+) {
+  const sourceCandidateId = typeof source.source_candidate_id === "string"
+    ? source.source_candidate_id
+    : typeof source.candidate_id === "string"
+      ? source.candidate_id
+      : null;
+  const sourceInstanceId = typeof source.strategy_instance_id === "string" ? source.strategy_instance_id : null;
+  const sourceSymbol = typeof source.symbol === "string" ? source.symbol : null;
+
+  return itemSnapshots.find((item) => sourceCandidateId && item.candidate_id === sourceCandidateId)
+    ?? itemSnapshots.find((item) => sourceInstanceId && item.strategy_instance_id === sourceInstanceId)
+    ?? itemSnapshots.find((item) => sourceSymbol && item.symbol === sourceSymbol)
+    ?? itemSnapshots[index]
+    ?? null;
 }
 
 function readObject(value: unknown): Record<string, unknown> | null {
@@ -1078,6 +1187,14 @@ function readNumber(value: unknown): number | null {
     return Number.isFinite(parsed) ? parsed : null;
   }
   return null;
+}
+
+function initialLiveBudgetQuote(value: unknown): string {
+  const parsed = readNumber(value);
+  if (parsed !== null && parsed > 0) {
+    return String(parsed);
+  }
+  return "2000";
 }
 
 function formatPercent(value: number | null | undefined) {

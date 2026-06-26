@@ -3,7 +3,6 @@ import { cookies } from "next/headers";
 import { AppShellSection } from "@/components/shell/app-shell-section";
 import { Card, CardBody, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { DataTable } from "@/components/ui/table";
-import { StatusBanner } from "@/components/ui/status-banner";
 import { UI_LANGUAGE_COOKIE, pickText, resolveUiLanguageFromRoute, type UiLanguage } from "@/lib/ui/preferences";
 import { formatTaipeiDateTime } from "@/lib/ui/time";
 
@@ -66,12 +65,6 @@ export default async function AnalyticsPage({ params }: { params: Promise<{ loca
 
   return (
     <>
-      <StatusBanner
-              tone="info"
-              lang={lang}
-        description={pickText(lang, "分析页直接展示后端报表，包括策略级统计、钱包快照与交易所成交。", "Analytics renders the backend report directly, including strategy-level stats, wallet snapshots, and exchange trades.")}
-        title={pickText(lang, "分析状态条", "Analytics status strip")}
-      />
       <AppShellSection
         actions={<div className="flex items-center gap-2"><a className="inline-flex h-9 items-center justify-center rounded-sm px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-secondary" href="/api/user/exports/strategy-stats">{pickText(lang, "导出策略统计 CSV", "Download strategy stats CSV")}</a><a className="inline-flex h-9 items-center justify-center rounded-sm px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-secondary" href="/api/user/exports/payments">{pickText(lang, "导出付款 CSV", "Download payments CSV")}</a></div>}
         description={pickText(lang, "账户级和策略级收益、成本、持仓都集中在这里，便于复盘。", "Account-level and strategy-level profit, cost, and position data stay together here for review.")}

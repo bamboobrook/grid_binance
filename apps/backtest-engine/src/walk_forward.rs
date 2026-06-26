@@ -225,7 +225,7 @@ pub fn run_walk_forward_validation(
         if train_result
             .rejection_reasons
             .iter()
-            .any(|r| r.contains("preflight"))
+            .any(|r: &String| r.contains("preflight"))
         {
             continue;
         }

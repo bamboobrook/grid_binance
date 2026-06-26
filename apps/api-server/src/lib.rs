@@ -373,10 +373,10 @@ mod tests {
             AccountProfitSnapshotRecord, ExchangeTradeHistoryRecord, ExchangeWalletSnapshotRecord,
         };
         use shared_domain::strategy::{
-            Strategy, StrategyRevision, StrategyRuntime, StrategyRuntimeEvent,
-            StrategyRuntimeOrder, StrategyRuntimePosition, StrategyStatus, StrategyType, StrategyMarket,
-            StrategyMode, GridGeneration, StrategyAmountMode, GridLevel, ReferencePriceSource,
-            PostTriggerAction,
+            GridGeneration, GridLevel, PostTriggerAction, ReferencePriceSource, Strategy,
+            StrategyAmountMode, StrategyMarket, StrategyMode, StrategyRevision, StrategyRuntime,
+            StrategyRuntimeEvent, StrategyRuntimeOrder, StrategyRuntimePosition, StrategyStatus,
+            StrategyType,
         };
 
         let db = shared_db::SharedDb::ephemeral().expect("ephemeral db");
@@ -511,7 +511,9 @@ mod tests {
         });
 
         let service = LiveStatisticsService::new(db.clone(), 600);
-        let stats = service.compute_live_stats(email).expect("compute live stats");
+        let stats = service
+            .compute_live_stats(email)
+            .expect("compute live stats");
 
         assert_eq!(stats.open_order_count, 1, "open_order_count");
         assert_eq!(stats.position_count, 1, "position_count");
@@ -530,9 +532,18 @@ mod tests {
             "wallet_balance should be > 0 (9800.50 from wallet snapshot): {}",
             stats.wallet_balance,
         );
-        assert!(stats.last_user_stream_event_at.is_some(), "last_user_stream_event_at");
-        assert!(stats.last_rest_reconcile_at.is_some(), "last_rest_reconcile_at");
-        assert!(!stats.stats_stale, "stats should be fresh with recent sync timestamps");
+        assert!(
+            stats.last_user_stream_event_at.is_some(),
+            "last_user_stream_event_at"
+        );
+        assert!(
+            stats.last_rest_reconcile_at.is_some(),
+            "last_rest_reconcile_at"
+        );
+        assert!(
+            !stats.stats_stale,
+            "stats should be fresh with recent sync timestamps"
+        );
         assert!(!stats.computed_at.is_empty(), "computed_at should be set");
     }
 
@@ -557,10 +568,9 @@ mod tests {
         use crate::services::live_statistics_service::LiveStatisticsService;
         use shared_db::AccountProfitSnapshotRecord;
         use shared_domain::strategy::{
-            Strategy, StrategyRevision, StrategyRuntime, StrategyRuntimeEvent,
-            StrategyRuntimeOrder, StrategyStatus, StrategyType,
-            StrategyMarket, StrategyMode, GridGeneration, StrategyAmountMode, GridLevel,
-            ReferencePriceSource, PostTriggerAction,
+            GridGeneration, GridLevel, PostTriggerAction, ReferencePriceSource, Strategy,
+            StrategyAmountMode, StrategyMarket, StrategyMode, StrategyRevision, StrategyRuntime,
+            StrategyRuntimeEvent, StrategyRuntimeOrder, StrategyStatus, StrategyType,
         };
 
         let db = shared_db::SharedDb::ephemeral().expect("ephemeral db");
@@ -707,10 +717,16 @@ mod tests {
             archived_at: None,
         };
 
-        db.insert_strategy(&shared_db::StoredStrategy { sequence_id: 1, strategy: strat_a })
-            .expect("insert A");
-        db.insert_strategy(&shared_db::StoredStrategy { sequence_id: 2, strategy: strat_b })
-            .expect("insert B");
+        db.insert_strategy(&shared_db::StoredStrategy {
+            sequence_id: 1,
+            strategy: strat_a,
+        })
+        .expect("insert A");
+        db.insert_strategy(&shared_db::StoredStrategy {
+            sequence_id: 2,
+            strategy: strat_b,
+        })
+        .expect("insert B");
 
         let _ = db.insert_account_profit_snapshot(&AccountProfitSnapshotRecord {
             user_email: email.to_string(),
@@ -725,19 +741,31 @@ mod tests {
         let service = LiveStatisticsService::new(db.clone(), 600);
 
         let all_stats = service.compute_live_stats(email).expect("compute all");
-        assert_eq!(all_stats.open_order_count, 3, "all strategies: 1+2 = 3 orders");
+        assert_eq!(
+            all_stats.open_order_count, 3,
+            "all strategies: 1+2 = 3 orders"
+        );
 
         // Verify portfolio scoping via compute_live_statistics_from_db directly
         // (full portfolio flow requires postgres; core logic already tested in
         // statistics.rs: portfolio_scoped_stats_only_include_given_strategy_ids)
         let scoped = trading_engine::statistics::compute_live_statistics_from_db(
-            &db, email, Some(&["strat-a".to_string()]), 600,
+            &db,
+            email,
+            Some(&["strat-a".to_string()]),
+            600,
         )
         .expect("scoped");
-        assert_eq!(scoped.open_order_count, 1, "only strat-a (1 order), not strat-b (2 orders)");
+        assert_eq!(
+            scoped.open_order_count, 1,
+            "only strat-a (1 order), not strat-b (2 orders)"
+        );
 
         let scoped_b = trading_engine::statistics::compute_live_statistics_from_db(
-            &db, email, Some(&["strat-b".to_string()]), 600,
+            &db,
+            email,
+            Some(&["strat-b".to_string()]),
+            600,
         )
         .expect("scoped B");
         assert_eq!(scoped_b.open_order_count, 2, "only strat-b (2 orders)");
@@ -747,10 +775,10 @@ mod tests {
     fn portfolio_live_stats_uses_config_strategy_id_not_msi_instance_id() {
         use shared_db::AccountProfitSnapshotRecord;
         use shared_domain::strategy::{
-            Strategy, StrategyRevision, StrategyRuntime, StrategyRuntimeEvent,
-            StrategyRuntimeOrder, StrategyRuntimePosition, StrategyStatus, StrategyType,
-            StrategyMarket, StrategyMode, GridGeneration, StrategyAmountMode, GridLevel,
-            ReferencePriceSource, PostTriggerAction,
+            GridGeneration, GridLevel, PostTriggerAction, ReferencePriceSource, Strategy,
+            StrategyAmountMode, StrategyMarket, StrategyMode, StrategyRevision, StrategyRuntime,
+            StrategyRuntimeEvent, StrategyRuntimeOrder, StrategyRuntimePosition, StrategyStatus,
+            StrategyType,
         };
 
         let db = shared_db::SharedDb::ephemeral().expect("ephemeral db");
@@ -924,25 +952,26 @@ mod tests {
         });
 
         // Simulate: the live-stats filter uses strategy_id from config (btc-long/btc-short)
-        let with_real_ids =
-            trading_engine::statistics::compute_live_statistics_from_db(
-                &db,
-                email,
-                Some(&["btc-long".to_string(), "btc-short".to_string()]),
-                600,
-            )
-            .expect("real IDs");
-        assert_eq!(with_real_ids.open_order_count, 3, "1 long + 2 short = 3 orders");
+        let with_real_ids = trading_engine::statistics::compute_live_statistics_from_db(
+            &db,
+            email,
+            Some(&["btc-long".to_string(), "btc-short".to_string()]),
+            600,
+        )
+        .expect("real IDs");
+        assert_eq!(
+            with_real_ids.open_order_count, 3,
+            "1 long + 2 short = 3 orders"
+        );
 
         // Simulate: if we wrongly use msi_* values as filter, nothing matches
-        let with_msi_ids =
-            trading_engine::statistics::compute_live_statistics_from_db(
-                &db,
-                email,
-                Some(&["msi_abc".to_string(), "msi_def".to_string()]),
-                600,
-            )
-            .expect("msi IDs");
+        let with_msi_ids = trading_engine::statistics::compute_live_statistics_from_db(
+            &db,
+            email,
+            Some(&["msi_abc".to_string(), "msi_def".to_string()]),
+            600,
+        )
+        .expect("msi IDs");
         assert_eq!(
             with_msi_ids.open_order_count, 0,
             "msi_* should not match any runtime strategy ID (btc-long/btc-short)"
@@ -958,14 +987,13 @@ mod tests {
     fn portfolio_live_stats_service_full_flow_with_msi_mapping_to_runtime_strategy_ids() {
         use crate::services::live_statistics_service::LiveStatisticsService;
         use shared_db::{
-            AccountProfitSnapshotRecord,
-            NewBacktestCandidateRecord, NewBacktestTaskRecord,
+            AccountProfitSnapshotRecord, NewBacktestCandidateRecord, NewBacktestTaskRecord,
         };
         use shared_domain::strategy::{
-            Strategy, StrategyRevision, StrategyRuntime, StrategyRuntimeEvent,
-            StrategyRuntimeOrder, StrategyRuntimePosition, StrategyStatus, StrategyType,
-            StrategyMarket, StrategyMode, GridGeneration, StrategyAmountMode, GridLevel,
-            ReferencePriceSource, PostTriggerAction,
+            GridGeneration, GridLevel, PostTriggerAction, ReferencePriceSource, Strategy,
+            StrategyAmountMode, StrategyMarket, StrategyMode, StrategyRevision, StrategyRuntime,
+            StrategyRuntimeEvent, StrategyRuntimeOrder, StrategyRuntimePosition, StrategyStatus,
+            StrategyType,
         };
 
         let db = shared_db::SharedDb::ephemeral().expect("ephemeral db");
@@ -1273,7 +1301,10 @@ mod tests {
             .compute_portfolio_live_stats(email, "pf-fullflow")
             .expect("compute portfolio live stats");
 
-        assert_eq!(stats.open_order_count, 3, "1 long + 2 short = 3 runtime orders");
+        assert_eq!(
+            stats.open_order_count, 3,
+            "1 long + 2 short = 3 runtime orders"
+        );
         assert_eq!(stats.realized_pnl, "200");
         assert_eq!(stats.unrealized_pnl, "80");
         assert_eq!(stats.fees_paid, "8");
@@ -1284,8 +1315,7 @@ mod tests {
     fn portfolio_live_stats_fallback_order_count_from_risk_summary_when_strategy_runtime_empty() {
         use crate::services::live_statistics_service::LiveStatisticsService;
         use shared_db::{
-            AccountProfitSnapshotRecord,
-            NewBacktestCandidateRecord, NewBacktestTaskRecord,
+            AccountProfitSnapshotRecord, NewBacktestCandidateRecord, NewBacktestTaskRecord,
         };
 
         let db = shared_db::SharedDb::ephemeral().expect("ephemeral db");

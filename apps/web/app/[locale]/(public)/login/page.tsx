@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { cookies } from "next/headers";
-import { LogIn } from "lucide-react";
+import { CheckCircle2, LogIn, ShieldCheck } from "lucide-react";
 
 import { Card, CardBody } from "@/components/ui/card";
 import { Button, Field, FormStack, Input } from "@/components/ui/form";
@@ -65,12 +65,42 @@ export default async function LoginPage({ params, searchParams }: LoginPageProps
   const next = requestedNext ? safeRedirectTarget(requestedNext, "/" + locale + "/app/dashboard") : "";
   const notice = noticeCopy(lang, firstValue(searchParamsValue.notice) ?? firstValue(searchParamsValue.security));
   const showAdminBootstrap = firstValue(searchParamsValue.adminBootstrap) === "1" || Boolean(error && /admin totp setup required/i.test(error ?? ""));
+  const nextSteps = [
+    pickText(lang, "查看交易所 API 是否已连接", "Check whether the exchange API is connected"),
+    pickText(lang, "从模板创建网格或马丁机器人", "Create a Grid or DCA bot from a template"),
+    pickText(lang, "监控订单、收益和风险提醒", "Monitor orders, PnL, and risk alerts"),
+  ];
 
   return (
-    <div className="flex min-h-[85vh] w-full flex-col items-center justify-center px-4 py-12 text-foreground sm:px-6 lg:px-8">
-      <div className="w-full max-w-md space-y-8">
-        <div className="text-center">
-          <h1 className="text-3xl font-extrabold tracking-tight text-foreground">{snapshot.title}</h1>
+    <div className="grid min-h-[85vh] w-full items-center gap-8 px-4 py-10 text-foreground sm:px-6 lg:grid-cols-[minmax(0,1fr)_28rem] lg:px-10">
+      <section className="mx-auto w-full max-w-2xl lg:mx-0">
+        <div className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-3 py-2 text-xs font-semibold text-muted-foreground">
+          <ShieldCheck className="h-4 w-4 text-emerald-500" />
+          {pickText(lang, "登录后进入实盘控制台", "Sign in to the live trading workspace")}
+        </div>
+        <h1 className="mt-5 text-3xl font-black tracking-tight sm:text-4xl">
+          {pickText(lang, "继续管理你的机器人，而不是重新学习一套系统。", "Continue managing your bots without relearning the system.")}
+        </h1>
+        <p className="mt-3 max-w-xl text-sm leading-6 text-muted-foreground sm:text-base">
+          {pickText(
+            lang,
+            "控制台会按顺序展示连接状态、策略、订单和提醒。新手先看下一步，高级用户再进入参数细节。",
+            "The console shows connection status, bots, orders, and alerts in order. Beginners see the next step first; advanced users can still open the details.",
+          )}
+        </p>
+        <div className="mt-6 space-y-3">
+          {nextSteps.map((step) => (
+            <div className="flex items-start gap-3 rounded-md border border-border bg-card p-3" key={step}>
+              <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-500" />
+              <span className="text-sm font-medium">{step}</span>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <div className="mx-auto w-full max-w-md space-y-6">
+        <div>
+          <h2 className="text-2xl font-extrabold tracking-tight text-foreground">{snapshot.title}</h2>
           <p className="mt-2 text-sm text-muted-foreground">{snapshot.description}</p>
         </div>
 
@@ -82,7 +112,7 @@ export default async function LoginPage({ params, searchParams }: LoginPageProps
           <StatusBanner description={snapshot.notice.description} lang={lang} title={snapshot.notice.title} tone={snapshot.notice.tone as any} />
         ) : null}
 
-        <Card className="overflow-hidden rounded-2xl border-border bg-card shadow-2xl shadow-black/5 dark:shadow-black/30">
+        <Card className="overflow-hidden rounded-md border-border bg-card shadow-sm">
           <CardBody className="p-8">
             <FormStack action={"/api/auth/login?locale=" + locale} method="post" className="space-y-6">
               <input name="next" type="hidden" value={next} />
@@ -94,7 +124,7 @@ export default async function LoginPage({ params, searchParams }: LoginPageProps
                   name="email"
                   required
                   type="email"
-                  className="h-12 w-full rounded-lg border-border bg-background px-4 text-foreground focus:border-primary focus:ring-primary"
+                  className="h-12 w-full rounded-md border-border bg-background px-4 text-foreground focus:border-primary focus:ring-primary"
                   placeholder={pickText(lang, "name@example.com", "name@example.com")}
                 />
               </Field>
@@ -105,7 +135,7 @@ export default async function LoginPage({ params, searchParams }: LoginPageProps
                   name="password"
                   required
                   type="password"
-                  className="h-12 w-full rounded-lg border-border bg-background px-4 text-foreground focus:border-primary focus:ring-primary"
+                  className="h-12 w-full rounded-md border-border bg-background px-4 text-foreground focus:border-primary focus:ring-primary"
                   placeholder="••••••••"
                 />
               </Field>
@@ -119,12 +149,12 @@ export default async function LoginPage({ params, searchParams }: LoginPageProps
                   inputMode="numeric"
                   name="totpCode"
                   pattern="[0-9]{6}"
-                  className="h-12 w-full rounded-lg border-border bg-background px-4 text-center font-mono text-lg tracking-[0.5em] text-foreground focus:border-primary focus:ring-primary"
+                  className="h-12 w-full rounded-md border-border bg-background px-4 text-center font-mono text-lg tracking-[0.4em] text-foreground focus:border-primary focus:ring-primary"
                   placeholder="000000"
                 />
               </Field>
 
-              <Button type="submit" tone="primary" className="w-full h-12 text-base font-bold shadow-lg shadow-primary/30 rounded-lg hover:bg-primary/90 transition-all">
+              <Button type="submit" tone="primary" className="h-12 w-full rounded-md text-base font-bold shadow-sm transition-all hover:bg-primary/90">
                 <LogIn className="w-5 h-5 mr-2" />
                 {snapshot.submitLabel}
               </Button>
@@ -134,7 +164,7 @@ export default async function LoginPage({ params, searchParams }: LoginPageProps
             <Link href={"/" + locale + "/password-reset"} className="text-sm text-muted-foreground transition-colors hover:text-foreground">
               {pickText(lang, "忘记密码？重置密码", "Forgot password? Reset here")}
             </Link>
-            <Link href={"/" + locale + "/register"} className="text-sm text-primary hover:text-primary-foreground font-semibold hover:underline transition-colors">
+            <Link href={"/" + locale + "/register"} className="text-sm font-semibold text-primary transition-colors hover:text-primary hover:underline">
               {snapshot.alternateLabel}
             </Link>
             {showAdminBootstrap ? (
@@ -148,4 +178,3 @@ export default async function LoginPage({ params, searchParams }: LoginPageProps
     </div>
   );
 }
-

@@ -1,17 +1,17 @@
 use chrono::Utc;
-use std::collections::BTreeMap;
-use std::collections::HashSet;
 use rust_decimal::Decimal;
 use shared_db::{
     AccountProfitSnapshotRecord, ExchangeTradeHistoryRecord, ExchangeWalletSnapshotRecord,
     SharedDb, SharedDbError,
 };
-use shared_domain::strategy::StrategyMode;
 use shared_domain::analytics::{
     AccountSnapshotView, AnalyticsReport, CostAggregation, ExchangeTradeHistoryView,
     FillProfitView, StrategyProfitSummary, StrategySnapshotView, TradeFillInput, UserAggregate,
     WalletSnapshotView,
 };
+use shared_domain::strategy::StrategyMode;
+use std::collections::BTreeMap;
+use std::collections::HashSet;
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct LiveStatisticsSnapshot {
@@ -105,7 +105,10 @@ pub fn compute_live_statistics_from_db(
     let strategies: Vec<&shared_domain::strategy::Strategy> = match strategy_ids {
         Some(ids) => {
             let id_set: HashSet<&str> = ids.iter().map(|s| s.as_str()).collect();
-            all_strategies.iter().filter(|s| id_set.contains(s.id.as_str())).collect()
+            all_strategies
+                .iter()
+                .filter(|s| id_set.contains(s.id.as_str()))
+                .collect()
         }
         None => all_strategies.iter().collect(),
     };
@@ -122,73 +125,65 @@ pub fn compute_live_statistics_from_db(
     }
     let wallet_balance = latest_wallet_balance_usdt(&wallet_snapshots);
 
-    let (last_stream_event_at, last_rest_reconcile_at) =
-        extract_sync_timestamps(&strategies);
+    let (last_stream_event_at, last_rest_reconcile_at) = extract_sync_timestamps(&strategies);
 
     let summaries: Vec<StrategyProfitSummary> = strategies
         .iter()
-        .map(|strategy| {
-            StrategyProfitSummary {
-                strategy_id: strategy.id.clone(),
-                user_id: email.to_string(),
-                symbol: strategy.symbol.clone(),
-                current_state: format!("{:?}", strategy.status),
-                fill_count: strategy.runtime.fills.len(),
-                order_count: strategy.runtime.orders.len(),
-                cost_basis: strategy
-                    .runtime
-                    .positions
-                    .iter()
-                    .map(|p| p.average_entry_price * p.quantity.abs())
-                    .sum(),
-                position_quantity: strategy
-                    .runtime
-                    .positions
-                    .iter()
-                    .map(|p| p.quantity)
-                    .sum(),
-                average_entry_price: strategy
-                    .runtime
-                    .positions
-                    .first()
-                    .map(|p| p.average_entry_price)
-                    .unwrap_or(Decimal::ZERO),
-                long_position_quantity: strategy
-                    .runtime
-                    .positions
-                    .iter()
-                    .filter(|p| p.mode == StrategyMode::FuturesLong)
-                    .map(|p| p.quantity)
-                    .sum(),
-                long_average_entry_price: strategy
-                    .runtime
-                    .positions
-                    .iter()
-                    .filter(|p| p.mode == StrategyMode::FuturesLong)
-                    .map(|p| p.average_entry_price)
-                    .next()
-                    .unwrap_or(Decimal::ZERO),
-                short_position_quantity: strategy
-                    .runtime
-                    .positions
-                    .iter()
-                    .filter(|p| p.mode == StrategyMode::FuturesShort)
-                    .map(|p| p.quantity)
-                    .sum(),
-                short_average_entry_price: strategy
-                    .runtime
-                    .positions
-                    .iter()
-                    .filter(|p| p.mode == StrategyMode::FuturesShort)
-                    .map(|p| p.average_entry_price)
-                    .next()
-                    .unwrap_or(Decimal::ZERO),
-                realized_pnl: Decimal::ZERO,
-                unrealized_pnl: Decimal::ZERO,
-                fees_paid: Decimal::ZERO,
-                funding_total: Decimal::ZERO,
-                net_pnl: Decimal::ZERO,
-            }
+        .map(|strategy| StrategyProfitSummary {
+            strategy_id: strategy.id.clone(),
+            user_id: email.to_string(),
+            symbol: strategy.symbol.clone(),
+            current_state: format!("{:?}", strategy.status),
+            fill_count: strategy.runtime.fills.len(),
+            order_count: strategy.runtime.orders.len(),
+            cost_basis: strategy
+                .runtime
+                .positions
+                .iter()
+                .map(|p| p.average_entry_price * p.quantity.abs())
+                .sum(),
+            position_quantity: strategy.runtime.positions.iter().map(|p| p.quantity).sum(),
+            average_entry_price: strategy
+                .runtime
+                .positions
+                .first()
+                .map(|p| p.average_entry_price)
+                .unwrap_or(Decimal::ZERO),
+            long_position_quantity: strategy
+                .runtime
+                .positions
+                .iter()
+                .filter(|p| p.mode == StrategyMode::FuturesLong)
+                .map(|p| p.quantity)
+                .sum(),
+            long_average_entry_price: strategy
+                .runtime
+                .positions
+                .iter()
+                .filter(|p| p.mode == StrategyMode::FuturesLong)
+                .map(|p| p.average_entry_price)
+                .next()
+                .unwrap_or(Decimal::ZERO),
+            short_position_quantity: strategy
+                .runtime
+                .positions
+                .iter()
+                .filter(|p| p.mode == StrategyMode::FuturesShort)
+                .map(|p| p.quantity)
+                .sum(),
+            short_average_entry_price: strategy
+                .runtime
+                .positions
+                .iter()
+                .filter(|p| p.mode == StrategyMode::FuturesShort)
+                .map(|p| p.average_entry_price)
+                .next()
+                .unwrap_or(Decimal::ZERO),
+            realized_pnl: Decimal::ZERO,
+            unrealized_pnl: Decimal::ZERO,
+            fees_paid: Decimal::ZERO,
+            funding_total: Decimal::ZERO,
+            net_pnl: Decimal::ZERO,
         })
         .collect();
 
@@ -217,11 +212,17 @@ pub fn compute_position_count_for_strategies(
     let filtered: Vec<&shared_domain::strategy::Strategy> = match strategy_ids {
         Some(ids) => {
             let id_set: HashSet<&str> = ids.iter().map(|s| s.as_str()).collect();
-            all_strategies.iter().filter(|s| id_set.contains(s.id.as_str())).collect()
+            all_strategies
+                .iter()
+                .filter(|s| id_set.contains(s.id.as_str()))
+                .collect()
         }
         None => all_strategies.iter().collect(),
     };
-    Ok(filtered.iter().filter(|s| !s.runtime.positions.is_empty()).count())
+    Ok(filtered
+        .iter()
+        .filter(|s| !s.runtime.positions.is_empty())
+        .count())
 }
 
 fn sum_trade_history_fees(trades: &[ExchangeTradeHistoryRecord]) -> Decimal {
@@ -235,9 +236,7 @@ fn sum_trade_history_fees(trades: &[ExchangeTradeHistoryRecord]) -> Decimal {
         .sum()
 }
 
-fn latest_wallet_balance_usdt(
-    snapshots: &[ExchangeWalletSnapshotRecord],
-) -> Decimal {
+fn latest_wallet_balance_usdt(snapshots: &[ExchangeWalletSnapshotRecord]) -> Decimal {
     snapshots
         .iter()
         .max_by_key(|s| s.captured_at)
@@ -270,27 +269,19 @@ fn merge_latest_account_fields(
             .map(|f| parse_decimal_or_zero(f))
             .unwrap_or(Decimal::ZERO);
 
-        if field_realized != Decimal::ZERO
-            && realized_ts.map_or(true, |ts| captured > ts)
-        {
+        if field_realized != Decimal::ZERO && realized_ts.map_or(true, |ts| captured > ts) {
             realized = field_realized;
             realized_ts = Some(captured);
         }
-        if field_unrealized != Decimal::ZERO
-            && unrealized_ts.map_or(true, |ts| captured > ts)
-        {
+        if field_unrealized != Decimal::ZERO && unrealized_ts.map_or(true, |ts| captured > ts) {
             unrealized = field_unrealized;
             unrealized_ts = Some(captured);
         }
-        if field_fees != Decimal::ZERO
-            && fees_ts.map_or(true, |ts| captured > ts)
-        {
+        if field_fees != Decimal::ZERO && fees_ts.map_or(true, |ts| captured > ts) {
             fees = field_fees;
             fees_ts = Some(captured);
         }
-        if field_funding != Decimal::ZERO
-            && funding_ts.map_or(true, |ts| captured > ts)
-        {
+        if field_funding != Decimal::ZERO && funding_ts.map_or(true, |ts| captured > ts) {
             funding = field_funding;
             funding_ts = Some(captured);
         }
@@ -499,15 +490,13 @@ mod tests {
     use super::{compute_fill_views, compute_live_statistics, compute_live_statistics_from_db};
     use chrono::Utc;
     use rust_decimal::Decimal;
-    use shared_db::{
-        AccountProfitSnapshotRecord, ExchangeWalletSnapshotRecord, SharedDb,
-    };
+    use shared_db::{AccountProfitSnapshotRecord, ExchangeWalletSnapshotRecord, SharedDb};
     use shared_domain::analytics::{StrategyProfitSummary, TradeFillInput};
     use shared_domain::strategy::{
-        Strategy, StrategyRuntime, StrategyRuntimeEvent, StrategyRuntimeOrder,
-        StrategyRuntimePosition, StrategyStatus, StrategyType, StrategyMarket,
-        StrategyMode, StrategyRevision, GridGeneration, StrategyAmountMode,
-        GridLevel, ReferencePriceSource, PostTriggerAction,
+        GridGeneration, GridLevel, PostTriggerAction, ReferencePriceSource, Strategy,
+        StrategyAmountMode, StrategyMarket, StrategyMode, StrategyRevision, StrategyRuntime,
+        StrategyRuntimeEvent, StrategyRuntimeOrder, StrategyRuntimePosition, StrategyStatus,
+        StrategyType,
     };
 
     #[test]
@@ -575,13 +564,7 @@ mod tests {
             },
         ];
 
-        let snapshot = compute_live_statistics(
-            &summaries,
-            Decimal::new(1000, 0),
-            None,
-            None,
-            600,
-        );
+        let snapshot = compute_live_statistics(&summaries, Decimal::new(1000, 0), None, None, 600);
 
         assert_eq!(snapshot.realized_pnl, "80");
         assert_eq!(snapshot.unrealized_pnl, "60");
@@ -596,13 +579,7 @@ mod tests {
     fn live_statistics_mark_fresh_when_sync_is_recent() {
         let summaries: Vec<StrategyProfitSummary> = vec![];
         let now = Utc::now();
-        let snapshot = compute_live_statistics(
-            &summaries,
-            Decimal::ZERO,
-            Some(now),
-            None,
-            600,
-        );
+        let snapshot = compute_live_statistics(&summaries, Decimal::ZERO, Some(now), None, 600);
 
         assert!(!snapshot.stats_stale, "sync just happened");
         assert_eq!(snapshot.last_user_stream_event_at, Some(now.to_rfc3339()));
@@ -613,13 +590,7 @@ mod tests {
     fn live_statistics_mark_stale_when_exceeds_threshold() {
         let summaries: Vec<StrategyProfitSummary> = vec![];
         let old = Utc::now() - chrono::Duration::seconds(601);
-        let snapshot = compute_live_statistics(
-            &summaries,
-            Decimal::ZERO,
-            Some(old),
-            None,
-            600,
-        );
+        let snapshot = compute_live_statistics(&summaries, Decimal::ZERO, Some(old), None, 600);
 
         assert!(snapshot.stats_stale, "sync older than 600s threshold");
     }
@@ -717,10 +688,16 @@ mod tests {
         let strategy_a = make_test_strategy("strat-a", email, "BTCUSDT", 3);
         let strategy_b = make_test_strategy("strat-b", email, "ETHUSDT", 7);
 
-        db.insert_strategy(&shared_db::StoredStrategy { sequence_id: 1, strategy: strategy_a })
-            .expect("insert A");
-        db.insert_strategy(&shared_db::StoredStrategy { sequence_id: 2, strategy: strategy_b })
-            .expect("insert B");
+        db.insert_strategy(&shared_db::StoredStrategy {
+            sequence_id: 1,
+            strategy: strategy_a,
+        })
+        .expect("insert A");
+        db.insert_strategy(&shared_db::StoredStrategy {
+            sequence_id: 2,
+            strategy: strategy_b,
+        })
+        .expect("insert B");
 
         let _ = db.insert_account_profit_snapshot(&AccountProfitSnapshotRecord {
             user_email: email.to_string(),
@@ -742,13 +719,18 @@ mod tests {
             captured_at: now,
         });
 
-        let stats = compute_live_statistics_from_db(
-            &db, email, Some(&["strat-a".to_string()]), 600,
-        )
-        .expect("compute");
+        let stats =
+            compute_live_statistics_from_db(&db, email, Some(&["strat-a".to_string()]), 600)
+                .expect("compute");
 
-        assert_eq!(stats.open_order_count, 3, "only strategy A orders (3), not B (7)");
-        assert_eq!(stats.realized_pnl, "200", "account-level realized_pnl injected once");
+        assert_eq!(
+            stats.open_order_count, 3,
+            "only strategy A orders (3), not B (7)"
+        );
+        assert_eq!(
+            stats.realized_pnl, "200",
+            "account-level realized_pnl injected once"
+        );
         assert_eq!(stats.unrealized_pnl, "50");
         assert_eq!(stats.fees_paid, "10");
         assert_eq!(stats.funding_total, "-2");
@@ -765,15 +747,18 @@ mod tests {
         db.insert_strategy(&shared_db::StoredStrategy {
             sequence_id: 1,
             strategy: make_test_strategy("s1", email, "BTCUSDT", 2),
-        }).expect("insert");
+        })
+        .expect("insert");
         db.insert_strategy(&shared_db::StoredStrategy {
             sequence_id: 2,
             strategy: make_test_strategy("s2", email, "ETHUSDT", 4),
-        }).expect("insert");
+        })
+        .expect("insert");
         db.insert_strategy(&shared_db::StoredStrategy {
             sequence_id: 3,
             strategy: make_test_strategy("s3", email, "SOLUSDT", 1),
-        }).expect("insert");
+        })
+        .expect("insert");
 
         let _ = db.insert_account_profit_snapshot(&AccountProfitSnapshotRecord {
             user_email: email.to_string(),
@@ -803,8 +788,14 @@ mod tests {
         )
         .expect("compute");
 
-        assert_eq!(stats.open_order_count, 7, "2+4+1 = 7 strategy-level orders (correctly summed)");
-        assert_eq!(stats.realized_pnl, "300", "account-level PnL should be 300, NOT 3x300=900");
+        assert_eq!(
+            stats.open_order_count, 7,
+            "2+4+1 = 7 strategy-level orders (correctly summed)"
+        );
+        assert_eq!(
+            stats.realized_pnl, "300",
+            "account-level PnL should be 300, NOT 3x300=900"
+        );
         assert_eq!(stats.unrealized_pnl, "100");
         assert_eq!(stats.fees_paid, "15");
         assert_eq!(stats.funding_total, "-5");

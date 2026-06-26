@@ -9,8 +9,7 @@ use axum::{
 use crate::{
     routes::auth_guard::require_user_session,
     services::{
-        auth_service::AuthService,
-        live_statistics_service::LiveStatisticsResponse,
+        auth_service::AuthService, live_statistics_service::LiveStatisticsResponse,
         live_statistics_service::LiveStatisticsService,
     },
     AppState,
@@ -57,15 +56,9 @@ enum LiveStatsError {
 impl IntoResponse for LiveStatsError {
     fn into_response(self) -> axum::response::Response {
         match self {
-            Self::Unauthorized => {
-                (StatusCode::UNAUTHORIZED, "unauthorized").into_response()
-            }
-            Self::NotFound(message) => {
-                (StatusCode::NOT_FOUND, message).into_response()
-            }
-            Self::Storage(message) => {
-                (StatusCode::INTERNAL_SERVER_ERROR, message).into_response()
-            }
+            Self::Unauthorized => (StatusCode::UNAUTHORIZED, "unauthorized").into_response(),
+            Self::NotFound(message) => (StatusCode::NOT_FOUND, message).into_response(),
+            Self::Storage(message) => (StatusCode::INTERNAL_SERVER_ERROR, message).into_response(),
         }
     }
 }

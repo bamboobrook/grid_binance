@@ -15,6 +15,12 @@ pub struct ScoringConfig {
     pub weight_stop_frequency: f64,
     pub weight_capital_utilization: f64,
     pub weight_trade_stability: f64,
+    /// Cross-regime robustness weight (default 0 = off). When > 0, candidates whose
+    /// equity curve is profitable across many equal-duration sub-periods (rather
+    /// than concentrating return in one regime) receive a score bonus, steering
+    /// the search away from regime-overfit (e.g. 2023-only) candidates. Bonus uses
+    /// the fraction of positive-return sub-periods (0..1).
+    pub weight_regime_robustness: f64,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -43,6 +49,7 @@ impl Default for ScoringConfig {
             weight_stop_frequency: 0.5,
             weight_capital_utilization: 0.3,
             weight_trade_stability: 0.3,
+            weight_regime_robustness: 0.0,
         }
     }
 }
@@ -166,7 +173,9 @@ pub fn score_candidate(
     let raw_score = positive_score + capital_bonus
         - config.weight_stop_frequency.max(0.0) * stop_penalty
         - leverage_penalty
-        - liquidation_penalty;
+        - liquidation_penalty
+        + config.weight_regime_robustness.max(0.0) * 25.0
+            * regime_robustness_factor(&result.equity_curve);
     let raw_score = clamp_score(raw_score);
     let rank_score = (raw_score + VALID_RANK_EPSILON).min(100.0);
 
@@ -198,6 +207,35 @@ fn return_drawdown_ratio(total_return_pct: f64, drawdown_pct: f64) -> f64 {
     } else {
         total_return_pct / drawdown_pct.max(1.0)
     }
+}
+
+/// Fraction of equal-duration sub-periods (by timestamp) over the equity curve
+/// that have a positive return (end > start). Returns 0..1. A curve that profits
+/// in every sub-period (regime-robust) returns 1.0; one that concentrates all
+/// return in a single regime returns ~1/N. Used to penalize regime-overfit
+/// candidates when `weight_regime_robustness` > 0.
+fn regime_robustness_factor(equity_curve: &[crate::martingale::metrics::EquityPoint]) -> f64 {
+    const SUB_PERIODS: usize = 6;
+    let n = equity_curve.len();
+    if n < SUB_PERIODS {
+        return 0.0;
+    }
+    // The curve is time-ordered; segment by index into equal sub-periods.
+    let chunk = n / SUB_PERIODS;
+    let mut positive = 0usize;
+    for k in 0..SUB_PERIODS {
+        let start_idx = k * chunk;
+        let end_idx = if k == SUB_PERIODS - 1 { n } else { (k + 1) * chunk };
+        if end_idx == 0 {
+            continue;
+        }
+        let seg_start = equity_curve[start_idx].equity_quote;
+        let seg_end = equity_curve[end_idx - 1].equity_quote;
+        if seg_start > 0.0 && seg_end > seg_start {
+            positive += 1;
+        }
+    }
+    positive as f64 / SUB_PERIODS as f64
 }
 
 fn weighted_points(weight: f64, points: f64, factor: f64) -> f64 {

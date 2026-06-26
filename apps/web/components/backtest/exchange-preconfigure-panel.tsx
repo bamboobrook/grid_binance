@@ -20,6 +20,7 @@ export function ExchangePreconfigurePanel({ portfolioId, lang, disabled }: Props
   const [pending, setPending] = useState("");
   const [feedback, setFeedback] = useState("");
   const [confirmHedge, setConfirmHedge] = useState(false);
+  const [confirmMultiAssets, setConfirmMultiAssets] = useState(false);
   const [confirmOrders, setConfirmOrders] = useState(false);
   const [confirmSymbols, setConfirmSymbols] = useState(false);
 
@@ -48,6 +49,7 @@ export function ExchangePreconfigurePanel({ portfolioId, lang, disabled }: Props
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           confirm_account_level_hedge_mode_change: confirmHedge,
+          confirm_account_level_multi_assets_mode_change: confirmMultiAssets,
           confirm_no_auto_orders: confirmOrders,
           confirm_symbol_margin_leverage_change: confirmSymbols,
         }),
@@ -71,13 +73,20 @@ export function ExchangePreconfigurePanel({ portfolioId, lang, disabled }: Props
     status: symbol.status,
     message: symbol.message,
   })) ?? [];
-  const canConfigure = confirmOrders && confirmSymbols && (!result?.hedge_mode.target || confirmHedge);
+  const needsHedgeConfirmation = Boolean(result?.hedge_mode.target);
+  const needsMultiAssetsConfirmation = result?.multi_assets_mode.target === false;
+  const canConfigure =
+    confirmOrders
+    && confirmSymbols
+    && (!needsHedgeConfirmation || confirmHedge)
+    && (!needsMultiAssetsConfirmation || confirmMultiAssets);
 
   return (
     <div className="space-y-4">
-      <div className="grid gap-3 md:grid-cols-3">
+      <div className="grid gap-3 md:grid-cols-4">
         <MiniMetric label={pickText(lang, "预配置状态", "Preconfigure status")} value={result?.status ?? "-"} />
         <MiniMetric label={pickText(lang, "Hedge Mode", "Hedge Mode")} value={hedgeModeText(result, lang)} />
+        <MiniMetric label={pickText(lang, "Multi-Assets", "Multi-Assets")} value={multiAssetsModeText(result, lang)} />
         <MiniMetric label={pickText(lang, "检查时间", "Checked at")} value={formatDateTime(result?.checked_at, lang)} />
       </div>
 
@@ -103,6 +112,10 @@ export function ExchangePreconfigurePanel({ portfolioId, lang, disabled }: Props
         <label className="flex items-start gap-2">
           <input checked={confirmHedge} className="mt-1" onChange={(event) => setConfirmHedge(event.target.checked)} type="checkbox" />
           <span>{pickText(lang, "我确认 Hedge Mode 是账户级设置，可能影响同一 Binance USDT-M 账户上的其他策略。", "I confirm Hedge Mode is account-level and may affect other USDT-M strategies on this Binance account.")}</span>
+        </label>
+        <label className="flex items-start gap-2">
+          <input checked={confirmMultiAssets} className="mt-1" onChange={(event) => setConfirmMultiAssets(event.target.checked)} type="checkbox" />
+          <span>{pickText(lang, "我确认 Multi-Assets mode 是账户级设置；为了使用逐仓，系统会关闭它，可能影响同一 Binance USDT-M 账户上的其他策略。", "I confirm Multi-Assets mode is account-level; to use isolated margin, the system will disable it, which may affect other USDT-M strategies on this Binance account.")}</span>
         </label>
         <label className="flex items-start gap-2">
           <input checked={confirmOrders} className="mt-1" onChange={(event) => setConfirmOrders(event.target.checked)} type="checkbox" />
@@ -145,6 +158,15 @@ function hedgeModeText(result: ExchangePreconfigureResponse | null, lang: UiLang
   }
   const current = result.hedge_mode.current == null ? "?" : result.hedge_mode.current ? "on" : "off";
   const target = result.hedge_mode.target ? "on" : "off";
+  return pickText(lang, `当前 ${current} → 目标 ${target}`, `current ${current} → target ${target}`);
+}
+
+function multiAssetsModeText(result: ExchangePreconfigureResponse | null, lang: UiLanguage) {
+  if (!result) {
+    return "-";
+  }
+  const current = result.multi_assets_mode.current == null ? "?" : result.multi_assets_mode.current ? "on" : "off";
+  const target = result.multi_assets_mode.target ? "on" : "off";
   return pickText(lang, `当前 ${current} → 目标 ${target}`, `current ${current} → target ${target}`);
 }
 

@@ -13,7 +13,6 @@ import {
   BarChart3,
   HelpCircle,
   Bot,
-  Layers3,
   FlaskConical,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -23,7 +22,6 @@ export function Sidebar() {
   const locale = useLocale();
   const pathname = usePathname();
   const backtestLabel = locale === "zh" ? "回测" : "Backtest";
-  const martingalePortfoliosLabel = locale === "zh" ? "马丁组合" : "Martingale Portfolios";
 
   const navItems = [
     { name: t('dashboard'), href: '/app/dashboard', icon: LayoutDashboard },
@@ -31,12 +29,11 @@ export function Sidebar() {
     { name: t('orders'), href: '/app/orders', icon: History },
     { name: t('analytics'), href: '/app/analytics', icon: BarChart3 },
     { name: backtestLabel, href: '/app/backtest', icon: FlaskConical },
-    { name: martingalePortfoliosLabel, href: '/app/martingale-portfolios', icon: Layers3 },
   ];
 
   const bottomItems = [
     { name: t('exchange'), href: '/app/exchange', icon: Wallet },
-    { name: t('notifications'), href: '/app/telegram', icon: Bell },
+    { name: t('notifications'), href: '/app/notifications', icon: Bell },
     { name: t('settings'), href: '/app/security', icon: ShieldCheck },
   ];
 

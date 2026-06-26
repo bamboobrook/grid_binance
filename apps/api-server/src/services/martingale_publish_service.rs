@@ -16,8 +16,13 @@ use shared_domain::{
 };
 use std::collections::{BTreeMap, BTreeSet};
 
+use crate::services::martingale_exchange_preconfigure_service::{
+    binance_client_for_owner, check_live_state_blockers, target_exchange_settings_from_portfolio,
+};
+
 #[derive(Clone)]
 pub struct MartingalePublishService {
+    db: SharedDb,
     repo: BacktestRepository,
 }
 
@@ -73,9 +78,15 @@ pub struct PublishIntentResponse {
     pub risk_summary: Value,
 }
 
+#[derive(Debug, Clone, Default, Deserialize)]
+pub struct ConfirmStartPortfolioRequest {
+    pub max_global_budget_quote: Option<Decimal>,
+}
+
 impl MartingalePublishService {
     pub fn new(db: SharedDb) -> Self {
         Self {
+            db: db.clone(),
             repo: db.backtest_repo(),
         }
     }
@@ -224,6 +235,7 @@ impl MartingalePublishService {
         &self,
         owner: &str,
         portfolio_id: &str,
+        request: ConfirmStartPortfolioRequest,
     ) -> Result<LivePortfolio, PublishError> {
         let portfolio = self.get_portfolio(owner, portfolio_id)?;
         if portfolio.status != "pending_confirmation" && portfolio.status != "paused" {
@@ -273,22 +285,97 @@ impl MartingalePublishService {
         }
 
         // --- Config validation ---
-        let portfolio_config_value = portfolio
-            .config
+        let mut config_value = portfolio.config.clone();
+        let portfolio_config_value = config_value
             .get("portfolio_config")
+            .cloned()
             .ok_or_else(|| PublishError::conflict("portfolio_config is missing"))?;
-        let portfolio_config: shared_domain::martingale::MartingalePortfolioConfig =
+        let mut portfolio_config: shared_domain::martingale::MartingalePortfolioConfig =
             serde_json::from_value(portfolio_config_value.clone()).map_err(|error| {
                 PublishError::conflict(format!("invalid portfolio config: {error}"))
             })?;
+
+        let requires_futures = portfolio_config
+            .strategies
+            .iter()
+            .any(|strategy| strategy.market == MartingaleMarketKind::UsdMFutures);
+        let live_budget = request
+            .max_global_budget_quote
+            .or(portfolio_config.risk_limits.max_global_budget_quote)
+            .filter(|value| *value > Decimal::ZERO);
+        if requires_futures && live_budget.is_none() {
+            return Err(PublishError::conflict(
+                "portfolio live capital is required before starting",
+            ));
+        }
+        if let Some(budget) = live_budget {
+            portfolio_config.risk_limits.max_global_budget_quote = Some(budget);
+            set_live_budget_in_config(&mut config_value, budget)?;
+        }
         portfolio_config.validate().map_err(|error| {
             PublishError::conflict(format!("config validation failed: {error}"))
         })?;
+
+        let target_settings = target_exchange_settings_from_portfolio(&portfolio)
+            .map_err(|error| PublishError::conflict(error.to_string()))?;
+        if live_exchange_state_check_enabled() && !target_settings.symbols.is_empty() {
+            let client = binance_client_for_owner(&self.db, owner)
+                .map_err(|error| PublishError::conflict(error.to_string()))?;
+            let blockers = check_live_state_blockers(&client, &target_settings)
+                .map_err(|error| PublishError::conflict(error.to_string()))?;
+            if !blockers.is_empty() {
+                return Err(PublishError::conflict(format!(
+                    "live account has open orders or positions; clear them before starting: {}",
+                    blockers.join("; ")
+                )));
+            }
+        }
 
         validate_running_futures_conflicts(
             &self.repo.list_martingale_portfolios(owner)?,
             &portfolio,
         )?;
+
+        // --- Capital preflight: projected margin must fit the budget and the
+        // available USDT balance (with a 5% safety buffer + entry fees). This
+        // is the hard portfolio-wide gate before the portfolio can go running.
+        let (projected_margin, projected_notional, projected_fee) =
+            portfolio_projected_capital(&portfolio_config)?;
+        let required_with_buffer = projected_margin * 1.05 + projected_fee;
+        let mut available_usdt: Option<f64> = None;
+        let mut preflight_rejection: Option<String> = None;
+        if let Some(budget_value) = rust_decimal::prelude::ToPrimitive::to_f64(&live_budget.unwrap_or_default()) {
+            if projected_margin > budget_value && budget_value > 0.0 {
+                preflight_rejection = Some(format!(
+                    "projected margin {projected_margin:.4} exceeds max_global_budget_quote {budget_value:.4}"
+                ));
+            }
+        }
+        if preflight_rejection.is_none()
+            && live_exchange_state_check_enabled()
+            && !target_settings.symbols.is_empty()
+        {
+            if let Ok(client) = binance_client_for_owner(&self.db, owner) {
+                if let Ok(balances) = client.read_usdm_account_v3_balance() {
+                    if let Some(usdt) = balances
+                        .iter()
+                        .find(|balance| balance.asset.eq_ignore_ascii_case("USDT"))
+                    {
+                        if let Ok(avail) = usdt.available_balance.parse::<f64>() {
+                            available_usdt = Some(avail);
+                            if required_with_buffer > avail {
+                                preflight_rejection = Some(format!(
+                                    "required capital with 5% buffer {required_with_buffer:.4} exceeds available USDT {avail:.4}"
+                                ));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        if let Some(reason) = preflight_rejection {
+            return Err(PublishError::conflict(reason));
+        }
 
         // --- Record start intent ---
         let mut risk_summary = portfolio.risk_summary.clone();
@@ -297,16 +384,35 @@ impl MartingalePublishService {
         }
         if let serde_json::Value::Object(map) = &mut risk_summary {
             map.insert(
+                "live_start_preflight".to_owned(),
+                serde_json::json!({
+                    "checked_at": Utc::now().to_rfc3339(),
+                    "projected_margin_quote": projected_margin,
+                    "projected_notional_quote": projected_notional,
+                    "projected_fee_quote": projected_fee,
+                    "required_with_buffer_quote": required_with_buffer,
+                    "available_usdt": available_usdt,
+                    "max_global_budget_quote": live_budget.map(|value| value.to_string()),
+                    "status": "passed",
+                }),
+            );
+            map.insert(
                 "live_start".to_owned(),
                 serde_json::json!({
                     "confirmed_at": Utc::now().to_rfc3339(),
                     "executor_state": "pending_pickup",
                     "strategy_count": enabled_count,
+                    "max_global_budget_quote": live_budget.map(|value| value.to_string()),
                 }),
             );
         }
         self.repo
-            .update_martingale_portfolio_risk_summary(owner, portfolio_id, risk_summary)?
+            .update_martingale_portfolio_config_and_risk_summary(
+                owner,
+                portfolio_id,
+                config_value,
+                risk_summary,
+            )?
             .ok_or_else(|| PublishError::not_found("portfolio not found"))?;
 
         self.repo
@@ -475,18 +581,29 @@ fn live_portfolio_config_snapshot(
         .iter()
         .filter(|item| item.enabled)
         .flat_map(|item| {
-            item.parameter_snapshot
+            let inner_strategies = item
+                .parameter_snapshot
                 .get("portfolio_config")
                 .and_then(|config| config.get("strategies"))
-                .and_then(Value::as_array)
+                .and_then(Value::as_array);
+            // One candidate may expand into multiple internal strategies (e.g.
+            // long + short). Divide the item's portfolio weight equally among
+            // them so a single 100%-weighted long/short item does not reserve
+            // 200% of the capital.
+            let internal_count = inner_strategies
+                .map(|strategies| strategies.len())
+                .filter(|count| *count > 0)
+                .unwrap_or(1);
+            let per_strategy_weight = item.weight_pct / Decimal::from(internal_count as u64);
+            inner_strategies
                 .into_iter()
                 .flatten()
-                .map(|strategy| {
+                .map(move |strategy| {
                     let mut strategy = strategy.clone();
                     if let Value::Object(ref mut map) = strategy {
                         map.insert(
                             "portfolio_weight_pct".to_owned(),
-                            Value::String(item.weight_pct.to_string()),
+                            Value::String(per_strategy_weight.to_string()),
                         );
                         map.insert(
                             "strategy_instance_id".to_owned(),
@@ -515,6 +632,41 @@ fn live_portfolio_config_snapshot(
             "source": "backtest_candidate_parameter_snapshot",
         }
     })
+}
+
+/// Projected portfolio capital under the canonical margin model: total
+/// planned margin, total planned notional, and an entry-fee estimate (on
+/// notional). Used by the live-start preflight to check the strategy fits the
+/// budget and the available USDT balance.
+fn portfolio_projected_capital(
+    config: &MartingalePortfolioConfig,
+) -> Result<(f64, f64, f64), PublishError> {
+    use backtest_engine::martingale::capital::{
+        planned_margin_quote, planned_notional_quote, DEFAULT_EXCHANGE_MIN_NOTIONAL,
+    };
+    const ENTRY_FEE_BPS: f64 = 4.5;
+    let mut projected_margin = 0.0_f64;
+    let mut projected_notional = 0.0_f64;
+    let mut projected_fee = 0.0_f64;
+    for strategy in &config.strategies {
+        let margin = planned_margin_quote(
+            &strategy.sizing,
+            strategy.market,
+            strategy.leverage,
+            DEFAULT_EXCHANGE_MIN_NOTIONAL,
+        )
+        .map_err(|error| {
+            PublishError::conflict(format!("planned margin compute failed: {error}"))
+        })?;
+        let notional = planned_notional_quote(&strategy.sizing, DEFAULT_EXCHANGE_MIN_NOTIONAL)
+            .map_err(|error| {
+                PublishError::conflict(format!("planned notional compute failed: {error}"))
+            })?;
+        projected_margin += margin;
+        projected_notional += notional;
+        projected_fee += notional * ENTRY_FEE_BPS / 10_000.0;
+    }
+    Ok((projected_margin, projected_notional, projected_fee))
 }
 
 fn candidate_publish_metadata(config: &MartingalePortfolioConfig) -> (String, String) {
@@ -587,6 +739,29 @@ fn futures_symbols_from_config(config: &MartingalePortfolioConfig) -> BTreeSet<S
         .collect()
 }
 
+fn set_live_budget_in_config(config: &mut Value, budget: Decimal) -> Result<(), PublishError> {
+    let Some(portfolio_config) = config
+        .get_mut("portfolio_config")
+        .and_then(serde_json::Value::as_object_mut)
+    else {
+        return Err(PublishError::conflict("portfolio_config is missing"));
+    };
+    let risk_limits = portfolio_config
+        .entry("risk_limits".to_owned())
+        .or_insert_with(|| json!({}));
+    if !risk_limits.is_object() {
+        *risk_limits = json!({});
+    }
+    let Some(risk_limits_map) = risk_limits.as_object_mut() else {
+        return Err(PublishError::conflict("portfolio risk_limits is invalid"));
+    };
+    risk_limits_map.insert(
+        "max_global_budget_quote".to_owned(),
+        Value::String(budget.to_string()),
+    );
+    Ok(())
+}
+
 fn candidate_portfolio_config(
     candidate: &BacktestCandidateRecord,
 ) -> Result<MartingalePortfolioConfig, PublishError> {
@@ -602,6 +777,17 @@ fn candidate_portfolio_config(
 
 fn default_enabled() -> bool {
     true
+}
+
+fn live_exchange_state_check_enabled() -> bool {
+    std::env::var("BINANCE_LIVE_MODE")
+        .map(|value| {
+            matches!(
+                value.trim().to_ascii_lowercase().as_str(),
+                "1" | "true" | "yes" | "on"
+            )
+        })
+        .unwrap_or(false)
 }
 
 fn uuid_simple() -> String {
@@ -1008,7 +1194,13 @@ mod tests {
         .expect("seed exchange_preconfigure");
 
         let running = service
-            .confirm_start_portfolio("user@example.com", &response.portfolio_id)
+            .confirm_start_portfolio(
+                "user@example.com",
+                &response.portfolio_id,
+                ConfirmStartPortfolioRequest {
+                    max_global_budget_quote: Some(Decimal::new(2000, 0)),
+                },
+            )
             .expect("running");
 
         assert_eq!(running.status, "running");
@@ -1033,6 +1225,139 @@ mod tests {
         assert!(running.config["portfolio_config"]["strategies"][1]["stop_loss"].is_object());
         assert!(
             running.config["portfolio_config"]["strategies"][0]["portfolio_weight_pct"].is_string()
+        );
+        assert_eq!(
+            running.config["portfolio_config"]["risk_limits"]["max_global_budget_quote"],
+            "2000"
+        );
+    }
+
+    #[test]
+    fn publish_long_short_weight_does_not_double_capital() {
+        // One candidate with 100% weight that expands into long + short internal
+        // strategies must split the weight (50/50), not assign 100% to each
+        // (which would reserve 200% of the capital).
+        let db = SharedDb::ephemeral().expect("db");
+        let repo = db.backtest_repo();
+        let task = repo
+            .create_task(task_record("user@example.com"))
+            .expect("task");
+        repo.transition_task(&task.task_id, "succeeded")
+            .expect("succeeded");
+        let candidate = repo
+            .save_candidate(long_short_candidate(&task.task_id))
+            .expect("candidate");
+        let service = MartingalePublishService::new(db.clone());
+        let response = service
+            .publish_portfolio(
+                "user@example.com",
+                PublishPortfolioRequest {
+                    name: "weight split live".to_owned(),
+                    task_id: task.task_id.clone(),
+                    market: "usd_m_futures".to_owned(),
+                    direction: "long_short".to_owned(),
+                    risk_profile: "balanced".to_owned(),
+                    total_weight_pct: Decimal::new(100, 0),
+                    items: vec![PublishPortfolioItemRequest {
+                        candidate_id: candidate.candidate_id.clone(),
+                        symbol: "BTCUSDT".to_owned(),
+                        weight_pct: Decimal::new(100, 0),
+                        leverage: 4,
+                        enabled: true,
+                        parameter_snapshot: candidate.config.clone(),
+                    }],
+                },
+                vec![candidate.clone()],
+            )
+            .expect("published");
+
+        let portfolio = service
+            .get_portfolio("user@example.com", &response.portfolio_id)
+            .expect("portfolio");
+        let strategies = portfolio.config["portfolio_config"]["strategies"]
+            .as_array()
+            .expect("strategies");
+        assert_eq!(strategies.len(), 2, "long + short internal strategies");
+        let weights: Vec<String> = strategies
+            .iter()
+            .map(|s| s["portfolio_weight_pct"].as_str().unwrap_or("").to_owned())
+            .collect();
+        // 100% / 2 internal strategies = 50% each (not 100% each).
+        assert_eq!(weights, vec!["50".to_owned(), "50".to_owned()]);
+    }
+
+    #[test]
+    fn confirm_start_rejects_when_projected_margin_exceeds_budget() {
+        // Projected margin for the long_short fixture (~67.5 at leverage 4) must
+        // exceed a 10 USDT budget, so the start preflight rejects before the
+        // portfolio ever reaches "running".
+        let db = SharedDb::ephemeral().expect("db");
+        let repo = db.backtest_repo();
+        let task = repo
+            .create_task(task_record("user@example.com"))
+            .expect("task");
+        repo.transition_task(&task.task_id, "succeeded")
+            .expect("succeeded");
+        let candidate = repo
+            .save_candidate(long_short_candidate(&task.task_id))
+            .expect("candidate");
+        let service = MartingalePublishService::new(db.clone());
+        let response = service
+            .publish_portfolio(
+                "user@example.com",
+                PublishPortfolioRequest {
+                    name: "budget reject live".to_owned(),
+                    task_id: task.task_id.clone(),
+                    market: "usd_m_futures".to_owned(),
+                    direction: "long_short".to_owned(),
+                    risk_profile: "balanced".to_owned(),
+                    total_weight_pct: Decimal::new(100, 0),
+                    items: vec![PublishPortfolioItemRequest {
+                        candidate_id: candidate.candidate_id.clone(),
+                        symbol: "BTCUSDT".to_owned(),
+                        weight_pct: Decimal::new(100, 0),
+                        leverage: 4,
+                        enabled: true,
+                        parameter_snapshot: candidate.config.clone(),
+                    }],
+                },
+                vec![candidate.clone()],
+            )
+            .expect("published");
+
+        repo.update_martingale_portfolio_risk_summary(
+            "user@example.com",
+            &response.portfolio_id,
+            serde_json::json!({
+                "exchange_preconfigure": {
+                    "status": "ready",
+                    "checked_at": chrono::Utc::now().to_rfc3339(),
+                    "applied": true,
+                    "hedge_mode": {"status": "ready", "target": true, "current": true, "message": "ok"},
+                    "symbols": [{"symbol": "BTCUSDT", "status": "ready", "message": "ok"}],
+                    "warnings": [],
+                    "blocked_symbols": [],
+                    "open_order_count": 0,
+                    "nonzero_position_count": 0,
+                }
+            }),
+        )
+        .expect("seed exchange_preconfigure");
+
+        let result = service.confirm_start_portfolio(
+            "user@example.com",
+            &response.portfolio_id,
+            ConfirmStartPortfolioRequest {
+                max_global_budget_quote: Some(Decimal::new(10, 0)),
+            },
+        );
+        assert!(result.is_err(), "start must be rejected when budget is too small");
+        let still_pending = service
+            .get_portfolio("user@example.com", &response.portfolio_id)
+            .expect("portfolio");
+        assert_ne!(
+            still_pending.status, "running",
+            "portfolio must not be running after preflight rejection"
         );
     }
 }

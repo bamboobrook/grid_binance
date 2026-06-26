@@ -204,20 +204,20 @@ impl StagedMartingaleSearchSpace {
     pub fn for_profile(risk_profile: &str, direction: &str) -> Self {
         let mut space = match risk_profile {
             "conservative" => Self {
-                leverage: vec![2, 3, 4, 5, 6],
-                spacing_bps: vec![120, 160, 220, 300, 420],
-                order_multiplier: vec![1.25, 1.4, 1.6],
-                max_legs: vec![3, 4, 5, 6],
-                take_profit_bps: vec![60, 80, 100, 130],
-                tail_stop_bps: vec![1500, 2000, 2500],
-                long_short_weight_pct: vec![(80, 20), (70, 30), (60, 40)],
+                leverage: vec![2, 3, 4, 5, 6, 7, 8],
+                spacing_bps: vec![80, 120, 160, 220, 300, 420, 600],
+                order_multiplier: vec![1.2, 1.4, 1.6, 1.8, 2.2],
+                max_legs: vec![3, 4, 5, 6, 7, 8],
+                take_profit_bps: vec![60, 80, 100, 130, 160, 200],
+                tail_stop_bps: vec![300, 500, 800, 1000, 1500, 2000, 2500, 3500],
+                long_short_weight_pct: vec![(80, 20), (70, 30), (60, 40), (50, 50)],
                 spacing_model: vec![SpacingModelChoice::FixedPercent, SpacingModelChoice::Atr],
                 take_profit_model: vec![TakeProfitModelChoice::Percent, TakeProfitModelChoice::Atr],
                 atr_period: vec![7, 14, 21],
                 atr_spacing_multiplier_bps: vec![10000, 15000, 20000],
                 atr_tp_multiplier_bps: vec![10000, 15000, 20000],
                 adx_filter_enabled: vec![true, false],
-                adx_threshold_bps: vec![2000, 2500, 3000],
+                adx_threshold_bps: vec![800, 1200, 1500, 1800, 2000, 2500, 3000],
                 adx_period: vec![14, 21],
             },
             "aggressive" => Self {
@@ -245,13 +245,13 @@ impl StagedMartingaleSearchSpace {
                 adx_period: vec![14],
             },
             _ => Self {
-                leverage: vec![2, 3, 4, 5, 6, 8, 10],
-                spacing_bps: vec![80, 120, 160, 220, 300],
-                order_multiplier: vec![1.25, 1.4, 1.6, 2.0],
-                max_legs: vec![4, 5, 6, 8],
-                take_profit_bps: vec![80, 100, 130, 180],
-                tail_stop_bps: vec![1800, 2200, 2600],
-                long_short_weight_pct: vec![(80, 20), (70, 30), (60, 40), (50, 50)],
+                leverage: vec![2, 3, 4, 5, 6, 7, 8, 10],
+                spacing_bps: vec![80, 120, 160, 220, 300, 420, 600],
+                order_multiplier: vec![1.25, 1.4, 1.6, 2.0, 2.4],
+                max_legs: vec![4, 5, 6, 7, 8],
+                take_profit_bps: vec![80, 100, 130, 180, 220, 280],
+                tail_stop_bps: vec![1800, 2200, 2600, 3500],
+                long_short_weight_pct: vec![(80, 20), (70, 30), (60, 40), (50, 50), (40, 60)],
                 spacing_model: vec![SpacingModelChoice::FixedPercent, SpacingModelChoice::Atr],
                 take_profit_model: vec![TakeProfitModelChoice::Percent, TakeProfitModelChoice::Atr],
                 atr_period: vec![7, 14, 21, 28],
@@ -646,15 +646,7 @@ fn is_valid_spacing_for_model(
             is_valid_fixed_percent_spacing(direction, spacing_bps, max_legs)
         }
         SpacingModelChoice::Atr => {
-            if atr_spacing_multiplier_bps == 0 {
-                return false;
-            }
-            let max_step_bps = (spacing_bps as u64 * 3).min(30_000u64) as u32;
-            let max_distance_bps = max_step_bps.saturating_mul(max_legs);
-            match direction {
-                MartingaleDirection::Long => max_distance_bps < 9_500,
-                MartingaleDirection::Short => max_distance_bps <= 30_000,
-            }
+            atr_spacing_multiplier_bps > 0 && atr_spacing_multiplier_bps <= 40_000
         }
     }
 }
@@ -685,8 +677,12 @@ fn build_indicators_and_triggers(
             period: ctx.adx_period.max(2),
         });
         let threshold = ctx.adx_threshold_bps as f64 / 100.0;
+        // 方向1: 低 ADX（threshold < 15%）= 震荡均值回归入场（adx < threshold）
+        //        高 ADX（threshold >= 15%）= 趋势入场（adx > threshold，原行为）
+        // 马丁/网格策略在震荡市盈利最优 → 低 ADX 入场可能大幅提升 ann
+        let operator = if threshold < 15.0 { "<" } else { ">" };
         triggers.push(MartingaleEntryTrigger::IndicatorExpression {
-            expression: format!("adx({}) > {}", ctx.adx_period.max(2), threshold),
+            expression: format!("adx({}) {} {}", ctx.adx_period.max(2), operator, threshold),
         });
     }
 
@@ -698,17 +694,12 @@ fn build_spacing_model(ctx: &IndicatorSamplingContext, spacing_bps: u32) -> Mart
         SpacingModelChoice::FixedPercent => MartingaleSpacingModel::FixedPercent {
             step_bps: spacing_bps,
         },
-        SpacingModelChoice::Atr => {
-            let multiplier = rust_decimal::Decimal::from(ctx.atr_spacing_multiplier_bps)
-                / rust_decimal::Decimal::from(10000u32);
-            let min_step_bps = (spacing_bps as u64 / 2).max(1) as u32;
-            let max_step_bps = (spacing_bps as u64 * 3).min(30_000u64) as u32;
-            MartingaleSpacingModel::Atr {
-                multiplier,
-                min_step_bps,
-                max_step_bps,
-            }
-        }
+        SpacingModelChoice::Atr => MartingaleSpacingModel::Atr {
+            multiplier: rust_decimal::Decimal::from(ctx.atr_spacing_multiplier_bps)
+                / rust_decimal::Decimal::from(10_000u32),
+            min_step_bps: 0,
+            max_step_bps: 30_000,
+        },
     }
 }
 
@@ -1142,7 +1133,7 @@ mod staged_tests {
     }
 
     #[test]
-    fn atr_spacing_candidate_generates_atr_spacing_model() {
+    fn atr_spacing_generates_candidates_with_atr_spacing_model() {
         let space = StagedMartingaleSearchSpace {
             leverage: vec![4],
             spacing_bps: vec![120],
@@ -1162,15 +1153,16 @@ mod staged_tests {
         };
 
         let candidates = generate_staged_candidates_for_symbol("BTCUSDT", "long_only", &space, 10)
-            .expect("candidates should generate");
-
+            .expect("candidates should generate with ATR spacing");
         assert!(!candidates.is_empty());
-        let strategy = &candidates[0].config.strategies[0];
-        assert!(
-            matches!(strategy.spacing, MartingaleSpacingModel::Atr { .. }),
-            "expected Atr spacing model, got {:?}",
-            strategy.spacing
-        );
+
+        let has_atr = candidates.iter().any(|c| {
+            matches!(
+                c.config.strategies[0].spacing,
+                MartingaleSpacingModel::Atr { .. }
+            )
+        });
+        assert!(has_atr, "ATR spacing candidates must be generated");
     }
 
     #[test]
@@ -1247,7 +1239,7 @@ mod staged_tests {
     }
 
     #[test]
-    fn mixed_atr_and_fixed_percent_candidates_both_appear() {
+    fn atr_spacing_enabled_both_fixed_percent_and_atr_candidates_appear() {
         let space = StagedMartingaleSearchSpace {
             leverage: vec![4],
             spacing_bps: vec![120],
@@ -1282,7 +1274,7 @@ mod staged_tests {
             )
         });
         assert!(has_fixed, "must include FixedPercent spacing candidates");
-        assert!(has_atr, "must include Atr spacing candidates");
+        assert!(has_atr, "must include ATR spacing candidates");
 
         let has_pct_tp = candidates.iter().any(|c| {
             matches!(

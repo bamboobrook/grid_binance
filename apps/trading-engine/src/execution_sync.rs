@@ -4,7 +4,7 @@ use rust_decimal::Decimal;
 use shared_binance::BinanceExecutionUpdate;
 use shared_domain::strategy::{
     Strategy, StrategyMarket, StrategyMode, StrategyRuntimeFill, StrategyRuntimeOrder,
-    StrategyRuntimePosition,
+    StrategyRuntimePosition, StrategyStatus, StrategyType,
 };
 
 pub fn apply_execution_update(strategy: &mut Strategy, update: &BinanceExecutionUpdate) -> bool {
@@ -37,7 +37,7 @@ pub fn apply_execution_update(strategy: &mut Strategy, update: &BinanceExecution
                 order.price = Some(value);
             }
         }
-        let is_close_order = order.order_id.contains("-stop-close-");
+        let is_close_order = is_close_order_id(&order.order_id);
         let close_filled = strategy.status == shared_domain::strategy::StrategyStatus::Stopping
             && is_close_order
             && order.status == "Filled";
@@ -65,7 +65,11 @@ pub fn apply_execution_update(strategy: &mut Strategy, update: &BinanceExecution
             finalize_strategy_after_close(strategy, update_price(update));
         }
     } else if trade_applied && order_status != "Canceled" {
-        advance_grid_cycle_after_fill(strategy, order_index);
+        if strategy.strategy_type == StrategyType::MartingaleGrid {
+            recompute_strategy_positions(strategy);
+        } else {
+            advance_grid_cycle_after_fill(strategy, order_index);
+        }
     }
 
     strategy
@@ -169,7 +173,7 @@ fn append_execution_fill(
 
 fn advance_grid_cycle_after_fill(strategy: &mut Strategy, order_index: usize) {
     let order = strategy.runtime.orders[order_index].clone();
-    if order.order_id.contains("-stop-close-") {
+    if is_close_order_id(&order.order_id) {
         return;
     }
     let Some(level_index) = order.level_index else {
@@ -188,7 +192,7 @@ fn handle_entry_fill(strategy: &mut Strategy, level_index: u32, order: &Strategy
     let Some(level_state) = level_state(strategy, level_index) else {
         return;
     };
-    recompute_positions(strategy);
+    recompute_strategy_positions(strategy);
     sync_exit_order(strategy, level_index, &level_state, order);
     if should_activate_ordinary_replenishment_orders(strategy, level_index, order) {
         activate_ordinary_replenishment_orders(strategy, level_index, &order.side);
@@ -200,7 +204,7 @@ fn handle_take_profit_fill(
     level_index: u32,
     order: &StrategyRuntimeOrder,
 ) {
-    recompute_positions(strategy);
+    recompute_strategy_positions(strategy);
     let remaining = level_state(strategy, level_index);
     if strategy.status == shared_domain::strategy::StrategyStatus::Stopping {
         finalize_strategy_after_close(strategy, None);
@@ -282,7 +286,7 @@ fn effective_entry_fill_quantity(strategy: &Strategy, fill: &StrategyRuntimeFill
 }
 
 fn level_state(strategy: &Strategy, level_index: u32) -> Option<LevelState> {
-    let entry_order_id = entry_order_id(&strategy.id, level_index);
+    let entry_order_ids = entry_order_ids_for_level(strategy, level_index);
     let mut remaining_quantity = Decimal::ZERO;
     let mut remaining_cost = Decimal::ZERO;
 
@@ -292,7 +296,11 @@ fn level_state(strategy: &Strategy, level_index: u32) -> Option<LevelState> {
         .iter()
         .filter(|fill| fill.level_index == Some(level_index))
     {
-        if fill.order_id.as_deref() == Some(entry_order_id.as_str()) {
+        if fill
+            .order_id
+            .as_deref()
+            .is_some_and(|order_id| entry_order_ids.iter().any(|entry_id| entry_id == order_id))
+        {
             remaining_quantity += effective_entry_fill_quantity(strategy, fill);
             remaining_cost += fill.price * fill.quantity;
             continue;
@@ -322,7 +330,11 @@ fn level_state(strategy: &Strategy, level_index: u32) -> Option<LevelState> {
         .runtime
         .orders
         .iter()
-        .find(|order| order.order_id == entry_order_id)
+        .find(|order| {
+            entry_order_ids
+                .iter()
+                .any(|entry_id| entry_id == &order.order_id)
+        })
         .is_some_and(|order| order.side.eq_ignore_ascii_case("Sell"));
 
     Some(LevelState {
@@ -332,12 +344,27 @@ fn level_state(strategy: &Strategy, level_index: u32) -> Option<LevelState> {
     })
 }
 
-fn recompute_positions(strategy: &mut Strategy) {
+pub fn recompute_strategy_positions(strategy: &mut Strategy) {
+    if strategy.strategy_type == StrategyType::MartingaleGrid
+        && matches!(
+            strategy.status,
+            StrategyStatus::Stopping | StrategyStatus::Stopped
+        )
+        && strategy
+            .runtime
+            .orders
+            .iter()
+            .any(|order| is_close_order_id(&order.order_id) && order.status == "Filled")
+    {
+        strategy.runtime.positions.clear();
+        return;
+    }
+
     let mut long_quantity = Decimal::ZERO;
     let mut long_cost = Decimal::ZERO;
     let mut short_quantity = Decimal::ZERO;
     let mut short_cost = Decimal::ZERO;
-    let levels = strategy
+    let mut levels = strategy
         .active_revision
         .as_ref()
         .unwrap_or(&strategy.draft_revision)
@@ -345,6 +372,22 @@ fn recompute_positions(strategy: &mut Strategy) {
         .iter()
         .map(|level| level.level_index)
         .collect::<Vec<_>>();
+    levels.extend(
+        strategy
+            .runtime
+            .orders
+            .iter()
+            .filter_map(|order| order.level_index),
+    );
+    levels.extend(
+        strategy
+            .runtime
+            .fills
+            .iter()
+            .filter_map(|fill| fill.level_index),
+    );
+    levels.sort_unstable();
+    levels.dedup();
 
     for level_index in levels {
         let Some(state) = level_state(strategy, level_index) else {
@@ -543,7 +586,30 @@ fn position_mode_for_entry(market: StrategyMarket, mode: StrategyMode, side: &st
 }
 
 fn is_entry_order(order_id: &str) -> bool {
-    order_id.contains("-order-") && !order_id.contains("-stop-close-")
+    (order_id.contains("-order-") && !is_close_order_id(order_id))
+        || is_martingale_leg_order_id(order_id)
+}
+
+fn entry_order_ids_for_level(strategy: &Strategy, level_index: u32) -> Vec<String> {
+    let ordinary = entry_order_id(&strategy.id, level_index);
+    let martingale = strategy
+        .runtime
+        .orders
+        .iter()
+        .filter(|order| order.level_index == Some(level_index))
+        .filter(|order| is_martingale_leg_order_id(&order.order_id))
+        .map(|order| order.order_id.clone());
+    std::iter::once(ordinary).chain(martingale).collect()
+}
+
+fn is_martingale_leg_order_id(order_id: &str) -> bool {
+    order_id.starts_with("mg-") && order_id.contains("-leg-")
+}
+
+fn is_close_order_id(order_id: &str) -> bool {
+    order_id.starts_with("cl-")
+        || order_id.contains("-stop-close-")
+        || order_id.starts_with("close-")
 }
 
 fn is_take_profit_order(order_id: &str) -> bool {
@@ -595,7 +661,7 @@ pub(crate) fn finalize_strategy_after_close(
     reference_price: Option<Decimal>,
 ) {
     let has_pending_close = strategy.runtime.orders.iter().any(|order| {
-        order.order_id.contains("-stop-close-")
+        is_close_order_id(&order.order_id)
             && matches!(
                 order.status.as_str(),
                 "ClosingRequested" | "Placed" | "PartiallyFilled"
@@ -704,7 +770,7 @@ fn derive_realized_pnl_for_fill(
         return None;
     }
 
-    if order_id.contains("-stop-close-") {
+    if is_close_order_id(order_id) {
         let state = close_level_state(strategy, order_id)?;
         let closed_quantity = quantity.min(state.quantity);
         return Some(realized_pnl_local(

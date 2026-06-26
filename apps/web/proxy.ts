@@ -19,8 +19,9 @@ export default function proxy(request: NextRequest) {
   const pathname = stripLocale(request.nextUrl.pathname);
   const sessionToken = request.cookies.get("session_token")?.value ?? "";
   const isAdminLoginEntry = pathname === "/admin/login" || pathname.startsWith("/admin/login/");
+  const previewMode = process.env.NEXT_PUBLIC_UI_PREVIEW === "1";
 
-  if (!sessionToken && (pathname.startsWith("/app") || (pathname.startsWith("/admin") && !isAdminLoginEntry))) {
+  if (!previewMode && !sessionToken && (pathname.startsWith("/app") || (pathname.startsWith("/admin") && !isAdminLoginEntry))) {
     const url = publicUrl(request, `/${locale}/login`);
     url.searchParams.set("next", request.nextUrl.pathname);
     return NextResponse.redirect(url);

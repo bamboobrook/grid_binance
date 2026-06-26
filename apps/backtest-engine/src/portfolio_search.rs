@@ -221,6 +221,19 @@ fn allocation_templates_for_member_count(member_count: usize) -> Vec<Vec<f64>> {
         templates.push(two_growth);
     }
 
+    // 极小权重 stabilizer-dominant 模板：1 大权重低 dd 稳定器 + 多个极小权重 growth。
+    // 复现 baseline(40.69%/9.66%) 的 barbell 结构：高 ann 候选极小权重(4%) + 低 dd 稳定器大权重(60%)
+    // 压组合 dd 到目标。原模板最小权重 6.7% 偏高，无法把高 dd 候选压到极小权重。
+    if member_count >= 6 {
+        let mut micro_stabilizer = vec![0.04; member_count - 1];
+        micro_stabilizer.insert(0, 0.60);
+        templates.push(micro_stabilizer);
+        let mut dual_stabilizer = vec![0.35, 0.35];
+        dual_stabilizer
+            .extend(std::iter::repeat(0.30 / (member_count - 2) as f64).take(member_count - 2));
+        templates.push(dual_stabilizer);
+    }
+
     for tpl in &mut templates {
         normalize_allocations(tpl);
     }
@@ -388,6 +401,26 @@ fn dedupe_portfolios_by_member_weight(portfolios: &mut Vec<WeightedPortfolio>) {
     });
 }
 
+/// Evenly-spaced downsample of a series to at most `max_points` entries, always
+/// retaining the first and last elements. Annualized return depends only on the
+/// curve's start/end equity and total duration, so it is preserved exactly when
+/// endpoints are kept; max-drawdown is preserved to well within scoring noise.
+/// Used to bound memory in portfolio enumeration, matching the `sampled_preview`
+/// cap already applied at persistence.
+fn sample_curve<T: Clone>(items: &[T], max_points: usize) -> Vec<T> {
+    if items.len() <= max_points {
+        return items.to_vec();
+    }
+    let denom = (max_points - 1).max(1);
+    let last = items.len() - 1;
+    (0..max_points)
+        .map(|i| {
+            let idx = ((i * last) / denom).min(last);
+            items[idx].clone()
+        })
+        .collect()
+}
+
 pub fn build_portfolio_top_n_v2(
     candidates: &[EvaluatedCandidate],
     max_drawdown_pct: f64,
@@ -420,7 +453,42 @@ pub fn build_portfolio_top_n_v2(
     }
 
     let top_n = top_n.max(3).min(10);
-    let all = build_ranked_portfolios_v2(&eligible, max_drawdown_pct, top_n);
+
+    // Performance guard for the serial portfolio enumeration. The per-bar
+    // equity/drawdown curves of a multi-year 1m backtest can hold ~1M+ points
+    // each, and `build_ranked_portfolios_v2` enumerates thousands of portfolios,
+    // every one allocating a combined full-length curve. That previously blew up
+    // to tens of GB of live memory and hours of single-core work. Two controls,
+    // both scoring-preserving:
+    //   1. Resample each member's curves to <=5000 points (same cap persistence
+    //      already applies). Annualized return stays exact (endpoints kept);
+    //      max-drawdown stays within scoring noise.
+    //   2. Cap the pool to the top 60 by score so seed-index/member/offset
+    //      enumeration stays bounded. The low-score tail essentially never
+    //      contributes to a top_n (<=10) ranked portfolio.
+    // Sort+truncate the cheap reference vec FIRST, then clone+resample only the
+    // survivors, so we never clone a full-length tail curve.
+    const CURVE_MAX_POINTS: usize = 5000;
+    const POOL_CAP: usize = 60;
+    let mut pool_refs_sorted: Vec<&EvaluatedCandidate> = eligible.clone();
+    pool_refs_sorted.sort_by(|a, b| {
+        b.score
+            .partial_cmp(&a.score)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
+    pool_refs_sorted.truncate(POOL_CAP);
+    let pool: Vec<EvaluatedCandidate> = pool_refs_sorted
+        .iter()
+        .map(|c| {
+            let mut r = (*c).clone();
+            r.equity_curve = sample_curve(&r.equity_curve, CURVE_MAX_POINTS);
+            r.drawdown_curve = sample_curve(&r.drawdown_curve, CURVE_MAX_POINTS);
+            r
+        })
+        .collect();
+    let pool_refs: Vec<&EvaluatedCandidate> = pool.iter().collect();
+
+    let all = build_ranked_portfolios_v2(&pool_refs, max_drawdown_pct, top_n);
     let top3 = all.iter().take(3).cloned().collect();
 
     PortfolioTop3Artifact {
@@ -441,7 +509,9 @@ fn build_ranked_portfolios_v2(
         .iter()
         .map(|candidate| candidate_annualized_or_return(candidate))
         .fold(0.0_f64, f64::max);
-    let target_annualized = (best_single_annualized * 0.82).max(40.0);
+    // Previously 0.82 which over-diluted high-return strategies; raised to 0.92
+    // to let strong candidates carry meaningful weight in portfolios.
+    let target_annualized = (best_single_annualized * 0.92).max(40.0);
     let seed_indices = portfolio_seed_indices_by_symbol(eligible, 12, 8, 8);
     let templates = allocation_templates_v2();
     let mut scored: Vec<WeightedPortfolio> = Vec::new();
@@ -468,25 +538,31 @@ fn build_ranked_portfolios_v2(
         &mut scored,
     );
     enumerate_barbell_yield_portfolios_v2(eligible, &seed_indices, max_drawdown_pct, &mut scored);
+    enumerate_stabilizer_growth_portfolios_v2(
+        eligible,
+        &seed_indices,
+        max_drawdown_pct,
+        &mut scored,
+    );
     enumerate_stochastic_risk_portfolios_v2(eligible, &seed_indices, max_drawdown_pct, &mut scored);
 
     scored.sort_by(|a, b| b.score.total_cmp(&a.score));
     dedupe_portfolios_by_member_weight(&mut scored);
-    let broad = scored
+    let live_ready = scored
         .iter()
         .filter(|portfolio| portfolio_meets_live_diversity_floor(portfolio))
         .cloned()
         .collect::<Vec<_>>();
-    let mut ranked = if broad.len() >= 3 {
-        let mut broad_ranked = broad;
-        sort_portfolios_by_yield_then_risk(&mut broad_ranked, target_annualized);
+    let mut ranked = if live_ready.len() >= 3 {
+        let mut live_ready_ranked = live_ready;
+        sort_portfolios_by_yield_then_risk(&mut live_ready_ranked, target_annualized);
         let mut remaining = scored
             .into_iter()
             .filter(|portfolio| !portfolio_meets_live_diversity_floor(portfolio))
             .collect::<Vec<_>>();
         sort_portfolios_by_yield_then_risk(&mut remaining, target_annualized);
-        broad_ranked.extend(remaining);
-        broad_ranked
+        live_ready_ranked.extend(remaining);
+        live_ready_ranked
     } else {
         sort_portfolios_by_yield_then_risk(&mut scored, target_annualized);
         scored
@@ -513,7 +589,9 @@ fn sort_portfolios_by_yield_then_risk(
 }
 
 fn portfolio_meets_live_diversity_floor(portfolio: &WeightedPortfolio) -> bool {
-    if portfolio.member_count < 10 {
+    // Lowered from (10, 10) to (2, 2) to reduce over-dispersion:
+    // high-return strategies were being diluted by 10-12 member portfolios.
+    if portfolio.member_count < 2 {
         return false;
     }
     let mut allocation_by_symbol = std::collections::BTreeMap::<&str, f64>::new();
@@ -522,7 +600,7 @@ fn portfolio_meets_live_diversity_floor(portfolio: &WeightedPortfolio) -> bool {
             .entry(member.symbol.as_str())
             .or_default() += member.allocation_pct;
     }
-    allocation_by_symbol.len() >= 10
+    allocation_by_symbol.len() >= 2
         && allocation_by_symbol
             .values()
             .all(|allocation_pct| *allocation_pct <= 40.000001)
@@ -535,16 +613,10 @@ fn enumerate_compact_portfolios_v2(
     max_drawdown_pct: f64,
     result: &mut Vec<WeightedPortfolio>,
 ) {
-    let unique_symbols = indices
-        .iter()
-        .map(|idx| candidate_symbol(eligible[*idx]))
-        .collect::<std::collections::BTreeSet<_>>()
-        .len();
-    let max_member_count = if unique_symbols >= 10 {
-        0
-    } else {
-        10.min(indices.len())
-    };
+    // Compact portfolios cap at 6 members to avoid over-dispersion.
+    // Previously skipped entirely when unique_symbols >= 10 (forced 0),
+    // which removed compact high-return portfolios from consideration.
+    let max_member_count = 6.min(indices.len());
     for member_count in 2..=max_member_count {
         let windows = indices.len().saturating_sub(member_count).min(24);
         for start in 0..=windows {
@@ -809,6 +881,128 @@ fn enumerate_barbell_yield_portfolios_v2(
     }
 }
 
+fn enumerate_stabilizer_growth_portfolios_v2(
+    eligible: &[&EvaluatedCandidate],
+    indices: &[usize],
+    max_drawdown_pct: f64,
+    result: &mut Vec<WeightedPortfolio>,
+) {
+    if indices.len() < 4 {
+        return;
+    }
+
+    let mut stabilizers = indices.to_vec();
+    stabilizers.sort_by(|a, b| {
+        let a_ann = candidate_annualized_or_return(eligible[*a]);
+        let b_ann = candidate_annualized_or_return(eligible[*b]);
+        let a_key = eligible[*a].max_drawdown_pct * 2.0 - a_ann * 0.25;
+        let b_key = eligible[*b].max_drawdown_pct * 2.0 - b_ann * 0.25;
+        a_key.total_cmp(&b_key)
+    });
+    stabilizers.truncate(24);
+
+    let mut growth = indices.to_vec();
+    growth.sort_by(|a, b| {
+        candidate_annualized_or_return(eligible[*b])
+            .total_cmp(&candidate_annualized_or_return(eligible[*a]))
+    });
+    growth.truncate(36);
+
+    let stabilizer_counts = [1_usize, 2, 3];
+    let stabilizer_total_weights = [0.45_f64, 0.50, 0.55, 0.60, 0.65, 0.70, 0.75];
+    let growth_member_counts = [3_usize, 4, 5, 6, 7, 8, 9];
+
+    for &stabilizer_count in &stabilizer_counts {
+        if stabilizers.len() < stabilizer_count {
+            continue;
+        }
+        for stabilizer_offset in 0..stabilizers.len().min(10) {
+            let mut base = Vec::with_capacity(12);
+            let mut seen = std::collections::BTreeSet::<usize>::new();
+            for shift in 0..stabilizers.len() {
+                if base.len() >= stabilizer_count {
+                    break;
+                }
+                let idx = stabilizers[(stabilizer_offset + shift) % stabilizers.len()];
+                if seen.insert(idx) {
+                    base.push(idx);
+                }
+            }
+            if base.len() < stabilizer_count {
+                continue;
+            }
+
+            for &growth_count in &growth_member_counts {
+                if stabilizer_count + growth_count > 12 {
+                    continue;
+                }
+                for growth_offset in 0..growth.len().min(12) {
+                    let mut current = base.clone();
+                    let mut current_seen = seen.clone();
+                    let mut guard = 0;
+                    while current.len() < stabilizer_count + growth_count
+                        && guard < growth.len() * 3
+                    {
+                        let idx = growth[(growth_offset + guard) % growth.len()];
+                        if current_seen.insert(idx) {
+                            current.push(idx);
+                        }
+                        guard += 1;
+                    }
+                    if current.len() < stabilizer_count + growth_count {
+                        continue;
+                    }
+
+                    for &stabilizer_total_weight in &stabilizer_total_weights {
+                        let mut weights = vec![0.0; current.len()];
+                        let stabilizer_scores = current[..stabilizer_count]
+                            .iter()
+                            .map(|idx| {
+                                let candidate = eligible[*idx];
+                                (1.0 / candidate.max_drawdown_pct.max(1.0)).max(0.01)
+                            })
+                            .collect::<Vec<_>>();
+                        let stabilizer_score_sum: f64 = stabilizer_scores.iter().sum();
+                        if stabilizer_score_sum <= 0.0 {
+                            continue;
+                        }
+                        for (pos, score) in stabilizer_scores.iter().enumerate() {
+                            weights[pos] = stabilizer_total_weight * *score / stabilizer_score_sum;
+                        }
+
+                        let growth_total_weight = 1.0 - stabilizer_total_weight;
+                        let growth_scores = current[stabilizer_count..]
+                            .iter()
+                            .map(|idx| {
+                                let candidate = eligible[*idx];
+                                (candidate_annualized_or_return(candidate).max(0.0).sqrt()
+                                    / candidate.max_drawdown_pct.max(1.0))
+                                .max(0.01)
+                            })
+                            .collect::<Vec<_>>();
+                        let growth_score_sum: f64 = growth_scores.iter().sum();
+                        if growth_score_sum <= 0.0 {
+                            continue;
+                        }
+                        for (offset, score) in growth_scores.iter().enumerate() {
+                            weights[stabilizer_count + offset] =
+                                growth_total_weight * *score / growth_score_sum;
+                        }
+
+                        normalize_allocations(&mut weights);
+                        if let Some(portfolio) =
+                            build_weighted_portfolio(eligible, &current, &weights, max_drawdown_pct)
+                        {
+                            result.push(portfolio);
+                            prune_scored_portfolios(result, 8_000, 4_000);
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 fn enumerate_stochastic_risk_portfolios_v2(
     eligible: &[&EvaluatedCandidate],
     indices: &[usize],
@@ -911,11 +1105,12 @@ fn stochastic_allocations(
         .iter()
         .map(|idx| {
             let candidate = eligible[*idx];
-            let quality = (candidate_annualized_or_return(candidate).max(0.0)
-                / candidate.max_drawdown_pct.max(1.0))
-            .max(0.05);
-            let jitter = 0.35 + rng.next_unit_f64() * 1.45;
-            quality.powf(0.70) * jitter
+            let dd = candidate.max_drawdown_pct.max(1.0);
+            let ann = candidate_annualized_or_return(candidate).max(0.0);
+            // 风险平价：权重 ∝ ann.sqrt()/dd（低 dd 候选获大权重作稳定器，ann 加成保留收益）。
+            // 替代原 Calmar(ann/dd)^0.7 —— 原逻辑给高 ann 高 dd 候选高权重，与"压组合 dd"目标相反。
+            let jitter = 0.5 + rng.next_unit_f64() * 1.0;
+            (ann.sqrt() / dd).max(0.01) * jitter
         })
         .collect::<Vec<_>>();
     normalize_allocations(&mut weights);
@@ -2419,13 +2614,13 @@ mod tests {
                     .or_default() += member.allocation_pct;
             }
             assert!(
-                portfolio.member_count >= 10,
-                "v2 portfolio must be broad enough for live risk, got {:?}",
+                portfolio.member_count >= 2,
+                "v2 portfolio must combine multiple live members, got {:?}",
                 portfolio.members
             );
             assert!(
-                allocation_by_symbol.len() >= 10,
-                "v2 portfolio should cover at least 10 symbols, got {:?}",
+                allocation_by_symbol.len() >= 2,
+                "v2 portfolio should cover at least 2 symbols, got {:?}",
                 allocation_by_symbol
             );
             assert!(

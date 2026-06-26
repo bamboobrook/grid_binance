@@ -1,10 +1,10 @@
-import Link from "next/link";
 import { cookies } from "next/headers";
+import { CalendarClock, CreditCard, ShieldCheck, WalletCards } from "lucide-react";
+import type { ReactNode } from "react";
 
 import { MembershipOrderForm } from "@/components/billing/membership-order-form";
 import { AppShellSection } from "@/components/shell/app-shell-section";
 import { Card, CardBody, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { DialogFrame } from "@/components/ui/dialog";
 import { StatusBanner } from "@/components/ui/status-banner";
 import { DataTable } from "@/components/ui/table";
 import { describeMembershipStatus } from "@/lib/ui/domain-copy";
@@ -58,106 +58,203 @@ export default async function BillingPage({ params, searchParams }: PageProps) {
   const requestedChain = firstValue(query.chain) ?? "";
   const requestedToken = firstValue(query.token) ?? "";
   const overview = await fetchBillingOverview();
-  const plans = overview?.plans ?? [];
-  const orders = overview?.orders ?? [];
-  const membership = overview?.membership ?? null;
+  const previewMode = process.env.NEXT_PUBLIC_UI_PREVIEW === "1";
+  const billingOverview = overview ?? (previewMode ? previewBillingOverview() : null);
+  const plans = billingOverview?.plans ?? [];
+  const orders = billingOverview?.orders ?? [];
+  const membership = billingOverview?.membership ?? null;
+  const activeUntil = membership?.active_until?.slice(0, 10) ?? pickText(lang, "暂无", "Unavailable");
+  const graceUntil = membership?.grace_until?.slice(0, 10) ?? pickText(lang, "暂无", "Unavailable");
+  const highlightedPlan = plans[0] ?? null;
+  const overviewCards = [
+    {
+      icon: <ShieldCheck className="h-4 w-4" />,
+      label: pickText(lang, "会员状态", "Membership status"),
+      value: describeMembershipStatus(lang, membership?.status),
+      detail: membership?.active_until
+        ? pickText(lang, `到期 ${activeUntil}`, `Expires ${activeUntil}`)
+        : pickText(lang, "创建订单后会自动更新", "Updates after payment"),
+    },
+    {
+      icon: <CalendarClock className="h-4 w-4" />,
+      label: pickText(lang, "会员到期", "Expires"),
+      value: activeUntil,
+      detail: pickText(lang, `宽限期 ${graceUntil}`, `Grace period ${graceUntil}`),
+    },
+    {
+      icon: <CreditCard className="h-4 w-4" />,
+      label: pickText(lang, "推荐套餐", "Plan"),
+      value: highlightedPlan ? labelForPlan(lang, highlightedPlan.code, highlightedPlan.name) : pickText(lang, "暂无套餐", "No plan"),
+      detail: highlightedPlan ? firstUsdAmount(highlightedPlan) : pickText(lang, "请联系管理员", "Contact support"),
+    },
+    {
+      icon: <WalletCards className="h-4 w-4" />,
+      label: pickText(lang, "支付订单", "Payment orders"),
+      value: pickText(lang, `${orders.length} 笔`, `${orders.length} orders`),
+      detail: orders.length > 0 ? pickText(lang, "查看付款状态", "Check payment status") : pickText(lang, "还没有订单", "No orders yet"),
+    },
+  ];
+  const planOptions = plans.length > 0 ? plans : [];
 
   return (
     <>
-      <StatusBanner
-              tone="info"
-              lang={lang}
-        description={pickText(lang, "会员到期后会进入48小时宽限期，宽限期内已运行策略可继续运行。", "Membership enters a 48-hour grace period after expiry. Existing strategies may continue only during that window.")}
-        title={pickText(lang, "宽限期规则已启用", "Grace-period reminder enabled")}
-      />
       {notice ? <StatusBanner description={notice} title={pickText(lang, "等待精确到账", "Awaiting exact transfer")}  tone="info" lang={lang} /> : null}
       {error ? <StatusBanner description={error} title={pickText(lang, "会员请求失败", "Membership request failed")}  tone="info" lang={lang} /> : null}
       <AppShellSection
-        description={pickText(lang, "在这里创建续费订单、确认精确金额，并查看会员时间线。", "Create renewal orders, confirm the exact amount, and review membership timing here.")}
         eyebrow={pickText(lang, "会员服务", "Membership service")}
         title={pickText(lang, "会员中心", "Membership Center")}
       >
-        <Card>
-          <CardHeader>
-            <CardTitle>{pickText(lang, "会员套餐", "Membership plans")}</CardTitle>
-            <CardDescription>{pickText(lang, "这里只保留简洁套餐说明；具体下单金额会根据你下面选择的链路与稳定币实时联动。", "This section keeps plan pricing simple. The exact order amount below updates live with the selected chain and stablecoin.")}</CardDescription>
-          </CardHeader>
-          <CardBody>
-            <ul className="text-list">
-              {plans.map((plan) => (
-                <li key={plan.code}>{describePlanSummary(lang, plan)}</li>
-              ))}
-            </ul>
-          </CardBody>
-        </Card>
-      </AppShellSection>
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle>{pickText(lang, "创建支付订单", "Create payment order")}</CardTitle>
-            <CardDescription>{pickText(lang, "链路、币种和金额都必须完全一致，系统才会自动确认。", "Chain, token, and amount must match exactly before the system can confirm automatically.")}</CardDescription>
-          </CardHeader>
-          <CardBody className="space-y-4">
-            <MembershipOrderForm
-              activeUntil={membership?.active_until}
-              initialChain={requestedChain}
-              initialPlanCode={requestedPlan}
-              initialToken={requestedToken}
-              lang={lang}
-              plans={plans}
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          {overviewCards.map((card) => (
+            <OverviewCard
+              detail={card.detail}
+              icon={card.icon}
+              key={card.label}
+              label={card.label}
+              value={card.value}
             />
-          </CardBody>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle>{pickText(lang, "会员时间线", "Membership timing")}</CardTitle>
-            <CardDescription>{pickText(lang, "价格调整只影响后续续费，不影响当前已生效会员。", "Pricing changes apply to later renewals, not the currently active entitlement.")}</CardDescription>
-          </CardHeader>
-          <CardBody>
-            <ul className="text-list">
-              <li>{pickText(lang, "会员状态", "Membership status")}: {describeMembershipStatus(lang, membership?.status)}</li>
-              <li>{pickText(lang, "续费叠加", "Renewal stacking")}: {pickText(lang, "允许", "Allowed")}</li>
-              <li>{pickText(lang, "宽限期截止", "Grace period ends")}: {membership?.grace_until?.slice(0, 10) ?? pickText(lang, "暂无", "Unavailable")}</li>
-              <li><Link href={`/${locale}/app/strategies`}>{pickText(lang, "前往策略工作台", "Open strategy workspace")}</Link></li>
-            </ul>
-          </CardBody>
-        </Card>
-      </div>
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          ))}
+        </div>
+
+        <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_22rem]">
+          <Card>
+            <CardHeader>
+              <CardTitle>{pickText(lang, "创建支付订单", "Create payment order")}</CardTitle>
+              <CardDescription>{pickText(lang, "选择套餐、链路和币种后生成订单。付款时按订单显示金额转账。", "Choose a plan, chain, and token, then pay the exact amount shown on the order.")}</CardDescription>
+            </CardHeader>
+            <CardBody className="space-y-4">
+              <div className="rounded-md border-2 border-primary bg-primary/10 px-4 py-3">
+                <p className="text-sm font-black text-foreground">{pickText(lang, "重要：支付金额必须精确匹配", "Important: payment amount must match exactly")}</p>
+                <p className="mt-1 text-xs leading-relaxed text-foreground/80">
+                  {pickText(lang, "链路、币种和金额都要和订单一致。多转、少转或转错币种会进入人工复核。", "Chain, token, and amount must match the order. Wrong or mismatched payments require manual review.")}
+                </p>
+              </div>
+              <MembershipOrderForm
+                activeUntil={membership?.active_until}
+                initialChain={requestedChain}
+                initialPlanCode={requestedPlan}
+                initialToken={requestedToken}
+                lang={lang}
+                plans={plans}
+              />
+            </CardBody>
+          </Card>
+
+          <div className="flex flex-col gap-4 self-start">
+            <Card>
+              <CardHeader>
+                <CardTitle>{pickText(lang, "会员套餐", "Membership plans")}</CardTitle>
+              </CardHeader>
+              <CardBody>
+                {planOptions.length > 0 ? (
+                  <div className="grid gap-2">
+                    {planOptions.map((plan) => (
+                      <div className="rounded-sm border border-border bg-background p-3" key={plan.code}>
+                        <div className="flex items-center justify-between gap-3">
+                          <p className="text-sm font-bold">{labelForPlan(lang, plan.code, plan.name)}</p>
+                          <strong className="text-sm font-black">{firstUsdAmount(plan)}</strong>
+                        </div>
+                        <p className="mt-1 text-xs text-muted-foreground">{describePlanPaymentOptions(lang, plan)}</p>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">{pickText(lang, "暂无可用套餐", "No plans available")}</p>
+                )}
+              </CardBody>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>{pickText(lang, "付款规则", "Payment rules")}</CardTitle>
+              </CardHeader>
+              <CardBody>
+                <ul className="space-y-3 text-sm">
+                  <li className="flex gap-3">
+                    <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-primary" />
+                    <span>{pickText(lang, "金额必须和订单完全一致。", "Amount must match the order exactly.")}</span>
+                  </li>
+                  <li className="flex gap-3">
+                    <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-primary" />
+                    <span>{pickText(lang, "链路和稳定币不要选错。", "Use the selected chain and stablecoin.")}</span>
+                  </li>
+                  <li className="flex gap-3">
+                    <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-primary" />
+                    <span>{pickText(lang, "付款后在下方订单里查看状态。", "After payment, check the order status below.")}</span>
+                  </li>
+                </ul>
+              </CardBody>
+            </Card>
+          </div>
+        </div>
+
         <Card>
           <CardHeader>
             <CardTitle>{pickText(lang, "支付订单", "Payment orders")}</CardTitle>
-            <CardDescription>{pickText(lang, "地址分配、锁定时间和排队状态都会在这里显示。", "Address assignment, lock timing, and queue state stay visible here.")}</CardDescription>
+            <CardDescription>{pickText(lang, "创建订单后，这里会显示金额、地址和确认状态。", "After creating an order, its amount, address, and status appear here.")}</CardDescription>
           </CardHeader>
           <CardBody>
             <DataTable
               columns={[
                 { key: "order", label: pickText(lang, "订单", "Order") },
                 { key: "chainToken", label: pickText(lang, "链路 / 币种", "Chain / token") },
-                { key: "details", label: pickText(lang, "分配详情", "Assignment details") },
+                { key: "details", label: pickText(lang, "付款信息", "Payment info") },
                 { key: "amount", label: pickText(lang, "金额", "Amount"), align: "right" },
                 { key: "state", label: pickText(lang, "状态", "State"), align: "right" },
               ]}
+              emptyMessage={pickText(lang, "暂无支付订单。创建续费订单后会显示在这里。", "No payment orders yet. Create a renewal order to see it here.")}
               rows={orders.map((row) => ({
                 id: String(row.order_id),
                 order: "ORD-" + String(row.order_id).padStart(4, "0"),
                 chainToken: row.chain + " / " + row.asset,
                 details: row.address
-                  ? pickText(lang, "已分配地址：", "Assigned address: ") + row.address + " | " + pickText(lang, "锁定到期：", "Address lock expires: ") + formatTaipeiDateTime(row.expires_at, lang, { fallback: pickText(lang, "处理中", "pending") })
-                  : pickText(lang, "排队序号：", "Queue position: ") + String(row.queue_position ?? pickText(lang, "处理中", "pending")) + " | " + pickText(lang, "等待分配地址", "Assigned address pending"),
-                amount: row.amount,
-                state: row.status,
+                  ? (
+                    <div className="max-w-md">
+                      <p className="break-all font-mono text-xs">{row.address}</p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {pickText(lang, "锁定到期", "Address lock expires")}: {formatTaipeiDateTime(row.expires_at, lang, { fallback: pickText(lang, "处理中", "pending") })}
+                      </p>
+                    </div>
+                  )
+                  : (
+                    <div>
+                      <p>{pickText(lang, "等待分配地址", "Assigned address pending")}</p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {pickText(lang, "排队序号", "Queue position")}: {String(row.queue_position ?? pickText(lang, "处理中", "pending"))}
+                      </p>
+                    </div>
+                  ),
+                amount: `${row.amount} ${row.asset}`,
+                state: formatOrderStatus(lang, row.status),
               }))}
             />
           </CardBody>
         </Card>
-        <DialogFrame
-          description={pickText(lang, "支付金额必须完全一致。多转、少转或转错币种都会进入人工复核。", "Payment amount must match exactly. Overpayment, underpayment, or wrong token will require manual review before membership can be extended.")}
-          lang={lang}
-          title={pickText(lang, "支付金额必须精确匹配", "Payment amount must match exactly")}
-        />
-      </div>
+      </AppShellSection>
     </>
+  );
+}
+
+function OverviewCard({
+  detail,
+  icon,
+  label,
+  value,
+}: {
+  detail: string;
+  icon: ReactNode;
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="rounded-md border border-border bg-card p-4">
+      <div className="flex items-center gap-2 text-muted-foreground">
+        {icon}
+        <p className="text-xs font-bold uppercase">{label}</p>
+      </div>
+      <p className="mt-2 text-sm font-bold text-foreground">{value}</p>
+      <p className="mt-1 text-xs text-muted-foreground">{detail}</p>
+    </div>
   );
 }
 
@@ -182,8 +279,62 @@ function authApiBaseUrl() {
   return process.env.AUTH_API_BASE_URL?.trim().replace(/\/+$/, "") || DEFAULT_AUTH_API_BASE_URL;
 }
 
-function describePlanSummary(lang: UiLanguage, plan: BillingPlan) {
-  return `${labelForPlan(lang, plan.code, plan.name)} ${firstUsdAmount(plan)}`;
+function previewBillingOverview(): BillingOverview {
+  return {
+    membership: {
+      active_until: "2026-08-18T15:59:59Z",
+      grace_until: "2026-08-20T15:59:59Z",
+      status: "Active",
+    },
+    plans: [
+      {
+        code: "monthly",
+        name: "Monthly",
+        prices: [
+          { amount: "19.90", asset: "USDT", chain: "TRC20" },
+          { amount: "19.90", asset: "USDT", chain: "BEP20" },
+        ],
+      },
+      {
+        code: "quarterly",
+        name: "Quarterly",
+        prices: [
+          { amount: "49.90", asset: "USDT", chain: "TRC20" },
+          { amount: "49.90", asset: "USDC", chain: "BEP20" },
+        ],
+      },
+      {
+        code: "yearly",
+        name: "Yearly",
+        prices: [
+          { amount: "169.00", asset: "USDT", chain: "TRC20" },
+          { amount: "169.00", asset: "USDC", chain: "BEP20" },
+        ],
+      },
+    ],
+    orders: [
+      {
+        address: "TQ8b2mN9pVa7V5U6tBmZpM6AGp48QbHhQ2",
+        amount: "49.90",
+        asset: "USDT",
+        chain: "TRC20",
+        expires_at: "2026-06-16T14:30:00Z",
+        order_id: 1286,
+        queue_position: null,
+        status: "pending",
+      },
+      {
+        address: "0x7fd4a557b7f9b2d2c8e2402c3ef9d4c2b7852d11",
+        amount: "19.90",
+        asset: "USDT",
+        chain: "BEP20",
+        expires_at: "2026-05-21T10:20:00Z",
+        order_id: 1208,
+        queue_position: null,
+        status: "confirmed",
+      },
+    ],
+  };
 }
 
 function labelForPlan(lang: UiLanguage, code: string, fallback: string) {
@@ -201,4 +352,31 @@ function labelForPlan(lang: UiLanguage, code: string, fallback: string) {
 
 function firstUsdAmount(plan: BillingPlan) {
   return `${plan.prices[0]?.amount ?? "0"} USD`;
+}
+
+function describePlanPaymentOptions(lang: UiLanguage, plan: BillingPlan) {
+  const chains = Array.from(new Set(plan.prices.map((price) => price.chain))).join(" / ");
+  const assets = Array.from(new Set(plan.prices.map((price) => price.asset))).join(" / ");
+  if (!chains && !assets) {
+    return pickText(lang, "暂无支付方式", "No payment options");
+  }
+  return pickText(lang, `${chains} · ${assets}`, `${chains} · ${assets}`);
+}
+
+function formatOrderStatus(lang: UiLanguage, status: string) {
+  switch (status.trim().toLowerCase()) {
+    case "pending":
+      return pickText(lang, "待支付", "Pending");
+    case "waiting_address":
+      return pickText(lang, "等待地址", "Waiting for address");
+    case "paid":
+    case "confirmed":
+      return pickText(lang, "已确认", "Confirmed");
+    case "expired":
+      return pickText(lang, "已过期", "Expired");
+    case "manual_review":
+      return pickText(lang, "人工复核", "Manual review");
+    default:
+      return status || pickText(lang, "处理中", "Processing");
+  }
 }

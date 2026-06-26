@@ -1,25 +1,30 @@
 use axum::{extract::State, http::header, response::IntoResponse, routing::get, Router};
+use backtest_engine::market_data::KlineBar;
 use chrono::Utc;
 use futures_util::{SinkExt, StreamExt};
+use rust_decimal::prelude::ToPrimitive;
 use shared_binance::{
     parse_account_update_message, parse_user_data_message, BinanceAccountUpdate, BinanceClient,
-    BinanceUserDataStream, CredentialCipher,
+    BinanceUserDataStream, CredentialCipher, SymbolMetadata,
 };
-use shared_db::{MartingalePortfolioRecord, NotificationLogRecord, SharedDb};
+use shared_db::{MartingalePortfolioRecord, NotificationLogRecord, SharedDb, StoredStrategy};
 use shared_domain::martingale::{
     MartingaleDirection, MartingaleDirectionMode, MartingaleMarginMode, MartingaleMarketKind,
     MartingalePortfolioConfig, MartingaleRiskLimits, MartingaleSizingModel, MartingaleSpacingModel,
-    MartingaleStrategyConfig, MartingaleTakeProfitModel,
+    MartingaleStopLossModel, MartingaleStrategyConfig, MartingaleTakeProfitModel,
 };
 use shared_domain::strategy::Decimal;
 use shared_domain::strategy::{
-    Strategy, StrategyRuntimeEvent, StrategyRuntimeOrder, StrategyRuntimePosition,
-    StrategyStatus, StrategyType,
+    FuturesMarginMode, GridGeneration, GridLevel, PostTriggerAction, ReferencePriceSource,
+    RuntimeControls, Strategy, StrategyAmountMode, StrategyRuntime, StrategyRuntimeEvent,
+    StrategyRuntimeOrder, StrategyRuntimePhase, StrategyRuntimePosition, StrategyStatus,
+    StrategyType,
 };
 use shared_events::{MarketTick, NotificationKind};
 use std::sync::{LazyLock, OnceLock};
 use std::{
     collections::{HashMap, HashSet},
+    hash::{DefaultHasher, Hash, Hasher},
     io::{Error as IoError, ErrorKind},
     sync::{Arc, Mutex},
     time::Duration,
@@ -28,7 +33,7 @@ use tokio::{net::TcpListener, task::JoinHandle, time::sleep};
 use tokio_tungstenite::{connect_async, tungstenite::Message};
 use trading_engine::{
     execution_effects::persist_execution_effects,
-    execution_sync::apply_execution_update,
+    execution_sync::{apply_execution_update, recompute_strategy_positions},
     martingale_recovery::{recover_martingale_runtime, MartingaleRecoveryInput, RecoveryPosition},
     martingale_runtime::{
         FuturesExchangeSettings, FuturesSymbolSettings, MartingaleRuntime, MartingaleRuntimeConfig,
@@ -43,9 +48,121 @@ const DEFAULT_PORT: u16 = 8081;
 const SERVICE_NAME: &str = "trading-engine";
 const DEFAULT_RECONCILE_INTERVAL_SECS: u64 = 5;
 const BINANCE_EXCHANGE: &str = "binance";
+const MARTINGALE_CONFIG_NOTE_PREFIX: &str = "martingale_strategy_config_json=";
 
 static LIVE_TICK_QUEUE: OnceLock<Arc<Mutex<Vec<MarketTick>>>> = OnceLock::new();
 static TICK_SUBSCRIBER_STARTED: OnceLock<()> = OnceLock::new();
+static LATEST_MARKET_TICKS: OnceLock<Mutex<HashMap<String, MarketTick>>> = OnceLock::new();
+
+/// 进程级 indicator feeds 持久化：跨 reconcile tick 保留 IndicatorRuntimeContext。
+/// key = portfolio_id, value = 该 portfolio 的指标状态（ATR/ADX 增量缓存）。
+/// 每次 reconcile：从 feeds 取出 → set_indicator_context → reconcile → indicator_context_clone → 存回。
+static INDICATOR_FEEDS: OnceLock<
+    Mutex<HashMap<String, backtest_engine::martingale::indicator_runtime::IndicatorRuntimeContext>>,
+> = OnceLock::new();
+static MARTINGALE_CANDLE_FEEDS: OnceLock<
+    Mutex<HashMap<String, HashMap<String, LiveCandleBucket>>>,
+> = OnceLock::new();
+
+fn indicator_feeds() -> &'static Mutex<
+    HashMap<String, backtest_engine::martingale::indicator_runtime::IndicatorRuntimeContext>,
+> {
+    INDICATOR_FEEDS.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
+fn martingale_candle_feeds() -> &'static Mutex<HashMap<String, HashMap<String, LiveCandleBucket>>> {
+    MARTINGALE_CANDLE_FEEDS.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
+fn save_indicator_context(
+    portfolio_id: &str,
+    ctx: &backtest_engine::martingale::indicator_runtime::IndicatorRuntimeContext,
+) {
+    let mut feeds = indicator_feeds().lock().expect("indicator feeds poisoned");
+    feeds.insert(portfolio_id.to_owned(), ctx.clone());
+}
+
+#[derive(Debug, Clone)]
+struct LiveCandleBucket {
+    open_time_ms: i64,
+    open: f64,
+    high: f64,
+    low: f64,
+    close: f64,
+}
+
+impl LiveCandleBucket {
+    fn new(open_time_ms: i64, price: f64) -> Self {
+        Self {
+            open_time_ms,
+            open: price,
+            high: price,
+            low: price,
+            close: price,
+        }
+    }
+
+    fn update(&mut self, price: f64) {
+        self.high = self.high.max(price);
+        self.low = self.low.min(price);
+        self.close = price;
+    }
+
+    fn into_bar(self, symbol: String) -> KlineBar {
+        KlineBar {
+            symbol,
+            open_time_ms: self.open_time_ms,
+            open: self.open,
+            high: self.high,
+            low: self.low,
+            close: self.close,
+            volume: 0.0,
+        }
+    }
+}
+
+fn completed_martingale_indicator_bars(
+    portfolio_id: &str,
+    market_ticks: &[MarketTick],
+) -> Vec<KlineBar> {
+    const HOUR_MS: i64 = 3_600_000;
+    let mut feeds = martingale_candle_feeds()
+        .lock()
+        .expect("martingale candle feeds poisoned");
+    let by_symbol = feeds.entry(portfolio_id.to_owned()).or_default();
+    let mut completed = Vec::new();
+
+    for tick in market_ticks {
+        if tick.market != "usdm" && tick.market != "futures" && tick.market != "usd_m_futures" {
+            continue;
+        }
+        let Some(price) = tick
+            .price
+            .to_f64()
+            .filter(|price| price.is_finite() && *price > 0.0)
+        else {
+            continue;
+        };
+        let bucket_open_ms = tick.event_time_ms.div_euclid(HOUR_MS) * HOUR_MS;
+        match by_symbol.get_mut(&tick.symbol) {
+            Some(bucket) if bucket.open_time_ms == bucket_open_ms => bucket.update(price),
+            Some(bucket) if bucket.open_time_ms < bucket_open_ms => {
+                let previous = bucket.clone().into_bar(tick.symbol.clone());
+                *bucket = LiveCandleBucket::new(bucket_open_ms, price);
+                completed.push(previous);
+            }
+            Some(_) => {}
+            None => {
+                by_symbol.insert(
+                    tick.symbol.clone(),
+                    LiveCandleBucket::new(bucket_open_ms, price),
+                );
+            }
+        }
+    }
+
+    completed
+}
 
 /// Per-strategy locks to prevent concurrent reads-modify-writes between reconcile
 /// and user-data-stream callbacks. Without this, updates from one path may silently
@@ -63,6 +180,10 @@ fn strategy_lock(strategy_id: &str) -> Arc<Mutex<()>> {
 
 fn live_tick_queue() -> &'static Arc<Mutex<Vec<MarketTick>>> {
     LIVE_TICK_QUEUE.get_or_init(|| Arc::new(Mutex::new(Vec::new())))
+}
+
+fn latest_market_ticks() -> &'static Mutex<HashMap<String, MarketTick>> {
+    LATEST_MARKET_TICKS.get_or_init(|| Mutex::new(HashMap::new()))
 }
 
 fn start_market_tick_subscriber(db: &SharedDb) {
@@ -89,6 +210,44 @@ fn drain_live_ticks(limit: usize) -> Vec<MarketTick> {
     let mut guard = live_tick_queue().lock().expect("live tick queue poisoned");
     let count = limit.min(guard.len());
     guard.drain(0..count).collect()
+}
+
+fn remember_latest_market_ticks(ticks: &[MarketTick]) {
+    if ticks.is_empty() {
+        return;
+    }
+    let mut latest = latest_market_ticks()
+        .lock()
+        .expect("latest market ticks poisoned");
+    for tick in ticks {
+        if tick.price <= Decimal::ZERO {
+            continue;
+        }
+        let key = market_tick_key(&tick.symbol, &tick.market);
+        let replace = latest
+            .get(&key)
+            .map(|existing| tick.event_time_ms >= existing.event_time_ms)
+            .unwrap_or(true);
+        if replace {
+            latest.insert(key, tick.clone());
+        }
+    }
+}
+
+fn latest_market_tick(symbol: &str, market: &str) -> Option<MarketTick> {
+    latest_market_ticks()
+        .lock()
+        .expect("latest market ticks poisoned")
+        .get(&market_tick_key(symbol, market))
+        .cloned()
+}
+
+fn market_tick_key(symbol: &str, market: &str) -> String {
+    format!(
+        "{}:{}",
+        symbol.trim().to_ascii_uppercase(),
+        market.trim().to_ascii_lowercase()
+    )
 }
 
 #[derive(Debug, Clone, Default)]
@@ -184,11 +343,14 @@ fn reconcile_once(
         None
     };
     let market_ticks = if live_mode {
-        drain_live_ticks(256)
+        let mut ticks = drain_live_ticks(256);
+        ticks.extend(db.drain_market_ticks(256)?);
+        remember_latest_market_ticks(&ticks);
+        ticks
     } else {
         db.drain_market_ticks(256)?
     };
-    reconcile_running_martingale_portfolios(db, cipher.as_ref())?;
+    reconcile_running_martingale_portfolios(db, cipher.as_ref(), &market_ticks)?;
     for mut strategy in db.list_all_strategies()? {
         let strategy_lock_arc = strategy_lock(&strategy.id);
         let _strategy_guard = strategy_lock_arc.lock().expect("strategy lock poisoned");
@@ -252,14 +414,32 @@ fn reconcile_once(
 fn reconcile_running_martingale_portfolios(
     db: &SharedDb,
     _cipher: Option<&CredentialCipher>,
+    market_ticks: &[MarketTick],
 ) -> Result<(), shared_db::SharedDbError> {
     for portfolio in db.backtest_repo().list_running_martingale_portfolios()? {
+        let mut persisted_ctx = {
+            let feeds = indicator_feeds().lock().expect("indicator feeds poisoned");
+            feeds
+                .get(&portfolio.portfolio_id)
+                .cloned()
+                .unwrap_or_default()
+        };
+        let completed_bars =
+            completed_martingale_indicator_bars(&portfolio.portfolio_id, market_ticks);
+        if !completed_bars.is_empty() {
+            for bar in &completed_bars {
+                persisted_ctx.push_bar(bar);
+            }
+            save_indicator_context(&portfolio.portfolio_id, &persisted_ctx);
+        }
+
         if portfolio
             .risk_summary
             .get("live_executor_started")
             .and_then(serde_json::Value::as_bool)
             .unwrap_or(false)
         {
+            reconcile_martingale_executor_strategies(db, &portfolio, &persisted_ctx)?;
             continue;
         }
         // Verify exchange preconfigure readiness; do NOT mutate exchange
@@ -291,7 +471,12 @@ fn reconcile_running_martingale_portfolios(
 
         let mut total_orders: usize = 0;
         let mut cycle_results: Vec<serde_json::Value> = Vec::new();
-        let mut computed_orders: Vec<(String, Vec<MartingaleRuntimeOrder>)> = Vec::new();
+
+        let mut computed_orders: Vec<(
+            MartingaleStrategyConfig,
+            Decimal,
+            Vec<MartingaleRuntimeOrder>,
+        )> = Vec::new();
 
         for strategy_config in &strategies_config {
             let strategy_id = strategy_config
@@ -302,16 +487,7 @@ fn reconcile_running_martingale_portfolios(
                 continue;
             }
             // Anchor price: prefer config anchor_price, fallback to reference_price
-            let anchor_price = strategy_config
-                .get("anchor_price")
-                .and_then(serde_json::Value::as_str)
-                .and_then(|v| v.parse::<rust_decimal::Decimal>().ok())
-                .or_else(|| {
-                    strategy_config
-                        .get("reference_price")
-                        .and_then(serde_json::Value::as_str)
-                        .and_then(|v| v.parse::<rust_decimal::Decimal>().ok())
-                })
+            let anchor_price = strategy_anchor_price(strategy_config, market_ticks)
                 .filter(|v| *v > rust_decimal::Decimal::ZERO)
                 .unwrap_or(rust_decimal::Decimal::ZERO);
             if anchor_price <= rust_decimal::Decimal::ZERO {
@@ -328,17 +504,33 @@ fn reconcile_running_martingale_portfolios(
             let mut runtime = MartingaleRuntime::new(config.clone())
                 .map_err(|error| shared_db::SharedDbError::new(error.to_string()))?;
 
+            // 实盘 ATR 闭环：注入持久化的 indicator_context（跨 tick 保持 ATR/ADX 增量缓存）。
+            runtime.set_indicator_context(persisted_ctx.clone());
+
             match runtime.start_cycle_with_futures_preflight(
                 &_settings,
                 strategy_id,
                 anchor_price,
-                MartingaleRuntimeContext::default(),
+                martingale_runtime_context_for_strategy(
+                    db,
+                    &portfolio.owner,
+                    strategy_id,
+                    StrategyStatus::Running,
+                )?,
             ) {
                 Ok(()) => {
                     let orders: Vec<MartingaleRuntimeOrder> = runtime.orders().to_vec();
                     let count = orders.len();
                     total_orders += count;
-                    computed_orders.push((strategy_id.to_string(), orders));
+                    if let Some(runtime_strategy_config) = config
+                        .portfolio
+                        .strategies
+                        .iter()
+                        .find(|strategy| strategy.strategy_id == strategy_id)
+                        .cloned()
+                    {
+                        computed_orders.push((runtime_strategy_config, anchor_price, orders));
+                    }
                     cycle_results.push(serde_json::json!({
                         "strategy_id": strategy_id,
                         "anchor_price": anchor_price.normalize().to_string(),
@@ -356,33 +548,47 @@ fn reconcile_running_martingale_portfolios(
                     }));
                 }
             }
+            persisted_ctx = runtime.indicator_context_clone();
         }
 
-        // Persist computed orders to Strategy runtime so live-stats can find them.
-        // Strategy.id matches config.strategy_id (e.g. "btc-long").
-        for (strategy_id, orders) in &computed_orders {
+        // 实盘 ATR 闭环：保存更新后的 indicator_context 回 INDICATOR_FEEDS
+        save_indicator_context(&portfolio.portfolio_id, &persisted_ctx);
+
+        // Persist computed orders to real MartingaleGrid executor strategies.
+        // The portfolio config's strategy_id is the executor Strategy.id; creating
+        // it here keeps live order submission, REST backfill, and user-stream fill
+        // handling on the existing Strategy/order_sync path.
+        let mut executor_strategy_count = 0usize;
+        for (strategy_config, anchor_price, orders) in &computed_orders {
             if orders.is_empty() {
                 continue;
             }
-            if let Some(mut strategy) = db.find_strategy(&portfolio.owner, strategy_id)? {
-                let runtime_orders: Vec<StrategyRuntimeOrder> = orders
-                    .iter()
-                    .map(|o| StrategyRuntimeOrder {
-                        order_id: o.client_order_id.clone(),
-                        exchange_order_id: o.exchange_order_id.clone(),
-                        level_index: Some(o.leg_index),
-                        side: o.side.clone(),
-                        order_type: "Limit".to_string(),
-                        price: Some(o.price),
-                        quantity: o.quantity,
-                        status: match o.status {
-                            _ => "Working".to_string(),
-                        },
-                    })
-                    .collect();
-                strategy.runtime.orders = runtime_orders;
+            let runtime_orders = martingale_runtime_orders_to_strategy_orders(orders);
+            let strategy_id = &strategy_config.strategy_id;
+            if db.find_strategy(&portfolio.owner, strategy_id)?.is_some() {
+                let strategy = executor_strategy_from_martingale_config(
+                    &portfolio.owner,
+                    &portfolio,
+                    strategy_config,
+                    *anchor_price,
+                    runtime_orders,
+                )?;
                 db.update_strategy(&strategy)?;
+            } else {
+                let sequence_id = db.next_sequence("strategy")?;
+                let strategy = executor_strategy_from_martingale_config(
+                    &portfolio.owner,
+                    &portfolio,
+                    strategy_config,
+                    *anchor_price,
+                    runtime_orders,
+                )?;
+                db.insert_strategy(&StoredStrategy {
+                    sequence_id,
+                    strategy,
+                })?;
             }
+            executor_strategy_count += 1;
         }
 
         let started = total_orders > 0;
@@ -392,6 +598,7 @@ fn reconcile_running_martingale_portfolios(
             "live_executor_ready": started,
             "strategy_count": strategies_config.len(),
             "order_count": total_orders,
+            "executor_strategy_count": executor_strategy_count,
             "cycle_results": cycle_results,
         });
         db.backtest_repo()
@@ -403,6 +610,7 @@ fn reconcile_running_martingale_portfolios(
         risk_summary["live_executor_state"] =
             serde_json::json!(if started { "started" } else { "blocked" });
         risk_summary["order_count"] = serde_json::json!(total_orders);
+        risk_summary["executor_strategy_count"] = serde_json::json!(executor_strategy_count);
         risk_summary["strategy_count"] = serde_json::json!(strategies_config.len());
         risk_summary["cycle_results"] = serde_json::json!(cycle_results);
         db.backtest_repo()
@@ -416,6 +624,337 @@ fn reconcile_running_martingale_portfolios(
 }
 
 #[allow(dead_code)]
+
+fn reconcile_martingale_executor_strategies(
+    db: &SharedDb,
+    portfolio: &MartingalePortfolioRecord,
+    indicator_ctx: &backtest_engine::martingale::indicator_runtime::IndicatorRuntimeContext,
+) -> Result<(), shared_db::SharedDbError> {
+    let config = martingale_runtime_config_from_portfolio(portfolio)?;
+    let settings = futures_settings_from_portfolio(portfolio)?;
+    for strategy_config in &config.portfolio.strategies {
+        let Some(mut strategy) =
+            db.find_strategy(&portfolio.owner, &strategy_config.strategy_id)?
+        else {
+            continue;
+        };
+        if strategy.strategy_type != StrategyType::MartingaleGrid
+            || strategy.status != StrategyStatus::Running
+        {
+            continue;
+        }
+        let mut filled_legs = strategy
+            .runtime
+            .orders
+            .iter()
+            .filter(|order| {
+                order.order_id.starts_with("mg-")
+                    && order.order_id.contains("-leg-")
+                    && order.status == "Filled"
+            })
+            .filter_map(|order| order.level_index)
+            .collect::<Vec<_>>();
+        if filled_legs.is_empty() {
+            continue;
+        }
+        filled_legs.sort_unstable();
+        filled_legs.dedup();
+
+        let Some(anchor_price) = martingale_executor_anchor_price(&strategy) else {
+            continue;
+        };
+        let mut runtime = MartingaleRuntime::new(config.clone())
+            .map_err(|error| shared_db::SharedDbError::new(error.to_string()))?;
+        runtime.set_indicator_context(indicator_ctx.clone());
+        runtime
+            .start_cycle_with_futures_preflight(
+                &settings,
+                &strategy_config.strategy_id,
+                anchor_price,
+                martingale_runtime_context_for_strategy(
+                    db,
+                    &portfolio.owner,
+                    &strategy_config.strategy_id,
+                    strategy.status,
+                )?,
+            )
+            .map_err(|error| shared_db::SharedDbError::new(error.to_string()))?;
+
+        let mut blocked_error = None;
+        for leg_index in filled_legs {
+            if let Err(error) = runtime.mark_leg_filled(
+                &strategy_config.strategy_id,
+                strategy_config.direction,
+                leg_index,
+            ) {
+                blocked_error = Some(error.to_string());
+                break;
+            }
+        }
+
+        let existing_order_ids = strategy
+            .runtime
+            .orders
+            .iter()
+            .map(|order| order.order_id.clone())
+            .collect::<HashSet<_>>();
+        let existing_leg_indexes = strategy
+            .runtime
+            .orders
+            .iter()
+            .filter(|order| order.order_id.starts_with("mg-") && order.order_id.contains("-leg-"))
+            .filter(|order| order.status != "Canceled")
+            .filter_map(|order| order.level_index)
+            .collect::<HashSet<_>>();
+        let mut added = 0usize;
+        for order in runtime.orders() {
+            if existing_order_ids.contains(&order.client_order_id) {
+                continue;
+            }
+            if existing_leg_indexes.contains(&order.leg_index) {
+                continue;
+            }
+            let next_orders = vec![order.clone()];
+            strategy
+                .runtime
+                .orders
+                .extend(martingale_runtime_orders_to_strategy_orders(&next_orders));
+            added += 1;
+        }
+        if let Some(error) = blocked_error.as_ref() {
+            strategy.runtime.events.push(StrategyRuntimeEvent {
+                event_type: "martingale_safety_leg_blocked".to_string(),
+                detail: error.to_string(),
+                price: None,
+                created_at: Utc::now(),
+            });
+        }
+        if added > 0 {
+            strategy.runtime.events.push(StrategyRuntimeEvent {
+                event_type: "martingale_safety_legs_generated".to_string(),
+                detail: format!("generated {added} martingale safety leg orders"),
+                price: None,
+                created_at: Utc::now(),
+            });
+        }
+        if added > 0 || blocked_error.is_some() {
+            db.update_strategy(&strategy)?;
+        }
+    }
+    Ok(())
+}
+
+fn martingale_executor_anchor_price(strategy: &Strategy) -> Option<Decimal> {
+    strategy
+        .runtime
+        .orders
+        .iter()
+        .find(|order| order.order_id.starts_with("mg-") && order.level_index == Some(0))
+        .and_then(|order| order.price)
+        .or_else(|| {
+            strategy
+                .active_revision
+                .as_ref()
+                .or(Some(&strategy.draft_revision))
+                .and_then(|revision| revision.reference_price)
+        })
+        .filter(|price| *price > Decimal::ZERO)
+}
+
+fn martingale_runtime_context_for_strategy(
+    db: &SharedDb,
+    owner: &str,
+    strategy_id: &str,
+    fallback_status: StrategyStatus,
+) -> Result<MartingaleRuntimeContext, shared_db::SharedDbError> {
+    let strategy = db.find_strategy(owner, strategy_id)?;
+    Ok(MartingaleRuntimeContext {
+        now_ms: Some(Utc::now().timestamp_millis()),
+        strategy_status: strategy
+            .as_ref()
+            .map(|strategy| strategy.status)
+            .unwrap_or(fallback_status),
+        last_cycle_closed_at_ms: strategy
+            .as_ref()
+            .and_then(last_martingale_cycle_closed_at_ms),
+        ..MartingaleRuntimeContext::default()
+    })
+}
+
+fn last_martingale_cycle_closed_at_ms(strategy: &Strategy) -> Option<i64> {
+    strategy
+        .runtime
+        .events
+        .iter()
+        .rev()
+        .find(|event| {
+            matches!(
+                event.event_type.as_str(),
+                "martingale_take_profit_stop"
+                    | "martingale_strategy_drawdown_stop"
+                    | "martingale_cycle_closed"
+                    | "martingale_runtime_stopped"
+            )
+        })
+        .map(|event| event.created_at.timestamp_millis())
+}
+
+fn martingale_runtime_orders_to_strategy_orders(
+    orders: &[MartingaleRuntimeOrder],
+) -> Vec<StrategyRuntimeOrder> {
+    orders
+        .iter()
+        .map(|order| StrategyRuntimeOrder {
+            order_id: order.client_order_id.clone(),
+            exchange_order_id: order.exchange_order_id.clone(),
+            level_index: Some(order.leg_index),
+            side: order.side.clone(),
+            order_type: "Limit".to_string(),
+            price: Some(order.price),
+            quantity: order.quantity,
+            status: "Working".to_string(),
+        })
+        .collect()
+}
+
+fn executor_strategy_from_martingale_config(
+    owner: &str,
+    portfolio: &MartingalePortfolioRecord,
+    strategy_config: &MartingaleStrategyConfig,
+    anchor_price: Decimal,
+    runtime_orders: Vec<StrategyRuntimeOrder>,
+) -> Result<Strategy, shared_db::SharedDbError> {
+    let mode = match strategy_config.direction {
+        MartingaleDirection::Long => shared_domain::strategy::StrategyMode::FuturesLong,
+        MartingaleDirection::Short => shared_domain::strategy::StrategyMode::FuturesShort,
+    };
+    let market = match strategy_config.market {
+        MartingaleMarketKind::Spot => shared_domain::strategy::StrategyMarket::Spot,
+        MartingaleMarketKind::UsdMFutures => shared_domain::strategy::StrategyMarket::FuturesUsdM,
+    };
+    let margin_mode = strategy_config.margin_mode.map(|mode| match mode {
+        MartingaleMarginMode::Isolated => shared_domain::strategy::FuturesMarginMode::Isolated,
+        MartingaleMarginMode::Cross => FuturesMarginMode::Cross,
+    });
+    let budget = strategy_planned_budget_quote(strategy_config)
+        .filter(|value| *value > Decimal::ZERO)
+        .unwrap_or_else(|| Decimal::ONE);
+    let grid_spacing_bps = match strategy_config.spacing {
+        MartingaleSpacingModel::FixedPercent { step_bps } => step_bps,
+        MartingaleSpacingModel::Atr { .. } => 0,
+        MartingaleSpacingModel::CustomSequence { ref steps_bps } => {
+            steps_bps.first().copied().unwrap_or_default()
+        }
+        MartingaleSpacingModel::Multiplier { first_step_bps, .. } => first_step_bps,
+        MartingaleSpacingModel::Mixed { ref phases } => phases
+            .iter()
+            .find_map(|phase| match phase {
+                MartingaleSpacingModel::FixedPercent { step_bps } => Some(*step_bps),
+                MartingaleSpacingModel::Multiplier { first_step_bps, .. } => Some(*first_step_bps),
+                MartingaleSpacingModel::CustomSequence { steps_bps } => steps_bps.first().copied(),
+                _ => None,
+            })
+            .unwrap_or_default(),
+    };
+    let revision = shared_domain::strategy::StrategyRevision {
+        revision_id: format!("{}-executor", strategy_config.strategy_id),
+        version: 1,
+        strategy_type: StrategyType::MartingaleGrid,
+        generation: GridGeneration::Custom,
+        levels: vec![GridLevel {
+            level_index: 0,
+            entry_price: anchor_price,
+            quantity: Decimal::ONE,
+            take_profit_bps: take_profit_bps_for_revision(&strategy_config.take_profit),
+            trailing_bps: None,
+        }],
+        amount_mode: StrategyAmountMode::Quote,
+        futures_margin_mode: margin_mode,
+        leverage: strategy_config.leverage,
+        reference_price_source: ReferencePriceSource::Manual,
+        reference_price: Some(anchor_price),
+        overall_take_profit_bps: None,
+        overall_stop_loss_bps: None,
+        post_trigger_action: PostTriggerAction::Stop,
+    };
+    Ok(Strategy {
+        id: strategy_config.strategy_id.clone(),
+        owner_email: owner.to_owned(),
+        name: format!("{} {}", portfolio.name, strategy_config.strategy_id),
+        symbol: strategy_config.symbol.clone(),
+        budget: budget.normalize().to_string(),
+        grid_spacing_bps,
+        status: StrategyStatus::Running,
+        source_template_id: Some(portfolio.portfolio_id.clone()),
+        membership_ready: true,
+        exchange_ready: true,
+        permissions_ready: true,
+        withdrawals_disabled: true,
+        hedge_mode_ready: portfolio.direction == "long_short",
+        symbol_ready: true,
+        filters_ready: true,
+        margin_ready: true,
+        conflict_ready: true,
+        balance_ready: true,
+        strategy_type: StrategyType::MartingaleGrid,
+        market,
+        mode,
+        runtime_phase: StrategyRuntimePhase::Draft,
+        runtime_controls: RuntimeControls {},
+        draft_revision: revision.clone(),
+        active_revision: Some(revision),
+        runtime: StrategyRuntime {
+            orders: runtime_orders,
+            ..StrategyRuntime::default()
+        },
+        tags: vec![
+            "martingale-portfolio-executor".to_string(),
+            portfolio.portfolio_id.clone(),
+        ],
+        notes: notes_with_martingale_config(
+            format!(
+                "Auto-created executor for martingale portfolio {} from {}",
+                portfolio.portfolio_id, portfolio.source_task_id
+            ),
+            strategy_config,
+        )?,
+        archived_at: None,
+    })
+}
+
+fn notes_with_martingale_config(
+    base_note: String,
+    strategy_config: &MartingaleStrategyConfig,
+) -> Result<String, shared_db::SharedDbError> {
+    let encoded = serde_json::to_string(strategy_config)
+        .map_err(|error| shared_db::SharedDbError::new(error.to_string()))?;
+    Ok(format!(
+        "{base_note}\n{MARTINGALE_CONFIG_NOTE_PREFIX}{encoded}"
+    ))
+}
+
+fn martingale_config_from_strategy_notes(strategy: &Strategy) -> Option<MartingaleStrategyConfig> {
+    strategy.notes.lines().find_map(|line| {
+        let payload = line.strip_prefix(MARTINGALE_CONFIG_NOTE_PREFIX)?;
+        serde_json::from_str::<MartingaleStrategyConfig>(payload).ok()
+    })
+}
+
+fn take_profit_bps_for_revision(take_profit: &MartingaleTakeProfitModel) -> u32 {
+    match take_profit {
+        MartingaleTakeProfitModel::Percent { bps } => *bps,
+        MartingaleTakeProfitModel::Trailing { activation_bps, .. } => *activation_bps,
+        MartingaleTakeProfitModel::Mixed { phases } => phases
+            .iter()
+            .find_map(|phase| match phase {
+                MartingaleTakeProfitModel::Percent { bps } => Some(*bps),
+                _ => None,
+            })
+            .unwrap_or(100),
+        MartingaleTakeProfitModel::Amount { .. } | MartingaleTakeProfitModel::Atr { .. } => 100,
+    }
+}
+
 fn ensure_futures_exchange_settings(
     db: &SharedDb,
     portfolio: &MartingalePortfolioRecord,
@@ -446,6 +985,41 @@ fn ensure_futures_exchange_settings(
             .map_err(|error| shared_db::SharedDbError::new(error.to_string()))?;
     }
     Ok(())
+}
+
+fn strategy_anchor_price(
+    strategy_config: &serde_json::Value,
+    market_ticks: &[MarketTick],
+) -> Option<Decimal> {
+    strategy_config
+        .get("anchor_price")
+        .and_then(decimal_from_json)
+        .or_else(|| {
+            strategy_config
+                .get("reference_price")
+                .and_then(decimal_from_json)
+        })
+        .filter(|value| *value > Decimal::ZERO)
+        .or_else(|| {
+            let symbol = strategy_config.get("symbol")?.as_str()?;
+            let batch_tick = market_ticks
+                .iter()
+                .rev()
+                .find(|tick| {
+                    tick.symbol.eq_ignore_ascii_case(symbol)
+                        && (tick.market == "usdm"
+                            || tick.market == "futures"
+                            || tick.market == "usd_m_futures")
+                        && tick.price > Decimal::ZERO
+                })
+                .map(|tick| tick.price);
+            batch_tick.or_else(|| {
+                latest_market_tick(symbol, "usdm")
+                    .or_else(|| latest_market_tick(symbol, "usd_m_futures"))
+                    .or_else(|| latest_market_tick(symbol, "futures"))
+                    .map(|tick| tick.price)
+            })
+        })
 }
 
 fn futures_settings_from_portfolio(
@@ -479,12 +1053,14 @@ fn futures_settings_from_portfolio(
             Some("cross") => MartingaleMarginMode::Cross,
             _ => return Err(shared_db::SharedDbError::new("margin_mode is required")),
         };
-        if let Some(existing) = symbols.get(symbol) {
-            if existing.leverage != leverage || existing.margin_mode != margin_mode {
+        if let Some(existing) = symbols.get_mut(symbol) {
+            if existing.margin_mode != margin_mode {
                 return Err(shared_db::SharedDbError::new(format!(
-                    "{symbol} long/short strategies must share leverage and margin mode"
+                    "{symbol} long/short strategies must share margin mode"
                 )));
             }
+            existing.leverage = existing.leverage.max(leverage);
+            continue;
         }
         symbols.insert(
             symbol.to_owned(),
@@ -531,13 +1107,17 @@ fn sync_live_orders(
         .map_err(|error| shared_db::SharedDbError::new(error.to_string()))?;
     let client = shared_binance::BinanceClient::new(api_key, api_secret);
     if strategy.strategy_type == StrategyType::MartingaleGrid {
-        ensure_single_martingale_exchange_settings(strategy, &client)?;
         let settings = martingale_futures_settings_from_client(strategy, &client)?;
         sync_martingale_production_start(strategy, settings)?;
     }
-    let quantization = strategy_quantization_rules(db, strategy)?;
+    let quantization = strategy_quantization_rules(db, strategy)?
+        .or_else(|| strategy_quantization_rules_from_exchange(strategy, &client));
     let result = sync_strategy_orders(strategy, &client, quantization.as_ref());
     let trade_result = sync_strategy_trades(db, strategy, &client)?;
+    let positions_before_recompute = strategy.runtime.positions.clone();
+    if strategy.strategy_type == StrategyType::MartingaleGrid {
+        recompute_strategy_positions(strategy);
+    }
     if result.submitted > 0 {
         strategy.runtime.events.push(StrategyRuntimeEvent {
             event_type: "live_orders_submitted".to_string(),
@@ -566,13 +1146,27 @@ fn sync_live_orders(
         apply_live_sync_failure(db, strategy, result.fatal, Utc::now())?;
         strategy.status = StrategyStatus::ErrorPaused;
     } else if result.failed > 0 {
-        apply_live_sync_failure(db, strategy, result.failed, Utc::now())?;
+        strategy.runtime.events.push(StrategyRuntimeEvent {
+            event_type: "live_order_sync_retryable_failure".to_string(),
+            detail: format!("{} live order sync actions will retry", result.failed),
+            price: None,
+            created_at: Utc::now(),
+        });
+    }
+    if let Some(error) = result.last_error.as_deref() {
+        strategy.runtime.events.push(StrategyRuntimeEvent {
+            event_type: "live_order_sync_error_detail".to_string(),
+            detail: error.to_string(),
+            price: None,
+            created_at: Utc::now(),
+        });
     }
     Ok(result.submitted > 0
         || result.canceled > 0
         || result.failed > 0
         || result.fatal > 0
-        || trade_result.new_fills > 0)
+        || trade_result.new_fills > 0
+        || positions_before_recompute != strategy.runtime.positions)
 }
 
 fn strategy_quantization_rules(
@@ -593,37 +1187,68 @@ fn strategy_quantization_rules(
     let Some(symbol) = symbol else {
         return Ok(None);
     };
-    let price_tick_size = symbol
-        .metadata
+    Ok(Some(order_quantization_rules_from_metadata(
+        &symbol.metadata,
+    )))
+}
+
+fn strategy_quantization_rules_from_exchange(
+    strategy: &Strategy,
+    client: &BinanceClient,
+) -> Option<OrderQuantizationRules> {
+    let symbols = match strategy.market {
+        shared_domain::strategy::StrategyMarket::Spot => client.spot_symbols_strict().ok()?,
+        shared_domain::strategy::StrategyMarket::FuturesUsdM => {
+            client.usdm_symbols_strict().ok()?
+        }
+        shared_domain::strategy::StrategyMarket::FuturesCoinM => {
+            client.coinm_symbols_strict().ok()?
+        }
+    };
+    symbols
+        .into_iter()
+        .find(|symbol| symbol.symbol.eq_ignore_ascii_case(&strategy.symbol))
+        .map(|symbol| order_quantization_rules_from_symbol(&symbol))
+}
+
+fn order_quantization_rules_from_symbol(symbol: &SymbolMetadata) -> OrderQuantizationRules {
+    OrderQuantizationRules {
+        price_tick_size: symbol.filters.price_tick_size.parse().ok(),
+        quantity_step_size: symbol.filters.quantity_step_size.parse().ok(),
+        min_quantity: symbol.filters.min_quantity.parse().ok(),
+        min_notional: symbol.filters.min_notional.parse().ok(),
+        client_order_id_max_len: 36,
+    }
+}
+
+fn order_quantization_rules_from_metadata(metadata: &serde_json::Value) -> OrderQuantizationRules {
+    let price_tick_size = metadata
         .get("filters")
         .and_then(|filters| filters.get("price_tick_size"))
         .and_then(|value| value.as_str())
         .and_then(|value| value.parse::<rust_decimal::Decimal>().ok());
-    let quantity_step_size = symbol
-        .metadata
+    let quantity_step_size = metadata
         .get("filters")
         .and_then(|filters| filters.get("quantity_step_size"))
         .and_then(|value| value.as_str())
         .and_then(|value| value.parse::<rust_decimal::Decimal>().ok());
-    let min_quantity = symbol
-        .metadata
+    let min_quantity = metadata
         .get("filters")
         .and_then(|filters| filters.get("min_quantity"))
         .and_then(|value| value.as_str())
         .and_then(|value| value.parse::<rust_decimal::Decimal>().ok());
-    let min_notional = symbol
-        .metadata
+    let min_notional = metadata
         .get("filters")
         .and_then(|filters| filters.get("min_notional"))
         .and_then(|value| value.as_str())
         .and_then(|value| value.parse::<rust_decimal::Decimal>().ok());
-    Ok(Some(OrderQuantizationRules {
+    OrderQuantizationRules {
         price_tick_size,
         quantity_step_size,
         min_quantity,
         min_notional,
         client_order_id_max_len: 36,
-    }))
+    }
 }
 
 fn apply_live_sync_failure(
@@ -699,7 +1324,12 @@ fn sync_martingale_production_start(
             &settings,
             &strategy.id,
             anchor_price,
-            MartingaleRuntimeContext::default(),
+            MartingaleRuntimeContext {
+                now_ms: Some(Utc::now().timestamp_millis()),
+                last_cycle_closed_at_ms: last_martingale_cycle_closed_at_ms(strategy),
+                strategy_status: strategy.status,
+                ..MartingaleRuntimeContext::default()
+            },
         )
         .map_err(|error| shared_db::SharedDbError::new(error.to_string()))?;
 
@@ -728,40 +1358,6 @@ fn sync_martingale_production_start(
     Ok(true)
 }
 
-fn ensure_single_martingale_exchange_settings(
-    strategy: &Strategy,
-    client: &BinanceClient,
-) -> Result<(), shared_db::SharedDbError> {
-    if !matches!(
-        strategy.market,
-        shared_domain::strategy::StrategyMarket::FuturesUsdM
-    ) {
-        return Ok(());
-    }
-    let revision = strategy
-        .active_revision
-        .as_ref()
-        .unwrap_or(&strategy.draft_revision);
-    let margin_mode = revision
-        .futures_margin_mode
-        .map(|mode| match mode {
-            shared_domain::strategy::FuturesMarginMode::Isolated => "isolated",
-            shared_domain::strategy::FuturesMarginMode::Cross => "cross",
-        })
-        .unwrap_or("cross");
-    let leverage = revision.leverage.unwrap_or(1);
-    client
-        .set_usdm_position_mode(true)
-        .map_err(|error| shared_db::SharedDbError::new(error.to_string()))?;
-    client
-        .set_usdm_margin_type(&strategy.symbol, margin_mode)
-        .map_err(|error| shared_db::SharedDbError::new(error.to_string()))?;
-    client
-        .set_usdm_leverage(&strategy.symbol, leverage)
-        .map_err(|error| shared_db::SharedDbError::new(error.to_string()))?;
-    Ok(())
-}
-
 fn martingale_runtime_config_from_strategy(
     strategy: &Strategy,
 ) -> Result<MartingaleRuntimeConfig, shared_db::SharedDbError> {
@@ -769,6 +1365,31 @@ fn martingale_runtime_config_from_strategy(
         .active_revision
         .as_ref()
         .unwrap_or(&strategy.draft_revision);
+    if let Some(mut strategy_config) = martingale_config_from_strategy_notes(strategy) {
+        strategy_config.strategy_id = strategy.id.clone();
+        strategy_config.symbol = strategy.symbol.clone();
+        strategy_config.direction = match strategy.mode {
+            shared_domain::strategy::StrategyMode::FuturesShort => MartingaleDirection::Short,
+            _ => MartingaleDirection::Long,
+        };
+        let portfolio_budget_quote = strategy_planned_budget_quote(&strategy_config)
+            .filter(|value| *value > Decimal::ZERO)
+            .unwrap_or_else(|| strategy_budget(strategy));
+        return Ok(MartingaleRuntimeConfig {
+            portfolio_id: strategy
+                .source_template_id
+                .clone()
+                .unwrap_or_else(|| strategy.id.clone()),
+            strategy_instance_id: revision.revision_id.clone(),
+            portfolio: MartingalePortfolioConfig {
+                direction_mode: strategy_config.direction_mode,
+                strategies: vec![strategy_config],
+                risk_limits: MartingaleRiskLimits::default(),
+            },
+            portfolio_budget_quote,
+            exchange_min_notional: rust_decimal::Decimal::ZERO,
+        });
+    }
     let margin_mode = revision
         .futures_margin_mode
         .map(|mode| match mode {
@@ -836,26 +1457,22 @@ fn martingale_runtime_config_from_portfolio(
         .get("portfolio_config")
         .cloned()
         .ok_or_else(|| shared_db::SharedDbError::new("portfolio_config is required"))?;
-    let config: MartingalePortfolioConfig = serde_json::from_value(config_value)
+    let mut config: MartingalePortfolioConfig = serde_json::from_value(config_value.clone())
         .map_err(|error| shared_db::SharedDbError::new(error.to_string()))?;
+    apply_portfolio_weight_scaling(&mut config, &config_value)?;
     config.validate().map_err(shared_db::SharedDbError::new)?;
-    let portfolio_budget_quote = portfolio
-        .items
-        .iter()
-        .filter(|item| item.enabled)
-        .filter_map(|item| {
-            item.parameter_snapshot
-                .get("portfolio_config")
-                .and_then(|config| config.get("strategies"))
-                .and_then(serde_json::Value::as_array)
-                .map(|strategies| strategies.iter())
-                .into_iter()
-                .flatten()
+    let portfolio_budget_quote = config
+        .risk_limits
+        .max_global_budget_quote
+        .filter(|value| *value > Decimal::ZERO)
+        .unwrap_or_else(|| {
+            config
+                .strategies
+                .iter()
                 .filter_map(strategy_planned_budget_quote)
                 .reduce(|acc, value| acc + value)
-        })
-        .reduce(|acc, value| acc + value)
-        .unwrap_or_else(|| Decimal::new(10000, 0));
+                .unwrap_or_else(|| Decimal::new(10000, 0))
+        });
 
     Ok(MartingaleRuntimeConfig {
         portfolio_id: portfolio.portfolio_id.clone(),
@@ -866,28 +1483,135 @@ fn martingale_runtime_config_from_portfolio(
     })
 }
 
-fn strategy_planned_budget_quote(strategy: &serde_json::Value) -> Option<Decimal> {
-    let sizing = strategy.get("sizing")?;
-    if let Some(multiplier) = sizing.get("multiplier") {
-        let first = decimal_from_json(multiplier.get("first_order_quote")?)?;
-        let factor = decimal_from_json(multiplier.get("multiplier")?)?;
-        let max_legs = multiplier.get("max_legs")?.as_u64()? as u32;
-        return Some((0..max_legs).fold(Decimal::ZERO, |acc, leg| {
-            acc + first * decimal_pow_lossy(factor, leg)
-        }));
-    }
-    if let Some(scaled) = sizing.get("budget_scaled") {
-        if let Some(max_budget) = scaled.get("max_budget_quote").and_then(decimal_from_json) {
-            return Some(max_budget);
+fn apply_portfolio_weight_scaling(
+    config: &mut MartingalePortfolioConfig,
+    config_value: &serde_json::Value,
+) -> Result<(), shared_db::SharedDbError> {
+    let weights = portfolio_weight_factors(config_value)?;
+    apply_global_budget_allocations(config, &weights);
+    Ok(())
+}
+
+fn portfolio_weight_factors(
+    config_value: &serde_json::Value,
+) -> Result<HashMap<String, Decimal>, shared_db::SharedDbError> {
+    let mut weights = HashMap::new();
+    let Some(strategies) = config_value
+        .get("strategies")
+        .and_then(serde_json::Value::as_array)
+    else {
+        return Ok(weights);
+    };
+    for strategy in strategies {
+        let Some(strategy_id) = strategy
+            .get("strategy_id")
+            .and_then(serde_json::Value::as_str)
+        else {
+            continue;
+        };
+        let Some(weight_pct) = strategy
+            .get("portfolio_weight_pct")
+            .or_else(|| strategy.get("weight_pct"))
+            .and_then(decimal_from_json)
+        else {
+            continue;
+        };
+        if weight_pct <= Decimal::ZERO {
+            return Err(shared_db::SharedDbError::new(format!(
+                "portfolio weight for {strategy_id} must be positive"
+            )));
         }
-        let first = decimal_from_json(scaled.get("first_order_quote")?)?;
-        let factor = decimal_from_json(scaled.get("multiplier")?)?;
-        let max_legs = scaled.get("max_legs")?.as_u64()? as u32;
-        return Some((0..max_legs).fold(Decimal::ZERO, |acc, leg| {
-            acc + first * decimal_pow_lossy(factor, leg)
-        }));
+        weights.insert(strategy_id.to_owned(), weight_pct / Decimal::new(100, 0));
     }
-    None
+    Ok(weights)
+}
+
+fn apply_global_budget_allocations(
+    config: &mut MartingalePortfolioConfig,
+    weights: &HashMap<String, Decimal>,
+) {
+    let Some(global_budget) = config
+        .risk_limits
+        .max_global_budget_quote
+        .filter(|value| *value > Decimal::ZERO)
+    else {
+        return;
+    };
+    let strategy_count = config.strategies.len();
+    if strategy_count == 0 {
+        return;
+    }
+    let equal_cap = global_budget / Decimal::from(strategy_count as u64);
+    for strategy in &mut config.strategies {
+        let budget_cap = weights
+            .get(&strategy.strategy_id)
+            .copied()
+            .filter(|weight_factor| *weight_factor > Decimal::ZERO)
+            .map(|weight_factor| global_budget * weight_factor)
+            .unwrap_or(equal_cap);
+        cap_strategy_budget(strategy, budget_cap);
+    }
+}
+
+fn cap_strategy_budget(strategy: &mut MartingaleStrategyConfig, budget_cap: Decimal) {
+    if budget_cap <= Decimal::ZERO {
+        return;
+    }
+    let effective_budget_cap = first_leg_budget_quote(strategy)
+        .filter(|value| *value > Decimal::ZERO)
+        .map(|first_leg| budget_cap.max(first_leg))
+        .unwrap_or(budget_cap);
+    cap_optional_budget_limit(
+        &mut strategy.risk_limits.max_strategy_budget_quote,
+        effective_budget_cap,
+    );
+}
+
+fn first_leg_budget_quote(strategy: &MartingaleStrategyConfig) -> Option<Decimal> {
+    match &strategy.sizing {
+        MartingaleSizingModel::Multiplier {
+            first_order_quote, ..
+        }
+        | MartingaleSizingModel::BudgetScaled {
+            first_order_quote, ..
+        } => Some(*first_order_quote),
+        MartingaleSizingModel::CustomSequence { notionals } => notionals.first().copied(),
+    }
+}
+
+fn cap_optional_budget_limit(limit: &mut Option<Decimal>, budget_cap: Decimal) {
+    *limit = Some(match *limit {
+        Some(current) if current > Decimal::ZERO => current.min(budget_cap),
+        _ => budget_cap,
+    });
+}
+
+fn strategy_planned_budget_quote(strategy: &MartingaleStrategyConfig) -> Option<Decimal> {
+    // Planned MARGIN capital, computed through the SAME path as the runtime's
+    // margin-exposure accounting (compute_leg_notionals -> Decimal -> /leverage,
+    // per leg) so the budget and the exposure sum match exactly with no
+    // Decimal rounding drift. Margin = notional / leverage for futures and
+    // = notional for spot. See backtest_engine::martingale::capital.
+    let leverage = match strategy.market {
+        MartingaleMarketKind::Spot => Decimal::ONE,
+        MartingaleMarketKind::UsdMFutures => {
+            Decimal::from(strategy.leverage.unwrap_or(1).max(1))
+        }
+    };
+    let notionals = backtest_engine::martingale::rules::compute_leg_notionals(
+        &strategy.sizing,
+        f64::MAX,
+        backtest_engine::martingale::capital::DEFAULT_EXCHANGE_MIN_NOTIONAL,
+    )
+    .ok()?;
+    let mut total = Decimal::ZERO;
+    for notional in notionals {
+        let notional_dec = Decimal::try_from(notional)
+            .map(|value| value.normalize())
+            .ok()?;
+        total += notional_dec / leverage;
+    }
+    Some(total)
 }
 
 fn decimal_from_json(value: &serde_json::Value) -> Option<Decimal> {
@@ -906,10 +1630,6 @@ fn decimal_from_json(value: &serde_json::Value) -> Option<Decimal> {
                 .as_f64()
                 .and_then(|number| Decimal::try_from(number).ok())
         })
-}
-
-fn decimal_pow_lossy(base: Decimal, exponent: u32) -> Decimal {
-    (0..exponent).fold(Decimal::ONE, |acc, _| acc * base)
 }
 
 fn martingale_futures_settings_from_client(
@@ -1031,6 +1751,10 @@ fn apply_market_ticks(
         return Ok(false);
     }
 
+    if strategy.strategy_type == StrategyType::MartingaleGrid {
+        return apply_martingale_market_ticks(db, strategy, &relevant);
+    }
+
     let revision = strategy
         .active_revision
         .clone()
@@ -1116,6 +1840,241 @@ fn apply_market_ticks(
     }
 
     Ok(changed)
+}
+
+fn apply_martingale_market_ticks(
+    db: &SharedDb,
+    strategy: &mut Strategy,
+    market_ticks: &[&MarketTick],
+) -> Result<bool, shared_db::SharedDbError> {
+    let mut changed = false;
+    let strategy_config = martingale_strategy_config_from_live_strategy(strategy)?;
+    for tick in market_ticks {
+        if martingale_close_already_requested(strategy) {
+            break;
+        }
+        let Some(position) = martingale_position_for_strategy(strategy) else {
+            continue;
+        };
+        let Some(exit) = martingale_exit_signal(&strategy_config, &position, tick.price) else {
+            continue;
+        };
+        request_martingale_close(strategy, &position, tick.price, &exit);
+        strategy.status = StrategyStatus::Stopping;
+        changed = true;
+        persist_runtime_notification(
+            db,
+            strategy,
+            if exit.event_type == "martingale_take_profit_stop" {
+                NotificationKind::OverallTakeProfitTriggered
+            } else {
+                NotificationKind::OverallStopLossTriggered
+            },
+            if exit.event_type == "martingale_take_profit_stop" {
+                "Martingale take profit reached"
+            } else {
+                "Martingale stop loss reached"
+            },
+            &format!(
+                "{} triggered {} on {}.",
+                strategy.name, exit.label, strategy.symbol
+            ),
+            serde_json::json!({
+                "strategy_id": strategy.id,
+                "trigger_price": tick.price.to_string(),
+                "reason": exit.event_type,
+            }),
+            Utc::now(),
+        )?;
+    }
+    Ok(changed)
+}
+
+struct MartingaleExitSignal {
+    event_type: &'static str,
+    label: &'static str,
+    threshold_price: Decimal,
+}
+
+fn martingale_exit_signal(
+    config: &MartingaleStrategyConfig,
+    position: &StrategyRuntimePosition,
+    current_price: Decimal,
+) -> Option<MartingaleExitSignal> {
+    if current_price <= Decimal::ZERO || position.average_entry_price <= Decimal::ZERO {
+        return None;
+    }
+    let is_long = config.direction == MartingaleDirection::Long;
+    if let Some(threshold_price) =
+        martingale_percent_take_profit_price(config, position.average_entry_price)
+    {
+        let triggered = if is_long {
+            current_price >= threshold_price
+        } else {
+            current_price <= threshold_price
+        };
+        if triggered {
+            return Some(MartingaleExitSignal {
+                event_type: "martingale_take_profit_stop",
+                label: "take profit",
+                threshold_price,
+            });
+        }
+    }
+    if let Some(threshold_price) =
+        martingale_strategy_drawdown_stop_price(config, position.average_entry_price)
+    {
+        let triggered = if is_long {
+            current_price <= threshold_price
+        } else {
+            current_price >= threshold_price
+        };
+        if triggered {
+            return Some(MartingaleExitSignal {
+                event_type: "martingale_strategy_drawdown_stop",
+                label: "strategy drawdown stop",
+                threshold_price,
+            });
+        }
+    }
+    None
+}
+
+fn martingale_percent_take_profit_price(
+    config: &MartingaleStrategyConfig,
+    average_entry: Decimal,
+) -> Option<Decimal> {
+    let bps = match &config.take_profit {
+        MartingaleTakeProfitModel::Percent { bps } => *bps,
+        _ => return None,
+    };
+    let offset = average_entry * Decimal::from(bps) / Decimal::from(10_000_u32);
+    Some(match config.direction {
+        MartingaleDirection::Long => average_entry + offset,
+        MartingaleDirection::Short => average_entry - offset,
+    })
+    .filter(|price| *price > Decimal::ZERO)
+}
+
+fn martingale_strategy_drawdown_stop_price(
+    config: &MartingaleStrategyConfig,
+    average_entry: Decimal,
+) -> Option<Decimal> {
+    let pct_bps = match &config.stop_loss {
+        Some(MartingaleStopLossModel::StrategyDrawdownPct { pct_bps }) => *pct_bps,
+        _ => return None,
+    };
+    let offset = average_entry * Decimal::from(pct_bps) / Decimal::from(10_000_u32);
+    Some(match config.direction {
+        MartingaleDirection::Long => average_entry - offset,
+        MartingaleDirection::Short => average_entry + offset,
+    })
+    .filter(|price| *price > Decimal::ZERO)
+}
+
+fn martingale_close_already_requested(strategy: &Strategy) -> bool {
+    strategy.runtime.orders.iter().any(|order| {
+        (order.order_id.starts_with("cl-")
+            || order.order_id.starts_with("close-")
+            || order.order_id.contains("-stop-close-"))
+            && matches!(
+                order.status.as_str(),
+                "ClosingRequested" | "Placed" | "PartiallyFilled"
+            )
+    })
+}
+
+fn martingale_position_for_strategy(strategy: &Strategy) -> Option<StrategyRuntimePosition> {
+    let mode = strategy.mode;
+    strategy
+        .runtime
+        .positions
+        .iter()
+        .find(|position| position.mode == mode)
+        .cloned()
+        .or_else(|| strategy.runtime.positions.first().cloned())
+}
+
+fn request_martingale_close(
+    strategy: &mut Strategy,
+    position: &StrategyRuntimePosition,
+    current_price: Decimal,
+    exit: &MartingaleExitSignal,
+) {
+    let position_index = strategy
+        .runtime
+        .positions
+        .iter()
+        .position(|candidate| {
+            candidate.mode == position.mode
+                && candidate.market == position.market
+                && candidate.quantity == position.quantity
+                && candidate.average_entry_price == position.average_entry_price
+        })
+        .unwrap_or(0);
+    let order_id = martingale_close_client_order_id(&strategy.id, position_index);
+    if strategy.runtime.orders.iter().any(|order| {
+        (order.order_id == order_id
+            || order.order_id.starts_with("close-")
+            || order.order_id.contains("-stop-close-"))
+            && order
+                .side
+                .eq_ignore_ascii_case(close_side_for_runtime_position(position))
+            && matches!(
+                order.status.as_str(),
+                "ClosingRequested" | "Placed" | "PartiallyFilled"
+            )
+    }) {
+        return;
+    }
+    strategy.runtime.orders.push(StrategyRuntimeOrder {
+        order_id,
+        exchange_order_id: None,
+        level_index: None,
+        side: close_side_for_runtime_position(position).to_string(),
+        order_type: "Market".to_string(),
+        price: None,
+        quantity: position.quantity.abs(),
+        status: "ClosingRequested".to_string(),
+    });
+    strategy.runtime.events.push(StrategyRuntimeEvent {
+        event_type: exit.event_type.to_string(),
+        detail: format!(
+            "{} triggered at {}; threshold_price={}",
+            exit.label,
+            current_price.normalize(),
+            exit.threshold_price.normalize()
+        ),
+        price: Some(current_price),
+        created_at: Utc::now(),
+    });
+}
+
+fn martingale_close_client_order_id(strategy_id: &str, position_index: usize) -> String {
+    let mut hasher = DefaultHasher::new();
+    strategy_id.hash(&mut hasher);
+    position_index.hash(&mut hasher);
+    format!("cl-{hash:016x}-{position_index}", hash = hasher.finish())
+}
+
+fn close_side_for_runtime_position(position: &StrategyRuntimePosition) -> &'static str {
+    match position.mode {
+        shared_domain::strategy::StrategyMode::FuturesShort
+        | shared_domain::strategy::StrategyMode::SpotSellOnly => "Buy",
+        _ => "Sell",
+    }
+}
+
+fn martingale_strategy_config_from_live_strategy(
+    strategy: &Strategy,
+) -> Result<MartingaleStrategyConfig, shared_db::SharedDbError> {
+    let config = martingale_runtime_config_from_strategy(strategy)?;
+    config
+        .portfolio
+        .strategies
+        .into_iter()
+        .find(|candidate| candidate.strategy_id == strategy.id)
+        .ok_or_else(|| shared_db::SharedDbError::new("martingale strategy config not found"))
 }
 
 fn strategy_market_code(market: shared_domain::strategy::StrategyMarket) -> &'static str {
@@ -1414,6 +2373,9 @@ fn apply_execution_update_effects(
     if !changed {
         return Ok(false);
     }
+    if strategy.strategy_type == StrategyType::MartingaleGrid {
+        recompute_strategy_positions(strategy);
+    }
     let effects = persist_execution_effects(db, strategy, update)?;
     strategy.runtime.events.push(StrategyRuntimeEvent {
         event_type: "execution_effects_persisted".to_string(),
@@ -1479,8 +2441,8 @@ fn run_user_stream_rest_backfill(
                     .iter()
                     .any(|t| t.trade_id == trade.trade_id);
                 if !existing {
-                    let _ = db.insert_exchange_trade_history(
-                        &shared_db::ExchangeTradeHistoryRecord {
+                    let _ =
+                        db.insert_exchange_trade_history(&shared_db::ExchangeTradeHistoryRecord {
                             trade_id: trade.trade_id.clone(),
                             user_email: email.to_string(),
                             exchange: "binance".to_string(),
@@ -1490,12 +2452,9 @@ fn run_user_stream_rest_backfill(
                             price: trade.price.clone(),
                             fee_amount: trade.fee_amount.clone(),
                             fee_asset: trade.fee_asset.clone(),
-                            traded_at: chrono::DateTime::from_timestamp_millis(
-                                trade.traded_at_ms,
-                            )
-                            .unwrap_or(Utc::now()),
-                        },
-                    );
+                            traded_at: chrono::DateTime::from_timestamp_millis(trade.traded_at_ms)
+                                .unwrap_or(Utc::now()),
+                        });
                 }
                 let trade_id = format!(
                     "{}_{}",
@@ -1530,7 +2489,10 @@ fn run_user_stream_rest_backfill(
     if let Ok(account) = client.read_usdm_account_v3() {
         let mut seen_positions: HashSet<(String, String)> = HashSet::new();
         for pos in &account.positions {
-            let side = pos.position_side.clone().unwrap_or_else(|| "long".to_string());
+            let side = pos
+                .position_side
+                .clone()
+                .unwrap_or_else(|| "long".to_string());
             let key = (pos.symbol.to_ascii_uppercase(), side.clone());
             if seen_positions.insert(key) {
                 let unrealized: rust_decimal::Decimal =
@@ -1549,8 +2511,7 @@ fn run_user_stream_rest_backfill(
                     continue;
                 }
                 if strategy.runtime.positions.is_empty() {
-                    strategy.runtime.positions.push(
-                        StrategyRuntimePosition {
+                    strategy.runtime.positions.push(StrategyRuntimePosition {
                         market: shared_domain::strategy::StrategyMarket::FuturesUsdM,
                         mode: if pos.position_side.as_deref() == Some("short") {
                             shared_domain::strategy::StrategyMode::FuturesShort
@@ -1595,7 +2556,10 @@ fn run_user_stream_rest_backfill(
     let mut total_commission: rust_decimal::Decimal = rust_decimal::Decimal::ZERO;
     let mut total_realized: rust_decimal::Decimal = rust_decimal::Decimal::ZERO;
     for mut strategy in db.list_strategies(email)? {
-        if !matches!(strategy.market, shared_domain::strategy::StrategyMarket::FuturesUsdM) {
+        if !matches!(
+            strategy.market,
+            shared_domain::strategy::StrategyMarket::FuturesUsdM
+        ) {
             continue;
         }
         if let Ok(incomes) = client.read_usdm_income(&strategy.symbol, None, 100) {
@@ -1649,37 +2613,30 @@ fn run_user_stream_rest_backfill(
         || total_funding != rust_decimal::Decimal::ZERO
         || total_unrealized != rust_decimal::Decimal::ZERO;
     if needs_snapshot {
-        let _ = db.insert_account_profit_snapshot(
-            &shared_db::AccountProfitSnapshotRecord {
-                user_email: email.to_string(),
-                exchange: "binance".to_string(),
-                realized_pnl: total_realized.to_string(),
-                unrealized_pnl: total_unrealized.to_string(),
-                fees: total_commission.to_string(),
-                funding: Some(total_funding.to_string()),
-                captured_at: Utc::now(),
-            },
-        );
+        let _ = db.insert_account_profit_snapshot(&shared_db::AccountProfitSnapshotRecord {
+            user_email: email.to_string(),
+            exchange: "binance".to_string(),
+            realized_pnl: total_realized.to_string(),
+            unrealized_pnl: total_unrealized.to_string(),
+            fees: total_commission.to_string(),
+            funding: Some(total_funding.to_string()),
+            captured_at: Utc::now(),
+        });
     }
     // Reconcile balances --- persist to exchange_wallet_snapshots (structured table).
     if let Ok(balances) = client.read_usdm_account_v3_balance() {
         let mut wallet_balances: serde_json::Map<String, serde_json::Value> =
             serde_json::Map::new();
         for balance in &balances {
-            wallet_balances.insert(
-                balance.asset.clone(),
-                serde_json::json!(balance.balance),
-            );
+            wallet_balances.insert(balance.asset.clone(), serde_json::json!(balance.balance));
         }
-        let _ = db.insert_exchange_wallet_snapshot(
-            &shared_db::ExchangeWalletSnapshotRecord {
-                user_email: email.to_string(),
-                exchange: "binance".to_string(),
-                wallet_type: "futures".to_string(),
-                balances: serde_json::Value::Object(wallet_balances),
-                captured_at: Utc::now(),
-            },
-        );
+        let _ = db.insert_exchange_wallet_snapshot(&shared_db::ExchangeWalletSnapshotRecord {
+            user_email: email.to_string(),
+            exchange: "binance".to_string(),
+            wallet_type: "futures".to_string(),
+            balances: serde_json::Value::Object(wallet_balances),
+            captured_at: Utc::now(),
+        });
     }
 
     // Persist last_rest_reconcile_at timestamp across all strategies
@@ -1722,11 +2679,13 @@ fn apply_account_update_for_user(
 ) -> Result<(), shared_db::SharedDbError> {
     let mut seen_positions: HashSet<(String, String)> = HashSet::new();
     let mut total_unrealized: rust_decimal::Decimal = rust_decimal::Decimal::ZERO;
-    let mut wallet_balances: serde_json::Map<String, serde_json::Value> =
-        serde_json::Map::new();
+    let mut wallet_balances: serde_json::Map<String, serde_json::Value> = serde_json::Map::new();
 
     for pos_update in &update.positions {
-        let side = pos_update.position_side.clone().unwrap_or_else(|| "long".to_string());
+        let side = pos_update
+            .position_side
+            .clone()
+            .unwrap_or_else(|| "long".to_string());
         let key = (pos_update.symbol.to_ascii_uppercase(), side.clone());
         if seen_positions.insert(key) {
             let unrealized: rust_decimal::Decimal =
@@ -1747,13 +2706,14 @@ fn apply_account_update_for_user(
                 pos_update.position_amount.parse().unwrap_or_default();
             let entry: rust_decimal::Decimal = pos_update.entry_price.parse().unwrap_or_default();
             let mode = match pos_update.position_side.as_deref() {
-                Some("short") | Some("SHORT") => shared_domain::strategy::StrategyMode::FuturesShort,
+                Some("short") | Some("SHORT") => {
+                    shared_domain::strategy::StrategyMode::FuturesShort
+                }
                 _ => shared_domain::strategy::StrategyMode::FuturesLong,
             };
 
             let pos_index = strategy.runtime.positions.iter().position(|rp| {
-                rp.market == shared_domain::strategy::StrategyMarket::FuturesUsdM
-                    && rp.mode == mode
+                rp.market == shared_domain::strategy::StrategyMarket::FuturesUsdM && rp.mode == mode
             });
 
             if amount.is_zero() {
@@ -1822,30 +2782,26 @@ fn apply_account_update_for_user(
 
     // Write structured wallet snapshot
     if !wallet_balances.is_empty() {
-        let _ = db.insert_exchange_wallet_snapshot(
-            &shared_db::ExchangeWalletSnapshotRecord {
-                user_email: email.to_string(),
-                exchange: "binance".to_string(),
-                wallet_type: "futures".to_string(),
-                balances: serde_json::Value::Object(wallet_balances),
-                captured_at: Utc::now(),
-            },
-        );
+        let _ = db.insert_exchange_wallet_snapshot(&shared_db::ExchangeWalletSnapshotRecord {
+            user_email: email.to_string(),
+            exchange: "binance".to_string(),
+            wallet_type: "futures".to_string(),
+            balances: serde_json::Value::Object(wallet_balances),
+            captured_at: Utc::now(),
+        });
     }
 
     // Write account profit snapshot if we have unrealized data
     if total_unrealized != rust_decimal::Decimal::ZERO {
-        let _ = db.insert_account_profit_snapshot(
-            &shared_db::AccountProfitSnapshotRecord {
-                user_email: email.to_string(),
-                exchange: "binance".to_string(),
-                realized_pnl: "0".to_string(),
-                unrealized_pnl: total_unrealized.to_string(),
-                fees: "0".to_string(),
-                funding: Some("0".to_string()),
-                captured_at: Utc::now(),
-            },
-        );
+        let _ = db.insert_account_profit_snapshot(&shared_db::AccountProfitSnapshotRecord {
+            user_email: email.to_string(),
+            exchange: "binance".to_string(),
+            realized_pnl: "0".to_string(),
+            unrealized_pnl: total_unrealized.to_string(),
+            fees: "0".to_string(),
+            funding: Some("0".to_string()),
+            captured_at: Utc::now(),
+        });
     }
 
     Ok(())
@@ -2698,7 +3654,7 @@ mod tests {
         let config = super::martingale_runtime_config_from_portfolio(&portfolio)
             .expect("portfolio config should map to runtime");
         assert_eq!(config.portfolio.strategies.len(), 2);
-        assert_eq!(config.portfolio_budget_quote, Decimal::new(210, 0));
+        assert_eq!(config.portfolio_budget_quote, Decimal::new(6376, 2));
 
         let mut runtime = trading_engine::martingale_runtime::MartingaleRuntime::new(config)
             .expect("runtime should accept mapped config");
@@ -2731,13 +3687,820 @@ mod tests {
         assert!(runtime.orders().iter().any(|order| {
             order.strategy_id == "btc-long"
                 && order.side == "BUY"
-                && order.notional_quote == Decimal::new(30, 0)
+                && order.notional_quote == Decimal::new(10, 0)
         }));
         assert!(runtime.orders().iter().any(|order| {
             order.strategy_id == "btc-short"
                 && order.side == "SELL"
-                && order.notional_quote == Decimal::new(24, 0)
+                && order.notional_quote == Decimal::new(8, 0)
         }));
+    }
+
+    #[test]
+    fn martingale_portfolio_executor_strategy_preserves_live_order_sync_path() {
+        let now = Utc::now();
+        let portfolio = MartingalePortfolioRecord {
+            portfolio_id: "mp-executor".to_owned(),
+            owner: "engine@example.com".to_owned(),
+            name: "executor portfolio".to_owned(),
+            status: "running".to_owned(),
+            source_task_id: "task".to_owned(),
+            market: "usd_m_futures".to_owned(),
+            direction: "long_short".to_owned(),
+            risk_profile: "balanced".to_owned(),
+            total_weight_pct: Decimal::new(100, 0),
+            config: serde_json::json!({}),
+            risk_summary: serde_json::json!({}),
+            created_at: now,
+            updated_at: now,
+            items: Vec::new(),
+        };
+        let strategy_config = serde_json::from_value::<shared_domain::martingale::MartingaleStrategyConfig>(
+            serde_json::json!({
+                "strategy_id": "staged-executor-long",
+                "symbol": "BTCUSDT",
+                "market": "usd_m_futures",
+                "direction": "long",
+                "direction_mode": "long_and_short",
+                "margin_mode": "isolated",
+                "leverage": 3,
+                "spacing": { "fixed_percent": { "step_bps": 100 } },
+                "sizing": { "multiplier": { "first_order_quote": "10", "multiplier": "2", "max_legs": 3 } },
+                "take_profit": { "percent": { "bps": 80 } },
+                "stop_loss": { "strategy_drawdown_pct": { "pct_bps": 2000 } },
+                "indicators": [],
+                "entry_triggers": [],
+                "risk_limits": {}
+            }),
+        )
+        .expect("strategy config");
+        let mut runtime = trading_engine::martingale_runtime::MartingaleRuntime::new(
+            trading_engine::martingale_runtime::MartingaleRuntimeConfig {
+                portfolio_id: portfolio.portfolio_id.clone(),
+                strategy_instance_id: "portfolio".to_owned(),
+                portfolio: shared_domain::martingale::MartingalePortfolioConfig {
+                    direction_mode:
+                        shared_domain::martingale::MartingaleDirectionMode::LongAndShort,
+                    strategies: vec![strategy_config.clone()],
+                    risk_limits: shared_domain::martingale::MartingaleRiskLimits::default(),
+                },
+                portfolio_budget_quote: Decimal::new(70, 0),
+                exchange_min_notional: Decimal::ZERO,
+            },
+        )
+        .expect("runtime");
+        let settings = trading_engine::martingale_runtime::FuturesExchangeSettings {
+            hedge_mode: true,
+            symbols: HashMap::from([(
+                "BTCUSDT".to_owned(),
+                trading_engine::martingale_runtime::FuturesSymbolSettings {
+                    margin_mode: shared_domain::martingale::MartingaleMarginMode::Isolated,
+                    leverage: 3,
+                },
+            )]),
+        };
+        runtime
+            .start_cycle_with_futures_preflight(
+                &settings,
+                "staged-executor-long",
+                Decimal::new(100, 0),
+                trading_engine::martingale_runtime::MartingaleRuntimeContext::default(),
+            )
+            .expect("cycle");
+        let runtime_orders = super::martingale_runtime_orders_to_strategy_orders(runtime.orders());
+        let executor = super::executor_strategy_from_martingale_config(
+            &portfolio.owner,
+            &portfolio,
+            &strategy_config,
+            Decimal::new(100, 0),
+            runtime_orders,
+        )
+        .expect("executor strategy");
+
+        assert_eq!(executor.id, "staged-executor-long");
+        assert_eq!(executor.strategy_type, StrategyType::MartingaleGrid);
+        assert_eq!(executor.market, StrategyMarket::FuturesUsdM);
+        assert_eq!(executor.mode, StrategyMode::FuturesLong);
+        assert_eq!(executor.source_template_id.as_deref(), Some("mp-executor"));
+        assert_eq!(executor.runtime.orders.len(), 1);
+        assert!(executor.runtime.orders[0].order_id.starts_with("mg-"));
+        assert!(executor.runtime.orders[0].order_id.contains("-leg-"));
+        assert!(executor.runtime.orders[0].order_id.len() <= 36);
+
+        let restored = super::martingale_runtime_config_from_strategy(&executor)
+            .expect("executor should preserve original martingale config")
+            .portfolio
+            .strategies
+            .remove(0);
+        assert_eq!(restored.spacing, strategy_config.spacing);
+        assert_eq!(restored.sizing, strategy_config.sizing);
+        assert_eq!(restored.take_profit, strategy_config.take_profit);
+        assert_eq!(restored.stop_loss, strategy_config.stop_loss);
+        assert_eq!(restored.entry_triggers, strategy_config.entry_triggers);
+    }
+
+    #[test]
+    fn martingale_percent_take_profit_requests_market_close() {
+        let mut running = strategy("martingale-tp", StrategyStatus::Running);
+        running.strategy_type = StrategyType::MartingaleGrid;
+        running.market = StrategyMarket::FuturesUsdM;
+        running.mode = StrategyMode::FuturesLong;
+        running.runtime.positions.push(StrategyRuntimePosition {
+            market: StrategyMarket::FuturesUsdM,
+            mode: StrategyMode::FuturesLong,
+            quantity: Decimal::new(1, 0),
+            average_entry_price: Decimal::new(100, 0),
+        });
+        let config = super::martingale_runtime_config_from_strategy(&running)
+            .expect("strategy config")
+            .portfolio
+            .strategies
+            .remove(0);
+        let signal = super::martingale_exit_signal(
+            &config,
+            &running.runtime.positions[0],
+            Decimal::new(102, 0),
+        )
+        .expect("tp should trigger");
+        assert_eq!(signal.event_type, "martingale_take_profit_stop");
+
+        let position = running.runtime.positions[0].clone();
+        super::request_martingale_close(&mut running, &position, Decimal::new(102, 0), &signal);
+
+        assert!(running.runtime.orders.iter().any(|order| {
+            order.status == "ClosingRequested"
+                && order.side == "Sell"
+                && order.order_type == "Market"
+        }));
+    }
+
+    #[test]
+    fn martingale_executor_notes_restore_atr_indicator_and_cooldown_config() {
+        let mut executor = strategy("staged-executor-atr", StrategyStatus::Running);
+        executor.strategy_type = StrategyType::MartingaleGrid;
+        executor.market = StrategyMarket::FuturesUsdM;
+        executor.mode = StrategyMode::FuturesLong;
+        executor.source_template_id = Some("mp-lp".to_owned());
+        executor.active_revision = Some(shared_domain::strategy::StrategyRevision {
+            revision_id: "staged-executor-atr-rev".to_owned(),
+            version: 1,
+            strategy_type: StrategyType::MartingaleGrid,
+            generation: GridGeneration::Custom,
+            levels: Vec::new(),
+            amount_mode: StrategyAmountMode::Quote,
+            futures_margin_mode: Some(shared_domain::strategy::FuturesMarginMode::Isolated),
+            leverage: Some(10),
+            reference_price_source: ReferencePriceSource::Manual,
+            reference_price: Some(Decimal::new(100, 0)),
+            overall_take_profit_bps: None,
+            overall_stop_loss_bps: None,
+            post_trigger_action: PostTriggerAction::Stop,
+        });
+        let original = serde_json::from_value::<shared_domain::martingale::MartingaleStrategyConfig>(
+            serde_json::json!({
+                "strategy_id": "staged-executor-atr",
+                "symbol": "BTCUSDT",
+                "market": "usd_m_futures",
+                "direction": "long",
+                "direction_mode": "long_and_short",
+                "margin_mode": "isolated",
+                "leverage": 10,
+                "spacing": { "atr": { "multiplier": "2", "min_step_bps": 0, "max_step_bps": 30000 } },
+                "sizing": { "multiplier": { "first_order_quote": "50", "multiplier": "2.4", "max_legs": 9 } },
+                "take_profit": { "percent": { "bps": 300 } },
+                "stop_loss": { "strategy_drawdown_pct": { "pct_bps": 600 } },
+                "indicators": [{ "atr": { "period": 21 } }, { "adx": { "period": 14 } }],
+                "entry_triggers": [
+                    { "cooldown": { "seconds": 21600 } },
+                    { "indicator_expression": { "expression": "adx(14) > 30" } }
+                ],
+                "risk_limits": {}
+            }),
+        )
+        .expect("martingale strategy config");
+        executor.notes =
+            super::notes_with_martingale_config("executor".to_owned(), &original).expect("notes");
+
+        let restored = super::martingale_runtime_config_from_strategy(&executor)
+            .expect("runtime config")
+            .portfolio
+            .strategies
+            .remove(0);
+
+        assert_eq!(restored.spacing, original.spacing);
+        assert_eq!(restored.sizing, original.sizing);
+        assert_eq!(restored.take_profit, original.take_profit);
+        assert_eq!(restored.stop_loss, original.stop_loss);
+        assert_eq!(restored.indicators, original.indicators);
+        assert_eq!(restored.entry_triggers, original.entry_triggers);
+    }
+
+    #[test]
+    fn martingale_runtime_cooldown_blocks_live_reentry_until_elapsed() {
+        let config = serde_json::from_value::<shared_domain::martingale::MartingaleStrategyConfig>(
+            serde_json::json!({
+                "strategy_id": "cooldown-live",
+                "symbol": "BTCUSDT",
+                "market": "usd_m_futures",
+                "direction": "long",
+                "direction_mode": "long_only",
+                "margin_mode": "isolated",
+                "leverage": 3,
+                "spacing": { "fixed_percent": { "step_bps": 100 } },
+                "sizing": { "multiplier": { "first_order_quote": "10", "multiplier": "2", "max_legs": 3 } },
+                "take_profit": { "percent": { "bps": 100 } },
+                "stop_loss": { "strategy_drawdown_pct": { "pct_bps": 2000 } },
+                "indicators": [],
+                "entry_triggers": [{ "cooldown": { "seconds": 60 } }],
+                "risk_limits": {}
+            }),
+        )
+        .expect("strategy config");
+        let settings = trading_engine::martingale_runtime::FuturesExchangeSettings {
+            hedge_mode: false,
+            symbols: HashMap::from([(
+                "BTCUSDT".to_owned(),
+                trading_engine::martingale_runtime::FuturesSymbolSettings {
+                    margin_mode: shared_domain::martingale::MartingaleMarginMode::Isolated,
+                    leverage: 3,
+                },
+            )]),
+        };
+        let runtime_config = trading_engine::martingale_runtime::MartingaleRuntimeConfig {
+            portfolio_id: "mp-cooldown".to_owned(),
+            strategy_instance_id: "portfolio".to_owned(),
+            portfolio: shared_domain::martingale::MartingalePortfolioConfig {
+                direction_mode: shared_domain::martingale::MartingaleDirectionMode::LongOnly,
+                strategies: vec![config],
+                risk_limits: shared_domain::martingale::MartingaleRiskLimits::default(),
+            },
+            portfolio_budget_quote: Decimal::new(70, 0),
+            exchange_min_notional: Decimal::ZERO,
+        };
+
+        let mut blocked =
+            trading_engine::martingale_runtime::MartingaleRuntime::new(runtime_config.clone())
+                .expect("runtime");
+        let blocked_result = blocked.start_cycle_with_futures_preflight(
+            &settings,
+            "cooldown-live",
+            Decimal::new(100, 0),
+            trading_engine::martingale_runtime::MartingaleRuntimeContext {
+                now_ms: Some(59_000),
+                last_cycle_closed_at_ms: Some(0),
+                ..Default::default()
+            },
+        );
+        assert!(blocked_result
+            .expect_err("cooldown should block")
+            .to_string()
+            .contains("entry triggers"));
+
+        let mut allowed =
+            trading_engine::martingale_runtime::MartingaleRuntime::new(runtime_config)
+                .expect("runtime");
+        allowed
+            .start_cycle_with_futures_preflight(
+                &settings,
+                "cooldown-live",
+                Decimal::new(100, 0),
+                trading_engine::martingale_runtime::MartingaleRuntimeContext {
+                    now_ms: Some(60_000),
+                    last_cycle_closed_at_ms: Some(0),
+                    ..Default::default()
+                },
+            )
+            .expect("cooldown should allow after elapsed window");
+    }
+
+    #[test]
+    fn martingale_strategy_drawdown_requests_market_close() {
+        let mut running = strategy("martingale-sl", StrategyStatus::Running);
+        running.strategy_type = StrategyType::MartingaleGrid;
+        running.market = StrategyMarket::FuturesUsdM;
+        running.mode = StrategyMode::FuturesLong;
+        running.runtime.positions.push(StrategyRuntimePosition {
+            market: StrategyMarket::FuturesUsdM,
+            mode: StrategyMode::FuturesLong,
+            quantity: Decimal::new(1, 0),
+            average_entry_price: Decimal::new(100, 0),
+        });
+        let mut config = super::martingale_runtime_config_from_strategy(&running)
+            .expect("strategy config")
+            .portfolio
+            .strategies
+            .remove(0);
+        config.take_profit =
+            shared_domain::martingale::MartingaleTakeProfitModel::Percent { bps: 9_000 };
+        config.stop_loss = Some(
+            shared_domain::martingale::MartingaleStopLossModel::StrategyDrawdownPct {
+                pct_bps: 2_000,
+            },
+        );
+
+        let signal = super::martingale_exit_signal(
+            &config,
+            &running.runtime.positions[0],
+            Decimal::new(79, 0),
+        )
+        .expect("strategy drawdown should trigger");
+        assert_eq!(signal.event_type, "martingale_strategy_drawdown_stop");
+
+        let position = running.runtime.positions[0].clone();
+        super::request_martingale_close(&mut running, &position, Decimal::new(79, 0), &signal);
+        assert!(running.runtime.orders.iter().any(|order| {
+            order.status == "ClosingRequested"
+                && order.side == "Sell"
+                && order.order_type == "Market"
+        }));
+    }
+
+    #[test]
+    fn martingale_executor_reconcile_generates_next_safety_leg_after_fill() {
+        let db = SharedDb::ephemeral().expect("db");
+        let now = Utc::now();
+        let portfolio_config = serde_json::json!({
+            "portfolio_config": {
+                "direction_mode": "long_only",
+                "risk_limits": {},
+                "strategies": [
+                    {
+                        "strategy_id": "staged-reconcile-long",
+                        "symbol": "BTCUSDT",
+                        "market": "usd_m_futures",
+                        "direction": "long",
+                        "direction_mode": "long_only",
+                        "margin_mode": "isolated",
+                        "leverage": 3,
+                        "spacing": { "fixed_percent": { "step_bps": 100 } },
+                        "sizing": { "multiplier": { "first_order_quote": "11", "multiplier": "1", "max_legs": 2 } },
+                        "take_profit": { "percent": { "bps": 80 } },
+                        "stop_loss": { "strategy_drawdown_pct": { "pct_bps": 2000 } },
+                        "indicators": [],
+                        "entry_triggers": [],
+                        "risk_limits": {}
+                    }
+                ]
+            }
+        });
+        let portfolio = MartingalePortfolioRecord {
+            portfolio_id: "mp-reconcile".to_owned(),
+            owner: "engine@example.com".to_owned(),
+            name: "reconcile portfolio".to_owned(),
+            status: "running".to_owned(),
+            source_task_id: "task".to_owned(),
+            market: "usd_m_futures".to_owned(),
+            direction: "long".to_owned(),
+            risk_profile: "balanced".to_owned(),
+            total_weight_pct: Decimal::new(100, 0),
+            config: portfolio_config.clone(),
+            risk_summary: serde_json::json!({}),
+            created_at: now,
+            updated_at: now,
+            items: vec![MartingalePortfolioItemRecord {
+                strategy_instance_id: "msi-reconcile".to_owned(),
+                portfolio_id: "mp-reconcile".to_owned(),
+                candidate_id: "bc-reconcile".to_owned(),
+                symbol: "BTCUSDT".to_owned(),
+                weight_pct: Decimal::new(100, 0),
+                leverage: 3,
+                enabled: true,
+                status: "running".to_owned(),
+                parameter_snapshot: portfolio_config,
+                metrics_snapshot: serde_json::json!({}),
+                created_at: now,
+                updated_at: now,
+            }],
+        };
+        let config = super::martingale_runtime_config_from_portfolio(&portfolio)
+            .expect("portfolio config should map to runtime");
+        let strategy_config = config.portfolio.strategies[0].clone();
+        let settings =
+            super::futures_settings_from_portfolio(&portfolio).expect("futures settings");
+        let mut runtime =
+            trading_engine::martingale_runtime::MartingaleRuntime::new(config).expect("runtime");
+        runtime
+            .start_cycle_with_futures_preflight(
+                &settings,
+                "staged-reconcile-long",
+                Decimal::new(100, 0),
+                trading_engine::martingale_runtime::MartingaleRuntimeContext::default(),
+            )
+            .expect("cycle");
+        let mut runtime_orders =
+            super::martingale_runtime_orders_to_strategy_orders(runtime.orders());
+        assert_eq!(runtime_orders.len(), 1);
+        runtime_orders[0].status = "Filled".to_owned();
+        let first_leg_id = runtime_orders[0].order_id.clone();
+        let executor = super::executor_strategy_from_martingale_config(
+            &portfolio.owner,
+            &portfolio,
+            &strategy_config,
+            Decimal::new(100, 0),
+            runtime_orders,
+        )
+        .expect("executor strategy");
+        db.insert_strategy(&StoredStrategy {
+            sequence_id: 1,
+            strategy: executor,
+        })
+        .expect("strategy");
+
+        super::reconcile_martingale_executor_strategies(
+            &db,
+            &portfolio,
+            &backtest_engine::martingale::indicator_runtime::IndicatorRuntimeContext::default(),
+        )
+        .expect("reconcile");
+
+        let stored = db
+            .find_strategy("engine@example.com", "staged-reconcile-long")
+            .expect("find")
+            .expect("strategy");
+        assert!(stored
+            .runtime
+            .orders
+            .iter()
+            .any(|order| order.order_id == first_leg_id && order.status == "Filled"));
+        let safety_leg = stored
+            .runtime
+            .orders
+            .iter()
+            .find(|order| order.level_index == Some(1))
+            .expect("next safety leg");
+        assert_eq!(safety_leg.status, "Working");
+        assert_eq!(safety_leg.side, "BUY");
+        assert!(safety_leg.price.expect("price") < Decimal::new(100, 0));
+        assert!(stored
+            .runtime
+            .events
+            .iter()
+            .any(|event| event.event_type == "martingale_safety_legs_generated"));
+    }
+
+    #[test]
+    fn martingale_portfolio_weight_caps_budget_without_scaling_order_size() {
+        let now = Utc::now();
+        let portfolio_config = serde_json::json!({
+            "portfolio_config": {
+                "direction_mode": "long_only",
+                "risk_limits": { "max_global_budget_quote": "100" },
+                "strategies": [
+                    {
+                        "strategy_id": "weighted-btc",
+                        "symbol": "BTCUSDT",
+                        "market": "usd_m_futures",
+                        "direction": "long",
+                        "direction_mode": "long_only",
+                        "margin_mode": "isolated",
+                        "leverage": 3,
+                        "portfolio_weight_pct": "25",
+                        "spacing": { "fixed_percent": { "step_bps": 100 } },
+                        "sizing": { "multiplier": { "first_order_quote": "11", "multiplier": "2", "max_legs": 4 } },
+                        "take_profit": { "percent": { "bps": 80 } },
+                        "stop_loss": { "strategy_drawdown_pct": { "pct_bps": 2000 } },
+                        "indicators": [],
+                        "entry_triggers": [],
+                        "risk_limits": {}
+                    }
+                ]
+            }
+        });
+        let portfolio = MartingalePortfolioRecord {
+            portfolio_id: "mp-weighted".to_owned(),
+            owner: "engine@example.com".to_owned(),
+            name: "weighted".to_owned(),
+            status: "running".to_owned(),
+            source_task_id: "task".to_owned(),
+            market: "usd_m_futures".to_owned(),
+            direction: "long".to_owned(),
+            risk_profile: "conservative".to_owned(),
+            total_weight_pct: Decimal::new(100, 0),
+            config: portfolio_config.clone(),
+            risk_summary: serde_json::json!({}),
+            created_at: now,
+            updated_at: now,
+            items: vec![MartingalePortfolioItemRecord {
+                strategy_instance_id: "msi-weighted".to_owned(),
+                portfolio_id: "mp-weighted".to_owned(),
+                candidate_id: "bc-weighted".to_owned(),
+                symbol: "BTCUSDT".to_owned(),
+                weight_pct: Decimal::new(25, 0),
+                leverage: 3,
+                enabled: true,
+                status: "running".to_owned(),
+                parameter_snapshot: portfolio_config.clone(),
+                metrics_snapshot: serde_json::json!({}),
+                created_at: now,
+                updated_at: now,
+            }],
+        };
+
+        let config = super::martingale_runtime_config_from_portfolio(&portfolio)
+            .expect("weighted config should map to runtime");
+        assert_eq!(config.portfolio_budget_quote, Decimal::new(100, 0));
+        let weighted_strategy = &config.portfolio.strategies[0];
+        assert_eq!(
+            super::strategy_planned_budget_quote(weighted_strategy),
+            Some(Decimal::new(55, 0))
+        );
+        assert_eq!(
+            weighted_strategy.risk_limits.max_strategy_budget_quote,
+            Some(Decimal::new(25, 0))
+        );
+        let mut runtime = trading_engine::martingale_runtime::MartingaleRuntime::new(config)
+            .expect("runtime should accept weighted config");
+        let settings = trading_engine::martingale_runtime::FuturesExchangeSettings {
+            hedge_mode: false,
+            symbols: HashMap::from([(
+                "BTCUSDT".to_owned(),
+                trading_engine::martingale_runtime::FuturesSymbolSettings {
+                    margin_mode: shared_domain::martingale::MartingaleMarginMode::Isolated,
+                    leverage: 3,
+                },
+            )]),
+        };
+        runtime
+            .start_cycle_with_futures_preflight(
+                &settings,
+                "weighted-btc",
+                Decimal::new(100, 0),
+                trading_engine::martingale_runtime::MartingaleRuntimeContext::default(),
+            )
+            .expect("weighted strategy should start");
+
+        assert_eq!(runtime.orders()[0].notional_quote, Decimal::new(11, 0));
+    }
+
+    #[test]
+    fn martingale_weight_cap_keeps_first_order_when_cap_is_below_first_order() {
+        let now = Utc::now();
+        let portfolio_config = serde_json::json!({
+            "portfolio_config": {
+                "direction_mode": "long_only",
+                "risk_limits": { "max_global_budget_quote": "100" },
+                "strategies": [
+                    {
+                        "strategy_id": "tiny-weight-btc",
+                        "symbol": "BTCUSDT",
+                        "market": "usd_m_futures",
+                        "direction": "long",
+                        "direction_mode": "long_only",
+                        "margin_mode": "isolated",
+                        "leverage": 3,
+                        "portfolio_weight_pct": "5",
+                        "spacing": { "fixed_percent": { "step_bps": 100 } },
+                        "sizing": { "multiplier": { "first_order_quote": "11", "multiplier": "2", "max_legs": 4 } },
+                        "take_profit": { "percent": { "bps": 80 } },
+                        "stop_loss": { "strategy_drawdown_pct": { "pct_bps": 2000 } },
+                        "indicators": [],
+                        "entry_triggers": [],
+                        "risk_limits": {}
+                    }
+                ]
+            }
+        });
+        let portfolio = MartingalePortfolioRecord {
+            portfolio_id: "mp-tiny-weight".to_owned(),
+            owner: "engine@example.com".to_owned(),
+            name: "tiny weighted".to_owned(),
+            status: "running".to_owned(),
+            source_task_id: "task".to_owned(),
+            market: "usd_m_futures".to_owned(),
+            direction: "long".to_owned(),
+            risk_profile: "conservative".to_owned(),
+            total_weight_pct: Decimal::new(100, 0),
+            config: portfolio_config.clone(),
+            risk_summary: serde_json::json!({}),
+            created_at: now,
+            updated_at: now,
+            items: vec![MartingalePortfolioItemRecord {
+                strategy_instance_id: "msi-tiny-weight".to_owned(),
+                portfolio_id: "mp-tiny-weight".to_owned(),
+                candidate_id: "bc-tiny-weight".to_owned(),
+                symbol: "BTCUSDT".to_owned(),
+                weight_pct: Decimal::new(5, 0),
+                leverage: 3,
+                enabled: true,
+                status: "running".to_owned(),
+                parameter_snapshot: portfolio_config.clone(),
+                metrics_snapshot: serde_json::json!({}),
+                created_at: now,
+                updated_at: now,
+            }],
+        };
+
+        let config = super::martingale_runtime_config_from_portfolio(&portfolio)
+            .expect("tiny weighted config should map to runtime");
+        let weighted_strategy = &config.portfolio.strategies[0];
+        assert_eq!(
+            super::strategy_planned_budget_quote(weighted_strategy),
+            Some(Decimal::new(55, 0))
+        );
+        assert_eq!(
+            weighted_strategy.risk_limits.max_strategy_budget_quote,
+            Some(Decimal::new(11, 0))
+        );
+        let mut runtime = trading_engine::martingale_runtime::MartingaleRuntime::new(config)
+            .expect("runtime should accept tiny weighted config");
+        let settings = trading_engine::martingale_runtime::FuturesExchangeSettings {
+            hedge_mode: false,
+            symbols: HashMap::from([(
+                "BTCUSDT".to_owned(),
+                trading_engine::martingale_runtime::FuturesSymbolSettings {
+                    margin_mode: shared_domain::martingale::MartingaleMarginMode::Isolated,
+                    leverage: 3,
+                },
+            )]),
+        };
+        runtime
+            .start_cycle_with_futures_preflight(
+                &settings,
+                "tiny-weight-btc",
+                Decimal::new(100, 0),
+                trading_engine::martingale_runtime::MartingaleRuntimeContext::default(),
+            )
+            .expect("first order should not be scaled below exchange minimum");
+
+        assert_eq!(runtime.orders()[0].notional_quote, Decimal::new(11, 0));
+    }
+
+    #[test]
+    fn budget_blocked_safety_leg_not_persisted_as_working_order() {
+        // Strategy: leverage 3, first_order 10, multiplier 2, max_legs 2.
+        // Leg notionals [10, 20]; margins [10/3, 20/3] (~3.33, 6.67).
+        // max_strategy_budget_quote = 8 => leg0 (3.33) fits, but leg1 would
+        // push cumulative margin to ~10 > 8, so the safety leg is budget-
+        // blocked and must NOT be persisted as a Working order.
+        let config = serde_json::from_value::<shared_domain::martingale::MartingaleStrategyConfig>(
+            serde_json::json!({
+                "strategy_id": "budget-blocked-btc",
+                "symbol": "BTCUSDT",
+                "market": "usd_m_futures",
+                "direction": "long",
+                "direction_mode": "long_only",
+                "margin_mode": "isolated",
+                "leverage": 3,
+                "spacing": { "fixed_percent": { "step_bps": 100 } },
+                "sizing": { "multiplier": { "first_order_quote": "10", "multiplier": "2", "max_legs": 2 } },
+                "take_profit": { "percent": { "bps": 100 } },
+                "stop_loss": { "strategy_drawdown_pct": { "pct_bps": 2000 } },
+                "indicators": [],
+                "entry_triggers": [],
+                "risk_limits": { "max_strategy_budget_quote": "8" }
+            }),
+        )
+        .expect("strategy config");
+        let settings = trading_engine::martingale_runtime::FuturesExchangeSettings {
+            hedge_mode: false,
+            symbols: HashMap::from([(
+                "BTCUSDT".to_owned(),
+                trading_engine::martingale_runtime::FuturesSymbolSettings {
+                    margin_mode: shared_domain::martingale::MartingaleMarginMode::Isolated,
+                    leverage: 3,
+                },
+            )]),
+        };
+        let runtime_config = trading_engine::martingale_runtime::MartingaleRuntimeConfig {
+            portfolio_id: "mp-blocked".to_owned(),
+            strategy_instance_id: "portfolio".to_owned(),
+            portfolio: shared_domain::martingale::MartingalePortfolioConfig {
+                direction_mode: shared_domain::martingale::MartingaleDirectionMode::LongOnly,
+                strategies: vec![config],
+                risk_limits: shared_domain::martingale::MartingaleRiskLimits::default(),
+            },
+            portfolio_budget_quote: Decimal::new(1000, 0),
+            exchange_min_notional: Decimal::ZERO,
+        };
+        let mut runtime =
+            trading_engine::martingale_runtime::MartingaleRuntime::new(runtime_config)
+                .expect("runtime");
+        runtime
+            .start_cycle_with_futures_preflight(
+                &settings,
+                "budget-blocked-btc",
+                Decimal::new(100, 0),
+                trading_engine::martingale_runtime::MartingaleRuntimeContext::default(),
+            )
+            .expect("leg0 placed");
+        assert_eq!(runtime.orders().len(), 1);
+        assert_eq!(runtime.orders()[0].leg_index, 0);
+
+        // Marking leg0 filled attempts leg1, which the strategy budget blocks.
+        let blocked = runtime.mark_leg_filled(
+            "budget-blocked-btc",
+            shared_domain::martingale::MartingaleDirection::Long,
+            0,
+        );
+        assert!(blocked.is_err(), "leg1 should be blocked by strategy budget");
+        // The blocked safety leg must NOT be persisted as a Working order.
+        assert!(
+            runtime.orders().iter().all(|order| order.leg_index == 0),
+            "no leg1 working order after budget block: {:?}",
+            runtime.orders()
+        );
+        assert_eq!(runtime.orders().len(), 1);
+    }
+
+    #[test]
+    fn martingale_portfolio_uses_global_budget_cap_when_present() {
+        let now = Utc::now();
+        let portfolio_config = serde_json::json!({
+            "portfolio_config": {
+                "direction_mode": "long_only",
+                "risk_limits": { "max_global_budget_quote": "2000" },
+                "strategies": [
+                    {
+                        "strategy_id": "capped-btc",
+                        "symbol": "BTCUSDT",
+                        "market": "usd_m_futures",
+                        "direction": "long",
+                        "direction_mode": "long_only",
+                        "margin_mode": "isolated",
+                        "leverage": 3,
+                        "spacing": { "fixed_percent": { "step_bps": 100 } },
+                        "sizing": { "multiplier": { "first_order_quote": "100", "multiplier": "2", "max_legs": 8 } },
+                        "take_profit": { "percent": { "bps": 80 } },
+                        "stop_loss": { "strategy_drawdown_pct": { "pct_bps": 2000 } },
+                        "indicators": [],
+                        "entry_triggers": [],
+                        "risk_limits": {}
+                    }
+                ]
+            }
+        });
+        let portfolio = MartingalePortfolioRecord {
+            portfolio_id: "mp-capped".to_owned(),
+            owner: "engine@example.com".to_owned(),
+            name: "capped".to_owned(),
+            status: "running".to_owned(),
+            source_task_id: "task".to_owned(),
+            market: "usd_m_futures".to_owned(),
+            direction: "long".to_owned(),
+            risk_profile: "conservative".to_owned(),
+            total_weight_pct: Decimal::new(100, 0),
+            config: portfolio_config.clone(),
+            risk_summary: serde_json::json!({}),
+            created_at: now,
+            updated_at: now,
+            items: vec![MartingalePortfolioItemRecord {
+                strategy_instance_id: "msi-capped".to_owned(),
+                portfolio_id: "mp-capped".to_owned(),
+                candidate_id: "bc-capped".to_owned(),
+                symbol: "BTCUSDT".to_owned(),
+                weight_pct: Decimal::new(100, 0),
+                leverage: 3,
+                enabled: true,
+                status: "running".to_owned(),
+                parameter_snapshot: portfolio_config,
+                metrics_snapshot: serde_json::json!({}),
+                created_at: now,
+                updated_at: now,
+            }],
+        };
+
+        let config = super::martingale_runtime_config_from_portfolio(&portfolio)
+            .expect("capped config should map to runtime");
+        assert_eq!(config.portfolio_budget_quote, Decimal::new(2000, 0));
+        let capped_strategy = &config.portfolio.strategies[0];
+        assert_eq!(
+            super::strategy_planned_budget_quote(capped_strategy),
+            Some(Decimal::new(8500, 0))
+        );
+        assert_eq!(
+            capped_strategy.risk_limits.max_strategy_budget_quote,
+            Some(Decimal::new(2000, 0))
+        );
+    }
+
+    #[test]
+    fn martingale_anchor_price_uses_latest_usdm_tick_when_config_has_no_reference() {
+        let strategy_config = serde_json::json!({ "symbol": "BTCUSDT" });
+        let ticks = vec![
+            shared_events::MarketTick {
+                symbol: "ETHUSDT".to_owned(),
+                market: "usdm".to_owned(),
+                price: Decimal::new(2000, 0),
+                event_time_ms: 1,
+            },
+            shared_events::MarketTick {
+                symbol: "BTCUSDT".to_owned(),
+                market: "spot".to_owned(),
+                price: Decimal::new(99, 0),
+                event_time_ms: 2,
+            },
+            shared_events::MarketTick {
+                symbol: "BTCUSDT".to_owned(),
+                market: "usdm".to_owned(),
+                price: Decimal::new(101, 0),
+                event_time_ms: 3,
+            },
+        ];
+
+        assert_eq!(
+            super::strategy_anchor_price(&strategy_config, &ticks),
+            Some(Decimal::new(101, 0))
+        );
     }
 
     #[test]
@@ -2752,15 +4515,12 @@ mod tests {
         running.draft_revision.leverage = Some(3);
         running.draft_revision.reference_price = Some(Decimal::new(100, 0));
         running.active_revision = Some(running.draft_revision.clone());
-        running
-            .runtime
-            .positions
-            .push(StrategyRuntimePosition {
-                market: StrategyMarket::FuturesUsdM,
-                mode: StrategyMode::FuturesLong,
-                quantity: Decimal::new(1, 0),
-                average_entry_price: Decimal::new(100, 0),
-            });
+        running.runtime.positions.push(StrategyRuntimePosition {
+            market: StrategyMarket::FuturesUsdM,
+            mode: StrategyMode::FuturesLong,
+            quantity: Decimal::new(1, 0),
+            average_entry_price: Decimal::new(100, 0),
+        });
 
         let error = super::sync_martingale_production_start(
             &mut running,

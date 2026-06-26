@@ -24,14 +24,21 @@ export interface MartingaleTradeDetail {
 
 export interface MartingalePortfolioMember {
   candidate_id: string;
+  source_candidate_id?: string;
   symbol: string;
   direction: string;
   allocation_pct: number;
+  weight_pct?: number | string;
   return_pct?: number;
   max_drawdown_pct?: number;
   annualized_return_pct?: number | null;
+  candidate_annualized_return_pct?: number | null;
+  candidate_max_drawdown_pct?: number | null;
   score?: number;
   trade_count?: number;
+  leverage?: number | null;
+  max_leverage_used?: number | null;
+  recommended_leverage?: number | null;
 }
 
 export interface MartingaleBacktestCandidateSummary {
@@ -45,6 +52,11 @@ export interface MartingaleBacktestCandidateSummary {
   trailing_take_profit_bps?: number;
   recommended_weight_pct?: number;
   recommended_leverage?: number;
+  leverage?: number | null;
+  max_leverage?: number | null;
+  candidate_max_leverage?: number | null;
+  candidate_annualized_return_pct?: number | null;
+  candidate_max_drawdown_pct?: number | null;
   parameter_rank_for_symbol?: number;
   risk_profile?: string;
   total_return_pct?: number;
@@ -215,6 +227,13 @@ export type ExchangeHedgeModeCheck = {
   message: string;
 };
 
+export type ExchangeMultiAssetsModeCheck = {
+  target: boolean;
+  current?: boolean | null;
+  status: string;
+  message: string;
+};
+
 export type ExchangeSymbolCheck = {
   symbol: string;
   target_margin_mode: string;
@@ -228,6 +247,10 @@ export type ExchangeSymbolCheck = {
 export type ExchangePreconfigureResponse = {
   status: string;
   hedge_mode: ExchangeHedgeModeCheck;
+  multi_assets_mode: ExchangeMultiAssetsModeCheck;
+  blocked_symbols?: string[];
+  open_order_count?: number;
+  nonzero_position_count?: number;
   symbols: ExchangeSymbolCheck[];
   warnings: string[];
   checked_at?: string;

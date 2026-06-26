@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { startTransition, useEffect, useState, type ReactNode } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -9,6 +10,10 @@ import { StatusBanner } from "@/components/ui/status-banner";
 import { StrategySymbolPicker, type StrategySymbolItem } from "@/components/strategies/strategy-symbol-picker";
 import { StrategyVisualPreview, type StrategyPreviewLevel } from "@/components/strategies/strategy-visual-preview";
 import { pickText, type UiLanguage } from "@/lib/ui/preferences";
+
+type GridStrategyType = "ordinary_grid" | "classic_bilateral_grid";
+type StrategyType = GridStrategyType | "martingale_grid";
+type MartingaleDirection = "long" | "short";
 
 export type StrategyWorkspaceValues = {
   amountMode: "quote" | "base";
@@ -24,6 +29,13 @@ export type StrategyWorkspaceValues = {
   levelsJson: string;
   leverage: string;
   lowerRangePercent: string;
+  martingaleDirection: MartingaleDirection;
+  martingaleFirstOrderQuote: string;
+  martingaleMaxLegs: string;
+  martingaleOrderMultiplier: string;
+  martingaleSpacingPercent: string;
+  martingaleStopLossPercent: string;
+  martingaleTakeProfitPercent: string;
   marketType: "spot" | "usd-m" | "coin-m";
   mode: "classic" | "buy-only" | "sell-only" | "long" | "short" | "neutral";
   name: string;
@@ -34,7 +46,7 @@ export type StrategyWorkspaceValues = {
   quoteAmount: string;
   referencePrice: string;
   referencePriceMode: "manual" | "market";
-  strategyType: "ordinary_grid" | "classic_bilateral_grid";
+  strategyType: StrategyType;
   symbol: string;
   upperRangePercent: string;
 };
@@ -46,9 +58,11 @@ export type StrategyWorkspaceIntentButton = {
 };
 
 type Props = {
+  confirmCreateOpen?: boolean;
   displayMode?: "wizard" | "advanced";
   editingLocked?: boolean;
   formAction: string;
+  initialStep?: string;
   intentButtons?: StrategyWorkspaceIntentButton[];
   lang: UiLanguage;
   searchPath: string;
@@ -68,9 +82,11 @@ type EditableGridLevel = {
 };
 
 export function StrategyWorkspaceForm({
+  confirmCreateOpen = false,
   displayMode = "advanced",
   editingLocked = false,
   formAction,
+  initialStep,
   intentButtons,
   lang,
   searchPath,
@@ -79,12 +95,19 @@ export function StrategyWorkspaceForm({
   values,
 }: Props) {
   const router = useRouter();
-  const [wizardStep, setWizardStep] = useState(0);
+  const [wizardStep, setWizardStep] = useState(() => resolveWizardStepIndex(initialStep));
   const [query, setQuery] = useState(searchQuery);
   const [selectedSymbol, setSelectedSymbol] = useState(values.symbol);
   const [marketType, setMarketType] = useState<StrategyWorkspaceValues["marketType"]>(values.marketType);
   const [strategyType, setStrategyType] = useState<StrategyWorkspaceValues["strategyType"]>(values.strategyType);
   const [ordinarySide, setOrdinarySide] = useState<StrategyWorkspaceValues["ordinarySide"]>(values.ordinarySide);
+  const [martingaleDirection, setMartingaleDirection] = useState<MartingaleDirection>(values.martingaleDirection);
+  const [martingaleFirstOrderQuote, setMartingaleFirstOrderQuote] = useState(values.martingaleFirstOrderQuote);
+  const [martingaleSpacingPercent, setMartingaleSpacingPercent] = useState(values.martingaleSpacingPercent);
+  const [martingaleOrderMultiplier, setMartingaleOrderMultiplier] = useState(values.martingaleOrderMultiplier);
+  const [martingaleMaxLegs, setMartingaleMaxLegs] = useState(values.martingaleMaxLegs);
+  const [martingaleTakeProfitPercent, setMartingaleTakeProfitPercent] = useState(values.martingaleTakeProfitPercent);
+  const [martingaleStopLossPercent, setMartingaleStopLossPercent] = useState(values.martingaleStopLossPercent);
   const [generation, setGeneration] = useState<StrategyWorkspaceValues["generation"]>(values.generation);
   const [editorMode, setEditorMode] = useState<StrategyWorkspaceValues["editorMode"]>(values.editorMode);
   const [amountMode, setAmountMode] = useState<StrategyWorkspaceValues["amountMode"]>(values.amountMode);
@@ -110,9 +133,9 @@ export function StrategyWorkspaceForm({
   const isWizard = displayMode === "wizard";
   const WIZARD_STEPS = [
     { key: "symbol", label: pickText(lang, "交易对与类型", "Symbol & Type") },
-    { key: "grid", label: pickText(lang, "网格参数", "Grid Params") },
+    { key: "grid", label: pickText(lang, "策略参数", "Strategy Params") },
     { key: "risk", label: pickText(lang, "风控设置", "Risk Control") },
-    { key: "confirm", label: pickText(lang, "确认预览", "Confirm") },
+    { key: "confirm", label: pickText(lang, "命名确认", "Name & Confirm") },
   ];
   const stepMap: Record<string, number> = { symbol: 0, grid: 1, risk: 2, confirm: 3 };
   const isStepVisible = (step?: string) => {
@@ -121,11 +144,15 @@ export function StrategyWorkspaceForm({
   };
 
   const futuresVisible = marketType !== "spot";
-  const ordinaryGridActive = strategyType === "ordinary_grid";
-  const batchModeActive = editorMode === "batch" && generation !== "custom";
-  const trailingWarning = batchTrailing.trim() !== "" || levels.some((level) => level.trailingPercent.trim() !== "");
+  const martingaleActive = strategyType === "martingale_grid";
+  const gridStrategyType: GridStrategyType = strategyType === "martingale_grid" ? "ordinary_grid" : strategyType;
+  const ordinaryGridActive = gridStrategyType === "ordinary_grid";
+  const batchModeActive = !martingaleActive && editorMode === "batch" && generation !== "custom";
+  const trailingWarning = !martingaleActive && (batchTrailing.trim() !== "" || levels.some((level) => level.trailingPercent.trim() !== ""));
   const intentRow = intentButtons ?? [{ label: pickText(lang, "创建机器人", "Create Bot") }];
-  const resolvedMode = resolveBackendMode(marketType, strategyType, ordinarySide);
+  const resolvedMode = martingaleActive
+    ? resolveMartingaleMode(marketType, martingaleDirection)
+    : resolveBackendMode(marketType, gridStrategyType, ordinarySide);
 
   useEffect(() => {
     if (generation === "custom" && editorMode !== "custom") {
@@ -168,7 +195,7 @@ export function StrategyWorkspaceForm({
   }, [marketType, referencePriceMode, selectedSymbol]);
 
   useEffect(() => {
-    if (!batchModeActive) {
+    if (martingaleActive || !batchModeActive) {
       return;
     }
     const generated = generateBatchEditableLevels({
@@ -184,7 +211,7 @@ export function StrategyWorkspaceForm({
       ordinarySide,
       quoteAmount,
       referencePrice,
-      strategyType,
+      strategyType: gridStrategyType,
       upperRangePercent,
     });
     if (generated.length > 0) {
@@ -206,23 +233,37 @@ export function StrategyWorkspaceForm({
     marketType,
     quoteAmount,
     referencePrice,
-    strategyType,
+    gridStrategyType,
     upperRangePercent,
+    martingaleActive,
   ]);
 
   useEffect(() => {
+    if (martingaleActive) {
+      return;
+    }
     if (!batchModeActive) {
       setGridCount(String(levels.length || 0));
     }
     setGridSpacingPercent(deriveEffectiveSpacing(levels));
-  }, [batchModeActive, levels]);
+  }, [batchModeActive, levels, martingaleActive]);
 
-  const previewLevels = toPreviewLevels(levels, amountMode);
+  const previewLevels = martingaleActive
+    ? buildMartingalePreviewLevels({
+        direction: martingaleDirection,
+        firstOrderQuote: martingaleFirstOrderQuote,
+        maxLegs: martingaleMaxLegs,
+        orderMultiplier: martingaleOrderMultiplier,
+        referencePrice,
+        spacingPercent: martingaleSpacingPercent,
+        takeProfitPercent: martingaleTakeProfitPercent,
+      })
+    : toPreviewLevels(levels, amountMode);
   const levelsJson = serializeLevels(levels, amountMode);
   const referenceDisplay = referencePriceMode === "market"
     ? referencePrice || pickText(lang, "当前市价加载中", "Loading current price")
     : referencePrice;
-  const canApplyBatchDefaults = canGenerateEditorSeed({
+  const canApplyBatchDefaults = !martingaleActive && canGenerateEditorSeed({
     amountMode,
     baseQuantity,
     batchTakeProfit,
@@ -231,10 +272,10 @@ export function StrategyWorkspaceForm({
     lowerRangePercent,
     quoteAmount,
     referencePrice,
-    strategyType,
+    strategyType: gridStrategyType,
     upperRangePercent,
   });
-  const workspaceWarnings = buildWorkspaceWarnings({
+  const workspaceWarnings = martingaleActive ? [] : buildWorkspaceWarnings({
     batchTakeProfit,
     lang,
     levels,
@@ -246,6 +287,31 @@ export function StrategyWorkspaceForm({
   const isSubmitBlockedByMarketReference = (intent?: string) => (
     marketReferenceSubmitBlocked && marketReferenceBlockedIntents.has(intent)
   );
+  const isCreateForm = formAction.includes("/strategies/create");
+  const resolvedFormAction = isCreateForm
+    ? martingaleActive
+      ? "/api/user/strategies/create-martingale"
+      : "/api/user/strategies/create"
+    : formAction;
+  const shouldConfirmCreate = isCreateForm;
+  const modeHref = buildWorkspaceHref({
+    mode: isWizard ? "advanced" : "wizard",
+    searchPath,
+    searchQuery,
+    strategyType,
+  });
+  const wizardHref = (stepIndex: number) => buildWorkspaceHref({
+    searchPath,
+    searchQuery,
+    step: WIZARD_STEPS[clampStepIndex(stepIndex, WIZARD_STEPS.length)].key,
+    strategyType,
+  });
+  const confirmCreateHref = buildConfirmCreateHref(searchPath, searchQuery, strategyType, WIZARD_STEPS[wizardStep]?.key ?? "confirm", isWizard ? undefined : displayMode);
+  const closeConfirmCreateHref = isWizard ? wizardHref(wizardStep) : modeHref;
+
+  useEffect(() => {
+    setWizardStep(resolveWizardStepIndex(initialStep));
+  }, [initialStep]);
 
   return (
     <div className="flex flex-col xl:grid gap-6 xl:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)] xl:items-start w-full max-w-[1600px] mx-auto">
@@ -254,10 +320,14 @@ export function StrategyWorkspaceForm({
           amountMode={amountMode}
           coveredRangePercent={coveredRangePercent}
           generation={generation}
-          gridCount={String(levels.length || 0)}
+          gridCount={martingaleActive ? martingaleMaxLegs : String(levels.length || 0)}
           lang={lang}
           levels={previewLevels}
           lowerRangePercent={lowerRangePercent}
+          martingaleDirection={martingaleDirection}
+          martingaleOrderMultiplier={martingaleOrderMultiplier}
+          martingaleSpacingPercent={martingaleSpacingPercent}
+          martingaleTakeProfitPercent={martingaleTakeProfitPercent}
           marketType={marketType}
           ordinarySide={ordinarySide}
           referencePrice={referenceDisplay}
@@ -267,39 +337,31 @@ export function StrategyWorkspaceForm({
         />
       </div>
 
-      <FormStack action={formAction} className="space-y-4 rounded-2xl border border-border bg-card p-4 shadow-sm" method="post">
+      <FormStack action={resolvedFormAction} className="space-y-4 rounded-2xl border border-border bg-card p-4 shadow-sm" method="post">
         <div className="rounded-2xl border border-border/70 bg-background/60 p-4">
           <div className="flex items-center justify-between">
             <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               {pickText(lang, "创建流程", "Build Flow")}
             </p>
-            <button
-              type="button"
-              onClick={() => {
-                const next = isWizard ? "advanced" : "wizard";
-                window.location.href = `${searchPath}?mode=${next}${searchQuery ? `&symbolQuery=${encodeURIComponent(searchQuery)}` : ""}`;
-              }}
-              className="text-xs text-primary hover:underline"
-            >
+            <Link className="text-xs font-bold text-primary hover:underline" href={modeHref}>
               {isWizard ? pickText(lang, "高级模式", "Advanced Mode") : pickText(lang, "向导模式", "Wizard Mode")}
-            </button>
+            </Link>
           </div>
           <p className="mt-1 text-sm text-foreground">
             {isWizard
-              ? pickText(lang, "按步骤创建策略，每步完成后点击下一步。", "Follow the steps to create your strategy. Click Next after each step.")
+              ? pickText(lang, "先选择普通网格、经典双边或马丁策略，再按步骤完成参数。", "Choose ordinary grid, classic bilateral, or DCA first, then finish the parameters step by step.")
               : pickText(lang, "先选策略类型，再锁定交易对和市场，最后用右侧参数直接驱动左侧预览。", "Choose the strategy type first, then lock the symbol and market, and let the form drive the preview on the left in real time.")}
           </p>
           <p className="mt-1 text-sm text-muted-foreground">
-            {pickText(lang, "普通网格只定义单侧覆盖范围；经典双边定义中心和上下范围。", "Ordinary grid defines one covered side only, while classic bilateral defines a center plus upper and lower ranges.")}
+            {pickText(lang, "网格适合区间震荡，马丁适合分批补仓；都从这里创建，不再分散到单独模块。", "Grid fits range trading, while DCA fits staged averaging. Both are created here instead of a separate module.")}
           </p>
         </div>
         {isWizard && (
           <div className="flex items-center gap-1 sm:gap-2">
             {WIZARD_STEPS.map((step, i) => (
               <div key={step.key} className="flex items-center gap-1 sm:gap-2 flex-1">
-                <button
-                  type="button"
-                  onClick={() => setWizardStep(i)}
+                <Link
+                  href={wizardHref(i)}
                   className={`flex items-center gap-1.5 rounded-lg px-2 sm:px-3 py-1.5 text-xs sm:text-sm font-medium transition-colors w-full ${
                     i === wizardStep
                       ? "bg-primary/10 text-primary border border-primary/20"
@@ -318,7 +380,7 @@ export function StrategyWorkspaceForm({
                     {i < wizardStep ? "✓" : i + 1}
                   </span>
                   <span className="truncate hidden sm:inline">{step.label}</span>
-                </button>
+                </Link>
                 {i < WIZARD_STEPS.length - 1 && (
                   <div className={`h-px flex-1 max-w-[20px] sm:max-w-[40px] ${i < wizardStep ? "bg-emerald-500" : "bg-border"}`} />
                 )}
@@ -340,10 +402,7 @@ export function StrategyWorkspaceForm({
           <Field label={pickText(lang, "策略名称", "Strategy Name")}>
             <Input defaultValue={values.name} name="name" />
           </Field>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-2">
-            <Field label={pickText(lang, "标签", "Tags")} hint={pickText(lang, "逗号分隔", "Comma separated")}>
-              <Input defaultValue={(values as Record<string, unknown>).tags as string ?? ""} name="tags" placeholder="BTC, 稳定收益" />
-            </Field>
+          <div className="mt-2">
             <Field label={pickText(lang, "备注", "Notes")}>
               <Input defaultValue={(values as Record<string, unknown>).notes as string ?? ""} name="notes" placeholder={pickText(lang, "可选备注", "Optional notes")} />
             </Field>
@@ -355,11 +414,18 @@ export function StrategyWorkspaceForm({
         <input name="levels_json" type="hidden" value={levelsJson} />
         <input name="mode" type="hidden" value={resolvedMode} />
         <input name="gridSpacingPercent" type="hidden" value={gridSpacingPercent} />
+        <input name="martingaleDirection" type="hidden" value={martingaleDirection} />
+        <input name="martingaleFirstOrderQuote" type="hidden" value={martingaleFirstOrderQuote} />
+        <input name="martingaleSpacingPercent" type="hidden" value={martingaleSpacingPercent} />
+        <input name="martingaleOrderMultiplier" type="hidden" value={martingaleOrderMultiplier} />
+        <input name="martingaleMaxLegs" type="hidden" value={martingaleMaxLegs} />
+        <input name="martingaleTakeProfitPercent" type="hidden" value={martingaleTakeProfitPercent} />
+        <input name="martingaleStopLossPercent" type="hidden" value={martingaleStopLossPercent} />
 
         <fieldset className="contents" disabled={editingLocked}>
           <SectionBlock
             step="symbol" hidden={!isStepVisible("symbol")}
-            description={pickText(lang, "先从搜索结果中选中交易对，再决定现货/合约与策略类型。", "Choose the symbol from search results first, then decide the market and strategy type.")}
+            description={pickText(lang, "先选择策略类型，再选交易对和市场。马丁策略会使用下方的专属参数。", "Choose the strategy type first, then select the symbol and market. DCA uses its own parameter section below.")}
             title={pickText(lang, "交易对与策略类型", "Symbol & Strategy Type")}
           >
             <div className="space-y-4">
@@ -373,14 +439,22 @@ export function StrategyWorkspaceForm({
                 onSearch={() => {
                   const next = query.trim();
                   startTransition(() => {
-                    router.push(next ? `${searchPath}?symbolQuery=${encodeURIComponent(next)}` : searchPath);
+                    router.push(buildWorkspaceHref({
+                      mode: isWizard ? undefined : displayMode,
+                      searchPath,
+                      searchQuery: next,
+                      step: isWizard ? WIZARD_STEPS[wizardStep]?.key : undefined,
+                      strategyType,
+                    }));
                   });
                 }}
                 onSelect={(item) => {
                   setSelectedSymbol(item.symbol);
                   const nextMarketType = normalizeMarket(item.market);
                   setMarketType(nextMarketType);
-                  setLevels((current) => reorderEditableLevelsForStrategy(current, amountMode, strategyType, nextMarketType, ordinarySide));
+                  if (!martingaleActive) {
+                    setLevels((current) => reorderEditableLevelsForStrategy(current, amountMode, gridStrategyType, nextMarketType, ordinarySide));
+                  }
                 }}
                 query={query}
                 selectedSymbol={selectedSymbol}
@@ -393,7 +467,9 @@ export function StrategyWorkspaceForm({
                     onChange={(event) => {
                       const nextMarketType = event.target.value as StrategyWorkspaceValues["marketType"];
                       setMarketType(nextMarketType);
-                      setLevels((current) => reorderEditableLevelsForStrategy(current, amountMode, strategyType, nextMarketType, ordinarySide));
+                      if (!martingaleActive) {
+                        setLevels((current) => reorderEditableLevelsForStrategy(current, amountMode, gridStrategyType, nextMarketType, ordinarySide));
+                      }
                     }}
                     value={marketType}
                   >
@@ -408,22 +484,25 @@ export function StrategyWorkspaceForm({
                     onChange={(event) => {
                       const nextStrategyType = event.target.value as StrategyWorkspaceValues["strategyType"];
                       setStrategyType(nextStrategyType);
-                      setLevels((current) => reorderEditableLevelsForStrategy(current, amountMode, nextStrategyType, marketType, ordinarySide));
+                      if (nextStrategyType !== "martingale_grid") {
+                        setLevels((current) => reorderEditableLevelsForStrategy(current, amountMode, nextStrategyType, marketType, ordinarySide));
+                      }
                     }}
                     value={strategyType}
                   >
                     <option value="ordinary_grid">{pickText(lang, "普通网格", "Ordinary Grid")}</option>
                     <option value="classic_bilateral_grid">{pickText(lang, "经典双边", "Classic Bilateral Grid")}</option>
+                    <option value="martingale_grid">{pickText(lang, "马丁策略", "DCA Strategy")}</option>
                   </Select>
                 </Field>
-                {ordinaryGridActive ? (
+                {ordinaryGridActive && !martingaleActive ? (
                   <Field label={pickText(lang, "单侧方向", "Ordinary Side")}>
                     <Select
                       name="ordinarySide"
                       onChange={(event) => {
                         const nextOrdinarySide = event.target.value as StrategyWorkspaceValues["ordinarySide"];
                         setOrdinarySide(nextOrdinarySide);
-                        setLevels((current) => reorderEditableLevelsForStrategy(current, amountMode, strategyType, marketType, nextOrdinarySide));
+                        setLevels((current) => reorderEditableLevelsForStrategy(current, amountMode, gridStrategyType, marketType, nextOrdinarySide));
                       }}
                       value={ordinarySide}
                     >
@@ -438,7 +517,32 @@ export function StrategyWorkspaceForm({
             </div>
           </SectionBlock>
 
-          <SectionBlock step="grid" hidden={!isStepVisible("grid")} title={pickText(lang, "建仓与计量", "Builder & Sizing")} description={pickText(lang, "决定采用批量生成还是逐格自定义，并设置每格按 USDT 还是按币数量下单。", "Choose between batch generation and per-grid editing, then decide whether each level uses quote amount or base quantity.")}>
+          <MartingaleConfiguration
+            direction={martingaleDirection}
+            firstOrderQuote={martingaleFirstOrderQuote}
+            futuresMarginMode={futuresMarginMode}
+            futuresVisible={futuresVisible}
+            hidden={!isStepVisible("grid") || !martingaleActive}
+            lang={lang}
+            leverage={leverage}
+            marketType={marketType}
+            maxLegs={martingaleMaxLegs}
+            onDirectionChange={setMartingaleDirection}
+            onFirstOrderQuoteChange={setMartingaleFirstOrderQuote}
+            onFuturesMarginModeChange={setFuturesMarginMode}
+            onLeverageChange={setLeverage}
+            onMaxLegsChange={setMartingaleMaxLegs}
+            onOrderMultiplierChange={setMartingaleOrderMultiplier}
+            onSpacingPercentChange={setMartingaleSpacingPercent}
+            onStopLossPercentChange={setMartingaleStopLossPercent}
+            onTakeProfitPercentChange={setMartingaleTakeProfitPercent}
+            orderMultiplier={martingaleOrderMultiplier}
+            spacingPercent={martingaleSpacingPercent}
+            stopLossPercent={martingaleStopLossPercent}
+            takeProfitPercent={martingaleTakeProfitPercent}
+          />
+
+          <SectionBlock step="grid" hidden={!isStepVisible("grid") || martingaleActive} title={pickText(lang, "建仓与计量", "Builder & Sizing")} description={pickText(lang, "决定采用批量生成还是逐格自定义，并设置每格按 USDT 还是按币数量下单。", "Choose between batch generation and per-grid editing, then decide whether each level uses quote amount or base quantity.")}>
             <div className="grid gap-3 md:grid-cols-2">
               <Field label={pickText(lang, "生成方式", "Generation")}>
                 <Select
@@ -529,7 +633,7 @@ export function StrategyWorkspaceForm({
           </SectionBlock>
 
           <SectionBlock
-            step="grid" hidden={!isStepVisible("grid")}
+            step="grid" hidden={!isStepVisible("grid") || martingaleActive}
             description={pickText(lang, ordinaryGridActive ? "普通网格只定义锚点与单侧覆盖范围。" : "经典双边用中心价联动上下范围。", ordinaryGridActive ? "Ordinary grid only defines an anchor and one covered side." : "Classic bilateral uses the center price plus upper and lower ranges.")}
             title={pickText(lang, "策略定义", "Strategy Definition")}
           >
@@ -618,7 +722,7 @@ export function StrategyWorkspaceForm({
           </SectionBlock>
 
           <SectionBlock
-            step="grid" hidden={!isStepVisible("grid")}
+            step="grid" hidden={!isStepVisible("grid") || martingaleActive}
             description={pickText(lang, "这里配置整套网格的批量默认值；逐格自定义时，也可以把这些默认值一键应用到全部网格。", "Configure the batch defaults here. In per-grid custom mode, these defaults can also be applied to every level in one click.")}
             title={pickText(lang, "网格默认参数", "Grid Defaults")}
           >
@@ -667,7 +771,7 @@ export function StrategyWorkspaceForm({
                     ordinarySide,
                     quoteAmount,
                     referencePrice,
-                    strategyType,
+                    strategyType: gridStrategyType,
                     upperRangePercent,
                   });
                   if (seeded.length > 0) {
@@ -685,7 +789,7 @@ export function StrategyWorkspaceForm({
             </div>
           </SectionBlock>
 
-          <details className="group mt-4 rounded-2xl border border-border bg-card p-2 transition-colors open:bg-background/50" open style={isWizard && !isStepVisible("risk") ? { display: "none" } : undefined}>
+          <details className="group mt-4 rounded-2xl border border-border bg-card p-2 transition-colors open:bg-background/50" open style={(isWizard && !isStepVisible("risk")) || martingaleActive ? { display: "none" } : undefined}>
             <summary className="cursor-pointer px-4 py-3 text-sm font-bold text-foreground outline-none hover:text-primary marker:text-primary">
               {pickText(lang, "高级风控与逐格设置", "Advanced Risk & Editor")}
             </summary>
@@ -746,7 +850,7 @@ export function StrategyWorkspaceForm({
                     <Button
                       onClick={() => {
                         setEditorMode("custom");
-                        setLevels((current) => addEditableLevel(current, amountMode, gridSpacingPercent, referencePrice, strategyType, marketType, ordinarySide));
+                        setLevels((current) => addEditableLevel(current, amountMode, gridSpacingPercent, referencePrice, gridStrategyType, marketType, ordinarySide));
                       }}
                       size="sm"
                       tone="outline"
@@ -790,7 +894,7 @@ export function StrategyWorkspaceForm({
                             <Input
                               className="h-9 sm:h-8 px-2 text-xs bg-secondary border-border"
                               inputMode="decimal"
-                              onChange={(event) => setLevels((current) => updateLevelField(current, index, "entryPrice", event.target.value, amountMode, strategyType, marketType, ordinarySide))}
+                              onChange={(event) => setLevels((current) => updateLevelField(current, index, "entryPrice", event.target.value, amountMode, gridStrategyType, marketType, ordinarySide))}
                               readOnly={batchModeActive}
                               value={level.entryPrice}
                             />
@@ -801,7 +905,7 @@ export function StrategyWorkspaceForm({
                             <Input
                               className="h-9 sm:h-8 px-2 text-xs bg-secondary border-border"
                               inputMode="decimal"
-                              onChange={(event) => setLevels((current) => updateLevelSpacing(current, index, event.target.value, amountMode, strategyType, marketType, ordinarySide))}
+                              onChange={(event) => setLevels((current) => updateLevelSpacing(current, index, event.target.value, amountMode, gridStrategyType, marketType, ordinarySide))}
                               readOnly={index === 0}
                               value={index === 0 ? "" : level.spacingPercent}
                             />
@@ -812,7 +916,7 @@ export function StrategyWorkspaceForm({
                             <Input
                               className="h-9 sm:h-8 px-2 text-xs bg-secondary border-border"
                               inputMode="decimal"
-                              onChange={(event) => setLevels((current) => updateLevelField(current, index, amountMode === "quote" ? "quoteAmount" : "quantity", event.target.value, amountMode, strategyType, marketType, ordinarySide))}
+                              onChange={(event) => setLevels((current) => updateLevelField(current, index, amountMode === "quote" ? "quoteAmount" : "quantity", event.target.value, amountMode, gridStrategyType, marketType, ordinarySide))}
                               readOnly={batchModeActive}
                               value={amountMode === "quote" ? level.quoteAmount : level.quantity}
                               title={secondaryAmount}
@@ -824,7 +928,7 @@ export function StrategyWorkspaceForm({
                             <Input
                               className="h-9 sm:h-8 px-2 text-xs bg-secondary border-border"
                               inputMode="decimal"
-                              onChange={(event) => setLevels((current) => updateLevelField(current, index, "takeProfitPercent", event.target.value, amountMode, strategyType, marketType, ordinarySide))}
+                              onChange={(event) => setLevels((current) => updateLevelField(current, index, "takeProfitPercent", event.target.value, amountMode, gridStrategyType, marketType, ordinarySide))}
                               readOnly={batchModeActive}
                               value={level.takeProfitPercent}
                             />
@@ -835,7 +939,7 @@ export function StrategyWorkspaceForm({
                             <Input
                               className="h-9 sm:h-8 px-2 text-xs bg-secondary border-border"
                               inputMode="decimal"
-                              onChange={(event) => setLevels((current) => updateLevelField(current, index, "trailingPercent", event.target.value, amountMode, strategyType, marketType, ordinarySide))}
+                              onChange={(event) => setLevels((current) => updateLevelField(current, index, "trailingPercent", event.target.value, amountMode, gridStrategyType, marketType, ordinarySide))}
                               readOnly={batchModeActive}
                               value={level.trailingPercent}
                             />
@@ -844,10 +948,10 @@ export function StrategyWorkspaceForm({
                           <div className="col-span-2 sm:col-span-1 flex items-center sm:justify-end mt-2 sm:mt-0">
                             <Button
                               className="w-full sm:w-8 h-9 sm:h-8 px-0 bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/20"
-                              disabled={levels.length <= minimumLevelCountForStrategy(strategyType) && !batchModeActive}
+                              disabled={levels.length <= minimumLevelCountForStrategy(gridStrategyType) && !batchModeActive}
                               onClick={() => {
                                 setEditorMode("custom");
-                                setLevels((current) => removeEditableLevel(current, index, amountMode, strategyType, marketType, ordinarySide));
+                                setLevels((current) => removeEditableLevel(current, index, amountMode, gridStrategyType, marketType, ordinarySide));
                               }}
                               type="button"
                               title={pickText(lang, "删除此格", "Delete Level")}
@@ -869,42 +973,39 @@ export function StrategyWorkspaceForm({
 
         {isWizard && (
           <div className="flex items-center justify-between pt-2 border-t border-border">
-            <button
-              type="button"
-              onClick={() => setWizardStep(Math.max(0, wizardStep - 1))}
-              disabled={wizardStep === 0}
-              className={`rounded-lg px-4 py-2.5 text-sm font-medium transition-colors ${
-                wizardStep === 0
-                  ? "text-muted-foreground cursor-not-allowed"
-                  : "bg-secondary text-foreground hover:bg-secondary/80"
-              }`}
-            >
-              {pickText(lang, "上一步", "Previous")}
-            </button>
+            {wizardStep === 0 ? (
+              <span className="cursor-not-allowed rounded-lg px-4 py-2.5 text-sm font-medium text-muted-foreground">
+                {pickText(lang, "上一步", "Previous")}
+              </span>
+            ) : (
+              <Link
+                className="rounded-lg bg-secondary px-4 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-secondary/80"
+                href={wizardHref(wizardStep - 1)}
+              >
+                {pickText(lang, "上一步", "Previous")}
+              </Link>
+            )}
             <span className="text-xs text-muted-foreground">
               {wizardStep + 1} / {WIZARD_STEPS.length}
             </span>
             {wizardStep < WIZARD_STEPS.length - 1 ? (
-              <button
-                type="button"
-                onClick={() => setWizardStep(wizardStep + 1)}
+              <Link
+                data-wizard-next
                 className="rounded-lg px-4 py-2.5 text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+                href={wizardHref(wizardStep + 1)}
               >
                 {pickText(lang, "下一步", "Next")}
-              </button>
+              </Link>
             ) : (
               <div className="flex flex-wrap gap-2">
                 {intentRow.map((button, index) => (
-                  <Button
+                  <CreateIntentControl
+                    button={button}
+                    confirmHref={confirmCreateHref}
                     disabled={isSubmitBlockedByMarketReference(button.value)}
                     key={`wizard-${button.label}-${index}`}
-                    name={button.value ? "intent" : undefined}
-                    tone={button.tone ?? (button.value === "delete" ? "danger" : button.value === "pause" || button.value === "stop" ? "outline" : "primary")}
-                    type="submit"
-                    value={button.value}
-                  >
-                    {button.label}
-                  </Button>
+                    requireConfirm={shouldConfirmCreate}
+                  />
                 ))}
               </div>
             )}
@@ -913,21 +1014,253 @@ export function StrategyWorkspaceForm({
         {!isWizard && (
         <div className="flex flex-wrap gap-2">
           {intentRow.map((button, index) => (
-            <Button
+            <CreateIntentControl
+              button={button}
+              confirmHref={confirmCreateHref}
               disabled={isSubmitBlockedByMarketReference(button.value)}
               key={`${button.label}-${index}`}
-              name={button.value ? "intent" : undefined}
-              tone={button.tone ?? (button.value === "delete" ? "danger" : button.value === "pause" || button.value === "stop" ? "outline" : "primary")}
-              type="submit"
-              value={button.value}
-            >
-              {button.label}
-            </Button>
+              requireConfirm={shouldConfirmCreate}
+            />
           ))}
         </div>
         )}
+        {shouldConfirmCreate && confirmCreateOpen ? (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4" role="presentation">
+            <div
+              aria-describedby="create-strategy-confirm-description"
+              aria-labelledby="create-strategy-confirm-title"
+              aria-modal="true"
+              className="w-full max-w-md rounded-md border border-border bg-card p-5 shadow-2xl"
+              role="dialog"
+            >
+              <h2 className="text-base font-bold text-foreground" id="create-strategy-confirm-title">
+                {pickText(lang, "确认创建机器人", "Confirm bot creation")}
+              </h2>
+              <p className="mt-2 text-sm leading-relaxed text-muted-foreground" id="create-strategy-confirm-description">
+                {pickText(
+                  lang,
+                  martingaleActive
+                    ? "创建后会保存当前马丁参数。请确认交易对、首单金额、补仓次数和止盈止损都已检查无误。"
+                    : "创建后会保存当前网格参数。请确认交易对、市场类型、投入金额和风控设置都已检查无误。",
+                  martingaleActive
+                    ? "This will save the current DCA settings. Confirm the symbol, first order, safety orders, take profit, and stop loss before continuing."
+                    : "This will save the current grid settings. Confirm the symbol, market, budget, and risk settings before continuing.",
+                )}
+              </p>
+              <div className="mt-5 flex justify-end gap-2">
+                <Link
+                  className="inline-flex h-9 items-center rounded-sm border border-border px-3 text-sm font-bold text-foreground hover:bg-secondary"
+                  href={closeConfirmCreateHref}
+                >
+                  {pickText(lang, "取消", "Cancel")}
+                </Link>
+                <button
+                  className="inline-flex h-9 items-center rounded-sm bg-primary px-3 text-sm font-bold text-primary-foreground hover:bg-primary/90"
+                  type="submit"
+                >
+                  {pickText(lang, "确认创建", "Create")}
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
       </FormStack>
     </div>
+  );
+}
+
+function CreateIntentControl({
+  button,
+  confirmHref,
+  disabled,
+  requireConfirm,
+}: {
+  button: StrategyWorkspaceIntentButton;
+  confirmHref: string;
+  disabled: boolean;
+  requireConfirm: boolean;
+}) {
+  const tone = button.tone ?? (button.value === "delete" ? "danger" : button.value === "pause" || button.value === "stop" ? "outline" : "primary");
+
+  if (requireConfirm && button.value !== "delete" && button.value !== "pause" && button.value !== "stop") {
+    return (
+      <Link
+        aria-disabled={disabled}
+        className={`inline-flex h-11 items-center justify-center whitespace-nowrap rounded-sm px-4 py-2 text-sm font-medium transition-colors sm:h-9 ${
+          disabled
+            ? "pointer-events-none bg-primary text-primary-foreground opacity-50"
+            : "bg-primary text-primary-foreground shadow hover:bg-primary/90"
+        }`}
+        data-create-confirm-trigger
+        href={disabled ? "#" : confirmHref}
+      >
+        {button.label}
+      </Link>
+    );
+  }
+
+  return (
+    <Button
+      disabled={disabled}
+      name={button.value ? "intent" : undefined}
+      tone={tone}
+      type="submit"
+      value={button.value}
+    >
+      {button.label}
+    </Button>
+  );
+}
+
+function MartingaleConfiguration({
+  direction,
+  firstOrderQuote,
+  futuresMarginMode,
+  futuresVisible,
+  hidden,
+  lang,
+  leverage,
+  marketType,
+  maxLegs,
+  onDirectionChange,
+  onFirstOrderQuoteChange,
+  onFuturesMarginModeChange,
+  onLeverageChange,
+  onMaxLegsChange,
+  onOrderMultiplierChange,
+  onSpacingPercentChange,
+  onStopLossPercentChange,
+  onTakeProfitPercentChange,
+  orderMultiplier,
+  spacingPercent,
+  stopLossPercent,
+  takeProfitPercent,
+}: {
+  direction: MartingaleDirection;
+  firstOrderQuote: string;
+  futuresMarginMode: StrategyWorkspaceValues["futuresMarginMode"];
+  futuresVisible: boolean;
+  hidden?: boolean;
+  lang: UiLanguage;
+  leverage: string;
+  marketType: StrategyWorkspaceValues["marketType"];
+  maxLegs: string;
+  onDirectionChange: (value: MartingaleDirection) => void;
+  onFirstOrderQuoteChange: (value: string) => void;
+  onFuturesMarginModeChange: (value: StrategyWorkspaceValues["futuresMarginMode"]) => void;
+  onLeverageChange: (value: string) => void;
+  onMaxLegsChange: (value: string) => void;
+  onOrderMultiplierChange: (value: string) => void;
+  onSpacingPercentChange: (value: string) => void;
+  onStopLossPercentChange: (value: string) => void;
+  onTakeProfitPercentChange: (value: string) => void;
+  orderMultiplier: string;
+  spacingPercent: string;
+  stopLossPercent: string;
+  takeProfitPercent: string;
+}) {
+  return (
+    <SectionBlock
+      description={pickText(lang, "马丁策略按价格回撤分批补仓，达到止盈后整体退出。", "DCA adds safety orders as price pulls back, then exits the whole position at take profit.")}
+      hidden={hidden}
+      step="grid"
+      title={pickText(lang, "马丁参数", "DCA Parameters")}
+    >
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+        <Field label={pickText(lang, "方向", "Direction")}>
+          <Select
+            name="martingaleDirectionSelect"
+            onChange={(event) => onDirectionChange(event.target.value as MartingaleDirection)}
+            value={direction}
+          >
+            <option value="long">{marketType === "spot" ? pickText(lang, "分批买入", "Staged Buy") : pickText(lang, "做多补仓", "Long DCA")}</option>
+            <option value="short">{marketType === "spot" ? pickText(lang, "分批卖出", "Staged Sell") : pickText(lang, "做空补仓", "Short DCA")}</option>
+          </Select>
+        </Field>
+        <Field label={pickText(lang, "首单金额 (USDT)", "First Order (USDT)")}>
+          <Input
+            inputMode="decimal"
+            name="martingaleFirstOrderQuoteInput"
+            onChange={(event) => onFirstOrderQuoteChange(event.target.value)}
+            value={firstOrderQuote}
+          />
+        </Field>
+        <Field label={pickText(lang, "补仓间隔 (%)", "Safety Order Step (%)")}>
+          <Input
+            inputMode="decimal"
+            name="martingaleSpacingPercentInput"
+            onChange={(event) => onSpacingPercentChange(event.target.value)}
+            value={spacingPercent}
+          />
+        </Field>
+        <Field label={pickText(lang, "加仓倍率", "Order Multiplier")}>
+          <Input
+            inputMode="decimal"
+            name="martingaleOrderMultiplierInput"
+            onChange={(event) => onOrderMultiplierChange(event.target.value)}
+            value={orderMultiplier}
+          />
+        </Field>
+        <Field label={pickText(lang, "最多补仓次数", "Max Safety Orders")}>
+          <Input
+            inputMode="numeric"
+            name="martingaleMaxLegsInput"
+            onChange={(event) => onMaxLegsChange(event.target.value)}
+            value={maxLegs}
+          />
+        </Field>
+        <Field label={pickText(lang, "整体止盈 (%)", "Take Profit (%)")}>
+          <Input
+            inputMode="decimal"
+            name="martingaleTakeProfitPercentInput"
+            onChange={(event) => onTakeProfitPercentChange(event.target.value)}
+            value={takeProfitPercent}
+          />
+        </Field>
+        <Field hint={pickText(lang, "可留空", "Optional")} label={pickText(lang, "止损 (%)", "Stop Loss (%)")}>
+          <Input
+            inputMode="decimal"
+            name="martingaleStopLossPercentInput"
+            onChange={(event) => onStopLossPercentChange(event.target.value)}
+            value={stopLossPercent}
+          />
+        </Field>
+        {futuresVisible ? (
+          <>
+            <Field label={pickText(lang, "保证金模式", "Margin Mode")}>
+              <Select
+                name="martingaleFuturesMarginModeSelect"
+                onChange={(event) => onFuturesMarginModeChange(event.target.value as StrategyWorkspaceValues["futuresMarginMode"])}
+                value={futuresMarginMode}
+              >
+                <option value="isolated">{pickText(lang, "逐仓", "Isolated")}</option>
+                <option value="cross">{pickText(lang, "全仓", "Cross")}</option>
+              </Select>
+            </Field>
+            <Field label={pickText(lang, "杠杆倍数", "Leverage")}>
+              <Input
+                inputMode="numeric"
+                name="martingaleLeverageInput"
+                onChange={(event) => onLeverageChange(event.target.value)}
+                value={leverage}
+              />
+            </Field>
+          </>
+        ) : (
+          <div className="rounded-xl border border-dashed border-border px-3 py-3 text-sm text-muted-foreground md:col-span-2">
+            {pickText(lang, "现货马丁不需要保证金和杠杆。", "Spot DCA does not use margin or leverage.")}
+          </div>
+        )}
+      </div>
+
+      <div className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm leading-relaxed text-amber-950 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-100">
+        {pickText(
+          lang,
+          "价格持续单边波动时，马丁策略会连续补仓，占用资金会明显增加。建议先小额试跑。",
+          "If price keeps moving one way, DCA keeps adding orders and uses much more capital. Start with a small test.",
+        )}
+      </div>
+    </SectionBlock>
   );
 }
 
@@ -957,9 +1290,79 @@ function SectionBlock({
   );
 }
 
+function resolveWizardStepIndex(step?: string) {
+  switch (step) {
+    case "grid":
+      return 1;
+    case "risk":
+      return 2;
+    case "confirm":
+      return 3;
+    default:
+      return 0;
+  }
+}
+
+function clampStepIndex(index: number, total: number) {
+  return Math.min(Math.max(index, 0), Math.max(total - 1, 0));
+}
+
+function buildWorkspaceHref({
+  mode,
+  searchPath,
+  searchQuery,
+  step,
+  strategyType,
+}: {
+  mode?: "wizard" | "advanced";
+  searchPath: string;
+  searchQuery: string;
+  step?: string;
+  strategyType: StrategyType;
+}) {
+  const params = new URLSearchParams();
+  if (mode === "advanced") {
+    params.set("mode", mode);
+  } else if (step) {
+    params.set("step", step);
+  } else if (mode === "wizard") {
+    params.set("mode", mode);
+  }
+  if (searchQuery) {
+    params.set("symbolQuery", searchQuery);
+  }
+  if (strategyType === "martingale_grid") {
+    params.set("strategyType", strategyType);
+  }
+  return `${searchPath}?${params.toString()}`;
+}
+
+function buildConfirmCreateHref(
+  searchPath: string,
+  searchQuery: string,
+  strategyType: StrategyType,
+  step: string,
+  mode?: "wizard" | "advanced",
+) {
+  const params = new URLSearchParams();
+  if (mode === "advanced") {
+    params.set("mode", mode);
+  } else {
+    params.set("step", step);
+  }
+  if (searchQuery) {
+    params.set("symbolQuery", searchQuery);
+  }
+  if (strategyType === "martingale_grid") {
+    params.set("strategyType", strategyType);
+  }
+  params.set("confirmCreate", "1");
+  return `${searchPath}?${params.toString()}`;
+}
+
 function resolveBackendMode(
   marketType: StrategyWorkspaceValues["marketType"],
-  strategyType: StrategyWorkspaceValues["strategyType"],
+  strategyType: GridStrategyType,
   ordinarySide: StrategyWorkspaceValues["ordinarySide"],
 ): StrategyWorkspaceValues["mode"] {
   if (strategyType === "classic_bilateral_grid") {
@@ -969,6 +1372,16 @@ function resolveBackendMode(
     return marketType === "spot" ? "sell-only" : "short";
   }
   return marketType === "spot" ? "buy-only" : "long";
+}
+
+function resolveMartingaleMode(
+  marketType: StrategyWorkspaceValues["marketType"],
+  direction: MartingaleDirection,
+): StrategyWorkspaceValues["mode"] {
+  if (marketType === "spot") {
+    return direction === "short" ? "sell-only" : "buy-only";
+  }
+  return direction;
 }
 
 function normalizeMarket(market: string): StrategyWorkspaceValues["marketType"] {
@@ -982,9 +1395,10 @@ function normalizeMarket(market: string): StrategyWorkspaceValues["marketType"] 
 }
 
 function deriveInitialLevels(values: StrategyWorkspaceValues): EditableGridLevel[] {
+  const strategyType: GridStrategyType = values.strategyType === "martingale_grid" ? "ordinary_grid" : values.strategyType;
   const parsed = parseLevelsJson(values.levelsJson);
   if (parsed.length > 0) {
-    return normalizeEditableLevels(parsed, values.amountMode, values.strategyType, values.marketType, values.ordinarySide);
+    return normalizeEditableLevels(parsed, values.amountMode, strategyType, values.marketType, values.ordinarySide);
   }
   const generated = generateBatchEditableLevels({
     amountMode: values.amountMode,
@@ -999,7 +1413,7 @@ function deriveInitialLevels(values: StrategyWorkspaceValues): EditableGridLevel
     ordinarySide: values.ordinarySide,
     quoteAmount: values.quoteAmount,
     referencePrice: values.referencePrice,
-    strategyType: values.strategyType,
+    strategyType,
     upperRangePercent: values.upperRangePercent,
   });
   if (generated.length > 0) {
@@ -1044,7 +1458,7 @@ function parseLevelsJson(raw: string): EditableGridLevel[] {
   }
 }
 
-function minimumLevelCountForStrategy(strategyType: StrategyWorkspaceValues["strategyType"]) {
+function minimumLevelCountForStrategy(strategyType: GridStrategyType) {
   return strategyType === "classic_bilateral_grid" ? 2 : 1;
 }
 
@@ -1061,7 +1475,7 @@ function generateBatchEditableLevels(input: {
   ordinarySide: StrategyWorkspaceValues["ordinarySide"];
   quoteAmount: string;
   referencePrice: string;
-  strategyType: StrategyWorkspaceValues["strategyType"];
+  strategyType: GridStrategyType;
   upperRangePercent: string;
 }): EditableGridLevel[] {
   const count = Number.parseInt(input.gridCount, 10);
@@ -1113,7 +1527,7 @@ function buildBatchPriceLevels(input: {
   marketType: StrategyWorkspaceValues["marketType"];
   ordinarySide: StrategyWorkspaceValues["ordinarySide"];
   reference: number;
-  strategyType: StrategyWorkspaceValues["strategyType"];
+  strategyType: GridStrategyType;
   upperRangePercent: string;
 }) {
   const mode = input.generation === "custom" ? "arithmetic" : input.generation;
@@ -1176,7 +1590,7 @@ function generateEditorSeedLevels(input: {
   ordinarySide: StrategyWorkspaceValues["ordinarySide"];
   quoteAmount: string;
   referencePrice: string;
-  strategyType: StrategyWorkspaceValues["strategyType"];
+  strategyType: GridStrategyType;
   upperRangePercent: string;
 }) {
   return generateBatchEditableLevels(input);
@@ -1191,7 +1605,7 @@ function canGenerateEditorSeed(input: {
   lowerRangePercent: string;
   quoteAmount: string;
   referencePrice: string;
-  strategyType: StrategyWorkspaceValues["strategyType"];
+  strategyType: GridStrategyType;
   upperRangePercent: string;
 }) {
   const count = Number.parseInt(input.gridCount, 10);
@@ -1232,7 +1646,7 @@ function createEditableLevel(index: number, partial?: Partial<EditableGridLevel>
 }
 
 function ordinaryLevelsAscend(
-  strategyType: StrategyWorkspaceValues["strategyType"],
+  strategyType: GridStrategyType,
   marketType: StrategyWorkspaceValues["marketType"],
   ordinarySide: StrategyWorkspaceValues["ordinarySide"],
 ) {
@@ -1250,7 +1664,7 @@ function compareEditableLevelPrice(left: EditableGridLevel, right: EditableGridL
 
 function orderEditableLevels(
   levels: EditableGridLevel[],
-  strategyType: StrategyWorkspaceValues["strategyType"],
+  strategyType: GridStrategyType,
   marketType: StrategyWorkspaceValues["marketType"],
   ordinarySide: StrategyWorkspaceValues["ordinarySide"],
   preserveOrdinaryAnchor = true,
@@ -1275,7 +1689,7 @@ function orderEditableLevels(
 function normalizeEditableLevels(
   levels: EditableGridLevel[],
   amountMode: StrategyWorkspaceValues["amountMode"],
-  strategyType: StrategyWorkspaceValues["strategyType"],
+  strategyType: GridStrategyType,
   marketType: StrategyWorkspaceValues["marketType"],
   ordinarySide: StrategyWorkspaceValues["ordinarySide"],
   preserveOrdinaryAnchor = true,
@@ -1308,7 +1722,7 @@ function normalizeEditableLevels(
 function reorderEditableLevelsForStrategy(
   levels: EditableGridLevel[],
   amountMode: StrategyWorkspaceValues["amountMode"],
-  strategyType: StrategyWorkspaceValues["strategyType"],
+  strategyType: GridStrategyType,
   marketType: StrategyWorkspaceValues["marketType"],
   ordinarySide: StrategyWorkspaceValues["ordinarySide"],
 ) {
@@ -1321,7 +1735,7 @@ function updateLevelField(
   field: keyof Pick<EditableGridLevel, "entryPrice" | "quantity" | "quoteAmount" | "takeProfitPercent" | "trailingPercent">,
   value: string,
   amountMode: StrategyWorkspaceValues["amountMode"],
-  strategyType: StrategyWorkspaceValues["strategyType"],
+  strategyType: GridStrategyType,
   marketType: StrategyWorkspaceValues["marketType"],
   ordinarySide: StrategyWorkspaceValues["ordinarySide"],
 ) {
@@ -1334,7 +1748,7 @@ function updateLevelSpacing(
   index: number,
   value: string,
   amountMode: StrategyWorkspaceValues["amountMode"],
-  strategyType: StrategyWorkspaceValues["strategyType"],
+  strategyType: GridStrategyType,
   marketType: StrategyWorkspaceValues["marketType"],
   ordinarySide: StrategyWorkspaceValues["ordinarySide"],
 ) {
@@ -1357,7 +1771,7 @@ function addEditableLevel(
   amountMode: StrategyWorkspaceValues["amountMode"],
   fallbackSpacing: string,
   fallbackReferencePrice: string,
-  strategyType: StrategyWorkspaceValues["strategyType"],
+  strategyType: GridStrategyType,
   marketType: StrategyWorkspaceValues["marketType"],
   ordinarySide: StrategyWorkspaceValues["ordinarySide"],
 ) {
@@ -1383,7 +1797,7 @@ function removeEditableLevel(
   levels: EditableGridLevel[],
   index: number,
   amountMode: StrategyWorkspaceValues["amountMode"],
-  strategyType: StrategyWorkspaceValues["strategyType"],
+  strategyType: GridStrategyType,
   marketType: StrategyWorkspaceValues["marketType"],
   ordinarySide: StrategyWorkspaceValues["ordinarySide"],
 ) {
@@ -1435,6 +1849,49 @@ function toPreviewLevels(levels: EditableGridLevel[], amountMode: StrategyWorksp
       } satisfies StrategyPreviewLevel;
     })
     .filter((item): item is StrategyPreviewLevel => item !== null);
+}
+
+function buildMartingalePreviewLevels(input: {
+  direction: MartingaleDirection;
+  firstOrderQuote: string;
+  maxLegs: string;
+  orderMultiplier: string;
+  referencePrice: string;
+  spacingPercent: string;
+  takeProfitPercent: string;
+}): StrategyPreviewLevel[] {
+  const reference = Number.parseFloat(input.referencePrice);
+  const firstOrderQuote = Number.parseFloat(input.firstOrderQuote);
+  const spacing = Number.parseFloat(input.spacingPercent);
+  const multiplier = Number.parseFloat(input.orderMultiplier);
+  const maxLegs = Number.parseInt(input.maxLegs, 10);
+  const takeProfit = Number.parseFloat(input.takeProfitPercent);
+  if (
+    !Number.isFinite(reference) || reference <= 0 ||
+    !Number.isFinite(firstOrderQuote) || firstOrderQuote <= 0 ||
+    !Number.isFinite(spacing) || spacing <= 0 ||
+    !Number.isFinite(multiplier) || multiplier <= 0 ||
+    !Number.isFinite(maxLegs) || maxLegs <= 0 ||
+    !Number.isFinite(takeProfit) || takeProfit <= 0
+  ) {
+    return [];
+  }
+
+  const count = Math.min(Math.max(maxLegs, 1), 12);
+  return Array.from({ length: count }, (_value, index) => {
+    const step = spacing * index;
+    const price = input.direction === "short"
+      ? reference * (1 + step / 100)
+      : reference * Math.max(0.0001, 1 - step / 100);
+    const quoteAmount = firstOrderQuote * Math.pow(multiplier, index);
+    return {
+      entryPrice: formatDecimal(price),
+      quantity: formatDecimal(quoteAmount / price),
+      spacingPercent: index === 0 ? null : formatPercent(input.direction === "short" ? spacing : -spacing),
+      takeProfitPercent: formatPercent(takeProfit),
+      trailingPercent: null,
+    } satisfies StrategyPreviewLevel;
+  });
 }
 
 function deriveQuoteAmount(entryPriceRaw: string, quantityRaw: string) {

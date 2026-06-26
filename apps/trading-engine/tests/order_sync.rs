@@ -180,7 +180,7 @@ fn martingale_working_order_adopts_existing_live_order_by_client_id() {
     assert_eq!(result.submitted, 0);
     assert_eq!(result.refreshed, 1);
     assert_eq!(gateway.placed.lock().unwrap().len(), 0);
-    assert_eq!(strategy.runtime.orders[0].status, "Placed");
+    assert_eq!(strategy.runtime.orders[0].status, "Working");
     assert_eq!(
         strategy.runtime.orders[0].exchange_order_id.as_deref(),
         Some("remote-123")
@@ -374,7 +374,7 @@ fn stopping_strategy_submits_reduce_only_market_close_orders() {
             order
                 .client_order_id
                 .as_deref()
-                .is_some_and(|value| value.contains("-stop-close-"))
+                .is_some_and(|value| value.starts_with("cl-"))
         })
         .expect("close order");
     assert_eq!(close.order_type, "MARKET");

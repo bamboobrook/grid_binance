@@ -2,10 +2,8 @@ import { cookies } from "next/headers";
 
 import { AppShellSection } from "@/components/shell/app-shell-section";
 import { Card, CardBody, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { DialogFrame } from "@/components/ui/dialog";
 import { Button, ButtonRow, Field, FormStack, Input, Select } from "@/components/ui/form";
 import { StatusBanner } from "@/components/ui/status-banner";
-import { ApiUsageDashboard } from "@/components/ui/api-usage-dashboard";
 import { pickText, type UiLanguage } from "@/lib/ui/preferences";
 
 const DEFAULT_AUTH_API_BASE_URL = "http://127.0.0.1:8080";
@@ -74,23 +72,17 @@ export default async function ExchangePage({ params, searchParams }: ExchangePag
     ? (summaryMarkets.length > 0 ? summaryMarkets.map((value) => labelForMarket(lang, value)) : [pickText(lang, "待重新校验", "Needs re-validation")])
     : [pickText(lang, "未配置", "Not configured")];
   const state = describeConnectionState(lang, summarySnapshot);
-  const summaryTitle = persistedSnapshot || !testResult
-    ? pickText(lang, "凭证摘要", "Credential summary")
-    : pickText(lang, "当前测试结果（未自动保存）", "Current test result (not auto-saved)");
-  const summaryDescription = persistedSnapshot
-    ? (testResult
-        ? pickText(lang, "上方横幅显示本次测试结果，下面继续保留已保存的凭证摘要。", "The banner above shows the latest validation result while the saved credential summary stays visible below.")
-        : pickText(lang, "保存后仍会持续展示掩码与运行要求。", "Masked values and runtime requirements remain visible after save."))
-    : pickText(lang, "这里只展示当前未落库的即时校验结果；测试通过时系统会自动保存，只有失败或自动保存失败时才会停留在这里。", "This panel only shows validation results that were not persisted. Successful tests auto-save, so only failures or auto-save failures remain here.");
+  const keyState = (summarySnapshot?.api_key_masked || (hasSavedCredentialState ? pickText(lang, "已保存", "Saved") : "")) || pickText(lang, "未填写", "Not added");
+  const checkItems = [
+    { label: pickText(lang, "能连接币安", "Can reach Binance"), value: validationSnapshot?.validation.api_connectivity_ok },
+    { label: pickText(lang, "API 权限正确", "API permissions are correct"), value: validationSnapshot?.validation.permissions_ok },
+    { label: pickText(lang, "提现权限关闭", "Withdrawals are disabled"), value: validationSnapshot?.validation.withdrawals_disabled },
+    { label: pickText(lang, "市场范围可用", "Selected markets are usable"), value: validationSnapshot?.validation.market_access_ok },
+    { label: pickText(lang, "合约对冲模式", "Futures hedge mode"), value: validationSnapshot?.validation.hedge_mode_ok },
+  ];
 
   return (
     <>
-      <StatusBanner
-              tone="info"
-              lang={lang}
-        description={pickText(lang, "一个用户只能绑定一个币安账户，保存后的密钥会立即加密并掩码显示。", "One user can bind only one Binance account, and saved API secrets stay encrypted and masked.")}
-        title={pickText(lang, "交易所凭证工作区", "Exchange credential workspace")}
-      />
       {error ? <StatusBanner description={error} title={pickText(lang, "交易所操作失败", "Exchange action failed")}  tone="info" lang={lang} /> : null}
       {testResult ? (
         <StatusBanner
@@ -128,46 +120,51 @@ export default async function ExchangePage({ params, searchParams }: ExchangePag
         <StatusBanner
                 tone="info"
                 lang={lang}
-          description={pickText(lang, "账户虽然可达，但你当前勾选的市场范围仍有未通过项。", "The Binance account is reachable, but the currently selected market scope still has failing checks.")}
-          title={pickText(lang, "连接测试失败", "Connection test failed")}
+          description={pickText(lang, "请按下面的检查结果修改后，再测试一次。", "Review the checklist below, adjust the settings, then test again.")}
+          title={pickText(lang, "连接没有通过", "Connection test failed")}
         />
       ) : null}
       <AppShellSection
-        description={pickText(lang, "保存、掩码、连接校验都会在启动策略前完整展示。", "Credential save, masking, and connection verification stay visible before any strategy can start.")}
-        eyebrow={pickText(lang, "交易所设置", "Exchange settings")}
-        title={pickText(lang, "交易所凭证", "Exchange Credentials")}
+        eyebrow={pickText(lang, "交易所", "Exchange")}
+        title={pickText(lang, "连接币安", "Connect Binance")}
       >
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <div className="grid gap-3 md:grid-cols-3">
+          <StatusTile label={pickText(lang, "连接状态", "Connection")} value={state.label} />
+          <StatusTile label={pickText(lang, "API Key", "API key")} value={keyState} />
+          <StatusTile label={pickText(lang, "可用市场", "Markets")} value={supportedScopes.join(" / ")} />
+        </div>
+
+        <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_24rem]">
           <Card>
             <CardHeader>
-              <CardTitle>{pickText(lang, "绑定币安账户", "Bind Binance account")}</CardTitle>
-              <CardDescription>{pickText(lang, "凭证通过 POST 提交，不会通过 URL 回显；运行连接测试在通过时会自动保存当前输入。", "Credentials are submitted over POST, never round-tripped through the URL, and successful tests auto-save the current input.")}</CardDescription>
+              <CardTitle>{pickText(lang, "填写 API", "Add API")}</CardTitle>
+              <CardDescription>{pickText(lang, "在币安创建 API 后，把 Key 和 Secret 填到这里。先测试连接，通过后就可以创建机器人。", "Create an API on Binance, then paste the Key and Secret here. Test the connection before creating a bot.")}</CardDescription>
             </CardHeader>
             <CardBody>
               <FormStack action="/api/user/exchange" method="post" className="gap-4">
-                <Field hint={pickText(lang, "请不要给币安 API 开启提现权限。", "Do not enable withdrawal permission on your Binance API key.")} label={pickText(lang, "币安 API Key", "Binance API key")}>
+                <Field hint={pickText(lang, "不要开启提现权限", "No withdrawal permission")} label={pickText(lang, "币安 API Key", "Binance API key")}>
                   <Input name="apiKey" />
                 </Field>
-                <Field hint={pickText(lang, "只会加密保存在服务端，不会明文回显。", "Stored encrypted server-side and never shown back in plaintext.")} label={pickText(lang, "币安 API Secret", "Binance API secret")}>
+                <Field hint={pickText(lang, "保存后不会再显示明文", "Hidden after save")} label={pickText(lang, "币安 API Secret", "Binance API secret")}>
                   <Input name="apiSecret" type="password" />
                 </Field>
-                <Field hint={pickText(lang, "只勾选你准备实际运行的市场；如果密钥只开了合约，请不要勾选现货。", "Only select the markets you actually plan to run. If this key is futures-only, leave Spot unchecked.")} label={pickText(lang, "选择测试市场", "Choose market scope")}>
+                <Field hint={pickText(lang, "只选你要运行的市场", "Select only what you will trade")} label={pickText(lang, "交易市场", "Markets")}>
                   <div className="grid gap-2 sm:grid-cols-3">
-                    <label className="flex items-center gap-2 rounded-full border border-border/70 px-3 py-2 text-sm text-foreground">
+                    <label className="flex items-center gap-2 rounded-md border border-border/70 px-3 py-2 text-sm text-foreground">
                       <input defaultChecked={selectedMarkets.includes("spot")} name="selectedMarkets" type="checkbox" value="spot" />
                       <span>{pickText(lang, "现货", "Spot")}</span>
                     </label>
-                    <label className="flex items-center gap-2 rounded-full border border-border/70 px-3 py-2 text-sm text-foreground">
+                    <label className="flex items-center gap-2 rounded-md border border-border/70 px-3 py-2 text-sm text-foreground">
                       <input defaultChecked={selectedMarkets.includes("usdm")} name="selectedMarkets" type="checkbox" value="usdm" />
                       <span>{pickText(lang, "U本位合约", "USDⓈ-M futures")}</span>
                     </label>
-                    <label className="flex items-center gap-2 rounded-full border border-border/70 px-3 py-2 text-sm text-foreground">
+                    <label className="flex items-center gap-2 rounded-md border border-border/70 px-3 py-2 text-sm text-foreground">
                       <input defaultChecked={selectedMarkets.includes("coinm")} name="selectedMarkets" type="checkbox" value="coinm" />
                       <span>{pickText(lang, "币本位合约", "COIN-M futures")}</span>
                     </label>
                   </div>
                 </Field>
-                <Field hint={pickText(lang, "如需运行合约策略，必须使用对冲模式。", "Required for futures strategies in V1.")} label={pickText(lang, "持仓模式", "Position mode")}>
+                <Field hint={pickText(lang, "仅现货网格可选单向模式", "One-way mode is only available for spot grids")} label={pickText(lang, "持仓模式", "Position mode")}>
                   <Select defaultValue={positionMode} name="positionMode">
                     <option value="hedge">{pickText(lang, "对冲模式", "Hedge mode")}</option>
                     <option value="one-way">{pickText(lang, "单向模式", "One-way")}</option>
@@ -175,10 +172,10 @@ export default async function ExchangePage({ params, searchParams }: ExchangePag
                 </Field>
                 <ButtonRow className="flex-wrap">
                   <Button name="intent" type="submit" value="save">
-                    {pickText(lang, "保存凭证", "Save credentials")}
+                    {pickText(lang, "保存 API", "Save API")}
                   </Button>
                   <Button name="intent" type="submit" value="test">
-                    {pickText(lang, "运行连接测试", "Run connection test")}
+                    {pickText(lang, "测试连接", "Test connection")}
                   </Button>
                 </ButtonRow>
               </FormStack>
@@ -186,56 +183,47 @@ export default async function ExchangePage({ params, searchParams }: ExchangePag
           </Card>
           <Card>
             <CardHeader>
-              <CardTitle>{summaryTitle}</CardTitle>
-              <CardDescription>{summaryDescription}</CardDescription>
+              <CardTitle>{pickText(lang, "连接检查", "Connection checklist")}</CardTitle>
+              <CardDescription>{pickText(lang, "点“测试连接”后，看这里有没有没通过的项目。", "After testing, check here for anything that did not pass.")}</CardDescription>
             </CardHeader>
             <CardBody>
-              <ul className="text-list">
-                <li>{pickText(lang, "掩码 API Key", "Masked API key")}: {(summarySnapshot?.api_key_masked || (hasSavedCredentialState ? pickText(lang, "已保存，待恢复摘要", "Saved, summary pending") : "")) || pickText(lang, "尚未保存", "Not saved yet")}</li>
-                <li>{pickText(lang, "API Secret", "API secret")}: {hasSavedCredentialState ? "••••••••••••••••" : pickText(lang, "尚未保存", "Not saved yet")}</li>
-                <li>{pickText(lang, "连接状态", "Connection status")}: {state.label}</li>
-                <li>{pickText(lang, "支持范围", "Supported scopes")}: {supportedScopes.join(", ")}</li>
-                <li>{pickText(lang, "校验结果", "Validation posture")}: {state.detail}</li>
-                <li>{pickText(lang, "交易对同步", "Symbol metadata sync")}: {pickText(lang, "每1小时一次", "Every 1 hour")}</li>
-              </ul>
+              <div className="grid gap-2">
+                {checkItems.map((item) => (
+                  <CheckRow key={item.label} label={item.label} value={describeCheckState(lang, validationSnapshot, item.value)} />
+                ))}
+              </div>
+              <div className="mt-4 rounded-md border border-border bg-secondary/40 p-3 text-xs leading-5 text-muted-foreground">
+                {state.detail}
+              </div>
             </CardBody>
           </Card>
         </div>
       </AppShellSection>
-      <Card>
-        <CardHeader>
-          <CardTitle>{pickText(lang, "校验详情", "Validation details")}</CardTitle>
-          <CardDescription>{pickText(lang, "连接测试会告诉你具体是哪一步阻塞了合约启动。", "Connection testing shows which exact exchange checks passed and which one blocks futures starts.")}</CardDescription>
-        </CardHeader>
-        <CardBody>
-          <ul className="text-list">
-            <li>{pickText(lang, "API 连通性", "API connectivity")}: {describeValidationValue(lang, validationSnapshot, validationSnapshot?.validation.api_connectivity_ok)}</li>
-            <li>{pickText(lang, "时间戳同步", "Timestamp sync")}: {describeValidationValue(lang, validationSnapshot, validationSnapshot?.validation.timestamp_in_sync)}</li>
-            <li>{pickText(lang, "现货可读", "Spot readable")}: {describeValidationValue(lang, validationSnapshot, validationSnapshot?.validation.can_read_spot)}</li>
-            <li>{pickText(lang, "U本位可读", "USDⓈ-M readable")}: {describeValidationValue(lang, validationSnapshot, validationSnapshot?.validation.can_read_usdm)}</li>
-            <li>{pickText(lang, "币本位可读", "COIN-M readable")}: {describeValidationValue(lang, validationSnapshot, validationSnapshot?.validation.can_read_coinm)}</li>
-            <li>{pickText(lang, "权限通过", "Permissions OK")}: {describeValidationValue(lang, validationSnapshot, validationSnapshot?.validation.permissions_ok)}</li>
-            <li>{pickText(lang, "提现权限已关闭", "Withdrawals disabled")}: {describeValidationValue(lang, validationSnapshot, validationSnapshot?.validation.withdrawals_disabled)}</li>
-            <li>{pickText(lang, "市场访问通过", "Market access OK")}: {describeValidationValue(lang, validationSnapshot, validationSnapshot?.validation.market_access_ok)}</li>
-            <li>{pickText(lang, "对冲模式通过", "Hedge mode OK")}: {describeValidationValue(lang, validationSnapshot, validationSnapshot?.validation.hedge_mode_ok)}</li>
-          </ul>
-        </CardBody>
-      </Card>
-      <DialogFrame
-        description={pickText(lang, "如果对冲模式、余额或交易所过滤器不满足要求，策略预检必须明确报出失败原因。", "If hedge mode, balance, or exchange filters do not match runtime requirements, strategy pre-flight must fail fast with the exact reason.")}
-        lang={lang}
-        title={pickText(lang, "交易级风险提醒", "Trading-critical warning")}
-      />
-      <Card>
-        <CardHeader>
-          <CardTitle>{pickText(lang, "API 用量监控", "API Usage Monitor")}</CardTitle>
-          <CardDescription>{pickText(lang, "实时展示 Binance API 调用量和限流状态。", "Real-time Binance API call volume and rate limit status.")}</CardDescription>
-        </CardHeader>
-        <CardBody>
-          <ApiUsageDashboard lang={lang} />
-        </CardBody>
-      </Card>
     </>
+  );
+}
+
+function StatusTile({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-md border border-border bg-card p-4">
+      <p className="text-xs font-bold uppercase text-muted-foreground">{label}</p>
+      <p className="mt-2 truncate text-sm font-bold text-foreground">{value}</p>
+    </div>
+  );
+}
+
+function CheckRow({ label, value }: { label: string; value: { label: string; tone: "default" | "success" | "danger" } }) {
+  const toneClass =
+    value.tone === "success"
+      ? "bg-emerald-500/10 text-emerald-500"
+      : value.tone === "danger"
+        ? "bg-red-500/10 text-red-500"
+        : "bg-secondary text-muted-foreground";
+  return (
+    <div className="flex items-center justify-between gap-3 rounded-md border border-border bg-background p-3">
+      <span className="text-sm font-semibold text-foreground">{label}</span>
+      <span className={`shrink-0 rounded-md px-2 py-1 text-xs font-bold ${toneClass}`}>{value.label}</span>
+    </div>
   );
 }
 
@@ -243,25 +231,25 @@ function describeConnectionState(lang: UiLanguage, snapshot: ExchangeAccountSnap
   if (!snapshot || snapshot.binding_state === "missing") {
     return {
       label: pickText(lang, "尚未连接", "Not connected yet"),
-      detail: pickText(lang, "尚未绑定", "Not connected yet"),
+      detail: pickText(lang, "先填写 API，再点击测试连接。", "Add your API, then test the connection."),
     };
   }
   if (snapshot.binding_state === "partial") {
     return {
       label: pickText(lang, "已保存待恢复", "Saved, needs recovery"),
-      detail: pickText(lang, "凭证仍在系统里，但摘要记录不完整，请重新运行一次连接测试。", "The credentials are still saved, but the summary record is incomplete. Run the connection test again."),
+      detail: pickText(lang, "系统里有保存记录，但还需要重新测试一次。", "A saved record exists, but it needs another test."),
     };
   }
   if (snapshot.connection_status === "healthy") {
     return {
       label: pickText(lang, "已验证", "Verified"),
-      detail: pickText(lang, "权限已通过校验", "Permissions verified"),
+      detail: pickText(lang, "连接正常，可以继续创建机器人。", "Connection is ready. You can create a bot."),
     };
   }
   if (snapshot.connection_status === "pending" || snapshot.connection_status === "untested") {
     return {
       label: pickText(lang, "等待校验", "Awaiting validation"),
-      detail: pickText(lang, "尚未完成测试", "Awaiting validation"),
+      detail: pickText(lang, "点击测试连接后，这里会显示结果。", "Test the connection to see the result here."),
     };
   }
   return {
@@ -270,32 +258,33 @@ function describeConnectionState(lang: UiLanguage, snapshot: ExchangeAccountSnap
   };
 }
 
-function describeValidationValue(lang: UiLanguage, snapshot: ExchangeAccountSnapshot | null, value?: boolean) {
+function describeCheckState(lang: UiLanguage, snapshot: ExchangeAccountSnapshot | null, value?: boolean) {
   if (!snapshot || snapshot.binding_state === "missing") {
-    return pickText(lang, "未配置", "Not configured");
+    return { label: pickText(lang, "未测试", "Not tested"), tone: "default" as const };
   }
-  return value ? pickText(lang, "是", "Yes") : pickText(lang, "否", "No");
+  return value
+    ? { label: pickText(lang, "通过", "Passed"), tone: "success" as const }
+    : { label: pickText(lang, "未通过", "Failed"), tone: "danger" as const };
 }
 
 function buildTestResultDescription(lang: UiLanguage, result: ExchangeTestResult) {
   const synced = typeof result.synced_symbols === "number"
-    ? pickText(lang, `本次共校验并同步了 ${result.synced_symbols} 个交易对元数据。`, `Validated and synced ${result.synced_symbols} symbol metadata records during this test.`)
+    ? pickText(lang, `已同步 ${result.synced_symbols} 个交易对。`, `Synced ${result.synced_symbols} symbols.`)
     : "";
 
   if (result.account.connection_status === "healthy") {
     return [
       result.persisted
-        ? pickText(lang, "当前输入已通过完整校验，并已自动保存到系统。", "The current input passed the full validation flow and has been auto-saved.")
-        : pickText(lang, "当前输入已通过完整校验，但自动保存失败，请先处理上方错误后重新提交。", "The current input passed the full validation flow, but auto-save failed. Resolve the error above and submit again."),
+        ? pickText(lang, "连接成功，API 已保存。", "Connection passed and the API is saved.")
+        : pickText(lang, "连接成功，但保存失败，请重新保存一次。", "Connection passed, but saving failed. Save again."),
       synced,
     ].filter(Boolean).join(" ");
   }
 
   return [
-    pickText(lang, `当前输入未通过校验，阻塞步骤：${describeBlockingReason(lang, result.account)}。`, `The current input failed validation. Blocking checks: ${describeBlockingReason(lang, result.account)}.`),
+    pickText(lang, `连接没有通过：${describeBlockingReason(lang, result.account)}。`, `Connection failed: ${describeBlockingReason(lang, result.account)}.`),
     buildScopeAdjustmentHint(lang, result.account),
     synced,
-    pickText(lang, "由于测试未通过，本次结果不会保存到系统。", "The result was not persisted because the validation did not pass."),
   ].filter(Boolean).join(" ");
 }
 

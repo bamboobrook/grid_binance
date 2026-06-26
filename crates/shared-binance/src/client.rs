@@ -17,7 +17,7 @@ use std::{
 use crate::metadata::SymbolMetadata;
 
 const NONCE_SIZE: usize = 12;
-const DEFAULT_HTTP_TIMEOUT_MS: u64 = 5_000;
+const DEFAULT_HTTP_TIMEOUT_MS: u64 = 10_000;
 const DEFAULT_RECV_WINDOW_MS: u64 = 5_000;
 const MAX_TIMESTAMP_SKEW_MS: i64 = 5_000;
 const LIVE_MODE_ENV: &str = "BINANCE_LIVE_MODE";
@@ -89,6 +89,35 @@ pub struct BinanceOrderRequest {
     pub reduce_only: Option<bool>,
     pub position_side: Option<String>,
     pub client_order_id: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct BinanceAlgoOrderRequest {
+    pub symbol: String,
+    pub side: String,
+    pub order_type: String,
+    pub quantity: Option<String>,
+    pub price: Option<String>,
+    pub trigger_price: Option<String>,
+    pub time_in_force: Option<String>,
+    pub position_side: Option<String>,
+    pub close_position: Option<bool>,
+    pub reduce_only: Option<bool>,
+    pub working_type: Option<String>,
+    pub price_protect: Option<bool>,
+    pub activate_price: Option<String>,
+    pub callback_rate: Option<String>,
+    pub client_algo_id: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct BinanceAlgoOrderResponse {
+    pub algo_id: String,
+    pub client_algo_id: Option<String>,
+    pub status: String,
+    pub symbol: String,
+    pub side: Option<String>,
+    pub order_type: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -307,12 +336,8 @@ struct PositionSideModeResponse {
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct UsdmPositionRiskResponse {
-    symbol: String,
-    #[serde(default)]
-    margin_type: Option<String>,
-    #[serde(default)]
-    leverage: Option<FlexibleValue>,
+struct MultiAssetsModeResponse {
+    multi_assets_margin: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -381,13 +406,6 @@ struct AccountV3BalancePayload {
     available_balance: FlexibleValue,
     #[serde(default)]
     max_withdraw_amount: FlexibleValue,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct AccountV3BalanceResponsePayload {
-    #[serde(default)]
-    assets: Vec<AccountV3BalancePayload>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -589,11 +607,28 @@ struct OrderResponsePayload {
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
+struct AlgoOrderResponsePayload {
+    algo_id: FlexibleIdentifier,
+    #[serde(default)]
+    client_algo_id: Option<String>,
+    #[serde(default, alias = "algoStatus")]
+    status: Option<String>,
+    symbol: String,
+    #[serde(default)]
+    side: Option<String>,
+    #[serde(default, rename = "type", alias = "orderType")]
+    order_type: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct UserTradePayload {
     id: FlexibleIdentifier,
     #[serde(default)]
     order_id: Option<FlexibleIdentifier>,
     symbol: String,
+    #[serde(default)]
+    side: Option<String>,
     price: FlexibleValue,
     qty: FlexibleValue,
     commission: Option<FlexibleValue>,
@@ -886,6 +921,100 @@ impl BinanceClient {
         }))
     }
 
+    pub fn place_usdm_algo_order(
+        &self,
+        request: BinanceAlgoOrderRequest,
+    ) -> Result<BinanceAlgoOrderResponse, CredentialValidationError> {
+        if !self.live_config.enabled {
+            return Err(CredentialValidationError::new(
+                "binance live mode is disabled",
+            ));
+        }
+        let http = self.live_http_client()?;
+
+        let mut last_error = None;
+        for attempt in 0..MAX_RETRIES {
+            let server_time = self.fetch_server_time(&http, BinanceMarket::Usdm)?;
+            let mut params = vec![
+                ("symbol".to_string(), request.symbol.clone()),
+                ("side".to_string(), request.side.clone()),
+                ("algoType".to_string(), "CONDITIONAL".to_string()),
+                ("type".to_string(), request.order_type.clone()),
+            ];
+            if let Some(ref quantity) = request.quantity {
+                params.push(("quantity".to_string(), quantity.clone()));
+            }
+            if let Some(ref price) = request.price {
+                params.push(("price".to_string(), price.clone()));
+            }
+            if let Some(ref trigger_price) = request.trigger_price {
+                params.push(("triggerPrice".to_string(), trigger_price.clone()));
+            }
+            if let Some(ref time_in_force) = request.time_in_force {
+                params.push(("timeInForce".to_string(), time_in_force.clone()));
+            }
+            if let Some(ref position_side) = request.position_side {
+                params.push(("positionSide".to_string(), position_side.clone()));
+            }
+            if let Some(close_position) = request.close_position {
+                params.push((
+                    "closePosition".to_string(),
+                    if close_position { "true" } else { "false" }.to_string(),
+                ));
+            }
+            if let Some(reduce_only) = request.reduce_only {
+                params.push((
+                    "reduceOnly".to_string(),
+                    if reduce_only { "true" } else { "false" }.to_string(),
+                ));
+            }
+            if let Some(ref working_type) = request.working_type {
+                params.push(("workingType".to_string(), working_type.clone()));
+            }
+            if let Some(price_protect) = request.price_protect {
+                params.push((
+                    "priceProtect".to_string(),
+                    if price_protect { "true" } else { "false" }.to_string(),
+                ));
+            }
+            if let Some(ref activate_price) = request.activate_price {
+                params.push(("activatePrice".to_string(), activate_price.clone()));
+            }
+            if let Some(ref callback_rate) = request.callback_rate {
+                params.push(("callbackRate".to_string(), callback_rate.clone()));
+            }
+            if let Some(ref client_algo_id) = request.client_algo_id {
+                params.push(("clientAlgoId".to_string(), client_algo_id.clone()));
+            }
+
+            match self.signed_request::<AlgoOrderResponsePayload>(
+                &http,
+                "POST",
+                self.live_config.base_url(BinanceMarket::Usdm),
+                "/fapi/v1/algoOrder",
+                server_time,
+                &params,
+            ) {
+                Ok(payload) => {
+                    return Ok(BinanceAlgoOrderResponse::from_payload(payload));
+                }
+                Err(error) => {
+                    let error_msg = error.to_string();
+                    if !is_retryable_error(&error_msg) {
+                        return Err(error);
+                    }
+                    last_error = Some(error);
+                    if attempt < MAX_RETRIES - 1 {
+                        std::thread::sleep(retry_delay(attempt));
+                    }
+                }
+            }
+        }
+        Err(last_error.unwrap_or_else(|| {
+            CredentialValidationError::new("max retries exceeded for place_usdm_algo_order")
+        }))
+    }
+
     pub fn set_usdm_position_mode(
         &self,
         dual_side_position: bool,
@@ -992,14 +1121,10 @@ impl BinanceClient {
             .dual_side_position)
     }
 
-    pub fn read_usdm_symbol_settings(
+    pub fn set_usdm_multi_assets_mode(
         &self,
-        symbol: &str,
-    ) -> Result<UsdmSymbolExchangeSettings, CredentialValidationError> {
-        let symbol = symbol.trim().to_ascii_uppercase();
-        if symbol.is_empty() {
-            return Err(CredentialValidationError::new("usdm symbol is required"));
-        }
+        multi_assets_margin: bool,
+    ) -> Result<(), CredentialValidationError> {
         if !self.live_config.enabled {
             return Err(CredentialValidationError::new(
                 "binance live mode is disabled",
@@ -1007,29 +1132,47 @@ impl BinanceClient {
         }
         let http = self.live_http_client()?;
         let server_time = self.fetch_server_time(&http, BinanceMarket::Usdm)?;
-        let positions: Vec<UsdmPositionRiskResponse> = self.signed_request(
+        let value = if multi_assets_margin { "true" } else { "false" };
+        self.signed_request_accepting_success_code(
+            &http,
+            "POST",
+            self.live_config.base_url(BinanceMarket::Usdm),
+            "/fapi/v1/multiAssetsMargin",
+            server_time,
+            &[("multiAssetsMargin".to_string(), value.to_string())],
+            &[-4171],
+            &["no need to change multi-assets margin mode"],
+        )
+    }
+
+    pub fn read_usdm_multi_assets_mode(&self) -> Result<bool, CredentialValidationError> {
+        if !self.live_config.enabled {
+            return Err(CredentialValidationError::new(
+                "binance live mode is disabled",
+            ));
+        }
+        let http = self.live_http_client()?;
+        let server_time = self.fetch_server_time(&http, BinanceMarket::Usdm)?;
+        let payload: MultiAssetsModeResponse = self.signed_request(
             &http,
             "GET",
             self.live_config.base_url(BinanceMarket::Usdm),
-            "/fapi/v2/positionRisk",
+            "/fapi/v1/multiAssetsMargin",
             server_time,
-            &[("symbol".to_string(), symbol.clone())],
+            &[],
         )?;
-        let Some(position) = positions
-            .into_iter()
-            .find(|position| position.symbol.eq_ignore_ascii_case(&symbol))
-        else {
-            return Err(CredentialValidationError::new(format!(
-                "{symbol} usdm position risk not found"
-            )));
-        };
+        Ok(payload.multi_assets_margin)
+    }
+
+    pub fn read_usdm_symbol_settings(
+        &self,
+        symbol: &str,
+    ) -> Result<UsdmSymbolExchangeSettings, CredentialValidationError> {
+        let config = self.read_usdm_symbol_config(symbol)?;
         Ok(UsdmSymbolExchangeSettings {
-            symbol,
-            margin_type: position.margin_type.map(|value| value.to_ascii_lowercase()),
-            leverage: position
-                .leverage
-                .as_ref()
-                .and_then(|value| flexible_value_ref_to_string(value).parse::<u32>().ok()),
+            symbol: config.symbol,
+            margin_type: config.margin_type,
+            leverage: config.leverage,
         })
     }
 
@@ -1082,7 +1225,7 @@ impl BinanceClient {
         }
         let http = self.live_http_client()?;
         let server_time = self.fetch_server_time(&http, BinanceMarket::Usdm)?;
-        let payload: AccountV3BalanceResponsePayload = self.signed_request(
+        let payload: Vec<AccountV3BalancePayload> = self.signed_request(
             &http,
             "GET",
             self.live_config.base_url(BinanceMarket::Usdm),
@@ -1091,7 +1234,6 @@ impl BinanceClient {
             &[],
         )?;
         Ok(payload
-            .assets
             .into_iter()
             .map(|asset| BinanceAccountV3Balance {
                 asset: asset.asset,
@@ -1123,7 +1265,7 @@ impl BinanceClient {
         }
         let http = self.live_http_client()?;
         let server_time = self.fetch_server_time(&http, BinanceMarket::Usdm)?;
-        let payload: SymbolConfigResponsePayload = self.signed_request(
+        let payload: Vec<SymbolConfigResponsePayload> = self.signed_request(
             &http,
             "GET",
             self.live_config.base_url(BinanceMarket::Usdm),
@@ -1131,14 +1273,22 @@ impl BinanceClient {
             server_time,
             &[("symbol".to_string(), symbol.clone())],
         )?;
+        let Some(config) = payload
+            .into_iter()
+            .find(|item| item.symbol.eq_ignore_ascii_case(&symbol))
+        else {
+            return Err(CredentialValidationError::new(format!(
+                "{symbol} usdm symbol config not found"
+            )));
+        };
         Ok(BinanceSymbolConfig {
             symbol: symbol.clone(),
-            margin_type: payload.margin_type.map(|v| v.to_ascii_lowercase()),
-            leverage: payload
+            margin_type: config.margin_type.map(|v| v.to_ascii_lowercase()),
+            leverage: config
                 .leverage
                 .as_ref()
                 .and_then(|v| flexible_value_ref_to_string(v).parse::<u32>().ok()),
-            max_notional_value: payload
+            max_notional_value: config
                 .max_notional_value
                 .as_ref()
                 .map(flexible_value_ref_to_string),
@@ -1170,7 +1320,8 @@ impl BinanceClient {
         }
         let http = self.live_http_client()?;
         let server_time = self.fetch_server_time(&http, BinanceMarket::Usdm)?;
-        let mut params: Vec<(String, String)> = vec![("symbol".to_string(), symbol.to_ascii_uppercase())];
+        let mut params: Vec<(String, String)> =
+            vec![("symbol".to_string(), symbol.to_ascii_uppercase())];
         if let Some(it) = income_type {
             params.push(("incomeType".to_string(), it.to_string()));
         }
@@ -2019,10 +2170,7 @@ impl BinanceClient {
         path: &str,
     ) -> Result<T, CredentialValidationError> {
         let url = format!("{base_url}{path}");
-        let response = http.get(url).send().map_err(|error| {
-            CredentialValidationError::new(format!("binance request failed: {error}"))
-        })?;
-        parse_json_response(response)
+        self.send_with_retries("binance request", || http.get(url.clone()))
     }
 
     fn api_key_request<T: DeserializeOwned>(
@@ -2036,16 +2184,16 @@ impl BinanceClient {
         let method = reqwest::Method::from_bytes(method.as_bytes()).map_err(|error| {
             CredentialValidationError::new(format!("invalid http method: {error}"))
         })?;
-        let mut request = http
-            .request(method, format!("{base_url}{path}"))
-            .header("X-MBX-APIKEY", &self.api_key);
-        if !params.is_empty() {
-            request = request.form(params);
-        }
-        let response = request.send().map_err(|error| {
-            CredentialValidationError::new(format!("binance api-key request failed: {error}"))
-        })?;
-        parse_json_response(response)
+        let url = format!("{base_url}{path}");
+        self.send_with_retries("binance api-key request", || {
+            let mut request = http
+                .request(method.clone(), url.clone())
+                .header("X-MBX-APIKEY", &self.api_key);
+            if !params.is_empty() {
+                request = request.form(params);
+            }
+            request
+        })
     }
 
     fn signed_get<T: DeserializeOwned>(
@@ -2112,14 +2260,42 @@ impl BinanceClient {
         let method = reqwest::Method::from_bytes(method.as_bytes()).map_err(|error| {
             CredentialValidationError::new(format!("invalid http method: {error}"))
         })?;
-        let response = http
-            .request(method, url)
-            .header("X-MBX-APIKEY", &self.api_key)
-            .send()
-            .map_err(|error| {
-                CredentialValidationError::new(format!("binance signed request failed: {error}"))
-            })?;
-        parse_json_response(response)
+        self.send_with_retries("binance signed request", || {
+            http.request(method.clone(), url.clone())
+                .header("X-MBX-APIKEY", &self.api_key)
+        })
+    }
+
+    fn send_with_retries<T: DeserializeOwned>(
+        &self,
+        operation: &str,
+        mut build_request: impl FnMut() -> reqwest::blocking::RequestBuilder,
+    ) -> Result<T, CredentialValidationError> {
+        let mut last_error = None;
+        for attempt in 0..MAX_RETRIES {
+            let result = build_request()
+                .send()
+                .map_err(|error| {
+                    CredentialValidationError::new(format!("{operation} failed: {error}"))
+                })
+                .and_then(parse_json_response);
+            match result {
+                Ok(payload) => return Ok(payload),
+                Err(error) => {
+                    let error_msg = error.to_string();
+                    if !is_retryable_error(&error_msg) {
+                        return Err(error);
+                    }
+                    last_error = Some(error);
+                    if attempt < MAX_RETRIES - 1 {
+                        std::thread::sleep(retry_delay(attempt));
+                    }
+                }
+            }
+        }
+        Err(last_error.unwrap_or_else(|| {
+            CredentialValidationError::new(format!("max retries exceeded for {operation}"))
+        }))
     }
 
     fn signed_request_accepting_success_code(
@@ -2168,11 +2344,13 @@ impl BinanceUserTrade {
             trade_id: flexible_identifier_to_string(payload.id),
             order_id: payload.order_id.map(flexible_identifier_to_string),
             symbol: payload.symbol,
-            side: if payload.is_buyer {
-                "BUY".to_string()
-            } else {
-                "SELL".to_string()
-            },
+            side: payload.side.unwrap_or_else(|| {
+                if payload.is_buyer {
+                    "BUY".to_string()
+                } else {
+                    "SELL".to_string()
+                }
+            }),
             price: flexible_scalar_to_string(payload.price),
             quantity: flexible_scalar_to_string(payload.qty),
             fee_amount: payload.commission.map(flexible_scalar_to_string),
@@ -2195,6 +2373,19 @@ impl BinanceOrderResponse {
             order_type: payload.order_type,
             price: payload.price.map(flexible_scalar_to_string),
             quantity: payload.orig_qty.map(flexible_scalar_to_string),
+        }
+    }
+}
+
+impl BinanceAlgoOrderResponse {
+    fn from_payload(payload: AlgoOrderResponsePayload) -> Self {
+        Self {
+            algo_id: flexible_identifier_to_string(payload.algo_id),
+            client_algo_id: payload.client_algo_id,
+            status: payload.status.unwrap_or_default(),
+            symbol: payload.symbol,
+            side: payload.side,
+            order_type: payload.order_type,
         }
     }
 }
@@ -2485,7 +2676,17 @@ impl CredentialValidationError {
             // codes are now listed explicitly.
             return matches!(
                 code,
-                -1000 | -1001 | -1003 | -1006 | -1007 | -1015 | -1021 | -5022 | 429 | 502 | 503
+                -1000
+                    | -1001
+                    | -1003
+                    | -1006
+                    | -1007
+                    | -1015
+                    | -1021
+                    | -5022
+                    | 429
+                    | 502
+                    | 503
                     | 504
             );
         }
@@ -3143,7 +3344,7 @@ pub fn build_order_params_for_test(request: &BinanceOrderRequest) -> Vec<(String
 mod tests {
     use super::{
         build_order_params_for_test, parse_account_update_message, parse_user_data_message,
-        sign_query, BinanceClient, BinanceOrderRequest, CredentialCipher,
+        sign_query, BinanceAlgoOrderRequest, BinanceClient, BinanceOrderRequest, CredentialCipher,
         CredentialValidationError, CredentialValidationRequest,
     };
     use std::{
@@ -3665,9 +3866,9 @@ mod tests {
                 body: r#"{"serverTime":1710000000001}"#,
             },
             TestRoute {
-                path_prefix: "/fapi/v2/positionRisk?",
+                path_prefix: "/fapi/v1/symbolConfig?",
                 status_line: "HTTP/1.1 200 OK",
-                body: r#"[{"symbol":"BTCUSDT","marginType":"isolated","leverage":"6"}]"#,
+                body: r#"[{"symbol":"BTCUSDT","marginType":"ISOLATED","leverage":"6","maxNotionalValue":"1000000"}]"#,
             },
         ]);
         let _live_mode = set_env("BINANCE_LIVE_MODE", "1");
@@ -3687,9 +3888,61 @@ mod tests {
             .iter()
             .any(|request| request.path.starts_with("/fapi/v1/positionSide/dual?")));
         assert!(requests.iter().any(|request| {
-            request.path.starts_with("/fapi/v2/positionRisk?")
+            request.path.starts_with("/fapi/v1/symbolConfig?")
                 && request.path.contains("symbol=BTCUSDT")
         }));
+    }
+
+    #[test]
+    fn usdm_multi_assets_mode_read_and_write_use_signed_endpoint() {
+        let _guard = env_lock().lock().unwrap();
+        let server = spawn_test_server(vec![
+            TestRoute {
+                path_prefix: "/fapi/v1/time",
+                status_line: "HTTP/1.1 200 OK",
+                body: r#"{"serverTime":1710000000000}"#,
+            },
+            TestRoute {
+                path_prefix: "/fapi/v1/multiAssetsMargin?",
+                status_line: "HTTP/1.1 200 OK",
+                body: r#"{"multiAssetsMargin":true}"#,
+            },
+            TestRoute {
+                path_prefix: "/fapi/v1/time",
+                status_line: "HTTP/1.1 200 OK",
+                body: r#"{"serverTime":1710000000001}"#,
+            },
+            TestRoute {
+                path_prefix: "/fapi/v1/multiAssetsMargin?",
+                status_line: "HTTP/1.1 200 OK",
+                body: r#"{"code":200,"msg":"success"}"#,
+            },
+        ]);
+        let _live_mode = set_env("BINANCE_LIVE_MODE", "1");
+        let _usdm_base = set_env("BINANCE_USDM_REST_BASE_URL", &server.base_url);
+        let client = BinanceClient::new("live-key", "live-secret");
+
+        assert!(client
+            .read_usdm_multi_assets_mode()
+            .expect("read multi-assets mode"));
+        client
+            .set_usdm_multi_assets_mode(false)
+            .expect("disable multi-assets mode");
+
+        let requests = server.requests();
+        let signed_requests = requests
+            .iter()
+            .filter(|request| !request.path.ends_with("/time"))
+            .collect::<Vec<_>>();
+        assert_eq!(signed_requests[0].method, "GET");
+        assert!(signed_requests[0]
+            .path
+            .starts_with("/fapi/v1/multiAssetsMargin?"));
+        assert_eq!(signed_requests[1].method, "POST");
+        assert!(signed_requests[1]
+            .path
+            .starts_with("/fapi/v1/multiAssetsMargin?"));
+        assert!(signed_requests[1].path.contains("multiAssetsMargin=false"));
     }
 
     #[test]
@@ -3944,6 +4197,94 @@ mod tests {
         assert_eq!(trades[0].side, "BUY");
         assert_eq!(trades[0].quantity, "0.001");
         assert_eq!(trades[0].fee_amount.as_deref(), Some("0.05"));
+    }
+
+    #[test]
+    fn live_trade_history_reads_usdm_user_trades_side_and_realized_pnl() {
+        let _guard = env_lock().lock().unwrap();
+        let server = spawn_test_server(vec![
+            TestRoute {
+                path_prefix: "/fapi/v1/time",
+                status_line: "HTTP/1.1 200 OK",
+                body: r#"{"serverTime": 1710000000002}"#,
+            },
+            TestRoute {
+                path_prefix: "/fapi/v1/userTrades?",
+                status_line: "HTTP/1.1 200 OK",
+                body: r#"[{"id":1002,"orderId":98766,"symbol":"BTCUSDT","side":"BUY","price":"42100","qty":"0.002","commission":"0.08","commissionAsset":"USDT","realizedPnl":"1.23","time":1710000000456}]"#,
+            },
+        ]);
+        let _live_mode = set_env("BINANCE_LIVE_MODE", "1");
+        let _usdm_base = set_env("BINANCE_USDM_REST_BASE_URL", &server.base_url);
+
+        let client = BinanceClient::new("live-key", "live-secret");
+        let trades = client
+            .user_trades("usdm", "BTCUSDT", 10)
+            .expect("load usdm trades");
+
+        assert_eq!(trades.len(), 1);
+        assert_eq!(trades[0].trade_id, "1002");
+        assert_eq!(trades[0].order_id.as_deref(), Some("98766"));
+        assert_eq!(trades[0].side, "BUY");
+        assert_eq!(trades[0].quantity, "0.002");
+        assert_eq!(trades[0].fee_amount.as_deref(), Some("0.08"));
+        assert_eq!(trades[0].realized_profit.as_deref(), Some("1.23"));
+    }
+
+    #[test]
+    fn live_usdm_algo_order_submits_conditional_take_profit_payload() {
+        let _guard = env_lock().lock().unwrap();
+        let server = spawn_test_server(vec![
+            TestRoute {
+                path_prefix: "/fapi/v1/time",
+                status_line: "HTTP/1.1 200 OK",
+                body: r#"{"serverTime":1710000000000}"#,
+            },
+            TestRoute {
+                path_prefix: "/fapi/v1/algoOrder?",
+                status_line: "HTTP/1.1 200 OK",
+                body: r#"{"algoId":2146760,"clientAlgoId":"tp-long-1","algoType":"CONDITIONAL","orderType":"TAKE_PROFIT_MARKET","symbol":"BTCUSDT","side":"SELL","positionSide":"LONG","quantity":"0.01","algoStatus":"NEW","triggerPrice":"51000","workingType":"CONTRACT_PRICE","closePosition":false,"priceProtect":false,"reduceOnly":false}"#,
+            },
+        ]);
+        let _live_mode = set_env("BINANCE_LIVE_MODE", "1");
+        let _usdm_base = set_env("BINANCE_USDM_REST_BASE_URL", &server.base_url);
+
+        let client = BinanceClient::new("live-key", "live-secret");
+        let response = client
+            .place_usdm_algo_order(BinanceAlgoOrderRequest {
+                symbol: "BTCUSDT".to_string(),
+                side: "SELL".to_string(),
+                order_type: "TAKE_PROFIT_MARKET".to_string(),
+                quantity: Some("0.01".to_string()),
+                price: None,
+                trigger_price: Some("51000".to_string()),
+                time_in_force: None,
+                position_side: Some("LONG".to_string()),
+                close_position: None,
+                reduce_only: None,
+                working_type: Some("CONTRACT_PRICE".to_string()),
+                price_protect: None,
+                activate_price: None,
+                callback_rate: None,
+                client_algo_id: Some("tp-long-1".to_string()),
+            })
+            .expect("place usdm algo order");
+
+        assert_eq!(response.algo_id, "2146760");
+        assert_eq!(response.client_algo_id.as_deref(), Some("tp-long-1"));
+        assert_eq!(response.status, "NEW");
+        let requests = server.requests();
+        let algo = requests
+            .iter()
+            .find(|request| request.path.starts_with("/fapi/v1/algoOrder?"))
+            .expect("algo order request");
+        assert_eq!(algo.method, "POST");
+        assert!(algo.path.contains("algoType=CONDITIONAL"));
+        assert!(algo.path.contains("type=TAKE_PROFIT_MARKET"));
+        assert!(algo.path.contains("triggerPrice=51000"));
+        assert!(algo.path.contains("positionSide=LONG"));
+        assert!(algo.path.contains("clientAlgoId=tp-long-1"));
+        assert!(!algo.path.contains("reduceOnly="));
     }
 
     #[test]
@@ -4339,11 +4680,9 @@ mod tests {
             TestRoute {
                 path_prefix: "/fapi/v3/balance?",
                 status_line: "HTTP/1.1 200 OK",
-                body: r#"{
-                    "assets": [
-                        {"asset":"USDT","balance":"500.0","crossWalletBalance":"450.0","crossUnPnl":"-2.5","availableBalance":"447.5","maxWithdrawAmount":"447.5"}
-                    ]
-                }"#,
+                body: r#"[
+                    {"asset":"USDT","balance":"500.0","crossWalletBalance":"450.0","crossUnPnl":"-2.5","availableBalance":"447.5","maxWithdrawAmount":"447.5"}
+                ]"#,
             },
         ]);
         let _live_mode = set_env("BINANCE_LIVE_MODE", "1");
@@ -4373,7 +4712,7 @@ mod tests {
             TestRoute {
                 path_prefix: "/fapi/v1/symbolConfig?",
                 status_line: "HTTP/1.1 200 OK",
-                body: r#"{"symbol":"BTCUSDT","marginType":"ISOLATED","leverage":"3","maxNotionalValue":"1000000"}"#,
+                body: r#"[{"symbol":"BTCUSDT","marginType":"ISOLATED","leverage":"3","maxNotionalValue":"1000000"}]"#,
             },
         ]);
         let _live_mode = set_env("BINANCE_LIVE_MODE", "1");

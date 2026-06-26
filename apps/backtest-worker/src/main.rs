@@ -8,15 +8,17 @@ use backtest_engine::{
     intelligent_search::EvaluatedCandidate,
     market_data::{AggTrade, KlineBar, MarketDataSource},
     martingale::{
-        kline_engine::run_kline_screening, metrics::MartingaleBacktestResult,
-        scoring::ScoringConfig, trade_engine::run_trade_refinement,
+        kline_engine::{run_kline_screening_with_funding, FundingRatePoint},
+        metrics::MartingaleBacktestResult,
+        scoring::ScoringConfig,
+        trade_engine::run_trade_refinement,
     },
     portfolio_search::{build_portfolio_top3, build_portfolio_top_n_v2},
     search::{
         drawdown_limit_sequence, fine_space_around, CoarseParameterPoint, SearchCandidate,
         SearchSpace, StagedMartingaleSearchSpace,
     },
-    sqlite_market_data::SqliteMarketDataSource,
+    sqlite_market_data::{load_funding_rates_readonly, SqliteMarketDataSource},
     walk_forward::{
         default_backtest_walk_forward_config, run_walk_forward_validation, wfe_penalty_factor,
         WalkForwardValidationResult,
@@ -50,6 +52,7 @@ struct WorkerConfig {
     redis_url: String,
     artifact_root: PathBuf,
     market_data_db_path: Option<PathBuf>,
+    funding_data_db_path: Option<PathBuf>,
     max_threads: usize,
     poll_ms: u64,
 }
@@ -241,7 +244,7 @@ fn long_short_search_timeout_secs(
     let estimated_screenings = coarse_candidate_count + survivor_count * fine_candidate_count;
     let threads = bounded_parallel_width(max_threads);
     let estimated_parallel_batches = (estimated_screenings + threads - 1) / threads;
-    (estimated_parallel_batches as u64 * 240).clamp(600, 14_400)
+    (estimated_parallel_batches as u64 * 360).clamp(600, 28_800)
 }
 
 fn screen_candidates_bounded_parallel<F>(
@@ -260,18 +263,33 @@ where
         return candidates.into_iter().map(evaluator).collect::<Vec<_>>();
     }
 
+    // Dynamic work-queue scheduling: each worker thread claims the next candidate
+    // index via a shared atomic counter instead of processing a fixed contiguous
+    // chunk. Static equal-sized chunks straggle badly when per-candidate cost is
+    // skewed (tight-grid martingale candidates can be 5-10x more expensive than
+    // wide-grid ones), leaving most threads idle on the join. Dynamic claiming
+    // keeps all threads busy. Results are identical to static chunking — only
+    // scheduling order changes — and are re-sorted by original index below.
     let indexed = candidates.into_iter().enumerate().collect::<Vec<_>>();
-    let chunk_size = (indexed.len() + width - 1) / width;
+    let total = indexed.len();
+    let next = std::sync::atomic::AtomicUsize::new(0);
     let mut indexed_results = std::thread::scope(|scope| {
         let mut handles = Vec::new();
-        for chunk in indexed.chunks(chunk_size.max(1)) {
+        for _ in 0..width {
             let evaluator_ref = &evaluator;
-            let chunk_items = chunk.to_vec();
+            let indexed_ref = &indexed;
+            let next_ref = &next;
             handles.push(scope.spawn(move || {
-                chunk_items
-                    .into_iter()
-                    .map(|(index, candidate)| (index, evaluator_ref(candidate)))
-                    .collect::<Vec<_>>()
+                let mut local = Vec::new();
+                loop {
+                    let i = next_ref.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                    if i >= total {
+                        break;
+                    }
+                    let (index, candidate) = indexed_ref[i].clone();
+                    local.push((index, evaluator_ref(candidate)));
+                }
+                local
             }));
         }
 
@@ -307,7 +325,12 @@ struct CandidateOutput {
     annualized_return_pct: Option<f64>,
     return_drawdown_ratio: Option<f64>,
     planned_margin_quote: Option<f64>,
+    planned_notional_quote: Option<f64>,
+    max_capital_used_quote: f64,
     max_leverage_used: Option<f64>,
+    total_fee_quote: Option<f64>,
+    total_slippage_quote: Option<f64>,
+    total_funding_quote: Option<f64>,
     equity_curve: Vec<backtest_engine::martingale::metrics::EquityPoint>,
     drawdown_curve: Vec<backtest_engine::martingale::metrics::DrawdownPoint>,
     trades_preview: Vec<backtest_engine::martingale::metrics::MartingaleTradeDetail>,
@@ -1190,7 +1213,11 @@ fn screening_candidate_evaluation(
             candidate.candidate_id
         ));
     }
-    run_kline_screening(candidate.config.clone(), &bars)
+    run_kline_screening_with_funding(
+        candidate.config.clone(),
+        &bars,
+        &market_context.funding_rates,
+    )
 }
 
 fn evaluate_long_short_candidate_for_screening(
@@ -1691,18 +1718,63 @@ fn coarse_parameter_point_from_candidate(candidate: &SearchCandidate) -> CoarseP
     }
 }
 
+fn current_rss_mb() -> Option<u64> {
+    #[cfg(target_os = "linux")]
+    {
+        let statm = std::fs::read_to_string("/proc/self/statm").ok()?;
+        let parts: Vec<&str> = statm.split_whitespace().collect();
+        // statm[1] = RSS in pages; page size = 4 KiB on most Linux
+        let pages: u64 = parts.get(1)?.parse().ok()?;
+        Some(pages * 4 / 1024) // Convert to MiB
+    }
+    #[cfg(not(target_os = "linux"))]
+    {
+        None
+    }
+}
+
+fn log_stage_timing(task_id: &str, stage: &str, extra: &serde_json::Value) {
+    let rss_mb = current_rss_mb();
+    let ts = chrono::Utc::now().to_rfc3339();
+    eprintln!(
+        "TIMING task_id={} stage={} ts={} rss_mb={} extra={}",
+        task_id,
+        stage,
+        ts,
+        rss_mb.map_or("N/A".to_string(), |mb| mb.to_string()),
+        extra
+    );
+}
+
 async fn process_task(
     config: &WorkerConfig,
     poller: &TaskPoller,
     task: BacktestTask,
 ) -> Result<(), String> {
+    let task_start = std::time::Instant::now();
     poller.mark_running(&task.task_id).await?;
     poller
         .heartbeat(&task.task_id, "market_data_opening")
         .await?;
     let effective_symbols = effective_search_symbols(&task.config);
+    let kline_load_start = std::time::Instant::now();
     let market_data = config.open_market_data()?;
-    let market_context = MarketDataContext::load(&market_data, &task.config, &effective_symbols)?;
+    let market_context = MarketDataContext::load(
+        &market_data,
+        &task.config,
+        &effective_symbols,
+        config.funding_data_db_path.as_deref(),
+    )?;
+    let kline_load_ms = kline_load_start.elapsed().as_millis();
+    log_stage_timing(
+        &task.task_id,
+        "kline_load",
+        &json!({
+            "symbol_count": effective_symbols.len(),
+            "kline_load_ms": kline_load_ms,
+            "rss_mb": current_rss_mb(),
+        }),
+    );
     poller.heartbeat(&task.task_id, "search_started").await?;
 
     let direction_modes = search_direction_modes_for_task(&task.config);
@@ -1772,7 +1844,20 @@ async fn process_task(
         }
     }
     respect_pause_or_cancel(poller, &task.task_id).await?;
+    let screening_ms = task_start.elapsed().as_millis() - kline_load_ms;
+    log_stage_timing(
+        &task.task_id,
+        "screening_done",
+        &json!({
+            "evaluated_count": evaluated_count,
+            "screened_count": screened.len(),
+            "screening_ms": screening_ms,
+            "symbol_count": effective_symbols.len(),
+            "rss_mb": current_rss_mb(),
+        }),
+    );
 
+    let refinement_start = std::time::Instant::now();
     let ranked = select_refinement_candidates_with_drawdown_metadata(
         screened,
         effective_symbols.len().max(1) * task.config.per_symbol_top_n.max(1),
@@ -1787,6 +1872,10 @@ async fn process_task(
                 "stage_label": "候选精测中",
                 "progress_pct": 80,
                 "refinement_candidate_count": ranked.len(),
+                "processed_candidates": 0,
+                "total_candidates": ranked.len(),
+                "rss_mb": current_rss_mb(),
+                "worker_threads": config.max_threads,
             }),
         )
         .await?;
@@ -1802,6 +1891,16 @@ async fn process_task(
         config.max_threads,
     )?;
     refinement_results.sort_by_key(|(index, _)| *index);
+    let refinement_ms = refinement_start.elapsed().as_millis();
+    log_stage_timing(
+        &task.task_id,
+        "refinement_done",
+        &json!({
+            "candidate_count": refinement_results.len(),
+            "refinement_ms": refinement_ms,
+            "rss_mb": current_rss_mb(),
+        }),
+    );
     let mut outputs = Vec::new();
 
     for (index, output) in refinement_results {
@@ -1898,6 +1997,7 @@ async fn process_task(
         .await?;
     respect_pause_or_cancel(poller, &task.task_id).await?;
 
+    let portfolio_start = std::time::Instant::now();
     let portfolio_candidates = portfolio_candidates_from_outputs(&portfolio_pool_outputs);
     let portfolio_top_n = task.config.portfolio_top_n.max(1).min(10);
     let portfolio_top3 = if should_use_profit_optimized_v2(&task.config) {
@@ -1909,6 +2009,16 @@ async fn process_task(
     } else {
         build_portfolio_top3(&portfolio_candidates, max_portfolio_drawdown_pct)
     };
+    log_stage_timing(
+        &task.task_id,
+        "portfolio_done",
+        &json!({
+            "candidate_count": portfolio_candidates.len(),
+            "portfolio_count": portfolio_top3.top3.len(),
+            "portfolio_ms": portfolio_start.elapsed().as_millis(),
+            "rss_mb": current_rss_mb(),
+        }),
+    );
     let portfolio_full_rows = portfolio_top3.top3.iter().enumerate().map(|(rank, portfolio)| {
         let member_id_hash: String = portfolio.members.iter()
             .map(|m| m.candidate_id.as_str())
@@ -2225,6 +2335,14 @@ async fn process_task(
             }),
         )
         .await?;
+    log_stage_timing(
+        &task.task_id,
+        "task_done",
+        &json!({
+            "total_ms": task_start.elapsed().as_millis(),
+            "rss_mb": current_rss_mb(),
+        }),
+    );
     Ok(())
 }
 
@@ -2473,24 +2591,38 @@ fn evaluate_refinement_candidates_parallel(
     if inputs.is_empty() {
         return Ok(Vec::new());
     }
-    let width = max_threads.clamp(1, inputs.len());
-    let chunk_size = (inputs.len() + width - 1) / width;
+    let total = inputs.len();
+    let width = max_threads.clamp(1, total);
+    // Dynamic work-queue scheduling (see screen_candidates_bounded_parallel): each
+    // thread claims the next candidate index atomically, eliminating straggling on
+    // skewed per-candidate refinement cost. Identical results; only order changes.
+    let next = std::sync::atomic::AtomicUsize::new(0);
     let chunked = std::thread::scope(|scope| {
         let mut handles = Vec::new();
-        for chunk in inputs.chunks(chunk_size.max(1)) {
-            let chunk_items = chunk.to_vec();
+        for _ in 0..width {
+            let inputs_ref = &inputs;
+            let next_ref = &next;
             handles.push(scope.spawn(move || {
-                chunk_items
-                    .into_iter()
-                    .map(|(index, evaluated_with_drawdown)| {
-                        refine_candidate_output(
-                            index,
-                            evaluated_with_drawdown,
-                            task_config,
-                            market_context,
-                        )
-                    })
-                    .collect::<Vec<_>>()
+                let mut local: Vec<Result<(usize, CandidateOutput), String>> = Vec::new();
+                loop {
+                    let i = next_ref.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                    if i >= total {
+                        break;
+                    }
+                    let (index, evaluated_with_drawdown) = inputs_ref[i].clone();
+                    local.push(refine_candidate_output(
+                        index,
+                        evaluated_with_drawdown,
+                        task_config,
+                        market_context,
+                    ));
+                }
+                eprintln!(
+                    "TIMING refinement_thread_done total={} local={}",
+                    total,
+                    local.len(),
+                );
+                local
             }));
         }
         let mut merged = Vec::new();
@@ -2546,7 +2678,12 @@ fn refine_candidate_output(
             annualized_return_pct: refined.metrics.annualized_return_pct,
             return_drawdown_ratio: refined.metrics.return_drawdown_ratio,
             planned_margin_quote: refined.metrics.planned_margin_quote,
+            planned_notional_quote: refined.metrics.planned_notional_quote,
+            max_capital_used_quote: refined.metrics.max_capital_used_quote,
             max_leverage_used: refined.metrics.max_leverage_used,
+            total_fee_quote: refined.metrics.total_fee_quote,
+            total_slippage_quote: refined.metrics.total_slippage_quote,
+            total_funding_quote: refined.metrics.total_funding_quote,
             equity_curve: refined.equity_curve.clone(),
             drawdown_curve: refined.drawdown_curve.clone(),
             trades_preview: refined.trades.clone(),
@@ -2973,6 +3110,8 @@ fn select_top_outputs_per_symbol(
                     "recommended_leverage": recommended_leverage,
                     "max_leverage_used": output.max_leverage_used.unwrap_or(recommended_leverage as f64),
                     "planned_margin_quote": output.planned_margin_quote,
+                    "planned_notional_quote": output.planned_notional_quote,
+                    "max_capital_used_quote": output.max_capital_used_quote,
                     "risk_profile": risk_profile,
                     "portfolio_group_key": portfolio_group_key,
                     "spacing_bps": spacing_bps,
@@ -3320,8 +3459,14 @@ fn search_space_from_task(config: &WorkerTaskConfig) -> SearchSpace {
 
 fn scoring_config_from_task(config: &WorkerTaskConfig, max_drawdown_pct: f64) -> ScoringConfig {
     let mut scoring = ScoringConfig::default();
-    scoring.max_global_drawdown_pct = max_drawdown_pct;
-    scoring.max_strategy_drawdown_pct = max_drawdown_pct;
+    // 搜索阶段放宽 dd 门控：原值(=组合 dd 约束, conservative=20)会丢弃 dd>limit 的高 ann 候选
+    // (如 BTC90%/dd41%, INJ103%/dd42%)，导致组合池只剩 dd<=20% 低 ann 候选(ann 天花板~13%)，
+    // 组合 ann 被锁死在 3-5%(seed521-atr 实证)。这里让搜索阶段用更宽 dd cap，高 ann 候选进入
+    // 组合池；组合阶段仍由 portfolio_drawdown_limit(conservative=10%) 通过权重优化 + 多成员分散
+    // 压低组合 dd（baseline 12 成员含 BTC90%/DOT78% 高ann + SOL10.6%/dd5.9% 低dd → 40.69%/9.66% 即此原理）。
+    let screening_dd_cap = (max_drawdown_pct * 2.5).max(50.0);
+    scoring.max_global_drawdown_pct = screening_dd_cap;
+    scoring.max_strategy_drawdown_pct = screening_dd_cap;
     if let Some(value) = config.scoring.as_ref() {
         if let Some(max_stop_count) = value.get("max_stop_loss_count").and_then(Value::as_u64) {
             scoring.max_stop_count = max_stop_count;
@@ -3345,6 +3490,11 @@ fn scoring_config_from_task(config: &WorkerTaskConfig, max_drawdown_pct: f64) ->
                 weights,
                 "weight_trade_stability",
                 &mut scoring.weight_trade_stability,
+            );
+            assign_f64(
+                weights,
+                "weight_regime_robustness",
+                &mut scoring.weight_regime_robustness,
             );
         }
     }
@@ -3566,6 +3716,7 @@ fn template_decimal(config: &WorkerTaskConfig, path: &[&str]) -> Option<Decimal>
 struct MarketDataContext {
     bars: Vec<KlineBar>,
     trades: Vec<AggTrade>,
+    funding_rates: Vec<FundingRatePoint>,
     bars_by_symbol: std::collections::BTreeMap<String, Vec<KlineBar>>,
     screening_bars_by_symbol: std::collections::BTreeMap<String, Vec<KlineBar>>,
     trades_by_symbol: std::collections::BTreeMap<String, Vec<AggTrade>>,
@@ -3576,6 +3727,7 @@ impl MarketDataContext {
         source: &dyn MarketDataSource,
         config: &WorkerTaskConfig,
         symbols: &[String],
+        funding_db_path: Option<&std::path::Path>,
     ) -> Result<Self, String> {
         validate_time_range(config)?;
         let available_symbols = source.list_symbols()?;
@@ -3639,10 +3791,26 @@ impl MarketDataContext {
                 .or_insert_with(Vec::new)
                 .push(trade.clone());
         }
+        let funding_rates = match funding_db_path {
+            Some(path) => {
+                load_funding_rates_readonly(path, symbols, config.start_ms, config.end_ms).map_err(
+                    |error| {
+                        format!(
+                            "load funding rates {}..{} from {}: {error}",
+                            config.start_ms,
+                            config.end_ms,
+                            path.display()
+                        )
+                    },
+                )?
+            }
+            None => Vec::new(),
+        };
 
         Ok(Self {
             bars,
             trades,
+            funding_rates,
             bars_by_symbol,
             screening_bars_by_symbol,
             trades_by_symbol,
@@ -3683,7 +3851,11 @@ fn run_candidate_kline_screening(
             candidate.candidate_id
         ));
     }
-    run_kline_screening(candidate.config.clone(), &bars)
+    run_kline_screening_with_funding(
+        candidate.config.clone(),
+        &bars,
+        &market_context.funding_rates,
+    )
 }
 
 fn run_candidate_trade_refinement(
@@ -3707,7 +3879,11 @@ fn run_candidate_trade_refinement(
                 candidate.candidate_id
             ));
         }
-        return run_kline_screening(candidate.config.clone(), &bars);
+        return run_kline_screening_with_funding(
+            candidate.config.clone(),
+            &bars,
+            &market_context.funding_rates,
+        );
     }
     run_trade_refinement(candidate.config.clone(), &trades)
 }
@@ -4013,6 +4189,9 @@ impl TaskPoller {
                                 "return_drawdown_ratio": output.return_drawdown_ratio,
                                 "planned_margin_quote": output.planned_margin_quote,
                                 "max_leverage_used": output.max_leverage_used,
+                                "total_fee_quote": output.total_fee_quote,
+                                "total_slippage_quote": output.total_slippage_quote,
+                                "total_funding_quote": output.total_funding_quote,
                                 "equity_curve": sampled_preview(&output.equity_curve, 5000),
                                 "drawdown_curve": sampled_preview(&output.drawdown_curve, 5000),
                                 "trades_preview": sampled_preview(&output.trades_preview, 100),
@@ -4240,7 +4419,12 @@ mod tests {
             annualized_return_pct: Some(score / 2.0),
             return_drawdown_ratio: Some(score / 5.0),
             planned_margin_quote: Some(150.0),
+            planned_notional_quote: Some(150.0),
+            max_capital_used_quote: 150.0,
             max_leverage_used: Some(leverage as f64),
+            total_fee_quote: None,
+            total_slippage_quote: None,
+            total_funding_quote: None,
             equity_curve: Vec::new(),
             drawdown_curve: Vec::new(),
             trades_preview: Vec::new(),
@@ -4536,6 +4720,7 @@ mod tests {
             redis_url: "redis://example".to_owned(),
             artifact_root: PathBuf::from("/tmp/backtest-artifacts"),
             market_data_db_path: None,
+            funding_data_db_path: None,
             max_threads: 1,
             poll_ms: 1,
         };
@@ -4609,8 +4794,8 @@ mod tests {
             end_ms: 2_000,
         };
 
-        let context =
-            MarketDataContext::load(&source, &config, &config.symbols).expect("market context");
+        let context = MarketDataContext::load(&source, &config, &config.symbols, None)
+            .expect("market context");
         assert_eq!(context.bars.len(), 1);
         assert_eq!(context.bars[0].symbol, "BTCUSDT");
         assert_eq!(context.trades.len(), 1);
@@ -4655,7 +4840,7 @@ mod tests {
             end_ms: 2_000,
         };
 
-        let context = MarketDataContext::load(&source, &config, &config.symbols)
+        let context = MarketDataContext::load(&source, &config, &config.symbols, None)
             .expect("market context without trades");
         assert!(context.trades.is_empty());
     }
@@ -4771,8 +4956,11 @@ mod tests {
         .expect("worker task config");
 
         let scoring = scoring_config_from_task(&config, 25.0);
-        assert_eq!(scoring.max_global_drawdown_pct, 25.0);
-        assert_eq!(scoring.max_strategy_drawdown_pct, 25.0);
+        // Screening stage widens the drawdown cap to 2.5x the portfolio
+        // constraint (min 50%) so high-ann candidates enter the pool; the
+        // portfolio stage re-applies the tighter constraint. 25 * 2.5 = 62.5.
+        assert_eq!(scoring.max_global_drawdown_pct, 62.5);
+        assert_eq!(scoring.max_strategy_drawdown_pct, 62.5);
         assert_eq!(scoring.max_stop_count, 2);
         assert_eq!(scoring.weight_stop_frequency, 0.6);
         assert_eq!(scoring.weight_capital_utilization, 0.7);
@@ -5055,9 +5243,9 @@ mod tests {
             ..WorkerTaskConfig::default()
         };
 
-        assert_eq!(long_short_search_timeout_secs(&small, 6, 24), 960);
+        assert_eq!(long_short_search_timeout_secs(&small, 6, 24), 1_440);
         assert!(long_short_search_timeout_secs(&wide, 72, 24) > 600);
-        assert!(long_short_search_timeout_secs(&wide, 72, 24) <= 14_400);
+        assert!(long_short_search_timeout_secs(&wide, 72, 24) <= 28_800);
     }
 
     #[cfg(test)]
@@ -6019,7 +6207,12 @@ mod tests {
                 None
             },
             planned_margin_quote: Some(planned_margin_quote),
+            planned_notional_quote: Some(planned_margin_quote),
+            max_capital_used_quote: planned_margin_quote,
             max_leverage_used: Some(3.0),
+            total_fee_quote: None,
+            total_slippage_quote: None,
+            total_funding_quote: None,
             equity_curve: vec![
                 backtest_engine::martingale::metrics::EquityPoint {
                     timestamp_ms: 1,
@@ -6101,6 +6294,7 @@ mod tests {
         let market_context = MarketDataContext {
             bars: full_bars.clone(),
             trades: Vec::new(),
+            funding_rates: Vec::new(),
             bars_by_symbol: {
                 let mut m = std::collections::BTreeMap::new();
                 m.insert("BTCUSDT".to_owned(), full_bars.clone());
@@ -6445,7 +6639,12 @@ mod tests {
             annualized_return_pct: Some(12.0),
             return_drawdown_ratio: Some(0.48),
             planned_margin_quote: Some(100.0),
+            planned_notional_quote: Some(100.0),
+            max_capital_used_quote: 100.0,
             max_leverage_used: Some(2.0),
+            total_fee_quote: None,
+            total_slippage_quote: None,
+            total_funding_quote: None,
             equity_curve: Vec::new(),
             drawdown_curve: Vec::new(),
             trades_preview: Vec::new(),
@@ -6551,6 +6750,7 @@ mod tests {
                 quantity: 1.0,
                 is_buyer_maker: false,
             }],
+            funding_rates: Vec::new(),
             bars_by_symbol: {
                 let bars = vec![
                     KlineBar {
@@ -6712,6 +6912,8 @@ impl WorkerConfig {
             redis_url: required_env("REDIS_URL")?,
             artifact_root: PathBuf::from(required_env("BACKTEST_ARTIFACT_ROOT")?),
             market_data_db_path: optional_env_path("BACKTEST_MARKET_DATA_DB_PATH"),
+            funding_data_db_path: optional_env_path("BACKTEST_FUNDING_DB_PATH")
+                .or_else(default_funding_db_path),
             max_threads: parse_env_usize("BACKTEST_WORKER_MAX_THREADS", DEFAULT_MAX_THREADS)?,
             poll_ms: parse_env_u64("BACKTEST_WORKER_POLL_MS", DEFAULT_POLL_MS)?,
         })
@@ -6728,6 +6930,15 @@ impl WorkerConfig {
             )
         })
     }
+}
+
+fn default_funding_db_path() -> Option<PathBuf> {
+    let candidates = [
+        PathBuf::from("data/funding_rates.db"),
+        PathBuf::from("/var/lib/grid-binance/funding_rates.db"),
+        PathBuf::from("/market-data/funding_rates.db"),
+    ];
+    candidates.into_iter().find(|path| path.exists())
 }
 
 fn optional_env_path(name: &str) -> Option<PathBuf> {

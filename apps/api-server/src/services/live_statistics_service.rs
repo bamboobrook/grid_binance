@@ -1,8 +1,7 @@
 use serde::Serialize;
 use shared_db::{SharedDb, SharedDbError};
 use trading_engine::statistics::{
-    compute_live_statistics_from_db, compute_position_count_for_strategies,
-    LiveStatisticsSnapshot,
+    compute_live_statistics_from_db, compute_position_count_for_strategies, LiveStatisticsSnapshot,
 };
 
 #[derive(Debug, Clone, Serialize)]
@@ -62,10 +61,7 @@ impl LiveStatisticsService {
     }
 
     #[allow(dead_code)]
-    pub fn compute_live_stats(
-        &self,
-        email: &str,
-    ) -> Result<LiveStatisticsResponse, SharedDbError> {
+    pub fn compute_live_stats(&self, email: &str) -> Result<LiveStatisticsResponse, SharedDbError> {
         let snapshot =
             compute_live_statistics_from_db(&self.db, email, None, self.stale_threshold_secs)?;
         let position_count = compute_position_count_for_strategies(&self.db, email, None)?;

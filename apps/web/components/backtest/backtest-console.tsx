@@ -136,11 +136,11 @@ export function BacktestConsole({ lang, locale }: { lang: UiLanguage; locale: st
   }, [lang]);
 
   useEffect(() => {
-    void refreshTasks();
+    void Promise.resolve().then(() => refreshTasks());
   }, [refreshTasks]);
 
   useEffect(() => {
-    void refreshCandidates(selectedTaskId);
+    void Promise.resolve().then(() => refreshCandidates(selectedTaskId));
   }, [refreshCandidates, selectedTaskId]);
 
   const selectedTask = useMemo(
@@ -561,9 +561,17 @@ function normalizeCandidate(candidate: ApiCandidate, lang: UiLanguage): Backtest
   const directions = uniqueStrings(strategies.map((strategy) => readObject(strategy)?.direction)).join("+")
     || readString(firstStrategy.direction)
     || "—";
-  const score = readNumber(summary.score);
-  const drawdown = readNumber(summary.max_drawdown_pct) ?? readNumber(summary.drawdown_pct);
-  const returnPct = readNumber(summary.total_return_pct);
+  const strategyLeverage = maxLeverageFromStrategies(strategies);
+  const drawdown = readNumber(summary.max_drawdown_pct) ?? readNumber(summary.candidate_max_drawdown_pct) ?? readNumber(summary.drawdown_pct);
+  const returnPct = readNumber(summary.total_return_pct) ?? readNumber(summary.return_pct) ?? readNumber(summary.candidate_annualized_return_pct);
+  const annualizedReturn = readNumber(summary.annualized_return_pct) ?? readNumber(summary.candidate_annualized_return_pct);
+  const score = readNumber(summary.score) ?? scoreFromReturnAndDrawdown(annualizedReturn ?? returnPct, drawdown);
+  const leverage = readNumber(summary.max_leverage_used)
+    ?? readNumber(summary.max_leverage)
+    ?? readNumber(summary.recommended_leverage)
+    ?? readNumber(summary.leverage)
+    ?? readNumber(summary.candidate_max_leverage)
+    ?? strategyLeverage;
   const tradeCount = readNumber(summary.trade_count);
   const spacing = readObject(firstStrategy.spacing);
   const sizing = readObject(firstStrategy.sizing);
@@ -582,8 +590,10 @@ function normalizeCandidate(candidate: ApiCandidate, lang: UiLanguage): Backtest
     decision: humanizeCandidateDecision(candidate.status, summary, lang),
     rank: candidate.rank,
     summary: {
-      score: readNumber(summary.score) ?? undefined,
-      total_return_pct: readNumber(summary.total_return_pct) ?? undefined,
+      score: score ?? undefined,
+      total_return_pct: returnPct ?? undefined,
+      annualized_return_pct: annualizedReturn ?? null,
+      max_drawdown_pct: drawdown ?? undefined,
       max_drawdown: readNumber(summary.max_drawdown_pct) != null ? (readNumber(summary.max_drawdown_pct)! / 100) : undefined,
       trade_count: readNumber(summary.trade_count) ?? undefined,
       stop_count: readNumber(summary.stop_count) ?? undefined,
@@ -603,6 +613,7 @@ function normalizeCandidate(candidate: ApiCandidate, lang: UiLanguage): Backtest
       data_quality_score: readNumber(summary.data_quality_score) ?? undefined,
       recommended_weight_pct: readNumber(summary.recommended_weight_pct) ?? undefined,
       recommended_leverage: readNumber(summary.recommended_leverage) ?? undefined,
+      leverage: readNumber(summary.leverage) ?? undefined,
       parameter_rank_for_symbol: readNumber(summary.parameter_rank_for_symbol) ?? undefined,
       risk_profile: readString(summary.risk_profile) || undefined,
       risk_summary_human: readString(summary.risk_summary_human) || undefined,
@@ -610,7 +621,11 @@ function normalizeCandidate(candidate: ApiCandidate, lang: UiLanguage): Backtest
       market: readString(summary.market) || undefined,
       publishable: typeof summary.publishable === "boolean" ? summary.publishable : undefined,
       candidate_warning: readString(summary.candidate_warning) || undefined,
-      max_leverage_used: readNumber(summary.max_leverage_used) ?? undefined,
+      max_leverage_used: leverage ?? undefined,
+      max_leverage: readNumber(summary.max_leverage) ?? undefined,
+      candidate_max_leverage: readNumber(summary.candidate_max_leverage) ?? undefined,
+      candidate_annualized_return_pct: readNumber(summary.candidate_annualized_return_pct) ?? undefined,
+      candidate_max_drawdown_pct: readNumber(summary.candidate_max_drawdown_pct) ?? undefined,
     },
     rawConfig: config,
   };
@@ -740,6 +755,20 @@ function uniqueStrings(values: unknown[]) {
   return Array.from(new Set(values.map(readString).filter(Boolean)));
 }
 
+function maxLeverageFromStrategies(strategies: unknown[]): number | null {
+  const leverages = strategies
+    .map((strategy) => readNumber(readObject(strategy)?.leverage))
+    .filter((value): value is number => value != null && Number.isFinite(value) && value > 0);
+  return leverages.length === 0 ? null : Math.max(...leverages);
+}
+
+function scoreFromReturnAndDrawdown(returnPct: number | null | undefined, drawdownPct: number | null | undefined): number | null {
+  if (returnPct == null || drawdownPct == null || !Number.isFinite(returnPct) || !Number.isFinite(drawdownPct)) {
+    return null;
+  }
+  return returnPct / Math.max(drawdownPct, 1);
+}
+
 function statusStage(status: string | undefined, lang: UiLanguage) {
   switch (status) {
     case "queued":
@@ -864,17 +893,21 @@ function portfolioTop3FromTask(task: BacktestTask | null): PortfolioTop3Row[] {
     const rawMembers = Array.isArray(record.members) ? record.members : [];
     const members: PortfolioMember[] = rawMembers.map((m: unknown) => {
       const mr = isRecord(m) ? m : {};
+      const annualized = readNumber(mr.annualized_return_pct) ?? readNumber(mr.candidate_annualized_return_pct);
+      const drawdown = readNumber(mr.max_drawdown_pct) ?? readNumber(mr.candidate_max_drawdown_pct);
+      const returnPct = readNumber(mr.return_pct) ?? annualized ?? 0;
       return {
         candidate_id: readString(mr.candidate_id) || "",
+        source_candidate_id: readString(mr.source_candidate_id) || undefined,
         symbol: readString(mr.symbol) || "",
         direction: readString(mr.direction) || "",
-        allocation_pct: readNumber(mr.allocation_pct) ?? 0,
-        return_pct: readNumber(mr.return_pct) ?? 0,
-        max_drawdown_pct: readNumber(mr.max_drawdown_pct) ?? 0,
-        annualized_return_pct: readNumber(mr.annualized_return_pct) ?? null,
-        score: readNumber(mr.score) ?? 0,
-        trade_count: readNumber(mr.trade_count) ?? 0,
-        leverage: readNumber(mr.leverage) ?? null,
+        allocation_pct: readNumber(mr.allocation_pct) ?? readNumber(mr.weight_pct) ?? 0,
+        return_pct: returnPct,
+        max_drawdown_pct: drawdown ?? 0,
+        annualized_return_pct: annualized ?? null,
+        score: readNumber(mr.score) ?? scoreFromReturnAndDrawdown(annualized ?? returnPct, drawdown) ?? undefined,
+        trade_count: readNumber(mr.trade_count) ?? readNumber(mr.candidate_trade_count) ?? 0,
+        leverage: readNumber(mr.leverage) ?? readNumber(mr.max_leverage_used) ?? readNumber(mr.recommended_leverage) ?? null,
       };
     });
     return {

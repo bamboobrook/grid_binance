@@ -10,6 +10,8 @@ const BINANCE_EXCHANGE: &str = "binance";
 #[derive(Debug, Clone, Deserialize)]
 pub struct ExchangePreconfigureRequest {
     pub confirm_account_level_hedge_mode_change: bool,
+    #[serde(default)]
+    pub confirm_account_level_multi_assets_mode_change: bool,
     pub confirm_no_auto_orders: bool,
     pub confirm_symbol_margin_leverage_change: bool,
 }
@@ -18,6 +20,7 @@ pub struct ExchangePreconfigureRequest {
 pub struct ExchangePreconfigureResponse {
     pub status: String,
     pub hedge_mode: HedgeModeCheck,
+    pub multi_assets_mode: MultiAssetsModeCheck,
     pub blocked_symbols: Vec<String>,
     pub open_order_count: usize,
     pub nonzero_position_count: usize,
@@ -29,6 +32,14 @@ pub struct ExchangePreconfigureResponse {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct HedgeModeCheck {
+    pub target: bool,
+    pub current: Option<bool>,
+    pub status: String,
+    pub message: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MultiAssetsModeCheck {
     pub target: bool,
     pub current: Option<bool>,
     pub status: String,
@@ -49,6 +60,7 @@ pub struct SymbolExchangeCheck {
 #[derive(Debug, Clone)]
 pub struct TargetExchangeSettings {
     pub requires_hedge_mode: bool,
+    pub requires_single_asset_mode: bool,
     pub symbols: BTreeMap<String, TargetSymbolSettings>,
 }
 
@@ -67,6 +79,12 @@ pub fn validate_preconfigure_confirmations(
     if target.requires_hedge_mode && !request.confirm_account_level_hedge_mode_change {
         return Err(SharedDbError::new(
             "account-level Hedge Mode confirmation is required",
+        ));
+    }
+    if target.requires_single_asset_mode && !request.confirm_account_level_multi_assets_mode_change
+    {
+        return Err(SharedDbError::new(
+            "account-level Multi-Assets mode confirmation is required",
         ));
     }
     if !request.confirm_no_auto_orders {
@@ -107,6 +125,7 @@ pub fn target_exchange_settings_from_portfolio(
     let mut symbols = BTreeMap::<String, TargetSymbolSettings>::new();
     let mut has_long = false;
     let mut has_short = false;
+    let mut requires_single_asset_mode = false;
     for strategy in strategies {
         if strategy.get("market").and_then(Value::as_str) != Some("usd_m_futures") {
             continue;
@@ -133,6 +152,8 @@ pub fn target_exchange_settings_from_portfolio(
                 "{symbol} margin mode must be isolated, cross, or crossed"
             )));
         }
+        let normalized_margin_mode = normalize_margin_mode(&margin_mode);
+        requires_single_asset_mode |= normalized_margin_mode == "isolated";
         let leverage = strategy
             .get("leverage")
             .and_then(Value::as_u64)
@@ -144,17 +165,23 @@ pub fn target_exchange_settings_from_portfolio(
             )));
         }
         if let Some(existing) = symbols.get(&symbol) {
-            if normalize_margin_mode(&existing.margin_mode) != normalize_margin_mode(&margin_mode) {
+            if normalize_margin_mode(&existing.margin_mode) != normalized_margin_mode {
                 return Err(SharedDbError::new(format!("{symbol} margin mode conflict")));
             }
-            if existing.leverage != leverage {
-                return Err(SharedDbError::new(format!("{symbol} leverage conflict")));
+            if existing.leverage < leverage {
+                symbols.insert(
+                    symbol,
+                    TargetSymbolSettings {
+                        margin_mode: normalized_margin_mode,
+                        leverage,
+                    },
+                );
             }
         } else {
             symbols.insert(
                 symbol,
                 TargetSymbolSettings {
-                    margin_mode: normalize_margin_mode(&margin_mode),
+                    margin_mode: normalized_margin_mode,
                     leverage,
                 },
             );
@@ -162,6 +189,7 @@ pub fn target_exchange_settings_from_portfolio(
     }
     Ok(TargetExchangeSettings {
         requires_hedge_mode: portfolio.direction == "long_short" || has_long && has_short,
+        requires_single_asset_mode,
         symbols,
     })
 }
@@ -189,6 +217,12 @@ pub fn response_from_target_without_exchange_readback(
         status: status.to_owned(),
         hedge_mode: HedgeModeCheck {
             target: target.requires_hedge_mode,
+            current: None,
+            status: "unknown".to_owned(),
+            message: message.to_owned(),
+        },
+        multi_assets_mode: MultiAssetsModeCheck {
+            target: !target.requires_single_asset_mode,
             current: None,
             status: "unknown".to_owned(),
             message: message.to_owned(),
@@ -248,6 +282,11 @@ pub fn apply_exchange_preconfigure(
             .set_usdm_position_mode(true)
             .map_err(|error| SharedDbError::new(error.to_string()))?;
     }
+    if target.requires_single_asset_mode && before.multi_assets_mode.current != Some(false) {
+        client
+            .set_usdm_multi_assets_mode(false)
+            .map_err(|error| SharedDbError::new(error.to_string()))?;
+    }
     for (symbol, settings) in &target.symbols {
         client
             .set_usdm_margin_type(symbol, &settings.margin_mode)
@@ -263,7 +302,7 @@ pub fn apply_exchange_preconfigure(
 
 /// Checks for open orders and non-zero positions on all target symbols.
 /// Returns the set of blocked symbols with reasons.
-fn check_live_state_blockers(
+pub(crate) fn check_live_state_blockers(
     client: &BinanceClient,
     target: &TargetExchangeSettings,
 ) -> Result<Vec<String>, SharedDbError> {
@@ -378,15 +417,30 @@ fn preconfigure_exchange_with_client(
     }
 
     let before_hedge = exchange.read_usdm_hedge_mode()?;
+    let before_multi_assets = exchange.read_usdm_multi_assets_mode()?;
     let requires_hedge = target.requires_hedge_mode;
     if requires_hedge && !before_hedge {
         exchange.set_usdm_position_mode(true)?;
+    }
+    if target.requires_single_asset_mode && before_multi_assets {
+        exchange.set_usdm_multi_assets_mode(false)?;
     }
     for (symbol, settings) in &target.symbols {
         exchange.set_usdm_margin_type(symbol, &settings.margin_mode)?;
         exchange.set_usdm_leverage(symbol, settings.leverage)?;
     }
     let current_hedge = exchange.read_usdm_hedge_mode()?;
+    let current_multi_assets = exchange.read_usdm_multi_assets_mode()?;
+    let multi_assets_target = if target.requires_single_asset_mode {
+        false
+    } else {
+        current_multi_assets
+    };
+    let multi_assets_status = if current_multi_assets == multi_assets_target {
+        "ready"
+    } else {
+        "mismatch"
+    };
     let mut symbols = Vec::with_capacity(target.symbols.len());
     for (symbol, settings) in target.symbols {
         let current = exchange.read_usdm_symbol_settings(&symbol)?;
@@ -407,6 +461,17 @@ fn preconfigure_exchange_with_client(
             current: Some(current_hedge),
             status: "ready".to_owned(),
             message: "account position mode matches target".to_owned(),
+        },
+        multi_assets_mode: MultiAssetsModeCheck {
+            target: multi_assets_target,
+            current: Some(current_multi_assets),
+            status: multi_assets_status.to_owned(),
+            message: if multi_assets_status == "ready" {
+                "account Multi-Assets mode is compatible with target margin settings".to_owned()
+            } else {
+                "account Multi-Assets mode must be disabled before isolated margin can be set"
+                    .to_owned()
+            },
         },
         symbols,
         warnings: vec![],
@@ -429,6 +494,11 @@ struct TestCurrentSymbolSettings {
 trait TestExchangeSettingsClient {
     fn read_usdm_hedge_mode(&mut self) -> Result<bool, SharedDbError>;
     fn set_usdm_position_mode(&mut self, dual_side_position: bool) -> Result<(), SharedDbError>;
+    fn read_usdm_multi_assets_mode(&mut self) -> Result<bool, SharedDbError>;
+    fn set_usdm_multi_assets_mode(
+        &mut self,
+        multi_assets_margin: bool,
+    ) -> Result<(), SharedDbError>;
     fn set_usdm_margin_type(
         &mut self,
         symbol: &str,
@@ -458,7 +528,20 @@ fn readback_response(
     let current_hedge = client
         .read_usdm_position_mode()
         .map_err(|error| SharedDbError::new(error.to_string()))?;
+    let current_multi_assets = client
+        .read_usdm_multi_assets_mode()
+        .map_err(|error| SharedDbError::new(error.to_string()))?;
     let hedge_status = if current_hedge == target.requires_hedge_mode {
+        "ready"
+    } else {
+        "mismatch"
+    };
+    let multi_assets_target = if target.requires_single_asset_mode {
+        false
+    } else {
+        current_multi_assets
+    };
+    let multi_assets_status = if current_multi_assets == multi_assets_target {
         "ready"
     } else {
         "mismatch"
@@ -492,12 +575,17 @@ fn readback_response(
             },
         });
     }
-    let ready = hedge_status == "ready" && symbols.iter().all(|symbol| symbol.status == "ready");
+    let ready = hedge_status == "ready"
+        && multi_assets_status == "ready"
+        && symbols.iter().all(|symbol| symbol.status == "ready");
     let mut warnings = vec![
         "Only Binance Futures settings are checked/applied; this endpoint never places orders, cancels orders, or closes positions.".to_owned(),
     ];
     if target.requires_hedge_mode {
         warnings.push("Hedge Mode is account-level and may affect all USDT-M Futures strategies on the Binance account.".to_owned());
+    }
+    if target.requires_single_asset_mode {
+        warnings.push("Multi-Assets mode is account-level; isolated margin requires disabling it and this may affect all USDT-M Futures strategies on the Binance account.".to_owned());
     }
     Ok(ExchangePreconfigureResponse {
         status: if ready { "ready" } else { "mismatch" }.to_owned(),
@@ -509,6 +597,17 @@ fn readback_response(
                 "account position mode matches target".to_owned()
             } else {
                 "account position mode does not match target".to_owned()
+            },
+        },
+        multi_assets_mode: MultiAssetsModeCheck {
+            target: multi_assets_target,
+            current: Some(current_multi_assets),
+            status: multi_assets_status.to_owned(),
+            message: if multi_assets_status == "ready" {
+                "account Multi-Assets mode is compatible with target margin settings".to_owned()
+            } else {
+                "account Multi-Assets mode must be disabled before isolated margin can be set"
+                    .to_owned()
             },
         },
         symbols,
@@ -547,7 +646,10 @@ fn persist_exchange_preconfigure_summary(
     Ok(())
 }
 
-fn binance_client_for_owner(db: &SharedDb, owner: &str) -> Result<BinanceClient, SharedDbError> {
+pub(crate) fn binance_client_for_owner(
+    db: &SharedDb,
+    owner: &str,
+) -> Result<BinanceClient, SharedDbError> {
     let credentials = db
         .find_exchange_credentials(owner, BINANCE_EXCHANGE)?
         .ok_or_else(|| SharedDbError::new("Binance credentials are required"))?;
@@ -575,6 +677,7 @@ mod tests {
     fn confirmed_request() -> ExchangePreconfigureRequest {
         ExchangePreconfigureRequest {
             confirm_account_level_hedge_mode_change: true,
+            confirm_account_level_multi_assets_mode_change: true,
             confirm_no_auto_orders: true,
             confirm_symbol_margin_leverage_change: true,
         }
@@ -591,6 +694,7 @@ mod tests {
         );
         let request = ExchangePreconfigureRequest {
             confirm_account_level_hedge_mode_change: false,
+            confirm_account_level_multi_assets_mode_change: true,
             confirm_no_auto_orders: true,
             confirm_symbol_margin_leverage_change: true,
         };
@@ -616,6 +720,7 @@ mod tests {
         let target = target_exchange_settings_from_portfolio(&portfolio).expect("target settings");
 
         assert!(target.requires_hedge_mode);
+        assert!(target.requires_single_asset_mode);
         assert_eq!(target.symbols.len(), 2);
         assert_eq!(target.symbols["BTCUSDT"].leverage, 6);
         assert_eq!(target.symbols["BTCUSDT"].margin_mode, "isolated");
@@ -623,7 +728,7 @@ mod tests {
     }
 
     #[test]
-    fn conflicting_same_symbol_leverage_is_rejected() {
+    fn same_symbol_leverage_uses_highest_target() {
         let portfolio = portfolio_fixture(
             "long_short",
             vec![
@@ -632,9 +737,9 @@ mod tests {
             ],
         );
 
-        let error = target_exchange_settings_from_portfolio(&portfolio).unwrap_err();
+        let target = target_exchange_settings_from_portfolio(&portfolio).expect("target settings");
 
-        assert!(error.to_string().contains("BTCUSDT leverage conflict"));
+        assert_eq!(target.symbols["BTCUSDT"].leverage, 8);
     }
 
     #[test]
@@ -661,6 +766,7 @@ mod tests {
         );
         let mut exchange = FakeExchangeSettingsClient {
             hedge_mode: false,
+            multi_assets_mode: true,
             calls: Vec::new(),
             open_orders: std::collections::HashMap::new(),
             positions: Vec::new(),
@@ -678,12 +784,15 @@ mod tests {
                 "open_orders:ETHUSDT",
                 "read_positions",
                 "read_hedge",
+                "read_multi_assets",
                 "set_hedge:true",
+                "set_multi_assets:false",
                 "set_margin_type:BTCUSDT:isolated",
                 "set_leverage:BTCUSDT:6",
                 "set_margin_type:ETHUSDT:isolated",
                 "set_leverage:ETHUSDT:4",
                 "read_hedge",
+                "read_multi_assets",
                 "read_symbol:BTCUSDT",
                 "read_symbol:ETHUSDT",
             ]
@@ -703,6 +812,7 @@ mod tests {
 
         assert_eq!(response.status, "readback_required");
         assert_eq!(response.hedge_mode.current, None);
+        assert_eq!(response.multi_assets_mode.current, None);
         assert_eq!(response.symbols[0].symbol, "BTCUSDT");
         assert_eq!(response.symbols[0].current_margin_mode, None);
         assert_eq!(response.symbols[0].current_leverage, None);
@@ -745,6 +855,7 @@ mod tests {
 
     struct FakeExchangeSettingsClient {
         hedge_mode: bool,
+        multi_assets_mode: bool,
         calls: Vec<String>,
         open_orders: std::collections::HashMap<String, Vec<String>>,
         positions: Vec<TestPosition>,
@@ -762,6 +873,21 @@ mod tests {
         ) -> Result<(), SharedDbError> {
             self.calls.push(format!("set_hedge:{dual_side_position}"));
             self.hedge_mode = dual_side_position;
+            Ok(())
+        }
+
+        fn read_usdm_multi_assets_mode(&mut self) -> Result<bool, SharedDbError> {
+            self.calls.push("read_multi_assets".to_owned());
+            Ok(self.multi_assets_mode)
+        }
+
+        fn set_usdm_multi_assets_mode(
+            &mut self,
+            multi_assets_margin: bool,
+        ) -> Result<(), SharedDbError> {
+            self.calls
+                .push(format!("set_multi_assets:{multi_assets_margin}"));
+            self.multi_assets_mode = multi_assets_margin;
             Ok(())
         }
 
@@ -809,6 +935,7 @@ mod tests {
         open_orders.insert("BTCUSDT".to_owned(), vec!["order-1".to_owned()]);
         let mut exchange = FakeExchangeSettingsClient {
             hedge_mode: false,
+            multi_assets_mode: false,
             calls: Vec::new(),
             open_orders,
             positions: Vec::new(),
@@ -831,6 +958,7 @@ mod tests {
         let portfolio = portfolio_fixture("long", vec![strategy_fixture("BTCUSDT", "long", 6)]);
         let mut exchange = FakeExchangeSettingsClient {
             hedge_mode: false,
+            multi_assets_mode: false,
             calls: Vec::new(),
             open_orders: std::collections::HashMap::new(),
             positions: vec![TestPosition {

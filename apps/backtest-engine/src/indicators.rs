@@ -190,81 +190,88 @@ pub fn adx(candles: &[IndicatorCandle], period: usize) -> Vec<Option<f64>> {
     if period == 0 || candles.len() <= period {
         return result;
     }
-
     let mut state = AdxState::new(period);
-
     for (index, current) in candles.iter().copied().enumerate() {
-        if !is_valid_candle(current) {
-            state.reset();
-            continue;
+        result[index] = adx_advance(&mut state, current, period);
+    }
+    result
+}
+
+/// 增量推进 ADX 状态：处理一根新 K线，返回该 K线的 ADX 值（None=预热中/无效）。
+/// 提取自 adx() 循环体，供 IndicatorRuntimeContext 增量复用（避免每根 K线全量重算 O(n²)）。
+/// 数值与 adx() 全量结果逐根一致（Wilder smoothing 增量 ≡ 全量）。
+pub fn adx_advance(state: &mut AdxState, candle: IndicatorCandle, period: usize) -> Option<f64> {
+    if period == 0 {
+        return None;
+    }
+    if !is_valid_candle(candle) {
+        state.reset();
+        return None;
+    }
+    let previous = match state.previous_candle {
+        Some(previous) => previous,
+        None => {
+            state.previous_candle = Some(candle);
+            return None;
         }
+    };
+    state.previous_candle = Some(candle);
 
-        let Some(previous) = state.previous_candle else {
-            state.previous_candle = Some(current);
-            continue;
-        };
-        state.previous_candle = Some(current);
+    let Some((range, plus_dm, minus_dm)) = directional_movement(candle, previous) else {
+        state.reset();
+        return None;
+    };
+    state.smoothed_tr = smooth_wilder_value(state.smoothed_tr, &mut state.tr_warmup, range, period);
+    state.smoothed_plus_dm = smooth_wilder_value(
+        state.smoothed_plus_dm,
+        &mut state.plus_dm_warmup,
+        plus_dm,
+        period,
+    );
+    state.smoothed_minus_dm = smooth_wilder_value(
+        state.smoothed_minus_dm,
+        &mut state.minus_dm_warmup,
+        minus_dm,
+        period,
+    );
 
-        let Some((range, plus_dm, minus_dm)) = directional_movement(current, previous) else {
-            state.reset();
-            continue;
-        };
-
-        state.smoothed_tr =
-            smooth_wilder_value(state.smoothed_tr, &mut state.tr_warmup, range, period);
-        state.smoothed_plus_dm = smooth_wilder_value(
-            state.smoothed_plus_dm,
-            &mut state.plus_dm_warmup,
-            plus_dm,
-            period,
-        );
-        state.smoothed_minus_dm = smooth_wilder_value(
-            state.smoothed_minus_dm,
-            &mut state.minus_dm_warmup,
-            minus_dm,
-            period,
-        );
-
-        let dx = match (
-            state.smoothed_tr,
-            state.smoothed_plus_dm,
-            state.smoothed_minus_dm,
-        ) {
-            (Some(tr), Some(plus_dm), Some(minus_dm)) if tr > 0.0 => {
-                let plus_di = 100.0 * plus_dm / tr;
-                let minus_di = 100.0 * minus_dm / tr;
-                let denominator = plus_di + minus_di;
-                if denominator > 0.0 && denominator.is_finite() {
-                    finite_option(100.0 * (plus_di - minus_di).abs() / denominator)
-                } else {
-                    Some(0.0)
-                }
+    let dx = match (
+        state.smoothed_tr,
+        state.smoothed_plus_dm,
+        state.smoothed_minus_dm,
+    ) {
+        (Some(tr), Some(plus_dm), Some(minus_dm)) if tr > 0.0 => {
+            let plus_di = 100.0 * plus_dm / tr;
+            let minus_di = 100.0 * minus_dm / tr;
+            let denominator = plus_di + minus_di;
+            if denominator > 0.0 && denominator.is_finite() {
+                finite_option(100.0 * (plus_di - minus_di).abs() / denominator)
+            } else {
+                Some(0.0)
             }
-            _ => None,
-        };
-
-        if let Some(dx) = dx.filter(|value| value.is_finite()) {
-            if state.current_adx.is_none() && state.dx_seed.len() < period {
-                state.dx_seed.push(dx);
-            }
-            state.current_adx = match state.current_adx {
-                Some(previous) => {
-                    finite_option(((previous * (period as f64 - 1.0)) + dx) / period as f64)
-                }
-                None if state.dx_seed.len() == period => {
-                    finite_option(state.dx_seed.iter().sum::<f64>() / period as f64)
-                }
-                None => None,
-            };
-        } else {
-            state.current_adx = None;
-            state.dx_seed.clear();
         }
+        _ => None,
+    };
 
-        result[index] = state.current_adx.filter(|value| value.is_finite());
+    if let Some(dx) = dx.filter(|value| value.is_finite()) {
+        if state.current_adx.is_none() && state.dx_seed.len() < period {
+            state.dx_seed.push(dx);
+        }
+        state.current_adx = match state.current_adx {
+            Some(previous) => {
+                finite_option(((previous * (period as f64 - 1.0)) + dx) / period as f64)
+            }
+            None if state.dx_seed.len() == period => {
+                finite_option(state.dx_seed.iter().sum::<f64>() / period as f64)
+            }
+            None => None,
+        };
+    } else {
+        state.current_adx = None;
+        state.dx_seed.clear();
     }
 
-    result
+    state.current_adx.filter(|value| value.is_finite())
 }
 
 fn finite_average(values: &[f64]) -> Option<f64> {
@@ -391,20 +398,21 @@ fn smooth_wilder_value(
     }
 }
 
-struct AdxState {
-    previous_candle: Option<IndicatorCandle>,
-    smoothed_tr: Option<f64>,
-    smoothed_plus_dm: Option<f64>,
-    smoothed_minus_dm: Option<f64>,
-    current_adx: Option<f64>,
-    tr_warmup: Vec<f64>,
-    plus_dm_warmup: Vec<f64>,
-    minus_dm_warmup: Vec<f64>,
-    dx_seed: Vec<f64>,
+#[derive(Debug, Clone)]
+pub struct AdxState {
+    pub(crate) previous_candle: Option<IndicatorCandle>,
+    pub(crate) smoothed_tr: Option<f64>,
+    pub(crate) smoothed_plus_dm: Option<f64>,
+    pub(crate) smoothed_minus_dm: Option<f64>,
+    pub(crate) current_adx: Option<f64>,
+    pub(crate) tr_warmup: Vec<f64>,
+    pub(crate) plus_dm_warmup: Vec<f64>,
+    pub(crate) minus_dm_warmup: Vec<f64>,
+    pub(crate) dx_seed: Vec<f64>,
 }
 
 impl AdxState {
-    fn new(period: usize) -> Self {
+    pub fn new(period: usize) -> Self {
         Self {
             previous_candle: None,
             smoothed_tr: None,
@@ -483,6 +491,34 @@ mod tests {
             })
             .collect();
         assert!(adx(&candles, 3).iter().any(Option::is_some));
+    }
+
+    #[test]
+    fn adx_incremental_matches_batch() {
+        // 验证 adx_advance 逐根增量 == adx() 全量（P0-1 提效数值一致性，不改变回测结果）
+        let mut candles = Vec::new();
+        let mut price = 100.0_f64;
+        for i in 0..120 {
+            let drift = if i % 20 < 10 { 0.5 } else { -0.3 };
+            price += drift + (i as f64 * 0.013).sin() * 0.8;
+            candles.push(IndicatorCandle {
+                high: price + 1.0,
+                low: price - 1.0,
+                close: price,
+            });
+        }
+        for period in [7usize, 14, 21] {
+            let batch = adx(&candles, period);
+            let mut state = AdxState::new(period);
+            for (idx, candle) in candles.iter().copied().enumerate() {
+                let incr = adx_advance(&mut state, candle, period);
+                assert_eq!(
+                    incr, batch[idx],
+                    "adx_advance mismatch idx={} period={}",
+                    idx, period
+                );
+            }
+        }
     }
 
     #[test]

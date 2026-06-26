@@ -5,6 +5,10 @@ use shared_domain::strategy::{
     Strategy, StrategyMarket, StrategyMode, StrategyRuntimeOrder, StrategyRuntimePosition,
     StrategyStatus, StrategyType,
 };
+use std::{
+    collections::HashMap,
+    hash::{DefaultHasher, Hash, Hasher},
+};
 
 pub trait BinanceOrderGateway {
     fn place_order(&self, request: BinanceOrderRequest) -> Result<BinanceOrderResponse, String>;
@@ -44,6 +48,11 @@ pub struct OrderSyncResult {
     pub refreshed: usize,
     pub failed: usize,
     pub fatal: usize,
+    pub last_error: Option<String>,
+}
+
+fn record_idempotent_cancel(_result: &mut OrderSyncResult, error: &str) -> bool {
+    classify_binance_order_error(error) == OrderErrorClass::Skip
 }
 
 pub fn sync_strategy_orders(
@@ -110,7 +119,9 @@ pub fn sync_strategy_orders(
                         price: None,
                         time_in_force: None,
                         // Hedge Mode: never send reduceOnly when positionSide is set
-                        reduce_only: if !matches!(strategy.market, StrategyMarket::Spot) && ps.is_none() {
+                        reduce_only: if !matches!(strategy.market, StrategyMarket::Spot)
+                            && ps.is_none()
+                        {
                             Some(true)
                         } else {
                             None
@@ -249,8 +260,21 @@ fn sync_martingale_strategy_orders(
     quantization: Option<&OrderQuantizationRules>,
 ) -> OrderSyncResult {
     let mut result = OrderSyncResult::default();
-    if strategy.status != StrategyStatus::Running {
-        return result;
+    match strategy.status {
+        StrategyStatus::Running => {}
+        StrategyStatus::Stopping => {
+            cancel_open_strategy_orders(strategy, gateway, &mut result);
+            ensure_close_orders(strategy);
+            submit_close_orders(strategy, gateway, quantization, &mut result);
+            refresh_close_orders(strategy, gateway, quantization, &mut result);
+            finalize_stop_if_ready(strategy);
+            return result;
+        }
+        StrategyStatus::Paused | StrategyStatus::Stopped | StrategyStatus::ErrorPaused => {
+            cancel_open_strategy_orders(strategy, gateway, &mut result);
+            return result;
+        }
+        _ => return result,
     }
 
     let live_open_orders =
@@ -267,8 +291,13 @@ fn sync_martingale_strategy_orders(
         .filter_map(|order| order.client_order_id.clone())
         .collect::<std::collections::HashSet<_>>();
 
+    cancel_duplicate_martingale_leg_orders(strategy, gateway, &mut result);
+
     for order in &mut strategy.runtime.orders {
         if !is_martingale_client_order(&order.order_id) {
+            continue;
+        }
+        if order.status == "Canceled" {
             continue;
         }
         if order.status == "Working" && order.exchange_order_id.is_none() {
@@ -277,12 +306,16 @@ fn sync_martingale_strategy_orders(
                 .find(|remote| remote.client_order_id.as_deref() == Some(order.order_id.as_str()))
             {
                 order.exchange_order_id = Some(remote.order_id.clone());
-                order.status = "Placed".to_string();
+                // Keep martingale entry/safety legs in the strategy-runtime
+                // "Working" state after exchange submission. The exchange
+                // id is the source of truth that the order was placed, and
+                // StrategyRuntimeEngine validates the shared runtime using
+                // grid-compatible states.
                 result.refreshed += 1;
                 continue;
             }
         }
-        if order.status == "Placed" && live_client_order_ids.contains(&order.order_id) {
+        if order.exchange_order_id.is_some() && live_client_order_ids.contains(&order.order_id) {
             continue;
         }
         if order.status != "Working" || order.exchange_order_id.is_some() {
@@ -293,7 +326,14 @@ fn sync_martingale_strategy_orders(
             quantization.and_then(|rules| rules.quantity_step_size),
         );
         if quantity_normalized <= Decimal::ZERO {
-            result.failed += 1;
+            record_order_error(
+                &mut result,
+                &format!(
+                    "order quantity {} normalizes to zero for {}",
+                    order.quantity.normalize(),
+                    strategy.symbol
+                ),
+            );
             continue;
         }
         let price = order.price.map(|price| {
@@ -314,16 +354,100 @@ fn sync_martingale_strategy_orders(
             position_side: position_side(strategy.mode, &order.side),
             client_order_id: Some(order.order_id.clone()),
         };
+        if let Err(error) = validate_order_before_placement(&request, quantization) {
+            record_order_error(&mut result, &error);
+            continue;
+        }
         match gateway.place_order(request) {
             Ok(response) => {
                 order.exchange_order_id = Some(response.order_id);
-                order.status = "Placed".to_string();
                 result.submitted += 1;
             }
             Err(error) => record_order_error(&mut result, &error),
         }
     }
     result
+}
+
+fn cancel_duplicate_martingale_leg_orders(
+    strategy: &mut Strategy,
+    gateway: &impl BinanceOrderGateway,
+    result: &mut OrderSyncResult,
+) {
+    let mut keep_by_leg: HashMap<u32, usize> = HashMap::new();
+    for (index, order) in strategy.runtime.orders.iter().enumerate() {
+        if !is_active_martingale_leg_order(order) {
+            continue;
+        }
+        let Some(level_index) = order.level_index else {
+            continue;
+        };
+        match keep_by_leg.get(&level_index).copied() {
+            Some(existing_index)
+                if martingale_keep_score(order)
+                    > martingale_keep_score(&strategy.runtime.orders[existing_index]) =>
+            {
+                keep_by_leg.insert(level_index, index);
+            }
+            None => {
+                keep_by_leg.insert(level_index, index);
+            }
+            _ => {}
+        }
+    }
+
+    for index in 0..strategy.runtime.orders.len() {
+        let Some(level_index) = strategy.runtime.orders[index].level_index else {
+            continue;
+        };
+        if !is_active_martingale_leg_order(&strategy.runtime.orders[index])
+            || keep_by_leg.get(&level_index).copied() == Some(index)
+        {
+            continue;
+        }
+        if strategy.runtime.orders[index].status == "Filled" {
+            continue;
+        }
+        let order_id = strategy.runtime.orders[index].order_id.clone();
+        let exchange_order_id = strategy.runtime.orders[index].exchange_order_id.clone();
+        if exchange_order_id.is_none() {
+            strategy.runtime.orders[index].status = "Canceled".to_string();
+            result.canceled += 1;
+            continue;
+        }
+        match gateway.cancel_order(
+            market_scope(strategy.market),
+            &strategy.symbol,
+            exchange_order_id.as_deref(),
+            Some(&order_id),
+        ) {
+            Ok(_) => {
+                strategy.runtime.orders[index].status = "Canceled".to_string();
+                strategy.runtime.orders[index].exchange_order_id = None;
+                result.canceled += 1;
+            }
+            Err(error) if record_idempotent_cancel(result, &error) => {
+                strategy.runtime.orders[index].status = "Canceled".to_string();
+                strategy.runtime.orders[index].exchange_order_id = None;
+                result.canceled += 1;
+            }
+            Err(error) => record_order_error(result, &error),
+        }
+    }
+}
+
+fn is_active_martingale_leg_order(order: &StrategyRuntimeOrder) -> bool {
+    is_martingale_client_order(&order.order_id) && order.status != "Canceled"
+}
+
+fn martingale_keep_score(order: &StrategyRuntimeOrder) -> (u8, Decimal) {
+    let status_score = match order.status.as_str() {
+        "Filled" => 4,
+        "PartiallyFilled" => 3,
+        "Working" | "Placed" => 2,
+        _ => 1,
+    };
+    (status_score, order.quantity)
 }
 
 fn is_martingale_client_order(order_id: &str) -> bool {
@@ -382,20 +506,25 @@ fn cancel_open_strategy_orders(
                 order.exchange_order_id = None;
                 result.canceled += 1;
             }
+            Err(error) if record_idempotent_cancel(result, &error) => {
+                order.status = "Canceled".to_string();
+                order.exchange_order_id = None;
+                result.canceled += 1;
+            }
             Err(error) => record_order_error(result, &error),
         }
     }
 }
 
 fn ensure_close_orders(strategy: &mut Strategy) {
-    for (index, position) in strategy.runtime.positions.iter().enumerate() {
+    let positions = strategy.runtime.positions.clone();
+    let market = strategy.market;
+    let mode = strategy.mode;
+    for (index, position) in positions.iter().enumerate() {
         let close_order_id = close_order_id(&strategy.id, index);
-        if strategy
-            .runtime
-            .orders
-            .iter()
-            .any(|order| order.order_id == close_order_id)
-        {
+        if strategy.runtime.orders.iter().any(|order| {
+            close_order_targets_position(order, &positions, market, mode, position, index)
+        }) {
             continue;
         }
         strategy.runtime.orders.push(StrategyRuntimeOrder {
@@ -409,6 +538,42 @@ fn ensure_close_orders(strategy: &mut Strategy) {
             status: "ClosingRequested".to_string(),
         });
     }
+}
+
+fn close_order_targets_position(
+    order: &StrategyRuntimeOrder,
+    positions: &[StrategyRuntimePosition],
+    market: StrategyMarket,
+    mode: StrategyMode,
+    position: &StrategyRuntimePosition,
+    index: usize,
+) -> bool {
+    if !is_close_order(order) {
+        return false;
+    }
+    if let Some(target_index) = close_order_index(&order.order_id) {
+        if target_index < positions.len() {
+            return target_index == index;
+        }
+    }
+    if !order
+        .side
+        .eq_ignore_ascii_case(close_side_for_position(position))
+    {
+        return false;
+    }
+    if matches!(market, StrategyMarket::Spot) {
+        return true;
+    }
+    let expected_position_side = match position.mode {
+        StrategyMode::FuturesLong => Some("LONG"),
+        StrategyMode::FuturesShort => Some("SHORT"),
+        _ => None,
+    };
+    close_position_side_for_order(positions, market, mode, order)
+        .or_else(|| position_side(mode, &order.side))
+        .as_deref()
+        == expected_position_side
 }
 
 fn submit_close_orders(
@@ -693,16 +858,24 @@ fn classify_binance_order_error(error: &str) -> OrderErrorClass {
 
 fn record_order_error(result: &mut OrderSyncResult, error: &str) {
     match classify_binance_order_error(error) {
-        OrderErrorClass::Fatal => result.fatal += 1,
+        OrderErrorClass::Fatal => {
+            result.last_error = Some(error.to_string());
+            result.fatal += 1;
+        }
         // Idempotent outcomes are not failures; ignore them so they don't
         // block or pause the strategy.
         OrderErrorClass::Skip => {}
-        OrderErrorClass::Retryable => result.failed += 1,
+        OrderErrorClass::Retryable => {
+            result.last_error = Some(error.to_string());
+            result.failed += 1;
+        }
     }
 }
 
 fn is_close_order(order: &StrategyRuntimeOrder) -> bool {
-    order.order_id.contains("-stop-close-")
+    order.order_id.starts_with("cl-")
+        || order.order_id.contains("-stop-close-")
+        || order.order_id.starts_with("close-")
 }
 
 fn pending_rebuild_after_stop(strategy: &Strategy) -> bool {
@@ -731,7 +904,10 @@ fn pending_rebuild_after_stop(strategy: &Strategy) -> bool {
 }
 
 fn close_order_id(strategy_id: &str, index: usize) -> String {
-    format!("{strategy_id}-stop-close-{index}")
+    let mut hasher = DefaultHasher::new();
+    strategy_id.hash(&mut hasher);
+    index.hash(&mut hasher);
+    format!("cl-{hash:016x}-{index}", hash = hasher.finish())
 }
 
 fn close_order_index(order_id: &str) -> Option<usize> {
@@ -765,6 +941,7 @@ fn close_position_side_for_order(
             StrategyMode::FuturesShort => Some("SHORT".to_string()),
             _ => position_side(mode, &order.side),
         })
+        .or_else(|| position_side(mode, &order.side))
 }
 
 fn market_scope(market: StrategyMarket) -> &'static str {
@@ -828,7 +1005,9 @@ mod tests {
 
     #[test]
     fn fatal_codes_pause_strategy() {
-        for code in [-2010, -2019, -2022, -4043, -4164, -2015, -1015, -1010, -1002] {
+        for code in [
+            -2010, -2019, -2022, -4043, -4164, -2015, -1015, -1010, -1002,
+        ] {
             let error = format!("binance error ({code}): some message");
             assert_eq!(
                 classify_binance_order_error(&error),

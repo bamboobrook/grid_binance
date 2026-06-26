@@ -119,17 +119,36 @@ fn refresh_subscriptions(
     runtime: &Arc<Mutex<GatewayRuntime>>,
     metrics: &Arc<Mutex<GatewayMetrics>>,
 ) -> Result<Vec<SymbolActivity>, shared_db::SharedDbError> {
-    let strategies = db.list_all_strategies()?;
-    let activities = strategies
-        .into_iter()
-        .map(|strategy| {
-            SymbolActivity::new_with_market(
-                strategy.symbol,
-                market_code(strategy.market),
-                strategy.status == StrategyStatus::Running,
-            )
-        })
-        .collect::<Vec<_>>();
+    let mut activities = Vec::new();
+    for strategy in db.list_all_strategies()? {
+        upsert_symbol_activity(
+            &mut activities,
+            &strategy.symbol,
+            market_code(strategy.market),
+            strategy.status == StrategyStatus::Running,
+        );
+    }
+    for portfolio in db.backtest_repo().list_running_martingale_portfolios()? {
+        let strategies = portfolio
+            .config
+            .get("portfolio_config")
+            .and_then(|config| config.get("strategies"))
+            .and_then(serde_json::Value::as_array);
+        let Some(strategies) = strategies else {
+            continue;
+        };
+        for strategy in strategies {
+            let Some(symbol) = strategy.get("symbol").and_then(serde_json::Value::as_str) else {
+                continue;
+            };
+            let market = strategy
+                .get("market")
+                .and_then(serde_json::Value::as_str)
+                .and_then(martingale_market_code)
+                .unwrap_or("usdm");
+            upsert_symbol_activity(&mut activities, symbol, market, true);
+        }
+    }
     let desired = active_symbol_subscriptions(&activities);
     let active_count = desired.len();
 
@@ -150,6 +169,36 @@ fn refresh_subscriptions(
     }
 
     Ok(activities)
+}
+
+fn upsert_symbol_activity(
+    activities: &mut Vec<SymbolActivity>,
+    symbol: &str,
+    market: &str,
+    is_active: bool,
+) {
+    let activity =
+        SymbolActivity::new_with_market(symbol.trim().to_ascii_uppercase(), market, is_active);
+    if activity.symbol.is_empty() {
+        return;
+    }
+    if let Some(existing) = activities
+        .iter_mut()
+        .find(|existing| existing.symbol == activity.symbol && existing.market == activity.market)
+    {
+        existing.is_active |= activity.is_active;
+        return;
+    }
+    activities.push(activity);
+}
+
+fn martingale_market_code(market: &str) -> Option<&'static str> {
+    match market.trim().to_ascii_lowercase().as_str() {
+        "usd_m_futures" | "usdm" | "futures" | "futures_usdm" | "futuresusdm" => Some("usdm"),
+        "spot" => Some("spot"),
+        "coinm" | "coin_m_futures" | "futures_coinm" | "futurescoinm" => Some("coinm"),
+        _ => None,
+    }
 }
 
 fn should_restart_streams(
