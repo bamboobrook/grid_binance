@@ -26,13 +26,18 @@ pub struct MartingaleRuntimeConfig {
     pub exchange_min_notional: Decimal,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct MartingaleRuntimeContext {
     pub pause_new_entries: bool,
     pub strategy_status: StrategyStatus,
     pub global_drawdown_quote: Decimal,
     pub now_ms: Option<i64>,
     pub last_cycle_closed_at_ms: Option<i64>,
+    /// Portfolio drawdown percent (peak→current equity). When `Some(dd)` with
+    /// `dd > 6.0`, new cycles are paused (parity port of backtest guard
+    /// `kline_engine.rs:142-146`). `None` only when the live equity sum is
+    /// genuinely unavailable; in production `main.rs` threads a real `Some`.
+    pub portfolio_drawdown_pct: Option<f64>,
 }
 
 impl Default for MartingaleRuntimeContext {
@@ -43,6 +48,7 @@ impl Default for MartingaleRuntimeContext {
             global_drawdown_quote: Decimal::ZERO,
             now_ms: None,
             last_cycle_closed_at_ms: None,
+            portfolio_drawdown_pct: None,
         }
     }
 }
@@ -536,6 +542,16 @@ impl MartingaleRuntime {
             if context.global_drawdown_quote >= limit {
                 return Err(MartingaleRuntimeError::new(
                     "global drawdown pauses new entries",
+                ));
+            }
+        }
+        // Parity port of backtest guard (kline_engine.rs:142-146): portfolio
+        // drawdown > 6% pauses new cycles. `Some` carries a real equity-based
+        // percent from `main.rs`; `None` (tests / pre-wiring) skips the guard.
+        if let Some(dd) = context.portfolio_drawdown_pct {
+            if dd > 6.0 {
+                return Err(MartingaleRuntimeError::new(
+                    "portfolio drawdown above 6% pauses new entries",
                 ));
             }
         }

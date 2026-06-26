@@ -76,6 +76,97 @@ fn martingale_candle_feeds() -> &'static Mutex<HashMap<String, HashMap<String, L
     MARTINGALE_CANDLE_FEEDS.get_or_init(|| Mutex::new(HashMap::new()))
 }
 
+/// 进程级 portfolio equity peak 跟踪：跨 reconcile tick 保留每个 portfolio 的
+/// historical peak equity (quote)。用于计算组合 drawdown 百分比
+/// (parity port of backtest guard `kline_engine.rs:142-146`).
+/// key = portfolio_id, value = 历史最高 equity。
+static MARTINGALE_PORTFOLIO_EQUITY_PEAKS: OnceLock<Mutex<HashMap<String, Decimal>>> = OnceLock::new();
+
+fn martingale_portfolio_equity_peaks() -> &'static Mutex<HashMap<String, Decimal>> {
+    MARTINGALE_PORTFOLIO_EQUITY_PEAKS.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
+/// 计算一个 running portfolio 的当前 drawdown 百分比 (peak→current equity).
+///
+/// equity = budget + Σ realized_pnl + Σ unrealized_pnl
+/// - budget: portfolio 分配预算 (config.portfolio_budget_quote).
+/// - realized: Σ over the portfolio's strategies of Σ fill.realized_pnl.
+/// - unrealized: Σ over open positions of (latest_price - avg_entry) * qty * dir_sign,
+///   latest_price 取自本 cycle 的 market_ticks (fallback average_entry_price).
+///
+/// 维护进程级 peak; drawdown_pct = (peak - current) / peak * 100 (peak > 0).
+/// 返回 None 仅当 budget <= 0 或无策略可计算 (理论上不应发生在 running portfolio).
+fn portfolio_drawdown_pct_for(
+    db: &SharedDb,
+    portfolio: &MartingalePortfolioRecord,
+    config: &MartingaleRuntimeConfig,
+    market_ticks: &[MarketTick],
+) -> Option<f64> {
+    let budget = config.portfolio_budget_quote;
+    if budget <= Decimal::ZERO {
+        return None;
+    }
+
+    let owner = &portfolio.owner;
+    let mut realized = Decimal::ZERO;
+    let mut unrealized = Decimal::ZERO;
+
+    for strategy_config in &config.portfolio.strategies {
+        let strategy_id = &strategy_config.strategy_id;
+        let strategy = match db.find_strategy(owner, strategy_id) {
+            Ok(Some(strategy)) => strategy,
+            _ => continue,
+        };
+        // realized = Σ fill.realized_pnl (all-time; runtime.fills never cleared)
+        for fill in &strategy.runtime.fills {
+            if let Some(pnl) = fill.realized_pnl {
+                realized += pnl;
+            }
+        }
+        // unrealized over open positions
+        let dir_sign = match strategy_config.direction {
+            MartingaleDirection::Long => Decimal::ONE,
+            MartingaleDirection::Short => Decimal::NEGATIVE_ONE,
+        };
+        for position in &strategy.runtime.positions {
+            if position.quantity == Decimal::ZERO {
+                continue;
+            }
+            // latest tick this cycle for the strategy symbol, else fall back to avg entry
+            let latest_price = market_ticks
+                .iter()
+                .find(|tick| tick.symbol == strategy_config.symbol)
+                .map(|tick| tick.price)
+                .unwrap_or(position.average_entry_price);
+            let pnl =
+                (latest_price - position.average_entry_price) * position.quantity * dir_sign;
+            unrealized += pnl;
+        }
+    }
+
+    let current_equity = budget + realized + unrealized;
+
+    let mut peaks = martingale_portfolio_equity_peaks()
+        .lock()
+        .expect("portfolio equity peaks poisoned");
+    let peak_entry = peaks
+        .entry(portfolio.portfolio_id.clone())
+        .or_insert_with(|| current_equity);
+    if current_equity > *peak_entry {
+        *peak_entry = current_equity;
+    }
+    let peak = *peak_entry;
+    drop(peaks);
+
+    if peak > Decimal::ZERO {
+        let drawdown = (peak - current_equity) / peak;
+        // drawdown as a fraction (peak→current); *100 for percent.
+        drawdown.to_f64().map(|v| v * 100.0)
+    } else {
+        None
+    }
+}
+
 fn save_indicator_context(
     portfolio_id: &str,
     ctx: &backtest_engine::martingale::indicator_runtime::IndicatorRuntimeContext,
@@ -370,7 +461,7 @@ fn reconcile_running_martingale_portfolios(
             .and_then(serde_json::Value::as_bool)
             .unwrap_or(false)
         {
-            reconcile_martingale_executor_strategies(db, &portfolio, &persisted_ctx)?;
+            reconcile_martingale_executor_strategies(db, &portfolio, &persisted_ctx, market_ticks)?;
             continue;
         }
         // Verify exchange preconfigure readiness; do NOT mutate exchange
@@ -390,6 +481,8 @@ fn reconcile_running_martingale_portfolios(
         }
         let _settings = futures_settings_from_portfolio(&portfolio)?;
         let config = martingale_runtime_config_from_portfolio(&portfolio)?;
+        let portfolio_drawdown_pct =
+            portfolio_drawdown_pct_for(db, &portfolio, &config, market_ticks);
 
         // Per-strategy start_cycle + order generation
         let strategies_config = portfolio
@@ -447,6 +540,7 @@ fn reconcile_running_martingale_portfolios(
                     &portfolio.owner,
                     strategy_id,
                     StrategyStatus::Running,
+                    portfolio_drawdown_pct,
                 )?,
             ) {
                 Ok(()) => {
@@ -560,9 +654,12 @@ fn reconcile_martingale_executor_strategies(
     db: &SharedDb,
     portfolio: &MartingalePortfolioRecord,
     indicator_ctx: &backtest_engine::martingale::indicator_runtime::IndicatorRuntimeContext,
+    market_ticks: &[MarketTick],
 ) -> Result<(), shared_db::SharedDbError> {
     let config = martingale_runtime_config_from_portfolio(portfolio)?;
     let settings = futures_settings_from_portfolio(portfolio)?;
+    let portfolio_drawdown_pct =
+        portfolio_drawdown_pct_for(db, portfolio, &config, market_ticks);
     for strategy_config in &config.portfolio.strategies {
         let Some(mut strategy) =
             db.find_strategy(&portfolio.owner, &strategy_config.strategy_id)?
@@ -607,6 +704,7 @@ fn reconcile_martingale_executor_strategies(
                     &portfolio.owner,
                     &strategy_config.strategy_id,
                     strategy.status,
+                    portfolio_drawdown_pct,
                 )?,
             )
             .map_err(|error| shared_db::SharedDbError::new(error.to_string()))?;
@@ -697,6 +795,7 @@ fn martingale_runtime_context_for_strategy(
     owner: &str,
     strategy_id: &str,
     fallback_status: StrategyStatus,
+    portfolio_drawdown_pct: Option<f64>,
 ) -> Result<MartingaleRuntimeContext, shared_db::SharedDbError> {
     let strategy = db.find_strategy(owner, strategy_id)?;
     Ok(MartingaleRuntimeContext {
@@ -708,6 +807,7 @@ fn martingale_runtime_context_for_strategy(
         last_cycle_closed_at_ms: strategy
             .as_ref()
             .and_then(last_martingale_cycle_closed_at_ms),
+        portfolio_drawdown_pct,
         ..MartingaleRuntimeContext::default()
     })
 }
@@ -4059,6 +4159,7 @@ mod tests {
             &db,
             &portfolio,
             &backtest_engine::martingale::indicator_runtime::IndicatorRuntimeContext::default(),
+            &[],
         )
         .expect("reconcile");
 

@@ -570,3 +570,21 @@ fn adx_guard_ignored_when_strategy_has_no_adx_indicator() {
         .expect("ok");
     assert_eq!(runtime.orders().len(), 2, "safety leg placed when no ADX configured");
 }
+
+#[test]
+fn portfolio_drawdown_above_six_percent_pauses_new_cycle() {
+    let mut runtime = MartingaleRuntime::new(runtime_config(vec![
+        strategy("long-btc", MartingaleDirection::Long),
+    ]))
+    .expect("runtime");
+    let err = runtime
+        .start_cycle_with_futures_preflight(
+            &futures_settings(true), "long-btc", dec(100),
+            MartingaleRuntimeContext {
+                portfolio_drawdown_pct: Some(7.0),
+                ..MartingaleRuntimeContext::default()
+            },
+        )
+        .expect_err("portfolio drawdown > 6% should pause new cycle");
+    assert!(err.to_string().contains("portfolio drawdown"), "got: {err}");
+}
