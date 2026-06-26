@@ -40,6 +40,9 @@ artifacts/
 # Scratch monitoring output
 .monitor_*.txt
 
+# Superpowers SDD progress ledger (scratch)
+.superpowers/
+
 # Local git worktrees
 .worktrees/
 
