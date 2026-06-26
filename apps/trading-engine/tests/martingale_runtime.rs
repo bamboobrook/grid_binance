@@ -1,9 +1,9 @@
 use backtest_engine::market_data::KlineBar;
 use rust_decimal::Decimal;
 use shared_domain::martingale::{
-    MartingaleDirection, MartingaleDirectionMode, MartingaleEntryTrigger, MartingaleMarginMode,
-    MartingaleMarketKind, MartingalePortfolioConfig, MartingaleRiskLimits, MartingaleSizingModel,
-    MartingaleSpacingModel, MartingaleStopLossModel, MartingaleStrategyConfig,
+    MartingaleDirection, MartingaleDirectionMode, MartingaleEntryTrigger, MartingaleIndicatorConfig,
+    MartingaleMarginMode, MartingaleMarketKind, MartingalePortfolioConfig, MartingaleRiskLimits,
+    MartingaleSizingModel, MartingaleSpacingModel, MartingaleStopLossModel, MartingaleStrategyConfig,
     MartingaleTakeProfitModel,
 };
 use shared_domain::strategy::StrategyStatus;
@@ -483,4 +483,44 @@ fn live_stop_loss_matches_backtest_margin_drawdown() {
         &short_strat, dec(1), dec(100), Decimal::new(10130, 2), Decimal::ZERO, Decimal::ZERO,
     ).expect("some drawdown");
     assert!(dd_short >= threshold, "1.3% adverse short should stop, got {dd_short}");
+}
+
+#[test]
+fn atr_above_two_percent_pauses_new_cycle() {
+    let mut strat = strategy("long-btc", MartingaleDirection::Long);
+    strat.indicators = vec![MartingaleIndicatorConfig::Atr { period: 2 }];
+    let mut runtime = MartingaleRuntime::new(runtime_config(vec![strat])).expect("runtime");
+    // bars with a wide range -> atr/close > 2%
+    runtime.warmup_indicators_from_bars(vec![
+        kline("BTCUSDT", 0,       100.0),
+        kline("BTCUSDT", 60_000,   80.0), // 20% drop -> true range huge vs close
+        kline("BTCUSDT", 120_000,  80.0),
+    ]);
+    let err = runtime
+        .start_cycle_with_futures_preflight(
+            &futures_settings(true), "long-btc", dec(80),
+            MartingaleRuntimeContext::default(),
+        )
+        .expect_err("high ATR should pause new cycle");
+    assert!(err.to_string().contains("atr"), "expected atr pause, got: {err}");
+    assert!(runtime.orders().is_empty());
+}
+
+#[test]
+fn atr_within_limit_allows_new_cycle() {
+    let mut strat = strategy("long-btc", MartingaleDirection::Long);
+    strat.indicators = vec![MartingaleIndicatorConfig::Atr { period: 2 }];
+    let mut runtime = MartingaleRuntime::new(runtime_config(vec![strat])).expect("runtime");
+    runtime.warmup_indicators_from_bars(vec![
+        kline("BTCUSDT", 0,       100.0),
+        kline("BTCUSDT", 60_000,  100.5), // tiny range -> atr/close << 2%
+        kline("BTCUSDT", 120_000, 100.5),
+    ]);
+    runtime
+        .start_cycle_with_futures_preflight(
+            &futures_settings(true), "long-btc", dec(100),
+            MartingaleRuntimeContext::default(),
+        )
+        .expect("low ATR should allow entry");
+    assert_eq!(runtime.orders().len(), 1);
 }

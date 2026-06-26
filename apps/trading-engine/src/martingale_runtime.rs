@@ -522,6 +522,24 @@ impl MartingaleRuntime {
         }
 
         let strategy_config = strategy.config.clone();
+        // 方向3: 波动率过滤 — ATR > 2% of close 时暂停新 cycle（高波动期风险大）
+        // Parity port of backtest guard (kline_engine.rs:147-160). `&mut self` ATR
+        // read completes before `evaluate_entry_triggers` borrows `&mut self`.
+        if let Some(atr) = self.indicator_latest_atr(&strategy_config) {
+            let close = self
+                .indicator_context
+                .bars_by_symbol
+                .get(&strategy_config.symbol)
+                .and_then(|bars| bars.last())
+                .map(|bar| bar.close);
+            if let Some(close) = close {
+                if close > 0.0 && atr / close * 100.0 > 2.0 {
+                    return Err(MartingaleRuntimeError::new(
+                        "atr volatility above 2% pauses new cycle",
+                    ));
+                }
+            }
+        }
         if !self.evaluate_entry_triggers(&strategy_config, context)? {
             return Err(MartingaleRuntimeError::new(
                 "entry triggers are not satisfied",
