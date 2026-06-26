@@ -29,6 +29,17 @@ from scipy.optimize import Bounds, LinearConstraint, linprog, milp
 csv.field_size_limit(sys.maxsize)
 getcontext().prec = 28
 
+
+def per_strategy_weight_pct(member_weight_pct: float, internal_count: int) -> float:
+    """Divide a candidate's LP weight equally among its internal strategies.
+
+    Mirrors apps/api-server/src/services/martingale_publish_service.rs:597 so a
+    long_short candidate does not reserve 200% of the capital.
+    """
+    if internal_count <= 0:
+        return float(member_weight_pct)
+    return float(member_weight_pct) / float(internal_count)
+
 OWNER = "flyingkid2022@outlook.com"
 DB = ["docker", "exec", "-i", "grid-binance-postgres-1", "psql", "-U", "postgres", "-d", "grid_binance"]
 DB_AT = ["docker", "exec", "grid-binance-postgres-1", "psql", "-U", "postgres", "-d", "grid_binance", "-qAt", "-c"]
@@ -469,7 +480,10 @@ def build_saved_payload(result: dict[str, Any]) -> dict[str, Any]:
             used_strategy_ids.add(strategy_id)
             live_strategy["strategy_id"] = strategy_id
             live_strategy["source_strategy_id"] = original_strategy_id
-            live_strategy["portfolio_weight_pct"] = format(weight_pct, "f")
+            internal_count = len(cfg.get("strategies", []))
+            live_strategy["portfolio_weight_pct"] = format(
+                per_strategy_weight_pct(weight_pct, internal_count), "f"
+            )
             live_strategy["strategy_instance_id"] = item_id
             live_strategy["source_candidate_id"] = row["candidate_id"]
             live_strategy["source_task_id"] = row["task_id"]
