@@ -34,6 +34,7 @@ use tokio_tungstenite::{connect_async, tungstenite::Message};
 use trading_engine::{
     execution_effects::persist_execution_effects,
     execution_sync::{apply_execution_update, recompute_strategy_positions},
+    martingale_exit::martingale_strategy_drawdown_pct,
     martingale_recovery::{recover_martingale_runtime, MartingaleRecoveryInput, RecoveryPosition},
     martingale_runtime::{
         FuturesExchangeSettings, FuturesSymbolSettings, MartingaleRuntime, MartingaleRuntimeConfig,
@@ -1856,7 +1857,25 @@ fn apply_martingale_market_ticks(
         let Some(position) = martingale_position_for_strategy(strategy) else {
             continue;
         };
-        let Some(exit) = martingale_exit_signal(&strategy_config, &position, tick.price) else {
+        // strategy.runtime.fills is all-time (never cleared on cycle close) and carries no
+        // per-cycle marker, so summing all fills would mix in past cycles' PnL/fees. At
+        // SL-evaluation time the current cycle is open and losing (no TP has fired), so
+        // current-cycle realized PnL is ~0. Fall back to the position-based approximation:
+        // realized = 0, entry_fees = entry notional * DEFAULT_FEE_BPS (entry fee on the
+        // position's notional). The dominant SL term is the leverage-amplified unrealized loss.
+        let realized_pnl = Decimal::ZERO;
+        let entry_fees = position.quantity.abs()
+            * position.average_entry_price
+            * Decimal::from_f64_retain(backtest_engine::martingale::kline_engine::DEFAULT_FEE_BPS)
+                .unwrap_or(Decimal::ZERO)
+            / Decimal::from(10_000_u32);
+        let Some(exit) = martingale_exit_signal(
+            &strategy_config,
+            &position,
+            tick.price,
+            realized_pnl,
+            entry_fees,
+        ) else {
             continue;
         };
         request_martingale_close(strategy, &position, tick.price, &exit);
@@ -1900,6 +1919,8 @@ fn martingale_exit_signal(
     config: &MartingaleStrategyConfig,
     position: &StrategyRuntimePosition,
     current_price: Decimal,
+    realized_pnl: Decimal,
+    entry_fees: Decimal,
 ) -> Option<MartingaleExitSignal> {
     if current_price <= Decimal::ZERO || position.average_entry_price <= Decimal::ZERO {
         return None;
@@ -1921,19 +1942,25 @@ fn martingale_exit_signal(
             });
         }
     }
-    if let Some(threshold_price) =
-        martingale_strategy_drawdown_stop_price(config, position.average_entry_price)
-    {
-        let triggered = if is_long {
-            current_price <= threshold_price
-        } else {
-            current_price >= threshold_price
+    if let Some(dd) = martingale_strategy_drawdown_pct(
+        config,
+        position.quantity,
+        position.average_entry_price,
+        current_price,
+        realized_pnl,
+        entry_fees,
+    ) {
+        let threshold = match &config.stop_loss {
+            Some(MartingaleStopLossModel::StrategyDrawdownPct { pct_bps }) => {
+                *pct_bps as f64 / 100.0
+            }
+            _ => 0.0,
         };
-        if triggered {
+        if dd >= threshold {
             return Some(MartingaleExitSignal {
                 event_type: "martingale_strategy_drawdown_stop",
                 label: "strategy drawdown stop",
-                threshold_price,
+                threshold_price: current_price,
             });
         }
     }
@@ -1952,22 +1979,6 @@ fn martingale_percent_take_profit_price(
     Some(match config.direction {
         MartingaleDirection::Long => average_entry + offset,
         MartingaleDirection::Short => average_entry - offset,
-    })
-    .filter(|price| *price > Decimal::ZERO)
-}
-
-fn martingale_strategy_drawdown_stop_price(
-    config: &MartingaleStrategyConfig,
-    average_entry: Decimal,
-) -> Option<Decimal> {
-    let pct_bps = match &config.stop_loss {
-        Some(MartingaleStopLossModel::StrategyDrawdownPct { pct_bps }) => *pct_bps,
-        _ => return None,
-    };
-    let offset = average_entry * Decimal::from(pct_bps) / Decimal::from(10_000_u32);
-    Some(match config.direction {
-        MartingaleDirection::Long => average_entry - offset,
-        MartingaleDirection::Short => average_entry + offset,
     })
     .filter(|price| *price > Decimal::ZERO)
 }
@@ -3820,6 +3831,8 @@ mod tests {
             &config,
             &running.runtime.positions[0],
             Decimal::new(102, 0),
+            Decimal::ZERO,
+            Decimal::ZERO,
         )
         .expect("tp should trigger");
         assert_eq!(signal.event_type, "martingale_take_profit_stop");
@@ -4002,6 +4015,8 @@ mod tests {
             &config,
             &running.runtime.positions[0],
             Decimal::new(79, 0),
+            Decimal::ZERO,
+            Decimal::ZERO,
         )
         .expect("strategy drawdown should trigger");
         assert_eq!(signal.event_type, "martingale_strategy_drawdown_stop");

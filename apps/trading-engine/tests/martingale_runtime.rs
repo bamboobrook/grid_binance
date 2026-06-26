@@ -449,3 +449,38 @@ fn backtest_cost_constants_are_importable_for_live_stop_loss() {
     assert_eq!(DEFAULT_FEE_BPS, 4.5);
     assert_eq!(DEFAULT_SLIPPAGE_BPS, 2.0);
 }
+
+#[test]
+fn live_stop_loss_matches_backtest_margin_drawdown() {
+    use trading_engine::martingale_exit::martingale_strategy_drawdown_pct;
+    use rust_decimal::Decimal;
+
+    // 10x leverage, entry 100, pct_bps 1200 -> backtest stops at ~1.2% adverse price
+    // (12% of margin). The OLD live SL (price distance, pct_bps/10000) stopped at 12% adverse.
+    let mut strat = strategy("long-btc", MartingaleDirection::Long);
+    strat.leverage = Some(10);
+    strat.stop_loss = Some(MartingaleStopLossModel::StrategyDrawdownPct { pct_bps: 1200 });
+
+    let threshold = 1200_f64 / 100.0; // 12.0% margin drawdown
+
+    // 1.0% adverse (price 99.0) -> ~10% margin DD -> must NOT trigger
+    let dd_below = martingale_strategy_drawdown_pct(
+        &strat, dec(1), dec(100), Decimal::new(9900, 2), Decimal::ZERO, Decimal::ZERO,
+    ).expect("some drawdown");
+    assert!(dd_below < threshold, "1% adverse should not stop, got {dd_below}");
+
+    // 1.3% adverse (price 98.70) -> ~13% margin DD -> must trigger
+    let dd_above = martingale_strategy_drawdown_pct(
+        &strat, dec(1), dec(100), Decimal::new(9870, 2), Decimal::ZERO, Decimal::ZERO,
+    ).expect("some drawdown");
+    assert!(dd_above >= threshold, "1.3% adverse should stop, got {dd_above}");
+
+    // short side symmetric
+    let mut short_strat = strategy("short-btc", MartingaleDirection::Short);
+    short_strat.leverage = Some(10);
+    short_strat.stop_loss = Some(MartingaleStopLossModel::StrategyDrawdownPct { pct_bps: 1200 });
+    let dd_short = martingale_strategy_drawdown_pct(
+        &short_strat, dec(1), dec(100), Decimal::new(10130, 2), Decimal::ZERO, Decimal::ZERO,
+    ).expect("some drawdown");
+    assert!(dd_short >= threshold, "1.3% adverse short should stop, got {dd_short}");
+}
