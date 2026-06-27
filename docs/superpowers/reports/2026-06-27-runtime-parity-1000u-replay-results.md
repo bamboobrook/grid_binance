@@ -147,3 +147,44 @@ the account. Per the plan's decision tree (Case B):
 - Known follow-up (non-blocking): `api-server`'s `extract_portfolio_weight_factors` still diverges from the
   canonical (f64 return, silent-omit ≤0) — a latent preflight-parity gap to clean up before any live
   confirm-start.
+
+## Appendix: capital frontier (existing LP portfolios scaled to 1000/2000/3000/5000U)
+
+To bound whether MORE capital rescues the existing (well-optimized) candidates, the same three portfolios
+were replayed at 2000/3000/5000U (same runtime-parity model). Result: **none passes at any budget up to
+5000U.** Drawdown is the persistent blocker; fees+slippage are ~3800-4800U regardless of budget (trade
+churn is roughly constant, so friction is a fixed structural drag).
+
+| portfolio | budget | ann (target) | max DD (target) | total ret | principal breached | fee+slip | gate |
+|---|---|---|---|---|---|---|---|
+| conservative | 1000 | n/a (>50) | 334.5% (≤10) | -347.3% | YES | 4080 | FAIL |
+| conservative | 2000 | n/a | 100.5% | -100.5% | YES | 3829 | FAIL |
+| conservative | 3000 | -42.9% | 89.3% | -85.2% | no | 4223 | FAIL |
+| conservative | 5000 | 4.3% | **51.3%** | +15.4% | no | 4295 | FAIL |
+| balanced | 1000 | n/a (>90) | 142.9% (≤20) | -212.3% | YES | 4168 | FAIL |
+| balanced | 2000 | 25.1% | 58.9% | +115.1% | no | 3795 | FAIL |
+| balanced | 3000 | 38.9% | 46.4% | +207.5% | no | 4615 | FAIL |
+| balanced | 5000 | 22.4% | **45.1%** | +99.3% | no | 4821 | FAIL |
+| aggressive | 1000 | 41.1% (>110) | 52.3% (≤30) | +223.9% | no | 2679 | FAIL |
+| aggressive | 2000 | 58.8% | 42.9% | +385.6% | no | 3830 | FAIL |
+| aggressive | 3000 | 48.5% | 39.1% | +286.1% | no | 3898 | FAIL |
+| aggressive | 5000 | **66.4%** | **36.7%** | +469.3% | no | 4423 | FAIL |
+
+Reading:
+- **Drawdown is inherent, not budget-dependent.** Even at 5000U (where caps truncate fewer legs), peak-to-
+  trough DD stays 36-51% — far above the 10/20/30% targets. This is the martingale averaging-down profile;
+  scaling capital does not remove it.
+- **Fees+slippage are a fixed ~4000U drag** (trade count ~100-130k regardless of budget). At low budgets
+  this alone exceeds the principal (the 1000U blow-ups).
+- **Aggressive is the closest** to viable: at 5000U ann 66% / DD 37%. If the aggressive target were relaxed
+  to roughly `ann > 60% & DD ≤ 40%`, it would pass at 5000U. Conservative is paradoxically the *worst*
+  (its high-weight LTC/DYDX candidates churn hardest when truncated).
+- This is a third independent line of evidence (after the seed-521 candidate search and the original
+  backtest-robustness work) that `ann > 50/90/110% ∧ DD ≤ 10/20/30%` is not achievable for these martingale
+  strategies on real capital up to 5000U. The blocker is fundamental drawdown, not capital size.
+
+Caveat: this frontier is on the EXISTING high-capital candidates run cap-truncated. A purpose-built
+≤5000U small-capital-NATIVE search (full ladders that fit the budget, first orders ≥ min notional) would
+behave differently (full ladders recover instead of truncating, cutting churn) and is what the plan's Case
+B prescribes. But the inherent-DD floor (~37% even at 5000U with minimal truncation) indicates the DD
+targets — especially conservative ≤10% — are very likely out of reach for martingale regardless of design.
