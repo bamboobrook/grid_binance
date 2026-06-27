@@ -1,98 +1,51 @@
 //! Per-strategy budget cap helpers.
 //!
+//! Thin delegating wrappers around the canonical runtime-parity implementation
+//! in `backtest_engine::martingale::capital`. The public API is preserved so
+//! `main.rs` and the existing tests keep working; the actual logic now lives in
+//! exactly one place shared with the backtest replay binary (RT2).
+//!
 //! `max_strategy_budget_quote` is a MARGIN principal cap (the runtime's
 //! `enforce_budget_for_next_leg` compares `strategy_margin_exposure +
-//! next_margin` against it — both margin units). These helpers keep the cap in
-//! margin units, flooring at the first leg's MARGIN (not the leveraged
-//! NOTIONAL) so a strategy can always place leg 0 without inflating the cap by
-//! up to leverage x.
+//! next_margin` against it — both margin units). The cap is kept in margin
+//! units, floored at the first leg's MARGIN (not the leveraged NOTIONAL) so a
+//! strategy can always place leg 0 without inflating the cap by up to leverage x.
+
 use std::collections::HashMap;
 
 use rust_decimal::Decimal;
-use shared_domain::martingale::{
-    MartingaleMarketKind, MartingalePortfolioConfig, MartingaleStrategyConfig, MartingaleSizingModel,
-};
+use shared_domain::martingale::{MartingalePortfolioConfig, MartingaleStrategyConfig};
 
-/// First leg's MARGIN capital.
+use backtest_engine::martingale::capital as canonical;
+
+/// First leg's MARGIN capital for a strategy.
 ///
 /// Futures: `first_order_quote / leverage`. Spot: `first_order_quote`
 /// (unleveraged). Returns `None` when the sizing has no legs or the first
-/// notional is non-positive.
+/// notional is non-positive. Delegates to the canonical
+/// [`canonical::first_leg_margin_for_strategy`].
 pub fn first_leg_margin_quote(strategy: &MartingaleStrategyConfig) -> Option<Decimal> {
-    let first_notional = match &strategy.sizing {
-        MartingaleSizingModel::Multiplier { first_order_quote, .. }
-        | MartingaleSizingModel::BudgetScaled { first_order_quote, .. } => *first_order_quote,
-        MartingaleSizingModel::CustomSequence { notionals } => notionals.first().copied()?,
-    };
-    if first_notional <= Decimal::ZERO {
-        return None;
-    }
-    let leverage = match strategy.market {
-        MartingaleMarketKind::Spot => Decimal::ONE,
-        MartingaleMarketKind::UsdMFutures => strategy
-            .leverage
-            .map(|l| Decimal::from(l.max(1)))
-            .unwrap_or(Decimal::ONE),
-    };
-    Some(first_notional / leverage)
+    canonical::first_leg_margin_for_strategy(strategy)
 }
 
-/// Set the per-strategy MARGIN cap.
-///
-/// `budget_cap` is in MARGIN units. The effective cap is floored at the first
-/// leg's MARGIN (so a strategy can always place leg 0) but never at NOTIONAL,
-/// then narrowed into `max_strategy_budget_quote` via
-/// [`cap_optional_budget_limit`].
+/// Set the per-strategy MARGIN cap. Delegates to the canonical
+/// [`canonical::cap_strategy_budget_decimal`].
 pub fn cap_strategy_budget(strategy: &mut MartingaleStrategyConfig, budget_cap: Decimal) {
-    if budget_cap <= Decimal::ZERO {
-        return;
-    }
-    let effective_budget_cap = first_leg_margin_quote(strategy)
-        .filter(|value| *value > Decimal::ZERO)
-        .map(|first_leg_margin| budget_cap.max(first_leg_margin))
-        .unwrap_or(budget_cap);
-    cap_optional_budget_limit(
-        &mut strategy.risk_limits.max_strategy_budget_quote,
-        effective_budget_cap,
-    );
+    canonical::cap_strategy_budget_decimal(strategy, budget_cap);
 }
 
-/// Narrow an existing limit or set it.
-///
-/// If `limit` is `Some(positive)`, the result is `min(existing, budget_cap)`;
-/// otherwise the limit is replaced by `budget_cap`.
+/// Narrow an existing limit or set it. Delegates to the canonical
+/// [`canonical::cap_optional_budget_limit_decimal`].
 pub fn cap_optional_budget_limit(limit: &mut Option<Decimal>, budget_cap: Decimal) {
-    *limit = Some(match *limit {
-        Some(current) if current > Decimal::ZERO => current.min(budget_cap),
-        _ => budget_cap,
-    });
+    canonical::cap_optional_budget_limit_decimal(limit, budget_cap);
 }
 
 /// Apply per-strategy MARGIN caps from the global budget times each strategy's
-/// weight factor. Pure; relocated verbatim from `main.rs`.
+/// weight factor. Delegates to the canonical
+/// [`canonical::apply_global_budget_allocations_decimal`].
 pub fn apply_global_budget_allocations(
     config: &mut MartingalePortfolioConfig,
     weights: &HashMap<String, Decimal>,
 ) {
-    let Some(global_budget) = config
-        .risk_limits
-        .max_global_budget_quote
-        .filter(|value| *value > Decimal::ZERO)
-    else {
-        return;
-    };
-    let strategy_count = config.strategies.len();
-    if strategy_count == 0 {
-        return;
-    }
-    let equal_cap = global_budget / Decimal::from(strategy_count as u64);
-    for strategy in &mut config.strategies {
-        let budget_cap = weights
-            .get(&strategy.strategy_id)
-            .copied()
-            .filter(|weight_factor| *weight_factor > Decimal::ZERO)
-            .map(|weight_factor| global_budget * weight_factor)
-            .unwrap_or(equal_cap);
-        cap_strategy_budget(strategy, budget_cap);
-    }
+    canonical::apply_global_budget_allocations_decimal(config, weights);
 }

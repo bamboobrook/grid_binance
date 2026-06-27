@@ -19,7 +19,10 @@
 //! => leg notionals `[10, 20, 40, 80]`, planned notional `150`, leg margins
 //! `[5, 10, 20, 40]`, planned margin `75`.
 
-use shared_domain::martingale::{MartingaleMarketKind, MartingaleSizingModel, MartingaleStrategyConfig};
+use shared_domain::martingale::{
+    MartingaleMarketKind, MartingalePortfolioConfig, MartingaleSizingModel, MartingaleStrategyConfig,
+};
+use std::collections::HashMap;
 
 use crate::martingale::rules::compute_leg_notionals;
 
@@ -372,6 +375,183 @@ pub fn project_portfolio_capital(
     })
 }
 
+// ===========================================================================
+// Canonical runtime-parity budget-cap applier (Decimal, runtime-parity).
+//
+// The live `trading-engine` and the backtest replay binary must apply the
+// IDENTICAL per-strategy margin-cap logic, otherwise a replay measurement is
+// not a valid prediction of live behavior. The functions below are the ONE
+// source of truth; `trading-engine::martingale_budget` delegates to them and
+// the replay binary (RT2) will too.
+//
+// MARGIN units throughout (never NOTIONAL as a cap floor).
+// ===========================================================================
+
+use rust_decimal::Decimal as RtDecimal;
+
+/// Decimal first-leg margin for a strategy (canonical, runtime-parity).
+///
+/// Futures: `first_order_quote / leverage` (leverage floored at 1). Spot:
+/// `first_order_quote` (unleveraged). Returns `None` when there are no legs or
+/// the first notional is non-positive. This is the strategy-level companion of
+/// the low-level `first_leg_margin_quote(sizing, market, leverage, min_notional)`
+/// f64 helper above — distinct name to avoid clashing with that contract.
+pub fn first_leg_margin_for_strategy(
+    strategy: &MartingaleStrategyConfig,
+) -> Option<RtDecimal> {
+    let first_notional = match &strategy.sizing {
+        MartingaleSizingModel::Multiplier { first_order_quote, .. }
+        | MartingaleSizingModel::BudgetScaled { first_order_quote, .. } => *first_order_quote,
+        MartingaleSizingModel::CustomSequence { notionals } => notionals.first().copied()?,
+    };
+    if first_notional <= RtDecimal::ZERO {
+        return None;
+    }
+    let leverage = match strategy.market {
+        MartingaleMarketKind::Spot => RtDecimal::ONE,
+        MartingaleMarketKind::UsdMFutures => {
+            RtDecimal::from(strategy.leverage.unwrap_or(1).max(1))
+        }
+    };
+    Some(first_notional / leverage)
+}
+
+/// Narrow an existing limit or set it (Decimal). If `limit` is `Some(positive)`,
+/// the result is `min(existing, budget_cap)`; otherwise the limit is replaced.
+pub fn cap_strategy_budget_decimal(
+    strategy: &mut MartingaleStrategyConfig,
+    budget_cap: RtDecimal,
+) {
+    if budget_cap <= RtDecimal::ZERO {
+        return;
+    }
+    let effective_budget_cap = first_leg_margin_for_strategy(strategy)
+        .filter(|value| *value > RtDecimal::ZERO)
+        .map(|first_leg_margin| budget_cap.max(first_leg_margin))
+        .unwrap_or(budget_cap);
+    cap_optional_budget_limit_decimal(
+        &mut strategy.risk_limits.max_strategy_budget_quote,
+        effective_budget_cap,
+    );
+}
+
+/// Decimal version of [`cap_optional_budget_limit`].
+pub fn cap_optional_budget_limit_decimal(limit: &mut Option<RtDecimal>, budget_cap: RtDecimal) {
+    *limit = Some(match *limit {
+        Some(current) if current > RtDecimal::ZERO => current.min(budget_cap),
+        _ => budget_cap,
+    });
+}
+
+/// Apply per-strategy MARGIN caps from the global budget times each strategy's
+/// weight factor (Decimal, canonical runtime-parity version). Pure. If
+/// `max_global_budget_quote` is absent or `<= 0` this is a no-op.
+pub fn apply_global_budget_allocations_decimal(
+    config: &mut MartingalePortfolioConfig,
+    weights: &HashMap<String, RtDecimal>,
+) {
+    let Some(global_budget) = config
+        .risk_limits
+        .max_global_budget_quote
+        .filter(|value| *value > RtDecimal::ZERO)
+    else {
+        return;
+    };
+    let strategy_count = config.strategies.len();
+    if strategy_count == 0 {
+        return;
+    }
+    let equal_cap = global_budget / RtDecimal::from(strategy_count as u64);
+    for strategy in &mut config.strategies {
+        let budget_cap = weights
+            .get(&strategy.strategy_id)
+            .copied()
+            .filter(|weight_factor| *weight_factor > RtDecimal::ZERO)
+            .map(|weight_factor| global_budget * weight_factor)
+            .unwrap_or(equal_cap);
+        cap_strategy_budget_decimal(strategy, budget_cap);
+    }
+}
+
+/// Parse a `serde_json::Value` into a `Decimal`, mirroring the
+/// `decimal_from_json` helper in `trading-engine::main`:
+/// - JSON string: parsed via `Decimal::from_str`.
+/// - JSON integer: parsed as a Decimal.
+/// - JSON float: parsed via `Decimal::try_from(f64)`.
+/// Returns `None` on any failure or empty string.
+fn decimal_from_json(value: &serde_json::Value) -> Option<RtDecimal> {
+    value
+        .as_str()
+        .or_else(|| value.as_i64().map(|_| ""))
+        .and_then(|text| {
+            if text.is_empty() {
+                None
+            } else {
+                text.parse::<RtDecimal>().ok()
+            }
+        })
+        .or_else(|| {
+            value
+                .as_f64()
+                .and_then(|number| RtDecimal::try_from(number).ok())
+        })
+}
+
+/// Per-strategy weight factors extracted from the RAW portfolio config JSON.
+///
+/// Reads `strategies[].portfolio_weight_pct` (also accepts `weight_pct`),
+/// divided by 100. A strategy with NO weight field is OMITTED from the map
+/// (falls back to the equal share at apply time); a strategy whose weight is
+/// present but `<= 0` is an ERROR. This is the canonical extractor shared by
+/// the live runtime and the replay binary.
+pub fn extract_portfolio_weight_factors(
+    raw_portfolio_config: &serde_json::Value,
+) -> Result<HashMap<String, RtDecimal>, String> {
+    let mut weights = HashMap::new();
+    let Some(strategies) = raw_portfolio_config
+        .get("strategies")
+        .and_then(serde_json::Value::as_array)
+    else {
+        return Ok(weights);
+    };
+    for strategy in strategies {
+        let Some(strategy_id) = strategy
+            .get("strategy_id")
+            .and_then(serde_json::Value::as_str)
+        else {
+            continue;
+        };
+        let Some(weight_pct) = strategy
+            .get("portfolio_weight_pct")
+            .or_else(|| strategy.get("weight_pct"))
+            .and_then(decimal_from_json)
+        else {
+            continue;
+        };
+        if weight_pct <= RtDecimal::ZERO {
+            return Err(format!(
+                "portfolio weight for {strategy_id} must be positive"
+            ));
+        }
+        weights.insert(strategy_id.to_owned(), weight_pct / RtDecimal::from(100));
+    }
+    Ok(weights)
+}
+
+/// Apply per-strategy MARGIN caps from `global budget * weight`, floored at
+/// each strategy's first-leg margin. The ONE runtime-parity applier used by
+/// both the live `trading-engine` and the backtest replay binary. No-op when
+/// `max_global_budget_quote` is absent or `<= 0`. Mutates each strategy's
+/// `risk_limits.max_strategy_budget_quote`.
+pub fn apply_portfolio_weight_margin_caps(
+    config: &mut MartingalePortfolioConfig,
+    raw_portfolio_config: &serde_json::Value,
+) -> Result<(), String> {
+    let weights = extract_portfolio_weight_factors(raw_portfolio_config)?;
+    apply_global_budget_allocations_decimal(config, &weights);
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -704,5 +884,161 @@ mod tests {
         assert!(proj.budget_capped_margin_quote <= 5.0);
         // first_leg_margin = 5 (== cap, accepted since cum5<=5).
         assert!((proj.first_leg_margin_quote - 5.0).abs() < 1e-9);
+    }
+
+    // ----- Canonical runtime-parity cap applier (Decimal) tests. -----
+
+    fn portfolio_json(
+        strategies: &[serde_json::Value],
+        global_budget: Option<&str>,
+    ) -> serde_json::Value {
+        let mut risk = serde_json::Map::new();
+        if let Some(budget) = global_budget {
+            risk.insert(
+                "max_global_budget_quote".to_string(),
+                serde_json::Value::String(budget.to_string()),
+            );
+        }
+        serde_json::json!({
+            "direction_mode": "long_and_short",
+            "strategies": strategies,
+            "risk_limits": serde_json::Value::Object(risk),
+        })
+    }
+
+    fn strategy_json(
+        id: &str,
+        market: &str,
+        leverage: Option<u32>,
+        first_order_quote: &str,
+        weight_pct: Option<&str>,
+    ) -> serde_json::Value {
+        let mut s = serde_json::Map::new();
+        s.insert("strategy_id".to_string(), serde_json::Value::String(id.to_string()));
+        s.insert("symbol".to_string(), serde_json::Value::String("BTCUSDT".to_string()));
+        s.insert("market".to_string(), serde_json::Value::String(market.to_string()));
+        s.insert("direction".to_string(), serde_json::Value::String("long".to_string()));
+        s.insert(
+            "direction_mode".to_string(),
+            serde_json::Value::String("long_and_short".to_string()),
+        );
+        if let Some(lev) = leverage {
+            s.insert("leverage".to_string(), serde_json::json!(lev));
+        }
+        s.insert("spacing".to_string(), serde_json::json!({"fixed_percent": {"step_bps": 100}}));
+        s.insert(
+            "sizing".to_string(),
+            serde_json::json!({
+                "multiplier": {"first_order_quote": first_order_quote, "multiplier": "2", "max_legs": 4}
+            }),
+        );
+        s.insert(
+            "take_profit".to_string(),
+            serde_json::json!({"percent": {"bps": 100}}),
+        );
+        if let Some(weight) = weight_pct {
+            s.insert(
+                "portfolio_weight_pct".to_string(),
+                serde_json::Value::String(weight.to_string()),
+            );
+        }
+        s.insert("indicators".to_string(), serde_json::Value::Array(Vec::new()));
+        s.insert("entry_triggers".to_string(), serde_json::Value::Array(Vec::new()));
+        s.insert("risk_limits".to_string(), serde_json::Value::Object(serde_json::Map::new()));
+        serde_json::Value::Object(s)
+    }
+
+    #[test]
+    fn hard_example_first_order_250_lev5_cap50() {
+        // 1 strategy, foq=250, lev=5, weight 100%, global budget 50.
+        // first-leg margin 250/5 = 50 floors the cap at 50; notional 250 is NOT the cap.
+        let strat_json =
+            strategy_json("s1", "usd_m_futures", Some(5), "250", Some("100"));
+        let config_value = portfolio_json(&[strat_json], Some("50"));
+        let mut config: MartingalePortfolioConfig =
+            serde_json::from_value(config_value.clone()).unwrap();
+        apply_portfolio_weight_margin_caps(&mut config, &config_value).unwrap();
+        assert_eq!(
+            config.strategies[0].risk_limits.max_strategy_budget_quote,
+            Some(Decimal::from(50))
+        );
+    }
+
+    #[test]
+    fn weighted_two_strategy() {
+        // global 1000; A weight 60% foq 100 lev 10 (margin 10), B weight 40% foq 200 lev 5 (margin 40).
+        // A cap max(600,10)=600; B cap max(400,40)=400.
+        let a = strategy_json("a", "usd_m_futures", Some(10), "100", Some("60"));
+        let b = strategy_json("b", "usd_m_futures", Some(5), "200", Some("40"));
+        let config_value = portfolio_json(&[a, b], Some("1000"));
+        let mut config: MartingalePortfolioConfig =
+            serde_json::from_value(config_value.clone()).unwrap();
+        apply_portfolio_weight_margin_caps(&mut config, &config_value).unwrap();
+        assert_eq!(
+            config.strategies[0].risk_limits.max_strategy_budget_quote,
+            Some(Decimal::from(600))
+        );
+        assert_eq!(
+            config.strategies[1].risk_limits.max_strategy_budget_quote,
+            Some(Decimal::from(400))
+        );
+    }
+
+    #[test]
+    fn missing_weight_falls_back_to_equal_cap() {
+        // 2 strategies, global 1000, neither has a weight field -> each cap max(500, first_leg_margin).
+        // foq=100 lev=10 -> first-leg margin=10 <= 500 -> cap=500.
+        let a = strategy_json("a", "usd_m_futures", Some(10), "100", None);
+        let b = strategy_json("b", "usd_m_futures", Some(10), "100", None);
+        let config_value = portfolio_json(&[a, b], Some("1000"));
+        let mut config: MartingalePortfolioConfig =
+            serde_json::from_value(config_value.clone()).unwrap();
+        apply_portfolio_weight_margin_caps(&mut config, &config_value).unwrap();
+        assert_eq!(
+            config.strategies[0].risk_limits.max_strategy_budget_quote,
+            Some(Decimal::from(500))
+        );
+        assert_eq!(
+            config.strategies[1].risk_limits.max_strategy_budget_quote,
+            Some(Decimal::from(500))
+        );
+    }
+
+    #[test]
+    fn zero_global_budget_is_noop() {
+        // global 0 or None -> no max_strategy_budget_quote written.
+        let a = strategy_json("a", "usd_m_futures", Some(5), "100", Some("50"));
+        // Case 1: budget = "0".
+        let config_value = portfolio_json(&[a.clone()], Some("0"));
+        let mut config: MartingalePortfolioConfig =
+            serde_json::from_value(config_value.clone()).unwrap();
+        apply_portfolio_weight_margin_caps(&mut config, &config_value).unwrap();
+        assert_eq!(config.strategies[0].risk_limits.max_strategy_budget_quote, None);
+
+        // Case 2: budget field absent.
+        let config_value = portfolio_json(&[a], None);
+        let mut config: MartingalePortfolioConfig =
+            serde_json::from_value(config_value.clone()).unwrap();
+        apply_portfolio_weight_margin_caps(&mut config, &config_value).unwrap();
+        assert_eq!(config.strategies[0].risk_limits.max_strategy_budget_quote, None);
+    }
+
+    #[test]
+    fn negative_weight_is_error() {
+        // a strategy with portfolio_weight_pct = 0 (or negative) -> Err.
+        let a = strategy_json("a", "usd_m_futures", Some(5), "100", Some("0"));
+        let config_value = portfolio_json(&[a], Some("1000"));
+        let mut config: MartingalePortfolioConfig =
+            serde_json::from_value(config_value.clone()).unwrap();
+        let result = apply_portfolio_weight_margin_caps(&mut config, &config_value);
+        assert!(result.is_err(), "zero weight must be an error");
+
+        // Negative.
+        let a = strategy_json("a", "usd_m_futures", Some(5), "100", Some("-10"));
+        let config_value = portfolio_json(&[a], Some("1000"));
+        let mut config: MartingalePortfolioConfig =
+            serde_json::from_value(config_value.clone()).unwrap();
+        let result = apply_portfolio_weight_margin_caps(&mut config, &config_value);
+        assert!(result.is_err(), "negative weight must be an error");
     }
 }

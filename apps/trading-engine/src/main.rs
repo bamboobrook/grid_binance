@@ -31,7 +31,6 @@ use std::{
 };
 use tokio::{net::TcpListener, task::JoinHandle, time::sleep};
 use tokio_tungstenite::{connect_async, tungstenite::Message};
-use trading_engine::martingale_budget::apply_global_budget_allocations;
 use trading_engine::{
     execution_effects::persist_execution_effects,
     execution_sync::{apply_execution_update, recompute_strategy_positions},
@@ -1530,43 +1529,23 @@ fn apply_portfolio_weight_scaling(
     config: &mut MartingalePortfolioConfig,
     config_value: &serde_json::Value,
 ) -> Result<(), shared_db::SharedDbError> {
-    let weights = portfolio_weight_factors(config_value)?;
-    apply_global_budget_allocations(config, &weights);
-    Ok(())
+    // Delegate to the ONE canonical runtime-parity cap applier in
+    // `backtest_engine::martingale::capital` so the live runtime and the
+    // backtest replay binary share identical behavior.
+    backtest_engine::martingale::capital::apply_portfolio_weight_margin_caps(config, config_value)
+        .map_err(shared_db::SharedDbError::new)
 }
 
 fn portfolio_weight_factors(
     config_value: &serde_json::Value,
 ) -> Result<HashMap<String, Decimal>, shared_db::SharedDbError> {
-    let mut weights = HashMap::new();
-    let Some(strategies) = config_value
-        .get("strategies")
-        .and_then(serde_json::Value::as_array)
-    else {
-        return Ok(weights);
-    };
-    for strategy in strategies {
-        let Some(strategy_id) = strategy
-            .get("strategy_id")
-            .and_then(serde_json::Value::as_str)
-        else {
-            continue;
-        };
-        let Some(weight_pct) = strategy
-            .get("portfolio_weight_pct")
-            .or_else(|| strategy.get("weight_pct"))
-            .and_then(decimal_from_json)
-        else {
-            continue;
-        };
-        if weight_pct <= Decimal::ZERO {
-            return Err(shared_db::SharedDbError::new(format!(
-                "portfolio weight for {strategy_id} must be positive"
-            )));
-        }
-        weights.insert(strategy_id.to_owned(), weight_pct / Decimal::new(100, 0));
-    }
-    Ok(weights)
+    // Delegate to the canonical runtime-parity extractor in
+    // `backtest_engine::martingale::capital` so the live runtime and the
+    // backtest replay binary share one implementation. Semantics are identical
+    // to the prior inline implementation: missing weight field → omitted
+    // (falls back to equal-cap); present weight ≤ 0 → Err.
+    backtest_engine::martingale::capital::extract_portfolio_weight_factors(config_value)
+        .map_err(shared_db::SharedDbError::new)
 }
 
 fn strategy_planned_budget_quote(strategy: &MartingaleStrategyConfig) -> Option<Decimal> {
