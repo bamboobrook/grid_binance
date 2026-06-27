@@ -1,3 +1,4 @@
+pub mod budget_replay;
 pub mod capital;
 pub mod exit_rules;
 pub mod indicator_runtime;
