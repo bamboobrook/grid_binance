@@ -1,10 +1,10 @@
 use backtest_engine::market_data::KlineBar;
 use rust_decimal::Decimal;
 use shared_domain::martingale::{
-    MartingaleDirection, MartingaleDirectionMode, MartingaleEntryTrigger, MartingaleIndicatorConfig,
-    MartingaleMarginMode, MartingaleMarketKind, MartingalePortfolioConfig, MartingaleRiskLimits,
-    MartingaleSizingModel, MartingaleSpacingModel, MartingaleStopLossModel, MartingaleStrategyConfig,
-    MartingaleTakeProfitModel,
+    MartingaleDirection, MartingaleDirectionMode, MartingaleEntryTrigger,
+    MartingaleIndicatorConfig, MartingaleMarginMode, MartingaleMarketKind,
+    MartingalePortfolioConfig, MartingaleRiskLimits, MartingaleSizingModel, MartingaleSpacingModel,
+    MartingaleStopLossModel, MartingaleStrategyConfig, MartingaleTakeProfitModel,
 };
 use shared_domain::strategy::StrategyStatus;
 use std::collections::HashMap;
@@ -447,16 +447,16 @@ fn kline(symbol: &str, open_time_ms: i64, close: f64) -> KlineBar {
 
 #[test]
 fn backtest_cost_constants_are_importable_for_live_stop_loss() {
-    use trading_engine::martingale_runtime as _;
     use backtest_engine::martingale::kline_engine::{DEFAULT_FEE_BPS, DEFAULT_SLIPPAGE_BPS};
+    use trading_engine::martingale_runtime as _;
     assert_eq!(DEFAULT_FEE_BPS, 4.5);
     assert_eq!(DEFAULT_SLIPPAGE_BPS, 2.0);
 }
 
 #[test]
 fn live_stop_loss_matches_backtest_margin_drawdown() {
-    use trading_engine::martingale_exit::martingale_strategy_drawdown_pct;
     use rust_decimal::Decimal;
+    use trading_engine::martingale_exit::martingale_strategy_drawdown_pct;
 
     // 10x leverage, entry 100, pct_bps 1200 -> backtest stops at ~1.2% adverse price
     // (12% of margin). The OLD live SL (price distance, pct_bps/10000) stopped at 12% adverse.
@@ -468,24 +468,51 @@ fn live_stop_loss_matches_backtest_margin_drawdown() {
 
     // 1.0% adverse (price 99.0) -> ~10% margin DD -> must NOT trigger
     let dd_below = martingale_strategy_drawdown_pct(
-        &strat, dec(1), dec(100), Decimal::new(9900, 2), Decimal::ZERO, Decimal::ZERO,
-    ).expect("some drawdown");
-    assert!(dd_below < threshold, "1% adverse should not stop, got {dd_below}");
+        &strat,
+        dec(1),
+        dec(100),
+        Decimal::new(9900, 2),
+        Decimal::ZERO,
+        Decimal::ZERO,
+    )
+    .expect("some drawdown");
+    assert!(
+        dd_below < threshold,
+        "1% adverse should not stop, got {dd_below}"
+    );
 
     // 1.3% adverse (price 98.70) -> ~13% margin DD -> must trigger
     let dd_above = martingale_strategy_drawdown_pct(
-        &strat, dec(1), dec(100), Decimal::new(9870, 2), Decimal::ZERO, Decimal::ZERO,
-    ).expect("some drawdown");
-    assert!(dd_above >= threshold, "1.3% adverse should stop, got {dd_above}");
+        &strat,
+        dec(1),
+        dec(100),
+        Decimal::new(9870, 2),
+        Decimal::ZERO,
+        Decimal::ZERO,
+    )
+    .expect("some drawdown");
+    assert!(
+        dd_above >= threshold,
+        "1.3% adverse should stop, got {dd_above}"
+    );
 
     // short side symmetric
     let mut short_strat = strategy("short-btc", MartingaleDirection::Short);
     short_strat.leverage = Some(10);
     short_strat.stop_loss = Some(MartingaleStopLossModel::StrategyDrawdownPct { pct_bps: 1200 });
     let dd_short = martingale_strategy_drawdown_pct(
-        &short_strat, dec(1), dec(100), Decimal::new(10130, 2), Decimal::ZERO, Decimal::ZERO,
-    ).expect("some drawdown");
-    assert!(dd_short >= threshold, "1.3% adverse short should stop, got {dd_short}");
+        &short_strat,
+        dec(1),
+        dec(100),
+        Decimal::new(10130, 2),
+        Decimal::ZERO,
+        Decimal::ZERO,
+    )
+    .expect("some drawdown");
+    assert!(
+        dd_short >= threshold,
+        "1.3% adverse short should stop, got {dd_short}"
+    );
 }
 
 #[test]
@@ -495,17 +522,22 @@ fn atr_above_two_percent_pauses_new_cycle() {
     let mut runtime = MartingaleRuntime::new(runtime_config(vec![strat])).expect("runtime");
     // bars with a wide range -> atr/close > 2%
     runtime.warmup_indicators_from_bars(vec![
-        kline("BTCUSDT", 0,       100.0),
-        kline("BTCUSDT", 60_000,   80.0), // 20% drop -> true range huge vs close
-        kline("BTCUSDT", 120_000,  80.0),
+        kline("BTCUSDT", 0, 100.0),
+        kline("BTCUSDT", 60_000, 80.0), // 20% drop -> true range huge vs close
+        kline("BTCUSDT", 120_000, 80.0),
     ]);
     let err = runtime
         .start_cycle_with_futures_preflight(
-            &futures_settings(true), "long-btc", dec(80),
+            &futures_settings(true),
+            "long-btc",
+            dec(80),
             MartingaleRuntimeContext::default(),
         )
         .expect_err("high ATR should pause new cycle");
-    assert!(err.to_string().contains("atr"), "expected atr pause, got: {err}");
+    assert!(
+        err.to_string().contains("atr"),
+        "expected atr pause, got: {err}"
+    );
     assert!(runtime.orders().is_empty());
 }
 
@@ -519,8 +551,8 @@ fn high_atr_does_not_block_safety_leg_after_fill() {
     let mut runtime = MartingaleRuntime::new(runtime_config(vec![strat])).expect("runtime");
     // Bars with a low range so the new cycle starts cleanly (ATR/close << 2%).
     runtime.warmup_indicators_from_bars(vec![
-        kline("BTCUSDT", 0,       100.0),
-        kline("BTCUSDT", 60_000,  100.5),
+        kline("BTCUSDT", 0, 100.0),
+        kline("BTCUSDT", 60_000, 100.5),
         kline("BTCUSDT", 120_000, 100.5),
     ]);
     start_cycle_ok(&mut runtime, "long-btc", dec(100));
@@ -528,10 +560,17 @@ fn high_atr_does_not_block_safety_leg_after_fill() {
     runtime.warmup_indicators_from_bars(vec![kline("BTCUSDT", 180_000, 80.0)]);
     runtime
         .mark_leg_filled_with_context(
-            "long-btc", MartingaleDirection::Long, 0, MartingaleRuntimeContext::default(),
+            "long-btc",
+            MartingaleDirection::Long,
+            0,
+            MartingaleRuntimeContext::default(),
         )
         .expect("high ATR must not block the safety leg");
-    assert_eq!(runtime.orders().len(), 2, "safety leg placed despite high ATR");
+    assert_eq!(
+        runtime.orders().len(),
+        2,
+        "safety leg placed despite high ATR"
+    );
 }
 
 #[test]
@@ -540,13 +579,15 @@ fn atr_within_limit_allows_new_cycle() {
     strat.indicators = vec![MartingaleIndicatorConfig::Atr { period: 2 }];
     let mut runtime = MartingaleRuntime::new(runtime_config(vec![strat])).expect("runtime");
     runtime.warmup_indicators_from_bars(vec![
-        kline("BTCUSDT", 0,       100.0),
-        kline("BTCUSDT", 60_000,  100.5), // tiny range -> atr/close << 2%
+        kline("BTCUSDT", 0, 100.0),
+        kline("BTCUSDT", 60_000, 100.5), // tiny range -> atr/close << 2%
         kline("BTCUSDT", 120_000, 100.5),
     ]);
     runtime
         .start_cycle_with_futures_preflight(
-            &futures_settings(true), "long-btc", dec(100),
+            &futures_settings(true),
+            "long-btc",
+            dec(100),
             MartingaleRuntimeContext::default(),
         )
         .expect("low ATR should allow entry");
@@ -573,10 +614,17 @@ fn adx_above_45_skips_safety_leg() {
     // first leg filled; safety leg should be skipped because ADX > 45
     runtime
         .mark_leg_filled_with_context(
-            "long-btc", MartingaleDirection::Long, 0, MartingaleRuntimeContext::default(),
+            "long-btc",
+            MartingaleDirection::Long,
+            0,
+            MartingaleRuntimeContext::default(),
         )
         .expect("ok (safety leg skipped silently)");
-    assert_eq!(runtime.orders().len(), 1, "safety leg must not be placed in strong trend");
+    assert_eq!(
+        runtime.orders().len(),
+        1,
+        "safety leg must not be placed in strong trend"
+    );
 }
 
 #[test]
@@ -585,26 +633,37 @@ fn adx_guard_ignored_when_strategy_has_no_adx_indicator() {
     strat.indicators = vec![MartingaleIndicatorConfig::Atr { period: 2 }]; // no ADX
     let mut runtime = MartingaleRuntime::new(runtime_config(vec![strat])).expect("runtime");
     runtime.warmup_indicators_from_bars(vec![
-        kline("BTCUSDT", 0, 100.0), kline("BTCUSDT", 60_000, 100.0),
+        kline("BTCUSDT", 0, 100.0),
+        kline("BTCUSDT", 60_000, 100.0),
     ]);
     start_cycle_ok(&mut runtime, "long-btc", dec(100));
     runtime
         .mark_leg_filled_with_context(
-            "long-btc", MartingaleDirection::Long, 0, MartingaleRuntimeContext::default(),
+            "long-btc",
+            MartingaleDirection::Long,
+            0,
+            MartingaleRuntimeContext::default(),
         )
         .expect("ok");
-    assert_eq!(runtime.orders().len(), 2, "safety leg placed when no ADX configured");
+    assert_eq!(
+        runtime.orders().len(),
+        2,
+        "safety leg placed when no ADX configured"
+    );
 }
 
 #[test]
 fn portfolio_drawdown_above_six_percent_pauses_new_cycle() {
-    let mut runtime = MartingaleRuntime::new(runtime_config(vec![
-        strategy("long-btc", MartingaleDirection::Long),
-    ]))
+    let mut runtime = MartingaleRuntime::new(runtime_config(vec![strategy(
+        "long-btc",
+        MartingaleDirection::Long,
+    )]))
     .expect("runtime");
     let err = runtime
         .start_cycle_with_futures_preflight(
-            &futures_settings(true), "long-btc", dec(100),
+            &futures_settings(true),
+            "long-btc",
+            dec(100),
             MartingaleRuntimeContext {
                 portfolio_drawdown_pct: Some(7.0),
                 ..MartingaleRuntimeContext::default()

@@ -20,7 +20,8 @@
 //! `[5, 10, 20, 40]`, planned margin `75`.
 
 use shared_domain::martingale::{
-    MartingaleMarketKind, MartingalePortfolioConfig, MartingaleSizingModel, MartingaleStrategyConfig,
+    MartingaleMarketKind, MartingalePortfolioConfig, MartingaleSizingModel,
+    MartingaleStrategyConfig,
 };
 use std::collections::HashMap;
 
@@ -34,9 +35,9 @@ pub const DEFAULT_EXCHANGE_MIN_NOTIONAL: f64 = 0.0;
 pub fn effective_leverage(market: MartingaleMarketKind, leverage: Option<u32>) -> f64 {
     match market {
         MartingaleMarketKind::Spot => 1.0,
-        MartingaleMarketKind::UsdMFutures => leverage
-            .map(|value| (value as f64).max(1.0))
-            .unwrap_or(1.0),
+        MartingaleMarketKind::UsdMFutures => {
+            leverage.map(|value| (value as f64).max(1.0)).unwrap_or(1.0)
+        }
     }
 }
 
@@ -61,7 +62,10 @@ pub fn leg_margin_series(
 ) -> Result<Vec<f64>, String> {
     let leverage = effective_leverage(market, leverage);
     let notionals = leg_notional_series(sizing, exchange_min_notional)?;
-    Ok(notionals.iter().map(|notional| notional / leverage).collect())
+    Ok(notionals
+        .iter()
+        .map(|notional| notional / leverage)
+        .collect())
 }
 
 /// Planned total leveraged notional = sum of leg notionals.
@@ -339,12 +343,18 @@ pub fn project_portfolio_capital(
     }
 
     let full_series_margin: f64 = projections.iter().map(|p| p.full_series_margin_quote).sum();
-    let full_series_notional: f64 =
-        projections.iter().map(|p| p.full_series_notional_quote).sum();
-    let budget_capped_margin: f64 =
-        projections.iter().map(|p| p.budget_capped_margin_quote).sum();
-    let budget_capped_notional: f64 =
-        projections.iter().map(|p| p.budget_capped_notional_quote).sum();
+    let full_series_notional: f64 = projections
+        .iter()
+        .map(|p| p.full_series_notional_quote)
+        .sum();
+    let budget_capped_margin: f64 = projections
+        .iter()
+        .map(|p| p.budget_capped_margin_quote)
+        .sum();
+    let budget_capped_notional: f64 = projections
+        .iter()
+        .map(|p| p.budget_capped_notional_quote)
+        .sum();
     let first_leg_margin: f64 = projections
         .iter()
         .filter(|p| p.first_leg_accepted)
@@ -396,12 +406,14 @@ use rust_decimal::Decimal as RtDecimal;
 /// the first notional is non-positive. This is the strategy-level companion of
 /// the low-level `first_leg_margin_quote(sizing, market, leverage, min_notional)`
 /// f64 helper above — distinct name to avoid clashing with that contract.
-pub fn first_leg_margin_for_strategy(
-    strategy: &MartingaleStrategyConfig,
-) -> Option<RtDecimal> {
+pub fn first_leg_margin_for_strategy(strategy: &MartingaleStrategyConfig) -> Option<RtDecimal> {
     let first_notional = match &strategy.sizing {
-        MartingaleSizingModel::Multiplier { first_order_quote, .. }
-        | MartingaleSizingModel::BudgetScaled { first_order_quote, .. } => *first_order_quote,
+        MartingaleSizingModel::Multiplier {
+            first_order_quote, ..
+        }
+        | MartingaleSizingModel::BudgetScaled {
+            first_order_quote, ..
+        } => *first_order_quote,
         MartingaleSizingModel::CustomSequence { notionals } => notionals.first().copied()?,
     };
     if first_notional <= RtDecimal::ZERO {
@@ -409,19 +421,14 @@ pub fn first_leg_margin_for_strategy(
     }
     let leverage = match strategy.market {
         MartingaleMarketKind::Spot => RtDecimal::ONE,
-        MartingaleMarketKind::UsdMFutures => {
-            RtDecimal::from(strategy.leverage.unwrap_or(1).max(1))
-        }
+        MartingaleMarketKind::UsdMFutures => RtDecimal::from(strategy.leverage.unwrap_or(1).max(1)),
     };
     Some(first_notional / leverage)
 }
 
 /// Narrow an existing limit or set it (Decimal). If `limit` is `Some(positive)`,
 /// the result is `min(existing, budget_cap)`; otherwise the limit is replaced.
-pub fn cap_strategy_budget_decimal(
-    strategy: &mut MartingaleStrategyConfig,
-    budget_cap: RtDecimal,
-) {
+pub fn cap_strategy_budget_decimal(strategy: &mut MartingaleStrategyConfig, budget_cap: RtDecimal) {
     if budget_cap <= RtDecimal::ZERO {
         return;
     }
@@ -557,9 +564,9 @@ mod tests {
     use super::*;
     use rust_decimal::Decimal;
     use shared_domain::martingale::{
-        MartingaleDirection, MartingaleDirectionMode, MartingaleEntryTrigger,
-        MartingaleMarginMode, MartingaleRiskLimits, MartingaleSpacingModel,
-        MartingaleStrategyConfig, MartingaleTakeProfitModel,
+        MartingaleDirection, MartingaleDirectionMode, MartingaleEntryTrigger, MartingaleMarginMode,
+        MartingaleRiskLimits, MartingaleSpacingModel, MartingaleStrategyConfig,
+        MartingaleTakeProfitModel,
     };
     use std::collections::HashMap;
 
@@ -610,8 +617,12 @@ mod tests {
         let notionals = leg_notional_series(&sizing, DEFAULT_EXCHANGE_MIN_NOTIONAL).unwrap();
         assert_eq!(notionals, vec![10.0, 20.0, 40.0, 80.0]);
 
-        let planned_notional = planned_notional_quote(&sizing, DEFAULT_EXCHANGE_MIN_NOTIONAL).unwrap();
-        assert!((planned_notional - 150.0).abs() < 1e-9, "planned notional {planned_notional}");
+        let planned_notional =
+            planned_notional_quote(&sizing, DEFAULT_EXCHANGE_MIN_NOTIONAL).unwrap();
+        assert!(
+            (planned_notional - 150.0).abs() < 1e-9,
+            "planned notional {planned_notional}"
+        );
 
         let margins = leg_margin_series(
             &sizing,
@@ -729,7 +740,7 @@ mod tests {
             &sizing,
             MartingaleMarketKind::UsdMFutures,
             Some(2),
-            15.0, // strategy_margin_cap
+            15.0,   // strategy_margin_cap
             1000.0, // available_global_margin
             DEFAULT_EXCHANGE_MIN_NOTIONAL,
         )
@@ -763,7 +774,7 @@ mod tests {
             MartingaleMarketKind::UsdMFutures,
             Some(2),
             1000.0, // strategy_margin_cap (generous)
-            15.0, // available_global_margin (tight)
+            15.0,   // available_global_margin (tight)
             DEFAULT_EXCHANGE_MIN_NOTIONAL,
         )
         .unwrap();
@@ -802,7 +813,12 @@ mod tests {
     fn project_portfolio_applies_weights_and_global_pool() {
         let sizing = multiplier_sizing(10, 2, 4);
         let strategies = vec![
-            strat("a", sizing.clone(), MartingaleMarketKind::UsdMFutures, Some(2)),
+            strat(
+                "a",
+                sizing.clone(),
+                MartingaleMarketKind::UsdMFutures,
+                Some(2),
+            ),
             strat("b", sizing, MartingaleMarketKind::UsdMFutures, Some(2)),
         ];
         let mut weights = HashMap::new();
@@ -814,8 +830,8 @@ mod tests {
             &weights,
             20.0, // global_margin_cap
             DEFAULT_EXCHANGE_MIN_NOTIONAL,
-            4.5,  // entry_fee_bps
-            5.0,  // fee_buffer_pct
+            4.5, // entry_fee_bps
+            5.0, // fee_buffer_pct
         )
         .unwrap();
 
@@ -836,7 +852,12 @@ mod tests {
     fn project_portfolio_all_can_start_false_when_global_exhausted() {
         let sizing = multiplier_sizing(10, 2, 1);
         let strategies = vec![
-            strat("a", sizing.clone(), MartingaleMarketKind::UsdMFutures, Some(1)),
+            strat(
+                "a",
+                sizing.clone(),
+                MartingaleMarketKind::UsdMFutures,
+                Some(1),
+            ),
             strat("b", sizing, MartingaleMarketKind::UsdMFutures, Some(1)),
         ];
         let mut weights = HashMap::new();
@@ -863,8 +884,12 @@ mod tests {
     #[test]
     fn project_portfolio_full_series_diagnostic_unbounded_by_cap() {
         let sizing = multiplier_sizing(10, 2, 4);
-        let strategies =
-            vec![strat("a", sizing, MartingaleMarketKind::UsdMFutures, Some(2))];
+        let strategies = vec![strat(
+            "a",
+            sizing,
+            MartingaleMarketKind::UsdMFutures,
+            Some(2),
+        )];
         let mut weights = HashMap::new();
         weights.insert("a".to_string(), 1.0);
 
@@ -914,10 +939,22 @@ mod tests {
         weight_pct: Option<&str>,
     ) -> serde_json::Value {
         let mut s = serde_json::Map::new();
-        s.insert("strategy_id".to_string(), serde_json::Value::String(id.to_string()));
-        s.insert("symbol".to_string(), serde_json::Value::String("BTCUSDT".to_string()));
-        s.insert("market".to_string(), serde_json::Value::String(market.to_string()));
-        s.insert("direction".to_string(), serde_json::Value::String("long".to_string()));
+        s.insert(
+            "strategy_id".to_string(),
+            serde_json::Value::String(id.to_string()),
+        );
+        s.insert(
+            "symbol".to_string(),
+            serde_json::Value::String("BTCUSDT".to_string()),
+        );
+        s.insert(
+            "market".to_string(),
+            serde_json::Value::String(market.to_string()),
+        );
+        s.insert(
+            "direction".to_string(),
+            serde_json::Value::String("long".to_string()),
+        );
         s.insert(
             "direction_mode".to_string(),
             serde_json::Value::String("long_and_short".to_string()),
@@ -925,7 +962,10 @@ mod tests {
         if let Some(lev) = leverage {
             s.insert("leverage".to_string(), serde_json::json!(lev));
         }
-        s.insert("spacing".to_string(), serde_json::json!({"fixed_percent": {"step_bps": 100}}));
+        s.insert(
+            "spacing".to_string(),
+            serde_json::json!({"fixed_percent": {"step_bps": 100}}),
+        );
         s.insert(
             "sizing".to_string(),
             serde_json::json!({
@@ -942,9 +982,18 @@ mod tests {
                 serde_json::Value::String(weight.to_string()),
             );
         }
-        s.insert("indicators".to_string(), serde_json::Value::Array(Vec::new()));
-        s.insert("entry_triggers".to_string(), serde_json::Value::Array(Vec::new()));
-        s.insert("risk_limits".to_string(), serde_json::Value::Object(serde_json::Map::new()));
+        s.insert(
+            "indicators".to_string(),
+            serde_json::Value::Array(Vec::new()),
+        );
+        s.insert(
+            "entry_triggers".to_string(),
+            serde_json::Value::Array(Vec::new()),
+        );
+        s.insert(
+            "risk_limits".to_string(),
+            serde_json::Value::Object(serde_json::Map::new()),
+        );
         serde_json::Value::Object(s)
     }
 
@@ -952,8 +1001,7 @@ mod tests {
     fn hard_example_first_order_250_lev5_cap50() {
         // 1 strategy, foq=250, lev=5, weight 100%, global budget 50.
         // first-leg margin 250/5 = 50 floors the cap at 50; notional 250 is NOT the cap.
-        let strat_json =
-            strategy_json("s1", "usd_m_futures", Some(5), "250", Some("100"));
+        let strat_json = strategy_json("s1", "usd_m_futures", Some(5), "250", Some("100"));
         let config_value = portfolio_json(&[strat_json], Some("50"));
         let mut config: MartingalePortfolioConfig =
             serde_json::from_value(config_value.clone()).unwrap();
@@ -1013,14 +1061,20 @@ mod tests {
         let mut config: MartingalePortfolioConfig =
             serde_json::from_value(config_value.clone()).unwrap();
         apply_portfolio_weight_margin_caps(&mut config, &config_value).unwrap();
-        assert_eq!(config.strategies[0].risk_limits.max_strategy_budget_quote, None);
+        assert_eq!(
+            config.strategies[0].risk_limits.max_strategy_budget_quote,
+            None
+        );
 
         // Case 2: budget field absent.
         let config_value = portfolio_json(&[a], None);
         let mut config: MartingalePortfolioConfig =
             serde_json::from_value(config_value.clone()).unwrap();
         apply_portfolio_weight_margin_caps(&mut config, &config_value).unwrap();
-        assert_eq!(config.strategies[0].risk_limits.max_strategy_budget_quote, None);
+        assert_eq!(
+            config.strategies[0].risk_limits.max_strategy_budget_quote,
+            None
+        );
     }
 
     #[test]

@@ -7,14 +7,14 @@ use shared_domain::martingale::{
 };
 
 use crate::market_data::KlineBar;
+use crate::martingale::capital::{effective_leverage, leg_notional_series};
 use crate::martingale::exit_rules::{
     evaluate_exit_priority, take_profit_price, weighted_average_entry, ExitDecision,
 };
-use crate::martingale::capital::{effective_leverage, leg_notional_series};
 use crate::martingale::indicator_runtime::{latest_atr_for_strategy, IndicatorRuntimeContext};
 use crate::martingale::metrics::{
-    build_drawdown_curve, calculate_annualized_return_pct, EquityPoint,
-    MartingaleBacktestEvent, MartingaleBacktestResult, MartingaleMetrics, MartingaleTradeDetail,
+    build_drawdown_curve, calculate_annualized_return_pct, EquityPoint, MartingaleBacktestEvent,
+    MartingaleBacktestResult, MartingaleMetrics, MartingaleTradeDetail,
 };
 use crate::martingale::rules::compute_leg_trigger_prices;
 use crate::martingale::state::MartingaleLegState;
@@ -22,6 +22,72 @@ use crate::martingale::state::MartingaleLegState;
 const DEFAULT_EXCHANGE_MIN_NOTIONAL: f64 = 0.0;
 pub const DEFAULT_FEE_BPS: f64 = 4.5;
 pub const DEFAULT_SLIPPAGE_BPS: f64 = 2.0;
+const DEFAULT_NEW_CYCLE_DRAWDOWN_PAUSE_PCT: f64 = 6.0;
+const DEFAULT_NEW_CYCLE_ATR_PAUSE_PCT: f64 = 2.0;
+const DEFAULT_SAFETY_SKIP_ADX_THRESHOLD: f64 = 45.0;
+const DEFAULT_PORTFOLIO_EQUITY_STOP_PCT: f64 = 0.0;
+const DEFAULT_PORTFOLIO_STOP_COOLDOWN_HOURS: f64 = 0.0;
+const DEFAULT_MAX_PORTFOLIO_ACTIVE_CYCLES: u32 = 0;
+
+#[derive(Debug, Clone, Copy)]
+struct RiskGuardThresholds {
+    new_cycle_drawdown_pause_pct: f64,
+    new_cycle_atr_pause_pct: f64,
+    safety_skip_adx_threshold: f64,
+    portfolio_equity_stop_pct: f64,
+    portfolio_stop_cooldown_ms: i64,
+    max_portfolio_active_cycles: Option<u32>,
+}
+
+impl RiskGuardThresholds {
+    fn from_env() -> Self {
+        Self {
+            new_cycle_drawdown_pause_pct: read_env_f64(
+                "MARTINGALE_BT_NEW_CYCLE_DD_PAUSE_PCT",
+                DEFAULT_NEW_CYCLE_DRAWDOWN_PAUSE_PCT,
+            ),
+            new_cycle_atr_pause_pct: read_env_f64(
+                "MARTINGALE_BT_NEW_CYCLE_ATR_PAUSE_PCT",
+                DEFAULT_NEW_CYCLE_ATR_PAUSE_PCT,
+            ),
+            safety_skip_adx_threshold: read_env_f64(
+                "MARTINGALE_BT_SAFETY_SKIP_ADX",
+                DEFAULT_SAFETY_SKIP_ADX_THRESHOLD,
+            ),
+            portfolio_equity_stop_pct: read_env_f64(
+                "MARTINGALE_BT_PORTFOLIO_EQUITY_STOP_PCT",
+                DEFAULT_PORTFOLIO_EQUITY_STOP_PCT,
+            ),
+            portfolio_stop_cooldown_ms: (read_env_f64(
+                "MARTINGALE_BT_PORTFOLIO_STOP_COOLDOWN_HOURS",
+                DEFAULT_PORTFOLIO_STOP_COOLDOWN_HOURS,
+            ) * 3_600_000.0)
+                .round() as i64,
+            max_portfolio_active_cycles: read_env_u32(
+                "MARTINGALE_BT_MAX_PORTFOLIO_ACTIVE_CYCLES",
+                DEFAULT_MAX_PORTFOLIO_ACTIVE_CYCLES,
+            )
+            .filter(|value| *value > 0),
+        }
+    }
+}
+
+fn read_env_f64(name: &str, default: f64) -> f64 {
+    std::env::var(name)
+        .ok()
+        .and_then(|value| value.parse::<f64>().ok())
+        .filter(|value| value.is_finite() && *value >= 0.0)
+        .unwrap_or(default)
+}
+
+fn read_env_u32(name: &str, default: u32) -> Option<u32> {
+    Some(
+        std::env::var(name)
+            .ok()
+            .and_then(|value| value.parse::<u32>().ok())
+            .unwrap_or(default),
+    )
+}
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct FundingRatePoint {
@@ -44,6 +110,7 @@ pub fn run_kline_screening_with_funding(
     funding_rates: &[FundingRatePoint],
 ) -> Result<MartingaleBacktestResult, String> {
     portfolio.validate()?;
+    let risk_guards = RiskGuardThresholds::from_env();
 
     let preflight_rejections = preflight_rejection_reasons(&portfolio);
     if !preflight_rejections.is_empty() {
@@ -78,6 +145,7 @@ pub fn run_kline_screening_with_funding(
     let mut last_equity_quote = initial_margin_capital;
     let mut latest_close_by_symbol = BTreeMap::new();
     let mut indicator_context = IndicatorRuntimeContext::default();
+    let mut portfolio_stop_cooldown_until_ms: Option<i64> = None;
 
     let mut total_fee_quote = 0.0_f64;
     let mut total_slippage_quote = 0.0_f64;
@@ -139,8 +207,23 @@ pub fn run_kline_screening_with_funding(
                 }
 
                 if strategy_states[state_index].legs.is_empty() {
+                    if portfolio_stop_cooldown_until_ms
+                        .map(|until| timestamp_ms < until)
+                        .unwrap_or(false)
+                    {
+                        state_index += 1;
+                        continue;
+                    }
+                    if risk_guards
+                        .max_portfolio_active_cycles
+                        .map(|limit| portfolio_active_cycle_count(&strategy_states) >= limit)
+                        .unwrap_or(false)
+                    {
+                        state_index += 1;
+                        continue;
+                    }
                     // 方向2: 组合级动态降仓 — 回撤超 6% 时暂停新 cycle
-                    if portfolio_drawdown_pct > 6.0 {
+                    if portfolio_drawdown_pct > risk_guards.new_cycle_drawdown_pause_pct {
                         state_index += 1;
                         continue;
                     }
@@ -152,7 +235,7 @@ pub fn run_kline_screening_with_funding(
                         );
                         if let Some(atr) = atr_val {
                             let atr_pct = atr / bar.close * 100.0;
-                            if atr_pct > 2.0 {
+                            if atr_pct > risk_guards.new_cycle_atr_pause_pct {
                                 state_index += 1;
                                 continue;
                             }
@@ -241,7 +324,7 @@ pub fn run_kline_screening_with_funding(
                                 if let Some(adx) =
                                     indicator_context.latest_adx(&strategy.symbol, period)
                                 {
-                                    if adx > 45.0 {
+                                    if adx > risk_guards.safety_skip_adx_threshold {
                                         // ADX > 45% = 极端趋势 → 跳过此 safety order
                                         state_index += 1;
                                         continue;
@@ -423,9 +506,40 @@ pub fn run_kline_screening_with_funding(
             }
         }
 
-        let equity_quote = initial_margin_capital
+        let mut equity_quote = initial_margin_capital
             + realized_pnl_quote
             + unrealized_pnl(&strategy_states, &latest_close_by_symbol)?;
+        if risk_guards.portfolio_equity_stop_pct > 0.0
+            && equity_quote.is_finite()
+            && equity_peak_quote > 0.0
+        {
+            let drawdown_pct =
+                ((equity_peak_quote - equity_quote) / equity_peak_quote * 100.0).max(0.0);
+            if drawdown_pct >= risk_guards.portfolio_equity_stop_pct {
+                let close = close_all_active_cycles(
+                    &mut strategy_states,
+                    &latest_close_by_symbol,
+                    timestamp_ms,
+                    &mut events,
+                    &mut total_fee_quote,
+                    &mut total_slippage_quote,
+                )?;
+                if close.closed_count > 0 {
+                    realized_pnl_quote += close.realized_pnl_quote;
+                    capital_used_quote =
+                        (capital_used_quote - close.released_capital_quote).max(0.0);
+                    stop_count += close.closed_count;
+                    trade_count += close.closed_count;
+                    if risk_guards.portfolio_stop_cooldown_ms > 0 {
+                        portfolio_stop_cooldown_until_ms =
+                            Some(timestamp_ms + risk_guards.portfolio_stop_cooldown_ms);
+                    }
+                    equity_quote = initial_margin_capital
+                        + realized_pnl_quote
+                        + unrealized_pnl(&strategy_states, &latest_close_by_symbol)?;
+                }
+            }
+        }
         if equity_quote.is_finite() {
             equity_peak_quote = equity_peak_quote.max(equity_quote);
             if equity_peak_quote > 0.0 {
@@ -1400,8 +1514,62 @@ fn active_cycle_count(state: &StrategyRuntime<'_>) -> u32 {
     u32::from(!state.legs.is_empty())
 }
 
+fn portfolio_active_cycle_count(states: &[StrategyRuntime<'_>]) -> u32 {
+    states.iter().filter(|state| !state.legs.is_empty()).count() as u32
+}
+
 fn capacity_allows_entry(max_active_cycles: u32, active_cycle_count: u32) -> bool {
     active_cycle_count < max_active_cycles
+}
+
+#[derive(Debug, Clone, Copy, Default)]
+struct CloseAllResult {
+    realized_pnl_quote: f64,
+    released_capital_quote: f64,
+    closed_count: u64,
+}
+
+fn close_all_active_cycles(
+    states: &mut [StrategyRuntime<'_>],
+    latest_close_by_symbol: &BTreeMap<String, f64>,
+    timestamp_ms: i64,
+    events: &mut Vec<MartingaleBacktestEvent>,
+    total_fee_quote: &mut f64,
+    total_slippage_quote: &mut f64,
+) -> Result<CloseAllResult, String> {
+    let mut result = CloseAllResult::default();
+    for state in states.iter_mut() {
+        if state.legs.is_empty() {
+            continue;
+        }
+        let Some(close_price) = latest_close_by_symbol.get(&state.strategy.symbol).copied() else {
+            continue;
+        };
+        let close_gross_pnl = close_pnl(state.strategy.direction, &state.legs, close_price)?;
+        let entry_cost = entry_cost_quote(&state.legs);
+        let exit_cost = exit_cost_quote(&state.legs, close_price);
+        *total_fee_quote += exit_cost.fee_quote;
+        *total_slippage_quote += exit_cost.slippage_quote;
+        let pnl = close_gross_pnl - entry_cost - exit_cost.total();
+        let released_capital = state.active_capital_used_quote();
+        state.realized_pnl_quote += pnl;
+        events.push(MartingaleBacktestEvent {
+            timestamp_ms,
+            event_type: "portfolio_equity_stop".to_string(),
+            symbol: state.strategy.symbol.clone(),
+            strategy_instance_id: state.strategy.strategy_id.clone(),
+            cycle_id: Some(state.cycle_id.clone()),
+            detail: format!(
+                "price={close_price};pnl_quote={pnl};exit_fee_quote={};exit_slippage_quote={}",
+                exit_cost.fee_quote, exit_cost.slippage_quote
+            ),
+        });
+        state.reset_cycle(timestamp_ms);
+        result.realized_pnl_quote += pnl;
+        result.released_capital_quote += released_capital;
+        result.closed_count += 1;
+    }
+    Ok(result)
 }
 
 fn close_pnl(

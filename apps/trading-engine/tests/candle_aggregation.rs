@@ -61,7 +61,11 @@ fn non_usdm_market_is_skipped() {
         tick("BTCUSDT", 120_000, 103.0),
     ];
     let bars = complete_bars(&mut buckets, &ticks, MINUTE_MS);
-    assert_eq!(bars.len(), 1, "spot tick is skipped; only the usdm minute-1 bar completes");
+    assert_eq!(
+        bars.len(),
+        1,
+        "spot tick is skipped; only the usdm minute-1 bar completes"
+    );
     assert_eq!(bars[0].open_time_ms, 60_000);
     assert_eq!(bars[0].open, 101.0);
 }

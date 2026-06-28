@@ -1,0 +1,123 @@
+{
+  "budget_blocked_legs": 0,
+  "budget_capped_projected_margin_quote": 2954.9999995581948,
+  "budget_quote": 3250.0,
+  "days": 1246.9993055555556,
+  "first_leg_margin_total_quote": 15.875449478000002,
+  "full_series_margin_quote": 2954.9999995581948,
+  "gate": {
+    "annualized_threshold": 110.0,
+    "drawdown_threshold": 30.0,
+    "passed": true,
+    "profile": "aggressive"
+  },
+  "global_margin_cap_quote": 3250.0,
+  "max_capital_used_quote": 2735.2156560105173,
+  "minimum_capital": {
+    "exchange_min_notional": 5.0,
+    "exchange_min_notional_is_default": true,
+    "lp_weighted_planned_margin_quote": 1053.060650829955,
+    "min_exact_scaled_bottleneck_first_order_quote": 6.94944983,
+    "min_exact_scaled_bottleneck_strategy_id": "lowcap-0-staged-9684-Long",
+    "min_exact_scaled_bottleneck_symbol": "INJUSDT",
+    "min_exact_scaled_executable_principal_quote": 2319.7565464906215,
+    "natural_unscaled_planned_margin_quote": 2954.999999558194,
+    "scale_model_used_for_gate": "cap_truncated",
+    "scale_to_1000_min_first_order_quote": 2.995766879293122
+  },
+  "on_budget": {
+    "annualized_return_pct": 133.54374560822632,
+    "max_drawdown_pct": 29.87601985463672,
+    "min_equity_quote": 3239.542784128338,
+    "principal_breached": false,
+    "total_return_pct": 1713.4546005987897
+  },
+  "on_max_capital_used": {
+    "max_capital_used_quote": 2735.2156560105173,
+    "total_return_fraction": 20.359372540549156
+  },
+  "per_strategy": [
+    {
+      "accepted_static_legs": 10,
+      "direction": "Long",
+      "effective_cap_quote": 1549.8617948125002,
+      "first_leg_margin_quote": 0.694944983,
+      "strategy_id": "lowcap-0-staged-9684-Long",
+      "symbol": "INJUSDT",
+      "weight_pct": 47.688055225
+    },
+    {
+      "accepted_static_legs": 4,
+      "direction": "Short",
+      "effective_cap_quote": 58.35483046899999,
+      "first_leg_margin_quote": 6.25450485,
+      "strategy_id": "lowcap-0-staged-9684-Short",
+      "symbol": "INJUSDT",
+      "weight_pct": 1.7955332452000001
+    },
+    {
+      "accepted_static_legs": 7,
+      "direction": "Long",
+      "effective_cap_quote": 988.08896846725,
+      "first_leg_margin_quote": 1.308650851,
+      "strategy_id": "lowcap-1-staged-9443-Long",
+      "symbol": "LINKUSDT",
+      "weight_pct": 30.4027374913
+    },
+    {
+      "accepted_static_legs": 10,
+      "direction": "Short",
+      "effective_cap_quote": 14.0155843035,
+      "first_leg_margin_quote": 0.8724339,
+      "strategy_id": "lowcap-1-staged-9443-Short",
+      "symbol": "LINKUSDT",
+      "weight_pct": 0.4312487478
+    },
+    {
+      "accepted_static_legs": 4,
+      "direction": "Long",
+      "effective_cap_quote": 182.71022603925,
+      "first_leg_margin_quote": 5.395931915,
+      "strategy_id": "lowcap-2-staged-19397-Long",
+      "symbol": "AAVEUSDT",
+      "weight_pct": 5.6218531089
+    },
+    {
+      "accepted_static_legs": 8,
+      "direction": "Short",
+      "effective_cap_quote": 185.6085959065,
+      "first_leg_margin_quote": 1.348982979,
+      "strategy_id": "lowcap-2-staged-19397-Short",
+      "symbol": "AAVEUSDT",
+      "weight_pct": 5.7110337202
+    }
+  ],
+  "portfolio_id": "parallel_0105_full_pool_b3000_top_12_fixed_cash_b3250",
+  "profile": "aggressive",
+  "rejection_breakdown": {
+    "direction": 0,
+    "global": 0,
+    "strategy": 0,
+    "symbol": 0,
+    "total": 0
+  },
+  "runtime_weight_caps_applied": true,
+  "sim_stock_metrics_on_uncapped_planned_margin_base": {
+    "annualized_return_pct": 139.79023517213807,
+    "max_drawdown_pct": 30.25039115729255,
+    "planned_margin_quote": 2954.9999995581948,
+    "total_return_pct": 1884.5060531952925
+  },
+  "stop_count": 3538,
+  "strategy_count": 6,
+  "symbols": [
+    "AAVEUSDT",
+    "INJUSDT",
+    "LINKUSDT"
+  ],
+  "total_fee_quote": 1960.5249226420387,
+  "total_funding_quote": -2665.980645827928,
+  "total_rejection_reasons": 0,
+  "total_slippage_quote": 871.3444100631543,
+  "trade_count": 9335
+}

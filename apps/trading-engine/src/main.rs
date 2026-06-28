@@ -80,7 +80,8 @@ fn martingale_candle_feeds() -> &'static Mutex<HashMap<String, HashMap<String, L
 /// historical peak equity (quote)。用于计算组合 drawdown 百分比
 /// (parity port of backtest guard `kline_engine.rs:142-146`).
 /// key = portfolio_id, value = 历史最高 equity。
-static MARTINGALE_PORTFOLIO_EQUITY_PEAKS: OnceLock<Mutex<HashMap<String, Decimal>>> = OnceLock::new();
+static MARTINGALE_PORTFOLIO_EQUITY_PEAKS: OnceLock<Mutex<HashMap<String, Decimal>>> =
+    OnceLock::new();
 
 fn martingale_portfolio_equity_peaks() -> &'static Mutex<HashMap<String, Decimal>> {
     MARTINGALE_PORTFOLIO_EQUITY_PEAKS.get_or_init(|| Mutex::new(HashMap::new()))
@@ -669,8 +670,7 @@ fn reconcile_martingale_executor_strategies(
 ) -> Result<(), shared_db::SharedDbError> {
     let config = martingale_runtime_config_from_portfolio(portfolio)?;
     let settings = futures_settings_from_portfolio(portfolio)?;
-    let portfolio_drawdown_pct =
-        portfolio_drawdown_pct_for(db, portfolio, &config, market_ticks);
+    let portfolio_drawdown_pct = portfolio_drawdown_pct_for(db, portfolio, &config, market_ticks);
     for strategy_config in &config.portfolio.strategies {
         let Some(mut strategy) =
             db.find_strategy(&portfolio.owner, &strategy_config.strategy_id)?
@@ -1556,9 +1556,7 @@ fn strategy_planned_budget_quote(strategy: &MartingaleStrategyConfig) -> Option<
     // = notional for spot. See backtest_engine::martingale::capital.
     let leverage = match strategy.market {
         MartingaleMarketKind::Spot => Decimal::ONE,
-        MartingaleMarketKind::UsdMFutures => {
-            Decimal::from(strategy.leverage.unwrap_or(1).max(1))
-        }
+        MartingaleMarketKind::UsdMFutures => Decimal::from(strategy.leverage.unwrap_or(1).max(1)),
     };
     let notionals = backtest_engine::martingale::rules::compute_leg_notionals(
         &strategy.sizing,
@@ -4376,7 +4374,10 @@ mod tests {
             shared_domain::martingale::MartingaleDirection::Long,
             0,
         );
-        assert!(blocked.is_err(), "leg1 should be blocked by strategy budget");
+        assert!(
+            blocked.is_err(),
+            "leg1 should be blocked by strategy budget"
+        );
         // The blocked safety leg must NOT be persisted as a Working order.
         assert!(
             runtime.orders().iter().all(|order| order.leg_index == 0),

@@ -1,0 +1,3477 @@
+{
+  "BTCUSDT": {
+    "cid": "btc_1781608170361879885",
+    "dir": "long_and_short",
+    "ann": 125.5960364857816,
+    "dd": 40.79521598102806,
+    "H1_2023": 668.0215900728772,
+    "H2_2023": 33.384714608739955,
+    "2024": 66.6945404791735,
+    "2025": 0.8476511959652155,
+    "2026": -6.623023581639642,
+    "cfg": {
+      "strategies": [
+        {
+          "market": "usd_m_futures",
+          "sizing": {
+            "multiplier": {
+              "max_legs": 9,
+              "multiplier": "2.399999999999999911182158029",
+              "first_order_quote": "50"
+            }
+          },
+          "symbol": "BTCUSDT",
+          "spacing": {
+            "atr": {
+              "multiplier": "2",
+              "max_step_bps": 30000,
+              "min_step_bps": 0
+            }
+          },
+          "leverage": 10,
+          "direction": "long",
+          "stop_loss": {
+            "strategy_drawdown_pct": {
+              "pct_bps": 600
+            }
+          },
+          "indicators": [
+            {
+              "atr": {
+                "period": 21
+              }
+            },
+            {
+              "adx": {
+                "period": 14
+              }
+            }
+          ],
+          "margin_mode": "isolated",
+          "risk_limits": {
+            "max_active_cycles": null,
+            "max_global_budget_quote": null,
+            "max_symbol_budget_quote": null,
+            "max_global_drawdown_quote": null,
+            "max_strategy_budget_quote": null,
+            "max_direction_budget_quote": null
+          },
+          "strategy_id": "staged-12630-Long",
+          "take_profit": {
+            "percent": {
+              "bps": 300
+            }
+          },
+          "direction_mode": "long_and_short",
+          "entry_triggers": [
+            {
+              "cooldown": {
+                "seconds": 21600
+              }
+            },
+            {
+              "indicator_expression": {
+                "expression": "adx(14) > 30"
+              }
+            }
+          ]
+        },
+        {
+          "market": "usd_m_futures",
+          "sizing": {
+            "multiplier": {
+              "max_legs": 8,
+              "multiplier": "1.1499999999999999111821580295",
+              "first_order_quote": "50"
+            }
+          },
+          "symbol": "BTCUSDT",
+          "spacing": {
+            "atr": {
+              "multiplier": "2",
+              "max_step_bps": 30000,
+              "min_step_bps": 0
+            }
+          },
+          "leverage": 10,
+          "direction": "short",
+          "stop_loss": {
+            "strategy_drawdown_pct": {
+              "pct_bps": 5500
+            }
+          },
+          "indicators": [
+            {
+              "atr": {
+                "period": 21
+              }
+            },
+            {
+              "adx": {
+                "period": 14
+              }
+            }
+          ],
+          "margin_mode": "isolated",
+          "risk_limits": {
+            "max_active_cycles": null,
+            "max_global_budget_quote": null,
+            "max_symbol_budget_quote": null,
+            "max_global_drawdown_quote": null,
+            "max_strategy_budget_quote": null,
+            "max_direction_budget_quote": null
+          },
+          "strategy_id": "staged-12630-Short",
+          "take_profit": {
+            "percent": {
+              "bps": 450
+            }
+          },
+          "direction_mode": "long_and_short",
+          "entry_triggers": [
+            {
+              "cooldown": {
+                "seconds": 21600
+              }
+            },
+            {
+              "indicator_expression": {
+                "expression": "adx(14) > 30"
+              }
+            }
+          ]
+        }
+      ],
+      "risk_limits": {
+        "max_active_cycles": null,
+        "max_global_budget_quote": null,
+        "max_symbol_budget_quote": null,
+        "max_global_drawdown_quote": null,
+        "max_strategy_budget_quote": null,
+        "max_direction_budget_quote": null
+      },
+      "direction_mode": "long_and_short"
+    }
+  },
+  "TRXUSDT": {
+    "cid": "btc_1782378624110044597",
+    "dir": "long_and_short",
+    "ann": 104.15852574369065,
+    "dd": 74.32165213589526,
+    "H1_2023": 262.95666056893475,
+    "H2_2023": 67.34732025836558,
+    "2024": 51.91017037306711,
+    "2025": 7.341531027869053,
+    "2026": 16.847767356508303,
+    "cfg": {
+      "strategies": [
+        {
+          "market": "usd_m_futures",
+          "sizing": {
+            "multiplier": {
+              "max_legs": 8,
+              "multiplier": "1.3999999999999999111821580293",
+              "first_order_quote": "90"
+            }
+          },
+          "symbol": "TRXUSDT",
+          "spacing": {
+            "fixed_percent": {
+              "step_bps": 35
+            }
+          },
+          "leverage": 10,
+          "direction": "long",
+          "stop_loss": {
+            "strategy_drawdown_pct": {
+              "pct_bps": 9000
+            }
+          },
+          "indicators": [
+            {
+              "atr": {
+                "period": 28
+              }
+            }
+          ],
+          "margin_mode": "isolated",
+          "risk_limits": {
+            "max_active_cycles": null,
+            "max_global_budget_quote": null,
+            "max_symbol_budget_quote": null,
+            "max_global_drawdown_quote": null,
+            "max_strategy_budget_quote": null,
+            "max_direction_budget_quote": null
+          },
+          "strategy_id": "staged-9442-Long",
+          "take_profit": {
+            "percent": {
+              "bps": 450
+            }
+          },
+          "direction_mode": "long_and_short",
+          "entry_triggers": [
+            {
+              "cooldown": {
+                "seconds": 21600
+              }
+            }
+          ]
+        },
+        {
+          "market": "usd_m_futures",
+          "sizing": {
+            "multiplier": {
+              "max_legs": 6,
+              "multiplier": "1.3999999999999999111821580293",
+              "first_order_quote": "10"
+            }
+          },
+          "symbol": "TRXUSDT",
+          "spacing": {
+            "fixed_percent": {
+              "step_bps": 420
+            }
+          },
+          "leverage": 10,
+          "direction": "short",
+          "stop_loss": {
+            "strategy_drawdown_pct": {
+              "pct_bps": 3000
+            }
+          },
+          "indicators": [
+            {
+              "atr": {
+                "period": 28
+              }
+            }
+          ],
+          "margin_mode": "isolated",
+          "risk_limits": {
+            "max_active_cycles": null,
+            "max_global_budget_quote": null,
+            "max_symbol_budget_quote": null,
+            "max_global_drawdown_quote": null,
+            "max_strategy_budget_quote": null,
+            "max_direction_budget_quote": null
+          },
+          "strategy_id": "staged-9442-Short",
+          "take_profit": {
+            "percent": {
+              "bps": 300
+            }
+          },
+          "direction_mode": "long_and_short",
+          "entry_triggers": [
+            {
+              "cooldown": {
+                "seconds": 21600
+              }
+            }
+          ]
+        }
+      ],
+      "risk_limits": {
+        "max_active_cycles": null,
+        "max_global_budget_quote": null,
+        "max_symbol_budget_quote": null,
+        "max_global_drawdown_quote": null,
+        "max_strategy_budget_quote": null,
+        "max_direction_budget_quote": null
+      },
+      "direction_mode": "long_and_short"
+    }
+  },
+  "XRPUSDT": {
+    "cid": "btc_1781282177355970881",
+    "dir": "long_only",
+    "ann": 92.86673678233373,
+    "dd": 70.78364162166841,
+    "H1_2023": 40.85005687703615,
+    "H2_2023": 59.88490236763846,
+    "2024": 135.68123264027113,
+    "2025": 63.058321274228746,
+    "2026": 8.98386880430011,
+    "cfg": {
+      "strategies": [
+        {
+          "market": "usd_m_futures",
+          "sizing": {
+            "multiplier": {
+              "max_legs": 11,
+              "multiplier": "2.599999999999999644728632119",
+              "first_order_quote": "100"
+            }
+          },
+          "symbol": "XRPUSDT",
+          "spacing": {
+            "fixed_percent": {
+              "step_bps": 160
+            }
+          },
+          "leverage": 6,
+          "direction": "long",
+          "stop_loss": {
+            "strategy_drawdown_pct": {
+              "pct_bps": 5500
+            }
+          },
+          "indicators": [
+            {
+              "atr": {
+                "period": 7
+              }
+            }
+          ],
+          "margin_mode": "isolated",
+          "risk_limits": {
+            "max_active_cycles": null,
+            "max_global_budget_quote": null,
+            "max_symbol_budget_quote": null,
+            "max_global_drawdown_quote": null,
+            "max_strategy_budget_quote": null,
+            "max_direction_budget_quote": null
+          },
+          "strategy_id": "staged-14263",
+          "take_profit": {
+            "percent": {
+              "bps": 450
+            }
+          },
+          "direction_mode": "long_only",
+          "entry_triggers": [
+            {
+              "cooldown": {
+                "seconds": 21600
+              }
+            }
+          ]
+        }
+      ],
+      "risk_limits": {
+        "max_active_cycles": null,
+        "max_global_budget_quote": null,
+        "max_symbol_budget_quote": null,
+        "max_global_drawdown_quote": null,
+        "max_strategy_budget_quote": null,
+        "max_direction_budget_quote": null
+      },
+      "direction_mode": "long_only"
+    }
+  },
+  "BCHUSDT": {
+    "cid": "btc_1782397542381696972",
+    "dir": "long_and_short",
+    "ann": 91.49184903033614,
+    "dd": 61.090409336916586,
+    "H1_2023": 337.0284084289369,
+    "H2_2023": 57.87441847743639,
+    "2024": 29.426122921412933,
+    "2025": 20.554307121279592,
+    "2026": -13.439197026455464,
+    "cfg": {
+      "strategies": [
+        {
+          "market": "usd_m_futures",
+          "sizing": {
+            "multiplier": {
+              "max_legs": 8,
+              "multiplier": "2",
+              "first_order_quote": "90"
+            }
+          },
+          "symbol": "BCHUSDT",
+          "spacing": {
+            "fixed_percent": {
+              "step_bps": 90
+            }
+          },
+          "leverage": 10,
+          "direction": "long",
+          "stop_loss": {
+            "strategy_drawdown_pct": {
+              "pct_bps": 5500
+            }
+          },
+          "indicators": [
+            {
+              "atr": {
+                "period": 28
+              }
+            }
+          ],
+          "margin_mode": "isolated",
+          "risk_limits": {
+            "max_active_cycles": null,
+            "max_global_budget_quote": null,
+            "max_symbol_budget_quote": null,
+            "max_global_drawdown_quote": null,
+            "max_strategy_budget_quote": null,
+            "max_direction_budget_quote": null
+          },
+          "strategy_id": "staged-634-Long",
+          "take_profit": {
+            "percent": {
+              "bps": 300
+            }
+          },
+          "direction_mode": "long_and_short",
+          "entry_triggers": [
+            {
+              "cooldown": {
+                "seconds": 21600
+              }
+            }
+          ]
+        },
+        {
+          "market": "usd_m_futures",
+          "sizing": {
+            "multiplier": {
+              "max_legs": 10,
+              "multiplier": "2",
+              "first_order_quote": "10"
+            }
+          },
+          "symbol": "BCHUSDT",
+          "spacing": {
+            "fixed_percent": {
+              "step_bps": 90
+            }
+          },
+          "leverage": 10,
+          "direction": "short",
+          "stop_loss": {
+            "strategy_drawdown_pct": {
+              "pct_bps": 2400
+            }
+          },
+          "indicators": [
+            {
+              "atr": {
+                "period": 28
+              }
+            }
+          ],
+          "margin_mode": "isolated",
+          "risk_limits": {
+            "max_active_cycles": null,
+            "max_global_budget_quote": null,
+            "max_symbol_budget_quote": null,
+            "max_global_drawdown_quote": null,
+            "max_strategy_budget_quote": null,
+            "max_direction_budget_quote": null
+          },
+          "strategy_id": "staged-634-Short",
+          "take_profit": {
+            "percent": {
+              "bps": 140
+            }
+          },
+          "direction_mode": "long_and_short",
+          "entry_triggers": [
+            {
+              "cooldown": {
+                "seconds": 21600
+              }
+            }
+          ]
+        }
+      ],
+      "risk_limits": {
+        "max_active_cycles": null,
+        "max_global_budget_quote": null,
+        "max_symbol_budget_quote": null,
+        "max_global_drawdown_quote": null,
+        "max_strategy_budget_quote": null,
+        "max_direction_budget_quote": null
+      },
+      "direction_mode": "long_and_short"
+    }
+  },
+  "ETCUSDT": {
+    "cid": "btc_1781903776996789298",
+    "dir": "long_and_short",
+    "ann": 74.57116871356733,
+    "dd": 70.77872589301563,
+    "H1_2023": 213.21581657929212,
+    "H2_2023": 47.24217300333813,
+    "2024": 56.75893020258363,
+    "2025": 27.035103987687094,
+    "2026": -28.16069136824899,
+    "cfg": {
+      "strategies": [
+        {
+          "market": "usd_m_futures",
+          "sizing": {
+            "multiplier": {
+              "max_legs": 10,
+              "multiplier": "1.25",
+              "first_order_quote": "80"
+            }
+          },
+          "symbol": "ETCUSDT",
+          "spacing": {
+            "fixed_percent": {
+              "step_bps": 90
+            }
+          },
+          "leverage": 10,
+          "direction": "long",
+          "stop_loss": {
+            "strategy_drawdown_pct": {
+              "pct_bps": 9000
+            }
+          },
+          "indicators": [
+            {
+              "atr": {
+                "period": 7
+              }
+            }
+          ],
+          "margin_mode": "isolated",
+          "risk_limits": {
+            "max_active_cycles": null,
+            "max_global_budget_quote": null,
+            "max_symbol_budget_quote": null,
+            "max_global_drawdown_quote": null,
+            "max_strategy_budget_quote": null,
+            "max_direction_budget_quote": null
+          },
+          "strategy_id": "staged-3080-Long",
+          "take_profit": {
+            "percent": {
+              "bps": 80
+            }
+          },
+          "direction_mode": "long_and_short",
+          "entry_triggers": [
+            {
+              "cooldown": {
+                "seconds": 21600
+              }
+            }
+          ]
+        },
+        {
+          "market": "usd_m_futures",
+          "sizing": {
+            "multiplier": {
+              "max_legs": 9,
+              "multiplier": "1.1499999999999999111821580295",
+              "first_order_quote": "20"
+            }
+          },
+          "symbol": "ETCUSDT",
+          "spacing": {
+            "fixed_percent": {
+              "step_bps": 70
+            }
+          },
+          "leverage": 10,
+          "direction": "short",
+          "stop_loss": {
+            "strategy_drawdown_pct": {
+              "pct_bps": 4000
+            }
+          },
+          "indicators": [
+            {
+              "atr": {
+                "period": 7
+              }
+            }
+          ],
+          "margin_mode": "isolated",
+          "risk_limits": {
+            "max_active_cycles": null,
+            "max_global_budget_quote": null,
+            "max_symbol_budget_quote": null,
+            "max_global_drawdown_quote": null,
+            "max_strategy_budget_quote": null,
+            "max_direction_budget_quote": null
+          },
+          "strategy_id": "staged-3080-Short",
+          "take_profit": {
+            "percent": {
+              "bps": 450
+            }
+          },
+          "direction_mode": "long_and_short",
+          "entry_triggers": [
+            {
+              "cooldown": {
+                "seconds": 21600
+              }
+            }
+          ]
+        }
+      ],
+      "risk_limits": {
+        "max_active_cycles": null,
+        "max_global_budget_quote": null,
+        "max_symbol_budget_quote": null,
+        "max_global_drawdown_quote": null,
+        "max_strategy_budget_quote": null,
+        "max_direction_budget_quote": null
+      },
+      "direction_mode": "long_and_short"
+    }
+  },
+  "LTCUSDT": {
+    "cid": "btc_1782397542840937284",
+    "dir": "long_and_short",
+    "ann": 70.30132774878291,
+    "dd": 43.32595906337468,
+    "H1_2023": 89.99982895998153,
+    "H2_2023": 18.179557368150135,
+    "2024": 57.92862505414513,
+    "2025": 71.87907485042304,
+    "2026": 3.3752976017519476,
+    "cfg": {
+      "strategies": [
+        {
+          "market": "usd_m_futures",
+          "sizing": {
+            "multiplier": {
+              "max_legs": 10,
+              "multiplier": "2.2000000000000001776356839392",
+              "first_order_quote": "30"
+            }
+          },
+          "symbol": "LTCUSDT",
+          "spacing": {
+            "fixed_percent": {
+              "step_bps": 220
+            }
+          },
+          "leverage": 6,
+          "direction": "long",
+          "stop_loss": {
+            "strategy_drawdown_pct": {
+              "pct_bps": 2400
+            }
+          },
+          "indicators": [
+            {
+              "atr": {
+                "period": 28
+              }
+            }
+          ],
+          "margin_mode": "isolated",
+          "risk_limits": {
+            "max_active_cycles": null,
+            "max_global_budget_quote": null,
+            "max_symbol_budget_quote": null,
+            "max_global_drawdown_quote": null,
+            "max_strategy_budget_quote": null,
+            "max_direction_budget_quote": null
+          },
+          "strategy_id": "staged-11428-Long",
+          "take_profit": {
+            "percent": {
+              "bps": 60
+            }
+          },
+          "direction_mode": "long_and_short",
+          "entry_triggers": [
+            {
+              "cooldown": {
+                "seconds": 21600
+              }
+            }
+          ]
+        },
+        {
+          "market": "usd_m_futures",
+          "sizing": {
+            "multiplier": {
+              "max_legs": 10,
+              "multiplier": "2.399999999999999911182158029",
+              "first_order_quote": "70"
+            }
+          },
+          "symbol": "LTCUSDT",
+          "spacing": {
+            "fixed_percent": {
+              "step_bps": 120
+            }
+          },
+          "leverage": 6,
+          "direction": "short",
+          "stop_loss": {
+            "strategy_drawdown_pct": {
+              "pct_bps": 9000
+            }
+          },
+          "indicators": [
+            {
+              "atr": {
+                "period": 28
+              }
+            }
+          ],
+          "margin_mode": "isolated",
+          "risk_limits": {
+            "max_active_cycles": null,
+            "max_global_budget_quote": null,
+            "max_symbol_budget_quote": null,
+            "max_global_drawdown_quote": null,
+            "max_strategy_budget_quote": null,
+            "max_direction_budget_quote": null
+          },
+          "strategy_id": "staged-11428-Short",
+          "take_profit": {
+            "percent": {
+              "bps": 200
+            }
+          },
+          "direction_mode": "long_and_short",
+          "entry_triggers": [
+            {
+              "cooldown": {
+                "seconds": 21600
+              }
+            }
+          ]
+        }
+      ],
+      "risk_limits": {
+        "max_active_cycles": null,
+        "max_global_budget_quote": null,
+        "max_symbol_budget_quote": null,
+        "max_global_drawdown_quote": null,
+        "max_strategy_budget_quote": null,
+        "max_direction_budget_quote": null
+      },
+      "direction_mode": "long_and_short"
+    }
+  },
+  "HBARUSDT": {
+    "cid": "btc_1782060358807613174",
+    "dir": "long_and_short",
+    "ann": 68.93290985890161,
+    "dd": 49.0301483835356,
+    "H1_2023": 81.21634289041812,
+    "H2_2023": 82.97500846571337,
+    "2024": 61.90665285354719,
+    "2025": 11.549713793044102,
+    "2026": -2.789493723001235,
+    "cfg": {
+      "strategies": [
+        {
+          "market": "usd_m_futures",
+          "sizing": {
+            "multiplier": {
+              "max_legs": 9,
+              "multiplier": "2.7999999999999998223643160587",
+              "first_order_quote": "30"
+            }
+          },
+          "symbol": "HBARUSDT",
+          "spacing": {
+            "fixed_percent": {
+              "step_bps": 120
+            }
+          },
+          "leverage": 3,
+          "direction": "long",
+          "stop_loss": {
+            "strategy_drawdown_pct": {
+              "pct_bps": 3000
+            }
+          },
+          "indicators": [
+            {
+              "atr": {
+                "period": 7
+              }
+            }
+          ],
+          "margin_mode": "isolated",
+          "risk_limits": {
+            "max_active_cycles": null,
+            "max_global_budget_quote": null,
+            "max_symbol_budget_quote": null,
+            "max_global_drawdown_quote": null,
+            "max_strategy_budget_quote": null,
+            "max_direction_budget_quote": null
+          },
+          "strategy_id": "staged-17195-Long",
+          "take_profit": {
+            "percent": {
+              "bps": 450
+            }
+          },
+          "direction_mode": "long_and_short",
+          "entry_triggers": [
+            {
+              "cooldown": {
+                "seconds": 21600
+              }
+            }
+          ]
+        },
+        {
+          "market": "usd_m_futures",
+          "sizing": {
+            "multiplier": {
+              "max_legs": 9,
+              "multiplier": "1.6000000000000000888178419695",
+              "first_order_quote": "70"
+            }
+          },
+          "symbol": "HBARUSDT",
+          "spacing": {
+            "fixed_percent": {
+              "step_bps": 160
+            }
+          },
+          "leverage": 3,
+          "direction": "short",
+          "stop_loss": {
+            "strategy_drawdown_pct": {
+              "pct_bps": 2400
+            }
+          },
+          "indicators": [
+            {
+              "atr": {
+                "period": 7
+              }
+            }
+          ],
+          "margin_mode": "isolated",
+          "risk_limits": {
+            "max_active_cycles": null,
+            "max_global_budget_quote": null,
+            "max_symbol_budget_quote": null,
+            "max_global_drawdown_quote": null,
+            "max_strategy_budget_quote": null,
+            "max_direction_budget_quote": null
+          },
+          "strategy_id": "staged-17195-Short",
+          "take_profit": {
+            "percent": {
+              "bps": 45
+            }
+          },
+          "direction_mode": "long_and_short",
+          "entry_triggers": [
+            {
+              "cooldown": {
+                "seconds": 21600
+              }
+            }
+          ]
+        }
+      ],
+      "risk_limits": {
+        "max_active_cycles": null,
+        "max_global_budget_quote": null,
+        "max_symbol_budget_quote": null,
+        "max_global_drawdown_quote": null,
+        "max_strategy_budget_quote": null,
+        "max_direction_budget_quote": null
+      },
+      "direction_mode": "long_and_short"
+    }
+  },
+  "DOTUSDT": {
+    "cid": "btc_1781408311351097630",
+    "dir": "long_only",
+    "ann": 66.92377866727881,
+    "dd": 48.66502905511953,
+    "H1_2023": 21.073813493989025,
+    "H2_2023": 32.4458259697513,
+    "2024": 99.476306550158,
+    "2025": 55.08961721743746,
+    "2026": 12.841058925776206,
+    "cfg": {
+      "strategies": [
+        {
+          "market": "usd_m_futures",
+          "sizing": {
+            "multiplier": {
+              "max_legs": 10,
+              "multiplier": "2.7999999999999998223643160587",
+              "first_order_quote": "100"
+            }
+          },
+          "symbol": "DOTUSDT",
+          "spacing": {
+            "fixed_percent": {
+              "step_bps": 25
+            }
+          },
+          "leverage": 10,
+          "direction": "long",
+          "stop_loss": {
+            "strategy_drawdown_pct": {
+              "pct_bps": 9000
+            }
+          },
+          "indicators": [
+            {
+              "atr": {
+                "period": 21
+              }
+            }
+          ],
+          "margin_mode": "isolated",
+          "risk_limits": {
+            "max_active_cycles": null,
+            "max_global_budget_quote": null,
+            "max_symbol_budget_quote": null,
+            "max_global_drawdown_quote": null,
+            "max_strategy_budget_quote": null,
+            "max_direction_budget_quote": null
+          },
+          "strategy_id": "staged-5164",
+          "take_profit": {
+            "atr": {
+              "multiplier": "2"
+            }
+          },
+          "direction_mode": "long_only",
+          "entry_triggers": [
+            {
+              "cooldown": {
+                "seconds": 21600
+              }
+            }
+          ]
+        }
+      ],
+      "risk_limits": {
+        "max_active_cycles": null,
+        "max_global_budget_quote": null,
+        "max_symbol_budget_quote": null,
+        "max_global_drawdown_quote": null,
+        "max_strategy_budget_quote": null,
+        "max_direction_budget_quote": null
+      },
+      "direction_mode": "long_only"
+    }
+  },
+  "UNIUSDT": {
+    "cid": "btc_1781903777124863557",
+    "dir": "long_and_short",
+    "ann": 66.24508215739222,
+    "dd": 86.6201471065081,
+    "H1_2023": 72.8602961165983,
+    "H2_2023": 32.04939853185087,
+    "2024": 32.296689815209476,
+    "2025": 71.94327648683323,
+    "2026": 7.5634619013368765,
+    "cfg": {
+      "strategies": [
+        {
+          "market": "usd_m_futures",
+          "sizing": {
+            "multiplier": {
+              "max_legs": 10,
+              "multiplier": "2.600000000000000088817841969",
+              "first_order_quote": "40"
+            }
+          },
+          "symbol": "UNIUSDT",
+          "spacing": {
+            "fixed_percent": {
+              "step_bps": 220
+            }
+          },
+          "leverage": 5,
+          "direction": "long",
+          "stop_loss": {
+            "strategy_drawdown_pct": {
+              "pct_bps": 8600
+            }
+          },
+          "indicators": [
+            {
+              "atr": {
+                "period": 7
+              }
+            },
+            {
+              "adx": {
+                "period": 14
+              }
+            }
+          ],
+          "margin_mode": "isolated",
+          "risk_limits": {
+            "max_active_cycles": null,
+            "max_global_budget_quote": null,
+            "max_symbol_budget_quote": null,
+            "max_global_drawdown_quote": null,
+            "max_strategy_budget_quote": null,
+            "max_direction_budget_quote": null
+          },
+          "strategy_id": "staged-12571-Long",
+          "take_profit": {
+            "percent": {
+              "bps": 450
+            }
+          },
+          "direction_mode": "long_and_short",
+          "entry_triggers": [
+            {
+              "cooldown": {
+                "seconds": 21600
+              }
+            },
+            {
+              "indicator_expression": {
+                "expression": "adx(14) > 20"
+              }
+            }
+          ]
+        },
+        {
+          "market": "usd_m_futures",
+          "sizing": {
+            "multiplier": {
+              "max_legs": 9,
+              "multiplier": "2.399999999999999911182158029",
+              "first_order_quote": "60"
+            }
+          },
+          "symbol": "UNIUSDT",
+          "spacing": {
+            "fixed_percent": {
+              "step_bps": 80
+            }
+          },
+          "leverage": 5,
+          "direction": "short",
+          "stop_loss": {
+            "strategy_drawdown_pct": {
+              "pct_bps": 2800
+            }
+          },
+          "indicators": [
+            {
+              "atr": {
+                "period": 7
+              }
+            },
+            {
+              "adx": {
+                "period": 14
+              }
+            }
+          ],
+          "margin_mode": "isolated",
+          "risk_limits": {
+            "max_active_cycles": null,
+            "max_global_budget_quote": null,
+            "max_symbol_budget_quote": null,
+            "max_global_drawdown_quote": null,
+            "max_strategy_budget_quote": null,
+            "max_direction_budget_quote": null
+          },
+          "strategy_id": "staged-12571-Short",
+          "take_profit": {
+            "percent": {
+              "bps": 230
+            }
+          },
+          "direction_mode": "long_and_short",
+          "entry_triggers": [
+            {
+              "cooldown": {
+                "seconds": 21600
+              }
+            },
+            {
+              "indicator_expression": {
+                "expression": "adx(14) > 20"
+              }
+            }
+          ]
+        }
+      ],
+      "risk_limits": {
+        "max_active_cycles": null,
+        "max_global_budget_quote": null,
+        "max_symbol_budget_quote": null,
+        "max_global_drawdown_quote": null,
+        "max_strategy_budget_quote": null,
+        "max_direction_budget_quote": null
+      },
+      "direction_mode": "long_and_short"
+    }
+  },
+  "ETHUSDT": {
+    "cid": "btc_1782397543015314131",
+    "dir": "long_and_short",
+    "ann": 63.74211244567427,
+    "dd": 42.04776366919376,
+    "H1_2023": 204.74730005814078,
+    "H2_2023": 29.883328646185593,
+    "2024": 36.47205410744267,
+    "2025": 0.2382560758922736,
+    "2026": 0.0,
+    "cfg": {
+      "strategies": [
+        {
+          "market": "usd_m_futures",
+          "sizing": {
+            "multiplier": {
+              "max_legs": 9,
+              "multiplier": "2.399999999999999911182158029",
+              "first_order_quote": "20"
+            }
+          },
+          "symbol": "ETHUSDT",
+          "spacing": {
+            "fixed_percent": {
+              "step_bps": 25
+            }
+          },
+          "leverage": 10,
+          "direction": "long",
+          "stop_loss": {
+            "strategy_drawdown_pct": {
+              "pct_bps": 4000
+            }
+          },
+          "indicators": [
+            {
+              "atr": {
+                "period": 14
+              }
+            }
+          ],
+          "margin_mode": "isolated",
+          "risk_limits": {
+            "max_active_cycles": null,
+            "max_global_budget_quote": null,
+            "max_symbol_budget_quote": null,
+            "max_global_drawdown_quote": null,
+            "max_strategy_budget_quote": null,
+            "max_direction_budget_quote": null
+          },
+          "strategy_id": "staged-16142-Long",
+          "take_profit": {
+            "percent": {
+              "bps": 450
+            }
+          },
+          "direction_mode": "long_and_short",
+          "entry_triggers": [
+            {
+              "cooldown": {
+                "seconds": 21600
+              }
+            }
+          ]
+        },
+        {
+          "market": "usd_m_futures",
+          "sizing": {
+            "multiplier": {
+              "max_legs": 8,
+              "multiplier": "2.399999999999999911182158029",
+              "first_order_quote": "80"
+            }
+          },
+          "symbol": "ETHUSDT",
+          "spacing": {
+            "fixed_percent": {
+              "step_bps": 160
+            }
+          },
+          "leverage": 10,
+          "direction": "short",
+          "stop_loss": {
+            "strategy_drawdown_pct": {
+              "pct_bps": 7000
+            }
+          },
+          "indicators": [
+            {
+              "atr": {
+                "period": 14
+              }
+            }
+          ],
+          "margin_mode": "isolated",
+          "risk_limits": {
+            "max_active_cycles": null,
+            "max_global_budget_quote": null,
+            "max_symbol_budget_quote": null,
+            "max_global_drawdown_quote": null,
+            "max_strategy_budget_quote": null,
+            "max_direction_budget_quote": null
+          },
+          "strategy_id": "staged-16142-Short",
+          "take_profit": {
+            "percent": {
+              "bps": 100
+            }
+          },
+          "direction_mode": "long_and_short",
+          "entry_triggers": [
+            {
+              "cooldown": {
+                "seconds": 21600
+              }
+            }
+          ]
+        }
+      ],
+      "risk_limits": {
+        "max_active_cycles": null,
+        "max_global_budget_quote": null,
+        "max_symbol_budget_quote": null,
+        "max_global_drawdown_quote": null,
+        "max_strategy_budget_quote": null,
+        "max_direction_budget_quote": null
+      },
+      "direction_mode": "long_and_short"
+    }
+  },
+  "DYDXUSDT": {
+    "cid": "btc_1782139340783464258",
+    "dir": "long_and_short",
+    "ann": 58.73712464090952,
+    "dd": 65.870392886626,
+    "H1_2023": 106.92103687791139,
+    "H2_2023": 22.301198146607582,
+    "2024": 49.65356623441537,
+    "2025": 17.75196243058823,
+    "2026": 8.465798879016084,
+    "cfg": {
+      "strategies": [
+        {
+          "market": "usd_m_futures",
+          "sizing": {
+            "multiplier": {
+              "max_legs": 10,
+              "multiplier": "2",
+              "first_order_quote": "50"
+            }
+          },
+          "symbol": "DYDXUSDT",
+          "spacing": {
+            "fixed_percent": {
+              "step_bps": 220
+            }
+          },
+          "leverage": 10,
+          "direction": "long",
+          "stop_loss": {
+            "strategy_drawdown_pct": {
+              "pct_bps": 3000
+            }
+          },
+          "indicators": [
+            {
+              "atr": {
+                "period": 7
+              }
+            }
+          ],
+          "margin_mode": "isolated",
+          "risk_limits": {
+            "max_active_cycles": null,
+            "max_global_budget_quote": null,
+            "max_symbol_budget_quote": null,
+            "max_global_drawdown_quote": null,
+            "max_strategy_budget_quote": null,
+            "max_direction_budget_quote": null
+          },
+          "strategy_id": "staged-5905-Long",
+          "take_profit": {
+            "percent": {
+              "bps": 80
+            }
+          },
+          "direction_mode": "long_and_short",
+          "entry_triggers": [
+            {
+              "cooldown": {
+                "seconds": 21600
+              }
+            }
+          ]
+        },
+        {
+          "market": "usd_m_futures",
+          "sizing": {
+            "multiplier": {
+              "max_legs": 9,
+              "multiplier": "2.7999999999999998223643160587",
+              "first_order_quote": "50"
+            }
+          },
+          "symbol": "DYDXUSDT",
+          "spacing": {
+            "fixed_percent": {
+              "step_bps": 160
+            }
+          },
+          "leverage": 10,
+          "direction": "short",
+          "stop_loss": {
+            "strategy_drawdown_pct": {
+              "pct_bps": 4000
+            }
+          },
+          "indicators": [
+            {
+              "atr": {
+                "period": 7
+              }
+            }
+          ],
+          "margin_mode": "isolated",
+          "risk_limits": {
+            "max_active_cycles": null,
+            "max_global_budget_quote": null,
+            "max_symbol_budget_quote": null,
+            "max_global_drawdown_quote": null,
+            "max_strategy_budget_quote": null,
+            "max_direction_budget_quote": null
+          },
+          "strategy_id": "staged-5905-Short",
+          "take_profit": {
+            "percent": {
+              "bps": 140
+            }
+          },
+          "direction_mode": "long_and_short",
+          "entry_triggers": [
+            {
+              "cooldown": {
+                "seconds": 21600
+              }
+            }
+          ]
+        }
+      ],
+      "risk_limits": {
+        "max_active_cycles": null,
+        "max_global_budget_quote": null,
+        "max_symbol_budget_quote": null,
+        "max_global_drawdown_quote": null,
+        "max_strategy_budget_quote": null,
+        "max_direction_budget_quote": null
+      },
+      "direction_mode": "long_and_short"
+    }
+  },
+  "LINKUSDT": {
+    "cid": "btc_1781337627310521671",
+    "dir": "long_only",
+    "ann": 58.51771134434121,
+    "dd": 87.11889007442683,
+    "H1_2023": 60.34706100279406,
+    "H2_2023": 28.07561593322927,
+    "2024": 104.97774451325124,
+    "2025": 56.37888976540706,
+    "2026": -26.461405409748828,
+    "cfg": {
+      "strategies": [
+        {
+          "market": "usd_m_futures",
+          "sizing": {
+            "multiplier": {
+              "max_legs": 9,
+              "multiplier": "2.2000000000000001776356839392",
+              "first_order_quote": "100"
+            }
+          },
+          "symbol": "LINKUSDT",
+          "spacing": {
+            "fixed_percent": {
+              "step_bps": 300
+            }
+          },
+          "leverage": 10,
+          "direction": "long",
+          "stop_loss": {
+            "strategy_drawdown_pct": {
+              "pct_bps": 5500
+            }
+          },
+          "indicators": [
+            {
+              "atr": {
+                "period": 21
+              }
+            },
+            {
+              "adx": {
+                "period": 14
+              }
+            }
+          ],
+          "margin_mode": "isolated",
+          "risk_limits": {
+            "max_active_cycles": null,
+            "max_global_budget_quote": null,
+            "max_symbol_budget_quote": null,
+            "max_global_drawdown_quote": null,
+            "max_strategy_budget_quote": null,
+            "max_direction_budget_quote": null
+          },
+          "strategy_id": "staged-14375",
+          "take_profit": {
+            "percent": {
+              "bps": 300
+            }
+          },
+          "direction_mode": "long_only",
+          "entry_triggers": [
+            {
+              "cooldown": {
+                "seconds": 21600
+              }
+            },
+            {
+              "indicator_expression": {
+                "expression": "adx(14) > 25"
+              }
+            }
+          ]
+        }
+      ],
+      "risk_limits": {
+        "max_active_cycles": null,
+        "max_global_budget_quote": null,
+        "max_symbol_budget_quote": null,
+        "max_global_drawdown_quote": null,
+        "max_strategy_budget_quote": null,
+        "max_direction_budget_quote": null
+      },
+      "direction_mode": "long_only"
+    }
+  },
+  "AVAXUSDT": {
+    "cid": "btc_1782416777416597454",
+    "dir": "long_and_short",
+    "ann": 56.537366359439936,
+    "dd": 63.772951308578385,
+    "H1_2023": 34.527678877430375,
+    "H2_2023": 39.708790977694775,
+    "2024": 76.83878304420372,
+    "2025": 36.69570017983681,
+    "2026": 1.7480647027242613,
+    "cfg": {
+      "strategies": [
+        {
+          "market": "usd_m_futures",
+          "sizing": {
+            "multiplier": {
+              "max_legs": 9,
+              "multiplier": "2.7999999999999998223643160587",
+              "first_order_quote": "90"
+            }
+          },
+          "symbol": "AVAXUSDT",
+          "spacing": {
+            "fixed_percent": {
+              "step_bps": 25
+            }
+          },
+          "leverage": 5,
+          "direction": "long",
+          "stop_loss": {
+            "strategy_drawdown_pct": {
+              "pct_bps": 9000
+            }
+          },
+          "indicators": [
+            {
+              "atr": {
+                "period": 28
+              }
+            }
+          ],
+          "margin_mode": "isolated",
+          "risk_limits": {
+            "max_active_cycles": null,
+            "max_global_budget_quote": null,
+            "max_symbol_budget_quote": null,
+            "max_global_drawdown_quote": null,
+            "max_strategy_budget_quote": null,
+            "max_direction_budget_quote": null
+          },
+          "strategy_id": "staged-7439-Long",
+          "take_profit": {
+            "atr": {
+              "multiplier": "2"
+            }
+          },
+          "direction_mode": "long_and_short",
+          "entry_triggers": [
+            {
+              "cooldown": {
+                "seconds": 21600
+              }
+            }
+          ]
+        },
+        {
+          "market": "usd_m_futures",
+          "sizing": {
+            "multiplier": {
+              "max_legs": 10,
+              "multiplier": "1.3999999999999999111821580293",
+              "first_order_quote": "10"
+            }
+          },
+          "symbol": "AVAXUSDT",
+          "spacing": {
+            "fixed_percent": {
+              "step_bps": 35
+            }
+          },
+          "leverage": 5,
+          "direction": "short",
+          "stop_loss": {
+            "strategy_drawdown_pct": {
+              "pct_bps": 4000
+            }
+          },
+          "indicators": [
+            {
+              "atr": {
+                "period": 28
+              }
+            }
+          ],
+          "margin_mode": "isolated",
+          "risk_limits": {
+            "max_active_cycles": null,
+            "max_global_budget_quote": null,
+            "max_symbol_budget_quote": null,
+            "max_global_drawdown_quote": null,
+            "max_strategy_budget_quote": null,
+            "max_direction_budget_quote": null
+          },
+          "strategy_id": "staged-7439-Short",
+          "take_profit": {
+            "atr": {
+              "multiplier": "2"
+            }
+          },
+          "direction_mode": "long_and_short",
+          "entry_triggers": [
+            {
+              "cooldown": {
+                "seconds": 21600
+              }
+            }
+          ]
+        }
+      ],
+      "risk_limits": {
+        "max_active_cycles": null,
+        "max_global_budget_quote": null,
+        "max_symbol_budget_quote": null,
+        "max_global_drawdown_quote": null,
+        "max_strategy_budget_quote": null,
+        "max_direction_budget_quote": null
+      },
+      "direction_mode": "long_and_short"
+    }
+  },
+  "BNBUSDT": {
+    "cid": "btc_1781337627380148470",
+    "dir": "long_only",
+    "ann": 52.6821242653422,
+    "dd": 65.80533817448134,
+    "H1_2023": 1.6192482419701948,
+    "H2_2023": 61.00046690043344,
+    "2024": 134.4014808201298,
+    "2025": 21.196048047545226,
+    "2026": -8.292328394867232,
+    "cfg": {
+      "strategies": [
+        {
+          "market": "usd_m_futures",
+          "sizing": {
+            "multiplier": {
+              "max_legs": 9,
+              "multiplier": "1.1000000000000000888178419696",
+              "first_order_quote": "100"
+            }
+          },
+          "symbol": "BNBUSDT",
+          "spacing": {
+            "atr": {
+              "multiplier": "1",
+              "max_step_bps": 30000,
+              "min_step_bps": 0
+            }
+          },
+          "leverage": 3,
+          "direction": "long",
+          "stop_loss": {
+            "strategy_drawdown_pct": {
+              "pct_bps": 9000
+            }
+          },
+          "indicators": [
+            {
+              "atr": {
+                "period": 21
+              }
+            },
+            {
+              "adx": {
+                "period": 14
+              }
+            }
+          ],
+          "margin_mode": "isolated",
+          "risk_limits": {
+            "max_active_cycles": null,
+            "max_global_budget_quote": null,
+            "max_symbol_budget_quote": null,
+            "max_global_drawdown_quote": null,
+            "max_strategy_budget_quote": null,
+            "max_direction_budget_quote": null
+          },
+          "strategy_id": "staged-19332",
+          "take_profit": {
+            "percent": {
+              "bps": 450
+            }
+          },
+          "direction_mode": "long_only",
+          "entry_triggers": [
+            {
+              "cooldown": {
+                "seconds": 21600
+              }
+            },
+            {
+              "indicator_expression": {
+                "expression": "adx(14) > 25"
+              }
+            }
+          ]
+        }
+      ],
+      "risk_limits": {
+        "max_active_cycles": null,
+        "max_global_budget_quote": null,
+        "max_symbol_budget_quote": null,
+        "max_global_drawdown_quote": null,
+        "max_strategy_budget_quote": null,
+        "max_direction_budget_quote": null
+      },
+      "direction_mode": "long_only"
+    }
+  },
+  "CRVUSDT": {
+    "cid": "btc_1781903777350903112",
+    "dir": "long_and_short",
+    "ann": 46.64446456337592,
+    "dd": 53.64209983481763,
+    "H1_2023": 49.3214819394469,
+    "H2_2023": 14.021490268031055,
+    "2024": 37.39841883926027,
+    "2025": 42.612163667180035,
+    "2026": 10.858864163263494,
+    "cfg": {
+      "strategies": [
+        {
+          "market": "usd_m_futures",
+          "sizing": {
+            "multiplier": {
+              "max_legs": 10,
+              "multiplier": "2.7999999999999998223643160587",
+              "first_order_quote": "90"
+            }
+          },
+          "symbol": "CRVUSDT",
+          "spacing": {
+            "fixed_percent": {
+              "step_bps": 70
+            }
+          },
+          "leverage": 10,
+          "direction": "long",
+          "stop_loss": {
+            "strategy_drawdown_pct": {
+              "pct_bps": 3000
+            }
+          },
+          "indicators": [
+            {
+              "atr": {
+                "period": 21
+              }
+            },
+            {
+              "adx": {
+                "period": 14
+              }
+            }
+          ],
+          "margin_mode": "isolated",
+          "risk_limits": {
+            "max_active_cycles": null,
+            "max_global_budget_quote": null,
+            "max_symbol_budget_quote": null,
+            "max_global_drawdown_quote": null,
+            "max_strategy_budget_quote": null,
+            "max_direction_budget_quote": null
+          },
+          "strategy_id": "staged-18856-Long",
+          "take_profit": {
+            "percent": {
+              "bps": 80
+            }
+          },
+          "direction_mode": "long_and_short",
+          "entry_triggers": [
+            {
+              "cooldown": {
+                "seconds": 21600
+              }
+            },
+            {
+              "indicator_expression": {
+                "expression": "adx(14) > 20"
+              }
+            }
+          ]
+        },
+        {
+          "market": "usd_m_futures",
+          "sizing": {
+            "multiplier": {
+              "max_legs": 9,
+              "multiplier": "1.1499999999999999111821580295",
+              "first_order_quote": "10"
+            }
+          },
+          "symbol": "CRVUSDT",
+          "spacing": {
+            "fixed_percent": {
+              "step_bps": 600
+            }
+          },
+          "leverage": 10,
+          "direction": "short",
+          "stop_loss": {
+            "strategy_drawdown_pct": {
+              "pct_bps": 7000
+            }
+          },
+          "indicators": [
+            {
+              "atr": {
+                "period": 21
+              }
+            },
+            {
+              "adx": {
+                "period": 14
+              }
+            }
+          ],
+          "margin_mode": "isolated",
+          "risk_limits": {
+            "max_active_cycles": null,
+            "max_global_budget_quote": null,
+            "max_symbol_budget_quote": null,
+            "max_global_drawdown_quote": null,
+            "max_strategy_budget_quote": null,
+            "max_direction_budget_quote": null
+          },
+          "strategy_id": "staged-18856-Short",
+          "take_profit": {
+            "percent": {
+              "bps": 300
+            }
+          },
+          "direction_mode": "long_and_short",
+          "entry_triggers": [
+            {
+              "cooldown": {
+                "seconds": 21600
+              }
+            },
+            {
+              "indicator_expression": {
+                "expression": "adx(14) > 20"
+              }
+            }
+          ]
+        }
+      ],
+      "risk_limits": {
+        "max_active_cycles": null,
+        "max_global_budget_quote": null,
+        "max_symbol_budget_quote": null,
+        "max_global_drawdown_quote": null,
+        "max_strategy_budget_quote": null,
+        "max_direction_budget_quote": null
+      },
+      "direction_mode": "long_and_short"
+    }
+  },
+  "NEARUSDT": {
+    "cid": "btc_1781282177800597998",
+    "dir": "long_only",
+    "ann": 41.09165737597304,
+    "dd": 34.139251468419886,
+    "H1_2023": 26.344622905878158,
+    "H2_2023": 13.356083382603279,
+    "2024": 56.72387707944462,
+    "2025": 32.28705938881025,
+    "2026": 9.166410792930503,
+    "cfg": {
+      "strategies": [
+        {
+          "market": "usd_m_futures",
+          "sizing": {
+            "multiplier": {
+              "max_legs": 10,
+              "multiplier": "2.399999999999999911182158029",
+              "first_order_quote": "100"
+            }
+          },
+          "symbol": "NEARUSDT",
+          "spacing": {
+            "fixed_percent": {
+              "step_bps": 35
+            }
+          },
+          "leverage": 5,
+          "direction": "long",
+          "stop_loss": {
+            "strategy_drawdown_pct": {
+              "pct_bps": 9000
+            }
+          },
+          "indicators": [
+            {
+              "atr": {
+                "period": 21
+              }
+            }
+          ],
+          "margin_mode": "isolated",
+          "risk_limits": {
+            "max_active_cycles": null,
+            "max_global_budget_quote": null,
+            "max_symbol_budget_quote": null,
+            "max_global_drawdown_quote": null,
+            "max_strategy_budget_quote": null,
+            "max_direction_budget_quote": null
+          },
+          "strategy_id": "staged-7852",
+          "take_profit": {
+            "atr": {
+              "multiplier": "2"
+            }
+          },
+          "direction_mode": "long_only",
+          "entry_triggers": [
+            {
+              "cooldown": {
+                "seconds": 21600
+              }
+            }
+          ]
+        }
+      ],
+      "risk_limits": {
+        "max_active_cycles": null,
+        "max_global_budget_quote": null,
+        "max_symbol_budget_quote": null,
+        "max_global_drawdown_quote": null,
+        "max_strategy_budget_quote": null,
+        "max_direction_budget_quote": null
+      },
+      "direction_mode": "long_only"
+    }
+  },
+  "GALAUSDT": {
+    "cid": "btc_1782060359144297109",
+    "dir": "long_and_short",
+    "ann": 40.76147439923945,
+    "dd": 28.560246170941795,
+    "H1_2023": 31.767883547039787,
+    "H2_2023": 12.45125078354472,
+    "2024": 49.08454270245217,
+    "2025": 36.63277132481608,
+    "2026": 6.355210780291043,
+    "cfg": {
+      "strategies": [
+        {
+          "market": "usd_m_futures",
+          "sizing": {
+            "multiplier": {
+              "max_legs": 6,
+              "multiplier": "2.7999999999999998223643160587",
+              "first_order_quote": "90"
+            }
+          },
+          "symbol": "GALAUSDT",
+          "spacing": {
+            "fixed_percent": {
+              "step_bps": 300
+            }
+          },
+          "leverage": 4,
+          "direction": "long",
+          "stop_loss": {
+            "strategy_drawdown_pct": {
+              "pct_bps": 4000
+            }
+          },
+          "indicators": [
+            {
+              "atr": {
+                "period": 14
+              }
+            }
+          ],
+          "margin_mode": "isolated",
+          "risk_limits": {
+            "max_active_cycles": null,
+            "max_global_budget_quote": null,
+            "max_symbol_budget_quote": null,
+            "max_global_drawdown_quote": null,
+            "max_strategy_budget_quote": null,
+            "max_direction_budget_quote": null
+          },
+          "strategy_id": "staged-15011-Long",
+          "take_profit": {
+            "percent": {
+              "bps": 140
+            }
+          },
+          "direction_mode": "long_and_short",
+          "entry_triggers": [
+            {
+              "cooldown": {
+                "seconds": 21600
+              }
+            }
+          ]
+        },
+        {
+          "market": "usd_m_futures",
+          "sizing": {
+            "multiplier": {
+              "max_legs": 10,
+              "multiplier": "2",
+              "first_order_quote": "10"
+            }
+          },
+          "symbol": "GALAUSDT",
+          "spacing": {
+            "fixed_percent": {
+              "step_bps": 220
+            }
+          },
+          "leverage": 4,
+          "direction": "short",
+          "stop_loss": {
+            "strategy_drawdown_pct": {
+              "pct_bps": 800
+            }
+          },
+          "indicators": [
+            {
+              "atr": {
+                "period": 14
+              }
+            }
+          ],
+          "margin_mode": "isolated",
+          "risk_limits": {
+            "max_active_cycles": null,
+            "max_global_budget_quote": null,
+            "max_symbol_budget_quote": null,
+            "max_global_drawdown_quote": null,
+            "max_strategy_budget_quote": null,
+            "max_direction_budget_quote": null
+          },
+          "strategy_id": "staged-15011-Short",
+          "take_profit": {
+            "percent": {
+              "bps": 450
+            }
+          },
+          "direction_mode": "long_and_short",
+          "entry_triggers": [
+            {
+              "cooldown": {
+                "seconds": 21600
+              }
+            }
+          ]
+        }
+      ],
+      "risk_limits": {
+        "max_active_cycles": null,
+        "max_global_budget_quote": null,
+        "max_symbol_budget_quote": null,
+        "max_global_drawdown_quote": null,
+        "max_strategy_budget_quote": null,
+        "max_direction_budget_quote": null
+      },
+      "direction_mode": "long_and_short"
+    }
+  },
+  "AAVEUSDT": {
+    "cid": "btc_1781723638707527866",
+    "dir": "long_and_short",
+    "ann": 29.339744671836687,
+    "dd": 51.31686810492836,
+    "H1_2023": 26.96372407930687,
+    "H2_2023": 18.60022765437637,
+    "2024": 33.19674310525449,
+    "2025": 15.456609054984405,
+    "2026": 4.142517305281834,
+    "cfg": {
+      "strategies": [
+        {
+          "market": "usd_m_futures",
+          "sizing": {
+            "multiplier": {
+              "max_legs": 6,
+              "multiplier": "1.8000000000000000444089209845",
+              "first_order_quote": "20"
+            }
+          },
+          "symbol": "AAVEUSDT",
+          "spacing": {
+            "fixed_percent": {
+              "step_bps": 50
+            }
+          },
+          "leverage": 10,
+          "direction": "long",
+          "stop_loss": {
+            "strategy_drawdown_pct": {
+              "pct_bps": 9000
+            }
+          },
+          "indicators": [
+            {
+              "atr": {
+                "period": 21
+              }
+            },
+            {
+              "adx": {
+                "period": 14
+              }
+            }
+          ],
+          "margin_mode": "isolated",
+          "risk_limits": {
+            "max_active_cycles": null,
+            "max_global_budget_quote": null,
+            "max_symbol_budget_quote": null,
+            "max_global_drawdown_quote": null,
+            "max_strategy_budget_quote": null,
+            "max_direction_budget_quote": null
+          },
+          "strategy_id": "staged-8237-Long",
+          "take_profit": {
+            "percent": {
+              "bps": 300
+            }
+          },
+          "direction_mode": "long_and_short",
+          "entry_triggers": [
+            {
+              "cooldown": {
+                "seconds": 21600
+              }
+            },
+            {
+              "indicator_expression": {
+                "expression": "adx(14) > 20"
+              }
+            }
+          ]
+        },
+        {
+          "market": "usd_m_futures",
+          "sizing": {
+            "multiplier": {
+              "max_legs": 10,
+              "multiplier": "2",
+              "first_order_quote": "80"
+            }
+          },
+          "symbol": "AAVEUSDT",
+          "spacing": {
+            "fixed_percent": {
+              "step_bps": 35
+            }
+          },
+          "leverage": 10,
+          "direction": "short",
+          "stop_loss": {
+            "strategy_drawdown_pct": {
+              "pct_bps": 9000
+            }
+          },
+          "indicators": [
+            {
+              "atr": {
+                "period": 21
+              }
+            },
+            {
+              "adx": {
+                "period": 14
+              }
+            }
+          ],
+          "margin_mode": "isolated",
+          "risk_limits": {
+            "max_active_cycles": null,
+            "max_global_budget_quote": null,
+            "max_symbol_budget_quote": null,
+            "max_global_drawdown_quote": null,
+            "max_strategy_budget_quote": null,
+            "max_direction_budget_quote": null
+          },
+          "strategy_id": "staged-8237-Short",
+          "take_profit": {
+            "percent": {
+              "bps": 30
+            }
+          },
+          "direction_mode": "long_and_short",
+          "entry_triggers": [
+            {
+              "cooldown": {
+                "seconds": 21600
+              }
+            },
+            {
+              "indicator_expression": {
+                "expression": "adx(14) > 20"
+              }
+            }
+          ]
+        }
+      ],
+      "risk_limits": {
+        "max_active_cycles": null,
+        "max_global_budget_quote": null,
+        "max_symbol_budget_quote": null,
+        "max_global_drawdown_quote": null,
+        "max_strategy_budget_quote": null,
+        "max_direction_budget_quote": null
+      },
+      "direction_mode": "long_and_short"
+    }
+  },
+  "FILUSDT": {
+    "cid": "btc_1781282178011099462",
+    "dir": "long_only",
+    "ann": 28.409147678195733,
+    "dd": 35.86457638984204,
+    "H1_2023": 26.024416488304137,
+    "H2_2023": 4.876267303730275,
+    "2024": 14.750849481546302,
+    "2025": 31.270912762144754,
+    "2026": 18.018509448961883,
+    "cfg": {
+      "strategies": [
+        {
+          "market": "usd_m_futures",
+          "sizing": {
+            "multiplier": {
+              "max_legs": 9,
+              "multiplier": "2.7999999999999998223643160587",
+              "first_order_quote": "100"
+            }
+          },
+          "symbol": "FILUSDT",
+          "spacing": {
+            "fixed_percent": {
+              "step_bps": 70
+            }
+          },
+          "leverage": 5,
+          "direction": "long",
+          "stop_loss": {
+            "strategy_drawdown_pct": {
+              "pct_bps": 9000
+            }
+          },
+          "indicators": [
+            {
+              "atr": {
+                "period": 7
+              }
+            },
+            {
+              "adx": {
+                "period": 14
+              }
+            }
+          ],
+          "margin_mode": "isolated",
+          "risk_limits": {
+            "max_active_cycles": null,
+            "max_global_budget_quote": null,
+            "max_symbol_budget_quote": null,
+            "max_global_drawdown_quote": null,
+            "max_strategy_budget_quote": null,
+            "max_direction_budget_quote": null
+          },
+          "strategy_id": "staged-8469",
+          "take_profit": {
+            "atr": {
+              "multiplier": "2"
+            }
+          },
+          "direction_mode": "long_only",
+          "entry_triggers": [
+            {
+              "cooldown": {
+                "seconds": 21600
+              }
+            },
+            {
+              "indicator_expression": {
+                "expression": "adx(14) > 30"
+              }
+            }
+          ]
+        }
+      ],
+      "risk_limits": {
+        "max_active_cycles": null,
+        "max_global_budget_quote": null,
+        "max_symbol_budget_quote": null,
+        "max_global_drawdown_quote": null,
+        "max_strategy_budget_quote": null,
+        "max_direction_budget_quote": null
+      },
+      "direction_mode": "long_only"
+    }
+  },
+  "SOLUSDT": {
+    "cid": "btc_1781723638732143195",
+    "dir": "long_and_short",
+    "ann": 25.147282537121065,
+    "dd": 74.00885816789676,
+    "H1_2023": 34.57538473872095,
+    "H2_2023": 1.9297814593661533,
+    "2024": 34.28174773868731,
+    "2025": 2.3434714061936868,
+    "2026": 14.155148502164394,
+    "cfg": {
+      "strategies": [
+        {
+          "market": "usd_m_futures",
+          "sizing": {
+            "multiplier": {
+              "max_legs": 10,
+              "multiplier": "2.2000000000000001776356839392",
+              "first_order_quote": "60"
+            }
+          },
+          "symbol": "SOLUSDT",
+          "spacing": {
+            "fixed_percent": {
+              "step_bps": 120
+            }
+          },
+          "leverage": 10,
+          "direction": "long",
+          "stop_loss": {
+            "strategy_drawdown_pct": {
+              "pct_bps": 7000
+            }
+          },
+          "indicators": [
+            {
+              "atr": {
+                "period": 14
+              }
+            },
+            {
+              "adx": {
+                "period": 14
+              }
+            }
+          ],
+          "margin_mode": "isolated",
+          "risk_limits": {
+            "max_active_cycles": null,
+            "max_global_budget_quote": null,
+            "max_symbol_budget_quote": null,
+            "max_global_drawdown_quote": null,
+            "max_strategy_budget_quote": null,
+            "max_direction_budget_quote": null
+          },
+          "strategy_id": "staged-5703-Long",
+          "take_profit": {
+            "atr": {
+              "multiplier": "2"
+            }
+          },
+          "direction_mode": "long_and_short",
+          "entry_triggers": [
+            {
+              "cooldown": {
+                "seconds": 21600
+              }
+            },
+            {
+              "indicator_expression": {
+                "expression": "adx(14) > 18"
+              }
+            }
+          ]
+        },
+        {
+          "market": "usd_m_futures",
+          "sizing": {
+            "multiplier": {
+              "max_legs": 8,
+              "multiplier": "2",
+              "first_order_quote": "40"
+            }
+          },
+          "symbol": "SOLUSDT",
+          "spacing": {
+            "fixed_percent": {
+              "step_bps": 50
+            }
+          },
+          "leverage": 10,
+          "direction": "short",
+          "stop_loss": {
+            "strategy_drawdown_pct": {
+              "pct_bps": 7000
+            }
+          },
+          "indicators": [
+            {
+              "atr": {
+                "period": 14
+              }
+            },
+            {
+              "adx": {
+                "period": 14
+              }
+            }
+          ],
+          "margin_mode": "isolated",
+          "risk_limits": {
+            "max_active_cycles": null,
+            "max_global_budget_quote": null,
+            "max_symbol_budget_quote": null,
+            "max_global_drawdown_quote": null,
+            "max_strategy_budget_quote": null,
+            "max_direction_budget_quote": null
+          },
+          "strategy_id": "staged-5703-Short",
+          "take_profit": {
+            "atr": {
+              "multiplier": "2"
+            }
+          },
+          "direction_mode": "long_and_short",
+          "entry_triggers": [
+            {
+              "cooldown": {
+                "seconds": 21600
+              }
+            },
+            {
+              "indicator_expression": {
+                "expression": "adx(14) > 18"
+              }
+            }
+          ]
+        }
+      ],
+      "risk_limits": {
+        "max_active_cycles": null,
+        "max_global_budget_quote": null,
+        "max_symbol_budget_quote": null,
+        "max_global_drawdown_quote": null,
+        "max_strategy_budget_quote": null,
+        "max_direction_budget_quote": null
+      },
+      "direction_mode": "long_and_short"
+    }
+  },
+  "ICPUSDT": {
+    "cid": "btc_1782060359270882231",
+    "dir": "long_and_short",
+    "ann": 22.86135788167474,
+    "dd": 51.05038870204118,
+    "H1_2023": 0.9433712196790456,
+    "H2_2023": 28.321019006133376,
+    "2024": 44.2697764220612,
+    "2025": 7.596030352270833,
+    "2026": 0.4917439998940232,
+    "cfg": {
+      "strategies": [
+        {
+          "market": "usd_m_futures",
+          "sizing": {
+            "multiplier": {
+              "max_legs": 9,
+              "multiplier": "2.7999999999999998223643160587",
+              "first_order_quote": "60"
+            }
+          },
+          "symbol": "ICPUSDT",
+          "spacing": {
+            "fixed_percent": {
+              "step_bps": 160
+            }
+          },
+          "leverage": 10,
+          "direction": "long",
+          "stop_loss": {
+            "strategy_drawdown_pct": {
+              "pct_bps": 7000
+            }
+          },
+          "indicators": [
+            {
+              "atr": {
+                "period": 14
+              }
+            }
+          ],
+          "margin_mode": "isolated",
+          "risk_limits": {
+            "max_active_cycles": null,
+            "max_global_budget_quote": null,
+            "max_symbol_budget_quote": null,
+            "max_global_drawdown_quote": null,
+            "max_strategy_budget_quote": null,
+            "max_direction_budget_quote": null
+          },
+          "strategy_id": "staged-4149-Long",
+          "take_profit": {
+            "atr": {
+              "multiplier": "2"
+            }
+          },
+          "direction_mode": "long_and_short",
+          "entry_triggers": [
+            {
+              "cooldown": {
+                "seconds": 21600
+              }
+            }
+          ]
+        },
+        {
+          "market": "usd_m_futures",
+          "sizing": {
+            "multiplier": {
+              "max_legs": 10,
+              "multiplier": "2",
+              "first_order_quote": "40"
+            }
+          },
+          "symbol": "ICPUSDT",
+          "spacing": {
+            "fixed_percent": {
+              "step_bps": 600
+            }
+          },
+          "leverage": 10,
+          "direction": "short",
+          "stop_loss": {
+            "strategy_drawdown_pct": {
+              "pct_bps": 5500
+            }
+          },
+          "indicators": [
+            {
+              "atr": {
+                "period": 14
+              }
+            }
+          ],
+          "margin_mode": "isolated",
+          "risk_limits": {
+            "max_active_cycles": null,
+            "max_global_budget_quote": null,
+            "max_symbol_budget_quote": null,
+            "max_global_drawdown_quote": null,
+            "max_strategy_budget_quote": null,
+            "max_direction_budget_quote": null
+          },
+          "strategy_id": "staged-4149-Short",
+          "take_profit": {
+            "atr": {
+              "multiplier": "2"
+            }
+          },
+          "direction_mode": "long_and_short",
+          "entry_triggers": [
+            {
+              "cooldown": {
+                "seconds": 21600
+              }
+            }
+          ]
+        }
+      ],
+      "risk_limits": {
+        "max_active_cycles": null,
+        "max_global_budget_quote": null,
+        "max_symbol_budget_quote": null,
+        "max_global_drawdown_quote": null,
+        "max_strategy_budget_quote": null,
+        "max_direction_budget_quote": null
+      },
+      "direction_mode": "long_and_short"
+    }
+  },
+  "ALGOUSDT": {
+    "cid": "btc_1781817711841120160",
+    "dir": "long_and_short",
+    "ann": 21.363181185393685,
+    "dd": 28.12033165546877,
+    "H1_2023": 9.63287147627032,
+    "H2_2023": 12.08487792550239,
+    "2024": 25.056797616754658,
+    "2025": 23.635532059491137,
+    "2026": 1.9972433231178588,
+    "cfg": {
+      "strategies": [
+        {
+          "market": "usd_m_futures",
+          "sizing": {
+            "multiplier": {
+              "max_legs": 7,
+              "multiplier": "2",
+              "first_order_quote": "40"
+            }
+          },
+          "symbol": "ALGOUSDT",
+          "spacing": {
+            "fixed_percent": {
+              "step_bps": 50
+            }
+          },
+          "leverage": 2,
+          "direction": "long",
+          "stop_loss": {
+            "strategy_drawdown_pct": {
+              "pct_bps": 5500
+            }
+          },
+          "indicators": [
+            {
+              "atr": {
+                "period": 21
+              }
+            }
+          ],
+          "margin_mode": "isolated",
+          "risk_limits": {
+            "max_active_cycles": null,
+            "max_global_budget_quote": null,
+            "max_symbol_budget_quote": null,
+            "max_global_drawdown_quote": null,
+            "max_strategy_budget_quote": null,
+            "max_direction_budget_quote": null
+          },
+          "strategy_id": "staged-16190-Long",
+          "take_profit": {
+            "percent": {
+              "bps": 300
+            }
+          },
+          "direction_mode": "long_and_short",
+          "entry_triggers": [
+            {
+              "cooldown": {
+                "seconds": 21600
+              }
+            }
+          ]
+        },
+        {
+          "market": "usd_m_futures",
+          "sizing": {
+            "multiplier": {
+              "max_legs": 10,
+              "multiplier": "2.7999999999999998223643160587",
+              "first_order_quote": "60"
+            }
+          },
+          "symbol": "ALGOUSDT",
+          "spacing": {
+            "fixed_percent": {
+              "step_bps": 420
+            }
+          },
+          "leverage": 2,
+          "direction": "short",
+          "stop_loss": {
+            "strategy_drawdown_pct": {
+              "pct_bps": 2400
+            }
+          },
+          "indicators": [
+            {
+              "atr": {
+                "period": 21
+              }
+            }
+          ],
+          "margin_mode": "isolated",
+          "risk_limits": {
+            "max_active_cycles": null,
+            "max_global_budget_quote": null,
+            "max_symbol_budget_quote": null,
+            "max_global_drawdown_quote": null,
+            "max_strategy_budget_quote": null,
+            "max_direction_budget_quote": null
+          },
+          "strategy_id": "staged-16190-Short",
+          "take_profit": {
+            "percent": {
+              "bps": 450
+            }
+          },
+          "direction_mode": "long_and_short",
+          "entry_triggers": [
+            {
+              "cooldown": {
+                "seconds": 21600
+              }
+            }
+          ]
+        }
+      ],
+      "risk_limits": {
+        "max_active_cycles": null,
+        "max_global_budget_quote": null,
+        "max_symbol_budget_quote": null,
+        "max_global_drawdown_quote": null,
+        "max_strategy_budget_quote": null,
+        "max_direction_budget_quote": null
+      },
+      "direction_mode": "long_and_short"
+    }
+  },
+  "ADAUSDT": {
+    "cid": "btc_1782397541049515049",
+    "dir": "long_and_short",
+    "ann": 19.17453123087236,
+    "dd": 14.784934183154661,
+    "H1_2023": 8.972716573132832,
+    "H2_2023": 3.9661786171762525,
+    "2024": 20.185686931745984,
+    "2025": 24.101148642121917,
+    "2026": 7.752585897337161,
+    "cfg": {
+      "strategies": [
+        {
+          "market": "usd_m_futures",
+          "sizing": {
+            "multiplier": {
+              "max_legs": 9,
+              "multiplier": "2.7999999999999998223643160587",
+              "first_order_quote": "90"
+            }
+          },
+          "symbol": "ADAUSDT",
+          "spacing": {
+            "fixed_percent": {
+              "step_bps": 90
+            }
+          },
+          "leverage": 10,
+          "direction": "long",
+          "stop_loss": {
+            "strategy_drawdown_pct": {
+              "pct_bps": 3000
+            }
+          },
+          "indicators": [
+            {
+              "atr": {
+                "period": 21
+              }
+            }
+          ],
+          "margin_mode": "isolated",
+          "risk_limits": {
+            "max_active_cycles": null,
+            "max_global_budget_quote": null,
+            "max_symbol_budget_quote": null,
+            "max_global_drawdown_quote": null,
+            "max_strategy_budget_quote": null,
+            "max_direction_budget_quote": null
+          },
+          "strategy_id": "staged-13621-Long",
+          "take_profit": {
+            "percent": {
+              "bps": 60
+            }
+          },
+          "direction_mode": "long_and_short",
+          "entry_triggers": [
+            {
+              "cooldown": {
+                "seconds": 21600
+              }
+            }
+          ]
+        },
+        {
+          "market": "usd_m_futures",
+          "sizing": {
+            "multiplier": {
+              "max_legs": 10,
+              "multiplier": "2.7999999999999998223643160587",
+              "first_order_quote": "10"
+            }
+          },
+          "symbol": "ADAUSDT",
+          "spacing": {
+            "fixed_percent": {
+              "step_bps": 420
+            }
+          },
+          "leverage": 10,
+          "direction": "short",
+          "stop_loss": {
+            "strategy_drawdown_pct": {
+              "pct_bps": 4000
+            }
+          },
+          "indicators": [
+            {
+              "atr": {
+                "period": 21
+              }
+            }
+          ],
+          "margin_mode": "isolated",
+          "risk_limits": {
+            "max_active_cycles": null,
+            "max_global_budget_quote": null,
+            "max_symbol_budget_quote": null,
+            "max_global_drawdown_quote": null,
+            "max_strategy_budget_quote": null,
+            "max_direction_budget_quote": null
+          },
+          "strategy_id": "staged-13621-Short",
+          "take_profit": {
+            "percent": {
+              "bps": 450
+            }
+          },
+          "direction_mode": "long_and_short",
+          "entry_triggers": [
+            {
+              "cooldown": {
+                "seconds": 21600
+              }
+            }
+          ]
+        }
+      ],
+      "risk_limits": {
+        "max_active_cycles": null,
+        "max_global_budget_quote": null,
+        "max_symbol_budget_quote": null,
+        "max_global_drawdown_quote": null,
+        "max_strategy_budget_quote": null,
+        "max_direction_budget_quote": null
+      },
+      "direction_mode": "long_and_short"
+    }
+  },
+  "EGLDUSDT": {
+    "cid": "btc_1782028551359082018",
+    "dir": "long_and_short",
+    "ann": 14.147008602741673,
+    "dd": 62.90661984699123,
+    "H1_2023": 0.2004036682548227,
+    "H2_2023": 13.196422592874768,
+    "2024": 21.29006226614052,
+    "2025": 10.092159728420857,
+    "2026": 3.752455228420315,
+    "cfg": {
+      "strategies": [
+        {
+          "market": "usd_m_futures",
+          "sizing": {
+            "multiplier": {
+              "max_legs": 10,
+              "multiplier": "1.6000000000000000888178419695",
+              "first_order_quote": "40"
+            }
+          },
+          "symbol": "EGLDUSDT",
+          "spacing": {
+            "fixed_percent": {
+              "step_bps": 25
+            }
+          },
+          "leverage": 4,
+          "direction": "long",
+          "stop_loss": {
+            "strategy_drawdown_pct": {
+              "pct_bps": 7000
+            }
+          },
+          "indicators": [
+            {
+              "atr": {
+                "period": 14
+              }
+            },
+            {
+              "adx": {
+                "period": 14
+              }
+            }
+          ],
+          "margin_mode": "isolated",
+          "risk_limits": {
+            "max_active_cycles": null,
+            "max_global_budget_quote": null,
+            "max_symbol_budget_quote": null,
+            "max_global_drawdown_quote": null,
+            "max_strategy_budget_quote": null,
+            "max_direction_budget_quote": null
+          },
+          "strategy_id": "staged-8897-Long",
+          "take_profit": {
+            "atr": {
+              "multiplier": "2"
+            }
+          },
+          "direction_mode": "long_and_short",
+          "entry_triggers": [
+            {
+              "cooldown": {
+                "seconds": 21600
+              }
+            },
+            {
+              "indicator_expression": {
+                "expression": "adx(14) > 30"
+              }
+            }
+          ]
+        },
+        {
+          "market": "usd_m_futures",
+          "sizing": {
+            "multiplier": {
+              "max_legs": 9,
+              "multiplier": "2.7999999999999998223643160587",
+              "first_order_quote": "60"
+            }
+          },
+          "symbol": "EGLDUSDT",
+          "spacing": {
+            "fixed_percent": {
+              "step_bps": 70
+            }
+          },
+          "leverage": 4,
+          "direction": "short",
+          "stop_loss": {
+            "strategy_drawdown_pct": {
+              "pct_bps": 9000
+            }
+          },
+          "indicators": [
+            {
+              "atr": {
+                "period": 14
+              }
+            },
+            {
+              "adx": {
+                "period": 14
+              }
+            }
+          ],
+          "margin_mode": "isolated",
+          "risk_limits": {
+            "max_active_cycles": null,
+            "max_global_budget_quote": null,
+            "max_symbol_budget_quote": null,
+            "max_global_drawdown_quote": null,
+            "max_strategy_budget_quote": null,
+            "max_direction_budget_quote": null
+          },
+          "strategy_id": "staged-8897-Short",
+          "take_profit": {
+            "atr": {
+              "multiplier": "2"
+            }
+          },
+          "direction_mode": "long_and_short",
+          "entry_triggers": [
+            {
+              "cooldown": {
+                "seconds": 21600
+              }
+            },
+            {
+              "indicator_expression": {
+                "expression": "adx(14) > 30"
+              }
+            }
+          ]
+        }
+      ],
+      "risk_limits": {
+        "max_active_cycles": null,
+        "max_global_budget_quote": null,
+        "max_symbol_budget_quote": null,
+        "max_global_drawdown_quote": null,
+        "max_strategy_budget_quote": null,
+        "max_direction_budget_quote": null
+      },
+      "direction_mode": "long_and_short"
+    }
+  },
+  "APTUSDT": {
+    "cid": "btc_1781817710594741639",
+    "dir": "long_and_short",
+    "ann": 13.9118623492545,
+    "dd": 16.711281504735737,
+    "H1_2023": 7.69348996549537,
+    "H2_2023": 3.2142793678095805,
+    "2024": 13.41881748835978,
+    "2025": 15.177913690875,
+    "2026": 7.502564302190606,
+    "cfg": {
+      "strategies": [
+        {
+          "market": "usd_m_futures",
+          "sizing": {
+            "multiplier": {
+              "max_legs": 9,
+              "multiplier": "2.399999999999999911182158029",
+              "first_order_quote": "50"
+            }
+          },
+          "symbol": "APTUSDT",
+          "spacing": {
+            "fixed_percent": {
+              "step_bps": 160
+            }
+          },
+          "leverage": 10,
+          "direction": "long",
+          "stop_loss": {
+            "strategy_drawdown_pct": {
+              "pct_bps": 5500
+            }
+          },
+          "indicators": [
+            {
+              "atr": {
+                "period": 14
+              }
+            },
+            {
+              "adx": {
+                "period": 14
+              }
+            }
+          ],
+          "margin_mode": "isolated",
+          "risk_limits": {
+            "max_active_cycles": null,
+            "max_global_budget_quote": null,
+            "max_symbol_budget_quote": null,
+            "max_global_drawdown_quote": null,
+            "max_strategy_budget_quote": null,
+            "max_direction_budget_quote": null
+          },
+          "strategy_id": "staged-12099-Long",
+          "take_profit": {
+            "percent": {
+              "bps": 60
+            }
+          },
+          "direction_mode": "long_and_short",
+          "entry_triggers": [
+            {
+              "cooldown": {
+                "seconds": 21600
+              }
+            },
+            {
+              "indicator_expression": {
+                "expression": "adx(14) > 20"
+              }
+            }
+          ]
+        },
+        {
+          "market": "usd_m_futures",
+          "sizing": {
+            "multiplier": {
+              "max_legs": 7,
+              "multiplier": "1.3999999999999999111821580293",
+              "first_order_quote": "50"
+            }
+          },
+          "symbol": "APTUSDT",
+          "spacing": {
+            "fixed_percent": {
+              "step_bps": 420
+            }
+          },
+          "leverage": 10,
+          "direction": "short",
+          "stop_loss": {
+            "strategy_drawdown_pct": {
+              "pct_bps": 4000
+            }
+          },
+          "indicators": [
+            {
+              "atr": {
+                "period": 14
+              }
+            },
+            {
+              "adx": {
+                "period": 14
+              }
+            }
+          ],
+          "margin_mode": "isolated",
+          "risk_limits": {
+            "max_active_cycles": null,
+            "max_global_budget_quote": null,
+            "max_symbol_budget_quote": null,
+            "max_global_drawdown_quote": null,
+            "max_strategy_budget_quote": null,
+            "max_direction_budget_quote": null
+          },
+          "strategy_id": "staged-12099-Short",
+          "take_profit": {
+            "percent": {
+              "bps": 450
+            }
+          },
+          "direction_mode": "long_and_short",
+          "entry_triggers": [
+            {
+              "cooldown": {
+                "seconds": 21600
+              }
+            },
+            {
+              "indicator_expression": {
+                "expression": "adx(14) > 20"
+              }
+            }
+          ]
+        }
+      ],
+      "risk_limits": {
+        "max_active_cycles": null,
+        "max_global_budget_quote": null,
+        "max_symbol_budget_quote": null,
+        "max_global_drawdown_quote": null,
+        "max_strategy_budget_quote": null,
+        "max_direction_budget_quote": null
+      },
+      "direction_mode": "long_and_short"
+    }
+  },
+  "COMPUSDT": {
+    "cid": "btc_1781817711908022588",
+    "dir": "long_and_short",
+    "ann": 10.206254654846258,
+    "dd": 22.58650618662412,
+    "H1_2023": 7.912922087098306,
+    "H2_2023": 4.265851337524218,
+    "2024": 9.37089400540505,
+    "2025": 7.9074906490775865,
+    "2026": 4.942526136646608,
+    "cfg": {
+      "strategies": [
+        {
+          "market": "usd_m_futures",
+          "sizing": {
+            "multiplier": {
+              "max_legs": 9,
+              "multiplier": "2.399999999999999911182158029",
+              "first_order_quote": "70"
+            }
+          },
+          "symbol": "COMPUSDT",
+          "spacing": {
+            "fixed_percent": {
+              "step_bps": 120
+            }
+          },
+          "leverage": 5,
+          "direction": "long",
+          "stop_loss": {
+            "strategy_drawdown_pct": {
+              "pct_bps": 7000
+            }
+          },
+          "indicators": [
+            {
+              "atr": {
+                "period": 21
+              }
+            }
+          ],
+          "margin_mode": "isolated",
+          "risk_limits": {
+            "max_active_cycles": null,
+            "max_global_budget_quote": null,
+            "max_symbol_budget_quote": null,
+            "max_global_drawdown_quote": null,
+            "max_strategy_budget_quote": null,
+            "max_direction_budget_quote": null
+          },
+          "strategy_id": "staged-14175-Long",
+          "take_profit": {
+            "percent": {
+              "bps": 60
+            }
+          },
+          "direction_mode": "long_and_short",
+          "entry_triggers": [
+            {
+              "cooldown": {
+                "seconds": 21600
+              }
+            }
+          ]
+        },
+        {
+          "market": "usd_m_futures",
+          "sizing": {
+            "multiplier": {
+              "max_legs": 7,
+              "multiplier": "1.3999999999999999111821580293",
+              "first_order_quote": "30"
+            }
+          },
+          "symbol": "COMPUSDT",
+          "spacing": {
+            "fixed_percent": {
+              "step_bps": 50
+            }
+          },
+          "leverage": 5,
+          "direction": "short",
+          "stop_loss": {
+            "strategy_drawdown_pct": {
+              "pct_bps": 600
+            }
+          },
+          "indicators": [
+            {
+              "atr": {
+                "period": 21
+              }
+            }
+          ],
+          "margin_mode": "isolated",
+          "risk_limits": {
+            "max_active_cycles": null,
+            "max_global_budget_quote": null,
+            "max_symbol_budget_quote": null,
+            "max_global_drawdown_quote": null,
+            "max_strategy_budget_quote": null,
+            "max_direction_budget_quote": null
+          },
+          "strategy_id": "staged-14175-Short",
+          "take_profit": {
+            "percent": {
+              "bps": 450
+            }
+          },
+          "direction_mode": "long_and_short",
+          "entry_triggers": [
+            {
+              "cooldown": {
+                "seconds": 21600
+              }
+            }
+          ]
+        }
+      ],
+      "risk_limits": {
+        "max_active_cycles": null,
+        "max_global_budget_quote": null,
+        "max_symbol_budget_quote": null,
+        "max_global_drawdown_quote": null,
+        "max_strategy_budget_quote": null,
+        "max_direction_budget_quote": null
+      },
+      "direction_mode": "long_and_short"
+    }
+  },
+  "ZECUSDT": {
+    "cid": "btc_1781337628053534603",
+    "dir": "long_only",
+    "ann": 8.202279435607363,
+    "dd": 38.605687269533334,
+    "H1_2023": 0.5860572870712621,
+    "H2_2023": 0.03899975828116631,
+    "2024": 0.9843801616289394,
+    "2025": 28.38014238181117,
+    "2026": 0.3476084896929521,
+    "cfg": {
+      "strategies": [
+        {
+          "market": "usd_m_futures",
+          "sizing": {
+            "multiplier": {
+              "max_legs": 10,
+              "multiplier": "2.7999999999999998223643160587",
+              "first_order_quote": "100"
+            }
+          },
+          "symbol": "ZECUSDT",
+          "spacing": {
+            "fixed_percent": {
+              "step_bps": 70
+            }
+          },
+          "leverage": 10,
+          "direction": "long",
+          "stop_loss": {
+            "strategy_drawdown_pct": {
+              "pct_bps": 9000
+            }
+          },
+          "indicators": [
+            {
+              "atr": {
+                "period": 21
+              }
+            },
+            {
+              "adx": {
+                "period": 14
+              }
+            }
+          ],
+          "margin_mode": "isolated",
+          "risk_limits": {
+            "max_active_cycles": null,
+            "max_global_budget_quote": null,
+            "max_symbol_budget_quote": null,
+            "max_global_drawdown_quote": null,
+            "max_strategy_budget_quote": null,
+            "max_direction_budget_quote": null
+          },
+          "strategy_id": "staged-6808",
+          "take_profit": {
+            "atr": {
+              "multiplier": "1"
+            }
+          },
+          "direction_mode": "long_only",
+          "entry_triggers": [
+            {
+              "cooldown": {
+                "seconds": 21600
+              }
+            },
+            {
+              "indicator_expression": {
+                "expression": "adx(14) > 25"
+              }
+            }
+          ]
+        }
+      ],
+      "risk_limits": {
+        "max_active_cycles": null,
+        "max_global_budget_quote": null,
+        "max_symbol_budget_quote": null,
+        "max_global_drawdown_quote": null,
+        "max_strategy_budget_quote": null,
+        "max_direction_budget_quote": null
+      },
+      "direction_mode": "long_only"
+    }
+  },
+  "ATOMUSDT": {
+    "cid": "btc_1782028550323536983",
+    "dir": "long_and_short",
+    "ann": 3.482441449239282,
+    "dd": 3.760866235195243,
+    "H1_2023": 1.302947776178609,
+    "H2_2023": 1.3389093137736063,
+    "2024": 4.954887319836243,
+    "2025": 2.964938664430994,
+    "2026": 1.3186571534881564,
+    "cfg": {
+      "strategies": [
+        {
+          "market": "usd_m_futures",
+          "sizing": {
+            "multiplier": {
+              "max_legs": 5,
+              "multiplier": "2.399999999999999911182158029",
+              "first_order_quote": "30"
+            }
+          },
+          "symbol": "ATOMUSDT",
+          "spacing": {
+            "fixed_percent": {
+              "step_bps": 800
+            }
+          },
+          "leverage": 4,
+          "direction": "long",
+          "stop_loss": {
+            "strategy_drawdown_pct": {
+              "pct_bps": 1800
+            }
+          },
+          "indicators": [
+            {
+              "atr": {
+                "period": 14
+              }
+            },
+            {
+              "adx": {
+                "period": 14
+              }
+            }
+          ],
+          "margin_mode": "isolated",
+          "risk_limits": {
+            "max_active_cycles": null,
+            "max_global_budget_quote": null,
+            "max_symbol_budget_quote": null,
+            "max_global_drawdown_quote": null,
+            "max_strategy_budget_quote": null,
+            "max_direction_budget_quote": null
+          },
+          "strategy_id": "staged-6918-Long",
+          "take_profit": {
+            "percent": {
+              "bps": 450
+            }
+          },
+          "direction_mode": "long_and_short",
+          "entry_triggers": [
+            {
+              "cooldown": {
+                "seconds": 21600
+              }
+            },
+            {
+              "indicator_expression": {
+                "expression": "adx(14) > 30"
+              }
+            }
+          ]
+        },
+        {
+          "market": "usd_m_futures",
+          "sizing": {
+            "multiplier": {
+              "max_legs": 10,
+              "multiplier": "2.2000000000000001776356839392",
+              "first_order_quote": "70"
+            }
+          },
+          "symbol": "ATOMUSDT",
+          "spacing": {
+            "fixed_percent": {
+              "step_bps": 800
+            }
+          },
+          "leverage": 4,
+          "direction": "short",
+          "stop_loss": {
+            "strategy_drawdown_pct": {
+              "pct_bps": 7000
+            }
+          },
+          "indicators": [
+            {
+              "atr": {
+                "period": 14
+              }
+            },
+            {
+              "adx": {
+                "period": 14
+              }
+            }
+          ],
+          "margin_mode": "isolated",
+          "risk_limits": {
+            "max_active_cycles": null,
+            "max_global_budget_quote": null,
+            "max_symbol_budget_quote": null,
+            "max_global_drawdown_quote": null,
+            "max_strategy_budget_quote": null,
+            "max_direction_budget_quote": null
+          },
+          "strategy_id": "staged-6918-Short",
+          "take_profit": {
+            "percent": {
+              "bps": 450
+            }
+          },
+          "direction_mode": "long_and_short",
+          "entry_triggers": [
+            {
+              "cooldown": {
+                "seconds": 21600
+              }
+            },
+            {
+              "indicator_expression": {
+                "expression": "adx(14) > 30"
+              }
+            }
+          ]
+        }
+      ],
+      "risk_limits": {
+        "max_active_cycles": null,
+        "max_global_budget_quote": null,
+        "max_symbol_budget_quote": null,
+        "max_global_drawdown_quote": null,
+        "max_strategy_budget_quote": null,
+        "max_direction_budget_quote": null
+      },
+      "direction_mode": "long_and_short"
+    }
+  }
+}

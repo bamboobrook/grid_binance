@@ -20,9 +20,7 @@ use crate::services::martingale_exchange_preconfigure_service::{
     binance_client_for_owner, check_live_state_blockers, target_exchange_settings_from_portfolio,
 };
 
-use backtest_engine::martingale::capital::{
-    project_portfolio_capital, PortfolioCapitalProjection,
-};
+use backtest_engine::martingale::capital::{project_portfolio_capital, PortfolioCapitalProjection};
 
 #[derive(Clone)]
 pub struct MartingalePublishService {
@@ -348,10 +346,9 @@ impl MartingalePublishService {
         // only — it is NOT the gate (the runtime never places those legs).
         const ENTRY_FEE_BPS: f64 = 4.5;
         const FEE_BUFFER_PCT: f64 = 5.0;
-        let global_margin_cap = rust_decimal::prelude::ToPrimitive::to_f64(
-            &live_budget.unwrap_or_default(),
-        )
-        .unwrap_or(0.0);
+        let global_margin_cap =
+            rust_decimal::prelude::ToPrimitive::to_f64(&live_budget.unwrap_or_default())
+                .unwrap_or(0.0);
         let weights = extract_portfolio_weight_factors(&config_value);
         let projection = project_portfolio_capital(
             &portfolio_config.strategies,
@@ -1499,7 +1496,10 @@ mod tests {
         assert!((proj.projected_fee_quote - 0.1125).abs() < 1e-6);
         assert!((proj.required_with_buffer_quote - 52.6125).abs() < 1e-6);
         let reason = preflight_rejection_reason(&proj, Some(40.0)).expect("must reject");
-        assert!(reason.contains("available USDT"), "unexpected reason: {reason}");
+        assert!(
+            reason.contains("available USDT"),
+            "unexpected reason: {reason}"
+        );
     }
 
     #[test]
@@ -1584,7 +1584,9 @@ mod tests {
             "budget-capped margin must respect the cap: {capped_margin}"
         );
         assert_eq!(preflight["all_strategies_can_start"], true);
-        let per_strategy = preflight["per_strategy"].as_array().expect("per_strategy array");
+        let per_strategy = preflight["per_strategy"]
+            .as_array()
+            .expect("per_strategy array");
         assert!(!per_strategy.is_empty(), "per_strategy must be non-empty");
     }
 }

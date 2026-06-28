@@ -7,9 +7,9 @@ use backtest_engine::martingale::rules::{compute_leg_notionals, compute_leg_trig
 use rust_decimal::prelude::ToPrimitive;
 use rust_decimal::Decimal;
 use shared_domain::martingale::{
-    MartingaleDirection, MartingaleDirectionMode, MartingaleEntryTrigger, MartingaleIndicatorConfig,
-    MartingaleMarketKind, MartingalePortfolioConfig, MartingaleRiskLimits, MartingaleSizingModel,
-    MartingaleSpacingModel, MartingaleStrategyConfig,
+    MartingaleDirection, MartingaleDirectionMode, MartingaleEntryTrigger,
+    MartingaleIndicatorConfig, MartingaleMarketKind, MartingalePortfolioConfig,
+    MartingaleRiskLimits, MartingaleSizingModel, MartingaleSpacingModel, MartingaleStrategyConfig,
 };
 use shared_domain::strategy::StrategyStatus;
 use std::collections::{hash_map::DefaultHasher, HashMap, HashSet};
@@ -398,7 +398,10 @@ impl MartingaleRuntime {
             _ => None,
         });
         if let Some(period) = adx_period {
-            if let Some(adx) = self.indicator_context.latest_adx(&strategy_config.symbol, period) {
+            if let Some(adx) = self
+                .indicator_context
+                .latest_adx(&strategy_config.symbol, period)
+            {
                 if adx > 45.0 {
                     // Do NOT advance next_leg_index — the just-filled leg is marked
                     // Filled above, and the safety leg retries on the next fill.
@@ -659,11 +662,7 @@ impl MartingaleRuntime {
         // Canonical capital model (see backtest_engine::martingale::capital):
         // the sizing geometric series is the LEVERAGED ORDER NOTIONAL (position
         // size); margin = notional / leverage; quantity = notional / price.
-        let notional_quote = leg_notional(
-            &strategy.sizing,
-            self.exchange_min_notional,
-            leg_index,
-        )?;
+        let notional_quote = leg_notional(&strategy.sizing, self.exchange_min_notional, leg_index)?;
         let leverage = strategy.leverage.unwrap_or(1).max(1);
         let margin_quote = notional_quote / Decimal::from(leverage);
         let quantity = notional_quote / price;

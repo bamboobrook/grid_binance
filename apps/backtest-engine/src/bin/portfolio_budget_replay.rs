@@ -42,6 +42,7 @@ struct Args {
     profile: Option<String>,
     portfolio_id: Option<String>,
     exchange_min_notional: f64,
+    equity_curve_points: usize,
 }
 
 impl Args {
@@ -55,6 +56,7 @@ impl Args {
         let mut profile = None;
         let mut portfolio_id = None;
         let mut exchange_min_notional: f64 = DEFAULT_EXCHANGE_MIN_NOTIONAL_IF_UNSET;
+        let mut equity_curve_points = 0_usize;
         let mut args = env::args().skip(1);
         while let Some(arg) = args.next() {
             let value = args
@@ -62,9 +64,19 @@ impl Args {
                 .ok_or_else(|| format!("missing value for argument {arg}"))?;
             match arg.as_str() {
                 "--config" => config_path = Some(PathBuf::from(value)),
-                "--budget" => budget = Some(value.parse::<Decimal>().map_err(|e| format!("budget: {e}"))?),
-                "--start-ms" => start_ms = Some(value.parse::<i64>().map_err(|e| format!("start-ms: {e}"))?),
-                "--end-ms" => end_ms = Some(value.parse::<i64>().map_err(|e| format!("end-ms: {e}"))?),
+                "--budget" => {
+                    budget = Some(
+                        value
+                            .parse::<Decimal>()
+                            .map_err(|e| format!("budget: {e}"))?,
+                    )
+                }
+                "--start-ms" => {
+                    start_ms = Some(value.parse::<i64>().map_err(|e| format!("start-ms: {e}"))?)
+                }
+                "--end-ms" => {
+                    end_ms = Some(value.parse::<i64>().map_err(|e| format!("end-ms: {e}"))?)
+                }
                 "--market-data" => market_data_path = Some(PathBuf::from(value)),
                 "--funding-data" => funding_data_path = Some(PathBuf::from(value)),
                 "--profile" => profile = Some(value),
@@ -73,6 +85,11 @@ impl Args {
                     exchange_min_notional = value
                         .parse::<f64>()
                         .map_err(|e| format!("exchange-min-notional: {e}"))?;
+                }
+                "--equity-curve-points" => {
+                    equity_curve_points = value
+                        .parse::<usize>()
+                        .map_err(|e| format!("equity-curve-points: {e}"))?;
                 }
                 _ => return Err(format!("unknown argument {arg}")),
             }
@@ -87,6 +104,7 @@ impl Args {
             profile,
             portfolio_id,
             exchange_min_notional,
+            equity_curve_points,
         })
     }
 }
@@ -117,11 +135,45 @@ fn parse_portfolio_config(value: &Value) -> Result<MartingalePortfolioConfig, St
     serde_json::from_value(portfolio_value).map_err(|err| format!("parse portfolio config: {err}"))
 }
 
+fn sampled_equity_curve(
+    curve: &[backtest_engine::martingale::metrics::EquityPoint],
+    max_points: usize,
+) -> Vec<Value> {
+    if max_points == 0 || curve.is_empty() {
+        return Vec::new();
+    }
+    if curve.len() <= max_points {
+        return curve
+            .iter()
+            .map(|point| {
+                serde_json::json!({
+                    "timestamp_ms": point.timestamp_ms,
+                    "equity_quote": point.equity_quote,
+                })
+            })
+            .collect();
+    }
+
+    let last = curve.len() - 1;
+    let denom = max_points - 1;
+    (0..max_points)
+        .map(|i| {
+            let idx = i * last / denom;
+            let point = &curve[idx];
+            serde_json::json!({
+                "timestamp_ms": point.timestamp_ms,
+                "equity_quote": point.equity_quote,
+            })
+        })
+        .collect()
+}
+
 fn main() -> Result<(), String> {
     let args = Args::parse()?;
     let text = fs::read_to_string(&args.config_path)
         .map_err(|err| format!("read {}: {err}", args.config_path.display()))?;
-    let root: Value = serde_json::from_str(&text).map_err(|err| format!("parse config json: {err}"))?;
+    let root: Value =
+        serde_json::from_str(&text).map_err(|err| format!("parse config json: {err}"))?;
     let raw_portfolio_value = raw_portfolio_config_value(&root);
     let mut portfolio = parse_portfolio_config(&root)?;
 
@@ -133,9 +185,7 @@ fn main() -> Result<(), String> {
     // ---- Risk profile (explicit arg, else detect from portfolio_id, else conservative). ----
     let profile = match args.profile.as_deref() {
         Some(text) => RiskProfile::parse(text)?,
-        None => RiskProfile::detect_from_portfolio_id(
-            args.portfolio_id.as_deref().unwrap_or(""),
-        ),
+        None => RiskProfile::detect_from_portfolio_id(args.portfolio_id.as_deref().unwrap_or("")),
     };
     let portfolio_id = args
         .portfolio_id
@@ -168,9 +218,22 @@ fn main() -> Result<(), String> {
         eprintln!("  loaded {symbol}: {} bars", loaded.len());
         bars.extend(loaded);
     }
-    bars.sort_by(|l, r| l.open_time_ms.cmp(&r.open_time_ms).then_with(|| l.symbol.cmp(&r.symbol)));
-    let funding = load_funding_rates_readonly(&args.funding_data_path, &symbols, args.start_ms, args.end_ms)?;
-    eprintln!("  total bars: {}, funding points: {}", bars.len(), funding.len());
+    bars.sort_by(|l, r| {
+        l.open_time_ms
+            .cmp(&r.open_time_ms)
+            .then_with(|| l.symbol.cmp(&r.symbol))
+    });
+    let funding = load_funding_rates_readonly(
+        &args.funding_data_path,
+        &symbols,
+        args.start_ms,
+        args.end_ms,
+    )?;
+    eprintln!(
+        "  total bars: {}, funding points: {}",
+        bars.len(),
+        funding.len()
+    );
 
     // ---- Run the sim on the runtime-parity config. ----
     let result = run_kline_screening_with_funding(portfolio.clone(), &bars, &funding)?;
@@ -196,7 +259,11 @@ fn main() -> Result<(), String> {
         .unwrap_or(0.0);
     let on_budget = on_budget_metrics(budget, &cum_pnl_series, days);
 
-    let final_eq = result.equity_curve.last().map(|p| p.equity_quote).unwrap_or(initial);
+    let final_eq = result
+        .equity_curve
+        .last()
+        .map(|p| p.equity_quote)
+        .unwrap_or(initial);
     let max_capital_used = m.max_capital_used_quote;
     let on_max_capital_return = if max_capital_used > 0.0 {
         Some((final_eq - initial) / max_capital_used)
@@ -311,6 +378,7 @@ fn main() -> Result<(), String> {
         "total_funding_quote": m.total_funding_quote,
         "budget_blocked_legs": breakdown.global + breakdown.symbol + breakdown.direction + breakdown.strategy,
         "total_rejection_reasons": result.rejection_reasons.len(),
+        "equity_curve": sampled_equity_curve(&result.equity_curve, args.equity_curve_points),
         "gate": {
             "profile": gate.profile.as_str(),
             "annualized_threshold": gate.annualized_threshold,
@@ -318,6 +386,9 @@ fn main() -> Result<(), String> {
             "passed": gate.passed,
         },
     });
-    println!("{}", serde_json::to_string_pretty(&summary).map_err(|e| format!("serialize: {e}"))?);
+    println!(
+        "{}",
+        serde_json::to_string_pretty(&summary).map_err(|e| format!("serialize: {e}"))?
+    );
     Ok(())
 }

@@ -26,11 +26,13 @@ use rust_decimal::prelude::ToPrimitive;
 use rust_decimal::Decimal;
 use serde_json::Value;
 use shared_domain::martingale::{
-    MartingaleMarketKind, MartingalePortfolioConfig, MartingaleSizingModel, MartingaleStrategyConfig,
+    MartingaleMarketKind, MartingalePortfolioConfig, MartingaleSizingModel,
+    MartingaleStrategyConfig,
 };
 
 use crate::martingale::capital::{
-    apply_portfolio_weight_margin_caps, first_leg_margin_for_strategy, DEFAULT_EXCHANGE_MIN_NOTIONAL,
+    apply_portfolio_weight_margin_caps, first_leg_margin_for_strategy,
+    DEFAULT_EXCHANGE_MIN_NOTIONAL,
 };
 
 // ===========================================================================
@@ -201,11 +203,7 @@ pub struct OnBudgetMetrics {
 /// Annualized return uses `((1+total_return_on_budget)^(365/days)-1)*100`;
 /// max DD is peak-to-trough on `equity_on_budget`; `principal_breached` is set
 /// when any `equity_on_budget <= 0.0`.
-pub fn on_budget_metrics(
-    budget_quote: f64,
-    cum_pnl_series: &[f64],
-    days: f64,
-) -> OnBudgetMetrics {
+pub fn on_budget_metrics(budget_quote: f64, cum_pnl_series: &[f64], days: f64) -> OnBudgetMetrics {
     let budget = budget_quote.max(1e-9);
     let mut peak = f64::NEG_INFINITY;
     let mut max_dd_pct = 0.0_f64;
@@ -406,23 +404,28 @@ pub fn minimum_capital_view(
 
 /// Full-ladder planned margin (sum of leg margins) for one strategy with its
 /// ORIGINAL sizing (no cap), f64.
-fn full_ladder_margin_for_strategy(
-    strategy: &MartingaleStrategyConfig,
-) -> Result<f64, String> {
+fn full_ladder_margin_for_strategy(strategy: &MartingaleStrategyConfig) -> Result<f64, String> {
     let leverage = match strategy.market {
         MartingaleMarketKind::Spot => 1.0,
         MartingaleMarketKind::UsdMFutures => strategy.leverage.unwrap_or(1).max(1) as f64,
     };
     let notionals = leg_notional_decimals(strategy)?;
-    let margin: f64 = notionals.iter().map(|n| n.to_f64().unwrap_or(0.0) / leverage).sum();
+    let margin: f64 = notionals
+        .iter()
+        .map(|n| n.to_f64().unwrap_or(0.0) / leverage)
+        .sum();
     Ok(margin)
 }
 
 /// First leg's leveraged notional (Decimal) for a strategy, or None if no legs.
 fn first_order_notional_for_strategy(strategy: &MartingaleStrategyConfig) -> Option<f64> {
     let first = match &strategy.sizing {
-        MartingaleSizingModel::Multiplier { first_order_quote, .. }
-        | MartingaleSizingModel::BudgetScaled { first_order_quote, .. } => *first_order_quote,
+        MartingaleSizingModel::Multiplier {
+            first_order_quote, ..
+        }
+        | MartingaleSizingModel::BudgetScaled {
+            first_order_quote, ..
+        } => *first_order_quote,
         MartingaleSizingModel::CustomSequence { notionals } => notionals.first().copied()?,
     };
     Some(first.to_f64().unwrap_or(0.0))
@@ -437,9 +440,7 @@ fn leg_notional_decimals(strategy: &MartingaleStrategyConfig) -> Result<Vec<Deci
         DEFAULT_EXCHANGE_MIN_NOTIONAL,
     )?;
     Ok(f.into_iter()
-        .map(|v| {
-            Decimal::try_from(v).unwrap_or_else(|_| Decimal::ZERO)
-        })
+        .map(|v| Decimal::try_from(v).unwrap_or_else(|_| Decimal::ZERO))
         .collect())
 }
 
@@ -492,12 +493,7 @@ pub fn build_per_strategy_diagnostics<'a>(
             .strategies
             .iter()
             .find(|p| p.strategy_id == strategy.strategy_id)
-            .map(|p| {
-                p.legs
-                    .iter()
-                    .take_while(|l| l.accepted)
-                    .count() as u32
-            })
+            .map(|p| p.legs.iter().take_while(|l| l.accepted).count() as u32)
             .unwrap_or(0);
         out.push(PerStrategyDiagnostic {
             strategy,
@@ -586,31 +582,61 @@ mod tests {
         weight_pct: Option<&str>,
     ) -> serde_json::Value {
         let mut s = serde_json::Map::new();
-        s.insert("strategy_id".to_string(), serde_json::Value::String(id.to_string()));
-        s.insert("symbol".to_string(), serde_json::Value::String(id.to_string().to_uppercase()));
-        s.insert("market".to_string(), serde_json::Value::String(market.to_string()));
-        s.insert("direction".to_string(), serde_json::Value::String("long".to_string()));
-        s.insert("direction_mode".to_string(), serde_json::Value::String("long_and_short".to_string()));
+        s.insert(
+            "strategy_id".to_string(),
+            serde_json::Value::String(id.to_string()),
+        );
+        s.insert(
+            "symbol".to_string(),
+            serde_json::Value::String(id.to_string().to_uppercase()),
+        );
+        s.insert(
+            "market".to_string(),
+            serde_json::Value::String(market.to_string()),
+        );
+        s.insert(
+            "direction".to_string(),
+            serde_json::Value::String("long".to_string()),
+        );
+        s.insert(
+            "direction_mode".to_string(),
+            serde_json::Value::String("long_and_short".to_string()),
+        );
         if let Some(lev) = leverage {
             s.insert("leverage".to_string(), serde_json::json!(lev));
         }
-        s.insert("spacing".to_string(), serde_json::json!({"fixed_percent": {"step_bps": 100}}));
+        s.insert(
+            "spacing".to_string(),
+            serde_json::json!({"fixed_percent": {"step_bps": 100}}),
+        );
         s.insert(
             "sizing".to_string(),
             serde_json::json!({
                 "multiplier": {"first_order_quote": first_order_quote, "multiplier": "2", "max_legs": 4}
             }),
         );
-        s.insert("take_profit".to_string(), serde_json::json!({"percent": {"bps": 100}}));
+        s.insert(
+            "take_profit".to_string(),
+            serde_json::json!({"percent": {"bps": 100}}),
+        );
         if let Some(weight) = weight_pct {
             s.insert(
                 "portfolio_weight_pct".to_string(),
                 serde_json::Value::String(weight.to_string()),
             );
         }
-        s.insert("indicators".to_string(), serde_json::Value::Array(Vec::new()));
-        s.insert("entry_triggers".to_string(), serde_json::Value::Array(Vec::new()));
-        s.insert("risk_limits".to_string(), serde_json::Value::Object(serde_json::Map::new()));
+        s.insert(
+            "indicators".to_string(),
+            serde_json::Value::Array(Vec::new()),
+        );
+        s.insert(
+            "entry_triggers".to_string(),
+            serde_json::Value::Array(Vec::new()),
+        );
+        s.insert(
+            "risk_limits".to_string(),
+            serde_json::Value::Object(serde_json::Map::new()),
+        );
         serde_json::Value::Object(s)
     }
 
@@ -620,8 +646,7 @@ mod tests {
     fn prepare_replay_config_single_strategy_cap_floored_at_first_leg_margin() {
         // 1 strategy, foq=250, lev=5, weight 100%, global budget 50.
         // first-leg margin 250/5 = 50 floors the cap at 50 (NOT notional 250).
-        let strat_json =
-            strategy_json("s1", "usd_m_futures", Some(5), "250", Some("100"));
+        let strat_json = strategy_json("s1", "usd_m_futures", Some(5), "250", Some("100"));
         let config_value = portfolio_json(&[strat_json], None);
         let mut config: MartingalePortfolioConfig =
             serde_json::from_value(config_value.clone()).unwrap();
@@ -662,14 +687,16 @@ mod tests {
 
     #[test]
     fn prepare_replay_config_zero_budget_is_noop_flag() {
-        let strat_json =
-            strategy_json("s1", "usd_m_futures", Some(5), "100", Some("100"));
+        let strat_json = strategy_json("s1", "usd_m_futures", Some(5), "100", Some("100"));
         let config_value = portfolio_json(&[strat_json], None);
         let mut config: MartingalePortfolioConfig =
             serde_json::from_value(config_value.clone()).unwrap();
         let prep = prepare_replay_config(&mut config, &config_value, Decimal::ZERO).unwrap();
         assert!(!prep.runtime_weight_caps_applied);
-        assert_eq!(config.strategies[0].risk_limits.max_strategy_budget_quote, None);
+        assert_eq!(
+            config.strategies[0].risk_limits.max_strategy_budget_quote,
+            None
+        );
     }
 
     // ----- on_budget_metrics tests -----
@@ -678,8 +705,16 @@ mod tests {
     fn on_budget_metrics_basic_upside() {
         // budget 100, cum_pnl goes 0 -> 10 over 365 days => +10% total, +10% ann.
         let m = on_budget_metrics(100.0, &[0.0, 10.0], 365.0);
-        assert!((m.total_return_pct - 10.0).abs() < 1e-9, "{}", m.total_return_pct);
-        assert!((m.annualized_return_pct - 10.0).abs() < 1e-6, "{}", m.annualized_return_pct);
+        assert!(
+            (m.total_return_pct - 10.0).abs() < 1e-9,
+            "{}",
+            m.total_return_pct
+        );
+        assert!(
+            (m.annualized_return_pct - 10.0).abs() < 1e-6,
+            "{}",
+            m.annualized_return_pct
+        );
         assert!((m.max_drawdown_pct - 0.0).abs() < 1e-9);
         assert!((m.min_equity_quote - 100.0).abs() < 1e-9);
         assert!(!m.principal_breached);
@@ -692,7 +727,11 @@ mod tests {
         assert!(m.principal_breached, "equity dipped to -20 <= 0");
         assert!(m.min_equity_quote <= 0.0);
         // Peak 100, trough -20 => DD = (100-(-20))/100*100 = 120%.
-        assert!((m.max_drawdown_pct - 120.0).abs() < 1e-6, "{}", m.max_drawdown_pct);
+        assert!(
+            (m.max_drawdown_pct - 120.0).abs() < 1e-6,
+            "{}",
+            m.max_drawdown_pct
+        );
     }
 
     #[test]
@@ -736,15 +775,24 @@ mod tests {
     fn risk_profile_threshold_table() {
         assert_eq!(
             RiskProfile::Conservative.threshold(),
-            GateThreshold { annualized_return_pct: 50.0, max_drawdown_pct: 10.0 }
+            GateThreshold {
+                annualized_return_pct: 50.0,
+                max_drawdown_pct: 10.0
+            }
         );
         assert_eq!(
             RiskProfile::Balanced.threshold(),
-            GateThreshold { annualized_return_pct: 90.0, max_drawdown_pct: 20.0 }
+            GateThreshold {
+                annualized_return_pct: 90.0,
+                max_drawdown_pct: 20.0
+            }
         );
         assert_eq!(
             RiskProfile::Aggressive.threshold(),
-            GateThreshold { annualized_return_pct: 110.0, max_drawdown_pct: 30.0 }
+            GateThreshold {
+                annualized_return_pct: 110.0,
+                max_drawdown_pct: 30.0
+            }
         );
     }
 
@@ -771,44 +819,16 @@ mod tests {
     #[test]
     fn evaluate_gate_passes_and_fails() {
         // Conservative: ann>50, dd<=10, no breach, within budget.
-        let g = evaluate_gate(
-            RiskProfile::Conservative,
-            60.0,
-            8.0,
-            false,
-            950.0,
-            1000.0,
-        );
+        let g = evaluate_gate(RiskProfile::Conservative, 60.0, 8.0, false, 950.0, 1000.0);
         assert!(g.passed);
         // Fails on DD.
-        let g = evaluate_gate(
-            RiskProfile::Conservative,
-            60.0,
-            12.0,
-            false,
-            950.0,
-            1000.0,
-        );
+        let g = evaluate_gate(RiskProfile::Conservative, 60.0, 12.0, false, 950.0, 1000.0);
         assert!(!g.passed);
         // Fails on principal breach.
-        let g = evaluate_gate(
-            RiskProfile::Conservative,
-            60.0,
-            8.0,
-            true,
-            950.0,
-            1000.0,
-        );
+        let g = evaluate_gate(RiskProfile::Conservative, 60.0, 8.0, true, 950.0, 1000.0);
         assert!(!g.passed);
         // Fails when max_capital_used exceeds budget.
-        let g = evaluate_gate(
-            RiskProfile::Conservative,
-            60.0,
-            8.0,
-            false,
-            1001.0,
-            1000.0,
-        );
+        let g = evaluate_gate(RiskProfile::Conservative, 60.0, 8.0, false, 1001.0, 1000.0);
         assert!(!g.passed);
         // Balanced threshold.
         let g = evaluate_gate(RiskProfile::Balanced, 95.0, 18.0, false, 1000.0, 1000.0);
@@ -865,7 +885,10 @@ mod tests {
             "{}",
             view.min_exact_scaled_executable_principal_quote
         );
-        assert_eq!(view.min_exact_scaled_bottleneck_strategy_id.as_deref(), Some("b"));
+        assert_eq!(
+            view.min_exact_scaled_bottleneck_strategy_id.as_deref(),
+            Some("b")
+        );
         // scale_to_1000 at b: first_order 20 * 1000 / 93.75 = 213.333...
         let expected_scale = 20.0 * 1000.0 / 93.75;
         let actual = view.scale_to_1000_min_first_order_quote.unwrap();

@@ -174,7 +174,8 @@ pub fn score_candidate(
         - config.weight_stop_frequency.max(0.0) * stop_penalty
         - leverage_penalty
         - liquidation_penalty
-        + config.weight_regime_robustness.max(0.0) * 25.0
+        + config.weight_regime_robustness.max(0.0)
+            * 25.0
             * regime_robustness_factor(&result.equity_curve);
     let raw_score = clamp_score(raw_score);
     let rank_score = (raw_score + VALID_RANK_EPSILON).min(100.0);
@@ -225,7 +226,11 @@ fn regime_robustness_factor(equity_curve: &[crate::martingale::metrics::EquityPo
     let mut positive = 0usize;
     for k in 0..SUB_PERIODS {
         let start_idx = k * chunk;
-        let end_idx = if k == SUB_PERIODS - 1 { n } else { (k + 1) * chunk };
+        let end_idx = if k == SUB_PERIODS - 1 {
+            n
+        } else {
+            (k + 1) * chunk
+        };
         if end_idx == 0 {
             continue;
         }

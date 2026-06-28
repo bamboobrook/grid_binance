@@ -1,0 +1,334 @@
+{
+  "portfolio_config": {
+    "direction_mode": "long_and_short",
+    "risk_limits": {
+      "max_global_budget_quote": "3250.00000000"
+    },
+    "strategies": [
+      {
+        "market": "usd_m_futures",
+        "sizing": {
+          "multiplier": {
+            "max_legs": 10,
+            "multiplier": "2.2000000000000001776356839392",
+            "first_order_quote": "6.94944983"
+          }
+        },
+        "symbol": "INJUSDT",
+        "spacing": {
+          "fixed_percent": {
+            "step_bps": 35
+          }
+        },
+        "leverage": 10,
+        "direction": "long",
+        "stop_loss": {
+          "strategy_drawdown_pct": {
+            "pct_bps": 1800
+          }
+        },
+        "indicators": [
+          {
+            "atr": {
+              "period": 7
+            }
+          }
+        ],
+        "margin_mode": "isolated",
+        "risk_limits": {
+          "max_active_cycles": null,
+          "max_global_budget_quote": null,
+          "max_symbol_budget_quote": null,
+          "max_global_drawdown_quote": null,
+          "max_strategy_budget_quote": null,
+          "max_direction_budget_quote": null
+        },
+        "strategy_id": "lowcap-0-staged-9684-Long",
+        "take_profit": {
+          "percent": {
+            "bps": 450
+          }
+        },
+        "direction_mode": "long_and_short",
+        "entry_triggers": [
+          {
+            "cooldown": {
+              "seconds": 21600
+            }
+          }
+        ],
+        "portfolio_weight_pct": "47.6880552250"
+      },
+      {
+        "market": "usd_m_futures",
+        "sizing": {
+          "multiplier": {
+            "max_legs": 4,
+            "multiplier": "1.6000000000000000888178419695",
+            "first_order_quote": "62.54504850"
+          }
+        },
+        "symbol": "INJUSDT",
+        "spacing": {
+          "fixed_percent": {
+            "step_bps": 70
+          }
+        },
+        "leverage": 10,
+        "direction": "short",
+        "stop_loss": {
+          "strategy_drawdown_pct": {
+            "pct_bps": 800
+          }
+        },
+        "indicators": [
+          {
+            "atr": {
+              "period": 7
+            }
+          }
+        ],
+        "margin_mode": "isolated",
+        "risk_limits": {
+          "max_active_cycles": null,
+          "max_global_budget_quote": null,
+          "max_symbol_budget_quote": null,
+          "max_global_drawdown_quote": null,
+          "max_strategy_budget_quote": null,
+          "max_direction_budget_quote": null
+        },
+        "strategy_id": "lowcap-0-staged-9684-Short",
+        "take_profit": {
+          "percent": {
+            "bps": 450
+          }
+        },
+        "direction_mode": "long_and_short",
+        "entry_triggers": [
+          {
+            "cooldown": {
+              "seconds": 21600
+            }
+          }
+        ],
+        "portfolio_weight_pct": "1.7955332452"
+      },
+      {
+        "market": "usd_m_futures",
+        "sizing": {
+          "multiplier": {
+            "max_legs": 7,
+            "multiplier": "2.7999999999999998223643160587",
+            "first_order_quote": "13.08650851"
+          }
+        },
+        "symbol": "LINKUSDT",
+        "spacing": {
+          "fixed_percent": {
+            "step_bps": 35
+          }
+        },
+        "leverage": 10,
+        "direction": "long",
+        "stop_loss": {
+          "strategy_drawdown_pct": {
+            "pct_bps": 7000
+          }
+        },
+        "indicators": [
+          {
+            "atr": {
+              "period": 14
+            }
+          }
+        ],
+        "margin_mode": "isolated",
+        "risk_limits": {
+          "max_active_cycles": null,
+          "max_global_budget_quote": null,
+          "max_symbol_budget_quote": null,
+          "max_global_drawdown_quote": null,
+          "max_strategy_budget_quote": null,
+          "max_direction_budget_quote": null
+        },
+        "strategy_id": "lowcap-1-staged-9443-Long",
+        "take_profit": {
+          "percent": {
+            "bps": 300
+          }
+        },
+        "direction_mode": "long_and_short",
+        "entry_triggers": [
+          {
+            "cooldown": {
+              "seconds": 21600
+            }
+          }
+        ],
+        "portfolio_weight_pct": "30.4027374913"
+      },
+      {
+        "market": "usd_m_futures",
+        "sizing": {
+          "multiplier": {
+            "max_legs": 10,
+            "multiplier": "1.1000000000000000888178419696",
+            "first_order_quote": "8.72433900"
+          }
+        },
+        "symbol": "LINKUSDT",
+        "spacing": {
+          "fixed_percent": {
+            "step_bps": 160
+          }
+        },
+        "leverage": 10,
+        "direction": "short",
+        "stop_loss": {
+          "strategy_drawdown_pct": {
+            "pct_bps": 2400
+          }
+        },
+        "indicators": [
+          {
+            "atr": {
+              "period": 14
+            }
+          }
+        ],
+        "margin_mode": "isolated",
+        "risk_limits": {
+          "max_active_cycles": null,
+          "max_global_budget_quote": null,
+          "max_symbol_budget_quote": null,
+          "max_global_drawdown_quote": null,
+          "max_strategy_budget_quote": null,
+          "max_direction_budget_quote": null
+        },
+        "strategy_id": "lowcap-1-staged-9443-Short",
+        "take_profit": {
+          "percent": {
+            "bps": 300
+          }
+        },
+        "direction_mode": "long_and_short",
+        "entry_triggers": [
+          {
+            "cooldown": {
+              "seconds": 21600
+            }
+          }
+        ],
+        "portfolio_weight_pct": "0.4312487478"
+      },
+      {
+        "market": "usd_m_futures",
+        "sizing": {
+          "multiplier": {
+            "max_legs": 4,
+            "multiplier": "2.7999999999999998223643160587",
+            "first_order_quote": "53.95931915"
+          }
+        },
+        "symbol": "AAVEUSDT",
+        "spacing": {
+          "fixed_percent": {
+            "step_bps": 50
+          }
+        },
+        "leverage": 10,
+        "direction": "long",
+        "stop_loss": {
+          "strategy_drawdown_pct": {
+            "pct_bps": 3000
+          }
+        },
+        "indicators": [
+          {
+            "atr": {
+              "period": 14
+            }
+          }
+        ],
+        "margin_mode": "isolated",
+        "risk_limits": {
+          "max_active_cycles": null,
+          "max_global_budget_quote": null,
+          "max_symbol_budget_quote": null,
+          "max_global_drawdown_quote": null,
+          "max_strategy_budget_quote": null,
+          "max_direction_budget_quote": null
+        },
+        "strategy_id": "lowcap-2-staged-19397-Long",
+        "take_profit": {
+          "percent": {
+            "bps": 450
+          }
+        },
+        "direction_mode": "long_and_short",
+        "entry_triggers": [
+          {
+            "cooldown": {
+              "seconds": 21600
+            }
+          }
+        ],
+        "portfolio_weight_pct": "5.6218531089"
+      },
+      {
+        "market": "usd_m_futures",
+        "sizing": {
+          "multiplier": {
+            "max_legs": 8,
+            "multiplier": "1.8000000000000000444089209845",
+            "first_order_quote": "13.48982979"
+          }
+        },
+        "symbol": "AAVEUSDT",
+        "spacing": {
+          "fixed_percent": {
+            "step_bps": 220
+          }
+        },
+        "leverage": 10,
+        "direction": "short",
+        "stop_loss": {
+          "strategy_drawdown_pct": {
+            "pct_bps": 1200
+          }
+        },
+        "indicators": [
+          {
+            "atr": {
+              "period": 14
+            }
+          }
+        ],
+        "margin_mode": "isolated",
+        "risk_limits": {
+          "max_active_cycles": null,
+          "max_global_budget_quote": null,
+          "max_symbol_budget_quote": null,
+          "max_global_drawdown_quote": null,
+          "max_strategy_budget_quote": null,
+          "max_direction_budget_quote": null
+        },
+        "strategy_id": "lowcap-2-staged-19397-Short",
+        "take_profit": {
+          "percent": {
+            "bps": 450
+          }
+        },
+        "direction_mode": "long_and_short",
+        "entry_triggers": [
+          {
+            "cooldown": {
+              "seconds": 21600
+            }
+          }
+        ],
+        "portfolio_weight_pct": "5.7110337202"
+      }
+    ]
+  }
+}

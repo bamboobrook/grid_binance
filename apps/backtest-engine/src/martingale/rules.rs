@@ -127,14 +127,21 @@ fn expand_spacing_bps(
                     "min_step_bps {min_step_bps} must be <= max_step_bps {max_step_bps}"
                 ));
             }
-            let atr =
-                latest_atr.ok_or_else(|| "latest_atr is required for ATR spacing".to_string())?;
-            validate_positive_f64("latest_atr", atr)?;
-            let multiplier = decimal_to_f64("multiplier", *multiplier)?;
-            validate_positive_f64("multiplier", multiplier)?;
-
-            let step_bps = (atr * multiplier / anchor_price * BPS_DENOMINATOR)
-                .clamp(*min_step_bps as f64, *max_step_bps as f64);
+            // When ATR is not yet available (warmup period before enough bars
+            // have accumulated), fall back to min_step_bps as a conservative
+            // default. This lets ATR-spacing strategies start trading without
+            // waiting for the full ATR period to elapse, and the trigger prices
+            // get recomputed on the next cycle once ATR becomes available.
+            let step_bps = match latest_atr {
+                Some(atr) if atr > 0.0 => {
+                    validate_positive_f64("latest_atr", atr)?;
+                    let multiplier = decimal_to_f64("multiplier", *multiplier)?;
+                    validate_positive_f64("multiplier", multiplier)?;
+                    (atr * multiplier / anchor_price * BPS_DENOMINATOR)
+                        .clamp(*min_step_bps as f64, *max_step_bps as f64)
+                }
+                _ => *min_step_bps as f64,
+            };
             validate_non_negative_f64("distance_bps", step_bps)?;
 
             (1..=max_legs)

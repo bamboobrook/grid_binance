@@ -5,9 +5,7 @@ use shared_domain::martingale::{
     MartingaleTakeProfitModel,
 };
 use std::collections::HashMap;
-use trading_engine::martingale_budget::{
-    apply_global_budget_allocations, cap_strategy_budget,
-};
+use trading_engine::martingale_budget::{apply_global_budget_allocations, cap_strategy_budget};
 
 fn dec(value: i64) -> Decimal {
     Decimal::new(value, 0)
@@ -83,7 +81,12 @@ fn apply_global_budget_allocations_uses_weight_factors() {
     // foq=100 lev=4 -> first-leg margin=25 <= 50 -> cap=50 for both.
     // Proves weights sum to 100% of MARGIN, not 200% of notional.
     let long = strategy("long", MartingaleMarketKind::UsdMFutures, Some(4), dec(100));
-    let short = strategy("short", MartingaleMarketKind::UsdMFutures, Some(4), dec(100));
+    let short = strategy(
+        "short",
+        MartingaleMarketKind::UsdMFutures,
+        Some(4),
+        dec(100),
+    );
     let mut config = MartingalePortfolioConfig {
         direction_mode: MartingaleDirectionMode::LongAndShort,
         strategies: vec![long, short],

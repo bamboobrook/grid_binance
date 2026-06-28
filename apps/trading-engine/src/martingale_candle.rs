@@ -94,7 +94,10 @@ pub fn complete_bars(
             }
             Some(_) => {}
             None => {
-                buckets.insert(tick.symbol.clone(), LiveCandleBucket::new(bucket_open_ms, price));
+                buckets.insert(
+                    tick.symbol.clone(),
+                    LiveCandleBucket::new(bucket_open_ms, price),
+                );
             }
         }
     }
