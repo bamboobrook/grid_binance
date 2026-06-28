@@ -57,14 +57,16 @@ PATH=$HOME/.cargo/bin:$PATH cargo build -p backtest-engine --bin portfolio_budge
 - Moreira & Muir, Volatility-Managed Portfolios：高波动时降低风险暴露可以提高风险调整后表现。参考：<https://www.nber.org/papers/w22208>
 - Chen/Chen/Jang, Dynamic Grid Trading Strategy：传统 grid 在简单假设下接近零期望，动态重置 grid 才可能改善收益与风险。参考：<https://arxiv.org/abs/2506.11921>
 - Bailey & López de Prado, Deflated Sharpe Ratio：大量参数试验会导致选择偏差，必须记录 trial 并校正过拟合。参考：<https://papers.ssrn.com/sol3/papers.cfm?abstract_id=2460551>
-- Bailey/Borwein/López de Prado/Zhu, Probability of Backtest Overfitting：投资回测中普通 hold-out 不可靠，应使用 CSCV/PBO 评估选择过程。参考：<https://papers.ssrn.com/sol3/Papers.cfm?abstract_id=2326253>
+- Bailey/Borwein/López de Prado/Zhu, Probability of Backtest Overfitting：投资回测中普通 hold-out 不可靠，应使用 CSCV/PBO 评估选择过程。参考：<https://papers.ssrn.com/sol3/papers.cfm?abstract_id=2326253>
 - Sullivan/Timmermann/White, Data-Snooping and Technical Trading Rules：技术规则搜索必须量化 data-snooping bias。参考：<https://ideas.repec.org/a/bla/jfinan/v54y1999i5p1647-1691.html>
 - Binance USD-M Futures 文档：
-  - 普通下单：<https://developers.binance.com/docs/derivatives/usds-margined-futures/trade/rest-api>
+  - 普通下单：<https://developers.binance.com/docs/derivatives/usds-margined-futures/trade/rest-api/New-Order>
   - Algo/条件单 TP/SL/Trailing：<https://developers.binance.com/docs/derivatives/usds-margined-futures/trade/rest-api/New-Algo-Order>
   - exchange filters：<https://developers.binance.com/docs/derivatives/usds-margined-futures/market-data/rest-api/Exchange-Information>
   - positionRisk：<https://developers.binance.com/docs/derivatives/usds-margined-futures/trade/rest-api/Position-Information-V3>
   - account V3：<https://developers.binance.com/docs/derivatives/usds-margined-futures/account/rest-api/Account-Information-V3>
+  - income history：<https://developers.binance.com/docs/derivatives/usds-margined-futures/account/rest-api/Get-Income-History>
+  - cancel all open orders：<https://developers.binance.com/docs/derivatives/usds-margined-futures/trade/rest-api/Cancel-All-Open-Orders>
 
 这些资料落到本项目，就是四个必须探索的机制：
 
