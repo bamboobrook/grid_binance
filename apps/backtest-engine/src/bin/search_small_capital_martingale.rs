@@ -28,6 +28,8 @@ struct Args {
     symbols: Vec<String>,
     direction_modes: Vec<SearchDirectionMode>,
     entry_filters: Vec<EntryFilter>,
+    regime_break: Vec<RegimeBreakKind>,
+    max_cycle_age: Vec<MaxCycleAgeKind>,
     start_ms: i64,
     end_ms: i64,
     market_data_path: PathBuf,
@@ -66,6 +68,23 @@ enum EntryFilter {
     RsiBollingerModerate,
 }
 
+/// Regime-break stop selector. `None` keeps the original `StrategyDrawdownPct`
+/// stop-loss behavior; `Ema50`/`Ema100` switch the stop to `RegimeBreakStop`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum RegimeBreakKind {
+    None,
+    Ema50,
+    Ema100,
+}
+
+/// Max-cycle-age selector. `None` leaves `risk_limits.max_cycle_age_hours`
+/// unset; the variants populate it with the named hour value.
+#[derive(Debug, Clone, Copy, PartialEq)]
+enum MaxCycleAgeKind {
+    None,
+    Hours(f64),
+}
+
 #[derive(Debug, Clone)]
 struct Param {
     first_order_quote: f64,
@@ -78,6 +97,10 @@ struct Param {
     adx_min: Option<u32>,
     stop_loss_bps: u32,
     entry_filter: EntryFilter,
+    /// When set, `stop_loss` becomes `RegimeBreakStop{ema_period, drawdown_pct_bps}`.
+    regime_break_ema_period: Option<u32>,
+    /// When set, populated into `strategy.risk_limits.max_cycle_age_hours`.
+    max_cycle_age_hours: Option<f64>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -98,6 +121,8 @@ struct CandidateRow {
     cooldown_seconds: u64,
     adx_min: Option<u32>,
     stop_loss_bps: u32,
+    regime_break_ema_period: Option<u32>,
+    max_cycle_age_hours: Option<f64>,
     planned_margin_quote: f64,
     annualized_return_pct: f64,
     max_drawdown_pct: f64,
@@ -182,7 +207,7 @@ fn main() -> Result<(), String> {
     )?;
     let funding_by_symbol = group_funding_by_symbol(&funding);
 
-    let params = parameter_grid(args.grid, &args.entry_filters);
+    let params = parameter_grid(args.grid, &args.entry_filters, &args.regime_break, &args.max_cycle_age);
     eprintln!(
         "param_grid={} candidates_per_symbol_budget={}",
         args.grid.as_str(),
@@ -286,6 +311,8 @@ fn main() -> Result<(), String> {
                         cooldown_seconds: param.cooldown_seconds,
                         adx_min: param.adx_min,
                         stop_loss_bps: param.stop_loss_bps,
+                        regime_break_ema_period: param.regime_break_ema_period,
+                        max_cycle_age_hours: param.max_cycle_age_hours,
                         planned_margin_quote: planned_margin(param) * mode.strategy_factor(),
                         annualized_return_pct: on_budget.annualized_return_pct,
                         max_drawdown_pct: on_budget.max_drawdown_pct,
@@ -415,6 +442,8 @@ impl Args {
         let mut symbols = Vec::new();
         let mut direction_modes = vec![SearchDirectionMode::LongAndShort];
         let mut entry_filters = vec![EntryFilter::None];
+        let mut regime_break = vec![RegimeBreakKind::None];
+        let mut max_cycle_age = vec![MaxCycleAgeKind::None];
         let mut start_ms = 1_672_531_200_000_i64;
         let mut end_ms = 1_780_271_999_999_i64;
         let mut market_data_path = PathBuf::from("data/market_data_full.db");
@@ -435,6 +464,8 @@ impl Args {
                 "--symbols" => symbols = parse_symbol_list(&value),
                 "--direction-modes" => direction_modes = parse_direction_modes(&value)?,
                 "--entry-filters" => entry_filters = parse_entry_filters(&value)?,
+                "--regime-break" => regime_break = parse_regime_break(&value)?,
+                "--max-cycle-age" => max_cycle_age = parse_max_cycle_age(&value)?,
                 "--start-ms" => start_ms = value.parse().map_err(|e| format!("start-ms: {e}"))?,
                 "--end-ms" => end_ms = value.parse().map_err(|e| format!("end-ms: {e}"))?,
                 "--market-data" => market_data_path = PathBuf::from(value),
@@ -461,6 +492,8 @@ impl Args {
             symbols,
             direction_modes,
             entry_filters,
+            regime_break,
+            max_cycle_age,
             start_ms,
             end_ms,
             market_data_path,
@@ -534,6 +567,47 @@ impl EntryFilter {
     }
 }
 
+impl RegimeBreakKind {
+    fn parse(value: &str) -> Result<Self, String> {
+        match value {
+            "none" => Ok(Self::None),
+            "ema50" => Ok(Self::Ema50),
+            "ema100" => Ok(Self::Ema100),
+            _ => Err("regime-break must be none|ema50|ema100".to_string()),
+        }
+    }
+
+    /// `Some(ema_period)` when this kind activates a `RegimeBreakStop`.
+    fn ema_period(self) -> Option<u32> {
+        match self {
+            Self::None => None,
+            Self::Ema50 => Some(50),
+            Self::Ema100 => Some(100),
+        }
+    }
+}
+
+impl MaxCycleAgeKind {
+    fn parse(value: &str) -> Result<Self, String> {
+        match value {
+            "none" => Ok(Self::None),
+            "24" => Ok(Self::Hours(24.0)),
+            "48" => Ok(Self::Hours(48.0)),
+            "72" => Ok(Self::Hours(72.0)),
+            "120" => Ok(Self::Hours(120.0)),
+            "168" => Ok(Self::Hours(168.0)),
+            _ => Err("max-cycle-age must be none|24|48|72|120|168".to_string()),
+        }
+    }
+
+    fn hours(self) -> Option<f64> {
+        match self {
+            Self::None => None,
+            Self::Hours(h) => Some(h),
+        }
+    }
+}
+
 impl GridKind {
     fn parse(value: &str) -> Result<Self, String> {
         match value {
@@ -591,7 +665,36 @@ fn parse_entry_filters(text: &str) -> Result<Vec<EntryFilter>, String> {
     }
 }
 
-fn parameter_grid(kind: GridKind, entry_filters: &[EntryFilter]) -> Vec<Param> {
+fn parse_regime_break(text: &str) -> Result<Vec<RegimeBreakKind>, String> {
+    let kinds = text
+        .split(',')
+        .map(|s| RegimeBreakKind::parse(s.trim()))
+        .collect::<Result<Vec<_>, _>>()?;
+    if kinds.is_empty() {
+        Err("regime-break cannot be empty".to_string())
+    } else {
+        Ok(kinds)
+    }
+}
+
+fn parse_max_cycle_age(text: &str) -> Result<Vec<MaxCycleAgeKind>, String> {
+    let kinds = text
+        .split(',')
+        .map(|s| MaxCycleAgeKind::parse(s.trim()))
+        .collect::<Result<Vec<_>, _>>()?;
+    if kinds.is_empty() {
+        Err("max-cycle-age cannot be empty".to_string())
+    } else {
+        Ok(kinds)
+    }
+}
+
+fn parameter_grid(
+    kind: GridKind,
+    entry_filters: &[EntryFilter],
+    regime_break: &[RegimeBreakKind],
+    max_cycle_age: &[MaxCycleAgeKind],
+) -> Vec<Param> {
     let mut out = Vec::new();
     let first_orders: &[f64] = match kind {
         GridKind::Tiny => &[5.0, 10.0, 20.0],
@@ -652,18 +755,24 @@ fn parameter_grid(kind: GridKind, entry_filters: &[EntryFilter]) -> Vec<Param> {
                                 for &adx_min in adx_values {
                                     for &stop_loss_bps in stops {
                                         for &entry_filter in entry_filters {
-                                            out.push(Param {
-                                                first_order_quote,
-                                                leverage,
-                                                multiplier,
-                                                max_legs,
-                                                step_bps,
-                                                take_profit_bps,
-                                                cooldown_seconds,
-                                                adx_min,
-                                                stop_loss_bps,
-                                                entry_filter,
-                                            });
+                                            for &regime in regime_break {
+                                                for &age in max_cycle_age {
+                                                    out.push(Param {
+                                                        first_order_quote,
+                                                        leverage,
+                                                        multiplier,
+                                                        max_legs,
+                                                        step_bps,
+                                                        take_profit_bps,
+                                                        cooldown_seconds,
+                                                        adx_min,
+                                                        stop_loss_bps,
+                                                        entry_filter,
+                                                        regime_break_ema_period: regime.ema_period(),
+                                                        max_cycle_age_hours: age.hours(),
+                                                    });
+                                                }
+                                            }
                                         }
                                     }
                                 }
@@ -728,7 +837,7 @@ fn budget_scaled_params(params: &[Param], budget: f64, mode: SearchDirectionMode
 
 fn push_dedup(out: &mut Vec<Param>, seen: &mut std::collections::BTreeSet<String>, p: Param) {
     let key = format!(
-        "{:.2}|{}|{:.4}|{}|{}|{}|{}|{:?}|{}|{}",
+        "{:.2}|{}|{:.4}|{}|{}|{}|{}|{:?}|{}|{}|{:?}|{:?}",
         p.first_order_quote,
         p.leverage,
         p.multiplier,
@@ -738,7 +847,9 @@ fn push_dedup(out: &mut Vec<Param>, seen: &mut std::collections::BTreeSet<String
         p.cooldown_seconds,
         p.adx_min,
         p.stop_loss_bps,
-        p.entry_filter.as_key()
+        p.entry_filter.as_key(),
+        p.regime_break_ema_period,
+        p.max_cycle_age_hours,
     );
     if seen.insert(key) {
         out.push(p);
@@ -853,15 +964,24 @@ fn strategy(
         take_profit: MartingaleTakeProfitModel::Percent {
             bps: p.take_profit_bps,
         },
-        stop_loss: Some(MartingaleStopLossModel::StrategyDrawdownPct {
-            pct_bps: p.stop_loss_bps,
+        stop_loss: Some(match p.regime_break_ema_period {
+            Some(ema_period) => MartingaleStopLossModel::RegimeBreakStop {
+                ema_period,
+                drawdown_pct_bps: p.stop_loss_bps,
+            },
+            None => MartingaleStopLossModel::StrategyDrawdownPct {
+                pct_bps: p.stop_loss_bps,
+            },
         }),
         indicators: vec![
             MartingaleIndicatorConfig::Atr { period: 21 },
             MartingaleIndicatorConfig::Adx { period: 14 },
         ],
         entry_triggers,
-        risk_limits: MartingaleRiskLimits::default(),
+        risk_limits: MartingaleRiskLimits {
+            max_cycle_age_hours: p.max_cycle_age_hours,
+            ..MartingaleRiskLimits::default()
+        },
     })
 }
 
