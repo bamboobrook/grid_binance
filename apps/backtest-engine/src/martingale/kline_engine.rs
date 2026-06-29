@@ -1445,8 +1445,38 @@ fn triggered_stop(
             price: Some(bar.close),
             ..StopSignal::default()
         }),
-        // TODO(Task 3): real regime-break logic
-        MartingaleStopLossModel::RegimeBreakStop { .. } => Ok(StopSignal::default()),
+        MartingaleStopLossModel::RegimeBreakStop {
+            ema_period,
+            drawdown_pct_bps,
+        } => {
+            let invested = state.capital_used_quote();
+            if invested <= 0.0 {
+                return Ok(StopSignal::default());
+            }
+            let Some(ema) =
+                indicator_context.latest_ema(&state.strategy.symbol, *ema_period as usize)
+            else {
+                return Ok(StopSignal::default()); // EMA warmup — do not trigger
+            };
+            let current_price = latest_close_by_symbol
+                .get(&state.strategy.symbol)
+                .copied()
+                .unwrap_or(bar.close);
+            let pnl = strategy_net_pnl(state, current_price)?;
+            let drawdown_pct = (-pnl).max(0.0) / invested * 100.0;
+            if drawdown_pct < *drawdown_pct_bps as f64 / 100.0 {
+                return Ok(StopSignal::default()); // drawdown below threshold — do not trigger
+            }
+            let regime_broke = match state.strategy.direction {
+                MartingaleDirection::Long => current_price < ema,
+                MartingaleDirection::Short => current_price > ema,
+            };
+            Ok(StopSignal {
+                strategy_stop: regime_broke,
+                price: regime_broke.then_some(bar.close),
+                ..StopSignal::default()
+            })
+        }
     }
 }
 
@@ -2270,6 +2300,104 @@ mod tests {
             super::triggered_stop(&state, &bar, std::slice::from_ref(&state), &closes, &mut ctx)
                 .unwrap();
         assert!(!sig.strategy_stop);
+    }
+
+    /// Seed `IndicatorRuntimeContext` with `count` bars of constant `close` so
+    /// `latest_ema(symbol, period)` converges to that close once `count >= period`.
+    /// Reuses the real incremental EMA path (parity-relevant) — no manual cache
+    /// injection. Mirrors the bar-feeding pattern in `indicator_runtime::tests`.
+    fn regime_break_indicator_context(symbol: &str, close: f64, count: usize) -> super::IndicatorRuntimeContext {
+        let mut ctx = super::IndicatorRuntimeContext::default();
+        for index in 0..count {
+            ctx.push_bar(&KlineBar {
+                symbol: symbol.to_string(),
+                open_time_ms: index as i64 * 60_000,
+                open: close,
+                high: close + 2.0,
+                low: close - 2.0,
+                close,
+                volume: 1.0,
+            });
+        }
+        ctx
+    }
+
+    /// Long strategy runtime whose stop_loss is RegimeBreakStop{ema50, 500bps}.
+    fn regime_break_long_runtime() -> MartingalePortfolioConfig {
+        let mut portfolio = single_strategy_portfolio(1_000);
+        portfolio.strategies[0].sizing = MartingaleSizingModel::CustomSequence {
+            notionals: vec![Decimal::new(100, 0)],
+        };
+        portfolio.strategies[0].stop_loss = Some(MartingaleStopLossModel::RegimeBreakStop {
+            ema_period: 50,
+            drawdown_pct_bps: 500, // 5%
+        });
+        portfolio.strategies[0].direction = MartingaleDirection::Long;
+        portfolio.strategies[0].direction_mode = MartingaleDirectionMode::LongOnly;
+        portfolio
+    }
+
+    #[test]
+    fn regime_break_long_closes_when_close_below_ema_and_drawdown() {
+        use std::collections::BTreeMap;
+
+        // EMA50 = 120 (60 bars at close=120). Entry at 100, current close 90:
+        //   close < ema (90<120) → regime broke (long),
+        //   close_pnl = (90-100)*1.0 = -10, drawdown = 10/100*100 = 10% ≥ 5%.
+        let portfolio = regime_break_long_runtime();
+        let mut state = super::StrategyRuntime::new(&portfolio.strategies[0]).unwrap();
+        super::add_leg(&mut state, 0, 100.0, 100.0, 100.0, None).unwrap();
+
+        let mut ctx = regime_break_indicator_context("BTCUSDT", 120.0, 60);
+        let bar = bar(70_000, 95.0, 95.5, 89.0, 90.0);
+        let closes = BTreeMap::from([("BTCUSDT".to_string(), 90.0)]);
+        let sig =
+            super::triggered_stop(&state, &bar, std::slice::from_ref(&state), &closes, &mut ctx)
+                .unwrap();
+        assert!(sig.strategy_stop);
+        assert_eq!(sig.price, Some(bar.close));
+    }
+
+    #[test]
+    fn regime_break_not_triggered_when_close_above_ema() {
+        use std::collections::BTreeMap;
+
+        // EMA50 = 120. Entry 100, current close 125 > ema → regime intact, and
+        // close_pnl = (125-100) = +25 → drawdown 0 < 5%. Both conditions fail.
+        let portfolio = regime_break_long_runtime();
+        let mut state = super::StrategyRuntime::new(&portfolio.strategies[0]).unwrap();
+        super::add_leg(&mut state, 0, 100.0, 100.0, 100.0, None).unwrap();
+
+        let mut ctx = regime_break_indicator_context("BTCUSDT", 120.0, 60);
+        let bar = bar(70_000, 122.0, 126.0, 121.0, 125.0);
+        let closes = BTreeMap::from([("BTCUSDT".to_string(), 125.0)]);
+        let sig =
+            super::triggered_stop(&state, &bar, std::slice::from_ref(&state), &closes, &mut ctx)
+                .unwrap();
+        assert!(!sig.strategy_stop);
+    }
+
+    #[test]
+    fn regime_break_short_closes_when_close_above_ema_and_drawdown() {
+        use std::collections::BTreeMap;
+
+        // EMA50 = 80. Short entry at 100, current close 110 > ema → regime broke
+        // (short), close_pnl = (100-110)*1.0 = -10, drawdown = 10/100*100 = 10% ≥ 5%.
+        let mut portfolio = regime_break_long_runtime();
+        portfolio.strategies[0].direction = MartingaleDirection::Short;
+        portfolio.strategies[0].direction_mode = MartingaleDirectionMode::ShortOnly;
+        portfolio.strategies[0].strategy_id = "Short-grid".to_string();
+        let mut state = super::StrategyRuntime::new(&portfolio.strategies[0]).unwrap();
+        super::add_leg(&mut state, 0, 100.0, 100.0, 100.0, None).unwrap();
+
+        let mut ctx = regime_break_indicator_context("BTCUSDT", 80.0, 60);
+        let bar = bar(70_000, 105.0, 111.0, 104.0, 110.0);
+        let closes = BTreeMap::from([("BTCUSDT".to_string(), 110.0)]);
+        let sig =
+            super::triggered_stop(&state, &bar, std::slice::from_ref(&state), &closes, &mut ctx)
+                .unwrap();
+        assert!(sig.strategy_stop);
+        assert_eq!(sig.price, Some(bar.close));
     }
 
     #[test]
