@@ -8,7 +8,7 @@ use std::{collections::BTreeMap, env, fs, path::PathBuf, time::Instant};
 use backtest_engine::{
     market_data::MarketDataSource,
     martingale::{
-        budget_replay::{evaluate_gate, on_budget_metrics, RiskProfile},
+        budget_replay::{evaluate_gate, live_parity_check, on_budget_metrics, RiskProfile},
         kline_engine::{run_kline_screening_with_funding, FundingRatePoint},
     },
     sqlite_market_data::{load_funding_rates_readonly, SqliteMarketDataSource},
@@ -190,6 +190,12 @@ fn main() -> Result<(), String> {
     );
     let mut rows = Vec::new();
     let mut evaluated = 0_usize;
+    // Track live-parity of every evaluated portfolio. The search only emits
+    // `Percent` TP + `StrategyDrawdownPct`/`RegimeBreakStop` SL, so this should
+    // always pass; the gate exists to catch future non-parity experiments.
+    let mut parity_checked = 0_usize;
+    let mut parity_violations_total = 0_usize;
+    let mut parity_first_violation: Option<String> = None;
     let sampled_params = sampled_params(&params, args.max_params_per_symbol_budget);
     let mut stop_all = false;
     'budgets: for budget in &args.budgets {
@@ -209,6 +215,14 @@ fn main() -> Result<(), String> {
                         continue;
                     }
                     let portfolio = build_portfolio(symbol, *budget, param, *mode)?;
+                    let parity = live_parity_check(&portfolio);
+                    parity_checked += 1;
+                    if !parity.passes {
+                        parity_violations_total += parity.violations.len();
+                        if parity_first_violation.is_none() {
+                            parity_first_violation = parity.violations.first().cloned();
+                        }
+                    }
                     let result = run_kline_screening_with_funding(
                         portfolio,
                         bars,
@@ -341,6 +355,14 @@ fn main() -> Result<(), String> {
         .collect::<Vec<_>>();
     pass_candidates.sort_by(|a, b| rank_score(b).total_cmp(&rank_score(a)));
     pass_candidates.truncate(200);
+
+    eprintln!(
+        "live_parity checked={} passes={} total_violations={} first_violation={:?}",
+        parity_checked,
+        parity_checked - parity_violations_total,
+        parity_violations_total,
+        parity_first_violation
+    );
 
     let report = SearchReport {
         generated_at: chrono::Utc::now().to_rfc3339(),

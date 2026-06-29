@@ -20,7 +20,10 @@ use crate::services::martingale_exchange_preconfigure_service::{
     binance_client_for_owner, check_live_state_blockers, target_exchange_settings_from_portfolio,
 };
 
-use backtest_engine::martingale::capital::{project_portfolio_capital, PortfolioCapitalProjection};
+use backtest_engine::martingale::{
+    budget_replay::live_parity_check,
+    capital::{project_portfolio_capital, PortfolioCapitalProjection},
+};
 
 #[derive(Clone)]
 pub struct MartingalePublishService {
@@ -313,6 +316,17 @@ impl MartingalePublishService {
             serde_json::from_value(portfolio_config_value.clone()).map_err(|error| {
                 PublishError::conflict(format!("invalid portfolio config: {error}"))
             })?;
+
+        // --- Live-parity gate ---
+        // Reject start if the portfolio uses TP/SL models that the live
+        // trading-engine cannot reproduce (backtest-only illusions).
+        let parity = live_parity_check(&portfolio_config);
+        if !parity.passes {
+            return Err(PublishError::conflict(format!(
+                "portfolio fails live-parity check (TP/SL models without live reproduction): {}",
+                parity.violations.join("; ")
+            )));
+        }
 
         let requires_futures = portfolio_config
             .strategies

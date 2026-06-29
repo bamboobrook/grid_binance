@@ -525,7 +525,7 @@ pub struct LiveParityOutcome {
 ///
 /// Allowed (full live parity as of 2026-06-28):
 ///   - TP:   `Percent { bps }`
-///   - SL:   `StrategyDrawdownPct { pct_bps }` (or `None`)
+///   - SL:   `StrategyDrawdownPct { pct_bps }`, `RegimeBreakStop { .. }` (or `None`)
 ///
 /// Everything else is rejected. See
 /// `docs/superpowers/reports/2026-06-28-martingale-tp-sl-live-parity-matrix.md`
@@ -546,9 +546,10 @@ pub fn live_parity_check(config: &MartingalePortfolioConfig) -> LiveParityOutcom
         let sl_ok = match &strategy.stop_loss {
             None => true,
             Some(MartingaleStopLossModel::StrategyDrawdownPct { .. }) => true,
+            Some(MartingaleStopLossModel::RegimeBreakStop { .. }) => true,
             Some(other) => {
                 violations.push(format!(
-                    "strategy {id} uses {other:?} stop-loss which has no live parity (only StrategyDrawdownPct allowed)"
+                    "strategy {id} uses {other:?} stop-loss which has no live parity (only StrategyDrawdownPct/RegimeBreakStop allowed)"
                 ));
                 false
             }
@@ -1128,6 +1129,30 @@ mod tests {
             assert!(!outcome.passes, "expected rejection for {label}");
             assert!(outcome.violations[0].contains("stop-loss"));
         }
+    }
+
+    #[test]
+    fn live_parity_allows_regime_break_stop() {
+        // Task 5 wired RegimeBreakStop into the live trading-engine, so it now
+        // has full live parity and must be allowed by the gate.
+        let mut s = strat("a", multiplier_sizing(10, 2, 3), MartingaleMarketKind::Spot, None);
+        s.stop_loss = Some(MartingaleStopLossModel::RegimeBreakStop {
+            ema_period: 50,
+            drawdown_pct_bps: 1000,
+        });
+        let outcome = live_parity_check(&portfolio_from(vec![s]));
+        assert!(outcome.passes, "violations: {:?}", outcome.violations);
+    }
+
+    #[test]
+    fn live_parity_still_rejects_indicator_sl() {
+        // Indicator SL has no live parity; must remain rejected even after the
+        // RegimeBreakStop allow-list addition.
+        let mut s = strat("a", multiplier_sizing(10, 2, 3), MartingaleMarketKind::Spot, None);
+        s.stop_loss = Some(MartingaleStopLossModel::Indicator {
+            expression: "close<ema(50)".into(),
+        });
+        assert!(!live_parity_check(&portfolio_from(vec![s])).passes);
     }
 
     #[test]
