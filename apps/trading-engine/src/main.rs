@@ -841,6 +841,31 @@ fn last_martingale_cycle_closed_at_ms(strategy: &Strategy) -> Option<i64> {
         .map(|event| event.created_at.timestamp_millis())
 }
 
+fn martingale_cycle_started_at_ms(strategy: &Strategy) -> Option<i64> {
+    strategy
+        .runtime
+        .events
+        .iter()
+        .find(|event| {
+            matches!(
+                event.event_type.as_str(),
+                "entry" | "martingale_cycle_started"
+            )
+        })
+        .map(|event| event.created_at.timestamp_millis())
+}
+
+fn persisted_indicator_context_for_strategy(
+    _strategy: &Strategy,
+) -> backtest_engine::martingale::indicator_runtime::IndicatorRuntimeContext {
+    // TODO(Task 5): wire real persisted indicator_ctx — currently returns an empty/default
+    // context so regime_break_stop (Task 5) would see EMA=None and never trigger. Task 5 MUST
+    // replace this stub by threading the real persisted IndicatorRuntimeContext held in the
+    // reconcile caller into apply_martingale_market_ticks. The age branch (Task 4) does not
+    // use indicator_ctx, so this stub is safe for max_cycle_age_hours live parity.
+    backtest_engine::martingale::indicator_runtime::IndicatorRuntimeContext::default()
+}
+
 fn martingale_runtime_orders_to_strategy_orders(
     orders: &[MartingaleRuntimeOrder],
 ) -> Vec<StrategyRuntimeOrder> {
@@ -1832,12 +1857,18 @@ fn apply_martingale_market_ticks(
             )
             .unwrap_or(Decimal::ZERO)
             / Decimal::from(10_000_u32);
+        let now_ms = Some(Utc::now().timestamp_millis());
+        let cycle_started_at_ms = martingale_cycle_started_at_ms(strategy);
+        let mut indicator_ctx = persisted_indicator_context_for_strategy(strategy);
         let Some(exit) = martingale_exit_signal(
             &strategy_config,
             &position,
             tick.price,
             realized_pnl,
             entry_fees,
+            now_ms,
+            cycle_started_at_ms,
+            &mut indicator_ctx,
         ) else {
             continue;
         };
@@ -1884,7 +1915,23 @@ fn martingale_exit_signal(
     current_price: Decimal,
     realized_pnl: Decimal,
     entry_fees: Decimal,
+    now_ms: Option<i64>,
+    cycle_started_at_ms: Option<i64>,
+    indicator_ctx: &mut backtest_engine::martingale::indicator_runtime::IndicatorRuntimeContext,
 ) -> Option<MartingaleExitSignal> {
+    // max_cycle_age_hours — evaluated first (before TP) so an aged cycle always exits.
+    if let Some(max_hours) = config.risk_limits.max_cycle_age_hours {
+        if let (Some(now), Some(started)) = (now_ms, cycle_started_at_ms) {
+            if ((now - started) as f64 / 3_600_000.0) >= max_hours {
+                return Some(MartingaleExitSignal {
+                    event_type: "martingale_cycle_age_stop",
+                    label: "cycle age stop",
+                    threshold_price: current_price,
+                });
+            }
+        }
+    }
+    let _ = indicator_ctx; // TODO(Task 5): regime_break_stop uses indicator_ctx; age branch does not.
     if current_price <= Decimal::ZERO || position.average_entry_price <= Decimal::ZERO {
         return None;
     }
@@ -3796,6 +3843,9 @@ mod tests {
             Decimal::new(102, 0),
             Decimal::ZERO,
             Decimal::ZERO,
+            None,
+            None,
+            &mut backtest_engine::martingale::indicator_runtime::IndicatorRuntimeContext::default(),
         )
         .expect("tp should trigger");
         assert_eq!(signal.event_type, "martingale_take_profit_stop");
@@ -3980,6 +4030,9 @@ mod tests {
             Decimal::new(79, 0),
             Decimal::ZERO,
             Decimal::ZERO,
+            None,
+            None,
+            &mut backtest_engine::martingale::indicator_runtime::IndicatorRuntimeContext::default(),
         )
         .expect("strategy drawdown should trigger");
         assert_eq!(signal.event_type, "martingale_strategy_drawdown_stop");
@@ -3991,6 +4044,47 @@ mod tests {
                 && order.side == "Sell"
                 && order.order_type == "Market"
         }));
+    }
+
+    #[test]
+    fn cycle_age_stop_triggers_when_age_exceeds_limit() {
+        // max_cycle_age_hours = 1.0; cycle started 2h ago; now - started = 2h >= 1h → age stop.
+        let mut running = strategy("martingale-age", StrategyStatus::Running);
+        running.strategy_type = StrategyType::MartingaleGrid;
+        running.market = StrategyMarket::FuturesUsdM;
+        running.mode = StrategyMode::FuturesLong;
+        running.runtime.positions.push(StrategyRuntimePosition {
+            market: StrategyMarket::FuturesUsdM,
+            mode: StrategyMode::FuturesLong,
+            quantity: Decimal::new(1, 0),
+            average_entry_price: Decimal::new(100, 0),
+        });
+        let mut config = super::martingale_runtime_config_from_strategy(&running)
+            .expect("strategy config")
+            .portfolio
+            .strategies
+            .remove(0);
+        // 1h age limit; TP far away so only age can fire.
+        config.risk_limits.max_cycle_age_hours = Some(1.0);
+        config.take_profit =
+            shared_domain::martingale::MartingaleTakeProfitModel::Percent { bps: 100_000 };
+
+        let started_ms: i64 = 1_700_000_000_000;
+        let now_ms: i64 = started_ms + 2 * 3_600_000; // +2h
+        let mut indicator_ctx =
+            backtest_engine::martingale::indicator_runtime::IndicatorRuntimeContext::default();
+        let signal = super::martingale_exit_signal(
+            &config,
+            &running.runtime.positions[0],
+            Decimal::new(100, 0),
+            Decimal::ZERO,
+            Decimal::ZERO,
+            Some(now_ms),
+            Some(started_ms),
+            &mut indicator_ctx,
+        )
+        .expect("age stop should trigger");
+        assert_eq!(signal.event_type, "martingale_cycle_age_stop");
     }
 
     #[test]

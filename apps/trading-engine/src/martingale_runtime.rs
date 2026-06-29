@@ -124,6 +124,7 @@ struct CycleState {
     cycle_id: String,
     anchor_price: Decimal,
     next_leg_index: u32,
+    started_at_ms: Option<i64>,
 }
 
 #[derive(Debug, Clone)]
@@ -332,6 +333,7 @@ impl MartingaleRuntime {
             cycle_id: cycle_id.clone(),
             anchor_price,
             next_leg_index: 0,
+            started_at_ms: context.now_ms,
         });
 
         self.place_leg(strategy_id, direction, &cycle_id, 0, anchor_price)
