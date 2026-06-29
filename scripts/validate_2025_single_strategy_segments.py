@@ -28,10 +28,13 @@ import sys
 import tempfile
 from pathlib import Path
 
-REPO = Path("/home/bumblebee/Project/grid_binance")
+# REPO = 脚本所在 repo root (worktree 含 P4 改动, 或 main); bin 用本 repo 的
+REPO = Path(__file__).resolve().parent.parent
 REPLAY_BIN = REPO / "target" / "release" / "portfolio_budget_replay"
-MARKET_DB = REPO / "data" / "market_data_full.db"
-FUNDING_DB = REPO / "data" / "funding_rates.db"
+# market/funding data 是 gitignored 大文件, 只在主 repo
+MAIN_REPO = Path("/home/bumblebee/Project/grid_binance")
+MARKET_DB = MAIN_REPO / "data" / "market_data_full.db"
+FUNDING_DB = MAIN_REPO / "data" / "funding_rates.db"
 
 # 段定义 (ms epoch, UTC) — 与 validate_martingale_portfolio_robustness.py SEGMENTS 一致
 SEGMENTS = {
@@ -46,6 +49,7 @@ SEGMENTS = {
 PARAM_KEYS = [
     "first_order_quote", "leverage", "multiplier", "max_legs", "step_bps",
     "take_profit_bps", "cooldown_seconds", "adx_min", "stop_loss_bps", "entry_filter",
+    "regime_break_ema_period", "max_cycle_age_hours",
 ]
 
 
@@ -72,6 +76,21 @@ def filter_expressions(entry_filter: str, direction: str) -> list[str]:
         exprs.append("rsi(14) < 40" if direction == "long" else "rsi(14) > 60")
         exprs.append("close < bb_lower(20,1.5)" if direction == "long" else "close > bb_upper(20,1.5)")
     return exprs
+
+
+def _build_stop_loss(p: dict) -> dict:
+    rb = p.get("regime_break_ema_period")
+    if rb is not None:
+        return {"regime_break_stop": {"ema_period": int(rb), "drawdown_pct_bps": int(p["stop_loss_bps"])}}
+    return {"strategy_drawdown_pct": {"pct_bps": int(p["stop_loss_bps"])}}
+
+
+def _build_risk_limits(p: dict) -> dict:
+    rl: dict = {}
+    age = p.get("max_cycle_age_hours")
+    if age is not None:
+        rl["max_cycle_age_hours"] = float(age)
+    return rl
 
 
 def build_strategy(symbol: str, direction: str, direction_mode: str, p: dict) -> dict:
@@ -102,10 +121,10 @@ def build_strategy(symbol: str, direction: str, direction_mode: str, p: dict) ->
             }
         },
         "take_profit": {"percent": {"bps": int(p["take_profit_bps"])}},
-        "stop_loss": {"strategy_drawdown_pct": {"pct_bps": int(p["stop_loss_bps"])}},
+        "stop_loss": _build_stop_loss(p),
         "indicators": [{"atr": {"period": 21}}, {"adx": {"period": 14}}],
         "entry_triggers": triggers,
-        "risk_limits": {},
+        "risk_limits": _build_risk_limits(p),
     }
 
 
