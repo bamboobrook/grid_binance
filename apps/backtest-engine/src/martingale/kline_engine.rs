@@ -322,6 +322,7 @@ pub fn run_kline_screening_with_funding(
                         notional,
                         latest_atr,
                     )?;
+                    strategy_states[state_index].cycle_started_at_ms = Some(bar.open_time_ms);
                     capital_used_quote += capital_required;
                     trade_count += 1;
                     max_capital_used_quote = max_capital_used_quote.max(capital_used_quote);
@@ -762,6 +763,7 @@ struct StrategyRuntime<'a> {
     realized_pnl_quote: f64,
     last_cycle_closed_at_ms: Option<i64>,
     trailing_anchor_price: Option<f64>,
+    cycle_started_at_ms: Option<i64>,
 }
 
 impl<'a> StrategyRuntime<'a> {
@@ -796,6 +798,7 @@ impl<'a> StrategyRuntime<'a> {
             realized_pnl_quote: 0.0,
             last_cycle_closed_at_ms: None,
             trailing_anchor_price: None,
+            cycle_started_at_ms: None,
         })
     }
 
@@ -823,6 +826,7 @@ impl<'a> StrategyRuntime<'a> {
         self.last_cycle_closed_at_ms = Some(closed_at_ms);
         self.cycle_seq += 1;
         self.cycle_id = format!("{}-cycle-{}", self.strategy.strategy_id, self.cycle_seq);
+        self.cycle_started_at_ms = None;
     }
 }
 
@@ -1356,6 +1360,20 @@ fn triggered_stop(
     latest_close_by_symbol: &BTreeMap<String, f64>,
     indicator_context: &mut IndicatorRuntimeContext,
 ) -> Result<StopSignal, String> {
+    // max_cycle_age_hours — strategy-level cycle-age guard (independent of stop_loss)
+    if let Some(max_hours) = state.strategy.risk_limits.max_cycle_age_hours {
+        if let Some(started) = state.cycle_started_at_ms {
+            let age_hours = (bar.open_time_ms - started) as f64 / 3_600_000.0;
+            if age_hours >= max_hours {
+                return Ok(StopSignal {
+                    strategy_stop: true,
+                    price: Some(bar.close),
+                    ..StopSignal::default()
+                });
+            }
+        }
+    }
+
     let Some(stop_loss) = &state.strategy.stop_loss else {
         return Ok(StopSignal::default());
     };
@@ -1427,6 +1445,8 @@ fn triggered_stop(
             price: Some(bar.close),
             ..StopSignal::default()
         }),
+        // TODO(Task 3): real regime-break logic
+        MartingaleStopLossModel::RegimeBreakStop { .. } => Ok(StopSignal::default()),
     }
 }
 
@@ -2197,6 +2217,59 @@ mod tests {
             .events
             .iter()
             .any(|event| event.event_type == "stop_loss"));
+    }
+
+    /// Inline builder: returns a portfolio whose strategy has a single 100-quote
+    /// notional leg and the requested cycle-age guard. Call `StrategyRuntime::new`
+    /// + `add_leg` in the test so the runtime borrows the portfolio in-scope (NLL).
+    fn portfolio_for_cycle_age_test(max_cycle_age_hours: Option<f64>) -> MartingalePortfolioConfig {
+        let mut portfolio = single_strategy_portfolio(1_000);
+        portfolio.strategies[0].sizing = MartingaleSizingModel::CustomSequence {
+            notionals: vec![Decimal::new(100, 0)],
+        };
+        portfolio.strategies[0].risk_limits.max_cycle_age_hours = max_cycle_age_hours;
+        portfolio
+    }
+
+    fn sample_bar_at_ms(open_time_ms: i64) -> KlineBar {
+        bar(open_time_ms, 100.0, 100.0, 100.0, 100.0)
+    }
+
+    #[test]
+    fn max_cycle_age_force_closes_after_threshold() {
+        use std::collections::BTreeMap;
+
+        let portfolio = portfolio_for_cycle_age_test(Some(2.0)); // 2h
+        let mut state = super::StrategyRuntime::new(&portfolio.strategies[0]).unwrap();
+        super::add_leg(&mut state, 0, 100.0, 100.0, 100.0, None).unwrap();
+        state.cycle_started_at_ms = Some(0_i64);
+
+        let bar = sample_bar_at_ms(2 * 3_600_000 + 1); // 2h + 1ms later
+        let mut ctx = super::IndicatorRuntimeContext::default();
+        let closes = BTreeMap::from([(state.strategy.symbol.clone(), bar.close)]);
+        let sig =
+            super::triggered_stop(&state, &bar, std::slice::from_ref(&state), &closes, &mut ctx)
+                .unwrap();
+        assert!(sig.strategy_stop);
+        assert_eq!(sig.price, Some(bar.close));
+    }
+
+    #[test]
+    fn max_cycle_age_not_triggered_before_threshold() {
+        use std::collections::BTreeMap;
+
+        let portfolio = portfolio_for_cycle_age_test(Some(2.0));
+        let mut state = super::StrategyRuntime::new(&portfolio.strategies[0]).unwrap();
+        super::add_leg(&mut state, 0, 100.0, 100.0, 100.0, None).unwrap();
+        state.cycle_started_at_ms = Some(0_i64);
+
+        let bar = sample_bar_at_ms(3_600_000); // only 1h
+        let mut ctx = super::IndicatorRuntimeContext::default();
+        let closes = BTreeMap::from([(state.strategy.symbol.clone(), bar.close)]);
+        let sig =
+            super::triggered_stop(&state, &bar, std::slice::from_ref(&state), &closes, &mut ctx)
+                .unwrap();
+        assert!(!sig.strategy_stop);
     }
 
     #[test]
