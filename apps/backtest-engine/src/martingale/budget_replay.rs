@@ -506,6 +506,62 @@ pub fn build_per_strategy_diagnostics<'a>(
     out
 }
 
+/// Outcome of a live-parity model check on a portfolio config.
+#[derive(Debug, Clone, PartialEq)]
+pub struct LiveParityOutcome {
+    /// `true` when every TP/SL model in the portfolio is reproducible in the
+    /// live trading-engine (see the P0.3 parity matrix). When `false`,
+    /// `violations` lists each disallowed model.
+    pub passes: bool,
+    /// Human-readable violation strings, one per disallowed model use, e.g.
+    /// `"strategy X uses Trailing TP which has no live parity"`.
+    pub violations: Vec<String>,
+}
+
+/// Check that a portfolio config only uses TP/SL models that the live
+/// trading-engine can reproduce. This is the gate that keeps the small-capital
+/// search from producing "backtest illusion" candidates whose exits cannot be
+/// recreated in production.
+///
+/// Allowed (full live parity as of 2026-06-28):
+///   - TP:   `Percent { bps }`
+///   - SL:   `StrategyDrawdownPct { pct_bps }` (or `None`)
+///
+/// Everything else is rejected. See
+/// `docs/superpowers/reports/2026-06-28-martingale-tp-sl-live-parity-matrix.md`
+/// for the full per-model audit.
+pub fn live_parity_check(config: &MartingalePortfolioConfig) -> LiveParityOutcome {
+    use shared_domain::martingale::{MartingaleStopLossModel, MartingaleTakeProfitModel};
+
+    let mut violations = Vec::new();
+    for strategy in &config.strategies {
+        let id = &strategy.strategy_id;
+        let tp_ok = matches!(&strategy.take_profit, MartingaleTakeProfitModel::Percent { .. });
+        if !tp_ok {
+            violations.push(format!(
+                "strategy {id} uses {:?} TP which has no live parity (only Percent allowed)",
+                strategy.take_profit
+            ));
+        }
+        let sl_ok = match &strategy.stop_loss {
+            None => true,
+            Some(MartingaleStopLossModel::StrategyDrawdownPct { .. }) => true,
+            Some(other) => {
+                violations.push(format!(
+                    "strategy {id} uses {other:?} stop-loss which has no live parity (only StrategyDrawdownPct allowed)"
+                ));
+                false
+            }
+        };
+        let _ = sl_ok;
+    }
+    let passes = violations.is_empty();
+    LiveParityOutcome {
+        passes,
+        violations,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -984,5 +1040,110 @@ mod tests {
         // accepted_static_legs for a: notionals [100,200,400,800], margins (lev10) [10,20,40,80],
         //   cap 600 -> all 4 accepted (cum 150 <= 600).
         assert_eq!(diags[0].accepted_static_legs, 4);
+    }
+
+    // ----- P0.3: live_parity_check -----
+
+    use shared_domain::martingale::{MartingalePortfolioConfig, MartingaleStopLossModel};
+
+    fn portfolio_from(strategies: Vec<MartingaleStrategyConfig>) -> MartingalePortfolioConfig {
+        MartingalePortfolioConfig {
+            direction_mode: MartingaleDirectionMode::LongOnly,
+            strategies,
+            risk_limits: MartingaleRiskLimits::default(),
+        }
+    }
+
+    #[test]
+    fn live_parity_allows_percent_tp_and_strategy_drawdown_sl() {
+        let mut s = strat("a", multiplier_sizing(10, 2, 3), MartingaleMarketKind::Spot, None);
+        s.stop_loss = Some(MartingaleStopLossModel::StrategyDrawdownPct { pct_bps: 2000 });
+        let outcome = live_parity_check(&portfolio_from(vec![s]));
+        assert!(outcome.passes, "expected pass, got: {:?}", outcome.violations);
+        assert!(outcome.violations.is_empty());
+    }
+
+    #[test]
+    fn live_parity_allows_percent_tp_with_no_stop_loss() {
+        let s = strat("a", multiplier_sizing(10, 2, 3), MartingaleMarketKind::Spot, None);
+        let outcome = live_parity_check(&portfolio_from(vec![s]));
+        assert!(outcome.passes);
+    }
+
+    #[test]
+    fn live_parity_rejects_trailing_tp() {
+        let mut s = strat("a", multiplier_sizing(10, 2, 3), MartingaleMarketKind::Spot, None);
+        s.take_profit = MartingaleTakeProfitModel::Trailing {
+            activation_bps: 100,
+            callback_bps: 50,
+        };
+        let outcome = live_parity_check(&portfolio_from(vec![s]));
+        assert!(!outcome.passes);
+        assert_eq!(outcome.violations.len(), 1);
+        assert!(outcome.violations[0].contains("Trailing"), "{:?}", outcome.violations);
+    }
+
+    #[test]
+    fn live_parity_rejects_atr_and_amount_tp() {
+        for tp in [
+            MartingaleTakeProfitModel::Atr {
+                multiplier: Decimal::from(2),
+            },
+            MartingaleTakeProfitModel::Amount {
+                quote: Decimal::from(5),
+            },
+        ] {
+            let label = format!("{tp:?}");
+            let mut s = strat("a", multiplier_sizing(10, 2, 3), MartingaleMarketKind::Spot, None);
+            s.take_profit = tp;
+            let outcome = live_parity_check(&portfolio_from(vec![s]));
+            assert!(!outcome.passes, "expected rejection for {label}");
+        }
+    }
+
+    #[test]
+    fn live_parity_rejects_non_strategy_drawdown_stop_loss_models() {
+        for sl in [
+            MartingaleStopLossModel::PriceRange {
+                lower: Decimal::ZERO,
+                upper: Decimal::from(100),
+            },
+            MartingaleStopLossModel::Atr {
+                multiplier: Decimal::from(2),
+            },
+            MartingaleStopLossModel::Indicator {
+                expression: "close < 10".to_string(),
+            },
+            MartingaleStopLossModel::SymbolDrawdownAmount {
+                quote: Decimal::from(50),
+            },
+            MartingaleStopLossModel::GlobalDrawdownAmount {
+                quote: Decimal::from(100),
+            },
+        ] {
+            let label = format!("{sl:?}");
+            let mut s = strat("a", multiplier_sizing(10, 2, 3), MartingaleMarketKind::Spot, None);
+            s.stop_loss = Some(sl);
+            let outcome = live_parity_check(&portfolio_from(vec![s]));
+            assert!(!outcome.passes, "expected rejection for {label}");
+            assert!(outcome.violations[0].contains("stop-loss"));
+        }
+    }
+
+    #[test]
+    fn live_parity_reports_each_violation_when_multiple_strategies_offend() {
+        // Two strategies, each with a disallowed TP and SL → 2 violations.
+        let mut a = strat("a", multiplier_sizing(10, 2, 3), MartingaleMarketKind::Spot, None);
+        a.take_profit = MartingaleTakeProfitModel::Atr {
+            multiplier: Decimal::from(2),
+        };
+        let mut b = strat("b", multiplier_sizing(10, 2, 3), MartingaleMarketKind::Spot, None);
+        b.take_profit = MartingaleTakeProfitModel::Trailing {
+            activation_bps: 100,
+            callback_bps: 50,
+        };
+        let outcome = live_parity_check(&portfolio_from(vec![a, b]));
+        assert!(!outcome.passes);
+        assert_eq!(outcome.violations.len(), 2, "{:?}", outcome.violations);
     }
 }

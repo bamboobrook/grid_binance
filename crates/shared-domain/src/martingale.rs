@@ -152,6 +152,21 @@ pub struct MartingaleRiskLimits {
     pub max_direction_budget_quote: Option<Decimal>,
     pub max_strategy_budget_quote: Option<Decimal>,
     pub max_global_drawdown_quote: Option<Decimal>,
+    /// Pause opening new cycles when portfolio drawdown (peak→current) exceeds
+    /// this percent. `None` = use engine default (6.0%). Parity-structured
+    /// replacement for the `MARTINGALE_BT_NEW_CYCLE_DD_PAUSE_PCT` research env.
+    #[serde(default)]
+    pub new_cycle_drawdown_pause_pct: Option<f64>,
+    /// Pause opening new cycles when ATR/close*100 exceeds this percent.
+    /// `None` = use engine default (2.0%). Parity-structured replacement for
+    /// the `MARTINGALE_BT_NEW_CYCLE_ATR_PAUSE_PCT` research env.
+    #[serde(default)]
+    pub new_cycle_atr_pause_pct: Option<f64>,
+    /// Skip averaging-down (safety) legs when ADX exceeds this value.
+    /// `None` = use engine default (45.0). Parity-structured replacement for
+    /// the `MARTINGALE_BT_SAFETY_SKIP_ADX` research env.
+    #[serde(default)]
+    pub safety_skip_adx_threshold: Option<f64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -405,5 +420,36 @@ mod tests {
 
         assert_eq!(limits.max_global_budget_quote, Some(Decimal::new(1000, 0)));
         assert_eq!(limits.max_symbol_budget_quote, Some(Decimal::new(500, 0)));
+    }
+
+    #[test]
+    fn risk_limits_guard_thresholds_round_trip_with_defaults() {
+        // Structured parity replacements for the research env switches.
+        let json = r#"{
+            "new_cycle_drawdown_pause_pct": 8.0,
+            "new_cycle_atr_pause_pct": 1.5,
+            "safety_skip_adx_threshold": 50.0
+        }"#;
+
+        let limits: MartingaleRiskLimits = serde_json::from_str(json).unwrap();
+        assert_eq!(limits.new_cycle_drawdown_pause_pct, Some(8.0));
+        assert_eq!(limits.new_cycle_atr_pause_pct, Some(1.5));
+        assert_eq!(limits.safety_skip_adx_threshold, Some(50.0));
+
+        // Round-trip preserves the values.
+        let encoded = serde_json::to_string(&limits).unwrap();
+        let decoded: MartingaleRiskLimits = serde_json::from_str(&encoded).unwrap();
+        assert_eq!(decoded, limits);
+    }
+
+    #[test]
+    fn risk_limits_default_omits_guard_thresholds() {
+        // Old configs without these fields must deserialize cleanly to None,
+        // so historical candidates keep working after the schema extension.
+        let json = r#"{"max_global_budget_quote":"1000"}"#;
+        let limits: MartingaleRiskLimits = serde_json::from_str(json).unwrap();
+        assert_eq!(limits.new_cycle_drawdown_pause_pct, None);
+        assert_eq!(limits.new_cycle_atr_pause_pct, None);
+        assert_eq!(limits.safety_skip_adx_threshold, None);
     }
 }

@@ -23,6 +23,7 @@ use backtest_engine::{
             minimum_capital_view, on_budget_metrics, prepare_replay_config, RiskProfile,
         },
         capital::{extract_portfolio_weight_factors, project_portfolio_capital},
+        indicator_runtime::extract_symbol_dependencies,
         kline_engine::run_kline_screening_with_funding,
     },
     sqlite_market_data::{load_funding_rates_readonly, SqliteMarketDataSource},
@@ -192,17 +193,31 @@ fn main() -> Result<(), String> {
         .clone()
         .unwrap_or_else(|| format!("replay_{}", profile.as_str()));
 
-    let symbols = portfolio
+    // Trading symbols come from the strategy configs. We ALSO union in
+    // cross-symbol indicator dependencies (e.g. a SOL strategy referencing
+    // `BTCUSDT.ema(50)`) so those symbols' 1m bars are loaded and the
+    // expressions can be evaluated. Dependency symbols are never traded and
+    // contribute no margin — they only feed the indicator context.
+    let traded_symbols = portfolio
         .strategies
         .iter()
         .map(|s| s.symbol.trim().to_uppercase())
-        .collect::<BTreeSet<_>>()
+        .collect::<BTreeSet<_>>();
+    let dependency_symbols = extract_symbol_dependencies(&portfolio)
         .into_iter()
+        .filter(|sym| !traded_symbols.contains(sym))
+        .collect::<Vec<_>>();
+    let symbols = traded_symbols
+        .iter()
+        .cloned()
+        .chain(dependency_symbols.iter().cloned())
         .collect::<Vec<_>>();
     eprintln!(
-        "replay: {} strategies, {} symbols, budget={}, profile={}, range {}..{} ({} days)",
+        "replay: {} strategies, {} traded symbols (+{} market-data deps: [{}]), budget={}, profile={}, range {}..{} ({} days)",
         portfolio.strategies.len(),
-        symbols.len(),
+        traded_symbols.len(),
+        dependency_symbols.len(),
+        dependency_symbols.join(", "),
         args.budget,
         profile.as_str(),
         args.start_ms,
@@ -225,7 +240,7 @@ fn main() -> Result<(), String> {
     });
     let funding = load_funding_rates_readonly(
         &args.funding_data_path,
-        &symbols,
+        &traded_symbols.iter().cloned().collect::<Vec<_>>(),
         args.start_ms,
         args.end_ms,
     )?;

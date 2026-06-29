@@ -109,11 +109,28 @@ impl MartingalePublishService {
             .filter_map(|strategy| strategy.leverage)
             .max()
             .unwrap_or(1);
+        // Surface the effective pause-guard thresholds (config value or engine
+        // default) so users can see e.g. "this portfolio pauses new cycles at 6%
+        // drawdown". Read from the typed portfolio risk_limits.
+        let limits = &config.risk_limits;
+        let risk_guard_thresholds = json!({
+            "new_cycle_drawdown_pause_pct": limits.new_cycle_drawdown_pause_pct.unwrap_or(6.0),
+            "new_cycle_atr_pause_pct": limits.new_cycle_atr_pause_pct.unwrap_or(2.0),
+            "safety_skip_adx_threshold": limits.safety_skip_adx_threshold.unwrap_or(45.0),
+        });
+        // Cross-symbol indicator dependencies (e.g. a SOL strategy referencing
+        // `BTCUSDT.ema(50)`). These symbols must be subscribed for live market
+        // data even though they are never traded; surfaced so operators know
+        // why a portfolio needs BTC/ETH feeds.
+        let market_data_dependencies =
+            backtest_engine::martingale::indicator_runtime::extract_symbol_dependencies(&config);
         Ok(json!({
             "strategy_count": config.strategies.len(),
             "symbols": symbols,
             "max_leverage": max_leverage,
             "requires_futures": config.strategies.iter().any(|s| s.market == MartingaleMarketKind::UsdMFutures),
+            "risk_guard_thresholds": risk_guard_thresholds,
+            "market_data_dependencies": market_data_dependencies,
         }))
     }
 
@@ -594,12 +611,78 @@ fn portfolio_risk_summary(request: &PublishPortfolioRequest) -> Value {
         .map(|item| item.leverage)
         .max()
         .unwrap_or(1);
+    // Surface the effective pause-guard thresholds (config value or engine
+    // default) so users can see e.g. "this portfolio pauses new cycles at 6%
+    // drawdown". Mirrors `risk_summary_for_candidate`.
+    let risk_guard_thresholds = request
+        .items
+        .iter()
+        .find(|item| item.enabled)
+        .and_then(|item| {
+            item.parameter_snapshot
+                .get("portfolio_config")
+                .and_then(|config| config.get("risk_limits"))
+        })
+        .map(effective_risk_guard_thresholds)
+        .unwrap_or_else(default_risk_guard_thresholds);
+    // Cross-symbol indicator dependencies (e.g. BTCUSDT referenced by a SOL
+    // strategy's entry expression). Extracted by deserializing the first
+    // enabled item's portfolio_config; if the snapshot is malformed we default
+    // to no dependencies rather than fail the publish.
+    let market_data_dependencies = request
+        .items
+        .iter()
+        .find(|item| item.enabled)
+        .and_then(|item| {
+            item.parameter_snapshot
+                .get("portfolio_config")
+                .cloned()
+                .or_else(|| Some(item.parameter_snapshot.clone()))
+        })
+        .and_then(|config_value| {
+            serde_json::from_value::<MartingalePortfolioConfig>(config_value).ok()
+        })
+        .map(|config| {
+            backtest_engine::martingale::indicator_runtime::extract_symbol_dependencies(&config)
+        })
+        .unwrap_or_default();
     json!({
         "strategy_count": request.items.len(),
         "enabled_strategy_count": request.items.iter().filter(|item| item.enabled).count(),
         "symbols": symbols,
         "max_leverage": max_leverage,
         "total_weight_pct": request.total_weight_pct,
+        "risk_guard_thresholds": risk_guard_thresholds,
+        "market_data_dependencies": market_data_dependencies,
+    })
+}
+
+/// Build a JSON view of the effective pause-guard thresholds from a portfolio's
+/// `risk_limits` object. Values absent from the config fall back to the engine
+/// defaults, matching `backtest_engine::martingale::kline_engine` and
+/// `trading_engine::martingale_runtime`. Surfaced in `risk_summary` so the
+/// effective guard behavior is visible without reading the config blob.
+fn effective_risk_guard_thresholds(risk_limits: &Value) -> Value {
+    let read_f64 = |field: &str| -> Option<f64> {
+        risk_limits
+            .get(field)
+            .and_then(|value| value.as_f64())
+            .filter(|value| value.is_finite() && *value >= 0.0)
+    };
+    json!({
+        "new_cycle_drawdown_pause_pct": read_f64("new_cycle_drawdown_pause_pct").unwrap_or(6.0),
+        "new_cycle_atr_pause_pct": read_f64("new_cycle_atr_pause_pct").unwrap_or(2.0),
+        "safety_skip_adx_threshold": read_f64("safety_skip_adx_threshold").unwrap_or(45.0),
+    })
+}
+
+/// Engine-default guard thresholds, used when a portfolio carries no
+/// `risk_limits` at all (e.g. legacy candidates).
+fn default_risk_guard_thresholds() -> Value {
+    json!({
+        "new_cycle_drawdown_pause_pct": 6.0,
+        "new_cycle_atr_pause_pct": 2.0,
+        "safety_skip_adx_threshold": 45.0,
     })
 }
 
@@ -657,6 +740,23 @@ fn live_portfolio_config_snapshot(
         })
         .collect::<Vec<_>>();
 
+    // Carry forward the portfolio-level risk_limits from the first enabled
+    // candidate's parameter_snapshot, so parity-structured fields (the
+    // new_cycle_*_pause_pct / safety_skip_adx_threshold thresholds) survive
+    // publish. The live budget is merged into this object later by
+    // `set_live_budget_in_config` (it inserts rather than replaces). If a
+    // candidate carries no risk_limits, fall back to an empty object as before.
+    let portfolio_risk_limits = items
+        .iter()
+        .find(|item| item.enabled)
+        .and_then(|item| {
+            item.parameter_snapshot
+                .get("portfolio_config")
+                .and_then(|config| config.get("risk_limits"))
+                .cloned()
+        })
+        .unwrap_or_else(|| json!({}));
+
     json!({
         "kind": "martingale_batch_portfolio",
         "market": request.market,
@@ -666,7 +766,7 @@ fn live_portfolio_config_snapshot(
         "portfolio_config": {
             "direction_mode": if request.direction == "long_short" { "long_and_short" } else { request.direction.as_str() },
             "strategies": strategies,
-            "risk_limits": {},
+            "risk_limits": portfolio_risk_limits,
         },
         "execution": {
             "requires_connected_strategy_executor": true,
@@ -1308,6 +1408,178 @@ mod tests {
         assert_eq!(
             running.config["portfolio_config"]["risk_limits"]["max_global_budget_quote"],
             "2000"
+        );
+    }
+
+    #[test]
+    fn published_config_carries_candidate_risk_guard_thresholds() {
+        // P0.1d: parity-structured pause thresholds in the candidate's portfolio
+        // risk_limits must survive publish (not be reset to {}), so they reach
+        // the live trading-engine. The live budget is merged in afterward.
+        let db = SharedDb::ephemeral().expect("db");
+        let repo = db.backtest_repo();
+        let task = repo
+            .create_task(task_record("user@example.com"))
+            .expect("task");
+        repo.transition_task(&task.task_id, "succeeded")
+            .expect("succeeded");
+        let mut candidate = long_short_candidate(&task.task_id);
+        // Inject structured guard thresholds into the candidate's portfolio risk_limits.
+        candidate.config["portfolio_config"]["risk_limits"] = json!({
+            "new_cycle_drawdown_pause_pct": 8.0,
+            "new_cycle_atr_pause_pct": 1.5,
+            "safety_skip_adx_threshold": 50.0,
+        });
+        let candidate = repo.save_candidate(candidate).expect("candidate");
+        let service = MartingalePublishService::new(db.clone());
+        let response = service
+            .publish_portfolio(
+                "user@example.com",
+                PublishPortfolioRequest {
+                    name: "BTC thresholds".to_owned(),
+                    task_id: task.task_id.clone(),
+                    market: "usd_m_futures".to_owned(),
+                    direction: "long_short".to_owned(),
+                    risk_profile: "balanced".to_owned(),
+                    total_weight_pct: Decimal::new(100, 0),
+                    items: vec![PublishPortfolioItemRequest {
+                        candidate_id: candidate.candidate_id.clone(),
+                        symbol: "BTCUSDT".to_owned(),
+                        weight_pct: Decimal::new(100, 0),
+                        leverage: 4,
+                        enabled: true,
+                        parameter_snapshot: candidate.config.clone(),
+                    }],
+                },
+                vec![candidate.clone()],
+            )
+            .expect("published");
+
+        // Read the stored portfolio back: its config must carry the structured
+        // thresholds (not reset to {}), and risk_summary must surface them.
+        let stored = service
+            .get_portfolio("user@example.com", &response.portfolio_id)
+            .expect("stored portfolio");
+
+        let limits = &stored.config["portfolio_config"]["risk_limits"];
+        assert_eq!(limits["new_cycle_drawdown_pause_pct"], 8.0);
+        assert_eq!(limits["new_cycle_atr_pause_pct"], 1.5);
+        assert_eq!(limits["safety_skip_adx_threshold"], 50.0);
+
+        let guard = &stored.risk_summary["risk_guard_thresholds"];
+        assert_eq!(guard["new_cycle_drawdown_pause_pct"], 8.0);
+        assert_eq!(guard["new_cycle_atr_pause_pct"], 1.5);
+        assert_eq!(guard["safety_skip_adx_threshold"], 50.0);
+    }
+
+    #[test]
+    fn risk_summary_falls_back_to_default_guard_thresholds_when_unset() {
+        // P0.1d: a candidate without structured thresholds still reports the
+        // engine defaults in risk_summary, so the UI shows consistent guard info.
+        let db = SharedDb::ephemeral().expect("db");
+        let repo = db.backtest_repo();
+        let task = repo
+            .create_task(task_record("user@example.com"))
+            .expect("task");
+        repo.transition_task(&task.task_id, "succeeded")
+            .expect("succeeded");
+        let candidate = repo
+            .save_candidate(long_short_candidate(&task.task_id))
+            .expect("candidate");
+        let service = MartingalePublishService::new(db.clone());
+        let response = service
+            .publish_portfolio(
+                "user@example.com",
+                PublishPortfolioRequest {
+                    name: "BTC defaults".to_owned(),
+                    task_id: task.task_id.clone(),
+                    market: "usd_m_futures".to_owned(),
+                    direction: "long_short".to_owned(),
+                    risk_profile: "balanced".to_owned(),
+                    total_weight_pct: Decimal::new(100, 0),
+                    items: vec![PublishPortfolioItemRequest {
+                        candidate_id: candidate.candidate_id.clone(),
+                        symbol: "BTCUSDT".to_owned(),
+                        weight_pct: Decimal::new(100, 0),
+                        leverage: 4,
+                        enabled: true,
+                        parameter_snapshot: candidate.config.clone(),
+                    }],
+                },
+                vec![candidate.clone()],
+            )
+            .expect("published");
+
+        let stored = service
+            .get_portfolio("user@example.com", &response.portfolio_id)
+            .expect("stored portfolio");
+
+        let guard = &stored.risk_summary["risk_guard_thresholds"];
+        assert_eq!(guard["new_cycle_drawdown_pause_pct"], 6.0);
+        assert_eq!(guard["new_cycle_atr_pause_pct"], 2.0);
+        assert_eq!(guard["safety_skip_adx_threshold"], 45.0);
+    }
+
+    #[test]
+    fn risk_summary_surfaces_market_data_dependencies_for_cross_symbol_expression() {
+        // P0.2d: a strategy whose entry trigger references BTCUSDT must list
+        // BTCUSDT in market_data_dependencies so operators know the portfolio
+        // needs BTC market-data feeds even though BTC is never traded.
+        let db = SharedDb::ephemeral().expect("db");
+        let repo = db.backtest_repo();
+        let task = repo
+            .create_task(task_record("user@example.com"))
+            .expect("task");
+        repo.transition_task(&task.task_id, "succeeded")
+            .expect("succeeded");
+        let mut candidate = long_short_candidate(&task.task_id);
+        // Give the long leg a cross-symbol entry trigger referencing BTCUSDT.
+        // (The candidate already trades BTCUSDT, so add a second referenced
+        // symbol ETHUSDT to ensure a genuine non-traded dependency surfaces.)
+        candidate.config["portfolio_config"]["strategies"][0]["entry_triggers"] = json!([
+            { "indicator_expression": { "expression": "close > ETHUSDT.ema(50)" } }
+        ]);
+        let candidate = repo.save_candidate(candidate).expect("candidate");
+        let service = MartingalePublishService::new(db.clone());
+        let response = service
+            .publish_portfolio(
+                "user@example.com",
+                PublishPortfolioRequest {
+                    name: "BTC cross-symbol".to_owned(),
+                    task_id: task.task_id.clone(),
+                    market: "usd_m_futures".to_owned(),
+                    direction: "long_short".to_owned(),
+                    risk_profile: "balanced".to_owned(),
+                    total_weight_pct: Decimal::new(100, 0),
+                    items: vec![PublishPortfolioItemRequest {
+                        candidate_id: candidate.candidate_id.clone(),
+                        symbol: "BTCUSDT".to_owned(),
+                        weight_pct: Decimal::new(100, 0),
+                        leverage: 4,
+                        enabled: true,
+                        parameter_snapshot: candidate.config.clone(),
+                    }],
+                },
+                vec![candidate.clone()],
+            )
+            .expect("published");
+
+        let stored = service
+            .get_portfolio("user@example.com", &response.portfolio_id)
+            .expect("stored portfolio");
+
+        let deps = stored.risk_summary["market_data_dependencies"]
+            .as_array()
+            .expect("market_data_dependencies should be an array");
+        let dep_symbols: Vec<&str> = deps.iter().filter_map(|v| v.as_str()).collect();
+        assert!(
+            dep_symbols.contains(&"ETHUSDT"),
+            "ETHUSDT (referenced, non-traded) must be a dependency, got: {dep_symbols:?}"
+        );
+        // BTCUSDT is traded, so it must NOT appear as a dependency.
+        assert!(
+            !dep_symbols.contains(&"BTCUSDT"),
+            "BTCUSDT (traded) must not be a dependency, got: {dep_symbols:?}"
         );
     }
 

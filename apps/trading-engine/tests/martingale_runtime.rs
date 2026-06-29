@@ -54,6 +54,26 @@ pub fn runtime_config(strategies: Vec<MartingaleStrategyConfig>) -> MartingaleRu
     }
 }
 
+/// Like `runtime_config` but injects custom portfolio-level risk_limits, used to
+/// verify the parity-structured pause thresholds flow from config into the live
+/// guards (P0.1c).
+pub fn runtime_config_with_risk_limits(
+    strategies: Vec<MartingaleStrategyConfig>,
+    risk_limits: MartingaleRiskLimits,
+) -> MartingaleRuntimeConfig {
+    MartingaleRuntimeConfig {
+        portfolio_id: "portfolio-a".to_string(),
+        strategy_instance_id: "instance-a".to_string(),
+        portfolio: MartingalePortfolioConfig {
+            direction_mode: MartingaleDirectionMode::LongAndShort,
+            strategies,
+            risk_limits,
+        },
+        portfolio_budget_quote: dec(10_000),
+        exchange_min_notional: Decimal::ZERO,
+    }
+}
+
 pub fn futures_settings(hedge_mode: bool) -> FuturesExchangeSettings {
     FuturesExchangeSettings {
         hedge_mode,
@@ -671,4 +691,86 @@ fn portfolio_drawdown_above_six_percent_pauses_new_cycle() {
         )
         .expect_err("portfolio drawdown > 6% should pause new cycle");
     assert!(err.to_string().contains("portfolio drawdown"), "got: {err}");
+}
+
+#[test]
+fn portfolio_drawdown_threshold_from_config_tighter_than_default_pauses() {
+    // P0.1c: a portfolio configured with new_cycle_drawdown_pause_pct = 4.0
+    // must pause at a 5% drawdown, where the default (6.0) would have allowed it.
+    let mut runtime = MartingaleRuntime::new(runtime_config_with_risk_limits(
+        vec![strategy("long-btc", MartingaleDirection::Long)],
+        MartingaleRiskLimits {
+            new_cycle_drawdown_pause_pct: Some(4.0),
+            ..MartingaleRiskLimits::default()
+        },
+    ))
+    .expect("runtime");
+    let err = runtime
+        .start_cycle_with_futures_preflight(
+            &futures_settings(true),
+            "long-btc",
+            dec(100),
+            MartingaleRuntimeContext {
+                portfolio_drawdown_pct: Some(5.0),
+                ..MartingaleRuntimeContext::default()
+            },
+        )
+        .expect_err("configured 4% DD threshold must pause at 5%");
+    assert!(err.to_string().contains("portfolio drawdown"), "got: {err}");
+}
+
+#[test]
+fn portfolio_drawdown_threshold_from_config_looser_than_default_allows() {
+    // P0.1c: a portfolio configured with new_cycle_drawdown_pause_pct = 8.0
+    // must allow a 7% drawdown (which the default 6.0 would have paused).
+    let mut runtime = MartingaleRuntime::new(runtime_config_with_risk_limits(
+        vec![strategy("long-btc", MartingaleDirection::Long)],
+        MartingaleRiskLimits {
+            new_cycle_drawdown_pause_pct: Some(8.0),
+            ..MartingaleRiskLimits::default()
+        },
+    ))
+    .expect("runtime");
+    runtime
+        .start_cycle_with_futures_preflight(
+            &futures_settings(true),
+            "long-btc",
+            dec(100),
+            MartingaleRuntimeContext {
+                portfolio_drawdown_pct: Some(7.0),
+                ..MartingaleRuntimeContext::default()
+            },
+        )
+        .expect("configured 8% DD threshold must allow 7% drawdown");
+    assert!(!runtime.orders().is_empty(), "cycle should have started");
+}
+
+#[test]
+fn atr_pause_threshold_from_config_looser_than_default_allows() {
+    // P0.1c: the same wide-ATR bars that pause under the default 2% threshold
+    // must be allowed when new_cycle_atr_pause_pct is raised to 50.0.
+    let mut strat = strategy("long-btc", MartingaleDirection::Long);
+    strat.indicators = vec![MartingaleIndicatorConfig::Atr { period: 2 }];
+    let mut runtime = MartingaleRuntime::new(runtime_config_with_risk_limits(
+        vec![strat],
+        MartingaleRiskLimits {
+            new_cycle_atr_pause_pct: Some(50.0),
+            ..MartingaleRiskLimits::default()
+        },
+    ))
+    .expect("runtime");
+    runtime.warmup_indicators_from_bars(vec![
+        kline("BTCUSDT", 0, 100.0),
+        kline("BTCUSDT", 60_000, 80.0),
+        kline("BTCUSDT", 120_000, 80.0),
+    ]);
+    runtime
+        .start_cycle_with_futures_preflight(
+            &futures_settings(true),
+            "long-btc",
+            dec(80),
+            MartingaleRuntimeContext::default(),
+        )
+        .expect("looser ATR threshold must allow new cycle");
+    assert!(!runtime.orders().is_empty(), "cycle should have started");
 }

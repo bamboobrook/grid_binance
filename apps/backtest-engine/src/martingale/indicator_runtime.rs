@@ -1,6 +1,8 @@
 use std::collections::BTreeMap;
 
-use shared_domain::martingale::{MartingaleIndicatorConfig, MartingaleStrategyConfig};
+use shared_domain::martingale::{
+    MartingaleIndicatorConfig, MartingalePortfolioConfig, MartingaleStrategyConfig,
+};
 
 use crate::indicators::{adx_advance, AdxState, BollingerPoint, IndicatorCandle};
 use crate::market_data::KlineBar;
@@ -698,6 +700,94 @@ fn split_symbol_prefix(name: &str) -> (String, Option<String>) {
     }
 }
 
+/// Extract any cross-symbol reference from a single comparison operand,
+/// mirroring `resolve_operand`'s two forms:
+///   - `SYMBOL.indicator(args)`  (parsed via `parse_indicator_call` + `split_symbol_prefix`)
+///   - `symbol.ohlc`             (e.g. `btcusdt.close`, a bare dot lookup)
+/// Returns the upper-cased referenced symbol when it differs from the strategy's
+/// own symbol; otherwise `None`. Only references to *other* symbols count as
+/// dependencies — a strategy referencing its own symbol/indicators needs no
+/// extra market data.
+fn extract_symbol_ref_from_operand(operand: &str, strategy_symbol: &str) -> Option<String> {
+    let operand = operand.trim();
+    // Numeric literal — no symbol reference.
+    if operand.parse::<f64>().is_ok() {
+        return None;
+    }
+    let own_upper = strategy_symbol.to_ascii_uppercase();
+    let lower = operand.to_ascii_lowercase();
+    if let Some(dot) = lower.find('.') {
+        let prefix = lower[..dot].trim().to_ascii_uppercase();
+        // A bare-symbol dot reference (`btcusdt.close`) OR an indicator-call
+        // (`btcusdt.ema(50)`): both carry the symbol in the prefix.
+        if !prefix.is_empty() && prefix != own_upper {
+            return Some(prefix);
+        }
+    }
+    None
+}
+
+/// Scan a single indicator expression string for cross-symbol references,
+/// appending any found to `deps`. Handles both operands of a comparison
+/// (`a op b`). Silently ignores operands that do not parse into a comparison
+/// (mirrors `evaluate_expression`'s tolerance for unsupported forms).
+fn append_deps_from_expression(expression: &str, strategy_symbol: &str, deps: &mut Vec<String>) {
+    let Some((_, left, right)) = split_comparison(expression.trim()) else {
+        return;
+    };
+    if let Some(symbol) = extract_symbol_ref_from_operand(left, strategy_symbol) {
+        deps.push(symbol);
+    }
+    if let Some(symbol) = extract_symbol_ref_from_operand(right, strategy_symbol) {
+        deps.push(symbol);
+    }
+}
+
+/// Extract the set of market-data dependency symbols referenced by a portfolio's
+/// cross-symbol indicator expressions (entry triggers and indicator stop-loss).
+///
+/// A "dependency" is a symbol referenced via `SYMBOL.indicator(...)` or
+/// `symbol.ohlc` in a strategy's expressions that is NOT the strategy's own
+/// trading symbol. Such symbols must have their 1m bars loaded (backtest) /
+/// kline ticks subscribed (live) so the expressions can be evaluated, even
+/// though they are never traded.
+///
+/// Returns dependency symbols upper-cased, de-duplicated, and sorted (for
+/// deterministic output). Strategies' own trading symbols are excluded.
+pub fn extract_symbol_dependencies(config: &MartingalePortfolioConfig) -> Vec<String> {
+    use shared_domain::martingale::{MartingaleEntryTrigger, MartingaleStopLossModel};
+
+    let mut deps: Vec<String> = Vec::new();
+    for strategy in &config.strategies {
+        let own_symbol = strategy.symbol.trim().to_ascii_uppercase();
+        for trigger in &strategy.entry_triggers {
+            if let MartingaleEntryTrigger::IndicatorExpression { expression } = trigger {
+                append_deps_from_expression(expression.as_str(), own_symbol.as_str(), &mut deps);
+            }
+        }
+        if let Some(MartingaleStopLossModel::Indicator { expression }) = &strategy.stop_loss {
+            append_deps_from_expression(expression.as_str(), own_symbol.as_str(), &mut deps);
+        }
+    }
+
+    // A dependency is a referenced symbol that is NOT one of the portfolio's own
+    // trading symbols. De-dup into a set, then return a sorted, deterministic Vec.
+    let own_symbols: std::collections::HashSet<String> = config
+        .strategies
+        .iter()
+        .map(|s| s.symbol.trim().to_ascii_uppercase())
+        .collect();
+    let mut result: Vec<String> = deps
+        .into_iter()
+        .filter(|sym| !own_symbols.contains(sym))
+        .collect::<std::collections::HashSet<_>>()
+        .into_iter()
+        .collect();
+    result.sort();
+    result.dedup();
+    result
+}
+
 pub fn one_usize_arg(name: &str, args: &[String]) -> Result<usize, String> {
     if args.len() != 1 {
         return Err(format!("{name} requires exactly one period argument"));
@@ -914,5 +1004,105 @@ mod tests {
             .evaluate_expression("ALTUSDT", "close < btcusdt.ema(2)")
             .unwrap();
         assert_eq!(result, None);
+    }
+
+    // --- P0.2a: extract_symbol_dependencies ---
+
+    use rust_decimal::Decimal;
+    use shared_domain::martingale::{
+        MartingaleDirection, MartingaleDirectionMode, MartingaleEntryTrigger, MartingaleMarketKind,
+        MartingalePortfolioConfig, MartingaleRiskLimits, MartingaleSizingModel,
+        MartingaleSpacingModel, MartingaleStopLossModel, MartingaleStrategyConfig,
+        MartingaleTakeProfitModel,
+    };
+
+    fn dep_strategy(symbol: &str, entry: &str) -> MartingaleStrategyConfig {
+        MartingaleStrategyConfig {
+            strategy_id: format!("{symbol}-dep"),
+            symbol: symbol.to_string(),
+            market: MartingaleMarketKind::Spot,
+            direction: MartingaleDirection::Long,
+            direction_mode: MartingaleDirectionMode::LongOnly,
+            margin_mode: None,
+            leverage: None,
+            spacing: MartingaleSpacingModel::FixedPercent { step_bps: 100 },
+            sizing: MartingaleSizingModel::Multiplier {
+                first_order_quote: Decimal::new(10, 0),
+                multiplier: Decimal::new(2, 0),
+                max_legs: 2,
+            },
+            take_profit: MartingaleTakeProfitModel::Percent { bps: 100 },
+            stop_loss: None,
+            indicators: Vec::new(),
+            entry_triggers: vec![MartingaleEntryTrigger::IndicatorExpression {
+                expression: entry.to_string(),
+            }],
+            risk_limits: MartingaleRiskLimits::default(),
+        }
+    }
+
+    fn portfolio_with(strategies: Vec<MartingaleStrategyConfig>) -> MartingalePortfolioConfig {
+        MartingalePortfolioConfig {
+            direction_mode: MartingaleDirectionMode::LongOnly,
+            strategies,
+            risk_limits: MartingaleRiskLimits::default(),
+        }
+    }
+
+    #[test]
+    fn extract_dependencies_finds_cross_symbol_indicator_reference() {
+        // SOL strategy gates entries on BTC's ema(50): BTCUSDT is a dependency.
+        let config = portfolio_with(vec![dep_strategy("SOLUSDT", "close > BTCUSDT.ema(50)")]);
+        assert_eq!(extract_symbol_dependencies(&config), vec!["BTCUSDT"]);
+    }
+
+    #[test]
+    fn extract_dependencies_finds_cross_symbol_ohlc_reference() {
+        // Cross-symbol OHLC reference (btcusdt.close) is also a dependency.
+        let config = portfolio_with(vec![dep_strategy("SOLUSDT", "close < btcusdt.close")]);
+        assert_eq!(extract_symbol_dependencies(&config), vec!["BTCUSDT"]);
+    }
+
+    #[test]
+    fn extract_dependencies_excludes_strategy_own_symbol() {
+        // A strategy referencing its OWN symbol is NOT a dependency.
+        let config = portfolio_with(vec![dep_strategy("BTCUSDT", "close > BTCUSDT.ema(50)")]);
+        assert!(extract_symbol_dependencies(&config).is_empty());
+    }
+
+    #[test]
+    fn extract_dependencies_dedups_across_strategies_and_operands() {
+        // Two strategies both referencing BTCUSDT (and one also referencing
+        // ETHUSDT) → deps = [BTCUSDT, ETHUSDT], deduped and sorted.
+        let config = portfolio_with(vec![
+            dep_strategy("SOLUSDT", "close > BTCUSDT.ema(50) and 1 < 2 or BTCUSDT.close > 1"),
+            dep_strategy("ADAUSDT", "close < ETHUSDT.ema(30)"),
+        ]);
+        // Note: only the first comparison operand pair is parsed per expression
+        // (split_comparison takes the first operator), so the union is BTC + ETH.
+        let deps = extract_symbol_dependencies(&config);
+        assert_eq!(deps, vec!["BTCUSDT", "ETHUSDT"]);
+    }
+
+    #[test]
+    fn extract_dependencies_picks_up_indicator_stop_loss_expression() {
+        // A strategy with an Indicator stop-loss referencing BTCUSDT.
+        let mut strategy = dep_strategy("SOLUSDT", "close > BTCUSDT.ema(50)");
+        strategy.stop_loss = Some(MartingaleStopLossModel::Indicator {
+            expression: "BTCUSDT.atr_percent(14) > 5.0".to_string(),
+        });
+        let config = portfolio_with(vec![strategy]);
+        // BTCUSDT referenced in both the entry trigger and the stop loss → still
+        // one entry after dedup.
+        assert_eq!(extract_symbol_dependencies(&config), vec!["BTCUSDT"]);
+    }
+
+    #[test]
+    fn extract_dependencies_returns_empty_when_no_expressions() {
+        // Strategies with only Immediate triggers and no indicator stop → no deps.
+        let mut strategy = dep_strategy("SOLUSDT", "close > BTCUSDT.ema(50)");
+        strategy.entry_triggers = vec![MartingaleEntryTrigger::Immediate];
+        let config = portfolio_with(vec![strategy]);
+        assert!(extract_symbol_dependencies(&config).is_empty());
     }
 }

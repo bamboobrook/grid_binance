@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 
 use rust_decimal::prelude::ToPrimitive;
 use shared_domain::martingale::{
-    MartingaleDirection, MartingaleEntryTrigger, MartingalePortfolioConfig,
+    MartingaleDirection, MartingaleEntryTrigger, MartingalePortfolioConfig, MartingaleRiskLimits,
     MartingaleStopLossModel, MartingaleStrategyConfig, MartingaleTakeProfitModel,
 };
 
@@ -40,18 +40,35 @@ struct RiskGuardThresholds {
 }
 
 impl RiskGuardThresholds {
-    fn from_env() -> Self {
+    /// Resolve risk-guard thresholds from the portfolio config, with research
+    /// env switches as overrides.
+    ///
+    /// Three of the original `MARTINGALE_BT_*` research env switches are now
+    /// structured into `MartingaleRiskLimits` for live parity:
+    /// `new_cycle_drawdown_pause_pct`, `new_cycle_atr_pause_pct`,
+    /// `safety_skip_adx_threshold`. They read **config first**, then fall back
+    /// to the env override (for one-off diagnostics), then to the engine
+    /// default. This keeps live and backtest on the same threshold source.
+    ///
+    /// The remaining three (`portfolio_equity_stop_pct`,
+    /// `portfolio_stop_cooldown_ms`, `max_portfolio_active_cycles`) are still
+    /// research-only env switches with NO live trading-engine implementation,
+    /// so they are deliberately NOT promoted into the final search space.
+    fn from_config(portfolio_risk_limits: &MartingaleRiskLimits) -> Self {
         Self {
-            new_cycle_drawdown_pause_pct: read_env_f64(
+            new_cycle_drawdown_pause_pct: resolve_threshold(
                 "MARTINGALE_BT_NEW_CYCLE_DD_PAUSE_PCT",
+                portfolio_risk_limits.new_cycle_drawdown_pause_pct,
                 DEFAULT_NEW_CYCLE_DRAWDOWN_PAUSE_PCT,
             ),
-            new_cycle_atr_pause_pct: read_env_f64(
+            new_cycle_atr_pause_pct: resolve_threshold(
                 "MARTINGALE_BT_NEW_CYCLE_ATR_PAUSE_PCT",
+                portfolio_risk_limits.new_cycle_atr_pause_pct,
                 DEFAULT_NEW_CYCLE_ATR_PAUSE_PCT,
             ),
-            safety_skip_adx_threshold: read_env_f64(
+            safety_skip_adx_threshold: resolve_threshold(
                 "MARTINGALE_BT_SAFETY_SKIP_ADX",
+                portfolio_risk_limits.safety_skip_adx_threshold,
                 DEFAULT_SAFETY_SKIP_ADX_THRESHOLD,
             ),
             portfolio_equity_stop_pct: read_env_f64(
@@ -70,6 +87,26 @@ impl RiskGuardThresholds {
             .filter(|value| *value > 0),
         }
     }
+}
+
+/// Resolve a parity-structured threshold: env override (if set and finite) wins,
+/// otherwise the config value, otherwise the engine default. This is the single
+/// resolution path shared by backtest and live so both engines agree.
+fn resolve_threshold(
+    env_name: &str,
+    config_value: Option<f64>,
+    default_value: f64,
+) -> f64 {
+    if let Some(parsed) = std::env::var(env_name)
+        .ok()
+        .and_then(|value| value.parse::<f64>().ok())
+        .filter(|value| value.is_finite() && *value >= 0.0)
+    {
+        return parsed;
+    }
+    config_value
+        .filter(|value| value.is_finite() && *value >= 0.0)
+        .unwrap_or(default_value)
 }
 
 fn read_env_f64(name: &str, default: f64) -> f64 {
@@ -110,7 +147,7 @@ pub fn run_kline_screening_with_funding(
     funding_rates: &[FundingRatePoint],
 ) -> Result<MartingaleBacktestResult, String> {
     portfolio.validate()?;
-    let risk_guards = RiskGuardThresholds::from_env();
+    let risk_guards = RiskGuardThresholds::from_config(&portfolio.risk_limits);
 
     let preflight_rejections = preflight_rejection_reasons(&portfolio);
     if !preflight_rejections.is_empty() {
@@ -1752,6 +1789,31 @@ mod tests {
 
     fn single_strategy_portfolio(budget_quote: i64) -> MartingalePortfolioConfig {
         portfolio_with_direction(MartingaleDirection::Long, budget_quote)
+    }
+
+    #[test]
+    fn risk_guard_thresholds_read_config_first_then_default() {
+        // No env override set for these names in the test process; config value wins.
+        let limits = MartingaleRiskLimits {
+            new_cycle_drawdown_pause_pct: Some(7.5),
+            new_cycle_atr_pause_pct: Some(1.25),
+            safety_skip_adx_threshold: Some(55.0),
+            ..MartingaleRiskLimits::default()
+        };
+        let guards = super::RiskGuardThresholds::from_config(&limits);
+        assert_eq!(guards.new_cycle_drawdown_pause_pct, 7.5);
+        assert_eq!(guards.new_cycle_atr_pause_pct, 1.25);
+        assert_eq!(guards.safety_skip_adx_threshold, 55.0);
+    }
+
+    #[test]
+    fn risk_guard_thresholds_fall_back_to_defaults_when_config_unset() {
+        let guards = super::RiskGuardThresholds::from_config(&MartingaleRiskLimits::default());
+        // Historical candidates without the structured fields keep the original
+        // engine defaults, so replay numbers are unchanged.
+        assert_eq!(guards.new_cycle_drawdown_pause_pct, 6.0);
+        assert_eq!(guards.new_cycle_atr_pause_pct, 2.0);
+        assert_eq!(guards.safety_skip_adx_threshold, 45.0);
     }
 
     fn portfolio_with_direction(

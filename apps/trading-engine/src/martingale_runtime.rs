@@ -388,11 +388,18 @@ impl MartingaleRuntime {
             order.status = MartingaleRuntimeOrderStatus::Filled;
         }
 
-        // ADX > 45 guard: skip the safety (averaging-down) leg in extreme trends
-        // (backtest parity — kline_engine.rs:229-251). Only fires for strategies
-        // that configure an ADX indicator; strategies without ADX are unaffected.
-        // Must run BEFORE advancing `next_leg_index` so a skipped leg retries on a
-        // later fill once ADX drops below 45 (matches backtest `continue`).
+        // ADX skip guard: skip the safety (averaging-down) leg in extreme trends
+        // (backtest parity — kline_engine.rs safety-skip block). The threshold is
+        // now parity-structured: read from the strategy's risk_limits, defaulting
+        // to 45.0 to match the backtest `DEFAULT_SAFETY_SKIP_ADX_THRESHOLD`.
+        // Only fires for strategies that configure an ADX indicator; strategies
+        // without ADX are unaffected. Must run BEFORE advancing `next_leg_index`
+        // so a skipped leg retries on a later fill once ADX drops below the
+        // threshold (matches backtest `continue`).
+        let adx_threshold = strategy_config
+            .risk_limits
+            .safety_skip_adx_threshold
+            .unwrap_or(45.0);
         let adx_period = strategy_config.indicators.iter().find_map(|i| match i {
             MartingaleIndicatorConfig::Adx { period } => Some(*period as usize),
             _ => None,
@@ -402,7 +409,7 @@ impl MartingaleRuntime {
                 .indicator_context
                 .latest_adx(&strategy_config.symbol, period)
             {
-                if adx > 45.0 {
+                if adx > adx_threshold {
                     // Do NOT advance next_leg_index — the just-filled leg is marked
                     // Filled above, and the safety leg retries on the next fill.
                     return Ok(());
@@ -556,20 +563,34 @@ impl MartingaleRuntime {
         // skip them so high-ATR / high-DD conditions do not block averaging
         // that the backtest would have done. All guards above apply to both.
         if new_cycle {
-            // Parity port of backtest guard (kline_engine.rs:142-146): portfolio
-            // drawdown > 6% pauses new cycles. `Some` carries a real equity-based
-            // percent from `main.rs`; `None` (tests / pre-wiring) skips the guard.
+            // Parity port of backtest guard (kline_engine.rs): portfolio
+            // drawdown above the configured percent pauses new cycles. `Some`
+            // carries a real equity-based percent from `main.rs`; `None` (tests
+            // / pre-wiring) skips the guard. The threshold is parity-structured:
+            // read from portfolio risk_limits, defaulting to 6.0 to match the
+            // backtest `DEFAULT_NEW_CYCLE_DRAWDOWN_PAUSE_PCT`.
+            let dd_threshold = self
+                .portfolio_risk_limits
+                .new_cycle_drawdown_pause_pct
+                .unwrap_or(6.0);
             if let Some(dd) = context.portfolio_drawdown_pct {
-                if dd > 6.0 {
+                if dd > dd_threshold {
                     return Err(MartingaleRuntimeError::new(
-                        "portfolio drawdown above 6% pauses new entries",
+                        "portfolio drawdown above threshold pauses new entries",
                     ));
                 }
             }
 
-            // 方向3: 波动率过滤 — ATR > 2% of close 时暂停新 cycle（高波动期风险大）
-            // Parity port of backtest guard (kline_engine.rs:147-160). `&mut self` ATR
-            // read completes before `evaluate_entry_triggers` borrows `&mut self`.
+            // 方向3: 波动率过滤 — ATR/close*100 超过阈值时暂停新 cycle（高波动期风险大）
+            // Parity port of backtest guard (kline_engine.rs). The threshold is
+            // parity-structured: read from portfolio risk_limits, defaulting to
+            // 2.0 to match the backtest `DEFAULT_NEW_CYCLE_ATR_PAUSE_PCT`.
+            // `&mut self` ATR read completes before `evaluate_entry_triggers`
+            // borrows `&mut self`.
+            let atr_threshold = self
+                .portfolio_risk_limits
+                .new_cycle_atr_pause_pct
+                .unwrap_or(2.0);
             if let Some(atr) = self.indicator_latest_atr(&strategy_config) {
                 let close = self
                     .indicator_context
@@ -578,9 +599,9 @@ impl MartingaleRuntime {
                     .and_then(|bars| bars.last())
                     .map(|bar| bar.close);
                 if let Some(close) = close {
-                    if close > 0.0 && atr / close * 100.0 > 2.0 {
+                    if close > 0.0 && atr / close * 100.0 > atr_threshold {
                         return Err(MartingaleRuntimeError::new(
-                            "atr volatility above 2% pauses new cycle",
+                            "atr volatility above threshold pauses new cycle",
                         ));
                     }
                 }
