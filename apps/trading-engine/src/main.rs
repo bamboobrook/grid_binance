@@ -35,7 +35,7 @@ use trading_engine::{
     execution_effects::persist_execution_effects,
     execution_sync::{apply_execution_update, recompute_strategy_positions},
     martingale_candle::{complete_bars, LiveCandleBucket, MINUTE_MS},
-    martingale_exit::martingale_strategy_drawdown_pct,
+    martingale_exit::{martingale_regime_break_triggered, martingale_strategy_drawdown_pct},
     martingale_recovery::{recover_martingale_runtime, MartingaleRecoveryInput, RecoveryPosition},
     martingale_runtime::{
         FuturesExchangeSettings, FuturesSymbolSettings, MartingaleRuntime, MartingaleRuntimeConfig,
@@ -855,15 +855,25 @@ fn martingale_cycle_started_at_ms(strategy: &Strategy) -> Option<i64> {
         .map(|event| event.created_at.timestamp_millis())
 }
 
+/// Load the persisted `IndicatorRuntimeContext` for an executor strategy.
+///
+/// The executor strategy created in [`reconcile_running_martingale_portfolios`] carries
+/// `source_template_id = portfolio.portfolio_id` (see executor_strategy_from_martingale_config),
+/// which is the same key under which `INDICATOR_FEEDS` stores the per-portfolio indicator
+/// context (ATR/ADX/EMA bars maintained across reconcile ticks). Falling back to the strategy
+/// id matches the standalone-strategy fallback in [`martingale_runtime_config_from_strategy`].
+///
+/// This is the live parity path for `RegimeBreakStop`: the EMA read here reflects the most
+/// recently completed 1m bar pushed during reconcile, matching the backtest bar-level EMA.
 fn persisted_indicator_context_for_strategy(
-    _strategy: &Strategy,
+    strategy: &Strategy,
 ) -> backtest_engine::martingale::indicator_runtime::IndicatorRuntimeContext {
-    // TODO(Task 5): wire real persisted indicator_ctx — currently returns an empty/default
-    // context so regime_break_stop (Task 5) would see EMA=None and never trigger. Task 5 MUST
-    // replace this stub by threading the real persisted IndicatorRuntimeContext held in the
-    // reconcile caller into apply_martingale_market_ticks. The age branch (Task 4) does not
-    // use indicator_ctx, so this stub is safe for max_cycle_age_hours live parity.
-    backtest_engine::martingale::indicator_runtime::IndicatorRuntimeContext::default()
+    let portfolio_id = strategy
+        .source_template_id
+        .clone()
+        .unwrap_or_else(|| strategy.id.clone());
+    let feeds = indicator_feeds().lock().expect("indicator feeds poisoned");
+    feeds.get(&portfolio_id).cloned().unwrap_or_default()
 }
 
 fn martingale_runtime_orders_to_strategy_orders(
@@ -1931,7 +1941,6 @@ fn martingale_exit_signal(
             }
         }
     }
-    let _ = indicator_ctx; // TODO(Task 5): regime_break_stop uses indicator_ctx; age branch does not.
     if current_price <= Decimal::ZERO || position.average_entry_price <= Decimal::ZERO {
         return None;
     }
@@ -1973,6 +1982,21 @@ fn martingale_exit_signal(
                 threshold_price: current_price,
             });
         }
+    }
+    if let Some(true) = martingale_regime_break_triggered(
+        config,
+        position.quantity,
+        position.average_entry_price,
+        current_price,
+        realized_pnl,
+        entry_fees,
+        indicator_ctx,
+    ) {
+        return Some(MartingaleExitSignal {
+            event_type: "martingale_regime_break_stop",
+            label: "regime break stop",
+            threshold_price: current_price,
+        });
     }
     None
 }
@@ -4085,6 +4109,120 @@ mod tests {
         )
         .expect("age stop should trigger");
         assert_eq!(signal.event_type, "martingale_cycle_age_stop");
+    }
+
+    /// Seed `IndicatorRuntimeContext` with `count` bars of constant `close` so
+    /// `latest_ema(symbol, period)` converges to that close once `count >= period`.
+    /// Mirrors backtest Task 3 `regime_break_indicator_context` fixture (kline_engine.rs).
+    fn regime_break_indicator_context(
+        symbol: &str,
+        close: f64,
+        count: usize,
+    ) -> backtest_engine::martingale::indicator_runtime::IndicatorRuntimeContext {
+        let mut ctx = backtest_engine::martingale::indicator_runtime::IndicatorRuntimeContext::default();
+        for index in 0..count {
+            ctx.push_bar(&backtest_engine::market_data::KlineBar {
+                symbol: symbol.to_string(),
+                open_time_ms: index as i64 * 60_000,
+                open: close,
+                high: close + 2.0,
+                low: close - 2.0,
+                close,
+                volume: 1.0,
+            });
+        }
+        ctx
+    }
+
+    #[test]
+    fn regime_break_stop_triggers_live_when_close_crosses_ema_and_drawdown() {
+        // stop_loss = RegimeBreakStop{ema50, 500bps}. Long entry at 100, current 90.
+        // EMA50 = 120 (60 bars at close=120) → close < ema (90<120) regime broke (long),
+        // drawdown = (100-90)*1 / (100/1) *100 = 10% ≥ 5% → both conditions fire.
+        let mut running = strategy("martingale-regime", StrategyStatus::Running);
+        running.strategy_type = StrategyType::MartingaleGrid;
+        running.market = StrategyMarket::FuturesUsdM;
+        running.mode = StrategyMode::FuturesLong;
+        running.runtime.positions.push(StrategyRuntimePosition {
+            market: StrategyMarket::FuturesUsdM,
+            mode: StrategyMode::FuturesLong,
+            quantity: Decimal::new(1, 0),
+            average_entry_price: Decimal::new(100, 0),
+        });
+        let mut config = super::martingale_runtime_config_from_strategy(&running)
+            .expect("strategy config")
+            .portfolio
+            .strategies
+            .remove(0);
+        // Spot/1x so drawdown math stays simple and matches backtest fixture parity.
+        config.market = shared_domain::martingale::MartingaleMarketKind::Spot;
+        config.leverage = None;
+        config.direction = shared_domain::martingale::MartingaleDirection::Long;
+        config.direction_mode = shared_domain::martingale::MartingaleDirectionMode::LongOnly;
+        config.take_profit =
+            shared_domain::martingale::MartingaleTakeProfitModel::Percent { bps: 100_000 };
+        config.stop_loss = Some(shared_domain::martingale::MartingaleStopLossModel::RegimeBreakStop {
+            ema_period: 50,
+            drawdown_pct_bps: 500, // 5%
+        });
+
+        let mut ctx = regime_break_indicator_context(&config.symbol, 120.0, 60);
+        let signal = super::martingale_exit_signal(
+            &config,
+            &running.runtime.positions[0],
+            Decimal::new(90, 0),
+            Decimal::ZERO,
+            Decimal::ZERO,
+            None,
+            None,
+            &mut ctx,
+        )
+        .expect("regime break should trigger");
+        assert_eq!(signal.event_type, "martingale_regime_break_stop");
+    }
+
+    #[test]
+    fn regime_break_stop_does_not_trigger_when_close_above_ema() {
+        // Same fixture but current price 125 > ema120 → regime intact; pnl also positive
+        // so drawdown < threshold. Both conditions fail → no exit.
+        let mut running = strategy("martingale-regime-noop", StrategyStatus::Running);
+        running.strategy_type = StrategyType::MartingaleGrid;
+        running.market = StrategyMarket::FuturesUsdM;
+        running.mode = StrategyMode::FuturesLong;
+        running.runtime.positions.push(StrategyRuntimePosition {
+            market: StrategyMarket::FuturesUsdM,
+            mode: StrategyMode::FuturesLong,
+            quantity: Decimal::new(1, 0),
+            average_entry_price: Decimal::new(100, 0),
+        });
+        let mut config = super::martingale_runtime_config_from_strategy(&running)
+            .expect("strategy config")
+            .portfolio
+            .strategies
+            .remove(0);
+        config.market = shared_domain::martingale::MartingaleMarketKind::Spot;
+        config.leverage = None;
+        config.direction = shared_domain::martingale::MartingaleDirection::Long;
+        config.direction_mode = shared_domain::martingale::MartingaleDirectionMode::LongOnly;
+        config.take_profit =
+            shared_domain::martingale::MartingaleTakeProfitModel::Percent { bps: 100_000 };
+        config.stop_loss = Some(shared_domain::martingale::MartingaleStopLossModel::RegimeBreakStop {
+            ema_period: 50,
+            drawdown_pct_bps: 500,
+        });
+
+        let mut ctx = regime_break_indicator_context(&config.symbol, 120.0, 60);
+        let signal = super::martingale_exit_signal(
+            &config,
+            &running.runtime.positions[0],
+            Decimal::new(125, 0),
+            Decimal::ZERO,
+            Decimal::ZERO,
+            None,
+            None,
+            &mut ctx,
+        );
+        assert!(signal.is_none(), "regime intact + profitable → no exit");
     }
 
     #[test]
