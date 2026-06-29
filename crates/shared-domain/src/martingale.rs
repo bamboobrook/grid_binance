@@ -103,6 +103,10 @@ pub enum MartingaleStopLossModel {
     StrategyDrawdownPct { pct_bps: u32 },
     SymbolDrawdownAmount { quote: Decimal },
     GlobalDrawdownAmount { quote: Decimal },
+    RegimeBreakStop {
+        ema_period: u32,
+        drawdown_pct_bps: u32,
+    },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -167,6 +171,10 @@ pub struct MartingaleRiskLimits {
     /// the `MARTINGALE_BT_SAFETY_SKIP_ADX` research env.
     #[serde(default)]
     pub safety_skip_adx_threshold: Option<f64>,
+    /// Force-close a cycle (market, whole-cycle) once it exceeds this many hours
+    /// since leg-0 entry. `None` = disabled. Strategy-level guard.
+    #[serde(default)]
+    pub max_cycle_age_hours: Option<f64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -451,5 +459,39 @@ mod tests {
         assert_eq!(limits.new_cycle_drawdown_pause_pct, None);
         assert_eq!(limits.new_cycle_atr_pause_pct, None);
         assert_eq!(limits.safety_skip_adx_threshold, None);
+    }
+
+    #[test]
+    fn regime_break_stop_and_max_cycle_age_serde_roundtrip() {
+        let json = r#"{
+            "direction_mode": "long_only",
+            "strategies": [{
+                "strategy_id": "t", "symbol": "BTCUSDT", "market": "usd_m_futures",
+                "direction": "long", "direction_mode": "long_only",
+                "margin_mode": "isolated", "leverage": 5,
+                "spacing": {"fixed_percent": {"step_bps": 180}},
+                "sizing": {"multiplier": {"first_order_quote": "10", "multiplier": "1.5", "max_legs": 5}},
+                "take_profit": {"percent": {"bps": 100}},
+                "stop_loss": {"regime_break_stop": {"ema_period": 50, "drawdown_pct_bps": 1000}},
+                "indicators": [], "entry_triggers": ["immediate"],
+                "risk_limits": {"max_cycle_age_hours": 48.0}
+            }],
+            "risk_limits": {}
+        }"#;
+        let cfg: MartingalePortfolioConfig = serde_json::from_str(json).unwrap();
+        let sl = cfg.strategies[0].stop_loss.as_ref().unwrap();
+        assert_eq!(sl, &MartingaleStopLossModel::RegimeBreakStop { ema_period: 50, drawdown_pct_bps: 1000 });
+        assert_eq!(cfg.strategies[0].risk_limits.max_cycle_age_hours, Some(48.0));
+        // re-serialize keeps snake_case
+        let re = serde_json::to_string(&cfg).unwrap();
+        assert!(re.contains("\"regime_break_stop\""));
+        assert!(re.contains("\"max_cycle_age_hours\""));
+    }
+
+    #[test]
+    fn risk_limits_default_omits_max_cycle_age() {
+        let json = r#"{}"#;
+        let rl: MartingaleRiskLimits = serde_json::from_str(json).unwrap();
+        assert_eq!(rl.max_cycle_age_hours, None);
     }
 }
