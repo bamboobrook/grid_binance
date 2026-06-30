@@ -38,3 +38,18 @@ class HybridFrontierWideSearchTest(unittest.TestCase):
         self.assertEqual(summary["aggressive"]["passes"], 1)
         self.assertEqual(summary["aggressive"]["best_ann_seg_cap"]["ann"], 120)
         self.assertEqual(summary["aggressive"]["top_near_misses"][0]["ann"], 40)
+
+    def test_candidate_to_row_keeps_gate_fields(self):
+        report = {
+            "profile": "balanced",
+            "passes_offline": False,
+            "full_metrics": {"annualized_return_pct": 12.5, "max_drawdown_pct": 8.0, "max_capital_used_quote": 3000},
+            "full_gate": {"passes": False, "violations": ["annualized 12.5 <= required 90.0"]},
+            "segment_gate": {"passes": True, "positive_segments": 4, "combined_2024_2026_return_pct": 10.0, "violations": []},
+        }
+        row = wide.candidate_to_row(report, {"profile": "balanced", "tag": "x"})
+        self.assertEqual(row["ann"], 12.5)
+        self.assertEqual(row["dd"], 8.0)
+        self.assertEqual(row["cap"], 3000)
+        self.assertFalse(row["pass"])
+        self.assertTrue(row["seg_pass"])

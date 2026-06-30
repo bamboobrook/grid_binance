@@ -44,3 +44,129 @@ def summarize_frontier(rows: list[dict]) -> dict:
             "top_near_misses": sorted(near, key=lambda row: row["ann"], reverse=True)[:5],
         }
     return summary
+
+
+def candidate_to_row(report: dict, meta: dict) -> dict:
+    full = report["full_metrics"]
+    segment = report["segment_gate"]
+    return {
+        **meta,
+        "ann": full["annualized_return_pct"],
+        "dd": full["max_drawdown_pct"],
+        "cap": full["max_capital_used_quote"],
+        "pass": report["passes_offline"],
+        "full_pass": report["full_gate"]["passes"],
+        "seg_pass": segment["passes"],
+        "pos": segment["positive_segments"],
+        "c2426": segment["combined_2024_2026_return_pct"],
+        "violations": report["full_gate"]["violations"] + segment["violations"],
+    }
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--profiles", default="conservative,balanced,aggressive")
+    parser.add_argument("--replay-dir", default="docs/superpowers/reports")
+    parser.add_argument("--market-data", default="data/market_data_full.db")
+    parser.add_argument("--funding-data", default="data/funding_rates.db")
+    parser.add_argument("--trend-symbols", default="BTCUSDT,ETHUSDT,BNBUSDT,SOLUSDT,INJUSDT,AAVEUSDT,LINKUSDT,DOGEUSDT,ADAUSDT,XRPUSDT")
+    parser.add_argument("--funding-symbols", default="BTCUSDT,ETHUSDT,DYDXUSDT,INJUSDT,AAVEUSDT")
+    parser.add_argument("--martingale-allocations", default="500,1000,1500,2000")
+    parser.add_argument("--trend-allocations", default="0,250,500,750")
+    parser.add_argument("--funding-allocations", default="0,100,250,500")
+    parser.add_argument("--trend-group-size", type=int, default=3)
+    parser.add_argument("--funding-group-size", type=int, default=2)
+    parser.add_argument("--budget", type=float, default=5000.0)
+    parser.add_argument("--limit", type=int, default=2000)
+    parser.add_argument("--out-json", required=True)
+    parser.add_argument("--out-md", required=True)
+    return parser.parse_args()
+
+
+def choose_groups(symbols: list[str], size: int) -> list[tuple[str, ...]]:
+    if size <= 0 or not symbols:
+        return [()]
+    groups = list(itertools.combinations(symbols, min(size, len(symbols))))
+    return groups[:200]
+
+
+def run_search(args: argparse.Namespace) -> dict:
+    profiles = parse_csv(args.profiles)
+    trend_symbols = parse_csv(args.trend_symbols)
+    funding_symbols = parse_csv(args.funding_symbols)
+    m_allocs = [float(x) for x in parse_csv(args.martingale_allocations)]
+    t_allocs = [float(x) for x in parse_csv(args.trend_allocations)]
+    f_allocs = [float(x) for x in parse_csv(args.funding_allocations)]
+    trend_groups = [()] + choose_groups(trend_symbols, args.trend_group_size)
+    funding_groups = [()] + choose_groups(funding_symbols, args.funding_group_size)
+
+    trend_base = {symbol: probe.build_trend_stream(args.market_data, symbol, 1.0) for symbol in trend_symbols}
+    funding_base = {
+        symbol: probe.build_funding_stream(args.funding_data, symbol, 1.0, probe.SEGMENTS["full"][0], probe.SEGMENTS["full"][1])
+        for symbol in funding_symbols
+    }
+
+    rows = []
+    replay_dir = Path(args.replay_dir)
+    for profile in profiles:
+        replays = sorted(replay_dir.glob(f"replay_{profile}_*.json"))
+        for replay in replays:
+            for m_alloc in m_allocs:
+                m_stream = probe.load_martingale_stream(replay, m_alloc)
+                for t_alloc in t_allocs:
+                    valid_trend_groups = [()] if t_alloc == 0 else [group for group in trend_groups if group]
+                    for f_alloc in f_allocs:
+                        valid_funding_groups = [()] if f_alloc == 0 else [group for group in funding_groups if group]
+                        for trend_group in valid_trend_groups:
+                            for funding_group in valid_funding_groups:
+                                if len(rows) >= args.limit:
+                                    break
+                                streams = [m_stream]
+                                streams += [scale_stream(trend_base[symbol], t_alloc) for symbol in trend_group]
+                                streams += [scale_stream(funding_base[symbol], f_alloc) for symbol in funding_group]
+                                combined = probe.combine_streams(streams, args.budget)
+                                report = probe.build_candidate_report(profile, combined, args.budget)
+                                rows.append(candidate_to_row(report, {
+                                    "profile": profile,
+                                    "replay": replay.name,
+                                    "m_alloc": m_alloc,
+                                    "t_alloc": t_alloc,
+                                    "f_alloc": f_alloc,
+                                    "trend_symbols": ",".join(trend_group),
+                                    "funding_symbols": ",".join(funding_group),
+                                }))
+                            if len(rows) >= args.limit:
+                                break
+                        if len(rows) >= args.limit:
+                            break
+                    if len(rows) >= args.limit:
+                        break
+                if len(rows) >= args.limit:
+                    break
+    summary = summarize_frontier(rows)
+    return {"live_parity_status": probe.LIVE_PARITY_STATUS, "rows": rows, "summary": summary}
+
+
+def write_outputs(result: dict, out_json: str, out_md: str) -> None:
+    Path(out_json).write_text(json.dumps(result, indent=2, sort_keys=True))
+    lines = ["# Hybrid Frontier Wide Search", "", f"- live_parity_status: {result['live_parity_status']}", f"- rows: {len(result['rows'])}", ""]
+    for profile, summary in result["summary"].items():
+        lines.append(f"## {profile}")
+        lines.append(f"- passes: {summary['passes']}")
+        lines.append(f"- best_ann_seg_cap: {summary['best_ann_seg_cap']}")
+        lines.append(f"- best_dd_seg_cap: {summary['best_dd_seg_cap']}")
+        lines.append("")
+    lines.append("This is Phase 1 research-only evidence and is not live-ready.")
+    Path(out_md).write_text("\n".join(lines))
+
+
+def main() -> int:
+    args = parse_args()
+    result = run_search(args)
+    write_outputs(result, args.out_json, args.out_md)
+    print(json.dumps({"rows": len(result["rows"]), "passes": sum(v["passes"] for v in result["summary"].values())}, sort_keys=True))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
