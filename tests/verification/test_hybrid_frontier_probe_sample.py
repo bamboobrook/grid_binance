@@ -195,3 +195,28 @@ class HybridFrontierProbeSampleTest(unittest.TestCase):
         self.assertEqual(sliced[0]["equity_quote"], 100.0)
         self.assertEqual(sliced[-1]["timestamp_ms"], 2500)
         self.assertEqual(sliced[-1]["equity_quote"], 110.0)
+
+    def test_build_candidate_report_marks_research_only(self):
+        combined = {
+            "streams": ["martingale:a", "trend:BTCUSDT:ema2_4"],
+            "symbols": ["BTCUSDT", "ETHUSDT"],
+            "points": [
+                {"timestamp_ms": 1672531200000, "equity_quote": 1000.0},
+                {"timestamp_ms": 1672617600000, "equity_quote": 1010.0},
+            ],
+            "metrics": {
+                "annualized_return_pct": 60.0,
+                "max_drawdown_pct": 5.0,
+                "total_return_pct": 1.0,
+                "max_capital_used_quote": 3000.0,
+                "budget_blocked_events": 0,
+                "symbol_count": 2,
+            },
+            "live_parity_status": "research_only",
+        }
+        report = probe.build_candidate_report("conservative", combined, budget=5000.0)
+        self.assertEqual(report["profile"], "conservative")
+        self.assertEqual(report["live_parity_status"], "research_only")
+        self.assertIs(report["full_gate"]["passes"], True)
+        self.assertIn("segment_gate", report)
+        self.assertIn("sleeve_attribution", report)

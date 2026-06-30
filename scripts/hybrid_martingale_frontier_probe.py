@@ -13,6 +13,7 @@ Contract phrase: decision timestamp uses data at or before t.
 """
 from __future__ import annotations
 
+import argparse
 import json
 import sqlite3
 from pathlib import Path
@@ -375,8 +376,87 @@ def segment_report(points: list[dict]) -> dict:
     return report
 
 
+def build_candidate_report(profile: str, combined: dict, budget: float) -> dict:
+    segments = segment_report(combined["points"])
+    segment_metrics = {name: value for name, value in segments.items() if name != "full"}
+    full_metrics = dict(combined["metrics"])
+    full_gate = evaluate_profile_gate(profile, full_metrics, budget)
+    segment_gate = evaluate_segment_gate(profile, segment_metrics)
+    return {
+        "profile": profile,
+        "budget": budget,
+        "live_parity_status": LIVE_PARITY_STATUS,
+        "streams": combined["streams"],
+        "symbols": combined["symbols"],
+        "full_metrics": full_metrics,
+        "segments": segments,
+        "full_gate": full_gate,
+        "segment_gate": segment_gate,
+        "passes_offline": full_gate["passes"] and segment_gate["passes"],
+        "sleeve_attribution": [{"name": name} for name in combined["streams"]],
+    }
+
+
+def write_reports(report: dict, out_json: str | Path, out_md: str | Path | None = None) -> None:
+    Path(out_json).write_text(json.dumps(report, indent=2, sort_keys=True))
+    if out_md:
+        lines = [
+            "# Hybrid Frontier Probe Smoke Report",
+            "",
+            f"- profile: {report['profile']}",
+            f"- budget: {report['budget']}",
+            f"- live_parity_status: {report['live_parity_status']}",
+            f"- passes_offline: {report['passes_offline']}",
+            f"- streams: {', '.join(report['streams'])}",
+            f"- symbols: {', '.join(report['symbols'])}",
+            f"- full annualized: {report['full_metrics'].get('annualized_return_pct'):.4f}",
+            f"- full max DD: {report['full_metrics'].get('max_drawdown_pct'):.4f}",
+            "",
+            "This is Phase 1 research-only evidence and is not live-ready.",
+            "",
+        ]
+        Path(out_md).write_text("\n".join(lines))
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--profile", choices=sorted(PROFILE_TARGETS), required=True)
+    parser.add_argument("--budget", type=float, default=5000.0)
+    parser.add_argument("--martingale-replay", required=True)
+    parser.add_argument("--martingale-allocation", type=float, default=1500.0)
+    parser.add_argument("--market-data", default="data/market_data_full.db")
+    parser.add_argument("--funding-data", default="data/funding_rates.db")
+    parser.add_argument("--trend-symbols", default="BTCUSDT,ETHUSDT,BNBUSDT")
+    parser.add_argument("--trend-allocation", type=float, default=750.0)
+    parser.add_argument("--funding-symbols", default="BTCUSDT,ETHUSDT")
+    parser.add_argument("--funding-allocation", type=float, default=250.0)
+    parser.add_argument("--out-json", required=True)
+    parser.add_argument("--out-md", default=None)
+    return parser.parse_args()
+
+
+def run_from_args(args: argparse.Namespace) -> dict:
+    streams = [load_martingale_stream(args.martingale_replay, args.martingale_allocation)]
+    for symbol in [s.strip() for s in args.trend_symbols.split(",") if s.strip()]:
+        streams.append(build_trend_stream(args.market_data, symbol, args.trend_allocation))
+    for symbol in [s.strip() for s in args.funding_symbols.split(",") if s.strip()]:
+        streams.append(build_funding_stream(args.funding_data, symbol, args.funding_allocation, SEGMENTS["full"][0], SEGMENTS["full"][1]))
+    combined = combine_streams(streams, args.budget)
+    report = build_candidate_report(args.profile, combined, args.budget)
+    write_reports(report, args.out_json, args.out_md)
+    return report
+
+
 def main() -> int:
-    print("hybrid frontier probe skeleton: Phase 1 research-only")
+    args = parse_args()
+    report = run_from_args(args)
+    print(json.dumps({
+        "profile": report["profile"],
+        "passes_offline": report["passes_offline"],
+        "live_parity_status": report["live_parity_status"],
+        "annualized_return_pct": report["full_metrics"].get("annualized_return_pct"),
+        "max_drawdown_pct": report["full_metrics"].get("max_drawdown_pct"),
+    }, sort_keys=True))
     return 0
 
 
