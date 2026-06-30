@@ -54,26 +54,55 @@ SCREEN_SEGMENTS = {
 }
 
 
+# Per-coin long-term-trend regime allocator knobs. On 1m klines ema(5760) ~= 4-day
+# (much less noise than ema(200)=3.3h). ADX splits trending vs ranging. Override
+# via CLI. Rationale (2026-06-30 web research + user feedback): in 2025 BTC was
+# range-bound (-6.4%) while alts crashed independently -> a BTC-regime gate MISSES
+# the altcoin short opportunity; regime must be measured per-coin.
+_TREND_EMA = 5760
+_ADX_TREND = 22
+_ADX_RANGE = 18
+_FILTER_MODE = "regime_btc"
+
+
 def _regime_filter_expressions(entry_filter: str, direction: str) -> list[str]:
     """Regime-sleeve entry triggers (monkeypatched over ns.filter_expressions).
 
-    Longs enter only in BTC uptrend, shorts only in BTC downtrend, range sleeve
-    additionally requires low ADX (mean-reversion friendly). All cross-symbol
-    expressions are live-parity (indicator_runtime.rs resolves BTCUSDT.* in both
-    backtest + trading-engine)."""
-    exprs: list[str] = []
-    bull = "BTCUSDT.close > BTCUSDT.ema(200)"
-    bear = "BTCUSDT.close < BTCUSDT.ema(200)"
-    if entry_filter == "btc_trend":
-        exprs.append(bull if direction == "long" else bear)
-    elif entry_filter == "btc_trend_rsi":
-        exprs.append(bull if direction == "long" else bear)
-        exprs.append("rsi(14) < 65" if direction == "long" else "rsi(14) > 35")
-    elif entry_filter == "btc_range":
-        # mean-reversion sleeve: with-trend AND ranging (low ADX)
-        exprs.append(bull if direction == "long" else bear)
-        exprs.append("adx(14) < 25")
-    return exprs
+    Two families, all live-parity (indicator_runtime.rs parses these in both
+    backtest + trading-engine):
+      - btc_* : BTC macro regime (ema200). Misses idiosyncratic altcoin moves.
+      - pc_*  : PER-COIN long-term-trend regime (the allocator the user asked for):
+          * pc_trend  = trend-following in the coin's OWN trend -> long when
+            close>ema(TREND_EMA) & ADX high; SHORT when below (a crashing alt in
+            2025 fires its own short = the bear-market profit source).
+          * pc_range  = mean-reversion when this coin ranges (ADX low).
+        Direction-dominant by construction: only the regime-matching side enters.
+    """
+    bull_btc = "BTCUSDT.close > BTCUSDT.ema(200)"
+    bear_btc = "BTCUSDT.close < BTCUSDT.ema(200)"
+    bull_pc = f"close > ema({_TREND_EMA})"
+    bear_pc = f"close < ema({_TREND_EMA})"
+    trending = f"adx(14) > {_ADX_TREND}"
+    ranging = f"adx(14) < {_ADX_RANGE}"
+    if entry_filter == "none":
+        return []
+    if entry_filter in ("trend", "trend_rsi"):
+        out = [bull_pc if direction == "long" else bear_pc]
+        if entry_filter == "trend_rsi":
+            out.append("rsi(14) < 65" if direction == "long" else "rsi(14) > 35")
+        return out
+    if entry_filter in ("btc_trend", "btc_trend_rsi"):
+        out = [bull_btc if direction == "long" else bear_btc]
+        if entry_filter == "btc_trend_rsi":
+            out.append("rsi(14) < 65" if direction == "long" else "rsi(14) > 35")
+        return out
+    if entry_filter == "btc_range":
+        return [(bull_btc if direction == "long" else bear_btc), "adx(14) < 25"]
+    if entry_filter == "pc_trend":
+        return [(bull_pc if direction == "long" else bear_pc), trending]
+    if entry_filter == "pc_range":
+        return [ranging]
+    return []
 
 
 # Monkeypatch so ns.strategy() (called by ns.make_config) emits regime triggers.
@@ -144,7 +173,10 @@ def base_template_pool(profile: str) -> list[dict[str, Any]]:
         ages = [48.0, 96.0, None]
         stop_kinds = ["strategy_drawdown", "regime_break"]
 
-    filters = ["btc_trend", "btc_trend_rsi", "btc_range"]
+    if _FILTER_MODE == "regime_pc":
+        filters = ["pc_trend", "pc_range"]
+    else:
+        filters = ["btc_trend", "btc_trend_rsi", "btc_range"]
 
     templates: list[dict[str, Any]] = []
     for first_order, leverage, multiplier, max_legs, step_bps, tp_bps, stop_bps, age, entry_filter, stop_kind in itertools.product(
@@ -267,6 +299,13 @@ def main() -> int:
     parser.add_argument("--portfolio-cooldown-hours", type=float, default=24.0)
     parser.add_argument("--max-active-cycles", type=int, default=0,
                         help="if >0, set MARTINGALE_BT_MAX_PORTFOLIO_ACTIVE_CYCLES")
+    parser.add_argument("--filters", choices=["regime_btc", "regime_pc"], default="regime_btc",
+                        help="regime_btc=BTC ema200 gate; regime_pc=per-coin ema(TREND_EMA)+ADX allocator "
+                             "(pc_trend long/short by coin's own trend, pc_range MR when ADX low)")
+    parser.add_argument("--trend-ema", type=int, default=5760,
+                        help="long-term trend ema period on 1m klines (5760~=4day). Less noise than ema200")
+    parser.add_argument("--adx-trend", type=int, default=22)
+    parser.add_argument("--adx-range", type=int, default=18)
     args = parser.parse_args()
     args.replay_bin = Path(args.replay_bin)
     args.market_data = Path(args.market_data)
@@ -275,6 +314,13 @@ def main() -> int:
     out_dir = Path(args.out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
     rng = random.Random(args.seed)
+
+    # Regime-allocator knobs (read by base_template_pool + _regime_filter_expressions).
+    global _FILTER_MODE, _TREND_EMA, _ADX_TREND, _ADX_RANGE  # noqa: PLW0603
+    _FILTER_MODE = args.filters
+    _TREND_EMA = args.trend_ema
+    _ADX_TREND = args.adx_trend
+    _ADX_RANGE = args.adx_range
 
     # Pool selection (altcoins back when using portfolio-stop to survive them).
     ns.symbol_direction_pool = _broad_pool if args.pool == "broad" else _large_cap_pool
