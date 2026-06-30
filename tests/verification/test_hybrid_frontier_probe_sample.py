@@ -160,3 +160,38 @@ class HybridFrontierProbeSampleTest(unittest.TestCase):
         self.assertEqual(stream["symbols"], ["BTCUSDT"])
         self.assertEqual(round(stream["points"][-1]["equity_quote"], 4), 1001.5)
         self.assertEqual(stream["funding_events"], 3)
+
+    def test_combine_streams_aligns_points_and_sums_capital(self):
+        streams = [
+            {
+                "name": "a",
+                "symbols": ["BTCUSDT"],
+                "points": [{"timestamp_ms": 1000, "equity_quote": 100.0}, {"timestamp_ms": 2000, "equity_quote": 110.0}],
+                "max_capital_used_quote": 100.0,
+                "budget_blocked_events": 0,
+            },
+            {
+                "name": "b",
+                "symbols": ["ETHUSDT"],
+                "points": [{"timestamp_ms": 1000, "equity_quote": 200.0}, {"timestamp_ms": 2000, "equity_quote": 190.0}],
+                "max_capital_used_quote": 200.0,
+                "budget_blocked_events": 0,
+            },
+        ]
+        combined = probe.combine_streams(streams, budget=500.0)
+        self.assertEqual(combined["symbols"], ["BTCUSDT", "ETHUSDT"])
+        self.assertEqual(combined["points"][-1]["equity_quote"], 300.0)
+        self.assertEqual(combined["metrics"]["max_capital_used_quote"], 300.0)
+        self.assertEqual(combined["metrics"]["symbol_count"], 2)
+
+    def test_slice_points_for_segment_includes_boundary_points(self):
+        points = [
+            {"timestamp_ms": 1000, "equity_quote": 100.0},
+            {"timestamp_ms": 2000, "equity_quote": 110.0},
+            {"timestamp_ms": 3000, "equity_quote": 120.0},
+        ]
+        sliced = probe.slice_points(points, 1500, 2500)
+        self.assertEqual(sliced[0]["timestamp_ms"], 1500)
+        self.assertEqual(sliced[0]["equity_quote"], 100.0)
+        self.assertEqual(sliced[-1]["timestamp_ms"], 2500)
+        self.assertEqual(sliced[-1]["equity_quote"], 110.0)

@@ -323,6 +323,58 @@ def build_funding_stream(
     }
 
 
+def slice_points(points: list[dict], start_ms: int, end_ms: int) -> list[dict]:
+    timestamps = [int(start_ms)]
+    timestamps.extend(int(p["timestamp_ms"]) for p in points if start_ms <= int(p["timestamp_ms"]) <= end_ms)
+    timestamps.append(int(end_ms))
+    return resample_equity_curve(points, sorted(set(timestamps)))
+
+
+def combine_streams(streams: list[dict], budget: float) -> dict:
+    """Combine sleeve equity streams by summing aligned equity values."""
+    if not streams:
+        raise ValueError("at least one stream is required")
+    all_timestamps = sorted({
+        int(point["timestamp_ms"])
+        for stream in streams
+        for point in stream["points"]
+    })
+    aligned = [resample_equity_curve(stream["points"], all_timestamps) for stream in streams]
+    by_stream = []
+    for points in aligned:
+        by_stream.append({point["timestamp_ms"]: point["equity_quote"] for point in points})
+
+    combined_points = []
+    for ts in all_timestamps:
+        values = [series.get(ts) for series in by_stream]
+        if all(value is not None for value in values):
+            combined_points.append({"timestamp_ms": ts, "equity_quote": sum(values)})
+
+    symbols = sorted({symbol for stream in streams for symbol in stream.get("symbols", [])})
+    max_capital = sum(float(stream.get("max_capital_used_quote", 0.0)) for stream in streams)
+    blocked = sum(int(stream.get("budget_blocked_events", 0)) for stream in streams)
+    metrics = compute_metrics(combined_points)
+    metrics.update({
+        "max_capital_used_quote": max_capital,
+        "budget_blocked_events": blocked + (1 if max_capital >= budget else 0),
+        "symbol_count": len(symbols),
+    })
+    return {
+        "streams": [stream["name"] for stream in streams],
+        "symbols": symbols,
+        "points": combined_points,
+        "metrics": metrics,
+        "live_parity_status": LIVE_PARITY_STATUS,
+    }
+
+
+def segment_report(points: list[dict]) -> dict:
+    report = {}
+    for name, (start_ms, end_ms) in SEGMENTS.items():
+        report[name] = compute_metrics(slice_points(points, start_ms, end_ms))
+    return report
+
+
 def main() -> int:
     print("hybrid frontier probe skeleton: Phase 1 research-only")
     return 0
