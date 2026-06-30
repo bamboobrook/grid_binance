@@ -14,6 +14,7 @@ Contract phrase: decision timestamp uses data at or before t.
 from __future__ import annotations
 
 import json
+import sqlite3
 from pathlib import Path
 from typing import Iterable
 
@@ -194,6 +195,89 @@ def load_martingale_stream(path: str | Path, allocation_quote: float) -> dict:
         "max_capital_used_quote": float(data.get("max_capital_used_quote") or allocation_quote),
         "budget_blocked_events": int(data.get("budget_blocked_legs") or 0),
         "source": str(path),
+        "live_parity_status": LIVE_PARITY_STATUS,
+    }
+
+
+def load_daily_closes(market_db: str | Path, symbol: str, market_type: str = "futures_usdt_perp") -> list[dict]:
+    """Load one close per UTC day from local 1m klines."""
+    con = sqlite3.connect(str(market_db))
+    try:
+        rows = con.execute(
+            """
+            SELECT open_time, close
+            FROM klines
+            WHERE symbol = ? AND market_type = ? AND timeframe = '1m'
+            ORDER BY open_time
+            """,
+            (symbol, market_type),
+        ).fetchall()
+    finally:
+        con.close()
+    by_day = {}
+    for ts, close in rows:
+        day_key = int(ts) // MS_PER_DAY
+        by_day[day_key] = {"timestamp_ms": int(ts), "close": float(close)}
+    return [by_day[key] for key in sorted(by_day)]
+
+
+def ema_values(values: list[float], period: int) -> list[float | None]:
+    if period <= 0:
+        raise ValueError("EMA period must be positive")
+    alpha = 2.0 / (period + 1.0)
+    out: list[float | None] = []
+    ema = None
+    for index, value in enumerate(values):
+        if ema is None:
+            ema = float(value)
+        else:
+            ema = alpha * float(value) + (1.0 - alpha) * ema
+        out.append(ema if index + 1 >= period else None)
+    return out
+
+
+def build_trend_stream(
+    market_db: str | Path,
+    symbol: str,
+    allocation_quote: float,
+    fast: int = 20,
+    slow: int = 50,
+    fee_bps: float = 2.0,
+) -> dict:
+    """Build a daily long/flat EMA trend stream; signal uses previous day data."""
+    daily = load_daily_closes(market_db, symbol)
+    closes = [row["close"] for row in daily]
+    fast_ema = ema_values(closes, fast)
+    slow_ema = ema_values(closes, slow)
+    equity = allocation_quote
+    points = []
+    position = 0
+    max_period = max(fast, slow)
+    for index in range(1, len(daily)):
+        prev_fast = fast_ema[index - 1]
+        prev_slow = slow_ema[index - 1]
+        if prev_fast is None or prev_slow is None or index < max_period:
+            continue
+        desired = 1 if prev_fast > prev_slow else 0
+        if desired != position:
+            equity *= 1.0 - fee_bps / 10_000.0
+            position = desired
+        prev_close = daily[index - 1]["close"]
+        close = daily[index]["close"]
+        if position and prev_close > 0:
+            equity *= close / prev_close
+        points.append({"timestamp_ms": daily[index]["timestamp_ms"], "equity_quote": equity})
+    if not points:
+        points = [{"timestamp_ms": row["timestamp_ms"], "equity_quote": allocation_quote} for row in daily[max_period:]]
+    return {
+        "name": f"trend:{symbol}:ema{fast}_{slow}",
+        "kind": "trend",
+        "symbols": [symbol],
+        "points": points,
+        "max_capital_used_quote": allocation_quote,
+        "budget_blocked_events": 0,
+        "fee_bps": fee_bps,
+        "no_lookahead": True,
         "live_parity_status": LIVE_PARITY_STATUS,
     }
 

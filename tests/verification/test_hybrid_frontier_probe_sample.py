@@ -1,5 +1,6 @@
 import importlib.util
 import json
+import sqlite3
 import tempfile
 import unittest
 from pathlib import Path
@@ -107,3 +108,34 @@ class HybridFrontierProbeSampleTest(unittest.TestCase):
                 {"timestamp_ms": 4000, "equity_quote": 120.0},
             ],
         )
+
+    def make_market_db(self, path, rows):
+        con = sqlite3.connect(path)
+        con.execute(
+            "CREATE TABLE klines (symbol TEXT, market_type TEXT, timeframe TEXT, open_time INTEGER, open REAL, high REAL, low REAL, close REAL, volume REAL, close_time INTEGER)"
+        )
+        con.executemany("INSERT INTO klines VALUES (?,?,?,?,?,?,?,?,?,?)", rows)
+        con.commit()
+        con.close()
+
+    def test_build_trend_stream_uses_previous_close_for_signal(self):
+        db = self.tmp_path / "market.db"
+        day = 86_400_000
+        rows = []
+        closes = [100, 101, 102, 103, 104, 90, 89, 88, 110, 111, 112, 113]
+        for i, close in enumerate(closes):
+            rows.append(("BTCUSDT", "futures_usdt_perp", "1m", i * day, close, close, close, close, 1.0, i * day + 60_000 - 1))
+        self.make_market_db(db, rows)
+        stream = probe.build_trend_stream(
+            market_db=db,
+            symbol="BTCUSDT",
+            allocation_quote=1000.0,
+            fast=2,
+            slow=4,
+            fee_bps=0.0,
+        )
+        self.assertEqual(stream["name"], "trend:BTCUSDT:ema2_4")
+        self.assertEqual(stream["symbols"], ["BTCUSDT"])
+        self.assertGreaterEqual(len(stream["points"]), 8)
+        self.assertGreaterEqual(stream["points"][0]["timestamp_ms"], 4 * day)
+        self.assertIs(stream["no_lookahead"], True)
