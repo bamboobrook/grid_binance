@@ -283,6 +283,93 @@ def build_trend_stream(
     }
 
 
+def build_momentum_stream(
+    market_db: str | Path,
+    symbol: str,
+    allocation_quote: float,
+    lookback: int = 20,
+    mode: str = "long_flat",
+    fee_bps: float = 2.0,
+) -> dict:
+    """Build a daily momentum stream; signal uses the previous completed day."""
+    daily = load_daily_closes(market_db, symbol)
+    equity = allocation_quote
+    points = []
+    position = 0
+    for index in range(lookback + 1, len(daily)):
+        prev_close = daily[index - 1]["close"]
+        ref_close = daily[index - 1 - lookback]["close"]
+        momentum = prev_close / ref_close - 1.0 if ref_close > 0 else 0.0
+        desired = 1 if momentum > 0 else (-1 if mode == "long_short" and momentum < 0 else 0)
+        if desired != position:
+            equity *= 1.0 - fee_bps / 10_000.0
+            position = desired
+        last_close = daily[index - 1]["close"]
+        close = daily[index]["close"]
+        if last_close > 0:
+            if position == 1:
+                equity *= close / last_close
+            elif position == -1:
+                equity *= 2.0 - close / last_close
+        points.append({"timestamp_ms": daily[index]["timestamp_ms"], "equity_quote": equity})
+    return {
+        "name": f"trend:{symbol}:mom{lookback}_{mode}",
+        "kind": "trend",
+        "symbols": [symbol],
+        "points": points,
+        "max_capital_used_quote": allocation_quote,
+        "budget_blocked_events": 0,
+        "fee_bps": fee_bps,
+        "no_lookahead": True,
+        "live_parity_status": LIVE_PARITY_STATUS,
+    }
+
+
+def build_donchian_stream(
+    market_db: str | Path,
+    symbol: str,
+    allocation_quote: float,
+    lookback: int = 20,
+    mode: str = "long_flat",
+    fee_bps: float = 2.0,
+) -> dict:
+    """Build a daily Donchian breakout stream; channel excludes the signal day."""
+    daily = load_daily_closes(market_db, symbol)
+    equity = allocation_quote
+    points = []
+    position = 0
+    for index in range(lookback + 1, len(daily)):
+        window = [row["close"] for row in daily[index - 1 - lookback:index - 1]]
+        upper = max(window)
+        lower = min(window)
+        signal_close = daily[index - 1]["close"]
+        desired = 1 if signal_close > upper else (-1 if mode == "long_short" and signal_close < lower else position)
+        if mode == "long_flat" and signal_close < lower:
+            desired = 0
+        if desired != position:
+            equity *= 1.0 - fee_bps / 10_000.0
+            position = desired
+        last_close = daily[index - 1]["close"]
+        close = daily[index]["close"]
+        if last_close > 0:
+            if position == 1:
+                equity *= close / last_close
+            elif position == -1:
+                equity *= 2.0 - close / last_close
+        points.append({"timestamp_ms": daily[index]["timestamp_ms"], "equity_quote": equity})
+    return {
+        "name": f"trend:{symbol}:donchian{lookback}_{mode}",
+        "kind": "trend",
+        "symbols": [symbol],
+        "points": points,
+        "max_capital_used_quote": allocation_quote,
+        "budget_blocked_events": 0,
+        "fee_bps": fee_bps,
+        "no_lookahead": True,
+        "live_parity_status": LIVE_PARITY_STATUS,
+    }
+
+
 def build_funding_stream(
     funding_db: str | Path,
     symbol: str,

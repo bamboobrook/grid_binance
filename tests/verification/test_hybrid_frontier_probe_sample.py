@@ -140,6 +140,28 @@ class HybridFrontierProbeSampleTest(unittest.TestCase):
         self.assertGreaterEqual(stream["points"][0]["timestamp_ms"], 4 * day)
         self.assertIs(stream["no_lookahead"], True)
 
+    def test_build_momentum_stream_can_go_long_short(self):
+        db = self.tmp_path / "market_mom.db"
+        day = 86_400_000
+        closes = [100, 110, 121, 133, 120, 108, 97, 90, 99, 109, 120, 132]
+        rows = [("BTCUSDT", "futures_usdt_perp", "1m", i * day, c, c, c, c, 1.0, i * day + 60_000 - 1) for i, c in enumerate(closes)]
+        self.make_market_db(db, rows)
+        stream = probe.build_momentum_stream(db, "BTCUSDT", allocation_quote=1000.0, lookback=2, mode="long_short", fee_bps=0.0)
+        self.assertEqual(stream["name"], "trend:BTCUSDT:mom2_long_short")
+        self.assertIs(stream["no_lookahead"], True)
+        self.assertGreater(len(stream["points"]), 5)
+
+    def test_build_donchian_stream_uses_previous_channel(self):
+        db = self.tmp_path / "market_donchian.db"
+        day = 86_400_000
+        closes = [100, 101, 102, 99, 98, 103, 104, 97, 96, 105, 106]
+        rows = [("BTCUSDT", "futures_usdt_perp", "1m", i * day, c, c, c, c, 1.0, i * day + 60_000 - 1) for i, c in enumerate(closes)]
+        self.make_market_db(db, rows)
+        stream = probe.build_donchian_stream(db, "BTCUSDT", allocation_quote=1000.0, lookback=3, mode="long_short", fee_bps=0.0)
+        self.assertEqual(stream["name"], "trend:BTCUSDT:donchian3_long_short")
+        self.assertIs(stream["no_lookahead"], True)
+        self.assertGreater(len(stream["points"]), 5)
+
     def make_funding_db(self, path, rows):
         con = sqlite3.connect(path)
         con.execute("CREATE TABLE funding_rates (symbol TEXT, funding_time INTEGER, funding_rate REAL, mark_price REAL)")
