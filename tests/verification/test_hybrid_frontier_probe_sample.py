@@ -1,4 +1,6 @@
 import importlib.util
+import json
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -10,6 +12,13 @@ SPEC.loader.exec_module(probe)
 
 
 class HybridFrontierProbeSampleTest(unittest.TestCase):
+    def setUp(self):
+        self.tmpdir = tempfile.TemporaryDirectory()
+        self.tmp_path = Path(self.tmpdir.name)
+
+    def tearDown(self):
+        self.tmpdir.cleanup()
+
     def test_compute_metrics_positive_curve(self):
         points = [
             {"timestamp_ms": 1672531200000, "equity_quote": 1000.0},
@@ -58,3 +67,43 @@ class HybridFrontierProbeSampleTest(unittest.TestCase):
         self.assertEqual(result["positive_segments"], 1)
         self.assertTrue(any("segments positive" in item for item in result["violations"]))
         self.assertTrue(any("2024-2026 combined return" in item for item in result["violations"]))
+
+    def test_load_martingale_stream_from_replay_json(self):
+        replay = {
+            "portfolio_id": "demo_m",
+            "symbols": ["BTCUSDT", "ETHUSDT"],
+            "budget_quote": 4000.0,
+            "max_capital_used_quote": 1234.0,
+            "budget_blocked_legs": 0,
+            "equity_curve": [
+                {"timestamp_ms": 1000, "equity_quote": 1000.0},
+                {"timestamp_ms": 2000, "equity_quote": 1010.0},
+                {"timestamp_ms": 3000, "equity_quote": 990.0},
+            ],
+        }
+        path = self.tmp_path / "replay.json"
+        path.write_text(json.dumps(replay))
+        stream = probe.load_martingale_stream(path, allocation_quote=2000.0)
+        self.assertEqual(stream["name"], "martingale:demo_m")
+        self.assertEqual(stream["symbols"], ["BTCUSDT", "ETHUSDT"])
+        self.assertEqual(stream["max_capital_used_quote"], 1234.0)
+        self.assertEqual(stream["budget_blocked_events"], 0)
+        self.assertEqual(stream["points"][0]["equity_quote"], 2000.0)
+        self.assertEqual(round(stream["points"][1]["equity_quote"], 4), 2020.0)
+        self.assertEqual(round(stream["points"][2]["equity_quote"], 4), 1980.0)
+
+    def test_resample_equity_curve_forward_fills_without_lookahead(self):
+        points = [
+            {"timestamp_ms": 1000, "equity_quote": 100.0},
+            {"timestamp_ms": 3000, "equity_quote": 120.0},
+        ]
+        sampled = probe.resample_equity_curve(points, [500, 1000, 2000, 3000, 4000])
+        self.assertEqual(
+            sampled,
+            [
+                {"timestamp_ms": 1000, "equity_quote": 100.0},
+                {"timestamp_ms": 2000, "equity_quote": 100.0},
+                {"timestamp_ms": 3000, "equity_quote": 120.0},
+                {"timestamp_ms": 4000, "equity_quote": 120.0},
+            ],
+        )

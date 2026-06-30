@@ -13,6 +13,8 @@ Contract phrase: decision timestamp uses data at or before t.
 """
 from __future__ import annotations
 
+import json
+from pathlib import Path
 from typing import Iterable
 
 PROFILE_TARGETS = {
@@ -147,6 +149,52 @@ def evaluate_segment_gate(profile: str, segment_metrics: dict) -> dict:
         "violations": violations,
         "positive_segments": positive,
         "combined_2024_2026_return_pct": combined_2024_2026,
+    }
+
+
+def resample_equity_curve(points: list[dict], timestamps: list[int]) -> list[dict]:
+    """Forward-fill equity using only points at or before each timestamp."""
+    ordered = sorted(
+        [{"timestamp_ms": int(p["timestamp_ms"]), "equity_quote": float(p["equity_quote"])} for p in points],
+        key=lambda p: p["timestamp_ms"],
+    )
+    result = []
+    index = 0
+    last = None
+    for ts in sorted(int(t) for t in timestamps):
+        while index < len(ordered) and ordered[index]["timestamp_ms"] <= ts:
+            last = ordered[index]
+            index += 1
+        if last is not None:
+            result.append({"timestamp_ms": ts, "equity_quote": last["equity_quote"]})
+    return result
+
+
+def load_martingale_stream(path: str | Path, allocation_quote: float) -> dict:
+    """Load an existing martingale replay JSON and scale its equity curve to an allocation."""
+    data = json.loads(Path(path).read_text())
+    curve = data.get("equity_curve") or []
+    if len(curve) < 2:
+        raise ValueError(f"martingale replay has no usable equity_curve: {path}")
+    start_equity = float(curve[0]["equity_quote"])
+    if start_equity <= 0:
+        raise ValueError(f"martingale replay start equity must be positive: {path}")
+    scaled = [
+        {
+            "timestamp_ms": int(point["timestamp_ms"]),
+            "equity_quote": allocation_quote * float(point["equity_quote"]) / start_equity,
+        }
+        for point in curve
+    ]
+    return {
+        "name": f"martingale:{data.get('portfolio_id', Path(path).stem)}",
+        "kind": "martingale",
+        "symbols": list(data.get("symbols", [])),
+        "points": scaled,
+        "max_capital_used_quote": float(data.get("max_capital_used_quote") or allocation_quote),
+        "budget_blocked_events": int(data.get("budget_blocked_legs") or 0),
+        "source": str(path),
+        "live_parity_status": LIVE_PARITY_STATUS,
     }
 
 
