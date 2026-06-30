@@ -150,3 +150,68 @@ def simulate_dgt_symbol(
         "half_grid_count": half_grid_count,
         "live_parity_status": LIVE_PARITY_STATUS,
     }
+
+
+def compute_metrics(points: list[dict]) -> dict:
+    if len(points) < 2:
+        return {"annualized_return_pct": 0.0, "total_return_pct": 0.0, "max_drawdown_pct": 0.0}
+    start = float(points[0]["equity_quote"])
+    end = float(points[-1]["equity_quote"])
+    if start <= 0:
+        return {"annualized_return_pct": -100.0, "total_return_pct": -100.0, "max_drawdown_pct": 100.0}
+    peak = start
+    max_dd = 0.0
+    for point in points:
+        equity = float(point["equity_quote"])
+        peak = max(peak, equity)
+        if peak > 0:
+            max_dd = max(max_dd, (peak - equity) / peak * 100.0)
+    years = (int(points[-1]["timestamp_ms"]) - int(points[0]["timestamp_ms"])) / (365.25 * 24 * 3600 * 1000)
+    total_return = (end / start - 1.0) * 100.0
+    annualized = ((end / start) ** (1.0 / years) - 1.0) * 100.0 if years > 0 and end > 0 else -100.0
+    return {
+        "annualized_return_pct": annualized,
+        "total_return_pct": total_return,
+        "max_drawdown_pct": max_dd,
+    }
+
+
+def points_in_range(points: list[dict], start_ms: int, end_ms: int) -> list[dict]:
+    return [point for point in points if start_ms <= int(point["timestamp_ms"]) <= end_ms]
+
+
+def compute_segment_metrics(points: list[dict]) -> dict:
+    return {
+        name: compute_metrics(points_in_range(points, start_ms, end_ms))
+        for name, (start_ms, end_ms) in SEGMENTS.items()
+        if name != "full"
+    }
+
+
+def positive_segment_count(segment_metrics: dict) -> int:
+    return sum(1 for metrics in segment_metrics.values() if metrics["total_return_pct"] > 0)
+
+
+def combined_2024_2026_return(segment_metrics: dict) -> float:
+    total = 1.0
+    for name in ["2024", "2025", "2026_ytd"]:
+        total *= 1.0 + segment_metrics.get(name, {}).get("total_return_pct", 0.0) / 100.0
+    return (total - 1.0) * 100.0
+
+
+def evaluate_profile_gate(profile: str, metrics: dict, budget: float) -> dict:
+    target = PROFILE_TARGETS[profile]
+    violations = []
+    if metrics["annualized_return_pct"] <= target["ann"]:
+        violations.append(f"annualized {metrics['annualized_return_pct']} <= required {target['ann']}")
+    if metrics["max_drawdown_pct"] > target["dd"]:
+        violations.append(f"drawdown {metrics['max_drawdown_pct']} > allowed {target['dd']}")
+    if metrics["max_input_quote"] >= budget:
+        violations.append(f"capital {metrics['max_input_quote']:.2f} is not below budget {budget:.2f}")
+    if metrics["symbol_count"] < 2:
+        violations.append("single-symbol candidate is not allowed")
+    if metrics["positive_segments"] < 4:
+        violations.append(f"only {metrics['positive_segments']}/5 segments positive; need 4")
+    if metrics["combined_2024_2026_return_pct"] <= 0:
+        violations.append(f"2024-2026 combined return {metrics['combined_2024_2026_return_pct']:.2f}% <= 0")
+    return {"passes": not violations, "violations": violations}

@@ -47,3 +47,39 @@ class DgtDynamicGridProbeTest(unittest.TestCase):
         self.assertGreater(stream["reset_count"], 0)
         self.assertEqual(round(stream["max_input_quote"], 6), 100.0)
         self.assertGreater(stream["points"][-1]["equity_quote"], stream["points"][0]["equity_quote"])
+
+    def test_profile_gate_rejects_single_symbol_and_over_budget(self):
+        metrics = {
+            "annualized_return_pct": 120.0,
+            "max_drawdown_pct": 20.0,
+            "max_input_quote": 4000.0,
+            "symbol_count": 1,
+            "positive_segments": 5,
+            "combined_2024_2026_return_pct": 10.0,
+        }
+        result = dgt.evaluate_profile_gate("aggressive", metrics, budget=5000.0)
+        self.assertFalse(result["passes"])
+        self.assertIn("single-symbol candidate is not allowed", result["violations"])
+
+        metrics["symbol_count"] = 2
+        metrics["max_input_quote"] = 5000.0
+        result = dgt.evaluate_profile_gate("aggressive", metrics, budget=5000.0)
+        self.assertFalse(result["passes"])
+        self.assertIn("capital 5000.00 is not below budget 5000.00", result["violations"])
+
+    def test_segment_metrics_use_required_periods(self):
+        points = [
+            {"timestamp_ms": 1672531200000, "equity_quote": 100.0},
+            {"timestamp_ms": 1680000000000, "equity_quote": 105.0},
+            {"timestamp_ms": 1688169600000, "equity_quote": 110.0},
+            {"timestamp_ms": 1695000000000, "equity_quote": 115.0},
+            {"timestamp_ms": 1704067200000, "equity_quote": 120.0},
+            {"timestamp_ms": 1720000000000, "equity_quote": 125.0},
+            {"timestamp_ms": 1735689600000, "equity_quote": 130.0},
+            {"timestamp_ms": 1750000000000, "equity_quote": 135.0},
+            {"timestamp_ms": 1767225600000, "equity_quote": 140.0},
+            {"timestamp_ms": 1780271999999, "equity_quote": 150.0},
+        ]
+        segments = dgt.compute_segment_metrics(points)
+        self.assertEqual(set(segments), {"h1_2023", "h2_2023", "2024", "2025", "2026_ytd"})
+        self.assertGreaterEqual(dgt.positive_segment_count(segments), 4)
