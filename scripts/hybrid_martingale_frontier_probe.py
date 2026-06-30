@@ -282,6 +282,47 @@ def build_trend_stream(
     }
 
 
+def build_funding_stream(
+    funding_db: str | Path,
+    symbol: str,
+    allocation_quote: float,
+    start_ms: int,
+    end_ms: int,
+) -> dict:
+    """Build a short-perp funding stream. Positive funding_rate benefits shorts."""
+    con = sqlite3.connect(str(funding_db))
+    try:
+        rows = con.execute(
+            """
+            SELECT funding_time, funding_rate
+            FROM funding_rates
+            WHERE symbol = ? AND funding_time >= ? AND funding_time <= ?
+            ORDER BY funding_time
+            """,
+            (symbol, int(start_ms), int(end_ms)),
+        ).fetchall()
+    finally:
+        con.close()
+    equity = allocation_quote
+    points = []
+    for ts, rate in rows:
+        equity += allocation_quote * float(rate)
+        points.append({"timestamp_ms": int(ts), "equity_quote": equity})
+    if not points:
+        points = [{"timestamp_ms": int(start_ms), "equity_quote": allocation_quote}]
+    return {
+        "name": f"funding:{symbol}:short_perp",
+        "kind": "funding",
+        "symbols": [symbol],
+        "points": points,
+        "max_capital_used_quote": allocation_quote,
+        "budget_blocked_events": 0,
+        "funding_events": len(rows),
+        "no_lookahead": True,
+        "live_parity_status": LIVE_PARITY_STATUS,
+    }
+
+
 def main() -> int:
     print("hybrid frontier probe skeleton: Phase 1 research-only")
     return 0

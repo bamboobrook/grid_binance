@@ -139,3 +139,24 @@ class HybridFrontierProbeSampleTest(unittest.TestCase):
         self.assertGreaterEqual(len(stream["points"]), 8)
         self.assertGreaterEqual(stream["points"][0]["timestamp_ms"], 4 * day)
         self.assertIs(stream["no_lookahead"], True)
+
+    def make_funding_db(self, path, rows):
+        con = sqlite3.connect(path)
+        con.execute("CREATE TABLE funding_rates (symbol TEXT, funding_time INTEGER, funding_rate REAL, mark_price REAL)")
+        con.executemany("INSERT INTO funding_rates VALUES (?,?,?,?)", rows)
+        con.commit()
+        con.close()
+
+    def test_build_funding_stream_short_perp_receives_positive_funding(self):
+        db = self.tmp_path / "funding.db"
+        rows = [
+            ("BTCUSDT", 1000, 0.001, 100.0),
+            ("BTCUSDT", 2000, 0.001, 100.0),
+            ("BTCUSDT", 3000, -0.0005, 100.0),
+        ]
+        self.make_funding_db(db, rows)
+        stream = probe.build_funding_stream(db, "BTCUSDT", allocation_quote=1000.0, start_ms=0, end_ms=4000)
+        self.assertEqual(stream["name"], "funding:BTCUSDT:short_perp")
+        self.assertEqual(stream["symbols"], ["BTCUSDT"])
+        self.assertEqual(round(stream["points"][-1]["equity_quote"], 4), 1001.5)
+        self.assertEqual(stream["funding_events"], 3)
