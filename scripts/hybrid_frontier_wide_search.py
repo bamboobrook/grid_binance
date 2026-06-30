@@ -18,6 +18,28 @@ def parse_csv(value: str) -> list[str]:
     return [item.strip() for item in value.split(",") if item.strip()]
 
 
+def trend_key(rule: str, symbol: str) -> str:
+    return f"{rule}:{symbol}"
+
+
+def build_rule_stream(market_data: str | Path, symbol: str, rule: str) -> dict:
+    if rule == "ema20_50_lf":
+        return probe.build_trend_stream(market_data, symbol, 1.0, fast=20, slow=50)
+    if rule == "ema50_200_lf":
+        return probe.build_trend_stream(market_data, symbol, 1.0, fast=50, slow=200)
+    if rule == "mom20_lf":
+        return probe.build_momentum_stream(market_data, symbol, 1.0, lookback=20, mode="long_flat")
+    if rule == "mom20_ls":
+        return probe.build_momentum_stream(market_data, symbol, 1.0, lookback=20, mode="long_short")
+    if rule == "mom60_ls":
+        return probe.build_momentum_stream(market_data, symbol, 1.0, lookback=60, mode="long_short")
+    if rule == "donchian20_lf":
+        return probe.build_donchian_stream(market_data, symbol, 1.0, lookback=20, mode="long_flat")
+    if rule == "donchian20_ls":
+        return probe.build_donchian_stream(market_data, symbol, 1.0, lookback=20, mode="long_short")
+    raise ValueError(f"unknown trend rule: {rule}")
+
+
 def scale_stream(stream: dict, allocation: float) -> dict:
     scaled = dict(stream)
     scaled["points"] = [
@@ -70,6 +92,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--market-data", default="data/market_data_full.db")
     parser.add_argument("--funding-data", default="data/funding_rates.db")
     parser.add_argument("--trend-symbols", default="BTCUSDT,ETHUSDT,BNBUSDT,SOLUSDT,INJUSDT,AAVEUSDT,LINKUSDT,DOGEUSDT,ADAUSDT,XRPUSDT")
+    parser.add_argument("--trend-rules", default="ema20_50_lf,mom20_lf,mom20_ls,mom60_ls,donchian20_lf,donchian20_ls")
     parser.add_argument("--funding-symbols", default="BTCUSDT,ETHUSDT,DYDXUSDT,INJUSDT,AAVEUSDT")
     parser.add_argument("--martingale-allocations", default="500,1000,1500,2000")
     parser.add_argument("--trend-allocations", default="0,250,500,750")
@@ -93,6 +116,7 @@ def choose_groups(symbols: list[str], size: int) -> list[tuple[str, ...]]:
 def run_search(args: argparse.Namespace) -> dict:
     profiles = parse_csv(args.profiles)
     trend_symbols = parse_csv(args.trend_symbols)
+    trend_rules = parse_csv(args.trend_rules)
     funding_symbols = parse_csv(args.funding_symbols)
     m_allocs = [float(x) for x in parse_csv(args.martingale_allocations)]
     t_allocs = [float(x) for x in parse_csv(args.trend_allocations)]
@@ -100,7 +124,11 @@ def run_search(args: argparse.Namespace) -> dict:
     trend_groups = [()] + choose_groups(trend_symbols, args.trend_group_size)
     funding_groups = [()] + choose_groups(funding_symbols, args.funding_group_size)
 
-    trend_base = {symbol: probe.build_trend_stream(args.market_data, symbol, 1.0) for symbol in trend_symbols}
+    trend_base = {
+        trend_key(rule, symbol): build_rule_stream(args.market_data, symbol, rule)
+        for rule in trend_rules
+        for symbol in trend_symbols
+    }
     funding_base = {
         symbol: probe.build_funding_stream(args.funding_data, symbol, 1.0, probe.SEGMENTS["full"][0], probe.SEGMENTS["full"][1])
         for symbol in funding_symbols
@@ -115,26 +143,32 @@ def run_search(args: argparse.Namespace) -> dict:
                 m_stream = probe.load_martingale_stream(replay, m_alloc)
                 for t_alloc in t_allocs:
                     valid_trend_groups = [()] if t_alloc == 0 else [group for group in trend_groups if group]
+                    valid_trend_rules = ["none"] if t_alloc == 0 else trend_rules
                     for f_alloc in f_allocs:
                         valid_funding_groups = [()] if f_alloc == 0 else [group for group in funding_groups if group]
-                        for trend_group in valid_trend_groups:
-                            for funding_group in valid_funding_groups:
+                        for rule in valid_trend_rules:
+                            for trend_group in valid_trend_groups:
+                                for funding_group in valid_funding_groups:
+                                    if len(rows) >= args.limit:
+                                        break
+                                    streams = [m_stream]
+                                    if t_alloc > 0:
+                                        streams += [scale_stream(trend_base[trend_key(rule, symbol)], t_alloc) for symbol in trend_group]
+                                    streams += [scale_stream(funding_base[symbol], f_alloc) for symbol in funding_group]
+                                    combined = probe.combine_streams(streams, args.budget)
+                                    report = probe.build_candidate_report(profile, combined, args.budget)
+                                    rows.append(candidate_to_row(report, {
+                                        "profile": profile,
+                                        "replay": replay.name,
+                                        "m_alloc": m_alloc,
+                                        "t_alloc": t_alloc,
+                                        "f_alloc": f_alloc,
+                                        "trend_rule": rule,
+                                        "trend_symbols": ",".join(trend_group),
+                                        "funding_symbols": ",".join(funding_group),
+                                    }))
                                 if len(rows) >= args.limit:
                                     break
-                                streams = [m_stream]
-                                streams += [scale_stream(trend_base[symbol], t_alloc) for symbol in trend_group]
-                                streams += [scale_stream(funding_base[symbol], f_alloc) for symbol in funding_group]
-                                combined = probe.combine_streams(streams, args.budget)
-                                report = probe.build_candidate_report(profile, combined, args.budget)
-                                rows.append(candidate_to_row(report, {
-                                    "profile": profile,
-                                    "replay": replay.name,
-                                    "m_alloc": m_alloc,
-                                    "t_alloc": t_alloc,
-                                    "f_alloc": f_alloc,
-                                    "trend_symbols": ",".join(trend_group),
-                                    "funding_symbols": ",".join(funding_group),
-                                }))
                             if len(rows) >= args.limit:
                                 break
                         if len(rows) >= args.limit:
