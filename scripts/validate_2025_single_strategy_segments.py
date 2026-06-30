@@ -247,7 +247,9 @@ def select_candidates(p2: list[dict], mode: str, top: int) -> list[dict]:
     def _key(r: dict) -> tuple:
         return (r["symbol"], r["direction_mode"], r["entry_filter"], r["first_order_quote"],
                 r["leverage"], r["multiplier"], r["max_legs"], r["step_bps"],
-                r["take_profit_bps"], r["cooldown_seconds"], r.get("adx_min"), r["stop_loss_bps"])
+                r["take_profit_bps"], r["cooldown_seconds"], r.get("adx_min"),
+                r["stop_loss_bps"], r.get("regime_break_ema_period"),
+                r.get("max_cycle_age_hours"))
 
     def add(r: dict) -> None:
         k = _key(r)
@@ -294,11 +296,15 @@ def main() -> int:
     print(f"== search={args.search}")
     print(f"== budget={args.budget} profile={args.profile}")
     print(f"== 去重候选总数={len(rows)}  P2 进池达标={len(p2)}")
-    print(f"== {'symbol':<10}{'mode':<14}{'filter':<16}{'2025ret':>9}{'2025dd':>8}{'legs':>5}{'mult':>6}{'tp':>5}{'sl':>6}{'foq':>7}")
+    print(
+        f"== {'symbol':<10}{'mode':<14}{'filter':<16}{'rb':>5}{'age':>7}"
+        f"{'2025ret':>9}{'2025dd':>8}{'legs':>5}{'mult':>6}{'tp':>5}{'sl':>6}{'foq':>7}"
+    )
 
     def short(r):
         return (
             f"{str(r.get('symbol')):<10}{str(r.get('direction_mode')):<14}{str(r.get('entry_filter')):<16}"
+            f"{str(r.get('regime_break_ema_period')):>5}{str(r.get('max_cycle_age_hours')):>7}"
             f"{float(r.get('total_return_pct', 0)):>9.2f}{float(r.get('max_drawdown_pct', 0)):>8.2f}"
             f"{r.get('max_legs'):>5}{float(r.get('multiplier', 0)):>6.2f}{r.get('take_profit_bps'):>5}{r.get('stop_loss_bps'):>6}{float(r.get('first_order_quote', 0)):>7.1f}"
         )
@@ -382,6 +388,7 @@ def main() -> int:
         sc = "" if (selfcheck and selfcheck["ok"]) else " ⚠selfcheck"
         print(
             f"  [{idx:>2}] {r.get('symbol'):<9}{r.get('direction_mode'):<13}{str(r.get('entry_filter')):<15}"
+            f"rb={r.get('regime_break_ema_period')} age={r.get('max_cycle_age_hours')}  "
             f"2025={r25}  full_ann={full_m.get('annualized_return_pct')}  full_dd={full_m.get('max_drawdown_pct')}"
             f"  h1%={round(h1_contrib,2) if h1_contrib is not None else None}  24-26={round(combined_24_26,1) if combined_24_26 is not None else None}{sc}"
         )

@@ -1,0 +1,312 @@
+{
+  "budget": 5000.0,
+  "profile": "balanced",
+  "short_sets": {
+    "low3": [
+      {
+        "symbol": "APTUSDT",
+        "ann_2025": 30.056421190825123,
+        "dd_2025": 12.653945990466756,
+        "foq": 123.34,
+        "filter": "none",
+        "rb": 100,
+        "age": null
+      },
+      {
+        "symbol": "COMPUSDT",
+        "ann_2025": 29.675278781444646,
+        "dd_2025": 10.482043005020866,
+        "foq": 123.34,
+        "filter": "none",
+        "rb": 100,
+        "age": null
+      },
+      {
+        "symbol": "DOTUSDT",
+        "ann_2025": 25.678315328697863,
+        "dd_2025": 11.662807314365544,
+        "foq": 123.34,
+        "filter": "none",
+        "rb": 100,
+        "age": null
+      }
+    ],
+    "mid3": [
+      {
+        "symbol": "APTUSDT",
+        "ann_2025": 70.13085743123703,
+        "dd_2025": 23.885885455239723,
+        "foq": 287.79,
+        "filter": "none",
+        "rb": 100,
+        "age": null
+      },
+      {
+        "symbol": "COMPUSDT",
+        "ann_2025": 69.24153499074592,
+        "dd_2025": 20.55277971821535,
+        "foq": 287.79,
+        "filter": "none",
+        "rb": 100,
+        "age": null
+      },
+      {
+        "symbol": "DOTUSDT",
+        "ann_2025": 59.91539045129497,
+        "dd_2025": 23.279850227636626,
+        "foq": 287.79,
+        "filter": "none",
+        "rb": 100,
+        "age": null
+      }
+    ],
+    "high3": [
+      {
+        "symbol": "APTUSDT",
+        "ann_2025": 120.22331856606017,
+        "dd_2025": 33.054768712544345,
+        "foq": 493.35,
+        "filter": "none",
+        "rb": 100,
+        "age": null
+      },
+      {
+        "symbol": "COMPUSDT",
+        "ann_2025": 118.69877830846049,
+        "dd_2025": 30.00447612925926,
+        "foq": 493.35,
+        "filter": "none",
+        "rb": 100,
+        "age": null
+      },
+      {
+        "symbol": "DOTUSDT",
+        "ann_2025": 102.71123332617628,
+        "dd_2025": 33.801435539210324,
+        "foq": 493.35,
+        "filter": "none",
+        "rb": 100,
+        "age": null
+      }
+    ],
+    "low3_gala": [
+      {
+        "symbol": "APTUSDT",
+        "ann_2025": 30.056421190825123,
+        "dd_2025": 12.653945990466756,
+        "foq": 123.34,
+        "filter": "none",
+        "rb": 100,
+        "age": null
+      },
+      {
+        "symbol": "COMPUSDT",
+        "ann_2025": 29.675278781444646,
+        "dd_2025": 10.482043005020866,
+        "foq": 123.34,
+        "filter": "none",
+        "rb": 100,
+        "age": null
+      },
+      {
+        "symbol": "DOTUSDT",
+        "ann_2025": 25.678315328697863,
+        "dd_2025": 11.662807314365544,
+        "foq": 123.34,
+        "filter": "none",
+        "rb": 100,
+        "age": null
+      },
+      {
+        "symbol": "GALAUSDT",
+        "ann_2025": 39.019844370268885,
+        "dd_2025": 29.858843695845778,
+        "foq": 1209.42,
+        "filter": "none",
+        "rb": null,
+        "age": 120.0
+      }
+    ],
+    "rsi_low4": [
+      {
+        "symbol": "APTUSDT",
+        "ann_2025": 30.056421190825123,
+        "dd_2025": 12.653945990466756,
+        "foq": 123.34,
+        "filter": "none",
+        "rb": 100,
+        "age": null
+      },
+      {
+        "symbol": "DOTUSDT",
+        "ann_2025": 25.678315328697863,
+        "dd_2025": 11.662807314365544,
+        "foq": 123.34,
+        "filter": "none",
+        "rb": 100,
+        "age": null
+      },
+      {
+        "symbol": "ETCUSDT",
+        "ann_2025": 12.02002070232635,
+        "dd_2025": 12.101201973457608,
+        "foq": 55.08,
+        "filter": "rsi_moderate",
+        "rb": 50,
+        "age": null
+      },
+      {
+        "symbol": "GALAUSDT",
+        "ann_2025": 9.754797428635541,
+        "dd_2025": 11.66231082647185,
+        "foq": 302.35,
+        "filter": "none",
+        "rb": null,
+        "age": 120.0
+      }
+    ]
+  },
+  "full_results": [
+    {
+      "ok": true,
+      "ann": 70.47781437991776,
+      "dd": 26.402902237348236,
+      "ret": 518.697772238829,
+      "principal_breached": false,
+      "min_equity": 4981.312606197882,
+      "cap": 2731.631676200107,
+      "blocked": 0,
+      "trades": 41934,
+      "stops": 19240,
+      "gate_passed": false,
+      "strategy_count": 13,
+      "symbols": [
+        "AAVEUSDT",
+        "ADAUSDT",
+        "BTCUSDT",
+        "DOTUSDT",
+        "FILUSDT",
+        "GALAUSDT",
+        "INJUSDT",
+        "LINKUSDT",
+        "NEARUSDT",
+        "TRXUSDT"
+      ],
+      "name": "l5_robust__as_is"
+    },
+    {
+      "ok": true,
+      "ann": 65.40665764111695,
+      "dd": 28.193034546462474,
+      "ret": 458.04906953298695,
+      "principal_breached": false,
+      "min_equity": 4976.161520582212,
+      "cap": 1329.0821737179385,
+      "blocked": 0,
+      "trades": 43858,
+      "stops": 20590,
+      "gate_passed": false,
+      "strategy_count": 10,
+      "symbols": [
+        "AAVEUSDT",
+        "ADAUSDT",
+        "BTCUSDT",
+        "DOTUSDT",
+        "FILUSDT",
+        "GALAUSDT",
+        "INJUSDT",
+        "LINKUSDT",
+        "NEARUSDT",
+        "TRXUSDT"
+      ],
+      "name": "l5_robust__no_old_shorts"
+    },
+    {
+      "ok": true,
+      "ann": 33.001396624808834,
+      "dd": 16.786858778359143,
+      "ret": 164.93957884428616,
+      "principal_breached": false,
+      "min_equity": 4984.045724832385,
+      "cap": 2348.3887879961644,
+      "blocked": 8,
+      "trades": 5087,
+      "stops": 1373,
+      "gate_passed": false,
+      "strategy_count": 16,
+      "symbols": [
+        "AAVEUSDT",
+        "ADAUSDT",
+        "APTUSDT",
+        "BTCUSDT",
+        "COMPUSDT",
+        "DOTUSDT",
+        "FILUSDT",
+        "GALAUSDT",
+        "INJUSDT",
+        "LINKUSDT",
+        "NEARUSDT",
+        "TRXUSDT"
+      ],
+      "name": "l5_robust__norm__low3__short15"
+    },
+    {
+      "ok": true,
+      "ann": 63.099187048938845,
+      "dd": 31.429359730624533,
+      "ret": 431.89763790846916,
+      "principal_breached": false,
+      "min_equity": 4981.836940519921,
+      "cap": 1839.7176832859363,
+      "blocked": 5,
+      "trades": 62998,
+      "stops": 29551,
+      "gate_passed": false,
+      "strategy_count": 16,
+      "symbols": [
+        "AAVEUSDT",
+        "ADAUSDT",
+        "APTUSDT",
+        "BTCUSDT",
+        "COMPUSDT",
+        "DOTUSDT",
+        "FILUSDT",
+        "GALAUSDT",
+        "INJUSDT",
+        "LINKUSDT",
+        "NEARUSDT",
+        "TRXUSDT"
+      ],
+      "name": "l5_robust__norm__low3__short25"
+    },
+    {
+      "ok": true,
+      "ann": 62.68025663419057,
+      "dd": 31.625396588957035,
+      "ret": 427.24452848901404,
+      "principal_breached": false,
+      "min_equity": 4899.65453775608,
+      "cap": 1976.4074733423884,
+      "blocked": 3,
+      "trades": 62873,
+      "stops": 29661,
+      "gate_passed": false,
+      "strategy_count": 16,
+      "symbols": [
+        "AAVEUSDT",
+        "ADAUSDT",
+        "APTUSDT",
+        "BTCUSDT",
+        "COMPUSDT",
+        "DOTUSDT",
+        "FILUSDT",
+        "GALAUSDT",
+        "INJUSDT",
+        "LINKUSDT",
+        "NEARUSDT",
+        "TRXUSDT"
+      ],
+      "name": "l5_robust__norm__low3__short35"
+    }
+  ]
+}
