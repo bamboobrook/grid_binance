@@ -83,3 +83,30 @@ class DgtDynamicGridProbeTest(unittest.TestCase):
         segments = dgt.compute_segment_metrics(points)
         self.assertEqual(set(segments), {"h1_2023", "h2_2023", "2024", "2025", "2026_ytd"})
         self.assertGreaterEqual(dgt.positive_segment_count(segments), 4)
+
+    def test_combine_streams_sums_equity_and_capital(self):
+        a = {
+            "name": "dgt:A",
+            "symbols": ["A"],
+            "points": [
+                {"timestamp_ms": 1, "equity_quote": 100.0},
+                {"timestamp_ms": 2, "equity_quote": 110.0},
+            ],
+            "max_input_quote": 100.0,
+            "total_fee_quote": 1.0,
+        }
+        b = {
+            "name": "dgt:B",
+            "symbols": ["B"],
+            "points": [
+                {"timestamp_ms": 1, "equity_quote": 200.0},
+                {"timestamp_ms": 2, "equity_quote": 190.0},
+            ],
+            "max_input_quote": 200.0,
+            "total_fee_quote": 2.0,
+        }
+        combined = dgt.combine_streams([a, b])
+        self.assertEqual(combined["symbols"], ["A", "B"])
+        self.assertEqual(combined["max_input_quote"], 300.0)
+        self.assertEqual(combined["total_fee_quote"], 3.0)
+        self.assertEqual(combined["points"][-1]["equity_quote"], 300.0)

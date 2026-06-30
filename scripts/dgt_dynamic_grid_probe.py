@@ -215,3 +215,55 @@ def evaluate_profile_gate(profile: str, metrics: dict, budget: float) -> dict:
     if metrics["combined_2024_2026_return_pct"] <= 0:
         violations.append(f"2024-2026 combined return {metrics['combined_2024_2026_return_pct']:.2f}% <= 0")
     return {"passes": not violations, "violations": violations}
+
+
+def load_1m_bars(market_db: str | Path, symbol: str, market_type: str, start_ms: int, end_ms: int) -> list[dict]:
+    con = sqlite3.connect(str(market_db))
+    try:
+        rows = con.execute(
+            """
+            SELECT open_time, open, high, low, close
+            FROM klines
+            WHERE symbol = ? AND market_type = ? AND timeframe = '1m'
+              AND open_time >= ? AND open_time <= ?
+            ORDER BY open_time
+            """,
+            (symbol, market_type, start_ms, end_ms),
+        ).fetchall()
+    finally:
+        con.close()
+    return [
+        {"timestamp_ms": int(ts), "open": float(open_), "high": float(high), "low": float(low), "close": float(close)}
+        for ts, open_, high, low, close in rows
+    ]
+
+
+def combine_streams(streams: list[dict]) -> dict:
+    if not streams:
+        raise ValueError("at least one stream is required")
+    timestamps = sorted(set.intersection(*(set(point["timestamp_ms"] for point in stream["points"]) for stream in streams)))
+    if not timestamps:
+        raise ValueError("streams have no overlapping timestamps")
+    by_stream = {
+        stream["name"]: {point["timestamp_ms"]: point["equity_quote"] for point in stream["points"]}
+        for stream in streams
+    }
+    points = [
+        {"timestamp_ms": timestamp, "equity_quote": sum(values[timestamp] for values in by_stream.values())}
+        for timestamp in timestamps
+    ]
+    symbols = []
+    for stream in streams:
+        for symbol in stream.get("symbols", []):
+            if symbol not in symbols:
+                symbols.append(symbol)
+    return {
+        "name": "portfolio:" + ",".join(stream["name"] for stream in streams),
+        "kind": "portfolio",
+        "symbols": symbols,
+        "points": points,
+        "max_input_quote": sum(float(stream.get("max_input_quote", 0.0)) for stream in streams),
+        "max_capital_used_quote": sum(float(stream.get("max_capital_used_quote", stream.get("max_input_quote", 0.0))) for stream in streams),
+        "total_fee_quote": sum(float(stream.get("total_fee_quote", 0.0)) for stream in streams),
+        "live_parity_status": LIVE_PARITY_STATUS,
+    }
