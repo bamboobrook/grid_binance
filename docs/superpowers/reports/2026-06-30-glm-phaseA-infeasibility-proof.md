@@ -71,3 +71,27 @@ python3 $WT/scripts/segment_first_largecap_search.py --profile balanced --budget
   --count 250 --jobs 16 --pool broad --force-stop-bps 3000 --portfolio-stop-pct 18 ...
 ```
 报告 JSON：`/tmp/glm_phaseA_segfirst_run1/`、`/tmp/glm_phaseA_portstop_run2/`。
+
+---
+
+## 附录 A2 (2026-06-30 晚): 用户要求重试 — regime allocator + 多空混合 + 双向 MR
+
+用户正确地反对了"早下结论"，并提出：①每币长期趋势判 regime ②多→多单为主/空→空单为主/震荡→双开 ③多空对冲 ④辅助币种选择。**全部实测**（segment-first, ~1500 候选 / 590 分段验证 + 手工 hybrid）：
+
+| 实验 | 结果 |
+|---|---|
+| regime_pc（每币 ema5760+ADX allocator, broad 池, 宽SL）C/B/A ×300 | 0 passes; B best ann=13.1/dd26.5; A best ann=21.2/dd41.7(pos3/5, 2025=+20.6 但 2024=-12, h1=92.9 过拟合) |
+| 手工 hybrid v1（趋势多+MR双向+山寨空） | 5段: 2024=-5.5(200笔, sleeve 不激活), 2025=-15.2(556笔); full ann=5.3 |
+| 手工 hybrid v2（放宽 ADX 闭合死区） | 2024=-6.5, 2025=-15.8; full ann=1.2 |
+
+**用户方向部分成立（重要）**：regime allocator 确实把 **2025 从杀手段变成可盈利**（idx189 2025=+20.6%，large-cap MR 甚至 2025=+36.6%）——印证"空/MR 捕获山寨熊市"思路对。
+
+**但暴露的结构墙**：
+1. **2024 与 2025 对马丁反相关**：590 分段验证里 **2024≥0 且 2025≥0 的 config = 0**。2024(BTC牛/alt弱)要 long-BTC；2025(alt熊)要 short-alt/MR；同一静态组合赢不了一致。
+2. **方向性山寨空头在 2025 震荡熊市被 whipsaw**（净拖累，不是对冲收益）——与 P4 shorts 结论一致。
+3. **regime 分类器(ADX)的死区** + 实时 regime 难判（研究 caveat）→ sleeve 在关键时段不激活或 whipsaw。
+4. 全周期 ann 仍被 2023H1 锁在 ~20%（segment-robust 则 ~0.8-5%）。
+
+**实盘可用(live-parity)纯马丁的 ann 天花板 ≈ 20%（且 segment-robust 仅 ~5%）。** 50/90/110 目标需要非马丁趋势 sleeve（breakout/trailing），但 trailing-TP 回测仅 9.9%（不如 fixed 16.8%），且 breakout 入场当前 entry_triggers 不支持（需引擎扩展）。
+
+**最佳可达跨周期 config**（deployable, 已存档 `artifacts/.../max_ann_largecap_long_widesl.json`）：full ann=16.8% / dd17.4% / 2025=+28.5%，但 2024=-23%、2023H1 依赖 —— 真实可跑但 ann 低于原目标。
