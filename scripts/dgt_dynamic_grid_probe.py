@@ -267,3 +267,144 @@ def combine_streams(streams: list[dict]) -> dict:
         "total_fee_quote": sum(float(stream.get("total_fee_quote", 0.0)) for stream in streams),
         "live_parity_status": LIVE_PARITY_STATUS,
     }
+
+
+def build_candidate_report(profile: str, combined: dict, budget: float, meta: dict | None = None) -> dict:
+    full_metrics = compute_metrics(combined["points"])
+    segment_metrics = compute_segment_metrics(combined["points"])
+    gate_metrics = {
+        **full_metrics,
+        "max_input_quote": float(combined["max_input_quote"]),
+        "symbol_count": len(combined["symbols"]),
+        "positive_segments": positive_segment_count(segment_metrics),
+        "combined_2024_2026_return_pct": combined_2024_2026_return(segment_metrics),
+    }
+    gate = evaluate_profile_gate(profile, gate_metrics, budget)
+    return {
+        "profile": profile,
+        "live_parity_status": LIVE_PARITY_STATUS,
+        "passes_offline": gate["passes"],
+        "gate": gate,
+        "full_metrics": full_metrics,
+        "segment_metrics": segment_metrics,
+        "max_input_quote": combined["max_input_quote"],
+        "total_fee_quote": combined.get("total_fee_quote", 0.0),
+        "symbols": combined["symbols"],
+        "meta": meta or {},
+    }
+
+
+def parse_csv(value: str) -> list[str]:
+    return [item.strip() for item in value.split(",") if item.strip()]
+
+
+def parse_floats(value: str) -> list[float]:
+    return [float(item) for item in parse_csv(value)]
+
+
+def parse_ints(value: str) -> list[int]:
+    return [int(item) for item in parse_csv(value)]
+
+
+def choose_groups(symbols: list[str], size: int, limit: int) -> list[tuple[str, ...]]:
+    return list(itertools.islice(itertools.combinations(symbols, size), limit))
+
+
+def run_search(args: argparse.Namespace) -> dict:
+    symbols = parse_csv(args.symbols)
+    spacings = parse_floats(args.grid_spacings)
+    half_counts = parse_ints(args.half_grid_counts)
+    principals = parse_floats(args.principals)
+    groups = choose_groups(symbols, args.group_size, args.group_limit)
+    rows = []
+    stream_cache = {}
+    for group in groups:
+        for spacing in spacings:
+            for half_count in half_counts:
+                for principal in principals:
+                    streams = []
+                    invalid = None
+                    for symbol in group:
+                        key = (symbol, spacing, half_count, principal)
+                        if key not in stream_cache:
+                            bars = load_1m_bars(args.market_data, symbol, args.market_type, SEGMENTS["full"][0], SEGMENTS["full"][1])
+                            if len(bars) < args.min_bars:
+                                invalid = f"insufficient bars for {symbol}: {len(bars)}"
+                                break
+                            stream_cache[key] = simulate_dgt_symbol(symbol, bars, principal, spacing, half_count, args.fee_bps)
+                        streams.append(stream_cache[key])
+                    if invalid:
+                        continue
+                    combined = combine_streams(streams)
+                    for profile in parse_csv(args.profiles):
+                        report = build_candidate_report(profile, combined, args.budget, {
+                            "grid_spacing": spacing,
+                            "half_grid_count": half_count,
+                            "principal_quote": principal,
+                            "group": ",".join(group),
+                        })
+                        rows.append(report)
+                        if len(rows) >= args.limit:
+                            return summarize_results(rows)
+    return summarize_results(rows)
+
+
+def summarize_results(rows: list[dict]) -> dict:
+    summary = {}
+    for profile in PROFILE_TARGETS:
+        subset = [row for row in rows if row["profile"] == profile]
+        passes = [row for row in subset if row["passes_offline"]]
+        near = sorted(subset, key=lambda row: row["full_metrics"]["annualized_return_pct"], reverse=True)[:5]
+        summary[profile] = {"rows": len(subset), "passes": len(passes), "top": near}
+    return {"live_parity_status": LIVE_PARITY_STATUS, "rows": rows, "summary": summary}
+
+
+def write_outputs(result: dict, out_json: str, out_md: str) -> None:
+    Path(out_json).write_text(json.dumps(result, indent=2, sort_keys=True))
+    lines = ["# DGT Dynamic Grid Probe", "", f"- live_parity_status: {LIVE_PARITY_STATUS}", f"- rows: {len(result['rows'])}", ""]
+    for profile, summary in result["summary"].items():
+        lines.append(f"## {profile}")
+        lines.append(f"- rows: {summary['rows']}")
+        lines.append(f"- passes: {summary['passes']}")
+        for index, row in enumerate(summary["top"], start=1):
+            full = row["full_metrics"]
+            lines.append(
+                f"- top {index}: ann={full['annualized_return_pct']:.2f}% dd={full['max_drawdown_pct']:.2f}% "
+                f"max_input={row['max_input_quote']:.2f} symbols={','.join(row['symbols'])} "
+                f"passes={row['passes_offline']} violations={row['gate']['violations']}"
+            )
+        lines.append("")
+    lines.append("This is research_only evidence and is not live-ready.")
+    Path(out_md).write_text("\n".join(lines))
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--market-data", default="data/market_data_full.db")
+    parser.add_argument("--market-type", default="spot")
+    parser.add_argument("--symbols", default="BTCUSDT,ETHUSDT,BNBUSDT,SOLUSDT,XRPUSDT,DOGEUSDT,ADAUSDT,LINKUSDT,AAVEUSDT,INJUSDT")
+    parser.add_argument("--profiles", default="conservative,balanced,aggressive")
+    parser.add_argument("--grid-spacings", default="0.02,0.03,0.05,0.07,0.10")
+    parser.add_argument("--half-grid-counts", default="2,3,5,7")
+    parser.add_argument("--principals", default="50,100,150")
+    parser.add_argument("--group-size", type=int, default=2)
+    parser.add_argument("--group-limit", type=int, default=20)
+    parser.add_argument("--budget", type=float, default=5000.0)
+    parser.add_argument("--fee-bps", type=float, default=8.0)
+    parser.add_argument("--min-bars", type=int, default=1000)
+    parser.add_argument("--limit", type=int, default=2000)
+    parser.add_argument("--out-json", required=True)
+    parser.add_argument("--out-md", required=True)
+    return parser.parse_args()
+
+
+def main() -> int:
+    args = parse_args()
+    result = run_search(args)
+    write_outputs(result, args.out_json, args.out_md)
+    print(json.dumps({"rows": len(result["rows"]), "passes": sum(item["passes"] for item in result["summary"].values())}, sort_keys=True))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

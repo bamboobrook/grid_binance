@@ -110,3 +110,24 @@ class DgtDynamicGridProbeTest(unittest.TestCase):
         self.assertEqual(combined["max_input_quote"], 300.0)
         self.assertEqual(combined["total_fee_quote"], 3.0)
         self.assertEqual(combined["points"][-1]["equity_quote"], 300.0)
+
+    def test_build_candidate_report_stays_research_only(self):
+        combined = {
+            "symbols": ["BTCUSDT", "ETHUSDT"],
+            "points": [
+                {"timestamp_ms": 1672531200000, "equity_quote": 100.0},
+                {"timestamp_ms": 1688169600000, "equity_quote": 120.0},
+                {"timestamp_ms": 1704067200000, "equity_quote": 140.0},
+                {"timestamp_ms": 1735689600000, "equity_quote": 170.0},
+                {"timestamp_ms": 1767225600000, "equity_quote": 190.0},
+                {"timestamp_ms": 1780271999999, "equity_quote": 230.0},
+            ],
+            "max_input_quote": 300.0,
+            "total_fee_quote": 3.0,
+            "live_parity_status": "research_only",
+        }
+        report = dgt.build_candidate_report("aggressive", combined, budget=5000.0, meta={"tag": "x"})
+        self.assertEqual(report["live_parity_status"], "research_only")
+        self.assertEqual(report["meta"]["tag"], "x")
+        self.assertIn("passes_offline", report)
+        self.assertIn("segment_metrics", report)
