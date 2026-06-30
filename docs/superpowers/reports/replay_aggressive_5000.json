@@ -1,0 +1,2525 @@
+{
+  "budget_blocked_legs": 0,
+  "budget_capped_projected_margin_quote": 2954.9999995581948,
+  "budget_quote": 5000.0,
+  "days": 1246.9993055555556,
+  "equity_curve": [
+    {
+      "equity_quote": 2954.879343692577,
+      "timestamp_ms": 1672531200000
+    },
+    {
+      "equity_quote": 3071.8937423476636,
+      "timestamp_ms": 1672711020000
+    },
+    {
+      "equity_quote": 3575.040872623399,
+      "timestamp_ms": 1672890900000
+    },
+    {
+      "equity_quote": 3723.3821834373166,
+      "timestamp_ms": 1673070780000
+    },
+    {
+      "equity_quote": 3968.4572894573585,
+      "timestamp_ms": 1673250660000
+    },
+    {
+      "equity_quote": 4563.8576355204295,
+      "timestamp_ms": 1673430480000
+    },
+    {
+      "equity_quote": 6379.6820435979325,
+      "timestamp_ms": 1673610360000
+    },
+    {
+      "equity_quote": 6920.6229845597045,
+      "timestamp_ms": 1673790240000
+    },
+    {
+      "equity_quote": 8740.835232389747,
+      "timestamp_ms": 1673970120000
+    },
+    {
+      "equity_quote": 7852.585521131938,
+      "timestamp_ms": 1674150000000
+    },
+    {
+      "equity_quote": 11275.720901350835,
+      "timestamp_ms": 1674329820000
+    },
+    {
+      "equity_quote": 12316.56542954441,
+      "timestamp_ms": 1674509700000
+    },
+    {
+      "equity_quote": 13303.414517442541,
+      "timestamp_ms": 1674689580000
+    },
+    {
+      "equity_quote": 15270.870496230953,
+      "timestamp_ms": 1674869460000
+    },
+    {
+      "equity_quote": 16233.886402419332,
+      "timestamp_ms": 1675049340000
+    },
+    {
+      "equity_quote": 16936.52168570662,
+      "timestamp_ms": 1675229160000
+    },
+    {
+      "equity_quote": 18653.06786325847,
+      "timestamp_ms": 1675409040000
+    },
+    {
+      "equity_quote": 20868.380181944976,
+      "timestamp_ms": 1675588920000
+    },
+    {
+      "equity_quote": 21093.17939384427,
+      "timestamp_ms": 1675768800000
+    },
+    {
+      "equity_quote": 20150.124262641766,
+      "timestamp_ms": 1675948680000
+    },
+    {
+      "equity_quote": 17936.635940955348,
+      "timestamp_ms": 1676128500000
+    },
+    {
+      "equity_quote": 16895.222423392217,
+      "timestamp_ms": 1676308380000
+    },
+    {
+      "equity_quote": 20338.246120955304,
+      "timestamp_ms": 1676488260000
+    },
+    {
+      "equity_quote": 22538.95496672402,
+      "timestamp_ms": 1676668140000
+    },
+    {
+      "equity_quote": 22316.72115634264,
+      "timestamp_ms": 1676848020000
+    },
+    {
+      "equity_quote": 21239.527357250932,
+      "timestamp_ms": 1677027840000
+    },
+    {
+      "equity_quote": 21766.50052745297,
+      "timestamp_ms": 1677207720000
+    },
+    {
+      "equity_quote": 20578.946565699494,
+      "timestamp_ms": 1677387600000
+    },
+    {
+      "equity_quote": 20910.16019633071,
+      "timestamp_ms": 1677567480000
+    },
+    {
+      "equity_quote": 21020.653506017974,
+      "timestamp_ms": 1677747360000
+    },
+    {
+      "equity_quote": 20118.208834575697,
+      "timestamp_ms": 1677927180000
+    },
+    {
+      "equity_quote": 19607.570940638263,
+      "timestamp_ms": 1678107060000
+    },
+    {
+      "equity_quote": 18183.59585033506,
+      "timestamp_ms": 1678286940000
+    },
+    {
+      "equity_quote": 18206.948196605153,
+      "timestamp_ms": 1678466820000
+    },
+    {
+      "equity_quote": 19299.461527269304,
+      "timestamp_ms": 1678646700000
+    },
+    {
+      "equity_quote": 23161.327949305898,
+      "timestamp_ms": 1678826520000
+    },
+    {
+      "equity_quote": 22153.63896204751,
+      "timestamp_ms": 1679006400000
+    },
+    {
+      "equity_quote": 23803.107036477435,
+      "timestamp_ms": 1679186280000
+    },
+    {
+      "equity_quote": 22254.35925381318,
+      "timestamp_ms": 1679366160000
+    },
+    {
+      "equity_quote": 22977.308572861322,
+      "timestamp_ms": 1679545980000
+    },
+    {
+      "equity_quote": 22828.407052582144,
+      "timestamp_ms": 1679725860000
+    },
+    {
+      "equity_quote": 22176.37394543021,
+      "timestamp_ms": 1679905740000
+    },
+    {
+      "equity_quote": 23797.50593185855,
+      "timestamp_ms": 1680085620000
+    },
+    {
+      "equity_quote": 24933.653568968268,
+      "timestamp_ms": 1680265500000
+    },
+    {
+      "equity_quote": 25979.67552283212,
+      "timestamp_ms": 1680445320000
+    },
+    {
+      "equity_quote": 27091.069071955255,
+      "timestamp_ms": 1680625200000
+    },
+    {
+      "equity_quote": 28351.338674003004,
+      "timestamp_ms": 1680805080000
+    },
+    {
+      "equity_quote": 28069.999370514073,
+      "timestamp_ms": 1680984960000
+    },
+    {
+      "equity_quote": 29549.664592699857,
+      "timestamp_ms": 1681164840000
+    },
+    {
+      "equity_quote": 30144.7787851574,
+      "timestamp_ms": 1681344660000
+    },
+    {
+      "equity_quote": 31527.454026242383,
+      "timestamp_ms": 1681524540000
+    },
+    {
+      "equity_quote": 32836.158374660045,
+      "timestamp_ms": 1681704420000
+    },
+    {
+      "equity_quote": 34203.55130441677,
+      "timestamp_ms": 1681884300000
+    },
+    {
+      "equity_quote": 32720.349895542993,
+      "timestamp_ms": 1682064180000
+    },
+    {
+      "equity_quote": 31412.30346686967,
+      "timestamp_ms": 1682244000000
+    },
+    {
+      "equity_quote": 31220.4885981826,
+      "timestamp_ms": 1682423880000
+    },
+    {
+      "equity_quote": 34850.51475343313,
+      "timestamp_ms": 1682603760000
+    },
+    {
+      "equity_quote": 34469.993789557164,
+      "timestamp_ms": 1682783640000
+    },
+    {
+      "equity_quote": 33420.44629437945,
+      "timestamp_ms": 1682963520000
+    },
+    {
+      "equity_quote": 32827.24394215554,
+      "timestamp_ms": 1683143340000
+    },
+    {
+      "equity_quote": 33970.17609193051,
+      "timestamp_ms": 1683323220000
+    },
+    {
+      "equity_quote": 32556.445104771974,
+      "timestamp_ms": 1683503100000
+    },
+    {
+      "equity_quote": 30343.309165652958,
+      "timestamp_ms": 1683682980000
+    },
+    {
+      "equity_quote": 28747.04552450127,
+      "timestamp_ms": 1683862860000
+    },
+    {
+      "equity_quote": 29827.576599846547,
+      "timestamp_ms": 1684042680000
+    },
+    {
+      "equity_quote": 30440.783322705935,
+      "timestamp_ms": 1684222560000
+    },
+    {
+      "equity_quote": 31093.45098609109,
+      "timestamp_ms": 1684402440000
+    },
+    {
+      "equity_quote": 32030.32200750894,
+      "timestamp_ms": 1684582320000
+    },
+    {
+      "equity_quote": 31029.924504545466,
+      "timestamp_ms": 1684762200000
+    },
+    {
+      "equity_quote": 30651.299305047476,
+      "timestamp_ms": 1684942020000
+    },
+    {
+      "equity_quote": 30391.690871443127,
+      "timestamp_ms": 1685121900000
+    },
+    {
+      "equity_quote": 31399.72300956923,
+      "timestamp_ms": 1685301780000
+    },
+    {
+      "equity_quote": 32753.46026778016,
+      "timestamp_ms": 1685481660000
+    },
+    {
+      "equity_quote": 31862.10175417777,
+      "timestamp_ms": 1685661540000
+    },
+    {
+      "equity_quote": 33178.77874642956,
+      "timestamp_ms": 1685841360000
+    },
+    {
+      "equity_quote": 31138.48953345621,
+      "timestamp_ms": 1686021240000
+    },
+    {
+      "equity_quote": 30378.4960550932,
+      "timestamp_ms": 1686201120000
+    },
+    {
+      "equity_quote": 27839.128021154655,
+      "timestamp_ms": 1686381000000
+    },
+    {
+      "equity_quote": 27929.757710278776,
+      "timestamp_ms": 1686560820000
+    },
+    {
+      "equity_quote": 28943.911183373566,
+      "timestamp_ms": 1686740700000
+    },
+    {
+      "equity_quote": 27989.204158383283,
+      "timestamp_ms": 1686920580000
+    },
+    {
+      "equity_quote": 28619.195635711905,
+      "timestamp_ms": 1687100460000
+    },
+    {
+      "equity_quote": 28773.433581331527,
+      "timestamp_ms": 1687280340000
+    },
+    {
+      "equity_quote": 30673.433612485424,
+      "timestamp_ms": 1687460160000
+    },
+    {
+      "equity_quote": 30794.164131156685,
+      "timestamp_ms": 1687640040000
+    },
+    {
+      "equity_quote": 31907.6259433592,
+      "timestamp_ms": 1687819920000
+    },
+    {
+      "equity_quote": 31765.937663558496,
+      "timestamp_ms": 1687999800000
+    },
+    {
+      "equity_quote": 33752.845373642005,
+      "timestamp_ms": 1688179680000
+    },
+    {
+      "equity_quote": 35030.21071274936,
+      "timestamp_ms": 1688359500000
+    },
+    {
+      "equity_quote": 35052.560531896874,
+      "timestamp_ms": 1688539380000
+    },
+    {
+      "equity_quote": 33005.156027309196,
+      "timestamp_ms": 1688719260000
+    },
+    {
+      "equity_quote": 33871.238503433495,
+      "timestamp_ms": 1688899140000
+    },
+    {
+      "equity_quote": 33697.18850014895,
+      "timestamp_ms": 1689079020000
+    },
+    {
+      "equity_quote": 33737.047279219965,
+      "timestamp_ms": 1689258840000
+    },
+    {
+      "equity_quote": 36911.975038109085,
+      "timestamp_ms": 1689438720000
+    },
+    {
+      "equity_quote": 36511.32622759126,
+      "timestamp_ms": 1689618600000
+    },
+    {
+      "equity_quote": 36611.07336937468,
+      "timestamp_ms": 1689798480000
+    },
+    {
+      "equity_quote": 38858.675110258664,
+      "timestamp_ms": 1689978360000
+    },
+    {
+      "equity_quote": 38102.36675113107,
+      "timestamp_ms": 1690158180000
+    },
+    {
+      "equity_quote": 35963.912106295276,
+      "timestamp_ms": 1690338060000
+    },
+    {
+      "equity_quote": 36896.92387813113,
+      "timestamp_ms": 1690517940000
+    },
+    {
+      "equity_quote": 36812.31490289472,
+      "timestamp_ms": 1690697820000
+    },
+    {
+      "equity_quote": 35880.24970836294,
+      "timestamp_ms": 1690877700000
+    },
+    {
+      "equity_quote": 35981.23263054157,
+      "timestamp_ms": 1691057520000
+    },
+    {
+      "equity_quote": 35853.299899334146,
+      "timestamp_ms": 1691237400000
+    },
+    {
+      "equity_quote": 35800.36403832013,
+      "timestamp_ms": 1691417280000
+    },
+    {
+      "equity_quote": 36428.868719030805,
+      "timestamp_ms": 1691597160000
+    },
+    {
+      "equity_quote": 35689.00465906083,
+      "timestamp_ms": 1691777040000
+    },
+    {
+      "equity_quote": 36024.488680493356,
+      "timestamp_ms": 1691956860000
+    },
+    {
+      "equity_quote": 34478.75321569286,
+      "timestamp_ms": 1692136740000
+    },
+    {
+      "equity_quote": 33204.2065206377,
+      "timestamp_ms": 1692316620000
+    },
+    {
+      "equity_quote": 34453.52370072159,
+      "timestamp_ms": 1692496500000
+    },
+    {
+      "equity_quote": 33716.88966816509,
+      "timestamp_ms": 1692676380000
+    },
+    {
+      "equity_quote": 34383.56025493728,
+      "timestamp_ms": 1692856200000
+    },
+    {
+      "equity_quote": 33226.34248255886,
+      "timestamp_ms": 1693036080000
+    },
+    {
+      "equity_quote": 32672.102412807813,
+      "timestamp_ms": 1693215960000
+    },
+    {
+      "equity_quote": 33174.532435642584,
+      "timestamp_ms": 1693395840000
+    },
+    {
+      "equity_quote": 32773.41517101687,
+      "timestamp_ms": 1693575660000
+    },
+    {
+      "equity_quote": 32500.169088026916,
+      "timestamp_ms": 1693755540000
+    },
+    {
+      "equity_quote": 32761.58042225361,
+      "timestamp_ms": 1693935420000
+    },
+    {
+      "equity_quote": 33082.715859467025,
+      "timestamp_ms": 1694115300000
+    },
+    {
+      "equity_quote": 32637.34002317617,
+      "timestamp_ms": 1694295180000
+    },
+    {
+      "equity_quote": 31976.220763766716,
+      "timestamp_ms": 1694475000000
+    },
+    {
+      "equity_quote": 32913.774884520244,
+      "timestamp_ms": 1694654880000
+    },
+    {
+      "equity_quote": 34192.33456867846,
+      "timestamp_ms": 1694834760000
+    },
+    {
+      "equity_quote": 34074.77525707488,
+      "timestamp_ms": 1695014640000
+    },
+    {
+      "equity_quote": 34768.16767413969,
+      "timestamp_ms": 1695194520000
+    },
+    {
+      "equity_quote": 34165.32607734358,
+      "timestamp_ms": 1695374340000
+    },
+    {
+      "equity_quote": 34415.46070169716,
+      "timestamp_ms": 1695554220000
+    },
+    {
+      "equity_quote": 34715.920453532344,
+      "timestamp_ms": 1695734100000
+    },
+    {
+      "equity_quote": 35613.99060178985,
+      "timestamp_ms": 1695913980000
+    },
+    {
+      "equity_quote": 37067.90348093038,
+      "timestamp_ms": 1696093860000
+    },
+    {
+      "equity_quote": 35962.1602299311,
+      "timestamp_ms": 1696273680000
+    },
+    {
+      "equity_quote": 36174.97614172965,
+      "timestamp_ms": 1696453560000
+    },
+    {
+      "equity_quote": 36761.46296982918,
+      "timestamp_ms": 1696633440000
+    },
+    {
+      "equity_quote": 36269.78303162503,
+      "timestamp_ms": 1696813320000
+    },
+    {
+      "equity_quote": 35098.07608511977,
+      "timestamp_ms": 1696993200000
+    },
+    {
+      "equity_quote": 35235.297644066195,
+      "timestamp_ms": 1697173020000
+    },
+    {
+      "equity_quote": 35853.123404701546,
+      "timestamp_ms": 1697352900000
+    },
+    {
+      "equity_quote": 36348.51502483353,
+      "timestamp_ms": 1697532780000
+    },
+    {
+      "equity_quote": 36675.99732129147,
+      "timestamp_ms": 1697712660000
+    },
+    {
+      "equity_quote": 39213.96478508421,
+      "timestamp_ms": 1697892540000
+    },
+    {
+      "equity_quote": 40883.058430510486,
+      "timestamp_ms": 1698072360000
+    },
+    {
+      "equity_quote": 42835.92363764261,
+      "timestamp_ms": 1698252240000
+    },
+    {
+      "equity_quote": 43364.64304193265,
+      "timestamp_ms": 1698432120000
+    },
+    {
+      "equity_quote": 43540.762030563405,
+      "timestamp_ms": 1698612000000
+    },
+    {
+      "equity_quote": 45038.777723592655,
+      "timestamp_ms": 1698791880000
+    },
+    {
+      "equity_quote": 45125.115576977776,
+      "timestamp_ms": 1698971700000
+    },
+    {
+      "equity_quote": 46611.7157352168,
+      "timestamp_ms": 1699151580000
+    },
+    {
+      "equity_quote": 48052.92637112805,
+      "timestamp_ms": 1699331460000
+    },
+    {
+      "equity_quote": 50010.714718193216,
+      "timestamp_ms": 1699511340000
+    },
+    {
+      "equity_quote": 50421.5498792729,
+      "timestamp_ms": 1699691160000
+    },
+    {
+      "equity_quote": 52474.01322719004,
+      "timestamp_ms": 1699871040000
+    },
+    {
+      "equity_quote": 52456.82388217924,
+      "timestamp_ms": 1700050920000
+    },
+    {
+      "equity_quote": 50629.86084268435,
+      "timestamp_ms": 1700230800000
+    },
+    {
+      "equity_quote": 51391.58742286686,
+      "timestamp_ms": 1700410680000
+    },
+    {
+      "equity_quote": 50041.34534270925,
+      "timestamp_ms": 1700590500000
+    },
+    {
+      "equity_quote": 50833.589118604206,
+      "timestamp_ms": 1700770380000
+    },
+    {
+      "equity_quote": 52942.95575699874,
+      "timestamp_ms": 1700950260000
+    },
+    {
+      "equity_quote": 54163.305085407585,
+      "timestamp_ms": 1701130140000
+    },
+    {
+      "equity_quote": 54305.70550438748,
+      "timestamp_ms": 1701310020000
+    },
+    {
+      "equity_quote": 55058.67449761687,
+      "timestamp_ms": 1701489840000
+    },
+    {
+      "equity_quote": 55525.58210928039,
+      "timestamp_ms": 1701669720000
+    },
+    {
+      "equity_quote": 55638.081771780664,
+      "timestamp_ms": 1701849600000
+    },
+    {
+      "equity_quote": 56774.88548265216,
+      "timestamp_ms": 1702029480000
+    },
+    {
+      "equity_quote": 56860.26341722359,
+      "timestamp_ms": 1702209360000
+    },
+    {
+      "equity_quote": 58365.29006149995,
+      "timestamp_ms": 1702389180000
+    },
+    {
+      "equity_quote": 59336.95742218292,
+      "timestamp_ms": 1702569060000
+    },
+    {
+      "equity_quote": 58904.44316949371,
+      "timestamp_ms": 1702748940000
+    },
+    {
+      "equity_quote": 59038.20435824205,
+      "timestamp_ms": 1702928820000
+    },
+    {
+      "equity_quote": 60837.07208503817,
+      "timestamp_ms": 1703108700000
+    },
+    {
+      "equity_quote": 62555.26714057077,
+      "timestamp_ms": 1703288520000
+    },
+    {
+      "equity_quote": 63767.615313752394,
+      "timestamp_ms": 1703468400000
+    },
+    {
+      "equity_quote": 62019.051135185386,
+      "timestamp_ms": 1703648280000
+    },
+    {
+      "equity_quote": 62873.88115200972,
+      "timestamp_ms": 1703828160000
+    },
+    {
+      "equity_quote": 63404.243494879156,
+      "timestamp_ms": 1704008040000
+    },
+    {
+      "equity_quote": 64391.93714959101,
+      "timestamp_ms": 1704187860000
+    },
+    {
+      "equity_quote": 61814.94346224855,
+      "timestamp_ms": 1704367740000
+    },
+    {
+      "equity_quote": 61695.106099864686,
+      "timestamp_ms": 1704547620000
+    },
+    {
+      "equity_quote": 62944.7688342495,
+      "timestamp_ms": 1704727500000
+    },
+    {
+      "equity_quote": 63608.12699208437,
+      "timestamp_ms": 1704907380000
+    },
+    {
+      "equity_quote": 64648.705638289095,
+      "timestamp_ms": 1705087200000
+    },
+    {
+      "equity_quote": 65132.156251866836,
+      "timestamp_ms": 1705267080000
+    },
+    {
+      "equity_quote": 67056.1615431763,
+      "timestamp_ms": 1705446960000
+    },
+    {
+      "equity_quote": 65075.4391012156,
+      "timestamp_ms": 1705626840000
+    },
+    {
+      "equity_quote": 65983.43492036578,
+      "timestamp_ms": 1705806720000
+    },
+    {
+      "equity_quote": 64563.61546899941,
+      "timestamp_ms": 1705986540000
+    },
+    {
+      "equity_quote": 62996.33629010983,
+      "timestamp_ms": 1706166420000
+    },
+    {
+      "equity_quote": 63960.90763693349,
+      "timestamp_ms": 1706346300000
+    },
+    {
+      "equity_quote": 65500.820497553985,
+      "timestamp_ms": 1706526180000
+    },
+    {
+      "equity_quote": 64996.15950267961,
+      "timestamp_ms": 1706706000000
+    },
+    {
+      "equity_quote": 65811.50408825182,
+      "timestamp_ms": 1706885880000
+    },
+    {
+      "equity_quote": 65848.30221152894,
+      "timestamp_ms": 1707065760000
+    },
+    {
+      "equity_quote": 65315.353922066126,
+      "timestamp_ms": 1707245640000
+    },
+    {
+      "equity_quote": 65719.89949193044,
+      "timestamp_ms": 1707425520000
+    },
+    {
+      "equity_quote": 66876.52076447714,
+      "timestamp_ms": 1707605340000
+    },
+    {
+      "equity_quote": 68325.44771599707,
+      "timestamp_ms": 1707785220000
+    },
+    {
+      "equity_quote": 67257.70646122537,
+      "timestamp_ms": 1707965100000
+    },
+    {
+      "equity_quote": 66850.82419158083,
+      "timestamp_ms": 1708144980000
+    },
+    {
+      "equity_quote": 68642.49287944203,
+      "timestamp_ms": 1708324860000
+    },
+    {
+      "equity_quote": 66723.6314507251,
+      "timestamp_ms": 1708504680000
+    },
+    {
+      "equity_quote": 65768.67878159526,
+      "timestamp_ms": 1708684560000
+    },
+    {
+      "equity_quote": 66103.9091303791,
+      "timestamp_ms": 1708864440000
+    },
+    {
+      "equity_quote": 67764.96419459295,
+      "timestamp_ms": 1709044320000
+    },
+    {
+      "equity_quote": 70909.02426703609,
+      "timestamp_ms": 1709224200000
+    },
+    {
+      "equity_quote": 72108.87102490525,
+      "timestamp_ms": 1709404020000
+    },
+    {
+      "equity_quote": 70937.046051581,
+      "timestamp_ms": 1709583900000
+    },
+    {
+      "equity_quote": 70224.61787203306,
+      "timestamp_ms": 1709763780000
+    },
+    {
+      "equity_quote": 71961.91537030706,
+      "timestamp_ms": 1709943660000
+    },
+    {
+      "equity_quote": 71827.11859823618,
+      "timestamp_ms": 1710123540000
+    },
+    {
+      "equity_quote": 74066.65577145177,
+      "timestamp_ms": 1710303360000
+    },
+    {
+      "equity_quote": 73526.94189736288,
+      "timestamp_ms": 1710483240000
+    },
+    {
+      "equity_quote": 73115.55930485745,
+      "timestamp_ms": 1710663120000
+    },
+    {
+      "equity_quote": 71050.90291302126,
+      "timestamp_ms": 1710843000000
+    },
+    {
+      "equity_quote": 72876.1304138003,
+      "timestamp_ms": 1711022880000
+    },
+    {
+      "equity_quote": 71981.33254272628,
+      "timestamp_ms": 1711202700000
+    },
+    {
+      "equity_quote": 73209.50931604826,
+      "timestamp_ms": 1711382580000
+    },
+    {
+      "equity_quote": 73117.56304621912,
+      "timestamp_ms": 1711562460000
+    },
+    {
+      "equity_quote": 72453.68338270052,
+      "timestamp_ms": 1711742340000
+    },
+    {
+      "equity_quote": 72355.69765281957,
+      "timestamp_ms": 1711922220000
+    },
+    {
+      "equity_quote": 70205.85496089095,
+      "timestamp_ms": 1712102040000
+    },
+    {
+      "equity_quote": 70106.38399151377,
+      "timestamp_ms": 1712281920000
+    },
+    {
+      "equity_quote": 71011.13273560195,
+      "timestamp_ms": 1712461800000
+    },
+    {
+      "equity_quote": 71330.40457237302,
+      "timestamp_ms": 1712641680000
+    },
+    {
+      "equity_quote": 70253.29018053805,
+      "timestamp_ms": 1712821560000
+    },
+    {
+      "equity_quote": 66373.84780696308,
+      "timestamp_ms": 1713001380000
+    },
+    {
+      "equity_quote": 65890.55319033832,
+      "timestamp_ms": 1713181260000
+    },
+    {
+      "equity_quote": 64922.01535531857,
+      "timestamp_ms": 1713361140000
+    },
+    {
+      "equity_quote": 66374.24442363912,
+      "timestamp_ms": 1713541020000
+    },
+    {
+      "equity_quote": 66602.22790495079,
+      "timestamp_ms": 1713720840000
+    },
+    {
+      "equity_quote": 66932.69934560313,
+      "timestamp_ms": 1713900720000
+    },
+    {
+      "equity_quote": 66277.8985216338,
+      "timestamp_ms": 1714080600000
+    },
+    {
+      "equity_quote": 65662.00310118996,
+      "timestamp_ms": 1714260480000
+    },
+    {
+      "equity_quote": 65565.77717378989,
+      "timestamp_ms": 1714440360000
+    },
+    {
+      "equity_quote": 64076.83781429008,
+      "timestamp_ms": 1714620180000
+    },
+    {
+      "equity_quote": 65010.37148325359,
+      "timestamp_ms": 1714800060000
+    },
+    {
+      "equity_quote": 65427.01982294045,
+      "timestamp_ms": 1714979940000
+    },
+    {
+      "equity_quote": 64600.0027256284,
+      "timestamp_ms": 1715159820000
+    },
+    {
+      "equity_quote": 65429.50561363701,
+      "timestamp_ms": 1715339700000
+    },
+    {
+      "equity_quote": 64370.69817652661,
+      "timestamp_ms": 1715519520000
+    },
+    {
+      "equity_quote": 63445.7528594678,
+      "timestamp_ms": 1715699400000
+    },
+    {
+      "equity_quote": 64412.38713479165,
+      "timestamp_ms": 1715879280000
+    },
+    {
+      "equity_quote": 66074.55209521501,
+      "timestamp_ms": 1716059160000
+    },
+    {
+      "equity_quote": 67400.91222829498,
+      "timestamp_ms": 1716239040000
+    },
+    {
+      "equity_quote": 67098.96663644956,
+      "timestamp_ms": 1716418860000
+    },
+    {
+      "equity_quote": 66882.84806579821,
+      "timestamp_ms": 1716598740000
+    },
+    {
+      "equity_quote": 66902.202671317,
+      "timestamp_ms": 1716778620000
+    },
+    {
+      "equity_quote": 67924.10224472269,
+      "timestamp_ms": 1716958500000
+    },
+    {
+      "equity_quote": 66902.99995397584,
+      "timestamp_ms": 1717138380000
+    },
+    {
+      "equity_quote": 67108.13578037464,
+      "timestamp_ms": 1717318200000
+    },
+    {
+      "equity_quote": 66669.01618305556,
+      "timestamp_ms": 1717498080000
+    },
+    {
+      "equity_quote": 67731.63018356325,
+      "timestamp_ms": 1717677960000
+    },
+    {
+      "equity_quote": 67193.01142426998,
+      "timestamp_ms": 1717857840000
+    },
+    {
+      "equity_quote": 67658.5421020243,
+      "timestamp_ms": 1718037720000
+    },
+    {
+      "equity_quote": 68362.8189330441,
+      "timestamp_ms": 1718217540000
+    },
+    {
+      "equity_quote": 65557.28014423604,
+      "timestamp_ms": 1718397420000
+    },
+    {
+      "equity_quote": 65481.0483212839,
+      "timestamp_ms": 1718577300000
+    },
+    {
+      "equity_quote": 63071.58680106931,
+      "timestamp_ms": 1718757180000
+    },
+    {
+      "equity_quote": 63451.12397696287,
+      "timestamp_ms": 1718937060000
+    },
+    {
+      "equity_quote": 63280.75143387925,
+      "timestamp_ms": 1719116880000
+    },
+    {
+      "equity_quote": 64150.09858077568,
+      "timestamp_ms": 1719296760000
+    },
+    {
+      "equity_quote": 64239.28266870251,
+      "timestamp_ms": 1719476640000
+    },
+    {
+      "equity_quote": 64187.579847389614,
+      "timestamp_ms": 1719656520000
+    },
+    {
+      "equity_quote": 64611.15715387784,
+      "timestamp_ms": 1719836340000
+    },
+    {
+      "equity_quote": 63899.29948834962,
+      "timestamp_ms": 1720016220000
+    },
+    {
+      "equity_quote": 61821.911073109935,
+      "timestamp_ms": 1720196100000
+    },
+    {
+      "equity_quote": 62170.03300851486,
+      "timestamp_ms": 1720375980000
+    },
+    {
+      "equity_quote": 62742.4293872601,
+      "timestamp_ms": 1720555860000
+    },
+    {
+      "equity_quote": 62286.92405951,
+      "timestamp_ms": 1720735680000
+    },
+    {
+      "equity_quote": 62871.4912289727,
+      "timestamp_ms": 1720915560000
+    },
+    {
+      "equity_quote": 64620.76740632362,
+      "timestamp_ms": 1721095440000
+    },
+    {
+      "equity_quote": 65295.08343892585,
+      "timestamp_ms": 1721275320000
+    },
+    {
+      "equity_quote": 66085.79018956493,
+      "timestamp_ms": 1721455200000
+    },
+    {
+      "equity_quote": 65700.79253484377,
+      "timestamp_ms": 1721635020000
+    },
+    {
+      "equity_quote": 64974.474972471406,
+      "timestamp_ms": 1721814900000
+    },
+    {
+      "equity_quote": 64914.93167706103,
+      "timestamp_ms": 1721994780000
+    },
+    {
+      "equity_quote": 64720.41342651517,
+      "timestamp_ms": 1722174660000
+    },
+    {
+      "equity_quote": 64487.91500090419,
+      "timestamp_ms": 1722354540000
+    },
+    {
+      "equity_quote": 62634.57315332477,
+      "timestamp_ms": 1722534360000
+    },
+    {
+      "equity_quote": 61409.78579258036,
+      "timestamp_ms": 1722714240000
+    },
+    {
+      "equity_quote": 59276.716636507575,
+      "timestamp_ms": 1722894120000
+    },
+    {
+      "equity_quote": 59164.58534467825,
+      "timestamp_ms": 1723074000000
+    },
+    {
+      "equity_quote": 60749.52443853339,
+      "timestamp_ms": 1723253880000
+    },
+    {
+      "equity_quote": 60403.647745085116,
+      "timestamp_ms": 1723433700000
+    },
+    {
+      "equity_quote": 61297.94425331716,
+      "timestamp_ms": 1723613580000
+    },
+    {
+      "equity_quote": 61288.97709235329,
+      "timestamp_ms": 1723793460000
+    },
+    {
+      "equity_quote": 60933.51556324733,
+      "timestamp_ms": 1723973340000
+    },
+    {
+      "equity_quote": 61397.97972380052,
+      "timestamp_ms": 1724153220000
+    },
+    {
+      "equity_quote": 62458.595741697245,
+      "timestamp_ms": 1724333040000
+    },
+    {
+      "equity_quote": 63697.56137671393,
+      "timestamp_ms": 1724512920000
+    },
+    {
+      "equity_quote": 63088.70486673037,
+      "timestamp_ms": 1724692800000
+    },
+    {
+      "equity_quote": 61613.08137248629,
+      "timestamp_ms": 1724872680000
+    },
+    {
+      "equity_quote": 61158.24287941457,
+      "timestamp_ms": 1725052560000
+    },
+    {
+      "equity_quote": 60334.449653596545,
+      "timestamp_ms": 1725232380000
+    },
+    {
+      "equity_quote": 59722.817315618646,
+      "timestamp_ms": 1725412260000
+    },
+    {
+      "equity_quote": 60695.35294448488,
+      "timestamp_ms": 1725592140000
+    },
+    {
+      "equity_quote": 60391.27757843733,
+      "timestamp_ms": 1725772020000
+    },
+    {
+      "equity_quote": 60831.93654316735,
+      "timestamp_ms": 1725951900000
+    },
+    {
+      "equity_quote": 61944.771944143795,
+      "timestamp_ms": 1726131720000
+    },
+    {
+      "equity_quote": 62266.13682843781,
+      "timestamp_ms": 1726311600000
+    },
+    {
+      "equity_quote": 61555.60982743024,
+      "timestamp_ms": 1726491480000
+    },
+    {
+      "equity_quote": 61537.77805373464,
+      "timestamp_ms": 1726671360000
+    },
+    {
+      "equity_quote": 62827.86457027861,
+      "timestamp_ms": 1726851180000
+    },
+    {
+      "equity_quote": 62877.87353869091,
+      "timestamp_ms": 1727031060000
+    },
+    {
+      "equity_quote": 63551.0636771244,
+      "timestamp_ms": 1727210940000
+    },
+    {
+      "equity_quote": 64201.88815285083,
+      "timestamp_ms": 1727390820000
+    },
+    {
+      "equity_quote": 64119.417336968545,
+      "timestamp_ms": 1727570700000
+    },
+    {
+      "equity_quote": 64178.03193177399,
+      "timestamp_ms": 1727750520000
+    },
+    {
+      "equity_quote": 62400.454615249684,
+      "timestamp_ms": 1727930400000
+    },
+    {
+      "equity_quote": 62560.07724999166,
+      "timestamp_ms": 1728110280000
+    },
+    {
+      "equity_quote": 63010.16070078589,
+      "timestamp_ms": 1728290160000
+    },
+    {
+      "equity_quote": 62090.46237997107,
+      "timestamp_ms": 1728470040000
+    },
+    {
+      "equity_quote": 62170.51666732544,
+      "timestamp_ms": 1728649860000
+    },
+    {
+      "equity_quote": 62327.028987365346,
+      "timestamp_ms": 1728829740000
+    },
+    {
+      "equity_quote": 62979.65965617051,
+      "timestamp_ms": 1729009620000
+    },
+    {
+      "equity_quote": 62666.1233938994,
+      "timestamp_ms": 1729189500000
+    },
+    {
+      "equity_quote": 63193.7217882891,
+      "timestamp_ms": 1729369380000
+    },
+    {
+      "equity_quote": 63206.47677600889,
+      "timestamp_ms": 1729549200000
+    },
+    {
+      "equity_quote": 62440.669886118354,
+      "timestamp_ms": 1729729080000
+    },
+    {
+      "equity_quote": 61724.919390674055,
+      "timestamp_ms": 1729908960000
+    },
+    {
+      "equity_quote": 61733.356238548215,
+      "timestamp_ms": 1730088840000
+    },
+    {
+      "equity_quote": 62832.90535402168,
+      "timestamp_ms": 1730268720000
+    },
+    {
+      "equity_quote": 61927.636261871055,
+      "timestamp_ms": 1730448540000
+    },
+    {
+      "equity_quote": 61356.35348753782,
+      "timestamp_ms": 1730628420000
+    },
+    {
+      "equity_quote": 60930.29710431174,
+      "timestamp_ms": 1730808300000
+    },
+    {
+      "equity_quote": 63066.847871853344,
+      "timestamp_ms": 1730988180000
+    },
+    {
+      "equity_quote": 64215.86978031018,
+      "timestamp_ms": 1731168060000
+    },
+    {
+      "equity_quote": 66288.9044400283,
+      "timestamp_ms": 1731347880000
+    },
+    {
+      "equity_quote": 64618.813471361726,
+      "timestamp_ms": 1731527760000
+    },
+    {
+      "equity_quote": 65272.60040238157,
+      "timestamp_ms": 1731707640000
+    },
+    {
+      "equity_quote": 65117.39922656636,
+      "timestamp_ms": 1731887520000
+    },
+    {
+      "equity_quote": 65196.97499984339,
+      "timestamp_ms": 1732067400000
+    },
+    {
+      "equity_quote": 66001.77099010101,
+      "timestamp_ms": 1732247220000
+    },
+    {
+      "equity_quote": 68167.34067320041,
+      "timestamp_ms": 1732427100000
+    },
+    {
+      "equity_quote": 67824.15776275721,
+      "timestamp_ms": 1732606980000
+    },
+    {
+      "equity_quote": 68806.41534501368,
+      "timestamp_ms": 1732786860000
+    },
+    {
+      "equity_quote": 69024.52500385293,
+      "timestamp_ms": 1732966740000
+    },
+    {
+      "equity_quote": 69920.48632687869,
+      "timestamp_ms": 1733146560000
+    },
+    {
+      "equity_quote": 72255.23243307743,
+      "timestamp_ms": 1733326440000
+    },
+    {
+      "equity_quote": 72675.05019302267,
+      "timestamp_ms": 1733506320000
+    },
+    {
+      "equity_quote": 72375.95825210077,
+      "timestamp_ms": 1733686200000
+    },
+    {
+      "equity_quote": 70996.41445884545,
+      "timestamp_ms": 1733866020000
+    },
+    {
+      "equity_quote": 72508.63363299958,
+      "timestamp_ms": 1734045900000
+    },
+    {
+      "equity_quote": 72343.4972051712,
+      "timestamp_ms": 1734225780000
+    },
+    {
+      "equity_quote": 73329.3970134171,
+      "timestamp_ms": 1734405660000
+    },
+    {
+      "equity_quote": 70434.94832728819,
+      "timestamp_ms": 1734585540000
+    },
+    {
+      "equity_quote": 69955.21888885129,
+      "timestamp_ms": 1734765360000
+    },
+    {
+      "equity_quote": 68715.29911841286,
+      "timestamp_ms": 1734945240000
+    },
+    {
+      "equity_quote": 70375.63944371628,
+      "timestamp_ms": 1735125120000
+    },
+    {
+      "equity_quote": 69178.01295082069,
+      "timestamp_ms": 1735305000000
+    },
+    {
+      "equity_quote": 68150.76731949426,
+      "timestamp_ms": 1735484880000
+    },
+    {
+      "equity_quote": 67795.21843628495,
+      "timestamp_ms": 1735664700000
+    },
+    {
+      "equity_quote": 68810.09330027163,
+      "timestamp_ms": 1735844580000
+    },
+    {
+      "equity_quote": 70059.00936357392,
+      "timestamp_ms": 1736024460000
+    },
+    {
+      "equity_quote": 70929.84279830639,
+      "timestamp_ms": 1736204340000
+    },
+    {
+      "equity_quote": 68076.9035056531,
+      "timestamp_ms": 1736384220000
+    },
+    {
+      "equity_quote": 67680.00068343252,
+      "timestamp_ms": 1736564040000
+    },
+    {
+      "equity_quote": 67064.20978469768,
+      "timestamp_ms": 1736743920000
+    },
+    {
+      "equity_quote": 67937.39099087662,
+      "timestamp_ms": 1736923800000
+    },
+    {
+      "equity_quote": 70321.41883669057,
+      "timestamp_ms": 1737103680000
+    },
+    {
+      "equity_quote": 68941.31467371387,
+      "timestamp_ms": 1737283560000
+    },
+    {
+      "equity_quote": 70223.73223614544,
+      "timestamp_ms": 1737463380000
+    },
+    {
+      "equity_quote": 69682.65368222154,
+      "timestamp_ms": 1737643260000
+    },
+    {
+      "equity_quote": 69365.03320841206,
+      "timestamp_ms": 1737823140000
+    },
+    {
+      "equity_quote": 67486.67160634279,
+      "timestamp_ms": 1738003020000
+    },
+    {
+      "equity_quote": 68082.45440093931,
+      "timestamp_ms": 1738182900000
+    },
+    {
+      "equity_quote": 69223.94536900763,
+      "timestamp_ms": 1738362720000
+    },
+    {
+      "equity_quote": 64933.613520837476,
+      "timestamp_ms": 1738542600000
+    },
+    {
+      "equity_quote": 64846.588484397325,
+      "timestamp_ms": 1738722480000
+    },
+    {
+      "equity_quote": 64117.16692023091,
+      "timestamp_ms": 1738902360000
+    },
+    {
+      "equity_quote": 64147.09020723363,
+      "timestamp_ms": 1739082240000
+    },
+    {
+      "equity_quote": 65056.58389046055,
+      "timestamp_ms": 1739262060000
+    },
+    {
+      "equity_quote": 64731.08115217775,
+      "timestamp_ms": 1739441940000
+    },
+    {
+      "equity_quote": 64862.37374657775,
+      "timestamp_ms": 1739621820000
+    },
+    {
+      "equity_quote": 65443.57129818194,
+      "timestamp_ms": 1739801700000
+    },
+    {
+      "equity_quote": 64306.93107223556,
+      "timestamp_ms": 1739981520000
+    },
+    {
+      "equity_quote": 64479.37667276531,
+      "timestamp_ms": 1740161400000
+    },
+    {
+      "equity_quote": 64445.85487511233,
+      "timestamp_ms": 1740341280000
+    },
+    {
+      "equity_quote": 62904.99884802765,
+      "timestamp_ms": 1740521160000
+    },
+    {
+      "equity_quote": 62646.089992367415,
+      "timestamp_ms": 1740701040000
+    },
+    {
+      "equity_quote": 62210.24951014266,
+      "timestamp_ms": 1740880860000
+    },
+    {
+      "equity_quote": 61099.95734446234,
+      "timestamp_ms": 1741060740000
+    },
+    {
+      "equity_quote": 63147.73860624437,
+      "timestamp_ms": 1741240620000
+    },
+    {
+      "equity_quote": 61826.05356047193,
+      "timestamp_ms": 1741420500000
+    },
+    {
+      "equity_quote": 61000.74041520239,
+      "timestamp_ms": 1741600380000
+    },
+    {
+      "equity_quote": 60460.12060277378,
+      "timestamp_ms": 1741780200000
+    },
+    {
+      "equity_quote": 60734.913599997926,
+      "timestamp_ms": 1741960080000
+    },
+    {
+      "equity_quote": 60475.29219837443,
+      "timestamp_ms": 1742139960000
+    },
+    {
+      "equity_quote": 60371.42806329543,
+      "timestamp_ms": 1742319840000
+    },
+    {
+      "equity_quote": 60834.04421458398,
+      "timestamp_ms": 1742499720000
+    },
+    {
+      "equity_quote": 60866.72646567409,
+      "timestamp_ms": 1742679540000
+    },
+    {
+      "equity_quote": 61369.0315240778,
+      "timestamp_ms": 1742859420000
+    },
+    {
+      "equity_quote": 61496.59861513469,
+      "timestamp_ms": 1743039300000
+    },
+    {
+      "equity_quote": 60584.200516324876,
+      "timestamp_ms": 1743219180000
+    },
+    {
+      "equity_quote": 60086.31741817009,
+      "timestamp_ms": 1743399060000
+    },
+    {
+      "equity_quote": 60029.59249327377,
+      "timestamp_ms": 1743578880000
+    },
+    {
+      "equity_quote": 59845.833979738796,
+      "timestamp_ms": 1743758760000
+    },
+    {
+      "equity_quote": 59470.756205643804,
+      "timestamp_ms": 1743938640000
+    },
+    {
+      "equity_quote": 58920.35152922529,
+      "timestamp_ms": 1744118520000
+    },
+    {
+      "equity_quote": 59138.351619013134,
+      "timestamp_ms": 1744298400000
+    },
+    {
+      "equity_quote": 59716.1043055426,
+      "timestamp_ms": 1744478220000
+    },
+    {
+      "equity_quote": 59605.20044192306,
+      "timestamp_ms": 1744658100000
+    },
+    {
+      "equity_quote": 59193.77649609313,
+      "timestamp_ms": 1744837980000
+    },
+    {
+      "equity_quote": 59330.43968301579,
+      "timestamp_ms": 1745017860000
+    },
+    {
+      "equity_quote": 60007.299418989045,
+      "timestamp_ms": 1745197740000
+    },
+    {
+      "equity_quote": 60587.43030736867,
+      "timestamp_ms": 1745377560000
+    },
+    {
+      "equity_quote": 61075.438798345436,
+      "timestamp_ms": 1745557440000
+    },
+    {
+      "equity_quote": 60936.685515258694,
+      "timestamp_ms": 1745737320000
+    },
+    {
+      "equity_quote": 61147.18617741433,
+      "timestamp_ms": 1745917200000
+    },
+    {
+      "equity_quote": 61221.816153493404,
+      "timestamp_ms": 1746097080000
+    },
+    {
+      "equity_quote": 60844.115719794034,
+      "timestamp_ms": 1746276900000
+    },
+    {
+      "equity_quote": 60429.43709403351,
+      "timestamp_ms": 1746456780000
+    },
+    {
+      "equity_quote": 60379.18124655231,
+      "timestamp_ms": 1746636660000
+    },
+    {
+      "equity_quote": 62274.00871569239,
+      "timestamp_ms": 1746816540000
+    },
+    {
+      "equity_quote": 63148.57228555035,
+      "timestamp_ms": 1746996360000
+    },
+    {
+      "equity_quote": 63702.864968705646,
+      "timestamp_ms": 1747176240000
+    },
+    {
+      "equity_quote": 62560.01692078895,
+      "timestamp_ms": 1747356120000
+    },
+    {
+      "equity_quote": 61998.27360775917,
+      "timestamp_ms": 1747536000000
+    },
+    {
+      "equity_quote": 62643.85361339842,
+      "timestamp_ms": 1747715880000
+    },
+    {
+      "equity_quote": 62947.007707300734,
+      "timestamp_ms": 1747895700000
+    },
+    {
+      "equity_quote": 62946.274770423166,
+      "timestamp_ms": 1748075580000
+    },
+    {
+      "equity_quote": 63155.41981802082,
+      "timestamp_ms": 1748255460000
+    },
+    {
+      "equity_quote": 63785.584120897634,
+      "timestamp_ms": 1748435340000
+    },
+    {
+      "equity_quote": 62534.88186215074,
+      "timestamp_ms": 1748615220000
+    },
+    {
+      "equity_quote": 61911.568999442476,
+      "timestamp_ms": 1748795040000
+    },
+    {
+      "equity_quote": 62308.94822740369,
+      "timestamp_ms": 1748974920000
+    },
+    {
+      "equity_quote": 61223.99528312891,
+      "timestamp_ms": 1749154800000
+    },
+    {
+      "equity_quote": 62171.2778550214,
+      "timestamp_ms": 1749334680000
+    },
+    {
+      "equity_quote": 62800.88939899315,
+      "timestamp_ms": 1749514560000
+    },
+    {
+      "equity_quote": 62776.613398907386,
+      "timestamp_ms": 1749694380000
+    },
+    {
+      "equity_quote": 61672.69578147893,
+      "timestamp_ms": 1749874260000
+    },
+    {
+      "equity_quote": 61798.750300230444,
+      "timestamp_ms": 1750054140000
+    },
+    {
+      "equity_quote": 61246.35738736621,
+      "timestamp_ms": 1750234020000
+    },
+    {
+      "equity_quote": 61367.220053926125,
+      "timestamp_ms": 1750413900000
+    },
+    {
+      "equity_quote": 60163.6425012818,
+      "timestamp_ms": 1750593720000
+    },
+    {
+      "equity_quote": 61549.32461241358,
+      "timestamp_ms": 1750773600000
+    },
+    {
+      "equity_quote": 61109.99199521194,
+      "timestamp_ms": 1750953480000
+    },
+    {
+      "equity_quote": 61260.26952876082,
+      "timestamp_ms": 1751133360000
+    },
+    {
+      "equity_quote": 61515.1192164229,
+      "timestamp_ms": 1751313240000
+    },
+    {
+      "equity_quote": 61678.434733908,
+      "timestamp_ms": 1751493060000
+    },
+    {
+      "equity_quote": 61172.69189545284,
+      "timestamp_ms": 1751672940000
+    },
+    {
+      "equity_quote": 61316.38679317254,
+      "timestamp_ms": 1751852820000
+    },
+    {
+      "equity_quote": 61365.230317741516,
+      "timestamp_ms": 1752032700000
+    },
+    {
+      "equity_quote": 62948.36854207014,
+      "timestamp_ms": 1752212580000
+    },
+    {
+      "equity_quote": 62790.50054476451,
+      "timestamp_ms": 1752392400000
+    },
+    {
+      "equity_quote": 62701.94396305402,
+      "timestamp_ms": 1752572280000
+    },
+    {
+      "equity_quote": 63817.67848918201,
+      "timestamp_ms": 1752752160000
+    },
+    {
+      "equity_quote": 64001.01132944593,
+      "timestamp_ms": 1752932040000
+    },
+    {
+      "equity_quote": 65499.451740196724,
+      "timestamp_ms": 1753111920000
+    },
+    {
+      "equity_quote": 63848.54925037634,
+      "timestamp_ms": 1753291740000
+    },
+    {
+      "equity_quote": 63716.43270250596,
+      "timestamp_ms": 1753471620000
+    },
+    {
+      "equity_quote": 64891.50176910919,
+      "timestamp_ms": 1753651500000
+    },
+    {
+      "equity_quote": 63965.66321186931,
+      "timestamp_ms": 1753831380000
+    },
+    {
+      "equity_quote": 63104.09895214494,
+      "timestamp_ms": 1754011200000
+    },
+    {
+      "equity_quote": 62534.8524875206,
+      "timestamp_ms": 1754191080000
+    },
+    {
+      "equity_quote": 63216.23944830566,
+      "timestamp_ms": 1754370960000
+    },
+    {
+      "equity_quote": 63147.2481060016,
+      "timestamp_ms": 1754550840000
+    },
+    {
+      "equity_quote": 65316.57407454417,
+      "timestamp_ms": 1754730720000
+    },
+    {
+      "equity_quote": 65345.46987970816,
+      "timestamp_ms": 1754910540000
+    },
+    {
+      "equity_quote": 66794.96660514372,
+      "timestamp_ms": 1755090420000
+    },
+    {
+      "equity_quote": 65516.09761058941,
+      "timestamp_ms": 1755270300000
+    },
+    {
+      "equity_quote": 67366.48863483353,
+      "timestamp_ms": 1755450180000
+    },
+    {
+      "equity_quote": 65585.79286037458,
+      "timestamp_ms": 1755630060000
+    },
+    {
+      "equity_quote": 66256.44250657022,
+      "timestamp_ms": 1755809880000
+    },
+    {
+      "equity_quote": 67545.52135998067,
+      "timestamp_ms": 1755989760000
+    },
+    {
+      "equity_quote": 65814.01866772979,
+      "timestamp_ms": 1756169640000
+    },
+    {
+      "equity_quote": 66206.33618393322,
+      "timestamp_ms": 1756349520000
+    },
+    {
+      "equity_quote": 65944.79839748096,
+      "timestamp_ms": 1756529400000
+    },
+    {
+      "equity_quote": 65603.80943824246,
+      "timestamp_ms": 1756709220000
+    },
+    {
+      "equity_quote": 65953.82968955833,
+      "timestamp_ms": 1756889100000
+    },
+    {
+      "equity_quote": 65632.60800417935,
+      "timestamp_ms": 1757068980000
+    },
+    {
+      "equity_quote": 65538.85814124037,
+      "timestamp_ms": 1757248860000
+    },
+    {
+      "equity_quote": 66240.42737984167,
+      "timestamp_ms": 1757428740000
+    },
+    {
+      "equity_quote": 66335.89425381392,
+      "timestamp_ms": 1757608560000
+    },
+    {
+      "equity_quote": 66852.06857830474,
+      "timestamp_ms": 1757788440000
+    },
+    {
+      "equity_quote": 66082.34591350668,
+      "timestamp_ms": 1757968320000
+    },
+    {
+      "equity_quote": 66645.95506620011,
+      "timestamp_ms": 1758148200000
+    },
+    {
+      "equity_quote": 66196.26664400836,
+      "timestamp_ms": 1758328080000
+    },
+    {
+      "equity_quote": 65530.737789344574,
+      "timestamp_ms": 1758507900000
+    },
+    {
+      "equity_quote": 64722.14312234218,
+      "timestamp_ms": 1758687780000
+    },
+    {
+      "equity_quote": 64343.43383325661,
+      "timestamp_ms": 1758867660000
+    },
+    {
+      "equity_quote": 64425.265915956115,
+      "timestamp_ms": 1759047540000
+    },
+    {
+      "equity_quote": 64704.41653908469,
+      "timestamp_ms": 1759227420000
+    },
+    {
+      "equity_quote": 65400.68442199568,
+      "timestamp_ms": 1759407240000
+    },
+    {
+      "equity_quote": 65413.744712878004,
+      "timestamp_ms": 1759587120000
+    },
+    {
+      "equity_quote": 65728.0841386879,
+      "timestamp_ms": 1759767000000
+    },
+    {
+      "equity_quote": 65466.51345888647,
+      "timestamp_ms": 1759946880000
+    },
+    {
+      "equity_quote": 64245.57273392951,
+      "timestamp_ms": 1760126700000
+    },
+    {
+      "equity_quote": 63183.76292149517,
+      "timestamp_ms": 1760306580000
+    },
+    {
+      "equity_quote": 63142.71603886076,
+      "timestamp_ms": 1760486460000
+    },
+    {
+      "equity_quote": 62268.8292874145,
+      "timestamp_ms": 1760666340000
+    },
+    {
+      "equity_quote": 61962.03567589745,
+      "timestamp_ms": 1760846220000
+    },
+    {
+      "equity_quote": 62251.11740585575,
+      "timestamp_ms": 1761026040000
+    },
+    {
+      "equity_quote": 62181.23475741436,
+      "timestamp_ms": 1761205920000
+    },
+    {
+      "equity_quote": 62290.330514225876,
+      "timestamp_ms": 1761385800000
+    },
+    {
+      "equity_quote": 62612.24387350198,
+      "timestamp_ms": 1761565680000
+    },
+    {
+      "equity_quote": 62478.480736933896,
+      "timestamp_ms": 1761745560000
+    },
+    {
+      "equity_quote": 61861.30452416325,
+      "timestamp_ms": 1761925380000
+    },
+    {
+      "equity_quote": 61766.30584130307,
+      "timestamp_ms": 1762105260000
+    },
+    {
+      "equity_quote": 60368.21828767466,
+      "timestamp_ms": 1762285140000
+    },
+    {
+      "equity_quote": 60462.84288863451,
+      "timestamp_ms": 1762465020000
+    },
+    {
+      "equity_quote": 61105.93207938482,
+      "timestamp_ms": 1762644900000
+    },
+    {
+      "equity_quote": 61722.491037447704,
+      "timestamp_ms": 1762824720000
+    },
+    {
+      "equity_quote": 61100.66605658126,
+      "timestamp_ms": 1763004600000
+    },
+    {
+      "equity_quote": 60436.75425922283,
+      "timestamp_ms": 1763184480000
+    },
+    {
+      "equity_quote": 60363.75123538458,
+      "timestamp_ms": 1763364360000
+    },
+    {
+      "equity_quote": 60080.660109670265,
+      "timestamp_ms": 1763544240000
+    },
+    {
+      "equity_quote": 59222.91551325395,
+      "timestamp_ms": 1763724060000
+    },
+    {
+      "equity_quote": 59398.41600666059,
+      "timestamp_ms": 1763903940000
+    },
+    {
+      "equity_quote": 59501.93123480934,
+      "timestamp_ms": 1764083820000
+    },
+    {
+      "equity_quote": 59953.29159215481,
+      "timestamp_ms": 1764263700000
+    },
+    {
+      "equity_quote": 59726.918856207645,
+      "timestamp_ms": 1764443580000
+    },
+    {
+      "equity_quote": 59094.17968252096,
+      "timestamp_ms": 1764623400000
+    },
+    {
+      "equity_quote": 60344.69266597145,
+      "timestamp_ms": 1764803280000
+    },
+    {
+      "equity_quote": 59759.55537409368,
+      "timestamp_ms": 1764983160000
+    },
+    {
+      "equity_quote": 59894.302622505216,
+      "timestamp_ms": 1765163040000
+    },
+    {
+      "equity_quote": 60055.94299227239,
+      "timestamp_ms": 1765342920000
+    },
+    {
+      "equity_quote": 59982.920716277615,
+      "timestamp_ms": 1765522740000
+    },
+    {
+      "equity_quote": 59712.689390104475,
+      "timestamp_ms": 1765702620000
+    },
+    {
+      "equity_quote": 59328.93623675752,
+      "timestamp_ms": 1765882500000
+    },
+    {
+      "equity_quote": 58994.63676658991,
+      "timestamp_ms": 1766062380000
+    },
+    {
+      "equity_quote": 59193.494574784214,
+      "timestamp_ms": 1766242260000
+    },
+    {
+      "equity_quote": 59171.93287602266,
+      "timestamp_ms": 1766422080000
+    },
+    {
+      "equity_quote": 58922.985501019604,
+      "timestamp_ms": 1766601960000
+    },
+    {
+      "equity_quote": 58987.423504023514,
+      "timestamp_ms": 1766781840000
+    },
+    {
+      "equity_quote": 59069.28340176255,
+      "timestamp_ms": 1766961720000
+    },
+    {
+      "equity_quote": 58974.861736224106,
+      "timestamp_ms": 1767141540000
+    },
+    {
+      "equity_quote": 59074.60181213888,
+      "timestamp_ms": 1767321420000
+    },
+    {
+      "equity_quote": 59503.18998138192,
+      "timestamp_ms": 1767501300000
+    },
+    {
+      "equity_quote": 59811.973507491304,
+      "timestamp_ms": 1767681180000
+    },
+    {
+      "equity_quote": 59557.322067902875,
+      "timestamp_ms": 1767861060000
+    },
+    {
+      "equity_quote": 59494.77576425416,
+      "timestamp_ms": 1768040880000
+    },
+    {
+      "equity_quote": 59452.82388930649,
+      "timestamp_ms": 1768220760000
+    },
+    {
+      "equity_quote": 59926.81874157084,
+      "timestamp_ms": 1768400640000
+    },
+    {
+      "equity_quote": 59583.23601893507,
+      "timestamp_ms": 1768580520000
+    },
+    {
+      "equity_quote": 59684.23616197187,
+      "timestamp_ms": 1768760400000
+    },
+    {
+      "equity_quote": 58953.63855876905,
+      "timestamp_ms": 1768940220000
+    },
+    {
+      "equity_quote": 58943.21589060711,
+      "timestamp_ms": 1769120100000
+    },
+    {
+      "equity_quote": 58911.60738212009,
+      "timestamp_ms": 1769299980000
+    },
+    {
+      "equity_quote": 58809.37748492901,
+      "timestamp_ms": 1769479860000
+    },
+    {
+      "equity_quote": 58633.4958961656,
+      "timestamp_ms": 1769659740000
+    },
+    {
+      "equity_quote": 58201.315375524806,
+      "timestamp_ms": 1769839560000
+    },
+    {
+      "equity_quote": 57607.07384459325,
+      "timestamp_ms": 1770019440000
+    },
+    {
+      "equity_quote": 57686.623530153025,
+      "timestamp_ms": 1770199320000
+    },
+    {
+      "equity_quote": 57070.52113229671,
+      "timestamp_ms": 1770379200000
+    },
+    {
+      "equity_quote": 57320.379036236605,
+      "timestamp_ms": 1770559080000
+    },
+    {
+      "equity_quote": 57117.14936332933,
+      "timestamp_ms": 1770738900000
+    },
+    {
+      "equity_quote": 56983.54200028458,
+      "timestamp_ms": 1770918780000
+    },
+    {
+      "equity_quote": 57421.04013399441,
+      "timestamp_ms": 1771098660000
+    },
+    {
+      "equity_quote": 57261.67848044359,
+      "timestamp_ms": 1771278540000
+    },
+    {
+      "equity_quote": 57096.16402428635,
+      "timestamp_ms": 1771458420000
+    },
+    {
+      "equity_quote": 57423.633532781816,
+      "timestamp_ms": 1771638240000
+    },
+    {
+      "equity_quote": 57181.188920756846,
+      "timestamp_ms": 1771818120000
+    },
+    {
+      "equity_quote": 57131.20883165847,
+      "timestamp_ms": 1771998000000
+    },
+    {
+      "equity_quote": 57437.82110264573,
+      "timestamp_ms": 1772177880000
+    },
+    {
+      "equity_quote": 57300.648046078946,
+      "timestamp_ms": 1772357760000
+    },
+    {
+      "equity_quote": 57176.17606012923,
+      "timestamp_ms": 1772537580000
+    },
+    {
+      "equity_quote": 57439.68224031119,
+      "timestamp_ms": 1772717460000
+    },
+    {
+      "equity_quote": 57178.95654844776,
+      "timestamp_ms": 1772897340000
+    },
+    {
+      "equity_quote": 57263.06930712543,
+      "timestamp_ms": 1773077220000
+    },
+    {
+      "equity_quote": 57342.69364455277,
+      "timestamp_ms": 1773257100000
+    },
+    {
+      "equity_quote": 57409.84881525648,
+      "timestamp_ms": 1773436920000
+    },
+    {
+      "equity_quote": 57516.67986023807,
+      "timestamp_ms": 1773616800000
+    },
+    {
+      "equity_quote": 57673.659315372366,
+      "timestamp_ms": 1773796680000
+    },
+    {
+      "equity_quote": 57410.23389633975,
+      "timestamp_ms": 1773976560000
+    },
+    {
+      "equity_quote": 57297.50579793144,
+      "timestamp_ms": 1774156380000
+    },
+    {
+      "equity_quote": 57410.162710908364,
+      "timestamp_ms": 1774336260000
+    },
+    {
+      "equity_quote": 57344.058443371934,
+      "timestamp_ms": 1774516140000
+    },
+    {
+      "equity_quote": 57101.025162680104,
+      "timestamp_ms": 1774696020000
+    },
+    {
+      "equity_quote": 57239.89301840753,
+      "timestamp_ms": 1774875900000
+    },
+    {
+      "equity_quote": 57270.679922285795,
+      "timestamp_ms": 1775055720000
+    },
+    {
+      "equity_quote": 57143.175335485095,
+      "timestamp_ms": 1775235600000
+    },
+    {
+      "equity_quote": 57094.77722714176,
+      "timestamp_ms": 1775415480000
+    },
+    {
+      "equity_quote": 57167.80238325,
+      "timestamp_ms": 1775595360000
+    },
+    {
+      "equity_quote": 57324.115439612564,
+      "timestamp_ms": 1775775240000
+    },
+    {
+      "equity_quote": 57334.36670613408,
+      "timestamp_ms": 1775955060000
+    },
+    {
+      "equity_quote": 57414.64049520291,
+      "timestamp_ms": 1776134940000
+    },
+    {
+      "equity_quote": 57539.26217711105,
+      "timestamp_ms": 1776314820000
+    },
+    {
+      "equity_quote": 57660.77480933536,
+      "timestamp_ms": 1776494700000
+    },
+    {
+      "equity_quote": 57465.13581788809,
+      "timestamp_ms": 1776674580000
+    },
+    {
+      "equity_quote": 57610.027223266436,
+      "timestamp_ms": 1776854400000
+    },
+    {
+      "equity_quote": 57595.72183984166,
+      "timestamp_ms": 1777034280000
+    },
+    {
+      "equity_quote": 57711.86171352423,
+      "timestamp_ms": 1777214160000
+    },
+    {
+      "equity_quote": 57572.29630596257,
+      "timestamp_ms": 1777394040000
+    },
+    {
+      "equity_quote": 57508.27182243568,
+      "timestamp_ms": 1777573920000
+    },
+    {
+      "equity_quote": 57658.34255211844,
+      "timestamp_ms": 1777753740000
+    },
+    {
+      "equity_quote": 57695.300600908515,
+      "timestamp_ms": 1777933620000
+    },
+    {
+      "equity_quote": 57953.58477673259,
+      "timestamp_ms": 1778113500000
+    },
+    {
+      "equity_quote": 58308.874700521555,
+      "timestamp_ms": 1778293380000
+    },
+    {
+      "equity_quote": 58245.108844436116,
+      "timestamp_ms": 1778473260000
+    },
+    {
+      "equity_quote": 58640.99682202819,
+      "timestamp_ms": 1778653080000
+    },
+    {
+      "equity_quote": 58508.00594565879,
+      "timestamp_ms": 1778832960000
+    },
+    {
+      "equity_quote": 58256.551672231144,
+      "timestamp_ms": 1779012840000
+    },
+    {
+      "equity_quote": 58176.953142299186,
+      "timestamp_ms": 1779192720000
+    },
+    {
+      "equity_quote": 58227.765680823526,
+      "timestamp_ms": 1779372600000
+    },
+    {
+      "equity_quote": 58253.96263350356,
+      "timestamp_ms": 1779552420000
+    },
+    {
+      "equity_quote": 58537.54364923619,
+      "timestamp_ms": 1779732300000
+    },
+    {
+      "equity_quote": 58393.774938078626,
+      "timestamp_ms": 1779912180000
+    },
+    {
+      "equity_quote": 58530.39871060652,
+      "timestamp_ms": 1780092060000
+    },
+    {
+      "equity_quote": 58642.153863153246,
+      "timestamp_ms": 1780271940000
+    }
+  ],
+  "first_leg_margin_total_quote": 15.875449478000002,
+  "full_series_margin_quote": 2954.9999995581948,
+  "gate": {
+    "annualized_threshold": 110.0,
+    "drawdown_threshold": 30.0,
+    "passed": false,
+    "profile": "aggressive"
+  },
+  "global_margin_cap_quote": 5000.0,
+  "max_capital_used_quote": 2735.2156560105173,
+  "minimum_capital": {
+    "exchange_min_notional": 5.0,
+    "exchange_min_notional_is_default": true,
+    "lp_weighted_planned_margin_quote": 1053.060650829955,
+    "min_exact_scaled_bottleneck_first_order_quote": 6.94944983,
+    "min_exact_scaled_bottleneck_strategy_id": "lowcap-0-staged-9684-Long",
+    "min_exact_scaled_bottleneck_symbol": "INJUSDT",
+    "min_exact_scaled_executable_principal_quote": 2319.7565464906215,
+    "natural_unscaled_planned_margin_quote": 2954.999999558194,
+    "scale_model_used_for_gate": "cap_truncated",
+    "scale_to_1000_min_first_order_quote": 2.995766879293122
+  },
+  "on_budget": {
+    "annualized_return_pct": 107.64765404890765,
+    "max_drawdown_pct": 27.83344947589743,
+    "min_equity_quote": 4989.542784128338,
+    "principal_breached": false,
+    "total_return_pct": 1113.7454903892135
+  },
+  "on_max_capital_used": {
+    "max_capital_used_quote": 2735.2156560105173,
+    "total_return_fraction": 20.359372540549156
+  },
+  "per_strategy": [
+    {
+      "accepted_static_legs": 10,
+      "direction": "Long",
+      "effective_cap_quote": 2384.40276125,
+      "first_leg_margin_quote": 0.694944983,
+      "strategy_id": "lowcap-0-staged-9684-Long",
+      "symbol": "INJUSDT",
+      "weight_pct": 47.688055225
+    },
+    {
+      "accepted_static_legs": 4,
+      "direction": "Short",
+      "effective_cap_quote": 89.77666226,
+      "first_leg_margin_quote": 6.25450485,
+      "strategy_id": "lowcap-0-staged-9684-Short",
+      "symbol": "INJUSDT",
+      "weight_pct": 1.7955332452000001
+    },
+    {
+      "accepted_static_legs": 7,
+      "direction": "Long",
+      "effective_cap_quote": 1520.136874565,
+      "first_leg_margin_quote": 1.308650851,
+      "strategy_id": "lowcap-1-staged-9443-Long",
+      "symbol": "LINKUSDT",
+      "weight_pct": 30.4027374913
+    },
+    {
+      "accepted_static_legs": 10,
+      "direction": "Short",
+      "effective_cap_quote": 21.56243739,
+      "first_leg_margin_quote": 0.8724339,
+      "strategy_id": "lowcap-1-staged-9443-Short",
+      "symbol": "LINKUSDT",
+      "weight_pct": 0.4312487478
+    },
+    {
+      "accepted_static_legs": 4,
+      "direction": "Long",
+      "effective_cap_quote": 281.092655445,
+      "first_leg_margin_quote": 5.395931915,
+      "strategy_id": "lowcap-2-staged-19397-Long",
+      "symbol": "AAVEUSDT",
+      "weight_pct": 5.6218531089
+    },
+    {
+      "accepted_static_legs": 8,
+      "direction": "Short",
+      "effective_cap_quote": 285.55168601,
+      "first_leg_margin_quote": 1.348982979,
+      "strategy_id": "lowcap-2-staged-19397-Short",
+      "symbol": "AAVEUSDT",
+      "weight_pct": 5.7110337202
+    }
+  ],
+  "portfolio_id": "replay_aggressive",
+  "profile": "aggressive",
+  "rejection_breakdown": {
+    "direction": 0,
+    "global": 0,
+    "strategy": 0,
+    "symbol": 0,
+    "total": 0
+  },
+  "runtime_weight_caps_applied": true,
+  "sim_stock_metrics_on_uncapped_planned_margin_base": {
+    "annualized_return_pct": 139.79023517213807,
+    "max_drawdown_pct": 30.25039115729255,
+    "planned_margin_quote": 2954.9999995581948,
+    "total_return_pct": 1884.5060531952925
+  },
+  "stop_count": 3538,
+  "strategy_count": 6,
+  "symbols": [
+    "AAVEUSDT",
+    "INJUSDT",
+    "LINKUSDT"
+  ],
+  "total_fee_quote": 1960.5249226420387,
+  "total_funding_quote": -2665.980645827928,
+  "total_rejection_reasons": 0,
+  "total_slippage_quote": 871.3444100631543,
+  "trade_count": 9335
+}
