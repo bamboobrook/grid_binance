@@ -29,6 +29,7 @@ import argparse
 import concurrent.futures as futures
 import itertools
 import json
+import os
 import random
 import time
 from pathlib import Path
@@ -86,7 +87,28 @@ def _large_cap_pool(profile: str) -> list[tuple[str, str]]:
     return [(s, "long") for s in symbols] + [(s, "short") for s in symbols]
 
 
-ns.symbol_direction_pool = _large_cap_pool
+# Broad pool (large + mid/small altcoins). Restores volatility needed for ann,
+# but the 2025 idiosyncratic crashers (INJ/AAVE/GALA/NEAR/DOT/APT/COMP/ETC) are
+# exactly what portfolio-DD-stop + short sleeve must now survive.
+_BROAD_LONGS = {
+    "conservative": ["BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT", "TRXUSDT", "XRPUSDT", "ADAUSDT", "LTCUSDT"],
+    "balanced":     ["BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT", "XRPUSDT", "ADAUSDT", "LTCUSDT", "LINKUSDT", "AVAXUSDT"],
+    "aggressive":   ["BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT", "XRPUSDT", "ADAUSDT", "LINKUSDT", "AVAXUSDT", "BCHUSDT"],
+}
+_BROAD_SHORTS = {
+    "conservative": ["DOTUSDT", "APTUSDT", "COMPUSDT", "NEARUSDT", "GALAUSDT", "ETCUSDT"],
+    "balanced":     ["DOTUSDT", "APTUSDT", "COMPUSDT", "NEARUSDT", "GALAUSDT", "ETCUSDT", "BCHUSDT", "ICPUSDT"],
+    "aggressive":   ["DOTUSDT", "APTUSDT", "COMPUSDT", "NEARUSDT", "GALAUSDT", "ETCUSDT", "ICPUSDT", "BCHUSDT"],
+}
+
+
+def _broad_pool(profile: str) -> list[tuple[str, str]]:
+    longs = _BROAD_LONGS.get(profile, _BROAD_LONGS["balanced"])
+    shorts = _BROAD_SHORTS.get(profile, _BROAD_SHORTS["balanced"])
+    return [(s, "long") for s in longs] + [(s, "short") for s in shorts]
+
+
+ns.symbol_direction_pool = _large_cap_pool  # default; main() overrides via --pool
 
 
 def base_template_pool(profile: str) -> list[dict[str, Any]]:
@@ -206,6 +228,11 @@ def validate_all_segments(args: argparse.Namespace, item: dict[str, Any]) -> dic
     return {**item, "segments": segments, "segment_score": ns.segment_score(item["full"], segments)}
 
 
+def _validate_worker(job: tuple[argparse.Namespace, dict[str, Any]]) -> dict[str, Any]:
+    args, item = job
+    return validate_all_segments(args, item)
+
+
 def save_report(path: Path, report: dict[str, Any]) -> None:
     tmp = path.with_suffix(path.suffix + ".tmp")
     tmp.write_text(json.dumps(report, ensure_ascii=False, indent=2))
@@ -229,6 +256,17 @@ def main() -> int:
     parser.add_argument("--replay-bin", required=True)
     parser.add_argument("--market-data", required=True)
     parser.add_argument("--funding-data", required=True)
+    parser.add_argument("--pool", choices=["largecap", "broad"], default="largecap",
+                        help="largecap = BTC/ETH/SOL/... only; broad = +altcoins (volatile, needs portfolio-stop)")
+    parser.add_argument("--force-stop-bps", type=int, default=0,
+                        help="if >0, override every strategy SL to strategy_drawdown_pct at this many bps "
+                             "(wide per-strategy SL unleashes ann; portfolio-stop caps the resulting DD)")
+    parser.add_argument("--portfolio-stop-pct", type=float, default=0.0,
+                        help="if >0, set MARTINGALE_BT_PORTFOLIO_EQUITY_STOP_PCT (backtest-only portfolio "
+                             "flatten at this %% DD — the Phase-B mechanism, live-parity gap)")
+    parser.add_argument("--portfolio-cooldown-hours", type=float, default=24.0)
+    parser.add_argument("--max-active-cycles", type=int, default=0,
+                        help="if >0, set MARTINGALE_BT_MAX_PORTFOLIO_ACTIVE_CYCLES")
     args = parser.parse_args()
     args.replay_bin = Path(args.replay_bin)
     args.market_data = Path(args.market_data)
@@ -238,7 +276,25 @@ def main() -> int:
     out_dir.mkdir(parents=True, exist_ok=True)
     rng = random.Random(args.seed)
 
+    # Pool selection (altcoins back when using portfolio-stop to survive them).
+    ns.symbol_direction_pool = _broad_pool if args.pool == "broad" else _large_cap_pool
+
+    # Portfolio-level stop env (backtest side already implemented in kline_engine.rs;
+    # live trading-engine parity = Phase B work). subprocess inherits these.
+    if args.portfolio_stop_pct > 0:
+        os.environ["MARTINGALE_BT_PORTFOLIO_EQUITY_STOP_PCT"] = str(args.portfolio_stop_pct)
+        os.environ["MARTINGALE_BT_PORTFOLIO_STOP_COOLDOWN_HOURS"] = str(args.portfolio_cooldown_hours)
+    if args.max_active_cycles > 0:
+        os.environ["MARTINGALE_BT_MAX_PORTFOLIO_ACTIVE_CYCLES"] = str(args.max_active_cycles)
+
     templates = base_template_pool(args.profile)
+    # Wide per-strategy SL: stop_kind=strategy_drawdown at force_stop_bps (decouple
+    # per-cycle ann from DD control; let portfolio-stop own the DD cap).
+    if args.force_stop_bps > 0:
+        for tmpl in templates:
+            tmpl["stop_bps"] = args.force_stop_bps
+            tmpl["stop_kind"] = "strategy_drawdown"
+            tmpl["rb_ema"] = None
     configs = [ns.make_config(args.profile, args.budget, rng, i, templates) for i in range(args.count)]
 
     report: dict[str, Any] = {
@@ -250,6 +306,11 @@ def main() -> int:
         "jobs": args.jobs,
         "screen_min": args.screen_min,
         "symbols": LARGE_CAP,
+        "pool": args.pool,
+        "force_stop_bps": args.force_stop_bps,
+        "portfolio_stop_pct": args.portfolio_stop_pct,
+        "portfolio_cooldown_hours": args.portfolio_cooldown_hours,
+        "max_active_cycles": args.max_active_cycles,
         "started_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         "screen_results": [],
         "full_results": [],
@@ -314,12 +375,20 @@ def main() -> int:
             log.flush()
             save_report(report_path, report)
 
-    # ---- Phase 3: all-5-segment hard gate for full-OK survivors ----
+    # ---- Phase 3: all-5-segment hard gate for full-OK survivors (parallel) ----
     full_ok = [r for r in report["full_results"] if r["full"].get("ok")]
-    for item in full_ok:
-        validated = validate_all_segments(args, item)
-        report["segment_validations"].append(validated)
-        save_report(report_path, report)
+    with run_log.open("a") as log, futures.ProcessPoolExecutor(max_workers=args.jobs) as pool:
+        future_map = {pool.submit(_validate_worker, (args, item)): item["idx"] for item in full_ok}
+        for fut in futures.as_completed(future_map):
+            try:
+                validated = fut.result()
+            except Exception as exc:  # noqa: BLE001
+                validated = {"idx": future_map[fut], "full": {"ok": False, "error": repr(exc)},
+                             "segments": {}, "segment_score": {}}
+            report["segment_validations"].append(validated)
+            log.write(f"SEGVAL idx={validated.get('idx')}\n")
+            log.flush()
+            save_report(report_path, report)
     report["passes"] = [
         r for r in report["segment_validations"]
         if ns.candidate_gate(args.profile, r["full"], r.get("segments"))
