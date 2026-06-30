@@ -133,11 +133,13 @@ def check_live_parity(config_path: str) -> dict:
 
 def evaluate_gate(metrics: dict, ann_min: float, dd_max: float) -> bool:
     """Full-period gate for a profile."""
+    budget = metrics.get("budget")
+    within_budget = True if budget is None else (metrics["max_capital_used"] or 0) <= budget
     return (metrics["ok"] and metrics["ann"] is not None
             and metrics["ann"] >= ann_min
             and metrics["dd"] is not None and metrics["dd"] <= dd_max
             and not metrics["principal_breached"]
-            and (metrics["max_capital_used"] or 0) <= 0  # <= budget checked separately
+            and within_budget
             and metrics["budget_blocked_legs"] == 0)
 
 
