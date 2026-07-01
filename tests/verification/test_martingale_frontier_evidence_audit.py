@@ -76,6 +76,11 @@ class MartingaleFrontierEvidenceAuditTest(unittest.TestCase):
 
         self.assertIn("live_promotion_gate_audit", names)
 
+    def test_default_reports_include_new_return_source_decision(self):
+        names = [name for name, _path in audit.DEFAULT_REPORTS]
+
+        self.assertIn("new_return_source_decision", names)
+
     def test_default_reports_include_pair_neutral_grid_probe(self):
         names = [name for name, _path in audit.DEFAULT_REPORTS]
 

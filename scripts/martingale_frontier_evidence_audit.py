@@ -40,6 +40,7 @@ DEFAULT_REPORTS = [
         "live_promotion_gate_audit",
         "docs/superpowers/reports/2026-07-01-martingale-live-promotion-gate-audit.md",
     ),
+    ("new_return_source_decision", "docs/superpowers/reports/2026-07-01-new-return-source-decision.md"),
     ("final_external_check", "docs/superpowers/reports/2026-07-01-final-martingale-verdict-and-external-check.md"),
 ]
 
