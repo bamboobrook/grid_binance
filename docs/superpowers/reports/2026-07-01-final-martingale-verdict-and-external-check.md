@@ -25,9 +25,9 @@ The recurring failure pattern is stable:
 | `<5000U` small capital | Tested by replay budget gates, DGT max-input gates, trend/funding allocation, pair-neutral allocation | Some candidates stay below budget; high-return candidates often need far more capital or accept DD above the gate. |
 | Multi-symbol | Enforced in DGT, trend sleeves, pair-neutral grid pairs, and saved replay rows where available | Multi-symbol alone does not rescue return/DD/segment gates. |
 | Anti-overfit / segment balance | H1-2023, H2-2023, 2024, 2025, 2026_ytd checks | Still a rejection gate for many high-return candidates. Pair-neutral grids can reach `5/5` positive segments, but then miss return/DD targets. |
-| Conservative `>50% / DD<=10%` | Pure/replay, hybrid, DGT, pair-neutral, pair-neutral risk control | No pass. Under segment/capital filters, the best ann within DD<=10% is `23.98%`; reaching ann >50% requires about `17.74%` DD. |
-| Balanced `>90% / DD<=20%` | Pure/replay, hybrid, DGT, pair-neutral, pair-neutral risk control | No pass. Under segment/capital filters, DD<=20% tops out at `54.41%` ann; reaching ann >90% requires about `40.70%` DD. |
-| Aggressive `>110% / DD<=30%` | Pure/replay, hybrid, DGT, pair-neutral, pair-neutral risk control | No pass. Under segment/capital filters, DD<=30% tops out at `54.41%` ann; reaching ann >110% requires about `40.70%` DD. |
+| Conservative `>50% / DD<=10%` | Pure/replay, hybrid, DGT, pair-neutral, pair-neutral risk control, pair-neutral portfolio | No pass. Under segment/capital filters, the best ann within DD<=10% is `33.95%`; reaching ann >50% requires about `17.74%` DD. |
+| Balanced `>90% / DD<=20%` | Pure/replay, hybrid, DGT, pair-neutral, pair-neutral risk control, pair-neutral portfolio | No pass. Under segment/capital filters, DD<=20% tops out at `54.41%` ann; reaching ann >90% requires about `40.70%` DD. |
+| Aggressive `>110% / DD<=30%` | Pure/replay, hybrid, DGT, pair-neutral, pair-neutral risk control, pair-neutral portfolio | No pass. Under segment/capital filters, DD<=30% tops out at `54.41%` ann; reaching ann >110% requires about `40.70%` DD. |
 | Live reproducibility | Existing martingale replay has live-parity gates; DGT/pair-neutral probes are explicitly `research_only` | No final candidate reaches the stage where live promotion is justified. |
 
 ## Internal Evidence
@@ -105,11 +105,11 @@ Portfolio-level leverage does not fix that gap under an optimistic linear check:
 
 The current frontier under capital and segment filters is:
 
-- Conservative: DD<=10% tops out at `23.98%` ann; ann >50% requires about `17.74%` DD.
+- Conservative: DD<=10% tops out at `33.95%` ann; ann >50% requires about `17.74%` DD.
 - Balanced: DD<=20% tops out at `54.41%` ann; ann >90% requires about `40.70%` DD.
 - Aggressive: DD<=30% tops out at `54.41%` ann; ann >110% requires about `40.70%` DD.
 
-`docs/superpowers/reports/2026-07-01-martingale-frontier-evidence-audit.md` indexes 11 reports and 129850 rows/symbol-level evidence with `0` machine-reported final/pass rows. `docs/superpowers/reports/2026-07-01-martingale-goal-completion-audit.md` marks the original objective as incomplete because all C/B/A final gates, external-claim proof, and live-ready proof fail.
+`docs/superpowers/reports/2026-07-01-martingale-frontier-evidence-audit.md` indexes 12 reports and 130036 rows/symbol-level evidence with `0` machine-reported final/pass rows. `docs/superpowers/reports/2026-07-01-martingale-goal-completion-audit.md` marks the original objective as incomplete because all C/B/A final gates, external-claim proof, and live-ready proof fail.
 
 ## External Check
 
