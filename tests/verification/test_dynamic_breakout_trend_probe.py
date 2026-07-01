@@ -149,6 +149,88 @@ class DynamicBreakoutTrendProbeTest(unittest.TestCase):
         self.assertGreater(scale, 0.0)
         self.assertLess(scale, 1.0)
 
+    def test_dynamic_portfolio_dd_stop_freezes_exposure_and_records_event(self):
+        streams = [
+            stream("trend:BTCUSDT:a", "BTCUSDT", [0.05, 0.05, -0.30, 0.40, 0.10]),
+            stream("trend:ETHUSDT:a", "ETHUSDT", [0.04, 0.04, -0.20, 0.30, 0.10]),
+        ]
+
+        portfolio = dynamic.build_dynamic_portfolio(
+            streams,
+            allocation_quote=3000.0,
+            rebalance_days=1,
+            score_lookback_days=2,
+            top_n=2,
+            max_symbol_weight=0.5,
+            target_vol_pct=100.0,
+            vol_lookback_days=2,
+            dd_stop_pct=10.0,
+            cooldown_days=2,
+        )
+
+        self.assertEqual(portfolio["risk_events"], 1)
+        frozen_points = [point for point in portfolio["points"] if point["in_cooldown"]]
+        self.assertGreaterEqual(len(frozen_points), 1)
+        self.assertEqual(frozen_points[0]["gross_weight"], 0.0)
+        self.assertEqual(portfolio["live_parity_status"], "research_only")
+
+    def test_gate_evaluation_rejects_high_drawdown_even_with_high_return(self):
+        points = [
+            {"timestamp_ms": dynamic.hybrid.SEGMENTS["full"][0], "equity_quote": 3000.0},
+            {"timestamp_ms": dynamic.hybrid.SEGMENTS["full"][0] + DAY, "equity_quote": 6000.0},
+            {"timestamp_ms": dynamic.hybrid.SEGMENTS["full"][0] + 2 * DAY, "equity_quote": 3600.0},
+        ]
+        portfolio = {
+            "streams": ["trend:BTCUSDT:a", "trend:ETHUSDT:a"],
+            "symbols": ["BTCUSDT", "ETHUSDT"],
+            "points": points,
+            "metrics": {
+                **dynamic.hybrid.compute_metrics(points),
+                "max_capital_used_quote": 3000.0,
+                "budget_blocked_events": 0,
+                "symbol_count": 2,
+                "max_symbol_weight_observed": 0.5,
+                "risk_events": 0,
+            },
+            "live_parity_status": "research_only",
+        }
+
+        report = dynamic.build_candidate_report("conservative", portfolio, budget=5000.0, max_symbol_weight=0.5)
+
+        self.assertFalse(report["passes_offline"])
+        self.assertIn("drawdown", " ".join(report["full_gate"]["violations"]))
+
+    def test_row_from_report_preserves_research_only_and_segment_fields(self):
+        report = {
+            "profile": "balanced",
+            "live_parity_status": "research_only",
+            "streams": ["trend:BTCUSDT:a", "trend:ETHUSDT:a"],
+            "symbols": ["BTCUSDT", "ETHUSDT"],
+            "full_metrics": {
+                "annualized_return_pct": 95.0,
+                "max_drawdown_pct": 15.0,
+                "max_capital_used_quote": 3000.0,
+                "max_symbol_weight_observed": 0.5,
+                "risk_events": 1,
+            },
+            "segment_gate": {
+                "passes": True,
+                "positive_segments": 4,
+                "combined_2024_2026_return_pct": 12.0,
+                "violations": [],
+            },
+            "full_gate": {"passes": True, "violations": []},
+            "passes_offline": True,
+            "config": {"top_n": 2, "rebalance_days": 7},
+        }
+
+        row = dynamic.row_from_report(report)
+
+        self.assertEqual(row["live_parity_status"], "research_only")
+        self.assertEqual(row["symbol_count"], 2)
+        self.assertEqual(row["pos"], 4)
+        self.assertTrue(row["pass"])
+
 
 if __name__ == "__main__":
     unittest.main()
