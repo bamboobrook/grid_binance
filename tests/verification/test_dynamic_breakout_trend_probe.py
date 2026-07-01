@@ -106,6 +106,49 @@ class DynamicBreakoutTrendProbeTest(unittest.TestCase):
         self.assertEqual(result["points"][0]["position"], 1)
         self.assertLess(result["points"][0]["return"], 0.0)
 
+    def test_rank_streams_excludes_current_and_future_returns(self):
+        weak_future = stream("trend:BTCUSDT:test", "BTCUSDT", [-0.02, -0.02, 0.80, 0.80])
+        steady_past = stream("trend:ETHUSDT:test", "ETHUSDT", [0.03, 0.02, -0.10, -0.10])
+
+        ranked = dynamic.rank_streams([weak_future, steady_past], as_of_ts=2 * DAY, lookback_days=10)
+
+        self.assertEqual(ranked[0]["name"], "trend:ETHUSDT:test")
+        self.assertGreater(ranked[0]["score"], ranked[1]["score"])
+
+    def test_select_top_streams_enforces_two_symbols_when_possible(self):
+        ranked = [
+            {"name": "trend:BTCUSDT:a", "symbol": "BTCUSDT", "score": 10.0},
+            {"name": "trend:BTCUSDT:b", "symbol": "BTCUSDT", "score": 9.0},
+            {"name": "trend:ETHUSDT:a", "symbol": "ETHUSDT", "score": 8.0},
+        ]
+
+        selected = dynamic.select_top_streams(ranked, top_n=2, max_symbol_weight=0.5, min_symbols=2)
+
+        self.assertEqual([item["name"] for item in selected], ["trend:BTCUSDT:a", "trend:ETHUSDT:a"])
+        self.assertEqual({item["symbol"] for item in selected}, {"BTCUSDT", "ETHUSDT"})
+
+    def test_capped_equal_weights_rejects_single_symbol_concentration(self):
+        selected = [
+            {"name": "trend:BTCUSDT:a", "symbol": "BTCUSDT", "score": 10.0},
+            {"name": "trend:ETHUSDT:a", "symbol": "ETHUSDT", "score": 9.0},
+            {"name": "trend:SOLUSDT:a", "symbol": "SOLUSDT", "score": 8.0},
+        ]
+
+        weights = dynamic.capped_equal_weights(selected, max_symbol_weight=0.5)
+
+        self.assertAlmostEqual(sum(weights.values()), 1.0)
+        self.assertLessEqual(weights["trend:BTCUSDT:a"], 0.5)
+        self.assertLessEqual(weights["trend:ETHUSDT:a"], 0.5)
+        self.assertLessEqual(weights["trend:SOLUSDT:a"], 0.5)
+
+    def test_volatility_target_scales_down_high_realized_volatility(self):
+        returns = [0.10, -0.10, 0.08, -0.08, 0.09, -0.09]
+
+        scale = dynamic.volatility_scale(returns, target_vol_pct=20.0)
+
+        self.assertGreater(scale, 0.0)
+        self.assertLess(scale, 1.0)
+
 
 if __name__ == "__main__":
     unittest.main()

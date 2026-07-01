@@ -210,3 +210,106 @@ def build_signal_stream(symbol: str, daily: list[dict], rule: str, fee_bps: floa
         "no_lookahead": True,
         "live_parity_status": LIVE_PARITY_STATUS,
     }
+
+
+def stream_returns_before(stream: dict, as_of_ts: int, lookback_days: int) -> list[float]:
+    start_ts = int(as_of_ts) - int(lookback_days) * MS_PER_DAY
+    return [
+        float(point["return"])
+        for point in stream.get("points", [])
+        if start_ts <= int(point["timestamp_ms"]) < int(as_of_ts)
+    ]
+
+
+def trailing_score(stream: dict, as_of_ts: int, lookback_days: int) -> float:
+    returns = stream_returns_before(stream, as_of_ts, lookback_days)
+    if len(returns) < 2:
+        return -1_000_000.0
+    mean_return = statistics.fmean(returns)
+    downside = [value for value in returns if value < 0.0]
+    downside_vol = statistics.pstdev(downside) if len(downside) >= 2 else 0.0
+    total_return = math.prod(1.0 + value for value in returns) - 1.0
+    strength_points = [
+        float(point.get("strength", 0.0))
+        for point in stream.get("points", [])
+        if int(as_of_ts) - int(lookback_days) * MS_PER_DAY <= int(point["timestamp_ms"]) < int(as_of_ts)
+    ]
+    strength = statistics.fmean(strength_points) if strength_points else 0.0
+    risk_penalty = downside_vol * 2.0
+    return total_return + mean_return * 10.0 + strength - risk_penalty
+
+
+def rank_streams(streams: list[dict], as_of_ts: int, lookback_days: int) -> list[dict]:
+    ranked = []
+    for stream in streams:
+        ranked.append(
+            {
+                "name": stream["name"],
+                "symbol": stream["symbol"],
+                "rule": stream["rule"],
+                "score": trailing_score(stream, as_of_ts, lookback_days),
+            }
+        )
+    ranked.sort(key=lambda item: (item["score"], item["name"]), reverse=True)
+    return ranked
+
+
+def select_top_streams(ranked: list[dict], top_n: int, max_symbol_weight: float, min_symbols: int = 2) -> list[dict]:
+    if top_n < min_symbols:
+        raise ValueError("top_n must be at least min_symbols")
+    if not 0.0 < max_symbol_weight <= 1.0:
+        raise ValueError("max_symbol_weight must be in (0, 1]")
+    max_streams_per_symbol = max(1, int(math.floor(max_symbol_weight * top_n + 1e-12)))
+    selected = []
+    counts: collections.Counter[str] = collections.Counter()
+    for item in ranked:
+        symbol = item["symbol"]
+        if counts[symbol] >= max_streams_per_symbol:
+            continue
+        selected.append(item)
+        counts[symbol] += 1
+        if len(selected) == top_n:
+            break
+    if len({item["symbol"] for item in selected}) < min_symbols:
+        selected = []
+        seen_symbols = set()
+        for item in ranked:
+            if item["symbol"] in seen_symbols:
+                continue
+            selected.append(item)
+            seen_symbols.add(item["symbol"])
+            if len(selected) == min_symbols:
+                break
+    return selected
+
+
+def capped_equal_weights(selected: list[dict], max_symbol_weight: float) -> dict[str, float]:
+    if not selected:
+        return {}
+    raw_weight = 1.0 / len(selected)
+    by_symbol: collections.defaultdict[str, list[str]] = collections.defaultdict(list)
+    for item in selected:
+        by_symbol[item["symbol"]].append(item["name"])
+    weights = {}
+    for _symbol, names in by_symbol.items():
+        symbol_weight = min(max_symbol_weight, raw_weight * len(names))
+        per_stream = symbol_weight / len(names)
+        for name in names:
+            weights[name] = per_stream
+    total = sum(weights.values())
+    if total <= 0.0:
+        return {}
+    return {name: value / total for name, value in weights.items()}
+
+
+def realized_vol_pct(returns: list[float]) -> float:
+    if len(returns) < 2:
+        return 0.0
+    return statistics.pstdev(returns) * math.sqrt(365.0) * 100.0
+
+
+def volatility_scale(returns: list[float], target_vol_pct: float, max_scale: float = 1.0) -> float:
+    vol = realized_vol_pct(returns)
+    if vol <= 0.0:
+        return min(1.0, max_scale)
+    return max(0.0, min(max_scale, float(target_vol_pct) / vol))
