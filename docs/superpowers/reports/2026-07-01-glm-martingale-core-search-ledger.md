@@ -149,3 +149,30 @@ DD stays at 45.1% regardless of portfolio equity stop (10/12/14%). Reason: the 4
 ### To reduce DD: tighten the SINGLE-STRATEGY stop-loss (sl_bps)
 Current sl_bps=5000 (50%) is far too loose — each martingale cycle can lose half its budget before stopping. Tightening to sl_bps=1500-2500 should cap per-cycle DD and thus portfolio DD. Next search.
 
+
+## 2026-07-01 Tight single-strategy SL sweep — confirms ann/DD tradeoff cliff
+
+- Script: `scripts/glm_tight_sl_search.py` (1008 candidates, sl_bps 1500-3500)
+- Status: running (440/1008); partial results conclusive.
+
+### Findings (the ann/DD cliff is real and empty in the middle)
+| sl_bps (long/short) | TP | mult | portfolio DD stop | ann | DD | pos |
+|---|---|---|---|---:|---:|---:|
+| 5000/4000 (loose) | 600 | 3.0/2.5 | 12/24h | **73.5%** | 45.1% | 2/5 |
+| 2500/2500 | 600 | 2.5/2.0 | 25/24h | -3.2% | **16.7%** | 1/5 |
+| 2000/2000 | 700 | 3.0/2.5 | 20/24h | -2.6% | **9.6%** | 0/5 |
+| 2500/2500 | 600 | 2.5/2.0 | none | -2.8% | **9.4%** | 1/5 |
+
+- Tight SL (2000-2500) achieves DD 9-17% (great) but ann goes NEGATIVE (-2 to -3%).
+- Loose SL (5000) achieves ann 73.5% (great) but DD 45% (fails 30% gate).
+- **No configuration found with ann>50% AND DD<=30%.** The middle is empty.
+- This independently re-confirms the prior final verdict's "empty middle" finding,
+  now with the high-ann structure (73.5% vs prior 54% best) AND segment-first validation.
+
+### Why the cliff exists
+A martingale cycle's profit comes from price reverting to the average entry. High
+TP (600bps) + high multiplier (3.0) means each winning cycle earns a lot, but to
+get there the cycle must absorb large adverse excursion (the floating DD). Tight SL
+cuts the DD by closing cycles at a loss BEFORE they can revert — killing the
+mean-reversion profit. This is structural to martingale, not a parameter gap.
+
