@@ -19,8 +19,9 @@ This does not mark the original goal complete. It means the current martingale/g
 - Pair-neutral risk control: `27216` rows, `0` passes.
 - Pair-neutral portfolio: `93` strict non-overlapping multi-pair rows, `0` passes.
 - Trend/funding/funding-risk adjunct probes: indexed in the target-gap audit, still `0` final passes.
+- Dynamic breakout/trend portfolio: `20736` rows, `0` passes; best annualized row reaches `65.47% ann` but with `33.45% DD`, and the lowest-DD frontier shown is `40.16% ann / 23.82% DD`.
 - External claim matrix: no public martingale/grid/DGT claim with enough evidence to satisfy the same gates.
-- Current evidence index: `12` reports, `130036` rows/symbol-level evidence, `0` machine-reported final/pass rows.
+- Current evidence index: `17` reports, `150772` rows/symbol-level evidence, `0` machine-reported final/pass rows.
 - Current target-gap audit: `64508` normalized candidate rows, `0` final target passes.
 
 ## Closed Search Space
@@ -34,6 +35,7 @@ Do not repeat these paths without a new mechanism or new data source:
 - Spot-only martingale/grid as a fee/funding workaround. Existing checks were worse.
 - Trailing-TP as a trend proxy inside the martingale engine. Existing tests were weaker than fixed TP.
 - Directional alt short sleeves and hand-built multi-sleeve hybrids. Existing checks whipsawed or failed 2024/2025 balance.
+- Dynamic breakout/trend sleeves using the tested Donchian, momentum, EMA, top-N ranking, volatility target, and DD-cooldown family. The tested dynamic portfolio still misses the return/DD gates.
 - Full-period ranking followed by late segment validation. It repeatedly selects 2023H1-dependent rows.
 - Single pair-neutral grids, DD stop/cooldown pair-neutral grids, strict non-overlapping multi-pair portfolios, or simple portfolio-level leverage on the multi-pair frontier.
 - DGT reset variants in the tested family. High returns required too much DD or capital; low-DD rows missed return.
