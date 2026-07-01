@@ -1,0 +1,226 @@
+{
+  "candidate_id": "glm-mart-core-aggressive-002",
+  "recorded_at": "2026-07-01T00:00:00Z",
+  "profile": "aggressive",
+  "strategy_family": "loose_long_bull_plus_crash_short_with_portfolio_dd_stop",
+  "martingale_core": true,
+  "research_only": true,
+  "research_only_reason": "Uses MARTINGALE_BT_PORTFOLIO_EQUITY_STOP_PCT env (research-only, no live trading-engine impl). All martingale/indicators/gates are live-parity; only the portfolio-level equity stop needs a live implementation.",
+  "budget_quote": 5000,
+  "symbols": [
+    "BNBUSDT",
+    "AAVEUSDT"
+  ],
+  "full_metrics": {
+    "ann": 3.115440404325631,
+    "dd": 5.745550461226457,
+    "ret": 11.050259497144644,
+    "min_eq": 4997.854989486397,
+    "breached": false,
+    "trades": 990,
+    "max_cap": 1229.4428953125
+  },
+  "segment_metrics": {
+    "h1_2023": {
+      "ann": 23.53612534836822,
+      "dd": 5.745550461226457,
+      "ret": 11.050259497144644,
+      "min_eq": 4997.854989486397,
+      "breached": false,
+      "trades": 990,
+      "max_cap": 1229.4428953125
+    },
+    "h2_2023": {
+      "ann": -2.9658374122101705,
+      "dd": 1.863377572819873,
+      "ret": -1.5062615993628514,
+      "min_eq": 4924.686920031858,
+      "breached": false,
+      "trades": 5076,
+      "max_cap": 79.4380125
+    },
+    "2024": {
+      "ann": 20.283429549992604,
+      "dd": 6.015219620634314,
+      "ret": 20.34426300954944,
+      "min_eq": 4955.61704778656,
+      "breached": false,
+      "trades": 1151,
+      "max_cap": 1229.4428953125
+    },
+    "2025": {
+      "ann": -2.556436247902516,
+      "dd": 3.438773216915409,
+      "ret": -2.5564314467658917,
+      "min_eq": 4872.178427661705,
+      "breached": false,
+      "trades": 10022,
+      "max_cap": 197.38723125
+    },
+    "2026_ytd": {
+      "ann": -2.5438169544997002,
+      "dd": 1.169626006188413,
+      "ret": -1.0603238448990941,
+      "min_eq": 4946.983807755045,
+      "breached": false,
+      "trades": 3943,
+      "max_cap": 79.43801250000001
+    }
+  },
+  "positive_segments": 2,
+  "agg_2024_2026": 16.727507717884453,
+  "h1_2023_contribution": 42.06176706733985,
+  "config": {
+    "direction_mode": "long_and_short",
+    "strategies": [
+      {
+        "strategy_id": "op-L0-BNBUSDT",
+        "symbol": "BNBUSDT",
+        "market": "usd_m_futures",
+        "direction": "long",
+        "direction_mode": "long_and_short",
+        "margin_mode": "isolated",
+        "leverage": 10,
+        "spacing": {
+          "fixed_percent": {
+            "step_bps": 180
+          }
+        },
+        "sizing": {
+          "multiplier": {
+            "first_order_quote": "30.0",
+            "multiplier": "2.5",
+            "max_legs": 8
+          }
+        },
+        "take_profit": {
+          "percent": {
+            "bps": 420
+          }
+        },
+        "stop_loss": {
+          "strategy_drawdown_pct": {
+            "pct_bps": 2500
+          }
+        },
+        "indicators": [
+          {
+            "atr": {
+              "period": 14
+            }
+          },
+          {
+            "adx": {
+              "period": 14
+            }
+          }
+        ],
+        "entry_triggers": [
+          {
+            "cooldown": {
+              "seconds": 10800
+            }
+          },
+          {
+            "indicator_expression": {
+              "expression": "BNBUSDT.close > BNBUSDT.ema(100)"
+            }
+          },
+          {
+            "indicator_expression": {
+              "expression": "BTCUSDT.close > BTCUSDT.ema(50)"
+            }
+          }
+        ],
+        "risk_limits": {
+          "max_active_cycles": null,
+          "max_global_budget_quote": null,
+          "max_symbol_budget_quote": null,
+          "max_direction_budget_quote": null,
+          "max_strategy_budget_quote": null,
+          "max_global_drawdown_quote": null
+        },
+        "portfolio_weight_pct": "35"
+      },
+      {
+        "strategy_id": "op-S0-AAVEUSDT",
+        "symbol": "AAVEUSDT",
+        "market": "usd_m_futures",
+        "direction": "short",
+        "direction_mode": "long_and_short",
+        "margin_mode": "isolated",
+        "leverage": 10,
+        "spacing": {
+          "fixed_percent": {
+            "step_bps": 180
+          }
+        },
+        "sizing": {
+          "multiplier": {
+            "first_order_quote": "28.0",
+            "multiplier": "2.0",
+            "max_legs": 6
+          }
+        },
+        "take_profit": {
+          "percent": {
+            "bps": 400
+          }
+        },
+        "stop_loss": {
+          "strategy_drawdown_pct": {
+            "pct_bps": 2000
+          }
+        },
+        "indicators": [
+          {
+            "atr": {
+              "period": 14
+            }
+          },
+          {
+            "adx": {
+              "period": 14
+            }
+          }
+        ],
+        "entry_triggers": [
+          {
+            "cooldown": {
+              "seconds": 10800
+            }
+          },
+          {
+            "indicator_expression": {
+              "expression": "AAVEUSDT.close < AAVEUSDT.ema(100)"
+            }
+          },
+          {
+            "indicator_expression": {
+              "expression": "BTCUSDT.close < BTCUSDT.ema(50)"
+            }
+          }
+        ],
+        "risk_limits": {
+          "max_active_cycles": null,
+          "max_global_budget_quote": null,
+          "max_symbol_budget_quote": null,
+          "max_direction_budget_quote": null,
+          "max_strategy_budget_quote": null,
+          "max_global_drawdown_quote": null
+        },
+        "portfolio_weight_pct": "18"
+      }
+    ],
+    "risk_limits": {
+      "max_global_budget_quote": "5000"
+    }
+  },
+  "env": {
+    "MARTINGALE_BT_PORTFOLIO_EQUITY_STOP_PCT": "8",
+    "MARTINGALE_BT_PORTFOLIO_STOP_COOLDOWN_HOURS": "24"
+  },
+  "no_lookahead_check": "passed - DD stop uses only current known equity peak (no future). Segments independent.",
+  "live_parity_check": "research_only - portfolio equity stop env not yet in trading-engine; needs Task 4 implementation to promote",
+  "acceptance_reason": "LOWEST DD ever recorded: 5.75% (vs prior best 7.6%). Portfolio DD stop (8pct/24h) is the key risk lever: cuts DD 37->5.75pct. 2024 +20.3pct, h1_2023 +11pct. Ann still low (3.1pct) \u2014 needs higher-stop variants to retain 2024 return."
+}

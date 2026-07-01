@@ -80,3 +80,32 @@ Best survivor: `agg-looloo-L2S1` (BNB-long + BCH-long + AAVE-short, loose gates)
 This 3/5-segment, 2024+2025-both-positive candidate is a NEW best segment frontier.
 Recorded below and to be optimized next.
 
+
+## 2026-07-01 Task 4 (key finding) + Task 5 optimization: Portfolio DD stop is the master risk lever
+
+- Script: `scripts/glm_portfolio_optimize.py`
+- Output: `docs/superpowers/artifacts/glm-martingale-core/portfolio-optimized.json`
+- 4500 candidates (tighter per-symbol gates + SL variants + DD-pause env), 395 near, 60 full-validated, 0 survivors of 2024+2025 both-positive gate (looser gates lost the short edge).
+
+### BREAKTHROUGH: Portfolio equity stop (research env) cuts DD 37% -> 5.75%
+
+Same structure BNB-long + AAVE-short (loose gates), with vs without DD stop:
+
+| Variant | h1_2023 | 2024 | 2025 | 2026 | full ann | DD | pos |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| no DD stop | -8.2% | +125.3% | -2.6% | -1.1% | -2.5% | 37.0% | 1/5 |
+| DD stop 8% / 24h cd | +11.1% | +20.3% | -2.6% | -1.1% | +3.1% | 5.75% | 2/5 |
+
+The DD stop (MARTINGALE_BT_PORTFOLIO_EQUITY_STOP_PCT=8, COOLDOWN=24h):
+- Cuts max DD from 37% to **5.75%** (NEW LOWEST DD ever, prior best was 7.6%).
+- Rescues h1_2023 (the stop fires after a drawdown, then cooldown avoids re-entry into the losing stretch).
+- But reduces 2024 from +125% to +20% (the 8% stop is too tight — kills the big winning run).
+
+### Implication
+- The portfolio equity stop is the single most powerful risk control. An 8% stop is too tight (caps return); the sweet spot is likely 12-20%.
+- This is RESEARCH-ONLY (env switch, no live impl). To promote to final candidates, the trading-engine needs a portfolio equity stop implementation (Task 4 TDD).
+- Next: sweep DD-stop level (10-25%) to find the return/DD sweet spot.
+
+### Best candidate recorded
+- `glm-mart-core-aggressive-002`: DD 5.75%, ann 3.1%, 2/5 pos, research-only (needs live DD-stop).
+
