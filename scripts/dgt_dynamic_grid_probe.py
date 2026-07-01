@@ -28,6 +28,40 @@ PROFILE_TARGETS = {
 }
 
 
+def compact_equity_points(points: list[dict]) -> list[dict]:
+    if len(points) <= 3:
+        return points
+    compacted = []
+    day_points = []
+    current_day = int(points[0]["timestamp_ms"]) // MS_PER_DAY
+
+    def flush_day() -> None:
+        if not day_points:
+            return
+        keep = [
+            day_points[0],
+            max(day_points, key=lambda point: float(point["equity_quote"])),
+            min(day_points, key=lambda point: float(point["equity_quote"])),
+            day_points[-1],
+        ]
+        seen = set()
+        for point in sorted(keep, key=lambda item: int(item["timestamp_ms"])):
+            timestamp = int(point["timestamp_ms"])
+            if timestamp not in seen:
+                compacted.append(point)
+                seen.add(timestamp)
+
+    for point in points:
+        day = int(point["timestamp_ms"]) // MS_PER_DAY
+        if day != current_day:
+            flush_day()
+            day_points.clear()
+            current_day = day
+        day_points.append(point)
+    flush_day()
+    return compacted
+
+
 def grid_levels(center_price: float, spacing: float, half_grid_count: int) -> list[float]:
     if center_price <= 0:
         raise ValueError("center_price must be positive")
@@ -135,6 +169,8 @@ def simulate_dgt_symbol(
         last_close = float(bar["close"])
         points.append({"timestamp_ms": int(bar["timestamp_ms"]), "equity_quote": equity(last_close)})
 
+    points = compact_equity_points(points)
+
     return {
         "name": f"dgt:{symbol}:gs{grid_spacing}:h{half_grid_count}:p{principal_quote}",
         "kind": "dgt",
@@ -149,6 +185,31 @@ def simulate_dgt_symbol(
         "grid_spacing": grid_spacing,
         "half_grid_count": half_grid_count,
         "live_parity_status": LIVE_PARITY_STATUS,
+    }
+
+
+def scale_dgt_stream(stream: dict, principal_quote: float) -> dict:
+    if principal_quote <= 0:
+        raise ValueError("principal_quote must be positive")
+    base_principal = float(stream["principal_quote"])
+    if base_principal <= 0:
+        raise ValueError("stream principal_quote must be positive")
+    scale = principal_quote / base_principal
+    symbol = stream["symbols"][0]
+    grid_spacing = float(stream["grid_spacing"])
+    half_grid_count = int(stream["half_grid_count"])
+    return {
+        **stream,
+        "name": f"dgt:{symbol}:gs{grid_spacing}:h{half_grid_count}:p{principal_quote}",
+        "points": [
+            {"timestamp_ms": point["timestamp_ms"], "equity_quote": float(point["equity_quote"]) * scale}
+            for point in stream["points"]
+        ],
+        "max_input_quote": float(stream["max_input_quote"]) * scale,
+        "max_capital_used_quote": float(stream.get("max_capital_used_quote", stream["max_input_quote"])) * scale,
+        "total_input_quote": float(stream["total_input_quote"]) * scale,
+        "total_fee_quote": float(stream["total_fee_quote"]) * scale,
+        "principal_quote": principal_quote,
     }
 
 
@@ -238,20 +299,20 @@ def load_1m_bars(market_db: str | Path, symbol: str, market_type: str, start_ms:
     ]
 
 
-def combine_streams(streams: list[dict]) -> dict:
+def streams_share_timestamps(streams: list[dict]) -> bool:
     if not streams:
-        raise ValueError("at least one stream is required")
-    timestamps = sorted(set.intersection(*(set(point["timestamp_ms"] for point in stream["points"]) for stream in streams)))
-    if not timestamps:
-        raise ValueError("streams have no overlapping timestamps")
-    by_stream = {
-        stream["name"]: {point["timestamp_ms"]: point["equity_quote"] for point in stream["points"]}
-        for stream in streams
-    }
-    points = [
-        {"timestamp_ms": timestamp, "equity_quote": sum(values[timestamp] for values in by_stream.values())}
-        for timestamp in timestamps
-    ]
+        return False
+    first_points = streams[0]["points"]
+    for stream in streams[1:]:
+        points = stream["points"]
+        if len(points) != len(first_points):
+            return False
+        if any(left["timestamp_ms"] != right["timestamp_ms"] for left, right in zip(first_points, points)):
+            return False
+    return True
+
+
+def combine_metadata(streams: list[dict], points: list[dict]) -> dict:
     symbols = []
     for stream in streams:
         for symbol in stream.get("symbols", []):
@@ -267,6 +328,33 @@ def combine_streams(streams: list[dict]) -> dict:
         "total_fee_quote": sum(float(stream.get("total_fee_quote", 0.0)) for stream in streams),
         "live_parity_status": LIVE_PARITY_STATUS,
     }
+
+
+def combine_streams(streams: list[dict]) -> dict:
+    if not streams:
+        raise ValueError("at least one stream is required")
+    if streams_share_timestamps(streams):
+        points = [
+            {
+                "timestamp_ms": timestamp_point["timestamp_ms"],
+                "equity_quote": sum(float(stream["points"][index]["equity_quote"]) for stream in streams),
+            }
+            for index, timestamp_point in enumerate(streams[0]["points"])
+        ]
+        return combine_metadata(streams, points)
+
+    timestamps = sorted(set.intersection(*(set(point["timestamp_ms"] for point in stream["points"]) for stream in streams)))
+    if not timestamps:
+        raise ValueError("streams have no overlapping timestamps")
+    by_stream = {
+        stream["name"]: {point["timestamp_ms"]: point["equity_quote"] for point in stream["points"]}
+        for stream in streams
+    }
+    points = [
+        {"timestamp_ms": timestamp, "equity_quote": sum(values[timestamp] for values in by_stream.values())}
+        for timestamp in timestamps
+    ]
+    return combine_metadata(streams, points)
 
 
 def build_candidate_report(profile: str, combined: dict, budget: float, meta: dict | None = None) -> dict:
@@ -317,7 +405,8 @@ def run_search(args: argparse.Namespace) -> dict:
     principals = parse_floats(args.principals)
     groups = choose_groups(symbols, args.group_size, args.group_limit)
     rows = []
-    stream_cache = {}
+    bars_cache = {}
+    unit_stream_cache = {}
     for group in groups:
         for spacing in spacings:
             for half_count in half_counts:
@@ -325,14 +414,29 @@ def run_search(args: argparse.Namespace) -> dict:
                     streams = []
                     invalid = None
                     for symbol in group:
-                        key = (symbol, spacing, half_count, principal)
-                        if key not in stream_cache:
-                            bars = load_1m_bars(args.market_data, symbol, args.market_type, SEGMENTS["full"][0], SEGMENTS["full"][1])
+                        if symbol not in bars_cache:
+                            bars = load_1m_bars(
+                                args.market_data,
+                                symbol,
+                                args.market_type,
+                                SEGMENTS["full"][0],
+                                SEGMENTS["full"][1],
+                            )
                             if len(bars) < args.min_bars:
                                 invalid = f"insufficient bars for {symbol}: {len(bars)}"
                                 break
-                            stream_cache[key] = simulate_dgt_symbol(symbol, bars, principal, spacing, half_count, args.fee_bps)
-                        streams.append(stream_cache[key])
+                            bars_cache[symbol] = bars
+                        key = (symbol, spacing, half_count)
+                        if key not in unit_stream_cache:
+                            unit_stream_cache[key] = simulate_dgt_symbol(
+                                symbol,
+                                bars_cache[symbol],
+                                1.0,
+                                spacing,
+                                half_count,
+                                args.fee_bps,
+                            )
+                        streams.append(scale_dgt_stream(unit_stream_cache[key], principal))
                     if invalid:
                         continue
                     combined = combine_streams(streams)

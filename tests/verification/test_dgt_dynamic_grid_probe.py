@@ -111,6 +111,38 @@ class DgtDynamicGridProbeTest(unittest.TestCase):
         self.assertEqual(combined["total_fee_quote"], 3.0)
         self.assertEqual(combined["points"][-1]["equity_quote"], 300.0)
 
+    def test_combine_streams_uses_equal_timestamp_fast_path(self):
+        a = {
+            "name": "dgt:A",
+            "symbols": ["A"],
+            "points": [
+                {"timestamp_ms": 1, "equity_quote": 10.0},
+                {"timestamp_ms": 2, "equity_quote": 11.0},
+            ],
+            "max_input_quote": 10.0,
+            "total_fee_quote": 1.0,
+        }
+        b = {
+            "name": "dgt:B",
+            "symbols": ["B"],
+            "points": [
+                {"timestamp_ms": 1, "equity_quote": 20.0},
+                {"timestamp_ms": 2, "equity_quote": 21.0},
+            ],
+            "max_input_quote": 20.0,
+            "total_fee_quote": 2.0,
+        }
+
+        self.assertTrue(dgt.streams_share_timestamps([a, b]))
+        combined = dgt.combine_streams([a, b])
+        self.assertEqual(
+            combined["points"],
+            [
+                {"timestamp_ms": 1, "equity_quote": 30.0},
+                {"timestamp_ms": 2, "equity_quote": 32.0},
+            ],
+        )
+
     def test_build_candidate_report_stays_research_only(self):
         combined = {
             "symbols": ["BTCUSDT", "ETHUSDT"],
@@ -131,3 +163,68 @@ class DgtDynamicGridProbeTest(unittest.TestCase):
         self.assertEqual(report["meta"]["tag"], "x")
         self.assertIn("passes_offline", report)
         self.assertIn("segment_metrics", report)
+
+    def test_scaled_stream_matches_direct_principal_simulation(self):
+        bars = [
+            {"timestamp_ms": 0, "open": 100.0, "high": 100.0, "low": 100.0, "close": 100.0},
+            {"timestamp_ms": 86_400_000, "open": 100.0, "high": 112.0, "low": 96.0, "close": 108.0},
+            {"timestamp_ms": 2 * 86_400_000, "open": 108.0, "high": 109.0, "low": 91.0, "close": 94.0},
+            {"timestamp_ms": 3 * 86_400_000, "open": 94.0, "high": 104.0, "low": 90.0, "close": 102.0},
+        ]
+        unit = dgt.simulate_dgt_symbol("BTCUSDT", bars, 1.0, 0.05, 1, fee_bps=8.0)
+        scaled = dgt.scale_dgt_stream(unit, 100.0)
+        direct = dgt.simulate_dgt_symbol("BTCUSDT", bars, 100.0, 0.05, 1, fee_bps=8.0)
+
+        self.assertEqual(scaled["name"], direct["name"])
+        self.assertEqual(scaled["reset_count"], direct["reset_count"])
+        self.assertEqual(scaled["principal_quote"], direct["principal_quote"])
+        self.assertAlmostEqual(scaled["max_input_quote"], direct["max_input_quote"], places=6)
+        self.assertAlmostEqual(scaled["total_fee_quote"], direct["total_fee_quote"], places=6)
+        self.assertEqual(len(scaled["points"]), len(direct["points"]))
+        for scaled_point, direct_point in zip(scaled["points"], direct["points"]):
+            self.assertEqual(scaled_point["timestamp_ms"], direct_point["timestamp_ms"])
+            self.assertAlmostEqual(scaled_point["equity_quote"], direct_point["equity_quote"], places=6)
+
+    def test_simulate_symbol_compacts_intraday_points_to_daily_equity(self):
+        bars = [
+            {"timestamp_ms": 0, "open": 100.0, "high": 101.0, "low": 99.0, "close": 100.0},
+            {"timestamp_ms": 60_000, "open": 100.0, "high": 102.0, "low": 99.0, "close": 101.0},
+            {"timestamp_ms": 120_000, "open": 101.0, "high": 103.0, "low": 100.0, "close": 102.0},
+            {"timestamp_ms": 86_400_000, "open": 102.0, "high": 103.0, "low": 101.0, "close": 102.0},
+            {"timestamp_ms": 86_460_000, "open": 102.0, "high": 104.0, "low": 101.0, "close": 103.0},
+        ]
+
+        stream = dgt.simulate_dgt_symbol(
+            "BTCUSDT",
+            bars,
+            principal_quote=100.0,
+            grid_spacing=0.05,
+            half_grid_count=1,
+            fee_bps=0.0,
+        )
+
+        self.assertEqual(
+            [point["timestamp_ms"] for point in stream["points"]],
+            [0, 120_000, 86_400_000, 86_460_000],
+        )
+
+    def test_compact_equity_points_preserves_daily_extremes(self):
+        points = [
+            {"timestamp_ms": 0, "equity_quote": 100.0},
+            {"timestamp_ms": 60_000, "equity_quote": 130.0},
+            {"timestamp_ms": 120_000, "equity_quote": 70.0},
+            {"timestamp_ms": 180_000, "equity_quote": 90.0},
+            {"timestamp_ms": 240_000, "equity_quote": 110.0},
+        ]
+
+        compacted = dgt.compact_equity_points(points)
+
+        self.assertEqual(
+            compacted,
+            [
+                {"timestamp_ms": 0, "equity_quote": 100.0},
+                {"timestamp_ms": 60_000, "equity_quote": 130.0},
+                {"timestamp_ms": 120_000, "equity_quote": 70.0},
+                {"timestamp_ms": 240_000, "equity_quote": 110.0},
+            ],
+        )
