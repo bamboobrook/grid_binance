@@ -1,0 +1,60 @@
+{
+  "high_ann": {
+    "candidate": "glm-mart-core-aggressive-004-highann",
+    "structure": "BNBUSDT+TRXUSDT long + AAVEUSDT short, STRICT gates, TP=600bps, mult=3.0/2.5, legs=9/8, sl=5000/4000",
+    "ann_pct": 73.5,
+    "dd_pct": 45.1,
+    "positive_segments": "2/5",
+    "agg_2024_2026": 65.5,
+    "segments": {
+      "h1_2023": "+79.3",
+      "h2_2023": "-34.5",
+      "2024": "+127.6",
+      "2025": "-31.8",
+      "2026_ytd": "-30.4"
+    },
+    "verdict": "ann exceeds Conservative 50% target but DD 45% fails all gates; overfit to 2024"
+  },
+  "low_dd": {
+    "candidate": "tight-sl L2S1-sl25002500-t600600-m2.5-d0",
+    "structure": "same as high_ann but sl_bps=2500 (tight) + no portfolio stop",
+    "ann_pct": -2.8,
+    "dd_pct": 9.4,
+    "positive_segments": "1/5",
+    "agg_2024_2026": 157.3,
+    "segments": "not fully captured (search killed), agg2426 strong but full-period negative",
+    "verdict": "DD 9.4% passes Conservative but ann negative"
+  },
+  "segment_stable": {
+    "candidate": "glm-mart-core-aggressive-003",
+    "structure": "BNBUSDT+TRXUSDT long + AAVEUSDT short, LOOSE gates, TP=420, mult=2.5, DD stop 20%/24h",
+    "ann_pct": 2.9,
+    "dd_pct": 23.6,
+    "positive_segments": "3/5",
+    "agg_2024_2026": 18.8,
+    "segments": {
+      "h1_2023": "+10.4",
+      "h2_2023": "-17.7",
+      "2024": "+31.7",
+      "2025": "-13.3",
+      "2026_ytd": "+0.4"
+    },
+    "verdict": "best segment stability (3/5, 2026 flat) but ann far below targets"
+  },
+  "baseline_overfit": {
+    "candidate": "glm-mart-core-aggressive (original INJ)",
+    "structure": "INJ long core + satellites, no DD stop",
+    "ann_pct": 133.5,
+    "dd_pct": 29.9,
+    "positive_segments": "1/5",
+    "agg_2024_2026": -103.5,
+    "segments": {
+      "h1_2023": "+11110%ann",
+      "h2_2023": "-59%ann",
+      "2024": "-39%ann",
+      "2025": "-32%ann",
+      "2026_ytd": "-61%ann"
+    },
+    "verdict": "passes Aggressive return/DD but 100% h1_2023-driven; classic overfit"
+  }
+}
