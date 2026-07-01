@@ -81,6 +81,11 @@ class MartingaleFrontierEvidenceAuditTest(unittest.TestCase):
 
         self.assertIn("pair_neutral_portfolio", names)
 
+    def test_default_reports_include_search_freeze_reopen_criteria(self):
+        names = [name for name, _path in audit.DEFAULT_REPORTS]
+
+        self.assertIn("search_freeze_reopen_criteria", names)
+
 
 if __name__ == "__main__":
     unittest.main()

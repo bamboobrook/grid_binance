@@ -30,6 +30,10 @@ DEFAULT_REPORTS = [
         "external_claim_gate_matrix",
         "docs/superpowers/reports/2026-07-01-external-martingale-grid-claim-gate-matrix.md",
     ),
+    (
+        "search_freeze_reopen_criteria",
+        "docs/superpowers/reports/2026-07-01-martingale-grid-search-freeze-and-reopen-criteria.md",
+    ),
     ("goal_completion_audit", "docs/superpowers/reports/2026-07-01-martingale-goal-completion-audit.md"),
     ("final_external_check", "docs/superpowers/reports/2026-07-01-final-martingale-verdict-and-external-check.md"),
 ]

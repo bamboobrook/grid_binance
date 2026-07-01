@@ -109,7 +109,9 @@ The current frontier under capital and segment filters is:
 - Balanced: DD<=20% tops out at `54.41%` ann; ann >90% requires about `40.70%` DD.
 - Aggressive: DD<=30% tops out at `54.41%` ann; ann >110% requires about `40.70%` DD.
 
-`docs/superpowers/reports/2026-07-01-martingale-frontier-evidence-audit.md` indexes 12 reports and 130036 rows/symbol-level evidence with `0` machine-reported final/pass rows. `docs/superpowers/reports/2026-07-01-martingale-goal-completion-audit.md` marks the original objective as incomplete because all C/B/A final gates, external-claim proof, and live-ready proof fail.
+`docs/superpowers/reports/2026-07-01-martingale-frontier-evidence-audit.md` indexes 13 reports and 130036 rows/symbol-level evidence with `0` machine-reported final/pass rows. `docs/superpowers/reports/2026-07-01-martingale-goal-completion-audit.md` marks the original objective as incomplete because all C/B/A final gates, external-claim proof, and live-ready proof fail.
+
+`docs/superpowers/reports/2026-07-01-martingale-grid-search-freeze-and-reopen-criteria.md` freezes repeated martingale/grid parameter searches under the current mechanism family and defines the minimum evidence required to reopen the search.
 
 ## External Check
 
@@ -155,7 +157,7 @@ Only paths that still make engineering sense:
 1. **Change the strategy class**: build a live-parity trend/breakout or stat-arb sleeve first as a standalone edge, then combine with low-risk MR. This is no longer "martingale strategy finds the target"; it is a broader portfolio strategy.
 2. **Funding/basis as auxiliary yield**: use it for smoothing or small return contribution, not as the main source for 50/90/110%.
 3. **Relax the target frontier**: if the mandate remains martingale/grid/live-parity, a realistic target is closer to `10-20% ann` depending on DD, not 50/90/110%.
-4. **Freeze the martingale/grid search space**: the current indexed evidence is broad enough to stop repeating martingale/grid variants unless a genuinely new mechanism or relaxed target is introduced.
+4. **Freeze the martingale/grid search space**: the current indexed evidence is broad enough to stop repeating martingale/grid variants unless a genuinely new mechanism, replayable external candidate, new accepted market period, or relaxed target is introduced.
 
 ## Operational Safety
 
