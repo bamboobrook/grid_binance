@@ -147,6 +147,39 @@ class MartingaleTargetGapAuditTest(unittest.TestCase):
         self.assertEqual(row["label"], "BNBUSDT,SOLUSDT")
         self.assertEqual(row["profile"], "balanced")
 
+    def test_frontier_bounds_show_return_limit_and_drawdown_cost(self):
+        rows = [
+            audit.score_candidate(
+                {
+                    "source": "sample",
+                    "profile": "balanced",
+                    "annualized_return_pct": 54.0,
+                    "max_drawdown_pct": 18.0,
+                    "capital_quote": 1000.0,
+                    "positive_segments": 5,
+                    "combined_2024_2026_return_pct": 10.0,
+                    "label": "low-dd",
+                }
+            ),
+            audit.score_candidate(
+                {
+                    "source": "sample",
+                    "profile": "balanced",
+                    "annualized_return_pct": 92.0,
+                    "max_drawdown_pct": 27.0,
+                    "capital_quote": 1000.0,
+                    "positive_segments": 5,
+                    "combined_2024_2026_return_pct": 10.0,
+                    "label": "target-ann",
+                }
+            ),
+        ]
+
+        bounds = audit.frontier_bounds(rows)
+
+        self.assertEqual(bounds["balanced"]["max_ann_within_dd"]["annualized_return_pct"], 54.0)
+        self.assertEqual(bounds["balanced"]["min_dd_at_target_ann"]["max_drawdown_pct"], 27.0)
+
 
 if __name__ == "__main__":
     unittest.main()

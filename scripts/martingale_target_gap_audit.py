@@ -182,6 +182,27 @@ def summarize(rows: list[dict]) -> dict:
     return summary
 
 
+def frontier_bounds(rows: list[dict]) -> dict:
+    bounds = {}
+    for profile, target in PROFILE_TARGETS.items():
+        subset = [
+            row
+            for row in rows
+            if row["profile"] == profile
+            and row["capital_excess"] == 0
+            and row["segment_gate"]
+            and row["annualized_return_pct"] is not None
+            and row["max_drawdown_pct"] is not None
+        ]
+        within_dd = [row for row in subset if row["max_drawdown_pct"] <= target["dd"]]
+        at_target_ann = [row for row in subset if row["annualized_return_pct"] > target["ann"]]
+        bounds[profile] = {
+            "max_ann_within_dd": max(within_dd, key=lambda row: row["annualized_return_pct"], default=None),
+            "min_dd_at_target_ann": min(at_target_ann, key=lambda row: row["max_drawdown_pct"], default=None),
+        }
+    return bounds
+
+
 def audit_sources(source_specs: list[tuple[str, Path]]) -> dict:
     rows = []
     source_counts = {}
@@ -197,6 +218,7 @@ def audit_sources(source_specs: list[tuple[str, Path]]) -> dict:
         "total_rows": len(rows),
         "final_passes": sum(item["passes"] for item in summary.values()),
         "summary": summary,
+        "frontier_bounds": frontier_bounds(rows),
     }
 
 
@@ -216,6 +238,16 @@ def row_line(row: dict) -> str:
         f"cap `{fmt(row['capital_quote'])}` cap_excess `{fmt(row['capital_excess'])}` "
         f"pos `{fmt(row['positive_segments'])}` seg_gap `{fmt(row['segment_gap'])}` "
         f"c2426 `{fmt(row['combined_2024_2026_return_pct'])}` c2426_gap `{fmt(row['c2426_gap'])}`"
+    )
+
+
+def compact_row(row: dict | None) -> str:
+    if not row:
+        return "`None`"
+    return (
+        f"`{row['source']}` `{row['label']}` ann `{fmt(row['annualized_return_pct'])}` "
+        f"DD `{fmt(row['max_drawdown_pct'])}` cap `{fmt(row['capital_quote'])}` "
+        f"pos `{fmt(row['positive_segments'])}` c2426 `{fmt(row['combined_2024_2026_return_pct'])}`"
     )
 
 
@@ -244,6 +276,9 @@ def write_report(result: dict, out_md: Path) -> None:
         lines.append(f"- target DD: `<={target['dd']}`")
         lines.append(f"- rows: `{item['rows']}`")
         lines.append(f"- passes: `{item['passes']}`")
+        bounds = result["frontier_bounds"][profile]
+        lines.append(f"- max_ann_within_target_dd: {compact_row(bounds['max_ann_within_dd'])}")
+        lines.append(f"- min_dd_at_target_ann: {compact_row(bounds['min_dd_at_target_ann'])}")
         lines.append("- nearest by transparent gap score:")
         for row in item["nearest"][:5]:
             lines.append(row_line(row))

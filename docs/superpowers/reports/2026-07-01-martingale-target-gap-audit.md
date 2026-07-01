@@ -21,6 +21,8 @@ Targets use the original gates: conservative ann >50% DD <=10%, balanced ann >90
 - target DD: `<=10.0`
 - rows: `11031`
 - passes: `0`
+- max_ann_within_target_dd: `saved_result_leak_audit` `dgt_dynamic_grid_probe_smoke.json` ann `23.98` DD `8.29` cap `100.00` pos `4` c2426 `40.96`
+- min_dd_at_target_ann: `pair_neutral_grid` `BNBUSDT,SOLUSDT` ann `54.41` DD `23.60` cap `1000.00` pos `5` c2426 `142.51`
 - nearest by transparent gap score:
   - `saved_result_leak_audit` `dgt_dynamic_grid_probe_smoke.json` score `0.520` ann `23.98` gap `26.02` DD `8.29` excess `0.00` cap `100.00` cap_excess `0.00` pos `4` seg_gap `0` c2426 `40.96` c2426_gap `0.00`
   - `saved_result_leak_audit` `dgt_dynamic_grid_probe_smoke.json` score `0.520` ann `23.98` gap `26.02` DD `8.29` excess `0.00` cap `200.00` cap_excess `0.00` pos `4` seg_gap `0` c2426 `40.96` c2426_gap `0.00`
@@ -42,6 +44,8 @@ Targets use the original gates: conservative ann >50% DD <=10%, balanced ann >90
 - target DD: `<=20.0`
 - rows: `10792`
 - passes: `0`
+- max_ann_within_target_dd: `saved_result_leak_audit` `dgt_dynamic_grid_probe_smoke.json` ann `23.98` DD `8.29` cap `100.00` pos `4` c2426 `40.96`
+- min_dd_at_target_ann: `saved_result_leak_audit` `dgt_dynamic_grid_probe_smoke.json` ann `152.58` DD `40.70` cap `1674.72` pos `4` c2426 `393.24`
 - nearest by transparent gap score:
   - `pair_neutral_grid` `BNBUSDT,SOLUSDT` score `0.575` ann `54.41` gap `35.59` DD `23.60` excess `3.60` cap `1000.00` cap_excess `0.00` pos `5` seg_gap `0` c2426 `142.51` c2426_gap `0.00`
   - `pair_neutral_grid` `BNBUSDT,SOLUSDT` score `0.575` ann `54.41` gap `35.59` DD `23.60` excess `3.60` cap `2000.00` cap_excess `0.00` pos `5` seg_gap `0` c2426 `142.51` c2426_gap `0.00`
@@ -63,6 +67,8 @@ Targets use the original gates: conservative ann >50% DD <=10%, balanced ann >90
 - target DD: `<=30.0`
 - rows: `15376`
 - passes: `0`
+- max_ann_within_target_dd: `pair_neutral_grid` `BNBUSDT,SOLUSDT` ann `54.41` DD `23.60` cap `1000.00` pos `5` c2426 `142.51`
+- min_dd_at_target_ann: `saved_result_leak_audit` `dgt_dynamic_grid_probe_smoke.json` ann `152.58` DD `40.70` cap `1674.72` pos `4` c2426 `393.24`
 - nearest by transparent gap score:
   - `saved_result_leak_audit` `dgt_dynamic_grid_probe_smoke.json` score `0.357` ann `152.58` gap `0.00` DD `40.70` excess `10.70` cap `1674.72` cap_excess `0.00` pos `4` seg_gap `0` c2426 `393.24` c2426_gap `0.00`
   - `saved_result_leak_audit` `dgt_dynamic_grid_probe_smoke.json` score `0.357` ann `152.58` gap `0.00` DD `40.70` excess `10.70` cap `3349.45` cap_excess `0.00` pos `4` seg_gap `0` c2426 `393.24` c2426_gap `0.00`
