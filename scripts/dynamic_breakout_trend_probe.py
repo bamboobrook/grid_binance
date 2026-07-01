@@ -94,7 +94,57 @@ def load_minute_bars(market_db: str | Path, symbol: str, market_type: str = "fut
 
 
 def load_daily_bars(market_db: str | Path, symbol: str, market_type: str = "futures_usdt_perp") -> list[dict]:
-    return compress_daily_ohlc(load_minute_bars(market_db, symbol, market_type))
+    con = sqlite3.connect(str(market_db))
+    try:
+        rows = con.execute(
+            """
+            WITH daily AS (
+                SELECT
+                    (open_time / ?) * ? AS day_start,
+                    MIN(open_time) AS first_open_time,
+                    MAX(open_time) AS last_open_time,
+                    MAX(high) AS high,
+                    MIN(low) AS low,
+                    SUM(volume) AS volume
+                FROM klines
+                WHERE symbol = ? AND market_type = ? AND timeframe = '1m'
+                GROUP BY day_start
+            )
+            SELECT
+                daily.day_start,
+                first_bar.open,
+                daily.high,
+                daily.low,
+                last_bar.close,
+                daily.volume
+            FROM daily
+            JOIN klines AS first_bar
+                ON first_bar.symbol = ?
+                AND first_bar.market_type = ?
+                AND first_bar.timeframe = '1m'
+                AND first_bar.open_time = daily.first_open_time
+            JOIN klines AS last_bar
+                ON last_bar.symbol = ?
+                AND last_bar.market_type = ?
+                AND last_bar.timeframe = '1m'
+                AND last_bar.open_time = daily.last_open_time
+            ORDER BY daily.day_start
+            """,
+            (MS_PER_DAY, MS_PER_DAY, symbol, market_type, symbol, market_type, symbol, market_type),
+        ).fetchall()
+    finally:
+        con.close()
+    return [
+        {
+            "timestamp_ms": int(day_start),
+            "open": float(open_),
+            "high": float(high),
+            "low": float(low),
+            "close": float(close),
+            "volume": float(volume or 0.0),
+        }
+        for day_start, open_, high, low, close, volume in rows
+    ]
 
 
 def parse_rule(rule: str) -> RuleSpec:

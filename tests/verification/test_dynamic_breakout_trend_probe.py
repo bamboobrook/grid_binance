@@ -1,9 +1,11 @@
 import importlib.util
 import json
+import sqlite3
 import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 
 SCRIPT = Path("scripts/dynamic_breakout_trend_probe.py")
@@ -63,6 +65,86 @@ class DynamicBreakoutTrendProbeTest(unittest.TestCase):
                 {"timestamp_ms": DAY, "open": 110.0, "high": 113.0, "low": 107.0, "close": 109.0, "volume": 11.0},
             ],
         )
+
+    def test_load_daily_bars_aggregates_in_sqlite_without_changing_ohlc(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            db_path = Path(tmp) / "market.db"
+            con = sqlite3.connect(db_path)
+            try:
+                con.execute(
+                    """
+                    CREATE TABLE klines (
+                        symbol TEXT NOT NULL,
+                        market_type TEXT NOT NULL,
+                        timeframe TEXT NOT NULL,
+                        open_time INTEGER NOT NULL,
+                        open REAL NOT NULL,
+                        high REAL NOT NULL,
+                        low REAL NOT NULL,
+                        close REAL NOT NULL,
+                        volume REAL NOT NULL,
+                        close_time INTEGER NOT NULL
+                    )
+                    """
+                )
+                rows = [
+                    ("BTCUSDT", "futures_usdt_perp", "1m", 60_000, 100, 102, 99, 101, 3, 119_999),
+                    ("BTCUSDT", "futures_usdt_perp", "1m", 120_000, 101, 105, 100, 104, 4, 179_999),
+                    ("BTCUSDT", "futures_usdt_perp", "1m", DAY + 60_000, 110, 112, 108, 111, 5, DAY + 119_999),
+                    ("BTCUSDT", "futures_usdt_perp", "1m", DAY + 120_000, 111, 113, 107, 109, 6, DAY + 179_999),
+                ]
+                con.executemany("INSERT INTO klines VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", rows)
+                con.commit()
+            finally:
+                con.close()
+
+            daily = dynamic.load_daily_bars(db_path, "BTCUSDT")
+
+        self.assertEqual(
+            daily,
+            [
+                {"timestamp_ms": 0, "open": 100.0, "high": 105.0, "low": 99.0, "close": 104.0, "volume": 7.0},
+                {"timestamp_ms": DAY, "open": 110.0, "high": 113.0, "low": 107.0, "close": 109.0, "volume": 11.0},
+            ],
+        )
+
+    def test_load_daily_bars_does_not_materialize_minute_bars_in_python(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            db_path = Path(tmp) / "market.db"
+            con = sqlite3.connect(db_path)
+            try:
+                con.execute(
+                    """
+                    CREATE TABLE klines (
+                        symbol TEXT NOT NULL,
+                        market_type TEXT NOT NULL,
+                        timeframe TEXT NOT NULL,
+                        open_time INTEGER NOT NULL,
+                        open REAL NOT NULL,
+                        high REAL NOT NULL,
+                        low REAL NOT NULL,
+                        close REAL NOT NULL,
+                        volume REAL NOT NULL,
+                        close_time INTEGER NOT NULL
+                    )
+                    """
+                )
+                con.executemany(
+                    "INSERT INTO klines VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    [
+                        ("BTCUSDT", "futures_usdt_perp", "1m", 60_000, 100, 102, 99, 101, 3, 119_999),
+                        ("BTCUSDT", "futures_usdt_perp", "1m", 120_000, 101, 105, 100, 104, 4, 179_999),
+                    ],
+                )
+                con.commit()
+            finally:
+                con.close()
+
+            with patch.object(dynamic, "load_minute_bars", side_effect=AssertionError("minute materialization disabled")):
+                daily = dynamic.load_daily_bars(db_path, "BTCUSDT")
+
+        self.assertEqual(daily[0]["open"], 100.0)
+        self.assertEqual(daily[0]["close"], 104.0)
 
     def test_momentum_stream_uses_previous_completed_day_for_next_day_position(self):
         daily = [
