@@ -231,6 +231,59 @@ class DynamicBreakoutTrendProbeTest(unittest.TestCase):
         self.assertEqual(row["pos"], 4)
         self.assertTrue(row["pass"])
 
+    def test_summarize_counts_profile_passes(self):
+        rows = [
+            {"profile": "conservative", "pass": False, "ann": 40.0, "dd": 8.0},
+            {"profile": "conservative", "pass": True, "ann": 55.0, "dd": 9.0},
+            {"profile": "balanced", "pass": False, "ann": 80.0, "dd": 18.0},
+        ]
+
+        summary = dynamic.summarize(rows)
+
+        self.assertEqual(summary["conservative"]["rows"], 2)
+        self.assertEqual(summary["conservative"]["passes"], 1)
+        self.assertEqual(summary["balanced"]["passes"], 0)
+
+    def test_write_outputs_marks_research_only(self):
+        result = {
+            "live_parity_status": "research_only",
+            "rows": [
+                {
+                    "profile": "conservative",
+                    "pass": False,
+                    "ann": 40.0,
+                    "dd": 8.0,
+                    "cap": 3000.0,
+                    "pos": 4,
+                    "c2426": 2.0,
+                    "symbols": "BTCUSDT,ETHUSDT",
+                    "top_n": 2,
+                    "rebalance_days": 7,
+                    "target_vol_pct": 20.0,
+                    "dd_stop_pct": 10.0,
+                    "cooldown_days": 15,
+                    "risk_events": 0,
+                }
+            ],
+            "summary": {
+                "conservative": {"rows": 1, "passes": 0, "best_ann": None, "best_dd": None, "passes_rows": []},
+                "balanced": {"rows": 0, "passes": 0, "best_ann": None, "best_dd": None, "passes_rows": []},
+                "aggressive": {"rows": 0, "passes": 0, "best_ann": None, "best_dd": None, "passes_rows": []},
+            },
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            out_json = Path(tmp) / "out.json"
+            out_md = Path(tmp) / "out.md"
+
+            dynamic.write_outputs(result, out_json, out_md)
+
+            payload = json.loads(out_json.read_text())
+            text = out_md.read_text()
+            self.assertEqual(payload["live_parity_status"], "research_only")
+            self.assertIn("research-only", text)
+            self.assertIn("live_parity_status: `research_only`", text)
+            self.assertNotIn("live_parity_passed", text)
+
 
 if __name__ == "__main__":
     unittest.main()

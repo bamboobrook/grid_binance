@@ -471,3 +471,206 @@ def row_from_report(report: dict) -> dict:
         "violations": report["full_gate"]["violations"] + segment["violations"],
         "live_parity_status": LIVE_PARITY_STATUS,
     }
+
+
+def build_stream_universe(
+    market_data: str | Path,
+    symbols: list[str],
+    rules: list[str],
+    fee_bps: float,
+    slippage_bps: float,
+    min_daily_bars: int,
+) -> tuple[list[dict], list[str]]:
+    streams = []
+    rejections = []
+    for symbol in symbols:
+        daily = load_daily_bars(market_data, symbol)
+        if len(daily) < min_daily_bars:
+            rejections.append(f"{symbol}: only {len(daily)} daily bars < {min_daily_bars}")
+            continue
+        for rule in rules:
+            try:
+                stream = build_signal_stream(symbol, daily, rule, fee_bps=fee_bps, slippage_bps=slippage_bps)
+            except ValueError as exc:
+                rejections.append(f"{symbol}:{rule}: {exc}")
+                continue
+            if len(stream["points"]) < min_daily_bars // 2:
+                rejections.append(f"{symbol}:{rule}: only {len(stream['points'])} return points")
+                continue
+            streams.append(stream)
+    return streams, rejections
+
+
+def summarize(rows: list[dict]) -> dict:
+    summary = {}
+    for profile in hybrid.PROFILE_TARGETS:
+        subset = [row for row in rows if row["profile"] == profile]
+        passes = [row for row in subset if row["pass"]]
+        summary[profile] = {
+            "rows": len(subset),
+            "passes": len(passes),
+            "best_ann": max(subset, key=lambda row: row["ann"], default=None),
+            "best_dd": min(subset, key=lambda row: row["dd"], default=None),
+            "passes_rows": passes[:20],
+        }
+    return summary
+
+
+def run_search(args: argparse.Namespace) -> dict:
+    profiles = parse_csv(args.profiles)
+    symbols = parse_csv(args.symbols)
+    rules = parse_csv(args.rules)
+    allocation_quotes = parse_floats(args.allocation_quotes)
+    rebalance_days_values = parse_ints(args.rebalance_days)
+    score_lookbacks = parse_ints(args.score_lookbacks)
+    top_ns = parse_ints(args.top_ns)
+    target_vols = parse_floats(args.target_vols)
+    vol_lookbacks = parse_ints(args.vol_lookbacks)
+    dd_stops = parse_floats(args.dd_stops)
+    cooldowns = parse_ints(args.cooldowns)
+    streams, rejections = build_stream_universe(
+        args.market_data,
+        symbols,
+        rules,
+        fee_bps=args.fee_bps,
+        slippage_bps=args.slippage_bps,
+        min_daily_bars=args.min_daily_bars,
+    )
+    rows = []
+    configs = itertools.product(
+        profiles,
+        allocation_quotes,
+        rebalance_days_values,
+        score_lookbacks,
+        top_ns,
+        target_vols,
+        vol_lookbacks,
+        dd_stops,
+        cooldowns,
+    )
+    for profile, allocation, rebalance_days, score_lookback, top_n, target_vol, vol_lookback, dd_stop, cooldown in configs:
+        if allocation >= args.budget:
+            continue
+        config = {
+            "top_n": top_n,
+            "rebalance_days": rebalance_days,
+            "score_lookback_days": score_lookback,
+            "target_vol_pct": target_vol,
+            "vol_lookback_days": vol_lookback,
+            "dd_stop_pct": dd_stop,
+            "cooldown_days": cooldown,
+            "allocation_quote": allocation,
+            "fee_bps": args.fee_bps,
+            "slippage_bps": args.slippage_bps,
+        }
+        portfolio = build_dynamic_portfolio(
+            streams,
+            allocation_quote=allocation,
+            rebalance_days=rebalance_days,
+            score_lookback_days=score_lookback,
+            top_n=top_n,
+            max_symbol_weight=args.max_symbol_weight,
+            target_vol_pct=target_vol,
+            vol_lookback_days=vol_lookback,
+            dd_stop_pct=dd_stop,
+            cooldown_days=cooldown,
+        )
+        report = build_candidate_report(
+            profile,
+            portfolio,
+            budget=args.budget,
+            max_symbol_weight=args.max_symbol_weight,
+            config=config,
+        )
+        rows.append(row_from_report(report))
+        if len(rows) >= args.limit:
+            break
+    return {
+        "live_parity_status": LIVE_PARITY_STATUS,
+        "stream_count": len(streams),
+        "rejections": rejections,
+        "rows": rows,
+        "summary": summarize(rows),
+    }
+
+
+def format_row(row: dict | None) -> str:
+    if not row:
+        return "`None`"
+    return (
+        f"symbols `{row['symbols']}` ann `{row['ann']:.2f}` DD `{row['dd']:.2f}` "
+        f"cap `{row['cap']:.2f}` pos `{row['pos']}/5` 2024-2026 `{row['c2426']:.2f}` "
+        f"top_n `{row['top_n']}` rebalance `{row['rebalance_days']}` vol `{row['target_vol_pct']}` "
+        f"dd_stop `{row['dd_stop_pct']}` cooldown `{row['cooldown_days']}` "
+        f"events `{row['risk_events']}` pass `{row['pass']}`"
+    )
+
+
+def write_outputs(result: dict, out_json: str | Path, out_md: str | Path) -> None:
+    Path(out_json).write_text(json.dumps(result, indent=2, sort_keys=True))
+    lines = [
+        "# 2026-07-01 Dynamic Breakout/Trend Probe",
+        "",
+        "This is a research-only dynamic breakout/trend portfolio check. It does not trade, touch Binance, flyingkid, live mode, or real funds.",
+        "",
+        f"- live_parity_status: `{result['live_parity_status']}`",
+        f"- streams: `{result.get('stream_count', 0)}`",
+        f"- rows: `{len(result['rows'])}`",
+        f"- rejected streams: `{len(result.get('rejections', []))}`",
+        "",
+    ]
+    for profile, item in result["summary"].items():
+        lines.append(f"## {profile}")
+        lines.append("")
+        lines.append(f"- passes: `{item['passes']}`")
+        lines.append(f"- best_ann: {format_row(item['best_ann'])}")
+        lines.append(f"- best_dd: {format_row(item['best_dd'])}")
+        lines.append("")
+    lines.append("## Conclusion")
+    lines.append("")
+    total_passes = sum(item["passes"] for item in result["summary"].values())
+    if total_passes:
+        lines.append(
+            f"Potential research-only dynamic trend passes found: `{total_passes}`. "
+            "These require manual replay and a separate live-parity promotion design before any trading conclusion."
+        )
+    else:
+        lines.append("Potential research-only dynamic trend passes found: `0` under this scan. This does not change the martingale/grid verdict.")
+    Path(out_md).write_text("\n".join(lines) + "\n")
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--profiles", default="conservative,balanced,aggressive")
+    parser.add_argument("--market-data", default="data/market_data_full.db")
+    parser.add_argument("--symbols", default="BTCUSDT,ETHUSDT,BNBUSDT,SOLUSDT,INJUSDT,AAVEUSDT,LINKUSDT,DOGEUSDT,ADAUSDT,XRPUSDT")
+    parser.add_argument("--rules", default="donchian20_lf,donchian20_ls,donchian60_lf,donchian60_ls,mom20_lf,mom20_ls,mom60_lf,mom60_ls,ema20_50_lf,ema50_200_lf")
+    parser.add_argument("--allocation-quotes", default="1000,2000,3000,4000")
+    parser.add_argument("--rebalance-days", default="7,30")
+    parser.add_argument("--score-lookbacks", default="63,126,252")
+    parser.add_argument("--top-ns", default="2,3,4,6")
+    parser.add_argument("--target-vols", default="15,20,30,40")
+    parser.add_argument("--vol-lookbacks", default="20,60")
+    parser.add_argument("--dd-stops", default="10,20,30")
+    parser.add_argument("--cooldowns", default="0,15,30")
+    parser.add_argument("--max-symbol-weight", type=float, default=0.5)
+    parser.add_argument("--fee-bps", type=float, default=2.0)
+    parser.add_argument("--slippage-bps", type=float, default=2.0)
+    parser.add_argument("--min-daily-bars", type=int, default=600)
+    parser.add_argument("--budget", type=float, default=5000.0)
+    parser.add_argument("--limit", type=int, default=8000)
+    parser.add_argument("--out-json", required=True)
+    parser.add_argument("--out-md", required=True)
+    return parser.parse_args()
+
+
+def main() -> int:
+    args = parse_args()
+    result = run_search(args)
+    write_outputs(result, args.out_json, args.out_md)
+    print(json.dumps({"rows": len(result["rows"]), "passes": sum(item["passes"] for item in result["summary"].values())}, sort_keys=True))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
