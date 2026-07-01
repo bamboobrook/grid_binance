@@ -56,6 +56,11 @@ class MartingaleFrontierEvidenceAuditTest(unittest.TestCase):
 
         self.assertIn("external_claim_gate_matrix", names)
 
+    def test_default_reports_include_target_gap_audit(self):
+        names = [name for name, _path in audit.DEFAULT_REPORTS]
+
+        self.assertIn("target_gap_audit", names)
+
 
 if __name__ == "__main__":
     unittest.main()

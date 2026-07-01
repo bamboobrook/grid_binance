@@ -12,6 +12,7 @@ PROFILES = ("conservative", "balanced", "aggressive")
 
 DEFAULT_REPORTS = [
     ("saved_json_leak_audit", "docs/superpowers/reports/2026-07-01-martingale-result-leak-audit.md"),
+    ("target_gap_audit", "docs/superpowers/reports/2026-07-01-martingale-target-gap-audit.md"),
     ("funding_sleeve", "docs/superpowers/reports/2026-07-01-funding-sleeve-probe.md"),
     ("trend_sleeve", "docs/superpowers/reports/2026-07-01-trend-sleeve-frontier-probe.md"),
     ("trend_risk_control", "docs/superpowers/reports/2026-07-01-trend-risk-control-probe.md"),
@@ -32,6 +33,7 @@ def int_after(pattern: str, text: str) -> int | None:
 def parse_probe_report(name: str, text: str) -> dict:
     rows = (
         int_after(r"JSON-like records scanned:\s*`?(\d+)`?", text)
+        or int_after(r"normalized candidate rows:\s*`?(\d+)`?", text)
         or int_after(r"Symbols scanned:\s*`?(\d+)`?", text)
         or int_after(r"^- rows:\s*`?(\d+)`?", text)
         or 0
