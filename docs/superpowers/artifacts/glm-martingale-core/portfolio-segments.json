@@ -1,0 +1,2137 @@
+{
+  "generated_at": "2026-07-01T10:02:19Z",
+  "n_candidates": 2592,
+  "n_survivors": 8,
+  "n_validated": 8,
+  "validated": [
+    {
+      "label": "agg-looloo-L2S1-40w15",
+      "profile": "aggressive",
+      "config": {
+        "direction_mode": "long_and_short",
+        "strategies": [
+          {
+            "strategy_id": "pf-aggressive-L0-BNBUSDT",
+            "symbol": "BNBUSDT",
+            "market": "usd_m_futures",
+            "direction": "long",
+            "direction_mode": "long_and_short",
+            "margin_mode": "isolated",
+            "leverage": 10,
+            "spacing": {
+              "fixed_percent": {
+                "step_bps": 180
+              }
+            },
+            "sizing": {
+              "multiplier": {
+                "first_order_quote": "30.0",
+                "multiplier": "2.5",
+                "max_legs": 8
+              }
+            },
+            "take_profit": {
+              "percent": {
+                "bps": 420
+              }
+            },
+            "stop_loss": {
+              "strategy_drawdown_pct": {
+                "pct_bps": 4500
+              }
+            },
+            "indicators": [
+              {
+                "atr": {
+                  "period": 14
+                }
+              },
+              {
+                "adx": {
+                  "period": 14
+                }
+              }
+            ],
+            "entry_triggers": [
+              {
+                "cooldown": {
+                  "seconds": 10800
+                }
+              },
+              {
+                "indicator_expression": {
+                  "expression": "BNBUSDT.close > BNBUSDT.ema(100)"
+                }
+              },
+              {
+                "indicator_expression": {
+                  "expression": "BTCUSDT.close > BTCUSDT.ema(50)"
+                }
+              }
+            ],
+            "risk_limits": {
+              "max_active_cycles": null,
+              "max_global_budget_quote": null,
+              "max_symbol_budget_quote": null,
+              "max_direction_budget_quote": null,
+              "max_strategy_budget_quote": null,
+              "max_global_drawdown_quote": null
+            },
+            "portfolio_weight_pct": "40"
+          },
+          {
+            "strategy_id": "pf-aggressive-L1-BCHUSDT",
+            "symbol": "BCHUSDT",
+            "market": "usd_m_futures",
+            "direction": "long",
+            "direction_mode": "long_and_short",
+            "margin_mode": "isolated",
+            "leverage": 10,
+            "spacing": {
+              "fixed_percent": {
+                "step_bps": 180
+              }
+            },
+            "sizing": {
+              "multiplier": {
+                "first_order_quote": "30.0",
+                "multiplier": "2.5",
+                "max_legs": 8
+              }
+            },
+            "take_profit": {
+              "percent": {
+                "bps": 420
+              }
+            },
+            "stop_loss": {
+              "strategy_drawdown_pct": {
+                "pct_bps": 4500
+              }
+            },
+            "indicators": [
+              {
+                "atr": {
+                  "period": 14
+                }
+              },
+              {
+                "adx": {
+                  "period": 14
+                }
+              }
+            ],
+            "entry_triggers": [
+              {
+                "cooldown": {
+                  "seconds": 10800
+                }
+              },
+              {
+                "indicator_expression": {
+                  "expression": "BCHUSDT.close > BCHUSDT.ema(100)"
+                }
+              },
+              {
+                "indicator_expression": {
+                  "expression": "BTCUSDT.close > BTCUSDT.ema(50)"
+                }
+              }
+            ],
+            "risk_limits": {
+              "max_active_cycles": null,
+              "max_global_budget_quote": null,
+              "max_symbol_budget_quote": null,
+              "max_direction_budget_quote": null,
+              "max_strategy_budget_quote": null,
+              "max_global_drawdown_quote": null
+            },
+            "portfolio_weight_pct": "40"
+          },
+          {
+            "strategy_id": "pf-aggressive-S0-AAVEUSDT",
+            "symbol": "AAVEUSDT",
+            "market": "usd_m_futures",
+            "direction": "short",
+            "direction_mode": "long_and_short",
+            "margin_mode": "isolated",
+            "leverage": 10,
+            "spacing": {
+              "fixed_percent": {
+                "step_bps": 180
+              }
+            },
+            "sizing": {
+              "multiplier": {
+                "first_order_quote": "30.0",
+                "multiplier": "2.5",
+                "max_legs": 8
+              }
+            },
+            "take_profit": {
+              "percent": {
+                "bps": 420
+              }
+            },
+            "stop_loss": {
+              "strategy_drawdown_pct": {
+                "pct_bps": 4500
+              }
+            },
+            "indicators": [
+              {
+                "atr": {
+                  "period": 14
+                }
+              },
+              {
+                "adx": {
+                  "period": 14
+                }
+              }
+            ],
+            "entry_triggers": [
+              {
+                "cooldown": {
+                  "seconds": 10800
+                }
+              },
+              {
+                "indicator_expression": {
+                  "expression": "AAVEUSDT.close < AAVEUSDT.ema(100)"
+                }
+              },
+              {
+                "indicator_expression": {
+                  "expression": "BTCUSDT.close < BTCUSDT.ema(50)"
+                }
+              }
+            ],
+            "risk_limits": {
+              "max_active_cycles": null,
+              "max_global_budget_quote": null,
+              "max_symbol_budget_quote": null,
+              "max_direction_budget_quote": null,
+              "max_strategy_budget_quote": null,
+              "max_global_drawdown_quote": null
+            },
+            "portfolio_weight_pct": "15"
+          }
+        ],
+        "risk_limits": {
+          "max_global_budget_quote": "5000"
+        }
+      },
+      "m2024": {
+        "ann": 0.27034224431845555,
+        "dd": 20.720044696492725,
+        "ret": 0.2710833959586671,
+        "min_eq": 4941.640944744222,
+        "breached": false,
+        "trades": 895,
+        "max_cap": 684.011109375
+      },
+      "m2025": {
+        "ann": 0.7569373864223738,
+        "dd": 18.389458086160587,
+        "ret": 0.7569359408459786,
+        "min_eq": 4508.402664063522,
+        "breached": false,
+        "trades": 337,
+        "max_cap": 1431.7619765625002
+      },
+      "survives": true,
+      "segment_metrics": {
+        "h1_2023": {
+          "ann": 31.93555776677046,
+          "dd": 37.83419777600841,
+          "ret": 14.732395662933959,
+          "min_eq": 4312.439740536063,
+          "breached": false,
+          "trades": 948,
+          "max_cap": 2456.268890625
+        },
+        "h2_2023": {
+          "ann": -19.21111374668172,
+          "dd": 14.248162610649546,
+          "ret": -10.196091226754106,
+          "min_eq": 4386.19328839501,
+          "breached": false,
+          "trades": 69,
+          "max_cap": 1306.2640078125003
+        },
+        "2024": {
+          "ann": 0.27034224431845555,
+          "dd": 20.720044696492725,
+          "ret": 0.2710833959586671,
+          "min_eq": 4941.640944744222,
+          "breached": false,
+          "trades": 895,
+          "max_cap": 684.011109375
+        },
+        "2025": {
+          "ann": 0.7569373864223738,
+          "dd": 18.389458086160587,
+          "ret": 0.7569359408459786,
+          "min_eq": 4508.402664063522,
+          "breached": false,
+          "trades": 337,
+          "max_cap": 1431.7619765625002
+        },
+        "2026_ytd": {
+          "ann": -56.79991250167995,
+          "dd": 34.569391285458174,
+          "ret": -29.33551750015869,
+          "min_eq": 3533.2241249920653,
+          "breached": false,
+          "trades": 470,
+          "max_cap": 2453.249390625
+        }
+      },
+      "full_metrics": {
+        "ann": 4.104683568427414,
+        "dd": 37.83419777600841,
+        "ret": 14.732395662933959,
+        "min_eq": 4312.439740536063,
+        "breached": false,
+        "trades": 948,
+        "max_cap": 2456.268890625
+      },
+      "positive_segments": 3,
+      "agg_2024_2026": -28.307498163354044,
+      "h1_2023_contribution": 0,
+      "gate_pass": false
+    },
+    {
+      "label": "agg-looloo-L2S1-30w20",
+      "profile": "aggressive",
+      "config": {
+        "direction_mode": "long_and_short",
+        "strategies": [
+          {
+            "strategy_id": "pf-aggressive-L0-BNBUSDT",
+            "symbol": "BNBUSDT",
+            "market": "usd_m_futures",
+            "direction": "long",
+            "direction_mode": "long_and_short",
+            "margin_mode": "isolated",
+            "leverage": 10,
+            "spacing": {
+              "fixed_percent": {
+                "step_bps": 180
+              }
+            },
+            "sizing": {
+              "multiplier": {
+                "first_order_quote": "30.0",
+                "multiplier": "2.5",
+                "max_legs": 8
+              }
+            },
+            "take_profit": {
+              "percent": {
+                "bps": 420
+              }
+            },
+            "stop_loss": {
+              "strategy_drawdown_pct": {
+                "pct_bps": 4500
+              }
+            },
+            "indicators": [
+              {
+                "atr": {
+                  "period": 14
+                }
+              },
+              {
+                "adx": {
+                  "period": 14
+                }
+              }
+            ],
+            "entry_triggers": [
+              {
+                "cooldown": {
+                  "seconds": 10800
+                }
+              },
+              {
+                "indicator_expression": {
+                  "expression": "BNBUSDT.close > BNBUSDT.ema(100)"
+                }
+              },
+              {
+                "indicator_expression": {
+                  "expression": "BTCUSDT.close > BTCUSDT.ema(50)"
+                }
+              }
+            ],
+            "risk_limits": {
+              "max_active_cycles": null,
+              "max_global_budget_quote": null,
+              "max_symbol_budget_quote": null,
+              "max_direction_budget_quote": null,
+              "max_strategy_budget_quote": null,
+              "max_global_drawdown_quote": null
+            },
+            "portfolio_weight_pct": "30"
+          },
+          {
+            "strategy_id": "pf-aggressive-L1-BCHUSDT",
+            "symbol": "BCHUSDT",
+            "market": "usd_m_futures",
+            "direction": "long",
+            "direction_mode": "long_and_short",
+            "margin_mode": "isolated",
+            "leverage": 10,
+            "spacing": {
+              "fixed_percent": {
+                "step_bps": 180
+              }
+            },
+            "sizing": {
+              "multiplier": {
+                "first_order_quote": "30.0",
+                "multiplier": "2.5",
+                "max_legs": 8
+              }
+            },
+            "take_profit": {
+              "percent": {
+                "bps": 420
+              }
+            },
+            "stop_loss": {
+              "strategy_drawdown_pct": {
+                "pct_bps": 4500
+              }
+            },
+            "indicators": [
+              {
+                "atr": {
+                  "period": 14
+                }
+              },
+              {
+                "adx": {
+                  "period": 14
+                }
+              }
+            ],
+            "entry_triggers": [
+              {
+                "cooldown": {
+                  "seconds": 10800
+                }
+              },
+              {
+                "indicator_expression": {
+                  "expression": "BCHUSDT.close > BCHUSDT.ema(100)"
+                }
+              },
+              {
+                "indicator_expression": {
+                  "expression": "BTCUSDT.close > BTCUSDT.ema(50)"
+                }
+              }
+            ],
+            "risk_limits": {
+              "max_active_cycles": null,
+              "max_global_budget_quote": null,
+              "max_symbol_budget_quote": null,
+              "max_direction_budget_quote": null,
+              "max_strategy_budget_quote": null,
+              "max_global_drawdown_quote": null
+            },
+            "portfolio_weight_pct": "30"
+          },
+          {
+            "strategy_id": "pf-aggressive-S0-AAVEUSDT",
+            "symbol": "AAVEUSDT",
+            "market": "usd_m_futures",
+            "direction": "short",
+            "direction_mode": "long_and_short",
+            "margin_mode": "isolated",
+            "leverage": 10,
+            "spacing": {
+              "fixed_percent": {
+                "step_bps": 180
+              }
+            },
+            "sizing": {
+              "multiplier": {
+                "first_order_quote": "30.0",
+                "multiplier": "2.5",
+                "max_legs": 8
+              }
+            },
+            "take_profit": {
+              "percent": {
+                "bps": 420
+              }
+            },
+            "stop_loss": {
+              "strategy_drawdown_pct": {
+                "pct_bps": 4500
+              }
+            },
+            "indicators": [
+              {
+                "atr": {
+                  "period": 14
+                }
+              },
+              {
+                "adx": {
+                  "period": 14
+                }
+              }
+            ],
+            "entry_triggers": [
+              {
+                "cooldown": {
+                  "seconds": 10800
+                }
+              },
+              {
+                "indicator_expression": {
+                  "expression": "AAVEUSDT.close < AAVEUSDT.ema(100)"
+                }
+              },
+              {
+                "indicator_expression": {
+                  "expression": "BTCUSDT.close < BTCUSDT.ema(50)"
+                }
+              }
+            ],
+            "risk_limits": {
+              "max_active_cycles": null,
+              "max_global_budget_quote": null,
+              "max_symbol_budget_quote": null,
+              "max_direction_budget_quote": null,
+              "max_strategy_budget_quote": null,
+              "max_global_drawdown_quote": null
+            },
+            "portfolio_weight_pct": "20"
+          }
+        ],
+        "risk_limits": {
+          "max_global_budget_quote": "5000"
+        }
+      },
+      "m2024": {
+        "ann": 0.27034224431845555,
+        "dd": 20.720044696492725,
+        "ret": 0.2710833959586671,
+        "min_eq": 4941.640944744222,
+        "breached": false,
+        "trades": 895,
+        "max_cap": 684.011109375
+      },
+      "m2025": {
+        "ann": 0.7569373864223738,
+        "dd": 18.389458086160587,
+        "ret": 0.7569359408459786,
+        "min_eq": 4508.402664063522,
+        "breached": false,
+        "trades": 337,
+        "max_cap": 1431.7619765625002
+      },
+      "survives": true,
+      "segment_metrics": {
+        "h1_2023": {
+          "ann": 31.93555776677046,
+          "dd": 37.83419777600841,
+          "ret": 14.732395662933959,
+          "min_eq": 4312.439740536063,
+          "breached": false,
+          "trades": 948,
+          "max_cap": 2456.268890625
+        },
+        "h2_2023": {
+          "ann": -19.21111374668172,
+          "dd": 14.248162610649546,
+          "ret": -10.196091226754106,
+          "min_eq": 4386.19328839501,
+          "breached": false,
+          "trades": 69,
+          "max_cap": 1306.2640078125003
+        },
+        "2024": {
+          "ann": 0.27034224431845555,
+          "dd": 20.720044696492725,
+          "ret": 0.2710833959586671,
+          "min_eq": 4941.640944744222,
+          "breached": false,
+          "trades": 895,
+          "max_cap": 684.011109375
+        },
+        "2025": {
+          "ann": 0.7569373864223738,
+          "dd": 18.389458086160587,
+          "ret": 0.7569359408459786,
+          "min_eq": 4508.402664063522,
+          "breached": false,
+          "trades": 337,
+          "max_cap": 1431.7619765625002
+        },
+        "2026_ytd": {
+          "ann": -56.79991250167995,
+          "dd": 34.569391285458174,
+          "ret": -29.33551750015869,
+          "min_eq": 3533.2241249920653,
+          "breached": false,
+          "trades": 470,
+          "max_cap": 2453.249390625
+        }
+      },
+      "full_metrics": {
+        "ann": 4.104683568427414,
+        "dd": 37.83419777600841,
+        "ret": 14.732395662933959,
+        "min_eq": 4312.439740536063,
+        "breached": false,
+        "trades": 948,
+        "max_cap": 2456.268890625
+      },
+      "positive_segments": 3,
+      "agg_2024_2026": -28.307498163354044,
+      "h1_2023_contribution": 0,
+      "gate_pass": false
+    },
+    {
+      "label": "agg-looloo-L2S1-50w10",
+      "profile": "aggressive",
+      "config": {
+        "direction_mode": "long_and_short",
+        "strategies": [
+          {
+            "strategy_id": "pf-aggressive-L0-BNBUSDT",
+            "symbol": "BNBUSDT",
+            "market": "usd_m_futures",
+            "direction": "long",
+            "direction_mode": "long_and_short",
+            "margin_mode": "isolated",
+            "leverage": 10,
+            "spacing": {
+              "fixed_percent": {
+                "step_bps": 180
+              }
+            },
+            "sizing": {
+              "multiplier": {
+                "first_order_quote": "30.0",
+                "multiplier": "2.5",
+                "max_legs": 8
+              }
+            },
+            "take_profit": {
+              "percent": {
+                "bps": 420
+              }
+            },
+            "stop_loss": {
+              "strategy_drawdown_pct": {
+                "pct_bps": 4500
+              }
+            },
+            "indicators": [
+              {
+                "atr": {
+                  "period": 14
+                }
+              },
+              {
+                "adx": {
+                  "period": 14
+                }
+              }
+            ],
+            "entry_triggers": [
+              {
+                "cooldown": {
+                  "seconds": 10800
+                }
+              },
+              {
+                "indicator_expression": {
+                  "expression": "BNBUSDT.close > BNBUSDT.ema(100)"
+                }
+              },
+              {
+                "indicator_expression": {
+                  "expression": "BTCUSDT.close > BTCUSDT.ema(50)"
+                }
+              }
+            ],
+            "risk_limits": {
+              "max_active_cycles": null,
+              "max_global_budget_quote": null,
+              "max_symbol_budget_quote": null,
+              "max_direction_budget_quote": null,
+              "max_strategy_budget_quote": null,
+              "max_global_drawdown_quote": null
+            },
+            "portfolio_weight_pct": "50"
+          },
+          {
+            "strategy_id": "pf-aggressive-L1-BCHUSDT",
+            "symbol": "BCHUSDT",
+            "market": "usd_m_futures",
+            "direction": "long",
+            "direction_mode": "long_and_short",
+            "margin_mode": "isolated",
+            "leverage": 10,
+            "spacing": {
+              "fixed_percent": {
+                "step_bps": 180
+              }
+            },
+            "sizing": {
+              "multiplier": {
+                "first_order_quote": "30.0",
+                "multiplier": "2.5",
+                "max_legs": 8
+              }
+            },
+            "take_profit": {
+              "percent": {
+                "bps": 420
+              }
+            },
+            "stop_loss": {
+              "strategy_drawdown_pct": {
+                "pct_bps": 4500
+              }
+            },
+            "indicators": [
+              {
+                "atr": {
+                  "period": 14
+                }
+              },
+              {
+                "adx": {
+                  "period": 14
+                }
+              }
+            ],
+            "entry_triggers": [
+              {
+                "cooldown": {
+                  "seconds": 10800
+                }
+              },
+              {
+                "indicator_expression": {
+                  "expression": "BCHUSDT.close > BCHUSDT.ema(100)"
+                }
+              },
+              {
+                "indicator_expression": {
+                  "expression": "BTCUSDT.close > BTCUSDT.ema(50)"
+                }
+              }
+            ],
+            "risk_limits": {
+              "max_active_cycles": null,
+              "max_global_budget_quote": null,
+              "max_symbol_budget_quote": null,
+              "max_direction_budget_quote": null,
+              "max_strategy_budget_quote": null,
+              "max_global_drawdown_quote": null
+            },
+            "portfolio_weight_pct": "50"
+          },
+          {
+            "strategy_id": "pf-aggressive-S0-AAVEUSDT",
+            "symbol": "AAVEUSDT",
+            "market": "usd_m_futures",
+            "direction": "short",
+            "direction_mode": "long_and_short",
+            "margin_mode": "isolated",
+            "leverage": 10,
+            "spacing": {
+              "fixed_percent": {
+                "step_bps": 180
+              }
+            },
+            "sizing": {
+              "multiplier": {
+                "first_order_quote": "30.0",
+                "multiplier": "2.5",
+                "max_legs": 8
+              }
+            },
+            "take_profit": {
+              "percent": {
+                "bps": 420
+              }
+            },
+            "stop_loss": {
+              "strategy_drawdown_pct": {
+                "pct_bps": 4500
+              }
+            },
+            "indicators": [
+              {
+                "atr": {
+                  "period": 14
+                }
+              },
+              {
+                "adx": {
+                  "period": 14
+                }
+              }
+            ],
+            "entry_triggers": [
+              {
+                "cooldown": {
+                  "seconds": 10800
+                }
+              },
+              {
+                "indicator_expression": {
+                  "expression": "AAVEUSDT.close < AAVEUSDT.ema(100)"
+                }
+              },
+              {
+                "indicator_expression": {
+                  "expression": "BTCUSDT.close < BTCUSDT.ema(50)"
+                }
+              }
+            ],
+            "risk_limits": {
+              "max_active_cycles": null,
+              "max_global_budget_quote": null,
+              "max_symbol_budget_quote": null,
+              "max_direction_budget_quote": null,
+              "max_strategy_budget_quote": null,
+              "max_global_drawdown_quote": null
+            },
+            "portfolio_weight_pct": "10"
+          }
+        ],
+        "risk_limits": {
+          "max_global_budget_quote": "5000"
+        }
+      },
+      "m2024": {
+        "ann": 0.27034224431845555,
+        "dd": 20.720044696492725,
+        "ret": 0.2710833959586671,
+        "min_eq": 4941.640944744222,
+        "breached": false,
+        "trades": 895,
+        "max_cap": 684.011109375
+      },
+      "m2025": {
+        "ann": 0.7569373864223738,
+        "dd": 18.389458086160587,
+        "ret": 0.7569359408459786,
+        "min_eq": 4508.402664063522,
+        "breached": false,
+        "trades": 337,
+        "max_cap": 1431.7619765625002
+      },
+      "survives": true,
+      "segment_metrics": {
+        "h1_2023": {
+          "ann": 31.93555776677046,
+          "dd": 37.83419777600841,
+          "ret": 14.732395662933959,
+          "min_eq": 4312.439740536063,
+          "breached": false,
+          "trades": 948,
+          "max_cap": 2456.268890625
+        },
+        "h2_2023": {
+          "ann": -19.21111374668172,
+          "dd": 14.248162610649546,
+          "ret": -10.196091226754106,
+          "min_eq": 4386.19328839501,
+          "breached": false,
+          "trades": 69,
+          "max_cap": 1306.2640078125003
+        },
+        "2024": {
+          "ann": 0.27034224431845555,
+          "dd": 20.720044696492725,
+          "ret": 0.2710833959586671,
+          "min_eq": 4941.640944744222,
+          "breached": false,
+          "trades": 895,
+          "max_cap": 684.011109375
+        },
+        "2025": {
+          "ann": 0.7569373864223738,
+          "dd": 18.389458086160587,
+          "ret": 0.7569359408459786,
+          "min_eq": 4508.402664063522,
+          "breached": false,
+          "trades": 337,
+          "max_cap": 1431.7619765625002
+        },
+        "2026_ytd": {
+          "ann": -56.79991250167995,
+          "dd": 34.569391285458174,
+          "ret": -29.33551750015869,
+          "min_eq": 3533.2241249920653,
+          "breached": false,
+          "trades": 470,
+          "max_cap": 2453.249390625
+        }
+      },
+      "full_metrics": {
+        "ann": 4.104683568427414,
+        "dd": 37.83419777600841,
+        "ret": 14.732395662933959,
+        "min_eq": 4312.439740536063,
+        "breached": false,
+        "trades": 948,
+        "max_cap": 2456.268890625
+      },
+      "positive_segments": 3,
+      "agg_2024_2026": -28.307498163354044,
+      "h1_2023_contribution": 0,
+      "gate_pass": false
+    },
+    {
+      "label": "agg-looloo-L2S1-35w12",
+      "profile": "aggressive",
+      "config": {
+        "direction_mode": "long_and_short",
+        "strategies": [
+          {
+            "strategy_id": "pf-aggressive-L0-BNBUSDT",
+            "symbol": "BNBUSDT",
+            "market": "usd_m_futures",
+            "direction": "long",
+            "direction_mode": "long_and_short",
+            "margin_mode": "isolated",
+            "leverage": 10,
+            "spacing": {
+              "fixed_percent": {
+                "step_bps": 180
+              }
+            },
+            "sizing": {
+              "multiplier": {
+                "first_order_quote": "30.0",
+                "multiplier": "2.5",
+                "max_legs": 8
+              }
+            },
+            "take_profit": {
+              "percent": {
+                "bps": 420
+              }
+            },
+            "stop_loss": {
+              "strategy_drawdown_pct": {
+                "pct_bps": 4500
+              }
+            },
+            "indicators": [
+              {
+                "atr": {
+                  "period": 14
+                }
+              },
+              {
+                "adx": {
+                  "period": 14
+                }
+              }
+            ],
+            "entry_triggers": [
+              {
+                "cooldown": {
+                  "seconds": 10800
+                }
+              },
+              {
+                "indicator_expression": {
+                  "expression": "BNBUSDT.close > BNBUSDT.ema(100)"
+                }
+              },
+              {
+                "indicator_expression": {
+                  "expression": "BTCUSDT.close > BTCUSDT.ema(50)"
+                }
+              }
+            ],
+            "risk_limits": {
+              "max_active_cycles": null,
+              "max_global_budget_quote": null,
+              "max_symbol_budget_quote": null,
+              "max_direction_budget_quote": null,
+              "max_strategy_budget_quote": null,
+              "max_global_drawdown_quote": null
+            },
+            "portfolio_weight_pct": "35"
+          },
+          {
+            "strategy_id": "pf-aggressive-L1-BCHUSDT",
+            "symbol": "BCHUSDT",
+            "market": "usd_m_futures",
+            "direction": "long",
+            "direction_mode": "long_and_short",
+            "margin_mode": "isolated",
+            "leverage": 10,
+            "spacing": {
+              "fixed_percent": {
+                "step_bps": 180
+              }
+            },
+            "sizing": {
+              "multiplier": {
+                "first_order_quote": "30.0",
+                "multiplier": "2.5",
+                "max_legs": 8
+              }
+            },
+            "take_profit": {
+              "percent": {
+                "bps": 420
+              }
+            },
+            "stop_loss": {
+              "strategy_drawdown_pct": {
+                "pct_bps": 4500
+              }
+            },
+            "indicators": [
+              {
+                "atr": {
+                  "period": 14
+                }
+              },
+              {
+                "adx": {
+                  "period": 14
+                }
+              }
+            ],
+            "entry_triggers": [
+              {
+                "cooldown": {
+                  "seconds": 10800
+                }
+              },
+              {
+                "indicator_expression": {
+                  "expression": "BCHUSDT.close > BCHUSDT.ema(100)"
+                }
+              },
+              {
+                "indicator_expression": {
+                  "expression": "BTCUSDT.close > BTCUSDT.ema(50)"
+                }
+              }
+            ],
+            "risk_limits": {
+              "max_active_cycles": null,
+              "max_global_budget_quote": null,
+              "max_symbol_budget_quote": null,
+              "max_direction_budget_quote": null,
+              "max_strategy_budget_quote": null,
+              "max_global_drawdown_quote": null
+            },
+            "portfolio_weight_pct": "35"
+          },
+          {
+            "strategy_id": "pf-aggressive-S0-AAVEUSDT",
+            "symbol": "AAVEUSDT",
+            "market": "usd_m_futures",
+            "direction": "short",
+            "direction_mode": "long_and_short",
+            "margin_mode": "isolated",
+            "leverage": 10,
+            "spacing": {
+              "fixed_percent": {
+                "step_bps": 180
+              }
+            },
+            "sizing": {
+              "multiplier": {
+                "first_order_quote": "30.0",
+                "multiplier": "2.5",
+                "max_legs": 8
+              }
+            },
+            "take_profit": {
+              "percent": {
+                "bps": 420
+              }
+            },
+            "stop_loss": {
+              "strategy_drawdown_pct": {
+                "pct_bps": 4500
+              }
+            },
+            "indicators": [
+              {
+                "atr": {
+                  "period": 14
+                }
+              },
+              {
+                "adx": {
+                  "period": 14
+                }
+              }
+            ],
+            "entry_triggers": [
+              {
+                "cooldown": {
+                  "seconds": 10800
+                }
+              },
+              {
+                "indicator_expression": {
+                  "expression": "AAVEUSDT.close < AAVEUSDT.ema(100)"
+                }
+              },
+              {
+                "indicator_expression": {
+                  "expression": "BTCUSDT.close < BTCUSDT.ema(50)"
+                }
+              }
+            ],
+            "risk_limits": {
+              "max_active_cycles": null,
+              "max_global_budget_quote": null,
+              "max_symbol_budget_quote": null,
+              "max_direction_budget_quote": null,
+              "max_strategy_budget_quote": null,
+              "max_global_drawdown_quote": null
+            },
+            "portfolio_weight_pct": "12"
+          }
+        ],
+        "risk_limits": {
+          "max_global_budget_quote": "5000"
+        }
+      },
+      "m2024": {
+        "ann": 0.27034224431845555,
+        "dd": 20.720044696492725,
+        "ret": 0.2710833959586671,
+        "min_eq": 4941.640944744222,
+        "breached": false,
+        "trades": 895,
+        "max_cap": 684.011109375
+      },
+      "m2025": {
+        "ann": 0.7569373864223738,
+        "dd": 18.389458086160587,
+        "ret": 0.7569359408459786,
+        "min_eq": 4508.402664063522,
+        "breached": false,
+        "trades": 337,
+        "max_cap": 1431.7619765625002
+      },
+      "survives": true,
+      "segment_metrics": {
+        "h1_2023": {
+          "ann": 31.93555776677046,
+          "dd": 37.83419777600841,
+          "ret": 14.732395662933959,
+          "min_eq": 4312.439740536063,
+          "breached": false,
+          "trades": 948,
+          "max_cap": 2456.268890625
+        },
+        "h2_2023": {
+          "ann": -19.21111374668172,
+          "dd": 14.248162610649546,
+          "ret": -10.196091226754106,
+          "min_eq": 4386.19328839501,
+          "breached": false,
+          "trades": 69,
+          "max_cap": 1306.2640078125003
+        },
+        "2024": {
+          "ann": 0.27034224431845555,
+          "dd": 20.720044696492725,
+          "ret": 0.2710833959586671,
+          "min_eq": 4941.640944744222,
+          "breached": false,
+          "trades": 895,
+          "max_cap": 684.011109375
+        },
+        "2025": {
+          "ann": 0.7569373864223738,
+          "dd": 18.389458086160587,
+          "ret": 0.7569359408459786,
+          "min_eq": 4508.402664063522,
+          "breached": false,
+          "trades": 337,
+          "max_cap": 1431.7619765625002
+        },
+        "2026_ytd": {
+          "ann": -56.79991250167995,
+          "dd": 34.569391285458174,
+          "ret": -29.33551750015869,
+          "min_eq": 3533.2241249920653,
+          "breached": false,
+          "trades": 470,
+          "max_cap": 2453.249390625
+        }
+      },
+      "full_metrics": {
+        "ann": 4.104683568427414,
+        "dd": 37.83419777600841,
+        "ret": 14.732395662933959,
+        "min_eq": 4312.439740536063,
+        "breached": false,
+        "trades": 948,
+        "max_cap": 2456.268890625
+      },
+      "positive_segments": 3,
+      "agg_2024_2026": -28.307498163354044,
+      "h1_2023_contribution": 0,
+      "gate_pass": false
+    },
+    {
+      "label": "agg-bulloo-L1S1-40w15",
+      "profile": "aggressive",
+      "config": {
+        "direction_mode": "long_and_short",
+        "strategies": [
+          {
+            "strategy_id": "pf-aggressive-L0-BCHUSDT",
+            "symbol": "BCHUSDT",
+            "market": "usd_m_futures",
+            "direction": "long",
+            "direction_mode": "long_and_short",
+            "margin_mode": "isolated",
+            "leverage": 10,
+            "spacing": {
+              "fixed_percent": {
+                "step_bps": 180
+              }
+            },
+            "sizing": {
+              "multiplier": {
+                "first_order_quote": "30.0",
+                "multiplier": "2.5",
+                "max_legs": 8
+              }
+            },
+            "take_profit": {
+              "percent": {
+                "bps": 420
+              }
+            },
+            "stop_loss": {
+              "strategy_drawdown_pct": {
+                "pct_bps": 4500
+              }
+            },
+            "indicators": [
+              {
+                "atr": {
+                  "period": 14
+                }
+              },
+              {
+                "adx": {
+                  "period": 14
+                }
+              }
+            ],
+            "entry_triggers": [
+              {
+                "cooldown": {
+                  "seconds": 10800
+                }
+              },
+              {
+                "indicator_expression": {
+                  "expression": "BCHUSDT.close > BCHUSDT.ema(50)"
+                }
+              },
+              {
+                "indicator_expression": {
+                  "expression": "BCHUSDT.ema(50) > BCHUSDT.ema(200)"
+                }
+              },
+              {
+                "indicator_expression": {
+                  "expression": "BTCUSDT.close > BTCUSDT.ema(50)"
+                }
+              }
+            ],
+            "risk_limits": {
+              "max_active_cycles": null,
+              "max_global_budget_quote": null,
+              "max_symbol_budget_quote": null,
+              "max_direction_budget_quote": null,
+              "max_strategy_budget_quote": null,
+              "max_global_drawdown_quote": null
+            },
+            "portfolio_weight_pct": "40"
+          },
+          {
+            "strategy_id": "pf-aggressive-S0-AAVEUSDT",
+            "symbol": "AAVEUSDT",
+            "market": "usd_m_futures",
+            "direction": "short",
+            "direction_mode": "long_and_short",
+            "margin_mode": "isolated",
+            "leverage": 10,
+            "spacing": {
+              "fixed_percent": {
+                "step_bps": 180
+              }
+            },
+            "sizing": {
+              "multiplier": {
+                "first_order_quote": "30.0",
+                "multiplier": "2.5",
+                "max_legs": 8
+              }
+            },
+            "take_profit": {
+              "percent": {
+                "bps": 420
+              }
+            },
+            "stop_loss": {
+              "strategy_drawdown_pct": {
+                "pct_bps": 4500
+              }
+            },
+            "indicators": [
+              {
+                "atr": {
+                  "period": 14
+                }
+              },
+              {
+                "adx": {
+                  "period": 14
+                }
+              }
+            ],
+            "entry_triggers": [
+              {
+                "cooldown": {
+                  "seconds": 10800
+                }
+              },
+              {
+                "indicator_expression": {
+                  "expression": "AAVEUSDT.close < AAVEUSDT.ema(100)"
+                }
+              },
+              {
+                "indicator_expression": {
+                  "expression": "BTCUSDT.close < BTCUSDT.ema(50)"
+                }
+              }
+            ],
+            "risk_limits": {
+              "max_active_cycles": null,
+              "max_global_budget_quote": null,
+              "max_symbol_budget_quote": null,
+              "max_direction_budget_quote": null,
+              "max_strategy_budget_quote": null,
+              "max_global_drawdown_quote": null
+            },
+            "portfolio_weight_pct": "15"
+          }
+        ],
+        "risk_limits": {
+          "max_global_budget_quote": "5000"
+        }
+      },
+      "m2024": {
+        "ann": 2.406481052760201,
+        "dd": 11.451607047195566,
+        "ret": 2.4131484374013965,
+        "min_eq": 4966.265724884627,
+        "breached": false,
+        "trades": 86,
+        "max_cap": 1303.2445078125
+      },
+      "m2025": {
+        "ann": 15.471085855827017,
+        "dd": 13.5793345890658,
+        "ret": 15.471054252877256,
+        "min_eq": 4792.873774702703,
+        "breached": false,
+        "trades": 71,
+        "max_cap": 1421.1937265625
+      },
+      "survives": true,
+      "segment_metrics": {
+        "h1_2023": {
+          "ann": -24.58165330667277,
+          "dd": 28.051521439209175,
+          "ret": -13.055471612002057,
+          "min_eq": 4347.226419399897,
+          "breached": false,
+          "trades": 818,
+          "max_cap": 1229.6441953125002
+        },
+        "h2_2023": {
+          "ann": -22.13229966138195,
+          "dd": 13.806871342098798,
+          "ret": -11.847952412875165,
+          "min_eq": 4407.602379356242,
+          "breached": false,
+          "trades": 57,
+          "max_cap": 1226.6246953125
+        },
+        "2024": {
+          "ann": 2.406481052760201,
+          "dd": 11.451607047195566,
+          "ret": 2.4131484374013965,
+          "min_eq": 4966.265724884627,
+          "breached": false,
+          "trades": 86,
+          "max_cap": 1303.2445078125
+        },
+        "2025": {
+          "ann": 15.471085855827017,
+          "dd": 13.5793345890658,
+          "ret": 15.471054252877256,
+          "min_eq": 4792.873774702703,
+          "breached": false,
+          "trades": 71,
+          "max_cap": 1421.1937265625
+        },
+        "2026_ytd": {
+          "ann": -38.45381772584934,
+          "dd": 21.206590027590686,
+          "ret": -18.19248651020607,
+          "min_eq": 4090.3756744896964,
+          "breached": false,
+          "trades": 450,
+          "max_cap": 1226.6246953125
+        }
+      },
+      "full_metrics": {
+        "ann": -4.0121979073003855,
+        "dd": 28.051521439209175,
+        "ret": -13.055471612002057,
+        "min_eq": 4347.226419399897,
+        "breached": false,
+        "trades": 818,
+        "max_cap": 1229.6441953125002
+      },
+      "positive_segments": 2,
+      "agg_2024_2026": -0.3082838199274178,
+      "h1_2023_contribution": 0,
+      "gate_pass": false
+    },
+    {
+      "label": "agg-bulloo-L1S1-35w12",
+      "profile": "aggressive",
+      "config": {
+        "direction_mode": "long_and_short",
+        "strategies": [
+          {
+            "strategy_id": "pf-aggressive-L0-BCHUSDT",
+            "symbol": "BCHUSDT",
+            "market": "usd_m_futures",
+            "direction": "long",
+            "direction_mode": "long_and_short",
+            "margin_mode": "isolated",
+            "leverage": 10,
+            "spacing": {
+              "fixed_percent": {
+                "step_bps": 180
+              }
+            },
+            "sizing": {
+              "multiplier": {
+                "first_order_quote": "30.0",
+                "multiplier": "2.5",
+                "max_legs": 8
+              }
+            },
+            "take_profit": {
+              "percent": {
+                "bps": 420
+              }
+            },
+            "stop_loss": {
+              "strategy_drawdown_pct": {
+                "pct_bps": 4500
+              }
+            },
+            "indicators": [
+              {
+                "atr": {
+                  "period": 14
+                }
+              },
+              {
+                "adx": {
+                  "period": 14
+                }
+              }
+            ],
+            "entry_triggers": [
+              {
+                "cooldown": {
+                  "seconds": 10800
+                }
+              },
+              {
+                "indicator_expression": {
+                  "expression": "BCHUSDT.close > BCHUSDT.ema(50)"
+                }
+              },
+              {
+                "indicator_expression": {
+                  "expression": "BCHUSDT.ema(50) > BCHUSDT.ema(200)"
+                }
+              },
+              {
+                "indicator_expression": {
+                  "expression": "BTCUSDT.close > BTCUSDT.ema(50)"
+                }
+              }
+            ],
+            "risk_limits": {
+              "max_active_cycles": null,
+              "max_global_budget_quote": null,
+              "max_symbol_budget_quote": null,
+              "max_direction_budget_quote": null,
+              "max_strategy_budget_quote": null,
+              "max_global_drawdown_quote": null
+            },
+            "portfolio_weight_pct": "35"
+          },
+          {
+            "strategy_id": "pf-aggressive-S0-AAVEUSDT",
+            "symbol": "AAVEUSDT",
+            "market": "usd_m_futures",
+            "direction": "short",
+            "direction_mode": "long_and_short",
+            "margin_mode": "isolated",
+            "leverage": 10,
+            "spacing": {
+              "fixed_percent": {
+                "step_bps": 180
+              }
+            },
+            "sizing": {
+              "multiplier": {
+                "first_order_quote": "30.0",
+                "multiplier": "2.5",
+                "max_legs": 8
+              }
+            },
+            "take_profit": {
+              "percent": {
+                "bps": 420
+              }
+            },
+            "stop_loss": {
+              "strategy_drawdown_pct": {
+                "pct_bps": 4500
+              }
+            },
+            "indicators": [
+              {
+                "atr": {
+                  "period": 14
+                }
+              },
+              {
+                "adx": {
+                  "period": 14
+                }
+              }
+            ],
+            "entry_triggers": [
+              {
+                "cooldown": {
+                  "seconds": 10800
+                }
+              },
+              {
+                "indicator_expression": {
+                  "expression": "AAVEUSDT.close < AAVEUSDT.ema(100)"
+                }
+              },
+              {
+                "indicator_expression": {
+                  "expression": "BTCUSDT.close < BTCUSDT.ema(50)"
+                }
+              }
+            ],
+            "risk_limits": {
+              "max_active_cycles": null,
+              "max_global_budget_quote": null,
+              "max_symbol_budget_quote": null,
+              "max_direction_budget_quote": null,
+              "max_strategy_budget_quote": null,
+              "max_global_drawdown_quote": null
+            },
+            "portfolio_weight_pct": "12"
+          }
+        ],
+        "risk_limits": {
+          "max_global_budget_quote": "5000"
+        }
+      },
+      "m2024": {
+        "ann": 2.406481052760201,
+        "dd": 11.451607047195566,
+        "ret": 2.4131484374013965,
+        "min_eq": 4966.265724884627,
+        "breached": false,
+        "trades": 86,
+        "max_cap": 1303.2445078125
+      },
+      "m2025": {
+        "ann": 15.471085855827017,
+        "dd": 13.5793345890658,
+        "ret": 15.471054252877256,
+        "min_eq": 4792.873774702703,
+        "breached": false,
+        "trades": 71,
+        "max_cap": 1421.1937265625
+      },
+      "survives": true,
+      "segment_metrics": {
+        "h1_2023": {
+          "ann": -24.58165330667277,
+          "dd": 28.051521439209175,
+          "ret": -13.055471612002057,
+          "min_eq": 4347.226419399897,
+          "breached": false,
+          "trades": 818,
+          "max_cap": 1229.6441953125002
+        },
+        "h2_2023": {
+          "ann": -22.13229966138195,
+          "dd": 13.806871342098798,
+          "ret": -11.847952412875165,
+          "min_eq": 4407.602379356242,
+          "breached": false,
+          "trades": 57,
+          "max_cap": 1226.6246953125
+        },
+        "2024": {
+          "ann": 2.406481052760201,
+          "dd": 11.451607047195566,
+          "ret": 2.4131484374013965,
+          "min_eq": 4966.265724884627,
+          "breached": false,
+          "trades": 86,
+          "max_cap": 1303.2445078125
+        },
+        "2025": {
+          "ann": 15.471085855827017,
+          "dd": 13.5793345890658,
+          "ret": 15.471054252877256,
+          "min_eq": 4792.873774702703,
+          "breached": false,
+          "trades": 71,
+          "max_cap": 1421.1937265625
+        },
+        "2026_ytd": {
+          "ann": -38.45381772584934,
+          "dd": 21.206590027590686,
+          "ret": -18.19248651020607,
+          "min_eq": 4090.3756744896964,
+          "breached": false,
+          "trades": 450,
+          "max_cap": 1226.6246953125
+        }
+      },
+      "full_metrics": {
+        "ann": -4.0121979073003855,
+        "dd": 28.051521439209175,
+        "ret": -13.055471612002057,
+        "min_eq": 4347.226419399897,
+        "breached": false,
+        "trades": 818,
+        "max_cap": 1229.6441953125002
+      },
+      "positive_segments": 2,
+      "agg_2024_2026": -0.3082838199274178,
+      "h1_2023_contribution": 0,
+      "gate_pass": false
+    },
+    {
+      "label": "agg-bulloo-L1S1-30w20",
+      "profile": "aggressive",
+      "config": {
+        "direction_mode": "long_and_short",
+        "strategies": [
+          {
+            "strategy_id": "pf-aggressive-L0-BCHUSDT",
+            "symbol": "BCHUSDT",
+            "market": "usd_m_futures",
+            "direction": "long",
+            "direction_mode": "long_and_short",
+            "margin_mode": "isolated",
+            "leverage": 10,
+            "spacing": {
+              "fixed_percent": {
+                "step_bps": 180
+              }
+            },
+            "sizing": {
+              "multiplier": {
+                "first_order_quote": "30.0",
+                "multiplier": "2.5",
+                "max_legs": 8
+              }
+            },
+            "take_profit": {
+              "percent": {
+                "bps": 420
+              }
+            },
+            "stop_loss": {
+              "strategy_drawdown_pct": {
+                "pct_bps": 4500
+              }
+            },
+            "indicators": [
+              {
+                "atr": {
+                  "period": 14
+                }
+              },
+              {
+                "adx": {
+                  "period": 14
+                }
+              }
+            ],
+            "entry_triggers": [
+              {
+                "cooldown": {
+                  "seconds": 10800
+                }
+              },
+              {
+                "indicator_expression": {
+                  "expression": "BCHUSDT.close > BCHUSDT.ema(50)"
+                }
+              },
+              {
+                "indicator_expression": {
+                  "expression": "BCHUSDT.ema(50) > BCHUSDT.ema(200)"
+                }
+              },
+              {
+                "indicator_expression": {
+                  "expression": "BTCUSDT.close > BTCUSDT.ema(50)"
+                }
+              }
+            ],
+            "risk_limits": {
+              "max_active_cycles": null,
+              "max_global_budget_quote": null,
+              "max_symbol_budget_quote": null,
+              "max_direction_budget_quote": null,
+              "max_strategy_budget_quote": null,
+              "max_global_drawdown_quote": null
+            },
+            "portfolio_weight_pct": "30"
+          },
+          {
+            "strategy_id": "pf-aggressive-S0-AAVEUSDT",
+            "symbol": "AAVEUSDT",
+            "market": "usd_m_futures",
+            "direction": "short",
+            "direction_mode": "long_and_short",
+            "margin_mode": "isolated",
+            "leverage": 10,
+            "spacing": {
+              "fixed_percent": {
+                "step_bps": 180
+              }
+            },
+            "sizing": {
+              "multiplier": {
+                "first_order_quote": "30.0",
+                "multiplier": "2.5",
+                "max_legs": 8
+              }
+            },
+            "take_profit": {
+              "percent": {
+                "bps": 420
+              }
+            },
+            "stop_loss": {
+              "strategy_drawdown_pct": {
+                "pct_bps": 4500
+              }
+            },
+            "indicators": [
+              {
+                "atr": {
+                  "period": 14
+                }
+              },
+              {
+                "adx": {
+                  "period": 14
+                }
+              }
+            ],
+            "entry_triggers": [
+              {
+                "cooldown": {
+                  "seconds": 10800
+                }
+              },
+              {
+                "indicator_expression": {
+                  "expression": "AAVEUSDT.close < AAVEUSDT.ema(100)"
+                }
+              },
+              {
+                "indicator_expression": {
+                  "expression": "BTCUSDT.close < BTCUSDT.ema(50)"
+                }
+              }
+            ],
+            "risk_limits": {
+              "max_active_cycles": null,
+              "max_global_budget_quote": null,
+              "max_symbol_budget_quote": null,
+              "max_direction_budget_quote": null,
+              "max_strategy_budget_quote": null,
+              "max_global_drawdown_quote": null
+            },
+            "portfolio_weight_pct": "20"
+          }
+        ],
+        "risk_limits": {
+          "max_global_budget_quote": "5000"
+        }
+      },
+      "m2024": {
+        "ann": 2.406481052760201,
+        "dd": 11.451607047195566,
+        "ret": 2.4131484374013965,
+        "min_eq": 4966.265724884627,
+        "breached": false,
+        "trades": 86,
+        "max_cap": 1303.2445078125
+      },
+      "m2025": {
+        "ann": 15.471085855827017,
+        "dd": 13.5793345890658,
+        "ret": 15.471054252877256,
+        "min_eq": 4792.873774702703,
+        "breached": false,
+        "trades": 71,
+        "max_cap": 1421.1937265625
+      },
+      "survives": true,
+      "segment_metrics": {
+        "h1_2023": {
+          "ann": -24.58165330667277,
+          "dd": 28.051521439209175,
+          "ret": -13.055471612002057,
+          "min_eq": 4347.226419399897,
+          "breached": false,
+          "trades": 818,
+          "max_cap": 1229.6441953125002
+        },
+        "h2_2023": {
+          "ann": -22.13229966138195,
+          "dd": 13.806871342098798,
+          "ret": -11.847952412875165,
+          "min_eq": 4407.602379356242,
+          "breached": false,
+          "trades": 57,
+          "max_cap": 1226.6246953125
+        },
+        "2024": {
+          "ann": 2.406481052760201,
+          "dd": 11.451607047195566,
+          "ret": 2.4131484374013965,
+          "min_eq": 4966.265724884627,
+          "breached": false,
+          "trades": 86,
+          "max_cap": 1303.2445078125
+        },
+        "2025": {
+          "ann": 15.471085855827017,
+          "dd": 13.5793345890658,
+          "ret": 15.471054252877256,
+          "min_eq": 4792.873774702703,
+          "breached": false,
+          "trades": 71,
+          "max_cap": 1421.1937265625
+        },
+        "2026_ytd": {
+          "ann": -38.45381772584934,
+          "dd": 21.206590027590686,
+          "ret": -18.19248651020607,
+          "min_eq": 4090.3756744896964,
+          "breached": false,
+          "trades": 450,
+          "max_cap": 1226.6246953125
+        }
+      },
+      "full_metrics": {
+        "ann": -4.0121979073003855,
+        "dd": 28.051521439209175,
+        "ret": -13.055471612002057,
+        "min_eq": 4347.226419399897,
+        "breached": false,
+        "trades": 818,
+        "max_cap": 1229.6441953125002
+      },
+      "positive_segments": 2,
+      "agg_2024_2026": -0.3082838199274178,
+      "h1_2023_contribution": 0,
+      "gate_pass": false
+    },
+    {
+      "label": "agg-bulloo-L1S1-50w10",
+      "profile": "aggressive",
+      "config": {
+        "direction_mode": "long_and_short",
+        "strategies": [
+          {
+            "strategy_id": "pf-aggressive-L0-BCHUSDT",
+            "symbol": "BCHUSDT",
+            "market": "usd_m_futures",
+            "direction": "long",
+            "direction_mode": "long_and_short",
+            "margin_mode": "isolated",
+            "leverage": 10,
+            "spacing": {
+              "fixed_percent": {
+                "step_bps": 180
+              }
+            },
+            "sizing": {
+              "multiplier": {
+                "first_order_quote": "30.0",
+                "multiplier": "2.5",
+                "max_legs": 8
+              }
+            },
+            "take_profit": {
+              "percent": {
+                "bps": 420
+              }
+            },
+            "stop_loss": {
+              "strategy_drawdown_pct": {
+                "pct_bps": 4500
+              }
+            },
+            "indicators": [
+              {
+                "atr": {
+                  "period": 14
+                }
+              },
+              {
+                "adx": {
+                  "period": 14
+                }
+              }
+            ],
+            "entry_triggers": [
+              {
+                "cooldown": {
+                  "seconds": 10800
+                }
+              },
+              {
+                "indicator_expression": {
+                  "expression": "BCHUSDT.close > BCHUSDT.ema(50)"
+                }
+              },
+              {
+                "indicator_expression": {
+                  "expression": "BCHUSDT.ema(50) > BCHUSDT.ema(200)"
+                }
+              },
+              {
+                "indicator_expression": {
+                  "expression": "BTCUSDT.close > BTCUSDT.ema(50)"
+                }
+              }
+            ],
+            "risk_limits": {
+              "max_active_cycles": null,
+              "max_global_budget_quote": null,
+              "max_symbol_budget_quote": null,
+              "max_direction_budget_quote": null,
+              "max_strategy_budget_quote": null,
+              "max_global_drawdown_quote": null
+            },
+            "portfolio_weight_pct": "50"
+          },
+          {
+            "strategy_id": "pf-aggressive-S0-AAVEUSDT",
+            "symbol": "AAVEUSDT",
+            "market": "usd_m_futures",
+            "direction": "short",
+            "direction_mode": "long_and_short",
+            "margin_mode": "isolated",
+            "leverage": 10,
+            "spacing": {
+              "fixed_percent": {
+                "step_bps": 180
+              }
+            },
+            "sizing": {
+              "multiplier": {
+                "first_order_quote": "30.0",
+                "multiplier": "2.5",
+                "max_legs": 8
+              }
+            },
+            "take_profit": {
+              "percent": {
+                "bps": 420
+              }
+            },
+            "stop_loss": {
+              "strategy_drawdown_pct": {
+                "pct_bps": 4500
+              }
+            },
+            "indicators": [
+              {
+                "atr": {
+                  "period": 14
+                }
+              },
+              {
+                "adx": {
+                  "period": 14
+                }
+              }
+            ],
+            "entry_triggers": [
+              {
+                "cooldown": {
+                  "seconds": 10800
+                }
+              },
+              {
+                "indicator_expression": {
+                  "expression": "AAVEUSDT.close < AAVEUSDT.ema(100)"
+                }
+              },
+              {
+                "indicator_expression": {
+                  "expression": "BTCUSDT.close < BTCUSDT.ema(50)"
+                }
+              }
+            ],
+            "risk_limits": {
+              "max_active_cycles": null,
+              "max_global_budget_quote": null,
+              "max_symbol_budget_quote": null,
+              "max_direction_budget_quote": null,
+              "max_strategy_budget_quote": null,
+              "max_global_drawdown_quote": null
+            },
+            "portfolio_weight_pct": "10"
+          }
+        ],
+        "risk_limits": {
+          "max_global_budget_quote": "5000"
+        }
+      },
+      "m2024": {
+        "ann": 2.406481052760201,
+        "dd": 11.451607047195566,
+        "ret": 2.4131484374013965,
+        "min_eq": 4966.265724884627,
+        "breached": false,
+        "trades": 86,
+        "max_cap": 1303.2445078125
+      },
+      "m2025": {
+        "ann": 15.471085855827017,
+        "dd": 13.5793345890658,
+        "ret": 15.471054252877256,
+        "min_eq": 4792.873774702703,
+        "breached": false,
+        "trades": 71,
+        "max_cap": 1421.1937265625
+      },
+      "survives": true,
+      "segment_metrics": {
+        "h1_2023": {
+          "ann": -24.58165330667277,
+          "dd": 28.051521439209175,
+          "ret": -13.055471612002057,
+          "min_eq": 4347.226419399897,
+          "breached": false,
+          "trades": 818,
+          "max_cap": 1229.6441953125002
+        },
+        "h2_2023": {
+          "ann": -22.13229966138195,
+          "dd": 13.806871342098798,
+          "ret": -11.847952412875165,
+          "min_eq": 4407.602379356242,
+          "breached": false,
+          "trades": 57,
+          "max_cap": 1226.6246953125
+        },
+        "2024": {
+          "ann": 2.406481052760201,
+          "dd": 11.451607047195566,
+          "ret": 2.4131484374013965,
+          "min_eq": 4966.265724884627,
+          "breached": false,
+          "trades": 86,
+          "max_cap": 1303.2445078125
+        },
+        "2025": {
+          "ann": 15.471085855827017,
+          "dd": 13.5793345890658,
+          "ret": 15.471054252877256,
+          "min_eq": 4792.873774702703,
+          "breached": false,
+          "trades": 71,
+          "max_cap": 1421.1937265625
+        },
+        "2026_ytd": {
+          "ann": -38.45381772584934,
+          "dd": 21.206590027590686,
+          "ret": -18.19248651020607,
+          "min_eq": 4090.3756744896964,
+          "breached": false,
+          "trades": 450,
+          "max_cap": 1226.6246953125
+        }
+      },
+      "full_metrics": {
+        "ann": -4.0121979073003855,
+        "dd": 28.051521439209175,
+        "ret": -13.055471612002057,
+        "min_eq": 4347.226419399897,
+        "breached": false,
+        "trades": 818,
+        "max_cap": 1229.6441953125002
+      },
+      "positive_segments": 2,
+      "agg_2024_2026": -0.3082838199274178,
+      "h1_2023_contribution": 0,
+      "gate_pass": false
+    }
+  ],
+  "passes": []
+}

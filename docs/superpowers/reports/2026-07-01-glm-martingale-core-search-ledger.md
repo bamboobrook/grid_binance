@@ -53,3 +53,30 @@ Per-symbol regime gates are too conservative (low trade count → near-zero) or 
 ### Next
 Task 5 portfolio combination moved earlier: build a long_bull + short_crash portfolio and validate 5 segments. The single-symbol pool provides the building blocks.
 
+
+## 2026-07-01 Task 5 (moved up): Portfolio segment-first search — BREAKTHROUGH
+
+- Script: `scripts/glm_portfolio_segment_search.py`
+- Output: `docs/superpowers/artifacts/glm-martingale-core/portfolio-segments.json`
+- 2592 portfolio candidates, 22 workers, 1360s.
+
+### BREAKTHROUGH: 8/2592 survived 2024>0 AND 2025>0 segment gate (first time ever)
+This is the first time ANY candidate (single or portfolio) made BOTH 2024 and 2025 positive — the structural blocker that was 0/590 in all prior work.
+
+Best survivor: `agg-looloo-L2S1` (BNB-long + BCH-long + AAVE-short, loose gates):
+- h1_2023: +14.7% (948 trades)
+- h2_2023: -10.2% (69 trades)  ← LOSS
+- 2024: +0.27% (895 trades) ✓
+- 2025: +0.76% (337 trades) ✓
+- 2026_ytd: -29.3% (470 trades) ← BIG LOSS (drives agg2024-2026 to -28.3%)
+- full ann +4.1%, DD 37.8%, 3/5 positive segments (up from baseline 1/5)
+
+### Root-cause diagnosis
+- 2024+2025 now solvable via long-bull (BNB/BCH) + crash-short (AAVE) combo with loose regime gates.
+- 2026_ytd is the NEW dominant problem: broad bear market (BNB -17.7%, BCH -49.5%, AAVE -43.7%, BTC -16%). The long legs lose; the short doesn't gain enough (BTC-uptrend veto blocks short entries when BTC bounces).
+- h2_2023: late bull reversal burns the short leg (only 69 trades, mistimed).
+
+### Promising-record candidate (Task 5 good-result protocol)
+This 3/5-segment, 2024+2025-both-positive candidate is a NEW best segment frontier.
+Recorded below and to be optimized next.
+
