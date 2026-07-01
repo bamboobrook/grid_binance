@@ -109,7 +109,7 @@ The current frontier under capital and segment filters is:
 - Balanced: DD<=20% tops out at `54.41%` ann; ann >90% requires about `40.70%` DD.
 - Aggressive: DD<=30% tops out at `54.41%` ann; ann >110% requires about `40.70%` DD.
 
-`docs/superpowers/reports/2026-07-01-martingale-frontier-evidence-audit.md` indexes 13 reports and 130036 rows/symbol-level evidence with `0` machine-reported final/pass rows. `docs/superpowers/reports/2026-07-01-martingale-goal-completion-audit.md` marks the original objective as incomplete because all C/B/A final gates, external-claim proof, and live-ready proof fail.
+`docs/superpowers/reports/2026-07-01-martingale-frontier-evidence-audit.md` indexes 14 reports and 130036 rows/symbol-level evidence with `0` machine-reported final/pass rows. `docs/superpowers/reports/2026-07-01-martingale-goal-completion-audit.md` marks the original objective as incomplete because all C/B/A final gates, external-claim proof, and live-ready proof fail. `docs/superpowers/reports/2026-07-01-martingale-live-promotion-gate-audit.md` closes the live-promotion gate with `promotion_allowed=false`.
 
 `docs/superpowers/reports/2026-07-01-martingale-grid-search-freeze-and-reopen-criteria.md` freezes repeated martingale/grid parameter searches under the current mechanism family and defines the minimum evidence required to reopen the search.
 
@@ -122,7 +122,8 @@ External references do not provide a missing free lunch; they reinforce the impl
 - Binance's derivatives change log says USD-M Futures conditional orders migrated to Algo Service effective 2025-12-09 for `STOP_MARKET`, `TAKE_PROFIT_MARKET`, `STOP`, `TAKE_PROFIT`, and `TRAILING_STOP_MARKET`. Old condition-order assumptions are not enough for a live-ready design.
 - Deflated Sharpe Ratio and Probability of Backtest Overfitting literature both match the observed failure mode: many trials plus full-period winner selection tends to select 2023H1-like overfit candidates.
 - Dynamic-grid literature, including the recent DGT direction, treats static/traditional grid payoff as weak or near-zero before market adaptation. The local DGT probe tested one adaptive reset family and still failed the combined gates.
-- A 2026-07-01 web refresh checked current Pionex, Phemex, OKX, 3Commas, Bitsgap, and Neutralis/DGT-style public material. It found no externally published martingale/grid/DGT portfolio with trade-level evidence for `<5000U`, multi-symbol exposure, the required 2023-2026 segments, DD gates, and current Binance-live reproducibility.
+- A 2026-07-01 web refresh checked current Pionex, Phemex, OKX, 3Commas, Bitsgap, BingX, Altrady, Stoic, Coinbase, HaasOnline, ChainUp, and Neutralis/DGT-style public material. It found no externally published martingale/grid/DGT portfolio with trade-level evidence for `<5000U`, multi-symbol exposure, the required 2023-2026 segments, DD gates, and current Binance-live reproducibility.
+- Some public pages show attractive short-window or marketing-card metrics, including 3Commas sample strategy cards and Phemex Q1 2026 grid ranges, but they are not replayable martingale/grid portfolios under the requested gates.
 
 Sources checked:
 
@@ -133,6 +134,7 @@ Sources checked:
 - Probability of Backtest Overfitting: https://papers.ssrn.com/sol3/papers.cfm?abstract_id=2326253
 - Dynamic Grid Trading Strategy: https://arxiv.org/abs/2506.11921
 - External martingale/grid claim matrix: docs/superpowers/reports/2026-07-01-external-martingale-grid-claim-gate-matrix.md
+- Live promotion gate audit: docs/superpowers/reports/2026-07-01-martingale-live-promotion-gate-audit.md
 
 ## What This Does And Does Not Prove
 
