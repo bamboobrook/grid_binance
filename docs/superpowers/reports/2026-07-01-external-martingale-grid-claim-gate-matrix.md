@@ -15,6 +15,17 @@ The external evidence is consistent with the internal frontier:
 - DGT-style academic evidence improves traditional grid behavior, but published figures remain below the balanced/aggressive return gates or above the DD gates.
 - Vendor bot pages and backtest tools generally expose APY/APR and drawdown fields, but do not provide trade-level, multi-period, multi-symbol, live-parity evidence.
 
+## 2026-07-01 Latest Web Refresh
+
+The latest web refresh did not overturn the matrix. Newer or recently updated public pages still fail at least one mandatory gate before they can become candidates:
+
+- Pionex's current DCA/Martingale help page repeats the BTC/USDT April 2020 to July 2021 example: `205.68% APR` with `-52.84%` max drawdown, plus a more conservative setting with `122.12%` profit and `-16.37%` max drawdown. These remain single-symbol, old-window examples and fail the conservative DD gate or all DD gates.
+- Phemex's Q1 2026 bot report lists ETH futures DCA/Martingale closed-bot ROI around `18-35%` and SOL spot DCA around `22-40%` for Q1 2026. It explicitly flags futures DCA/Martingale as the highest-drawdown bot type. The report is quarter-specific and does not provide the required 2023-2026 segment proof, capital proof, or live-parity replay.
+- OKX's Futures DCA/Martingale help page, updated 2026-05-29, confirms the mechanism uses futures Martingale/DCA logic, relies on additional orders after adverse moves, and carries liquidation risk when margin falls below maintenance requirements. It is product documentation, not a qualifying audited portfolio.
+- 3Commas currently documents multi-pair DCA bots, historical backtesting, trailing/breakeven stop loss, and futures hedge-mode support, but does not publish a specific C/B/A candidate with trade list, segment balance, drawdown, budget, and current Binance-live parity.
+- Bitsgap's 2026 grid explanation still describes grid as sideways/volatile-market logic and DCA as downtrend/accumulation logic; it also notes grid risk when price breaks the range and DCA risk from larger lower-price positions. This is risk context, not a qualifying candidate.
+- Neutralis's 2026 market-making article cites the same DGT paper with about `60-70%` annualized IRR. That level can be relevant to the conservative return target but still does not satisfy balanced/aggressive targets and lacks the requested 2025/2026_ytd segment/live proof.
+
 ## Gate Matrix
 
 | Source | Public claim | Gate result | Why it does not qualify |
@@ -45,7 +56,11 @@ This means a vendor bot claim, paper backtest, or screenshot cannot prove live r
 - 3Commas strategy gallery docs: https://help.3commas.io/en/articles/14828053-strategy-gallery-how-to-find-and-launch-pre-built-dca-bot-strategies
 - Bitsgap crypto backtesting guide: https://bitsgap.com/blog/crypto-backtesting-guide-2025-tools-tips-and-how-bitsgap-helps
 - Bitsgap backtest help: https://bitsgap.com/helpdesk/article/10023850035612-Backtest-bot-efficiency-analysis
+- Bitsgap 2026 grid strategy guide: https://bitsgap.com/blog/grid-trading-strategy-explained-how-to-profit-in-any-market-in-2026
 - Phemex Q1 2026 bot strategy report: https://phemex.com/blogs/top-10-profitable-bot-strategies-q1-2026
+- OKX Futures DCA/Martingale help: https://www.okx.com/help/whats-futures-dca-bot-and-how-do-i-maximize-my-efficiency-with-automated
+- 3Commas DCA bots: https://3commas.io/dca-bots
+- Neutralis DGT/market-making research summary: https://neutralis.finance/insights/market-making-beat-market-research
 - Binance USD-M Futures exchange information: https://developers.binance.com/docs/derivatives/usds-margined-futures/market-data/rest-api/Exchange-Information
 - Binance USD-M Futures common symbol filters: https://developers.binance.com/docs/derivatives/usds-margined-futures/common-definition
 - Binance USD-M Futures new algo order: https://developers.binance.com/docs/derivatives/usds-margined-futures/trade/rest-api/New-Algo-Order

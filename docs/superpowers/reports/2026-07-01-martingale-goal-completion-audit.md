@@ -6,7 +6,7 @@ This is a read-only requirement-by-requirement audit of the original objective. 
 
 ## Requirements
 
-- `candidate_pool_indexed` status `passed` evidence: target_gap rows `64415`, evidence reports `10`
+- `candidate_pool_indexed` status `passed` evidence: target_gap rows `64415`, evidence reports `11`
 - `all_profiles_final_pass` status `failed` evidence: 0 final target passes; profile pass counts {'conservative': 0, 'balanced': 0, 'aggressive': 0}
 - `conservative_gate` status `failed` evidence: conservative pass count `0`; nearest `dgt_dynamic_grid_probe_smoke.json` ann `23.982246379774487` DD `8.294380670877056` cap `100.0` pos `4` c2426 `40.95511659024695`
 - `balanced_gate` status `failed` evidence: balanced pass count `0`; nearest `dd10_cd60 BNBUSDT,SOLUSDT` ann `54.41261150556331` DD `17.743195434155787` cap `1000.0` pos `5` c2426 `141.07308583967603`

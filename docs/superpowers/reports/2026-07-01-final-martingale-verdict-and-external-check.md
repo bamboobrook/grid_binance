@@ -116,6 +116,7 @@ External references do not provide a missing free lunch; they reinforce the impl
 - Binance's derivatives change log says USD-M Futures conditional orders migrated to Algo Service effective 2025-12-09 for `STOP_MARKET`, `TAKE_PROFIT_MARKET`, `STOP`, `TAKE_PROFIT`, and `TRAILING_STOP_MARKET`. Old condition-order assumptions are not enough for a live-ready design.
 - Deflated Sharpe Ratio and Probability of Backtest Overfitting literature both match the observed failure mode: many trials plus full-period winner selection tends to select 2023H1-like overfit candidates.
 - Dynamic-grid literature, including the recent DGT direction, treats static/traditional grid payoff as weak or near-zero before market adaptation. The local DGT probe tested one adaptive reset family and still failed the combined gates.
+- A 2026-07-01 web refresh checked current Pionex, Phemex, OKX, 3Commas, Bitsgap, and Neutralis/DGT-style public material. It found no externally published martingale/grid/DGT portfolio with trade-level evidence for `<5000U`, multi-symbol exposure, the required 2023-2026 segments, DD gates, and current Binance-live reproducibility.
 
 Sources checked:
 
