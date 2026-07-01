@@ -93,58 +93,66 @@ def load_minute_bars(market_db: str | Path, symbol: str, market_type: str = "fut
     ]
 
 
-def load_daily_bars(market_db: str | Path, symbol: str, market_type: str = "futures_usdt_perp") -> list[dict]:
+def load_daily_bars(
+    market_db: str | Path,
+    symbol: str,
+    market_type: str = "futures_usdt_perp",
+    start_ms: int | None = None,
+    end_ms: int | None = None,
+) -> list[dict]:
     con = sqlite3.connect(str(market_db))
     try:
-        rows = con.execute(
-            """
-            WITH daily AS (
-                SELECT
-                    (open_time / ?) * ? AS day_start,
-                    MIN(open_time) AS first_open_time,
-                    MAX(open_time) AS last_open_time,
-                    MAX(high) AS high,
-                    MIN(low) AS low,
-                    SUM(volume) AS volume
-                FROM klines
-                WHERE symbol = ? AND market_type = ? AND timeframe = '1m'
-                GROUP BY day_start
-            )
-            SELECT
-                daily.day_start,
-                first_bar.open,
-                daily.high,
-                daily.low,
-                last_bar.close,
-                daily.volume
-            FROM daily
-            JOIN klines AS first_bar
-                ON first_bar.symbol = ?
-                AND first_bar.market_type = ?
-                AND first_bar.timeframe = '1m'
-                AND first_bar.open_time = daily.first_open_time
-            JOIN klines AS last_bar
-                ON last_bar.symbol = ?
-                AND last_bar.market_type = ?
-                AND last_bar.timeframe = '1m'
-                AND last_bar.open_time = daily.last_open_time
-            ORDER BY daily.day_start
+        has_symbol_time_index = bool(
+            con.execute(
+                "SELECT 1 FROM sqlite_master WHERE type = 'index' AND name = 'idx_klines_symbol_time'"
+            ).fetchone()
+        )
+        index_hint = " INDEXED BY idx_klines_symbol_time" if has_symbol_time_index else ""
+        cursor = con.execute(
+            f"""
+            SELECT open_time, open, high, low, close, volume
+            FROM klines{index_hint}
+            WHERE symbol = ?
+              AND (? IS NULL OR open_time >= ?)
+              AND (? IS NULL OR open_time <= ?)
+              AND market_type = ?
+              AND timeframe = '1m'
+            ORDER BY open_time
             """,
-            (MS_PER_DAY, MS_PER_DAY, symbol, market_type, symbol, market_type, symbol, market_type),
-        ).fetchall()
+            (
+                symbol,
+                start_ms,
+                int(start_ms) if start_ms is not None else None,
+                end_ms,
+                int(end_ms) if end_ms is not None else None,
+                market_type,
+            ),
+        )
+        daily = []
+        current = None
+        for ts, open_, high, low, close, volume in cursor:
+            day_start = int(ts) // MS_PER_DAY * MS_PER_DAY
+            if current is None or current["timestamp_ms"] != day_start:
+                if current is not None:
+                    daily.append(current)
+                current = {
+                    "timestamp_ms": day_start,
+                    "open": float(open_),
+                    "high": float(high),
+                    "low": float(low),
+                    "close": float(close),
+                    "volume": float(volume or 0.0),
+                }
+            else:
+                current["high"] = max(current["high"], float(high))
+                current["low"] = min(current["low"], float(low))
+                current["close"] = float(close)
+                current["volume"] += float(volume or 0.0)
+        if current is not None:
+            daily.append(current)
+        return daily
     finally:
         con.close()
-    return [
-        {
-            "timestamp_ms": int(day_start),
-            "open": float(open_),
-            "high": float(high),
-            "low": float(low),
-            "close": float(close),
-            "volume": float(volume or 0.0),
-        }
-        for day_start, open_, high, low, close, volume in rows
-    ]
 
 
 def parse_rule(rule: str) -> RuleSpec:
@@ -534,7 +542,7 @@ def build_stream_universe(
     streams = []
     rejections = []
     for symbol in symbols:
-        daily = load_daily_bars(market_data, symbol)
+        daily = load_daily_bars(market_data, symbol, start_ms=hybrid.SEGMENTS["full"][0], end_ms=hybrid.SEGMENTS["full"][1])
         if len(daily) < min_daily_bars:
             rejections.append(f"{symbol}: only {len(daily)} daily bars < {min_daily_bars}")
             continue
