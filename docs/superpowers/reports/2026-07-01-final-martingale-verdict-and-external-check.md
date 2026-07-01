@@ -97,6 +97,8 @@ DGT therefore confirms the same frontier: return can be manufactured, but not wi
 
 `docs/superpowers/reports/2026-07-01-pair-neutral-portfolio-probe.md` tested strict non-overlapping multi-pair portfolios over 93 research-only rows. It also found `0` passes. Diversification lowered drawdown: the nearest conservative-style row used `BNBUSDT,SOLUSDT`, `BTCUSDT,LINKUSDT`, `ETHUSDT,XRPUSDT`, and `ADAUSDT,DOGEUSDT` with `33.95% ann / 7.62% DD / 3000U cap / 5/5 positive segments`, but the return still missed the conservative `>50%` target. The highest-return multi-pair row reached `42.66% ann / 20.27% DD`, still below every final return target.
 
+Portfolio-level leverage does not fix that gap under an optimistic linear check: scaling the `33.95% / 7.62%` row to `50%` ann implies about `11.23%` DD, already above the conservative gate; scaling toward balanced/aggressive either exceeds DD or pushes capital above `5000U`.
+
 ### Target Gap And Completion Audits
 
 `docs/superpowers/reports/2026-07-01-martingale-target-gap-audit.md` normalized 64508 saved research rows across trend, trend risk control, pair-neutral, pair-neutral risk control, pair-neutral portfolio, funding, and saved result leak artifacts. It reports `0` final target passes.

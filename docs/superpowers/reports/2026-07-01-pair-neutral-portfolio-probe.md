@@ -48,3 +48,13 @@ This is a research-only multi-pair pair-neutral grid portfolio check. It does no
 ## Conclusion
 
 Potential research-only multi-pair passes found: `0`. Multi-pair diversification did not close the original return/DD/segment gates in this bounded scan.
+
+## Leverage Sanity Check
+
+Simple portfolio-level scaling does not rescue the result, even under optimistic linear assumptions:
+
+- Conservative: the nearest low-DD row `33.95% ann / 7.62% DD / 3000U` would need about `1.47x` return scaling to reach `50% ann`, implying about `11.23% DD` and `4418.72U` capital. Capital stays below `5000U`, but DD exceeds the `10%` gate.
+- Balanced: the same low-DD row would need about `2.65x` scaling to reach `90% ann`, implying about `20.21% DD` and `7953.70U` capital. Both DD and capital miss the gates.
+- Aggressive: the same row would need about `3.24x` scaling to reach `110% ann`, implying about `24.70% DD` but `9721.19U` capital. The best high-return two-pair row can stay under capital when scaled to `110%`, but its implied DD is about `52.26%`.
+
+This is an optimistic check; real futures leverage would add liquidation, margin, slippage, and funding constraints. It is enough to reject portfolio-level leverage as a missing shortcut for the original gates.
