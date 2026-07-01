@@ -167,6 +167,19 @@ pub struct MartingaleRiskLimits {
     /// the `MARTINGALE_BT_SAFETY_SKIP_ADX` research env.
     #[serde(default)]
     pub safety_skip_adx_threshold: Option<f64>,
+    /// When portfolio drawdown (peak→current equity) reaches this percent,
+    /// close ALL active martingale cycles via reduceOnly and enter a cooldown
+    /// (`portfolio_stop_cooldown_hours`). `None`/`0.0` = disabled (default).
+    /// Parity-structured replacement for the
+    /// `MARTINGALE_BT_PORTFOLIO_EQUITY_STOP_PCT` research env switch.
+    #[serde(default)]
+    pub portfolio_equity_stop_pct: Option<f64>,
+    /// Cooldown duration (hours) after a portfolio equity stop fires, during
+    /// which no new cycles may open. `None`/`0.0` = no cooldown (default).
+    /// Parity-structured replacement for the
+    /// `MARTINGALE_BT_PORTFOLIO_STOP_COOLDOWN_HOURS` research env switch.
+    #[serde(default)]
+    pub portfolio_stop_cooldown_hours: Option<f64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]

@@ -50,10 +50,12 @@ impl RiskGuardThresholds {
     /// to the env override (for one-off diagnostics), then to the engine
     /// default. This keeps live and backtest on the same threshold source.
     ///
-    /// The remaining three (`portfolio_equity_stop_pct`,
-    /// `portfolio_stop_cooldown_ms`, `max_portfolio_active_cycles`) are still
-    /// research-only env switches with NO live trading-engine implementation,
-    /// so they are deliberately NOT promoted into the final search space.
+    /// `portfolio_equity_stop_pct` and `portfolio_stop_cooldown_hours` are now
+    /// ALSO parity-structured (config first, then env override, then default),
+    /// with a matching live trading-engine implementation. Only
+    /// `max_portfolio_active_cycles` remains a research-only env switch with no
+    /// live implementation, so it is deliberately NOT promoted into the final
+    /// search space.
     fn from_config(portfolio_risk_limits: &MartingaleRiskLimits) -> Self {
         Self {
             new_cycle_drawdown_pause_pct: resolve_threshold(
@@ -71,12 +73,14 @@ impl RiskGuardThresholds {
                 portfolio_risk_limits.safety_skip_adx_threshold,
                 DEFAULT_SAFETY_SKIP_ADX_THRESHOLD,
             ),
-            portfolio_equity_stop_pct: read_env_f64(
+            portfolio_equity_stop_pct: resolve_threshold(
                 "MARTINGALE_BT_PORTFOLIO_EQUITY_STOP_PCT",
+                portfolio_risk_limits.portfolio_equity_stop_pct,
                 DEFAULT_PORTFOLIO_EQUITY_STOP_PCT,
             ),
-            portfolio_stop_cooldown_ms: (read_env_f64(
+            portfolio_stop_cooldown_ms: (resolve_threshold(
                 "MARTINGALE_BT_PORTFOLIO_STOP_COOLDOWN_HOURS",
+                portfolio_risk_limits.portfolio_stop_cooldown_hours,
                 DEFAULT_PORTFOLIO_STOP_COOLDOWN_HOURS,
             ) * 3_600_000.0)
                 .round() as i64,
@@ -107,14 +111,6 @@ fn resolve_threshold(
     config_value
         .filter(|value| value.is_finite() && *value >= 0.0)
         .unwrap_or(default_value)
-}
-
-fn read_env_f64(name: &str, default: f64) -> f64 {
-    std::env::var(name)
-        .ok()
-        .and_then(|value| value.parse::<f64>().ok())
-        .filter(|value| value.is_finite() && *value >= 0.0)
-        .unwrap_or(default)
 }
 
 fn read_env_u32(name: &str, default: u32) -> Option<u32> {
