@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import bisect
 import collections
 import importlib.util
 import itertools
@@ -279,22 +280,78 @@ def stream_returns_before(stream: dict, as_of_ts: int, lookback_days: int) -> li
     ]
 
 
+def prepare_stream_cache(streams: list[dict]) -> None:
+    for stream in streams:
+        points = sorted(stream.get("points", []), key=lambda point: int(point["timestamp_ms"]))
+        timestamps = [int(point["timestamp_ms"]) for point in points]
+        returns = [float(point["return"]) for point in points]
+        strengths = [float(point.get("strength", 0.0)) for point in points]
+        prefix_returns = [0.0]
+        prefix_log_growth = [0.0]
+        prefix_strength = [0.0]
+        prefix_downside_count = [0]
+        prefix_downside_sum = [0.0]
+        prefix_downside_sq = [0.0]
+        for value, strength in zip(returns, strengths):
+            prefix_returns.append(prefix_returns[-1] + value)
+            prefix_log_growth.append(prefix_log_growth[-1] + math.log(max(1e-12, 1.0 + value)))
+            prefix_strength.append(prefix_strength[-1] + strength)
+            is_downside = value < 0.0
+            prefix_downside_count.append(prefix_downside_count[-1] + (1 if is_downside else 0))
+            prefix_downside_sum.append(prefix_downside_sum[-1] + (value if is_downside else 0.0))
+            prefix_downside_sq.append(prefix_downside_sq[-1] + (value * value if is_downside else 0.0))
+        stream["_cache"] = {
+            "timestamps": timestamps,
+            "returns": returns,
+            "prefix_returns": prefix_returns,
+            "prefix_log_growth": prefix_log_growth,
+            "prefix_strength": prefix_strength,
+            "prefix_downside_count": prefix_downside_count,
+            "prefix_downside_sum": prefix_downside_sum,
+            "prefix_downside_sq": prefix_downside_sq,
+        }
+
+
 def trailing_score(stream: dict, as_of_ts: int, lookback_days: int) -> float:
-    returns = stream_returns_before(stream, as_of_ts, lookback_days)
-    if len(returns) < 2:
+    cache = stream.get("_cache")
+    if cache is None:
+        returns = stream_returns_before(stream, as_of_ts, lookback_days)
+        if len(returns) < 2:
+            return -1_000_000.0
+        mean_return = statistics.fmean(returns)
+        total_return = math.prod(1.0 + value for value in returns) - 1.0
+        strength_points = [
+            float(point.get("strength", 0.0))
+            for point in stream.get("points", [])
+            if int(as_of_ts) - int(lookback_days) * MS_PER_DAY <= int(point["timestamp_ms"]) < int(as_of_ts)
+        ]
+        strength = statistics.fmean(strength_points) if strength_points else 0.0
+        downside = [value for value in returns if value < 0.0]
+        downside_vol = statistics.pstdev(downside) if len(downside) >= 2 else 0.0
+        return total_return + mean_return * 10.0 + strength - downside_vol * 2.0
+
+    start_ts = int(as_of_ts) - int(lookback_days) * MS_PER_DAY
+    timestamps = cache["timestamps"]
+    start_index = bisect.bisect_left(timestamps, start_ts)
+    end_index = bisect.bisect_left(timestamps, int(as_of_ts))
+    count = end_index - start_index
+    if count < 2:
         return -1_000_000.0
-    mean_return = statistics.fmean(returns)
-    downside = [value for value in returns if value < 0.0]
-    downside_vol = statistics.pstdev(downside) if len(downside) >= 2 else 0.0
-    total_return = math.prod(1.0 + value for value in returns) - 1.0
-    strength_points = [
-        float(point.get("strength", 0.0))
-        for point in stream.get("points", [])
-        if int(as_of_ts) - int(lookback_days) * MS_PER_DAY <= int(point["timestamp_ms"]) < int(as_of_ts)
-    ]
-    strength = statistics.fmean(strength_points) if strength_points else 0.0
-    risk_penalty = downside_vol * 2.0
-    return total_return + mean_return * 10.0 + strength - risk_penalty
+    sum_return = cache["prefix_returns"][end_index] - cache["prefix_returns"][start_index]
+    log_growth = cache["prefix_log_growth"][end_index] - cache["prefix_log_growth"][start_index]
+    strength_sum = cache["prefix_strength"][end_index] - cache["prefix_strength"][start_index]
+    downside_count = cache["prefix_downside_count"][end_index] - cache["prefix_downside_count"][start_index]
+    downside_sum = cache["prefix_downside_sum"][end_index] - cache["prefix_downside_sum"][start_index]
+    downside_sq = cache["prefix_downside_sq"][end_index] - cache["prefix_downside_sq"][start_index]
+    mean_return = sum_return / count
+    total_return = math.exp(log_growth) - 1.0
+    strength = strength_sum / count
+    downside_vol = 0.0
+    if downside_count >= 2:
+        downside_mean = downside_sum / downside_count
+        downside_var = max(0.0, downside_sq / downside_count - downside_mean * downside_mean)
+        downside_vol = math.sqrt(downside_var)
+    return total_return + mean_return * 10.0 + strength - downside_vol * 2.0
 
 
 def rank_streams(streams: list[dict], as_of_ts: int, lookback_days: int) -> list[dict]:
@@ -390,6 +447,7 @@ def build_base_portfolio_path(
     score_lookback_days: int,
     top_n: int,
     max_symbol_weight: float,
+    ranking_cache: dict[tuple[int, int], list[dict]] | None = None,
 ) -> dict:
     timestamps = common_timestamps(streams)
     maps = {stream["name"]: point_map(stream) for stream in streams}
@@ -400,7 +458,10 @@ def build_base_portfolio_path(
 
     for ts in timestamps:
         if rebalance_counter % max(1, rebalance_days) == 0:
-            ranked = rank_streams(streams, ts, score_lookback_days)
+            if ranking_cache is None:
+                ranked = rank_streams(streams, ts, score_lookback_days)
+            else:
+                ranked = ranking_cache.setdefault((score_lookback_days, ts), rank_streams(streams, ts, score_lookback_days))
             selected = select_top_streams(ranked, top_n=top_n, max_symbol_weight=max_symbol_weight, min_symbols=2)
             weights = capped_equal_weights(selected, max_symbol_weight=max_symbol_weight)
         rebalance_counter += 1
@@ -645,8 +706,10 @@ def run_search(args: argparse.Namespace) -> dict:
         slippage_bps=args.slippage_bps,
         min_daily_bars=args.min_daily_bars,
     )
+    prepare_stream_cache(streams)
     rows = []
     base_paths: dict[tuple[int, int, int], dict] = {}
+    ranking_cache: dict[tuple[int, int], list[dict]] = {}
     configs = itertools.product(
         profiles,
         allocation_quotes,
@@ -681,6 +744,7 @@ def run_search(args: argparse.Namespace) -> dict:
                 score_lookback_days=score_lookback,
                 top_n=top_n,
                 max_symbol_weight=args.max_symbol_weight,
+                ranking_cache=ranking_cache,
             )
         portfolio = portfolio_from_base_path(
             base_paths[base_key],
