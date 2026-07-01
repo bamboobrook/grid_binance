@@ -256,6 +256,47 @@ class DynamicBreakoutTrendProbeTest(unittest.TestCase):
         self.assertEqual(frozen_points[0]["gross_weight"], 0.0)
         self.assertEqual(portfolio["live_parity_status"], "research_only")
 
+    def test_precomputed_base_path_matches_dynamic_portfolio_without_vol_or_stop(self):
+        streams = [
+            stream("trend:BTCUSDT:a", "BTCUSDT", [0.05, 0.02, -0.03, 0.04]),
+            stream("trend:ETHUSDT:a", "ETHUSDT", [0.04, 0.01, -0.02, 0.03]),
+        ]
+
+        base_path = dynamic.build_base_portfolio_path(
+            streams,
+            rebalance_days=1,
+            score_lookback_days=2,
+            top_n=2,
+            max_symbol_weight=0.5,
+        )
+        portfolio = dynamic.portfolio_from_base_path(
+            base_path,
+            streams,
+            allocation_quote=3000.0,
+            target_vol_pct=1000.0,
+            vol_lookback_days=2,
+            dd_stop_pct=0.0,
+            cooldown_days=0,
+        )
+        original = dynamic.build_dynamic_portfolio(
+            streams,
+            allocation_quote=3000.0,
+            rebalance_days=1,
+            score_lookback_days=2,
+            top_n=2,
+            max_symbol_weight=0.5,
+            target_vol_pct=1000.0,
+            vol_lookback_days=2,
+            dd_stop_pct=0.0,
+            cooldown_days=0,
+        )
+
+        self.assertEqual(
+            [round(point["equity_quote"], 8) for point in portfolio["points"]],
+            [round(point["equity_quote"], 8) for point in original["points"]],
+        )
+        self.assertEqual(portfolio["metrics"]["max_symbol_weight_observed"], original["metrics"]["max_symbol_weight_observed"])
+
     def test_gate_evaluation_rejects_high_drawdown_even_with_high_return(self):
         points = [
             {"timestamp_ms": dynamic.hybrid.SEGMENTS["full"][0], "equity_quote": 3000.0},

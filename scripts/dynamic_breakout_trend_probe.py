@@ -384,13 +384,49 @@ def common_timestamps(streams: list[dict]) -> list[int]:
     return sorted(set.intersection(*sets))
 
 
-def build_dynamic_portfolio(
+def build_base_portfolio_path(
     streams: list[dict],
-    allocation_quote: float,
     rebalance_days: int,
     score_lookback_days: int,
     top_n: int,
     max_symbol_weight: float,
+) -> dict:
+    timestamps = common_timestamps(streams)
+    maps = {stream["name"]: point_map(stream) for stream in streams}
+    by_name = {stream["name"]: stream for stream in streams}
+    weights: dict[str, float] = {}
+    points = []
+    rebalance_counter = 0
+
+    for ts in timestamps:
+        if rebalance_counter % max(1, rebalance_days) == 0:
+            ranked = rank_streams(streams, ts, score_lookback_days)
+            selected = select_top_streams(ranked, top_n=top_n, max_symbol_weight=max_symbol_weight, min_symbols=2)
+            weights = capped_equal_weights(selected, max_symbol_weight=max_symbol_weight)
+        rebalance_counter += 1
+
+        day_return = 0.0
+        symbol_weights: collections.Counter[str] = collections.Counter()
+        for name, weight in weights.items():
+            point = maps[name][ts]
+            symbol = by_name[name]["symbol"]
+            symbol_weights[symbol] += weight
+            day_return += weight * float(point["return"])
+        points.append(
+            {
+                "timestamp_ms": ts,
+                "base_return": day_return,
+                "gross_weight": sum(abs(value) for value in weights.values()),
+                "max_symbol_weight": max(symbol_weights.values(), default=0.0),
+            }
+        )
+    return {"points": points, "streams": sorted(by_name), "symbols": sorted({stream["symbol"] for stream in streams})}
+
+
+def portfolio_from_base_path(
+    base_path: dict,
+    streams: list[dict],
+    allocation_quote: float,
     target_vol_pct: float,
     vol_lookback_days: int,
     dd_stop_pct: float,
@@ -400,37 +436,22 @@ def build_dynamic_portfolio(
         raise ValueError("allocation_quote must be positive")
     if allocation_quote >= 5000.0:
         raise ValueError("allocation_quote must stay below 5000")
-    timestamps = common_timestamps(streams)
-    maps = {stream["name"]: point_map(stream) for stream in streams}
-    by_name = {stream["name"]: stream for stream in streams}
     equity = float(allocation_quote)
     peak = equity
     cooldown_until = -1
     risk_events = 0
-    weights: dict[str, float] = {}
     portfolio_returns: list[float] = []
     points = []
-    rebalance_counter = 0
     max_symbol_weight_observed = 0.0
 
-    for ts in timestamps:
+    for base_point in base_path["points"]:
+        ts = int(base_point["timestamp_ms"])
         in_cooldown = ts < cooldown_until
-        if not in_cooldown and rebalance_counter % max(1, rebalance_days) == 0:
-            ranked = rank_streams(streams, ts, score_lookback_days)
-            selected = select_top_streams(ranked, top_n=top_n, max_symbol_weight=max_symbol_weight, min_symbols=2)
-            weights = capped_equal_weights(selected, max_symbol_weight=max_symbol_weight)
-        rebalance_counter += 1
-
         scale = volatility_scale(portfolio_returns[-vol_lookback_days:], target_vol_pct=target_vol_pct)
-        effective_weights = {} if in_cooldown else {name: weight * scale for name, weight in weights.items()}
-        day_return = 0.0
-        symbol_weights: collections.Counter[str] = collections.Counter()
-        for name, weight in effective_weights.items():
-            point = maps[name][ts]
-            symbol = by_name[name]["symbol"]
-            symbol_weights[symbol] += weight
-            day_return += weight * float(point["return"])
-        max_symbol_weight_observed = max(max_symbol_weight_observed, max(symbol_weights.values(), default=0.0))
+        day_return = 0.0 if in_cooldown else float(base_point["base_return"]) * scale
+        gross_weight = 0.0 if in_cooldown else float(base_point["gross_weight"]) * scale
+        symbol_weight = 0.0 if in_cooldown else float(base_point["max_symbol_weight"]) * scale
+        max_symbol_weight_observed = max(max_symbol_weight_observed, symbol_weight)
         equity *= max(0.0, 1.0 + day_return)
         peak = max(peak, equity)
         drawdown = (peak - equity) / peak * 100.0 if peak > 0 else 0.0
@@ -444,8 +465,8 @@ def build_dynamic_portfolio(
                 "timestamp_ms": ts,
                 "equity_quote": equity,
                 "daily_return": day_return,
-                "gross_weight": sum(abs(value) for value in effective_weights.values()),
-                "max_symbol_weight": max(symbol_weights.values(), default=0.0),
+                "gross_weight": gross_weight,
+                "max_symbol_weight": symbol_weight,
                 "in_cooldown": in_cooldown,
                 "risk_events": risk_events,
             }
@@ -463,13 +484,43 @@ def build_dynamic_portfolio(
         }
     )
     return {
-        "streams": sorted(by_name),
+        "streams": list(base_path.get("streams", sorted(stream["name"] for stream in streams))),
         "symbols": symbols,
         "points": points,
         "metrics": metrics,
         "risk_events": risk_events,
         "live_parity_status": LIVE_PARITY_STATUS,
     }
+
+
+def build_dynamic_portfolio(
+    streams: list[dict],
+    allocation_quote: float,
+    rebalance_days: int,
+    score_lookback_days: int,
+    top_n: int,
+    max_symbol_weight: float,
+    target_vol_pct: float,
+    vol_lookback_days: int,
+    dd_stop_pct: float,
+    cooldown_days: int,
+) -> dict:
+    base_path = build_base_portfolio_path(
+        streams,
+        rebalance_days=rebalance_days,
+        score_lookback_days=score_lookback_days,
+        top_n=top_n,
+        max_symbol_weight=max_symbol_weight,
+    )
+    return portfolio_from_base_path(
+        base_path,
+        streams,
+        allocation_quote=allocation_quote,
+        target_vol_pct=target_vol_pct,
+        vol_lookback_days=vol_lookback_days,
+        dd_stop_pct=dd_stop_pct,
+        cooldown_days=cooldown_days,
+    )
 
 
 def build_candidate_report(
@@ -595,6 +646,7 @@ def run_search(args: argparse.Namespace) -> dict:
         min_daily_bars=args.min_daily_bars,
     )
     rows = []
+    base_paths: dict[tuple[int, int, int], dict] = {}
     configs = itertools.product(
         profiles,
         allocation_quotes,
@@ -621,13 +673,19 @@ def run_search(args: argparse.Namespace) -> dict:
             "fee_bps": args.fee_bps,
             "slippage_bps": args.slippage_bps,
         }
-        portfolio = build_dynamic_portfolio(
+        base_key = (rebalance_days, score_lookback, top_n)
+        if base_key not in base_paths:
+            base_paths[base_key] = build_base_portfolio_path(
+                streams,
+                rebalance_days=rebalance_days,
+                score_lookback_days=score_lookback,
+                top_n=top_n,
+                max_symbol_weight=args.max_symbol_weight,
+            )
+        portfolio = portfolio_from_base_path(
+            base_paths[base_key],
             streams,
             allocation_quote=allocation,
-            rebalance_days=rebalance_days,
-            score_lookback_days=score_lookback,
-            top_n=top_n,
-            max_symbol_weight=args.max_symbol_weight,
             target_vol_pct=target_vol,
             vol_lookback_days=vol_lookback,
             dd_stop_pct=dd_stop,
