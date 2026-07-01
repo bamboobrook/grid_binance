@@ -35,6 +35,10 @@ DEFAULT_REPORTS = [
         "docs/superpowers/reports/2026-07-01-martingale-grid-search-freeze-and-reopen-criteria.md",
     ),
     ("goal_completion_audit", "docs/superpowers/reports/2026-07-01-martingale-goal-completion-audit.md"),
+    (
+        "live_promotion_gate_audit",
+        "docs/superpowers/reports/2026-07-01-martingale-live-promotion-gate-audit.md",
+    ),
     ("final_external_check", "docs/superpowers/reports/2026-07-01-final-martingale-verdict-and-external-check.md"),
 ]
 

@@ -66,6 +66,11 @@ class MartingaleFrontierEvidenceAuditTest(unittest.TestCase):
 
         self.assertIn("goal_completion_audit", names)
 
+    def test_default_reports_include_live_promotion_gate_audit(self):
+        names = [name for name, _path in audit.DEFAULT_REPORTS]
+
+        self.assertIn("live_promotion_gate_audit", names)
+
     def test_default_reports_include_pair_neutral_grid_probe(self):
         names = [name for name, _path in audit.DEFAULT_REPORTS]
 
