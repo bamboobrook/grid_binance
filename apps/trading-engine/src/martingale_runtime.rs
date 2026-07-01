@@ -38,6 +38,10 @@ pub struct MartingaleRuntimeContext {
     /// `kline_engine.rs:142-146`). `None` only when the live equity sum is
     /// genuinely unavailable; in production `main.rs` threads a real `Some`.
     pub portfolio_drawdown_pct: Option<f64>,
+    /// True while a portfolio equity stop cooldown is active (parity with
+    /// backtest `portfolio_stop_cooldown_until_ms`). When true, new cycles are
+    /// blocked until the cooldown expires.
+    pub portfolio_stop_cooldown_active: bool,
 }
 
 impl Default for MartingaleRuntimeContext {
@@ -49,6 +53,7 @@ impl Default for MartingaleRuntimeContext {
             now_ms: None,
             last_cycle_closed_at_ms: None,
             portfolio_drawdown_pct: None,
+            portfolio_stop_cooldown_active: false,
         }
     }
 }
@@ -581,6 +586,15 @@ impl MartingaleRuntime {
                 }
             }
 
+            // Parity port of backtest `portfolio_stop_cooldown_until_ms`
+            // (kline_engine.rs:246-253): while a portfolio equity stop cooldown
+            // is active, no new cycles may open.
+            if context.portfolio_stop_cooldown_active {
+                return Err(MartingaleRuntimeError::new(
+                    "portfolio equity stop cooldown blocks new entries",
+                ));
+            }
+
             // 方向3: 波动率过滤 — ATR/close*100 超过阈值时暂停新 cycle（高波动期风险大）
             // Parity port of backtest guard (kline_engine.rs). The threshold is
             // parity-structured: read from portfolio risk_limits, defaulting to
@@ -1027,5 +1041,102 @@ fn portfolio_direction_mode<'a>(
         (true, true) => MartingaleDirectionMode::LongAndShort,
         (false, true) => MartingaleDirectionMode::ShortOnly,
         _ => MartingaleDirectionMode::LongOnly,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use shared_domain::martingale::{
+        MartingaleDirectionMode, MartingaleEntryTrigger, MartingaleIndicatorConfig,
+        MartingaleMarginMode, MartingaleMarketKind, MartingalePortfolioConfig,
+        MartingaleRiskLimits, MartingaleSizingModel, MartingaleSpacingModel,
+        MartingaleStrategyConfig, MartingaleTakeProfitModel,
+    };
+    use std::str::FromStr;
+
+    fn single_long_strategy(id: &str) -> MartingaleStrategyConfig {
+        MartingaleStrategyConfig {
+            strategy_id: id.to_string(),
+            symbol: "BTCUSDT".to_string(),
+            market: MartingaleMarketKind::UsdMFutures,
+            direction: shared_domain::martingale::MartingaleDirection::Long,
+            direction_mode: MartingaleDirectionMode::LongAndShort,
+            margin_mode: Some(MartingaleMarginMode::Isolated),
+            leverage: Some(10),
+            spacing: MartingaleSpacingModel::FixedPercent { step_bps: 100 },
+            sizing: MartingaleSizingModel::Multiplier {
+                first_order_quote: rust_decimal::Decimal::from_str("10").unwrap(),
+                multiplier: rust_decimal::Decimal::from_str("1.5").unwrap(),
+                max_legs: 5,
+            },
+            take_profit: MartingaleTakeProfitModel::Percent { bps: 200 },
+            stop_loss: None,
+            indicators: vec![MartingaleIndicatorConfig::Atr { period: 14 }],
+            entry_triggers: vec![MartingaleEntryTrigger::Cooldown { seconds: 60 }],
+            risk_limits: MartingaleRiskLimits::default(),
+        }
+    }
+
+    fn runtime_with_strategy() -> MartingaleRuntime {
+        let config = MartingaleRuntimeConfig {
+            portfolio_id: "p1".to_string(),
+            strategy_instance_id: "s1".to_string(),
+            portfolio: MartingalePortfolioConfig {
+                direction_mode: MartingaleDirectionMode::LongAndShort,
+                strategies: vec![single_long_strategy("s1")],
+                risk_limits: MartingaleRiskLimits::default(),
+            },
+            portfolio_budget_quote: rust_decimal::Decimal::from(5000),
+            exchange_min_notional: rust_decimal::Decimal::from(5),
+        };
+        MartingaleRuntime::new(config).unwrap()
+    }
+
+    fn base_context() -> MartingaleRuntimeContext {
+        MartingaleRuntimeContext {
+            now_ms: Some(1_000_000),
+            ..MartingaleRuntimeContext::default()
+        }
+    }
+
+    #[test]
+    fn cooldown_blocks_new_cycle_entries() {
+        // Parity: while portfolio_stop_cooldown_active is true, a new cycle must
+        // be blocked (mirrors backtest portfolio_stop_cooldown_until_ms gate).
+        let mut runtime = runtime_with_strategy();
+        let mut ctx = base_context();
+        ctx.portfolio_stop_cooldown_active = true;
+        // Use the public entry path: a new cycle should be rejected.
+        let result =
+            runtime.start_cycle("s1", rust_decimal::Decimal::from(100), ctx);
+        assert!(
+            result.is_err(),
+            "new cycle must be blocked while portfolio stop cooldown is active"
+        );
+        let err = result.unwrap_err().to_string();
+        assert!(
+            err.contains("cooldown"),
+            "error should mention cooldown, got: {err}"
+        );
+    }
+
+    #[test]
+    fn no_cooldown_allows_new_cycle_entry_path() {
+        // When cooldown is inactive, the entry path must not raise a
+        // cooldown-specific error (it may raise other preflight errors, but not
+        // the cooldown one).
+        let mut runtime = runtime_with_strategy();
+        let ctx = base_context(); // portfolio_stop_cooldown_active defaults false
+        let result =
+            runtime.start_cycle("s1", rust_decimal::Decimal::from(100), ctx);
+        // We don't assert Ok/Err broadly (preflight may still block); we only
+        // assert the cooldown guard is not the blocker.
+        if let Err(e) = result {
+            assert!(
+                !e.to_string().contains("cooldown"),
+                "cooldown should not block when inactive, got: {e}"
+            );
+        }
     }
 }

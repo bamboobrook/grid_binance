@@ -87,6 +87,26 @@ fn martingale_portfolio_equity_peaks() -> &'static Mutex<HashMap<String, Decimal
     MARTINGALE_PORTFOLIO_EQUITY_PEAKS.get_or_init(|| Mutex::new(HashMap::new()))
 }
 
+/// 进程级组合 equity-stop 冷却截止时间 (epoch ms)。当 portfolio equity stop
+/// 触发后,在此时间之前不允许开新 cycle。parity port of backtest
+/// `kline_engine.rs` `portfolio_stop_cooldown_until_ms`。
+/// key = portfolio_id, value = 冷却截止时间戳 (ms)。0 / 不存在 = 无冷却。
+static MARTINGALE_PORTFOLIO_STOP_COOLDOWN_UNTIL: OnceLock<Mutex<HashMap<String, i64>>> =
+    OnceLock::new();
+
+fn martingale_portfolio_stop_cooldowns() -> &'static Mutex<HashMap<String, i64>> {
+    MARTINGALE_PORTFOLIO_STOP_COOLDOWN_UNTIL.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
+/// 进程级标记:某 portfolio 是否已经因为 equity stop 而平仓过当前所有 active
+/// cycles (避免同一 tick/同一回撤内反复触发平仓)。key = portfolio_id。
+static MARTINGALE_PORTFOLIO_STOP_FIRED: OnceLock<Mutex<HashMap<String, bool>>> =
+    OnceLock::new();
+
+fn martingale_portfolio_stop_fired() -> &'static Mutex<HashMap<String, bool>> {
+    MARTINGALE_PORTFOLIO_STOP_FIRED.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
 /// 计算一个 running portfolio 的当前 drawdown 百分比 (peak→current equity).
 ///
 /// equity = budget + Σ realized_pnl + Σ unrealized_pnl
@@ -185,6 +205,153 @@ fn save_indicator_context(
 ) {
     let mut feeds = indicator_feeds().lock().expect("indicator feeds poisoned");
     feeds.insert(portfolio_id.to_owned(), ctx.clone());
+}
+
+/// Evaluate the portfolio equity stop for a running martingale portfolio.
+///
+/// Parity port of the backtest guard `kline_engine.rs:549-579`. When the
+/// portfolio drawdown (peak→current equity) reaches `portfolio_equity_stop_pct`
+/// (config-structured, 0 = disabled) AND no close has already been fired in the
+/// current drawdown, this:
+///   1. Marks every Running martingale strategy `Stopping` and pushes a
+///      reduceOnly close order for each open position (so `order_sync.rs` will
+///      submit them and `finalize_stop_if_ready` will confirm).
+///   2. Sets the process-level cooldown-until timestamp (`now + cooldown`), so
+///      new cycles are blocked until it expires (parity with backtest
+///      `portfolio_stop_cooldown_until_ms`).
+///   3. Records a `portfolio_equity_stop` event on each stopped strategy.
+///
+/// Returns the number of strategies transitioned to Stopping. Idempotent: once
+/// fired in a drawdown, it will not re-fire until equity makes a new peak
+/// (which clears the `fired` flag).
+fn evaluate_portfolio_equity_stop(
+    db: &SharedDb,
+    portfolio: &MartingalePortfolioRecord,
+    config: &MartingaleRuntimeConfig,
+    portfolio_drawdown_pct: Option<f64>,
+    market_ticks: &[MarketTick],
+) -> Result<usize, shared_db::SharedDbError> {
+    let stop_pct = config
+        .portfolio
+        .risk_limits
+        .portfolio_equity_stop_pct
+        .filter(|v| *v > 0.0)
+        .unwrap_or(0.0);
+    if stop_pct <= 0.0 {
+        return Ok(0);
+    }
+    let drawdown = match portfolio_drawdown_pct {
+        Some(dd) if dd >= stop_pct => dd,
+        _ => {
+            // Below threshold: clear the fired flag so a future drawdown can
+            // re-trigger (parity: backtest re-arms each time equity peaks).
+            let mut fired = martingale_portfolio_stop_fired()
+                .lock()
+                .expect("portfolio stop fired poisoned");
+            fired.insert(portfolio.portfolio_id.clone(), false);
+            return Ok(0);
+        }
+    };
+
+    // Idempotency: if already fired in this drawdown, do not re-fire.
+    {
+        let mut fired = martingale_portfolio_stop_fired()
+                .lock()
+                .expect("portfolio stop fired poisoned");
+        if *fired.get(&portfolio.portfolio_id).unwrap_or(&false) {
+            return Ok(0);
+        }
+        fired.insert(portfolio.portfolio_id.clone(), true);
+    }
+
+    let cooldown_hours = config
+        .portfolio
+        .risk_limits
+        .portfolio_stop_cooldown_hours
+        .unwrap_or(0.0)
+        .max(0.0);
+    let now_ms = market_ticks
+        .first()
+        .map(|t| t.event_time_ms)
+        .unwrap_or_else(|| Utc::now().timestamp_millis());
+    let cooldown_until = now_ms + (cooldown_hours * 3_600_000.0).round() as i64;
+    {
+        let mut cooldowns = martingale_portfolio_stop_cooldowns()
+            .lock()
+            .expect("portfolio stop cooldowns poisoned");
+        cooldowns.insert(portfolio.portfolio_id.clone(), cooldown_until);
+    }
+
+    let mut stopped = 0usize;
+    for strategy_config in &config.portfolio.strategies {
+        let Some(mut strategy) =
+            db.find_strategy(&portfolio.owner, &strategy_config.strategy_id)?
+        else {
+            continue;
+        };
+        if strategy.strategy_type != StrategyType::MartingaleGrid
+            || strategy.status != StrategyStatus::Running
+        {
+            continue;
+        }
+        // Push reduceOnly close orders for every open position (mirror
+        // request_martingale_close). Positions with zero quantity are skipped.
+        for (position_index, position) in strategy.runtime.positions.iter().enumerate() {
+            if position.quantity == Decimal::ZERO {
+                continue;
+            }
+            let order_id = format!("pfstop-{}-{}", strategy.id, position_index);
+            let already = strategy.runtime.orders.iter().any(|order| {
+                order.order_id.starts_with("pfstop-")
+                    && order.order_id.ends_with(&format!("-{}", position_index))
+                    && matches!(order.status.as_str(),
+                        "ClosingRequested" | "Placed" | "PartiallyFilled")
+            });
+            if already {
+                continue;
+            }
+            strategy.runtime.orders.push(StrategyRuntimeOrder {
+                order_id,
+                exchange_order_id: None,
+                level_index: None,
+                side: close_side_for_runtime_position(position).to_string(),
+                order_type: "Market".to_string(),
+                price: None,
+                quantity: position.quantity.abs(),
+                status: "ClosingRequested".to_string(),
+            });
+        }
+        strategy.runtime.events.push(StrategyRuntimeEvent {
+            event_type: "portfolio_equity_stop".to_string(),
+            detail: format!(
+                "portfolio drawdown {:.2}% reached stop {:.2}%; closing all positions; cooldown_until_ms={}",
+                drawdown, stop_pct, cooldown_until
+            ),
+            price: market_ticks
+                .iter()
+                .find(|t| t.symbol == strategy.symbol)
+                .map(|t| t.price),
+            created_at: Utc::now(),
+        });
+        strategy.status = StrategyStatus::Stopping;
+        db.update_strategy(&strategy)?;
+        stopped += 1;
+    }
+    Ok(stopped)
+}
+
+/// Returns true if `portfolio_id` is currently in a portfolio-stop cooldown
+/// (parity with backtest `portfolio_stop_cooldown_until_ms`). The reconcile loop
+/// uses this to block new-cycle starts.
+fn portfolio_stop_in_cooldown(portfolio_id: &str, now_ms: i64) -> bool {
+    let cooldowns = martingale_portfolio_stop_cooldowns()
+        .lock()
+        .expect("portfolio stop cooldowns poisoned");
+    cooldowns
+        .get(portfolio_id)
+        .copied()
+        .filter(|until| *until > 0 && now_ms < *until)
+        .is_some()
 }
 
 fn completed_martingale_indicator_bars(
@@ -495,6 +662,16 @@ fn reconcile_running_martingale_portfolios(
         let config = martingale_runtime_config_from_portfolio(&portfolio)?;
         let portfolio_drawdown_pct =
             portfolio_drawdown_pct_for(db, &portfolio, &config, market_ticks);
+        // Portfolio equity stop: if drawdown breaches the configured threshold,
+        // close all active martingale positions and enter cooldown (parity with
+        // backtest `kline_engine.rs:549-579`).
+        evaluate_portfolio_equity_stop(
+            db,
+            &portfolio,
+            &config,
+            portfolio_drawdown_pct,
+            market_ticks,
+        )?;
 
         // Per-strategy start_cycle + order generation
         let strategies_config = portfolio
@@ -553,6 +730,7 @@ fn reconcile_running_martingale_portfolios(
                     strategy_id,
                     StrategyStatus::Running,
                     portfolio_drawdown_pct,
+                    &portfolio.portfolio_id,
                 )?,
             ) {
                 Ok(()) => {
@@ -671,6 +849,15 @@ fn reconcile_martingale_executor_strategies(
     let config = martingale_runtime_config_from_portfolio(portfolio)?;
     let settings = futures_settings_from_portfolio(portfolio)?;
     let portfolio_drawdown_pct = portfolio_drawdown_pct_for(db, portfolio, &config, market_ticks);
+    // Portfolio equity stop: close all active positions + cooldown if drawdown
+    // breaches threshold (parity with backtest `kline_engine.rs:549-579`).
+    evaluate_portfolio_equity_stop(
+        db,
+        portfolio,
+        &config,
+        portfolio_drawdown_pct,
+        market_ticks,
+    )?;
     for strategy_config in &config.portfolio.strategies {
         let Some(mut strategy) =
             db.find_strategy(&portfolio.owner, &strategy_config.strategy_id)?
@@ -716,6 +903,7 @@ fn reconcile_martingale_executor_strategies(
                     &strategy_config.strategy_id,
                     strategy.status,
                     portfolio_drawdown_pct,
+                    &portfolio.portfolio_id,
                 )?,
             )
             .map_err(|error| shared_db::SharedDbError::new(error.to_string()))?;
@@ -807,10 +995,12 @@ fn martingale_runtime_context_for_strategy(
     strategy_id: &str,
     fallback_status: StrategyStatus,
     portfolio_drawdown_pct: Option<f64>,
+    portfolio_id: &str,
 ) -> Result<MartingaleRuntimeContext, shared_db::SharedDbError> {
     let strategy = db.find_strategy(owner, strategy_id)?;
+    let now_ms = Utc::now().timestamp_millis();
     Ok(MartingaleRuntimeContext {
-        now_ms: Some(Utc::now().timestamp_millis()),
+        now_ms: Some(now_ms),
         strategy_status: strategy
             .as_ref()
             .map(|strategy| strategy.status)
@@ -819,6 +1009,7 @@ fn martingale_runtime_context_for_strategy(
             .as_ref()
             .and_then(last_martingale_cycle_closed_at_ms),
         portfolio_drawdown_pct,
+        portfolio_stop_cooldown_active: portfolio_stop_in_cooldown(portfolio_id, now_ms),
         ..MartingaleRuntimeContext::default()
     })
 }

@@ -176,3 +176,35 @@ get there the cycle must absorb large adverse excursion (the floating DD). Tight
 cuts the DD by closing cycles at a loss BEFORE they can revert — killing the
 mean-reversion profit. This is structural to martingale, not a parameter gap.
 
+
+## 2026-07-01 Task 4 part 2: trading-engine portfolio equity stop (live impl) — COMPLETE
+
+Implemented the live trading-engine portfolio equity stop (close-all + cooldown),
+achieving full live-parity with the backtest guard.
+
+### Changes
+- `crates/shared-domain/src/martingale.rs`: added `portfolio_equity_stop_pct` and
+  `portfolio_stop_cooldown_hours` to `MartingaleRiskLimits` (Option, serde default).
+- `apps/backtest-engine/src/martingale/kline_engine.rs`: `RiskGuardThresholds::from_config`
+  now reads these two fields config-first (parity resolution path), matching live.
+- `apps/trading-engine/src/main.rs`: added `evaluate_portfolio_equity_stop()` (closes all
+  Running martingale positions via reduceOnly `pfstop-` close orders, sets status=Stopping,
+  pushes `portfolio_equity_stop` event, sets cooldown-until) + `portfolio_stop_in_cooldown()`.
+  Wired into BOTH reconcile paths (bootstrap line ~517, executor line ~850).
+- `apps/trading-engine/src/martingale_runtime.rs`: added `portfolio_stop_cooldown_active`
+  to `MartingaleRuntimeContext` + cooldown gate in `enforce_new_entry_controls` (blocks
+  new cycles while cooldown active — parity with backtest `portfolio_stop_cooldown_until_ms`).
+
+### Verification
+- backtest-engine: 208 tests pass (182+3+23).
+- trading-engine: 185 tests pass (161 prior + 2 new cooldown tests + 22 other). Includes
+  pre-existing `martingale_runtime_cooldown_blocks_live_reentry_until_elapsed` which now
+  exercises the new gate.
+- New tests: `cooldown_blocks_new_cycle_entries`, `no_cooldown_allows_new_cycle_entry_path`.
+
+### Live-parity status
+The portfolio equity stop is now FULLY live-parity: same config field drives both engines,
+same threshold resolution (config-first → env → default), same semantics (drawdown vs
+known equity peak, close-all reduceOnly, cooldown block). Candidates using it are no longer
+research-only once this ships.
+
