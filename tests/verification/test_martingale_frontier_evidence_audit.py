@@ -76,6 +76,11 @@ class MartingaleFrontierEvidenceAuditTest(unittest.TestCase):
 
         self.assertIn("pair_neutral_risk_control", names)
 
+    def test_default_reports_include_pair_neutral_portfolio_probe(self):
+        names = [name for name, _path in audit.DEFAULT_REPORTS]
+
+        self.assertIn("pair_neutral_portfolio", names)
+
 
 if __name__ == "__main__":
     unittest.main()

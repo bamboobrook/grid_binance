@@ -6,9 +6,9 @@ This is a read-only requirement-by-requirement audit of the original objective. 
 
 ## Requirements
 
-- `candidate_pool_indexed` status `passed` evidence: target_gap rows `64415`, evidence reports `11`
+- `candidate_pool_indexed` status `passed` evidence: target_gap rows `64508`, evidence reports `12`
 - `all_profiles_final_pass` status `failed` evidence: 0 final target passes; profile pass counts {'conservative': 0, 'balanced': 0, 'aggressive': 0}
-- `conservative_gate` status `failed` evidence: conservative pass count `0`; nearest `dgt_dynamic_grid_probe_smoke.json` ann `23.982246379774487` DD `8.294380670877056` cap `100.0` pos `4` c2426 `40.95511659024695`
+- `conservative_gate` status `failed` evidence: conservative pass count `0`; nearest `BNBUSDT,SOLUSDT;BTCUSDT,LINKUSDT;ETHUSDT,XRPUSDT;ADAUSDT,DOGEUSDT` ann `33.9464509640804` DD `7.622608450011987` cap `3000.0` pos `5` c2426 `112.00340704325318`
 - `balanced_gate` status `failed` evidence: balanced pass count `0`; nearest `dd10_cd60 BNBUSDT,SOLUSDT` ann `54.41261150556331` DD `17.743195434155787` cap `1000.0` pos `5` c2426 `141.07308583967603`
 - `aggressive_gate` status `failed` evidence: aggressive pass count `0`; nearest `dgt_dynamic_grid_probe_smoke.json` ann `152.5783438215341` DD `40.70341822242481` cap `1674.7228571428573` pos `4` c2426 `393.24113761742564`
 - `external_claim_check` status `failed` evidence: external matrix found no public qualifying martingale/grid claim

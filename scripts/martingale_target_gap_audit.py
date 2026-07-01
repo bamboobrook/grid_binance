@@ -20,6 +20,7 @@ DEFAULT_SOURCES = [
     ("trend_risk_control", "/tmp/trend_risk_control_probe.json"),
     ("pair_neutral_grid", "/tmp/pair_neutral_grid_probe.json"),
     ("pair_neutral_risk_control", "/tmp/pair_neutral_risk_control_probe.json"),
+    ("pair_neutral_portfolio", "/tmp/pair_neutral_portfolio_probe.json"),
     ("funding_sleeve", "/tmp/funding_sleeve_probe.json"),
     ("saved_result_leak_audit", "/tmp/martingale_result_leak_audit_wide.json"),
 ]
@@ -52,6 +53,11 @@ def first_value(data: dict, names: list[str]) -> Any:
 def label_for(source: str, data: dict) -> str:
     if source == "funding_sleeve":
         return f"funding {data.get('symbol', 'unknown')} {data.get('side', 'unknown')}"
+    pairs = data.get("pairs")
+    if pairs:
+        if isinstance(pairs, list):
+            return ";".join(str(item) for item in pairs)
+        return str(pairs)
     parts = []
     for key in ("rule", "risk", "symbols", "pair", "symbol", "side"):
         value = data.get(key)

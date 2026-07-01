@@ -165,10 +165,33 @@ class MartingaleTargetGapAuditTest(unittest.TestCase):
         self.assertEqual(row["label"], "dd10_cd30 BNBUSDT,SOLUSDT")
         self.assertEqual(row["profile"], "conservative")
 
+    def test_pair_neutral_portfolio_rows_are_normalized(self):
+        row = audit.normalize_candidate(
+            "pair_neutral_portfolio",
+            {
+                "profile": "conservative",
+                "pairs": ["BNBUSDT,SOLUSDT", "BTCUSDT,LINKUSDT"],
+                "symbols": ["BNBUSDT", "SOLUSDT", "BTCUSDT", "LINKUSDT"],
+                "ann": 33.9,
+                "dd": 7.6,
+                "cap": 3000.0,
+                "pos": 5,
+                "c2426": 112.0,
+            },
+        )
+
+        self.assertEqual(row["label"], "BNBUSDT,SOLUSDT;BTCUSDT,LINKUSDT")
+        self.assertEqual(row["profile"], "conservative")
+
     def test_default_sources_include_pair_neutral_risk_control(self):
         names = [name for name, _path in audit.DEFAULT_SOURCES]
 
         self.assertIn("pair_neutral_risk_control", names)
+
+    def test_default_sources_include_pair_neutral_portfolio(self):
+        names = [name for name, _path in audit.DEFAULT_SOURCES]
+
+        self.assertIn("pair_neutral_portfolio", names)
 
     def test_frontier_bounds_show_return_limit_and_drawdown_cost(self):
         rows = [

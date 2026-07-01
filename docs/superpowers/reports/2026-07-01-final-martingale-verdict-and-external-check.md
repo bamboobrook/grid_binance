@@ -95,9 +95,11 @@ DGT therefore confirms the same frontier: return can be manufactured, but not wi
 
 `docs/superpowers/reports/2026-07-01-pair-neutral-risk-control-probe.md` added DD stop/cooldown variants over 27216 rows. It also found `0` passes. The best risk-controlled balanced-style frontier was `BNBUSDT,SOLUSDT + dd10_cd60`, with `54.41% ann / 17.74% DD / 1000U cap / 5/5 positive segments`, still below the balanced `>90%` target. The conservative version still requires more than 10% DD to exceed 50% ann.
 
+`docs/superpowers/reports/2026-07-01-pair-neutral-portfolio-probe.md` tested strict non-overlapping multi-pair portfolios over 93 research-only rows. It also found `0` passes. Diversification lowered drawdown: the nearest conservative-style row used `BNBUSDT,SOLUSDT`, `BTCUSDT,LINKUSDT`, `ETHUSDT,XRPUSDT`, and `ADAUSDT,DOGEUSDT` with `33.95% ann / 7.62% DD / 3000U cap / 5/5 positive segments`, but the return still missed the conservative `>50%` target. The highest-return multi-pair row reached `42.66% ann / 20.27% DD`, still below every final return target.
+
 ### Target Gap And Completion Audits
 
-`docs/superpowers/reports/2026-07-01-martingale-target-gap-audit.md` normalized 64415 saved research rows across trend, trend risk control, pair-neutral, pair-neutral risk control, funding, and saved result leak artifacts. It reports `0` final target passes.
+`docs/superpowers/reports/2026-07-01-martingale-target-gap-audit.md` normalized 64508 saved research rows across trend, trend risk control, pair-neutral, pair-neutral risk control, pair-neutral portfolio, funding, and saved result leak artifacts. It reports `0` final target passes.
 
 The current frontier under capital and segment filters is:
 

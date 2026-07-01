@@ -23,6 +23,10 @@ DEFAULT_REPORTS = [
         "docs/superpowers/reports/2026-07-01-pair-neutral-risk-control-probe.md",
     ),
     (
+        "pair_neutral_portfolio",
+        "docs/superpowers/reports/2026-07-01-pair-neutral-portfolio-probe.md",
+    ),
+    (
         "external_claim_gate_matrix",
         "docs/superpowers/reports/2026-07-01-external-martingale-grid-claim-gate-matrix.md",
     ),
