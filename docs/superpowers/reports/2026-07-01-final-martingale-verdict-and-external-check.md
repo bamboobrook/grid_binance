@@ -8,7 +8,7 @@
 
 No qualifying martingale/grid portfolio has been found.
 
-Current evidence is strong enough to reject the available live-parity martingale/grid paths in this repo under the original gates. It is not a mathematical proof that no strategy in the universe can ever satisfy the gates; it is a current-state engineering verdict: the searched pure martingale, regime-filtered martingale, hybrid martingale+trend/funding, and DGT reset variants all fail at least one mandatory gate.
+Current evidence is strong enough to reject the available martingale/grid paths in this repo under the original gates. It is not a mathematical proof that no strategy in the universe can ever satisfy the gates; it is a current-state engineering verdict: the searched pure martingale, regime-filtered martingale, hybrid martingale+trend/funding, DGT reset variants, pair-neutral spread grids, and risk-controlled pair-neutral grids all fail at least one mandatory gate.
 
 The recurring failure pattern is stable:
 
@@ -16,18 +16,19 @@ The recurring failure pattern is stable:
 - Low drawdown and balanced segments produce annualized returns far below 50/90/110%.
 - Full-period aggressive candidates can look acceptable, but segment robustness rejects them.
 - `research_only` DGT can create very high offline returns, but only by accepting capital/DD/segment failures.
+- Pair-neutral spread grids reduce beta and improve segment balance, but the best risk-controlled frontier still cannot combine the required annualized return and DD limits.
 
 ## Requirement Matrix
 
 | Requirement | Evidence status | Current finding |
 |---|---|---|
-| `<5000U` small capital | Tested by replay budget gates and DGT max-input gates | Some candidates stay below budget; the high-return candidates often need far more capital or trigger budget-blocked events. |
-| Multi-symbol | Enforced in DGT; existing replay candidates are multi-symbol | Multi-symbol alone does not rescue return/DD/segment gates. |
-| Anti-overfit / segment balance | H1-2023, H2-2023, 2024, 2025, 2026_ytd checks | Main rejection gate. High-return candidates repeatedly fail 4/5 positive segment and 2024-2026 checks. |
-| Conservative `>50% / DD<=10%` | Pure/replay, hybrid, DGT | No pass. Best robust low-DD results are roughly 10-14% ann, not >50%. |
-| Balanced `>90% / DD<=20%` | Pure/replay, hybrid, DGT | No pass. Return can be pushed up, but DD/segments/budget fail. |
-| Aggressive `>110% / DD<=30%` | Pure/replay, hybrid, DGT | Full-period passes exist in pure replay, but all fail segment robustness; DGT under-budget high-return candidates still have DD around 49-63%+. |
-| Live reproducibility | Existing martingale replay has live-parity gates; DGT is explicitly not live-ready | No final candidate reaches the stage where live promotion is justified. |
+| `<5000U` small capital | Tested by replay budget gates, DGT max-input gates, trend/funding allocation, pair-neutral allocation | Some candidates stay below budget; high-return candidates often need far more capital or accept DD above the gate. |
+| Multi-symbol | Enforced in DGT, trend sleeves, pair-neutral grid pairs, and saved replay rows where available | Multi-symbol alone does not rescue return/DD/segment gates. |
+| Anti-overfit / segment balance | H1-2023, H2-2023, 2024, 2025, 2026_ytd checks | Still a rejection gate for many high-return candidates. Pair-neutral grids can reach `5/5` positive segments, but then miss return/DD targets. |
+| Conservative `>50% / DD<=10%` | Pure/replay, hybrid, DGT, pair-neutral, pair-neutral risk control | No pass. Under segment/capital filters, the best ann within DD<=10% is `23.98%`; reaching ann >50% requires about `17.74%` DD. |
+| Balanced `>90% / DD<=20%` | Pure/replay, hybrid, DGT, pair-neutral, pair-neutral risk control | No pass. Under segment/capital filters, DD<=20% tops out at `54.41%` ann; reaching ann >90% requires about `40.70%` DD. |
+| Aggressive `>110% / DD<=30%` | Pure/replay, hybrid, DGT, pair-neutral, pair-neutral risk control | No pass. Under segment/capital filters, DD<=30% tops out at `54.41%` ann; reaching ann >110% requires about `40.70%` DD. |
+| Live reproducibility | Existing martingale replay has live-parity gates; DGT/pair-neutral probes are explicitly `research_only` | No final candidate reaches the stage where live promotion is justified. |
 
 ## Internal Evidence
 
@@ -88,6 +89,24 @@ Best DGT examples:
 
 DGT therefore confirms the same frontier: return can be manufactured, but not with the required DD, budget, and robustness constraints.
 
+### Pair-Neutral Grid And Risk Control
+
+`docs/superpowers/reports/2026-07-01-pair-neutral-grid-probe.md` tested pair-neutral spread grids over 3024 research-only rows. It found `0` passes. The strongest pair-neutral row was `BNBUSDT,SOLUSDT` with `54.41% ann / 23.60% DD / 1000U cap / 5/5 positive segments`, which is useful evidence but still fails conservative DD, balanced return/DD, and aggressive return gates.
+
+`docs/superpowers/reports/2026-07-01-pair-neutral-risk-control-probe.md` added DD stop/cooldown variants over 27216 rows. It also found `0` passes. The best risk-controlled balanced-style frontier was `BNBUSDT,SOLUSDT + dd10_cd60`, with `54.41% ann / 17.74% DD / 1000U cap / 5/5 positive segments`, still below the balanced `>90%` target. The conservative version still requires more than 10% DD to exceed 50% ann.
+
+### Target Gap And Completion Audits
+
+`docs/superpowers/reports/2026-07-01-martingale-target-gap-audit.md` normalized 64415 saved research rows across trend, trend risk control, pair-neutral, pair-neutral risk control, funding, and saved result leak artifacts. It reports `0` final target passes.
+
+The current frontier under capital and segment filters is:
+
+- Conservative: DD<=10% tops out at `23.98%` ann; ann >50% requires about `17.74%` DD.
+- Balanced: DD<=20% tops out at `54.41%` ann; ann >90% requires about `40.70%` DD.
+- Aggressive: DD<=30% tops out at `54.41%` ann; ann >110% requires about `40.70%` DD.
+
+`docs/superpowers/reports/2026-07-01-martingale-frontier-evidence-audit.md` indexes 11 reports and 129850 rows/symbol-level evidence with `0` machine-reported final/pass rows. `docs/superpowers/reports/2026-07-01-martingale-goal-completion-audit.md` marks the original objective as incomplete because all C/B/A final gates, external-claim proof, and live-ready proof fail.
+
 ## External Check
 
 External references do not provide a missing free lunch; they reinforce the implementation constraints and overfit risk discipline.
@@ -106,6 +125,7 @@ Sources checked:
 - Deflated Sharpe Ratio: https://papers.ssrn.com/sol3/papers.cfm?abstract_id=2460551
 - Probability of Backtest Overfitting: https://papers.ssrn.com/sol3/papers.cfm?abstract_id=2326253
 - Dynamic Grid Trading Strategy: https://arxiv.org/abs/2506.11921
+- External martingale/grid claim matrix: docs/superpowers/reports/2026-07-01-external-martingale-grid-claim-gate-matrix.md
 
 ## What This Does And Does Not Prove
 
@@ -114,6 +134,7 @@ Proves for current repo evidence:
 - No discovered pure martingale/grid/live-parity candidate satisfies all original C/B/A gates.
 - No discovered hybrid martingale+trend/funding research candidate satisfies the gates.
 - No discovered DGT research candidate satisfies the gates.
+- No discovered pair-neutral or risk-controlled pair-neutral grid candidate satisfies the gates.
 - The dominant blocker is structural, not a single missed parameter: return/DD/budget/segment requirements conflict.
 
 Does not prove:
@@ -129,12 +150,12 @@ Only paths that still make engineering sense:
 1. **Change the strategy class**: build a live-parity trend/breakout or stat-arb sleeve first as a standalone edge, then combine with low-risk MR. This is no longer "martingale strategy finds the target"; it is a broader portfolio strategy.
 2. **Funding/basis as auxiliary yield**: use it for smoothing or small return contribution, not as the main source for 50/90/110%.
 3. **Relax the target frontier**: if the mandate remains martingale/grid/live-parity, a realistic target is closer to `10-20% ann` depending on DD, not 50/90/110%.
-4. **Run a formal impossibility-style frontier report**: freeze all searched spaces, record trial counts, and mark the original target as not achievable by current martingale families unless a new mechanism is introduced.
+4. **Freeze the martingale/grid search space**: the current indexed evidence is broad enough to stop repeating martingale/grid variants unless a genuinely new mechanism or relaxed target is introduced.
 
 ## Operational Safety
 
 - No live/Binance/flyingkid/real-funds action was taken.
-- DGT remains `research_only`.
+- DGT and pair-neutral probes remain `research_only`.
 - No candidate should be promoted to live. Promotion requires a separate design, live-parity implementation, and explicit user approval.
 
 ## Final Decision
