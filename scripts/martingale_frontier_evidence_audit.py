@@ -21,6 +21,7 @@ DEFAULT_REPORTS = [
         "external_claim_gate_matrix",
         "docs/superpowers/reports/2026-07-01-external-martingale-grid-claim-gate-matrix.md",
     ),
+    ("goal_completion_audit", "docs/superpowers/reports/2026-07-01-martingale-goal-completion-audit.md"),
     ("final_external_check", "docs/superpowers/reports/2026-07-01-final-martingale-verdict-and-external-check.md"),
 ]
 
@@ -53,8 +54,12 @@ def parse_probe_report(name: str, text: str) -> dict:
         final_passes = int_after(r"Final-gate pass rows:\s*`?(\d+)`?", text) or 0
         passes = {profile: 0 for profile in PROFILES}
         passes["final_gate_rows"] = final_passes
+    if "Goal Complete:" in text:
+        passes = {profile: 0 for profile in PROFILES}
+        passes["goal_complete"] = 1 if re.search(r"Goal Complete:\s*`?True`?", text) else 0
     total_passes = sum(value for key, value in passes.items() if key in PROFILES)
     total_passes += passes.get("final_gate_rows", 0)
+    total_passes += passes.get("goal_complete", 0)
     return {
         "name": name,
         "rows": rows,
