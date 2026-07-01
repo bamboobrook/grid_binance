@@ -130,3 +130,22 @@ Ann is only 2.9% despite 2024 +31.7% because h2_2023 and 2025 are strongly negat
 2. More aggressive crash-short sizing (current short weight only 12%).
 3. Add a 2025-specific regime (e.g. BTC dominance rising) to tilt short.
 
+
+## 2026-07-01 Task 3: ATR/TP efficiency + DD-stop optimization — ann breakthrough
+
+- Scripts: `scripts/glm_atr_adx_efficiency_search.py`, `scripts/glm_highann_dd_optimize.py`
+- Outputs: `atr-adx-efficiency.json` (partial), `highann-dd-opt.json` (224 candidates)
+
+### RETURN BREAKTHROUGH: ann 2.9% -> 73.5% via high TP + high multiplier + strict gates
+Structure BNB+TRX long + AAVE short, strict regime gates, **TP=600bps, multiplier=3.0 (long)/2.5 (short), 9/8 legs**:
+- full ann **73.5%**, DD 45.1%, agg2024-2026 = +65.5%, 2/5 positive segments
+- segment: h1_2023 +79.3%, h2_2023 -34.5%, 2024 +127.6%, 2025 -31.8%, 2026_ytd -30.4%
+
+The high TP (600bps vs 420) + high multiplier (3.0 vs 1.8) + strict gate makes each martingale cycle far more profitable. This is a 15x ann improvement over the loose-gate low-TP frontier.
+
+### DD-stop does NOT reduce DD here (key finding)
+DD stays at 45.1% regardless of portfolio equity stop (10/12/14%). Reason: the 45% DD is the MAX floating loss during the 2024 run that then recovers to +127.6%; the DD stop fires at the trough and PREVENTS the recovery (or the single-strategy sl_bps=5000/50% lets each cycle draw down hugely before stopping). The DD stop is the wrong lever here.
+
+### To reduce DD: tighten the SINGLE-STRATEGY stop-loss (sl_bps)
+Current sl_bps=5000 (50%) is far too loose — each martingale cycle can lose half its budget before stopping. Tightening to sl_bps=1500-2500 should cap per-cycle DD and thus portfolio DD. Next search.
+

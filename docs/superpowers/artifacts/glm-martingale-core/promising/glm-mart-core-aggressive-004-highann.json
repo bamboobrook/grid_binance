@@ -1,0 +1,18 @@
+{
+  "candidate_id": "glm-mart-core-aggressive-004-highann",
+  "recorded_at": "2026-07-01T00:00:00Z",
+  "profile": "aggressive",
+  "strategy_family": "strict_regime_high_tp_multiplier_atr",
+  "martingale_core": true,
+  "research_only": true,
+  "budget_quote": 5000,
+  "symbols": [
+    "BNBUSDT",
+    "BCHUSDT",
+    "AAVEUSDT"
+  ],
+  "key_finding": "ann=73.6% (15x prior frontier 2.9%), DD=44.9% (needs reduction to <=30%). agg2426=+71.7%. pos=2/5.",
+  "structure": "BNB+BCH long + AAVE short, STRICT regime gates (close>ema50>ema200 + BTC), 600bps TP, multiplier 3.0 long/2.5 short, 9/8 legs, DD stop 25%/24h, ADX skip 35",
+  "diagnosis": "High TP (600bps) + high multiplier (3.0) + strict gate = high ann. DD too high (45%) \u2014 next: tighter DD stop (10-15%) on this exact structure.",
+  "config_summary": "see scripts/glm_atr_adx_efficiency_search.py build() with profile=aggressive, gate_style=strict, tp=600, dd=25"
+}
