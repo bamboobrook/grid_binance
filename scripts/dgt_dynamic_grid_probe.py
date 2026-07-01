@@ -343,17 +343,22 @@ def combine_streams(streams: list[dict]) -> dict:
         ]
         return combine_metadata(streams, points)
 
-    timestamps = sorted(set.intersection(*(set(point["timestamp_ms"] for point in stream["points"]) for stream in streams)))
+    timestamps = sorted(set().union(*(set(point["timestamp_ms"] for point in stream["points"]) for stream in streams)))
     if not timestamps:
-        raise ValueError("streams have no overlapping timestamps")
-    by_stream = {
-        stream["name"]: {point["timestamp_ms"]: point["equity_quote"] for point in stream["points"]}
-        for stream in streams
-    }
-    points = [
-        {"timestamp_ms": timestamp, "equity_quote": sum(values[timestamp] for values in by_stream.values())}
-        for timestamp in timestamps
-    ]
+        raise ValueError("streams have no timestamps")
+    indexes = [0 for _ in streams]
+    points = []
+    for timestamp in timestamps:
+        equity_quote = 0.0
+        for stream_index, stream in enumerate(streams):
+            stream_points = stream["points"]
+            while (
+                indexes[stream_index] + 1 < len(stream_points)
+                and int(stream_points[indexes[stream_index] + 1]["timestamp_ms"]) <= timestamp
+            ):
+                indexes[stream_index] += 1
+            equity_quote += float(stream_points[indexes[stream_index]]["equity_quote"])
+        points.append({"timestamp_ms": timestamp, "equity_quote": equity_quote})
     return combine_metadata(streams, points)
 
 

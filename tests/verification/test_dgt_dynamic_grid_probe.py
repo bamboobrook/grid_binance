@@ -111,6 +111,40 @@ class DgtDynamicGridProbeTest(unittest.TestCase):
         self.assertEqual(combined["total_fee_quote"], 3.0)
         self.assertEqual(combined["points"][-1]["equity_quote"], 300.0)
 
+    def test_combine_streams_uses_union_timestamps_with_carry_forward(self):
+        a = {
+            "name": "dgt:A",
+            "symbols": ["A"],
+            "points": [
+                {"timestamp_ms": 1, "equity_quote": 100.0},
+                {"timestamp_ms": 3, "equity_quote": 80.0},
+            ],
+            "max_input_quote": 100.0,
+            "total_fee_quote": 1.0,
+        }
+        b = {
+            "name": "dgt:B",
+            "symbols": ["B"],
+            "points": [
+                {"timestamp_ms": 1, "equity_quote": 200.0},
+                {"timestamp_ms": 2, "equity_quote": 150.0},
+                {"timestamp_ms": 3, "equity_quote": 210.0},
+            ],
+            "max_input_quote": 200.0,
+            "total_fee_quote": 2.0,
+        }
+
+        combined = dgt.combine_streams([a, b])
+
+        self.assertEqual(
+            combined["points"],
+            [
+                {"timestamp_ms": 1, "equity_quote": 300.0},
+                {"timestamp_ms": 2, "equity_quote": 250.0},
+                {"timestamp_ms": 3, "equity_quote": 290.0},
+            ],
+        )
+
     def test_combine_streams_uses_equal_timestamp_fast_path(self):
         a = {
             "name": "dgt:A",
