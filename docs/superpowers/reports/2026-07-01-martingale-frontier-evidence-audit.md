@@ -2,8 +2,8 @@
 
 This is a read-only index of current research evidence. It does not trade, touch Binance, flyingkid, live mode, or real funds.
 
-- reports indexed: `16`
-- rows/symbols indexed where available: `130036`
+- reports indexed: `17`
+- rows/symbols indexed where available: `150772`
 - machine-reported final/pass rows: `0`
 
 ## Indexed Reports
@@ -13,6 +13,7 @@ This is a read-only index of current research evidence. It does not trade, touch
 - `funding_sleeve` rows `30` passes `0` source `docs/superpowers/reports/2026-07-01-funding-sleeve-probe.md`
 - `trend_sleeve` rows `1200` passes `0` source `docs/superpowers/reports/2026-07-01-trend-sleeve-frontier-probe.md`
 - `trend_risk_control` rows `14400` passes `0` source `docs/superpowers/reports/2026-07-01-trend-risk-control-probe.md`
+- `dynamic_breakout_trend` rows `20736` passes `0` source `docs/superpowers/reports/2026-07-01-dynamic-breakout-trend-probe.md`
 - `dgt_dynamic_grid` rows `1080` passes `0` source `docs/superpowers/reports/2026-07-01-dgt-dynamic-grid-probe.md`
 - `pair_neutral_grid` rows `3024` passes `0` source `docs/superpowers/reports/2026-07-01-pair-neutral-grid-probe.md`
 - `pair_neutral_risk_control` rows `27216` passes `0` source `docs/superpowers/reports/2026-07-01-pair-neutral-risk-control-probe.md`

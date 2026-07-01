@@ -101,6 +101,11 @@ class MartingaleFrontierEvidenceAuditTest(unittest.TestCase):
 
         self.assertIn("search_freeze_reopen_criteria", names)
 
+    def test_default_reports_include_dynamic_breakout_trend_probe(self):
+        names = [name for name, _path in audit.DEFAULT_REPORTS]
+
+        self.assertIn("dynamic_breakout_trend", names)
+
 
 if __name__ == "__main__":
     unittest.main()
