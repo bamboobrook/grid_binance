@@ -19,6 +19,10 @@ DEFAULT_REPORTS = [
     ("dgt_dynamic_grid", "docs/superpowers/reports/2026-07-01-dgt-dynamic-grid-probe.md"),
     ("pair_neutral_grid", "docs/superpowers/reports/2026-07-01-pair-neutral-grid-probe.md"),
     (
+        "pair_neutral_risk_control",
+        "docs/superpowers/reports/2026-07-01-pair-neutral-risk-control-probe.md",
+    ),
+    (
         "external_claim_gate_matrix",
         "docs/superpowers/reports/2026-07-01-external-martingale-grid-claim-gate-matrix.md",
     ),
