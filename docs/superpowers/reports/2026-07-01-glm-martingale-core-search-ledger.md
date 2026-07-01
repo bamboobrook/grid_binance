@@ -109,3 +109,24 @@ The DD stop (MARTINGALE_BT_PORTFOLIO_EQUITY_STOP_PCT=8, COOLDOWN=24h):
 ### Best candidate recorded
 - `glm-mart-core-aggressive-002`: DD 5.75%, ann 3.1%, 2/5 pos, research-only (needs live DD-stop).
 
+
+## 2026-07-01 DD-stop sweep + best frontier
+
+- Script: `scripts/glm_dd_stop_sweep.py`
+- Output: `docs/superpowers/artifacts/glm-martingale-core/dd-stop-sweep.json`
+- 1260 candidates (long-bull+crash-short combos x DD-stop 10-30% x cooldown), 5269s.
+
+### Best frontier: `agg-L2S1-40w12-s20c24` (BNB+TRX long + AAVE short, DD stop 20%/24h)
+- h1_2023: +10.4%, h2_2023: -17.7%, 2024: +31.7%, 2025: -13.3%, 2026_ytd: +0.4%
+- **3/5 positive (NEW BEST), agg2024-2026 = +18.8%, DD 23.6%, ann 2.9%**
+- The DD stop made 2026_ytd go from -29% to flat (+0.4%) — the stop works.
+- h2_2023 (-17.7%, late bull reversal) and 2025 (-13.3%, crash-short under-captures) are the loss segments.
+
+### Return-ceiling diagnosis
+Ann is only 2.9% despite 2024 +31.7% because h2_2023 and 2025 are strongly negative. The DD stop caps DD but cannot manufacture return. The fundamental gap: the crash-short sleeve must capture MORE of the 2025 bear to offset long losses, and h2_2023 needs a regime gate that avoids the late-bull reversal.
+
+### Next directions to raise ann
+1. ATR/ADX-adaptive spacing/TP (Task 3) to make the martingale more efficient per cycle.
+2. More aggressive crash-short sizing (current short weight only 12%).
+3. Add a 2025-specific regime (e.g. BTC dominance rising) to tilt short.
+
