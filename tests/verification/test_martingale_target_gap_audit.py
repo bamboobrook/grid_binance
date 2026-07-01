@@ -130,6 +130,23 @@ class MartingaleTargetGapAuditTest(unittest.TestCase):
         self.assertEqual(result["summary"]["aggressive"]["nearest"][0]["label"], "mom BTCUSDT,ETHUSDT")
         self.assertEqual(result["summary"]["conservative"]["nearest"][0]["label"], "funding DYDXUSDT short")
 
+    def test_pair_neutral_grid_rows_are_normalized(self):
+        row = audit.normalize_candidate(
+            "pair_neutral_grid",
+            {
+                "profile": "balanced",
+                "pair": "BNBUSDT,SOLUSDT",
+                "ann": 54.4,
+                "dd": 23.6,
+                "cap": 1000.0,
+                "pos": 5,
+                "c2426": 142.5,
+            },
+        )
+
+        self.assertEqual(row["label"], "BNBUSDT,SOLUSDT")
+        self.assertEqual(row["profile"], "balanced")
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -6,10 +6,10 @@ This is a read-only requirement-by-requirement audit of the original objective. 
 
 ## Requirements
 
-- `candidate_pool_indexed` status `passed` evidence: target_gap rows `34175`, evidence reports `8`
+- `candidate_pool_indexed` status `passed` evidence: target_gap rows `37199`, evidence reports `10`
 - `all_profiles_final_pass` status `failed` evidence: 0 final target passes; profile pass counts {'conservative': 0, 'balanced': 0, 'aggressive': 0}
 - `conservative_gate` status `failed` evidence: conservative pass count `0`; nearest `dgt_dynamic_grid_probe_smoke.json` ann `23.982246379774487` DD `8.294380670877056` cap `100.0` pos `4` c2426 `40.95511659024695`
-- `balanced_gate` status `failed` evidence: balanced pass count `0`; nearest `dgt_dynamic_grid_probe_smoke.json` ann `23.982246379774487` DD `8.294380670877056` cap `100.0` pos `4` c2426 `40.95511659024695`
+- `balanced_gate` status `failed` evidence: balanced pass count `0`; nearest `BNBUSDT,SOLUSDT` ann `54.41261150556331` DD `23.599324015213735` cap `1000.0` pos `5` c2426 `142.50817048938288`
 - `aggressive_gate` status `failed` evidence: aggressive pass count `0`; nearest `dgt_dynamic_grid_probe_smoke.json` ann `152.5783438215341` DD `40.70341822242481` cap `1674.7228571428573` pos `4` c2426 `393.24113761742564`
 - `external_claim_check` status `failed` evidence: external matrix found no public qualifying martingale/grid claim
 - `live_ready` status `failed` evidence: final report says no candidate should be promoted to live

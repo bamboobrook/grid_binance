@@ -18,6 +18,7 @@ PROFILE_TARGETS = {
 DEFAULT_SOURCES = [
     ("trend_sleeve", "/tmp/trend_sleeve_frontier_probe.json"),
     ("trend_risk_control", "/tmp/trend_risk_control_probe.json"),
+    ("pair_neutral_grid", "/tmp/pair_neutral_grid_probe.json"),
     ("funding_sleeve", "/tmp/funding_sleeve_probe.json"),
     ("saved_result_leak_audit", "/tmp/martingale_result_leak_audit_wide.json"),
 ]
@@ -51,7 +52,7 @@ def label_for(source: str, data: dict) -> str:
     if source == "funding_sleeve":
         return f"funding {data.get('symbol', 'unknown')} {data.get('side', 'unknown')}"
     parts = []
-    for key in ("rule", "risk", "symbols", "symbol", "side"):
+    for key in ("rule", "risk", "symbols", "pair", "symbol", "side"):
         value = data.get(key)
         if value:
             parts.append(str(value))
