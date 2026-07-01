@@ -2,7 +2,7 @@
 
 This is a read-only index of current research evidence. It does not trade, touch Binance, flyingkid, live mode, or real funds.
 
-- reports indexed: `14`
+- reports indexed: `15`
 - rows/symbols indexed where available: `130036`
 - machine-reported final/pass rows: `0`
 
@@ -18,6 +18,7 @@ This is a read-only index of current research evidence. It does not trade, touch
 - `pair_neutral_risk_control` rows `27216` passes `0` source `docs/superpowers/reports/2026-07-01-pair-neutral-risk-control-probe.md`
 - `pair_neutral_portfolio` rows `93` passes `0` source `docs/superpowers/reports/2026-07-01-pair-neutral-portfolio-probe.md`
 - `external_claim_gate_matrix` rows `0` passes `0` source `docs/superpowers/reports/2026-07-01-external-martingale-grid-claim-gate-matrix.md`
+- `glm_phaseA_handoff_audit` rows `0` passes `0` source `docs/superpowers/reports/2026-07-01-glm-phaseA-handoff-audit.md`
 - `search_freeze_reopen_criteria` rows `0` passes `0` source `docs/superpowers/reports/2026-07-01-martingale-grid-search-freeze-and-reopen-criteria.md`
 - `goal_completion_audit` rows `0` passes `0` source `docs/superpowers/reports/2026-07-01-martingale-goal-completion-audit.md`
 - `live_promotion_gate_audit` rows `0` passes `0` source `docs/superpowers/reports/2026-07-01-martingale-live-promotion-gate-audit.md`

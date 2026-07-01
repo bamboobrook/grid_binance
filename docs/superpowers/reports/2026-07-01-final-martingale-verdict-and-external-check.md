@@ -34,7 +34,7 @@ The recurring failure pattern is stable:
 
 ### GLM Phase A
 
-GLM's handoff (`docs/superpowers/plans/2026-06-30-glm-phaseA-handoff-for-chatgpt.md` in `worktree-p4-cycle-exit`) reports about 1500 candidates and 590 segment validations using `portfolio_budget_replay` over `market_data_full.db`.
+GLM's handoff (`.claude/worktrees/p4-cycle-exit/docs/superpowers/plans/2026-06-30-glm-phaseA-handoff-for-chatgpt.md`, audited in `docs/superpowers/reports/2026-07-01-glm-phaseA-handoff-audit.md`) reports about 1500 candidates and 590 segment validations using `portfolio_budget_replay` over `market_data_full.db`.
 
 Key findings:
 
@@ -109,7 +109,7 @@ The current frontier under capital and segment filters is:
 - Balanced: DD<=20% tops out at `54.41%` ann; ann >90% requires about `40.70%` DD.
 - Aggressive: DD<=30% tops out at `54.41%` ann; ann >110% requires about `40.70%` DD.
 
-`docs/superpowers/reports/2026-07-01-martingale-frontier-evidence-audit.md` indexes 14 reports and 130036 rows/symbol-level evidence with `0` machine-reported final/pass rows. `docs/superpowers/reports/2026-07-01-martingale-goal-completion-audit.md` marks the original objective as incomplete because all C/B/A final gates, external-claim proof, and live-ready proof fail. `docs/superpowers/reports/2026-07-01-martingale-live-promotion-gate-audit.md` closes the live-promotion gate with `promotion_allowed=false`.
+`docs/superpowers/reports/2026-07-01-martingale-frontier-evidence-audit.md` indexes 15 reports and 130036 rows/symbol-level evidence with `0` machine-reported final/pass rows. `docs/superpowers/reports/2026-07-01-martingale-goal-completion-audit.md` marks the original objective as incomplete because all C/B/A final gates, external-claim proof, and live-ready proof fail. `docs/superpowers/reports/2026-07-01-martingale-live-promotion-gate-audit.md` closes the live-promotion gate with `promotion_allowed=false`.
 
 `docs/superpowers/reports/2026-07-01-martingale-grid-search-freeze-and-reopen-criteria.md` freezes repeated martingale/grid parameter searches under the current mechanism family and defines the minimum evidence required to reopen the search.
 
@@ -133,6 +133,7 @@ Sources checked:
 - Deflated Sharpe Ratio: https://papers.ssrn.com/sol3/papers.cfm?abstract_id=2460551
 - Probability of Backtest Overfitting: https://papers.ssrn.com/sol3/papers.cfm?abstract_id=2326253
 - Dynamic Grid Trading Strategy: https://arxiv.org/abs/2506.11921
+- GLM Phase A handoff audit: docs/superpowers/reports/2026-07-01-glm-phaseA-handoff-audit.md
 - External martingale/grid claim matrix: docs/superpowers/reports/2026-07-01-external-martingale-grid-claim-gate-matrix.md
 - Live promotion gate audit: docs/superpowers/reports/2026-07-01-martingale-live-promotion-gate-audit.md
 

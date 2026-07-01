@@ -56,6 +56,11 @@ class MartingaleFrontierEvidenceAuditTest(unittest.TestCase):
 
         self.assertIn("external_claim_gate_matrix", names)
 
+    def test_default_reports_include_glm_phaseA_handoff_audit(self):
+        names = [name for name, _path in audit.DEFAULT_REPORTS]
+
+        self.assertIn("glm_phaseA_handoff_audit", names)
+
     def test_default_reports_include_target_gap_audit(self):
         names = [name for name, _path in audit.DEFAULT_REPORTS]
 
