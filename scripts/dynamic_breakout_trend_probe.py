@@ -838,7 +838,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--slippage-bps", type=float, default=2.0)
     parser.add_argument("--min-daily-bars", type=int, default=600)
     parser.add_argument("--budget", type=float, default=5000.0)
-    parser.add_argument("--limit", type=int, default=8000)
+    parser.add_argument("--limit", type=int, default=20736)
     parser.add_argument("--out-json", required=True)
     parser.add_argument("--out-md", required=True)
     return parser.parse_args()

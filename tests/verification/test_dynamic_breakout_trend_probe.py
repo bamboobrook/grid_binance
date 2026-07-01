@@ -407,6 +407,32 @@ class DynamicBreakoutTrendProbeTest(unittest.TestCase):
             self.assertIn("live_parity_status: `research_only`", text)
             self.assertNotIn("live_parity_passed", text)
 
+    def test_default_limit_covers_default_search_space(self):
+        with patch(
+            "sys.argv",
+            [
+                "dynamic_breakout_trend_probe.py",
+                "--out-json",
+                "/tmp/out.json",
+                "--out-md",
+                "/tmp/out.md",
+            ],
+        ):
+            args = dynamic.parse_args()
+
+        expected = (
+            len(dynamic.parse_csv(args.profiles))
+            * len(dynamic.parse_csv(args.allocation_quotes))
+            * len(dynamic.parse_csv(args.rebalance_days))
+            * len(dynamic.parse_csv(args.score_lookbacks))
+            * len(dynamic.parse_csv(args.top_ns))
+            * len(dynamic.parse_csv(args.target_vols))
+            * len(dynamic.parse_csv(args.vol_lookbacks))
+            * len(dynamic.parse_csv(args.dd_stops))
+            * len(dynamic.parse_csv(args.cooldowns))
+        )
+        self.assertGreaterEqual(args.limit, expected)
+
 
 if __name__ == "__main__":
     unittest.main()
