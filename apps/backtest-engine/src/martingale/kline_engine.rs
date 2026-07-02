@@ -633,6 +633,8 @@ pub fn run_kline_screening_with_funding(
                         ),
                     ));
                     state.reset_cycle(exit.bar.open_time_ms);
+                    // Round 5 Task C: update risk reduction for stop exits (losses)
+                    strategy_states[state_index].update_risk_reduction(pnl > 0.0);
                     stop_count += 1;
                     trade_count += 1;
                 }
@@ -775,6 +777,8 @@ pub fn run_kline_screening_with_funding(
                             ),
                         ));
                         state.reset_cycle(exit.bar.open_time_ms);
+                        // Round 5 Task C: update risk reduction for TP exits (wins)
+                        strategy_states[state_index].update_risk_reduction(pnl > 0.0);
                         trade_count += 1;
                     }
                 }
@@ -1032,6 +1036,12 @@ struct StrategyRuntime<'a> {
     /// Round 4 P5: local extreme (low for long, high for short) tracked since
     /// the safety trigger was reached, for rebound confirmation.
     safety_local_extreme: Option<f64>,
+    /// Round 5 Task C: consecutive losing cycle count for risk reduction.
+    consecutive_losses: u32,
+    /// Round 5 Task C: consecutive winning cycle count for recovery.
+    consecutive_wins: u32,
+    /// Round 5 Task C: current first-order scaling factor (1.0 = normal, <1.0 = reduced).
+    first_order_scale: f64,
 }
 
 impl<'a> StrategyRuntime<'a> {
@@ -1072,6 +1082,9 @@ impl<'a> StrategyRuntime<'a> {
             cycle_mfe_bps: 0.0,
             safety_trigger_pending: false,
             safety_local_extreme: None,
+            consecutive_losses: 0,
+            consecutive_wins: 0,
+            first_order_scale: 1.0,
         })
     }
 
@@ -1092,6 +1105,9 @@ impl<'a> StrategyRuntime<'a> {
     }
 
     fn reset_cycle(&mut self, closed_at_ms: i64) {
+        // Round 5 Task C: Track win/loss streak for risk reduction.
+        // The cycle's PnL delta since last reset is tracked externally;
+        // here we just update scale based on current streak state.
         self.legs.clear();
         self.trigger_prices.clear();
         self.new_legs_blocked = false;
@@ -1106,6 +1122,40 @@ impl<'a> StrategyRuntime<'a> {
         self.cycle_seq += 1;
         self.cycle_id = format!("{}-cycle-{}", self.strategy.strategy_id, self.cycle_seq);
     }
+
+    /// Round 5 Task C: Update win/loss streak and adjust first_order_scale.
+    fn update_risk_reduction(&mut self, cycle_was_profitable: bool) {
+        let trigger = self
+            .strategy
+            .risk_limits
+            .loss_streak_trigger_count
+            .unwrap_or(u32::MAX);
+        let reduction_pct = self
+            .strategy
+            .risk_limits
+            .loss_streak_risk_reduction_pct
+            .unwrap_or(0.0);
+        let recovery_wins = self
+            .strategy
+            .risk_limits
+            .loss_streak_recovery_win_count
+            .unwrap_or(1);
+
+        if cycle_was_profitable {
+            self.consecutive_losses = 0;
+            self.consecutive_wins += 1;
+            if self.consecutive_wins >= recovery_wins && self.first_order_scale < 1.0 {
+                self.first_order_scale = 1.0; // fully recover
+            }
+        } else {
+            self.consecutive_wins = 0;
+            self.consecutive_losses += 1;
+            if self.consecutive_losses >= trigger && reduction_pct > 0.0 {
+                let factor = 1.0 - reduction_pct / 100.0;
+                self.first_order_scale = self.first_order_scale * factor;
+            }
+        }
+    }
 }
 
 fn add_leg(
@@ -1117,6 +1167,12 @@ fn add_leg(
     latest_atr: Option<f64>,
 ) -> Result<(), String> {
     validate_positive_f64("price", price)?;
+    // Round 5 Task C: Apply first_order_scale to the first leg (base order).
+    let (margin_quote, notional_quote) = if leg_index == 0 && state.first_order_scale < 1.0 {
+        (margin_quote * state.first_order_scale, notional_quote * state.first_order_scale)
+    } else {
+        (margin_quote, notional_quote)
+    };
     validate_positive_f64("margin_quote", margin_quote)?;
     validate_positive_f64("notional_quote", notional_quote)?;
     let quantity = notional_quote / price;

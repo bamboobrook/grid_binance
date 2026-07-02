@@ -239,6 +239,16 @@ pub struct MartingaleRiskLimits {
     /// successive safety orders are closer together in choppy markets.
     #[serde(default)]
     pub safety_order_basis: Option<MartingaleSafetyOrderBasis>,
+    /// Round 5 Task C: After N consecutive losing cycles, reduce first_order_quote
+    /// by this percentage for subsequent cycles until recovery wins. `None`/0 = disabled.
+    #[serde(default)]
+    pub loss_streak_risk_reduction_pct: Option<f64>,
+    /// Round 5 Task C: Number of consecutive losing cycles to trigger risk reduction.
+    #[serde(default)]
+    pub loss_streak_trigger_count: Option<u32>,
+    /// Round 5 Task C: Number of winning cycles to recover from risk reduction.
+    #[serde(default)]
+    pub loss_streak_recovery_win_count: Option<u32>,
 }
 
 /// Round 5 Task B: Safety order trigger basis.
