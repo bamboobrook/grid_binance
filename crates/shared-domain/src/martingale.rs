@@ -213,6 +213,19 @@ pub struct MartingaleRiskLimits {
     /// cooldown (engine default).
     #[serde(default)]
     pub reentry_equity_reclaim_fraction: Option<f64>,
+    /// Round 4 P4: maximum age of an active cycle in hours. If a cycle is
+    /// older than this, it is force-closed at the current price. `None`/0.0 =
+    /// disabled (cycles can live indefinitely).
+    #[serde(default)]
+    pub max_cycle_age_hours: Option<f64>,
+    /// Round 4 P4: if a cycle has not reached this much favorable excursion
+    /// (in bps from average entry) within `no_progress_exit_hours`, it is
+    /// force-closed. `None` = disabled.
+    #[serde(default)]
+    pub no_progress_exit_hours: Option<f64>,
+    /// Round 4 P4: MFE threshold in bps for the no-progress exit.
+    #[serde(default)]
+    pub no_progress_mfe_bps: Option<u32>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]

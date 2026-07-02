@@ -502,11 +502,40 @@ pub fn run_kline_screening_with_funding(
             }
         }
 
+        // Round 4 P4: Update cycle MFE and check max-cycle-age / no-progress exit.
+        for state_idx in 0..strategy_states.len() {
+            if strategy_states[state_idx].legs.is_empty() {
+                continue;
+            }
+            let symbol = strategy_states[state_idx].strategy.symbol.clone();
+            let Some(current_price) = latest_close_by_symbol.get(&symbol).copied() else {
+                continue;
+            };
+            // Set cycle_start_ms if not yet set (first bar after cycle open).
+            if strategy_states[state_idx].cycle_start_ms.is_none() {
+                strategy_states[state_idx].cycle_start_ms = Some(timestamp_ms);
+            }
+            // Update MFE (max favorable excursion in bps from weighted avg entry).
+            if let Ok(avg) = weighted_average_entry(&strategy_states[state_idx].legs) {
+                if avg > 0.0 {
+                    let sign = match strategy_states[state_idx].strategy.direction {
+                        MartingaleDirection::Long => 1.0,
+                        MartingaleDirection::Short => -1.0,
+                    };
+                    let mfe = (current_price - avg) / avg * 10_000.0 * sign;
+                    if mfe > strategy_states[state_idx].cycle_mfe_bps {
+                        strategy_states[state_idx].cycle_mfe_bps = mfe;
+                    }
+                }
+            }
+        }
+
         let exit_decisions = exit_decision_snapshot(
             &mut strategy_states,
             group,
             &latest_close_by_symbol,
             &mut indicator_context,
+            timestamp_ms,
         )?;
 
         for exit in exit_decisions {
@@ -939,6 +968,11 @@ struct StrategyRuntime<'a> {
     /// Round 2 Direction A: once true, the strategy stop migrates to breakeven
     /// (weighted avg entry + buffer). Set after the configured stage fires.
     breakeven_stop_active: bool,
+    /// Round 4 P4: timestamp (ms) when the current cycle opened (first leg fill).
+    /// Used for max_cycle_age and no_progress_exit.
+    cycle_start_ms: Option<i64>,
+    /// Round 4 P4: maximum favorable excursion (bps) achieved by this cycle.
+    cycle_mfe_bps: f64,
 }
 
 impl<'a> StrategyRuntime<'a> {
@@ -975,6 +1009,8 @@ impl<'a> StrategyRuntime<'a> {
             trailing_anchor_price: None,
             partial_tp_stage: 0,
             breakeven_stop_active: false,
+            cycle_start_ms: None,
+            cycle_mfe_bps: 0.0,
         })
     }
 
@@ -1001,6 +1037,8 @@ impl<'a> StrategyRuntime<'a> {
         self.trailing_anchor_price = None;
         self.partial_tp_stage = 0;
         self.breakeven_stop_active = false;
+        self.cycle_start_ms = None;
+        self.cycle_mfe_bps = 0.0;
         self.last_cycle_closed_at_ms = Some(closed_at_ms);
         self.cycle_seq += 1;
         self.cycle_id = format!("{}-cycle-{}", self.strategy.strategy_id, self.cycle_seq);
@@ -1515,6 +1553,7 @@ fn exit_decision_snapshot(
     bars: &[KlineBar],
     latest_close_by_symbol: &BTreeMap<String, f64>,
     indicator_context: &mut IndicatorRuntimeContext,
+    timestamp_ms: i64,
 ) -> Result<Vec<ExitSnapshot>, String> {
     let mut snapshots = Vec::new();
 
@@ -1535,12 +1574,42 @@ fn exit_decision_snapshot(
             indicator_context,
         )?;
         let take_profit = take_profit_signal(&mut states[state_index], bar, indicator_context)?;
-        let decision = evaluate_exit_priority(
+        let mut decision = evaluate_exit_priority(
             stop.global_stop,
             stop.symbol_stop,
             stop.strategy_stop,
             take_profit.triggered,
         );
+
+        // Round 4 P4: Active-cycle stale exit. If no stop/TP triggered, check
+        // max_cycle_age and no_progress_exit. These force-close stale cycles
+        // at the current bar close, freeing capital for new entries.
+        if decision == ExitDecision::None {
+            let rl = &states[state_index].strategy.risk_limits;
+            let cycle_age_hours = states[state_index]
+                .cycle_start_ms
+                .map(|start| (timestamp_ms - start) as f64 / 3_600_000.0)
+                .unwrap_or(0.0);
+            // Max cycle age check
+            if let Some(max_age) = rl.max_cycle_age_hours.filter(|v| *v > 0.0) {
+                if cycle_age_hours >= max_age {
+                    decision = ExitDecision::StrategyStop;
+                }
+            }
+            // No-progress exit: cycle hasn't reached MFE threshold within hours
+            if decision == ExitDecision::None {
+                if let (Some(np_hours), Some(np_mfe)) = (
+                    rl.no_progress_exit_hours.filter(|v| *v > 0.0),
+                    rl.no_progress_mfe_bps,
+                ) {
+                    if cycle_age_hours >= np_hours
+                        && states[state_index].cycle_mfe_bps < np_mfe as f64
+                    {
+                        decision = ExitDecision::StrategyStop;
+                    }
+                }
+            }
+        }
 
         snapshots.push(ExitSnapshot {
             state_index,
