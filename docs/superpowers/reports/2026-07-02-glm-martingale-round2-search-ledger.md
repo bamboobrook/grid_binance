@@ -69,3 +69,12 @@ Search order: A (partial TP+BE) → B (conditional SO) → F (recovery re-entry)
 - Grid: 6 symbol-set variations (base6, long4, short4, long4short4, base3short3lo, base3short3hi) × B-best mechanism × 6 replays.
 - **RESULT: no meaningful improvement.** base3short3lo (NEAR for AAVE): ann 16.3%, DD 19.9%, 4/5 pos, agg +21.0 (marginally higher ann, lower agg). Adding ETH/NEAR (long4, long4short4) made it WORSE (3/5, 2/5 pos). Base6 (BNB/TRX/BCH + AAVE/SOL/DOT) remains best balanced.
 - Conclusion: the base6 symbol set is already well-chosen. Symbol health variation doesn't improve the frontier.
+
+## r2-E-inventory-skew-full-001 (Direction E: Inventory Skew — full grid)
+- Grid: 7 cap variants (longcap 25-40, symcap 12-15, combos) × B-best × 6 replays.
+- **RESULT: no effect.** All variants identical (ann 16.2/DD 19.9/4/5 pos) because per-leg positions (~500U) never hit caps. Inventory skew via existing caps has no effect on this low-exposure structure.
+
+## r2-D-sentiment-data-check (Direction D: data availability)
+- market_data_full.db has ONLY `klines` table (no OI/longshort/taker/sentiment data).
+- funding_rates.db has funding_rates (114210 rows) — available for funding gate.
+- **BLOCKED for OI/longshort/taker**: historical sentiment data does not exist locally. Direction D can only test the FUNDING gate subset (which was already analyzed in Round 1 as too small to matter).
