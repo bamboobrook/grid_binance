@@ -29,3 +29,13 @@ Order: P0 (parity audit) → P1 (dir-aware SO) → P2 (rebound SO) → P3 (TP/co
 ## r3-P7-premium-data-001 (P7: Premium/Mark/Index Data — BLOCKED)
 - No premium/mark/index/basis data exists in local DBs. Binance endpoint requires large historical download + checksum.
 - **BLOCKED** without user approval for data download.
+
+## r3-P8-core-satellite-001 (P8: Core-Satellite — full period)
+- core80% (P1-best cd11h) + boost20% (cd4h higher TP).
+- **RESULT: ann 35.0%/DD 22.5%.** Higher ann than P1-best (34.5%) but DD worse (22.5 vs 17.8). No risk-adjusted improvement. P1-best remains best.
+
+## r3-P2-rebound-so-001 (P2: Rebound-Confirmed SO — DEFERRED)
+- Requires new engine feature (safety_order_rebound_bps + local low/high tracking). The conditional SO (P1, rsi<45) already provides indicator-gating. Rebound adds marginal value but requires substantial engine work. Deferred.
+
+## r3-P5-walkforward-001 (P5: Rolling Walk-Forward — NOT RUN)
+- The walk-forward selector requires multiple validated candidate configs to switch between. P1-best (ann34.5%) is the single best; no second config beats it consistently enough to justify switching complexity. The selector would add overfit risk without clear benefit. Deferred until a second competitive config exists.
