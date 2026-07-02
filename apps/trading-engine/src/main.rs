@@ -2130,6 +2130,16 @@ fn martingale_percent_take_profit_price(
 ) -> Option<Decimal> {
     let bps = match &config.take_profit {
         MartingaleTakeProfitModel::Percent { bps } => *bps,
+        MartingaleTakeProfitModel::Partial { stages, .. } => {
+            // Round 4 P0.1: Partial TP — use the FIRST stage bps as the TP
+            // trigger. The full multi-stage partial-close logic requires
+            // persistent stage tracking across reconcile ticks; for live
+            // parity, we approximate Partial TP as a single TP at the first
+            // stage bps (the most conservative — banks profit early). The
+            // exact multi-stage behavior is a backtest-only refinement until
+            // the live reconcile-loop state tracking is enhanced.
+            stages.first().map(|(_, _, bps)| *bps)?
+        }
         _ => return None,
     };
     let offset = average_entry * Decimal::from(bps) / Decimal::from(10_000_u32);
