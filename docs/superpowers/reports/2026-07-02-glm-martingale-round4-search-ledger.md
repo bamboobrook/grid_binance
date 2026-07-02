@@ -41,3 +41,9 @@ Round 3 best: `r3-P1-best-cd11` ann 34.5%, DD 17.8%, 4/5 pos, agg +29.2%, h1c 43
 - Implemented `safety_order_rebound_bps` + local extreme tracking. 208 tests pass.
 - Grid: 6 rebound_bps values (None, 20, 40, 60, 100, 150) × 6 replays.
 - **RESULT: no improvement.** Best=baseline(ann34.0/DD18.2/4pos). rb20 drops to 2/5 pos. Rebound confirmation delays safety execution, reducing ann without improving 2025.
+
+## r4-P3-pump-fade-short-full-001 (P3: Pump-Fade Short — FULL engine + grid)
+- Implemented `roc()` expression function in indicator_runtime. 208 tests pass.
+- Grid: 3 roc_periods × 4 roc_thresh × 3 rsi × 2 martingale params = 72 candidates × 6 replays.
+- **RESULT: marginal improvement.** BEST: rp720rt18rsi65m1.8tp500 = ann 34.7%, DD 17.7%, 4/5 pos, 2025 -9.96% (slight improvement from -10.16%). 33 frontier_improvements. Pump-fade roc(720)>18 marginally improves 2025 but doesn't flip it positive.
+- The ROC function works correctly and is now available for future pump-fade strategies.
