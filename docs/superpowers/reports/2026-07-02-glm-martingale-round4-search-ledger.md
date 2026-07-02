@@ -54,3 +54,9 @@ Round 3 best: `r3-P1-best-cd11` ann 34.5%, DD 17.8%, 4/5 pos, agg +29.2%, h1c 43
 - Crash coins (AAVE/SOL/DOT) have negative premium in 2025 (-0.0004), meaning shorts collect funding — but still lose on choppy price action.
 - **Decision: weak signal.** Premium gate could marginally help but 0.76% per signal is too small to flip 2025 -10%.
 - Data is now available for future premium-gate integration if a stronger signal is found.
+
+## r4-combo-breakthrough-001 (Final Combo Grid: pump-fade + dir-aware + partial TP)
+- Grid: 2 long TP × 3 short TP × 4 roc settings × 3 short cooldowns × 2 long SO = 144 candidates × 6 replays.
+- **RESULT: marginal improvement.** BEST: lt800st800r720t18r65sc39600sono = ann 34.7%, DD 17.7%, 4/5 pos, **2025 -8.70%** (best 2025 yet, improved from -10.16%).
+- The combo with symmetric long/short TP (800/1600/2600 both) + pump-fade roc(720)>18 + rsi>65 + 11h cooldown gives the best 2025 result across all 4 rounds.
+- 54 frontier_improvements out of 144.
