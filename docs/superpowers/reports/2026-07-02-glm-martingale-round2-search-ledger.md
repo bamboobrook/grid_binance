@@ -30,3 +30,17 @@ Search order: A (partial TP+BE) → B (conditional SO) → F (recovery re-entry)
 - Direction D (Futures sentiment): needs OI/longshort/taker historical data (may not exist for full period).
 - Direction F (Recovery re-entry): needs equity-reclaim re-entry logic in engine (current is calendar cooldown).
 - Direction A (true Partial TP): needs Rust engine partial-close feature (current TP does full reset_cycle).
+
+## r2-A-partial-tp-be-full-001 (Direction A: Partial TP + Breakeven — FULL engine implementation)
+
+- Hypothesis: Partial TP banks profit before full mean reversion, BE stop reduces tail DD.
+- Implementation: Added `Partial` TP variant to shared-domain + Rust engine (partial close logic in TakeProfit exit block, `tp_stage`/`breakeven_stop_active` state, breakeven stop migration in triggered_stop). 208 tests pass.
+- Grid: 3 symbol sets × 3 TP ladders × 3 splits × 2 BE-after × 3 BE-buffer = 162 candidates × 6 replays = 972 replays, 2589s.
+- **RESULT: BREAKTHROUGH.** 13 frontier_improvements. BEST: `s0-tl80016002600-sp303040-be1b100`:
+  - **ann 17.5%, DD 19.2%, 4/5 positive segments (NEW BEST), agg24-26 +14.1%, h1_contrib 57.8% (< 60% gate!)**
+  - Segments: h1_2023 +19.95%, **h2_2023 +0.46% (flipped from negative!)**, 2024 +29.77%, 2025 -17.10%, 2026_ytd +1.44%
+  - DD 19.2% is within the Balanced DD gate (<=20%). 4/5 positive segments meets Conservative/Balanced segment gate (>=4/5).
+  - This is a genuine frontier_improvement over 008-best on segment stability (4/5 vs 3/5) and DD (19.2 vs 26.1).
+- Mechanism validated: Partial TP + breakeven DOES break part of the cliff by banking profit early and protecting it with BE stop, which flipped h2_2023 positive.
+- Saved: `promising/r2-A-best-4of5.json`
+- Next: continue to Direction B (Conditional SO), but this is a strong new frontier.
