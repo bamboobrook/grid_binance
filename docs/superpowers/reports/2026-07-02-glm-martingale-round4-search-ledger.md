@@ -47,3 +47,10 @@ Round 3 best: `r3-P1-best-cd11` ann 34.5%, DD 17.8%, 4/5 pos, agg +29.2%, h1c 43
 - Grid: 3 roc_periods × 4 roc_thresh × 3 rsi × 2 martingale params = 72 candidates × 6 replays.
 - **RESULT: marginal improvement.** BEST: rp720rt18rsi65m1.8tp500 = ann 34.7%, DD 17.7%, 4/5 pos, 2025 -9.96% (slight improvement from -10.16%). 33 frontier_improvements. Pump-fade roc(720)>18 marginally improves 2025 but doesn't flip it positive.
 - The ROC function works correctly and is now available for future pump-fade strategies.
+
+## r4-P6-premium-data-full-001 (P6: Premium Data Gate — UNBLOCKED + analyzed)
+- Downloaded `data/premium_index.db`: 176,640 rows, 6 symbols (BNB/TRX/BCH/AAVE/SOL/DOT), 2023-2026, 1h interval.
+- Signal test: BTC premium > 0.0003 → next 24h avg -0.76% (weak mean-reversion). Occurs 35.7% of 2025 hours.
+- Crash coins (AAVE/SOL/DOT) have negative premium in 2025 (-0.0004), meaning shorts collect funding — but still lose on choppy price action.
+- **Decision: weak signal.** Premium gate could marginally help but 0.76% per signal is too small to flip 2025 -10%.
+- Data is now available for future premium-gate integration if a stronger signal is found.
