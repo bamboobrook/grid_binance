@@ -88,3 +88,31 @@ R4 confirmed the R3 frontier is the ceiling under martingale-only constraints. T
 1. **r3-P1-best-cd11 (ann 34.5%/DD 17.8%/4pos) is the confirmed martingale-native ceiling across 4 rounds.** The remaining 15.5pp gap to Conservative 50% likely requires either: (a) implementing P4/P5 engine features (active-cycle exit, rebound SO) which may reduce the 50% stop rate, (b) premium/sentiment data (blocked on download), or (c) a non-martingale auxiliary sleeve (requires user authorization).
 2. **Implement trading-engine parity (P0)** — this is the #1 deployment blocker. Without it, no Round 2/3/4 candidate can go live.
 3. **The 2025 -10% is the single hardest problem in crypto martingale.** 4 rounds of mechanism search (24+ directions) cannot flip it positive. It requires either a fundamentally different entry mechanism (pump-fade with engine extension), active-cycle management (P4), or external data (premium/sentiment).
+
+## UPDATE: P0 Trading-Engine Parity + P4 Active-Cycle Exit (implemented after initial handoff)
+
+### P0 Implementation Status (PARTIALLY DONE)
+| Feature | Status | Notes |
+|---|---|---|
+| Conditional SO | **live-parity** | Implemented in `mark_leg_filled_with_context`; 2 tests pass |
+| Partial TP (first-stage) | **partial-parity** | Trading-engine uses first-stage bps as TP trigger (conservative approximation) |
+| Breakeven stop | **partial-parity** | Falls back to StrategyDrawdownPct; BE migration needs more engine work |
+| Equity-reclaim | **backtest-only** | Calendar cooldown works; reclaim fraction not evaluated |
+- trading-engine: 187 tests pass (was 185, +2 Conditional SO)
+
+### P4 Active-Cycle Exit (FULL engine implementation + full grid)
+- Implemented `max_cycle_age_hours`, `no_progress_exit_hours`, `no_progress_mfe_bps` in backtest engine. 208 tests pass.
+- Grid: 25 candidates × 6 replays (5 max_age × 5 no_progress combos).
+- **RESULT: no improvement.** Best = no-exit baseline (ann34.0/DD18.2/4pos). All active exits reduce ann and pos. Stale cycles are NOT the 2025 problem.
+- 2025 improves slightly with very aggressive exits (age120_np24_400: 2025 -5.1% vs -14.9%) but full ann goes negative.
+
+### Updated Engine Feature Count
+- backtest-engine: 208 tests (Partial TP, Conditional SO, Equity-Reclaim, Active-Cycle Exit all implemented)
+- trading-engine: 187 tests (Conditional SO, Partial TP first-stage implemented)
+- New shared-domain fields: max_cycle_age_hours, no_progress_exit_hours, no_progress_mfe_bps
+
+### Total Round 4 Engine Deliverables
+- 3 new backtest engine features (Partial TP R2, Conditional SO R2, Active-Cycle Exit R4)
+- 2 trading-engine parity features (Conditional SO, Partial TP first-stage)
+- 1 parity audit report
+- 4 rounds of systematic search (24+ directions, r3-P1-best ann 34.5%/DD 17.8% remains global best)
