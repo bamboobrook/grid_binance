@@ -116,3 +116,23 @@ R4 confirmed the R3 frontier is the ceiling under martingale-only constraints. T
 - 2 trading-engine parity features (Conditional SO, Partial TP first-stage)
 - 1 parity audit report
 - 4 rounds of systematic search (24+ directions, r3-P1-best ann 34.5%/DD 17.8% remains global best)
+
+## FINAL UPDATE: P5 Rebound SO + P3 Pump-Fade Short (all implemented + full 5-seg)
+
+### P5 Rebound-Confirmed SO (FULL engine + grid)
+- Implemented `safety_order_rebound_bps` + local extreme tracking. 208 tests pass.
+- Grid: 6 rebound_bps values × 6 replays.
+- **RESULT: no improvement.** Best=baseline(ann34.0/DD18.2/4pos). Rebound confirmation delays safety execution, reducing ann without improving 2025.
+
+### P3 Pump-Fade Short (FULL engine + grid)
+- Implemented `roc()` expression function in indicator_runtime. 208 tests pass.
+- Grid: 72 candidates (3 roc_periods × 4 roc_thresh × 3 rsi × 2 params) × 6 replays.
+- **RESULT: marginal improvement.** BEST: rp720rt18rsi65m1.8tp500 = ann 34.7%, DD 17.7%, 4/5 pos, 2025 -9.96% (slight improvement from -10.16%). Pump-fade short with roc(720)>18 (18% pump in 12h) marginally improves 2025.
+- 33 frontier_improvements. ROC function now available for future use.
+
+### Total Round 4 Engine Deliverables (FINAL)
+- backtest-engine: **208 tests** (Partial TP, Conditional SO, Equity-Reclaim, Active-Cycle Exit, Rebound-Confirmed SO, ROC function)
+- trading-engine: **187 tests** (Conditional SO parity, Partial TP first-stage parity)
+- New shared-domain fields: max_cycle_age_hours, no_progress_exit_hours, no_progress_mfe_bps, safety_order_rebound_bps
+- New expression function: roc(period) = rate of change %
+- 4 rounds: r3-P1-best-cd11 (ann 34.5%/DD 17.8%/4pos) remains global best; P3 pump-fade marginally improves to ann 34.7%/DD 17.7%/2025 -9.96%
