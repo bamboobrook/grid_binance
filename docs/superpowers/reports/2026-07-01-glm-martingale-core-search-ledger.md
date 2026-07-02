@@ -304,3 +304,24 @@ honest frontier is unchanged, but the stop mechanism is now correct for live.
 The generalizable (3/5 pos, agg24-26>0, multi-symbol, live-parity) martingale frontier under <5000U is:
 **ann ~22% at DD ~26%** (candidate 008-best). The 50/90/110% ann targets require either DD>=45% (overfit) or a non-martingale return source. 2025's choppy bear is the structural blocker that no lever (regime tilt, short gate, TP, multiplier, symbol count, leverage) overcomes.
 
+
+## 2026-07-02 Trailing/mixed TP + funding-carry probe — no ceiling break
+
+### Trailing TP on 008-best structure
+- trail2000_800 (act 2000, cb 800): full ann 22.8%, DD 27.6% — marginally higher ann but segments WORSE: 2/5 pos (2024 went -10%), agg24-26 -21.8%. Hurts the 2024 return engine.
+- trail500-1500: lower DD (21-28%) but lower ann (14-17%).
+- mixed (atr+pct): ann negative.
+- Conclusion: fixed percent TP=2200 (008-best) remains optimal for segment stability.
+
+### Funding-carry analysis (annualized short-carry if long-spot/short-perp delta-neutral)
+- Highest annualized carry: LINKUSDT +8.5%, DOGEUSDT +7.9%, AAVEUSDT +7.5%, ETHUSDT +7.0%, BTCUSDT +6.7%.
+- Carry is 5-8%/yr — meaningful as a smoothing sleeve but far below the 50%+ ann target alone.
+- BNB/TRX/BCH (the long-bull core) have NEGATIVE funding (-1.9 to -5.3%/yr) — longs pay shorts, so a long martingale on them pays a funding drag (already in the backtest).
+
+### FINAL: the ceiling holds
+The generalizable martingale frontier (segment-stable, multi-symbol, <5000U, live-parity) is
+**candidate 008-best: ann 22.2%, DD 26.1%, 3/5 positive segments, agg2024-2026 +17.2%**.
+No lever (trailing/mixed TP, funding carry, regime tilt, leverage, symbol count, DD stop)
+raises ann above ~23% at DD<=30% with segment stability. The 50/90/110% targets need either
+DD>=45% (overfit) or a non-martingale primary return source.
+
