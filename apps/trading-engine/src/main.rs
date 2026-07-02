@@ -115,6 +115,42 @@ fn martingale_portfolio_stop_equity() -> &'static Mutex<HashMap<String, (f64, f6
     MARTINGALE_PORTFOLIO_STOP_EQUITY.get_or_init(|| Mutex::new(HashMap::new()))
 }
 
+/// Round 4: Track Partial TP stage per strategy_id for multi-stage parity.
+/// Key = strategy_id, value = current stage index (0-based).
+static MARTINGALE_PARTIAL_TP_STAGE: OnceLock<Mutex<HashMap<String, u32>>> =
+    OnceLock::new();
+
+fn martingale_partial_tp_stage() -> &'static Mutex<HashMap<String, u32>> {
+    MARTINGALE_PARTIAL_TP_STAGE.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
+/// Get the current Partial TP stage for a strategy (0 if not tracked).
+fn get_partial_tp_stage(strategy_id: &str) -> u32 {
+    martingale_partial_tp_stage()
+        .lock()
+        .expect("partial tp stage poisoned")
+        .get(strategy_id)
+        .copied()
+        .unwrap_or(0)
+}
+
+/// Advance the Partial TP stage for a strategy.
+fn advance_partial_tp_stage(strategy_id: &str) {
+    let mut stages = martingale_partial_tp_stage()
+        .lock()
+        .expect("partial tp stage poisoned");
+    let current = stages.get(strategy_id).copied().unwrap_or(0);
+    stages.insert(strategy_id.to_string(), current + 1);
+}
+
+/// Reset the Partial TP stage for a strategy (on cycle close).
+fn reset_partial_tp_stage(strategy_id: &str) {
+    martingale_partial_tp_stage()
+        .lock()
+        .expect("partial tp stage poisoned")
+        .remove(strategy_id);
+}
+
 /// 计算一个 running portfolio 的当前 drawdown 百分比 (peak→current equity).
 ///
 /// equity = budget + Σ realized_pnl + Σ unrealized_pnl
@@ -2119,7 +2155,35 @@ fn apply_martingale_market_ticks(
             continue;
         };
         request_martingale_close(strategy, &position, tick.price, &exit);
-        strategy.status = StrategyStatus::Stopping;
+        // Round 4: Multi-stage Partial TP stage tracking. When a TP fires and
+        // the strategy uses Partial TP, advance the stage counter. If this was
+        // the final stage, stop the strategy. If not, keep it Running so the
+        // next stage's TP can trigger after the position is re-opened.
+        // NOTE: The live engine currently closes the FULL position on each TP
+        // trigger (request_martingale_close = full close). True partial close
+        // (fraction of position) requires modifying the order submission path
+        // to use a partial quantity. This is a conservative approximation:
+        // close all, advance stage, re-open on next entry signal.
+        if exit.event_type == "martingale_take_profit_stop" {
+            if let MartingaleTakeProfitModel::Partial { stages, .. } = &strategy_config.take_profit {
+                let current_stage = get_partial_tp_stage(&strategy.id);
+                if (current_stage as usize) < stages.len() - 1 {
+                    // Not final stage: advance and keep running for re-entry
+                    advance_partial_tp_stage(&strategy.id);
+                    // Don't set Stopping — let it re-open for the next stage
+                } else {
+                    // Final stage: reset and stop
+                    reset_partial_tp_stage(&strategy.id);
+                    strategy.status = StrategyStatus::Stopping;
+                }
+            } else {
+                strategy.status = StrategyStatus::Stopping;
+            }
+        } else {
+            // Non-TP exit (SL, BE): reset stage and stop
+            reset_partial_tp_stage(&strategy.id);
+            strategy.status = StrategyStatus::Stopping;
+        }
         changed = true;
         persist_runtime_notification(
             db,
@@ -2271,14 +2335,13 @@ fn martingale_percent_take_profit_price(
     let bps = match &config.take_profit {
         MartingaleTakeProfitModel::Percent { bps } => *bps,
         MartingaleTakeProfitModel::Partial { stages, .. } => {
-            // Round 4 P0.1: Partial TP — use the FIRST stage bps as the TP
-            // trigger. The full multi-stage partial-close logic requires
-            // persistent stage tracking across reconcile ticks; for live
-            // parity, we approximate Partial TP as a single TP at the first
-            // stage bps (the most conservative — banks profit early). The
-            // exact multi-stage behavior is a backtest-only refinement until
-            // the live reconcile-loop state tracking is enhanced.
-            stages.first().map(|(_, _, bps)| *bps)?
+            // Round 4: Multi-stage Partial TP — use the CURRENT stage bps
+            // (tracked persistently via martingale_partial_tp_stage).
+            // Falls back to first stage if no tracking exists (new cycle).
+            let stage_idx = get_partial_tp_stage(&config.strategy_id) as usize;
+            stages.get(stage_idx)
+                .or_else(|| stages.first())
+                .map(|(_, _, bps)| *bps)?
         }
         _ => return None,
     };
