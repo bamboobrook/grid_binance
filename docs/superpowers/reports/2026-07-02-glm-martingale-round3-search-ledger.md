@@ -21,3 +21,11 @@ Order: P0 (parity audit) → P1 (dir-aware SO) → P2 (rebound SO) → P3 (TP/co
 ## r3-P6-breadth-regime-001 (P6: Breadth Regime — full grid, 48 candidates)
 - Grid: 6 long-gate breadth proxies × 4 short-gate × 2 cooldowns = 48 × 6 replays.
 - **RESULT: no improvement.** Best ≈ P1 (ann 34.5%/DD 18-22.5%) but 2025 WORSE (-14.6 to -15.2 vs P1's -10.1%). BTC breadth proxy doesn't help because 2025 is choppy bear, not clean trend. 2025 structural blocker confirmed by P3 AND P6.
+
+## r3-P4-custom-ladder-001 (P4: Custom Safety Ladder — full period)
+- Grid: 4 custom ladders + fixed150 baseline on P1-best structure.
+- **RESULT: fixed150 best (ann 31.2%/DD 16.8%). All custom ladders worse or negative.** Custom ladders don't beat fixed 150bps even with partial TP. Rejected.
+
+## r3-P7-premium-data-001 (P7: Premium/Mark/Index Data — BLOCKED)
+- No premium/mark/index/basis data exists in local DBs. Binance endpoint requires large historical download + checksum.
+- **BLOCKED** without user approval for data download.
