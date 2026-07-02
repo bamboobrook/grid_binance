@@ -347,3 +347,22 @@ The weight-cap applier scales `first_order_quote` by `weight_pct × budget`. Hig
 ### Conclusion on the relaxed-capital direction
 Higher budget does NOT break the ann/DD cliff — it trades segment stability for headline ann. The generalizable frontier remains candidate 008-best (5000U, ann 22.2%, DD 26.1%, 3/5 pos, agg24-26 +17.2%).
 
+
+## 2026-07-02 Final martingale-native mechanism probe — ATR/multiplier/custom spacing all fail
+
+- Tested ATR spacing (mult 1.0-2.5, various min/max bounds), multiplier spacing (1.3-1.8), custom sequences (geometric, front-loaded) on the 008-best structure.
+- ALL variants gave negative ann (-5 to -8%) except the degenerate atr1wide (which reduces to fixed 150bps = 008-best).
+- Fixed percent step_bps=150 (008-best) remains the optimal spacing. No spacing model beats it.
+
+### COMPLETE LIST of martingale-native mechanisms exhausted (all live-parity)
+1. Sizing: multiplier (1.3-3.5), max_legs (2-9), first_order_quote scaling
+2. Spacing: fixed_percent (25-500bps), multiplier, ATR, custom_sequence, mixed
+3. TP: percent (140-3000bps), ATR multiplier, trailing (5 activation/callback combos), mixed
+4. SL: strategy_drawdown_pct (800-5000bps), portfolio equity stop (now budget-based, fixed)
+5. Gates: strict/mid/loose, per-symbol (ema/adx/rsi/bb/atr_percent), BTC macro veto
+6. Portfolio: 3-12 symbols, long-bull+crash-short combos, weight allocations
+7. Budget: 5k-50k
+8. Risk: cooldowns, ADX safety-skip
+9. Funding carry analyzed (5-8%/yr, too low to matter)
+- **008-best (fixed 150bps spacing, TP=2200, mult=2.8, strict-long+mid-short, 6 symbols, 5000U) is the confirmed optimal martingale-native frontier.**
+
