@@ -134,13 +134,23 @@ pub fn run_kline_screening(
     portfolio: MartingalePortfolioConfig,
     bars: &[KlineBar],
 ) -> Result<MartingaleBacktestResult, String> {
-    run_kline_screening_with_funding(portfolio, bars, &[])
+    // No explicit budget provided: fall back to the portfolio's configured
+    // global budget cap (or the planned margin capital inside the sim). The
+    // portfolio equity stop, when enabled, will use this as the equity base.
+    let budget = portfolio
+        .risk_limits
+        .max_global_budget_quote
+        .and_then(|d| d.to_string().parse::<f64>().ok())
+        .filter(|v| v.is_finite() && *v > 0.0)
+        .unwrap_or(0.0);
+    run_kline_screening_with_funding(portfolio, bars, &[], budget)
 }
 
 pub fn run_kline_screening_with_funding(
     portfolio: MartingalePortfolioConfig,
     bars: &[KlineBar],
     funding_rates: &[FundingRatePoint],
+    budget_quote: f64,
 ) -> Result<MartingaleBacktestResult, String> {
     portfolio.validate()?;
     let risk_guards = RiskGuardThresholds::from_config(&portfolio.risk_limits);
@@ -174,6 +184,14 @@ pub fn run_kline_screening_with_funding(
     let mut capital_used_quote = 0.0_f64;
     let mut max_capital_used_quote = 0.0_f64;
     let mut equity_peak_quote = initial_margin_capital;
+    // Budget-equity peak for the portfolio equity stop. The stop must protect
+    // the REAL budget-based equity (budget + cum_pnl), which is what
+    // `on_budget_metrics` reports DD over. Using the margin-based equity for the
+    // stop would never trigger because the margin base (sum of planned leg
+    // margins) is much larger than the budget and barely draws down. Parity:
+    // the live trading-engine `portfolio_drawdown_pct_for` also computes drawdown
+    // over `budget + realized + unrealized`.
+    let mut budget_equity_peak_quote = budget_quote.max(0.0);
     let mut max_drawdown_pct = 0.0_f64;
     let mut last_equity_quote = initial_margin_capital;
     let mut latest_close_by_symbol = BTreeMap::new();
@@ -542,12 +560,22 @@ pub fn run_kline_screening_with_funding(
         let mut equity_quote = initial_margin_capital
             + realized_pnl_quote
             + unrealized_pnl(&strategy_states, &latest_close_by_symbol)?;
+        // Budget-based equity = budget + cum_pnl, matching `on_budget_metrics`.
+        // cum_pnl(t) = equity_quote(t) - initial_margin_capital.
+        let budget_equity_quote = budget_quote + (equity_quote - initial_margin_capital);
+        if budget_equity_quote.is_finite() && budget_equity_quote > budget_equity_peak_quote {
+            budget_equity_peak_quote = budget_equity_quote;
+        }
         if risk_guards.portfolio_equity_stop_pct > 0.0
-            && equity_quote.is_finite()
-            && equity_peak_quote > 0.0
+            && budget_equity_quote.is_finite()
+            && budget_equity_peak_quote > 0.0
         {
-            let drawdown_pct =
-                ((equity_peak_quote - equity_quote) / equity_peak_quote * 100.0).max(0.0);
+            // Drawdown over the REAL budget-based equity (parity with the live
+            // trading-engine, which uses budget + realized + unrealized).
+            let drawdown_pct = ((budget_equity_peak_quote - budget_equity_quote)
+                / budget_equity_peak_quote
+                * 100.0)
+                .max(0.0);
             if drawdown_pct >= risk_guards.portfolio_equity_stop_pct {
                 let close = close_all_active_cycles(
                     &mut strategy_states,
@@ -2495,6 +2523,7 @@ mod tests {
                 funding_rate: 0.01,
                 mark_price: Some(100.0),
             }],
+            0.0,
         )
         .unwrap();
         let without_funding = run_kline_screening(portfolio, &bars).unwrap();
@@ -2526,6 +2555,7 @@ mod tests {
                 funding_rate: 0.01,
                 mark_price: Some(100.0),
             }],
+            0.0,
         )
         .unwrap();
         let without_funding = run_kline_screening(portfolio, &bars).unwrap();

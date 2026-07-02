@@ -251,7 +251,12 @@ fn main() -> Result<(), String> {
     );
 
     // ---- Run the sim on the runtime-parity config. ----
-    let result = run_kline_screening_with_funding(portfolio.clone(), &bars, &funding)?;
+    let result = run_kline_screening_with_funding(
+        portfolio.clone(),
+        &bars,
+        &funding,
+        budget_f,
+    )?;
     let m = &result.metrics;
 
     // ---- On-budget metrics (rebased to budget principal, with min-equity hardening). ----

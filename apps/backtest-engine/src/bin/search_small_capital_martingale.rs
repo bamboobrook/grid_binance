@@ -213,6 +213,7 @@ fn main() -> Result<(), String> {
                         portfolio,
                         bars,
                         symbol_funding.as_slice(),
+                        *budget,
                     )?;
                     let initial = result
                         .equity_curve

@@ -208,3 +208,35 @@ same threshold resolution (config-first → env → default), same semantics (dr
 known equity peak, close-all reduceOnly, cooldown block). Candidates using it are no longer
 research-only once this ships.
 
+
+## 2026-07-01 DD-stop equity-base BUG FIX (critical correctness fix)
+
+### Bug found
+The portfolio equity stop in `run_kline_screening_with_funding` computed its
+drawdown over `initial_margin_capital` (sum of ALL planned leg margins, ~72K for
+the high-ann structure), NOT over the real budget (5000). The reported
+`on_budget` max_drawdown_pct uses `budget + cum_pnl`. These are different equity
+bases, so the stop's drawdown (over 72K) barely moved while the reported DD
+(over 5K) reached 45%. **The stop never fired at 12/15/18/20/25%** because the
+margin-based DD stayed under 10% even when budget-based DD was 45%.
+
+### Fix
+- `run_kline_screening_with_funding` now takes a `budget_quote: f64` arg.
+- Added `budget_equity_peak_quote` (init = budget). The stop evaluates drawdown
+  over `budget + (equity_quote - initial_margin_capital)` — the same base
+  `on_budget_metrics` reports DD over. Parity with live `portfolio_drawdown_pct_for`
+  (which uses `budget + realized + unrealized`).
+- Updated all 6 callers (replay binary, search binary, reprice binary, backtest-
+  worker x3, run_kline_screening wrapper, 2 internal tests).
+
+### Verification
+- backtest-engine: 208 tests pass. trading-engine: 185 tests pass.
+- BEFORE fix: 12% stop → ann 73.3, DD 45.5 (stop never fired, 0 events).
+- AFTER fix: 12% stop → ann 8.96, DD 12.94 (stop fires correctly, caps DD).
+- Stop now correctly caps reported DD at ~stop_level + slack.
+
+### Implication for the ann/DD cliff
+The cliff is confirmed REAL (not an artifact of the bug): budget-based 73% ann
+needs 45% DD. The stop can cap DD to any level but at the cost of ann. The
+honest frontier is unchanged, but the stop mechanism is now correct for live.
+

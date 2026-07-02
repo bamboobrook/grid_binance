@@ -138,7 +138,7 @@ fn main() -> Result<(), String> {
             })
             .cloned()
             .collect::<Vec<_>>();
-        let result = run_kline_screening_with_funding(portfolio, &bars, &request_funding_rates)?;
+        let result = run_kline_screening_with_funding(portfolio, &bars, &request_funding_rates, 0.0)?;
         let response = RepriceResponse {
             candidate_id: request.candidate_id,
             portfolio_id: request.portfolio_id,

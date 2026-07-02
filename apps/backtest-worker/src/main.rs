@@ -1217,6 +1217,7 @@ fn screening_candidate_evaluation(
         candidate.config.clone(),
         &bars,
         &market_context.funding_rates,
+        0.0,
     )
 }
 
@@ -3855,6 +3856,7 @@ fn run_candidate_kline_screening(
         candidate.config.clone(),
         &bars,
         &market_context.funding_rates,
+        0.0,
     )
 }
 
@@ -3883,6 +3885,7 @@ fn run_candidate_trade_refinement(
             candidate.config.clone(),
             &bars,
             &market_context.funding_rates,
+            0.0,
         );
     }
     run_trade_refinement(candidate.config.clone(), &trades)
