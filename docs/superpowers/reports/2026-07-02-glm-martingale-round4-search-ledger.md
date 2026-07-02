@@ -36,3 +36,8 @@ Round 3 best: `r3-P1-best-cd11` ann 34.5%, DD 17.8%, 4/5 pos, agg +29.2%, h1c 43
 - Implemented max_cycle_age_hours + no_progress_exit_hours + no_progress_mfe_bps in backtest engine. 208 tests pass.
 - Grid: 5 max_age × 5 no_progress = 25 candidates × 6 replays.
 - **RESULT: no improvement.** Best = no-exit baseline (ann34.0/DD18.2/4pos). All active exits reduce ann. Stale cycles are NOT the problem.
+
+## r4-P5-rebound-so-full-001 (P5: Rebound-Confirmed SO — FULL engine + grid)
+- Implemented `safety_order_rebound_bps` + local extreme tracking. 208 tests pass.
+- Grid: 6 rebound_bps values (None, 20, 40, 60, 100, 150) × 6 replays.
+- **RESULT: no improvement.** Best=baseline(ann34.0/DD18.2/4pos). rb20 drops to 2/5 pos. Rebound confirmation delays safety execution, reducing ann without improving 2025.
