@@ -1,0 +1,14 @@
+{
+  "family": "partial_tp_breakeven_martingale",
+  "approach": "Fast Rust proxy via Mixed/Trailing TP (full engine) + Python simulator attempt",
+  "results": {
+    "baseline_008_pct2200": {"ann": 22.2, "dd": 26.1, "pos": "3/5", "agg2426": 17.2},
+    "trail_act800_cb300": {"ann": 25.8, "dd": 26.7, "pos": "1/5", "agg2426": -49.7, "verdict": "higher ann but h1-dependent, WORSE segment stability"},
+    "mixed_low_first_600_2200": {"ann": 19.3, "dd": 28.7, "verdict": "worse than baseline"},
+    "mixed_atr_first": {"ann": -4.4, "dd": 14.4, "verdict": "ann negative"}
+  },
+  "decision": "rejected_as_fast_proxy",
+  "reason": "Rust mixed/trailing TP proxies do not improve segment stability. True partial TP (closing a fraction of position, moving stop to BE, canceling unused SO) requires a new Rust engine feature (the current ExitDecision::TakeProfit block calls reset_cycle = full close). This is a meaningful but non-trivial engine change.",
+  "next_mutation": "If pursued: implement PartialTP in backtest-engine (modify TakeProfit exit block to close fraction, track tp_stage, migrate stop). Requires ~1-2 hrs engine work + tests. Defer until other directions screened.",
+  "blocker": "Python full-period simulator too slow (millions of bars); Rust engine modification needed for true partial TP"
+}

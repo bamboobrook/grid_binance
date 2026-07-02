@@ -1,0 +1,5 @@
+{
+  "market_data_full.db_sha256": "88a39aa0c804470e893c314df3a46ecb802114782c3c299cb5bc44d1eae99ce5",
+  "funding_rates.db_sha256": "356e270dacce36b4703364545beeafe402f1aa55aa11caebc5708f5f3b6767a1",
+  "note": "market_data_full.db updated since round1 (was 3422e929...); funding unchanged"
+}
