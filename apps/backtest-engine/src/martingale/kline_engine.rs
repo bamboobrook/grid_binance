@@ -395,6 +395,59 @@ pub fn run_kline_screening_with_funding(
                         bar,
                         trigger_price,
                     ) {
+                        // Round 4 P5: Rebound confirmation. If safety_order_rebound_bps
+                        // is set, the safety order doesn't execute immediately on
+                        // deviation. Instead, it waits for price to rebound from
+                        // the local extreme by rebound_bps.
+                        let rebound_bps = strategy_states[state_index]
+                            .strategy
+                            .risk_limits
+                            .safety_order_rebound_bps
+                            .filter(|v| *v > 0);
+                        if let Some(rb) = rebound_bps {
+                            let direction = strategy_states[state_index].strategy.direction;
+                            if !strategy_states[state_index].safety_trigger_pending {
+                                // First touch: start tracking local extreme
+                                strategy_states[state_index].safety_trigger_pending = true;
+                                strategy_states[state_index].safety_local_extreme = Some(
+                                    match direction {
+                                        MartingaleDirection::Long => bar.low,
+                                        MartingaleDirection::Short => bar.high,
+                                    },
+                                );
+                                state_index += 1;
+                                continue;
+                            }
+                            // Update local extreme
+                            let ext = strategy_states[state_index].safety_local_extreme;
+                            let updated_ext = match (direction, ext) {
+                                (MartingaleDirection::Long, Some(e)) => Some(e.min(bar.low)),
+                                (MartingaleDirection::Short, Some(e)) => Some(e.max(bar.high)),
+                                _ => Some(match direction {
+                                    MartingaleDirection::Long => bar.low,
+                                    MartingaleDirection::Short => bar.high,
+                                }),
+                            };
+                            strategy_states[state_index].safety_local_extreme = updated_ext;
+                            // Check if rebound threshold met
+                            let rebound_threshold = rb as f64 / 10_000.0;
+                            let ready = match (direction, updated_ext) {
+                                (MartingaleDirection::Long, Some(low)) => {
+                                    (bar.close - low) / low >= rebound_threshold
+                                }
+                                (MartingaleDirection::Short, Some(high)) => {
+                                    (high - bar.close) / high >= rebound_threshold
+                                }
+                                _ => false,
+                            };
+                            if !ready {
+                                state_index += 1;
+                                continue;
+                            }
+                            // Rebound confirmed: clear pending and proceed to execute
+                            strategy_states[state_index].safety_trigger_pending = false;
+                            strategy_states[state_index].safety_local_extreme = None;
+                        }
                         // B-2 趋势过滤：ADX > 45%（极端趋势）时跳过加仓。
                         // 仅在极端趋势中跳过（保留大部分平均加仓机会），避免 B-2 v1（用入场阈值18-30%）太激进。
                         // 仅对有 ADX indicator 的策略生效；无 ADX 的策略不受影响。
@@ -973,6 +1026,12 @@ struct StrategyRuntime<'a> {
     cycle_start_ms: Option<i64>,
     /// Round 4 P4: maximum favorable excursion (bps) achieved by this cycle.
     cycle_mfe_bps: f64,
+    /// Round 4 P5: when true, the safety-order trigger price has been reached
+    /// but we are waiting for rebound confirmation before executing.
+    safety_trigger_pending: bool,
+    /// Round 4 P5: local extreme (low for long, high for short) tracked since
+    /// the safety trigger was reached, for rebound confirmation.
+    safety_local_extreme: Option<f64>,
 }
 
 impl<'a> StrategyRuntime<'a> {
@@ -1011,6 +1070,8 @@ impl<'a> StrategyRuntime<'a> {
             breakeven_stop_active: false,
             cycle_start_ms: None,
             cycle_mfe_bps: 0.0,
+            safety_trigger_pending: false,
+            safety_local_extreme: None,
         })
     }
 
@@ -1039,6 +1100,8 @@ impl<'a> StrategyRuntime<'a> {
         self.breakeven_stop_active = false;
         self.cycle_start_ms = None;
         self.cycle_mfe_bps = 0.0;
+        self.safety_trigger_pending = false;
+        self.safety_local_extreme = None;
         self.last_cycle_closed_at_ms = Some(closed_at_ms);
         self.cycle_seq += 1;
         self.cycle_id = format!("{}-cycle-{}", self.strategy.strategy_id, self.cycle_seq);

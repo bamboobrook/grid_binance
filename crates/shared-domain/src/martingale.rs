@@ -226,6 +226,13 @@ pub struct MartingaleRiskLimits {
     /// Round 4 P4: MFE threshold in bps for the no-progress exit.
     #[serde(default)]
     pub no_progress_mfe_bps: Option<u32>,
+    /// Round 4 P5: Rebound confirmation in bps. When set, a safety (averaging)
+    /// order is only placed after price deviates to the trigger level AND then
+    /// rebounds by this many bps from the local extreme since the trigger was
+    /// reached. `None`/0 = no rebound confirmation (place immediately on
+    /// deviation, existing behavior).
+    #[serde(default)]
+    pub safety_order_rebound_bps: Option<u32>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
