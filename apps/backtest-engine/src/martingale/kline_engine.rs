@@ -197,6 +197,13 @@ pub fn run_kline_screening_with_funding(
     let mut latest_close_by_symbol = BTreeMap::new();
     let mut indicator_context = IndicatorRuntimeContext::default();
     let mut portfolio_stop_cooldown_until_ms: Option<i64> = None;
+    // Round 2 Direction F: equity-reclaim re-entry state. When the portfolio
+    // equity stop fires, record the equity at the stop; if
+    // reentry_equity_reclaim_fraction is set, allow re-entry once equity
+    // recovers the configured fraction of the stopped drawdown (even before
+    // the calendar cooldown expires).
+    let mut portfolio_stop_equity_at_stop: Option<f64> = None;
+    let mut portfolio_stop_peak_at_stop: Option<f64> = None;
 
     let mut total_fee_quote = 0.0_f64;
     let mut total_slippage_quote = 0.0_f64;
@@ -258,12 +265,40 @@ pub fn run_kline_screening_with_funding(
                 }
 
                 if strategy_states[state_index].legs.is_empty() {
+                    // Round 2 Direction F: equity-reclaim early re-entry. If the
+                    // calendar cooldown is still active BUT equity has recovered
+                    // the configured fraction of the stopped drawdown, allow
+                    // re-entry (clear the cooldown).
                     if portfolio_stop_cooldown_until_ms
                         .map(|until| timestamp_ms < until)
                         .unwrap_or(false)
                     {
-                        state_index += 1;
-                        continue;
+                        let reclaim = portfolio
+                            .risk_limits
+                            .reentry_equity_reclaim_fraction
+                            .filter(|v| *v > 0.0 && *v <= 1.0);
+                        let mut cleared = false;
+                        if let Some(frac) = reclaim {
+                            // current budget-equity vs peak-at-stop and equity-at-stop
+                            if let (Some(eq_at_stop), Some(peak_at_stop)) =
+                                (portfolio_stop_equity_at_stop, portfolio_stop_peak_at_stop)
+                            {
+                                if peak_at_stop > eq_at_stop {
+                                    let stopped_dd = peak_at_stop - eq_at_stop;
+                                    let recovered = last_equity_quote - eq_at_stop;
+                                    if recovered >= 0.0 && recovered >= frac * stopped_dd {
+                                        portfolio_stop_cooldown_until_ms = None;
+                                        portfolio_stop_equity_at_stop = None;
+                                        portfolio_stop_peak_at_stop = None;
+                                        cleared = true;
+                                    }
+                                }
+                            }
+                        }
+                        if !cleared {
+                            state_index += 1;
+                            continue;
+                        }
                     }
                     if risk_guards
                         .max_portfolio_active_cycles
@@ -699,6 +734,9 @@ pub fn run_kline_screening_with_funding(
                         (capital_used_quote - close.released_capital_quote).max(0.0);
                     stop_count += close.closed_count;
                     trade_count += close.closed_count;
+                    // Round 2 Direction F: record equity at stop for reclaim re-entry.
+                    portfolio_stop_equity_at_stop = Some(budget_equity_quote);
+                    portfolio_stop_peak_at_stop = Some(budget_equity_peak_quote);
                     if risk_guards.portfolio_stop_cooldown_ms > 0 {
                         portfolio_stop_cooldown_until_ms =
                             Some(timestamp_ms + risk_guards.portfolio_stop_cooldown_ms);

@@ -206,6 +206,13 @@ pub struct MartingaleRiskLimits {
     /// safety when RSI confirms oversold.
     #[serde(default)]
     pub safety_order_condition: Option<String>,
+    /// Round 2 Direction F: when set (0.0-1.0), the portfolio equity-stop
+    /// cooldown ends EARLY once portfolio equity recovers this fraction of the
+    /// drawdown that triggered the stop. E.g. 0.5 = re-enter when equity
+    /// recovers half the stopped drawdown. `None`/0.0 = use the full calendar
+    /// cooldown (engine default).
+    #[serde(default)]
+    pub reentry_equity_reclaim_fraction: Option<f64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
