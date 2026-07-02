@@ -1142,6 +1142,33 @@ fn add_leg(
         fee_quote: entry_cost.fee_quote,
         slippage_quote: entry_cost.slippage_quote,
     });
+
+    // Round 5 Task B: If safety_order_basis = LastExecutedOrder, recompute
+    // trigger prices from the just-added leg price (not the base order).
+    // This makes successive safety orders closer together in choppy markets.
+    if leg_index > 0 {
+        if let Some(shared_domain::martingale::MartingaleSafetyOrderBasis::LastExecutedOrder) =
+            state.strategy.risk_limits.safety_order_basis
+        {
+            // Recompute remaining trigger prices from this leg's price
+            let remaining_count = state.notionals.len().saturating_sub(leg_index + 1);
+            if remaining_count > 0 {
+                let new_triggers = compute_leg_trigger_prices(
+                    price,
+                    state.strategy.direction,
+                    &state.strategy.spacing,
+                    latest_atr,
+                    remaining_count as u32,
+                )?;
+                // Replace trigger prices from leg_index onward
+                while state.trigger_prices.len() > leg_index {
+                    state.trigger_prices.pop();
+                }
+                state.trigger_prices.extend(new_triggers);
+            }
+        }
+    }
+
     Ok(())
 }
 

@@ -233,6 +233,21 @@ pub struct MartingaleRiskLimits {
     /// deviation, existing behavior).
     #[serde(default)]
     pub safety_order_rebound_bps: Option<u32>,
+    /// Round 5 Task B: Safety order deviation basis. `BaseOrder` = current
+    /// behavior (triggers measured from base order price). `LastExecutedOrder`
+    /// = next safety trigger measured from the last filled leg price, so
+    /// successive safety orders are closer together in choppy markets.
+    #[serde(default)]
+    pub safety_order_basis: Option<MartingaleSafetyOrderBasis>,
+}
+
+/// Round 5 Task B: Safety order trigger basis.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum MartingaleSafetyOrderBasis {
+    #[default]
+    BaseOrder,
+    LastExecutedOrder,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
