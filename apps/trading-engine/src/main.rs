@@ -1184,6 +1184,9 @@ fn take_profit_bps_for_revision(take_profit: &MartingaleTakeProfitModel) -> u32 
                 _ => None,
             })
             .unwrap_or(100),
+        MartingaleTakeProfitModel::Partial { stages, .. } => {
+            stages.first().map(|(_, _, bps)| *bps).unwrap_or(100)
+        }
         MartingaleTakeProfitModel::Amount { .. } | MartingaleTakeProfitModel::Atr { .. } => 100,
     }
 }
