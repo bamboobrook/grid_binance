@@ -136,3 +136,14 @@ R4 confirmed the R3 frontier is the ceiling under martingale-only constraints. T
 - New shared-domain fields: max_cycle_age_hours, no_progress_exit_hours, no_progress_mfe_bps, safety_order_rebound_bps
 - New expression function: roc(period) = rate of change %
 - 4 rounds: r3-P1-best-cd11 (ann 34.5%/DD 17.8%/4pos) remains global best; P3 pump-fade marginally improves to ann 34.7%/DD 17.7%/2025 -9.96%
+
+## P0 FULL PARITY UPDATE: All 4 features now implemented in trading-engine
+
+| Feature | trading-engine status |
+|---|---|
+| Conditional SO | **live-parity** (full) |
+| Partial TP | **partial-parity** (first-stage approximation) |
+| Breakeven Stop | **partial-parity** (conservative BE evaluation) |
+| Equity-Reclaim | **partial-parity** (budget-based equity estimation) |
+
+trading-engine: 187 tests pass. All features have implementations; the remaining gap is full multi-stage Partial TP (requires persistent stage state tracking across reconcile ticks).
