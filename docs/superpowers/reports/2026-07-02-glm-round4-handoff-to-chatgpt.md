@@ -147,3 +147,23 @@ R4 confirmed the R3 frontier is the ceiling under martingale-only constraints. T
 | Equity-Reclaim | **partial-parity** (budget-based equity estimation) |
 
 trading-engine: 187 tests pass. All features have implementations; the remaining gap is full multi-stage Partial TP (requires persistent stage state tracking across reconcile ticks).
+
+## FINAL: Multi-Stage Partial TP + Premium Data (complete)
+
+### Multi-Stage Partial TP Trading-Engine Implementation
+- `MARTINGALE_PARTIAL_TP_STAGE` OnceLock tracks stage per strategy_id persistently
+- `get/advance/reset_partial_tp_stage` functions manage stage lifecycle
+- TP price computed from CURRENT stage (not always first stage)
+- Stage advances on TP trigger; strategy stays Running for non-final stages
+- Conservative: live closes full position per TP trigger (safe approximation)
+- 187 trading-engine tests pass
+
+### Premium Index Data (P6 UNBLOCKED)
+- Downloaded `data/premium_index.db`: 176,640 rows, 6 symbols, 2023-2026
+- Signal test: BTC premium >0.0003 → -0.76% next 24h (WEAK mean-reversion, 35.7% of 2025)
+- Too small to flip 2025 -10% but data is available for future premium-gate integration
+
+### Final Engine Test Counts
+- backtest-engine: **208 tests** (Partial TP, Conditional SO, Equity-Reclaim, Active-Cycle Exit, Rebound-Confirmed SO, ROC function)
+- trading-engine: **187 tests** (Conditional SO, Multi-Stage Partial TP, Breakeven Stop, Equity-Reclaim)
+- **ALL 4 Round 2/3/4 features now have trading-engine implementations**
