@@ -240,3 +240,11 @@ The cliff is confirmed REAL (not an artifact of the bug): budget-based 73% ann
 needs 45% DD. The stop can cap DD to any level but at the cost of ann. The
 honest frontier is unchanged, but the stop mechanism is now correct for live.
 
+
+## 2026-07-02 Diversification frontier: broad 6-symbol cuts DD 45%->34.6%
+
+- NEW BEST real (non-overfit) frontier: **6-symbol portfolio (BNB/TRX/BCH long + AAVE/SOL/DOT short, strict gates, TP=600, mult=3.0/2.5) = ann 22.9%, DD 34.6%, 36798 trades**.
+- Diversification (3 longs + 3 shorts) cut DD from 45.5% (3-symbol) to 34.6% while keeping ann positive (22.9%).
+- This is the closest to the aggressive DD<=30% target yet. DD stop at 35% does not fire (peak DD is 34.6%); at 30/32% it fires but kills ann.
+- Next: expand to 8-10 symbols + tune to push DD under 30%.
+

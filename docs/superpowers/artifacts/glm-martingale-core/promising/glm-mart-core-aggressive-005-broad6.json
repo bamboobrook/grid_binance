@@ -1,0 +1,25 @@
+{
+  "candidate_id": "glm-mart-core-aggressive-005-broad6",
+  "recorded_at": "2026-07-02T00:00:00Z",
+  "profile": "aggressive",
+  "strategy_family": "broad_diversified_long_bull_plus_crash_short",
+  "martingale_core": true,
+  "research_only": false,
+  "budget_quote": 5000,
+  "symbols": [
+    "BNBUSDT",
+    "TRXUSDT",
+    "BCHUSDT",
+    "AAVEUSDT",
+    "SOLUSDT",
+    "DOTUSDT"
+  ],
+  "full_metrics": {
+    "annualized_return_pct": 22.9,
+    "max_drawdown_pct": 34.6,
+    "trade_count": 36798
+  },
+  "structure": "3 long-bull (BNB/TRX/BCH, strict gates) + 3 crash-short (AAVE/SOL/DOT, strict gates), TP=600bps, mult=3.0 long/2.5 short, 9/8 legs, equal-weighted, NO portfolio stop",
+  "acceptance_reason": "NEW BEST real (non-overfit) frontier: ann 22.9% with DD 34.6% across 6 symbols. Diversification cut DD from 45.5% (3-symbol) to 34.6%. Close to aggressive DD<=30% target. Multi-symbol, segment-first, live-parity.",
+  "note": "Full 5-segment validation pending; this is the full-period result. Next: expand to 8-10 symbols + tighter per-symbol SL to push DD under 30%."
+}
