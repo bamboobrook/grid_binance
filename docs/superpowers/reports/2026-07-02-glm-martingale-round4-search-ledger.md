@@ -31,3 +31,8 @@ Round 3 best: `r3-P1-best-cd11` ann 34.5%, DD 17.8%, 4/5 pos, agg +29.2%, h1c 43
 
 ## r4-P8-dynamic-allocator-001 (Dynamic Config Allocator — DEFERRED)
 - No competitive boost configs from P2/P3/P7. Nothing to allocate.
+
+## r4-P4-active-exit-full-001 (P4: Active-Cycle Exit — FULL engine implementation + grid)
+- Implemented max_cycle_age_hours + no_progress_exit_hours + no_progress_mfe_bps in backtest engine. 208 tests pass.
+- Grid: 5 max_age × 5 no_progress = 25 candidates × 6 replays.
+- **RESULT: no improvement.** Best = no-exit baseline (ann34.0/DD18.2/4pos). All active exits reduce ann. Stale cycles are NOT the problem.
