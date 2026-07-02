@@ -383,6 +383,34 @@ pub fn run_kline_screening_with_funding(
                                 }
                             }
                         }
+                        // Round 2 Direction B: Conditional safety order. If the
+                        // strategy configures a `safety_order_condition`
+                        // expression, the safety order is only added when BOTH
+                        // the price deviation is reached AND the expression
+                        // evaluates true. This is the 3Commas-style
+                        // condition-based averaging order. When the condition is
+                        // absent, behavior is unchanged (deviation-only).
+                        {
+                            let strategy = &strategy_states[state_index].strategy;
+                            if let Some(cond) = strategy
+                                .risk_limits
+                                .safety_order_condition
+                                .as_deref()
+                                .filter(|s| !s.trim().is_empty())
+                            {
+                                let symbol = &strategy.symbol;
+                                let ok = indicator_context
+                                    .evaluate_expression(symbol, cond)
+                                    .ok()
+                                    .flatten()
+                                    .unwrap_or(false);
+                                if !ok {
+                                    // condition not met; skip this safety order
+                                    state_index += 1;
+                                    continue;
+                                }
+                            }
+                        }
                         let margin = strategy_states[state_index].margins[next_leg_index];
                         let notional = strategy_states[state_index].notionals[next_leg_index];
                         let entry_cost = trading_cost_quote(notional);

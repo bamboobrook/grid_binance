@@ -199,6 +199,13 @@ pub struct MartingaleRiskLimits {
     /// `MARTINGALE_BT_PORTFOLIO_STOP_COOLDOWN_HOURS` research env switch.
     #[serde(default)]
     pub portfolio_stop_cooldown_hours: Option<f64>,
+    /// Round 2 Direction B: an optional indicator expression that must evaluate
+    /// TRUE before a safety (averaging) order is added, in addition to the
+    /// price-deviation trigger. `None`/empty = safety orders trigger on
+    /// deviation only (engine default). Example: `"rsi(14) < 45"` only adds
+    /// safety when RSI confirms oversold.
+    #[serde(default)]
+    pub safety_order_condition: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
