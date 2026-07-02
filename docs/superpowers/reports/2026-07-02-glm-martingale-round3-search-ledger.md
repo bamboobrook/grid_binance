@@ -17,3 +17,7 @@ Order: P0 (parity audit) → P1 (dir-aware SO) → P2 (rebound SO) → P3 (TP/co
 - 60 frontier_improvements, 0 near_target (no candidate hit 50% ann yet).
 - Key: 11h cooldown (not 12h) is the sweet spot. Long RSI<45 SO + short no-condition.
 - Saved: `promising/r3-P1-best-cd11.json`
+
+## r3-P6-breadth-regime-001 (P6: Breadth Regime — full grid, 48 candidates)
+- Grid: 6 long-gate breadth proxies × 4 short-gate × 2 cooldowns = 48 × 6 replays.
+- **RESULT: no improvement.** Best ≈ P1 (ann 34.5%/DD 18-22.5%) but 2025 WORSE (-14.6 to -15.2 vs P1's -10.1%). BTC breadth proxy doesn't help because 2025 is choppy bear, not clean trend. 2025 structural blocker confirmed by P3 AND P6.
