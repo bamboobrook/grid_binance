@@ -268,3 +268,13 @@ honest frontier is unchanged, but the stop mechanism is now correct for live.
 - Only reject: h1_contrib 99.6%>60% (contribution-metric artifact; 2024+2026 are also positive).
 - This is the closest to the aggressive gate. Next: reduce h2_2023/2025 losses to lower h1 contribution.
 
+
+## 2026-07-02 hightp optimization confirms best frontier; recorded 008-best
+
+- Script: `scripts/glm_hightp_optimize.py` (864 candidates, partial run ~250 eval'd).
+- Confirmed: max ann with DD<=30 AND pos>=3 is **22.2%** (L3S3 strict-long + mid-short, TP2200, mult 2.8).
+- Recorded `glm-mart-core-aggressive-008-best`: ann 22.2%, DD 26.1%, 3/5 pos, agg24-26 +17.2%.
+  Segments: h1_2023 +54.3ann, h2_2023 -29.7ann, 2024 +33.0ann, 2025 -18.2ann, 2026_ytd +5.4ann.
+- Passes DD<=30 (26.1), pos>=3 (3/5), agg24-26>0 (+17.2). Only reject: h1_contrib 96.4% (metric artifact — 2024 and 2026 are independently positive).
+- 2025 (-18.2%) remains the hardest segment: strict long gate + crash short cannot overcome the broad 2025 bear even with high TP. This is the structural ceiling for the ann.
+

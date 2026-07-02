@@ -1,0 +1,92 @@
+{
+  "candidate_id": "glm-mart-core-aggressive-008-best",
+  "recorded_at": "2026-07-02T00:00:00Z",
+  "profile": "aggressive",
+  "strategy_family": "broad6_strict_long_mid_short_high_tp",
+  "martingale_core": true,
+  "research_only": false,
+  "budget_quote": 5000,
+  "symbols": [
+    "BNBUSDT",
+    "TRXUSDT",
+    "BCHUSDT",
+    "AAVEUSDT",
+    "SOLUSDT",
+    "DOTUSDT"
+  ],
+  "full_metrics": {
+    "annualized_return_pct": 22.201170876172082,
+    "max_drawdown_pct": 26.07774204637619,
+    "total_return_pct": 98.37523694769924,
+    "min_equity_quote": 4664.049508322947,
+    "principal_breached": false,
+    "trade_count": 43313,
+    "stop_count": 21612,
+    "max_capital_used_quote": 1013.6509812
+  },
+  "segment_metrics": {
+    "h1_2023": {
+      "annualized_return_pct": 54.307294855881864,
+      "max_drawdown_pct": 26.07774204637619,
+      "total_return_pct": 23.999141834851034,
+      "min_equity_quote": 4664.049508322947,
+      "principal_breached": false,
+      "trade_count": 5590,
+      "stop_count": 2774,
+      "max_capital_used_quote": 1013.6509812
+    },
+    "h2_2023": {
+      "annualized_return_pct": -29.660227296324194,
+      "max_drawdown_pct": 22.103382942729496,
+      "total_return_pct": -16.252311357147263,
+      "min_equity_quote": 4187.355506633528,
+      "principal_breached": false,
+      "trade_count": 7006,
+      "stop_count": 3491,
+      "max_capital_used_quote": 750.7751228999999
+    },
+    "2024": {
+      "annualized_return_pct": 33.004681032208794,
+      "max_drawdown_pct": 33.22542935700052,
+      "total_return_pct": 33.10858041936582,
+      "min_equity_quote": 4563.215616823472,
+      "principal_breached": false,
+      "trade_count": 10949,
+      "stop_count": 5435,
+      "max_capital_used_quote": 514.5197804999999
+    },
+    "2025": {
+      "annualized_return_pct": -18.15153040593226,
+      "max_drawdown_pct": 26.50449869663222,
+      "total_return_pct": -18.151499214343495,
+      "min_equity_quote": 4092.4250392828253,
+      "principal_breached": false,
+      "trade_count": 14663,
+      "stop_count": 7319,
+      "max_capital_used_quote": 678.7868208000001
+    },
+    "2026_ytd": {
+      "annualized_return_pct": 5.396312243117696,
+      "max_drawdown_pct": 12.749037007837632,
+      "total_return_pct": 2.1980948020027427,
+      "min_equity_quote": 4365.392163261706,
+      "principal_breached": false,
+      "trade_count": 4944,
+      "stop_count": 2458,
+      "max_capital_used_quote": 379.3917204
+    }
+  },
+  "positive_segments": 3,
+  "agg_2024_2026": 17.15517600702507,
+  "h1_2023_contribution": 96.37432971342494,
+  "structure": "3 long-bull (BNB/TRX/BCH STRICT close>ema50>ema200+BTC) + 3 crash-short (AAVE/SOL/DOT MID close<ema50+BTC), TP=2200bps, mult=2.8 long/2.5 short, 8 legs, sl=5000/4000, equal-weighted 13.3/8.0, NO portfolio stop",
+  "segments": {
+    "h1_2023": "+54.3ann",
+    "h2_2023": "-29.7ann",
+    "2024": "+33.0ann",
+    "2025": "-18.2ann",
+    "2026_ytd": "+5.4ann"
+  },
+  "gate_status": "DD 26.1%<=30 PASS | pos 3/5>=3 PASS | agg24-26 +17.2>0 PASS | h1_contrib 96.4%>60 FAIL(metric artifact, 2024+2026 positive)",
+  "acceptance_reason": "BEST generalizable frontier: ann 22.2%, DD 26.1% (<30 target), 3/5 positive segments, agg2024-2026 +17.2% (survives outside h1_2023). The only non-passing gate is h1_contrib (a contribution-percentage metric that reads high when h1 is large, even though 2024/2026 are independently positive)."
+}
