@@ -612,6 +612,24 @@ impl IndicatorRuntimeContext {
                     _ => None,
                 }
             }
+            // Round 4 P3: Rate of Change (ROC) = (current_close - close_N_bars_ago)
+            // / close_N_bars_ago * 100 (percent). Lets users write pump-fade
+            // conditions like `roc(1440) > 9` (9% pump in 24h on 1m bars).
+            "roc" => {
+                let period = one_usize_arg(&name, &args)?;
+                let bars = self.bars_by_symbol.get(effective_symbol);
+                match bars {
+                    Some(b) if b.len() > period => {
+                        let current = b.last().map(|bar| bar.close);
+                        let past = Some(b[b.len() - 1 - period].close);
+                        match (current, past) {
+                            (Some(c), Some(p)) if p > 0.0 => Some((c - p) / p * 100.0),
+                            _ => None,
+                        }
+                    }
+                    _ => None,
+                }
+            }
             _ => return Err(format!("unsupported indicator operand: {operand}")),
         };
         Ok(value)
