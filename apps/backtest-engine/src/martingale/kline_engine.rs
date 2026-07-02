@@ -527,31 +527,111 @@ pub fn run_kline_screening_with_funding(
                 }
                 ExitDecision::TakeProfit => {
                     let tp_price = exit.exit_price;
-                    let close_gross_pnl = close_pnl(
-                        strategy_states[state_index].strategy.direction,
-                        &strategy_states[state_index].legs,
-                        tp_price,
-                    )?;
-                    let entry_cost = entry_cost_quote(&strategy_states[state_index].legs);
-                    let exit_cost = exit_cost_quote(&strategy_states[state_index].legs, tp_price);
-                    total_fee_quote += exit_cost.fee_quote;
-                    total_slippage_quote += exit_cost.slippage_quote;
-                    let pnl = close_gross_pnl - entry_cost - exit_cost.total();
-                    realized_pnl_quote += pnl;
-                    capital_used_quote -= strategy_states[state_index].active_capital_used_quote();
-                    let state = &mut strategy_states[state_index];
-                    state.realized_pnl_quote += pnl;
-                    events.push(event(
-                        &exit.bar,
-                        state,
-                        "take_profit",
-                        format!(
-                            "price={tp_price};pnl_quote={pnl};exit_fee_quote={};exit_slippage_quote={}",
-                            exit_cost.fee_quote, exit_cost.slippage_quote
-                        ),
-                    ));
-                    state.reset_cycle(exit.bar.open_time_ms);
-                    trade_count += 1;
+                    // Round 2 Direction A: Partial TP. If the TP model is Partial
+                    // and the current stage is not the final stage, close only a
+                    // FRACTION of the position, advance the stage, optionally
+                    // activate the breakeven stop, and keep the cycle open. The
+                    // final stage (or any non-Partial model) closes the whole
+                    // position via reset_cycle as before.
+                    let is_partial_final = match &strategy_states[state_index].strategy.take_profit {
+                        MartingaleTakeProfitModel::Partial { stages, .. } => {
+                            let stage_idx = strategy_states[state_index].partial_tp_stage as usize;
+                            stage_idx >= stages.len().saturating_sub(1)
+                        }
+                        _ => true,
+                    };
+                    if !is_partial_final {
+                        // Partial close: scale down every leg's quantity by the
+                        // REMAINING fraction (i.e., remove the closed fraction).
+                        let (close_frac, be_after) =
+                            match &strategy_states[state_index].strategy.take_profit {
+                                MartingaleTakeProfitModel::Partial {
+                                    stages, breakeven_after_stage, ..
+                                } => {
+                                    let stage_idx = strategy_states[state_index].partial_tp_stage as usize;
+                                    let (num, den, _tp_bps) = stages[stage_idx];
+                                    let frac = if den == 0 { 1.0 } else { num as f64 / den as f64 };
+                                    (frac.min(1.0).max(0.0), *breakeven_after_stage)
+                                }
+                                _ => (1.0, u32::MAX),
+                            };
+                        // Realized PnL = fraction of full-position gross PnL at tp_price,
+                        // minus the fraction's share of entry cost, plus exit cost on the
+                        // closed notional.
+                        let full_gross = close_pnl(
+                            strategy_states[state_index].strategy.direction,
+                            &strategy_states[state_index].legs,
+                            tp_price,
+                        )?;
+                        let full_entry = entry_cost_quote(&strategy_states[state_index].legs);
+                        // Exit cost scales with closed notional; approximate by fraction.
+                        let full_exit = exit_cost_quote(&strategy_states[state_index].legs, tp_price);
+                        let partial_pnl = full_gross * close_frac
+                            - full_entry * close_frac
+                            - full_exit.total() * close_frac;
+                        total_fee_quote += full_exit.fee_quote * close_frac;
+                        total_slippage_quote += full_exit.slippage_quote * close_frac;
+                        realized_pnl_quote += partial_pnl;
+                        // Release the closed fraction's margin from capital_used.
+                        let released = strategy_states[state_index].active_capital_used_quote() * close_frac;
+                        capital_used_quote -= released;
+                        let stage_fired = strategy_states[state_index].partial_tp_stage;
+                        let state = &mut strategy_states[state_index];
+                        state.realized_pnl_quote += partial_pnl;
+                        // Scale down all leg quantities by (1 - close_frac).
+                        let keep = 1.0 - close_frac;
+                        for leg in state.legs.iter_mut() {
+                            leg.quantity *= keep;
+                            leg.margin_quote *= keep;
+                            leg.notional_quote *= keep;
+                        }
+                        // Remove any now-zero legs (fully closed tranches) to keep
+                        // weighted_average_entry well-defined.
+                        state.legs.retain(|leg| leg.quantity > 0.0);
+                        state.partial_tp_stage = stage_fired + 1;
+                        // Activate breakeven stop after the configured stage.
+                        if stage_fired >= be_after {
+                            state.breakeven_stop_active = true;
+                        }
+                        events.push(event(
+                            &exit.bar,
+                            state,
+                            "partial_take_profit",
+                            format!(
+                                "price={tp_price};stage={stage_fired};close_frac={close_frac:.3};pnl_quote={partial_pnl:.6};breakeven={};remaining_legs={}",
+                                state.breakeven_stop_active,
+                                state.legs.len()
+                            ),
+                        ));
+                        trade_count += 1;
+                    } else {
+                        // Full close (final stage or non-Partial model).
+                        let close_gross_pnl = close_pnl(
+                            strategy_states[state_index].strategy.direction,
+                            &strategy_states[state_index].legs,
+                            tp_price,
+                        )?;
+                        let entry_cost = entry_cost_quote(&strategy_states[state_index].legs);
+                        let exit_cost = exit_cost_quote(&strategy_states[state_index].legs, tp_price);
+                        total_fee_quote += exit_cost.fee_quote;
+                        total_slippage_quote += exit_cost.slippage_quote;
+                        let pnl = close_gross_pnl - entry_cost - exit_cost.total();
+                        realized_pnl_quote += pnl;
+                        capital_used_quote -= strategy_states[state_index].active_capital_used_quote();
+                        let state = &mut strategy_states[state_index];
+                        state.realized_pnl_quote += pnl;
+                        events.push(event(
+                            &exit.bar,
+                            state,
+                            "take_profit",
+                            format!(
+                                "price={tp_price};pnl_quote={pnl};exit_fee_quote={};exit_slippage_quote={}",
+                                exit_cost.fee_quote, exit_cost.slippage_quote
+                            ),
+                        ));
+                        state.reset_cycle(exit.bar.open_time_ms);
+                        trade_count += 1;
+                    }
                 }
                 ExitDecision::None => {}
             }
@@ -786,6 +866,13 @@ struct StrategyRuntime<'a> {
     realized_pnl_quote: f64,
     last_cycle_closed_at_ms: Option<i64>,
     trailing_anchor_price: Option<f64>,
+    /// Round 2 Direction A: current Partial-TP stage index (0-based). Advances
+    /// after each partial close; reset on `reset_cycle`. Ignored for non-Partial
+    /// TP models.
+    partial_tp_stage: u32,
+    /// Round 2 Direction A: once true, the strategy stop migrates to breakeven
+    /// (weighted avg entry + buffer). Set after the configured stage fires.
+    breakeven_stop_active: bool,
 }
 
 impl<'a> StrategyRuntime<'a> {
@@ -820,6 +907,8 @@ impl<'a> StrategyRuntime<'a> {
             realized_pnl_quote: 0.0,
             last_cycle_closed_at_ms: None,
             trailing_anchor_price: None,
+            partial_tp_stage: 0,
+            breakeven_stop_active: false,
         })
     }
 
@@ -844,6 +933,8 @@ impl<'a> StrategyRuntime<'a> {
         self.trigger_prices.clear();
         self.new_legs_blocked = false;
         self.trailing_anchor_price = None;
+        self.partial_tp_stage = 0;
+        self.breakeven_stop_active = false;
         self.last_cycle_closed_at_ms = Some(closed_at_ms);
         self.cycle_seq += 1;
         self.cycle_id = format!("{}-cycle-{}", self.strategy.strategy_id, self.cycle_seq);
@@ -924,7 +1015,8 @@ fn kline_take_profit_support_error(
         MartingaleTakeProfitModel::Percent { .. }
         | MartingaleTakeProfitModel::Amount { .. }
         | MartingaleTakeProfitModel::Atr { .. }
-        | MartingaleTakeProfitModel::Trailing { .. } => None,
+        | MartingaleTakeProfitModel::Trailing { .. }
+        | MartingaleTakeProfitModel::Partial { .. } => None,
         MartingaleTakeProfitModel::Mixed { phases } => {
             phases.iter().find_map(kline_take_profit_support_error)
         }
@@ -1230,6 +1322,29 @@ fn take_profit_signal_for_model(
                 price: Some(price),
             })
         }
+        MartingaleTakeProfitModel::Partial { stages, .. } => {
+            if stages.is_empty() {
+                return Err("partial take profit requires at least one stage".to_string());
+            }
+            // Use the CURRENT stage's tp_bps. If stage index exceeds stages
+            // length, the cycle should have already been fully closed — treat
+            // as not triggered defensively.
+            let stage_idx = state.partial_tp_stage as usize;
+            if stage_idx >= stages.len() {
+                return Ok(TakeProfitSignal::default());
+            }
+            let (_num, _den, tp_bps) = stages[stage_idx];
+            let price = take_profit_price(
+                average_entry,
+                state.strategy.direction,
+                &MartingaleTakeProfitModel::Percent { bps: tp_bps },
+                None,
+            )?;
+            Ok(TakeProfitSignal {
+                triggered: take_profit_triggered(state.strategy.direction, bar, price),
+                price: Some(price),
+            })
+        }
     }
 }
 
@@ -1391,6 +1506,37 @@ fn triggered_stop(
             ..StopSignal::default()
         }),
         MartingaleStopLossModel::StrategyDrawdownPct { pct_bps } => {
+            // Round 2 Direction A: if breakeven_stop_active (set after a Partial
+            // TP stage fired), the stop migrates to weighted-average-entry +
+            // buffer, ignoring the drawdown-pct threshold. This protects the
+            // banked partial profit.
+            if state.breakeven_stop_active {
+                if state.legs.is_empty() {
+                    return Ok(StopSignal::default());
+                }
+                let avg = weighted_average_entry(&state.legs)?;
+                let buffer_bps = match &state.strategy.take_profit {
+                    MartingaleTakeProfitModel::Partial { breakeven_buffer_bps, .. } => *breakeven_buffer_bps as f64,
+                    _ => 0.0,
+                };
+                let be_price = match state.strategy.direction {
+                    MartingaleDirection::Long => avg * (1.0 + buffer_bps / 10_000.0),
+                    MartingaleDirection::Short => avg * (1.0 - buffer_bps / 10_000.0),
+                };
+                let current_price = latest_close_by_symbol
+                    .get(&state.strategy.symbol)
+                    .copied()
+                    .unwrap_or(bar.close);
+                let hit = match state.strategy.direction {
+                    MartingaleDirection::Long => current_price <= be_price,
+                    MartingaleDirection::Short => current_price >= be_price,
+                };
+                return Ok(StopSignal {
+                    strategy_stop: hit,
+                    price: Some(be_price),
+                    ..StopSignal::default()
+                });
+            }
             let invested = state.capital_used_quote();
             if invested <= 0.0 {
                 return Ok(StopSignal::default());

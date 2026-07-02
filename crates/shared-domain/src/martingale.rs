@@ -92,6 +92,25 @@ pub enum MartingaleTakeProfitModel {
     Mixed {
         phases: Vec<MartingaleTakeProfitModel>,
     },
+    /// Partial TP ladder with breakeven stop migration (Round 2 Direction A).
+    /// Closes a FRACTION of the position at each TP stage (not the whole
+    /// position), advances to the next stage, and after `breakeven_after_stage`
+    /// migrates the stop to weighted-average-entry + `breakeven_buffer_bps`.
+    /// Unused safety orders can be canceled after the configured stage.
+    /// `stages` are (close_fraction_num/close_fraction_den, tp_bps) pairs;
+    /// fractions are applied to the REMAINING position at each stage, so the
+    /// final stage closes whatever remains.
+    Partial {
+        /// TP stage definitions: (numerator, denominator, tp_bps). The fraction
+        /// `num/den` of the REMAINING position is closed at each stage's tp_bps
+        /// from the weighted average entry. The last stage closes the rest.
+        stages: Vec<(u32, u32, u32)>,
+        /// After this stage index (0-based) fires, the stop migrates to
+        /// breakeven (avg entry + buffer). Set to a large value to disable.
+        breakeven_after_stage: u32,
+        /// Breakeven buffer in bps added to avg entry (covers fees).
+        breakeven_buffer_bps: u32,
+    },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]

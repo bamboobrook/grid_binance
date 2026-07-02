@@ -89,6 +89,12 @@ pub fn take_profit_price(
                 "mixed take profit requires at least one computable phase".to_string()
             }));
         }
+        MartingaleTakeProfitModel::Partial { .. } => {
+            return Err(
+                "partial take profit price is stage-dependent and computed in the kline engine, not here"
+                    .to_string(),
+            );
+        }
     };
 
     validate_positive_price(price)
