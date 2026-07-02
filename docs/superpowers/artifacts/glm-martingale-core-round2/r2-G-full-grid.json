@@ -1,0 +1,4054 @@
+{
+  "results": [
+    {
+      "label": "base3short3lo",
+      "config": {
+        "direction_mode": "long_and_short",
+        "strategies": [
+          {
+            "strategy_id": "L0-BNBUSDT",
+            "symbol": "BNBUSDT",
+            "market": "usd_m_futures",
+            "direction": "long",
+            "direction_mode": "long_and_short",
+            "margin_mode": "isolated",
+            "leverage": 10,
+            "spacing": {
+              "fixed_percent": {
+                "step_bps": 150
+              }
+            },
+            "sizing": {
+              "multiplier": {
+                "first_order_quote": "35.0",
+                "multiplier": "2.8",
+                "max_legs": 8
+              }
+            },
+            "take_profit": {
+              "partial": {
+                "stages": [
+                  [
+                    429,
+                    1000,
+                    800
+                  ],
+                  [
+                    429,
+                    1000,
+                    1600
+                  ],
+                  [
+                    1,
+                    1,
+                    2600
+                  ]
+                ],
+                "breakeven_after_stage": 1,
+                "breakeven_buffer_bps": 100
+              }
+            },
+            "stop_loss": {
+              "strategy_drawdown_pct": {
+                "pct_bps": 5000
+              }
+            },
+            "indicators": [
+              {
+                "atr": {
+                  "period": 14
+                }
+              },
+              {
+                "adx": {
+                  "period": 14
+                }
+              }
+            ],
+            "entry_triggers": [
+              {
+                "cooldown": {
+                  "seconds": 21600
+                }
+              },
+              {
+                "indicator_expression": {
+                  "expression": "BNBUSDT.close > BNBUSDT.ema(50)"
+                }
+              },
+              {
+                "indicator_expression": {
+                  "expression": "BNBUSDT.ema(50) > BNBUSDT.ema(200)"
+                }
+              },
+              {
+                "indicator_expression": {
+                  "expression": "BTCUSDT.close > BTCUSDT.ema(50)"
+                }
+              }
+            ],
+            "risk_limits": {
+              "max_active_cycles": null,
+              "max_global_budget_quote": null,
+              "max_symbol_budget_quote": null,
+              "max_direction_budget_quote": null,
+              "max_strategy_budget_quote": null,
+              "max_global_drawdown_quote": null,
+              "safety_skip_adx_threshold": 35,
+              "safety_order_condition": "rsi(14) < 45"
+            },
+            "portfolio_weight_pct": "13.33"
+          },
+          {
+            "strategy_id": "L1-TRXUSDT",
+            "symbol": "TRXUSDT",
+            "market": "usd_m_futures",
+            "direction": "long",
+            "direction_mode": "long_and_short",
+            "margin_mode": "isolated",
+            "leverage": 10,
+            "spacing": {
+              "fixed_percent": {
+                "step_bps": 150
+              }
+            },
+            "sizing": {
+              "multiplier": {
+                "first_order_quote": "35.0",
+                "multiplier": "2.8",
+                "max_legs": 8
+              }
+            },
+            "take_profit": {
+              "partial": {
+                "stages": [
+                  [
+                    429,
+                    1000,
+                    800
+                  ],
+                  [
+                    429,
+                    1000,
+                    1600
+                  ],
+                  [
+                    1,
+                    1,
+                    2600
+                  ]
+                ],
+                "breakeven_after_stage": 1,
+                "breakeven_buffer_bps": 100
+              }
+            },
+            "stop_loss": {
+              "strategy_drawdown_pct": {
+                "pct_bps": 5000
+              }
+            },
+            "indicators": [
+              {
+                "atr": {
+                  "period": 14
+                }
+              },
+              {
+                "adx": {
+                  "period": 14
+                }
+              }
+            ],
+            "entry_triggers": [
+              {
+                "cooldown": {
+                  "seconds": 21600
+                }
+              },
+              {
+                "indicator_expression": {
+                  "expression": "TRXUSDT.close > TRXUSDT.ema(50)"
+                }
+              },
+              {
+                "indicator_expression": {
+                  "expression": "TRXUSDT.ema(50) > TRXUSDT.ema(200)"
+                }
+              },
+              {
+                "indicator_expression": {
+                  "expression": "BTCUSDT.close > BTCUSDT.ema(50)"
+                }
+              }
+            ],
+            "risk_limits": {
+              "max_active_cycles": null,
+              "max_global_budget_quote": null,
+              "max_symbol_budget_quote": null,
+              "max_direction_budget_quote": null,
+              "max_strategy_budget_quote": null,
+              "max_global_drawdown_quote": null,
+              "safety_skip_adx_threshold": 35,
+              "safety_order_condition": "rsi(14) < 45"
+            },
+            "portfolio_weight_pct": "13.33"
+          },
+          {
+            "strategy_id": "L2-BCHUSDT",
+            "symbol": "BCHUSDT",
+            "market": "usd_m_futures",
+            "direction": "long",
+            "direction_mode": "long_and_short",
+            "margin_mode": "isolated",
+            "leverage": 10,
+            "spacing": {
+              "fixed_percent": {
+                "step_bps": 150
+              }
+            },
+            "sizing": {
+              "multiplier": {
+                "first_order_quote": "35.0",
+                "multiplier": "2.8",
+                "max_legs": 8
+              }
+            },
+            "take_profit": {
+              "partial": {
+                "stages": [
+                  [
+                    429,
+                    1000,
+                    800
+                  ],
+                  [
+                    429,
+                    1000,
+                    1600
+                  ],
+                  [
+                    1,
+                    1,
+                    2600
+                  ]
+                ],
+                "breakeven_after_stage": 1,
+                "breakeven_buffer_bps": 100
+              }
+            },
+            "stop_loss": {
+              "strategy_drawdown_pct": {
+                "pct_bps": 5000
+              }
+            },
+            "indicators": [
+              {
+                "atr": {
+                  "period": 14
+                }
+              },
+              {
+                "adx": {
+                  "period": 14
+                }
+              }
+            ],
+            "entry_triggers": [
+              {
+                "cooldown": {
+                  "seconds": 21600
+                }
+              },
+              {
+                "indicator_expression": {
+                  "expression": "BCHUSDT.close > BCHUSDT.ema(50)"
+                }
+              },
+              {
+                "indicator_expression": {
+                  "expression": "BCHUSDT.ema(50) > BCHUSDT.ema(200)"
+                }
+              },
+              {
+                "indicator_expression": {
+                  "expression": "BTCUSDT.close > BTCUSDT.ema(50)"
+                }
+              }
+            ],
+            "risk_limits": {
+              "max_active_cycles": null,
+              "max_global_budget_quote": null,
+              "max_symbol_budget_quote": null,
+              "max_direction_budget_quote": null,
+              "max_strategy_budget_quote": null,
+              "max_global_drawdown_quote": null,
+              "safety_skip_adx_threshold": 35,
+              "safety_order_condition": "rsi(14) < 45"
+            },
+            "portfolio_weight_pct": "13.33"
+          },
+          {
+            "strategy_id": "S0-SOLUSDT",
+            "symbol": "SOLUSDT",
+            "market": "usd_m_futures",
+            "direction": "short",
+            "direction_mode": "long_and_short",
+            "margin_mode": "isolated",
+            "leverage": 10,
+            "spacing": {
+              "fixed_percent": {
+                "step_bps": 150
+              }
+            },
+            "sizing": {
+              "multiplier": {
+                "first_order_quote": "30.0",
+                "multiplier": "2.5",
+                "max_legs": 8
+              }
+            },
+            "take_profit": {
+              "partial": {
+                "stages": [
+                  [
+                    429,
+                    1000,
+                    800
+                  ],
+                  [
+                    429,
+                    1000,
+                    1600
+                  ],
+                  [
+                    1,
+                    1,
+                    2600
+                  ]
+                ],
+                "breakeven_after_stage": 1,
+                "breakeven_buffer_bps": 100
+              }
+            },
+            "stop_loss": {
+              "strategy_drawdown_pct": {
+                "pct_bps": 4000
+              }
+            },
+            "indicators": [
+              {
+                "atr": {
+                  "period": 14
+                }
+              },
+              {
+                "adx": {
+                  "period": 14
+                }
+              }
+            ],
+            "entry_triggers": [
+              {
+                "cooldown": {
+                  "seconds": 21600
+                }
+              },
+              {
+                "indicator_expression": {
+                  "expression": "SOLUSDT.close < SOLUSDT.ema(50)"
+                }
+              },
+              {
+                "indicator_expression": {
+                  "expression": "BTCUSDT.close < BTCUSDT.ema(50)"
+                }
+              }
+            ],
+            "risk_limits": {
+              "max_active_cycles": null,
+              "max_global_budget_quote": null,
+              "max_symbol_budget_quote": null,
+              "max_direction_budget_quote": null,
+              "max_strategy_budget_quote": null,
+              "max_global_drawdown_quote": null,
+              "safety_skip_adx_threshold": 35,
+              "safety_order_condition": "rsi(14) < 45"
+            },
+            "portfolio_weight_pct": "8.0"
+          },
+          {
+            "strategy_id": "S1-DOTUSDT",
+            "symbol": "DOTUSDT",
+            "market": "usd_m_futures",
+            "direction": "short",
+            "direction_mode": "long_and_short",
+            "margin_mode": "isolated",
+            "leverage": 10,
+            "spacing": {
+              "fixed_percent": {
+                "step_bps": 150
+              }
+            },
+            "sizing": {
+              "multiplier": {
+                "first_order_quote": "30.0",
+                "multiplier": "2.5",
+                "max_legs": 8
+              }
+            },
+            "take_profit": {
+              "partial": {
+                "stages": [
+                  [
+                    429,
+                    1000,
+                    800
+                  ],
+                  [
+                    429,
+                    1000,
+                    1600
+                  ],
+                  [
+                    1,
+                    1,
+                    2600
+                  ]
+                ],
+                "breakeven_after_stage": 1,
+                "breakeven_buffer_bps": 100
+              }
+            },
+            "stop_loss": {
+              "strategy_drawdown_pct": {
+                "pct_bps": 4000
+              }
+            },
+            "indicators": [
+              {
+                "atr": {
+                  "period": 14
+                }
+              },
+              {
+                "adx": {
+                  "period": 14
+                }
+              }
+            ],
+            "entry_triggers": [
+              {
+                "cooldown": {
+                  "seconds": 21600
+                }
+              },
+              {
+                "indicator_expression": {
+                  "expression": "DOTUSDT.close < DOTUSDT.ema(50)"
+                }
+              },
+              {
+                "indicator_expression": {
+                  "expression": "BTCUSDT.close < BTCUSDT.ema(50)"
+                }
+              }
+            ],
+            "risk_limits": {
+              "max_active_cycles": null,
+              "max_global_budget_quote": null,
+              "max_symbol_budget_quote": null,
+              "max_direction_budget_quote": null,
+              "max_strategy_budget_quote": null,
+              "max_global_drawdown_quote": null,
+              "safety_skip_adx_threshold": 35,
+              "safety_order_condition": "rsi(14) < 45"
+            },
+            "portfolio_weight_pct": "8.0"
+          },
+          {
+            "strategy_id": "S2-NEARUSDT",
+            "symbol": "NEARUSDT",
+            "market": "usd_m_futures",
+            "direction": "short",
+            "direction_mode": "long_and_short",
+            "margin_mode": "isolated",
+            "leverage": 10,
+            "spacing": {
+              "fixed_percent": {
+                "step_bps": 150
+              }
+            },
+            "sizing": {
+              "multiplier": {
+                "first_order_quote": "30.0",
+                "multiplier": "2.5",
+                "max_legs": 8
+              }
+            },
+            "take_profit": {
+              "partial": {
+                "stages": [
+                  [
+                    429,
+                    1000,
+                    800
+                  ],
+                  [
+                    429,
+                    1000,
+                    1600
+                  ],
+                  [
+                    1,
+                    1,
+                    2600
+                  ]
+                ],
+                "breakeven_after_stage": 1,
+                "breakeven_buffer_bps": 100
+              }
+            },
+            "stop_loss": {
+              "strategy_drawdown_pct": {
+                "pct_bps": 4000
+              }
+            },
+            "indicators": [
+              {
+                "atr": {
+                  "period": 14
+                }
+              },
+              {
+                "adx": {
+                  "period": 14
+                }
+              }
+            ],
+            "entry_triggers": [
+              {
+                "cooldown": {
+                  "seconds": 21600
+                }
+              },
+              {
+                "indicator_expression": {
+                  "expression": "NEARUSDT.close < NEARUSDT.ema(50)"
+                }
+              },
+              {
+                "indicator_expression": {
+                  "expression": "BTCUSDT.close < BTCUSDT.ema(50)"
+                }
+              }
+            ],
+            "risk_limits": {
+              "max_active_cycles": null,
+              "max_global_budget_quote": null,
+              "max_symbol_budget_quote": null,
+              "max_direction_budget_quote": null,
+              "max_strategy_budget_quote": null,
+              "max_global_drawdown_quote": null,
+              "safety_skip_adx_threshold": 35,
+              "safety_order_condition": "rsi(14) < 45"
+            },
+            "portfolio_weight_pct": "8.0"
+          }
+        ],
+        "risk_limits": {
+          "max_global_budget_quote": "5000"
+        }
+      },
+      "segment_metrics": {
+        "h1_2023": {
+          "ann": 44.57932699207681,
+          "dd": 9.812562984556381,
+          "ret": 20.059028311364163,
+          "breached": false,
+          "trades": 5936
+        },
+        "h2_2023": {
+          "ann": 5.275125837655414,
+          "dd": 9.69983518802884,
+          "ret": 2.625335961547098,
+          "breached": false,
+          "trades": 5114
+        },
+        "2024": {
+          "ann": 29.671841593882476,
+          "dd": 22.54371680187506,
+          "ret": 29.76412130424178,
+          "breached": false,
+          "trades": 12140
+        },
+        "2025": {
+          "ann": -12.463765176200535,
+          "dd": 23.146089300934396,
+          "ret": -12.463743006119694,
+          "breached": false,
+          "trades": 14693
+        },
+        "2026_ytd": {
+          "ann": 9.239158675652037,
+          "dd": 10.887266873172594,
+          "ret": 3.7234602217857904,
+          "breached": false,
+          "trades": 4940
+        }
+      },
+      "full_metrics": {
+        "ann": 16.33440319155357,
+        "dd": 19.896470672499383,
+        "ret": 67.68251313450928,
+        "breached": false,
+        "trades": 43697
+      },
+      "positive_segments": 4,
+      "agg_2024_2026": 21.023838519907876,
+      "segment_returns": {
+        "h1_2023": 20.059028311364163,
+        "h2_2023": 2.625335961547098,
+        "2024": 29.76412130424178,
+        "2025": -12.463743006119694,
+        "2026_ytd": 3.7234602217857904
+      },
+      "frontier_improvement": false
+    },
+    {
+      "label": "base6",
+      "config": {
+        "direction_mode": "long_and_short",
+        "strategies": [
+          {
+            "strategy_id": "L0-BNBUSDT",
+            "symbol": "BNBUSDT",
+            "market": "usd_m_futures",
+            "direction": "long",
+            "direction_mode": "long_and_short",
+            "margin_mode": "isolated",
+            "leverage": 10,
+            "spacing": {
+              "fixed_percent": {
+                "step_bps": 150
+              }
+            },
+            "sizing": {
+              "multiplier": {
+                "first_order_quote": "35.0",
+                "multiplier": "2.8",
+                "max_legs": 8
+              }
+            },
+            "take_profit": {
+              "partial": {
+                "stages": [
+                  [
+                    429,
+                    1000,
+                    800
+                  ],
+                  [
+                    429,
+                    1000,
+                    1600
+                  ],
+                  [
+                    1,
+                    1,
+                    2600
+                  ]
+                ],
+                "breakeven_after_stage": 1,
+                "breakeven_buffer_bps": 100
+              }
+            },
+            "stop_loss": {
+              "strategy_drawdown_pct": {
+                "pct_bps": 5000
+              }
+            },
+            "indicators": [
+              {
+                "atr": {
+                  "period": 14
+                }
+              },
+              {
+                "adx": {
+                  "period": 14
+                }
+              }
+            ],
+            "entry_triggers": [
+              {
+                "cooldown": {
+                  "seconds": 21600
+                }
+              },
+              {
+                "indicator_expression": {
+                  "expression": "BNBUSDT.close > BNBUSDT.ema(50)"
+                }
+              },
+              {
+                "indicator_expression": {
+                  "expression": "BNBUSDT.ema(50) > BNBUSDT.ema(200)"
+                }
+              },
+              {
+                "indicator_expression": {
+                  "expression": "BTCUSDT.close > BTCUSDT.ema(50)"
+                }
+              }
+            ],
+            "risk_limits": {
+              "max_active_cycles": null,
+              "max_global_budget_quote": null,
+              "max_symbol_budget_quote": null,
+              "max_direction_budget_quote": null,
+              "max_strategy_budget_quote": null,
+              "max_global_drawdown_quote": null,
+              "safety_skip_adx_threshold": 35,
+              "safety_order_condition": "rsi(14) < 45"
+            },
+            "portfolio_weight_pct": "13.33"
+          },
+          {
+            "strategy_id": "L1-TRXUSDT",
+            "symbol": "TRXUSDT",
+            "market": "usd_m_futures",
+            "direction": "long",
+            "direction_mode": "long_and_short",
+            "margin_mode": "isolated",
+            "leverage": 10,
+            "spacing": {
+              "fixed_percent": {
+                "step_bps": 150
+              }
+            },
+            "sizing": {
+              "multiplier": {
+                "first_order_quote": "35.0",
+                "multiplier": "2.8",
+                "max_legs": 8
+              }
+            },
+            "take_profit": {
+              "partial": {
+                "stages": [
+                  [
+                    429,
+                    1000,
+                    800
+                  ],
+                  [
+                    429,
+                    1000,
+                    1600
+                  ],
+                  [
+                    1,
+                    1,
+                    2600
+                  ]
+                ],
+                "breakeven_after_stage": 1,
+                "breakeven_buffer_bps": 100
+              }
+            },
+            "stop_loss": {
+              "strategy_drawdown_pct": {
+                "pct_bps": 5000
+              }
+            },
+            "indicators": [
+              {
+                "atr": {
+                  "period": 14
+                }
+              },
+              {
+                "adx": {
+                  "period": 14
+                }
+              }
+            ],
+            "entry_triggers": [
+              {
+                "cooldown": {
+                  "seconds": 21600
+                }
+              },
+              {
+                "indicator_expression": {
+                  "expression": "TRXUSDT.close > TRXUSDT.ema(50)"
+                }
+              },
+              {
+                "indicator_expression": {
+                  "expression": "TRXUSDT.ema(50) > TRXUSDT.ema(200)"
+                }
+              },
+              {
+                "indicator_expression": {
+                  "expression": "BTCUSDT.close > BTCUSDT.ema(50)"
+                }
+              }
+            ],
+            "risk_limits": {
+              "max_active_cycles": null,
+              "max_global_budget_quote": null,
+              "max_symbol_budget_quote": null,
+              "max_direction_budget_quote": null,
+              "max_strategy_budget_quote": null,
+              "max_global_drawdown_quote": null,
+              "safety_skip_adx_threshold": 35,
+              "safety_order_condition": "rsi(14) < 45"
+            },
+            "portfolio_weight_pct": "13.33"
+          },
+          {
+            "strategy_id": "L2-BCHUSDT",
+            "symbol": "BCHUSDT",
+            "market": "usd_m_futures",
+            "direction": "long",
+            "direction_mode": "long_and_short",
+            "margin_mode": "isolated",
+            "leverage": 10,
+            "spacing": {
+              "fixed_percent": {
+                "step_bps": 150
+              }
+            },
+            "sizing": {
+              "multiplier": {
+                "first_order_quote": "35.0",
+                "multiplier": "2.8",
+                "max_legs": 8
+              }
+            },
+            "take_profit": {
+              "partial": {
+                "stages": [
+                  [
+                    429,
+                    1000,
+                    800
+                  ],
+                  [
+                    429,
+                    1000,
+                    1600
+                  ],
+                  [
+                    1,
+                    1,
+                    2600
+                  ]
+                ],
+                "breakeven_after_stage": 1,
+                "breakeven_buffer_bps": 100
+              }
+            },
+            "stop_loss": {
+              "strategy_drawdown_pct": {
+                "pct_bps": 5000
+              }
+            },
+            "indicators": [
+              {
+                "atr": {
+                  "period": 14
+                }
+              },
+              {
+                "adx": {
+                  "period": 14
+                }
+              }
+            ],
+            "entry_triggers": [
+              {
+                "cooldown": {
+                  "seconds": 21600
+                }
+              },
+              {
+                "indicator_expression": {
+                  "expression": "BCHUSDT.close > BCHUSDT.ema(50)"
+                }
+              },
+              {
+                "indicator_expression": {
+                  "expression": "BCHUSDT.ema(50) > BCHUSDT.ema(200)"
+                }
+              },
+              {
+                "indicator_expression": {
+                  "expression": "BTCUSDT.close > BTCUSDT.ema(50)"
+                }
+              }
+            ],
+            "risk_limits": {
+              "max_active_cycles": null,
+              "max_global_budget_quote": null,
+              "max_symbol_budget_quote": null,
+              "max_direction_budget_quote": null,
+              "max_strategy_budget_quote": null,
+              "max_global_drawdown_quote": null,
+              "safety_skip_adx_threshold": 35,
+              "safety_order_condition": "rsi(14) < 45"
+            },
+            "portfolio_weight_pct": "13.33"
+          },
+          {
+            "strategy_id": "S0-AAVEUSDT",
+            "symbol": "AAVEUSDT",
+            "market": "usd_m_futures",
+            "direction": "short",
+            "direction_mode": "long_and_short",
+            "margin_mode": "isolated",
+            "leverage": 10,
+            "spacing": {
+              "fixed_percent": {
+                "step_bps": 150
+              }
+            },
+            "sizing": {
+              "multiplier": {
+                "first_order_quote": "30.0",
+                "multiplier": "2.5",
+                "max_legs": 8
+              }
+            },
+            "take_profit": {
+              "partial": {
+                "stages": [
+                  [
+                    429,
+                    1000,
+                    800
+                  ],
+                  [
+                    429,
+                    1000,
+                    1600
+                  ],
+                  [
+                    1,
+                    1,
+                    2600
+                  ]
+                ],
+                "breakeven_after_stage": 1,
+                "breakeven_buffer_bps": 100
+              }
+            },
+            "stop_loss": {
+              "strategy_drawdown_pct": {
+                "pct_bps": 4000
+              }
+            },
+            "indicators": [
+              {
+                "atr": {
+                  "period": 14
+                }
+              },
+              {
+                "adx": {
+                  "period": 14
+                }
+              }
+            ],
+            "entry_triggers": [
+              {
+                "cooldown": {
+                  "seconds": 21600
+                }
+              },
+              {
+                "indicator_expression": {
+                  "expression": "AAVEUSDT.close < AAVEUSDT.ema(50)"
+                }
+              },
+              {
+                "indicator_expression": {
+                  "expression": "BTCUSDT.close < BTCUSDT.ema(50)"
+                }
+              }
+            ],
+            "risk_limits": {
+              "max_active_cycles": null,
+              "max_global_budget_quote": null,
+              "max_symbol_budget_quote": null,
+              "max_direction_budget_quote": null,
+              "max_strategy_budget_quote": null,
+              "max_global_drawdown_quote": null,
+              "safety_skip_adx_threshold": 35,
+              "safety_order_condition": "rsi(14) < 45"
+            },
+            "portfolio_weight_pct": "8.0"
+          },
+          {
+            "strategy_id": "S1-SOLUSDT",
+            "symbol": "SOLUSDT",
+            "market": "usd_m_futures",
+            "direction": "short",
+            "direction_mode": "long_and_short",
+            "margin_mode": "isolated",
+            "leverage": 10,
+            "spacing": {
+              "fixed_percent": {
+                "step_bps": 150
+              }
+            },
+            "sizing": {
+              "multiplier": {
+                "first_order_quote": "30.0",
+                "multiplier": "2.5",
+                "max_legs": 8
+              }
+            },
+            "take_profit": {
+              "partial": {
+                "stages": [
+                  [
+                    429,
+                    1000,
+                    800
+                  ],
+                  [
+                    429,
+                    1000,
+                    1600
+                  ],
+                  [
+                    1,
+                    1,
+                    2600
+                  ]
+                ],
+                "breakeven_after_stage": 1,
+                "breakeven_buffer_bps": 100
+              }
+            },
+            "stop_loss": {
+              "strategy_drawdown_pct": {
+                "pct_bps": 4000
+              }
+            },
+            "indicators": [
+              {
+                "atr": {
+                  "period": 14
+                }
+              },
+              {
+                "adx": {
+                  "period": 14
+                }
+              }
+            ],
+            "entry_triggers": [
+              {
+                "cooldown": {
+                  "seconds": 21600
+                }
+              },
+              {
+                "indicator_expression": {
+                  "expression": "SOLUSDT.close < SOLUSDT.ema(50)"
+                }
+              },
+              {
+                "indicator_expression": {
+                  "expression": "BTCUSDT.close < BTCUSDT.ema(50)"
+                }
+              }
+            ],
+            "risk_limits": {
+              "max_active_cycles": null,
+              "max_global_budget_quote": null,
+              "max_symbol_budget_quote": null,
+              "max_direction_budget_quote": null,
+              "max_strategy_budget_quote": null,
+              "max_global_drawdown_quote": null,
+              "safety_skip_adx_threshold": 35,
+              "safety_order_condition": "rsi(14) < 45"
+            },
+            "portfolio_weight_pct": "8.0"
+          },
+          {
+            "strategy_id": "S2-DOTUSDT",
+            "symbol": "DOTUSDT",
+            "market": "usd_m_futures",
+            "direction": "short",
+            "direction_mode": "long_and_short",
+            "margin_mode": "isolated",
+            "leverage": 10,
+            "spacing": {
+              "fixed_percent": {
+                "step_bps": 150
+              }
+            },
+            "sizing": {
+              "multiplier": {
+                "first_order_quote": "30.0",
+                "multiplier": "2.5",
+                "max_legs": 8
+              }
+            },
+            "take_profit": {
+              "partial": {
+                "stages": [
+                  [
+                    429,
+                    1000,
+                    800
+                  ],
+                  [
+                    429,
+                    1000,
+                    1600
+                  ],
+                  [
+                    1,
+                    1,
+                    2600
+                  ]
+                ],
+                "breakeven_after_stage": 1,
+                "breakeven_buffer_bps": 100
+              }
+            },
+            "stop_loss": {
+              "strategy_drawdown_pct": {
+                "pct_bps": 4000
+              }
+            },
+            "indicators": [
+              {
+                "atr": {
+                  "period": 14
+                }
+              },
+              {
+                "adx": {
+                  "period": 14
+                }
+              }
+            ],
+            "entry_triggers": [
+              {
+                "cooldown": {
+                  "seconds": 21600
+                }
+              },
+              {
+                "indicator_expression": {
+                  "expression": "DOTUSDT.close < DOTUSDT.ema(50)"
+                }
+              },
+              {
+                "indicator_expression": {
+                  "expression": "BTCUSDT.close < BTCUSDT.ema(50)"
+                }
+              }
+            ],
+            "risk_limits": {
+              "max_active_cycles": null,
+              "max_global_budget_quote": null,
+              "max_symbol_budget_quote": null,
+              "max_direction_budget_quote": null,
+              "max_strategy_budget_quote": null,
+              "max_global_drawdown_quote": null,
+              "safety_skip_adx_threshold": 35,
+              "safety_order_condition": "rsi(14) < 45"
+            },
+            "portfolio_weight_pct": "8.0"
+          }
+        ],
+        "risk_limits": {
+          "max_global_budget_quote": "5000"
+        }
+      },
+      "segment_metrics": {
+        "h1_2023": {
+          "ann": 44.08423986617718,
+          "dd": 9.825837557206004,
+          "ret": 19.854981583669943,
+          "breached": false,
+          "trades": 5923
+        },
+        "h2_2023": {
+          "ann": 5.293695331997927,
+          "dd": 9.740459688664949,
+          "ret": 2.634460968986678,
+          "breached": false,
+          "trades": 5105
+        },
+        "2024": {
+          "ann": 30.513522413020368,
+          "dd": 22.393968259889466,
+          "ret": 30.60871459909082,
+          "breached": false,
+          "trades": 12127
+        },
+        "2025": {
+          "ann": -12.50547459692941,
+          "dd": 23.186960356637414,
+          "ret": -12.505452358075273,
+          "breached": false,
+          "trades": 14677
+        },
+        "2026_ytd": {
+          "ann": 11.393798949719237,
+          "dd": 9.956891809405565,
+          "ret": 4.564977579452752,
+          "breached": false,
+          "trades": 4943
+        }
+      },
+      "full_metrics": {
+        "ann": 16.23193760500974,
+        "dd": 19.928838135380154,
+        "ret": 67.17846876897347,
+        "breached": false,
+        "trades": 43662
+      },
+      "positive_segments": 4,
+      "agg_2024_2026": 22.6682398204683,
+      "segment_returns": {
+        "h1_2023": 19.854981583669943,
+        "h2_2023": 2.634460968986678,
+        "2024": 30.60871459909082,
+        "2025": -12.505452358075273,
+        "2026_ytd": 4.564977579452752
+      },
+      "frontier_improvement": false
+    },
+    {
+      "label": "base3short3hi",
+      "config": {
+        "direction_mode": "long_and_short",
+        "strategies": [
+          {
+            "strategy_id": "L0-BNBUSDT",
+            "symbol": "BNBUSDT",
+            "market": "usd_m_futures",
+            "direction": "long",
+            "direction_mode": "long_and_short",
+            "margin_mode": "isolated",
+            "leverage": 10,
+            "spacing": {
+              "fixed_percent": {
+                "step_bps": 150
+              }
+            },
+            "sizing": {
+              "multiplier": {
+                "first_order_quote": "35.0",
+                "multiplier": "2.8",
+                "max_legs": 8
+              }
+            },
+            "take_profit": {
+              "partial": {
+                "stages": [
+                  [
+                    429,
+                    1000,
+                    800
+                  ],
+                  [
+                    429,
+                    1000,
+                    1600
+                  ],
+                  [
+                    1,
+                    1,
+                    2600
+                  ]
+                ],
+                "breakeven_after_stage": 1,
+                "breakeven_buffer_bps": 100
+              }
+            },
+            "stop_loss": {
+              "strategy_drawdown_pct": {
+                "pct_bps": 5000
+              }
+            },
+            "indicators": [
+              {
+                "atr": {
+                  "period": 14
+                }
+              },
+              {
+                "adx": {
+                  "period": 14
+                }
+              }
+            ],
+            "entry_triggers": [
+              {
+                "cooldown": {
+                  "seconds": 21600
+                }
+              },
+              {
+                "indicator_expression": {
+                  "expression": "BNBUSDT.close > BNBUSDT.ema(50)"
+                }
+              },
+              {
+                "indicator_expression": {
+                  "expression": "BNBUSDT.ema(50) > BNBUSDT.ema(200)"
+                }
+              },
+              {
+                "indicator_expression": {
+                  "expression": "BTCUSDT.close > BTCUSDT.ema(50)"
+                }
+              }
+            ],
+            "risk_limits": {
+              "max_active_cycles": null,
+              "max_global_budget_quote": null,
+              "max_symbol_budget_quote": null,
+              "max_direction_budget_quote": null,
+              "max_strategy_budget_quote": null,
+              "max_global_drawdown_quote": null,
+              "safety_skip_adx_threshold": 35,
+              "safety_order_condition": "rsi(14) < 45"
+            },
+            "portfolio_weight_pct": "13.33"
+          },
+          {
+            "strategy_id": "L1-TRXUSDT",
+            "symbol": "TRXUSDT",
+            "market": "usd_m_futures",
+            "direction": "long",
+            "direction_mode": "long_and_short",
+            "margin_mode": "isolated",
+            "leverage": 10,
+            "spacing": {
+              "fixed_percent": {
+                "step_bps": 150
+              }
+            },
+            "sizing": {
+              "multiplier": {
+                "first_order_quote": "35.0",
+                "multiplier": "2.8",
+                "max_legs": 8
+              }
+            },
+            "take_profit": {
+              "partial": {
+                "stages": [
+                  [
+                    429,
+                    1000,
+                    800
+                  ],
+                  [
+                    429,
+                    1000,
+                    1600
+                  ],
+                  [
+                    1,
+                    1,
+                    2600
+                  ]
+                ],
+                "breakeven_after_stage": 1,
+                "breakeven_buffer_bps": 100
+              }
+            },
+            "stop_loss": {
+              "strategy_drawdown_pct": {
+                "pct_bps": 5000
+              }
+            },
+            "indicators": [
+              {
+                "atr": {
+                  "period": 14
+                }
+              },
+              {
+                "adx": {
+                  "period": 14
+                }
+              }
+            ],
+            "entry_triggers": [
+              {
+                "cooldown": {
+                  "seconds": 21600
+                }
+              },
+              {
+                "indicator_expression": {
+                  "expression": "TRXUSDT.close > TRXUSDT.ema(50)"
+                }
+              },
+              {
+                "indicator_expression": {
+                  "expression": "TRXUSDT.ema(50) > TRXUSDT.ema(200)"
+                }
+              },
+              {
+                "indicator_expression": {
+                  "expression": "BTCUSDT.close > BTCUSDT.ema(50)"
+                }
+              }
+            ],
+            "risk_limits": {
+              "max_active_cycles": null,
+              "max_global_budget_quote": null,
+              "max_symbol_budget_quote": null,
+              "max_direction_budget_quote": null,
+              "max_strategy_budget_quote": null,
+              "max_global_drawdown_quote": null,
+              "safety_skip_adx_threshold": 35,
+              "safety_order_condition": "rsi(14) < 45"
+            },
+            "portfolio_weight_pct": "13.33"
+          },
+          {
+            "strategy_id": "L2-BCHUSDT",
+            "symbol": "BCHUSDT",
+            "market": "usd_m_futures",
+            "direction": "long",
+            "direction_mode": "long_and_short",
+            "margin_mode": "isolated",
+            "leverage": 10,
+            "spacing": {
+              "fixed_percent": {
+                "step_bps": 150
+              }
+            },
+            "sizing": {
+              "multiplier": {
+                "first_order_quote": "35.0",
+                "multiplier": "2.8",
+                "max_legs": 8
+              }
+            },
+            "take_profit": {
+              "partial": {
+                "stages": [
+                  [
+                    429,
+                    1000,
+                    800
+                  ],
+                  [
+                    429,
+                    1000,
+                    1600
+                  ],
+                  [
+                    1,
+                    1,
+                    2600
+                  ]
+                ],
+                "breakeven_after_stage": 1,
+                "breakeven_buffer_bps": 100
+              }
+            },
+            "stop_loss": {
+              "strategy_drawdown_pct": {
+                "pct_bps": 5000
+              }
+            },
+            "indicators": [
+              {
+                "atr": {
+                  "period": 14
+                }
+              },
+              {
+                "adx": {
+                  "period": 14
+                }
+              }
+            ],
+            "entry_triggers": [
+              {
+                "cooldown": {
+                  "seconds": 21600
+                }
+              },
+              {
+                "indicator_expression": {
+                  "expression": "BCHUSDT.close > BCHUSDT.ema(50)"
+                }
+              },
+              {
+                "indicator_expression": {
+                  "expression": "BCHUSDT.ema(50) > BCHUSDT.ema(200)"
+                }
+              },
+              {
+                "indicator_expression": {
+                  "expression": "BTCUSDT.close > BTCUSDT.ema(50)"
+                }
+              }
+            ],
+            "risk_limits": {
+              "max_active_cycles": null,
+              "max_global_budget_quote": null,
+              "max_symbol_budget_quote": null,
+              "max_direction_budget_quote": null,
+              "max_strategy_budget_quote": null,
+              "max_global_drawdown_quote": null,
+              "safety_skip_adx_threshold": 35,
+              "safety_order_condition": "rsi(14) < 45"
+            },
+            "portfolio_weight_pct": "13.33"
+          },
+          {
+            "strategy_id": "S0-AAVEUSDT",
+            "symbol": "AAVEUSDT",
+            "market": "usd_m_futures",
+            "direction": "short",
+            "direction_mode": "long_and_short",
+            "margin_mode": "isolated",
+            "leverage": 10,
+            "spacing": {
+              "fixed_percent": {
+                "step_bps": 150
+              }
+            },
+            "sizing": {
+              "multiplier": {
+                "first_order_quote": "30.0",
+                "multiplier": "2.5",
+                "max_legs": 8
+              }
+            },
+            "take_profit": {
+              "partial": {
+                "stages": [
+                  [
+                    429,
+                    1000,
+                    800
+                  ],
+                  [
+                    429,
+                    1000,
+                    1600
+                  ],
+                  [
+                    1,
+                    1,
+                    2600
+                  ]
+                ],
+                "breakeven_after_stage": 1,
+                "breakeven_buffer_bps": 100
+              }
+            },
+            "stop_loss": {
+              "strategy_drawdown_pct": {
+                "pct_bps": 4000
+              }
+            },
+            "indicators": [
+              {
+                "atr": {
+                  "period": 14
+                }
+              },
+              {
+                "adx": {
+                  "period": 14
+                }
+              }
+            ],
+            "entry_triggers": [
+              {
+                "cooldown": {
+                  "seconds": 21600
+                }
+              },
+              {
+                "indicator_expression": {
+                  "expression": "AAVEUSDT.close < AAVEUSDT.ema(50)"
+                }
+              },
+              {
+                "indicator_expression": {
+                  "expression": "BTCUSDT.close < BTCUSDT.ema(50)"
+                }
+              }
+            ],
+            "risk_limits": {
+              "max_active_cycles": null,
+              "max_global_budget_quote": null,
+              "max_symbol_budget_quote": null,
+              "max_direction_budget_quote": null,
+              "max_strategy_budget_quote": null,
+              "max_global_drawdown_quote": null,
+              "safety_skip_adx_threshold": 35,
+              "safety_order_condition": "rsi(14) < 45"
+            },
+            "portfolio_weight_pct": "8.0"
+          },
+          {
+            "strategy_id": "S1-ARBUSDT",
+            "symbol": "ARBUSDT",
+            "market": "usd_m_futures",
+            "direction": "short",
+            "direction_mode": "long_and_short",
+            "margin_mode": "isolated",
+            "leverage": 10,
+            "spacing": {
+              "fixed_percent": {
+                "step_bps": 150
+              }
+            },
+            "sizing": {
+              "multiplier": {
+                "first_order_quote": "30.0",
+                "multiplier": "2.5",
+                "max_legs": 8
+              }
+            },
+            "take_profit": {
+              "partial": {
+                "stages": [
+                  [
+                    429,
+                    1000,
+                    800
+                  ],
+                  [
+                    429,
+                    1000,
+                    1600
+                  ],
+                  [
+                    1,
+                    1,
+                    2600
+                  ]
+                ],
+                "breakeven_after_stage": 1,
+                "breakeven_buffer_bps": 100
+              }
+            },
+            "stop_loss": {
+              "strategy_drawdown_pct": {
+                "pct_bps": 4000
+              }
+            },
+            "indicators": [
+              {
+                "atr": {
+                  "period": 14
+                }
+              },
+              {
+                "adx": {
+                  "period": 14
+                }
+              }
+            ],
+            "entry_triggers": [
+              {
+                "cooldown": {
+                  "seconds": 21600
+                }
+              },
+              {
+                "indicator_expression": {
+                  "expression": "ARBUSDT.close < ARBUSDT.ema(50)"
+                }
+              },
+              {
+                "indicator_expression": {
+                  "expression": "BTCUSDT.close < BTCUSDT.ema(50)"
+                }
+              }
+            ],
+            "risk_limits": {
+              "max_active_cycles": null,
+              "max_global_budget_quote": null,
+              "max_symbol_budget_quote": null,
+              "max_direction_budget_quote": null,
+              "max_strategy_budget_quote": null,
+              "max_global_drawdown_quote": null,
+              "safety_skip_adx_threshold": 35,
+              "safety_order_condition": "rsi(14) < 45"
+            },
+            "portfolio_weight_pct": "8.0"
+          },
+          {
+            "strategy_id": "S2-OPUSDT",
+            "symbol": "OPUSDT",
+            "market": "usd_m_futures",
+            "direction": "short",
+            "direction_mode": "long_and_short",
+            "margin_mode": "isolated",
+            "leverage": 10,
+            "spacing": {
+              "fixed_percent": {
+                "step_bps": 150
+              }
+            },
+            "sizing": {
+              "multiplier": {
+                "first_order_quote": "30.0",
+                "multiplier": "2.5",
+                "max_legs": 8
+              }
+            },
+            "take_profit": {
+              "partial": {
+                "stages": [
+                  [
+                    429,
+                    1000,
+                    800
+                  ],
+                  [
+                    429,
+                    1000,
+                    1600
+                  ],
+                  [
+                    1,
+                    1,
+                    2600
+                  ]
+                ],
+                "breakeven_after_stage": 1,
+                "breakeven_buffer_bps": 100
+              }
+            },
+            "stop_loss": {
+              "strategy_drawdown_pct": {
+                "pct_bps": 4000
+              }
+            },
+            "indicators": [
+              {
+                "atr": {
+                  "period": 14
+                }
+              },
+              {
+                "adx": {
+                  "period": 14
+                }
+              }
+            ],
+            "entry_triggers": [
+              {
+                "cooldown": {
+                  "seconds": 21600
+                }
+              },
+              {
+                "indicator_expression": {
+                  "expression": "OPUSDT.close < OPUSDT.ema(50)"
+                }
+              },
+              {
+                "indicator_expression": {
+                  "expression": "BTCUSDT.close < BTCUSDT.ema(50)"
+                }
+              }
+            ],
+            "risk_limits": {
+              "max_active_cycles": null,
+              "max_global_budget_quote": null,
+              "max_symbol_budget_quote": null,
+              "max_direction_budget_quote": null,
+              "max_strategy_budget_quote": null,
+              "max_global_drawdown_quote": null,
+              "safety_skip_adx_threshold": 35,
+              "safety_order_condition": "rsi(14) < 45"
+            },
+            "portfolio_weight_pct": "8.0"
+          }
+        ],
+        "risk_limits": {
+          "max_global_budget_quote": "5000"
+        }
+      },
+      "segment_metrics": {
+        "h1_2023": {
+          "ann": 42.46753869998934,
+          "dd": 9.880184819271726,
+          "ret": 19.186196032233273,
+          "breached": false,
+          "trades": 5309
+        },
+        "h2_2023": {
+          "ann": 2.665529103844211,
+          "dd": 15.144689519772605,
+          "ret": 1.3349491098730504,
+          "breached": false,
+          "trades": 5927
+        },
+        "2024": {
+          "ann": 33.48479225052201,
+          "dd": 21.874165268001278,
+          "ret": 33.59038455108479,
+          "breached": false,
+          "trades": 12486
+        },
+        "2025": {
+          "ann": -14.950665553223574,
+          "dd": 23.57050872454244,
+          "ret": -14.950639349303966,
+          "breached": false,
+          "trades": 14659
+        },
+        "2026_ytd": {
+          "ann": 7.6192111015599195,
+          "dd": 11.59132922626704,
+          "ret": 3.084343068094022,
+          "breached": false,
+          "trades": 4963
+        }
+      },
+      "full_metrics": {
+        "ann": 16.20925648075491,
+        "dd": 19.994354715009525,
+        "ret": 67.06704177995772,
+        "breached": false,
+        "trades": 43038
+      },
+      "positive_segments": 4,
+      "agg_2024_2026": 21.724088269874844,
+      "segment_returns": {
+        "h1_2023": 19.186196032233273,
+        "h2_2023": 1.3349491098730504,
+        "2024": 33.59038455108479,
+        "2025": -14.950639349303966,
+        "2026_ytd": 3.084343068094022
+      },
+      "frontier_improvement": false
+    },
+    {
+      "label": "short4",
+      "config": {
+        "direction_mode": "long_and_short",
+        "strategies": [
+          {
+            "strategy_id": "L0-BNBUSDT",
+            "symbol": "BNBUSDT",
+            "market": "usd_m_futures",
+            "direction": "long",
+            "direction_mode": "long_and_short",
+            "margin_mode": "isolated",
+            "leverage": 10,
+            "spacing": {
+              "fixed_percent": {
+                "step_bps": 150
+              }
+            },
+            "sizing": {
+              "multiplier": {
+                "first_order_quote": "35.0",
+                "multiplier": "2.8",
+                "max_legs": 8
+              }
+            },
+            "take_profit": {
+              "partial": {
+                "stages": [
+                  [
+                    429,
+                    1000,
+                    800
+                  ],
+                  [
+                    429,
+                    1000,
+                    1600
+                  ],
+                  [
+                    1,
+                    1,
+                    2600
+                  ]
+                ],
+                "breakeven_after_stage": 1,
+                "breakeven_buffer_bps": 100
+              }
+            },
+            "stop_loss": {
+              "strategy_drawdown_pct": {
+                "pct_bps": 5000
+              }
+            },
+            "indicators": [
+              {
+                "atr": {
+                  "period": 14
+                }
+              },
+              {
+                "adx": {
+                  "period": 14
+                }
+              }
+            ],
+            "entry_triggers": [
+              {
+                "cooldown": {
+                  "seconds": 21600
+                }
+              },
+              {
+                "indicator_expression": {
+                  "expression": "BNBUSDT.close > BNBUSDT.ema(50)"
+                }
+              },
+              {
+                "indicator_expression": {
+                  "expression": "BNBUSDT.ema(50) > BNBUSDT.ema(200)"
+                }
+              },
+              {
+                "indicator_expression": {
+                  "expression": "BTCUSDT.close > BTCUSDT.ema(50)"
+                }
+              }
+            ],
+            "risk_limits": {
+              "max_active_cycles": null,
+              "max_global_budget_quote": null,
+              "max_symbol_budget_quote": null,
+              "max_direction_budget_quote": null,
+              "max_strategy_budget_quote": null,
+              "max_global_drawdown_quote": null,
+              "safety_skip_adx_threshold": 35,
+              "safety_order_condition": "rsi(14) < 45"
+            },
+            "portfolio_weight_pct": "13.33"
+          },
+          {
+            "strategy_id": "L1-TRXUSDT",
+            "symbol": "TRXUSDT",
+            "market": "usd_m_futures",
+            "direction": "long",
+            "direction_mode": "long_and_short",
+            "margin_mode": "isolated",
+            "leverage": 10,
+            "spacing": {
+              "fixed_percent": {
+                "step_bps": 150
+              }
+            },
+            "sizing": {
+              "multiplier": {
+                "first_order_quote": "35.0",
+                "multiplier": "2.8",
+                "max_legs": 8
+              }
+            },
+            "take_profit": {
+              "partial": {
+                "stages": [
+                  [
+                    429,
+                    1000,
+                    800
+                  ],
+                  [
+                    429,
+                    1000,
+                    1600
+                  ],
+                  [
+                    1,
+                    1,
+                    2600
+                  ]
+                ],
+                "breakeven_after_stage": 1,
+                "breakeven_buffer_bps": 100
+              }
+            },
+            "stop_loss": {
+              "strategy_drawdown_pct": {
+                "pct_bps": 5000
+              }
+            },
+            "indicators": [
+              {
+                "atr": {
+                  "period": 14
+                }
+              },
+              {
+                "adx": {
+                  "period": 14
+                }
+              }
+            ],
+            "entry_triggers": [
+              {
+                "cooldown": {
+                  "seconds": 21600
+                }
+              },
+              {
+                "indicator_expression": {
+                  "expression": "TRXUSDT.close > TRXUSDT.ema(50)"
+                }
+              },
+              {
+                "indicator_expression": {
+                  "expression": "TRXUSDT.ema(50) > TRXUSDT.ema(200)"
+                }
+              },
+              {
+                "indicator_expression": {
+                  "expression": "BTCUSDT.close > BTCUSDT.ema(50)"
+                }
+              }
+            ],
+            "risk_limits": {
+              "max_active_cycles": null,
+              "max_global_budget_quote": null,
+              "max_symbol_budget_quote": null,
+              "max_direction_budget_quote": null,
+              "max_strategy_budget_quote": null,
+              "max_global_drawdown_quote": null,
+              "safety_skip_adx_threshold": 35,
+              "safety_order_condition": "rsi(14) < 45"
+            },
+            "portfolio_weight_pct": "13.33"
+          },
+          {
+            "strategy_id": "L2-BCHUSDT",
+            "symbol": "BCHUSDT",
+            "market": "usd_m_futures",
+            "direction": "long",
+            "direction_mode": "long_and_short",
+            "margin_mode": "isolated",
+            "leverage": 10,
+            "spacing": {
+              "fixed_percent": {
+                "step_bps": 150
+              }
+            },
+            "sizing": {
+              "multiplier": {
+                "first_order_quote": "35.0",
+                "multiplier": "2.8",
+                "max_legs": 8
+              }
+            },
+            "take_profit": {
+              "partial": {
+                "stages": [
+                  [
+                    429,
+                    1000,
+                    800
+                  ],
+                  [
+                    429,
+                    1000,
+                    1600
+                  ],
+                  [
+                    1,
+                    1,
+                    2600
+                  ]
+                ],
+                "breakeven_after_stage": 1,
+                "breakeven_buffer_bps": 100
+              }
+            },
+            "stop_loss": {
+              "strategy_drawdown_pct": {
+                "pct_bps": 5000
+              }
+            },
+            "indicators": [
+              {
+                "atr": {
+                  "period": 14
+                }
+              },
+              {
+                "adx": {
+                  "period": 14
+                }
+              }
+            ],
+            "entry_triggers": [
+              {
+                "cooldown": {
+                  "seconds": 21600
+                }
+              },
+              {
+                "indicator_expression": {
+                  "expression": "BCHUSDT.close > BCHUSDT.ema(50)"
+                }
+              },
+              {
+                "indicator_expression": {
+                  "expression": "BCHUSDT.ema(50) > BCHUSDT.ema(200)"
+                }
+              },
+              {
+                "indicator_expression": {
+                  "expression": "BTCUSDT.close > BTCUSDT.ema(50)"
+                }
+              }
+            ],
+            "risk_limits": {
+              "max_active_cycles": null,
+              "max_global_budget_quote": null,
+              "max_symbol_budget_quote": null,
+              "max_direction_budget_quote": null,
+              "max_strategy_budget_quote": null,
+              "max_global_drawdown_quote": null,
+              "safety_skip_adx_threshold": 35,
+              "safety_order_condition": "rsi(14) < 45"
+            },
+            "portfolio_weight_pct": "13.33"
+          },
+          {
+            "strategy_id": "S0-AAVEUSDT",
+            "symbol": "AAVEUSDT",
+            "market": "usd_m_futures",
+            "direction": "short",
+            "direction_mode": "long_and_short",
+            "margin_mode": "isolated",
+            "leverage": 10,
+            "spacing": {
+              "fixed_percent": {
+                "step_bps": 150
+              }
+            },
+            "sizing": {
+              "multiplier": {
+                "first_order_quote": "30.0",
+                "multiplier": "2.5",
+                "max_legs": 8
+              }
+            },
+            "take_profit": {
+              "partial": {
+                "stages": [
+                  [
+                    429,
+                    1000,
+                    800
+                  ],
+                  [
+                    429,
+                    1000,
+                    1600
+                  ],
+                  [
+                    1,
+                    1,
+                    2600
+                  ]
+                ],
+                "breakeven_after_stage": 1,
+                "breakeven_buffer_bps": 100
+              }
+            },
+            "stop_loss": {
+              "strategy_drawdown_pct": {
+                "pct_bps": 4000
+              }
+            },
+            "indicators": [
+              {
+                "atr": {
+                  "period": 14
+                }
+              },
+              {
+                "adx": {
+                  "period": 14
+                }
+              }
+            ],
+            "entry_triggers": [
+              {
+                "cooldown": {
+                  "seconds": 21600
+                }
+              },
+              {
+                "indicator_expression": {
+                  "expression": "AAVEUSDT.close < AAVEUSDT.ema(50)"
+                }
+              },
+              {
+                "indicator_expression": {
+                  "expression": "BTCUSDT.close < BTCUSDT.ema(50)"
+                }
+              }
+            ],
+            "risk_limits": {
+              "max_active_cycles": null,
+              "max_global_budget_quote": null,
+              "max_symbol_budget_quote": null,
+              "max_direction_budget_quote": null,
+              "max_strategy_budget_quote": null,
+              "max_global_drawdown_quote": null,
+              "safety_skip_adx_threshold": 35,
+              "safety_order_condition": "rsi(14) < 45"
+            },
+            "portfolio_weight_pct": "6.0"
+          },
+          {
+            "strategy_id": "S1-SOLUSDT",
+            "symbol": "SOLUSDT",
+            "market": "usd_m_futures",
+            "direction": "short",
+            "direction_mode": "long_and_short",
+            "margin_mode": "isolated",
+            "leverage": 10,
+            "spacing": {
+              "fixed_percent": {
+                "step_bps": 150
+              }
+            },
+            "sizing": {
+              "multiplier": {
+                "first_order_quote": "30.0",
+                "multiplier": "2.5",
+                "max_legs": 8
+              }
+            },
+            "take_profit": {
+              "partial": {
+                "stages": [
+                  [
+                    429,
+                    1000,
+                    800
+                  ],
+                  [
+                    429,
+                    1000,
+                    1600
+                  ],
+                  [
+                    1,
+                    1,
+                    2600
+                  ]
+                ],
+                "breakeven_after_stage": 1,
+                "breakeven_buffer_bps": 100
+              }
+            },
+            "stop_loss": {
+              "strategy_drawdown_pct": {
+                "pct_bps": 4000
+              }
+            },
+            "indicators": [
+              {
+                "atr": {
+                  "period": 14
+                }
+              },
+              {
+                "adx": {
+                  "period": 14
+                }
+              }
+            ],
+            "entry_triggers": [
+              {
+                "cooldown": {
+                  "seconds": 21600
+                }
+              },
+              {
+                "indicator_expression": {
+                  "expression": "SOLUSDT.close < SOLUSDT.ema(50)"
+                }
+              },
+              {
+                "indicator_expression": {
+                  "expression": "BTCUSDT.close < BTCUSDT.ema(50)"
+                }
+              }
+            ],
+            "risk_limits": {
+              "max_active_cycles": null,
+              "max_global_budget_quote": null,
+              "max_symbol_budget_quote": null,
+              "max_direction_budget_quote": null,
+              "max_strategy_budget_quote": null,
+              "max_global_drawdown_quote": null,
+              "safety_skip_adx_threshold": 35,
+              "safety_order_condition": "rsi(14) < 45"
+            },
+            "portfolio_weight_pct": "6.0"
+          },
+          {
+            "strategy_id": "S2-DOTUSDT",
+            "symbol": "DOTUSDT",
+            "market": "usd_m_futures",
+            "direction": "short",
+            "direction_mode": "long_and_short",
+            "margin_mode": "isolated",
+            "leverage": 10,
+            "spacing": {
+              "fixed_percent": {
+                "step_bps": 150
+              }
+            },
+            "sizing": {
+              "multiplier": {
+                "first_order_quote": "30.0",
+                "multiplier": "2.5",
+                "max_legs": 8
+              }
+            },
+            "take_profit": {
+              "partial": {
+                "stages": [
+                  [
+                    429,
+                    1000,
+                    800
+                  ],
+                  [
+                    429,
+                    1000,
+                    1600
+                  ],
+                  [
+                    1,
+                    1,
+                    2600
+                  ]
+                ],
+                "breakeven_after_stage": 1,
+                "breakeven_buffer_bps": 100
+              }
+            },
+            "stop_loss": {
+              "strategy_drawdown_pct": {
+                "pct_bps": 4000
+              }
+            },
+            "indicators": [
+              {
+                "atr": {
+                  "period": 14
+                }
+              },
+              {
+                "adx": {
+                  "period": 14
+                }
+              }
+            ],
+            "entry_triggers": [
+              {
+                "cooldown": {
+                  "seconds": 21600
+                }
+              },
+              {
+                "indicator_expression": {
+                  "expression": "DOTUSDT.close < DOTUSDT.ema(50)"
+                }
+              },
+              {
+                "indicator_expression": {
+                  "expression": "BTCUSDT.close < BTCUSDT.ema(50)"
+                }
+              }
+            ],
+            "risk_limits": {
+              "max_active_cycles": null,
+              "max_global_budget_quote": null,
+              "max_symbol_budget_quote": null,
+              "max_direction_budget_quote": null,
+              "max_strategy_budget_quote": null,
+              "max_global_drawdown_quote": null,
+              "safety_skip_adx_threshold": 35,
+              "safety_order_condition": "rsi(14) < 45"
+            },
+            "portfolio_weight_pct": "6.0"
+          },
+          {
+            "strategy_id": "S3-NEARUSDT",
+            "symbol": "NEARUSDT",
+            "market": "usd_m_futures",
+            "direction": "short",
+            "direction_mode": "long_and_short",
+            "margin_mode": "isolated",
+            "leverage": 10,
+            "spacing": {
+              "fixed_percent": {
+                "step_bps": 150
+              }
+            },
+            "sizing": {
+              "multiplier": {
+                "first_order_quote": "30.0",
+                "multiplier": "2.5",
+                "max_legs": 8
+              }
+            },
+            "take_profit": {
+              "partial": {
+                "stages": [
+                  [
+                    429,
+                    1000,
+                    800
+                  ],
+                  [
+                    429,
+                    1000,
+                    1600
+                  ],
+                  [
+                    1,
+                    1,
+                    2600
+                  ]
+                ],
+                "breakeven_after_stage": 1,
+                "breakeven_buffer_bps": 100
+              }
+            },
+            "stop_loss": {
+              "strategy_drawdown_pct": {
+                "pct_bps": 4000
+              }
+            },
+            "indicators": [
+              {
+                "atr": {
+                  "period": 14
+                }
+              },
+              {
+                "adx": {
+                  "period": 14
+                }
+              }
+            ],
+            "entry_triggers": [
+              {
+                "cooldown": {
+                  "seconds": 21600
+                }
+              },
+              {
+                "indicator_expression": {
+                  "expression": "NEARUSDT.close < NEARUSDT.ema(50)"
+                }
+              },
+              {
+                "indicator_expression": {
+                  "expression": "BTCUSDT.close < BTCUSDT.ema(50)"
+                }
+              }
+            ],
+            "risk_limits": {
+              "max_active_cycles": null,
+              "max_global_budget_quote": null,
+              "max_symbol_budget_quote": null,
+              "max_direction_budget_quote": null,
+              "max_strategy_budget_quote": null,
+              "max_global_drawdown_quote": null,
+              "safety_skip_adx_threshold": 35,
+              "safety_order_condition": "rsi(14) < 45"
+            },
+            "portfolio_weight_pct": "6.0"
+          }
+        ],
+        "risk_limits": {
+          "max_global_budget_quote": "5000"
+        }
+      },
+      "segment_metrics": {
+        "h1_2023": {
+          "ann": 43.41170523229354,
+          "dd": 9.852893852985018,
+          "ret": 19.577234084897356,
+          "breached": false,
+          "trades": 7290
+        },
+        "h2_2023": {
+          "ann": 4.772523196493372,
+          "dd": 9.762214889893903,
+          "ret": 2.3780542930618687,
+          "breached": false,
+          "trades": 6506
+        },
+        "2024": {
+          "ann": 28.868381219263807,
+          "dd": 22.717798911423223,
+          "ret": 28.95789470930031,
+          "breached": false,
+          "trades": 14911
+        },
+        "2025": {
+          "ann": -12.813668331909412,
+          "dd": 23.38604891864362,
+          "ret": -12.813645586058412,
+          "breached": false,
+          "trades": 17456
+        },
+        "2026_ytd": {
+          "ann": 7.216924497887756,
+          "dd": 11.550810901253955,
+          "ret": 2.92475620127123,
+          "breached": false,
+          "trades": 6085
+        }
+      },
+      "full_metrics": {
+        "ann": 16.063659827622125,
+        "dd": 19.996722201433155,
+        "ret": 66.35301043943312,
+        "breached": false,
+        "trades": 53151
+      },
+      "positive_segments": 4,
+      "agg_2024_2026": 19.069005324513128,
+      "segment_returns": {
+        "h1_2023": 19.577234084897356,
+        "h2_2023": 2.3780542930618687,
+        "2024": 28.95789470930031,
+        "2025": -12.813645586058412,
+        "2026_ytd": 2.92475620127123
+      },
+      "frontier_improvement": false
+    },
+    {
+      "label": "long4",
+      "config": {
+        "direction_mode": "long_and_short",
+        "strategies": [
+          {
+            "strategy_id": "L0-BNBUSDT",
+            "symbol": "BNBUSDT",
+            "market": "usd_m_futures",
+            "direction": "long",
+            "direction_mode": "long_and_short",
+            "margin_mode": "isolated",
+            "leverage": 10,
+            "spacing": {
+              "fixed_percent": {
+                "step_bps": 150
+              }
+            },
+            "sizing": {
+              "multiplier": {
+                "first_order_quote": "35.0",
+                "multiplier": "2.8",
+                "max_legs": 8
+              }
+            },
+            "take_profit": {
+              "partial": {
+                "stages": [
+                  [
+                    429,
+                    1000,
+                    800
+                  ],
+                  [
+                    429,
+                    1000,
+                    1600
+                  ],
+                  [
+                    1,
+                    1,
+                    2600
+                  ]
+                ],
+                "breakeven_after_stage": 1,
+                "breakeven_buffer_bps": 100
+              }
+            },
+            "stop_loss": {
+              "strategy_drawdown_pct": {
+                "pct_bps": 5000
+              }
+            },
+            "indicators": [
+              {
+                "atr": {
+                  "period": 14
+                }
+              },
+              {
+                "adx": {
+                  "period": 14
+                }
+              }
+            ],
+            "entry_triggers": [
+              {
+                "cooldown": {
+                  "seconds": 21600
+                }
+              },
+              {
+                "indicator_expression": {
+                  "expression": "BNBUSDT.close > BNBUSDT.ema(50)"
+                }
+              },
+              {
+                "indicator_expression": {
+                  "expression": "BNBUSDT.ema(50) > BNBUSDT.ema(200)"
+                }
+              },
+              {
+                "indicator_expression": {
+                  "expression": "BTCUSDT.close > BTCUSDT.ema(50)"
+                }
+              }
+            ],
+            "risk_limits": {
+              "max_active_cycles": null,
+              "max_global_budget_quote": null,
+              "max_symbol_budget_quote": null,
+              "max_direction_budget_quote": null,
+              "max_strategy_budget_quote": null,
+              "max_global_drawdown_quote": null,
+              "safety_skip_adx_threshold": 35,
+              "safety_order_condition": "rsi(14) < 45"
+            },
+            "portfolio_weight_pct": "10.0"
+          },
+          {
+            "strategy_id": "L1-TRXUSDT",
+            "symbol": "TRXUSDT",
+            "market": "usd_m_futures",
+            "direction": "long",
+            "direction_mode": "long_and_short",
+            "margin_mode": "isolated",
+            "leverage": 10,
+            "spacing": {
+              "fixed_percent": {
+                "step_bps": 150
+              }
+            },
+            "sizing": {
+              "multiplier": {
+                "first_order_quote": "35.0",
+                "multiplier": "2.8",
+                "max_legs": 8
+              }
+            },
+            "take_profit": {
+              "partial": {
+                "stages": [
+                  [
+                    429,
+                    1000,
+                    800
+                  ],
+                  [
+                    429,
+                    1000,
+                    1600
+                  ],
+                  [
+                    1,
+                    1,
+                    2600
+                  ]
+                ],
+                "breakeven_after_stage": 1,
+                "breakeven_buffer_bps": 100
+              }
+            },
+            "stop_loss": {
+              "strategy_drawdown_pct": {
+                "pct_bps": 5000
+              }
+            },
+            "indicators": [
+              {
+                "atr": {
+                  "period": 14
+                }
+              },
+              {
+                "adx": {
+                  "period": 14
+                }
+              }
+            ],
+            "entry_triggers": [
+              {
+                "cooldown": {
+                  "seconds": 21600
+                }
+              },
+              {
+                "indicator_expression": {
+                  "expression": "TRXUSDT.close > TRXUSDT.ema(50)"
+                }
+              },
+              {
+                "indicator_expression": {
+                  "expression": "TRXUSDT.ema(50) > TRXUSDT.ema(200)"
+                }
+              },
+              {
+                "indicator_expression": {
+                  "expression": "BTCUSDT.close > BTCUSDT.ema(50)"
+                }
+              }
+            ],
+            "risk_limits": {
+              "max_active_cycles": null,
+              "max_global_budget_quote": null,
+              "max_symbol_budget_quote": null,
+              "max_direction_budget_quote": null,
+              "max_strategy_budget_quote": null,
+              "max_global_drawdown_quote": null,
+              "safety_skip_adx_threshold": 35,
+              "safety_order_condition": "rsi(14) < 45"
+            },
+            "portfolio_weight_pct": "10.0"
+          },
+          {
+            "strategy_id": "L2-BCHUSDT",
+            "symbol": "BCHUSDT",
+            "market": "usd_m_futures",
+            "direction": "long",
+            "direction_mode": "long_and_short",
+            "margin_mode": "isolated",
+            "leverage": 10,
+            "spacing": {
+              "fixed_percent": {
+                "step_bps": 150
+              }
+            },
+            "sizing": {
+              "multiplier": {
+                "first_order_quote": "35.0",
+                "multiplier": "2.8",
+                "max_legs": 8
+              }
+            },
+            "take_profit": {
+              "partial": {
+                "stages": [
+                  [
+                    429,
+                    1000,
+                    800
+                  ],
+                  [
+                    429,
+                    1000,
+                    1600
+                  ],
+                  [
+                    1,
+                    1,
+                    2600
+                  ]
+                ],
+                "breakeven_after_stage": 1,
+                "breakeven_buffer_bps": 100
+              }
+            },
+            "stop_loss": {
+              "strategy_drawdown_pct": {
+                "pct_bps": 5000
+              }
+            },
+            "indicators": [
+              {
+                "atr": {
+                  "period": 14
+                }
+              },
+              {
+                "adx": {
+                  "period": 14
+                }
+              }
+            ],
+            "entry_triggers": [
+              {
+                "cooldown": {
+                  "seconds": 21600
+                }
+              },
+              {
+                "indicator_expression": {
+                  "expression": "BCHUSDT.close > BCHUSDT.ema(50)"
+                }
+              },
+              {
+                "indicator_expression": {
+                  "expression": "BCHUSDT.ema(50) > BCHUSDT.ema(200)"
+                }
+              },
+              {
+                "indicator_expression": {
+                  "expression": "BTCUSDT.close > BTCUSDT.ema(50)"
+                }
+              }
+            ],
+            "risk_limits": {
+              "max_active_cycles": null,
+              "max_global_budget_quote": null,
+              "max_symbol_budget_quote": null,
+              "max_direction_budget_quote": null,
+              "max_strategy_budget_quote": null,
+              "max_global_drawdown_quote": null,
+              "safety_skip_adx_threshold": 35,
+              "safety_order_condition": "rsi(14) < 45"
+            },
+            "portfolio_weight_pct": "10.0"
+          },
+          {
+            "strategy_id": "L3-ETHUSDT",
+            "symbol": "ETHUSDT",
+            "market": "usd_m_futures",
+            "direction": "long",
+            "direction_mode": "long_and_short",
+            "margin_mode": "isolated",
+            "leverage": 10,
+            "spacing": {
+              "fixed_percent": {
+                "step_bps": 150
+              }
+            },
+            "sizing": {
+              "multiplier": {
+                "first_order_quote": "35.0",
+                "multiplier": "2.8",
+                "max_legs": 8
+              }
+            },
+            "take_profit": {
+              "partial": {
+                "stages": [
+                  [
+                    429,
+                    1000,
+                    800
+                  ],
+                  [
+                    429,
+                    1000,
+                    1600
+                  ],
+                  [
+                    1,
+                    1,
+                    2600
+                  ]
+                ],
+                "breakeven_after_stage": 1,
+                "breakeven_buffer_bps": 100
+              }
+            },
+            "stop_loss": {
+              "strategy_drawdown_pct": {
+                "pct_bps": 5000
+              }
+            },
+            "indicators": [
+              {
+                "atr": {
+                  "period": 14
+                }
+              },
+              {
+                "adx": {
+                  "period": 14
+                }
+              }
+            ],
+            "entry_triggers": [
+              {
+                "cooldown": {
+                  "seconds": 21600
+                }
+              },
+              {
+                "indicator_expression": {
+                  "expression": "ETHUSDT.close > ETHUSDT.ema(50)"
+                }
+              },
+              {
+                "indicator_expression": {
+                  "expression": "ETHUSDT.ema(50) > ETHUSDT.ema(200)"
+                }
+              },
+              {
+                "indicator_expression": {
+                  "expression": "BTCUSDT.close > BTCUSDT.ema(50)"
+                }
+              }
+            ],
+            "risk_limits": {
+              "max_active_cycles": null,
+              "max_global_budget_quote": null,
+              "max_symbol_budget_quote": null,
+              "max_direction_budget_quote": null,
+              "max_strategy_budget_quote": null,
+              "max_global_drawdown_quote": null,
+              "safety_skip_adx_threshold": 35,
+              "safety_order_condition": "rsi(14) < 45"
+            },
+            "portfolio_weight_pct": "10.0"
+          },
+          {
+            "strategy_id": "S0-AAVEUSDT",
+            "symbol": "AAVEUSDT",
+            "market": "usd_m_futures",
+            "direction": "short",
+            "direction_mode": "long_and_short",
+            "margin_mode": "isolated",
+            "leverage": 10,
+            "spacing": {
+              "fixed_percent": {
+                "step_bps": 150
+              }
+            },
+            "sizing": {
+              "multiplier": {
+                "first_order_quote": "30.0",
+                "multiplier": "2.5",
+                "max_legs": 8
+              }
+            },
+            "take_profit": {
+              "partial": {
+                "stages": [
+                  [
+                    429,
+                    1000,
+                    800
+                  ],
+                  [
+                    429,
+                    1000,
+                    1600
+                  ],
+                  [
+                    1,
+                    1,
+                    2600
+                  ]
+                ],
+                "breakeven_after_stage": 1,
+                "breakeven_buffer_bps": 100
+              }
+            },
+            "stop_loss": {
+              "strategy_drawdown_pct": {
+                "pct_bps": 4000
+              }
+            },
+            "indicators": [
+              {
+                "atr": {
+                  "period": 14
+                }
+              },
+              {
+                "adx": {
+                  "period": 14
+                }
+              }
+            ],
+            "entry_triggers": [
+              {
+                "cooldown": {
+                  "seconds": 21600
+                }
+              },
+              {
+                "indicator_expression": {
+                  "expression": "AAVEUSDT.close < AAVEUSDT.ema(50)"
+                }
+              },
+              {
+                "indicator_expression": {
+                  "expression": "BTCUSDT.close < BTCUSDT.ema(50)"
+                }
+              }
+            ],
+            "risk_limits": {
+              "max_active_cycles": null,
+              "max_global_budget_quote": null,
+              "max_symbol_budget_quote": null,
+              "max_direction_budget_quote": null,
+              "max_strategy_budget_quote": null,
+              "max_global_drawdown_quote": null,
+              "safety_skip_adx_threshold": 35,
+              "safety_order_condition": "rsi(14) < 45"
+            },
+            "portfolio_weight_pct": "8.0"
+          },
+          {
+            "strategy_id": "S1-SOLUSDT",
+            "symbol": "SOLUSDT",
+            "market": "usd_m_futures",
+            "direction": "short",
+            "direction_mode": "long_and_short",
+            "margin_mode": "isolated",
+            "leverage": 10,
+            "spacing": {
+              "fixed_percent": {
+                "step_bps": 150
+              }
+            },
+            "sizing": {
+              "multiplier": {
+                "first_order_quote": "30.0",
+                "multiplier": "2.5",
+                "max_legs": 8
+              }
+            },
+            "take_profit": {
+              "partial": {
+                "stages": [
+                  [
+                    429,
+                    1000,
+                    800
+                  ],
+                  [
+                    429,
+                    1000,
+                    1600
+                  ],
+                  [
+                    1,
+                    1,
+                    2600
+                  ]
+                ],
+                "breakeven_after_stage": 1,
+                "breakeven_buffer_bps": 100
+              }
+            },
+            "stop_loss": {
+              "strategy_drawdown_pct": {
+                "pct_bps": 4000
+              }
+            },
+            "indicators": [
+              {
+                "atr": {
+                  "period": 14
+                }
+              },
+              {
+                "adx": {
+                  "period": 14
+                }
+              }
+            ],
+            "entry_triggers": [
+              {
+                "cooldown": {
+                  "seconds": 21600
+                }
+              },
+              {
+                "indicator_expression": {
+                  "expression": "SOLUSDT.close < SOLUSDT.ema(50)"
+                }
+              },
+              {
+                "indicator_expression": {
+                  "expression": "BTCUSDT.close < BTCUSDT.ema(50)"
+                }
+              }
+            ],
+            "risk_limits": {
+              "max_active_cycles": null,
+              "max_global_budget_quote": null,
+              "max_symbol_budget_quote": null,
+              "max_direction_budget_quote": null,
+              "max_strategy_budget_quote": null,
+              "max_global_drawdown_quote": null,
+              "safety_skip_adx_threshold": 35,
+              "safety_order_condition": "rsi(14) < 45"
+            },
+            "portfolio_weight_pct": "8.0"
+          },
+          {
+            "strategy_id": "S2-DOTUSDT",
+            "symbol": "DOTUSDT",
+            "market": "usd_m_futures",
+            "direction": "short",
+            "direction_mode": "long_and_short",
+            "margin_mode": "isolated",
+            "leverage": 10,
+            "spacing": {
+              "fixed_percent": {
+                "step_bps": 150
+              }
+            },
+            "sizing": {
+              "multiplier": {
+                "first_order_quote": "30.0",
+                "multiplier": "2.5",
+                "max_legs": 8
+              }
+            },
+            "take_profit": {
+              "partial": {
+                "stages": [
+                  [
+                    429,
+                    1000,
+                    800
+                  ],
+                  [
+                    429,
+                    1000,
+                    1600
+                  ],
+                  [
+                    1,
+                    1,
+                    2600
+                  ]
+                ],
+                "breakeven_after_stage": 1,
+                "breakeven_buffer_bps": 100
+              }
+            },
+            "stop_loss": {
+              "strategy_drawdown_pct": {
+                "pct_bps": 4000
+              }
+            },
+            "indicators": [
+              {
+                "atr": {
+                  "period": 14
+                }
+              },
+              {
+                "adx": {
+                  "period": 14
+                }
+              }
+            ],
+            "entry_triggers": [
+              {
+                "cooldown": {
+                  "seconds": 21600
+                }
+              },
+              {
+                "indicator_expression": {
+                  "expression": "DOTUSDT.close < DOTUSDT.ema(50)"
+                }
+              },
+              {
+                "indicator_expression": {
+                  "expression": "BTCUSDT.close < BTCUSDT.ema(50)"
+                }
+              }
+            ],
+            "risk_limits": {
+              "max_active_cycles": null,
+              "max_global_budget_quote": null,
+              "max_symbol_budget_quote": null,
+              "max_direction_budget_quote": null,
+              "max_strategy_budget_quote": null,
+              "max_global_drawdown_quote": null,
+              "safety_skip_adx_threshold": 35,
+              "safety_order_condition": "rsi(14) < 45"
+            },
+            "portfolio_weight_pct": "8.0"
+          }
+        ],
+        "risk_limits": {
+          "max_global_budget_quote": "5000"
+        }
+      },
+      "segment_metrics": {
+        "h1_2023": {
+          "ann": 35.026118214261004,
+          "dd": 15.473850494944042,
+          "ret": 16.057357963130343,
+          "breached": false,
+          "trades": 6265
+        },
+        "h2_2023": {
+          "ann": -1.2079353346395538,
+          "dd": 13.127390745297282,
+          "ret": -0.6107643168147479,
+          "breached": false,
+          "trades": 5970
+        },
+        "2024": {
+          "ann": 29.674929878761837,
+          "dd": 22.56737816767235,
+          "ret": 29.767220248165977,
+          "breached": false,
+          "trades": 14449
+        },
+        "2025": {
+          "ann": -17.475728904838462,
+          "dd": 24.712590032771242,
+          "ret": -17.47569874677443,
+          "breached": false,
+          "trades": 16896
+        },
+        "2026_ytd": {
+          "ann": 2.2895888962302324,
+          "dd": 16.52473846383406,
+          "ret": 0.9409137362732144,
+          "breached": false,
+          "trades": 5718
+        }
+      },
+      "full_metrics": {
+        "ann": 14.98356766968012,
+        "dd": 20.56401872547604,
+        "ret": 61.123277676548895,
+        "breached": false,
+        "trades": 50752
+      },
+      "positive_segments": 3,
+      "agg_2024_2026": 13.232435237664761,
+      "segment_returns": {
+        "h1_2023": 16.057357963130343,
+        "h2_2023": -0.6107643168147479,
+        "2024": 29.767220248165977,
+        "2025": -17.47569874677443,
+        "2026_ytd": 0.9409137362732144
+      },
+      "frontier_improvement": false
+    },
+    {
+      "label": "long4short4",
+      "config": {
+        "direction_mode": "long_and_short",
+        "strategies": [
+          {
+            "strategy_id": "L0-BNBUSDT",
+            "symbol": "BNBUSDT",
+            "market": "usd_m_futures",
+            "direction": "long",
+            "direction_mode": "long_and_short",
+            "margin_mode": "isolated",
+            "leverage": 10,
+            "spacing": {
+              "fixed_percent": {
+                "step_bps": 150
+              }
+            },
+            "sizing": {
+              "multiplier": {
+                "first_order_quote": "35.0",
+                "multiplier": "2.8",
+                "max_legs": 8
+              }
+            },
+            "take_profit": {
+              "partial": {
+                "stages": [
+                  [
+                    429,
+                    1000,
+                    800
+                  ],
+                  [
+                    429,
+                    1000,
+                    1600
+                  ],
+                  [
+                    1,
+                    1,
+                    2600
+                  ]
+                ],
+                "breakeven_after_stage": 1,
+                "breakeven_buffer_bps": 100
+              }
+            },
+            "stop_loss": {
+              "strategy_drawdown_pct": {
+                "pct_bps": 5000
+              }
+            },
+            "indicators": [
+              {
+                "atr": {
+                  "period": 14
+                }
+              },
+              {
+                "adx": {
+                  "period": 14
+                }
+              }
+            ],
+            "entry_triggers": [
+              {
+                "cooldown": {
+                  "seconds": 21600
+                }
+              },
+              {
+                "indicator_expression": {
+                  "expression": "BNBUSDT.close > BNBUSDT.ema(50)"
+                }
+              },
+              {
+                "indicator_expression": {
+                  "expression": "BNBUSDT.ema(50) > BNBUSDT.ema(200)"
+                }
+              },
+              {
+                "indicator_expression": {
+                  "expression": "BTCUSDT.close > BTCUSDT.ema(50)"
+                }
+              }
+            ],
+            "risk_limits": {
+              "max_active_cycles": null,
+              "max_global_budget_quote": null,
+              "max_symbol_budget_quote": null,
+              "max_direction_budget_quote": null,
+              "max_strategy_budget_quote": null,
+              "max_global_drawdown_quote": null,
+              "safety_skip_adx_threshold": 35,
+              "safety_order_condition": "rsi(14) < 45"
+            },
+            "portfolio_weight_pct": "10.0"
+          },
+          {
+            "strategy_id": "L1-TRXUSDT",
+            "symbol": "TRXUSDT",
+            "market": "usd_m_futures",
+            "direction": "long",
+            "direction_mode": "long_and_short",
+            "margin_mode": "isolated",
+            "leverage": 10,
+            "spacing": {
+              "fixed_percent": {
+                "step_bps": 150
+              }
+            },
+            "sizing": {
+              "multiplier": {
+                "first_order_quote": "35.0",
+                "multiplier": "2.8",
+                "max_legs": 8
+              }
+            },
+            "take_profit": {
+              "partial": {
+                "stages": [
+                  [
+                    429,
+                    1000,
+                    800
+                  ],
+                  [
+                    429,
+                    1000,
+                    1600
+                  ],
+                  [
+                    1,
+                    1,
+                    2600
+                  ]
+                ],
+                "breakeven_after_stage": 1,
+                "breakeven_buffer_bps": 100
+              }
+            },
+            "stop_loss": {
+              "strategy_drawdown_pct": {
+                "pct_bps": 5000
+              }
+            },
+            "indicators": [
+              {
+                "atr": {
+                  "period": 14
+                }
+              },
+              {
+                "adx": {
+                  "period": 14
+                }
+              }
+            ],
+            "entry_triggers": [
+              {
+                "cooldown": {
+                  "seconds": 21600
+                }
+              },
+              {
+                "indicator_expression": {
+                  "expression": "TRXUSDT.close > TRXUSDT.ema(50)"
+                }
+              },
+              {
+                "indicator_expression": {
+                  "expression": "TRXUSDT.ema(50) > TRXUSDT.ema(200)"
+                }
+              },
+              {
+                "indicator_expression": {
+                  "expression": "BTCUSDT.close > BTCUSDT.ema(50)"
+                }
+              }
+            ],
+            "risk_limits": {
+              "max_active_cycles": null,
+              "max_global_budget_quote": null,
+              "max_symbol_budget_quote": null,
+              "max_direction_budget_quote": null,
+              "max_strategy_budget_quote": null,
+              "max_global_drawdown_quote": null,
+              "safety_skip_adx_threshold": 35,
+              "safety_order_condition": "rsi(14) < 45"
+            },
+            "portfolio_weight_pct": "10.0"
+          },
+          {
+            "strategy_id": "L2-BCHUSDT",
+            "symbol": "BCHUSDT",
+            "market": "usd_m_futures",
+            "direction": "long",
+            "direction_mode": "long_and_short",
+            "margin_mode": "isolated",
+            "leverage": 10,
+            "spacing": {
+              "fixed_percent": {
+                "step_bps": 150
+              }
+            },
+            "sizing": {
+              "multiplier": {
+                "first_order_quote": "35.0",
+                "multiplier": "2.8",
+                "max_legs": 8
+              }
+            },
+            "take_profit": {
+              "partial": {
+                "stages": [
+                  [
+                    429,
+                    1000,
+                    800
+                  ],
+                  [
+                    429,
+                    1000,
+                    1600
+                  ],
+                  [
+                    1,
+                    1,
+                    2600
+                  ]
+                ],
+                "breakeven_after_stage": 1,
+                "breakeven_buffer_bps": 100
+              }
+            },
+            "stop_loss": {
+              "strategy_drawdown_pct": {
+                "pct_bps": 5000
+              }
+            },
+            "indicators": [
+              {
+                "atr": {
+                  "period": 14
+                }
+              },
+              {
+                "adx": {
+                  "period": 14
+                }
+              }
+            ],
+            "entry_triggers": [
+              {
+                "cooldown": {
+                  "seconds": 21600
+                }
+              },
+              {
+                "indicator_expression": {
+                  "expression": "BCHUSDT.close > BCHUSDT.ema(50)"
+                }
+              },
+              {
+                "indicator_expression": {
+                  "expression": "BCHUSDT.ema(50) > BCHUSDT.ema(200)"
+                }
+              },
+              {
+                "indicator_expression": {
+                  "expression": "BTCUSDT.close > BTCUSDT.ema(50)"
+                }
+              }
+            ],
+            "risk_limits": {
+              "max_active_cycles": null,
+              "max_global_budget_quote": null,
+              "max_symbol_budget_quote": null,
+              "max_direction_budget_quote": null,
+              "max_strategy_budget_quote": null,
+              "max_global_drawdown_quote": null,
+              "safety_skip_adx_threshold": 35,
+              "safety_order_condition": "rsi(14) < 45"
+            },
+            "portfolio_weight_pct": "10.0"
+          },
+          {
+            "strategy_id": "L3-ETHUSDT",
+            "symbol": "ETHUSDT",
+            "market": "usd_m_futures",
+            "direction": "long",
+            "direction_mode": "long_and_short",
+            "margin_mode": "isolated",
+            "leverage": 10,
+            "spacing": {
+              "fixed_percent": {
+                "step_bps": 150
+              }
+            },
+            "sizing": {
+              "multiplier": {
+                "first_order_quote": "35.0",
+                "multiplier": "2.8",
+                "max_legs": 8
+              }
+            },
+            "take_profit": {
+              "partial": {
+                "stages": [
+                  [
+                    429,
+                    1000,
+                    800
+                  ],
+                  [
+                    429,
+                    1000,
+                    1600
+                  ],
+                  [
+                    1,
+                    1,
+                    2600
+                  ]
+                ],
+                "breakeven_after_stage": 1,
+                "breakeven_buffer_bps": 100
+              }
+            },
+            "stop_loss": {
+              "strategy_drawdown_pct": {
+                "pct_bps": 5000
+              }
+            },
+            "indicators": [
+              {
+                "atr": {
+                  "period": 14
+                }
+              },
+              {
+                "adx": {
+                  "period": 14
+                }
+              }
+            ],
+            "entry_triggers": [
+              {
+                "cooldown": {
+                  "seconds": 21600
+                }
+              },
+              {
+                "indicator_expression": {
+                  "expression": "ETHUSDT.close > ETHUSDT.ema(50)"
+                }
+              },
+              {
+                "indicator_expression": {
+                  "expression": "ETHUSDT.ema(50) > ETHUSDT.ema(200)"
+                }
+              },
+              {
+                "indicator_expression": {
+                  "expression": "BTCUSDT.close > BTCUSDT.ema(50)"
+                }
+              }
+            ],
+            "risk_limits": {
+              "max_active_cycles": null,
+              "max_global_budget_quote": null,
+              "max_symbol_budget_quote": null,
+              "max_direction_budget_quote": null,
+              "max_strategy_budget_quote": null,
+              "max_global_drawdown_quote": null,
+              "safety_skip_adx_threshold": 35,
+              "safety_order_condition": "rsi(14) < 45"
+            },
+            "portfolio_weight_pct": "10.0"
+          },
+          {
+            "strategy_id": "S0-AAVEUSDT",
+            "symbol": "AAVEUSDT",
+            "market": "usd_m_futures",
+            "direction": "short",
+            "direction_mode": "long_and_short",
+            "margin_mode": "isolated",
+            "leverage": 10,
+            "spacing": {
+              "fixed_percent": {
+                "step_bps": 150
+              }
+            },
+            "sizing": {
+              "multiplier": {
+                "first_order_quote": "30.0",
+                "multiplier": "2.5",
+                "max_legs": 8
+              }
+            },
+            "take_profit": {
+              "partial": {
+                "stages": [
+                  [
+                    429,
+                    1000,
+                    800
+                  ],
+                  [
+                    429,
+                    1000,
+                    1600
+                  ],
+                  [
+                    1,
+                    1,
+                    2600
+                  ]
+                ],
+                "breakeven_after_stage": 1,
+                "breakeven_buffer_bps": 100
+              }
+            },
+            "stop_loss": {
+              "strategy_drawdown_pct": {
+                "pct_bps": 4000
+              }
+            },
+            "indicators": [
+              {
+                "atr": {
+                  "period": 14
+                }
+              },
+              {
+                "adx": {
+                  "period": 14
+                }
+              }
+            ],
+            "entry_triggers": [
+              {
+                "cooldown": {
+                  "seconds": 21600
+                }
+              },
+              {
+                "indicator_expression": {
+                  "expression": "AAVEUSDT.close < AAVEUSDT.ema(50)"
+                }
+              },
+              {
+                "indicator_expression": {
+                  "expression": "BTCUSDT.close < BTCUSDT.ema(50)"
+                }
+              }
+            ],
+            "risk_limits": {
+              "max_active_cycles": null,
+              "max_global_budget_quote": null,
+              "max_symbol_budget_quote": null,
+              "max_direction_budget_quote": null,
+              "max_strategy_budget_quote": null,
+              "max_global_drawdown_quote": null,
+              "safety_skip_adx_threshold": 35,
+              "safety_order_condition": "rsi(14) < 45"
+            },
+            "portfolio_weight_pct": "6.0"
+          },
+          {
+            "strategy_id": "S1-SOLUSDT",
+            "symbol": "SOLUSDT",
+            "market": "usd_m_futures",
+            "direction": "short",
+            "direction_mode": "long_and_short",
+            "margin_mode": "isolated",
+            "leverage": 10,
+            "spacing": {
+              "fixed_percent": {
+                "step_bps": 150
+              }
+            },
+            "sizing": {
+              "multiplier": {
+                "first_order_quote": "30.0",
+                "multiplier": "2.5",
+                "max_legs": 8
+              }
+            },
+            "take_profit": {
+              "partial": {
+                "stages": [
+                  [
+                    429,
+                    1000,
+                    800
+                  ],
+                  [
+                    429,
+                    1000,
+                    1600
+                  ],
+                  [
+                    1,
+                    1,
+                    2600
+                  ]
+                ],
+                "breakeven_after_stage": 1,
+                "breakeven_buffer_bps": 100
+              }
+            },
+            "stop_loss": {
+              "strategy_drawdown_pct": {
+                "pct_bps": 4000
+              }
+            },
+            "indicators": [
+              {
+                "atr": {
+                  "period": 14
+                }
+              },
+              {
+                "adx": {
+                  "period": 14
+                }
+              }
+            ],
+            "entry_triggers": [
+              {
+                "cooldown": {
+                  "seconds": 21600
+                }
+              },
+              {
+                "indicator_expression": {
+                  "expression": "SOLUSDT.close < SOLUSDT.ema(50)"
+                }
+              },
+              {
+                "indicator_expression": {
+                  "expression": "BTCUSDT.close < BTCUSDT.ema(50)"
+                }
+              }
+            ],
+            "risk_limits": {
+              "max_active_cycles": null,
+              "max_global_budget_quote": null,
+              "max_symbol_budget_quote": null,
+              "max_direction_budget_quote": null,
+              "max_strategy_budget_quote": null,
+              "max_global_drawdown_quote": null,
+              "safety_skip_adx_threshold": 35,
+              "safety_order_condition": "rsi(14) < 45"
+            },
+            "portfolio_weight_pct": "6.0"
+          },
+          {
+            "strategy_id": "S2-DOTUSDT",
+            "symbol": "DOTUSDT",
+            "market": "usd_m_futures",
+            "direction": "short",
+            "direction_mode": "long_and_short",
+            "margin_mode": "isolated",
+            "leverage": 10,
+            "spacing": {
+              "fixed_percent": {
+                "step_bps": 150
+              }
+            },
+            "sizing": {
+              "multiplier": {
+                "first_order_quote": "30.0",
+                "multiplier": "2.5",
+                "max_legs": 8
+              }
+            },
+            "take_profit": {
+              "partial": {
+                "stages": [
+                  [
+                    429,
+                    1000,
+                    800
+                  ],
+                  [
+                    429,
+                    1000,
+                    1600
+                  ],
+                  [
+                    1,
+                    1,
+                    2600
+                  ]
+                ],
+                "breakeven_after_stage": 1,
+                "breakeven_buffer_bps": 100
+              }
+            },
+            "stop_loss": {
+              "strategy_drawdown_pct": {
+                "pct_bps": 4000
+              }
+            },
+            "indicators": [
+              {
+                "atr": {
+                  "period": 14
+                }
+              },
+              {
+                "adx": {
+                  "period": 14
+                }
+              }
+            ],
+            "entry_triggers": [
+              {
+                "cooldown": {
+                  "seconds": 21600
+                }
+              },
+              {
+                "indicator_expression": {
+                  "expression": "DOTUSDT.close < DOTUSDT.ema(50)"
+                }
+              },
+              {
+                "indicator_expression": {
+                  "expression": "BTCUSDT.close < BTCUSDT.ema(50)"
+                }
+              }
+            ],
+            "risk_limits": {
+              "max_active_cycles": null,
+              "max_global_budget_quote": null,
+              "max_symbol_budget_quote": null,
+              "max_direction_budget_quote": null,
+              "max_strategy_budget_quote": null,
+              "max_global_drawdown_quote": null,
+              "safety_skip_adx_threshold": 35,
+              "safety_order_condition": "rsi(14) < 45"
+            },
+            "portfolio_weight_pct": "6.0"
+          },
+          {
+            "strategy_id": "S3-NEARUSDT",
+            "symbol": "NEARUSDT",
+            "market": "usd_m_futures",
+            "direction": "short",
+            "direction_mode": "long_and_short",
+            "margin_mode": "isolated",
+            "leverage": 10,
+            "spacing": {
+              "fixed_percent": {
+                "step_bps": 150
+              }
+            },
+            "sizing": {
+              "multiplier": {
+                "first_order_quote": "30.0",
+                "multiplier": "2.5",
+                "max_legs": 8
+              }
+            },
+            "take_profit": {
+              "partial": {
+                "stages": [
+                  [
+                    429,
+                    1000,
+                    800
+                  ],
+                  [
+                    429,
+                    1000,
+                    1600
+                  ],
+                  [
+                    1,
+                    1,
+                    2600
+                  ]
+                ],
+                "breakeven_after_stage": 1,
+                "breakeven_buffer_bps": 100
+              }
+            },
+            "stop_loss": {
+              "strategy_drawdown_pct": {
+                "pct_bps": 4000
+              }
+            },
+            "indicators": [
+              {
+                "atr": {
+                  "period": 14
+                }
+              },
+              {
+                "adx": {
+                  "period": 14
+                }
+              }
+            ],
+            "entry_triggers": [
+              {
+                "cooldown": {
+                  "seconds": 21600
+                }
+              },
+              {
+                "indicator_expression": {
+                  "expression": "NEARUSDT.close < NEARUSDT.ema(50)"
+                }
+              },
+              {
+                "indicator_expression": {
+                  "expression": "BTCUSDT.close < BTCUSDT.ema(50)"
+                }
+              }
+            ],
+            "risk_limits": {
+              "max_active_cycles": null,
+              "max_global_budget_quote": null,
+              "max_symbol_budget_quote": null,
+              "max_direction_budget_quote": null,
+              "max_strategy_budget_quote": null,
+              "max_global_drawdown_quote": null,
+              "safety_skip_adx_threshold": 35,
+              "safety_order_condition": "rsi(14) < 45"
+            },
+            "portfolio_weight_pct": "6.0"
+          }
+        ],
+        "risk_limits": {
+          "max_global_budget_quote": "5000"
+        }
+      },
+      "segment_metrics": {
+        "h1_2023": {
+          "ann": 34.37526566769886,
+          "dd": 15.547388780417146,
+          "ret": 15.77961046435783,
+          "breached": false,
+          "trades": 7632
+        },
+        "h2_2023": {
+          "ann": -1.7128724450934274,
+          "dd": 13.184900320700036,
+          "ret": -0.8671709927394112,
+          "breached": false,
+          "trades": 7371
+        },
+        "2024": {
+          "ann": 28.029759465347404,
+          "dd": 22.89455783848667,
+          "ret": 28.116400358375543,
+          "breached": false,
+          "trades": 17233
+        },
+        "2025": {
+          "ann": -17.78392260546339,
+          "dd": 24.920965015168353,
+          "ret": -17.78389197475772,
+          "breached": false,
+          "trades": 19675
+        },
+        "2026_ytd": {
+          "ann": -1.682018787831574,
+          "dd": 16.79622669035485,
+          "ret": -0.6993076419083809,
+          "breached": false,
+          "trades": 6860
+        }
+      },
+      "full_metrics": {
+        "ann": 14.810829729297193,
+        "dd": 20.63574402412134,
+        "ret": 60.29781934700863,
+        "breached": false,
+        "trades": 60241
+      },
+      "positive_segments": 2,
+      "agg_2024_2026": 9.633200741709443,
+      "segment_returns": {
+        "h1_2023": 15.77961046435783,
+        "h2_2023": -0.8671709927394112,
+        "2024": 28.116400358375543,
+        "2025": -17.78389197475772,
+        "2026_ytd": -0.6993076419083809
+      },
+      "frontier_improvement": false
+    }
+  ]
+}

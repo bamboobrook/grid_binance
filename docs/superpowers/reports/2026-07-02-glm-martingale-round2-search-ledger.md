@@ -63,3 +63,9 @@ Search order: A (partial TP+BE) → B (conditional SO) → F (recovery re-entry)
 - **RESULT: no improvement.** On the B-best structure, stops >20% never fire (peak DD is 19.0%); 16% stop fires but hurts ann. Reclaim re-entry doesn't help because the B-best structure already controls DD via partial TP + conditional SO without needing a portfolio stop.
 - Best: dd0 (no stop) = ann 16.2%, DD 19.9%, 4/5 pos, agg +22.7% (same structure as B-best, slight metric variance from reclaim field presence).
 - Conclusion: Direction F is not needed for the current best frontier. The portfolio stop was useful in Round 1 (DD 37→5.75%) but the Round 2 mechanisms (partial TP + conditional SO) achieve DD control at the cycle level, making the portfolio-level stop redundant.
+
+## r2-G-symhealth-full-001 (Direction G: Symbol Health / Diversification — full grid)
+
+- Grid: 6 symbol-set variations (base6, long4, short4, long4short4, base3short3lo, base3short3hi) × B-best mechanism × 6 replays.
+- **RESULT: no meaningful improvement.** base3short3lo (NEAR for AAVE): ann 16.3%, DD 19.9%, 4/5 pos, agg +21.0 (marginally higher ann, lower agg). Adding ETH/NEAR (long4, long4short4) made it WORSE (3/5, 2/5 pos). Base6 (BNB/TRX/BCH + AAVE/SOL/DOT) remains best balanced.
+- Conclusion: the base6 symbol set is already well-chosen. Symbol health variation doesn't improve the frontier.
