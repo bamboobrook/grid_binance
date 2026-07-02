@@ -125,7 +125,7 @@ def stage1_eval(args):
     m25 = metrics(run_replay(config, 5000, SEG_2025[0], SEG_2025[1], label[:8] + "s25"))
     m26 = metrics(run_replay(config, 5000, SEG_2026[0], SEG_2026[1], label[:8] + "s26"))
     survives = bool(
-        m25 and m26 and (m25["ret"] or 0) > -5 and (m26["ret"] or 0) > 0
+        m25 and m26 and (m25["ret"] or 0) > -15 and (m26["ret"] or 0) > 0
         and (m25["dd"] or 999) <= 25 and not m25.get("breached"))
     return {"label": label, "config": config, "m25": m25, "m26": m26, "survives": survives}
 
