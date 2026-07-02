@@ -1,0 +1,84 @@
+{
+  "profile": "aggressive",
+  "budget_quote": 5000.0,
+  "full_metrics": {
+    "annualized_return_pct": 28.123321317328642,
+    "max_drawdown_pct": 29.994272059846374,
+    "total_return_pct": 133.18728493983448,
+    "min_equity_quote": 4622.458625547573,
+    "principal_breached": false,
+    "trade_count": 43306,
+    "stop_count": 21612,
+    "max_capital_used_quote": 1287.8167500000004
+  },
+  "segment_metrics": {
+    "h1_2023": {
+      "annualized_return_pct": 83.32657053877637,
+      "max_drawdown_pct": 29.994272059846374,
+      "total_return_pct": 35.06115459052089,
+      "min_equity_quote": 4622.458625547573,
+      "principal_breached": false,
+      "trade_count": 5590,
+      "stop_count": 2774,
+      "max_capital_used_quote": 1287.8167500000004
+    },
+    "h2_2023": {
+      "annualized_return_pct": -28.083114809385947,
+      "max_drawdown_pct": 22.750417316598988,
+      "total_return_pct": -15.310934485709005,
+      "min_equity_quote": 4234.424350205445,
+      "principal_breached": false,
+      "trade_count": 6919,
+      "stop_count": 3450,
+      "max_capital_used_quote": 843.5728125
+    },
+    "2024": {
+      "annualized_return_pct": -14.2800921831019,
+      "max_drawdown_pct": 31.898209416845436,
+      "total_return_pct": -14.316246166083438,
+      "min_equity_quote": 4284.050067685908,
+      "principal_breached": false,
+      "trade_count": 13662,
+      "stop_count": 6813,
+      "max_capital_used_quote": 537.0935625
+    },
+    "2025": {
+      "annualized_return_pct": -21.159223553494044,
+      "max_drawdown_pct": 31.9341850397868,
+      "total_return_pct": -21.159187892156478,
+      "min_equity_quote": 3942.040605392176,
+      "principal_breached": false,
+      "trade_count": 14663,
+      "stop_count": 7319,
+      "max_capital_used_quote": 861.5640000000001
+    },
+    "2026_ytd": {
+      "annualized_return_pct": 18.80754134092706,
+      "max_drawdown_pct": 15.31902376318123,
+      "total_return_pct": 7.389722807166691,
+      "min_equity_quote": 4236.78075859847,
+      "principal_breached": false,
+      "trade_count": 4943,
+      "stop_count": 2458,
+      "max_capital_used_quote": 475.5712500000001
+    }
+  },
+  "positive_segments": 2,
+  "min_positive_segments": 3,
+  "segment_returns": {
+    "h1_2023": 35.06115459052089,
+    "h2_2023": -15.310934485709005,
+    "2024": -14.316246166083438,
+    "2025": -21.159187892156478,
+    "2026_ytd": 7.389722807166691
+  },
+  "aggregate_return_2024_2026": -28.08571125107322,
+  "h1_2023_contribution_pct": 0.0,
+  "segment_ann_stddev": 41.08324157975551,
+  "gate_pass": false,
+  "rejects": [
+    "positive_segments 2 < 3",
+    "2024-2026 aggregate -28.1 < 0"
+  ],
+  "elapsed_sec": 48.0
+}
