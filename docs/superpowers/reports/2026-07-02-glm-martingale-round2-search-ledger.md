@@ -44,3 +44,14 @@ Search order: A (partial TP+BE) → B (conditional SO) → F (recovery re-entry)
 - Mechanism validated: Partial TP + breakeven DOES break part of the cliff by banking profit early and protecting it with BE stop, which flipped h2_2023 positive.
 - Saved: `promising/r2-A-best-4of5.json`
 - Next: continue to Direction B (Conditional SO), but this is a strong new frontier.
+
+## r2-B-cond-so-full-001 (Direction B: Conditional Safety Orders — FULL engine implementation)
+
+- Implementation: Added `safety_order_condition` field to MartingaleRiskLimits + evaluation in kline_engine safety-order block. 208 tests pass.
+- Grid: 3 TP kinds (pct2200, partial_800/1600/2600, partial_600/1200/2200) × 5 SO conditions (none, rsi<45, rsi<30, bb_lower, adx<25) = 15 candidates × 6 replays.
+- **RESULT: BREAKTHROUGH.** BEST: `partial_800_1600_2600-so_rsi45`:
+  - **ann 18.0%, DD 19.0% (within Balanced DD<=20%!), 4/5 pos, agg24-26 +22.4%, h1c 47.1%**
+  - Segments: h1_2023 +22.5%, h2_2023 +2.9%, 2024 +30.8%, 2025 -12.9% (improved from -17.1%), 2026_ytd +4.5%
+  - Combining Direction A (partial TP) + Direction B (conditional SO rsi<45) is the NEW BEST frontier: better DD (19.0 vs 19.2), better agg (+22.4 vs +14.1), same 4/5 pos.
+- Also notable: partial_600_1200_2200-so_rsi30: ann 24.9%, DD 21.2%, 3/5 pos, agg +36.4% (higher ann, lower pos).
+- Saved: `promising/r2-B-best-4of5.json`
