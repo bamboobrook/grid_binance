@@ -1,0 +1,50 @@
+# 可直接粘贴给 ChatGPT 的探索请求
+
+> 复制以下内容（含本仓库分支信息）粘贴给 ChatGPT。
+
+---
+
+我有一个加密货币马丁策略优化项目，前一个 AI（GLM）已经穷尽了马丁核心的全部原生机制，确认了结构性天花板。请你继续探索，目标是突破年化收益天花板。
+
+## 项目背景
+- 仓库：grid_binance，分支 `glm-martingale-core-indicator-expansion`（27 commits）
+- 完整移交文档：`docs/superpowers/reports/2026-07-02-glm-handoff-to-chatgpt.md`
+- 数据：data/market_data_full.db（115GB，506 symbols，2023-2026 1m klines）+ funding_rates.db
+- 引擎：Rust backtest-engine（portfolio_budget_replay）+ trading-engine，全部 live-parity
+
+## 目标
+- 小资金 <5000U ✅（已达成）
+- 多币种 ✅（已达成，6 symbols）
+- 抗过拟合 ✅（已达成，3/5 段正，2024-2026 合计 +17.2%）
+- 实盘可复现 ✅（已达成，393 tests pass）
+- **保守年化>50% / 平衡>90% / 激进>110%** ❌（未达成，这是你要突破的）
+
+## 当前最佳（结构性天花板）
+候选008-best：年化 22.2%，最大回撤 26.1%，3/5 段正，2024-2026 合计 +17.2%
+- 结构：3 long-bull(BNB/TRX/BCH) + 3 crash-short(AAVE/SOL/DOT)，STRICT regime gate，TP=2200bps，mult=2.8/2.5，5000U
+
+## 已穷尽的方向（不要再试这些）
+马丁9类原生机制（sizing/spacing[fixed/ATR/multiplier/custom]/TP[fixed/ATR/trailing/mixed]/SL/portfolio DD stop/gates/symbols[3-12]/budget[5k-50k]/leverage）+ HTF模拟 + RSI/BB过滤 + funding carry分析 + 2025全symbol扫描(180腿仅1盈利)。
+
+## 结构性阻断（已确认）
+1. ann/DD悬崖：73% ann 需 45% DD 且段稳定仅2/5；9% DD 则 ann 为负。无 sweet spot。
+2. 2025震荡熊市：马丁做空在反复逼空中亏损（180腿扫描仅1盈利且DD76%）。所有crash-coin短线在2025都亏。
+3. 高预算(10k-50k)：增ann但破坏段稳定（h1_2023依赖放大，退化到1/5正段）。
+
+## 请你探索的方向
+1. 是否有 GLM 没试过的马丁原生机制能突破悬崖？（GLM已穷尽9类）
+2. 是否授权引入非马丁辅助 sleeve（纯趋势/突破/资金费率套利）作为马丁的额外收益源？这能突破 ann 但改变策略性质。
+3. 跨 cycle 动态仓位管理（盈利cycle增仓/亏损cycle减仓）——需新增 live 机制，但保持马丁为核心。
+4. 不同段用不同配置 + regime 自动切换（但live无法预知段，需可实测的regime检测）。
+
+## 约束
+- 必须以马丁策略为基础，其他指标只辅助（用户明确要求）
+- 必须实盘可复现（live-parity，所有机制需在 trading-engine 实现）
+- 可接受长时间回测
+- 每获得历史最佳回撤即提交记录
+
+## 关键文件
+- 完整数据/段明细/equity curve/机制状态：`docs/superpowers/reports/2026-07-02-glm-handoff-to-chatgpt.md`
+- 三档可部署配置：`docs/superpowers/artifacts/glm-martingale-core/final-{conservative,balanced,aggressive}.json`
+- 搜索台账（全部进展）：`docs/superpowers/reports/2026-07-01-glm-martingale-core-search-ledger.md`
+- 复现命令见移交文档第3节
