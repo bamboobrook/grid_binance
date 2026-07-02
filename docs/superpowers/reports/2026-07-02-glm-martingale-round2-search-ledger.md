@@ -78,3 +78,15 @@ Search order: A (partial TP+BE) → B (conditional SO) → F (recovery re-entry)
 - market_data_full.db has ONLY `klines` table (no OI/longshort/taker/sentiment data).
 - funding_rates.db has funding_rates (114210 rows) — available for funding gate.
 - **BLOCKED for OI/longshort/taker**: historical sentiment data does not exist locally. Direction D can only test the FUNDING gate subset (which was already analyzed in Round 1 as too small to matter).
+
+## r2-H-time-cooldown-full-001 (Direction H: Time/Cooldown Window — BREAKTHROUGH)
+
+- Grid: cooldowns 3h/4h/6h/8h/12h on B-best mechanism.
+- **BREAKTHROUGH: cd12h = ann 28.6%, DD 22.5%, 4/5 pos, agg24-26 +22.8%, h1c 39.0%**
+  - Segments: h1_2023 +36.4%, h2_2023 +6.6%, 2024 +27.7%, 2025 -10.2% (best yet), 2026_ytd +12.9%
+  - cd4h: ann 30.3%, DD 24.3%, 4/5 pos, but h1c 73.4% (> 60% gate)
+  - 12h cooldown produces fewer but higher-quality cycles; 2025 improved to -10.2%
+- This is the NEW BEST overall frontier: ann 28.6% (vs B-best 18.0%, 008 22.2%), 4/5 pos, DD 22.5%.
+
+## r2-C-dgt-spacing-full-001 (Direction C: Bounded DGT spacing — rejected)
+- All non-150 spacing gives negative ann. 150bps optimal. Rejected.
