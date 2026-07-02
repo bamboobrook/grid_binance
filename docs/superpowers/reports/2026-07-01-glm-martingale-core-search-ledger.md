@@ -366,3 +366,21 @@ Higher budget does NOT break the ann/DD cliff — it trades segment stability fo
 9. Funding carry analyzed (5-8%/yr, too low to matter)
 - **008-best (fixed 150bps spacing, TP=2200, mult=2.8, strict-long+mid-short, 6 symbols, 5000U) is the confirmed optimal martingale-native frontier.**
 
+
+## 2026-07-02 External search + HTF/RSI/BB probe — confirms ceiling, no new lever
+
+### External search findings (web search 2026-07-02)
+- Higher timeframes (4H/D) for martingale produce LARGER adverse excursions per grid step — martingale risk scales geometrically, so HTF is WORSE for martingale, not better (Phemex, Bybit, TradingView consensus).
+- Spot-futures arbitrage (carry) is a separate strategy class, not martingale-compatible without engine changes (funding is cost-only, not an entry trigger in the current engine).
+- No published 2025-2026 backtest found of a pure martingale/DCA bot achieving >50% ann at <30% DD on crypto. Exchange docs (OKX/Bybit/Pionex) define risk via max-drawdown-rate and liquidation price, implying the realistic expectation is drawdown-controlled, not high-return.
+
+### HTF-simulating + stricter filter probe (all on 008 structure)
+- htf_long (ema200/ema1000 to simulate daily TF): ann -7.9% (WORSE — delayed entries miss bounces).
+- htf_rsi_long: ann -8.8%.
+- rsi_deep_long (rsi<35): ann -1.0%, DD 8.9% (too few trades, filters out profitable cycles).
+- bb_dip_long (BB lower penetration): ann 19.9%, DD 27.7% (≈ baseline, slightly worse).
+- base_long (008, ema50/ema200): ann 21.9%, DD 26.4% — REMAINS OPTIMAL.
+
+### Conclusion
+HTF simulation and stricter mean-reversion filters (RSI/BB) do not help — they filter out profitable cycles. The 008-best frontier (ann 22.2%, DD 26.1%, 3/5 pos) is confirmed optimal across ALL tested martingale-native directions including HTF. The ann/DD cliff is structural and externally corroborated.
+
