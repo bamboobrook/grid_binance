@@ -278,3 +278,29 @@ honest frontier is unchanged, but the stop mechanism is now correct for live.
 - Passes DD<=30 (26.1), pos>=3 (3/5), agg24-26>0 (+17.2). Only reject: h1_contrib 96.4% (metric artifact — 2024 and 2026 are independently positive).
 - 2025 (-18.2%) remains the hardest segment: strict long gate + crash short cannot overcome the broad 2025 bear even with high TP. This is the structural ceiling for the ann.
 
+
+## 2026-07-02 Final three-direction probe (verifier's next-actions) — all confirm ceiling
+
+### Direction 1: relaxed DD gate (40-45%) on candidate 004 (ann 73.5%)
+- Candidate 004 segments: h1_2023 +216%, h2_2023 -57%, 2024 +127%, 2025 -32%, 2026 -58%.
+- Even at relaxed DD<=45%: passes ann (73.5%) and DD (45.5%) but FAILS segment stability (2/5 < 3) and agg24-26 driven solely by 2024. h2_2023/2025/2026 are large losses. Not anti-overfit.
+
+### Direction 2: 2025 bear regime tilt (crash-short to capture 2025)
+- Tested 6 short gates (strict/mid/loose/btcdown/sym100/none) on AAVE/SOL/DOT short in 2025: ALL negative (-14% to -30%).
+- Tested high TP (1500-3000) on 2025 shorts: no effect (cycles never close, hold the loss).
+- Best 2025 short: mult 1.8 or sl 2000 → -1.3% (breakeven, not profitable).
+- ROOT CAUSE: 2025 is a choppy down market with repeated short squeezes. Martingale-short averages DOWN (adding to shorts as price falls), but gets stopped on bounces. It CANNOT profitably short a choppy bear. This is structural.
+
+### Direction 3: more symbols (8/10/12) for diversification
+- 8 symbols: ann 20.7%, DD 34.3% (worse than 6).
+- 10 symbols: ann 19.0%, DD 35.2%.
+- 12 symbols: ann -12.6%, DD 38.6%.
+- Adding ETH/LTC/LINK/ARB/OP added volatility without return. 6 symbols remains optimal.
+
+### Additional: long-heavy (20% long / 3% short) for higher ann
+- ann 45.2%, DD 48.6% — but 100% h1_2023-driven (h1 +230%, all other segments negative, agg24-26 -52.9%). Classic overfit, not generalizable.
+
+### FINAL CONFIRMED CEILING
+The generalizable (3/5 pos, agg24-26>0, multi-symbol, live-parity) martingale frontier under <5000U is:
+**ann ~22% at DD ~26%** (candidate 008-best). The 50/90/110% ann targets require either DD>=45% (overfit) or a non-martingale return source. 2025's choppy bear is the structural blocker that no lever (regime tilt, short gate, TP, multiplier, symbol count, leverage) overcomes.
+
