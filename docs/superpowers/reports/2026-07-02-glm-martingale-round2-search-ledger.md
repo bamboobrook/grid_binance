@@ -55,3 +55,11 @@ Search order: A (partial TP+BE) → B (conditional SO) → F (recovery re-entry)
   - Combining Direction A (partial TP) + Direction B (conditional SO rsi<45) is the NEW BEST frontier: better DD (19.0 vs 19.2), better agg (+22.4 vs +14.1), same 4/5 pos.
 - Also notable: partial_600_1200_2200-so_rsi30: ann 24.9%, DD 21.2%, 3/5 pos, agg +36.4% (higher ann, lower pos).
 - Saved: `promising/r2-B-best-4of5.json`
+
+## r2-F-recovery-reentry-full-001 (Direction F: Recovery-Based Re-Entry — FULL engine implementation)
+
+- Implementation: Added `reentry_equity_reclaim_fraction` to MartingaleRiskLimits + equity-reclaim logic in kline_engine (records equity at stop, clears cooldown when equity recovers fraction of stopped DD). 208 tests pass.
+- Grid: DD stops (0,16,20,25,30) × reclaim (none,0.25,0.5,0.75) × cooldown (6,12,24h) = 49 candidates × 6 replays.
+- **RESULT: no improvement.** On the B-best structure, stops >20% never fire (peak DD is 19.0%); 16% stop fires but hurts ann. Reclaim re-entry doesn't help because the B-best structure already controls DD via partial TP + conditional SO without needing a portfolio stop.
+- Best: dd0 (no stop) = ann 16.2%, DD 19.9%, 4/5 pos, agg +22.7% (same structure as B-best, slight metric variance from reclaim field presence).
+- Conclusion: Direction F is not needed for the current best frontier. The portfolio stop was useful in Round 1 (DD 37→5.75%) but the Round 2 mechanisms (partial TP + conditional SO) achieve DD control at the cycle level, making the portfolio-level stop redundant.
