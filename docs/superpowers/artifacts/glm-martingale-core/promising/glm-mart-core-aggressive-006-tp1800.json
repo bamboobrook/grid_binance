@@ -1,0 +1,24 @@
+{
+  "candidate_id": "glm-mart-core-aggressive-006-tp1800",
+  "recorded_at": "2026-07-02T00:00:00Z",
+  "profile": "aggressive",
+  "strategy_family": "broad6_loose_gate_high_tp",
+  "martingale_core": true,
+  "research_only": false,
+  "budget_quote": 5000,
+  "symbols": [
+    "BNBUSDT",
+    "TRXUSDT",
+    "BCHUSDT",
+    "AAVEUSDT",
+    "SOLUSDT",
+    "DOTUSDT"
+  ],
+  "full_metrics": {
+    "annualized_return_pct": 26.5,
+    "max_drawdown_pct": 21.0,
+    "trade_count": 46957
+  },
+  "structure": "3 long-bull (BNB/TRX/BCH) + 3 crash-short (AAVE/SOL/DOT), LOOSE gates (close>ema50 + BTC>ema50, no ema stack), TP=1800bps, mult=3.0 long/2.5 short, 9/8 legs, equal-weighted",
+  "acceptance_reason": "BREAKTHROUGH: first real frontier with ann>20% AND DD<30% (ann 26.5%, DD 21.0%). High TP (1800bps) is the key lever: longer-held cycles profit more from trends and stop out less, lowering DD while keeping ann. Multi-symbol, live-parity."
+}

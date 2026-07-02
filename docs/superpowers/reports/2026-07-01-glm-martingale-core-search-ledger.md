@@ -248,3 +248,14 @@ honest frontier is unchanged, but the stop mechanism is now correct for live.
 - This is the closest to the aggressive DD<=30% target yet. DD stop at 35% does not fire (peak DD is 34.6%); at 30/32% it fires but kills ann.
 - Next: expand to 8-10 symbols + tune to push DD under 30%.
 
+
+## 2026-07-02 HIGH-TP DD breakthrough (but h1_2023 dependence persists)
+
+- TP sweep on loose-gate broad6 (3 longs + 3 shorts) found high TP dramatically lowers DD:
+  - TP=1600: ann 26.9%, DD 28.1%
+  - **TP=1800: ann 26.5%, DD 21.0%** (lowest DD with positive ann — recorded as 006)
+  - TP=2000: ann 22.3%, DD 22.3%
+- HIGH TP is a real DD-reduction lever: longer-held cycles profit from trends, stop out less.
+- BUT segment validation of TP=1800 shows h1_2023 dependence: h1 +73%, h2_2023 -36%, 2024 -13%, 2025 -21%, 2026 -20%. agg2024-2026 = -42.9%. Only 1/5 positive.
+- So high-TP cuts DD but the profit is still h1_2023-concentrated. Need to combine high-TP's DD benefit with the 2024+2025-both-positive structure.
+
