@@ -325,3 +325,25 @@ No lever (trailing/mixed TP, funding carry, regime tilt, leverage, symbol count,
 raises ann above ~23% at DD<=30% with segment stability. The 50/90/110% targets need either
 DD>=45% (overfit) or a non-martingale primary return source.
 
+
+## 2026-07-02 High-budget search (user-authorized relaxed capital) — higher budget does NOT break ceiling
+
+- Script: `scripts/glm_highbudget_search.py` (270 candidates: 5 budgets × 3 TP × 3 mult × 3 weights × 2 DD-stop).
+- Result: **0 passes** (ann>50, dd<=30, pos>=3).
+- Higher budget INCREASES ann but DESTROYS segment stability (amplifies h1_2023 dependence):
+  | budget | best ann | DD | pos | agg24-26 |
+  |---:|---:|---:|---:|---:|
+  | 5000 | 28.1% | 30.0% | 2/5 | -28.1% |
+  | 10000 | 36.6% | 21.0% | 1/5 | -54.4% |
+  | 20000 | 42.1% | 34.8% | 1/5 | -47.3% |
+  | 30000 | 41.1% | 34.4% | 1/5 | -52.8% |
+  | 50000 | 40.7% | 33.7% | 1/5 | -45.4% |
+- At 10k+, the weight-cap scaling makes h1_2023's bull run dominate (1/5 pos, agg24-26 deeply negative).
+- Best segment-stable (pos>=3) remains **5000U: ann 22.2%, DD 26.1%** (candidate 008-best).
+
+### Why higher budget fails
+The weight-cap applier scales `first_order_quote` by `weight_pct × budget`. Higher budget = larger positions = the h1_2023 bull produces proportionally more profit AND the losing segments lose proportionally more. The RATIO (ann%) can look higher but segment stability gets strictly worse. The 5000U budget is optimal for segment stability because the smaller positions produce more balanced segment outcomes.
+
+### Conclusion on the relaxed-capital direction
+Higher budget does NOT break the ann/DD cliff — it trades segment stability for headline ann. The generalizable frontier remains candidate 008-best (5000U, ann 22.2%, DD 26.1%, 3/5 pos, agg24-26 +17.2%).
+
