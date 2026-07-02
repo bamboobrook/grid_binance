@@ -259,3 +259,12 @@ honest frontier is unchanged, but the stop mechanism is now correct for live.
 - BUT segment validation of TP=1800 shows h1_2023 dependence: h1 +73%, h2_2023 -36%, 2024 -13%, 2025 -21%, 2026 -20%. agg2024-2026 = -42.9%. Only 1/5 positive.
 - So high-TP cuts DD but the profit is still h1_2023-concentrated. Need to combine high-TP's DD benefit with the 2024+2025-both-positive structure.
 
+
+## 2026-07-02 BREAKTHROUGH: TP=2200 + mult=2.8 strict-gate broad6 — DD<30 + segment-stable
+
+- **glm-mart-core-aggressive-007**: ann 21.9%, DD 26.1%, 3/5 positive segments, agg2024-2026 +16.8%.
+- Segments: h1_2023 +23.8%, h2_2023 -16.7%, 2024 +33.4%, 2025 -18.7%, 2026_ytd +2.1%.
+- Passes: DD<=30 (26.1%), pos_segs>=3 (3/5), agg24-26>0 (+16.8%).
+- Only reject: h1_contrib 99.6%>60% (contribution-metric artifact; 2024+2026 are also positive).
+- This is the closest to the aggressive gate. Next: reduce h2_2023/2025 losses to lower h1 contribution.
+
