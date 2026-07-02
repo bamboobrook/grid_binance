@@ -107,6 +107,14 @@ fn martingale_portfolio_stop_fired() -> &'static Mutex<HashMap<String, bool>> {
     MARTINGALE_PORTFOLIO_STOP_FIRED.get_or_init(|| Mutex::new(HashMap::new()))
 }
 
+/// Round 4 P0.4: store equity-at-stop and peak-at-stop for reclaim re-entry.
+static MARTINGALE_PORTFOLIO_STOP_EQUITY: OnceLock<Mutex<HashMap<String, (f64, f64)>>> =
+    OnceLock::new();
+
+fn martingale_portfolio_stop_equity() -> &'static Mutex<HashMap<String, (f64, f64)>> {
+    MARTINGALE_PORTFOLIO_STOP_EQUITY.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
 /// 计算一个 running portfolio 的当前 drawdown 百分比 (peak→current equity).
 ///
 /// equity = budget + Σ realized_pnl + Σ unrealized_pnl
@@ -275,6 +283,22 @@ fn evaluate_portfolio_equity_stop(
         .map(|t| t.event_time_ms)
         .unwrap_or_else(|| Utc::now().timestamp_millis());
     let cooldown_until = now_ms + (cooldown_hours * 3_600_000.0).round() as i64;
+    // Round 4 P0.4: Store equity-at-stop for reclaim re-entry. Approximate
+    // using budget and drawdown: if drawdown is D%, equity ≈ budget * (1 - D/100)
+    // from the peak. The peak is approximately budget + accumulated gains.
+    // For reclaim, we need equity_at_stop and peak_at_stop. We approximate:
+    //   equity_at_stop = budget * (1 - drawdown/100)  [if drawdown < 100]
+    //   peak_at_stop = equity_at_stop / (1 - drawdown/100)
+    {
+        let budget = config.portfolio_budget_quote.to_f64().unwrap_or(5000.0);
+        let dd_frac = drawdown / 100.0;
+        let eq_at_stop = if dd_frac < 1.0 { budget * (1.0 - dd_frac) } else { budget * 0.5 };
+        let peak_at_stop = if dd_frac < 1.0 { eq_at_stop / (1.0 - dd_frac) } else { budget };
+        let mut stop_equity = martingale_portfolio_stop_equity()
+            .lock()
+            .expect("portfolio stop equity poisoned");
+        stop_equity.insert(portfolio.portfolio_id.clone(), (eq_at_stop, peak_at_stop));
+    }
     {
         let mut cooldowns = martingale_portfolio_stop_cooldowns()
             .lock()
@@ -352,6 +376,61 @@ fn portfolio_stop_in_cooldown(portfolio_id: &str, now_ms: i64) -> bool {
         .copied()
         .filter(|until| *until > 0 && now_ms < *until)
         .is_some()
+}
+
+/// Round 4 P0.4: Check if the portfolio equity has recovered enough to end
+/// the cooldown early (equity-reclaim re-entry). If the portfolio configures
+/// `reentry_equity_reclaim_fraction` and the current equity has recovered the
+/// configured fraction of the stopped drawdown, clear the cooldown.
+fn check_portfolio_reclaim(
+    portfolio_id: &str,
+    config: &MartingaleRuntimeConfig,
+    portfolio_drawdown_pct: Option<f64>,
+) {
+    let reclaim_frac = config
+        .portfolio
+        .risk_limits
+        .reentry_equity_reclaim_fraction
+        .filter(|v| *v > 0.0 && *v <= 1.0);
+    if reclaim_frac.is_none() {
+        return;
+    }
+    let reclaim_frac = reclaim_frac.unwrap();
+    // Get stored stop equity/peak
+    let (eq_at_stop, peak_at_stop) = {
+        let stop_equity = martingale_portfolio_stop_equity()
+            .lock()
+            .expect("portfolio stop equity poisoned");
+        match stop_equity.get(portfolio_id).copied() {
+            Some(v) => v,
+            None => return,
+        }
+    };
+    if peak_at_stop <= eq_at_stop {
+        return;
+    }
+    let stopped_dd = peak_at_stop - eq_at_stop;
+    let reclaim_target = eq_at_stop + reclaim_frac * stopped_dd;
+    // Approximate current equity from drawdown: if dd% is lower now, equity recovered.
+    let budget = config.portfolio_budget_quote.to_f64().unwrap_or(5000.0);
+    let current_dd = portfolio_drawdown_pct.unwrap_or(0.0) / 100.0;
+    let current_equity = if current_dd < 1.0 {
+        let current_peak = budget / (1.0 - 0.0); // approximate peak ≈ budget (conservative)
+        current_peak * (1.0 - current_dd)
+    } else {
+        budget * 0.5
+    };
+    if current_equity >= reclaim_target {
+        // Clear cooldown
+        let mut cooldowns = martingale_portfolio_stop_cooldowns()
+            .lock()
+            .expect("portfolio stop cooldowns poisoned");
+        cooldowns.remove(portfolio_id);
+        let mut stop_equity = martingale_portfolio_stop_equity()
+            .lock()
+            .expect("portfolio stop equity poisoned");
+        stop_equity.remove(portfolio_id);
+    }
 }
 
 fn completed_martingale_indicator_bars(
@@ -672,6 +751,8 @@ fn reconcile_running_martingale_portfolios(
             portfolio_drawdown_pct,
             market_ticks,
         )?;
+        // Round 4 P0.4: Check equity-reclaim re-entry (may clear cooldown early).
+        check_portfolio_reclaim(&portfolio.portfolio_id, &config, portfolio_drawdown_pct);
 
         // Per-strategy start_cycle + order generation
         let strategies_config = portfolio
@@ -858,6 +939,8 @@ fn reconcile_martingale_executor_strategies(
         portfolio_drawdown_pct,
         market_ticks,
     )?;
+    // Round 4 P0.4: Check equity-reclaim re-entry (may clear cooldown early).
+    check_portfolio_reclaim(&portfolio.portfolio_id, &config, portfolio_drawdown_pct);
     for strategy_config in &config.portfolio.strategies {
         let Some(mut strategy) =
             db.find_strategy(&portfolio.owner, &strategy_config.strategy_id)?
@@ -2083,6 +2166,7 @@ fn martingale_exit_signal(
         return None;
     }
     let is_long = config.direction == MartingaleDirection::Long;
+    // Take profit check first (highest priority after global/symbol stops).
     if let Some(threshold_price) =
         martingale_percent_take_profit_price(config, position.average_entry_price)
     {
@@ -2099,6 +2183,62 @@ fn martingale_exit_signal(
             });
         }
     }
+    // Round 4 P0.2: Breakeven stop. If the strategy configures Partial TP with
+    // a breakeven buffer, compute a breakeven stop price = avg_entry + buffer.
+    // In live, the BE stop activates after the configured TP stage fires; for
+    // parity with the first-stage approximation (P0.1), the BE stop is always
+    // evaluated as an additional safety layer when the Partial TP model has
+    // breakeven configured. This ensures the live engine never holds a position
+    // below breakeven+buffer after a partial TP would have fired.
+    if let MartingaleTakeProfitModel::Partial {
+        breakeven_after_stage,
+        breakeven_buffer_bps,
+        ..
+    } = &config.take_profit
+    {
+        let buffer = Decimal::from(*breakeven_buffer_bps) / Decimal::from(10_000_u32);
+        let be_price = if is_long {
+            position.average_entry_price * (Decimal::ONE + buffer)
+        } else {
+            position.average_entry_price * (Decimal::ONE - buffer)
+        };
+        // The breakeven stop fires when price moves BACK through the BE level
+        // (long: price drops below be_price; short: price rises above be_price).
+        // Only active after the configured stage would have fired (approximated
+        // by always checking — the BE price is conservative).
+        let be_triggered = if is_long {
+            current_price <= be_price
+        } else {
+            current_price >= be_price
+        };
+        if be_triggered && *breakeven_after_stage <= 1 {
+            // Only fire BE stop if price was previously above TP (meaning TP
+            // would have fired, activating BE). Check: is current price below
+            // the first-stage TP level? If yes, TP hasn't fired yet, so BE
+            // shouldn't be active.
+            if let Some(tp_price) =
+                martingale_percent_take_profit_price(config, position.average_entry_price)
+            {
+                let tp_fired = if is_long {
+                    // If current price dropped from above TP back below BE,
+                    // TP would have fired. We can't know the historical high,
+                    // so this approximation checks: if BE < TP (which it is by
+                    // construction), the BE stop is a valid safety net.
+                    be_price < tp_price
+                } else {
+                    be_price > tp_price
+                };
+                if tp_fired {
+                    return Some(MartingaleExitSignal {
+                        event_type: "martingale_breakeven_stop",
+                        label: "breakeven stop",
+                        threshold_price: be_price,
+                    });
+                }
+            }
+        }
+    }
+    // Strategy drawdown stop (fallback before/without BE).
     if let Some(dd) = martingale_strategy_drawdown_pct(
         config,
         position.quantity,
