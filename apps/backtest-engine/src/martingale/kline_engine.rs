@@ -363,6 +363,26 @@ pub fn run_kline_screening_with_funding(
                         &mut indicator_context,
                         strategy_states[state_index].strategy,
                     );
+                    // Round 5 Task D: Volatility-targeted exposure. Scale first
+                    // order by (target_atr_pct / current_atr_pct), clamped.
+                    let rl = &strategy_states[state_index].strategy.risk_limits;
+                    let (margin, notional) = if let (Some(target_atr_pct), Some(latest_atr_val)) =
+                        (rl.vol_target_atr_pct, latest_atr)
+                    {
+                        if target_atr_pct > 0.0 && bar.close > 0.0 && latest_atr_val > 0.0 {
+                            let current_atr_pct = latest_atr_val / bar.close * 100.0;
+                            let current_atr_pct = latest_atr_val / bar.close * 100.0;
+                            let raw_scale = target_atr_pct / current_atr_pct;
+                            let min_scale = rl.vol_target_min_scale.unwrap_or(0.5);
+                            let max_scale = rl.vol_target_max_scale.unwrap_or(1.5);
+                            let scale = raw_scale.clamp(min_scale, max_scale);
+                            (margin * scale, notional * scale)
+                        } else {
+                            (margin, notional)
+                        }
+                    } else {
+                        (margin, notional)
+                    };
                     add_leg(
                         &mut strategy_states[state_index],
                         0,

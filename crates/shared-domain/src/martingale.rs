@@ -249,6 +249,18 @@ pub struct MartingaleRiskLimits {
     /// Round 5 Task C: Number of winning cycles to recover from risk reduction.
     #[serde(default)]
     pub loss_streak_recovery_win_count: Option<u32>,
+    /// Round 5 Task D: Volatility-targeted ATR percent. When set, first order
+    /// size is scaled by (target_atr_pct / current_atr_pct), clamped to
+    /// [vol_target_min_scale, vol_target_max_scale]. This reduces exposure in
+    /// high-volatility regimes and increases it in low-volatility regimes.
+    #[serde(default)]
+    pub vol_target_atr_pct: Option<f64>,
+    /// Round 5 Task D: Minimum scale factor for vol targeting.
+    #[serde(default)]
+    pub vol_target_min_scale: Option<f64>,
+    /// Round 5 Task D: Maximum scale factor for vol targeting.
+    #[serde(default)]
+    pub vol_target_max_scale: Option<f64>,
 }
 
 /// Round 5 Task B: Safety order trigger basis.
