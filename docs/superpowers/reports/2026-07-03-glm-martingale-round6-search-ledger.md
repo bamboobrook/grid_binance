@@ -75,3 +75,11 @@ Order: A(attribution) → B(DD state machine) → C(quarantine) → D(trailing l
   - DD barely changed (25.4→25.0%).
   - Triggers 2/3 identical to baseline — not enough consecutive stops in rolling windows.
 - Saved: `promising/r6-C-best-quarantine.json`
+
+## r6-QB-quarantine-blend-001 (XRP+Quarantine × R4 Blend)
+- Grid: 31 candidates (XRP+quarantine × R4 at various ratios + baselines) × 6 replays, 315s.
+- **RESULT: DD improvement.** BEST: xrpq20_r460 = ann 34.0%, **DD 18.0%**, 4/5 pos, 2025 -10.6%.
+  - DD 18.0% within balanced ≤20% AND better than ankr20_r460 (DD19.4→18.0)!
+  - 2025 -10.6% better than ankr20_r460 (-11.7→-10.6)!
+  - But ann 34.0% far from balanced 90% or conservative 50%.
+  - No blend achieves ann>50 AND DD≤20 simultaneously.
