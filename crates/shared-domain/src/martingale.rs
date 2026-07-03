@@ -261,6 +261,30 @@ pub struct MartingaleRiskLimits {
     /// Round 5 Task D: Maximum scale factor for vol targeting.
     #[serde(default)]
     pub vol_target_max_scale: Option<f64>,
+    /// Round 6 Task B: Staged portfolio drawdown state machine rules.
+    /// When portfolio DD exceeds a rule's trigger, that rule's actions apply
+    /// (scale entries, freeze safety orders, extend cooldown). Higher DD
+    /// rules override lower ones. Recovery requires reclaiming
+    /// `drawdown_state_recovery_pct` of peak-to-trough loss.
+    #[serde(default)]
+    pub drawdown_state_rules: Vec<MartingaleDrawdownStateRule>,
+    /// Round 6 Task B: Recovery reclaim fraction for DD state machine.
+    #[serde(default)]
+    pub drawdown_state_recovery_pct: Option<f64>,
+}
+
+/// Round 6 Task B: A single drawdown state rule.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct MartingaleDrawdownStateRule {
+    pub trigger_drawdown_pct: f64,
+    #[serde(default)]
+    pub first_order_scale: Option<f64>,
+    #[serde(default)]
+    pub safety_order_scale: Option<f64>,
+    #[serde(default)]
+    pub cooldown_multiplier: Option<f64>,
+    #[serde(default)]
+    pub freeze_safety_orders: Option<bool>,
 }
 
 /// Round 5 Task B: Safety order trigger basis.

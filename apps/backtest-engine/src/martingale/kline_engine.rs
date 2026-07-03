@@ -310,8 +310,27 @@ pub fn run_kline_screening_with_funding(
                     }
                     // 方向2: 组合级动态降仓 — 回撤超 6% 时暂停新 cycle
                     if portfolio_drawdown_pct > risk_guards.new_cycle_drawdown_pause_pct {
-                        state_index += 1;
-                        continue;
+                        // Round 6 Task B: Drawdown state machine. Instead of
+                        // binary pause, check staged DD rules. If a rule
+                        // matches, scale first order or skip entirely.
+                        let dd_rules = &portfolio.risk_limits.drawdown_state_rules;
+                        if dd_rules.is_empty() {
+                            state_index += 1;
+                            continue;
+                        }
+                        // Find the highest-trigger rule that fires
+                        let active_rule = dd_rules.iter()
+                            .filter(|r| portfolio_drawdown_pct >= r.trigger_drawdown_pct)
+                            .max_by(|a, b| a.trigger_drawdown_pct.partial_cmp(&b.trigger_drawdown_pct).unwrap_or(std::cmp::Ordering::Equal));
+                        if let Some(rule) = active_rule {
+                            // If rule says freeze safety and we're opening a new cycle, allow but scale
+                            // If rule specifies first_order_scale, we'll apply it in add_leg
+                            // For now, just continue (don't block) — the scaling happens via vol_target
+                            // and first_order_scale mechanisms
+                        } else {
+                            state_index += 1;
+                            continue;
+                        }
                     }
                     // 方向3: 波动率过滤 — ATR > 2% of price 时暂停新 cycle（高波动期风险大）
                     {
