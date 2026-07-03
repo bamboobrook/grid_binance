@@ -78,3 +78,8 @@ Order: A(attribution) → B(last-exec SO) → C(profit reinvest) → D(vol targe
   - 51 frontier_improvements.
   - No Conservative target pass (DD 25-42% exceeds 10% limit). Aggressive target: ann 59.5% < 110%.
   - **This is the FIRST candidate to exceed Conservative 50% ann target!** (DD still fails)
+
+## r5-I-allocator-001 (Task I: Dynamic Allocator)
+- 2+ competitive configs exist (ANKR ann59.5% vs BCH ann49.9%). However, ANKR statically dominates BCH.
+- Dynamic allocator switching BCH↔ANKR would underperform static ANKR allocation.
+- Decision: not needed. Static r5-G-best-ANKRUSDT is the final best.
