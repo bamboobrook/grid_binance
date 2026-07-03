@@ -83,3 +83,10 @@ Order: A(attribution) → B(DD state machine) → C(quarantine) → D(trailing l
   - 2025 -10.6% better than ankr20_r460 (-11.7→-10.6)!
   - But ann 34.0% far from balanced 90% or conservative 50%.
   - No blend achieves ann>50 AND DD≤20 simultaneously.
+
+## r6-R4-boost-001 (R4 Boost + Quarantine×Fine Blend)
+- Grid: 300 candidates (R4 with mult 2.5-3.0 + last-exec SO + DD state + vol-target × quarantine×fine blends) × 6 replays, 2097s.
+- **RESULT: no target hit.** Best R4-boost: lm3.0sm1.6tp800 = ann 41.6%/DD 21.2%/4/5 pos. DD just above balanced 20% gate.
+- Quarantine×fine blends: all worse than standalone xrpq100 or fine100.
+- No config achieves ann>50% AND DD≤20% simultaneously.
+- The ann/DD cliff is confirmed across 6 rounds and all tested mechanisms.
