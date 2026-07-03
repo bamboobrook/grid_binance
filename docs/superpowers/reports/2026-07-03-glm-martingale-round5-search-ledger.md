@@ -55,3 +55,7 @@ Order: A(attribution) → B(last-exec SO) → C(profit reinvest) → D(vol targe
 ## r5-E-custom-ladder-001 (Task E: Custom Price Ladder Dip/Breakout)
 - Grid: 324 candidates (3 adverse-long × 3 adverse-short × 3 notionals-long × 3 notionals-short × 2 TP × 2 vol) × 6 replays, 2887s.
 - **RESULT: ALL custom ladder variants ann near 0%.** Custom spacing doesn't trigger enough trades under last-executed SO. Rejected with full 324-candidate evidence.
+
+## r5-F-hedged-grid-001 (Task F: Same-Symbol Hedged Grid — FULL 400-candidate grid)
+- Grid: 400 candidates (3 group sizes × 3 long entries × 3 short entries × 3 first-orders × 4 mults × 3 legs × 4 cds) × 6 replays, 721s.
+- **RESULT: ALL rejected.** Best: ann 4.5%, DD 12.9%, 2/5 pos. Hedge cancels directional profit. 0 frontier_improvements.
