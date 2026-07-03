@@ -15,3 +15,8 @@ Order: A(attribution) → B(last-exec SO) → C(profit reinvest) → D(vol targe
   - DD worsened (17.7→22.8) but still under balanced gate (≤20% borderline).
 - 11 frontier_improvements out of 400.
 - Saved: `promising/r5-B-best.json`
+
+## r5-C-risk-reduction-001 (Task C: Loss-Streak Risk Reduction — FULL engine + grid)
+- Implemented `loss_streak_risk_reduction_pct/trigger_count/recovery_win_count` + `first_order_scale` + `update_risk_reduction`. 208 tests pass.
+- Grid: 78 candidates (4 triggers × 5 reductions × 3 recoveries × 2 mults) × 6 replays.
+- **RESULT: no improvement.** Risk reduction has no effect on high-mult(3.1) path (ann stays 44.6%). Only fires on mult2.8 where ann drops to 17.3%.
