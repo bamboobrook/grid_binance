@@ -1,0 +1,12 @@
+{
+  "on_budget": {
+    "annualized_return_pct": 59.538564039439954,
+    "max_drawdown_pct": 32.10852905146888,
+    "min_equity_quote": 4702.992341925405,
+    "principal_breached": false,
+    "total_return_pct": 393.26204615943396
+  },
+  "equity_curve_count": 5000,
+  "trade_count": 367,
+  "stop_count": 49
+}
