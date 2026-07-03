@@ -69,3 +69,12 @@ Order: A(attribution) → B(last-exec SO) → C(profit reinvest) → D(vol targe
 - 3 new R5 features (last-exec SO, risk reduction, vol-target) are backtest-only.
 - 4 R4 features have approximate parity (187 tests).
 - Full exact parity (fractional close, algo-order, exchangeInfo) needs live testing.
+
+## r5-G-universe-001 (Task G: Expanded Universe — FULL 148-candidate grid)
+- Grid: 148 candidates (25 top liquid symbols × replace L0/L1/L2 + replace S0/S1/S2 + add2) × 6 replays, 1060s.
+- **RESULT: BREAKTHROUGH!** BEST: replaceL2_ANKRUSDT = **ann 59.5%**, DD 32.1%, 4/5 pos. 
+  - MULTIPLE candidates with ann>50%! add2_ADAUSDT_AVAXUSDT ann 50.8%. replaceL2_XRPUSDT ann 50.6%.
+  - Replacing BCH with ANKRUSDT in long side boosts ann from 49.9% to 59.5% (+9.6pp)!
+  - 51 frontier_improvements.
+  - No Conservative target pass (DD 25-42% exceeds 10% limit). Aggressive target: ann 59.5% < 110%.
+  - **This is the FIRST candidate to exceed Conservative 50% ann target!** (DD still fails)
