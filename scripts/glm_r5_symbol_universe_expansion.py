@@ -71,10 +71,10 @@ def main():
     # Prefilter: get top liquid symbols with full coverage
     conn = sqlite3.connect(MARKET_DB)
     rows = conn.execute("""
-        SELECT symbol, COUNT(*) as n, MIN(open_time), MAX(open_time), AVG(volume) as vol
+        SELECT symbol, COUNT(*) as n, MIN(open_time), MAX(open_time)
         FROM klines WHERE open_time BETWEEN 1672531200000 AND 1780271999999
-        GROUP BY symbol HAVING MIN(open_time) <= 1672531200000 AND MAX(open_time) >= 1780271999999
-        ORDER BY vol DESC LIMIT 25
+        GROUP BY symbol HAVING MIN(open_time) <= 1672531200000+86400000 AND MAX(open_time) >= 1780271999999-86400000
+        ORDER BY n DESC LIMIT 25
     """).fetchall()
     conn.close()
     top_syms = [r[0] for r in rows]
