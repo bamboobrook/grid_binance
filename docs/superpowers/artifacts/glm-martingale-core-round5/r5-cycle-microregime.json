@@ -1,0 +1,69 @@
+{
+  "on_budget": {
+    "annualized_return_pct": -15.932305283900195,
+    "max_drawdown_pct": 33.92703210770181,
+    "min_equity_quote": 4170.641600909192,
+    "principal_breached": false,
+    "total_return_pct": -15.93227752559018
+  },
+  "trade_count": 3894,
+  "stop_count": 1927,
+  "total_fee_quote": 121.98750636360514,
+  "total_funding_quote": -17.33240309400217,
+  "per_strategy": [
+    {
+      "accepted_static_legs": 5,
+      "direction": "Long",
+      "effective_cap_quote": 665.0,
+      "first_leg_margin_quote": 3.5,
+      "strategy_id": "L0-BNBUSDT",
+      "symbol": "BNBUSDT",
+      "weight_pct": 13.3
+    },
+    {
+      "accepted_static_legs": 5,
+      "direction": "Long",
+      "effective_cap_quote": 665.0,
+      "first_leg_margin_quote": 3.5,
+      "strategy_id": "L1-TRXUSDT",
+      "symbol": "TRXUSDT",
+      "weight_pct": 13.3
+    },
+    {
+      "accepted_static_legs": 5,
+      "direction": "Long",
+      "effective_cap_quote": 665.0,
+      "first_leg_margin_quote": 3.5,
+      "strategy_id": "L2-BCHUSDT",
+      "symbol": "BCHUSDT",
+      "weight_pct": 13.3
+    },
+    {
+      "accepted_static_legs": 6,
+      "direction": "Short",
+      "effective_cap_quote": 400.0,
+      "first_leg_margin_quote": 2.5,
+      "strategy_id": "S0-AAVEUSDT",
+      "symbol": "AAVEUSDT",
+      "weight_pct": 8.0
+    },
+    {
+      "accepted_static_legs": 6,
+      "direction": "Short",
+      "effective_cap_quote": 400.0,
+      "first_leg_margin_quote": 2.5,
+      "strategy_id": "S1-SOLUSDT",
+      "symbol": "SOLUSDT",
+      "weight_pct": 8.0
+    },
+    {
+      "accepted_static_legs": 6,
+      "direction": "Short",
+      "effective_cap_quote": 400.0,
+      "first_leg_margin_quote": 2.5,
+      "strategy_id": "S2-DOTUSDT",
+      "symbol": "DOTUSDT",
+      "weight_pct": 8.0
+    }
+  ]
+}

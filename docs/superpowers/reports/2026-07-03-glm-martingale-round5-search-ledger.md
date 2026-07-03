@@ -59,3 +59,13 @@ Order: A(attribution) → B(last-exec SO) → C(profit reinvest) → D(vol targe
 ## r5-F-hedged-grid-001 (Task F: Same-Symbol Hedged Grid — FULL 400-candidate grid)
 - Grid: 400 candidates (3 group sizes × 3 long entries × 3 short entries × 3 first-orders × 4 mults × 3 legs × 4 cds) × 6 replays, 721s.
 - **RESULT: ALL rejected.** Best: ann 4.5%, DD 12.9%, 2/5 pos. Hedge cancels directional profit. 0 frontier_improvements.
+
+## r5-A-microregime-001 (Task A: Cycle Micro-Regime Attribution)
+- Ran fine-combo best + R4 best on 2025. Stop rate 49.5%. Monthly: Jan+1%, Feb-2.2%, Mar-Dec~0%.
+- Root cause confirmed: high-vol choppy bear, 50% stop rate, longs gated by BTC, shorts squeezed.
+- No new gate candidates beyond R1-R4 tested.
+
+## r5-H-parity-hardening-001 (Task H: Live-Parity Hardening)
+- 3 new R5 features (last-exec SO, risk reduction, vol-target) are backtest-only.
+- 4 R4 features have approximate parity (187 tests).
+- Full exact parity (fractional close, algo-order, exchangeInfo) needs live testing.
