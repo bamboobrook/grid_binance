@@ -18,3 +18,13 @@ Order: A(attribution) → B(DD state machine) → C(quarantine) → D(trailing l
 - Grid: 4 state-threshold sets × 3 recoveries + 2 baselines = 14 × 6 replays, 89s.
 - **RESULT: no effect.** ALL candidates identical (ann59.5/dd32.1). The DD state machine rules don't compress DD because: the engine's portfolio_drawdown_pct uses margin-based equity (lower running DD), and the first_order_scale from rules isn't applied to base order sizing in the current implementation.
 - Non-repeat key: staged-dd-state-machine (needs engine refactor to apply scaling to base order + use on_budget DD metric)
+
+## r6-F-blend-001 (Task F: Risk-Budget Blend — FULL 31-candidate grid)
+- Grid: 31 candidates (ANKR × R4/fine/XRP/DOGE blends at various ratios) × 6 replays, 289s.
+- **RESULT: frontier improvement!** Best blend: ankr20_r460 = ann 34.9%, **DD 19.4%**, 4/5 pos, 2025 -11.7%.
+  - DD compressed from 32.1% (ANKR100) to **19.4%** (ankr20_r460). This is within Balanced DD ≤20%!
+  - But ann dropped from 59.5% to 34.9%.
+  - 6 frontier improvements.
+- Pure XRP: ann 50.6%/DD 25.4%/4/5 (known from R5).
+- Many high-ratio blends give ~0% ann (budget exhaustion from 12+ strategies).
+- Best DD-ann tradeoff: ankr20_r460 (ann 34.9%/DD 19.4%) or xrp100 (ann 50.6%/DD 25.4%).
