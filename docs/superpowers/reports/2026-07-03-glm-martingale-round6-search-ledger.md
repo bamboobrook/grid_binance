@@ -12,3 +12,9 @@ Order: A(attribution) → B(DD state machine) → C(quarantine) → D(trailing l
 - Overall 32.1% DD includes startup effect (trough in Jan 2023 before gains compound)
 - Funding drag: 677 USDT on 5000U budget (13.5% annual)
 - Routes: B(DD state machine), F(blend), D(trailing lock - low stop rate)
+
+## r6-B-dd-state-machine-001 (Task B: Portfolio DD State Machine — FULL 14-candidate grid)
+- Implemented MartingaleDrawdownStateRule config + engine logic. 208 tests pass.
+- Grid: 4 state-threshold sets × 3 recoveries + 2 baselines = 14 × 6 replays, 89s.
+- **RESULT: no effect.** ALL candidates identical (ann59.5/dd32.1). The DD state machine rules don't compress DD because: the engine's portfolio_drawdown_pct uses margin-based equity (lower running DD), and the first_order_scale from rules isn't applied to base order sizing in the current implementation.
+- Non-repeat key: staged-dd-state-machine (needs engine refactor to apply scaling to base order + use on_budget DD metric)
