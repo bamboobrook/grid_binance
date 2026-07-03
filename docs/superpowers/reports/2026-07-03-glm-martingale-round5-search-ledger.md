@@ -20,3 +20,8 @@ Order: A(attribution) → B(last-exec SO) → C(profit reinvest) → D(vol targe
 - Implemented `loss_streak_risk_reduction_pct/trigger_count/recovery_win_count` + `first_order_scale` + `update_risk_reduction`. 208 tests pass.
 - Grid: 78 candidates (4 triggers × 5 reductions × 3 recoveries × 2 mults) × 6 replays.
 - **RESULT: no improvement.** Risk reduction has no effect on high-mult(3.1) path (ann stays 44.6%). Only fires on mult2.8 where ann drops to 17.3%.
+
+## r5-D-vol-target-001 (Task D: Vol-Targeted Martingale — FULL engine + grid)
+- Implemented `vol_target_atr_pct/min_scale/max_scale` first-order scaling. 208 tests pass.
+- Grid: 46 candidates (5 targets × 3 min × 3 max + baseline) × 6 replays.
+- **RESULT: marginal improvement.** BEST: ann 45.1%, DD 23.0%, 4/5 pos. +0.5pp over Task B.
