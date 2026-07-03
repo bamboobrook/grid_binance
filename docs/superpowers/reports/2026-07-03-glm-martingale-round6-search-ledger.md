@@ -49,3 +49,13 @@ Order: A(attribution) → B(DD state machine) → C(quarantine) → D(trailing l
 
 ## r6-H-ankr-closeout-001 (Task H: ANKR Low-DD Closeout) — SUPERSEDED
 - Superseded by Task F blend (ankr20_r460 = ann34.9%/DD19.4%).
+
+## r6-B-dd-state-machine-002 (Task B FIXED: Budget-based DD + engine logic)
+- Implemented budget_based_dd_pct + first_order_scale + freeze_safety_orders engine logic. 208 tests pass.
+- Smoke test confirmed DD state machine fires (dd8_16_25 changed trades from 367 to 4409).
+- Full grid: 34 candidates × 6 replays, 200s.
+- **RESULT: marginal effect.** DD state machine fires but cannot compress DD below ~30%.
+  - Scaling-only: ann 59.4/DD 32.1 (no DD change — DD from unrealized PnL, not new entries)
+  - Freeze variants: DD 30.5% (from 32.1%) but ann drops to 33.3%, pos to 2/5
+  - Root cause: DD comes from EXISTING position unrealized PnL, not new entry sizing
+- The best DD compression remains Task F blend (DD 19.4% via portfolio blending).

@@ -234,6 +234,18 @@ pub fn run_kline_screening_with_funding(
         } else {
             0.0
         };
+        // Round 6 Task B fix: Also compute budget-based drawdown for the DD state
+        // machine, since margin-based DD is much lower than the reported on_budget
+        // DD. The budget-based DD uses budget + realized + unrealized, matching
+        // what on_budget_metrics reports.
+        let budget_based_dd_pct = if budget_equity_peak_quote > 0.0 {
+            let prev_budget_equity = budget_quote + (last_equity_quote - initial_margin_capital);
+            ((budget_equity_peak_quote - prev_budget_equity) / budget_equity_peak_quote * 100.0).max(0.0)
+        } else {
+            0.0
+        };
+        // Use the MAX of margin-based and budget-based DD for state machine triggers.
+        let dd_state_pct = portfolio_drawdown_pct.max(budget_based_dd_pct);
 
         while funding_index < sorted_funding_rates.len()
             && sorted_funding_rates[funding_index].funding_time_ms <= timestamp_ms
@@ -320,7 +332,7 @@ pub fn run_kline_screening_with_funding(
                         }
                         // Find the highest-trigger rule that fires
                         let active_rule = dd_rules.iter()
-                            .filter(|r| portfolio_drawdown_pct >= r.trigger_drawdown_pct)
+                            .filter(|r| dd_state_pct >= r.trigger_drawdown_pct)
                             .max_by(|a, b| a.trigger_drawdown_pct.partial_cmp(&b.trigger_drawdown_pct).unwrap_or(std::cmp::Ordering::Equal));
                         if let Some(rule) = active_rule {
                             // If rule says freeze safety and we're opening a new cycle, allow but scale
@@ -356,7 +368,70 @@ pub fn run_kline_screening_with_funding(
                     }
 
                     let margin = strategy_states[state_index].margins[0];
-                    let notional = strategy_states[state_index].notionals[0];
+                    let mut notional = strategy_states[state_index].notionals[0];
+                    // Round 6 Task B: Apply DD state machine first_order_scale.
+                    // Find the highest-trigger rule that fires for the current
+                    // portfolio drawdown and scale the first order accordingly.
+                    let dd_rules = &portfolio.risk_limits.drawdown_state_rules;
+                    if !dd_rules.is_empty() {
+                        let active_rule = dd_rules.iter()
+                            .filter(|r| dd_state_pct >= r.trigger_drawdown_pct)
+                            .max_by(|a, b| a.trigger_drawdown_pct.partial_cmp(&b.trigger_drawdown_pct).unwrap_or(std::cmp::Ordering::Equal));
+                        if let Some(rule) = active_rule {
+                            if let Some(scale) = rule.first_order_scale {
+                                let scaled_margin = margin * scale;
+                                let scaled_notional = notional * scale;
+                                // Use scaled values
+                                let entry_cost = trading_cost_quote(scaled_notional);
+                                total_fee_quote += entry_cost.fee_quote;
+                                total_slippage_quote += entry_cost.slippage_quote;
+                                let capital_required = scaled_margin + entry_cost.total();
+                                if let Some(reason) = budget_rejection_reason(
+                                    &portfolio,
+                                    &strategy_states,
+                                    state_index,
+                                    capital_used_quote,
+                                    capital_required,
+                                )? {
+                                    reject_budget(
+                                        &mut rejection_reasons,
+                                        &mut events,
+                                        bar,
+                                        &mut strategy_states[state_index],
+                                        reason,
+                                    );
+                                    state_index += 1;
+                                    continue;
+                                }
+                                let latest_atr_dd = latest_atr_for_strategy(
+                                    &mut indicator_context,
+                                    strategy_states[state_index].strategy,
+                                );
+                                add_leg(
+                                    &mut strategy_states[state_index],
+                                    0,
+                                    bar.open,
+                                    scaled_margin,
+                                    scaled_notional,
+                                    latest_atr_dd,
+                                )?;
+                                capital_used_quote += capital_required;
+                                trade_count += 1;
+                                max_capital_used_quote = max_capital_used_quote.max(capital_used_quote);
+                                events.push(event(
+                                    bar,
+                                    &strategy_states[state_index],
+                                    "entry",
+                                    format!(
+                                        "dd_state_scaled;trigger={};scale={:.2};margin_quote={:.4};notional_quote={:.4}",
+                                        rule.trigger_drawdown_pct, scale, scaled_margin, scaled_notional
+                                    ),
+                                ));
+                                state_index += 1;
+                                continue;
+                            }
+                        }
+                    }
                     let entry_cost = trading_cost_quote(notional);
                     total_fee_quote += entry_cost.fee_quote;
                     total_slippage_quote += entry_cost.slippage_quote;
@@ -434,6 +509,30 @@ pub fn run_kline_screening_with_funding(
                         bar,
                         trigger_price,
                     ) {
+                        // Round 6 Task B/E: Check DD state machine freeze_safety_orders.
+                        // If a DD rule with freeze_safety_orders=true is active,
+                        // skip this safety order entirely.
+                        let dd_rules = &portfolio.risk_limits.drawdown_state_rules;
+                        if !dd_rules.is_empty() {
+                            let freeze_active = dd_rules.iter()
+                                .filter(|r| dd_state_pct >= r.trigger_drawdown_pct)
+                                .any(|r| r.freeze_safety_orders.unwrap_or(false));
+                            if freeze_active {
+                                state_index += 1;
+                                continue;
+                            }
+                        }
+                        // Round 6 Task E: Check freeze_safety_after_partial_tp_stage.
+                        if let Some(freeze_stage) = strategy_states[state_index]
+                            .strategy
+                            .risk_limits
+                            .freeze_safety_after_partial_tp_stage
+                        {
+                            if strategy_states[state_index].partial_tp_stage > freeze_stage {
+                                state_index += 1;
+                                continue;
+                            }
+                        }
                         // Round 4 P5: Rebound confirmation. If safety_order_rebound_bps
                         // is set, the safety order doesn't execute immediately on
                         // deviation. Instead, it waits for price to rebound from
