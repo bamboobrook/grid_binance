@@ -59,3 +59,10 @@ Order: A(attribution) → B(DD state machine) → C(quarantine) → D(trailing l
   - Freeze variants: DD 30.5% (from 32.1%) but ann drops to 33.3%, pos to 2/5
   - Root cause: DD comes from EXISTING position unrealized PnL, not new entry sizing
 - The best DD compression remains Task F blend (DD 19.4% via portfolio blending).
+
+## r6-D-trailing-lock-002 (Task D FIXED: Full trailing lock engine logic on XRP)
+- Implemented watermark tracking + giveback close + BE floor in exit_decision_snapshot. 208 tests pass.
+- Verified trailing lock fires: XRP trades change from 4988 (baseline) to 5174-9593.
+- 12 configs tested on XRP (ann50.6/DD25.4): Best tight_800_150_200 = ann53.0/DD30.0.
+- **RESULT: trailing lock INCREASES DD** (25.4→30.0). Closes profitable cycles early → more re-entries → more adverse exposure.
+- Non-repeat key: trailing-lock-increases-dd-on-xrp

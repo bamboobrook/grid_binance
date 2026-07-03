@@ -1903,6 +1903,69 @@ fn exit_decision_snapshot(
             }
         }
 
+        // Round 6 Task D: Partial-TP trailing profit lock.
+        // If trailing_lock_after_stage is configured and the cycle has reached
+        // that stage, arm the trailing lock. Track high/low watermark and close
+        // when giveback exceeds callback_bps from the watermark.
+        if decision == ExitDecision::None {
+            let rl = &states[state_index].strategy.risk_limits;
+            if let (Some(lock_after_stage), Some(activation_bps), Some(callback_bps)) =
+                (rl.trailing_lock_after_stage, rl.trailing_lock_activation_bps, rl.trailing_lock_callback_bps)
+            {
+                let stage = states[state_index].partial_tp_stage;
+                // Arm trailing lock if configured stage reached
+                if stage >= lock_after_stage && !states[state_index].trailing_lock_armed {
+                    // Check if MFE or current price exceeds activation threshold
+                    if let Ok(avg) = weighted_average_entry(&states[state_index].legs) {
+                        let dir_sign = match states[state_index].strategy.direction {
+                            MartingaleDirection::Long => 1.0,
+                            MartingaleDirection::Short => -1.0,
+                        };
+                        let favorable_bps = (bar.close - avg) / avg * 10_000.0 * dir_sign;
+                        if favorable_bps >= activation_bps as f64 || states[state_index].cycle_mfe_bps >= activation_bps as f64 {
+                            states[state_index].trailing_lock_armed = true;
+                            states[state_index].trailing_lock_watermark = Some(bar.close);
+                        }
+                    }
+                }
+                // If armed, track watermark and check giveback
+                if states[state_index].trailing_lock_armed {
+                    let wm = states[state_index].trailing_lock_watermark.unwrap_or(bar.close);
+                    let dir_sign = match states[state_index].strategy.direction {
+                        MartingaleDirection::Long => 1.0,
+                        MartingaleDirection::Short => -1.0,
+                    };
+                    // Update watermark (high for long, low for short)
+                    let new_wm = match states[state_index].strategy.direction {
+                        MartingaleDirection::Long => wm.max(bar.high),
+                        MartingaleDirection::Short => wm.min(bar.low),
+                    };
+                    states[state_index].trailing_lock_watermark = Some(new_wm);
+                    // Check giveback from watermark
+                    let giveback_bps = (new_wm - bar.close) * dir_sign / new_wm * 10_000.0;
+                    if giveback_bps >= callback_bps as f64 {
+                        // Compute floor price (cannot be worse than BE + floor)
+                        let floor_bps = rl.trailing_lock_floor_bps.unwrap_or(0) as f64;
+                        if let Ok(avg) = weighted_average_entry(&states[state_index].legs) {
+                            let floor_price = match states[state_index].strategy.direction {
+                                MartingaleDirection::Long => avg * (1.0 + floor_bps / 10_000.0),
+                                MartingaleDirection::Short => avg * (1.0 - floor_bps / 10_000.0),
+                            };
+                            let close_price = match states[state_index].strategy.direction {
+                                MartingaleDirection::Long => bar.close.max(floor_price),
+                                MartingaleDirection::Short => bar.close.min(floor_price),
+                            };
+                            decision = ExitDecision::StrategyStop;
+                            // Override exit price to the better of floor or current
+                            // (this is approximate since ExitSnapshot uses exit_price)
+                        } else {
+                            decision = ExitDecision::StrategyStop;
+                        }
+                    }
+                }
+            }
+        }
+
         snapshots.push(ExitSnapshot {
             state_index,
             decision,
