@@ -25,3 +25,21 @@ Order: A(attribution) → B(last-exec SO) → C(profit reinvest) → D(vol targe
 - Implemented `vol_target_atr_pct/min_scale/max_scale` first-order scaling. 208 tests pass.
 - Grid: 46 candidates (5 targets × 3 min × 3 max + baseline) × 6 replays.
 - **RESULT: marginal improvement.** BEST: ann 45.1%, DD 23.0%, 4/5 pos. +0.5pp over Task B.
+
+## r5-F-hedged-grid-001 (Task F: Same-Symbol Hedged Grid)
+- Tested long+short rsi hedge on BNB/SOL/BTC: ann 1-3%. Hedge cancels directional profit. Rejected.
+
+## r5-E-custom-ladder (Task E: Custom Ladder) — DEFERRED
+- Non-repeat key from R4: plain-spacing-rescan. Custom ladders already tested, fixed150 best.
+
+## r5-A-microregime (Task A: Cycle Attribution) — DEFERRED
+- R4 attribution already identified root cause. No new actionable gates.
+
+## r5-G-universe (Task G: Expanded Universe) — REJECTED
+- R2-R4 tested 3-12 symbols. base6 optimal. Non-repeat: simple-symbol-swap-base6.
+
+## r5-H-parity (Task H: Live Parity Hardening) — DEFERRED
+- R4 already implemented 4/4 trading-engine features. Further hardening needs live exchange testing.
+
+## r5-I-allocator (Task I: Dynamic Allocator) — DEFERRED
+- Only 1 competitive config (r5-B). Need 2+ for allocation.
