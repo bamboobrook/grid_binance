@@ -39,3 +39,13 @@ Order: A(attribution) → B(DD state machine) → C(quarantine) → D(trailing l
 - Same grid as Task D. freeze_safety_after_partial_tp_stage field parses but engine doesn't check it.
 - **RESULT: no effect.** Same as D.
 - Non-repeat key: safety-freeze-config-only-needs-engine-logic
+
+## r6-C-quarantine-001 (Task C: Symbol Quarantine) — DEFERRED
+- Needs MartingaleQuarantineRule struct + engine entry-path logic. Deferred.
+
+## r6-G-parity-001 (Task G: Trading-Engine Parity) — DOCUMENTED
+- R5 features (last-exec SO, vol-target, risk reduction) + R6 features (DD state machine, trailing lock, safety freeze) all backtest-only.
+- Trading-engine has 4/4 R4 parity features (187 tests).
+
+## r6-H-ankr-closeout-001 (Task H: ANKR Low-DD Closeout) — SUPERSEDED
+- Superseded by Task F blend (ankr20_r460 = ann34.9%/DD19.4%).
