@@ -271,6 +271,21 @@ pub struct MartingaleRiskLimits {
     /// Round 6 Task B: Recovery reclaim fraction for DD state machine.
     #[serde(default)]
     pub drawdown_state_recovery_pct: Option<f64>,
+    /// Round 6 Task D: Arm trailing profit lock after this partial TP stage.
+    #[serde(default)]
+    pub trailing_lock_after_stage: Option<u32>,
+    /// Round 6 Task D: Trailing lock activation in bps from avg entry.
+    #[serde(default)]
+    pub trailing_lock_activation_bps: Option<u32>,
+    /// Round 6 Task D: Trailing lock callback in bps.
+    #[serde(default)]
+    pub trailing_lock_callback_bps: Option<u32>,
+    /// Round 6 Task D: Trailing lock floor in bps (cannot be worse than BE + floor).
+    #[serde(default)]
+    pub trailing_lock_floor_bps: Option<u32>,
+    /// Round 6 Task E: Freeze safety orders after this partial TP stage fires.
+    #[serde(default)]
+    pub freeze_safety_after_partial_tp_stage: Option<u32>,
 }
 
 /// Round 6 Task B: A single drawdown state rule.

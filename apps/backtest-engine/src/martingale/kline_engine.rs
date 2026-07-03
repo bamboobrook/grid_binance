@@ -1064,6 +1064,10 @@ struct StrategyRuntime<'a> {
     /// Round 2 Direction A: once true, the strategy stop migrates to breakeven
     /// (weighted avg entry + buffer). Set after the configured stage fires.
     breakeven_stop_active: bool,
+    /// Round 6 Task D: trailing lock high/low watermark after partial TP stage.
+    trailing_lock_watermark: Option<f64>,
+    /// Round 6 Task D: whether trailing lock is armed.
+    trailing_lock_armed: bool,
     /// Round 4 P4: timestamp (ms) when the current cycle opened (first leg fill).
     /// Used for max_cycle_age and no_progress_exit.
     cycle_start_ms: Option<i64>,
@@ -1117,6 +1121,8 @@ impl<'a> StrategyRuntime<'a> {
             trailing_anchor_price: None,
             partial_tp_stage: 0,
             breakeven_stop_active: false,
+            trailing_lock_watermark: None,
+            trailing_lock_armed: false,
             cycle_start_ms: None,
             cycle_mfe_bps: 0.0,
             safety_trigger_pending: false,
@@ -1153,6 +1159,8 @@ impl<'a> StrategyRuntime<'a> {
         self.trailing_anchor_price = None;
         self.partial_tp_stage = 0;
         self.breakeven_stop_active = false;
+        self.trailing_lock_watermark = None;
+        self.trailing_lock_armed = false;
         self.cycle_start_ms = None;
         self.cycle_mfe_bps = 0.0;
         self.safety_trigger_pending = false;
