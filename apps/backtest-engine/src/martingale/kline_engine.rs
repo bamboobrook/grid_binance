@@ -277,6 +277,41 @@ pub fn run_kline_screening_with_funding(
                 }
 
                 if strategy_states[state_index].legs.is_empty() {
+                    // Round 6 Task C: Symbol quarantine check. If this strategy
+                    // has been quarantined (too many recent stops), skip new cycle.
+                    let rl = &strategy_states[state_index].strategy.risk_limits;
+                    if let (Some(trigger), Some(window_h), Some(pause_h)) =
+                        (rl.quarantine_stop_count_trigger, rl.quarantine_stop_window_hours, rl.quarantine_pause_hours)
+                    {
+                        // Check if currently quarantined
+                        if let Some(until) = strategy_states[state_index].quarantined_until_ms {
+                            if timestamp_ms < until {
+                                state_index += 1;
+                                continue;
+                            } else {
+                                strategy_states[state_index].quarantined_until_ms = None;
+                            }
+                        }
+                        // Count recent stops in window
+                        let window_ms = (window_h * 3_600_000.0) as i64;
+                        let cutoff = timestamp_ms - window_ms;
+                        let recent_count = strategy_states[state_index]
+                            .recent_stop_timestamps
+                            .iter()
+                            .filter(|&&ts| ts >= cutoff)
+                            .count() as u32;
+                        if recent_count >= trigger {
+                            // Quarantine!
+                            let pause_ms = (pause_h * 3_600_000.0) as i64;
+                            strategy_states[state_index].quarantined_until_ms = Some(timestamp_ms + pause_ms);
+                            // Clean old stops
+                            strategy_states[state_index].recent_stop_timestamps.retain(|&ts| ts >= cutoff);
+                            state_index += 1;
+                            continue;
+                        }
+                        // Clean old stops periodically
+                        strategy_states[state_index].recent_stop_timestamps.retain(|&ts| ts >= cutoff);
+                    }
                     // Round 2 Direction F: equity-reclaim early re-entry. If the
                     // calendar cooldown is still active BUT equity has recovered
                     // the configured fraction of the stopped drawdown, allow
@@ -773,6 +808,10 @@ pub fn run_kline_screening_with_funding(
                     state.reset_cycle(exit.bar.open_time_ms);
                     // Round 5 Task C: update risk reduction for stop exits (losses)
                     strategy_states[state_index].update_risk_reduction(pnl > 0.0);
+                    // Round 6 Task C: Record stop timestamp for quarantine
+                    if pnl <= 0.0 {
+                        strategy_states[state_index].recent_stop_timestamps.push(exit.bar.open_time_ms);
+                    }
                     stop_count += 1;
                     trade_count += 1;
                 }
@@ -807,6 +846,8 @@ pub fn run_kline_screening_with_funding(
                         ),
                     ));
                     state.reset_cycle(exit.bar.open_time_ms);
+                    // Round 6 Task C: Record stop timestamp for quarantine
+                    strategy_states[state_index].recent_stop_timestamps.push(exit.bar.open_time_ms);
                     stop_count += 1;
                     trade_count += 1;
                 }
@@ -1167,6 +1208,10 @@ struct StrategyRuntime<'a> {
     trailing_lock_watermark: Option<f64>,
     /// Round 6 Task D: whether trailing lock is armed.
     trailing_lock_armed: bool,
+    /// Round 6 Task C: Recent stop-loss timestamps for quarantine tracking.
+    recent_stop_timestamps: Vec<i64>,
+    /// Round 6 Task C: Quarantine until this timestamp (ms). No new cycles while quarantined.
+    quarantined_until_ms: Option<i64>,
     /// Round 4 P4: timestamp (ms) when the current cycle opened (first leg fill).
     /// Used for max_cycle_age and no_progress_exit.
     cycle_start_ms: Option<i64>,
@@ -1222,6 +1267,8 @@ impl<'a> StrategyRuntime<'a> {
             breakeven_stop_active: false,
             trailing_lock_watermark: None,
             trailing_lock_armed: false,
+            recent_stop_timestamps: Vec::new(),
+            quarantined_until_ms: None,
             cycle_start_ms: None,
             cycle_mfe_bps: 0.0,
             safety_trigger_pending: false,
@@ -1260,6 +1307,8 @@ impl<'a> StrategyRuntime<'a> {
         self.breakeven_stop_active = false;
         self.trailing_lock_watermark = None;
         self.trailing_lock_armed = false;
+        self.recent_stop_timestamps.clear();
+        self.quarantined_until_ms = None;
         self.cycle_start_ms = None;
         self.cycle_mfe_bps = 0.0;
         self.safety_trigger_pending = false;

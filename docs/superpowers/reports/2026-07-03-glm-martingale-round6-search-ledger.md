@@ -66,3 +66,12 @@ Order: A(attribution) → B(DD state machine) → C(quarantine) → D(trailing l
 - 12 configs tested on XRP (ann50.6/DD25.4): Best tight_800_150_200 = ann53.0/DD30.0.
 - **RESULT: trailing lock INCREASES DD** (25.4→30.0). Closes profitable cycles early → more re-entries → more adverse exposure.
 - Non-repeat key: trailing-lock-increases-dd-on-xrp
+
+## r6-C-quarantine-002 (Task C FIXED: Full quarantine engine logic on XRP)
+- Implemented quarantine_stop_count_trigger/window_hours/pause_hours + recent_stop_timestamps tracking + new-cycle block. 208 tests pass.
+- Grid: 28 candidates (1 baseline + 27 quarantine configs) × 6 replays, 203s.
+- **RESULT: marginal improvement.** q1w24p24 = ann **55.8%**/DD 25.0%/4/5 pos.
+  - Ann went UP from 50.6% to 55.8% with trigger=1 (quarantine after every stop).
+  - DD barely changed (25.4→25.0%).
+  - Triggers 2/3 identical to baseline — not enough consecutive stops in rolling windows.
+- Saved: `promising/r6-C-best-quarantine.json`

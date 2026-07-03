@@ -286,6 +286,16 @@ pub struct MartingaleRiskLimits {
     /// Round 6 Task E: Freeze safety orders after this partial TP stage fires.
     #[serde(default)]
     pub freeze_safety_after_partial_tp_stage: Option<u32>,
+    /// Round 6 Task C: Quarantine a symbol/direction after N stop-losses in
+    /// a rolling window. When quarantined, no new cycles open for that scope.
+    #[serde(default)]
+    pub quarantine_stop_count_trigger: Option<u32>,
+    /// Round 6 Task C: Rolling window in hours for stop-count quarantine.
+    #[serde(default)]
+    pub quarantine_stop_window_hours: Option<f64>,
+    /// Round 6 Task C: Pause duration in hours after quarantine triggers.
+    #[serde(default)]
+    pub quarantine_pause_hours: Option<f64>,
 }
 
 /// Round 6 Task B: A single drawdown state rule.
