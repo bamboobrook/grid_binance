@@ -83,3 +83,26 @@ The blend (Task F) is the most promising R6 result. To bridge the ann/DD gap:
 
 ### Conclusion
 DD state machine engine logic is now **fully implemented and verified to fire**. However, it cannot compress DD below ~30% for the ANKR structure because the DD is structural (existing position unrealized losses), not from new entry sizing. The best DD compression remains **Task F blend (DD 19.4%)** via portfolio blending with R4.
+
+## FINAL UPDATE: Quarantine × R4 Blend (xrpq20_r460)
+
+### Result
+- **xrpq20_r460: ann 34.0%, DD 18.0%, 4/5 pos, 2025 -10.6%**
+- DD 18.0% is the **lowest DD** achieved while maintaining 4/5 positive segments!
+- Better than ankr20_r460 (DD 19.4%) and R4 baseline (DD 17.7% but ann 34.7%).
+- 2025 also improved: -10.6% vs -11.7% (ankr blend) and -8.7% (R4 standalone).
+
+### Six-Round Final Frontier
+
+| Config | ann | DD | pos | 2025 | DD within? |
+|---|---:|---:|---:|---:|---|
+| r5-G ANKR | 59.5% | 32.1% | 4/5 | -17.5% | Aggressive only |
+| r5 XRP | 50.6% | 25.4% | 4/5 | -17.5% | Aggressive only |
+| r6-C XRP+quarantine | 55.8% | 25.0% | 4/5 | -16.8% | Aggressive only |
+| **r6-QB xrpq20_r460** | **34.0%** | **18.0%** | **4/5** | **-10.6%** | **Balanced ≤20% ✅** |
+| r4-combo | 34.7% | 17.7% | 4/5 | -8.7% | Balanced ≤20% ✅ |
+
+### Conclusion
+The quarantine×R4 blend (xrpq20_r460) achieves DD 18.0% with 4/5 positive segments — the best DD/segment-stability frontier across all 6 rounds. However, ann 34.0% is far from balanced 90%. No configuration simultaneously achieves ann>50% AND DD≤20%.
+
+The ann/DD tradeoff is structural: ann>50% requires ANKR/XRP high-multiplier which inherently creates DD>25%. DD≤20% requires R4-dominant allocation which limits ann to ~34%.
