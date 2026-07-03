@@ -65,3 +65,21 @@ The blend (Task F) is the most promising R6 result. To bridge the ann/DD gap:
 1. Search ANKR blend ratios between 20% and 100% more finely (30%, 40%, 50% ANKR + R4)
 2. Implement the DD state machine engine logic (not just config) to actually throttle entries
 3. Try XRP (ann50.6%/DD25.4%) as the high-return component instead of ANKR
+
+## UPDATE: DD State Machine Engine Logic Implemented + Full Grid
+
+### Engine Implementation
+- Added `budget_based_dd_pct` computation using `budget_quote + (last_equity_quote - initial_margin_capital)`
+- DD state machine now uses `max(margin_dd, budget_dd)` for trigger thresholds
+- `first_order_scale` applied to new cycle base orders when DD state is active
+- `freeze_safety_orders` blocks safety leg placement when DD state rule fires
+- 208 tests pass
+
+### Full Grid Results (34 candidates × 6 replays)
+- DD state machine **FIRES** (confirmed by changed trade counts: 367→4409 for aggressive freeze)
+- **Best DD compression**: s1fr (freeze at stage 2) = DD 30.5% (from 32.1%), but ann drops to 33.3%, pos to 2/5
+- Scaling-only variants (no freeze): no DD change — DD comes from EXISTING position unrealized PnL, not new entry size
+- Root cause: DD cannot be compressed by throttling new entries because the 32.1% DD is from positions already held during adverse moves
+
+### Conclusion
+DD state machine engine logic is now **fully implemented and verified to fire**. However, it cannot compress DD below ~30% for the ANKR structure because the DD is structural (existing position unrealized losses), not from new entry sizing. The best DD compression remains **Task F blend (DD 19.4%)** via portfolio blending with R4.
