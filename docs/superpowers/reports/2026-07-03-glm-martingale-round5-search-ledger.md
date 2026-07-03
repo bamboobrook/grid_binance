@@ -43,3 +43,15 @@ Order: A(attribution) → B(last-exec SO) → C(profit reinvest) → D(vol targe
 
 ## r5-I-allocator (Task I: Dynamic Allocator) — DEFERRED
 - Only 1 competitive config (r5-B). Need 2+ for allocation.
+
+## r5-fine-combo-001 (Fine Combo: mult 3.0-3.5 × step × TP × legs × vol-target × cd)
+- Grid: 500 candidates (sampled from 6×4×3×3×3×3×3×2×3 = 34,992 full) × 6 replays, 4144s.
+- **RESULT: ann 49.93%, DD 26.3%, 4/5 pos. Only 0.07pp from Conservative 50% target!**
+  - Config: lm3.3sm1.6ls150ss180ll8sl6tp800vt1.0cd11
+  - Key: long mult 3.3 + vol-target 1.0 + cd 11h + TP 800/1600/2600
+  - DD 26.3% exceeds Conservative ≤10% but fits Aggressive ≤30%
+  - 10 frontier_improvements, 0 target_pass
+
+## r5-E-custom-ladder-001 (Task E: Custom Price Ladder Dip/Breakout)
+- Grid: 324 candidates (3 adverse-long × 3 adverse-short × 3 notionals-long × 3 notionals-short × 2 TP × 2 vol) × 6 replays, 2887s.
+- **RESULT: ALL custom ladder variants ann near 0%.** Custom spacing doesn't trigger enough trades under last-executed SO. Rejected with full 324-candidate evidence.
