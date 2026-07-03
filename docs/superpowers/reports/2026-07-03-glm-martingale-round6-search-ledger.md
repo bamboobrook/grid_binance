@@ -28,3 +28,14 @@ Order: A(attribution) → B(DD state machine) → C(quarantine) → D(trailing l
 - Pure XRP: ann 50.6%/DD 25.4%/4/5 (known from R5).
 - Many high-ratio blends give ~0% ann (budget exhaustion from 12+ strategies).
 - Best DD-ann tradeoff: ankr20_r460 (ann 34.9%/DD 19.4%) or xrp100 (ann 50.6%/DD 25.4%).
+
+## r6-D-trailing-lock-001 (Task D: Partial-TP Trailing Lock)
+- Config fields added (trailing_lock_after_stage/activation_bps/callback_bps/floor_bps). 208 tests pass.
+- Grid: 18 candidates (6 trailing configs × 3 freeze configs) × 6 replays, 107s.
+- **RESULT: no effect.** All identical to baseline. Engine doesn't implement trailing lock exit logic yet — only state fields exist.
+- Non-repeat key: trailing-lock-config-only-needs-engine-logic
+
+## r6-E-safety-freeze-001 (Task E: Safety Freeze After Partial TP)
+- Same grid as Task D. freeze_safety_after_partial_tp_stage field parses but engine doesn't check it.
+- **RESULT: no effect.** Same as D.
+- Non-repeat key: safety-freeze-config-only-needs-engine-logic
