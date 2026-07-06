@@ -27,3 +27,13 @@
 ## r7-F-safety-freeze-taper (DEFERRED — config-only, engine logic needed)
 ## r7-H-parity (R5/R6/R7 features backtest-only, 4/4 R4 parity in trading-engine)
 ## r7-I-final-validation (No target pass. See handoff.)
+
+## r7-CF-engine-logic-001 (Task C+F FIXED: Engine logic implemented + full 180-candidate grid)
+- Implemented funding cost gate (lazy per-symbol funding lookup) + safety taper (scale margin/notional by taper_scale after leg threshold). 208 tests pass.
+- Grid: 180 candidates (4 bases × 5 funding thresholds × 2 modes × 5 taper configs) × 6 replays, 1074s.
+- **RESULT: taper fires, funding gate marginal.**
+  - ANKR_tp2ts0.5: ann 27.4%, DD 24.2% (DD 32.1→24.2, -7.9pp improvement!)
+  - ANKR_tp3ts0.5: ann 27.6%, DD 30.7%
+  - Funding gate (ft2-20): ann changes by ±0.2pp (funding rates ~1bps/event, rarely exceeds thresholds)
+  - R4 candidates: unchanged (already low funding drag, taper legs not reached often)
+- **No config achieves ann>50 AND DD≤20 simultaneously.**

@@ -268,6 +268,24 @@ pub fn run_kline_screening_with_funding(
 
         for bar in group {
             let mut state_index = 0;
+            // Round 7 Task C: Get latest funding rate for THIS bar's symbol only
+            // (lazy lookup, not scanning all symbols every bar).
+            let bar_funding_rate = if funding_index > 0 {
+                // Find the most recent funding rate for this bar's symbol
+                let sym = &bar.symbol;
+                let mut found: Option<f64> = None;
+                for fi in (0..funding_index).rev() {
+                    if &sorted_funding_rates[fi].symbol == sym {
+                        found = Some(sorted_funding_rates[fi].funding_rate);
+                        break;
+                    }
+                    // Only scan back a limited number of entries (funding events are sparse)
+                    if funding_index - fi > 30 { break; }
+                }
+                found
+            } else {
+                None
+            };
             while state_index < strategy_states.len() {
                 if strategy_states[state_index].strategy.symbol != bar.symbol
                     || strategy_states[state_index].new_legs_blocked
@@ -400,6 +418,25 @@ pub fn run_kline_screening_with_funding(
                     )? {
                         state_index += 1;
                         continue;
+                    }
+                    // Round 7 Task C: Funding cost gate. Block new cycle if expected
+                    // funding cost exceeds threshold for this direction.
+                    let rl_c = &strategy_states[state_index].strategy.risk_limits;
+                    if let (Some(max_bps), Some(mode)) =
+                        (rl_c.max_expected_funding_cost_bps, rl_c.funding_side_bias_mode.as_deref())
+                    {
+                        if mode != "disabled" && max_bps > 0.0 {
+                            let sym = &strategy_states[state_index].strategy.symbol;
+                            let is_long = strategy_states[state_index].strategy.direction == MartingaleDirection::Long;
+                            if let Some(fr) = bar_funding_rate {
+                                // For longs: positive funding = longs pay (cost). For shorts: negative = shorts pay.
+                                let expected_cost_bps = if is_long { fr * 10_000.0 } else { -fr * 10_000.0 };
+                                if expected_cost_bps > max_bps {
+                                    state_index += 1;
+                                    continue;
+                                }
+                            }
+                        }
                     }
 
                     let margin = strategy_states[state_index].margins[0];
@@ -673,7 +710,64 @@ pub fn run_kline_screening_with_funding(
                             }
                         }
                         let margin = strategy_states[state_index].margins[next_leg_index];
-                        let notional = strategy_states[state_index].notionals[next_leg_index];
+                        let mut notional = strategy_states[state_index].notionals[next_leg_index];
+                        // Round 7 Task F: Safety order taper. Scale margin and notional
+                        // if taper_safety_after_leg is configured and current leg exceeds it.
+                        let rl_t = &strategy_states[state_index].strategy.risk_limits;
+                        if let (Some(taper_after), Some(taper_scale)) =
+                            (rl_t.taper_safety_after_leg, rl_t.taper_safety_scale)
+                        {
+                            if next_leg_index as u32 > taper_after && taper_scale > 0.0 && taper_scale < 1.0 {
+                                let scaled_margin = margin * taper_scale;
+                                let scaled_notional = notional * taper_scale;
+                                let entry_cost = trading_cost_quote(scaled_notional);
+                                total_fee_quote += entry_cost.fee_quote;
+                                total_slippage_quote += entry_cost.slippage_quote;
+                                let capital_required = scaled_margin + entry_cost.total();
+                                if let Some(reason) = budget_rejection_reason(
+                                    &portfolio,
+                                    &strategy_states,
+                                    state_index,
+                                    capital_used_quote,
+                                    capital_required,
+                                )? {
+                                    reject_budget(
+                                        &mut rejection_reasons,
+                                        &mut events,
+                                        bar,
+                                        &mut strategy_states[state_index],
+                                        reason,
+                                    );
+                                    state_index += 1;
+                                    continue;
+                                }
+                                let latest_atr_taper = latest_atr_for_strategy(
+                                    &mut indicator_context,
+                                    strategy_states[state_index].strategy,
+                                );
+                                add_leg(
+                                    &mut strategy_states[state_index],
+                                    next_leg_index,
+                                    bar.close,
+                                    scaled_margin,
+                                    scaled_notional,
+                                    latest_atr_taper,
+                                )?;
+                                capital_used_quote += capital_required;
+                                trade_count += 1;
+                                max_capital_used_quote = max_capital_used_quote.max(capital_used_quote);
+                                events.push(event(
+                                    bar,
+                                    &strategy_states[state_index],
+                                    "safety_order_tapered",
+                                    format!(
+                                        "leg_index={next_leg_index};taper_scale={taper_scale};margin_quote={scaled_margin};notional_quote={scaled_notional}"
+                                    ),
+                                ));
+                                state_index += 1;
+                                continue;
+                            }
+                        }
                         let entry_cost = trading_cost_quote(notional);
                         total_fee_quote += entry_cost.fee_quote;
                         total_slippage_quote += entry_cost.slippage_quote;
