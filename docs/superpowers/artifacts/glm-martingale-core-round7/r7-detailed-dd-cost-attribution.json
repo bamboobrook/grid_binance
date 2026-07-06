@@ -1,0 +1,287 @@
+{
+  "candidates": [
+    {
+      "candidate": "R3-lowdd",
+      "full": {
+        "ann": 34.46690110099322,
+        "dd": 17.77851143417809,
+        "ret": 175.04663021951293,
+        "min_eq": 4831.486911357952
+      },
+      "dd_windows": [
+        {
+          "peak_ts": 1760400540000,
+          "trough_ts": 1770336240000,
+          "dd_pct": 4.2508468247499716
+        },
+        {
+          "peak_ts": 1681669440000,
+          "trough_ts": 1686540240000,
+          "dd_pct": 3.3110060600713815
+        },
+        {
+          "peak_ts": 1722231120000,
+          "trough_ts": 1722856140000,
+          "dd_pct": 3.240782417369709
+        }
+      ],
+      "cost_attribution": {
+        "total_fee_quote": 402.65966924286215,
+        "total_funding_quote": 396.19528908565053,
+        "total_slippage_quote": 178.95985299680433,
+        "funding_pct_of_budget": 7.92,
+        "fee_pct_of_budget": 8.05,
+        "cost_share_of_gross_pct": 9.1
+      },
+      "segment_dd": {
+        "h1_2023": 6.270461222842244,
+        "h2_2023": 4.641104004740004,
+        "2024": 12.904281538357882,
+        "2025": 7.564601963115774,
+        "2026_ytd": 2.9642773207630038
+      },
+      "trade_count": 20542,
+      "stop_count": 10177,
+      "routes": [
+        "r7-C-cost-gate",
+        "r7-F-safety-freeze"
+      ]
+    },
+    {
+      "candidate": "R4-combo",
+      "full": {
+        "ann": 34.72332738972233,
+        "dd": 17.68431043895811,
+        "ret": 176.84271656782659,
+        "min_eq": 4825.76247873469
+      },
+      "dd_windows": [
+        {
+          "peak_ts": 1760400540000,
+          "trough_ts": 1770336240000,
+          "dd_pct": 5.686384616858164
+        },
+        {
+          "peak_ts": 1681669440000,
+          "trough_ts": 1686540240000,
+          "dd_pct": 4.511162562584911
+        },
+        {
+          "peak_ts": 1722231120000,
+          "trough_ts": 1722856140000,
+          "dd_pct": 4.302648774032835
+        }
+      ],
+      "cost_attribution": {
+        "total_fee_quote": 189.7064859456345,
+        "total_funding_quote": 407.1043480838863,
+        "total_slippage_quote": 84.31399375362119,
+        "funding_pct_of_budget": 8.14,
+        "fee_pct_of_budget": 3.79,
+        "cost_share_of_gross_pct": 6.7
+      },
+      "segment_dd": {
+        "h1_2023": 8.603290798678756,
+        "h2_2023": 6.373453394941965,
+        "2024": 16.850469790427226,
+        "2025": 10.041333309149714,
+        "2026_ytd": 3.843588990305946
+      },
+      "trade_count": 4758,
+      "stop_count": 2282,
+      "routes": [
+        "r7-C-cost-gate",
+        "r7-F-safety-freeze",
+        "r7-G-dynamic-blend"
+      ]
+    },
+    {
+      "candidate": "R5-fine",
+      "full": {
+        "ann": 49.93375255051822,
+        "dd": 26.31614359628543,
+        "ret": 298.9781927680373,
+        "min_eq": 4702.275023692884
+      },
+      "dd_windows": [
+        {
+          "peak_ts": 1760400540000,
+          "trough_ts": 1770336240000,
+          "dd_pct": 4.896683797759419
+        },
+        {
+          "peak_ts": 1681669440000,
+          "trough_ts": 1686540240000,
+          "dd_pct": 2.926147501149377
+        },
+        {
+          "peak_ts": 1722231120000,
+          "trough_ts": 1722856140000,
+          "dd_pct": 2.8620177454803244
+        }
+      ],
+      "cost_attribution": {
+        "total_fee_quote": 325.4788941760115,
+        "total_funding_quote": 704.6370014629189,
+        "total_slippage_quote": 144.65728630045152,
+        "funding_pct_of_budget": 14.09,
+        "fee_pct_of_budget": 6.51,
+        "cost_share_of_gross_pct": 6.9
+      },
+      "segment_dd": {
+        "h1_2023": 5.447075920052692,
+        "h2_2023": 4.109500361644773,
+        "2024": 11.540137965915864,
+        "2025": 6.657382315177374,
+        "2026_ytd": 3.400320362206012
+      },
+      "trade_count": 4764,
+      "stop_count": 2283,
+      "routes": [
+        "r7-C-cost-gate",
+        "r7-F-safety-freeze"
+      ]
+    },
+    {
+      "candidate": "R5-ANKR",
+      "full": {
+        "ann": 59.538564039439954,
+        "dd": 32.10852905146888,
+        "ret": 393.26204615943396,
+        "min_eq": 4702.992341925405
+      },
+      "dd_windows": [
+        {
+          "peak_ts": 1733460000000,
+          "trough_ts": 1744020660000,
+          "dd_pct": 5.752574963470117
+        },
+        {
+          "peak_ts": 1681820280000,
+          "trough_ts": 1686540240000,
+          "dd_pct": 5.320934643225845
+        },
+        {
+          "peak_ts": 1760400540000,
+          "trough_ts": 1770336240000,
+          "dd_pct": 5.18972569332852
+        }
+      ],
+      "cost_attribution": {
+        "total_fee_quote": 310.2550603801566,
+        "total_funding_quote": 677.3427234216283,
+        "total_slippage_quote": 137.89113794673614,
+        "funding_pct_of_budget": 13.55,
+        "fee_pct_of_budget": 6.21,
+        "cost_share_of_gross_pct": 5.0
+      },
+      "segment_dd": {
+        "h1_2023": 12.30117451135536,
+        "h2_2023": 5.336852401138343,
+        "2024": 15.698315262019158,
+        "2025": 6.007470364827658,
+        "2026_ytd": 3.4286734939283954
+      },
+      "trade_count": 367,
+      "stop_count": 49,
+      "routes": [
+        "r7-C-cost-gate",
+        "r7-G-dynamic-blend"
+      ]
+    },
+    {
+      "candidate": "R6-XRPQ",
+      "full": {
+        "ann": 55.79257746140775,
+        "dd": 25.03456870918222,
+        "ret": 354.8034790148496,
+        "min_eq": 4696.675740829778
+      },
+      "dd_windows": [
+        {
+          "peak_ts": 1761068640000,
+          "trough_ts": 1770336240000,
+          "dd_pct": 4.088594317771407
+        },
+        {
+          "peak_ts": 1733460000000,
+          "trough_ts": 1738589460000,
+          "dd_pct": 3.1952970216719367
+        },
+        {
+          "peak_ts": 1685872140000,
+          "trough_ts": 1686540240000,
+          "dd_pct": 3.0845289335000863
+        }
+      ],
+      "cost_attribution": {
+        "total_fee_quote": 281.72663479653374,
+        "total_funding_quote": 852.5894998851229,
+        "total_slippage_quote": 125.21183768735074,
+        "funding_pct_of_budget": 17.05,
+        "fee_pct_of_budget": 5.63,
+        "cost_share_of_gross_pct": 6.4
+      },
+      "segment_dd": {
+        "h1_2023": 6.487070956715958,
+        "h2_2023": 4.798517950520062,
+        "2024": 11.80008637583744,
+        "2025": 7.888252829757131,
+        "2026_ytd": 3.539304454093015
+      },
+      "trade_count": 2610,
+      "stop_count": 1208,
+      "routes": [
+        "r7-C-cost-gate",
+        "r7-F-safety-freeze"
+      ]
+    },
+    {
+      "candidate": "R6-QB",
+      "full": {
+        "ann": 33.95576129913201,
+        "dd": 18.033089447450983,
+        "ret": 171.49106713570654,
+        "min_eq": 4784.497764387619
+      },
+      "dd_windows": [
+        {
+          "peak_ts": 1760400540000,
+          "trough_ts": 1770336240000,
+          "dd_pct": 1.8986781512649227
+        },
+        {
+          "peak_ts": 1733395320000,
+          "trough_ts": 1741714560000,
+          "dd_pct": 1.308250224559733
+        },
+        {
+          "peak_ts": 1722231120000,
+          "trough_ts": 1722856140000,
+          "dd_pct": 1.2837810225081523
+        }
+      ],
+      "cost_attribution": {
+        "total_fee_quote": 328.2135092173367,
+        "total_funding_quote": 409.04068847472894,
+        "total_slippage_quote": 145.87267076326745,
+        "funding_pct_of_budget": 8.18,
+        "fee_pct_of_budget": 6.56,
+        "cost_share_of_gross_pct": 8.6
+      },
+      "segment_dd": {
+        "h1_2023": 2.300449348273066,
+        "h2_2023": 1.755037241695544,
+        "2024": 5.27921001900051,
+        "2025": 3.2875668522949217,
+        "2026_ytd": 1.2365981163812152
+      },
+      "trade_count": 11713,
+      "stop_count": 5752,
+      "routes": [
+        "r7-C-cost-gate",
+        "r7-F-safety-freeze"
+      ]
+    }
+  ]
+}

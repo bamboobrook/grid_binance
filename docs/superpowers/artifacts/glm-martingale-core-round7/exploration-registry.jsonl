@@ -1,0 +1,2 @@
+{"exploration_id":"r7-A-merge-registry-001","status":"completed","decision":"done","result":"29 do_not_repeat + 6 partial + 5 promising entries merged from R1-R6"}
+{"exploration_id":"r7-B-dd-cost-attribution-001","status":"completed","decision":"routes_found","result":"6 candidates attributed. Key finding: R6-XRPQ funding 17% of budget (highest), R5-ANKR 13.5%, R4-combo 8%. Routes: ALL → C(cost-gate), most → F(safety-freeze), R4+ANKR → G(blend). Segment DD: R4 worst in 2024 (16.9%), ANKR worst in h1_2023 (12.3%)."}
