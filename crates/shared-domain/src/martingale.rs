@@ -296,6 +296,20 @@ pub struct MartingaleRiskLimits {
     /// Round 6 Task C: Pause duration in hours after quarantine triggers.
     #[serde(default)]
     pub quarantine_pause_hours: Option<f64>,
+    /// Round 7 Task C: Block new cycle if expected funding cost in the lookback
+    /// window exceeds this many bps. None = disabled.
+    #[serde(default)]
+    pub max_expected_funding_cost_bps: Option<f64>,
+    /// Round 7 Task C: Mode for funding/fee cost gate.
+    /// "entry_only" = block new cycles, "entry_and_safety" = also block safety orders.
+    #[serde(default)]
+    pub funding_side_bias_mode: Option<String>,
+    /// Round 7 Task F: Taper safety orders after this leg index (scale by taper_safety_scale).
+    #[serde(default)]
+    pub taper_safety_after_leg: Option<u32>,
+    /// Round 7 Task F: Scale factor for tapered safety orders.
+    #[serde(default)]
+    pub taper_safety_scale: Option<f64>,
 }
 
 /// Round 6 Task B: A single drawdown state rule.
