@@ -21,3 +21,9 @@
   - This is a Python-only equity curve blend (no engine changes).
   - The allocator picks the best 30d performer among all 6 candidates using only prior data.
   - All score functions converge to the same allocation (the best 30d performer is consistent).
+
+## r7-D-turnover-quality (DEFERRED — depends on Task C engine logic)
+## r7-E-quarantine (DEFERRED — R6 quarantine already complete)
+## r7-F-safety-freeze-taper (DEFERRED — config-only, engine logic needed)
+## r7-H-parity (R5/R6/R7 features backtest-only, 4/4 R4 parity in trading-engine)
+## r7-I-final-validation (No target pass. See handoff.)
