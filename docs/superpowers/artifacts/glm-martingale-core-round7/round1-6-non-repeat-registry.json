@@ -1,0 +1,288 @@
+{
+  "generated_at_utc": "2026-07-03T00:00:00Z",
+  "total_do_not_repeat": 29,
+  "total_partial_or_missing": 6,
+  "total_promising": 5,
+  "do_not_repeat": [
+    {
+      "key": "R2-symbol_health_quarantine",
+      "round": "R2",
+      "family": "symbol_health_quarantine",
+      "decision": "rejected",
+      "result": "",
+      "allowed_reopen_condition": "Only with a new mechanism key not covered by this entry"
+    },
+    {
+      "key": "R2-inventory_skewed_portfolio",
+      "round": "R2",
+      "family": "inventory_skewed_portfolio",
+      "decision": "rejected",
+      "result": "",
+      "allowed_reopen_condition": "Only with a new mechanism key not covered by this entry"
+    },
+    {
+      "key": "R2-time_funding_window_gate",
+      "round": "R2",
+      "family": "time_funding_window_gate",
+      "decision": "rejected",
+      "result": "",
+      "allowed_reopen_condition": "Only with a new mechanism key not covered by this entry"
+    },
+    {
+      "key": "R2-recovery_reentry",
+      "round": "R2",
+      "family": "recovery_reentry",
+      "decision": "no_improvement",
+      "result": "On B-best structure: DD stops 16-30% + reclaim 0.25/0.5/0.75 don't improve over no-stop (ann 16.2%/DD 19.9%/4/5 pos = same as dd0). The B-best structure's peak DD is 19.0%, so stops >20% never fire. 1",
+      "allowed_reopen_condition": "Only with a new mechanism key not covered by this entry"
+    },
+    {
+      "key": "R2-symbol_health_diversification",
+      "round": "R2",
+      "family": "symbol_health_diversification",
+      "decision": "no_improvement",
+      "result": "base3short3lo(NEAR for AAVE) ann 16.3%/DD 19.9%/4/5 pos/agg+21.0 marginally higher ann but lower agg. long4/long4short4 (add ETH) WORSE (3/5,2/5 pos). Base6 remains best balanced. Symbol set variation",
+      "allowed_reopen_condition": "Only with a new mechanism key not covered by this entry"
+    },
+    {
+      "key": "R2-inventory_skew",
+      "round": "R2",
+      "family": "inventory_skew",
+      "decision": "no_improvement",
+      "result": "All cap variants (longcap 25-40, symcap 12-15) give identical results (ann 16.2/DD 19.9/4/5 pos) because per-leg positions are tiny (~500U) and never hit caps. Inventory skew via existing caps has no ",
+      "allowed_reopen_condition": "Only with a new mechanism key not covered by this entry"
+    },
+    {
+      "key": "R2-bounded_dgt_spacing",
+      "round": "R2",
+      "family": "bounded_dgt_spacing",
+      "decision": "rejected",
+      "result": "All non-150 spacing gives negative ann (-5 to -8%). 150bps remains optimal. DGT spacing variation rejected.",
+      "allowed_reopen_condition": "Only with a new mechanism key not covered by this entry"
+    },
+    {
+      "key": "R3-breadth_regime",
+      "round": "R3",
+      "family": "breadth_regime",
+      "decision": "no_improvement",
+      "result": "Best \u2248 P1 (ann 34.5%/DD 18-22.5%) but 2025 WORSE (-14.6 to -15.2 vs P1 -10.1). Breadth proxy (BTC ema/atr) doesn't help 2025 because 2025 bear is choppy not clean-trending. 2025 structural blocker con",
+      "allowed_reopen_condition": "Only with a new mechanism key not covered by this entry"
+    },
+    {
+      "key": "R3-custom_safety_ladder",
+      "round": "R3",
+      "family": "custom_safety_ladder",
+      "decision": "rejected",
+      "result": "fixed150 best (ann31.2/DD16.8). delayed_geo ann27.3. balanced_curve/front_light/shallow_fast all negative. Custom ladders don't beat fixed 150bps even with partial TP active.",
+      "allowed_reopen_condition": "Only with a new mechanism key not covered by this entry"
+    },
+    {
+      "key": "R3-premium_data_gate",
+      "round": "R3",
+      "family": "premium_data_gate",
+      "decision": "blocked",
+      "result": "No premium/mark/index/basis data exists locally. Binance endpoint requires large download + checksum. Blocked without user approval.",
+      "allowed_reopen_condition": "Only with a new mechanism key not covered by this entry"
+    },
+    {
+      "key": "R3-core_satellite_martingale",
+      "round": "R3",
+      "family": "core_satellite_martingale",
+      "decision": "no_improvement",
+      "result": "core80+boost20 = ann 35.0%/DD 22.5%. Slightly higher ann than P1-best (34.5%) but DD worse (22.5 vs 17.8). Boost sleeve adds return but at DD cost. P1-best remains better risk-adjusted.",
+      "allowed_reopen_condition": "Only with a new mechanism key not covered by this entry"
+    },
+    {
+      "key": "R4-long_gate_relaxation",
+      "round": "R4",
+      "family": "long_gate_relaxation",
+      "decision": "rejected",
+      "result": "ce200(close>ema200): ann32.8/DD18.7 but 2025 WORSE (-15.5 vs -10.1), 2026 negative (-17.3). ce50/ce100 worse. Relaxing long gate adds 2025/2026 bear losses > gains. 2025 BNB/TRX/BCH bull is choppy (DD",
+      "allowed_reopen_condition": "Only with a new mechanism key not covered by this entry"
+    },
+    {
+      "key": "R4-four_stage_partial_tp",
+      "round": "R4",
+      "family": "four_stage_partial_tp",
+      "decision": "no_improvement",
+      "result": "4stage_500_3200: ann34.0/DD31.2 (same ann, worse DD). 4stage_400_2800: ann14.8. baseline 3-stage (800/1600/2600): ann34.0/DD18.2 best. 4-stage TP doesn't improve.",
+      "allowed_reopen_condition": "Only with a new mechanism key not covered by this entry"
+    },
+    {
+      "key": "R4-range_regime_martingale",
+      "round": "R4",
+      "family": "range_regime_martingale",
+      "decision": "rejected",
+      "result": "Range sleeve (BB lower + ADX<18-26) gives ~0% in 2025 (21-225 trades, barely fires). 2025 volatility (62-73%) too high for ADX to drop below range threshold. Range sleeve cannot capture 2025 chop.",
+      "allowed_reopen_condition": "Only with a new mechanism key not covered by this entry"
+    },
+    {
+      "key": "R4-rebound_confirmed_safety_order",
+      "round": "R4",
+      "family": "rebound_confirmed_safety_order",
+      "decision": "no_improvement",
+      "result": "Best=rbNone baseline(ann34.0/DD18.2/4pos). rb20: ann32.6/DD18.0/2pos (pos drops). Larger rebounds \u2192 negative ann. Rebound delays safety execution, reducing ann without improving 2025. 208 tests pass.",
+      "allowed_reopen_condition": "Only with a new mechanism key not covered by this entry"
+    },
+    {
+      "key": "R5-loss_streak_risk_reduction",
+      "round": "R5",
+      "family": "loss_streak_risk_reduction",
+      "decision": "no_improvement",
+      "result": "Risk reduction has no effect on high-mult(3.1) path (ann stays 44.6% regardless of trigger/reduction). Only fires on mult2.8 where it reduces ann to 17.3%. The high-mult path doesn't have enough conse",
+      "allowed_reopen_condition": "Only with a new mechanism key not covered by this entry"
+    },
+    {
+      "key": "R5-same_symbol_hedged_grid",
+      "round": "R5",
+      "family": "same_symbol_hedged_grid",
+      "decision": "rejected",
+      "result": "Same-symbol hedge (long+short rsi<35/>65): ann 1-3%, too low. Hedge cancels directional profit. Not viable as core.",
+      "allowed_reopen_condition": "Only with a new mechanism key not covered by this entry"
+    },
+    {
+      "key": "R6-portfolio_drawdown_state_machine",
+      "round": "R6",
+      "family": "portfolio_drawdown_state_machine",
+      "decision": "no_effect",
+      "result": "14 candidates \u00d7 6 replays complete (89s). ALL candidates identical to baseline (ann59.5/dd32.1). The DD state machine rules parse correctly but do not affect results because: (1) the engine's portfoli",
+      "allowed_reopen_condition": "Only with a new mechanism key not covered by this entry"
+    },
+    {
+      "key": "R6-partial_tp_trailing_lock",
+      "round": "R6",
+      "family": "partial_tp_trailing_lock",
+      "decision": "no_effect_config_only",
+      "result": "18 candidates \u00d7 6 replays (107s). ALL identical to baseline. Config fields (trailing_lock_after_stage/activation_bps/callback_bps/floor_bps) parse correctly but engine doesn't implement the trailing l",
+      "allowed_reopen_condition": "Only with a new mechanism key not covered by this entry"
+    },
+    {
+      "key": "R6-safety_freeze_cancel",
+      "round": "R6",
+      "family": "safety_freeze_cancel",
+      "decision": "no_effect_config_only",
+      "result": "Same 18 candidates. freeze_safety_after_partial_tp_stage field parses but engine doesn't check it in the safety order placement path. Needs engine implementation to actually block safety legs after co",
+      "allowed_reopen_condition": "Only with a new mechanism key not covered by this entry"
+    },
+    {
+      "key": "R6-partial_tp_trailing_lock_engine_logic",
+      "round": "R6",
+      "family": "partial_tp_trailing_lock_engine_logic",
+      "decision": "no_dd_improvement",
+      "result": "Implemented full trailing lock engine logic (watermark tracking + giveback close + BE floor). Verified fires on XRP (trades 4988\u21925174-9593). 12 configs tested on XRP base (ann50.6/DD25.4). Best ann: t",
+      "allowed_reopen_condition": "Only with a new mechanism key not covered by this entry"
+    },
+    {
+      "key": "R6-r4_boost_high_mult_lastexec_ddstate",
+      "round": "R6",
+      "family": "r4_boost_high_mult_lastexec_ddstate",
+      "decision": "no_target_hit",
+      "result": "300 candidates \u00d7 6 replays (2097s). TARGET-HIT=0 NF-cons-dd=0. Best R4-boost: lm3.0sm1.6tp800vtNonedd0cd11 = ann41.6%/DD21.2%/4pos/2025-11.2%. DD 21.2% just above 20% balanced gate. No quarantine\u00d7fine",
+      "allowed_reopen_condition": "Only with a new mechanism key not covered by this entry"
+    },
+    {
+      "key": "regime-gate-grid",
+      "round": "R1",
+      "family": "regime_gate",
+      "decision": "rejected",
+      "result": "0/3276 passed segment gates",
+      "allowed_reopen_condition": "Only if gate is cycle-attribution-derived"
+    },
+    {
+      "key": "tight-sl-only",
+      "round": "R1",
+      "family": "tight_sl",
+      "decision": "rejected",
+      "result": "DD<=10% makes ann negative",
+      "allowed_reopen_condition": "Only paired with dynamic deal-size"
+    },
+    {
+      "key": "portfolio-stop-alone",
+      "round": "R1",
+      "family": "portfolio_stop",
+      "decision": "rejected",
+      "result": "Reduces DD but kills return",
+      "allowed_reopen_condition": "Only as live circuit breaker"
+    },
+    {
+      "key": "custom-ladder-rescan",
+      "round": "R2-R5",
+      "family": "custom_ladder",
+      "decision": "rejected",
+      "result": "fixed150 always best; custom near 0% under last-exec SO",
+      "allowed_reopen_condition": "Only with rebound/wick SO or range-regime sleeve"
+    },
+    {
+      "key": "same-symbol-hedge-grid",
+      "round": "R5",
+      "family": "hedged_grid",
+      "decision": "rejected",
+      "result": "400 candidates ann 0-4.5%",
+      "allowed_reopen_condition": "Only if hedge leg is capped martingale rescue"
+    },
+    {
+      "key": "long-gate-relaxation",
+      "round": "R4",
+      "family": "gate_relax",
+      "decision": "rejected",
+      "result": "Relaxing long gate worsens 2025/2026",
+      "allowed_reopen_condition": "Never without cycle-attribution proof"
+    },
+    {
+      "key": "btc-breadth-proxy",
+      "round": "R3",
+      "family": "breadth_regime",
+      "decision": "rejected",
+      "result": "BTC breadth worsened 2025",
+      "allowed_reopen_condition": "Only with cycle-derived health, not BTC-only"
+    }
+  ],
+  "partial_or_missing": [
+    {
+      "key": "r6-task-a-detail",
+      "issue": "R6 attribution had only segment summary, no symbol/leg state"
+    },
+    {
+      "key": "r6-task-e-safety-freeze-engine",
+      "issue": "Config-only, engine logic not fully implemented"
+    },
+    {
+      "key": "r6-task-d-trailing-lock-engine",
+      "issue": "Engine logic implemented but DD increased"
+    },
+    {
+      "key": "r6-task-f-dynamic-blend",
+      "issue": "Only static blend tested; dynamic allocator deferred"
+    },
+    {
+      "key": "r6-task-g-r5-r6-live-parity",
+      "issue": "R5/R6 features remain backtest-only"
+    },
+    {
+      "key": "r5-ankr-lowdd-result",
+      "issue": "Script committed but result never completed (superseded by R6)"
+    }
+  ],
+  "promising": [
+    {
+      "key": "r5-last-executed-so",
+      "result": "ann 44.6-59.5% depending on symbol/mult"
+    },
+    {
+      "key": "r5-vol-target",
+      "result": "marginal +0.5pp ann at same DD"
+    },
+    {
+      "key": "r6-quarantine-q1w24p24",
+      "result": "ann 55.8%/DD 25.0% on XRP (ann boost)"
+    },
+    {
+      "key": "r6-blend-ankr20-r460",
+      "result": "DD 19.4% (balanced DD gate) but ann 34.9%"
+    },
+    {
+      "key": "r6-blend-xrpq20-r460",
+      "result": "DD 18.0% (lowest DD with 4/5 pos) but ann 34.0%"
+    }
+  ]
+}
