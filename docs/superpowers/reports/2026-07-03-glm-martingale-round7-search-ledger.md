@@ -37,3 +37,13 @@
   - Funding gate (ft2-20): ann changes by ±0.2pp (funding rates ~1bps/event, rarely exceeds thresholds)
   - R4 candidates: unchanged (already low funding drag, taper legs not reached often)
 - **No config achieves ann>50 AND DD≤20 simultaneously.**
+
+## r7-DE-turnover-quarantine-001 (Task D+E: Turnover Quality + Attribution Quarantine)
+- Grid: 60 candidates (4 bases × 4 cooldowns + 6 quarantine + 4 combined) × 6 replays, 335s.
+- **RESULT: frontier improvement!** ANKR_q1w24p24 = ann **63.5%**, DD **28.2%**, 4/5 pos.
+  - ann UP from 59.5 to **63.5%** (+4pp) AND DD DOWN from 32.1 to **28.2%** (-3.9pp)!
+  - Quarantine q1w24p24 on ANKR improves BOTH dimensions simultaneously!
+  - fine_q1w24p24 = ann 55.2%/DD 25.9% (also improved)
+  - Cooldown variants: longer cooldown reduces ann (cd43200 → ann57.9/DD35.1)
+- TARGET-HIT=0 (no config achieves ann>50 AND DD≤20 simultaneously).
+- **Best new frontier: ANKR_q1w24p24 = ann 63.5%/DD 28.2%/4pos/2025 -17.8%**
