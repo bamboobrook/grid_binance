@@ -50,3 +50,19 @@
   - backtest-engine: 214 tests (188 lib + 3 probe + 23 splits), 0 failures
   - trading-engine: 195 tests across all binaries (incl. 2 new R9), 0 failures
 - Gap: trading-engine main.rs per-tick dispatch wiring is not yet connected to AllocatorState. The module is complete and parity-proven; live event-loop integration is the remaining follow-up.
+
+## r9-P3-multi-symbol-sleeve-library-001 (Task P3: Expand Multi-Symbol Sleeve Library)
+- Symbol universe: top 50 by quote volume with full 2023-2026 coverage (206 qualified)
+- Correlation ranking: 43 candidates ranked by max abs correlation to existing anchors (BNB/TRX/AAVE/SOL/DOT/BCH/ANKR/XRP)
+- Lowest-correlation candidates: PAXGUSDT (0.13), LPTUSDT (0.48), 1000LUNCUSDT (0.49), ZECUSDT (0.49), CFXUSDT (0.50)
+- Portfolio grid: 7 long/short cells × 3 max_sym_pct × 2 corr × 4 anchors × 3 first_order × 3 cooldown = 1512 specs
+- Each portfolio uses R4-combo's validated martingale parameters (mult 2.8 long / 1.8 short, partial TP ladder, ATR/ADX indicators, BTC trend gates) but varies the symbol set
+- Run: 1512 specs × 6 replays (full + 5 segments), 2261s
+- **RESULT: 520 evaluated (992 timed out on n8/n10 due to 600s per-portfolio limit), 0 promoted**
+- **KEY FINDING: 0/520 portfolios achieved 4/5 positive segments.** Best was 2/5 (n6_L5S1_ANKR-q: ann 35.0% / DD 31.9% / 2/5 pos).
+- Top by ann: n6_L3S3_ANKR-q fo30 cd86400: ann 47.3% / DD 36.1% / 1/5 pos
+- Best at DD<=20: n6_L4S2_R4 fo30 cd21600: ann 13.5% / DD 18.7% / 2/5 pos
+- Distinct symbols touched across all evaluated: 13 (BNBUSDT, TRXUSDT, BCHUSDT, AAVEUSDT, SOLUSDT, DOTUSDT, ANKRUSDT, XRPUSDT, PAXGUSDT, LPTUSDT, 1000LUNCUSDT, ZECUSDT, CFXUSDT)
+- **Conclusion: R4-combo's 4/5 positive segments is NOT robust to symbol substitution.** None of 520 random multi-symbol portfolios using the same martingale parameters reproduced 4/5. The R4-combo result appears to benefit from specific symbol-period fit, not a generalizable martingale + multi-symbol property. This is a critical anti-overfitting finding.
+- Saved: r9-multi-symbol-sleeve-library.json
+- Non-repeat key: r9-multi-symbol-random-substitution-no-4of5-reproduction
