@@ -13,3 +13,7 @@
 ## r8-P3-dca-grid-reset-001 (Task P3: DCA Dynamic Grid Reset)
 - 148 candidates × 6 replays. Spacing variations (long 120-210, short 150-250, SO condition variants).
 - No target hit. Spacing variations don't improve over base configs.
+
+## r8-P4-cost-cover-rescue-001 (Task P4: Cost-Cover TP and Rescue Exit)
+- 96 candidates × 6 replays. max_cycle_age (72-336h) + no_progress_exit + BE stage variants.
+- No target hit. Active exits reduce DD slightly but reduce ann more.
