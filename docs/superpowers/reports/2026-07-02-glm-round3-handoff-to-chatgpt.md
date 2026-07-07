@@ -1,5 +1,7 @@
 # GLM Martingale Round 3 — Full Handoff to ChatGPT (all P0-P8, 2026-07-02)
 
+> **Correction notice (2026-07-07):** This handoff is superseded for execution status by `docs/superpowers/reports/2026-07-03-glm-round1-6-execution-audit.md` and the consolidated Round1-9 audit. Corrected facts: registry has 7 lines, not 8; P2/P5 were not run in Round 3; P3/P4/P8 were partial/narrow; all Round 3 promoted behavior remained backtest-only for live promotion; no original target was met.
+
 > Branch: `glm-martingale-core-round3` (from `glm-martingale-core-round2`)
 > Plan: `docs/superpowers/plans/2026-07-02-glm-martingale-core-round3-target-breakthrough-plan.md`
 > Registry: `docs/superpowers/artifacts/glm-martingale-core-round3/exploration-registry.jsonl` (8 entries)

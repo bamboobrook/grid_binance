@@ -1,6 +1,6 @@
 {
   "label": "r9-P5-winner-lb60-rb7-calmar-hi0.2-lo0.2",
-  "description": "Round 9 best research allocator. 5 sleeves (ANKR-q, QB, R4, fine, p4-ANKR-q-rp10-fos05). 60d lookback, 7d rebalance, calmar_like score, max_hi=0.2, min_lo=0.2, no cash trigger. Forward-only timing (no current-interval leak). live_ready=True via Rust allocator_replay module.",
+  "description": "Round 9 best research allocator. 5 sleeves (ANKR-q, QB, R4, fine, p4-ANKR-q-rp10-fos05). 60d lookback, 7d rebalance, calmar_like score, max_hi=0.2, min_lo=0.2, no cash trigger. Forward-only timing (no current-interval leak). Allocator Rust module is tested, but trading-engine main.rs per-tick dispatch is not wired, so this is not fully live-ready.",
   "metrics": {
     "annualized_return_pct": 64.4196,
     "max_drawdown_pct": 18.2111,
@@ -8,11 +8,31 @@
     "positive_segments": "5/5 (all segments positive including 2025 +5.12%)"
   },
   "segment_metrics": {
-    "h1_2023": {"ann": 19.646, "dd": 4.6387, "ret": 9.2942},
-    "h2_2023": {"ann": 11.4772, "dd": 1.7118, "ret": 5.625},
-    "2024": {"ann": 15.5062, "dd": 4.9091, "ret": 15.5379},
-    "2025": {"ann": 5.1231, "dd": 3.9053, "ret": 5.1187},
-    "2026_ytd": {"ann": 0.7871, "dd": 3.7386, "ret": 0.3247}
+    "h1_2023": {
+      "ann": 19.646,
+      "dd": 4.6387,
+      "ret": 9.2942
+    },
+    "h2_2023": {
+      "ann": 11.4772,
+      "dd": 1.7118,
+      "ret": 5.625
+    },
+    "2024": {
+      "ann": 15.5062,
+      "dd": 4.9091,
+      "ret": 15.5379
+    },
+    "2025": {
+      "ann": 5.1231,
+      "dd": 3.9053,
+      "ret": 5.1187
+    },
+    "2026_ytd": {
+      "ann": 0.7871,
+      "dd": 3.7386,
+      "ret": 0.3247
+    }
   },
   "allocator_params": {
     "lookback_days": 60,
@@ -30,14 +50,27 @@
     "fine": "docs/superpowers/artifacts/glm-martingale-core-round5/promising/r5-fine-combo-best.json",
     "p4-ANKR-q-rp10-fos05": "docs/superpowers/artifacts/glm-martingale-core-round9/promising/p4-ANKR-q-rp10-fos05.json"
   },
-  "traded_symbols": ["AAVEUSDT", "ANKRUSDT", "BCHUSDT", "BNBUSDT", "DOTUSDT", "SOLUSDT", "TRXUSDT", "XRPUSDT"],
-  "indicator_only_dependencies": ["BTCUSDT"],
-  "live_ready": true,
+  "traded_symbols": [
+    "AAVEUSDT",
+    "ANKRUSDT",
+    "BCHUSDT",
+    "BNBUSDT",
+    "DOTUSDT",
+    "SOLUSDT",
+    "TRXUSDT",
+    "XRPUSDT"
+  ],
+  "indicator_only_dependencies": [
+    "BTCUSDT"
+  ],
+  "live_ready": false,
   "live_parity_module": "apps/backtest-engine/src/martingale/allocator_replay.rs",
-  "live_parity_status": "Allocator module complete and tested (3 backtest + 2 trading-engine tests pass). Gap: trading-engine main.rs per-tick dispatch wiring not yet connected.",
+  "live_parity_status": "Allocator module complete and tested (3 backtest + 2 trading-engine tests pass). Full live deployment still requires trading-engine main.rs per-tick dispatch wiring; until then this candidate is research/backtest-valid but not fully live-ready.",
   "target_assessment": {
     "conservative": "NOT MET (ann 64.4 > 50 PASS, DD 18.2 > 10 FAIL, segs 5/5 PASS)",
     "balanced": "NOT MET (ann 64.4 < 90 FAIL, DD 18.2 <= 20 PASS, segs 5/5 PASS)",
     "aggressive": "NOT MET (ann 64.4 < 110 FAIL, DD 18.2 <= 30 PASS, segs 5/5 PASS)"
-  }
+  },
+  "live_module_ready": true,
+  "live_deployable": false
 }

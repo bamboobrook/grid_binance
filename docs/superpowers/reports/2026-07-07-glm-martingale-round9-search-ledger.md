@@ -58,7 +58,7 @@
 - Portfolio grid: 7 long/short cells × 3 max_sym_pct × 2 corr × 4 anchors × 3 first_order × 3 cooldown = 1512 specs
 - Each portfolio uses R4-combo's validated martingale parameters (mult 2.8 long / 1.8 short, partial TP ladder, ATR/ADX indicators, BTC trend gates) but varies the symbol set
 - Run: 1512 specs × 6 replays (full + 5 segments), 2261s
-- **RESULT: 520 evaluated (992 timed out on n8/n10 due to 600s per-portfolio limit), 0 promoted**
+- **INITIAL RESULT, SUPERSEDED BY BACKFILL BELOW: 520 evaluated (992 timed out on n8/n10 due to 600s per-portfolio limit), 0 promoted**
 - **KEY FINDING: 0/520 portfolios achieved 4/5 positive segments.** Best was 2/5 (n6_L5S1_ANKR-q: ann 35.0% / DD 31.9% / 2/5 pos).
 - Top by ann: n6_L3S3_ANKR-q fo30 cd86400: ann 47.3% / DD 36.1% / 1/5 pos
 - Best at DD<=20: n6_L4S2_R4 fo30 cd21600: ann 13.5% / DD 18.7% / 2/5 pos
@@ -102,16 +102,17 @@
 - **RESULT: 0 target hits. BEST at DD<=20: ann 64.42% / DD 18.21% / 5/5 positive segments**
   - Identical to P1 best (adding the 5th sleeve did not improve; the p4-reserve variant is too correlated with ANKR-q)
   - 5/5 positive segments (2025 = +5.12% — allocator keeps all segments positive)
-  - 8 traded symbols, live_ready=True (Rust allocator module exists from P2)
+  - 8 traded symbols, live_module_ready=True but full live_ready=False (`trading-engine main.rs` per-tick dispatch not wired)
 - 0 configs at DD<=10 (conservative gate) — confirms DD<=10 unreachable at any ann level
 - Distinct (ann,dd,ret) tuples: 49 / 3888 rows
 - Saved: r9-expanded-allocator-grid.json
 - Non-repeat key: r9-5th-sleeve-correlated-no-improvement-same-64.4-18.2-5of5
 
 ### Round 9 Final Frontier Summary
-- BEST RESEARCH (allocator): ann 64.42% / DD 18.21% / 5/5 positive segments / 8 symbols / live_ready=True (Rust module)
+- BEST RESEARCH (allocator): ann 64.42% / DD 18.21% / 5/5 positive segments / 8 symbols / live_module_ready=True, full live_ready=False
 - BEST LIVE-READY single sleeve: R4-combo ann 34.7% / DD 17.7% / 4/5 pos
 - 3 targets (conservative/balanced/aggressive) all NOT MET:
   - Conservative: DD floor at ~18% (cannot reach 10%)
   - Balanced: ann 64% (cannot reach 90%)
   - Aggressive: ann 64% (cannot reach 110%)
+- Architecture impossibility cannot be claimed: P1/P3/P4/P5 searches are complete, but P2 full live reproducibility is partial because `trading-engine main.rs` per-tick dispatch is not wired.

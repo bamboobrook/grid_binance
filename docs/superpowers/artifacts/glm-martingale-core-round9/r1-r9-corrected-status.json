@@ -1,0 +1,115 @@
+{
+  "generated_at": "2026-07-07",
+  "purpose": "Canonical corrected status for GLM martingale rounds 1-9 after audit and repair.",
+  "hard_targets": {
+    "conservative": {"ann_min_pct": 50.0, "max_dd_pct": 10.0, "budget_max_usdt": 5000, "multi_symbol": true, "live_reproducible": true},
+    "balanced": {"ann_min_pct": 90.0, "max_dd_pct": 20.0, "budget_max_usdt": 5000, "multi_symbol": true, "live_reproducible": true},
+    "aggressive": {"ann_min_pct": 110.0, "max_dd_pct": 30.0, "budget_max_usdt": 5000, "multi_symbol": true, "live_reproducible": true}
+  },
+  "target_hits": {
+    "conservative": [],
+    "balanced": [],
+    "aggressive": []
+  },
+  "best_research_candidate": {
+    "round": 9,
+    "label": "r9-P5-winner-lb60-rb7-calmar-hi0.2-lo0.2",
+    "annualized_return_pct": 64.4196,
+    "max_drawdown_pct": 18.2111,
+    "positive_segments": "5/5",
+    "budget_usdt": 5000,
+    "traded_symbols": ["AAVEUSDT", "ANKRUSDT", "BCHUSDT", "BNBUSDT", "DOTUSDT", "SOLUSDT", "TRXUSDT", "XRPUSDT"],
+    "live_module_ready": true,
+    "fully_live_ready": false,
+    "not_live_ready_reason": "Allocator Rust module is tested, but trading-engine main.rs per-tick dispatch is not wired."
+  },
+  "best_fully_live_ready_candidate": {
+    "round": 4,
+    "label": "R4-combo",
+    "annualized_return_pct": 34.72332738972233,
+    "max_drawdown_pct": 17.68431043895811,
+    "positive_segments": "4/5",
+    "fully_live_ready": true,
+    "target_status": "misses all return targets"
+  },
+  "rounds": [
+    {
+      "round": 1,
+      "status": "usable_baseline_only",
+      "target_hit": false,
+      "corrected_by": ["docs/superpowers/reports/2026-07-03-glm-round1-6-execution-audit.md"],
+      "repairs_applied_2026_07_07": ["Added correction notice to Round 1 handoff."],
+      "remaining_gaps": ["Some planned evidence/index files are missing or renamed."]
+    },
+    {
+      "round": 2,
+      "status": "usable_research_frontier",
+      "target_hit": false,
+      "corrected_by": ["docs/superpowers/reports/2026-07-03-glm-round1-6-execution-audit.md"],
+      "repairs_applied_2026_07_07": ["Added correction notice to Round 2 handoff."],
+      "remaining_gaps": ["Registry count is 11, not 8.", "Direction H has no dedicated full-grid artifact.", "Promoted features were not fully live-ready at handoff time."]
+    },
+    {
+      "round": 3,
+      "status": "usable_research_frontier",
+      "target_hit": false,
+      "corrected_by": ["docs/superpowers/reports/2026-07-03-glm-round1-6-execution-audit.md"],
+      "repairs_applied_2026_07_07": ["Added correction notice to Round 3 handoff."],
+      "remaining_gaps": ["Registry count is 7, not 8.", "P2 and P5 were not run in Round 3.", "Several branches were partial/narrow."]
+    },
+    {
+      "round": 4,
+      "status": "best_fully_live_ready_sleeve_found_but_targets_missed",
+      "target_hit": false,
+      "corrected_by": ["docs/superpowers/reports/2026-07-03-glm-round1-6-execution-audit.md"],
+      "repairs_applied_2026_07_07": ["Added correction notices to Round 4 handoff, final handoff, and final report."],
+      "remaining_gaps": ["Round4-only impossibility language is superseded by later rounds.", "Premium/index/mark branch was partial."]
+    },
+    {
+      "round": 5,
+      "status": "usable_research_frontier_high_return_high_dd",
+      "target_hit": false,
+      "corrected_by": ["docs/superpowers/reports/2026-07-03-glm-round1-6-execution-audit.md"],
+      "repairs_applied_2026_07_07": ["Added correction notice to Round 5 handoff."],
+      "remaining_gaps": ["R5 features remained backtest-only for live promotion.", "ANKR low-DD script had no Round 5 result artifact."]
+    },
+    {
+      "round": 6,
+      "status": "partially_executed_dd_compression",
+      "target_hit": false,
+      "corrected_by": ["docs/superpowers/reports/2026-07-03-glm-round1-6-execution-audit.md"],
+      "repairs_applied_2026_07_07": ["Added correction notice to Round 6 handoff."],
+      "remaining_gaps": ["Registry count is 13, not 8.", "Task E safety-order freeze had no real engine effect.", "Dynamic blend and live parity remained incomplete."]
+    },
+    {
+      "round": 7,
+      "status": "usable_backtest_frontier_not_live_ready",
+      "target_hit": false,
+      "corrected_by": ["docs/superpowers/reports/2026-07-07-glm-round7-execution-audit-and-recheck.md"],
+      "repairs_applied_2026_07_07": ["Added correction notice to Round 7 handoff."],
+      "remaining_gaps": ["ANKR_q1w24p24 is multi-symbol but not fully live-ready.", "R5-R7 live parity remains incomplete."]
+    },
+    {
+      "round": 8,
+      "status": "superseded_by_round9_allocator_repair",
+      "target_hit": false,
+      "corrected_by": ["docs/superpowers/reports/2026-07-07-glm-round8-execution-audit-and-recheck.md", "docs/superpowers/artifacts/glm-martingale-core-round9/r9-round8-correction.json"],
+      "repairs_applied_2026_07_07": ["Added correction notice to Round 8 handoff.", "Round 9 repaired allocator timing, parameter binding, traded_symbols, and per-segment replay."],
+      "remaining_gaps": ["Round 8 P2 timing leak makes original P2 metrics non-canonical.", "No architecture impossibility was proven."]
+    },
+    {
+      "round": 9,
+      "status": "best_research_frontier_module_ready_not_fully_live_ready",
+      "target_hit": false,
+      "corrected_by": ["docs/superpowers/reports/2026-07-07-glm-round9-execution-audit-and-fix.md"],
+      "repairs_applied_2026_07_07": ["Corrected stale head commit.", "Corrected live_ready=true to live_ready=false/live_module_ready=true.", "Recorded P3 1512/1512 backfill completion.", "Marked architecture impossibility as not proven."],
+      "remaining_gaps": ["Wire AllocatorState into trading-engine main.rs per-tick dispatch.", "Explore fundamentally different martingale sleeve architectures."]
+    }
+  ],
+  "non_repeat_summary": [
+    "Do not use old handoff registry counts without checking corrected audit files.",
+    "Do not treat Python or module-only allocators as fully live-ready.",
+    "Do not count single-symbol or high-idiosyncratic-risk diagnostics as target hits.",
+    "Do not repeat Round 8 leaky allocator timing or Round 9 random symbol substitution family."
+  ]
+}

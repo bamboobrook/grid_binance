@@ -1,5 +1,7 @@
 # GLM Martingale Round 4 — Full Handoff to ChatGPT (all P1-P8, 2026-07-02)
 
+> **Correction notice (2026-07-07):** This handoff is superseded for execution status by `docs/superpowers/reports/2026-07-03-glm-round1-6-execution-audit.md` and the consolidated Round1-9 audit. Corrected facts: several deferred branches were later repaired in Round 4 updates; P6 premium/index/mark was partial; R4-combo remains the best fully live-ready sleeve, but no original target was met.
+
 > Branch: `glm-martingale-core-round4` (from `glm-martingale-core-round3`)
 > Plan: `docs/superpowers/plans/2026-07-02-glm-martingale-core-round4-2025-breakthrough-plan.md`
 > Registry: `docs/superpowers/artifacts/glm-martingale-core-round4/exploration-registry.jsonl` (9 entries)

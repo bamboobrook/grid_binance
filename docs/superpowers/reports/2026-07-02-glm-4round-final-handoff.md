@@ -1,6 +1,8 @@
 # GLM Martingale 4-Round Final Handoff (2026-07-02)
 
-> **状态：收益目标在马丁核心约束下经4轮穷尽确认结构性不可达。需要用户决策。**
+> **Correction notice (2026-07-07):** This final handoff is superseded by later Round5-9 work and the consolidated Round1-9 audit. Treat the "结构性不可达" statement as a Round4-only interim conclusion, not a final proof. Later rounds improved the research frontier but still did not meet the original targets.
+
+> **状态（已废弃）:** 四轮内未达目标；后续 Round5-9 已继续探索并 supersede 本结论。
 
 ## 四轮进展轨迹
 
@@ -62,7 +64,7 @@
 
 ## 需要用户决策
 
-收益目标(50/90/110%)在马丁核心约束下经4轮穷尽后确认结构性不可达。2025从-18.2%逐轮改善到-8.70%，但仍为负。请决策：
+【原文已由顶部 Correction notice 废弃】四轮内未达收益目标(50/90/110%)。2025从-18.2%逐轮改善到-8.70%，但仍为负。以下决策项仅作为历史记录：
 
 **(A) 授权引入非马丁辅助sleeve**（纯趋势/突破作为辅助收益源）— 能突破ann天花板但改变策略性质
 

@@ -1,5 +1,7 @@
 # GLM Martingale Core 四轮搜索最终汇报与交接文档
 
+> **Correction notice (2026-07-07):** This "最终" report is superseded by later Round5-9 work and by `docs/superpowers/reports/2026-07-03-glm-round1-6-execution-audit.md`. Treat any "结构性不可达" language here as a Round4-only interim conclusion, not a final proof. R4-combo remains the best fully live-ready sleeve, but later research allocators improved the research frontier and still missed the original targets.
+
 > 日期：2026-07-02
 > 分支链：`glm-martingale-core-indicator-expansion` → `round2` → `round3` → `round4`
 > 总提交：~75 commits（round4分支），全部推送
@@ -154,7 +156,7 @@ target/release/portfolio_budget_replay \
 
 ## 七、交接建议
 
-收益目标(50/90/110%)在马丁核心约束下经4轮穷尽后确认结构性不可达。建议：
+【原文已由顶部 Correction notice 废弃】四轮内未达收益目标(50/90/110%)；以下建议仅作为历史记录：
 
 1. **接受r4-combo-best作为可部署组合**：ann 34.7%/DD 17.7%/4段正/完整live-parity。这是马丁核心在所有约束下的真实最优frontier。
 2. **如需突破收益目标**：需授权引入非马丁辅助sleeve（纯趋势/突破），或放宽收益/回撤门禁。

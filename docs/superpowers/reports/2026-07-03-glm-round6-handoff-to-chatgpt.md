@@ -1,5 +1,7 @@
 # GLM Martingale Round 6 DD Compression Handoff to ChatGPT (2026-07-03)
 
+> **Correction notice (2026-07-07):** This handoff is superseded for execution status by `docs/superpowers/reports/2026-07-03-glm-round1-6-execution-audit.md` and the consolidated Round1-9 audit. Corrected facts: registry has 13 lines, not 8; Task B was repaired after an initial flawed run; Tasks C/D/F were partial/narrow; Task E did not implement real engine logic; Task G live parity remained incomplete; no original target was met.
+
 ## 1. Branch and Commit
 - Branch: `glm-martingale-core-round6` (from `glm-martingale-core-round5`)
 

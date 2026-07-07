@@ -1,5 +1,7 @@
 # GLM Martingale Round 2 — Full Handoff to ChatGPT (all 8 directions, 2026-07-02)
 
+> **Correction notice (2026-07-07):** This handoff is superseded for execution status by `docs/superpowers/reports/2026-07-03-glm-round1-6-execution-audit.md` and the consolidated Round1-9 audit. Corrected facts: registry has 11 lines, not 8; Direction H lacks a dedicated full-grid artifact; Round 2 features were later identified as backtest-only for live promotion until parity work; no original target was met.
+
 > Branch: `glm-martingale-core-round2` (from `glm-martingale-core-indicator-expansion`)
 > Plan: `docs/superpowers/plans/2026-07-02-glm-martingale-core-round2-exhaustive-search-plan.md`
 > Registry: `docs/superpowers/artifacts/glm-martingale-core-round2/exploration-registry.jsonl` (8 entries)

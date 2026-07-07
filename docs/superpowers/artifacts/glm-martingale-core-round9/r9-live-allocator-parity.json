@@ -3,7 +3,7 @@
   "task": "P2",
   "title": "Live-Reproducible Portfolio Allocator Parity",
   "module": "apps/backtest-engine/src/martingale/allocator_replay.rs",
-  "summary": "Pure Rust port of the Round 9 repaired Python allocator. Forward-only timing, weight-capped eligibility, live runtime state for trading-engine integration.",
+  "summary": "Pure Rust port of the Round 9 repaired Python allocator. Forward-only timing, weight-capped eligibility, and runtime state are tested; live event-loop wiring remains incomplete.",
   "invariants_proven": {
     "forward_only_timing": "Rebalance at ts only affects intervals AFTER ts. The interval [prev_ts, ts] is attributed to the previously active sleeve. Verified by allocator_switch_uses_completed_interval_only.",
     "weight_params_bind": "max_high_ann_weight excludes high-ann sleeves when set to 0; min_low_dd_weight forces low-DD sleeve eligibility when > 0. Output allocation changes when these params toggle. Verified by allocator_respects_max_high_ann_and_min_low_dd_weights.",
@@ -44,6 +44,9 @@
     "backtest_engine_allocator": "complete_and_tested",
     "trading_engine_state_module": "complete_and_tested",
     "trading_engine_main_loop_wiring": "not_yet_wired (module ready; integration is follow-up)",
-    "verdict": "Allocator logic has live parity: the same forward-only, weight-capped, no-force-close semantics are implemented and tested in both engines. The trading-engine can host the allocator via AllocatorState; only the per-tick dispatch wiring in main.rs remains."
+    "verdict": "Allocator semantics are implemented and tested in Rust modules, but full live reproducibility is NOT complete because trading-engine main.rs does not wire AllocatorState into per-tick dispatch.",
+    "full_live_ready": false,
+    "live_module_ready": true,
+    "remaining_gap": "Wire AllocatorState into trading-engine main.rs per-tick decision loop before any allocator candidate can be claimed live-ready."
   }
 }

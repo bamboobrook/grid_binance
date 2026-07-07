@@ -1,5 +1,7 @@
 # GLM Martingale Core — Detailed Handoff to ChatGPT (2026-07-02)
 
+> **Correction notice (2026-07-07):** This Round 1 handoff is superseded for execution status by `docs/superpowers/reports/2026-07-03-glm-round1-6-execution-audit.md` and the consolidated Round1-9 audit. Corrected facts: some planned evidence/index files are missing or renamed; Round 1 produced a usable baseline but no target hit; later rounds supersede any frontier or ceiling language here.
+
 > Branch: `glm-martingale-core-indicator-expansion` (24 commits, all pushed)
 > Goal: 小资金(<5000U) + 多币种 + 抗过拟合 + 年化>50%(保守)/>90%(平衡)/>110%(激进)
 > Constraint: 必须以马丁策略为基础，其他指标只辅助；必须实盘可复现(live-parity)

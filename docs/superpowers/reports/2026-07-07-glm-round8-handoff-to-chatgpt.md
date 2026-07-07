@@ -1,5 +1,7 @@
 # GLM Martingale Core Round 8 — Final Handoff to ChatGPT
 
+> **Correction notice (2026-07-07):** This handoff is superseded by `docs/superpowers/reports/2026-07-07-glm-round8-execution-audit-and-recheck.md`, `docs/superpowers/artifacts/glm-martingale-core-round9/r9-round8-correction.json`, and the consolidated Round1-9 audit. Corrected facts: P2 had current-interval timing leakage and lacked true per-candidate segment validation; registry has 5 lines, not 7; P0/P1 were partial; P3/P4 were narrower than planned; no architecture impossibility was proven; no original target was met.
+
 **Date:** 2026-07-07
 **Branch:** `glm-martingale-core-indicator-expansion`
 **Plan:** `docs/superpowers/plans/2026-07-07-glm-martingale-core-round8-live-parity-and-regime-rescue-plan.md`
@@ -10,7 +12,7 @@
 
 ## TL;DR — Round 8 交付结论
 
-**全部 6 个任务 (P0–P6) 已完整执行 (无任何快筛, 每个候选都跑完整 5 段回测)。**
+**原始完整执行声明已被 2026-07-07 审计废弃；以顶部 Correction notice、Round8 audit 和 Round9 修复结果为准。**
 
 **最大成果 (跨 8 轮历史最好):**
 - **R8 P2 突破**: ann **62.0%** / DD **18.2%** — **首次同时达到 ann>50 AND DD≤20**
@@ -24,7 +26,7 @@
 | 平衡 (ann>90/DD≤20/4+pos) | 62.0 ❌ | 18.2 ✅ | 4/5 ✅ | **未达 (ann 差 28pp)** |
 | 激进 (ann>110/DD≤30/3+pos) | 62.0 ❌ | 18.2 ✅ | 4/5 ✅ | **未达 (ann 差 48pp)** |
 
-**结论**: 在 5000U 预算 + 多币种 + 严格抗过拟合 (5 段验证) 的硬约束下, 8 轮 90+ 次探索后, **ann/DD Pareto 前沿的边界已基本探明**: ann ~62-65% / DD ~18-28% 是当前架构可达的实际上限。**三个目标在当前预算与架构下不可同时满足**, 详细分析见下文。
+**校正后结论**: R8 P2 是 research-only 近前沿, 后续已由 R9 修复时序与分段验证。R8 不能证明架构不可达, 也不能作为目标命中或 fully live-ready 结果。
 
 ---
 
@@ -41,7 +43,7 @@
 | P6: 最终验证 + 交接 | ✅ DONE | - | - | 本文档 |
 
 **总回测次数 (Round 8):** ~32,592 次 (主要是 P2 的 5184×6)
-**所有任务均完整执行, 无快筛, 无遗漏。**
+**该完整执行声明已被审计废弃：P0/P1/P3/P4/P6 均有不同程度的证据或范围问题。**
 
 ---
 

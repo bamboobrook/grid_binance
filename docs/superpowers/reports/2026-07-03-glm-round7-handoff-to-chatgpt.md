@@ -1,5 +1,7 @@
 # GLM Martingale Round 7 Cost-Aware Gap Repair Handoff to ChatGPT
 
+> **Correction notice (2026-07-07):** This handoff is superseded by `docs/superpowers/reports/2026-07-07-glm-round7-execution-audit-and-recheck.md` and the consolidated Round1-9 audit. Corrected facts: registry has 11 lines, not 10; later repair commits changed Task C/F/D/E status; `ANKR_q1w24p24` is a multi-symbol portfolio, not a single-symbol target hit; R5-R7 live parity remained incomplete; no original target was met.
+
 ## 1. Branch and Commit
 - Branch: `glm-martingale-core-round7`
 

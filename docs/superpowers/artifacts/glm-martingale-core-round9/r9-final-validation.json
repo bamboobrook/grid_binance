@@ -1,7 +1,7 @@
 {
   "round": 9,
   "branch": "glm-martingale-core-round9",
-  "head_commit": "a63f3877a8affc33d920869102abe158cfdd912e",
+  "head_commit": "e60010e",
   "plan": "docs/superpowers/plans/2026-07-07-glm-martingale-core-round9-allocator-repair-and-sleeve-expansion-plan.md",
   "targets": {
     "conservative": {
@@ -56,8 +56,8 @@
       "symbol_count": 8,
       "max_symbol_budget_pct": 12.5,
       "max_symbol_gross_pnl_share_pct": null,
-      "live_ready": true,
-      "live_parity_module": "apps/backtest-engine/src/martingale/allocator_replay.rs",
+      "live_ready": false,
+      "live_parity_module": "apps/backtest-engine/src/martingale/allocator_replay.rs plus trading-engine AllocatorState tests",
       "segment_table": {
         "h1_2023": {
           "ann": 19.646,
@@ -84,7 +84,10 @@
           "dd": 3.7386,
           "ret": 0.3247
         }
-      }
+      },
+      "live_module_ready": true,
+      "live_deployable": false,
+      "live_status": "allocator Rust module tested; trading-engine main.rs per-tick dispatch not wired"
     }
   ],
   "best_live_ready": [
@@ -118,15 +121,15 @@
   "round8_repairs_closed": [
     "P0: Round 8 audit corrections recorded (7 invalid claims documented)",
     "P1: Allocator timing leak FIXED (forward-only). Weight params now bind. Real traded_symbols. True per-segment allocator replay. BEST at DD<=20 improved to ann 64.42%/DD 18.21%/5/5 pos (R8 leaky 62.0/18.2, corrected 60.4/18.2).",
-    "P2: Rust allocator module implemented (allocator_replay.rs). 3 invariants proven (forward-only, weight-bind, no-force-close). 5 tests pass (3 backtest + 2 trading-engine). Full suites: backtest-engine 211 pass, trading-engine 195 pass."
+    "P2: Rust allocator module implemented and tested, but trading-engine main.rs per-tick dispatch remains unwired; allocator candidate is not fully live-ready."
   ],
   "tasks_completed": {
     "P0_round8_correction": "DONE - 7 invalid claims documented, 4 candidate statuses corrected",
     "P1_allocator_semantics_repair": "DONE - 2916 non-dup rows, semantic validation PASS, ann 64.48%/DD 18.21%/5/5 pos",
-    "P2_live_allocator_parity": "DONE - Rust module + 5 tests pass (3 backtest-engine + 2 trading-engine). Full suites green.",
+    "P2_live_allocator_parity": "PARTIAL - Rust allocator module and tests pass; trading-engine main.rs per-tick dispatch wiring not complete",
     "P3_multi_symbol_sleeve_library": "DONE - 1512 specs ALL evaluated (520 original + 992 backfilled at 900s timeout, 0 skipped). 0 promoted. Critical anti-overfit finding CONFIRMED across complete sample.",
-    "P4_dca_reserve_stake_buffer": "DONE - 972 configs \u00d7 6 replays. 0 promoted. Reserve reduces DD but ann cost too high.",
-    "P5_expanded_allocator": "DONE - 3888 configs \u00d7 6 replays. 0 target hits. ann 64.42%/DD 18.21%/5/5 pos confirmed.",
+    "P4_dca_reserve_stake_buffer": "DONE - 972 configs × 6 replays. 0 promoted. Reserve reduces DD but ann cost too high.",
+    "P5_expanded_allocator": "DONE - 3888 configs × 6 replays. 0 target hits. ann 64.42%/DD 18.21%/5/5 pos confirmed.",
     "P6_final_validation": "DONE - this document + handoff"
   },
   "test_counts": {
@@ -135,10 +138,10 @@
     "total_new_tests_round9": "5 (3 backtest-engine allocator + 2 trading-engine allocator parity)"
   },
   "candidate_counts": {
-    "P1_allocator_repair": "2916 non-duplicate rows \u00d7 6 replays = 17496 replays",
-    "P3_multi_symbol": "1512 specs \u00d7 6 replays = 9072 replays (ALL 1512 completed full + 5 segments after backfill; 0 skipped)",
-    "P4_reserve_buffer": "972 configs \u00d7 6 replays = 5832 replays (all completed)",
-    "P5_expanded_allocator": "3888 configs \u00d7 6 replays = 23328 replays",
+    "P1_allocator_repair": "2916 non-duplicate rows × 6 replays = 17496 replays",
+    "P3_multi_symbol": "1512 specs × 6 replays = 9072 replays (ALL 1512 completed full + 5 segments after backfill; 0 skipped)",
+    "P4_reserve_buffer": "972 configs × 6 replays = 5832 replays (all completed)",
+    "P5_expanded_allocator": "3888 configs × 6 replays = 23328 replays",
     "total_round9_replays": 55728
   },
   "corrected_allocator_timing": {
@@ -160,13 +163,13 @@
     }
   },
   "target_verdict": {
-    "conservative": "NOT MET \u2014 DD floor at ~18% (cannot reach 10%) under any allocator config or sleeve combination. 0 configs at DD<=10 across all Round 9 searches.",
-    "balanced": "NOT MET \u2014 DD<=20 achieved (18.21%) but ann 64.42% is below 90% gate by 25.6pp. No config reached ann>=90 at DD<=20.",
-    "aggressive": "NOT MET \u2014 ann 64.42% is below 110% gate by 45.6pp. No config reached ann>=110 at any DD with segment stability."
+    "conservative": "NOT MET — research allocator ann 64.42% passes return but DD 18.21% exceeds 10%; fully live-ready R4-combo ann 34.72% also misses. 0 configs at DD<=10 across Round 9 allocator searches.",
+    "balanced": "NOT MET — research allocator DD<=20 achieved at 18.21%, but ann 64.42% is below 90% and candidate is not fully live-ready until main.rs dispatch is wired.",
+    "aggressive": "NOT MET — research allocator ann 64.42% is below 110% and candidate is not fully live-ready until main.rs dispatch is wired."
   },
   "architecture_impossibility_assessment": {
     "can_claim_impossibility": false,
-    "reason": "Plan section 10 says: 'Do not claim architecture impossibility unless P1-P5 are complete and independently verified.' P1-P5 ARE complete and verified, but the plan does not authorize an impossibility claim \u2014 it only authorizes handing off the repaired frontier and failed families. We hand off the verified frontier.",
+    "reason": "Plan section 10 says: 'Do not claim architecture impossibility unless P1-P5 are complete and independently verified.' P1/P3/P4/P5 search evidence is complete, but P2 full live reproducibility is only partial because trading-engine main.rs per-tick dispatch is not wired. Therefore we cannot claim architecture impossibility and cannot mark allocator candidates fully live-ready.",
     "what_is_proven": "Under 5000U budget with the current 4-sleeve (+1 P4 variant) library and the repaired allocator, the ann/DD Pareto frontier is ann ~64% / DD ~18% with 5/5 positive segments. No combination of multi-symbol substitution (P3), reserve scaling (P4), or expanded allocator params (P5) improved on this.",
     "what_is_not_proven": "Whether a fundamentally different martingale sleeve architecture (e.g., different TP models, different indicator gates, different direction modes) could break the frontier. Round 9 stayed within the R4-combo parameter family for sleeve construction."
   }

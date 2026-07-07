@@ -1,5 +1,7 @@
 # GLM Martingale Round 5 FINAL Handoff to ChatGPT (2026-07-03)
 
+> **Correction notice (2026-07-07):** This handoff is superseded for execution status by `docs/superpowers/reports/2026-07-03-glm-round1-6-execution-audit.md` and the consolidated Round1-9 audit. Corrected facts: Round 5 found the first ann >50% research candidate, but DD was too high; R5 new features remained backtest-only for live promotion; the later ANKR low-DD script had no Round 5 result artifact; no original target was met.
+
 ## 1. Branch and Commit
 - Branch: `glm-martingale-core-round5`
 - All commits pushed
