@@ -1,0 +1,285 @@
+{
+  "packages": [
+    {
+      "label": "R8-ANKR-q",
+      "config_path": "docs/superpowers/artifacts/glm-martingale-core-round7/promising/r7-ANKR-q1w24p24.json",
+      "budget": 5000,
+      "full_metrics": {
+        "ann": 63.51046213512199,
+        "dd": 28.197233976815543,
+        "ret": 436.4938993890554,
+        "max_cap": 1729.2803179982502,
+        "blocked": 24,
+        "trades": 377
+      },
+      "segment_metrics": {
+        "h1_2023": {
+          "ann": 431.82968697825964,
+          "dd": 28.197233976815543,
+          "ret": 129.03522469778167,
+          "max_cap": 1729.2803179982502,
+          "blocked": 9,
+          "trades": 145
+        },
+        "h2_2023": {
+          "ann": 10.215781130734136,
+          "dd": 25.10833450101211,
+          "ret": 5.025659104205406,
+          "max_cap": 1186.459038528488,
+          "blocked": 1,
+          "trades": 567
+        },
+        "2024": {
+          "ann": 62.32594759311312,
+          "dd": 33.649387079907925,
+          "ret": 62.54138343714206,
+          "max_cap": 880.0055067356936,
+          "blocked": 4,
+          "trades": 1315
+        },
+        "2025": {
+          "ann": -17.76698541394186,
+          "dd": 33.29166872247781,
+          "ret": -17.76695480915383,
+          "max_cap": 1179.0947279999998,
+          "blocked": 3,
+          "trades": 1983
+        },
+        "2026_ytd": {
+          "ann": 40.856629719133394,
+          "dd": 20.250999502769147,
+          "ret": 15.225520648054664,
+          "max_cap": 608.1042848999998,
+          "blocked": 2,
+          "trades": 488
+        }
+      },
+      "positive_segments": 4,
+      "agg_2024_2026": 59.99994927604289,
+      "traded_symbols": [
+        "TRXUSDT",
+        "SOLUSDT",
+        "ANKRUSDT",
+        "DOTUSDT",
+        "BNBUSDT",
+        "AAVEUSDT"
+      ],
+      "symbol_count": 6,
+      "max_symbol_budget_pct": 13.3,
+      "portfolio_candidate": true,
+      "live_ready": false,
+      "near_targets": []
+    },
+    {
+      "label": "R8-QB-lowdd",
+      "config_path": "docs/superpowers/artifacts/glm-martingale-core-round6/promising/r6-QB-best.json",
+      "budget": 5000,
+      "full_metrics": {
+        "ann": 33.95576129913201,
+        "dd": 18.033089447450983,
+        "ret": 171.49106713570654,
+        "max_cap": 708.8975544466006,
+        "blocked": 21,
+        "trades": 11713
+      },
+      "segment_metrics": {
+        "h1_2023": {
+          "ann": 53.870073486780235,
+          "dd": 18.033089447450983,
+          "ret": 23.824789349171333,
+          "max_cap": 708.8975544466006,
+          "blocked": 8,
+          "trades": 1484
+        },
+        "h2_2023": {
+          "ann": 6.868670884549832,
+          "dd": 16.205126451357934,
+          "ret": 3.405517521626607,
+          "max_cap": 372.63434054673814,
+          "blocked": 5,
+          "trades": 1853
+        },
+        "2024": {
+          "ann": 42.02933496147065,
+          "dd": 23.709421687949575,
+          "ret": 42.16583419412753,
+          "max_cap": 568.1225483999999,
+          "blocked": 13,
+          "trades": 3359
+        },
+        "2025": {
+          "ann": -10.619600552995612,
+          "dd": 24.119758873517988,
+          "ret": -10.619581461235938,
+          "max_cap": 728.4981411749997,
+          "blocked": 7,
+          "trades": 5868
+        },
+        "2026_ytd": {
+          "ann": 20.748268967827933,
+          "dd": 10.091778630626141,
+          "ret": 8.111991131138929,
+          "max_cap": 383.664598275,
+          "blocked": 5,
+          "trades": 1454
+        }
+      },
+      "positive_segments": 4,
+      "agg_2024_2026": 39.65824386403052,
+      "traded_symbols": [
+        "BCHUSDT",
+        "TRXUSDT",
+        "SOLUSDT",
+        "DOTUSDT",
+        "XRPUSDT",
+        "BNBUSDT",
+        "AAVEUSDT"
+      ],
+      "symbol_count": 7,
+      "max_symbol_budget_pct": 7.98,
+      "portfolio_candidate": true,
+      "live_ready": false,
+      "near_targets": []
+    },
+    {
+      "label": "R8-R4-combo",
+      "config_path": "docs/superpowers/artifacts/glm-martingale-core-round4/promising/r4-combo-best.json",
+      "budget": 5000,
+      "full_metrics": {
+        "ann": 34.72332738972233,
+        "dd": 17.68431043895811,
+        "ret": 176.84271656782659,
+        "max_cap": 707.6237697683999,
+        "blocked": 19,
+        "trades": 4758
+      },
+      "segment_metrics": {
+        "h1_2023": {
+          "ann": 58.892151493366555,
+          "dd": 17.68431043895811,
+          "ret": 25.812673696752825,
+          "max_cap": 707.6237697683999,
+          "blocked": 6,
+          "trades": 571
+        },
+        "h2_2023": {
+          "ann": 7.081598990952087,
+          "dd": 14.29435448525801,
+          "ret": 3.5093265742826043,
+          "max_cap": 343.1790648299999,
+          "blocked": 2,
+          "trades": 1235
+        },
+        "2024": {
+          "ann": 31.84610507319181,
+          "dd": 22.18803654753431,
+          "ret": 31.945938864421482,
+          "max_cap": 569.7512830224001,
+          "blocked": 4,
+          "trades": 2564
+        },
+        "2025": {
+          "ann": -8.704970040858385,
+          "dd": 21.16412364457106,
+          "ret": -8.704954221624503,
+          "max_cap": 672.1942458,
+          "blocked": 4,
+          "trades": 3895
+        },
+        "2026_ytd": {
+          "ann": 18.22565371094789,
+          "dd": 8.976198051652048,
+          "ret": 7.171819087200928,
+          "max_cap": 390.04297140000006,
+          "blocked": 2,
+          "trades": 936
+        }
+      },
+      "positive_segments": 4,
+      "agg_2024_2026": 30.412803729997908,
+      "traded_symbols": [
+        "BCHUSDT",
+        "TRXUSDT",
+        "SOLUSDT",
+        "DOTUSDT",
+        "BNBUSDT",
+        "AAVEUSDT"
+      ],
+      "symbol_count": 6,
+      "max_symbol_budget_pct": 13.3,
+      "portfolio_candidate": true,
+      "live_ready": true,
+      "near_targets": []
+    },
+    {
+      "label": "R8-R5-fine",
+      "config_path": "docs/superpowers/artifacts/glm-martingale-core-round5/promising/r5-fine-combo-best.json",
+      "budget": 5000,
+      "full_metrics": {
+        "ann": 49.93375255051822,
+        "dd": 26.31614359628543,
+        "ret": 298.9781927680373,
+        "max_cap": 1236.9177753844754,
+        "blocked": 19,
+        "trades": 4764
+      },
+      "segment_metrics": {
+        "h1_2023": {
+          "ann": 112.77801636298462,
+          "dd": 26.31614359628543,
+          "ret": 45.41697624073684,
+          "max_cap": 1236.9177753844754,
+          "blocked": 6,
+          "trades": 571
+        },
+        "h2_2023": {
+          "ann": 13.693237131901782,
+          "dd": 24.208014073402193,
+          "ret": 6.683254637281352,
+          "max_cap": 604.9234595249999,
+          "blocked": 2,
+          "trades": 1236
+        },
+        "2024": {
+          "ann": 57.38354212551668,
+          "dd": 34.262348325531086,
+          "ret": 57.5790780754399,
+          "max_cap": 769.259243775,
+          "blocked": 4,
+          "trades": 2564
+        },
+        "2025": {
+          "ann": -15.932305283900195,
+          "dd": 33.92703210770181,
+          "ret": -15.93227752559018,
+          "max_cap": 1247.6812540499998,
+          "blocked": 4,
+          "trades": 3894
+        },
+        "2026_ytd": {
+          "ann": 34.97172305396046,
+          "dd": 15.637026327774828,
+          "ret": 13.209016344802366,
+          "max_cap": 643.1805245249999,
+          "blocked": 2,
+          "trades": 936
+        }
+      },
+      "positive_segments": 4,
+      "agg_2024_2026": 54.85581689465209,
+      "traded_symbols": [
+        "BCHUSDT",
+        "TRXUSDT",
+        "SOLUSDT",
+        "DOTUSDT",
+        "BNBUSDT",
+        "AAVEUSDT"
+      ],
+      "symbol_count": 6,
+      "max_symbol_budget_pct": 13.3,
+      "portfolio_candidate": true,
+      "live_ready": false,
+      "near_targets": []
+    }
+  ]
+}
