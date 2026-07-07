@@ -79,3 +79,25 @@
 - **Key finding: reserve + stake buffer CAN reduce DD by 3-6pp, but always at >5pp ann cost.** The trade is unfavorable for promotion. Reserve scaling is a valid DD-reduction tool but does not unlock a new target tier.
 - Saved: r9-dca-reserve-stake-buffer.json
 - Non-repeat key: r9-reserve-buffer-dd-reduces-but-ann-cost-too-high
+
+## r9-P5-expanded-allocator-001 (Task P5: Combine Repaired Allocator With Expanded Sleeves)
+- Sleeve library: 5 sleeves (original 4 + best P4 reserve variant p4-ANKR-q-rp10-fos05)
+- Allocator grid: 4 lookback × 3 rebalance × 4 score × 3 max_hi × 3 min_lo × 3 cash_dd × 3 hyst = 3888 configs
+- Each config runs full + 5 true segment allocator replays (forward-only timing, weight-bound)
+- Run: 3888 configs × 6 allocator replays, 628s
+- **RESULT: 0 target hits. BEST at DD<=20: ann 64.42% / DD 18.21% / 5/5 positive segments**
+  - Identical to P1 best (adding the 5th sleeve did not improve; the p4-reserve variant is too correlated with ANKR-q)
+  - 5/5 positive segments (2025 = +5.12% — allocator keeps all segments positive)
+  - 8 traded symbols, live_ready=True (Rust allocator module exists from P2)
+- 0 configs at DD<=10 (conservative gate) — confirms DD<=10 unreachable at any ann level
+- Distinct (ann,dd,ret) tuples: 49 / 3888 rows
+- Saved: r9-expanded-allocator-grid.json
+- Non-repeat key: r9-5th-sleeve-correlated-no-improvement-same-64.4-18.2-5of5
+
+### Round 9 Final Frontier Summary
+- BEST RESEARCH (allocator): ann 64.42% / DD 18.21% / 5/5 positive segments / 8 symbols / live_ready=True (Rust module)
+- BEST LIVE-READY single sleeve: R4-combo ann 34.7% / DD 17.7% / 4/5 pos
+- 3 targets (conservative/balanced/aggressive) all NOT MET:
+  - Conservative: DD floor at ~18% (cannot reach 10%)
+  - Balanced: ann 64% (cannot reach 90%)
+  - Aggressive: ann 64% (cannot reach 110%)
