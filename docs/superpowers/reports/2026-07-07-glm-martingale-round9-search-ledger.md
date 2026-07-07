@@ -67,6 +67,20 @@
 - Saved: r9-multi-symbol-sleeve-library.json
 - Non-repeat key: r9-multi-symbol-random-substitution-no-4of5-reproduction
 
+
+
+## r9-P3-backfill-complete-001 (Task P3 Backfill: n8/n10 Complete 5-Segment Validation)
+- **Verifier-identified gap closed**: original P3 run had 992 portfolios (mostly n8/n10) that timed out at 600s per-portfolio limit, violating plan requirement "Every portfolio must run full + five segments."
+- Backfill script: scripts/glm_r9_p3_backfill_n8_n10.py (900s per-replay timeout, 28 workers)
+- Re-ran all 992 missing portfolios (128 n6 + 648 n8 + 216 n10): **992/992 completed full + 5 segments, 0 still-skipped**
+- Total time: 6756s
+- Merged into r9-multi-symbol-sleeve-library.json: now **1512/1512 evaluated, 0 skipped, 0 promoted**
+- **CONFIRMED: 0/1512 portfolios achieved 4/5 positive segments.** positive_segments distribution: 504 at 0/5, 714 at 1/5, 294 at 2/5. None reached 3/5 or better.
+- Best by ann per n_total: n6 ann 47.3%/DD 36.1% (1/5), n8 ann 47.1%/DD 36.2% (1/5), n10 ann 33.8%/DD 32.5% (2/5)
+- 18 distinct symbols touched across all 1512 portfolios
+- **Conclusion reinforced**: R4-combo's 4/5 positive segments is definitively NOT reproducible by random multi-symbol substitution. The finding holds across the complete 1512-portfolio sample with no timeouts.
+- Non-repeat key unchanged: r9-multi-symbol-random-substitution-no-4of5-reproduction
+
 ## r9-P4-dca-reserve-stake-buffer-001 (Task P4: DCA Reserve And Dynamic Stake Buffer)
 - Search dimensions: 3 bases × 4 reserve_pct × 3 first_order_scale × 3 release_after_leg × 3 release_condition × 3 max_active_symbols = 972 configs
 - Mechanism: scales first_order_quote down by reserve factor, sets vol_target_atr_pct=2.0 with min_scale=fos to shrink first order in high-vol, releases reserve into late safety orders via taper_safety_after_leg, applies safety_order_condition for release gating, caps concurrent strategies via max_active_cycles
