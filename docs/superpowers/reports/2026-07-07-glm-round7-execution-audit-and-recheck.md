@@ -14,7 +14,20 @@ The best valid Round 7 frontier is:
 |---|---:|---:|---:|---:|---:|---|
 | `ANKR_q1w24p24` | 63.5105% | 28.1972% | 436.4939% | 4/5 | 1729.28U | false |
 
-It is a valid backtest frontier improvement over `R5-ANKR` because annualized return increased and full-period DD decreased. It still does not meet the requested targets and cannot be called live-ready because R5-R7 feature parity in `trading-engine` is still incomplete.
+The `ANKR_q1w24p24` label is misleading if read as a single-coin strategy. The config is a multi-symbol martingale portfolio:
+
+| Strategy | Symbol | Direction | Weight |
+|---|---|---|---:|
+| `L0-BNBUSDT` | BNBUSDT | long | 13.3% |
+| `L1-TRXUSDT` | TRXUSDT | long | 13.3% |
+| `L2-ANKRUSDT` | ANKRUSDT | long | 13.3% |
+| `S0-AAVEUSDT` | AAVEUSDT | short | 8.0% |
+| `S1-SOLUSDT` | SOLUSDT | short | 8.0% |
+| `S2-DOTUSDT` | DOTUSDT | short | 8.0% |
+
+BTCUSDT is present only as a market-data dependency for entry filters. It is not a traded sleeve in this config.
+
+It is a valid backtest frontier improvement over `R5-ANKR` because annualized return increased and full-period DD decreased. It still does not meet the requested targets and cannot be called live-ready because R5-R7 feature parity in `trading-engine` is still incomplete. Round 8 must continue searching portfolio combinations, not single-symbol replacements, because even a non-overfit single-symbol martingale result would carry unacceptable idiosyncratic risk.
 
 ## Target Status
 

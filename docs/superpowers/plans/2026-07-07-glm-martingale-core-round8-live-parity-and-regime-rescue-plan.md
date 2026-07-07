@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Turn the Round 7 frontier into a reproducible martingale-only research pipeline, close live-parity gaps, and search only non-repeated mechanisms that may reach conservative/balanced/aggressive targets under a 5000U budget.
+**Goal:** Turn the Round 7 frontier into a reproducible multi-symbol martingale-only research pipeline, close live-parity gaps, and search only non-repeated portfolio mechanisms that may reach conservative/balanced/aggressive targets under a 5000U budget.
 
 **Architecture:** Round 8 remains martingale/DCA/grid-core. Indicators and external signals may only control cycle entry, safety-order eligibility/scale, TP/exit, quarantine, sleeve allocation, cooldown, or cash risk budget. The round is split into validation repair, live parity, 2025 regime rescue, dynamic grid reset inside DCA, and final anti-overfit packaging.
 
@@ -42,11 +42,15 @@ Additional anti-overfit gates:
 
 - Full-period replay plus five segment replays: `h1_2023`, `h2_2023`, `2024`, `2025`, `2026_ytd`.
 - At least 4/5 positive segments.
+- Every promoted candidate must be a multi-symbol portfolio: at least 5 traded symbols, at least 3 independent base assets after removing indicator-only dependencies, and at least one long sleeve plus one short sleeve unless the handoff proves a lower-DD long-only portfolio with 6+ traded symbols.
+- No single traded symbol may receive more than 35% of configured budget, planned margin, or realized gross PnL contribution in a promoted package.
+- A label such as `ANKR_q1w24p24` must not be interpreted as single-coin permission. It is only a human-readable label for the high-ann anchor; GLM must record the actual traded-symbol list in every result row.
 - Conservative candidate: no segment DD above 15%.
 - Balanced candidate: no segment DD above 25%.
 - Aggressive candidate: no segment DD above 35%.
 - All allocation decisions must use lagged data only.
 - Candidate is "live-ready" only if trading-engine parity tests cover every feature it uses.
+- Single-symbol martingale results may be stored only as rejected or diagnostic artifacts, never as target hits or promoted candidates.
 
 ## 1. External Search Signals To Use
 
@@ -131,7 +135,7 @@ Write exact starting candidates:
     "aggressive": {"ann": 110.0, "dd": 30.0}
   },
   "frontier": [
-    {"label": "R7-ANKR-q1w24p24", "config": "docs/superpowers/artifacts/glm-martingale-core-round7/promising/r7-ANKR-q1w24p24.json", "ann": 63.51046213512199, "dd": 28.197233976815543, "pos_segments": 4, "live_ready": false},
+    {"label": "R7-ANKR-q1w24p24", "config": "docs/superpowers/artifacts/glm-martingale-core-round7/promising/r7-ANKR-q1w24p24.json", "ann": 63.51046213512199, "dd": 28.197233976815543, "pos_segments": 4, "traded_symbols": ["BNBUSDT", "TRXUSDT", "ANKRUSDT", "AAVEUSDT", "SOLUSDT", "DOTUSDT"], "indicator_only_dependencies": ["BTCUSDT"], "portfolio_candidate": true, "live_ready": false},
     {"label": "R7-dynamic-blend", "config": "docs/superpowers/artifacts/glm-martingale-core-round7/r7-dynamic-cost-dd-blend.json", "ann": 53.93140498030886, "dd": 24.31334338215717, "pos_segments": null, "live_ready": false},
     {"label": "R6-QB-lowdd", "config": "docs/superpowers/artifacts/glm-martingale-core-round6/promising/r6-QB-best.json", "ann": 34.0, "dd": 18.0, "pos_segments": 4, "live_ready": false},
     {"label": "R4-combo", "config": "docs/superpowers/artifacts/glm-martingale-core-round4/promising/r4-combo-best.json", "ann": 34.7, "dd": 17.7, "pos_segments": 4, "live_ready": true}
@@ -274,6 +278,19 @@ R4-combo          = docs/superpowers/artifacts/glm-martingale-core-round4/promis
 R5-fine           = docs/superpowers/artifacts/glm-martingale-core-round5/promising/r5-fine-combo-best.json
 ```
 
+The script must reject any promoted output that collapses into a single traded symbol. For every candidate row, include:
+
+```json
+{
+  "traded_symbols": ["BNBUSDT", "TRXUSDT", "ANKRUSDT", "AAVEUSDT", "SOLUSDT", "DOTUSDT"],
+  "indicator_only_dependencies": ["BTCUSDT"],
+  "symbol_count": 6,
+  "max_symbol_budget_pct": 13.3,
+  "max_symbol_gross_pnl_share_pct": 0.0,
+  "portfolio_candidate": true
+}
+```
+
 Allocator states must be based only on data strictly before the rebalance timestamp:
 
 ```text
@@ -329,6 +346,7 @@ Promotion gates:
 - Conservative: ann >=50, DD <=10, segment DD <=15, positive segments >=4.
 - Balanced: ann >=90, DD <=20, segment DD <=25, positive segments >=4.
 - Aggressive: ann >=110, DD <=30, segment DD <=35, positive segments >=4.
+- Portfolio gate: at least 5 traded symbols and no single symbol above 35% of configured budget or realized gross PnL contribution.
 - Live-ready flag remains false until P1 parity covers all used features.
 
 Commit:
@@ -373,7 +391,7 @@ Rules:
 Search only these combinations:
 
 ```text
-base: R7-ANKR-q1w24p24, R5-fine, R6-QB-lowdd, R4-combo
+base_portfolio: R7-ANKR-q1w24p24, R5-fine, R6-QB-lowdd, R4-combo
 reset_mode: cycle_close_only, adverse_excursion
 atr_period: 14, 28
 min_step_bps: 120, 150
@@ -383,6 +401,8 @@ safety_order_condition: existing, existing_and_adx_below_30, existing_and_rsi_be
 ```
 
 Expected minimum search size: 432 candidates. Do not expand until this complete grid is recorded.
+
+Every output must preserve at least 5 traded symbols. If a dynamic-grid reset variant improves only because it effectively concentrates on ANKR or any other single symbol, mark it rejected with non-repeat key `single-symbol-concentration-dynamic-grid-reset`.
 
 - [ ] **Step 3: Validate full and segments**
 
@@ -445,6 +465,8 @@ python3 scripts/glm_r8_cost_cover_rescue_exit.py \
 
 Expected minimum search size: 324 candidates. Reject the family if it improves DD by less than 3pp while reducing ann by more than 5pp.
 
+Reject any candidate whose improvement comes from one traded symbol contributing more than 50% of gross PnL or more than 35% of configured budget. Store it as diagnostic-only, not as a promoted package.
+
 Commit:
 
 ```bash
@@ -484,6 +506,11 @@ Each package must include:
   "max_capital_used": 0.0,
   "budget_blocked_legs": 0,
   "min_first_order_quote": 0.0,
+  "traded_symbols": [],
+  "symbol_count": 0,
+  "max_symbol_budget_pct": 0.0,
+  "max_symbol_gross_pnl_share_pct": 0.0,
+  "portfolio_candidate": false,
   "live_ready": false,
   "full_metrics": {},
   "segment_metrics": {},
@@ -492,6 +519,8 @@ Each package must include:
 ```
 
 If `budget_blocked_legs > 0`, the package may remain research-valid but must be marked `live_ready=false` until trading-engine parity proves identical rejection behavior.
+
+If `symbol_count < 5`, `portfolio_candidate=false`, or `max_symbol_budget_pct > 35`, reject the package even if ann/DD appears to hit a target.
 
 - [ ] **Step 2: Replay each package independently**
 
@@ -555,6 +584,7 @@ The handoff must state:
 - Segment table for every promoted candidate.
 - Whether each candidate is live-ready or research-only.
 - Whether it uses cap-truncated legs under 5000U.
+- Traded-symbol list, indicator-only dependencies, max symbol budget share, and max gross PnL share.
 - Every failed family and non-repeat key.
 - Clear answer for each original target.
 
@@ -590,6 +620,8 @@ Do not rerun these unless the registry line names a materially new mechanism:
 - Cost gate thresholds without implemented engine behavior.
 - Python-only allocator claimed as live-ready.
 - Symbol swap sweeps without a new cost/DD/regime mechanism.
+- Any single-symbol martingale candidate as a target hit, even if its segments look stable.
+- Any "combo" whose realized PnL or configured budget is dominated by one symbol beyond the portfolio gates.
 
 ## 11. Stop Conditions
 
@@ -598,5 +630,7 @@ Stop the round and hand off immediately if any candidate satisfies a full target
 - Conservative: ann >=50, DD <=10, segment DD <=15, positive segments >=4, capital <5000U.
 - Balanced: ann >=90, DD <=20, segment DD <=25, positive segments >=4, capital <5000U.
 - Aggressive: ann >=110, DD <=30, segment DD <=35, positive segments >=4, capital <5000U.
+
+All stop-condition candidates must also pass the portfolio gate: at least 5 traded symbols, no single traded symbol above 35% configured budget or realized gross PnL share, and documented symbol list in the handoff.
 
 If no target hit appears after P2-P5, hand off the best frontier and all rejected families. Do not keep expanding blind grids without a new hypothesis and registry key.
