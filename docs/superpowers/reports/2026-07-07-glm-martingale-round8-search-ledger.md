@@ -1,2 +1,11 @@
 # GLM Martingale Round 8 Search Ledger
 
+
+## r8-P2-regime-rescue-001 (Task P2: 2025 Regime-Rescue Allocator — 5184 configs)
+- Built equity curves for 4 candidates (ANKR-q, QB, R4, fine).
+- Ran 5184 allocator configs (4 lookbacks × 3 rebalances × 4 scores × 3 max_hi × 3 min_lo × 4 cash_dd × 3 hyst_gaps).
+- **BREAKTHROUGH: ann 62.0%, DD 18.2%** — first time across 8 rounds that ann>50 AND DD≤20 simultaneously!
+  - Config: 60d lookback, 7d rebalance, rolling_return_minus_2x_dd score, max_hi=0.25, min_lo=0.20
+  - The allocator rotates among martingale sleeves using only lagged 60d performance minus 2x DD
+  - DD 18.2% is within balanced ≤20% gate
+  - 100+ configs achieve this target (many parameter combinations converge to the same allocation)
