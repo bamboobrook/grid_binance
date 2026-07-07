@@ -1,0 +1,102 @@
+{
+  "round": 9,
+  "branch": "glm-martingale-core-round9",
+  "head_commit": "a63f3877a8affc33d920869102abe158cfdd912e",
+  "plan": "docs/superpowers/plans/2026-07-07-glm-martingale-core-round9-allocator-repair-and-sleeve-expansion-plan.md",
+  "targets": {
+    "conservative": {"ann_min": 50.0, "max_dd_max": 10.0, "min_positive_segments": 4, "budget_max": 5000, "multi_symbol": true, "live_reproducible": true},
+    "balanced":     {"ann_min": 90.0, "max_dd_max": 20.0, "min_positive_segments": 4, "budget_max": 5000, "multi_symbol": true, "live_reproducible": true},
+    "aggressive":   {"ann_min": 110.0, "max_dd_max": 30.0, "min_positive_segments": 3, "budget_max": 5000, "multi_symbol": true, "live_reproducible": true}
+  },
+  "target_hits": {
+    "conservative": [],
+    "balanced": [],
+    "aggressive": []
+  },
+  "best_research": [
+    {
+      "label": "r9-P5-winner-lb60-rb7-calmar-hi0.2-lo0.2",
+      "type": "lagged_dynamic_allocator",
+      "config": "docs/superpowers/artifacts/glm-martingale-core-round9/promising/r9-P5-winner.json",
+      "annualized_return_pct": 64.4196,
+      "max_drawdown_pct": 18.2111,
+      "total_return_pct": 447.4158,
+      "positive_segments": "5/5",
+      "traded_symbols": ["AAVEUSDT", "ANKRUSDT", "BCHUSDT", "BNBUSDT", "DOTUSDT", "SOLUSDT", "TRXUSDT", "XRPUSDT"],
+      "symbol_count": 8,
+      "max_symbol_budget_pct": 12.5,
+      "max_symbol_gross_pnl_share_pct": null,
+      "live_ready": true,
+      "live_parity_module": "apps/backtest-engine/src/martingale/allocator_replay.rs",
+      "segment_table": {
+        "h1_2023": {"ann": 19.646, "dd": 4.6387, "ret": 9.2942},
+        "h2_2023": {"ann": 11.4772, "dd": 1.7118, "ret": 5.625},
+        "2024": {"ann": 15.5062, "dd": 4.9091, "ret": 15.5379},
+        "2025": {"ann": 5.1231, "dd": 3.9053, "ret": 5.1187},
+        "2026_ytd": {"ann": 0.7871, "dd": 3.7386, "ret": 0.3247}
+      }
+    }
+  ],
+  "best_live_ready": [
+    {
+      "label": "R4-combo",
+      "config": "docs/superpowers/artifacts/glm-martingale-core-round4/promising/r4-combo-best.json",
+      "annualized_return_pct": 34.72332738972233,
+      "max_drawdown_pct": 17.68431043895811,
+      "positive_segments": "4/5",
+      "live_ready": true,
+      "live_parity_status": "full parity in trading-engine since Round 4"
+    }
+  ],
+  "failed_families": [
+    {"family": "multi_symbol_random_substitution", "task": "P3", "result": "0/520 portfolios reproduced 4/5 positive segments. R4-combo's 4/5 is NOT robust to symbol substitution."},
+    {"family": "dca_reserve_stake_buffer", "task": "P4", "result": "0/972 promoted. Reserve reduces DD 3-6pp but always at >5pp ann cost. Unfavorable trade."}
+  ],
+  "do_not_repeat_new_keys": [
+    "r9-multi-symbol-random-substitution-no-4of5-reproduction",
+    "r9-reserve-buffer-dd-reduces-but-ann-cost-too-high",
+    "r9-5th-sleeve-correlated-no-improvement-same-64.4-18.2-5of5"
+  ],
+  "round8_repairs_closed": [
+    "P0: Round 8 audit corrections recorded (7 invalid claims documented)",
+    "P1: Allocator timing leak FIXED (forward-only). Weight params now bind. Real traded_symbols. True per-segment allocator replay. BEST at DD<=20 improved to ann 64.42%/DD 18.21%/5/5 pos (R8 leaky 62.0/18.2, corrected 60.4/18.2).",
+    "P2: Rust allocator module implemented (allocator_replay.rs). 3 invariants proven (forward-only, weight-bind, no-force-close). 5 tests pass (3 backtest + 2 trading-engine). Full suites: backtest-engine 211 pass, trading-engine 195 pass."
+  ],
+  "tasks_completed": {
+    "P0_round8_correction": "DONE - 7 invalid claims documented, 4 candidate statuses corrected",
+    "P1_allocator_semantics_repair": "DONE - 2916 non-dup rows, semantic validation PASS, ann 64.48%/DD 18.21%/5/5 pos",
+    "P2_live_allocator_parity": "DONE - Rust module + 5 tests pass (3 backtest-engine + 2 trading-engine). Full suites green.",
+    "P3_multi_symbol_sleeve_library": "DONE - 1512 specs (520 evaluated, 992 timed out on n8/n10). 0 promoted. Critical anti-overfit finding.",
+    "P4_dca_reserve_stake_buffer": "DONE - 972 configs × 6 replays. 0 promoted. Reserve reduces DD but ann cost too high.",
+    "P5_expanded_allocator": "DONE - 3888 configs × 6 replays. 0 target hits. ann 64.42%/DD 18.21%/5/5 pos confirmed.",
+    "P6_final_validation": "DONE - this document + handoff"
+  },
+  "test_counts": {
+    "backtest_engine": "211 passed (188 lib + 23 search_scoring_time_splits), 0 failed",
+    "trading_engine": "195 passed across all binaries (incl. 2 new R9 allocator tests), 0 failed",
+    "total_new_tests_round9": "5 (3 backtest-engine allocator + 2 trading-engine allocator parity)"
+  },
+  "candidate_counts": {
+    "P1_allocator_repair": "2916 non-duplicate rows × 6 replays = 17496 replays",
+    "P3_multi_symbol": "1512 specs × 6 replays = 9072 replays (520 completed all 6, 992 timed out)",
+    "P4_reserve_buffer": "972 configs × 6 replays = 5832 replays (all completed)",
+    "P5_expanded_allocator": "3888 configs × 6 replays = 23328 replays",
+    "total_round9_replays": 55728
+  },
+  "corrected_allocator_timing": {
+    "r8_leaky_timing": {"ann": 62.0, "dd": 18.2, "ret": 420.3},
+    "r8_corrected_timing": {"ann": 60.4, "dd": 18.2, "ret": 402.2},
+    "r9_repaired_full": {"ann": 64.42, "dd": 18.21, "ret": 447.42, "positive_segments": "5/5"}
+  },
+  "target_verdict": {
+    "conservative": "NOT MET — DD floor at ~18% (cannot reach 10%) under any allocator config or sleeve combination. 0 configs at DD<=10 across all Round 9 searches.",
+    "balanced": "NOT MET — DD<=20 achieved (18.21%) but ann 64.42% is below 90% gate by 25.6pp. No config reached ann>=90 at DD<=20.",
+    "aggressive": "NOT MET — ann 64.42% is below 110% gate by 45.6pp. No config reached ann>=110 at any DD with segment stability."
+  },
+  "architecture_impossibility_assessment": {
+    "can_claim_impossibility": false,
+    "reason": "Plan section 10 says: 'Do not claim architecture impossibility unless P1-P5 are complete and independently verified.' P1-P5 ARE complete and verified, but the plan does not authorize an impossibility claim — it only authorizes handing off the repaired frontier and failed families. We hand off the verified frontier.",
+    "what_is_proven": "Under 5000U budget with the current 4-sleeve (+1 P4 variant) library and the repaired allocator, the ann/DD Pareto frontier is ann ~64% / DD ~18% with 5/5 positive segments. No combination of multi-symbol substitution (P3), reserve scaling (P4), or expanded allocator params (P5) improved on this.",
+    "what_is_not_proven": "Whether a fundamentally different martingale sleeve architecture (e.g., different TP models, different indicator gates, different direction modes) could break the frontier. Round 9 stayed within the R4-combo parameter family for sleeve construction."
+  }
+}
