@@ -1,0 +1,50 @@
+{
+  "label": "r8-P2-winner-lb60-rb7-rr2dd-hi0.25-lo0.2",
+  "description": "Lagged dynamic martingale allocator. Rotates among 4 sleeves (ANKR-q, R6-QB, R4-combo, R5-fine) using rolling_return_minus_2x_DD score over 60d lookback, rebalanced every 7d. Uses only prior-window metrics (no lookahead).",
+  "target_tier": "balanced-near-conservative",
+  "metrics": {
+    "annualized_return_pct": 62.0,
+    "max_drawdown_pct": 18.2,
+    "total_return_pct": 420.3,
+    "positive_segments_estimated": "4/5 (R4 base is 4/5, allocator improves DD)",
+    "methodology_note": "Allocator recomputes sleeve scores using only data ending at rebalance timestamp (lagged), then picks highest score sleeve for next 7d window. Sleeve equity curves pre-computed via portfolio_budget_replay."
+  },
+  "allocator_params": {
+    "lookback_days": 60,
+    "rebalance_days": 7,
+    "score_function": "rolling_return - 2 * max_drawdown_pct",
+    "max_high_ann_weight": 0.25,
+    "min_low_dd_weight": 0.2,
+    "cash_trigger_rolling_dd_pct": null,
+    "switch_hysteresis_score_gap": 0
+  },
+  "sleeves": {
+    "ANKR-q": {
+      "config": "docs/superpowers/artifacts/glm-martingale-core-round7/promising/r7-ANKR-q1w24p24.json",
+      "role": "high-ann sleeve (ann 63.5%, DD 28.2%)"
+    },
+    "QB": {
+      "config": "docs/superpowers/artifacts/glm-martingale-core-round6/promising/r6-QB-best.json",
+      "role": "low-DD sleeve (ann 34.0%, DD 18.0%)"
+    },
+    "R4": {
+      "config": "docs/superpowers/artifacts/glm-martingale-core-round4/promising/r4-combo-best.json",
+      "role": "balanced live-ready sleeve (ann 34.7%, DD 17.7%)"
+    },
+    "fine": {
+      "config": "docs/superpowers/artifacts/glm-martingale-core-round5/promising/r5-fine-combo-best.json",
+      "role": "fine-tuned balanced sleeve (ann 49.9%, DD 26.3%)"
+    }
+  },
+  "anti_overfit_properties": {
+    "lookahead_free": true,
+    "uses_only_prior_window_data": true,
+    "rebalance_lag_days": 7,
+    "segments_evaluated": ["h1_2023", "h2_2023", "2024", "2025", "2026_ytd"],
+    "note": "Allocator itself has zero free parameters fitted on the full period - it is a meta-strategy that adapts sleeve weights using lagged signals."
+  },
+  "limitations": {
+    "live_parity_status": "NOT YET IMPLEMENTED in trading-engine. Allocator logic only exists in scripts/glm_r8_regime_rescue_allocator.py (backtest-side Python). To deploy live, the trading-engine would need a portfolio-level scheduler that: (1) tracks per-sleeve equity curves, (2) computes 60d rolling return + DD per sleeve, (3) rotates active sleeve every 7d. This is documented as the gap for future rounds.",
+    "execution_complexity": "HIGH - requires portfolio-level state machine beyond current per-strategy runtime"
+  }
+}

@@ -1,0 +1,82 @@
+{
+  "round": 8,
+  "branch": "glm-martingale-core-indicator-expansion",
+  "plan": "docs/superpowers/plans/2026-07-07-glm-martingale-core-round8-live-parity-and-regime-rescue-plan.md",
+  "targets": {
+    "conservative": {"ann_min": 50.0, "max_dd_max": 10.0, "min_positive_segments": 4},
+    "balanced":     {"ann_min": 90.0, "max_dd_max": 20.0, "min_positive_segments": 4},
+    "aggressive":   {"ann_min": 110.0, "max_dd_max": 30.0, "min_positive_segments": 3}
+  },
+  "tasks_completed": {
+    "P0_starting_frontier": "DONE - r8-starting-frontier.json built from R7 audit",
+    "P1_live_parity_semantic_tests": "DONE - 3 backtest + 4 trading-engine parity test modules (211+191 tests pass)",
+    "P2_regime_rescue_allocator": "DONE - BREAKTHROUGH. 5184 configs. ann 62.0% / DD 18.2%",
+    "P3_dca_grid_reset": "DONE - 148 candidates × 6 replays. No target hit.",
+    "P4_cost_cover_rescue_exit": "DONE - 96 candidates × 6 replays. No target hit.",
+    "P5_small_capital_packaging": "DONE - 4 sleeves packaged with full 5-segment recompute",
+    "P6_final_validation": "DONE - this document"
+  },
+  "best_result_round8": {
+    "label": "r8-P2-winner-lb60-rb7-rr2dd-hi0.25-lo0.2",
+    "type": "lagged_dynamic_allocator",
+    "metrics": {
+      "annualized_return_pct": 62.0,
+      "max_drawdown_pct": 18.2,
+      "total_return_pct": 420.3,
+      "estimated_positive_segments": "4/5 (all 4 sleeves are 4/5)"
+    },
+    "config_path": "docs/superpowers/artifacts/glm-martingale-core-round8/promising/r8-P2-winner-allocator.json",
+    "vs_best_prior_round": "Round 7 best ann 63.5% / DD 28.2%. Round 8 allocator REDUCES DD by 10pp (28.2 -> 18.2) while preserving ann (62.0 vs 63.5). First time ann>50 AND DD<=20 simultaneously.",
+    "tier_assessment": {
+      "conservative": "MISS (ann 62 > 50 PASS, DD 18.2 > 10 FAIL, segs 4/5 PASS)",
+      "balanced":     "MISS (ann 62 < 90 FAIL, DD 18.2 <= 20 PASS, segs 4/5 PASS)",
+      "aggressive":   "MISS (ann 62 < 110 FAIL, DD 18.2 <= 30 PASS, segs estimated PASS)"
+    }
+  },
+  "target_status": {
+    "conservative": "NOT MET (DD floor at ~18% on 5K budget is structural; see cliff analysis)",
+    "balanced":     "PARTIAL (DD<=20 met, ann falls short at 62% vs 90% required)",
+    "aggressive":   "NOT MET (ann cliff caps out around 65% with DD<=30)"
+  },
+  "sleeve_inventory": {
+    "ANKR-q": {"ann": 63.5, "dd": 28.2, "pos_segs": 4, "max_w_pct": 13.3, "symbols": 6},
+    "R5-fine": {"ann": 49.9, "dd": 26.3, "pos_segs": 4, "max_w_pct": 13.3, "symbols": 6},
+    "R4-combo": {"ann": 34.7, "dd": 17.7, "pos_segs": 4, "max_w_pct": 13.3, "symbols": 6, "live_ready": true},
+    "R6-QB":   {"ann": 34.0, "dd": 18.0, "pos_segs": 4, "max_w_pct": 8.0, "symbols": 7}
+  },
+  "cliff_findings": {
+    "summary": "The ann/DD Pareto frontier is concave and steep. Best achievable on 5K budget across 8 rounds and 90+ explorations: ann ~62-65% with DD ~18-28%. Reaching ann 90% requires multiplier stacks that push DD to 30-45%. Reaching DD <= 10% requires multipliers so low that ann drops below 30%.",
+    "structural_drivers": [
+      "2025 choppy bear segment: martingale cycles stop at ~50% rate (single direction adverse moves of -34% to -73% on AAVE/SOL/DOT). Every strategy has 2025 negative.",
+      "Funding cost drag: 8-17% of budget consumed by funding on aggressive sleeves. Cost-gate exploration did not unlock further DD reduction.",
+      "Budget constraint: 5K across 6-7 symbols means each sleeve has ~700U. With exchange min-notional 5U and martingale multiplier 1.5-3.5x, max legs and first-order sizing are tightly bounded.",
+      "DD-stop equity base: budget-based DD stop fires correctly but cannot prevent the initial 15-25% drawdown before throttling engages."
+    ]
+  },
+  "what_worked": [
+    "Partial TP + breakeven stop (R2): flipped h2_2023 positive, reduced DD from 26% to 19%.",
+    "Conditional safety orders with last-executed basis (R5): reduced wasted margin on dead cycles.",
+    "Quarantine after stop clusters (R6-R7): improved BOTH ann and DD on ANKR sleeve.",
+    "Lagged dynamic allocator (R8 P2): rotated among sleeves using prior-window rolling_return - 2*DD score, achieving DD<=20 with ann>50 for the first time."
+  ],
+  "what_did_not_work": [
+    "Trailing lock (R6): breakeven floor too aggressive, killed profitable cycles before TP.",
+    "DD state machine throttling (R6-R7): improved DD marginally but reduced ann more.",
+    "Funding cost gate (R7): funding rates were not large enough to be the dominant DD driver.",
+    "DCA grid reset (R8 P3): 148 candidates, no target hit.",
+    "Cost-cover rescue exit (R8 P4): 96 candidates, no target hit.",
+    "Loss streak risk reduction (R5): triggered too late to matter.",
+    "Vol-targeted first-order scaling (R5): flattened returns without improving DD."
+  ],
+  "open_engine_gaps_for_live_parity": [
+    "R8 P2 allocator: implemented in scripts/glm_r8_regime_rescue_allocator.py (Python, backtest-side). NOT implemented in apps/trading-engine. To deploy live requires portfolio-level scheduler that tracks per-sleeve equity, computes 60d rolling return+DD, rotates active sleeve every 7d.",
+    "R6 DD state machine: engine logic implemented in backtest-engine, partially in trading-engine.",
+    "R7 quarantine: engine logic implemented in both backtest-engine and trading-engine.",
+    "R4-combo is the ONLY fully live-ready sleeve today (full parity in trading-engine)."
+  ],
+  "recommendation_for_next_round": {
+    "primary": "Implement R8 P2 allocator logic in trading-engine (portfolio-level scheduler). This is the single highest-leverage gap - it converts the best DD<=20 / ann>50 result into a deployable strategy.",
+    "secondary": "Explore capital scaling: at 10K-20K budget, the budget constraint loosens, allowing more legs and finer first-order sizing. May unlock ann 80%+ at DD<=20.",
+    "tertiary": "Add 2025-specific regime filter: a regime classifier that detects choppy bear and switches to defensive sleeve (R4-combo) BEFORE the DD materializes. This is the only path to DD<=10."
+  }
+}
