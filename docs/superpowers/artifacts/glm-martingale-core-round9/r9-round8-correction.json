@@ -1,0 +1,85 @@
+{
+  "round8_corrected_status": {
+    "best_research_allocator_leaky": {
+      "label": "r8-P2-allocator-leaky-timing",
+      "ann": 62.0,
+      "dd": 18.2,
+      "total_return_pct": 420.3,
+      "live_ready": false,
+      "notes": "Python-only allocator. Uses timing convention that applies rebalance decision to the interval that helped choose it (current-interval leak). Not 5-segment validated per candidate. max_high_ann_weight and min_low_dd_weight not used by allocator logic. traded_symbols contains sleeve names not exchange symbols."
+    },
+    "best_research_allocator_no_current_interval_leak": {
+      "label": "r8-P2-allocator-corrected-timing",
+      "ann": 60.4,
+      "dd": 18.2,
+      "total_return_pct": 402.2,
+      "live_ready": false,
+      "notes": "Corrected timing replay. Rebalance decision at ts only affects intervals after ts. Still misses all original target tiers."
+    },
+    "best_live_ready": {
+      "label": "R4-combo",
+      "ann": 34.72332738972233,
+      "dd": 17.68431043895811,
+      "live_ready": true,
+      "notes": "Only fully live-ready sleeve through Round 8. Full parity in trading-engine."
+    },
+    "valid_backtest_sleeve_ankr_q": {
+      "label": "R7-ANKR-q1w24p24",
+      "ann": 63.5,
+      "dd": 28.2,
+      "live_ready": false,
+      "notes": "Valid backtest sleeve. Highest ann but DD exceeds balanced gate."
+    }
+  },
+  "round8_invalid_claims": [
+    {
+      "claim": "All 6 tasks P0-P6 complete",
+      "correction": "Not strict. P0 and P1 absent from exploration-registry.jsonl (only 5 lines: P2-P6). P2 lacks true 5-segment allocator validation. P3 ran 148 candidates (plan wanted 432+). P4 ran 96 candidates (plan wanted 324+)."
+    },
+    {
+      "claim": "P2 5184 configs all full 5-segment validated",
+      "correction": "False. P2 script builds four full-period equity curves once, then computes allocator metrics from those curves. It does not compute true allocator segment metrics per candidate."
+    },
+    {
+      "claim": "Allocator has zero free parameters fitted on full period",
+      "correction": "Overstated. 5184 parameter combinations were ranked on full-period metrics. This is still parameter search and needs walk-forward or leave-one-segment-out validation."
+    },
+    {
+      "claim": "P2 max_high_ann_weight and min_low_dd_weight are binding parameters",
+      "correction": "False. These are part of the 5184-grid label but run_allocator does not use them. Output metrics are identical across all weight settings."
+    },
+    {
+      "claim": "P2 traded_symbols recorded correctly",
+      "correction": "False. P2 grid stores sleeve names (ANKR-q, QB, R4, fine) in traded_symbols, not actual exchange symbols."
+    },
+    {
+      "claim": "P1 live-parity semantic tests prove behavioral parity",
+      "correction": "Overstated. Most new tests are shallow config/smoke assertions, not behavioral parity. They do not prove trading-engine reproduces R5-R8 portfolio behavior."
+    },
+    {
+      "claim": "Pareto ceiling proven (ann~62-65% / DD~18-28% is structural)",
+      "correction": "Not proven. P2 needs repair, live parity missing, broad independent sleeve expansion not completed. Cannot claim architecture impossibility until P1-P5 of Round 9 complete."
+    }
+  ],
+  "target_status": {
+    "conservative": {
+      "verdict": "not_met",
+      "reason": "Best ann>=50 research DD is 18.2% (exceeds 10% gate). Live-ready ann is 34.7%."
+    },
+    "balanced": {
+      "verdict": "not_met",
+      "reason": "DD research near-frontier is <=20 (met), but ann only about 60-62% (below 90% gate)."
+    },
+    "aggressive": {
+      "verdict": "not_met",
+      "reason": "Ann far below 110% gate at any DD level with segment stability."
+    }
+  },
+  "round9_repair_priorities": [
+    "P1: Repair allocator timing (no current-interval leak), make weight params binding, fix traded_symbols, add true per-candidate segment metrics",
+    "P2: Implement allocator in Rust (backtest-engine + trading-engine) with live parity tests",
+    "P3: Expand multi-symbol sleeve library (1500+ independent portfolios, not derived from existing 4 sleeves)",
+    "P4: DCA reserve and dynamic stake buffer search",
+    "P5: Combine repaired allocator with expanded sleeves"
+  ]
+}
