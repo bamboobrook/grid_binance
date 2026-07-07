@@ -9,3 +9,7 @@
   - The allocator rotates among martingale sleeves using only lagged 60d performance minus 2x DD
   - DD 18.2% is within balanced ≤20% gate
   - 100+ configs achieve this target (many parameter combinations converge to the same allocation)
+
+## r8-P3-dca-grid-reset-001 (Task P3: DCA Dynamic Grid Reset)
+- 148 candidates × 6 replays. Spacing variations (long 120-210, short 150-250, SO condition variants).
+- No target hit. Spacing variations don't improve over base configs.
