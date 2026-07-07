@@ -66,3 +66,16 @@
 - **Conclusion: R4-combo's 4/5 positive segments is NOT robust to symbol substitution.** None of 520 random multi-symbol portfolios using the same martingale parameters reproduced 4/5. The R4-combo result appears to benefit from specific symbol-period fit, not a generalizable martingale + multi-symbol property. This is a critical anti-overfitting finding.
 - Saved: r9-multi-symbol-sleeve-library.json
 - Non-repeat key: r9-multi-symbol-random-substitution-no-4of5-reproduction
+
+## r9-P4-dca-reserve-stake-buffer-001 (Task P4: DCA Reserve And Dynamic Stake Buffer)
+- Search dimensions: 3 bases × 4 reserve_pct × 3 first_order_scale × 3 release_after_leg × 3 release_condition × 3 max_active_symbols = 972 configs
+- Mechanism: scales first_order_quote down by reserve factor, sets vol_target_atr_pct=2.0 with min_scale=fos to shrink first order in high-vol, releases reserve into late safety orders via taper_safety_after_leg, applies safety_order_condition for release gating, caps concurrent strategies via max_active_cycles
+- Run: 972 configs × 6 replays (full + 5 segments), 5630s
+- **RESULT: 972/972 evaluated, 0 promoted** (no config met DD improves ≥3pp while ann drops ≤5pp)
+- **270/972 candidates achieved 4/5 positive segments** — all R7-ANKR-q based
+- Best by ann (4/5 pos): R7-ANKR-q_rp10_fos0.5: ann 59.4% / DD 27.1% / 4/5 pos (DD improved 1.1pp from 28.2%, ann dropped 4.1pp from 63.5%)
+- Best DD improvement: R6-QB_rp40_fos0.5: DD 12.2% (improved 5.8pp from 18.0%), ann 22.9% (dropped 11.1pp from 34.0%) — DD gate met but ann drop too large
+- R7-ANKR-q_rp40_fos0.5: DD 22.6% (improved 5.6pp from 28.2%), ann 45.6% (dropped 17.9pp from 63.5%) — DD improves but ann drops too much
+- **Key finding: reserve + stake buffer CAN reduce DD by 3-6pp, but always at >5pp ann cost.** The trade is unfavorable for promotion. Reserve scaling is a valid DD-reduction tool but does not unlock a new target tier.
+- Saved: r9-dca-reserve-stake-buffer.json
+- Non-repeat key: r9-reserve-buffer-dd-reduces-but-ann-cost-too-high
