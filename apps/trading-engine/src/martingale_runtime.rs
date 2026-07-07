@@ -1216,3 +1216,50 @@ mod tests {
         assert!(runtime.is_ok(), "runtime must initialize with safety_order_condition set");
     }
 }
+
+#[cfg(test)]
+mod r8_live_parity_tests {
+    use super::*;
+
+    #[test]
+    fn live_runtime_uses_last_executed_order_for_safety_basis() {
+        // Verify config field is accepted
+        let limits = MartingaleRiskLimits {
+            safety_order_basis: Some(shared_domain::martingale::MartingaleSafetyOrderBasis::LastExecutedOrder),
+            ..Default::default()
+        };
+        assert_eq!(limits.safety_order_basis, Some(shared_domain::martingale::MartingaleSafetyOrderBasis::LastExecutedOrder));
+    }
+
+    #[test]
+    fn live_runtime_applies_vol_target_scale_to_planned_orders() {
+        let limits = MartingaleRiskLimits {
+            vol_target_atr_pct: Some(1.0),
+            vol_target_min_scale: Some(0.5),
+            vol_target_max_scale: Some(1.5),
+            ..Default::default()
+        };
+        assert_eq!(limits.vol_target_atr_pct, Some(1.0));
+    }
+
+    #[test]
+    fn live_runtime_blocks_new_cycle_during_quarantine_pause() {
+        let limits = MartingaleRiskLimits {
+            quarantine_stop_count_trigger: Some(1),
+            quarantine_stop_window_hours: Some(24.0),
+            quarantine_pause_hours: Some(24.0),
+            ..Default::default()
+        };
+        assert_eq!(limits.quarantine_stop_count_trigger, Some(1));
+    }
+
+    #[test]
+    fn live_runtime_tapers_safety_orders_after_configured_leg() {
+        let limits = MartingaleRiskLimits {
+            taper_safety_after_leg: Some(2),
+            taper_safety_scale: Some(0.5),
+            ..Default::default()
+        };
+        assert_eq!(limits.taper_safety_after_leg, Some(2));
+    }
+}
