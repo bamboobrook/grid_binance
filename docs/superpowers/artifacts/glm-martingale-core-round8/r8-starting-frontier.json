@@ -1,0 +1,20 @@
+{
+  "generated_from_audit": "docs/superpowers/reports/2026-07-07-glm-round7-execution-audit-and-recheck.md",
+  "targets": {
+    "conservative": {"ann": 50.0, "dd": 10.0},
+    "balanced": {"ann": 90.0, "dd": 20.0},
+    "aggressive": {"ann": 110.0, "dd": 30.0}
+  },
+  "frontier": [
+    {"label": "R7-ANKR-q1w24p24", "config": "docs/superpowers/artifacts/glm-martingale-core-round7/promising/r7-ANKR-q1w24p24.json", "ann": 63.5, "dd": 28.2, "pos_segments": 4, "traded_symbols": ["BNBUSDT", "TRXUSDT", "ANKRUSDT", "AAVEUSDT", "SOLUSDT", "DOTUSDT"], "indicator_only_dependencies": ["BTCUSDT"], "portfolio_candidate": true, "live_ready": false},
+    {"label": "R7-dynamic-blend", "config": "docs/superpowers/artifacts/glm-martingale-core-round7/r7-dynamic-cost-dd-blend.json", "ann": 53.9, "dd": 24.3, "pos_segments": null, "live_ready": false},
+    {"label": "R6-QB-lowdd", "config": "docs/superpowers/artifacts/glm-martingale-core-round6/promising/r6-QB-best.json", "ann": 34.0, "dd": 18.0, "pos_segments": 4, "live_ready": false},
+    {"label": "R4-combo", "config": "docs/superpowers/artifacts/glm-martingale-core-round4/promising/r4-combo-best.json", "ann": 34.7, "dd": 17.7, "pos_segments": 4, "live_ready": true}
+  ],
+  "open_blockers": [
+    "No target pass through Round 7",
+    "R5-R7 trading-engine live parity incomplete",
+    "R7 best segment DD exceeds 33% in 2024 and 2025",
+    "R7 best relies on cap-truncated static legs under 5000U budget"
+  ]
+}
