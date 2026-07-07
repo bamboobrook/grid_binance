@@ -1,3 +1,4 @@
+pub mod allocator_replay;
 pub mod budget_replay;
 pub mod capital;
 pub mod exit_rules;

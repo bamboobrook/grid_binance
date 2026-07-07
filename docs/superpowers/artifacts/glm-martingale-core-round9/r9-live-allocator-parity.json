@@ -1,0 +1,49 @@
+{
+  "round": 9,
+  "task": "P2",
+  "title": "Live-Reproducible Portfolio Allocator Parity",
+  "module": "apps/backtest-engine/src/martingale/allocator_replay.rs",
+  "summary": "Pure Rust port of the Round 9 repaired Python allocator. Forward-only timing, weight-capped eligibility, live runtime state for trading-engine integration.",
+  "invariants_proven": {
+    "forward_only_timing": "Rebalance at ts only affects intervals AFTER ts. The interval [prev_ts, ts] is attributed to the previously active sleeve. Verified by allocator_switch_uses_completed_interval_only.",
+    "weight_params_bind": "max_high_ann_weight excludes high-ann sleeves when set to 0; min_low_dd_weight forces low-DD sleeve eligibility when > 0. Output allocation changes when these params toggle. Verified by allocator_respects_max_high_ann_and_min_low_dd_weights.",
+    "no_forced_cycle_close": "Existing martingale cycles are not force-closed on sleeve switch. New cycles open only for the active sleeve. Verified by live_runtime_persists_allocator_active_sleeve_until_next_rebalance."
+  },
+  "tests_added": {
+    "backtest_engine": [
+      "allocator_switch_uses_completed_interval_only (PASS)",
+      "allocator_respects_max_high_ann_and_min_low_dd_weights (PASS)",
+      "live_runtime_persists_allocator_active_sleeve_until_next_rebalance (PASS)"
+    ],
+    "trading_engine": [
+      "r9_live_runtime_persists_allocator_active_sleeve_until_next_rebalance (PASS)",
+      "r9_allocator_state_default_persists_initial_sleeve (PASS)"
+    ]
+  },
+  "test_counts": {
+    "backtest_engine_total": "214 passed (188 lib + 3 market_data_probe + 23 search_scoring_time_splits)",
+    "trading_engine_total": "195 passed across all test binaries (incl. 2 new R9 allocator tests)",
+    "failures": 0
+  },
+  "public_api": [
+    "AllocatorConfig { lookback_days, rebalance_days, score_function, max_high_ann_weight, min_low_dd_weight, cash_trigger_rolling_dd_pct, switch_hysteresis_score_gap, high_ann_sleeve_ids, low_dd_sleeve_ids }",
+    "AllocatorScoreFunction { AnnMinus1Dd, AnnMinus2Dd, AnnMinusCost, CalmarLike }",
+    "AllocatorState { active_sleeve_id, next_rebalance_ms, last_completed_interval_ms, rolling_metrics_by_sleeve }",
+    "RollingMetrics { rolling_return_quote, rolling_max_dd_pct, score }",
+    "AllocatorMetrics { annualized_return_pct, max_drawdown_pct, total_return_pct }",
+    "fn run_allocator_replay(curves, cfg, budget) -> Option<AllocatorMetrics>",
+    "AllocatorState::new(initial_sleeve_id, first_rebalance_ms)",
+    "AllocatorState::may_open_new_cycle_for(sleeve_id, now_ms) -> bool",
+    "AllocatorState::rebalance(now_ms, cfg, sleeve_metrics) -> String"
+  ],
+  "live_integration_contract": {
+    "description": "The trading-engine main loop keeps one AllocatorState per allocator-managed portfolio. At each tick: (1) check may_open_new_cycle_for(sleeve_id, now_ms) before opening any new martingale cycle; (2) when now_ms crosses next_rebalance_ms, compute per-sleeve RollingMetrics from data <= now_ms and call rebalance(now_ms, cfg, metrics); (3) existing cycles continue running until their natural TP/SL — the allocator does not force-close them.",
+    "gap_for_full_live_deploy": "trading-engine main.rs does not yet wire AllocatorState into the per-tick decision loop. The module is complete and tested; integration into the live event loop is the remaining work (does not affect backtest validity or parity proof)."
+  },
+  "parity_status": {
+    "backtest_engine_allocator": "complete_and_tested",
+    "trading_engine_state_module": "complete_and_tested",
+    "trading_engine_main_loop_wiring": "not_yet_wired (module ready; integration is follow-up)",
+    "verdict": "Allocator logic has live parity: the same forward-only, weight-capped, no-force-close semantics are implemented and tested in both engines. The trading-engine can host the allocator via AllocatorState; only the per-tick dispatch wiring in main.rs remains."
+  }
+}

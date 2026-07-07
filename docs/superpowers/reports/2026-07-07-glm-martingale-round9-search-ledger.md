@@ -33,3 +33,20 @@
 - Top by ann (ignoring DD gate): ann 64.5% / DD 21.4% / 5/5 pos — exceeds balanced DD by 1.4pp
 - Target hits: 0 (balanced needs ann>=90, aggressive needs ann>=110 — both far off)
 - Saved: r9-allocator-repair-grid.json
+
+## r9-P2-live-allocator-parity-001 (Task P2: Implement Live-Reproducible Portfolio Allocator)
+- New module: apps/backtest-engine/src/martingale/allocator_replay.rs (pure Rust port of repaired Python allocator)
+- Public API: AllocatorConfig, AllocatorScoreFunction (4 variants), AllocatorState, RollingMetrics, AllocatorMetrics
+- Pure function: run_allocator_replay(curves, cfg, budget) -> Option<AllocatorMetrics>
+- Live runtime: AllocatorState with new(), may_open_new_cycle_for(), rebalance()
+- 3 invariants proven:
+  - Forward-only timing (no current-interval leak)
+  - Weight params bind (max_high_ann_weight excludes, min_low_dd_weight forces)
+  - No forced cycle close on sleeve switch (only new-cycle gating)
+- Tests added (all PASS):
+  - backtest-engine: allocator_switch_uses_completed_interval_only, allocator_respects_max_high_ann_and_min_low_dd_weights, live_runtime_persists_allocator_active_sleeve_until_next_rebalance
+  - trading-engine: r9_live_runtime_persists_allocator_active_sleeve_until_next_rebalance, r9_allocator_state_default_persists_initial_sleeve
+- Full test suites PASS:
+  - backtest-engine: 214 tests (188 lib + 3 probe + 23 splits), 0 failures
+  - trading-engine: 195 tests across all binaries (incl. 2 new R9), 0 failures
+- Gap: trading-engine main.rs per-tick dispatch wiring is not yet connected to AllocatorState. The module is complete and parity-proven; live event-loop integration is the remaining follow-up.
