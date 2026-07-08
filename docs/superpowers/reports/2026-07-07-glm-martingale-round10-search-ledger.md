@@ -36,3 +36,15 @@
   - annualized_return_pct: 64.4196
   - max_drawdown_pct: 18.2111
   - target_hit: false (still misses balanced ann>=90 and conservative DD<=10)
+
+## r10-P3-condition-triggered-so-ladder-001 (Task P3: Condition-Triggered Safety Order Ladders)
+- Grid: 2 bases × 2 calc_modes × 4 min_dev × 3 step_scale × 3 vol_scale × 3 max_legs × 5 conditions × 2 batch = 2880 configs (≥2500 ✓)
+- Mechanism: indicator conditions gate whether a safety order is ALLOWED after min deviation. Uses safety_order_basis, safety_order_condition, Multiplier spacing, sizing multiplier scaling.
+- Run: 2880 configs × 6 replays (full + 5 segments), 10146s
+- **RESULT: 0 target hits, 0 near-frontier.** Condition-triggered SO ladders do NOT improve the ann/DD frontier.
+- positive_segments distribution: 186 at 0/5, 1220 at 1/5, 1006 at 2/5, 370 at 3/5, 92 at 4/5, 6 at 5/5
+- Best by ann: R4-combo_from_md250_ss1.35_vs1.2_ml6_atr_c: ann 41.4% / DD 28.2% / 2/5 pos
+- Best at DD<=20: R7-ANKR-q_from_md80_ss1.15_vs1.2_ml4_atr_c: ann 20.9% / DD 19.4% / 4/5 pos (well below R4-combo ann 34.7%)
+- Best low-DD: R7-ANKR-q_from_md80_ss1.05_ml5_rsi_r: ann 18.5% / DD 13.1% / 4/5 pos
+- **Conclusion: indicator-gated safety orders REDUCE performance.** The conditions block too many SO fills, preventing cycles from averaging down. The unrestricted SO path (R4-combo default) is strictly better.
+- Non-repeat key: r10-condition-triggered-safety-orders-no-target
