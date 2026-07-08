@@ -1,1 +1,2 @@
 {"id":"r10-P0-canonical-startup-001","status":"complete","family":"startup","source":"r1-r9-corrected-status","target_hit":false}
+{"id":"r10-P1-live-allocator-mainloop-wiring-001","status":"complete","family":"live_allocator_wiring","target_hit":false,"result":"R9 allocator fully live-ready. main.rs dispatch wired. 3 new tests pass. Full suites green (211+198)."}

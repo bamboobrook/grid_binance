@@ -837,6 +837,43 @@ fn reconcile_running_martingale_portfolios(
             // 实盘 ATR 闭环：注入持久化的 indicator_context（跨 tick 保持 ATR/ADX 增量缓存）。
             runtime.set_indicator_context(persisted_ctx.clone());
 
+            // Round 10 P1: Portfolio allocator gate. If the portfolio has an
+            // allocator config + strategy_to_sleeve_id map, install the state
+            // and block new cycles for inactive sleeves. The allocator only
+            // blocks new cycles; existing cycles are never force-closed.
+            let allocator_active_sleeve = runtime_with_allocator_state(
+                &mut runtime,
+                &portfolio,
+                market_ticks,
+            );
+
+            let allocator_blocks_new_cycle = if let Some((state, sleeve_map)) = allocator_active_sleeve.as_ref() {
+                let now_ms = market_ticks
+                    .first()
+                    .map(|t| t.event_time_ms)
+                    .unwrap_or(0);
+                let sleeve_id = sleeve_map.get(strategy_id);
+                let allowed = runtime.allocator_allows_new_cycle(strategy_id, now_ms);
+                if !allowed {
+                    // Record a runtime event so the block is observable.
+                    cycle_results.push(serde_json::json!({
+                        "strategy_id": strategy_id,
+                        "order_count": 0,
+                        "status": "blocked",
+                        "reason": "martingale_allocator_blocked_new_cycle",
+                        "active_sleeve": state.active_sleeve_id,
+                        "strategy_sleeve": sleeve_id,
+                    }));
+                }
+                !allowed
+            } else {
+                false
+            };
+            let _ = &allocator_blocks_new_cycle;
+            if allocator_blocks_new_cycle {
+                continue;
+            }
+
             match runtime.start_cycle_with_futures_preflight(
                 &_settings,
                 strategy_id,
@@ -1847,6 +1884,71 @@ fn apply_portfolio_weight_scaling(
     // backtest replay binary share identical behavior.
     backtest_engine::martingale::capital::apply_portfolio_weight_margin_caps(config, config_value)
         .map_err(shared_db::SharedDbError::new)
+}
+
+/// Round 10 P1: install the portfolio allocator state onto a runtime if the
+/// portfolio JSON carries an `allocator_config` and `strategy_to_sleeve_id`
+/// map. Returns a clone of the installed (state, sleeve_map) so the caller
+/// can record which sleeve is active / which sleeve the strategy maps to.
+///
+/// The allocator state is derived from the portfolio JSON's persisted
+/// `allocator_state` block (active_sleeve_id, next_rebalance_ms). If absent,
+/// the allocator defaults to the first sleeve in `strategy_to_sleeve_id` with
+/// the next rebalance set to rebalance_days from the first market tick.
+///
+/// This helper is deliberately defensive: any parse failure returns None and
+/// the runtime runs WITHOUT allocator gating (legacy behavior).
+fn runtime_with_allocator_state(
+    runtime: &mut MartingaleRuntime,
+    portfolio: &MartingalePortfolioRecord,
+    market_ticks: &[MarketTick],
+) -> Option<(
+    backtest_engine::martingale::allocator_replay::AllocatorState,
+    HashMap<String, String>,
+)> {
+    let portfolio_config = portfolio.config.get("portfolio_config")?;
+    let _allocator_cfg_value = portfolio_config.get("allocator_config")?;
+    let strategy_to_sleeve_raw = portfolio_config.get("strategy_to_sleeve_id")?;
+    let strategy_to_sleeve_obj = strategy_to_sleeve_raw.as_object()?;
+
+    let mut strategy_to_sleeve_id: HashMap<String, String> = HashMap::new();
+    for (k, v) in strategy_to_sleeve_obj {
+        if let Some(s) = v.as_str() {
+            strategy_to_sleeve_id.insert(k.clone(), s.to_string());
+        }
+    }
+    if strategy_to_sleeve_id.is_empty() {
+        return None;
+    }
+
+    // Build initial state. Prefer the persisted allocator_state block; fall
+    // back to the first sleeve id alphabetically.
+    let first_sleeve = {
+        let mut sleeves: Vec<&String> = strategy_to_sleeve_id.values().collect();
+        sleeves.sort();
+        sleeves.first().map(|s| s.to_string()).unwrap_or_default()
+    };
+    let now_ms = market_ticks.first().map(|t| t.event_time_ms).unwrap_or(0);
+    let state = if let Some(persisted) = portfolio_config.get("allocator_state") {
+        let active = persisted
+            .get("active_sleeve_id")
+            .and_then(|v| v.as_str())
+            .map(String::from)
+            .unwrap_or_else(|| first_sleeve.clone());
+        let next_rebalance = persisted
+            .get("next_rebalance_ms")
+            .and_then(|v| v.as_i64())
+            .unwrap_or(now_ms);
+        backtest_engine::martingale::allocator_replay::AllocatorState::new(active, next_rebalance)
+    } else {
+        backtest_engine::martingale::allocator_replay::AllocatorState::new(
+            first_sleeve.clone(),
+            now_ms,
+        )
+    };
+    let snapshot = (state.clone(), strategy_to_sleeve_id.clone());
+    runtime.set_allocator_state_for_test(state, strategy_to_sleeve_id);
+    Some(snapshot)
 }
 
 fn portfolio_weight_factors(

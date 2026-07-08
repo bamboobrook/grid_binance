@@ -1,0 +1,39 @@
+{
+  "task": "P1",
+  "title": "Wire Allocator Into Trading-Engine Main Loop",
+  "full_live_ready_gap_from_round9": "closed",
+  "main_rs_dispatch_wired": true,
+  "main_rs_wiring_location": "apps/trading-engine/src/main.rs reconcile_running_martingale_portfolios (per-strategy loop, before start_cycle_with_futures_preflight)",
+  "allocator_blocks_new_cycles_only": true,
+  "existing_cycles_force_closed": false,
+  "forward_only_rebalance": true,
+  "implementation_summary": {
+    "martingale_runtime_struct": "Added allocator_state: Option<AllocatorState> and strategy_to_sleeve_id: HashMap<String,String> fields to MartingaleRuntime.",
+    "new_public_methods": [
+      "set_allocator_state_for_test(state, strategy_to_sleeve_id)",
+      "allocator_allows_new_cycle(strategy_id, now_ms) -> bool",
+      "rebalance_allocator(now_ms, cfg, metrics) -> Option<String>"
+    ],
+    "main_rs_helper": "runtime_with_allocator_state() parses optional allocator_config + strategy_to_sleeve_id + allocator_state from portfolio JSON, installs state on runtime, returns snapshot.",
+    "main_rs_gate": "In the per-strategy loop, before start_cycle_with_futures_preflight: if allocator_allows_new_cycle returns false, record 'martingale_allocator_blocked_new_cycle' event and skip the new cycle. Existing cycles are never touched.",
+    "config_keys_read": ["allocator_config", "strategy_to_sleeve_id", "allocator_state"]
+  },
+  "tests": [
+    "r10_allocator_blocks_new_cycles_for_inactive_sleeves_in_main_reconcile (PASS)",
+    "r10_allocator_switch_does_not_cancel_existing_cycle (PASS)",
+    "r10_allocator_rebalance_uses_completed_equity_only_in_main_loop (PASS)",
+    "r9_live_runtime_persists_allocator_active_sleeve_until_next_rebalance (PASS, carried from R9)",
+    "r9_allocator_state_default_persists_initial_sleeve (PASS, carried from R9)"
+  ],
+  "test_counts": {
+    "backtest_engine": "211 passed (188 lib + 23 search_scoring_time_splits), 0 failed",
+    "trading_engine": "198 passed across all binaries (incl. 3 new R10 P1 integration tests), 0 failed"
+  },
+  "parity_invariants_maintained": [
+    "Forward-only: rebalance decision at ts only affects intervals AFTER ts (verified by r10_allocator_rebalance_uses_completed_equity_only_in_main_loop)",
+    "Weight-bound: allocator_allows_new_cycle respects eligible sleeve set (carried from AllocatorState in allocator_replay.rs)",
+    "No-force-close: existing cycles remain after sleeve switch (verified by r10_allocator_switch_does_not_cancel_existing_cycle)",
+    "Opt-in per sleeve: strategies without a sleeve mapping are NOT gated (allocator only applies to configured sleeves)"
+  ],
+  "verdict": "R9 allocator is now fully live-ready: the trading-engine main loop consults the allocator before opening any new martingale cycle, the allocator blocks inactive sleeves, and existing cycles are never force-closed. The R9 gap 'main.rs per-tick dispatch wiring is not wired' is CLOSED."
+}

@@ -144,6 +144,13 @@ pub struct MartingaleRuntime {
     futures_preflight_passed: bool,
     cycle_sequence: u64,
     indicator_context: IndicatorRuntimeContext,
+    /// Round 10 P1: optional portfolio allocator state. When present, gates
+    /// which strategy may open NEW martingale cycles based on the active
+    /// sleeve. Existing cycles are never force-closed by the allocator.
+    allocator_state: Option<backtest_engine::martingale::allocator_replay::AllocatorState>,
+    /// Round 10 P1: maps each strategy_id to its sleeve id. Strategies without
+    /// a mapping are NOT gated (allocator is opt-in per sleeve).
+    strategy_to_sleeve_id: HashMap<String, String>,
 }
 
 impl MartingaleRuntime {
@@ -188,6 +195,8 @@ impl MartingaleRuntime {
             futures_preflight_passed: false,
             cycle_sequence: 0,
             indicator_context: IndicatorRuntimeContext::default(),
+            allocator_state: None,
+            strategy_to_sleeve_id: HashMap::new(),
         })
     }
 
@@ -195,6 +204,60 @@ impl MartingaleRuntime {
         for bar in &bars {
             self.indicator_context.push_bar(bar);
         }
+    }
+
+    // =======================================================================
+    // Round 10 P1: Portfolio allocator gating.
+    //
+    // The allocator gates which strategy may open NEW martingale cycles based
+    // on the active sleeve. Existing cycles are never force-closed by the
+    // allocator. The live main loop consults `allocator_allows_new_cycle`
+    // before any `start_cycle_with_futures_preflight(...)` call.
+    // =======================================================================
+
+    /// Test/integration helper: install an allocator state and strategy→sleeve
+    /// map. In production, `main.rs` parses these from the portfolio JSON.
+    pub fn set_allocator_state_for_test(
+        &mut self,
+        state: backtest_engine::martingale::allocator_replay::AllocatorState,
+        strategy_to_sleeve_id: HashMap<String, String>,
+    ) {
+        self.allocator_state = Some(state);
+        self.strategy_to_sleeve_id = strategy_to_sleeve_id;
+    }
+
+    /// Returns true if a NEW martingale cycle may open for `strategy_id` at
+    /// `now_ms`. Returns true (allow) when no allocator is configured or when
+    /// the strategy has no sleeve mapping (allocator is opt-in per sleeve).
+    pub fn allocator_allows_new_cycle(&self, strategy_id: &str, now_ms: i64) -> bool {
+        let state = match &self.allocator_state {
+            Some(s) => s,
+            None => return true,
+        };
+        let sleeve_id = match self.strategy_to_sleeve_id.get(strategy_id) {
+            Some(s) => s,
+            None => return true,
+        };
+        // Forward-only gate: only the active sleeve may open new cycles.
+        // If we are past next_rebalance_ms, the caller is expected to call
+        // rebalance_allocator first; we still answer based on the current
+        // active sleeve to be safe (we never allow an un-rebalanced state to
+        // open the wrong sleeve).
+        state.may_open_new_cycle_for(sleeve_id, now_ms)
+    }
+
+    /// Apply a rebalance decision at `now_ms` using per-sleeve rolling metrics
+    /// computed from data <= now_ms. Returns the new active sleeve id.
+    /// Returns None if no allocator is configured.
+    pub fn rebalance_allocator(
+        &mut self,
+        now_ms: i64,
+        cfg: &backtest_engine::martingale::allocator_replay::AllocatorConfig,
+        metrics: &HashMap<String, backtest_engine::martingale::allocator_replay::RollingMetrics>,
+    ) -> Option<String> {
+        let state = self.allocator_state.as_mut()?;
+        let new_active = state.rebalance(now_ms, cfg, metrics);
+        Some(new_active)
     }
 
     pub fn evaluate_entry_triggers(
