@@ -22,3 +22,17 @@
   - r10_allocator_rebalance_uses_completed_equity_only_in_main_loop
 - Full suites green: backtest-engine 211 pass, trading-engine 198 pass (incl. 3 new R10 + 2 carried R9 tests).
 - R9 allocator is now FULLY live-ready.
+
+## r10-P2-r9-winner-live-parity-001 (Task P2: Exact R9 Winner Live/Backtest Parity Replay)
+- Script: scripts/glm_r10_r9_allocator_live_parity_replay.py
+- Replayed R9 winner (5 sleeves, lb60/rb7/calmar/hi0.2/lo0.2) using ONLY completed observations (forward-only)
+- Decision audit: every rebalance recorded with timestamp_ms, metrics_cutoff_ms, applies_from_ms, active_sleeve_before/after, scores
+- All 3 parity checks PASS:
+  - PASS forward_only_decisions: every decision's applies_from_ms >= metrics_cutoff_ms (no current-interval leak)
+  - PASS full_metrics_tolerance: replay ann=64.4196/dd=18.2111 EXACTLY matches R9 recorded (diff 0.0000, well within 0.2 tolerance)
+  - PASS segment_metrics_present 5/5
+- Combined with P1 (main.rs dispatch wired), the R9 allocator is now FULLY live-ready:
+  - round10_live_ready_after_wiring: true
+  - annualized_return_pct: 64.4196
+  - max_drawdown_pct: 18.2111
+  - target_hit: false (still misses balanced ann>=90 and conservative DD<=10)

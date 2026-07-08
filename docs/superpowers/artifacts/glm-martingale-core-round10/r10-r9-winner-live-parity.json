@@ -1,0 +1,326 @@
+{
+  "candidate": "r9-P5-winner",
+  "round10_live_ready_after_wiring": true,
+  "annualized_return_pct": 64.4196,
+  "max_drawdown_pct": 18.2111,
+  "total_return_pct": 446.7542,
+  "target_hit": false,
+  "r9_recorded_ann": 64.4196,
+  "r9_recorded_dd": 18.2111,
+  "ann_abs_diff": 0.0,
+  "dd_abs_diff": 0.0,
+  "forward_only_decisions_pass": true,
+  "full_metrics_tolerance_pass": true,
+  "segment_metrics_present_pass": true,
+  "decision_count": 172,
+  "segment_metrics": {
+    "h1_2023": {
+      "ann": 19.646,
+      "dd": 4.6387,
+      "ret": 9.2942
+    },
+    "h2_2023": {
+      "ann": 11.4772,
+      "dd": 1.7118,
+      "ret": 5.625
+    },
+    "2024": {
+      "ann": 15.5062,
+      "dd": 4.9091,
+      "ret": 15.5379
+    },
+    "2025": {
+      "ann": 5.1231,
+      "dd": 3.9053,
+      "ret": 5.1187
+    },
+    "2026_ytd": {
+      "ann": 0.7871,
+      "dd": 3.7386,
+      "ret": 0.3247
+    }
+  },
+  "decisions_sample": [
+    {
+      "timestamp_ms": 1673156220000,
+      "metrics_cutoff_ms": 1673156220000,
+      "applies_from_ms": 1673156220000,
+      "active_sleeve_before": "QB",
+      "active_sleeve_after": "ANKR-q",
+      "scores": {
+        "ANKR-q": 2.4066,
+        "R4": 0.1044,
+        "p4-ANKR-q-rp10-fos05": 1.9405,
+        "QB": -43.1686,
+        "fine": 2.3241
+      }
+    },
+    {
+      "timestamp_ms": 1673781240000,
+      "metrics_cutoff_ms": 1673781240000,
+      "applies_from_ms": 1673781240000,
+      "active_sleeve_before": "ANKR-q",
+      "active_sleeve_after": "ANKR-q",
+      "scores": {
+        "ANKR-q": 64.6875,
+        "R4": 42.3601,
+        "p4-ANKR-q-rp10-fos05": 62.3701,
+        "QB": 38.626,
+        "fine": 48.3355
+      }
+    },
+    {
+      "timestamp_ms": 1674406260000,
+      "metrics_cutoff_ms": 1674406260000,
+      "applies_from_ms": 1674406260000,
+      "active_sleeve_before": "ANKR-q",
+      "active_sleeve_after": "ANKR-q",
+      "scores": {
+        "ANKR-q": 79.9809,
+        "R4": 47.9821,
+        "p4-ANKR-q-rp10-fos05": 76.3442,
+        "QB": 45.522,
+        "fine": 55.5369
+      }
+    },
+    {
+      "timestamp_ms": 1675031280000,
+      "metrics_cutoff_ms": 1675031280000,
+      "applies_from_ms": 1675031280000,
+      "active_sleeve_before": "ANKR-q",
+      "active_sleeve_after": "ANKR-q",
+      "scores": {
+        "ANKR-q": 89.8536,
+        "R4": 52.9763,
+        "p4-ANKR-q-rp10-fos05": 85.3102,
+        "QB": 51.2412,
+        "fine": 62.0868
+      }
+    },
+    {
+      "timestamp_ms": 1675656300000,
+      "metrics_cutoff_ms": 1675656300000,
+      "applies_from_ms": 1675656300000,
+      "active_sleeve_before": "ANKR-q",
+      "active_sleeve_after": "ANKR-q",
+      "scores": {
+        "ANKR-q": 90.3968,
+        "R4": 50.5364,
+        "p4-ANKR-q-rp10-fos05": 85.5433,
+        "QB": 48.8851,
+        "fine": 60.1484
+      }
+    },
+    {
+      "timestamp_ms": 1676281320000,
+      "metrics_cutoff_ms": 1676281320000,
+      "applies_from_ms": 1676281320000,
+      "active_sleeve_before": "ANKR-q",
+      "active_sleeve_after": "ANKR-q",
+      "scores": {
+        "ANKR-q": 93.5346,
+        "R4": 46.5466,
+        "p4-ANKR-q-rp10-fos05": 88.0331,
+        "QB": 43.7,
+        "fine": 55.808
+      }
+    },
+    {
+      "timestamp_ms": 1676906340000,
+      "metrics_cutoff_ms": 1676906340000,
+      "applies_from_ms": 1676906340000,
+      "active_sleeve_before": "ANKR-q",
+      "active_sleeve_after": "ANKR-q",
+      "scores": {
+        "ANKR-q": 114.5503,
+        "R4": 55.585,
+        "p4-ANKR-q-rp10-fos05": 107.4778,
+        "QB": 53.6631,
+        "fine": 66.048
+      }
+    },
+    {
+      "timestamp_ms": 1677531360000,
+      "metrics_cutoff_ms": 1677531360000,
+      "applies_from_ms": 1677531360000,
+      "active_sleeve_before": "ANKR-q",
+      "active_sleeve_after": "ANKR-q",
+      "scores": {
+        "ANKR-q": 115.9022,
+        "R4": 51.2297,
+        "p4-ANKR-q-rp10-fos05": 108.5988,
+        "QB": 48.6945,
+        "fine": 60.8823
+      }
+    },
+    {
+      "timestamp_ms": 1678156380000,
+      "metrics_cutoff_ms": 1678156380000,
+      "applies_from_ms": 1678156380000,
+      "active_sleeve_before": "ANKR-q",
+      "active_sleeve_after": "ANKR-q",
+      "scores": {
+        "ANKR-q": 107.0274,
+        "R4": 41.4481,
+        "p4-ANKR-q-rp10-fos05": 100.3303,
+        "QB": 39.065,
+        "fine": 49.8549
+      }
+    },
+    {
+      "timestamp_ms": 1678781400000,
+      "metrics_cutoff_ms": 1678781400000,
+      "applies_from_ms": 1678781400000,
+      "active_sleeve_before": "ANKR-q",
+      "active_sleeve_after": "ANKR-q",
+      "scores": {
+        "ANKR-q": 120.1562,
+        "R4": 54.6836,
+        "p4-ANKR-q-rp10-fos05": 112.5981,
+        "QB": 50.4869,
+        "fine": 65.3941
+      }
+    },
+    {
+      "timestamp_ms": 1679406420000,
+      "metrics_cutoff_ms": 1679406420000,
+      "applies_from_ms": 1679406420000,
+      "active_sleeve_before": "ANKR-q",
+      "active_sleeve_after": "ANKR-q",
+      "scores": {
+        "ANKR-q": 121.9042,
+        "R4": 67.9342,
+        "p4-ANKR-q-rp10-fos05": 113.8483,
+        "QB": 67.6725,
+        "fine": 83.1571
+      }
+    },
+    {
+      "timestamp_ms": 1680031440000,
+      "metrics_cutoff_ms": 1680031440000,
+      "applies_from_ms": 1680031440000,
+      "active_sleeve_before": "ANKR-q",
+      "active_sleeve_after": "ANKR-q",
+      "scores": {
+        "ANKR-q": 71.077,
+        "R4": 42.4862,
+        "p4-ANKR-q-rp10-fos05": 66.2366,
+        "QB": 38.0103,
+        "fine": 53.2676
+      }
+    },
+    {
+      "timestamp_ms": 1680656460000,
+      "metrics_cutoff_ms": 1680656460000,
+      "applies_from_ms": 1680656460000,
+      "active_sleeve_before": "ANKR-q",
+      "active_sleeve_after": "ANKR-q",
+      "scores": {
+        "ANKR-q": 105.9655,
+        "R4": 24.0621,
+        "p4-ANKR-q-rp10-fos05": 98.8361,
+        "QB": 17.6262,
+        "fine": 30.1752
+      }
+    },
+    {
+      "timestamp_ms": 1681281480000,
+      "metrics_cutoff_ms": 1681281480000,
+      "applies_from_ms": 1681281480000,
+      "active_sleeve_before": "ANKR-q",
+      "active_sleeve_after": "ANKR-q",
+      "scores": {
+        "ANKR-q": 75.5403,
+        "R4": 27.9823,
+        "p4-ANKR-q-rp10-fos05": 70.3121,
+        "QB": 23.6537,
+        "fine": 34.9085
+      }
+    },
+    {
+      "timestamp_ms": 1681906500000,
+      "metrics_cutoff_ms": 1681906500000,
+      "applies_from_ms": 1681906500000,
+      "active_sleeve_before": "ANKR-q",
+      "active_sleeve_after": "ANKR-q",
+      "scores": {
+        "ANKR-q": 47.8738,
+        "R4": 27.1062,
+        "p4-ANKR-q-rp10-fos05": 44.5341,
+        "QB": 22.6365,
+        "fine": 34.3387
+      }
+    },
+    {
+      "timestamp_ms": 1682531520000,
+      "metrics_cutoff_ms": 1682531520000,
+      "applies_from_ms": 1682531520000,
+      "active_sleeve_before": "ANKR-q",
+      "active_sleeve_after": "ANKR-q",
+      "scores": {
+        "ANKR-q": 40.4132,
+        "R4": 40.6448,
+        "p4-ANKR-q-rp10-fos05": 37.6834,
+        "QB": 37.181,
+        "fine": 51.7331
+      }
+    },
+    {
+      "timestamp_ms": 1683156540000,
+      "metrics_cutoff_ms": 1683156540000,
+      "applies_from_ms": 1683156540000,
+      "active_sleeve_before": "ANKR-q",
+      "active_sleeve_after": "ANKR-q",
+      "scores": {
+        "ANKR-q": 51.051,
+        "R4": 50.8101,
+        "p4-ANKR-q-rp10-fos05": 47.5962,
+        "QB": 48.2658,
+        "fine": 62.7532
+      }
+    },
+    {
+      "timestamp_ms": 1683781560000,
+      "metrics_cutoff_ms": 1683781560000,
+      "applies_from_ms": 1683781560000,
+      "active_sleeve_before": "ANKR-q",
+      "active_sleeve_after": "ANKR-q",
+      "scores": {
+        "ANKR-q": 74.3913,
+        "R4": 52.7787,
+        "p4-ANKR-q-rp10-fos05": 69.3819,
+        "QB": 51.8155,
+        "fine": 65.1538
+      }
+    },
+    {
+      "timestamp_ms": 1684406580000,
+      "metrics_cutoff_ms": 1684406580000,
+      "applies_from_ms": 1684406580000,
+      "active_sleeve_before": "ANKR-q",
+      "active_sleeve_after": "ANKR-q",
+      "scores": {
+        "ANKR-q": -245.8103,
+        "R4": 14.7249,
+        "p4-ANKR-q-rp10-fos05": -220.9909,
+        "QB": 13.3351,
+        "fine": 17.6438
+      }
+    },
+    {
+      "timestamp_ms": 1685031600000,
+      "metrics_cutoff_ms": 1685031600000,
+      "applies_from_ms": 1685031600000,
+      "active_sleeve_before": "ANKR-q",
+      "active_sleeve_after": "ANKR-q",
+      "scores": {
+        "ANKR-q": 16.0339,
+        "R4": 8.7812,
+        "p4-ANKR-q-rp10-fos05": 14.9268,
+        "QB": 7.4059,
+        "fine": 8.2081
+      }
+    }
+  ],
+  "all_checks_pass": true
+}
