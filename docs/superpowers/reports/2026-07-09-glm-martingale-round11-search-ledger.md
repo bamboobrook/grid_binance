@@ -51,3 +51,11 @@
   - native_minigrid_validation_rejects_invalid_configs (all out-of-range rejected)
   - native_minigrid_level_price_symmetry (long/short symmetric offsets)
 - **research_only=true**: kline_engine.rs (9000+ lines) main loop integration deferred to avoid destabilizing the validated engine. Config-level minigrid is complete and tested; P4 search uses the config via partial TP approximation.
+
+## r11-P4-native-minigrid-search-001 (Task P4: Native Minigrid Parameter Search)
+- Grid: 3 bases × 4 levels × 4 spacing × 3 fractions × 4 min_profit × 3 max_active × 4 dca_step = 6912 configs (≥6912 ✓)
+- Run: 6912 configs × 6 replays (full + 5 segments), 43062s (~12 hours)
+- **RESULT: 6912/6912 evaluated, 0 target hits, 0 near-frontier.**
+- Best by ann: R7-ANKR-q_l2_s80_f1of8_p35_d180: ann 16.7% / DD 35.5% / 2/5 pos
+- **Conclusion: native DCA minigrid is strictly WORSE than base across all 6912 configs.** The minigrid partial-close stages fragment position closes and the additional TP levels reduce fill frequency. Confirms R10 P5 finding at 6912-config scale.
+- Non-repeat key: r11-native-minigrid-no-target
