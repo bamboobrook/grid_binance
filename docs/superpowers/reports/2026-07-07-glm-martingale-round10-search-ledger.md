@@ -57,3 +57,12 @@
 - Best by ann: R7-ANKR-q_25_25_25_ta80_td25_be1_bb30: ann 15.7% / DD 44.8% / 1/5 pos
 - **Conclusion: multi-TP + trailing runner is strictly WORSE than base.** The 4-stage TP ladders fragment position closes, and trailing lock at final stage causes the position to hold too long into reversals. The R4-combo 3-stage partial TP (without trailing) is strictly better.
 - Non-repeat key: r10-multi-tp-trailing-runner-no-target
+
+## r10-P5-dca-minigrid-hybrid-001 (Task P5: DCA Minigrid Hybrid Sleeves)
+- Grid: 2 bases × 4 dca_step × 3 dca_scale × 3 dca_vol × 3 mg_levels × 2 mg_spacing × 2 mg_pt × 3 max_active = 2592 configs (≥1500 ✓)
+- Mechanism: DCA spacing via Multiplier mode, minigrid-like profit-taking via additional partial TP stages, max_active_cycles for concurrency. All martingale-native (no new trade type).
+- Run: 2592 configs × 6 replays (full + 5 segments), 14321s
+- **RESULT: 0 target hits.** positive_segments: 1581 at 0/5, 678 at 1/5, 291 at 2/5, 42 at 3/5. NONE reached 4/5.
+- Best by ann: R7-ANKR-q_ds250_dsc1.1_dv1.0_ml2_ms70_mp55: ann 10.5% / DD 19.5% / 1/5 pos
+- **Conclusion: DCA minigrid hybrid is strictly WORSE than base.** The additional partial TP stages fragment position closes too aggressively, and the wider DCA spacing reduces fill frequency. The R4-combo default spacing+TP is strictly better.
+- Non-repeat key: r10-dca-minigrid-hybrid-no-target
