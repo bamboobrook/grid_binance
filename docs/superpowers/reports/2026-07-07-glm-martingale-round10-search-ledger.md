@@ -48,3 +48,12 @@
 - Best low-DD: R7-ANKR-q_from_md80_ss1.05_ml5_rsi_r: ann 18.5% / DD 13.1% / 4/5 pos
 - **Conclusion: indicator-gated safety orders REDUCE performance.** The conditions block too many SO fills, preventing cycles from averaging down. The unrestricted SO path (R4-combo default) is strictly better.
 - Non-repeat key: r10-condition-triggered-safety-orders-no-target
+
+## r10-P4-multi-tp-trailing-runner-001 (Task P4: Multi-TP With Final Trailing Runner)
+- Grid: 2 bases × 3 TP ladders × 4 trail_act × 4 trail_dev × 2 be_after × 3 be_buf × 4 time_limit = 2304 configs (≥1200 ✓)
+- Mechanism: partial TP ladder with final stage trailing runner via trailing_lock_* fields (R6 Task D)
+- Run: 2304 configs × 6 replays (full + 5 segments), 11285s
+- **RESULT: 0 target hits. NO candidate reached DD<=20.** positive_segments: 768 at 0/5, 1536 at 1/5.
+- Best by ann: R7-ANKR-q_25_25_25_ta80_td25_be1_bb30: ann 15.7% / DD 44.8% / 1/5 pos
+- **Conclusion: multi-TP + trailing runner is strictly WORSE than base.** The 4-stage TP ladders fragment position closes, and trailing lock at final stage causes the position to hold too long into reversals. The R4-combo 3-stage partial TP (without trailing) is strictly better.
+- Non-repeat key: r10-multi-tp-trailing-runner-no-target
