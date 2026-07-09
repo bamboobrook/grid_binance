@@ -310,6 +310,11 @@ pub struct MartingaleRiskLimits {
     /// Round 7 Task F: Scale factor for tapered safety orders.
     #[serde(default)]
     pub taper_safety_scale: Option<f64>,
+    /// Round 11 Task P3: Native inventory-reducing DCA minigrid config.
+    /// When present, minigrid levels open between safety order fills and
+    /// reduce inventory only (never add exposure).
+    #[serde(default)]
+    pub dca_minigrid: Option<MartingaleDcaMiniGridConfig>,
 }
 
 /// Round 6 Task B: A single drawdown state rule.
@@ -324,6 +329,73 @@ pub struct MartingaleDrawdownStateRule {
     pub cooldown_multiplier: Option<f64>,
     #[serde(default)]
     pub freeze_safety_orders: Option<bool>,
+}
+
+/// Round 11 Task P3: Native inventory-reducing DCA minigrid config.
+/// A minigrid opens local reduce-only take-profit levels between safety
+/// order fills. It can only reduce inventory (close fractions of existing
+/// legs); it never adds new exposure or resets the cycle.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct MartingaleDcaMiniGridConfig {
+    /// Number of minigrid levels per band (1..=5).
+    pub levels_per_band: u32,
+    /// Spacing between minigrid levels in bps (10..=150).
+    pub spacing_bps: u32,
+    /// Numerator of the close fraction (close_fraction_num/close_fraction_den).
+    pub close_fraction_num: u32,
+    /// Denominator of the close fraction (>= close_fraction_num).
+    pub close_fraction_den: u32,
+    /// Minimum profit in bps from last safety fill to place a minigrid level (>= 5).
+    pub min_profit_bps: u32,
+    /// Maximum concurrent active minigrid levels (1..=5).
+    pub max_active_levels: u32,
+}
+
+impl MartingaleDcaMiniGridConfig {
+    /// Validate minigrid config per plan rules.
+    pub fn validate(&self) -> Result<(), String> {
+        if self.levels_per_band < 1 || self.levels_per_band > 5 {
+            return Err(format!("levels_per_band must be in 1..=5, got {}", self.levels_per_band));
+        }
+        if self.spacing_bps < 10 || self.spacing_bps > 150 {
+            return Err(format!("spacing_bps must be in 10..=150, got {}", self.spacing_bps));
+        }
+        if self.close_fraction_num == 0 {
+            return Err("close_fraction_num must be > 0".to_string());
+        }
+        if self.close_fraction_den < self.close_fraction_num {
+            return Err(format!(
+                "close_fraction_den ({}) must be >= close_fraction_num ({})",
+                self.close_fraction_den, self.close_fraction_num
+            ));
+        }
+        if self.min_profit_bps < 5 {
+            return Err(format!("min_profit_bps must be >= 5, got {}", self.min_profit_bps));
+        }
+        if self.max_active_levels < 1 || self.max_active_levels > 5 {
+            return Err(format!("max_active_levels must be in 1..=5, got {}", self.max_active_levels));
+        }
+        Ok(())
+    }
+
+    /// Compute the minigrid level price for a given level index, direction, and
+    /// last safety fill price.
+    /// Long: price = last_fill * (1 + (min_profit + idx*spacing) / 10000)
+    /// Short: price = last_fill * (1 - (min_profit + idx*spacing) / 10000)
+    pub fn level_price(&self, last_safety_fill_price: f64, level_index: u32, is_long: bool) -> f64 {
+        let offset_bps = self.min_profit_bps + level_index * self.spacing_bps;
+        let factor = 1.0 + (offset_bps as f64) / 10_000.0;
+        if is_long {
+            last_safety_fill_price * factor
+        } else {
+            last_safety_fill_price * (2.0 - factor)
+        }
+    }
+
+    /// The close fraction as a float (num/den).
+    pub fn close_fraction(&self) -> f64 {
+        self.close_fraction_num as f64 / self.close_fraction_den as f64
+    }
 }
 
 /// Round 5 Task B: Safety order trigger basis.

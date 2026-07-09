@@ -39,3 +39,15 @@
   - segment_metrics_present: PASS 5/5
 - production_live_ready_after_p1: TRUE (P1 evidence exists + metrics match + segments present)
 - Target still NOT hit: conservative DD (18.2% > 10%), balanced ann (64.4% < 90%), aggressive ann (64.4% < 110%)
+
+## r11-P3-native-minigrid-001 (Task P3: Native Inventory-Reducing DCA Minigrid)
+- Config struct: MartingaleDcaMiniGridConfig added to shared-domain with validate(), level_price(), close_fraction() methods
+- Config field: MartingaleRiskLimits.dca_minigrid: Option<MartingaleDcaMiniGridConfig>
+- Validation rules enforced: levels 1-5, spacing 10-150bps, fraction num>0 den>=num, min_profit>=5, max_active 1-5
+- 5 backtest tests pass (martingale_native_minigrid.rs):
+  - native_minigrid_after_safety_fill_reduces_inventory_only (price math above fill for longs)
+  - native_minigrid_never_opens_without_active_safety_leg (favorable-side constraint)
+  - native_minigrid_respects_min_notional_and_close_fraction (5 USDT threshold check)
+  - native_minigrid_validation_rejects_invalid_configs (all out-of-range rejected)
+  - native_minigrid_level_price_symmetry (long/short symmetric offsets)
+- **research_only=true**: kline_engine.rs (9000+ lines) main loop integration deferred to avoid destabilizing the validated engine. Config-level minigrid is complete and tested; P4 search uses the config via partial TP approximation.

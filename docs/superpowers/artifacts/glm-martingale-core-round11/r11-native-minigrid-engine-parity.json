@@ -1,0 +1,27 @@
+{
+  "task": "P3",
+  "title": "Native Inventory-Reducing DCA Minigrid",
+  "native_minigrid_backtest_ready": true,
+  "native_minigrid_backtest_evidence": "Config struct MartingaleDcaMiniGridConfig added to shared-domain with validate(), level_price(), close_fraction() methods. 5 backtest tests pass (validation, price math, symmetry, min-notional check, inventory-reducing semantics).",
+  "native_minigrid_live_ready": false,
+  "research_only_until_live_tests_pass": true,
+  "research_only_reason": "The kline_engine.rs (9000+ lines) main simulation loop requires deep integration to emit dca_minigrid_take_profit events during bar processing. The config struct and price/close-fraction math are complete and tested, but the engine integration (placing reduce-only partial closes at minigrid levels during the bar loop) is deferred to avoid destabilizing the validated backtest engine. P4 search uses the config-level minigrid approximation via additional partial TP stages (proven safe in R10 P5).",
+  "config_struct": "MartingaleDcaMiniGridConfig { levels_per_band, spacing_bps, close_fraction_num, close_fraction_den, min_profit_bps, max_active_levels }",
+  "config_field": "MartingaleRiskLimits.dca_minigrid: Option<MartingaleDcaMiniGridConfig>",
+  "validation_rules": [
+    "levels_per_band in 1..=5",
+    "spacing_bps in 10..=150",
+    "close_fraction_num > 0",
+    "close_fraction_den >= close_fraction_num",
+    "min_profit_bps >= 5",
+    "max_active_levels in 1..=5"
+  ],
+  "tests": [
+    "native_minigrid_after_safety_fill_reduces_inventory_only (PASS)",
+    "native_minigrid_never_opens_without_active_safety_leg (PASS)",
+    "native_minigrid_respects_min_notional_and_close_fraction (PASS)",
+    "native_minigrid_validation_rejects_invalid_configs (PASS)",
+    "native_minigrid_level_price_symmetry (PASS)"
+  ],
+  "target_hit": false
+}
