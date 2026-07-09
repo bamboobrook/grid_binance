@@ -66,3 +66,13 @@
 - Best by ann: R7-ANKR-q_ds250_dsc1.1_dv1.0_ml2_ms70_mp55: ann 10.5% / DD 19.5% / 1/5 pos
 - **Conclusion: DCA minigrid hybrid is strictly WORSE than base.** The additional partial TP stages fragment position closes too aggressively, and the wider DCA spacing reduces fill frequency. The R4-combo default spacing+TP is strictly better.
 - Non-repeat key: r10-dca-minigrid-hybrid-no-target
+
+## r10-P6-regime-defensive-allocator-v2-001 (Task P6: Regime-Defensive Allocator V2)
+- Grid: 4 lookback × 4 rebalance × 4 score × 4 cash_trigger × 3 defensive_floor × 3 hyst = 2304 configs (≥2000 ✓)
+- Lagged features only (forward-only): rolling returns, DD, funding drag approximations. Forbidden: current_interval_return, future labels, full-period rank.
+- Run: 2304 configs × 6 allocator replays (curve-reuse, fast), 593s
+- **RESULT: 0 target hits. LOSO not triggered (no candidates passed targets).**
+- Best: lb60_rb7_calmar_like_none_df0.0: ann 64.4% / DD 18.2% / 5/5 pos (same as R9 winner — no improvement)
+- 0 configs reached ann>=90 (balanced gate) or DD<=10 (conservative gate)
+- **Conclusion: defensive allocator V2 confirms the R9 frontier.** Cash triggers, defensive floors, and chop-score approximations do not unlock new target tiers. The ann/DD Pareto frontier is confirmed at ann ~64% / DD ~18% / 5/5 pos.
+- Non-repeat key: r10-regime-defensive-allocator-v2-no-target
