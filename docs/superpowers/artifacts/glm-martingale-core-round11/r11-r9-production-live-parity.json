@@ -1,0 +1,42 @@
+{
+  "candidate": "r9-P5-winner",
+  "production_live_ready_after_p1": true,
+  "annualized_return_pct": 64.4196,
+  "max_drawdown_pct": 18.2111,
+  "total_return_pct": 446.7542,
+  "r9_recorded_ann": 64.4196,
+  "r9_recorded_dd": 18.2111,
+  "ann_abs_diff": 0.0,
+  "dd_abs_diff": 0.0,
+  "forward_only_decisions_pass": true,
+  "full_metrics_tolerance_pass": true,
+  "segment_metrics_present_pass": true,
+  "segment_metrics": {
+    "h1_2023": {
+      "ann": 19.646,
+      "dd": 4.6387,
+      "ret": 9.2942
+    },
+    "h2_2023": {
+      "ann": 11.4772,
+      "dd": 1.7118,
+      "ret": 5.625
+    },
+    "2024": {
+      "ann": 15.5062,
+      "dd": 4.9091,
+      "ret": 15.5379
+    },
+    "2025": {
+      "ann": 5.1231,
+      "dd": 3.9053,
+      "ret": 5.1187
+    },
+    "2026_ytd": {
+      "ann": 0.7871,
+      "dd": 3.7386,
+      "ret": 0.3247
+    }
+  },
+  "all_checks_pass": true
+}

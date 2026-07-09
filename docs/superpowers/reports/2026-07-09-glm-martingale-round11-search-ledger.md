@@ -29,3 +29,13 @@
   - r11_parse_allocator_config_round_trips
   - r11_parse_strategy_to_sleeve_id_handles_objects
 - Full suites green: backtest-engine 211 pass, trading-engine 205 pass (incl. 7 new R11).
+
+## r11-P2-r9-winner-production-parity-001 (Task P2: R9 Winner Production Parity After True Live Rebalance)
+- Script: scripts/glm_r11_r9_allocator_production_parity.py
+- Replayed R9 winner after P1 production rebalance wiring
+- All checks PASS:
+  - forward_only_decisions: PASS (forward-only timing maintained)
+  - full_metrics_tolerance: PASS (ann 64.4196/dd 18.2111 EXACT match, diff 0.0000)
+  - segment_metrics_present: PASS 5/5
+- production_live_ready_after_p1: TRUE (P1 evidence exists + metrics match + segments present)
+- Target still NOT hit: conservative DD (18.2% > 10%), balanced ann (64.4% < 90%), aggressive ann (64.4% < 110%)
