@@ -1,1 +1,2 @@
 {"id":"r11-P0-canonical-startup-001","status":"complete","family":"startup","source":"r1-r10-corrected-status","target_hit":false}
+{"id":"r11-P1-live-allocator-production-wiring-001","status":"complete","family":"live_allocator_production_wiring","target_hit":false,"result":"Production rolling metrics, dynamic rebalance, and allocator_state persistence wired and tested. 7 new tests pass. Full suites green (211+205)."}

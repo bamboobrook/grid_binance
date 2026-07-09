@@ -801,6 +801,11 @@ fn reconcile_running_martingale_portfolios(
 
         let mut total_orders: usize = 0;
         let mut cycle_results: Vec<serde_json::Value> = Vec::new();
+        // Round 11 P1: track the last allocator snapshot for state persistence
+        let mut last_allocator_snapshot: Option<(
+            backtest_engine::martingale::allocator_replay::AllocatorState,
+            HashMap<String, String>,
+        )> = None;
 
         let mut computed_orders: Vec<(
             MartingaleStrategyConfig,
@@ -846,6 +851,10 @@ fn reconcile_running_martingale_portfolios(
                 &portfolio,
                 market_ticks,
             );
+            // Capture the snapshot for persistence after the loop
+            if let Some(ref snap) = allocator_active_sleeve {
+                last_allocator_snapshot = Some(snap.clone());
+            }
 
             let allocator_blocks_new_cycle = if let Some((state, sleeve_map)) = allocator_active_sleeve.as_ref() {
                 let now_ms = market_ticks
@@ -982,6 +991,16 @@ fn reconcile_running_martingale_portfolios(
         risk_summary["executor_strategy_count"] = serde_json::json!(executor_strategy_count);
         risk_summary["strategy_count"] = serde_json::json!(strategies_config.len());
         risk_summary["cycle_results"] = serde_json::json!(cycle_results);
+        // Round 11 P1: Persist allocator state if the allocator is configured.
+        // The state was already updated in-memory by runtime_with_allocator_state
+        // (dynamic rebalance). We re-read it from the last runtime that had it set.
+        // For simplicity, if the portfolio has an allocator_config, we persist
+        // the current risk_summary allocator_state (which may have been updated
+        // by the rebalance). The rebalance writes to the runtime's state, and
+        // we capture the last snapshot from the allocator_active_sleeve variable.
+        if let Some((ref state, _)) = last_allocator_snapshot {
+            risk_summary["allocator_state"] = trading_engine::martingale_allocator_live::state_to_json(state);
+        }
         db.backtest_repo()
             .update_martingale_portfolio_risk_summary(
                 &portfolio.owner,
@@ -1906,49 +1925,52 @@ fn runtime_with_allocator_state(
     backtest_engine::martingale::allocator_replay::AllocatorState,
     HashMap<String, String>,
 )> {
-    let portfolio_config = portfolio.config.get("portfolio_config")?;
-    let _allocator_cfg_value = portfolio_config.get("allocator_config")?;
-    let strategy_to_sleeve_raw = portfolio_config.get("strategy_to_sleeve_id")?;
-    let strategy_to_sleeve_obj = strategy_to_sleeve_raw.as_object()?;
+    use trading_engine::martingale_allocator_live as alloc_live;
 
-    let mut strategy_to_sleeve_id: HashMap<String, String> = HashMap::new();
-    for (k, v) in strategy_to_sleeve_obj {
-        if let Some(s) = v.as_str() {
-            strategy_to_sleeve_id.insert(k.clone(), s.to_string());
-        }
-    }
-    if strategy_to_sleeve_id.is_empty() {
-        return None;
-    }
-
-    // Build initial state. Prefer the persisted allocator_state block; fall
-    // back to the first sleeve id alphabetically.
-    let first_sleeve = {
-        let mut sleeves: Vec<&String> = strategy_to_sleeve_id.values().collect();
-        sleeves.sort();
-        sleeves.first().map(|s| s.to_string()).unwrap_or_default()
-    };
     let now_ms = market_ticks.first().map(|t| t.event_time_ms).unwrap_or(0);
-    let state = if let Some(persisted) = portfolio_config.get("allocator_state") {
-        let active = persisted
-            .get("active_sleeve_id")
-            .and_then(|v| v.as_str())
-            .map(String::from)
-            .unwrap_or_else(|| first_sleeve.clone());
-        let next_rebalance = persisted
-            .get("next_rebalance_ms")
-            .and_then(|v| v.as_i64())
-            .unwrap_or(now_ms);
-        backtest_engine::martingale::allocator_replay::AllocatorState::new(active, next_rebalance)
-    } else {
-        backtest_engine::martingale::allocator_replay::AllocatorState::new(
-            first_sleeve.clone(),
-            now_ms,
-        )
+
+    // Read allocator config + state with risk_summary > config > fallback priority
+    let first_sleeve = {
+        let portfolio_config = portfolio.config.get("portfolio_config")?;
+        let s2s = portfolio_config.get("strategy_to_sleeve_id")?;
+        let mut sleeves: Vec<String> = alloc_live::parse_strategy_to_sleeve_id(s2s)
+            .into_values()
+            .collect();
+        sleeves.sort();
+        sleeves.first().cloned().unwrap_or_default()
     };
+    let (mut state, cfg, strategy_to_sleeve_id) =
+        alloc_live::read_allocator_state_with_priority(portfolio, &first_sleeve, now_ms)?;
+
+    // Round 11 P1: Production dynamic rebalance. If now_ms >= next_rebalance_ms,
+    // compute completed rolling metrics and rebalance.
+    if now_ms >= state.next_rebalance_ms {
+        // Parse observations from risk_summary
+        let observations = alloc_live::parse_observations(
+            portfolio.risk_summary.get("allocator_observations"),
+        );
+        let budget = config_portfolio_budget_quote(&portfolio.config).unwrap_or(5000.0);
+        let metrics = alloc_live::completed_allocator_metrics(
+            &observations,
+            now_ms,
+            &cfg,
+            budget,
+        );
+        // Apply the rebalance (mutates state)
+        state.rebalance(now_ms, &cfg, &metrics);
+    }
+
     let snapshot = (state.clone(), strategy_to_sleeve_id.clone());
     runtime.set_allocator_state_for_test(state, strategy_to_sleeve_id);
     Some(snapshot)
+}
+
+/// Extract the portfolio budget quote from config JSON (helper for allocator).
+fn config_portfolio_budget_quote(config: &serde_json::Value) -> Option<f64> {
+    let pc = config.get("portfolio_config")?;
+    let rl = pc.get("risk_limits")?;
+    let budget = rl.get("max_global_budget_quote")?;
+    budget.as_str().and_then(|s| s.parse::<f64>().ok())
 }
 
 fn portfolio_weight_factors(
