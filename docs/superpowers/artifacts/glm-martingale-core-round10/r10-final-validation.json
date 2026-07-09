@@ -1,7 +1,9 @@
 {
   "round": 10,
+  "generated_at": "2026-07-09",
+  "status": "corrected_after_chatgpt_audit",
   "branch": "glm-martingale-core-round10",
-  "head_commit": "40fe5df4a0fbd00d7e6aac7deae0c20098e627bf",
+  "head_commit": "e2e58e55c4778e4f2eeda49ce39f4a383c01affb",
   "plan": "docs/superpowers/plans/2026-07-07-glm-martingale-core-round10-live-allocator-and-new-sleeves-plan.md",
   "targets": {
     "conservative": {"ann_min": 50.0, "max_dd_max": 10.0, "min_positive_segments": 4, "budget_max": 5000, "multi_symbol": true, "live_reproducible": true},
@@ -11,79 +13,124 @@
   "target_hits": {"conservative": [], "balanced": [], "aggressive": []},
   "best_research": [
     {
-      "label": "r9-P5-winner (confirmed live-ready after R10 P1+P2)",
+      "label": "r9-P5-winner (research replay valid; R10 only added live static new-cycle gating)",
       "type": "lagged_dynamic_allocator",
       "annualized_return_pct": 64.4196,
       "max_drawdown_pct": 18.2111,
-      "total_return_pct": 447.4158,
+      "total_return_pct": 446.7542,
+      "total_return_note": "R10 parity JSON reports 446.7542; R9 handoff rounded/recorded 447.42. Ann/DD are unchanged and remain canonical for target gates.",
       "positive_segments": "5/5",
       "traded_symbols": ["AAVEUSDT", "ANKRUSDT", "BCHUSDT", "BNBUSDT", "DOTUSDT", "SOLUSDT", "TRXUSDT", "XRPUSDT"],
       "symbol_count": 8,
       "max_symbol_budget_pct": 12.5,
-      "fully_live_ready": true,
-      "live_parity_module": "apps/backtest-engine/src/martingale/allocator_replay.rs + apps/trading-engine/src/main.rs (main loop wired R10 P1)",
-      "parity_replay": "ann 64.4196/dd 18.2111 EXACT match (R10 P2), forward-only decisions verified"
+      "live_module_ready": true,
+      "live_static_gate_ready": true,
+      "live_rebalance_ready": false,
+      "live_state_persistence_ready": false,
+      "fully_live_ready": false,
+      "parity_replay": "ann 64.4196/dd 18.2111 exact match in R10 P2; forward-only decisions verified in replay/module context",
+      "remaining_live_gaps": [
+        "trading-engine production loop does not compute rolling per-sleeve allocator metrics from completed live observations",
+        "trading-engine production loop does not call rebalance_allocator when now_ms >= next_rebalance_ms",
+        "updated allocator_state is not persisted back to portfolio/risk-summary storage",
+        "R10 integration tests exercise MartingaleRuntime helper methods, not full DB-backed main reconcile persistence"
+      ]
     }
   ],
   "best_fully_live_ready": [
-    {
-      "label": "r9-P5-winner (R10 made it fully live-ready)",
-      "annualized_return_pct": 64.4196,
-      "max_drawdown_pct": 18.2111,
-      "positive_segments": "5/5",
-      "fully_live_ready": true
-    },
     {
       "label": "R4-combo (single sleeve, live-ready since R4)",
       "annualized_return_pct": 34.72332738972233,
       "max_drawdown_pct": 17.68431043895811,
       "positive_segments": "4/5",
-      "fully_live_ready": true
+      "fully_live_ready": true,
+      "target_status": "misses all three return tiers"
     }
   ],
+  "round10_task_validation": {
+    "P1_live_allocator_wiring": {
+      "corrected_status": "partial",
+      "static_new_cycle_gate_wired": true,
+      "dynamic_rebalance_wired": false,
+      "state_persistence_wired": false,
+      "db_backed_main_reconcile_tested": false,
+      "verdict": "R10 closes only the static inactive-sleeve new-cycle gate. It does not make the R9 dynamic allocator fully live-ready."
+    },
+    "P2_r9_winner_parity_replay": {
+      "corrected_status": "valid_replay_not_live_production_proof",
+      "annualized_return_pct": 64.4196,
+      "max_drawdown_pct": 18.2111,
+      "forward_only_decisions_pass": true,
+      "full_metrics_tolerance_pass": true,
+      "segment_metrics_present_pass": true
+    },
+    "P3_condition_triggered_so": {
+      "corrected_status": "valid_but_narrower_than_plan",
+      "configs": 2880,
+      "target_hits": 0,
+      "note": "Search met count gates but did not prove all requested base/sleeve variants; do not repeat the same strict indicator-gated SO family."
+    },
+    "P4_multi_tp_trailing": {
+      "corrected_status": "valid_failure_for_existing_trailing_lock_approximation",
+      "configs": 2304,
+      "target_hits": 0,
+      "note": "No new exact final-stage-only trailing engine behavior was proven; failure applies to the implemented trailing_lock approximation."
+    },
+    "P5_dca_minigrid": {
+      "corrected_status": "valid_failure_for_partial_tp_approximation_only",
+      "configs": 2592,
+      "target_hits": 0,
+      "note": "The engine had no native minigrid executor; script approximated minigrids with extra partial TP stages and max_active_cycles. Native inventory-reducing DCA minigrid remains untested."
+    },
+    "P6_regime_defensive_v2": {
+      "corrected_status": "valid_allocator_replay_failure_with_approximated_features",
+      "configs": 2304,
+      "target_hits": 0,
+      "note": "Cash/funding/chop triggers were approximated through DD-style fields; do not treat this as proof that exact funding or chop-state capital defense failed."
+    }
+  },
   "new_failed_families": [
-    {"family": "condition_triggered_so_ladder", "task": "P3", "configs": 2880, "result": "0 target hits, 0 near-frontier. Indicator-gated safety orders REDUCE performance (block too many fills)."},
-    {"family": "multi_tp_trailing_runner", "task": "P4", "configs": 2304, "result": "0 target hits. Multi-TP + trailing runner strictly worse than base. Fragment closes hurt."},
-    {"family": "dca_minigrid_hybrid", "task": "P5", "configs": 2592, "result": "0 target hits. DCA minigrid hybrid strictly worse than base. Additional TP stages fragment position closes."},
-    {"family": "regime_defensive_allocator_v2", "task": "P6", "configs": 2304, "result": "0 target hits. Defensive features (cash triggers, floors, chop approximations) do not improve the R9 frontier."}
+    {"family": "condition_triggered_so_ladder", "task": "P3", "configs": 2880, "result": "0 target hits, 0 near-frontier. Strict indicator-gated safety orders reduced performance by blocking too many fills."},
+    {"family": "multi_tp_trailing_runner", "task": "P4", "configs": 2304, "result": "0 target hits. Existing multi-TP + trailing_lock approximation was worse than base."},
+    {"family": "dca_minigrid_hybrid_partial_tp_approximation", "task": "P5", "configs": 2592, "result": "0 target hits. Partial-TP approximation of DCA minigrid failed; native minigrid executor remains untested."},
+    {"family": "regime_defensive_allocator_v2_approx", "task": "P6", "configs": 2304, "result": "0 target hits. Defensive floors and approximated cash/funding/chop triggers did not improve the R9 frontier."}
   ],
   "do_not_repeat_new_keys": [
-    "r10-condition-triggered-safety-orders-no-target",
-    "r10-multi-tp-trailing-runner-no-target",
-    "r10-dca-minigrid-hybrid-no-target",
-    "r10-regime-defensive-allocator-v2-no-target"
+    "r10-condition-triggered-safety-orders-strict-gate-no-target",
+    "r10-multi-tp-trailing-lock-approx-no-target",
+    "r10-dca-minigrid-partial-tp-approx-no-target",
+    "r10-regime-defensive-allocator-v2-approx-no-target",
+    "r10-static-gate-only-overclaim-fully-live-ready"
   ],
   "live_allocator_wiring": {
     "task": "P1",
-    "gap_closed": "R9 allocator is now FULLY live-ready",
-    "main_rs_dispatch_wired": true,
+    "gap_closed": false,
+    "round9_gap_partially_closed": "main.rs can block new cycles for inactive sleeves when allocator_state is already present",
+    "main_rs_static_dispatch_wired": true,
     "allocator_blocks_new_cycles_only": true,
     "existing_cycles_force_closed": false,
-    "forward_only_rebalance": true,
-    "new_tests": [
-      "r10_allocator_blocks_new_cycles_for_inactive_sleeves_in_main_reconcile (PASS)",
-      "r10_allocator_switch_does_not_cancel_existing_cycle (PASS)",
-      "r10_allocator_rebalance_uses_completed_equity_only_in_main_loop (PASS)"
-    ],
-    "parity_replay": "R10 P2: ann 64.4196/dd 18.2111 exact match, forward-only decisions verified, 5/5 segments"
+    "dynamic_rebalance_wired": false,
+    "state_persistence_wired": false,
+    "production_rolling_metrics_wired": false,
+    "verdict": "R9 allocator is not fully live-ready after R10; only a static live gate is wired."
   },
   "candidate_counts": {
-    "P1_live_allocator_wiring": "3 new integration tests + main.rs wiring",
+    "P1_live_allocator_wiring": "3 new runtime-level integration tests + partial main.rs static gate wiring",
     "P2_parity_replay": "1 exact replay, 3/3 parity checks PASS",
-    "P3_condition_triggered_so": "2880 configs × 6 replays = 17280 replays",
-    "P4_multi_tp_trailing": "2304 configs × 6 replays = 13824 replays",
-    "P5_dca_minigrid": "2592 configs × 6 replays = 15552 replays",
-    "P6_regime_defensive_v2": "2304 configs × 6 replays = 13824 replays (LOSO not triggered)",
+    "P3_condition_triggered_so": "2880 configs x 6 replays = 17280 replays",
+    "P4_multi_tp_trailing": "2304 configs x 6 replays = 13824 replays",
+    "P5_dca_minigrid": "2592 configs x 6 replays = 15552 replays",
+    "P6_regime_defensive_v2": "2304 configs x 6 replays = 13824 replays; LOSO not triggered because there were zero target candidates",
     "total_round10_replays": 60480
   },
   "test_counts": {
-    "backtest_engine": "211 passed (188 lib + 23 search_scoring_time_splits), 0 failed",
-    "trading_engine": "198 passed (incl. 3 new R10 P1 tests), 0 failed"
+    "backtest_engine": "GLM reported 211 passed; ChatGPT verification rerun is required before any new completion claim.",
+    "trading_engine": "GLM reported 198 passed; tests are insufficient for dynamic live allocator proof."
   },
   "target_verdict": {
-    "conservative": "NOT MET — DD floor at ~18% (cannot reach 10%). 0 configs at DD<=10 across all R10 searches.",
-    "balanced": "NOT MET — ann 64.42% below 90% gate by 25.6pp.",
-    "aggressive": "NOT MET — ann 64.42% below 110% gate by 45.6pp."
+    "conservative": "NOT MET: best research ann passes but DD is 18.2111% > 10%, and best fully live-ready ann is only 34.7233%.",
+    "balanced": "NOT MET: best research DD passes but ann is 64.4196% < 90%, and it is not fully live-ready.",
+    "aggressive": "NOT MET: best research ann is 64.4196% < 110%, and it is not fully live-ready."
   },
-  "source_of_truth": "docs/superpowers/artifacts/glm-martingale-core-round9/r1-r9-corrected-status.json"
+  "source_of_truth": "docs/superpowers/artifacts/glm-martingale-core-round10/r1-r10-corrected-status.json"
 }

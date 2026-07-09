@@ -1,5 +1,7 @@
 # GLM Martingale Round 10 Search Ledger
 
+> **Correction notice (2026-07-09):** This ledger is superseded for live-readiness status by `docs/superpowers/reports/2026-07-09-glm-round10-execution-audit-and-fix.md` and `docs/superpowers/artifacts/glm-martingale-core-round10/r1-r10-corrected-status.json`. Corrected facts: R10 P1 wired a static inactive-sleeve new-cycle gate only; it did not wire production rolling allocator metrics, dynamic rebalance, or allocator_state persistence. R9 allocator remains research/module-ready plus partial static live gate, not fully live-ready.
+
 
 ## Canonical Carry-In
 
@@ -21,7 +23,7 @@
   - r10_allocator_switch_does_not_cancel_existing_cycle
   - r10_allocator_rebalance_uses_completed_equity_only_in_main_loop
 - Full suites green: backtest-engine 211 pass, trading-engine 198 pass (incl. 3 new R10 + 2 carried R9 tests).
-- R9 allocator is now FULLY live-ready.
+- Corrected 2026-07-09: this is only a partial close. R10 wired static inactive-sleeve new-cycle gating when `allocator_state` is already present. It did not wire production rolling metrics, dynamic rebalance, or `allocator_state` persistence, so the R9 allocator is NOT fully live-ready.
 
 ## r10-P2-r9-winner-live-parity-001 (Task P2: Exact R9 Winner Live/Backtest Parity Replay)
 - Script: scripts/glm_r10_r9_allocator_live_parity_replay.py
@@ -31,8 +33,10 @@
   - PASS forward_only_decisions: every decision's applies_from_ms >= metrics_cutoff_ms (no current-interval leak)
   - PASS full_metrics_tolerance: replay ann=64.4196/dd=18.2111 EXACTLY matches R9 recorded (diff 0.0000, well within 0.2 tolerance)
   - PASS segment_metrics_present 5/5
-- Combined with P1 (main.rs dispatch wired), the R9 allocator is now FULLY live-ready:
-  - round10_live_ready_after_wiring: true
+- Combined with corrected P1, the R9 allocator is replay/module-valid plus static-gate-ready, but NOT fully live-ready:
+  - round10_static_gate_ready_after_wiring: true
+  - round10_live_ready_after_wiring: false
+  - remaining live gaps: production rolling metrics, dynamic rebalance, allocator_state persistence
   - annualized_return_pct: 64.4196
   - max_drawdown_pct: 18.2111
   - target_hit: false (still misses balanced ann>=90 and conservative DD<=10)
@@ -64,8 +68,8 @@
 - Run: 2592 configs × 6 replays (full + 5 segments), 14321s
 - **RESULT: 0 target hits.** positive_segments: 1581 at 0/5, 678 at 1/5, 291 at 2/5, 42 at 3/5. NONE reached 4/5.
 - Best by ann: R7-ANKR-q_ds250_dsc1.1_dv1.0_ml2_ms70_mp55: ann 10.5% / DD 19.5% / 1/5 pos
-- **Conclusion: DCA minigrid hybrid is strictly WORSE than base.** The additional partial TP stages fragment position closes too aggressively, and the wider DCA spacing reduces fill frequency. The R4-combo default spacing+TP is strictly better.
-- Non-repeat key: r10-dca-minigrid-hybrid-no-target
+- **Corrected conclusion: partial-TP minigrid approximation is strictly WORSE than base.** The engine did not have a native minigrid executor; this script approximated minigrids via additional partial TP stages and `max_active_cycles`. Native inventory-reducing DCA minigrid remains untested and must not be counted as exhausted.
+- Non-repeat key: r10-dca-minigrid-partial-tp-approx-no-target
 
 ## r10-P6-regime-defensive-allocator-v2-001 (Task P6: Regime-Defensive Allocator V2)
 - Grid: 4 lookback × 4 rebalance × 4 score × 4 cash_trigger × 3 defensive_floor × 3 hyst = 2304 configs (≥2000 ✓)
@@ -74,5 +78,5 @@
 - **RESULT: 0 target hits. LOSO not triggered (no candidates passed targets).**
 - Best: lb60_rb7_calmar_like_none_df0.0: ann 64.4% / DD 18.2% / 5/5 pos (same as R9 winner — no improvement)
 - 0 configs reached ann>=90 (balanced gate) or DD<=10 (conservative gate)
-- **Conclusion: defensive allocator V2 confirms the R9 frontier.** Cash triggers, defensive floors, and chop-score approximations do not unlock new target tiers. The ann/DD Pareto frontier is confirmed at ann ~64% / DD ~18% / 5/5 pos.
-- Non-repeat key: r10-regime-defensive-allocator-v2-no-target
+- **Corrected conclusion: defensive allocator V2 approximation did not improve the R9 frontier.** Cash/funding/chop features were partly mapped to DD-style approximations, so exact funding-drag, chop-state, and cash-defense implementations remain eligible only if they stay inside martingale capital gating and use forward-only inputs.
+- Non-repeat key: r10-regime-defensive-allocator-v2-approx-no-target

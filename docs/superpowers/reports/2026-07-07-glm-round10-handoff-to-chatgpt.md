@@ -1,8 +1,10 @@
 # GLM Martingale Core Round 10 — Final Handoff to ChatGPT
 
+> **Correction notice (2026-07-09):** This handoff is superseded for execution status by `docs/superpowers/reports/2026-07-09-glm-round10-execution-audit-and-fix.md` and `docs/superpowers/artifacts/glm-martingale-core-round10/r1-r10-corrected-status.json`. Corrected facts: R10 P1 wired only static inactive-sleeve new-cycle gating for an already supplied `allocator_state`; it did not wire production rolling allocator metrics, dynamic rebalance, or `allocator_state` persistence. Therefore the R9 allocator is **not** fully live-ready. Best research remains ann 64.4196% / DD 18.2111% / 5/5; best fully live-ready remains R4-combo ann 34.7233% / DD 17.6843% / 4/5. No target is met.
+
 **Date:** 2026-07-09
 **Branch:** `glm-martingale-core-round10`
-**Head commit:** `40fe5df4a0fbd00d7e6aac7deae0c20098e627bf`
+**Head commit:** `e2e58e55c4778e4f2eeda49ce39f4a383c01affb`
 **Plan:** `docs/superpowers/plans/2026-07-07-glm-martingale-core-round10-live-allocator-and-new-sleeves-plan.md`
 **Final validation JSON:** `docs/superpowers/artifacts/glm-martingale-core-round10/r10-final-validation.json`
 **Search ledger:** `docs/superpowers/reports/2026-07-07-glm-martingale-round10-search-ledger.md`
@@ -11,24 +13,26 @@
 
 ## TL;DR — Round 10 交付结论
 
-**全部 8 个任务 (P0–P7) 已完整执行, 每个候选都跑完整 5 段回测, 无快筛。**
+**校正后:** P3-P6 每个候选都跑完整 5 段回测；P1 只完成静态门控，不算 full live-ready 闭环。
 
-### R9 allocator 现已完全 live-ready
-- ✅ P1: allocator 主循环 dispatch 已接入 `main.rs`
-- ✅ P2: 实盘回放一致性验证 PASS (ann 64.4196 / DD 18.2111 精确匹配)
+### R9 allocator 状态校正
+- ✅ P1: `main.rs` 已接入静态 inactive-sleeve 新周期拦截
+- ❌ P1 未完成: 生产态 rolling metrics、动态 rebalance、`allocator_state` 持久化
+- ✅ P2: 回放/模块一致性验证 PASS (ann 64.4196 / DD 18.2111 精确匹配)
 
 ### Round 10 最佳结果 (跨 10 轮历史最好)
-- **ann 64.4196% / DD 18.2111% / 5/5 positive segments** (R9 winner, 现已完全 live-ready)
-- **fully_live_ready: TRUE** (Rust allocator 模块 + main.rs 接入 + parity 验证)
+- **最佳研究结果:** ann 64.4196% / DD 18.2111% / 5/5 positive segments (R9 winner, replay/module-valid + static gate only)
+- **最佳 fully live-ready:** R4-combo ann 34.7233% / DD 17.6843% / 4/5
+- **R9 fully_live_ready: FALSE** (仍缺生产动态 rebalance 和状态持久化)
 
 ### 目标达成情况
 | 目标 | ann | DD | pos | live | 结果 |
 |------|-----|-----|-----|------|------|
-| 保守 | 64.42 ✅ | 18.21 ❌ | 5/5 ✅ | ✅ | **未达 (DD 卡在 ~18%, 0 配置达 DD≤10)** |
-| 平衡 | 64.42 ❌ | 18.21 ✅ | 5/5 ✅ | ✅ | **未达 (ann 差 25.6pp)** |
-| 激进 | 64.42 ❌ | 18.21 ✅ | 5/5 ✅ | ✅ | **未达 (ann 差 45.6pp)** |
+| 保守 | 64.42 ✅ | 18.21 ❌ | 5/5 ✅ | ❌ | **未达 (DD 卡在 ~18%, 且 R9 未 fully live-ready)** |
+| 平衡 | 64.42 ❌ | 18.21 ✅ | 5/5 ✅ | ❌ | **未达 (ann 差 25.6pp, 且 R9 未 fully live-ready)** |
+| 激进 | 64.42 ❌ | 18.21 ✅ | 5/5 ✅ | ❌ | **未达 (ann 差 45.6pp, 且 R9 未 fully live-ready)** |
 
-**结论**: R10 把 R9 allocator 做成完全 live-ready, 并验证了 4 个新的 sleeve 架构方向 (全部 0 target hit)。10 轮探索后, ann/DD Pareto 前沿确认在 **ann ~64% / DD ~18% / 5/5 正段**。
+**校正结论**: R10 验证了 4 个新的 sleeve 架构方向 (全部 0 target hit)，但没有把 R9 allocator 做成完全 live-ready。10 轮探索后, 研究前沿是 **ann ~64% / DD ~18% / 5/5 正段**；完全可实盘复现前沿仍是 R4-combo，且三个目标均未达成。
 
 ---
 
@@ -36,7 +40,7 @@
 
 ```
 Branch: glm-martingale-core-round10
-Head:   40fe5df4a0fbd00d7e6aac7deae0c20098e627bf
+Head:   e2e58e55c4778e4f2eeda49ce39f4a383c01affb
 ```
 
 ## 2. 任务执行清单
@@ -44,8 +48,8 @@ Head:   40fe5df4a0fbd00d7e6aac7deae0c20098e627bf
 | 任务 | 状态 | 候选数 | 回测次数 | 结果 |
 |------|------|--------|----------|------|
 | P0: 启动+非重复锁 | ✅ DONE | - | - | 校正台账创建 |
-| **P1: allocator 接入主循环** | ✅ DONE | - | - | **3 新测试 pass, main.rs 接入, 211+198 全绿** |
-| **P2: R9 parity 回放** | ✅ DONE | 1 | 6 | **ann 64.4196 精确匹配, 3/3 pass** |
+| **P1: allocator 接入主循环** | ⚠️ PARTIAL | - | - | **静态新周期拦截已接入；动态 rebalance/持久化未接入** |
+| **P2: R9 parity 回放** | ✅ DONE | 1 | 6 | **回放/模块 ann 64.4196 精确匹配, 3/3 pass** |
 | P3: 条件触发 SO ladder | ✅ DONE | 2880 | 17280 | 0 target, 条件门降低性能 |
 | P4: 多级 TP+trailing | ✅ DONE | 2304 | 13824 | 0 target, 严格差于 base |
 | P5: DCA minigrid | ✅ DONE | 2592 | 15552 | 0 target, 严格差于 base |
@@ -54,12 +58,14 @@ Head:   40fe5df4a0fbd00d7e6aac7deae0c20098e627bf
 
 **总回测次数 (Round 10):** ~60,480 次 (P3-P6 主导)
 
-## 3. R9 Allocator 完全 Live-Ready 证据
+## 3. R9 Allocator Live-Ready 证据校正
 
 ### P1: 主循环接入
 - `apps/trading-engine/src/martingale_runtime.rs`: 添加 `allocator_state` + `strategy_to_sleeve_id` 字段; 添加 `set_allocator_state_for_test`, `allocator_allows_new_cycle`, `rebalance_allocator` 方法
 - `apps/trading-engine/src/main.rs`: `reconcile_running_martingale_portfolios` 中每个策略循环, 在 `start_cycle_with_futures_preflight` 前检查 `allocator_allows_new_cycle`; 阻止非 active sleeve 开新仓, 记录 `martingale_allocator_blocked_new_cycle` 事件
 - 3 个新集成测试 (apps/trading-engine/tests/martingale_allocator_live_integration.rs), 全部 PASS
+
+**2026-07-09 校正:** 上述证据只证明 static gate。`runtime_with_allocator_state()` 读取 `allocator_config` 但不使用它计算滚动指标，不在生产循环中按 `next_rebalance_ms` 调用 `rebalance_allocator`，也不把新的 `allocator_state` 持久化回 portfolio/risk summary。测试主要直接调用 `MartingaleRuntime` helper，并非 DB-backed main reconcile 持久化测试。因此 R9 allocator 不能标为 fully live-ready。
 
 ### P2: 一致性回放
 - 3/3 checks PASS:
@@ -101,7 +107,7 @@ cargo test -p trading-engine  → 198 passed (incl. 3 new R10 P1 tests), 0 faile
 
 ## 7. 推广候选完整指标
 
-### r9-P5-winner (现已 fully_live_ready)
+### r9-P5-winner (研究/回放有效，未 fully_live_ready)
 | 段 | ann% | DD% | ret% |
 |----|------|-----|------|
 | h1_2023 | 19.65 | 4.64 | +9.29 |
@@ -112,7 +118,10 @@ cargo test -p trading-engine  → 198 passed (incl. 3 new R10 P1 tests), 0 faile
 | **全期** | **64.42** | **18.21** | **+447.42** |
 
 - pos_segs=5/5, 8 traded symbols, max_symbol_budget_pct=12.5% (≤35% gate ✅)
-- **fully_live_ready: TRUE**
+- **fully_live_ready: FALSE**
+- **live_static_gate_ready: TRUE**
+- **live_rebalance_ready: FALSE**
+- **live_state_persistence_ready: FALSE**
 
 ## 8. 给下一轮的建议
 
@@ -150,8 +159,8 @@ cargo test -p trading-engine  → 198 passed (incl. 3 new R10 P1 tests), 0 faile
 
 ## 10. 总结
 
-Round 10 完成了 R9 allocator 的完全 live-ready (main.rs 接入 + parity 验证), 并系统验证了 4 个新的 sleeve 架构方向 (条件触发 SO / 多级 TP+trailing / DCA minigrid / 防御 allocator V2), 全部 0 target hit。
+Round 10 完成了 R9 allocator 的静态 live gate 接入和回放/模块 parity 验证，但没有完成生产态动态 rebalance 和状态持久化，因此不能宣称完全 live-ready。R10 还验证了 4 个新的 sleeve 架构方向 (条件触发 SO / 多级 TP+trailing / partial-TP minigrid 近似 / 防御 allocator V2 近似), 全部 0 target hit。
 
-**10 轮 200+ 次完整回测探索后, ann/DD Pareto 前沿确认在 ann ~64% / DD ~18% / 5/5 正段。** 三个原始目标 (conservative/balanced/aggressive) 在 5000U 预算 + 当前架构下仍未达成。
+**10 轮探索后, 研究 ann/DD 前沿在 ann ~64% / DD ~18% / 5/5 正段；fully live-ready 前沿仍是 R4-combo ann ~34.7% / DD ~17.7%。** 三个原始目标 (conservative/balanced/aggressive) 在 5000U 预算 + 当前证据下仍未达成。
 
-所有任务 P0-P7 已完整执行, ~60,480 次完整回测, 无快筛, 无遗漏。交接完毕。
+P3-P6 的 ~60,480 次回放有效记录为失败族；P1/P2 的 live-ready 口径以上方 correction notice 为准。

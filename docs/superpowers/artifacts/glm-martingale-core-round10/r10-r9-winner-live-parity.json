@@ -1,6 +1,16 @@
 {
   "candidate": "r9-P5-winner",
-  "round10_live_ready_after_wiring": true,
+  "corrected_after_chatgpt_audit": true,
+  "round10_static_gate_ready_after_wiring": true,
+  "round10_live_ready_after_wiring": false,
+  "live_module_ready": true,
+  "live_rebalance_ready": false,
+  "live_state_persistence_ready": false,
+  "remaining_live_gaps": [
+    "R10 parity replay validates allocator replay/module metrics, not production DB-backed dynamic rebalancing",
+    "trading-engine main loop does not compute rolling per-sleeve metrics from completed observations",
+    "trading-engine main loop does not persist updated allocator_state after rebalance"
+  ],
   "annualized_return_pct": 64.4196,
   "max_drawdown_pct": 18.2111,
   "total_return_pct": 446.7542,

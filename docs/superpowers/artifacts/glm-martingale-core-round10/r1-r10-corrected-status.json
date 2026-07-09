@@ -1,0 +1,136 @@
+{
+  "generated_at": "2026-07-09",
+  "purpose": "Canonical corrected status for GLM martingale rounds 1-10 after ChatGPT audit and repair.",
+  "hard_targets": {
+    "conservative": {"ann_min_pct": 50.0, "max_dd_pct": 10.0, "budget_max_usdt": 5000, "multi_symbol": true, "live_reproducible": true},
+    "balanced": {"ann_min_pct": 90.0, "max_dd_pct": 20.0, "budget_max_usdt": 5000, "multi_symbol": true, "live_reproducible": true},
+    "aggressive": {"ann_min_pct": 110.0, "max_dd_pct": 30.0, "budget_max_usdt": 5000, "multi_symbol": true, "live_reproducible": true}
+  },
+  "target_hits": {
+    "conservative": [],
+    "balanced": [],
+    "aggressive": []
+  },
+  "best_research_candidate": {
+    "round": 9,
+    "validated_again_in_round": 10,
+    "label": "r9-P5-winner-lb60-rb7-calmar-hi0.2-lo0.2",
+    "annualized_return_pct": 64.4196,
+    "max_drawdown_pct": 18.2111,
+    "positive_segments": "5/5",
+    "budget_usdt": 5000,
+    "traded_symbols": ["AAVEUSDT", "ANKRUSDT", "BCHUSDT", "BNBUSDT", "DOTUSDT", "SOLUSDT", "TRXUSDT", "XRPUSDT"],
+    "live_module_ready": true,
+    "live_static_gate_ready_after_round10": true,
+    "fully_live_ready": false,
+    "not_live_ready_reason": "Round10 wires only a static inactive-sleeve new-cycle gate. Production rolling metrics, dynamic rebalance, and allocator_state persistence remain missing."
+  },
+  "best_fully_live_ready_candidate": {
+    "round": 4,
+    "label": "R4-combo",
+    "annualized_return_pct": 34.72332738972233,
+    "max_drawdown_pct": 17.68431043895811,
+    "positive_segments": "4/5",
+    "fully_live_ready": true,
+    "target_status": "misses all three return tiers"
+  },
+  "rounds": [
+    {
+      "round": 1,
+      "status": "usable_baseline_only",
+      "target_hit": false,
+      "authority": "docs/superpowers/artifacts/glm-martingale-core-round9/r1-r9-corrected-status.json",
+      "remaining_gaps": ["Some planned evidence/index files are missing or renamed."]
+    },
+    {
+      "round": 2,
+      "status": "usable_research_frontier",
+      "target_hit": false,
+      "authority": "docs/superpowers/artifacts/glm-martingale-core-round9/r1-r9-corrected-status.json",
+      "remaining_gaps": ["Registry count is 11, not 8.", "Direction H has no dedicated full-grid artifact.", "Promoted features were not fully live-ready at handoff time."]
+    },
+    {
+      "round": 3,
+      "status": "usable_research_frontier",
+      "target_hit": false,
+      "authority": "docs/superpowers/artifacts/glm-martingale-core-round9/r1-r9-corrected-status.json",
+      "remaining_gaps": ["Registry count is 7, not 8.", "P2 and P5 were not run in Round 3.", "Several branches were partial/narrow."]
+    },
+    {
+      "round": 4,
+      "status": "best_fully_live_ready_sleeve_found_but_targets_missed",
+      "target_hit": false,
+      "authority": "docs/superpowers/artifacts/glm-martingale-core-round9/r1-r9-corrected-status.json",
+      "remaining_gaps": ["Round4-only impossibility language is superseded by later rounds.", "Premium/index/mark branch was partial."]
+    },
+    {
+      "round": 5,
+      "status": "usable_research_frontier_high_return_high_dd",
+      "target_hit": false,
+      "authority": "docs/superpowers/artifacts/glm-martingale-core-round9/r1-r9-corrected-status.json",
+      "remaining_gaps": ["R5 features remained backtest-only for live promotion.", "ANKR low-DD script had no Round 5 result artifact."]
+    },
+    {
+      "round": 6,
+      "status": "partially_executed_dd_compression",
+      "target_hit": false,
+      "authority": "docs/superpowers/artifacts/glm-martingale-core-round9/r1-r9-corrected-status.json",
+      "remaining_gaps": ["Registry count is 13, not 8.", "Task E safety-order freeze had no real engine effect.", "Dynamic blend and live parity remained incomplete."]
+    },
+    {
+      "round": 7,
+      "status": "usable_backtest_frontier_not_live_ready",
+      "target_hit": false,
+      "authority": "docs/superpowers/reports/2026-07-07-glm-round7-execution-audit-and-recheck.md",
+      "remaining_gaps": ["ANKR_q1w24p24 is multi-symbol but not fully live-ready.", "R5-R7 live parity remains incomplete."]
+    },
+    {
+      "round": 8,
+      "status": "superseded_by_round9_allocator_repair",
+      "target_hit": false,
+      "authority": "docs/superpowers/reports/2026-07-07-glm-round8-execution-audit-and-recheck.md",
+      "remaining_gaps": ["Round 8 P2 timing leak makes original P2 metrics non-canonical.", "No architecture impossibility was proven."]
+    },
+    {
+      "round": 9,
+      "status": "best_research_frontier_module_ready_not_fully_live_ready",
+      "target_hit": false,
+      "authority": "docs/superpowers/reports/2026-07-07-glm-round9-execution-audit-and-fix.md",
+      "remaining_gaps": ["AllocatorState still needs true production dynamic rebalance wiring.", "Explore fundamentally different martingale sleeve architectures."]
+    },
+    {
+      "round": 10,
+      "status": "valid_replay_searches_but_live_allocator_overclaim_corrected",
+      "target_hit": false,
+      "authority": "docs/superpowers/reports/2026-07-09-glm-round10-execution-audit-and-fix.md",
+      "validated_work": [
+        "P2 R9 winner parity replay: ann 64.4196% / DD 18.2111% exact match, 5/5 positive segments",
+        "P3 condition-triggered SO: 2880 configs, 0 target hits",
+        "P4 multi-TP trailing runner: 2304 configs, 0 target hits",
+        "P5 partial-TP minigrid approximation: 2592 configs, 0 target hits",
+        "P6 regime defensive allocator approximation: 2304 configs, 0 target hits"
+      ],
+      "repairs_applied_2026_07_09": [
+        "Corrected stale head commit from 40fe5df4a0fbd00d7e6aac7deae0c20098e627bf to e2e58e55c4778e4f2eeda49ce39f4a383c01affb.",
+        "Corrected R9 allocator fully_live_ready=true to fully_live_ready=false.",
+        "Corrected P1 from full live-ready to static new-cycle gate only.",
+        "Corrected P5 from native minigrid failure to partial-TP approximation failure.",
+        "Corrected P6 to note that cash/funding/chop features were approximated."
+      ],
+      "remaining_gaps": [
+        "Production rolling per-sleeve metrics are not computed in trading-engine main loop.",
+        "Production dynamic rebalance is not called from main loop when now_ms >= next_rebalance_ms.",
+        "Updated allocator_state is not persisted to portfolio/risk-summary storage.",
+        "Native inventory-reducing DCA minigrid executor remains untested.",
+        "Exact funding/chop/cash-defense allocator features remain untested."
+      ]
+    }
+  ],
+  "non_repeat_summary": [
+    "Do not use old handoff registry counts without checking corrected audit files.",
+    "Do not treat Python, module-only, or static-gate-only allocators as fully live-ready.",
+    "Do not count single-symbol or high-idiosyncratic-risk diagnostics as target hits.",
+    "Do not repeat Round 8 leaky allocator timing or Round 9 random symbol substitution family.",
+    "Do not repeat Round10 strict indicator-gated safety orders, trailing_lock approximation, partial-TP minigrid approximation, or static-gate-only live-ready overclaim."
+  ]
+}
