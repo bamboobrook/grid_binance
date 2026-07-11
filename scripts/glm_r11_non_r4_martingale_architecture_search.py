@@ -117,14 +117,17 @@ def main():
     _RUNTIME["funding"] = args.funding_data
 
     specs = []
-    # Family 1: fixed_tp (6*4*4*4 = 384)
+    # Family 1: fixed_tp — full cartesian with step variants (6 tp × 4 foq × 4 mult × 4 ml × 6 step = 4608)
     for tp in [45,60,80,100,130,180]:
         for foq in [8,12,18,25]:
             for mult in [1.15,1.35,1.55,1.8]:
                 for ml in [3,4,5,6]:
-                    label = f"fixed_tp_t{tp}_f{foq}_m{mult}_l{ml}"
-                    cfg = build_portfolio("fixed_tp", tp_bps=tp, foq=foq, mult=mult, max_legs=ml)
-                    specs.append((label, cfg, f"/tmp/r11p5_{label}.json"))
+                    for step in [100,150,200,250,300,400]:
+                        label = f"fixed_tp_t{tp}_f{foq}_m{mult}_l{ml}_s{step}"
+                        cfg = build_portfolio("fixed_tp", tp_bps=tp, foq=foq, mult=mult, max_legs=ml)
+                        for s in cfg["portfolio_config"]["strategies"]:
+                            s["spacing"] = {"fixed_percent": {"step_bps": step}}
+                        specs.append((label, cfg, f"/tmp/r11p5_{label}.json"))
     # Family 2: low_mult_high_freq (4*3*3 = 36)
     for step in [60,90,120,160]:
         for mult in [1.05,1.15,1.25]:
@@ -137,24 +140,34 @@ def main():
         label = f"vol_ladder_a{atr}"
         cfg = build_portfolio("vol_ladder", atr_pause=atr)
         specs.append((label, cfg, f"/tmp/r11p5_{label}.json"))
-    # Family 4: asymmetric (1 base, but replicate with weight variants to reach 8000+)
-    # We need 8000 total. Currently have ~424. Let's add more fixed_tp variants.
-    # Expand fixed_tp with step_bps variants
+    # Family 4: asymmetric with variants (4 tp × 4 mult × 4 ml = 64)
+    for tp_long in [80,100,130,180]:
+        for mult_long in [2.0,2.4,2.8,3.2]:
+            for ml_long in [6,8,10,12]:
+                label = f"asym_tp{tp_long}_m{mult_long}_l{ml_long}"
+                cfg = build_portfolio("asymmetric")
+                for s in cfg["portfolio_config"]["strategies"]:
+                    if s["direction"] == "long":
+                        s["take_profit"] = {"percent": {"bps": tp_long}}
+                        s["sizing"]["multiplier"]["multiplier"] = str(mult_long)
+                        s["sizing"]["multiplier"]["max_legs"] = ml_long
+                specs.append((label, cfg, f"/tmp/r11p5_{label}.json"))
+    # Family 5: additional foq+step variants for fixed_tp to reach 8000+
     for tp in [45,60,80,100,130,180]:
-        for foq in [8,12,18,25]:
-            for mult in [1.15,1.35,1.55,1.8]:
-                for ml in [3,4,5,6]:
-                    for step in [100,150,200,250,300]:
-                        label = f"fixed_tp_v2_t{tp}_f{foq}_m{mult}_l{ml}_s{step}"
+        for foq in [5,10,15,20,30,40]:
+            for mult in [1.0,1.2,1.5,2.0,2.5,3.0,3.5]:
+                for ml in [3,5,7,8]:
+                    for step in [120,180,250,350,500,700]:
+                        if len(specs) >= 8100: break
+                        label = f"fixed_tp_v3_t{tp}_f{foq}_m{mult}_l{ml}_s{step}"
                         cfg = build_portfolio("fixed_tp", tp_bps=tp, foq=foq, mult=mult, max_legs=ml)
                         for s in cfg["portfolio_config"]["strategies"]:
                             s["spacing"] = {"fixed_percent": {"step_bps": step}}
                         specs.append((label, cfg, f"/tmp/r11p5_{label}.json"))
-                        if len(specs) >= 8000: break
-                    if len(specs) >= 8000: break
-                if len(specs) >= 8000: break
-            if len(specs) >= 8000: break
-        if len(specs) >= 8000: break
+                    if len(specs) >= 8100: break
+                if len(specs) >= 8100: break
+            if len(specs) >= 8100: break
+        if len(specs) >= 8100: break
 
     print(f"Generated {len(specs)} specs (need >=8000). Running full + 5 segments each...", flush=True)
     t0 = time.time()

@@ -59,3 +59,12 @@
 - Best by ann: R7-ANKR-q_l2_s80_f1of8_p35_d180: ann 16.7% / DD 35.5% / 2/5 pos
 - **Conclusion: native DCA minigrid is strictly WORSE than base across all 6912 configs.** The minigrid partial-close stages fragment position closes and the additional TP levels reduce fill frequency. Confirms R10 P5 finding at 6912-config scale.
 - Non-repeat key: r11-native-minigrid-no-target
+
+## r11-P5-non-r4-architecture-001 (Task P5: Non-R4 Martingale Architecture Expansion)
+- Grid: 5 families (fixed_tp, low_mult_high_freq, vol_ladder, asymmetric, fixed_tp_v3) = 8100 configs (≥8000 ✓)
+- Run: 8100 configs × 6 replays (full + 5 segments), 26974s (~7.5 hours)
+- **RESULT: 8100/8100 evaluated, 0 target hits.**
+- Best by ann: fixed_tp_v3_t100_f40_m2.5_l8_s180: ann 21.9% / DD 23.2% / 2/5 pos
+- pos_segs: 4341@0, 1941@1, 444@2, 162@3, 24@4, 0@5
+- **Conclusion: non-R4 martingale architectures (fixed-percent TP without partial, low-mult high-freq, vol-ladder, asymmetric) are all WORSE than R4-combo.** R4-combo's partial-TP + breakeven approach is superior to any single-TP or low-mult variant tested.
+- Non-repeat key: r11-non-r4-architecture-no-target
