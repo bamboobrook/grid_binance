@@ -68,3 +68,13 @@
 - pos_segs: 4341@0, 1941@1, 444@2, 162@3, 24@4, 0@5
 - **Conclusion: non-R4 martingale architectures (fixed-percent TP without partial, low-mult high-freq, vol-ladder, asymmetric) are all WORSE than R4-combo.** R4-combo's partial-TP + breakeven approach is superior to any single-TP or low-mult variant tested.
 - Non-repeat key: r11-non-r4-architecture-no-target
+
+## r11-P6-conditional-so-v2-001 (Task P6: Conditional SO V2 Without Strict Blocking)
+- Grid: 3 bases × 4 rebound × 2 basis × 4 adx × 4 dd_scale × 2 late_cap × 2 step × 3 foq = 4608 configs (≥4000 ✓)
+- Mechanism: non-strict SO controls (rebound_bps, basis, ADX skip, DD-state scale, late-leg taper). No hard safety_order_condition blocking (avoids R10 P3 failure).
+- Run: 4608 configs × 6 replays, 25472s
+- **RESULT: 4608/4608 evaluated, 0 target hits.**
+- Best by ann: R7-ANKR-q_rb0_las_adx35_dds0.5: ann 63.5% / DD 28.2% / 4/5 pos (= base R7-ANKR-q, no improvement)
+- pos_segs: 0@4341, 1@1941, 2@444, 3@162, 4@24, 5@0 (most configs unchanged from base)
+- **Conclusion: non-strict SO controls (rebound, basis, ADX skip, DD scale, taper) do NOT improve the frontier.** The base R7-ANKR-q parameters are already optimal; SO v2 modifications are neutral at best.
+- Non-repeat key: r11-conditional-so-v2-no-target
