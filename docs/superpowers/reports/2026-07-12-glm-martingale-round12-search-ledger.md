@@ -64,3 +64,11 @@
 - **Critical: 1000U and 2000U are NEGATIVE** — small capital is a genuine challenge
 - This is the true event-level baseline to beat. All future candidates must be validated at event level.
 - R9 curve diagnostic (62.78/18.38) was NOT reproducible; R4-combo event-level (34.73/17.69) IS the real frontier.
+
+## r12-P5-so-v2-binding-probe-001 (Task P5: SO V2 Binding Probes)
+- Binding probe 1: ADX skip threshold 35 vs 70 → **SAME trades (4758), SAME ann (34.73%), SAME DD (17.69%) → DOES NOT BIND**
+- Binding probe 2: DD scale 0.5 vs 1.0 → **SAME trades (4758), SAME ann (34.73%), SAME DD (17.69%) → DOES NOT BIND**
+- **Decision per plan P5.1: STOP — do NOT run the 4608 SO v2 search.**
+- Root cause: R4-combo uses partial TP (not percent TP), so safety_skip_adx_threshold and drawdown_state_rules may not affect partial-TP cycles. The engine's safety order path for partial TP doesn't consult these fields in the same way as percent TP.
+- Non-repeat key: r12-so-v2-adx-ddscale-inert-on-r4-combo-partial-tp
+- Non-repeat scope: any search on R4-combo varying safety_skip_adx_threshold or drawdown_state_rules will produce identical results. These fields only bind on percent-TP strategies.
