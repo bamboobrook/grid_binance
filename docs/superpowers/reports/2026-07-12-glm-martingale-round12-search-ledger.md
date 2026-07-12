@@ -29,3 +29,15 @@
   - market_manifest_is_stable_when_rows_after_end_ms_are_appended
   - replay_rejects_traded_futures_symbol_with_missing_funding
 - Manifest includes per-symbol: market row count/min/max/duplicates/canonical_sha256, funding row count/min/max/canonical_sha256, engine binary hash
+
+## r12-P2-promotion-validator-001 (Task P2: Unified Promotion Validator + OOS Harness)
+- Script: scripts/glm_r12_validate_candidate.py
+- Validation schema: docs/superpowers/artifacts/glm-martingale-core-round12/r12-validation-schema.json
+- Gates implemented:
+  - Event-level shared-budget replay (portfolio_budget_replay)
+  - 5 cold-start segments (independent engine starts)
+  - 4 anchored walk-forward folds
+  - Budget ladder (1000, 2000, 3000, 4000, 4999)
+  - Cost stress (base, fee x1.5, slippage x2, combined)
+- Auto-derivation: fully_live_ready and target_hit derived from gate results, NOT manually set
+- Validator ready for use by P3-P7 candidates
