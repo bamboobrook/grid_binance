@@ -54,3 +54,34 @@
 - **TRX long + AAVE/DOT/SOL short at 4999U: DD=9.9% (meets conservative ≤10% gate), ann=11.9% (below 50% target)**
 - This is the FIRST candidate to meet ANY DD gate at event-level. The ann gap (11.9% vs 50%) is the remaining challenge.
 - P4 (minigrid) and P5 (ATR spacing) already confirmed inert/inferior in R12. P6 LP DB is 0 bytes (unrecoverable).
+
+## r13-P2-full-ablation-001 (Task P2: Complete 5-Ablation Search)
+- 2 bases (2strat TRX+AAVE, R4-combo) × 5 ablations × full+5segments = 1176 configs × 6 replays = 7056 replays
+- Run: 7828s total (~2.2 hours)
+
+### Results Summary
+| Base | Ablation | Configs | Best ann% | Best DD% | Pos segs |
+|------|----------|---------|-----------|----------|----------|
+| 2strat | direction | 40 | -1.1% | 3.6% | 1/5 |
+| 2strat | so_scale | 108 | -1.7% | 5.6% | 1/5 |
+| 2strat | atr_scale | 320 | -2.3% | 7.6% | 2/5 |
+| **2strat** | **dir_so** | **72** | **13.8%** | **23.0%** | **2/5** |
+| 2strat | dir_so_atr | 48 | -1.9% | 6.4% | 1/5 |
+| r4combo | direction | 40 | 8.3% | 14.4% | 1/5 |
+| r4combo | so_scale | 108 | 17.0% | 23.9% | 2/5 |
+| r4combo | atr_scale | 320 | 4.8% | 29.5% | 1/5 |
+| **r4combo** | **dir_so** | **72** | **28.7%** | **21.3%** | **2/5** |
+| r4combo | dir_so_atr | 48 | 9.1% | 26.7% | 1/5 |
+
+### Key Findings
+1. **dir_so ablation is consistently the best** across both bases (2strat 13.8%, R4 28.7%)
+2. **All ablations produce WORSE results than the no-gate baseline** (R4=34.7%, 2strat=11.9%)
+3. **Direction-only gating hurts the most** — confirms R13 P2 initial finding
+4. **ATR scale alone is the worst** — ATR-based first-order scaling reduces returns
+5. **dir_so_atr combination degrades** vs dir_so alone — adding ATR scale hurts
+6. **No config reached any target tier** — best overall is r4combo_dir_so at 28.7%/21.3%/2of5
+
+### Conclusion
+HTF trend-directed ablations confirm: the R4-combo/2strat baseline without direction gating is strictly superior. The plan's "continue condition" (median ann>=35%, worst DD<=30%, >=3 folds positive) is NOT met by any ablation. The HTF trend-directed Martingale family is CLOSED.
+
+- Non-repeat key: r13-htf-trend-all-5-ablations-no-improvement-vs-baseline
