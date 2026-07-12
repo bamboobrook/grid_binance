@@ -94,3 +94,17 @@
 - research_only: true (config struct ready, engine integration not done)
 - Non-repeat key: r12-native-minigrid-config-field-inert-in-kline-engine
 - Non-repeat scope: any search using dca_minigrid config field on current engine will produce identical results to base. Engine integration required.
+
+## r12-P7-lp-rebuild-001 (Task P7: LP Portfolio Event-Level Rebuild)
+- Source: docs/superpowers/reports/2026-06-26-margin-v2-lp-portfolios.md (conservative 8-symbol members)
+- Symbols: LTCUSDT, DYDXUSDT, INJUSDT, FILUSDT, ICPUSDT, XRPUSDT, UNIUSDT, BTCUSDT
+- Used R4-combo's martingale parameters (proven event-level) on LP symbols
+- Budget: 4999U shared (original LP used 18k-144k planned margins)
+- **RESULT: ann=30.44% / DD=41.31% / 4/5 positive segments**
+  - Worse than R4-combo baseline (34.73%/17.69%) in both ann and DD
+  - DD 41.31% far exceeds balanced gate (20%)
+  - 2026_ytd segment: -55.0% (severe recent underperformance)
+- Budget ladder: 1000U=-17.8%, 2000U=-4.0%, 3000U=36.8%, 4000U=21.0%, 4999U=30.4%
+- **Conclusion: LP portfolio designed for high-capital (18k-144k) does NOT work at 4999U shared budget.** The DD inflation from 10% (high-cap) to 41.31% (4999U) confirms the capital sensitivity. LP portfolios are diagnostic-only at this budget.
+- Non-repeat key: r12-lp-portfolio-4999u-dd-inflation
+- Non-repeat scope: any LP-derived portfolio scaled to <5000U shared budget will suffer DD inflation. Original LP metrics require high planned margins.
