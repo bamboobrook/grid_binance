@@ -141,3 +141,15 @@ BNB+TRX s100 m0.8 at 4999U: ann=65.6%, DD=29.6% (≤30%), 3/5 pos
 - **RESULT: 0 target hits. Best: l1_s15_f1of8_p10: ann=32.0%/DD=17.7%/4/5** (slightly worse than baseline 34.7%)
 - Minigrid reduces ann slightly (34.7→32.0) without improving DD. Close fraction 1/8 is conservative — higher fractions may reduce DD more but at greater ann cost.
 - **Conclusion: native minigrid engine integration is functional but does not improve the frontier.** The partial reduce closes inventory at small profits, reducing ann without sufficient DD improvement.
+
+## r13-P5-depth-tp-search-001 (Task P5: ATR Spacing + Safety-Depth TP)
+- **ENGINE INTEGRATION COMPLETE**: depth_tp config field now BINDS in kline_engine
+  - Added MartingaleDepthTpConfig struct to shared-domain (tp_bps_for_depth, reduce_fraction_for_depth)
+  - Added depth_tp field to MartingaleRiskLimits
+  - Modified exit_decision_snapshot to override TP model with depth-adaptive Percent when depth_tp is configured
+  - Binding confirmed: no-depth-tp trades=4758 vs with-depth-tp trades=14339 (BINDS!)
+- 432 Sobol configs: tp01{80,120,180} × tp23{40,70,100} × red23{0,25} × tp4{20,40,70} × red4{25,50} × step{120,150,180,250}
+- Run: 432 × 6 replays, 2755s
+- **RESULT: 0 target hits. Best: t01_120_t23_100_t4_70_s180: ann=10.9%/DD=16.2%/2/5** (much worse than baseline 34.7%)
+- Depth TP reduces ann dramatically because lower TP targets at deeper levels close cycles at fee-cover, eroding returns.
+- **Conclusion: depth-dependent TP HURTS performance.** The original partial TP ladder is superior to depth-adaptive Percent TP.

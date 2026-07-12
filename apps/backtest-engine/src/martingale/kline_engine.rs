@@ -2088,7 +2088,20 @@ fn exit_decision_snapshot(
             latest_close_by_symbol,
             indicator_context,
         )?;
-        let take_profit = take_profit_signal(&mut states[state_index], bar, indicator_context)?;
+        let take_profit = {
+            // Round 13 P5: Depth-dependent TP. If depth_tp is configured,
+            // override the TP model with a Percent model whose bps depends on
+            // the current filled leg count (cycle depth).
+            let filled_legs = states[state_index].legs.len();
+            let depth_cfg = &states[state_index].strategy.risk_limits.depth_tp;
+            if let Some(ref dtc) = depth_cfg {
+                let depth_bps = dtc.tp_bps_for_depth(filled_legs);
+                let depth_model = MartingaleTakeProfitModel::Percent { bps: depth_bps };
+                take_profit_signal_for_model(&mut states[state_index], bar, &depth_model, indicator_context)?
+            } else {
+                take_profit_signal(&mut states[state_index], bar, indicator_context)?
+            }
+        };
         let mut decision = evaluate_exit_priority(
             stop.global_stop,
             stop.symbol_stop,

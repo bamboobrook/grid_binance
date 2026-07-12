@@ -315,6 +315,10 @@ pub struct MartingaleRiskLimits {
     /// reduce inventory only (never add exposure).
     #[serde(default)]
     pub dca_minigrid: Option<MartingaleDcaMiniGridConfig>,
+    /// Round 13 P5: Depth-dependent TP config. When present, the TP target
+    /// adapts based on the number of filled safety legs (cycle depth).
+    #[serde(default)]
+    pub depth_tp: Option<MartingaleDepthTpConfig>,
 }
 
 /// Round 6 Task B: A single drawdown state rule.
@@ -395,6 +399,49 @@ impl MartingaleDcaMiniGridConfig {
     /// The close fraction as a float (num/den).
     pub fn close_fraction(&self) -> f64 {
         self.close_fraction_num as f64 / self.close_fraction_den as f64
+    }
+}
+
+/// Round 13 Task P5: Depth-dependent TP config.
+/// Adapts TP target based on the number of filled safety legs (cycle depth).
+/// Depth 0-1 = normal TP, depth 2-3 = lower TP + optional partial reduce,
+/// depth 4+ = lowest TP + larger partial reduce + breakeven.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct MartingaleDepthTpConfig {
+    /// TP bps for depth 0-1 (1-2 legs total including base).
+    pub depth_01_tp_bps: u32,
+    /// TP bps for depth 2-3 (3-4 legs total).
+    pub depth_23_tp_bps: u32,
+    /// Partial reduce fraction for depth 2-3 (0 = no reduce, e.g. 25 = 25%).
+    pub depth_23_reduce_pct: u32,
+    /// TP bps for depth 4+ (5+ legs total).
+    pub depth_4plus_tp_bps: u32,
+    /// Partial reduce fraction for depth 4+ (e.g. 50 = 50%).
+    pub depth_4plus_reduce_pct: u32,
+}
+
+impl MartingaleDepthTpConfig {
+    /// Get the effective TP bps for a given number of filled legs.
+    /// filled_legs includes the base order (leg 0), so depth = filled_legs - 1.
+    pub fn tp_bps_for_depth(&self, filled_legs: usize) -> u32 {
+        if filled_legs <= 2 {
+            self.depth_01_tp_bps
+        } else if filled_legs <= 4 {
+            self.depth_23_tp_bps
+        } else {
+            self.depth_4plus_tp_bps
+        }
+    }
+
+    /// Get the partial reduce fraction for the current depth.
+    pub fn reduce_fraction_for_depth(&self, filled_legs: usize) -> f64 {
+        if filled_legs <= 2 {
+            0.0
+        } else if filled_legs <= 4 {
+            self.depth_23_reduce_pct as f64 / 100.0
+        } else {
+            self.depth_4plus_reduce_pct as f64 / 100.0
+        }
     }
 }
 
