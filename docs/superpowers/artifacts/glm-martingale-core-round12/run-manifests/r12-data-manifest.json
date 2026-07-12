@@ -1,0 +1,248 @@
+{
+  "generated_at": "2026-07-12T04:57:27.012927Z",
+  "market_db": "data/market_data_full.db",
+  "funding_db": "data/funding_rates_round12.db",
+  "market_db_sha256": "d35c416a85b807e9b5384915d6ebb4a9f7352713efd89857b45a242f473728a9",
+  "funding_db_sha256": "cad6e274f769bab05ada389d15d15c89ab2754100afcf556b77f3bf2892dd07c",
+  "development_window": {
+    "start_ms": 1672531200000,
+    "end_ms": 1780271999999
+  },
+  "holdout_window": {
+    "start_ms": 1780272000000,
+    "end_ms": 1783727999999,
+    "opened": false
+  },
+  "symbols": {
+    "BNBUSDT": {
+      "market": {
+        "row_count": 3591948,
+        "min_open_time": 1672531200000,
+        "max_open_time": 1780271940000,
+        "duplicates": 1795600,
+        "canonical_sha256": "8a99529e26898daaa81191aea89ca4a3"
+      },
+      "funding": {
+        "row_count": 3741,
+        "min_funding_time": 1672531200000,
+        "max_funding_time": 1780243200004,
+        "canonical_sha256": "90cad74f5a79a47c52e17c8e1a1c151a"
+      }
+    },
+    "TRXUSDT": {
+      "market": {
+        "row_count": 3591437,
+        "min_open_time": 1672531200000,
+        "max_open_time": 1780271940000,
+        "duplicates": 1795600,
+        "canonical_sha256": "b9c7935845048e2540653c9fa3dc1d71"
+      },
+      "funding": {
+        "row_count": 3741,
+        "min_funding_time": 1672531200000,
+        "max_funding_time": 1780243200004,
+        "canonical_sha256": "093bd8067c3e08d14e3e2784e63b2097"
+      }
+    },
+    "BCHUSDT": {
+      "market": {
+        "row_count": 3591280,
+        "min_open_time": 1672531200000,
+        "max_open_time": 1780271940000,
+        "duplicates": 1795600,
+        "canonical_sha256": "8561ee2936fb24740ea54fff74986934"
+      },
+      "funding": {
+        "row_count": 3741,
+        "min_funding_time": 1672531200000,
+        "max_funding_time": 1780243200004,
+        "canonical_sha256": "c15c89c7a010b4cc79cd1f1d1e6a76f2"
+      }
+    },
+    "AAVEUSDT": {
+      "market": {
+        "row_count": 3591280,
+        "min_open_time": 1672531200000,
+        "max_open_time": 1780271940000,
+        "duplicates": 1795600,
+        "canonical_sha256": "8146c020bd15e112356c03347155fd0e"
+      },
+      "funding": {
+        "row_count": 3741,
+        "min_funding_time": 1672531200000,
+        "max_funding_time": 1780243200004,
+        "canonical_sha256": "6a59fc23aa5756de0f988f169ea6fb19"
+      }
+    },
+    "SOLUSDT": {
+      "market": {
+        "row_count": 3591443,
+        "min_open_time": 1672531200000,
+        "max_open_time": 1780271940000,
+        "duplicates": 1795599,
+        "canonical_sha256": "d9292b3417dbff20785cd88aa91dd7ab"
+      },
+      "funding": {
+        "row_count": 3741,
+        "min_funding_time": 1672531200000,
+        "max_funding_time": 1780243200004,
+        "canonical_sha256": "310980ce5fe7fa03fcae90ace7d949c0"
+      }
+    },
+    "DOTUSDT": {
+      "market": {
+        "row_count": 3591280,
+        "min_open_time": 1672531200000,
+        "max_open_time": 1780271940000,
+        "duplicates": 1795600,
+        "canonical_sha256": "49d8a451c7c7f3877111d0c9212077a8"
+      },
+      "funding": {
+        "row_count": 3741,
+        "min_funding_time": 1672531200000,
+        "max_funding_time": 1780243200004,
+        "canonical_sha256": "60e7b117d41184e03403e0f8b178015b"
+      }
+    },
+    "ANKRUSDT": {
+      "market": {
+        "row_count": 3591280,
+        "min_open_time": 1672531200000,
+        "max_open_time": 1780271940000,
+        "duplicates": 1795600,
+        "canonical_sha256": "8f08f482a1e96dedbbd2d768e7012d01"
+      },
+      "funding": {
+        "row_count": 3997,
+        "min_funding_time": 1672531200000,
+        "max_funding_time": 1780257600010,
+        "canonical_sha256": "307d3d335f86471cb9e4b26e6ea4248d"
+      }
+    },
+    "XRPUSDT": {
+      "market": {
+        "row_count": 3591295,
+        "min_open_time": 1672531200000,
+        "max_open_time": 1780271940000,
+        "duplicates": 1795600,
+        "canonical_sha256": "0825ff299abd4d4c95382be394c0f616"
+      },
+      "funding": {
+        "row_count": 3741,
+        "min_funding_time": 1672531200000,
+        "max_funding_time": 1780243200004,
+        "canonical_sha256": "59cba6f894709bff85d197747d49999b"
+      }
+    },
+    "ETHUSDT": {
+      "market": {
+        "row_count": 3591642,
+        "min_open_time": 1672531200000,
+        "max_open_time": 1780271940000,
+        "duplicates": 1795600,
+        "canonical_sha256": "a3896b4d5bf64bf3c21f47e61b7e0f3c"
+      },
+      "funding": {
+        "row_count": 3741,
+        "min_funding_time": 1672531200000,
+        "max_funding_time": 1780243200004,
+        "canonical_sha256": "82cb70affa30597124301bfa302f8309"
+      }
+    },
+    "BTCUSDT": {
+      "market": {
+        "row_count": 3591671,
+        "min_open_time": 1672531200000,
+        "max_open_time": 1780271940000,
+        "duplicates": 1795600,
+        "canonical_sha256": "936c86fe53204152e58f9df9efe6db83"
+      },
+      "funding": {
+        "row_count": 3741,
+        "min_funding_time": 1672531200000,
+        "max_funding_time": 1780243200004,
+        "canonical_sha256": "e2bd6246e400dea27458f2de1a398c35"
+      }
+    },
+    "ADAUSDT": {
+      "market": {
+        "row_count": 3594593,
+        "min_open_time": 1672531200000,
+        "max_open_time": 1780271940000,
+        "duplicates": 1795600,
+        "canonical_sha256": "9ab8e0cd88946525cf0fe4f2cbd25cb3"
+      },
+      "funding": {
+        "row_count": 3741,
+        "min_funding_time": 1672531200000,
+        "max_funding_time": 1780243200004,
+        "canonical_sha256": "521a12c98c656162d86f666e9974a8a9"
+      }
+    },
+    "LINKUSDT": {
+      "market": {
+        "row_count": 3591280,
+        "min_open_time": 1672531200000,
+        "max_open_time": 1780271940000,
+        "duplicates": 1795600,
+        "canonical_sha256": "f1ebc1ba7322255f58aa4ce90da0cc0e"
+      },
+      "funding": {
+        "row_count": 3741,
+        "min_funding_time": 1672531200000,
+        "max_funding_time": 1780243200004,
+        "canonical_sha256": "99e4028fb84e38626a28c19e43707614"
+      }
+    },
+    "AVAXUSDT": {
+      "market": {
+        "row_count": 3592361,
+        "min_open_time": 1672531200000,
+        "max_open_time": 1780271940000,
+        "duplicates": 1795600,
+        "canonical_sha256": "a9f6838c040a15839a2fa1c334964ab0"
+      },
+      "funding": {
+        "row_count": 3741,
+        "min_funding_time": 1672531200000,
+        "max_funding_time": 1780243200004,
+        "canonical_sha256": "ef7c0f141a640f1921ce4b94aeedf2d6"
+      }
+    },
+    "LTCUSDT": {
+      "market": {
+        "row_count": 3591280,
+        "min_open_time": 1672531200000,
+        "max_open_time": 1780271940000,
+        "duplicates": 1795600,
+        "canonical_sha256": "f4cfb931e3f2ddbd02cf7ea21bd1f015"
+      },
+      "funding": {
+        "row_count": 3741,
+        "min_funding_time": 1672531200000,
+        "max_funding_time": 1780243200004,
+        "canonical_sha256": "7bf7b9e259beb93e8c5372cb8d822142"
+      }
+    },
+    "DOGEUSDT": {
+      "market": {
+        "row_count": 3592414,
+        "min_open_time": 1672531200000,
+        "max_open_time": 1780271940000,
+        "duplicates": 1795600,
+        "canonical_sha256": "c437869eeaeb68d39b346d82ab8bab09"
+      },
+      "funding": {
+        "row_count": 3741,
+        "min_funding_time": 1672531200000,
+        "max_funding_time": 1780243200004,
+        "canonical_sha256": "2cc9f71818317ee7ce9d945a54dfd113"
+      }
+    }
+  },
+  "funding_gate": {
+    "all_covered": true,
+    "missing": []
+  },
+  "engine_binary_sha256": "15552a7f626f7e70d5882e2a5263aa4fd9c5a537c851e748e38a019736e3de28"
+}
