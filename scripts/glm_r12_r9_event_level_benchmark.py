@@ -1,16 +1,9 @@
 #!/usr/bin/env python3
-"""GLM Round 12 Task P3: R9 Event-Level Benchmark.
+"""Round 12 diagnostic: static shared-account merge of the R9 sleeves.
 
-Runs the R9 5-sleeve portfolio through event-level shared-budget replay
-using the frozen Round12 funding database. This is NOT curve-reuse — it's
-a real portfolio_budget_replay of all 5 sleeves simultaneously sharing
-one 4999U budget.
-
-The R9 allocator rotated among sleeves based on rolling score. In event-level
-mode, ALL sleeves' strategies run simultaneously in a single portfolio, and
-the shared budget constrains all of them. This tests whether the combined
-sleeve portfolio (without allocator rotation) performs similarly to the
-curve-reuse diagnostic.
+The replay binary has no shadow/live sleeve state or dynamic rotation. All
+sleeve strategies run simultaneously. This tests only the static 36-strategy
+merge and cannot close the R9 dynamic allocator family.
 
 Output:
 - Full development window metrics
@@ -110,7 +103,7 @@ def main():
     ap.add_argument("--budget", type=int, default=4999)
     args = ap.parse_args()
 
-    print("=== R9 Event-Level Benchmark ===", flush=True)
+    print("=== R9 Static Shared-Account Merge Diagnostic ===", flush=True)
     print(f"Budget: {args.budget}U", flush=True)
     print(f"Funding DB: {FUNDING_DB} (Round12 frozen with ANKR/LTC补齐)", flush=True)
 
@@ -126,9 +119,12 @@ def main():
         json.dump(combined, f)
 
     result = {
-        "candidate": "r9-event-level-combined-5-sleeves",
+        "candidate": "r9-static-36-strategy-merge-diagnostic",
         "budget": args.budget,
-        "event_level": True,
+        "shared_account_event_level": True,
+        "static_portfolio": True,
+        "dynamic_sleeve_allocator": False,
+        "scope": "Five R9 sleeve configs merged and active simultaneously; no shadow/live state or rotation.",
         "n_strategies": n_strategies,
         "traded_symbols": symbols,
         "symbol_count": len(symbols),
@@ -147,16 +143,15 @@ def main():
 
     if full is None:
         print("FAIL: full replay returned None", file=sys.stderr)
-        result["target_hit"] = None
+        result["research_threshold_hits"] = []
     else:
+        result["research_threshold_hits"] = []
         if full["ann"] >= 50 and full["dd"] <= 10:
-            result["target_hit"] = "conservative"
-        elif full["ann"] >= 90 and full["dd"] <= 20:
-            result["target_hit"] = "balanced"
-        elif full["ann"] >= 110 and full["dd"] <= 30:
-            result["target_hit"] = "aggressive"
-        else:
-            result["target_hit"] = None
+            result["research_threshold_hits"].append("conservative")
+        if full["ann"] >= 90 and full["dd"] <= 20:
+            result["research_threshold_hits"].append("balanced")
+        if full["ann"] >= 110 and full["dd"] <= 30:
+            result["research_threshold_hits"].append("aggressive")
 
     # Cold-start segments
     print(f"\n=== Cold-start segments ===", flush=True)
@@ -180,13 +175,14 @@ def main():
     with open(args.out, "w") as f:
         json.dump(result, f, indent=2)
     print(f"\nWrote {args.out}")
-    print(f"Target hit: {result['target_hit']}")
+    print(f"Research threshold hits: {result['research_threshold_hits']}")
     print(f"Positive segments: {pos_segs}/5")
 
-    # Decision: if event-level ann < 45% or DD > 30%, stop expanding R9 selector
+    # This threshold closes only the static-merge diagnostic. The dynamic
+    # allocator still requires a dedicated event-level implementation.
     if full and (full["ann"] < 45 or full["dd"] > 30):
-        print("\nFAMILY BENCHMARK FAILURE: event-level ann < 45% or DD > 30%", file=sys.stderr)
-        print("Stopping R9 selector parameter expansion per plan P3.3", file=sys.stderr)
+        print("\nSTATIC MERGE FAILURE: ann < 45% or DD > 30%", file=sys.stderr)
+        print("Dynamic allocator family remains untested", file=sys.stderr)
 
 
 if __name__ == "__main__":

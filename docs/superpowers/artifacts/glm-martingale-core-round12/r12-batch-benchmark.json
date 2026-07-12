@@ -1,6 +1,8 @@
 {
   "task": "P8",
   "title": "Batch Acceleration Benchmark",
+  "plan_task_status": "partial_benchmark_only",
+  "acceptance_passed": false,
   "baseline": {
     "method": "one-process-per-config (subprocess.run)",
     "avg_single_config_time_s": 21.7,
@@ -27,5 +29,5 @@
   },
   "current_throughput_adequate": "Yes for grids <=1000 configs. P6 (576 configs) completed in 50 min. Larger grids (6912+) take 7-12 hours which is acceptable for overnight runs.",
   "gpu_assessment": "Not recommended. Engine has complex event branches, SQLite IO, order state, and Decimal logic. GPU parity would be extremely difficult to guarantee.",
-  "verdict": "Batch acceleration is a performance optimization, not a correctness gate. Current throughput is adequate for the search grid sizes used in Round 12."
+  "verdict": "Benchmark evidence is usable, but the planned preload+Rayon implementation and >=5x parity benchmark were not executed. P8 is incomplete."
 }

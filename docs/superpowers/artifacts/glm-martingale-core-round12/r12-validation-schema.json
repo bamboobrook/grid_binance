@@ -1,28 +1,27 @@
 {
   "task": "P2",
-  "title": "Unified Promotion Validator + OOS Harness",
+  "title": "Corrected fail-closed candidate replay harness",
   "validator_script": "scripts/glm_r12_validate_candidate.py",
-  "rust_binary": "apps/backtest-engine/src/bin/martingale_candidate_validate.rs (planned)",
-  "schema_version": "r12-event-level-strict",
-  "gates": {
-    "event_level": "portfolio_budget_replay with shared budget (no curve slicing)",
-    "cold_start_segments": "5 independent engine starts: h1_2023, h2_2023, 2024, 2025, 2026_ytd",
-    "anchored_wfo": "4 folds: F1(h1→h2), F2(2023→2024), F3(2023-2024→2025), F4(2023-2025→2026_ytd)",
-    "neighbor_stability": "continuous params ±5%/±10%, discrete params adjacent values; >=60% must maintain DD gate + ann>=70% of center",
-    "symbol_robustness": "leave-one-symbol-out + PnL share check; no symbol >35% contribution",
-    "cost_stress": "fee x1.5, slippage x2, fee+slippage combined, adverse funding +2bps; no principal breach",
-    "budget_ladder": "1000, 2000, 3000, 4000, 4999; 4000U ann>=70% of 4999U, 3000U no breach"
+  "schema_version": 2,
+  "implemented": {
+    "shared_account_static_portfolio_replay": true,
+    "cold_start_segments": true,
+    "budget_ladder": true,
+    "data_manifest_gate": true
   },
-  "auto_derivation": {
-    "fully_live_ready": "derived from gate results, NOT manually set",
-    "target_hit": "conservative/balanced/aggressive based on full-period ann+DD",
-    "overall_pass": "all gates AND target_hit != null"
+  "not_implemented": {
+    "event_level_dynamic_sleeve_allocator": "requires shadow/live engine state",
+    "anchored_walk_forward": "requires parameter selection on each train fold; fixed-config segment replay is not WFO",
+    "neighbor_stability": "no normalized parameter-neighbor generator exists",
+    "symbol_robustness": "leave-one-symbol-out and realized PnL contribution are absent",
+    "cost_stress": "replay binary has no fee/slippage/funding-shift/latency overrides",
+    "untouched_holdout_promotion": "separate frozen-finalist step",
+    "production_parity": "DB reconcile and backtest/live trace are separate required evidence"
   },
-  "pass_contract": {
-    "full_period": "ann>=tier_min AND dd<=tier_max",
-    "positive_segments": ">=4/5 for conservative/balanced, >=3/5 for aggressive",
-    "wfo": "no negative annualized in any validate fold",
-    "budget_ladder": "all budgets replay without principal breach",
-    "cost_stress": "all stress variants remain positive ann"
-  }
+  "derivation": {
+    "research_threshold_hits": "full-period ann/DD plus cold-start positive-segment count",
+    "promotion_target_hits": "always empty until every mandatory evidence item is implemented and passed",
+    "fully_live_ready": "always false for this incomplete harness"
+  },
+  "correction": "Round12 originally reran base metrics as cost stress and called fixed-parameter validation segments anchored WFO. Those claims are invalid and superseded by schema_version 2."
 }

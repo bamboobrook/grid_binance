@@ -1,0 +1,282 @@
+{
+  "base_url": "https://fapi.binance.com",
+  "fetched_at": "2026-07-12T07:34:00.133790+00:00",
+  "schema_version": 1,
+  "source": "Binance USD-M Futures REST API",
+  "symbols": {
+    "AAVEUSDT": {
+      "funding": {
+        "api_rows": 120,
+        "db_rows_in_range": 120,
+        "http_response_sha256": "0bcba19e80071f183466e463f50a4f5432fc45e5c11650d6c877d20c81b43626",
+        "max_funding_time": 1783699200005,
+        "min_funding_time": 1780272000001,
+        "request_count": 1,
+        "rows_changed": 120
+      },
+      "market": {
+        "http_response_stream_sha256": "45ecacd79d73c54038c613113f2b2d0bd0e7430d482ff48ae6cf826540d44c41",
+        "inserted": 1888,
+        "missing_after": 0,
+        "missing_before": 1888,
+        "request_count": 3
+      }
+    },
+    "ADAUSDT": {
+      "funding": {
+        "api_rows": 120,
+        "db_rows_in_range": 120,
+        "http_response_sha256": "b956db7dbb6b38ebcbaf9c2bfa27aab7c5341961fc39b802ab4339d6f71aa848",
+        "max_funding_time": 1783699200005,
+        "min_funding_time": 1780272000001,
+        "request_count": 1,
+        "rows_changed": 120
+      },
+      "market": {
+        "http_response_stream_sha256": "02d3709cf650279066f2a20c48c3db026bf4d45cc1c97f7767b372455336679c",
+        "inserted": 3288,
+        "missing_after": 0,
+        "missing_before": 3288,
+        "request_count": 4
+      }
+    },
+    "ANKRUSDT": {
+      "funding": {
+        "api_rows": 239,
+        "db_rows_in_range": 239,
+        "http_response_sha256": "f703fad88aac7244eb748006c6f59fac84334eaf54779a7d1cb71d36bf8379c3",
+        "max_funding_time": 1783713600000,
+        "min_funding_time": 1780272000001,
+        "request_count": 1,
+        "rows_changed": 239
+      },
+      "market": {
+        "http_response_stream_sha256": "13d21c32ab7b8460b084e520c74422355b7b356259df05450d0253afffdabab6",
+        "inserted": 1888,
+        "missing_after": 0,
+        "missing_before": 1888,
+        "request_count": 3
+      }
+    },
+    "AVAXUSDT": {
+      "funding": {
+        "api_rows": 120,
+        "db_rows_in_range": 120,
+        "http_response_sha256": "ac3abe6a9e85018c9e711e2e0e6fb73eda9e34e761474fec07edcd5351118999",
+        "max_funding_time": 1783699200005,
+        "min_funding_time": 1780272000001,
+        "request_count": 1,
+        "rows_changed": 120
+      },
+      "market": {
+        "http_response_stream_sha256": "f20d50e2501df2f2155c074bc0c759d1305795cdaf1e5d451a7fe2c319e7761b",
+        "inserted": 4297,
+        "missing_after": 0,
+        "missing_before": 4297,
+        "request_count": 6
+      }
+    },
+    "BCHUSDT": {
+      "funding": {
+        "api_rows": 120,
+        "db_rows_in_range": 120,
+        "http_response_sha256": "49f820e8bf135690b06ac4359891d23c8aca50e691cb9917914e56234a4c2bb3",
+        "max_funding_time": 1783699200005,
+        "min_funding_time": 1780272000001,
+        "request_count": 1,
+        "rows_changed": 120
+      },
+      "market": {
+        "http_response_stream_sha256": "563e1534ccf4c515945e0b9656d418a7e4c525a879127524daae0c93302127c8",
+        "inserted": 1888,
+        "missing_after": 0,
+        "missing_before": 1888,
+        "request_count": 3
+      }
+    },
+    "BNBUSDT": {
+      "funding": {
+        "api_rows": 120,
+        "db_rows_in_range": 120,
+        "http_response_sha256": "d19e6bb1ef11ffcd6824e17ad369af57c80cdf608df15dc21e3b28d25b1f6fa4",
+        "max_funding_time": 1783699200005,
+        "min_funding_time": 1780272000001,
+        "request_count": 1,
+        "rows_changed": 120
+      },
+      "market": {
+        "http_response_stream_sha256": "904d55dda3079a30108c1ec253053b1f088dcbdb7cfa994b58c57cd8aee240b9",
+        "inserted": 3178,
+        "missing_after": 0,
+        "missing_before": 3178,
+        "request_count": 6
+      }
+    },
+    "BTCUSDT": {
+      "funding": {
+        "api_rows": 120,
+        "db_rows_in_range": 120,
+        "http_response_sha256": "1f33b416d2b1acbbb789c35e42341dd52c6e2679d8739abc9bde9bb2b6b11916",
+        "max_funding_time": 1783699200005,
+        "min_funding_time": 1780272000001,
+        "request_count": 1,
+        "rows_changed": 120
+      },
+      "market": {
+        "http_response_stream_sha256": "37083a9d41d7fdb9403db2dcf7948841f06c24348e8b1135ad913d71b39b49b0",
+        "inserted": 1888,
+        "missing_after": 0,
+        "missing_before": 1888,
+        "request_count": 3
+      }
+    },
+    "DOGEUSDT": {
+      "funding": {
+        "api_rows": 120,
+        "db_rows_in_range": 120,
+        "http_response_sha256": "dff3b5290a0cc3946699243640313cf04764402425b6387f684504d3c3cf7199",
+        "max_funding_time": 1783699200005,
+        "min_funding_time": 1780272000001,
+        "request_count": 1,
+        "rows_changed": 120
+      },
+      "market": {
+        "http_response_stream_sha256": "a117020a5ff5fc78203ff4775e042abfdc050a619d75741f2a9aac9793e34f32",
+        "inserted": 3875,
+        "missing_after": 0,
+        "missing_before": 3875,
+        "request_count": 6
+      }
+    },
+    "DOTUSDT": {
+      "funding": {
+        "api_rows": 120,
+        "db_rows_in_range": 120,
+        "http_response_sha256": "3cced41726d42240679222562dc9f3978d6e0106c32a1fca0c1c28806e300dc1",
+        "max_funding_time": 1783699200005,
+        "min_funding_time": 1780272000001,
+        "request_count": 1,
+        "rows_changed": 120
+      },
+      "market": {
+        "http_response_stream_sha256": "8b6a436cc14a608c1ddb42b44fae829d1a4cff0d29641047b308af1052b6c76e",
+        "inserted": 1888,
+        "missing_after": 0,
+        "missing_before": 1888,
+        "request_count": 3
+      }
+    },
+    "ETHUSDT": {
+      "funding": {
+        "api_rows": 120,
+        "db_rows_in_range": 120,
+        "http_response_sha256": "cdd068438962ce0867d1bd94fd7078ccc114b1ea373845d89cd12e6528a0d53b",
+        "max_funding_time": 1783699200005,
+        "min_funding_time": 1780272000001,
+        "request_count": 1,
+        "rows_changed": 120
+      },
+      "market": {
+        "http_response_stream_sha256": "e6dc68c3c180c585d055d89e81f14ef9a85f59342f760fb62afd2125c80edb4e",
+        "inserted": 1888,
+        "missing_after": 0,
+        "missing_before": 1888,
+        "request_count": 3
+      }
+    },
+    "LINKUSDT": {
+      "funding": {
+        "api_rows": 120,
+        "db_rows_in_range": 120,
+        "http_response_sha256": "6a95d3a60238a0120feb2c012ae0dbdfaadba3e2d56194af77533f5bac59d33a",
+        "max_funding_time": 1783699200005,
+        "min_funding_time": 1780272000001,
+        "request_count": 1,
+        "rows_changed": 120
+      },
+      "market": {
+        "http_response_stream_sha256": "f9be6fe25a061c80b73728a20d92662e1c2f2bd3f4467d801d7103faf5881b03",
+        "inserted": 1888,
+        "missing_after": 0,
+        "missing_before": 1888,
+        "request_count": 3
+      }
+    },
+    "LTCUSDT": {
+      "funding": {
+        "api_rows": 120,
+        "db_rows_in_range": 120,
+        "http_response_sha256": "1f535b6247799ef06f7d8e5b49a684d37bb6424544cda5ea2e2f3f368fe7d8ac",
+        "max_funding_time": 1783699200005,
+        "min_funding_time": 1780272000001,
+        "request_count": 1,
+        "rows_changed": 120
+      },
+      "market": {
+        "http_response_stream_sha256": "0aabde8ec6b98a2de6d729639462ac1e547c039a7dcaf8b62cc2fad8d0072457",
+        "inserted": 1888,
+        "missing_after": 0,
+        "missing_before": 1888,
+        "request_count": 3
+      }
+    },
+    "SOLUSDT": {
+      "funding": {
+        "api_rows": 120,
+        "db_rows_in_range": 120,
+        "http_response_sha256": "56a73a309db0e7a042e4d9bd95e5ae10a9b6819b27a065f57c46dfb55b445298",
+        "max_funding_time": 1783699200005,
+        "min_funding_time": 1780272000001,
+        "request_count": 1,
+        "rows_changed": 120
+      },
+      "market": {
+        "http_response_stream_sha256": "0f5aba5b71286f68cc4551255e340226f6b169e87d0d7bf22254068267d83724",
+        "inserted": 2833,
+        "missing_after": 0,
+        "missing_before": 2833,
+        "request_count": 5
+      }
+    },
+    "TRXUSDT": {
+      "funding": {
+        "api_rows": 120,
+        "db_rows_in_range": 120,
+        "http_response_sha256": "40e6f32006334849a7867646c46e133a99d50af7dbacada45e7b2724a7c270b4",
+        "max_funding_time": 1783699200005,
+        "min_funding_time": 1780272000001,
+        "request_count": 1,
+        "rows_changed": 120
+      },
+      "market": {
+        "http_response_stream_sha256": "cd78da21e6da88fae920eba047f3648e776e11b9096f6f5f0c08f495275869c8",
+        "inserted": 1888,
+        "missing_after": 0,
+        "missing_before": 1888,
+        "request_count": 3
+      }
+    },
+    "XRPUSDT": {
+      "funding": {
+        "api_rows": 120,
+        "db_rows_in_range": 120,
+        "http_response_sha256": "e09ee66c848dbed568707bfb8fe0ade014d4f6db770be72ac30960a1e93a139c",
+        "max_funding_time": 1783699200005,
+        "min_funding_time": 1780272000001,
+        "request_count": 1,
+        "rows_changed": 120
+      },
+      "market": {
+        "http_response_stream_sha256": "7b4015584d39fcba1dfd0324d12a157ef77e1ccfad82a850f2a45f7a0b05ce78",
+        "inserted": 1888,
+        "missing_after": 0,
+        "missing_before": 1888,
+        "request_count": 3
+      }
+    }
+  },
+  "window": {
+    "end_ms": 1783727999999,
+    "start_ms": 1780272000000
+  }
+}

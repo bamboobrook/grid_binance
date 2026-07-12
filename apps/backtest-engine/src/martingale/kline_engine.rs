@@ -2,8 +2,9 @@ use std::collections::BTreeMap;
 
 use rust_decimal::prelude::ToPrimitive;
 use shared_domain::martingale::{
-    MartingaleDirection, MartingaleEntryTrigger, MartingalePortfolioConfig, MartingaleRiskLimits,
-    MartingaleStopLossModel, MartingaleStrategyConfig, MartingaleTakeProfitModel,
+    MartingaleDirection, MartingaleDrawdownStateRule, MartingaleEntryTrigger,
+    MartingalePortfolioConfig, MartingaleRiskLimits, MartingaleStopLossModel,
+    MartingaleStrategyConfig, MartingaleTakeProfitModel,
 };
 
 use crate::market_data::KlineBar;
@@ -91,6 +92,23 @@ impl RiskGuardThresholds {
             .filter(|value| *value > 0),
         }
     }
+}
+
+fn active_drawdown_safety_order_scale(
+    rules: &[MartingaleDrawdownStateRule],
+    drawdown_pct: f64,
+) -> f64 {
+    rules
+        .iter()
+        .filter(|rule| drawdown_pct >= rule.trigger_drawdown_pct)
+        .max_by(|left, right| {
+            left.trigger_drawdown_pct
+                .partial_cmp(&right.trigger_drawdown_pct)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        })
+        .and_then(|rule| rule.safety_order_scale)
+        .filter(|scale| scale.is_finite() && *scale > 0.0 && *scale <= 1.0)
+        .unwrap_or(1.0)
 }
 
 /// Resolve a parity-structured threshold: env override (if set and finite) wins,
@@ -709,8 +727,14 @@ pub fn run_kline_screening_with_funding(
                                 }
                             }
                         }
-                        let margin = strategy_states[state_index].margins[next_leg_index];
-                        let mut notional = strategy_states[state_index].notionals[next_leg_index];
+                        let drawdown_scale = active_drawdown_safety_order_scale(
+                            &portfolio.risk_limits.drawdown_state_rules,
+                            dd_state_pct,
+                        );
+                        let margin =
+                            strategy_states[state_index].margins[next_leg_index] * drawdown_scale;
+                        let notional =
+                            strategy_states[state_index].notionals[next_leg_index] * drawdown_scale;
                         // Round 7 Task F: Safety order taper. Scale margin and notional
                         // if taper_safety_after_leg is configured and current leg exceeds it.
                         let rl_t = &strategy_states[state_index].strategy.risk_limits;
@@ -809,7 +833,7 @@ pub fn run_kline_screening_with_funding(
                             &strategy_states[state_index],
                             "safety_order",
                             format!(
-                                "leg_index={next_leg_index};margin_quote={margin};notional_quote={notional};leverage={};fee_quote={};slippage_quote={}",
+                                "leg_index={next_leg_index};drawdown_scale={drawdown_scale};margin_quote={margin};notional_quote={notional};leverage={};fee_quote={};slippage_quote={}",
                                 strategy_states[state_index].strategy.leverage.unwrap_or(1),
                                 entry_cost.fee_quote,
                                 entry_cost.slippage_quote
@@ -2617,6 +2641,32 @@ mod tests {
         assert_eq!(guards.new_cycle_drawdown_pause_pct, 6.0);
         assert_eq!(guards.new_cycle_atr_pause_pct, 2.0);
         assert_eq!(guards.safety_skip_adx_threshold, 45.0);
+    }
+
+    #[test]
+    fn highest_active_drawdown_rule_scales_safety_order() {
+        use shared_domain::martingale::MartingaleDrawdownStateRule;
+
+        let rules = vec![
+            MartingaleDrawdownStateRule {
+                trigger_drawdown_pct: 5.0,
+                first_order_scale: None,
+                safety_order_scale: Some(0.75),
+                cooldown_multiplier: None,
+                freeze_safety_orders: None,
+            },
+            MartingaleDrawdownStateRule {
+                trigger_drawdown_pct: 10.0,
+                first_order_scale: None,
+                safety_order_scale: Some(0.5),
+                cooldown_multiplier: None,
+                freeze_safety_orders: None,
+            },
+        ];
+
+        assert_eq!(super::active_drawdown_safety_order_scale(&rules, 4.0), 1.0);
+        assert_eq!(super::active_drawdown_safety_order_scale(&rules, 7.0), 0.75);
+        assert_eq!(super::active_drawdown_safety_order_scale(&rules, 12.0), 0.5);
     }
 
     fn portfolio_with_direction(

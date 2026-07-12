@@ -1,41 +1,70 @@
 {
-  "candidate": "R4-combo",
-  "holdout_window": {
-    "start_ms": 1780272000000,
-    "end_ms": 1783727999999
-  },
-  "holdout_opened": true,
   "budget_ladder": {
     "1000": {
-      "ann": -84.50869735007169,
-      "dd": 21.78463582871511,
-      "ret": -18.483775865567804,
-      "trades": 415
+      "ann": -84.54285666996394,
+      "blocked": 3,
+      "dd": 21.80355489373159,
+      "max_cap": 355.008654,
+      "min_equity": 814.9650664336586,
+      "principal_breached": false,
+      "ret": -18.503493356634134,
+      "status": "complete",
+      "trades": 429
     },
     "2000": {
-      "ann": -58.723953930562836,
-      "dd": 11.117408120313318,
-      "ret": -9.241887932783902,
-      "trades": 415
+      "ann": -58.76485014003197,
+      "blocked": 3,
+      "dd": 11.127063134457078,
+      "max_cap": 355.008654,
+      "min_equity": 1814.9650664336586,
+      "principal_breached": false,
+      "ret": -9.251746678317067,
+      "status": "complete",
+      "trades": 429
     },
     "3000": {
-      "ann": -84.10778466895836,
-      "dd": 21.214421749792002,
-      "ret": -18.255208832549638,
-      "trades": 394
+      "ann": -84.11944077012916,
+      "blocked": 3,
+      "dd": 21.22075631828303,
+      "max_cap": 788.0645387999999,
+      "min_equity": 2452.1465601128475,
+      "principal_breached": false,
+      "ret": -18.26178132957175,
+      "status": "complete",
+      "trades": 408
     },
     "4000": {
-      "ann": -73.90946571909839,
-      "dd": 16.056126787519045,
-      "ret": -13.691406624412231,
-      "trades": 394
+      "ann": -73.92306012528661,
+      "blocked": 3,
+      "dd": 16.060921103198996,
+      "max_cap": 788.0645387999999,
+      "min_equity": 3452.1465601128475,
+      "principal_breached": false,
+      "ret": -13.696335997178814,
+      "status": "complete",
+      "trades": 408
     },
     "4999": {
-      "ann": -65.31314111141816,
-      "dd": 12.918201979506227,
-      "ret": -10.955316362802344,
-      "trades": 394
+      "ann": -65.32715916627878,
+      "blocked": 3,
+      "dd": 12.922059319394405,
+      "max_cap": 788.0645387999999,
+      "min_equity": 4451.1465601128475,
+      "principal_breached": false,
+      "ret": -10.959260649873025,
+      "status": "complete",
+      "trades": 408
     }
   },
-  "verdict": "Holdout return positive, DD within balanced tier. No target hit at full-period level."
+  "candidate": "R4-combo",
+  "data_gate_passed": true,
+  "data_manifest": "docs/superpowers/artifacts/glm-martingale-core-round12/run-manifests/r12-data-manifest.json",
+  "gate_pass": false,
+  "holdout_opened": true,
+  "holdout_window": {
+    "end_ms": 1783727999999,
+    "start_ms": 1780272000000
+  },
+  "schema_version": 2,
+  "verdict": "FAIL: return is non-positive, replay failed, or principal was breached"
 }

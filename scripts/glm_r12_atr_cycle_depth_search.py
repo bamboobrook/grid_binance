@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
-"""GLM Round 12 Task P6: ATR Spacing + Cycle-Depth TP search.
+"""Round 12 partial-TP stage ladder and max-age search.
 
 Binding probes confirmed:
 - ATR spacing binds but produces ann -4.74% (worse than R4-combo's 34.73%)
 - Fixed-percent step binds and R4-combo's 150bps is well-tuned
 
-This search focuses on cycle-depth-aware TP and step_bps variants around the
-R4-combo baseline, since ATR spacing is confirmed inferior.
+Despite the historical filename, partial TP stages advance after TP fills, not
+after safety-leg depth changes. This script does not implement cycle-depth TP;
+it searches ordinary partial-TP stages, spacing, and max-cycle-age exits.
 """
 import argparse, json, os, subprocess, sys, time, copy
 from concurrent.futures import ProcessPoolExecutor, as_completed
@@ -24,25 +25,22 @@ FULL_START, FULL_END = 1672531200000, 1780271999999
 BASE_PATH = "docs/superpowers/artifacts/glm-martingale-core-round4/promising/r4-combo-best.json"
 _RUNTIME = {"market": "data/market_data_full.db", "funding": "data/funding_rates_round12.db"}
 
-def apply_cycle_depth(cfg, step_bps, tp_bps_depth0, tp_bps_depth2, tp_bps_depth4, max_age_hours):
-    """Apply cycle-depth-aware TP variants."""
+def apply_partial_tp_ladder(cfg, step_bps, stage0_bps, stage1_bps, stage2_bps, max_age_hours):
+    """Apply ordinary partial-TP stage and max-cycle-age variants."""
     new_cfg = copy.deepcopy(cfg)
     pc = new_cfg["portfolio_config"]
     for s in pc["strategies"]:
         if step_bps != 150:
             s["spacing"] = {"fixed_percent": {"step_bps": step_bps}}
-        # Use partial TP with depth-dependent stages
         rl = s.get("risk_limits", {})
         if max_age_hours is not None:
             rl["max_cycle_age_hours"] = max_age_hours
-            rl["no_progress_exit_hours"] = max_age_hours
         s["risk_limits"] = rl
-        # Modify TP stages for depth awareness
         s["take_profit"] = {"partial": {
             "stages": [
-                [300, 1000, tp_bps_depth0],
-                [400, 1000, tp_bps_depth2],
-                [300, 1000, tp_bps_depth4],
+                [300, 1000, stage0_bps],
+                [400, 1000, stage1_bps],
+                [300, 1000, stage2_bps],
             ],
             "breakeven_after_stage": 1,
             "breakeven_buffer_bps": 15,
@@ -90,15 +88,14 @@ def main():
 
     base_cfg = json.load(open(BASE_PATH))
     specs = []
-    # Grid: step_bps × tp_depth0 × tp_depth2 × tp_depth4 × max_age
-    # Keep it targeted: 4 step × 4 tp0 × 3 tp2 × 3 tp4 × 4 age = 1728
+    # 4 spacing x 4 stage0 x 3 stage1 x 3 stage2 x 4 ages = 576.
     for step in [120, 150, 180, 220]:
         for tp0 in [300, 450, 600, 800]:
             for tp2 in [300, 450, 600]:
                 for tp4 in [200, 350, 500]:
                     for age in [None, 48, 120, 240]:
-                        label = f"s{step}_t0_{tp0}_t2_{tp2}_t4_{tp4}_a{age if age else 'none'}"
-                        cfg = apply_cycle_depth(base_cfg, step, tp0, tp2, tp4, age)
+                        label = f"s{step}_p0_{tp0}_p1_{tp2}_p2_{tp4}_a{age if age else 'none'}"
+                        cfg = apply_partial_tp_ladder(base_cfg, step, tp0, tp2, tp4, age)
                         specs.append((label, cfg, f"/tmp/r12p6_{label}.json"))
 
     print(f"Generated {len(specs)} specs. Running full + 5 segments each...", flush=True)
@@ -121,7 +118,9 @@ def main():
     valid.sort(key=lambda r: r["full_metrics"]["ann"], reverse=True)
     targets = [r for r in valid if r.get("target_hit")]
     os.makedirs(os.path.dirname(args.out), exist_ok=True)
-    json.dump({"results": valid, "target_hits": targets, "total_specs": len(specs),
+    json.dump({"mechanism": "partial_tp_stage_ladder_plus_max_cycle_age",
+               "cycle_depth_aware": False,
+               "results": valid, "target_hits": targets, "total_specs": len(specs),
                "total_evaluated": len(valid), "total_skipped": len(results)-len(valid),
                "total_target_hits": len(targets)}, open(args.out, "w"), indent=2)
     el = time.time() - t0

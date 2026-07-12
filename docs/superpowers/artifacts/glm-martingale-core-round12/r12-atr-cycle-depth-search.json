@@ -1,4 +1,10 @@
 {
+  "mechanism_audit": {
+    "implemented_mechanism": "ordinary partial-TP stage ladder plus fixed spacing and optional unconditional max-cycle-age exit",
+    "cycle_depth_aware": false,
+    "atr_grid_executed": false,
+    "correction": "Partial TP stages advance after TP fills, not after safety-leg fills. Historical t0/t2/t4 labels are stage labels and must not be interpreted as cycle depth."
+  },
   "results": [
     {
       "label": "s150_t0_300_t2_600_t4_500_anone",

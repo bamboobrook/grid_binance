@@ -6,7 +6,10 @@
 //! 3. The market manifest is stable when rows after end_ms are appended.
 //! 4. The canonical range hash changes when an in-range row changes.
 
-use serde_json::{json, Value};
+use backtest_engine::sqlite_market_data::load_funding_rates_readonly;
+use rusqlite::Connection;
+use serde_json::json;
+use tempfile::NamedTempFile;
 
 /// Parse a funding_rate row and detect text mark_price (which should be float).
 #[test]
@@ -120,39 +123,81 @@ fn market_manifest_is_stable_when_rows_after_end_ms_are_appended() {
     assert_eq!(hash_original, hash_extended, "manifest hash must be stable when out-of-range rows are appended");
 }
 
-/// Verify that a traded futures symbol with no funding rows is flagged as missing.
+fn funding_fixture(rows: &[(&str, i64)]) -> NamedTempFile {
+    let file = NamedTempFile::new().expect("temp funding DB");
+    let conn = Connection::open(file.path()).expect("open funding DB");
+    conn.execute_batch(
+        "CREATE TABLE funding_rates (
+            symbol TEXT NOT NULL,
+            funding_time INTEGER NOT NULL,
+            funding_rate REAL NOT NULL,
+            mark_price REAL,
+            PRIMARY KEY (symbol, funding_time)
+        );",
+    )
+    .expect("create funding table");
+    for (symbol, funding_time) in rows {
+        conn.execute(
+            "INSERT INTO funding_rates VALUES (?1, ?2, 0.0001, 100.0)",
+            (symbol, funding_time),
+        )
+        .expect("insert funding row");
+    }
+    file
+}
+
+/// Verify the real loader rejects a traded symbol with no funding rows.
 #[test]
 fn replay_rejects_traded_futures_symbol_with_missing_funding() {
-    // Simulate a portfolio config with a futures symbol that has no funding
-    let portfolio_config = json!({
-        "direction_mode": "long_and_short",
-        "risk_limits": {"max_global_budget_quote": "4999"},
-        "strategies": [{
-            "symbol": "MISSINGFUNDINGUSDT",
-            "market": "usd_m_futures",
-            "direction": "long",
-            "sizing": {"multiplier": {"first_order_quote": "20", "multiplier": "2.0", "max_legs": 5}},
-            "spacing": {"fixed_percent": {"step_bps": 150}},
-            "take_profit": {"percent": {"bps": 100}},
-            "leverage": 10
-        }]
-    });
-    // The validation gate: check if all futures symbols have funding coverage.
-    // For this test, we simulate the check: MISSINGFUNDINGUSDT has 0 funding rows.
-    let funding_coverage: std::collections::HashSet<&str> = ["BNBUSDT", "ETHUSDT"].iter().copied().collect();
-    let traded_symbols: Vec<&str> = portfolio_config["strategies"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .filter_map(|s| {
-            if s["market"] == "usd_m_futures" {
-                s["symbol"].as_str()
-            } else {
-                None
-            }
-        })
-        .collect();
-    let missing: Vec<&&str> = traded_symbols.iter().filter(|s| !funding_coverage.contains(**s)).collect();
-    assert!(!missing.is_empty(), "MISSINGFUNDINGUSDT must be flagged as missing funding");
-    assert_eq!(missing[0], &"MISSINGFUNDINGUSDT");
+    let file = funding_fixture(&[("BNBUSDT", 1_000), ("BNBUSDT", 29_000_000)]);
+    let error = load_funding_rates_readonly(
+        file.path(),
+        &["BNBUSDT".to_string(), "MISSINGFUNDINGUSDT".to_string()],
+        1_000,
+        29_000_000,
+    )
+    .expect_err("missing symbol must fail");
+    assert!(error.contains("MISSINGFUNDINGUSDT:missing"), "{error}");
+}
+
+/// Verify the real loader rejects a DB that stops well before the replay end.
+#[test]
+fn replay_rejects_incomplete_funding_range() {
+    let file = funding_fixture(&[("BNBUSDT", 1_000), ("BNBUSDT", 29_000_000)]);
+    let error = load_funding_rates_readonly(
+        file.path(),
+        &["BNBUSDT".to_string()],
+        1_000,
+        100_000_000,
+    )
+    .expect_err("incomplete range must fail");
+    assert!(error.contains("BNBUSDT:1000..29000000"), "{error}");
+}
+
+/// Verify the real loader catches a gap hidden by otherwise valid range edges.
+#[test]
+fn replay_rejects_internal_funding_gap() {
+    let file = funding_fixture(&[("BNBUSDT", 1_000), ("BNBUSDT", 40_000_000)]);
+    let error = load_funding_rates_readonly(
+        file.path(),
+        &["BNBUSDT".to_string()],
+        1_000,
+        40_000_000,
+    )
+    .expect_err("internal gap must fail");
+    assert!(error.contains("internal gaps over 9h"), "{error}");
+}
+
+/// Verify old rows before the range cannot hide a missing range-start edge.
+#[test]
+fn replay_rejects_missing_funding_at_range_edge() {
+    let file = funding_fixture(&[("BNBUSDT", 1_000), ("BNBUSDT", 100_000_000)]);
+    let error = load_funding_rates_readonly(
+        file.path(),
+        &["BNBUSDT".to_string()],
+        20_000_000,
+        100_000_000,
+    )
+    .expect_err("missing range-start funding must fail");
+    assert!(error.contains("do not cover replay range edges"), "{error}");
 }

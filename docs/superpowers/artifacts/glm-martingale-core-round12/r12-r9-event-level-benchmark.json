@@ -1,7 +1,10 @@
 {
-  "candidate": "r9-event-level-combined-5-sleeves",
+  "candidate": "r9-static-36-strategy-merge-diagnostic",
   "budget": 4999,
-  "event_level": true,
+  "shared_account_event_level": true,
+  "static_portfolio": true,
+  "dynamic_sleeve_allocator": false,
+  "scope": "Five R9 sleeve configs merged and active simultaneously; no shadow/live state or rotation.",
   "n_strategies": 36,
   "traded_symbols": [
     "AAVEUSDT",
@@ -110,6 +113,7 @@
     "ann": 62.7845,
     "dd": 18.384
   },
-  "target_hit": null,
+  "research_threshold_hits": [],
+  "promotion_target_hits": [],
   "positive_segments": 4
 }

@@ -1,26 +1,27 @@
 {
+  "schema_version": 2,
   "round": 12,
-  "branch": "glm-martingale-core-round12",
-  "head_commit": "cf44e85",
-  "plan": "docs/superpowers/plans/2026-07-12-glm-martingale-core-round12-event-level-native-search-plan.md",
+  "audit_status": "corrected_partial_execution",
+  "audited_input_head": "5fa73efb5ab0b4b546a4c70d9dd43b9808b0e3dd",
+  "audit_report": "docs/superpowers/reports/2026-07-12-glm-round12-execution-audit-and-fix.md",
   "targets": {
     "conservative": {
-      "ann_min": 50,
-      "max_dd": 10,
-      "min_pos_segs": 4,
-      "budget_max": 4999
+      "annualized_return_min_pct": 50.0,
+      "max_drawdown_pct": 10.0,
+      "positive_segments_min": 4,
+      "passed": false
     },
     "balanced": {
-      "ann_min": 90,
-      "max_dd": 20,
-      "min_pos_segs": 4,
-      "budget_max": 4999
+      "annualized_return_min_pct": 90.0,
+      "max_drawdown_pct": 20.0,
+      "positive_segments_min": 4,
+      "passed": false
     },
     "aggressive": {
-      "ann_min": 110,
-      "max_dd": 30,
-      "min_pos_segs": 3,
-      "budget_max": 4999
+      "annualized_return_min_pct": 110.0,
+      "max_drawdown_pct": 30.0,
+      "positive_segments_min": 3,
+      "passed": false
     }
   },
   "target_hits": {
@@ -28,143 +29,124 @@
     "balanced": [],
     "aggressive": []
   },
-  "best_research_event_level": [
-    {
-      "label": "R4-combo (event-level, Round12 frozen funding)",
-      "annualized_return_pct": 34.73,
-      "max_drawdown_pct": 17.69,
+  "fully_live_ready_candidates": [],
+  "r4_independent_recheck": {
+    "artifact": "docs/superpowers/artifacts/glm-martingale-core-round12/r12-r4-independent-recheck.json",
+    "config": "docs/superpowers/artifacts/glm-martingale-core-round4/promising/r4-combo-best.json",
+    "traded_symbol_count": 6,
+    "development_4999": {
+      "annualized_return_pct": 34.72836611600867,
+      "max_drawdown_pct": 17.68684657067801,
+      "total_return_pct": 176.8780921862638,
       "positive_segments": "4/5",
-      "budget_4999": {
-        "ann": 34.73,
-        "dd": 17.69
-      },
-      "budget_4000": {
-        "ann": 40.73,
-        "dd": 20.63
-      },
-      "budget_3000": {
-        "ann": 49.46,
-        "dd": 24.75
-      },
-      "budget_2000": {
-        "ann": -7.07,
-        "dd": 27.16
-      },
-      "budget_1000": {
-        "ann": -15.69,
-        "dd": 50.95
-      },
-      "fully_live_ready": true,
-      "event_level": true,
-      "config": "docs/superpowers/artifacts/glm-martingale-core-round4/promising/r4-combo-best.json"
-    }
-  ],
-  "best_fully_live_ready": [
-    {
-      "label": "R4-combo",
-      "annualized_return_pct": 34.73,
-      "max_drawdown_pct": 17.69,
-      "positive_segments": "4/5",
-      "fully_live_ready": true
-    }
-  ],
-  "r9_curve_diagnostic_corrected": {
-    "ann": 62.7845,
-    "dd": 18.384,
-    "event_level_reproducible": false,
-    "event_level_ann": -7.52,
-    "event_level_dd": 56.0,
-    "verdict": "R9 curve diagnostic is NOT reproducible at event level. 36 strategies sharing 4999U causes severe budget contention."
+      "principal_breached": false,
+      "max_capital_used_quote": 707.6237697683999
+    },
+    "budget_ladder": {
+      "1000": {"ann": -15.728516168431128, "dd": 51.014276052547004},
+      "2000": {"ann": -7.061432158345515, "dd": 27.150044800717275},
+      "3000": {"ann": 49.46556924722605, "dd": 24.79508694000774},
+      "4000": {"ann": 40.69430165497256, "dd": 20.64454968116723},
+      "4999": {"ann": 34.72836611600867, "dd": 17.68684657067801}
+    },
+    "holdout_4999": {
+      "return_pct": -10.959260649873025,
+      "annualized_return_pct_diagnostic_only": -65.32715916627878,
+      "max_drawdown_pct": 12.922059319394405,
+      "trades": 408,
+      "principal_breached": false,
+      "passed": false
+    },
+    "fully_live_ready": false
   },
-  "new_failed_families": [
-    {
-      "family": "event_level_r9_combined",
-      "task": "P3",
-      "result": "FAMILY BENCHMARK FAILURE. 36 strategies sharing 4999U \u2192 ann -7.5%/DD 56%. Curve diagnostic overstated by 70.3pp ann."
+  "round12_scoped_results": {
+    "r9_static_merge": {
+      "artifact": "docs/superpowers/artifacts/glm-martingale-core-round12/r12-r9-event-level-benchmark.json",
+      "dynamic_sleeve_allocator": false,
+      "strategies_simultaneously_active": 36,
+      "annualized_return_pct": -7.520884749599343,
+      "max_drawdown_pct": 56.00066635449655,
+      "positive_segments": "4/5",
+      "scope_verdict": "exact static merge failed; dynamic allocator remains untested"
     },
-    {
-      "family": "native_dca_minigrid",
-      "task": "P4",
-      "result": "BINDING PROBE FAILED. dca_minigrid config field is INERT in kline_engine. Engine integration required."
+    "partial_tp_stage_grid": {
+      "artifact": "docs/superpowers/artifacts/glm-martingale-core-round12/r12-atr-cycle-depth-search.json",
+      "effective_labels": 576,
+      "cycle_depth_aware": false,
+      "atr_grid_executed": false,
+      "target_hits": 0,
+      "best_annualized_return_pct": 25.980671778156484,
+      "best_max_drawdown_pct": 28.570153986064962,
+      "best_positive_segments": "2/5"
     },
-    {
-      "family": "conditional_so_v2",
-      "task": "P5",
-      "result": "BINDING PROBE FAILED. ADX skip and DD scale do not bind on R4-combo's partial TP. Stopped before full search."
-    },
-    {
-      "family": "atr_spacing",
-      "task": "P6",
-      "result": "ATR spacing confirmed inferior (ann -4.74% vs 34.73%). Fixed-percent step is better."
-    },
-    {
-      "family": "cycle_depth_tp",
-      "task": "P6",
-      "result": "576 configs, 0 targets. All cycle-depth TP variants worse than R4-combo baseline."
-    },
-    {
-      "family": "lp_portfolio_rebuild",
-      "task": "P7",
-      "result": "LP at 4999U: ann 30.44%/DD 41.31%. Worse than R4-combo. LP designed for 18k-144k, not 4999U."
+    "lp_symbol_substitute_config": {
+      "config": "docs/superpowers/artifacts/glm-martingale-core-round12/promising/r12-lp-conservative-rebuild.json",
+      "original_member_configs_restored": false,
+      "annualized_return_pct": 30.441248603981784,
+      "max_drawdown_pct": 41.31068663211625,
+      "principal_breached": false,
+      "scope_verdict": "one copied R4-like ladder failed; LP family remains untested"
     }
-  ],
-  "do_not_repeat_new_keys": [
-    "r12-event-level-r9-36-strategy-budget-contention-failure",
-    "r12-so-v2-adx-ddscale-inert-on-r4-combo-partial-tp",
-    "r12-cycle-depth-tp-no-target",
-    "r12-atr-spacing-inferior-to-fixed-percent"
-  ],
-  "incomplete_tasks": {
-    "P4_native_minigrid": "BINDING PROBE FAILED: dca_minigrid config field is INERT in kline_engine. Config struct exists (5 tests pass) but engine integration (~200 lines) not implemented.",
-    "P5_so_v2": "BINDING PROBE FAILED: ADX skip + DD scale do not bind on R4-combo partial-TP. Stopped before full search.",
-    "P7_lp_rebuild": "COMPLETED: LP portfolio at 4999U \u2192 ann 30.44%/DD 41.31%. Worse than R4-combo. LP high-capital design unsuitable for 4999U.",
-    "P8_batch_acceleration": "COMPLETED: Benchmark measured (21.7s/config, 15% parallel efficiency). Batch plan documented but not implemented (adequate for current grids).",
-    "P9_holdout": "COMPLETED: R4-combo holdout (2026-06-01~07-10) = -11.0% return (NEGATIVE). Strategy may be decaying. All budgets negative.",
-    "P10_production_parity": "COMPLETED: All 211+205 tests pass. R11 P1 allocator wiring complete. Native minigrid live parity pending P4 engine integration."
   },
   "data_integrity": {
-    "funding_gate_pass": true,
-    "ankr_funding_rows_added": 3997,
-    "ltc_funding_rows_added": 3741,
-    "frozen_funding_db": "data/funding_rates_round12.db",
     "manifest": "docs/superpowers/artifacts/glm-martingale-core-round12/run-manifests/r12-data-manifest.json",
-    "holdout_locked": true
+    "manifest_sha256": "274fb242a779f52a38c6aeebbffde9bafa382ac3ad1a8b864169dc924fefbd56",
+    "engine_binary_sha256": "afb70e9aedba2cd974733206fb468c9a27e8f1943d81a28904933c3dafc0a755",
+    "selection": "futures_usdt_perp/1m",
+    "development_gate_passed": true,
+    "holdout_gate_passed": true,
+    "candidate_symbols": 15,
+    "development_minutes_per_symbol": 1795680,
+    "holdout_minutes_per_symbol": 57600,
+    "holdout_market_rows_repaired_all_symbols": 36351,
+    "holdout_market_rows_repaired_r4_symbols": 13563,
+    "fetch_provenance": "docs/superpowers/artifacts/glm-martingale-core-round12/run-manifests/r12-holdout-fetch-provenance.json",
+    "historical_development_http_response_hashes_available": false
   },
-  "candidate_counts": {
-    "P1_data_manifest": "15 symbols \u00d7 market+funding stats, 4 tests",
-    "P3_r9_event_level": "1 benchmark (36 strategies, 11 replays)",
-    "P5_binding_probes": "4 replays (2 probes \u00d7 2 values)",
-    "P6_cycle_depth": "576 configs \u00d7 6 replays = 3456 replays"
+  "task_audit": {
+    "P0": "partial",
+    "P1": "corrected_usable",
+    "P2": "incomplete_fail_closed",
+    "P3": "deviated_static_merge_only",
+    "P4": "unexecuted_native_engine",
+    "P5": "unexecuted_htf_backtest_dd_scale_repaired",
+    "P6": "misnamed_partial_tp_grid_true_depth_unexecuted",
+    "P7": "one_substitute_config_only",
+    "P8": "benchmark_only",
+    "P9": "R4_holdout_corrected_other_gates_missing",
+    "P10": "unexecuted"
   },
-  "test_counts": {
-    "backtest_engine": "211+4 (R12 funding manifest tests) passed, 0 failed",
-    "trading_engine": "205 passed, 0 failed"
+  "replay_accounting": {
+    "glm_claimed_or_ledger_implied_replays": 3501,
+    "glm_replays_with_complete_raw_command_and_hash_accounting": null,
+    "independent_audit_replays_total": 31,
+    "independent_replays_in_final_evidence": 16,
+    "note": "P4/P5 probes and P7 segment/budget results lacked raw result artifacts; registry hashes were placeholders. Counts must not be treated as fully verified."
   },
-  "target_verdict": {
-    "conservative": "NOT MET \u2014 best event-level ann=34.73% (below 50%), DD=17.69% (above 10%)",
-    "balanced": "NOT MET \u2014 best event-level ann=34.73% (below 90%)",
-    "aggressive": "NOT MET \u2014 best event-level ann=34.73% (below 110%)",
-    "small_capital": "1000U and 2000U are NEGATIVE at event level \u2014 small capital is a genuine unsolved challenge"
-  },
-  "what_was_strictly_disproven": [
-    "R9 curve diagnostic (62.78/18.38) is NOT reproducible at event level with shared budget",
-    "ADX skip threshold and DD scale rules are inert on R4-combo's partial TP",
-    "ATR spacing is inferior to fixed-percent spacing for this strategy family",
-    "Cycle-depth TP variants do not improve on R4-combo's original partial TP ladder"
+  "repairs_applied": [
+    "funding loader rejects missing symbols, incomplete edges, and internal gaps over 9h",
+    "manifest filters futures 1m and computes real row/file hashes and gaps",
+    "holdout K-line and funding gaps repaired from official Binance endpoints",
+    "validator fails closed when WFO, neighbor, symbol, stress, holdout, or production evidence is missing",
+    "drawdown_state_rules.safety_order_scale now changes backtest safety order quantity",
+    "P3/P6/P7/P8/P9/P10 claims and non-repeat scopes corrected"
   ],
-  "what_remains_unfinished": [
-    "Native DCA minigrid engine integration (kline_engine.rs is 9000+ lines)",
-    "LP portfolio event-level rebuild (source data recovery needed)",
-    "Batch acceleration for large-scale Sobol/TPE searches",
-    "Untouched holdout validation (no target candidate qualified)"
+  "strictly_disproven_scopes": [
+    "exact R9 five-config static 36-strategy simultaneous merge under shared sub-5000 budgets",
+    "exact 576 ordinary partial-TP stage plus max-age configurations",
+    "exact LP conservative-symbol substitute config with FOQ15, 2.8x, 8 legs, copied R4-like TP",
+    "exact R4 config on corrected development and repaired holdout data"
   ],
-  "source_of_truth": "docs/superpowers/artifacts/glm-martingale-core-round12/r12-final-validation.json",
-  "holdout_result": {
-    "candidate": "R4-combo",
-    "window": "2026-06-01 to 2026-07-10 (39 days)",
-    "return_pct": -11.0,
-    "dd_pct": 12.9,
-    "gate_pass": false,
-    "reason": "return < 0"
-  }
+  "unfinished_mechanisms": [
+    "event-level shadow/live dynamic allocator",
+    "HTF trend-directed long/short Martingale",
+    "native inventory-reducing and bounded-recycle minigrid",
+    "true safety-depth-aware TP and frozen ATR spacing",
+    "original LP member config recovery and event-level portfolio search",
+    "preload plus Rayon batch acceleration",
+    "anchored WFO with train-fold selection, neighbor, LOSO, cost and latency stress",
+    "production DB/executor/order-trace parity"
+  ],
+  "next_plan": "docs/superpowers/plans/2026-07-12-glm-martingale-core-round13-native-regime-portfolio-plan.md",
+  "source_of_truth": "docs/superpowers/artifacts/glm-martingale-core-round12/r1-r12-corrected-status.json"
 }

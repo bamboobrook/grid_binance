@@ -364,6 +364,52 @@ pub fn load_funding_rates_readonly(
         return Ok(Vec::new());
     }
 
+    // A replay must not silently treat an absent funding history as zero. Allow
+    // one normal 8-hour settlement interval at either range boundary because a
+    // short replay window may not itself contain a funding event.
+    const COVERAGE_EDGE_TOLERANCE_MS: i64 = 9 * 60 * 60 * 1_000;
+    let mut coverage_stmt = conn
+        .prepare(
+            "SELECT UPPER(TRIM(symbol)), MIN(funding_time), MAX(funding_time) \
+             FROM funding_rates GROUP BY UPPER(TRIM(symbol))",
+        )
+        .map_err(|err| format!("failed to prepare funding coverage query: {err}"))?;
+    let coverage_rows = coverage_stmt
+        .query_map([], |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                row.get::<_, i64>(1)?,
+                row.get::<_, i64>(2)?,
+            ))
+        })
+        .map_err(|err| format!("failed to query funding coverage: {err}"))?;
+    let mut coverage = std::collections::BTreeMap::new();
+    for row in coverage_rows {
+        let (symbol, min_time, max_time) =
+            row.map_err(|err| format!("failed to read funding coverage row: {err}"))?;
+        coverage.insert(symbol, (min_time, max_time));
+    }
+
+    let invalid_coverage = normalized_symbols
+        .iter()
+        .filter_map(|symbol| match coverage.get(symbol) {
+            None => Some(format!("{symbol}:missing")),
+            Some((min_time, max_time))
+                if *min_time > start_ms.saturating_add(COVERAGE_EDGE_TOLERANCE_MS)
+                    || *max_time < end_ms.saturating_sub(COVERAGE_EDGE_TOLERANCE_MS) =>
+            {
+                Some(format!("{symbol}:{min_time}..{max_time}"))
+            }
+            Some(_) => None,
+        })
+        .collect::<Vec<_>>();
+    if !invalid_coverage.is_empty() {
+        return Err(format!(
+            "funding coverage missing or incomplete for replay range {start_ms}..{end_ms}: {}",
+            invalid_coverage.join(", ")
+        ));
+    }
+
     let mut stmt = conn
         .prepare(
             "SELECT symbol, funding_time, funding_rate, mark_price \
@@ -390,6 +436,52 @@ pub fn load_funding_rates_readonly(
         let point = row.map_err(|err| format!("failed to read funding rate row: {err}"))?;
         if normalized_symbols.contains(&point.symbol) {
             funding_rates.push(point);
+        }
+    }
+
+    let mut previous_by_symbol = std::collections::BTreeMap::new();
+    let mut in_range_edges = std::collections::BTreeMap::new();
+    let mut internal_gaps = Vec::new();
+    for point in &funding_rates {
+        in_range_edges
+            .entry(point.symbol.clone())
+            .and_modify(|edge: &mut (i64, i64)| edge.1 = point.funding_time_ms)
+            .or_insert((point.funding_time_ms, point.funding_time_ms));
+        if let Some(previous) = previous_by_symbol.insert(point.symbol.clone(), point.funding_time_ms)
+        {
+            if point.funding_time_ms - previous > COVERAGE_EDGE_TOLERANCE_MS {
+                internal_gaps.push(format!(
+                    "{}:{previous}..{}",
+                    point.symbol, point.funding_time_ms
+                ));
+            }
+        }
+    }
+    if !internal_gaps.is_empty() {
+        return Err(format!(
+            "funding coverage has internal gaps over 9h in replay range {start_ms}..{end_ms}: {}",
+            internal_gaps.join(", ")
+        ));
+    }
+    if end_ms.saturating_sub(start_ms) > COVERAGE_EDGE_TOLERANCE_MS {
+        let invalid_edges = normalized_symbols
+            .iter()
+            .filter_map(|symbol| match in_range_edges.get(symbol) {
+                Some((first, last))
+                    if *first <= start_ms.saturating_add(COVERAGE_EDGE_TOLERANCE_MS)
+                        && *last >= end_ms.saturating_sub(COVERAGE_EDGE_TOLERANCE_MS) =>
+                {
+                    None
+                }
+                Some((first, last)) => Some(format!("{symbol}:{first}..{last}")),
+                None => Some(format!("{symbol}:no-points-in-range")),
+            })
+            .collect::<Vec<_>>();
+        if !invalid_edges.is_empty() {
+            return Err(format!(
+                "funding events do not cover replay range edges within 9h for {start_ms}..{end_ms}: {}",
+                invalid_edges.join(", ")
+            ));
         }
     }
     Ok(funding_rates)

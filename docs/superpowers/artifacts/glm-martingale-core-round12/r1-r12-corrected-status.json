@@ -1,0 +1,252 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-07-12",
+  "purpose": "Canonical corrected status for Martingale rounds 1-12. Later audit records supersede historical handoff claims without deleting exploration history.",
+  "audited_input_head": "5fa73efb5ab0b4b546a4c70d9dd43b9808b0e3dd",
+  "engine_binary_sha256": "afb70e9aedba2cd974733206fb468c9a27e8f1943d81a28904933c3dafc0a755",
+  "data_manifest": "docs/superpowers/artifacts/glm-martingale-core-round12/run-manifests/r12-data-manifest.json",
+  "data_manifest_sha256": "274fb242a779f52a38c6aeebbffde9bafa382ac3ad1a8b864169dc924fefbd56",
+  "hard_targets": {
+    "conservative": {
+      "annualized_return_min_pct": 50.0,
+      "max_drawdown_pct": 10.0,
+      "positive_segments_min": 4
+    },
+    "balanced": {
+      "annualized_return_min_pct": 90.0,
+      "max_drawdown_pct": 20.0,
+      "positive_segments_min": 4
+    },
+    "aggressive": {
+      "annualized_return_min_pct": 110.0,
+      "max_drawdown_pct": 30.0,
+      "positive_segments_min": 3
+    },
+    "common": {
+      "budget_rule": "strictly_below_5000_usdt",
+      "multi_symbol_min": 5,
+      "max_symbol_capital_share_pct": 35.0,
+      "max_symbol_realized_gross_pnl_share_pct": 35.0,
+      "anti_overfit": true,
+      "live_reproducible": true
+    }
+  },
+  "target_hits": {
+    "conservative": [],
+    "balanced": [],
+    "aggressive": []
+  },
+  "fully_live_ready_candidates": [],
+  "current_frontiers": {
+    "best_corrected_event_level_return": {
+      "round": 7,
+      "label": "R7-ANKR-q1w24p24",
+      "annualized_return_pct": 62.37183492301388,
+      "max_drawdown_pct": 28.687251235133964,
+      "positive_cold_start_segments": "4/5",
+      "traded_symbol_count": 6,
+      "budget_2000_annualized_return_pct": 5.423228973481864,
+      "budget_2000_max_drawdown_pct": 45.582322393924535,
+      "fully_live_ready": false
+    },
+    "best_round12_rechecked_static_portfolio": {
+      "round": 4,
+      "label": "R4-combo",
+      "annualized_return_pct": 34.72836611600867,
+      "max_drawdown_pct": 17.68684657067801,
+      "positive_cold_start_segments": "4/5",
+      "holdout_return_pct": -10.959260649873025,
+      "holdout_max_drawdown_pct": 12.922059319394405,
+      "holdout_data_complete": true,
+      "fully_live_ready": false
+    },
+    "curve_reuse_diagnostic_only": {
+      "round": 9,
+      "label": "r9-P5-winner",
+      "corrected_annualized_return_pct": 62.7845,
+      "corrected_max_drawdown_pct": 18.384,
+      "event_level_executable": false,
+      "fully_live_ready": false
+    }
+  },
+  "rounds": [
+    {
+      "round": 1,
+      "status": "usable_baseline_only",
+      "target_hit": false,
+      "authority": "docs/superpowers/reports/2026-07-03-glm-round1-6-execution-audit.md"
+    },
+    {
+      "round": 2,
+      "status": "usable_research_frontier_partial_plan",
+      "target_hit": false,
+      "authority": "docs/superpowers/reports/2026-07-03-glm-round1-6-execution-audit.md",
+      "remaining_gaps": [
+        "Direction H has no dedicated full-grid artifact",
+        "promoted features were not live-ready"
+      ]
+    },
+    {
+      "round": 3,
+      "status": "usable_research_frontier_partial_plan",
+      "target_hit": false,
+      "authority": "docs/superpowers/reports/2026-07-03-glm-round1-6-execution-audit.md",
+      "remaining_gaps": [
+        "P2 and P5 were not run",
+        "several branches were narrow or partial"
+      ]
+    },
+    {
+      "round": 4,
+      "status": "rechecked_event_level_baseline_holdout_failed",
+      "target_hit": false,
+      "authority": "docs/superpowers/reports/2026-07-12-glm-round12-execution-audit-and-fix.md"
+    },
+    {
+      "round": 5,
+      "status": "usable_high_return_high_drawdown_backtest_frontier",
+      "target_hit": false,
+      "authority": "docs/superpowers/reports/2026-07-03-glm-round1-6-execution-audit.md",
+      "remaining_gaps": [
+        "promoted features remained backtest-only",
+        "ANKR low-DD script had no Round5 artifact"
+      ]
+    },
+    {
+      "round": 6,
+      "status": "partial_dd_compression_research",
+      "target_hit": false,
+      "authority": "docs/superpowers/reports/2026-07-03-glm-round1-6-execution-audit.md"
+    },
+    {
+      "round": 7,
+      "status": "corrected_event_level_frontier_not_live_ready",
+      "target_hit": false,
+      "authority": "docs/superpowers/reports/2026-07-12-glm-round11-execution-audit-and-fix.md"
+    },
+    {
+      "round": 8,
+      "status": "superseded_leaky_curve_allocator_and_narrow_searches",
+      "target_hit": false,
+      "authority": "docs/superpowers/reports/2026-07-07-glm-round8-execution-audit-and-recheck.md"
+    },
+    {
+      "round": 9,
+      "status": "curve_reuse_diagnostic_not_executable_frontier",
+      "target_hit": false,
+      "authority": "docs/superpowers/reports/2026-07-12-glm-round11-execution-audit-and-fix.md"
+    },
+    {
+      "round": 10,
+      "status": "valid_scoped_replay_searches_with_corrected_live_claims",
+      "target_hit": false,
+      "authority": "docs/superpowers/reports/2026-07-09-glm-round10-execution-audit-and-fix.md"
+    },
+    {
+      "round": 11,
+      "status": "zero_targets_with_material_execution_and_scope_corrections",
+      "target_hit": false,
+      "authority": "docs/superpowers/reports/2026-07-12-glm-round11-execution-audit-and-fix.md"
+    },
+    {
+      "round": 12,
+      "status": "zero_targets_partial_plan_with_corrected_data_and_scopes",
+      "target_hit": false,
+      "authority": "docs/superpowers/reports/2026-07-12-glm-round12-execution-audit-and-fix.md",
+      "validated_scope": [
+        "corrected futures_usdt_perp/1m development and holdout manifest",
+        "R4 full, five cold starts, budget ladder, and funding-complete holdout",
+        "R9 five-config static 36-strategy merge diagnostic",
+        "576 ordinary partial-TP-stage plus max-age configurations",
+        "one LP-symbol substitute configuration"
+      ],
+      "repairs_applied": [
+        "funding loader now rejects missing, edge-incomplete, and internal-gap coverage",
+        "manifest filters futures 1m and computes real hashes/gaps",
+        "validator is fail-closed for missing WFO/neighbor/stress/live evidence",
+        "backtest drawdown safety_order_scale now changes safety order quantity",
+        "holdout K-line and funding gaps were repaired from official Binance endpoints",
+        "overbroad P3/P6/P7/P8/P10 claims were rescoped"
+      ],
+      "remaining_gaps": [
+        "event-level dynamic shadow/live allocator",
+        "native minigrid backtest/live implementation",
+        "HTF trend-directed Martingale",
+        "true safety-depth TP and frozen ATR spacing",
+        "original LP member config recovery and portfolio search",
+        "preload plus Rayon batch engine",
+        "real anchored WFO, neighbor, LOSO, cost and latency stress",
+        "Round12 production DB/executor parity tests"
+      ]
+    }
+  ],
+  "round12_task_audit": {
+    "P0": "partial_registry_corrected_by_audit_records",
+    "P1": "corrected_usable_with_missing_historical_http_provenance",
+    "P2": "incomplete_fail_closed_harness",
+    "P3": "static_merge_only_dynamic_allocator_unexecuted",
+    "P4": "config_inert_native_engine_unexecuted",
+    "P5": "backtest_dd_scale_repaired_htf_and_live_unexecuted",
+    "P6": "ordinary_partial_tp_grid_valid_true_depth_atr_unexecuted",
+    "P7": "one_substitute_config_only",
+    "P8": "benchmark_only",
+    "P9": "R4_holdout_corrected_other_strict_gates_unexecuted",
+    "P10": "unexecuted"
+  },
+  "non_repeat_registry": [
+    {
+      "key": "r12-r9-static-36-strategy-merge",
+      "scope": "exact five source configs with all 36 strategies simultaneously active under shared 1000/2000/3000/4000/4999U"
+    },
+    {
+      "key": "r12-partial-tp-stage-grid-576",
+      "scope": "fixed spacing 120/150/180/220, ordinary TP stages, max age none/48/120/240; not cycle depth"
+    },
+    {
+      "key": "r12-lp-conservative-symbols-r4like-one-config",
+      "scope": "LTC/DYDX/INJ/FIL/ICP/XRP/UNI/BTC with FOQ15, 2.8x, 8 legs and copied R4-like TP"
+    },
+    {
+      "key": "r12-r4-corrected-baseline-holdout",
+      "scope": "exact R4 config under engine afb70e9a and corrected manifest; rerun only if engine/data changes"
+    },
+    {
+      "key": "r11-partial-tp-minigrid-approx-6912-no-target",
+      "scope": "exact Round11 additional-partial-TP approximation grid"
+    },
+    {
+      "key": "r11-fixed-tp-dominated-7996-no-target",
+      "scope": "Round11 fixed_tp and fixed_tp_v3 ranges"
+    },
+    {
+      "key": "r10-strict-condition-so-no-target",
+      "scope": "hard all-or-nothing safety_order_condition family"
+    },
+    {
+      "key": "r10-trailing-lock-approx-no-target",
+      "scope": "existing trailing_lock approximation grid"
+    },
+    {
+      "key": "round8-current-interval-leaky-allocator",
+      "scope": "never reuse current-interval timing"
+    },
+    {
+      "key": "round9-random-symbol-substitution",
+      "scope": "never promote survivor-biased ad hoc symbol swaps"
+    }
+  ],
+  "promotion_contract": {
+    "martingale_core_required": true,
+    "event_level_joint_replay_required": true,
+    "curve_lp_or_curve_allocator_can_promote": false,
+    "cold_start_segments_required": true,
+    "nested_walk_forward_with_train_selection_required": true,
+    "budget_ladder": [1000, 2000, 3000, 4000, 4999],
+    "funding_coverage_required_for_every_traded_symbol": true,
+    "at_least_five_traded_symbols": true,
+    "production_db_reconcile_tests_required": true,
+    "backtest_live_order_trace_required": true
+  },
+  "next_plan": "docs/superpowers/plans/2026-07-12-glm-martingale-core-round13-native-regime-portfolio-plan.md",
+  "source_of_truth": "docs/superpowers/artifacts/glm-martingale-core-round12/r1-r12-corrected-status.json"
+}

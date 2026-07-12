@@ -1,0 +1,202 @@
+{
+  "candidate": "R4-combo",
+  "config": "docs/superpowers/artifacts/glm-martingale-core-round4/promising/r4-combo-best.json",
+  "config_sha256": "0b596c43952ea2d4d5145fa3a4cfa046c999ae84ea2da3f1083da3befcd3709c",
+  "data_manifest": "docs/superpowers/artifacts/glm-martingale-core-round12/run-manifests/r12-data-manifest.json",
+  "data_manifest_sha256": "274fb242a779f52a38c6aeebbffde9bafa382ac3ad1a8b864169dc924fefbd56",
+  "development": {
+    "budget_ladder": {
+      "1000": {
+        "ann": -15.728516168431128,
+        "blocked": 3,
+        "dd": 51.014276052547004,
+        "max_cap": 204.52161261,
+        "min_equity": 557.3046061003733,
+        "principal_breached": false,
+        "ret": -44.26953938996267,
+        "status": "complete",
+        "trades": 13737
+      },
+      "2000": {
+        "ann": -7.061432158345515,
+        "blocked": 3,
+        "dd": 27.150044800717275,
+        "max_cap": 204.52161261,
+        "min_equity": 1557.3046061003733,
+        "principal_breached": false,
+        "ret": -22.134769694981333,
+        "status": "complete",
+        "trades": 13737
+      },
+      "3000": {
+        "ann": 49.46556924722605,
+        "blocked": 19,
+        "dd": 24.79508694000774,
+        "max_cap": 707.6237697683999,
+        "min_equity": 2825.7624787346904,
+        "principal_breached": false,
+        "ret": 294.7378609463776,
+        "status": "complete",
+        "trades": 4758
+      },
+      "4000": {
+        "ann": 40.69430165497256,
+        "blocked": 19,
+        "dd": 20.64454968116723,
+        "max_cap": 707.6237697683999,
+        "min_equity": 3825.7624787346904,
+        "principal_breached": false,
+        "ret": 221.0533957097832,
+        "status": "complete",
+        "trades": 4758
+      },
+      "4999": {
+        "ann": 34.72836611600867,
+        "blocked": 19,
+        "dd": 17.68684657067801,
+        "max_cap": 707.6237697683999,
+        "min_equity": 4824.76247873469,
+        "principal_breached": false,
+        "ret": 176.8780921862638,
+        "status": "complete",
+        "trades": 4758
+      }
+    },
+    "cold_start_segments": {
+      "2024": {
+        "ann": 31.852473268445735,
+        "blocked": 4,
+        "dd": 22.19151216130804,
+        "max_cap": 569.7512830224001,
+        "min_equity": 4896.227076066716,
+        "principal_breached": false,
+        "ret": 31.952329330287537,
+        "status": "complete",
+        "trades": 2564
+      },
+      "2025": {
+        "ann": -8.706711382981824,
+        "blocked": 4,
+        "dd": 21.167816146379526,
+        "max_cap": 672.1942458,
+        "min_equity": 4518.383938023595,
+        "principal_breached": false,
+        "ret": -8.70669556073665,
+        "status": "complete",
+        "trades": 3895
+      },
+      "2026_ytd": {
+        "ann": 18.229479309063514,
+        "blocked": 2,
+        "dd": 8.977968796650522,
+        "max_cap": 390.04297140000006,
+        "min_equity": 4614.056681503429,
+        "principal_breached": false,
+        "ret": 7.173253737948519,
+        "status": "complete",
+        "trades": 936
+      },
+      "h1_2023": {
+        "ann": 58.90530231611364,
+        "blocked": 6,
+        "dd": 17.68684657067801,
+        "max_cap": 707.6237697683999,
+        "min_equity": 4824.76247873469,
+        "principal_breached": false,
+        "ret": 25.817837264205668,
+        "status": "complete",
+        "trades": 571
+      },
+      "h2_2023": {
+        "ann": 7.083039626550636,
+        "blocked": 2,
+        "dd": 14.297031196258224,
+        "max_cap": 343.1790648299999,
+        "min_equity": 4576.768341526447,
+        "principal_breached": false,
+        "ret": 3.510028579998604,
+        "status": "complete",
+        "trades": 1235
+      }
+    },
+    "full_4999": {
+      "ann": 34.72836611600867,
+      "blocked": 19,
+      "dd": 17.68684657067801,
+      "max_cap": 707.6237697683999,
+      "min_equity": 4824.76247873469,
+      "principal_breached": false,
+      "ret": 176.8780921862638,
+      "status": "complete",
+      "trades": 4758
+    },
+    "positive_segments": 4
+  },
+  "engine_sha256": "afb70e9aedba2cd974733206fb468c9a27e8f1943d81a28904933c3dafc0a755",
+  "fully_live_ready": false,
+  "holdout": {
+    "budget_ladder": {
+      "1000": {
+        "ann": -84.54285666996394,
+        "blocked": 3,
+        "dd": 21.80355489373159,
+        "max_cap": 355.008654,
+        "min_equity": 814.9650664336586,
+        "principal_breached": false,
+        "ret": -18.503493356634134,
+        "status": "complete",
+        "trades": 429
+      },
+      "2000": {
+        "ann": -58.76485014003197,
+        "blocked": 3,
+        "dd": 11.127063134457078,
+        "max_cap": 355.008654,
+        "min_equity": 1814.9650664336586,
+        "principal_breached": false,
+        "ret": -9.251746678317067,
+        "status": "complete",
+        "trades": 429
+      },
+      "3000": {
+        "ann": -84.11944077012916,
+        "blocked": 3,
+        "dd": 21.22075631828303,
+        "max_cap": 788.0645387999999,
+        "min_equity": 2452.1465601128475,
+        "principal_breached": false,
+        "ret": -18.26178132957175,
+        "status": "complete",
+        "trades": 408
+      },
+      "4000": {
+        "ann": -73.92306012528661,
+        "blocked": 3,
+        "dd": 16.060921103198996,
+        "max_cap": 788.0645387999999,
+        "min_equity": 3452.1465601128475,
+        "principal_breached": false,
+        "ret": -13.696335997178814,
+        "status": "complete",
+        "trades": 408
+      },
+      "4999": {
+        "ann": -65.32715916627878,
+        "blocked": 3,
+        "dd": 12.922059319394405,
+        "max_cap": 788.0645387999999,
+        "min_equity": 4451.1465601128475,
+        "principal_breached": false,
+        "ret": -10.959260649873025,
+        "status": "complete",
+        "trades": 408
+      }
+    },
+    "end_ms": 1783727999999,
+    "gate_pass": false,
+    "start_ms": 1780272000000,
+    "verdict": "FAIL: return is non-positive, replay failed, or principal was breached"
+  },
+  "promotion_target_hits": [],
+  "schema_version": 1
+}
