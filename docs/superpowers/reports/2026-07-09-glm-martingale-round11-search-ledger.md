@@ -78,3 +78,13 @@
 - pos_segs: 0@4341, 1@1941, 2@444, 3@162, 4@24, 5@0 (most configs unchanged from base)
 - **Conclusion: non-strict SO controls (rebound, basis, ADX skip, DD scale, taper) do NOT improve the frontier.** The base R7-ANKR-q parameters are already optimal; SO v2 modifications are neutral at best.
 - Non-repeat key: r11-conditional-so-v2-no-target
+
+## r11-P7-heterogeneous-allocator-001 (Task P7: Heterogeneous Sleeve Allocator + LOSO)
+- Grid: 4 lookback × 4 rebalance × 4 score × 3 hyst × 4 cash × 3 min_lo × 3 max_hi = 6912 configs
+- 5 sleeves: ANKR-q, QB, R4, fine, p4-ANKR-q-rp10-fos05 (same as R9/R10)
+- Run: 6912 configs × 6 allocator replays (curve-reuse), 1841s
+- **RESULT: 6912/6912 evaluated, 0 target hits.**
+- Best: lb60_rb7_calmar_like_hys0_cashnone: ann 64.4% / DD 18.2% / 5/5 pos (= R9 winner, no improvement)
+- LOSO not triggered (no target candidates passed)
+- **Conclusion: heterogeneous allocator V2 confirms the R9/R10 frontier.** No combination of lookback, rebalance, score, hysteresis, cash trigger, or weight caps can break through ann ~64% / DD ~18%.
+- Non-repeat key: r11-heterogeneous-allocator-no-target
