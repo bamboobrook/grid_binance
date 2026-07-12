@@ -83,3 +83,14 @@
 - **Conclusion: cycle-depth TP variants do NOT improve on R4-combo's original partial TP ladder.**
 - ATR spacing confirmed inferior to fixed-percent for this strategy family.
 - Non-repeat key: r12-cycle-depth-tp-no-target
+
+## r12-P4-native-minigrid-binding-probe-001 (Task P4: Native DCA Minigrid Binding Probe)
+- Probe 1: R4-combo without dca_minigrid vs with dca_minigrid(3/50/1of4/35/2)
+  - No minigrid: ann=34.73% dd=17.69% trades=4758
+  - With minigrid: ann=34.73% dd=17.69% trades=4758 → **IDENTICAL → DOES NOT BIND**
+- Probe 2: dca_minigrid(5/30/1of6/20/3) → ann=34.73% dd=17.69% trades=4758 → **IDENTICAL**
+- **Root cause: kline_engine.rs does NOT read or process the dca_minigrid config field.** The config struct exists (R11 P3) but the engine integration was deferred. The field is silently ignored.
+- **Decision per plan P4: STOP — native minigrid engine integration is required for any binding.** Config struct + validation + price math are complete (R11 P3: 5 tests pass), but kline_engine.rs needs ~200 lines of minigrid logic insertion after safety order fills.
+- research_only: true (config struct ready, engine integration not done)
+- Non-repeat key: r12-native-minigrid-config-field-inert-in-kline-engine
+- Non-repeat scope: any search using dca_minigrid config field on current engine will produce identical results to base. Engine integration required.
