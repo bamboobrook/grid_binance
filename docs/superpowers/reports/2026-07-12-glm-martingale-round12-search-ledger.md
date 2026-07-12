@@ -56,3 +56,11 @@
 - **Decision per plan P3.3: STOP expanding R9 selector parameters.** The curve-reuse diagnostic (62.78/18.38) is NOT reproducible at event level. The R9 allocator family is closed as a target candidate.
 - Non-repeat key: r12-event-level-r9-36-strategy-budget-contention-failure
 - Non-repeat scope: any combined multi-sleeve portfolio with >20 strategies sharing <5000U budget will suffer the same contention. Future allocator designs MUST use proper sleeve budget allocation, not naive strategy merge.
+
+## r12-P3-r4-event-level-baseline-001 (R4-combo Event-Level Baseline)
+- R4-combo (6 strategies, 6 symbols) event-level with Round12 frozen funding
+- Full (4999U): **ann=34.73% / DD=17.69% / 4/5 positive segments** (2025 -8.7%)
+- Budget ladder: 1000U=-15.7%, 2000U=-7.1%, 3000U=49.5%, 4000U=40.7%, 4999U=34.7%
+- **Critical: 1000U and 2000U are NEGATIVE** — small capital is a genuine challenge
+- This is the true event-level baseline to beat. All future candidates must be validated at event level.
+- R9 curve diagnostic (62.78/18.38) was NOT reproducible; R4-combo event-level (34.73/17.69) IS the real frontier.
