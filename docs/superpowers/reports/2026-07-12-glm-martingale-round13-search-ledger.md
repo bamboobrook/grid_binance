@@ -181,3 +181,12 @@ BNB+TRX s100 m0.8 at 4999U: ann=65.6%, DD=29.6% (≤30%), 3/5 pos
   - r13_batch_replay_module_exists
   - r13_allocator_config_parses_from_json
 - Full suites: backtest-engine 226+ pass, trading-engine 216+ pass
+
+## r13-P7-cost-stress-001 (Task P7: Cost Stress with Fee/Slippage Override)
+- **Binary modification**: Added `--fee-override-bps` and `--slippage-override-bps` CLI args to portfolio_budget_replay
+- **Engine modification**: Added atomic overrides (FEE_BPS_OVERRIDE, SLIPPAGE_BPS_OVERRIDE) in kline_engine.rs with set_fee_bps_override/set_slippage_bps_override functions
+- Override BINDS: base ann=34.73%, fee-x1.5=34.50%, slip-x2=34.53%, combined=34.30%, extreme(10+8)=14.80%
+- **All stress tests PASS**: ann remains positive under all cost stress scenarios
+- Stress impact: modest ann reduction under fee-x1.5/slip-x2 (34.73→34.30, -0.43pp). Extreme stress (10+8bps) reduces ann to 14.8% but remains positive.
+- No principal breach under any stress scenario.
+- DD remains stable: base=17.69%, extreme=18.73% (+1.04pp, well within tier limit +5pp).

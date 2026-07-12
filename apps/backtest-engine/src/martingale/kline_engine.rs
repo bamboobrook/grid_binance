@@ -23,6 +23,31 @@ use crate::martingale::state::MartingaleLegState;
 const DEFAULT_EXCHANGE_MIN_NOTIONAL: f64 = 0.0;
 pub const DEFAULT_FEE_BPS: f64 = 4.5;
 pub const DEFAULT_SLIPPAGE_BPS: f64 = 2.0;
+
+// Round 13 P7: Atomic overrides for cost stress testing.
+// When set (> 0.0), these override the DEFAULT values during cost computation.
+static FEE_BPS_OVERRIDE: std::sync::atomic::AtomicI64 = std::sync::atomic::AtomicI64::new(0);
+static SLIPPAGE_BPS_OVERRIDE: std::sync::atomic::AtomicI64 = std::sync::atomic::AtomicI64::new(0);
+
+/// Set fee bps override (0 = use default). For cost stress testing.
+pub fn set_fee_bps_override(bps: f64) {
+    FEE_BPS_OVERRIDE.store((bps * 1_000_000.0) as i64, std::sync::atomic::Ordering::Relaxed);
+}
+
+/// Set slippage bps override (0 = use default). For cost stress testing.
+pub fn set_slippage_bps_override(bps: f64) {
+    SLIPPAGE_BPS_OVERRIDE.store((bps * 1_000_000.0) as i64, std::sync::atomic::Ordering::Relaxed);
+}
+
+fn effective_fee_bps() -> f64 {
+    let raw = FEE_BPS_OVERRIDE.load(std::sync::atomic::Ordering::Relaxed);
+    if raw > 0 { raw as f64 / 1_000_000.0 } else { DEFAULT_FEE_BPS }
+}
+
+fn effective_slippage_bps() -> f64 {
+    let raw = SLIPPAGE_BPS_OVERRIDE.load(std::sync::atomic::Ordering::Relaxed);
+    if raw > 0 { raw as f64 / 1_000_000.0 } else { DEFAULT_SLIPPAGE_BPS }
+}
 const DEFAULT_NEW_CYCLE_DRAWDOWN_PAUSE_PCT: f64 = 6.0;
 const DEFAULT_NEW_CYCLE_ATR_PAUSE_PCT: f64 = 2.0;
 const DEFAULT_SAFETY_SKIP_ADX_THRESHOLD: f64 = 45.0;
@@ -2031,7 +2056,7 @@ fn amount_take_profit_price(
         .sum::<f64>();
     validate_positive_f64("entry_notional", entry_notional)?;
     let entry_cost = entry_cost_quote(&state.legs);
-    let exit_cost_rate = (DEFAULT_FEE_BPS + DEFAULT_SLIPPAGE_BPS) / 10_000.0;
+    let exit_cost_rate = (effective_fee_bps() + effective_slippage_bps()) / 10_000.0;
     let price = match state.strategy.direction {
         MartingaleDirection::Long => {
             (threshold_quote + entry_notional + entry_cost)
@@ -2543,8 +2568,8 @@ impl TradingCost {
 
 fn trading_cost_quote(notional_quote: f64) -> TradingCost {
     TradingCost {
-        fee_quote: notional_quote * DEFAULT_FEE_BPS / 10_000.0,
-        slippage_quote: notional_quote * DEFAULT_SLIPPAGE_BPS / 10_000.0,
+        fee_quote: notional_quote * effective_fee_bps() / 10_000.0,
+        slippage_quote: notional_quote * effective_slippage_bps() / 10_000.0,
     }
 }
 

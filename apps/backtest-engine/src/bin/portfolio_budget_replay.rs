@@ -44,6 +44,8 @@ struct Args {
     portfolio_id: Option<String>,
     exchange_min_notional: f64,
     equity_curve_points: usize,
+    fee_override_bps: f64,
+    slippage_override_bps: f64,
 }
 
 impl Args {
@@ -58,6 +60,8 @@ impl Args {
         let mut portfolio_id = None;
         let mut exchange_min_notional: f64 = DEFAULT_EXCHANGE_MIN_NOTIONAL_IF_UNSET;
         let mut equity_curve_points = 0_usize;
+        let mut fee_override_bps: f64 = 0.0;
+        let mut slippage_override_bps: f64 = 0.0;
         let mut args = env::args().skip(1);
         while let Some(arg) = args.next() {
             let value = args
@@ -92,6 +96,16 @@ impl Args {
                         .parse::<usize>()
                         .map_err(|e| format!("equity-curve-points: {e}"))?;
                 }
+                "--fee-override-bps" => {
+                    fee_override_bps = value
+                        .parse::<f64>()
+                        .map_err(|e| format!("fee-override-bps: {e}"))?;
+                }
+                "--slippage-override-bps" => {
+                    slippage_override_bps = value
+                        .parse::<f64>()
+                        .map_err(|e| format!("slippage-override-bps: {e}"))?;
+                }
                 _ => return Err(format!("unknown argument {arg}")),
             }
         }
@@ -106,6 +120,8 @@ impl Args {
             portfolio_id,
             exchange_min_notional,
             equity_curve_points,
+            fee_override_bps,
+            slippage_override_bps,
         })
     }
 }
@@ -171,6 +187,14 @@ fn sampled_equity_curve(
 
 fn main() -> Result<(), String> {
     let args = Args::parse()?;
+
+    // Round 13 P7: Apply fee/slippage overrides for cost stress testing.
+    if args.fee_override_bps > 0.0 {
+        backtest_engine::martingale::kline_engine::set_fee_bps_override(args.fee_override_bps);
+    }
+    if args.slippage_override_bps > 0.0 {
+        backtest_engine::martingale::kline_engine::set_slippage_bps_override(args.slippage_override_bps);
+    }
     let text = fs::read_to_string(&args.config_path)
         .map_err(|err| format!("read {}: {err}", args.config_path.display()))?;
     let root: Value =
