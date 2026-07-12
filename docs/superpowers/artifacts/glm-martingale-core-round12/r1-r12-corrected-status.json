@@ -3,9 +3,10 @@
   "generated_at": "2026-07-12",
   "purpose": "Canonical corrected status for Martingale rounds 1-12. Later audit records supersede historical handoff claims without deleting exploration history.",
   "audited_input_head": "5fa73efb5ab0b4b546a4c70d9dd43b9808b0e3dd",
+  "repair_commit": "c961e2d2da295abe44ae17ae5398bb816522885e",
   "engine_binary_sha256": "afb70e9aedba2cd974733206fb468c9a27e8f1943d81a28904933c3dafc0a755",
   "data_manifest": "docs/superpowers/artifacts/glm-martingale-core-round12/run-manifests/r12-data-manifest.json",
-  "data_manifest_sha256": "274fb242a779f52a38c6aeebbffde9bafa382ac3ad1a8b864169dc924fefbd56",
+  "data_manifest_sha256": "533ab6816c38b67604fcc23373011f66bb8aeb2a4d657af0a63e3647bedf3f66",
   "hard_targets": {
     "conservative": {
       "annualized_return_min_pct": 50.0,

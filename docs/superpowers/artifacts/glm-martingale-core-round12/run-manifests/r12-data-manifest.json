@@ -1,5 +1,6 @@
 {
-  "code_commit": "5fa73efb5ab0b4b546a4c70d9dd43b9808b0e3dd",
+  "code_commit": "c961e2d2da295abe44ae17ae5398bb816522885e",
+  "code_commit_role": "engine, loader, scripts, repaired funding DB, and first-pass audit evidence",
   "development_window": {
     "end_ms": 1780271999999,
     "gate": {

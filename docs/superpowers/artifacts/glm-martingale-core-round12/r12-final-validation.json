@@ -3,6 +3,7 @@
   "round": 12,
   "audit_status": "corrected_partial_execution",
   "audited_input_head": "5fa73efb5ab0b4b546a4c70d9dd43b9808b0e3dd",
+  "repair_commit": "c961e2d2da295abe44ae17ae5398bb816522885e",
   "audit_report": "docs/superpowers/reports/2026-07-12-glm-round12-execution-audit-and-fix.md",
   "targets": {
     "conservative": {
@@ -90,7 +91,7 @@
   },
   "data_integrity": {
     "manifest": "docs/superpowers/artifacts/glm-martingale-core-round12/run-manifests/r12-data-manifest.json",
-    "manifest_sha256": "274fb242a779f52a38c6aeebbffde9bafa382ac3ad1a8b864169dc924fefbd56",
+    "manifest_sha256": "533ab6816c38b67604fcc23373011f66bb8aeb2a4d657af0a63e3647bedf3f66",
     "engine_binary_sha256": "afb70e9aedba2cd974733206fb468c9a27e8f1943d81a28904933c3dafc0a755",
     "selection": "futures_usdt_perp/1m",
     "development_gate_passed": true,
@@ -119,7 +120,7 @@
   "replay_accounting": {
     "glm_claimed_or_ledger_implied_replays": 3501,
     "glm_replays_with_complete_raw_command_and_hash_accounting": null,
-    "independent_audit_replays_total": 31,
+    "independent_audit_replays_total": 61,
     "independent_replays_in_final_evidence": 16,
     "note": "P4/P5 probes and P7 segment/budget results lacked raw result artifacts; registry hashes were placeholders. Counts must not be treated as fully verified."
   },

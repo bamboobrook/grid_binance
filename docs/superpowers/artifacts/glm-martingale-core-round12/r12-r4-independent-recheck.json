@@ -3,7 +3,7 @@
   "config": "docs/superpowers/artifacts/glm-martingale-core-round4/promising/r4-combo-best.json",
   "config_sha256": "0b596c43952ea2d4d5145fa3a4cfa046c999ae84ea2da3f1083da3befcd3709c",
   "data_manifest": "docs/superpowers/artifacts/glm-martingale-core-round12/run-manifests/r12-data-manifest.json",
-  "data_manifest_sha256": "274fb242a779f52a38c6aeebbffde9bafa382ac3ad1a8b864169dc924fefbd56",
+  "data_manifest_sha256": "533ab6816c38b67604fcc23373011f66bb8aeb2a4d657af0a63e3647bedf3f66",
   "development": {
     "budget_ladder": {
       "1000": {
