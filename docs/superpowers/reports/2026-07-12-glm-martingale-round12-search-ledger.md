@@ -108,3 +108,26 @@
 - **Conclusion: LP portfolio designed for high-capital (18k-144k) does NOT work at 4999U shared budget.** The DD inflation from 10% (high-cap) to 41.31% (4999U) confirms the capital sensitivity. LP portfolios are diagnostic-only at this budget.
 - Non-repeat key: r12-lp-portfolio-4999u-dd-inflation
 - Non-repeat scope: any LP-derived portfolio scaled to <5000U shared budget will suffer DD inflation. Original LP metrics require high planned margins.
+
+## r12-P8-batch-benchmark-001 (Task P8: Batch Acceleration Benchmark)
+- Baseline: one-process-per-config, avg 21.7s/config, 166 configs/hour single, 692 configs/hour with 28 workers (15% parallel efficiency)
+- Bottleneck: 117GB market_data_full.db re-read by each subprocess
+- Batch plan: preload + Rayon (not implemented; current throughput adequate for grids <=1000)
+- GPU: not recommended (complex event branches + Decimal logic)
+
+## r12-P9-holdout-001 (Task P9: Untouched Holdout Validation)
+- Holdout window: 2026-06-01 to 2026-07-10 (39 days)
+- Candidate: R4-combo (best event-level)
+- **RESULT: 4999U holdout return = -11.0% (NEGATIVE)**
+- Budget ladder: all budgets negative in holdout
+- DD 12.9% (within balanced tier but return negative)
+- **Holdout gate FAILED: return < 0.** R4-combo is losing money in the most recent 39-day period.
+- This is a significant OOS finding: the R4-combo strategy may be decaying.
+
+## r12-P10-production-parity-001 (Task P10: Production DB/Executor Parity)
+- R11 P1 already wired allocator to main.rs with 7 production tests (all pass)
+- R10 P1 has 3 integration tests (all pass)
+- R11 P3 has 5 native minigrid config tests (all pass)
+- R12 P1 has 4 funding manifest tests (all pass)
+- Full suites: backtest-engine 211 pass, trading-engine 205 pass, 0 failures
+- Native minigrid live parity: NOT applicable (config field inert, engine integration pending)
