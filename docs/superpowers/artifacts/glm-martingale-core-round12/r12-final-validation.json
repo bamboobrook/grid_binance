@@ -1,0 +1,151 @@
+{
+  "round": 12,
+  "branch": "glm-martingale-core-round12",
+  "head_commit": "8c8e29b",
+  "plan": "docs/superpowers/plans/2026-07-12-glm-martingale-core-round12-event-level-native-search-plan.md",
+  "targets": {
+    "conservative": {
+      "ann_min": 50,
+      "max_dd": 10,
+      "min_pos_segs": 4,
+      "budget_max": 4999
+    },
+    "balanced": {
+      "ann_min": 90,
+      "max_dd": 20,
+      "min_pos_segs": 4,
+      "budget_max": 4999
+    },
+    "aggressive": {
+      "ann_min": 110,
+      "max_dd": 30,
+      "min_pos_segs": 3,
+      "budget_max": 4999
+    }
+  },
+  "target_hits": {
+    "conservative": [],
+    "balanced": [],
+    "aggressive": []
+  },
+  "best_research_event_level": [
+    {
+      "label": "R4-combo (event-level, Round12 frozen funding)",
+      "annualized_return_pct": 34.73,
+      "max_drawdown_pct": 17.69,
+      "positive_segments": "4/5",
+      "budget_4999": {
+        "ann": 34.73,
+        "dd": 17.69
+      },
+      "budget_4000": {
+        "ann": 40.73,
+        "dd": 20.63
+      },
+      "budget_3000": {
+        "ann": 49.46,
+        "dd": 24.75
+      },
+      "budget_2000": {
+        "ann": -7.07,
+        "dd": 27.16
+      },
+      "budget_1000": {
+        "ann": -15.69,
+        "dd": 50.95
+      },
+      "fully_live_ready": true,
+      "event_level": true,
+      "config": "docs/superpowers/artifacts/glm-martingale-core-round4/promising/r4-combo-best.json"
+    }
+  ],
+  "best_fully_live_ready": [
+    {
+      "label": "R4-combo",
+      "annualized_return_pct": 34.73,
+      "max_drawdown_pct": 17.69,
+      "positive_segments": "4/5",
+      "fully_live_ready": true
+    }
+  ],
+  "r9_curve_diagnostic_corrected": {
+    "ann": 62.7845,
+    "dd": 18.384,
+    "event_level_reproducible": false,
+    "event_level_ann": -7.52,
+    "event_level_dd": 56.0,
+    "verdict": "R9 curve diagnostic is NOT reproducible at event level. 36 strategies sharing 4999U causes severe budget contention."
+  },
+  "new_failed_families": [
+    {
+      "family": "event_level_r9_combined",
+      "task": "P3",
+      "result": "FAMILY BENCHMARK FAILURE. 36 strategies sharing 4999U \u2192 ann -7.5%/DD 56%. Curve diagnostic overstated by 70.3pp ann."
+    },
+    {
+      "family": "conditional_so_v2",
+      "task": "P5",
+      "result": "BINDING PROBE FAILED. ADX skip and DD scale do not bind on R4-combo's partial TP. Stopped before full search."
+    },
+    {
+      "family": "atr_spacing",
+      "task": "P6",
+      "result": "ATR spacing confirmed inferior (ann -4.74% vs 34.73%). Fixed-percent step is better."
+    },
+    {
+      "family": "cycle_depth_tp",
+      "task": "P6",
+      "result": "576 configs, 0 targets. All cycle-depth TP variants worse than R4-combo baseline."
+    }
+  ],
+  "do_not_repeat_new_keys": [
+    "r12-event-level-r9-36-strategy-budget-contention-failure",
+    "r12-so-v2-adx-ddscale-inert-on-r4-combo-partial-tp",
+    "r12-cycle-depth-tp-no-target",
+    "r12-atr-spacing-inferior-to-fixed-percent"
+  ],
+  "incomplete_tasks": {
+    "P4_native_minigrid": "Deferred \u2014 requires kline_engine integration (research_only per R11 P3). Config struct exists and tested.",
+    "P7_lp_rebuild": "Deferred \u2014 LP portfolio source files may be stale; requires dedicated LP data recovery.",
+    "P8_batch_acceleration": "Deferred \u2014 current single-process replay works but is slow for large grids.",
+    "P9_holdout": "Not opened \u2014 no target candidates qualified. Holdout remains locked.",
+    "P10_production_parity": "R11 P1 already wired allocator to main.rs. Native minigrid live parity pending P4 completion."
+  },
+  "data_integrity": {
+    "funding_gate_pass": true,
+    "ankr_funding_rows_added": 3997,
+    "ltc_funding_rows_added": 3741,
+    "frozen_funding_db": "data/funding_rates_round12.db",
+    "manifest": "docs/superpowers/artifacts/glm-martingale-core-round12/run-manifests/r12-data-manifest.json",
+    "holdout_locked": true
+  },
+  "candidate_counts": {
+    "P1_data_manifest": "15 symbols \u00d7 market+funding stats, 4 tests",
+    "P3_r9_event_level": "1 benchmark (36 strategies, 11 replays)",
+    "P5_binding_probes": "4 replays (2 probes \u00d7 2 values)",
+    "P6_cycle_depth": "576 configs \u00d7 6 replays = 3456 replays"
+  },
+  "test_counts": {
+    "backtest_engine": "211+4 (R12 funding manifest tests) passed, 0 failed",
+    "trading_engine": "205 passed, 0 failed"
+  },
+  "target_verdict": {
+    "conservative": "NOT MET \u2014 best event-level ann=34.73% (below 50%), DD=17.69% (above 10%)",
+    "balanced": "NOT MET \u2014 best event-level ann=34.73% (below 90%)",
+    "aggressive": "NOT MET \u2014 best event-level ann=34.73% (below 110%)",
+    "small_capital": "1000U and 2000U are NEGATIVE at event level \u2014 small capital is a genuine unsolved challenge"
+  },
+  "what_was_strictly_disproven": [
+    "R9 curve diagnostic (62.78/18.38) is NOT reproducible at event level with shared budget",
+    "ADX skip threshold and DD scale rules are inert on R4-combo's partial TP",
+    "ATR spacing is inferior to fixed-percent spacing for this strategy family",
+    "Cycle-depth TP variants do not improve on R4-combo's original partial TP ladder"
+  ],
+  "what_remains_unfinished": [
+    "Native DCA minigrid engine integration (kline_engine.rs is 9000+ lines)",
+    "LP portfolio event-level rebuild (source data recovery needed)",
+    "Batch acceleration for large-scale Sobol/TPE searches",
+    "Untouched holdout validation (no target candidate qualified)"
+  ],
+  "source_of_truth": "docs/superpowers/artifacts/glm-martingale-core-round12/r12-final-validation.json"
+}
