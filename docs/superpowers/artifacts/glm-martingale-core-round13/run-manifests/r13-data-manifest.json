@@ -1,0 +1,1486 @@
+{
+  "code_commit": "c961e2d2da295abe44ae17ae5398bb816522885e",
+  "code_commit_role": "engine, loader, scripts, repaired funding DB, and first-pass audit evidence",
+  "development_window": {
+    "end_ms": 1780271999999,
+    "gate": {
+      "funding_failures": [],
+      "market_failures": [],
+      "passed": true
+    },
+    "start_ms": 1672531200000,
+    "symbols": {
+      "AAVEUSDT": {
+        "funding": {
+          "canonical_sha256": "e8c44646ce381cf957c734b312f749ec1020be3b66996d7967a5a1f2ae683e0c",
+          "duplicate_key_rows": 0,
+          "edge_tolerance_hours": 9,
+          "gap_count_over_9h": 0,
+          "max_funding_time": 1780243200004,
+          "max_gap_hours": 8.00000722,
+          "min_funding_time": 1672531200000,
+          "range_covered": true,
+          "row_count": 3741,
+          "text_mark_price_rows": 0
+        },
+        "market": {
+          "canonical_sha256": "397780642d7aaa3c219b974979287e4eb922a537fd9490239fda4fd1bb9d9103",
+          "coverage_pct": 100.0,
+          "duplicate_key_rows": 0,
+          "expected_minutes": 1795680,
+          "internal_gap_count": 0,
+          "market_type": "futures_usdt_perp",
+          "max_internal_gap_minutes": 0,
+          "max_open_time": 1780271940000,
+          "min_open_time": 1672531200000,
+          "missing_minutes": 0,
+          "off_grid_rows": 0,
+          "range_complete": true,
+          "row_count": 1795680,
+          "timeframe": "1m",
+          "unique_open_times": 1795680
+        },
+        "premium_index": {
+          "available": true,
+          "canonical_sha256": "f0893689737ef29f0be5086a7dcc2f11c5827746202aa6d8909cbcb7f30b79ae",
+          "max_open_time": 1780268400000,
+          "min_open_time": 1672531200000,
+          "row_count": 29928
+        }
+      },
+      "ADAUSDT": {
+        "funding": {
+          "canonical_sha256": "a0d2b63de6556ed48250340d429cf0b732e7a510d51015c462ed9aebaa405829",
+          "duplicate_key_rows": 0,
+          "edge_tolerance_hours": 9,
+          "gap_count_over_9h": 0,
+          "max_funding_time": 1780243200004,
+          "max_gap_hours": 8.00000722,
+          "min_funding_time": 1672531200000,
+          "range_covered": true,
+          "row_count": 3741,
+          "text_mark_price_rows": 0
+        },
+        "market": {
+          "canonical_sha256": "4d6a9da9788e1c516e49eeba0426bd97d593216d8c6112db3e7553e4e3706f7e",
+          "coverage_pct": 100.0,
+          "duplicate_key_rows": 0,
+          "expected_minutes": 1795680,
+          "internal_gap_count": 0,
+          "market_type": "futures_usdt_perp",
+          "max_internal_gap_minutes": 0,
+          "max_open_time": 1780271940000,
+          "min_open_time": 1672531200000,
+          "missing_minutes": 0,
+          "off_grid_rows": 0,
+          "range_complete": true,
+          "row_count": 1795680,
+          "timeframe": "1m",
+          "unique_open_times": 1795680
+        },
+        "premium_index": {
+          "available": false,
+          "canonical_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "max_open_time": null,
+          "min_open_time": null,
+          "row_count": 0
+        }
+      },
+      "ANKRUSDT": {
+        "funding": {
+          "canonical_sha256": "a57cfced860f29b4b73d561586c17a8d14b02655a2feef34e138540491dc631e",
+          "duplicate_key_rows": 0,
+          "edge_tolerance_hours": 9,
+          "gap_count_over_9h": 0,
+          "max_funding_time": 1780257600010,
+          "max_gap_hours": 8.00000722,
+          "min_funding_time": 1672531200000,
+          "range_covered": true,
+          "row_count": 3997,
+          "text_mark_price_rows": 0
+        },
+        "market": {
+          "canonical_sha256": "67a89e04863c3e775660ecd90f2c9c5a91aa2310380fba12bb7be25309336834",
+          "coverage_pct": 100.0,
+          "duplicate_key_rows": 0,
+          "expected_minutes": 1795680,
+          "internal_gap_count": 0,
+          "market_type": "futures_usdt_perp",
+          "max_internal_gap_minutes": 0,
+          "max_open_time": 1780271940000,
+          "min_open_time": 1672531200000,
+          "missing_minutes": 0,
+          "off_grid_rows": 0,
+          "range_complete": true,
+          "row_count": 1795680,
+          "timeframe": "1m",
+          "unique_open_times": 1795680
+        },
+        "premium_index": {
+          "available": false,
+          "canonical_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "max_open_time": null,
+          "min_open_time": null,
+          "row_count": 0
+        }
+      },
+      "AVAXUSDT": {
+        "funding": {
+          "canonical_sha256": "671a4707ae73c8b2419bbebc5c9ca3f6c8270e5abaeeb0ba4f2deef63bb727b2",
+          "duplicate_key_rows": 0,
+          "edge_tolerance_hours": 9,
+          "gap_count_over_9h": 0,
+          "max_funding_time": 1780243200004,
+          "max_gap_hours": 8.00000722,
+          "min_funding_time": 1672531200000,
+          "range_covered": true,
+          "row_count": 3741,
+          "text_mark_price_rows": 0
+        },
+        "market": {
+          "canonical_sha256": "314323a2c8036f6b10d49df4303caad9de03d00c364cc141742c1e3176e27968",
+          "coverage_pct": 100.0,
+          "duplicate_key_rows": 0,
+          "expected_minutes": 1795680,
+          "internal_gap_count": 0,
+          "market_type": "futures_usdt_perp",
+          "max_internal_gap_minutes": 0,
+          "max_open_time": 1780271940000,
+          "min_open_time": 1672531200000,
+          "missing_minutes": 0,
+          "off_grid_rows": 0,
+          "range_complete": true,
+          "row_count": 1795680,
+          "timeframe": "1m",
+          "unique_open_times": 1795680
+        },
+        "premium_index": {
+          "available": false,
+          "canonical_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "max_open_time": null,
+          "min_open_time": null,
+          "row_count": 0
+        }
+      },
+      "BCHUSDT": {
+        "funding": {
+          "canonical_sha256": "5a7e71b656bb1e00148610a96801cc2df401d20eddd2653ee5d96659993dc449",
+          "duplicate_key_rows": 0,
+          "edge_tolerance_hours": 9,
+          "gap_count_over_9h": 0,
+          "max_funding_time": 1780243200004,
+          "max_gap_hours": 8.00000722,
+          "min_funding_time": 1672531200000,
+          "range_covered": true,
+          "row_count": 3741,
+          "text_mark_price_rows": 0
+        },
+        "market": {
+          "canonical_sha256": "95c38f0d2e309cac6defce688e6427b27e83417b2ffcd1410ae52dfa9e170d77",
+          "coverage_pct": 100.0,
+          "duplicate_key_rows": 0,
+          "expected_minutes": 1795680,
+          "internal_gap_count": 0,
+          "market_type": "futures_usdt_perp",
+          "max_internal_gap_minutes": 0,
+          "max_open_time": 1780271940000,
+          "min_open_time": 1672531200000,
+          "missing_minutes": 0,
+          "off_grid_rows": 0,
+          "range_complete": true,
+          "row_count": 1795680,
+          "timeframe": "1m",
+          "unique_open_times": 1795680
+        },
+        "premium_index": {
+          "available": true,
+          "canonical_sha256": "20d1425f4779bdd468f91aad77f7e222705556d0fbc60ae85fab4a369d30f1ea",
+          "max_open_time": 1769727600000,
+          "min_open_time": 1672531200000,
+          "row_count": 27000
+        }
+      },
+      "BNBUSDT": {
+        "funding": {
+          "canonical_sha256": "c37e0ff1c24773589b81a355de57a68b629ec57cdeb5c72d270f534285796cd1",
+          "duplicate_key_rows": 0,
+          "edge_tolerance_hours": 9,
+          "gap_count_over_9h": 0,
+          "max_funding_time": 1780243200004,
+          "max_gap_hours": 8.00000722,
+          "min_funding_time": 1672531200000,
+          "range_covered": true,
+          "row_count": 3741,
+          "text_mark_price_rows": 0
+        },
+        "market": {
+          "canonical_sha256": "3f7c251e5332077a42c67a60d11e91a8ef8ed08c1dc7b6be25f15fa02224178a",
+          "coverage_pct": 100.0,
+          "duplicate_key_rows": 0,
+          "expected_minutes": 1795680,
+          "internal_gap_count": 0,
+          "market_type": "futures_usdt_perp",
+          "max_internal_gap_minutes": 0,
+          "max_open_time": 1780271940000,
+          "min_open_time": 1672531200000,
+          "missing_minutes": 0,
+          "off_grid_rows": 0,
+          "range_complete": true,
+          "row_count": 1795680,
+          "timeframe": "1m",
+          "unique_open_times": 1795680
+        },
+        "premium_index": {
+          "available": true,
+          "canonical_sha256": "e82af5060ba0414d7e2c2bb92307777016136255ded8ef97638a85f76c44aa48",
+          "max_open_time": 1780268400000,
+          "min_open_time": 1672531200000,
+          "row_count": 29928
+        }
+      },
+      "BTCUSDT": {
+        "funding": {
+          "canonical_sha256": "bc250302ba6964c354a1242ad5c99f771a3fb156b7a4f656101f176a79e883f4",
+          "duplicate_key_rows": 0,
+          "edge_tolerance_hours": 9,
+          "gap_count_over_9h": 0,
+          "max_funding_time": 1780243200004,
+          "max_gap_hours": 8.00000722,
+          "min_funding_time": 1672531200000,
+          "range_covered": true,
+          "row_count": 3741,
+          "text_mark_price_rows": 0
+        },
+        "market": {
+          "canonical_sha256": "cd455acd10cfa7d090d8bf5e07b2b9756e528021ca70c58bf1796cfae2815408",
+          "coverage_pct": 100.0,
+          "duplicate_key_rows": 0,
+          "expected_minutes": 1795680,
+          "internal_gap_count": 0,
+          "market_type": "futures_usdt_perp",
+          "max_internal_gap_minutes": 0,
+          "max_open_time": 1780271940000,
+          "min_open_time": 1672531200000,
+          "missing_minutes": 0,
+          "off_grid_rows": 0,
+          "range_complete": true,
+          "row_count": 1795680,
+          "timeframe": "1m",
+          "unique_open_times": 1795680
+        },
+        "premium_index": {
+          "available": false,
+          "canonical_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "max_open_time": null,
+          "min_open_time": null,
+          "row_count": 0
+        }
+      },
+      "DOGEUSDT": {
+        "funding": {
+          "canonical_sha256": "b7a52c3a03a2b97db682d8f9bd9ffa181898d3a39fbd0b3d25fa28cfb542f58b",
+          "duplicate_key_rows": 0,
+          "edge_tolerance_hours": 9,
+          "gap_count_over_9h": 0,
+          "max_funding_time": 1780243200004,
+          "max_gap_hours": 8.00000722,
+          "min_funding_time": 1672531200000,
+          "range_covered": true,
+          "row_count": 3741,
+          "text_mark_price_rows": 0
+        },
+        "market": {
+          "canonical_sha256": "6e64fff2275b261b2fea481835e250aee06a5f041cf9fdb321ac717e2001e92b",
+          "coverage_pct": 100.0,
+          "duplicate_key_rows": 0,
+          "expected_minutes": 1795680,
+          "internal_gap_count": 0,
+          "market_type": "futures_usdt_perp",
+          "max_internal_gap_minutes": 0,
+          "max_open_time": 1780271940000,
+          "min_open_time": 1672531200000,
+          "missing_minutes": 0,
+          "off_grid_rows": 0,
+          "range_complete": true,
+          "row_count": 1795680,
+          "timeframe": "1m",
+          "unique_open_times": 1795680
+        },
+        "premium_index": {
+          "available": false,
+          "canonical_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "max_open_time": null,
+          "min_open_time": null,
+          "row_count": 0
+        }
+      },
+      "DOTUSDT": {
+        "funding": {
+          "canonical_sha256": "ef10236c8a8a767554f16a137c278dea88aea5f46d1dd10417cce12038f6eb24",
+          "duplicate_key_rows": 0,
+          "edge_tolerance_hours": 9,
+          "gap_count_over_9h": 0,
+          "max_funding_time": 1780243200004,
+          "max_gap_hours": 8.00000722,
+          "min_funding_time": 1672531200000,
+          "range_covered": true,
+          "row_count": 3741,
+          "text_mark_price_rows": 0
+        },
+        "market": {
+          "canonical_sha256": "b91a14442fad491663592e0f749323ea5a577ffd917d41b93a419ee4590e44a0",
+          "coverage_pct": 100.0,
+          "duplicate_key_rows": 0,
+          "expected_minutes": 1795680,
+          "internal_gap_count": 0,
+          "market_type": "futures_usdt_perp",
+          "max_internal_gap_minutes": 0,
+          "max_open_time": 1780271940000,
+          "min_open_time": 1672531200000,
+          "missing_minutes": 0,
+          "off_grid_rows": 0,
+          "range_complete": true,
+          "row_count": 1795680,
+          "timeframe": "1m",
+          "unique_open_times": 1795680
+        },
+        "premium_index": {
+          "available": true,
+          "canonical_sha256": "e9b09b862ae802ac6894bce8a60c8c36e539e32c9fd1618672b1a7f8609b8d2e",
+          "max_open_time": 1780268400000,
+          "min_open_time": 1672531200000,
+          "row_count": 29928
+        }
+      },
+      "ETHUSDT": {
+        "funding": {
+          "canonical_sha256": "a83935c06d15296da0b53412c15a0c79ad007841d5266df0fbed299eee695030",
+          "duplicate_key_rows": 0,
+          "edge_tolerance_hours": 9,
+          "gap_count_over_9h": 0,
+          "max_funding_time": 1780243200004,
+          "max_gap_hours": 8.00000722,
+          "min_funding_time": 1672531200000,
+          "range_covered": true,
+          "row_count": 3741,
+          "text_mark_price_rows": 0
+        },
+        "market": {
+          "canonical_sha256": "b5e857ddccb914aa8bde1935d713452b2cb53af4abd2e89a0ca6484560444b86",
+          "coverage_pct": 100.0,
+          "duplicate_key_rows": 0,
+          "expected_minutes": 1795680,
+          "internal_gap_count": 0,
+          "market_type": "futures_usdt_perp",
+          "max_internal_gap_minutes": 0,
+          "max_open_time": 1780271940000,
+          "min_open_time": 1672531200000,
+          "missing_minutes": 0,
+          "off_grid_rows": 0,
+          "range_complete": true,
+          "row_count": 1795680,
+          "timeframe": "1m",
+          "unique_open_times": 1795680
+        },
+        "premium_index": {
+          "available": false,
+          "canonical_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "max_open_time": null,
+          "min_open_time": null,
+          "row_count": 0
+        }
+      },
+      "LINKUSDT": {
+        "funding": {
+          "canonical_sha256": "d1e8ab3c7bd43d158cbfeecbca2fdd73e6f54afaf55fa514b1a09b0f92982137",
+          "duplicate_key_rows": 0,
+          "edge_tolerance_hours": 9,
+          "gap_count_over_9h": 0,
+          "max_funding_time": 1780243200004,
+          "max_gap_hours": 8.00000722,
+          "min_funding_time": 1672531200000,
+          "range_covered": true,
+          "row_count": 3741,
+          "text_mark_price_rows": 0
+        },
+        "market": {
+          "canonical_sha256": "e11c9abb2dd12effe108e1c0464c73065503ce2e70a3cbfac3de9dd0ea0daa50",
+          "coverage_pct": 100.0,
+          "duplicate_key_rows": 0,
+          "expected_minutes": 1795680,
+          "internal_gap_count": 0,
+          "market_type": "futures_usdt_perp",
+          "max_internal_gap_minutes": 0,
+          "max_open_time": 1780271940000,
+          "min_open_time": 1672531200000,
+          "missing_minutes": 0,
+          "off_grid_rows": 0,
+          "range_complete": true,
+          "row_count": 1795680,
+          "timeframe": "1m",
+          "unique_open_times": 1795680
+        },
+        "premium_index": {
+          "available": false,
+          "canonical_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "max_open_time": null,
+          "min_open_time": null,
+          "row_count": 0
+        }
+      },
+      "LTCUSDT": {
+        "funding": {
+          "canonical_sha256": "d925c0a5c0f35d822b362054f3373f39a0c9be0b219809306c94bf3a2e8deb50",
+          "duplicate_key_rows": 0,
+          "edge_tolerance_hours": 9,
+          "gap_count_over_9h": 0,
+          "max_funding_time": 1780243200004,
+          "max_gap_hours": 8.00000722,
+          "min_funding_time": 1672531200000,
+          "range_covered": true,
+          "row_count": 3741,
+          "text_mark_price_rows": 0
+        },
+        "market": {
+          "canonical_sha256": "8493f62ccb9e0ec60d8d21e8c8a61b329d1773e73bb9e9cbc9b5998e55f13f6c",
+          "coverage_pct": 100.0,
+          "duplicate_key_rows": 0,
+          "expected_minutes": 1795680,
+          "internal_gap_count": 0,
+          "market_type": "futures_usdt_perp",
+          "max_internal_gap_minutes": 0,
+          "max_open_time": 1780271940000,
+          "min_open_time": 1672531200000,
+          "missing_minutes": 0,
+          "off_grid_rows": 0,
+          "range_complete": true,
+          "row_count": 1795680,
+          "timeframe": "1m",
+          "unique_open_times": 1795680
+        },
+        "premium_index": {
+          "available": false,
+          "canonical_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "max_open_time": null,
+          "min_open_time": null,
+          "row_count": 0
+        }
+      },
+      "SOLUSDT": {
+        "funding": {
+          "canonical_sha256": "bfe8db98216e7e2c405ef7b370c20f2f51bf3b9e315f3b97395ed965867ee160",
+          "duplicate_key_rows": 0,
+          "edge_tolerance_hours": 9,
+          "gap_count_over_9h": 0,
+          "max_funding_time": 1780243200004,
+          "max_gap_hours": 8.00000722,
+          "min_funding_time": 1672531200000,
+          "range_covered": true,
+          "row_count": 3741,
+          "text_mark_price_rows": 0
+        },
+        "market": {
+          "canonical_sha256": "19bed1493257e8c7b0885bc86a0e61d924f289c8f13e2d0ff64800fa64d5140a",
+          "coverage_pct": 100.0,
+          "duplicate_key_rows": 0,
+          "expected_minutes": 1795680,
+          "internal_gap_count": 0,
+          "market_type": "futures_usdt_perp",
+          "max_internal_gap_minutes": 0,
+          "max_open_time": 1780271940000,
+          "min_open_time": 1672531200000,
+          "missing_minutes": 0,
+          "off_grid_rows": 0,
+          "range_complete": true,
+          "row_count": 1795680,
+          "timeframe": "1m",
+          "unique_open_times": 1795680
+        },
+        "premium_index": {
+          "available": true,
+          "canonical_sha256": "18a59799cfa3e8f8324395171acff1f33ceb487fcfd11c4c0d6438b7dcf8883c",
+          "max_open_time": 1780268400000,
+          "min_open_time": 1672531200000,
+          "row_count": 29928
+        }
+      },
+      "TRXUSDT": {
+        "funding": {
+          "canonical_sha256": "57e39f803422e50be9362f6cae83ca087a1fd03f492102d7830a3c54910a7ff2",
+          "duplicate_key_rows": 0,
+          "edge_tolerance_hours": 9,
+          "gap_count_over_9h": 0,
+          "max_funding_time": 1780243200004,
+          "max_gap_hours": 8.00000722,
+          "min_funding_time": 1672531200000,
+          "range_covered": true,
+          "row_count": 3741,
+          "text_mark_price_rows": 0
+        },
+        "market": {
+          "canonical_sha256": "5e38d2e8953804f99066377f62d1f5149f6d92b87207b55a05e938a1b286029c",
+          "coverage_pct": 100.0,
+          "duplicate_key_rows": 0,
+          "expected_minutes": 1795680,
+          "internal_gap_count": 0,
+          "market_type": "futures_usdt_perp",
+          "max_internal_gap_minutes": 0,
+          "max_open_time": 1780271940000,
+          "min_open_time": 1672531200000,
+          "missing_minutes": 0,
+          "off_grid_rows": 0,
+          "range_complete": true,
+          "row_count": 1795680,
+          "timeframe": "1m",
+          "unique_open_times": 1795680
+        },
+        "premium_index": {
+          "available": true,
+          "canonical_sha256": "5f4cb7795929dd030183473acf6de2aee79d96844c3a25e2bbdfa52a0c3261b1",
+          "max_open_time": 1780268400000,
+          "min_open_time": 1672531200000,
+          "row_count": 29928
+        }
+      },
+      "XRPUSDT": {
+        "funding": {
+          "canonical_sha256": "09ef982cf41ca6345405d5441a37e30a20a2c75a620e532fbd2fe223976bb57e",
+          "duplicate_key_rows": 0,
+          "edge_tolerance_hours": 9,
+          "gap_count_over_9h": 0,
+          "max_funding_time": 1780243200004,
+          "max_gap_hours": 8.00000722,
+          "min_funding_time": 1672531200000,
+          "range_covered": true,
+          "row_count": 3741,
+          "text_mark_price_rows": 0
+        },
+        "market": {
+          "canonical_sha256": "787e8286d34f3651fbab8c30fa7a2a0ce19b4a5b371065b99802b7649b0e7581",
+          "coverage_pct": 100.0,
+          "duplicate_key_rows": 0,
+          "expected_minutes": 1795680,
+          "internal_gap_count": 0,
+          "market_type": "futures_usdt_perp",
+          "max_internal_gap_minutes": 0,
+          "max_open_time": 1780271940000,
+          "min_open_time": 1672531200000,
+          "missing_minutes": 0,
+          "off_grid_rows": 0,
+          "range_complete": true,
+          "row_count": 1795680,
+          "timeframe": "1m",
+          "unique_open_times": 1795680
+        },
+        "premium_index": {
+          "available": false,
+          "canonical_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "max_open_time": null,
+          "min_open_time": null,
+          "row_count": 0
+        }
+      }
+    }
+  },
+  "engine": {
+    "path": "target/release/portfolio_budget_replay",
+    "sha256": "afb70e9aedba2cd974733206fb468c9a27e8f1943d81a28904933c3dafc0a755"
+  },
+  "fetch_provenance": {
+    "base_url": "https://fapi.binance.com",
+    "fetched_at": "2026-07-12T07:34:00.133790+00:00",
+    "schema_version": 1,
+    "source": "Binance USD-M Futures REST API",
+    "symbols": {
+      "AAVEUSDT": {
+        "funding": {
+          "api_rows": 120,
+          "db_rows_in_range": 120,
+          "http_response_sha256": "0bcba19e80071f183466e463f50a4f5432fc45e5c11650d6c877d20c81b43626",
+          "max_funding_time": 1783699200005,
+          "min_funding_time": 1780272000001,
+          "request_count": 1,
+          "rows_changed": 120
+        },
+        "market": {
+          "http_response_stream_sha256": "45ecacd79d73c54038c613113f2b2d0bd0e7430d482ff48ae6cf826540d44c41",
+          "inserted": 1888,
+          "missing_after": 0,
+          "missing_before": 1888,
+          "request_count": 3
+        }
+      },
+      "ADAUSDT": {
+        "funding": {
+          "api_rows": 120,
+          "db_rows_in_range": 120,
+          "http_response_sha256": "b956db7dbb6b38ebcbaf9c2bfa27aab7c5341961fc39b802ab4339d6f71aa848",
+          "max_funding_time": 1783699200005,
+          "min_funding_time": 1780272000001,
+          "request_count": 1,
+          "rows_changed": 120
+        },
+        "market": {
+          "http_response_stream_sha256": "02d3709cf650279066f2a20c48c3db026bf4d45cc1c97f7767b372455336679c",
+          "inserted": 3288,
+          "missing_after": 0,
+          "missing_before": 3288,
+          "request_count": 4
+        }
+      },
+      "ANKRUSDT": {
+        "funding": {
+          "api_rows": 239,
+          "db_rows_in_range": 239,
+          "http_response_sha256": "f703fad88aac7244eb748006c6f59fac84334eaf54779a7d1cb71d36bf8379c3",
+          "max_funding_time": 1783713600000,
+          "min_funding_time": 1780272000001,
+          "request_count": 1,
+          "rows_changed": 239
+        },
+        "market": {
+          "http_response_stream_sha256": "13d21c32ab7b8460b084e520c74422355b7b356259df05450d0253afffdabab6",
+          "inserted": 1888,
+          "missing_after": 0,
+          "missing_before": 1888,
+          "request_count": 3
+        }
+      },
+      "AVAXUSDT": {
+        "funding": {
+          "api_rows": 120,
+          "db_rows_in_range": 120,
+          "http_response_sha256": "ac3abe6a9e85018c9e711e2e0e6fb73eda9e34e761474fec07edcd5351118999",
+          "max_funding_time": 1783699200005,
+          "min_funding_time": 1780272000001,
+          "request_count": 1,
+          "rows_changed": 120
+        },
+        "market": {
+          "http_response_stream_sha256": "f20d50e2501df2f2155c074bc0c759d1305795cdaf1e5d451a7fe2c319e7761b",
+          "inserted": 4297,
+          "missing_after": 0,
+          "missing_before": 4297,
+          "request_count": 6
+        }
+      },
+      "BCHUSDT": {
+        "funding": {
+          "api_rows": 120,
+          "db_rows_in_range": 120,
+          "http_response_sha256": "49f820e8bf135690b06ac4359891d23c8aca50e691cb9917914e56234a4c2bb3",
+          "max_funding_time": 1783699200005,
+          "min_funding_time": 1780272000001,
+          "request_count": 1,
+          "rows_changed": 120
+        },
+        "market": {
+          "http_response_stream_sha256": "563e1534ccf4c515945e0b9656d418a7e4c525a879127524daae0c93302127c8",
+          "inserted": 1888,
+          "missing_after": 0,
+          "missing_before": 1888,
+          "request_count": 3
+        }
+      },
+      "BNBUSDT": {
+        "funding": {
+          "api_rows": 120,
+          "db_rows_in_range": 120,
+          "http_response_sha256": "d19e6bb1ef11ffcd6824e17ad369af57c80cdf608df15dc21e3b28d25b1f6fa4",
+          "max_funding_time": 1783699200005,
+          "min_funding_time": 1780272000001,
+          "request_count": 1,
+          "rows_changed": 120
+        },
+        "market": {
+          "http_response_stream_sha256": "904d55dda3079a30108c1ec253053b1f088dcbdb7cfa994b58c57cd8aee240b9",
+          "inserted": 3178,
+          "missing_after": 0,
+          "missing_before": 3178,
+          "request_count": 6
+        }
+      },
+      "BTCUSDT": {
+        "funding": {
+          "api_rows": 120,
+          "db_rows_in_range": 120,
+          "http_response_sha256": "1f33b416d2b1acbbb789c35e42341dd52c6e2679d8739abc9bde9bb2b6b11916",
+          "max_funding_time": 1783699200005,
+          "min_funding_time": 1780272000001,
+          "request_count": 1,
+          "rows_changed": 120
+        },
+        "market": {
+          "http_response_stream_sha256": "37083a9d41d7fdb9403db2dcf7948841f06c24348e8b1135ad913d71b39b49b0",
+          "inserted": 1888,
+          "missing_after": 0,
+          "missing_before": 1888,
+          "request_count": 3
+        }
+      },
+      "DOGEUSDT": {
+        "funding": {
+          "api_rows": 120,
+          "db_rows_in_range": 120,
+          "http_response_sha256": "dff3b5290a0cc3946699243640313cf04764402425b6387f684504d3c3cf7199",
+          "max_funding_time": 1783699200005,
+          "min_funding_time": 1780272000001,
+          "request_count": 1,
+          "rows_changed": 120
+        },
+        "market": {
+          "http_response_stream_sha256": "a117020a5ff5fc78203ff4775e042abfdc050a619d75741f2a9aac9793e34f32",
+          "inserted": 3875,
+          "missing_after": 0,
+          "missing_before": 3875,
+          "request_count": 6
+        }
+      },
+      "DOTUSDT": {
+        "funding": {
+          "api_rows": 120,
+          "db_rows_in_range": 120,
+          "http_response_sha256": "3cced41726d42240679222562dc9f3978d6e0106c32a1fca0c1c28806e300dc1",
+          "max_funding_time": 1783699200005,
+          "min_funding_time": 1780272000001,
+          "request_count": 1,
+          "rows_changed": 120
+        },
+        "market": {
+          "http_response_stream_sha256": "8b6a436cc14a608c1ddb42b44fae829d1a4cff0d29641047b308af1052b6c76e",
+          "inserted": 1888,
+          "missing_after": 0,
+          "missing_before": 1888,
+          "request_count": 3
+        }
+      },
+      "ETHUSDT": {
+        "funding": {
+          "api_rows": 120,
+          "db_rows_in_range": 120,
+          "http_response_sha256": "cdd068438962ce0867d1bd94fd7078ccc114b1ea373845d89cd12e6528a0d53b",
+          "max_funding_time": 1783699200005,
+          "min_funding_time": 1780272000001,
+          "request_count": 1,
+          "rows_changed": 120
+        },
+        "market": {
+          "http_response_stream_sha256": "e6dc68c3c180c585d055d89e81f14ef9a85f59342f760fb62afd2125c80edb4e",
+          "inserted": 1888,
+          "missing_after": 0,
+          "missing_before": 1888,
+          "request_count": 3
+        }
+      },
+      "LINKUSDT": {
+        "funding": {
+          "api_rows": 120,
+          "db_rows_in_range": 120,
+          "http_response_sha256": "6a95d3a60238a0120feb2c012ae0dbdfaadba3e2d56194af77533f5bac59d33a",
+          "max_funding_time": 1783699200005,
+          "min_funding_time": 1780272000001,
+          "request_count": 1,
+          "rows_changed": 120
+        },
+        "market": {
+          "http_response_stream_sha256": "f9be6fe25a061c80b73728a20d92662e1c2f2bd3f4467d801d7103faf5881b03",
+          "inserted": 1888,
+          "missing_after": 0,
+          "missing_before": 1888,
+          "request_count": 3
+        }
+      },
+      "LTCUSDT": {
+        "funding": {
+          "api_rows": 120,
+          "db_rows_in_range": 120,
+          "http_response_sha256": "1f535b6247799ef06f7d8e5b49a684d37bb6424544cda5ea2e2f3f368fe7d8ac",
+          "max_funding_time": 1783699200005,
+          "min_funding_time": 1780272000001,
+          "request_count": 1,
+          "rows_changed": 120
+        },
+        "market": {
+          "http_response_stream_sha256": "0aabde8ec6b98a2de6d729639462ac1e547c039a7dcaf8b62cc2fad8d0072457",
+          "inserted": 1888,
+          "missing_after": 0,
+          "missing_before": 1888,
+          "request_count": 3
+        }
+      },
+      "SOLUSDT": {
+        "funding": {
+          "api_rows": 120,
+          "db_rows_in_range": 120,
+          "http_response_sha256": "56a73a309db0e7a042e4d9bd95e5ae10a9b6819b27a065f57c46dfb55b445298",
+          "max_funding_time": 1783699200005,
+          "min_funding_time": 1780272000001,
+          "request_count": 1,
+          "rows_changed": 120
+        },
+        "market": {
+          "http_response_stream_sha256": "0f5aba5b71286f68cc4551255e340226f6b169e87d0d7bf22254068267d83724",
+          "inserted": 2833,
+          "missing_after": 0,
+          "missing_before": 2833,
+          "request_count": 5
+        }
+      },
+      "TRXUSDT": {
+        "funding": {
+          "api_rows": 120,
+          "db_rows_in_range": 120,
+          "http_response_sha256": "40e6f32006334849a7867646c46e133a99d50af7dbacada45e7b2724a7c270b4",
+          "max_funding_time": 1783699200005,
+          "min_funding_time": 1780272000001,
+          "request_count": 1,
+          "rows_changed": 120
+        },
+        "market": {
+          "http_response_stream_sha256": "cd78da21e6da88fae920eba047f3648e776e11b9096f6f5f0c08f495275869c8",
+          "inserted": 1888,
+          "missing_after": 0,
+          "missing_before": 1888,
+          "request_count": 3
+        }
+      },
+      "XRPUSDT": {
+        "funding": {
+          "api_rows": 120,
+          "db_rows_in_range": 120,
+          "http_response_sha256": "e09ee66c848dbed568707bfb8fe0ade014d4f6db770be72ac30960a1e93a139c",
+          "max_funding_time": 1783699200005,
+          "min_funding_time": 1780272000001,
+          "request_count": 1,
+          "rows_changed": 120
+        },
+        "market": {
+          "http_response_stream_sha256": "7b4015584d39fcba1dfd0324d12a157ef77e1ccfad82a850f2a45f7a0b05ce78",
+          "inserted": 1888,
+          "missing_after": 0,
+          "missing_before": 1888,
+          "request_count": 3
+        }
+      }
+    },
+    "window": {
+      "end_ms": 1783727999999,
+      "start_ms": 1780272000000
+    }
+  },
+  "files": {
+    "funding": {
+      "mtime_ns": 1783841667536017458,
+      "path": "data/funding_rates_round12.db",
+      "sha256": "8a7998e02da7efad37369802b270e0776bdb6869fc51b90a98c2157429ce74e0",
+      "sha256_complete": true,
+      "size_bytes": 8028160
+    },
+    "market": {
+      "mtime_ns": 1783841667420015652,
+      "path": "data/market_data_full.db",
+      "sha256": "5dc670ee3bdb3953d37ac63f5750f9a7c50cd10b30fdd6a9aea2b3647e92f0c3",
+      "sha256_complete": true,
+      "size_bytes": 117287043072
+    },
+    "premium_index": {
+      "mtime_ns": 1783012119676174692,
+      "path": "data/premium_index.db",
+      "sha256": "78bd01280bbb349383e090b9576cfa543865a5680997329c33f2e05c089a2627",
+      "sha256_complete": true,
+      "size_bytes": 10088448
+    }
+  },
+  "generated_at": "2026-07-12T07:39:25.719254+00:00",
+  "holdout_window": {
+    "end_ms": 1783727999999,
+    "gate": {
+      "funding_failures": [],
+      "market_failures": [],
+      "passed": true
+    },
+    "opened": true,
+    "start_ms": 1780272000000,
+    "symbols": {
+      "AAVEUSDT": {
+        "funding": {
+          "canonical_sha256": "a1364672fdfeacbff801c09e09d44a3173659c7b598b072f05e2aa937d60e13e",
+          "duplicate_key_rows": 0,
+          "edge_tolerance_hours": 9,
+          "gap_count_over_9h": 0,
+          "max_funding_time": 1783699200005,
+          "max_gap_hours": 8.00000361,
+          "min_funding_time": 1780272000001,
+          "range_covered": true,
+          "row_count": 120,
+          "text_mark_price_rows": 0
+        },
+        "market": {
+          "canonical_sha256": "be5b2a80db7989a946403b7edce4e3525b4c3a7705e2befecfb46da377bc49ff",
+          "coverage_pct": 100.0,
+          "duplicate_key_rows": 0,
+          "expected_minutes": 57600,
+          "internal_gap_count": 0,
+          "market_type": "futures_usdt_perp",
+          "max_internal_gap_minutes": 0,
+          "max_open_time": 1783727940000,
+          "min_open_time": 1780272000000,
+          "missing_minutes": 0,
+          "off_grid_rows": 0,
+          "range_complete": true,
+          "row_count": 57600,
+          "timeframe": "1m",
+          "unique_open_times": 57600
+        },
+        "premium_index": {
+          "available": false,
+          "canonical_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "max_open_time": null,
+          "min_open_time": null,
+          "row_count": 0
+        }
+      },
+      "ADAUSDT": {
+        "funding": {
+          "canonical_sha256": "bae149999dc5c6196370e7dad488bda54a30c393e889aada878c08872eaf025a",
+          "duplicate_key_rows": 0,
+          "edge_tolerance_hours": 9,
+          "gap_count_over_9h": 0,
+          "max_funding_time": 1783699200005,
+          "max_gap_hours": 8.00000361,
+          "min_funding_time": 1780272000001,
+          "range_covered": true,
+          "row_count": 120,
+          "text_mark_price_rows": 0
+        },
+        "market": {
+          "canonical_sha256": "406eef38038988ef0c82e835156343f4cda1622b9426e591bb831251e4faba65",
+          "coverage_pct": 100.0,
+          "duplicate_key_rows": 0,
+          "expected_minutes": 57600,
+          "internal_gap_count": 0,
+          "market_type": "futures_usdt_perp",
+          "max_internal_gap_minutes": 0,
+          "max_open_time": 1783727940000,
+          "min_open_time": 1780272000000,
+          "missing_minutes": 0,
+          "off_grid_rows": 0,
+          "range_complete": true,
+          "row_count": 57600,
+          "timeframe": "1m",
+          "unique_open_times": 57600
+        },
+        "premium_index": {
+          "available": false,
+          "canonical_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "max_open_time": null,
+          "min_open_time": null,
+          "row_count": 0
+        }
+      },
+      "ANKRUSDT": {
+        "funding": {
+          "canonical_sha256": "6c3fb4538a6677d593f868ddd08b071792255d0574c84db84a3f27cb2369093a",
+          "duplicate_key_rows": 0,
+          "edge_tolerance_hours": 9,
+          "gap_count_over_9h": 0,
+          "max_funding_time": 1783713600000,
+          "max_gap_hours": 8.0,
+          "min_funding_time": 1780272000001,
+          "range_covered": true,
+          "row_count": 239,
+          "text_mark_price_rows": 0
+        },
+        "market": {
+          "canonical_sha256": "aa1b6c56fa954db4f1ab14e6bef46136189a4adb778a059c6527bc027bceab5c",
+          "coverage_pct": 100.0,
+          "duplicate_key_rows": 0,
+          "expected_minutes": 57600,
+          "internal_gap_count": 0,
+          "market_type": "futures_usdt_perp",
+          "max_internal_gap_minutes": 0,
+          "max_open_time": 1783727940000,
+          "min_open_time": 1780272000000,
+          "missing_minutes": 0,
+          "off_grid_rows": 0,
+          "range_complete": true,
+          "row_count": 57600,
+          "timeframe": "1m",
+          "unique_open_times": 57600
+        },
+        "premium_index": {
+          "available": false,
+          "canonical_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "max_open_time": null,
+          "min_open_time": null,
+          "row_count": 0
+        }
+      },
+      "AVAXUSDT": {
+        "funding": {
+          "canonical_sha256": "9080b4e216c1edb03bacd1d55f58a0a451ae2621c0675ec8d7cc258d4104a0d4",
+          "duplicate_key_rows": 0,
+          "edge_tolerance_hours": 9,
+          "gap_count_over_9h": 0,
+          "max_funding_time": 1783699200005,
+          "max_gap_hours": 8.00000361,
+          "min_funding_time": 1780272000001,
+          "range_covered": true,
+          "row_count": 120,
+          "text_mark_price_rows": 0
+        },
+        "market": {
+          "canonical_sha256": "14273823ac2ebab22a45455a583dd94ebd89171b516dd87c6909ae3c1a66243c",
+          "coverage_pct": 100.0,
+          "duplicate_key_rows": 0,
+          "expected_minutes": 57600,
+          "internal_gap_count": 0,
+          "market_type": "futures_usdt_perp",
+          "max_internal_gap_minutes": 0,
+          "max_open_time": 1783727940000,
+          "min_open_time": 1780272000000,
+          "missing_minutes": 0,
+          "off_grid_rows": 0,
+          "range_complete": true,
+          "row_count": 57600,
+          "timeframe": "1m",
+          "unique_open_times": 57600
+        },
+        "premium_index": {
+          "available": false,
+          "canonical_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "max_open_time": null,
+          "min_open_time": null,
+          "row_count": 0
+        }
+      },
+      "BCHUSDT": {
+        "funding": {
+          "canonical_sha256": "425194f30e7109a0d06158921c9eeabf888c7e373dc7b8084e08d2e83ca0b23c",
+          "duplicate_key_rows": 0,
+          "edge_tolerance_hours": 9,
+          "gap_count_over_9h": 0,
+          "max_funding_time": 1783699200005,
+          "max_gap_hours": 8.00000361,
+          "min_funding_time": 1780272000001,
+          "range_covered": true,
+          "row_count": 120,
+          "text_mark_price_rows": 0
+        },
+        "market": {
+          "canonical_sha256": "2e3254cb17a5640aa65c674f438509d7680b7340782956850f4ab78711c52ef8",
+          "coverage_pct": 100.0,
+          "duplicate_key_rows": 0,
+          "expected_minutes": 57600,
+          "internal_gap_count": 0,
+          "market_type": "futures_usdt_perp",
+          "max_internal_gap_minutes": 0,
+          "max_open_time": 1783727940000,
+          "min_open_time": 1780272000000,
+          "missing_minutes": 0,
+          "off_grid_rows": 0,
+          "range_complete": true,
+          "row_count": 57600,
+          "timeframe": "1m",
+          "unique_open_times": 57600
+        },
+        "premium_index": {
+          "available": false,
+          "canonical_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "max_open_time": null,
+          "min_open_time": null,
+          "row_count": 0
+        }
+      },
+      "BNBUSDT": {
+        "funding": {
+          "canonical_sha256": "fb1bb78422c566102d999a2eaf989407dcb3c5091083b8ba1757c6098c3f8c82",
+          "duplicate_key_rows": 0,
+          "edge_tolerance_hours": 9,
+          "gap_count_over_9h": 0,
+          "max_funding_time": 1783699200005,
+          "max_gap_hours": 8.00000361,
+          "min_funding_time": 1780272000001,
+          "range_covered": true,
+          "row_count": 120,
+          "text_mark_price_rows": 0
+        },
+        "market": {
+          "canonical_sha256": "29bf5b5e40ed7e77dddb501b72211275dfdb1a693154ef6b731539212ed3d7f5",
+          "coverage_pct": 100.0,
+          "duplicate_key_rows": 0,
+          "expected_minutes": 57600,
+          "internal_gap_count": 0,
+          "market_type": "futures_usdt_perp",
+          "max_internal_gap_minutes": 0,
+          "max_open_time": 1783727940000,
+          "min_open_time": 1780272000000,
+          "missing_minutes": 0,
+          "off_grid_rows": 0,
+          "range_complete": true,
+          "row_count": 57600,
+          "timeframe": "1m",
+          "unique_open_times": 57600
+        },
+        "premium_index": {
+          "available": false,
+          "canonical_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "max_open_time": null,
+          "min_open_time": null,
+          "row_count": 0
+        }
+      },
+      "BTCUSDT": {
+        "funding": {
+          "canonical_sha256": "cbfdf033612f390f1a148dacf6a407ca5f16720778bc544b71dc4f1dc8c2f2a4",
+          "duplicate_key_rows": 0,
+          "edge_tolerance_hours": 9,
+          "gap_count_over_9h": 0,
+          "max_funding_time": 1783699200005,
+          "max_gap_hours": 8.00000361,
+          "min_funding_time": 1780272000001,
+          "range_covered": true,
+          "row_count": 120,
+          "text_mark_price_rows": 0
+        },
+        "market": {
+          "canonical_sha256": "7469d00060e84193165ab87cf4a12ef9689f11af74696c29d16944a63441f1f6",
+          "coverage_pct": 100.0,
+          "duplicate_key_rows": 0,
+          "expected_minutes": 57600,
+          "internal_gap_count": 0,
+          "market_type": "futures_usdt_perp",
+          "max_internal_gap_minutes": 0,
+          "max_open_time": 1783727940000,
+          "min_open_time": 1780272000000,
+          "missing_minutes": 0,
+          "off_grid_rows": 0,
+          "range_complete": true,
+          "row_count": 57600,
+          "timeframe": "1m",
+          "unique_open_times": 57600
+        },
+        "premium_index": {
+          "available": false,
+          "canonical_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "max_open_time": null,
+          "min_open_time": null,
+          "row_count": 0
+        }
+      },
+      "DOGEUSDT": {
+        "funding": {
+          "canonical_sha256": "e704e601b1eb62666c094596c5e4a0fb366106f2609accffa32accf8581676a0",
+          "duplicate_key_rows": 0,
+          "edge_tolerance_hours": 9,
+          "gap_count_over_9h": 0,
+          "max_funding_time": 1783699200005,
+          "max_gap_hours": 8.00000361,
+          "min_funding_time": 1780272000001,
+          "range_covered": true,
+          "row_count": 120,
+          "text_mark_price_rows": 0
+        },
+        "market": {
+          "canonical_sha256": "a9e2356999da1130a81440a6988a1acc11e7ed1b66193ac2351139a5e4a74983",
+          "coverage_pct": 100.0,
+          "duplicate_key_rows": 0,
+          "expected_minutes": 57600,
+          "internal_gap_count": 0,
+          "market_type": "futures_usdt_perp",
+          "max_internal_gap_minutes": 0,
+          "max_open_time": 1783727940000,
+          "min_open_time": 1780272000000,
+          "missing_minutes": 0,
+          "off_grid_rows": 0,
+          "range_complete": true,
+          "row_count": 57600,
+          "timeframe": "1m",
+          "unique_open_times": 57600
+        },
+        "premium_index": {
+          "available": false,
+          "canonical_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "max_open_time": null,
+          "min_open_time": null,
+          "row_count": 0
+        }
+      },
+      "DOTUSDT": {
+        "funding": {
+          "canonical_sha256": "2ee57e36aa61abfb5c8f2cc5f8e30ae4dfab5e80ffbdfeb04dba3e2b102d42ac",
+          "duplicate_key_rows": 0,
+          "edge_tolerance_hours": 9,
+          "gap_count_over_9h": 0,
+          "max_funding_time": 1783699200005,
+          "max_gap_hours": 8.00000361,
+          "min_funding_time": 1780272000001,
+          "range_covered": true,
+          "row_count": 120,
+          "text_mark_price_rows": 0
+        },
+        "market": {
+          "canonical_sha256": "cdfa6e2cbe6745501cc7bf1cfcc1d4ca4e0bfb889cda37b59329199660596b9f",
+          "coverage_pct": 100.0,
+          "duplicate_key_rows": 0,
+          "expected_minutes": 57600,
+          "internal_gap_count": 0,
+          "market_type": "futures_usdt_perp",
+          "max_internal_gap_minutes": 0,
+          "max_open_time": 1783727940000,
+          "min_open_time": 1780272000000,
+          "missing_minutes": 0,
+          "off_grid_rows": 0,
+          "range_complete": true,
+          "row_count": 57600,
+          "timeframe": "1m",
+          "unique_open_times": 57600
+        },
+        "premium_index": {
+          "available": false,
+          "canonical_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "max_open_time": null,
+          "min_open_time": null,
+          "row_count": 0
+        }
+      },
+      "ETHUSDT": {
+        "funding": {
+          "canonical_sha256": "9efc03e393e98b5f497bcdbbbfd266e1a39cdb74ef68ffdd6c5b1f1792516d3e",
+          "duplicate_key_rows": 0,
+          "edge_tolerance_hours": 9,
+          "gap_count_over_9h": 0,
+          "max_funding_time": 1783699200005,
+          "max_gap_hours": 8.00000361,
+          "min_funding_time": 1780272000001,
+          "range_covered": true,
+          "row_count": 120,
+          "text_mark_price_rows": 0
+        },
+        "market": {
+          "canonical_sha256": "97c5e88c719bc97f6b753e97fd722aad7b6338ab641bbba6f5152a9454592cdb",
+          "coverage_pct": 100.0,
+          "duplicate_key_rows": 0,
+          "expected_minutes": 57600,
+          "internal_gap_count": 0,
+          "market_type": "futures_usdt_perp",
+          "max_internal_gap_minutes": 0,
+          "max_open_time": 1783727940000,
+          "min_open_time": 1780272000000,
+          "missing_minutes": 0,
+          "off_grid_rows": 0,
+          "range_complete": true,
+          "row_count": 57600,
+          "timeframe": "1m",
+          "unique_open_times": 57600
+        },
+        "premium_index": {
+          "available": false,
+          "canonical_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "max_open_time": null,
+          "min_open_time": null,
+          "row_count": 0
+        }
+      },
+      "LINKUSDT": {
+        "funding": {
+          "canonical_sha256": "ecf70afd9af2c06fb4cc9e5cdbe23213a7bbc1c9d9a4a4030b57c79bbaaa0a0b",
+          "duplicate_key_rows": 0,
+          "edge_tolerance_hours": 9,
+          "gap_count_over_9h": 0,
+          "max_funding_time": 1783699200005,
+          "max_gap_hours": 8.00000361,
+          "min_funding_time": 1780272000001,
+          "range_covered": true,
+          "row_count": 120,
+          "text_mark_price_rows": 0
+        },
+        "market": {
+          "canonical_sha256": "c2db6e58936dfe7db0ec8d78baec6aa932a2564826246ea7dc9082e77dcb108c",
+          "coverage_pct": 100.0,
+          "duplicate_key_rows": 0,
+          "expected_minutes": 57600,
+          "internal_gap_count": 0,
+          "market_type": "futures_usdt_perp",
+          "max_internal_gap_minutes": 0,
+          "max_open_time": 1783727940000,
+          "min_open_time": 1780272000000,
+          "missing_minutes": 0,
+          "off_grid_rows": 0,
+          "range_complete": true,
+          "row_count": 57600,
+          "timeframe": "1m",
+          "unique_open_times": 57600
+        },
+        "premium_index": {
+          "available": false,
+          "canonical_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "max_open_time": null,
+          "min_open_time": null,
+          "row_count": 0
+        }
+      },
+      "LTCUSDT": {
+        "funding": {
+          "canonical_sha256": "821b65e8b57cc91b0e90df1cbf5096202d0099bb44b460dd6d1516a2d86b92b2",
+          "duplicate_key_rows": 0,
+          "edge_tolerance_hours": 9,
+          "gap_count_over_9h": 0,
+          "max_funding_time": 1783699200005,
+          "max_gap_hours": 8.00000361,
+          "min_funding_time": 1780272000001,
+          "range_covered": true,
+          "row_count": 120,
+          "text_mark_price_rows": 0
+        },
+        "market": {
+          "canonical_sha256": "f161bb09dadc9d4acd2e56db69672498440313bdc3fce6617336da5d258ed96d",
+          "coverage_pct": 100.0,
+          "duplicate_key_rows": 0,
+          "expected_minutes": 57600,
+          "internal_gap_count": 0,
+          "market_type": "futures_usdt_perp",
+          "max_internal_gap_minutes": 0,
+          "max_open_time": 1783727940000,
+          "min_open_time": 1780272000000,
+          "missing_minutes": 0,
+          "off_grid_rows": 0,
+          "range_complete": true,
+          "row_count": 57600,
+          "timeframe": "1m",
+          "unique_open_times": 57600
+        },
+        "premium_index": {
+          "available": false,
+          "canonical_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "max_open_time": null,
+          "min_open_time": null,
+          "row_count": 0
+        }
+      },
+      "SOLUSDT": {
+        "funding": {
+          "canonical_sha256": "9adb02cf047224a2865333e871cf7d30ab504e8c2d147520be05db09d37982fa",
+          "duplicate_key_rows": 0,
+          "edge_tolerance_hours": 9,
+          "gap_count_over_9h": 0,
+          "max_funding_time": 1783699200005,
+          "max_gap_hours": 8.00000361,
+          "min_funding_time": 1780272000001,
+          "range_covered": true,
+          "row_count": 120,
+          "text_mark_price_rows": 0
+        },
+        "market": {
+          "canonical_sha256": "ac10b4d7f47bea92ddbfee96ef377a1bf484ed00b5da624c4589970d8e642b57",
+          "coverage_pct": 100.0,
+          "duplicate_key_rows": 0,
+          "expected_minutes": 57600,
+          "internal_gap_count": 0,
+          "market_type": "futures_usdt_perp",
+          "max_internal_gap_minutes": 0,
+          "max_open_time": 1783727940000,
+          "min_open_time": 1780272000000,
+          "missing_minutes": 0,
+          "off_grid_rows": 0,
+          "range_complete": true,
+          "row_count": 57600,
+          "timeframe": "1m",
+          "unique_open_times": 57600
+        },
+        "premium_index": {
+          "available": false,
+          "canonical_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "max_open_time": null,
+          "min_open_time": null,
+          "row_count": 0
+        }
+      },
+      "TRXUSDT": {
+        "funding": {
+          "canonical_sha256": "47ae63e18c5f177bf41a6b93a66abd7e9f9df11b65ea4b6ce24a0bbd9afb422a",
+          "duplicate_key_rows": 0,
+          "edge_tolerance_hours": 9,
+          "gap_count_over_9h": 0,
+          "max_funding_time": 1783699200005,
+          "max_gap_hours": 8.00000361,
+          "min_funding_time": 1780272000001,
+          "range_covered": true,
+          "row_count": 120,
+          "text_mark_price_rows": 0
+        },
+        "market": {
+          "canonical_sha256": "80886b76ac2d08c791eb160a4b437af007ad4f4debc6a95b34ffee0e67bcbfb4",
+          "coverage_pct": 100.0,
+          "duplicate_key_rows": 0,
+          "expected_minutes": 57600,
+          "internal_gap_count": 0,
+          "market_type": "futures_usdt_perp",
+          "max_internal_gap_minutes": 0,
+          "max_open_time": 1783727940000,
+          "min_open_time": 1780272000000,
+          "missing_minutes": 0,
+          "off_grid_rows": 0,
+          "range_complete": true,
+          "row_count": 57600,
+          "timeframe": "1m",
+          "unique_open_times": 57600
+        },
+        "premium_index": {
+          "available": false,
+          "canonical_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "max_open_time": null,
+          "min_open_time": null,
+          "row_count": 0
+        }
+      },
+      "XRPUSDT": {
+        "funding": {
+          "canonical_sha256": "570138e542e15b735d28d48ccdc36dfb0d7dbf47dfaa68e2e42449be89cd5d8c",
+          "duplicate_key_rows": 0,
+          "edge_tolerance_hours": 9,
+          "gap_count_over_9h": 0,
+          "max_funding_time": 1783699200005,
+          "max_gap_hours": 8.00000361,
+          "min_funding_time": 1780272000001,
+          "range_covered": true,
+          "row_count": 120,
+          "text_mark_price_rows": 0
+        },
+        "market": {
+          "canonical_sha256": "9b081e6a0313d8129e24df281915691d494b4a21a42f5ad78dbe2114937180c5",
+          "coverage_pct": 100.0,
+          "duplicate_key_rows": 0,
+          "expected_minutes": 57600,
+          "internal_gap_count": 0,
+          "market_type": "futures_usdt_perp",
+          "max_internal_gap_minutes": 0,
+          "max_open_time": 1783727940000,
+          "min_open_time": 1780272000000,
+          "missing_minutes": 0,
+          "off_grid_rows": 0,
+          "range_complete": true,
+          "row_count": 57600,
+          "timeframe": "1m",
+          "unique_open_times": 57600
+        },
+        "premium_index": {
+          "available": false,
+          "canonical_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "max_open_time": null,
+          "min_open_time": null,
+          "row_count": 0
+        }
+      }
+    }
+  },
+  "known_limitations": [
+    "premium-index coverage is recorded but is not a hard gate for candidates that do not consume it",
+    "original Round12 development-data HTTP response hashes were not preserved"
+  ],
+  "schema_version": 2,
+  "selection": {
+    "market_type": "futures_usdt_perp",
+    "timeframe": "1m"
+  }
+}
