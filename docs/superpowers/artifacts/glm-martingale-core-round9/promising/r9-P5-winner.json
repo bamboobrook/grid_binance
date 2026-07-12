@@ -1,11 +1,21 @@
 {
   "label": "r9-P5-winner-lb60-rb7-calmar-hi0.2-lo0.2",
-  "description": "Round 9 best research allocator. 5 sleeves (ANKR-q, QB, R4, fine, p4-ANKR-q-rp10-fos05). 60d lookback, 7d rebalance, calmar_like score, max_hi=0.2, min_lo=0.2, no cash trigger. Forward-only timing (no current-interval leak). Allocator Rust module is tested, but trading-engine main.rs per-tick dispatch is not wired, so this is not fully live-ready.",
+  "description": "Historical Round 9 curve-reuse allocator diagnostic. It combines independently running sleeve curves and does not preserve event-level position/capital state across switches. The original funding database also omitted ANKRUSDT. This artifact is superseded for promotion by the Round 11 audit.",
+  "status": "superseded_curve_reuse_diagnostic",
+  "metrics_scope": "historical_missing_ankrusdt_funding",
   "metrics": {
     "annualized_return_pct": 64.4196,
     "max_drawdown_pct": 18.2111,
-    "total_return_pct": 447.4158,
+    "total_return_pct": 446.7542,
     "positive_segments": "5/5 (all segments positive including 2025 +5.12%)"
+  },
+  "corrected_metrics_with_ankrusdt_funding_2026_07_12": {
+    "annualized_return_pct": 62.7845,
+    "max_drawdown_pct": 18.384,
+    "total_return_pct": 428.3994,
+    "positive_segments": "5/5 curve-slice segments",
+    "funding_source": "Binance official fapi fundingRate, 3997 ANKRUSDT points",
+    "still_event_level_executable": false
   },
   "segment_metrics": {
     "h1_2023": {
@@ -65,12 +75,16 @@
   ],
   "live_ready": false,
   "live_parity_module": "apps/backtest-engine/src/martingale/allocator_replay.rs",
-  "live_parity_status": "Allocator module complete and tested (3 backtest + 2 trading-engine tests pass). Full live deployment still requires trading-engine main.rs per-tick dispatch wiring; until then this candidate is research/backtest-valid but not fully live-ready.",
+  "live_parity_status": "Not production-live-ready. The Rust module reproduces curve selection only; the production executor bypasses dynamic rebalance after startup, has no inactive-sleeve observation writer, and cannot reproduce curve-inherited open positions.",
   "target_assessment": {
     "conservative": "NOT MET (ann 64.4 > 50 PASS, DD 18.2 > 10 FAIL, segs 5/5 PASS)",
     "balanced": "NOT MET (ann 64.4 < 90 FAIL, DD 18.2 <= 20 PASS, segs 5/5 PASS)",
     "aggressive": "NOT MET (ann 64.4 < 110 FAIL, DD 18.2 <= 30 PASS, segs 5/5 PASS)"
   },
-  "live_module_ready": true,
-  "live_deployable": false
+  "live_module_ready": false,
+  "live_deployable": false,
+  "event_level_position_continuity": false,
+  "shared_budget_replay": false,
+  "strict_budget_below_5000_validated": false,
+  "fractional_weight_caps_implemented": false
 }

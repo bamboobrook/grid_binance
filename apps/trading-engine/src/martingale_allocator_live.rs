@@ -1,14 +1,18 @@
-//! Round 11 Task P1: Production allocator live helpers.
+//! Round 11 Task P1: allocator parsing and rolling-metric helpers.
 //!
 //! These functions parse allocator config/state from portfolio JSON, compute
 //! completed rolling metrics from persisted observations, and serialize state
 //! back to JSON for persistence in risk_summary.
 //!
-//! The main loop (`main.rs`) uses these to:
+//! The initial executor-creation path in `main.rs` uses these to:
 //! 1. Parse the allocator config and current state (risk_summary priority).
 //! 2. Compute rolling metrics from observations <= rebalance boundary.
 //! 3. Call `runtime.rebalance_allocator(...)` when `now_ms >= next_rebalance_ms`.
 //! 4. Persist the updated state to `risk_summary["allocator_state"]`.
+//!
+//! This module is not sufficient for production dynamic allocation. The
+//! already-started executor path bypasses the initial gate, and no production
+//! writer currently supplies shadow observations for inactive sleeves.
 
 use std::collections::HashMap;
 

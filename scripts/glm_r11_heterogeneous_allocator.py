@@ -1,9 +1,13 @@
 #!/usr/bin/env python3
-"""GLM Round 11 Task P7: Heterogeneous Sleeve Allocator + LOSO.
+"""GLM Round 11 Task P7: legacy sleeve curve allocator grid.
 
 Builds an allocator grid from validated sleeves (R4-combo, R7-ANKR-q, R6-QB,
 R5-fine, R9-P4-variant). Uses curve-reuse for fast allocator replays.
-Includes leave-one-segment-out (LOSO) validation for any target candidate.
+
+This is not an event-level portfolio replay: inactive sleeves continue to
+evolve in their precomputed curves and position state is not reconciled at a
+switch. The legacy hi/lo fields are binary eligibility switches, not weights.
+Do not use this script to establish production parity or a target hit.
 """
 import argparse, json, os, sys, time
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -106,7 +110,16 @@ def main():
 
     results.sort(key=lambda v: v["full_metrics"]["ann"], reverse=True)
     os.makedirs(os.path.dirname(args.out), exist_ok=True)
-    json.dump({"results": results, "total_configs": total}, open(args.out, "w"), indent=2)
+    json.dump({
+        "results": results,
+        "total_configs": total,
+        "semantics": {
+            "curve_reuse_only": True,
+            "event_level_position_continuity": False,
+            "fractional_weight_caps_implemented": False,
+            "production_live_ready": False,
+        },
+    }, open(args.out, "w"), indent=2)
 
     targets = [r for r in results if r["target_hit"]]
     print(f"\n[r11P7] wrote {args.out}: {len(results)} configs, {len(targets)} targets in {time.time()-t0:.0f}s")

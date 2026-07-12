@@ -1,0 +1,191 @@
+{
+  "round": 11,
+  "audit_date": "2026-07-12",
+  "branch": "glm-martingale-core-round11",
+  "audited_round11_head_commit": "4b912e9a73b682ac3f3cc4aeae21a93fae212a13",
+  "plan": "docs/superpowers/plans/2026-07-09-glm-martingale-core-round11-live-rebalance-and-native-minigrid-plan.md",
+  "canonical_audit": "docs/superpowers/reports/2026-07-12-glm-round11-execution-audit-and-fix.md",
+  "target_hits": {
+    "conservative": [],
+    "balanced": [],
+    "aggressive": []
+  },
+  "curve_reuse_diagnostic": {
+    "label": "r9-P5-winner",
+    "historical_metrics": {
+      "annualized_return_pct": 64.4196,
+      "max_drawdown_pct": 18.2111,
+      "total_return_pct": 446.7542,
+      "positive_curve_slice_segments": "5/5"
+    },
+    "corrected_with_ankrusdt_funding": {
+      "annualized_return_pct": 62.7845,
+      "max_drawdown_pct": 18.384,
+      "total_return_pct": 428.3994,
+      "positive_curve_slice_segments": "5/5"
+    },
+    "traded_symbol_universe": 8,
+    "event_level_executable": false,
+    "fully_live_ready": false,
+    "promotion_eligible": false,
+    "reasons": [
+      "inactive sleeve curves inherit positions created while inactive",
+      "shared capital and open-cycle continuity are not replayed",
+      "production executor bypasses allocator rebalance after startup",
+      "historical funding database omitted ANKRUSDT",
+      "only an exact 5000U curve build was validated"
+    ]
+  },
+  "best_corrected_event_level_backtest": {
+    "label": "R7-ANKR-q1w24p24",
+    "annualized_return_pct": 62.37183492301388,
+    "max_drawdown_pct": 28.687251235133964,
+    "total_return_pct": 423.83730623010376,
+    "positive_cold_start_segments": "4/5",
+    "traded_symbols": 6,
+    "budget_usdt": 5000,
+    "max_capital_used_quote": 1729.2803179982502,
+    "funding_points_added_for_recheck": 3997,
+    "fully_live_ready": false,
+    "promotion_eligible": false
+  },
+  "best_previously_accepted_fully_live_ready": {
+    "label": "R4-combo",
+    "annualized_return_pct": 34.72332738972233,
+    "max_drawdown_pct": 17.68431043895811,
+    "positive_segments": "4/5",
+    "target_status": "misses every return target"
+  },
+  "strict_small_budget_recheck": {
+    "candidate": "R7-ANKR-q1w24p24",
+    "budget_4999": {
+      "annualized_return_pct": 62.3795267961722,
+      "max_drawdown_pct": 28.68938003226961,
+      "total_return_pct": 423.92209064823334
+    },
+    "budget_2000": {
+      "annualized_return_pct": 5.423228973481864,
+      "max_drawdown_pct": 45.582322393924535,
+      "total_return_pct": 19.773422353913702
+    },
+    "verdict": "A 5000U metric or max-capital-used field cannot establish small-budget scalability. Every promoted candidate needs a 1000/2000/3000/4000/4999 budget ladder."
+  },
+  "task_audit": {
+    "P1": {
+      "status": "partial",
+      "fully_live_ready": false,
+      "finding": "helpers and initial static gate exist; started executor path bypasses rebalance and no observation writer exists"
+    },
+    "P2": {
+      "status": "research_replay_only",
+      "production_parity": false,
+      "finding": "Python curve replay never starts trading-engine or DB reconcile; forward decision trace was hard-coded rather than emitted"
+    },
+    "P3": {
+      "status": "config_helpers_only",
+      "native_backtest_ready": false,
+      "native_live_ready": false
+    },
+    "P4": {
+      "status": "complete_for_partial_tp_approximation",
+      "labels": 6912,
+      "binary_replays": 41472,
+      "target_hits": 0,
+      "best": "ann 16.6529 / DD 35.5198 / 2 of 5",
+      "positive_segment_distribution": {
+        "0": 4341,
+        "1": 1941,
+        "2": 444,
+        "3": 162,
+        "4": 24,
+        "5": 0
+      },
+      "failure_scope": "partial-TP minigrid approximation only"
+    },
+    "P5": {
+      "status": "complete_but_narrow",
+      "labels": 8100,
+      "binary_replays": 48600,
+      "target_hits": 0,
+      "best": "ann 21.9292 / DD 23.1575 / 2 of 5",
+      "family_counts": {
+        "fixed_tp": 2304,
+        "fixed_tp_v3": 5692,
+        "low_multiplier": 36,
+        "atr_pause_mislabeled_vol_ladder": 4,
+        "asymmetric": 64
+      },
+      "positive_segment_distribution": {
+        "0": 4217,
+        "1": 2707,
+        "2": 982,
+        "3": 167,
+        "4": 27,
+        "5": 0
+      },
+      "failure_scope": "mostly fixed-percent TP variants; real ATR spacing ladder remains untested"
+    },
+    "P6": {
+      "status": "partial_with_inert_dimensions",
+      "labels": 4608,
+      "binary_replays": 27648,
+      "unique_full_metric_groups": 217,
+      "target_hits": 0,
+      "best": "historical missing-funding base ann 63.5105 / DD 28.1972 / 4 of 5",
+      "positive_segment_distribution": {
+        "0": 816,
+        "1": 1072,
+        "2": 1472,
+        "3": 880,
+        "4": 368,
+        "5": 0
+      },
+      "inert_historical_dimensions": [
+        "strategy-level safety_skip_adx_threshold",
+        "strategy-level drawdown_state_rules"
+      ],
+      "script_fixed_after_audit": true
+    },
+    "P7": {
+      "status": "legacy_same_sleeve_curve_grid",
+      "labels": 6912,
+      "underlying_binary_curve_builds": 5,
+      "in_memory_full_plus_segment_evaluations": 41472,
+      "effective_parameter_combinations_before_metric_collisions": 768,
+      "unique_full_metric_groups": 72,
+      "unique_full_and_segment_groups": 316,
+      "target_hits": 0,
+      "new_p4_p5_p6_sleeves_included": false,
+      "event_level_replay": false,
+      "production_live_ready": false
+    }
+  },
+  "replay_accounting": {
+    "historical_claimed_round11_replays": 159192,
+    "estimated_portfolio_budget_replay_processes": 117730,
+    "note": "P7 counted 41472 in-memory curve calculations as if they were portfolio backtest processes. P6 also contains duplicated behavior from inert dimensions."
+  },
+  "data_input_audit": {
+    "round11_market_db_sha256": "cc5b88c113b83d055a88222405cc9d4770eb837524981bf8e5f98bf47392d018",
+    "current_market_db_sha256": "be2514c88620642538ec38882bb08080995bc5d26e51aafe3012bfed8050f98f",
+    "funding_db_sha256_unchanged": true,
+    "premium_db_sha256_unchanged": true,
+    "r9_historical_replay_exactly_reproduced": true,
+    "target_range_futures_1m_rows_per_r9_symbol": 1795680,
+    "target_range_is_contiguous_by_count_min_max_sum": true,
+    "ankrusdt_funding_missing": true,
+    "immutable_range_snapshot_available": false
+  },
+  "do_not_repeat_new_keys": [
+    "r11-partial-tp-minigrid-approx-6912-no-target",
+    "r11-fixed-tp-dominated-7996-no-target",
+    "r11-so-v2-effective-controls-historical-grid-no-target",
+    "r11-r9-same-sleeve-curve-allocator-grid-no-target"
+  ],
+  "target_verdict": {
+    "conservative": "NOT MET: no production/event-level candidate has ann >=50% and DD <=10% under a strict sub-5000U gate.",
+    "balanced": "NOT MET: the corrected curve diagnostic is 62.78%/18.38%, below 90%, and is not executable.",
+    "aggressive": "NOT MET: the corrected event-level candidate is 62.37%/28.69%, below 110% and not fully live-ready."
+  },
+  "source_of_truth": "docs/superpowers/artifacts/glm-martingale-core-round11/r11-final-validation.json"
+}

@@ -6,6 +6,10 @@ existing martingale-native risk controls instead: rebound_bps, basis, ADX
 skip, drawdown-state scale, late-leg cap.
 
 Minimum valid configs: 4000.
+
+The original Round 11 artifact was generated before the portfolio-level ADX
+and drawdown-rule placement below was fixed. That artifact is historical and
+must not be treated as evidence for those two dimensions.
 """
 import argparse, json, os, subprocess, sys, time, copy
 from concurrent.futures import ProcessPoolExecutor, as_completed
@@ -32,13 +36,22 @@ def load_base(name): return json.load(open(BASE_SLEEVES[name]))
 def apply_so_v2(cfg, rebound_bps, basis, adx_skip, dd_scale, late_leg_cap, step_bps=None, foq=None):
     new_cfg = copy.deepcopy(cfg)
     pc = new_cfg["portfolio_config"]
+    portfolio_rl = pc.setdefault("risk_limits", {})
+    portfolio_rl["safety_skip_adx_threshold"] = adx_skip
+    if dd_scale < 1.0:
+        portfolio_rl["drawdown_state_rules"] = [{
+            "trigger_drawdown_pct": 10.0,
+            "safety_order_scale": dd_scale,
+            "first_order_scale": None,
+            "cooldown_multiplier": None,
+            "freeze_safety_orders": None,
+        }]
     for s in pc["strategies"]:
         rl = s.get("risk_limits", {})
         rl["safety_order_rebound_bps"] = rebound_bps
         rl["safety_order_basis"] = basis
-        rl["safety_skip_adx_threshold"] = adx_skip
-        if dd_scale < 1.0:
-            rl["drawdown_state_rules"] = [{"trigger_drawdown_pct": 10.0, "safety_order_scale": dd_scale, "first_order_scale": None, "cooldown_multiplier": None, "freeze_safety_orders": None}]
+        rl.pop("safety_skip_adx_threshold", None)
+        rl.pop("drawdown_state_rules", None)
         if late_leg_cap is not None:
             rl["taper_safety_after_leg"] = late_leg_cap
             rl["taper_safety_scale"] = 0.7
@@ -138,7 +151,8 @@ def main():
     os.makedirs(os.path.dirname(args.out), exist_ok=True)
     json.dump({"results": valid, "target_hits": targets, "total_specs": len(specs),
                "total_evaluated": len(valid), "total_skipped": len(results)-len(valid),
-               "total_target_hits": len(targets)}, open(args.out, "w"), indent=2)
+               "total_target_hits": len(targets), "semantics_version": 2,
+               "portfolio_level_adx_and_dd_rules": True}, open(args.out, "w"), indent=2)
     el = time.time() - t0
     print(f"\n[r11P6] wrote {args.out}: {len(valid)} eval, {len(targets)} targets in {el:.0f}s")
     print(f"\n=== TOP 10 by ann ===")

@@ -1,42 +1,37 @@
 {
+  "task": "P2",
   "candidate": "r9-P5-winner",
-  "production_live_ready_after_p1": true,
-  "annualized_return_pct": 64.4196,
-  "max_drawdown_pct": 18.2111,
-  "total_return_pct": 446.7542,
-  "r9_recorded_ann": 64.4196,
-  "r9_recorded_dd": 18.2111,
-  "ann_abs_diff": 0.0,
-  "dd_abs_diff": 0.0,
-  "forward_only_decisions_pass": true,
-  "full_metrics_tolerance_pass": true,
-  "segment_metrics_present_pass": true,
-  "segment_metrics": {
-    "h1_2023": {
-      "ann": 19.646,
-      "dd": 4.6387,
-      "ret": 9.2942
-    },
-    "h2_2023": {
-      "ann": 11.4772,
-      "dd": 1.7118,
-      "ret": 5.625
-    },
-    "2024": {
-      "ann": 15.5062,
-      "dd": 4.9091,
-      "ret": 15.5379
-    },
-    "2025": {
-      "ann": 5.1231,
-      "dd": 3.9053,
-      "ret": 5.1187
-    },
-    "2026_ytd": {
-      "ann": 0.7871,
-      "dd": 3.7386,
-      "ret": 0.3247
-    }
+  "audit_date": "2026-07-12",
+  "parity_scope": "python_research_curve_replay_only",
+  "production_live_ready_after_p1": false,
+  "production_parity_tested": false,
+  "db_backed_reconcile_tested": false,
+  "event_level_position_continuity_tested": false,
+  "shared_budget_replay_tested": false,
+  "forward_only_decision_trace_emitted": false,
+  "historical_database_replay": {
+    "annualized_return_pct": 64.4196,
+    "max_drawdown_pct": 18.2111,
+    "total_return_pct": 446.7542,
+    "positive_curve_slice_segments": "5/5",
+    "reproduced_on_2026_07_12": true,
+    "ann_abs_diff": 0.0,
+    "dd_abs_diff": 0.0,
+    "data_defect": "funding_rates.db has no ANKRUSDT rows"
   },
-  "all_checks_pass": true
+  "corrected_ankrusdt_funding_replay": {
+    "annualized_return_pct": 62.7845,
+    "max_drawdown_pct": 18.384,
+    "total_return_pct": 428.3994,
+    "positive_curve_slice_segments": "5/5",
+    "historical_ann_abs_diff": 1.6351,
+    "historical_dd_abs_diff": 0.1729,
+    "funding_points_added_to_temporary_db": 3997,
+    "funding_json_sha256": "599b8be47f42580eb2ad51d0d774424ba8461ca63aee6f81497fda2d93e73997",
+    "source": "Binance official fapi /fapi/v1/fundingRate"
+  },
+  "research_curve_replay_reproducible": true,
+  "production_live_parity_pass": false,
+  "target_hit": false,
+  "verdict": "The R9 curve metric is reproducible under its historical inputs, but missing ANKR funding lowers it and curve reuse cannot prove executable or production parity."
 }

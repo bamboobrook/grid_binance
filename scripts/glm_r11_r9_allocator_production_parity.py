@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-"""GLM Round 11 Task P2: R9 Winner Production Parity After True Live Rebalance.
+"""GLM Round 11 Task P2: R9 allocator research-curve replay.
 
-Confirms the R9 winner allocator metrics are reproducible after the P1
-production rebalance wiring. Reuses the R10 P2 parity replay logic but adds
-the `production_live_ready_after_p1` flag.
+This script rebuilds independently simulated sleeve equity curves and feeds
+them to the Python curve allocator. It does not start trading-engine, exercise
+the DB-backed reconcile path, or preserve event-level positions across sleeve
+switches. Its output is research replay evidence only, never production parity.
 """
 import argparse, json, os, sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -77,10 +78,12 @@ def main():
     tol_pass = ann_diff <= 0.2 and dd_diff <= 0.2
     seg_present = sum(1 for v in seg_m.values() if v is not None)
 
-    # Check P1 evidence exists
+    # A file on disk is useful provenance, but is not production execution
+    # evidence. Keep this field only to explain the historical overclaim.
     p1_evidence = os.path.exists("docs/superpowers/artifacts/glm-martingale-core-round11/r11-live-allocator-production-wiring.json")
 
-    print(f"PASS forward_only_decisions" if True else "FAIL")
+    research_parity_pass = tol_pass and seg_present == 5
+    print("UNVERIFIED decision trace (the script emits no rebalance decisions)")
     print(f"Full metrics: ann={full_metrics['ann']:.4f} dd={full_metrics['dd']:.4f} vs R9 ann={r9_ann} dd={r9_dd}")
     print(f"  ann_diff={ann_diff:.4f}, dd_diff={dd_diff:.4f}")
     print(f"PASS full_metrics_tolerance" if tol_pass else "FAIL full_metrics_tolerance")
@@ -89,7 +92,12 @@ def main():
 
     out = {
         "candidate": "r9-P5-winner",
-        "production_live_ready_after_p1": p1_evidence and tol_pass and seg_present == 5,
+        "parity_scope": "python_research_curve_replay_only",
+        "production_live_ready_after_p1": False,
+        "production_parity_tested": False,
+        "db_backed_reconcile_tested": False,
+        "event_level_position_continuity_tested": False,
+        "p1_evidence_file_present": p1_evidence,
         "annualized_return_pct": full_metrics["ann"],
         "max_drawdown_pct": full_metrics["dd"],
         "total_return_pct": full_metrics["ret"],
@@ -97,16 +105,20 @@ def main():
         "r9_recorded_dd": r9_dd,
         "ann_abs_diff": round(ann_diff, 4),
         "dd_abs_diff": round(dd_diff, 4),
-        "forward_only_decisions_pass": True,
+        "forward_only_decisions_pass": None,
+        "forward_only_decisions_verified": False,
+        "forward_only_note": "run_allocator_repaired is intended to be forward-only, but this script does not emit or validate a decision trace",
         "full_metrics_tolerance_pass": tol_pass,
         "segment_metrics_present_pass": seg_present == 5,
         "segment_metrics": seg_m,
-        "all_checks_pass": tol_pass and seg_present == 5,
+        "research_replay_checks_pass": research_parity_pass,
+        "all_checks_pass": research_parity_pass,
     }
     os.makedirs(os.path.dirname(args.out), exist_ok=True)
     json.dump(out, open(args.out, "w"), indent=2)
     print(f"\nWrote {args.out}")
-    print(f"production_live_ready_after_p1: {out['production_live_ready_after_p1']}")
+    print(f"research_replay_checks_pass: {out['research_replay_checks_pass']}")
+    print("production_live_ready_after_p1: False (not tested by this script)")
 
 
 if __name__ == "__main__":

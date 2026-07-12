@@ -1,7 +1,8 @@
-//! Round 11 Task P1: Production allocator live integration tests.
+//! Round 11 Task P1: allocator helper and runtime tests.
 //!
-//! These tests verify the production allocator helpers in
-//! `martingale_allocator_live.rs` and the `MartingaleRuntime` integration.
+//! These tests verify allocator helpers in `martingale_allocator_live.rs` and
+//! direct `MartingaleRuntime` integration. They do not invoke the DB-backed
+//! `reconcile_running_martingale_portfolios` path.
 //! They cover: dynamic rebalance when due, state persistence semantics,
 //! completed-observations-only metric computation, and risk_summary state
 //! priority over config fallback.
@@ -17,12 +18,10 @@ use shared_domain::martingale::{
 use std::collections::HashMap;
 use trading_engine::martingale_allocator_live::{
     allocator_state_from_json, completed_allocator_metrics, parse_allocator_config,
-    parse_strategy_to_sleeve_id, parse_observations, read_allocator_state_with_priority,
-    state_to_json, AllocatorObservation,
+    parse_strategy_to_sleeve_id, parse_observations, state_to_json, AllocatorObservation,
 };
 use trading_engine::martingale_runtime::{
-    FuturesExchangeSettings, FuturesSymbolSettings, MartingaleRuntime, MartingaleRuntimeConfig,
-    MartingaleRuntimeContext,
+    MartingaleRuntime, MartingaleRuntimeConfig,
 };
 
 fn dec(v: i64) -> Decimal {
@@ -66,28 +65,6 @@ fn runtime_config(strategies: Vec<MartingaleStrategyConfig>) -> MartingaleRuntim
     }
 }
 
-fn futures_settings() -> FuturesExchangeSettings {
-    FuturesExchangeSettings {
-        hedge_mode: true,
-        symbols: HashMap::from([
-            (
-                "BNBUSDT".to_string(),
-                FuturesSymbolSettings {
-                    margin_mode: shared_domain::martingale::MartingaleMarginMode::Cross,
-                    leverage: 3,
-                },
-            ),
-            (
-                "ANKRUSDT".to_string(),
-                FuturesSymbolSettings {
-                    margin_mode: shared_domain::martingale::MartingaleMarginMode::Cross,
-                    leverage: 3,
-                },
-            ),
-        ]),
-    }
-}
-
 fn sleeve_map() -> HashMap<String, String> {
     HashMap::from([
         ("long-r4".to_string(), "R4".to_string()),
@@ -110,7 +87,7 @@ fn allocator_cfg() -> AllocatorConfig {
 }
 
 #[test]
-fn r11_allocator_rebalances_when_next_rebalance_due_in_main_reconcile() {
+fn r11_allocator_runtime_helper_rebalances_when_due() {
     // Initialize allocator with R4 active, next_rebalance at day 7.
     // At day 7+, with completed metrics where ANKR has higher score, the
     // rebalance must switch to ANKR.
@@ -144,7 +121,7 @@ fn r11_allocator_rebalances_when_next_rebalance_due_in_main_reconcile() {
 }
 
 #[test]
-fn r11_allocator_persists_state_and_blocks_new_cycles_after_switch() {
+fn r11_allocator_state_shape_and_runtime_gate_after_switch() {
     // After rebalance, the state JSON must reflect the new active sleeve and
     // advanced next_rebalance_ms. The runtime must block inactive sleeves.
     let day_ms = 86_400_000_i64;
@@ -187,7 +164,7 @@ fn r11_allocator_persists_state_and_blocks_new_cycles_after_switch() {
 }
 
 #[test]
-fn r11_allocator_uses_completed_observations_only() {
+fn r11_completed_metrics_use_observations_at_or_before_boundary() {
     // Add a current-interval observation whose timestamp is GREATER than the
     // rebalance boundary. Assert completed_allocator_metrics ignores it.
     let day_ms = 86_400_000_i64;
@@ -228,7 +205,7 @@ fn r11_allocator_uses_completed_observations_only() {
 }
 
 #[test]
-fn r11_allocator_reads_risk_summary_state_before_config_fallback() {
+fn r11_allocator_state_json_uses_supplied_persisted_value() {
     // When risk_summary.allocator_state and config.allocator_state both exist,
     // risk_summary takes priority.
     let json_state = |active: &str| -> serde_json::Value {

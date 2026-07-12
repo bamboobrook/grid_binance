@@ -5,18 +5,19 @@ Round 8 allocator defects fixed in Round 9:
   1. TIMING LEAK FIXED: Rebalance decision at ts only affects intervals
      AFTER ts. The step from prev_ts -> ts is applied to the previously
      active sleeve, not the newly selected one.
-  2. WEIGHT PARAMS BIND: max_high_ann_weight caps allocation to high-ann
-     sleeves; min_low_dd_weight forces a floor on low-DD sleeves.
+  2. LEGACY ELIGIBILITY SWITCHES: despite their names, max_high_ann_weight and
+     min_low_dd_weight do not implement fractional weights. Only max_hi <= 0
+     excludes high-ann sleeves; min_lo > 0 merely keeps low-DD sleeves eligible.
   3. TRADED_SYMBOLS REAL: pulled from underlying sleeve configs, not sleeve
      labels.
-  4. TRUE SEGMENT METRICS: each allocator candidate runs the allocator
-     separately over each of the 5 segments (no curve reuse across segments
-     that would mask segment-specific allocator behavior).
+  4. CURVE-SLICE SEGMENT METRICS: each segment reruns the allocator over a
+     slice of full-period sleeve curves. The sleeves are not cold-started and
+     their event-level positions are not replayed at segment boundaries.
   5. PORTFOLIO CANDIDATE FLAG: includes symbol_count, max_symbol_budget_pct,
      max_symbol_gross_pnl_share_pct, portfolio_candidate, live_ready.
 
 The module exposes:
-  run_allocator_repaired(...)  — forward-only timing, weight-capped
+  run_allocator_repaired(...)  — forward-only curve recombination
   run_allocator_leaky(...)     — Round 8 leaky timing (for comparison only)
   compute_segment_metrics_for_allocator(...) — per-segment allocator replay
   main()                       — CLI grid search
@@ -104,12 +105,11 @@ def _scores_for_rebal(curves, pnl_by, ts, lookback_ms, budget, score_fn, eligibl
 
 
 def _eligible_sleeves(curves, max_hi, min_lo, high_ann, low_dd):
-    """Apply weight caps/floors to determine the eligible sleeve set.
+    """Apply legacy binary eligibility switches.
 
-    max_hi < 1.0: high-ann sleeves are excluded when their weight would be
-    forced below their natural share. Simplest binding implementation: if
-    max_hi == 0, exclude all high-ann sleeves. Otherwise allow.
-    min_lo > 0: low-DD sleeves are always eligible (forced floor).
+    These parameters do not create fractional allocations. max_hi <= 0
+    excludes high-ann sleeves; every positive max_hi value is equivalent.
+    min_lo > 0 keeps low-DD sleeves eligible, which is usually already true.
     """
     all_sleeves = [n for n in curves.keys() if n != "cash"]
     eligible = set(all_sleeves)
@@ -296,10 +296,11 @@ def compute_segment_metrics_for_allocator(curves, lookback_days, rebalance_days,
                                            score_fn, max_hi, min_lo, cash_dd, hyst_gap,
                                            high_ann_sleeves, low_dd_sleeves,
                                            budget, segments):
-    """Run the allocator over each segment window using curves restricted to
-    that segment. Returns {seg_name: {ann, dd, ret}}.
-    NOTE: this slices each sleeve's equity curve to the segment window and
-    re-runs the allocator. This is a TRUE per-segment allocator replay.
+    """Run the allocator over slices of full-period sleeve curves.
+
+    Returns {seg_name: {ann, dd, ret}}. This is segment attribution for the
+    curve model, not a cold-start event-level sleeve replay. Open-cycle state
+    from before a boundary may be embedded in the sliced curve.
     """
     out = {}
     for seg_name, seg_start, seg_end in segments:
@@ -361,13 +362,13 @@ def main():
         "calmar_like": lambda ret, dd: ret / (dd + 1.0) if ret > 0 else ret - dd,
     }
     max_his = [0.0, 0.30, 1.0]   # 0.0 = exclude high-ann entirely (binds)
-    min_los = [0.0, 0.35, 1.0]   # >0 = force low-DD eligible (binds)
+    min_los = [0.0, 0.35, 1.0]   # Legacy binary switch: 0 versus >0 only
     cash_dds = [None, 8, 12]
     hyst_gaps = [0, 3, 6]
 
     total = (len(lookbacks) * len(rebalances) * len(scores) * len(max_his) *
              len(min_los) * len(cash_dds) * len(hyst_gaps))
-    print(f"=== Running {total} allocator configs (forward-only, weight-bound) ===", flush=True)
+    print(f"=== Running {total} curve-allocator labels (legacy eligibility semantics) ===", flush=True)
     t0 = time.time()
     results = []
     done = 0
@@ -431,8 +432,18 @@ def main():
 
     results.sort(key=lambda v: v.get("full_metrics", {}).get("ann", -999), reverse=True)
     os.makedirs(os.path.dirname(args.out), exist_ok=True)
-    json.dump({"results": results, "total_configs": total, "non_duplicate_rows": len(results)},
-              open(args.out, "w"), indent=2)
+    json.dump({
+        "results": results,
+        "total_configs": total,
+        "non_duplicate_rows": len(results),
+        "semantics": {
+            "curve_reuse_only": True,
+            "event_level_position_continuity": False,
+            "cold_start_segment_replays": False,
+            "fractional_weight_caps_implemented": False,
+            "production_live_ready": False,
+        },
+    }, open(args.out, "w"), indent=2)
     print(f"\n[r9P1] wrote {args.out}: {len(results)} non-duplicate rows in {time.time()-t0:.0f}s")
     print("\n=== TOP 10 by ann ===")
     for v in results[:10]:

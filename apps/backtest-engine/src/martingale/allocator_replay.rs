@@ -1,4 +1,4 @@
-//! Round 9 Task P2: Live-reproducible martingale portfolio allocator.
+//! Round 9 Task P2: forward-only martingale sleeve curve allocator.
 //!
 //! Pure allocator logic that selects among martingale sleeves (each sleeve is a
 //! full portfolio config) using only data strictly before the interval it
@@ -9,8 +9,9 @@
 //!
 //! Round 8 P2 allocator was Python-only and had a current-interval timing
 //! leak. Round 9 P1 repaired the timing (forward-only), and this module
-//! provides the live-reproducible Rust implementation so that the same
-//! allocator decisions can be made in `trading-engine` at runtime.
+//! provides a Rust implementation of the same curve-selection rule. Curve
+//! parity alone does not establish event-level or production parity: inactive
+//! sleeve positions and shared capital are outside this module.
 //!
 //! ## Core invariants
 //!
@@ -18,10 +19,9 @@
 //!    equity observations up to and including `ts`, but the decision only
 //!    affects the interval AFTER `ts`. The merged PnL for the step ending at
 //!    `ts` is attributed to the previously active sleeve.
-//! 2. **Weight caps bind**: `max_high_ann_weight == 0.0` excludes high-ann
-//!    sleeves; `min_low_dd_weight > 0.0` forces low-DD sleeves to remain
-//!    eligible. These parameters MUST change the output allocation when
-//!    toggled (verified by `case_weight_params_bind` semantic test).
+//! 2. **Legacy eligibility switches**: despite their field names,
+//!    `max_high_ann_weight` and `min_low_dd_weight` do not implement
+//!    fractional weights. Only zero/non-zero eligibility behavior is modeled.
 //! 3. **No forced cycle close on switch**: existing martingale cycles are not
 //!    force-closed when the active sleeve changes; new cycles open only for
 //!    the active sleeve.
@@ -83,11 +83,11 @@ pub struct AllocatorConfig {
     pub rebalance_days: i32,
     /// Score function family.
     pub score_function: AllocatorScoreFunction,
-    /// Maximum weight (eligibility cap) for high-ann sleeves. `0.0` excludes
-    /// all high-ann sleeves; `1.0` allows them.
+    /// Legacy binary eligibility switch for high-ann sleeves. `0.0` excludes
+    /// them; every positive value allows them to compete on score.
     pub max_high_ann_weight: f64,
-    /// Minimum weight (eligibility floor) for low-DD sleeves. `>0.0` forces
-    /// all low-DD sleeves to remain eligible even if their score is poor.
+    /// Legacy binary eligibility switch for low-DD sleeves. Every positive
+    /// value keeps them eligible; no fractional allocation is created.
     pub min_low_dd_weight: f64,
     /// If `Some(pct)`, switch to cash when merged DD exceeds this percent.
     pub cash_trigger_rolling_dd_pct: Option<f64>,
@@ -125,7 +125,7 @@ impl AllocatorConfig {
         (self.rebalance_days as i64) * MS_PER_DAY
     }
 
-    /// Returns the eligible sleeve set after applying weight caps/floors.
+    /// Returns the eligible sleeve set after applying legacy binary switches.
     fn eligible_sleeves(&self, all_sleeves: &[&str]) -> Vec<String> {
         let high: std::collections::HashSet<&str> = self
             .high_ann_sleeve_ids
@@ -246,11 +246,13 @@ pub struct AllocatorMetrics {
     pub total_return_pct: f64,
 }
 
-/// Pure forward-only allocator replay. Returns total metrics.
+/// Pure forward-only curve recombination. Returns diagnostic metrics.
 ///
 /// `budget` is the initial capital in quote units. Each sleeve's curve is
 /// assumed to start at `budget` (the caller is responsible for renormalizing
 /// sleeve curves if they were generated with a different starting equity).
+/// The function does not model shared capital or reconcile open positions when
+/// switching sleeves, so its output is not an executable portfolio backtest.
 pub fn run_allocator_replay(
     curves: &SleeveCurves,
     cfg: &AllocatorConfig,

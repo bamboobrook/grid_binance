@@ -1,34 +1,37 @@
 {
   "task": "P1",
-  "title": "Finish True Production Live Allocator",
-  "full_live_ready_gap_from_round10": "closed_if_all_tests_pass",
-  "production_rolling_metrics_wired": true,
-  "production_rolling_metrics_location": "apps/trading-engine/src/martingale_allocator_live.rs::completed_allocator_metrics (uses observations <= rebalance_boundary_ms only)",
-  "dynamic_rebalance_wired": true,
-  "dynamic_rebalance_location": "apps/trading-engine/src/main.rs::runtime_with_allocator_state (calls state.rebalance when now_ms >= next_rebalance_ms)",
-  "state_persistence_wired": true,
-  "state_persistence_location": "apps/trading-engine/src/main.rs reconcile_running_martingale_portfolios (writes allocator_state to risk_summary via update_martingale_portfolio_risk_summary)",
-  "risk_summary_state_priority": true,
-  "risk_summary_priority_rule": "risk_summary.allocator_state > config.portfolio_config.allocator_state > alphabetically-first sleeve fallback",
+  "audit_date": "2026-07-12",
+  "title": "Allocator helper wiring audit",
+  "fully_live_ready": false,
+  "production_dynamic_rebalance_ready": false,
+  "production_rolling_metrics_reader_ready": true,
+  "production_observation_writer_ready": false,
+  "shadow_sleeve_metrics_ready": false,
+  "initial_executor_creation_gate_ready": true,
+  "started_executor_path_gate_ready": false,
+  "state_serialization_helper_ready": true,
+  "continuous_state_persistence_ready": false,
+  "risk_summary_state_priority_helper_ready": true,
   "existing_cycles_force_closed": false,
-  "target_hit": false,
-  "implementation": {
-    "new_module": "apps/trading-engine/src/martingale_allocator_live.rs (parse_allocator_config, parse_strategy_to_sleeve_id, allocator_state_from_json, state_to_json, parse_observations, completed_allocator_metrics, read_allocator_state_with_priority)",
-    "main_rs_changes": "runtime_with_allocator_state rewritten to use read_allocator_state_with_priority (risk_summary > config > fallback), compute completed_allocator_metrics, and call state.rebalance when due. last_allocator_snapshot tracked for persistence. risk_summary[allocator_state] persisted after cycle loop.",
-    "new_tests_file": "apps/trading-engine/tests/martingale_allocator_live_production.rs (7 tests, all PASS)"
-  },
-  "tests": [
-    "r11_allocator_rebalances_when_next_rebalance_due_in_main_reconcile (PASS)",
-    "r11_allocator_persists_state_and_blocks_new_cycles_after_switch (PASS)",
-    "r11_allocator_uses_completed_observations_only (PASS)",
-    "r11_allocator_reads_risk_summary_state_before_config_fallback (PASS)",
-    "r11_parse_observations_filters_invalid_entries (PASS)",
-    "r11_parse_allocator_config_round_trips (PASS)",
-    "r11_parse_strategy_to_sleeve_id_handles_objects (PASS)"
+  "blocking_code_evidence": [
+    "apps/trading-engine/src/main.rs: live_executor_started branch calls reconcile_martingale_executor_strategies and continues before runtime_with_allocator_state",
+    "repository has an allocator_observations reader but no production writer",
+    "reconcile_martingale_executor_strategies does not install or consult allocator state"
   ],
-  "test_counts": {
-    "backtest_engine": "211 passed (188 lib + 23 splits), 0 failed",
-    "trading_engine": "205 passed (incl. 7 new R11 + 3 R10 + 195 existing), 0 failed"
+  "test_scope": {
+    "helper_and_direct_runtime_tests": 7,
+    "db_backed_main_reconcile_tests": 0,
+    "real_executor_path_tests": 0,
+    "tests_invoke_reconcile_running_martingale_portfolios": false,
+    "historical_test_names_overstated_scope": true
   },
-  "verdict": "Production live allocator is now fully wired: rolling metrics computed from completed observations only, dynamic rebalance triggered when due, state persisted to risk_summary with correct priority. R10 gap 'static-gate-only' is CLOSED."
+  "usable_components": [
+    "parse allocator config and sleeve mapping",
+    "read state with risk_summary priority",
+    "filter observations at or before a boundary",
+    "serialize allocator state",
+    "direct MartingaleRuntime new-cycle gate"
+  ],
+  "verdict": "P1 is partial helper/static-start wiring. It does not close the production dynamic allocator gap.",
+  "target_hit": false
 }

@@ -1,0 +1,307 @@
+{
+  "generated_at": "2026-07-12",
+  "purpose": "Canonical corrected status for martingale rounds 1-11. Later audit records supersede historical handoff claims without deleting exploration history.",
+  "hard_targets": {
+    "conservative": {
+      "annualized_return_min_pct": 50.0,
+      "max_drawdown_pct": 10.0,
+      "budget_rule": "strictly_below_5000_usdt",
+      "positive_segments_min": 4,
+      "multi_symbol": true,
+      "anti_overfit": true,
+      "live_reproducible": true
+    },
+    "balanced": {
+      "annualized_return_min_pct": 90.0,
+      "max_drawdown_pct": 20.0,
+      "budget_rule": "strictly_below_5000_usdt",
+      "positive_segments_min": 4,
+      "multi_symbol": true,
+      "anti_overfit": true,
+      "live_reproducible": true
+    },
+    "aggressive": {
+      "annualized_return_min_pct": 110.0,
+      "max_drawdown_pct": 30.0,
+      "budget_rule": "strictly_below_5000_usdt",
+      "positive_segments_min": 3,
+      "multi_symbol": true,
+      "anti_overfit": true,
+      "live_reproducible": true
+    }
+  },
+  "target_hits": {
+    "conservative": [],
+    "balanced": [],
+    "aggressive": []
+  },
+  "current_frontiers": {
+    "curve_reuse_diagnostic_only": {
+      "round": 9,
+      "label": "r9-P5-winner",
+      "corrected_annualized_return_pct": 62.7845,
+      "corrected_max_drawdown_pct": 18.384,
+      "curve_slice_positive_segments": "5/5",
+      "symbol_universe_count": 8,
+      "event_level_executable": false,
+      "fully_live_ready": false,
+      "funding_corrected": true
+    },
+    "best_corrected_event_level_backtest": {
+      "round": 7,
+      "label": "R7-ANKR-q1w24p24",
+      "annualized_return_pct": 62.37183492301388,
+      "max_drawdown_pct": 28.687251235133964,
+      "positive_cold_start_segments": "4/5",
+      "traded_symbol_count": 6,
+      "budget_4999_replay_passed": true,
+      "budget_2000_annualized_return_pct": 5.423228973481864,
+      "budget_2000_max_drawdown_pct": 45.582322393924535,
+      "fully_live_ready": false
+    },
+    "best_previously_accepted_fully_live_ready": {
+      "round": 4,
+      "label": "R4-combo",
+      "annualized_return_pct": 34.72332738972233,
+      "max_drawdown_pct": 17.68431043895811,
+      "positive_segments": "4/5",
+      "target_hit": false
+    }
+  },
+  "rounds": [
+    {
+      "round": 1,
+      "status": "usable_baseline_only",
+      "target_hit": false,
+      "authority": "docs/superpowers/reports/2026-07-03-glm-round1-6-execution-audit.md",
+      "validated_scope": [
+        "initial martingale baseline and broad parameter observations"
+      ],
+      "remaining_gaps": [
+        "some planned evidence/index files are missing or renamed"
+      ]
+    },
+    {
+      "round": 2,
+      "status": "usable_research_frontier_partial_plan",
+      "target_hit": false,
+      "authority": "docs/superpowers/reports/2026-07-03-glm-round1-6-execution-audit.md",
+      "validated_scope": [
+        "recorded search families remain useful negative evidence where artifacts exist"
+      ],
+      "remaining_gaps": [
+        "registry count is 11, not 8",
+        "Direction H has no dedicated full-grid artifact",
+        "promoted features were not live-ready"
+      ]
+    },
+    {
+      "round": 3,
+      "status": "usable_research_frontier_partial_plan",
+      "target_hit": false,
+      "authority": "docs/superpowers/reports/2026-07-03-glm-round1-6-execution-audit.md",
+      "validated_scope": [
+        "completed branches are usable as scoped search evidence"
+      ],
+      "remaining_gaps": [
+        "registry count is 7, not 8",
+        "P2 and P5 were not run",
+        "several branches were narrow or partial"
+      ]
+    },
+    {
+      "round": 4,
+      "status": "best_previously_accepted_live_ready_sleeve_but_no_target",
+      "target_hit": false,
+      "authority": "docs/superpowers/reports/2026-07-03-glm-round1-6-execution-audit.md",
+      "validated_scope": [
+        "R4-combo event-level result and live parity implementation"
+      ],
+      "remaining_gaps": [
+        "premium/index/mark branch was partial",
+        "Round4 impossibility language is superseded"
+      ]
+    },
+    {
+      "round": 5,
+      "status": "usable_high_return_high_drawdown_backtest_frontier",
+      "target_hit": false,
+      "authority": "docs/superpowers/reports/2026-07-03-glm-round1-6-execution-audit.md",
+      "validated_scope": [
+        "completed event-level backtest families"
+      ],
+      "remaining_gaps": [
+        "R5 promoted features remained backtest-only",
+        "ANKR low-DD script had no Round5 artifact"
+      ]
+    },
+    {
+      "round": 6,
+      "status": "partial_dd_compression_research",
+      "target_hit": false,
+      "authority": "docs/superpowers/reports/2026-07-03-glm-round1-6-execution-audit.md",
+      "validated_scope": [
+        "completed risk-budget and DD attribution searches"
+      ],
+      "remaining_gaps": [
+        "registry count is 13, not 8",
+        "original Task E safety freeze had no engine effect at handoff",
+        "dynamic blend was not a reproducible engine feature",
+        "live parity remained incomplete"
+      ]
+    },
+    {
+      "round": 7,
+      "status": "corrected_event_level_frontier_not_live_ready",
+      "target_hit": false,
+      "authority": "docs/superpowers/reports/2026-07-12-glm-round11-execution-audit-and-fix.md",
+      "validated_scope": [
+        "R7-ANKR-q is a six-symbol portfolio, not a single coin",
+        "cold-start full and five segment event-level replays",
+        "budget cap and rejection behavior"
+      ],
+      "repairs_applied_2026_07_12": [
+        "restored 3997 ANKRUSDT funding points in a temporary audit DB",
+        "corrected full metrics to ann 62.3718 / DD 28.6873",
+        "verified budget 4999 and 2000 produce materially different behavior"
+      ],
+      "remaining_gaps": [
+        "not fully live-ready",
+        "2000U result is 5.42% ann / 45.58% DD",
+        "2025 remains negative and 2024/2025 segment DD exceeds 33%"
+      ]
+    },
+    {
+      "round": 8,
+      "status": "superseded_leaky_curve_allocator_and_narrow_searches",
+      "target_hit": false,
+      "authority": "docs/superpowers/reports/2026-07-07-glm-round8-execution-audit-and-recheck.md",
+      "validated_scope": [
+        "individual sleeve packages and scoped P3/P4 negative results"
+      ],
+      "remaining_gaps": [
+        "P2 current-interval timing leak",
+        "P3/P4 below requested grid sizes",
+        "no architecture impossibility proof"
+      ]
+    },
+    {
+      "round": 9,
+      "status": "curve_reuse_diagnostic_not_executable_frontier",
+      "target_hit": false,
+      "authority": "docs/superpowers/reports/2026-07-12-glm-round11-execution-audit-and-fix.md",
+      "validated_scope": [
+        "forward-only curve recombination under historical inputs",
+        "multi-symbol universe metadata",
+        "scoped P3/P4 sleeve searches"
+      ],
+      "repairs_applied_2026_07_12": [
+        "corrected historical total return to 446.7542",
+        "corrected missing-funding curve result to ann 62.7845 / DD 18.3840",
+        "downgraded allocator from live candidate to curve diagnostic"
+      ],
+      "remaining_gaps": [
+        "inactive curves inherit non-executable open positions",
+        "no shared-budget event-level allocator replay",
+        "segment metrics are curve slices rather than cold-start sleeves",
+        "legacy hi/lo fields are binary eligibility switches, not weights"
+      ]
+    },
+    {
+      "round": 10,
+      "status": "valid_scoped_replay_searches_with_corrected_live_claims",
+      "target_hit": false,
+      "authority": "docs/superpowers/reports/2026-07-09-glm-round10-execution-audit-and-fix.md",
+      "validated_scope": [
+        "strict condition SO search: 2880 configs, zero target",
+        "trailing_lock approximation: 2304 configs, zero target",
+        "partial-TP minigrid approximation: 2592 configs, zero target",
+        "defensive allocator approximation: 2304 configs, zero target"
+      ],
+      "remaining_gaps": [
+        "production dynamic allocator not implemented",
+        "native minigrid not implemented",
+        "funding/chop/cash features partly approximated"
+      ]
+    },
+    {
+      "round": 11,
+      "status": "zero_targets_with_material_execution_and_scope_corrections",
+      "target_hit": false,
+      "authority": "docs/superpowers/reports/2026-07-12-glm-round11-execution-audit-and-fix.md",
+      "validated_scope": [
+        "P4 partial-TP minigrid approximation: 6912 configs, zero target",
+        "P5 fixed-TP-dominated grid: 8100 configs, zero target",
+        "P6 effective historical SO controls: zero target",
+        "P7 same-sleeve curve grid: zero target"
+      ],
+      "repairs_applied_2026_07_12": [
+        "downgraded P1 from fully live-ready to partial helper/static-start gate",
+        "downgraded P2 from production parity to Python curve replay",
+        "downgraded P3 from native backtest-ready to config helpers only",
+        "rescoped P4/P5/P6/P7 failure claims",
+        "fixed P6 script field placement for future rerun",
+        "corrected positive-segment distributions and replay accounting",
+        "recorded mutable data and missing ANKR funding"
+      ],
+      "remaining_gaps": [
+        "event-level shared-capital allocator",
+        "production observation writer and started-executor gating",
+        "native minigrid backtest/live semantics",
+        "real ATR spacing ladder",
+        "true heterogeneous sleeves",
+        "nested OOS and budget ladder promotion"
+      ]
+    }
+  ],
+  "non_repeat_registry": [
+    {
+      "key": "r11-partial-tp-minigrid-approx-6912-no-target",
+      "scope": "exact Round11 additional-partial-TP minigrid approximation grid"
+    },
+    {
+      "key": "r11-fixed-tp-dominated-7996-no-target",
+      "scope": "Round11 fixed_tp and fixed_tp_v3 ranges"
+    },
+    {
+      "key": "r11-so-v2-effective-controls-historical-grid-no-target",
+      "scope": "historically effective rebound/basis/taper/step/FOQ combinations; ADX/DD dimensions require corrected rerun"
+    },
+    {
+      "key": "r11-r9-same-sleeve-curve-allocator-grid-no-target",
+      "scope": "same five R9 sleeves under legacy curve-reuse and binary eligibility semantics"
+    },
+    {
+      "key": "r10-strict-condition-so-no-target",
+      "scope": "hard all-or-nothing safety_order_condition family"
+    },
+    {
+      "key": "r10-trailing-lock-approx-no-target",
+      "scope": "existing trailing_lock approximation grid"
+    },
+    {
+      "key": "round8-current-interval-leaky-allocator",
+      "scope": "never reuse leaky timing"
+    },
+    {
+      "key": "round9-random-symbol-substitution",
+      "scope": "never promote survivor-biased ad hoc symbol swaps"
+    }
+  ],
+  "promotion_contract": {
+    "martingale_core_required": true,
+    "event_level_joint_replay_required": true,
+    "curve_lp_or_curve_allocator_can_promote": false,
+    "cold_start_segments_required": true,
+    "nested_walk_forward_required": true,
+    "budget_ladder": [1000, 2000, 3000, 4000, 4999],
+    "funding_coverage_required_for_every_traded_symbol": true,
+    "at_least_five_traded_symbols": true,
+    "max_symbol_budget_share_pct": 35.0,
+    "max_symbol_realized_gross_pnl_share_pct": 35.0,
+    "production_db_reconcile_tests_required": true,
+    "backtest_live_order_trace_tolerance_required": true
+  },
+  "next_plan": "docs/superpowers/plans/2026-07-12-glm-martingale-core-round12-event-level-native-search-plan.md",
+  "source_of_truth": "docs/superpowers/artifacts/glm-martingale-core-round11/r1-r11-corrected-status.json"
+}
