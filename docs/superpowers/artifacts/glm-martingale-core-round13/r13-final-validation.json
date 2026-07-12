@@ -5,44 +5,51 @@
   "targets": {"conservative": [], "balanced": [], "aggressive": []},
   "best_research_event_level": [
     {
-      "label": "BNB_L+TRX_L (2 strategies, 4999U)",
-      "ann": 65.6, "dd": 34.8, "positive_segments": "not tested individually",
-      "fully_live_ready": false, "event_level": true,
-      "note": "Highest ann at event-level but DD exceeds aggressive 30% gate"
+      "label": "BNB_L+TRX_L s100 m0.8 (2 strategies, 4999U)",
+      "ann": 65.6, "dd": 29.6, "positive_segments": "3/5",
+      "neighbor_stability_pct": 19,
+      "holdout_return_pct": -35.9,
+      "budget_1000_ann": -12.8,
+      "fully_live_ready": false,
+      "verdict": "Fails neighbor stability (19%<60%), holdout (-35.9%), small capital (1000U negative)"
     },
     {
       "label": "TRX_L+AAVE_S (2 strategies, 4999U)",
       "ann": 11.9, "dd": 9.9,
-      "holdout_return": 5.3, "holdout_dd": 10.5,
-      "fully_live_ready": false, "event_level": true,
-      "note": "FIRST candidate to meet conservative DD gate (9.9% <= 10%). Ann 11.9% below 50% target."
-    },
-    {
-      "label": "R4-combo (6 strategies, 4999U, baseline)",
-      "ann": 34.7, "dd": 17.7,
-      "holdout_return": -11.0,
-      "fully_live_ready": true, "event_level": true
+      "holdout_return_pct": 5.3,
+      "fully_live_ready": false,
+      "verdict": "Meets conservative DD gate (9.9%<=10%) but ann far below 50%"
     }
   ],
+  "tasks_completed": {
+    "P0": "complete - branch+registry+data gate",
+    "P1": "complete - BatchReplay module + 5 parity tests",
+    "P2": "complete - 5 ablations × 2 bases = 1176 configs, all worse than baseline",
+    "P3": "complete - 128 capital scheduler configs, BNB+TRX best at ann=65.6%/DD=29.6%",
+    "P4": "failed - dca_minigrid config field inert in kline_engine",
+    "P5": "failed - ATR spacing inferior, depth TP not implemented",
+    "P6": "failed - LP DB=0 bytes, configs unrecoverable",
+    "P7": "failed - neighbor stability 19%, holdout -35.9%, 1000U negative",
+    "P8": "complete - holdout -35.9% (NEGATIVE)",
+    "P9": "complete - 216+205 tests pass"
+  },
   "new_failed_families": [
-    {"family": "htf_trend_directed", "result": "Direction gate reduces performance vs baseline. All 22 variants worse than no-gate."},
-    {"family": "native_minigrid", "result": "Config field inert in engine (confirmed R12)."},
-    {"family": "atr_spacing", "result": "Inferior to fixed-percent (confirmed R12)."},
-    {"family": "lp_recovery", "result": "DB=0 bytes, member configs unrecoverable."}
+    {"family": "htf_trend_directed", "configs": 1176, "result": "All 5 ablations worse than baseline. dir_so best but still <35% median ann."},
+    {"family": "native_minigrid", "result": "Config field inert in kline_engine. Engine integration not implemented."},
+    {"family": "atr_depth_tp", "result": "ATR spacing inferior. Depth TP requires filled_safety_leg_count tracking."},
+    {"family": "lp_recovery", "result": "DB=0 bytes, 24 member IDs permanently lost."},
+    {"family": "bnb_trx_aggressive_candidate", "result": "Best event-level ann=65.6%/DD=29.6% but fails neighbor stability, holdout, small capital."}
   ],
   "do_not_repeat_new_keys": [
-    "r13-htf-direction-gate-reduces-performance-vs-baseline"
+    "r13-htf-trend-all-5-ablations-no-improvement-vs-baseline",
+    "r13-bnb-trx-s100-m08-fails-neighbor-stability-and-holdout"
   ],
-  "key_breakthrough": {
-    "finding": "Reducing strategy count from 6 to 2 dramatically improves event-level ann",
-    "data": {"2strat_BNB_TRX_ann": 65.6, "6strat_R4_ann": 34.7, "improvement_pp": 30.9},
-    "first_dd_gate_pass": {"pair": "TRX_L+AAVE_S", "dd": 9.9, "gate": "conservative <=10%"}
-  },
   "target_verdict": {
-    "conservative": "NOT MET — TRX_L+AAVE_S DD=9.9% PASSES, but ann=11.9% far below 50%",
-    "balanced": "NOT MET — best ann 65.6% below 90%, DD 34.8% exceeds 20%",
-    "aggressive": "NOT MET — best ann 65.6% below 110%, DD 34.8% exceeds 30%"
+    "conservative": "NOT MET — TRX+AAVE DD=9.9% passes but ann=11.9% far below 50%",
+    "balanced": "NOT MET — best ann 65.6% below 90%, DD 29.6% exceeds 20%",
+    "aggressive": "NOT MET — best ann 65.6% below 110%, DD 29.6% meets 30% but fails stability+holdout"
   },
-  "test_counts": {"backtest_engine": "216 passed (188+23+5 R13 batch)", "trading_engine": "205 passed"},
+  "key_discovery": "Reducing strategies from 6 to 2 dramatically improves event-level ann (34.7%→65.6%) but creates instability and holdout failure",
+  "test_counts": {"backtest_engine": "216 passed", "trading_engine": "205 passed"},
   "source_of_truth": "this file"
 }

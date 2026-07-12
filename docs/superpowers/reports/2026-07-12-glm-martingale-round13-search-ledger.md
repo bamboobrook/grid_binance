@@ -99,3 +99,16 @@ HTF trend-directed ablations confirm: the R4-combo/2strat baseline without direc
 ### Near-Aggressive Candidate
 BNB+TRX s100 m0.8 at 4999U: ann=65.6%, DD=29.6% (≤30%), 3/5 pos
 - This is 44pp short of aggressive ann (110%) but DD and pos-segs meet the gate.
+
+## r13-P7-neighbor-loso-holdout-001 (Task P7-P8: Validation + Holdout)
+- Candidate: BNB+TRX s100 m0.8 (best from P3)
+- Neighbor stability: **3/16 = 19%** (need >=60%) → FAIL
+- Cold-start segments: 3/5 positive (h2_2023 -32.5%, 2025 -33.5%)
+- Budget ladder: 1000U=-12.8%, 2000U=35.8%, 3000U=26.4%, 4000U=74.9%, 4999U=65.6%
+- Holdout (2026-06-01~07-10): **-35.9% return (SEVERE LOSS)**
+- **Verdict: candidate fails neighbor stability, holdout, and small capital gates**
+
+## r13-P9-production-parity-001 (Task P9)
+- backtest-engine: 216 tests pass
+- trading-engine: 205 tests pass
+- All R11/R12 allocator tests still pass
