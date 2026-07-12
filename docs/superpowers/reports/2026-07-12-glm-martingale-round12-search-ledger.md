@@ -41,3 +41,18 @@
   - Cost stress (base, fee x1.5, slippage x2, combined)
 - Auto-derivation: fully_live_ready and target_hit derived from gate results, NOT manually set
 - Validator ready for use by P3-P7 candidates
+
+## r12-P3-event-level-r9-benchmark-001 (Task P3: Event-Level R9 Benchmark)
+- Script: scripts/glm_r12_r9_event_level_benchmark.py
+- Merged all 5 R9 sleeves into one 36-strategy portfolio with shared 4999U budget
+- 8 symbols: AAVEUSDT, ANKRUSDT, BCHUSDT, BNBUSDT, DOTUSDT, SOLUSDT, TRXUSDT, XRPUSDT
+- Funding: data/funding_rates_round12.db (Round12 frozen with ANKR/LTC补齐)
+- **CRITICAL RESULT: event-level ann=-7.5% / DD=56.0% — FAMILY BENCHMARK FAILURE**
+- R9 curve diagnostic (corrected): ann=62.7845 / DD=18.3840
+- Event-level delta: **-70.3pp ann, +37.6pp DD** — curve diagnostic grossly overstated performance
+- Root cause: 36 strategies sharing 4999U → severe budget contention. Max capital used only 1016U of 4999U (20% utilization). 57408 trades, 32 budget-blocked legs. Most strategies cannot fill due to insufficient budget.
+- Budget ladder confirms: only 4000U+ avoids total disaster; 1000U gives ann=-37.8%/DD=85.5%
+- Positive segments: 4/5 (2025 is -26.1%) — but full-period is negative due to budget contention
+- **Decision per plan P3.3: STOP expanding R9 selector parameters.** The curve-reuse diagnostic (62.78/18.38) is NOT reproducible at event level. The R9 allocator family is closed as a target candidate.
+- Non-repeat key: r12-event-level-r9-36-strategy-budget-contention-failure
+- Non-repeat scope: any combined multi-sleeve portfolio with >20 strategies sharing <5000U budget will suffer the same contention. Future allocator designs MUST use proper sleeve budget allocation, not naive strategy merge.
