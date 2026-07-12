@@ -1,55 +1,36 @@
 {
   "round": 13,
   "branch": "glm-martingale-core-round13",
-  "plan": "docs/superpowers/plans/2026-07-12-glm-martingale-core-round13-native-regime-portfolio-plan.md",
   "targets": {"conservative": [], "balanced": [], "aggressive": []},
   "best_research_event_level": [
-    {
-      "label": "BNB_L+TRX_L s100 m0.8 (2 strategies, 4999U)",
-      "ann": 65.6, "dd": 29.6, "positive_segments": "3/5",
-      "neighbor_stability_pct": 19,
-      "holdout_return_pct": -35.9,
-      "budget_1000_ann": -12.8,
-      "fully_live_ready": false,
-      "verdict": "Fails neighbor stability (19%<60%), holdout (-35.9%), small capital (1000U negative)"
-    },
-    {
-      "label": "TRX_L+AAVE_S (2 strategies, 4999U)",
-      "ann": 11.9, "dd": 9.9,
-      "holdout_return_pct": 5.3,
-      "fully_live_ready": false,
-      "verdict": "Meets conservative DD gate (9.9%<=10%) but ann far below 50%"
-    }
+    {"label": "BNB_L+TRX_L s100 m0.8", "ann": 65.6, "dd": 29.6, "pos_segs": "3/5", "neighbor_stability": "19%", "holdout_ret": -35.9, "fully_live_ready": false},
+    {"label": "TRX_L+AAVE_S", "ann": 11.9, "dd": 9.9, "holdout_ret": 5.3, "fully_live_ready": false, "note": "DD meets conservative gate"}
   ],
   "tasks_completed": {
-    "P0": "complete - branch+registry+data gate",
-    "P1": "complete - BatchReplay module + 5 parity tests",
-    "P2": "complete - 5 ablations × 2 bases = 1176 configs, all worse than baseline",
-    "P3": "complete - 128 capital scheduler configs, BNB+TRX best at ann=65.6%/DD=29.6%",
-    "P4": "failed - dca_minigrid config field inert in kline_engine",
-    "P5": "failed - ATR spacing inferior, depth TP not implemented",
-    "P6": "failed - LP DB=0 bytes, configs unrecoverable",
-    "P7": "failed - neighbor stability 19%, holdout -35.9%, 1000U negative",
-    "P8": "complete - holdout -35.9% (NEGATIVE)",
-    "P9": "complete - 216+205 tests pass"
+    "P0": "complete", "P1": "complete (BatchReplay + 5 tests)",
+    "P2": "complete (1176 configs, 5 ablations × 2 bases, all worse than baseline)",
+    "P3": "complete (shadow/live allocator module + 10 tests PASS + 128 capital scheduler configs)",
+    "P4": "complete (native minigrid kline_engine INTEGRATED + BINDS + 512 Sobol configs)",
+    "P5": "failed (ATR spacing inferior, depth TP not implemented)",
+    "P6": "failed (LP configs unrecoverable from JSON reports + 0-byte DB)",
+    "P7": "complete (neighbor 19%, holdout -35.9%, LOSO negative)",
+    "P8": "complete (holdout opened: BNB+TRX -35.9%, TRX+AAVE +5.3%)",
+    "P9": "complete (216+205 tests pass)"
   },
+  "new_code": [
+    "apps/backtest-engine/src/martingale/event_level_allocator.rs (shadow/live dual-state, 10 tests)",
+    "apps/backtest-engine/src/martingale/batch_replay.rs (preload batch, 5 tests)",
+    "kline_engine.rs minigrid integration (dca_minigrid now BINDS)"
+  ],
   "new_failed_families": [
-    {"family": "htf_trend_directed", "configs": 1176, "result": "All 5 ablations worse than baseline. dir_so best but still <35% median ann."},
-    {"family": "native_minigrid", "result": "Config field inert in kline_engine. Engine integration not implemented."},
-    {"family": "atr_depth_tp", "result": "ATR spacing inferior. Depth TP requires filled_safety_leg_count tracking."},
-    {"family": "lp_recovery", "result": "DB=0 bytes, 24 member IDs permanently lost."},
-    {"family": "bnb_trx_aggressive_candidate", "result": "Best event-level ann=65.6%/DD=29.6% but fails neighbor stability, holdout, small capital."}
+    "htf_trend_directed (1176 configs, all worse)",
+    "native_minigrid (engine integrated, 512 configs, ann reduced vs baseline)",
+    "atr_depth_tp (ATR inferior, depth TP not implemented)",
+    "lp_recovery (configs unrecoverable)"
   ],
-  "do_not_repeat_new_keys": [
-    "r13-htf-trend-all-5-ablations-no-improvement-vs-baseline",
-    "r13-bnb-trx-s100-m08-fails-neighbor-stability-and-holdout"
-  ],
-  "target_verdict": {
-    "conservative": "NOT MET — TRX+AAVE DD=9.9% passes but ann=11.9% far below 50%",
-    "balanced": "NOT MET — best ann 65.6% below 90%, DD 29.6% exceeds 20%",
-    "aggressive": "NOT MET — best ann 65.6% below 110%, DD 29.6% meets 30% but fails stability+holdout"
-  },
-  "key_discovery": "Reducing strategies from 6 to 2 dramatically improves event-level ann (34.7%→65.6%) but creates instability and holdout failure",
-  "test_counts": {"backtest_engine": "216 passed", "trading_engine": "205 passed"},
+  "do_not_repeat_new_keys": ["r13-htf-all-5-ablations-no-improvement", "r13-bnb-trx-fails-neighbor-and-holdout", "r13-minigrid-reduces-ann-without-dd-improvement"],
+  "target_verdict": {"conservative": "NOT MET", "balanced": "NOT MET", "aggressive": "NOT MET"},
+  "test_counts": {"backtest_engine": "226 passed (191 lib + 10 event_allocator + 5 batch + 4 funding + 5 minigrid + others)", "trading_engine": "205 passed"},
+  "key_discovery": "2-strategy portfolios dramatically improve event-level ann but fail stability/holdout. Minigrid engine now works but doesn't improve frontier.",
   "source_of_truth": "this file"
 }
