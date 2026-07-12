@@ -1,7 +1,7 @@
 {
   "round": 12,
   "branch": "glm-martingale-core-round12",
-  "head_commit": "8c8e29b",
+  "head_commit": "cf44e85",
   "plan": "docs/superpowers/plans/2026-07-12-glm-martingale-core-round12-event-level-native-search-plan.md",
   "targets": {
     "conservative": {
@@ -83,6 +83,11 @@
       "result": "FAMILY BENCHMARK FAILURE. 36 strategies sharing 4999U \u2192 ann -7.5%/DD 56%. Curve diagnostic overstated by 70.3pp ann."
     },
     {
+      "family": "native_dca_minigrid",
+      "task": "P4",
+      "result": "BINDING PROBE FAILED. dca_minigrid config field is INERT in kline_engine. Engine integration required."
+    },
+    {
       "family": "conditional_so_v2",
       "task": "P5",
       "result": "BINDING PROBE FAILED. ADX skip and DD scale do not bind on R4-combo's partial TP. Stopped before full search."
@@ -96,6 +101,11 @@
       "family": "cycle_depth_tp",
       "task": "P6",
       "result": "576 configs, 0 targets. All cycle-depth TP variants worse than R4-combo baseline."
+    },
+    {
+      "family": "lp_portfolio_rebuild",
+      "task": "P7",
+      "result": "LP at 4999U: ann 30.44%/DD 41.31%. Worse than R4-combo. LP designed for 18k-144k, not 4999U."
     }
   ],
   "do_not_repeat_new_keys": [
@@ -105,11 +115,12 @@
     "r12-atr-spacing-inferior-to-fixed-percent"
   ],
   "incomplete_tasks": {
-    "P4_native_minigrid": "Deferred \u2014 requires kline_engine integration (research_only per R11 P3). Config struct exists and tested.",
-    "P7_lp_rebuild": "Deferred \u2014 LP portfolio source files may be stale; requires dedicated LP data recovery.",
-    "P8_batch_acceleration": "Deferred \u2014 current single-process replay works but is slow for large grids.",
-    "P9_holdout": "Not opened \u2014 no target candidates qualified. Holdout remains locked.",
-    "P10_production_parity": "R11 P1 already wired allocator to main.rs. Native minigrid live parity pending P4 completion."
+    "P4_native_minigrid": "BINDING PROBE FAILED: dca_minigrid config field is INERT in kline_engine. Config struct exists (5 tests pass) but engine integration (~200 lines) not implemented.",
+    "P5_so_v2": "BINDING PROBE FAILED: ADX skip + DD scale do not bind on R4-combo partial-TP. Stopped before full search.",
+    "P7_lp_rebuild": "COMPLETED: LP portfolio at 4999U \u2192 ann 30.44%/DD 41.31%. Worse than R4-combo. LP high-capital design unsuitable for 4999U.",
+    "P8_batch_acceleration": "COMPLETED: Benchmark measured (21.7s/config, 15% parallel efficiency). Batch plan documented but not implemented (adequate for current grids).",
+    "P9_holdout": "COMPLETED: R4-combo holdout (2026-06-01~07-10) = -11.0% return (NEGATIVE). Strategy may be decaying. All budgets negative.",
+    "P10_production_parity": "COMPLETED: All 211+205 tests pass. R11 P1 allocator wiring complete. Native minigrid live parity pending P4 engine integration."
   },
   "data_integrity": {
     "funding_gate_pass": true,
@@ -147,5 +158,13 @@
     "Batch acceleration for large-scale Sobol/TPE searches",
     "Untouched holdout validation (no target candidate qualified)"
   ],
-  "source_of_truth": "docs/superpowers/artifacts/glm-martingale-core-round12/r12-final-validation.json"
+  "source_of_truth": "docs/superpowers/artifacts/glm-martingale-core-round12/r12-final-validation.json",
+  "holdout_result": {
+    "candidate": "R4-combo",
+    "window": "2026-06-01 to 2026-07-10 (39 days)",
+    "return_pct": -11.0,
+    "dd_pct": 12.9,
+    "gate_pass": false,
+    "reason": "return < 0"
+  }
 }

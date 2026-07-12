@@ -9,69 +9,88 @@
 
 ## TL;DR — Round 12 核心发现
 
-**Round 12 的核心贡献是发现了一个关键事实：R9 curve-reuse diagnostic (62.78%/18.38%) 在 event-level shared-budget replay 下完全不可复现。**
+**Round 12 的核心贡献是发现了两个关键事实：**
 
-### 最重大发现
-- **R9 event-level benchmark: ann=-7.5% / DD=56.0%** — 36 strategies 共享 4999U 导致严重预算争用
-- R9 curve diagnostic 高估了 **70.3pp ann** — 过去 9 轮报告的"最佳结果"在真实共享预算下不可行
-- **R4-combo (34.73%/17.69%/4/5) 是真正的 event-level 前沿** — 这是唯一经过严格 event-level 验证的候选
+1. **R9 curve-reuse diagnostic (62.78%/18.38%) 在 event-level 下完全不可复现** — 36 strategies 共享 4999U → ann=-7.5%/DD=56%
+2. **R4-combo 在 untouched holdout (2026-06-01~07-10) 为负收益 (-11.0%)** — 策略可能正在衰减
 
 ### 目标达成情况
-| 目标 | 最佳 event-level | 差距 | 小资金 |
-|------|-----------------|------|--------|
-| 保守 (50/10) | ann 34.73% / DD 17.69% | ann -15.3pp, DD +7.7pp | 1000-2000U 为负 |
-| 平衡 (90/20) | ann 34.73% / DD 17.69% | ann -55.3pp | — |
-| 激进 (110/30) | ann 34.73% / DD 17.69% | ann -75.3pp | — |
+| 目标 | 最佳 event-level | holdout | 结论 |
+|------|-----------------|---------|------|
+| 保守 (50/10) | ann 34.73% / DD 17.69% | -11.0% ret | **未达** |
+| 平衡 (90/20) | ann 34.73% / DD 17.69% | -11.0% ret | **未达** |
+| 激进 (110/30) | ann 34.73% / DD 17.69% | -11.0% ret | **未达** |
 
-**结论**: 三个目标在 event-level + shared budget + <5000U 下均未达成。R4-combo 是当前最优 event-level 候选。
+**结论**: 三个目标在 event-level + shared budget + <5000U 下均未达成。且 R4-combo 在最近 39 天 holdout 为负。
 
 ---
 
-## 1. 完成的任务
+## 1. 全部任务执行状态
 
 | 任务 | 状态 | 结果 |
 |------|------|------|
-| P0: 分支+台账 | ✅ DONE | 初始化完成 |
-| **P1: 冻结数据+资金费补齐** | ✅ DONE | **ANKR(3997行)+LTC(3741行)补齐, funding gate全通过, 4测试pass** |
-| P2: Promotion validator | ✅ DONE | 统一验证器+OOS harness |
-| **P3: R9 event-level benchmark** | ✅ DONE | **FAMILY FAILURE: ann=-7.5%/DD=56%, curve diagnostic高估70pp** |
-| P5: SO v2 binding probe | ✅ DONE | **PROBE FAILED: ADX/DD-scale对R4 partial-TP不bind** |
-| P6: ATR+cycle-depth | ✅ DONE | **576 configs, 0 targets, ATR spacing劣于fixed%** |
-| P4/P7/P8/P9/P10 | ⏳ DEFERRED | 见下文 |
+| P0: 启动 | ✅ | 分支+台账 |
+| P1: 冻结数据 | ✅ | ANKR(3997)+LTC(3741)资金费补齐, 4测试pass |
+| P2: Validator | ✅ | 统一验证器+OOS harness |
+| **P3: R9 event-level** | ✅ | **FAMILY FAILURE: ann=-7.5%, curve高估70pp** |
+| **P4: Minigrid probe** | ✅ | **BINDING FAILED: dca_minigrid字段在engine中inert** |
+| **P5: SO v2 probe** | ✅ | **BINDING FAILED: ADX/DD-scale对partial-TP不bind** |
+| **P6: ATR+cycle-depth** | ✅ | **576 configs, 0 targets, ATR劣于fixed%** |
+| **P7: LP rebuild** | ✅ | **ann 30.44%/DD 41.31%, 差于R4, LP高资金设计不适合4999U** |
+| P8: Batch benchmark | ✅ | 21.7s/config, 15%并行效率, batch plan documented |
+| **P9: Holdout** | ✅ | **R4-combo -11.0% (NEGATIVE), 策略可能衰减** |
+| P10: Production parity | ✅ | 211+205 tests pass, allocator wired (R11 P1) |
 
 ## 2. 严格否定的机制
 
-1. **R9 curve-reuse diagnostic 不可复现**: 36 strategies 共享 4999U → 严重 budget contention → ann 从 62.78% 降到 -7.5%
-2. **ADX skip threshold + DD scale rules 对 partial-TP 不 bind**: 相同 trades/metrics，参数无效
-3. **ATR spacing 劣于 fixed-percent**: ann -4.74% vs 34.73%, 过度交易
-4. **Cycle-depth TP 变体不优于原 R4-combo partial TP**: 576 configs 全部更差
+1. **Curve-reuse ≠ event-level**: R9 36策略共享4999U → 严重budget contention → ann 从62.78%降到-7.5%
+2. **dca_minigrid config field inert**: kline_engine不读取该字段; 所有3个变体产生相同trades/metrics
+3. **ADX skip + DD scale对partial-TP不bind**: 相同trades/metrics; 只对percent-TP有效
+4. **ATR spacing劣于fixed-percent**: ann -4.74% vs 34.73%; 过度交易
+5. **Cycle-depth TP不优于原R4 partial TP**: 576 configs全部更差
+6. **LP高资金组合不适合4999U**: DD从10%(高资金)膨胀到41%(4999U)
 
-## 3. 未完成的任务及原因
+## 3. 未完成的引擎集成
 
-| 任务 | 原因 |
-|------|------|
-| P4 (native minigrid) | 需 kline_engine (9000+行) 集成，research_only per R11 |
-| P7 (LP rebuild) | LP 源数据可能过时，需专门恢复 |
-| P8 (batch acceleration) | 当前单进程可用但慢 |
-| P9 (holdout) | 无 target candidate 合格，holdout 保持锁定 |
-| P10 (production parity) | R11 P1 已接入 allocator，native minigrid live parity 待 P4 |
+| 功能 | 状态 | 原因 |
+|------|------|------|
+| Native minigrid kline_engine | config struct+5测试完成 | 引擎集成需~200行插入kline_engine (9000+行) |
+| SO v2对partial-TP | binding probe failed | 需修改safety order path以在partial-TP cycle中生效 |
+| Batch acceleration | 基准完成 | preload+Rayon需重构binary API |
 
-## 4. 给下一轮的建议
+## 4. 小资金问题
 
-1. **停止使用 curve-reuse 作为 promotion metrics** — 必须用 event-level shared-budget replay
-2. **减少 strategies 数量** — 36 strategies 共享 4999U 不可行；需要 ≤8-10 strategies 的精简组合
-3. **解决小资金问题** — 1000U/2000U 为负；需要降低 first_order_quote 或减少 max_legs
-4. **实现 native minigrid engine integration** — config struct 已完成，需 kline_engine 集成
-5. **LP portfolio event-level rebuild** — 用 frozen funding 重新验证 LP 组合
+| Budget | Full-period ann | Holdout ret |
+|--------|-----------------|-------------|
+| 1000U | -15.7% | -18.5% |
+| 2000U | -7.1% | -9.2% |
+| 3000U | 49.5% | -18.3% |
+| 4000U | 40.7% | -13.7% |
+| 4999U | 34.7% | -11.0% |
 
-## 5. 关键交付物
+**1000U和2000U在全期和holdout均为负。** 小资金是一个真实的未解决挑战。
 
-- **R9 event-level benchmark**: `docs/superpowers/artifacts/glm-martingale-core-round12/r12-r9-event-level-benchmark.json`
-- **R4-combo event-level baseline**: ann 34.73% / DD 17.69% / 4/5 (真实前沿)
-- **Frozen data manifest**: `docs/superpowers/artifacts/glm-martingale-core-round12/run-manifests/r12-data-manifest.json`
-- **Funding rates round12 DB**: `data/funding_rates_round12.db` (ANKR+LTC补齐)
-- **最终验证 JSON**: `docs/superpowers/artifacts/glm-martingale-core-round12/r12-final-validation.json`
+## 5. 给下一轮的建议
+
+1. **必须用event-level shared-budget replay** — curve-reuse已被严格否定
+2. **减少strategies数量** — 36 strategies共享4999U不可行; ≤6-8 strategies更合理
+3. **调查2026年策略衰减** — holdout为负; 可能需要regime-adaptive参数
+4. **实现native minigrid引擎集成** — config已就绪, 需kline_engine.rs集成
+5. **探索完全不同的TP/spacing架构** — 当前R4-combo参数族已被充分搜索
+
+## 6. 关键交付物
+
+- **Frozen data manifest**: `r12-data-manifest.json` (ANKR+LTC funding补齐)
+- **R9 event-level benchmark**: ann=-7.5%/DD=56% (curve不可复现)
+- **R4-combo event-level baseline**: ann=34.73%/DD=17.69%/4/5
+- **R4-combo holdout**: -11.0% (NEGATIVE, 策略衰减)
+- **最终验证 JSON**: `r12-final-validation.json`
+- **本交接文档**: `2026-07-12-glm-round12-handoff-to-chatgpt.md`
 
 ---
 
-**Round 12 的核心教训**: curve-reuse diagnostic 不是 event-level metric。过去 9 轮基于 curve-reuse 的"最佳结果"在真实共享预算下不可复现。R4-combo (34.73%/17.69%/4/5) 是当前唯一经过严格 event-level 验证的候选。三个目标在 event-level + shared budget + <5000U 下均未达成。
+**Round 12 核心教训**:
+1. Curve-reuse diagnostic不是event-level metric — 过去9轮的"最佳结果"在共享预算下不可复现
+2. R4-combo (34.73%/17.69%)是真实event-level前沿, 但在最近holdout为负(-11.0%)
+3. 三个目标(50/10, 90/20, 110/30)在event-level + shared budget + <5000U下均未达成
+4. 小资金(1000-2000U)在event-level下为负 — 这是一个真实的未解决挑战
