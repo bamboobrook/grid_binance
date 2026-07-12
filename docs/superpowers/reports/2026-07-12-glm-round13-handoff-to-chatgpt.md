@@ -2,22 +2,25 @@
 
 ## Summary
 
-Round 13 completed all P0-P9 with full backtesting. Key deliverables:
+Round 13 completed ALL P0-P9 phases with strict full backtesting:
 
-### New Code
-1. **Event-level shadow/live allocator** (`event_level_allocator.rs`): dual-state model with 10 required tests
-2. **Batch replay infrastructure** (`batch_replay.rs`): preload + parallel, 5 parity tests
-3. **Native minigrid engine integration** (kline_engine.rs): dca_minigrid config now BINDS
+### New Engine Integrations (3 features now BIND in kline_engine)
+1. **Native DCA minigrid** — `dca_minigrid` config now drives `dca_minigrid_take_profit` events in kline_engine
+2. **Depth-dependent TP** — `depth_tp` config now overrides TP model with depth-adaptive Percent bps
+3. **Shadow/live allocator** — full dual-state model with 10 required tests
 
-### Search Results
-| Task | Configs | Replays | Result |
-|------|---------|---------|--------|
-| P2 ablation | 1176 | 7056 | All worse than baseline |
-| P3 scheduler | 128 | 768 | BNB+TRX ann=65.6%/DD=29.6% |
-| P4 minigrid | 512 | 3072 | Binds! ann=32.0%/DD=17.7% |
+### Search Results (2248 configs, 13488 replays)
+| Task | Configs | Result |
+|------|---------|--------|
+| P2 HTF ablation | 1176 | All worse than baseline |
+| P3 Capital scheduler | 128 | BNB+TRX ann=65.6%/DD=29.6% |
+| P4 Native minigrid | 512 | Binds! ann=32.0% (reduced) |
+| P5 Depth TP | 432 | Binds! ann=10.9% (reduced) |
 
-### Best Event-Level Candidate
-BNB+TRX (2 strategies): ann=65.6%/DD=29.6% — but fails neighbor stability (19%), holdout (-35.9%), small capital (1000U negative)
+### Critical Validation Findings
+- **BNB PnL concentration ~73%** → FAILS ≤35% gate (R4-combo structural issue)
+- **BNB+TRX candidate fails**: neighbor stability 19%, holdout -35.9%
+- **TRX+AAVE_S**: DD=9.9% meets conservative gate but ann=11.9% far below 50%
+- **Longs drive returns**: shorts-only = -0.1% ann; longs-only = 58.2% ann/DD=35%
 
-### Target Status
-All 3 targets NOT MET. Conservative DD gate reached (TRX+AAVE 9.9%) but ann far below 50%.
+### Target Status: ALL THREE NOT MET

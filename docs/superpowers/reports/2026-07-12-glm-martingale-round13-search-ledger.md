@@ -153,3 +153,31 @@ BNB+TRX s100 m0.8 at 4999U: ann=65.6%, DD=29.6% (≤30%), 3/5 pos
 - **RESULT: 0 target hits. Best: t01_120_t23_100_t4_70_s180: ann=10.9%/DD=16.2%/2/5** (much worse than baseline 34.7%)
 - Depth TP reduces ann dramatically because lower TP targets at deeper levels close cycles at fee-cover, eroding returns.
 - **Conclusion: depth-dependent TP HURTS performance.** The original partial TP ladder is superior to depth-adaptive Percent TP.
+
+## r13-P7-strict-validation-001 (Task P7: LOSO + Leave-One-Side + Cost Stress)
+- **Leave-One-Symbol-Out (LOSO):**
+  - Skip BNBUSDT: ann drops 34.7%→9.4% → **BNB contributes ~73% of PnL (VIOLATES ≤35% gate!)**
+  - Skip AAVE/SOL/DOT: ann rises to ~57% (shorts hurt ann but reduce DD)
+  - Skip BCH: ann rises to 50.8%
+  - Skip TRX: ann stays ~34% (TRX not a major contributor)
+- **Leave-One-Side-Out:**
+  - Skip long (shorts only): ann=-0.1% (shorts alone produce nothing)
+  - Skip short (longs only): ann=58.2%/DD=35% (longs drive returns, shorts hedge DD)
+- **Symbol PnL Concentration: BNB ~73% → FAILS ≤35% gate**
+- **Cost Stress:** Binary lacks fee/slippage override flags. Base metrics include funding/fee/slippage. Engine modification needed for stress override.
+- **Verdict:** R4-combo FAILS symbol PnL concentration gate (BNB dominance).
+
+## r13-P9-production-parity-001 (Task P9: Production DB/Executor Parity)
+- 11 new production parity tests (r13_production_parity.rs), all PASS:
+  - r13_depth_tp_config_round_trips
+  - r13_depth_tp_config_serializes_correctly
+  - r13_minigrid_config_validation_works
+  - r13_minigrid_level_price_symmetric
+  - r13_risk_limits_accepts_depth_tp_and_minigrid
+  - r13_risk_limits_serializes_with_new_fields
+  - r13_event_allocator_state_persists_and_restores
+  - r13_event_allocator_blocks_inactive_sleeve
+  - r13_event_allocator_shadow_never_enters_live
+  - r13_batch_replay_module_exists
+  - r13_allocator_config_parses_from_json
+- Full suites: backtest-engine 226+ pass, trading-engine 216+ pass
