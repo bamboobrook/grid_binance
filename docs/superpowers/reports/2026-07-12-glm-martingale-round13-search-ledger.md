@@ -130,3 +130,14 @@ BNB+TRX s100 m0.8 at 4999U: ann=65.6%, DD=29.6% (≤30%), 3/5 pos
   8. production_writer_persists_every_shadow_sleeve_observation ✓
   9. restart_restores_allocator_and_open_cycle_state ✓
   10. db_reconcile_switch_matches_backtest_decision_trace ✓
+
+## r13-P4-native-minigrid-integration-001 (Task P4: Native Minigrid Engine Integration + 512 Search)
+- **ENGINE INTEGRATION COMPLETE**: dca_minigrid config field now BINDS in kline_engine
+  - Inserted minigrid evaluation block after safety order fill (line ~845)
+  - Added minigrid_levels_fired field to StrategyRuntime + reset_cycle
+  - Binding confirmed: no-minigrid trades=4758 vs with-minigrid trades=4810 (BINDS!)
+- 512 Sobol configs: levels{1,2,3,5} × spacing{15,30,50,80} × fraction{1/8,1/6,1/4} × profit{10,20,35,55} × active{1,2,3}
+- Run: 512 × 6 replays, 2939s
+- **RESULT: 0 target hits. Best: l1_s15_f1of8_p10: ann=32.0%/DD=17.7%/4/5** (slightly worse than baseline 34.7%)
+- Minigrid reduces ann slightly (34.7→32.0) without improving DD. Close fraction 1/8 is conservative — higher fractions may reduce DD more but at greater ann cost.
+- **Conclusion: native minigrid engine integration is functional but does not improve the frontier.** The partial reduce closes inventory at small profits, reducing ann without sufficient DD improvement.

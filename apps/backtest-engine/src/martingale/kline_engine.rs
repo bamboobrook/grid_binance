@@ -842,6 +842,57 @@ pub fn run_kline_screening_with_funding(
                     }
                 }
 
+                // Round 13 P4: Native inventory-reducing DCA minigrid.
+                // After a safety order fill, check if the current price has bounced
+                // favorably to trigger a minigrid reduce-only partial close.
+                if let Some(ref minigrid_cfg) = strategy_states[state_index].strategy.risk_limits.dca_minigrid {
+                    if strategy_states[state_index].legs.len() >= 2 {
+                        let symbol = &strategy_states[state_index].strategy.symbol;
+                        if let Some(current_price) = latest_close_by_symbol.get(symbol) {
+                            let last_safety_price = strategy_states[state_index].legs.last().map(|l| l.price).unwrap_or(0.0);
+                            if last_safety_price > 0.0 {
+                                let is_long = strategy_states[state_index].strategy.direction == MartingaleDirection::Long;
+                                // Check each minigrid level
+                                let active_levels = strategy_states[state_index].minigrid_levels_fired;
+                                if active_levels < minigrid_cfg.levels_per_band && active_levels < minigrid_cfg.max_active_levels {
+                                    let level_idx = active_levels;
+                                    let level_price = minigrid_cfg.level_price(last_safety_price, level_idx, is_long);
+                                    let level_touched = if is_long {
+                                        *current_price >= level_price
+                                    } else {
+                                        *current_price <= level_price
+                                    };
+                                    if level_touched {
+                                        // Close the configured fraction of remaining position
+                                        let close_fraction = minigrid_cfg.close_fraction();
+                                        let total_quantity: f64 = strategy_states[state_index].legs.iter().map(|l| l.quantity).sum();
+                                        let close_quantity = total_quantity * close_fraction;
+                                        let close_notional = close_quantity * current_price;
+                                        // Enforce min notional (5 USDT default)
+                                        if close_notional >= 5.0 {
+                                            // Reduce each leg's quantity proportionally
+                                            for leg in &mut strategy_states[state_index].legs {
+                                                leg.quantity *= 1.0 - close_fraction;
+                                            }
+                                            strategy_states[state_index].minigrid_levels_fired += 1;
+                                            trade_count += 1;
+                                            events.push(event(
+                                                bar,
+                                                &strategy_states[state_index],
+                                                "dca_minigrid_take_profit",
+                                                format!(
+                                                    "level={};close_fraction={};close_quantity={};close_notional={};level_price={}",
+                                                    level_idx, close_fraction, close_quantity, close_notional, level_price
+                                                ),
+                                            ));
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
                 state_index += 1;
             }
         }
@@ -1330,6 +1381,9 @@ struct StrategyRuntime<'a> {
     recent_stop_timestamps: Vec<i64>,
     /// Round 6 Task C: Quarantine until this timestamp (ms). No new cycles while quarantined.
     quarantined_until_ms: Option<i64>,
+    /// Round 13 P4: Number of minigrid levels that have fired in the current cycle.
+    /// Reset to 0 on cycle reset.
+    minigrid_levels_fired: u32,
     /// Round 4 P4: timestamp (ms) when the current cycle opened (first leg fill).
     /// Used for max_cycle_age and no_progress_exit.
     cycle_start_ms: Option<i64>,
@@ -1387,6 +1441,7 @@ impl<'a> StrategyRuntime<'a> {
             trailing_lock_armed: false,
             recent_stop_timestamps: Vec::new(),
             quarantined_until_ms: None,
+            minigrid_levels_fired: 0,
             cycle_start_ms: None,
             cycle_mfe_bps: 0.0,
             safety_trigger_pending: false,
@@ -1427,6 +1482,7 @@ impl<'a> StrategyRuntime<'a> {
         self.trailing_lock_armed = false;
         self.recent_stop_timestamps.clear();
         self.quarantined_until_ms = None;
+        self.minigrid_levels_fired = 0;
         self.cycle_start_ms = None;
         self.cycle_mfe_bps = 0.0;
         self.safety_trigger_pending = false;
