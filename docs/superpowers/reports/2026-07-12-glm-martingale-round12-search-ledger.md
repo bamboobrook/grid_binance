@@ -72,3 +72,14 @@
 - Root cause: R4-combo uses partial TP (not percent TP), so safety_skip_adx_threshold and drawdown_state_rules may not affect partial-TP cycles. The engine's safety order path for partial TP doesn't consult these fields in the same way as percent TP.
 - Non-repeat key: r12-so-v2-adx-ddscale-inert-on-r4-combo-partial-tp
 - Non-repeat scope: any search on R4-combo varying safety_skip_adx_threshold or drawdown_state_rules will produce identical results. These fields only bind on percent-TP strategies.
+
+## r12-P6-atr-cycle-depth-001 (Task P6: ATR Spacing + Cycle-Depth TP)
+- Binding probes: ATR spacing binds (13750 trades) but ann=-4.74% (worse than R4-combo 34.73%)
+- Fixed-percent step binds: 150bps=34.73%, 300bps=-3.21%
+- Search: 4 step × 4 tp0 × 3 tp2 × 3 tp4 × 4 age = 576 configs
+- Run: 576 configs × 6 replays, 2998s
+- **RESULT: 576/576 evaluated, 0 target hits.**
+- Best: s150_t0_300_t2_600_t4_500: ann 26.0% / DD 28.6% / 2/5 pos (worse than R4-combo baseline)
+- **Conclusion: cycle-depth TP variants do NOT improve on R4-combo's original partial TP ladder.**
+- ATR spacing confirmed inferior to fixed-percent for this strategy family.
+- Non-repeat key: r12-cycle-depth-tp-no-target
