@@ -85,3 +85,17 @@
 HTF trend-directed ablations confirm: the R4-combo/2strat baseline without direction gating is strictly superior. The plan's "continue condition" (median ann>=35%, worst DD<=30%, >=3 folds positive) is NOT met by any ablation. The HTF trend-directed Martingale family is CLOSED.
 
 - Non-repeat key: r13-htf-trend-all-5-ablations-no-improvement-vs-baseline
+
+## r13-P3-capital-scheduler-128-001 (Task P3: Capital Scheduler 128-Config Screen)
+- 128 configs: 15 strategy pairs × step{100,130,150} × mult_scale{0.8,1.0,1.3}
+- Run: 128 × 6 replays, 180s
+- **RESULT: 0 target hits, 0 near-targets (at 40%/25%/4of5 gate)**
+- **Best: BNB+TRX s100 m0.8 → ann=65.6% / DD=29.6% / 3/5 pos** — DD meets aggressive 30% gate!
+- **BNB+TRX s150 m1.3 → ann=61.6% / DD=30.6% / 4/5 pos** — meets aggressive pos-seg gate
+- **TRX+short s150 m1.3 → ann=42.3% / DD=24.0% / 3/5** — good DD/ann balance
+- BNB is consistently the ann driver. Lower mult_scale (0.8) reduces DD without hurting ann much.
+- Continue condition (ann>=40%, DD<=25%, 4/5) NOT met — DD always >25% when ann>40%.
+
+### Near-Aggressive Candidate
+BNB+TRX s100 m0.8 at 4999U: ann=65.6%, DD=29.6% (≤30%), 3/5 pos
+- This is 44pp short of aggressive ann (110%) but DD and pos-segs meet the gate.
