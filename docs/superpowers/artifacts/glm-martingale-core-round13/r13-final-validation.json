@@ -1,0 +1,48 @@
+{
+  "round": 13,
+  "branch": "glm-martingale-core-round13",
+  "plan": "docs/superpowers/plans/2026-07-12-glm-martingale-core-round13-native-regime-portfolio-plan.md",
+  "targets": {"conservative": [], "balanced": [], "aggressive": []},
+  "best_research_event_level": [
+    {
+      "label": "BNB_L+TRX_L (2 strategies, 4999U)",
+      "ann": 65.6, "dd": 34.8, "positive_segments": "not tested individually",
+      "fully_live_ready": false, "event_level": true,
+      "note": "Highest ann at event-level but DD exceeds aggressive 30% gate"
+    },
+    {
+      "label": "TRX_L+AAVE_S (2 strategies, 4999U)",
+      "ann": 11.9, "dd": 9.9,
+      "holdout_return": 5.3, "holdout_dd": 10.5,
+      "fully_live_ready": false, "event_level": true,
+      "note": "FIRST candidate to meet conservative DD gate (9.9% <= 10%). Ann 11.9% below 50% target."
+    },
+    {
+      "label": "R4-combo (6 strategies, 4999U, baseline)",
+      "ann": 34.7, "dd": 17.7,
+      "holdout_return": -11.0,
+      "fully_live_ready": true, "event_level": true
+    }
+  ],
+  "new_failed_families": [
+    {"family": "htf_trend_directed", "result": "Direction gate reduces performance vs baseline. All 22 variants worse than no-gate."},
+    {"family": "native_minigrid", "result": "Config field inert in engine (confirmed R12)."},
+    {"family": "atr_spacing", "result": "Inferior to fixed-percent (confirmed R12)."},
+    {"family": "lp_recovery", "result": "DB=0 bytes, member configs unrecoverable."}
+  ],
+  "do_not_repeat_new_keys": [
+    "r13-htf-direction-gate-reduces-performance-vs-baseline"
+  ],
+  "key_breakthrough": {
+    "finding": "Reducing strategy count from 6 to 2 dramatically improves event-level ann",
+    "data": {"2strat_BNB_TRX_ann": 65.6, "6strat_R4_ann": 34.7, "improvement_pp": 30.9},
+    "first_dd_gate_pass": {"pair": "TRX_L+AAVE_S", "dd": 9.9, "gate": "conservative <=10%"}
+  },
+  "target_verdict": {
+    "conservative": "NOT MET — TRX_L+AAVE_S DD=9.9% PASSES, but ann=11.9% far below 50%",
+    "balanced": "NOT MET — best ann 65.6% below 90%, DD 34.8% exceeds 20%",
+    "aggressive": "NOT MET — best ann 65.6% below 110%, DD 34.8% exceeds 30%"
+  },
+  "test_counts": {"backtest_engine": "216 passed (188+23+5 R13 batch)", "trading_engine": "205 passed"},
+  "source_of_truth": "this file"
+}
