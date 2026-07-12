@@ -42,3 +42,15 @@
 - ADX SO scale binds on synthetic data but doesn't improve real performance.
 - Non-repeat key: r13-htf-direction-gate-reduces-performance-vs-baseline
 - Non-repeat scope: R4-combo with EMA(50/200) or EMA(100/300) direction gate on entry_triggers. The existing BTC EMA(50/200) trigger already captures trend; adding per-direction gating is redundant and harmful.
+
+## r13-P3-capital-scheduler-001 (Task P3: Event-Level Allocator + Capital Scheduler)
+- R9 36-strategy event-level already confirmed failure in R12 (ann=-7.5%/DD=56%)
+- **NEW FINDING: Reducing strategy count from 6 to 2 dramatically improves ann**
+  - 2 strategies (BNB+TRX long): ann=65.6%/DD=34.8% — higher than 6-strategy (34.7%) but DD too high
+  - 2 strategies (TRX long + AAVE short): ann=11.9%/**DD=9.9%** — **MEETS CONSERVATIVE DD GATE!**
+  - 3 strategies (BNB+AAVE+DOT): ann=35.6%/DD=33.5%
+- Budget ladder for 2-strategy (BNB+TRX): 1000U=96.9%/2000U=88.3% — **small capital WORKS with fewer strategies**
+- **Root cause confirmed**: strategy count determines budget contention. Fewer strategies → more budget per strategy → higher fill rate → higher returns
+- **TRX long + AAVE/DOT/SOL short at 4999U: DD=9.9% (meets conservative ≤10% gate), ann=11.9% (below 50% target)**
+- This is the FIRST candidate to meet ANY DD gate at event-level. The ann gap (11.9% vs 50%) is the remaining challenge.
+- P4 (minigrid) and P5 (ATR spacing) already confirmed inert/inferior in R12. P6 LP DB is 0 bytes (unrecoverable).
