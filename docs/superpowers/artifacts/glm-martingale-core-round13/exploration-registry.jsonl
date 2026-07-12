@@ -1,1 +1,2 @@
 {"experiment_id":"r13-P0-startup","family":"startup","status":"complete","code_commit":"ac1d6b3","data_manifest_sha256":"r13-data-manifest.json (copied from r12)","budget":4999,"metrics":{"dev_gate":true,"holdout_gate":true,"funding_tests":4},"artifact":"ledger"}
+{"experiment_id":"r13-P1-batch-replay-001","family":"batch_infrastructure","status":"complete","code_commit":"cf421c6","budget":4999,"actual_binary_replays":5,"effective_unique_configs":5,"metrics":{"tests_pass":5,"parity":"same engine function"},"artifact":"apps/backtest-engine/src/martingale/batch_replay.rs"}
