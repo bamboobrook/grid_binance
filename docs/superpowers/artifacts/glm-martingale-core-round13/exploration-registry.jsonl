@@ -16,3 +16,4 @@
 {"experiment_id":"r13-P7-neighbor-loso-stress","family":"validation","status":"failed","reject_reasons":["neighbor stability 19% < 60%","holdout -35.9%","1000U negative"],"metrics":{"center_ann":65.6,"center_dd":29.6,"stability_pct":19,"holdout_ret":-35.9,"pos_segs":3}}
 {"experiment_id":"r13-P8-holdout","family":"holdout","status":"complete","reject_reasons":["holdout return -35.9% (NEGATIVE)"]}
 {"experiment_id":"r13-P9-production-parity","family":"production_parity","status":"complete","metrics":{"backtest_tests":216,"trading_tests":205}}
+{"experiment_id":"r13-P3-shadow-live-allocator-001","family":"event_level_allocator","status":"complete","code_commit":"0eba70b","actual_binary_replays":0,"effective_unique_configs":10,"metrics":{"tests_pass":10},"artifact":"apps/backtest-engine/src/martingale/event_level_allocator.rs"}

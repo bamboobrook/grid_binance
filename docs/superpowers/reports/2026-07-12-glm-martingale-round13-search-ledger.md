@@ -112,3 +112,21 @@ BNB+TRX s100 m0.8 at 4999U: ann=65.6%, DD=29.6% (≤30%), 3/5 pos
 - backtest-engine: 216 tests pass
 - trading-engine: 205 tests pass
 - All R11/R12 allocator tests still pass
+
+## r13-P3-shadow-live-allocator-001 (Task P3: Event-Level Shadow/Live Allocator)
+- New module: apps/backtest-engine/src/martingale/event_level_allocator.rs
+- Dual-state model: Shadow layer (virtual account per sleeve) + Live layer (active sleeve only)
+- EventAllocatorState with: record_shadow_observation, update_live_equity, is_sleeve_active, can_open_new_cycle, compute_completed_metrics, rebalance, shared_budget_available
+- Forward-only: compute_completed_metrics uses only observations at or before boundary
+- Serialization: to_json/from_json for restart persistence
+- **10 required tests, ALL PASS:**
+  1. inactive_shadow_profit_never_enters_live_equity ✓
+  2. switch_does_not_copy_shadow_open_positions ✓
+  3. inactive_sleeve_cannot_open_new_base_cycle ✓
+  4. existing_inactive_cycle_can_exit_and_manage_safety_orders ✓
+  5. shared_budget_counts_cycles_from_all_sleeves ✓
+  6. rebalance_uses_observations_at_or_before_boundary_only ✓
+  7. started_executor_path_runs_allocator_gate ✓
+  8. production_writer_persists_every_shadow_sleeve_observation ✓
+  9. restart_restores_allocator_and_open_cycle_state ✓
+  10. db_reconcile_switch_matches_backtest_decision_trace ✓
