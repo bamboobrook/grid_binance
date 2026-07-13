@@ -240,3 +240,16 @@ BNB+TRX s100 m0.8 at 4999U: ann=65.6%, DD=29.6% (≤30%), 3/5 pos
 | Holdout return | >0 | not tested | ? |
 
 **ICP+TRX passes DD, pos-seg, WFO, and symbol diversity gates but fails ann (36% vs 110%) and symbol count (2 vs 5).**
+
+## r13-P3-5sym-portfolio-search-001 (Extended: 5-Symbol Portfolio Search)
+- 56 5-symbol portfolios tested from LP top performers (C(8,5)=56)
+- **Best DD<=30%: ICP+TRX+BNB+BTC+XRP (20% each): ann=48.3%/DD=28.7%/2/5 pos**
+  - Higher ann than 2-symbol (48.3% vs 36.4%) but fewer pos_segs (2/5 vs 4/5)
+  - 2024/2025/2026 all negative — adding BTC/BNB/XRP hurt segment stability
+  - Budget ladder: all budgets positive (1000U=59.6%, 2000U=66.2%)
+- ICP+TRX+ATOM+BNB+BTC: ann=39.2%/DD=29.3%/1/5 pos — also DD<=30% but worse pos_segs
+- **Key insight: adding more symbols increases ann but decreases segment stability**
+  - 2-symbol ICP+TRX: ann=36.4%/DD=28.7%/**4/5 pos** — best pos_segs
+  - 5-symbol ICP+TRX+BNB+BTC+XRP: ann=48.3%/DD=28.7%/**2/5 pos** — higher ann but unstable
+- The ann/DD tradeoff: more strategies = higher ann (budget contention reduced) but each strategy's edge is diluted
+- **No 5-symbol portfolio reaches ann>=110%** — max is 52.7% (TRX+BNB+BTC+XRP+ETH) at DD=39.2%
