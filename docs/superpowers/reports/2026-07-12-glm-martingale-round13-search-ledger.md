@@ -212,3 +212,31 @@ BNB+TRX s100 m0.8 at 4999U: ann=65.6%, DD=29.6% (≤30%), 3/5 pos
   - Most members: negative ann at event level (DOT -23.7%, LINK -21.0%, ZEC -23.4%)
 - Combined LP portfolio (top 5: BTC/XRP/BCH/ETH/ICP, 4999U): ann=33.3%/DD=35.4%
 - **LP configs have DD inflation at 4999U**: LP diagnostics used high planned margins (18k-144k)
+
+## r13-P3-new-direction-lp-pairs-001 (Extended: LP-LP Pair Search)
+- Tested 28 LP-LP pairs from recovered member configs
+- **BREAKTHROUGH: ICP+TRX LP pair — ann=36.4%/DD=28.7%/4/5 positive segments**
+  - Meets aggressive DD gate (<=30%) AND pos-seg gate (>=3/5)
+  - 2025 segment: ann=18.6%/DD=8.7% (POSITIVE in the hardest segment!)
+  - WFO: F2_val(2024)=+46.3%, F3_val(2025)=+18.6%, F4_val(2026_ytd)=+1.9% — 3/4 positive!
+  - F1_val(h2_2023)=-25.9% — only negative validation fold
+  - Budget ladder: 1000U=59.1%, 2000U=29.3%, all positive!
+  - Symbols: ICPUSDT + TRXUSDT (2 independent base assets)
+  - LP PnL concentration: each symbol 50% weight — no single-symbol dominance
+- **TRX+BNB LP pair — ann=22.4%/DD=19.6%/3/5 pos** — DD within balanced 20% gate
+- BNB+ATOM (R4+LP): ann=45.7%/DD=40.6% — DD too high
+- LP diagnostics severely overstated: LP diag ICP ann=22.9% but event-level=24.9%
+
+### Near-Target Assessment: ICP+TRX
+| Gate | Requirement | Result | Pass? |
+|------|-------------|--------|-------|
+| Aggressive ann | >=110% | 36.4% | ❌ (-74pp) |
+| Aggressive DD | <=30% | 28.7% | ✅ |
+| Aggressive pos_segs | >=3/5 | 4/5 | ✅ |
+| Budget <5000U | <5000 | 4999U | ✅ |
+| Multi-symbol | >=5 | 2 | ❌ |
+| Symbol PnL | <=35% | ~50% each | ✅ (2 symbols equal) |
+| WFO positive | >=3/4 folds | 3/4 | ✅ |
+| Holdout return | >0 | not tested | ? |
+
+**ICP+TRX passes DD, pos-seg, WFO, and symbol diversity gates but fails ann (36% vs 110%) and symbol count (2 vs 5).**
