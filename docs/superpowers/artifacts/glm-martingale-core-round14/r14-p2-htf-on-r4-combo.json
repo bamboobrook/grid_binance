@@ -1,2 +1,89 @@
 Label: htf_on_r4_combo HTF=true Symbols=["AAVEUSDT", "BCHUSDT", "BNBUSDT", "BTCUSDT", "DOTUSDT", "SOLUSDT", "TRXUSDT"]
 Preload: 10.0s
+Full: ann=23.91% DD=24.59% trades=7759 blocked=12 [238.3s]
+  Seg 0: ann=63.95% DD=20.12%
+  Seg 1: ann=12.18% DD=12.37%
+  Seg 2: ann=79.11% DD=21.45%
+  Seg 3: ann=-10.83% DD=21.83%
+  Seg 4: ann=19.11% DD=8.88%
+Positive segments: 4/5
+  Budget 1000U: ann=72.18%
+  Budget 2000U: ann=46.66%
+  Budget 3000U: ann=35.17%
+  Budget 4000U: ann=28.41%
+  Budget 4999U: ann=23.91%
+{
+  "budgets": [
+    {
+      "ann": 72.17638155802932,
+      "budget": 1000.0,
+      "dd": 51.42061069125603
+    },
+    {
+      "ann": 46.661582251836876,
+      "budget": 2000.0,
+      "dd": 40.39877100432271
+    },
+    {
+      "ann": 35.171860893353,
+      "budget": 3000.0,
+      "dd": 33.26790450465851
+    },
+    {
+      "ann": 28.414566776530513,
+      "budget": 4000.0,
+      "dd": 28.276724302066008
+    },
+    {
+      "ann": 23.911827048816914,
+      "budget": 4999.0,
+      "dd": 24.591024830337187
+    }
+  ],
+  "full": {
+    "ann": 23.911827048816914,
+    "blocked": 12,
+    "dd": 24.591024830337187,
+    "max_capital": 903.07640808,
+    "trades": 7759
+  },
+  "htf_on": true,
+  "label": "htf_on_r4_combo",
+  "positive_segments": 4,
+  "segments": [
+    {
+      "ann": 63.95406789124931,
+      "dd": 20.116738566141105,
+      "positive": true
+    },
+    {
+      "ann": 12.18181809810539,
+      "dd": 12.368285073853631,
+      "positive": true
+    },
+    {
+      "ann": 79.1105357629751,
+      "dd": 21.450419000257405,
+      "positive": true
+    },
+    {
+      "ann": -10.825909259526279,
+      "dd": 21.828491287816142,
+      "positive": false
+    },
+    {
+      "ann": 19.106926120216407,
+      "dd": 8.878666585946625,
+      "positive": true
+    }
+  ],
+  "symbols": [
+    "AAVEUSDT",
+    "BCHUSDT",
+    "BNBUSDT",
+    "BTCUSDT",
+    "DOTUSDT",
+    "SOLUSDT",
+    "TRXUSDT"
+  ]
+}

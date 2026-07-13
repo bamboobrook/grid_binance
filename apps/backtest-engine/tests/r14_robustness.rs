@@ -5,6 +5,11 @@
 //! - LOSO: leave-one-symbol-out
 //! - LOCO: leave-one-cluster-out
 //! - Stress: fee x1.5, slippage x2, fee+slip, funding adverse, delay, partial fill
+//!
+//! NOTE: Tests that use global fee/slippage overrides must run serially.
+//! Use `cargo test -- --test-threads=1` or the `serial_test` crate.
+
+use std::sync::Mutex;
 
 use backtest_engine::market_data::KlineBar;
 use backtest_engine::martingale::kline_engine::{
@@ -16,6 +21,9 @@ use shared_domain::martingale::{
     MartingalePortfolioConfig, MartingaleRiskLimits, MartingaleSizingModel,
     MartingaleSpacingModel, MartingaleStrategyConfig, MartingaleTakeProfitModel,
 };
+
+/// Global mutex to serialize tests that use fee/slippage overrides.
+static OVERRIDE_MUTEX: Mutex<()> = Mutex::new(());
 
 fn bar(symbol: &str, t_ms: i64, close: f64) -> KlineBar {
     KlineBar {
@@ -220,6 +228,7 @@ fn portfolio_both_strategies() -> Vec<MartingaleStrategyConfig> {
 /// Stress: fee x1.5 (7.5 bps instead of 5 bps).
 #[test]
 fn stress_fee_1_5x() {
+    let _guard = OVERRIDE_MUTEX.lock().unwrap();
     let start = 1_672_531_200_000_i64;
     let bars: Vec<KlineBar> = (0..1440)
         .map(|i| bar("BNBUSDT", start + i * 60_000, 100.0 + (i as f64 * 0.01).sin() * 5.0))
@@ -227,6 +236,7 @@ fn stress_fee_1_5x() {
     let portfolio = make_portfolio(50, 2, 200);
 
     // Default fee.
+    set_fee_bps_override(5.0);
     let default_result = run_kline_screening(portfolio.clone(), &bars).expect("default");
 
     // 1.5x fee.
@@ -256,6 +266,7 @@ fn stress_fee_1_5x() {
 /// Stress: slippage x2 (10 bps instead of 5 bps).
 #[test]
 fn stress_slippage_2x() {
+    let _guard = OVERRIDE_MUTEX.lock().unwrap();
     let start = 1_672_531_200_000_i64;
     let bars: Vec<KlineBar> = (0..1440)
         .map(|i| bar("BNBUSDT", start + i * 60_000, 100.0 + (i as f64 * 0.01).sin() * 5.0))
@@ -275,6 +286,7 @@ fn stress_slippage_2x() {
 /// Stress: fee x1.5 + slippage x2 combined.
 #[test]
 fn stress_fee_1_5x_plus_slippage_2x() {
+    let _guard = OVERRIDE_MUTEX.lock().unwrap();
     let start = 1_672_531_200_000_i64;
     let bars: Vec<KlineBar> = (0..1440)
         .map(|i| bar("BNBUSDT", start + i * 60_000, 100.0 + (i as f64 * 0.01).sin() * 5.0))
@@ -294,9 +306,10 @@ fn stress_fee_1_5x_plus_slippage_2x() {
 }
 
 /// Stress: deterministic results (no random behavior).
-/// This test runs in a single thread to avoid global override interference.
+/// Uses the override mutex to ensure no other test changes global state.
 #[test]
 fn stress_is_deterministic() {
+    let _guard = OVERRIDE_MUTEX.lock().unwrap();
     let start = 1_672_531_200_000_i64;
     let bars: Vec<KlineBar> = (0..1440)
         .map(|i| bar("BNBUSDT", start + i * 60_000, 100.0 + (i as f64 * 0.01).sin() * 5.0))

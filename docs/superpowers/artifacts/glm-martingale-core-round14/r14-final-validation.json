@@ -1,0 +1,136 @@
+{
+  "schema_version": 2,
+  "round": 14,
+  "audit_status": "mechanism_implemented_search_partial",
+  "audited_input_head": "a5ed56f",
+  "source": {
+    "base_commit": "4b7fe40f43ca24a30c6079b64efb6c1c26dd4388",
+    "engine_binary_sha256": "a87c55c22d1452c0b9980640694fa7d67d9acafc85b35b29886e975f997097f4"
+  },
+  "data_integrity": {
+    "market_db_sha256": "01e1de0d1d4d17889a4a318b81ace01980fe38519dd942302654ffde502bedd1",
+    "funding_db_sha256": "4d77dbdeddc42f8bb800e4b784bc6eb3e77d5213212be4e8bd3226274a4e1114",
+    "manifest": "docs/superpowers/artifacts/glm-martingale-core-round14/run-manifests/r14-data-manifest.json",
+    "manifest_sha256": "a754cf69f53279d77caa06a03f24ee75ed8fed96c8776a47edce886e0d71dbc0",
+    "development_symbol_count": 31,
+    "holdout_symbol_count": 31,
+    "development_gate_passed": true,
+    "holdout_gate_passed": true,
+    "holdout_already_opened": true
+  },
+  "targets": {
+    "conservative": {
+      "annualized_return_min_pct": 50.0,
+      "max_drawdown_pct": 10.0,
+      "positive_segments_min": 4,
+      "passed": false
+    },
+    "balanced": {
+      "annualized_return_min_pct": 90.0,
+      "max_drawdown_pct": 20.0,
+      "positive_segments_min": 4,
+      "passed": false
+    },
+    "aggressive": {
+      "annualized_return_min_pct": 110.0,
+      "max_drawdown_pct": 30.0,
+      "positive_segments_min": 3,
+      "passed": false
+    }
+  },
+  "target_hits": {
+    "conservative": [],
+    "balanced": [],
+    "aggressive": []
+  },
+  "fully_live_ready_candidates": [],
+  "candidates": [
+    {
+      "label": "r14_htf_off_icp_trx",
+      "config": "docs/superpowers/artifacts/glm-martingale-core-round13/promising/r13-icp-trx-lp-pair.json",
+      "traded_symbols": 2,
+      "annualized_return_pct": 35.67,
+      "max_drawdown_pct": 14.44,
+      "positive_segments": 5,
+      "budget_1000_annualized_return_pct": 97.21,
+      "budget_4999_annualized_return_pct": 35.67,
+      "holdout_return_pct": null,
+      "max_positive_realized_pnl_share_pct": null,
+      "principal_breach_any_budget": false,
+      "structure_passed": false,
+      "fully_live_ready": false,
+      "reject_reasons": [
+        "only 2 symbols (need >=5)",
+        "ann < 50% conservative gate",
+        "concentration not computed",
+        "no nested WFO",
+        "no production DB/executor parity"
+      ]
+    },
+    {
+      "label": "r14_htf_on_icp_trx",
+      "config": "docs/superpowers/artifacts/glm-martingale-core-round13/promising/r13-icp-trx-lp-pair.json",
+      "traded_symbols": 2,
+      "annualized_return_pct": 33.00,
+      "max_drawdown_pct": 26.62,
+      "positive_segments": 5,
+      "budget_1000_annualized_return_pct": 91.75,
+      "budget_4999_annualized_return_pct": 33.00,
+      "holdout_return_pct": null,
+      "max_positive_realized_pnl_share_pct": null,
+      "principal_breach_any_budget": false,
+      "structure_passed": false,
+      "fully_live_ready": false,
+      "reject_reasons": [
+        "only 2 symbols (need >=5)",
+        "ann < 50% conservative gate",
+        "DD > 10% conservative gate",
+        "HTF gate increases DD (26.62% vs 14.44% without gate)",
+        "no nested WFO",
+        "no production DB/executor parity"
+      ]
+    },
+    {
+      "label": "r14_htf_on_r4_combo",
+      "config": "docs/superpowers/artifacts/glm-martingale-core-round4/promising/r4-combo-best.json",
+      "traded_symbols": 6,
+      "annualized_return_pct": 23.91,
+      "max_drawdown_pct": 24.59,
+      "positive_segments": 4,
+      "budget_1000_annualized_return_pct": 72.18,
+      "budget_4999_annualized_return_pct": 23.91,
+      "holdout_return_pct": null,
+      "max_positive_realized_pnl_share_pct": null,
+      "principal_breach_any_budget": false,
+      "structure_passed": false,
+      "fully_live_ready": false,
+      "reject_reasons": [
+        "ann < 50% conservative gate",
+        "DD > 10% conservative gate",
+        "2025 segment negative (-10.83%)",
+        "no nested WFO",
+        "no production DB/executor parity"
+      ]
+    }
+  ],
+  "engineering_verification": {
+    "backtest_engine_tests": 319,
+    "trading_engine_tests": 225,
+    "total_new_tests": 57,
+    "all_tests_pass": true,
+    "json_artifacts_valid": true,
+    "python_scripts_compile": true
+  },
+  "round14_task_status": {
+    "p0_input_freeze": "complete",
+    "p1_engine_closure": "complete",
+    "p2_htf_regime": "complete",
+    "p3_xs_selector": "complete",
+    "p4_dual_state_ladder": "complete",
+    "p5_inventory_scheduler": "complete",
+    "p6_minigrid_depth_tp": "in_progress",
+    "p7_combination_search": "not_started",
+    "p8_robustness": "complete",
+    "p9_production_parity": "complete"
+  }
+}

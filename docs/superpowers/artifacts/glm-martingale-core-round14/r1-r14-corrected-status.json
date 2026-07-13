@@ -1,0 +1,128 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-07-13",
+  "purpose": "Canonical corrected status for Martingale rounds 1-14. Extends r13 corrected status with Round 14 results.",
+  "audited_input_head": "a5ed56f",
+  "audit_report": "docs/superpowers/reports/2026-07-13-glm-round14-search-ledger.md",
+  "engine_binary_sha256": "a87c55c22d1452c0b9980640694fa7d67d9acafc85b35b29886e975f997097f4",
+  "data_manifest": "docs/superpowers/artifacts/glm-martingale-core-round14/run-manifests/r14-data-manifest.json",
+  "data_manifest_sha256": "a754cf69f53279d77caa06a03f24ee75ed8fed96c8776a47edce886e0d71dbc0",
+  "hard_targets": {
+    "conservative": {
+      "annualized_return_min_pct": 50.0,
+      "max_drawdown_pct": 10.0,
+      "positive_segments_min": 4
+    },
+    "balanced": {
+      "annualized_return_min_pct": 90.0,
+      "max_drawdown_pct": 20.0,
+      "positive_segments_min": 4
+    },
+    "aggressive": {
+      "annualized_return_min_pct": 110.0,
+      "max_drawdown_pct": 30.0,
+      "positive_segments_min": 3
+    },
+    "common": {
+      "budget_rule": "strictly_below_5000_usdt",
+      "multi_symbol_min": 5,
+      "independent_base_assets_min": 3,
+      "max_symbol_capital_share_pct": 35.0,
+      "max_symbol_realized_gross_profit_share_pct": 35.0,
+      "max_symbol_realized_positive_net_pnl_share_pct": 35.0,
+      "event_level_shared_account": true,
+      "anti_overfit": true,
+      "live_reproducible": true
+    }
+  },
+  "target_hits": {
+    "conservative": [],
+    "balanced": [],
+    "aggressive": []
+  },
+  "fully_live_ready_candidates": [],
+  "current_frontiers": {
+    "best_corrected_multi_symbol_event_level_return": {
+      "round": 7,
+      "label": "R7-ANKR-q1w24p24",
+      "annualized_return_pct": 62.51288430430992,
+      "max_drawdown_pct": 28.624157528027265,
+      "positive_cold_start_segments": "4/5",
+      "traded_symbol_count": 6,
+      "max_positive_realized_pnl_share_pct": 36.15964778127561,
+      "holdout_return_pct": -19.188780022975788,
+      "fully_live_ready": false
+    },
+    "r14_htf_on_icp_trx": {
+      "round": 14,
+      "label": "htf_on_icp_trx",
+      "annualized_return_pct": 33.004995018763815,
+      "max_drawdown_pct": 26.62378349092075,
+      "positive_cold_start_segments": "5/5",
+      "traded_symbol_count": 2,
+      "budget_1000_annualized_return_pct": 91.75,
+      "fully_live_ready": false,
+      "notes": "HTF gate reduces ann from 35.67→33.00 but increases DD from 14.44→26.62. 5/5 positive segments is an improvement over r13's 4/5. Default HTF config too aggressive."
+    },
+    "r14_htf_off_icp_trx": {
+      "round": 14,
+      "label": "htf_off_icp_trx",
+      "annualized_return_pct": 35.67,
+      "max_drawdown_pct": 14.44,
+      "positive_cold_start_segments": "5/5",
+      "traded_symbol_count": 2,
+      "budget_1000_annualized_return_pct": 97.21,
+      "fully_live_ready": false,
+      "notes": "Baseline without HTF gate. Matches r13 corrected ann=36.4%. 5/5 positive segments improvement. DD=14.44% close to conservative 10% gate."
+    },
+    "r14_htf_on_r4_combo": {
+      "round": 14,
+      "label": "htf_on_r4_combo",
+      "annualized_return_pct": 23.91,
+      "max_drawdown_pct": 24.59,
+      "positive_cold_start_segments": "4/5",
+      "traded_symbol_count": 6,
+      "budget_1000_annualized_return_pct": 72.18,
+      "fully_live_ready": false,
+      "notes": "6-symbol R4-combo with HTF gate. Seg 3 (2025) negative -10.83%. Budget ladder: 1000→72%, 2000→47%, 3000→35%, 4000→28%, 4999→24%."
+    }
+  },
+  "round14_implementation_status": {
+    "p0_input_freeze": "complete",
+    "p1_engine_closure": "complete (10 synthetic event + 7 batch parity tests, 279 total pass)",
+    "p2_htf_regime": "complete (1h/4h aggregation, 8 required tests, binding probes on ICP+TRX and R4-combo)",
+    "p3_xs_selector": "complete (shadow/live dual-state, 7 tests, momentum+reversal families)",
+    "p4_dual_state_ladder": "complete (4 states, 8 tests including ablations)",
+    "p5_inventory_scheduler": "complete (reserve+downside-vol, 8 tests)",
+    "p6_minigrid_depth_tp": "in_progress (corrected engine rerun, search running)",
+    "p7_combination_search": "pending (requires P2-P6 continue gate results)",
+    "p8_robustness": "complete (6 tests: neighborhood, LOSO, fee/slippage stress, determinism)",
+    "p9_production_parity": "complete (10 tests with exact plan names, 225 trading-engine tests pass)"
+  },
+  "round14_key_findings": [
+    "HTF regime gate is functional but default parameters (EMA50/200, ADX25, VR q=8) are too aggressive",
+    "HTF ON on ICP+TRX: ann 35.67→33.00% (small decrease), DD 14.44→26.62% (unexpected increase)",
+    "DD increase from HTF gate: blocks re-entry during trends, misses recovery bounces",
+    "5/5 positive segments achieved with both HTF on and off (improvement over r13's 4/5)",
+    "Budget cliff: small budgets (1000U) outperform large budgets (4999U) due to forced concentration",
+    "R4-combo with HTF: 4/5 positive (2025 negative), budget ladder all executable",
+    "XS selector mechanism implemented but not yet integrated into engine search",
+    "Dual-state ladder and inventory scheduler implemented but not yet integrated into engine search"
+  ],
+  "rounds": [
+    {"round": 1, "status": "usable_baseline_only", "target_hit": false},
+    {"round": 2, "status": "partial_research", "target_hit": false},
+    {"round": 3, "status": "partial_research", "target_hit": false},
+    {"round": 4, "status": "corrected_baseline", "target_hit": false},
+    {"round": 5, "status": "stale_frontier", "target_hit": false},
+    {"round": 6, "status": "partial_dd_research", "target_hit": false},
+    {"round": 7, "status": "corrected_event_level", "target_hit": false},
+    {"round": 8, "status": "superseded", "target_hit": false},
+    {"round": 9, "status": "curve_diagnostic", "target_hit": false},
+    {"round": 10, "status": "scoped_negatives", "target_hit": false},
+    {"round": 11, "status": "zero_target_corrected_scope", "target_hit": false},
+    {"round": 12, "status": "corrected_partial", "target_hit": false},
+    {"round": 13, "status": "materially_incomplete_corrected", "target_hit": false},
+    {"round": 14, "status": "mechanism_implemented_search_partial", "target_hit": false}
+  ]
+}
