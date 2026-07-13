@@ -5,6 +5,7 @@ pub mod capital;
 pub mod capital_scheduler;
 pub mod event_level_allocator;
 pub mod exit_rules;
+pub mod htf_regime;
 pub mod indicator_runtime;
 pub mod rules;
 pub mod state;

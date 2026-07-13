@@ -319,6 +319,11 @@ pub struct MartingaleRiskLimits {
     /// adapts based on the number of filled safety legs (cycle depth).
     #[serde(default)]
     pub depth_tp: Option<MartingaleDepthTpConfig>,
+    /// Round 14 P2: Enable completed-HTF regime gate. When true, new cycle
+    /// entry is blocked if the per-symbol 1h/4h completed-bar regime state
+    /// doesn't allow the cycle direction. State never affects existing cycles.
+    #[serde(default)]
+    pub htf_regime_gate_enabled: Option<bool>,
 }
 
 /// Round 6 Task B: A single drawdown state rule.

@@ -1,0 +1,2 @@
+Label: htf_on_r4_combo HTF=true Symbols=["AAVEUSDT", "BCHUSDT", "BNBUSDT", "BTCUSDT", "DOTUSDT", "SOLUSDT", "TRXUSDT"]
+Preload: 10.0s

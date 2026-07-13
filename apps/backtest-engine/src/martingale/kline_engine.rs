@@ -249,6 +249,15 @@ pub fn run_kline_screening_with_funding(
     let mut last_equity_quote = initial_margin_capital;
     let mut latest_close_by_symbol = BTreeMap::new();
     let mut indicator_context = IndicatorRuntimeContext::default();
+    // Round 14 P2: HTF regime computer for completed 1h/4h bar state.
+    // Controls new cycle entry, FO/SO scale, and cooldown based on trend/reversal/vol.
+    let mut htf_regime = crate::martingale::htf_regime::HtfRegimeComputer::new(
+        crate::martingale::htf_regime::HtfRegimeConfig::default(),
+    );
+    let htf_gate_enabled = portfolio
+        .strategies
+        .iter()
+        .any(|s| s.risk_limits.htf_regime_gate_enabled.unwrap_or(false));
     let mut portfolio_stop_cooldown_until_ms: Option<i64> = None;
     // Round 2 Direction F: equity-reclaim re-entry state. When the portfolio
     // equity stop fires, record the equity at the stop; if
@@ -277,6 +286,9 @@ pub fn run_kline_screening_with_funding(
             validate_bar(&bars[bar_index])?;
             latest_close_by_symbol.insert(bars[bar_index].symbol.clone(), bars[bar_index].close);
             indicator_context.push_bar(&bars[bar_index]);
+            if htf_gate_enabled {
+                htf_regime.push_1m(&bars[bar_index]);
+            }
             bar_index += 1;
         }
         let group = &bars[group_start..bar_index];
@@ -477,6 +489,35 @@ pub fn run_kline_screening_with_funding(
                                 state_index += 1;
                                 continue;
                             }
+                        }
+                    }
+                    // Round 14 P2: HTF regime gate. Block new cycle if the
+                    // completed-HTF regime state doesn't allow this direction.
+                    // State is computed from completed 1h/4h bars only; the
+                    // current incomplete bar never affects the decision.
+                    if htf_gate_enabled {
+                        let symbol = &strategy_states[state_index].strategy.symbol;
+                        let regime = htf_regime.regime_at(symbol, timestamp_ms);
+                        let is_long = strategy_states[state_index].strategy.direction
+                            == MartingaleDirection::Long;
+                        let allowed = if is_long {
+                            regime.allows_new_long()
+                        } else {
+                            regime.allows_new_short()
+                        };
+                        if !allowed {
+                            events.push(event(
+                                bar,
+                                &strategy_states[state_index],
+                                "htf_regime_block",
+                                format!(
+                                    "regime={:?};direction={};reason=htf_state_blocks_new_cycle",
+                                    regime,
+                                    if is_long { "long" } else { "short" }
+                                ),
+                            ));
+                            state_index += 1;
+                            continue;
                         }
                     }
                     if !entry_triggers_allow_entry(

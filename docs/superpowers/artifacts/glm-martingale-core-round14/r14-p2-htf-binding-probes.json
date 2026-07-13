@@ -1,0 +1,43 @@
+{
+  "total_probes": 4,
+  "results": [
+    {
+      "label": "htf_on_r4-combo",
+      "family": "htf_gate_on",
+      "full": {
+        "error": "timeout"
+      },
+      "segments": [],
+      "budgets": []
+    },
+    {
+      "label": "htf_off_r4-combo",
+      "family": "htf_gate_off",
+      "full": {
+        "error": "no JSON output",
+        "stdout": "{\n  \"budget_blocked_legs\": 19,\n  \"budget_capped_projected_margin_quote\": 1165.8768,\n  \"budget_quote\": 4999.0,\n  \"days\": 1246.9993055555556,\n  \"equity_curve\": [],\n  \"first_leg_margin_total_quote\": 18.0,\n  \"full_series_margin_quote\": 22200.388569599996,\n  \"gate\": {\n    \"annualized_threshold\": 50.0,\n    \"drawdown_threshold\": 10.0,\n    \"passed\": false,\n    \"profile\": \"conservative\"\n  },\n  \"global_margin_cap_quote\": 4999.0,\n  \"max_capital_used_quote\": 709.2334457999999,\n  \"minimum_capital\": {\n    \"ex"
+      },
+      "segments": [],
+      "budgets": []
+    },
+    {
+      "label": "htf_on_icp-trx",
+      "family": "htf_gate_on",
+      "full": {
+        "error": "timeout"
+      },
+      "segments": [],
+      "budgets": []
+    },
+    {
+      "label": "htf_off_icp-trx",
+      "family": "htf_gate_off",
+      "full": {
+        "error": "no JSON output",
+        "stdout": "{\n  \"budget_blocked_legs\": 5,\n  \"budget_capped_projected_margin_quote\": 1912.5202175999993,\n  \"budget_quote\": 4999.0,\n  \"days\": 1246.9993055555556,\n  \"equity_curve\": [],\n  \"first_leg_margin_total_quote\": 15.0,\n  \"full_series_margin_quote\": 35567.73904895999,\n  \"gate\": {\n    \"annualized_threshold\": 50.0,\n    \"drawdown_threshold\": 10.0,\n    \"passed\": false,\n    \"profile\": \"conservative\"\n  },\n  \"global_margin_cap_quote\": 4999.0,\n  \"max_capital_used_quote\": 1924.9515990143996,\n  \"minimum_capital\": {"
+      },
+      "segments": [],
+      "budgets": []
+    }
+  ]
+}

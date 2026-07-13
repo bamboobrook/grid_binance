@@ -37,6 +37,7 @@ use rayon::prelude::*;
 use crate::market_data::KlineBar;
 use crate::martingale::indicator_runtime::extract_symbol_dependencies;
 use crate::martingale::kline_engine::{run_kline_screening_with_funding, FundingRatePoint};
+use crate::martingale::metrics::MartingaleBacktestResult;
 use crate::sqlite_market_data::load_funding_rates_readonly;
 use rusqlite::Connection;
 use shared_domain::martingale::MartingalePortfolioConfig;
@@ -225,6 +226,19 @@ impl BatchReplay {
             budget_blocked_legs: result.rejection_reasons.len() as u64,
             error: None,
         })
+    }
+
+    /// Run a single config and return the full result (including equity curve)
+    /// for on-budget metrics computation.
+    pub fn run_single_full(
+        &self,
+        config: &MartingalePortfolioConfig,
+        budget: f64,
+        start_ms: i64,
+        end_ms: i64,
+    ) -> Result<MartingaleBacktestResult, String> {
+        let data = self.prepare_data(config, start_ms, end_ms)?;
+        run_kline_screening_with_funding(config.clone(), &data.bars, &data.funding, budget)
     }
 
     /// Run multiple configs in parallel using Rayon. Configs with the same

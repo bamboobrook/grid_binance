@@ -1,0 +1,84 @@
+Label: htf_on_icp_trx_ob HTF=true Symbols=["ICPUSDT", "TRXUSDT"]
+Preload: 3.0s
+Full: ann=33.00% DD=26.62% trades=8801 blocked=8 [41.7s]
+  Seg 0: ann=67.26% DD=26.62%
+  Seg 1: ann=75.66% DD=8.45%
+  Seg 2: ann=45.54% DD=34.50%
+  Seg 3: ann=6.09% DD=20.78%
+  Seg 4: ann=58.09% DD=8.18%
+Positive segments: 5/5
+  Budget 1000U: ann=91.75%
+  Budget 2000U: ann=61.32%
+  Budget 3000U: ann=47.22%
+  Budget 4000U: ann=38.75%
+  Budget 4999U: ann=33.00%
+{
+  "budgets": [
+    {
+      "ann": 91.75419589291387,
+      "budget": 1000.0,
+      "dd": 80.23053809788577
+    },
+    {
+      "ann": 61.31937437810879,
+      "budget": 2000.0,
+      "dd": 53.36255962840282
+    },
+    {
+      "ann": 47.22498758887062,
+      "budget": 3000.0,
+      "dd": 39.97540778797044
+    },
+    {
+      "ann": 38.75223735181103,
+      "budget": 4000.0,
+      "dd": 31.958041987211544
+    },
+    {
+      "ann": 33.004995018763815,
+      "budget": 4999.0,
+      "dd": 26.62378349092075
+    }
+  ],
+  "full": {
+    "ann": 33.004995018763815,
+    "blocked": 8,
+    "dd": 26.62378349092075,
+    "max_capital": 1924.9515990143996,
+    "trades": 8801
+  },
+  "htf_on": true,
+  "label": "htf_on_icp_trx_ob",
+  "positive_segments": 5,
+  "segments": [
+    {
+      "ann": 67.25984054897265,
+      "dd": 26.62378349092075,
+      "positive": true
+    },
+    {
+      "ann": 75.6607605203317,
+      "dd": 8.453386919599879,
+      "positive": true
+    },
+    {
+      "ann": 45.54160742373217,
+      "dd": 34.50095614010246,
+      "positive": true
+    },
+    {
+      "ann": 6.090251418744574,
+      "dd": 20.777867536234627,
+      "positive": true
+    },
+    {
+      "ann": 58.08756580193857,
+      "dd": 8.179667547332723,
+      "positive": true
+    }
+  ],
+  "symbols": [
+    "ICPUSDT",
+    "TRXUSDT"
+  ]
+}
