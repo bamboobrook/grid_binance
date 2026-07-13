@@ -253,3 +253,25 @@ BNB+TRX s100 m0.8 at 4999U: ann=65.6%, DD=29.6% (≤30%), 3/5 pos
   - 5-symbol ICP+TRX+BNB+BTC+XRP: ann=48.3%/DD=28.7%/**2/5 pos** — higher ann but unstable
 - The ann/DD tradeoff: more strategies = higher ann (budget contention reduced) but each strategy's edge is diluted
 - **No 5-symbol portfolio reaches ann>=110%** — max is 52.7% (TRX+BNB+BTC+XRP+ETH) at DD=39.2%
+
+## r13-weight-search-001 (2-3 Symbol Weight Variation Search)
+- 175 configs: 2-symbol (15 pairs × 5 weights) + 3-symbol (20 combos × 5 weights)
+- **Weight variations DO NOT change metrics** — ICP+TRX produces identical ann/DD across all weight splits
+  - Root cause: shared budget at 4999U means only one strategy's cycle is typically active at a time
+  - Weight only affects which strategy gets budget priority, but with 2 strategies the outcome is the same
+- **ICP+TRX+ATOM (3-symbol): ann=35.9%/DD=28.9%/4/5 pos** — nearly identical to 2-symbol (36.4%/28.7%/4/5)
+  - Adding ATOM doesn't improve ann (slightly lower) and barely changes DD
+- **ICP+TRX+BNB (3-symbol): ann=40.6%/DD=30.8%/3/5 pos** — higher ann but loses pos_segs
+- No portfolio reaches DD<=20 (balanced gate) or DD<=10 (conservative gate)
+- **Best stable candidate remains ICP+TRX: ann=36.4%/DD=28.7%/4/5 pos**
+
+### Updated Best Event-Level Candidate Summary
+| Candidate | ann% | DD% | pos | Symbols | Budget 1000U |
+|-----------|------|-----|-----|---------|-------------|
+| ICP+TRX (2 LP) | 36.4 | 28.7 | 4/5 | 2 | +59.1% |
+| ICP+TRX+ATOM (3 LP) | 35.9 | 28.9 | 4/5 | 3 | — |
+| ICP+TRX+BNB+BTC+XRP (5 LP) | 48.3 | 28.7 | 2/5 | 5 | +59.6% |
+| BNB+TRX (R4 2strat) | 65.6 | 29.6 | 3/5 | 2 | -12.8% |
+| R4-combo (6 strat) | 34.7 | 17.7 | 4/5 | 6 | -15.7% |
+
+The ann ceiling at event-level with DD<=30% is approximately **48-50%** for 5-symbol or **36-40%** for 2-3 symbol with 4/5 positive segments.
