@@ -1,5 +1,5 @@
 {
-  "total": 16,
+  "total": 24,
   "results": [
     {
       "label": "p3_mom_p01_lb7_s0_r1_a3",
@@ -1392,6 +1392,702 @@
         ]
       },
       "elapsed_s": 355.2299053668976
+    },
+    {
+      "label": "p3_mom_p17_lb28_s0_r1_a3",
+      "family": "XS-MOM",
+      "phase": "binding_probe",
+      "params": {
+        "lookback": 28,
+        "skip": 0,
+        "rebalance": 1,
+        "active": 3
+      },
+      "result": {
+        "budgets": [
+          {
+            "ann": 52.18180848980592,
+            "budget": 1000.0,
+            "dd": 61.10603689514957
+          },
+          {
+            "ann": 32.25500815510387,
+            "budget": 2000.0,
+            "dd": 42.45395986296953
+          },
+          {
+            "ann": 23.662253209246707,
+            "budget": 3000.0,
+            "dd": 32.52575957469951
+          },
+          {
+            "ann": 18.763126527636963,
+            "budget": 4000.0,
+            "dd": 26.36102229289629
+          },
+          {
+            "ann": 15.574631560793994,
+            "budget": 4999.0,
+            "dd": 22.164329232816716
+          }
+        ],
+        "full": {
+          "ann": 15.574631560793994,
+          "blocked": 9,
+          "dd": 22.164329232816716,
+          "max_capital": 729.2173523249999,
+          "trades": 5609
+        },
+        "htf_on": false,
+        "label": "p3_mom_p17_lb28_s0_r1_a3",
+        "positive_segments": 4,
+        "segments": [
+          {
+            "ann": 17.27944199264644,
+            "dd": 22.164329232816716,
+            "positive": true
+          },
+          {
+            "ann": 11.630941279993955,
+            "dd": 13.889863474394781,
+            "positive": true
+          },
+          {
+            "ann": 66.67401477099664,
+            "dd": 22.2749255187459,
+            "positive": true
+          },
+          {
+            "ann": -10.35359607072227,
+            "dd": 21.624519730220552,
+            "positive": false
+          },
+          {
+            "ann": 20.161496190701754,
+            "dd": 10.871679670780676,
+            "positive": true
+          }
+        ],
+        "symbols": [
+          "AAVEUSDT",
+          "BCHUSDT",
+          "BNBUSDT",
+          "BTCUSDT",
+          "DOTUSDT",
+          "SOLUSDT",
+          "TRXUSDT"
+        ]
+      },
+      "elapsed_s": 543.89879322052
+    },
+    {
+      "label": "p3_mom_p18_lb28_s0_r1_a5",
+      "family": "XS-MOM",
+      "phase": "binding_probe",
+      "params": {
+        "lookback": 28,
+        "skip": 0,
+        "rebalance": 1,
+        "active": 5
+      },
+      "result": {
+        "budgets": [
+          {
+            "ann": 87.02403862751244,
+            "budget": 1000.0,
+            "dd": 44.72939899530949
+          },
+          {
+            "ann": 57.739126892587464,
+            "budget": 2000.0,
+            "dd": 32.93877758154728
+          },
+          {
+            "ann": 44.25538037578327,
+            "budget": 3000.0,
+            "dd": 26.06743087138567
+          },
+          {
+            "ann": 36.18731353906508,
+            "budget": 4000.0,
+            "dd": 21.568114213945204
+          },
+          {
+            "ann": 30.735675444507415,
+            "budget": 4999.0,
+            "dd": 18.851013559770234
+          }
+        ],
+        "full": {
+          "ann": 30.735675444507415,
+          "blocked": 15,
+          "dd": 18.851013559770234,
+          "max_capital": 673.2510708000002,
+          "trades": 4181
+        },
+        "htf_on": false,
+        "label": "p3_mom_p18_lb28_s0_r1_a5",
+        "positive_segments": 4,
+        "segments": [
+          {
+            "ann": 48.98372501640511,
+            "dd": 18.39607225211629,
+            "positive": true
+          },
+          {
+            "ann": 13.047707133517372,
+            "dd": 11.008617078775204,
+            "positive": true
+          },
+          {
+            "ann": 66.4036982685917,
+            "dd": 21.42019985436267,
+            "positive": true
+          },
+          {
+            "ann": -10.666350294777471,
+            "dd": 21.70191740421951,
+            "positive": false
+          },
+          {
+            "ann": 20.288503556855385,
+            "dd": 10.326065787778088,
+            "positive": true
+          }
+        ],
+        "symbols": [
+          "AAVEUSDT",
+          "BCHUSDT",
+          "BNBUSDT",
+          "BTCUSDT",
+          "DOTUSDT",
+          "SOLUSDT",
+          "TRXUSDT"
+        ]
+      },
+      "elapsed_s": 547.8987896442413
+    },
+    {
+      "label": "p3_mom_p19_lb28_s0_r7_a3",
+      "family": "XS-MOM",
+      "phase": "binding_probe",
+      "params": {
+        "lookback": 28,
+        "skip": 0,
+        "rebalance": 7,
+        "active": 3
+      },
+      "result": {
+        "budgets": [
+          {
+            "ann": 52.15486610100124,
+            "budget": 1000.0,
+            "dd": 61.482175781888124
+          },
+          {
+            "ann": 32.2360990265874,
+            "budget": 2000.0,
+            "dd": 41.76096950622543
+          },
+          {
+            "ann": 23.647425720198314,
+            "budget": 3000.0,
+            "dd": 31.618821814393556
+          },
+          {
+            "ann": 18.750865073912525,
+            "budget": 4000.0,
+            "dd": 25.44033431701261
+          },
+          {
+            "ann": 15.564153707104445,
+            "budget": 4999.0,
+            "dd": 21.285242863160867
+          }
+        ],
+        "full": {
+          "ann": 15.564153707104445,
+          "blocked": 9,
+          "dd": 21.285242863160867,
+          "max_capital": 675.7117116749998,
+          "trades": 5403
+        },
+        "htf_on": false,
+        "label": "p3_mom_p19_lb28_s0_r7_a3",
+        "positive_segments": 3,
+        "segments": [
+          {
+            "ann": 14.260918671434775,
+            "dd": 21.285242863160867,
+            "positive": true
+          },
+          {
+            "ann": 13.591723582090376,
+            "dd": 11.266247631011938,
+            "positive": true
+          },
+          {
+            "ann": 39.79652221365691,
+            "dd": 18.728585933060387,
+            "positive": true
+          },
+          {
+            "ann": -9.707930359409978,
+            "dd": 23.495083394252863,
+            "positive": false
+          },
+          {
+            "ann": -24.29027320106768,
+            "dd": 13.244476113644922,
+            "positive": false
+          }
+        ],
+        "symbols": [
+          "AAVEUSDT",
+          "BCHUSDT",
+          "BNBUSDT",
+          "BTCUSDT",
+          "DOTUSDT",
+          "SOLUSDT",
+          "TRXUSDT"
+        ]
+      },
+      "elapsed_s": 540.1640315055847
+    },
+    {
+      "label": "p3_mom_p20_lb28_s0_r7_a5",
+      "family": "XS-MOM",
+      "phase": "binding_probe",
+      "params": {
+        "lookback": 28,
+        "skip": 0,
+        "rebalance": 7,
+        "active": 5
+      },
+      "result": {
+        "budgets": [
+          {
+            "ann": 50.48902525218879,
+            "budget": 1000.0,
+            "dd": 62.29544672327357
+          },
+          {
+            "ann": 31.070013464395196,
+            "budget": 2000.0,
+            "dd": 42.376685605302136
+          },
+          {
+            "ann": 22.734660273619767,
+            "budget": 3000.0,
+            "dd": 32.109712296098394
+          },
+          {
+            "ann": 17.997021367458622,
+            "budget": 4000.0,
+            "dd": 25.84742798858774
+          },
+          {
+            "ann": 14.920584013268767,
+            "budget": 4999.0,
+            "dd": 21.632675381639434
+          }
+        ],
+        "full": {
+          "ann": 14.920584013268767,
+          "blocked": 8,
+          "dd": 21.632675381639434,
+          "max_capital": 674.0220598649998,
+          "trades": 8502
+        },
+        "htf_on": false,
+        "label": "p3_mom_p20_lb28_s0_r7_a5",
+        "positive_segments": 4,
+        "segments": [
+          {
+            "ann": 13.459706189282915,
+            "dd": 21.632675381639434,
+            "positive": true
+          },
+          {
+            "ann": 12.037262860542741,
+            "dd": 10.935042624465439,
+            "positive": true
+          },
+          {
+            "ann": 62.96575391966633,
+            "dd": 22.033608604147716,
+            "positive": true
+          },
+          {
+            "ann": -10.992162100665759,
+            "dd": 22.372759765050365,
+            "positive": false
+          },
+          {
+            "ann": 20.26195119026093,
+            "dd": 10.370959776029492,
+            "positive": true
+          }
+        ],
+        "symbols": [
+          "AAVEUSDT",
+          "BCHUSDT",
+          "BNBUSDT",
+          "BTCUSDT",
+          "DOTUSDT",
+          "SOLUSDT",
+          "TRXUSDT"
+        ]
+      },
+      "elapsed_s": 547.5608241558075
+    },
+    {
+      "label": "p3_mom_p21_lb28_s1_r1_a3",
+      "family": "XS-MOM",
+      "phase": "binding_probe",
+      "params": {
+        "lookback": 28,
+        "skip": 1,
+        "rebalance": 1,
+        "active": 3
+      },
+      "result": {
+        "budgets": [
+          {
+            "ann": -27.624960456710223,
+            "budget": 1000.0,
+            "dd": 74.58841103527948
+          },
+          {
+            "ann": -11.22944993574928,
+            "budget": 2000.0,
+            "dd": 42.21432292995767
+          },
+          {
+            "ann": -7.115055890861488,
+            "budget": 3000.0,
+            "dd": 29.437413070694696
+          },
+          {
+            "ann": -5.2131722837224785,
+            "budget": 4000.0,
+            "dd": 22.59779238541552
+          },
+          {
+            "ann": -4.115770579174494,
+            "budget": 4999.0,
+            "dd": 18.340694468135162
+          }
+        ],
+        "full": {
+          "ann": -4.115770579174494,
+          "blocked": 3,
+          "dd": 18.340694468135162,
+          "max_capital": 669.2351358,
+          "trades": 8631
+        },
+        "htf_on": false,
+        "label": "p3_mom_p21_lb28_s1_r1_a3",
+        "positive_segments": 2,
+        "segments": [
+          {
+            "ann": -20.457048233662046,
+            "dd": 15.845992842804755,
+            "positive": false
+          },
+          {
+            "ann": -12.105313222791814,
+            "dd": 11.758502596185961,
+            "positive": false
+          },
+          {
+            "ann": 43.7608248486145,
+            "dd": 20.404545372346554,
+            "positive": true
+          },
+          {
+            "ann": -10.289964048046752,
+            "dd": 21.679563073883212,
+            "positive": false
+          },
+          {
+            "ann": 20.788396292132248,
+            "dd": 8.961536012545263,
+            "positive": true
+          }
+        ],
+        "symbols": [
+          "AAVEUSDT",
+          "BCHUSDT",
+          "BNBUSDT",
+          "BTCUSDT",
+          "DOTUSDT",
+          "SOLUSDT",
+          "TRXUSDT"
+        ]
+      },
+      "elapsed_s": 544.7096853256226
+    },
+    {
+      "label": "p3_mom_p22_lb28_s1_r1_a5",
+      "family": "XS-MOM",
+      "phase": "binding_probe",
+      "params": {
+        "lookback": 28,
+        "skip": 1,
+        "rebalance": 1,
+        "active": 5
+      },
+      "result": {
+        "budgets": [
+          {
+            "ann": 86.69867846670438,
+            "budget": 1000.0,
+            "dd": 45.58780767746458
+          },
+          {
+            "ann": 57.49368269428441,
+            "budget": 2000.0,
+            "dd": 33.40133635484951
+          },
+          {
+            "ann": 44.05235086751358,
+            "budget": 3000.0,
+            "dd": 26.35591000474599
+          },
+          {
+            "ann": 36.0123466995113,
+            "budget": 4000.0,
+            "dd": 21.76497094287503
+          },
+          {
+            "ann": 30.58116697198865,
+            "budget": 4999.0,
+            "dd": 18.93116604278148
+          }
+        ],
+        "full": {
+          "ann": 30.58116697198865,
+          "blocked": 15,
+          "dd": 18.93116604278148,
+          "max_capital": 673.2510708000002,
+          "trades": 4172
+        },
+        "htf_on": false,
+        "label": "p3_mom_p22_lb28_s1_r1_a5",
+        "positive_segments": 3,
+        "segments": [
+          {
+            "ann": 46.39583836930561,
+            "dd": 18.538906018481075,
+            "positive": true
+          },
+          {
+            "ann": -13.762303550867362,
+            "dd": 12.58690541071095,
+            "positive": false
+          },
+          {
+            "ann": 30.126086317787525,
+            "dd": 23.151891714292578,
+            "positive": true
+          },
+          {
+            "ann": -11.017979459174743,
+            "dd": 22.39457604090634,
+            "positive": false
+          },
+          {
+            "ann": 19.467869578195483,
+            "dd": 8.718135085995048,
+            "positive": true
+          }
+        ],
+        "symbols": [
+          "AAVEUSDT",
+          "BCHUSDT",
+          "BNBUSDT",
+          "BTCUSDT",
+          "DOTUSDT",
+          "SOLUSDT",
+          "TRXUSDT"
+        ]
+      },
+      "elapsed_s": 557.7639465332031
+    },
+    {
+      "label": "p3_mom_p23_lb28_s1_r7_a3",
+      "family": "XS-MOM",
+      "phase": "binding_probe",
+      "params": {
+        "lookback": 28,
+        "skip": 1,
+        "rebalance": 7,
+        "active": 3
+      },
+      "result": {
+        "budgets": [
+          {
+            "ann": 59.419970987565726,
+            "budget": 1000.0,
+            "dd": 60.78587119775565
+          },
+          {
+            "ann": 37.38856333362621,
+            "budget": 2000.0,
+            "dd": 41.02708700677996
+          },
+          {
+            "ann": 27.716953017102664,
+            "budget": 3000.0,
+            "dd": 30.96254139243791
+          },
+          {
+            "ann": 22.13394035681786,
+            "budget": 4000.0,
+            "dd": 24.86322739143424
+          },
+          {
+            "ann": 18.46678606679173,
+            "budget": 4999.0,
+            "dd": 20.77487518016123
+          }
+        ],
+        "full": {
+          "ann": 18.46678606679173,
+          "blocked": 10,
+          "dd": 20.77487518016123,
+          "max_capital": 675.7117116749998,
+          "trades": 5406
+        },
+        "htf_on": false,
+        "label": "p3_mom_p23_lb28_s1_r7_a3",
+        "positive_segments": 2,
+        "segments": [
+          {
+            "ann": 13.991491992843862,
+            "dd": 20.77487518016123,
+            "positive": true
+          },
+          {
+            "ann": -17.893846011867065,
+            "dd": 18.38325151796101,
+            "positive": false
+          },
+          {
+            "ann": 38.95013529323397,
+            "dd": 20.73578574268378,
+            "positive": true
+          },
+          {
+            "ann": -10.031442821678505,
+            "dd": 21.763822209803195,
+            "positive": false
+          },
+          {
+            "ann": -24.605721581098784,
+            "dd": 12.168898171303958,
+            "positive": false
+          }
+        ],
+        "symbols": [
+          "AAVEUSDT",
+          "BCHUSDT",
+          "BNBUSDT",
+          "BTCUSDT",
+          "DOTUSDT",
+          "SOLUSDT",
+          "TRXUSDT"
+        ]
+      },
+      "elapsed_s": 553.3582434654236
+    },
+    {
+      "label": "p3_mom_p24_lb28_s1_r7_a5",
+      "family": "XS-MOM",
+      "phase": "binding_probe",
+      "params": {
+        "lookback": 28,
+        "skip": 1,
+        "rebalance": 7,
+        "active": 5
+      },
+      "result": {
+        "budgets": [
+          {
+            "ann": 50.461855438198235,
+            "budget": 1000.0,
+            "dd": 62.05269285418842
+          },
+          {
+            "ann": 31.051045197729742,
+            "budget": 2000.0,
+            "dd": 42.12055641642527
+          },
+          {
+            "ann": 22.719839204502957,
+            "budget": 3000.0,
+            "dd": 31.88021458029112
+          },
+          {
+            "ann": 17.98479651494791,
+            "budget": 4000.0,
+            "dd": 25.64532736470499
+          },
+          {
+            "ann": 14.910157525602274,
+            "budget": 4999.0,
+            "dd": 21.453761438988924
+          }
+        ],
+        "full": {
+          "ann": 14.910157525602274,
+          "blocked": 9,
+          "dd": 21.453761438988924,
+          "max_capital": 671.0629498649998,
+          "trades": 8485
+        },
+        "htf_on": false,
+        "label": "p3_mom_p24_lb28_s1_r7_a5",
+        "positive_segments": 3,
+        "segments": [
+          {
+            "ann": 13.449533952332748,
+            "dd": 21.453761438988924,
+            "positive": true
+          },
+          {
+            "ann": -14.887387647375295,
+            "dd": 14.084918380590416,
+            "positive": false
+          },
+          {
+            "ann": 23.691986269751197,
+            "dd": 18.27929113609647,
+            "positive": true
+          },
+          {
+            "ann": -10.949567805053405,
+            "dd": 20.22429696976119,
+            "positive": false
+          },
+          {
+            "ann": 19.66346446042051,
+            "dd": 10.51295203907358,
+            "positive": true
+          }
+        ],
+        "symbols": [
+          "AAVEUSDT",
+          "BCHUSDT",
+          "BNBUSDT",
+          "BTCUSDT",
+          "DOTUSDT",
+          "SOLUSDT",
+          "TRXUSDT"
+        ]
+      },
+      "elapsed_s": 557.5075707435608
     }
   ]
 }
