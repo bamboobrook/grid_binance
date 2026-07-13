@@ -1,0 +1,248 @@
+
+============================================================
+Phase 1: 32 Binding Probes (full 5-segment + budget ladder)
+============================================================
+
+  [1/32] p3_mom_p01_lb7_s0_r1_a3
+    ann=35.18% DD=16.75% pos=4/5 [240s]
+
+  [2/32] p3_mom_p02_lb7_s0_r1_a5
+    ann=26.98% DD=20.95% pos=4/5 [238s]
+
+  [3/32] p3_mom_p03_lb7_s0_r7_a3
+    ann=21.20% DD=18.86% pos=4/5 [237s]
+
+  [4/32] p3_mom_p04_lb7_s0_r7_a5
+    ann=15.23% DD=20.07% pos=4/5 [240s]
+
+  [5/32] p3_mom_p05_lb7_s1_r1_a3
+    ann=11.43% DD=18.49% pos=3/5 [236s]
+
+  [6/32] p3_mom_p06_lb7_s1_r1_a5
+    ann=26.53% DD=22.14% pos=3/5 [238s]
+
+  [7/32] p3_mom_p07_lb7_s1_r7_a3
+    ann=20.92% DD=20.85% pos=4/5 [239s]
+
+  [8/32] p3_mom_p08_lb7_s1_r7_a5
+    ann=15.13% DD=20.31% pos=3/5 [241s]
+  Saved 8 results to r14-p3-p3_binding_probes_checkpoint.json
+
+  [9/32] p3_mom_p09_lb14_s0_r1_a3
+    ann=21.22% DD=18.43% pos=4/5 [353s]
+
+  [10/32] p3_mom_p10_lb14_s0_r1_a5
+    ann=25.91% DD=22.50% pos=4/5 [351s]
+
+  [11/32] p3_mom_p11_lb14_s0_r7_a3
+    ann=18.90% DD=17.02% pos=3/5 [349s]
+
+  [12/32] p3_mom_p12_lb14_s0_r7_a5
+    ann=17.41% DD=20.07% pos=4/5 [356s]
+
+  [13/32] p3_mom_p13_lb14_s1_r1_a3
+    ann=-4.51% DD=19.97% pos=3/5 [353s]
+
+  [14/32] p3_mom_p14_lb14_s1_r1_a5
+    ann=27.51% DD=21.96% pos=3/5 [352s]
+
+  [15/32] p3_mom_p15_lb14_s1_r7_a3
+    ann=15.82% DD=22.37% pos=3/5 [350s]
+
+  [16/32] p3_mom_p16_lb14_s1_r7_a5
+    ann=17.40% DD=20.32% pos=3/5 [355s]
+  Saved 16 results to r14-p3-p3_binding_probes_checkpoint.json
+
+  [17/32] p3_mom_p17_lb28_s0_r1_a3
+    ann=15.57% DD=22.16% pos=4/5 [544s]
+
+  [18/32] p3_mom_p18_lb28_s0_r1_a5
+    ann=30.74% DD=18.85% pos=4/5 [548s]
+
+  [19/32] p3_mom_p19_lb28_s0_r7_a3
+    ann=15.56% DD=21.29% pos=3/5 [540s]
+
+  [20/32] p3_mom_p20_lb28_s0_r7_a5
+    ann=14.92% DD=21.63% pos=4/5 [548s]
+
+  [21/32] p3_mom_p21_lb28_s1_r1_a3
+    ann=-4.12% DD=18.34% pos=2/5 [545s]
+
+  [22/32] p3_mom_p22_lb28_s1_r1_a5
+    ann=30.58% DD=18.93% pos=3/5 [558s]
+
+  [23/32] p3_mom_p23_lb28_s1_r7_a3
+    ann=18.47% DD=20.77% pos=2/5 [553s]
+
+  [24/32] p3_mom_p24_lb28_s1_r7_a5
+    ann=14.91% DD=21.45% pos=3/5 [558s]
+  Saved 24 results to r14-p3-p3_binding_probes_checkpoint.json
+
+  [25/32] p3_mom_p25_lb56_s0_r1_a3
+    ERROR: timeout
+
+  [26/32] p3_mom_p26_lb56_s0_r1_a5
+    ERROR: timeout
+
+  [27/32] p3_mom_p27_lb56_s0_r7_a3
+    ERROR: timeout
+
+  [28/32] p3_mom_p28_lb56_s0_r7_a5
+    ERROR: timeout
+
+  [29/32] p3_mom_p29_lb56_s1_r1_a3
+    ERROR: timeout
+
+  [30/32] p3_mom_p30_lb56_s1_r1_a5
+    ERROR: timeout
+
+  [31/32] p3_mom_p31_lb56_s1_r7_a3
+    ERROR: timeout
+
+  [32/32] p3_mom_p32_lb56_s1_r7_a5
+    ERROR: timeout
+  Saved 32 results to r14-p3-p3_binding_probes_checkpoint.json
+
+  [33/32] p3_rev_p33_lb4h_s0_r1_a3
+    ann=32.03% DD=18.64% pos=3/5 [160s]
+
+  [34/32] p3_rev_p34_lb4h_s0_r1_a5
+    ann=30.60% DD=19.29% pos=4/5 [155s]
+
+  [35/32] p3_rev_p35_lb4h_s0_r7_a3
+    ann=19.16% DD=17.39% pos=3/5 [157s]
+
+  [36/32] p3_rev_p36_lb4h_s0_r7_a5
+    ann=28.94% DD=18.36% pos=4/5 [154s]
+
+  [37/32] p3_rev_p37_lb12h_s0_r1_a3
+    ann=29.27% DD=21.63% pos=4/5 [160s]
+
+  [38/32] p3_rev_p38_lb12h_s0_r1_a5
+    ann=30.65% DD=19.31% pos=4/5 [160s]
+
+  [39/32] p3_rev_p39_lb12h_s0_r7_a3
+    ann=33.79% DD=18.17% pos=3/5 [157s]
+
+  [40/32] p3_rev_p40_lb12h_s0_r7_a5
+    ann=33.27% DD=18.35% pos=4/5 [158s]
+  Saved 40 results to r14-p3-p3_binding_probes_checkpoint.json
+
+  [41/32] p3_rev_p41_lb24h_s0_r1_a3
+    ann=15.99% DD=16.74% pos=3/5 [168s]
+
+  [42/32] p3_rev_p42_lb24h_s0_r1_a5
+    ann=33.21% DD=18.34% pos=4/5 [162s]
+
+  [43/32] p3_rev_p43_lb24h_s0_r7_a3
+    ann=33.70% DD=18.32% pos=3/5 [158s]
+
+  [44/32] p3_rev_p44_lb24h_s0_r7_a5
+    ann=28.91% DD=18.36% pos=4/5 [161s]
+
+  [45/32] p3_rev_p45_lb72h_s0_r1_a3
+    ann=19.36% DD=17.91% pos=3/5 [183s]
+
+  [46/32] p3_rev_p46_lb72h_s0_r1_a5
+    ann=38.02% DD=26.24% pos=4/5 [179s]
+
+  [47/32] p3_rev_p47_lb72h_s0_r7_a3
+    ann=16.81% DD=27.20% pos=3/5 [177s]
+
+  [48/32] p3_rev_p48_lb72h_s0_r7_a5
+    ann=28.73% DD=27.22% pos=4/5 [183s]
+  Saved 48 results to r14-p3-p3_binding_probes_checkpoint.json
+  Saved 48 results to r14-p3-p3_binding_probes_final.json
+
+============================================================
+Binding Probe Analysis
+============================================================
+
+XS-MOM: 24 valid results
+  p3_mom_p01_lb7_s0_r1_a3: ann=35.18% DD=16.75% pos=4/5
+  p3_mom_p18_lb28_s0_r1_a5: ann=30.74% DD=18.85% pos=4/5
+  p3_mom_p22_lb28_s1_r1_a5: ann=30.58% DD=18.93% pos=3/5
+  p3_mom_p14_lb14_s1_r1_a5: ann=27.51% DD=21.96% pos=3/5
+  p3_mom_p02_lb7_s0_r1_a5: ann=26.98% DD=20.95% pos=4/5
+
+XS-REVERSAL: 16 valid results
+  p3_rev_p46_lb72h_s0_r1_a5: ann=38.02% DD=26.24% pos=4/5
+  p3_rev_p39_lb12h_s0_r7_a3: ann=33.79% DD=18.17% pos=3/5
+  p3_rev_p43_lb24h_s0_r7_a3: ann=33.70% DD=18.32% pos=3/5
+  p3_rev_p40_lb12h_s0_r7_a5: ann=33.27% DD=18.35% pos=4/5
+  p3_rev_p42_lb24h_s0_r1_a5: ann=33.21% DD=18.34% pos=4/5
+
+Continue gate (ann>=35%/DD<=30%/3/5 pos):
+  XS-MOM: 1/24 pass
+  XS-REVERSAL: 1/16 pass
+
+============================================================
+Phase 2: 384 Train-Only Screen per family
+============================================================
+XS-MOM: 192 configs (full window only for screen)
+Running first 96 XS-MOM configs (time-capped)...
+  [1] p3_mom_s001_lb7_s0_r1_a3: ann=35.18% [238s]
+  [2] p3_mom_s002_lb7_s0_r1_a5: ann=26.93% [241s]
+  [3] p3_mom_s003_lb7_s0_r1_a7: ann=30.79% [238s]
+  [4] p3_mom_s004_lb7_s0_r3_a3: ann=35.20% [237s]
+  [5] p3_mom_s005_lb7_s0_r3_a5: ann=29.05% [243s]
+  [6] p3_mom_s006_lb7_s0_r3_a7: ann=30.82% [240s]
+  [7] p3_mom_s007_lb7_s0_r7_a3: ann=21.20% [237s]
+  [8] p3_mom_s008_lb7_s0_r7_a5: ann=15.20% [242s]
+  [9] p3_mom_s009_lb7_s0_r7_a7: ann=30.76% [238s]
+  [10] p3_mom_s010_lb7_s0_r14_a3: ann=17.53% [238s]
+  [11] p3_mom_s011_lb7_s0_r14_a5: ann=15.11% [241s]
+  [12] p3_mom_s012_lb7_s0_r14_a7: ann=30.70% [236s]
+  [13] p3_mom_s013_lb7_s1_r1_a3: ann=11.43% [239s]
+  [14] p3_mom_s014_lb7_s1_r1_a5: ann=26.53% [237s]
+  [15] p3_mom_s015_lb7_s1_r1_a7: ann=30.76% [239s]
+
+  Progress: 16/96
+  Saved 64 results to r14-p3-p3_screen_checkpoint.json
+  [17] p3_mom_s017_lb7_s1_r3_a5: ann=17.47% [242s]
+  [18] p3_mom_s018_lb7_s1_r3_a7: ann=17.58% [239s]
+  [19] p3_mom_s019_lb7_s1_r7_a3: ann=20.92% [237s]
+  [20] p3_mom_s020_lb7_s1_r7_a5: ann=15.11% [247s]
+  [21] p3_mom_s021_lb7_s1_r7_a7: ann=30.70% [237s]
+  [22] p3_mom_s022_lb7_s1_r14_a3: ann=17.29% [240s]
+  [23] p3_mom_s023_lb7_s1_r14_a5: ann=15.41% [241s]
+  [24] p3_mom_s024_lb7_s1_r14_a7: ann=30.93% [240s]
+  [25] p3_mom_s025_lb7_s3_r1_a3: ann=17.33% [239s]
+  [26] p3_mom_s026_lb7_s3_r1_a5: ann=11.94% [243s]
+  [27] p3_mom_s027_lb7_s3_r1_a7: ann=12.15% [244s]
+  [28] p3_mom_s028_lb7_s3_r3_a3: ann=15.38% [246s]
+  [29] p3_mom_s029_lb7_s3_r3_a5: ann=11.97% [264s]
+  [30] p3_mom_s030_lb7_s3_r3_a7: ann=12.18% [243s]
+
+  Progress: 32/96
+  Saved 80 results to r14-p3-p3_screen_checkpoint.json
+  [33] p3_mom_s033_lb7_s3_r7_a7: ann=17.35% [242s]
+  [36] p3_mom_s036_lb7_s3_r14_a7: ann=17.64% [239s]
+  [37] p3_mom_s037_lb7_s5_r1_a3: ann=15.74% [241s]
+  [38] p3_mom_s038_lb7_s5_r1_a5: ann=17.40% [241s]
+  [39] p3_mom_s039_lb7_s5_r1_a7: ann=17.33% [242s]
+  [40] p3_mom_s040_lb7_s5_r3_a3: ann=17.70% [237s]
+  [41] p3_mom_s041_lb7_s5_r3_a5: ann=17.59% [241s]
+  [42] p3_mom_s042_lb7_s5_r3_a7: ann=17.32% [244s]
+  [45] p3_mom_s045_lb7_s5_r7_a7: ann=11.94% [241s]
+
+  Progress: 48/96
+  [48] p3_mom_s048_lb7_s5_r14_a7: ann=11.85% [237s]
+  Saved 96 results to r14-p3-p3_screen_checkpoint.json
+  [49] p3_mom_s049_lb14_s0_r1_a3: ann=21.22% [351s]
+  [50] p3_mom_s050_lb14_s0_r1_a5: ann=25.93% [348s]
+  [51] p3_mom_s051_lb14_s0_r1_a7: ann=30.85% [351s]
+  [52] p3_mom_s052_lb14_s0_r3_a3: ann=21.26% [350s]
+  [53] p3_mom_s053_lb14_s0_r3_a5: ann=25.95% [348s]
+  [54] p3_mom_s054_lb14_s0_r3_a7: ann=30.85% [349s]
+  [55] p3_mom_s055_lb14_s0_r7_a3: ann=18.90% [354s]
+  [56] p3_mom_s056_lb14_s0_r7_a5: ann=17.46% [357s]
+  [57] p3_mom_s057_lb14_s0_r7_a7: ann=30.76% [352s]
+  [58] p3_mom_s058_lb14_s0_r14_a3: ann=16.52% [353s]
+  [59] p3_mom_s059_lb14_s0_r14_a5: ann=17.37% [357s]
+  [60] p3_mom_s060_lb14_s0_r14_a7: ann=30.71% [354s]
+  [62] p3_mom_s062_lb14_s1_r1_a5: ann=27.58% [349s]
+  [63] p3_mom_s063_lb14_s1_r1_a7: ann=30.76% [354s]
+
+  Progress: 64/96
+  Saved 112 results to r14-p3-p3_screen_checkpoint.json
