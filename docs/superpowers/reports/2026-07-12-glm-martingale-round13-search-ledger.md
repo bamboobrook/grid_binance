@@ -190,3 +190,25 @@ BNB+TRX s100 m0.8 at 4999U: ann=65.6%, DD=29.6% (≤30%), 3/5 pos
 - Stress impact: modest ann reduction under fee-x1.5/slip-x2 (34.73→34.30, -0.43pp). Extreme stress (10+8bps) reduces ann to 14.8% but remains positive.
 - No principal breach under any stress scenario.
 - DD remains stable: base=17.69%, extreme=18.73% (+1.04pp, well within tier limit +5pp).
+
+## r13-P3-capital-scheduler-mechanism-001 (Task P3: Capital Scheduler Mechanism + 128 Screen)
+- New module: apps/backtest-engine/src/martingale/capital_scheduler.rs
+  - CapitalScheduler with per-symbol trend alignment, correlation cluster limits
+  - ScheduleDecision: allow_new_cycle + first_order_scale based on ATR
+  - 8 tests, all PASS (trend ranking, cluster limits, max cycles, ATR scaling, lifecycle)
+- 96-config mechanism screen (max_active×trend×ema×step×fo_scale)
+- **BINDING RESULT: scheduler params DO NOT BIND on R4-combo** — only 1 distinct (ann,dd) tuple
+  - Root cause: R4-combo already has BTC EMA entry triggers; adding scheduler gates is redundant
+  - At 4999U, typically only 1-2 cycles active → max_active doesn't constrain
+- Non-repeat: R4-combo scheduler params at 4999U are inert
+
+## r13-P6-lp-member-replay-001 (Task P6: LP Member Config Recovery + Replay)
+- **RECOVERED**: Found full strategy configs in glm-small-cap-pools/glm_robust_pool.json (28 symbols)
+- Each symbol has `cfg` field with complete portfolio_config (strategies, risk_limits)
+- Ran all 28 members individually at 4999U event-level:
+  - Best: BTCUSDT ann=54.2%/DD=32.9% (LP diag was 125.6% — 54% inflation)
+  - ATOMUSDT ann=20.3%/DD=16.9% (LP diag was only 3.5% — event-level BETTER!)
+  - BNBUSDT ann=8.4%/DD=11.0% (low DD, low ann)
+  - Most members: negative ann at event level (DOT -23.7%, LINK -21.0%, ZEC -23.4%)
+- Combined LP portfolio (top 5: BTC/XRP/BCH/ETH/ICP, 4999U): ann=33.3%/DD=35.4%
+- **LP configs have DD inflation at 4999U**: LP diagnostics used high planned margins (18k-144k)

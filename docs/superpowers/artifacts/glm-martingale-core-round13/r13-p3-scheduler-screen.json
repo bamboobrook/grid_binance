@@ -1,0 +1,275 @@
+{
+  "results": [
+    {
+      "label": "ma1_mt-0.5_e50_s120_fo1.0",
+      "full_metrics": {
+        "ann": 17.020483805279053,
+        "dd": 23.928234151607285,
+        "ret": 71.08518629253145
+      },
+      "positive_segments": 2
+    },
+    {
+      "label": "ma1_mt-0.5_e50_s120_fo0.5",
+      "full_metrics": {
+        "ann": 17.020483805279053,
+        "dd": 23.928234151607285,
+        "ret": 71.08518629253145
+      },
+      "positive_segments": 2
+    },
+    {
+      "label": "ma1_mt0.0_e50_s120_fo1.0",
+      "full_metrics": {
+        "ann": 17.020483805279053,
+        "dd": 23.928234151607285,
+        "ret": 71.08518629253145
+      },
+      "positive_segments": 2
+    },
+    {
+      "label": "ma1_mt0.0_e50_s120_fo0.5",
+      "full_metrics": {
+        "ann": 17.020483805279053,
+        "dd": 23.928234151607285,
+        "ret": 71.08518629253145
+      },
+      "positive_segments": 2
+    },
+    {
+      "label": "ma1_mt-0.5_e100_s120_fo1.0",
+      "full_metrics": {
+        "ann": 17.020483805279053,
+        "dd": 23.928234151607285,
+        "ret": 71.08518629253145
+      },
+      "positive_segments": 2
+    },
+    {
+      "label": "ma1_mt-0.5_e100_s120_fo0.5",
+      "full_metrics": {
+        "ann": 17.020483805279053,
+        "dd": 23.928234151607285,
+        "ret": 71.08518629253145
+      },
+      "positive_segments": 2
+    },
+    {
+      "label": "ma1_mt0.0_e100_s120_fo0.5",
+      "full_metrics": {
+        "ann": 17.020483805279053,
+        "dd": 23.928234151607285,
+        "ret": 71.08518629253145
+      },
+      "positive_segments": 2
+    },
+    {
+      "label": "ma2_mt0.0_e50_s120_fo0.5",
+      "full_metrics": {
+        "ann": 17.020483805279053,
+        "dd": 23.928234151607285,
+        "ret": 71.08518629253145
+      },
+      "positive_segments": 2
+    },
+    {
+      "label": "ma2_mt0.0_e50_s120_fo1.0",
+      "full_metrics": {
+        "ann": 17.020483805279053,
+        "dd": 23.928234151607285,
+        "ret": 71.08518629253145
+      },
+      "positive_segments": 2
+    },
+    {
+      "label": "ma1_mt0.0_e100_s120_fo1.0",
+      "full_metrics": {
+        "ann": 17.020483805279053,
+        "dd": 23.928234151607285,
+        "ret": 71.08518629253145
+      },
+      "positive_segments": 2
+    },
+    {
+      "label": "ma2_mt0.0_e100_s120_fo0.5",
+      "full_metrics": {
+        "ann": 17.020483805279053,
+        "dd": 23.928234151607285,
+        "ret": 71.08518629253145
+      },
+      "positive_segments": 2
+    },
+    {
+      "label": "ma2_mt0.0_e100_s120_fo1.0",
+      "full_metrics": {
+        "ann": 17.020483805279053,
+        "dd": 23.928234151607285,
+        "ret": 71.08518629253145
+      },
+      "positive_segments": 2
+    },
+    {
+      "label": "ma2_mt-0.5_e50_s120_fo1.0",
+      "full_metrics": {
+        "ann": 17.020483805279053,
+        "dd": 23.928234151607285,
+        "ret": 71.08518629253145
+      },
+      "positive_segments": 2
+    },
+    {
+      "label": "ma2_mt-0.5_e100_s120_fo1.0",
+      "full_metrics": {
+        "ann": 17.020483805279053,
+        "dd": 23.928234151607285,
+        "ret": 71.08518629253145
+      },
+      "positive_segments": 2
+    },
+    {
+      "label": "ma3_mt0.0_e50_s120_fo1.0",
+      "full_metrics": {
+        "ann": 17.020483805279053,
+        "dd": 23.928234151607285,
+        "ret": 71.08518629253145
+      },
+      "positive_segments": 2
+    },
+    {
+      "label": "ma2_mt-0.5_e100_s120_fo0.5",
+      "full_metrics": {
+        "ann": 17.020483805279053,
+        "dd": 23.928234151607285,
+        "ret": 71.08518629253145
+      },
+      "positive_segments": 2
+    },
+    {
+      "label": "ma3_mt0.0_e100_s120_fo0.5",
+      "full_metrics": {
+        "ann": 17.020483805279053,
+        "dd": 23.928234151607285,
+        "ret": 71.08518629253145
+      },
+      "positive_segments": 2
+    },
+    {
+      "label": "ma2_mt-0.5_e50_s120_fo0.5",
+      "full_metrics": {
+        "ann": 17.020483805279053,
+        "dd": 23.928234151607285,
+        "ret": 71.08518629253145
+      },
+      "positive_segments": 2
+    },
+    {
+      "label": "ma3_mt0.0_e100_s120_fo1.0",
+      "full_metrics": {
+        "ann": 17.020483805279053,
+        "dd": 23.928234151607285,
+        "ret": 71.08518629253145
+      },
+      "positive_segments": 2
+    },
+    {
+      "label": "ma3_mt0.0_e50_s120_fo0.5",
+      "full_metrics": {
+        "ann": 17.020483805279053,
+        "dd": 23.928234151607285,
+        "ret": 71.08518629253145
+      },
+      "positive_segments": 2
+    },
+    {
+      "label": "ma3_mt-0.5_e50_s120_fo1.0",
+      "full_metrics": {
+        "ann": 17.020483805279053,
+        "dd": 23.928234151607285,
+        "ret": 71.08518629253145
+      },
+      "positive_segments": 2
+    },
+    {
+      "label": "ma3_mt-0.5_e50_s120_fo0.5",
+      "full_metrics": {
+        "ann": 17.020483805279053,
+        "dd": 23.928234151607285,
+        "ret": 71.08518629253145
+      },
+      "positive_segments": 2
+    },
+    {
+      "label": "ma3_mt-0.5_e100_s120_fo0.5",
+      "full_metrics": {
+        "ann": 17.020483805279053,
+        "dd": 23.928234151607285,
+        "ret": 71.08518629253145
+      },
+      "positive_segments": 2
+    },
+    {
+      "label": "ma4_mt0.0_e50_s120_fo0.5",
+      "full_metrics": {
+        "ann": 17.020483805279053,
+        "dd": 23.928234151607285,
+        "ret": 71.08518629253145
+      },
+      "positive_segments": 2
+    },
+    {
+      "label": "ma3_mt-0.5_e100_s120_fo1.0",
+      "full_metrics": {
+        "ann": 17.020483805279053,
+        "dd": 23.928234151607285,
+        "ret": 71.08518629253145
+      },
+      "positive_segments": 2
+    },
+    {
+      "label": "ma4_mt0.0_e50_s120_fo1.0",
+      "full_metrics": {
+        "ann": 17.020483805279053,
+        "dd": 23.928234151607285,
+        "ret": 71.08518629253145
+      },
+      "positive_segments": 2
+    },
+    {
+      "label": "ma4_mt0.0_e100_s120_fo0.5",
+      "full_metrics": {
+        "ann": 17.020483805279053,
+        "dd": 23.928234151607285,
+        "ret": 71.08518629253145
+      },
+      "positive_segments": 2
+    },
+    {
+      "label": "ma4_mt0.0_e100_s120_fo1.0",
+      "full_metrics": {
+        "ann": 17.020483805279053,
+        "dd": 23.928234151607285,
+        "ret": 71.08518629253145
+      },
+      "positive_segments": 2
+    },
+    {
+      "label": "ma4_mt-0.5_e50_s120_fo0.5",
+      "full_metrics": {
+        "ann": 17.020483805279053,
+        "dd": 23.928234151607285,
+        "ret": 71.08518629253145
+      },
+      "positive_segments": 2
+    },
+    {
+      "label": "ma4_mt-0.5_e50_s120_fo1.0",
+      "full_metrics": {
+        "ann": 17.020483805279053,
+        "dd": 23.928234151607285,
+        "ret": 71.08518629253145
+      },
+      "positive_segments": 2
+    }
+  ],
+  "total": 96
+}
