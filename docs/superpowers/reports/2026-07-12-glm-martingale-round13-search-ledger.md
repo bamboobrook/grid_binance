@@ -275,3 +275,21 @@ BNB+TRX s100 m0.8 at 4999U: ann=65.6%, DD=29.6% (≤30%), 3/5 pos
 | R4-combo (6 strat) | 34.7 | 17.7 | 4/5 | 6 | -15.7% |
 
 The ann ceiling at event-level with DD<=30% is approximately **48-50%** for 5-symbol or **36-40%** for 2-3 symbol with 4/5 positive segments.
+
+## r13-arch-search-001 (Architecture Search: Different TP/Direction/Params)
+- 147 configs tested with custom architectures on ICP+TRX:
+  - Pure Percent TP: tp{45-350} × mult{1.05-3.5} × step{50-200}
+  - ICP long + TRX short (opposite directions)
+  - Partial TP variants
+  - High-frequency low-mult
+  - 3-symbol ICP+TRX+ATOM with percent TP
+- **RESULT: Custom architectures produce LOWER ann than LP member configs**
+  - Best custom: pct_tp180_m3.5 ann=57.7%/DD=64% (DD way too high)
+  - LP ICP+TRX baseline: ann=36.4%/DD=28.7%/4/5 (much better risk-adjusted)
+  - Most custom configs: ann < 5% (parameters not tuned for these symbols)
+- **The LP member configs have specialized, optimized parameters per symbol**
+  (multiplier, spacing, TP, max_legs, entry triggers) that our generic grid cannot reproduce.
+- This confirms the LP configs represent a local optimum that is hard to improve upon
+  with parameter variation.
+- **No architecture variant reaches ann>=50% with DD<=30%** — the ann ceiling
+  at event-level with DD<=30% remains ~36-48%.

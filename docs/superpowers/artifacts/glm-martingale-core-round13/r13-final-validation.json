@@ -1,14 +1,43 @@
 {
   "round": 13,
   "branch": "glm-martingale-core-round13",
-  "targets": {"conservative": [], "balanced": [], "aggressive": []},
+  "targets": {
+    "conservative": [],
+    "balanced": [],
+    "aggressive": []
+  },
   "best_research_event_level": [
-    {"label": "BNB_L+TRX_L s100 m0.8", "ann": 65.6, "dd": 29.6, "pos": "3/5", "neighbor_stability": "19%", "holdout_ret": -35.9, "pnl_concentration": "BNB ~73% fails gate", "fully_live_ready": false},
-    {"label": "TRX_L+AAVE_S", "ann": 11.9, "dd": 9.9, "holdout_ret": 5.3, "fully_live_ready": false, "note": "DD meets conservative but ann far below 50%"},
-    {"label": "R4-combo baseline", "ann": 34.7, "dd": 17.7, "holdout_ret": -11.0, "pnl_concentration": "BNB ~73% fails gate", "fully_live_ready": false, "note": "Event-level baseline; fails concentration gate"}
+    {
+      "label": "BNB_L+TRX_L s100 m0.8",
+      "ann": 65.6,
+      "dd": 29.6,
+      "pos": "3/5",
+      "neighbor_stability": "19%",
+      "holdout_ret": -35.9,
+      "pnl_concentration": "BNB ~73% fails gate",
+      "fully_live_ready": false
+    },
+    {
+      "label": "TRX_L+AAVE_S",
+      "ann": 11.9,
+      "dd": 9.9,
+      "holdout_ret": 5.3,
+      "fully_live_ready": false,
+      "note": "DD meets conservative but ann far below 50%"
+    },
+    {
+      "label": "R4-combo baseline",
+      "ann": 34.7,
+      "dd": 17.7,
+      "holdout_ret": -11.0,
+      "pnl_concentration": "BNB ~73% fails gate",
+      "fully_live_ready": false,
+      "note": "Event-level baseline; fails concentration gate"
+    }
   ],
   "tasks_completed": {
-    "P0": "complete", "P1": "complete (BatchReplay+5 tests)",
+    "P0": "complete",
+    "P1": "complete (BatchReplay+5 tests)",
     "P2": "complete (1176 configs 5-ablation, all worse)",
     "P3": "complete (shadow/live module 10 tests + 128 scheduler configs)",
     "P4": "complete (minigrid kline_engine INTEGRATED + BINDS + 512 Sobol configs)",
@@ -28,8 +57,8 @@
   "total_replays": 13488,
   "new_failed_families": [
     "htf_trend_directed (1176 configs, all worse)",
-    "native_minigrid (512 configs, ann reduced 34.7→32.0)",
-    "depth_tp (432 configs, ann reduced 34.7→10.9)",
+    "native_minigrid (512 configs, ann reduced 34.7\u219232.0)",
+    "depth_tp (432 configs, ann reduced 34.7\u219210.9)",
     "bnb_trx_candidate (fails neighbor stability 19%, holdout -35.9%, concentration 73%)"
   ],
   "do_not_repeat_new_keys": [
@@ -40,11 +69,24 @@
     "r13-bnb-pnl-concentration-73pct-exceeds-35pct-gate"
   ],
   "target_verdict": {
-    "conservative": "NOT MET — best DD=9.9% passes but ann=11.9% far below 50%",
-    "balanced": "NOT MET — best ann=65.6% below 90%, DD=29.6% exceeds 20%",
-    "aggressive": "NOT MET — best ann=65.6% below 110%, fails stability+holdout+concentration"
+    "conservative": "NOT MET \u2014 best DD=9.9% passes but ann=11.9% far below 50%",
+    "balanced": "NOT MET \u2014 best ann=65.6% below 90%, DD=29.6% exceeds 20%",
+    "aggressive": "NOT MET \u2014 best ann=65.6% below 110%, fails stability+holdout+concentration"
   },
   "critical_finding": "R4-combo BNB PnL concentration ~73% exceeds 35% gate. BNB is the primary return driver. Any portfolio without BNB has ann<10%. This is a fundamental structural challenge.",
-  "test_counts": {"backtest_engine": "226+ passed", "trading_engine": "216+ passed"},
-  "source_of_truth": "this file"
+  "test_counts": {
+    "backtest_engine": "226+ passed",
+    "trading_engine": "216+ passed"
+  },
+  "source_of_truth": "this file",
+  "ann_ceiling_finding": "After 2500+ event-level configs across Rounds 12-13, the ann ceiling at DD<=30% with 4999U shared budget is approximately 36-48% depending on symbol count. Custom architectures, weight variations, TP models, and direction modes all fail to exceed the LP member configs specialized parameters.",
+  "best_candidate": {
+    "label": "ICP+TRX LP pair",
+    "ann": 36.4,
+    "dd": 28.7,
+    "pos_segs": "4/5",
+    "budget_1000": 59.1,
+    "passes_aggressive_dd": true,
+    "passes_aggressive_pos": true
+  }
 }
