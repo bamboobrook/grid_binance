@@ -9,6 +9,7 @@ pub mod htf_regime;
 pub mod indicator_runtime;
 pub mod rules;
 pub mod state;
+pub mod xs_selector;
 
 pub mod kline_engine;
 pub mod metrics;
