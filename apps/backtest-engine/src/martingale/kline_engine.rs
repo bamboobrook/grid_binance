@@ -2,9 +2,9 @@ use std::collections::BTreeMap;
 
 use rust_decimal::prelude::ToPrimitive;
 use shared_domain::martingale::{
-    MartingaleDirection, MartingaleDrawdownStateRule, MartingaleEntryTrigger,
-    MartingalePortfolioConfig, MartingaleRiskLimits, MartingaleStopLossModel,
-    MartingaleStrategyConfig, MartingaleTakeProfitModel,
+    MartingaleDcaMiniGridConfig, MartingaleDirection, MartingaleDrawdownStateRule,
+    MartingaleEntryTrigger, MartingalePortfolioConfig, MartingaleRiskLimits,
+    MartingaleStopLossModel, MartingaleStrategyConfig, MartingaleTakeProfitModel,
 };
 
 use crate::market_data::KlineBar;
@@ -20,7 +20,7 @@ use crate::martingale::metrics::{
 use crate::martingale::rules::compute_leg_trigger_prices;
 use crate::martingale::state::MartingaleLegState;
 
-const DEFAULT_EXCHANGE_MIN_NOTIONAL: f64 = 0.0;
+const DEFAULT_EXCHANGE_MIN_NOTIONAL: f64 = 5.0;
 pub const DEFAULT_FEE_BPS: f64 = 4.5;
 pub const DEFAULT_SLIPPAGE_BPS: f64 = 2.0;
 
@@ -31,22 +31,36 @@ static SLIPPAGE_BPS_OVERRIDE: std::sync::atomic::AtomicI64 = std::sync::atomic::
 
 /// Set fee bps override (0 = use default). For cost stress testing.
 pub fn set_fee_bps_override(bps: f64) {
-    FEE_BPS_OVERRIDE.store((bps * 1_000_000.0) as i64, std::sync::atomic::Ordering::Relaxed);
+    FEE_BPS_OVERRIDE.store(
+        (bps * 1_000_000.0) as i64,
+        std::sync::atomic::Ordering::Relaxed,
+    );
 }
 
 /// Set slippage bps override (0 = use default). For cost stress testing.
 pub fn set_slippage_bps_override(bps: f64) {
-    SLIPPAGE_BPS_OVERRIDE.store((bps * 1_000_000.0) as i64, std::sync::atomic::Ordering::Relaxed);
+    SLIPPAGE_BPS_OVERRIDE.store(
+        (bps * 1_000_000.0) as i64,
+        std::sync::atomic::Ordering::Relaxed,
+    );
 }
 
 fn effective_fee_bps() -> f64 {
     let raw = FEE_BPS_OVERRIDE.load(std::sync::atomic::Ordering::Relaxed);
-    if raw > 0 { raw as f64 / 1_000_000.0 } else { DEFAULT_FEE_BPS }
+    if raw > 0 {
+        raw as f64 / 1_000_000.0
+    } else {
+        DEFAULT_FEE_BPS
+    }
 }
 
 fn effective_slippage_bps() -> f64 {
     let raw = SLIPPAGE_BPS_OVERRIDE.load(std::sync::atomic::Ordering::Relaxed);
-    if raw > 0 { raw as f64 / 1_000_000.0 } else { DEFAULT_SLIPPAGE_BPS }
+    if raw > 0 {
+        raw as f64 / 1_000_000.0
+    } else {
+        DEFAULT_SLIPPAGE_BPS
+    }
 }
 const DEFAULT_NEW_CYCLE_DRAWDOWN_PAUSE_PCT: f64 = 6.0;
 const DEFAULT_NEW_CYCLE_ATR_PAUSE_PCT: f64 = 2.0;
@@ -139,11 +153,7 @@ fn active_drawdown_safety_order_scale(
 /// Resolve a parity-structured threshold: env override (if set and finite) wins,
 /// otherwise the config value, otherwise the engine default. This is the single
 /// resolution path shared by backtest and live so both engines agree.
-fn resolve_threshold(
-    env_name: &str,
-    config_value: Option<f64>,
-    default_value: f64,
-) -> f64 {
+fn resolve_threshold(env_name: &str, config_value: Option<f64>, default_value: f64) -> f64 {
     if let Some(parsed) = std::env::var(env_name)
         .ok()
         .and_then(|value| value.parse::<f64>().ok())
@@ -283,7 +293,8 @@ pub fn run_kline_screening_with_funding(
         // what on_budget_metrics reports.
         let budget_based_dd_pct = if budget_equity_peak_quote > 0.0 {
             let prev_budget_equity = budget_quote + (last_equity_quote - initial_margin_capital);
-            ((budget_equity_peak_quote - prev_budget_equity) / budget_equity_peak_quote * 100.0).max(0.0)
+            ((budget_equity_peak_quote - prev_budget_equity) / budget_equity_peak_quote * 100.0)
+                .max(0.0)
         } else {
             0.0
         };
@@ -323,7 +334,9 @@ pub fn run_kline_screening_with_funding(
                         break;
                     }
                     // Only scan back a limited number of entries (funding events are sparse)
-                    if funding_index - fi > 30 { break; }
+                    if funding_index - fi > 30 {
+                        break;
+                    }
                 }
                 found
             } else {
@@ -341,9 +354,11 @@ pub fn run_kline_screening_with_funding(
                     // Round 6 Task C: Symbol quarantine check. If this strategy
                     // has been quarantined (too many recent stops), skip new cycle.
                     let rl = &strategy_states[state_index].strategy.risk_limits;
-                    if let (Some(trigger), Some(window_h), Some(pause_h)) =
-                        (rl.quarantine_stop_count_trigger, rl.quarantine_stop_window_hours, rl.quarantine_pause_hours)
-                    {
+                    if let (Some(trigger), Some(window_h), Some(pause_h)) = (
+                        rl.quarantine_stop_count_trigger,
+                        rl.quarantine_stop_window_hours,
+                        rl.quarantine_pause_hours,
+                    ) {
                         // Check if currently quarantined
                         if let Some(until) = strategy_states[state_index].quarantined_until_ms {
                             if timestamp_ms < until {
@@ -364,14 +379,19 @@ pub fn run_kline_screening_with_funding(
                         if recent_count >= trigger {
                             // Quarantine!
                             let pause_ms = (pause_h * 3_600_000.0) as i64;
-                            strategy_states[state_index].quarantined_until_ms = Some(timestamp_ms + pause_ms);
+                            strategy_states[state_index].quarantined_until_ms =
+                                Some(timestamp_ms + pause_ms);
                             // Clean old stops
-                            strategy_states[state_index].recent_stop_timestamps.retain(|&ts| ts >= cutoff);
+                            strategy_states[state_index]
+                                .recent_stop_timestamps
+                                .retain(|&ts| ts >= cutoff);
                             state_index += 1;
                             continue;
                         }
                         // Clean old stops periodically
-                        strategy_states[state_index].recent_stop_timestamps.retain(|&ts| ts >= cutoff);
+                        strategy_states[state_index]
+                            .recent_stop_timestamps
+                            .retain(|&ts| ts >= cutoff);
                     }
                     // Round 2 Direction F: equity-reclaim early re-entry. If the
                     // calendar cooldown is still active BUT equity has recovered
@@ -427,9 +447,14 @@ pub fn run_kline_screening_with_funding(
                             continue;
                         }
                         // Find the highest-trigger rule that fires
-                        let active_rule = dd_rules.iter()
+                        let active_rule = dd_rules
+                            .iter()
                             .filter(|r| dd_state_pct >= r.trigger_drawdown_pct)
-                            .max_by(|a, b| a.trigger_drawdown_pct.partial_cmp(&b.trigger_drawdown_pct).unwrap_or(std::cmp::Ordering::Equal));
+                            .max_by(|a, b| {
+                                a.trigger_drawdown_pct
+                                    .partial_cmp(&b.trigger_drawdown_pct)
+                                    .unwrap_or(std::cmp::Ordering::Equal)
+                            });
                         if let Some(rule) = active_rule {
                             // If rule says freeze safety and we're opening a new cycle, allow but scale
                             // If rule specifies first_order_scale, we'll apply it in add_leg
@@ -465,15 +490,20 @@ pub fn run_kline_screening_with_funding(
                     // Round 7 Task C: Funding cost gate. Block new cycle if expected
                     // funding cost exceeds threshold for this direction.
                     let rl_c = &strategy_states[state_index].strategy.risk_limits;
-                    if let (Some(max_bps), Some(mode)) =
-                        (rl_c.max_expected_funding_cost_bps, rl_c.funding_side_bias_mode.as_deref())
-                    {
+                    if let (Some(max_bps), Some(mode)) = (
+                        rl_c.max_expected_funding_cost_bps,
+                        rl_c.funding_side_bias_mode.as_deref(),
+                    ) {
                         if mode != "disabled" && max_bps > 0.0 {
-                            let sym = &strategy_states[state_index].strategy.symbol;
-                            let is_long = strategy_states[state_index].strategy.direction == MartingaleDirection::Long;
+                            let is_long = strategy_states[state_index].strategy.direction
+                                == MartingaleDirection::Long;
                             if let Some(fr) = bar_funding_rate {
                                 // For longs: positive funding = longs pay (cost). For shorts: negative = shorts pay.
-                                let expected_cost_bps = if is_long { fr * 10_000.0 } else { -fr * 10_000.0 };
+                                let expected_cost_bps = if is_long {
+                                    fr * 10_000.0
+                                } else {
+                                    -fr * 10_000.0
+                                };
                                 if expected_cost_bps > max_bps {
                                     state_index += 1;
                                     continue;
@@ -483,23 +513,26 @@ pub fn run_kline_screening_with_funding(
                     }
 
                     let margin = strategy_states[state_index].margins[0];
-                    let mut notional = strategy_states[state_index].notionals[0];
+                    let notional = strategy_states[state_index].notionals[0];
                     // Round 6 Task B: Apply DD state machine first_order_scale.
                     // Find the highest-trigger rule that fires for the current
                     // portfolio drawdown and scale the first order accordingly.
                     let dd_rules = &portfolio.risk_limits.drawdown_state_rules;
                     if !dd_rules.is_empty() {
-                        let active_rule = dd_rules.iter()
+                        let active_rule = dd_rules
+                            .iter()
                             .filter(|r| dd_state_pct >= r.trigger_drawdown_pct)
-                            .max_by(|a, b| a.trigger_drawdown_pct.partial_cmp(&b.trigger_drawdown_pct).unwrap_or(std::cmp::Ordering::Equal));
+                            .max_by(|a, b| {
+                                a.trigger_drawdown_pct
+                                    .partial_cmp(&b.trigger_drawdown_pct)
+                                    .unwrap_or(std::cmp::Ordering::Equal)
+                            });
                         if let Some(rule) = active_rule {
                             if let Some(scale) = rule.first_order_scale {
                                 let scaled_margin = margin * scale;
                                 let scaled_notional = notional * scale;
                                 // Use scaled values
                                 let entry_cost = trading_cost_quote(scaled_notional);
-                                total_fee_quote += entry_cost.fee_quote;
-                                total_slippage_quote += entry_cost.slippage_quote;
                                 let capital_required = scaled_margin + entry_cost.total();
                                 if let Some(reason) = budget_rejection_reason(
                                     &portfolio,
@@ -530,9 +563,12 @@ pub fn run_kline_screening_with_funding(
                                     scaled_notional,
                                     latest_atr_dd,
                                 )?;
+                                total_fee_quote += entry_cost.fee_quote;
+                                total_slippage_quote += entry_cost.slippage_quote;
                                 capital_used_quote += capital_required;
                                 trade_count += 1;
-                                max_capital_used_quote = max_capital_used_quote.max(capital_used_quote);
+                                max_capital_used_quote =
+                                    max_capital_used_quote.max(capital_used_quote);
                                 events.push(event(
                                     bar,
                                     &strategy_states[state_index],
@@ -547,9 +583,30 @@ pub fn run_kline_screening_with_funding(
                             }
                         }
                     }
+                    let latest_atr = latest_atr_for_strategy(
+                        &mut indicator_context,
+                        strategy_states[state_index].strategy,
+                    );
+                    // Round 5 Task D: Volatility-targeted exposure. Scale first
+                    // order by (target_atr_pct / current_atr_pct), clamped.
+                    let rl = &strategy_states[state_index].strategy.risk_limits;
+                    let (margin, notional) = if let (Some(target_atr_pct), Some(latest_atr_val)) =
+                        (rl.vol_target_atr_pct, latest_atr)
+                    {
+                        if target_atr_pct > 0.0 && bar.close > 0.0 && latest_atr_val > 0.0 {
+                            let current_atr_pct = latest_atr_val / bar.close * 100.0;
+                            let raw_scale = target_atr_pct / current_atr_pct;
+                            let min_scale = rl.vol_target_min_scale.unwrap_or(0.5);
+                            let max_scale = rl.vol_target_max_scale.unwrap_or(1.5);
+                            let scale = raw_scale.clamp(min_scale, max_scale);
+                            (margin * scale, notional * scale)
+                        } else {
+                            (margin, notional)
+                        }
+                    } else {
+                        (margin, notional)
+                    };
                     let entry_cost = trading_cost_quote(notional);
-                    total_fee_quote += entry_cost.fee_quote;
-                    total_slippage_quote += entry_cost.slippage_quote;
                     let capital_required = margin + entry_cost.total();
                     if let Some(reason) = budget_rejection_reason(
                         &portfolio,
@@ -568,30 +625,6 @@ pub fn run_kline_screening_with_funding(
                         state_index += 1;
                         continue;
                     }
-                    let latest_atr = latest_atr_for_strategy(
-                        &mut indicator_context,
-                        strategy_states[state_index].strategy,
-                    );
-                    // Round 5 Task D: Volatility-targeted exposure. Scale first
-                    // order by (target_atr_pct / current_atr_pct), clamped.
-                    let rl = &strategy_states[state_index].strategy.risk_limits;
-                    let (margin, notional) = if let (Some(target_atr_pct), Some(latest_atr_val)) =
-                        (rl.vol_target_atr_pct, latest_atr)
-                    {
-                        if target_atr_pct > 0.0 && bar.close > 0.0 && latest_atr_val > 0.0 {
-                            let current_atr_pct = latest_atr_val / bar.close * 100.0;
-                            let current_atr_pct = latest_atr_val / bar.close * 100.0;
-                            let raw_scale = target_atr_pct / current_atr_pct;
-                            let min_scale = rl.vol_target_min_scale.unwrap_or(0.5);
-                            let max_scale = rl.vol_target_max_scale.unwrap_or(1.5);
-                            let scale = raw_scale.clamp(min_scale, max_scale);
-                            (margin * scale, notional * scale)
-                        } else {
-                            (margin, notional)
-                        }
-                    } else {
-                        (margin, notional)
-                    };
                     add_leg(
                         &mut strategy_states[state_index],
                         0,
@@ -600,6 +633,8 @@ pub fn run_kline_screening_with_funding(
                         notional,
                         latest_atr,
                     )?;
+                    total_fee_quote += entry_cost.fee_quote;
+                    total_slippage_quote += entry_cost.slippage_quote;
                     capital_used_quote += capital_required;
                     trade_count += 1;
                     max_capital_used_quote = max_capital_used_quote.max(capital_used_quote);
@@ -629,7 +664,8 @@ pub fn run_kline_screening_with_funding(
                         // skip this safety order entirely.
                         let dd_rules = &portfolio.risk_limits.drawdown_state_rules;
                         if !dd_rules.is_empty() {
-                            let freeze_active = dd_rules.iter()
+                            let freeze_active = dd_rules
+                                .iter()
                                 .filter(|r| dd_state_pct >= r.trigger_drawdown_pct)
                                 .any(|r| r.freeze_safety_orders.unwrap_or(false));
                             if freeze_active {
@@ -662,12 +698,11 @@ pub fn run_kline_screening_with_funding(
                             if !strategy_states[state_index].safety_trigger_pending {
                                 // First touch: start tracking local extreme
                                 strategy_states[state_index].safety_trigger_pending = true;
-                                strategy_states[state_index].safety_local_extreme = Some(
-                                    match direction {
+                                strategy_states[state_index].safety_local_extreme =
+                                    Some(match direction {
                                         MartingaleDirection::Long => bar.low,
                                         MartingaleDirection::Short => bar.high,
-                                    },
-                                );
+                                    });
                                 state_index += 1;
                                 continue;
                             }
@@ -766,12 +801,13 @@ pub fn run_kline_screening_with_funding(
                         if let (Some(taper_after), Some(taper_scale)) =
                             (rl_t.taper_safety_after_leg, rl_t.taper_safety_scale)
                         {
-                            if next_leg_index as u32 > taper_after && taper_scale > 0.0 && taper_scale < 1.0 {
+                            if next_leg_index as u32 > taper_after
+                                && taper_scale > 0.0
+                                && taper_scale < 1.0
+                            {
                                 let scaled_margin = margin * taper_scale;
                                 let scaled_notional = notional * taper_scale;
                                 let entry_cost = trading_cost_quote(scaled_notional);
-                                total_fee_quote += entry_cost.fee_quote;
-                                total_slippage_quote += entry_cost.slippage_quote;
                                 let capital_required = scaled_margin + entry_cost.total();
                                 if let Some(reason) = budget_rejection_reason(
                                     &portfolio,
@@ -802,9 +838,14 @@ pub fn run_kline_screening_with_funding(
                                     scaled_notional,
                                     latest_atr_taper,
                                 )?;
+                                total_fee_quote += entry_cost.fee_quote;
+                                total_slippage_quote += entry_cost.slippage_quote;
+                                strategy_states[state_index]
+                                    .start_minigrid_band(next_leg_index, timestamp_ms);
                                 capital_used_quote += capital_required;
                                 trade_count += 1;
-                                max_capital_used_quote = max_capital_used_quote.max(capital_used_quote);
+                                max_capital_used_quote =
+                                    max_capital_used_quote.max(capital_used_quote);
                                 events.push(event(
                                     bar,
                                     &strategy_states[state_index],
@@ -818,8 +859,6 @@ pub fn run_kline_screening_with_funding(
                             }
                         }
                         let entry_cost = trading_cost_quote(notional);
-                        total_fee_quote += entry_cost.fee_quote;
-                        total_slippage_quote += entry_cost.slippage_quote;
                         let capital_required = margin + entry_cost.total();
                         if let Some(reason) = budget_rejection_reason(
                             &portfolio,
@@ -850,6 +889,10 @@ pub fn run_kline_screening_with_funding(
                             notional,
                             latest_atr,
                         )?;
+                        total_fee_quote += entry_cost.fee_quote;
+                        total_slippage_quote += entry_cost.slippage_quote;
+                        strategy_states[state_index]
+                            .start_minigrid_band(next_leg_index, timestamp_ms);
                         capital_used_quote += capital_required;
                         trade_count += 1;
                         max_capital_used_quote = max_capital_used_quote.max(capital_used_quote);
@@ -867,54 +910,40 @@ pub fn run_kline_screening_with_funding(
                     }
                 }
 
-                // Round 13 P4: Native inventory-reducing DCA minigrid.
-                // After a safety order fill, check if the current price has bounced
-                // favorably to trigger a minigrid reduce-only partial close.
-                if let Some(ref minigrid_cfg) = strategy_states[state_index].strategy.risk_limits.dca_minigrid {
-                    if strategy_states[state_index].legs.len() >= 2 {
-                        let symbol = &strategy_states[state_index].strategy.symbol;
-                        if let Some(current_price) = latest_close_by_symbol.get(symbol) {
-                            let last_safety_price = strategy_states[state_index].legs.last().map(|l| l.price).unwrap_or(0.0);
-                            if last_safety_price > 0.0 {
-                                let is_long = strategy_states[state_index].strategy.direction == MartingaleDirection::Long;
-                                // Check each minigrid level
-                                let active_levels = strategy_states[state_index].minigrid_levels_fired;
-                                if active_levels < minigrid_cfg.levels_per_band && active_levels < minigrid_cfg.max_active_levels {
-                                    let level_idx = active_levels;
-                                    let level_price = minigrid_cfg.level_price(last_safety_price, level_idx, is_long);
-                                    let level_touched = if is_long {
-                                        *current_price >= level_price
-                                    } else {
-                                        *current_price <= level_price
-                                    };
-                                    if level_touched {
-                                        // Close the configured fraction of remaining position
-                                        let close_fraction = minigrid_cfg.close_fraction();
-                                        let total_quantity: f64 = strategy_states[state_index].legs.iter().map(|l| l.quantity).sum();
-                                        let close_quantity = total_quantity * close_fraction;
-                                        let close_notional = close_quantity * current_price;
-                                        // Enforce min notional (5 USDT default)
-                                        if close_notional >= 5.0 {
-                                            // Reduce each leg's quantity proportionally
-                                            for leg in &mut strategy_states[state_index].legs {
-                                                leg.quantity *= 1.0 - close_fraction;
-                                            }
-                                            strategy_states[state_index].minigrid_levels_fired += 1;
-                                            trade_count += 1;
-                                            events.push(event(
-                                                bar,
-                                                &strategy_states[state_index],
-                                                "dca_minigrid_take_profit",
-                                                format!(
-                                                    "level={};close_fraction={};close_quantity={};close_notional={};level_price={}",
-                                                    level_idx, close_fraction, close_quantity, close_notional, level_price
-                                                ),
-                                            ));
-                                        }
-                                    }
-                                }
-                            }
-                        }
+                if let Some(minigrid_cfg) = strategy_states[state_index]
+                    .strategy
+                    .risk_limits
+                    .dca_minigrid
+                    .clone()
+                {
+                    if let Some(reduce) = execute_minigrid_reduce(
+                        &mut strategy_states[state_index],
+                        &minigrid_cfg,
+                        bar,
+                        timestamp_ms,
+                    )? {
+                        realized_pnl_quote += reduce.pnl_quote;
+                        capital_used_quote =
+                            (capital_used_quote - reduce.released_capital_quote).max(0.0);
+                        total_fee_quote += reduce.exit_cost.fee_quote;
+                        total_slippage_quote += reduce.exit_cost.slippage_quote;
+                        trade_count += 1;
+                        events.push(event(
+                            bar,
+                            &strategy_states[state_index],
+                            "dca_minigrid_take_profit",
+                            format!(
+                                "price={};level={};anchor_leg_index={};close_quantity={};close_notional={};pnl_quote={};exit_fee_quote={};exit_slippage_quote={}",
+                                reduce.exit_price,
+                                reduce.level_index,
+                                reduce.anchor_leg_index,
+                                reduce.close_quantity,
+                                reduce.close_notional,
+                                reduce.pnl_quote,
+                                reduce.exit_cost.fee_quote,
+                                reduce.exit_cost.slippage_quote,
+                            ),
+                        ));
                     }
                 }
 
@@ -1004,7 +1033,9 @@ pub fn run_kline_screening_with_funding(
                     strategy_states[state_index].update_risk_reduction(pnl > 0.0);
                     // Round 6 Task C: Record stop timestamp for quarantine
                     if pnl <= 0.0 {
-                        strategy_states[state_index].recent_stop_timestamps.push(exit.bar.open_time_ms);
+                        strategy_states[state_index]
+                            .recent_stop_timestamps
+                            .push(exit.bar.open_time_ms);
                     }
                     stop_count += 1;
                     trade_count += 1;
@@ -1041,24 +1072,65 @@ pub fn run_kline_screening_with_funding(
                     ));
                     state.reset_cycle(exit.bar.open_time_ms);
                     // Round 6 Task C: Record stop timestamp for quarantine
-                    strategy_states[state_index].recent_stop_timestamps.push(exit.bar.open_time_ms);
+                    strategy_states[state_index]
+                        .recent_stop_timestamps
+                        .push(exit.bar.open_time_ms);
                     stop_count += 1;
                     trade_count += 1;
                 }
                 ExitDecision::TakeProfit => {
                     let tp_price = exit.exit_price;
+                    if let (Some(filled_legs), Some(close_fraction)) =
+                        (exit.depth_tp_filled_legs, exit.depth_tp_reduce_fraction)
+                    {
+                        if close_fraction > 0.0 && close_fraction < 1.0 {
+                            let reduce = execute_proportional_reduce(
+                                &mut strategy_states[state_index],
+                                tp_price,
+                                close_fraction,
+                            )?;
+                            realized_pnl_quote += reduce.pnl_quote;
+                            capital_used_quote =
+                                (capital_used_quote - reduce.released_capital_quote).max(0.0);
+                            total_fee_quote += reduce.exit_cost.fee_quote;
+                            total_slippage_quote += reduce.exit_cost.slippage_quote;
+                            let state = &mut strategy_states[state_index];
+                            state.depth_tp_last_reduced_at_filled_legs = Some(filled_legs);
+                            state.breakeven_stop_active = true;
+                            events.push(event(
+                                &exit.bar,
+                                state,
+                                "depth_take_profit_reduce",
+                                format!(
+                                    "price={tp_price};filled_legs={filled_legs};close_frac={close_fraction};close_quantity={};close_notional={};pnl_quote={};exit_fee_quote={};exit_slippage_quote={}",
+                                    reduce.close_quantity,
+                                    reduce.close_notional,
+                                    reduce.pnl_quote,
+                                    reduce.exit_cost.fee_quote,
+                                    reduce.exit_cost.slippage_quote,
+                                ),
+                            ));
+                            trade_count += 1;
+                            continue;
+                        }
+                    }
                     // Round 2 Direction A: Partial TP. If the TP model is Partial
                     // and the current stage is not the final stage, close only a
                     // FRACTION of the position, advance the stage, optionally
                     // activate the breakeven stop, and keep the cycle open. The
                     // final stage (or any non-Partial model) closes the whole
                     // position via reset_cycle as before.
-                    let is_partial_final = match &strategy_states[state_index].strategy.take_profit {
-                        MartingaleTakeProfitModel::Partial { stages, .. } => {
-                            let stage_idx = strategy_states[state_index].partial_tp_stage as usize;
-                            stage_idx >= stages.len().saturating_sub(1)
+                    let is_partial_final = if exit.depth_tp_filled_legs.is_some() {
+                        true
+                    } else {
+                        match &strategy_states[state_index].strategy.take_profit {
+                            MartingaleTakeProfitModel::Partial { stages, .. } => {
+                                let stage_idx =
+                                    strategy_states[state_index].partial_tp_stage as usize;
+                                stage_idx >= stages.len().saturating_sub(1)
+                            }
+                            _ => true,
                         }
-                        _ => true,
                     };
                     if !is_partial_final {
                         // Partial close: scale down every leg's quantity by the
@@ -1066,11 +1138,18 @@ pub fn run_kline_screening_with_funding(
                         let (close_frac, be_after) =
                             match &strategy_states[state_index].strategy.take_profit {
                                 MartingaleTakeProfitModel::Partial {
-                                    stages, breakeven_after_stage, ..
+                                    stages,
+                                    breakeven_after_stage,
+                                    ..
                                 } => {
-                                    let stage_idx = strategy_states[state_index].partial_tp_stage as usize;
+                                    let stage_idx =
+                                        strategy_states[state_index].partial_tp_stage as usize;
                                     let (num, den, _tp_bps) = stages[stage_idx];
-                                    let frac = if den == 0 { 1.0 } else { num as f64 / den as f64 };
+                                    let frac = if den == 0 {
+                                        1.0
+                                    } else {
+                                        num as f64 / den as f64
+                                    };
                                     (frac.min(1.0).max(0.0), *breakeven_after_stage)
                                 }
                                 _ => (1.0, u32::MAX),
@@ -1085,7 +1164,8 @@ pub fn run_kline_screening_with_funding(
                         )?;
                         let full_entry = entry_cost_quote(&strategy_states[state_index].legs);
                         // Exit cost scales with closed notional; approximate by fraction.
-                        let full_exit = exit_cost_quote(&strategy_states[state_index].legs, tp_price);
+                        let full_exit =
+                            exit_cost_quote(&strategy_states[state_index].legs, tp_price);
                         let partial_pnl = full_gross * close_frac
                             - full_entry * close_frac
                             - full_exit.total() * close_frac;
@@ -1093,7 +1173,8 @@ pub fn run_kline_screening_with_funding(
                         total_slippage_quote += full_exit.slippage_quote * close_frac;
                         realized_pnl_quote += partial_pnl;
                         // Release the closed fraction's margin from capital_used.
-                        let released = strategy_states[state_index].active_capital_used_quote() * close_frac;
+                        let released =
+                            strategy_states[state_index].active_capital_used_quote() * close_frac;
                         capital_used_quote -= released;
                         let stage_fired = strategy_states[state_index].partial_tp_stage;
                         let state = &mut strategy_states[state_index];
@@ -1104,6 +1185,8 @@ pub fn run_kline_screening_with_funding(
                             leg.quantity *= keep;
                             leg.margin_quote *= keep;
                             leg.notional_quote *= keep;
+                            leg.fee_quote *= keep;
+                            leg.slippage_quote *= keep;
                         }
                         // Remove any now-zero legs (fully closed tranches) to keep
                         // weighted_average_entry well-defined.
@@ -1132,12 +1215,14 @@ pub fn run_kline_screening_with_funding(
                             tp_price,
                         )?;
                         let entry_cost = entry_cost_quote(&strategy_states[state_index].legs);
-                        let exit_cost = exit_cost_quote(&strategy_states[state_index].legs, tp_price);
+                        let exit_cost =
+                            exit_cost_quote(&strategy_states[state_index].legs, tp_price);
                         total_fee_quote += exit_cost.fee_quote;
                         total_slippage_quote += exit_cost.slippage_quote;
                         let pnl = close_gross_pnl - entry_cost - exit_cost.total();
                         realized_pnl_quote += pnl;
-                        capital_used_quote -= strategy_states[state_index].active_capital_used_quote();
+                        capital_used_quote -=
+                            strategy_states[state_index].active_capital_used_quote();
                         let state = &mut strategy_states[state_index];
                         state.realized_pnl_quote += pnl;
                         events.push(event(
@@ -1302,6 +1387,9 @@ fn trade_details_from_events(
                 "entry" => "open_leg",
                 "safety_order" => "open_leg",
                 "take_profit" => "close_cycle",
+                "partial_take_profit" | "depth_take_profit_reduce" | "dca_minigrid_take_profit" => {
+                    "reduce_position"
+                }
                 "stop_loss" | "global_stop_loss" | "symbol_stop_loss" => "stop_loss",
                 "funding_fee" => "funding_fee",
                 _ => return None,
@@ -1318,7 +1406,11 @@ fn trade_details_from_events(
                         .map(|_| 0.0)
                 })
                 .unwrap_or(0.0);
-            let notional_quote = detail.get("notional_quote").copied().unwrap_or(0.0);
+            let notional_quote = detail
+                .get("notional_quote")
+                .copied()
+                .or_else(|| detail.get("close_notional").copied())
+                .unwrap_or(0.0);
             let fee_quote = detail
                 .get("fee_quote")
                 .copied()
@@ -1379,6 +1471,16 @@ fn parse_event_detail(detail: &str) -> BTreeMap<String, f64> {
         .collect()
 }
 
+#[derive(Debug, Clone)]
+struct MiniGridBandState {
+    anchor_leg_index: u32,
+    anchor_price: f64,
+    initial_quantity: f64,
+    remaining_quantity: f64,
+    levels_fired: u32,
+    opened_at_ms: i64,
+}
+
 struct StrategyRuntime<'a> {
     strategy: &'a MartingaleStrategyConfig,
     margins: Vec<f64>,
@@ -1406,9 +1508,11 @@ struct StrategyRuntime<'a> {
     recent_stop_timestamps: Vec<i64>,
     /// Round 6 Task C: Quarantine until this timestamp (ms). No new cycles while quarantined.
     quarantined_until_ms: Option<i64>,
-    /// Round 13 P4: Number of minigrid levels that have fired in the current cycle.
-    /// Reset to 0 on cycle reset.
-    minigrid_levels_fired: u32,
+    /// The active inventory-reducing band for the most recently filled safety leg.
+    minigrid_band: Option<MiniGridBandState>,
+    /// A depth reduce may fire once per filled-leg depth. A later safety fill
+    /// creates a new depth and makes the configured reduce eligible again.
+    depth_tp_last_reduced_at_filled_legs: Option<usize>,
     /// Round 4 P4: timestamp (ms) when the current cycle opened (first leg fill).
     /// Used for max_cycle_age and no_progress_exit.
     cycle_start_ms: Option<i64>,
@@ -1466,7 +1570,8 @@ impl<'a> StrategyRuntime<'a> {
             trailing_lock_armed: false,
             recent_stop_timestamps: Vec::new(),
             quarantined_until_ms: None,
-            minigrid_levels_fired: 0,
+            minigrid_band: None,
+            depth_tp_last_reduced_at_filled_legs: None,
             cycle_start_ms: None,
             cycle_mfe_bps: 0.0,
             safety_trigger_pending: false,
@@ -1505,9 +1610,8 @@ impl<'a> StrategyRuntime<'a> {
         self.breakeven_stop_active = false;
         self.trailing_lock_watermark = None;
         self.trailing_lock_armed = false;
-        self.recent_stop_timestamps.clear();
-        self.quarantined_until_ms = None;
-        self.minigrid_levels_fired = 0;
+        self.minigrid_band = None;
+        self.depth_tp_last_reduced_at_filled_legs = None;
         self.cycle_start_ms = None;
         self.cycle_mfe_bps = 0.0;
         self.safety_trigger_pending = false;
@@ -1515,6 +1619,27 @@ impl<'a> StrategyRuntime<'a> {
         self.last_cycle_closed_at_ms = Some(closed_at_ms);
         self.cycle_seq += 1;
         self.cycle_id = format!("{}-cycle-{}", self.strategy.strategy_id, self.cycle_seq);
+    }
+
+    fn start_minigrid_band(&mut self, leg_index: usize, opened_at_ms: i64) {
+        if self.strategy.risk_limits.dca_minigrid.is_none() || leg_index == 0 {
+            return;
+        }
+        let Some(leg) = self
+            .legs
+            .iter()
+            .find(|leg| leg.leg_index == leg_index as u32)
+        else {
+            return;
+        };
+        self.minigrid_band = Some(MiniGridBandState {
+            anchor_leg_index: leg.leg_index,
+            anchor_price: leg.price,
+            initial_quantity: leg.quantity,
+            remaining_quantity: leg.quantity,
+            levels_fired: 0,
+            opened_at_ms,
+        });
     }
 
     /// Round 5 Task C: Update win/loss streak and adjust first_order_scale.
@@ -1563,7 +1688,10 @@ fn add_leg(
     validate_positive_f64("price", price)?;
     // Round 5 Task C: Apply first_order_scale to the first leg (base order).
     let (margin_quote, notional_quote) = if leg_index == 0 && state.first_order_scale < 1.0 {
-        (margin_quote * state.first_order_scale, notional_quote * state.first_order_scale)
+        (
+            margin_quote * state.first_order_scale,
+            notional_quote * state.first_order_scale,
+        )
     } else {
         (margin_quote, notional_quote)
     };
@@ -2086,6 +2214,8 @@ struct ExitSnapshot {
     exit_price: f64,
     stop_price: Option<f64>,
     bar: KlineBar,
+    depth_tp_filled_legs: Option<usize>,
+    depth_tp_reduce_fraction: Option<f64>,
 }
 
 fn exit_decision_snapshot(
@@ -2113,19 +2243,23 @@ fn exit_decision_snapshot(
             latest_close_by_symbol,
             indicator_context,
         )?;
-        let take_profit = {
-            // Round 13 P5: Depth-dependent TP. If depth_tp is configured,
-            // override the TP model with a Percent model whose bps depends on
-            // the current filled leg count (cycle depth).
-            let filled_legs = states[state_index].legs.len();
-            let depth_cfg = &states[state_index].strategy.risk_limits.depth_tp;
-            if let Some(ref dtc) = depth_cfg {
-                let depth_bps = dtc.tp_bps_for_depth(filled_legs);
-                let depth_model = MartingaleTakeProfitModel::Percent { bps: depth_bps };
-                take_profit_signal_for_model(&mut states[state_index], bar, &depth_model, indicator_context)?
-            } else {
-                take_profit_signal(&mut states[state_index], bar, indicator_context)?
-            }
+        let filled_legs = states[state_index].legs.len();
+        let depth_cfg = states[state_index].strategy.risk_limits.depth_tp.clone();
+        let depth_action_eligible = depth_cfg.is_some()
+            && states[state_index].depth_tp_last_reduced_at_filled_legs != Some(filled_legs);
+        let take_profit = if let Some(config) = depth_cfg.as_ref().filter(|_| depth_action_eligible)
+        {
+            let depth_model = MartingaleTakeProfitModel::Percent {
+                bps: config.tp_bps_for_depth(filled_legs),
+            };
+            take_profit_signal_for_model(
+                &mut states[state_index],
+                bar,
+                &depth_model,
+                indicator_context,
+            )?
+        } else {
+            take_profit_signal(&mut states[state_index], bar, indicator_context)?
         };
         let mut decision = evaluate_exit_priority(
             stop.global_stop,
@@ -2170,9 +2304,11 @@ fn exit_decision_snapshot(
         // when giveback exceeds callback_bps from the watermark.
         if decision == ExitDecision::None {
             let rl = &states[state_index].strategy.risk_limits;
-            if let (Some(lock_after_stage), Some(activation_bps), Some(callback_bps)) =
-                (rl.trailing_lock_after_stage, rl.trailing_lock_activation_bps, rl.trailing_lock_callback_bps)
-            {
+            if let (Some(lock_after_stage), Some(activation_bps), Some(callback_bps)) = (
+                rl.trailing_lock_after_stage,
+                rl.trailing_lock_activation_bps,
+                rl.trailing_lock_callback_bps,
+            ) {
                 let stage = states[state_index].partial_tp_stage;
                 // Arm trailing lock if configured stage reached
                 if stage >= lock_after_stage && !states[state_index].trailing_lock_armed {
@@ -2183,7 +2319,9 @@ fn exit_decision_snapshot(
                             MartingaleDirection::Short => -1.0,
                         };
                         let favorable_bps = (bar.close - avg) / avg * 10_000.0 * dir_sign;
-                        if favorable_bps >= activation_bps as f64 || states[state_index].cycle_mfe_bps >= activation_bps as f64 {
+                        if favorable_bps >= activation_bps as f64
+                            || states[state_index].cycle_mfe_bps >= activation_bps as f64
+                        {
                             states[state_index].trailing_lock_armed = true;
                             states[state_index].trailing_lock_watermark = Some(bar.close);
                         }
@@ -2191,7 +2329,9 @@ fn exit_decision_snapshot(
                 }
                 // If armed, track watermark and check giveback
                 if states[state_index].trailing_lock_armed {
-                    let wm = states[state_index].trailing_lock_watermark.unwrap_or(bar.close);
+                    let wm = states[state_index]
+                        .trailing_lock_watermark
+                        .unwrap_or(bar.close);
                     let dir_sign = match states[state_index].strategy.direction {
                         MartingaleDirection::Long => 1.0,
                         MartingaleDirection::Short => -1.0,
@@ -2233,6 +2373,14 @@ fn exit_decision_snapshot(
             exit_price: take_profit.price.unwrap_or(bar.close),
             stop_price: stop.price,
             bar: bar.clone(),
+            depth_tp_filled_legs: depth_cfg
+                .as_ref()
+                .filter(|_| depth_action_eligible && take_profit.triggered)
+                .map(|_| filled_legs),
+            depth_tp_reduce_fraction: depth_cfg
+                .as_ref()
+                .filter(|_| depth_action_eligible && take_profit.triggered)
+                .map(|config| config.reduce_fraction_for_depth(filled_legs)),
         });
     }
 
@@ -2267,7 +2415,10 @@ fn triggered_stop(
                 }
                 let avg = weighted_average_entry(&state.legs)?;
                 let buffer_bps = match &state.strategy.take_profit {
-                    MartingaleTakeProfitModel::Partial { breakeven_buffer_bps, .. } => *breakeven_buffer_bps as f64,
+                    MartingaleTakeProfitModel::Partial {
+                        breakeven_buffer_bps,
+                        ..
+                    } => *breakeven_buffer_bps as f64,
                     _ => 0.0,
                 };
                 let be_price = match state.strategy.direction {
@@ -2558,6 +2709,150 @@ fn strategy_net_pnl(state: &StrategyRuntime<'_>, close_price: f64) -> Result<f64
 struct TradingCost {
     fee_quote: f64,
     slippage_quote: f64,
+}
+
+#[derive(Debug, Clone, Copy)]
+struct MiniGridReduceResult {
+    level_index: u32,
+    anchor_leg_index: u32,
+    exit_price: f64,
+    close_quantity: f64,
+    close_notional: f64,
+    released_capital_quote: f64,
+    pnl_quote: f64,
+    exit_cost: TradingCost,
+}
+
+#[derive(Debug, Clone, Copy)]
+struct ProportionalReduceResult {
+    close_quantity: f64,
+    close_notional: f64,
+    released_capital_quote: f64,
+    pnl_quote: f64,
+    exit_cost: TradingCost,
+}
+
+fn execute_proportional_reduce(
+    state: &mut StrategyRuntime<'_>,
+    exit_price: f64,
+    close_fraction: f64,
+) -> Result<ProportionalReduceResult, String> {
+    let close_fraction = close_fraction.clamp(0.0, 1.0);
+    if close_fraction <= 0.0 || close_fraction >= 1.0 {
+        return Err("proportional reduce fraction must be in (0, 1)".to_string());
+    }
+    let full_gross = close_pnl(state.strategy.direction, &state.legs, exit_price)?;
+    let full_entry_cost = entry_cost_quote(&state.legs);
+    let full_exit_cost = exit_cost_quote(&state.legs, exit_price);
+    let close_quantity = state.legs.iter().map(|leg| leg.quantity).sum::<f64>() * close_fraction;
+    let close_notional = close_quantity * exit_price;
+    let released_capital_quote = state.active_capital_used_quote() * close_fraction;
+    let exit_cost = TradingCost {
+        fee_quote: full_exit_cost.fee_quote * close_fraction,
+        slippage_quote: full_exit_cost.slippage_quote * close_fraction,
+    };
+    let pnl_quote =
+        full_gross * close_fraction - full_entry_cost * close_fraction - exit_cost.total();
+    let keep = 1.0 - close_fraction;
+    for leg in &mut state.legs {
+        leg.quantity *= keep;
+        leg.margin_quote *= keep;
+        leg.notional_quote *= keep;
+        leg.fee_quote *= keep;
+        leg.slippage_quote *= keep;
+    }
+    state.realized_pnl_quote += pnl_quote;
+    Ok(ProportionalReduceResult {
+        close_quantity,
+        close_notional,
+        released_capital_quote,
+        pnl_quote,
+        exit_cost,
+    })
+}
+
+fn execute_minigrid_reduce(
+    state: &mut StrategyRuntime<'_>,
+    config: &MartingaleDcaMiniGridConfig,
+    bar: &KlineBar,
+    timestamp_ms: i64,
+) -> Result<Option<MiniGridReduceResult>, String> {
+    let Some(band) = state.minigrid_band.clone() else {
+        return Ok(None);
+    };
+    if timestamp_ms <= band.opened_at_ms
+        || band.levels_fired >= config.levels_per_band
+        || band.levels_fired >= config.max_active_levels
+        || band.remaining_quantity <= 0.0
+    {
+        return Ok(None);
+    }
+
+    let is_long = state.strategy.direction == MartingaleDirection::Long;
+    let exit_price = config.level_price(band.anchor_price, band.levels_fired, is_long);
+    let level_touched = if is_long {
+        bar.high >= exit_price
+    } else {
+        bar.low <= exit_price
+    };
+    if !level_touched {
+        return Ok(None);
+    }
+
+    if !state
+        .legs
+        .iter()
+        .any(|leg| leg.leg_index == band.anchor_leg_index && leg.quantity > 0.0)
+    {
+        state.minigrid_band = None;
+        return Ok(None);
+    }
+
+    let target_quantity = band.initial_quantity * config.close_fraction();
+    let total_quantity = state.legs.iter().map(|leg| leg.quantity).sum::<f64>();
+    let close_quantity = target_quantity
+        .min(band.remaining_quantity)
+        .min(total_quantity);
+    let close_notional = close_quantity * exit_price;
+    if close_quantity <= 0.0 || close_notional < DEFAULT_EXCHANGE_MIN_NOTIONAL {
+        return Ok(None);
+    }
+
+    let close_fraction = (close_quantity / total_quantity).clamp(0.0, 1.0);
+    let average_entry = weighted_average_entry(&state.legs)?;
+    let entry_cost = entry_cost_quote(&state.legs) * close_fraction;
+    let released_capital_quote = state.active_capital_used_quote() * close_fraction;
+    let gross_pnl = match state.strategy.direction {
+        MartingaleDirection::Long => (exit_price - average_entry) * close_quantity,
+        MartingaleDirection::Short => (average_entry - exit_price) * close_quantity,
+    };
+    let exit_cost = trading_cost_quote(close_notional);
+    let pnl_quote = gross_pnl - entry_cost - exit_cost.total();
+    let keep = 1.0 - close_fraction;
+    for leg in &mut state.legs {
+        leg.quantity *= keep;
+        leg.margin_quote *= keep;
+        leg.notional_quote *= keep;
+        leg.fee_quote *= keep;
+        leg.slippage_quote *= keep;
+    }
+
+    if let Some(active_band) = state.minigrid_band.as_mut() {
+        active_band.remaining_quantity = (active_band.remaining_quantity - close_quantity).max(0.0);
+        active_band.levels_fired += 1;
+    }
+    state.realized_pnl_quote += pnl_quote;
+
+    Ok(Some(MiniGridReduceResult {
+        level_index: band.levels_fired,
+        anchor_leg_index: band.anchor_leg_index,
+        exit_price,
+        close_quantity,
+        close_notional,
+        released_capital_quote,
+        pnl_quote,
+        exit_cost,
+    }))
 }
 
 impl TradingCost {
@@ -2904,6 +3199,24 @@ mod tests {
             .rejection_reasons
             .iter()
             .any(|reason| reason.contains("budget")));
+        let executed_fee = result
+            .trades
+            .iter()
+            .map(|trade| trade.fee_quote)
+            .sum::<f64>();
+        let executed_slippage = result
+            .trades
+            .iter()
+            .map(|trade| trade.slippage_quote)
+            .sum::<f64>();
+        assert!(
+            (result.metrics.total_fee_quote.unwrap() - executed_fee).abs() < 1e-9,
+            "rejected legs must not add fees"
+        );
+        assert!(
+            (result.metrics.total_slippage_quote.unwrap() - executed_slippage).abs() < 1e-9,
+            "rejected legs must not add slippage"
+        );
     }
 
     #[test]
@@ -3853,6 +4166,20 @@ mod tests {
             result.metrics.trade_count
         );
     }
+
+    #[test]
+    fn proportional_reduce_scales_remaining_entry_cost_and_capital() {
+        let portfolio = portfolio_with_direction(MartingaleDirection::Long, 10_000);
+        let mut state = super::StrategyRuntime::new(&portfolio.strategies[0]).expect("state");
+        let margin = state.margins[0];
+        let notional = state.notionals[0];
+        super::add_leg(&mut state, 0, 100.0, margin, notional, None).expect("leg");
+        let entry_cost_before = super::entry_cost_quote(&state.legs);
+        let active_capital_before = state.active_capital_used_quote();
+        let reduce = super::execute_proportional_reduce(&mut state, 101.0, 0.25).expect("reduce");
+        assert!((super::entry_cost_quote(&state.legs) - entry_cost_before * 0.75).abs() < 1e-9);
+        assert!((reduce.released_capital_quote - active_capital_before * 0.25).abs() < 1e-9);
+    }
 }
 
 #[cfg(test)]
@@ -3878,8 +4205,15 @@ mod r8_parity_tests {
         // Verify the logic direction: expected_cost_bps for short = -fr * 10000 (negative = not a cost).
         let fr = 0.0001; // positive funding (longs pay)
         let is_long = false;
-        let expected_cost_bps = if is_long { fr * 10_000.0 } else { -fr * 10_000.0 };
-        assert!(expected_cost_bps < 0.0, "shorts receive positive funding, expected cost should be negative");
+        let expected_cost_bps = if is_long {
+            fr * 10_000.0
+        } else {
+            -fr * 10_000.0
+        };
+        assert!(
+            expected_cost_bps < 0.0,
+            "shorts receive positive funding, expected cost should be negative"
+        );
     }
 
     #[test]

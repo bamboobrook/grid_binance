@@ -1,0 +1,285 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-07-13",
+  "purpose": "Canonical corrected status for Martingale rounds 1-13. It classifies every historical claim by usable scope and prevents stale or invalid experiments from being promoted or repeated.",
+  "audited_input_head": "e320f29d1c983744ec8f589dd312607feccd2fb6",
+  "audit_report": "docs/superpowers/reports/2026-07-13-glm-round13-execution-audit-and-fix.md",
+  "engine_binary_sha256": "ffeba0f7a01e98027be3b55c4238f49747c96dbae71beef81652ebc80ffc4d04",
+  "data_manifest": "docs/superpowers/artifacts/glm-martingale-core-round13/run-manifests/r13-data-manifest.json",
+  "data_manifest_sha256": "a754cf69f53279d77caa06a03f24ee75ed8fed96c8776a47edce886e0d71dbc0",
+  "hard_targets": {
+    "conservative": {
+      "annualized_return_min_pct": 50.0,
+      "max_drawdown_pct": 10.0,
+      "positive_segments_min": 4
+    },
+    "balanced": {
+      "annualized_return_min_pct": 90.0,
+      "max_drawdown_pct": 20.0,
+      "positive_segments_min": 4
+    },
+    "aggressive": {
+      "annualized_return_min_pct": 110.0,
+      "max_drawdown_pct": 30.0,
+      "positive_segments_min": 3
+    },
+    "common": {
+      "budget_rule": "strictly_below_5000_usdt",
+      "multi_symbol_min": 5,
+      "independent_base_assets_min": 3,
+      "max_symbol_capital_share_pct": 35.0,
+      "max_symbol_realized_gross_profit_share_pct": 35.0,
+      "max_symbol_realized_positive_net_pnl_share_pct": 35.0,
+      "event_level_shared_account": true,
+      "anti_overfit": true,
+      "live_reproducible": true
+    }
+  },
+  "target_hits": {
+    "conservative": [],
+    "balanced": [],
+    "aggressive": []
+  },
+  "fully_live_ready_candidates": [],
+  "current_frontiers": {
+    "best_corrected_multi_symbol_event_level_return": {
+      "round": 7,
+      "label": "R7-ANKR-q1w24p24",
+      "annualized_return_pct": 62.51288430430992,
+      "max_drawdown_pct": 28.624157528027265,
+      "positive_cold_start_segments": "4/5",
+      "traded_symbol_count": 6,
+      "max_positive_realized_pnl_share_pct": 36.15964778127561,
+      "holdout_return_pct": -19.188780022975788,
+      "budget_1000_annualized_return_pct": 1.2847054954538084,
+      "budget_2000_annualized_return_pct": 5.505223480415222,
+      "fully_live_ready": false
+    },
+    "best_corrected_five_symbol_round13": {
+      "round": 13,
+      "label": "robust-pool ICP/TRX/BNB/BTC/XRP long extracts",
+      "annualized_return_pct": 48.283623397535536,
+      "max_drawdown_pct": 28.67587524121129,
+      "positive_cold_start_segments": "2/5",
+      "max_positive_realized_pnl_share_pct": 50.2419990431195,
+      "holdout_return_pct": -9.474004770935435,
+      "fully_live_ready": false
+    },
+    "best_corrected_r4_baseline": {
+      "round": 4,
+      "annualized_return_pct": 34.81207989156461,
+      "max_drawdown_pct": 17.66715667009042,
+      "positive_cold_start_segments": "4/5",
+      "holdout_return_pct": -10.959260649873025,
+      "fully_live_ready": false
+    },
+    "two_symbol_diagnostic_only": {
+      "round": 13,
+      "label": "R4-like BNB+TRX long pair",
+      "annualized_return_pct": 65.74604598635332,
+      "max_drawdown_pct": 29.574053413810763,
+      "positive_cold_start_segments": "3/5",
+      "traded_symbol_count": 2,
+      "max_positive_realized_pnl_share_pct": 89.57856925113175,
+      "holdout_return_pct": -35.89113343340994,
+      "fully_live_ready": false
+    },
+    "curve_reuse_diagnostic_only": {
+      "round": 9,
+      "label": "r9-P5-winner",
+      "corrected_annualized_return_pct": 62.7845,
+      "corrected_max_drawdown_pct": 18.384,
+      "event_level_executable": false,
+      "fully_live_ready": false
+    }
+  },
+  "rounds": [
+    {
+      "round": 1,
+      "status": "usable_baseline_only",
+      "target_hit": false,
+      "authority": "docs/superpowers/reports/2026-07-03-glm-round1-6-execution-audit.md"
+    },
+    {
+      "round": 2,
+      "status": "usable_research_frontier_partial_plan",
+      "target_hit": false,
+      "authority": "docs/superpowers/reports/2026-07-03-glm-round1-6-execution-audit.md",
+      "remaining_gaps": [
+        "Direction H has no dedicated full-grid artifact",
+        "promoted features were not live-ready"
+      ]
+    },
+    {
+      "round": 3,
+      "status": "usable_research_frontier_partial_plan",
+      "target_hit": false,
+      "authority": "docs/superpowers/reports/2026-07-03-glm-round1-6-execution-audit.md",
+      "remaining_gaps": [
+        "P2 and P5 were not run",
+        "several branches were narrow or partial"
+      ]
+    },
+    {
+      "round": 4,
+      "status": "rechecked_event_level_baseline_holdout_failed",
+      "target_hit": false,
+      "authority": "docs/superpowers/reports/2026-07-13-glm-round13-execution-audit-and-fix.md"
+    },
+    {
+      "round": 5,
+      "status": "historical_backtest_frontier_stale_after_accounting_fix",
+      "target_hit": false,
+      "authority": "docs/superpowers/reports/2026-07-13-glm-round13-execution-audit-and-fix.md",
+      "remaining_gaps": [
+        "vol-target order size did not match budget and fee accounting",
+        "promoted features remained backtest-only"
+      ]
+    },
+    {
+      "round": 6,
+      "status": "partial_dd_research_with_scoped_historical_evidence",
+      "target_hit": false,
+      "authority": "docs/superpowers/reports/2026-07-03-glm-round1-6-execution-audit.md"
+    },
+    {
+      "round": 7,
+      "status": "independently_rechecked_event_level_frontier_not_promotable",
+      "target_hit": false,
+      "authority": "docs/superpowers/reports/2026-07-13-glm-round13-execution-audit-and-fix.md",
+      "validated_scope": [
+        "six-symbol full, five cold starts, five budgets and opened holdout",
+        "corrected funding, fee, vol-target capital and minNotional semantics"
+      ],
+      "remaining_gaps": [
+        "positive PnL concentration is 36.16%, above 35%",
+        "holdout return is -19.19%",
+        "1000-4000U returns collapse",
+        "production DB/executor parity is missing"
+      ]
+    },
+    {
+      "round": 8,
+      "status": "superseded_leaky_curve_allocator_and_narrow_searches",
+      "target_hit": false,
+      "authority": "docs/superpowers/reports/2026-07-07-glm-round8-execution-audit-and-recheck.md"
+    },
+    {
+      "round": 9,
+      "status": "curve_reuse_diagnostic_not_executable_frontier",
+      "target_hit": false,
+      "authority": "docs/superpowers/reports/2026-07-12-glm-round11-execution-audit-and-fix.md"
+    },
+    {
+      "round": 10,
+      "status": "valid_scoped_replay_searches_with_corrected_live_claims",
+      "target_hit": false,
+      "authority": "docs/superpowers/reports/2026-07-09-glm-round10-execution-audit-and-fix.md"
+    },
+    {
+      "round": 11,
+      "status": "zero_targets_with_material_execution_and_scope_corrections",
+      "target_hit": false,
+      "authority": "docs/superpowers/reports/2026-07-12-glm-round11-execution-audit-and-fix.md"
+    },
+    {
+      "round": 12,
+      "status": "zero_targets_partial_plan_with_corrected_data_and_scopes",
+      "target_hit": false,
+      "authority": "docs/superpowers/reports/2026-07-12-glm-round12-execution-audit-and-fix.md"
+    },
+    {
+      "round": 13,
+      "status": "zero_targets_materially_incomplete_and_corrected",
+      "target_hit": false,
+      "authority": "docs/superpowers/reports/2026-07-13-glm-round13-execution-audit-and-fix.md",
+      "validated_scope": [
+        "31-symbol data completeness and official holdout repair provenance",
+        "five corrected candidate configs across 60 actual binary replays",
+        "real Rayon execution and focused engine regression tests"
+      ],
+      "repairs_applied": [
+        "partial/depth/minigrid entry-cost and capital accounting",
+        "aggregate-position minigrid PnL instead of fictitious safety-leg PnL",
+        "vol-target size now binds budget and costs",
+        "rejected orders no longer add costs",
+        "5U engine minNotional and per-symbol realized PnL output",
+        "manifest expanded from 15 to 31 symbols"
+      ],
+      "remaining_gaps": [
+        "true completed-HTF state",
+        "event-level and production-integrated allocator/scheduler",
+        "corrected minigrid and depth TP searches",
+        "anchored nested WFO, gross concentration, LOSO/LOCO and stress",
+        "untouched future holdout and 30-day paper",
+        "started executor, DB writer/reconcile/restart and order trace parity"
+      ]
+    }
+  ],
+  "round13_task_audit": {
+    "P0": "corrected_manifest_and_registry",
+    "P1": "partial_rayon_only",
+    "P2": "wrong_mechanism_not_true_htf",
+    "P3": "helpers_only_not_event_or_production_integrated",
+    "P4": "old_search_invalid_after_average_entry_fix",
+    "P5": "old_search_invalid_after_reduce_and_fee_fix",
+    "P6": "robust_pool_extracts_not_original_lp",
+    "P7": "partial_not_nested_wfo",
+    "P8": "opened_holdout_not_untouched",
+    "P9": "helper_tests_not_production_db_executor"
+  },
+  "non_repeat_registry": [
+    {
+      "key": "r12-r9-static-36-strategy-merge",
+      "scope": "exact five source configs with all 36 strategies simultaneously active under shared sub-5000U budgets"
+    },
+    {
+      "key": "r12-partial-tp-stage-grid-576",
+      "scope": "fixed spacing and ordinary partial TP stages plus max age; not cycle depth"
+    },
+    {
+      "key": "r10-strict-condition-so-no-target",
+      "scope": "hard all-or-nothing safety_order_condition family"
+    },
+    {
+      "key": "r11-fixed-tp-dominated-ranges",
+      "scope": "exact Round11 fixed_tp and fixed_tp_v3 ranges"
+    },
+    {
+      "key": "r13-current-timeframe-btc-ema-pseudo-htf",
+      "scope": "current 1m BTC close/EMA expressions used by the Round13 P2 scripts; excludes completed 1h/4h per-symbol state"
+    },
+    {
+      "key": "r13-r4-disconnected-scheduler-screen",
+      "scope": "R4 scheduler helper parameters while disconnected from event replay; excludes integrated allocator/scheduler"
+    },
+    {
+      "key": "r13-corrected-five-config-recheck",
+      "scope": "the five exact config hashes under engine ffeba0f7, manifest a754cf69 and the recorded windows"
+    }
+  ],
+  "must_rerun_not_non_repeat": [
+    "Round13 minigrid configs under aggregate-position PnL semantics",
+    "Round13 depth TP configs under corrected reduce and entry-cost semantics",
+    "vol-targeted families affected by capital/cost mismatch",
+    "true completed 1h/4h HTF regime",
+    "event-level cross-sectional selector and production allocator",
+    "original LP recovery if source configs are ever found"
+  ],
+  "promotion_contract": {
+    "martingale_core_required": true,
+    "event_level_joint_replay_required": true,
+    "curve_lp_or_shadow_pnl_can_promote": false,
+    "cold_start_segments_required": true,
+    "nested_walk_forward_with_train_selection_required": true,
+    "budget_ladder": [1000, 2000, 3000, 4000, 4999],
+    "funding_coverage_required_for_every_traded_symbol": true,
+    "at_least_five_traded_symbols": true,
+    "gross_and_net_pnl_concentration_required": true,
+    "production_db_reconcile_tests_required": true,
+    "backtest_live_order_trace_required": true,
+    "future_paper_days_required_for_production_ready": 30
+  },
+  "next_plan": "docs/superpowers/plans/2026-07-13-glm-martingale-core-round14-htf-selector-inventory-plan.md",
+  "source_of_truth": "docs/superpowers/artifacts/glm-martingale-core-round13/r1-r13-corrected-status.json"
+}

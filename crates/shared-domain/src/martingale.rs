@@ -359,10 +359,16 @@ impl MartingaleDcaMiniGridConfig {
     /// Validate minigrid config per plan rules.
     pub fn validate(&self) -> Result<(), String> {
         if self.levels_per_band < 1 || self.levels_per_band > 5 {
-            return Err(format!("levels_per_band must be in 1..=5, got {}", self.levels_per_band));
+            return Err(format!(
+                "levels_per_band must be in 1..=5, got {}",
+                self.levels_per_band
+            ));
         }
         if self.spacing_bps < 10 || self.spacing_bps > 150 {
-            return Err(format!("spacing_bps must be in 10..=150, got {}", self.spacing_bps));
+            return Err(format!(
+                "spacing_bps must be in 10..=150, got {}",
+                self.spacing_bps
+            ));
         }
         if self.close_fraction_num == 0 {
             return Err("close_fraction_num must be > 0".to_string());
@@ -374,10 +380,16 @@ impl MartingaleDcaMiniGridConfig {
             ));
         }
         if self.min_profit_bps < 5 {
-            return Err(format!("min_profit_bps must be >= 5, got {}", self.min_profit_bps));
+            return Err(format!(
+                "min_profit_bps must be >= 5, got {}",
+                self.min_profit_bps
+            ));
         }
         if self.max_active_levels < 1 || self.max_active_levels > 5 {
-            return Err(format!("max_active_levels must be in 1..=5, got {}", self.max_active_levels));
+            return Err(format!(
+                "max_active_levels must be in 1..=5, got {}",
+                self.max_active_levels
+            ));
         }
         Ok(())
     }
@@ -421,6 +433,16 @@ pub struct MartingaleDepthTpConfig {
 }
 
 impl MartingaleDepthTpConfig {
+    pub fn validate(&self) -> Result<(), String> {
+        if self.depth_01_tp_bps == 0 || self.depth_23_tp_bps == 0 || self.depth_4plus_tp_bps == 0 {
+            return Err("depth TP targets must be greater than 0 bps".to_string());
+        }
+        if self.depth_23_reduce_pct > 100 || self.depth_4plus_reduce_pct > 100 {
+            return Err("depth TP reduce percentages must be in 0..=100".to_string());
+        }
+        Ok(())
+    }
+
     /// Get the effective TP bps for a given number of filled legs.
     /// filled_legs includes the base order (leg 0), so depth = filled_legs - 1.
     pub fn tp_bps_for_depth(&self, filled_legs: usize) -> u32 {
@@ -515,6 +537,13 @@ impl MartingaleStrategyConfig {
                     }
                 }
             }
+        }
+
+        if let Some(config) = &self.risk_limits.dca_minigrid {
+            config.validate()?;
+        }
+        if let Some(config) = &self.risk_limits.depth_tp {
+            config.validate()?;
         }
 
         Ok(())
@@ -736,5 +765,29 @@ mod tests {
         assert_eq!(limits.new_cycle_drawdown_pause_pct, None);
         assert_eq!(limits.new_cycle_atr_pause_pct, None);
         assert_eq!(limits.safety_skip_adx_threshold, None);
+    }
+
+    #[test]
+    fn depth_tp_validation_rejects_zero_targets_and_over_close() {
+        let valid = MartingaleDepthTpConfig {
+            depth_01_tp_bps: 120,
+            depth_23_tp_bps: 70,
+            depth_23_reduce_pct: 25,
+            depth_4plus_tp_bps: 40,
+            depth_4plus_reduce_pct: 50,
+        };
+        valid.validate().expect("valid depth TP");
+        assert!(MartingaleDepthTpConfig {
+            depth_01_tp_bps: 0,
+            ..valid.clone()
+        }
+        .validate()
+        .is_err());
+        assert!(MartingaleDepthTpConfig {
+            depth_4plus_reduce_pct: 101,
+            ..valid
+        }
+        .validate()
+        .is_err());
     }
 }

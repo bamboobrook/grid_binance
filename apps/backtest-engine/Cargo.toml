@@ -15,6 +15,7 @@ rust_decimal = { version = "1", features = ["serde-with-str"] }
 sha2 = { workspace = true }
 shared-domain = { path = "../../crates/shared-domain" }
 rand = "0.8"
+rayon = "1"
 
 [dev-dependencies]
 tempfile = "3"

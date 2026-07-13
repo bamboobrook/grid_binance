@@ -193,7 +193,9 @@ fn main() -> Result<(), String> {
         backtest_engine::martingale::kline_engine::set_fee_bps_override(args.fee_override_bps);
     }
     if args.slippage_override_bps > 0.0 {
-        backtest_engine::martingale::kline_engine::set_slippage_bps_override(args.slippage_override_bps);
+        backtest_engine::martingale::kline_engine::set_slippage_bps_override(
+            args.slippage_override_bps,
+        );
     }
     let text = fs::read_to_string(&args.config_path)
         .map_err(|err| format!("read {}: {err}", args.config_path.display()))?;
@@ -275,12 +277,7 @@ fn main() -> Result<(), String> {
     );
 
     // ---- Run the sim on the runtime-parity config. ----
-    let result = run_kline_screening_with_funding(
-        portfolio.clone(),
-        &bars,
-        &funding,
-        budget_f,
-    )?;
+    let result = run_kline_screening_with_funding(portfolio.clone(), &bars, &funding, budget_f)?;
     let m = &result.metrics;
 
     // ---- On-budget metrics (rebased to budget principal, with min-equity hardening). ----
@@ -363,6 +360,38 @@ fn main() -> Result<(), String> {
             })
         })
         .collect();
+    let mut realized_by_symbol = std::collections::BTreeMap::<String, (f64, f64, f64)>::new();
+    for trade in &result.trades {
+        let entry = realized_by_symbol
+            .entry(trade.symbol.clone())
+            .or_insert((0.0, 0.0, 0.0));
+        entry.0 += trade.realized_pnl_quote;
+        if trade.realized_pnl_quote > 0.0 {
+            entry.1 += trade.realized_pnl_quote;
+        } else {
+            entry.2 += trade.realized_pnl_quote;
+        }
+    }
+    let total_positive_realized = realized_by_symbol
+        .values()
+        .map(|(_, positive, _)| *positive)
+        .sum::<f64>();
+    let realized_pnl_by_symbol: Vec<Value> = realized_by_symbol
+        .into_iter()
+        .map(|(symbol, (net, positive, negative))| {
+            serde_json::json!({
+                "symbol": symbol,
+                "net_pnl_quote": net,
+                "positive_pnl_quote": positive,
+                "negative_pnl_quote": negative,
+                "positive_pnl_share_pct": if total_positive_realized > 0.0 {
+                    positive / total_positive_realized * 100.0
+                } else {
+                    0.0
+                },
+            })
+        })
+        .collect();
 
     let summary = serde_json::json!({
         "portfolio_id": portfolio_id,
@@ -392,6 +421,7 @@ fn main() -> Result<(), String> {
             "total": breakdown.total,
         },
         "per_strategy": per_strategy_json,
+        "realized_pnl_by_symbol": realized_pnl_by_symbol,
         "minimum_capital": {
             "exchange_min_notional": exchange_min_notional,
             "exchange_min_notional_is_default": (args.exchange_min_notional

@@ -4,12 +4,12 @@
 //! replay by comparing against a known R4-combo baseline.
 
 use backtest_engine::martingale::batch_replay::BatchReplay;
-use shared_domain::martingale::{
-    MartingaleDirection, MartingaleDirectionMode, MartingaleMarketKind,
-    MartingalePortfolioConfig, MartingaleRiskLimits, MartingaleSizingModel,
-    MartingaleSpacingModel, MartingaleStrategyConfig, MartingaleTakeProfitModel,
-};
 use rust_decimal::Decimal;
+use shared_domain::martingale::{
+    MartingaleDirection, MartingaleDirectionMode, MartingaleMarketKind, MartingalePortfolioConfig,
+    MartingaleRiskLimits, MartingaleSizingModel, MartingaleSpacingModel, MartingaleStrategyConfig,
+    MartingaleTakeProfitModel,
+};
 
 fn dec(v: i64) -> Decimal {
     Decimal::new(v, 0)
@@ -70,7 +70,8 @@ fn batch_replay_single_config_returns_metrics() {
     let mut batch = BatchReplay::new("data/market_data_full.db", "data/funding_rates_round12.db")
         .expect("batch");
     // Preload a small window (1 day)
-    batch.preload_symbols(&["BNBUSDT"], 1672531200000, 1672617600000)
+    batch
+        .preload_symbols(&["BNBUSDT"], 1672531200000, 1672617600000)
         .expect("preload");
 
     let config = make_simple_portfolio("4999");
@@ -90,18 +91,33 @@ fn batch_replay_parallel_returns_results_for_all_configs() {
     }
     let mut batch = BatchReplay::new("data/market_data_full.db", "data/funding_rates_round12.db")
         .expect("batch");
-    batch.preload_symbols(&["BNBUSDT"], 1672531200000, 1672617600000)
+    batch
+        .preload_symbols(&["BNBUSDT"], 1672531200000, 1672617600000)
         .expect("preload");
 
     let configs = vec![
         ("config_a".to_string(), make_simple_portfolio("4999")),
         ("config_b".to_string(), make_simple_portfolio("3000")),
     ];
+    let expected = configs
+        .iter()
+        .map(|(_, config)| {
+            batch
+                .run_single(config, 4999.0, 1672531200000, 1672617600000)
+                .expect("single")
+        })
+        .collect::<Vec<_>>();
 
     let results = batch.run_configs_parallel(configs, 4999.0, 1672531200000, 1672617600000);
     assert_eq!(results.len(), 2);
     assert_eq!(results[0].config_label, "config_a");
     assert_eq!(results[1].config_label, "config_b");
+    for (parallel, single) in results.iter().zip(expected) {
+        assert!((parallel.annualized_return_pct - single.annualized_return_pct).abs() < 1e-9);
+        assert!((parallel.max_drawdown_pct - single.max_drawdown_pct).abs() < 1e-9);
+        assert_eq!(parallel.trade_count, single.trade_count);
+        assert_eq!(parallel.budget_blocked_legs, single.budget_blocked_legs);
+    }
 }
 
 #[test]
@@ -112,16 +128,30 @@ fn batch_replay_results_are_deterministic() {
     }
     let mut batch = BatchReplay::new("data/market_data_full.db", "data/funding_rates_round12.db")
         .expect("batch");
-    batch.preload_symbols(&["BNBUSDT"], 1672531200000, 1672617600000)
+    batch
+        .preload_symbols(&["BNBUSDT"], 1672531200000, 1672617600000)
         .expect("preload");
 
     let config = make_simple_portfolio("4999");
-    let r1 = batch.run_single(&config, 4999.0, 1672531200000, 1672617600000).unwrap();
-    let r2 = batch.run_single(&config, 4999.0, 1672531200000, 1672617600000).unwrap();
+    let r1 = batch
+        .run_single(&config, 4999.0, 1672531200000, 1672617600000)
+        .unwrap();
+    let r2 = batch
+        .run_single(&config, 4999.0, 1672531200000, 1672617600000)
+        .unwrap();
     // Results must be identical (deterministic)
-    assert!((r1.annualized_return_pct - r2.annualized_return_pct).abs() < 1e-9,
-        "ann must be deterministic: {} vs {}", r1.annualized_return_pct, r2.annualized_return_pct);
-    assert!((r1.max_drawdown_pct - r2.max_drawdown_pct).abs() < 1e-9,
-        "dd must be deterministic");
-    assert_eq!(r1.trade_count, r2.trade_count, "trade count must be deterministic");
+    assert!(
+        (r1.annualized_return_pct - r2.annualized_return_pct).abs() < 1e-9,
+        "ann must be deterministic: {} vs {}",
+        r1.annualized_return_pct,
+        r2.annualized_return_pct
+    );
+    assert!(
+        (r1.max_drawdown_pct - r2.max_drawdown_pct).abs() < 1e-9,
+        "dd must be deterministic"
+    );
+    assert_eq!(
+        r1.trade_count, r2.trade_count,
+        "trade count must be deterministic"
+    );
 }

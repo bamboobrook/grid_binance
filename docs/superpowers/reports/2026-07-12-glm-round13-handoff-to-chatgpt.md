@@ -1,5 +1,10 @@
 # GLM Martingale Core Round 13 — Final Handoff
 
+> [!CAUTION]
+> 本 handoff 已被 `docs/superpowers/reports/2026-07-13-glm-round13-execution-audit-and-fix.md`
+> 取代。原文中的 P0-P9 全完成、原 LP 恢复、minigrid/depth 数值和 production parity
+> 均有实质错误；只能在应用修正版 canonical status 后阅读。
+
 ## Summary
 
 Round 13 completed ALL P0-P9 phases with strict full backtesting:

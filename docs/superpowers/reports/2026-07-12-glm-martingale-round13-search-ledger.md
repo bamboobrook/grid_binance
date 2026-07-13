@@ -1,5 +1,11 @@
 # GLM Martingale Round 13 Search Ledger
 
+> [!CAUTION]
+> 本 ledger 保留历史探索，但不是最终权威。请先读取
+> `docs/superpowers/artifacts/glm-martingale-core-round13/r1-r13-corrected-status.json` 和
+> `docs/superpowers/reports/2026-07-13-glm-round13-execution-audit-and-fix.md`；错误语义运行的
+> minigrid/depth、伪 HTF、孤立 allocator 和 helper-only production tests 已被降级。
+
 
 ## Canonical Carry-In
 
