@@ -120,6 +120,48 @@ fn main() -> Result<(), String> {
         }
     }
 
+    // Apply XS selector gate if config is provided via env vars.
+    // R14_XS_FAMILY=momentum|reversal
+    // R14_XS_LOOKBACK=14
+    // R14_XS_SKIP_RECENT=1
+    // R14_XS_REBALANCE_DAYS=7
+    // R14_XS_ACTIVE_LONG=3
+    // R14_XS_ACTIVE_SHORT=3
+    if let Ok(xs_family) = std::env::var("R14_XS_FAMILY") {
+        let xs_config = shared_domain::martingale::MartingaleXsSelectorConfig {
+            family: xs_family,
+            lookback_periods: std::env::var("R14_XS_LOOKBACK")
+                .ok()
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(14),
+            skip_recent_periods: std::env::var("R14_XS_SKIP_RECENT")
+                .ok()
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(1),
+            rebalance_period_bars: std::env::var("R14_XS_REBALANCE_DAYS")
+                .ok()
+                .and_then(|v| v.parse::<usize>().ok())
+                .map(|d| d * 24 * 60)
+                .unwrap_or(7 * 24 * 60),
+            active_long_count: std::env::var("R14_XS_ACTIVE_LONG")
+                .ok()
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(3),
+            active_short_count: std::env::var("R14_XS_ACTIVE_SHORT")
+                .ok()
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(3),
+            symbol_cap: 0.25,
+            cluster_cap: 0.35,
+            min_active_symbols: 3,
+        };
+        eprintln!("XS selector: {:?}", xs_config);
+        for strategy in &mut portfolio.strategies {
+            strategy.risk_limits.xs_selector_gate_enabled = Some(true);
+            strategy.risk_limits.xs_selector_config = Some(xs_config.clone());
+        }
+    }
+
     eprintln!("Label: {} HTF={} Symbols={:?}", label, htf_on, symbols);
 
     // Preload data

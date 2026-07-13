@@ -258,6 +258,36 @@ pub fn run_kline_screening_with_funding(
         .strategies
         .iter()
         .any(|s| s.risk_limits.htf_regime_gate_enabled.unwrap_or(false));
+    // Round 14 P3: Cross-sectional selector for momentum/reversal symbol selection.
+    // Controls which symbols can open new cycles based on lagged cross-sectional ranking.
+    // Shadow observations never enter live equity; inactive sleeves keep existing cycles.
+    let xs_gate_enabled = portfolio
+        .strategies
+        .iter()
+        .any(|s| s.risk_limits.xs_selector_gate_enabled.unwrap_or(false));
+    let mut xs_selector: Option<crate::martingale::xs_selector::XsSelector> = if xs_gate_enabled {
+        // Build the universe from all traded symbols in the portfolio.
+        let universe: Vec<String> = portfolio
+            .strategies
+            .iter()
+            .map(|s| s.symbol.clone())
+            .collect::<std::collections::BTreeSet<_>>()
+            .into_iter()
+            .collect();
+        // Extract XS config from the first strategy that has it.
+        let xs_config_shared = portfolio
+            .strategies
+            .iter()
+            .find_map(|s| s.risk_limits.xs_selector_config.clone())
+            .unwrap_or_default();
+        let xs_config = crate::martingale::xs_selector::XsSelectorConfig::from(&xs_config_shared);
+        Some(crate::martingale::xs_selector::XsSelector::new(
+            xs_config,
+            universe,
+        ))
+    } else {
+        None
+    };
     let mut portfolio_stop_cooldown_until_ms: Option<i64> = None;
     // Round 2 Direction F: equity-reclaim re-entry state. When the portfolio
     // equity stop fires, record the equity at the stop; if
@@ -288,6 +318,9 @@ pub fn run_kline_screening_with_funding(
             indicator_context.push_bar(&bars[bar_index]);
             if htf_gate_enabled {
                 htf_regime.push_1m(&bars[bar_index]);
+            }
+            if let Some(ref mut selector) = xs_selector {
+                selector.push_1m(&bars[bar_index], timestamp_ms);
             }
             bar_index += 1;
         }
@@ -513,6 +546,34 @@ pub fn run_kline_screening_with_funding(
                                 format!(
                                     "regime={:?};direction={};reason=htf_state_blocks_new_cycle",
                                     regime,
+                                    if is_long { "long" } else { "short" }
+                                ),
+                            ));
+                            state_index += 1;
+                            continue;
+                        }
+                    }
+                    // Round 14 P3: Cross-sectional selector gate. Block new cycle
+                    // if the symbol is not in the active set for this direction.
+                    // The selector uses lagged cross-sectional ranking; shadow
+                    // observations never enter live equity. Inactive sleeves
+                    // with existing cycles continue SO/TP/SL management.
+                    if let Some(ref mut selector) = xs_selector {
+                        // Check if a rebalance is due.
+                        if selector.should_rebalance(timestamp_ms) {
+                            selector.rebalance(timestamp_ms);
+                        }
+                        let symbol = &strategy_states[state_index].strategy.symbol;
+                        let is_long = strategy_states[state_index].strategy.direction
+                            == MartingaleDirection::Long;
+                        if !selector.is_active(symbol, is_long) {
+                            events.push(event(
+                                bar,
+                                &strategy_states[state_index],
+                                "xs_selector_block",
+                                format!(
+                                    "symbol={};direction={};reason=xs_selector_not_active",
+                                    symbol,
                                     if is_long { "long" } else { "short" }
                                 ),
                             ));

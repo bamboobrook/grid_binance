@@ -324,6 +324,78 @@ pub struct MartingaleRiskLimits {
     /// doesn't allow the cycle direction. State never affects existing cycles.
     #[serde(default)]
     pub htf_regime_gate_enabled: Option<bool>,
+    /// Round 14 P3: Enable cross-sectional selector gate. When true, new cycle
+    /// entry is blocked if the symbol is not in the active set for this direction.
+    #[serde(default)]
+    pub xs_selector_gate_enabled: Option<bool>,
+    /// Round 14 P3: Cross-sectional selector configuration.
+    #[serde(default)]
+    pub xs_selector_config: Option<MartingaleXsSelectorConfig>,
+}
+
+/// Round 14 P3: Cross-sectional selector configuration.
+/// Controls which symbols can open new Martingale cycles based on
+/// lagged cross-sectional momentum or reversal ranking.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct MartingaleXsSelectorConfig {
+    /// "momentum" or "reversal".
+    #[serde(default)]
+    pub family: String,
+    /// Lookback window in days for momentum, in hours for reversal.
+    pub lookback_periods: usize,
+    /// Skip recent N periods before computing score.
+    #[serde(default)]
+    pub skip_recent_periods: usize,
+    /// Rebalance frequency in 1m bars.
+    #[serde(default = "default_rebalance_period")]
+    pub rebalance_period_bars: usize,
+    /// Number of top-ranked symbols to activate for long.
+    #[serde(default = "default_active_count")]
+    pub active_long_count: usize,
+    /// Number of bottom-ranked symbols to activate for short.
+    #[serde(default = "default_active_count")]
+    pub active_short_count: usize,
+    /// Single symbol capital cap (fraction of budget, 0-1).
+    #[serde(default = "default_symbol_cap")]
+    pub symbol_cap: f64,
+    /// Cluster cap (fraction of budget, 0-1).
+    #[serde(default = "default_cluster_cap")]
+    pub cluster_cap: f64,
+    /// Minimum symbols that must actually trade.
+    #[serde(default = "default_min_symbols")]
+    pub min_active_symbols: usize,
+}
+
+fn default_rebalance_period() -> usize {
+    7 * 24 * 60
+}
+fn default_active_count() -> usize {
+    3
+}
+fn default_symbol_cap() -> f64 {
+    0.25
+}
+fn default_cluster_cap() -> f64 {
+    0.35
+}
+fn default_min_symbols() -> usize {
+    5
+}
+
+impl Default for MartingaleXsSelectorConfig {
+    fn default() -> Self {
+        Self {
+            family: "momentum".to_string(),
+            lookback_periods: 14,
+            skip_recent_periods: 1,
+            rebalance_period_bars: default_rebalance_period(),
+            active_long_count: default_active_count(),
+            active_short_count: default_active_count(),
+            symbol_cap: default_symbol_cap(),
+            cluster_cap: default_cluster_cap(),
+            min_active_symbols: default_min_symbols(),
+        }
+    }
 }
 
 /// Round 6 Task B: A single drawdown state rule.

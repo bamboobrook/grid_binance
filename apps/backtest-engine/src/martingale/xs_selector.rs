@@ -62,6 +62,26 @@ impl Default for XsSelectorConfig {
     }
 }
 
+impl From<&shared_domain::martingale::MartingaleXsSelectorConfig> for XsSelectorConfig {
+    fn from(config: &shared_domain::martingale::MartingaleXsSelectorConfig) -> Self {
+        Self {
+            family: if config.family == "reversal" {
+                XsFamily::Reversal
+            } else {
+                XsFamily::Momentum
+            },
+            lookback_periods: config.lookback_periods,
+            skip_recent_periods: config.skip_recent_periods,
+            rebalance_period_bars: config.rebalance_period_bars,
+            active_long_count: config.active_long_count,
+            active_short_count: config.active_short_count,
+            symbol_cap: config.symbol_cap,
+            cluster_cap: config.cluster_cap,
+            min_active_symbols: config.min_active_symbols,
+        }
+    }
+}
+
 /// Per-symbol score state for the selector.
 #[derive(Debug, Clone, Default)]
 pub struct SymbolScoreState {
