@@ -63,7 +63,22 @@
     "minigrid_depth_tp_configs": 8,
     "p2_htf_configs": 12,
     "gate_passing_configs": 4,
+    "wfo_folds": 4,
+    "wfo_configs_per_fold": 36,
     "best_result": "XS-REV + P4 SO=0.75 + P5 pen=1.0/floor=0.25: ann=35.07%/DD=13.56%/5/5/Calmar=2.59"
+  },
+  "wfo_results": {
+    "selection_frequency": "lb48_so0.5_pen0.5_fl0.25 selected 4/4 folds (100%)",
+    "pbo_proxy": 1.0,
+    "dsr": -0.22,
+    "mean_val_ann_pct": -5.74,
+    "per_fold": [
+      {"fold": "F1", "train": "H1-2023", "val": "H2-2023", "train_ann": 75.38, "train_dd": 10.65, "val_ann": -28.38, "val_dd": 36.80},
+      {"fold": "F2", "train": "2023", "val": "2024", "train_ann": 64.67, "train_dd": 28.68, "val_ann": 46.42, "val_dd": 12.20},
+      {"fold": "F3", "train": "2023-2024", "val": "2025", "train_ann": 53.96, "train_dd": 28.68, "val_ann": 18.91, "val_dd": 8.39},
+      {"fold": "F4", "train": "2023-2025", "val": "2026-YTD", "train_ann": 39.15, "train_dd": 28.68, "val_ann": -59.89, "val_dd": 32.19}
+    ],
+    "finding": "Parameter selection is 100% stable but validation performance is highly volatile. F2(2024) and F3(2025) positive, F1(H2-2023) and F4(2026-YTD) negative. F3 achieves DD=8.39% (below conservative gate). Strategy is period-dependent."
   },
   "target_gap_analysis": {
     "conservative": {
