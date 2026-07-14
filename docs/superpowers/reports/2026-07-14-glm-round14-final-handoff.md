@@ -1,5 +1,11 @@
 # GLM Martingale Round 14 最终交接文档
 
+> **审计废弃通知（2026-07-14）：** 本文件的“2030 configs / 3488 valid replays”、
+> “P0-P9 完成”、“DD 13.45% 硬下限”和“用户接受当前最佳”均已被独立审计废弃。
+> BatchReplay 混入 spot/高周期 bar，XS/预算/P4 也有实质语义错误。唯一权威结论见
+> `docs/superpowers/reports/2026-07-14-glm-round14-execution-audit-and-fix.md` 与
+> `docs/superpowers/artifacts/glm-martingale-core-round14/r1-r14-corrected-status.json`。
+
 **日期:** 2026-07-14
 **分支:** `glm-martingale-core-round14`
 **状态:** 搜索完成 — 接受当前最佳作为最终结果

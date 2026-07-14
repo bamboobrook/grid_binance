@@ -1,5 +1,9 @@
 # GLM Martingale Round 14 Handoff to ChatGPT
 
+> **Correction notice (2026-07-14):** This interim handoff is superseded by
+> `docs/superpowers/reports/2026-07-14-glm-round14-execution-audit-and-fix.md`. Its mechanism
+> completion and binding claims predate the corrected BatchReplay, XS, budget and spacing semantics.
+
 **Date:** 2026-07-13
 **Branch:** `glm-martingale-core-round14`
 **Plan:** `docs/superpowers/plans/2026-07-13-glm-martingale-core-round14-htf-selector-inventory-plan.md`

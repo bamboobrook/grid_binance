@@ -1,0 +1,213 @@
+{
+  "schema_version": 1,
+  "round": 14,
+  "generated_at": "2026-07-14",
+  "code_commit": "5a056f110a37b864544fbce108c007dfa8d78c7b",
+  "engine": {
+    "portfolio_budget_replay_sha256": "d21c6971aacc5166adff56ce1d8b135f8f15d194c966d4324219885d181c4d98",
+    "r14_htf_search_sha256": "4c914d68cd8d19a95f7ea9a50ed18f845ca5a6be271f81e4a157509d47da00e7"
+  },
+  "data": {
+    "market_db_sha256": "c404e4c80de4ac2a633e740f15f577239f539a29fc1c974dc6cfc05b1c29f790",
+    "funding_db_sha256": "4d77dbdeddc42f8bb800e4b784bc6eb3e77d5213212be4e8bd3226274a4e1114",
+    "premium_db_sha256": "78bd01280bbb349383e090b9576cfa543865a5680997329c33f2e05c089a2627",
+    "manifest_sha256": "8f02c5a7848092bec56dda63ac26dc45b60b5e4439680dee18913824185a8343",
+    "development_gate_passed": true,
+    "holdout_gate_passed": true,
+    "holdout_already_opened": true
+  },
+  "windows": {
+    "development": [1672531200000, 1780271999999],
+    "segments": [
+      [1672531200000, 1688169599999],
+      [1688169600000, 1704067199999],
+      [1704067200000, 1735689599999],
+      [1735689600000, 1767225599999],
+      [1767225600000, 1780271999999]
+    ]
+  },
+  "rechecks": [
+    {
+      "label": "audit_r4_corrected",
+      "config": "docs/superpowers/artifacts/glm-martingale-core-round4/promising/r4-combo-best.json",
+      "traded_symbols": 6,
+      "full": {
+        "annualized_return_pct": 34.81207989156461,
+        "max_drawdown_pct": 17.66715667009042,
+        "trade_count": 4758,
+        "budget_blocked_legs": 19,
+        "max_capital_used_quote": 709.2334457999999,
+        "principal_breached": false
+      },
+      "segments": [
+        {"annualized_return_pct": 59.25559516033423, "max_drawdown_pct": 17.66715667009042},
+        {"annualized_return_pct": 6.878847836828061, "max_drawdown_pct": 14.430995303291056},
+        {"annualized_return_pct": 31.931825364522105, "max_drawdown_pct": 22.165061403288693},
+        {"annualized_return_pct": -8.684831477480692, "max_drawdown_pct": 21.172491658071113},
+        {"annualized_return_pct": 18.282469250830545, "max_drawdown_pct": 8.977864843473338}
+      ],
+      "positive_segments": 4,
+      "budgets": [
+        {"budget": 1000, "annualized_return_pct": -15.710729229371301, "max_drawdown_pct": 50.99625780660072},
+        {"budget": 2000, "annualized_return_pct": -7.054411033026831, "max_drawdown_pct": 27.144940433411374},
+        {"budget": 3000, "annualized_return_pct": 49.57410323517229, "max_drawdown_pct": 24.7579628326898},
+        {"budget": 4000, "annualized_return_pct": 40.788517408987765, "max_drawdown_pct": 20.61826790372654},
+        {"budget": 4999, "annualized_return_pct": 34.81207989156461, "max_drawdown_pct": 17.66715667009042}
+      ],
+      "concentration": {
+        "max_configured_capital_share_pct": 13.3,
+        "max_realized_gross_profit_share_pct": 49.5776623752194,
+        "max_realized_positive_net_pnl_share_pct": 51.087004912203895
+      },
+      "target_hits": [],
+      "reject_reasons": [
+        "annualized return below all tier gates",
+        "drawdown above conservative gate",
+        "1000U and 2000U annualized returns are negative",
+        "gross and positive-net PnL concentration exceed 35%",
+        "2025 cold-start segment is negative"
+      ]
+    },
+    {
+      "label": "audit_r7_corrected",
+      "config": "docs/superpowers/artifacts/glm-martingale-core-round7/promising/r7-ANKR-q1w24p24.json",
+      "traded_symbols": 6,
+      "full": {
+        "annualized_return_pct": 62.51288430430992,
+        "max_drawdown_pct": 28.624157528027265,
+        "trade_count": 377,
+        "budget_blocked_legs": 24,
+        "max_capital_used_quote": 1748.1316742999998,
+        "principal_breached": false
+      },
+      "segments": [
+        {"annualized_return_pct": 421.6212833860818, "max_drawdown_pct": 28.624157528027265},
+        {"annualized_return_pct": 10.098140781831088, "max_drawdown_pct": 25.22458282222483},
+        {"annualized_return_pct": 62.44811383225712, "max_drawdown_pct": 33.610981773902694},
+        {"annualized_return_pct": -17.972506079204752, "max_drawdown_pct": 33.39293449693997},
+        {"annualized_return_pct": 40.52579170474506, "max_drawdown_pct": 20.37727284709693}
+      ],
+      "positive_segments": 4,
+      "budgets": [
+        {"budget": 1000, "annualized_return_pct": 1.2847054954538084, "max_drawdown_pct": 37.67322027502879},
+        {"budget": 2000, "annualized_return_pct": 5.505223480415222, "max_drawdown_pct": 45.51551244763017},
+        {"budget": 3000, "annualized_return_pct": 3.747918773259795, "max_drawdown_pct": 37.00294367989548},
+        {"budget": 4000, "annualized_return_pct": 2.8416144633553797, "max_drawdown_pct": 31.172825422907575},
+        {"budget": 4999, "annualized_return_pct": 62.51288430430992, "max_drawdown_pct": 28.624157528027265}
+      ],
+      "concentration": {
+        "max_configured_capital_share_pct": 13.3,
+        "max_realized_gross_profit_share_pct": 36.15964778127561,
+        "max_realized_positive_net_pnl_share_pct": 36.77521886585307
+      },
+      "target_hits": [],
+      "reject_reasons": [
+        "drawdown exceeds conservative and balanced gates",
+        "annualized return below balanced and aggressive gates",
+        "1000U through 4000U annualized returns collapse to 1.28%-5.51%",
+        "gross and positive-net PnL concentration exceed 35%",
+        "2025 cold-start segment is negative"
+      ]
+    },
+    {
+      "label": "audit_r4_xs_rev72_a2",
+      "config": "R4 plus corrected XS reversal lookback=72h rebalance=1d active_long=2 active_short=2",
+      "traded_symbols_configured": 6,
+      "full": {
+        "annualized_return_pct": 28.765883146629932,
+        "max_drawdown_pct": 21.803959188435062,
+        "trade_count": 3139,
+        "budget_blocked_legs": 15,
+        "max_capital_used_quote": 708.2752578
+      },
+      "positive_segments": 3,
+      "segment_annualized_returns_pct": [109.54299975004757, -19.48392594926487, 69.6994261317172, -8.119052827836438, 20.486622996191596],
+      "budgets": [
+        {"budget": 1000, "annualized_return_pct": 8.030516846617687, "max_drawdown_pct": 46.55009082082084},
+        {"budget": 2000, "annualized_return_pct": 4.202139194684018, "max_drawdown_pct": 30.44625362078395},
+        {"budget": 3000, "annualized_return_pct": 41.6584775856804, "max_drawdown_pct": 30.443403656465645},
+        {"budget": 4000, "annualized_return_pct": 33.95336030747957, "max_drawdown_pct": 25.204307279476833},
+        {"budget": 4999, "annualized_return_pct": 28.765883146629932, "max_drawdown_pct": 21.803959188435062}
+      ],
+      "target_hits": [],
+      "reject_reasons": [
+        "annualized return below all tier gates",
+        "only 3/5 positive cold-start segments",
+        "small-budget drawdown is 30.45%-46.55%"
+      ]
+    },
+    {
+      "label": "audit_r4_htf_default",
+      "config": "R4 plus fixed default completed-HTF gate",
+      "traded_symbols": 6,
+      "full": {
+        "annualized_return_pct": 19.45006621578509,
+        "max_drawdown_pct": 17.151606644982618,
+        "trade_count": 8340,
+        "budget_blocked_legs": 11,
+        "max_capital_used_quote": 803.5735257118799
+      },
+      "positive_segments": 4,
+      "segment_annualized_returns_pct": [36.030263056922315, 6.994380388021892, 32.05690352182449, -10.874134544050385, 18.382577337079375],
+      "budgets": [
+        {"budget": 1000, "annualized_return_pct": 11.831733881440076, "max_drawdown_pct": 42.50869929442245},
+        {"budget": 2000, "annualized_return_pct": 6.313350834504461, "max_drawdown_pct": 25.002747127222452},
+        {"budget": 3000, "annualized_return_pct": 29.079334821304002, "max_drawdown_pct": 25.04761891216986},
+        {"budget": 4000, "annualized_return_pct": 23.274099339278266, "max_drawdown_pct": 20.358984910286107},
+        {"budget": 4999, "annualized_return_pct": 19.45006621578509, "max_drawdown_pct": 17.151606644982618}
+      ],
+      "target_hits": [],
+      "reject_reasons": [
+        "annualized return below all tier gates",
+        "HTF parameters were fixed defaults rather than a parameterized family",
+        "2025 cold-start segment is negative"
+      ]
+    }
+  ],
+  "invalidated_round14_scopes": [
+    {
+      "scope": "r14_htf_search outputs produced before 5a056f1",
+      "reason": "BatchReplay loaded spot 1m and 15m/1h/4h/1d rows together with futures 1m; R4 CLI/Batch trade counts were 4758/4980"
+    },
+    {
+      "scope": "all old XS searches and WFO",
+      "reason": "rebalance clock advanced once per symbol bar, lookback warmup was too short, direction sleeve eligibility was ignored, and active counts were inert or impossible"
+    },
+    {
+      "scope": "old r14_htf_search budget ladders",
+      "reason": "portfolio weight caps were resolved once at 4999U and reused for all smaller budgets"
+    },
+    {
+      "scope": "P2 256 Sobol claim",
+      "reason": "HTF config stayed at engine defaults; the script varied XS/P4/P5 parameters on a two-symbol base"
+    },
+    {
+      "scope": "P4/P5/P9 completion claims",
+      "reason": "P4 spacing and full P5 scheduler were not event-wired, while P9 did not exercise production DB writer/reconcile/restart/order trace"
+    }
+  ],
+  "scoped_valid_old_evidence": {
+    "p6_minigrid": {
+      "rows": 544,
+      "unique_params": 538,
+      "unique_metrics": 92,
+      "scope": "ICP/TRX two-symbol full-window CLI screens only"
+    },
+    "p6_depth_tp": {
+      "rows": 800,
+      "unique_params": 800,
+      "unique_metrics": 800,
+      "scope": "ICP/TRX two-symbol full-window CLI screens only"
+    },
+    "limitations": [
+      "does not meet the five-symbol common gate",
+      "does not contain nested WFO, complete segment/budget validation, concentration, or production parity"
+    ]
+  },
+  "target_hits": {
+    "conservative": [],
+    "balanced": [],
+    "aggressive": []
+  },
+  "fully_live_ready_candidates": []
+}

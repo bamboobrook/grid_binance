@@ -1,23 +1,11 @@
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "round": 14,
-  "audit_status": "mechanism_implemented_search_partial",
-  "audited_input_head": "a5ed56f",
-  "source": {
-    "base_commit": "4b7fe40f43ca24a30c6079b64efb6c1c26dd4388",
-    "engine_binary_sha256": "a87c55c22d1452c0b9980640694fa7d67d9acafc85b35b29886e975f997097f4"
-  },
-  "data_integrity": {
-    "market_db_sha256": "01e1de0d1d4d17889a4a318b81ace01980fe38519dd942302654ffde502bedd1",
-    "funding_db_sha256": "4d77dbdeddc42f8bb800e4b784bc6eb3e77d5213212be4e8bd3226274a4e1114",
-    "manifest": "docs/superpowers/artifacts/glm-martingale-core-round14/run-manifests/r14-data-manifest.json",
-    "manifest_sha256": "a754cf69f53279d77caa06a03f24ee75ed8fed96c8776a47edce886e0d71dbc0",
-    "development_symbol_count": 31,
-    "holdout_symbol_count": 31,
-    "development_gate_passed": true,
-    "holdout_gate_passed": true,
-    "holdout_already_opened": true
-  },
+  "generated_at": "2026-07-14",
+  "audit_status": "materially_invalid_search_repaired_and_rescoped",
+  "audited_input_head": "5dcc872",
+  "audit_fix_commit": "5a056f110a37b864544fbce108c007dfa8d78c7b",
+  "source": "docs/superpowers/reports/2026-07-14-glm-round14-execution-audit-and-fix.md",
   "targets": {
     "conservative": {
       "annualized_return_min_pct": 50.0,
@@ -36,6 +24,13 @@
       "max_drawdown_pct": 30.0,
       "positive_segments_min": 3,
       "passed": false
+    },
+    "common": {
+      "budget_strictly_below_5000": true,
+      "traded_symbols_min": 5,
+      "max_symbol_concentration_pct": 35.0,
+      "anti_overfit_required": true,
+      "production_reproducibility_required": true
     }
   },
   "target_hits": {
@@ -44,93 +39,102 @@
     "aggressive": []
   },
   "fully_live_ready_candidates": [],
-  "candidates": [
-    {
-      "label": "r14_htf_off_icp_trx",
-      "config": "docs/superpowers/artifacts/glm-martingale-core-round13/promising/r13-icp-trx-lp-pair.json",
-      "traded_symbols": 2,
-      "annualized_return_pct": 35.67,
-      "max_drawdown_pct": 14.44,
-      "positive_segments": 5,
-      "budget_1000_annualized_return_pct": 97.21,
-      "budget_4999_annualized_return_pct": 35.67,
-      "holdout_return_pct": null,
-      "max_positive_realized_pnl_share_pct": null,
-      "principal_breach_any_budget": false,
-      "structure_passed": false,
-      "fully_live_ready": false,
-      "reject_reasons": [
-        "only 2 symbols (need >=5)",
-        "ann < 50% conservative gate",
-        "concentration not computed",
-        "no nested WFO",
-        "no production DB/executor parity"
-      ]
-    },
-    {
-      "label": "r14_htf_on_icp_trx",
-      "config": "docs/superpowers/artifacts/glm-martingale-core-round13/promising/r13-icp-trx-lp-pair.json",
-      "traded_symbols": 2,
-      "annualized_return_pct": 33.00,
-      "max_drawdown_pct": 26.62,
-      "positive_segments": 5,
-      "budget_1000_annualized_return_pct": 91.75,
-      "budget_4999_annualized_return_pct": 33.00,
-      "holdout_return_pct": null,
-      "max_positive_realized_pnl_share_pct": null,
-      "principal_breach_any_budget": false,
-      "structure_passed": false,
-      "fully_live_ready": false,
-      "reject_reasons": [
-        "only 2 symbols (need >=5)",
-        "ann < 50% conservative gate",
-        "DD > 10% conservative gate",
-        "HTF gate increases DD (26.62% vs 14.44% without gate)",
-        "no nested WFO",
-        "no production DB/executor parity"
-      ]
-    },
-    {
-      "label": "r14_htf_on_r4_combo",
-      "config": "docs/superpowers/artifacts/glm-martingale-core-round4/promising/r4-combo-best.json",
-      "traded_symbols": 6,
-      "annualized_return_pct": 23.91,
-      "max_drawdown_pct": 24.59,
-      "positive_segments": 4,
-      "budget_1000_annualized_return_pct": 72.18,
-      "budget_4999_annualized_return_pct": 23.91,
-      "holdout_return_pct": null,
-      "max_positive_realized_pnl_share_pct": null,
-      "principal_breach_any_budget": false,
-      "structure_passed": false,
-      "fully_live_ready": false,
-      "reject_reasons": [
-        "ann < 50% conservative gate",
-        "DD > 10% conservative gate",
-        "2025 segment negative (-10.83%)",
-        "no nested WFO",
-        "no production DB/executor parity"
-      ]
+  "data_integrity": {
+    "market_db_sha256": "c404e4c80de4ac2a633e740f15f577239f539a29fc1c974dc6cfc05b1c29f790",
+    "funding_db_sha256": "4d77dbdeddc42f8bb800e4b784bc6eb3e77d5213212be4e8bd3226274a4e1114",
+    "premium_db_sha256": "78bd01280bbb349383e090b9576cfa543865a5680997329c33f2e05c089a2627",
+    "manifest": "docs/superpowers/artifacts/glm-martingale-core-round14/run-manifests/r14-data-manifest.json",
+    "manifest_sha256": "8f02c5a7848092bec56dda63ac26dc45b60b5e4439680dee18913824185a8343",
+    "development_symbol_count": 31,
+    "holdout_symbol_count": 31,
+    "development_gate_passed": true,
+    "holdout_gate_passed": true,
+    "holdout_already_opened": true
+  },
+  "engine": {
+    "portfolio_budget_replay_sha256": "d21c6971aacc5166adff56ce1d8b135f8f15d194c966d4324219885d181c4d98",
+    "r14_htf_search_sha256": "4c914d68cd8d19a95f7ea9a50ed18f845ca5a6be271f81e4a157509d47da00e7",
+    "backtest_engine_tests": {
+      "passed": 330,
+      "failed": 0,
+      "command": "cargo test -p backtest-engine"
     }
-  ],
-  "engineering_verification": {
-    "backtest_engine_tests": 319,
-    "trading_engine_tests": 225,
-    "total_new_tests": 57,
-    "all_tests_pass": true,
-    "json_artifacts_valid": true,
-    "python_scripts_compile": true
   },
   "round14_task_status": {
-    "p0_input_freeze": "complete",
-    "p1_engine_closure": "complete",
-    "p2_htf_regime": "complete",
-    "p3_xs_selector": "complete",
-    "p4_dual_state_ladder": "complete",
-    "p5_inventory_scheduler": "complete",
-    "p6_minigrid_depth_tp": "in_progress",
-    "p7_combination_search": "not_started",
-    "p8_robustness": "complete",
-    "p9_production_parity": "complete"
-  }
+    "P0_input_freeze": "repaired_manifest_rebuilt",
+    "P1_engine_closure": "partial_repaired_batch_loader_budget_ladder_xs_clock_warmup_direction_and_spacing",
+    "P2_htf_regime": "partial_fixed_default_binding_only_parameters_not_config_bound",
+    "P3_xs_selector": "partial_repaired_one_valid_six_symbol_binding_full_search_invalid",
+    "P4_dual_state_ladder": "partial_spacing_repaired_old_search_invalid",
+    "P5_inventory_scheduler": "not_executed_full_scheduler_helper_disconnected_simplified_formula_only",
+    "P6_minigrid_depth_tp": "scoped_two_symbol_full_window_cli_evidence_only",
+    "P7_combinations": "invalid_due_batch_and_selector_errors",
+    "P8_nested_wfo_robustness": "invalid_candidate_wfo_and_helper_only_robustness",
+    "P9_production_parity": "not_executed_no_real_db_executor_trace"
+  },
+  "independent_rechecks": [
+    {
+      "label": "R4 corrected baseline",
+      "traded_symbols": 6,
+      "annualized_return_pct": 34.81207989156461,
+      "max_drawdown_pct": 17.66715667009042,
+      "positive_segments": 4,
+      "max_realized_gross_profit_share_pct": 49.5776623752194,
+      "max_realized_positive_net_pnl_share_pct": 51.087004912203895,
+      "target_hits": []
+    },
+    {
+      "label": "R7 corrected baseline",
+      "traded_symbols": 6,
+      "annualized_return_pct": 62.51288430430992,
+      "max_drawdown_pct": 28.624157528027265,
+      "positive_segments": 4,
+      "max_realized_gross_profit_share_pct": 36.15964778127561,
+      "max_realized_positive_net_pnl_share_pct": 36.77521886585307,
+      "budget_1000_to_4000_ann_range_pct": [1.2847054954538084, 5.505223480415222],
+      "target_hits": []
+    },
+    {
+      "label": "R4 corrected XS reversal 72h active 2 per direction",
+      "traded_symbols_configured": 6,
+      "annualized_return_pct": 28.765883146629932,
+      "max_drawdown_pct": 21.803959188435062,
+      "positive_segments": 3,
+      "target_hits": []
+    },
+    {
+      "label": "R4 corrected fixed-default HTF gate",
+      "traded_symbols": 6,
+      "annualized_return_pct": 19.45006621578509,
+      "max_drawdown_pct": 17.151606644982618,
+      "positive_segments": 4,
+      "target_hits": []
+    }
+  ],
+  "invalidated_claims": [
+    "2030 configs and 3488 valid replays",
+    "all P0-P9 complete",
+    "256 independent HTF Sobol configs",
+    "DD 13.45% structural hard floor",
+    "two-symbol ICP/TRX candidate as a portfolio target candidate",
+    "WFO parameter stability as anti-overfit success",
+    "P9 real production executor parity",
+    "user accepted current best"
+  ],
+  "scoped_valid_old_evidence": {
+    "P6_minigrid": {
+      "rows": 544,
+      "unique_params": 538,
+      "unique_metrics": 92,
+      "scope": "ICP/TRX two-symbol full-window CLI screen"
+    },
+    "P6_depth_tp": {
+      "rows": 800,
+      "unique_params": 800,
+      "unique_metrics": 800,
+      "scope": "ICP/TRX two-symbol full-window CLI screen"
+    },
+    "promotion_eligible": false
+  },
+  "next_plan": "docs/superpowers/plans/2026-07-14-glm-martingale-core-round15-directional-hazard-cluster-plan.md"
 }

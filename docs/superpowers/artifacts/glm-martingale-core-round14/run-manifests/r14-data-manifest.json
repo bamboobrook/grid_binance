@@ -1,5 +1,5 @@
 {
-  "code_commit": "4b7fe40f43ca24a30c6079b64efb6c1c26dd4388",
+  "code_commit": "5a056f110a37b864544fbce108c007dfa8d78c7b",
   "development_window": {
     "end_ms": 1780271999999,
     "gate": {
@@ -1191,7 +1191,7 @@
   },
   "engine": {
     "path": "target/release/portfolio_budget_replay",
-    "sha256": "ffeba0f7a01e98027be3b55c4238f49747c96dbae71beef81652ebc80ffc4d04"
+    "sha256": "d21c6971aacc5166adff56ce1d8b135f8f15d194c966d4324219885d181c4d98"
   },
   "fetch_provenance": {
     "base_url": "https://fapi.binance.com",
@@ -1502,11 +1502,11 @@
       "size_bytes": 8118272
     },
     "market": {
-      "mtime_ns": 1783922698283526987,
+      "mtime_ns": 1783981713978575699,
       "path": "data/market_data_full.db",
-      "sha256": "01e1de0d1d4d17889a4a318b81ace01980fe38519dd942302654ffde502bedd1",
+      "sha256": "c404e4c80de4ac2a633e740f15f577239f539a29fc1c974dc6cfc05b1c29f790",
       "sha256_complete": true,
-      "size_bytes": 117421449216
+      "size_bytes": 117554163712
     },
     "premium_index": {
       "mtime_ns": 1783012119676174692,
@@ -1516,7 +1516,7 @@
       "size_bytes": 10088448
     }
   },
-  "generated_at": "2026-07-13",
+  "generated_at": "2026-07-14T15:20:27.720816+00:00",
   "holdout_window": {
     "end_ms": 1783727999999,
     "gate": {
@@ -2711,10 +2711,9 @@
     "premium-index coverage is recorded but is not a hard gate for candidates that do not consume it",
     "original Round12 development-data HTTP response hashes were not preserved"
   ],
-  "schema_version": 3,
+  "schema_version": 2,
   "selection": {
     "market_type": "futures_usdt_perp",
     "timeframe": "1m"
-  },
-  "round": 14
+  }
 }

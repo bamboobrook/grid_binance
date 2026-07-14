@@ -1,5 +1,11 @@
 # GLM Martingale Round 14 Final Handoff to ChatGpt
 
+> **Correction notice (2026-07-14):** This handoff is superseded by
+> `docs/superpowers/reports/2026-07-14-glm-round14-execution-audit-and-fix.md` and the corrected
+> canonical JSON. BatchReplay mixed spot/higher-timeframe rows into futures 1m replays; XS,
+> budget-ladder, P4/P5 and P9 claims were also invalid or incomplete. The reported replay totals,
+> hard-floor conclusion and completion status must not be used.
+
 **Date:** 2026-07-14
 **Branch:** `glm-martingale-core-round14`
 **Plan:** `docs/superpowers/plans/2026-07-13-glm-martingale-core-round14-htf-selector-inventory-plan.md`

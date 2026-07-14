@@ -1,5 +1,9 @@
 # GLM Martingale Round 14 Search Ledger
 
+> **审计修正通知（2026-07-14）：** 本 ledger 保留原始探索历史，但 P2-P5/P7/P8 的结果
+> 不可作为有效成功或失败证据。权威 invalid scopes、独立复算和可保留的 P6 两币范围见
+> `docs/superpowers/reports/2026-07-14-glm-round14-execution-audit-and-fix.md`。
+
 **Date:** 2026-07-13
 **Branch:** `glm-martingale-core-round14`
 **Plan:** `docs/superpowers/plans/2026-07-13-glm-martingale-core-round14-htf-selector-inventory-plan.md`
