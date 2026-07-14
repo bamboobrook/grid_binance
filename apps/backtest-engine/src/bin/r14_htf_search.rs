@@ -74,13 +74,9 @@ fn main() -> Result<(), String> {
         .get(1)
         .ok_or("usage: r14_htf_search <base_config.json> <label>")?;
     let label = args.get(2).cloned().unwrap_or_else(|| "search".to_string());
-    let htf_on = args
-        .get(3)
-        .map(|s| s == "on")
-        .unwrap_or(true);
+    let htf_on = args.get(3).map(|s| s == "on").unwrap_or(true);
 
-    let raw = fs::read_to_string(base_config_path)
-        .map_err(|e| format!("read config: {e}"))?;
+    let raw = fs::read_to_string(base_config_path).map_err(|e| format!("read config: {e}"))?;
     let raw_json: Value = serde_json::from_str(&raw).map_err(|e| format!("parse json: {e}"))?;
     let portfolio_config = raw_json
         .get("portfolio_config")
@@ -89,7 +85,8 @@ fn main() -> Result<(), String> {
 
     // Deserialize into typed config
     let mut portfolio: shared_domain::martingale::MartingalePortfolioConfig =
-        serde_json::from_value(portfolio_config.clone()).map_err(|e| format!("deserialize: {e}"))?;
+        serde_json::from_value(portfolio_config.clone())
+            .map_err(|e| format!("deserialize: {e}"))?;
 
     // Apply the same budget preparation as the CLI (weight caps, etc.)
     let budget_decimal = Decimal::new(4999, 0);
@@ -176,7 +173,10 @@ fn main() -> Result<(), String> {
             .ok()
             .and_then(|v| v.parse().ok())
             .unwrap_or(1.5);
-        eprintln!("Dual-state ladder: so_scale={}, spacing_mult={}", so_scale, spacing_mult);
+        eprintln!(
+            "Dual-state ladder: so_scale={}, spacing_mult={}",
+            so_scale, spacing_mult
+        );
         for strategy in &mut portfolio.strategies {
             strategy.risk_limits.dual_state_ladder_enabled = Some(true);
             strategy.risk_limits.dual_state_so_scale = Some(so_scale);
@@ -197,7 +197,10 @@ fn main() -> Result<(), String> {
             .ok()
             .and_then(|v| v.parse().ok())
             .unwrap_or(0.5);
-        eprintln!("Inventory scheduler: penalty={}, risk_floor={}", inv_penalty, risk_floor);
+        eprintln!(
+            "Inventory scheduler: penalty={}, risk_floor={}",
+            inv_penalty, risk_floor
+        );
         for strategy in &mut portfolio.strategies {
             strategy.risk_limits.inventory_scheduler_enabled = Some(true);
             strategy.risk_limits.inventory_penalty = Some(inv_penalty);
@@ -261,7 +264,13 @@ fn main() -> Result<(), String> {
     // Budgets
     let mut bud_results = Vec::new();
     for &budget in BUDGETS {
-        let bud = run_with_on_budget(&batch, &portfolio, budget, DEV_START, DEV_END)?;
+        let mut budget_portfolio = portfolio.clone();
+        prepare_replay_config(
+            &mut budget_portfolio,
+            &portfolio_config,
+            Decimal::new(budget as i64, 0),
+        )?;
+        let bud = run_with_on_budget(&batch, &budget_portfolio, budget, DEV_START, DEV_END)?;
         eprintln!("  Budget {}U: ann={:.2}%", budget, bud.ann);
         bud_results.push(serde_json::json!({
             "budget": budget,
@@ -272,7 +281,10 @@ fn main() -> Result<(), String> {
     result["budgets"] = serde_json::Value::Array(bud_results);
 
     // Output JSON
-    println!("{}", serde_json::to_string_pretty(&result).map_err(|e| e.to_string())?);
+    println!(
+        "{}",
+        serde_json::to_string_pretty(&result).map_err(|e| e.to_string())?
+    );
 
     Ok(())
 }

@@ -278,14 +278,27 @@ pub fn run_kline_screening_with_funding(
         .iter()
         .any(|s| s.risk_limits.xs_selector_gate_enabled.unwrap_or(false));
     let mut xs_selector: Option<crate::martingale::xs_selector::XsSelector> = if xs_gate_enabled {
-        // Build the universe from all traded symbols in the portfolio.
-        let universe: Vec<String> = portfolio
+        let long_universe: Vec<String> = portfolio
             .strategies
             .iter()
+            .filter(|s| s.direction == MartingaleDirection::Long)
             .map(|s| s.symbol.clone())
             .collect::<std::collections::BTreeSet<_>>()
             .into_iter()
             .collect();
+        let short_universe: Vec<String> = portfolio
+            .strategies
+            .iter()
+            .filter(|s| s.direction == MartingaleDirection::Short)
+            .map(|s| s.symbol.clone())
+            .collect::<std::collections::BTreeSet<_>>()
+            .into_iter()
+            .collect();
+        let universe_size = long_universe
+            .iter()
+            .chain(short_universe.iter())
+            .collect::<std::collections::BTreeSet<_>>()
+            .len();
         // Extract XS config from the first strategy that has it.
         let xs_config_shared = portfolio
             .strategies
@@ -293,10 +306,33 @@ pub fn run_kline_screening_with_funding(
             .find_map(|s| s.risk_limits.xs_selector_config.clone())
             .unwrap_or_default();
         let xs_config = crate::martingale::xs_selector::XsSelectorConfig::from(&xs_config_shared);
-        Some(crate::martingale::xs_selector::XsSelector::new(
-            xs_config,
-            universe,
-        ))
+        if universe_size < xs_config.min_active_symbols {
+            return Err(format!(
+                "xs selector min_active_symbols={} exceeds traded universe={universe_size}",
+                xs_config.min_active_symbols
+            ));
+        }
+        if !long_universe.is_empty() && xs_config.active_long_count >= long_universe.len() {
+            return Err(format!(
+                "xs selector active_long_count={} is inert for {} long symbols",
+                xs_config.active_long_count,
+                long_universe.len()
+            ));
+        }
+        if !short_universe.is_empty() && xs_config.active_short_count >= short_universe.len() {
+            return Err(format!(
+                "xs selector active_short_count={} is inert for {} short symbols",
+                xs_config.active_short_count,
+                short_universe.len()
+            ));
+        }
+        Some(
+            crate::martingale::xs_selector::XsSelector::new_with_direction_universes(
+                xs_config,
+                long_universe,
+                short_universe,
+            ),
+        )
     } else {
         None
     };
@@ -328,7 +364,7 @@ pub fn run_kline_screening_with_funding(
             validate_bar(&bars[bar_index])?;
             latest_close_by_symbol.insert(bars[bar_index].symbol.clone(), bars[bar_index].close);
             indicator_context.push_bar(&bars[bar_index]);
-            if htf_gate_enabled || dual_state_enabled {
+            if htf_regime_needed {
                 htf_regime.push_1m(&bars[bar_index]);
             }
             if let Some(ref mut selector) = xs_selector {
@@ -337,6 +373,11 @@ pub fn run_kline_screening_with_funding(
             bar_index += 1;
         }
         let group = &bars[group_start..bar_index];
+        if let Some(ref mut selector) = xs_selector {
+            if selector.should_rebalance(timestamp_ms) {
+                selector.rebalance(timestamp_ms);
+            }
+        }
 
         // 方向2: 组合级动态降仓 — 计算当前回撤（基于上一 bar 结束时的 equity）
         let portfolio_drawdown_pct = if equity_peak_quote > 0.0 {
@@ -570,11 +611,7 @@ pub fn run_kline_screening_with_funding(
                     // The selector uses lagged cross-sectional ranking; shadow
                     // observations never enter live equity. Inactive sleeves
                     // with existing cycles continue SO/TP/SL management.
-                    if let Some(ref mut selector) = xs_selector {
-                        // Check if a rebalance is due.
-                        if selector.should_rebalance(timestamp_ms) {
-                            selector.rebalance(timestamp_ms);
-                        }
+                    if let Some(ref selector) = xs_selector {
                         let symbol = &strategy_states[state_index].strategy.symbol;
                         let is_long = strategy_states[state_index].strategy.direction
                             == MartingaleDirection::Long;
@@ -653,7 +690,9 @@ pub fn run_kline_screening_with_funding(
                         let vol_scale = if htf_regime_needed {
                             let symbol = &strategy_states[state_index].strategy.symbol;
                             let regime = htf_regime.regime_at(symbol, timestamp_ms);
-                            if regime == crate::martingale::htf_regime::HtfRegimeState::ExtremeDownsideVol {
+                            if regime
+                                == crate::martingale::htf_regime::HtfRegimeState::ExtremeDownsideVol
+                            {
                                 risk_floor
                             } else {
                                 1.0
@@ -804,8 +843,56 @@ pub fn run_kline_screening_with_funding(
                 }
 
                 if let Some(next_leg_index) = strategy_states[state_index].next_leg_index() {
-                    let trigger_price =
+                    let base_trigger_price =
                         strategy_states[state_index].trigger_prices[next_leg_index - 1];
+                    let trigger_price = if dual_state_enabled {
+                        let strategy = &strategy_states[state_index].strategy;
+                        let regime = htf_regime.regime_at(&strategy.symbol, timestamp_ms);
+                        let is_long = strategy.direction == MartingaleDirection::Long;
+                        let is_adverse = match (regime, is_long) {
+                            (crate::martingale::htf_regime::HtfRegimeState::TrendShort, true) => {
+                                true
+                            }
+                            (crate::martingale::htf_regime::HtfRegimeState::TrendLong, false) => {
+                                true
+                            }
+                            (
+                                crate::martingale::htf_regime::HtfRegimeState::ExtremeDownsideVol,
+                                _,
+                            ) => true,
+                            _ => false,
+                        };
+                        if is_adverse {
+                            let spacing_mult = strategy
+                                .risk_limits
+                                .dual_state_spacing_mult
+                                .filter(|value| value.is_finite() && *value >= 1.0)
+                                .unwrap_or(1.0);
+                            let anchor_price = match strategy.risk_limits.safety_order_basis {
+                                Some(shared_domain::martingale::MartingaleSafetyOrderBasis::LastExecutedOrder) => {
+                                    strategy_states[state_index]
+                                        .legs
+                                        .last()
+                                        .map(|leg| leg.price)
+                                        .unwrap_or(base_trigger_price)
+                                }
+                                _ => strategy_states[state_index]
+                                    .legs
+                                    .first()
+                                    .map(|leg| leg.price)
+                                    .unwrap_or(base_trigger_price),
+                            };
+                            widened_safety_trigger_price(
+                                anchor_price,
+                                base_trigger_price,
+                                spacing_mult,
+                            )
+                        } else {
+                            base_trigger_price
+                        }
+                    } else {
+                        base_trigger_price
+                    };
                     if safety_order_triggered(
                         strategy_states[state_index].strategy.direction,
                         bar,
@@ -1927,6 +2014,10 @@ fn add_leg(
     }
 
     Ok(())
+}
+
+fn widened_safety_trigger_price(anchor_price: f64, trigger_price: f64, spacing_mult: f64) -> f64 {
+    anchor_price + (trigger_price - anchor_price) * spacing_mult
 }
 
 fn preflight_rejection_reasons(portfolio: &MartingalePortfolioConfig) -> Vec<String> {
@@ -3179,7 +3270,7 @@ mod tests {
     use crate::market_data::KlineBar;
     use crate::martingale::kline_engine::{
         capacity_allows_entry, run_kline_screening, run_kline_screening_with_funding,
-        FundingRatePoint,
+        widened_safety_trigger_price, FundingRatePoint,
     };
 
     fn single_strategy_portfolio(budget_quote: i64) -> MartingalePortfolioConfig {
@@ -3199,6 +3290,12 @@ mod tests {
         assert_eq!(guards.new_cycle_drawdown_pause_pct, 7.5);
         assert_eq!(guards.new_cycle_atr_pause_pct, 1.25);
         assert_eq!(guards.safety_skip_adx_threshold, 55.0);
+    }
+
+    #[test]
+    fn adverse_dual_state_spacing_widens_long_and_short_triggers() {
+        assert_eq!(widened_safety_trigger_price(100.0, 98.0, 1.5), 97.0);
+        assert_eq!(widened_safety_trigger_price(100.0, 102.0, 1.5), 103.0);
     }
 
     #[test]

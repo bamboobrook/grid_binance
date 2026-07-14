@@ -13,7 +13,7 @@
 //! - XS-MOM: lookback 7/14/28/56d, skip_recent 0/1/3d, rebalance 1/3/7d
 //! - XS-REVERSAL: lookback 4h/12h/1d/3d, rebalance 4h/12h/1d, VR confirmation
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use crate::market_data::KlineBar;
 
@@ -110,6 +110,12 @@ pub struct XsSelector {
     bars_since_rebalance: usize,
     /// Universe of symbols (frozen at train time).
     universe: Vec<String>,
+    /// Symbols that actually have a sleeve for each direction.
+    long_universe: BTreeSet<String>,
+    short_universe: BTreeSet<String>,
+    /// Last completed portfolio timestamp observed. Multiple symbols at the
+    /// same timestamp count as one selector bar.
+    last_observation_ts: Option<i64>,
     /// Shadow observations (never enter live equity).
     shadow_observations: Vec<ShadowObservation>,
 }
@@ -127,41 +133,60 @@ pub struct ShadowObservation {
 
 impl XsSelector {
     pub fn new(config: XsSelectorConfig, universe: Vec<String>) -> Self {
+        Self::new_with_direction_universes(config, universe.clone(), universe)
+    }
+
+    pub fn new_with_direction_universes(
+        config: XsSelectorConfig,
+        long_universe: Vec<String>,
+        short_universe: Vec<String>,
+    ) -> Self {
+        let long_universe: BTreeSet<String> = long_universe.into_iter().collect();
+        let short_universe: BTreeSet<String> = short_universe.into_iter().collect();
+        let universe = long_universe.union(&short_universe).cloned().collect();
         Self {
             config,
             states: BTreeMap::new(),
             last_rebalance_ts: 0,
             bars_since_rebalance: 0,
             universe,
+            long_universe,
+            short_universe,
+            last_observation_ts: None,
             shadow_observations: Vec::new(),
         }
     }
 
     /// Push a 1m bar for a symbol. Updates the rolling close window.
     pub fn push_1m(&mut self, bar: &KlineBar, timestamp_ms: i64) {
-        let state = self
-            .states
-            .entry(bar.symbol.clone())
-            .or_default();
+        let state = self.states.entry(bar.symbol.clone()).or_default();
         state.closes.push(bar.close);
 
-        // Trim to lookback window.
-        let max_lookback = self.config.lookback_periods * 1440; // days to minutes
-        let max_lookback_hours = self.config.lookback_periods * 60; // hours to minutes
-        let max_window = match self.config.family {
-            XsFamily::Momentum => max_lookback,
-            XsFamily::Reversal => max_lookback_hours,
+        // Keep enough observations for both the lookback and skipped tail,
+        // including both endpoints of the return interval.
+        let unit_minutes = match self.config.family {
+            XsFamily::Momentum => 1440,
+            XsFamily::Reversal => 60,
         };
+        let max_window = self
+            .config
+            .lookback_periods
+            .saturating_add(self.config.skip_recent_periods)
+            .saturating_mul(unit_minutes)
+            .saturating_add(1);
         if state.closes.len() > max_window {
             let drop = state.closes.len() - max_window;
             state.closes.drain(0..drop);
         }
 
-        self.bars_since_rebalance += 1;
+        if self.last_observation_ts != Some(timestamp_ms) {
+            self.bars_since_rebalance += 1;
+            self.last_observation_ts = Some(timestamp_ms);
+        }
     }
 
     /// Check if a rebalance is due.
-    pub fn should_rebalance(&self, timestamp_ms: i64) -> bool {
+    pub fn should_rebalance(&self, _timestamp_ms: i64) -> bool {
         self.bars_since_rebalance >= self.config.rebalance_period_bars
     }
 
@@ -189,41 +214,36 @@ impl XsSelector {
         // Sort by score descending.
         scored.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
 
-        // Record shadow observations (never enter live equity).
-        for (symbol, score) in &scored {
-            let would_be_active_long = scored
-                .iter()
-                .take(self.config.active_long_count)
-                .any(|(s, _)| s == symbol);
-            let would_be_active_short = scored
-                .iter()
-                .rev()
-                .take(self.config.active_short_count)
-                .any(|(s, _)| s == symbol);
-            self.shadow_observations.push(ShadowObservation {
-                timestamp_ms,
-                symbol: symbol.clone(),
-                score: *score,
-                would_be_active: would_be_active_long || would_be_active_short,
-                hypothetical_entry_price: self
-                    .states
-                    .get(symbol)
-                    .and_then(|s| s.closes.last().copied()),
-            });
-        }
-
-        // Select top N for long, bottom N for short.
+        // Select only symbols that have a sleeve in the corresponding
+        // direction. Ranking a symbol without a tradable sleeve silently
+        // reduced the requested active count in the original implementation.
         let active_long: Vec<String> = scored
             .iter()
+            .filter(|(symbol, _)| self.long_universe.contains(symbol))
             .take(self.config.active_long_count)
             .map(|(s, _)| s.clone())
             .collect();
         let active_short: Vec<String> = scored
             .iter()
             .rev()
+            .filter(|(symbol, _)| self.short_universe.contains(symbol))
             .take(self.config.active_short_count)
             .map(|(s, _)| s.clone())
             .collect();
+
+        // Record shadow observations (never enter live equity).
+        for (symbol, score) in &scored {
+            self.shadow_observations.push(ShadowObservation {
+                timestamp_ms,
+                symbol: symbol.clone(),
+                score: *score,
+                would_be_active: active_long.contains(symbol) || active_short.contains(symbol),
+                hypothetical_entry_price: self
+                    .states
+                    .get(symbol)
+                    .and_then(|s| s.closes.last().copied()),
+            });
+        }
 
         // Update state: mark active/inactive.
         for (symbol, _) in &scored {
@@ -232,8 +252,7 @@ impl XsSelector {
             let was_active_short = state.is_active_short;
             state.is_active_long = active_long.contains(symbol);
             state.is_active_short = active_short.contains(symbol);
-            if was_active_long != state.is_active_long
-                || was_active_short != state.is_active_short
+            if was_active_long != state.is_active_long || was_active_short != state.is_active_short
             {
                 state.last_switch_ts = timestamp_ms;
             }
@@ -245,22 +264,24 @@ impl XsSelector {
     /// Compute the score for a symbol based on the family.
     fn compute_score(&self, state: &SymbolScoreState) -> Option<f64> {
         let closes = &state.closes;
-        if closes.len() < self.config.lookback_periods + self.config.skip_recent_periods {
+        let unit_minutes = match self.config.family {
+            XsFamily::Momentum => 1440,
+            XsFamily::Reversal => 60,
+        };
+        let lookback = self.config.lookback_periods.saturating_mul(unit_minutes);
+        let skip = self.config.skip_recent_periods.saturating_mul(unit_minutes);
+        let required = lookback.saturating_add(skip).saturating_add(1);
+        if lookback == 0 || closes.len() < required {
             return None;
         }
 
         match self.config.family {
             XsFamily::Momentum => {
                 // Lagged return: (close[t-skip] / close[t-skip-lookback]) - 1
-                let skip = self.config.skip_recent_periods * 1440; // days to minutes
-                let lookback = self.config.lookback_periods * 1440;
-                let end_idx = closes.len().saturating_sub(skip);
-                let start_idx = end_idx.saturating_sub(lookback);
-                if end_idx == 0 || start_idx >= end_idx {
-                    return None;
-                }
+                let end_idx = closes.len() - skip - 1;
+                let start_idx = end_idx - lookback;
                 let start_price = closes[start_idx];
-                let end_price = closes[end_idx - 1];
+                let end_price = closes[end_idx];
                 if start_price > 0.0 {
                     Some(end_price / start_price - 1.0)
                 } else {
@@ -269,15 +290,10 @@ impl XsSelector {
             }
             XsFamily::Reversal => {
                 // Short-term reversal: negative return over lookback.
-                let skip = self.config.skip_recent_periods * 60; // hours to minutes
-                let lookback = self.config.lookback_periods * 60;
-                let end_idx = closes.len().saturating_sub(skip);
-                let start_idx = end_idx.saturating_sub(lookback);
-                if end_idx == 0 || start_idx >= end_idx {
-                    return None;
-                }
+                let end_idx = closes.len() - skip - 1;
+                let start_idx = end_idx - lookback;
                 let start_price = closes[start_idx];
-                let end_price = closes[end_idx - 1];
+                let end_price = closes[end_idx];
                 if start_price > 0.0 {
                     // Reversal score: negative of return (buy losers).
                     Some(-(end_price / start_price - 1.0))
@@ -292,7 +308,13 @@ impl XsSelector {
     pub fn is_active(&self, symbol: &str, is_long: bool) -> bool {
         self.states
             .get(symbol)
-            .map(|s| if is_long { s.is_active_long } else { s.is_active_short })
+            .map(|s| {
+                if is_long {
+                    s.is_active_long
+                } else {
+                    s.is_active_short
+                }
+            })
             .unwrap_or(false)
     }
 
@@ -351,7 +373,11 @@ mod tests {
         };
         let mut selector = XsSelector::new(
             config,
-            vec!["BTCUSDT".to_string(), "ETHUSDT".to_string(), "SOLUSDT".to_string()],
+            vec![
+                "BTCUSDT".to_string(),
+                "ETHUSDT".to_string(),
+                "SOLUSDT".to_string(),
+            ],
         );
 
         let start = 1_672_531_200_000_i64;
@@ -361,14 +387,23 @@ mod tests {
         // SOL: downtrend (100 → 90)
         for i in 0..(7 * 1440 + 1) {
             let t = start + i * 60_000;
-            selector.push_1m(&bar("BTCUSDT", t, 100.0 + i as f64 * 10.0 / (7 * 1440) as f64), t);
+            selector.push_1m(
+                &bar("BTCUSDT", t, 100.0 + i as f64 * 10.0 / (7 * 1440) as f64),
+                t,
+            );
             selector.push_1m(&bar("ETHUSDT", t, 100.0), t);
-            selector.push_1m(&bar("SOLUSDT", t, 100.0 - i as f64 * 10.0 / (7 * 1440) as f64), t);
+            selector.push_1m(
+                &bar("SOLUSDT", t, 100.0 - i as f64 * 10.0 / (7 * 1440) as f64),
+                t,
+            );
         }
 
         let (active_long, active_short) = selector.rebalance(start + 7 * 1440 * 60_000);
         // BTC should be top-ranked for long.
-        assert!(active_long.contains(&"BTCUSDT".to_string()), "BTC should be active long");
+        assert!(
+            active_long.contains(&"BTCUSDT".to_string()),
+            "BTC should be active long"
+        );
         // SOL should be bottom-ranked for short.
         assert!(
             active_short.contains(&"SOLUSDT".to_string()),
@@ -388,18 +423,22 @@ mod tests {
             active_short_count: 1,
             ..Default::default()
         };
-        let mut selector = XsSelector::new(
-            config,
-            vec!["BTCUSDT".to_string(), "ETHUSDT".to_string()],
-        );
+        let mut selector =
+            XsSelector::new(config, vec!["BTCUSDT".to_string(), "ETHUSDT".to_string()]);
 
         let start = 1_672_531_200_000_i64;
         // BTC: downtrend (100 → 90) — reversal should buy this
         // ETH: uptrend (100 → 110) — reversal should short this
         for i in 0..(12 * 60 + 1) {
             let t = start + i * 60_000;
-            selector.push_1m(&bar("BTCUSDT", t, 100.0 - i as f64 * 10.0 / (12 * 60) as f64), t);
-            selector.push_1m(&bar("ETHUSDT", t, 100.0 + i as f64 * 10.0 / (12 * 60) as f64), t);
+            selector.push_1m(
+                &bar("BTCUSDT", t, 100.0 - i as f64 * 10.0 / (12 * 60) as f64),
+                t,
+            );
+            selector.push_1m(
+                &bar("ETHUSDT", t, 100.0 + i as f64 * 10.0 / (12 * 60) as f64),
+                t,
+            );
         }
 
         let (active_long, active_short) = selector.rebalance(start + 12 * 60 * 60_000);
@@ -412,21 +451,98 @@ mod tests {
     }
 
     #[test]
-    fn shadow_observations_never_enter_live_equity() {
-        let config = XsSelectorConfig::default();
+    fn selector_clock_counts_a_portfolio_timestamp_once() {
         let mut selector = XsSelector::new(
-            config,
+            XsSelectorConfig {
+                rebalance_period_bars: 2,
+                ..Default::default()
+            },
             vec!["BTCUSDT".to_string(), "ETHUSDT".to_string()],
         );
+        let start = 1_672_531_200_000_i64;
+
+        selector.push_1m(&bar("BTCUSDT", start, 100.0), start);
+        selector.push_1m(&bar("ETHUSDT", start, 100.0), start);
+        assert!(!selector.should_rebalance(start));
+
+        let next = start + 60_000;
+        selector.push_1m(&bar("BTCUSDT", next, 101.0), next);
+        selector.push_1m(&bar("ETHUSDT", next, 99.0), next);
+        assert!(selector.should_rebalance(next));
+    }
+
+    #[test]
+    fn selector_requires_the_full_lookback_before_scoring() {
+        let mut selector = XsSelector::new(
+            XsSelectorConfig {
+                family: XsFamily::Reversal,
+                lookback_periods: 4,
+                skip_recent_periods: 0,
+                active_long_count: 1,
+                active_short_count: 1,
+                ..Default::default()
+            },
+            vec!["BTCUSDT".to_string(), "ETHUSDT".to_string()],
+        );
+        let start = 1_672_531_200_000_i64;
+        for i in 0..240 {
+            let timestamp = start + i * 60_000;
+            selector.push_1m(&bar("BTCUSDT", timestamp, 100.0 + i as f64), timestamp);
+            selector.push_1m(&bar("ETHUSDT", timestamp, 100.0), timestamp);
+        }
+
+        let (active_long, active_short) = selector.rebalance(start + 239 * 60_000);
+        assert!(active_long.is_empty());
+        assert!(active_short.is_empty());
+
+        let timestamp = start + 240 * 60_000;
+        selector.push_1m(&bar("BTCUSDT", timestamp, 340.0), timestamp);
+        selector.push_1m(&bar("ETHUSDT", timestamp, 100.0), timestamp);
+        let (active_long, active_short) = selector.rebalance(timestamp);
+        assert_eq!(active_long.len(), 1);
+        assert_eq!(active_short.len(), 1);
+    }
+
+    #[test]
+    fn selector_ranks_only_symbols_with_matching_direction_sleeves() {
+        let mut selector = XsSelector::new_with_direction_universes(
+            XsSelectorConfig {
+                family: XsFamily::Reversal,
+                lookback_periods: 1,
+                skip_recent_periods: 0,
+                active_long_count: 1,
+                active_short_count: 1,
+                ..Default::default()
+            },
+            vec!["BTCUSDT".to_string()],
+            vec!["ETHUSDT".to_string()],
+        );
+        let start = 1_672_531_200_000_i64;
+        for i in 0..=60 {
+            let timestamp = start + i * 60_000;
+            selector.push_1m(&bar("BTCUSDT", timestamp, 100.0 - i as f64), timestamp);
+            selector.push_1m(&bar("ETHUSDT", timestamp, 100.0 + i as f64), timestamp);
+        }
+
+        let (active_long, active_short) = selector.rebalance(start + 60 * 60_000);
+        assert_eq!(active_long, vec!["BTCUSDT"]);
+        assert_eq!(active_short, vec!["ETHUSDT"]);
+    }
+
+    #[test]
+    fn shadow_observations_never_enter_live_equity() {
+        let config = XsSelectorConfig::default();
+        let mut selector =
+            XsSelector::new(config, vec!["BTCUSDT".to_string(), "ETHUSDT".to_string()]);
 
         // Push some data and rebalance.
         let start = 1_672_531_200_000_i64;
-        for i in 0..(14 * 1440 + 1) {
+        for i in 0..(15 * 1440 + 1) {
             let t = start + i * 60_000;
             selector.push_1m(&bar("BTCUSDT", t, 100.0 + i as f64 * 0.001), t);
             selector.push_1m(&bar("ETHUSDT", t, 100.0 - i as f64 * 0.001), t);
         }
-        selector.rebalance(start + 14 * 1440 * 60_000);
+        selector.rebalance(start + 15 * 1440 * 60_000);
 
         // Shadow observations exist but are never part of equity.
         let obs = selector.shadow_observations();
@@ -447,10 +563,8 @@ mod tests {
             rebalance_period_bars: 100,
             ..Default::default()
         };
-        let mut selector = XsSelector::new(
-            config,
-            vec!["BTCUSDT".to_string(), "ETHUSDT".to_string()],
-        );
+        let mut selector =
+            XsSelector::new(config, vec!["BTCUSDT".to_string(), "ETHUSDT".to_string()]);
 
         let start = 1_672_531_200_000_i64;
         for i in 0..(14 * 1440 + 1) {
@@ -472,7 +586,8 @@ mod tests {
         // The selector changed which symbol is active, but it never closes
         // existing cycles — that's the engine's job.
         assert!(
-            !selector.is_active("BTCUSDT", true) || new_active_long.contains(&"ETHUSDT".to_string()),
+            !selector.is_active("BTCUSDT", true)
+                || new_active_long.contains(&"ETHUSDT".to_string()),
             "selector should update active symbols"
         );
     }
@@ -480,10 +595,8 @@ mod tests {
     #[test]
     fn rebalance_never_copies_shadow_position() {
         let config = XsSelectorConfig::default();
-        let mut selector = XsSelector::new(
-            config,
-            vec!["BTCUSDT".to_string(), "ETHUSDT".to_string()],
-        );
+        let mut selector =
+            XsSelector::new(config, vec!["BTCUSDT".to_string(), "ETHUSDT".to_string()]);
 
         let start = 1_672_531_200_000_i64;
         for i in 0..(14 * 1440 + 1) {
@@ -514,10 +627,7 @@ mod tests {
     #[test]
     fn universe_frozen_at_construction() {
         let config = XsSelectorConfig::default();
-        let selector = XsSelector::new(
-            config,
-            vec!["BTCUSDT".to_string(), "ETHUSDT".to_string()],
-        );
+        let selector = XsSelector::new(config, vec!["BTCUSDT".to_string(), "ETHUSDT".to_string()]);
         // Universe is frozen — pushing bars for SOL doesn't add it to the universe.
         assert_eq!(selector.universe.len(), 2);
     }
@@ -533,10 +643,8 @@ mod tests {
             active_short_count: 1,
             ..Default::default()
         };
-        let mut selector = XsSelector::new(
-            config,
-            vec!["BTCUSDT".to_string(), "ETHUSDT".to_string()],
-        );
+        let mut selector =
+            XsSelector::new(config, vec!["BTCUSDT".to_string(), "ETHUSDT".to_string()]);
 
         let start = 1_672_531_200_000_i64;
         // 7 days of BTC uptrend, then 1 day of crash.
@@ -546,7 +654,7 @@ mod tests {
             selector.push_1m(&bar("ETHUSDT", t, 100.0), t);
         }
         // Last day: BTC crashes.
-        for i in 0..1440 {
+        for i in 0..=1440 {
             let t = start + (7 * 1440 + i) * 60_000;
             selector.push_1m(&bar("BTCUSDT", t, 170.0 - i as f64 * 0.05), t);
             selector.push_1m(&bar("ETHUSDT", t, 100.0), t);

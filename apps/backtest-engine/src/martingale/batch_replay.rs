@@ -35,11 +35,11 @@ use std::sync::Arc;
 use rayon::prelude::*;
 
 use crate::market_data::KlineBar;
+use crate::market_data::MarketDataSource;
 use crate::martingale::indicator_runtime::extract_symbol_dependencies;
 use crate::martingale::kline_engine::{run_kline_screening_with_funding, FundingRatePoint};
 use crate::martingale::metrics::MartingaleBacktestResult;
-use crate::sqlite_market_data::load_funding_rates_readonly;
-use rusqlite::Connection;
+use crate::sqlite_market_data::{load_funding_rates_readonly, SqliteMarketDataSource};
 use shared_domain::martingale::MartingalePortfolioConfig;
 
 /// Preloaded market data for batch replay.
@@ -96,34 +96,10 @@ impl BatchReplay {
         start_ms: i64,
         end_ms: i64,
     ) -> Result<(), String> {
-        let conn =
-            Connection::open(&self.market_db_path).map_err(|e| format!("open market DB: {}", e))?;
+        let market = SqliteMarketDataSource::open_readonly(&self.market_db_path)?;
 
         for symbol in symbols {
-            // Load bars
-            let mut stmt = conn
-                .prepare(
-                    "SELECT symbol, open_time, open, high, low, close, volume
-                     FROM klines WHERE symbol = ? AND open_time >= ? AND open_time <= ?
-                     ORDER BY open_time",
-                )
-                .map_err(|e| format!("prepare bars query: {}", e))?;
-
-            let bars: Vec<KlineBar> = stmt
-                .query_map(rusqlite::params![symbol, start_ms, end_ms], |row| {
-                    Ok(KlineBar {
-                        symbol: row.get(0)?,
-                        open_time_ms: row.get(1)?,
-                        open: row.get(2)?,
-                        high: row.get(3)?,
-                        low: row.get(4)?,
-                        close: row.get(5)?,
-                        volume: row.get(6)?,
-                    })
-                })
-                .map_err(|e| format!("query bars for {}: {}", symbol, e))?
-                .collect::<Result<Vec<_>, _>>()
-                .map_err(|e| format!("decode bars for {}: {}", symbol, e))?;
+            let bars = market.load_klines(symbol, start_ms, end_ms, "1m")?;
 
             self.bars.insert(symbol.to_string(), bars);
 
