@@ -341,6 +341,18 @@ pub struct MartingaleRiskLimits {
     /// Round 14 P4: Spacing multiplier when trend is adverse (1.25/1.5/2.0).
     #[serde(default)]
     pub dual_state_spacing_mult: Option<f64>,
+    /// Round 14 P5: Enable inventory-aware scheduler. When true, new cycle FO
+    /// is scaled down based on current inventory exposure and downside vol.
+    #[serde(default)]
+    pub inventory_scheduler_enabled: Option<bool>,
+    /// Round 14 P5: Inventory penalty factor (0/0.25/0.5/1.0). Higher = more
+    /// aggressive reduction of FO when inventory is high.
+    #[serde(default)]
+    pub inventory_penalty: Option<f64>,
+    /// Round 14 P5: Risk scale floor (0.25/0.5/0.75). Minimum FO scale when
+    /// downside vol is high.
+    #[serde(default)]
+    pub risk_scale_floor: Option<f64>,
 }
 
 /// Round 14 P3: Cross-sectional selector configuration.

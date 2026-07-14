@@ -1,0 +1,73 @@
+============================================================
+P5: Inventory Scheduler Screen on XS-REV + P4 SO=0.75
+Parent: ann=34.20%/DD=13.83%/5/5
+============================================================
+
+[1/12] p5_pen0.0_floor0.25
+  ann=33.96% DD=26.96% pos=5/5  [58s]
+
+[2/12] p5_pen0.0_floor0.5
+  ann=35.30% DD=26.91% pos=5/5  [58s]
+
+[3/12] p5_pen0.0_floor0.75
+  ann=34.34% DD=13.85% pos=5/5  [58s]
+
+[4/12] p5_pen0.25_floor0.25
+  ann=33.85% DD=26.96% pos=5/5  [59s]
+
+[5/12] p5_pen0.25_floor0.5
+  ann=34.92% DD=26.91% pos=5/5  [58s]
+
+[6/12] p5_pen0.25_floor0.75
+  ann=33.92% DD=13.96% pos=5/5  [59s]
+
+[7/12] p5_pen0.5_floor0.25
+  ann=33.53% DD=13.96% pos=5/5  [59s]
+
+[8/12] p5_pen0.5_floor0.5
+  ann=34.70% DD=15.61% pos=5/5  [61s]
+
+[9/12] p5_pen0.5_floor0.75
+  ann=34.16% DD=27.08% pos=5/5  [60s]
+
+[10/12] p5_pen1.0_floor0.25
+  ann=35.07% DD=13.56% pos=5/5 DD improved [60s]
+
+[11/12] p5_pen1.0_floor0.5
+  ann=35.42% DD=15.61% pos=5/5  [60s]
+
+[12/12] p5_pen1.0_floor0.75
+  ann=34.52% DD=27.08% pos=5/5  [59s]
+
+============================================================
+P5 SUMMARY (parent: ann=34.20%/DD=13.83%/5/5)
+============================================================
+Total: 12, Valid: 12
+
+Ranked by DD (ascending):
+  pen=1.00 floor=0.25: ann=35.07% DD=13.56% pos=5/5 ✓better
+  pen=0.00 floor=0.75: ann=34.34% DD=13.85% pos=5/5 
+  pen=0.50 floor=0.25: ann=33.53% DD=13.96% pos=5/5 
+  pen=0.25 floor=0.75: ann=33.92% DD=13.96% pos=5/5 
+  pen=1.00 floor=0.50: ann=35.42% DD=15.61% pos=5/5 
+  pen=0.50 floor=0.50: ann=34.70% DD=15.61% pos=5/5 
+  pen=0.25 floor=0.50: ann=34.92% DD=26.91% pos=5/5 
+  pen=0.00 floor=0.50: ann=35.30% DD=26.91% pos=5/5 
+  pen=0.25 floor=0.25: ann=33.85% DD=26.96% pos=5/5 
+  pen=0.00 floor=0.25: ann=33.96% DD=26.96% pos=5/5 
+  pen=0.50 floor=0.75: ann=34.16% DD=27.08% pos=5/5 
+  pen=1.00 floor=0.75: ann=34.52% DD=27.08% pos=5/5 
+
+Ranked by Calmar:
+  pen=1.00 floor=0.25: ann=35.07% DD=13.56% pos=5/5 calmar=2.59
+  pen=0.00 floor=0.75: ann=34.34% DD=13.85% pos=5/5 calmar=2.48
+  pen=0.25 floor=0.75: ann=33.92% DD=13.96% pos=5/5 calmar=2.43
+  pen=0.50 floor=0.25: ann=33.53% DD=13.96% pos=5/5 calmar=2.40
+  pen=1.00 floor=0.50: ann=35.42% DD=15.61% pos=5/5 calmar=2.27
+  pen=0.50 floor=0.50: ann=34.70% DD=15.61% pos=5/5 calmar=2.22
+  pen=0.00 floor=0.50: ann=35.30% DD=26.91% pos=5/5 calmar=1.31
+  pen=0.25 floor=0.50: ann=34.92% DD=26.91% pos=5/5 calmar=1.30
+  pen=1.00 floor=0.75: ann=34.52% DD=27.08% pos=5/5 calmar=1.27
+  pen=0.50 floor=0.75: ann=34.16% DD=27.08% pos=5/5 calmar=1.26
+  pen=0.00 floor=0.25: ann=33.96% DD=26.96% pos=5/5 calmar=1.26
+  pen=0.25 floor=0.25: ann=33.85% DD=26.96% pos=5/5 calmar=1.26

@@ -263,8 +263,13 @@ pub fn run_kline_screening_with_funding(
         .strategies
         .iter()
         .any(|s| s.risk_limits.dual_state_ladder_enabled.unwrap_or(false));
-    // HTF regime computer is needed if either gate or dual-state is enabled.
-    let htf_regime_needed = htf_gate_enabled || dual_state_enabled;
+    // Round 14 P5: Inventory-aware scheduler scales FO based on inventory and downside vol.
+    let inventory_scheduler_enabled = portfolio
+        .strategies
+        .iter()
+        .any(|s| s.risk_limits.inventory_scheduler_enabled.unwrap_or(false));
+    // HTF regime computer is needed if any HTF-dependent feature is enabled.
+    let htf_regime_needed = htf_gate_enabled || dual_state_enabled || inventory_scheduler_enabled;
     // Round 14 P3: Cross-sectional selector for momentum/reversal symbol selection.
     // Controls which symbols can open new cycles based on lagged cross-sectional ranking.
     // Shadow observations never enter live equity; inactive sleeves keep existing cycles.
@@ -623,6 +628,44 @@ pub fn run_kline_screening_with_funding(
 
                     let margin = strategy_states[state_index].margins[0];
                     let notional = strategy_states[state_index].notionals[0];
+                    // Round 14 P5: Inventory-aware scheduler. Scale FO based on
+                    // current portfolio inventory exposure and downside vol.
+                    let (margin, notional) = if inventory_scheduler_enabled {
+                        let inv_penalty = strategy_states[state_index]
+                            .strategy
+                            .risk_limits
+                            .inventory_penalty
+                            .unwrap_or(0.5);
+                        let risk_floor = strategy_states[state_index]
+                            .strategy
+                            .risk_limits
+                            .risk_scale_floor
+                            .unwrap_or(0.5);
+                        // Compute inventory exposure ratio: current capital used / budget.
+                        let exposure_ratio = if budget_quote > 0.0 {
+                            (capital_used_quote / budget_quote).min(1.0)
+                        } else {
+                            0.0
+                        };
+                        // Inventory penalty: reduce FO proportional to exposure × penalty.
+                        let inv_scale = (1.0 - inv_penalty * exposure_ratio).max(risk_floor);
+                        // Downside vol scaling: use HTF regime extreme vol state.
+                        let vol_scale = if htf_regime_needed {
+                            let symbol = &strategy_states[state_index].strategy.symbol;
+                            let regime = htf_regime.regime_at(symbol, timestamp_ms);
+                            if regime == crate::martingale::htf_regime::HtfRegimeState::ExtremeDownsideVol {
+                                risk_floor
+                            } else {
+                                1.0
+                            }
+                        } else {
+                            1.0
+                        };
+                        let total_scale = (inv_scale * vol_scale).max(risk_floor);
+                        (margin * total_scale, notional * total_scale)
+                    } else {
+                        (margin, notional)
+                    };
                     // Round 6 Task B: Apply DD state machine first_order_scale.
                     // Find the highest-trigger rule that fires for the current
                     // portfolio drawdown and scale the first order accordingly.
