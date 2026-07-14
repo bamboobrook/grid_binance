@@ -258,6 +258,13 @@ pub fn run_kline_screening_with_funding(
         .strategies
         .iter()
         .any(|s| s.risk_limits.htf_regime_gate_enabled.unwrap_or(false));
+    // Round 14 P4: Dual-state ladder uses HTF regime to adjust SO scale and spacing.
+    let dual_state_enabled = portfolio
+        .strategies
+        .iter()
+        .any(|s| s.risk_limits.dual_state_ladder_enabled.unwrap_or(false));
+    // HTF regime computer is needed if either gate or dual-state is enabled.
+    let htf_regime_needed = htf_gate_enabled || dual_state_enabled;
     // Round 14 P3: Cross-sectional selector for momentum/reversal symbol selection.
     // Controls which symbols can open new cycles based on lagged cross-sectional ranking.
     // Shadow observations never enter live equity; inactive sleeves keep existing cycles.
@@ -316,7 +323,7 @@ pub fn run_kline_screening_with_funding(
             validate_bar(&bars[bar_index])?;
             latest_close_by_symbol.insert(bars[bar_index].symbol.clone(), bars[bar_index].close);
             indicator_context.push_bar(&bars[bar_index]);
-            if htf_gate_enabled {
+            if htf_gate_enabled || dual_state_enabled {
                 htf_regime.push_1m(&bars[bar_index]);
             }
             if let Some(ref mut selector) = xs_selector {
@@ -893,10 +900,37 @@ pub fn run_kline_screening_with_funding(
                             &portfolio.risk_limits.drawdown_state_rules,
                             dd_state_pct,
                         );
-                        let margin =
-                            strategy_states[state_index].margins[next_leg_index] * drawdown_scale;
-                        let notional =
-                            strategy_states[state_index].notionals[next_leg_index] * drawdown_scale;
+                        // Round 14 P4: Dual-state ladder SO scale based on HTF regime.
+                        // When trend is adverse to the cycle direction, scale down SO.
+                        let dual_so_scale = if dual_state_enabled {
+                            let symbol = &strategy_states[state_index].strategy.symbol;
+                            let regime = htf_regime.regime_at(symbol, timestamp_ms);
+                            let is_long = strategy_states[state_index].strategy.direction
+                                == MartingaleDirection::Long;
+                            let is_adverse = match (regime, is_long) {
+                                (crate::martingale::htf_regime::HtfRegimeState::TrendShort, true) => true,
+                                (crate::martingale::htf_regime::HtfRegimeState::TrendLong, false) => true,
+                                (crate::martingale::htf_regime::HtfRegimeState::ExtremeDownsideVol, _) => true,
+                                _ => false,
+                            };
+                            if is_adverse {
+                                strategy_states[state_index]
+                                    .strategy
+                                    .risk_limits
+                                    .dual_state_so_scale
+                                    .unwrap_or(0.5)
+                            } else {
+                                1.0
+                            }
+                        } else {
+                            1.0
+                        };
+                        let margin = strategy_states[state_index].margins[next_leg_index]
+                            * drawdown_scale
+                            * dual_so_scale;
+                        let notional = strategy_states[state_index].notionals[next_leg_index]
+                            * drawdown_scale
+                            * dual_so_scale;
                         // Round 7 Task F: Safety order taper. Scale margin and notional
                         // if taper_safety_after_leg is configured and current leg exceeds it.
                         let rl_t = &strategy_states[state_index].strategy.risk_limits;

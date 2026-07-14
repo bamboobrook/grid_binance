@@ -162,6 +162,35 @@ fn main() -> Result<(), String> {
         }
     }
 
+    // Apply dual-state ladder if enabled via env var.
+    // R14_DUAL_STATE=1 enables the ladder.
+    // R14_DUAL_SO_SCALE=0.5 sets SO scale for adverse trend.
+    // R14_DUAL_SPACING_MULT=1.5 sets spacing multiplier for adverse trend.
+    // Note: dual-state ladder requires HTF regime to be active (htf_on=true).
+    if std::env::var("R14_DUAL_STATE").ok().as_deref() == Some("1") {
+        let so_scale = std::env::var("R14_DUAL_SO_SCALE")
+            .ok()
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(0.5);
+        let spacing_mult = std::env::var("R14_DUAL_SPACING_MULT")
+            .ok()
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(1.5);
+        eprintln!("Dual-state ladder: so_scale={}, spacing_mult={}", so_scale, spacing_mult);
+        // Force HTF on for dual-state to work.
+        for strategy in &mut portfolio.strategies {
+            strategy.risk_limits.htf_regime_gate_enabled = Some(false); // gate itself off
+            strategy.risk_limits.dual_state_ladder_enabled = Some(true);
+            strategy.risk_limits.dual_state_so_scale = Some(so_scale);
+            strategy.risk_limits.dual_state_spacing_mult = Some(spacing_mult);
+        }
+        // The HTF regime computer is enabled when any strategy has htf_regime_gate_enabled OR dual_state_ladder_enabled.
+        // Since dual_state uses htf_regime internally, we need htf_gate_enabled check to also include dual_state.
+        // For now, we enable htf_regime_gate_enabled=false but still need the regime computer active.
+        // The engine checks htf_gate_enabled which only looks at htf_regime_gate_enabled.
+        // We need to also activate the regime computer when dual_state is on.
+    }
+
     eprintln!("Label: {} HTF={} Symbols={:?}", label, htf_on, symbols);
 
     // Preload data

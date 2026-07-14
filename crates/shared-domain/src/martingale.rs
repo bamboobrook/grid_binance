@@ -331,6 +331,16 @@ pub struct MartingaleRiskLimits {
     /// Round 14 P3: Cross-sectional selector configuration.
     #[serde(default)]
     pub xs_selector_config: Option<MartingaleXsSelectorConfig>,
+    /// Round 14 P4: Enable dual-state ladder. When true, the safety order
+    /// scale and spacing are adjusted based on the HTF regime state.
+    #[serde(default)]
+    pub dual_state_ladder_enabled: Option<bool>,
+    /// Round 14 P4: SO scale when trend is adverse (0.25/0.5/0.75).
+    #[serde(default)]
+    pub dual_state_so_scale: Option<f64>,
+    /// Round 14 P4: Spacing multiplier when trend is adverse (1.25/1.5/2.0).
+    #[serde(default)]
+    pub dual_state_spacing_mult: Option<f64>,
 }
 
 /// Round 14 P3: Cross-sectional selector configuration.
