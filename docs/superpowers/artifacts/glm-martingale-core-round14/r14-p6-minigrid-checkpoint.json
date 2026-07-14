@@ -1,0 +1,1669 @@
+{
+  "total": 96,
+  "results": [
+    {
+      "label": "p6_mg_agg_bp00_l1_s20",
+      "family": "agg",
+      "params": {
+        "levels_per_band": 1,
+        "spacing_bps": 20,
+        "close_fraction_num": 1,
+        "close_fraction_den": 3,
+        "min_profit_bps": 20,
+        "max_active_levels": 2
+      },
+      "metrics": {
+        "ann": 23.674904217256,
+        "dd": 28.266701699167257,
+        "total_return": 106.66844085549494
+      },
+      "elapsed_s": 8.133410930633545
+    },
+    {
+      "label": "p6_mg_agg_bp01_l1_s30",
+      "family": "agg",
+      "params": {
+        "levels_per_band": 1,
+        "spacing_bps": 30,
+        "close_fraction_num": 1,
+        "close_fraction_den": 3,
+        "min_profit_bps": 20,
+        "max_active_levels": 2
+      },
+      "metrics": {
+        "ann": 23.674904217256,
+        "dd": 28.266701699167257,
+        "total_return": 106.66844085549494
+      },
+      "elapsed_s": 7.780711889266968
+    },
+    {
+      "label": "p6_mg_agg_bp02_l1_s50",
+      "family": "agg",
+      "params": {
+        "levels_per_band": 1,
+        "spacing_bps": 50,
+        "close_fraction_num": 1,
+        "close_fraction_den": 3,
+        "min_profit_bps": 20,
+        "max_active_levels": 2
+      },
+      "metrics": {
+        "ann": 23.674904217256,
+        "dd": 28.266701699167257,
+        "total_return": 106.66844085549494
+      },
+      "elapsed_s": 7.9193830490112305
+    },
+    {
+      "label": "p6_mg_agg_bp03_l1_s80",
+      "family": "agg",
+      "params": {
+        "levels_per_band": 1,
+        "spacing_bps": 80,
+        "close_fraction_num": 1,
+        "close_fraction_den": 3,
+        "min_profit_bps": 20,
+        "max_active_levels": 2
+      },
+      "metrics": {
+        "ann": 23.674904217256,
+        "dd": 28.266701699167257,
+        "total_return": 106.66844085549494
+      },
+      "elapsed_s": 7.679056882858276
+    },
+    {
+      "label": "p6_mg_agg_bp04_l2_s20",
+      "family": "agg",
+      "params": {
+        "levels_per_band": 2,
+        "spacing_bps": 20,
+        "close_fraction_num": 1,
+        "close_fraction_den": 3,
+        "min_profit_bps": 20,
+        "max_active_levels": 2
+      },
+      "metrics": {
+        "ann": 16.86993632554403,
+        "dd": 28.036487197307135,
+        "total_return": 70.33438989257182
+      },
+      "elapsed_s": 8.05918264389038
+    },
+    {
+      "label": "p6_mg_agg_bp05_l2_s30",
+      "family": "agg",
+      "params": {
+        "levels_per_band": 2,
+        "spacing_bps": 30,
+        "close_fraction_num": 1,
+        "close_fraction_den": 3,
+        "min_profit_bps": 20,
+        "max_active_levels": 2
+      },
+      "metrics": {
+        "ann": 17.379189873754864,
+        "dd": 27.955124181775787,
+        "total_return": 72.88352041090741
+      },
+      "elapsed_s": 8.120963335037231
+    },
+    {
+      "label": "p6_mg_agg_bp06_l2_s50",
+      "family": "agg",
+      "params": {
+        "levels_per_band": 2,
+        "spacing_bps": 50,
+        "close_fraction_num": 1,
+        "close_fraction_den": 3,
+        "min_profit_bps": 20,
+        "max_active_levels": 2
+      },
+      "metrics": {
+        "ann": 18.909784792121798,
+        "dd": 27.686208388048072,
+        "total_return": 80.70747892625192
+      },
+      "elapsed_s": 8.116512060165405
+    },
+    {
+      "label": "p6_mg_agg_bp07_l2_s80",
+      "family": "agg",
+      "params": {
+        "levels_per_band": 2,
+        "spacing_bps": 80,
+        "close_fraction_num": 1,
+        "close_fraction_den": 3,
+        "min_profit_bps": 20,
+        "max_active_levels": 2
+      },
+      "metrics": {
+        "ann": 20.444895169375666,
+        "dd": 27.73620154846146,
+        "total_return": 88.80279874962716
+      },
+      "elapsed_s": 8.137531995773315
+    },
+    {
+      "label": "p6_mg_agg_bp08_l3_s20",
+      "family": "agg",
+      "params": {
+        "levels_per_band": 3,
+        "spacing_bps": 20,
+        "close_fraction_num": 1,
+        "close_fraction_den": 3,
+        "min_profit_bps": 20,
+        "max_active_levels": 2
+      },
+      "metrics": {
+        "ann": 16.86993632554403,
+        "dd": 28.036487197307135,
+        "total_return": 70.33438989257182
+      },
+      "elapsed_s": 8.288592338562012
+    },
+    {
+      "label": "p6_mg_agg_bp09_l3_s30",
+      "family": "agg",
+      "params": {
+        "levels_per_band": 3,
+        "spacing_bps": 30,
+        "close_fraction_num": 1,
+        "close_fraction_den": 3,
+        "min_profit_bps": 20,
+        "max_active_levels": 2
+      },
+      "metrics": {
+        "ann": 17.379189873754864,
+        "dd": 27.955124181775787,
+        "total_return": 72.88352041090741
+      },
+      "elapsed_s": 7.926153898239136
+    },
+    {
+      "label": "p6_mg_agg_bp10_l3_s50",
+      "family": "agg",
+      "params": {
+        "levels_per_band": 3,
+        "spacing_bps": 50,
+        "close_fraction_num": 1,
+        "close_fraction_den": 3,
+        "min_profit_bps": 20,
+        "max_active_levels": 2
+      },
+      "metrics": {
+        "ann": 18.909784792121798,
+        "dd": 27.686208388048072,
+        "total_return": 80.70747892625192
+      },
+      "elapsed_s": 7.823536157608032
+    },
+    {
+      "label": "p6_mg_agg_bp11_l3_s80",
+      "family": "agg",
+      "params": {
+        "levels_per_band": 3,
+        "spacing_bps": 80,
+        "close_fraction_num": 1,
+        "close_fraction_den": 3,
+        "min_profit_bps": 20,
+        "max_active_levels": 2
+      },
+      "metrics": {
+        "ann": 20.444895169375666,
+        "dd": 27.73620154846146,
+        "total_return": 88.80279874962716
+      },
+      "elapsed_s": 7.919238567352295
+    },
+    {
+      "label": "p6_mg_agg_bp12_l4_s20",
+      "family": "agg",
+      "params": {
+        "levels_per_band": 4,
+        "spacing_bps": 20,
+        "close_fraction_num": 1,
+        "close_fraction_den": 3,
+        "min_profit_bps": 20,
+        "max_active_levels": 2
+      },
+      "metrics": {
+        "ann": 16.86993632554403,
+        "dd": 28.036487197307135,
+        "total_return": 70.33438989257182
+      },
+      "elapsed_s": 7.824458837509155
+    },
+    {
+      "label": "p6_mg_agg_bp13_l4_s30",
+      "family": "agg",
+      "params": {
+        "levels_per_band": 4,
+        "spacing_bps": 30,
+        "close_fraction_num": 1,
+        "close_fraction_den": 3,
+        "min_profit_bps": 20,
+        "max_active_levels": 2
+      },
+      "metrics": {
+        "ann": 17.379189873754864,
+        "dd": 27.955124181775787,
+        "total_return": 72.88352041090741
+      },
+      "elapsed_s": 8.043434143066406
+    },
+    {
+      "label": "p6_mg_agg_bp14_l4_s50",
+      "family": "agg",
+      "params": {
+        "levels_per_band": 4,
+        "spacing_bps": 50,
+        "close_fraction_num": 1,
+        "close_fraction_den": 3,
+        "min_profit_bps": 20,
+        "max_active_levels": 2
+      },
+      "metrics": {
+        "ann": 18.909784792121798,
+        "dd": 27.686208388048072,
+        "total_return": 80.70747892625192
+      },
+      "elapsed_s": 7.964497804641724
+    },
+    {
+      "label": "p6_mg_agg_bp15_l4_s80",
+      "family": "agg",
+      "params": {
+        "levels_per_band": 4,
+        "spacing_bps": 80,
+        "close_fraction_num": 1,
+        "close_fraction_den": 3,
+        "min_profit_bps": 20,
+        "max_active_levels": 2
+      },
+      "metrics": {
+        "ann": 20.444895169375666,
+        "dd": 27.73620154846146,
+        "total_return": 88.80279874962716
+      },
+      "elapsed_s": 7.797811031341553
+    },
+    {
+      "label": "p6_mg_brr_bp16_l1_s20",
+      "family": "brr",
+      "params": {
+        "levels_per_band": 1,
+        "spacing_bps": 20,
+        "close_fraction_num": 1,
+        "close_fraction_den": 3,
+        "min_profit_bps": 5,
+        "max_active_levels": 2
+      },
+      "metrics": {
+        "ann": 23.37112190628745,
+        "dd": 15.433277843149767,
+        "total_return": 104.93926518145228
+      },
+      "elapsed_s": 7.780475616455078
+    },
+    {
+      "label": "p6_mg_brr_bp17_l1_s30",
+      "family": "brr",
+      "params": {
+        "levels_per_band": 1,
+        "spacing_bps": 30,
+        "close_fraction_num": 1,
+        "close_fraction_den": 3,
+        "min_profit_bps": 5,
+        "max_active_levels": 2
+      },
+      "metrics": {
+        "ann": 23.37112190628745,
+        "dd": 15.433277843149767,
+        "total_return": 104.93926518145228
+      },
+      "elapsed_s": 7.674428462982178
+    },
+    {
+      "label": "p6_mg_brr_bp18_l1_s50",
+      "family": "brr",
+      "params": {
+        "levels_per_band": 1,
+        "spacing_bps": 50,
+        "close_fraction_num": 1,
+        "close_fraction_den": 3,
+        "min_profit_bps": 5,
+        "max_active_levels": 2
+      },
+      "metrics": {
+        "ann": 23.37112190628745,
+        "dd": 15.433277843149767,
+        "total_return": 104.93926518145228
+      },
+      "elapsed_s": 7.768704414367676
+    },
+    {
+      "label": "p6_mg_brr_bp19_l1_s80",
+      "family": "brr",
+      "params": {
+        "levels_per_band": 1,
+        "spacing_bps": 80,
+        "close_fraction_num": 1,
+        "close_fraction_den": 3,
+        "min_profit_bps": 5,
+        "max_active_levels": 2
+      },
+      "metrics": {
+        "ann": 23.37112190628745,
+        "dd": 15.433277843149767,
+        "total_return": 104.93926518145228
+      },
+      "elapsed_s": 8.64118218421936
+    },
+    {
+      "label": "p6_mg_brr_bp20_l2_s20",
+      "family": "brr",
+      "params": {
+        "levels_per_band": 2,
+        "spacing_bps": 20,
+        "close_fraction_num": 1,
+        "close_fraction_den": 3,
+        "min_profit_bps": 5,
+        "max_active_levels": 2
+      },
+      "metrics": {
+        "ann": 15.62718060202899,
+        "dd": 13.19226241995036,
+        "total_return": 64.22537589574708
+      },
+      "elapsed_s": 8.119240522384644
+    },
+    {
+      "label": "p6_mg_brr_bp21_l2_s30",
+      "family": "brr",
+      "params": {
+        "levels_per_band": 2,
+        "spacing_bps": 30,
+        "close_fraction_num": 1,
+        "close_fraction_den": 3,
+        "min_profit_bps": 5,
+        "max_active_levels": 2
+      },
+      "metrics": {
+        "ann": 16.330840534263658,
+        "dd": 12.975777862477505,
+        "total_return": 67.6649698489211
+      },
+      "elapsed_s": 7.941875219345093
+    },
+    {
+      "label": "p6_mg_brr_bp22_l2_s50",
+      "family": "brr",
+      "params": {
+        "levels_per_band": 2,
+        "spacing_bps": 50,
+        "close_fraction_num": 1,
+        "close_fraction_den": 3,
+        "min_profit_bps": 5,
+        "max_active_levels": 2
+      },
+      "metrics": {
+        "ann": 17.50628809039716,
+        "dd": 16.873576426997964,
+        "total_return": 73.52390870130021
+      },
+      "elapsed_s": 8.070159673690796
+    },
+    {
+      "label": "p6_mg_brr_bp23_l2_s80",
+      "family": "brr",
+      "params": {
+        "levels_per_band": 2,
+        "spacing_bps": 80,
+        "close_fraction_num": 1,
+        "close_fraction_den": 3,
+        "min_profit_bps": 5,
+        "max_active_levels": 2
+      },
+      "metrics": {
+        "ann": 19.241171492183852,
+        "dd": 16.120131034718735,
+        "total_return": 82.43382854536782
+      },
+      "elapsed_s": 7.80466103553772
+    },
+    {
+      "label": "p6_mg_brr_bp24_l3_s20",
+      "family": "brr",
+      "params": {
+        "levels_per_band": 3,
+        "spacing_bps": 20,
+        "close_fraction_num": 1,
+        "close_fraction_den": 3,
+        "min_profit_bps": 5,
+        "max_active_levels": 2
+      },
+      "metrics": {
+        "ann": 15.62718060202899,
+        "dd": 13.19226241995036,
+        "total_return": 64.22537589574708
+      },
+      "elapsed_s": 7.967935562133789
+    },
+    {
+      "label": "p6_mg_brr_bp25_l3_s30",
+      "family": "brr",
+      "params": {
+        "levels_per_band": 3,
+        "spacing_bps": 30,
+        "close_fraction_num": 1,
+        "close_fraction_den": 3,
+        "min_profit_bps": 5,
+        "max_active_levels": 2
+      },
+      "metrics": {
+        "ann": 16.330840534263658,
+        "dd": 12.975777862477505,
+        "total_return": 67.6649698489211
+      },
+      "elapsed_s": 8.039721012115479
+    },
+    {
+      "label": "p6_mg_brr_bp26_l3_s50",
+      "family": "brr",
+      "params": {
+        "levels_per_band": 3,
+        "spacing_bps": 50,
+        "close_fraction_num": 1,
+        "close_fraction_den": 3,
+        "min_profit_bps": 5,
+        "max_active_levels": 2
+      },
+      "metrics": {
+        "ann": 17.50628809039716,
+        "dd": 16.873576426997964,
+        "total_return": 73.52390870130021
+      },
+      "elapsed_s": 7.9213621616363525
+    },
+    {
+      "label": "p6_mg_brr_bp27_l3_s80",
+      "family": "brr",
+      "params": {
+        "levels_per_band": 3,
+        "spacing_bps": 80,
+        "close_fraction_num": 1,
+        "close_fraction_den": 3,
+        "min_profit_bps": 5,
+        "max_active_levels": 2
+      },
+      "metrics": {
+        "ann": 19.241171492183852,
+        "dd": 16.120131034718735,
+        "total_return": 82.43382854536782
+      },
+      "elapsed_s": 8.237971782684326
+    },
+    {
+      "label": "p6_mg_brr_bp28_l4_s20",
+      "family": "brr",
+      "params": {
+        "levels_per_band": 4,
+        "spacing_bps": 20,
+        "close_fraction_num": 1,
+        "close_fraction_den": 3,
+        "min_profit_bps": 5,
+        "max_active_levels": 2
+      },
+      "metrics": {
+        "ann": 15.62718060202899,
+        "dd": 13.19226241995036,
+        "total_return": 64.22537589574708
+      },
+      "elapsed_s": 7.953816652297974
+    },
+    {
+      "label": "p6_mg_brr_bp29_l4_s30",
+      "family": "brr",
+      "params": {
+        "levels_per_band": 4,
+        "spacing_bps": 30,
+        "close_fraction_num": 1,
+        "close_fraction_den": 3,
+        "min_profit_bps": 5,
+        "max_active_levels": 2
+      },
+      "metrics": {
+        "ann": 16.330840534263658,
+        "dd": 12.975777862477505,
+        "total_return": 67.6649698489211
+      },
+      "elapsed_s": 7.844835996627808
+    },
+    {
+      "label": "p6_mg_brr_bp30_l4_s50",
+      "family": "brr",
+      "params": {
+        "levels_per_band": 4,
+        "spacing_bps": 50,
+        "close_fraction_num": 1,
+        "close_fraction_den": 3,
+        "min_profit_bps": 5,
+        "max_active_levels": 2
+      },
+      "metrics": {
+        "ann": 17.50628809039716,
+        "dd": 16.873576426997964,
+        "total_return": 73.52390870130021
+      },
+      "elapsed_s": 8.31430697441101
+    },
+    {
+      "label": "p6_mg_brr_bp31_l4_s80",
+      "family": "brr",
+      "params": {
+        "levels_per_band": 4,
+        "spacing_bps": 80,
+        "close_fraction_num": 1,
+        "close_fraction_den": 3,
+        "min_profit_bps": 5,
+        "max_active_levels": 2
+      },
+      "metrics": {
+        "ann": 19.241171492183852,
+        "dd": 16.120131034718735,
+        "total_return": 82.43382854536782
+      },
+      "elapsed_s": 7.769706726074219
+    },
+    {
+      "label": "p6_mg_agg_sob000_l1_s20_n1d2_p5_a1",
+      "family": "agg",
+      "params": {
+        "levels_per_band": 1,
+        "spacing_bps": 20,
+        "close_fraction_num": 1,
+        "close_fraction_den": 2,
+        "min_profit_bps": 5,
+        "max_active_levels": 1
+      },
+      "metrics": {
+        "ann": 16.433799140229198,
+        "dd": 13.950761753651042,
+        "total_return": 68.17248360867548
+      }
+    },
+    {
+      "label": "p6_mg_agg_sob001_l1_s20_n1d2_p5_a2",
+      "family": "agg",
+      "params": {
+        "levels_per_band": 1,
+        "spacing_bps": 20,
+        "close_fraction_num": 1,
+        "close_fraction_den": 2,
+        "min_profit_bps": 5,
+        "max_active_levels": 2
+      },
+      "metrics": {
+        "ann": 16.433799140229198,
+        "dd": 13.950761753651042,
+        "total_return": 68.17248360867548
+      }
+    },
+    {
+      "label": "p6_mg_agg_sob002_l1_s20_n1d2_p5_a3",
+      "family": "agg",
+      "params": {
+        "levels_per_band": 1,
+        "spacing_bps": 20,
+        "close_fraction_num": 1,
+        "close_fraction_den": 2,
+        "min_profit_bps": 5,
+        "max_active_levels": 3
+      },
+      "metrics": {
+        "ann": 16.433799140229198,
+        "dd": 13.950761753651042,
+        "total_return": 68.17248360867548
+      }
+    },
+    {
+      "label": "p6_mg_agg_sob003_l1_s20_n1d2_p15_a1",
+      "family": "agg",
+      "params": {
+        "levels_per_band": 1,
+        "spacing_bps": 20,
+        "close_fraction_num": 1,
+        "close_fraction_den": 2,
+        "min_profit_bps": 15,
+        "max_active_levels": 1
+      },
+      "metrics": {
+        "ann": 19.055652607076645,
+        "dd": 28.164265771972826,
+        "total_return": 81.4659428642802
+      }
+    },
+    {
+      "label": "p6_mg_agg_sob004_l1_s20_n1d2_p15_a2",
+      "family": "agg",
+      "params": {
+        "levels_per_band": 1,
+        "spacing_bps": 20,
+        "close_fraction_num": 1,
+        "close_fraction_den": 2,
+        "min_profit_bps": 15,
+        "max_active_levels": 2
+      },
+      "metrics": {
+        "ann": 19.055652607076645,
+        "dd": 28.164265771972826,
+        "total_return": 81.4659428642802
+      }
+    },
+    {
+      "label": "p6_mg_agg_sob005_l1_s20_n1d2_p15_a3",
+      "family": "agg",
+      "params": {
+        "levels_per_band": 1,
+        "spacing_bps": 20,
+        "close_fraction_num": 1,
+        "close_fraction_den": 2,
+        "min_profit_bps": 15,
+        "max_active_levels": 3
+      },
+      "metrics": {
+        "ann": 19.055652607076645,
+        "dd": 28.164265771972826,
+        "total_return": 81.4659428642802
+      }
+    },
+    {
+      "label": "p6_mg_agg_sob006_l1_s20_n1d2_p25_a1",
+      "family": "agg",
+      "params": {
+        "levels_per_band": 1,
+        "spacing_bps": 20,
+        "close_fraction_num": 1,
+        "close_fraction_den": 2,
+        "min_profit_bps": 25,
+        "max_active_levels": 1
+      },
+      "metrics": {
+        "ann": 20.315396115677366,
+        "dd": 27.779282245780824,
+        "total_return": 88.1101776386972
+      }
+    },
+    {
+      "label": "p6_mg_agg_sob007_l1_s20_n1d2_p25_a2",
+      "family": "agg",
+      "params": {
+        "levels_per_band": 1,
+        "spacing_bps": 20,
+        "close_fraction_num": 1,
+        "close_fraction_den": 2,
+        "min_profit_bps": 25,
+        "max_active_levels": 2
+      },
+      "metrics": {
+        "ann": 20.315396115677366,
+        "dd": 27.779282245780824,
+        "total_return": 88.1101776386972
+      }
+    },
+    {
+      "label": "p6_mg_agg_sob008_l1_s20_n1d2_p25_a3",
+      "family": "agg",
+      "params": {
+        "levels_per_band": 1,
+        "spacing_bps": 20,
+        "close_fraction_num": 1,
+        "close_fraction_den": 2,
+        "min_profit_bps": 25,
+        "max_active_levels": 3
+      },
+      "metrics": {
+        "ann": 20.315396115677366,
+        "dd": 27.779282245780824,
+        "total_return": 88.1101776386972
+      }
+    },
+    {
+      "label": "p6_mg_agg_sob009_l1_s20_n1d2_p40_a1",
+      "family": "agg",
+      "params": {
+        "levels_per_band": 1,
+        "spacing_bps": 20,
+        "close_fraction_num": 1,
+        "close_fraction_den": 2,
+        "min_profit_bps": 40,
+        "max_active_levels": 1
+      },
+      "metrics": {
+        "ann": 21.700247977694744,
+        "dd": 28.52892853048546,
+        "total_return": 95.61081561054718
+      }
+    },
+    {
+      "label": "p6_mg_agg_sob010_l1_s20_n1d2_p40_a2",
+      "family": "agg",
+      "params": {
+        "levels_per_band": 1,
+        "spacing_bps": 20,
+        "close_fraction_num": 1,
+        "close_fraction_den": 2,
+        "min_profit_bps": 40,
+        "max_active_levels": 2
+      },
+      "metrics": {
+        "ann": 21.700247977694744,
+        "dd": 28.52892853048546,
+        "total_return": 95.61081561054718
+      }
+    },
+    {
+      "label": "p6_mg_agg_sob011_l1_s20_n1d2_p40_a3",
+      "family": "agg",
+      "params": {
+        "levels_per_band": 1,
+        "spacing_bps": 20,
+        "close_fraction_num": 1,
+        "close_fraction_den": 2,
+        "min_profit_bps": 40,
+        "max_active_levels": 3
+      },
+      "metrics": {
+        "ann": 21.700247977694744,
+        "dd": 28.52892853048546,
+        "total_return": 95.61081561054718
+      }
+    },
+    {
+      "label": "p6_mg_agg_sob012_l1_s20_n1d3_p5_a1",
+      "family": "agg",
+      "params": {
+        "levels_per_band": 1,
+        "spacing_bps": 20,
+        "close_fraction_num": 1,
+        "close_fraction_den": 3,
+        "min_profit_bps": 5,
+        "max_active_levels": 1
+      },
+      "metrics": {
+        "ann": 23.37112190628745,
+        "dd": 15.433277843149767,
+        "total_return": 104.93926518145228
+      }
+    },
+    {
+      "label": "p6_mg_agg_sob013_l1_s20_n1d3_p5_a2",
+      "family": "agg",
+      "params": {
+        "levels_per_band": 1,
+        "spacing_bps": 20,
+        "close_fraction_num": 1,
+        "close_fraction_den": 3,
+        "min_profit_bps": 5,
+        "max_active_levels": 2
+      },
+      "metrics": {
+        "ann": 23.37112190628745,
+        "dd": 15.433277843149767,
+        "total_return": 104.93926518145228
+      }
+    },
+    {
+      "label": "p6_mg_agg_sob014_l1_s20_n1d3_p5_a3",
+      "family": "agg",
+      "params": {
+        "levels_per_band": 1,
+        "spacing_bps": 20,
+        "close_fraction_num": 1,
+        "close_fraction_den": 3,
+        "min_profit_bps": 5,
+        "max_active_levels": 3
+      },
+      "metrics": {
+        "ann": 23.37112190628745,
+        "dd": 15.433277843149767,
+        "total_return": 104.93926518145228
+      }
+    },
+    {
+      "label": "p6_mg_agg_sob015_l1_s20_n1d3_p15_a1",
+      "family": "agg",
+      "params": {
+        "levels_per_band": 1,
+        "spacing_bps": 20,
+        "close_fraction_num": 1,
+        "close_fraction_den": 3,
+        "min_profit_bps": 15,
+        "max_active_levels": 1
+      },
+      "metrics": {
+        "ann": 23.545649589328143,
+        "dd": 28.426241386184977,
+        "total_return": 105.93144752466013
+      }
+    },
+    {
+      "label": "p6_mg_agg_sob016_l1_s20_n1d3_p15_a2",
+      "family": "agg",
+      "params": {
+        "levels_per_band": 1,
+        "spacing_bps": 20,
+        "close_fraction_num": 1,
+        "close_fraction_den": 3,
+        "min_profit_bps": 15,
+        "max_active_levels": 2
+      },
+      "metrics": {
+        "ann": 23.545649589328143,
+        "dd": 28.426241386184977,
+        "total_return": 105.93144752466013
+      }
+    },
+    {
+      "label": "p6_mg_agg_sob017_l1_s20_n1d3_p15_a3",
+      "family": "agg",
+      "params": {
+        "levels_per_band": 1,
+        "spacing_bps": 20,
+        "close_fraction_num": 1,
+        "close_fraction_den": 3,
+        "min_profit_bps": 15,
+        "max_active_levels": 3
+      },
+      "metrics": {
+        "ann": 23.545649589328143,
+        "dd": 28.426241386184977,
+        "total_return": 105.93144752466013
+      }
+    },
+    {
+      "label": "p6_mg_agg_sob018_l1_s20_n1d3_p25_a1",
+      "family": "agg",
+      "params": {
+        "levels_per_band": 1,
+        "spacing_bps": 20,
+        "close_fraction_num": 1,
+        "close_fraction_den": 3,
+        "min_profit_bps": 25,
+        "max_active_levels": 1
+      },
+      "metrics": {
+        "ann": 23.714514760443883,
+        "dd": 28.327960002217374,
+        "total_return": 106.89466803261011
+      }
+    },
+    {
+      "label": "p6_mg_agg_sob019_l1_s20_n1d3_p25_a2",
+      "family": "agg",
+      "params": {
+        "levels_per_band": 1,
+        "spacing_bps": 20,
+        "close_fraction_num": 1,
+        "close_fraction_den": 3,
+        "min_profit_bps": 25,
+        "max_active_levels": 2
+      },
+      "metrics": {
+        "ann": 23.714514760443883,
+        "dd": 28.327960002217374,
+        "total_return": 106.89466803261011
+      }
+    },
+    {
+      "label": "p6_mg_agg_sob020_l1_s20_n1d3_p25_a3",
+      "family": "agg",
+      "params": {
+        "levels_per_band": 1,
+        "spacing_bps": 20,
+        "close_fraction_num": 1,
+        "close_fraction_den": 3,
+        "min_profit_bps": 25,
+        "max_active_levels": 3
+      },
+      "metrics": {
+        "ann": 23.714514760443883,
+        "dd": 28.327960002217374,
+        "total_return": 106.89466803261011
+      }
+    },
+    {
+      "label": "p6_mg_agg_sob021_l1_s20_n1d3_p40_a1",
+      "family": "agg",
+      "params": {
+        "levels_per_band": 1,
+        "spacing_bps": 20,
+        "close_fraction_num": 1,
+        "close_fraction_den": 3,
+        "min_profit_bps": 40,
+        "max_active_levels": 1
+      },
+      "metrics": {
+        "ann": 24.98427030453034,
+        "dd": 28.731734527137988,
+        "total_return": 114.23981233517928
+      }
+    },
+    {
+      "label": "p6_mg_agg_sob022_l1_s20_n1d3_p40_a2",
+      "family": "agg",
+      "params": {
+        "levels_per_band": 1,
+        "spacing_bps": 20,
+        "close_fraction_num": 1,
+        "close_fraction_den": 3,
+        "min_profit_bps": 40,
+        "max_active_levels": 2
+      },
+      "metrics": {
+        "ann": 24.98427030453034,
+        "dd": 28.731734527137988,
+        "total_return": 114.23981233517928
+      }
+    },
+    {
+      "label": "p6_mg_agg_sob023_l1_s20_n1d3_p40_a3",
+      "family": "agg",
+      "params": {
+        "levels_per_band": 1,
+        "spacing_bps": 20,
+        "close_fraction_num": 1,
+        "close_fraction_den": 3,
+        "min_profit_bps": 40,
+        "max_active_levels": 3
+      },
+      "metrics": {
+        "ann": 24.98427030453034,
+        "dd": 28.731734527137988,
+        "total_return": 114.23981233517928
+      }
+    },
+    {
+      "label": "p6_mg_agg_sob024_l1_s20_n1d4_p5_a1",
+      "family": "agg",
+      "params": {
+        "levels_per_band": 1,
+        "spacing_bps": 20,
+        "close_fraction_num": 1,
+        "close_fraction_den": 4,
+        "min_profit_bps": 5,
+        "max_active_levels": 1
+      },
+      "metrics": {
+        "ann": 25.544829585191174,
+        "dd": 15.20798702010972,
+        "total_return": 117.54040340869159
+      }
+    },
+    {
+      "label": "p6_mg_agg_sob025_l1_s20_n1d4_p5_a2",
+      "family": "agg",
+      "params": {
+        "levels_per_band": 1,
+        "spacing_bps": 20,
+        "close_fraction_num": 1,
+        "close_fraction_den": 4,
+        "min_profit_bps": 5,
+        "max_active_levels": 2
+      },
+      "metrics": {
+        "ann": 25.544829585191174,
+        "dd": 15.20798702010972,
+        "total_return": 117.54040340869159
+      }
+    },
+    {
+      "label": "p6_mg_agg_sob026_l1_s20_n1d4_p5_a3",
+      "family": "agg",
+      "params": {
+        "levels_per_band": 1,
+        "spacing_bps": 20,
+        "close_fraction_num": 1,
+        "close_fraction_den": 4,
+        "min_profit_bps": 5,
+        "max_active_levels": 3
+      },
+      "metrics": {
+        "ann": 25.544829585191174,
+        "dd": 15.20798702010972,
+        "total_return": 117.54040340869159
+      }
+    },
+    {
+      "label": "p6_mg_agg_sob027_l1_s20_n1d4_p15_a1",
+      "family": "agg",
+      "params": {
+        "levels_per_band": 1,
+        "spacing_bps": 20,
+        "close_fraction_num": 1,
+        "close_fraction_den": 4,
+        "min_profit_bps": 15,
+        "max_active_levels": 1
+      },
+      "metrics": {
+        "ann": 25.627115042769066,
+        "dd": 28.67752400678201,
+        "total_return": 118.02791104316735
+      }
+    },
+    {
+      "label": "p6_mg_agg_sob028_l1_s20_n1d4_p15_a2",
+      "family": "agg",
+      "params": {
+        "levels_per_band": 1,
+        "spacing_bps": 20,
+        "close_fraction_num": 1,
+        "close_fraction_den": 4,
+        "min_profit_bps": 15,
+        "max_active_levels": 2
+      },
+      "metrics": {
+        "ann": 25.627115042769066,
+        "dd": 28.67752400678201,
+        "total_return": 118.02791104316735
+      }
+    },
+    {
+      "label": "p6_mg_agg_sob029_l1_s20_n1d4_p15_a3",
+      "family": "agg",
+      "params": {
+        "levels_per_band": 1,
+        "spacing_bps": 20,
+        "close_fraction_num": 1,
+        "close_fraction_den": 4,
+        "min_profit_bps": 15,
+        "max_active_levels": 3
+      },
+      "metrics": {
+        "ann": 25.627115042769066,
+        "dd": 28.67752400678201,
+        "total_return": 118.02791104316735
+      }
+    },
+    {
+      "label": "p6_mg_agg_sob030_l1_s20_n1d4_p25_a1",
+      "family": "agg",
+      "params": {
+        "levels_per_band": 1,
+        "spacing_bps": 20,
+        "close_fraction_num": 1,
+        "close_fraction_den": 4,
+        "min_profit_bps": 25,
+        "max_active_levels": 1
+      },
+      "metrics": {
+        "ann": 25.529983251288368,
+        "dd": 28.64990546063963,
+        "total_return": 117.45252713821337
+      }
+    },
+    {
+      "label": "p6_mg_agg_sob031_l1_s20_n1d4_p25_a2",
+      "family": "agg",
+      "params": {
+        "levels_per_band": 1,
+        "spacing_bps": 20,
+        "close_fraction_num": 1,
+        "close_fraction_den": 4,
+        "min_profit_bps": 25,
+        "max_active_levels": 2
+      },
+      "metrics": {
+        "ann": 25.529983251288368,
+        "dd": 28.64990546063963,
+        "total_return": 117.45252713821337
+      }
+    },
+    {
+      "label": "p6_mg_agg_sob032_l1_s20_n1d4_p25_a3",
+      "family": "agg",
+      "params": {
+        "levels_per_band": 1,
+        "spacing_bps": 20,
+        "close_fraction_num": 1,
+        "close_fraction_den": 4,
+        "min_profit_bps": 25,
+        "max_active_levels": 3
+      },
+      "metrics": {
+        "ann": 25.529983251288368,
+        "dd": 28.64990546063963,
+        "total_return": 117.45252713821337
+      }
+    },
+    {
+      "label": "p6_mg_agg_sob033_l1_s20_n1d4_p40_a1",
+      "family": "agg",
+      "params": {
+        "levels_per_band": 1,
+        "spacing_bps": 20,
+        "close_fraction_num": 1,
+        "close_fraction_den": 4,
+        "min_profit_bps": 40,
+        "max_active_levels": 1
+      },
+      "metrics": {
+        "ann": 26.431996446530782,
+        "dd": 29.092666376674785,
+        "total_return": 122.83733375203354
+      }
+    },
+    {
+      "label": "p6_mg_agg_sob034_l1_s20_n1d4_p40_a2",
+      "family": "agg",
+      "params": {
+        "levels_per_band": 1,
+        "spacing_bps": 20,
+        "close_fraction_num": 1,
+        "close_fraction_den": 4,
+        "min_profit_bps": 40,
+        "max_active_levels": 2
+      },
+      "metrics": {
+        "ann": 26.431996446530782,
+        "dd": 29.092666376674785,
+        "total_return": 122.83733375203354
+      }
+    },
+    {
+      "label": "p6_mg_agg_sob035_l1_s20_n1d4_p40_a3",
+      "family": "agg",
+      "params": {
+        "levels_per_band": 1,
+        "spacing_bps": 20,
+        "close_fraction_num": 1,
+        "close_fraction_den": 4,
+        "min_profit_bps": 40,
+        "max_active_levels": 3
+      },
+      "metrics": {
+        "ann": 26.431996446530782,
+        "dd": 29.092666376674785,
+        "total_return": 122.83733375203354
+      }
+    },
+    {
+      "label": "p6_mg_agg_sob036_l1_s40_n1d2_p5_a1",
+      "family": "agg",
+      "params": {
+        "levels_per_band": 1,
+        "spacing_bps": 40,
+        "close_fraction_num": 1,
+        "close_fraction_den": 2,
+        "min_profit_bps": 5,
+        "max_active_levels": 1
+      },
+      "metrics": {
+        "ann": 16.433799140229198,
+        "dd": 13.950761753651042,
+        "total_return": 68.17248360867548
+      }
+    },
+    {
+      "label": "p6_mg_agg_sob037_l1_s40_n1d2_p5_a2",
+      "family": "agg",
+      "params": {
+        "levels_per_band": 1,
+        "spacing_bps": 40,
+        "close_fraction_num": 1,
+        "close_fraction_den": 2,
+        "min_profit_bps": 5,
+        "max_active_levels": 2
+      },
+      "metrics": {
+        "ann": 16.433799140229198,
+        "dd": 13.950761753651042,
+        "total_return": 68.17248360867548
+      }
+    },
+    {
+      "label": "p6_mg_agg_sob038_l1_s40_n1d2_p5_a3",
+      "family": "agg",
+      "params": {
+        "levels_per_band": 1,
+        "spacing_bps": 40,
+        "close_fraction_num": 1,
+        "close_fraction_den": 2,
+        "min_profit_bps": 5,
+        "max_active_levels": 3
+      },
+      "metrics": {
+        "ann": 16.433799140229198,
+        "dd": 13.950761753651042,
+        "total_return": 68.17248360867548
+      }
+    },
+    {
+      "label": "p6_mg_agg_sob039_l1_s40_n1d2_p15_a1",
+      "family": "agg",
+      "params": {
+        "levels_per_band": 1,
+        "spacing_bps": 40,
+        "close_fraction_num": 1,
+        "close_fraction_den": 2,
+        "min_profit_bps": 15,
+        "max_active_levels": 1
+      },
+      "metrics": {
+        "ann": 19.055652607076645,
+        "dd": 28.164265771972826,
+        "total_return": 81.4659428642802
+      }
+    },
+    {
+      "label": "p6_mg_agg_sob040_l1_s40_n1d2_p15_a2",
+      "family": "agg",
+      "params": {
+        "levels_per_band": 1,
+        "spacing_bps": 40,
+        "close_fraction_num": 1,
+        "close_fraction_den": 2,
+        "min_profit_bps": 15,
+        "max_active_levels": 2
+      },
+      "metrics": {
+        "ann": 19.055652607076645,
+        "dd": 28.164265771972826,
+        "total_return": 81.4659428642802
+      }
+    },
+    {
+      "label": "p6_mg_agg_sob041_l1_s40_n1d2_p15_a3",
+      "family": "agg",
+      "params": {
+        "levels_per_band": 1,
+        "spacing_bps": 40,
+        "close_fraction_num": 1,
+        "close_fraction_den": 2,
+        "min_profit_bps": 15,
+        "max_active_levels": 3
+      },
+      "metrics": {
+        "ann": 19.055652607076645,
+        "dd": 28.164265771972826,
+        "total_return": 81.4659428642802
+      }
+    },
+    {
+      "label": "p6_mg_agg_sob042_l1_s40_n1d2_p25_a1",
+      "family": "agg",
+      "params": {
+        "levels_per_band": 1,
+        "spacing_bps": 40,
+        "close_fraction_num": 1,
+        "close_fraction_den": 2,
+        "min_profit_bps": 25,
+        "max_active_levels": 1
+      },
+      "metrics": {
+        "ann": 20.315396115677366,
+        "dd": 27.779282245780824,
+        "total_return": 88.1101776386972
+      }
+    },
+    {
+      "label": "p6_mg_agg_sob043_l1_s40_n1d2_p25_a2",
+      "family": "agg",
+      "params": {
+        "levels_per_band": 1,
+        "spacing_bps": 40,
+        "close_fraction_num": 1,
+        "close_fraction_den": 2,
+        "min_profit_bps": 25,
+        "max_active_levels": 2
+      },
+      "metrics": {
+        "ann": 20.315396115677366,
+        "dd": 27.779282245780824,
+        "total_return": 88.1101776386972
+      }
+    },
+    {
+      "label": "p6_mg_agg_sob044_l1_s40_n1d2_p25_a3",
+      "family": "agg",
+      "params": {
+        "levels_per_band": 1,
+        "spacing_bps": 40,
+        "close_fraction_num": 1,
+        "close_fraction_den": 2,
+        "min_profit_bps": 25,
+        "max_active_levels": 3
+      },
+      "metrics": {
+        "ann": 20.315396115677366,
+        "dd": 27.779282245780824,
+        "total_return": 88.1101776386972
+      }
+    },
+    {
+      "label": "p6_mg_agg_sob045_l1_s40_n1d2_p40_a1",
+      "family": "agg",
+      "params": {
+        "levels_per_band": 1,
+        "spacing_bps": 40,
+        "close_fraction_num": 1,
+        "close_fraction_den": 2,
+        "min_profit_bps": 40,
+        "max_active_levels": 1
+      },
+      "metrics": {
+        "ann": 21.700247977694744,
+        "dd": 28.52892853048546,
+        "total_return": 95.61081561054718
+      }
+    },
+    {
+      "label": "p6_mg_agg_sob046_l1_s40_n1d2_p40_a2",
+      "family": "agg",
+      "params": {
+        "levels_per_band": 1,
+        "spacing_bps": 40,
+        "close_fraction_num": 1,
+        "close_fraction_den": 2,
+        "min_profit_bps": 40,
+        "max_active_levels": 2
+      },
+      "metrics": {
+        "ann": 21.700247977694744,
+        "dd": 28.52892853048546,
+        "total_return": 95.61081561054718
+      }
+    },
+    {
+      "label": "p6_mg_agg_sob047_l1_s40_n1d2_p40_a3",
+      "family": "agg",
+      "params": {
+        "levels_per_band": 1,
+        "spacing_bps": 40,
+        "close_fraction_num": 1,
+        "close_fraction_den": 2,
+        "min_profit_bps": 40,
+        "max_active_levels": 3
+      },
+      "metrics": {
+        "ann": 21.700247977694744,
+        "dd": 28.52892853048546,
+        "total_return": 95.61081561054718
+      }
+    },
+    {
+      "label": "p6_mg_agg_sob048_l1_s40_n1d3_p5_a1",
+      "family": "agg",
+      "params": {
+        "levels_per_band": 1,
+        "spacing_bps": 40,
+        "close_fraction_num": 1,
+        "close_fraction_den": 3,
+        "min_profit_bps": 5,
+        "max_active_levels": 1
+      },
+      "metrics": {
+        "ann": 23.37112190628745,
+        "dd": 15.433277843149767,
+        "total_return": 104.93926518145228
+      }
+    },
+    {
+      "label": "p6_mg_agg_sob049_l1_s40_n1d3_p5_a2",
+      "family": "agg",
+      "params": {
+        "levels_per_band": 1,
+        "spacing_bps": 40,
+        "close_fraction_num": 1,
+        "close_fraction_den": 3,
+        "min_profit_bps": 5,
+        "max_active_levels": 2
+      },
+      "metrics": {
+        "ann": 23.37112190628745,
+        "dd": 15.433277843149767,
+        "total_return": 104.93926518145228
+      }
+    },
+    {
+      "label": "p6_mg_agg_sob050_l1_s40_n1d3_p5_a3",
+      "family": "agg",
+      "params": {
+        "levels_per_band": 1,
+        "spacing_bps": 40,
+        "close_fraction_num": 1,
+        "close_fraction_den": 3,
+        "min_profit_bps": 5,
+        "max_active_levels": 3
+      },
+      "metrics": {
+        "ann": 23.37112190628745,
+        "dd": 15.433277843149767,
+        "total_return": 104.93926518145228
+      }
+    },
+    {
+      "label": "p6_mg_agg_sob051_l1_s40_n1d3_p15_a1",
+      "family": "agg",
+      "params": {
+        "levels_per_band": 1,
+        "spacing_bps": 40,
+        "close_fraction_num": 1,
+        "close_fraction_den": 3,
+        "min_profit_bps": 15,
+        "max_active_levels": 1
+      },
+      "metrics": {
+        "ann": 23.545649589328143,
+        "dd": 28.426241386184977,
+        "total_return": 105.93144752466013
+      }
+    },
+    {
+      "label": "p6_mg_agg_sob052_l1_s40_n1d3_p15_a2",
+      "family": "agg",
+      "params": {
+        "levels_per_band": 1,
+        "spacing_bps": 40,
+        "close_fraction_num": 1,
+        "close_fraction_den": 3,
+        "min_profit_bps": 15,
+        "max_active_levels": 2
+      },
+      "metrics": {
+        "ann": 23.545649589328143,
+        "dd": 28.426241386184977,
+        "total_return": 105.93144752466013
+      }
+    },
+    {
+      "label": "p6_mg_agg_sob053_l1_s40_n1d3_p15_a3",
+      "family": "agg",
+      "params": {
+        "levels_per_band": 1,
+        "spacing_bps": 40,
+        "close_fraction_num": 1,
+        "close_fraction_den": 3,
+        "min_profit_bps": 15,
+        "max_active_levels": 3
+      },
+      "metrics": {
+        "ann": 23.545649589328143,
+        "dd": 28.426241386184977,
+        "total_return": 105.93144752466013
+      }
+    },
+    {
+      "label": "p6_mg_agg_sob054_l1_s40_n1d3_p25_a1",
+      "family": "agg",
+      "params": {
+        "levels_per_band": 1,
+        "spacing_bps": 40,
+        "close_fraction_num": 1,
+        "close_fraction_den": 3,
+        "min_profit_bps": 25,
+        "max_active_levels": 1
+      },
+      "metrics": {
+        "ann": 23.714514760443883,
+        "dd": 28.327960002217374,
+        "total_return": 106.89466803261011
+      }
+    },
+    {
+      "label": "p6_mg_agg_sob055_l1_s40_n1d3_p25_a2",
+      "family": "agg",
+      "params": {
+        "levels_per_band": 1,
+        "spacing_bps": 40,
+        "close_fraction_num": 1,
+        "close_fraction_den": 3,
+        "min_profit_bps": 25,
+        "max_active_levels": 2
+      },
+      "metrics": {
+        "ann": 23.714514760443883,
+        "dd": 28.327960002217374,
+        "total_return": 106.89466803261011
+      }
+    },
+    {
+      "label": "p6_mg_agg_sob056_l1_s40_n1d3_p25_a3",
+      "family": "agg",
+      "params": {
+        "levels_per_band": 1,
+        "spacing_bps": 40,
+        "close_fraction_num": 1,
+        "close_fraction_den": 3,
+        "min_profit_bps": 25,
+        "max_active_levels": 3
+      },
+      "metrics": {
+        "ann": 23.714514760443883,
+        "dd": 28.327960002217374,
+        "total_return": 106.89466803261011
+      }
+    },
+    {
+      "label": "p6_mg_agg_sob057_l1_s40_n1d3_p40_a1",
+      "family": "agg",
+      "params": {
+        "levels_per_band": 1,
+        "spacing_bps": 40,
+        "close_fraction_num": 1,
+        "close_fraction_den": 3,
+        "min_profit_bps": 40,
+        "max_active_levels": 1
+      },
+      "metrics": {
+        "ann": 24.98427030453034,
+        "dd": 28.731734527137988,
+        "total_return": 114.23981233517928
+      }
+    },
+    {
+      "label": "p6_mg_agg_sob058_l1_s40_n1d3_p40_a2",
+      "family": "agg",
+      "params": {
+        "levels_per_band": 1,
+        "spacing_bps": 40,
+        "close_fraction_num": 1,
+        "close_fraction_den": 3,
+        "min_profit_bps": 40,
+        "max_active_levels": 2
+      },
+      "metrics": {
+        "ann": 24.98427030453034,
+        "dd": 28.731734527137988,
+        "total_return": 114.23981233517928
+      }
+    },
+    {
+      "label": "p6_mg_agg_sob059_l1_s40_n1d3_p40_a3",
+      "family": "agg",
+      "params": {
+        "levels_per_band": 1,
+        "spacing_bps": 40,
+        "close_fraction_num": 1,
+        "close_fraction_den": 3,
+        "min_profit_bps": 40,
+        "max_active_levels": 3
+      },
+      "metrics": {
+        "ann": 24.98427030453034,
+        "dd": 28.731734527137988,
+        "total_return": 114.23981233517928
+      }
+    },
+    {
+      "label": "p6_mg_agg_sob060_l1_s40_n1d4_p5_a1",
+      "family": "agg",
+      "params": {
+        "levels_per_band": 1,
+        "spacing_bps": 40,
+        "close_fraction_num": 1,
+        "close_fraction_den": 4,
+        "min_profit_bps": 5,
+        "max_active_levels": 1
+      },
+      "metrics": {
+        "ann": 25.544829585191174,
+        "dd": 15.20798702010972,
+        "total_return": 117.54040340869159
+      }
+    },
+    {
+      "label": "p6_mg_agg_sob061_l1_s40_n1d4_p5_a2",
+      "family": "agg",
+      "params": {
+        "levels_per_band": 1,
+        "spacing_bps": 40,
+        "close_fraction_num": 1,
+        "close_fraction_den": 4,
+        "min_profit_bps": 5,
+        "max_active_levels": 2
+      },
+      "metrics": {
+        "ann": 25.544829585191174,
+        "dd": 15.20798702010972,
+        "total_return": 117.54040340869159
+      }
+    },
+    {
+      "label": "p6_mg_agg_sob062_l1_s40_n1d4_p5_a3",
+      "family": "agg",
+      "params": {
+        "levels_per_band": 1,
+        "spacing_bps": 40,
+        "close_fraction_num": 1,
+        "close_fraction_den": 4,
+        "min_profit_bps": 5,
+        "max_active_levels": 3
+      },
+      "metrics": {
+        "ann": 25.544829585191174,
+        "dd": 15.20798702010972,
+        "total_return": 117.54040340869159
+      }
+    },
+    {
+      "label": "p6_mg_agg_sob063_l1_s40_n1d4_p15_a1",
+      "family": "agg",
+      "params": {
+        "levels_per_band": 1,
+        "spacing_bps": 40,
+        "close_fraction_num": 1,
+        "close_fraction_den": 4,
+        "min_profit_bps": 15,
+        "max_active_levels": 1
+      },
+      "metrics": {
+        "ann": 25.627115042769066,
+        "dd": 28.67752400678201,
+        "total_return": 118.02791104316735
+      }
+    }
+  ]
+}
