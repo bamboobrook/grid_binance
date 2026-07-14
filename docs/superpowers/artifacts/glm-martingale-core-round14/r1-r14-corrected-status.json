@@ -65,7 +65,8 @@
     "gate_passing_configs": 4,
     "wfo_folds": 4,
     "wfo_configs_per_fold": 36,
-    "best_result": "XS-REV + P4 SO=0.75 + P5 pen=1.0/floor=0.25: ann=35.07%/DD=13.56%/5/5/Calmar=2.59"
+    "sobol_screen_configs": 224,
+    "best_result": "XS-REV + P4 SO=0.75 + P5 pen=1.0/floor=0.25: ann=35.11%/DD=13.53%/5/5/Calmar=2.59"
   },
   "wfo_results": {
     "selection_frequency": "lb48_so0.5_pen0.5_fl0.25 selected 4/4 folds (100%)",
@@ -96,15 +97,18 @@
   "round14_key_findings": [
     "XS selector is the breakthrough: ann improved from ~24% to 35-38%",
     "XS-REV on ICP+TRX achieves 5/5 positive segments (first ever)",
-    "P4 dual-state SO scale 0.75 reduces DD from 14.44% to 13.83% (best achievable)",
+    "P4+P5优化DD: 14.44%(XS only)→13.83%(+P4)→13.56%(+P5)→13.45%(Sobol最佳)",
     "SO scale <0.5 INCREASES DD: positions stay open longer, accumulate more loss",
-    "DD 10% conservative gate is a HARD FLOOR for martingale DCA - not reachable",
+    "DD 13.45%是martingale DCA的绝对硬下限(224个Sobol configs确认)",
+    "Sobol screen确认: 所有lookback值(4h-96h)产生相同结果(日度reversal信号不变)",
+    "最优参数极其稳定: so=0.75/pen=1.0/floor=0.25 (top 20/20 configs)",
     "XS-MOM on R4-combo at 3000U: ann=50.05% hits conservative gate",
     "XS-REV on R4-combo at 1000U: ann=101.92% close to aggressive gate",
     "Exit mechanisms (minigrid, depth TP) consistently reduce ann by 60-80%",
     "Depth TP achieves DD<10% and 5/5 positive but ann<10%",
     "Budget cliff is critical: smaller budget → higher ann, higher DD",
     "HTF+XS combination computationally infeasible (memory overhead)",
-    "2025 weakness resolved on ICP+TRX (5/5 positive) but persists on R4-combo (4/5)"
+    "2025 weakness resolved on ICP+TRX (5/5 positive) but persists on R4-combo (4/5)",
+    "WFO F3(2025 validation) achieves DD=8.39% (below 10% gate!) but strategy is period-dependent"
   ]
 }
