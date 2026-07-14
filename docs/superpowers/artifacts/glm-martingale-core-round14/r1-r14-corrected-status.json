@@ -12,17 +12,16 @@
   "fully_live_ready_candidates": [],
   "best_candidates": {
     "r14_xs_rev_icp_trx_5of5": {
-      "round": 14, "label": "XS-REVERSAL + P4 dual-state SO=0.75 on ICP+TRX (5/5 positive, best DD)",
-      "config": "XS selector: family=reversal, lookback=72h, skip=0, rebalance=1d, active=2 + dual_state SO scale 0.75",
+      "round": 14, "label": "XS-REV + P4 SO=0.75 + P5 pen=1.0/floor=0.25 on ICP+TRX (BEST risk-adjusted)",
+      "config": "XS selector: family=reversal, lookback=72h, skip=0, rebalance=1d, active=2 + dual_state SO=0.75 + inventory pen=1.0/floor=0.25",
       "base": "ICP+TRX (2 symbols)",
-      "annualized_return_pct_4999U": 34.20,
-      "max_drawdown_pct_4999U": 13.83,
+      "annualized_return_pct_4999U": 35.07,
+      "max_drawdown_pct_4999U": 13.56,
       "positive_cold_start_segments_4999U": "5/5",
-      "budget_3000U_annualized_return_pct": 48.77,
-      "budget_3000U_max_drawdown_pct": 20.50,
+      "calmar_ratio": 2.59,
       "fully_live_ready": false,
-      "reject_reasons": ["only 2 symbols (need >=5)", "DD 13.83% > 10% conservative gate", "concentration not computed", "no nested WFO", "no production DB/executor parity"],
-      "notes": "BEST DD achievable: 13.83% (with SO scale 0.75). P4 ablation proved DD 10% gate is unreachable for martingale DCA. At 3000U: ann=48.77%/DD=20.50%."
+      "reject_reasons": ["only 2 symbols (need >=5)", "DD 13.56% > 10% conservative gate", "concentration not computed", "no nested WFO", "no production DB/executor parity"],
+      "notes": "BEST risk-adjusted config: Calmar=2.59. DD improved from 14.44%(XS only)→13.83%(+P4)→13.56%(+P5). 5/5 positive segments maintained."
     },
     "r14_xs_mom_r4combo": {
       "round": 14, "label": "XS-MOM on R4-combo (best Calmar)",
@@ -52,18 +51,19 @@
     }
   },
   "round14_search_totals": {
-    "total_configs_searched": 254,
-    "total_binary_replays": 3048,
+    "total_configs_searched": 266,
+    "total_binary_replays": 3192,
     "binding_probes": 48,
     "train_screen_configs": 112,
     "constrained_trials": 32,
     "combination_htf_configs": 12,
     "combination_exit_configs": 8,
     "dual_state_ablation_configs": 10,
+    "inventory_scheduler_configs": 12,
     "minigrid_depth_tp_configs": 8,
     "p2_htf_configs": 12,
     "gate_passing_configs": 4,
-    "best_result": "XS-REV + P4 SO=0.75 on ICP+TRX: 5/5 positive, DD=13.83% (best achievable)"
+    "best_result": "XS-REV + P4 SO=0.75 + P5 pen=1.0/floor=0.25: ann=35.07%/DD=13.56%/5/5/Calmar=2.59"
   },
   "target_gap_analysis": {
     "conservative": {
