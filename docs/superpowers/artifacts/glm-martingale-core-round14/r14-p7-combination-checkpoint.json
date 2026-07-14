@@ -1,0 +1,197 @@
+{
+  "total": 4,
+  "results": [
+    {
+      "label": "p7_mom_lb7_xs_only",
+      "family": "momentum",
+      "lb": 7,
+      "skip": 0,
+      "rebal": 1,
+      "active": 3,
+      "htf_on": false,
+      "result": {
+        "budgets": [
+          {
+            "ann": 96.21565976495819,
+            "budget": 1000.0,
+            "dd": 35.78911994697066
+          },
+          {
+            "ann": 64.7154424299063,
+            "budget": 2000.0,
+            "dd": 24.932763632882324
+          },
+          {
+            "ann": 50.054975934576554,
+            "budget": 3000.0,
+            "dd": 19.668148213677885
+          },
+          {
+            "ann": 41.20610538537897,
+            "budget": 4000.0,
+            "dd": 18.091161835321437
+          },
+          {
+            "ann": 35.18323747543721,
+            "budget": 4999.0,
+            "dd": 16.749532208296404
+          }
+        ],
+        "full": {
+          "ann": 35.18323747543721,
+          "blocked": 19,
+          "dd": 16.749532208296404,
+          "max_capital": 733.0613268000002,
+          "trades": 2982
+        },
+        "htf_on": false,
+        "label": "p7_mom_lb7_xs_only",
+        "positive_segments": 4,
+        "segments": [
+          {
+            "ann": 104.21535124822267,
+            "dd": 13.055691205459691,
+            "positive": true
+          },
+          {
+            "ann": 13.257529318012606,
+            "dd": 13.172788136937125,
+            "positive": true
+          },
+          {
+            "ann": 65.05270667043087,
+            "dd": 21.751975909326735,
+            "positive": true
+          },
+          {
+            "ann": -9.991340709448405,
+            "dd": 21.307810051431893,
+            "positive": false
+          },
+          {
+            "ann": 20.1564642345766,
+            "dd": 10.862493230032218,
+            "positive": true
+          }
+        ],
+        "symbols": [
+          "AAVEUSDT",
+          "BCHUSDT",
+          "BNBUSDT",
+          "BTCUSDT",
+          "DOTUSDT",
+          "SOLUSDT",
+          "TRXUSDT"
+        ]
+      }
+    },
+    {
+      "label": "p7_mom_lb7_xs_htf",
+      "family": "momentum",
+      "lb": 7,
+      "skip": 0,
+      "rebal": 1,
+      "active": 3,
+      "htf_on": true,
+      "result": {
+        "error": "Command '['/home/bumblebee/Project/grid_binance/target/release/r14_htf_search', '/home/bumblebee/Project/grid_binance/docs/superpowers/artifacts/glm-martingale-core-round4/promising/r4-combo-best.json', 'p7_mom_lb7_xs_htf', 'on']' timed out after 900 seconds"
+      }
+    },
+    {
+      "label": "p7_rev_lb72_xs_only",
+      "family": "reversal",
+      "lb": 72,
+      "skip": 0,
+      "rebal": 1,
+      "active": 5,
+      "htf_on": false,
+      "result": {
+        "budgets": [
+          {
+            "ann": 101.92172274356679,
+            "budget": 1000.0,
+            "dd": 55.13522604479129
+          },
+          {
+            "ann": 69.08350051709935,
+            "budget": 2000.0,
+            "dd": 43.23225884157369
+          },
+          {
+            "ann": 53.71212585662808,
+            "budget": 3000.0,
+            "dd": 35.55615460635775
+          },
+          {
+            "ann": 44.38987912586785,
+            "budget": 4000.0,
+            "dd": 30.194898960597417
+          },
+          {
+            "ann": 38.01908159993446,
+            "budget": 4999.0,
+            "dd": 26.242012368017203
+          }
+        ],
+        "full": {
+          "ann": 38.01908159993446,
+          "blocked": 19,
+          "dd": 26.242012368017203,
+          "max_capital": 1004.5924811999998,
+          "trades": 289
+        },
+        "htf_on": false,
+        "label": "p7_rev_lb72_xs_only",
+        "positive_segments": 4,
+        "segments": [
+          {
+            "ann": 169.5624974186766,
+            "dd": 26.242012368017203,
+            "positive": true
+          },
+          {
+            "ann": 11.101492613636,
+            "dd": 12.820235249764686,
+            "positive": true
+          },
+          {
+            "ann": 66.30051987837145,
+            "dd": 19.058700498852797,
+            "positive": true
+          },
+          {
+            "ann": -11.029288440199492,
+            "dd": 22.208138788511828,
+            "positive": false
+          },
+          {
+            "ann": 19.35014291508381,
+            "dd": 8.719097538298904,
+            "positive": true
+          }
+        ],
+        "symbols": [
+          "AAVEUSDT",
+          "BCHUSDT",
+          "BNBUSDT",
+          "BTCUSDT",
+          "DOTUSDT",
+          "SOLUSDT",
+          "TRXUSDT"
+        ]
+      }
+    },
+    {
+      "label": "p7_rev_lb72_xs_htf",
+      "family": "reversal",
+      "lb": 72,
+      "skip": 0,
+      "rebal": 1,
+      "active": 5,
+      "htf_on": true,
+      "result": {
+        "error": "Command '['/home/bumblebee/Project/grid_binance/target/release/r14_htf_search', '/home/bumblebee/Project/grid_binance/docs/superpowers/artifacts/glm-martingale-core-round4/promising/r4-combo-best.json', 'p7_rev_lb72_xs_htf', 'on']' timed out after 900 seconds"
+      }
+    }
+  ]
+}

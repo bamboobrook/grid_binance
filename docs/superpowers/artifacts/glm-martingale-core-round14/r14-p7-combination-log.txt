@@ -1,0 +1,26 @@
+============================================================
+P7: XS Selector + HTF Gate Combination (12 configs)
+============================================================
+
+[1/12] p7_mom_lb7_xs_only
+  ann=35.18% DD=16.75% pos=4/5 [235s]
+    3000.0U: ann=50.05% DD=19.67%
+    4999.0U: ann=35.18% DD=16.75%
+
+[2/12] p7_mom_lb7_xs_htf
+  ERROR: Command '['/home/bumblebee/Project/grid_binance/target/release/r14_htf_search', 
+
+[3/12] p7_rev_lb72_xs_only
+  ann=38.02% DD=26.24% pos=4/5 [208s]
+    3000.0U: ann=53.71% DD=35.56%
+    4999.0U: ann=38.02% DD=26.24%
+
+[4/12] p7_rev_lb72_xs_htf
+  ERROR: Command '['/home/bumblebee/Project/grid_binance/target/release/r14_htf_search', 
+
+[5/12] p7_rev_lb12_xs_only
+  ann=33.27% DD=18.35% pos=4/5 [187s]
+    3000.0U: ann=47.58% DD=25.99%
+    4999.0U: ann=33.27% DD=18.35%
+
+[6/12] p7_rev_lb12_xs_htf
