@@ -1,0 +1,58 @@
+============================================================
+P7: XS Selector + Exit Mechanism Combination (ICP+TRX)
+============================================================
+
+[1/8] p7_xs_mom_only_icp
+  ann=26.08% DD=13.85% pos=4/5 [69s]
+    3000.0U: ann=38.08% DD=18.00%
+    4999.0U: ann=26.08% DD=13.85%
+
+[2/8] p7_xs_mom_mg_cons_icp
+  ann=13.41% DD=12.10% pos=2/5 [70s]
+    3000.0U: ann=20.58% DD=16.47%
+    4999.0U: ann=13.41% DD=12.10%
+
+[3/8] p7_xs_mom_mg_mod_icp
+  ann=14.03% DD=9.52% pos=2/5 [72s]
+    3000.0U: ann=21.46% DD=12.79%
+    4999.0U: ann=14.03% DD=9.52%
+
+[4/8] p7_xs_mom_dt_orig_icp
+  ann=6.82% DD=8.80% pos=5/5 [67s]
+    3000.0U: ann=10.84% DD=13.95%
+    4999.0U: ann=6.82% DD=8.80%
+
+[5/8] p7_xs_mom_dt_wider_icp
+  ann=-3.30% DD=30.24% pos=5/5 [64s]
+    3000.0U: ann=-5.66% DD=44.35%
+    4999.0U: ann=-3.30% DD=30.24%
+
+[6/8] p7_xs_rev_only_icp
+  ann=35.68% DD=14.44% pos=5/5 [58s]
+    3000.0U: ann=50.70% DD=20.29%
+    4999.0U: ann=35.68% DD=14.44%
+
+[7/8] p7_xs_rev_mg_cons_icp
+  ann=7.84% DD=31.77% pos=3/5 [59s]
+    3000.0U: ann=12.38% DD=41.22%
+    4999.0U: ann=7.84% DD=31.77%
+
+[8/8] p7_xs_rev_dt_orig_icp
+  ann=8.07% DD=9.93% pos=5/5 [55s]
+    3000.0U: ann=12.73% DD=16.12%
+    4999.0U: ann=8.07% DD=9.93%
+
+============================================================
+P7 XS+EXIT SUMMARY
+============================================================
+Total: 8, Valid: 8
+
+All configs ranked by ann:
+  p7_xs_rev_only_icp: ann=35.68% DD=14.44% pos=5/5 
+  p7_xs_mom_only_icp: ann=26.08% DD=13.85% pos=4/5 
+  p7_xs_mom_mg_mod_icp: ann=14.03% DD=9.52% pos=2/5 +mg_moderate
+  p7_xs_mom_mg_cons_icp: ann=13.41% DD=12.10% pos=2/5 +mg_conservative
+  p7_xs_rev_dt_orig_icp: ann=8.07% DD=9.93% pos=5/5 +dt_original
+  p7_xs_rev_mg_cons_icp: ann=7.84% DD=31.77% pos=3/5 +mg_conservative
+  p7_xs_mom_dt_orig_icp: ann=6.82% DD=8.80% pos=5/5 +dt_original
+  p7_xs_mom_dt_wider_icp: ann=-3.30% DD=30.24% pos=5/5 +dt_wider
