@@ -1,7 +1,7 @@
 {
   "plan_sha256": "8d70a3a8a92ac6a0d3b0a4845ade90c51ecd0b246ac0533f565f21cd9be23b55",
   "phase": "P9_FINAL_HANDOFF",
-  "status": "blocked",
+  "status": "complete",
   "required_gates": [
     {
       "phase": "P0_CANONICAL_PARITY",
@@ -1091,28 +1091,46 @@
     },
     {
       "phase": "P9_FINAL_HANDOFF",
-      "passed": [],
-      "failed": [
+      "passed": [
         {
           "gate": "handoff_counts_recomputed_from_registry",
-          "passed": false,
+          "passed": true,
           "detail": {
-            "reason": "no evidence"
+            "counts_match": true,
+            "execution_state_counts": {
+              "binary_replays": 177,
+              "cache_hits": 0,
+              "duplicates": 1,
+              "timeouts": 0,
+              "unique_configs": 177
+            },
+            "passed": true,
+            "recomputed": {
+              "binary_replays": 177,
+              "duplicates": 1,
+              "timeouts": 0,
+              "unique_configs": 177
+            }
           }
         },
         {
           "gate": "handoff_document_exists",
-          "passed": false,
+          "passed": true,
           "detail": {
-            "reason": "no evidence"
+            "contains_counts": true,
+            "contains_exact_non_repeat_scope": true,
+            "contains_phase_status_table": true,
+            "contains_target_verdict": true,
+            "handoff_document": "docs/superpowers/reports/2026-07-15-glm-round15-execution-handoff.md",
+            "handoff_sha256": "3f0abdb01311b4b4826d914dc137f3c4f78ae8683594b4cd894417bc07bb4d47",
+            "passed": true
           }
         }
-      ]
+      ],
+      "failed": []
     }
   ],
-  "blocked_reasons": [
-    "P9_FINAL_HANDOFF: 2 gate(s) missing: ['handoff_counts_recomputed_from_registry', 'handoff_document_exists']"
-  ],
+  "blocked_reasons": [],
   "hashes": {
     "engine": "435d743edae87a76892e210cb295f0ec84036e96fd33e17d440110f5829afba6",
     "data": "4d77dbdeddc42f8bb800e4b784bc6eb3e77d5213212be4e8bd3226274a4e1114",
@@ -1355,10 +1373,12 @@
     "docs/superpowers/artifacts/glm-martingale-core-round15/p7/gates/backtest_live_restart_order_trace_match.json",
     "docs/superpowers/artifacts/glm-martingale-core-round15/p7/gates/production_wiring_tests_pass.json",
     "docs/superpowers/artifacts/glm-martingale-core-round15/p8/gates/future_lock_read_at_most_once_or_not_available.json",
+    "docs/superpowers/artifacts/glm-martingale-core-round15/p9/gates/handoff_counts_recomputed_from_registry.json",
+    "docs/superpowers/artifacts/glm-martingale-core-round15/p9/gates/handoff_document_exists.json",
     "docs/superpowers/artifacts/glm-martingale-core-round15/round15-execution-state.json",
     "docs/superpowers/artifacts/glm-martingale-core-round15/run-manifests/r15-data-manifest.json"
   ],
-  "validated_at": "2026-07-15T04:46:01.420107+00:00",
+  "validated_at": "2026-07-15T04:47:50.782192+00:00",
   "phase_status": {
     "P0_CANONICAL_PARITY": {
       "status": "complete"
@@ -1388,11 +1408,7 @@
       "status": "complete"
     },
     "P9_FINAL_HANDOFF": {
-      "status": "blocked",
-      "failed_gates": [
-        "handoff_counts_recomputed_from_registry",
-        "handoff_document_exists"
-      ]
+      "status": "complete"
     }
   }
 }

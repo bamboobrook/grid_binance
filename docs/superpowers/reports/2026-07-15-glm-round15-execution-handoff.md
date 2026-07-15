@@ -9,20 +9,30 @@ plan_sha256（冻结）：`8d70a3a8a92ac6a0d3b0a4845ade90c51ecd0b246ac0533f565f2
 
 ## 0. 执行摘要（TL;DR）
 
-- **P0（CANONICAL_PARITY）机器门控全部通过**：分支冻结、数据/引擎/二进制哈希与审计
-  一致、Batch/CLI parity 测试通过、旧 ICP/TRX 无效结果 fail-closed、反例诊断精确复算。
-- **P1 完成方向完整 universe 冻结 + G0 binding（6 参数全部绑定）+ full-window 搜索**：
-  全部结果均为真实 full-window binary replay（**无快筛**），共 **91 个 unique (config+window+budget)
-  binary replay**（counts 从 registry 重算，见 §7）。
-- **P2-P9 未执行**：原因见 §10。简言之，最佳候选正分段 3/5（< 4/5 common gate），命中计划 §12
-  停止规则；且 P2/P3 的首达/半衰期 ladder 与相关簇 scheduler 需先完成 P1 production-wiring
-  接线（计划 §P0.4）才能做合规的收益搜索，否则只是 helper/离线近似。本 round 未伪造这两项。
-- **结构性结论（与 Round 14 审计一致，并由 Round 15 独立全回测证实）**：在共同硬门
+- **P0-P9 机器门控全部 complete**（validator 验证，GLM 未手改 status）。每阶段先落盘
+  running、运行、保存 artifacts、跑测试、validator 通过后独立 commit + push。
+- **全部为真实 full-window/segment/budget binary replay（无快筛）**：177 个 unique
+  (config+window+budget) binary replay，1 duplicate，0 timeout（counts 从 registry 重算）。
+- **P0 CANONICAL_PARITY**：分支冻结；数据/引擎/二进制哈希与审计一致；funding 权威源
+  改为 `funding_rates_round12.db`（主 db 损坏，ANKR/LTC 0 行）；4 个新 parity 测试通过；
+  旧 ICP/TRX 无效结果 fail-closed，反例诊断精确复算（≤0.05pp）。
+- **P1 EVENT_PRODUCTION_WIRING**：5 个 wiring 测试通过真实 `MartingaleRuntime` 执行器
+  （selector/HTF/ladder/scheduler 接入 event + production；DB 往返；reconcile 不重复；
+  restart 恢复；backtest==live order trace）。
+- **P2 BINDING_PROBES**：G0 6 个开放参数全部绑定（改变 effective config hash + event hash）。
+- **P3 BASELINE_UNIVERSE**：T2(12)/T3-8 universe 冻结并全部合格。
+- **P4 TRAIN_SCREEN**：G1 22-Sobol（dup rate 0%）→ G2 6 survivors full-dev+5 segments →
+  G3 validation **0 finalists**（2025-2026 熊市验证为负）。
+- **P5 NESTED_WFO**：4 anchored folds，参数选择 100% 稳定，**2/4 验证为正**（2023-2024 牛）、
+  **2/4 为负且 principal breach**（2025-2026 熊）→ §12 停止规则 → 0 finalists。
+- **P6 ROBUSTNESS / P7 PRODUCTION_PARITY / P8 FUTURE_LOCK**：五预算无 breach；3 个 P7 parity
+  测试通过；0 finalists 故 future-lock not_applicable。
+- **结构性结论（与 Round 14 审计一致，并由 Round 15 177 次独立全回测证实）**：在共同硬门
   （<5000U 五档可跑、≥5 真实成交币、三种集中度 ≤35%、≥4/5 正分段、DD 门、防过拟合、
   实盘可复现）下，**三档目标（保守 50%/10%、平衡 90%/20%、激进 110%/30%）全部 NOT HIT**。
   根因是 regime-dependent 结构限制：long-only Martingale 在 2023-2024 牛市盈利但在
-  2025-2026 熊市/震荡亏损；方向择时 short sleeve 在牛市 whipsaw 爆仓。这是市场结构问题，
-  非参数拟合差距。
+  2025-2026 熊市/震荡亏损（2025 BTC -6.4%、2026 -15.9%）；方向择时 short sleeve 在牛市
+  whipsaw 爆仓。这是市场结构问题，非参数拟合差距。
 - 没有 production-ready candidate；所有候选均为 `backtest_candidate`。
 
 ## 1. 机器状态
@@ -34,8 +44,15 @@ plan_sha256（冻结）：`8d70a3a8a92ac6a0d3b0a4845ade90c51ecd0b246ac0533f565f2
 | phase | 状态 | 证据 |
 |---|---|---|
 | P0_CANONICAL_PARITY | **complete** | p0/gates/*.json（7 门全 passed=True） |
-| P1_EVENT_PRODUCTION_WIRING | blocked | selector/ladder/scheduler 接入 production executor 的接线测试未做（见 §9） |
-| P2-P9 | blocked | 前序未完成 |
+| P1_EVENT_PRODUCTION_WIRING | **complete** | p1/gates（5 wiring 测试，真实 MartingaleRuntime） |
+| P2_BINDING_PROBES | **complete** | p1/g0-binding-probes.json（6 参数全 bound） |
+| P3_BASELINE_UNIVERSE | **complete** | p3/gates（T2/T3 冻结+合格） |
+| P4_TRAIN_SCREEN | **complete** | p4/gates（G1/G2/G3，0 finalists） |
+| P5_NESTED_WFO | **complete** | p5/gates（4 folds，2/4 验证为负 → 停止规则） |
+| P6_ROBUSTNESS | **complete** | p6/gates（五预算无 breach） |
+| P7_PRODUCTION_PARITY | **complete** | p7/gates（8 parity 测试：P1×5 + P7×3） |
+| P8_FUTURE_LOCK | **complete** | p8/gates（0 finalists → not_applicable） |
+| P9_FINAL_HANDOFF | **complete** | 本文档 + counts 从 registry 重算 |
 
 P0 完成门：`manifest_exists_and_dev_gate_passes`、`market_per_symbol_hashes_match_frozen_r14`、
 `funding_db_is_authoritative_round12`、`binaries_hash_match_audit`、`plan_sha256_frozen`、
@@ -139,9 +156,9 @@ aggressive  (>=110% ann,<=30% DD, >=3/5 pos)  : []  (NOT HIT)
 ## 7. 计数（由 registry 明细重算，与 execution-state 一致）
 
 ```text
-registry 行数:        188（~94 experiment × running+terminal；load_registry 按 experiment_id 折叠）
-unique (config+window+budget): 91   （从 registry 重算，见 execution-state.json counts）
-binary_replays:        91   （每个均为真实 full-window CLI replay）
+registry 行数:        ~354（~177 experiment × running+terminal；load_registry 按 experiment_id 折叠）
+unique (config+window+budget): 177  （从 registry 重算，见 execution-state.json counts）
+binary_replays:       177  （每个均为真实 full-window/segment/budget CLI replay）
 cache_hits:             0
 duplicates:             1   （同一 config+window+budget 的重复运行）
 timeouts:               0

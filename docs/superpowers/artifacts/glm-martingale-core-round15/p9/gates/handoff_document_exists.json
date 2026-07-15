@@ -1,0 +1,9 @@
+{
+  "contains_counts": true,
+  "contains_exact_non_repeat_scope": true,
+  "contains_phase_status_table": true,
+  "contains_target_verdict": true,
+  "handoff_document": "docs/superpowers/reports/2026-07-15-glm-round15-execution-handoff.md",
+  "handoff_sha256": "3f0abdb01311b4b4826d914dc137f3c4f78ae8683594b4cd894417bc07bb4d47",
+  "passed": true
+}

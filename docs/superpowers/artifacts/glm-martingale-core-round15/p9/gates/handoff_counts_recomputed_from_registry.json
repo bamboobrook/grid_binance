@@ -1,0 +1,17 @@
+{
+  "counts_match": true,
+  "execution_state_counts": {
+    "binary_replays": 177,
+    "cache_hits": 0,
+    "duplicates": 1,
+    "timeouts": 0,
+    "unique_configs": 177
+  },
+  "passed": true,
+  "recomputed": {
+    "binary_replays": 177,
+    "duplicates": 1,
+    "timeouts": 0,
+    "unique_configs": 177
+  }
+}
