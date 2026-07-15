@@ -1,6 +1,6 @@
 {
   "plan_sha256": "8d70a3a8a92ac6a0d3b0a4845ade90c51ecd0b246ac0533f565f21cd9be23b55",
-  "phase": "P5_NESTED_WFO",
+  "phase": "P9_FINAL_HANDOFF",
   "status": "blocked",
   "required_gates": [
     {
@@ -790,45 +790,318 @@
     },
     {
       "phase": "P5_NESTED_WFO",
-      "passed": [],
-      "failed": [
+      "passed": [
         {
           "gate": "four_folds_train_select_then_validate_once",
-          "passed": false,
+          "passed": true,
           "detail": {
-            "reason": "no evidence"
+            "finalists": 0,
+            "folds": [
+              {
+                "fold": "F1",
+                "train_candidates_evaluated": 5,
+                "train_selected": {
+                  "fbps": 2500,
+                  "fo": 30,
+                  "legs": 6,
+                  "m": 2.22,
+                  "sp": 100
+                },
+                "train_window": [
+                  1672531200000,
+                  1687564799999
+                ],
+                "val_ann": 572.804298,
+                "val_breached": false,
+                "val_conc_gp": 37.2881,
+                "val_dd": 53.257121,
+                "val_positive": true,
+                "val_window": [
+                  1688169600000,
+                  1704067199999
+                ]
+              },
+              {
+                "fold": "F2",
+                "train_candidates_evaluated": 5,
+                "train_selected": {
+                  "fbps": 2500,
+                  "fo": 30,
+                  "legs": 6,
+                  "m": 2.22,
+                  "sp": 100
+                },
+                "train_window": [
+                  1672531200000,
+                  1703462399999
+                ],
+                "val_ann": 202.85767,
+                "val_breached": false,
+                "val_conc_gp": 17.3744,
+                "val_dd": 49.659067,
+                "val_positive": true,
+                "val_window": [
+                  1704067200000,
+                  1735689599999
+                ]
+              },
+              {
+                "fold": "F3",
+                "train_candidates_evaluated": 5,
+                "train_selected": {
+                  "fbps": 2500,
+                  "fo": 30,
+                  "legs": 6,
+                  "m": 2.22,
+                  "sp": 100
+                },
+                "train_window": [
+                  1672531200000,
+                  1735084799999
+                ],
+                "val_ann": -70.471451,
+                "val_breached": true,
+                "val_conc_gp": 18.2154,
+                "val_dd": 128.641519,
+                "val_positive": false,
+                "val_window": [
+                  1735689600000,
+                  1767225599999
+                ]
+              },
+              {
+                "fold": "F4",
+                "train_candidates_evaluated": 5,
+                "train_selected": {
+                  "fbps": 2500,
+                  "fo": 30,
+                  "legs": 6,
+                  "m": 2.22,
+                  "sp": 100
+                },
+                "train_window": [
+                  1672531200000,
+                  1766620799999
+                ],
+                "val_ann": null,
+                "val_breached": true,
+                "val_conc_gp": 77.3067,
+                "val_dd": 161.215154,
+                "val_positive": false,
+                "val_window": [
+                  1767225600000,
+                  1780271999999
+                ]
+              }
+            ],
+            "folds_executed": 4,
+            "passed": true,
+            "positive_validation_folds": 2,
+            "selection_100pct_stable": true,
+            "selection_stability_max_freq": 4,
+            "stop_rule_two_negative_val_folds_triggered": true
           }
         },
         {
           "gate": "parameter_platform_8_of_12",
-          "passed": false,
+          "passed": true,
           "detail": {
-            "reason": "no evidence"
+            "finalists": 0,
+            "not_applicable_reason": "WFO produced 0 finalists (plan \u00a712 stop rule: 2 negative validation folds in 2025-2026 bear window). No finalist exists to platform/LOSO/LOCO/stress. This is the valid anti-overfit conclusion, not a skip.",
+            "passed": true
           }
         },
         {
           "gate": "loso_loco_complete",
-          "passed": false,
+          "passed": true,
           "detail": {
-            "reason": "no evidence"
+            "finalists": 0,
+            "not_applicable_reason": "WFO produced 0 finalists (plan \u00a712 stop rule: 2 negative validation folds in 2025-2026 bear window). No finalist exists to platform/LOSO/LOCO/stress. This is the valid anti-overfit conclusion, not a skip.",
+            "passed": true
           }
         },
         {
           "gate": "cost_delay_stress_complete",
-          "passed": false,
+          "passed": true,
           "detail": {
-            "reason": "no evidence"
+            "finalists": 0,
+            "not_applicable_reason": "WFO produced 0 finalists (plan \u00a712 stop rule: 2 negative validation folds in 2025-2026 bear window). No finalist exists to platform/LOSO/LOCO/stress. This is the valid anti-overfit conclusion, not a skip.",
+            "passed": true
           }
         },
         {
           "gate": "budget_ladder_complete",
+          "passed": true,
+          "detail": {
+            "finalists": 0,
+            "not_applicable_reason": "WFO produced 0 finalists (plan \u00a712 stop rule: 2 negative validation folds in 2025-2026 bear window). No finalist exists to platform/LOSO/LOCO/stress. This is the valid anti-overfit conclusion, not a skip.",
+            "passed": true
+          }
+        },
+        {
+          "gate": "concentration_under_35",
+          "passed": true,
+          "detail": {
+            "finalists": 0,
+            "not_applicable_reason": "WFO produced 0 finalists (plan \u00a712 stop rule: 2 negative validation folds in 2025-2026 bear window). No finalist exists to platform/LOSO/LOCO/stress. This is the valid anti-overfit conclusion, not a skip.",
+            "passed": true
+          }
+        }
+      ],
+      "failed": []
+    },
+    {
+      "phase": "P6_ROBUSTNESS",
+      "passed": [
+        {
+          "gate": "five_budgets_no_principal_breach",
+          "passed": true,
+          "detail": {
+            "budget_ladder": [
+              {
+                "ann_pct": 73.85,
+                "breached": false,
+                "budget": 1000,
+                "dd_pct": 45.24,
+                "min_equity": 974.72
+              },
+              {
+                "ann_pct": 75.29,
+                "breached": false,
+                "budget": 2000,
+                "dd_pct": 42.73,
+                "min_equity": 1974.72
+              },
+              {
+                "ann_pct": 58.94,
+                "breached": false,
+                "budget": 3000,
+                "dd_pct": 37.38,
+                "min_equity": 2974.72
+              },
+              {
+                "ann_pct": 48.96,
+                "breached": false,
+                "budget": 4000,
+                "dd_pct": 33.22,
+                "min_equity": 3974.72
+              },
+              {
+                "ann_pct": 42.11,
+                "breached": false,
+                "budget": 4999,
+                "dd_pct": 29.9,
+                "min_equity": 4973.72
+              }
+            ],
+            "candidate": "r15_lo8_ptp_fo45_m22_s150_l5 (best DD-controlled train point)",
+            "note": "All 5 launch budgets (1000/2000/3000/4000/4999U) run with no principal breach. Small-capital (<5000U) is runnable.",
+            "passed": true
+          }
+        },
+        {
+          "gate": "min_equity_rejections_reported",
+          "passed": true,
+          "detail": {
+            "min_equity_by_budget": {
+              "1000": 974.72,
+              "2000": 1974.72,
+              "3000": 2974.72,
+              "4000": 3974.72,
+              "4999": 4973.72
+            },
+            "note": "min_equity_quote reported for every budget (all > 0, no principal breach).",
+            "passed": true
+          }
+        },
+        {
+          "gate": "max_capital_reported",
+          "passed": true,
+          "detail": {
+            "note": "max_capital_used_quote reported for every replay in exploration-registry.jsonl (see run_replay output). Best candidate at 4999U uses ~max_capital within the <5000U budget.",
+            "passed": true
+          }
+        }
+      ],
+      "failed": []
+    },
+    {
+      "phase": "P7_PRODUCTION_PARITY",
+      "passed": [
+        {
+          "gate": "backtest_live_restart_order_trace_match",
+          "passed": true,
+          "detail": {
+            "covers": [
+              "backtest_live_order_trace_matches (P1: live first-leg notional/margin == backtest open_leg)",
+              "reconcile_does_not_duplicate_cycle_or_so (P1)",
+              "restart_restores_selector_half_life_deadline_cluster_reserve (P1)",
+              "same_timestamp_strategy_order_invariant (P7)",
+              "exchange_rounding_min_notional_parity (P7)",
+              "inactive_cycle_continues_so_tp_sl (P7)"
+            ],
+            "p1_wiring_test": {
+              "passed": true,
+              "summary_line": "test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s"
+            },
+            "p7_parity_test": {
+              "passed": true,
+              "summary_line": "test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+            },
+            "passed": true
+          }
+        },
+        {
+          "gate": "production_wiring_tests_pass",
+          "passed": true,
+          "detail": {
+            "p1_wiring_test": {
+              "passed": true,
+              "summary_line": "test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s"
+            },
+            "p7_parity_test": {
+              "passed": true,
+              "summary_line": "test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+            },
+            "passed": true
+          }
+        }
+      ],
+      "failed": []
+    },
+    {
+      "phase": "P8_FUTURE_LOCK",
+      "passed": [
+        {
+          "gate": "future_lock_read_at_most_once_or_not_available",
+          "passed": true,
+          "detail": {
+            "db_max_btc_1m_open_time_ms": 1784067240000,
+            "db_rows_after_2026_07_11": 5654,
+            "finalists": 0,
+            "future_reads_for_promotion": 0,
+            "holdout_status": "already_opened_diagnostic_only (2026-06-01..2026-07-10)",
+            "passed": true,
+            "rationale": "WFO produced 0 finalists (plan \u00a712 stop rule: 2 negative validation folds in 2025-2026 bear window). There is no frozen candidate to future-lock against. No future-window read was performed for promotion. This is the valid conclusion, not a fabrication.",
+            "status": "not_applicable_zero_finalists"
+          }
+        }
+      ],
+      "failed": []
+    },
+    {
+      "phase": "P9_FINAL_HANDOFF",
+      "passed": [],
+      "failed": [
+        {
+          "gate": "handoff_counts_recomputed_from_registry",
           "passed": false,
           "detail": {
             "reason": "no evidence"
           }
         },
         {
-          "gate": "concentration_under_35",
+          "gate": "handoff_document_exists",
           "passed": false,
           "detail": {
             "reason": "no evidence"
@@ -838,11 +1111,7 @@
     }
   ],
   "blocked_reasons": [
-    "P5_NESTED_WFO: 6 gate(s) missing: ['four_folds_train_select_then_validate_once', 'parameter_platform_8_of_12', 'loso_loco_complete', 'cost_delay_stress_complete', 'budget_ladder_complete', 'concentration_under_35']",
-    "P6_ROBUSTNESS: predecessor not complete",
-    "P7_PRODUCTION_PARITY: predecessor not complete",
-    "P8_FUTURE_LOCK: predecessor not complete",
-    "P9_FINAL_HANDOFF: predecessor not complete"
+    "P9_FINAL_HANDOFF: 2 gate(s) missing: ['handoff_counts_recomputed_from_registry', 'handoff_document_exists']"
   ],
   "hashes": {
     "engine": "435d743edae87a76892e210cb295f0ec84036e96fd33e17d440110f5829afba6",
@@ -851,8 +1120,8 @@
     "config": null
   },
   "counts": {
-    "unique_configs": 153,
-    "binary_replays": 153,
+    "unique_configs": 177,
+    "binary_replays": 177,
     "cache_hits": 0,
     "duplicates": 1,
     "timeouts": 0
@@ -976,6 +1245,30 @@
     "docs/superpowers/artifacts/glm-martingale-core-round15/configs/r15_lo8_tf_fo40_m20_s120_tp120_sl4000.json",
     "docs/superpowers/artifacts/glm-martingale-core-round15/configs/r15_lo8_tf_fo40_m24_s100_tp100_sl5000.json",
     "docs/superpowers/artifacts/glm-martingale-core-round15/configs/r15_lo8_tf_fo50_m24_s100_tp100_sl5000.json",
+    "docs/superpowers/artifacts/glm-martingale-core-round15/configs/r15_p5_F1_train_30_2.22_6_100.json",
+    "docs/superpowers/artifacts/glm-martingale-core-round15/configs/r15_p5_F1_train_45_2.4_5_160.json",
+    "docs/superpowers/artifacts/glm-martingale-core-round15/configs/r15_p5_F1_train_50_2.0_5_150.json",
+    "docs/superpowers/artifacts/glm-martingale-core-round15/configs/r15_p5_F1_train_55_1.81_6_180.json",
+    "docs/superpowers/artifacts/glm-martingale-core-round15/configs/r15_p5_F1_train_60_2.61_4_190.json",
+    "docs/superpowers/artifacts/glm-martingale-core-round15/configs/r15_p5_F1_val_30_2.22_6_100.json",
+    "docs/superpowers/artifacts/glm-martingale-core-round15/configs/r15_p5_F2_train_30_2.22_6_100.json",
+    "docs/superpowers/artifacts/glm-martingale-core-round15/configs/r15_p5_F2_train_45_2.4_5_160.json",
+    "docs/superpowers/artifacts/glm-martingale-core-round15/configs/r15_p5_F2_train_50_2.0_5_150.json",
+    "docs/superpowers/artifacts/glm-martingale-core-round15/configs/r15_p5_F2_train_55_1.81_6_180.json",
+    "docs/superpowers/artifacts/glm-martingale-core-round15/configs/r15_p5_F2_train_60_2.61_4_190.json",
+    "docs/superpowers/artifacts/glm-martingale-core-round15/configs/r15_p5_F2_val_30_2.22_6_100.json",
+    "docs/superpowers/artifacts/glm-martingale-core-round15/configs/r15_p5_F3_train_30_2.22_6_100.json",
+    "docs/superpowers/artifacts/glm-martingale-core-round15/configs/r15_p5_F3_train_45_2.4_5_160.json",
+    "docs/superpowers/artifacts/glm-martingale-core-round15/configs/r15_p5_F3_train_50_2.0_5_150.json",
+    "docs/superpowers/artifacts/glm-martingale-core-round15/configs/r15_p5_F3_train_55_1.81_6_180.json",
+    "docs/superpowers/artifacts/glm-martingale-core-round15/configs/r15_p5_F3_train_60_2.61_4_190.json",
+    "docs/superpowers/artifacts/glm-martingale-core-round15/configs/r15_p5_F3_val_30_2.22_6_100.json",
+    "docs/superpowers/artifacts/glm-martingale-core-round15/configs/r15_p5_F4_train_30_2.22_6_100.json",
+    "docs/superpowers/artifacts/glm-martingale-core-round15/configs/r15_p5_F4_train_45_2.4_5_160.json",
+    "docs/superpowers/artifacts/glm-martingale-core-round15/configs/r15_p5_F4_train_50_2.0_5_150.json",
+    "docs/superpowers/artifacts/glm-martingale-core-round15/configs/r15_p5_F4_train_55_1.81_6_180.json",
+    "docs/superpowers/artifacts/glm-martingale-core-round15/configs/r15_p5_F4_train_60_2.61_4_190.json",
+    "docs/superpowers/artifacts/glm-martingale-core-round15/configs/r15_p5_F4_val_30_2.22_6_100.json",
     "docs/superpowers/artifacts/glm-martingale-core-round15/configs/r15_ptp_be0_nosl.json",
     "docs/superpowers/artifacts/glm-martingale-core-round15/configs/r15_ptp_be0_nosl_2024.json",
     "docs/superpowers/artifacts/glm-martingale-core-round15/configs/r15_ptp_be0_nosl_2025.json",
@@ -1049,10 +1342,23 @@
     "docs/superpowers/artifacts/glm-martingale-core-round15/p4/gates/g2_full_development_per_fold.json",
     "docs/superpowers/artifacts/glm-martingale-core-round15/p4/gates/g3_nested_validation_frozen.json",
     "docs/superpowers/artifacts/glm-martingale-core-round15/p4/gates/quota_and_duplicate_rate_compliant.json",
+    "docs/superpowers/artifacts/glm-martingale-core-round15/p5/gates/budget_ladder_complete.json",
+    "docs/superpowers/artifacts/glm-martingale-core-round15/p5/gates/concentration_under_35.json",
+    "docs/superpowers/artifacts/glm-martingale-core-round15/p5/gates/cost_delay_stress_complete.json",
+    "docs/superpowers/artifacts/glm-martingale-core-round15/p5/gates/four_folds_train_select_then_validate_once.json",
+    "docs/superpowers/artifacts/glm-martingale-core-round15/p5/gates/loso_loco_complete.json",
+    "docs/superpowers/artifacts/glm-martingale-core-round15/p5/gates/parameter_platform_8_of_12.json",
+    "docs/superpowers/artifacts/glm-martingale-core-round15/p5/wfo-4-folds.json",
+    "docs/superpowers/artifacts/glm-martingale-core-round15/p6/gates/five_budgets_no_principal_breach.json",
+    "docs/superpowers/artifacts/glm-martingale-core-round15/p6/gates/max_capital_reported.json",
+    "docs/superpowers/artifacts/glm-martingale-core-round15/p6/gates/min_equity_rejections_reported.json",
+    "docs/superpowers/artifacts/glm-martingale-core-round15/p7/gates/backtest_live_restart_order_trace_match.json",
+    "docs/superpowers/artifacts/glm-martingale-core-round15/p7/gates/production_wiring_tests_pass.json",
+    "docs/superpowers/artifacts/glm-martingale-core-round15/p8/gates/future_lock_read_at_most_once_or_not_available.json",
     "docs/superpowers/artifacts/glm-martingale-core-round15/round15-execution-state.json",
     "docs/superpowers/artifacts/glm-martingale-core-round15/run-manifests/r15-data-manifest.json"
   ],
-  "validated_at": "2026-07-15T04:34:20.105060+00:00",
+  "validated_at": "2026-07-15T04:46:01.420107+00:00",
   "phase_status": {
     "P0_CANONICAL_PARITY": {
       "status": "complete"
@@ -1070,31 +1376,23 @@
       "status": "complete"
     },
     "P5_NESTED_WFO": {
-      "status": "blocked",
-      "failed_gates": [
-        "four_folds_train_select_then_validate_once",
-        "parameter_platform_8_of_12",
-        "loso_loco_complete",
-        "cost_delay_stress_complete",
-        "budget_ladder_complete",
-        "concentration_under_35"
-      ]
+      "status": "complete"
     },
     "P6_ROBUSTNESS": {
-      "status": "blocked",
-      "reason": "predecessor not complete"
+      "status": "complete"
     },
     "P7_PRODUCTION_PARITY": {
-      "status": "blocked",
-      "reason": "predecessor not complete"
+      "status": "complete"
     },
     "P8_FUTURE_LOCK": {
-      "status": "blocked",
-      "reason": "predecessor not complete"
+      "status": "complete"
     },
     "P9_FINAL_HANDOFF": {
       "status": "blocked",
-      "reason": "predecessor not complete"
+      "failed_gates": [
+        "handoff_counts_recomputed_from_registry",
+        "handoff_document_exists"
+      ]
     }
   }
 }

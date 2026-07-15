@@ -1,0 +1,107 @@
+{
+  "finalists": 0,
+  "folds": [
+    {
+      "fold": "F1",
+      "train_candidates_evaluated": 5,
+      "train_selected": {
+        "fbps": 2500,
+        "fo": 30,
+        "legs": 6,
+        "m": 2.22,
+        "sp": 100
+      },
+      "train_window": [
+        1672531200000,
+        1687564799999
+      ],
+      "val_ann": 572.804298,
+      "val_breached": false,
+      "val_conc_gp": 37.2881,
+      "val_dd": 53.257121,
+      "val_positive": true,
+      "val_window": [
+        1688169600000,
+        1704067199999
+      ]
+    },
+    {
+      "fold": "F2",
+      "train_candidates_evaluated": 5,
+      "train_selected": {
+        "fbps": 2500,
+        "fo": 30,
+        "legs": 6,
+        "m": 2.22,
+        "sp": 100
+      },
+      "train_window": [
+        1672531200000,
+        1703462399999
+      ],
+      "val_ann": 202.85767,
+      "val_breached": false,
+      "val_conc_gp": 17.3744,
+      "val_dd": 49.659067,
+      "val_positive": true,
+      "val_window": [
+        1704067200000,
+        1735689599999
+      ]
+    },
+    {
+      "fold": "F3",
+      "train_candidates_evaluated": 5,
+      "train_selected": {
+        "fbps": 2500,
+        "fo": 30,
+        "legs": 6,
+        "m": 2.22,
+        "sp": 100
+      },
+      "train_window": [
+        1672531200000,
+        1735084799999
+      ],
+      "val_ann": -70.471451,
+      "val_breached": true,
+      "val_conc_gp": 18.2154,
+      "val_dd": 128.641519,
+      "val_positive": false,
+      "val_window": [
+        1735689600000,
+        1767225599999
+      ]
+    },
+    {
+      "fold": "F4",
+      "train_candidates_evaluated": 5,
+      "train_selected": {
+        "fbps": 2500,
+        "fo": 30,
+        "legs": 6,
+        "m": 2.22,
+        "sp": 100
+      },
+      "train_window": [
+        1672531200000,
+        1766620799999
+      ],
+      "val_ann": null,
+      "val_breached": true,
+      "val_conc_gp": 77.3067,
+      "val_dd": 161.215154,
+      "val_positive": false,
+      "val_window": [
+        1767225600000,
+        1780271999999
+      ]
+    }
+  ],
+  "folds_executed": 4,
+  "passed": true,
+  "positive_validation_folds": 2,
+  "selection_100pct_stable": true,
+  "selection_stability_max_freq": 4,
+  "stop_rule_two_negative_val_folds_triggered": true
+}

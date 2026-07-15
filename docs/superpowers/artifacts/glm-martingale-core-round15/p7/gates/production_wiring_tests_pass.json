@@ -1,0 +1,11 @@
+{
+  "p1_wiring_test": {
+    "passed": true,
+    "summary_line": "test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s"
+  },
+  "p7_parity_test": {
+    "passed": true,
+    "summary_line": "test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+  },
+  "passed": true
+}

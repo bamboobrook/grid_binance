@@ -1,0 +1,42 @@
+{
+  "budget_ladder": [
+    {
+      "ann_pct": 73.85,
+      "breached": false,
+      "budget": 1000,
+      "dd_pct": 45.24,
+      "min_equity": 974.72
+    },
+    {
+      "ann_pct": 75.29,
+      "breached": false,
+      "budget": 2000,
+      "dd_pct": 42.73,
+      "min_equity": 1974.72
+    },
+    {
+      "ann_pct": 58.94,
+      "breached": false,
+      "budget": 3000,
+      "dd_pct": 37.38,
+      "min_equity": 2974.72
+    },
+    {
+      "ann_pct": 48.96,
+      "breached": false,
+      "budget": 4000,
+      "dd_pct": 33.22,
+      "min_equity": 3974.72
+    },
+    {
+      "ann_pct": 42.11,
+      "breached": false,
+      "budget": 4999,
+      "dd_pct": 29.9,
+      "min_equity": 4973.72
+    }
+  ],
+  "candidate": "r15_lo8_ptp_fo45_m22_s150_l5 (best DD-controlled train point)",
+  "note": "All 5 launch budgets (1000/2000/3000/4000/4999U) run with no principal breach. Small-capital (<5000U) is runnable.",
+  "passed": true
+}

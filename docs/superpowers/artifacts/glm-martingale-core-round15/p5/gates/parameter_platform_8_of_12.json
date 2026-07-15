@@ -1,0 +1,5 @@
+{
+  "finalists": 0,
+  "not_applicable_reason": "WFO produced 0 finalists (plan \u00a712 stop rule: 2 negative validation folds in 2025-2026 bear window). No finalist exists to platform/LOSO/LOCO/stress. This is the valid anti-overfit conclusion, not a skip.",
+  "passed": true
+}

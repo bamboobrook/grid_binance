@@ -1,0 +1,11 @@
+{
+  "min_equity_by_budget": {
+    "1000": 974.72,
+    "2000": 1974.72,
+    "3000": 2974.72,
+    "4000": 3974.72,
+    "4999": 4973.72
+  },
+  "note": "min_equity_quote reported for every budget (all > 0, no principal breach).",
+  "passed": true
+}

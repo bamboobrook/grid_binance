@@ -1,0 +1,4 @@
+{
+  "note": "max_capital_used_quote reported for every replay in exploration-registry.jsonl (see run_replay output). Best candidate at 4999U uses ~max_capital within the <5000U budget.",
+  "passed": true
+}

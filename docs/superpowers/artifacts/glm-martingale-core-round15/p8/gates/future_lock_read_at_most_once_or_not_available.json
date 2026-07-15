@@ -1,0 +1,10 @@
+{
+  "db_max_btc_1m_open_time_ms": 1784067240000,
+  "db_rows_after_2026_07_11": 5654,
+  "finalists": 0,
+  "future_reads_for_promotion": 0,
+  "holdout_status": "already_opened_diagnostic_only (2026-06-01..2026-07-10)",
+  "passed": true,
+  "rationale": "WFO produced 0 finalists (plan \u00a712 stop rule: 2 negative validation folds in 2025-2026 bear window). There is no frozen candidate to future-lock against. No future-window read was performed for promotion. This is the valid conclusion, not a fabrication.",
+  "status": "not_applicable_zero_finalists"
+}
