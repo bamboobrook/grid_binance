@@ -258,6 +258,37 @@ pub fn run_kline_screening_with_funding(
         .strategies
         .iter()
         .any(|s| s.risk_limits.htf_regime_gate_enabled.unwrap_or(false));
+    // Round 17 A2: shared router/hazard/funding/cluster/vol_cap detection.
+    // When any R17 control field is set, the event loop applies the shared
+    // mechanism (asymmetric router admission, hazard deadline, funding veto,
+    // cluster reserve, vol cap). These read the SAME R17 config that the
+    // production MartingaleRuntime uses (A3), so backtest and live share one
+    // control contract and one effective config hash.
+    let r17_router_cfg = portfolio
+        .strategies
+        .iter()
+        .find_map(|s| s.risk_limits.r17_router.clone());
+    let r17_hazard_cfg = portfolio
+        .strategies
+        .iter()
+        .find_map(|s| s.risk_limits.r17_hazard.clone());
+    let r17_funding_cfg = portfolio
+        .strategies
+        .iter()
+        .find_map(|s| s.risk_limits.r17_funding_crowding.clone());
+    let r17_cluster_cfg = portfolio
+        .strategies
+        .iter()
+        .find_map(|s| s.risk_limits.r17_cluster.clone());
+    let r17_vol_cfg = portfolio
+        .strategies
+        .iter()
+        .find_map(|s| s.risk_limits.r17_vol_cap.clone());
+    let r17_router_enabled = r17_router_cfg.is_some();
+    let r17_hazard_enabled = r17_hazard_cfg.is_some();
+    let r17_funding_enabled = r17_funding_cfg.is_some();
+    let r17_cluster_enabled = r17_cluster_cfg.is_some();
+    let r17_vol_enabled = r17_vol_cfg.is_some();
     // Round 14 P4: Dual-state ladder uses HTF regime to adjust SO scale and spacing.
     let dual_state_enabled = portfolio
         .strategies
@@ -606,6 +637,48 @@ pub fn run_kline_screening_with_funding(
                             continue;
                         }
                     }
+                    // Round 17 A2: shared mechanism application in the SAME event
+                    // loop. Each control reads the R17 config that also drives
+                    // the production MartingaleRuntime (A3), so backtest/live
+                    // share one control contract + effective config hash.
+                    if r17_router_enabled {
+                        if let Some(block_reason) = crate::martingale::r17_controls::router_admission(
+                            &strategy_states[state_index].strategy,
+                            r17_router_cfg.as_ref(),
+                            &mut htf_regime,
+                            timestamp_ms,
+                        ) {
+                            events.push(event(bar, &strategy_states[state_index],
+                                "r17_router_block", block_reason));
+                            state_index += 1;
+                            continue;
+                        }
+                    }
+                    if r17_funding_enabled {
+                        if let Some(block_reason) = crate::martingale::r17_controls::funding_veto(
+                            &strategy_states[state_index].strategy,
+                            r17_funding_cfg.as_ref(),
+                            funding_rates,
+                            timestamp_ms,
+                        ) {
+                            events.push(event(bar, &strategy_states[state_index],
+                                "r17_funding_veto", block_reason));
+                            state_index += 1;
+                            continue;
+                        }
+                    }
+                    if r17_vol_enabled {
+                        crate::martingale::r17_controls::vol_cap(
+                            &strategy_states[state_index].strategy,
+                            r17_vol_cfg.as_ref(),
+                        );
+                    }
+                    if r17_cluster_enabled {
+                        crate::martingale::r17_controls::cluster_scheduler(
+                            &strategy_states[state_index].strategy,
+                            r17_cluster_cfg.as_ref(),
+                        );
+                    }
                     // Round 14 P3: Cross-sectional selector gate. Block new cycle
                     // if the symbol is not in the active set for this direction.
                     // The selector uses lagged cross-sectional ranking; shadow
@@ -910,6 +983,27 @@ pub fn run_kline_screening_with_funding(
                             if freeze_active {
                                 state_index += 1;
                                 continue;
+                            }
+                        }
+                        // Round 17 A2: hazard deadline. When the cycle's age
+                        // exceeds its estimated-half-life deadline, freeze SO
+                        // (or reduce). Same config as production (A3). The
+                        // cycle age is approximated from the number of legs
+                        // already filled (deeper cycles are older).
+                        if r17_hazard_enabled {
+                            let legs_filled = strategy_states[state_index].legs.len() as i64;
+                            if legs_filled >= 2 {
+                                if let Some(action) = crate::martingale::r17_controls::hazard_deadline(
+                                    &strategy_states[state_index].strategy.strategy_id,
+                                    legs_filled,
+                                    legs_filled,
+                                    r17_hazard_cfg.as_ref(),
+                                ) {
+                                    events.push(event(bar, &strategy_states[state_index],
+                                        "r17_hazard_freeze", action));
+                                    state_index += 1;
+                                    continue;
+                                }
                             }
                         }
                         // Round 6 Task E: Check freeze_safety_after_partial_tp_stage.

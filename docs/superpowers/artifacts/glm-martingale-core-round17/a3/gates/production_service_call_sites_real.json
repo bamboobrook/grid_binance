@@ -1,0 +1,23 @@
+{
+  "used_real_started_service": true,
+  "no_set_for_test": true,
+  "real_sqlite_writer_read": true,
+  "production_call_sites": {
+    "router_push_completed_1m": [
+      "apps/trading-engine/src/main.rs:891"
+    ],
+    "router_set_regime": [
+      "apps/trading-engine/src/main.rs:898"
+    ],
+    "regime_allows_new_cycle": [
+      "apps/trading-engine/src/main.rs:899"
+    ],
+    "cycle_hazard_open": [
+      "apps/trading-engine/src/main.rs:934"
+    ],
+    "cycle_hazard_freeze_so": [
+      "apps/trading-engine/src/main.rs:942"
+    ]
+  },
+  "production_wired": true
+}

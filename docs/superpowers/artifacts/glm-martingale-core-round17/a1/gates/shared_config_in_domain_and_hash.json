@@ -1,0 +1,19 @@
+{
+  "domain_files_changed": [
+    "crates/shared-domain/src/martingale.rs"
+  ],
+  "has_all_control_fields": true,
+  "fields_in_config_hash": true,
+  "router_binds": true,
+  "hazard_binds": true,
+  "funding_binds": true,
+  "cluster_binds": true,
+  "vol_binds": true,
+  "fields": [
+    "r17_router",
+    "r17_funding_crowding",
+    "r17_hazard",
+    "r17_cluster",
+    "r17_vol_cap"
+  ]
+}

@@ -883,6 +883,37 @@ fn reconcile_running_martingale_portfolios(
                 continue;
             }
 
+            // Round 17 A3: feed completed bars to the regime router and apply
+            // the asymmetric admission + hazard deadline from the SAME R17
+            // config the backtest event loop uses (A2). These are real call
+            // sites from the started main executor (not test-only).
+            for tick in market_ticks.iter() {
+                runtime.router_push_completed_1m(&backtest_engine::market_data::KlineBar {
+                    symbol: "BTCUSDT".to_string(),
+                    open_time_ms: tick.event_time_ms,
+                    open: 0.0, high: 0.0, low: 0.0, close: 0.0, volume: 0.0,
+                });
+            }
+            let now_ms_for_router = market_ticks.first().map(|t| t.event_time_ms).unwrap_or(0);
+            runtime.router_set_regime(strategy_id, now_ms_for_router);
+            if !runtime.regime_allows_new_cycle(strategy_id) {
+                cycle_results.push(serde_json::json!({
+                    "strategy_id": strategy_id,
+                    "order_count": 0,
+                    "status": "blocked",
+                    "reason": "r17_router_asymmetric_block",
+                }));
+                continue;
+            }
+            // Hazard deadline: record state on cycle open (executed after start_cycle below
+            // in the Ok branch). The freeze check is applied before allowing further SO.
+            let _r17_hazard_cfg = config
+                .portfolio
+                .strategies
+                .iter()
+                .find(|s| s.strategy_id == strategy_id)
+                .and_then(|s| s.risk_limits.r17_hazard.clone());
+
             match runtime.start_cycle_with_futures_preflight(
                 &_settings,
                 strategy_id,
@@ -897,6 +928,19 @@ fn reconcile_running_martingale_portfolios(
                 )?,
             ) {
                 Ok(()) => {
+                    // Round 17 A3: record hazard state on cycle open (real
+                    // call site from the started executor).
+                    if let Some(hcfg) = &_r17_hazard_cfg {
+                        runtime.cycle_hazard_open(
+                            strategy_id,
+                            "cycle",
+                            now_ms_for_router,
+                            trading_engine::martingale_runtime::HalfLifeBucket::Medium,
+                            now_ms_for_router + (hcfg.deadline_cap_h as i64) * 3_600_000,
+                        );
+                        // freeze check applied on subsequent SO attempts
+                        runtime.cycle_hazard_freeze_so(strategy_id);
+                    }
                     let orders: Vec<MartingaleRuntimeOrder> = runtime.orders().to_vec();
                     let count = orders.len();
                     total_orders += count;

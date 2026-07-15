@@ -1,9 +1,6 @@
 {
   "blocked_reasons": [
-    "A1: 1 failed: ['shared_config_in_domain_and_hash']",
-    "A2: predecessor not complete",
-    "A3: predecessor not complete",
-    "A4: predecessor not complete",
+    "A4: 1 failed: ['ten_family_binding']",
     "B0: predecessor not complete",
     "B1: predecessor not complete",
     "B2: predecessor not complete",
@@ -49,37 +46,119 @@
       "phase": "A0"
     },
     {
-      "failed": [
+      "failed": [],
+      "passed": [
         {
-          "detail": {},
+          "detail": {
+            "cluster_binds": true,
+            "domain_files_changed": [
+              "crates/shared-domain/src/martingale.rs"
+            ],
+            "fields": [
+              "r17_router",
+              "r17_funding_crowding",
+              "r17_hazard",
+              "r17_cluster",
+              "r17_vol_cap"
+            ],
+            "fields_in_config_hash": true,
+            "funding_binds": true,
+            "has_all_control_fields": true,
+            "hazard_binds": true,
+            "router_binds": true,
+            "vol_binds": true
+          },
           "gate": "shared_config_in_domain_and_hash"
         }
       ],
-      "passed": [],
       "phase": "A1"
+    },
+    {
+      "failed": [],
+      "passed": [
+        {
+          "detail": {
+            "call_sites": {
+              "cluster_scheduler": [
+                "apps/backtest-engine/src/martingale/kline_engine.rs:677"
+              ],
+              "funding_veto": [
+                "apps/backtest-engine/src/martingale/kline_engine.rs:658"
+              ],
+              "hazard_deadline": [
+                "apps/backtest-engine/src/martingale/kline_engine.rs:996"
+              ],
+              "router_admission": [
+                "apps/backtest-engine/src/martingale/kline_engine.rs:645"
+              ]
+            },
+            "event_loop_wired": true
+          },
+          "gate": "backtest_event_wiring_real"
+        }
+      ],
+      "phase": "A2"
+    },
+    {
+      "failed": [],
+      "passed": [
+        {
+          "detail": {
+            "call_sites": {
+              "cycle_hazard_freeze_so": [
+                "apps/trading-engine/src/main.rs:942"
+              ],
+              "cycle_hazard_open": [
+                "apps/trading-engine/src/main.rs:934"
+              ],
+              "regime_allows_new_cycle": [
+                "apps/trading-engine/src/main.rs:899"
+              ],
+              "router_push_completed_1m": [
+                "apps/trading-engine/src/main.rs:891"
+              ],
+              "router_set_regime": [
+                "apps/trading-engine/src/main.rs:898"
+              ]
+            },
+            "production_wired": true
+          },
+          "gate": "production_service_call_sites_real"
+        }
+      ],
+      "phase": "A3"
+    },
+    {
+      "failed": [
+        {
+          "detail": {
+            "reason": "no families"
+          },
+          "gate": "ten_family_binding"
+        }
+      ],
+      "passed": [],
+      "phase": "A4"
     }
   ],
-  "phase": "A1",
+  "phase": "A4",
   "phase_status": {
     "A0": {
       "status": "complete"
     },
     "A1": {
-      "failed": [
-        "shared_config_in_domain_and_hash"
-      ],
-      "status": "blocked"
+      "status": "complete"
     },
     "A2": {
-      "reason": "predecessor",
-      "status": "blocked"
+      "status": "complete"
     },
     "A3": {
-      "reason": "predecessor",
-      "status": "blocked"
+      "status": "complete"
     },
     "A4": {
-      "reason": "predecessor",
+      "failed": [
+        "ten_family_binding"
+      ],
       "status": "blocked"
     },
     "B0": {
@@ -122,6 +201,6 @@
     "problems": 0
   },
   "status": "blocked",
-  "validated_at": "2026-07-15T14:06:09.570214+00:00",
+  "validated_at": "2026-07-15T14:15:27.879782+00:00",
   "validator_sha256": "e48c522b8c3f3dcdab92d2ab6f90c6a4f8d7523cd670eef704e62c0edb419703"
 }

@@ -1,0 +1,21 @@
+{
+  "event_loop_wired": true,
+  "call_sites": {
+    "router_admission": [
+      "apps/backtest-engine/src/martingale/kline_engine.rs:645"
+    ],
+    "hazard_deadline": [
+      "apps/backtest-engine/src/martingale/kline_engine.rs:996"
+    ],
+    "cluster_scheduler": [
+      "apps/backtest-engine/src/martingale/kline_engine.rs:677"
+    ],
+    "funding_veto": [
+      "apps/backtest-engine/src/martingale/kline_engine.rs:658"
+    ],
+    "vol_cap": [
+      "apps/backtest-engine/src/martingale/kline_engine.rs:671"
+    ]
+  },
+  "definition_file": "apps/backtest-engine/src/martingale/r17_controls.rs"
+}
