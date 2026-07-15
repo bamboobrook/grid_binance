@@ -1,0 +1,514 @@
+{
+  "all_results": [
+    {
+      "ann": 198.567526,
+      "breached": false,
+      "conc_gp": 19.7998,
+      "dd": 48.567968,
+      "label": "r15_g1_sobol_000_fo35_m2.72_l7_s170_f2000",
+      "params": {
+        "fbps": 2000,
+        "fo": 35,
+        "legs": 7,
+        "m": 2.72,
+        "sp": 170
+      },
+      "trades": 385
+    },
+    {
+      "ann": 61.519902,
+      "breached": false,
+      "conc_gp": 15.9229,
+      "dd": 22.376469,
+      "label": "r15_g1_sobol_001_fo50_m1.62_l5_s130_f2800",
+      "params": {
+        "fbps": 2800,
+        "fo": 50,
+        "legs": 5,
+        "m": 1.62,
+        "sp": 130
+      },
+      "trades": 277
+    },
+    {
+      "ann": 406.957675,
+      "breached": false,
+      "conc_gp": 20.3265,
+      "dd": 61.158685,
+      "label": "r15_g1_sobol_002_fo50_m2.92_l8_s230_f2900",
+      "params": {
+        "fbps": 2900,
+        "fo": 50,
+        "legs": 8,
+        "m": 2.92,
+        "sp": 230
+      },
+      "trades": 315
+    },
+    {
+      "ann": 202.85767,
+      "breached": false,
+      "conc_gp": 17.3744,
+      "dd": 49.659067,
+      "label": "r15_g1_sobol_003_fo30_m2.22_l6_s100_f2500",
+      "params": {
+        "fbps": 2500,
+        "fo": 30,
+        "legs": 6,
+        "m": 2.22,
+        "sp": 100
+      },
+      "trades": 360
+    },
+    {
+      "ann": 84.424233,
+      "breached": false,
+      "conc_gp": 22.9375,
+      "dd": 38.488876,
+      "label": "r15_g1_sobol_004_fo30_m3.0_l4_s110_f2400",
+      "params": {
+        "fbps": 2400,
+        "fo": 30,
+        "legs": 4,
+        "m": 3.0,
+        "sp": 110
+      },
+      "trades": 279
+    },
+    {
+      "ann": 295.562802,
+      "breached": false,
+      "conc_gp": 25.4309,
+      "dd": 61.813249,
+      "label": "r15_g1_sobol_005_fo55_m2.11_l6_s240_f3200",
+      "params": {
+        "fbps": 3200,
+        "fo": 55,
+        "legs": 6,
+        "m": 2.11,
+        "sp": 240
+      },
+      "trades": 312
+    },
+    {
+      "ann": 198.96504,
+      "breached": false,
+      "conc_gp": 20.8115,
+      "dd": 41.716079,
+      "label": "r15_g1_sobol_006_fo45_m2.4_l5_s160_f2700",
+      "params": {
+        "fbps": 2700,
+        "fo": 45,
+        "legs": 5,
+        "m": 2.4,
+        "sp": 160
+      },
+      "trades": 322
+    },
+    {
+      "ann": 193.862659,
+      "breached": false,
+      "conc_gp": 21.5576,
+      "dd": 59.42057,
+      "label": "r15_g1_sobol_007_fo40_m1.9_l7_s200_f2200",
+      "params": {
+        "fbps": 2200,
+        "fo": 40,
+        "legs": 7,
+        "m": 1.9,
+        "sp": 200
+      },
+      "trades": 427
+    },
+    {
+      "ann": 279.596424,
+      "breached": false,
+      "conc_gp": 22.2671,
+      "dd": 56.4448,
+      "label": "r15_g1_sobol_008_fo40_m2.82_l5_s250_f2900",
+      "params": {
+        "fbps": 2900,
+        "fo": 40,
+        "legs": 5,
+        "m": 2.82,
+        "sp": 250
+      },
+      "trades": 298
+    },
+    {
+      "ann": 340.719893,
+      "breached": false,
+      "conc_gp": 16.7966,
+      "dd": 71.466202,
+      "label": "r15_g1_sobol_009_fo45_m2.31_l7_s120_f2100",
+      "params": {
+        "fbps": 2100,
+        "fo": 45,
+        "legs": 7,
+        "m": 2.31,
+        "sp": 120
+      },
+      "trades": 409
+    },
+    {
+      "ann": 124.615403,
+      "breached": false,
+      "conc_gp": 20.3463,
+      "dd": 40.40528,
+      "label": "r15_g1_sobol_010_fo60_m2.61_l4_s190_f2600",
+      "params": {
+        "fbps": 2600,
+        "fo": 60,
+        "legs": 4,
+        "m": 2.61,
+        "sp": 190
+      },
+      "trades": 279
+    },
+    {
+      "ann": 59.611669,
+      "breached": false,
+      "conc_gp": 21.5767,
+      "dd": 21.918682,
+      "label": "r15_g1_sobol_011_fo25_m1.72_l6_s150_f3000",
+      "params": {
+        "fbps": 3000,
+        "fo": 25,
+        "legs": 6,
+        "m": 1.72,
+        "sp": 150
+      },
+      "trades": 306
+    },
+    {
+      "ann": 342.436081,
+      "breached": false,
+      "conc_gp": 17.8663,
+      "dd": 61.993733,
+      "label": "r15_g1_sobol_012_fo30_m2.51_l8_s140_f3100",
+      "params": {
+        "fbps": 3100,
+        "fo": 30,
+        "legs": 8,
+        "m": 2.51,
+        "sp": 140
+      },
+      "trades": 298
+    },
+    {
+      "ann": 137.269702,
+      "breached": false,
+      "conc_gp": 20.7827,
+      "dd": 41.514739,
+      "label": "r15_g1_sobol_013_fo55_m1.81_l6_s180_f2400",
+      "params": {
+        "fbps": 2400,
+        "fo": 55,
+        "legs": 6,
+        "m": 1.81,
+        "sp": 180
+      },
+      "trades": 360
+    },
+    {
+      "ann": 389.711208,
+      "breached": false,
+      "conc_gp": 17.8733,
+      "dd": 92.305925,
+      "label": "r15_g1_sobol_014_fo45_m3.11_l7_s90_f2200",
+      "params": {
+        "fbps": 2200,
+        "fo": 45,
+        "legs": 7,
+        "m": 3.11,
+        "sp": 90
+      },
+      "trades": 341
+    },
+    {
+      "ann": 77.888297,
+      "breached": false,
+      "conc_gp": 19.6656,
+      "dd": 34.227802,
+      "label": "r15_g1_sobol_015_fo35_m2.01_l5_s220_f2700",
+      "params": {
+        "fbps": 2700,
+        "fo": 35,
+        "legs": 5,
+        "m": 2.01,
+        "sp": 220
+      },
+      "trades": 313
+    },
+    {
+      "ann": 360.345154,
+      "breached": false,
+      "conc_gp": 18.8238,
+      "dd": 72.926321,
+      "label": "r15_g1_sobol_016_fo35_m3.19_l7_s160_f2500",
+      "params": {
+        "fbps": 2500,
+        "fo": 35,
+        "legs": 7,
+        "m": 3.19,
+        "sp": 160
+      },
+      "trades": 324
+    },
+    {
+      "ann": 115.786942,
+      "breached": false,
+      "conc_gp": 20.1308,
+      "dd": 36.143707,
+      "label": "r15_g1_sobol_017_fo50_m2.08_l5_s210_f3000",
+      "params": {
+        "fbps": 3000,
+        "fo": 50,
+        "legs": 5,
+        "m": 2.08,
+        "sp": 210
+      },
+      "trades": 272
+    },
+    {
+      "ann": 288.040781,
+      "breached": false,
+      "conc_gp": 16.4122,
+      "dd": 60.084389,
+      "label": "r15_g1_sobol_018_fo55_m2.58_l6_s110_f2800",
+      "params": {
+        "fbps": 2800,
+        "fo": 55,
+        "legs": 6,
+        "m": 2.58,
+        "sp": 110
+      },
+      "trades": 283
+    },
+    {
+      "ann": 26.032759,
+      "breached": false,
+      "conc_gp": 19.6934,
+      "dd": 14.033626,
+      "label": "r15_g1_sobol_019_fo30_m1.88_l4_s230_f2000",
+      "params": {
+        "fbps": 2000,
+        "fo": 30,
+        "legs": 4,
+        "m": 1.88,
+        "sp": 230
+      },
+      "trades": 323
+    },
+    {
+      "ann": 298.562377,
+      "breached": false,
+      "conc_gp": 29.8717,
+      "dd": 51.873486,
+      "label": "r15_g1_sobol_020_fo25_m2.69_l6_s220_f2300",
+      "params": {
+        "fbps": 2300,
+        "fo": 25,
+        "legs": 6,
+        "m": 2.69,
+        "sp": 220
+      },
+      "trades": 381
+    },
+    {
+      "ann": 296.498118,
+      "breached": false,
+      "conc_gp": 17.0946,
+      "dd": 63.575332,
+      "label": "r15_g1_sobol_021_fo60_m1.79_l8_s90_f2700",
+      "params": {
+        "fbps": 2700,
+        "fo": 60,
+        "legs": 8,
+        "m": 1.79,
+        "sp": 90
+      },
+      "trades": 353
+    }
+  ],
+  "budget": 4999.0,
+  "duplicate_rate": 0.0,
+  "duplicates": 0,
+  "fold_train_block": "2024_fold_train",
+  "n_configs_requested": 22,
+  "n_replays_completed": 22,
+  "pareto_configs": [
+    {
+      "ann": 406.957675,
+      "breached": false,
+      "conc_gp": 20.3265,
+      "dd": 61.158685,
+      "label": "r15_g1_sobol_002_fo50_m2.92_l8_s230_f2900",
+      "params": {
+        "fbps": 2900,
+        "fo": 50,
+        "legs": 8,
+        "m": 2.92,
+        "sp": 230
+      },
+      "trades": 315
+    },
+    {
+      "ann": 298.562377,
+      "breached": false,
+      "conc_gp": 29.8717,
+      "dd": 51.873486,
+      "label": "r15_g1_sobol_020_fo25_m2.69_l6_s220_f2300",
+      "params": {
+        "fbps": 2300,
+        "fo": 25,
+        "legs": 6,
+        "m": 2.69,
+        "sp": 220
+      },
+      "trades": 381
+    },
+    {
+      "ann": 202.85767,
+      "breached": false,
+      "conc_gp": 17.3744,
+      "dd": 49.659067,
+      "label": "r15_g1_sobol_003_fo30_m2.22_l6_s100_f2500",
+      "params": {
+        "fbps": 2500,
+        "fo": 30,
+        "legs": 6,
+        "m": 2.22,
+        "sp": 100
+      },
+      "trades": 360
+    },
+    {
+      "ann": 198.96504,
+      "breached": false,
+      "conc_gp": 20.8115,
+      "dd": 41.716079,
+      "label": "r15_g1_sobol_006_fo45_m2.4_l5_s160_f2700",
+      "params": {
+        "fbps": 2700,
+        "fo": 45,
+        "legs": 5,
+        "m": 2.4,
+        "sp": 160
+      },
+      "trades": 322
+    },
+    {
+      "ann": 137.269702,
+      "breached": false,
+      "conc_gp": 20.7827,
+      "dd": 41.514739,
+      "label": "r15_g1_sobol_013_fo55_m1.81_l6_s180_f2400",
+      "params": {
+        "fbps": 2400,
+        "fo": 55,
+        "legs": 6,
+        "m": 1.81,
+        "sp": 180
+      },
+      "trades": 360
+    },
+    {
+      "ann": 124.615403,
+      "breached": false,
+      "conc_gp": 20.3463,
+      "dd": 40.40528,
+      "label": "r15_g1_sobol_010_fo60_m2.61_l4_s190_f2600",
+      "params": {
+        "fbps": 2600,
+        "fo": 60,
+        "legs": 4,
+        "m": 2.61,
+        "sp": 190
+      },
+      "trades": 279
+    },
+    {
+      "ann": 115.786942,
+      "breached": false,
+      "conc_gp": 20.1308,
+      "dd": 36.143707,
+      "label": "r15_g1_sobol_017_fo50_m2.08_l5_s210_f3000",
+      "params": {
+        "fbps": 3000,
+        "fo": 50,
+        "legs": 5,
+        "m": 2.08,
+        "sp": 210
+      },
+      "trades": 272
+    },
+    {
+      "ann": 77.888297,
+      "breached": false,
+      "conc_gp": 19.6656,
+      "dd": 34.227802,
+      "label": "r15_g1_sobol_015_fo35_m2.01_l5_s220_f2700",
+      "params": {
+        "fbps": 2700,
+        "fo": 35,
+        "legs": 5,
+        "m": 2.01,
+        "sp": 220
+      },
+      "trades": 313
+    },
+    {
+      "ann": 61.519902,
+      "breached": false,
+      "conc_gp": 15.9229,
+      "dd": 22.376469,
+      "label": "r15_g1_sobol_001_fo50_m1.62_l5_s130_f2800",
+      "params": {
+        "fbps": 2800,
+        "fo": 50,
+        "legs": 5,
+        "m": 1.62,
+        "sp": 130
+      },
+      "trades": 277
+    },
+    {
+      "ann": 59.611669,
+      "breached": false,
+      "conc_gp": 21.5767,
+      "dd": 21.918682,
+      "label": "r15_g1_sobol_011_fo25_m1.72_l6_s150_f3000",
+      "params": {
+        "fbps": 3000,
+        "fo": 25,
+        "legs": 6,
+        "m": 1.72,
+        "sp": 150
+      },
+      "trades": 306
+    },
+    {
+      "ann": 26.032759,
+      "breached": false,
+      "conc_gp": 19.6934,
+      "dd": 14.033626,
+      "label": "r15_g1_sobol_019_fo30_m1.88_l4_s230_f2000",
+      "params": {
+        "fbps": 2000,
+        "fo": 30,
+        "legs": 4,
+        "m": 1.88,
+        "sp": 230
+      },
+      "trades": 323
+    }
+  ],
+  "phase": "P4_G1",
+  "sampler": "scipy.stats.qmc.Sobol",
+  "sampler_implementation_hash": "c642ebf892458718547e8d9dd89f9d6b",
+  "sampler_seed": 20260717,
+  "schema_version": 1,
+  "timeouts": 0,
+  "wall_s": 114.8
+}
