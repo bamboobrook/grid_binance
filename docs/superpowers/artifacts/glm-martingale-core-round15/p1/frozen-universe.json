@@ -1,0 +1,246 @@
+{
+  "T2_primary_promotion": {
+    "all_qualified": true,
+    "failures": [],
+    "long_short_sleeve_count": 24,
+    "qualification": {
+      "ADAUSDT": {
+        "avg_1m_volume": 502541.69,
+        "exchange_min_notional_assumed": 5.0,
+        "max_open_time": 1780271940000,
+        "min_open_time": 1672531200000,
+        "qualified": true,
+        "row_count": 1795680,
+        "span_fraction_of_dev": 1.0
+      },
+      "BCHUSDT": {
+        "avg_1m_volume": 558.33,
+        "exchange_min_notional_assumed": 5.0,
+        "max_open_time": 1780271940000,
+        "min_open_time": 1672531200000,
+        "qualified": true,
+        "row_count": 1795680,
+        "span_fraction_of_dev": 1.0
+      },
+      "BNBUSDT": {
+        "avg_1m_volume": 751.03,
+        "exchange_min_notional_assumed": 5.0,
+        "max_open_time": 1780271940000,
+        "min_open_time": 1672531200000,
+        "qualified": true,
+        "row_count": 1795680,
+        "span_fraction_of_dev": 1.0
+      },
+      "BTCUSDT": {
+        "avg_1m_volume": 187.69,
+        "exchange_min_notional_assumed": 5.0,
+        "max_open_time": 1780271940000,
+        "min_open_time": 1672531200000,
+        "qualified": true,
+        "row_count": 1795680,
+        "span_fraction_of_dev": 1.0
+      },
+      "DOGEUSDT": {
+        "avg_1m_volume": 4744666.44,
+        "exchange_min_notional_assumed": 5.0,
+        "max_open_time": 1780271940000,
+        "min_open_time": 1672531200000,
+        "qualified": true,
+        "row_count": 1795680,
+        "span_fraction_of_dev": 1.0
+      },
+      "DOTUSDT": {
+        "avg_1m_volume": 25917.87,
+        "exchange_min_notional_assumed": 5.0,
+        "max_open_time": 1780271940000,
+        "min_open_time": 1672531200000,
+        "qualified": true,
+        "row_count": 1795680,
+        "span_fraction_of_dev": 1.0
+      },
+      "ETHUSDT": {
+        "avg_1m_volume": 2644.48,
+        "exchange_min_notional_assumed": 5.0,
+        "max_open_time": 1780271940000,
+        "min_open_time": 1672531200000,
+        "qualified": true,
+        "row_count": 1795680,
+        "span_fraction_of_dev": 1.0
+      },
+      "LINKUSDT": {
+        "avg_1m_volume": 17395.54,
+        "exchange_min_notional_assumed": 5.0,
+        "max_open_time": 1780271940000,
+        "min_open_time": 1672531200000,
+        "qualified": true,
+        "row_count": 1795680,
+        "span_fraction_of_dev": 1.0
+      },
+      "LTCUSDT": {
+        "avg_1m_volume": 2296.59,
+        "exchange_min_notional_assumed": 5.0,
+        "max_open_time": 1780271940000,
+        "min_open_time": 1672531200000,
+        "qualified": true,
+        "row_count": 1795680,
+        "span_fraction_of_dev": 1.0
+      },
+      "SOLUSDT": {
+        "avg_1m_volume": 18527.77,
+        "exchange_min_notional_assumed": 5.0,
+        "max_open_time": 1780271940000,
+        "min_open_time": 1672531200000,
+        "qualified": true,
+        "row_count": 1795680,
+        "span_fraction_of_dev": 1.0
+      },
+      "TRXUSDT": {
+        "avg_1m_volume": 444405.16,
+        "exchange_min_notional_assumed": 5.0,
+        "max_open_time": 1780271940000,
+        "min_open_time": 1672531200000,
+        "qualified": true,
+        "row_count": 1795680,
+        "span_fraction_of_dev": 1.0
+      },
+      "XRPUSDT": {
+        "avg_1m_volume": 806944.18,
+        "exchange_min_notional_assumed": 5.0,
+        "max_open_time": 1780271940000,
+        "min_open_time": 1672531200000,
+        "qualified": true,
+        "row_count": 1795680,
+        "span_fraction_of_dev": 1.0
+      }
+    },
+    "symbol_count": 12,
+    "symbols": [
+      "BTCUSDT",
+      "ETHUSDT",
+      "BNBUSDT",
+      "SOLUSDT",
+      "XRPUSDT",
+      "DOGEUSDT",
+      "ADAUSDT",
+      "TRXUSDT",
+      "LINKUSDT",
+      "LTCUSDT",
+      "BCHUSDT",
+      "DOTUSDT"
+    ]
+  },
+  "T3_small_cap_universe_12": {
+    "symbols": [
+      "BTCUSDT",
+      "ETHUSDT",
+      "BNBUSDT",
+      "SOLUSDT",
+      "XRPUSDT",
+      "DOGEUSDT",
+      "ADAUSDT",
+      "TRXUSDT",
+      "LINKUSDT",
+      "LTCUSDT",
+      "BCHUSDT",
+      "DOTUSDT"
+    ]
+  },
+  "T3_small_cap_universe_8": {
+    "qualification": {
+      "ADAUSDT": {
+        "avg_1m_volume": 502541.69,
+        "exchange_min_notional_assumed": 5.0,
+        "max_open_time": 1780271940000,
+        "min_open_time": 1672531200000,
+        "qualified": true,
+        "row_count": 1795680,
+        "span_fraction_of_dev": 1.0
+      },
+      "BNBUSDT": {
+        "avg_1m_volume": 751.03,
+        "exchange_min_notional_assumed": 5.0,
+        "max_open_time": 1780271940000,
+        "min_open_time": 1672531200000,
+        "qualified": true,
+        "row_count": 1795680,
+        "span_fraction_of_dev": 1.0
+      },
+      "BTCUSDT": {
+        "avg_1m_volume": 187.69,
+        "exchange_min_notional_assumed": 5.0,
+        "max_open_time": 1780271940000,
+        "min_open_time": 1672531200000,
+        "qualified": true,
+        "row_count": 1795680,
+        "span_fraction_of_dev": 1.0
+      },
+      "DOGEUSDT": {
+        "avg_1m_volume": 4744666.44,
+        "exchange_min_notional_assumed": 5.0,
+        "max_open_time": 1780271940000,
+        "min_open_time": 1672531200000,
+        "qualified": true,
+        "row_count": 1795680,
+        "span_fraction_of_dev": 1.0
+      },
+      "ETHUSDT": {
+        "avg_1m_volume": 2644.48,
+        "exchange_min_notional_assumed": 5.0,
+        "max_open_time": 1780271940000,
+        "min_open_time": 1672531200000,
+        "qualified": true,
+        "row_count": 1795680,
+        "span_fraction_of_dev": 1.0
+      },
+      "SOLUSDT": {
+        "avg_1m_volume": 18527.77,
+        "exchange_min_notional_assumed": 5.0,
+        "max_open_time": 1780271940000,
+        "min_open_time": 1672531200000,
+        "qualified": true,
+        "row_count": 1795680,
+        "span_fraction_of_dev": 1.0
+      },
+      "TRXUSDT": {
+        "avg_1m_volume": 444405.16,
+        "exchange_min_notional_assumed": 5.0,
+        "max_open_time": 1780271940000,
+        "min_open_time": 1672531200000,
+        "qualified": true,
+        "row_count": 1795680,
+        "span_fraction_of_dev": 1.0
+      },
+      "XRPUSDT": {
+        "avg_1m_volume": 806944.18,
+        "exchange_min_notional_assumed": 5.0,
+        "max_open_time": 1780271940000,
+        "min_open_time": 1672531200000,
+        "qualified": true,
+        "row_count": 1795680,
+        "span_fraction_of_dev": 1.0
+      }
+    },
+    "symbols": [
+      "BTCUSDT",
+      "ETHUSDT",
+      "BNBUSDT",
+      "SOLUSDT",
+      "XRPUSDT",
+      "DOGEUSDT",
+      "ADAUSDT",
+      "TRXUSDT"
+    ]
+  },
+  "dev_window": {
+    "end_ms": 1780271999999,
+    "start_ms": 1672531200000
+  },
+  "direction_contract": {
+    "direction_flip_affects_next_cycle_only": true,
+    "each_symbol_has_long_and_short_sleeve": true,
+    "same_symbol_at_most_one_live_cycle": true
+  },
+  "frozen_at": "before_any_return_search",
+  "note": "Symbols frozen before any return search. A symbol is qualified if it spans >=99% of the dev window with non-trivial volume. Each symbol carries both a long and a short Martingale sleeve.",
+  "schema_version": 1
+}

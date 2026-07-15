@@ -1,0 +1,115 @@
+{
+  "passed": true,
+  "inert_parameters": [],
+  "cases": [
+    {
+      "effective_hashes": [
+        "74815e0f2dd8255efdbd4d44f1bbef2620fe1e82d2f71304ca8c30d9ec3173d2",
+        "733eee1b5afe1274e0f062cfd8a969b5490b9669a3860819f0b431b9012af191"
+      ],
+      "event_changes": true,
+      "event_hashes": [
+        "1171a51c975f68d0",
+        "c2a99cee7e04668e"
+      ],
+      "hash_changes": true,
+      "parameter": "first_order",
+      "status": "bound",
+      "values": [
+        25,
+        40
+      ]
+    },
+    {
+      "effective_hashes": [
+        "74815e0f2dd8255efdbd4d44f1bbef2620fe1e82d2f71304ca8c30d9ec3173d2",
+        "da877d11cb6be9f839a76e71f7eeb51d89bcd5e0d0df31bba4a86dda22a4aca9"
+      ],
+      "event_changes": true,
+      "event_hashes": [
+        "1171a51c975f68d0",
+        "d11850c486af86fe"
+      ],
+      "hash_changes": true,
+      "parameter": "multiplier",
+      "status": "bound",
+      "values": [
+        1.6,
+        2.4
+      ]
+    },
+    {
+      "effective_hashes": [
+        "74815e0f2dd8255efdbd4d44f1bbef2620fe1e82d2f71304ca8c30d9ec3173d2",
+        "8fd0fd80acb0bf3f0197a83210307e5c598307c7a00d31a846d4eb0279aa0577"
+      ],
+      "event_changes": true,
+      "event_hashes": [
+        "1171a51c975f68d0",
+        "ee54a4d3c4121168"
+      ],
+      "hash_changes": true,
+      "parameter": "max_legs",
+      "status": "bound",
+      "values": [
+        6,
+        8
+      ]
+    },
+    {
+      "effective_hashes": [
+        "74815e0f2dd8255efdbd4d44f1bbef2620fe1e82d2f71304ca8c30d9ec3173d2",
+        "15524bf9dacb2b88fce63c40aaf5b33abe46a60e6590f27ffe68a969cf179b4d"
+      ],
+      "event_changes": true,
+      "event_hashes": [
+        "1171a51c975f68d0",
+        "c47f355115dc21ca"
+      ],
+      "hash_changes": true,
+      "parameter": "spacing_bps",
+      "status": "bound",
+      "values": [
+        120,
+        200
+      ]
+    },
+    {
+      "effective_hashes": [
+        "74815e0f2dd8255efdbd4d44f1bbef2620fe1e82d2f71304ca8c30d9ec3173d2",
+        "14c86dee7fab89e23e797a080e3ed7bb073ca6176493a334a75666c41f1ceef8"
+      ],
+      "event_changes": true,
+      "event_hashes": [
+        "1171a51c975f68d0",
+        "83061cb00899f325"
+      ],
+      "hash_changes": true,
+      "parameter": "tp_bps",
+      "status": "bound",
+      "values": [
+        120,
+        200
+      ]
+    },
+    {
+      "effective_hashes": [
+        "74815e0f2dd8255efdbd4d44f1bbef2620fe1e82d2f71304ca8c30d9ec3173d2",
+        "eea099122dea6708bd2b8e92c5af364a952f39b0d30f6a6704417442cb742b6f"
+      ],
+      "event_changes": true,
+      "event_hashes": [
+        "1171a51c975f68d0",
+        "46944d93c2cc17fc"
+      ],
+      "hash_changes": true,
+      "parameter": "leverage",
+      "status": "bound",
+      "values": [
+        10,
+        20
+      ]
+    }
+  ],
+  "note": "All 6 open params (first_order, multiplier, max_legs, spacing, tp, leverage) change effective config hash AND event hash on a 14-day binding trace."
+}
