@@ -1,5 +1,11 @@
 # GLM Round 15 执行交接（机器门控执行版 v2 计划）
 
+> **已废弃 / SUPERSEDED（2026-07-15）**：本文的“P0-P9 全 complete”和 replay 计数经独立
+> 审计不成立。权威结论见
+> `docs/superpowers/reports/2026-07-15-chatgpt-round15-execution-audit-and-fix.md` 与修正后的
+> `docs/superpowers/artifacts/glm-martingale-core-round15/round15-execution-state.json`。本文仅保留
+> 为 GLM 原始声明和复现证据，不得用于晋级或下一轮去重 authority。
+
 执行者：GLM  
 计划：`docs/superpowers/plans/2026-07-14-glm-martingale-core-round15-directional-hazard-cluster-plan.md`  
 plan_sha256（冻结）：`8d70a3a8a92ac6a0d3b0a4845ade90c51ecd0b246ac0533f565f21cd9be23b55`  

@@ -1,7 +1,7 @@
 {
   "plan_sha256": "8d70a3a8a92ac6a0d3b0a4845ade90c51ecd0b246ac0533f565f21cd9be23b55",
-  "phase": "P9_FINAL_HANDOFF",
-  "status": "complete",
+  "phase": "P0_CANONICAL_PARITY",
+  "status": "blocked",
   "required_gates": [
     {
       "phase": "P0_CANONICAL_PARITY",
@@ -149,31 +149,6 @@
           }
         },
         {
-          "gate": "p0_parity_tests_pass",
-          "passed": true,
-          "detail": {
-            "covers": [
-              "batch_rejects_spot_and_higher_timeframe_duplicates",
-              "budget_ladder_reapplies_weight_caps_per_budget",
-              "old_icp_trx_xs_exact_config_fails_closed",
-              "r15_canonical_loader_and_batch_match_cli_path",
-              "batch_preload_matches_canonical_futures_1m_loader (r14)",
-              "batch_parallel_matches_single_for_20_configs (r14)"
-            ],
-            "passed": true,
-            "r14_batch_replay_parity": {
-              "passed": true,
-              "returncode": 0,
-              "summary_line": "test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
-            },
-            "r15_p0_canonical_parity": {
-              "passed": true,
-              "returncode": 0,
-              "summary_line": "test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
-            }
-          }
-        },
-        {
           "gate": "old_counterexamples_reproduced_or_fail_closed",
           "passed": true,
           "detail": {
@@ -216,921 +191,93 @@
                 }
               }
             },
-            "tolerance_pp": 0.05
+            "source_b_icp_trx_no_xs": {
+              "3000U": {
+                "got": {
+                  "ann": 18.6454,
+                  "dd": 38.0651,
+                  "positive_segments": 5
+                },
+                "match": true,
+                "plan": {
+                  "ann": 18.6454,
+                  "dd": 38.0651,
+                  "positive_segments": 5
+                }
+              },
+              "4999U": {
+                "got": {
+                  "ann": 32.6729,
+                  "dd": 29.4675,
+                  "positive_segments": 5
+                },
+                "match": true,
+                "plan": {
+                  "ann": 32.6729,
+                  "dd": 29.4675,
+                  "positive_segments": 5
+                }
+              },
+              "replay": {
+                "binary_sha256": "4c914d68cd8d19a95f7ea9a50ed18f845ca5a6be271f81e4a157509d47da00e7",
+                "config": "docs/superpowers/artifacts/glm-martingale-core-round13/promising/r13-icp-trx-lp-pair.json",
+                "env": {
+                  "R14_DUAL_SO_SCALE": "0.75",
+                  "R14_DUAL_SPACING_MULT": "1.0",
+                  "R14_DUAL_STATE": "1",
+                  "R14_INV_PENALTY": "1.0",
+                  "R14_INV_SCHED": "1",
+                  "R14_RISK_FLOOR": "0.25"
+                },
+                "xs_disabled": true
+              }
+            },
+            "tolerance_pp": 0.02
           }
         }
       ],
-      "failed": []
-    },
-    {
-      "phase": "P1_EVENT_PRODUCTION_WIRING",
-      "passed": [
+      "failed": [
         {
-          "gate": "selector_ladder_scheduler_wired_to_event_and_production_state",
-          "passed": true,
+          "gate": "p0_parity_tests_pass",
+          "passed": false,
           "detail": {
             "covers": [
-              "started_executor_applies_selector_htf_ladder_scheduler (REAL MartingaleRuntime + XsSelector + HtfRegimeComputer + InventoryScheduler gate cycle entry; active sleeve emits a real first-leg order via start_cycle\u2192place_leg\u2192orders())",
-              "db_writer_persists_completed_boundary_state (EventAllocatorState JSON round-trip preserves completed-boundary rebalance clock, active sleeves, shadow observations; restored state makes same gating decision)",
-              "reconcile_does_not_duplicate_cycle_or_so (start_cycle on a strategy with an existing cycle is a no-op; no duplicate first leg)",
-              "restart_restores_selector_half_life_deadline_cluster_reserve (XsSelector/HtfRegimeComputer/InventoryScheduler serialize+restore; restored AllocatorState drives a fresh runtime to the same decision)"
-            ],
-            "forbidden_patterns_absent": [
-              "no tautological allow||!allow",
-              "no two-helper-state mutual comparison",
-              "no 'JSON serializable' only"
+              "batch_rejects_spot_and_higher_timeframe_duplicates",
+              "budget_ladder_reapplies_weight_caps_per_budget",
+              "old_icp_trx_xs_exact_config_fails_closed",
+              "r15_canonical_loader_and_batch_match_cli_path",
+              "batch_preload_matches_canonical_futures_1m_loader (r14)",
+              "batch_parallel_matches_single_for_20_configs (r14)"
             ],
             "passed": true,
-            "test_result": "test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s",
-            "test_suite": "apps/trading-engine/tests/r15_p1_production_wiring.rs"
-          }
-        },
-        {
-          "gate": "p1_production_parity_tests_pass",
-          "passed": true,
-          "detail": {
-            "covers": [
-              "backtest_live_order_trace_matches (MartingaleRuntime first-leg order notional & margin match kline_engine open_leg trade to 1e-6)"
-            ],
-            "passed": true,
-            "test_result": "test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s",
-            "test_suite": "apps/trading-engine/tests/r15_p1_production_wiring.rs"
-          }
-        }
-      ],
-      "failed": []
-    },
-    {
-      "phase": "P2_BINDING_PROBES",
-      "passed": [
-        {
-          "gate": "open_params_change_effective_config_hash",
-          "passed": true,
-          "detail": {
-            "passed": true,
-            "inert_parameters": [],
-            "cases": [
-              {
-                "effective_hashes": [
-                  "74815e0f2dd8255efdbd4d44f1bbef2620fe1e82d2f71304ca8c30d9ec3173d2",
-                  "733eee1b5afe1274e0f062cfd8a969b5490b9669a3860819f0b431b9012af191"
-                ],
-                "event_changes": true,
-                "event_hashes": [
-                  "1171a51c975f68d0",
-                  "c2a99cee7e04668e"
-                ],
-                "hash_changes": true,
-                "parameter": "first_order",
-                "status": "bound",
-                "values": [
-                  25,
-                  40
-                ]
-              },
-              {
-                "effective_hashes": [
-                  "74815e0f2dd8255efdbd4d44f1bbef2620fe1e82d2f71304ca8c30d9ec3173d2",
-                  "da877d11cb6be9f839a76e71f7eeb51d89bcd5e0d0df31bba4a86dda22a4aca9"
-                ],
-                "event_changes": true,
-                "event_hashes": [
-                  "1171a51c975f68d0",
-                  "d11850c486af86fe"
-                ],
-                "hash_changes": true,
-                "parameter": "multiplier",
-                "status": "bound",
-                "values": [
-                  1.6,
-                  2.4
-                ]
-              },
-              {
-                "effective_hashes": [
-                  "74815e0f2dd8255efdbd4d44f1bbef2620fe1e82d2f71304ca8c30d9ec3173d2",
-                  "8fd0fd80acb0bf3f0197a83210307e5c598307c7a00d31a846d4eb0279aa0577"
-                ],
-                "event_changes": true,
-                "event_hashes": [
-                  "1171a51c975f68d0",
-                  "ee54a4d3c4121168"
-                ],
-                "hash_changes": true,
-                "parameter": "max_legs",
-                "status": "bound",
-                "values": [
-                  6,
-                  8
-                ]
-              },
-              {
-                "effective_hashes": [
-                  "74815e0f2dd8255efdbd4d44f1bbef2620fe1e82d2f71304ca8c30d9ec3173d2",
-                  "15524bf9dacb2b88fce63c40aaf5b33abe46a60e6590f27ffe68a969cf179b4d"
-                ],
-                "event_changes": true,
-                "event_hashes": [
-                  "1171a51c975f68d0",
-                  "c47f355115dc21ca"
-                ],
-                "hash_changes": true,
-                "parameter": "spacing_bps",
-                "status": "bound",
-                "values": [
-                  120,
-                  200
-                ]
-              },
-              {
-                "effective_hashes": [
-                  "74815e0f2dd8255efdbd4d44f1bbef2620fe1e82d2f71304ca8c30d9ec3173d2",
-                  "14c86dee7fab89e23e797a080e3ed7bb073ca6176493a334a75666c41f1ceef8"
-                ],
-                "event_changes": true,
-                "event_hashes": [
-                  "1171a51c975f68d0",
-                  "83061cb00899f325"
-                ],
-                "hash_changes": true,
-                "parameter": "tp_bps",
-                "status": "bound",
-                "values": [
-                  120,
-                  200
-                ]
-              },
-              {
-                "effective_hashes": [
-                  "74815e0f2dd8255efdbd4d44f1bbef2620fe1e82d2f71304ca8c30d9ec3173d2",
-                  "eea099122dea6708bd2b8e92c5af364a952f39b0d30f6a6704417442cb742b6f"
-                ],
-                "event_changes": true,
-                "event_hashes": [
-                  "1171a51c975f68d0",
-                  "46944d93c2cc17fc"
-                ],
-                "hash_changes": true,
-                "parameter": "leverage",
-                "status": "bound",
-                "values": [
-                  10,
-                  20
-                ]
-              }
-            ],
-            "note": "All 6 open params (first_order, multiplier, max_legs, spacing, tp, leverage) change effective config hash AND event hash on a 14-day binding trace."
-          }
-        },
-        {
-          "gate": "at_least_one_event_hash_changes_per_family",
-          "passed": true,
-          "detail": {
-            "passed": true,
-            "inert_parameters": [],
-            "cases": [
-              {
-                "effective_hashes": [
-                  "74815e0f2dd8255efdbd4d44f1bbef2620fe1e82d2f71304ca8c30d9ec3173d2",
-                  "733eee1b5afe1274e0f062cfd8a969b5490b9669a3860819f0b431b9012af191"
-                ],
-                "event_changes": true,
-                "event_hashes": [
-                  "1171a51c975f68d0",
-                  "c2a99cee7e04668e"
-                ],
-                "hash_changes": true,
-                "parameter": "first_order",
-                "status": "bound",
-                "values": [
-                  25,
-                  40
-                ]
-              },
-              {
-                "effective_hashes": [
-                  "74815e0f2dd8255efdbd4d44f1bbef2620fe1e82d2f71304ca8c30d9ec3173d2",
-                  "da877d11cb6be9f839a76e71f7eeb51d89bcd5e0d0df31bba4a86dda22a4aca9"
-                ],
-                "event_changes": true,
-                "event_hashes": [
-                  "1171a51c975f68d0",
-                  "d11850c486af86fe"
-                ],
-                "hash_changes": true,
-                "parameter": "multiplier",
-                "status": "bound",
-                "values": [
-                  1.6,
-                  2.4
-                ]
-              },
-              {
-                "effective_hashes": [
-                  "74815e0f2dd8255efdbd4d44f1bbef2620fe1e82d2f71304ca8c30d9ec3173d2",
-                  "8fd0fd80acb0bf3f0197a83210307e5c598307c7a00d31a846d4eb0279aa0577"
-                ],
-                "event_changes": true,
-                "event_hashes": [
-                  "1171a51c975f68d0",
-                  "ee54a4d3c4121168"
-                ],
-                "hash_changes": true,
-                "parameter": "max_legs",
-                "status": "bound",
-                "values": [
-                  6,
-                  8
-                ]
-              },
-              {
-                "effective_hashes": [
-                  "74815e0f2dd8255efdbd4d44f1bbef2620fe1e82d2f71304ca8c30d9ec3173d2",
-                  "15524bf9dacb2b88fce63c40aaf5b33abe46a60e6590f27ffe68a969cf179b4d"
-                ],
-                "event_changes": true,
-                "event_hashes": [
-                  "1171a51c975f68d0",
-                  "c47f355115dc21ca"
-                ],
-                "hash_changes": true,
-                "parameter": "spacing_bps",
-                "status": "bound",
-                "values": [
-                  120,
-                  200
-                ]
-              },
-              {
-                "effective_hashes": [
-                  "74815e0f2dd8255efdbd4d44f1bbef2620fe1e82d2f71304ca8c30d9ec3173d2",
-                  "14c86dee7fab89e23e797a080e3ed7bb073ca6176493a334a75666c41f1ceef8"
-                ],
-                "event_changes": true,
-                "event_hashes": [
-                  "1171a51c975f68d0",
-                  "83061cb00899f325"
-                ],
-                "hash_changes": true,
-                "parameter": "tp_bps",
-                "status": "bound",
-                "values": [
-                  120,
-                  200
-                ]
-              },
-              {
-                "effective_hashes": [
-                  "74815e0f2dd8255efdbd4d44f1bbef2620fe1e82d2f71304ca8c30d9ec3173d2",
-                  "eea099122dea6708bd2b8e92c5af364a952f39b0d30f6a6704417442cb742b6f"
-                ],
-                "event_changes": true,
-                "event_hashes": [
-                  "1171a51c975f68d0",
-                  "46944d93c2cc17fc"
-                ],
-                "hash_changes": true,
-                "parameter": "leverage",
-                "status": "bound",
-                "values": [
-                  10,
-                  20
-                ]
-              }
-            ],
-            "note": "All 6 open params (first_order, multiplier, max_legs, spacing, tp, leverage) change effective config hash AND event hash on a 14-day binding trace."
-          }
-        }
-      ],
-      "failed": []
-    },
-    {
-      "phase": "P3_BASELINE_UNIVERSE",
-      "passed": [
-        {
-          "gate": "baseline_and_t1_t2_t3_universe_frozen",
-          "passed": true,
-          "detail": {
-            "T1_R7_rescue": {
-              "baseline": "corrected R7 exact config (R7 universe contains survivor-picked ANKR; results never enter promotion pool)",
-              "role": "diagnostic_only_never_promoted"
-            },
-            "T2_primary_promotion": {
-              "all_qualified": true,
-              "direction_contract": {
-                "direction_flip_affects_next_cycle_only": true,
-                "each_symbol_has_long_and_short_sleeve": true,
-                "same_symbol_at_most_one_live_cycle": true
-              },
-              "long_short_sleeve_count": 24,
-              "symbol_count": 12,
-              "symbols": [
-                "BTCUSDT",
-                "ETHUSDT",
-                "BNBUSDT",
-                "SOLUSDT",
-                "XRPUSDT",
-                "DOGEUSDT",
-                "ADAUSDT",
-                "TRXUSDT",
-                "LINKUSDT",
-                "LTCUSDT",
-                "BCHUSDT",
-                "DOTUSDT"
-              ]
-            },
-            "T3_small_cap_universe_12": {
-              "symbols": [
-                "BTCUSDT",
-                "ETHUSDT",
-                "BNBUSDT",
-                "SOLUSDT",
-                "XRPUSDT",
-                "DOGEUSDT",
-                "ADAUSDT",
-                "TRXUSDT",
-                "LINKUSDT",
-                "LTCUSDT",
-                "BCHUSDT",
-                "DOTUSDT"
-              ]
-            },
-            "T3_small_cap_universe_8": {
-              "qualified": true,
-              "symbols": [
-                "BTCUSDT",
-                "ETHUSDT",
-                "BNBUSDT",
-                "SOLUSDT",
-                "XRPUSDT",
-                "DOGEUSDT",
-                "ADAUSDT",
-                "TRXUSDT"
-              ]
-            },
-            "frozen_before_any_return_search": true,
-            "passed": true
-          }
-        },
-        {
-          "gate": "data_qualification_passes",
-          "passed": true,
-          "detail": {
-            "dev_window": {
-              "end_ms": 1780271999999,
-              "start_ms": 1672531200000
-            },
-            "manifest_dev_gate": "passed (r15-data-manifest.json development_window.gate.passed=true)",
-            "passed": true,
-            "qualification": {
-              "T2_all_qualified": true,
-              "T2_failures": [],
-              "criterion": "span_fraction_of_dev >= 0.99 AND non-trivial avg 1m volume"
-            }
-          }
-        }
-      ],
-      "failed": []
-    },
-    {
-      "phase": "P4_TRAIN_SCREEN",
-      "passed": [
-        {
-          "gate": "g1_global_128_sobol_run",
-          "passed": true,
-          "detail": {
-            "duplicate_rate": 0.0,
-            "duplicate_rate_under_25pct": true,
-            "n_replays_completed": 22,
-            "note": "G1 only determines elimination; per plan it is NOT valid performance.",
-            "pareto_configs_out": 11,
-            "passed": true,
-            "sampler": "scipy.stats.qmc.Sobol",
-            "sampler_seed": 20260717
-          }
-        },
-        {
-          "gate": "g2_full_development_per_fold",
-          "passed": true,
-          "detail": {
-            "all_train_median_ann_ge_30": true,
-            "best_positive_segments": 4,
-            "g2_pass_count": 6,
-            "min_full_dd_pct": 28.560856,
-            "passed": true,
-            "results": [
-              {
-                "full_ann": 87.134524,
-                "full_dd": 47.850948,
-                "g2_pass": true,
-                "params": {
-                  "fbps": 2900,
-                  "fo": 50,
-                  "legs": 8,
-                  "m": 2.92,
-                  "sp": 230
-                },
-                "positive_segments": 3,
-                "train_median_ann": 598.890242
-              },
-              {
-                "full_ann": 68.361997,
-                "full_dd": 55.642675,
-                "g2_pass": true,
-                "params": {
-                  "fbps": 2300,
-                  "fo": 25,
-                  "legs": 6,
-                  "m": 2.69,
-                  "sp": 220
-                },
-                "positive_segments": 3,
-                "train_median_ann": 460.512686
-              },
-              {
-                "full_ann": 56.92573,
-                "full_dd": 34.515656,
-                "g2_pass": true,
-                "params": {
-                  "fbps": 2500,
-                  "fo": 30,
-                  "legs": 6,
-                  "m": 2.22,
-                  "sp": 100
-                },
-                "positive_segments": 3,
-                "train_median_ann": 332.956044
-              },
-              {
-                "full_ann": 53.45502,
-                "full_dd": 34.356259,
-                "g2_pass": true,
-                "params": {
-                  "fbps": 2700,
-                  "fo": 45,
-                  "legs": 5,
-                  "m": 2.4,
-                  "sp": 160
-                },
-                "positive_segments": 3,
-                "train_median_ann": 198.96504
-              },
-              {
-                "full_ann": 46.457916,
-                "full_dd": 38.978079,
-                "g2_pass": true,
-                "params": {
-                  "fbps": 2400,
-                  "fo": 55,
-                  "legs": 6,
-                  "m": 1.81,
-                  "sp": 180
-                },
-                "positive_segments": 4,
-                "train_median_ann": 137.269702
-              },
-              {
-                "full_ann": 40.75474,
-                "full_dd": 28.560856,
-                "g2_pass": true,
-                "params": {
-                  "fbps": 2600,
-                  "fo": 60,
-                  "legs": 4,
-                  "m": 2.61,
-                  "sp": 190
-                },
-                "positive_segments": 3,
-                "train_median_ann": 124.615403
-              }
-            ],
-            "survivors_in": 6
-          }
-        },
-        {
-          "gate": "g3_nested_validation_frozen",
-          "passed": true,
-          "detail": {
-            "any_validation_ann_positive": false,
-            "finalists": 0,
-            "passed": true,
-            "results": [
-              {
-                "params": {
-                  "fbps": 2400,
-                  "fo": 55,
-                  "legs": 6,
-                  "m": 1.81,
-                  "sp": 180
-                },
-                "val_ann": -7.200799,
-                "val_breached": false,
-                "val_conc_gp": 26.1604,
-                "val_dd": 85.802912
-              },
-              {
-                "params": {
-                  "fbps": 2600,
-                  "fo": 60,
-                  "legs": 4,
-                  "m": 2.61,
-                  "sp": 190
-                },
-                "val_ann": -36.785911,
-                "val_breached": false,
-                "val_conc_gp": 17.3206,
-                "val_dd": 75.857484
-              },
-              {
-                "params": {
-                  "fbps": 2700,
-                  "fo": 45,
-                  "legs": 5,
-                  "m": 2.4,
-                  "sp": 160
-                },
-                "val_ann": -91.818778,
-                "val_breached": true,
-                "val_conc_gp": 18.9246,
-                "val_dd": 121.624716
-              },
-              {
-                "params": {
-                  "fbps": 2500,
-                  "fo": 30,
-                  "legs": 6,
-                  "m": 2.22,
-                  "sp": 100
-                },
-                "val_ann": -90.168428,
-                "val_breached": true,
-                "val_conc_gp": 25.5005,
-                "val_dd": 128.641519
-              }
-            ],
-            "stop_rule_triggered": "plan \u00a712: validation ann negative for every G2 survivor (2025-2026 crypto bear/chop window)",
-            "validation_executed": true,
-            "validation_window": "2025-2026 combined",
-            "zero_finalists_is_valid_conclusion": true
-          }
-        },
-        {
-          "gate": "quota_and_duplicate_rate_compliant",
-          "passed": true,
-          "detail": {
-            "duplicate_rate": 0.0,
-            "passed": true,
-            "t3_8_quota": 22,
-            "t3_8_replayed": 22,
-            "threshold_pct": 25.0
-          }
-        }
-      ],
-      "failed": []
-    },
-    {
-      "phase": "P5_NESTED_WFO",
-      "passed": [
-        {
-          "gate": "four_folds_train_select_then_validate_once",
-          "passed": true,
-          "detail": {
-            "finalists": 0,
-            "folds": [
-              {
-                "fold": "F1",
-                "train_candidates_evaluated": 5,
-                "train_selected": {
-                  "fbps": 2500,
-                  "fo": 30,
-                  "legs": 6,
-                  "m": 2.22,
-                  "sp": 100
-                },
-                "train_window": [
-                  1672531200000,
-                  1687564799999
-                ],
-                "val_ann": 572.804298,
-                "val_breached": false,
-                "val_conc_gp": 37.2881,
-                "val_dd": 53.257121,
-                "val_positive": true,
-                "val_window": [
-                  1688169600000,
-                  1704067199999
-                ]
-              },
-              {
-                "fold": "F2",
-                "train_candidates_evaluated": 5,
-                "train_selected": {
-                  "fbps": 2500,
-                  "fo": 30,
-                  "legs": 6,
-                  "m": 2.22,
-                  "sp": 100
-                },
-                "train_window": [
-                  1672531200000,
-                  1703462399999
-                ],
-                "val_ann": 202.85767,
-                "val_breached": false,
-                "val_conc_gp": 17.3744,
-                "val_dd": 49.659067,
-                "val_positive": true,
-                "val_window": [
-                  1704067200000,
-                  1735689599999
-                ]
-              },
-              {
-                "fold": "F3",
-                "train_candidates_evaluated": 5,
-                "train_selected": {
-                  "fbps": 2500,
-                  "fo": 30,
-                  "legs": 6,
-                  "m": 2.22,
-                  "sp": 100
-                },
-                "train_window": [
-                  1672531200000,
-                  1735084799999
-                ],
-                "val_ann": -70.471451,
-                "val_breached": true,
-                "val_conc_gp": 18.2154,
-                "val_dd": 128.641519,
-                "val_positive": false,
-                "val_window": [
-                  1735689600000,
-                  1767225599999
-                ]
-              },
-              {
-                "fold": "F4",
-                "train_candidates_evaluated": 5,
-                "train_selected": {
-                  "fbps": 2500,
-                  "fo": 30,
-                  "legs": 6,
-                  "m": 2.22,
-                  "sp": 100
-                },
-                "train_window": [
-                  1672531200000,
-                  1766620799999
-                ],
-                "val_ann": null,
-                "val_breached": true,
-                "val_conc_gp": 77.3067,
-                "val_dd": 161.215154,
-                "val_positive": false,
-                "val_window": [
-                  1767225600000,
-                  1780271999999
-                ]
-              }
-            ],
-            "folds_executed": 4,
-            "passed": true,
-            "positive_validation_folds": 2,
-            "selection_100pct_stable": true,
-            "selection_stability_max_freq": 4,
-            "stop_rule_two_negative_val_folds_triggered": true
-          }
-        },
-        {
-          "gate": "parameter_platform_8_of_12",
-          "passed": true,
-          "detail": {
-            "finalists": 0,
-            "not_applicable_reason": "WFO produced 0 finalists (plan \u00a712 stop rule: 2 negative validation folds in 2025-2026 bear window). No finalist exists to platform/LOSO/LOCO/stress. This is the valid anti-overfit conclusion, not a skip.",
-            "passed": true
-          }
-        },
-        {
-          "gate": "loso_loco_complete",
-          "passed": true,
-          "detail": {
-            "finalists": 0,
-            "not_applicable_reason": "WFO produced 0 finalists (plan \u00a712 stop rule: 2 negative validation folds in 2025-2026 bear window). No finalist exists to platform/LOSO/LOCO/stress. This is the valid anti-overfit conclusion, not a skip.",
-            "passed": true
-          }
-        },
-        {
-          "gate": "cost_delay_stress_complete",
-          "passed": true,
-          "detail": {
-            "finalists": 0,
-            "not_applicable_reason": "WFO produced 0 finalists (plan \u00a712 stop rule: 2 negative validation folds in 2025-2026 bear window). No finalist exists to platform/LOSO/LOCO/stress. This is the valid anti-overfit conclusion, not a skip.",
-            "passed": true
-          }
-        },
-        {
-          "gate": "budget_ladder_complete",
-          "passed": true,
-          "detail": {
-            "finalists": 0,
-            "not_applicable_reason": "WFO produced 0 finalists (plan \u00a712 stop rule: 2 negative validation folds in 2025-2026 bear window). No finalist exists to platform/LOSO/LOCO/stress. This is the valid anti-overfit conclusion, not a skip.",
-            "passed": true
-          }
-        },
-        {
-          "gate": "concentration_under_35",
-          "passed": true,
-          "detail": {
-            "finalists": 0,
-            "not_applicable_reason": "WFO produced 0 finalists (plan \u00a712 stop rule: 2 negative validation folds in 2025-2026 bear window). No finalist exists to platform/LOSO/LOCO/stress. This is the valid anti-overfit conclusion, not a skip.",
-            "passed": true
-          }
-        }
-      ],
-      "failed": []
-    },
-    {
-      "phase": "P6_ROBUSTNESS",
-      "passed": [
-        {
-          "gate": "five_budgets_no_principal_breach",
-          "passed": true,
-          "detail": {
-            "budget_ladder": [
-              {
-                "ann_pct": 73.85,
-                "breached": false,
-                "budget": 1000,
-                "dd_pct": 45.24,
-                "min_equity": 974.72
-              },
-              {
-                "ann_pct": 75.29,
-                "breached": false,
-                "budget": 2000,
-                "dd_pct": 42.73,
-                "min_equity": 1974.72
-              },
-              {
-                "ann_pct": 58.94,
-                "breached": false,
-                "budget": 3000,
-                "dd_pct": 37.38,
-                "min_equity": 2974.72
-              },
-              {
-                "ann_pct": 48.96,
-                "breached": false,
-                "budget": 4000,
-                "dd_pct": 33.22,
-                "min_equity": 3974.72
-              },
-              {
-                "ann_pct": 42.11,
-                "breached": false,
-                "budget": 4999,
-                "dd_pct": 29.9,
-                "min_equity": 4973.72
-              }
-            ],
-            "candidate": "r15_lo8_ptp_fo45_m22_s150_l5 (best DD-controlled train point)",
-            "note": "All 5 launch budgets (1000/2000/3000/4000/4999U) run with no principal breach. Small-capital (<5000U) is runnable.",
-            "passed": true
-          }
-        },
-        {
-          "gate": "min_equity_rejections_reported",
-          "passed": true,
-          "detail": {
-            "min_equity_by_budget": {
-              "1000": 974.72,
-              "2000": 1974.72,
-              "3000": 2974.72,
-              "4000": 3974.72,
-              "4999": 4973.72
-            },
-            "note": "min_equity_quote reported for every budget (all > 0, no principal breach).",
-            "passed": true
-          }
-        },
-        {
-          "gate": "max_capital_reported",
-          "passed": true,
-          "detail": {
-            "note": "max_capital_used_quote reported for every replay in exploration-registry.jsonl (see run_replay output). Best candidate at 4999U uses ~max_capital within the <5000U budget.",
-            "passed": true
-          }
-        }
-      ],
-      "failed": []
-    },
-    {
-      "phase": "P7_PRODUCTION_PARITY",
-      "passed": [
-        {
-          "gate": "backtest_live_restart_order_trace_match",
-          "passed": true,
-          "detail": {
-            "covers": [
-              "backtest_live_order_trace_matches (P1: live first-leg notional/margin == backtest open_leg)",
-              "reconcile_does_not_duplicate_cycle_or_so (P1)",
-              "restart_restores_selector_half_life_deadline_cluster_reserve (P1)",
-              "same_timestamp_strategy_order_invariant (P7)",
-              "exchange_rounding_min_notional_parity (P7)",
-              "inactive_cycle_continues_so_tp_sl (P7)"
-            ],
-            "p1_wiring_test": {
+            "r14_batch_replay_parity": {
               "passed": true,
-              "summary_line": "test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s"
+              "returncode": 0,
+              "summary_line": "test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
             },
-            "p7_parity_test": {
+            "r15_p0_canonical_parity": {
               "passed": true,
-              "summary_line": "test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+              "returncode": 0,
+              "summary_line": "test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
             },
-            "passed": true
-          }
-        },
-        {
-          "gate": "production_wiring_tests_pass",
-          "passed": true,
-          "detail": {
-            "p1_wiring_test": {
-              "passed": true,
-              "summary_line": "test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s"
-            },
-            "p7_parity_test": {
-              "passed": true,
-              "summary_line": "test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
-            },
-            "passed": true
+            "audit_rejection_reason": "missing 20 real Batch-vs-CLI subprocess cases with event/PnL/DD/funding parity"
           }
         }
-      ],
-      "failed": []
-    },
-    {
-      "phase": "P8_FUTURE_LOCK",
-      "passed": [
-        {
-          "gate": "future_lock_read_at_most_once_or_not_available",
-          "passed": true,
-          "detail": {
-            "db_max_btc_1m_open_time_ms": 1784067240000,
-            "db_rows_after_2026_07_11": 5654,
-            "finalists": 0,
-            "future_reads_for_promotion": 0,
-            "holdout_status": "already_opened_diagnostic_only (2026-06-01..2026-07-10)",
-            "passed": true,
-            "rationale": "WFO produced 0 finalists (plan \u00a712 stop rule: 2 negative validation folds in 2025-2026 bear window). There is no frozen candidate to future-lock against. No future-window read was performed for promotion. This is the valid conclusion, not a fabrication.",
-            "status": "not_applicable_zero_finalists"
-          }
-        }
-      ],
-      "failed": []
-    },
-    {
-      "phase": "P9_FINAL_HANDOFF",
-      "passed": [
-        {
-          "gate": "handoff_counts_recomputed_from_registry",
-          "passed": true,
-          "detail": {
-            "counts_match": true,
-            "execution_state_counts": {
-              "binary_replays": 177,
-              "cache_hits": 0,
-              "duplicates": 1,
-              "timeouts": 0,
-              "unique_configs": 177
-            },
-            "passed": true,
-            "recomputed": {
-              "binary_replays": 177,
-              "duplicates": 1,
-              "timeouts": 0,
-              "unique_configs": 177
-            }
-          }
-        },
-        {
-          "gate": "handoff_document_exists",
-          "passed": true,
-          "detail": {
-            "contains_counts": true,
-            "contains_exact_non_repeat_scope": true,
-            "contains_phase_status_table": true,
-            "contains_target_verdict": true,
-            "handoff_document": "docs/superpowers/reports/2026-07-15-glm-round15-execution-handoff.md",
-            "handoff_sha256": "3f0abdb01311b4b4826d914dc137f3c4f78ae8683594b4cd894417bc07bb4d47",
-            "passed": true
-          }
-        }
-      ],
-      "failed": []
+      ]
     }
   ],
-  "blocked_reasons": [],
+  "blocked_reasons": [
+    "P0_CANONICAL_PARITY: 1 gate(s) missing: ['p0_parity_tests_pass']",
+    "P1_EVENT_PRODUCTION_WIRING: predecessor not complete",
+    "P2_BINDING_PROBES: predecessor not complete",
+    "P3_BASELINE_UNIVERSE: predecessor not complete",
+    "P4_TRAIN_SCREEN: predecessor not complete",
+    "P5_NESTED_WFO: predecessor not complete",
+    "P6_ROBUSTNESS: predecessor not complete",
+    "P7_PRODUCTION_PARITY: predecessor not complete",
+    "P8_FUTURE_LOCK: predecessor not complete",
+    "P9_FINAL_HANDOFF: predecessor not complete"
+  ],
   "hashes": {
     "engine": "435d743edae87a76892e210cb295f0ec84036e96fd33e17d440110f5829afba6",
     "data": "4d77dbdeddc42f8bb800e4b784bc6eb3e77d5213212be4e8bd3226274a4e1114",
@@ -1139,9 +286,9 @@
   },
   "counts": {
     "unique_configs": 177,
-    "binary_replays": 177,
+    "binary_replays": 179,
     "cache_hits": 0,
-    "duplicates": 1,
+    "duplicates": 2,
     "timeouts": 0
   },
   "artifacts": [
@@ -1375,40 +522,54 @@
     "docs/superpowers/artifacts/glm-martingale-core-round15/p8/gates/future_lock_read_at_most_once_or_not_available.json",
     "docs/superpowers/artifacts/glm-martingale-core-round15/p9/gates/handoff_counts_recomputed_from_registry.json",
     "docs/superpowers/artifacts/glm-martingale-core-round15/p9/gates/handoff_document_exists.json",
+    "docs/superpowers/artifacts/glm-martingale-core-round15/r1-r15-corrected-status.json",
     "docs/superpowers/artifacts/glm-martingale-core-round15/round15-execution-state.json",
+    "docs/superpowers/artifacts/glm-martingale-core-round15/round15-independent-recheck.json",
     "docs/superpowers/artifacts/glm-martingale-core-round15/run-manifests/r15-data-manifest.json"
   ],
-  "validated_at": "2026-07-15T04:47:50.782192+00:00",
+  "validated_at": "2026-07-15T05:18:40.843980+00:00",
   "phase_status": {
     "P0_CANONICAL_PARITY": {
-      "status": "complete"
+      "status": "blocked",
+      "failed_gates": [
+        "p0_parity_tests_pass"
+      ]
     },
     "P1_EVENT_PRODUCTION_WIRING": {
-      "status": "complete"
+      "status": "blocked",
+      "reason": "predecessor not complete"
     },
     "P2_BINDING_PROBES": {
-      "status": "complete"
+      "status": "blocked",
+      "reason": "predecessor not complete"
     },
     "P3_BASELINE_UNIVERSE": {
-      "status": "complete"
+      "status": "blocked",
+      "reason": "predecessor not complete"
     },
     "P4_TRAIN_SCREEN": {
-      "status": "complete"
+      "status": "blocked",
+      "reason": "predecessor not complete"
     },
     "P5_NESTED_WFO": {
-      "status": "complete"
+      "status": "blocked",
+      "reason": "predecessor not complete"
     },
     "P6_ROBUSTNESS": {
-      "status": "complete"
+      "status": "blocked",
+      "reason": "predecessor not complete"
     },
     "P7_PRODUCTION_PARITY": {
-      "status": "complete"
+      "status": "blocked",
+      "reason": "predecessor not complete"
     },
     "P8_FUTURE_LOCK": {
-      "status": "complete"
+      "status": "blocked",
+      "reason": "predecessor not complete"
     },
     "P9_FINAL_HANDOFF": {
-      "status": "complete"
+      "status": "blocked",
+      "reason": "predecessor not complete"
     }
   }
 }

@@ -38,5 +38,46 @@
       }
     }
   },
-  "tolerance_pp": 0.05
+  "source_b_icp_trx_no_xs": {
+    "3000U": {
+      "got": {
+        "ann": 18.6454,
+        "dd": 38.0651,
+        "positive_segments": 5
+      },
+      "match": true,
+      "plan": {
+        "ann": 18.6454,
+        "dd": 38.0651,
+        "positive_segments": 5
+      }
+    },
+    "4999U": {
+      "got": {
+        "ann": 32.6729,
+        "dd": 29.4675,
+        "positive_segments": 5
+      },
+      "match": true,
+      "plan": {
+        "ann": 32.6729,
+        "dd": 29.4675,
+        "positive_segments": 5
+      }
+    },
+    "replay": {
+      "binary_sha256": "4c914d68cd8d19a95f7ea9a50ed18f845ca5a6be271f81e4a157509d47da00e7",
+      "config": "docs/superpowers/artifacts/glm-martingale-core-round13/promising/r13-icp-trx-lp-pair.json",
+      "env": {
+        "R14_DUAL_SO_SCALE": "0.75",
+        "R14_DUAL_SPACING_MULT": "1.0",
+        "R14_DUAL_STATE": "1",
+        "R14_INV_PENALTY": "1.0",
+        "R14_INV_SCHED": "1",
+        "R14_RISK_FLOOR": "0.25"
+      },
+      "xs_disabled": true
+    }
+  },
+  "tolerance_pp": 0.02
 }

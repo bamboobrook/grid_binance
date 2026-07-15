@@ -24,8 +24,8 @@ DEV_START = "1672531200000"
 DEV_END = "1780271999999"
 
 
-def run(cmd, timeout=600):
-    r = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+def run(cmd, timeout=600, env=None):
+    r = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, env=env)
     return r.returncode, r.stdout, r.stderr
 
 
@@ -77,6 +77,46 @@ def cli_diag(config_path, budget):
     }
 
 
+def source_b_diag(config_path):
+    """Re-run the old P4/P5 parameters without the invalid two-symbol XS."""
+    env = os.environ.copy()
+    env.update(
+        {
+            "R14_DUAL_STATE": "1",
+            "R14_DUAL_SO_SCALE": "0.75",
+            "R14_DUAL_SPACING_MULT": "1.0",
+            "R14_INV_SCHED": "1",
+            "R14_INV_PENALTY": "1.0",
+            "R14_RISK_FLOOR": "0.25",
+        }
+    )
+    env.pop("R14_XS_FAMILY", None)
+    rc, out, err = run(
+        ["target/release/r14_htf_search", config_path, "r15_source_b", "off"],
+        timeout=600,
+        env=env,
+    )
+    if rc != 0:
+        return {"error": err.strip()[:300], "returncode": rc}
+    try:
+        result = json.loads(out)
+    except Exception as exc:
+        return {"error": f"json parse: {exc}"}
+    budgets = {int(row["budget"]): row for row in result.get("budgets", [])}
+    return {
+        "3000U": {
+            "ann": round(budgets.get(3000, {}).get("ann", -999.0), 4),
+            "dd": round(budgets.get(3000, {}).get("dd", -999.0), 4),
+            "positive_segments": result.get("positive_segments"),
+        },
+        "4999U": {
+            "ann": round(budgets.get(4999, {}).get("ann", -999.0), 4),
+            "dd": round(budgets.get(4999, {}).get("dd", -999.0), 4),
+            "positive_segments": result.get("positive_segments"),
+        },
+    }
+
+
 def main():
     r15 = cargo_test("r15_p0_canonical_parity")
     r14 = cargo_test("r14_batch_replay_parity")
@@ -108,7 +148,7 @@ def main():
     a4999 = cli_diag(base, 4999)
     plan_a3000 = {"ann": 21.3373, "dd": 36.3246}
     plan_a4999 = {"ann": 36.3790, "dd": 28.6797}
-    tol = 0.05  # plan allows 0.02pp; allow a hair for float formatting
+    tol = 0.02
 
     def close(got, exp):
         return (
@@ -119,6 +159,24 @@ def main():
 
     source_a_ok = close(a3000, plan_a3000) and close(a4999, plan_a4999)
 
+    # Source B: same P4/P5 parameters as the old p5_pen1.0_floor0.25 row,
+    # with invalid XS removed. Plan expects 5/5 positive segments.
+    source_b = source_b_diag(base)
+    plan_b3000 = {"ann": 18.6454, "dd": 38.0651, "positive_segments": 5}
+    plan_b4999 = {"ann": 32.6729, "dd": 29.4675, "positive_segments": 5}
+
+    def close_b(got, exp):
+        return (
+            "error" not in source_b
+            and abs(got["ann"] - exp["ann"]) <= tol
+            and abs(got["dd"] - exp["dd"]) <= tol
+            and got["positive_segments"] == exp["positive_segments"]
+        )
+
+    source_b_ok = close_b(source_b.get("3000U", {}), plan_b3000) and close_b(
+        source_b.get("4999U", {}), plan_b4999
+    )
+
     # R4 corrected regression (6-symbol, no invalid XS): plan/audit expects
     # 4999U ann 34.8121 DD 17.6672.
     r4_4999 = cli_diag(r4, 4999)
@@ -128,7 +186,7 @@ def main():
     write_gate(
         "old_counterexamples_reproduced_or_fail_closed",
         {
-            "passed": source_a_ok and r4_ok,
+            "passed": source_a_ok and source_b_ok and r4_ok,
             "rationale": (
                 "Old invalid ICP/TRX XS results required min_active_symbols=3 on a "
                 "2-symbol universe; corrected engine fail-closes (proven by "
@@ -138,6 +196,18 @@ def main():
             "source_a_icp_trx_no_xs": {
                 "3000U": {"got": a3000, "plan": plan_a3000, "match": close(a3000, plan_a3000)},
                 "4999U": {"got": a4999, "plan": plan_a4999, "match": close(a4999, plan_a4999)},
+            },
+            "source_b_icp_trx_no_xs": {
+                "3000U": {
+                    "got": source_b.get("3000U", source_b),
+                    "plan": plan_b3000,
+                    "match": source_b_ok and close_b(source_b["3000U"], plan_b3000),
+                },
+                "4999U": {
+                    "got": source_b.get("4999U", source_b),
+                    "plan": plan_b4999,
+                    "match": source_b_ok and close_b(source_b["4999U"], plan_b4999),
+                },
             },
             "r4_corrected_regression": {
                 "4999U": {"got": r4_4999, "plan": plan_r4, "match": r4_ok},

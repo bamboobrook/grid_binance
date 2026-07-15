@@ -1,0 +1,112 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-07-15",
+  "audit_input_commit": "76bd8ad",
+  "authority_report": "docs/superpowers/reports/2026-07-15-chatgpt-round15-execution-audit-and-fix.md",
+  "validator_verdict": {
+    "phase": "P0_CANONICAL_PARITY",
+    "status": "blocked",
+    "failed_gate": "p0_parity_tests_pass",
+    "reason": "No 20-case real Batch-vs-release-CLI subprocess parity with event/PnL/DD/funding/rejection hashes"
+  },
+  "registry_counts": {
+    "unique_execution_keys": 177,
+    "actual_binary_replays": 179,
+    "duplicate_launches": 2,
+    "timeouts": 0
+  },
+  "hashes": {
+    "portfolio_budget_replay": "d21c6971aacc5166adff56ce1d8b135f8f15d194c966d4324219885d181c4d98",
+    "r14_htf_search": "4c914d68cd8d19a95f7ea9a50ed18f845ca5a6be271f81e4a157509d47da00e7",
+    "funding_db": "4d77dbdeddc42f8bb800e4b784bc6eb3e77d5213212be4e8bd3226274a4e1114"
+  },
+  "independent_replays": {
+    "t3_8_fo45_m2_2_spacing150_legs5_partial_tp": {
+      "config": "docs/superpowers/artifacts/glm-martingale-core-round15/configs/r15_ptp_fo45_m22_s150_l5.json",
+      "full_4999": {
+        "annualized_return_pct": 42.1070120092961,
+        "max_drawdown_pct": 29.90139356630617,
+        "min_equity_quote": 4973.722523477796,
+        "principal_breached": false,
+        "budget_blocked_legs": 0,
+        "max_capital_used_quote": 1432.4039373599994,
+        "max_positive_pnl_concentration_pct": 22.64909508636587
+      },
+      "full_1000": {
+        "annualized_return_pct": 73.85097551612934,
+        "max_drawdown_pct": 45.24482500123189,
+        "min_equity_quote": 974.7225234777957,
+        "principal_breached": false,
+        "budget_blocked_legs": 53,
+        "max_capital_used_quote": 560.5870117320021,
+        "max_positive_pnl_concentration_pct": 23.759575775047725
+      },
+      "cold_start_2025": {
+        "annualized_return_pct": -25.50206035772843,
+        "max_drawdown_pct": 80.48298525431086,
+        "min_equity_quote": 1266.5875748795142,
+        "principal_breached": false
+      },
+      "cold_start_2026": {
+        "annualized_return_pct": -92.28400471843763,
+        "max_drawdown_pct": 105.07000019960095,
+        "min_equity_quote": -261.7597924347374,
+        "principal_breached": true
+      }
+    },
+    "source_b_icp_trx_no_xs": {
+      "config": "docs/superpowers/artifacts/glm-martingale-core-round13/promising/r13-icp-trx-lp-pair.json",
+      "environment": {
+        "dual_state": true,
+        "dual_so_scale": 0.75,
+        "dual_spacing_mult": 1.0,
+        "inventory_scheduler": true,
+        "inventory_penalty": 1.0,
+        "risk_floor": 0.25,
+        "xs_enabled": false
+      },
+      "budget_3000": {
+        "annualized_return_pct": 18.645413547554092,
+        "max_drawdown_pct": 38.06505171619545
+      },
+      "budget_4999": {
+        "annualized_return_pct": 32.672916803491624,
+        "max_drawdown_pct": 29.467535557466444
+      },
+      "positive_segments": 5
+    }
+  },
+  "plan_compliance": {
+    "p0": "partial",
+    "p1_production_wiring": "invalid_helper_composition",
+    "p2_binding": "wrong_parameters_only",
+    "p3_universe": "declarations_without_resolved_track_configs",
+    "p4_g1": "22_of_128_one_track_one_window_one_budget",
+    "p4_g2": "invalid_promotion_predicate",
+    "p5": "scoped_wfo_only_missing_required_robustness",
+    "p6": "diagnostic_budget_ladder_only",
+    "p7": "synthetic_tests_not_started_production_trace",
+    "p8": "not_applicable_no_valid_finalist",
+    "p9": "invalid_completion_claim_and_wrong_counts"
+  },
+  "valid_scopes": [
+    "Canonical CLI metrics for exact recorded config/window/budget keys",
+    "Old source A and source B ICP/TRX fail-closed diagnostics",
+    "T3-8 long-only partial-TP fixed-family negative WFO diagnostic"
+  ],
+  "invalid_claims": [
+    "P0-P9 all complete",
+    "128 global Sobol executed",
+    "D1-D3/H1-H3/C1-C2 explored",
+    "production selector/ladder/scheduler wiring complete",
+    "parameter platform/LOSO/LOCO/cost-delay stress complete",
+    "177 actual binary replays",
+    "the requested Martingale objective is structurally impossible"
+  ],
+  "target_hits": {
+    "conservative": [],
+    "balanced": [],
+    "aggressive": []
+  },
+  "production_ready_candidates": []
+}

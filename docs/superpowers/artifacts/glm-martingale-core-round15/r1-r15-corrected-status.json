@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-07-15",
+  "rounds_1_to_14": {
+    "authority": "docs/superpowers/artifacts/glm-martingale-core-round14/r1-r14-corrected-status.json",
+    "audit": "docs/superpowers/reports/2026-07-14-glm-round14-execution-audit-and-fix.md",
+    "status": "authority_retained",
+    "target_hits": []
+  },
+  "round_15": {
+    "audit_input_commit": "76bd8ad",
+    "status": "materially_incomplete_corrected",
+    "machine_phase": "P0_CANONICAL_PARITY",
+    "machine_status": "blocked",
+    "unique_execution_keys": 177,
+    "actual_binary_replays": 179,
+    "duplicate_launches": 2,
+    "valid_evidence": [
+      "exact canonical CLI replay metrics",
+      "source A/B ICP/TRX counterexample diagnostics",
+      "scoped T3-8 long-only partial-TP negative evidence"
+    ],
+    "invalid_or_missing": [
+      "20-config real Batch/CLI event trace parity",
+      "started production selector/ladder/scheduler wiring",
+      "D1-D3/H1-H3/C1-C2 binding and search",
+      "T1/T2/T3-12 allocated Sobol searches",
+      "strict G2 worst-DD and principal-breach promotion",
+      "parameter platform, LOSO/LOCO, cost/funding/delay stress",
+      "future-lock promotion"
+    ],
+    "target_hits": []
+  },
+  "goal_verdict": {
+    "anti_overfit": false,
+    "under_5000_runnable_baseline_exists": true,
+    "multi_symbol_baseline_exists": true,
+    "live_reproducible_candidate_exists": false,
+    "conservative_hits": [],
+    "balanced_hits": [],
+    "aggressive_hits": [],
+    "goal_complete": false
+  },
+  "next_plan": "docs/superpowers/plans/2026-07-15-glm-martingale-core-round16-asymmetric-regime-hazard-plan.md"
+}

@@ -127,13 +127,7 @@ def load_json(path):
 
 
 def load_registry():
-    """Return list of registry records keyed by experiment_id.
-
-    Plan §10 appends a `running` row before each attempt and a terminal row
-    after. A `running` row whose experiment_id also has a terminal row is NOT
-    in-flight; only a `running` row with no terminal successor counts as a
-    genuinely-still-running attempt.
-    """
+    """Return every parseable registry row without discarding replays."""
     all_records = []
     if not os.path.exists(REGISTRY_PATH):
         return all_records
@@ -146,7 +140,11 @@ def load_registry():
                 all_records.append(json.loads(line))
             except json.JSONDecodeError:
                 pass
-    # Collapse: keep the latest record per experiment_id (terminal supersedes running).
+    return all_records
+
+
+def latest_registry_records(all_records):
+    """Collapse lifecycle rows only for detecting attempts still running."""
     by_id = {}
     for r in all_records:
         key = r.get("experiment_id") or r.get("resolved_config_hash") or id(r)
@@ -155,12 +153,13 @@ def load_registry():
 
 
 def recompute_counts(records):
-    """Recompute unique_configs / binary_replays / cache_hits / duplicates /
-    timeouts strictly from registry detail lines (plan §10/§12).
+    """Separate actual replay count from unique execution keys.
 
-    Dedup key is `effective_config + window` (plan §10: "same effective config
-    + engine + canonical data + window" runs once). The same config replayed
-    on different windows/budgets is NOT a duplicate.
+    `binary_replays` is the number actually launched, including accidental
+    duplicates. `unique_configs` is the number of unique
+    effective-config/window/budget keys. The previous implementation silently
+    removed duplicate launches before summing replays and therefore reported
+    177 instead of the 179 terminal replay rows present in the registry.
     """
     seen = set()
     unique_configs = 0
@@ -175,19 +174,17 @@ def recompute_counts(records):
         window = r.get("window") or r.get("start_ms", "")
         budget = r.get("budget", "")
         key = f"{eff}|{window}|{budget}"
-        if key in seen:
-            duplicates += 1
-            if r.get("status") == "skipped_duplicate":
-                cache_hits += 1
-            continue
-        seen.add(key)
-        unique_configs += 1
         replays = int(r.get("actual_binary_replays", 0) or 0)
         if r.get("status") == "timeout":
             timeouts += 1
-            continue
-        binary_replays += replays
+        else:
+            binary_replays += replays
         cache_hits += int(r.get("cache_hits", 0) or 0)
+        if key in seen:
+            duplicates += 1
+            continue
+        seen.add(key)
+        unique_configs += 1
     return {
         "unique_configs": unique_configs,
         "binary_replays": binary_replays,
@@ -206,6 +203,101 @@ def gate_file_for(gate):
     return None
 
 
+def validate_gate_payload(gate, data):
+    """Validate evidence content instead of trusting a self-reported boolean.
+
+    Round 15 originally treated any JSON file containing `passed: true` as
+    authoritative. That allowed 22/128 Sobol configs, helper-only production
+    tests, and unexecuted robustness gates to be marked complete. These checks
+    encode the minimum frozen-plan evidence that can be audited mechanically.
+    """
+    if not isinstance(data, dict) or data.get("passed") is not True:
+        return False, "evidence does not declare passed=true"
+
+    if gate == "p0_parity_tests_pass":
+        cases = data.get("batch_cli_subprocess_cases", [])
+        required = {
+            "event_hash_match",
+            "trade_match",
+            "realized_pnl_match",
+            "drawdown_match",
+            "funding_match",
+            "rejection_reasons_match",
+        }
+        if len(cases) != 20 or any(not required.issubset(c) or not all(c[k] for k in required) for c in cases):
+            return False, "missing 20 real Batch-vs-CLI subprocess cases with event/PnL/DD/funding parity"
+
+    if gate == "old_counterexamples_reproduced_or_fail_closed":
+        source_b = data.get("source_b_icp_trx_no_xs")
+        if data.get("tolerance_pp", 999) > 0.02 or not isinstance(source_b, dict):
+            return False, "source B diagnostic is missing or tolerance exceeds frozen 0.02pp"
+        if not all(source_b.get(b, {}).get("match") is True for b in ("3000U", "4999U")):
+            return False, "source B 3000U/4999U diagnostics are incomplete"
+
+    if gate in {
+        "selector_ladder_scheduler_wired_to_event_and_production_state",
+        "p1_production_parity_tests_pass",
+        "backtest_live_restart_order_trace_match",
+        "production_wiring_tests_pass",
+    }:
+        trace = data.get("production_entrypoint_trace", {})
+        required_trace = {
+            "started_executor_applies_gate",
+            "db_writer_read_roundtrip",
+            "reconcile_restart_restores_state",
+            "backtest_live_order_trace_hash_match",
+        }
+        if not required_trace.issubset(trace) or not all(trace[k] is True for k in required_trace):
+            return False, "tests manually compose helpers; no started production entrypoint/DB/reconcile trace evidence"
+        source_paths = data.get("production_source_paths", [])
+        if not any(p.startswith("apps/trading-engine/src/") for p in source_paths):
+            return False, "no production source path records the selector/ladder/scheduler integration"
+
+    if gate in {"open_params_change_effective_config_hash", "at_least_one_event_hash_changes_per_family"}:
+        required_families = {"D1", "D2", "D3", "H1", "H2", "H3", "C1", "C2"}
+        bound = set(data.get("bound_families", []))
+        if not required_families.issubset(bound):
+            return False, "binding evidence covers base ladder knobs, not all D1-D3/H1-H3/C1-C2 families"
+
+    if gate == "baseline_and_t1_t2_t3_universe_frozen":
+        hashes = data.get("resolved_track_config_hashes", {})
+        if not {"T1", "T2", "T3_8", "T3_12"}.issubset(hashes):
+            return False, "track declarations exist but frozen resolved config hashes are missing"
+
+    if gate == "g1_global_128_sobol_run":
+        allocation = data.get("track_allocation", {})
+        if allocation != {"T1": 12, "T2": 72, "T3_8": 22, "T3_12": 22}:
+            return False, "G1 did not execute the frozen 12/72/22/22 allocation"
+        if data.get("unique_sobol_configs") != 128 or data.get("stress_blocks") != 4:
+            return False, "G1 requires 128 unique configs over four train-only blocks"
+        if data.get("budgets") != [1000, 3000, 4999] or data.get("actual_binary_replays", 0) < 1536:
+            return False, "G1 did not run every config across 4 blocks and 3 budgets"
+
+    if gate == "quota_and_duplicate_rate_compliant":
+        replayed = data.get("track_replayed", {})
+        if replayed != {"T1": 12, "T2": 72, "T3_8": 22, "T3_12": 22}:
+            return False, "only the T3-8 quota was replayed"
+
+    if gate == "g2_full_development_per_fold":
+        if data.get("strict_survivors_recomputed") is not True:
+            return False, "G2 omitted worst-DD<=35 and segment principal-breach checks"
+
+    if gate == "g3_nested_validation_frozen":
+        if data.get("folds_executed") != 4 or data.get("validation_read_once_per_config") is not True:
+            return False, "G3 used one combined validation window instead of four frozen nested folds"
+
+    if gate in {
+        "parameter_platform_8_of_12",
+        "loso_loco_complete",
+        "cost_delay_stress_complete",
+        "budget_ladder_complete",
+        "concentration_under_35",
+    } and data.get("finalists") == 0:
+        return False, "frozen required gate was marked passed without execution because finalists=0"
+
+    return True, None
+
+
 def check_gate(gate, manifest, records, phase_evidence):
     """Return (passed, detail). A gate file (passed=true) is authoritative
     evidence; phase_evidence booleans are a fallback for inline runs."""
@@ -213,7 +305,17 @@ def check_gate(gate, manifest, records, phase_evidence):
     gf = gate_file_for(gate)
     if gf:
         data = load_json(gf)
-        return bool(data.get("passed")), data
+        ok, reason = validate_gate_payload(gate, data)
+        if reason:
+            data = dict(data or {})
+            data["audit_rejection_reason"] = reason
+        return ok, data
+
+    # Once the gate contract is frozen, every gate needs an immutable artifact.
+    # A command-line boolean must not replace missing raw evidence.
+    bootstrap_path = os.path.join(ART_DIR, "bootstrap-required-gates.json")
+    if os.path.exists(bootstrap_path):
+        return False, {"reason": "frozen execution requires a gate evidence artifact"}
 
     # 2) inline phase_evidence (e.g. --phase-evidence during a single run)
     if gate == "manifest_exists_and_dev_gate_passes":
@@ -271,7 +373,8 @@ def main():
 
     manifest = load_json(MANIFEST_PATH)
     records = load_registry()
-    running = [r for r in records if r.get("status") == "running"]
+    latest_records = latest_registry_records(records)
+    running = [r for r in latest_records if r.get("status") == "running"]
 
     phase_evidence = {}
     if args.phase_evidence and os.path.exists(args.phase_evidence):
