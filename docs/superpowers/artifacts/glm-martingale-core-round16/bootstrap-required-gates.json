@@ -1,0 +1,37 @@
+{
+  "R0": [
+    "real_20_config_batch_cli_subprocess_parity",
+    "round15_counterexamples_reproduce",
+    "binary_and_data_hashes_match_audit"
+  ],
+  "R1": [
+    "asymmetric_router_hazard_scheduler_in_src",
+    "production_wiring_real_started_service_no_test_setters"
+  ],
+  "R2": [
+    "d_h_c_params_bind_config_event_order_hash"
+  ],
+  "R3": [
+    "tracks_and_risk_envelopes_frozen"
+  ],
+  "R4": [
+    "g1_128_sobol_1536_replays"
+  ],
+  "R5": [
+    "g2_full_train_strict_gate",
+    "g3_nested_wfo_4_folds"
+  ],
+  "R6": [
+    "finalist_robustness_executed_or_zero_finalists"
+  ],
+  "R7": [
+    "production_parity_real_service"
+  ],
+  "R8": [
+    "future_lock_or_waiting_data"
+  ],
+  "R9": [
+    "handoff_counts_recomputed",
+    "handoff_document_exists"
+  ]
+}

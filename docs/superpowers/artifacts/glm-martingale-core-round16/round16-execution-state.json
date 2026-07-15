@@ -1,0 +1,108 @@
+{
+  "blocked_reasons": [
+    "R0: 2 gate(s) failed: ['real_20_config_batch_cli_subprocess_parity', 'round15_counterexamples_reproduce']",
+    "R1: predecessor not complete",
+    "R2: predecessor not complete",
+    "R3: predecessor not complete",
+    "R4: predecessor not complete",
+    "R5: predecessor not complete",
+    "R6: predecessor not complete",
+    "R7: predecessor not complete",
+    "R8: predecessor not complete",
+    "R9: predecessor not complete"
+  ],
+  "counts": {
+    "actual_binary_replays": 0,
+    "cache_hits": 0,
+    "duplicates": 0,
+    "timeouts": 0,
+    "unique_execution_keys": 0
+  },
+  "passed_gates": [
+    {
+      "failed": [
+        {
+          "detail": {
+            "configs_compared": null,
+            "hashes_exact": false,
+            "used_subprocess": false,
+            "within_tolerance": false
+          },
+          "gate": "real_20_config_batch_cli_subprocess_parity"
+        },
+        {
+          "detail": {
+            "reason": "no cases"
+          },
+          "gate": "round15_counterexamples_reproduce"
+        }
+      ],
+      "passed": [
+        {
+          "detail": {
+            "cli": "d21c6971aacc5166adff56ce1d8b135f8f15d194c966d4324219885d181c4d98",
+            "funding": "4d77dbdeddc42f8bb800e4b784bc6eb3e77d5213212be4e8bd3226274a4e1114",
+            "htf": "4c914d68cd8d19a95f7ea9a50ed18f845ca5a6be271f81e4a157509d47da00e7"
+          },
+          "gate": "binary_and_data_hashes_match_audit"
+        }
+      ],
+      "phase": "R0"
+    }
+  ],
+  "phase": "R0",
+  "phase_status": {
+    "R0": {
+      "failed": [
+        "real_20_config_batch_cli_subprocess_parity",
+        "round15_counterexamples_reproduce"
+      ],
+      "status": "blocked"
+    },
+    "R1": {
+      "reason": "predecessor not complete",
+      "status": "blocked"
+    },
+    "R2": {
+      "reason": "predecessor not complete",
+      "status": "blocked"
+    },
+    "R3": {
+      "reason": "predecessor not complete",
+      "status": "blocked"
+    },
+    "R4": {
+      "reason": "predecessor not complete",
+      "status": "blocked"
+    },
+    "R5": {
+      "reason": "predecessor not complete",
+      "status": "blocked"
+    },
+    "R6": {
+      "reason": "predecessor not complete",
+      "status": "blocked"
+    },
+    "R7": {
+      "reason": "predecessor not complete",
+      "status": "blocked"
+    },
+    "R8": {
+      "reason": "predecessor not complete",
+      "status": "blocked"
+    },
+    "R9": {
+      "reason": "predecessor not complete",
+      "status": "blocked"
+    }
+  },
+  "plan_sha256": "b24be861312117075dcf7bcbadab1a6807552dc7eaf7fa081b32f0bed8bf2ba6",
+  "registry_integrity": {
+    "illegal_rows": 0,
+    "integrity_problems": [],
+    "orphan_running": false
+  },
+  "status": "blocked",
+  "validated_at": "2026-07-15T05:30:20.172821+00:00",
+  "validator_sha256": "9df44d05279f022fce2076fca5cd5f8f6426f8451a61abe27ead0e37d69dc66f"
+}
