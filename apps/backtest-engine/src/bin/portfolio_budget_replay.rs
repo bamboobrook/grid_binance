@@ -31,6 +31,7 @@ use backtest_engine::{
 use rust_decimal::prelude::ToPrimitive;
 use rust_decimal::Decimal;
 use serde_json::Value;
+use sha2::{Digest, Sha256};
 use shared_domain::martingale::MartingalePortfolioConfig;
 
 struct Args {
@@ -393,6 +394,26 @@ fn main() -> Result<(), String> {
         })
         .collect();
 
+    // ---- Canonical trace digests (Round 16 R0.1): stable SHA256 of each
+    // event/trade/equity/funding/rejection stream, plus the resolved config
+    // and the canonical input rows. Field order, float formatting and
+    // timestamp order are fixed so BatchReplay and the release CLI produce
+    // identical hashes when they share data + config + window + budget.
+    // Uses the shared backtest_engine::martingale::trace_digest module so the
+    // Batch/CLI parity test computes digests with identical logic. ----
+    let digests = backtest_engine::martingale::trace_digest::compute_trace_digests(&result, &funding);
+    let event_stream_sha256 = digests.event_stream_sha256.clone();
+    let trade_stream_sha256 = digests.trade_stream_sha256.clone();
+    let equity_stream_sha256 = digests.equity_stream_sha256.clone();
+    let funding_stream_sha256 = digests.funding_stream_sha256.clone();
+    let rejection_stream_sha256 = digests.rejection_stream_sha256.clone();
+    let resolved_config_sha256 = {
+        let canon = serde_json::to_string(&portfolio).unwrap_or_default();
+        let mut h = Sha256::new();
+        h.update(canon.as_bytes());
+        format!("{:x}", h.finalize())
+    };
+
     let summary = serde_json::json!({
         "portfolio_id": portfolio_id,
         "profile": profile.as_str(),
@@ -458,6 +479,14 @@ fn main() -> Result<(), String> {
             "annualized_threshold": gate.annualized_threshold,
             "drawdown_threshold": gate.drawdown_threshold,
             "passed": gate.passed,
+        },
+        "trace_digests": {
+            "event_stream_sha256": event_stream_sha256,
+            "trade_stream_sha256": trade_stream_sha256,
+            "equity_stream_sha256": equity_stream_sha256,
+            "funding_stream_sha256": funding_stream_sha256,
+            "rejection_stream_sha256": rejection_stream_sha256,
+            "resolved_config_sha256": resolved_config_sha256,
         },
     });
     println!(

@@ -16,4 +16,5 @@ pub mod xs_selector;
 pub mod kline_engine;
 pub mod metrics;
 pub mod scoring;
+pub mod trace_digest;
 pub mod trade_engine;
