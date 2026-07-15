@@ -1,0 +1,21 @@
+{
+  "covers": [
+    "batch_rejects_spot_and_higher_timeframe_duplicates",
+    "budget_ladder_reapplies_weight_caps_per_budget",
+    "old_icp_trx_xs_exact_config_fails_closed",
+    "r15_canonical_loader_and_batch_match_cli_path",
+    "batch_preload_matches_canonical_futures_1m_loader (r14)",
+    "batch_parallel_matches_single_for_20_configs (r14)"
+  ],
+  "passed": true,
+  "r14_batch_replay_parity": {
+    "passed": true,
+    "returncode": 0,
+    "summary_line": "test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+  },
+  "r15_p0_canonical_parity": {
+    "passed": true,
+    "returncode": 0,
+    "summary_line": "test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+  }
+}

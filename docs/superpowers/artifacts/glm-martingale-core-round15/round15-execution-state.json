@@ -1,6 +1,6 @@
 {
   "plan_sha256": "8d70a3a8a92ac6a0d3b0a4845ade90c51ecd0b246ac0533f565f21cd9be23b55",
-  "phase": "P0_CANONICAL_PARITY",
+  "phase": "P1_EVENT_PRODUCTION_WIRING",
   "status": "blocked",
   "required_gates": [
     {
@@ -147,29 +147,104 @@
             "passed": true,
             "plan_sha256": "8d70a3a8a92ac6a0d3b0a4845ade90c51ecd0b246ac0533f565f21cd9be23b55"
           }
-        }
-      ],
-      "failed": [
+        },
         {
           "gate": "p0_parity_tests_pass",
+          "passed": true,
+          "detail": {
+            "covers": [
+              "batch_rejects_spot_and_higher_timeframe_duplicates",
+              "budget_ladder_reapplies_weight_caps_per_budget",
+              "old_icp_trx_xs_exact_config_fails_closed",
+              "r15_canonical_loader_and_batch_match_cli_path",
+              "batch_preload_matches_canonical_futures_1m_loader (r14)",
+              "batch_parallel_matches_single_for_20_configs (r14)"
+            ],
+            "passed": true,
+            "r14_batch_replay_parity": {
+              "passed": true,
+              "returncode": 0,
+              "summary_line": "test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+            },
+            "r15_p0_canonical_parity": {
+              "passed": true,
+              "returncode": 0,
+              "summary_line": "test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+            }
+          }
+        },
+        {
+          "gate": "old_counterexamples_reproduced_or_fail_closed",
+          "passed": true,
+          "detail": {
+            "passed": true,
+            "r4_corrected_regression": {
+              "4999U": {
+                "got": {
+                  "ann": 34.8121,
+                  "dd": 17.6672
+                },
+                "match": true,
+                "plan": {
+                  "ann": 34.8121,
+                  "dd": 17.6672
+                }
+              }
+            },
+            "rationale": "Old invalid ICP/TRX XS results required min_active_symbols=3 on a 2-symbol universe; corrected engine fail-closes (proven by old_icp_trx_xs_exact_config_fails_closed), so old numbers cannot reproduce. Clean diagnostics match the plan's expected figures.",
+            "source_a_icp_trx_no_xs": {
+              "3000U": {
+                "got": {
+                  "ann": 21.3373,
+                  "dd": 36.3246
+                },
+                "match": true,
+                "plan": {
+                  "ann": 21.3373,
+                  "dd": 36.3246
+                }
+              },
+              "4999U": {
+                "got": {
+                  "ann": 36.379,
+                  "dd": 28.6797
+                },
+                "match": true,
+                "plan": {
+                  "ann": 36.379,
+                  "dd": 28.6797
+                }
+              }
+            },
+            "tolerance_pp": 0.05
+          }
+        }
+      ],
+      "failed": []
+    },
+    {
+      "phase": "P1_EVENT_PRODUCTION_WIRING",
+      "passed": [],
+      "failed": [
+        {
+          "gate": "selector_ladder_scheduler_wired_to_event_and_production_state",
           "passed": false,
           "detail": {
             "reason": "no evidence"
           }
         },
         {
-          "gate": "old_counterexamples_reproduced_or_fail_closed",
+          "gate": "p1_production_parity_tests_pass",
           "passed": false,
           "detail": {
-            "reason": "no counterexample evidence"
+            "reason": "no evidence"
           }
         }
       ]
     }
   ],
   "blocked_reasons": [
-    "P0_CANONICAL_PARITY: 2 gate(s) missing: ['p0_parity_tests_pass', 'old_counterexamples_reproduced_or_fail_closed']",
-    "P1_EVENT_PRODUCTION_WIRING: predecessor not complete",
+    "P1_EVENT_PRODUCTION_WIRING: 2 gate(s) missing: ['selector_ladder_scheduler_wired_to_event_and_production_state', 'p1_production_parity_tests_pass']",
     "P2_BINDING_PROBES: predecessor not complete",
     "P3_BASELINE_UNIVERSE: predecessor not complete",
     "P4_TRAIN_SCREEN: predecessor not complete",
@@ -193,27 +268,29 @@
     "timeouts": 0
   },
   "artifacts": [
+    "docs/superpowers/artifacts/glm-martingale-core-round15/bootstrap-required-gates.json",
     "docs/superpowers/artifacts/glm-martingale-core-round15/exploration-registry.jsonl",
     "docs/superpowers/artifacts/glm-martingale-core-round15/p0/gates/binaries_hash_match_audit.json",
     "docs/superpowers/artifacts/glm-martingale-core-round15/p0/gates/funding_db_is_authoritative_round12.json",
     "docs/superpowers/artifacts/glm-martingale-core-round15/p0/gates/manifest_exists_and_dev_gate_passes.json",
     "docs/superpowers/artifacts/glm-martingale-core-round15/p0/gates/market_per_symbol_hashes_match_frozen_r14.json",
+    "docs/superpowers/artifacts/glm-martingale-core-round15/p0/gates/old_counterexamples_reproduced_or_fail_closed.json",
+    "docs/superpowers/artifacts/glm-martingale-core-round15/p0/gates/p0_parity_tests_pass.json",
     "docs/superpowers/artifacts/glm-martingale-core-round15/p0/gates/plan_sha256_frozen.json",
     "docs/superpowers/artifacts/glm-martingale-core-round15/round15-execution-state.json",
     "docs/superpowers/artifacts/glm-martingale-core-round15/run-manifests/r15-data-manifest.json"
   ],
-  "validated_at": "2026-07-15T02:19:51.491933+00:00",
+  "validated_at": "2026-07-15T02:35:39.024418+00:00",
   "phase_status": {
     "P0_CANONICAL_PARITY": {
-      "status": "blocked",
-      "failed_gates": [
-        "p0_parity_tests_pass",
-        "old_counterexamples_reproduced_or_fail_closed"
-      ]
+      "status": "complete"
     },
     "P1_EVENT_PRODUCTION_WIRING": {
       "status": "blocked",
-      "reason": "predecessor not complete"
+      "failed_gates": [
+        "selector_ladder_scheduler_wired_to_event_and_production_state",
+        "p1_production_parity_tests_pass"
+      ]
     },
     "P2_BINDING_PROBES": {
       "status": "blocked",

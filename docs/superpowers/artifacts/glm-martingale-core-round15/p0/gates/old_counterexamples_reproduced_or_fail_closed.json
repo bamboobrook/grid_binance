@@ -1,0 +1,42 @@
+{
+  "passed": true,
+  "r4_corrected_regression": {
+    "4999U": {
+      "got": {
+        "ann": 34.8121,
+        "dd": 17.6672
+      },
+      "match": true,
+      "plan": {
+        "ann": 34.8121,
+        "dd": 17.6672
+      }
+    }
+  },
+  "rationale": "Old invalid ICP/TRX XS results required min_active_symbols=3 on a 2-symbol universe; corrected engine fail-closes (proven by old_icp_trx_xs_exact_config_fails_closed), so old numbers cannot reproduce. Clean diagnostics match the plan's expected figures.",
+  "source_a_icp_trx_no_xs": {
+    "3000U": {
+      "got": {
+        "ann": 21.3373,
+        "dd": 36.3246
+      },
+      "match": true,
+      "plan": {
+        "ann": 21.3373,
+        "dd": 36.3246
+      }
+    },
+    "4999U": {
+      "got": {
+        "ann": 36.379,
+        "dd": 28.6797
+      },
+      "match": true,
+      "plan": {
+        "ann": 36.379,
+        "dd": 28.6797
+      }
+    }
+  },
+  "tolerance_pp": 0.05
+}
