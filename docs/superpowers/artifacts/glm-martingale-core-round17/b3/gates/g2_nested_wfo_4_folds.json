@@ -141,6 +141,86 @@
       "strict_g2_pass": false,
       "worst_seg_dd": 7.3,
       "breach": null
+    },
+    {
+      "strict_g2_pass": false,
+      "worst_seg_dd": 16.9,
+      "breach": false
+    },
+    {
+      "strict_g2_pass": false,
+      "worst_seg_dd": 6.4,
+      "breach": null
+    },
+    {
+      "strict_g2_pass": false,
+      "worst_seg_dd": 8.4,
+      "breach": null
+    },
+    {
+      "strict_g2_pass": false,
+      "worst_seg_dd": 7.2,
+      "breach": null
+    },
+    {
+      "strict_g2_pass": false,
+      "worst_seg_dd": 14.3,
+      "breach": false
+    },
+    {
+      "strict_g2_pass": false,
+      "worst_seg_dd": 4.4,
+      "breach": null
+    },
+    {
+      "strict_g2_pass": false,
+      "worst_seg_dd": 6.9,
+      "breach": null
+    },
+    {
+      "strict_g2_pass": false,
+      "worst_seg_dd": 6.3,
+      "breach": null
+    },
+    {
+      "strict_g2_pass": false,
+      "worst_seg_dd": 14.5,
+      "breach": false
+    },
+    {
+      "strict_g2_pass": false,
+      "worst_seg_dd": 4.6,
+      "breach": null
+    },
+    {
+      "strict_g2_pass": false,
+      "worst_seg_dd": 6.8,
+      "breach": null
+    },
+    {
+      "strict_g2_pass": false,
+      "worst_seg_dd": 5.8,
+      "breach": null
+    },
+    {
+      "strict_g2_pass": false,
+      "worst_seg_dd": 4.3,
+      "breach": false
+    },
+    {
+      "strict_g2_pass": false,
+      "worst_seg_dd": 2.7,
+      "breach": null
+    },
+    {
+      "strict_g2_pass": false,
+      "worst_seg_dd": 4.2,
+      "breach": null
+    },
+    {
+      "strict_g2_pass": false,
+      "worst_seg_dd": 3.1,
+      "breach": null
     }
   ],
   "g2_survivors": 0,
