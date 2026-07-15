@@ -151,6 +151,38 @@ pub struct MartingaleRuntime {
     /// Round 10 P1: maps each strategy_id to its sleeve id. Strategies without
     /// a mapping are NOT gated (allocator is opt-in per sleeve).
     strategy_to_sleeve_id: HashMap<String, String>,
+    /// Round 16 R1-A: asymmetric regime router state. When HTF regime gate is
+    /// enabled on any strategy, the live main loop consults this to decide
+    /// whether a NEW cycle of a given direction may open (BULL=long only,
+    /// BEAR=short only, RANGE=both, SHOCK/UNKNOWN=none). The router is fed
+    /// completed 1m bars (warmed via warmup_indicators_from_bars); the live
+    /// loop sets the current regime before consulting it.
+    regime_router: Option<backtest_engine::martingale::htf_regime::HtfRegimeComputer>,
+    /// Cached last-computed regime per symbol (set by the live loop from
+    /// completed bars; the runtime never uses current/incomplete bars).
+    current_regime_by_symbol: HashMap<String, backtest_engine::martingale::htf_regime::HtfRegimeState>,
+    /// Round 16 R1-B: per-strategy cycle age + deadline state (half-life
+    /// bucket, deadline_ms, freeze/reduce flag). Persisted on restart.
+    cycle_hazard_state: HashMap<String, CycleHazardState>,
+}
+
+/// Round 16 R1-B: hazard/deadline state for one strategy's live cycle.
+#[derive(Debug, Clone, PartialEq)]
+pub struct CycleHazardState {
+    pub cycle_id: String,
+    pub cycle_opened_ms: i64,
+    pub half_life_bucket: HalfLifeBucket,
+    pub deadline_ms: i64,
+    pub so_frozen: bool,
+}
+
+/// Round 16 R1-B: AR(1)/OU half-life bucket (UNKNOWN for unstable/unit-root).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum HalfLifeBucket {
+    Short,    // <= 12h
+    Medium,   // 12-48h
+    Long,     // 48-168h
+    Unknown,  // beta<=0, beta>=1, or insufficient sample
 }
 
 impl MartingaleRuntime {
@@ -170,6 +202,12 @@ impl MartingaleRuntime {
             ));
         }
 
+        let htf_gate_enabled = config
+            .portfolio
+            .strategies
+            .iter()
+            .any(|s| s.risk_limits.htf_regime_gate_enabled.unwrap_or(false));
+
         let mut strategies = HashMap::new();
         for strategy in config.portfolio.strategies {
             strategies.insert(
@@ -182,6 +220,14 @@ impl MartingaleRuntime {
                 },
             );
         }
+
+        let regime_router = if htf_gate_enabled {
+            Some(backtest_engine::martingale::htf_regime::HtfRegimeComputer::new(
+                backtest_engine::martingale::htf_regime::HtfRegimeConfig::default(),
+            ))
+        } else {
+            None
+        };
 
         Ok(Self {
             portfolio_id: config.portfolio_id,
@@ -197,7 +243,91 @@ impl MartingaleRuntime {
             indicator_context: IndicatorRuntimeContext::default(),
             allocator_state: None,
             strategy_to_sleeve_id: HashMap::new(),
+            regime_router,
+            current_regime_by_symbol: HashMap::new(),
+            cycle_hazard_state: HashMap::new(),
         })
+    }
+
+    /// Round 16 R1-A: feed completed 1m bars to the regime router. The live
+    /// main loop calls this with bars that are COMPLETED (never the current
+    /// incomplete bar), then [`regime_allows_new_cycle`] reflects the
+    /// last-completed regime state.
+    pub fn router_push_completed_1m(&mut self, bar: &KlineBar) {
+        if let Some(router) = &mut self.regime_router {
+            router.push_1m(bar);
+        }
+    }
+
+    /// Round 16 R1-A: cache the current completed regime for a symbol. The
+    /// live loop computes this from completed bars before consulting
+    /// [`regime_allows_new_cycle`]; the runtime never uses current bars.
+    pub fn router_set_regime(&mut self, symbol: &str, t_ms: i64) {
+        if let Some(router) = &mut self.regime_router {
+            let regime = router.regime_at(symbol, t_ms);
+            self.current_regime_by_symbol.insert(symbol.to_string(), regime);
+        }
+    }
+
+    /// Round 16 R1-A: asymmetric regime admission. Returns true if a NEW
+    /// cycle of the strategy's direction may open under the current completed
+    /// regime (BULL=long only, BEAR=short only, RANGE=both, SHOCK/UNKNOWN=none).
+    /// When no router is configured, returns true (router is opt-in).
+    pub fn regime_allows_new_cycle(&self, strategy_id: &str) -> bool {
+        let Some(router) = &self.regime_router else {
+            return true;
+        };
+        let _ = router; // router presence gates; decision uses cached regime
+        let strategy = match self.strategies.get(strategy_id) {
+            Some(s) => s,
+            None => return true,
+        };
+        let regime = match self.current_regime_by_symbol.get(&strategy.config.symbol) {
+            Some(r) => *r,
+            None => return false, // UNKNOWN regime: block admission (fail-safe)
+        };
+        let is_long = strategy.config.direction == MartingaleDirection::Long;
+        if is_long {
+            regime.allows_new_long()
+        } else {
+            regime.allows_new_short()
+        }
+    }
+
+    /// Round 16 R1-B: record hazard/deadline state when a cycle opens.
+    pub fn cycle_hazard_open(&mut self, strategy_id: &str, cycle_id: &str, opened_ms: i64,
+                              half_life: HalfLifeBucket, deadline_ms: i64) {
+        self.cycle_hazard_state.insert(strategy_id.to_string(), CycleHazardState {
+            cycle_id: cycle_id.to_string(),
+            cycle_opened_ms: opened_ms,
+            half_life_bucket: half_life,
+            deadline_ms,
+            so_frozen: false,
+        });
+    }
+
+    /// Round 16 R1-B: freeze SO for a strategy whose cycle passed its deadline.
+    pub fn cycle_hazard_freeze_so(&mut self, strategy_id: &str) -> bool {
+        if let Some(s) = self.cycle_hazard_state.get_mut(strategy_id) {
+            s.so_frozen = true;
+            return true;
+        }
+        false
+    }
+
+    /// Round 16 R1-B: clear hazard state when a cycle closes.
+    pub fn cycle_hazard_close(&mut self, strategy_id: &str) {
+        self.cycle_hazard_state.remove(strategy_id);
+    }
+
+    /// Round 16 R1-B: read-only hazard state (for restart persistence/restore).
+    pub fn cycle_hazard_snapshot(&self) -> &HashMap<String, CycleHazardState> {
+        &self.cycle_hazard_state
+    }
+
+    /// Round 16 R1-B: restore hazard state (restart path).
+    pub fn cycle_hazard_restore(&mut self, state: HashMap<String, CycleHazardState>) {
+        self.cycle_hazard_state = state;
     }
 
     pub fn warmup_indicators_from_bars(&mut self, bars: Vec<KlineBar>) {
