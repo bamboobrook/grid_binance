@@ -27,9 +27,9 @@ plan_sha256（冻结）：`d78b758605687adb0de57a34b6608630f743193afe9b677a90074
 | B0 | complete | T1/T2/T3-8/T3-12 + 4 folds 冻结 |
 | B1 | complete | 7-arm ablation（机制 wired 但 early-2023 dormant）|
 | B2 | complete | **G1 192 configs × 4 windows × 3 budgets = 2304 replays, 0 breach, 8 Pareto** |
-| B3 | complete_zero_survivors | G2 strict gate 0 survivors（full-window 负 ann）|
+| B3 | complete_zero_survivors | G2 strict gate 0 survivors（full-window 负 ann）；G3 zero-survivor path 文档化（每个候选的淘汰原因可重算）|
 | B4 | not_applicable | 0 finalists |
-| B5 | complete | production parity (real call sites) |
+| B5 | not_applicable_zero_finalists | 0 finalists => 无 finalist 可跑 service parity；A3 production call sites 仍有效 |
 | B6 | not_applicable | 0 finalists |
 | B7 | complete | 本文档 + counts 重算 |
 
@@ -67,6 +67,19 @@ plan_sha256（冻结）：`d78b758605687adb0de57a34b6608630f743193afe9b677a90074
 | T2 fo20/m1.55 | -10.3% | 0 | 36.6 | no | False |
 
 **0 strict survivors → 0 finalists → 三档 NOT HIT。**
+
+### G3 zero-survivor path（每个候选的淘汰原因可重算）
+G2 strict gate（计划 §12.4）淘汰了所有候选，每个淘汰原因可从 raw metrics 重算（见 `b3/g3-zero-survivor-path.json`）：
+- 所有候选 median ann < 30%（主要淘汰原因；best median 仅 1.3%）
+- 大多数 < 3/5 正分段（best 仅 1/5 正）
+- 1 个候选 principal breach（T3_8 fo20/m1.54 full-window breach）
+- full-window ann 全部为负（-2.5% ~ -12.2%）
+- 0 survivors => G3 nested WFO 无法选 config/fold；zero-survivor path 合法（计划 §3）
+
+### B5 production parity（not_applicable_zero_finalists）
+计划 §14 要求对每个 FINALIST 启动真实 service 比较 backtest/live hash。0 finalists => 无 finalist
+可跑 service parity。A3 的 production call sites（router/hazard 从 main.rs started executor 调用）
+仍有效验证（real call sites），但 finalist-level service parity 为 not_applicable。
 
 ## 4. 计数（从 registry + checkpoint 重算）
 

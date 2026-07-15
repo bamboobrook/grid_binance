@@ -225,5 +225,8 @@
   ],
   "g2_survivors": 0,
   "folds_executed": 0,
-  "status": "complete_zero_survivors"
+  "status": "complete_zero_survivors",
+  "g3_zero_survivor_path": "b3/g3-zero-survivor-path.json",
+  "g3_status": "complete_zero_survivors",
+  "rationale": "G2 strict gate eliminated all candidates (every candidate median_ann<30% + <3/5 positive segments, recomputable from raw). 0 survivors => G3 nested WFO cannot select a config per fold. Valid per plan \u00a73 zero-survivor path."
 }

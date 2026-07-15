@@ -1,4 +1,6 @@
 {
-  "used_real_started_service": true,
-  "finalists": 0
+  "status": "not_applicable_zero_finalists",
+  "finalists": 0,
+  "used_real_started_service": false,
+  "rationale": "Plan \u00a714 requires real service parity for each FINALIST. 0 finalists from G2 strict gate => no finalist to run service parity against. A3 production call sites (real, verified) remain valid but B5 finalist-parity is not_applicable. Per plan \u00a73: 0 survivor => B5 not_applicable_zero_survivors."
 }
