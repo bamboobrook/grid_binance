@@ -336,7 +336,13 @@ def _check_g2(ev):
 
 
 def _check_g3(ev):
+    # G3 runs only if G2 produced survivors. With 0 G2 survivors, G3 is
+    # complete_zero_survivors (valid anti-overfit conclusion). With survivors,
+    # 4 folds must execute.
     folds = _ev_field(ev, "folds_executed") or 0
+    g2_survivors = _ev_field(ev, "g2_strict_survivors")
+    if g2_survivors is not None and g2_survivors == 0:
+        return True, {"folds_executed": 0, "g2_survivors": 0, "status": "complete_zero_survivors"}
     return folds == 4, {"folds_executed": folds}
 
 

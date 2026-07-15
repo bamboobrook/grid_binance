@@ -1,0 +1,7 @@
+{
+  "status": "not_applicable_zero_finalists",
+  "rationale": "G2 strict gate produced 0 finalists (full-window negative ann / DD>35% in 2025-2026 bear). No candidate to future-lock. The holdout (2026-06-01..2026-07-10) is already-opened diagnostic only; 2026-07-11+ data is not read for promotion.",
+  "db_max_btc_1m_ms": 1784067240000,
+  "future_reads_for_promotion": 0,
+  "finalists": 0
+}

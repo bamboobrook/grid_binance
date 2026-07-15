@@ -1,0 +1,412 @@
+{
+  "finalist_count": 0,
+  "finalists": [],
+  "g2_results": [
+    {
+      "any_breach": false,
+      "full_ann": -22.7958,
+      "full_dd": 78.3928,
+      "median_seg_ann": -4.7733,
+      "params": {
+        "fo": 40,
+        "legs": 6,
+        "lev": 8,
+        "m": 1.8,
+        "sp": 140,
+        "tp": 150
+      },
+      "seg_pos": 2,
+      "segments": [
+        {
+          "ann": -4.7733,
+          "breached": false,
+          "dd": 35.3146,
+          "seg": "h1_2023"
+        },
+        {
+          "ann": 1.3857,
+          "breached": false,
+          "dd": 26.1459,
+          "seg": "h2_2023"
+        },
+        {
+          "ann": 7.0086,
+          "breached": false,
+          "dd": 39.3288,
+          "seg": "2024"
+        },
+        {
+          "ann": -36.2655,
+          "breached": false,
+          "dd": 62.9297,
+          "seg": "2025"
+        },
+        {
+          "ann": -43.5039,
+          "breached": false,
+          "dd": 44.5815,
+          "seg": "2026_ytd"
+        }
+      ],
+      "strict_g2_pass": false,
+      "track": "T1",
+      "worst_seg_dd": 62.9297
+    },
+    {
+      "any_breach": true,
+      "full_ann": -999,
+      "full_dd": 1002.3765,
+      "median_seg_ann": -61.523,
+      "params": {
+        "fo": 40,
+        "legs": 7,
+        "lev": 6,
+        "m": 2.15,
+        "sp": 250,
+        "tp": 170
+      },
+      "seg_pos": 1,
+      "segments": [
+        {
+          "ann": -80.7072,
+          "breached": true,
+          "dd": 108.0573,
+          "seg": "h1_2023"
+        },
+        {
+          "ann": -999,
+          "breached": true,
+          "dd": 195.9372,
+          "seg": "h2_2023"
+        },
+        {
+          "ann": -55.5374,
+          "breached": true,
+          "dd": 109.4992,
+          "seg": "2024"
+        },
+        {
+          "ann": 50.7799,
+          "breached": false,
+          "dd": 51.5124,
+          "seg": "2025"
+        },
+        {
+          "ann": -61.523,
+          "breached": false,
+          "dd": 60.1395,
+          "seg": "2026_ytd"
+        }
+      ],
+      "strict_g2_pass": false,
+      "track": "T3_8",
+      "worst_seg_dd": 195.9372
+    },
+    {
+      "any_breach": true,
+      "full_ann": -16.9668,
+      "full_dd": 129.2554,
+      "median_seg_ann": -16.454,
+      "params": {
+        "fo": 35,
+        "legs": 5,
+        "lev": 5,
+        "m": 1.42,
+        "sp": 190,
+        "tp": 170
+      },
+      "seg_pos": 0,
+      "segments": [
+        {
+          "ann": -16.454,
+          "breached": false,
+          "dd": 15.499,
+          "seg": "h1_2023"
+        },
+        {
+          "ann": -27.4495,
+          "breached": false,
+          "dd": 21.85,
+          "seg": "h2_2023"
+        },
+        {
+          "ann": -13.2419,
+          "breached": false,
+          "dd": 31.4863,
+          "seg": "2024"
+        },
+        {
+          "ann": -6.1999,
+          "breached": false,
+          "dd": 14.3576,
+          "seg": "2025"
+        },
+        {
+          "ann": -23.737,
+          "breached": false,
+          "dd": 19.7608,
+          "seg": "2026_ytd"
+        }
+      ],
+      "strict_g2_pass": false,
+      "track": "T3_8",
+      "worst_seg_dd": 31.4863
+    },
+    {
+      "any_breach": true,
+      "full_ann": -23.3907,
+      "full_dd": 167.1232,
+      "median_seg_ann": -18.0668,
+      "params": {
+        "fo": 30,
+        "legs": 6,
+        "lev": 5,
+        "m": 1.5,
+        "sp": 230,
+        "tp": 250
+      },
+      "seg_pos": 0,
+      "segments": [
+        {
+          "ann": -18.0668,
+          "breached": false,
+          "dd": 24.1727,
+          "seg": "h1_2023"
+        },
+        {
+          "ann": -48.9419,
+          "breached": false,
+          "dd": 41.7205,
+          "seg": "h2_2023"
+        },
+        {
+          "ann": -2.41,
+          "breached": false,
+          "dd": 58.2108,
+          "seg": "2024"
+        },
+        {
+          "ann": -4.7119,
+          "breached": false,
+          "dd": 32.3234,
+          "seg": "2025"
+        },
+        {
+          "ann": -51.8863,
+          "breached": false,
+          "dd": 46.6612,
+          "seg": "2026_ytd"
+        }
+      ],
+      "strict_g2_pass": false,
+      "track": "T3_12",
+      "worst_seg_dd": 58.2108
+    },
+    {
+      "any_breach": true,
+      "full_ann": -999,
+      "full_dd": 368.1969,
+      "median_seg_ann": -41.2559,
+      "params": {
+        "fo": 45,
+        "legs": 7,
+        "lev": 5,
+        "m": 1.52,
+        "sp": 160,
+        "tp": 250
+      },
+      "seg_pos": 0,
+      "segments": [
+        {
+          "ann": -41.2559,
+          "breached": false,
+          "dd": 42.6342,
+          "seg": "h1_2023"
+        },
+        {
+          "ann": -66.2167,
+          "breached": false,
+          "dd": 62.4525,
+          "seg": "h2_2023"
+        },
+        {
+          "ann": -20.6026,
+          "breached": false,
+          "dd": 85.3323,
+          "seg": "2024"
+        },
+        {
+          "ann": -22.5129,
+          "breached": false,
+          "dd": 49.1471,
+          "seg": "2025"
+        },
+        {
+          "ann": -80.7414,
+          "breached": false,
+          "dd": 78.5686,
+          "seg": "2026_ytd"
+        }
+      ],
+      "strict_g2_pass": false,
+      "track": "T3_8",
+      "worst_seg_dd": 85.3323
+    },
+    {
+      "any_breach": false,
+      "full_ann": -3.2931,
+      "full_dd": 68.8313,
+      "median_seg_ann": -5.833,
+      "params": {
+        "fo": 25,
+        "legs": 3,
+        "lev": 4,
+        "m": 1.92,
+        "sp": 240,
+        "tp": 220
+      },
+      "seg_pos": 0,
+      "segments": [
+        {
+          "ann": -5.833,
+          "breached": false,
+          "dd": 13.8006,
+          "seg": "h1_2023"
+        },
+        {
+          "ann": -15.9264,
+          "breached": false,
+          "dd": 14.3569,
+          "seg": "h2_2023"
+        },
+        {
+          "ann": -2.6115,
+          "breached": false,
+          "dd": 15.9116,
+          "seg": "2024"
+        },
+        {
+          "ann": -3.7666,
+          "breached": false,
+          "dd": 6.0532,
+          "seg": "2025"
+        },
+        {
+          "ann": -8.4563,
+          "breached": false,
+          "dd": 6.2862,
+          "seg": "2026_ytd"
+        }
+      ],
+      "strict_g2_pass": false,
+      "track": "T1",
+      "worst_seg_dd": 15.9116
+    },
+    {
+      "any_breach": false,
+      "full_ann": -3.2402,
+      "full_dd": 47.8564,
+      "median_seg_ann": -5.7407,
+      "params": {
+        "fo": 15,
+        "legs": 4,
+        "lev": 6,
+        "m": 1.88,
+        "sp": 240,
+        "tp": 110
+      },
+      "seg_pos": 1,
+      "segments": [
+        {
+          "ann": -5.7407,
+          "breached": false,
+          "dd": 5.9655,
+          "seg": "h1_2023"
+        },
+        {
+          "ann": -15.5409,
+          "breached": false,
+          "dd": 10.7741,
+          "seg": "h2_2023"
+        },
+        {
+          "ann": -1.3312,
+          "breached": false,
+          "dd": 5.6484,
+          "seg": "2024"
+        },
+        {
+          "ann": 3.7634,
+          "breached": false,
+          "dd": 7.5044,
+          "seg": "2025"
+        },
+        {
+          "ann": -13.5192,
+          "breached": false,
+          "dd": 9.6242,
+          "seg": "2026_ytd"
+        }
+      ],
+      "strict_g2_pass": false,
+      "track": "T3_8",
+      "worst_seg_dd": 10.7741
+    },
+    {
+      "any_breach": false,
+      "full_ann": -2.1142,
+      "full_dd": 31.7622,
+      "median_seg_ann": -3.7837,
+      "params": {
+        "fo": 15,
+        "legs": 4,
+        "lev": 5,
+        "m": 1.32,
+        "sp": 160,
+        "tp": 140
+      },
+      "seg_pos": 0,
+      "segments": [
+        {
+          "ann": -3.7837,
+          "breached": false,
+          "dd": 4.0472,
+          "seg": "h1_2023"
+        },
+        {
+          "ann": -2.9625,
+          "breached": false,
+          "dd": 3.7877,
+          "seg": "h2_2023"
+        },
+        {
+          "ann": -5.0515,
+          "breached": false,
+          "dd": 13.2756,
+          "seg": "2024"
+        },
+        {
+          "ann": -0.1651,
+          "breached": false,
+          "dd": 3.3229,
+          "seg": "2025"
+        },
+        {
+          "ann": -6.4008,
+          "breached": false,
+          "dd": 4.8698,
+          "seg": "2026_ytd"
+        }
+      ],
+      "strict_g2_pass": false,
+      "track": "T3_8",
+      "worst_seg_dd": 13.2756
+    }
+  ],
+  "g2_strict_gate_checked": true,
+  "g2_strict_survivors": 0,
+  "g3_folds": [],
+  "g3_folds_executed": 0,
+  "phase": "R5_G2_G3",
+  "schema_version": 1
+}

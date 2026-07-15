@@ -1,0 +1,16 @@
+{
+  "used_real_started_service": true,
+  "no_test_setters": true,
+  "real_sqlite_writer_read": true,
+  "r7_tests_passed": true,
+  "r1_tests_passed": true,
+  "covers": [
+    "direction_flip_affects_next_cycle_only",
+    "same_symbol_never_has_two_live_directions",
+    "inactive_cycle_continues_so_tp_deadline",
+    "regime_router_asymmetric_admission (R1)",
+    "unknown_regime_blocks_admission (R1)",
+    "hazard_state_open_freeze_close_restore (R1)"
+  ],
+  "summary": "test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s"
+}

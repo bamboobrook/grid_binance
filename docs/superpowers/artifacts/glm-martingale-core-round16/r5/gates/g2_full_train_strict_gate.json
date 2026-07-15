@@ -1,0 +1,110 @@
+{
+  "survivors": 0,
+  "strict_worst_dd_35_and_no_breach": true,
+  "results": [
+    {
+      "params": {
+        "fo": 40,
+        "legs": 6,
+        "lev": 8,
+        "m": 1.8,
+        "sp": 140,
+        "tp": 150
+      },
+      "strict_g2_pass": false,
+      "worst_seg_dd": 62.9297,
+      "any_breach": false
+    },
+    {
+      "params": {
+        "fo": 40,
+        "legs": 7,
+        "lev": 6,
+        "m": 2.15,
+        "sp": 250,
+        "tp": 170
+      },
+      "strict_g2_pass": false,
+      "worst_seg_dd": 195.9372,
+      "any_breach": true
+    },
+    {
+      "params": {
+        "fo": 35,
+        "legs": 5,
+        "lev": 5,
+        "m": 1.42,
+        "sp": 190,
+        "tp": 170
+      },
+      "strict_g2_pass": false,
+      "worst_seg_dd": 31.4863,
+      "any_breach": true
+    },
+    {
+      "params": {
+        "fo": 30,
+        "legs": 6,
+        "lev": 5,
+        "m": 1.5,
+        "sp": 230,
+        "tp": 250
+      },
+      "strict_g2_pass": false,
+      "worst_seg_dd": 58.2108,
+      "any_breach": true
+    },
+    {
+      "params": {
+        "fo": 45,
+        "legs": 7,
+        "lev": 5,
+        "m": 1.52,
+        "sp": 160,
+        "tp": 250
+      },
+      "strict_g2_pass": false,
+      "worst_seg_dd": 85.3323,
+      "any_breach": true
+    },
+    {
+      "params": {
+        "fo": 25,
+        "legs": 3,
+        "lev": 4,
+        "m": 1.92,
+        "sp": 240,
+        "tp": 220
+      },
+      "strict_g2_pass": false,
+      "worst_seg_dd": 15.9116,
+      "any_breach": false
+    },
+    {
+      "params": {
+        "fo": 15,
+        "legs": 4,
+        "lev": 6,
+        "m": 1.88,
+        "sp": 240,
+        "tp": 110
+      },
+      "strict_g2_pass": false,
+      "worst_seg_dd": 10.7741,
+      "any_breach": false
+    },
+    {
+      "params": {
+        "fo": 15,
+        "legs": 4,
+        "lev": 5,
+        "m": 1.32,
+        "sp": 160,
+        "tp": 140
+      },
+      "strict_g2_pass": false,
+      "worst_seg_dd": 13.2756,
+      "any_breach": false
+    }
+  ]
+}

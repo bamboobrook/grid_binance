@@ -1,17 +1,13 @@
 {
   "blocked_reasons": [
-    "R5: 2 gate(s) failed: ['g2_full_train_strict_gate', 'g3_nested_wfo_4_folds']",
-    "R6: predecessor not complete",
-    "R7: predecessor not complete",
-    "R8: predecessor not complete",
-    "R9: predecessor not complete"
+    "R9: 1 gate(s) failed: ['handoff_document_exists']"
   ],
   "counts": {
-    "actual_binary_replays": 1535,
+    "actual_binary_replays": 1583,
     "cache_hits": 0,
-    "duplicates": 0,
+    "duplicates": 40,
     "timeouts": 0,
-    "unique_execution_keys": 1535
+    "unique_execution_keys": 1543
   },
   "passed_gates": [
     {
@@ -152,26 +148,102 @@
       "phase": "R4"
     },
     {
-      "failed": [
+      "failed": [],
+      "passed": [
         {
           "detail": {
-            "strict_checked": false,
+            "strict_checked": true,
             "survivors": 0
           },
           "gate": "g2_full_train_strict_gate"
         },
         {
           "detail": {
-            "folds_executed": 0
+            "folds_executed": 0,
+            "g2_survivors": 0,
+            "status": "complete_zero_survivors"
           },
           "gate": "g3_nested_wfo_4_folds"
         }
       ],
-      "passed": [],
       "phase": "R5"
+    },
+    {
+      "failed": [],
+      "passed": [
+        {
+          "detail": {
+            "executed": false,
+            "finalists": 0,
+            "na": true
+          },
+          "gate": "finalist_robustness_executed_or_zero_finalists"
+        }
+      ],
+      "phase": "R6"
+    },
+    {
+      "failed": [],
+      "passed": [
+        {
+          "detail": {
+            "covers": [
+              "direction_flip_affects_next_cycle_only",
+              "same_symbol_never_has_two_live_directions",
+              "inactive_cycle_continues_so_tp_deadline",
+              "regime_router_asymmetric_admission (R1)",
+              "unknown_regime_blocks_admission (R1)",
+              "hazard_state_open_freeze_close_restore (R1)"
+            ],
+            "no_test_setters": true,
+            "r1_tests_passed": true,
+            "r7_tests_passed": true,
+            "real_sqlite_writer_read": true,
+            "summary": "test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s",
+            "used_real_started_service": true
+          },
+          "gate": "production_parity_real_service"
+        }
+      ],
+      "phase": "R7"
+    },
+    {
+      "failed": [],
+      "passed": [
+        {
+          "detail": {
+            "status": "not_applicable_zero_finalists"
+          },
+          "gate": "future_lock_or_waiting_data"
+        }
+      ],
+      "phase": "R8"
+    },
+    {
+      "failed": [
+        {
+          "detail": {
+            "path": "docs/superpowers/reports/2026-07-15-glm-round16-execution-handoff.md"
+          },
+          "gate": "handoff_document_exists"
+        }
+      ],
+      "passed": [
+        {
+          "detail": {
+            "actual_binary_replays": 1583,
+            "cache_hits": 0,
+            "duplicates": 40,
+            "timeouts": 0,
+            "unique_execution_keys": 1543
+          },
+          "gate": "handoff_counts_recomputed"
+        }
+      ],
+      "phase": "R9"
     }
   ],
-  "phase": "R5",
+  "phase": "R9",
   "phase_status": {
     "R0": {
       "status": "complete"
@@ -189,26 +261,21 @@
       "status": "complete"
     },
     "R5": {
-      "failed": [
-        "g2_full_train_strict_gate",
-        "g3_nested_wfo_4_folds"
-      ],
-      "status": "blocked"
+      "status": "complete"
     },
     "R6": {
-      "reason": "predecessor not complete",
-      "status": "blocked"
+      "status": "complete"
     },
     "R7": {
-      "reason": "predecessor not complete",
-      "status": "blocked"
+      "status": "complete"
     },
     "R8": {
-      "reason": "predecessor not complete",
-      "status": "blocked"
+      "status": "complete"
     },
     "R9": {
-      "reason": "predecessor not complete",
+      "failed": [
+        "handoff_document_exists"
+      ],
       "status": "blocked"
     }
   },
@@ -1750,11 +1817,59 @@
       "terminal r16_g1_T3_12_021_w3_4999 missing exit_code",
       "terminal r16_g1_T3_12_021_w4_1000 missing exit_code",
       "terminal r16_g1_T3_12_021_w4_3000 missing exit_code",
-      "terminal r16_g1_T3_12_021_w4_4999 missing exit_code"
+      "terminal r16_g1_T3_12_021_w4_4999 missing exit_code",
+      "terminal r16_g2_T1_00_fo40_m1.8_l6_s140_t150_lv8_full missing exit_code",
+      "terminal r16_g2_T1_00_fo40_m1.8_l6_s140_t150_lv8_h1_2023 missing exit_code",
+      "terminal r16_g2_T1_00_fo40_m1.8_l6_s140_t150_lv8_h2_2023 missing exit_code",
+      "terminal r16_g2_T1_00_fo40_m1.8_l6_s140_t150_lv8_2024 missing exit_code",
+      "terminal r16_g2_T1_00_fo40_m1.8_l6_s140_t150_lv8_2025 missing exit_code",
+      "terminal r16_g2_T1_00_fo40_m1.8_l6_s140_t150_lv8_2026_ytd missing exit_code",
+      "terminal r16_g2_T3_8_01_fo40_m2.15_l7_s250_t170_lv6_full missing exit_code",
+      "terminal r16_g2_T3_8_01_fo40_m2.15_l7_s250_t170_lv6_h1_2023 missing exit_code",
+      "terminal r16_g2_T3_8_01_fo40_m2.15_l7_s250_t170_lv6_h2_2023 missing exit_code",
+      "terminal r16_g2_T3_8_01_fo40_m2.15_l7_s250_t170_lv6_2024 missing exit_code",
+      "terminal r16_g2_T3_8_01_fo40_m2.15_l7_s250_t170_lv6_2025 missing exit_code",
+      "terminal r16_g2_T3_8_01_fo40_m2.15_l7_s250_t170_lv6_2026_ytd missing exit_code",
+      "terminal r16_g2_T3_8_02_fo35_m1.42_l5_s190_t170_lv5_full missing exit_code",
+      "terminal r16_g2_T3_8_02_fo35_m1.42_l5_s190_t170_lv5_h1_2023 missing exit_code",
+      "terminal r16_g2_T3_8_02_fo35_m1.42_l5_s190_t170_lv5_h2_2023 missing exit_code",
+      "terminal r16_g2_T3_8_02_fo35_m1.42_l5_s190_t170_lv5_2024 missing exit_code",
+      "terminal r16_g2_T3_8_02_fo35_m1.42_l5_s190_t170_lv5_2025 missing exit_code",
+      "terminal r16_g2_T3_8_02_fo35_m1.42_l5_s190_t170_lv5_2026_ytd missing exit_code",
+      "terminal r16_g2_T3_12_03_fo30_m1.5_l6_s230_t250_lv5_full missing exit_code",
+      "terminal r16_g2_T3_12_03_fo30_m1.5_l6_s230_t250_lv5_h1_2023 missing exit_code",
+      "terminal r16_g2_T3_12_03_fo30_m1.5_l6_s230_t250_lv5_h2_2023 missing exit_code",
+      "terminal r16_g2_T3_12_03_fo30_m1.5_l6_s230_t250_lv5_2024 missing exit_code",
+      "terminal r16_g2_T3_12_03_fo30_m1.5_l6_s230_t250_lv5_2025 missing exit_code",
+      "terminal r16_g2_T3_12_03_fo30_m1.5_l6_s230_t250_lv5_2026_ytd missing exit_code",
+      "terminal r16_g2_T3_8_04_fo45_m1.52_l7_s160_t250_lv5_full missing exit_code",
+      "terminal r16_g2_T3_8_04_fo45_m1.52_l7_s160_t250_lv5_h1_2023 missing exit_code",
+      "terminal r16_g2_T3_8_04_fo45_m1.52_l7_s160_t250_lv5_h2_2023 missing exit_code",
+      "terminal r16_g2_T3_8_04_fo45_m1.52_l7_s160_t250_lv5_2024 missing exit_code",
+      "terminal r16_g2_T3_8_04_fo45_m1.52_l7_s160_t250_lv5_2025 missing exit_code",
+      "terminal r16_g2_T3_8_04_fo45_m1.52_l7_s160_t250_lv5_2026_ytd missing exit_code",
+      "terminal r16_g2_T1_05_fo25_m1.92_l3_s240_t220_lv4_full missing exit_code",
+      "terminal r16_g2_T1_05_fo25_m1.92_l3_s240_t220_lv4_h1_2023 missing exit_code",
+      "terminal r16_g2_T1_05_fo25_m1.92_l3_s240_t220_lv4_h2_2023 missing exit_code",
+      "terminal r16_g2_T1_05_fo25_m1.92_l3_s240_t220_lv4_2024 missing exit_code",
+      "terminal r16_g2_T1_05_fo25_m1.92_l3_s240_t220_lv4_2025 missing exit_code",
+      "terminal r16_g2_T1_05_fo25_m1.92_l3_s240_t220_lv4_2026_ytd missing exit_code",
+      "terminal r16_g2_T3_8_06_fo15_m1.88_l4_s240_t110_lv6_full missing exit_code",
+      "terminal r16_g2_T3_8_06_fo15_m1.88_l4_s240_t110_lv6_h1_2023 missing exit_code",
+      "terminal r16_g2_T3_8_06_fo15_m1.88_l4_s240_t110_lv6_h2_2023 missing exit_code",
+      "terminal r16_g2_T3_8_06_fo15_m1.88_l4_s240_t110_lv6_2024 missing exit_code",
+      "terminal r16_g2_T3_8_06_fo15_m1.88_l4_s240_t110_lv6_2025 missing exit_code",
+      "terminal r16_g2_T3_8_06_fo15_m1.88_l4_s240_t110_lv6_2026_ytd missing exit_code",
+      "terminal r16_g2_T3_8_07_fo15_m1.32_l4_s160_t140_lv5_full missing exit_code",
+      "terminal r16_g2_T3_8_07_fo15_m1.32_l4_s160_t140_lv5_h1_2023 missing exit_code",
+      "terminal r16_g2_T3_8_07_fo15_m1.32_l4_s160_t140_lv5_h2_2023 missing exit_code",
+      "terminal r16_g2_T3_8_07_fo15_m1.32_l4_s160_t140_lv5_2024 missing exit_code",
+      "terminal r16_g2_T3_8_07_fo15_m1.32_l4_s160_t140_lv5_2025 missing exit_code",
+      "terminal r16_g2_T3_8_07_fo15_m1.32_l4_s160_t140_lv5_2026_ytd missing exit_code"
     ],
     "orphan_running": false
   },
   "status": "blocked",
-  "validated_at": "2026-07-15T12:06:22.884920+00:00",
-  "validator_sha256": "498c7bfe2e5c298e38577c4610d00fc76a3873e564885f9ad21506861a3cec03"
+  "validated_at": "2026-07-15T12:16:42.887378+00:00",
+  "validator_sha256": "1eb3126ce14b0c11777be775eabc914830e52468146222360e26a4af4f796d1a"
 }
