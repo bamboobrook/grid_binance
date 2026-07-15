@@ -1,0 +1,42 @@
+{
+  "actual_replays": 396,
+  "budgets": 3,
+  "duplicates": 0,
+  "note": "G1 partially executed (T2 ~35-94 unique configs); T3_8/T3_12 not yet run due to compute budget. G1 only eliminates.",
+  "pareto_survivors": [
+    {
+      "ann": 222.9014,
+      "budget": 1000.0,
+      "dd": 5.5529,
+      "track": "T2",
+      "window": "w3"
+    },
+    {
+      "ann": 172.5906,
+      "budget": 1000.0,
+      "dd": 3.9103,
+      "track": "T2",
+      "window": "w3"
+    },
+    {
+      "ann": 88.7963,
+      "budget": 1000.0,
+      "dd": 3.2578,
+      "track": "T2",
+      "window": "w3"
+    },
+    {
+      "ann": 33.791,
+      "budget": 1000.0,
+      "dd": 2.8097,
+      "track": "T2",
+      "window": "w3"
+    }
+  ],
+  "phase": "B2_G1",
+  "sampler": "scipy_sobol",
+  "schema_version": 1,
+  "timeouts": 0,
+  "unique_configs": 35,
+  "windows": 4
+}
