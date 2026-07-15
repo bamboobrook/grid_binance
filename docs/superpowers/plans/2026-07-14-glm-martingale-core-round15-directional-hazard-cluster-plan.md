@@ -1,6 +1,9 @@
-# GLM Martingale Core Round 15：双向完整袖套、首达风险阶梯与相关簇库存计划
+# GLM Martingale Core Round 15：双向完整袖套、首达风险阶梯与相关簇库存计划（执行版 v2）
 
 执行者：GLM
+
+版本：`v2 / 2026-07-15`。本文件是 Round 15 唯一执行计划；不得另写简化版覆盖本计划，也不得
+把未通过机器 gate 的 phase 用自然语言标记为完成。
 
 上游唯一权威输入：
 
@@ -41,6 +44,54 @@ PnL、预计算 curve PnL 或外部 benchmark 收益进入 equity。命中任一
 - fee、slippage、funding、minNotional、tickSize、stepSize、leverage、liquidation buffer 生效；
 - nested WFO、邻域、LOSO/LOCO、成本/延迟压力和 production trace 全通过；
 - 30 天未来 paper 前只能叫 backtest candidate，不能叫 production-ready。
+
+### 1.1 唯一机器状态与执行顺序
+
+GLM 启动时必须创建：
+
+```text
+docs/superpowers/artifacts/glm-martingale-core-round15/round15-execution-state.json
+docs/superpowers/artifacts/glm-martingale-core-round15/exploration-registry.jsonl
+scripts/glm_r15_validate_execution_state.py
+```
+
+`round15-execution-state.json` 只能由 validator 根据 artifacts、registry 和测试结果生成，至少含：
+
+```json
+{
+  "plan_sha256": "...",
+  "phase": "P0_CANONICAL_PARITY",
+  "status": "blocked",
+  "required_gates": [],
+  "passed_gates": [],
+  "blocked_reasons": [],
+  "hashes": {"engine": "...", "data": "...", "manifest": "...", "config": "..."},
+  "counts": {"unique_configs": 0, "binary_replays": 0, "cache_hits": 0, "duplicates": 0, "timeouts": 0},
+  "artifacts": [],
+  "validated_at": "..."
+}
+```
+
+固定 phase 顺序，禁止并行跨 phase 或跳过：
+
+| 顺序 | phase | 唯一完成条件 |
+|---:|---|---|
+| 0 | `P0_CANONICAL_PARITY` | canonical 数据、CLI/Batch parity、旧结果反例全部通过 |
+| 1 | `P1_EVENT_PRODUCTION_WIRING` | selector/ladder/scheduler 接入 event 与 production state |
+| 2 | `P2_BINDING_PROBES` | 每个开放参数改变 config hash，且至少一个指定 event hash 改变 |
+| 3 | `P3_BASELINE_UNIVERSE` | 固定 baseline、T1/T2/T3 universe 和数据资格 |
+| 4 | `P4_TRAIN_SCREEN` | 仅 train 的分层筛选完成，配额和重复率合规 |
+| 5 | `P5_NESTED_WFO` | 4 folds 按 train 选参、冻结后各读 validation 一次 |
+| 6 | `P6_ROBUSTNESS` | budget、集中度、平台、LOSO/LOCO、成本/延迟全部完成 |
+| 7 | `P7_PRODUCTION_PARITY` | finalist backtest/live/restart/order trace 一致 |
+| 8 | `P8_FUTURE_LOCK` | 冻结提交后至多读取一次；无新数据则记 `not_available`，不得伪造验证 |
+| 9 | `P9_FINAL_HANDOFF` | validator 汇总所有命中、失败和 exact non-repeat scope |
+
+validator 规则：缺字段、hash 不一致、前序非 `complete`、存在 `running`、gate 证据缺失或统计
+无法从明细重算时，当前 phase 必须为 `blocked`。GLM 只能补证据后重新运行 validator，禁止手改
+`status=complete`。每阶段都先落盘 `running`，validator 通过后单独 commit 并 push；远端提交可见后
+才能进入下一阶段。`required_gates` 在 bootstrap commit 冻结；后续删除或降级 gate 必须 fail-closed。
+计划 SHA256 也必须冻结；GLM 无权自行修改本计划，确需变更时先停止并交回 ChatGPT/用户审批。
 
 ## 2. Round 15 启动前必须闭合的修复
 
@@ -90,11 +141,33 @@ batch_cli_trade_pnl_dd_funding_parity_1e_9
 budget_ladder_reapplies_weight_caps_per_budget
 effective_config_hash_changes_when_bound_parameter_changes
 identical_effective_config_is_cache_hit_not_new_trial
+old_icp_trx_xs_exact_config_fails_closed
+old_3000u_50_70_result_does_not_reproduce
+old_4999u_35_07_dd13_56_result_does_not_reproduce
 ```
 
 每个 parity case 比较 events、trades、realized PnL、equity、DD、funding 和 rejection reasons，
 不能只比较两个都调用 BatchReplay 的入口。任一不一致，P2-P5 每 family 最多运行 4 个
 binding probes，不得启动 Sobol/grid。
+
+旧结果反例必须使用原 artifact 中的精确 resolved config，不得手工近似：
+
+```text
+source A: r14-p4-dual-state-ablation-final.json / p4_baseline_xs_rev
+source B: r14-p5-inventory-final.json / p5_pen1.0_floor0.25
+
+exact XS config expected:
+  fail closed: min_active_symbols=3 exceeds traded universe=2
+
+canonical diagnostic after removing invalid XS, same P4/P5 parameters:
+  A 3000U: ann 21.3373%, DD 36.3246%, positive 4/5
+  A 4999U: ann 36.3790%, DD 28.6797%, positive 4/5
+  B 3000U: ann 18.6454%, DD 38.0651%, positive 5/5
+  B 4999U: ann 32.6729%, DD 29.4675%, positive 5/5
+```
+
+在本计划冻结的 engine/data hash 下，诊断值允许 `0.02pp` 数值误差；超差即阻塞并追查数据、
+预算 cap 或 event 语义。两组结果只作 regression，不得进入 promotion pool。
 
 ### P0.3 Round 14 新机制闭合
 
@@ -106,6 +179,12 @@ binding probes，不得启动 Sobol/grid。
 6. P5 必须接入真实 `InventoryScheduler` state，不得只用 `capital_used/budget` 公式冒充；
 7. inventory-only 模式也必须更新 completed HTF/downside state；
 8. 所有 runner 的 budget ladder 每档重新 resolve weight/cap。
+
+### P0.4 搜索前的 event/production 基础接线
+
+P2/P3 新机制必须先经过启动中的 executor、test DB writer/read、reconcile 和 restart，证明状态被
+真实读取并影响 order trace。此阶段只允许最小 synthetic/binding trace，不做收益搜索。任一机制
+仅存在于 helper、JSON 或离线 runner 中，`P1_EVENT_PRODUCTION_WIRING` 必须保持 `blocked`。
 
 ## 3. 外部研究只转化为可证伪机制
 
@@ -127,7 +206,7 @@ binding probes，不得启动 Sobol/grid。
 Round 14 的 R4/R7 每方向只有 3 个 symbols，active=3/5 实际无筛选或筛到不存在的方向
 sleeve。Round 15 必须先构造方向完整 universe：
 
-- 在 train 前按数据完整、期货流动性、minNotional 和上市时长冻结 `8/12/16` symbols；
+- 在任何收益搜索前冻结 symbols，并先验证数据完整、期货流动性、minNotional 和上市时长；
 - 每个 symbol 同时有 long 与 short Martingale sleeve，但同一 symbol 同时最多一个 live cycle；
 - direction flip 只影响下一 cycle，不能反转、复制或强平旧 cycle；
 - selector active count：每方向 `2/3/4/5`，必须 `< direction universe size`；
@@ -155,6 +234,38 @@ D3 variance-ratio state:
 
 先做 16 个 binding probes/family。每个变动参数必须改变 effective config hash，并在至少一个
 synthetic trace 中改变 `cycle_admitted` 事件；否则记 `parameter_inert`，停止该 family。
+
+### P1.1 三条预声明主线
+
+Round 15 只允许下列三条 track。不得看到 validation 后新增币种、改名复制 track 或混用最优参数：
+
+```text
+T1 R7 frontier rescue（仅诊断，不可晋级）
+  baseline = corrected R7 exact config
+  只开放 admission、existing-cycle reserve、cluster cap
+  冻结 R7 FO/SO/multiplier/legs/spacing/TP/cooldown
+  目标 = 诊断能否保留约 62% ann，同时降低 DD 和集中度
+  限制 = R7 universe 含 survivor-picked ANKR，因此结果永远不得进入 promotion pool
+
+T2 primary promotion universe（主要晋级路线）
+  symbols = BTC ETH BNB SOL XRP DOGE ADA TRX LINK LTC BCH DOT
+  每币同时建立 long/short Martingale sleeve
+  universe、方向合同、fold 和预算选择规则在搜索前冻结
+  任一币数据不合格则 T2 blocked；不得按收益替换币种
+
+T3 small-cap shallow ladder（小资金可执行路线）
+  universe-8  = BTC ETH BNB SOL XRP DOGE ADA TRX
+  universe-12 = 与 T2 相同
+  first_order = 10 / 15 / 25U
+  multiplier  = 1.3 / 1.6 / 2.0
+  max_legs    = 4 / 6 / 8
+  spacing_bps = 80 / 120 / 180 / 250
+  tp_bps      = 80 / 120 / 180 / 250
+  只用 seeded Sobol；禁止完整笛卡尔积
+```
+
+T2 是资源优先级最高的路线；T1 最多占 Round 15 binary replay 总量的 `10%`，T3 最多 `35%`，
+其余资源给 T2。T1 即使命中收益/DD，也只能证明机制，不算目标命中。
 
 ## 5. P2：首达概率/半衰期驱动的 Martingale ladder
 
@@ -237,15 +348,27 @@ Scheduler 必须接入 event engine 和 production state：
 
 ## 7. P4：有限、分层搜索协议
 
-禁止再次先跑数千个配置再检查绑定。固定顺序：
+禁止再次先跑数千个配置再检查绑定，也禁止 `512/fold` 无门槛扩搜。严格执行以下 successive
+gates；某 gate 没有 survivor 就终止该 family：
 
-1. `4-16` synthetic/binding probes/family；
-2. 只在 train 窗口运行 `128` Sobol configs/family；
-3. 去重 effective config、event hash、metric hash；重复只计 cache hit；
-4. train Pareto 最多 12 个进入当前 fold validation，validation 每 config 只读一次；
-5. family 只有 validation median ann `>=30%`、worst DD `<=35%`、至少 3/4 folds 正收益，
-   才扩至最多 `512` constrained trials/fold；
-6. 任一档目标候选出现后立即停止同 family 扩搜，转 P5 严格验证。
+| gate | 输入上限 | 执行内容 | 输出上限 |
+|---|---:|---|---:|
+| G0 binding | `4-16/family` | synthetic trace；每个开放参数必须改变 effective config 和指定 event hash | 通过/停止 |
+| G1 cheap stress | Round 15 全局 `128` seeded Sobol | 仅 fold-train；4 个固定时间块 × `1000/3000/4999U`；真实 binary replay | 全局 `24` Pareto configs |
+| G2 full development | 全局 `24` | 完整 train、5 cold-start train segments、账户约束和集中度 | 每 fold `8` |
+| G3 nested validation | 每 fold `8` | train 内选择并冻结；validation 每 config 只读一次 | 全局 `3` finalists |
+| G4 robustness | `3` total | 五预算、参数平台、LOSO/LOCO、成本/延迟、production parity | 命中或零命中 |
+
+G1 的 4 个时间块由每个 fold 的 train 窗口按时间等分后固定生成，不得按行情标签或结果挑选。
+同一 `effective config + engine + data + window + budget` 只运行一次；重复 effective config 只计
+cache hit，不占输入/输出配额。128 个 Sobol 名额固定为 `T1=12 / T2=72 / T3-8=22 /
+T3-12=22`；四条独立 sampler 的 scramble seed 依次为 `20260715/20260716/20260717/20260718`，
+并记录 sampler 实现与版本 hash。不能因中间收益改配额。任一 family 的 duplicate rate `>25%`
+时停止并修复 sampler。
+
+G1 只决定淘汰，不能被称为有效绩效；G2/G3 不得用 G1 的短窗口年化冒充 full-window 年化。
+没有 family 达到 G2 train median ann `>=30%`、worst DD `<=35%`、至少 3/4 train blocks 正收益，
+不得进入 G3。任一档目标候选出现后停止同 family 扩搜，直接转 G4，禁止继续寻找更漂亮数字。
 
 优化器只能看：
 
@@ -271,9 +394,19 @@ F4 train 2023-2025           purge 7d -> validate 2026-01-01..2026-05-31
 每 fold 从头估计 selector state、half-life 和 clusters。必须保存所有 train trials 和所有被选
 validation traces，计算真实 CSCV/PBO、DSR、selection frequency 和 rank degradation。
 
+launch budget 是 train-only hyperparameter，而不是看完结果后的展示选项：
+
+- 每 fold 只能用 train 从 `1000/2000/3000/4000/4999U` 中选择 launch budget；
+- 写入 resolved config/hash 后才能读取该 fold validation；
+- validation 前不得知道其他预算的 validation 指标；
+- 4 folds 中至少 3 folds 选择相同或相邻预算，否则候选判为 budget-unstable；
+- 禁止看 validation 后改 launch budget、权重 cap 或以另一预算重新命名候选。
+
 候选还必须通过：
 
-- 参数邻域：每个连续参数 `±10%/±20%`，离散参数相邻档；
+- 参数平台：预先生成 12 个最近邻 effective configs；至少 `8/12` 的 ann 保留中心点 `>=80%`，
+  且 DD 不高于中心点 `+3pp`，否则是孤立最优点并判 overfit；
+- 最近邻由连续参数 `±10%/±20%` 和离散参数相邻档构成，必须改变 event hash；
 - LOSO：每次删除 1 symbol；LOCO：每次删除 1 cluster；
 - 成本：fee/slippage `1.0x/1.5x/2.0x`；funding adverse stress；
 - 延迟：entry/SO/TP decision 延迟 `1/2` completed bars；
@@ -305,7 +438,7 @@ exchange_rounding_min_notional_parity
 禁止恒真断言、两个相同 helper state 互比或只证明 JSON 可序列化。测试必须经过 production
 executor、真实 test DB writer/read、reconcile、restart 和 order submission trace。
 
-## 10. 结果落盘和去重合同
+## 10. 结果落盘、提交和去重合同
 
 每次尝试开始前追加 `running`，结束后追加终态：
 
@@ -330,13 +463,22 @@ invalid_data / timeout / skipped_duplicate
 失败也必须保存。下一轮只跳过相同 `effective_config + engine + canonical data + window`；引擎
 语义已变化的旧无效实验不能被错误登记为“机制穷尽”。
 
+每个 phase 的 Git 纪律：
+
+1. 开始前写入 registry/state 的 `running` 记录；
+2. 运行结束保存 raw artifacts、validator 输出和终态，不得只保存汇总；
+3. 一个 phase 一个独立 commit，并 push 到 `origin/glm-martingale-core-round15`；
+4. commit log 必须同时包含 `问题描述`、`复现路径`、`修复思路`；
+5. `git status --short` 非空、push 失败或远端 commit 不一致时，不得进入下一 phase；
+6. 禁止写“用户接受”“结构硬下限”“全部穷尽”或“production-ready”，除非对应机器 gate 支持。
+
 ## 11. Round 15 明确不重复范围
 
 | key | 不重复范围 | 仍允许探索 |
 |---|---|---|
 | `r14-audit-r4-baseline` | 修正 engine/data 下精确 R4 full/segments/budgets | 新双向 universe 和 scheduler |
 | `r14-audit-r7-baseline` | 修正 engine/data 下精确 R7 full/segments/budgets | 非 ANKR survivor-picked universe |
-| `r14-audit-r4-xs-rev72-a2` | 修正 clock/warmup/direction pool 后的 6 币 REV72 active2 | 方向完整 8/12/16 币 families |
+| `r14-audit-r4-xs-rev72-a2` | 修正 clock/warmup/direction pool 后的 6 币 REV72 active2 | 方向完整 8/12 币 families |
 | `r14-p6-two-symbol-minigrid-depth` | ICP/TRX 两币 exact 544+800 full-window configs | 5+ 币、shared inventory、完整验证 |
 | `r14-invalid-batch-searches` | 不可作为成功/失败证据，仅记录 invalid hashes | 修正引擎后按本计划有限重跑 |
 
@@ -362,6 +504,9 @@ invalid_data / timeout / skipped_duplicate
 6. engine/data/config/event hashes；
 7. `backtest_candidate` 与 `production_ready` 分开；
 8. 所有失败的 exact non-repeat scope。
+
+handoff 的计数必须由 registry 明细重算并与 `round15-execution-state.json` 完全一致；声明的
+`unique configs`、`binary replays`、`duplicates`、`timeouts` 任一无法重建，P9 保持 blocked。
 
 收益目标是筛选门，不是承诺。没有一个候选同时通过全部门，就必须输出零命中，不能降低目标、
 接受两币结果或用更小本金导致的高 DD 年化冒充成功。

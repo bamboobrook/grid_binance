@@ -9,4 +9,4 @@ fac1eab2cce942687d3a3fe86d09b50cfd3708a371ac0f93f93b91240330c25e  docs/superpowe
 8505a7d9fc686fb23138ce531b49e545833717b6fc8b9f313fb6276a22b95bd0  docs/superpowers/artifacts/glm-martingale-core-round14/r1-r14-corrected-status.json
 40588e09c8d2112e31d84a437972a9c487d352e83dc4040ed1670fd5ce7b29a4  docs/superpowers/artifacts/glm-martingale-core-round14/exploration-registry.jsonl
 67b8a2b8abdd0af5aa86d6c6faeb2b8ffa17cd75ae219ecf5b1e1fdf56898cd1  docs/superpowers/reports/2026-07-14-glm-round14-execution-audit-and-fix.md
-a0ea95d13b4f3bb6458b43501714444a7cb87d9ab873104c2801b24b8c68f6f7  docs/superpowers/plans/2026-07-14-glm-martingale-core-round15-directional-hazard-cluster-plan.md
+8d70a3a8a92ac6a0d3b0a4845ade90c51ecd0b246ac0533f565f21cd9be23b55  docs/superpowers/plans/2026-07-14-glm-martingale-core-round15-directional-hazard-cluster-plan.md
