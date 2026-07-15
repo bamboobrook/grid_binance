@@ -127,20 +127,31 @@ def load_json(path):
 
 
 def load_registry():
-    """Return list of registry records; detect any `running` rows."""
-    records = []
+    """Return list of registry records keyed by experiment_id.
+
+    Plan §10 appends a `running` row before each attempt and a terminal row
+    after. A `running` row whose experiment_id also has a terminal row is NOT
+    in-flight; only a `running` row with no terminal successor counts as a
+    genuinely-still-running attempt.
+    """
+    all_records = []
     if not os.path.exists(REGISTRY_PATH):
-        return records
+        return all_records
     with open(REGISTRY_PATH) as fh:
         for line in fh:
             line = line.strip()
             if not line:
                 continue
             try:
-                records.append(json.loads(line))
+                all_records.append(json.loads(line))
             except json.JSONDecodeError:
                 pass
-    return records
+    # Collapse: keep the latest record per experiment_id (terminal supersedes running).
+    by_id = {}
+    for r in all_records:
+        key = r.get("experiment_id") or r.get("resolved_config_hash") or id(r)
+        by_id[key] = r
+    return list(by_id.values())
 
 
 def recompute_counts(records):
