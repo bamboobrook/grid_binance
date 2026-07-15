@@ -1,0 +1,83 @@
+[
+  {
+    "phase": "P0_CANONICAL_PARITY",
+    "gates": [
+      "manifest_exists_and_dev_gate_passes",
+      "market_per_symbol_hashes_match_frozen_r14",
+      "funding_db_is_authoritative_round12",
+      "binaries_hash_match_audit",
+      "plan_sha256_frozen",
+      "p0_parity_tests_pass",
+      "old_counterexamples_reproduced_or_fail_closed"
+    ]
+  },
+  {
+    "phase": "P1_EVENT_PRODUCTION_WIRING",
+    "gates": [
+      "selector_ladder_scheduler_wired_to_event_and_production_state",
+      "p1_production_parity_tests_pass"
+    ]
+  },
+  {
+    "phase": "P2_BINDING_PROBES",
+    "gates": [
+      "open_params_change_effective_config_hash",
+      "at_least_one_event_hash_changes_per_family"
+    ]
+  },
+  {
+    "phase": "P3_BASELINE_UNIVERSE",
+    "gates": [
+      "baseline_and_t1_t2_t3_universe_frozen",
+      "data_qualification_passes"
+    ]
+  },
+  {
+    "phase": "P4_TRAIN_SCREEN",
+    "gates": [
+      "g1_global_128_sobol_run",
+      "g2_full_development_per_fold",
+      "g3_nested_validation_frozen",
+      "quota_and_duplicate_rate_compliant"
+    ]
+  },
+  {
+    "phase": "P5_NESTED_WFO",
+    "gates": [
+      "four_folds_train_select_then_validate_once",
+      "parameter_platform_8_of_12",
+      "loso_loco_complete",
+      "cost_delay_stress_complete",
+      "budget_ladder_complete",
+      "concentration_under_35"
+    ]
+  },
+  {
+    "phase": "P6_ROBUSTNESS",
+    "gates": [
+      "five_budgets_no_principal_breach",
+      "min_equity_rejections_reported",
+      "max_capital_reported"
+    ]
+  },
+  {
+    "phase": "P7_PRODUCTION_PARITY",
+    "gates": [
+      "backtest_live_restart_order_trace_match",
+      "production_wiring_tests_pass"
+    ]
+  },
+  {
+    "phase": "P8_FUTURE_LOCK",
+    "gates": [
+      "future_lock_read_at_most_once_or_not_available"
+    ]
+  },
+  {
+    "phase": "P9_FINAL_HANDOFF",
+    "gates": [
+      "handoff_counts_recomputed_from_registry",
+      "handoff_document_exists"
+    ]
+  }
+]

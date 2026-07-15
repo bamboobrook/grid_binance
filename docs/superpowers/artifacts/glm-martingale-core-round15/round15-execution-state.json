@@ -1,0 +1,251 @@
+{
+  "plan_sha256": "8d70a3a8a92ac6a0d3b0a4845ade90c51ecd0b246ac0533f565f21cd9be23b55",
+  "phase": "P0_CANONICAL_PARITY",
+  "status": "blocked",
+  "required_gates": [
+    {
+      "phase": "P0_CANONICAL_PARITY",
+      "gates": [
+        "manifest_exists_and_dev_gate_passes",
+        "market_per_symbol_hashes_match_frozen_r14",
+        "funding_db_is_authoritative_round12",
+        "binaries_hash_match_audit",
+        "plan_sha256_frozen",
+        "p0_parity_tests_pass",
+        "old_counterexamples_reproduced_or_fail_closed"
+      ]
+    },
+    {
+      "phase": "P1_EVENT_PRODUCTION_WIRING",
+      "gates": [
+        "selector_ladder_scheduler_wired_to_event_and_production_state",
+        "p1_production_parity_tests_pass"
+      ]
+    },
+    {
+      "phase": "P2_BINDING_PROBES",
+      "gates": [
+        "open_params_change_effective_config_hash",
+        "at_least_one_event_hash_changes_per_family"
+      ]
+    },
+    {
+      "phase": "P3_BASELINE_UNIVERSE",
+      "gates": [
+        "baseline_and_t1_t2_t3_universe_frozen",
+        "data_qualification_passes"
+      ]
+    },
+    {
+      "phase": "P4_TRAIN_SCREEN",
+      "gates": [
+        "g1_global_128_sobol_run",
+        "g2_full_development_per_fold",
+        "g3_nested_validation_frozen",
+        "quota_and_duplicate_rate_compliant"
+      ]
+    },
+    {
+      "phase": "P5_NESTED_WFO",
+      "gates": [
+        "four_folds_train_select_then_validate_once",
+        "parameter_platform_8_of_12",
+        "loso_loco_complete",
+        "cost_delay_stress_complete",
+        "budget_ladder_complete",
+        "concentration_under_35"
+      ]
+    },
+    {
+      "phase": "P6_ROBUSTNESS",
+      "gates": [
+        "five_budgets_no_principal_breach",
+        "min_equity_rejections_reported",
+        "max_capital_reported"
+      ]
+    },
+    {
+      "phase": "P7_PRODUCTION_PARITY",
+      "gates": [
+        "backtest_live_restart_order_trace_match",
+        "production_wiring_tests_pass"
+      ]
+    },
+    {
+      "phase": "P8_FUTURE_LOCK",
+      "gates": [
+        "future_lock_read_at_most_once_or_not_available"
+      ]
+    },
+    {
+      "phase": "P9_FINAL_HANDOFF",
+      "gates": [
+        "handoff_counts_recomputed_from_registry",
+        "handoff_document_exists"
+      ]
+    }
+  ],
+  "passed_gates": [
+    {
+      "phase": "P0_CANONICAL_PARITY",
+      "passed": [
+        {
+          "gate": "manifest_exists_and_dev_gate_passes",
+          "passed": true,
+          "detail": {
+            "dev_gate": {
+              "funding_failures": [],
+              "market_failures": [],
+              "passed": true
+            },
+            "holdout_gate": {
+              "funding_failures": [],
+              "market_failures": [],
+              "passed": true
+            },
+            "passed": true
+          }
+        },
+        {
+          "gate": "market_per_symbol_hashes_match_frozen_r14",
+          "passed": true,
+          "detail": {
+            "matched": 31,
+            "mismatched": [],
+            "passed": true,
+            "symbols_checked": 31
+          }
+        },
+        {
+          "gate": "funding_db_is_authoritative_round12",
+          "passed": true,
+          "detail": {
+            "matches_audit_funding_baseline": true,
+            "note": "data/funding_rates.db has 0 rows for ANKRUSDT/LTCUSDT and is NOT used. data/funding_rates_round12.db carries all 32 symbols and matches the audit.",
+            "passed": true,
+            "per_symbol_matched": 31,
+            "per_symbol_mismatched": [],
+            "round12_file_sha256": "4d77dbdeddc42f8bb800e4b784bc6eb3e77d5213212be4e8bd3226274a4e1114"
+          }
+        },
+        {
+          "gate": "binaries_hash_match_audit",
+          "passed": true,
+          "detail": {
+            "matches_audit_batch": true,
+            "matches_audit_cli": true,
+            "passed": true,
+            "portfolio_budget_replay_sha256": "d21c6971aacc5166adff56ce1d8b135f8f15d194c966d4324219885d181c4d98",
+            "r14_htf_search_sha256": "4c914d68cd8d19a95f7ea9a50ed18f845ca5a6be271f81e4a157509d47da00e7"
+          }
+        },
+        {
+          "gate": "plan_sha256_frozen",
+          "passed": true,
+          "detail": {
+            "manifest_plan_sha256": "8d70a3a8a92ac6a0d3b0a4845ade90c51ecd0b246ac0533f565f21cd9be23b55",
+            "passed": true,
+            "plan_sha256": "8d70a3a8a92ac6a0d3b0a4845ade90c51ecd0b246ac0533f565f21cd9be23b55"
+          }
+        }
+      ],
+      "failed": [
+        {
+          "gate": "p0_parity_tests_pass",
+          "passed": false,
+          "detail": {
+            "reason": "no evidence"
+          }
+        },
+        {
+          "gate": "old_counterexamples_reproduced_or_fail_closed",
+          "passed": false,
+          "detail": {
+            "reason": "no counterexample evidence"
+          }
+        }
+      ]
+    }
+  ],
+  "blocked_reasons": [
+    "P0_CANONICAL_PARITY: 2 gate(s) missing: ['p0_parity_tests_pass', 'old_counterexamples_reproduced_or_fail_closed']",
+    "P1_EVENT_PRODUCTION_WIRING: predecessor not complete",
+    "P2_BINDING_PROBES: predecessor not complete",
+    "P3_BASELINE_UNIVERSE: predecessor not complete",
+    "P4_TRAIN_SCREEN: predecessor not complete",
+    "P5_NESTED_WFO: predecessor not complete",
+    "P6_ROBUSTNESS: predecessor not complete",
+    "P7_PRODUCTION_PARITY: predecessor not complete",
+    "P8_FUTURE_LOCK: predecessor not complete",
+    "P9_FINAL_HANDOFF: predecessor not complete"
+  ],
+  "hashes": {
+    "engine": "435d743edae87a76892e210cb295f0ec84036e96fd33e17d440110f5829afba6",
+    "data": "4d77dbdeddc42f8bb800e4b784bc6eb3e77d5213212be4e8bd3226274a4e1114",
+    "manifest": "4f37bcf5721886bae02a94a17d865d5638fae65517b9257d3dd9f553a3a67280",
+    "config": null
+  },
+  "counts": {
+    "unique_configs": 0,
+    "binary_replays": 0,
+    "cache_hits": 0,
+    "duplicates": 0,
+    "timeouts": 0
+  },
+  "artifacts": [
+    "docs/superpowers/artifacts/glm-martingale-core-round15/exploration-registry.jsonl",
+    "docs/superpowers/artifacts/glm-martingale-core-round15/p0/gates/binaries_hash_match_audit.json",
+    "docs/superpowers/artifacts/glm-martingale-core-round15/p0/gates/funding_db_is_authoritative_round12.json",
+    "docs/superpowers/artifacts/glm-martingale-core-round15/p0/gates/manifest_exists_and_dev_gate_passes.json",
+    "docs/superpowers/artifacts/glm-martingale-core-round15/p0/gates/market_per_symbol_hashes_match_frozen_r14.json",
+    "docs/superpowers/artifacts/glm-martingale-core-round15/p0/gates/plan_sha256_frozen.json",
+    "docs/superpowers/artifacts/glm-martingale-core-round15/round15-execution-state.json",
+    "docs/superpowers/artifacts/glm-martingale-core-round15/run-manifests/r15-data-manifest.json"
+  ],
+  "validated_at": "2026-07-15T02:19:51.491933+00:00",
+  "phase_status": {
+    "P0_CANONICAL_PARITY": {
+      "status": "blocked",
+      "failed_gates": [
+        "p0_parity_tests_pass",
+        "old_counterexamples_reproduced_or_fail_closed"
+      ]
+    },
+    "P1_EVENT_PRODUCTION_WIRING": {
+      "status": "blocked",
+      "reason": "predecessor not complete"
+    },
+    "P2_BINDING_PROBES": {
+      "status": "blocked",
+      "reason": "predecessor not complete"
+    },
+    "P3_BASELINE_UNIVERSE": {
+      "status": "blocked",
+      "reason": "predecessor not complete"
+    },
+    "P4_TRAIN_SCREEN": {
+      "status": "blocked",
+      "reason": "predecessor not complete"
+    },
+    "P5_NESTED_WFO": {
+      "status": "blocked",
+      "reason": "predecessor not complete"
+    },
+    "P6_ROBUSTNESS": {
+      "status": "blocked",
+      "reason": "predecessor not complete"
+    },
+    "P7_PRODUCTION_PARITY": {
+      "status": "blocked",
+      "reason": "predecessor not complete"
+    },
+    "P8_FUTURE_LOCK": {
+      "status": "blocked",
+      "reason": "predecessor not complete"
+    },
+    "P9_FINAL_HANDOFF": {
+      "status": "blocked",
+      "reason": "predecessor not complete"
+    }
+  }
+}

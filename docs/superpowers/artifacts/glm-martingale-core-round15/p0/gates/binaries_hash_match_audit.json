@@ -1,0 +1,7 @@
+{
+  "matches_audit_batch": true,
+  "matches_audit_cli": true,
+  "passed": true,
+  "portfolio_budget_replay_sha256": "d21c6971aacc5166adff56ce1d8b135f8f15d194c966d4324219885d181c4d98",
+  "r14_htf_search_sha256": "4c914d68cd8d19a95f7ea9a50ed18f845ca5a6be271f81e4a157509d47da00e7"
+}

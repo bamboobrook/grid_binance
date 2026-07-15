@@ -1,0 +1,13 @@
+{
+  "dev_gate": {
+    "funding_failures": [],
+    "market_failures": [],
+    "passed": true
+  },
+  "holdout_gate": {
+    "funding_failures": [],
+    "market_failures": [],
+    "passed": true
+  },
+  "passed": true
+}

@@ -1,0 +1,8 @@
+{
+  "matches_audit_funding_baseline": true,
+  "note": "data/funding_rates.db has 0 rows for ANKRUSDT/LTCUSDT and is NOT used. data/funding_rates_round12.db carries all 32 symbols and matches the audit.",
+  "passed": true,
+  "per_symbol_matched": 31,
+  "per_symbol_mismatched": [],
+  "round12_file_sha256": "4d77dbdeddc42f8bb800e4b784bc6eb3e77d5213212be4e8bd3226274a4e1114"
+}
