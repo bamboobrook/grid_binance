@@ -1,0 +1,131 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-07-15",
+  "purpose": "Canonical corrected status for Martingale rounds 1-16. It preserves valid scoped replays and supersedes Round 16 completion and production-ready claims.",
+  "rounds_1_to_15": {
+    "authority": "docs/superpowers/artifacts/glm-martingale-core-round15/r1-r15-corrected-status.json",
+    "audit": "docs/superpowers/reports/2026-07-15-chatgpt-round15-execution-audit-and-fix.md",
+    "status": "authority_retained",
+    "target_hits": []
+  },
+  "round_16": {
+    "audit_input_commit": "648a195",
+    "plan": "docs/superpowers/plans/2026-07-15-glm-martingale-core-round16-asymmetric-regime-hazard-plan.md",
+    "status": "materially_incomplete_corrected",
+    "machine_phase": "R0",
+    "machine_status": "blocked",
+    "original_registry_terminal_rows": 1583,
+    "original_unique_execution_keys_corrected": 1583,
+    "audit_binary_replays": 6,
+    "combined_actual_binary_replays": 1589,
+    "combined_unique_execution_keys": 1585,
+    "combined_duplicate_launches": 4,
+    "timeouts": 0,
+    "phase_status": {
+      "R0": "blocked_plan_manifest_hash_mismatch_and_source_b_not_reproduced",
+      "R1": "blocked_helper_api_only_no_shared_config_no_scheduler_no_started_service_call_sites",
+      "R2": "blocked_required_8_families_not_executed",
+      "R3": "scoped_track_universe_and_envelope_declaration_present",
+      "R4": "scoped_old_engine_g1_complete_after_one_replay_repair_1536_of_1536",
+      "R5": "scoped_eight_candidate_full_and_five_segment_replays_valid_zero_survivors_but_not_nested_wfo",
+      "R6": "not_applicable_for_scoped_zero_survivors",
+      "R7": "blocked_tests_directly_call_runtime_helpers_no_real_service",
+      "R8": "not_applicable_for_scoped_zero_survivors",
+      "R9": "superseded_handoff_counts_and_status"
+    },
+    "valid_evidence": [
+      "repaired and independently executed 20-config release CLI subprocess versus BatchReplay trace parity",
+      "trace digest implementation and CLI digest output",
+      "MartingaleRuntime helper-level router and hazard contract tests",
+      "128 old-engine effective configs across the four declared G1 windows and three budgets after the missing T2 replay repair",
+      "eight G2 candidates across full plus five cold-start segments under the existing default HTF gate",
+      "independent reproduction of the closest and highest-short-window candidates"
+    ],
+    "invalid_or_missing": [
+      "frozen plan hash in run manifest",
+      "source B executable counterexample replay",
+      "shared config fields for persistence, dwell, shock, deadline, reserve and cluster controls",
+      "real executor/main-service calls to router and hazard methods",
+      "D1 D2 D3 H1 H2 H3 C1 C2 binding with 8-16 traces each",
+      "search over router, hazard and cluster parameters",
+      "four-fold train-select-freeze-validation nested WFO",
+      "production persistence, reconcile and exchange adapter parity",
+      "claim that the Round 16 design or Martingale possibility space was exhausted"
+    ],
+    "scoped_g1": {
+      "unique_configs": 128,
+      "unique_replays": 1536,
+      "quotas": {
+        "T1": 144,
+        "T2": 864,
+        "T3_8": 264,
+        "T3_12": 264
+      },
+      "scope": "existing default HTF gate plus asymmetric long/short ladder; no Round 16 deadline, reserve or cluster mechanism",
+      "promotion_authority": false
+    },
+    "scoped_g2": {
+      "candidate_count": 8,
+      "replays": 48,
+      "strict_survivors_recomputed": 0,
+      "closest_full_4999": {
+        "config": "T3_8 fo15 m1.32 long_legs4 spacing160 tp140 leverage5",
+        "annualized_return_pct": -2.1142304329109463,
+        "max_drawdown_pct": 31.762160582371475,
+        "positive_segments": "0/5",
+        "principal_breached": false
+      },
+      "closest_full_1000": {
+        "annualized_return_pct": -11.924158353204717,
+        "max_drawdown_pct": 158.4388442326663,
+        "principal_breached": true
+      },
+      "highest_g1_survivor_full_4999": {
+        "annualized_return_pct": null,
+        "max_drawdown_pct": 1002.3765044795797,
+        "principal_breached": true
+      },
+      "promotion_authority": false
+    },
+    "target_hits": {
+      "conservative": [],
+      "balanced": [],
+      "aggressive": []
+    },
+    "production_ready": []
+  },
+  "goal_verdict": {
+    "martingale_only_pnl": true,
+    "anti_overfit_candidate_exists": false,
+    "under_5000_runnable_baseline_exists": true,
+    "under_5000_target_candidate_exists": false,
+    "multi_symbol_baseline_exists": true,
+    "live_reproducible_candidate_exists": false,
+    "conservative_hits": [],
+    "balanced_hits": [],
+    "aggressive_hits": [],
+    "goal_complete": false
+  },
+  "non_repeat_additions": [
+    {
+      "key": "r16-default-htf-g1-128",
+      "scope": "the exact 128 generated configs in configs/g1 under the pre-existing default HTF gate and four G1 windows; do not rerun unless engine or data hash changes"
+    },
+    {
+      "key": "r16-default-htf-g2-eight",
+      "scope": "the exact eight configs in configs/g2 at 4999U on full plus h1-2023/h2-2023/2024/2025/2026-ytd; all strict survivors are zero"
+    },
+    {
+      "key": "r16-low-risk-1000-failure",
+      "scope": "T3-8 fo15/m1.32/long legs4/short legs3/spacing160-210/tp140/leverage5 at 1000U full window; principal breach and DD 158.44%"
+    },
+    {
+      "key": "r16-helper-only-production-tests",
+      "scope": "direct MartingaleRuntime router/hazard helper tests; they are unit contracts, never production wiring evidence"
+    }
+  ],
+  "independent_recheck": "docs/superpowers/artifacts/glm-martingale-core-round16/round16-independent-recheck.json",
+  "audit_report": "docs/superpowers/reports/2026-07-15-chatgpt-round16-execution-audit-and-fix.md",
+  "next_plan": "docs/superpowers/plans/2026-07-15-glm-martingale-core-round17-shared-router-hazard-crowding-plan.md",
+  "source_of_truth": "docs/superpowers/artifacts/glm-martingale-core-round16/r1-r16-corrected-status.json"
+}

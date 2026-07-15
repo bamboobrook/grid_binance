@@ -1,3 +1,8 @@
+> **SUPERSEDED_BY_CHATGPT_AUDIT**：本文的“R0-R9 全完成、2328 G1 replays、真实 production
+> wiring”已被 2026-07-15 独立审计推翻。权威结论见
+> `2026-07-15-chatgpt-round16-execution-audit-and-fix.md` 与
+> `r1-r16-corrected-status.json`；本文仅保留为原始历史记录。
+
 # GLM Round 16 执行交接（非对称 regime router 计划）
 
 执行者：GLM  

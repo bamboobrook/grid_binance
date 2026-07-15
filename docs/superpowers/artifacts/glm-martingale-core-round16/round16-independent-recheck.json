@@ -1,0 +1,158 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-07-15",
+  "authority": "ChatGPT independent subprocess replay",
+  "binary": {
+    "path": "target/release/portfolio_budget_replay",
+    "sha256": "3d746d31407aca2d7277f04efa1d4cda1f58820c8496e6a3f93b5673f1c9ee45"
+  },
+  "data": {
+    "market_db": "data/market_data_full.db",
+    "market_db_sha256_from_manifest": "3a16d63fb32cd25d0a8aabec010f031519877384178c30c2e9b18471698cd726",
+    "funding_db": "data/funding_rates_round12.db",
+    "funding_db_sha256": "4d77dbdeddc42f8bb800e4b784bc6eb3e77d5213212be4e8bd3226274a4e1114"
+  },
+  "parity_repair": {
+    "test": "cargo test -p backtest-engine --test r16_r0_cli_batch_parity",
+    "actual_test_passed": true,
+    "configs_compared": 20,
+    "duration_seconds": 2.71,
+    "hashes_exact": true,
+    "metrics_tolerance": 1e-9,
+    "direct_fields_checked": [
+      "on_budget_annualized_return_pct",
+      "on_budget_max_drawdown_pct",
+      "trade_count",
+      "total_funding_quote",
+      "total_rejection_reasons"
+    ],
+    "repaired_defects": [
+      "relative paths resolved from package cwd and silently returned before any replay",
+      "twenty_configs generated only 18 configs",
+      "Batch planned-margin stock metrics were compared with CLI on-budget metrics"
+    ]
+  },
+  "g1_missing_replay_repair": {
+    "experiment_id": "r16_g1_T2_054_w1_1000",
+    "family": "G1_T2",
+    "track": "T2",
+    "status": "complete",
+    "actual_binary_replays": 1,
+    "config": "docs/superpowers/artifacts/glm-martingale-core-round16/configs/g1/g1_72aed7ec28ef.json",
+    "effective_config_hash": "72aed7ec28ef89ca7984bfd1d22f07d12500977950073bb767062964e15bd29a",
+    "window": "w1",
+    "start_ms": 1672531200000,
+    "end_ms": 1675123200000,
+    "budget": 1000,
+    "exit_code": 0,
+    "raw_command": "target/release/portfolio_budget_replay --config .../g1_72aed7ec28ef.json --budget 1000 --start-ms 1672531200000 --end-ms 1675123200000 --market-data data/market_data_full.db --funding-data data/funding_rates_round12.db --exchange-min-notional 5.0",
+    "metrics": {
+      "annualized_return_pct": -99.93553429364565,
+      "max_drawdown_pct": 58.62773991439082,
+      "min_equity_quote": 415.7202884057965,
+      "principal_breached": false,
+      "total_return_pct": -45.329499779959406,
+      "max_capital_used_quote": 546.6133842749989,
+      "budget_blocked_legs": 15,
+      "trade_count": 416
+    },
+    "trace_digests": {
+      "event_stream_sha256": "e5627d8c657f26a81186ec5ffd267dc5260cf1cca1a548951383fead07ff74e5",
+      "trade_stream_sha256": "194fe9f25d87a24e28bc877f580c551aca339086ae1615b228fce1d052aada25",
+      "equity_stream_sha256": "bfc1a099d9a78dabb09e0a00d74425bdefd203a4b772dfecf4ca2768984a18a9",
+      "funding_stream_sha256": "a79bf11e4aecabc9748d432b6990e43e33dcf93454f4be013be3150e7fe4ead1",
+      "rejection_stream_sha256": "94649ddbb8084a171121a5e5da20482ea23bf76928de6193d7acc4154766976b"
+    }
+  },
+  "independent_replays": [
+    {
+      "label": "T3_8_low_risk_full_4999",
+      "config": "r16_g2_T3_8_07_fo15_m1.32_l4_s160_t140_lv5_full.json",
+      "budget": 4999,
+      "start_ms": 1672531200000,
+      "end_ms": 1780271999999,
+      "annualized_return_pct": -2.1142304329109463,
+      "max_drawdown_pct": 31.762160582371475,
+      "min_equity_quote": 3413.0421535188716,
+      "principal_breached": false,
+      "trade_count": 114,
+      "event_stream_sha256": "78c0b7f9f07b5f57682139d19a657577b01f97e82d7fa2d79d2f9a104c11b723"
+    },
+    {
+      "label": "T3_8_low_risk_full_1000",
+      "config": "r16_g2_T3_8_07_fo15_m1.32_l4_s160_t140_lv5_full.json",
+      "budget": 1000,
+      "start_ms": 1672531200000,
+      "end_ms": 1780271999999,
+      "annualized_return_pct": -11.924158353204717,
+      "max_drawdown_pct": 158.4388442326663,
+      "min_equity_quote": -585.9578464811286,
+      "principal_breached": true,
+      "trade_count": 114,
+      "event_stream_sha256": "78c0b7f9f07b5f57682139d19a657577b01f97e82d7fa2d79d2f9a104c11b723"
+    },
+    {
+      "label": "T3_8_low_risk_2025_4999",
+      "config": "r16_g2_T3_8_07_fo15_m1.32_l4_s160_t140_lv5_2025.json",
+      "budget": 4999,
+      "start_ms": 1735689600000,
+      "end_ms": 1767225599999,
+      "annualized_return_pct": -0.1650836637101083,
+      "max_drawdown_pct": 3.3228608831172965,
+      "min_equity_quote": 4840.780987944672,
+      "principal_breached": false,
+      "trade_count": 2168,
+      "event_stream_sha256": "f5af7ff328c7ece763a7234a5af54f90b967ce8abb7650252c21010d80a4fd37"
+    },
+    {
+      "label": "T3_8_low_risk_2026_ytd_4999",
+      "config": "r16_g2_T3_8_07_fo15_m1.32_l4_s160_t140_lv5_2026_ytd.json",
+      "budget": 4999,
+      "start_ms": 1767225600000,
+      "end_ms": 1780271999999,
+      "annualized_return_pct": -6.400759549884405,
+      "max_drawdown_pct": 4.869828314537377,
+      "min_equity_quote": 4774.875494473881,
+      "principal_breached": false,
+      "trade_count": 251,
+      "event_stream_sha256": "01eb81d1be0dea224b9c20939a3c509ae10572479bba0e85df81f3c13d65f634"
+    },
+    {
+      "label": "T3_8_high_g1_survivor_full_4999",
+      "config": "r16_g2_T3_8_01_fo40_m2.15_l7_s250_t170_lv6_full.json",
+      "budget": 4999,
+      "start_ms": 1672531200000,
+      "end_ms": 1780271999999,
+      "annualized_return_pct": null,
+      "reporting_sentinel": -999,
+      "max_drawdown_pct": 1002.3765044795797,
+      "min_equity_quote": -45271.16559739954,
+      "principal_breached": true,
+      "trade_count": 169,
+      "event_stream_sha256": "e15526a8b7ca1d08e7611f538496ce485d185a070ab16a1b73f9abf7861a2ded"
+    }
+  ],
+  "corrected_counts": {
+    "original_registry_terminal_rows": 1583,
+    "original_unique_execution_keys": 1583,
+    "audit_binary_replays": 6,
+    "combined_actual_binary_replays": 1589,
+    "combined_unique_execution_keys": 1585,
+    "combined_duplicate_launches": 4,
+    "timeouts": 0,
+    "g1_unique_replays_after_repair": 1536,
+    "g1_track_quotas": {
+      "G1_T1": 144,
+      "G1_T2": 864,
+      "G1_T3_8": 264,
+      "G1_T3_12": 264
+    }
+  },
+  "verdict": {
+    "reproduces_glm_scoped_metrics": true,
+    "closest_candidate_meets_any_target": false,
+    "closest_candidate_is_small_cap_1000_runnable": false,
+    "high_g1_survivor_is_full_window_valid": false,
+    "round16_design_executed": false
+  }
+}

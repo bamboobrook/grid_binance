@@ -11,11 +11,10 @@
 //! loader, the same prepared config, and the same sim function. The digest
 //! computation is shared via backtest_engine::martingale::trace_digest.
 
-use backtest_engine::market_data::MarketDataSource;
 use backtest_engine::martingale::batch_replay::BatchReplay;
-use backtest_engine::martingale::budget_replay::prepare_replay_config;
+use backtest_engine::martingale::budget_replay::{on_budget_metrics, prepare_replay_config};
 use backtest_engine::martingale::trace_digest::compute_trace_digests;
-use backtest_engine::sqlite_market_data::{load_funding_rates_readonly, SqliteMarketDataSource};
+use backtest_engine::sqlite_market_data::load_funding_rates_readonly;
 use rust_decimal::Decimal;
 use serde_json::Value;
 use shared_domain::martingale::{
@@ -80,7 +79,7 @@ fn make_portfolio(
 fn twenty_configs() -> Vec<(String, MartingalePortfolioConfig)> {
     let symbols = ["BNBUSDT", "ETHUSDT", "TRXUSDT"];
     let directions = [MartingaleDirection::Long, MartingaleDirection::Short];
-    let fos = [30, 40, 50];
+    let fos = [20, 30, 40, 50];
     let mults = [2, 3];
     let legses = [5, 8];
     let tps = [100, 200];
@@ -142,10 +141,13 @@ fn run_cli_subprocess(
 
 #[test]
 fn real_20_config_batch_cli_subprocess_parity() {
-    if !std::path::Path::new(MARKET_DB).exists() || !std::path::Path::new(CLI_BIN).exists() {
-        eprintln!("skipping: market DB or release CLI not found");
-        return;
-    }
+    let workspace_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../..")
+        .canonicalize()
+        .expect("canonical workspace root");
+    std::env::set_current_dir(&workspace_root).expect("set workspace root as test cwd");
+    assert!(std::path::Path::new(MARKET_DB).exists(), "required market DB is missing: {MARKET_DB}");
+    assert!(std::path::Path::new(CLI_BIN).exists(), "required release CLI is missing: {CLI_BIN}");
     // Use a 7-day window for speed (parity is about identical digests, not performance).
     let window_end = DEV_START + 7 * 86_400_000;
     let configs = twenty_configs();
@@ -201,11 +203,34 @@ fn real_20_config_batch_cli_subprocess_parity() {
                 batch_digests.event_stream_sha256, batch_digests.trade_stream_sha256
             );
         }
+        // Compare the same on-budget capital basis used by the CLI. The raw
+        // Batch metrics use planned margin as principal and are intentionally
+        // exposed by the CLI under `sim_stock_metrics_*`, not `on_budget`.
+        let initial = batched
+            .equity_curve
+            .first()
+            .map(|point| point.equity_quote)
+            .unwrap_or(0.0);
+        let cum_pnl: Vec<f64> = batched
+            .equity_curve
+            .iter()
+            .map(|point| point.equity_quote - initial)
+            .collect();
+        let days = batched
+            .equity_curve
+            .last()
+            .zip(batched.equity_curve.first())
+            .map(|(last, first)| {
+                (last.timestamp_ms - first.timestamp_ms) as f64 / 86_400_000.0
+            })
+            .unwrap_or(0.0);
+        let batch_on_budget = on_budget_metrics(4999.0, &cum_pnl, days);
+
         // Metrics within 1e-9.
         let cli_ann = cli_ob["annualized_return_pct"].as_f64().unwrap_or(-999.0);
         let cli_dd = cli_ob["max_drawdown_pct"].as_f64().unwrap_or(-999.0);
-        let ob_ann = batched.metrics.annualized_return_pct.unwrap_or(-999.0);
-        let ob_dd = batched.metrics.max_drawdown_pct;
+        let ob_ann = batch_on_budget.annualized_return_pct;
+        let ob_dd = batch_on_budget.max_drawdown_pct;
         assert!(
             (cli_ann - ob_ann).abs() < 1e-9,
             "ann mismatch {label}: cli={cli_ann} batch={ob_ann}"
@@ -213,6 +238,23 @@ fn real_20_config_batch_cli_subprocess_parity() {
         assert!(
             (cli_dd - ob_dd).abs() < 1e-9,
             "DD mismatch {label}: cli={cli_dd} batch={ob_dd}"
+        );
+        assert_eq!(
+            cli_json["trade_count"].as_u64(),
+            Some(batched.metrics.trade_count),
+            "trade count mismatch {label}"
+        );
+        assert!(
+            (cli_json["total_funding_quote"].as_f64().unwrap_or(f64::NAN)
+                - batched.metrics.total_funding_quote.unwrap_or(0.0))
+                .abs()
+                < 1e-9,
+            "funding mismatch {label}"
+        );
+        assert_eq!(
+            cli_json["total_rejection_reasons"].as_u64(),
+            Some(batched.rejection_reasons.len() as u64),
+            "rejection count mismatch {label}"
         );
     }
     assert_eq!(mismatches, 0, "{mismatches} of 20 configs had digest mismatches between release CLI subprocess and BatchReplay");
