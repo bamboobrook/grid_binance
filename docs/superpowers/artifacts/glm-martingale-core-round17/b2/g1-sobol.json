@@ -1,35 +1,150 @@
 {
-  "actual_replays": 139,
+  "actual_replays": 2304,
+  "breached": 0,
   "budgets": 3,
-  "distinct_keys": 139,
+  "by_track": {
+    "T2": 1152,
+    "T3_12": 384,
+    "T3_8": 768
+  },
   "duplicates": 0,
+  "no_breach": 2304,
+  "note": "G1 only eliminates; 30-day-window ann is NOT valid performance. Checkpoint-and-resume complete (no data loss).",
   "pareto_survivors": [
     {
-      "ann": 156.2385,
+      "ann": 363.1156,
       "budget": 1000.0,
-      "dd": 29.1046,
-      "track": "T3_12",
-      "window": "w2"
-    },
-    {
-      "ann": 156.0456,
-      "budget": 1000.0,
-      "dd": 6.706,
-      "track": "T3_12",
+      "dd": 3.6038,
+      "params": {
+        "dl": 4,
+        "fo": 20,
+        "legs": 5,
+        "lev": 4,
+        "mult": 1.54,
+        "sp": 170,
+        "th": 14,
+        "tp": 240
+      },
+      "track": "T3_8",
       "window": "w3"
     },
     {
-      "ann": 73.7762,
+      "ann": 259.6502,
       "budget": 1000.0,
-      "dd": 5.0687,
-      "track": "T3_12",
+      "dd": 3.3364,
+      "params": {
+        "dl": 2,
+        "fo": 20,
+        "legs": 5,
+        "lev": 3,
+        "mult": 1.44,
+        "sp": 200,
+        "th": 44,
+        "tp": 210
+      },
+      "track": "T3_8",
       "window": "w3"
     },
     {
-      "ann": 59.6486,
+      "ann": 237.7538,
       "budget": 1000.0,
-      "dd": 3.1683,
-      "track": "T3_12",
+      "dd": 3.1037,
+      "params": {
+        "dl": 3,
+        "fo": 15,
+        "legs": 5,
+        "lev": 4,
+        "mult": 1.42,
+        "sp": 220,
+        "th": 17,
+        "tp": 240
+      },
+      "track": "T3_8",
+      "window": "w3"
+    },
+    {
+      "ann": 185.4295,
+      "budget": 1000.0,
+      "dd": 1.9279,
+      "params": {
+        "dl": 2,
+        "fo": 15,
+        "legs": 5,
+        "lev": 3,
+        "mult": 1.32,
+        "sp": 180,
+        "th": 37,
+        "tp": 250
+      },
+      "track": "T3_8",
+      "window": "w3"
+    },
+    {
+      "ann": 173.0159,
+      "budget": 1000.0,
+      "dd": 1.9034,
+      "params": {
+        "dl": 5,
+        "fo": 20,
+        "legs": 4,
+        "lev": 4,
+        "mult": 1.39,
+        "sp": 190,
+        "th": 26,
+        "tp": 240
+      },
+      "track": "T3_8",
+      "window": "w3"
+    },
+    {
+      "ann": 110.8688,
+      "budget": 1000.0,
+      "dd": 1.8956,
+      "params": {
+        "dl": 3,
+        "fo": 10,
+        "legs": 5,
+        "lev": 4,
+        "mult": 1.45,
+        "sp": 230,
+        "th": 23,
+        "tp": 230
+      },
+      "track": "T3_8",
+      "window": "w3"
+    },
+    {
+      "ann": 108.0612,
+      "budget": 1000.0,
+      "dd": 1.4518,
+      "params": {
+        "dl": 2,
+        "fo": 15,
+        "legs": 4,
+        "lev": 5,
+        "mult": 1.46,
+        "sp": 200,
+        "th": 39,
+        "tp": 250
+      },
+      "track": "T3_8",
+      "window": "w3"
+    },
+    {
+      "ann": 39.5287,
+      "budget": 1000.0,
+      "dd": 1.3505,
+      "params": {
+        "dl": 3,
+        "fo": 10,
+        "legs": 4,
+        "lev": 4,
+        "mult": 1.31,
+        "sp": 210,
+        "th": 45,
+        "tp": 140
+      },
+      "track": "T3_8",
       "window": "w3"
     }
   ],
@@ -37,6 +152,6 @@
   "sampler": "scipy_sobol",
   "schema_version": 1,
   "timeouts": 0,
-  "unique_configs": 12,
+  "unique_configs": 192,
   "windows": 4
 }

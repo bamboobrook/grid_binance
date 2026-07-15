@@ -1,7 +1,6 @@
 {
   "blocked_reasons": [
-    "B2: 1 failed: ['g1_192_sobol_2304_replays']",
-    "B3: predecessor not complete",
+    "B3: 1 failed: ['g2_nested_wfo_4_folds']",
     "B4: predecessor not complete",
     "B5: predecessor not complete",
     "B6: predecessor not complete",
@@ -314,21 +313,33 @@
       "phase": "B1"
     },
     {
-      "failed": [
+      "failed": [],
+      "passed": [
         {
           "detail": {
-            "actual_replays": 139,
+            "actual_replays": 2304,
             "required": 2304,
-            "unique_configs": 12
+            "unique_configs": 192
           },
           "gate": "g1_192_sobol_2304_replays"
         }
       ],
-      "passed": [],
       "phase": "B2"
+    },
+    {
+      "failed": [
+        {
+          "detail": {
+            "folds_executed": 0
+          },
+          "gate": "g2_nested_wfo_4_folds"
+        }
+      ],
+      "passed": [],
+      "phase": "B3"
     }
   ],
-  "phase": "B2",
+  "phase": "B3",
   "phase_status": {
     "A0": {
       "status": "complete"
@@ -352,13 +363,12 @@
       "status": "complete"
     },
     "B2": {
-      "failed": [
-        "g1_192_sobol_2304_replays"
-      ],
-      "status": "blocked"
+      "status": "complete"
     },
     "B3": {
-      "reason": "predecessor",
+      "failed": [
+        "g2_nested_wfo_4_folds"
+      ],
       "status": "blocked"
     },
     "B4": {
@@ -385,6 +395,6 @@
     "problems": 0
   },
   "status": "blocked",
-  "validated_at": "2026-07-15T15:09:28.132847+00:00",
+  "validated_at": "2026-07-15T15:45:12.621343+00:00",
   "validator_sha256": "d2857457ed53837bc15ac1b53197d4c6374fb1037c6eaca0d114c7f3e3509de7"
 }
