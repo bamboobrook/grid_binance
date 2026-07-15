@@ -353,6 +353,107 @@ pub struct MartingaleRiskLimits {
     /// downside vol is high.
     #[serde(default)]
     pub risk_scale_floor: Option<f64>,
+    /// Round 17 A1: shared router config (asymmetric trend/breadth admission).
+    /// All fields participate in the effective config hash.
+    #[serde(default)]
+    pub r17_router: Option<R17RouterConfig>,
+    /// Round 17 A1: funding crowding veto config.
+    #[serde(default)]
+    pub r17_funding_crowding: Option<R17FundingCrowdingConfig>,
+    /// Round 17 A1: half-life deadline + SO freeze/reduce config.
+    #[serde(default)]
+    pub r17_hazard: Option<R17HazardConfig>,
+    /// Round 17 A1: correlation/MST cluster reserve scheduler config.
+    #[serde(default)]
+    pub r17_cluster: Option<R17ClusterConfig>,
+    /// Round 17 A1: realized-vol monotone risk cap.
+    #[serde(default)]
+    pub r17_vol_cap: Option<R17VolCapConfig>,
+}
+
+/// Round 17 shared router: asymmetric regime admission driven by completed
+/// multi-horizon trend + market breadth. BULL admits new long only, BEAR
+/// admits shallow short only, RANGE admits displacement mean-reversion,
+/// SHOCK/UNKNOWN block all new cycles.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct R17RouterConfig {
+    pub trend_horizon_4h: u32,
+    pub breadth_threshold: f64,
+    pub enter_persistence: u32,
+    pub exit_persistence: u32,
+    pub minimum_dwell_hours: u32,
+    pub range_displacement_z: f64,
+    pub shock_downside_q: f64,
+    pub cusum_sigma: f64,
+    pub shock_cooldown_hours: u32,
+}
+
+impl Default for R17RouterConfig {
+    fn default() -> Self {
+        Self {
+            trend_horizon_4h: 24, breadth_threshold: 0.70,
+            enter_persistence: 3, exit_persistence: 2, minimum_dwell_hours: 24,
+            range_displacement_z: 1.25, shock_downside_q: 0.90,
+            cusum_sigma: 4.0, shock_cooldown_hours: 24,
+        }
+    }
+}
+
+/// Round 17 funding crowding: completed-window funding z veto on the crowded
+/// direction. Veto only; never adds directional PnL.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct R17FundingCrowdingConfig {
+    pub completed_window: u32,
+    pub adverse_z_veto: f64,
+}
+
+impl Default for R17FundingCrowdingConfig {
+    fn default() -> Self { Self { completed_window: 30, adverse_z_veto: 2.0 } }
+}
+
+/// Round 17 hazard: AR(1)/OU half-life deadline + SO freeze/reduce.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct R17HazardConfig {
+    pub half_life_window_h: u32,
+    pub deadline_half_lives: u32,
+    pub deadline_cap_h: u32,
+    pub after_deadline: String, // "freeze_so" or "reduce_20pct"
+    pub reserve_next_legs: u32,
+}
+
+impl Default for R17HazardConfig {
+    fn default() -> Self {
+        Self { half_life_window_h: 168, deadline_half_lives: 3, deadline_cap_h: 72,
+               after_deadline: "freeze_so".to_string(), reserve_next_legs: 2 }
+    }
+}
+
+/// Round 17 cluster: train-only correlation/MST cluster reserve scheduler.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct R17ClusterConfig {
+    pub mode: String, // "none" / "abs_corr" / "mst"
+    pub abs_corr_threshold: f64,
+    pub mst_target_clusters: u32,
+    pub symbol_margin_cap_pct: f64,
+    pub cluster_margin_cap_pct: f64,
+}
+
+impl Default for R17ClusterConfig {
+    fn default() -> Self {
+        Self { mode: "none".to_string(), abs_corr_threshold: 0.65, mst_target_clusters: 4,
+               symbol_margin_cap_pct: 25.0, cluster_margin_cap_pct: 35.0 }
+    }
+}
+
+/// Round 17 vol cap: realized-vol monotone risk fraction (Moreira/Muir style).
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct R17VolCapConfig {
+    pub completed_window_h: u32,
+    pub risk_fraction: f64,
+}
+
+impl Default for R17VolCapConfig {
+    fn default() -> Self { Self { completed_window_h: 72, risk_fraction: 0.35 } }
 }
 
 /// Round 14 P3: Cross-sectional selector configuration.
