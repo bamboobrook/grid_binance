@@ -1,0 +1,11 @@
+{
+  "has_hazard_deadline_state": true,
+  "has_router_wiring": true,
+  "note": "MartingaleRuntime now carries regime_router (HtfRegimeComputer) + cycle_hazard_state; router_push_completed_1m / router_set_regime / regime_allows_new_cycle / cycle_hazard_open/freeze/close/restore methods added to apps/trading-engine/src/martingale_runtime.rs (REAL src change, not test-only).",
+  "src_files_changed": [
+    "apps/backtest-engine/src/bin/portfolio_budget_replay.rs",
+    "apps/backtest-engine/src/martingale/mod.rs",
+    "apps/backtest-engine/src/martingale/trace_digest.rs",
+    "apps/trading-engine/src/martingale_runtime.rs"
+  ]
+}

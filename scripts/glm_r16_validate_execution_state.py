@@ -278,13 +278,18 @@ def _check_counterexamples(ev):
 
 
 def _check_src_changes(ev):
-    # R1 requires REAL src changes in apps/backtest-engine/src and apps/trading-engine/src
+    # R1 requires REAL src changes in apps/backtest-engine/src and apps/trading-engine/src.
+    # Check the changed file list AND that the diff actually touches router/hazard
+    # content (not just a no-op edit). The evidence builder lists files + content
+    # markers; the validator verifies structure.
     files_changed = _ev_field(ev, "src_files_changed") or []
-    has_router = any("router" in f.lower() or "regime" in f.lower() for f in files_changed)
-    has_scheduler = any("scheduler" in f.lower() or "hazard" in f.lower() or "deadline" in f.lower() for f in files_changed)
-    n = len([f for f in files_changed if f.startswith("apps/")])
-    ok = n >= 2 and has_router and has_scheduler
-    return ok, {"src_files_changed_count": n, "has_router": has_router, "has_scheduler": has_scheduler}
+    has_router = _ev_field(ev, "has_router_wiring") is True
+    has_hazard = _ev_field(ev, "has_hazard_deadline_state") is True
+    n = len([f for f in files_changed if f.startswith("apps/") and "/src/" in f])
+    trading_engine_changed = any("trading-engine/src" in f for f in files_changed)
+    ok = n >= 2 and trading_engine_changed and has_router and has_hazard
+    return ok, {"src_files_changed_count": n, "trading_engine_changed": trading_engine_changed,
+                "has_router_wiring": has_router, "has_hazard_state": has_hazard}
 
 
 def _check_production_wiring(ev):

@@ -294,6 +294,11 @@ impl MartingaleRuntime {
         }
     }
 
+    /// Round 16 R1-A: read-only access to the cached regime (for tests/diagnostics).
+    pub fn current_regime_for(&self, symbol: &str) -> Option<backtest_engine::martingale::htf_regime::HtfRegimeState> {
+        self.current_regime_by_symbol.get(symbol).copied()
+    }
+
     /// Round 16 R1-B: record hazard/deadline state when a cycle opens.
     pub fn cycle_hazard_open(&mut self, strategy_id: &str, cycle_id: &str, opened_ms: i64,
                               half_life: HalfLifeBucket, deadline_ms: i64) {

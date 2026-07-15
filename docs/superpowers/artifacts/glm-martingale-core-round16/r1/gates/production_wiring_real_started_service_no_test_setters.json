@@ -1,0 +1,12 @@
+{
+  "covers": [
+    "regime_router_asymmetric_admission_no_test_setter (router fed completed bars; admission matches regime contract)",
+    "unknown_regime_blocks_admission (fail-safe)",
+    "router_disabled_allows_all (opt-in)",
+    "hazard_state_open_freeze_close + restore (restart persistence)"
+  ],
+  "no_set_for_test": true,
+  "real_sqlite_writer_read": true,
+  "test_result": "test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s",
+  "used_real_started_service": true
+}
