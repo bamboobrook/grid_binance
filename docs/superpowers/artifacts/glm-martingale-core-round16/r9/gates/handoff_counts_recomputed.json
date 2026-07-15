@@ -1,0 +1,17 @@
+{
+  "passed": true,
+  "recomputed": {
+    "unique": 1543,
+    "replays": 1583,
+    "dups": 40,
+    "timeouts": 0
+  },
+  "execution_state_counts": {
+    "actual_binary_replays": 1583,
+    "cache_hits": 0,
+    "duplicates": 40,
+    "timeouts": 0,
+    "unique_execution_keys": 1543
+  },
+  "counts_match": true
+}

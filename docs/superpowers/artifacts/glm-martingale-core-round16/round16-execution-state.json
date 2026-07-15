@@ -1,7 +1,5 @@
 {
-  "blocked_reasons": [
-    "R9: 1 gate(s) failed: ['handoff_document_exists']"
-  ],
+  "blocked_reasons": [],
   "counts": {
     "actual_binary_replays": 1583,
     "cache_hits": 0,
@@ -220,14 +218,7 @@
       "phase": "R8"
     },
     {
-      "failed": [
-        {
-          "detail": {
-            "path": "docs/superpowers/reports/2026-07-15-glm-round16-execution-handoff.md"
-          },
-          "gate": "handoff_document_exists"
-        }
-      ],
+      "failed": [],
       "passed": [
         {
           "detail": {
@@ -238,6 +229,12 @@
             "unique_execution_keys": 1543
           },
           "gate": "handoff_counts_recomputed"
+        },
+        {
+          "detail": {
+            "path": "docs/superpowers/reports/2026-07-15-glm-round16-execution-handoff.md"
+          },
+          "gate": "handoff_document_exists"
         }
       ],
       "phase": "R9"
@@ -273,10 +270,7 @@
       "status": "complete"
     },
     "R9": {
-      "failed": [
-        "handoff_document_exists"
-      ],
-      "status": "blocked"
+      "status": "complete"
     }
   },
   "plan_sha256": "b24be861312117075dcf7bcbadab1a6807552dc7eaf7fa081b32f0bed8bf2ba6",
@@ -1869,7 +1863,7 @@
     ],
     "orphan_running": false
   },
-  "status": "blocked",
-  "validated_at": "2026-07-15T12:16:42.887378+00:00",
+  "status": "complete",
+  "validated_at": "2026-07-15T12:18:23.572848+00:00",
   "validator_sha256": "1eb3126ce14b0c11777be775eabc914830e52468146222360e26a4af4f796d1a"
 }
