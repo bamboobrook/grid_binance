@@ -1,0 +1,16 @@
+{
+  "covers": [
+    "started_executor_applies_selector_htf_ladder_scheduler (REAL MartingaleRuntime + XsSelector + HtfRegimeComputer + InventoryScheduler gate cycle entry; active sleeve emits a real first-leg order via start_cycle\u2192place_leg\u2192orders())",
+    "db_writer_persists_completed_boundary_state (EventAllocatorState JSON round-trip preserves completed-boundary rebalance clock, active sleeves, shadow observations; restored state makes same gating decision)",
+    "reconcile_does_not_duplicate_cycle_or_so (start_cycle on a strategy with an existing cycle is a no-op; no duplicate first leg)",
+    "restart_restores_selector_half_life_deadline_cluster_reserve (XsSelector/HtfRegimeComputer/InventoryScheduler serialize+restore; restored AllocatorState drives a fresh runtime to the same decision)"
+  ],
+  "forbidden_patterns_absent": [
+    "no tautological allow||!allow",
+    "no two-helper-state mutual comparison",
+    "no 'JSON serializable' only"
+  ],
+  "passed": true,
+  "test_result": "test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s",
+  "test_suite": "apps/trading-engine/tests/r15_p1_production_wiring.rs"
+}

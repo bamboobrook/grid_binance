@@ -1,6 +1,6 @@
 {
   "plan_sha256": "8d70a3a8a92ac6a0d3b0a4845ade90c51ecd0b246ac0533f565f21cd9be23b55",
-  "phase": "P1_EVENT_PRODUCTION_WIRING",
+  "phase": "P4_TRAIN_SCREEN",
   "status": "blocked",
   "required_gates": [
     {
@@ -224,17 +224,401 @@
     },
     {
       "phase": "P1_EVENT_PRODUCTION_WIRING",
+      "passed": [
+        {
+          "gate": "selector_ladder_scheduler_wired_to_event_and_production_state",
+          "passed": true,
+          "detail": {
+            "covers": [
+              "started_executor_applies_selector_htf_ladder_scheduler (REAL MartingaleRuntime + XsSelector + HtfRegimeComputer + InventoryScheduler gate cycle entry; active sleeve emits a real first-leg order via start_cycle\u2192place_leg\u2192orders())",
+              "db_writer_persists_completed_boundary_state (EventAllocatorState JSON round-trip preserves completed-boundary rebalance clock, active sleeves, shadow observations; restored state makes same gating decision)",
+              "reconcile_does_not_duplicate_cycle_or_so (start_cycle on a strategy with an existing cycle is a no-op; no duplicate first leg)",
+              "restart_restores_selector_half_life_deadline_cluster_reserve (XsSelector/HtfRegimeComputer/InventoryScheduler serialize+restore; restored AllocatorState drives a fresh runtime to the same decision)"
+            ],
+            "forbidden_patterns_absent": [
+              "no tautological allow||!allow",
+              "no two-helper-state mutual comparison",
+              "no 'JSON serializable' only"
+            ],
+            "passed": true,
+            "test_result": "test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s",
+            "test_suite": "apps/trading-engine/tests/r15_p1_production_wiring.rs"
+          }
+        },
+        {
+          "gate": "p1_production_parity_tests_pass",
+          "passed": true,
+          "detail": {
+            "covers": [
+              "backtest_live_order_trace_matches (MartingaleRuntime first-leg order notional & margin match kline_engine open_leg trade to 1e-6)"
+            ],
+            "passed": true,
+            "test_result": "test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s",
+            "test_suite": "apps/trading-engine/tests/r15_p1_production_wiring.rs"
+          }
+        }
+      ],
+      "failed": []
+    },
+    {
+      "phase": "P2_BINDING_PROBES",
+      "passed": [
+        {
+          "gate": "open_params_change_effective_config_hash",
+          "passed": true,
+          "detail": {
+            "passed": true,
+            "inert_parameters": [],
+            "cases": [
+              {
+                "effective_hashes": [
+                  "74815e0f2dd8255efdbd4d44f1bbef2620fe1e82d2f71304ca8c30d9ec3173d2",
+                  "733eee1b5afe1274e0f062cfd8a969b5490b9669a3860819f0b431b9012af191"
+                ],
+                "event_changes": true,
+                "event_hashes": [
+                  "1171a51c975f68d0",
+                  "c2a99cee7e04668e"
+                ],
+                "hash_changes": true,
+                "parameter": "first_order",
+                "status": "bound",
+                "values": [
+                  25,
+                  40
+                ]
+              },
+              {
+                "effective_hashes": [
+                  "74815e0f2dd8255efdbd4d44f1bbef2620fe1e82d2f71304ca8c30d9ec3173d2",
+                  "da877d11cb6be9f839a76e71f7eeb51d89bcd5e0d0df31bba4a86dda22a4aca9"
+                ],
+                "event_changes": true,
+                "event_hashes": [
+                  "1171a51c975f68d0",
+                  "d11850c486af86fe"
+                ],
+                "hash_changes": true,
+                "parameter": "multiplier",
+                "status": "bound",
+                "values": [
+                  1.6,
+                  2.4
+                ]
+              },
+              {
+                "effective_hashes": [
+                  "74815e0f2dd8255efdbd4d44f1bbef2620fe1e82d2f71304ca8c30d9ec3173d2",
+                  "8fd0fd80acb0bf3f0197a83210307e5c598307c7a00d31a846d4eb0279aa0577"
+                ],
+                "event_changes": true,
+                "event_hashes": [
+                  "1171a51c975f68d0",
+                  "ee54a4d3c4121168"
+                ],
+                "hash_changes": true,
+                "parameter": "max_legs",
+                "status": "bound",
+                "values": [
+                  6,
+                  8
+                ]
+              },
+              {
+                "effective_hashes": [
+                  "74815e0f2dd8255efdbd4d44f1bbef2620fe1e82d2f71304ca8c30d9ec3173d2",
+                  "15524bf9dacb2b88fce63c40aaf5b33abe46a60e6590f27ffe68a969cf179b4d"
+                ],
+                "event_changes": true,
+                "event_hashes": [
+                  "1171a51c975f68d0",
+                  "c47f355115dc21ca"
+                ],
+                "hash_changes": true,
+                "parameter": "spacing_bps",
+                "status": "bound",
+                "values": [
+                  120,
+                  200
+                ]
+              },
+              {
+                "effective_hashes": [
+                  "74815e0f2dd8255efdbd4d44f1bbef2620fe1e82d2f71304ca8c30d9ec3173d2",
+                  "14c86dee7fab89e23e797a080e3ed7bb073ca6176493a334a75666c41f1ceef8"
+                ],
+                "event_changes": true,
+                "event_hashes": [
+                  "1171a51c975f68d0",
+                  "83061cb00899f325"
+                ],
+                "hash_changes": true,
+                "parameter": "tp_bps",
+                "status": "bound",
+                "values": [
+                  120,
+                  200
+                ]
+              },
+              {
+                "effective_hashes": [
+                  "74815e0f2dd8255efdbd4d44f1bbef2620fe1e82d2f71304ca8c30d9ec3173d2",
+                  "eea099122dea6708bd2b8e92c5af364a952f39b0d30f6a6704417442cb742b6f"
+                ],
+                "event_changes": true,
+                "event_hashes": [
+                  "1171a51c975f68d0",
+                  "46944d93c2cc17fc"
+                ],
+                "hash_changes": true,
+                "parameter": "leverage",
+                "status": "bound",
+                "values": [
+                  10,
+                  20
+                ]
+              }
+            ],
+            "note": "All 6 open params (first_order, multiplier, max_legs, spacing, tp, leverage) change effective config hash AND event hash on a 14-day binding trace."
+          }
+        },
+        {
+          "gate": "at_least_one_event_hash_changes_per_family",
+          "passed": true,
+          "detail": {
+            "passed": true,
+            "inert_parameters": [],
+            "cases": [
+              {
+                "effective_hashes": [
+                  "74815e0f2dd8255efdbd4d44f1bbef2620fe1e82d2f71304ca8c30d9ec3173d2",
+                  "733eee1b5afe1274e0f062cfd8a969b5490b9669a3860819f0b431b9012af191"
+                ],
+                "event_changes": true,
+                "event_hashes": [
+                  "1171a51c975f68d0",
+                  "c2a99cee7e04668e"
+                ],
+                "hash_changes": true,
+                "parameter": "first_order",
+                "status": "bound",
+                "values": [
+                  25,
+                  40
+                ]
+              },
+              {
+                "effective_hashes": [
+                  "74815e0f2dd8255efdbd4d44f1bbef2620fe1e82d2f71304ca8c30d9ec3173d2",
+                  "da877d11cb6be9f839a76e71f7eeb51d89bcd5e0d0df31bba4a86dda22a4aca9"
+                ],
+                "event_changes": true,
+                "event_hashes": [
+                  "1171a51c975f68d0",
+                  "d11850c486af86fe"
+                ],
+                "hash_changes": true,
+                "parameter": "multiplier",
+                "status": "bound",
+                "values": [
+                  1.6,
+                  2.4
+                ]
+              },
+              {
+                "effective_hashes": [
+                  "74815e0f2dd8255efdbd4d44f1bbef2620fe1e82d2f71304ca8c30d9ec3173d2",
+                  "8fd0fd80acb0bf3f0197a83210307e5c598307c7a00d31a846d4eb0279aa0577"
+                ],
+                "event_changes": true,
+                "event_hashes": [
+                  "1171a51c975f68d0",
+                  "ee54a4d3c4121168"
+                ],
+                "hash_changes": true,
+                "parameter": "max_legs",
+                "status": "bound",
+                "values": [
+                  6,
+                  8
+                ]
+              },
+              {
+                "effective_hashes": [
+                  "74815e0f2dd8255efdbd4d44f1bbef2620fe1e82d2f71304ca8c30d9ec3173d2",
+                  "15524bf9dacb2b88fce63c40aaf5b33abe46a60e6590f27ffe68a969cf179b4d"
+                ],
+                "event_changes": true,
+                "event_hashes": [
+                  "1171a51c975f68d0",
+                  "c47f355115dc21ca"
+                ],
+                "hash_changes": true,
+                "parameter": "spacing_bps",
+                "status": "bound",
+                "values": [
+                  120,
+                  200
+                ]
+              },
+              {
+                "effective_hashes": [
+                  "74815e0f2dd8255efdbd4d44f1bbef2620fe1e82d2f71304ca8c30d9ec3173d2",
+                  "14c86dee7fab89e23e797a080e3ed7bb073ca6176493a334a75666c41f1ceef8"
+                ],
+                "event_changes": true,
+                "event_hashes": [
+                  "1171a51c975f68d0",
+                  "83061cb00899f325"
+                ],
+                "hash_changes": true,
+                "parameter": "tp_bps",
+                "status": "bound",
+                "values": [
+                  120,
+                  200
+                ]
+              },
+              {
+                "effective_hashes": [
+                  "74815e0f2dd8255efdbd4d44f1bbef2620fe1e82d2f71304ca8c30d9ec3173d2",
+                  "eea099122dea6708bd2b8e92c5af364a952f39b0d30f6a6704417442cb742b6f"
+                ],
+                "event_changes": true,
+                "event_hashes": [
+                  "1171a51c975f68d0",
+                  "46944d93c2cc17fc"
+                ],
+                "hash_changes": true,
+                "parameter": "leverage",
+                "status": "bound",
+                "values": [
+                  10,
+                  20
+                ]
+              }
+            ],
+            "note": "All 6 open params (first_order, multiplier, max_legs, spacing, tp, leverage) change effective config hash AND event hash on a 14-day binding trace."
+          }
+        }
+      ],
+      "failed": []
+    },
+    {
+      "phase": "P3_BASELINE_UNIVERSE",
+      "passed": [
+        {
+          "gate": "baseline_and_t1_t2_t3_universe_frozen",
+          "passed": true,
+          "detail": {
+            "T1_R7_rescue": {
+              "baseline": "corrected R7 exact config (R7 universe contains survivor-picked ANKR; results never enter promotion pool)",
+              "role": "diagnostic_only_never_promoted"
+            },
+            "T2_primary_promotion": {
+              "all_qualified": true,
+              "direction_contract": {
+                "direction_flip_affects_next_cycle_only": true,
+                "each_symbol_has_long_and_short_sleeve": true,
+                "same_symbol_at_most_one_live_cycle": true
+              },
+              "long_short_sleeve_count": 24,
+              "symbol_count": 12,
+              "symbols": [
+                "BTCUSDT",
+                "ETHUSDT",
+                "BNBUSDT",
+                "SOLUSDT",
+                "XRPUSDT",
+                "DOGEUSDT",
+                "ADAUSDT",
+                "TRXUSDT",
+                "LINKUSDT",
+                "LTCUSDT",
+                "BCHUSDT",
+                "DOTUSDT"
+              ]
+            },
+            "T3_small_cap_universe_12": {
+              "symbols": [
+                "BTCUSDT",
+                "ETHUSDT",
+                "BNBUSDT",
+                "SOLUSDT",
+                "XRPUSDT",
+                "DOGEUSDT",
+                "ADAUSDT",
+                "TRXUSDT",
+                "LINKUSDT",
+                "LTCUSDT",
+                "BCHUSDT",
+                "DOTUSDT"
+              ]
+            },
+            "T3_small_cap_universe_8": {
+              "qualified": true,
+              "symbols": [
+                "BTCUSDT",
+                "ETHUSDT",
+                "BNBUSDT",
+                "SOLUSDT",
+                "XRPUSDT",
+                "DOGEUSDT",
+                "ADAUSDT",
+                "TRXUSDT"
+              ]
+            },
+            "frozen_before_any_return_search": true,
+            "passed": true
+          }
+        },
+        {
+          "gate": "data_qualification_passes",
+          "passed": true,
+          "detail": {
+            "dev_window": {
+              "end_ms": 1780271999999,
+              "start_ms": 1672531200000
+            },
+            "manifest_dev_gate": "passed (r15-data-manifest.json development_window.gate.passed=true)",
+            "passed": true,
+            "qualification": {
+              "T2_all_qualified": true,
+              "T2_failures": [],
+              "criterion": "span_fraction_of_dev >= 0.99 AND non-trivial avg 1m volume"
+            }
+          }
+        }
+      ],
+      "failed": []
+    },
+    {
+      "phase": "P4_TRAIN_SCREEN",
       "passed": [],
       "failed": [
         {
-          "gate": "selector_ladder_scheduler_wired_to_event_and_production_state",
+          "gate": "g1_global_128_sobol_run",
           "passed": false,
           "detail": {
             "reason": "no evidence"
           }
         },
         {
-          "gate": "p1_production_parity_tests_pass",
+          "gate": "g2_full_development_per_fold",
+          "passed": false,
+          "detail": {
+            "reason": "no evidence"
+          }
+        },
+        {
+          "gate": "g3_nested_validation_frozen",
+          "passed": false,
+          "detail": {
+            "reason": "no evidence"
+          }
+        },
+        {
+          "gate": "quota_and_duplicate_rate_compliant",
           "passed": false,
           "detail": {
             "reason": "no evidence"
@@ -244,10 +628,7 @@
     }
   ],
   "blocked_reasons": [
-    "P1_EVENT_PRODUCTION_WIRING: 2 gate(s) missing: ['selector_ladder_scheduler_wired_to_event_and_production_state', 'p1_production_parity_tests_pass']",
-    "P2_BINDING_PROBES: predecessor not complete",
-    "P3_BASELINE_UNIVERSE: predecessor not complete",
-    "P4_TRAIN_SCREEN: predecessor not complete",
+    "P4_TRAIN_SCREEN: 4 gate(s) missing: ['g1_global_128_sobol_run', 'g2_full_development_per_fold', 'g3_nested_validation_frozen', 'quota_and_duplicate_rate_compliant']",
     "P5_NESTED_WFO: predecessor not complete",
     "P6_ROBUSTNESS: predecessor not complete",
     "P7_PRODUCTION_PARITY: predecessor not complete",
@@ -386,32 +767,35 @@
     "docs/superpowers/artifacts/glm-martingale-core-round15/p1/g0-binding-probes.json",
     "docs/superpowers/artifacts/glm-martingale-core-round15/p1/gates/at_least_one_event_hash_changes_per_family.json",
     "docs/superpowers/artifacts/glm-martingale-core-round15/p1/gates/open_params_change_effective_config_hash.json",
+    "docs/superpowers/artifacts/glm-martingale-core-round15/p1/gates/p1_production_parity_tests_pass.json",
+    "docs/superpowers/artifacts/glm-martingale-core-round15/p1/gates/selector_ladder_scheduler_wired_to_event_and_production_state.json",
+    "docs/superpowers/artifacts/glm-martingale-core-round15/p3/gates/baseline_and_t1_t2_t3_universe_frozen.json",
+    "docs/superpowers/artifacts/glm-martingale-core-round15/p3/gates/data_qualification_passes.json",
     "docs/superpowers/artifacts/glm-martingale-core-round15/round15-execution-state.json",
     "docs/superpowers/artifacts/glm-martingale-core-round15/run-manifests/r15-data-manifest.json"
   ],
-  "validated_at": "2026-07-15T03:59:01.503780+00:00",
+  "validated_at": "2026-07-15T04:17:56.983915+00:00",
   "phase_status": {
     "P0_CANONICAL_PARITY": {
       "status": "complete"
     },
     "P1_EVENT_PRODUCTION_WIRING": {
-      "status": "blocked",
-      "failed_gates": [
-        "selector_ladder_scheduler_wired_to_event_and_production_state",
-        "p1_production_parity_tests_pass"
-      ]
+      "status": "complete"
     },
     "P2_BINDING_PROBES": {
-      "status": "blocked",
-      "reason": "predecessor not complete"
+      "status": "complete"
     },
     "P3_BASELINE_UNIVERSE": {
-      "status": "blocked",
-      "reason": "predecessor not complete"
+      "status": "complete"
     },
     "P4_TRAIN_SCREEN": {
       "status": "blocked",
-      "reason": "predecessor not complete"
+      "failed_gates": [
+        "g1_global_128_sobol_run",
+        "g2_full_development_per_fold",
+        "g3_nested_validation_frozen",
+        "quota_and_duplicate_rate_compliant"
+      ]
     },
     "P5_NESTED_WFO": {
       "status": "blocked",

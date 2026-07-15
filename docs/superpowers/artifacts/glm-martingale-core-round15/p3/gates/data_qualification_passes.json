@@ -1,0 +1,13 @@
+{
+  "dev_window": {
+    "end_ms": 1780271999999,
+    "start_ms": 1672531200000
+  },
+  "manifest_dev_gate": "passed (r15-data-manifest.json development_window.gate.passed=true)",
+  "passed": true,
+  "qualification": {
+    "T2_all_qualified": true,
+    "T2_failures": [],
+    "criterion": "span_fraction_of_dev >= 0.99 AND non-trivial avg 1m volume"
+  }
+}

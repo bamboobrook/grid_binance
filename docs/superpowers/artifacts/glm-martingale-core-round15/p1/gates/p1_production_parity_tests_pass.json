@@ -1,0 +1,8 @@
+{
+  "covers": [
+    "backtest_live_order_trace_matches (MartingaleRuntime first-leg order notional & margin match kline_engine open_leg trade to 1e-6)"
+  ],
+  "passed": true,
+  "test_result": "test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s",
+  "test_suite": "apps/trading-engine/tests/r15_p1_production_wiring.rs"
+}

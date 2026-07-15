@@ -1,0 +1,61 @@
+{
+  "T1_R7_rescue": {
+    "baseline": "corrected R7 exact config (R7 universe contains survivor-picked ANKR; results never enter promotion pool)",
+    "role": "diagnostic_only_never_promoted"
+  },
+  "T2_primary_promotion": {
+    "all_qualified": true,
+    "direction_contract": {
+      "direction_flip_affects_next_cycle_only": true,
+      "each_symbol_has_long_and_short_sleeve": true,
+      "same_symbol_at_most_one_live_cycle": true
+    },
+    "long_short_sleeve_count": 24,
+    "symbol_count": 12,
+    "symbols": [
+      "BTCUSDT",
+      "ETHUSDT",
+      "BNBUSDT",
+      "SOLUSDT",
+      "XRPUSDT",
+      "DOGEUSDT",
+      "ADAUSDT",
+      "TRXUSDT",
+      "LINKUSDT",
+      "LTCUSDT",
+      "BCHUSDT",
+      "DOTUSDT"
+    ]
+  },
+  "T3_small_cap_universe_12": {
+    "symbols": [
+      "BTCUSDT",
+      "ETHUSDT",
+      "BNBUSDT",
+      "SOLUSDT",
+      "XRPUSDT",
+      "DOGEUSDT",
+      "ADAUSDT",
+      "TRXUSDT",
+      "LINKUSDT",
+      "LTCUSDT",
+      "BCHUSDT",
+      "DOTUSDT"
+    ]
+  },
+  "T3_small_cap_universe_8": {
+    "qualified": true,
+    "symbols": [
+      "BTCUSDT",
+      "ETHUSDT",
+      "BNBUSDT",
+      "SOLUSDT",
+      "XRPUSDT",
+      "DOGEUSDT",
+      "ADAUSDT",
+      "TRXUSDT"
+    ]
+  },
+  "frozen_before_any_return_search": true,
+  "passed": true
+}
