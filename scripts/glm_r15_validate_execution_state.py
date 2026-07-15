@@ -156,8 +156,13 @@ def load_registry():
 
 def recompute_counts(records):
     """Recompute unique_configs / binary_replays / cache_hits / duplicates /
-    timeouts strictly from registry detail lines (plan §12)."""
-    seen_effective = set()
+    timeouts strictly from registry detail lines (plan §10/§12).
+
+    Dedup key is `effective_config + window` (plan §10: "same effective config
+    + engine + canonical data + window" runs once). The same config replayed
+    on different windows/budgets is NOT a duplicate.
+    """
+    seen = set()
     unique_configs = 0
     binary_replays = 0
     cache_hits = 0
@@ -167,12 +172,15 @@ def recompute_counts(records):
         if r.get("status") not in ("complete", "rejected", "skipped_duplicate", "timeout"):
             continue
         eff = r.get("effective_config_hash") or r.get("resolved_config_hash")
-        if eff in seen_effective:
+        window = r.get("window") or r.get("start_ms", "")
+        budget = r.get("budget", "")
+        key = f"{eff}|{window}|{budget}"
+        if key in seen:
             duplicates += 1
             if r.get("status") == "skipped_duplicate":
                 cache_hits += 1
             continue
-        seen_effective.add(eff)
+        seen.add(key)
         unique_configs += 1
         replays = int(r.get("actual_binary_replays", 0) or 0)
         if r.get("status") == "timeout":

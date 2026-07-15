@@ -261,10 +261,10 @@
     "config": null
   },
   "counts": {
-    "unique_configs": 42,
-    "binary_replays": 42,
+    "unique_configs": 91,
+    "binary_replays": 91,
     "cache_hits": 0,
-    "duplicates": 26,
+    "duplicates": 1,
     "timeouts": 0
   },
   "artifacts": [
@@ -324,6 +324,30 @@
     "docs/superpowers/artifacts/glm-martingale-core-round15/configs/r15_lo8_tf_fo40_m20_s120_tp120_sl4000.json",
     "docs/superpowers/artifacts/glm-martingale-core-round15/configs/r15_lo8_tf_fo40_m24_s100_tp100_sl5000.json",
     "docs/superpowers/artifacts/glm-martingale-core-round15/configs/r15_lo8_tf_fo50_m24_s100_tp100_sl5000.json",
+    "docs/superpowers/artifacts/glm-martingale-core-round15/configs/r15_ptp_be0_nosl.json",
+    "docs/superpowers/artifacts/glm-martingale-core-round15/configs/r15_ptp_be0_nosl_2024.json",
+    "docs/superpowers/artifacts/glm-martingale-core-round15/configs/r15_ptp_be0_nosl_2025.json",
+    "docs/superpowers/artifacts/glm-martingale-core-round15/configs/r15_ptp_be0_nosl_2026_ytd.json",
+    "docs/superpowers/artifacts/glm-martingale-core-round15/configs/r15_ptp_be0_nosl_h1_2023.json",
+    "docs/superpowers/artifacts/glm-martingale-core-round15/configs/r15_ptp_be0_nosl_h2_2023.json",
+    "docs/superpowers/artifacts/glm-martingale-core-round15/configs/r15_ptp_be0_sl10000.json",
+    "docs/superpowers/artifacts/glm-martingale-core-round15/configs/r15_ptp_be0_sl10000_2024.json",
+    "docs/superpowers/artifacts/glm-martingale-core-round15/configs/r15_ptp_be0_sl10000_2025.json",
+    "docs/superpowers/artifacts/glm-martingale-core-round15/configs/r15_ptp_be0_sl10000_2026_ytd.json",
+    "docs/superpowers/artifacts/glm-martingale-core-round15/configs/r15_ptp_be0_sl10000_h1_2023.json",
+    "docs/superpowers/artifacts/glm-martingale-core-round15/configs/r15_ptp_be0_sl10000_h2_2023.json",
+    "docs/superpowers/artifacts/glm-martingale-core-round15/configs/r15_ptp_be0_sl8000.json",
+    "docs/superpowers/artifacts/glm-martingale-core-round15/configs/r15_ptp_be0_sl8000_2024.json",
+    "docs/superpowers/artifacts/glm-martingale-core-round15/configs/r15_ptp_be0_sl8000_2025.json",
+    "docs/superpowers/artifacts/glm-martingale-core-round15/configs/r15_ptp_be0_sl8000_2026_ytd.json",
+    "docs/superpowers/artifacts/glm-martingale-core-round15/configs/r15_ptp_be0_sl8000_h1_2023.json",
+    "docs/superpowers/artifacts/glm-martingale-core-round15/configs/r15_ptp_be0_sl8000_h2_2023.json",
+    "docs/superpowers/artifacts/glm-martingale-core-round15/configs/r15_ptp_be1_sl8000.json",
+    "docs/superpowers/artifacts/glm-martingale-core-round15/configs/r15_ptp_be1_sl8000_2024.json",
+    "docs/superpowers/artifacts/glm-martingale-core-round15/configs/r15_ptp_be1_sl8000_2025.json",
+    "docs/superpowers/artifacts/glm-martingale-core-round15/configs/r15_ptp_be1_sl8000_2026_ytd.json",
+    "docs/superpowers/artifacts/glm-martingale-core-round15/configs/r15_ptp_be1_sl8000_h1_2023.json",
+    "docs/superpowers/artifacts/glm-martingale-core-round15/configs/r15_ptp_be1_sl8000_h2_2023.json",
     "docs/superpowers/artifacts/glm-martingale-core-round15/configs/r15_ptp_fo35_m20_s120_l6.json",
     "docs/superpowers/artifacts/glm-martingale-core-round15/configs/r15_ptp_fo35_m24_s180_l5.json",
     "docs/superpowers/artifacts/glm-martingale-core-round15/configs/r15_ptp_fo35_m32_s80_l8.json",
@@ -365,7 +389,7 @@
     "docs/superpowers/artifacts/glm-martingale-core-round15/round15-execution-state.json",
     "docs/superpowers/artifacts/glm-martingale-core-round15/run-manifests/r15-data-manifest.json"
   ],
-  "validated_at": "2026-07-15T03:55:06.096702+00:00",
+  "validated_at": "2026-07-15T03:59:01.503780+00:00",
   "phase_status": {
     "P0_CANONICAL_PARITY": {
       "status": "complete"
