@@ -1,0 +1,75 @@
+{
+  "finalist_count": 0,
+  "finalists": [],
+  "g2_results": [
+    {
+      "any_breach": false,
+      "full_ann": -7.1533,
+      "full_dd": 64.9949,
+      "median_ann": -6.9877,
+      "params": {
+        "dl": 3,
+        "fo": 15,
+        "legs": 5,
+        "lev": 5,
+        "mult": 1.4,
+        "sp": 180,
+        "th": 24,
+        "tp": 180,
+        "track": "T2"
+      },
+      "seg_pos": 0,
+      "strict_g2_pass": false,
+      "track": "T2",
+      "worst_seg_dd": 21.8304
+    },
+    {
+      "any_breach": false,
+      "full_ann": -2.7742,
+      "full_dd": 26.4087,
+      "median_ann": -3.0557,
+      "params": {
+        "dl": 5,
+        "fo": 10,
+        "legs": 4,
+        "lev": 3,
+        "mult": 1.25,
+        "sp": 250,
+        "th": 48,
+        "tp": 250,
+        "track": "T3_8"
+      },
+      "seg_pos": 1,
+      "strict_g2_pass": false,
+      "track": "T3_8",
+      "worst_seg_dd": 8.268
+    },
+    {
+      "any_breach": false,
+      "full_ann": -10.3355,
+      "full_dd": 86.7746,
+      "median_ann": -10.0852,
+      "params": {
+        "dl": 2,
+        "fo": 20,
+        "legs": 5,
+        "lev": 5,
+        "mult": 1.55,
+        "sp": 120,
+        "th": 12,
+        "tp": 120,
+        "track": "T2"
+      },
+      "seg_pos": 0,
+      "strict_g2_pass": false,
+      "track": "T2",
+      "worst_seg_dd": 36.6496
+    }
+  ],
+  "g2_strict_gate_checked": true,
+  "g2_strict_survivors": 0,
+  "g3_folds": [],
+  "g3_folds_executed": 0,
+  "phase": "B3_G2_G3",
+  "schema_version": 1
+}

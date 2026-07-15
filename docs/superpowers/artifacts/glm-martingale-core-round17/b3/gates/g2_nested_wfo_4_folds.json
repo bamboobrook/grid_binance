@@ -1,0 +1,54 @@
+{
+  "survivors": 0,
+  "strict_worst_dd_35_and_no_breach": true,
+  "results": [
+    {
+      "params": {
+        "fo": 15,
+        "mult": 1.4,
+        "legs": 5,
+        "sp": 180,
+        "tp": 180,
+        "lev": 5,
+        "th": 24,
+        "dl": 3,
+        "track": "T2"
+      },
+      "strict_g2_pass": false,
+      "worst_seg_dd": 21.8304,
+      "any_breach": false
+    },
+    {
+      "params": {
+        "fo": 10,
+        "mult": 1.25,
+        "legs": 4,
+        "sp": 250,
+        "tp": 250,
+        "lev": 3,
+        "th": 48,
+        "dl": 5,
+        "track": "T3_8"
+      },
+      "strict_g2_pass": false,
+      "worst_seg_dd": 8.268,
+      "any_breach": false
+    },
+    {
+      "params": {
+        "fo": 20,
+        "mult": 1.55,
+        "legs": 5,
+        "sp": 120,
+        "tp": 120,
+        "lev": 5,
+        "th": 12,
+        "dl": 2,
+        "track": "T2"
+      },
+      "strict_g2_pass": false,
+      "worst_seg_dd": 36.6496,
+      "any_breach": false
+    }
+  ]
+}

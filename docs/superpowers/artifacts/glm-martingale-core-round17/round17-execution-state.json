@@ -8,11 +8,11 @@
     "B7: predecessor not complete"
   ],
   "counts": {
-    "actual_binary_replays": 0,
-    "cache_hits": 0,
-    "duplicates": 0,
+    "actual_binary_replays": 157,
+    "cache_hits": 2165,
+    "duplicates": 15,
     "timeouts": 0,
-    "unique_execution_keys": 0
+    "unique_execution_keys": 2307
   },
   "passed_gates": [
     {
@@ -317,9 +317,9 @@
       "failed": [
         {
           "detail": {
-            "actual_replays": 0,
+            "actual_replays": 139,
             "required": 2304,
-            "unique_configs": 0
+            "unique_configs": 12
           },
           "gate": "g1_192_sobol_2304_replays"
         }
@@ -385,6 +385,6 @@
     "problems": 0
   },
   "status": "blocked",
-  "validated_at": "2026-07-15T14:23:52.968974+00:00",
+  "validated_at": "2026-07-15T15:09:28.132847+00:00",
   "validator_sha256": "d2857457ed53837bc15ac1b53197d4c6374fb1037c6eaca0d114c7f3e3509de7"
 }
