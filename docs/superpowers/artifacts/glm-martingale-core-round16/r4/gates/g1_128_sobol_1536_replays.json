@@ -1,0 +1,8 @@
+{
+  "unique_configs": 128,
+  "actual_replays": 2328,
+  "windows": 4,
+  "budgets": 3,
+  "duplicates": 792,
+  "duplicate_rate_under_25pct": false
+}
