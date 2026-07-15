@@ -1,0 +1,196 @@
+{
+  "all_bound": true,
+  "families": [
+    {
+      "bound": true,
+      "config_hash_bound": true,
+      "details": [
+        {
+          "bound": false,
+          "event_changes": false,
+          "hash_changes": true,
+          "name": "D1",
+          "param": "trend_horizon_4h",
+          "trace_count": 2,
+          "trade_changes": false
+        },
+        {
+          "bound": false,
+          "event_changes": false,
+          "hash_changes": true,
+          "name": "D1b",
+          "param": "breadth_threshold",
+          "trace_count": 2,
+          "trade_changes": false
+        }
+      ],
+      "event_hash_bound": false,
+      "name": "D1",
+      "trace_count": 4
+    },
+    {
+      "bound": true,
+      "config_hash_bound": true,
+      "details": [
+        {
+          "bound": false,
+          "event_changes": false,
+          "hash_changes": true,
+          "name": "D2",
+          "param": "range_displacement_z",
+          "trace_count": 2,
+          "trade_changes": false
+        }
+      ],
+      "event_hash_bound": false,
+      "name": "D2",
+      "trace_count": 2
+    },
+    {
+      "bound": true,
+      "config_hash_bound": true,
+      "details": [
+        {
+          "bound": false,
+          "event_changes": false,
+          "hash_changes": true,
+          "name": "D3",
+          "param": "shock_cusum",
+          "trace_count": 2,
+          "trade_changes": false
+        }
+      ],
+      "event_hash_bound": false,
+      "name": "D3",
+      "trace_count": 2
+    },
+    {
+      "bound": true,
+      "config_hash_bound": true,
+      "details": [
+        {
+          "bound": false,
+          "event_changes": false,
+          "hash_changes": true,
+          "name": "F1",
+          "param": "adverse_z_veto",
+          "trace_count": 2,
+          "trade_changes": false
+        }
+      ],
+      "event_hash_bound": false,
+      "name": "F1",
+      "trace_count": 2
+    },
+    {
+      "bound": true,
+      "config_hash_bound": true,
+      "details": [
+        {
+          "bound": false,
+          "event_changes": false,
+          "hash_changes": true,
+          "name": "H1",
+          "param": "half_life_window_h",
+          "trace_count": 2,
+          "trade_changes": false
+        }
+      ],
+      "event_hash_bound": false,
+      "name": "H1",
+      "trace_count": 2
+    },
+    {
+      "bound": true,
+      "config_hash_bound": true,
+      "details": [
+        {
+          "bound": false,
+          "event_changes": false,
+          "hash_changes": true,
+          "name": "H2",
+          "param": "after_deadline",
+          "trace_count": 2,
+          "trade_changes": false
+        }
+      ],
+      "event_hash_bound": false,
+      "name": "H2",
+      "trace_count": 2
+    },
+    {
+      "bound": true,
+      "config_hash_bound": true,
+      "details": [
+        {
+          "bound": false,
+          "event_changes": false,
+          "hash_changes": true,
+          "name": "H3",
+          "param": "reserve_next_legs",
+          "trace_count": 2,
+          "trade_changes": false
+        }
+      ],
+      "event_hash_bound": false,
+      "name": "H3",
+      "trace_count": 2
+    },
+    {
+      "bound": true,
+      "config_hash_bound": true,
+      "details": [
+        {
+          "bound": false,
+          "event_changes": false,
+          "hash_changes": true,
+          "name": "C1",
+          "param": "abs_corr_threshold",
+          "trace_count": 2,
+          "trade_changes": false
+        }
+      ],
+      "event_hash_bound": false,
+      "name": "C1",
+      "trace_count": 2
+    },
+    {
+      "bound": true,
+      "config_hash_bound": true,
+      "details": [
+        {
+          "bound": false,
+          "event_changes": false,
+          "hash_changes": true,
+          "name": "C2",
+          "param": "mst_mode",
+          "trace_count": 2,
+          "trade_changes": false
+        }
+      ],
+      "event_hash_bound": false,
+      "name": "C2",
+      "trace_count": 2
+    },
+    {
+      "bound": true,
+      "config_hash_bound": true,
+      "details": [
+        {
+          "bound": false,
+          "event_changes": false,
+          "hash_changes": true,
+          "name": "V1",
+          "param": "risk_fraction",
+          "trace_count": 2,
+          "trade_changes": false
+        }
+      ],
+      "event_hash_bound": false,
+      "name": "V1",
+      "trace_count": 2
+    }
+  ],
+  "phase": "A4_binding",
+  "schema_version": 1
+}

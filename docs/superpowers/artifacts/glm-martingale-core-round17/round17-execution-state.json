@@ -1,7 +1,6 @@
 {
   "blocked_reasons": [
-    "A4: 1 failed: ['ten_family_binding']",
-    "B0: predecessor not complete",
+    "B0: 1 failed: ['data_split_search_contract_frozen']",
     "B1: predecessor not complete",
     "B2: predecessor not complete",
     "B3: predecessor not complete",
@@ -129,19 +128,53 @@
       "phase": "A3"
     },
     {
-      "failed": [
+      "failed": [],
+      "passed": [
         {
           "detail": {
-            "reason": "no families"
+            "missing": [],
+            "observed": [
+              "C1",
+              "C2",
+              "D1",
+              "D2",
+              "D3",
+              "F1",
+              "H1",
+              "H2",
+              "H3",
+              "V1"
+            ],
+            "required": [
+              "C1",
+              "C2",
+              "D1",
+              "D2",
+              "D3",
+              "F1",
+              "H1",
+              "H2",
+              "H3",
+              "V1"
+            ]
           },
           "gate": "ten_family_binding"
         }
       ],
-      "passed": [],
       "phase": "A4"
+    },
+    {
+      "failed": [
+        {
+          "detail": {},
+          "gate": "data_split_search_contract_frozen"
+        }
+      ],
+      "passed": [],
+      "phase": "B0"
     }
   ],
-  "phase": "A4",
+  "phase": "B0",
   "phase_status": {
     "A0": {
       "status": "complete"
@@ -156,13 +189,12 @@
       "status": "complete"
     },
     "A4": {
-      "failed": [
-        "ten_family_binding"
-      ],
-      "status": "blocked"
+      "status": "complete"
     },
     "B0": {
-      "reason": "predecessor",
+      "failed": [
+        "data_split_search_contract_frozen"
+      ],
       "status": "blocked"
     },
     "B1": {
@@ -201,6 +233,6 @@
     "problems": 0
   },
   "status": "blocked",
-  "validated_at": "2026-07-15T14:15:27.879782+00:00",
-  "validator_sha256": "e48c522b8c3f3dcdab92d2ab6f90c6a4f8d7523cd670eef704e62c0edb419703"
+  "validated_at": "2026-07-15T14:21:14.439452+00:00",
+  "validator_sha256": "d2857457ed53837bc15ac1b53197d4c6374fb1037c6eaca0d114c7f3e3509de7"
 }
