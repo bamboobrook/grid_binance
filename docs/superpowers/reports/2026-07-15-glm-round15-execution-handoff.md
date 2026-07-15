@@ -12,8 +12,11 @@ plan_sha256（冻结）：`8d70a3a8a92ac6a0d3b0a4845ade90c51ecd0b246ac0533f565f2
 - **P0（CANONICAL_PARITY）机器门控全部通过**：分支冻结、数据/引擎/二进制哈希与审计
   一致、Batch/CLI parity 测试通过、旧 ICP/TRX 无效结果 fail-closed、反例诊断精确复算。
 - **P1 完成方向完整 universe 冻结 + G0 binding（6 参数全部绑定）+ full-window 搜索**：
-  全部结果均为真实 full-window binary replay（**无快筛**），共 ~70 个 experiment / ~140 条
-  registry 行。
+  全部结果均为真实 full-window binary replay（**无快筛**），共 **91 个 unique (config+window+budget)
+  binary replay**（counts 从 registry 重算，见 §7）。
+- **P2-P9 未执行**：原因见 §10。简言之，最佳候选正分段 3/5（< 4/5 common gate），命中计划 §12
+  停止规则；且 P2/P3 的首达/半衰期 ladder 与相关簇 scheduler 需先完成 P1 production-wiring
+  接线（计划 §P0.4）才能做合规的收益搜索，否则只是 helper/离线近似。本 round 未伪造这两项。
 - **结构性结论（与 Round 14 审计一致，并由 Round 15 独立全回测证实）**：在共同硬门
   （<5000U 五档可跑、≥5 真实成交币、三种集中度 ≤35%、≥4/5 正分段、DD 门、防过拟合、
   实盘可复现）下，**三档目标（保守 50%/10%、平衡 90%/20%、激进 110%/30%）全部 NOT HIT**。
@@ -136,13 +139,17 @@ aggressive  (>=110% ann,<=30% DD, >=3/5 pos)  : []  (NOT HIT)
 ## 7. 计数（由 registry 明细重算，与 execution-state 一致）
 
 ```text
-registry 行数:        ~140（~70 experiment × running+terminal）
-actual_binary_replays: 见 round15-execution-state.json counts（从 registry 重算）
-unique effective configs: 见 state counts
-cache_hits / duplicates / timeouts: 见 state counts
+registry 行数:        188（~94 experiment × running+terminal；load_registry 按 experiment_id 折叠）
+unique (config+window+budget): 91   （从 registry 重算，见 execution-state.json counts）
+binary_replays:        91   （每个均为真实 full-window CLI replay）
+cache_hits:             0
+duplicates:             1   （同一 config+window+budget 的重复运行）
+timeouts:               0
 ```
 
-`round15-execution-state.json` 的 counts 字段由 `recompute_counts()` 从 registry 明细重算。
+dedup key = `effective_config_hash | window | budget`（计划 §10：「同一 effective config +
+engine + canonical data + window 只运行一次」）。`round15-execution-state.json` 的 counts
+由 `recompute_counts()` 从 registry 明细重算，二者一致。
 
 ## 8. backtest_candidate 与 production_ready 分开
 
