@@ -1,0 +1,59 @@
+{
+  "tracks": [
+    {
+      "name": "T1_diagnostic",
+      "role": "regression_only_never_promoted"
+    },
+    {
+      "name": "T2_primary",
+      "role": "promotion",
+      "symbols": [
+        "BTCUSDT",
+        "ETHUSDT",
+        "BNBUSDT",
+        "SOLUSDT",
+        "XRPUSDT",
+        "DOGEUSDT",
+        "ADAUSDT",
+        "TRXUSDT",
+        "LINKUSDT",
+        "LTCUSDT",
+        "BCHUSDT",
+        "DOTUSDT"
+      ]
+    },
+    {
+      "name": "T3_8",
+      "role": "small_cap",
+      "symbols": [
+        "BTCUSDT",
+        "ETHUSDT",
+        "BNBUSDT",
+        "SOLUSDT",
+        "XRPUSDT",
+        "DOGEUSDT",
+        "ADAUSDT",
+        "TRXUSDT"
+      ]
+    },
+    {
+      "name": "T3_12",
+      "role": "small_cap",
+      "symbols": [
+        "BTCUSDT",
+        "ETHUSDT",
+        "BNBUSDT",
+        "SOLUSDT",
+        "XRPUSDT",
+        "DOGEUSDT",
+        "ADAUSDT",
+        "TRXUSDT",
+        "LINKUSDT",
+        "LTCUSDT",
+        "BCHUSDT",
+        "DOTUSDT"
+      ]
+    }
+  ],
+  "folds_frozen": 4
+}

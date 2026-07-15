@@ -1,0 +1,84 @@
+{
+  "folds": [
+    {
+      "name": "F1",
+      "train": "H1-2023",
+      "validate": "H2-2023"
+    },
+    {
+      "name": "F2",
+      "train": "2023",
+      "validate": "2024"
+    },
+    {
+      "name": "F3",
+      "train": "2023-2024",
+      "validate": "2025"
+    },
+    {
+      "name": "F4",
+      "train": "2023-2025",
+      "validate": "2026-01..2026-05"
+    }
+  ],
+  "folds_frozen": 4,
+  "future_lock": "2026-07-11+ locked until 30 consecutive days; earliest read 2026-08-10+",
+  "holdout_diagnostic": "2026-06-01..2026-07-10 (opened, diagnostic only)",
+  "per_fold_fit": "breadth threshold, funding z, shock percentile, half-life bucket, clusters fit on train only",
+  "tracks": [
+    {
+      "name": "T1_diagnostic",
+      "role": "regression_only_never_promoted"
+    },
+    {
+      "name": "T2_primary",
+      "role": "promotion",
+      "symbols": [
+        "BTCUSDT",
+        "ETHUSDT",
+        "BNBUSDT",
+        "SOLUSDT",
+        "XRPUSDT",
+        "DOGEUSDT",
+        "ADAUSDT",
+        "TRXUSDT",
+        "LINKUSDT",
+        "LTCUSDT",
+        "BCHUSDT",
+        "DOTUSDT"
+      ]
+    },
+    {
+      "name": "T3_8",
+      "role": "small_cap",
+      "symbols": [
+        "BTCUSDT",
+        "ETHUSDT",
+        "BNBUSDT",
+        "SOLUSDT",
+        "XRPUSDT",
+        "DOGEUSDT",
+        "ADAUSDT",
+        "TRXUSDT"
+      ]
+    },
+    {
+      "name": "T3_12",
+      "role": "small_cap",
+      "symbols": [
+        "BTCUSDT",
+        "ETHUSDT",
+        "BNBUSDT",
+        "SOLUSDT",
+        "XRPUSDT",
+        "DOGEUSDT",
+        "ADAUSDT",
+        "TRXUSDT",
+        "LINKUSDT",
+        "LTCUSDT",
+        "BCHUSDT",
+        "DOTUSDT"
+      ]
+    }
+  ]
+}

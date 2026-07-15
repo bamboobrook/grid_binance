@@ -1,0 +1,75 @@
+{
+  "ablation_arms": [
+    {
+      "arm": "baseline_default_htf",
+      "status": "complete",
+      "ann": -34.1137,
+      "dd": 11.0979,
+      "trade_count": 151,
+      "breached": false,
+      "rejections": 0,
+      "event_hash": "6474a30f9fde8b67"
+    },
+    {
+      "arm": "plus_breadth",
+      "status": "complete",
+      "ann": -34.1137,
+      "dd": 11.0979,
+      "trade_count": 151,
+      "breached": false,
+      "rejections": 0,
+      "event_hash": "6474a30f9fde8b67"
+    },
+    {
+      "arm": "plus_funding_veto",
+      "status": "complete",
+      "ann": -34.1137,
+      "dd": 11.0979,
+      "trade_count": 151,
+      "breached": false,
+      "rejections": 0,
+      "event_hash": "6474a30f9fde8b67"
+    },
+    {
+      "arm": "plus_cusum_shock",
+      "status": "complete",
+      "ann": -34.1137,
+      "dd": 11.0979,
+      "trade_count": 151,
+      "breached": false,
+      "rejections": 0,
+      "event_hash": "6474a30f9fde8b67"
+    },
+    {
+      "arm": "plus_deadline",
+      "status": "complete",
+      "ann": -34.1137,
+      "dd": 11.0979,
+      "trade_count": 151,
+      "breached": false,
+      "rejections": 0,
+      "event_hash": "6474a30f9fde8b67"
+    },
+    {
+      "arm": "plus_reserve_cluster",
+      "status": "complete",
+      "ann": -34.1137,
+      "dd": 11.0979,
+      "trade_count": 151,
+      "breached": false,
+      "rejections": 0,
+      "event_hash": "6474a30f9fde8b67"
+    },
+    {
+      "arm": "all_combined",
+      "status": "complete",
+      "ann": -34.1137,
+      "dd": 11.0979,
+      "trade_count": 151,
+      "breached": false,
+      "rejections": 0,
+      "event_hash": "6474a30f9fde8b67"
+    }
+  ],
+  "executed": true
+}

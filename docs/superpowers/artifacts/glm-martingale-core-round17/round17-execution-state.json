@@ -1,8 +1,6 @@
 {
   "blocked_reasons": [
-    "B0: 1 failed: ['data_split_search_contract_frozen']",
-    "B1: predecessor not complete",
-    "B2: predecessor not complete",
+    "B2: 1 failed: ['g1_192_sobol_2304_replays']",
     "B3: predecessor not complete",
     "B4: predecessor not complete",
     "B5: predecessor not complete",
@@ -164,17 +162,173 @@
       "phase": "A4"
     },
     {
-      "failed": [
+      "failed": [],
+      "passed": [
         {
-          "detail": {},
+          "detail": {
+            "folds_frozen": 4,
+            "tracks": [
+              {
+                "name": "T1_diagnostic",
+                "role": "regression_only_never_promoted"
+              },
+              {
+                "name": "T2_primary",
+                "role": "promotion",
+                "symbols": [
+                  "BTCUSDT",
+                  "ETHUSDT",
+                  "BNBUSDT",
+                  "SOLUSDT",
+                  "XRPUSDT",
+                  "DOGEUSDT",
+                  "ADAUSDT",
+                  "TRXUSDT",
+                  "LINKUSDT",
+                  "LTCUSDT",
+                  "BCHUSDT",
+                  "DOTUSDT"
+                ]
+              },
+              {
+                "name": "T3_8",
+                "role": "small_cap",
+                "symbols": [
+                  "BTCUSDT",
+                  "ETHUSDT",
+                  "BNBUSDT",
+                  "SOLUSDT",
+                  "XRPUSDT",
+                  "DOGEUSDT",
+                  "ADAUSDT",
+                  "TRXUSDT"
+                ]
+              },
+              {
+                "name": "T3_12",
+                "role": "small_cap",
+                "symbols": [
+                  "BTCUSDT",
+                  "ETHUSDT",
+                  "BNBUSDT",
+                  "SOLUSDT",
+                  "XRPUSDT",
+                  "DOGEUSDT",
+                  "ADAUSDT",
+                  "TRXUSDT",
+                  "LINKUSDT",
+                  "LTCUSDT",
+                  "BCHUSDT",
+                  "DOTUSDT"
+                ]
+              }
+            ]
+          },
           "gate": "data_split_search_contract_frozen"
         }
       ],
-      "passed": [],
       "phase": "B0"
+    },
+    {
+      "failed": [],
+      "passed": [
+        {
+          "detail": {
+            "ablation_arms": [
+              {
+                "ann": -34.1137,
+                "arm": "baseline_default_htf",
+                "breached": false,
+                "dd": 11.0979,
+                "event_hash": "6474a30f9fde8b67",
+                "rejections": 0,
+                "status": "complete",
+                "trade_count": 151
+              },
+              {
+                "ann": -34.1137,
+                "arm": "plus_breadth",
+                "breached": false,
+                "dd": 11.0979,
+                "event_hash": "6474a30f9fde8b67",
+                "rejections": 0,
+                "status": "complete",
+                "trade_count": 151
+              },
+              {
+                "ann": -34.1137,
+                "arm": "plus_funding_veto",
+                "breached": false,
+                "dd": 11.0979,
+                "event_hash": "6474a30f9fde8b67",
+                "rejections": 0,
+                "status": "complete",
+                "trade_count": 151
+              },
+              {
+                "ann": -34.1137,
+                "arm": "plus_cusum_shock",
+                "breached": false,
+                "dd": 11.0979,
+                "event_hash": "6474a30f9fde8b67",
+                "rejections": 0,
+                "status": "complete",
+                "trade_count": 151
+              },
+              {
+                "ann": -34.1137,
+                "arm": "plus_deadline",
+                "breached": false,
+                "dd": 11.0979,
+                "event_hash": "6474a30f9fde8b67",
+                "rejections": 0,
+                "status": "complete",
+                "trade_count": 151
+              },
+              {
+                "ann": -34.1137,
+                "arm": "plus_reserve_cluster",
+                "breached": false,
+                "dd": 11.0979,
+                "event_hash": "6474a30f9fde8b67",
+                "rejections": 0,
+                "status": "complete",
+                "trade_count": 151
+              },
+              {
+                "ann": -34.1137,
+                "arm": "all_combined",
+                "breached": false,
+                "dd": 11.0979,
+                "event_hash": "6474a30f9fde8b67",
+                "rejections": 0,
+                "status": "complete",
+                "trade_count": 151
+              }
+            ],
+            "executed": true
+          },
+          "gate": "mechanism_ablation_executed"
+        }
+      ],
+      "phase": "B1"
+    },
+    {
+      "failed": [
+        {
+          "detail": {
+            "actual_replays": 0,
+            "required": 2304,
+            "unique_configs": 0
+          },
+          "gate": "g1_192_sobol_2304_replays"
+        }
+      ],
+      "passed": [],
+      "phase": "B2"
     }
   ],
-  "phase": "B0",
+  "phase": "B2",
   "phase_status": {
     "A0": {
       "status": "complete"
@@ -192,17 +346,15 @@
       "status": "complete"
     },
     "B0": {
-      "failed": [
-        "data_split_search_contract_frozen"
-      ],
-      "status": "blocked"
+      "status": "complete"
     },
     "B1": {
-      "reason": "predecessor",
-      "status": "blocked"
+      "status": "complete"
     },
     "B2": {
-      "reason": "predecessor",
+      "failed": [
+        "g1_192_sobol_2304_replays"
+      ],
       "status": "blocked"
     },
     "B3": {
@@ -233,6 +385,6 @@
     "problems": 0
   },
   "status": "blocked",
-  "validated_at": "2026-07-15T14:21:14.439452+00:00",
+  "validated_at": "2026-07-15T14:23:52.968974+00:00",
   "validator_sha256": "d2857457ed53837bc15ac1b53197d4c6374fb1037c6eaca0d114c7f3e3509de7"
 }
