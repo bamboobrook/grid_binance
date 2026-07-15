@@ -1,0 +1,55 @@
+{
+  "best_so_far": [
+    {
+      "ann_pct": 86.114071,
+      "breached": false,
+      "conc_gp_pct": 24.385,
+      "dd_pct": 37.720527,
+      "family": "T3_8_partialtp",
+      "label": "r15_ptp_fo40_m24_s100_l6",
+      "min_equity": 4934.02,
+      "note": "highest ann; DD over aggressive 30% gate"
+    },
+    {
+      "ann_pct": 50.961491,
+      "breached": false,
+      "conc_gp_pct": 22.3007,
+      "dd_pct": 31.857493,
+      "family": "T3_8_partialtp_tune",
+      "label": "r15_ptp_fo40_m24_s150_l5",
+      "min_equity": 4972.65,
+      "note": "conservative ann gate (>=50%) hit; DD just over aggressive 30%"
+    },
+    {
+      "ann_pct": 46.223854,
+      "breached": false,
+      "conc_gp_pct": 22.725,
+      "dd_pct": 31.872538,
+      "family": "T3_8_partialtp_tune",
+      "label": "r15_ptp_fo35_m20_s120_l6",
+      "min_equity": 4979.64,
+      "note": "near conservative ann; DD just over aggressive"
+    },
+    {
+      "ann_pct": 34.81208,
+      "breached": false,
+      "conc_gp_pct": 49.5777,
+      "dd_pct": 17.667157,
+      "family": "R4_regression",
+      "label": "R4-combo-4999",
+      "min_equity": 4824.76,
+      "note": "low DD but conc fails 35% gate and small-budget negative"
+    }
+  ],
+  "generated_at": "2026-07-15",
+  "note": "Best candidates found so far via FULL-WINDOW binary replays (no screens). All ann/DD on-budget at 4999U dev window.",
+  "open_gap": "DD still ~32% at the conservative-ann point; need to push DD below 30% (aggressive) or 20% (balanced) while keeping ann>=50%.",
+  "schema_version": 1,
+  "structural_findings": [
+    "Symmetric long+short Martingale (24 sleeves) blows up (principal breach) in 2023-2026 bull window.",
+    "Long-only with stop_loss(strategy_drawdown_pct) collapses ann to ~0% (SL realizes permanent Martingale losses).",
+    "Partial-TP with breakeven-stage migration is the effective risk control: keeps ann 50-86% with no breach and good concentration (20-25%).",
+    "Wider spacing (s150-250) reduces trade count and DD without destroying ann.",
+    "R4 regression reproduces exactly (34.81%/17.67%); its conc 49.6% fails the 35% gate."
+  ]
+}
