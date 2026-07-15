@@ -1,0 +1,10 @@
+{
+  "duplicate_rate": 0.0,
+  "duplicate_rate_under_25pct": true,
+  "n_replays_completed": 22,
+  "note": "G1 only determines elimination; per plan it is NOT valid performance.",
+  "pareto_configs_out": 11,
+  "passed": true,
+  "sampler": "scipy.stats.qmc.Sobol",
+  "sampler_seed": 20260717
+}

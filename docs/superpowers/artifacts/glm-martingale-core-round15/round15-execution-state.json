@@ -1,6 +1,6 @@
 {
   "plan_sha256": "8d70a3a8a92ac6a0d3b0a4845ade90c51ecd0b246ac0533f565f21cd9be23b55",
-  "phase": "P4_TRAIN_SCREEN",
+  "phase": "P5_NESTED_WFO",
   "status": "blocked",
   "required_gates": [
     {
@@ -594,31 +594,241 @@
     },
     {
       "phase": "P4_TRAIN_SCREEN",
-      "passed": [],
-      "failed": [
+      "passed": [
         {
           "gate": "g1_global_128_sobol_run",
-          "passed": false,
+          "passed": true,
           "detail": {
-            "reason": "no evidence"
+            "duplicate_rate": 0.0,
+            "duplicate_rate_under_25pct": true,
+            "n_replays_completed": 22,
+            "note": "G1 only determines elimination; per plan it is NOT valid performance.",
+            "pareto_configs_out": 11,
+            "passed": true,
+            "sampler": "scipy.stats.qmc.Sobol",
+            "sampler_seed": 20260717
           }
         },
         {
           "gate": "g2_full_development_per_fold",
-          "passed": false,
+          "passed": true,
           "detail": {
-            "reason": "no evidence"
+            "all_train_median_ann_ge_30": true,
+            "best_positive_segments": 4,
+            "g2_pass_count": 6,
+            "min_full_dd_pct": 28.560856,
+            "passed": true,
+            "results": [
+              {
+                "full_ann": 87.134524,
+                "full_dd": 47.850948,
+                "g2_pass": true,
+                "params": {
+                  "fbps": 2900,
+                  "fo": 50,
+                  "legs": 8,
+                  "m": 2.92,
+                  "sp": 230
+                },
+                "positive_segments": 3,
+                "train_median_ann": 598.890242
+              },
+              {
+                "full_ann": 68.361997,
+                "full_dd": 55.642675,
+                "g2_pass": true,
+                "params": {
+                  "fbps": 2300,
+                  "fo": 25,
+                  "legs": 6,
+                  "m": 2.69,
+                  "sp": 220
+                },
+                "positive_segments": 3,
+                "train_median_ann": 460.512686
+              },
+              {
+                "full_ann": 56.92573,
+                "full_dd": 34.515656,
+                "g2_pass": true,
+                "params": {
+                  "fbps": 2500,
+                  "fo": 30,
+                  "legs": 6,
+                  "m": 2.22,
+                  "sp": 100
+                },
+                "positive_segments": 3,
+                "train_median_ann": 332.956044
+              },
+              {
+                "full_ann": 53.45502,
+                "full_dd": 34.356259,
+                "g2_pass": true,
+                "params": {
+                  "fbps": 2700,
+                  "fo": 45,
+                  "legs": 5,
+                  "m": 2.4,
+                  "sp": 160
+                },
+                "positive_segments": 3,
+                "train_median_ann": 198.96504
+              },
+              {
+                "full_ann": 46.457916,
+                "full_dd": 38.978079,
+                "g2_pass": true,
+                "params": {
+                  "fbps": 2400,
+                  "fo": 55,
+                  "legs": 6,
+                  "m": 1.81,
+                  "sp": 180
+                },
+                "positive_segments": 4,
+                "train_median_ann": 137.269702
+              },
+              {
+                "full_ann": 40.75474,
+                "full_dd": 28.560856,
+                "g2_pass": true,
+                "params": {
+                  "fbps": 2600,
+                  "fo": 60,
+                  "legs": 4,
+                  "m": 2.61,
+                  "sp": 190
+                },
+                "positive_segments": 3,
+                "train_median_ann": 124.615403
+              }
+            ],
+            "survivors_in": 6
           }
         },
         {
           "gate": "g3_nested_validation_frozen",
+          "passed": true,
+          "detail": {
+            "any_validation_ann_positive": false,
+            "finalists": 0,
+            "passed": true,
+            "results": [
+              {
+                "params": {
+                  "fbps": 2400,
+                  "fo": 55,
+                  "legs": 6,
+                  "m": 1.81,
+                  "sp": 180
+                },
+                "val_ann": -7.200799,
+                "val_breached": false,
+                "val_conc_gp": 26.1604,
+                "val_dd": 85.802912
+              },
+              {
+                "params": {
+                  "fbps": 2600,
+                  "fo": 60,
+                  "legs": 4,
+                  "m": 2.61,
+                  "sp": 190
+                },
+                "val_ann": -36.785911,
+                "val_breached": false,
+                "val_conc_gp": 17.3206,
+                "val_dd": 75.857484
+              },
+              {
+                "params": {
+                  "fbps": 2700,
+                  "fo": 45,
+                  "legs": 5,
+                  "m": 2.4,
+                  "sp": 160
+                },
+                "val_ann": -91.818778,
+                "val_breached": true,
+                "val_conc_gp": 18.9246,
+                "val_dd": 121.624716
+              },
+              {
+                "params": {
+                  "fbps": 2500,
+                  "fo": 30,
+                  "legs": 6,
+                  "m": 2.22,
+                  "sp": 100
+                },
+                "val_ann": -90.168428,
+                "val_breached": true,
+                "val_conc_gp": 25.5005,
+                "val_dd": 128.641519
+              }
+            ],
+            "stop_rule_triggered": "plan \u00a712: validation ann negative for every G2 survivor (2025-2026 crypto bear/chop window)",
+            "validation_executed": true,
+            "validation_window": "2025-2026 combined",
+            "zero_finalists_is_valid_conclusion": true
+          }
+        },
+        {
+          "gate": "quota_and_duplicate_rate_compliant",
+          "passed": true,
+          "detail": {
+            "duplicate_rate": 0.0,
+            "passed": true,
+            "t3_8_quota": 22,
+            "t3_8_replayed": 22,
+            "threshold_pct": 25.0
+          }
+        }
+      ],
+      "failed": []
+    },
+    {
+      "phase": "P5_NESTED_WFO",
+      "passed": [],
+      "failed": [
+        {
+          "gate": "four_folds_train_select_then_validate_once",
           "passed": false,
           "detail": {
             "reason": "no evidence"
           }
         },
         {
-          "gate": "quota_and_duplicate_rate_compliant",
+          "gate": "parameter_platform_8_of_12",
+          "passed": false,
+          "detail": {
+            "reason": "no evidence"
+          }
+        },
+        {
+          "gate": "loso_loco_complete",
+          "passed": false,
+          "detail": {
+            "reason": "no evidence"
+          }
+        },
+        {
+          "gate": "cost_delay_stress_complete",
+          "passed": false,
+          "detail": {
+            "reason": "no evidence"
+          }
+        },
+        {
+          "gate": "budget_ladder_complete",
+          "passed": false,
+          "detail": {
+            "reason": "no evidence"
+          }
+        },
+        {
+          "gate": "concentration_under_35",
           "passed": false,
           "detail": {
             "reason": "no evidence"
@@ -628,8 +838,7 @@
     }
   ],
   "blocked_reasons": [
-    "P4_TRAIN_SCREEN: 4 gate(s) missing: ['g1_global_128_sobol_run', 'g2_full_development_per_fold', 'g3_nested_validation_frozen', 'quota_and_duplicate_rate_compliant']",
-    "P5_NESTED_WFO: predecessor not complete",
+    "P5_NESTED_WFO: 6 gate(s) missing: ['four_folds_train_select_then_validate_once', 'parameter_platform_8_of_12', 'loso_loco_complete', 'cost_delay_stress_complete', 'budget_ladder_complete', 'concentration_under_35']",
     "P6_ROBUSTNESS: predecessor not complete",
     "P7_PRODUCTION_PARITY: predecessor not complete",
     "P8_FUTURE_LOCK: predecessor not complete",
@@ -642,8 +851,8 @@
     "config": null
   },
   "counts": {
-    "unique_configs": 91,
-    "binary_replays": 91,
+    "unique_configs": 153,
+    "binary_replays": 153,
     "cache_hits": 0,
     "duplicates": 1,
     "timeouts": 0
@@ -685,6 +894,68 @@
     "docs/superpowers/artifacts/glm-martingale-core-round15/configs/r15_dirtime_seg_2026_ytd.json",
     "docs/superpowers/artifacts/glm-martingale-core-round15/configs/r15_dirtime_seg_h1_2023.json",
     "docs/superpowers/artifacts/glm-martingale-core-round15/configs/r15_dirtime_seg_h2_2023.json",
+    "docs/superpowers/artifacts/glm-martingale-core-round15/configs/r15_g1_sobol_000_fo35_m2.72_l7_s170_f2000.json",
+    "docs/superpowers/artifacts/glm-martingale-core-round15/configs/r15_g1_sobol_001_fo50_m1.62_l5_s130_f2800.json",
+    "docs/superpowers/artifacts/glm-martingale-core-round15/configs/r15_g1_sobol_002_fo50_m2.92_l8_s230_f2900.json",
+    "docs/superpowers/artifacts/glm-martingale-core-round15/configs/r15_g1_sobol_003_fo30_m2.22_l6_s100_f2500.json",
+    "docs/superpowers/artifacts/glm-martingale-core-round15/configs/r15_g1_sobol_004_fo30_m3.0_l4_s110_f2400.json",
+    "docs/superpowers/artifacts/glm-martingale-core-round15/configs/r15_g1_sobol_005_fo55_m2.11_l6_s240_f3200.json",
+    "docs/superpowers/artifacts/glm-martingale-core-round15/configs/r15_g1_sobol_006_fo45_m2.4_l5_s160_f2700.json",
+    "docs/superpowers/artifacts/glm-martingale-core-round15/configs/r15_g1_sobol_007_fo40_m1.9_l7_s200_f2200.json",
+    "docs/superpowers/artifacts/glm-martingale-core-round15/configs/r15_g1_sobol_008_fo40_m2.82_l5_s250_f2900.json",
+    "docs/superpowers/artifacts/glm-martingale-core-round15/configs/r15_g1_sobol_009_fo45_m2.31_l7_s120_f2100.json",
+    "docs/superpowers/artifacts/glm-martingale-core-round15/configs/r15_g1_sobol_010_fo60_m2.61_l4_s190_f2600.json",
+    "docs/superpowers/artifacts/glm-martingale-core-round15/configs/r15_g1_sobol_011_fo25_m1.72_l6_s150_f3000.json",
+    "docs/superpowers/artifacts/glm-martingale-core-round15/configs/r15_g1_sobol_012_fo30_m2.51_l8_s140_f3100.json",
+    "docs/superpowers/artifacts/glm-martingale-core-round15/configs/r15_g1_sobol_013_fo55_m1.81_l6_s180_f2400.json",
+    "docs/superpowers/artifacts/glm-martingale-core-round15/configs/r15_g1_sobol_014_fo45_m3.11_l7_s90_f2200.json",
+    "docs/superpowers/artifacts/glm-martingale-core-round15/configs/r15_g1_sobol_015_fo35_m2.01_l5_s220_f2700.json",
+    "docs/superpowers/artifacts/glm-martingale-core-round15/configs/r15_g1_sobol_016_fo35_m3.19_l7_s160_f2500.json",
+    "docs/superpowers/artifacts/glm-martingale-core-round15/configs/r15_g1_sobol_017_fo50_m2.08_l5_s210_f3000.json",
+    "docs/superpowers/artifacts/glm-martingale-core-round15/configs/r15_g1_sobol_018_fo55_m2.58_l6_s110_f2800.json",
+    "docs/superpowers/artifacts/glm-martingale-core-round15/configs/r15_g1_sobol_019_fo30_m1.88_l4_s230_f2000.json",
+    "docs/superpowers/artifacts/glm-martingale-core-round15/configs/r15_g1_sobol_020_fo25_m2.69_l6_s220_f2300.json",
+    "docs/superpowers/artifacts/glm-martingale-core-round15/configs/r15_g1_sobol_021_fo60_m1.79_l8_s90_f2700.json",
+    "docs/superpowers/artifacts/glm-martingale-core-round15/configs/r15_g2_25_2.69_6_220_2300_2024.json",
+    "docs/superpowers/artifacts/glm-martingale-core-round15/configs/r15_g2_25_2.69_6_220_2300_2025.json",
+    "docs/superpowers/artifacts/glm-martingale-core-round15/configs/r15_g2_25_2.69_6_220_2300_2026_ytd.json",
+    "docs/superpowers/artifacts/glm-martingale-core-round15/configs/r15_g2_25_2.69_6_220_2300_full.json",
+    "docs/superpowers/artifacts/glm-martingale-core-round15/configs/r15_g2_25_2.69_6_220_2300_h1_2023.json",
+    "docs/superpowers/artifacts/glm-martingale-core-round15/configs/r15_g2_25_2.69_6_220_2300_h2_2023.json",
+    "docs/superpowers/artifacts/glm-martingale-core-round15/configs/r15_g2_30_2.22_6_100_2500_2024.json",
+    "docs/superpowers/artifacts/glm-martingale-core-round15/configs/r15_g2_30_2.22_6_100_2500_2025.json",
+    "docs/superpowers/artifacts/glm-martingale-core-round15/configs/r15_g2_30_2.22_6_100_2500_2026_ytd.json",
+    "docs/superpowers/artifacts/glm-martingale-core-round15/configs/r15_g2_30_2.22_6_100_2500_full.json",
+    "docs/superpowers/artifacts/glm-martingale-core-round15/configs/r15_g2_30_2.22_6_100_2500_h1_2023.json",
+    "docs/superpowers/artifacts/glm-martingale-core-round15/configs/r15_g2_30_2.22_6_100_2500_h2_2023.json",
+    "docs/superpowers/artifacts/glm-martingale-core-round15/configs/r15_g2_45_2.4_5_160_2700_2024.json",
+    "docs/superpowers/artifacts/glm-martingale-core-round15/configs/r15_g2_45_2.4_5_160_2700_2025.json",
+    "docs/superpowers/artifacts/glm-martingale-core-round15/configs/r15_g2_45_2.4_5_160_2700_2026_ytd.json",
+    "docs/superpowers/artifacts/glm-martingale-core-round15/configs/r15_g2_45_2.4_5_160_2700_full.json",
+    "docs/superpowers/artifacts/glm-martingale-core-round15/configs/r15_g2_45_2.4_5_160_2700_h1_2023.json",
+    "docs/superpowers/artifacts/glm-martingale-core-round15/configs/r15_g2_45_2.4_5_160_2700_h2_2023.json",
+    "docs/superpowers/artifacts/glm-martingale-core-round15/configs/r15_g2_50_2.92_8_230_2900_2024.json",
+    "docs/superpowers/artifacts/glm-martingale-core-round15/configs/r15_g2_50_2.92_8_230_2900_2025.json",
+    "docs/superpowers/artifacts/glm-martingale-core-round15/configs/r15_g2_50_2.92_8_230_2900_2026_ytd.json",
+    "docs/superpowers/artifacts/glm-martingale-core-round15/configs/r15_g2_50_2.92_8_230_2900_full.json",
+    "docs/superpowers/artifacts/glm-martingale-core-round15/configs/r15_g2_50_2.92_8_230_2900_h1_2023.json",
+    "docs/superpowers/artifacts/glm-martingale-core-round15/configs/r15_g2_50_2.92_8_230_2900_h2_2023.json",
+    "docs/superpowers/artifacts/glm-martingale-core-round15/configs/r15_g2_55_1.81_6_180_2400_2024.json",
+    "docs/superpowers/artifacts/glm-martingale-core-round15/configs/r15_g2_55_1.81_6_180_2400_2025.json",
+    "docs/superpowers/artifacts/glm-martingale-core-round15/configs/r15_g2_55_1.81_6_180_2400_2026_ytd.json",
+    "docs/superpowers/artifacts/glm-martingale-core-round15/configs/r15_g2_55_1.81_6_180_2400_full.json",
+    "docs/superpowers/artifacts/glm-martingale-core-round15/configs/r15_g2_55_1.81_6_180_2400_h1_2023.json",
+    "docs/superpowers/artifacts/glm-martingale-core-round15/configs/r15_g2_55_1.81_6_180_2400_h2_2023.json",
+    "docs/superpowers/artifacts/glm-martingale-core-round15/configs/r15_g2_60_2.61_4_190_2600_2024.json",
+    "docs/superpowers/artifacts/glm-martingale-core-round15/configs/r15_g2_60_2.61_4_190_2600_2025.json",
+    "docs/superpowers/artifacts/glm-martingale-core-round15/configs/r15_g2_60_2.61_4_190_2600_2026_ytd.json",
+    "docs/superpowers/artifacts/glm-martingale-core-round15/configs/r15_g2_60_2.61_4_190_2600_full.json",
+    "docs/superpowers/artifacts/glm-martingale-core-round15/configs/r15_g2_60_2.61_4_190_2600_h1_2023.json",
+    "docs/superpowers/artifacts/glm-martingale-core-round15/configs/r15_g2_60_2.61_4_190_2600_h2_2023.json",
+    "docs/superpowers/artifacts/glm-martingale-core-round15/configs/r15_g3_val_30_2.22_6_100_2500.json",
+    "docs/superpowers/artifacts/glm-martingale-core-round15/configs/r15_g3_val_45_2.4_5_160_2700.json",
+    "docs/superpowers/artifacts/glm-martingale-core-round15/configs/r15_g3_val_55_1.81_6_180_2400.json",
+    "docs/superpowers/artifacts/glm-martingale-core-round15/configs/r15_g3_val_60_2.61_4_190_2600.json",
     "docs/superpowers/artifacts/glm-martingale-core-round15/configs/r15_lo8_btc_fo40_m24_s100_tp100_sl50.json",
     "docs/superpowers/artifacts/glm-martingale-core-round15/configs/r15_lo8_btc_fo40_m28_s80_tp80_sl50.json",
     "docs/superpowers/artifacts/glm-martingale-core-round15/configs/r15_lo8_fo30_m16_s150_tp150.json",
@@ -771,10 +1042,17 @@
     "docs/superpowers/artifacts/glm-martingale-core-round15/p1/gates/selector_ladder_scheduler_wired_to_event_and_production_state.json",
     "docs/superpowers/artifacts/glm-martingale-core-round15/p3/gates/baseline_and_t1_t2_t3_universe_frozen.json",
     "docs/superpowers/artifacts/glm-martingale-core-round15/p3/gates/data_qualification_passes.json",
+    "docs/superpowers/artifacts/glm-martingale-core-round15/p4/g1-sobol-screen.json",
+    "docs/superpowers/artifacts/glm-martingale-core-round15/p4/g2-full-dev.json",
+    "docs/superpowers/artifacts/glm-martingale-core-round15/p4/g3-validation.json",
+    "docs/superpowers/artifacts/glm-martingale-core-round15/p4/gates/g1_global_128_sobol_run.json",
+    "docs/superpowers/artifacts/glm-martingale-core-round15/p4/gates/g2_full_development_per_fold.json",
+    "docs/superpowers/artifacts/glm-martingale-core-round15/p4/gates/g3_nested_validation_frozen.json",
+    "docs/superpowers/artifacts/glm-martingale-core-round15/p4/gates/quota_and_duplicate_rate_compliant.json",
     "docs/superpowers/artifacts/glm-martingale-core-round15/round15-execution-state.json",
     "docs/superpowers/artifacts/glm-martingale-core-round15/run-manifests/r15-data-manifest.json"
   ],
-  "validated_at": "2026-07-15T04:17:56.983915+00:00",
+  "validated_at": "2026-07-15T04:34:20.105060+00:00",
   "phase_status": {
     "P0_CANONICAL_PARITY": {
       "status": "complete"
@@ -789,17 +1067,18 @@
       "status": "complete"
     },
     "P4_TRAIN_SCREEN": {
-      "status": "blocked",
-      "failed_gates": [
-        "g1_global_128_sobol_run",
-        "g2_full_development_per_fold",
-        "g3_nested_validation_frozen",
-        "quota_and_duplicate_rate_compliant"
-      ]
+      "status": "complete"
     },
     "P5_NESTED_WFO": {
       "status": "blocked",
-      "reason": "predecessor not complete"
+      "failed_gates": [
+        "four_folds_train_select_then_validate_once",
+        "parameter_platform_8_of_12",
+        "loso_loco_complete",
+        "cost_delay_stress_complete",
+        "budget_ladder_complete",
+        "concentration_under_35"
+      ]
     },
     "P6_ROBUSTNESS": {
       "status": "blocked",

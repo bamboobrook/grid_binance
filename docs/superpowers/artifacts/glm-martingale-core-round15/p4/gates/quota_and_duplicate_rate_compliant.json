@@ -1,0 +1,7 @@
+{
+  "duplicate_rate": 0.0,
+  "passed": true,
+  "t3_8_quota": 22,
+  "t3_8_replayed": 22,
+  "threshold_pct": 25.0
+}

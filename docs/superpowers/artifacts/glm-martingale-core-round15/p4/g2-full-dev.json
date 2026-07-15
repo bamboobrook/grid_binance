@@ -1,0 +1,295 @@
+{
+  "phase": "P4_G2",
+  "results": [
+    {
+      "breached": false,
+      "conc_gp": 20.5125,
+      "full_ann": 87.134524,
+      "full_dd": 47.850948,
+      "g2_pass": true,
+      "params": {
+        "fbps": 2900,
+        "fo": 50,
+        "legs": 8,
+        "m": 2.92,
+        "sp": 230
+      },
+      "positive_segments": 3,
+      "segments": [
+        {
+          "ann": 598.890242,
+          "breached": false,
+          "dd": 47.850948,
+          "segment": "h1_2023"
+        },
+        {
+          "ann": 849.79184,
+          "breached": true,
+          "dd": 112.683773,
+          "segment": "h2_2023"
+        },
+        {
+          "ann": 406.957675,
+          "breached": false,
+          "dd": 61.158685,
+          "segment": "2024"
+        },
+        {
+          "ann": -32.464217,
+          "breached": true,
+          "dd": 185.77536,
+          "segment": "2025"
+        },
+        {
+          "ann": null,
+          "breached": true,
+          "dd": 230.478681,
+          "segment": "2026_ytd"
+        }
+      ],
+      "train_median_ann": 598.890242
+    },
+    {
+      "breached": false,
+      "conc_gp": 17.9139,
+      "full_ann": 68.361997,
+      "full_dd": 55.642675,
+      "g2_pass": true,
+      "params": {
+        "fbps": 2300,
+        "fo": 25,
+        "legs": 6,
+        "m": 2.69,
+        "sp": 220
+      },
+      "positive_segments": 3,
+      "segments": [
+        {
+          "ann": 460.512686,
+          "breached": false,
+          "dd": 50.002705,
+          "segment": "h1_2023"
+        },
+        {
+          "ann": 720.546494,
+          "breached": true,
+          "dd": 103.736137,
+          "segment": "h2_2023"
+        },
+        {
+          "ann": 298.562377,
+          "breached": false,
+          "dd": 51.873486,
+          "segment": "2024"
+        },
+        {
+          "ann": -46.985283,
+          "breached": true,
+          "dd": 136.422963,
+          "segment": "2025"
+        },
+        {
+          "ann": null,
+          "breached": true,
+          "dd": 266.202557,
+          "segment": "2026_ytd"
+        }
+      ],
+      "train_median_ann": 460.512686
+    },
+    {
+      "breached": false,
+      "conc_gp": 19.9999,
+      "full_ann": 56.92573,
+      "full_dd": 34.515656,
+      "g2_pass": true,
+      "params": {
+        "fbps": 2500,
+        "fo": 30,
+        "legs": 6,
+        "m": 2.22,
+        "sp": 100
+      },
+      "positive_segments": 3,
+      "segments": [
+        {
+          "ann": 332.956044,
+          "breached": false,
+          "dd": 34.515656,
+          "segment": "h1_2023"
+        },
+        {
+          "ann": 572.804298,
+          "breached": false,
+          "dd": 53.257121,
+          "segment": "h2_2023"
+        },
+        {
+          "ann": 202.85767,
+          "breached": false,
+          "dd": 49.659067,
+          "segment": "2024"
+        },
+        {
+          "ann": -70.471451,
+          "breached": true,
+          "dd": 128.641519,
+          "segment": "2025"
+        },
+        {
+          "ann": null,
+          "breached": true,
+          "dd": 161.215154,
+          "segment": "2026_ytd"
+        }
+      ],
+      "train_median_ann": 332.956044
+    },
+    {
+      "breached": false,
+      "conc_gp": 25.5567,
+      "full_ann": 53.45502,
+      "full_dd": 34.356259,
+      "g2_pass": true,
+      "params": {
+        "fbps": 2700,
+        "fo": 45,
+        "legs": 5,
+        "m": 2.4,
+        "sp": 160
+      },
+      "positive_segments": 3,
+      "segments": [
+        {
+          "ann": 224.093038,
+          "breached": false,
+          "dd": 34.356259,
+          "segment": "h1_2023"
+        },
+        {
+          "ann": 482.680653,
+          "breached": false,
+          "dd": 46.241085,
+          "segment": "h2_2023"
+        },
+        {
+          "ann": 198.96504,
+          "breached": false,
+          "dd": 41.716079,
+          "segment": "2024"
+        },
+        {
+          "ann": -69.932218,
+          "breached": true,
+          "dd": 121.624716,
+          "segment": "2025"
+        },
+        {
+          "ann": -98.950246,
+          "breached": true,
+          "dd": 129.32234,
+          "segment": "2026_ytd"
+        }
+      ],
+      "train_median_ann": 198.96504
+    },
+    {
+      "breached": false,
+      "conc_gp": 17.7254,
+      "full_ann": 46.457916,
+      "full_dd": 38.978079,
+      "g2_pass": true,
+      "params": {
+        "fbps": 2400,
+        "fo": 55,
+        "legs": 6,
+        "m": 1.81,
+        "sp": 180
+      },
+      "positive_segments": 4,
+      "segments": [
+        {
+          "ann": 143.845671,
+          "breached": false,
+          "dd": 38.978079,
+          "segment": "h1_2023"
+        },
+        {
+          "ann": 243.829276,
+          "breached": false,
+          "dd": 43.362169,
+          "segment": "h2_2023"
+        },
+        {
+          "ann": 137.269702,
+          "breached": false,
+          "dd": 41.514739,
+          "segment": "2024"
+        },
+        {
+          "ann": 10.561112,
+          "breached": false,
+          "dd": 85.802912,
+          "segment": "2025"
+        },
+        {
+          "ann": -98.431615,
+          "breached": true,
+          "dd": 122.308443,
+          "segment": "2026_ytd"
+        }
+      ],
+      "train_median_ann": 137.269702
+    },
+    {
+      "breached": false,
+      "conc_gp": 25.1913,
+      "full_ann": 40.75474,
+      "full_dd": 28.560856,
+      "g2_pass": true,
+      "params": {
+        "fbps": 2600,
+        "fo": 60,
+        "legs": 4,
+        "m": 2.61,
+        "sp": 190
+      },
+      "positive_segments": 3,
+      "segments": [
+        {
+          "ann": 141.874043,
+          "breached": false,
+          "dd": 28.560856,
+          "segment": "h1_2023"
+        },
+        {
+          "ann": 277.852842,
+          "breached": false,
+          "dd": 33.139989,
+          "segment": "h2_2023"
+        },
+        {
+          "ann": 124.615403,
+          "breached": false,
+          "dd": 40.40528,
+          "segment": "2024"
+        },
+        {
+          "ann": -27.418564,
+          "breached": false,
+          "dd": 75.857484,
+          "segment": "2025"
+        },
+        {
+          "ann": -87.949449,
+          "breached": false,
+          "dd": 94.064203,
+          "segment": "2026_ytd"
+        }
+      ],
+      "train_median_ann": 124.615403
+    }
+  ],
+  "schema_version": 1,
+  "survivors_in": 6
+}

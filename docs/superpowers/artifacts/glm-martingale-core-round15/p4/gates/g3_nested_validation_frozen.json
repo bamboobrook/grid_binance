@@ -1,0 +1,63 @@
+{
+  "any_validation_ann_positive": false,
+  "finalists": 0,
+  "passed": true,
+  "results": [
+    {
+      "params": {
+        "fbps": 2400,
+        "fo": 55,
+        "legs": 6,
+        "m": 1.81,
+        "sp": 180
+      },
+      "val_ann": -7.200799,
+      "val_breached": false,
+      "val_conc_gp": 26.1604,
+      "val_dd": 85.802912
+    },
+    {
+      "params": {
+        "fbps": 2600,
+        "fo": 60,
+        "legs": 4,
+        "m": 2.61,
+        "sp": 190
+      },
+      "val_ann": -36.785911,
+      "val_breached": false,
+      "val_conc_gp": 17.3206,
+      "val_dd": 75.857484
+    },
+    {
+      "params": {
+        "fbps": 2700,
+        "fo": 45,
+        "legs": 5,
+        "m": 2.4,
+        "sp": 160
+      },
+      "val_ann": -91.818778,
+      "val_breached": true,
+      "val_conc_gp": 18.9246,
+      "val_dd": 121.624716
+    },
+    {
+      "params": {
+        "fbps": 2500,
+        "fo": 30,
+        "legs": 6,
+        "m": 2.22,
+        "sp": 100
+      },
+      "val_ann": -90.168428,
+      "val_breached": true,
+      "val_conc_gp": 25.5005,
+      "val_dd": 128.641519
+    }
+  ],
+  "stop_rule_triggered": "plan \u00a712: validation ann negative for every G2 survivor (2025-2026 crypto bear/chop window)",
+  "validation_executed": true,
+  "validation_window": "2025-2026 combined",
+  "zero_finalists_is_valid_conclusion": true
+}
