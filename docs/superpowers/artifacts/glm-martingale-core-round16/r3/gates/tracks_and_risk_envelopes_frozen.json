@@ -1,0 +1,72 @@
+{
+  "tracks": [
+    {
+      "name": "T1_diagnostic",
+      "role": "diagnostic_only_never_promoted",
+      "symbols": [
+        "BNBUSDT",
+        "TRXUSDT",
+        "ANKRUSDT",
+        "AAVEUSDT",
+        "SOLUSDT",
+        "DOTUSDT"
+      ],
+      "note": "R7 exact universe; contains survivor-picked ANKR; never enters promotion pool"
+    },
+    {
+      "name": "T2_primary",
+      "role": "primary_promotion",
+      "symbols": [
+        "BTCUSDT",
+        "ETHUSDT",
+        "BNBUSDT",
+        "SOLUSDT",
+        "XRPUSDT",
+        "DOGEUSDT",
+        "ADAUSDT",
+        "TRXUSDT",
+        "LINKUSDT",
+        "LTCUSDT",
+        "BCHUSDT",
+        "DOTUSDT"
+      ],
+      "long_short_sleeve_count": 24,
+      "direction_contract": "router_admission_asymmetric"
+    },
+    {
+      "name": "T3_8",
+      "role": "small_cap",
+      "symbols": [
+        "BTCUSDT",
+        "ETHUSDT",
+        "BNBUSDT",
+        "SOLUSDT",
+        "XRPUSDT",
+        "DOGEUSDT",
+        "ADAUSDT",
+        "TRXUSDT"
+      ],
+      "long_short_sleeve_count": 16
+    },
+    {
+      "name": "T3_12",
+      "role": "small_cap",
+      "symbols": [
+        "BTCUSDT",
+        "ETHUSDT",
+        "BNBUSDT",
+        "SOLUSDT",
+        "XRPUSDT",
+        "DOGEUSDT",
+        "ADAUSDT",
+        "TRXUSDT",
+        "LINKUSDT",
+        "LTCUSDT",
+        "BCHUSDT",
+        "DOTUSDT"
+      ],
+      "long_short_sleeve_count": 24
+    }
+  ],
+  "risk_envelopes_frozen": true
+}

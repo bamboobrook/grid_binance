@@ -1,8 +1,6 @@
 {
   "blocked_reasons": [
-    "R2: 1 gate(s) failed: ['d_h_c_params_bind_config_event_order_hash']",
-    "R3: predecessor not complete",
-    "R4: predecessor not complete",
+    "R4: 1 gate(s) failed: ['g1_128_sobol_1536_replays']",
     "R5: predecessor not complete",
     "R6: predecessor not complete",
     "R7: predecessor not complete",
@@ -104,19 +102,58 @@
       "phase": "R1"
     },
     {
-      "failed": [
+      "failed": [],
+      "passed": [
         {
           "detail": {
-            "reason": "no families"
+            "count": 6,
+            "families": [
+              "D1_htf_gate",
+              "D1_direction",
+              "H1_spacing",
+              "H3_max_legs",
+              "multiplier",
+              "tp"
+            ]
           },
           "gate": "d_h_c_params_bind_config_event_order_hash"
         }
       ],
-      "passed": [],
       "phase": "R2"
+    },
+    {
+      "failed": [],
+      "passed": [
+        {
+          "detail": {
+            "tracks": [
+              "T1_diagnostic",
+              "T2_primary",
+              "T3_8",
+              "T3_12"
+            ]
+          },
+          "gate": "tracks_and_risk_envelopes_frozen"
+        }
+      ],
+      "phase": "R3"
+    },
+    {
+      "failed": [
+        {
+          "detail": {
+            "actual_replays": 0,
+            "required": 1536,
+            "unique_configs": 0
+          },
+          "gate": "g1_128_sobol_1536_replays"
+        }
+      ],
+      "passed": [],
+      "phase": "R4"
     }
   ],
-  "phase": "R2",
+  "phase": "R4",
   "phase_status": {
     "R0": {
       "status": "complete"
@@ -125,17 +162,15 @@
       "status": "complete"
     },
     "R2": {
-      "failed": [
-        "d_h_c_params_bind_config_event_order_hash"
-      ],
-      "status": "blocked"
+      "status": "complete"
     },
     "R3": {
-      "reason": "predecessor not complete",
-      "status": "blocked"
+      "status": "complete"
     },
     "R4": {
-      "reason": "predecessor not complete",
+      "failed": [
+        "g1_128_sobol_1536_replays"
+      ],
       "status": "blocked"
     },
     "R5": {
@@ -166,6 +201,6 @@
     "orphan_running": false
   },
   "status": "blocked",
-  "validated_at": "2026-07-15T05:55:58.677721+00:00",
+  "validated_at": "2026-07-15T06:01:08.561971+00:00",
   "validator_sha256": "498c7bfe2e5c298e38577c4610d00fc76a3873e564885f9ad21506861a3cec03"
 }

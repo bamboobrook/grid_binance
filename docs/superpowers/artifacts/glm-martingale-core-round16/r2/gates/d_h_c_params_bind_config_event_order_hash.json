@@ -1,0 +1,29 @@
+{
+  "families": [
+    {
+      "name": "D1_htf_gate",
+      "bound": true
+    },
+    {
+      "name": "D1_direction",
+      "bound": true
+    },
+    {
+      "name": "H1_spacing",
+      "bound": true
+    },
+    {
+      "name": "H3_max_legs",
+      "bound": true
+    },
+    {
+      "name": "multiplier",
+      "bound": true
+    },
+    {
+      "name": "tp",
+      "bound": true
+    }
+  ],
+  "all_bound": true
+}

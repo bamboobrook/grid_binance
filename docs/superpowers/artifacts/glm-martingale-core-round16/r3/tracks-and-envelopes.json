@@ -1,0 +1,182 @@
+{
+  "note": "Tracks + risk envelopes frozen before any return search (plan \u00a710).",
+  "risk_envelopes": {
+    "aggressive": {
+      "leverage": [
+        8,
+        10
+      ],
+      "long_fo": [
+        20,
+        30,
+        45
+      ],
+      "long_legs": [
+        5,
+        6,
+        7
+      ],
+      "long_mult": [
+        1.6,
+        1.9,
+        2.2
+      ],
+      "short_legs": [
+        3,
+        4,
+        5
+      ],
+      "short_mult": [
+        1.3,
+        1.5,
+        1.7
+      ]
+    },
+    "balanced": {
+      "leverage": [
+        5,
+        8
+      ],
+      "long_fo": [
+        15,
+        20,
+        30
+      ],
+      "long_legs": [
+        5,
+        6
+      ],
+      "long_mult": [
+        1.4,
+        1.6,
+        1.8
+      ],
+      "short_legs": [
+        3,
+        4
+      ],
+      "short_mult": [
+        1.25,
+        1.4
+      ]
+    },
+    "conservative": {
+      "leverage": [
+        3,
+        5
+      ],
+      "long_fo": [
+        10,
+        15,
+        20
+      ],
+      "long_legs": [
+        4,
+        5
+      ],
+      "long_mult": [
+        1.25,
+        1.4,
+        1.55
+      ],
+      "short_legs": [
+        3,
+        4
+      ],
+      "short_mult": [
+        1.2,
+        1.3
+      ]
+    }
+  },
+  "short_asymmetry": {
+    "short_deadline_le_long": true,
+    "short_legs_le_long_legs": true,
+    "short_mult_le_long_mult": true,
+    "short_notional_le_40pct_budget": true,
+    "short_spacing_ge_long_spacing": true
+  },
+  "spacing_bps": [
+    80,
+    120,
+    180,
+    250,
+    400
+  ],
+  "tp_bps": [
+    80,
+    120,
+    180,
+    250,
+    350
+  ],
+  "tracks": [
+    {
+      "name": "T1_diagnostic",
+      "note": "R7 exact universe; contains survivor-picked ANKR; never enters promotion pool",
+      "role": "diagnostic_only_never_promoted",
+      "symbols": [
+        "BNBUSDT",
+        "TRXUSDT",
+        "ANKRUSDT",
+        "AAVEUSDT",
+        "SOLUSDT",
+        "DOTUSDT"
+      ]
+    },
+    {
+      "direction_contract": "router_admission_asymmetric",
+      "long_short_sleeve_count": 24,
+      "name": "T2_primary",
+      "role": "primary_promotion",
+      "symbols": [
+        "BTCUSDT",
+        "ETHUSDT",
+        "BNBUSDT",
+        "SOLUSDT",
+        "XRPUSDT",
+        "DOGEUSDT",
+        "ADAUSDT",
+        "TRXUSDT",
+        "LINKUSDT",
+        "LTCUSDT",
+        "BCHUSDT",
+        "DOTUSDT"
+      ]
+    },
+    {
+      "long_short_sleeve_count": 16,
+      "name": "T3_8",
+      "role": "small_cap",
+      "symbols": [
+        "BTCUSDT",
+        "ETHUSDT",
+        "BNBUSDT",
+        "SOLUSDT",
+        "XRPUSDT",
+        "DOGEUSDT",
+        "ADAUSDT",
+        "TRXUSDT"
+      ]
+    },
+    {
+      "long_short_sleeve_count": 24,
+      "name": "T3_12",
+      "role": "small_cap",
+      "symbols": [
+        "BTCUSDT",
+        "ETHUSDT",
+        "BNBUSDT",
+        "SOLUSDT",
+        "XRPUSDT",
+        "DOGEUSDT",
+        "ADAUSDT",
+        "TRXUSDT",
+        "LINKUSDT",
+        "LTCUSDT",
+        "BCHUSDT",
+        "DOTUSDT"
+      ]
+    }
+  ]
+}

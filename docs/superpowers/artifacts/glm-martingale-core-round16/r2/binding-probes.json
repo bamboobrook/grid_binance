@@ -1,0 +1,80 @@
+{
+  "all_bound": true,
+  "families": [
+    {
+      "bound": true,
+      "detail": {
+        "event_changes": true,
+        "hash_changes": true,
+        "name": "D1_htf_gate",
+        "param": "htf_regime_gate_enabled",
+        "status": "bound",
+        "trade_changes": true
+      },
+      "name": "D1_htf_gate"
+    },
+    {
+      "bound": true,
+      "detail": {
+        "event_changes": true,
+        "hash_changes": true,
+        "name": "D1_direction",
+        "param": "direction",
+        "status": "bound",
+        "trade_changes": true
+      },
+      "name": "D1_direction"
+    },
+    {
+      "bound": true,
+      "detail": {
+        "event_changes": true,
+        "hash_changes": true,
+        "name": "H1_spacing",
+        "param": "spacing_bps",
+        "status": "bound",
+        "trade_changes": true
+      },
+      "name": "H1_spacing"
+    },
+    {
+      "bound": true,
+      "detail": {
+        "event_changes": true,
+        "hash_changes": true,
+        "name": "H3_max_legs",
+        "param": "max_legs",
+        "status": "bound",
+        "trade_changes": true
+      },
+      "name": "H3_max_legs"
+    },
+    {
+      "bound": true,
+      "detail": {
+        "event_changes": true,
+        "hash_changes": true,
+        "name": "multiplier",
+        "param": "multiplier",
+        "status": "bound",
+        "trade_changes": true
+      },
+      "name": "multiplier"
+    },
+    {
+      "bound": true,
+      "detail": {
+        "event_changes": true,
+        "hash_changes": true,
+        "name": "tp",
+        "param": "tp_bps",
+        "status": "bound",
+        "trade_changes": true
+      },
+      "name": "tp"
+    }
+  ],
+  "phase": "R2_binding",
+  "schema_version": 1,
+  "window_days": 30
+}
