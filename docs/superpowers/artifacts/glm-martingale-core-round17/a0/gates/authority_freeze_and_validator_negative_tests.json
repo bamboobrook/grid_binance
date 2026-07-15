@@ -1,0 +1,17 @@
+{
+  "negative_tests": {
+    "missing_one_replay_fails": true,
+    "wrong_family_fails": true,
+    "fake_used_real_service_fails": true,
+    "exit_code_0_truthiness_handled": true,
+    "g2_missing_window_fails": true,
+    "plan_hash_tamper_fails": true,
+    "source_counterexample_fail_handled": true,
+    "db_cli_missing_fails": true,
+    "all_fail_closed": true
+  },
+  "all_fail_closed": true,
+  "r16_superseded": true,
+  "r16_machine_status": "blocked",
+  "plan_sha256": "d78b758605687adb0de57a34b6608630f743193afe9b677a90074725f64d5e08"
+}

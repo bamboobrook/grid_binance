@@ -1,0 +1,127 @@
+{
+  "blocked_reasons": [
+    "A1: 1 failed: ['shared_config_in_domain_and_hash']",
+    "A2: predecessor not complete",
+    "A3: predecessor not complete",
+    "A4: predecessor not complete",
+    "B0: predecessor not complete",
+    "B1: predecessor not complete",
+    "B2: predecessor not complete",
+    "B3: predecessor not complete",
+    "B4: predecessor not complete",
+    "B5: predecessor not complete",
+    "B6: predecessor not complete",
+    "B7: predecessor not complete"
+  ],
+  "counts": {
+    "actual_binary_replays": 0,
+    "cache_hits": 0,
+    "duplicates": 0,
+    "timeouts": 0,
+    "unique_execution_keys": 0
+  },
+  "passed_gates": [
+    {
+      "failed": [],
+      "passed": [
+        {
+          "detail": {
+            "all_fail_closed": true,
+            "db_cli_missing_fails": true,
+            "exit_code_0_truthiness_handled": true,
+            "fake_used_real_service_fails": true,
+            "g2_missing_window_fails": true,
+            "missing_one_replay_fails": true,
+            "plan_hash_tamper_fails": true,
+            "source_counterexample_fail_handled": true,
+            "wrong_family_fails": true
+          },
+          "gate": "authority_freeze_and_validator_negative_tests"
+        },
+        {
+          "detail": {
+            "cli": "3d746d31407aca2d7277f04efa1d4cda1f58820c8496e6a3f93b5673f1c9ee45",
+            "funding": "4d77dbdeddc42f8bb800e4b784bc6eb3e77d5213212be4e8bd3226274a4e1114"
+          },
+          "gate": "binary_data_hashes"
+        }
+      ],
+      "phase": "A0"
+    },
+    {
+      "failed": [
+        {
+          "detail": {},
+          "gate": "shared_config_in_domain_and_hash"
+        }
+      ],
+      "passed": [],
+      "phase": "A1"
+    }
+  ],
+  "phase": "A1",
+  "phase_status": {
+    "A0": {
+      "status": "complete"
+    },
+    "A1": {
+      "failed": [
+        "shared_config_in_domain_and_hash"
+      ],
+      "status": "blocked"
+    },
+    "A2": {
+      "reason": "predecessor",
+      "status": "blocked"
+    },
+    "A3": {
+      "reason": "predecessor",
+      "status": "blocked"
+    },
+    "A4": {
+      "reason": "predecessor",
+      "status": "blocked"
+    },
+    "B0": {
+      "reason": "predecessor",
+      "status": "blocked"
+    },
+    "B1": {
+      "reason": "predecessor",
+      "status": "blocked"
+    },
+    "B2": {
+      "reason": "predecessor",
+      "status": "blocked"
+    },
+    "B3": {
+      "reason": "predecessor",
+      "status": "blocked"
+    },
+    "B4": {
+      "reason": "predecessor",
+      "status": "blocked"
+    },
+    "B5": {
+      "reason": "predecessor",
+      "status": "blocked"
+    },
+    "B6": {
+      "reason": "predecessor",
+      "status": "blocked"
+    },
+    "B7": {
+      "reason": "predecessor",
+      "status": "blocked"
+    }
+  },
+  "plan_sha256": "d78b758605687adb0de57a34b6608630f743193afe9b677a90074725f64d5e08",
+  "registry_integrity": {
+    "illegal_rows": 0,
+    "orphan_running": false,
+    "problems": 0
+  },
+  "status": "blocked",
+  "validated_at": "2026-07-15T14:06:09.570214+00:00",
+  "validator_sha256": "e48c522b8c3f3dcdab92d2ab6f90c6a4f8d7523cd670eef704e62c0edb419703"
+}
