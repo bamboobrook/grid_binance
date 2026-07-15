@@ -1,34 +1,109 @@
 {
-  "best_so_far": [
+  "best_candidate_small_budget_validation": {
+    "budget_ladder_full_window": [
+      {
+        "ann_pct": 73.85,
+        "breached": false,
+        "budget": 1000,
+        "dd_pct": 45.24,
+        "min_equity": 974.72
+      },
+      {
+        "ann_pct": 75.29,
+        "breached": false,
+        "budget": 2000,
+        "dd_pct": 42.73,
+        "min_equity": 1974.72
+      },
+      {
+        "ann_pct": 58.94,
+        "breached": false,
+        "budget": 3000,
+        "dd_pct": 37.38,
+        "min_equity": 2974.72
+      },
+      {
+        "ann_pct": 48.96,
+        "breached": false,
+        "budget": 4000,
+        "dd_pct": 33.22,
+        "min_equity": 3974.72
+      },
+      {
+        "ann_pct": 42.11,
+        "breached": false,
+        "budget": 4999,
+        "dd_pct": 29.9,
+        "min_equity": 4973.72
+      }
+    ],
+    "cold_start_segments_4999U": [
+      {
+        "ann_pct": 168.58,
+        "dd_pct": 29.9,
+        "positive": true,
+        "segment": "h1_2023"
+      },
+      {
+        "ann_pct": 271.98,
+        "dd_pct": 36.35,
+        "positive": true,
+        "segment": "h2_2023"
+      },
+      {
+        "ann_pct": 137.67,
+        "dd_pct": 33.41,
+        "positive": true,
+        "segment": "2024"
+      },
+      {
+        "ann_pct": -25.5,
+        "dd_pct": 80.48,
+        "positive": false,
+        "segment": "2025"
+      },
+      {
+        "ann_pct": -92.28,
+        "dd_pct": 105.07,
+        "positive": false,
+        "segment": "2026_ytd"
+      }
+    ],
+    "label": "r15_lo8_ptp_fo45_m22_s150_l5",
+    "note": "No principal breach at any budget; small-budget (1000/2000U) actually higher ann due to tighter weight caps. Meets small-capital runnable + multi-budget gate.",
+    "positive_segments": "3/5 (FAILS >=4/5 common gate; 2025-2026 crypto bear/chop window)"
+  },
+  "best_candidates_full_window_4999U": [
     {
       "ann_pct": 86.114071,
       "breached": false,
       "conc_gp_pct": 24.385,
       "dd_pct": 37.720527,
       "family": "T3_8_partialtp",
-      "label": "r15_ptp_fo40_m24_s100_l6",
+      "label": "r15_lo8_ptp_fo40_m24_s100_l6",
       "min_equity": 4934.02,
-      "note": "highest ann; DD over aggressive 30% gate"
+      "segments_positive": "3/5 (2025,2026 negative)"
     },
     {
-      "ann_pct": 50.961491,
+      "ann_pct": 42.107012,
       "breached": false,
-      "conc_gp_pct": 22.3007,
-      "dd_pct": 31.857493,
-      "family": "T3_8_partialtp_tune",
-      "label": "r15_ptp_fo40_m24_s150_l5",
-      "min_equity": 4972.65,
-      "note": "conservative ann gate (>=50%) hit; DD just over aggressive 30%"
+      "conc_gp_pct": 22.6491,
+      "dd_pct": 29.901394,
+      "family": "T3_8_partialtp",
+      "label": "r15_lo8_ptp_fo45_m22_s150_l5",
+      "min_equity": 4973.72,
+      "note": "best DD-controlled point; DD just under aggressive 30% gate",
+      "segments_positive": "3/5 (2025,2026 negative)"
     },
     {
-      "ann_pct": 46.223854,
+      "ann_pct": 92.689929,
       "breached": false,
-      "conc_gp_pct": 22.725,
-      "dd_pct": 31.872538,
-      "family": "T3_8_partialtp_tune",
-      "label": "r15_ptp_fo35_m20_s120_l6",
-      "min_equity": 4979.64,
-      "note": "near conservative ann; DD just over aggressive"
+      "conc_gp_pct": 20.7147,
+      "dd_pct": 43.413864,
+      "family": "T3_8_partialtp_ceiling",
+      "label": "r15_lo8_ptp_fo35_m32_s80_l8",
+      "min_equity": 4830.9,
+      "note": "highest ann; DD over 30%"
     },
     {
       "ann_pct": 34.81208,
@@ -38,18 +113,27 @@
       "family": "R4_regression",
       "label": "R4-combo-4999",
       "min_equity": 4824.76,
-      "note": "low DD but conc fails 35% gate and small-budget negative"
+      "note": "reproduces audit exactly; conc 49.6% fails 35% gate, 1000/2000U negative"
     }
   ],
+  "config_count": "see exploration-registry.jsonl for every full-window replay",
   "generated_at": "2026-07-15",
-  "note": "Best candidates found so far via FULL-WINDOW binary replays (no screens). All ann/DD on-budget at 4999U dev window.",
-  "open_gap": "DD still ~32% at the conservative-ann point; need to push DD below 30% (aggressive) or 20% (balanced) while keeping ann>=50%.",
-  "schema_version": 1,
+  "method": "ALL results are full-window binary replays via canonical release CLI (portfolio_budget_replay) over the dev window with authoritative funding_rates_round12.db. NO fast screens.",
+  "phase": "P1_search",
+  "schema_version": 2,
   "structural_findings": [
-    "Symmetric long+short Martingale (24 sleeves) blows up (principal breach) in 2023-2026 bull window.",
-    "Long-only with stop_loss(strategy_drawdown_pct) collapses ann to ~0% (SL realizes permanent Martingale losses).",
-    "Partial-TP with breakeven-stage migration is the effective risk control: keeps ann 50-86% with no breach and good concentration (20-25%).",
-    "Wider spacing (s150-250) reduces trade count and DD without destroying ann.",
-    "R4 regression reproduces exactly (34.81%/17.67%); its conc 49.6% fails the 35% gate."
-  ]
+    "Symmetric long+short (24 sleeves, no timing): all principal breach in 2023-2026 bull window.",
+    "long-only + stop_loss(strategy_drawdown_pct): ann collapses to ~0% (SL realizes permanent Martingale losses at 50% strategy DD).",
+    "partial-TP with breakeven-stage migration is the effective risk control: ann 50-93% with no breach, concentration 16-25% (<35%).",
+    "Wider spacing (150-250 bps) lowers trade count and DD; tighter spacing (60-100) raises ann but also DD.",
+    "Budget ladder: smaller budgets (1000/2000U) give HIGHER ann due to tighter per-strategy weight caps; no breach at any budget.",
+    "R4 regression reproduces audit exactly (34.81%/17.67%); its 49.6% concentration fails the 35% gate.",
+    "CYCLICAL RISK is the binding constraint: long-only profits in 2023-2024 bull (BTC +121% in 2024) but loses in 2025-2026 bear (BTC -6.4%/-15.9%). Direction-timed short by BTC ema200 survives 2025-2026 but blows up in 2023-2024 (whipsaw). No single fixed-param config passes 4/5 positive segments AND the DD gates."
+  ],
+  "target_verdict": {
+    "aggressive_110_30DD_3of5": "NOT HIT on segment count. ann 110% not reached (ceiling ~93% at DD 43%); DD<=30% reachable (29.9%) but only 3/5 positive segments.",
+    "balanced_90_20DD_4of5": "NOT HIT. ann 90% requires DD ~43%; DD 20% only gives ann ~27%.",
+    "conservative_50_10DD_4of5": "NOT HIT. DD cannot reach 10% at ann>=50%; best DD at ann~42% is 29.9%.",
+    "root_cause": "The 2025-2026 crypto bear/chop window breaks long-only Martingale on 2 of 5 segments. Direction-timing to add shorts is whipsawed in the bull window. This is a regime-dependent structural limit, not a parameter-fitting gap."
+  }
 }
