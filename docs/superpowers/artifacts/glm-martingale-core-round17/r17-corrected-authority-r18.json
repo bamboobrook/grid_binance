@@ -1,0 +1,32 @@
+{
+  "corrected_by": "Round 18 R0.3 (ChatGPT audit 2026-07-16)",
+  "audit_report": "docs/superpowers/reports/2026-07-16-chatgpt-round17-execution-audit.md",
+  "round18_plan": "docs/superpowers/plans/2026-07-16-glm-martingale-core-round18-native-synchronized-residual-cycle-plan.md",
+  "original_state_status_self_reported": "complete",
+  "corrected_machine_state": "materially_incomplete_invalid_mechanism_search",
+  "correction_basis": {
+    "r17_validator_recomputed_counts": {
+      "actual_binary_replays": 205,
+      "cache_hits": 2165,
+      "unique_execution_keys": 2315,
+      "duplicates": 55,
+      "timeouts": 0
+    },
+    "self_reported_gate_claim": "actual_replays=2304, unique_configs=192",
+    "discrepancy": "registry only contains 205 complete replays; 2165 rows are skipped_duplicate cache rows. The R17 validator (recompute_gate for g1_192_sobol_2304_replays) trusts the self-reported gate-evidence file (ev_field actual_replays) instead of recomputing from the registry.",
+    "r17_controls_confirmed_noop": [
+      "r17_controls.rs vol_cap: body is 'let _ = (strategy, cfg);'",
+      "r17_controls.rs cluster_scheduler: body is 'let _ = (strategy, cfg);'",
+      "kline_engine.rs hazard_deadline call passes (legs_filled, legs_filled) as (cycle_opened_ms, now_ms) so age_h always == 0",
+      "apps/trading-engine/src/main.rs production input hardcodes symbol=BTCUSDT, all OHLCV=0"
+    ],
+    "a4_binding_weakness": "family-level 'bound' set to hash_bound (config_hash only); event_hash_bound recorded but not required for pass/fail. All 10 families show event_hash_bound=false yet family bound=true.",
+    "b1_ablation_identical_arms": "all 7 arms identical: ann=-34.1137, DD=11.0979, trade_count=151, event_hash=6474a30f9fde8b67, rejections=0. Validator gate mechanism_ablation_executed only checks len(arms)>=6, not divergence."
+  },
+  "retained_scoped_evidence": [
+    "G2 exact family full-window ann all negative (-2.8% .. -12.2%): scoped negative evidence for low-FO/low-multiplier + old HTF gate + static long/short structures only",
+    "g1-checkpoint.json 2304 local 30-day-window values: usable for historical dedup only; does NOT prove R17 new mechanisms were searched"
+  ],
+  "not_valid_for": "any completion, frontier-progress, or target-hit claim",
+  "history_preserved": "original round17-execution-state.json left unchanged; this file is the correction reference"
+}

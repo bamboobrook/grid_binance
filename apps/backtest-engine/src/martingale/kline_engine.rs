@@ -668,16 +668,58 @@ pub fn run_kline_screening_with_funding(
                         }
                     }
                     if r17_vol_enabled {
-                        crate::martingale::r17_controls::vol_cap(
+                        // Round 18 R0.2 fix: vol_cap now reads REAL realized vol
+                        // (ATR/price over the completed window) and BLOCKS the new
+                        // FO when vol exceeds the risk-fraction-implied ceiling.
+                        let symbol = &strategy_states[state_index].strategy.symbol;
+                        let is_long = strategy_states[state_index].strategy.direction
+                            == MartingaleDirection::Long;
+                        let atr_pct = latest_atr_for_strategy(
+                            &mut indicator_context,
                             &strategy_states[state_index].strategy,
-                            r17_vol_cfg.as_ref(),
-                        );
+                        )
+                        .filter(|atr| bar.close > 0.0)
+                        .map(|atr| atr / bar.close);
+                        if let Some(block_reason) =
+                            crate::martingale::r17_controls::vol_cap(
+                                symbol,
+                                if is_long { "long" } else { "short" },
+                                atr_pct,
+                                r17_vol_cfg.as_ref(),
+                            )
+                        {
+                            events.push(event(bar, &strategy_states[state_index],
+                                "r17_vol_cap_block", block_reason));
+                            state_index += 1;
+                            continue;
+                        }
                     }
                     if r17_cluster_enabled {
-                        crate::martingale::r17_controls::cluster_scheduler(
-                            &strategy_states[state_index].strategy,
-                            r17_cluster_cfg.as_ref(),
-                        );
+                        // Round 18 R0.2 fix: cluster_scheduler now reads REAL
+                        // per-symbol and portfolio active margin and BLOCKS the
+                        // new FO when the symbol or portfolio cap is reached.
+                        let symbol = &strategy_states[state_index].strategy.symbol;
+                        let is_long = strategy_states[state_index].strategy.direction
+                            == MartingaleDirection::Long;
+                        let sym_margin =
+                            symbol_active_margin_quote(&strategy_states[..], symbol);
+                        let port_margin =
+                            portfolio_active_margin_quote(&strategy_states[..]);
+                        if let Some(block_reason) =
+                            crate::martingale::r17_controls::cluster_scheduler(
+                                symbol,
+                                if is_long { "long" } else { "short" },
+                                sym_margin,
+                                port_margin,
+                                budget_quote,
+                                r17_cluster_cfg.as_ref(),
+                            )
+                        {
+                            events.push(event(bar, &strategy_states[state_index],
+                                "r17_cluster_block", block_reason));
+                            state_index += 1;
+                            continue;
+                        }
                     }
                     // Round 14 P3: Cross-sectional selector gate. Block new cycle
                     // if the symbol is not in the active set for this direction.
@@ -985,24 +1027,35 @@ pub fn run_kline_screening_with_funding(
                                 continue;
                             }
                         }
-                        // Round 17 A2: hazard deadline. When the cycle's age
-                        // exceeds its estimated-half-life deadline, freeze SO
-                        // (or reduce). Same config as production (A3). The
-                        // cycle age is approximated from the number of legs
-                        // already filled (deeper cycles are older).
+                        // Round 17 A2 / Round 18 R0.2 fix: hazard deadline. When
+                        // the cycle's age (now - real cycle-open timestamp)
+                        // exceeds its estimated-half-life deadline, freeze SO (or
+                        // reduce). Same config as production (A3).
+                        //
+                        // R17 BUG: passed `legs_filled` as BOTH cycle_opened_ms
+                        // and now_ms, so age_h was identically 0 and the deadline
+                        // never fired. R18 fix: use the REAL `cycle_start_ms`
+                        // (first-leg fill timestamp) and the current bar's
+                        // `timestamp_ms`.
                         if r17_hazard_enabled {
                             let legs_filled = strategy_states[state_index].legs.len() as i64;
                             if legs_filled >= 2 {
-                                if let Some(action) = crate::martingale::r17_controls::hazard_deadline(
-                                    &strategy_states[state_index].strategy.strategy_id,
-                                    legs_filled,
-                                    legs_filled,
-                                    r17_hazard_cfg.as_ref(),
-                                ) {
-                                    events.push(event(bar, &strategy_states[state_index],
-                                        "r17_hazard_freeze", action));
-                                    state_index += 1;
-                                    continue;
+                                if let Some(cycle_opened_ms) =
+                                    strategy_states[state_index].cycle_start_ms
+                                {
+                                    if let Some(action) =
+                                        crate::martingale::r17_controls::hazard_deadline(
+                                            &strategy_states[state_index].strategy.strategy_id,
+                                            cycle_opened_ms,
+                                            timestamp_ms,
+                                            r17_hazard_cfg.as_ref(),
+                                        )
+                                    {
+                                        events.push(event(bar, &strategy_states[state_index],
+                                            "r17_hazard_freeze", action));
+                                        state_index += 1;
+                                        continue;
+                                    }
                                 }
                             }
                         }
@@ -2989,6 +3042,30 @@ fn active_cycle_count(state: &StrategyRuntime<'_>) -> u32 {
 
 fn portfolio_active_cycle_count(states: &[StrategyRuntime<'_>]) -> u32 {
     states.iter().filter(|state| !state.legs.is_empty()).count() as u32
+}
+
+/// Round 18 R0.2 fix: sum of margin_quote across a strategy's active legs.
+/// Used by the REAL cluster_scheduler (r17_controls::cluster_scheduler) which
+/// must read actual open-cycle exposure, not be a no-op.
+fn strategy_active_margin_quote(state: &StrategyRuntime<'_>) -> f64 {
+    state.legs.iter().map(|leg| leg.margin_quote).sum()
+}
+
+/// Round 18 R0.2 fix: sum of margin_quote across ALL active cycles in the
+/// portfolio. Used by the REAL cluster_scheduler portfolio cap.
+fn portfolio_active_margin_quote(states: &[StrategyRuntime<'_>]) -> f64 {
+    states.iter().flat_map(|s| s.legs.iter()).map(|leg| leg.margin_quote).sum()
+}
+
+/// Round 18 R0.2 fix: per-symbol active margin (a symbol may have long and
+/// short sleeves both active). Used by the REAL cluster_scheduler symbol cap.
+fn symbol_active_margin_quote(states: &[StrategyRuntime<'_>], symbol: &str) -> f64 {
+    states
+        .iter()
+        .filter(|s| s.strategy.symbol == symbol)
+        .flat_map(|s| s.legs.iter())
+        .map(|leg| leg.margin_quote)
+        .sum()
 }
 
 fn capacity_allows_entry(max_active_cycles: u32, active_cycle_count: u32) -> bool {

@@ -1,0 +1,339 @@
+{
+  "phase": "R0.2 adversarial activation",
+  "windows": [
+    {
+      "name": "bear",
+      "start": 1736294400000,
+      "end": 1738886400000
+    },
+    {
+      "name": "bull",
+      "start": 1696118400000,
+      "end": 1698710400000
+    }
+  ],
+  "symbols": [
+    "BTCUSDT",
+    "ETHUSDT",
+    "SOLUSDT",
+    "DOGEUSDT",
+    "XRPUSDT",
+    "ADAUSDT"
+  ],
+  "verdict": {
+    "vol_cap": {
+      "activation_proven": true,
+      "active_windows": [
+        "bear",
+        "bull"
+      ],
+      "by_window": {
+        "bear": {
+          "low": {
+            "label": "r0_vol_cap_low_bear",
+            "ok": true,
+            "wall_s": 0.6,
+            "event_stream_sha": "f44110e90dd06f1f8a6f16281f8549b114beae85d1bd48ca8c634c9eb09df33c",
+            "trade_stream_sha": "54f19d42c63287b07ee16107655db968f663d00c2dfcb87b36065201b077df0a",
+            "rejection_stream_sha": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "trade_count": 663,
+            "total_rejection_reasons": 0,
+            "days": 30.0
+          },
+          "high": {
+            "label": "r0_vol_cap_high_bear",
+            "ok": true,
+            "wall_s": 0.4,
+            "event_stream_sha": "a1b9ea842e0e787095fbae2f1c6d469cd3eff5e15605b3c30c4a6af99e2b9e0a",
+            "trade_stream_sha": "eef7c84acaa71f227b49b7a8fb27c6f6088b5c4a3ba51adca03df915f6a4c84d",
+            "rejection_stream_sha": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "trade_count": 665,
+            "total_rejection_reasons": 0,
+            "days": 30.0
+          }
+        },
+        "bull": {
+          "low": {
+            "label": "r0_vol_cap_low_bull",
+            "ok": true,
+            "wall_s": 0.4,
+            "event_stream_sha": "b5eb319cae5dc8389f5dd19a44f43ca6674a7a68ee708483fb7f0f7fe3c7f11c",
+            "trade_stream_sha": "6170847e72e6592a4ab142d5e6553ad67d1bd61888d1690c6bd5cb89b43e119b",
+            "rejection_stream_sha": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "trade_count": 453,
+            "total_rejection_reasons": 0,
+            "days": 30.0
+          },
+          "high": {
+            "label": "r0_vol_cap_high_bull",
+            "ok": true,
+            "wall_s": 0.4,
+            "event_stream_sha": "1d55f35499fcb78b71e44cd1ec403251d9b49784e7eddcd7563fa208a2f943cd",
+            "trade_stream_sha": "d9a030857bae5a66b349d8044c3f55835bf4db901cb516fde3eb790835797e0c",
+            "rejection_stream_sha": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "trade_count": 466,
+            "total_rejection_reasons": 0,
+            "days": 30.0
+          }
+        }
+      },
+      "all_ok": true
+    },
+    "cluster_scheduler": {
+      "activation_proven": true,
+      "active_windows": [
+        "bear",
+        "bull"
+      ],
+      "by_window": {
+        "bear": {
+          "low": {
+            "label": "r0_cluster_scheduler_low_bear",
+            "ok": true,
+            "wall_s": 0.5,
+            "event_stream_sha": "32d01523dadd7c10987297b74c7bdc0cd43a2403f680729da75c16af0d2ae5fd",
+            "trade_stream_sha": "366794fd3687f8a09aa1c769bd8f3970007006805987fbd3e19b5b9fcadbc713",
+            "rejection_stream_sha": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "trade_count": 544,
+            "total_rejection_reasons": 0,
+            "days": 30.0
+          },
+          "high": {
+            "label": "r0_cluster_scheduler_high_bear",
+            "ok": true,
+            "wall_s": 0.4,
+            "event_stream_sha": "a1b9ea842e0e787095fbae2f1c6d469cd3eff5e15605b3c30c4a6af99e2b9e0a",
+            "trade_stream_sha": "eef7c84acaa71f227b49b7a8fb27c6f6088b5c4a3ba51adca03df915f6a4c84d",
+            "rejection_stream_sha": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "trade_count": 665,
+            "total_rejection_reasons": 0,
+            "days": 30.0
+          }
+        },
+        "bull": {
+          "low": {
+            "label": "r0_cluster_scheduler_low_bull",
+            "ok": true,
+            "wall_s": 0.5,
+            "event_stream_sha": "941e45c3a330c52a02ba4f81eb4ff94d2fb9279cf8764a86164361ed5db07bc1",
+            "trade_stream_sha": "372d6e81dab90d766828c47c64f68ac96f572f924f89759f1de86f53999f4cbf",
+            "rejection_stream_sha": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "trade_count": 254,
+            "total_rejection_reasons": 0,
+            "days": 30.0
+          },
+          "high": {
+            "label": "r0_cluster_scheduler_high_bull",
+            "ok": true,
+            "wall_s": 0.4,
+            "event_stream_sha": "1d55f35499fcb78b71e44cd1ec403251d9b49784e7eddcd7563fa208a2f943cd",
+            "trade_stream_sha": "d9a030857bae5a66b349d8044c3f55835bf4db901cb516fde3eb790835797e0c",
+            "rejection_stream_sha": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "trade_count": 466,
+            "total_rejection_reasons": 0,
+            "days": 30.0
+          }
+        }
+      },
+      "all_ok": true
+    },
+    "hazard_deadline": {
+      "activation_proven": true,
+      "active_windows": [
+        "bear",
+        "bull"
+      ],
+      "by_window": {
+        "bear": {
+          "low": {
+            "label": "r0_hazard_deadline_low_bear",
+            "ok": true,
+            "wall_s": 0.4,
+            "event_stream_sha": "63e433fbe85588d812a205d45a3a468bbb501618013291816a930ca5c98e9dda",
+            "trade_stream_sha": "e854dbb7f11bf2052ef5ae01c595d3bbffc6d607758fa7219f0492097552d533",
+            "rejection_stream_sha": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "trade_count": 620,
+            "total_rejection_reasons": 0,
+            "days": 30.0
+          },
+          "high": {
+            "label": "r0_hazard_deadline_high_bear",
+            "ok": true,
+            "wall_s": 0.4,
+            "event_stream_sha": "a1b9ea842e0e787095fbae2f1c6d469cd3eff5e15605b3c30c4a6af99e2b9e0a",
+            "trade_stream_sha": "eef7c84acaa71f227b49b7a8fb27c6f6088b5c4a3ba51adca03df915f6a4c84d",
+            "rejection_stream_sha": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "trade_count": 665,
+            "total_rejection_reasons": 0,
+            "days": 30.0
+          }
+        },
+        "bull": {
+          "low": {
+            "label": "r0_hazard_deadline_low_bull",
+            "ok": true,
+            "wall_s": 0.5,
+            "event_stream_sha": "041fdb1cf09aeb34143d67d3d3039edbc21ef8b6ea734638d1571d41b955189a",
+            "trade_stream_sha": "3761ebacab8c26dae60257752e3c3f1e0771a9d9d2c4ddf66dd75d736bc996b6",
+            "rejection_stream_sha": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "trade_count": 448,
+            "total_rejection_reasons": 0,
+            "days": 30.0
+          },
+          "high": {
+            "label": "r0_hazard_deadline_high_bull",
+            "ok": true,
+            "wall_s": 0.4,
+            "event_stream_sha": "e0ef41b53c75b64feed67fb34870e1b73171b30be72721720b0079176dce523e",
+            "trade_stream_sha": "5dea1228e8e7e323c7b46aac7f7b1108098c059a33dbd0012fa64108463dc4cb",
+            "rejection_stream_sha": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "trade_count": 456,
+            "total_rejection_reasons": 0,
+            "days": 30.0
+          }
+        }
+      },
+      "all_ok": true
+    }
+  },
+  "rows": {
+    "vol_cap": [
+      {
+        "label": "r0_vol_cap_low_bear",
+        "ok": true,
+        "wall_s": 0.6,
+        "event_stream_sha": "f44110e90dd06f1f8a6f16281f8549b114beae85d1bd48ca8c634c9eb09df33c",
+        "trade_stream_sha": "54f19d42c63287b07ee16107655db968f663d00c2dfcb87b36065201b077df0a",
+        "rejection_stream_sha": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "trade_count": 663,
+        "total_rejection_reasons": 0,
+        "days": 30.0
+      },
+      {
+        "label": "r0_vol_cap_high_bear",
+        "ok": true,
+        "wall_s": 0.4,
+        "event_stream_sha": "a1b9ea842e0e787095fbae2f1c6d469cd3eff5e15605b3c30c4a6af99e2b9e0a",
+        "trade_stream_sha": "eef7c84acaa71f227b49b7a8fb27c6f6088b5c4a3ba51adca03df915f6a4c84d",
+        "rejection_stream_sha": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "trade_count": 665,
+        "total_rejection_reasons": 0,
+        "days": 30.0
+      },
+      {
+        "label": "r0_vol_cap_low_bull",
+        "ok": true,
+        "wall_s": 0.4,
+        "event_stream_sha": "b5eb319cae5dc8389f5dd19a44f43ca6674a7a68ee708483fb7f0f7fe3c7f11c",
+        "trade_stream_sha": "6170847e72e6592a4ab142d5e6553ad67d1bd61888d1690c6bd5cb89b43e119b",
+        "rejection_stream_sha": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "trade_count": 453,
+        "total_rejection_reasons": 0,
+        "days": 30.0
+      },
+      {
+        "label": "r0_vol_cap_high_bull",
+        "ok": true,
+        "wall_s": 0.4,
+        "event_stream_sha": "1d55f35499fcb78b71e44cd1ec403251d9b49784e7eddcd7563fa208a2f943cd",
+        "trade_stream_sha": "d9a030857bae5a66b349d8044c3f55835bf4db901cb516fde3eb790835797e0c",
+        "rejection_stream_sha": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "trade_count": 466,
+        "total_rejection_reasons": 0,
+        "days": 30.0
+      }
+    ],
+    "cluster_scheduler": [
+      {
+        "label": "r0_cluster_scheduler_low_bear",
+        "ok": true,
+        "wall_s": 0.5,
+        "event_stream_sha": "32d01523dadd7c10987297b74c7bdc0cd43a2403f680729da75c16af0d2ae5fd",
+        "trade_stream_sha": "366794fd3687f8a09aa1c769bd8f3970007006805987fbd3e19b5b9fcadbc713",
+        "rejection_stream_sha": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "trade_count": 544,
+        "total_rejection_reasons": 0,
+        "days": 30.0
+      },
+      {
+        "label": "r0_cluster_scheduler_high_bear",
+        "ok": true,
+        "wall_s": 0.4,
+        "event_stream_sha": "a1b9ea842e0e787095fbae2f1c6d469cd3eff5e15605b3c30c4a6af99e2b9e0a",
+        "trade_stream_sha": "eef7c84acaa71f227b49b7a8fb27c6f6088b5c4a3ba51adca03df915f6a4c84d",
+        "rejection_stream_sha": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "trade_count": 665,
+        "total_rejection_reasons": 0,
+        "days": 30.0
+      },
+      {
+        "label": "r0_cluster_scheduler_low_bull",
+        "ok": true,
+        "wall_s": 0.5,
+        "event_stream_sha": "941e45c3a330c52a02ba4f81eb4ff94d2fb9279cf8764a86164361ed5db07bc1",
+        "trade_stream_sha": "372d6e81dab90d766828c47c64f68ac96f572f924f89759f1de86f53999f4cbf",
+        "rejection_stream_sha": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "trade_count": 254,
+        "total_rejection_reasons": 0,
+        "days": 30.0
+      },
+      {
+        "label": "r0_cluster_scheduler_high_bull",
+        "ok": true,
+        "wall_s": 0.4,
+        "event_stream_sha": "1d55f35499fcb78b71e44cd1ec403251d9b49784e7eddcd7563fa208a2f943cd",
+        "trade_stream_sha": "d9a030857bae5a66b349d8044c3f55835bf4db901cb516fde3eb790835797e0c",
+        "rejection_stream_sha": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "trade_count": 466,
+        "total_rejection_reasons": 0,
+        "days": 30.0
+      }
+    ],
+    "hazard_deadline": [
+      {
+        "label": "r0_hazard_deadline_low_bear",
+        "ok": true,
+        "wall_s": 0.4,
+        "event_stream_sha": "63e433fbe85588d812a205d45a3a468bbb501618013291816a930ca5c98e9dda",
+        "trade_stream_sha": "e854dbb7f11bf2052ef5ae01c595d3bbffc6d607758fa7219f0492097552d533",
+        "rejection_stream_sha": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "trade_count": 620,
+        "total_rejection_reasons": 0,
+        "days": 30.0
+      },
+      {
+        "label": "r0_hazard_deadline_high_bear",
+        "ok": true,
+        "wall_s": 0.4,
+        "event_stream_sha": "a1b9ea842e0e787095fbae2f1c6d469cd3eff5e15605b3c30c4a6af99e2b9e0a",
+        "trade_stream_sha": "eef7c84acaa71f227b49b7a8fb27c6f6088b5c4a3ba51adca03df915f6a4c84d",
+        "rejection_stream_sha": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "trade_count": 665,
+        "total_rejection_reasons": 0,
+        "days": 30.0
+      },
+      {
+        "label": "r0_hazard_deadline_low_bull",
+        "ok": true,
+        "wall_s": 0.5,
+        "event_stream_sha": "041fdb1cf09aeb34143d67d3d3039edbc21ef8b6ea734638d1571d41b955189a",
+        "trade_stream_sha": "3761ebacab8c26dae60257752e3c3f1e0771a9d9d2c4ddf66dd75d736bc996b6",
+        "rejection_stream_sha": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "trade_count": 448,
+        "total_rejection_reasons": 0,
+        "days": 30.0
+      },
+      {
+        "label": "r0_hazard_deadline_high_bull",
+        "ok": true,
+        "wall_s": 0.4,
+        "event_stream_sha": "e0ef41b53c75b64feed67fb34870e1b73171b30be72721720b0079176dce523e",
+        "trade_stream_sha": "5dea1228e8e7e323c7b46aac7f7b1108098c059a33dbd0012fa64108463dc4cb",
+        "rejection_stream_sha": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "trade_count": 456,
+        "total_rejection_reasons": 0,
+        "days": 30.0
+      }
+    ]
+  }
+}

@@ -1,0 +1,56 @@
+{
+  "phase": "R0",
+  "plan_section": "§3 Round 17 前置修复门",
+  "r0_1_fail_close_tests": {
+    "file": "scripts/glm_r18_r0_failclose_tests.py",
+    "expected_outcome": "8 plan-required tests (§3.1). In --expect-fail mode all 8 DETECT the R17 bugs. After the R0.2 fix, the 3 source-level mechanism tests (vol_cap, cluster_scheduler, hazard_deadline) and the production zero-OHLC-bar test PASS.",
+    "source_level_tests_pass_after_fix": ["r17_noop_vol_cap_is_rejected", "r17_noop_cluster_scheduler_is_rejected", "r17_hazard_same_open_and_now_never_counts_as_active", "r17_production_zero_ohlc_bar_is_rejected"],
+    "evidence_artifact_tests_still_detect_old_r17_artifacts": ["r17_family_config_hash_only_is_not_bound", "r17_family_two_traces_cannot_satisfy_eight_to_sixteen", "r17_identical_ablation_event_hash_blocks_b2", "r17_checkpoint_without_command_and_hash_is_not_actual_registry_replay"],
+    "interpretation": "The 4 remaining detections are CORRECT: they flag the old R17 artifacts as corrupted (A4 bound without event-hash change, B1 identical arms, g1 self-report 2304 vs registry 205). Per plan §3.3 these original artifacts are NOT overwritten; Round 18 builds its own fresh registry and validator and does NOT reuse the corrupted R17 binding/ablation/gate evidence."
+  },
+  "r0_2_engine_fixes": {
+    "vol_cap": {
+      "file": "apps/backtest-engine/src/martingale/r17_controls.rs",
+      "before": "pub fn vol_cap(strategy, cfg) { let _ = (strategy, cfg); }  // no-op",
+      "after": "reads realized ATR/price over completed window; BLOCKS new FO when atr_pct exceeds risk_fraction-implied ceiling; emits r17_vol_cap_block event",
+      "call_site": "apps/backtest-engine/src/martingale/kline_engine.rs (new-cycle gate)"
+    },
+    "cluster_scheduler": {
+      "file": "apps/backtest-engine/src/martingale/r17_controls.rs",
+      "before": "pub fn cluster_scheduler(strategy, cfg) { let _ = (strategy, cfg); }  // no-op",
+      "after": "reads REAL per-symbol and portfolio active margin; BLOCKS new FO when symbol_margin_cap_pct or cluster_margin_cap_pct reached; emits r17_cluster_block event",
+      "call_site": "apps/backtest-engine/src/martingale/kline_engine.rs (new-cycle gate)"
+    },
+    "hazard_deadline": {
+      "file": "apps/backtest-engine/src/martingale/r17_controls.rs",
+      "before_bug": "kline_engine passed (legs_filled, legs_filled) as (cycle_opened_ms, now_ms) so age_h == 0 always -> deadline never fired",
+      "after": "call site passes REAL cycle_start_ms (first-leg fill timestamp) and current bar timestamp_ms; age_h = (now - open)/3600000; deadline fires at deadline_half_lives * estimated_half_life",
+      "call_site_fix": "kline_engine.rs line ~1035: uses strategy_states[i].cycle_start_ms"
+    },
+    "production_router": {
+      "file": "apps/trading-engine/src/main.rs",
+      "before_bug": "router_push_completed_1m hardcoded symbol=BTCUSDT, all OHLCV=0.0 for EVERY strategy",
+      "after": "uses the strategy's ACTUAL symbol and a real reference price (latest market tick for that symbol)"
+    },
+    "build_status": "cargo build --release -p backtest-engine AND -p trading-engine: both Finished (0 errors)"
+  },
+  "r0_activation_proof": {
+    "file": "scripts/glm_r18_r0_adversarial_activation.py",
+    "evidence": "docs/superpowers/artifacts/glm-martingale-core-round18/r0/adversarial_activation.json",
+    "method": "For each mechanism run rl_low vs rl_high over two adversarial 30-day windows (bear 2025-01, bull 2023-10). Mechanism is activation-proven if event_stream_sha OR trade_stream_sha OR rejection_stream_sha OR trade_count differs between low/high in at least one window.",
+    "verdict": {
+      "vol_cap": {"activation_proven": true, "active_windows": ["bear", "bull"]},
+      "cluster_scheduler": {"activation_proven": true, "active_windows": ["bear", "bull"]},
+      "hazard_deadline": {"activation_proven": true, "active_windows": ["bear", "bull"]}
+    },
+    "all_mechanisms_activation_proven": true
+  },
+  "r0_3_authority_correction": {
+    "handoff_superseded": "docs/superpowers/reports/2026-07-15-glm-round17-execution-handoff.md (SUPERSEDED_BY_CHATGPT_AUDIT banner added, original text preserved below)",
+    "corrected_authority": "docs/superpowers/artifacts/glm-martingale-core-round17/r17-corrected-authority-r18.json",
+    "corrected_machine_state": "materially_incomplete_invalid_mechanism_search",
+    "original_artifacts_not_overwritten": true
+  },
+  "conclusion": "R0 PRE-COLLECTION REPAIR GATE PASSED for the engine mechanisms (the 3 no-op/inert controls are fixed and adversarially proven to change real order/event paths). The R17 authority is corrected to materially_incomplete_invalid_mechanism_search. The Round 18 search may now proceed WITHOUT reusing the corrupted R17 binding/ablation/gate evidence.",
+  "not_yet_done": "R0 does NOT re-run the R17 192 exact configs (forbidden by §3.2). The R18 validator/registry are built fresh in R1. The 4 evidence-artifact detections remain as documented proof of the R17 corruption."
+}

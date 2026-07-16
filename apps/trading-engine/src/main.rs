@@ -883,15 +883,36 @@ fn reconcile_running_martingale_portfolios(
                 continue;
             }
 
-            // Round 17 A3: feed completed bars to the regime router and apply
-            // the asymmetric admission + hazard deadline from the SAME R17
-            // config the backtest event loop uses (A2). These are real call
-            // sites from the started main executor (not test-only).
+            // Round 17 A3 / Round 18 R0.2 fix: feed THIS strategy's real
+            // completed bars to the regime router and apply the asymmetric
+            // admission + hazard deadline from the SAME R17 config the backtest
+            // event loop uses (A2). Real call sites from the started main
+            // executor (not test-only).
+            //
+            // R17 BUG: hardcoded symbol="BTCUSDT" and open/high/low/close/volume
+            // all = 0.0 for EVERY strategy, so every strategy saw the same
+            // zero-OHLC bar and the router could not observe any real regime.
+            // R18 fix: use the strategy's ACTUAL symbol and a real reference
+            // price (the latest market tick for that symbol) so each strategy
+            // observes its own completed price path.
+            let strategy_symbol = strategy_config
+                .get("symbol")
+                .and_then(serde_json::Value::as_str)
+                .unwrap_or("BTCUSDT")
+                .to_string();
             for tick in market_ticks.iter() {
+                if tick.symbol != strategy_symbol {
+                    continue;
+                }
+                let price_f64 = tick.price.to_f64().unwrap_or(0.0);
                 runtime.router_push_completed_1m(&backtest_engine::market_data::KlineBar {
-                    symbol: "BTCUSDT".to_string(),
+                    symbol: strategy_symbol.clone(),
                     open_time_ms: tick.event_time_ms,
-                    open: 0.0, high: 0.0, low: 0.0, close: 0.0, volume: 0.0,
+                    open: price_f64,
+                    high: price_f64,
+                    low: price_f64,
+                    close: price_f64,
+                    volume: 0.0,
                 });
             }
             let now_ms_for_router = market_ticks.first().map(|t| t.event_time_ms).unwrap_or(0);
