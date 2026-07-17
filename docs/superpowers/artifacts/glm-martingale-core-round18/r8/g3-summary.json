@@ -1,0 +1,77 @@
+{
+  "phase": "R8 G3 anchored validation",
+  "family": "M1_pair",
+  "folds_validated": [
+    "F2",
+    "F3",
+    "F4"
+  ],
+  "n_finalists_in": 8,
+  "validation_read_once": true,
+  "n_survivors": 0,
+  "n_eliminated": 8,
+  "finalists": [],
+  "eliminated": [
+    {
+      "config_id": "M1_068",
+      "budget": 1000,
+      "reasons": [
+        "dd>45"
+      ]
+    },
+    {
+      "config_id": "M1_067",
+      "budget": 1000,
+      "reasons": [
+        "dd>45",
+        "two_folds_negative"
+      ]
+    },
+    {
+      "config_id": "M1_007",
+      "budget": 2000,
+      "reasons": [
+        "dd>45",
+        "two_folds_negative"
+      ]
+    },
+    {
+      "config_id": "M1_042",
+      "budget": 1000,
+      "reasons": [
+        "dd>45",
+        "two_folds_negative"
+      ]
+    },
+    {
+      "config_id": "M1_085",
+      "budget": 1000,
+      "reasons": [
+        "dd>45",
+        "two_folds_negative"
+      ]
+    },
+    {
+      "config_id": "M1_028",
+      "budget": 1000,
+      "reasons": [
+        "two_folds_negative"
+      ]
+    },
+    {
+      "config_id": "M1_044",
+      "budget": 1000,
+      "reasons": [
+        "dd>45",
+        "two_folds_negative"
+      ]
+    },
+    {
+      "config_id": "M1_070",
+      "budget": 1000,
+      "reasons": [
+        "two_folds_negative"
+      ]
+    }
+  ]
+}

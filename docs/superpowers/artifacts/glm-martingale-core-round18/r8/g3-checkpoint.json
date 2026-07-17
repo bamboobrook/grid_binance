@@ -1,0 +1,700 @@
+{
+  "done": {
+    "M1_068|1000|F2": {
+      "wall_s": 4.5,
+      "ann": 81.96124038508488,
+      "dd": 62.397717866739114,
+      "trade_count": 96,
+      "breach": false,
+      "fee_quote": 1.7672790937500005,
+      "funding_quote": -139.1208807220341,
+      "group_fo": [
+        1,
+        1,
+        6,
+        3
+      ],
+      "group_so": [
+        4,
+        4,
+        13,
+        5
+      ],
+      "groups_with_so": 9,
+      "group_atomic_reject": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "status": "complete",
+      "fold": "F2"
+    },
+    "M1_068|1000|F3": {
+      "wall_s": 3.0,
+      "ann": 32.680463967965245,
+      "dd": 37.67603888711775,
+      "trade_count": 70,
+      "breach": false,
+      "fee_quote": 1.3810608000000002,
+      "funding_quote": 0.6644753652881056,
+      "group_fo": [
+        1,
+        2,
+        4
+      ],
+      "group_so": [
+        1,
+        7,
+        13
+      ],
+      "groups_with_so": 7,
+      "group_atomic_reject": [
+        0,
+        0,
+        0
+      ],
+      "status": "complete",
+      "fold": "F3"
+    },
+    "M1_068|1000|F4": {
+      "wall_s": 2.9,
+      "ann": -40.781548510593005,
+      "dd": 46.00824316447654,
+      "trade_count": 64,
+      "breach": false,
+      "fee_quote": 1.228973175,
+      "funding_quote": 20.34234908546815,
+      "group_fo": [
+        4,
+        1,
+        1,
+        1
+      ],
+      "group_so": [
+        9,
+        1,
+        4,
+        4
+      ],
+      "groups_with_so": 6,
+      "group_atomic_reject": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "status": "complete",
+      "fold": "F4"
+    },
+    "M1_067|1000|F2": {
+      "wall_s": 3.8,
+      "ann": 69.3111588574959,
+      "dd": 60.10732471033637,
+      "trade_count": 90,
+      "breach": false,
+      "fee_quote": 1.35863325,
+      "funding_quote": -134.2963932601518,
+      "group_fo": [
+        2,
+        2,
+        4,
+        4
+      ],
+      "group_so": [
+        3,
+        6,
+        8,
+        4
+      ],
+      "groups_with_so": 8,
+      "group_atomic_reject": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "status": "complete",
+      "fold": "F2"
+    },
+    "M1_067|1000|F3": {
+      "wall_s": 2.7,
+      "ann": -5.959768424554701,
+      "dd": 29.550766066197653,
+      "trade_count": 72,
+      "breach": false,
+      "fee_quote": 0.93104775,
+      "funding_quote": -4.437948535950076,
+      "group_fo": [
+        2,
+        4,
+        5
+      ],
+      "group_so": [
+        2,
+        3,
+        9
+      ],
+      "groups_with_so": 7,
+      "group_atomic_reject": [
+        0,
+        0,
+        0
+      ],
+      "status": "complete",
+      "fold": "F3"
+    },
+    "M1_067|1000|F4": {
+      "wall_s": 1.4,
+      "ann": -55.54562413234514,
+      "dd": 38.67103169207816,
+      "trade_count": 40,
+      "breach": false,
+      "fee_quote": 0.7163505000000001,
+      "funding_quote": 16.017595585087548,
+      "group_fo": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "group_so": [
+        3,
+        3,
+        3,
+        3
+      ],
+      "groups_with_so": 4,
+      "group_atomic_reject": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "status": "complete",
+      "fold": "F4"
+    },
+    "M1_007|2000|F2": {
+      "wall_s": 3.4,
+      "ann": 61.7511064510051,
+      "dd": 45.65931703403128,
+      "trade_count": 160,
+      "breach": false,
+      "fee_quote": 3.386812500000001,
+      "funding_quote": -207.99190501875185,
+      "group_fo": [
+        2,
+        1,
+        7,
+        11
+      ],
+      "group_so": [
+        4,
+        4,
+        13,
+        17
+      ],
+      "groups_with_so": 13,
+      "group_atomic_reject": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "status": "complete",
+      "fold": "F2"
+    },
+    "M1_007|2000|F3": {
+      "wall_s": 2.6,
+      "ann": -2.6830825551136583,
+      "dd": 26.900768985757534,
+      "trade_count": 72,
+      "breach": false,
+      "fee_quote": 1.6385625,
+      "funding_quote": -5.742731099999952,
+      "group_fo": [
+        1,
+        3,
+        4
+      ],
+      "group_so": [
+        2,
+        4,
+        14
+      ],
+      "groups_with_so": 7,
+      "group_atomic_reject": [
+        0,
+        0,
+        0
+      ],
+      "status": "complete",
+      "fold": "F3"
+    },
+    "M1_007|2000|F4": {
+      "wall_s": 1.4,
+      "ann": -53.11093081476568,
+      "dd": 37.327327168107374,
+      "trade_count": 48,
+      "breach": false,
+      "fee_quote": 1.42425,
+      "funding_quote": 31.983042206250033,
+      "group_fo": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "group_so": [
+        4,
+        4,
+        4,
+        4
+      ],
+      "groups_with_so": 4,
+      "group_atomic_reject": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "status": "complete",
+      "fold": "F4"
+    },
+    "M1_042|1000|F2": {
+      "wall_s": 3.3,
+      "ann": 72.48043314670107,
+      "dd": 51.0633597636248,
+      "trade_count": 116,
+      "breach": false,
+      "fee_quote": 1.5012458999999998,
+      "funding_quote": -119.81060379163598,
+      "group_fo": [
+        1,
+        1,
+        5,
+        9
+      ],
+      "group_so": [
+        4,
+        4,
+        10,
+        8
+      ],
+      "groups_with_so": 10,
+      "group_atomic_reject": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "status": "complete",
+      "fold": "F2"
+    },
+    "M1_042|1000|F3": {
+      "wall_s": 2.5,
+      "ann": -1.7499956316156529,
+      "dd": 28.562136582818425,
+      "trade_count": 60,
+      "breach": false,
+      "fee_quote": 0.9254965500000001,
+      "funding_quote": -0.303507869175059,
+      "group_fo": [
+        1,
+        2,
+        4
+      ],
+      "group_so": [
+        1,
+        2,
+        13
+      ],
+      "groups_with_so": 6,
+      "group_atomic_reject": [
+        0,
+        0,
+        0
+      ],
+      "status": "complete",
+      "fold": "F3"
+    },
+    "M1_042|1000|F4": {
+      "wall_s": 1.4,
+      "ann": -37.96235514476957,
+      "dd": 37.58957792617934,
+      "trade_count": 70,
+      "breach": false,
+      "fee_quote": 1.32266925,
+      "funding_quote": 18.184268316315002,
+      "group_fo": [
+        4,
+        1,
+        1,
+        1
+      ],
+      "group_so": [
+        9,
+        4,
+        4,
+        4
+      ],
+      "groups_with_so": 6,
+      "group_atomic_reject": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "status": "complete",
+      "fold": "F4"
+    },
+    "M1_085|1000|F2": {
+      "wall_s": 3.3,
+      "ann": 107.46727784380346,
+      "dd": 60.59378552477058,
+      "trade_count": 116,
+      "breach": false,
+      "fee_quote": 1.9507499999999993,
+      "funding_quote": -135.9782356874983,
+      "group_fo": [
+        2,
+        1,
+        9,
+        4
+      ],
+      "group_so": [
+        3,
+        3,
+        14,
+        6
+      ],
+      "groups_with_so": 12,
+      "group_atomic_reject": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "status": "complete",
+      "fold": "F2"
+    },
+    "M1_085|1000|F3": {
+      "wall_s": 2.5,
+      "ann": -4.132748984766965,
+      "dd": 50.76590495105263,
+      "trade_count": 74,
+      "breach": false,
+      "fee_quote": 1.312875,
+      "funding_quote": -10.394623124999852,
+      "group_fo": [
+        1,
+        6,
+        3
+      ],
+      "group_so": [
+        3,
+        7,
+        7
+      ],
+      "groups_with_so": 7,
+      "group_atomic_reject": [
+        0,
+        0,
+        0
+      ],
+      "status": "complete",
+      "fold": "F3"
+    },
+    "M1_085|1000|F4": {
+      "wall_s": 1.3,
+      "ann": -76.80530072316847,
+      "dd": 60.20851342944893,
+      "trade_count": 60,
+      "breach": false,
+      "fee_quote": 1.0125000000000002,
+      "funding_quote": 21.203626425000067,
+      "group_fo": [
+        2,
+        2,
+        4,
+        1
+      ],
+      "group_so": [
+        3,
+        3,
+        3,
+        3
+      ],
+      "groups_with_so": 4,
+      "group_atomic_reject": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "status": "complete",
+      "fold": "F4"
+    },
+    "M1_028|1000|F2": {
+      "wall_s": 3.4,
+      "ann": 49.45407417415575,
+      "dd": 40.73828806097753,
+      "trade_count": 116,
+      "breach": false,
+      "fee_quote": 1.3089600000000001,
+      "funding_quote": -85.07516432399879,
+      "group_fo": [
+        1,
+        1,
+        6,
+        10
+      ],
+      "group_so": [
+        3,
+        3,
+        8,
+        8
+      ],
+      "groups_with_so": 11,
+      "group_atomic_reject": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "status": "complete",
+      "fold": "F2"
+    },
+    "M1_028|1000|F3": {
+      "wall_s": 2.7,
+      "ann": -0.802752525684014,
+      "dd": 23.14461767088857,
+      "trade_count": 54,
+      "breach": false,
+      "fee_quote": 0.6788880000000002,
+      "funding_quote": -2.73706422720004,
+      "group_fo": [
+        1,
+        2,
+        4
+      ],
+      "group_so": [
+        1,
+        2,
+        10
+      ],
+      "groups_with_so": 6,
+      "group_atomic_reject": [
+        0,
+        0,
+        0
+      ],
+      "status": "complete",
+      "fold": "F3"
+    },
+    "M1_028|1000|F4": {
+      "wall_s": 1.4,
+      "ann": -35.35822548314259,
+      "dd": 27.473669917094956,
+      "trade_count": 40,
+      "breach": false,
+      "fee_quote": 0.5797439999999999,
+      "funding_quote": 13.007293886399966,
+      "group_fo": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "group_so": [
+        3,
+        3,
+        3,
+        3
+      ],
+      "groups_with_so": 4,
+      "group_atomic_reject": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "status": "complete",
+      "fold": "F4"
+    },
+    "M1_044|1000|F2": {
+      "wall_s": 3.4,
+      "ann": 71.67788421320735,
+      "dd": 61.92004747458054,
+      "trade_count": 92,
+      "breach": false,
+      "fee_quote": 1.4837208750000006,
+      "funding_quote": -140.500859404839,
+      "group_fo": [
+        1,
+        1,
+        6,
+        3
+      ],
+      "group_so": [
+        3,
+        3,
+        14,
+        4
+      ],
+      "groups_with_so": 9,
+      "group_atomic_reject": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "status": "complete",
+      "fold": "F2"
+    },
+    "M1_044|1000|F3": {
+      "wall_s": 2.6,
+      "ann": -6.647966643554248,
+      "dd": 33.4276146336574,
+      "trade_count": 44,
+      "breach": false,
+      "fee_quote": 0.713370375,
+      "funding_quote": -5.650953915525077,
+      "group_fo": [
+        1,
+        2,
+        2
+      ],
+      "group_so": [
+        2,
+        4,
+        6
+      ],
+      "groups_with_so": 5,
+      "group_atomic_reject": [
+        0,
+        0,
+        0
+      ],
+      "status": "complete",
+      "fold": "F3"
+    },
+    "M1_044|1000|F4": {
+      "wall_s": 1.4,
+      "ann": -50.87685668770581,
+      "dd": 38.6954842374645,
+      "trade_count": 40,
+      "breach": false,
+      "fee_quote": 0.7163505000000001,
+      "funding_quote": 16.239322924350045,
+      "group_fo": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "group_so": [
+        3,
+        3,
+        3,
+        3
+      ],
+      "groups_with_so": 4,
+      "group_atomic_reject": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "status": "complete",
+      "fold": "F4"
+    },
+    "M1_070|1000|F2": {
+      "wall_s": 3.6,
+      "ann": 54.12445082663149,
+      "dd": 42.26253882394635,
+      "trade_count": 108,
+      "breach": false,
+      "fee_quote": 1.28840625,
+      "funding_quote": -92.64529451250058,
+      "group_fo": [
+        1,
+        1,
+        5,
+        9
+      ],
+      "group_so": [
+        3,
+        3,
+        9,
+        7
+      ],
+      "groups_with_so": 10,
+      "group_atomic_reject": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "status": "complete",
+      "fold": "F2"
+    },
+    "M1_070|1000|F3": {
+      "wall_s": 2.5,
+      "ann": -1.974219352925155,
+      "dd": 24.282066209104343,
+      "trade_count": 54,
+      "breach": false,
+      "fee_quote": 0.71128125,
+      "funding_quote": -2.135641359375043,
+      "group_fo": [
+        1,
+        2,
+        4
+      ],
+      "group_so": [
+        1,
+        2,
+        10
+      ],
+      "groups_with_so": 6,
+      "group_atomic_reject": [
+        0,
+        0,
+        0
+      ],
+      "status": "complete",
+      "fold": "F3"
+    },
+    "M1_070|1000|F4": {
+      "wall_s": 1.4,
+      "ann": -38.77359536098935,
+      "dd": 30.234642415393147,
+      "trade_count": 40,
+      "breach": false,
+      "fee_quote": 0.658125,
+      "funding_quote": 14.528511956250007,
+      "group_fo": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "group_so": [
+        3,
+        3,
+        3,
+        3
+      ],
+      "groups_with_so": 4,
+      "group_atomic_reject": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "status": "complete",
+      "fold": "F4"
+    }
+  }
+}

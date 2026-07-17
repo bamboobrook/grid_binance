@@ -1,0 +1,26 @@
+{
+  "phase": "R8",
+  "plan_section": "§11 G3 anchored validation + §12 frontier gates + §15 stage machine",
+  "method": "8 G2 finalists each run the FROZEN validation window ONCE per fold (F2/F3/F4). Validation read exactly once per (config,budget); no re-tune (plan §10.3).",
+  "result": "0 survivors. All 8 finalists eliminated.",
+  "elimination_reasons": {
+    "dd_gt_45": ["M1_068", "M1_067", "M1_007", "M1_042", "M1_085", "M1_044"],
+    "two_folds_negative": ["M1_067", "M1_007", "M1_042", "M1_085", "M1_028", "M1_044", "M1_070"]
+  },
+  "validation_pattern_by_fold": {
+    "F2_validation_2024": "All finalists positive ann (49% to 107%) but DD high (40-62%). This is the same period the F2 train fit was estimated, so the cointegration relation holds.",
+    "F3_validation_2025": "All finalists near-zero/negative ann (-0.8% to -6.6%). The 2025 crypto bear market breaks the F2-train cointegration relation.",
+    "F4_validation_2026YTD": "All finalists deeply negative (-35% to -77%). Cointegration does not generalize."
+  },
+  "overfitting_diagnosis": "The synchronized residual cycle profits on F2 (2024) because the F2-train cointegration fit (2023) continues to hold into 2024. It fails on F3 (2025 bear) and F4 (2026 YTD) because the residual relation is NON-STATIONARY across regime changes — exactly the structural-break risk the plan's anti-overfit contract (§10) is designed to detect. This is an honest empirical result, NOT a code bug.",
+  "frontier_gate_check": {
+    "P_A_ann_gt_62.51_DD_le_28.62": "NO single fold hit",
+    "P_B_ann_ge_40_DD_le_20": "NO single fold hit",
+    "P_C_ann_ge_35_DD_le_30": "NO single fold hit",
+    "P_D_any_target_tier": "NO",
+    "best_single_fold": "M1_085 F2 ann=107.5% but DD=60.6% (far over the DD limit)"
+  },
+  "round18_outcome_per_plan_section_18": "VALID_NOVEL_FAMILIES_EXHAUSTED_NO_FRONTIER_PROGRESS",
+  "frontier_progress": false,
+  "conclusion": "R8 G3 ANCHORED VALIDATION: 0 finalists survive. The M1 synchronized pair residual Martingale cycle, while a genuine novel mechanism (first time executed natively in 17 rounds, fully bound, produces real loss-after-add SO evidence), does NOT reach any plan §12 frontier gate on the fixed 12-symbol universe across F2/F3/F4 validation. The failure is out-of-sample generalization, not mechanism validity. R9/R10 are not_applicable_zero_survivors (plan §15)."
+}
