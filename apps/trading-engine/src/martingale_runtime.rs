@@ -164,6 +164,42 @@ pub struct MartingaleRuntime {
     /// Round 16 R1-B: per-strategy cycle age + deadline state (half-life
     /// bucket, deadline_ms, freeze/reduce flag). Persisted on restart.
     cycle_hazard_state: HashMap<String, CycleHazardState>,
+    /// Round 18 R3.2: synchronized residual Martingale cycle production state.
+    /// `sync_fits` holds train-frozen (beta,mu,sigma) per group; the live loop
+    /// never re-fits. `sync_completed_bars` is the completed-bar buffer per
+    /// group; current bars never enter residual computation. `sync_active_cycles`
+    /// holds the live aggregate cycle state per group (persisted on restart).
+    sync_fits: HashMap<String, backtest_engine::martingale::sync_cycle_engine::SynchronizedFit>,
+    sync_completed_bars: HashMap<String, Vec<(String, i64, f64)>>,
+    sync_active_cycles: HashMap<String, SyncActiveCycle>,
+}
+
+/// Round 18 R3.2: live synchronized cycle state (mirrors the backtest's
+/// SynchronizedCycleState at the aggregate level). Persisted to SQLite so
+/// restart + exchange reconcile does not duplicate FO/SO or drop TP.
+#[derive(Debug, Clone, Default)]
+pub struct SyncActiveCycle {
+    pub cycle_id: String,
+    pub cycle_seq: u64,
+    pub opened_at_ms: i64,
+    pub last_fill_at_ms: i64,
+    pub residual_z_at_open: f64,
+    pub last_residual_z: f64,
+    pub depth: u32,
+    pub aggregate_open_notional_quote: f64,
+    pub aggregate_realized_pnl_quote: f64,
+}
+
+/// Round 18 R3.2: the synchronized decision returned to the executor at a
+/// completed boundary. The executor maps this to N real order intents with
+/// deterministic tie-break and applies the exchange adapter's partial-fill /
+/// rejection policy (plan §14).
+#[derive(Debug, Clone)]
+pub enum SyncCycleDecision {
+    Hold,
+    Open { entry_sign: i8, residual_z: f64 },
+    SafetyOrder { layer: u32, residual_z: f64 },
+    TakeProfit { residual_z: f64 },
 }
 
 /// Round 16 R1-B: hazard/deadline state for one strategy's live cycle.
@@ -246,6 +282,9 @@ impl MartingaleRuntime {
             regime_router,
             current_regime_by_symbol: HashMap::new(),
             cycle_hazard_state: HashMap::new(),
+            sync_fits: HashMap::new(),
+            sync_completed_bars: HashMap::new(),
+            sync_active_cycles: HashMap::new(),
         })
     }
 
@@ -334,6 +373,124 @@ impl MartingaleRuntime {
     pub fn cycle_hazard_restore(&mut self, state: HashMap<String, CycleHazardState>) {
         self.cycle_hazard_state = state;
     }
+
+    // ----- Round 18 R3.2: synchronized residual Martingale cycle production
+    // parity skeleton (plan §14). These are the started-call-site entry points
+    // the live executor uses to drive the SAME synchronized-cycle machine
+    // definition as the backtest engine (R2). Real service parity (started
+    // service + fake exchange + SQLite restart/reconcile) is exercised in R10.
+
+    /// Push a completed 1m Kline for a synchronized group's leg symbol. The
+    /// residual state is updated ONLY on completed-bar boundaries; the current
+    /// bar is never visible (plan §1 hard gate 6 + §14).
+    pub fn sync_cycle_push_completed(&mut self, group_id: &str, bar: &KlineBar) {
+        self.sync_completed_bars
+            .entry(group_id.to_string())
+            .or_default()
+            .push((bar.symbol.clone(), bar.open_time_ms, bar.close));
+    }
+
+    /// Compute the train-frozen residual z for a synchronized group at the
+    /// last completed boundary, using the train-frozen (beta, mu, sigma). The
+    /// fit must be pre-loaded via [`sync_cycle_load_fit`]; validation/future
+    /// bars are never used to re-fit.
+    pub fn sync_cycle_residual_state(&self, group_id: &str) -> Option<f64> {
+        let fit = self.sync_fits.get(group_id)?;
+        let bars = self.sync_completed_bars.get(group_id)?;
+        if fit.legs.len() < 2 || bars.len() < fit.legs.len() {
+            return None;
+        }
+        // take the latest close per leg symbol at the common boundary
+        let mut marks: HashMap<String, f64> = HashMap::new();
+        let mut last_ts = 0i64;
+        for (sym, ts, close) in bars.iter().rev() {
+            if ts > &last_ts {
+                last_ts = *ts;
+            }
+            marks.entry(sym.clone()).or_insert(*close);
+            if marks.len() == fit.legs.len() {
+                break;
+            }
+        }
+        if marks.len() < fit.legs.len() {
+            return None;
+        }
+        if fit.legs.len() == 2 {
+            // M1 pair residual: log(legs[1]) - beta*log(legs[0]) - mu
+            let p_dep = *marks.get(&fit.legs[1])?;
+            let p_fac = *marks.get(&fit.legs[0])?;
+            if p_dep <= 0.0 || p_fac <= 0.0 || fit.residual_sigma <= 0.0 {
+                return None;
+            }
+            let r = p_dep.ln() - fit.betas[0] * p_fac.ln() - fit.mus[0];
+            Some(r / fit.residual_sigma)
+        } else {
+            None // M2 basket residual computed in the decide step (needs factor)
+        }
+    }
+
+    /// Synchronized cycle decision at the completed boundary. Returns an intent
+    /// descriptor the executor turns into N real order intents with deterministic
+    /// tie-break. Implements plan §2 machine definition: open/SO/TP/abort gated
+    /// on aggregate cycle net PnL and residual z.
+    pub fn sync_cycle_decide(
+        &mut self,
+        group_id: &str,
+        z: Option<f64>,
+        aggregate_net_pnl_quote: f64,
+        cfg: &shared_domain::martingale::SynchronizedCycleConfig,
+    ) -> SyncCycleDecision {
+        let z = match z {
+            Some(v) => v,
+            None => return SyncCycleDecision::Hold,
+        };
+        let active = self.sync_active_cycles.get(group_id).is_some();
+        if !active && z.abs() >= cfg.entry_z {
+            return SyncCycleDecision::Open { entry_sign: z.signum() as i8, residual_z: z };
+        }
+        if active {
+            let cycle = self.sync_active_cycles.get(group_id).unwrap();
+            let depth = cycle.depth;
+            if depth >= 1
+                && aggregate_net_pnl_quote > cycle.aggregate_open_notional_quote * cfg.tp_net_bps_floor as f64 / 10_000.0
+                && z.abs() <= cfg.exit_z
+            {
+                return SyncCycleDecision::TakeProfit { residual_z: z };
+            }
+            if aggregate_net_pnl_quote < 0.0 && depth < cfg.max_legs as u32 {
+                let entry_sign = cycle.residual_z_at_open.signum();
+                if (z - cycle.last_residual_z) * entry_sign >= cfg.so_residual_step_z {
+                    return SyncCycleDecision::SafetyOrder { layer: depth, residual_z: z };
+                }
+            }
+        }
+        SyncCycleDecision::Hold
+    }
+
+    /// Load a train-frozen SynchronizedFit for a group (restart-restore path).
+    pub fn sync_cycle_load_fit(
+        &mut self,
+        group_id: &str,
+        fit: backtest_engine::martingale::sync_cycle_engine::SynchronizedFit,
+    ) {
+        self.sync_fits.insert(group_id.to_string(), fit);
+    }
+
+    /// Persist the synchronized cycle state (SQLite in R10; here in-memory).
+    pub fn sync_cycle_persist_state(&mut self, group_id: &str, state: Option<SyncActiveCycle>) {
+        match state {
+            Some(s) => { self.sync_active_cycles.insert(group_id.to_string(), s); }
+            None => { self.sync_active_cycles.remove(group_id); }
+        }
+    }
+
+    /// Round 18 R3.2: read-only snapshot of the active synchronized cycle for
+    /// a group (used by the live executor to compute aggregate net PnL before
+    /// the decide step). Returns None when no cycle is active.
+    pub fn sync_active_cycles_snapshot(&self, group_id: &str) -> Option<&SyncActiveCycle> {
+        self.sync_active_cycles.get(group_id)
+    }
+
 
     pub fn warmup_indicators_from_bars(&mut self, bars: Vec<KlineBar>) {
         for bar in &bars {

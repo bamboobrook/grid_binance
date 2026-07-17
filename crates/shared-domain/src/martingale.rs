@@ -369,6 +369,12 @@ pub struct MartingaleRiskLimits {
     /// Round 17 A1: realized-vol monotone risk cap.
     #[serde(default)]
     pub r17_vol_cap: Option<R17VolCapConfig>,
+    /// Round 18 R2: native synchronized residual Martingale cycle config.
+    /// When present, the portfolio is executed as one or more synchronized
+    /// pair/basket residual cycles (M1/M2 families) instead of independent
+    /// per-symbol cycles. All fields participate in the effective config hash.
+    #[serde(default)]
+    pub synchronized_cycle: Option<SynchronizedCycleConfig>,
 }
 
 /// Round 17 shared router: asymmetric regime admission driven by completed
@@ -454,6 +460,103 @@ pub struct R17VolCapConfig {
 
 impl Default for R17VolCapConfig {
     fn default() -> Self { Self { completed_window_h: 72, risk_fraction: 0.35 } }
+}
+
+/// Round 18 R2: native synchronized residual Martingale cycle config (plan §7/§8).
+///
+/// Implements the M1 synchronized pair cycle and the M2 market-factor residual
+/// basket as a single aggregate cycle:
+///   - residual computed on completed bar boundary from train-frozen
+///     (beta, mu, sigma): `residual = log(A) - beta*log(B) - mu` (M1) or
+///     `residual = log(symbol_i) - beta_i*factor - mu_i` (M2);
+///   - all legs open FO at the same timestamp when residual z crosses `entry_z`;
+///   - all surviving legs add SO in lockstep when aggregate cycle net PnL < 0
+///     AND residual moves adversely by `so_residual_step_z`;
+///   - all legs TP/reduce together on aggregate net PnL > `tp_net_bps_floor`
+///     AND residual enters exit region;
+///   - abort only on cointegration break / deadline / atomic rejection.
+///
+/// `multiplier > 1.0` is required and at least one SO must be possible. A config
+/// that never produces a real SO is `not_martingale` (plan §2/§7.3).
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct SynchronizedCycleConfig {
+    /// Family: "M1_pair" or "M2_basket".
+    pub family: String,
+    /// Completed-bar boundary granularity in minutes (1 or 5). Residual is
+    /// evaluated only at this boundary; the current bar is never visible.
+    pub bar_boundary_minutes: u32,
+    /// Train-only fit lookback in days used to estimate (beta, mu, sigma).
+    /// Validation never re-fits.
+    pub fit_lookback_days: u32,
+    /// Entry threshold in residual z units (|z| >= entry_z opens a cycle).
+    pub entry_z: f64,
+    /// Per-SO adverse residual step in z units. SO fires only when aggregate
+    /// cycle net PnL < 0 AND residual moved adversely by >= this step since
+    /// the last fill.
+    pub so_residual_step_z: f64,
+    /// Group first-order quote (USDT) per pair/basket, split dollar-beta
+    /// neutral across the legs.
+    pub group_fo_quote: f64,
+    /// SO notional multiplier (>1.0 required). Each SO layer multiplies the
+    /// previous layer's per-leg notional by this factor.
+    pub multiplier: f64,
+    /// Maximum synchronized legs (FO + SOs). `max_legs >= 2` so SO is possible.
+    pub max_legs: u32,
+    /// Exit residual z region: TP/reduce allowed when |residual z| <= exit_z.
+    pub exit_z: f64,
+    /// TP net bps floor: aggregate cycle must exceed this net of fee/funding/
+    /// slippage before TP can fire.
+    pub tp_net_bps_floor: u32,
+    /// Per-leg leverage (futures). Affects margin = notional / leverage.
+    pub leverage: u32,
+    /// Group gross cap as percent of budget (12/18/25). Caps aggregate notional.
+    pub group_gross_cap_pct: f64,
+    /// M1 only: pre-declared, train-fit-frozen pairs (A, B).
+    #[serde(default)]
+    pub pairs: Vec<(String, String)>,
+    /// M2 only: factor name, "BTC" (BTC factor) or "PC1" (train PC1).
+    #[serde(default)]
+    pub factor: Option<String>,
+    /// M2 only: basket symbols (>=6). Each leg = a residual against the factor.
+    #[serde(default)]
+    pub basket_symbols: Vec<String>,
+    /// Optional cycle deadline in hours. A cycle older than this must abort via
+    /// aggregate reduce/close (loss enters equity). None = no deadline.
+    #[serde(default)]
+    pub cycle_deadline_h: Option<u32>,
+    /// Optional M4/M5 enhancement flags (R5 unlocks these; R2 parent control).
+    #[serde(default)]
+    pub inventory_reservation_skew_k: Option<f64>,
+    #[serde(default)]
+    pub jump_first_passage_gate: Option<bool>,
+    #[serde(default)]
+    pub regime_envelope: Option<String>,
+}
+
+impl Default for SynchronizedCycleConfig {
+    fn default() -> Self {
+        Self {
+            family: "M1_pair".to_string(),
+            bar_boundary_minutes: 1,
+            fit_lookback_days: 60,
+            entry_z: 1.5,
+            so_residual_step_z: 0.40,
+            group_fo_quote: 30.0,
+            multiplier: 1.35,
+            max_legs: 4,
+            exit_z: 0.25,
+            tp_net_bps_floor: 40,
+            leverage: 3,
+            group_gross_cap_pct: 18.0,
+            pairs: Vec::new(),
+            factor: None,
+            basket_symbols: Vec::new(),
+            cycle_deadline_h: None,
+            inventory_reservation_skew_k: None,
+            jump_first_passage_gate: None,
+            regime_envelope: None,
+        }
+    }
 }
 
 /// Round 14 P3: Cross-sectional selector configuration.

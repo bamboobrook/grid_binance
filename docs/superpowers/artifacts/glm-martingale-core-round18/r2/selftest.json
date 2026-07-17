@@ -1,0 +1,141 @@
+{
+  "phase": "R2.3 synchronized-cycle engine self-test",
+  "pair": "BTCUSDT/ETHUSDT",
+  "train_window": "2023-01-01..2023-06-30 (F1 train)",
+  "val_window": "1688774400000..1696550400000 (30d slice)",
+  "fit": {
+    "beta": 1.2931105182338976,
+    "mu": 0.504804399573608,
+    "sigma": 0.037021504458913904,
+    "half_life_h": 142.0094832973937,
+    "fit_sha256": "75f8087fce63f007454fb311e8856083630094448b47b2cde05842763f11dc83"
+  },
+  "verdict": {
+    "mechanism_produces_fo": true,
+    "at_least_one_so_genuine_martingale": true,
+    "no_breach_at_4999u": true,
+    "all_ok": true
+  },
+  "results": [
+    {
+      "name": "base",
+      "ok": true,
+      "wall_s": 0.2,
+      "ann": -0.4167577447890647,
+      "dd": 0.15540331493558263,
+      "trade_count": 6,
+      "group_fo": [
+        1
+      ],
+      "group_so": [
+        1
+      ],
+      "group_tp": [
+        0
+      ],
+      "group_atomic_reject": [
+        0
+      ],
+      "groups_with_so": 1,
+      "breach": false,
+      "event_count": 543,
+      "resolved_config_sha256": "fd73120f91aada5b7f2be640085719ec1c8085faa3aea297f788b0b0121aac47"
+    },
+    {
+      "name": "tight_step",
+      "ok": true,
+      "wall_s": 0.2,
+      "ann": -0.5572577545440938,
+      "dd": 0.1780024713284331,
+      "trade_count": 8,
+      "group_fo": [
+        1
+      ],
+      "group_so": [
+        2
+      ],
+      "group_tp": [
+        0
+      ],
+      "group_atomic_reject": [
+        0
+      ],
+      "groups_with_so": 1,
+      "breach": false,
+      "event_count": 544,
+      "resolved_config_sha256": "8f206d41ea07d4fd01e62ae39a931cb2770c221530f291d3be5dc2b0476f595f"
+    },
+    {
+      "name": "deep_legs",
+      "ok": true,
+      "wall_s": 0.3,
+      "ann": -0.4417651740943218,
+      "dd": 0.15540331493558263,
+      "trade_count": 6,
+      "group_fo": [
+        1
+      ],
+      "group_so": [
+        1
+      ],
+      "group_tp": [
+        0
+      ],
+      "group_atomic_reject": [
+        0
+      ],
+      "groups_with_so": 1,
+      "breach": false,
+      "event_count": 543,
+      "resolved_config_sha256": "c09b1fc64a0da52c2ebf030a3df5df8e0b25becae604e3fed72c2a87cfbe962c"
+    },
+    {
+      "name": "low_entry",
+      "ok": true,
+      "wall_s": 0.2,
+      "ann": -0.5657505869460122,
+      "dd": 0.18010102118378157,
+      "trade_count": 8,
+      "group_fo": [
+        1
+      ],
+      "group_so": [
+        2
+      ],
+      "group_tp": [
+        0
+      ],
+      "group_atomic_reject": [
+        0
+      ],
+      "groups_with_so": 1,
+      "breach": false,
+      "event_count": 544,
+      "resolved_config_sha256": "d5d2aed19bae963358219512a5326fa6c6d2fc37e78c54107f972d234b0d3912"
+    },
+    {
+      "name": "low_tp_high_entry",
+      "ok": true,
+      "wall_s": 0.2,
+      "ann": -0.5572577545440938,
+      "dd": 0.1780024713284331,
+      "trade_count": 8,
+      "group_fo": [
+        1
+      ],
+      "group_so": [
+        2
+      ],
+      "group_tp": [
+        0
+      ],
+      "group_atomic_reject": [
+        0
+      ],
+      "groups_with_so": 1,
+      "breach": false,
+      "event_count": 544,
+      "resolved_config_sha256": "fa3e547ad65525d538316a581d2491fd9cc8e75cab437d66fcb92945c740cf78"
+    }
+  ]
+}

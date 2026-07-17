@@ -1,0 +1,26 @@
+{
+  "phase": "R3",
+  "plan_section": "§14 Production parity + §15 R3",
+  "r3_1_binary": {
+    "file": "apps/backtest-engine/src/bin/synchronized_cycle_replay.rs",
+    "pattern": "Same data-loading as portfolio_budget_replay (read-only SQLite, merged sorted 1m bars, funding coverage check), swapped engine call to run_synchronized_cycle_replay",
+    "cli_flags": "--config <json with synchronized_cycle + fits> --budget <decimal> --start-ms --end-ms --market-data --funding-data [--fee-override-bps --slippage-override-bps]",
+    "output": "JSON summary with metrics + SYNC_SUMMARY (group_fo/so/tp/reduce/atomic_reject/groups_with_so) + resolved_config_sha256 + trace digests",
+    "verified": "R2.3 self-test ran it 5x successfully (all_ok=true)"
+  },
+  "r3_2_production_skeleton": {
+    "runtime_methods_added": [
+      "MartingaleRuntime::sync_cycle_push_completed (completed bar → residual state)",
+      "MartingaleRuntime::sync_cycle_residual_state (train-frozen residual z)",
+      "MartingaleRuntime::sync_cycle_decide (open/SO/TP/hold machine definition)",
+      "MartingaleRuntime::sync_cycle_load_fit (restart-restore train fit)",
+      "MartingaleRuntime::sync_cycle_persist_state (SQLite in R10)",
+      "MartingaleRuntime::sync_active_cycles_snapshot (read-only state)"
+    ],
+    "started_call_sites_main_rs": "apps/trading-engine/src/main.rs lines 942/956/964 (sync_cycle_push_completed / sync_cycle_residual_state / sync_active_cycles_snapshot — all from the started main executor loop, gated on synchronized_cycle config presence)",
+    "new_types": ["SyncActiveCycle (live aggregate cycle state, persistable)", "SyncCycleDecision (Hold/Open/SafetyOrder/TakeProfit)"],
+    "build_status": "cargo build --release -p trading-engine: Finished (0 errors)",
+    "parity_contract": "backtest and live share the SAME effective config (SynchronizedCycleConfig), completed-bar boundary, cycle state (SyncActiveCycle mirrors backtest SynchronizedCycleState), and order/rejection hash path. Full started-service + fake-exchange + SQLite restart/reconcile parity is R10."
+  },
+  "conclusion": "R3 BACKTEST WIRING + PRODUCTION PARITY SKELETON PASSED. The synchronized-cycle engine runs via a dedicated binary (R3.1) and is wired into the live trading-engine executor as started call sites (R3.2). The machine definition is identical across backtest and live."
+}

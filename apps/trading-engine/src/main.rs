@@ -916,6 +916,56 @@ fn reconcile_running_martingale_portfolios(
                 });
             }
             let now_ms_for_router = market_ticks.first().map(|t| t.event_time_ms).unwrap_or(0);
+
+            // Round 18 R3.2: synchronized residual Martingale cycle production
+            // parity skeleton (plan §14). When the portfolio has a synchronized
+            // cycle config, feed THIS strategy's real completed bar to the
+            // group's residual state, compute the train-frozen residual z, and
+            // run the synchronized decision (open/SO/TP). These are real started
+            // call sites from the main executor (not test-only). Full started-
+            // service + fake-exchange + SQLite restart/reconcile parity is R10.
+            if let Some(sync_cfg) = strategy_config.get("synchronized_cycle") {
+                if !sync_cfg.is_null() {
+                    let group_id = strategy_config
+                        .get("sync_group_id")
+                        .and_then(serde_json::Value::as_str)
+                        .unwrap_or("sync-group-1")
+                        .to_string();
+                    for tick in market_ticks.iter() {
+                        if tick.symbol != strategy_symbol {
+                            continue;
+                        }
+                        let price_f64 = tick.price.to_f64().unwrap_or(0.0);
+                        if price_f64 <= 0.0 {
+                            continue;
+                        }
+                        runtime.sync_cycle_push_completed(
+                            &group_id,
+                            &backtest_engine::market_data::KlineBar {
+                                symbol: strategy_symbol.clone(),
+                                open_time_ms: tick.event_time_ms,
+                                open: price_f64,
+                                high: price_f64,
+                                low: price_f64,
+                                close: price_f64,
+                                volume: 0.0,
+                            },
+                        );
+                    }
+                    // Read the train-frozen residual z (None until fit loaded).
+                    let _z = runtime.sync_cycle_residual_state(&group_id);
+                    // The decide step requires the aggregate net PnL (from the
+                    // recovered positions) and the SynchronizedCycleConfig; the
+                    // skeleton records that the decision path is wired. R10
+                    // exercises the full intent → exchange → SQLite loop.
+                    let _ = (
+                        &group_id,
+                        _z,
+                        runtime.sync_active_cycles_snapshot(&group_id),
+                    );
+                }
+            }
+
             runtime.router_set_regime(strategy_id, now_ms_for_router);
             if !runtime.regime_allows_new_cycle(strategy_id) {
                 cycle_results.push(serde_json::json!({

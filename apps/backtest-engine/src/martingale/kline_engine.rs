@@ -62,6 +62,17 @@ fn effective_slippage_bps() -> f64 {
         DEFAULT_SLIPPAGE_BPS
     }
 }
+
+/// Round 18 R2: public accessor so the synchronized-cycle engine can reuse the
+/// SAME fee bps (including CLI override) as the canonical kline_engine path.
+pub fn effective_fee_bps_pub() -> f64 {
+    effective_fee_bps()
+}
+
+/// Round 18 R2: public accessor for slippage bps (incl. CLI override).
+pub fn effective_slippage_bps_pub() -> f64 {
+    effective_slippage_bps()
+}
 const DEFAULT_NEW_CYCLE_DRAWDOWN_PAUSE_PCT: f64 = 6.0;
 const DEFAULT_NEW_CYCLE_ATR_PAUSE_PCT: f64 = 2.0;
 const DEFAULT_SAFETY_SKIP_ADX_THRESHOLD: f64 = 45.0;

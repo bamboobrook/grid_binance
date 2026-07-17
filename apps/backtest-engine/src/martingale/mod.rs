@@ -17,5 +17,6 @@ pub mod kline_engine;
 pub mod metrics;
 pub mod r17_controls;
 pub mod scoring;
+pub mod sync_cycle_engine;
 pub mod trace_digest;
 pub mod trade_engine;
