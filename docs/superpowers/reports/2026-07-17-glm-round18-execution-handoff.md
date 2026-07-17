@@ -1,3 +1,8 @@
+> [!CAUTION]
+> `SUPERSEDED_BY_CHATGPT_AUDIT`：本报告的完成状态、回测数值和“新 family 已穷尽”结论已被
+> `docs/superpowers/reports/2026-07-17-chatgpt-round18-execution-audit-and-fix.md` 推翻。
+> 原文仅保留作历史记录，不得再用于候选、收益前沿或 production-ready 声明。
+
 # GLM Round 18 执行交接（原生同步残差 Martingale Cycle 计划）
 
 执行者：GLM。计划：`docs/superpowers/plans/2026-07-16-glm-martingale-core-round18-native-synchronized-residual-cycle-plan.md`

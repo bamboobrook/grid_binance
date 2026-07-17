@@ -1,0 +1,2255 @@
+{
+  "base_head_before_correction": "df27bab7210ba4cc8b2e727b61bd183cb68835c0",
+  "corrected_engine_source_sha256": "3550e8f4d63b7649f8d4d1f54a88e95dd9a5d65357e27fe2590003359ef95a32",
+  "corrected_machine_state": "materially_incomplete_invalid_results",
+  "funding_data_sha256": "4d77dbdeddc42f8bb800e4b784bc6eb3e77d5213212be4e8bd3226274a4e1114",
+  "generated_at_utc": "2026-07-17T06:11:02.786983+00:00",
+  "market_data_sha256": "e8dfbc17ff54a812008d5f4de3ad69b08d54b42872be9e548b015506fde5ff79",
+  "purpose": "Supersede invalid Round 18 G3 results produced by static long/long directions and incorrect Martingale accounting.",
+  "release_binary_sha256": "5b17cf1fbe3bd3cccac0609721cb970f163cf00c10ea91f20e0ddc0bffbb167b",
+  "rows": [
+    {
+      "budget": 2000,
+      "config_id": "M1_007",
+      "config_path": "docs/superpowers/artifacts/glm-martingale-core-round18/r8/configs/g3_M1_007_2000_F2.json",
+      "corrected": {
+        "actual_symbol_count": 6,
+        "actual_symbols": [
+          "BTCUSDT",
+          "ETHUSDT",
+          "LINKUSDT",
+          "LTCUSDT",
+          "TRXUSDT",
+          "XRPUSDT"
+        ],
+        "ann": -36.88532658309127,
+        "breach": false,
+        "command": [
+          "target/release/synchronized_cycle_replay",
+          "--config",
+          "docs/superpowers/artifacts/glm-martingale-core-round18/r8/configs/g3_M1_007_2000_F2.json",
+          "--budget",
+          "2000",
+          "--start-ms",
+          "1704662400000",
+          "--end-ms",
+          "1735689599999",
+          "--market-data",
+          "data/market_data_full.db",
+          "--funding-data",
+          "data/funding_rates_round12.db"
+        ],
+        "cycles_with_so": 18,
+        "dd": 75.12279853482978,
+        "exit_code": 0,
+        "fee_quote": 8.129411215458756,
+        "funding_quote": 12.685318566816775,
+        "group_atomic_reject": [
+          470519,
+          450314,
+          251628,
+          344969
+        ],
+        "group_fo": [
+          0,
+          1,
+          13,
+          16
+        ],
+        "group_reduce": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "group_so": [
+          0,
+          3,
+          20,
+          25
+        ],
+        "group_tp": [
+          0,
+          0,
+          12,
+          15
+        ],
+        "groups_with_so": 3,
+        "max_group_abs_net_pnl_share_pct": 65.16585693505226,
+        "max_symbol_abs_net_pnl_share_pct": 49.93752717200106,
+        "max_symbol_gross_share_pct": 28.79026685981875,
+        "max_symbol_positive_pnl_share_pct": 34.674402627761,
+        "min_equity": 518.1435267030968,
+        "resolved_config_sha256": "fa38b02baca74b94a15ce59c1915b48ac4578972caded267f122d348e47fe2a3",
+        "slippage_quote": 3.6130716513150025,
+        "status": "complete",
+        "trace_digests": {
+          "equity_stream_sha256": "6c2367b9d548e5c7b926c18b676b860059e101bb9c9c30c0d22283e4d34c99c8",
+          "event_stream_sha256": "b21eb261e98f6b0b7e5020b1051bbf972488ae2d8d19792b4807c89e44f88faa",
+          "funding_stream_sha256": "d1325584c2de311671f337eeee7d700a8fab9a34cfaf185a875a99204348d2b9",
+          "rejection_stream_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "trade_stream_sha256": "527f9d5b0f0128b1e28fcc3d6ee4c35bf66cfbc77b1c488f079fdbc6c7b5c219"
+        },
+        "trade_count": 216,
+        "wall_s": 4.8
+      },
+      "fold": "F2",
+      "key": "M1_007|2000|F2",
+      "old_claim": {
+        "ann": 61.7511064510051,
+        "breach": false,
+        "dd": 45.65931703403128,
+        "trade_count": 160
+      }
+    },
+    {
+      "budget": 2000,
+      "config_id": "M1_007",
+      "config_path": "docs/superpowers/artifacts/glm-martingale-core-round18/r8/configs/g3_M1_007_2000_F3.json",
+      "corrected": {
+        "actual_symbol_count": 6,
+        "actual_symbols": [
+          "BCHUSDT",
+          "BNBUSDT",
+          "ETHUSDT",
+          "LTCUSDT",
+          "TRXUSDT",
+          "XRPUSDT"
+        ],
+        "ann": 3.205616368469588,
+        "breach": false,
+        "command": [
+          "target/release/synchronized_cycle_replay",
+          "--config",
+          "docs/superpowers/artifacts/glm-martingale-core-round18/r8/configs/g3_M1_007_2000_F3.json",
+          "--budget",
+          "2000",
+          "--start-ms",
+          "1736294400000",
+          "--end-ms",
+          "1767225599999",
+          "--market-data",
+          "data/market_data_full.db",
+          "--funding-data",
+          "data/funding_rates_round12.db"
+        ],
+        "cycles_with_so": 11,
+        "dd": 18.19815251794795,
+        "exit_code": 0,
+        "fee_quote": 4.337992680642897,
+        "funding_quote": -17.258465099485125,
+        "group_atomic_reject": [
+          104756,
+          204665,
+          241331
+        ],
+        "group_fo": [
+          4,
+          7,
+          4
+        ],
+        "group_reduce": [
+          0,
+          0,
+          0
+        ],
+        "group_so": [
+          7,
+          10,
+          11
+        ],
+        "group_tp": [
+          3,
+          6,
+          3
+        ],
+        "groups_with_so": 3,
+        "max_group_abs_net_pnl_share_pct": 61.99558553615824,
+        "max_symbol_abs_net_pnl_share_pct": 32.35715121571185,
+        "max_symbol_gross_share_pct": 34.03209434059106,
+        "max_symbol_positive_pnl_share_pct": 53.4838011579305,
+        "min_equity": 1861.1050851790856,
+        "resolved_config_sha256": "265bf0f9841bccfae677ac6995bc15d890871fd1abe96f3ff21dfcd345fffa47",
+        "slippage_quote": 1.9279967469523984,
+        "status": "complete",
+        "trace_digests": {
+          "equity_stream_sha256": "85f6c9d9bf5f933582168e99090a96b26586d42b10009d9a22df7a88f0444cad",
+          "event_stream_sha256": "376997080052fc07f8c665b3e1379a1a8f4938c77b3db4efe1e783798956f4b1",
+          "funding_stream_sha256": "c61f2fc3a0f7a29cd960cd89603a75a52572b694c692d5b6190085c389ef0793",
+          "rejection_stream_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "trade_stream_sha256": "be54c73bc8c595aaed2fcb5f14936466ef23cae7ad1103ddfccee8b461225f7f"
+        },
+        "trade_count": 116,
+        "wall_s": 3.4
+      },
+      "fold": "F3",
+      "key": "M1_007|2000|F3",
+      "old_claim": {
+        "ann": -2.6830825551136583,
+        "breach": false,
+        "dd": 26.900768985757534,
+        "trade_count": 72
+      }
+    },
+    {
+      "budget": 2000,
+      "config_id": "M1_007",
+      "config_path": "docs/superpowers/artifacts/glm-martingale-core-round18/r8/configs/g3_M1_007_2000_F4.json",
+      "corrected": {
+        "actual_symbol_count": 8,
+        "actual_symbols": [
+          "BCHUSDT",
+          "BNBUSDT",
+          "BTCUSDT",
+          "DOGEUSDT",
+          "DOTUSDT",
+          "ETHUSDT",
+          "SOLUSDT",
+          "TRXUSDT"
+        ],
+        "ann": 10.956670028024051,
+        "breach": false,
+        "command": [
+          "target/release/synchronized_cycle_replay",
+          "--config",
+          "docs/superpowers/artifacts/glm-martingale-core-round18/r8/configs/g3_M1_007_2000_F4.json",
+          "--budget",
+          "2000",
+          "--start-ms",
+          "1767820800000",
+          "--end-ms",
+          "1780271999999",
+          "--market-data",
+          "data/market_data_full.db",
+          "--funding-data",
+          "data/funding_rates_round12.db"
+        ],
+        "cycles_with_so": 13,
+        "dd": 4.737664740181921,
+        "exit_code": 0,
+        "fee_quote": 5.122724172671756,
+        "funding_quote": -11.340297185696333,
+        "group_atomic_reject": [
+          49538,
+          68692,
+          48008,
+          89697
+        ],
+        "group_fo": [
+          5,
+          8,
+          6,
+          4
+        ],
+        "group_reduce": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "group_so": [
+          9,
+          5,
+          9,
+          9
+        ],
+        "group_tp": [
+          5,
+          7,
+          5,
+          3
+        ],
+        "groups_with_so": 4,
+        "max_group_abs_net_pnl_share_pct": 69.81250210525117,
+        "max_symbol_abs_net_pnl_share_pct": 27.028735319977272,
+        "max_symbol_gross_share_pct": 24.451175390278316,
+        "max_symbol_positive_pnl_share_pct": 32.224718953097906,
+        "min_equity": 1981.9394420115148,
+        "resolved_config_sha256": "b8df0ff35049b354941f949daf0632aa9aeaea7af1d62b7301d82779f76b5ea5",
+        "slippage_quote": 2.2767662989652244,
+        "status": "complete",
+        "trace_digests": {
+          "equity_stream_sha256": "e1f4204e5450bae1829efbcc3983d812920b791bc7f4a5ac82527bf65a126760",
+          "event_stream_sha256": "5b6bea1b7be9c69aa3ff0e51f9c05c5233c5786a0519a8f6e7269640712ea685",
+          "funding_stream_sha256": "443e82450a3fb837bffb2c9b99f5417be74f702471642859a89368a3315d5391",
+          "rejection_stream_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "trade_stream_sha256": "a7bc064f3894c9ed00b6f59ac27bcfe65b77e5a618b98765ab3defb852341e0c"
+        },
+        "trade_count": 156,
+        "wall_s": 2.085
+      },
+      "fold": "F4",
+      "key": "M1_007|2000|F4",
+      "old_claim": {
+        "ann": -53.11093081476568,
+        "breach": false,
+        "dd": 37.327327168107374,
+        "trade_count": 48
+      }
+    },
+    {
+      "budget": 1000,
+      "config_id": "M1_028",
+      "config_path": "docs/superpowers/artifacts/glm-martingale-core-round18/r8/configs/g3_M1_028_1000_F2.json",
+      "corrected": {
+        "actual_symbol_count": 6,
+        "actual_symbols": [
+          "BTCUSDT",
+          "ETHUSDT",
+          "LINKUSDT",
+          "LTCUSDT",
+          "TRXUSDT",
+          "XRPUSDT"
+        ],
+        "ann": -33.06404896179398,
+        "breach": false,
+        "command": [
+          "target/release/synchronized_cycle_replay",
+          "--config",
+          "docs/superpowers/artifacts/glm-martingale-core-round18/r8/configs/g3_M1_028_1000_F2.json",
+          "--budget",
+          "1000",
+          "--start-ms",
+          "1704662400000",
+          "--end-ms",
+          "1735689599999",
+          "--market-data",
+          "data/market_data_full.db",
+          "--funding-data",
+          "data/funding_rates_round12.db"
+        ],
+        "cycles_with_so": 16,
+        "dd": 67.50482378040316,
+        "exit_code": 0,
+        "fee_quote": 3.3895593129433386,
+        "funding_quote": 5.513969939820387,
+        "group_atomic_reject": [
+          467076,
+          430977,
+          234189,
+          325571
+        ],
+        "group_fo": [
+          0,
+          1,
+          8,
+          12
+        ],
+        "group_reduce": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "group_so": [
+          0,
+          2,
+          12,
+          14
+        ],
+        "group_tp": [
+          0,
+          0,
+          7,
+          11
+        ],
+        "groups_with_so": 3,
+        "max_group_abs_net_pnl_share_pct": 65.41024889768721,
+        "max_symbol_abs_net_pnl_share_pct": 50.43186004040157,
+        "max_symbol_gross_share_pct": 29.30428162702603,
+        "max_symbol_positive_pnl_share_pct": 35.55206919311576,
+        "min_equity": 337.0807234860689,
+        "resolved_config_sha256": "79da9994eb2949c2df5ff69ad4c6b35e6272c4f3c0b66e6833bfb8f7f834ded5",
+        "slippage_quote": 1.5064708057525955,
+        "status": "complete",
+        "trace_digests": {
+          "equity_stream_sha256": "edd2d76ea7c34b8fc3e001bc5e5958aa38e218068934b8d8335232bc347e551c",
+          "event_stream_sha256": "5c6fb0019deb772a7a6365842400e2a48d6db70dfae57d53eaa5cce2738e7ccc",
+          "funding_stream_sha256": "d1325584c2de311671f337eeee7d700a8fab9a34cfaf185a875a99204348d2b9",
+          "rejection_stream_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "trade_stream_sha256": "ef9f7cc18acb8c59aecb609a7a7fa375ee2f5ae90c6e0dc0d6c213bcd60565c9"
+        },
+        "trade_count": 140,
+        "wall_s": 4.582
+      },
+      "fold": "F2",
+      "key": "M1_028|1000|F2",
+      "old_claim": {
+        "ann": 49.45407417415575,
+        "breach": false,
+        "dd": 40.73828806097753,
+        "trade_count": 116
+      }
+    },
+    {
+      "budget": 1000,
+      "config_id": "M1_028",
+      "config_path": "docs/superpowers/artifacts/glm-martingale-core-round18/r8/configs/g3_M1_028_1000_F3.json",
+      "corrected": {
+        "actual_symbol_count": 6,
+        "actual_symbols": [
+          "BCHUSDT",
+          "BNBUSDT",
+          "ETHUSDT",
+          "LTCUSDT",
+          "TRXUSDT",
+          "XRPUSDT"
+        ],
+        "ann": 3.5211656883265885,
+        "breach": false,
+        "command": [
+          "target/release/synchronized_cycle_replay",
+          "--config",
+          "docs/superpowers/artifacts/glm-martingale-core-round18/r8/configs/g3_M1_028_1000_F3.json",
+          "--budget",
+          "1000",
+          "--start-ms",
+          "1736294400000",
+          "--end-ms",
+          "1767225599999",
+          "--market-data",
+          "data/market_data_full.db",
+          "--funding-data",
+          "data/funding_rates_round12.db"
+        ],
+        "cycles_with_so": 10,
+        "dd": 16.385710792685188,
+        "exit_code": 0,
+        "fee_quote": 1.850620885362044,
+        "funding_quote": -7.839737188049182,
+        "group_atomic_reject": [
+          48213,
+          192070,
+          214822
+        ],
+        "group_fo": [
+          3,
+          4,
+          4
+        ],
+        "group_reduce": [
+          0,
+          0,
+          0
+        ],
+        "group_so": [
+          4,
+          6,
+          7
+        ],
+        "group_tp": [
+          2,
+          3,
+          3
+        ],
+        "groups_with_so": 3,
+        "max_group_abs_net_pnl_share_pct": 69.17368016383584,
+        "max_symbol_abs_net_pnl_share_pct": 30.62951681192615,
+        "max_symbol_gross_share_pct": 35.9966597343752,
+        "max_symbol_positive_pnl_share_pct": 50.79973459979481,
+        "min_equity": 946.9517370745609,
+        "resolved_config_sha256": "769f491cb63057b0a0deba59adfdca79e349c11e1f6c9417ba8e06e5e0022654",
+        "slippage_quote": 0.8224981712720195,
+        "status": "complete",
+        "trace_digests": {
+          "equity_stream_sha256": "393d62671317c4a1f0dbed83daee6869274bac68bd0e1258c8ac700930401f79",
+          "event_stream_sha256": "2c9c649486e1d3019b7f092081f93a40e930e6dc5df3cff56fafc1bb55eb2f9e",
+          "funding_stream_sha256": "c61f2fc3a0f7a29cd960cd89603a75a52572b694c692d5b6190085c389ef0793",
+          "rejection_stream_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "trade_stream_sha256": "b6d58e91ea0d30830791c4e0a5efb6b3793528f91068c76103be43f328c72c40"
+        },
+        "trade_count": 78,
+        "wall_s": 3.241
+      },
+      "fold": "F3",
+      "key": "M1_028|1000|F3",
+      "old_claim": {
+        "ann": -0.802752525684014,
+        "breach": false,
+        "dd": 23.14461767088857,
+        "trade_count": 54
+      }
+    },
+    {
+      "budget": 1000,
+      "config_id": "M1_028",
+      "config_path": "docs/superpowers/artifacts/glm-martingale-core-round18/r8/configs/g3_M1_028_1000_F4.json",
+      "corrected": {
+        "actual_symbol_count": 8,
+        "actual_symbols": [
+          "BCHUSDT",
+          "BNBUSDT",
+          "BTCUSDT",
+          "DOGEUSDT",
+          "DOTUSDT",
+          "ETHUSDT",
+          "SOLUSDT",
+          "TRXUSDT"
+        ],
+        "ann": 10.248957999429976,
+        "breach": false,
+        "command": [
+          "target/release/synchronized_cycle_replay",
+          "--config",
+          "docs/superpowers/artifacts/glm-martingale-core-round18/r8/configs/g3_M1_028_1000_F4.json",
+          "--budget",
+          "1000",
+          "--start-ms",
+          "1767820800000",
+          "--end-ms",
+          "1780271999999",
+          "--market-data",
+          "data/market_data_full.db",
+          "--funding-data",
+          "data/funding_rates_round12.db"
+        ],
+        "cycles_with_so": 10,
+        "dd": 4.038652234600354,
+        "exit_code": 0,
+        "fee_quote": 2.0967498024779596,
+        "funding_quote": -5.244091157262712,
+        "group_atomic_reject": [
+          42306,
+          66854,
+          43362,
+          75241
+        ],
+        "group_fo": [
+          4,
+          3,
+          3,
+          4
+        ],
+        "group_reduce": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "group_so": [
+          5,
+          2,
+          6,
+          6
+        ],
+        "group_tp": [
+          4,
+          2,
+          2,
+          3
+        ],
+        "groups_with_so": 4,
+        "max_group_abs_net_pnl_share_pct": 65.70348050453174,
+        "max_symbol_abs_net_pnl_share_pct": 26.73490493057203,
+        "max_symbol_gross_share_pct": 28.07153861274876,
+        "max_symbol_positive_pnl_share_pct": 34.603692586680644,
+        "min_equity": 990.280497322514,
+        "resolved_config_sha256": "d0eced0c46f38019ea865009dac8ce337be260c824f445c1d118b9e7def91333",
+        "slippage_quote": 0.9318888011013153,
+        "status": "complete",
+        "trace_digests": {
+          "equity_stream_sha256": "ddf30ae06e028f430420b2a9a09d16c8654b8b163b8177226554d43774cc2629",
+          "event_stream_sha256": "d3839a1caf0af060ce472ac5b61ed7c4cdaa3a30c198d3256213e7aa144743c7",
+          "funding_stream_sha256": "443e82450a3fb837bffb2c9b99f5417be74f702471642859a89368a3315d5391",
+          "rejection_stream_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "trade_stream_sha256": "c6cca8d6b1a0ca4335f00fa58ab248ff0e775ebcfb829e16cac6942b9fe33664"
+        },
+        "trade_count": 94,
+        "wall_s": 1.73
+      },
+      "fold": "F4",
+      "key": "M1_028|1000|F4",
+      "old_claim": {
+        "ann": -35.35822548314259,
+        "breach": false,
+        "dd": 27.473669917094956,
+        "trade_count": 40
+      }
+    },
+    {
+      "budget": 1000,
+      "config_id": "M1_042",
+      "config_path": "docs/superpowers/artifacts/glm-martingale-core-round18/r8/configs/g3_M1_042_1000_F2.json",
+      "corrected": {
+        "actual_symbol_count": 6,
+        "actual_symbols": [
+          "BTCUSDT",
+          "ETHUSDT",
+          "LINKUSDT",
+          "LTCUSDT",
+          "TRXUSDT",
+          "XRPUSDT"
+        ],
+        "ann": -24.693206294988524,
+        "breach": false,
+        "command": [
+          "target/release/synchronized_cycle_replay",
+          "--config",
+          "docs/superpowers/artifacts/glm-martingale-core-round18/r8/configs/g3_M1_042_1000_F2.json",
+          "--budget",
+          "1000",
+          "--start-ms",
+          "1704662400000",
+          "--end-ms",
+          "1735689599999",
+          "--market-data",
+          "data/market_data_full.db",
+          "--funding-data",
+          "data/funding_rates_round12.db"
+        ],
+        "cycles_with_so": 16,
+        "dd": 51.41669589444763,
+        "exit_code": 0,
+        "fee_quote": 2.4003700673554125,
+        "funding_quote": 3.9449293114218875,
+        "group_atomic_reject": [
+          93416,
+          85107,
+          46368,
+          64913
+        ],
+        "group_fo": [
+          0,
+          1,
+          7,
+          11
+        ],
+        "group_reduce": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "group_so": [
+          0,
+          2,
+          12,
+          14
+        ],
+        "group_tp": [
+          0,
+          0,
+          6,
+          10
+        ],
+        "groups_with_so": 3,
+        "max_group_abs_net_pnl_share_pct": 66.00747934126184,
+        "max_symbol_abs_net_pnl_share_pct": 50.4209309801237,
+        "max_symbol_gross_share_pct": 28.409509439958843,
+        "max_symbol_positive_pnl_share_pct": 34.106146849844606,
+        "min_equity": 500.5746644272841,
+        "resolved_config_sha256": "03556672187a180b3caa8b79748a2d06f5de2e03cb3c16ce6cb12b40df0417f6",
+        "slippage_quote": 1.0668311410468503,
+        "status": "complete",
+        "trace_digests": {
+          "equity_stream_sha256": "a4d69294e4f478ac7384a45d2803c91d0b239d99294ca8927fc233b484ebca17",
+          "event_stream_sha256": "b1c5b41c0886336e60d999ce2c50f73c0afb7472a28102a3b89591b0eea282b6",
+          "funding_stream_sha256": "d1325584c2de311671f337eeee7d700a8fab9a34cfaf185a875a99204348d2b9",
+          "rejection_stream_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "trade_stream_sha256": "226ac32c3ed767d3d8a322968c2a9e3cdd086566a77d4233a26d87a8fe616bca"
+        },
+        "trade_count": 132,
+        "wall_s": 3.879
+      },
+      "fold": "F2",
+      "key": "M1_042|1000|F2",
+      "old_claim": {
+        "ann": 72.48043314670107,
+        "breach": false,
+        "dd": 51.0633597636248,
+        "trade_count": 116
+      }
+    },
+    {
+      "budget": 1000,
+      "config_id": "M1_042",
+      "config_path": "docs/superpowers/artifacts/glm-martingale-core-round18/r8/configs/g3_M1_042_1000_F3.json",
+      "corrected": {
+        "actual_symbol_count": 4,
+        "actual_symbols": [
+          "BCHUSDT",
+          "ETHUSDT",
+          "LTCUSDT",
+          "TRXUSDT"
+        ],
+        "ann": -0.05157540456673937,
+        "breach": false,
+        "command": [
+          "target/release/synchronized_cycle_replay",
+          "--config",
+          "docs/superpowers/artifacts/glm-martingale-core-round18/r8/configs/g3_M1_042_1000_F3.json",
+          "--budget",
+          "1000",
+          "--start-ms",
+          "1736294400000",
+          "--end-ms",
+          "1767225599999",
+          "--market-data",
+          "data/market_data_full.db",
+          "--funding-data",
+          "data/funding_rates_round12.db"
+        ],
+        "cycles_with_so": 6,
+        "dd": 7.343759974354473,
+        "exit_code": 0,
+        "fee_quote": 0.8032491078322321,
+        "funding_quote": -9.269283979892704,
+        "group_atomic_reject": [
+          9675,
+          38261,
+          72161
+        ],
+        "group_fo": [
+          3,
+          4,
+          0
+        ],
+        "group_reduce": [
+          0,
+          0,
+          0
+        ],
+        "group_so": [
+          4,
+          6,
+          0
+        ],
+        "group_tp": [
+          2,
+          3,
+          0
+        ],
+        "groups_with_so": 2,
+        "max_group_abs_net_pnl_share_pct": 51.50902628634076,
+        "max_symbol_abs_net_pnl_share_pct": 40.7296314521248,
+        "max_symbol_gross_share_pct": 35.29520520382089,
+        "max_symbol_positive_pnl_share_pct": 77.74949411612812,
+        "min_equity": 969.1300545982547,
+        "resolved_config_sha256": "e822c77c64786dc99df741de935a1f783e9226c093f481f3525dfe77e851acf8",
+        "slippage_quote": 0.35699960348099213,
+        "status": "complete",
+        "trace_digests": {
+          "equity_stream_sha256": "9a9d0d3c9dce86e47448a72d30d3b92a92aa2445a3a5f89f1b021c577a0e6e32",
+          "event_stream_sha256": "985383a03a4b66221c4c4b8f5e7e0b3ad4982ee40fa798b3c5e8b6f43637889e",
+          "funding_stream_sha256": "c61f2fc3a0f7a29cd960cd89603a75a52572b694c692d5b6190085c389ef0793",
+          "rejection_stream_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "trade_stream_sha256": "5c33b1103b61528f473926b60a362024b526ccd3c3b94dbde9c712ffc82726aa"
+        },
+        "trade_count": 48,
+        "wall_s": 2.799
+      },
+      "fold": "F3",
+      "key": "M1_042|1000|F3",
+      "old_claim": {
+        "ann": -1.7499956316156529,
+        "breach": false,
+        "dd": 28.562136582818425,
+        "trade_count": 60
+      }
+    },
+    {
+      "budget": 1000,
+      "config_id": "M1_042",
+      "config_path": "docs/superpowers/artifacts/glm-martingale-core-round18/r8/configs/g3_M1_042_1000_F4.json",
+      "corrected": {
+        "actual_symbol_count": 6,
+        "actual_symbols": [
+          "BNBUSDT",
+          "BTCUSDT",
+          "DOGEUSDT",
+          "DOTUSDT",
+          "ETHUSDT",
+          "SOLUSDT"
+        ],
+        "ann": 6.04762923974238,
+        "breach": false,
+        "command": [
+          "target/release/synchronized_cycle_replay",
+          "--config",
+          "docs/superpowers/artifacts/glm-martingale-core-round18/r8/configs/g3_M1_042_1000_F4.json",
+          "--budget",
+          "1000",
+          "--start-ms",
+          "1767820800000",
+          "--end-ms",
+          "1780271999999",
+          "--market-data",
+          "data/market_data_full.db",
+          "--funding-data",
+          "data/funding_rates_round12.db"
+        ],
+        "cycles_with_so": 7,
+        "dd": 2.1047970567229806,
+        "exit_code": 0,
+        "fee_quote": 1.0576340427626354,
+        "funding_quote": -3.097242020291038,
+        "group_atomic_reject": [
+          8472,
+          13369,
+          8558,
+          28025
+        ],
+        "group_fo": [
+          4,
+          3,
+          3,
+          0
+        ],
+        "group_reduce": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "group_so": [
+          5,
+          2,
+          6,
+          0
+        ],
+        "group_tp": [
+          4,
+          2,
+          2,
+          0
+        ],
+        "groups_with_so": 3,
+        "max_group_abs_net_pnl_share_pct": 75.23303574450117,
+        "max_symbol_abs_net_pnl_share_pct": 33.534026443960265,
+        "max_symbol_gross_share_pct": 24.283929065824204,
+        "max_symbol_positive_pnl_share_pct": 52.00003663382239,
+        "min_equity": 993.0405437898773,
+        "resolved_config_sha256": "8629f82d684f7567ee7a02e4d4f25e768a6de49030488aaa6c43b5698a82d71b",
+        "slippage_quote": 0.47005957456117115,
+        "status": "complete",
+        "trace_digests": {
+          "equity_stream_sha256": "bab2a07a1beefcb40daeda1befb0cc3b39205cfffa7f81a52e5b8ec845abf0e2",
+          "event_stream_sha256": "bac4bfc6ef5695b5bde26c8a76fe1f482cbd8cd59e9a970769abf0b46cb7b1d6",
+          "funding_stream_sha256": "443e82450a3fb837bffb2c9b99f5417be74f702471642859a89368a3315d5391",
+          "rejection_stream_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "trade_stream_sha256": "261528b0dcadcaa3b05f02741d98c78c161da89212e412f6c32a6d620813cc0e"
+        },
+        "trade_count": 66,
+        "wall_s": 1.518
+      },
+      "fold": "F4",
+      "key": "M1_042|1000|F4",
+      "old_claim": {
+        "ann": -37.96235514476957,
+        "breach": false,
+        "dd": 37.58957792617934,
+        "trade_count": 70
+      }
+    },
+    {
+      "budget": 1000,
+      "config_id": "M1_044",
+      "config_path": "docs/superpowers/artifacts/glm-martingale-core-round18/r8/configs/g3_M1_044_1000_F2.json",
+      "corrected": {
+        "actual_symbol_count": 6,
+        "actual_symbols": [
+          "BTCUSDT",
+          "ETHUSDT",
+          "LINKUSDT",
+          "LTCUSDT",
+          "TRXUSDT",
+          "XRPUSDT"
+        ],
+        "ann": -30.029710546606402,
+        "breach": false,
+        "command": [
+          "target/release/synchronized_cycle_replay",
+          "--config",
+          "docs/superpowers/artifacts/glm-martingale-core-round18/r8/configs/g3_M1_044_1000_F2.json",
+          "--budget",
+          "1000",
+          "--start-ms",
+          "1704662400000",
+          "--end-ms",
+          "1735689599999",
+          "--market-data",
+          "data/market_data_full.db",
+          "--funding-data",
+          "data/funding_rates_round12.db"
+        ],
+        "cycles_with_so": 19,
+        "dd": 68.18382057571645,
+        "exit_code": 0,
+        "fee_quote": 4.384521179609974,
+        "funding_quote": 5.597098387888106,
+        "group_atomic_reject": [
+          467076,
+          478585,
+          295759,
+          378757
+        ],
+        "group_fo": [
+          0,
+          1,
+          9,
+          13
+        ],
+        "group_reduce": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "group_so": [
+          0,
+          2,
+          14,
+          18
+        ],
+        "group_tp": [
+          0,
+          0,
+          8,
+          12
+        ],
+        "groups_with_so": 3,
+        "max_group_abs_net_pnl_share_pct": 84.476458007037,
+        "max_symbol_abs_net_pnl_share_pct": 60.27758300621057,
+        "max_symbol_gross_share_pct": 29.392463544136422,
+        "max_symbol_positive_pnl_share_pct": 36.946569418578115,
+        "min_equity": 332.38725874302054,
+        "resolved_config_sha256": "f4c2c2af47767e0ef2dc7745b43ba08c1c1641f753a9d9134468e77b9599baa4",
+        "slippage_quote": 1.948676079826655,
+        "status": "complete",
+        "trace_digests": {
+          "equity_stream_sha256": "dc0ad853964d891640bfe6ffb0b6993d94a3acb6bb4c50fa54cc5b3b28d980b5",
+          "event_stream_sha256": "13b4c4bf767fe12abeaa21b3fda044f8a8ded2ee869026ec11f837e9a8b27e48",
+          "funding_stream_sha256": "d1325584c2de311671f337eeee7d700a8fab9a34cfaf185a875a99204348d2b9",
+          "rejection_stream_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "trade_stream_sha256": "7feffcb2cb69e46c0c808107f55b48b7d0ae67e88dbfbcc76ec504274860d7fa"
+        },
+        "trade_count": 160,
+        "wall_s": 4.792
+      },
+      "fold": "F2",
+      "key": "M1_044|1000|F2",
+      "old_claim": {
+        "ann": 71.67788421320735,
+        "breach": false,
+        "dd": 61.92004747458054,
+        "trade_count": 92
+      }
+    },
+    {
+      "budget": 1000,
+      "config_id": "M1_044",
+      "config_path": "docs/superpowers/artifacts/glm-martingale-core-round18/r8/configs/g3_M1_044_1000_F3.json",
+      "corrected": {
+        "actual_symbol_count": 6,
+        "actual_symbols": [
+          "BCHUSDT",
+          "BNBUSDT",
+          "ETHUSDT",
+          "LTCUSDT",
+          "TRXUSDT",
+          "XRPUSDT"
+        ],
+        "ann": 3.1479742782242415,
+        "breach": false,
+        "command": [
+          "target/release/synchronized_cycle_replay",
+          "--config",
+          "docs/superpowers/artifacts/glm-martingale-core-round18/r8/configs/g3_M1_044_1000_F3.json",
+          "--budget",
+          "1000",
+          "--start-ms",
+          "1736294400000",
+          "--end-ms",
+          "1767225599999",
+          "--market-data",
+          "data/market_data_full.db",
+          "--funding-data",
+          "data/funding_rates_round12.db"
+        ],
+        "cycles_with_so": 13,
+        "dd": 18.183073025240954,
+        "exit_code": 0,
+        "fee_quote": 2.6995793263003534,
+        "funding_quote": -7.9217199870129145,
+        "group_atomic_reject": [
+          287256,
+          283003,
+          316369
+        ],
+        "group_fo": [
+          3,
+          6,
+          4
+        ],
+        "group_reduce": [
+          0,
+          0,
+          0
+        ],
+        "group_so": [
+          5,
+          10,
+          8
+        ],
+        "group_tp": [
+          2,
+          5,
+          3
+        ],
+        "groups_with_so": 3,
+        "max_group_abs_net_pnl_share_pct": 46.98480368580776,
+        "max_symbol_abs_net_pnl_share_pct": 32.841631121330536,
+        "max_symbol_gross_share_pct": 31.193185836480115,
+        "max_symbol_positive_pnl_share_pct": 50.87068567428393,
+        "min_equity": 927.6249089158671,
+        "resolved_config_sha256": "8a284136c8a2003eb002468bb24d8ad454342163557f3f343d93413985d98cf7",
+        "slippage_quote": 1.1998130339112683,
+        "status": "complete",
+        "trace_digests": {
+          "equity_stream_sha256": "d15a6d4da047e63c2dc314829a7b2f5ab4663dbe8594f783ca5f683219a6e7e4",
+          "event_stream_sha256": "6c3090ef9fab2a34c9000d8e714c30cd41b1a73c78ac38cb47bff87bb7e96452",
+          "funding_stream_sha256": "c61f2fc3a0f7a29cd960cd89603a75a52572b694c692d5b6190085c389ef0793",
+          "rejection_stream_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "trade_stream_sha256": "e79540fb6f77fbca67eb1a708c6738ab876e0677489672a344be1c9fc4414933"
+        },
+        "trade_count": 98,
+        "wall_s": 3.35
+      },
+      "fold": "F3",
+      "key": "M1_044|1000|F3",
+      "old_claim": {
+        "ann": -6.647966643554248,
+        "breach": false,
+        "dd": 33.4276146336574,
+        "trade_count": 44
+      }
+    },
+    {
+      "budget": 1000,
+      "config_id": "M1_044",
+      "config_path": "docs/superpowers/artifacts/glm-martingale-core-round18/r8/configs/g3_M1_044_1000_F4.json",
+      "corrected": {
+        "actual_symbol_count": 8,
+        "actual_symbols": [
+          "BCHUSDT",
+          "BNBUSDT",
+          "BTCUSDT",
+          "DOGEUSDT",
+          "DOTUSDT",
+          "ETHUSDT",
+          "SOLUSDT",
+          "TRXUSDT"
+        ],
+        "ann": 8.276012435086578,
+        "breach": false,
+        "command": [
+          "target/release/synchronized_cycle_replay",
+          "--config",
+          "docs/superpowers/artifacts/glm-martingale-core-round18/r8/configs/g3_M1_044_1000_F4.json",
+          "--budget",
+          "1000",
+          "--start-ms",
+          "1767820800000",
+          "--end-ms",
+          "1780271999999",
+          "--market-data",
+          "data/market_data_full.db",
+          "--funding-data",
+          "data/funding_rates_round12.db"
+        ],
+        "cycles_with_so": 12,
+        "dd": 4.207749266995517,
+        "exit_code": 0,
+        "fee_quote": 2.3337771399546967,
+        "funding_quote": -4.8622279000068875,
+        "group_atomic_reject": [
+          93600,
+          78144,
+          68452,
+          116953
+        ],
+        "group_fo": [
+          4,
+          3,
+          4,
+          4
+        ],
+        "group_reduce": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "group_so": [
+          6,
+          2,
+          7,
+          4
+        ],
+        "group_tp": [
+          4,
+          2,
+          3,
+          3
+        ],
+        "groups_with_so": 4,
+        "max_group_abs_net_pnl_share_pct": 56.50564470824701,
+        "max_symbol_abs_net_pnl_share_pct": 26.71750363893251,
+        "max_symbol_gross_share_pct": 20.922931211929317,
+        "max_symbol_positive_pnl_share_pct": 33.20644170623889,
+        "min_equity": 986.9874038139361,
+        "resolved_config_sha256": "c8f0057dd7bf7f3cd487645fdb0b6287dee27c82f5d97ed984175c8cb22578dd",
+        "slippage_quote": 1.0372342844243096,
+        "status": "complete",
+        "trace_digests": {
+          "equity_stream_sha256": "f5ffa9fe3380c6f906168de0eea33f0ebf1c77e29a947c70d929d09b56817981",
+          "event_stream_sha256": "c1aecf0ac0163365d2a97c236c6078e6fa490507c79ef18dd46c0c04aeed2660",
+          "funding_stream_sha256": "443e82450a3fb837bffb2c9b99f5417be74f702471642859a89368a3315d5391",
+          "rejection_stream_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "trade_stream_sha256": "a3a36ec24b997cf3ca3094626472ed30bb801b3380a67fc7d0b068dc1ec7d85f"
+        },
+        "trade_count": 98,
+        "wall_s": 1.781
+      },
+      "fold": "F4",
+      "key": "M1_044|1000|F4",
+      "old_claim": {
+        "ann": -50.87685668770581,
+        "breach": false,
+        "dd": 38.6954842374645,
+        "trade_count": 40
+      }
+    },
+    {
+      "budget": 1000,
+      "config_id": "M1_067",
+      "config_path": "docs/superpowers/artifacts/glm-martingale-core-round18/r8/configs/g3_M1_067_1000_F2.json",
+      "corrected": {
+        "actual_symbol_count": 6,
+        "actual_symbols": [
+          "BTCUSDT",
+          "ETHUSDT",
+          "LINKUSDT",
+          "LTCUSDT",
+          "TRXUSDT",
+          "XRPUSDT"
+        ],
+        "ann": -9.280315651943038,
+        "breach": false,
+        "command": [
+          "target/release/synchronized_cycle_replay",
+          "--config",
+          "docs/superpowers/artifacts/glm-martingale-core-round18/r8/configs/g3_M1_067_1000_F2.json",
+          "--budget",
+          "1000",
+          "--start-ms",
+          "1704662400000",
+          "--end-ms",
+          "1735689599999",
+          "--market-data",
+          "data/market_data_full.db",
+          "--funding-data",
+          "data/funding_rates_round12.db"
+        ],
+        "cycles_with_so": 0,
+        "dd": 19.141146477131507,
+        "exit_code": 0,
+        "fee_quote": 2.241216483268121,
+        "funding_quote": 2.032312945468667,
+        "group_atomic_reject": [
+          470519,
+          490346,
+          334370,
+          405826
+        ],
+        "group_fo": [
+          0,
+          2,
+          16,
+          22
+        ],
+        "group_reduce": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "group_so": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "group_tp": [
+          0,
+          1,
+          15,
+          21
+        ],
+        "groups_with_so": 0,
+        "max_group_abs_net_pnl_share_pct": 62.910291094805494,
+        "max_symbol_abs_net_pnl_share_pct": 41.46823263653032,
+        "max_symbol_gross_share_pct": 30.24230416416366,
+        "max_symbol_positive_pnl_share_pct": 32.72303272235321,
+        "min_equity": 816.797712541802,
+        "resolved_config_sha256": "0af5f32f4979eeb958cd741bcb69c5a0c4f9f3741e86b03d28c09cd69604f3a3",
+        "slippage_quote": 0.9960962147858321,
+        "status": "complete",
+        "trace_digests": {
+          "equity_stream_sha256": "d3571d35855105ba01fb72b2df45aba7213bc4cbf9022f3e465bfefd5fbcd350",
+          "event_stream_sha256": "c9a67abcf5a640030c3e84b40a12a0e8944b255f393c02c22696c190e09a5eed",
+          "funding_stream_sha256": "d1325584c2de311671f337eeee7d700a8fab9a34cfaf185a875a99204348d2b9",
+          "rejection_stream_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "trade_stream_sha256": "942af48bb072e814ce7438140e3a157c308a4eaaa5e366b3b303a73600c398cd"
+        },
+        "trade_count": 160,
+        "wall_s": 4.723
+      },
+      "fold": "F2",
+      "key": "M1_067|1000|F2",
+      "old_claim": {
+        "ann": 69.3111588574959,
+        "breach": false,
+        "dd": 60.10732471033637,
+        "trade_count": 90
+      }
+    },
+    {
+      "budget": 1000,
+      "config_id": "M1_067",
+      "config_path": "docs/superpowers/artifacts/glm-martingale-core-round18/r8/configs/g3_M1_067_1000_F3.json",
+      "corrected": {
+        "actual_symbol_count": 6,
+        "actual_symbols": [
+          "BCHUSDT",
+          "BNBUSDT",
+          "ETHUSDT",
+          "LTCUSDT",
+          "TRXUSDT",
+          "XRPUSDT"
+        ],
+        "ann": 1.9424520759207198,
+        "breach": false,
+        "command": [
+          "target/release/synchronized_cycle_replay",
+          "--config",
+          "docs/superpowers/artifacts/glm-martingale-core-round18/r8/configs/g3_M1_067_1000_F3.json",
+          "--budget",
+          "1000",
+          "--start-ms",
+          "1736294400000",
+          "--end-ms",
+          "1767225599999",
+          "--market-data",
+          "data/market_data_full.db",
+          "--funding-data",
+          "data/funding_rates_round12.db"
+        ],
+        "cycles_with_so": 0,
+        "dd": 4.5505108369290825,
+        "exit_code": 0,
+        "fee_quote": 1.5290987586167788,
+        "funding_quote": -1.5925725072108514,
+        "group_atomic_reject": [
+          358273,
+          312215,
+          340108
+        ],
+        "group_fo": [
+          7,
+          15,
+          6
+        ],
+        "group_reduce": [
+          0,
+          0,
+          0
+        ],
+        "group_so": [
+          0,
+          0,
+          0
+        ],
+        "group_tp": [
+          6,
+          14,
+          5
+        ],
+        "groups_with_so": 0,
+        "max_group_abs_net_pnl_share_pct": 70.99325646356488,
+        "max_symbol_abs_net_pnl_share_pct": 40.818308507462795,
+        "max_symbol_gross_share_pct": 30.21101941486705,
+        "max_symbol_positive_pnl_share_pct": 51.35214778613542,
+        "min_equity": 990.6873972539809,
+        "resolved_config_sha256": "14bdbe172d0e5153560e76249d5511d86ab58e95bb7c37151cf142d135140a2d",
+        "slippage_quote": 0.6795994482741241,
+        "status": "complete",
+        "trace_digests": {
+          "equity_stream_sha256": "4a62cba92b81b7024ce23b1b31d5db8ed9621b15944d64a760987d9ffb352bb3",
+          "event_stream_sha256": "f3a7181da776ead69a78477d334e52691d552a71d66743615a8a352a801f00bf",
+          "funding_stream_sha256": "c61f2fc3a0f7a29cd960cd89603a75a52572b694c692d5b6190085c389ef0793",
+          "rejection_stream_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "trade_stream_sha256": "0b7bd8f1ca3bbd766a7ea588ab5e07b27aa8a797f430260b10d86aeae9cb52e6"
+        },
+        "trade_count": 112,
+        "wall_s": 3.402
+      },
+      "fold": "F3",
+      "key": "M1_067|1000|F3",
+      "old_claim": {
+        "ann": -5.959768424554701,
+        "breach": false,
+        "dd": 29.550766066197653,
+        "trade_count": 72
+      }
+    },
+    {
+      "budget": 1000,
+      "config_id": "M1_067",
+      "config_path": "docs/superpowers/artifacts/glm-martingale-core-round18/r8/configs/g3_M1_067_1000_F4.json",
+      "corrected": {
+        "actual_symbol_count": 8,
+        "actual_symbols": [
+          "BCHUSDT",
+          "BNBUSDT",
+          "BTCUSDT",
+          "DOGEUSDT",
+          "DOTUSDT",
+          "ETHUSDT",
+          "SOLUSDT",
+          "TRXUSDT"
+        ],
+        "ann": 5.20859260307569,
+        "breach": false,
+        "command": [
+          "target/release/synchronized_cycle_replay",
+          "--config",
+          "docs/superpowers/artifacts/glm-martingale-core-round18/r8/configs/g3_M1_067_1000_F4.json",
+          "--budget",
+          "1000",
+          "--start-ms",
+          "1767820800000",
+          "--end-ms",
+          "1780271999999",
+          "--market-data",
+          "data/market_data_full.db",
+          "--funding-data",
+          "data/funding_rates_round12.db"
+        ],
+        "cycles_with_so": 2,
+        "dd": 1.2946620562825064,
+        "exit_code": 0,
+        "fee_quote": 1.9210083623948913,
+        "funding_quote": -1.1054523467897985,
+        "group_atomic_reject": [
+          99862,
+          80170,
+          71387,
+          116529
+        ],
+        "group_fo": [
+          6,
+          10,
+          13,
+          4
+        ],
+        "group_reduce": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "group_so": [
+          1,
+          0,
+          1,
+          0
+        ],
+        "group_tp": [
+          6,
+          9,
+          12,
+          3
+        ],
+        "groups_with_so": 2,
+        "max_group_abs_net_pnl_share_pct": 46.15834192163557,
+        "max_symbol_abs_net_pnl_share_pct": 20.087049266065723,
+        "max_symbol_gross_share_pct": 21.806845593757444,
+        "max_symbol_positive_pnl_share_pct": 19.293106944594705,
+        "min_equity": 996.0694133952696,
+        "resolved_config_sha256": "e10bc8c39f6b2114aec5812ee1d23a721c903b116eecaff50d3c6bc658f8b17a",
+        "slippage_quote": 0.8537814943977293,
+        "status": "complete",
+        "trace_digests": {
+          "equity_stream_sha256": "30ab9fff84f6d30c5beed9377e2588efec4bf4fbfa403095f59be6d64d09fb41",
+          "event_stream_sha256": "5aeb4dff3cf316645db04968491d8684a21140fa9da6f1fb0b2247f41155e94c",
+          "funding_stream_sha256": "443e82450a3fb837bffb2c9b99f5417be74f702471642859a89368a3315d5391",
+          "rejection_stream_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "trade_stream_sha256": "ac96dcbfa0894256a77e56b86ce880f352a442f35b33325a375be0cb7de9fc06"
+        },
+        "trade_count": 136,
+        "wall_s": 1.909
+      },
+      "fold": "F4",
+      "key": "M1_067|1000|F4",
+      "old_claim": {
+        "ann": -55.54562413234514,
+        "breach": false,
+        "dd": 38.67103169207816,
+        "trade_count": 40
+      }
+    },
+    {
+      "budget": 1000,
+      "config_id": "M1_068",
+      "config_path": "docs/superpowers/artifacts/glm-martingale-core-round18/r8/configs/g3_M1_068_1000_F2.json",
+      "corrected": {
+        "actual_symbol_count": 6,
+        "actual_symbols": [
+          "BTCUSDT",
+          "ETHUSDT",
+          "LINKUSDT",
+          "LTCUSDT",
+          "TRXUSDT",
+          "XRPUSDT"
+        ],
+        "ann": -20.2272196707196,
+        "breach": false,
+        "command": [
+          "target/release/synchronized_cycle_replay",
+          "--config",
+          "docs/superpowers/artifacts/glm-martingale-core-round18/r8/configs/g3_M1_068_1000_F2.json",
+          "--budget",
+          "1000",
+          "--start-ms",
+          "1704662400000",
+          "--end-ms",
+          "1735689599999",
+          "--market-data",
+          "data/market_data_full.db",
+          "--funding-data",
+          "data/funding_rates_round12.db"
+        ],
+        "cycles_with_so": 17,
+        "dd": 43.7747300652575,
+        "exit_code": 0,
+        "fee_quote": 2.4551676659151793,
+        "funding_quote": 3.5526283745451654,
+        "group_atomic_reject": [
+          456255,
+          452148,
+          261249,
+          358274
+        ],
+        "group_fo": [
+          0,
+          1,
+          8,
+          10
+        ],
+        "group_reduce": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "group_so": [
+          0,
+          1,
+          7,
+          9
+        ],
+        "group_tp": [
+          0,
+          0,
+          7,
+          9
+        ],
+        "groups_with_so": 3,
+        "max_group_abs_net_pnl_share_pct": 67.55908625207545,
+        "max_symbol_abs_net_pnl_share_pct": 50.083303160866066,
+        "max_symbol_gross_share_pct": 29.51969501763849,
+        "max_symbol_positive_pnl_share_pct": 38.96459071731063,
+        "min_equity": 583.4029536664776,
+        "resolved_config_sha256": "b0d43c36b99d2c71adf728eea50698615a9a33c604e6b23bdc28fade07c904d9",
+        "slippage_quote": 1.0911856292956355,
+        "status": "complete",
+        "trace_digests": {
+          "equity_stream_sha256": "010575c9b1eacd9171235fabff4ee5184b769f7f1e8b2dd86bb96e3b0c6deca6",
+          "event_stream_sha256": "96fb09e17b887a7dc2975c71831e75f0f2dd5dd48bbde48e8969b3ea64a01599",
+          "funding_stream_sha256": "d1325584c2de311671f337eeee7d700a8fab9a34cfaf185a875a99204348d2b9",
+          "rejection_stream_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "trade_stream_sha256": "747baa923ece7a1cfef20f42fd354d3c505afd6517eaf98c554cef704857d866"
+        },
+        "trade_count": 110,
+        "wall_s": 4.589
+      },
+      "fold": "F2",
+      "key": "M1_068|1000|F2",
+      "old_claim": {
+        "ann": 81.96124038508488,
+        "breach": false,
+        "dd": 62.397717866739114,
+        "trade_count": 96
+      }
+    },
+    {
+      "budget": 1000,
+      "config_id": "M1_068",
+      "config_path": "docs/superpowers/artifacts/glm-martingale-core-round18/r8/configs/g3_M1_068_1000_F3.json",
+      "corrected": {
+        "actual_symbol_count": 6,
+        "actual_symbols": [
+          "BCHUSDT",
+          "BNBUSDT",
+          "ETHUSDT",
+          "LTCUSDT",
+          "TRXUSDT",
+          "XRPUSDT"
+        ],
+        "ann": 4.429111601768354,
+        "breach": false,
+        "command": [
+          "target/release/synchronized_cycle_replay",
+          "--config",
+          "docs/superpowers/artifacts/glm-martingale-core-round18/r8/configs/g3_M1_068_1000_F3.json",
+          "--budget",
+          "1000",
+          "--start-ms",
+          "1736294400000",
+          "--end-ms",
+          "1767225599999",
+          "--market-data",
+          "data/market_data_full.db",
+          "--funding-data",
+          "data/funding_rates_round12.db"
+        ],
+        "cycles_with_so": 11,
+        "dd": 10.348638468331634,
+        "exit_code": 0,
+        "fee_quote": 1.4330196389655034,
+        "funding_quote": -4.771050629708805,
+        "group_atomic_reject": [
+          151974,
+          224744,
+          253396
+        ],
+        "group_fo": [
+          3,
+          4,
+          4
+        ],
+        "group_reduce": [
+          0,
+          0,
+          0
+        ],
+        "group_so": [
+          3,
+          4,
+          4
+        ],
+        "group_tp": [
+          2,
+          3,
+          3
+        ],
+        "groups_with_so": 3,
+        "max_group_abs_net_pnl_share_pct": 62.51440219578364,
+        "max_symbol_abs_net_pnl_share_pct": 25.72149576369763,
+        "max_symbol_gross_share_pct": 33.39561229730283,
+        "max_symbol_positive_pnl_share_pct": 38.15179404867916,
+        "min_equity": 983.9375265724098,
+        "resolved_config_sha256": "a94ed71b6198fa4e63d20ef2ba1978eb6d7474c149586b4535ba5ba8f906b668",
+        "slippage_quote": 0.6368976173180014,
+        "status": "complete",
+        "trace_digests": {
+          "equity_stream_sha256": "2174ae145293ea3f3cbe4133cf8b3c712e2b374ed5f08f6357c33d5f2965f495",
+          "event_stream_sha256": "8f89ab5f64ade96cd79acbb84458850c6c531a3dfa2d58494262f4bb9a31dcde",
+          "funding_stream_sha256": "c61f2fc3a0f7a29cd960cd89603a75a52572b694c692d5b6190085c389ef0793",
+          "rejection_stream_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "trade_stream_sha256": "46c202a020703b8c6e9bf7a9f2b8faa3e593c45a4be76894611ad4693d3e7d8e"
+        },
+        "trade_count": 66,
+        "wall_s": 3.118
+      },
+      "fold": "F3",
+      "key": "M1_068|1000|F3",
+      "old_claim": {
+        "ann": 32.680463967965245,
+        "breach": false,
+        "dd": 37.67603888711775,
+        "trade_count": 70
+      }
+    },
+    {
+      "budget": 1000,
+      "config_id": "M1_068",
+      "config_path": "docs/superpowers/artifacts/glm-martingale-core-round18/r8/configs/g3_M1_068_1000_F4.json",
+      "corrected": {
+        "actual_symbol_count": 8,
+        "actual_symbols": [
+          "BCHUSDT",
+          "BNBUSDT",
+          "BTCUSDT",
+          "DOGEUSDT",
+          "DOTUSDT",
+          "ETHUSDT",
+          "SOLUSDT",
+          "TRXUSDT"
+        ],
+        "ann": 5.51166216238006,
+        "breach": false,
+        "command": [
+          "target/release/synchronized_cycle_replay",
+          "--config",
+          "docs/superpowers/artifacts/glm-martingale-core-round18/r8/configs/g3_M1_068_1000_F4.json",
+          "--budget",
+          "1000",
+          "--start-ms",
+          "1767820800000",
+          "--end-ms",
+          "1780271999999",
+          "--market-data",
+          "data/market_data_full.db",
+          "--funding-data",
+          "data/funding_rates_round12.db"
+        ],
+        "cycles_with_so": 10,
+        "dd": 2.761819832367003,
+        "exit_code": 0,
+        "fee_quote": 1.3637371696378766,
+        "funding_quote": -3.219795317328057,
+        "group_atomic_reject": [
+          60492,
+          71907,
+          50492,
+          99510
+        ],
+        "group_fo": [
+          4,
+          1,
+          4,
+          3
+        ],
+        "group_reduce": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "group_so": [
+          3,
+          1,
+          3,
+          3
+        ],
+        "group_tp": [
+          4,
+          0,
+          3,
+          2
+        ],
+        "groups_with_so": 4,
+        "max_group_abs_net_pnl_share_pct": 71.38789480125509,
+        "max_symbol_abs_net_pnl_share_pct": 23.726838036746457,
+        "max_symbol_gross_share_pct": 25.596056856724996,
+        "max_symbol_positive_pnl_share_pct": 34.89888590834937,
+        "min_equity": 992.0928918616712,
+        "resolved_config_sha256": "b94509746678c904536bf7fa93b187690275fbf0dded4ecd4c1a952e081ff7bd",
+        "slippage_quote": 0.606105408727945,
+        "status": "complete",
+        "trace_digests": {
+          "equity_stream_sha256": "a6685644fc8eaa89c8a3847eb4571208816c4a54fb93da3e0aeb294ab2b43f64",
+          "event_stream_sha256": "9a767bb1cec15a58140f4d50f10a45145428f20e7b64db247917823c5ef17d04",
+          "funding_stream_sha256": "443e82450a3fb837bffb2c9b99f5417be74f702471642859a89368a3315d5391",
+          "rejection_stream_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "trade_stream_sha256": "f5fd420175c80055c8c0e5d49c29c457acc0cab1c2cce52a86f8f4006e01666d"
+        },
+        "trade_count": 68,
+        "wall_s": 1.747
+      },
+      "fold": "F4",
+      "key": "M1_068|1000|F4",
+      "old_claim": {
+        "ann": -40.781548510593005,
+        "breach": false,
+        "dd": 46.00824316447654,
+        "trade_count": 64
+      }
+    },
+    {
+      "budget": 1000,
+      "config_id": "M1_070",
+      "config_path": "docs/superpowers/artifacts/glm-martingale-core-round18/r8/configs/g3_M1_070_1000_F2.json",
+      "corrected": {
+        "actual_symbol_count": 6,
+        "actual_symbols": [
+          "BTCUSDT",
+          "ETHUSDT",
+          "LINKUSDT",
+          "LTCUSDT",
+          "TRXUSDT",
+          "XRPUSDT"
+        ],
+        "ann": -17.013663430965543,
+        "breach": false,
+        "command": [
+          "target/release/synchronized_cycle_replay",
+          "--config",
+          "docs/superpowers/artifacts/glm-martingale-core-round18/r8/configs/g3_M1_070_1000_F2.json",
+          "--budget",
+          "1000",
+          "--start-ms",
+          "1704662400000",
+          "--end-ms",
+          "1735689599999",
+          "--market-data",
+          "data/market_data_full.db",
+          "--funding-data",
+          "data/funding_rates_round12.db"
+        ],
+        "cycles_with_so": 16,
+        "dd": 35.64677332596939,
+        "exit_code": 0,
+        "fee_quote": 1.8876828323054713,
+        "funding_quote": 3.0198688735855197,
+        "group_atomic_reject": [
+          93416,
+          91910,
+          53843,
+          71100
+        ],
+        "group_fo": [
+          0,
+          1,
+          7,
+          11
+        ],
+        "group_reduce": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "group_so": [
+          0,
+          1,
+          6,
+          9
+        ],
+        "group_tp": [
+          0,
+          0,
+          6,
+          10
+        ],
+        "groups_with_so": 3,
+        "max_group_abs_net_pnl_share_pct": 66.56125486979867,
+        "max_symbol_abs_net_pnl_share_pct": 55.27379563798274,
+        "max_symbol_gross_share_pct": 31.67608037923973,
+        "max_symbol_positive_pnl_share_pct": 40.69308804467966,
+        "min_equity": 657.898092050529,
+        "resolved_config_sha256": "917e4eee39b546d85f2d3e5a038466342b0334e35cf15f58ea45d5cc56d58c83",
+        "slippage_quote": 0.8389701476913205,
+        "status": "complete",
+        "trace_digests": {
+          "equity_stream_sha256": "652d00e2abc366292521fc9b88616dbae22bf6a649128838d8735c6cd12a7d62",
+          "event_stream_sha256": "f15da70fe2b953cda2882c726c181a757857a07b22689393aae05f2553b1210d",
+          "funding_stream_sha256": "d1325584c2de311671f337eeee7d700a8fab9a34cfaf185a875a99204348d2b9",
+          "rejection_stream_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "trade_stream_sha256": "0d0309c337ced396300514df9d7c5cb9ac8a4506cf18b38cbbe4dcd48b6fac95"
+        },
+        "trade_count": 108,
+        "wall_s": 3.892
+      },
+      "fold": "F2",
+      "key": "M1_070|1000|F2",
+      "old_claim": {
+        "ann": 54.12445082663149,
+        "breach": false,
+        "dd": 42.26253882394635,
+        "trade_count": 108
+      }
+    },
+    {
+      "budget": 1000,
+      "config_id": "M1_070",
+      "config_path": "docs/superpowers/artifacts/glm-martingale-core-round18/r8/configs/g3_M1_070_1000_F3.json",
+      "corrected": {
+        "actual_symbol_count": 4,
+        "actual_symbols": [
+          "BCHUSDT",
+          "ETHUSDT",
+          "LTCUSDT",
+          "TRXUSDT"
+        ],
+        "ann": 0.2642312119794932,
+        "breach": false,
+        "command": [
+          "target/release/synchronized_cycle_replay",
+          "--config",
+          "docs/superpowers/artifacts/glm-martingale-core-round18/r8/configs/g3_M1_070_1000_F3.json",
+          "--budget",
+          "1000",
+          "--start-ms",
+          "1736294400000",
+          "--end-ms",
+          "1767225599999",
+          "--market-data",
+          "data/market_data_full.db",
+          "--funding-data",
+          "data/funding_rates_round12.db"
+        ],
+        "cycles_with_so": 6,
+        "dd": 4.694914936951965,
+        "exit_code": 0,
+        "fee_quote": 0.6566073960252827,
+        "funding_quote": -5.979848909806932,
+        "group_atomic_reject": [
+          33359,
+          46129,
+          72161
+        ],
+        "group_fo": [
+          3,
+          4,
+          0
+        ],
+        "group_reduce": [
+          0,
+          0,
+          0
+        ],
+        "group_so": [
+          3,
+          3,
+          0
+        ],
+        "group_tp": [
+          2,
+          3,
+          0
+        ],
+        "groups_with_so": 2,
+        "max_group_abs_net_pnl_share_pct": 78.95697533204849,
+        "max_symbol_abs_net_pnl_share_pct": 33.69969379559656,
+        "max_symbol_gross_share_pct": 30.797602782490006,
+        "max_symbol_positive_pnl_share_pct": 62.784694759627214,
+        "min_equity": 985.2746249086558,
+        "resolved_config_sha256": "a17e33bb67f35038a0d41b9e8470b4c96aae4c857c8f76889cbf70dfa220920b",
+        "slippage_quote": 0.2918255093445701,
+        "status": "complete",
+        "trace_digests": {
+          "equity_stream_sha256": "93f83c181ebe8c9127d58fd7c0e04f247ef9cdd2539f44672d2f44506999dead",
+          "event_stream_sha256": "681e8c7738d95cddac0ce0a766e06119048f3d95c4235c8b7dad4a252dd06d1a",
+          "funding_stream_sha256": "c61f2fc3a0f7a29cd960cd89603a75a52572b694c692d5b6190085c389ef0793",
+          "rejection_stream_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "trade_stream_sha256": "3a91976ac6e10df13ca2762a22696138d392b583aa6f5d46daa74467dd80fc6d"
+        },
+        "trade_count": 40,
+        "wall_s": 2.889
+      },
+      "fold": "F3",
+      "key": "M1_070|1000|F3",
+      "old_claim": {
+        "ann": -1.974219352925155,
+        "breach": false,
+        "dd": 24.282066209104343,
+        "trade_count": 54
+      }
+    },
+    {
+      "budget": 1000,
+      "config_id": "M1_070",
+      "config_path": "docs/superpowers/artifacts/glm-martingale-core-round18/r8/configs/g3_M1_070_1000_F4.json",
+      "corrected": {
+        "actual_symbol_count": 6,
+        "actual_symbols": [
+          "BNBUSDT",
+          "BTCUSDT",
+          "DOGEUSDT",
+          "DOTUSDT",
+          "ETHUSDT",
+          "SOLUSDT"
+        ],
+        "ann": 3.4849429808207377,
+        "breach": false,
+        "command": [
+          "target/release/synchronized_cycle_replay",
+          "--config",
+          "docs/superpowers/artifacts/glm-martingale-core-round18/r8/configs/g3_M1_070_1000_F4.json",
+          "--budget",
+          "1000",
+          "--start-ms",
+          "1767820800000",
+          "--end-ms",
+          "1780271999999",
+          "--market-data",
+          "data/market_data_full.db",
+          "--funding-data",
+          "data/funding_rates_round12.db"
+        ],
+        "cycles_with_so": 7,
+        "dd": 1.581438498914985,
+        "exit_code": 0,
+        "fee_quote": 0.818764034409114,
+        "funding_quote": -1.9801161853263616,
+        "group_atomic_reject": [
+          13649,
+          14499,
+          10360,
+          28025
+        ],
+        "group_fo": [
+          4,
+          3,
+          3,
+          0
+        ],
+        "group_reduce": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "group_so": [
+          3,
+          1,
+          3,
+          0
+        ],
+        "group_tp": [
+          4,
+          2,
+          2,
+          0
+        ],
+        "groups_with_so": 3,
+        "max_group_abs_net_pnl_share_pct": 88.45246884423797,
+        "max_symbol_abs_net_pnl_share_pct": 28.962395909050763,
+        "max_symbol_gross_share_pct": 26.22374471975671,
+        "max_symbol_positive_pnl_share_pct": 45.46565476601522,
+        "min_equity": 993.5439336319414,
+        "resolved_config_sha256": "f8b1d363e528d8ff0b6da20baff24f08ba3d255ecbfc330817433fa57bd0e2b1",
+        "slippage_quote": 0.36389512640405064,
+        "status": "complete",
+        "trace_digests": {
+          "equity_stream_sha256": "87a67c221f2c0c41e55644d8cabcd00699b00b79730cd6912030491e84d1ecf9",
+          "event_stream_sha256": "6eea40fabdeda910883b20a5ef1ae32c7a37c8803e2513b2b5e91850a68f98c9",
+          "funding_stream_sha256": "443e82450a3fb837bffb2c9b99f5417be74f702471642859a89368a3315d5391",
+          "rejection_stream_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "trade_stream_sha256": "fee8646b0e8071b9238f674cc073d34aea0fa843269115f3a51c2759cc40efba"
+        },
+        "trade_count": 54,
+        "wall_s": 1.466
+      },
+      "fold": "F4",
+      "key": "M1_070|1000|F4",
+      "old_claim": {
+        "ann": -38.77359536098935,
+        "breach": false,
+        "dd": 30.234642415393147,
+        "trade_count": 40
+      }
+    },
+    {
+      "budget": 1000,
+      "config_id": "M1_085",
+      "config_path": "docs/superpowers/artifacts/glm-martingale-core-round18/r8/configs/g3_M1_085_1000_F2.json",
+      "corrected": {
+        "actual_symbol_count": 6,
+        "actual_symbols": [
+          "BTCUSDT",
+          "ETHUSDT",
+          "LINKUSDT",
+          "LTCUSDT",
+          "TRXUSDT",
+          "XRPUSDT"
+        ],
+        "ann": -10.307343760420206,
+        "breach": false,
+        "command": [
+          "target/release/synchronized_cycle_replay",
+          "--config",
+          "docs/superpowers/artifacts/glm-martingale-core-round18/r8/configs/g3_M1_085_1000_F2.json",
+          "--budget",
+          "1000",
+          "--start-ms",
+          "1704662400000",
+          "--end-ms",
+          "1735689599999",
+          "--market-data",
+          "data/market_data_full.db",
+          "--funding-data",
+          "data/funding_rates_round12.db"
+        ],
+        "cycles_with_so": 0,
+        "dd": 20.57340401654249,
+        "exit_code": 0,
+        "fee_quote": 2.3489225663208577,
+        "funding_quote": 2.0316298658361465,
+        "group_atomic_reject": [
+          95364,
+          100187,
+          78464,
+          87206
+        ],
+        "group_fo": [
+          0,
+          2,
+          18,
+          22
+        ],
+        "group_reduce": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "group_so": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "group_tp": [
+          0,
+          1,
+          17,
+          21
+        ],
+        "groups_with_so": 0,
+        "max_group_abs_net_pnl_share_pct": 61.451094344217935,
+        "max_symbol_abs_net_pnl_share_pct": 49.97152402318882,
+        "max_symbol_gross_share_pct": 28.812636986958793,
+        "max_symbol_positive_pnl_share_pct": 34.16075193131235,
+        "min_equity": 800.6893066260426,
+        "resolved_config_sha256": "55024eb3ca2ec5a5035e30ecb3aecb8c018076ddd64122f03fcd195915d66cc5",
+        "slippage_quote": 1.0439655850314928,
+        "status": "complete",
+        "trace_digests": {
+          "equity_stream_sha256": "e348eb9cf76163506c97cdaabc784e8a0a2c35059556699f6988eb5886d2277a",
+          "event_stream_sha256": "4e0cac5a1a74969a9e8c2f60749f6aaaf57f8bcb716501eb66d56c9dafb13eca",
+          "funding_stream_sha256": "d1325584c2de311671f337eeee7d700a8fab9a34cfaf185a875a99204348d2b9",
+          "rejection_stream_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "trade_stream_sha256": "ca60091c15213f124aaf2d302e1502bb5e341c8cc14a57e7f0fcebbca30b8b33"
+        },
+        "trade_count": 168,
+        "wall_s": 3.956
+      },
+      "fold": "F2",
+      "key": "M1_085|1000|F2",
+      "old_claim": {
+        "ann": 107.46727784380346,
+        "breach": false,
+        "dd": 60.59378552477058,
+        "trade_count": 116
+      }
+    },
+    {
+      "budget": 1000,
+      "config_id": "M1_085",
+      "config_path": "docs/superpowers/artifacts/glm-martingale-core-round18/r8/configs/g3_M1_085_1000_F3.json",
+      "corrected": {
+        "actual_symbol_count": 6,
+        "actual_symbols": [
+          "BCHUSDT",
+          "BNBUSDT",
+          "ETHUSDT",
+          "LTCUSDT",
+          "TRXUSDT",
+          "XRPUSDT"
+        ],
+        "ann": -1.9251133207631055,
+        "breach": false,
+        "command": [
+          "target/release/synchronized_cycle_replay",
+          "--config",
+          "docs/superpowers/artifacts/glm-martingale-core-round18/r8/configs/g3_M1_085_1000_F3.json",
+          "--budget",
+          "1000",
+          "--start-ms",
+          "1736294400000",
+          "--end-ms",
+          "1767225599999",
+          "--market-data",
+          "data/market_data_full.db",
+          "--funding-data",
+          "data/funding_rates_round12.db"
+        ],
+        "cycles_with_so": 0,
+        "dd": 4.789635833117627,
+        "exit_code": 0,
+        "fee_quote": 0.9246303083501541,
+        "funding_quote": -3.0640805618218248,
+        "group_atomic_reject": [
+          86668,
+          57680,
+          83973
+        ],
+        "group_fo": [
+          5,
+          5,
+          7
+        ],
+        "group_reduce": [
+          0,
+          0,
+          0
+        ],
+        "group_so": [
+          0,
+          0,
+          0
+        ],
+        "group_tp": [
+          4,
+          4,
+          6
+        ],
+        "groups_with_so": 0,
+        "max_group_abs_net_pnl_share_pct": 73.4881911721128,
+        "max_symbol_abs_net_pnl_share_pct": 43.553562852785824,
+        "max_symbol_gross_share_pct": 37.12151306265067,
+        "max_symbol_positive_pnl_share_pct": 48.410121886527605,
+        "min_equity": 975.6143060826223,
+        "resolved_config_sha256": "6649436a3a4a868fde85c44e4a3b935d0b99c5b6b2425ea6a1c5b512f5a002ee",
+        "slippage_quote": 0.41094680371117964,
+        "status": "complete",
+        "trace_digests": {
+          "equity_stream_sha256": "657240a1d3b574190ce0c9790262b0c1ba62c45f2c84d23cac71eda039ecc3f4",
+          "event_stream_sha256": "34602d94c0570070a0e0d925f3f1318524499d0ea362485a67a720a02a4d6d67",
+          "funding_stream_sha256": "c61f2fc3a0f7a29cd960cd89603a75a52572b694c692d5b6190085c389ef0793",
+          "rejection_stream_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "trade_stream_sha256": "dbb458daf3abb33b243fb595d4bf960ca6c2ea6a1878aee78d24f36b9b3cd262"
+        },
+        "trade_count": 68,
+        "wall_s": 2.762
+      },
+      "fold": "F3",
+      "key": "M1_085|1000|F3",
+      "old_claim": {
+        "ann": -4.132748984766965,
+        "breach": false,
+        "dd": 50.76590495105263,
+        "trade_count": 74
+      }
+    },
+    {
+      "budget": 1000,
+      "config_id": "M1_085",
+      "config_path": "docs/superpowers/artifacts/glm-martingale-core-round18/r8/configs/g3_M1_085_1000_F4.json",
+      "corrected": {
+        "actual_symbol_count": 8,
+        "actual_symbols": [
+          "BCHUSDT",
+          "BNBUSDT",
+          "BTCUSDT",
+          "DOGEUSDT",
+          "DOTUSDT",
+          "ETHUSDT",
+          "SOLUSDT",
+          "TRXUSDT"
+        ],
+        "ann": 4.451343545773545,
+        "breach": false,
+        "command": [
+          "target/release/synchronized_cycle_replay",
+          "--config",
+          "docs/superpowers/artifacts/glm-martingale-core-round18/r8/configs/g3_M1_085_1000_F4.json",
+          "--budget",
+          "1000",
+          "--start-ms",
+          "1767820800000",
+          "--end-ms",
+          "1780271999999",
+          "--market-data",
+          "data/market_data_full.db",
+          "--funding-data",
+          "data/funding_rates_round12.db"
+        ],
+        "cycles_with_so": 0,
+        "dd": 1.14270982547589,
+        "exit_code": 0,
+        "fee_quote": 2.631526142041476,
+        "funding_quote": -0.9355424495488048,
+        "group_atomic_reject": [
+          28688,
+          18961,
+          18622,
+          26039
+        ],
+        "group_fo": [
+          7,
+          18,
+          16,
+          8
+        ],
+        "group_reduce": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "group_so": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "group_tp": [
+          7,
+          17,
+          15,
+          7
+        ],
+        "groups_with_so": 0,
+        "max_group_abs_net_pnl_share_pct": 42.88177927780927,
+        "max_symbol_abs_net_pnl_share_pct": 30.28069866593054,
+        "max_symbol_gross_share_pct": 22.23385982113021,
+        "max_symbol_positive_pnl_share_pct": 19.81825484240673,
+        "min_equity": 999.6380217720317,
+        "resolved_config_sha256": "e347b772d8b389a70eb111dc8faa13360a4f27a1521df6304b31421bde3f75a7",
+        "slippage_quote": 1.1695671742406557,
+        "status": "complete",
+        "trace_digests": {
+          "equity_stream_sha256": "688c1889081141d1e1ec9bb52cdab9fd435136ca2d1103bb5ea5a16a7d263256",
+          "event_stream_sha256": "f15cdcf6ab7324f13c5f229f8bc89de58fda97f7223ca40262d63bf167d6f614",
+          "funding_stream_sha256": "443e82450a3fb837bffb2c9b99f5417be74f702471642859a89368a3315d5391",
+          "rejection_stream_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "trade_stream_sha256": "b6f73fe6f4eb22afdb784b40be0592995e30edf9e875fc4e5e0f9483ef5de5da"
+        },
+        "trade_count": 196,
+        "wall_s": 1.505
+      },
+      "fold": "F4",
+      "key": "M1_085|1000|F4",
+      "old_claim": {
+        "ann": -76.80530072316847,
+        "breach": false,
+        "dd": 60.20851342944893,
+        "trade_count": 60
+      }
+    }
+  ],
+  "schema_version": 1,
+  "summary": {
+    "best_ann": {
+      "ann": 10.956670028024051,
+      "dd": 4.737664740181921,
+      "key": "M1_007|2000|F4"
+    },
+    "best_martingale_common_gate": {
+      "ann": 5.20859260307569,
+      "dd": 1.2946620562825064,
+      "key": "M1_067|1000|F4"
+    },
+    "martingale_common_gate_rows": 2,
+    "positive_rows": 14,
+    "rows_completed": 24,
+    "rows_expected": 24,
+    "target_hit": false,
+    "target_note": "No row can hit a final tier without valid 5-cold-start evidence; all old G3 claims are superseded by corrected engine rows."
+  }
+}

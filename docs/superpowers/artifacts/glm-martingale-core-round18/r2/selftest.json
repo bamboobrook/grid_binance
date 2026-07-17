@@ -20,9 +20,9 @@
     {
       "name": "base",
       "ok": true,
-      "wall_s": 0.2,
-      "ann": -0.4167577447890647,
-      "dd": 0.15540331493558263,
+      "wall_s": 0.3,
+      "ann": -0.019367293126548724,
+      "dd": 0.03219537246408943,
       "trade_count": 6,
       "group_fo": [
         1
@@ -39,14 +39,14 @@
       "groups_with_so": 1,
       "breach": false,
       "event_count": 543,
-      "resolved_config_sha256": "fd73120f91aada5b7f2be640085719ec1c8085faa3aea297f788b0b0121aac47"
+      "resolved_config_sha256": "908b6b3b90d53be1eedaf628206c02c0976113f68a022cf4b4c99589aa325a31"
     },
     {
       "name": "tight_step",
       "ok": true,
-      "wall_s": 0.2,
-      "ann": -0.5572577545440938,
-      "dd": 0.1780024713284331,
+      "wall_s": 0.3,
+      "ann": -0.01761232590919981,
+      "dd": 0.06801878664276986,
       "trade_count": 8,
       "group_fo": [
         1
@@ -63,14 +63,14 @@
       "groups_with_so": 1,
       "breach": false,
       "event_count": 544,
-      "resolved_config_sha256": "8f206d41ea07d4fd01e62ae39a931cb2770c221530f291d3be5dc2b0476f595f"
+      "resolved_config_sha256": "6b533a3e0af565f0e41c3f5564c5f98db5adbce63d6cfea99f4a9137499b7daa"
     },
     {
       "name": "deep_legs",
       "ok": true,
       "wall_s": 0.3,
-      "ann": -0.4417651740943218,
-      "dd": 0.15540331493558263,
+      "ann": -0.02003633024147966,
+      "dd": 0.03270627547564592,
       "trade_count": 6,
       "group_fo": [
         1
@@ -87,14 +87,14 @@
       "groups_with_so": 1,
       "breach": false,
       "event_count": 543,
-      "resolved_config_sha256": "c09b1fc64a0da52c2ebf030a3df5df8e0b25becae604e3fed72c2a87cfbe962c"
+      "resolved_config_sha256": "43bf3196b46ee71bb501baab3353ea340f048f02d4b01b679b6df5255f12d76e"
     },
     {
       "name": "low_entry",
       "ok": true,
-      "wall_s": 0.2,
-      "ann": -0.5657505869460122,
-      "dd": 0.18010102118378157,
+      "wall_s": 0.3,
+      "ann": -0.010192347744131247,
+      "dd": 0.0670488007854302,
       "trade_count": 8,
       "group_fo": [
         1
@@ -111,14 +111,14 @@
       "groups_with_so": 1,
       "breach": false,
       "event_count": 544,
-      "resolved_config_sha256": "d5d2aed19bae963358219512a5326fa6c6d2fc37e78c54107f972d234b0d3912"
+      "resolved_config_sha256": "b35b49dcc4c366a44b3c7ae5f9573fe516ea76fec8f81ea37a83db16fa0c7b85"
     },
     {
       "name": "low_tp_high_entry",
       "ok": true,
-      "wall_s": 0.2,
-      "ann": -0.5572577545440938,
-      "dd": 0.1780024713284331,
+      "wall_s": 0.3,
+      "ann": -0.01761232590919981,
+      "dd": 0.06801878664276986,
       "trade_count": 8,
       "group_fo": [
         1
@@ -135,7 +135,7 @@
       "groups_with_so": 1,
       "breach": false,
       "event_count": 544,
-      "resolved_config_sha256": "fa3e547ad65525d538316a581d2491fd9cc8e75cab437d66fcb92945c740cf78"
+      "resolved_config_sha256": "45db98654f5d0c0f5ae8c20d74eb7df5653db812b91f7b7cced0ed07dc4cb007"
     }
   ]
 }

@@ -464,10 +464,11 @@ impl Default for R17VolCapConfig {
 
 /// Round 18 R2: native synchronized residual Martingale cycle config (plan §7/§8).
 ///
-/// Implements the M1 synchronized pair cycle and the M2 market-factor residual
-/// basket as a single aggregate cycle:
+/// Defines the shared M1 synchronized pair contract and the planned M2
+/// market-factor basket contract. M2 must fail closed until its dynamic
+/// factor-neutral leg directions and notionals are implemented:
 ///   - residual computed on completed bar boundary from train-frozen
-///     (beta, mu, sigma): `residual = log(A) - beta*log(B) - mu` (M1) or
+///     (beta, mu, sigma): `residual = log(dependent) - beta*log(factor) - mu` (M1) or
 ///     `residual = log(symbol_i) - beta_i*factor - mu_i` (M2);
 ///   - all legs open FO at the same timestamp when residual z crosses `entry_z`;
 ///   - all surviving legs add SO in lockstep when aggregate cycle net PnL < 0

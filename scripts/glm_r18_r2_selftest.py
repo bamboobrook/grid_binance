@@ -114,8 +114,8 @@ def build_pair_config(sym_a, sym_b, beta, mu, sigma, half_life_h, fit_sha, *, en
             {
                 "group_id": f"M1_{sym_a}_{sym_b}",
                 "legs": [sym_a, sym_b],
-                # leg signs set at cycle open by residual sign; placeholder +1.
-                "leg_direction_signs": [1, 1],
+                # M1 ignores fit signs and derives directions at cycle open.
+                "leg_direction_signs": [0, 0],
                 "betas": [beta],
                 "mus": [mu],
                 "residual_sigma": sigma,

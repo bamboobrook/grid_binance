@@ -1,7 +1,8 @@
 //! Round 18 R2: native synchronized residual Martingale cycle engine.
 //!
-//! Implements the M1 synchronized pair cycle (plan §7) and the M2 market-factor
-//! residual basket (plan §8) as a single aggregate cycle. This is the FIRST
+//! Implements the M1 synchronized pair cycle (plan §7). M2 market-factor
+//! residual baskets fail closed until their factor-neutral direction and
+//! notional contract is implemented. This is the FIRST
 //! time the codebase executes a synchronized multi-leg residual Martingale
 //! cycle — prior rounds (R1-R17) only ran independent per-symbol cycles.
 //!
@@ -38,7 +39,7 @@
 //! residual signal generates out-of-cycle orders; SO fires while cycle is net
 //! profitable; shadow/precomputed curve replaces real synchronous orders.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use serde::{Deserialize, Serialize};
 
@@ -60,9 +61,8 @@ pub struct SynchronizedFit {
     /// Leg symbols in the group. For M1 this is [A, B]; for M2 this is the
     /// 6+ basket symbols.
     pub legs: Vec<String>,
-    /// Per-leg direction sign (+1 long, -1 short) of the FO at cycle open.
-    /// Determined by the sign of the residual at entry: a leg with positive
-    /// residual (over-valued vs factor/pair) is shorted, negative is bought.
+    /// M2 base direction sign metadata. M1 ignores this field and derives both
+    /// leg directions at cycle open from the residual sign and hedge beta.
     pub leg_direction_signs: Vec<i8>,
     /// Per-leg beta vs the factor/other leg, train-frozen. residual_i =
     /// log(price_i) - beta_i * log(factor_price) - mu_i (M2) or
@@ -86,6 +86,9 @@ pub struct SynchronizedCycleState {
     /// Per-leg filled states: index -> list of (price, notional_quote, fee,
     /// slippage). All legs have the SAME number of fills at any time (sync).
     pub leg_fills: Vec<Vec<LegFill>>,
+    /// Position direction frozen at cycle open. M1 derives this from the
+    /// residual sign and hedge beta; it must not use a static long/long fit.
+    pub leg_direction_signs: Vec<i8>,
     /// Frozen at cycle open.
     pub opened_at_ms: i64,
     pub last_fill_at_ms: i64,
@@ -107,11 +110,19 @@ pub struct LegFill {
 }
 
 impl SynchronizedCycleState {
-    fn new(cycle_id: String, cycle_seq: u64, n_legs: usize, opened_at_ms: i64, z_open: f64) -> Self {
+    fn new(
+        cycle_id: String,
+        cycle_seq: u64,
+        n_legs: usize,
+        opened_at_ms: i64,
+        z_open: f64,
+        leg_direction_signs: Vec<i8>,
+    ) -> Self {
         Self {
             cycle_id,
             cycle_seq,
             leg_fills: vec![Vec::new(); n_legs],
+            leg_direction_signs,
             opened_at_ms,
             last_fill_at_ms: opened_at_ms,
             residual_z_at_open: z_open,
@@ -135,46 +146,45 @@ impl SynchronizedCycleState {
 
     /// Per-leg current position notional (sum of that leg's fills).
     fn leg_notional(&self, leg_idx: usize) -> f64 {
-        self.leg_fills[leg_idx].iter().map(|f| f.notional_quote).sum()
+        self.leg_fills[leg_idx]
+            .iter()
+            .map(|f| f.notional_quote)
+            .sum()
+    }
+
+    fn leg_quantity(&self, leg_idx: usize) -> f64 {
+        self.leg_fills[leg_idx]
+            .iter()
+            .filter(|fill| fill.price > 0.0)
+            .map(|fill| fill.notional_quote / fill.price)
+            .sum()
     }
 
     /// Aggregate unrealized PnL across legs given current mark prices.
     /// For each leg: sign * (mark - avg_entry)/avg_entry * leg_notional.
-    fn aggregate_unrealized_pnl(
-        &self,
-        marks: &[f64],
-        leg_direction_signs: &[i8],
-        funding_since_fill: &[f64],
-    ) -> f64 {
+    fn aggregate_unrealized_pnl(&self, marks: &[f64]) -> f64 {
         let mut total = 0.0;
         for (i, fills) in self.leg_fills.iter().enumerate() {
             if fills.is_empty() || i >= marks.len() {
                 continue;
             }
-            let notional = fills.iter().map(|f| f.notional_quote).sum::<f64>();
-            let avg_entry = fills.iter().map(|f| f.price).sum::<f64>() / fills.len() as f64;
-            if avg_entry <= 0.0 {
-                continue;
-            }
             let mark = marks[i];
-            let sign = leg_direction_signs[i] as f64;
-            let price_pnl = sign * (mark - avg_entry) / avg_entry * notional;
-            // subtract funding paid since last fill (already realized-like cost)
-            let fund = funding_since_fill.get(i).copied().unwrap_or(0.0);
-            total += price_pnl - fund;
+            let sign = self.leg_direction_signs[i] as f64;
+            total += fills
+                .iter()
+                .filter(|fill| fill.price > 0.0)
+                .map(|fill| {
+                    let quantity = fill.notional_quote / fill.price;
+                    sign * (mark - fill.price) * quantity
+                })
+                .sum::<f64>();
         }
         total
     }
 
     /// Net aggregate cycle PnL = realized + unrealized, after all costs.
-    fn aggregate_net_pnl(
-        &self,
-        marks: &[f64],
-        leg_direction_signs: &[i8],
-        funding_since_fill: &[f64],
-    ) -> f64 {
-        self.aggregate_realized_pnl_quote
-            + self.aggregate_unrealized_pnl(marks, leg_direction_signs, funding_since_fill)
+    fn aggregate_net_pnl(&self, marks: &[f64]) -> f64 {
+        self.aggregate_realized_pnl_quote + self.aggregate_unrealized_pnl(marks)
     }
 
     fn avg_entry(&self, leg_idx: usize) -> Option<f64> {
@@ -182,7 +192,9 @@ impl SynchronizedCycleState {
         if fills.is_empty() {
             None
         } else {
-            Some(fills.iter().map(|f| f.price).sum::<f64>() / fills.len() as f64)
+            let notional = fills.iter().map(|fill| fill.notional_quote).sum::<f64>();
+            let quantity = self.leg_quantity(leg_idx);
+            (quantity > 0.0).then_some(notional / quantity)
         }
     }
 }
@@ -196,17 +208,58 @@ fn effective_slippage_bps() -> f64 {
     crate::martingale::kline_engine::effective_slippage_bps_pub()
 }
 
-/// Per-leg notionals for the synchronized ladder. Layer k (0-indexed) has
-/// notional = fo_per_leg * multiplier^k. We split `group_fo_quote` dollar-beta
-/// neutral across legs at layer 0.
-pub fn synchronized_leg_notionals(cfg: &SynchronizedCycleConfig, n_legs: usize) -> Vec<Vec<f64>> {
-    let fo_per_leg = cfg.group_fo_quote / n_legs as f64;
+/// Per-leg notionals for the synchronized ladder. M1 uses the train-frozen
+/// hedge beta: factor/dependent quote weights are |beta|:1. M2 remains equal
+/// weight until its factor-neutral implementation is completed and validated.
+pub fn synchronized_leg_notionals(
+    cfg: &SynchronizedCycleConfig,
+    fit: &SynchronizedFit,
+) -> Vec<Vec<f64>> {
+    let weights = if fit.legs.len() == 2 && !fit.betas.is_empty() {
+        let beta = fit.betas[0].abs();
+        let denominator = 1.0 + beta;
+        vec![beta / denominator, 1.0 / denominator]
+    } else {
+        vec![1.0 / fit.legs.len() as f64; fit.legs.len()]
+    };
     (0..cfg.max_legs as usize)
         .map(|k| {
-            let layer_notional = fo_per_leg * cfg.multiplier.powi(k as i32);
-            vec![layer_notional; n_legs]
+            let layer_notional = cfg.group_fo_quote * cfg.multiplier.powi(k as i32);
+            weights
+                .iter()
+                .map(|weight| layer_notional * weight)
+                .collect()
         })
         .collect()
+}
+
+fn entry_leg_direction_signs(fit: &SynchronizedFit, residual_z: f64) -> Result<Vec<i8>, String> {
+    let residual_sign = if residual_z > 0.0 {
+        1
+    } else if residual_z < 0.0 {
+        -1
+    } else {
+        0
+    };
+    if residual_sign == 0 {
+        return Err("cannot open synchronized cycle at zero residual".to_string());
+    }
+    if fit.legs.len() == 2 {
+        let beta = *fit.betas.first().ok_or("M1 pair fit missing hedge beta")?;
+        if !beta.is_finite() || beta.abs() < 1e-9 {
+            return Err(format!("M1 pair hedge beta is invalid: {beta}"));
+        }
+        // residual = dependent - beta * factor. Mean-reversion exposure is
+        // -sign(residual) * residual, so q_dep=-s and q_factor=s*beta.
+        let factor_sign = if residual_sign as f64 * beta > 0.0 {
+            1
+        } else {
+            -1
+        };
+        Ok(vec![factor_sign, -residual_sign])
+    } else {
+        Err("M2 basket direction contract is not implemented; fail closed".to_string())
+    }
 }
 
 /// Validate that a config is a genuine Martingale per plan §2/§7.3.
@@ -236,6 +289,15 @@ pub fn validate_martingale_contract(cfg: &SynchronizedCycleConfig) -> Result<(),
             cfg.group_fo_quote
         ));
     }
+    if cfg.leverage == 0 {
+        return Err("not_martingale: leverage must be >= 1".to_string());
+    }
+    if !cfg.group_gross_cap_pct.is_finite() || cfg.group_gross_cap_pct <= 0.0 {
+        return Err(format!(
+            "not_martingale: group_gross_cap_pct={} must be finite and > 0",
+            cfg.group_gross_cap_pct
+        ));
+    }
     Ok(())
 }
 
@@ -250,7 +312,11 @@ pub fn validate_martingale_contract(cfg: &SynchronizedCycleConfig) -> Result<(),
 /// **M2 basket**: residual_i = log(price_i) - beta_i*log(factor) - mu_i; the
 /// basket residual z is the mean of per-leg residual z (factor-neutral
 /// long-short). The factor (BTC or PC1) is passed via `factor_mark`.
-pub fn residual_z(fit: &SynchronizedFit, marks: &BTreeMap<String, f64>, factor_mark: Option<f64>) -> Option<f64> {
+pub fn residual_z(
+    fit: &SynchronizedFit,
+    marks: &BTreeMap<String, f64>,
+    factor_mark: Option<f64>,
+) -> Option<f64> {
     if fit.legs.len() < 2 {
         return None;
     }
@@ -300,8 +366,39 @@ pub fn run_synchronized_cycle_replay(
     budget_quote: f64,
 ) -> Result<MartingaleBacktestResult, String> {
     validate_martingale_contract(cfg)?;
+    if cfg.family == "M2_basket" {
+        return Err(
+            "M2 basket is not implemented with dynamic leg directions and factor-neutral notionals; fail closed"
+                .to_string(),
+        );
+    }
+    if cfg.family != "M1_pair" {
+        return Err(format!(
+            "unsupported synchronized cycle family: {}",
+            cfg.family
+        ));
+    }
     if fits.is_empty() {
         return Err("no synchronized groups fit".to_string());
+    }
+    for fit in fits {
+        if fit.legs.len() != 2 || fit.betas.len() != 1 || fit.mus.len() != 1 {
+            return Err(format!(
+                "invalid M1 fit {}: expected 2 legs, 1 beta, and 1 mu",
+                fit.group_id
+            ));
+        }
+        if !fit.betas[0].is_finite()
+            || fit.betas[0].abs() < 1e-9
+            || !fit.mus[0].is_finite()
+            || !fit.residual_sigma.is_finite()
+            || fit.residual_sigma <= 0.0
+        {
+            return Err(format!(
+                "invalid M1 fit {}: beta/mu/sigma must be finite, beta non-zero, sigma > 0",
+                fit.group_id
+            ));
+        }
     }
     if budget_quote <= 0.0 {
         return Err(format!("budget_quote={} must be > 0", budget_quote));
@@ -316,7 +413,7 @@ pub fn run_synchronized_cycle_replay(
     // Per-group notionals[layers][legs].
     let group_notionals: Vec<Vec<Vec<f64>>> = fits
         .iter()
-        .map(|f| synchronized_leg_notionals(cfg, f.legs.len()))
+        .map(|fit| synchronized_leg_notionals(cfg, fit))
         .collect();
 
     // Per-group active cycle state (None = no active cycle).
@@ -325,6 +422,7 @@ pub fn run_synchronized_cycle_replay(
     let mut group_realized: Vec<f64> = vec![0.0; n_groups];
     // Per-group funding cost accumulator.
     let mut group_funding: Vec<f64> = vec![0.0; n_groups];
+    let mut symbol_funding: BTreeMap<String, f64> = BTreeMap::new();
     // Per-group fee/slippage accumulators.
     let mut group_fee: Vec<f64> = vec![0.0; n_groups];
     let mut group_slip: Vec<f64> = vec![0.0; n_groups];
@@ -334,8 +432,9 @@ pub fn run_synchronized_cycle_replay(
     let mut group_tp: Vec<u64> = vec![0; n_groups];
     let mut group_reduce: Vec<u64> = vec![0; n_groups];
     let mut group_atomic_reject: Vec<u64> = vec![0; n_groups];
-    // Count of groups that produced at least one SO (martingale evidence).
-    let mut groups_with_so: u32 = 0;
+    // Distinguish unique groups from closed cycles that produced a real SO.
+    let mut group_had_so: Vec<bool> = vec![false; n_groups];
+    let mut cycles_with_so: u32 = 0;
 
     let mut events: Vec<MartingaleBacktestEvent> = Vec::new();
     let mut trades: Vec<MartingaleTradeDetail> = Vec::new();
@@ -355,7 +454,11 @@ pub fn run_synchronized_cycle_replay(
 
     // Pre-sort funding by (time, symbol) for monotonic drain.
     let mut sorted_funding: Vec<&FundingRatePoint> = funding_rates.iter().collect();
-    sorted_funding.sort_by(|a, b| a.funding_time_ms.cmp(&b.funding_time_ms).then(a.symbol.cmp(&b.symbol)));
+    sorted_funding.sort_by(|a, b| {
+        a.funding_time_ms
+            .cmp(&b.funding_time_ms)
+            .then(a.symbol.cmp(&b.symbol))
+    });
     let mut funding_index = 0usize;
 
     // Latest close per symbol (completed bar boundary).
@@ -366,7 +469,7 @@ pub fn run_synchronized_cycle_replay(
     let mut bar_index = 0;
     while bar_index < bars.len() {
         let timestamp_ms = bars[bar_index].open_time_ms;
-        let group_start = bar_index;
+        let mut updated_symbols = BTreeSet::new();
         while bar_index < bars.len() && bars[bar_index].open_time_ms == timestamp_ms {
             let b = &bars[bar_index];
             if b.close <= 0.0 || b.open < 0.0 || b.high < 0.0 || b.low < 0.0 {
@@ -374,6 +477,7 @@ pub fn run_synchronized_cycle_replay(
                 continue;
             }
             latest_close.insert(b.symbol.clone(), b.close);
+            updated_symbols.insert(b.symbol.clone());
             bar_index += 1;
         }
         // Drain funding events up to this timestamp, applying to any active
@@ -388,18 +492,24 @@ pub fn run_synchronized_cycle_replay(
                         if let Some(leg_pos) = fit.legs.iter().position(|s| s == &f.symbol) {
                             let leg_notional = cycle.leg_notional(leg_pos);
                             if leg_notional > 0.0 {
-                                let sign = fit.leg_direction_signs[leg_pos] as f64;
                                 let mark = f.mark_price.unwrap_or_else(|| {
                                     latest_close.get(&f.symbol).copied().unwrap_or(0.0)
                                 });
-                                let _ = mark; // funding_rate is already a rate
-                                let fund_quote = -sign * leg_notional * f.funding_rate;
+                                let sign = cycle.leg_direction_signs[leg_pos] as f64;
+                                let current_notional = if mark > 0.0 {
+                                    cycle.leg_quantity(leg_pos) * mark
+                                } else {
+                                    leg_notional
+                                };
+                                let fund_quote = -sign * current_notional * f.funding_rate;
                                 // attribute to the leg's last fill as funding_paid
                                 if let Some(last_fill) = cycle.leg_fills[leg_pos].last_mut() {
                                     last_fill.funding_paid_quote += fund_quote;
                                 }
                                 cycle.aggregate_realized_pnl_quote += fund_quote;
                                 group_funding[gi] += fund_quote;
+                                *symbol_funding.entry(f.symbol.clone()).or_insert(0.0) +=
+                                    fund_quote;
                                 realized_pnl_quote += fund_quote;
                                 events.push(MartingaleBacktestEvent {
                                     timestamp_ms: f.funding_time_ms,
@@ -435,6 +545,15 @@ pub fn run_synchronized_cycle_replay(
 
         // For each group, evaluate synchronized decisions.
         for (gi, fit) in fits.iter().enumerate() {
+            // A synchronized decision requires a fresh completed bar for every
+            // leg. Stale marks remain valid for equity only, never for orders.
+            if !fit
+                .legs
+                .iter()
+                .all(|symbol| updated_symbols.contains(symbol))
+            {
+                continue;
+            }
             let marks = collect_marks(fit, &latest_close);
             if marks.is_none() {
                 continue;
@@ -447,6 +566,16 @@ pub fn run_synchronized_cycle_replay(
             };
 
             // 1. Active cycle management (SO / TP / abort).
+            let portfolio_margin_before =
+                projected_total_margin_all(&active, fits, &latest_close, cfg);
+            let available_equity_before = initial_equity
+                + realized_pnl_quote
+                + aggregate_all_unrealized(&active, &fits, &latest_close);
+            // A deadline abort closes the position at the previous boundary.
+            // Clear its tombstone before admitting a later independent cycle.
+            if active[gi].as_ref().is_some_and(|cycle| cycle.aborted) {
+                active[gi] = None;
+            }
             if let Some(cycle) = &mut active[gi] {
                 if cycle.aborted {
                     // nothing more; will be cleared when equity recomputed
@@ -455,7 +584,7 @@ pub fn run_synchronized_cycle_replay(
                     // to the current z. The SO adverse-check must measure how far
                     // the residual has moved SINCE the last fill, not zero.
                     let prev_last_z = cycle.last_residual_z;
-                    let net_pnl = cycle.aggregate_net_pnl(&marks, &fit.leg_direction_signs, &[]);
+                    let net_pnl = cycle.aggregate_net_pnl(&marks);
                     let depth = cycle.depth as usize;
 
                     // abort: deadline
@@ -463,14 +592,30 @@ pub fn run_synchronized_cycle_replay(
                         let age_h = (timestamp_ms - cycle.opened_at_ms) / 3_600_000;
                         if age_h >= deadline_h as i64 {
                             // aggregate reduce/close: realize at current marks
-                            let (realized_delta, _) = close_cycle_at_marks(
-                                cycle, &marks, &fit.leg_direction_signs, timestamp_ms, fit,
-                                &mut trades, &mut events, "sync_abort_deadline",
+                            let close = close_cycle_at_marks(
+                                cycle,
+                                &marks,
+                                timestamp_ms,
+                                fit,
+                                cfg.leverage,
+                                fee_bps,
+                                slip_bps,
+                                &mut trades,
+                                &mut events,
+                                "sync_abort_deadline",
                             );
-                            cycle.aggregate_realized_pnl_quote += realized_delta;
+                            cycle.aggregate_realized_pnl_quote += close.realized_delta;
                             cycle.aborted = true;
-                            cycle.abort_reason = Some(format!("deadline_h={} age_h={}", deadline_h, age_h));
-                            realized_pnl_quote += realized_delta;
+                            cycle.abort_reason =
+                                Some(format!("deadline_h={} age_h={}", deadline_h, age_h));
+                            realized_pnl_quote += close.realized_delta;
+                            group_fee[gi] += close.fee_quote;
+                            group_slip[gi] += close.slippage_quote;
+                            group_realized[gi] += cycle.aggregate_realized_pnl_quote;
+                            if cycle.depth > 1 {
+                                group_had_so[gi] = true;
+                                cycles_with_so += 1;
+                            }
                             group_reduce[gi] += 1;
                             trade_count += fit.legs.len() as u64;
                             continue;
@@ -478,15 +623,31 @@ pub fn run_synchronized_cycle_replay(
                     }
 
                     // TP: net PnL > floor AND |z| <= exit_z
-                    let tp_floor_quote =
-                        cycle.aggregate_open_notional_quote() * (cfg.tp_net_bps_floor as f64) / 10_000.0;
-                    if net_pnl > tp_floor_quote && z.abs() <= cfg.exit_z && depth >= 1 {
-                        let (realized_delta, _) = close_cycle_at_marks(
-                            cycle, &marks, &fit.leg_direction_signs, timestamp_ms, fit,
-                            &mut trades, &mut events, "sync_tp",
+                    let tp_floor_quote = cycle.aggregate_open_notional_quote()
+                        * (cfg.tp_net_bps_floor as f64)
+                        / 10_000.0;
+                    let estimated_close_cost =
+                        current_close_notional(cycle, &marks) * (fee_bps + slip_bps) / 10_000.0;
+                    if net_pnl - estimated_close_cost > tp_floor_quote
+                        && z.abs() <= cfg.exit_z
+                        && depth >= 1
+                    {
+                        let close = close_cycle_at_marks(
+                            cycle,
+                            &marks,
+                            timestamp_ms,
+                            fit,
+                            cfg.leverage,
+                            fee_bps,
+                            slip_bps,
+                            &mut trades,
+                            &mut events,
+                            "sync_tp",
                         );
-                        cycle.aggregate_realized_pnl_quote += realized_delta;
-                        realized_pnl_quote += realized_delta;
+                        cycle.aggregate_realized_pnl_quote += close.realized_delta;
+                        realized_pnl_quote += close.realized_delta;
+                        group_fee[gi] += close.fee_quote;
+                        group_slip[gi] += close.slippage_quote;
                         group_tp[gi] += 1;
                         trade_count += fit.legs.len() as u64;
                         // close out
@@ -494,7 +655,8 @@ pub fn run_synchronized_cycle_replay(
                         let had_so = cycle.depth > 1;
                         group_realized[gi] += cycle.aggregate_realized_pnl_quote;
                         if had_so {
-                            groups_with_so += 1;
+                            group_had_so[gi] = true;
+                            cycles_with_so += 1;
                         }
                         events.push(MartingaleBacktestEvent {
                             timestamp_ms,
@@ -522,16 +684,23 @@ pub fn run_synchronized_cycle_replay(
                             // try to add a synchronized SO layer across all legs
                             let layer_idx = depth; // 0=FO already filled; SO layers are 1..max-1
                             let mut all_ok = true;
-                            let mut new_fills: Vec<Option<LegFill>> = Vec::with_capacity(fit.legs.len());
+                            let mut new_fills: Vec<Option<LegFill>> =
+                                Vec::with_capacity(fit.legs.len());
                             for (li, sym) in fit.legs.iter().enumerate() {
                                 let mark = marks[li];
                                 let layer_notional = group_notionals[gi][layer_idx][li];
                                 // exchange min notional + margin cap check
                                 let fee = layer_notional * fee_bps / 10_000.0;
                                 let slip = layer_notional * slip_bps / 10_000.0;
-                                let margin_needed = layer_notional / cfg.leverage as f64;
-                                let projected_margin = projected_total_margin(cycle, cfg) + margin_needed;
-                                if layer_notional < 5.0 || projected_margin > group_gross_cap_quote {
+                                let projected_group_gross = current_close_notional(cycle, &marks)
+                                    + group_notionals[gi][layer_idx].iter().sum::<f64>();
+                                let projected_portfolio_margin = portfolio_margin_before
+                                    + group_notionals[gi][layer_idx].iter().sum::<f64>()
+                                        / cfg.leverage as f64;
+                                if layer_notional < 5.0
+                                    || projected_group_gross > group_gross_cap_quote
+                                    || projected_portfolio_margin > available_equity_before.max(0.0)
+                                {
                                     all_ok = false;
                                     new_fills.push(None);
                                     let _ = sym;
@@ -552,11 +721,12 @@ pub fn run_synchronized_cycle_replay(
                                         group_fee[gi] += f.fee_quote;
                                         group_slip[gi] += f.slippage_quote;
                                         realized_pnl_quote -= f.fee_quote + f.slippage_quote;
-                                        cycle.aggregate_realized_pnl_quote -= f.fee_quote + f.slippage_quote;
+                                        cycle.aggregate_realized_pnl_quote -=
+                                            f.fee_quote + f.slippage_quote;
                                         trades.push(MartingaleTradeDetail {
                                             timestamp_ms,
                                             symbol: fit.legs[li].clone(),
-                                            direction: if fit.leg_direction_signs[li] > 0 {
+                                            direction: if cycle.leg_direction_signs[li] > 0 {
                                                 "long".to_string()
                                             } else {
                                                 "short".to_string()
@@ -598,7 +768,9 @@ pub fn run_synchronized_cycle_replay(
                                     symbol: fit.legs.join(","),
                                     strategy_instance_id: fit.group_id.clone(),
                                     cycle_id: Some(cycle.cycle_id.clone()),
-                                    detail: "reason=min_notional_or_margin_cap;action=so_layer_skipped".to_string(),
+                                    detail:
+                                        "reason=min_notional_or_margin_cap;action=so_layer_skipped"
+                                            .to_string(),
                                 });
                             }
                         }
@@ -613,20 +785,24 @@ pub fn run_synchronized_cycle_replay(
                 // buy under-valued. For a pair, A over B: if z>0, A rich -> short
                 // A, long B. We set leg signs from the residual sign at open.
                 let entry_sign = z.signum() as i8;
+                let cycle_direction_signs = entry_leg_direction_signs(fit, z)?;
                 // FO layer (layer 0).
                 let mut all_ok = true;
                 let mut new_fills: Vec<Option<LegFill>> = Vec::with_capacity(fit.legs.len());
-                // leg direction: for M1 pair, leg 0 (A) takes -entry_sign, leg 1 (B) +entry_sign.
-                // for M2 basket, legs with positive residual component get -entry_sign.
+                // M1 factor/dependent directions were derived above from the
+                // residual sign and the train-frozen hedge beta.
                 for (li, _sym) in fit.legs.iter().enumerate() {
                     let mark = marks[li];
                     let layer_notional = group_notionals[gi][0][li];
                     let fee = layer_notional * fee_bps / 10_000.0;
                     let slip = layer_notional * slip_bps / 10_000.0;
-                    let margin_needed = layer_notional / cfg.leverage as f64;
-                    // No active cycle yet on this group; projected = just this FO layer.
-                    let projected_margin = margin_needed;
-                    if layer_notional < 5.0 || projected_margin > group_gross_cap_quote {
+                    let layer_total = group_notionals[gi][0].iter().sum::<f64>();
+                    let projected_portfolio_margin =
+                        portfolio_margin_before + layer_total / cfg.leverage as f64;
+                    if layer_notional < 5.0
+                        || layer_total > group_gross_cap_quote
+                        || projected_portfolio_margin > available_equity_before.max(0.0)
+                    {
                         all_ok = false;
                         new_fills.push(None);
                     } else {
@@ -642,8 +818,14 @@ pub fn run_synchronized_cycle_replay(
                 if all_ok && new_fills.iter().all(|f| f.is_some()) {
                     let cycle_seq = next_cycle_seq();
                     let cycle_id = format!("{}-sync-cycle-{}", fit.group_id, cycle_seq);
-                    let mut cycle =
-                        SynchronizedCycleState::new(cycle_id.clone(), cycle_seq, fit.legs.len(), timestamp_ms, z);
+                    let mut cycle = SynchronizedCycleState::new(
+                        cycle_id.clone(),
+                        cycle_seq,
+                        fit.legs.len(),
+                        timestamp_ms,
+                        z,
+                        cycle_direction_signs,
+                    );
                     for (li, opt) in new_fills.iter().enumerate() {
                         if let Some(f) = opt {
                             cycle.leg_fills[li].push(f.clone());
@@ -654,7 +836,7 @@ pub fn run_synchronized_cycle_replay(
                             trades.push(MartingaleTradeDetail {
                                 timestamp_ms,
                                 symbol: fit.legs[li].clone(),
-                                direction: if fit.leg_direction_signs[li] > 0 {
+                                direction: if cycle.leg_direction_signs[li] > 0 {
                                     "long".to_string()
                                 } else {
                                     "short".to_string()
@@ -684,7 +866,10 @@ pub fn run_synchronized_cycle_replay(
                         cycle_id: Some(cycle_id.clone()),
                         detail: format!(
                             "entry_z={:.3};sign={};fo_quote={:.2};legs={}",
-                            z, entry_sign, cfg.group_fo_quote, fit.legs.len()
+                            z,
+                            entry_sign,
+                            cfg.group_fo_quote,
+                            fit.legs.len()
                         ),
                     });
                     active[gi] = Some(cycle);
@@ -716,28 +901,50 @@ pub fn run_synchronized_cycle_replay(
     // the last completed close).
     for (gi, fit) in fits.iter().enumerate() {
         if let Some(cycle) = &mut active[gi] {
+            if cycle.aborted {
+                continue;
+            }
             let marks = match collect_marks(fit, &latest_close) {
                 Some(m) => m,
                 None => continue,
             };
-            let (realized_delta, _) = close_cycle_at_marks(
-                cycle, &marks, &fit.leg_direction_signs, bars.last().map(|b| b.open_time_ms).unwrap_or(0), fit,
-                &mut trades, &mut events, "sync_force_close_end",
+            let close = close_cycle_at_marks(
+                cycle,
+                &marks,
+                bars.last().map(|b| b.open_time_ms).unwrap_or(0),
+                fit,
+                cfg.leverage,
+                fee_bps,
+                slip_bps,
+                &mut trades,
+                &mut events,
+                "sync_force_close_end",
             );
-            cycle.aggregate_realized_pnl_quote += realized_delta;
-            realized_pnl_quote += realized_delta;
+            cycle.aggregate_realized_pnl_quote += close.realized_delta;
+            realized_pnl_quote += close.realized_delta;
+            group_fee[gi] += close.fee_quote;
+            group_slip[gi] += close.slippage_quote;
             group_realized[gi] += cycle.aggregate_realized_pnl_quote;
             if cycle.depth > 1 {
-                groups_with_so += 1;
+                group_had_so[gi] = true;
+                cycles_with_so += 1;
             }
             trade_count += fit.legs.len() as u64;
         }
     }
 
-    // Build metrics.
+    // Build metrics. The forced-close point must be part of the equity/DD
+    // series, otherwise terminal fee and slippage can disappear from DD.
     let final_equity = initial_equity + realized_pnl_quote;
+    if let Some(last_bar) = bars.last() {
+        equity_curve.push(crate::martingale::metrics::EquityPoint {
+            timestamp_ms: last_bar.open_time_ms,
+            equity_quote: final_equity,
+        });
+    }
     let days = if bars.len() >= 2 {
-        (bars.last().unwrap().open_time_ms - bars.first().unwrap().open_time_ms) as f64 / 86_400_000.0
+        (bars.last().unwrap().open_time_ms - bars.first().unwrap().open_time_ms) as f64
+            / 86_400_000.0
     } else {
         0.0
     };
@@ -753,29 +960,47 @@ pub fn run_synchronized_cycle_replay(
     let mut dd_curve: Vec<crate::martingale::metrics::DrawdownPoint> = Vec::new();
     for pt in &equity_curve {
         peak = peak.max(pt.equity_quote);
-        let dd = if peak > 0.0 { (peak - pt.equity_quote) / peak * 100.0 } else { 0.0 };
+        let dd = if peak > 0.0 {
+            (peak - pt.equity_quote) / peak * 100.0
+        } else {
+            0.0
+        };
         max_dd_pct = max_dd_pct.max(dd);
         dd_curve.push(crate::martingale::metrics::DrawdownPoint {
             timestamp_ms: pt.timestamp_ms,
             drawdown_pct: dd,
         });
     }
-    let min_equity = equity_curve.iter().map(|p| p.equity_quote).fold(initial_equity, f64::min);
+    let min_equity = equity_curve
+        .iter()
+        .map(|p| p.equity_quote)
+        .fold(initial_equity, f64::min);
     let breach = min_equity <= 0.0 || final_equity < 0.0;
 
-    // Concentration: max single-symbol gross notional contribution.
     let mut sym_gross: BTreeMap<String, f64> = BTreeMap::new();
-    let mut total_gross = 0.0f64;
-    for fit in fits {
-        let marks = collect_marks(fit, &latest_close).unwrap_or_default();
-        for (li, sym) in fit.legs.iter().enumerate() {
-            let _ = &marks;
-            let g = 0.0; // gross computed post-hoc not needed; placeholder
-            total_gross += g;
-            *sym_gross.entry(sym.clone()).or_insert(0.0) += g;
+    let mut sym_positive_pnl: BTreeMap<String, f64> = BTreeMap::new();
+    let mut sym_net_pnl: BTreeMap<String, f64> = BTreeMap::new();
+    for trade in &trades {
+        *sym_gross.entry(trade.symbol.clone()).or_insert(0.0) += trade.notional_quote.abs();
+        *sym_net_pnl.entry(trade.symbol.clone()).or_insert(0.0) += trade.realized_pnl_quote;
+        if trade.realized_pnl_quote > 0.0 {
+            *sym_positive_pnl.entry(trade.symbol.clone()).or_insert(0.0) +=
+                trade.realized_pnl_quote;
         }
     }
-    let _ = total_gross;
+    for (symbol, funding_pnl) in symbol_funding {
+        *sym_net_pnl.entry(symbol).or_insert(0.0) += funding_pnl;
+    }
+    let actual_symbols = sym_gross
+        .iter()
+        .filter_map(|(symbol, gross)| (*gross > 0.0).then_some(symbol.clone()))
+        .collect::<Vec<_>>();
+    let actual_symbol_count = actual_symbols.len();
+    let max_symbol_gross_share_pct = max_positive_share_pct(sym_gross.values().copied());
+    let max_symbol_positive_pnl_share_pct =
+        max_positive_share_pct(sym_positive_pnl.values().copied());
+    let max_symbol_abs_net_pnl_share_pct = max_absolute_share_pct(sym_net_pnl.values().copied());
+    let max_group_abs_net_pnl_share_pct = max_absolute_share_pct(group_realized.iter().copied());
 
     let metrics = MartingaleMetrics {
         total_return_pct,
@@ -791,7 +1016,11 @@ pub fn run_synchronized_cycle_replay(
         total_funding_quote: Some(group_funding.iter().sum()),
         planned_margin_quote: None,
         planned_notional_quote: None,
-        return_drawdown_ratio: if max_dd_pct > 0.0 { Some(total_return_pct / max_dd_pct) } else { None },
+        return_drawdown_ratio: if max_dd_pct > 0.0 {
+            Some(total_return_pct / max_dd_pct)
+        } else {
+            None
+        },
         data_quality_score: None,
         trade_count,
         stop_count: 0,
@@ -814,15 +1043,24 @@ pub fn run_synchronized_cycle_replay(
     // Stash digest + sync-specific diagnostics into rejection_reasons for the
     // CLI to surface (the standard result type has no extra field). We push a
     // JSON summary string.
+    let groups_with_so = group_had_so.iter().filter(|had_so| **had_so).count();
     let sync_summary = serde_json::json!({
         "family": cfg.family,
         "groups": n_groups,
         "groups_with_so": groups_with_so,
+        "cycles_with_so": cycles_with_so,
         "group_fo": group_fo,
         "group_so": group_so,
         "group_tp": group_tp,
         "group_reduce": group_reduce,
         "group_atomic_reject": group_atomic_reject,
+        "actual_symbols": actual_symbols,
+        "actual_symbol_count": actual_symbol_count,
+        "max_symbol_gross_share_pct": max_symbol_gross_share_pct,
+        "max_symbol_positive_pnl_share_pct": max_symbol_positive_pnl_share_pct,
+        "max_symbol_abs_net_pnl_share_pct": max_symbol_abs_net_pnl_share_pct,
+        "max_group_abs_net_pnl_share_pct": max_group_abs_net_pnl_share_pct,
+        "group_net_pnl_quote": group_realized,
         "min_equity_quote": min_equity,
         "breach": breach,
         "fit_group_ids": fits.iter().map(|f| f.group_id.clone()).collect::<Vec<_>>(),
@@ -834,7 +1072,9 @@ pub fn run_synchronized_cycle_replay(
             "rejection_stream_sha256": digests.rejection_stream_sha256,
         },
     });
-    result.rejection_reasons.push(format!("SYNC_SUMMARY:{}", sync_summary));
+    result
+        .rejection_reasons
+        .push(format!("SYNC_SUMMARY:{}", sync_summary));
 
     Ok(result)
 }
@@ -853,7 +1093,11 @@ fn collect_marks(fit: &SynchronizedFit, latest_close: &BTreeMap<String, f64>) ->
     Some(out)
 }
 
-fn factor_price(fit: &SynchronizedFit, cfg: &SynchronizedCycleConfig, latest_close: &BTreeMap<String, f64>) -> Option<f64> {
+fn factor_price(
+    fit: &SynchronizedFit,
+    cfg: &SynchronizedCycleConfig,
+    latest_close: &BTreeMap<String, f64>,
+) -> Option<f64> {
     if fit.legs.len() == 2 {
         // M1 pair: factor is the other leg (handled in residual_z), return None
         None
@@ -882,25 +1126,68 @@ fn aggregate_all_unrealized(
                 Some(m) => m,
                 None => continue,
             };
-            total += cycle.aggregate_unrealized_pnl(&marks, &fit.leg_direction_signs, &[]);
+            total += cycle.aggregate_unrealized_pnl(&marks);
         }
     }
     total
 }
 
-/// Project the margin already committed to the current cycle's open layers.
-/// Used to check the group gross cap before adding a new layer. The portfolio
-/// margin is tracked separately; this is the per-cycle incremental view.
-fn projected_total_margin(
-    cycle: &SynchronizedCycleState,
+fn projected_total_margin_all(
+    active: &[Option<SynchronizedCycleState>],
+    fits: &[SynchronizedFit],
+    latest_close: &BTreeMap<String, f64>,
     cfg: &SynchronizedCycleConfig,
 ) -> f64 {
+    active
+        .iter()
+        .enumerate()
+        .filter_map(|(group_idx, cycle)| {
+            let cycle = cycle.as_ref()?;
+            if cycle.aborted {
+                return None;
+            }
+            let marks = collect_marks(&fits[group_idx], latest_close)?;
+            Some(current_close_notional(cycle, &marks) / cfg.leverage.max(1) as f64)
+        })
+        .sum()
+}
+
+fn current_close_notional(cycle: &SynchronizedCycleState, marks: &[f64]) -> f64 {
     cycle
         .leg_fills
         .iter()
-        .flat_map(|fills| fills.iter())
-        .map(|f| f.notional_quote / cfg.leverage as f64)
+        .enumerate()
+        .map(|(leg_idx, _)| {
+            marks.get(leg_idx).copied().unwrap_or(0.0).max(0.0) * cycle.leg_quantity(leg_idx)
+        })
         .sum()
+}
+
+fn max_positive_share_pct(values: impl Iterator<Item = f64>) -> f64 {
+    let values = values.filter(|value| *value > 0.0).collect::<Vec<_>>();
+    let total = values.iter().sum::<f64>();
+    if total <= 0.0 {
+        0.0
+    } else {
+        values.iter().copied().fold(0.0, f64::max) / total * 100.0
+    }
+}
+
+fn max_absolute_share_pct(values: impl Iterator<Item = f64>) -> f64 {
+    let values = values.map(f64::abs).collect::<Vec<_>>();
+    let total = values.iter().sum::<f64>();
+    if total <= 0.0 {
+        0.0
+    } else {
+        values.iter().copied().fold(0.0, f64::max) / total * 100.0
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+struct CloseResult {
+    realized_delta: f64,
+    fee_quote: f64,
+    slippage_quote: f64,
 }
 
 /// Close an active cycle at the current marks: realize the unrealized PnL into
@@ -910,40 +1197,58 @@ fn projected_total_margin(
 fn close_cycle_at_marks(
     cycle: &mut SynchronizedCycleState,
     marks: &[f64],
-    leg_direction_signs: &[i8],
     timestamp_ms: i64,
     fit: &SynchronizedFit,
+    leverage: u32,
+    fee_bps: f64,
+    slippage_bps: f64,
     trades: &mut Vec<MartingaleTradeDetail>,
     events: &mut Vec<MartingaleBacktestEvent>,
     event_type: &str,
-) -> (f64, ()) {
+) -> CloseResult {
     let mut realized_delta = 0.0;
+    let mut total_fee = 0.0;
+    let mut total_slippage = 0.0;
     for (li, fills) in cycle.leg_fills.iter_mut().enumerate() {
         if fills.is_empty() {
             continue;
         }
         let mark = marks[li];
-        let avg_entry = fills.iter().map(|f| f.price).sum::<f64>() / fills.len() as f64;
-        let notional = fills.iter().map(|f| f.notional_quote).sum::<f64>();
-        let sign = leg_direction_signs[li] as f64;
-        let leg_pnl = if avg_entry > 0.0 {
-            sign * (mark - avg_entry) / avg_entry * notional
-        } else {
-            0.0
-        };
+        let quantity = fills
+            .iter()
+            .filter(|fill| fill.price > 0.0)
+            .map(|fill| fill.notional_quote / fill.price)
+            .sum::<f64>();
+        let open_notional = fills.iter().map(|fill| fill.notional_quote).sum::<f64>();
+        let close_notional = quantity * mark;
+        let sign = cycle.leg_direction_signs[li] as f64;
+        let price_pnl = fills
+            .iter()
+            .filter(|fill| fill.price > 0.0)
+            .map(|fill| sign * (mark - fill.price) * (fill.notional_quote / fill.price))
+            .sum::<f64>();
+        let close_fee = close_notional * fee_bps / 10_000.0;
+        let close_slippage = close_notional * slippage_bps / 10_000.0;
+        let leg_pnl = price_pnl - close_fee - close_slippage;
         realized_delta += leg_pnl;
+        total_fee += close_fee;
+        total_slippage += close_slippage;
         trades.push(MartingaleTradeDetail {
             timestamp_ms,
             symbol: fit.legs[li].clone(),
-            direction: if sign > 0.0 { "long".to_string() } else { "short".to_string() },
+            direction: if sign > 0.0 {
+                "long".to_string()
+            } else {
+                "short".to_string()
+            },
             event_type: event_type.to_string(),
             leg_index: None,
             price: mark,
-            margin_quote: notional / 1.0,
-            notional_quote: notional,
-            leverage: 1.0,
-            fee_quote: 0.0,
-            slippage_quote: 0.0,
+            margin_quote: open_notional / leverage.max(1) as f64,
+            notional_quote: close_notional,
+            leverage: leverage as f64,
+            fee_quote: close_fee,
+            slippage_quote: close_slippage,
             realized_pnl_quote: leg_pnl,
             equity_after_quote: 0.0,
         });
@@ -957,5 +1262,214 @@ fn close_cycle_at_marks(
         cycle_id: Some(cycle.cycle_id.clone()),
         detail: format!("realized_delta={:.4}", realized_delta),
     });
-    (realized_delta, ())
+    CloseResult {
+        realized_delta,
+        fee_quote: total_fee,
+        slippage_quote: total_slippage,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn pair_fit(beta: f64) -> SynchronizedFit {
+        SynchronizedFit {
+            group_id: "M1_A_B".to_string(),
+            legs: vec!["AUSDT".to_string(), "BUSDT".to_string()],
+            leg_direction_signs: vec![1, 1],
+            betas: vec![beta],
+            mus: vec![0.0],
+            residual_sigma: 1.0,
+            half_life_h: 24.0,
+            fit_sha256: "fit".to_string(),
+        }
+    }
+
+    fn assert_close(left: f64, right: f64) {
+        assert!((left - right).abs() < 1e-9, "left={left}, right={right}");
+    }
+
+    fn bar(symbol: &str, timestamp_ms: i64, close: f64) -> KlineBar {
+        KlineBar {
+            symbol: symbol.to_string(),
+            open_time_ms: timestamp_ms,
+            open: close,
+            high: close,
+            low: close,
+            close,
+            volume: 1.0,
+        }
+    }
+
+    fn executable_pair_config() -> SynchronizedCycleConfig {
+        SynchronizedCycleConfig {
+            entry_z: 1.5,
+            group_fo_quote: 30.0,
+            group_gross_cap_pct: 100.0,
+            ..SynchronizedCycleConfig::default()
+        }
+    }
+
+    #[test]
+    fn pair_entry_directions_follow_residual_sign_and_beta() {
+        let fit = pair_fit(1.5);
+        assert_eq!(entry_leg_direction_signs(&fit, 2.0).unwrap(), vec![1, -1]);
+        assert_eq!(entry_leg_direction_signs(&fit, -2.0).unwrap(), vec![-1, 1]);
+
+        let negative_beta = pair_fit(-0.5);
+        assert_eq!(
+            entry_leg_direction_signs(&negative_beta, 2.0).unwrap(),
+            vec![-1, -1]
+        );
+    }
+
+    #[test]
+    fn pair_notionals_follow_absolute_hedge_beta() {
+        let cfg = SynchronizedCycleConfig {
+            group_fo_quote: 30.0,
+            multiplier: 2.0,
+            max_legs: 2,
+            ..SynchronizedCycleConfig::default()
+        };
+        let notionals = synchronized_leg_notionals(&cfg, &pair_fit(2.0));
+        assert_close(notionals[0][0], 20.0);
+        assert_close(notionals[0][1], 10.0);
+        assert_close(notionals[1][0], 40.0);
+        assert_close(notionals[1][1], 20.0);
+    }
+
+    #[test]
+    fn martingale_pnl_uses_fill_quantity_not_arithmetic_price_average() {
+        let mut cycle =
+            SynchronizedCycleState::new("cycle".to_string(), 1, 2, 0, -1.0, vec![1, -1]);
+        cycle.leg_fills[0] = vec![
+            LegFill {
+                price: 100.0,
+                notional_quote: 10.0,
+                fee_quote: 0.0,
+                slippage_quote: 0.0,
+                funding_paid_quote: 0.0,
+            },
+            LegFill {
+                price: 50.0,
+                notional_quote: 20.0,
+                fee_quote: 0.0,
+                slippage_quote: 0.0,
+                funding_paid_quote: 0.0,
+            },
+        ];
+        // Quantity is 0.1 + 0.4 = 0.5 and total cost is 30, so mark 60 is flat.
+        assert_close(cycle.avg_entry(0).unwrap(), 60.0);
+        assert_close(cycle.aggregate_unrealized_pnl(&[60.0, 1.0]), 0.0);
+    }
+
+    #[test]
+    fn close_charges_fee_and_slippage() {
+        let fit = pair_fit(1.0);
+        let mut cycle = SynchronizedCycleState::new("cycle".to_string(), 1, 2, 0, 1.0, vec![1, -1]);
+        for leg in 0..2 {
+            cycle.leg_fills[leg].push(LegFill {
+                price: 100.0,
+                notional_quote: 100.0,
+                fee_quote: 0.0,
+                slippage_quote: 0.0,
+                funding_paid_quote: 0.0,
+            });
+        }
+        let mut trades = Vec::new();
+        let mut events = Vec::new();
+        let close = close_cycle_at_marks(
+            &mut cycle,
+            &[110.0, 90.0],
+            1,
+            &fit,
+            5,
+            4.0,
+            2.0,
+            &mut trades,
+            &mut events,
+            "close",
+        );
+        // Both legs gain 10; close notionals are 110 and 90. Costs are 6 bps.
+        assert_close(close.realized_delta, 20.0 - 200.0 * 6.0 / 10_000.0);
+        assert_close(close.fee_quote, 200.0 * 4.0 / 10_000.0);
+        assert_close(close.slippage_quote, 200.0 * 2.0 / 10_000.0);
+    }
+
+    #[test]
+    fn m2_fails_closed_until_factor_neutral_orders_are_implemented() {
+        let cfg = SynchronizedCycleConfig {
+            family: "M2_basket".to_string(),
+            ..SynchronizedCycleConfig::default()
+        };
+        let error = run_synchronized_cycle_replay(&cfg, &[], &[], &[], 1000.0).unwrap_err();
+        assert!(error.contains("M2 basket is not implemented"));
+    }
+
+    #[test]
+    fn stale_leg_marks_cannot_create_synchronized_orders() {
+        let bars = vec![
+            bar("AUSDT", 0, 1.0),
+            bar("BUSDT", 60_000, std::f64::consts::E.powi(2)),
+        ];
+        let result = run_synchronized_cycle_replay(
+            &executable_pair_config(),
+            &[pair_fit(1.0)],
+            &bars,
+            &[],
+            1000.0,
+        )
+        .unwrap();
+        assert_eq!(result.metrics.trade_count, 0);
+        assert!(!result
+            .events
+            .iter()
+            .any(|event| event.event_type == "sync_cycle_open"));
+    }
+
+    #[test]
+    fn deadline_abort_does_not_disable_group_forever() {
+        let mut cfg = executable_pair_config();
+        cfg.cycle_deadline_h = Some(0);
+        let dependent = std::f64::consts::E.powi(2);
+        let bars = vec![
+            bar("AUSDT", 0, 1.0),
+            bar("BUSDT", 0, dependent),
+            bar("AUSDT", 60_000, 1.0),
+            bar("BUSDT", 60_000, dependent),
+            bar("AUSDT", 120_000, 1.0),
+            bar("BUSDT", 120_000, dependent),
+        ];
+        let result =
+            run_synchronized_cycle_replay(&cfg, &[pair_fit(1.0)], &bars, &[], 1000.0).unwrap();
+        let opens = result
+            .events
+            .iter()
+            .filter(|event| event.event_type == "sync_cycle_open")
+            .count();
+        assert_eq!(opens, 2);
+    }
+
+    #[test]
+    fn forced_close_cost_is_in_final_equity_curve() {
+        let bars = vec![
+            bar("AUSDT", 0, 1.0),
+            bar("BUSDT", 0, std::f64::consts::E.powi(2)),
+        ];
+        let result = run_synchronized_cycle_replay(
+            &executable_pair_config(),
+            &[pair_fit(1.0)],
+            &bars,
+            &[],
+            1000.0,
+        )
+        .unwrap();
+        let final_equity = 1000.0 * (1.0 + result.metrics.total_return_pct / 100.0);
+        assert_close(
+            result.equity_curve.last().unwrap().equity_quote,
+            final_equity,
+        );
+        assert!(result.metrics.max_drawdown_pct > 0.0);
+    }
 }

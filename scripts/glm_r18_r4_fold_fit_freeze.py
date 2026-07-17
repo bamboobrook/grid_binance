@@ -175,7 +175,9 @@ def fit_fold(fname, train_start, train_end, val_start, val_end):
         frozen_fits.append({
             "group_id": f"M1_{f['pair'][0]}_{f['pair'][1]}",
             "legs": f["pair"],
-            "leg_direction_signs": [1, 1],
+            # M1 directions are derived at cycle open from residual sign and
+            # hedge beta. Static [long,long] signs produced invalid R18 rows.
+            "leg_direction_signs": [0, 0],
             "betas": [round(f["beta"], 8)],
             "mus": [round(f["mu"], 8)],
             "residual_sigma": round(f["sigma"], 8),

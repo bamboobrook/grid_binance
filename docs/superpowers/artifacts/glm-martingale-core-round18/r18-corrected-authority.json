@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "corrected_by": "ChatGPT Round 18 audit on 2026-07-17",
+  "audit_report": "docs/superpowers/reports/2026-07-17-chatgpt-round18-execution-audit-and-fix.md",
+  "next_plan": "docs/superpowers/plans/2026-07-17-glm-martingale-core-round19-valid-residual-recovery-plan.md",
+  "original_handoff": "docs/superpowers/reports/2026-07-17-glm-round18-execution-handoff.md",
+  "original_self_reported_state": "VALID_NOVEL_FAMILIES_EXHAUSTED_NO_FRONTIER_PROGRESS",
+  "corrected_machine_state": "materially_incomplete_invalid_results",
+  "target_hit": false,
+  "production_ready_candidates": 0,
+  "correction_basis": [
+    "M1 used static [1,1] directions and therefore replayed long/long pairs instead of residual pair positions",
+    "Martingale PnL used arithmetic fill-price average instead of fill quantity",
+    "close fee/slippage were omitted and terminal close cost was absent from drawdown",
+    "group gross cap compared margin rather than gross notional and concentration was a zero placeholder",
+    "M2 independent 64-config family was never implemented or executed",
+    "G1/G2 selection used only F2 train rather than a nested pipeline inside every fold",
+    "G1-G3 did not use the designed append-only registry and historical scan covered only R17",
+    "production path did not load fit, call decide, emit N-leg orders, persist SQLite state, or reconcile"
+  ],
+  "independent_recheck": {
+    "path": "docs/superpowers/artifacts/glm-martingale-core-round18/audit/round18-independent-recheck.json",
+    "rows_completed": 24,
+    "positive_diagnostic_rows": 14,
+    "martingale_common_gate_rows": 2,
+    "best_martingale_common_gate": {
+      "key": "M1_067|1000|F4",
+      "annualized_return_pct": 5.20859260307569,
+      "max_drawdown_pct": 1.2946620562825064,
+      "actual_symbol_count": 8,
+      "max_symbol_abs_net_pnl_share_pct": 20.087049266065723,
+      "max_group_abs_net_pnl_share_pct": 46.15834192163557
+    },
+    "limitations": "Diagnostic only: rows were selected by invalid G1/G2 and still lack liquidation, exchange filters, partial-fill/legging, five cold starts, and production parity."
+  },
+  "retained_scoped_evidence": [
+    "R4 train-only pair fit data may be reused as input after dynamic direction correction",
+    "Corrected 24-row replay proves the old Round 18 return claims are not reliable",
+    "Round 18 exact configs and trace hashes remain dedup/failure-ledger inputs only"
+  ],
+  "not_valid_for": "completion, family exhaustion, frontier progress, target hit, or production-ready claims",
+  "history_preserved": "Original Round 18 artifacts remain unchanged except the handoff superseded banner; this authority and audit are additive corrections."
+}
