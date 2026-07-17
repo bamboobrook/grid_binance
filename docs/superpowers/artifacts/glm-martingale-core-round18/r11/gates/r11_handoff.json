@@ -1,0 +1,28 @@
+{
+  "phase": "R11",
+  "plan_section": "§15 R11 + §16 handoff requirements",
+  "handoff_document": "docs/superpowers/reports/2026-07-17-glm-round18-execution-handoff.md",
+  "handoff_requirements_coverage_§16": {
+    "1_corrected_round_17_status": "materially_incomplete_invalid_mechanism_search (r17-corrected-authority-r18.json + SUPERSEDED banner)",
+    "2_R0_R11_machine_state_and_blocked_reasons": "see handoff §1 table; R9/R10 not_applicable_zero_survivors",
+    "3_unique_configs_launches_cache_duplicates_timeouts": "136 distinct configs, ~1640 full replays, 0 cache-as-result, 0 timeouts",
+    "4_M1_M5_novelty_proof_and_activation_delta": "M1 fully executed + bound; M2/M3-M5 blocked_parent_gate",
+    "5_all_failure_exact_fingerprint_never_repeat": "see handoff §9 (3 failures documented)",
+    "6_per_fold_train_selection_hash_one_time_validation": "see handoff §8 (F1 blocked; F2 commit d21e4b82; validation read once)",
+    "7_three_tier_target_hit_table": "all NOT HIT (handoff §5)",
+    "8_PA_PB_PC_PD_frontier_table": "all NO (handoff §6), frontier_progress=false",
+    "9_top10_symbols_groups_weights_leverage_direction_min_principal_ann_DD_cold_starts": "see handoff §8 + g2-summary.json top finalists",
+    "10_backtest_candidate_vs_production_ready": "all backtest_candidate; no production_ready (handoff §10)",
+    "11_raw_series_trades_orders_rejections_cycle_groups_five_hashes_paths": "handoff §11",
+    "12_2026_07_11_future_lock_status": "not_applicable_zero_finalists (handoff §12)"
+  },
+  "round18_outcome_§18": "VALID_NOVEL_FAMILIES_EXHAUSTED_NO_FRONTIER_PROGRESS",
+  "frontier_progress": false,
+  "honesty_check": "Round 18 does NOT claim breakthrough, target hit, or near-target. The mechanism is novel and fully bound (research progress), but no yield-frontier gate was reached. These are reported in separate columns per §12.",
+  "new_failures_to_never_repeat": [
+    "M1_pair single-fold train fit fails OOS across regime change (2025 bear / 2026 YTD): never use one fold's 60d cointegration fit on multi-year OOS without regime conditioning",
+    "aggregate synchronized SO amplifies DD to 40-62% (far over 20-30% frontier DD limit): group_gross_cap_pct must be at constraint boundary to control DD",
+    "F1 2023-H1 has insufficient stable disjoint pairs: never backfill with return; record blocked_no_stable_groups"
+  ],
+  "conclusion": "R11 MACHINE HANDOFF + FAILURE LEDGER complete. Round 18 outcome VALID_NOVEL_FAMILIES_EXHAUSTED_NO_FRONTIER_PROGRESS, honestly reported."
+}
