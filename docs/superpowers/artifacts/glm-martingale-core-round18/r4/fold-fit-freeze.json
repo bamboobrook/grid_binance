@@ -1,0 +1,941 @@
+{
+  "phase": "R4 data/fold/group-fit freeze",
+  "universe": [
+    "BTCUSDT",
+    "ETHUSDT",
+    "BNBUSDT",
+    "SOLUSDT",
+    "XRPUSDT",
+    "DOGEUSDT",
+    "ADAUSDT",
+    "TRXUSDT",
+    "LINKUSDT",
+    "LTCUSDT",
+    "BCHUSDT",
+    "DOTUSDT"
+  ],
+  "folds": [
+    {
+      "fold": "F1",
+      "train_start": 1672531200000,
+      "train_end": 1688169599999,
+      "val_start": 1688774400000,
+      "val_end": 1704067199999
+    },
+    {
+      "fold": "F2",
+      "train_start": 1672531200000,
+      "train_end": 1704067199999,
+      "val_start": 1704662400000,
+      "val_end": 1735689599999
+    },
+    {
+      "fold": "F3",
+      "train_start": 1672531200000,
+      "train_end": 1735689599999,
+      "val_start": 1736294400000,
+      "val_end": 1767225599999
+    },
+    {
+      "fold": "F4",
+      "train_start": 1672531200000,
+      "train_end": 1767225599999,
+      "val_start": 1767820800000,
+      "val_end": 1780271999999
+    }
+  ],
+  "purge_days": 7,
+  "fit_lookback_days": 60,
+  "fit_window_rationale": "Full-train OLS cointegration is dominated by structural crypto bull/bear trends and shows no stationarity (verified empirically: all 66 pairs adf_t > -2 over full train). The plan's explicit fit_lookback_days\u2208{30,60,120} options anticipate this; we use the last 60d of each train window (most recent train info before the purge boundary).",
+  "contract": "All cointegration fits use ONLY train bars. Selection is by stationarity/stability/liquidity, NEVER strategy return. Each fold commits train_selection_commit_sha256 BEFORE any validation read.",
+  "fold_fits": [
+    {
+      "fold": "F1",
+      "train_start": 1682985599999,
+      "train_end": 1688169599999,
+      "val_start": 1688774400000,
+      "val_end": 1704067199999,
+      "universe": [
+        "BTCUSDT",
+        "ETHUSDT",
+        "BNBUSDT",
+        "SOLUSDT",
+        "XRPUSDT",
+        "DOGEUSDT",
+        "ADAUSDT",
+        "TRXUSDT",
+        "LINKUSDT",
+        "LTCUSDT",
+        "BCHUSDT",
+        "DOTUSDT"
+      ],
+      "candidate_pairs_fitted": 66,
+      "selected_pairs": [
+        {
+          "pair": [
+            "LINKUSDT",
+            "DOGEUSDT"
+          ],
+          "score": -7.576
+        }
+      ],
+      "selected_count": 1,
+      "blocked_no_stable_groups": true,
+      "frozen_fits": [
+        {
+          "group_id": "M1_LINKUSDT_DOGEUSDT",
+          "legs": [
+            "LINKUSDT",
+            "DOGEUSDT"
+          ],
+          "leg_direction_signs": [
+            1,
+            1
+          ],
+          "betas": [
+            0.75850328
+          ],
+          "mus": [
+            -4.04804643
+          ],
+          "residual_sigma": 0.02363716,
+          "half_life_h": 42.8342,
+          "fit_sha256": "05c0a73672c690ca2c3e67faf2792a66988ccf575082c82962b5d85227b847de",
+          "diagnostics": {
+            "adf_t": -2.8505,
+            "ac1": 0.9839,
+            "score": -7.576
+          }
+        }
+      ],
+      "top10_candidates": [
+        {
+          "pair": [
+            "DOTUSDT",
+            "LTCUSDT"
+          ],
+          "score": -5.198,
+          "adf_t": -0.121,
+          "half_life_h": 60.3
+        },
+        {
+          "pair": [
+            "DOTUSDT",
+            "BCHUSDT"
+          ],
+          "score": -5.6349,
+          "adf_t": 3.209,
+          "half_life_h": 104.4
+        },
+        {
+          "pair": [
+            "LTCUSDT",
+            "ADAUSDT"
+          ],
+          "score": -5.7605,
+          "adf_t": 1.218,
+          "half_life_h": 118.2
+        },
+        {
+          "pair": [
+            "SOLUSDT",
+            "BNBUSDT"
+          ],
+          "score": -5.8182,
+          "adf_t": -0.747,
+          "half_life_h": 60.0
+        },
+        {
+          "pair": [
+            "LINKUSDT",
+            "BNBUSDT"
+          ],
+          "score": -6.0465,
+          "adf_t": -0.39,
+          "half_life_h": 106.6
+        },
+        {
+          "pair": [
+            "LTCUSDT",
+            "BNBUSDT"
+          ],
+          "score": -6.0852,
+          "adf_t": 1.272,
+          "half_life_h": 163.0
+        },
+        {
+          "pair": [
+            "LINKUSDT",
+            "ADAUSDT"
+          ],
+          "score": -6.1055,
+          "adf_t": -0.568,
+          "half_life_h": 94.8
+        },
+        {
+          "pair": [
+            "LTCUSDT",
+            "DOGEUSDT"
+          ],
+          "score": -6.2395,
+          "adf_t": -0.588,
+          "half_life_h": 106.1
+        },
+        {
+          "pair": [
+            "ADAUSDT",
+            "SOLUSDT"
+          ],
+          "score": -6.2931,
+          "adf_t": -1.709,
+          "half_life_h": 37.4
+        },
+        {
+          "pair": [
+            "LTCUSDT",
+            "SOLUSDT"
+          ],
+          "score": -6.5998,
+          "adf_t": -0.539,
+          "half_life_h": 159.2
+        }
+      ],
+      "train_selection_commit_sha256": "ab4b00c57af565cc2d03ebdd4fa5695f068804c26dcefba698e11d821324ae4b",
+      "committed_at": 1784254761.9868531,
+      "train_full_start": 1672531200000,
+      "train_full_end": 1688169599999,
+      "fit_lookback_days": 60
+    },
+    {
+      "fold": "F2",
+      "train_start": 1698883199999,
+      "train_end": 1704067199999,
+      "val_start": 1704662400000,
+      "val_end": 1735689599999,
+      "universe": [
+        "BTCUSDT",
+        "ETHUSDT",
+        "BNBUSDT",
+        "SOLUSDT",
+        "XRPUSDT",
+        "DOGEUSDT",
+        "ADAUSDT",
+        "TRXUSDT",
+        "LINKUSDT",
+        "LTCUSDT",
+        "BCHUSDT",
+        "DOTUSDT"
+      ],
+      "candidate_pairs_fitted": 66,
+      "selected_pairs": [
+        {
+          "pair": [
+            "DOTUSDT",
+            "BCHUSDT"
+          ],
+          "score": -7.9097
+        },
+        {
+          "pair": [
+            "LINKUSDT",
+            "TRXUSDT"
+          ],
+          "score": -8.021
+        },
+        {
+          "pair": [
+            "ETHUSDT",
+            "BTCUSDT"
+          ],
+          "score": -8.0438
+        },
+        {
+          "pair": [
+            "LTCUSDT",
+            "XRPUSDT"
+          ],
+          "score": -8.1449
+        }
+      ],
+      "selected_count": 4,
+      "blocked_no_stable_groups": false,
+      "frozen_fits": [
+        {
+          "group_id": "M1_DOTUSDT_BCHUSDT",
+          "legs": [
+            "DOTUSDT",
+            "BCHUSDT"
+          ],
+          "leg_direction_signs": [
+            1,
+            1
+          ],
+          "betas": [
+            0.08489761
+          ],
+          "mus": [
+            5.30967067
+          ],
+          "residual_sigma": 0.04518528,
+          "half_life_h": 48.2633,
+          "fit_sha256": "ff0d1abc19466d98ec10db43091fde6d454bcca45341834671989b1a2b6da80f",
+          "diagnostics": {
+            "adf_t": -3.0614,
+            "ac1": 0.9857,
+            "score": -7.9097
+          }
+        },
+        {
+          "group_id": "M1_LINKUSDT_TRXUSDT",
+          "legs": [
+            "LINKUSDT",
+            "TRXUSDT"
+          ],
+          "leg_direction_signs": [
+            1,
+            1
+          ],
+          "betas": [
+            0.25133329
+          ],
+          "mus": [
+            -2.94349427
+          ],
+          "residual_sigma": 0.01961199,
+          "half_life_h": 33.1883,
+          "fit_sha256": "f4a7628170df59a318282069d26838c573b63375da912f074ea9b56cfeb76ee9",
+          "diagnostics": {
+            "adf_t": -3.5597,
+            "ac1": 0.9793,
+            "score": -8.021
+          }
+        },
+        {
+          "group_id": "M1_ETHUSDT_BTCUSDT",
+          "legs": [
+            "ETHUSDT",
+            "BTCUSDT"
+          ],
+          "leg_direction_signs": [
+            1,
+            1
+          ],
+          "betas": [
+            1.04435116
+          ],
+          "mus": [
+            2.58356711
+          ],
+          "residual_sigma": 0.02460089,
+          "half_life_h": 60.6721,
+          "fit_sha256": "077f5a9450410d38345327a30753c999f1b70e311261db3e89e5fe71a32f4ee2",
+          "diagnostics": {
+            "adf_t": -2.9609,
+            "ac1": 0.9886,
+            "score": -8.0438
+          }
+        },
+        {
+          "group_id": "M1_LTCUSDT_XRPUSDT",
+          "legs": [
+            "LTCUSDT",
+            "XRPUSDT"
+          ],
+          "leg_direction_signs": [
+            1,
+            1
+          ],
+          "betas": [
+            0.84162234
+          ],
+          "mus": [
+            -4.06386959
+          ],
+          "residual_sigma": 0.0279413,
+          "half_life_h": 35.3813,
+          "fit_sha256": "3cd5a2edf0097835e262131cf88b7c261f23474cb07066e00fcb7d3ba3dba6f4",
+          "diagnostics": {
+            "adf_t": -3.6171,
+            "ac1": 0.9806,
+            "score": -8.1449
+          }
+        }
+      ],
+      "top10_candidates": [
+        {
+          "pair": [
+            "LINKUSDT",
+            "BNBUSDT"
+          ],
+          "score": -5.9993,
+          "adf_t": -0.001,
+          "half_life_h": 149.6
+        },
+        {
+          "pair": [
+            "XRPUSDT",
+            "BNBUSDT"
+          ],
+          "score": -6.027,
+          "adf_t": -0.104,
+          "half_life_h": 138.8
+        },
+        {
+          "pair": [
+            "LTCUSDT",
+            "BNBUSDT"
+          ],
+          "score": -6.1634,
+          "adf_t": -0.368,
+          "half_life_h": 122.3
+        },
+        {
+          "pair": [
+            "DOGEUSDT",
+            "BNBUSDT"
+          ],
+          "score": -6.1696,
+          "adf_t": -0.182,
+          "half_life_h": 147.9
+        },
+        {
+          "pair": [
+            "ADAUSDT",
+            "BNBUSDT"
+          ],
+          "score": -6.5826,
+          "adf_t": -0.724,
+          "half_life_h": 130.3
+        },
+        {
+          "pair": [
+            "TRXUSDT",
+            "BNBUSDT"
+          ],
+          "score": -6.6007,
+          "adf_t": -0.552,
+          "half_life_h": 157.1
+        },
+        {
+          "pair": [
+            "DOTUSDT",
+            "BNBUSDT"
+          ],
+          "score": -6.8846,
+          "adf_t": -1.145,
+          "half_life_h": 115.8
+        },
+        {
+          "pair": [
+            "SOLUSDT",
+            "BNBUSDT"
+          ],
+          "score": -6.987,
+          "adf_t": -1.222,
+          "half_life_h": 118.7
+        },
+        {
+          "pair": [
+            "LINKUSDT",
+            "SOLUSDT"
+          ],
+          "score": -7.0396,
+          "adf_t": -1.052,
+          "half_life_h": 148.0
+        },
+        {
+          "pair": [
+            "DOGEUSDT",
+            "SOLUSDT"
+          ],
+          "score": -7.0558,
+          "adf_t": -1.132,
+          "half_life_h": 138.9
+        }
+      ],
+      "train_selection_commit_sha256": "d21e4b820d0191c29868970bb5c8ec936ca9d4e5c1eb52e510faf8d0c01f6097",
+      "committed_at": 1784254762.1408682,
+      "train_full_start": 1672531200000,
+      "train_full_end": 1704067199999,
+      "fit_lookback_days": 60
+    },
+    {
+      "fold": "F3",
+      "train_start": 1730505599999,
+      "train_end": 1735689599999,
+      "val_start": 1736294400000,
+      "val_end": 1767225599999,
+      "universe": [
+        "BTCUSDT",
+        "ETHUSDT",
+        "BNBUSDT",
+        "SOLUSDT",
+        "XRPUSDT",
+        "DOGEUSDT",
+        "ADAUSDT",
+        "TRXUSDT",
+        "LINKUSDT",
+        "LTCUSDT",
+        "BCHUSDT",
+        "DOTUSDT"
+      ],
+      "candidate_pairs_fitted": 66,
+      "selected_pairs": [
+        {
+          "pair": [
+            "LTCUSDT",
+            "TRXUSDT"
+          ],
+          "score": -7.9273
+        },
+        {
+          "pair": [
+            "BCHUSDT",
+            "ETHUSDT"
+          ],
+          "score": -7.9742
+        },
+        {
+          "pair": [
+            "XRPUSDT",
+            "BNBUSDT"
+          ],
+          "score": -8.1272
+        }
+      ],
+      "selected_count": 3,
+      "blocked_no_stable_groups": false,
+      "frozen_fits": [
+        {
+          "group_id": "M1_LTCUSDT_TRXUSDT",
+          "legs": [
+            "LTCUSDT",
+            "TRXUSDT"
+          ],
+          "leg_direction_signs": [
+            1,
+            1
+          ],
+          "betas": [
+            1.02598812
+          ],
+          "mus": [
+            -6.1915738
+          ],
+          "residual_sigma": 0.08738725,
+          "half_life_h": 55.886,
+          "fit_sha256": "d5c3d943463a14446e28f7fc8e868015532fe38ba8f5662581500281763bd963",
+          "diagnostics": {
+            "adf_t": -2.9285,
+            "ac1": 0.9877,
+            "score": -7.9273
+          }
+        },
+        {
+          "group_id": "M1_BCHUSDT_ETHUSDT",
+          "legs": [
+            "BCHUSDT",
+            "ETHUSDT"
+          ],
+          "leg_direction_signs": [
+            1,
+            1
+          ],
+          "betas": [
+            0.77656094
+          ],
+          "mus": [
+            3.34231216
+          ],
+          "residual_sigma": 0.0452243,
+          "half_life_h": 46.921,
+          "fit_sha256": "23ec360ebfa8867dfa8b62b0e7b7fb47db562ebed544c4003b82807b0d20eae0",
+          "diagnostics": {
+            "adf_t": -3.1548,
+            "ac1": 0.9853,
+            "score": -7.9742
+          }
+        },
+        {
+          "group_id": "M1_XRPUSDT_BNBUSDT",
+          "legs": [
+            "XRPUSDT",
+            "BNBUSDT"
+          ],
+          "leg_direction_signs": [
+            1,
+            1
+          ],
+          "betas": [
+            0.11799981
+          ],
+          "mus": [
+            6.4467215
+          ],
+          "residual_sigma": 0.03848649,
+          "half_life_h": 42.1842,
+          "fit_sha256": "85e7f2e6b19d6384f0c39cbe2b48cfb2add346bf79a028d3ec65f1a8451cd3f4",
+          "diagnostics": {
+            "adf_t": -3.4175,
+            "ac1": 0.9837,
+            "score": -8.1272
+          }
+        }
+      ],
+      "top10_candidates": [
+        {
+          "pair": [
+            "DOTUSDT",
+            "XRPUSDT"
+          ],
+          "score": -7.1363,
+          "adf_t": -0.954,
+          "half_life_h": 179.4
+        },
+        {
+          "pair": [
+            "BCHUSDT",
+            "XRPUSDT"
+          ],
+          "score": -7.1838,
+          "adf_t": -1.238,
+          "half_life_h": 142.0
+        },
+        {
+          "pair": [
+            "BCHUSDT",
+            "BNBUSDT"
+          ],
+          "score": -7.2794,
+          "adf_t": -2.019,
+          "half_life_h": 72.2
+        },
+        {
+          "pair": [
+            "BCHUSDT",
+            "LTCUSDT"
+          ],
+          "score": -7.3152,
+          "adf_t": -1.944,
+          "half_life_h": 80.5
+        },
+        {
+          "pair": [
+            "BCHUSDT",
+            "TRXUSDT"
+          ],
+          "score": -7.335,
+          "adf_t": -1.419,
+          "half_life_h": 137.8
+        },
+        {
+          "pair": [
+            "ADAUSDT",
+            "XRPUSDT"
+          ],
+          "score": -7.3895,
+          "adf_t": -0.875,
+          "half_life_h": 249.7
+        },
+        {
+          "pair": [
+            "ADAUSDT",
+            "SOLUSDT"
+          ],
+          "score": -7.4939,
+          "adf_t": -1.5,
+          "half_life_h": 148.8
+        },
+        {
+          "pair": [
+            "DOGEUSDT",
+            "SOLUSDT"
+          ],
+          "score": -7.5066,
+          "adf_t": -1.799,
+          "half_life_h": 112.2
+        },
+        {
+          "pair": [
+            "DOGEUSDT",
+            "BNBUSDT"
+          ],
+          "score": -7.5352,
+          "adf_t": -1.877,
+          "half_life_h": 106.9
+        },
+        {
+          "pair": [
+            "DOTUSDT",
+            "TRXUSDT"
+          ],
+          "score": -7.5392,
+          "adf_t": -1.469,
+          "half_life_h": 160.6
+        }
+      ],
+      "train_selection_commit_sha256": "49eaa0cf0709f802d330c2b441c6c01ee10ab77107f8d3563b57fa517523f9b9",
+      "committed_at": 1784254762.3543015,
+      "train_full_start": 1672531200000,
+      "train_full_end": 1735689599999,
+      "fit_lookback_days": 60
+    },
+    {
+      "fold": "F4",
+      "train_start": 1762041599999,
+      "train_end": 1767225599999,
+      "val_start": 1767820800000,
+      "val_end": 1780271999999,
+      "universe": [
+        "BTCUSDT",
+        "ETHUSDT",
+        "BNBUSDT",
+        "SOLUSDT",
+        "XRPUSDT",
+        "DOGEUSDT",
+        "ADAUSDT",
+        "TRXUSDT",
+        "LINKUSDT",
+        "LTCUSDT",
+        "BCHUSDT",
+        "DOTUSDT"
+      ],
+      "candidate_pairs_fitted": 66,
+      "selected_pairs": [
+        {
+          "pair": [
+            "DOTUSDT",
+            "DOGEUSDT"
+          ],
+          "score": -7.705
+        },
+        {
+          "pair": [
+            "SOLUSDT",
+            "BTCUSDT"
+          ],
+          "score": -7.9432
+        },
+        {
+          "pair": [
+            "BNBUSDT",
+            "ETHUSDT"
+          ],
+          "score": -7.9881
+        },
+        {
+          "pair": [
+            "BCHUSDT",
+            "TRXUSDT"
+          ],
+          "score": -8.216
+        }
+      ],
+      "selected_count": 4,
+      "blocked_no_stable_groups": false,
+      "frozen_fits": [
+        {
+          "group_id": "M1_DOTUSDT_DOGEUSDT",
+          "legs": [
+            "DOTUSDT",
+            "DOGEUSDT"
+          ],
+          "leg_direction_signs": [
+            1,
+            1
+          ],
+          "betas": [
+            0.58763417
+          ],
+          "mus": [
+            -2.40499685
+          ],
+          "residual_sigma": 0.03096121,
+          "half_life_h": 46.0369,
+          "fit_sha256": "8d4042ea651eca2ad440e00b2088cbcc3120b393bbc296e53fa7b041d29e3469",
+          "diagnostics": {
+            "adf_t": -2.9052,
+            "ac1": 0.9851,
+            "score": -7.705
+          }
+        },
+        {
+          "group_id": "M1_SOLUSDT_BTCUSDT",
+          "legs": [
+            "SOLUSDT",
+            "BTCUSDT"
+          ],
+          "leg_direction_signs": [
+            1,
+            1
+          ],
+          "betas": [
+            0.6510093
+          ],
+          "mus": [
+            8.22697067
+          ],
+          "residual_sigma": 0.02125132,
+          "half_life_h": 61.1184,
+          "fit_sha256": "263222fb8fcc6354c392a8faad223f2cea98fa7fc110aca1e4b62d3cb2ffa6a2",
+          "diagnostics": {
+            "adf_t": -2.8528,
+            "ac1": 0.9887,
+            "score": -7.9432
+          }
+        },
+        {
+          "group_id": "M1_BNBUSDT_ETHUSDT",
+          "legs": [
+            "BNBUSDT",
+            "ETHUSDT"
+          ],
+          "leg_direction_signs": [
+            1,
+            1
+          ],
+          "betas": [
+            1.18356158
+          ],
+          "mus": [
+            -0.00503718
+          ],
+          "residual_sigma": 0.02550041,
+          "half_life_h": 57.5,
+          "fit_sha256": "754d514bcf5e13e50a182e95440f1c21a5a6a194e2ed99420480cf0204ca828a",
+          "diagnostics": {
+            "adf_t": -2.9601,
+            "ac1": 0.988,
+            "score": -7.9881
+          }
+        },
+        {
+          "group_id": "M1_BCHUSDT_TRXUSDT",
+          "legs": [
+            "BCHUSDT",
+            "TRXUSDT"
+          ],
+          "leg_direction_signs": [
+            1,
+            1
+          ],
+          "betas": [
+            -0.11584685
+          ],
+          "mus": [
+            -0.53039336
+          ],
+          "residual_sigma": 0.02165341,
+          "half_life_h": 50.3456,
+          "fit_sha256": "777c1f01d5b3a5cb2a5cc6ba4b1565e7eb2cd68bc04d65021d3052f4aae9d7ea",
+          "diagnostics": {
+            "adf_t": -3.3242,
+            "ac1": 0.9863,
+            "score": -8.216
+          }
+        }
+      ],
+      "top10_candidates": [
+        {
+          "pair": [
+            "TRXUSDT",
+            "DOGEUSDT"
+          ],
+          "score": -6.6107,
+          "adf_t": -0.9,
+          "half_life_h": 112.5
+        },
+        {
+          "pair": [
+            "TRXUSDT",
+            "ADAUSDT"
+          ],
+          "score": -6.7651,
+          "adf_t": -1.103,
+          "half_life_h": 107.2
+        },
+        {
+          "pair": [
+            "LINKUSDT",
+            "DOGEUSDT"
+          ],
+          "score": -7.0461,
+          "adf_t": -1.017,
+          "half_life_h": 154.2
+        },
+        {
+          "pair": [
+            "TRXUSDT",
+            "XRPUSDT"
+          ],
+          "score": -7.1678,
+          "adf_t": -1.387,
+          "half_life_h": 120.5
+        },
+        {
+          "pair": [
+            "ADAUSDT",
+            "BTCUSDT"
+          ],
+          "score": -7.2563,
+          "adf_t": -1.918,
+          "half_life_h": 77.9
+        },
+        {
+          "pair": [
+            "LTCUSDT",
+            "DOGEUSDT"
+          ],
+          "score": -7.2736,
+          "adf_t": -2.158,
+          "half_life_h": 62.7
+        },
+        {
+          "pair": [
+            "DOGEUSDT",
+            "BTCUSDT"
+          ],
+          "score": -7.2919,
+          "adf_t": -1.406,
+          "half_life_h": 133.7
+        },
+        {
+          "pair": [
+            "LTCUSDT",
+            "ADAUSDT"
+          ],
+          "score": -7.4879,
+          "adf_t": -2.152,
+          "half_life_h": 77.8
+        },
+        {
+          "pair": [
+            "LINKUSDT",
+            "ADAUSDT"
+          ],
+          "score": -7.5325,
+          "adf_t": -2.383,
+          "half_life_h": 64.8
+        },
+        {
+          "pair": [
+            "LINKUSDT",
+            "XRPUSDT"
+          ],
+          "score": -7.6555,
+          "adf_t": -1.733,
+          "half_life_h": 138.7
+        }
+      ],
+      "train_selection_commit_sha256": "68d83858846998047814a4663183670ce9d7eaecade71c7b5a012b54dfe2cadd",
+      "committed_at": 1784254762.554254,
+      "train_full_start": 1672531200000,
+      "train_full_end": 1767225599999,
+      "fit_lookback_days": 60
+    }
+  ],
+  "blocked_folds": [
+    "F1"
+  ],
+  "all_folds_have_3plus_disjoint_pairs": false
+}

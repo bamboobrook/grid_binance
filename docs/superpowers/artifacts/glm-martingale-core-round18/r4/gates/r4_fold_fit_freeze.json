@@ -1,0 +1,17 @@
+{
+  "phase": "R4",
+  "plan_section": "§7.1 universe/pair fit + §10 anchored folds + §15 stage machine",
+  "contract": "Fixed 12-symbol universe. Per fold, cointegration fit uses ONLY the last 60d of train (plan fit_lookback_days option). Selection by stationarity/stability (ADF t<-2.85, half-life<168h), NEVER by strategy return. Each fold commits train_selection_commit_sha256 BEFORE any validation read.",
+  "fit_window_rationale": "Full-train OLS cointegration over multi-year crypto windows is dominated by structural bull/bear trends and shows NO stationarity (verified: all 66 pairs adf_t>-2 over full train). The plan's explicit fit_lookback_days∈{30,60,120} options anticipate this; we use the last 60d of train, the most recent train info before the purge boundary.",
+  "folds": {
+    "F1": {"selected_pairs": 1, "blocked_no_stable_groups": true, "reason": "2023 H1 train window (crypto bull-cycle onset) yields only 1 train-stable disjoint pair at ADF 5%; plan §7.1 requires >=3. This fold's M1 search is blocked but does NOT block other folds."},
+    "F2": {"selected_pairs": 4, "blocked_no_stable_groups": false, "pairs": ["DOTUSDT/BCHUSDT", "LINKUSDT/TRXUSDT", "ETHUSDT/BTCUSDT", "LTCUSDT/XRPUSDT"]},
+    "F3": {"selected_pairs": 3, "blocked_no_stable_groups": false, "pairs": ["LTCUSDT/TRXUSDT", "BCHUSDT/ETHUSDT", "XRPUSDT/BNBUSDT"]},
+    "F4": {"selected_pairs": 4, "blocked_no_stable_groups": false, "pairs": ["DOTUSDT/DOGEUSDT", "SOLUSDT/BTCUSDT", "BNBUSDT/ETHUSDT", "BCHUSDT/TRXUSDT"]}
+  },
+  "frozen_fits_file": "docs/superpowers/artifacts/glm-martingale-core-round18/r4/fold-fit-freeze.json",
+  "unblocked_folds_for_M1": ["F2", "F3", "F4"],
+  "blocked_folds": ["F1"],
+  "all_unblocked_folds_have_3plus_disjoint_pairs": true,
+  "conclusion": "R4 DATA/FOLD/GROUP-FIT FREEZE PASSED for F2/F3/F4 (3 of 4 folds). F1 is blocked_no_stable_groups (honest empirical result: 2023-H1 has insufficient cointegration). The M1 synchronized pair search proceeds on F2/F3/F4 with frozen train-only fits. Each frozen fit carries a fit_sha256 and the fold carries a train_selection_commit_sha256 committed before validation."
+}
