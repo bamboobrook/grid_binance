@@ -1,0 +1,911 @@
+{
+  "phase": "R6 G1 nested train-only successive halving",
+  "family": "M1_pair",
+  "n_configs": 96,
+  "n_blocks": 3,
+  "n_budgets": 2,
+  "total_runs": 576,
+  "completed_runs": 576,
+  "train_blocks": [
+    {
+      "name": "tb1",
+      "start": 1672531200000,
+      "end": 1683043199999
+    },
+    {
+      "name": "tb2",
+      "start": 1683043199999,
+      "end": 1693555199998
+    },
+    {
+      "name": "tb3",
+      "start": 1693555199998,
+      "end": 1704067199999
+    }
+  ],
+  "budgets": [
+    1000.0,
+    4999.0
+  ],
+  "strict_gate": {
+    "breach": "reject",
+    "dd>45": "reject",
+    "atomic_reject>10%": "reject",
+    "two_blocks_negative": "reject",
+    "no_so_not_martingale": "reject"
+  },
+  "n_survivors_passing_strict_gate": 178,
+  "n_rejected": 14,
+  "top32_selected": 32,
+  "top32": [
+    {
+      "config_id": "M1_017",
+      "budget": 1000,
+      "params": {
+        "bar_boundary_minutes": 5,
+        "entry_z": 1.0,
+        "so_residual_step_z": 0.25,
+        "group_fo_quote": 60.0,
+        "multiplier": 1.35,
+        "max_legs": 5,
+        "exit_z": 0.25,
+        "tp_net_bps_floor": 100,
+        "leverage": 3,
+        "group_gross_cap_pct": 18.0
+      },
+      "median_ann": 147.87747473284426,
+      "worst_dd": 35.632898615827344,
+      "pos_blocks": 3,
+      "fee_total": 5.423910018750002,
+      "groups_with_so": 33,
+      "anns_by_block": {
+        "tb1": 120.31413881024591,
+        "tb2": 221.08988494529166,
+        "tb3": 147.87747473284426
+      },
+      "train_score": 145.0610254249306
+    },
+    {
+      "config_id": "M1_010",
+      "budget": 1000,
+      "params": {
+        "bar_boundary_minutes": 5,
+        "entry_z": 2.5,
+        "so_residual_step_z": 0.4,
+        "group_fo_quote": 60.0,
+        "multiplier": 1.7,
+        "max_legs": 4,
+        "exit_z": 0.25,
+        "tp_net_bps_floor": 70,
+        "leverage": 2,
+        "group_gross_cap_pct": 25.0
+      },
+      "median_ann": 124.94054414903633,
+      "worst_dd": 36.982331418700376,
+      "pos_blocks": 3,
+      "fee_total": 3.2050080000000003,
+      "groups_with_so": 15,
+      "anns_by_block": {
+        "tb1": 124.94054414903633,
+        "tb2": 191.7079581982034,
+        "tb3": 37.797581604411576
+      },
+      "train_score": 121.44937843968614
+    },
+    {
+      "config_id": "M1_007",
+      "budget": 1000,
+      "params": {
+        "bar_boundary_minutes": 1,
+        "entry_z": 1.5,
+        "so_residual_step_z": 0.6,
+        "group_fo_quote": 60.0,
+        "multiplier": 1.5,
+        "max_legs": 5,
+        "exit_z": 0.1,
+        "tp_net_bps_floor": 40,
+        "leverage": 5,
+        "group_gross_cap_pct": 25.0
+      },
+      "median_ann": 120.36854037424129,
+      "worst_dd": 41.07653612071556,
+      "pos_blocks": 3,
+      "fee_total": 3.4914375000000004,
+      "groups_with_so": 15,
+      "anns_by_block": {
+        "tb1": 120.36854037424129,
+        "tb2": 592.5594623099015,
+        "tb3": 46.57275955660156
+      },
+      "train_score": 114.83027231388351
+    },
+    {
+      "config_id": "M1_085",
+      "budget": 1000,
+      "params": {
+        "bar_boundary_minutes": 5,
+        "entry_z": 1.0,
+        "so_residual_step_z": 0.4,
+        "group_fo_quote": 60.0,
+        "multiplier": 1.5,
+        "max_legs": 4,
+        "exit_z": 0.25,
+        "tp_net_bps_floor": 40,
+        "leverage": 5,
+        "group_gross_cap_pct": 12.0
+      },
+      "median_ann": 99.98371573725484,
+      "worst_dd": 30.9189809259795,
+      "pos_blocks": 3,
+      "fee_total": 4.4145,
+      "groups_with_so": 29,
+      "anns_by_block": {
+        "tb1": 99.89882926357166,
+        "tb2": 167.7476247642912,
+        "tb3": 99.98371573725484
+      },
+      "train_score": 99.52422527426509
+    },
+    {
+      "config_id": "M1_095",
+      "budget": 1000,
+      "params": {
+        "bar_boundary_minutes": 1,
+        "entry_z": 1.0,
+        "so_residual_step_z": 0.8,
+        "group_fo_quote": 60.0,
+        "multiplier": 1.7,
+        "max_legs": 4,
+        "exit_z": 0.1,
+        "tp_net_bps_floor": 40,
+        "leverage": 5,
+        "group_gross_cap_pct": 18.0
+      },
+      "median_ann": 101.66630706939968,
+      "worst_dd": 35.57580477343181,
+      "pos_blocks": 3,
+      "fee_total": 3.7772460000000008,
+      "groups_with_so": 19,
+      "anns_by_block": {
+        "tb1": 101.66630706939968,
+        "tb2": 396.0212482008051,
+        "tb3": 71.8059394931001
+      },
+      "train_score": 98.87840468268377
+    },
+    {
+      "config_id": "M1_044",
+      "budget": 1000,
+      "params": {
+        "bar_boundary_minutes": 1,
+        "entry_z": 2.0,
+        "so_residual_step_z": 0.25,
+        "group_fo_quote": 60.0,
+        "multiplier": 1.35,
+        "max_legs": 4,
+        "exit_z": 0.25,
+        "tp_net_bps_floor": 40,
+        "leverage": 3,
+        "group_gross_cap_pct": 25.0
+      },
+      "median_ann": 95.79076936010469,
+      "worst_dd": 25.02905039639437,
+      "pos_blocks": 3,
+      "fee_total": 2.9514611250000007,
+      "groups_with_so": 18,
+      "anns_by_block": {
+        "tb1": 95.79076936010469,
+        "tb2": 130.84201258830635,
+        "tb3": 45.89151634505389
+      },
+      "train_score": 98.2762441619075
+    },
+    {
+      "config_id": "M1_068",
+      "budget": 1000,
+      "params": {
+        "bar_boundary_minutes": 1,
+        "entry_z": 2.5,
+        "so_residual_step_z": 0.6,
+        "group_fo_quote": 60.0,
+        "multiplier": 1.35,
+        "max_legs": 5,
+        "exit_z": 0.25,
+        "tp_net_bps_floor": 20,
+        "leverage": 3,
+        "group_gross_cap_pct": 18.0
+      },
+      "median_ann": 94.93627505848504,
+      "worst_dd": 31.15482173769728,
+      "pos_blocks": 3,
+      "fee_total": 2.7557156812500003,
+      "groups_with_so": 13,
+      "anns_by_block": {
+        "tb1": 94.93627505848504,
+        "tb2": 254.29682902847338,
+        "tb3": 21.526731791731436
+      },
+      "train_score": 94.35886418963639
+    },
+    {
+      "config_id": "M1_058",
+      "budget": 1000,
+      "params": {
+        "bar_boundary_minutes": 5,
+        "entry_z": 2.5,
+        "so_residual_step_z": 0.6,
+        "group_fo_quote": 60.0,
+        "multiplier": 1.5,
+        "max_legs": 4,
+        "exit_z": 0.5,
+        "tp_net_bps_floor": 100,
+        "leverage": 5,
+        "group_gross_cap_pct": 18.0
+      },
+      "median_ann": 82.36877035695032,
+      "worst_dd": 26.499153870612425,
+      "pos_blocks": 3,
+      "fee_total": 2.4299999999999997,
+      "groups_with_so": 12,
+      "anns_by_block": {
+        "tb1": 82.36877035695032,
+        "tb2": 171.55785927615338,
+        "tb3": 26.26187273104488
+      },
+      "train_score": 84.11919342164411
+    },
+    {
+      "config_id": "M1_041",
+      "budget": 1000,
+      "params": {
+        "bar_boundary_minutes": 5,
+        "entry_z": 1.5,
+        "so_residual_step_z": 0.25,
+        "group_fo_quote": 45.0,
+        "multiplier": 1.5,
+        "max_legs": 4,
+        "exit_z": 0.25,
+        "tp_net_bps_floor": 20,
+        "leverage": 5,
+        "group_gross_cap_pct": 25.0
+      },
+      "median_ann": 78.95237630840984,
+      "worst_dd": 23.871313385302663,
+      "pos_blocks": 3,
+      "fee_total": 3.1286250000000004,
+      "groups_with_so": 28,
+      "anns_by_block": {
+        "tb1": 78.95237630840984,
+        "tb2": 94.75282500457358,
+        "tb3": 60.406028654134005
+      },
+      "train_score": 82.0167196157585
+    },
+    {
+      "config_id": "M1_013",
+      "budget": 1000,
+      "params": {
+        "bar_boundary_minutes": 5,
+        "entry_z": 1.5,
+        "so_residual_step_z": 0.25,
+        "group_fo_quote": 60.0,
+        "multiplier": 1.7,
+        "max_legs": 3,
+        "exit_z": 0.1,
+        "tp_net_bps_floor": 40,
+        "leverage": 5,
+        "group_gross_cap_pct": 12.0
+      },
+      "median_ann": 76.14387819480532,
+      "worst_dd": 23.235724877090327,
+      "pos_blocks": 3,
+      "fee_total": 3.443850000000001,
+      "groups_with_so": 26,
+      "anns_by_block": {
+        "tb1": 102.40231280081554,
+        "tb2": 53.93495973954388,
+        "tb3": 76.14387819480532
+      },
+      "train_score": 79.52601575626016
+    },
+    {
+      "config_id": "M1_067",
+      "budget": 1000,
+      "params": {
+        "bar_boundary_minutes": 1,
+        "entry_z": 1.5,
+        "so_residual_step_z": 0.8,
+        "group_fo_quote": 60.0,
+        "multiplier": 1.35,
+        "max_legs": 4,
+        "exit_z": 0.5,
+        "tp_net_bps_floor": 100,
+        "leverage": 3,
+        "group_gross_cap_pct": 12.0
+      },
+      "median_ann": 71.98032165141073,
+      "worst_dd": 23.42654102188456,
+      "pos_blocks": 3,
+      "fee_total": 2.779575750000001,
+      "groups_with_so": 15,
+      "anns_by_block": {
+        "tb1": 71.98032165141073,
+        "tb2": 178.07672415312098,
+        "tb3": 45.249675006765244
+      },
+      "train_score": 75.26705114046845
+    },
+    {
+      "config_id": "M1_043",
+      "budget": 1000,
+      "params": {
+        "bar_boundary_minutes": 1,
+        "entry_z": 1.0,
+        "so_residual_step_z": 0.4,
+        "group_fo_quote": 60.0,
+        "multiplier": 1.35,
+        "max_legs": 3,
+        "exit_z": 0.5,
+        "tp_net_bps_floor": 70,
+        "leverage": 3,
+        "group_gross_cap_pct": 12.0
+      },
+      "median_ann": 68.76717356816651,
+      "worst_dd": 17.21582711507623,
+      "pos_blocks": 3,
+      "fee_total": 5.057572499999999,
+      "groups_with_so": 44,
+      "anns_by_block": {
+        "tb1": 68.76717356816651,
+        "tb2": 47.975502712916594,
+        "tb3": 95.64100555948166
+      },
+      "train_score": 75.1592600106284
+    },
+    {
+      "config_id": "M1_042",
+      "budget": 1000,
+      "params": {
+        "bar_boundary_minutes": 5,
+        "entry_z": 2.0,
+        "so_residual_step_z": 0.8,
+        "group_fo_quote": 30.0,
+        "multiplier": 1.7,
+        "max_legs": 5,
+        "exit_z": 0.1,
+        "tp_net_bps_floor": 40,
+        "leverage": 5,
+        "group_gross_cap_pct": 25.0
+      },
+      "median_ann": 72.30161273649279,
+      "worst_dd": 24.534032251684724,
+      "pos_blocks": 3,
+      "fee_total": 1.95977475,
+      "groups_with_so": 11,
+      "anns_by_block": {
+        "tb1": 72.30161273649279,
+        "tb2": 184.61141285103838,
+        "tb3": 17.09947243083123
+      },
+      "train_score": 75.03459661065042
+    },
+    {
+      "config_id": "M1_025",
+      "budget": 1000,
+      "params": {
+        "bar_boundary_minutes": 5,
+        "entry_z": 1.5,
+        "so_residual_step_z": 0.8,
+        "group_fo_quote": 45.0,
+        "multiplier": 1.7,
+        "max_legs": 4,
+        "exit_z": 0.5,
+        "tp_net_bps_floor": 40,
+        "leverage": 2,
+        "group_gross_cap_pct": 25.0
+      },
+      "median_ann": 71.6432008148247,
+      "worst_dd": 23.47803550653619,
+      "pos_blocks": 3,
+      "fee_total": 2.3146762499999998,
+      "groups_with_so": 12,
+      "anns_by_block": {
+        "tb1": 71.6432008148247,
+        "tb2": 192.75464154885776,
+        "tb3": 35.166298757181046
+      },
+      "train_score": 74.90418306155661
+    },
+    {
+      "config_id": "M1_008",
+      "budget": 1000,
+      "params": {
+        "bar_boundary_minutes": 1,
+        "entry_z": 2.0,
+        "so_residual_step_z": 0.25,
+        "group_fo_quote": 45.0,
+        "multiplier": 1.2,
+        "max_legs": 5,
+        "exit_z": 0.5,
+        "tp_net_bps_floor": 20,
+        "leverage": 3,
+        "group_gross_cap_pct": 12.0
+      },
+      "median_ann": 68.00308136479624,
+      "worst_dd": 21.052260480768265,
+      "pos_blocks": 3,
+      "fee_total": 2.3877504,
+      "groups_with_so": 21,
+      "anns_by_block": {
+        "tb1": 68.00308136479624,
+        "tb2": 114.54826143574861,
+        "tb3": 35.508201912580304
+      },
+      "train_score": 72.47695112441211
+    },
+    {
+      "config_id": "M1_003",
+      "budget": 1000,
+      "params": {
+        "bar_boundary_minutes": 1,
+        "entry_z": 1.0,
+        "so_residual_step_z": 0.25,
+        "group_fo_quote": 20.0,
+        "multiplier": 1.7,
+        "max_legs": 5,
+        "exit_z": 0.25,
+        "tp_net_bps_floor": 100,
+        "leverage": 3,
+        "group_gross_cap_pct": 12.0
+      },
+      "median_ann": 69.00384723543682,
+      "worst_dd": 24.580754272103448,
+      "pos_blocks": 3,
+      "fee_total": 3.1129739999999995,
+      "groups_with_so": 36,
+      "anns_by_block": {
+        "tb1": 54.291560429036664,
+        "tb2": 101.91844212490797,
+        "tb3": 69.00384723543682
+      },
+      "train_score": 71.71347009938509
+    },
+    {
+      "config_id": "M1_028",
+      "budget": 1000,
+      "params": {
+        "bar_boundary_minutes": 1,
+        "entry_z": 2.0,
+        "so_residual_step_z": 0.8,
+        "group_fo_quote": 60.0,
+        "multiplier": 1.2,
+        "max_legs": 4,
+        "exit_z": 0.1,
+        "tp_net_bps_floor": 20,
+        "leverage": 3,
+        "group_gross_cap_pct": 25.0
+      },
+      "median_ann": 62.676916634655136,
+      "worst_dd": 18.82976571127728,
+      "pos_blocks": 3,
+      "fee_total": 1.868616,
+      "groups_with_so": 11,
+      "anns_by_block": {
+        "tb1": 62.676916634655136,
+        "tb2": 139.21492014069224,
+        "tb3": 28.075008463495777
+      },
+      "train_score": 68.26203377901649
+    },
+    {
+      "config_id": "M1_026",
+      "budget": 1000,
+      "params": {
+        "bar_boundary_minutes": 5,
+        "entry_z": 2.0,
+        "so_residual_step_z": 0.25,
+        "group_fo_quote": 30.0,
+        "multiplier": 1.5,
+        "max_legs": 5,
+        "exit_z": 0.1,
+        "tp_net_bps_floor": 20,
+        "leverage": 3,
+        "group_gross_cap_pct": 18.0
+      },
+      "median_ann": 64.89392547872185,
+      "worst_dd": 23.275394325562672,
+      "pos_blocks": 3,
+      "fee_total": 2.21653125,
+      "groups_with_so": 19,
+      "anns_by_block": {
+        "tb1": 64.89392547872185,
+        "tb2": 149.51143665234224,
+        "tb3": 27.97501224714365
+      },
+      "train_score": 68.25622831594052
+    },
+    {
+      "config_id": "M1_038",
+      "budget": 1000,
+      "params": {
+        "bar_boundary_minutes": 5,
+        "entry_z": 2.0,
+        "so_residual_step_z": 0.6,
+        "group_fo_quote": 60.0,
+        "multiplier": 1.2,
+        "max_legs": 4,
+        "exit_z": 0.25,
+        "tp_net_bps_floor": 40,
+        "leverage": 5,
+        "group_gross_cap_pct": 12.0
+      },
+      "median_ann": 62.06819243395645,
+      "worst_dd": 18.191060406215502,
+      "pos_blocks": 3,
+      "fee_total": 2.0837520000000005,
+      "groups_with_so": 15,
+      "anns_by_block": {
+        "tb1": 62.06819243395645,
+        "tb2": 121.99225637047242,
+        "tb3": 23.60519115138826
+      },
+      "train_score": 67.9726622308487
+    },
+    {
+      "config_id": "M1_089",
+      "budget": 1000,
+      "params": {
+        "bar_boundary_minutes": 5,
+        "entry_z": 1.0,
+        "so_residual_step_z": 0.25,
+        "group_fo_quote": 30.0,
+        "multiplier": 1.35,
+        "max_legs": 5,
+        "exit_z": 0.25,
+        "tp_net_bps_floor": 40,
+        "leverage": 5,
+        "group_gross_cap_pct": 25.0
+      },
+      "median_ann": 61.955552935788894,
+      "worst_dd": 18.71894829534739,
+      "pos_blocks": 3,
+      "fee_total": 2.738955009375001,
+      "groups_with_so": 33,
+      "anns_by_block": {
+        "tb1": 52.327675813048,
+        "tb2": 89.57663771061151,
+        "tb3": 61.955552935788894
+      },
+      "train_score": 67.5960787881152
+    },
+    {
+      "config_id": "M1_061",
+      "budget": 1000,
+      "params": {
+        "bar_boundary_minutes": 5,
+        "entry_z": 1.5,
+        "so_residual_step_z": 0.8,
+        "group_fo_quote": 60.0,
+        "multiplier": 1.5,
+        "max_legs": 3,
+        "exit_z": 0.25,
+        "tp_net_bps_floor": 20,
+        "leverage": 2,
+        "group_gross_cap_pct": 12.0
+      },
+      "median_ann": 60.10158964470551,
+      "worst_dd": 16.759832153698458,
+      "pos_blocks": 3,
+      "fee_total": 2.0857500000000004,
+      "groups_with_so": 11,
+      "anns_by_block": {
+        "tb1": 60.10158964470551,
+        "tb2": 107.74000578416101,
+        "tb3": 33.25162706361162
+      },
+      "train_score": 66.72167356785629
+    },
+    {
+      "config_id": "M1_080",
+      "budget": 1000,
+      "params": {
+        "bar_boundary_minutes": 1,
+        "entry_z": 2.5,
+        "so_residual_step_z": 0.4,
+        "group_fo_quote": 45.0,
+        "multiplier": 1.35,
+        "max_legs": 4,
+        "exit_z": 0.25,
+        "tp_net_bps_floor": 20,
+        "leverage": 3,
+        "group_gross_cap_pct": 18.0
+      },
+      "median_ann": 60.61822568418438,
+      "worst_dd": 19.33532015661558,
+      "pos_blocks": 3,
+      "fee_total": 1.7886926250000001,
+      "groups_with_so": 16,
+      "anns_by_block": {
+        "tb1": 60.61822568418438,
+        "tb2": 70.8071319405496,
+        "tb3": 20.473220648739332
+      },
+      "train_score": 65.95056560587659
+    },
+    {
+      "config_id": "M1_070",
+      "budget": 1000,
+      "params": {
+        "bar_boundary_minutes": 5,
+        "entry_z": 2.0,
+        "so_residual_step_z": 0.8,
+        "group_fo_quote": 45.0,
+        "multiplier": 1.5,
+        "max_legs": 4,
+        "exit_z": 0.1,
+        "tp_net_bps_floor": 70,
+        "leverage": 5,
+        "group_gross_cap_pct": 12.0
+      },
+      "median_ann": 59.0663205251589,
+      "worst_dd": 17.97492093419491,
+      "pos_blocks": 3,
+      "fee_total": 1.7718749999999999,
+      "groups_with_so": 11,
+      "anns_by_block": {
+        "tb1": 59.0663205251589,
+        "tb2": 123.23377145636267,
+        "tb3": 23.34262099081881
+      },
+      "train_score": 65.07886005806145
+    },
+    {
+      "config_id": "M1_053",
+      "budget": 1000,
+      "params": {
+        "bar_boundary_minutes": 5,
+        "entry_z": 1.0,
+        "so_residual_step_z": 0.25,
+        "group_fo_quote": 45.0,
+        "multiplier": 1.2,
+        "max_legs": 4,
+        "exit_z": 0.1,
+        "tp_net_bps_floor": 70,
+        "leverage": 3,
+        "group_gross_cap_pct": 12.0
+      },
+      "median_ann": 57.91324051065845,
+      "worst_dd": 16.079342161459785,
+      "pos_blocks": 3,
+      "fee_total": 2.751084,
+      "groups_with_so": 30,
+      "anns_by_block": {
+        "tb1": 57.91324051065845,
+        "tb2": 50.34866231593698,
+        "tb3": 79.80647349297323
+      },
+      "train_score": 64.87356942992855
+    },
+    {
+      "config_id": "M1_015",
+      "budget": 1000,
+      "params": {
+        "bar_boundary_minutes": 1,
+        "entry_z": 1.0,
+        "so_residual_step_z": 0.4,
+        "group_fo_quote": 45.0,
+        "multiplier": 1.2,
+        "max_legs": 4,
+        "exit_z": 0.25,
+        "tp_net_bps_floor": 100,
+        "leverage": 3,
+        "group_gross_cap_pct": 18.0
+      },
+      "median_ann": 56.859939240251435,
+      "worst_dd": 16.041047142114355,
+      "pos_blocks": 3,
+      "fee_total": 2.7982259999999997,
+      "groups_with_so": 30,
+      "anns_by_block": {
+        "tb1": 51.97854057757168,
+        "tb2": 56.859939240251435,
+        "tb3": 68.93561929896444
+      },
+      "train_score": 63.83941566919426
+    },
+    {
+      "config_id": "M1_073",
+      "budget": 1000,
+      "params": {
+        "bar_boundary_minutes": 5,
+        "entry_z": 1.5,
+        "so_residual_step_z": 0.4,
+        "group_fo_quote": 60.0,
+        "multiplier": 1.2,
+        "max_legs": 3,
+        "exit_z": 0.5,
+        "tp_net_bps_floor": 100,
+        "leverage": 5,
+        "group_gross_cap_pct": 25.0
+      },
+      "median_ann": 56.68591692291549,
+      "worst_dd": 15.765873025260568,
+      "pos_blocks": 3,
+      "fee_total": 2.6265600000000004,
+      "groups_with_so": 25,
+      "anns_by_block": {
+        "tb1": 61.02123946565825,
+        "tb2": 56.68591692291549,
+        "tb3": 52.45330720641559
+      },
+      "train_score": 63.8029804102852
+    },
+    {
+      "config_id": "M1_090",
+      "budget": 1000,
+      "params": {
+        "bar_boundary_minutes": 5,
+        "entry_z": 2.5,
+        "so_residual_step_z": 0.8,
+        "group_fo_quote": 45.0,
+        "multiplier": 1.2,
+        "max_legs": 5,
+        "exit_z": 0.5,
+        "tp_net_bps_floor": 20,
+        "leverage": 3,
+        "group_gross_cap_pct": 18.0
+      },
+      "median_ann": 55.06326960344627,
+      "worst_dd": 16.03656265531835,
+      "pos_blocks": 3,
+      "fee_total": 1.4672339999999997,
+      "groups_with_so": 11,
+      "anns_by_block": {
+        "tb1": 55.06326960344627,
+        "tb2": 80.5801922802369,
+        "tb3": 11.727340690257005
+      },
+      "train_score": 62.0449882757871
+    },
+    {
+      "config_id": "M1_093",
+      "budget": 1000,
+      "params": {
+        "bar_boundary_minutes": 5,
+        "entry_z": 1.5,
+        "so_residual_step_z": 0.6,
+        "group_fo_quote": 45.0,
+        "multiplier": 1.2,
+        "max_legs": 5,
+        "exit_z": 0.1,
+        "tp_net_bps_floor": 100,
+        "leverage": 3,
+        "group_gross_cap_pct": 12.0
+      },
+      "median_ann": 54.41516973873375,
+      "worst_dd": 17.61616484306879,
+      "pos_blocks": 3,
+      "fee_total": 1.9338263999999996,
+      "groups_with_so": 15,
+      "anns_by_block": {
+        "tb1": 54.41516973873375,
+        "tb2": 107.14657716439757,
+        "tb3": 32.38200803276607
+      },
+      "train_score": 60.60708731719936
+    },
+    {
+      "config_id": "M1_063",
+      "budget": 1000,
+      "params": {
+        "bar_boundary_minutes": 1,
+        "entry_z": 1.0,
+        "so_residual_step_z": 0.6,
+        "group_fo_quote": 45.0,
+        "multiplier": 1.35,
+        "max_legs": 4,
+        "exit_z": 0.1,
+        "tp_net_bps_floor": 70,
+        "leverage": 5,
+        "group_gross_cap_pct": 25.0
+      },
+      "median_ann": 54.47245612063914,
+      "worst_dd": 18.278562699175495,
+      "pos_blocks": 3,
+      "fee_total": 2.45673253125,
+      "groups_with_so": 23,
+      "anns_by_block": {
+        "tb1": 51.20077243847489,
+        "tb2": 107.3838746246564,
+        "tb3": 54.47245612063914
+      },
+      "train_score": 60.33317477105139
+    },
+    {
+      "config_id": "M1_027",
+      "budget": 1000,
+      "params": {
+        "bar_boundary_minutes": 1,
+        "entry_z": 1.0,
+        "so_residual_step_z": 0.6,
+        "group_fo_quote": 60.0,
+        "multiplier": 1.2,
+        "max_legs": 3,
+        "exit_z": 0.25,
+        "tp_net_bps_floor": 100,
+        "leverage": 3,
+        "group_gross_cap_pct": 18.0
+      },
+      "median_ann": 51.45560901241035,
+      "worst_dd": 14.814147228718639,
+      "pos_blocks": 3,
+      "fee_total": 2.8134000000000006,
+      "groups_with_so": 24,
+      "anns_by_block": {
+        "tb1": 51.45560901241035,
+        "tb2": 49.1523975506734,
+        "tb3": 59.76663948941876
+      },
+      "train_score": 59.04853539805103
+    },
+    {
+      "config_id": "M1_039",
+      "budget": 1000,
+      "params": {
+        "bar_boundary_minutes": 1,
+        "entry_z": 1.0,
+        "so_residual_step_z": 0.25,
+        "group_fo_quote": 30.0,
+        "multiplier": 1.5,
+        "max_legs": 4,
+        "exit_z": 0.5,
+        "tp_net_bps_floor": 70,
+        "leverage": 3,
+        "group_gross_cap_pct": 25.0
+      },
+      "median_ann": 51.006586033560566,
+      "worst_dd": 16.20653352036166,
+      "pos_blocks": 3,
+      "fee_total": 4.124250000000003,
+      "groups_with_so": 51,
+      "anns_by_block": {
+        "tb1": 49.368038241290215,
+        "tb2": 51.006586033560566,
+        "tb3": 82.1914883977849
+      },
+      "train_score": 57.903319273379736
+    },
+    {
+      "config_id": "M1_087",
+      "budget": 1000,
+      "params": {
+        "bar_boundary_minutes": 1,
+        "entry_z": 1.5,
+        "so_residual_step_z": 0.25,
+        "group_fo_quote": 45.0,
+        "multiplier": 1.35,
+        "max_legs": 3,
+        "exit_z": 0.1,
+        "tp_net_bps_floor": 100,
+        "leverage": 3,
+        "group_gross_cap_pct": 25.0
+      },
+      "median_ann": 49.370645380016256,
+      "worst_dd": 15.443670017287292,
+      "pos_blocks": 3,
+      "fee_total": 2.2135275000000005,
+      "groups_with_so": 29,
+      "anns_by_block": {
+        "tb1": 56.28509976892566,
+        "tb2": 36.42695254144102,
+        "tb3": 49.370645380016256
+      },
+      "train_score": 56.64881037137261
+    }
+  ],
+  "rejection_reason_summary": {
+    "atomic_reject>10%": 12,
+    "dd>45": 2
+  },
+  "blocked_M2_M3_M5": "blocked_parent_gate (M2/M3-M5 quota not transferred to M1; plan \u00a711.1)"
+}
