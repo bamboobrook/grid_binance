@@ -1,0 +1,27 @@
+{
+  "excluded_keys_count": 2315,
+  "excluded_keys_sample": [
+    "r17:0009ec2d821899d17fa693b0e121dfe07a1c19766bd1b2af5697903563b2ed00|w1|1000.0",
+    "r17:0009ec2d821899d17fa693b0e121dfe07a1c19766bd1b2af5697903563b2ed00|w1|3000.0",
+    "r17:0009ec2d821899d17fa693b0e121dfe07a1c19766bd1b2af5697903563b2ed00|w1|4999.0",
+    "r17:0009ec2d821899d17fa693b0e121dfe07a1c19766bd1b2af5697903563b2ed00|w2|1000.0",
+    "r17:0009ec2d821899d17fa693b0e121dfe07a1c19766bd1b2af5697903563b2ed00|w2|3000.0",
+    "r17:0009ec2d821899d17fa693b0e121dfe07a1c19766bd1b2af5697903563b2ed00|w2|4999.0",
+    "r17:0009ec2d821899d17fa693b0e121dfe07a1c19766bd1b2af5697903563b2ed00|w3|1000.0",
+    "r17:0009ec2d821899d17fa693b0e121dfe07a1c19766bd1b2af5697903563b2ed00|w3|3000.0",
+    "r17:0009ec2d821899d17fa693b0e121dfe07a1c19766bd1b2af5697903563b2ed00|w3|4999.0",
+    "r17:0009ec2d821899d17fa693b0e121dfe07a1c19766bd1b2af5697903563b2ed00|w4|1000.0"
+  ],
+  "forbidden_families_audit_section_7": [
+    "R17 192 exact config hash \u00d7 four windows \u00d7 three budgets",
+    "config-hash-only changes with no event/order/rejection hash change",
+    "old HTF direction gate + basic FO/multiplier/legs/spacing/TP/leverage Sobol",
+    "static long/short weight skew and non-triggering inventory cap",
+    "R14/15 dual-state SO scale, partial TP, minigrid, depth TP exact family",
+    "old research-only pair-neutral daily close stream, DD cooldown, curve combination",
+    "pure trend/breakout/funding carry/pair-neutral/stat-arb as standalone PnL engine"
+  ],
+  "rows_scanned": 2370,
+  "scanned_registry": "docs/superpowers/artifacts/glm-martingale-core-round17/exploration-registry.jsonl",
+  "scope": "All R17 effective_config_hash|window|budget triples are dedup-excluded. Round 18 must use a DIFFERENT cycle_topology (synchronized_pair / synchronized_basket) and/or different resolved config, so its fingerprints cannot collide."
+}
