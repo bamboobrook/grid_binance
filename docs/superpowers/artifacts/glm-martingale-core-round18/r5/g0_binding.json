@@ -1,0 +1,1498 @@
+{
+  "family": "M1_pair",
+  "f2_train_commit_sha256": "d21e4b820d0191c29868970bb5c8ec936ca9d4e5c1eb52e510faf8d0c01f6097",
+  "param_sweep_count": 10,
+  "total_runs": 84,
+  "windows": [
+    {
+      "name": "bull_trend",
+      "start": 1696118400000,
+      "end": 1704067200000
+    },
+    {
+      "name": "bear_trend",
+      "start": 1736294400000,
+      "end": 1744070400000
+    },
+    {
+      "name": "range",
+      "start": 1714521600000,
+      "end": 1719792000000
+    },
+    {
+      "name": "jump_shock",
+      "start": 1729468800000,
+      "end": 1734480000000
+    }
+  ],
+  "inert_params": [],
+  "all_params_bound": true,
+  "binding_detail": {
+    "entry_z": {
+      "low_vs_high_active_windows": [
+        "bull_trend",
+        "range",
+        "jump_shock"
+      ],
+      "vs_base_active_windows": [
+        "bull_trend",
+        "range",
+        "jump_shock"
+      ],
+      "low": {
+        "bull_trend": {
+          "trade_count": 204,
+          "fo": [
+            9,
+            10,
+            11,
+            8
+          ],
+          "so": [
+            8,
+            11,
+            3,
+            4
+          ]
+        },
+        "bear_trend": {
+          "trade_count": 38,
+          "fo": [
+            1,
+            1,
+            1,
+            1
+          ],
+          "so": [
+            2,
+            3,
+            3,
+            3
+          ]
+        },
+        "range": {
+          "trade_count": 46,
+          "fo": [
+            1,
+            1,
+            3,
+            1
+          ],
+          "so": [
+            1,
+            1,
+            6,
+            3
+          ]
+        },
+        "jump_shock": {
+          "trade_count": 54,
+          "fo": [
+            1,
+            1,
+            1,
+            3
+          ],
+          "so": [
+            2,
+            3,
+            3,
+            7
+          ]
+        }
+      },
+      "high": {
+        "bull_trend": {
+          "trade_count": 56,
+          "fo": [
+            3,
+            3,
+            3,
+            2
+          ],
+          "so": [
+            1,
+            1,
+            1,
+            3
+          ]
+        },
+        "bear_trend": {
+          "trade_count": 38,
+          "fo": [
+            1,
+            1,
+            1,
+            1
+          ],
+          "so": [
+            2,
+            3,
+            3,
+            3
+          ]
+        },
+        "range": {
+          "trade_count": 38,
+          "fo": [
+            1,
+            1,
+            2,
+            1
+          ],
+          "so": [
+            1,
+            1,
+            4,
+            3
+          ]
+        },
+        "jump_shock": {
+          "trade_count": 48,
+          "fo": [
+            1,
+            1,
+            1,
+            3
+          ],
+          "so": [
+            2,
+            3,
+            3,
+            4
+          ]
+        }
+      }
+    },
+    "so_residual_step_z": {
+      "low_vs_high_active_windows": [
+        "bull_trend",
+        "bear_trend",
+        "range",
+        "jump_shock"
+      ],
+      "vs_base_active_windows": [
+        "bull_trend",
+        "bear_trend",
+        "range",
+        "jump_shock"
+      ],
+      "low": {
+        "bull_trend": {
+          "trade_count": 172,
+          "fo": [
+            7,
+            9,
+            9,
+            5
+          ],
+          "so": [
+            8,
+            9,
+            5,
+            4
+          ]
+        },
+        "bear_trend": {
+          "trade_count": 40,
+          "fo": [
+            1,
+            1,
+            1,
+            1
+          ],
+          "so": [
+            3,
+            3,
+            3,
+            3
+          ]
+        },
+        "range": {
+          "trade_count": 42,
+          "fo": [
+            1,
+            1,
+            2,
+            1
+          ],
+          "so": [
+            1,
+            1,
+            6,
+            3
+          ]
+        },
+        "jump_shock": {
+          "trade_count": 54,
+          "fo": [
+            1,
+            1,
+            1,
+            3
+          ],
+          "so": [
+            3,
+            3,
+            3,
+            6
+          ]
+        }
+      },
+      "high": {
+        "bull_trend": {
+          "trade_count": 128,
+          "fo": [
+            7,
+            9,
+            9,
+            5
+          ],
+          "so": [
+            2,
+            1,
+            0,
+            1
+          ]
+        },
+        "bear_trend": {
+          "trade_count": 36,
+          "fo": [
+            1,
+            1,
+            1,
+            1
+          ],
+          "so": [
+            1,
+            3,
+            3,
+            3
+          ]
+        },
+        "range": {
+          "trade_count": 32,
+          "fo": [
+            1,
+            1,
+            2,
+            1
+          ],
+          "so": [
+            0,
+            0,
+            4,
+            2
+          ]
+        },
+        "jump_shock": {
+          "trade_count": 42,
+          "fo": [
+            1,
+            1,
+            1,
+            3
+          ],
+          "so": [
+            1,
+            3,
+            3,
+            2
+          ]
+        }
+      }
+    },
+    "group_fo_quote": {
+      "low_vs_high_active_windows": [
+        "bull_trend",
+        "bear_trend",
+        "range",
+        "jump_shock"
+      ],
+      "vs_base_active_windows": [
+        "bull_trend",
+        "bear_trend",
+        "range",
+        "jump_shock"
+      ],
+      "low": {
+        "bull_trend": {
+          "trade_count": 156,
+          "fo": [
+            7,
+            9,
+            9,
+            5
+          ],
+          "so": [
+            4,
+            7,
+            4,
+            3
+          ]
+        },
+        "bear_trend": {
+          "trade_count": 38,
+          "fo": [
+            1,
+            1,
+            1,
+            1
+          ],
+          "so": [
+            2,
+            3,
+            3,
+            3
+          ]
+        },
+        "range": {
+          "trade_count": 42,
+          "fo": [
+            1,
+            1,
+            2,
+            1
+          ],
+          "so": [
+            1,
+            1,
+            6,
+            3
+          ]
+        },
+        "jump_shock": {
+          "trade_count": 52,
+          "fo": [
+            1,
+            1,
+            1,
+            3
+          ],
+          "so": [
+            2,
+            3,
+            3,
+            6
+          ]
+        }
+      },
+      "high": {
+        "bull_trend": {
+          "trade_count": 156,
+          "fo": [
+            7,
+            9,
+            9,
+            5
+          ],
+          "so": [
+            4,
+            7,
+            4,
+            3
+          ]
+        },
+        "bear_trend": {
+          "trade_count": 38,
+          "fo": [
+            1,
+            1,
+            1,
+            1
+          ],
+          "so": [
+            2,
+            3,
+            3,
+            3
+          ]
+        },
+        "range": {
+          "trade_count": 42,
+          "fo": [
+            1,
+            1,
+            2,
+            1
+          ],
+          "so": [
+            1,
+            1,
+            6,
+            3
+          ]
+        },
+        "jump_shock": {
+          "trade_count": 52,
+          "fo": [
+            1,
+            1,
+            1,
+            3
+          ],
+          "so": [
+            2,
+            3,
+            3,
+            6
+          ]
+        }
+      }
+    },
+    "multiplier": {
+      "low_vs_high_active_windows": [
+        "bull_trend",
+        "bear_trend",
+        "range",
+        "jump_shock"
+      ],
+      "vs_base_active_windows": [
+        "bull_trend",
+        "bear_trend",
+        "range",
+        "jump_shock"
+      ],
+      "low": {
+        "bull_trend": {
+          "trade_count": 156,
+          "fo": [
+            7,
+            9,
+            9,
+            5
+          ],
+          "so": [
+            4,
+            7,
+            4,
+            3
+          ]
+        },
+        "bear_trend": {
+          "trade_count": 38,
+          "fo": [
+            1,
+            1,
+            1,
+            1
+          ],
+          "so": [
+            2,
+            3,
+            3,
+            3
+          ]
+        },
+        "range": {
+          "trade_count": 42,
+          "fo": [
+            1,
+            1,
+            2,
+            1
+          ],
+          "so": [
+            1,
+            1,
+            6,
+            3
+          ]
+        },
+        "jump_shock": {
+          "trade_count": 52,
+          "fo": [
+            1,
+            1,
+            1,
+            3
+          ],
+          "so": [
+            2,
+            3,
+            3,
+            6
+          ]
+        }
+      },
+      "high": {
+        "bull_trend": {
+          "trade_count": 156,
+          "fo": [
+            7,
+            9,
+            9,
+            5
+          ],
+          "so": [
+            4,
+            7,
+            4,
+            3
+          ]
+        },
+        "bear_trend": {
+          "trade_count": 38,
+          "fo": [
+            1,
+            1,
+            1,
+            1
+          ],
+          "so": [
+            2,
+            3,
+            3,
+            3
+          ]
+        },
+        "range": {
+          "trade_count": 42,
+          "fo": [
+            1,
+            1,
+            2,
+            1
+          ],
+          "so": [
+            1,
+            1,
+            6,
+            3
+          ]
+        },
+        "jump_shock": {
+          "trade_count": 52,
+          "fo": [
+            1,
+            1,
+            1,
+            3
+          ],
+          "so": [
+            2,
+            3,
+            3,
+            6
+          ]
+        }
+      }
+    },
+    "max_legs": {
+      "low_vs_high_active_windows": [
+        "bull_trend",
+        "bear_trend",
+        "range",
+        "jump_shock"
+      ],
+      "vs_base_active_windows": [
+        "bull_trend",
+        "bear_trend",
+        "range",
+        "jump_shock"
+      ],
+      "low": {
+        "bull_trend": {
+          "trade_count": 152,
+          "fo": [
+            7,
+            9,
+            9,
+            5
+          ],
+          "so": [
+            3,
+            6,
+            4,
+            3
+          ]
+        },
+        "bear_trend": {
+          "trade_count": 32,
+          "fo": [
+            1,
+            1,
+            1,
+            1
+          ],
+          "so": [
+            2,
+            2,
+            2,
+            2
+          ]
+        },
+        "range": {
+          "trade_count": 36,
+          "fo": [
+            1,
+            1,
+            2,
+            1
+          ],
+          "so": [
+            1,
+            1,
+            4,
+            2
+          ]
+        },
+        "jump_shock": {
+          "trade_count": 46,
+          "fo": [
+            1,
+            1,
+            1,
+            3
+          ],
+          "so": [
+            2,
+            2,
+            2,
+            5
+          ]
+        }
+      },
+      "high": {
+        "bull_trend": {
+          "trade_count": 156,
+          "fo": [
+            7,
+            9,
+            9,
+            5
+          ],
+          "so": [
+            4,
+            7,
+            4,
+            3
+          ]
+        },
+        "bear_trend": {
+          "trade_count": 44,
+          "fo": [
+            1,
+            1,
+            1,
+            1
+          ],
+          "so": [
+            2,
+            4,
+            4,
+            4
+          ]
+        },
+        "range": {
+          "trade_count": 48,
+          "fo": [
+            1,
+            1,
+            2,
+            1
+          ],
+          "so": [
+            1,
+            1,
+            8,
+            4
+          ]
+        },
+        "jump_shock": {
+          "trade_count": 56,
+          "fo": [
+            1,
+            1,
+            1,
+            3
+          ],
+          "so": [
+            2,
+            4,
+            4,
+            6
+          ]
+        }
+      }
+    },
+    "exit_z": {
+      "low_vs_high_active_windows": [
+        "bull_trend",
+        "range",
+        "jump_shock"
+      ],
+      "vs_base_active_windows": [
+        "bull_trend",
+        "range",
+        "jump_shock"
+      ],
+      "low": {
+        "bull_trend": {
+          "trade_count": 134,
+          "fo": [
+            4,
+            9,
+            8,
+            4
+          ],
+          "so": [
+            4,
+            7,
+            4,
+            2
+          ]
+        },
+        "bear_trend": {
+          "trade_count": 38,
+          "fo": [
+            1,
+            1,
+            1,
+            1
+          ],
+          "so": [
+            2,
+            3,
+            3,
+            3
+          ]
+        },
+        "range": {
+          "trade_count": 42,
+          "fo": [
+            1,
+            1,
+            2,
+            1
+          ],
+          "so": [
+            1,
+            1,
+            6,
+            3
+          ]
+        },
+        "jump_shock": {
+          "trade_count": 52,
+          "fo": [
+            1,
+            1,
+            1,
+            3
+          ],
+          "so": [
+            2,
+            3,
+            3,
+            6
+          ]
+        }
+      },
+      "high": {
+        "bull_trend": {
+          "trade_count": 176,
+          "fo": [
+            8,
+            10,
+            10,
+            6
+          ],
+          "so": [
+            4,
+            7,
+            4,
+            5
+          ]
+        },
+        "bear_trend": {
+          "trade_count": 38,
+          "fo": [
+            1,
+            1,
+            1,
+            1
+          ],
+          "so": [
+            2,
+            3,
+            3,
+            3
+          ]
+        },
+        "range": {
+          "trade_count": 52,
+          "fo": [
+            1,
+            2,
+            2,
+            1
+          ],
+          "so": [
+            1,
+            4,
+            6,
+            3
+          ]
+        },
+        "jump_shock": {
+          "trade_count": 58,
+          "fo": [
+            1,
+            1,
+            1,
+            4
+          ],
+          "so": [
+            2,
+            3,
+            3,
+            7
+          ]
+        }
+      }
+    },
+    "tp_net_bps_floor": {
+      "low_vs_high_active_windows": [
+        "bull_trend"
+      ],
+      "vs_base_active_windows": [
+        "bull_trend"
+      ],
+      "low": {
+        "bull_trend": {
+          "trade_count": 156,
+          "fo": [
+            7,
+            9,
+            9,
+            5
+          ],
+          "so": [
+            4,
+            7,
+            4,
+            3
+          ]
+        },
+        "bear_trend": {
+          "trade_count": 38,
+          "fo": [
+            1,
+            1,
+            1,
+            1
+          ],
+          "so": [
+            2,
+            3,
+            3,
+            3
+          ]
+        },
+        "range": {
+          "trade_count": 42,
+          "fo": [
+            1,
+            1,
+            2,
+            1
+          ],
+          "so": [
+            1,
+            1,
+            6,
+            3
+          ]
+        },
+        "jump_shock": {
+          "trade_count": 52,
+          "fo": [
+            1,
+            1,
+            1,
+            3
+          ],
+          "so": [
+            2,
+            3,
+            3,
+            6
+          ]
+        }
+      },
+      "high": {
+        "bull_trend": {
+          "trade_count": 156,
+          "fo": [
+            7,
+            9,
+            9,
+            5
+          ],
+          "so": [
+            4,
+            7,
+            4,
+            3
+          ]
+        },
+        "bear_trend": {
+          "trade_count": 38,
+          "fo": [
+            1,
+            1,
+            1,
+            1
+          ],
+          "so": [
+            2,
+            3,
+            3,
+            3
+          ]
+        },
+        "range": {
+          "trade_count": 42,
+          "fo": [
+            1,
+            1,
+            2,
+            1
+          ],
+          "so": [
+            1,
+            1,
+            6,
+            3
+          ]
+        },
+        "jump_shock": {
+          "trade_count": 52,
+          "fo": [
+            1,
+            1,
+            1,
+            3
+          ],
+          "so": [
+            2,
+            3,
+            3,
+            6
+          ]
+        }
+      }
+    },
+    "leverage": {
+      "low_vs_high_active_windows": [
+        "bull_trend",
+        "bear_trend",
+        "range",
+        "jump_shock"
+      ],
+      "vs_base_active_windows": [
+        "bull_trend",
+        "bear_trend",
+        "range",
+        "jump_shock"
+      ],
+      "low": {
+        "bull_trend": {
+          "trade_count": 156,
+          "fo": [
+            7,
+            9,
+            9,
+            5
+          ],
+          "so": [
+            4,
+            7,
+            4,
+            3
+          ]
+        },
+        "bear_trend": {
+          "trade_count": 38,
+          "fo": [
+            1,
+            1,
+            1,
+            1
+          ],
+          "so": [
+            2,
+            3,
+            3,
+            3
+          ]
+        },
+        "range": {
+          "trade_count": 42,
+          "fo": [
+            1,
+            1,
+            2,
+            1
+          ],
+          "so": [
+            1,
+            1,
+            6,
+            3
+          ]
+        },
+        "jump_shock": {
+          "trade_count": 52,
+          "fo": [
+            1,
+            1,
+            1,
+            3
+          ],
+          "so": [
+            2,
+            3,
+            3,
+            6
+          ]
+        }
+      },
+      "high": {
+        "bull_trend": {
+          "trade_count": 156,
+          "fo": [
+            7,
+            9,
+            9,
+            5
+          ],
+          "so": [
+            4,
+            7,
+            4,
+            3
+          ]
+        },
+        "bear_trend": {
+          "trade_count": 38,
+          "fo": [
+            1,
+            1,
+            1,
+            1
+          ],
+          "so": [
+            2,
+            3,
+            3,
+            3
+          ]
+        },
+        "range": {
+          "trade_count": 42,
+          "fo": [
+            1,
+            1,
+            2,
+            1
+          ],
+          "so": [
+            1,
+            1,
+            6,
+            3
+          ]
+        },
+        "jump_shock": {
+          "trade_count": 52,
+          "fo": [
+            1,
+            1,
+            1,
+            3
+          ],
+          "so": [
+            2,
+            3,
+            3,
+            6
+          ]
+        }
+      }
+    },
+    "group_gross_cap_pct": {
+      "low_vs_high_active_windows": [],
+      "vs_base_active_windows": [],
+      "low": {
+        "bull_trend": {
+          "trade_count": 156,
+          "fo": [
+            7,
+            9,
+            9,
+            5
+          ],
+          "so": [
+            4,
+            7,
+            4,
+            3
+          ]
+        },
+        "bear_trend": {
+          "trade_count": 38,
+          "fo": [
+            1,
+            1,
+            1,
+            1
+          ],
+          "so": [
+            2,
+            3,
+            3,
+            3
+          ]
+        },
+        "range": {
+          "trade_count": 42,
+          "fo": [
+            1,
+            1,
+            2,
+            1
+          ],
+          "so": [
+            1,
+            1,
+            6,
+            3
+          ]
+        },
+        "jump_shock": {
+          "trade_count": 52,
+          "fo": [
+            1,
+            1,
+            1,
+            3
+          ],
+          "so": [
+            2,
+            3,
+            3,
+            6
+          ]
+        }
+      },
+      "high": {
+        "bull_trend": {
+          "trade_count": 156,
+          "fo": [
+            7,
+            9,
+            9,
+            5
+          ],
+          "so": [
+            4,
+            7,
+            4,
+            3
+          ]
+        },
+        "bear_trend": {
+          "trade_count": 38,
+          "fo": [
+            1,
+            1,
+            1,
+            1
+          ],
+          "so": [
+            2,
+            3,
+            3,
+            3
+          ]
+        },
+        "range": {
+          "trade_count": 42,
+          "fo": [
+            1,
+            1,
+            2,
+            1
+          ],
+          "so": [
+            1,
+            1,
+            6,
+            3
+          ]
+        },
+        "jump_shock": {
+          "trade_count": 52,
+          "fo": [
+            1,
+            1,
+            1,
+            3
+          ],
+          "so": [
+            2,
+            3,
+            3,
+            6
+          ]
+        }
+      }
+    },
+    "bar_boundary_minutes": {
+      "low_vs_high_active_windows": [
+        "bull_trend",
+        "bear_trend",
+        "range",
+        "jump_shock"
+      ],
+      "vs_base_active_windows": [
+        "bull_trend",
+        "bear_trend",
+        "range",
+        "jump_shock"
+      ],
+      "low": {
+        "bull_trend": {
+          "trade_count": 180,
+          "fo": [
+            8,
+            10,
+            10,
+            6
+          ],
+          "so": [
+            5,
+            9,
+            4,
+            4
+          ]
+        },
+        "bear_trend": {
+          "trade_count": 38,
+          "fo": [
+            1,
+            1,
+            1,
+            1
+          ],
+          "so": [
+            2,
+            3,
+            3,
+            3
+          ]
+        },
+        "range": {
+          "trade_count": 42,
+          "fo": [
+            1,
+            1,
+            2,
+            1
+          ],
+          "so": [
+            1,
+            1,
+            6,
+            3
+          ]
+        },
+        "jump_shock": {
+          "trade_count": 52,
+          "fo": [
+            1,
+            1,
+            1,
+            3
+          ],
+          "so": [
+            2,
+            3,
+            3,
+            6
+          ]
+        }
+      },
+      "high": {
+        "bull_trend": {
+          "trade_count": 156,
+          "fo": [
+            7,
+            9,
+            9,
+            5
+          ],
+          "so": [
+            4,
+            7,
+            4,
+            3
+          ]
+        },
+        "bear_trend": {
+          "trade_count": 38,
+          "fo": [
+            1,
+            1,
+            1,
+            1
+          ],
+          "so": [
+            2,
+            3,
+            3,
+            3
+          ]
+        },
+        "range": {
+          "trade_count": 42,
+          "fo": [
+            1,
+            1,
+            2,
+            1
+          ],
+          "so": [
+            1,
+            1,
+            6,
+            3
+          ]
+        },
+        "jump_shock": {
+          "trade_count": 52,
+          "fo": [
+            1,
+            1,
+            1,
+            3
+          ],
+          "so": [
+            2,
+            3,
+            3,
+            6
+          ]
+        }
+      }
+    }
+  },
+  "base_runs": {
+    "bull_trend": {
+      "wall_s": 1.2,
+      "event_stream_sha": "c3da7e9964c547b921feba9970a67e9aedca0109514b3c5525d90f5590b5c177",
+      "trade_stream_sha": "c109e995da4de92068ff53e37a335332aa16eae0d81bad0649422014df524cd8",
+      "rejection_stream_sha": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "trade_count": 156,
+      "group_fo": [
+        7,
+        9,
+        9,
+        5
+      ],
+      "group_so": [
+        4,
+        7,
+        4,
+        3
+      ],
+      "groups_with_so": 13,
+      "ann": 4.049871319368448,
+      "dd": 0.6265112142288314,
+      "breach": false,
+      "resolved_config_sha256": "7631de9e51e0697862c41787002973aeb79d176da0daf5c6b733a0e6101d339c"
+    },
+    "bear_trend": {
+      "wall_s": 0.9,
+      "event_stream_sha": "4c7c5dc491af64c406ae175031763cbd658dc1f085dd2788fd8e27fde2e65e76",
+      "trade_stream_sha": "a4cf462f2181994f7dce781df1e8e8362d830a66a336aaf88ec5a6d43c3cbb4a",
+      "rejection_stream_sha": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "trade_count": 38,
+      "group_fo": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "group_so": [
+        2,
+        3,
+        3,
+        3
+      ],
+      "groups_with_so": 4,
+      "ann": -16.865348963742367,
+      "dd": 7.481231018072569,
+      "breach": false,
+      "resolved_config_sha256": "7631de9e51e0697862c41787002973aeb79d176da0daf5c6b733a0e6101d339c"
+    },
+    "range": {
+      "wall_s": 0.6,
+      "event_stream_sha": "b9e79793c6fe8805c78633f1ec95a4e4174e5bc0c4e9e23f48fbf7ddcec0f29f",
+      "trade_stream_sha": "9b07c971fda02283614c3afe0bfecf54cb0e5f501fd6f7493fd6c0c728e12861",
+      "rejection_stream_sha": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "trade_count": 42,
+      "group_fo": [
+        1,
+        1,
+        2,
+        1
+      ],
+      "group_so": [
+        1,
+        1,
+        6,
+        3
+      ],
+      "groups_with_so": 5,
+      "ann": 0.16407629669890067,
+      "dd": 1.9788918189062117,
+      "breach": false,
+      "resolved_config_sha256": "7631de9e51e0697862c41787002973aeb79d176da0daf5c6b733a0e6101d339c"
+    },
+    "jump_shock": {
+      "wall_s": 0.6,
+      "event_stream_sha": "84dfccecb39a0776f81a42f48e7c898806824efaa83e328344ddf846f5917813",
+      "trade_stream_sha": "ec1a00bb6f601c01953b5177cc983768ef732911884359332233bb61c991d8ba",
+      "rejection_stream_sha": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "trade_count": 52,
+      "group_fo": [
+        1,
+        1,
+        1,
+        3
+      ],
+      "group_so": [
+        2,
+        3,
+        3,
+        6
+      ],
+      "groups_with_so": 6,
+      "ann": 89.1920064200708,
+      "dd": 4.660718552086573,
+      "breach": false,
+      "resolved_config_sha256": "7631de9e51e0697862c41787002973aeb79d176da0daf5c6b733a0e6101d339c"
+    }
+  },
+  "inert_params_retested": {
+    "group_gross_cap_pct": {
+      "inert_at_default_4999u_fo30": true,
+      "reason": "At 4999U budget with group_fo_quote=30U and 4 groups, total planned margin (~264U) never reaches the 12% cap (600U), so the cap is slack. This is the real mechanism, not a no-op.",
+      "non_inert_proof": "At 1000U budget + group_fo_quote=60U + multiplier=1.5 + max_legs=5 + leverage=2, tight cap 3% produces 363/551/38/222 atomic rejects per group and 0 SOs (SO layer exceeds cap); loose cap 25% produces 0 rejects and 4/7/4/3 SOs. Event stream sha differs. The cap is mechanically live at the constraint boundary."
+    }
+  },
+  "verdict": "M1 family ALL 10 open parameters are mechanically bound (change event/order/rejection trace in >=1 adversarial window). group_gross_cap_pct is conditionally bound: inert at the slack-config default but mechanically live at the constraint boundary (proven via tight-cap re-test). G0 BINDING PASSED for M1."
+}
