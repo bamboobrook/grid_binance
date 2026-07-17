@@ -1,0 +1,6 @@
+{
+  "phase": "R5",
+  "status": "complete",
+  "evidence": "docs/superpowers/artifacts/glm-martingale-core-round18/r5/g0_binding.json",
+  "verdict": "10/10 M1 open params mechanically bound; group_gross_cap_pct conditionally bound (cap-proof re-test mechanically live)"
+}

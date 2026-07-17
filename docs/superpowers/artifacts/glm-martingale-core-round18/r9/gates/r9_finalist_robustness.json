@@ -1,0 +1,5 @@
+{
+  "phase": "R9",
+  "status": "not_applicable_zero_survivors",
+  "reason": "R8 G3 produced 0 finalists; plan §15: 0 survivor => robustness = not_applicable_zero_survivors, cannot write complete"
+}

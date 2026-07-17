@@ -1,0 +1,6 @@
+{
+  "phase": "R1",
+  "status": "complete",
+  "evidence": "scripts/glm_r18_r1_fingerprint_registry.py + docs/superpowers/artifacts/glm-martingale-core-round18/r1/historical-fingerprint-index.json (2370 R17 rows scanned, 2315 dedup-exclusions)",
+  "contract": "canonical_fingerprint() + Round18Registry append-only JSONL with allowed terminal statuses per §4.2"
+}

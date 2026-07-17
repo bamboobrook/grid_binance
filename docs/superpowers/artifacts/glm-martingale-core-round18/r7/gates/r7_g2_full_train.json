@@ -1,0 +1,6 @@
+{
+  "phase": "R7",
+  "status": "complete",
+  "evidence": "docs/superpowers/artifacts/glm-martingale-core-round18/r7/g2-summary.json (960 full replays, 8 finalists)",
+  "method": "32 configs × full train + 5 cold subblocks × 5 budgets, strict G2 gate"
+}

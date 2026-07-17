@@ -1,0 +1,6 @@
+{
+  "phase": "R6",
+  "status": "complete",
+  "evidence": "docs/superpowers/artifacts/glm-martingale-core-round18/r6/g1-summary.json (576 full replays, 178 survivors, top32)",
+  "method": "96 Sobol configs × 3 train blocks × 2 budgets, strict train gate"
+}
