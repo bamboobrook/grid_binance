@@ -1,0 +1,87 @@
+{
+  "phase": "R6 G1 nested train-only successive halving",
+  "families": [
+    "M1R",
+    "M2F"
+  ],
+  "folds": [
+    "F1",
+    "F2",
+    "F3",
+    "F4"
+  ],
+  "total_runs": 4032,
+  "completed_runs": 4032,
+  "elapsed_s": 9435.5,
+  "per_family_per_fold": {
+    "M1R": {
+      "F1": {
+        "status": "blocked_no_stable_groups",
+        "configs": 0
+      },
+      "F2": {
+        "configs_run": 576,
+        "survivors": 0,
+        "top16": 0,
+        "best_survivor": null
+      },
+      "F3": {
+        "configs_run": 576,
+        "survivors": 0,
+        "top16": 0,
+        "best_survivor": null
+      },
+      "F4": {
+        "configs_run": 576,
+        "survivors": 2,
+        "top16": 2,
+        "best_survivor": {
+          "config_id": "M1R_F4_025",
+          "budget": 1000,
+          "params": {
+            "bar_boundary_minutes": 5,
+            "entry_z": 1.5,
+            "so_residual_step_z": 0.8,
+            "group_fo_quote": 45.0,
+            "multiplier": 1.7,
+            "max_legs": 4,
+            "exit_z": 0.5,
+            "tp_net_bps_floor": 40,
+            "leverage": 2,
+            "group_gross_cap_pct": 25.0
+          },
+          "median_ann": 25.050651473400976,
+          "worst_dd": 17.89024901697473,
+          "pos_blocks": 2,
+          "train_score": 26.105526964913608
+        }
+      }
+    },
+    "M2F": {
+      "F1": {
+        "configs_run": 576,
+        "survivors": 0,
+        "top16": 0,
+        "best_survivor": null
+      },
+      "F2": {
+        "configs_run": 576,
+        "survivors": 0,
+        "top16": 0,
+        "best_survivor": null
+      },
+      "F3": {
+        "configs_run": 576,
+        "survivors": 0,
+        "top16": 0,
+        "best_survivor": null
+      },
+      "F4": {
+        "configs_run": 576,
+        "survivors": 0,
+        "top16": 0,
+        "best_survivor": null
+      }
+    }
+  }
+}

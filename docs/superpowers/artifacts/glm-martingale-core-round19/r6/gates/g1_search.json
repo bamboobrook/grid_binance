@@ -1,0 +1,24 @@
+{
+  "phase": "R6 G1 nested train-only successive halving",
+  "plan_section": "§9",
+  "total_runs": 4032,
+  "completed_runs": 4032,
+  "method": "M1R 96 configs (seed 20260731) + M2F 96 configs (seed 20260901) × 3 train stress blocks × 2 budgets (1000/4999U) per fold. Each fold uses its OWN train fit (NESTED, not load_f2_fits for all). Full synchronized_cycle_replay (no fast-screen).",
+  "families": {
+    "M1R": {
+      "F1": "blocked_no_stable_groups (R4: only 1 stable disjoint pair in 2023-H1)",
+      "F2": {"configs_run": 576, "survivors": 0, "reason": "strict gate (no two_blocks_neg + dd<=45 + actual_symbols>=5 + max_conc<=50% + real SO) eliminated all"},
+      "F3": {"configs_run": 576, "survivors": 0, "reason": "strict gate eliminated all"},
+      "F4": {"configs_run": 576, "survivors": 2, "top16": 2, "best": {"median_ann": 25.1, "worst_dd": 17.9, "pos_blocks": 2}}
+    },
+    "M2F": {
+      "F1": {"configs_run": 576, "survivors": 0},
+      "F2": {"configs_run": 576, "survivors": 0},
+      "F3": {"configs_run": 576, "survivors": 0},
+      "F4": {"configs_run": 576, "survivors": 0},
+      "reason": "M2F factor-residual basket does not pass strict G1 gate in any fold. The repaired engine's correct direction/PnL/cap math shows the basket does not produce enough profitable train blocks with valid concentration."
+    }
+  },
+  "honest_interpretation": "R18 reported M1 train ann up to 147.9% but that was on the BUGGY engine (static [1,1] directions = both legs long, arithmetic-avg PnL, no close fee, margin-as-cap). The R19 repaired engine with correct residual-pair directions + quantity-weighted PnL + close fee/slippage + gross-notional cap shows the TRUE train performance: M1R survivors are rare and modest (best median_ann=25.1%), M2F has 0 G1 survivors. This CONFIRMS audit §1 conclusion that R18 returns were unreliable.",
+  "conclusion": "R6 PASSED (search executed fully: 4032 replays, nested per fold). Only M1R/F4 has G1 survivors (2). M2F has 0 G1 survivors in all folds. R7 G2 proceeds only on M1R/F4 survivors."
+}
