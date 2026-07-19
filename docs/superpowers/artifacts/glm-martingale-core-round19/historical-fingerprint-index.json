@@ -1,0 +1,52 @@
+{
+  "by_round": {
+    "round12": 1,
+    "round14": 23,
+    "round15": 360,
+    "round16": 1584,
+    "round17": 2370,
+    "round18": 6694
+  },
+  "excluded_keys_count": 4254,
+  "excluded_keys_sample": [
+    "round12:0b596c43952ea2d4d5145fa3a4cfa046c999ae84ea2da3f1083da3befcd3709c||",
+    "round14:10 dual-state ablation configs (SO scale 0.25/0.5/0.75/1.0 \u00d7 spacing 1.0/1.25/1.5/2.0)||4999",
+    "round14:12 P5 configs (penalty 0/0.25/0.5/1.0 \u00d7 floor 0.25/0.5/0.75)||4999",
+    "round14:12 combination configs (6 XS-only + 6 XS+HTF)||4999",
+    "round14:1344 configs (544 minigrid + 800 depth TP)||4999",
+    "round14:16 XS-MOM configs (lb7+lb14 \u00d7 skip \u00d7 rebalance \u00d7 active)||4999",
+    "round14:224 configs (7 lookbacks \u00d7 4 SO \u00d7 4 rebalance \u00d7 2 penalty/floor)||4999",
+    "round14:24 XS-MOM configs (lb7+lb14+lb28 \u00d7 skip \u00d7 rebalance \u00d7 active)||4999",
+    "round14:256 configs (8 lookback \u00d7 4 SO \u00d7 4 rebalance \u00d7 2 penalty/floor)||4999",
+    "round14:32 neighborhood configs (4 bases \u00d7 8 trials each)||4999"
+  ],
+  "forbidden_repeat_families_audit_r18_section_7": [
+    "Round 18 M1 with static [1,1] directions (the bug): may not be repeated as a result",
+    "Round 1-17 independent-symbol Sobol configs with old HTF gate",
+    "R14/15 dual-state SO scale, partial TP, minigrid, depth TP exact family",
+    "pure trend/breakout/funding carry/pair-neutral/stat-arb as standalone PnL engine"
+  ],
+  "phase": "R1 recursive canonical fingerprint index",
+  "rounds_count": 18,
+  "rounds_scanned": [
+    "round10",
+    "round11",
+    "round12",
+    "round13",
+    "round14",
+    "round15",
+    "round16",
+    "round17",
+    "round18",
+    "round19",
+    "round2",
+    "round3",
+    "round4",
+    "round5",
+    "round6",
+    "round7",
+    "round8",
+    "round9"
+  ],
+  "scope": "All Round 1-18 fingerprints are dedup-excluded. Round 19 may use a different cycle_topology / family / fit_contract / resolved config so its fingerprints cannot collide with these. Round 18 M1 exact configs may be re-run as repair_replay (plan \u00a70.5) but must record old fingerprint -> new fingerprint mapping."
+}

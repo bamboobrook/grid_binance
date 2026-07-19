@@ -1,0 +1,21 @@
+{
+  "phase": "R0",
+  "plan_section": "§2 R0",
+  "r18_corrected_authority_verified": {
+    "path": "docs/superpowers/artifacts/glm-martingale-core-round18/r18-corrected-authority.json",
+    "corrected_machine_state": "materially_incomplete_invalid_results",
+    "target_hit": false,
+    "production_ready_candidates": 0,
+    "matches_plan_section_2_requirements": true
+  },
+  "central_state_created": {
+    "state_file": "docs/superpowers/artifacts/glm-martingale-core-round19/round19-execution-state.json",
+    "registry": "docs/superpowers/artifacts/glm-martingale-core-round19/exploration-registry.jsonl",
+    "failure_ledger": "docs/superpowers/artifacts/glm-martingale-core-round19/failure-ledger.jsonl",
+    "validator": "scripts/glm_r19_state_machine.py",
+    "registry_helpers": "scripts/glm_r19_registry.py",
+    "contract": "state.json recomputed by validator from raw registry; runners may only APPEND; orphan running => interrupted"
+  },
+  "allowed_terminal_statuses": ["complete", "rejected_gate", "invalid_mechanism", "invalid_data", "invalid_engine_bug", "invalid_results", "timeout", "skipped_duplicate", "blocked_predecessor", "blocked_parent_gate", "blocked_no_stable_groups", "complete_zero_survivors", "not_applicable_zero_survivors", "not_martingale_no_so", "interrupted"],
+  "conclusion": "R0 PASSED. R18 authority verified as materially_incomplete_invalid_results; central state machine + append-only registry + failure ledger created."
+}

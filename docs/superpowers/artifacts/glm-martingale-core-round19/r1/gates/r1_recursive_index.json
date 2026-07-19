@@ -1,0 +1,11 @@
+{
+  "phase": "R1",
+  "plan_section": "§3 recursive canonical fingerprint index",
+  "evidence": "docs/superpowers/artifacts/glm-martingale-core-round19/historical-fingerprint-index.json",
+  "fixes_audit_section_5_1": "R18 scan_historical() only scanned R17; R19 scans all 18 rounds recursively (registry JSONL + checkpoint JSON + generic JSON hash fields + report/plan text hashes)",
+  "rounds_scanned": 18,
+  "excluded_keys_count": 4254,
+  "by_round": {"round14": 23, "round15": 360, "round16": 1584, "round17": 2370, "round18": 6694},
+  "scope": "Round 19 families use different cycle_topology / family / fit_contract / resolved config so fingerprints cannot collide with R1-R18. R18 M1 exact configs may be repair_replay (plan §0.5) with old->new fingerprint mapping.",
+  "conclusion": "R1 PASSED. Recursive historical fingerprint index covers R1-R18."
+}

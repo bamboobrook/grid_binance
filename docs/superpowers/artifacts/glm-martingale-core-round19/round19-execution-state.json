@@ -1,0 +1,120 @@
+{
+  "blocked_reasons": [
+    "R0: 1 failed: ['central_state_created']",
+    "R1: blocked_predecessor",
+    "R2: blocked_predecessor",
+    "R3: blocked_predecessor",
+    "R4: blocked_predecessor",
+    "R5: blocked_predecessor",
+    "R6: blocked_predecessor",
+    "R7: blocked_predecessor",
+    "R8: blocked_predecessor",
+    "R9: blocked_predecessor",
+    "R9.5: blocked_predecessor",
+    "R10: blocked_predecessor",
+    "R11: blocked_predecessor",
+    "R12: blocked_predecessor"
+  ],
+  "counts": {
+    "actual_binary_replays": 0,
+    "by_family": {},
+    "duplicates": 0,
+    "skipped_duplicates": 0,
+    "timeouts": 0,
+    "unique_terminal_fingerprints": 0
+  },
+  "passed_gates": [
+    {
+      "failed": [
+        {
+          "detail": {
+            "registry_exists": true,
+            "state_exists": false
+          },
+          "gate": "central_state_created"
+        }
+      ],
+      "passed": [
+        {
+          "detail": {
+            "prod_ready": 0,
+            "state": "materially_incomplete_invalid_results",
+            "target_hit": false
+          },
+          "gate": "r18_authority_verified"
+        }
+      ],
+      "phase": "R0"
+    }
+  ],
+  "phase": "R0",
+  "phase_status": {
+    "R0": {
+      "failed": [
+        "central_state_created"
+      ],
+      "status": "blocked"
+    },
+    "R1": {
+      "reason": "predecessor not complete",
+      "status": "blocked_predecessor"
+    },
+    "R10": {
+      "reason": "predecessor not complete",
+      "status": "blocked_predecessor"
+    },
+    "R11": {
+      "reason": "predecessor not complete",
+      "status": "blocked_predecessor"
+    },
+    "R12": {
+      "reason": "predecessor not complete",
+      "status": "blocked_predecessor"
+    },
+    "R2": {
+      "reason": "predecessor not complete",
+      "status": "blocked_predecessor"
+    },
+    "R3": {
+      "reason": "predecessor not complete",
+      "status": "blocked_predecessor"
+    },
+    "R4": {
+      "reason": "predecessor not complete",
+      "status": "blocked_predecessor"
+    },
+    "R5": {
+      "reason": "predecessor not complete",
+      "status": "blocked_predecessor"
+    },
+    "R6": {
+      "reason": "predecessor not complete",
+      "status": "blocked_predecessor"
+    },
+    "R7": {
+      "reason": "predecessor not complete",
+      "status": "blocked_predecessor"
+    },
+    "R8": {
+      "reason": "predecessor not complete",
+      "status": "blocked_predecessor"
+    },
+    "R9": {
+      "reason": "predecessor not complete",
+      "status": "blocked_predecessor"
+    },
+    "R9.5": {
+      "reason": "predecessor not complete",
+      "status": "blocked_predecessor"
+    }
+  },
+  "plan_sha256": "e325f5e82c4b387ceefc8484a67b989ceae796951d9a3ec2b6f3aa53784627d8",
+  "registry_integrity": {
+    "illegal_rows": 0,
+    "orphan_running": 0,
+    "problems": 0
+  },
+  "status": "blocked",
+  "validated_at": "2026-07-19T11:25:17.728905+00:00",
+  "validator_sha256": "3e256c1da95f5ebf83023a79bc3a49fb39d984dc5f6ad9e60134ceed58e269c5"
+}
