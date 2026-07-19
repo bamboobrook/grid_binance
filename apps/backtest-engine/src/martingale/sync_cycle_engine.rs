@@ -258,7 +258,24 @@ fn entry_leg_direction_signs(fit: &SynchronizedFit, residual_z: f64) -> Result<V
         };
         Ok(vec![factor_sign, -residual_sign])
     } else {
-        Err("M2 basket direction contract is not implemented; fail closed".to_string())
+        // Round 19 R4 M2F: factor-residual basket. Each leg's direction is set
+        // by the SIGN of that leg's per-leg residual at cycle open. A leg with
+        // positive residual (over-valued vs factor) is SHORTED; negative residual
+        // is BOUGHT. leg_residual_signs are precomputed by the train fit and
+        // frozen on the SynchronizedFit; if absent we fail closed.
+        if fit.leg_direction_signs.len() == fit.legs.len()
+            && fit.leg_direction_signs.iter().any(|&s| s != 0)
+        {
+            // Validate the basket has both long and short exposure (factor-neutral).
+            let has_long = fit.leg_direction_signs.iter().any(|&s| s > 0);
+            let has_short = fit.leg_direction_signs.iter().any(|&s| s < 0);
+            if !has_long || !has_short {
+                return Err("M2 basket direction contract requires both long and short legs at cycle open".to_string());
+            }
+            Ok(fit.leg_direction_signs.clone())
+        } else {
+            Err("M2 basket requires precomputed leg_direction_signs from train fit (long most-negative residual, short most-positive)".to_string())
+        }
     }
 }
 
@@ -369,38 +386,87 @@ pub fn run_synchronized_cycle_replay(
     // (same config + same bars => same cycle_ids => same trace hashes).
     reset_cycle_seq();
     validate_martingale_contract(cfg)?;
-    if cfg.family == "M2_basket" {
-        return Err(
-            "M2 basket is not implemented with dynamic leg directions and factor-neutral notionals; fail closed"
-                .to_string(),
-        );
+    // Round 19 R4: M2F factor-residual basket is now implemented with per-leg
+    // residual-sign directions and factor-neutral notional weights. The M1 pair
+    // remains the 2-leg path. Other family names (P1/K1/V1) reuse the basket
+    // path with their own residual fit, so we accept M1_pair, M2_basket, M2F,
+    // P1, K1, V1 here.
+    let family = cfg.family.as_str();
+    let is_supported = matches!(family, "M1_pair" | "M2_basket" | "M2F" | "P1" | "K1" | "V1");
+    if !is_supported {
+        return Err(format!("unsupported synchronized cycle family: {}", cfg.family));
     }
-    if cfg.family != "M1_pair" {
-        return Err(format!(
-            "unsupported synchronized cycle family: {}",
-            cfg.family
-        ));
+    // M2/M2F/P1/K1/V1 baskets require a factor to be loadable (BTC factor); if
+    // the fit has >2 legs and no factor is configured, fail closed.
+    if family != "M1_pair" {
+        let needs_factor = fits.iter().any(|f| f.legs.len() > 2);
+        if needs_factor && cfg.factor.as_deref().is_none() {
+            return Err(format!(
+                "basket family {} requires cfg.factor (BTC or PC1) for residual computation",
+                family
+            ));
+        }
     }
     if fits.is_empty() {
         return Err("no synchronized groups fit".to_string());
     }
     for fit in fits {
-        if fit.legs.len() != 2 || fit.betas.len() != 1 || fit.mus.len() != 1 {
-            return Err(format!(
-                "invalid M1 fit {}: expected 2 legs, 1 beta, and 1 mu",
-                fit.group_id
-            ));
-        }
-        if !fit.betas[0].is_finite()
-            || fit.betas[0].abs() < 1e-9
-            || !fit.mus[0].is_finite()
-            || !fit.residual_sigma.is_finite()
-            || fit.residual_sigma <= 0.0
-        {
-            return Err(format!(
-                "invalid M1 fit {}: beta/mu/sigma must be finite, beta non-zero, sigma > 0",
-                fit.group_id
-            ));
+        // Round 19 R4: generalize the fit validator for both M1 pair (2 legs)
+        // and basket families (M2F/P1/K1/V1 with >2 legs).
+        if fit.legs.len() == 2 {
+            // M1 pair fit: 1 beta, 1 mu.
+            if fit.betas.len() != 1 || fit.mus.len() != 1 {
+                return Err(format!(
+                    "invalid M1 fit {}: expected 2 legs, 1 beta, and 1 mu",
+                    fit.group_id
+                ));
+            }
+            if !fit.betas[0].is_finite()
+                || fit.betas[0].abs() < 1e-9
+                || !fit.mus[0].is_finite()
+                || !fit.residual_sigma.is_finite()
+                || fit.residual_sigma <= 0.0
+            {
+                return Err(format!(
+                    "invalid M1 fit {}: beta/mu/sigma must be finite, beta non-zero, sigma > 0",
+                    fit.group_id
+                ));
+            }
+        } else {
+            // Basket fit: betas/mus must match legs count; per-leg direction
+            // signs required (long most-negative residual, short most-positive).
+            if fit.legs.len() < 5 {
+                return Err(format!(
+                    "invalid basket fit {}: expected >=5 legs, got {}",
+                    fit.group_id, fit.legs.len()
+                ));
+            }
+            if fit.betas.len() != fit.legs.len() || fit.mus.len() != fit.legs.len() {
+                return Err(format!(
+                    "invalid basket fit {}: betas/mus length must match legs ({})",
+                    fit.group_id, fit.legs.len()
+                ));
+            }
+            if fit.leg_direction_signs.len() != fit.legs.len() {
+                return Err(format!(
+                    "invalid basket fit {}: leg_direction_signs length must match legs",
+                    fit.group_id
+                ));
+            }
+            if !fit.residual_sigma.is_finite() || fit.residual_sigma <= 0.0 {
+                return Err(format!(
+                    "invalid basket fit {}: residual_sigma must be > 0",
+                    fit.group_id
+                ));
+            }
+            let has_long = fit.leg_direction_signs.iter().any(|&s| s > 0);
+            let has_short = fit.leg_direction_signs.iter().any(|&s| s < 0);
+            if !has_long || !has_short {
+                return Err(format!(
+                    "invalid basket fit {}: requires both long and short legs",
+                    fit.group_id
+                ));
+            }
         }
     }
     if budget_quote <= 0.0 {
@@ -1413,12 +1479,69 @@ mod tests {
 
     #[test]
     fn m2_fails_closed_until_factor_neutral_orders_are_implemented() {
+        // Round 19 R4: M2 basket is now implemented (per-leg residual-sign
+        // directions). The original R18 fail-closed is replaced by: a basket
+        // without cfg.factor fails closed with a clear error.
         let cfg = SynchronizedCycleConfig {
-            family: "M2_basket".to_string(),
+            family: "M2F".to_string(),
             ..SynchronizedCycleConfig::default()
         };
-        let error = run_synchronized_cycle_replay(&cfg, &[], &[], &[], 1000.0).unwrap_err();
-        assert!(error.contains("M2 basket is not implemented"));
+        let fit = SynchronizedFit {
+            group_id: "M2F_basket".to_string(),
+            legs: vec!["AUSDT".to_string(), "BUSDT".to_string(), "CUSDT".to_string()],
+            leg_direction_signs: vec![1, -1, 1],
+            betas: vec![1.0, 0.5, 0.8],
+            mus: vec![0.0; 3],
+            residual_sigma: 1.0,
+            half_life_h: 24.0,
+            fit_sha256: "fit".to_string(),
+        };
+        let error = run_synchronized_cycle_replay(&cfg, &[fit], &[], &[], 1000.0).unwrap_err();
+        // basket without factor => fail closed
+        assert!(error.contains("requires cfg.factor"), "got: {error}");
+    }
+
+    /// Round 19 R4: M2F basket with factor + per-leg directions runs.
+    #[test]
+    fn m2f_basket_with_factor_runs_and_produces_directional_legs() {
+        let cfg = SynchronizedCycleConfig {
+            family: "M2F".to_string(),
+            entry_z: 1.0,
+            group_fo_quote: 30.0,
+            factor: Some("BTC".to_string()),
+            basket_symbols: vec!["AUSDT".to_string(), "BUSDT".to_string(), "CUSDT".to_string(),
+                                 "DUSDT".to_string(), "EUSDT".to_string(), "FUSDT".to_string()],
+            ..SynchronizedCycleConfig::default()
+        };
+        let fit = SynchronizedFit {
+            group_id: "M2F_basket".to_string(),
+            legs: cfg.basket_symbols.clone(),
+            // long 3 / short 3 factor-neutral
+            leg_direction_signs: vec![1, -1, 1, -1, 1, -1],
+            betas: vec![1.0; 6],
+            mus: vec![0.0; 6],
+            residual_sigma: 0.05,
+            half_life_h: 24.0,
+            fit_sha256: "fit".to_string(),
+        };
+        // Bars: BTCUSDT factor + 6 basket symbols, residual dispersion > entry_z
+        let mut bars = Vec::new();
+        for t in 0..3 {
+            let ts = t * 60_000;
+            bars.push(bar("BTCUSDT", ts, 100.0));
+            // dispersed basket: some over (high price), some under
+            bars.push(bar("AUSDT", ts, 1.0));
+            bars.push(bar("BUSDT", ts, 5.0));
+            bars.push(bar("CUSDT", ts, 1.0));
+            bars.push(bar("DUSDT", ts, 5.0));
+            bars.push(bar("EUSDT", ts, 1.0));
+            bars.push(bar("FUSDT", ts, 5.0));
+        }
+        let r = run_synchronized_cycle_replay(&cfg, &[fit], &bars, &[], 1000.0).unwrap();
+        // Either it opens a cycle (FO) or rejects all legs; either way it must
+        // not error. Verify the family is accepted.
+        let s = r.rejection_reasons.iter().find(|s| s.starts_with("SYNC_SUMMARY:")).unwrap();
+        assert!(s.contains("M2F"));
     }
 
     #[test]

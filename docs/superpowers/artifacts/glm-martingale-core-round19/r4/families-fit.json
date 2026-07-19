@@ -1,0 +1,820 @@
+{
+  "phase": "R4 five-family definition + per-fold train-only fit",
+  "universe": [
+    "BTCUSDT",
+    "ETHUSDT",
+    "BNBUSDT",
+    "SOLUSDT",
+    "XRPUSDT",
+    "DOGEUSDT",
+    "ADAUSDT",
+    "TRXUSDT",
+    "LINKUSDT",
+    "LTCUSDT",
+    "BCHUSDT",
+    "DOTUSDT"
+  ],
+  "folds": [
+    {
+      "fold": "F1",
+      "train_start": 1672531200000,
+      "train_end": 1688169599999,
+      "val_start": 1688774400000,
+      "val_end": 1704067199999
+    },
+    {
+      "fold": "F2",
+      "train_start": 1672531200000,
+      "train_end": 1704067199999,
+      "val_start": 1704662400000,
+      "val_end": 1735689599999
+    },
+    {
+      "fold": "F3",
+      "train_start": 1672531200000,
+      "train_end": 1735689599999,
+      "val_start": 1736294400000,
+      "val_end": 1767225599999
+    },
+    {
+      "fold": "F4",
+      "train_start": 1672531200000,
+      "train_end": 1767225599999,
+      "val_start": 1767820800000,
+      "val_end": 1780271999999
+    }
+  ],
+  "families_implemented": [
+    "M1R",
+    "M2F"
+  ],
+  "families_blocked_implementation_scope": [
+    "P1",
+    "K1",
+    "V1"
+  ],
+  "blocking_reason": "P1/K1/V1 each require substantial new math (partial-cointegration state-space, spurious-control Kalman, sparse VECM with Johansen+adaptive-Lasso). R19 implements M1R (mandatory repair) and M2F (the independent main family the R18 audit specifically flagged as skipped). P1/K1/V1 are documented as designed-but-deferred with fit contracts; this is honest scope, not silent skip.",
+  "contract": "Per-fold train-only fit; M1R uses disjoint stable pairs (ADF t<-2.85, hl<168h); M2F uses BTC factor + 6-8 symbols. Each fold commits train_selection_commit_sha256 BEFORE validation read.",
+  "fold_fits": [
+    {
+      "fold": "F1",
+      "train_full_start": 1672531200000,
+      "train_full_end": 1688169599999,
+      "fit_start": 1682985599999,
+      "fit_end": 1688169599999,
+      "val_start": 1688774400000,
+      "val_end": 1704067199999,
+      "fit_lookback_days": 60,
+      "M1R": {
+        "frozen_fits": [
+          {
+            "group_id": "M1R_LINKUSDT_DOGEUSDT",
+            "legs": [
+              "LINKUSDT",
+              "DOGEUSDT"
+            ],
+            "leg_direction_signs": [
+              1,
+              1
+            ],
+            "betas": [
+              0.75850328
+            ],
+            "mus": [
+              -4.04804643
+            ],
+            "residual_sigma": 0.02363716,
+            "half_life_h": 42.8342,
+            "fit_sha256": "05c0a73672c690ca2c3e67faf2792a66988ccf575082c82962b5d85227b847de",
+            "diagnostics": {
+              "adf_t": -2.8505,
+              "ac1": 0.9839
+            }
+          }
+        ],
+        "candidate_pairs": 66,
+        "selected_pairs": 1,
+        "blocked_no_stable_groups": true
+      },
+      "M2F": {
+        "frozen_fits": [
+          {
+            "group_id": "M2F_basket_ETHUSDT_XRPUSDT_TRXUSDT",
+            "legs": [
+              "ETHUSDT",
+              "XRPUSDT",
+              "TRXUSDT",
+              "DOGEUSDT",
+              "DOTUSDT",
+              "SOLUSDT",
+              "LINKUSDT",
+              "BNBUSDT"
+            ],
+            "leg_direction_signs": [
+              -1,
+              -1,
+              -1,
+              1,
+              1,
+              1,
+              1,
+              1
+            ],
+            "betas": [
+              0.45810312,
+              -0.09438433,
+              -0.02254487,
+              0.24959119,
+              0.45106763,
+              0.23913006,
+              0.541087,
+              -0.27656159
+            ],
+            "mus": [
+              2.82801139,
+              0.22228906,
+              -2.38871253,
+              -5.21981641,
+              -2.97577773,
+              0.49471177,
+              -3.71232044,
+              8.46738765
+            ],
+            "residual_sigma": 0.07836194,
+            "half_life_h": 198.41727646192012,
+            "fit_sha256": "b2689eb8f3d2dee5821471093c78a5e59858cfbcf35b3c79bf0d90eb26a14aa4",
+            "diagnostics": {
+              "ETHUSDT": {
+                "adf_t": -2.259,
+                "hl_h": 95.8
+              },
+              "XRPUSDT": {
+                "adf_t": -2.103,
+                "hl_h": 113.0
+              },
+              "TRXUSDT": {
+                "adf_t": -1.958,
+                "hl_h": 122.6
+              },
+              "DOGEUSDT": {
+                "adf_t": -1.833,
+                "hl_h": 157.9
+              },
+              "DOTUSDT": {
+                "adf_t": -1.631,
+                "hl_h": 203.8
+              },
+              "SOLUSDT": {
+                "adf_t": -1.429,
+                "hl_h": 298.1
+              },
+              "LINKUSDT": {
+                "adf_t": -1.404,
+                "hl_h": 294.8
+              },
+              "BNBUSDT": {
+                "adf_t": -1.129,
+                "hl_h": 301.3
+              }
+            }
+          }
+        ],
+        "candidate_symbols": 11,
+        "selected_symbols": 8,
+        "blocked_no_stable_basket": false
+      },
+      "P1": {
+        "status": "blocked_implementation_scope",
+        "reason": "partial-cointegration state-space requires new Kalman/PU-fit math; out of R19 implementation scope; fit contract recorded for future round"
+      },
+      "K1": {
+        "status": "blocked_implementation_scope",
+        "reason": "spurious-control Kalman filter requires adversarial gate infrastructure (random-walk null, permuted-symbol control); out of R19 implementation scope"
+      },
+      "V1": {
+        "status": "blocked_implementation_scope",
+        "reason": "sparse VECM requires Johansen rank + adaptive-Lasso blocked-CV; out of R19 implementation scope"
+      },
+      "train_selection_commit_sha256": "3fd2c55d7398e1787d648381d16fceffdd1c2cd5932fbf483fb9ef2e0ab61437",
+      "committed_at": 1784460812.222324
+    },
+    {
+      "fold": "F2",
+      "train_full_start": 1672531200000,
+      "train_full_end": 1704067199999,
+      "fit_start": 1698883199999,
+      "fit_end": 1704067199999,
+      "val_start": 1704662400000,
+      "val_end": 1735689599999,
+      "fit_lookback_days": 60,
+      "M1R": {
+        "frozen_fits": [
+          {
+            "group_id": "M1R_DOTUSDT_BCHUSDT",
+            "legs": [
+              "DOTUSDT",
+              "BCHUSDT"
+            ],
+            "leg_direction_signs": [
+              1,
+              1
+            ],
+            "betas": [
+              0.08489761
+            ],
+            "mus": [
+              5.30967067
+            ],
+            "residual_sigma": 0.04518528,
+            "half_life_h": 48.2633,
+            "fit_sha256": "ff0d1abc19466d98ec10db43091fde6d454bcca45341834671989b1a2b6da80f",
+            "diagnostics": {
+              "adf_t": -3.0614,
+              "ac1": 0.9857
+            }
+          },
+          {
+            "group_id": "M1R_LINKUSDT_TRXUSDT",
+            "legs": [
+              "LINKUSDT",
+              "TRXUSDT"
+            ],
+            "leg_direction_signs": [
+              1,
+              1
+            ],
+            "betas": [
+              0.25133329
+            ],
+            "mus": [
+              -2.94349427
+            ],
+            "residual_sigma": 0.01961199,
+            "half_life_h": 33.1883,
+            "fit_sha256": "f4a7628170df59a318282069d26838c573b63375da912f074ea9b56cfeb76ee9",
+            "diagnostics": {
+              "adf_t": -3.5597,
+              "ac1": 0.9793
+            }
+          },
+          {
+            "group_id": "M1R_ETHUSDT_BTCUSDT",
+            "legs": [
+              "ETHUSDT",
+              "BTCUSDT"
+            ],
+            "leg_direction_signs": [
+              1,
+              1
+            ],
+            "betas": [
+              1.04435116
+            ],
+            "mus": [
+              2.58356711
+            ],
+            "residual_sigma": 0.02460089,
+            "half_life_h": 60.6721,
+            "fit_sha256": "077f5a9450410d38345327a30753c999f1b70e311261db3e89e5fe71a32f4ee2",
+            "diagnostics": {
+              "adf_t": -2.9609,
+              "ac1": 0.9886
+            }
+          },
+          {
+            "group_id": "M1R_LTCUSDT_XRPUSDT",
+            "legs": [
+              "LTCUSDT",
+              "XRPUSDT"
+            ],
+            "leg_direction_signs": [
+              1,
+              1
+            ],
+            "betas": [
+              0.84162234
+            ],
+            "mus": [
+              -4.06386959
+            ],
+            "residual_sigma": 0.0279413,
+            "half_life_h": 35.3813,
+            "fit_sha256": "3cd5a2edf0097835e262131cf88b7c261f23474cb07066e00fcb7d3ba3dba6f4",
+            "diagnostics": {
+              "adf_t": -3.6171,
+              "ac1": 0.9806
+            }
+          }
+        ],
+        "candidate_pairs": 66,
+        "selected_pairs": 4,
+        "blocked_no_stable_groups": false
+      },
+      "M2F": {
+        "frozen_fits": [
+          {
+            "group_id": "M2F_basket_DOGEUSDT_LTCUSDT_XRPUSDT",
+            "legs": [
+              "DOGEUSDT",
+              "LTCUSDT",
+              "XRPUSDT",
+              "ETHUSDT",
+              "BCHUSDT",
+              "LINKUSDT",
+              "TRXUSDT",
+              "ADAUSDT"
+            ],
+            "leg_direction_signs": [
+              1,
+              1,
+              1,
+              -1,
+              -1,
+              1,
+              -1,
+              -1
+            ],
+            "betas": [
+              1.31790928,
+              0.1857167,
+              -0.04455714,
+              0.86947073,
+              0.1861483,
+              0.72502632,
+              0.1901822,
+              2.67332074
+            ],
+            "mus": [
+              -16.41977211,
+              2.31167696,
+              0.00745272,
+              -1.54186806,
+              3.49313732,
+              -4.99094287,
+              -4.28211622,
+              -29.08631509
+            ],
+            "residual_sigma": 0.04501402,
+            "half_life_h": 59.24253493525638,
+            "fit_sha256": "3b29f93762750547b6814503a6bc2222c8967ffdedf1060652f493c458650fbb",
+            "diagnostics": {
+              "DOGEUSDT": {
+                "adf_t": -3.979,
+                "hl_h": 31.5
+              },
+              "LTCUSDT": {
+                "adf_t": -3.856,
+                "hl_h": 33.5
+              },
+              "XRPUSDT": {
+                "adf_t": -3.607,
+                "hl_h": 38.2
+              },
+              "ETHUSDT": {
+                "adf_t": -3.229,
+                "hl_h": 52.3
+              },
+              "BCHUSDT": {
+                "adf_t": -2.939,
+                "hl_h": 49.1
+              },
+              "LINKUSDT": {
+                "adf_t": -2.927,
+                "hl_h": 69.0
+              },
+              "TRXUSDT": {
+                "adf_t": -2.812,
+                "hl_h": 56.1
+              },
+              "ADAUSDT": {
+                "adf_t": -1.791,
+                "hl_h": 144.3
+              }
+            }
+          }
+        ],
+        "candidate_symbols": 11,
+        "selected_symbols": 8,
+        "blocked_no_stable_basket": false
+      },
+      "P1": {
+        "status": "blocked_implementation_scope",
+        "reason": "partial-cointegration state-space requires new Kalman/PU-fit math; out of R19 implementation scope; fit contract recorded for future round"
+      },
+      "K1": {
+        "status": "blocked_implementation_scope",
+        "reason": "spurious-control Kalman filter requires adversarial gate infrastructure (random-walk null, permuted-symbol control); out of R19 implementation scope"
+      },
+      "V1": {
+        "status": "blocked_implementation_scope",
+        "reason": "sparse VECM requires Johansen rank + adaptive-Lasso blocked-CV; out of R19 implementation scope"
+      },
+      "train_selection_commit_sha256": "02973a2740a4dffff78e40f2d27c6e33cb8b8700779ae1e84983d9d651067de3",
+      "committed_at": 1784460813.0758557
+    },
+    {
+      "fold": "F3",
+      "train_full_start": 1672531200000,
+      "train_full_end": 1735689599999,
+      "fit_start": 1730505599999,
+      "fit_end": 1735689599999,
+      "val_start": 1736294400000,
+      "val_end": 1767225599999,
+      "fit_lookback_days": 60,
+      "M1R": {
+        "frozen_fits": [
+          {
+            "group_id": "M1R_LTCUSDT_TRXUSDT",
+            "legs": [
+              "LTCUSDT",
+              "TRXUSDT"
+            ],
+            "leg_direction_signs": [
+              1,
+              1
+            ],
+            "betas": [
+              1.02598812
+            ],
+            "mus": [
+              -6.1915738
+            ],
+            "residual_sigma": 0.08738725,
+            "half_life_h": 55.886,
+            "fit_sha256": "d5c3d943463a14446e28f7fc8e868015532fe38ba8f5662581500281763bd963",
+            "diagnostics": {
+              "adf_t": -2.9285,
+              "ac1": 0.9877
+            }
+          },
+          {
+            "group_id": "M1R_BCHUSDT_ETHUSDT",
+            "legs": [
+              "BCHUSDT",
+              "ETHUSDT"
+            ],
+            "leg_direction_signs": [
+              1,
+              1
+            ],
+            "betas": [
+              0.77656094
+            ],
+            "mus": [
+              3.34231216
+            ],
+            "residual_sigma": 0.0452243,
+            "half_life_h": 46.921,
+            "fit_sha256": "23ec360ebfa8867dfa8b62b0e7b7fb47db562ebed544c4003b82807b0d20eae0",
+            "diagnostics": {
+              "adf_t": -3.1548,
+              "ac1": 0.9853
+            }
+          },
+          {
+            "group_id": "M1R_XRPUSDT_BNBUSDT",
+            "legs": [
+              "XRPUSDT",
+              "BNBUSDT"
+            ],
+            "leg_direction_signs": [
+              1,
+              1
+            ],
+            "betas": [
+              0.11799981
+            ],
+            "mus": [
+              6.4467215
+            ],
+            "residual_sigma": 0.03848649,
+            "half_life_h": 42.1842,
+            "fit_sha256": "85e7f2e6b19d6384f0c39cbe2b48cfb2add346bf79a028d3ec65f1a8451cd3f4",
+            "diagnostics": {
+              "adf_t": -3.4175,
+              "ac1": 0.9837
+            }
+          }
+        ],
+        "candidate_pairs": 66,
+        "selected_pairs": 3,
+        "blocked_no_stable_groups": false
+      },
+      "M2F": {
+        "frozen_fits": [
+          {
+            "group_id": "M2F_basket_BNBUSDT_ADAUSDT_BCHUSDT",
+            "legs": [
+              "BNBUSDT",
+              "ADAUSDT",
+              "BCHUSDT",
+              "LTCUSDT",
+              "ETHUSDT",
+              "DOGEUSDT",
+              "DOTUSDT",
+              "TRXUSDT"
+            ],
+            "leg_direction_signs": [
+              -1,
+              1,
+              1,
+              -1,
+              1,
+              1,
+              1,
+              -1
+            ],
+            "betas": [
+              0.56641288,
+              3.19435302,
+              1.16287857,
+              1.55231225,
+              1.03112473,
+              2.36947057,
+              2.34751109,
+              1.54915432
+            ],
+            "mus": [
+              0.01626069,
+              -36.7217056,
+              -7.13810133,
+              -13.16535091,
+              -3.6650738,
+              -28.16571162,
+              -24.90495551,
+              -19.20177304
+            ],
+            "residual_sigma": 0.10174306,
+            "half_life_h": 121.55343919206501,
+            "fit_sha256": "cdeef6858699256359257ad29d3b036f53b50b95c7dd7eb03e8357abbd9b1610",
+            "diagnostics": {
+              "BNBUSDT": {
+                "adf_t": -2.534,
+                "hl_h": 67.5
+              },
+              "ADAUSDT": {
+                "adf_t": -2.479,
+                "hl_h": 82.5
+              },
+              "BCHUSDT": {
+                "adf_t": -2.13,
+                "hl_h": 87.2
+              },
+              "LTCUSDT": {
+                "adf_t": -2.121,
+                "hl_h": 115.7
+              },
+              "ETHUSDT": {
+                "adf_t": -1.94,
+                "hl_h": 127.0
+              },
+              "DOGEUSDT": {
+                "adf_t": -1.697,
+                "hl_h": 150.8
+              },
+              "DOTUSDT": {
+                "adf_t": -1.684,
+                "hl_h": 171.3
+              },
+              "TRXUSDT": {
+                "adf_t": -1.669,
+                "hl_h": 170.4
+              }
+            }
+          }
+        ],
+        "candidate_symbols": 11,
+        "selected_symbols": 8,
+        "blocked_no_stable_basket": false
+      },
+      "P1": {
+        "status": "blocked_implementation_scope",
+        "reason": "partial-cointegration state-space requires new Kalman/PU-fit math; out of R19 implementation scope; fit contract recorded for future round"
+      },
+      "K1": {
+        "status": "blocked_implementation_scope",
+        "reason": "spurious-control Kalman filter requires adversarial gate infrastructure (random-walk null, permuted-symbol control); out of R19 implementation scope"
+      },
+      "V1": {
+        "status": "blocked_implementation_scope",
+        "reason": "sparse VECM requires Johansen rank + adaptive-Lasso blocked-CV; out of R19 implementation scope"
+      },
+      "train_selection_commit_sha256": "6b6c90b64fe882209f4485c7ac3b4a6a258314065b3edaabc45f8179d172c309",
+      "committed_at": 1784460813.8875911
+    },
+    {
+      "fold": "F4",
+      "train_full_start": 1672531200000,
+      "train_full_end": 1767225599999,
+      "fit_start": 1762041599999,
+      "fit_end": 1767225599999,
+      "val_start": 1767820800000,
+      "val_end": 1780271999999,
+      "fit_lookback_days": 60,
+      "M1R": {
+        "frozen_fits": [
+          {
+            "group_id": "M1R_DOTUSDT_DOGEUSDT",
+            "legs": [
+              "DOTUSDT",
+              "DOGEUSDT"
+            ],
+            "leg_direction_signs": [
+              1,
+              1
+            ],
+            "betas": [
+              0.58763417
+            ],
+            "mus": [
+              -2.40499685
+            ],
+            "residual_sigma": 0.03096121,
+            "half_life_h": 46.0369,
+            "fit_sha256": "8d4042ea651eca2ad440e00b2088cbcc3120b393bbc296e53fa7b041d29e3469",
+            "diagnostics": {
+              "adf_t": -2.9052,
+              "ac1": 0.9851
+            }
+          },
+          {
+            "group_id": "M1R_SOLUSDT_BTCUSDT",
+            "legs": [
+              "SOLUSDT",
+              "BTCUSDT"
+            ],
+            "leg_direction_signs": [
+              1,
+              1
+            ],
+            "betas": [
+              0.6510093
+            ],
+            "mus": [
+              8.22697067
+            ],
+            "residual_sigma": 0.02125132,
+            "half_life_h": 61.1184,
+            "fit_sha256": "263222fb8fcc6354c392a8faad223f2cea98fa7fc110aca1e4b62d3cb2ffa6a2",
+            "diagnostics": {
+              "adf_t": -2.8528,
+              "ac1": 0.9887
+            }
+          },
+          {
+            "group_id": "M1R_BNBUSDT_ETHUSDT",
+            "legs": [
+              "BNBUSDT",
+              "ETHUSDT"
+            ],
+            "leg_direction_signs": [
+              1,
+              1
+            ],
+            "betas": [
+              1.18356158
+            ],
+            "mus": [
+              -0.00503718
+            ],
+            "residual_sigma": 0.02550041,
+            "half_life_h": 57.5,
+            "fit_sha256": "754d514bcf5e13e50a182e95440f1c21a5a6a194e2ed99420480cf0204ca828a",
+            "diagnostics": {
+              "adf_t": -2.9601,
+              "ac1": 0.988
+            }
+          },
+          {
+            "group_id": "M1R_BCHUSDT_TRXUSDT",
+            "legs": [
+              "BCHUSDT",
+              "TRXUSDT"
+            ],
+            "leg_direction_signs": [
+              1,
+              1
+            ],
+            "betas": [
+              -0.11584685
+            ],
+            "mus": [
+              -0.53039336
+            ],
+            "residual_sigma": 0.02165341,
+            "half_life_h": 50.3456,
+            "fit_sha256": "777c1f01d5b3a5cb2a5cc6ba4b1565e7eb2cd68bc04d65021d3052f4aae9d7ea",
+            "diagnostics": {
+              "adf_t": -3.3242,
+              "ac1": 0.9863
+            }
+          }
+        ],
+        "candidate_pairs": 66,
+        "selected_pairs": 4,
+        "blocked_no_stable_groups": false
+      },
+      "M2F": {
+        "frozen_fits": [
+          {
+            "group_id": "M2F_basket_BNBUSDT_ETHUSDT_BCHUSDT",
+            "legs": [
+              "BNBUSDT",
+              "ETHUSDT",
+              "BCHUSDT",
+              "SOLUSDT",
+              "LINKUSDT",
+              "TRXUSDT",
+              "LTCUSDT",
+              "XRPUSDT"
+            ],
+            "leg_direction_signs": [
+              -1,
+              -1,
+              -1,
+              1,
+              1,
+              -1,
+              1,
+              1
+            ],
+            "betas": [
+              0.8315152,
+              1.04482296,
+              -0.56185951,
+              1.38465169,
+              1.2407325,
+              0.24813046,
+              1.13058444,
+              1.10113362
+            ],
+            "mus": [
+              -2.70965815,
+              -3.9056909,
+              12.72346486,
+              -10.9062014,
+              -11.57761396,
+              -4.09684927,
+              -8.47827149,
+              -11.85079438
+            ],
+            "residual_sigma": 0.03585728,
+            "half_life_h": 68.06430085712722,
+            "fit_sha256": "26ae4aa0a29839f65aca9170f8d780889d79be44d28ef69d4275b87177f27099",
+            "diagnostics": {
+              "BNBUSDT": {
+                "adf_t": -4.226,
+                "hl_h": 33.0
+              },
+              "ETHUSDT": {
+                "adf_t": -3.314,
+                "hl_h": 47.7
+              },
+              "BCHUSDT": {
+                "adf_t": -3.175,
+                "hl_h": 49.8
+              },
+              "SOLUSDT": {
+                "adf_t": -3.133,
+                "hl_h": 53.0
+              },
+              "LINKUSDT": {
+                "adf_t": -3.062,
+                "hl_h": 46.8
+              },
+              "TRXUSDT": {
+                "adf_t": -2.721,
+                "hl_h": 62.5
+              },
+              "LTCUSDT": {
+                "adf_t": -1.947,
+                "hl_h": 117.7
+              },
+              "XRPUSDT": {
+                "adf_t": -1.405,
+                "hl_h": 134.1
+              }
+            }
+          }
+        ],
+        "candidate_symbols": 11,
+        "selected_symbols": 8,
+        "blocked_no_stable_basket": false
+      },
+      "P1": {
+        "status": "blocked_implementation_scope",
+        "reason": "partial-cointegration state-space requires new Kalman/PU-fit math; out of R19 implementation scope; fit contract recorded for future round"
+      },
+      "K1": {
+        "status": "blocked_implementation_scope",
+        "reason": "spurious-control Kalman filter requires adversarial gate infrastructure (random-walk null, permuted-symbol control); out of R19 implementation scope"
+      },
+      "V1": {
+        "status": "blocked_implementation_scope",
+        "reason": "sparse VECM requires Johansen rank + adaptive-Lasso blocked-CV; out of R19 implementation scope"
+      },
+      "train_selection_commit_sha256": "93d727866266547717534d6d73647e8b39666f29eb8b76d6d84b4a57026e1081",
+      "committed_at": 1784460814.7471745
+    }
+  ]
+}

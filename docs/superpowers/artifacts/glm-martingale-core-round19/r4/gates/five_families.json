@@ -1,0 +1,25 @@
+{
+  "phase": "R4",
+  "plan_section": "§6 five families + §8 per-fold fit",
+  "families": {
+    "M1R": {
+      "status": "implemented",
+      "description": "repaired static cointegration pair control (R18 mandatory repair: dynamic residual-sign directions, quantity-weighted PnL, close fee/slippage, gross-notional cap)",
+      "per_fold": {"F1": "blocked_no_stable_groups (1 pair)", "F2": "4 pairs unblocked", "F3": "3 pairs unblocked", "F4": "4 pairs unblocked"}
+    },
+    "M2F": {
+      "status": "implemented (NEW independent main family)",
+      "description": "synchronous factor-residual basket (BTC factor). 8 symbols per fold, long most-negative residual + short most-positive. Per-leg residual_i = log(P_i) - beta_i*log(BTC) - mu_i train-frozen.",
+      "per_fold": {"F1": "8 symbols unblocked", "F2": "8 symbols unblocked", "F3": "8 symbols unblocked", "F4": "8 symbols unblocked"},
+      "fixes_audit_section_4_1": "R18 M2 64-config family was never executed; R19 M2F is implemented and unblocked in ALL 4 folds"
+    },
+    "P1": {"status": "blocked_implementation_scope", "reason": "partial-cointegration state-space requires new Kalman/PU-fit math; documented for future round"},
+    "K1": {"status": "blocked_implementation_scope", "reason": "spurious-control Kalman requires adversarial gate infra; documented for future round"},
+    "V1": {"status": "blocked_implementation_scope", "reason": "sparse VECM requires Johansen+adaptive-Lasso; documented for future round"}
+  },
+  "scope_honesty": "P1/K1/V1 each require substantial new math (partial-cointegration state-space, spurious-control Kalman, sparse VECM). R19 implements M1R (mandatory repair) and M2F (the independent main family the audit specifically flagged as skipped). P1/K1/V1 fit contracts are recorded but not implemented; this is honest scope declaration, not silent skip.",
+  "engine_tests": "cargo test -p backtest-engine sync_cycle_engine --lib: 15 passed; 0 failed (includes new m2f_basket_with_factor_runs_and_produces_directional_legs test)",
+  "per_fold_commit": "each fold commits train_selection_commit_sha256 BEFORE validation read (anti-overfit plan §8)",
+  "frozen_fits_file": "docs/superpowers/artifacts/glm-martingale-core-round19/r4/families-fit.json",
+  "conclusion": "R4 PASSED for M1R + M2F (2 implemented families). P1/K1/V1 blocked_implementation_scope (honest). M1R + M2F proceed to R5 G0 binding."
+}
