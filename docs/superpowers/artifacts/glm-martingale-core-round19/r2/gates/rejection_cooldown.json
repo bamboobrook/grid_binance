@@ -1,0 +1,1 @@
+{"implemented": true, "mechanism": "engine emits at most one atomic_reject per (group, depth, reason) per decision boundary; permanent rejections do not infinite-retry every bar", "test": "permanent_rejection_does_not_infinite_retry_every_bar"}

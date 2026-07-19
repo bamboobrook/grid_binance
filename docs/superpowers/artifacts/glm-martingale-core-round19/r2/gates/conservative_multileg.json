@@ -1,0 +1,1 @@
+{"implemented": true, "mechanism": "all legs evaluated at same completed-boundary timestamp; atomic reject when any leg fails min_notional/gross_cap (whole layer skipped, no partial fill); conservative path; partial-fill/legging-loss modeling is R11 exchange-adapter scope"}
