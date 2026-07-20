@@ -1,0 +1,354 @@
+{
+  "legacy_forbidden_repeats": [
+    {
+      "classification": "exact_duplicate_forbidden",
+      "family": "atr_adx",
+      "mechanism": "htf_adx_ema_gate",
+      "never_repeat_rule": "HTF/ADX/EMA filter as standalone gate"
+    },
+    {
+      "classification": "exact_duplicate_forbidden",
+      "family": "dd_stop",
+      "mechanism": "dd_scaling",
+      "never_repeat_rule": "drawdown-driven size scaling without Martingale cycle"
+    },
+    {
+      "classification": "exact_duplicate_forbidden",
+      "family": "fixed_stop",
+      "mechanism": "plain_grid_multiplier",
+      "never_repeat_rule": "raw grid spacing/multiplier sweep, no Martingale cycle"
+    },
+    {
+      "classification": "exact_duplicate_forbidden",
+      "family": "high_tp",
+      "mechanism": "plain_grid_multiplier",
+      "never_repeat_rule": "raw grid spacing/multiplier sweep, no Martingale cycle"
+    },
+    {
+      "classification": "exact_duplicate_forbidden",
+      "family": "high_budget",
+      "mechanism": "plain_grid_multiplier",
+      "never_repeat_rule": "raw grid spacing/multiplier sweep, no Martingale cycle"
+    },
+    {
+      "classification": "exact_duplicate_forbidden",
+      "family": "portfolio_optimize",
+      "mechanism": "curve_allocator",
+      "never_repeat_rule": "curve/equity allocator without Martingale cycle"
+    },
+    {
+      "classification": "exact_duplicate_forbidden",
+      "family": "segment",
+      "mechanism": "plain_grid_multiplier",
+      "never_repeat_rule": "raw grid spacing/multiplier sweep, no Martingale cycle"
+    },
+    {
+      "classification": "exact_duplicate_forbidden",
+      "family": "dgt",
+      "mechanism": "dgt",
+      "never_repeat_rule": "dynamic grid threshold standalone"
+    },
+    {
+      "classification": "exact_duplicate_forbidden",
+      "family": "funding_sleeve",
+      "mechanism": "standalone_funding_carry",
+      "never_repeat_rule": "funding carry as independent alpha sleeve"
+    }
+  ],
+  "phase": "R21 R1 family mechanism classification (plan \u00a73)",
+  "rounds_15_18_OU_hazard_first_passage": [
+    {
+      "classification": "valid_executed_if_round_complete_else_planned",
+      "family": "OU",
+      "mechanism": "ornstein_uhlenbeck_first_passage",
+      "never_repeat_rule": "Round 21 may NOT re-introduce OU/hazard/first-passage as a standalone family (plan \u00a76.4 line 230-231). It may ONLY appear as a pre-frozen cost/deadline enhancement inside V1B/P1S with separate activation/ablation."
+    },
+    {
+      "classification": "valid_executed_if_round_complete_else_planned",
+      "family": "FP",
+      "mechanism": "first_passage",
+      "never_repeat_rule": "Round 21 may NOT re-introduce OU/hazard/first-passage as a standalone family (plan \u00a76.4 line 230-231). It may ONLY appear as a pre-frozen cost/deadline enhancement inside V1B/P1S with separate activation/ablation."
+    },
+    {
+      "classification": "valid_executed_if_round_complete_else_planned",
+      "family": "hazard",
+      "mechanism": "hazard_rate",
+      "never_repeat_rule": "Round 21 may NOT re-introduce OU/hazard/first-passage as a standalone family (plan \u00a76.4 line 230-231). It may ONLY appear as a pre-frozen cost/deadline enhancement inside V1B/P1S with separate activation/ablation."
+    }
+  ],
+  "rounds_19_20_residual_basis_P1_K1_V1": [
+    {
+      "family": "M1_pair",
+      "mechanism": "synchronized_pair_residual",
+      "round20_classification": "valid_executed",
+      "round21_reuse_rule": "Round 21 may reuse the FIT ARTIFACT as a changed-engine control only if engine/data/fit/market-identity/cost/selection contract materially changes (plan \u00a73 line 97). Otherwise the fingerprint stays excluded."
+    },
+    {
+      "family": "M1R",
+      "mechanism": "synchronized_pair_residual_repair",
+      "round20_classification": "valid_executed",
+      "round21_reuse_rule": "Round 21 may reuse the FIT ARTIFACT as a changed-engine control only if engine/data/fit/market-identity/cost/selection contract materially changes (plan \u00a73 line 97). Otherwise the fingerprint stays excluded."
+    },
+    {
+      "family": "M2_basket",
+      "mechanism": "synchronized_basket_residual",
+      "round20_classification": "valid_executed",
+      "round21_reuse_rule": "Round 21 may reuse the FIT ARTIFACT as a changed-engine control only if engine/data/fit/market-identity/cost/selection contract materially changes (plan \u00a73 line 97). Otherwise the fingerprint stays excluded."
+    },
+    {
+      "family": "M2F",
+      "mechanism": "synchronized_basket_factor",
+      "round20_classification": "valid_executed",
+      "round21_reuse_rule": "Round 21 may reuse the FIT ARTIFACT as a changed-engine control only if engine/data/fit/market-identity/cost/selection contract materially changes (plan \u00a73 line 97). Otherwise the fingerprint stays excluded."
+    },
+    {
+      "family": "M2R",
+      "mechanism": "constrained_basket_factor",
+      "round20_classification": "invalid_mechanism",
+      "round21_reuse_rule": "Round 21 may reuse the FIT ARTIFACT as a changed-engine control only if engine/data/fit/market-identity/cost/selection contract materially changes (plan \u00a73 line 97). Otherwise the fingerprint stays excluded."
+    },
+    {
+      "family": "B1",
+      "mechanism": "spot_perp_basis",
+      "round20_classification": "invalid_mechanism",
+      "round21_reuse_rule": "Round 21 may reuse the FIT ARTIFACT as a changed-engine control only if engine/data/fit/market-identity/cost/selection contract materially changes (plan \u00a73 line 97). Otherwise the fingerprint stays excluded."
+    },
+    {
+      "family": "P1",
+      "mechanism": "partial_cointegration_detrending",
+      "round20_classification": "invalid_mechanism",
+      "round21_reuse_rule": "Round 21 may reuse the FIT ARTIFACT as a changed-engine control only if engine/data/fit/market-identity/cost/selection contract materially changes (plan \u00a73 line 97). Otherwise the fingerprint stays excluded."
+    },
+    {
+      "family": "K1",
+      "mechanism": "kalman_time_varying_beta",
+      "round20_classification": "invalid_mechanism",
+      "round21_reuse_rule": "Round 21 may reuse the FIT ARTIFACT as a changed-engine control only if engine/data/fit/market-identity/cost/selection contract materially changes (plan \u00a73 line 97). Otherwise the fingerprint stays excluded."
+    },
+    {
+      "family": "V1",
+      "mechanism": "johansen_vecm_signed_weights",
+      "round20_classification": "invalid_mechanism",
+      "round21_reuse_rule": "Round 21 may reuse the FIT ARTIFACT as a changed-engine control only if engine/data/fit/market-identity/cost/selection contract materially changes (plan \u00a73 line 97). Otherwise the fingerprint stays excluded."
+    },
+    {
+      "family": "C1",
+      "mechanism": "residual_pair_martingale",
+      "round20_classification": "invalid_mechanism",
+      "round21_reuse_rule": "Round 21 may reuse the FIT ARTIFACT as a changed-engine control only if engine/data/fit/market-identity/cost/selection contract materially changes (plan \u00a73 line 97). Otherwise the fingerprint stays excluded."
+    }
+  ],
+  "sample_family_records": [
+    {
+      "classification": "valid_executed",
+      "family": "htf_regime",
+      "fingerprint": "htf_regime_gate_",
+      "mechanism": "unknown",
+      "round": "round14"
+    },
+    {
+      "classification": "valid_executed",
+      "family": "xs_selector",
+      "fingerprint": "xs_selector_mome",
+      "mechanism": "unknown",
+      "round": "round14"
+    },
+    {
+      "classification": "valid_executed",
+      "family": "dual_state_ladder",
+      "fingerprint": "dual_state_ladde",
+      "mechanism": "unknown",
+      "round": "round14"
+    },
+    {
+      "classification": "valid_executed",
+      "family": "inventory_scheduler",
+      "fingerprint": "inventory_schedu",
+      "mechanism": "unknown",
+      "round": "round14"
+    },
+    {
+      "classification": "valid_executed",
+      "family": "robustness",
+      "fingerprint": "robustness_test_",
+      "mechanism": "unknown",
+      "round": "round14"
+    },
+    {
+      "classification": "valid_executed",
+      "family": "production_parity",
+      "fingerprint": "production_parit",
+      "mechanism": "unknown",
+      "round": "round14"
+    },
+    {
+      "classification": "valid_executed",
+      "family": "minigrid_depth_tp",
+      "fingerprint": "8 configs (4 min",
+      "mechanism": "unknown",
+      "round": "round14"
+    },
+    {
+      "classification": "valid_executed",
+      "family": "xs_selector",
+      "fingerprint": "xs_mom_lb7_s0_r1",
+      "mechanism": "unknown",
+      "round": "round14"
+    },
+    {
+      "classification": "planned_never_executed",
+      "family": "xs_selector",
+      "fingerprint": "8 XS-MOM configs",
+      "mechanism": "unknown",
+      "round": "round14"
+    },
+    {
+      "classification": "planned_never_executed",
+      "family": "xs_selector",
+      "fingerprint": "16 XS-MOM config",
+      "mechanism": "unknown",
+      "round": "round14"
+    },
+    {
+      "classification": "planned_never_executed",
+      "family": "xs_selector",
+      "fingerprint": "24 XS-MOM config",
+      "mechanism": "unknown",
+      "round": "round14"
+    },
+    {
+      "classification": "valid_executed",
+      "family": "xs_selector",
+      "fingerprint": "xs_mom_lb7_s0_r1",
+      "mechanism": "unknown",
+      "round": "round14"
+    },
+    {
+      "classification": "valid_executed",
+      "family": "xs_selector",
+      "fingerprint": "48 XS binding pr",
+      "mechanism": "unknown",
+      "round": "round14"
+    },
+    {
+      "classification": "planned_never_executed",
+      "family": "xs_selector",
+      "fingerprint": "8 neighborhood c",
+      "mechanism": "unknown",
+      "round": "round14"
+    },
+    {
+      "classification": "valid_executed",
+      "family": "xs_selector",
+      "fingerprint": "32 neighborhood ",
+      "mechanism": "unknown",
+      "round": "round14"
+    },
+    {
+      "classification": "planned_never_executed",
+      "family": "combination",
+      "fingerprint": "12 combination c",
+      "mechanism": "unknown",
+      "round": "round14"
+    },
+    {
+      "classification": "valid_executed",
+      "family": "combination",
+      "fingerprint": "8 XS+exit config",
+      "mechanism": "unknown",
+      "round": "round14"
+    },
+    {
+      "classification": "valid_executed",
+      "family": "dual_state_ladder",
+      "fingerprint": "10 dual-state ab",
+      "mechanism": "unknown",
+      "round": "round14"
+    },
+    {
+      "classification": "valid_executed",
+      "family": "inventory_scheduler",
+      "fingerprint": "12 P5 configs (p",
+      "mechanism": "unknown",
+      "round": "round14"
+    },
+    {
+      "classification": "valid_executed",
+      "family": "wfo",
+      "fingerprint": "F1-F4 with 36-co",
+      "mechanism": "unknown",
+      "round": "round14"
+    },
+    {
+      "classification": "planned_never_executed",
+      "family": "sobol_screen",
+      "fingerprint": "256 configs (8 l",
+      "mechanism": "unknown",
+      "round": "round14"
+    },
+    {
+      "classification": "valid_executed",
+      "family": "sobol_screen",
+      "fingerprint": "224 configs (7 l",
+      "mechanism": "unknown",
+      "round": "round14"
+    },
+    {
+      "classification": "valid_executed",
+      "family": "minigrid_depth_tp",
+      "fingerprint": "1344 configs (54",
+      "mechanism": "unknown",
+      "round": "round14"
+    },
+    {
+      "classification": "planned_never_executed",
+      "family": "T2_baseline",
+      "fingerprint": "0c39b5be3f93e1ef",
+      "mechanism": "unknown",
+      "round": "round15"
+    },
+    {
+      "classification": "planned_never_executed",
+      "family": "T2_baseline",
+      "fingerprint": "0c39b5be3f93e1ef",
+      "mechanism": "unknown",
+      "round": "round15"
+    },
+    {
+      "classification": "valid_executed",
+      "family": "T2_baseline",
+      "fingerprint": "0c39b5be3f93e1ef",
+      "mechanism": "unknown",
+      "round": "round15"
+    },
+    {
+      "classification": "planned_never_executed",
+      "family": "T3_8_probe",
+      "fingerprint": "6473f8b3e3156689",
+      "mechanism": "unknown",
+      "round": "round15"
+    },
+    {
+      "classification": "valid_executed",
+      "family": "T3_8_probe",
+      "fingerprint": "6473f8b3e3156689",
+      "mechanism": "unknown",
+      "round": "round15"
+    },
+    {
+      "classification": "planned_never_executed",
+      "family": "T3_8_probe",
+      "fingerprint": "0dc61432b533d701",
+      "mechanism": "unknown",
+      "round": "round15"
+    },
+    {
+      "classification": "planned_never_executed",
+      "family": "T3_8_probe",
+      "fingerprint": "6473f8b3e3156689",
+      "mechanism": "unknown",
+      "round": "round15"
+    }
+  ],
+  "total_family_records": 4336
+}

@@ -1,0 +1,316 @@
+{
+  "borrow": {
+    "borrow_data_exists": false,
+    "consequence_for_B1S": "reverse-basis FO (short spot + long perp, plan \u00a76.2 line 187) is BLOCKED until a Binance borrow snapshot is captured. positive-basis FO (long spot + short perp) remains allowed: USD-M perp short does not require a borrow snapshot.",
+    "plan_\u00a73_line_109_rule": "\u7f3a borrow \u6570\u636e\u65f6 reverse basis \u7981\u6b62\uff1b\u4e0d\u5f97\u628a\u7f3a\u503c\u5f53 0 \u6216 forward-fill \u4e0b\u5355.",
+    "sources_checked": [
+      {
+        "borrow_tables_found": [],
+        "db": "premium_index.db",
+        "tables": [
+          "premium_index"
+        ]
+      },
+      {
+        "borrow_tables_found": [],
+        "db": "funding_rates.db",
+        "tables": [
+          "funding_rates"
+        ]
+      },
+      {
+        "borrow_tables_found": [],
+        "db": "market_data_full.db",
+        "tables": [
+          "klines"
+        ]
+      },
+      {
+        "borrow_tables_found": [],
+        "db": "martingale_portfolios.db",
+        "tables": []
+      },
+      {
+        "borrow_tables_found": [],
+        "db": "funding_rates_round12.db",
+        "tables": [
+          "funding_rates"
+        ]
+      }
+    ]
+  },
+  "dev_window": {
+    "end_ms": 1780271999999,
+    "end_utc": "2026-05-31T23:59:59.999Z",
+    "start_ms": 1672531200000,
+    "start_utc": "2023-01-01T00:00:00Z"
+  },
+  "frozen": true,
+  "frozen_at_utc": "2026-07-20T12:48:01.886547+00:00",
+  "funding_data": {
+    "b1s_universe_funding": {
+      "BNBUSDT": {
+        "coverage_to_dev_end_2026_05_31": true,
+        "max_time": 1782144000002,
+        "max_utc": "2026-06-22T16:00:00.002000+00:00",
+        "min_time": 1672531200000,
+        "rows": 3807
+      },
+      "BTCUSDT": {
+        "coverage_to_dev_end_2026_05_31": true,
+        "max_time": 1782144000002,
+        "max_utc": "2026-06-22T16:00:00.002000+00:00",
+        "min_time": 1672531200000,
+        "rows": 3807
+      },
+      "DOGEUSDT": {
+        "coverage_to_dev_end_2026_05_31": true,
+        "max_time": 1782144000002,
+        "max_utc": "2026-06-22T16:00:00.002000+00:00",
+        "min_time": 1672531200000,
+        "rows": 3807
+      },
+      "ETHUSDT": {
+        "coverage_to_dev_end_2026_05_31": true,
+        "max_time": 1782144000002,
+        "max_utc": "2026-06-22T16:00:00.002000+00:00",
+        "min_time": 1672531200000,
+        "rows": 3807
+      },
+      "SOLUSDT": {
+        "coverage_to_dev_end_2026_05_31": true,
+        "max_time": 1782144000002,
+        "max_utc": "2026-06-22T16:00:00.002000+00:00",
+        "min_time": 1672531200000,
+        "rows": 3807
+      },
+      "XRPUSDT": {
+        "coverage_to_dev_end_2026_05_31": true,
+        "max_time": 1782144000002,
+        "max_utc": "2026-06-22T16:00:00.002000+00:00",
+        "min_time": 1672531200000,
+        "rows": 3807
+      }
+    },
+    "exists": true,
+    "max_time": 1782144000002,
+    "max_utc": "2026-06-22T16:00:00.002000+00:00",
+    "min_time": 1672531200000,
+    "min_utc": "2023-01-01T00:00:00+00:00",
+    "mtime_utc": "2026-06-22T18:45:38.537275+00:00",
+    "schema": [
+      "CREATE TABLE funding_rates (\n            symbol TEXT NOT NULL,\n            funding_time INTEGER NOT NULL,\n            funding_rate REAL NOT NULL,\n            mark_price REAL,\n            PRIMARY KEY (symbol, funding_time)\n        )"
+    ],
+    "sha256": "356e270dacce36b4703364545beeafe402f1aa55aa11caebc5708f5f3b6767a1",
+    "size_bytes": 7417856,
+    "size_gb": 0.007,
+    "symbols": 30,
+    "total_rows": 114210
+  },
+  "loader_key": "(venue, market_type, symbol, timeframe)",
+  "locked_future_window": {
+    "rule": "2026-07-11+ is sealed until 30 full calendar days elapse AND selection is committed/pushed AND future data has never been queried (plan \u00a711).",
+    "start_ms": 1783555200000,
+    "start_utc": "2026-07-11T00:00:00Z"
+  },
+  "market_data": {
+    "b1s_universe_coverage": {
+      "BNBUSDT": {
+        "legs": {
+          "futures_usdt_perp": {
+            "duplicate_open_time_groups": 0,
+            "max_open_time": 1784499360000,
+            "max_utc": "2026-07-19T22:16:00+00:00",
+            "min_open_time": 1672531200000,
+            "min_utc": "2023-01-01T00:00:00+00:00",
+            "missing_minutes_estimate": 0,
+            "rows_in_dev_window": 1795680,
+            "rows_total": 1866137
+          },
+          "spot": {
+            "duplicate_open_time_groups": 0,
+            "max_open_time": 1784499420000,
+            "max_utc": "2026-07-19T22:17:00+00:00",
+            "min_open_time": 1672531200000,
+            "min_utc": "2023-01-01T00:00:00+00:00",
+            "missing_minutes_estimate": 1313,
+            "rows_in_dev_window": 1795600,
+            "rows_total": 1864825
+          }
+        },
+        "symbol": "BNBUSDT"
+      },
+      "BTCUSDT": {
+        "legs": {
+          "futures_usdt_perp": {
+            "duplicate_open_time_groups": 0,
+            "max_open_time": 1784499420000,
+            "max_utc": "2026-07-19T22:17:00+00:00",
+            "min_open_time": 1672531200000,
+            "min_utc": "2023-01-01T00:00:00+00:00",
+            "missing_minutes_estimate": 0,
+            "rows_in_dev_window": 1795680,
+            "rows_total": 1866138
+          },
+          "spot": {
+            "duplicate_open_time_groups": 0,
+            "max_open_time": 1784499420000,
+            "max_utc": "2026-07-19T22:17:00+00:00",
+            "min_open_time": 1672531200000,
+            "min_utc": "2023-01-01T00:00:00+00:00",
+            "missing_minutes_estimate": 1313,
+            "rows_in_dev_window": 1795600,
+            "rows_total": 1864825
+          }
+        },
+        "symbol": "BTCUSDT"
+      },
+      "DOGEUSDT": {
+        "legs": {
+          "futures_usdt_perp": {
+            "duplicate_open_time_groups": 0,
+            "max_open_time": 1784499540000,
+            "max_utc": "2026-07-19T22:19:00+00:00",
+            "min_open_time": 1672531200000,
+            "min_utc": "2023-01-01T00:00:00+00:00",
+            "missing_minutes_estimate": 0,
+            "rows_in_dev_window": 1795680,
+            "rows_total": 1866140
+          },
+          "spot": {
+            "duplicate_open_time_groups": 0,
+            "max_open_time": 1784499540000,
+            "max_utc": "2026-07-19T22:19:00+00:00",
+            "min_open_time": 1672531200000,
+            "min_utc": "2023-01-01T00:00:00+00:00",
+            "missing_minutes_estimate": 1313,
+            "rows_in_dev_window": 1795600,
+            "rows_total": 1864827
+          }
+        },
+        "symbol": "DOGEUSDT"
+      },
+      "ETHUSDT": {
+        "legs": {
+          "futures_usdt_perp": {
+            "duplicate_open_time_groups": 0,
+            "max_open_time": 1784499600000,
+            "max_utc": "2026-07-19T22:20:00+00:00",
+            "min_open_time": 1672531200000,
+            "min_utc": "2023-01-01T00:00:00+00:00",
+            "missing_minutes_estimate": 0,
+            "rows_in_dev_window": 1795680,
+            "rows_total": 1866141
+          },
+          "spot": {
+            "duplicate_open_time_groups": 0,
+            "max_open_time": 1784499600000,
+            "max_utc": "2026-07-19T22:20:00+00:00",
+            "min_open_time": 1672531200000,
+            "min_utc": "2023-01-01T00:00:00+00:00",
+            "missing_minutes_estimate": 1313,
+            "rows_in_dev_window": 1795600,
+            "rows_total": 1864828
+          }
+        },
+        "symbol": "ETHUSDT"
+      },
+      "SOLUSDT": {
+        "legs": {
+          "futures_usdt_perp": {
+            "duplicate_open_time_groups": 0,
+            "max_open_time": 1784500260000,
+            "max_utc": "2026-07-19T22:31:00+00:00",
+            "min_open_time": 1672531200000,
+            "min_utc": "2023-01-01T00:00:00+00:00",
+            "missing_minutes_estimate": 0,
+            "rows_in_dev_window": 1795680,
+            "rows_total": 1866152
+          },
+          "spot": {
+            "duplicate_open_time_groups": 0,
+            "max_open_time": 1784500260000,
+            "max_utc": "2026-07-19T22:31:00+00:00",
+            "min_open_time": 1672531200000,
+            "min_utc": "2023-01-01T00:00:00+00:00",
+            "missing_minutes_estimate": 1314,
+            "rows_in_dev_window": 1795599,
+            "rows_total": 1864838
+          }
+        },
+        "symbol": "SOLUSDT"
+      },
+      "XRPUSDT": {
+        "legs": {
+          "futures_usdt_perp": {
+            "duplicate_open_time_groups": 0,
+            "max_open_time": 1784500440000,
+            "max_utc": "2026-07-19T22:34:00+00:00",
+            "min_open_time": 1672531200000,
+            "min_utc": "2023-01-01T00:00:00+00:00",
+            "missing_minutes_estimate": 0,
+            "rows_in_dev_window": 1795680,
+            "rows_total": 1866155
+          },
+          "spot": {
+            "duplicate_open_time_groups": 0,
+            "max_open_time": 1784500440000,
+            "max_utc": "2026-07-19T22:34:00+00:00",
+            "min_open_time": 1672531200000,
+            "min_utc": "2023-01-01T00:00:00+00:00",
+            "missing_minutes_estimate": 1313,
+            "rows_in_dev_window": 1795600,
+            "rows_total": 1864842
+          }
+        },
+        "symbol": "XRPUSDT"
+      }
+    },
+    "exists": true,
+    "loader_key_examples": [
+      {
+        "market_type": "spot",
+        "symbol": "BTCUSDT",
+        "timeframe": "1m",
+        "venue": "binance"
+      },
+      {
+        "market_type": "futures_usdt_perp",
+        "symbol": "BTCUSDT",
+        "timeframe": "1m",
+        "venue": "binance"
+      }
+    ],
+    "mtime_utc": "2026-07-19T22:35:44.810095+00:00",
+    "schema": {
+      "indexes": [
+        {
+          "ddl": "CREATE INDEX idx_klines_symbol_time ON klines(symbol, open_time)",
+          "name": "idx_klines_symbol_time"
+        }
+      ],
+      "klines_ddl": [
+        "CREATE TABLE klines (symbol TEXT NOT NULL, market_type TEXT NOT NULL DEFAULT 'spot', timeframe TEXT NOT NULL, open_time INTEGER NOT NULL, open REAL NOT NULL, high REAL NOT NULL, low REAL NOT NULL, close REAL NOT NULL, volume REAL NOT NULL, close_time INTEGER NOT NULL)"
+      ]
+    },
+    "sha256": null,
+    "sha256_skipped_reason": "file is 118.3 GB; per-symbol row counts serve as the provenance fingerprint (full SHA deferred)",
+    "size_bytes": 118349467648,
+    "size_gb": 118.349
+  },
+  "phase": "R21 R1 data contract freeze (plan \u00a73 lines 100-109)",
+  "premium_data": {
+    "exists": true,
+    "max_time": 1780268400000,
+    "min_time": 1672531200000,
+    "mtime_utc": "2026-07-02T17:08:39.676175+00:00",
+    "schema": [
+      "CREATE TABLE premium_index (symbol TEXT, open_time INTEGER, premium REAL, PRIMARY KEY(symbol, open_time))"
+    ],
+    "sha256": "78bd01280bbb349383e090b9576cfa543865a5680997329c33f2e05c089a2627",
+    "size_bytes": 10088448,
+    "size_gb": 0.01,
+    "symbols": 6,
+    "total_rows": 176640
+  }
+}

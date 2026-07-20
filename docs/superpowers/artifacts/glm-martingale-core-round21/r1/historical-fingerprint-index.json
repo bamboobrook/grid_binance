@@ -1,0 +1,157 @@
+{
+  "by_family_classification": {
+    "round12": {
+      "planned_never_executed": 1
+    },
+    "round14": {
+      "planned_never_executed": 6,
+      "valid_executed": 17
+    },
+    "round15": {
+      "planned_never_executed": 181,
+      "valid_executed": 179
+    },
+    "round16": {
+      "planned_never_executed": 1,
+      "valid_executed": 1583
+    },
+    "round17": {
+      "exact_duplicate_forbidden": 2165,
+      "valid_executed": 2509
+    },
+    "round18": {
+      "planned_never_executed": 6598,
+      "valid_executed": 1560
+    },
+    "round19": {
+      "planned_never_executed": 15504,
+      "valid_executed": 6612
+    },
+    "round20": {
+      "planned_never_executed": 11606,
+      "valid_executed": 3862
+    }
+  },
+  "by_round": {
+    "round12": 1,
+    "round14": 23,
+    "round15": 360,
+    "round16": 1584,
+    "round17": 4674,
+    "round18": 8158,
+    "round19": 22116,
+    "round20": 15468
+  },
+  "excluded_keys_count": 18666,
+  "excluded_keys_sample": [
+    "round12:0b596c43952ea2d4d5145fa3a4cfa046c999ae84ea2da3f1083da3befcd3709c||",
+    "round14:10 dual-state ablation configs (SO scale 0.25/0.5/0.75/1.0 \u00d7 spacing 1.0/1.25/1.5/2.0)||4999",
+    "round14:12 P5 configs (penalty 0/0.25/0.5/1.0 \u00d7 floor 0.25/0.5/0.75)||4999",
+    "round14:12 combination configs (6 XS-only + 6 XS+HTF)||4999",
+    "round14:1344 configs (544 minigrid + 800 depth TP)||4999",
+    "round14:16 XS-MOM configs (lb7+lb14 \u00d7 skip \u00d7 rebalance \u00d7 active)||4999",
+    "round14:224 configs (7 lookbacks \u00d7 4 SO \u00d7 4 rebalance \u00d7 2 penalty/floor)||4999",
+    "round14:24 XS-MOM configs (lb7+lb14+lb28 \u00d7 skip \u00d7 rebalance \u00d7 active)||4999",
+    "round14:256 configs (8 lookback \u00d7 4 SO \u00d7 4 rebalance \u00d7 2 penalty/floor)||4999",
+    "round14:32 neighborhood configs (4 bases \u00d7 8 trials each)||4999"
+  ],
+  "family_classification_categories": [
+    "valid_executed",
+    "invalid_mechanism",
+    "invalid_budget",
+    "invalid_leakage",
+    "planned_never_executed",
+    "exact_duplicate_forbidden",
+    "changed_engine_control"
+  ],
+  "family_mechanism_map": {
+    "B1": "spot_perp_basis",
+    "C1": "residual_pair_martingale",
+    "FP": "first_passage",
+    "K1": "kalman_time_varying_beta",
+    "M1R": "synchronized_pair_residual_repair",
+    "M1_pair": "synchronized_pair_residual",
+    "M2F": "synchronized_basket_factor",
+    "M2R": "constrained_basket_factor",
+    "M2_basket": "synchronized_basket_residual",
+    "OU": "ornstein_uhlenbeck_first_passage",
+    "P1": "partial_cointegration_detrending",
+    "V1": "johansen_vecm_signed_weights",
+    "atr_adx": "htf_adx_ema_gate",
+    "dd_stop": "dd_scaling",
+    "dgt": "dgt",
+    "fixed_stop": "plain_grid_multiplier",
+    "funding_sleeve": "standalone_funding_carry",
+    "hazard": "hazard_rate",
+    "high_budget": "plain_grid_multiplier",
+    "high_tp": "plain_grid_multiplier",
+    "portfolio_optimize": "curve_allocator",
+    "segment": "plain_grid_multiplier"
+  },
+  "forbidden_repeat_mechanisms_plan_\u00a73_lines_97_99": {
+    "breakout_trend_sleeve": "breakout/trend independent PnL sleeve",
+    "curve_allocator": "curve/equity allocator without Martingale cycle",
+    "dd_scaling": "drawdown-driven size scaling without Martingale cycle",
+    "dgt": "dynamic grid threshold standalone",
+    "htf_adx_ema_gate": "HTF/ADX/EMA filter as standalone gate",
+    "last_executed_basis": "basis computed once at last paired fill, no fresh mark",
+    "plain_grid_multiplier": "raw grid spacing/multiplier sweep, no Martingale cycle",
+    "standalone_funding_carry": "funding carry as independent alpha sleeve"
+  },
+  "phase": "R21 R1 recursive canonical fingerprint index (plan \u00a73)",
+  "round20_invalid_families": [
+    "B1",
+    "C1",
+    "K1",
+    "M2R",
+    "P1",
+    "V1"
+  ],
+  "round20_status": "diagnostic_only_per_corrected_authority",
+  "rounds_count": 20,
+  "rounds_scanned": [
+    "round10",
+    "round11",
+    "round12",
+    "round13",
+    "round14",
+    "round15",
+    "round16",
+    "round17",
+    "round18",
+    "round19",
+    "round2",
+    "round20",
+    "round21",
+    "round3",
+    "round4",
+    "round5",
+    "round6",
+    "round7",
+    "round8",
+    "round9"
+  ],
+  "rounds_scanned_ids": [
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17,
+    18,
+    19,
+    2,
+    20,
+    21,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9
+  ],
+  "scope": "All Round 1-20 fingerprints are dedup-excluded. Round 21 C1E/B1S/P1S/V1B are NEW runtime mechanisms (deficit scheduler, spot/perp basis, partial-cointegration state-space + Soft-SEL, budget-constrained VECM) \u2014 they do not collide with any prior round because the engine/data/fit/market-identity/cost/selection contracts materially change. Any R21 config whose fingerprint matches a Round 1-20 excluded key is auto-rejected by the launcher's is_duplicate() check."
+}
