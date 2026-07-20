@@ -1,0 +1,47 @@
+{
+  "budget_quote": 500.0,
+  "fits": [
+    {
+      "adf_t": -2.843940450246945,
+      "betas": [
+        1.3854886407853986
+      ],
+      "fit_sha256": "9cb83719b02e4bb5",
+      "group_id": "C1E_LINKUSDT_SOLUSDT",
+      "half_life_h": 151.09475910630456,
+      "leg_direction_signs": [
+        1,
+        -1
+      ],
+      "leg_markets": [],
+      "legs": [
+        "LINKUSDT",
+        "SOLUSDT"
+      ],
+      "mus": [
+        0.38927155200082053
+      ],
+      "residual_sigma": 0.12714218256031265,
+      "weights": []
+    }
+  ],
+  "synchronized_cycle": {
+    "bar_boundary_minutes": 60,
+    "c1_scheduler": null,
+    "cycle_deadline_h": 168,
+    "entry_z": 1.5,
+    "exit_z": 0.5,
+    "family": "C1E",
+    "fit_lookback_days": 180,
+    "group_fo_quote": 100.0,
+    "group_gross_cap_pct": 100.0,
+    "inventory_reservation_skew_k": 0,
+    "jump_first_passage_gate": null,
+    "leverage": 7,
+    "max_legs": 4,
+    "multiplier": 1.5,
+    "regime_envelope": null,
+    "so_residual_step_z": 0.5,
+    "tp_net_bps_floor": 25
+  }
+}
