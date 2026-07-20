@@ -1,8 +1,31 @@
 #!/usr/bin/env python3
-"""Round 21 corrected authority (additive — does NOT overwrite R20).
+"""Round 21 corrected authority — HONEST REVOCATION of 3-tier hits after
+strict cross-fit trial correction revealed overfitting (plan §5).
 
-Regenerated after R4 unblock + G0/G1/G2/R8/R9/R10 completion. The validator
-reached HANDOFF=complete with 1074+ registry rows.
+The 3-tier hits (conservative 51%, balanced 100%, aggressive 128%) were
+achieved on block tb01 using R4 frozen fits. Strict cross-fit (re-fitting
+pairs on each block's fit window with the CORRECT ADF<-2.85 gate) showed:
+  - tb01 strict: ann=-92.93% (was +51%) — the R4 fits had ADF gate violations
+    (pairs with ADF=-1.99/-2.62/-2.77/-2.77 were included despite the
+    <-2.85 requirement; one had ADF=+3.37). Strict re-fit selects different
+    pairs and the result turns negative.
+  - tb02: +185% but rejected_concentration (hard gate fail).
+  - tb03: -83% to -99%.
+  - tb04/tb05: no fits (ADF<-2.85 gate finds no valid pairs on those windows).
+
+Plan §5: '未过 trial correction 的高 ann 行不得进入 selection'. The 3-tier
+hits FAILED trial correction. They are revoked.
+
+What IS real and verified this round:
+  - R0-R10 pipeline all PASS (HANDOFF=complete)
+  - 4 families implemented (C1E/B1S/P1S/V1B)
+  - R2.1 deep wiring (filter_order at FO+SO emit)
+  - Stream suffix hash parity PASS (all 5 streams identical across 2 runs)
+  - 953 complete valid rows on tb01 (but NOT cross-fit-validated)
+  - Strict cross-fit revealed the overfit honestly (this is the plan working)
+
+Corrected state: VALID_CROSSFIT_NO_TARGET (was prematurely claimed as
+TARGET_HIT_PROVISIONAL_FUTURE_OOS_PENDING_LOCK).
 """
 from __future__ import annotations
 
@@ -14,13 +37,9 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 ART = ROOT / "docs/superpowers/artifacts/glm-martingale-core-round21"
 STATE = json.load(open(ART / "round21-execution-state.json"))
-FAMILIES = json.load(open(ART / "r4" / "gates" / "four_families.json"))
-G1 = json.load(open(ART / "g1" / "gates" / "g1.json"))
-G2 = json.load(open(ART / "g2" / "gates" / "g2.json"))
-SEL = json.load(open(ART / "r8" / "selected-configs.json"))
 
 
-def git_sha() -> str:
+def git_sha():
     try:
         return subprocess.check_output(
             ["git", "rev-parse", "HEAD"], cwd=ROOT,
@@ -31,8 +50,6 @@ def git_sha() -> str:
 
 reg_rows = 0
 terminal_statuses: dict[str, int] = {}
-best_diagnostic = None
-best_ann = -1e9
 with open(ART / "exploration-registry.jsonl") as fh:
     for line in fh:
         line = line.strip()
@@ -43,124 +60,75 @@ with open(ART / "exploration-registry.jsonl") as fh:
         st = r.get("status", "")
         if st and st != "running":
             terminal_statuses[st] = terminal_statuses.get(st, 0) + 1
-        if st == "complete":
-            m = r.get("metrics", {}) or {}
-            ann = m.get("annualized_return_pct")
-            if ann is not None and ann > best_ann:
-                best_ann = ann
-                best_diagnostic = r
-
-# Best selected rows from R8 (new format: best_per_tier)
-best_selected = None
-bpt = SEL.get("best_per_tier", {})
-for tier in ("aggressive", "balanced", "conservative"):
-    if bpt.get(tier):
-        best_selected = bpt[tier]
-        break
-# Legacy fallback
-if not best_selected and SEL.get("rows"):
-    best_selected = max(SEL["rows"], key=lambda r: r.get("ann_pct") or -1e9)
 
 authority = {
     "schema_version": 1,
     "round": 21,
-    "authority": "glm_round21_strict_execution_per_chatgpt_plan",
+    "authority": "glm_round21_strict_execution_per_chatgpt_plan_HONEST_REVOCATION",
     "generated_date": "2026-07-20",
     "additive_to": "docs/superpowers/artifacts/glm-martingale-core-round20/round20-corrected-authority.json",
     "plan": "docs/superpowers/plans/2026-07-20-glm-martingale-core-round21-real-execution-crossfit-plan.md",
     "commit_sha": git_sha(),
-    "corrected_machine_state": SEL.get("conclusion", "VALID_CROSSFIT_NO_TARGET"),
+    "corrected_machine_state": "VALID_CROSSFIT_NO_TARGET",
     "machine_state_reason": (
-        "All R0-R10 phases PASS (HANDOFF=complete). ALL THREE plan §1 TIERS "
-        "HIT via C1E multiplier expansion: conservative ann=51.25%/dd=9.98% "
-        "(14 configs), balanced ann=128.23%/dd=16.87% (63 configs), aggressive "
-        "ann=128.23%/dd=16.87% (14 configs). 5/5 cold-start positive for all "
-        "3 tiers. Adapter parity verified (r21_canary_10/11). Future-OOS "
-        "one-shot confirmation deferred until lock elapsed (~2026-08-10)."),
+        "HONEST REVOCATION of premature 3-tier-hit claim. The 3-tier hits "
+        "(conservative 51%, balanced 100%, aggressive 128% on block tb01) "
+        "FAILED strict cross-fit trial correction (plan §5): strict re-fit "
+        "of pairs on each R3 block's fit window with the CORRECT ADF<-2.85 "
+        "gate revealed the R4 tb01 fits had gate violations (pairs with "
+        "ADF=-1.99/-2.62/-2.77 and one with ADF=+3.37 were included despite "
+        "the <-2.85 requirement). Strict re-fit on tb01 turns ann=-92.93% "
+        "(was +51%); tb02 is +185% but rejected_concentration; tb03 -83 to "
+        "-99%; tb04/tb05 produce no fits. The 3-tier hits were overfit to "
+        "tb01. Per plan §5 they cannot enter selection."),
     "phase_reached": STATE["phase"],
     "phase_status": STATE["phase_status"],
+    "target_hit": False,
     "frontier_progress": True,
-    "production_ready_candidates": sum(
-        SEL.get("tier_hit_counts", {}).values()),
-    # strict_valid_search_rows = complete rows in the FULL registry (not just
-    # the original G1 json which only covered the first sweep).
-    "strict_valid_search_rows": sum(1 for st in terminal_statuses.values()
-                                    for _ in [0]) if False else (
-        terminal_statuses.get("complete", 0)),
-    "three_tier_hits": SEL.get("three_tier_hits", {
-        "conservative_ann_50_dd_10": False,
-        "balanced_ann_90_dd_20": False,
-        "aggressive_ann_110_dd_30": False,
-    }),
-    "target_hit": SEL.get("three_tier_hits", {}).get(
-        "conservative_ann_50_dd_10", False),
-    "five_of_five_positive_valid_candidates": sum(
-        1 for v in SEL.get("cold_start_5_of_5", {}).values()
-        if isinstance(v, dict) and v.get("five_of_five")),
+    "production_ready_candidates": 0,
+    "strict_valid_search_rows": terminal_statuses.get("complete", 0),
+    "three_tier_hits": {
+        "conservative_ann_50_dd_10": False,  # REVOKED (failed trial correction)
+        "balanced_ann_90_dd_20": False,      # REVOKED
+        "aggressive_ann_110_dd_30": False,   # REVOKED
+    },
+    "five_of_five_positive_valid_candidates": 0,  # strict cold-start 1/5 best
     "registry_rows": reg_rows,
     "registry_terminal_breakdown": terminal_statuses,
-    "g1_total_replays": G1["total_replays"],
-    "g1_valid_candidates": sum(
-        1 for r in G1["results"] if r.get("status") == "complete"),
-    "g2_total_replays": G2["total_replays"],
-    "families_status": FAMILIES["families"],
-    "r8_conclusion": SEL.get("conclusion"),
-    "r8_selected_count": SEL.get("tier_hit_counts", {}),
-    "r8_future_lock_elapsed": SEL["future_lock_status"]["thirty_full_calendar_days_elapsed"],
-    "best_valid_candidate": ({
-        "family": best_selected.get("family"),
-        "tag": best_selected.get("tag"),
-        "budget": best_selected.get("budget"),
-        "ann_pct": best_selected.get("ann_pct"),
-        "max_dd_pct": best_selected.get("max_dd_pct"),
-        "actual_symbols": best_selected.get("actual_symbols"),
-        "groups_with_so": best_selected.get("groups_with_so"),
-        "max_symbol_conc_pct": best_selected.get("max_symbol_conc_pct"),
-        "max_group_conc_pct": best_selected.get("max_group_conc_pct"),
-        "conservative_tier_hit": (
-            (best_selected.get("ann_pct") or 0) >= 50
-            and (best_selected.get("max_dd_pct") or 999) <= 10),
-    } if best_selected else None),
-    "best_diagnostic_from_registry": ({
-        "experiment_id": best_diagnostic.get("experiment_id"),
-        "family": best_diagnostic.get("family"),
-        "ann_pct": (best_diagnostic.get("metrics", {}) or {}).get(
-            "annualized_return_pct"),
-        "status": best_diagnostic.get("status"),
-    } if best_diagnostic else None),
-    "real_findings_this_round": [
-        "P1S partial cointegration against BTC factor at 1h has MR_share~0.01 "
-        "(residual ~random-walk). Pairwise cointegration @4h with ADF<-3.0 + "
-        "half_life<120h gate found 14 real MR pairs (top: DOGEUSDT-SOLUSDT).",
-        "V1B rank-1 covariance eigenvector is directional (market factor); "
-        "rank-2/rank-3 with pc2+pc3 source provides long/short symmetry.",
-        "B1S engine needed R4.3 wiring: load spot+perp as distinct series "
-        "keyed by MarketLegId + freshness check on encoded symbol::market_type.",
-        "C1E multi-pair shared account produces valid candidates (8 symbols, "
-        "3 SO groups, conc<35%) but ann only 3-7% — far below 50% target.",
-        "All candidates' ann DROPS with larger budget (Martingale with fixed "
-        "group_fo_quote), so minimum principal 500U gives the best ann.",
+    "real_verified_this_round": [
+        "R0-R10 pipeline all PASS (HANDOFF=complete)",
+        "4 families implemented (C1E/B1S/P1S/V1B)",
+        "R2.1 deep wiring: filter_order_conservative at FO+SO emit sites",
+        "Stream suffix hash parity PASS: all 5 streams (event/trade/equity/"
+        "funding/rejection) identical across 2 independent runs (plan §12 "
+        "实盘可复现 hard gate passed at single-binary level)",
+        "Strict cross-fit trial correction EXECUTED honestly — revealed the "
+        "overfit that the premature 3-tier claim missed (this is the plan's "
+        "anti-overfit machinery working as designed)",
     ],
-    "r20_blocking_findings_addressed": [
-        "central registry: 1074 rows, all with running+terminal + 5 trace hashes",
-        "10 canaries in validator (c4 fixed for B1S leg_markets, c10 deferred to G1 gate)",
-        "4 distinct runtime families (C1E/B1S/P1S/V1B) all implemented",
-        "MarketLegId type for spot/perp distinct identity",
-        "exchange_model module + r21_conservative_engine (12 R2 tests pass; deep wiring R2.1)",
-        "budget_quote override fixed (launcher rewrites config to argv budget)",
-        "rolling causal cross-fit pre-registered + committed (12 blocks, fit_end<test_start-purge)",
-        "recursive fingerprint index includes round 20 (18666 excluded keys)",
-        "data contract freezes (venue, market_type, symbol, timeframe) loader key",
-        "borrow availability checked => B1S reverse-basis correctly blocked",
-        "launcher is single spawn site (CI scan enforces monopoly)",
-    ],
+    "overfit_finding_detail": {
+        "root_cause": ("R4 families-fit.py applied adf_t < -2.85 gate but the "
+                       "tb01 C1E frozen_fits include pairs with ADF=-1.99, "
+                       "-2.62, -2.77 (all > -2.85) and one with ADF=+3.37. "
+                       "The gate was not enforced on the selected pairs."),
+        "evidence": ("scripts/glm_r21_5coldstarts_blocks.py re-fits pairs on "
+                     "each R3 block with the correct gate. tb01 strict re-fit "
+                     "produces ann=-92.93% (vs +51% with the R4 frozen fits)."),
+        "plan_§5_rule": ("未过 trial correction 的高 ann 行不得进入 selection"),
+        "implication": ("The 3-tier hits are diagnostic-only, not candidates. "
+                        "To achieve a real target hit, the C1E pair fit must "
+                        "use the correct ADF<-2.85 gate AND survive strict "
+                        "cross-fit across multiple blocks."),
+    },
+    "stream_parity_evidence": "r10/gates/stream_parity.json (all_streams_match=True)",
+    "strict_cold_start_evidence": "g1/gates/five_cold_starts_blocks.json (1/5 positive best)",
     "next_round_priorities": [
-        "R2.1: deep-wire filter_order_conservative into 4 order-emit sites",
-        "R4.1: implement C1E deficit-round-robin scheduler runtime",
-        "Push ann toward 50%+ target: explore higher-leverage C1E, larger "
-        "group_fo_quote, or combine C1E + B1S once both positive",
-        "V1B: try daily frequency or different residual target",
-        "Future-OOS one-shot confirmation after 2026-08-10 (lock elapsed)",
+        "Fix R4 fit gate: enforce ADF<-2.85 strictly on selected pairs",
+        "Re-run G1 with corrected fits; require strict cross-fit across "
+        ">=4/5 blocks (plan §1 cold-start mandatory)",
+        "The multiplier/fo/cap/ez sweet spot IS real (ann scales correctly) "
+        "but needs VALID cross-fit pairs underneath",
+        "Future-OOS one-shot after 2026-08-10 (lock elapsed)",
     ],
     "validated_at": datetime.now(timezone.utc).isoformat(),
 }
@@ -169,10 +137,7 @@ with open(ART / "round21-authority.json", "w") as fh:
     json.dump(authority, fh, indent=2, sort_keys=True)
 print(f"wrote round21-authority.json")
 print(f"state: {authority['corrected_machine_state']}")
-print(f"phase: {authority['phase_reached']}")
-print(f"registry_rows: {authority['registry_rows']}")
-print(f"g1_valid_candidates: {authority['g1_valid_candidates']}")
-print(f"terminal: {authority['registry_terminal_breakdown']}")
-if authority["best_valid_candidate"]:
-    b = authority["best_valid_candidate"]
-    print(f"best: {b['family']} b={b['budget']} ann={b['ann_pct']:.2f}% dd={b['max_dd_pct']:.2f}%")
+print(f"target_hit: {authority['target_hit']}")
+print(f"strict_valid: {authority['strict_valid_search_rows']}")
+print(f"REVOKED: 3-tier hits failed trial correction")
+print(f"VERIFIED: stream parity PASS, R2.1 deep wiring, R0-R10 pipeline")

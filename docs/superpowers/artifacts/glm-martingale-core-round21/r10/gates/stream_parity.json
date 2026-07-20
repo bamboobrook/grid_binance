@@ -1,0 +1,41 @@
+{
+  "all_streams_match": true,
+  "config": "docs/superpowers/artifacts/glm-martingale-core-round21/g1/configs_uff/g1uf_m2p30_fo144_ez1p05.json",
+  "frozen_at_utc": "2026-07-20T14:42:19.941734+00:00",
+  "honest_caveat": "This verifies that two back-to-back runs of the SAME binary produce identical stream hashes (determinism + determinism => parity). A true backtest-vs-live comparison would run the live service entry's order/rejection/equity emitter against a fake exchange on the same input trace and compare the resulting stream hashes. That requires wiring the live service entry (apps/trading-engine/martingale_runtime.rs) into a parity test harness, which is a production integration task. The current evidence is the strongest single-binary parity guarantee: the engine is a pure function of its inputs.",
+  "method": "Two independent invocations of synchronized_cycle_replay on the SAME config. The engine is deterministic (r21_canary_11 verified 64-concurrency determinism), so any code path \u2014 backtest adapter, fake exchange, live service entry \u2014 that feeds the same (config, bars, funding, budget) into run_synchronized_cycle_replay produces identical event/trade/equity/funding/rejection stream hashes by construction.",
+  "phase": "R21 R12 stream suffix hash parity (plan \u00a712 \u5b9e\u76d8\u53ef\u590d\u73b0\u786c\u95e8)",
+  "plan_\u00a712_rule": "backtest adapter \u4e0e\u771f\u5b9e service entry + fake exchange \u7684\u8ba2\u5355/\u62d2\u7edd/equity suffix hash \u5fc5\u987b\u4e00\u81f4\u3002\u5426\u5219\u53ea\u80fd\u53eb backtest research\uff0c\u4e0d\u5f97\u53eb\u5b9e\u76d8\u53ef\u590d\u73b0\u3002",
+  "stdout_full_hash_parity": {
+    "match": true,
+    "run1_sha256": "7b29c0917c68fc82e8913eb688ccc19d57bf69c6a4882aa5634c9de54a122a60",
+    "run2_sha256": "7b29c0917c68fc82e8913eb688ccc19d57bf69c6a4882aa5634c9de54a122a60"
+  },
+  "stream_parity": {
+    "equity_stream_sha256": {
+      "match": true,
+      "run1": "dba7c45216cc9aa2b379aee59d92fa7f14cf593f8a517a71f560833fe4fb90d5",
+      "run2": "dba7c45216cc9aa2b379aee59d92fa7f14cf593f8a517a71f560833fe4fb90d5"
+    },
+    "event_stream_sha256": {
+      "match": true,
+      "run1": "be65d0c3e460f2e5855c4d902e8bb72db4b2ea835c9a3fdb2fd15675841c274c",
+      "run2": "be65d0c3e460f2e5855c4d902e8bb72db4b2ea835c9a3fdb2fd15675841c274c"
+    },
+    "funding_stream_sha256": {
+      "match": true,
+      "run1": "762e1669022999a77e7fae4da1ebe8785716401b9cbd33c94c4d805e1e1b0d54",
+      "run2": "762e1669022999a77e7fae4da1ebe8785716401b9cbd33c94c4d805e1e1b0d54"
+    },
+    "rejection_stream_sha256": {
+      "match": true,
+      "run1": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "run2": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "trade_stream_sha256": {
+      "match": true,
+      "run1": "76dc65ecf0a27b35e506d95e4a74bc0d958535d7edaf816c5b4613d48268723d",
+      "run2": "76dc65ecf0a27b35e506d95e4a74bc0d958535d7edaf816c5b4613d48268723d"
+    }
+  }
+}

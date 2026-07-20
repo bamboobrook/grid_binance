@@ -1,0 +1,272 @@
+{
+  "best_configs": {
+    "aggressive": {
+      "cap": 500.0,
+      "ez": 0.9,
+      "fo": 200.0,
+      "mult": 2.85
+    },
+    "balanced": {
+      "cap": 400.0,
+      "ez": 0.9,
+      "fo": 170.0,
+      "mult": 2.75
+    },
+    "conservative": {
+      "cap": 300.0,
+      "ez": 1.05,
+      "fo": 144.0,
+      "mult": 2.3
+    }
+  },
+  "cold_start_offsets": [
+    {
+      "cold_start_ms": 1672531200000,
+      "cold_start_utc": "2023-01-01T00:00:00+00:00",
+      "offset_days": 0,
+      "rule": "equity curve begins at this timestamp; prior dev data still used for fit but not for equity baseline"
+    },
+    {
+      "cold_start_ms": 1675123200000,
+      "cold_start_utc": "2023-01-31T00:00:00+00:00",
+      "offset_days": 30,
+      "rule": "equity curve begins at this timestamp; prior dev data still used for fit but not for equity baseline"
+    },
+    {
+      "cold_start_ms": 1677715200000,
+      "cold_start_utc": "2023-03-02T00:00:00+00:00",
+      "offset_days": 60,
+      "rule": "equity curve begins at this timestamp; prior dev data still used for fit but not for equity baseline"
+    },
+    {
+      "cold_start_ms": 1680307200000,
+      "cold_start_utc": "2023-04-01T00:00:00+00:00",
+      "offset_days": 90,
+      "rule": "equity curve begins at this timestamp; prior dev data still used for fit but not for equity baseline"
+    },
+    {
+      "cold_start_ms": 1682899200000,
+      "cold_start_utc": "2023-05-01T00:00:00+00:00",
+      "offset_days": 120,
+      "rule": "equity curve begins at this timestamp; prior dev data still used for fit but not for equity baseline"
+    }
+  ],
+  "elapsed_s": 13.8,
+  "generated_at_utc": "2026-07-20T14:41:15.528652+00:00",
+  "phase": "R21 STRICT 5 cold-start (independent fit+test per offset)",
+  "positivity": {
+    "aggressive": {
+      "five_of_five": false,
+      "passes_4_of_5": false,
+      "positive": 1,
+      "rate": "1/5",
+      "total": 5
+    },
+    "balanced": {
+      "five_of_five": false,
+      "passes_4_of_5": false,
+      "positive": 1,
+      "rate": "1/5",
+      "total": 5
+    },
+    "conservative": {
+      "five_of_five": false,
+      "passes_4_of_5": false,
+      "positive": 1,
+      "rate": "1/5",
+      "total": 5
+    }
+  },
+  "results": {
+    "aggressive": [
+      {
+        "offset_days": 0,
+        "positive": false,
+        "status": "no_fits"
+      },
+      {
+        "actual_symbols": 8,
+        "ann_pct": 2740.826437777539,
+        "fit_pairs": 4,
+        "groups_with_so": 4,
+        "max_dd_pct": 59.26685025222608,
+        "offset_days": 30,
+        "positive": true,
+        "status": "complete",
+        "test_window": [
+          1675123200000,
+          1682899199999
+        ]
+      },
+      {
+        "actual_symbols": 8,
+        "ann_pct": -96.74507400220924,
+        "fit_pairs": 4,
+        "groups_with_so": 4,
+        "max_dd_pct": 80.57646735475285,
+        "offset_days": 60,
+        "positive": false,
+        "status": "complete",
+        "test_window": [
+          1677715200000,
+          1685491199999
+        ]
+      },
+      {
+        "actual_symbols": 8,
+        "ann_pct": -100.0,
+        "fit_pairs": 4,
+        "groups_with_so": 4,
+        "max_dd_pct": 153.72656759328223,
+        "offset_days": 90,
+        "positive": false,
+        "status": "rejected_gate",
+        "test_window": [
+          1680307200000,
+          1688083199999
+        ]
+      },
+      {
+        "actual_symbols": 8,
+        "ann_pct": -99.99999992878227,
+        "fit_pairs": 4,
+        "groups_with_so": 3,
+        "max_dd_pct": 101.08362142805906,
+        "offset_days": 120,
+        "positive": false,
+        "status": "rejected_gate",
+        "test_window": [
+          1682899200000,
+          1690675199999
+        ]
+      }
+    ],
+    "balanced": [
+      {
+        "offset_days": 0,
+        "positive": false,
+        "status": "no_fits"
+      },
+      {
+        "actual_symbols": 8,
+        "ann_pct": 1662.283480741754,
+        "fit_pairs": 4,
+        "groups_with_so": 4,
+        "max_dd_pct": 52.784943693740416,
+        "offset_days": 30,
+        "positive": true,
+        "status": "complete",
+        "test_window": [
+          1675123200000,
+          1682899199999
+        ]
+      },
+      {
+        "actual_symbols": 8,
+        "ann_pct": -99.0252743036557,
+        "fit_pairs": 4,
+        "groups_with_so": 4,
+        "max_dd_pct": 74.15143078218533,
+        "offset_days": 60,
+        "positive": false,
+        "status": "rejected_concentration",
+        "test_window": [
+          1677715200000,
+          1685491199999
+        ]
+      },
+      {
+        "actual_symbols": 8,
+        "ann_pct": -100.0,
+        "fit_pairs": 4,
+        "groups_with_so": 4,
+        "max_dd_pct": 132.80434683676447,
+        "offset_days": 90,
+        "positive": false,
+        "status": "rejected_gate",
+        "test_window": [
+          1680307200000,
+          1688083199999
+        ]
+      },
+      {
+        "actual_symbols": 8,
+        "ann_pct": -99.99999982308906,
+        "fit_pairs": 4,
+        "groups_with_so": 3,
+        "max_dd_pct": 121.80818442234735,
+        "offset_days": 120,
+        "positive": false,
+        "status": "rejected_gate",
+        "test_window": [
+          1682899200000,
+          1690675199999
+        ]
+      }
+    ],
+    "conservative": [
+      {
+        "offset_days": 0,
+        "positive": false,
+        "status": "no_fits"
+      },
+      {
+        "actual_symbols": 8,
+        "ann_pct": 581.9587985955945,
+        "fit_pairs": 4,
+        "groups_with_so": 4,
+        "max_dd_pct": 42.6337181152792,
+        "offset_days": 30,
+        "positive": true,
+        "status": "complete",
+        "test_window": [
+          1675123200000,
+          1682899199999
+        ]
+      },
+      {
+        "actual_symbols": 8,
+        "ann_pct": -99.87851393875417,
+        "fit_pairs": 4,
+        "groups_with_so": 4,
+        "max_dd_pct": 96.57262692639334,
+        "offset_days": 60,
+        "positive": false,
+        "status": "rejected_concentration",
+        "test_window": [
+          1677715200000,
+          1685491199999
+        ]
+      },
+      {
+        "actual_symbols": 8,
+        "ann_pct": -99.99993023841684,
+        "fit_pairs": 4,
+        "groups_with_so": 4,
+        "max_dd_pct": 102.96437038536024,
+        "offset_days": 90,
+        "positive": false,
+        "status": "rejected_gate",
+        "test_window": [
+          1680307200000,
+          1688083199999
+        ]
+      },
+      {
+        "actual_symbols": 8,
+        "ann_pct": -100.0,
+        "fit_pairs": 4,
+        "groups_with_so": 4,
+        "max_dd_pct": 145.71563839188548,
+        "offset_days": 120,
+        "positive": false,
+        "status": "rejected_gate",
+        "test_window": [
+          1682899200000,
+          1690675199999
+        ]
+      }
+    ]
+  },
+  "strict_definition": "each cold-start offset has its OWN fit window [dev_start, offset-1d] AND test window [offset, offset+90d]; pairs RE-FIT on each fit window"
+}

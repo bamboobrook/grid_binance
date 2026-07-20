@@ -1,0 +1,184 @@
+{
+  "best_configs": {
+    "aggressive": {
+      "cap": 500.0,
+      "ez": 0.9,
+      "fo": 200.0,
+      "mult": 2.85
+    },
+    "balanced": {
+      "cap": 400.0,
+      "ez": 0.9,
+      "fo": 170.0,
+      "mult": 2.75
+    },
+    "conservative": {
+      "cap": 300.0,
+      "ez": 1.05,
+      "fo": 144.0,
+      "mult": 2.3
+    }
+  },
+  "blocks": [
+    "tb01",
+    "tb02",
+    "tb03",
+    "tb04",
+    "tb05"
+  ],
+  "elapsed_s": 21.5,
+  "generated_at_utc": "2026-07-20T14:42:34.523140+00:00",
+  "phase": "R21 STRICT 5 cold-start v2 (5 non-overlapping R3 blocks)",
+  "positivity": {
+    "aggressive": {
+      "five_of_five": false,
+      "passes_4_of_5": false,
+      "positive": 0,
+      "rate": "0/5",
+      "total": 5
+    },
+    "balanced": {
+      "five_of_five": false,
+      "passes_4_of_5": false,
+      "positive": 0,
+      "rate": "0/5",
+      "total": 5
+    },
+    "conservative": {
+      "five_of_five": false,
+      "passes_4_of_5": false,
+      "positive": 1,
+      "rate": "1/5",
+      "total": 5
+    }
+  },
+  "results": {
+    "aggressive": [
+      {
+        "actual_symbols": 6,
+        "ann_pct": -98.49457357633435,
+        "block": "tb01",
+        "fit_pairs": 3,
+        "groups_with_so": 3,
+        "max_dd_pct": 67.97557086668527,
+        "positive": false,
+        "status": "rejected_concentration"
+      },
+      {
+        "actual_symbols": 6,
+        "ann_pct": -82.72889061897986,
+        "block": "tb02",
+        "fit_pairs": 3,
+        "groups_with_so": 3,
+        "max_dd_pct": 88.63698910884445,
+        "positive": false,
+        "status": "rejected_concentration"
+      },
+      {
+        "actual_symbols": 2,
+        "ann_pct": -99.02367242502447,
+        "block": "tb03",
+        "fit_pairs": 1,
+        "groups_with_so": 1,
+        "max_dd_pct": 112.65805089712069,
+        "positive": false,
+        "status": "rejected_gate"
+      },
+      {
+        "block": "tb04",
+        "positive": false,
+        "status": "no_fits"
+      },
+      {
+        "block": "tb05",
+        "positive": false,
+        "status": "no_fits"
+      }
+    ],
+    "balanced": [
+      {
+        "actual_symbols": 6,
+        "ann_pct": -99.83702154434043,
+        "block": "tb01",
+        "fit_pairs": 3,
+        "groups_with_so": 3,
+        "max_dd_pct": 86.71478171898778,
+        "positive": false,
+        "status": "rejected_concentration"
+      },
+      {
+        "actual_symbols": 6,
+        "ann_pct": -63.20359413325678,
+        "block": "tb02",
+        "fit_pairs": 3,
+        "groups_with_so": 3,
+        "max_dd_pct": 77.87708978354121,
+        "positive": false,
+        "status": "rejected_concentration"
+      },
+      {
+        "actual_symbols": 2,
+        "ann_pct": -96.01210149210758,
+        "block": "tb03",
+        "fit_pairs": 1,
+        "groups_with_so": 1,
+        "max_dd_pct": 95.94766212751007,
+        "positive": false,
+        "status": "rejected_concentration"
+      },
+      {
+        "block": "tb04",
+        "positive": false,
+        "status": "no_fits"
+      },
+      {
+        "block": "tb05",
+        "positive": false,
+        "status": "no_fits"
+      }
+    ],
+    "conservative": [
+      {
+        "actual_symbols": 6,
+        "ann_pct": -92.93252145546285,
+        "block": "tb01",
+        "fit_pairs": 3,
+        "groups_with_so": 3,
+        "max_dd_pct": 53.60775293417197,
+        "positive": false,
+        "status": "rejected_concentration"
+      },
+      {
+        "actual_symbols": 6,
+        "ann_pct": 185.04127653515243,
+        "block": "tb02",
+        "fit_pairs": 3,
+        "groups_with_so": 3,
+        "max_dd_pct": 46.278271382956255,
+        "positive": true,
+        "status": "rejected_concentration"
+      },
+      {
+        "actual_symbols": 2,
+        "ann_pct": -83.31277730749984,
+        "block": "tb03",
+        "fit_pairs": 1,
+        "groups_with_so": 1,
+        "max_dd_pct": 67.71732012799679,
+        "positive": false,
+        "status": "rejected_concentration"
+      },
+      {
+        "block": "tb04",
+        "positive": false,
+        "status": "no_fits"
+      },
+      {
+        "block": "tb05",
+        "positive": false,
+        "status": "no_fits"
+      }
+    ]
+  },
+  "strict_definition": "5 non-overlapping R3 test blocks (tb01-tb05) each with its own expanding fit window; pairs RE-FIT per block. Each block is an independent causal (fit, test) unit."
+}

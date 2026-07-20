@@ -1,62 +1,24 @@
 {
   "additive_to": "docs/superpowers/artifacts/glm-martingale-core-round20/round20-corrected-authority.json",
-  "authority": "glm_round21_strict_execution_per_chatgpt_plan",
-  "best_diagnostic_from_registry": {
-    "ann_pct": 128.22721919993225,
-    "experiment_id": "g1a3_tb01_m2p85_fo200_ez0p90",
-    "family": "C1E",
-    "status": "complete"
-  },
-  "best_valid_candidate": {
-    "actual_symbols": 8,
-    "ann_pct": 128.22721919993225,
-    "budget": 500.0,
-    "conservative_tier_hit": false,
-    "family": "C1E",
-    "groups_with_so": 4,
-    "max_dd_pct": 16.87036479073721,
-    "max_group_conc_pct": 40.197386151788486,
-    "max_symbol_conc_pct": 36.892794653607886,
-    "tag": "g1a3_tb01_m2p85_fo200_ez0p90"
-  },
-  "commit_sha": "75c19aa411497e797305e7515b1005577ec45572",
-  "corrected_machine_state": "TARGET_HIT_PROVISIONAL_FUTURE_OOS_PENDING_LOCK",
-  "families_status": {
-    "B1S": {
-      "fits": 72,
-      "note": "spot/perp basis fits with distinct MarketLegId; engine R4.3 loader now loads spot+perp as distinct series; reverse-basis blocked_missing_borrow_data per R1 data contract",
-      "status": "implemented"
-    },
-    "C1E": {
-      "fits": 5,
-      "note": "disjoint OLS residual pair groups fit; scheduler config frozen; deficit-round-robin scheduler runtime call-site is R4.1 follow-up",
-      "status": "implemented"
-    },
-    "P1S": {
-      "fits": 14,
-      "note": "pairwise cointegration @4h with ADF<-3.0 + half_life<120h gate (the original 1-phi^2 MR_share gate was a wrong proxy for the P1 state-space MR innovation share; plan \u00a76.3 only requires ADF + half_life). PC1 factor attempt produced 0 fits even at 4h. TRUE RW+MR state-space + Soft-SEL (10.3390/a19060442) is the R4.2 deep implementation item.",
-      "status": "implemented"
-    },
-    "V1B": {
-      "fits": 9,
-      "note": "rank-2/rank-3 VECM with budget projection; the rank-1 covariance eigenvector was directional (market factor) and could not satisfy both-side gross>=0.35; pc2+pc3 source provides the required long/short symmetry. Signed weights now satisfy sum|w|=1, max|w|<=0.25, long_gross>=0.35, short_gross>=0.35, non-zero legs>=5.",
-      "status": "implemented"
-    }
-  },
-  "five_of_five_positive_valid_candidates": 3,
+  "authority": "glm_round21_strict_execution_per_chatgpt_plan_HONEST_REVOCATION",
+  "commit_sha": "e51a58283f83d2bd9eeb9c7b030d542dbb80442a",
+  "corrected_machine_state": "VALID_CROSSFIT_NO_TARGET",
+  "five_of_five_positive_valid_candidates": 0,
   "frontier_progress": true,
-  "g1_total_replays": 432,
-  "g1_valid_candidates": 128,
-  "g2_total_replays": 48,
   "generated_date": "2026-07-20",
-  "machine_state_reason": "All R0-R10 phases PASS (HANDOFF=complete). ALL THREE plan \u00a71 TIERS HIT via C1E multiplier expansion: conservative ann=51.25%/dd=9.98% (14 configs), balanced ann=128.23%/dd=16.87% (63 configs), aggressive ann=128.23%/dd=16.87% (14 configs). 5/5 cold-start positive for all 3 tiers. Adapter parity verified (r21_canary_10/11). Future-OOS one-shot confirmation deferred until lock elapsed (~2026-08-10).",
+  "machine_state_reason": "HONEST REVOCATION of premature 3-tier-hit claim. The 3-tier hits (conservative 51%, balanced 100%, aggressive 128% on block tb01) FAILED strict cross-fit trial correction (plan \u00a75): strict re-fit of pairs on each R3 block's fit window with the CORRECT ADF<-2.85 gate revealed the R4 tb01 fits had gate violations (pairs with ADF=-1.99/-2.62/-2.77 and one with ADF=+3.37 were included despite the <-2.85 requirement). Strict re-fit on tb01 turns ann=-92.93% (was +51%); tb02 is +185% but rejected_concentration; tb03 -83 to -99%; tb04/tb05 produce no fits. The 3-tier hits were overfit to tb01. Per plan \u00a75 they cannot enter selection.",
   "next_round_priorities": [
-    "R2.1: deep-wire filter_order_conservative into 4 order-emit sites",
-    "R4.1: implement C1E deficit-round-robin scheduler runtime",
-    "Push ann toward 50%+ target: explore higher-leverage C1E, larger group_fo_quote, or combine C1E + B1S once both positive",
-    "V1B: try daily frequency or different residual target",
-    "Future-OOS one-shot confirmation after 2026-08-10 (lock elapsed)"
+    "Fix R4 fit gate: enforce ADF<-2.85 strictly on selected pairs",
+    "Re-run G1 with corrected fits; require strict cross-fit across >=4/5 blocks (plan \u00a71 cold-start mandatory)",
+    "The multiplier/fo/cap/ez sweet spot IS real (ann scales correctly) but needs VALID cross-fit pairs underneath",
+    "Future-OOS one-shot after 2026-08-10 (lock elapsed)"
   ],
+  "overfit_finding_detail": {
+    "evidence": "scripts/glm_r21_5coldstarts_blocks.py re-fits pairs on each R3 block with the correct gate. tb01 strict re-fit produces ann=-92.93% (vs +51% with the R4 frozen fits).",
+    "implication": "The 3-tier hits are diagnostic-only, not candidates. To achieve a real target hit, the C1E pair fit must use the correct ADF<-2.85 gate AND survive strict cross-fit across multiple blocks.",
+    "plan_\u00a75_rule": "\u672a\u8fc7 trial correction \u7684\u9ad8 ann \u884c\u4e0d\u5f97\u8fdb\u5165 selection",
+    "root_cause": "R4 families-fit.py applied adf_t < -2.85 gate but the tb01 C1E frozen_fits include pairs with ADF=-1.99, -2.62, -2.77 (all > -2.85) and one with ADF=+3.37. The gate was not enforced on the selected pairs."
+  },
   "phase_reached": "HANDOFF",
   "phase_status": {
     "G0": {
@@ -97,50 +59,32 @@
     }
   },
   "plan": "docs/superpowers/plans/2026-07-20-glm-martingale-core-round21-real-execution-crossfit-plan.md",
-  "production_ready_candidates": 91,
-  "r20_blocking_findings_addressed": [
-    "central registry: 1074 rows, all with running+terminal + 5 trace hashes",
-    "10 canaries in validator (c4 fixed for B1S leg_markets, c10 deferred to G1 gate)",
-    "4 distinct runtime families (C1E/B1S/P1S/V1B) all implemented",
-    "MarketLegId type for spot/perp distinct identity",
-    "exchange_model module + r21_conservative_engine (12 R2 tests pass; deep wiring R2.1)",
-    "budget_quote override fixed (launcher rewrites config to argv budget)",
-    "rolling causal cross-fit pre-registered + committed (12 blocks, fit_end<test_start-purge)",
-    "recursive fingerprint index includes round 20 (18666 excluded keys)",
-    "data contract freezes (venue, market_type, symbol, timeframe) loader key",
-    "borrow availability checked => B1S reverse-basis correctly blocked",
-    "launcher is single spawn site (CI scan enforces monopoly)"
+  "production_ready_candidates": 0,
+  "real_verified_this_round": [
+    "R0-R10 pipeline all PASS (HANDOFF=complete)",
+    "4 families implemented (C1E/B1S/P1S/V1B)",
+    "R2.1 deep wiring: filter_order_conservative at FO+SO emit sites",
+    "Stream suffix hash parity PASS: all 5 streams (event/trade/equity/funding/rejection) identical across 2 independent runs (plan \u00a712 \u5b9e\u76d8\u53ef\u590d\u73b0 hard gate passed at single-binary level)",
+    "Strict cross-fit trial correction EXECUTED honestly \u2014 revealed the overfit that the premature 3-tier claim missed (this is the plan's anti-overfit machinery working as designed)"
   ],
-  "r8_conclusion": "TARGET_HIT_PROVISIONAL_FUTURE_OOS_PENDING_LOCK",
-  "r8_future_lock_elapsed": false,
-  "r8_selected_count": {
-    "aggressive": 14,
-    "balanced": 63,
-    "conservative": 14
-  },
-  "real_findings_this_round": [
-    "P1S partial cointegration against BTC factor at 1h has MR_share~0.01 (residual ~random-walk). Pairwise cointegration @4h with ADF<-3.0 + half_life<120h gate found 14 real MR pairs (top: DOGEUSDT-SOLUSDT).",
-    "V1B rank-1 covariance eigenvector is directional (market factor); rank-2/rank-3 with pc2+pc3 source provides long/short symmetry.",
-    "B1S engine needed R4.3 wiring: load spot+perp as distinct series keyed by MarketLegId + freshness check on encoded symbol::market_type.",
-    "C1E multi-pair shared account produces valid candidates (8 symbols, 3 SO groups, conc<35%) but ann only 3-7% \u2014 far below 50% target.",
-    "All candidates' ann DROPS with larger budget (Martingale with fixed group_fo_quote), so minimum principal 500U gives the best ann."
-  ],
-  "registry_rows": 7104,
+  "registry_rows": 7146,
   "registry_terminal_breakdown": {
-    "complete": 1844,
+    "complete": 1848,
     "invalid_engine_bug": 925,
     "not_martingale_no_so": 4,
-    "rejected_concentration": 651,
-    "rejected_gate": 128
+    "rejected_concentration": 661,
+    "rejected_gate": 135
   },
   "round": 21,
   "schema_version": 1,
-  "strict_valid_search_rows": 1844,
-  "target_hit": true,
+  "stream_parity_evidence": "r10/gates/stream_parity.json (all_streams_match=True)",
+  "strict_cold_start_evidence": "g1/gates/five_cold_starts_blocks.json (1/5 positive best)",
+  "strict_valid_search_rows": 1848,
+  "target_hit": false,
   "three_tier_hits": {
-    "aggressive_ann_110_dd_30": true,
-    "balanced_ann_90_dd_20": true,
-    "conservative_ann_50_dd_10": true
+    "aggressive_ann_110_dd_30": false,
+    "balanced_ann_90_dd_20": false,
+    "conservative_ann_50_dd_10": false
   },
-  "validated_at": "2026-07-20T14:38:33.173875+00:00"
+  "validated_at": "2026-07-20T14:44:08.373039+00:00"
 }

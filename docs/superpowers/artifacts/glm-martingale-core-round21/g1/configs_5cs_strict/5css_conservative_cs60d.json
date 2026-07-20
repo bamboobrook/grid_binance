@@ -1,0 +1,112 @@
+{
+  "budget_quote": 500.0,
+  "fits": [
+    {
+      "betas": [
+        0.6360094390994774
+      ],
+      "fit_sha256": "be40b04925eb78c5",
+      "group_id": "C1Ecs_LINKUSDT_DOTUSDT",
+      "half_life_h": 25.254961559832765,
+      "leg_direction_signs": [
+        1,
+        -1
+      ],
+      "leg_markets": [],
+      "legs": [
+        "DOTUSDT",
+        "LINKUSDT"
+      ],
+      "mus": [
+        0.7776139207229247
+      ],
+      "residual_sigma": 0.023005311109219703,
+      "weights": []
+    },
+    {
+      "betas": [
+        1.1320616671084789
+      ],
+      "fit_sha256": "bf219abb887ad1d6",
+      "group_id": "C1Ecs_BTCUSDT_BCHUSDT",
+      "half_life_h": 26.078550977532533,
+      "leg_direction_signs": [
+        1,
+        -1
+      ],
+      "leg_markets": [],
+      "legs": [
+        "BCHUSDT",
+        "BTCUSDT"
+      ],
+      "mus": [
+        4.506875585145827
+      ],
+      "residual_sigma": 0.02798401889449158,
+      "weights": []
+    },
+    {
+      "betas": [
+        0.7047240188988935
+      ],
+      "fit_sha256": "ef918daa49ab50ee",
+      "group_id": "C1Ecs_XRPUSDT_DOGEUSDT",
+      "half_life_h": 29.503194094942312,
+      "leg_direction_signs": [
+        1,
+        -1
+      ],
+      "leg_markets": [],
+      "legs": [
+        "DOGEUSDT",
+        "XRPUSDT"
+      ],
+      "mus": [
+        0.7930936911605274
+      ],
+      "residual_sigma": 0.02308095172616023,
+      "weights": []
+    },
+    {
+      "betas": [
+        0.5615622954715871
+      ],
+      "fit_sha256": "49c4e7467ba6f13d",
+      "group_id": "C1Ecs_BNBUSDT_ADAUSDT",
+      "half_life_h": 32.86330816131461,
+      "leg_direction_signs": [
+        1,
+        -1
+      ],
+      "leg_markets": [],
+      "legs": [
+        "ADAUSDT",
+        "BNBUSDT"
+      ],
+      "mus": [
+        6.282937750124584
+      ],
+      "residual_sigma": 0.019673895096214023,
+      "weights": []
+    }
+  ],
+  "synchronized_cycle": {
+    "bar_boundary_minutes": 60,
+    "c1_scheduler": null,
+    "cycle_deadline_h": 168,
+    "entry_z": 1.05,
+    "exit_z": 0.5,
+    "family": "C1E",
+    "fit_lookback_days": 240,
+    "group_fo_quote": 144.0,
+    "group_gross_cap_pct": 300.0,
+    "inventory_reservation_skew_k": 0,
+    "jump_first_passage_gate": null,
+    "leverage": 10,
+    "max_legs": 4,
+    "multiplier": 2.3,
+    "regime_envelope": null,
+    "so_residual_step_z": 0.5,
+    "tp_net_bps_floor": 25
+  }
+}
