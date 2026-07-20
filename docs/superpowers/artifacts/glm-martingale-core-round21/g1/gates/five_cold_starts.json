@@ -1,0 +1,238 @@
+{
+  "best_configs": {
+    "aggressive": {
+      "cap": 500.0,
+      "ez": 0.9,
+      "fo": 200.0,
+      "mult": 2.85
+    },
+    "balanced": {
+      "cap": 400.0,
+      "ez": 0.9,
+      "fo": 170.0,
+      "mult": 2.75
+    },
+    "conservative": {
+      "cap": 300.0,
+      "ez": 1.05,
+      "fo": 144.0,
+      "mult": 2.3
+    }
+  },
+  "cold_start_offsets": [
+    {
+      "cold_start_ms": 1672531200000,
+      "cold_start_utc": "2023-01-01T00:00:00+00:00",
+      "offset_days": 0,
+      "rule": "equity curve begins at this timestamp; prior dev data still used for fit but not for equity baseline"
+    },
+    {
+      "cold_start_ms": 1675123200000,
+      "cold_start_utc": "2023-01-31T00:00:00+00:00",
+      "offset_days": 30,
+      "rule": "equity curve begins at this timestamp; prior dev data still used for fit but not for equity baseline"
+    },
+    {
+      "cold_start_ms": 1677715200000,
+      "cold_start_utc": "2023-03-02T00:00:00+00:00",
+      "offset_days": 60,
+      "rule": "equity curve begins at this timestamp; prior dev data still used for fit but not for equity baseline"
+    },
+    {
+      "cold_start_ms": 1680307200000,
+      "cold_start_utc": "2023-04-01T00:00:00+00:00",
+      "offset_days": 90,
+      "rule": "equity curve begins at this timestamp; prior dev data still used for fit but not for equity baseline"
+    },
+    {
+      "cold_start_ms": 1682899200000,
+      "cold_start_utc": "2023-05-01T00:00:00+00:00",
+      "offset_days": 120,
+      "rule": "equity curve begins at this timestamp; prior dev data still used for fit but not for equity baseline"
+    }
+  ],
+  "elapsed_s": 14.2,
+  "generated_at_utc": "2026-07-20T14:35:58.102999+00:00",
+  "phase": "R21 5 cold-start 5/5 (plan \u00a71)",
+  "positivity": {
+    "aggressive": {
+      "five_of_five": true,
+      "passes_4_of_5": true,
+      "positive": 5,
+      "rate": "5/5",
+      "total": 5
+    },
+    "balanced": {
+      "five_of_five": true,
+      "passes_4_of_5": true,
+      "positive": 5,
+      "rate": "5/5",
+      "total": 5
+    },
+    "conservative": {
+      "five_of_five": true,
+      "passes_4_of_5": true,
+      "positive": 5,
+      "rate": "5/5",
+      "total": 5
+    }
+  },
+  "results": {
+    "aggressive": [
+      {
+        "actual_symbols": 8,
+        "ann_pct": 128.22721919993225,
+        "groups_with_so": 4,
+        "max_dd_pct": 16.87036479073721,
+        "offset_days": 0,
+        "positive": true,
+        "status": "complete",
+        "tier": "aggressive"
+      },
+      {
+        "actual_symbols": 8,
+        "ann_pct": 128.22721919993225,
+        "groups_with_so": 4,
+        "max_dd_pct": 16.87036479073721,
+        "offset_days": 30,
+        "positive": true,
+        "status": "complete",
+        "tier": "aggressive"
+      },
+      {
+        "actual_symbols": 8,
+        "ann_pct": 128.22721919993225,
+        "groups_with_so": 4,
+        "max_dd_pct": 16.87036479073721,
+        "offset_days": 60,
+        "positive": true,
+        "status": "complete",
+        "tier": "aggressive"
+      },
+      {
+        "actual_symbols": 8,
+        "ann_pct": 128.22721919993225,
+        "groups_with_so": 4,
+        "max_dd_pct": 16.87036479073721,
+        "offset_days": 90,
+        "positive": true,
+        "status": "complete",
+        "tier": "aggressive"
+      },
+      {
+        "actual_symbols": 8,
+        "ann_pct": 128.22721919993225,
+        "groups_with_so": 4,
+        "max_dd_pct": 16.87036479073721,
+        "offset_days": 120,
+        "positive": true,
+        "status": "complete",
+        "tier": "aggressive"
+      }
+    ],
+    "balanced": [
+      {
+        "actual_symbols": 8,
+        "ann_pct": 100.25452324304864,
+        "groups_with_so": 4,
+        "max_dd_pct": 13.921226016846052,
+        "offset_days": 0,
+        "positive": true,
+        "status": "complete",
+        "tier": "balanced"
+      },
+      {
+        "actual_symbols": 8,
+        "ann_pct": 100.25452324304864,
+        "groups_with_so": 4,
+        "max_dd_pct": 13.921226016846052,
+        "offset_days": 30,
+        "positive": true,
+        "status": "complete",
+        "tier": "balanced"
+      },
+      {
+        "actual_symbols": 8,
+        "ann_pct": 100.25452324304864,
+        "groups_with_so": 4,
+        "max_dd_pct": 13.921226016846052,
+        "offset_days": 60,
+        "positive": true,
+        "status": "complete",
+        "tier": "balanced"
+      },
+      {
+        "actual_symbols": 8,
+        "ann_pct": 100.25452324304864,
+        "groups_with_so": 4,
+        "max_dd_pct": 13.921226016846052,
+        "offset_days": 90,
+        "positive": true,
+        "status": "complete",
+        "tier": "balanced"
+      },
+      {
+        "actual_symbols": 8,
+        "ann_pct": 100.25452324304864,
+        "groups_with_so": 4,
+        "max_dd_pct": 13.921226016846052,
+        "offset_days": 120,
+        "positive": true,
+        "status": "complete",
+        "tier": "balanced"
+      }
+    ],
+    "conservative": [
+      {
+        "actual_symbols": 8,
+        "ann_pct": 51.035959211604776,
+        "groups_with_so": 4,
+        "max_dd_pct": 9.878328143692897,
+        "offset_days": 0,
+        "positive": true,
+        "status": "complete",
+        "tier": "conservative"
+      },
+      {
+        "actual_symbols": 8,
+        "ann_pct": 51.035959211604776,
+        "groups_with_so": 4,
+        "max_dd_pct": 9.878328143692897,
+        "offset_days": 30,
+        "positive": true,
+        "status": "complete",
+        "tier": "conservative"
+      },
+      {
+        "actual_symbols": 8,
+        "ann_pct": 51.035959211604776,
+        "groups_with_so": 4,
+        "max_dd_pct": 9.878328143692897,
+        "offset_days": 60,
+        "positive": true,
+        "status": "complete",
+        "tier": "conservative"
+      },
+      {
+        "actual_symbols": 8,
+        "ann_pct": 51.035959211604776,
+        "groups_with_so": 4,
+        "max_dd_pct": 9.878328143692897,
+        "offset_days": 90,
+        "positive": true,
+        "status": "complete",
+        "tier": "conservative"
+      },
+      {
+        "actual_symbols": 8,
+        "ann_pct": 51.035959211604776,
+        "groups_with_so": 4,
+        "max_dd_pct": 9.878328143692897,
+        "offset_days": 120,
+        "positive": true,
+        "status": "complete",
+        "tier": "conservative"
+      }
+    ]
+  }
+}

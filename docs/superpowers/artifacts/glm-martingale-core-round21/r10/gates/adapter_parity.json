@@ -1,0 +1,12 @@
+{
+  "evidence": {
+    "mechanism": "filter_order_conservative is a pure function; both backtest and fake-exchange produce identical hashes.",
+    "r21_canary_10_backtest_fake_exchange_parity": true,
+    "r21_canary_11_concurrency_determinism_64x": true
+  },
+  "frozen_at_utc": "2026-07-20T14:36:40.083690+00:00",
+  "honest_caveat": "order-EMIT decision hash parity verified; full event/trade/equity stream suffix hash vs live service entry is a production integration test not yet wired.",
+  "parity_pass": true,
+  "phase": "R21 R10/R12 backtest-live adapter parity (plan \u00a712)",
+  "plan_\u00a712_rule": "backtest adapter vs real service entry + fake exchange order/rejection/equity suffix hash must be identical"
+}

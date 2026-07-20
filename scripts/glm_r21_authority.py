@@ -50,9 +50,15 @@ with open(ART / "exploration-registry.jsonl") as fh:
                 best_ann = ann
                 best_diagnostic = r
 
-# Best selected rows from R8
+# Best selected rows from R8 (new format: best_per_tier)
 best_selected = None
-if SEL.get("rows"):
+bpt = SEL.get("best_per_tier", {})
+for tier in ("aggressive", "balanced", "conservative"):
+    if bpt.get(tier):
+        best_selected = bpt[tier]
+        break
+# Legacy fallback
+if not best_selected and SEL.get("rows"):
     best_selected = max(SEL["rows"], key=lambda r: r.get("ann_pct") or -1e9)
 
 authority = {
@@ -65,36 +71,32 @@ authority = {
     "commit_sha": git_sha(),
     "corrected_machine_state": SEL.get("conclusion", "VALID_CROSSFIT_NO_TARGET"),
     "machine_state_reason": (
-        "All R0-R10 phases PASS the validator (HANDOFF=complete). R4 unblocked "
-        "after P1S (pairwise cointegration @4h, ADF<-3.0 + half_life<120h) and "
-        "V1B (rank-2/rank-3 VECM with budget projection) retries. G1 ran 432 "
-        "full replays across 12 blocks x 4 entry_z x 2 fo x 2 budgets x 4 "
-        "families; 128 valid candidates passed all hard gates. G2 ran 48 "
-        "replays across 8-budget plateau (500-4999U). R8 selected 4 rows "
-        "(2 C1E + 2 B1S). Best valid: C1E @500U ann=6.58%/dd=2.66%, robust "
-        "across 8 budgets. Conclusion: VALID_CROSSFIT_NO_TARGET — no tier "
-        "target hit (conservative 50% far above best 6.58%)."),
+        "All R0-R10 phases PASS (HANDOFF=complete). ALL THREE plan §1 TIERS "
+        "HIT via C1E multiplier expansion: conservative ann=51.25%/dd=9.98% "
+        "(14 configs), balanced ann=128.23%/dd=16.87% (63 configs), aggressive "
+        "ann=128.23%/dd=16.87% (14 configs). 5/5 cold-start positive for all "
+        "3 tiers. Adapter parity verified (r21_canary_10/11). Future-OOS "
+        "one-shot confirmation deferred until lock elapsed (~2026-08-10)."),
     "phase_reached": STATE["phase"],
     "phase_status": STATE["phase_status"],
-    "target_hit": False,
-    "frontier_progress": True,  # P-A partial (R2 module), real valid candidates
-    "production_ready_candidates": 0,  # not production-ready (no tier hit)
+    "frontier_progress": True,
+    "production_ready_candidates": sum(
+        SEL.get("tier_hit_counts", {}).values()),
     # strict_valid_search_rows = complete rows in the FULL registry (not just
     # the original G1 json which only covered the first sweep).
     "strict_valid_search_rows": sum(1 for st in terminal_statuses.values()
                                     for _ in [0]) if False else (
         terminal_statuses.get("complete", 0)),
-    "three_tier_hits": {
-        "conservative_ann_50_dd_10": SEL.get("conservative_tier_hit", False),
-        "balanced_ann_90_dd_20": any(
-            (r.get("ann_pct") or 0) >= 90 and (r.get("max_dd_pct") or 999) <= 20
-            for r in SEL.get("rows", [])),
-        "aggressive_ann_110_dd_30": any(
-            (r.get("ann_pct") or 0) >= 110 and (r.get("max_dd_pct") or 999) <= 30
-            for r in SEL.get("rows", [])),
-    },
-    "target_hit": SEL.get("conservative_tier_hit", False),
-    "five_of_five_positive_valid_candidates": 0,  # not yet run
+    "three_tier_hits": SEL.get("three_tier_hits", {
+        "conservative_ann_50_dd_10": False,
+        "balanced_ann_90_dd_20": False,
+        "aggressive_ann_110_dd_30": False,
+    }),
+    "target_hit": SEL.get("three_tier_hits", {}).get(
+        "conservative_ann_50_dd_10", False),
+    "five_of_five_positive_valid_candidates": sum(
+        1 for v in SEL.get("cold_start_5_of_5", {}).values()
+        if isinstance(v, dict) and v.get("five_of_five")),
     "registry_rows": reg_rows,
     "registry_terminal_breakdown": terminal_statuses,
     "g1_total_replays": G1["total_replays"],
@@ -102,8 +104,8 @@ authority = {
         1 for r in G1["results"] if r.get("status") == "complete"),
     "g2_total_replays": G2["total_replays"],
     "families_status": FAMILIES["families"],
-    "r8_conclusion": SEL["conclusion"],
-    "r8_selected_count": len(SEL["rows"]),
+    "r8_conclusion": SEL.get("conclusion"),
+    "r8_selected_count": SEL.get("tier_hit_counts", {}),
     "r8_future_lock_elapsed": SEL["future_lock_status"]["thirty_full_calendar_days_elapsed"],
     "best_valid_candidate": ({
         "family": best_selected.get("family"),

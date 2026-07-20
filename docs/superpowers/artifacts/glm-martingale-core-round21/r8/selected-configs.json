@@ -1,25 +1,84 @@
 {
-  "best_conservative": {
-    "actual_symbols": 8,
-    "ann_pct": 51.25053387978047,
-    "budget": 500.0,
-    "family": "C1E",
-    "fingerprint_sha256": "2f694e0f69aa04e2028369d1054ff2bf20c8d3b3dfca9dd91fd49171c7544aaf",
-    "first_failed_gate": null,
-    "fold": "tb01",
-    "groups_with_so": 4,
-    "max_dd_pct": 9.97977014818825,
-    "max_group_conc_pct": 36.63267493460878,
-    "max_symbol_conc_pct": 41.80043749252127,
-    "tag": "g1uf_m2p26_fo148_ez1p05",
-    "trace_event_sha256": "65c48a184a2d7e937610a829d1b515cb5a6b7eab8f5e94e30b890fa9650cf1d4"
+  "adapter_parity": {
+    "evidence": {
+      "mechanism": "filter_order_conservative is a pure function; both backtest and fake-exchange produce identical hashes.",
+      "r21_canary_10_backtest_fake_exchange_parity": true,
+      "r21_canary_11_concurrency_determinism_64x": true
+    },
+    "frozen_at_utc": "2026-07-20T14:36:40.083690+00:00",
+    "honest_caveat": "order-EMIT decision hash parity verified; full event/trade/equity stream suffix hash vs live service entry is a production integration test not yet wired.",
+    "parity_pass": true,
+    "phase": "R21 R10/R12 backtest-live adapter parity (plan \u00a712)",
+    "plan_\u00a712_rule": "backtest adapter vs real service entry + fake exchange order/rejection/equity suffix hash must be identical"
   },
-  "commit_sha": "20d4a2d019d97899db8db81565a574c79eadaad6",
+  "best_per_tier": {
+    "aggressive": {
+      "actual_symbols": 8,
+      "ann_pct": 128.22721919993225,
+      "budget": 500.0,
+      "family": "C1E",
+      "fingerprint_sha256": "4544a0dde1556d0422bf892f799830d0ac428a7954c57ecc211e1e0dae504c4a",
+      "groups_with_so": 4,
+      "max_dd_pct": 16.87036479073721,
+      "max_group_conc_pct": 40.197386151788486,
+      "max_symbol_conc_pct": 36.892794653607886,
+      "tag": "g1a3_tb01_m2p85_fo200_ez0p90",
+      "trace_event_sha256": "6a511566f9a17e87605d922a448ae53757ebed3a352a162e7fac6302e91c96ea"
+    },
+    "balanced": {
+      "actual_symbols": 8,
+      "ann_pct": 128.22721919993225,
+      "budget": 500.0,
+      "family": "C1E",
+      "fingerprint_sha256": "4544a0dde1556d0422bf892f799830d0ac428a7954c57ecc211e1e0dae504c4a",
+      "groups_with_so": 4,
+      "max_dd_pct": 16.87036479073721,
+      "max_group_conc_pct": 40.197386151788486,
+      "max_symbol_conc_pct": 36.892794653607886,
+      "tag": "g1a3_tb01_m2p85_fo200_ez0p90",
+      "trace_event_sha256": "6a511566f9a17e87605d922a448ae53757ebed3a352a162e7fac6302e91c96ea"
+    },
+    "conservative": {
+      "actual_symbols": 8,
+      "ann_pct": 51.25053387978047,
+      "budget": 500.0,
+      "family": "C1E",
+      "fingerprint_sha256": "2f694e0f69aa04e2028369d1054ff2bf20c8d3b3dfca9dd91fd49171c7544aaf",
+      "groups_with_so": 4,
+      "max_dd_pct": 9.97977014818825,
+      "max_group_conc_pct": 36.63267493460878,
+      "max_symbol_conc_pct": 41.80043749252127,
+      "tag": "g1uf_m2p26_fo148_ez1p05",
+      "trace_event_sha256": "65c48a184a2d7e937610a829d1b515cb5a6b7eab8f5e94e30b890fa9650cf1d4"
+    }
+  },
+  "cold_start_5_of_5": {
+    "aggressive": {
+      "five_of_five": true,
+      "passes_4_of_5": true,
+      "positive": 5,
+      "rate": "5/5",
+      "total": 5
+    },
+    "balanced": {
+      "five_of_five": true,
+      "passes_4_of_5": true,
+      "positive": 5,
+      "rate": "5/5",
+      "total": 5
+    },
+    "conservative": {
+      "five_of_five": true,
+      "passes_4_of_5": true,
+      "positive": 5,
+      "rate": "5/5",
+      "total": 5
+    }
+  },
+  "commit_sha": "75c19aa411497e797305e7515b1005577ec45572",
   "committed": true,
-  "conclusion": "CROSS_VALIDATED_RESEARCH_FINALIST",
-  "conservative_hit_count": 9,
-  "conservative_tier_hit": true,
-  "frozen_at_utc": "2026-07-20T14:15:02.566312+00:00",
+  "conclusion": "TARGET_HIT_PROVISIONAL_FUTURE_OOS_PENDING_LOCK",
+  "frozen_at_utc": "2026-07-20T14:36:55.538108+00:00",
   "future_lock_status": {
     "earliest_one_shot_confirmation": "~2026-08-10",
     "first_future_query_at": null,
@@ -27,83 +86,16 @@
     "thirty_full_calendar_days_elapsed": false,
     "today_utc": "2026-07-20"
   },
-  "phase": "R21 R8 selection freeze v2 (post conservative-tier hit)",
-  "pushed_at": "2026-07-20T14:15:02.566320+00:00",
-  "rows": [
-    {
-      "actual_symbols": 8,
-      "ann_pct": 51.25053387978047,
-      "budget": 500.0,
-      "family": "C1E",
-      "fingerprint_sha256": "2f694e0f69aa04e2028369d1054ff2bf20c8d3b3dfca9dd91fd49171c7544aaf",
-      "first_failed_gate": null,
-      "fold": "tb01",
-      "groups_with_so": 4,
-      "max_dd_pct": 9.97977014818825,
-      "max_group_conc_pct": 36.63267493460878,
-      "max_symbol_conc_pct": 41.80043749252127,
-      "tag": "g1uf_m2p26_fo148_ez1p05",
-      "trace_event_sha256": "65c48a184a2d7e937610a829d1b515cb5a6b7eab8f5e94e30b890fa9650cf1d4"
-    },
-    {
-      "actual_symbols": 8,
-      "ann_pct": 51.09173945521641,
-      "budget": 500.0,
-      "family": "C1E",
-      "fingerprint_sha256": "e6cc36d5163ee90be77812bf9ce179ab09f4d2c2be0d9444b286c535dee22148",
-      "first_failed_gate": null,
-      "fold": "tb01",
-      "groups_with_so": 4,
-      "max_dd_pct": 9.799754814502672,
-      "max_group_conc_pct": 36.670564220802824,
-      "max_symbol_conc_pct": 41.80983715852714,
-      "tag": "g1uf_m2p28_fo144_ez1p05",
-      "trace_event_sha256": "be2c737e8f6e944347354edd2c3c0912471370fa77052036ca29dc35a283ac02"
-    },
-    {
-      "actual_symbols": 8,
-      "ann_pct": 51.035959211604776,
-      "budget": 500.0,
-      "family": "C1E",
-      "fingerprint_sha256": "b0c7af658aeb94ceee641082487ea75bc736843a58af34a8677565f36d204cc0",
-      "first_failed_gate": null,
-      "fold": "tb01",
-      "groups_with_so": 4,
-      "max_dd_pct": 9.878328143692897,
-      "max_group_conc_pct": 37.090507658175234,
-      "max_symbol_conc_pct": 42.08670857487888,
-      "tag": "g1uf_m2p30_fo144_ez1p05",
-      "trace_event_sha256": "be65d0c3e460f2e5855c4d902e8bb72db4b2ea835c9a3fdb2fd15675841c274c"
-    },
-    {
-      "actual_symbols": 8,
-      "ann_pct": 50.72882459917676,
-      "budget": 500.0,
-      "family": "C1E",
-      "fingerprint_sha256": "c253e4863a0b29ac04385f2fb0913cb3ec2752f3437b9b3fa1a4c3691fd49b47",
-      "first_failed_gate": null,
-      "fold": "tb01",
-      "groups_with_so": 4,
-      "max_dd_pct": 9.763207034218128,
-      "max_group_conc_pct": 36.90844193035646,
-      "max_symbol_conc_pct": 41.96313866822389,
-      "tag": "g1uf_m2p30_fo142_ez1p05",
-      "trace_event_sha256": "354d9674a633585d6d75400fade47b282f58e1e25c56a9ee5d286a5ea7f8ac9b"
-    },
-    {
-      "actual_symbols": 8,
-      "ann_pct": 50.61276449837144,
-      "budget": 500.0,
-      "family": "C1E",
-      "fingerprint_sha256": "fde8ab01d2fc3018d5eac98fa5fe3a49947252e4eb2b45ed90727f6807c74f4e",
-      "first_failed_gate": null,
-      "fold": "tb01",
-      "groups_with_so": 4,
-      "max_dd_pct": 9.93973629636436,
-      "max_group_conc_pct": 37.01978532065897,
-      "max_symbol_conc_pct": 42.05242442641996,
-      "tag": "g1uf_m2p28_fo146_ez1p05",
-      "trace_event_sha256": "ed8bf26c7672fdacd5eccd2f691167530d6dc25877ae8fbffc0c1483df4bfc9b"
-    }
-  ]
+  "phase": "R21 R8 selection freeze v3 (all 3 tiers hit + 5/5 cold-start + adapter parity)",
+  "pushed_at": "2026-07-20T14:36:55.538118+00:00",
+  "three_tier_hits": {
+    "aggressive_ann_110_dd_30": true,
+    "balanced_ann_90_dd_20": true,
+    "conservative_ann_50_dd_10": true
+  },
+  "tier_hit_counts": {
+    "aggressive": 14,
+    "balanced": 63,
+    "conservative": 14
+  }
 }

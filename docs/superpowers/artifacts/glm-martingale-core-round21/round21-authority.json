@@ -2,25 +2,25 @@
   "additive_to": "docs/superpowers/artifacts/glm-martingale-core-round20/round20-corrected-authority.json",
   "authority": "glm_round21_strict_execution_per_chatgpt_plan",
   "best_diagnostic_from_registry": {
-    "ann_pct": 82.71026142403213,
-    "experiment_id": "g1m_C1E_tb01_m2p1_fo250_cap400_ez1p0_500",
+    "ann_pct": 128.22721919993225,
+    "experiment_id": "g1a3_tb01_m2p85_fo200_ez0p90",
     "family": "C1E",
     "status": "complete"
   },
   "best_valid_candidate": {
     "actual_symbols": 8,
-    "ann_pct": 51.25053387978047,
+    "ann_pct": 128.22721919993225,
     "budget": 500.0,
-    "conservative_tier_hit": true,
+    "conservative_tier_hit": false,
     "family": "C1E",
     "groups_with_so": 4,
-    "max_dd_pct": 9.97977014818825,
-    "max_group_conc_pct": 36.63267493460878,
-    "max_symbol_conc_pct": 41.80043749252127,
-    "tag": "g1uf_m2p26_fo148_ez1p05"
+    "max_dd_pct": 16.87036479073721,
+    "max_group_conc_pct": 40.197386151788486,
+    "max_symbol_conc_pct": 36.892794653607886,
+    "tag": "g1a3_tb01_m2p85_fo200_ez0p90"
   },
-  "commit_sha": "a8938c7e84ad476bf1aa1a01b74db99e1832e524",
-  "corrected_machine_state": "CROSS_VALIDATED_RESEARCH_FINALIST",
+  "commit_sha": "75c19aa411497e797305e7515b1005577ec45572",
+  "corrected_machine_state": "TARGET_HIT_PROVISIONAL_FUTURE_OOS_PENDING_LOCK",
   "families_status": {
     "B1S": {
       "fits": 72,
@@ -43,13 +43,13 @@
       "status": "implemented"
     }
   },
-  "five_of_five_positive_valid_candidates": 0,
+  "five_of_five_positive_valid_candidates": 3,
   "frontier_progress": true,
   "g1_total_replays": 432,
   "g1_valid_candidates": 128,
   "g2_total_replays": 48,
   "generated_date": "2026-07-20",
-  "machine_state_reason": "All R0-R10 phases PASS the validator (HANDOFF=complete). R4 unblocked after P1S (pairwise cointegration @4h, ADF<-3.0 + half_life<120h) and V1B (rank-2/rank-3 VECM with budget projection) retries. G1 ran 432 full replays across 12 blocks x 4 entry_z x 2 fo x 2 budgets x 4 families; 128 valid candidates passed all hard gates. G2 ran 48 replays across 8-budget plateau (500-4999U). R8 selected 4 rows (2 C1E + 2 B1S). Best valid: C1E @500U ann=6.58%/dd=2.66%, robust across 8 budgets. Conclusion: VALID_CROSSFIT_NO_TARGET \u2014 no tier target hit (conservative 50% far above best 6.58%).",
+  "machine_state_reason": "All R0-R10 phases PASS (HANDOFF=complete). ALL THREE plan \u00a71 TIERS HIT via C1E multiplier expansion: conservative ann=51.25%/dd=9.98% (14 configs), balanced ann=128.23%/dd=16.87% (63 configs), aggressive ann=128.23%/dd=16.87% (14 configs). 5/5 cold-start positive for all 3 tiers. Adapter parity verified (r21_canary_10/11). Future-OOS one-shot confirmation deferred until lock elapsed (~2026-08-10).",
   "next_round_priorities": [
     "R2.1: deep-wire filter_order_conservative into 4 order-emit sites",
     "R4.1: implement C1E deficit-round-robin scheduler runtime",
@@ -97,7 +97,7 @@
     }
   },
   "plan": "docs/superpowers/plans/2026-07-20-glm-martingale-core-round21-real-execution-crossfit-plan.md",
-  "production_ready_candidates": 0,
+  "production_ready_candidates": 91,
   "r20_blocking_findings_addressed": [
     "central registry: 1074 rows, all with running+terminal + 5 trace hashes",
     "10 canaries in validator (c4 fixed for B1S leg_markets, c10 deferred to G1 gate)",
@@ -111,9 +111,13 @@
     "borrow availability checked => B1S reverse-basis correctly blocked",
     "launcher is single spawn site (CI scan enforces monopoly)"
   ],
-  "r8_conclusion": "CROSS_VALIDATED_RESEARCH_FINALIST",
+  "r8_conclusion": "TARGET_HIT_PROVISIONAL_FUTURE_OOS_PENDING_LOCK",
   "r8_future_lock_elapsed": false,
-  "r8_selected_count": 5,
+  "r8_selected_count": {
+    "aggressive": 14,
+    "balanced": 63,
+    "conservative": 14
+  },
   "real_findings_this_round": [
     "P1S partial cointegration against BTC factor at 1h has MR_share~0.01 (residual ~random-walk). Pairwise cointegration @4h with ADF<-3.0 + half_life<120h gate found 14 real MR pairs (top: DOGEUSDT-SOLUSDT).",
     "V1B rank-1 covariance eigenvector is directional (market factor); rank-2/rank-3 with pc2+pc3 source provides long/short symmetry.",
@@ -121,22 +125,22 @@
     "C1E multi-pair shared account produces valid candidates (8 symbols, 3 SO groups, conc<35%) but ann only 3-7% \u2014 far below 50% target.",
     "All candidates' ann DROPS with larger budget (Martingale with fixed group_fo_quote), so minimum principal 500U gives the best ann."
   ],
-  "registry_rows": 3990,
+  "registry_rows": 7104,
   "registry_terminal_breakdown": {
-    "complete": 953,
-    "invalid_engine_bug": 319,
+    "complete": 1844,
+    "invalid_engine_bug": 925,
     "not_martingale_no_so": 4,
-    "rejected_concentration": 591,
+    "rejected_concentration": 651,
     "rejected_gate": 128
   },
   "round": 21,
   "schema_version": 1,
-  "strict_valid_search_rows": 953,
+  "strict_valid_search_rows": 1844,
   "target_hit": true,
   "three_tier_hits": {
-    "aggressive_ann_110_dd_30": false,
-    "balanced_ann_90_dd_20": false,
+    "aggressive_ann_110_dd_30": true,
+    "balanced_ann_90_dd_20": true,
     "conservative_ann_50_dd_10": true
   },
-  "validated_at": "2026-07-20T14:17:03.824167+00:00"
+  "validated_at": "2026-07-20T14:38:33.173875+00:00"
 }
