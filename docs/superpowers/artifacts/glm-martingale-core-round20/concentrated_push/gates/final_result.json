@@ -1,0 +1,30 @@
+{
+  "phase": "Round 20 continued search — C1 neighborhood + concentrated push",
+  "total_additional_replays": 172,
+  "neighborhood_search": {
+    "configs": 37, "train_runs": 148, "survivors": 74,
+    "best_train": "cap=30 train med=83.9% wdd=18.9%",
+    "best_val": "cap=30 val=15.7%/5.3%"
+  },
+  "concentrated_push": {
+    "configs": 6, "budgets": [1000,2000,3000,4999], "validation_runs": 24,
+    "best_oos": "cap30_mult150_fo80@1000U val ann=17.7% dd=4.5% breach=False 8symbols 4groups-with-SO",
+    "all_positive_oos": true,
+    "all_low_dd": "every variant DD < 7%",
+    "three_tier_conservative_50_10": false,
+    "honest_interpretation": "The C1 concentration-repair mechanism is robust (positive OOS across all 24 variants, low DD 2-7%, real SO, 8 symbols, no breach) but the strategy class caps at ~18% ann on 2026-YTD OOS. The 50/90/110% targets are not reachable with this mechanism on this universe/window."
+  },
+  "cumulative_round20_replays": "3774 (P6-P9) + 148 (neighborhood) + 24 (push) = 3946 full synchronized_cycle_replay",
+  "best_overall_oos_combination": {
+    "family": "C1 (M1R event-balanced concentration repair)",
+    "config": "cap30_mult150_fo80 (entry_z=1.0, so_step=0.6, fo=80, mult=1.5, legs=4, lev=3, exit_z=0.25, tp=40, cap=30%)",
+    "budget": "1000U",
+    "val_ann": 17.7,
+    "val_max_dd": 4.5,
+    "actual_symbols": 8,
+    "groups_with_so": 4,
+    "breach": false,
+    "not_candidate_reason": "val ann 17.7% < conservative 50% target"
+  },
+  "conclusion": "Continued search exhausted the C1 trust-region neighborhood. Best OOS improved from 12.7% to 17.7% ann (cap30_mult150_fo80@1000U) with DD 4.5%. Still below the 50/90/110% targets. The mechanism is valid and robust but the return ceiling is structural for this strategy class."
+}
