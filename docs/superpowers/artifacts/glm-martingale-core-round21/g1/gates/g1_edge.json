@@ -1,0 +1,37 @@
+{
+  "blocks_positive": 2,
+  "blocks_total": 3,
+  "cross_fit_per_block": {
+    "tb03": {
+      "best_ann": 83.0970652869286,
+      "positive": 6,
+      "total": 6
+    },
+    "tb04": {
+      "best_ann": 19.429224067642224,
+      "positive": 8,
+      "total": 10
+    },
+    "tb06": {
+      "best_ann": -5.0795490242066865,
+      "positive": 0,
+      "total": 4
+    }
+  },
+  "elapsed_s": 96.8,
+  "frequency_hours": 24,
+  "generated_at_utc": "2026-07-20T14:58:36.210082+00:00",
+  "pairs_used": [
+    "ALGOUSDT_APTUSDT",
+    "ETCUSDT_DOGEUSDT",
+    "AVAXUSDT_DOGEUSDT",
+    "ADAUSDT_DOGEUSDT",
+    "HBARUSDT_DOGEUSDT",
+    "ANKRUSDT_FILUSDT",
+    "CRVUSDT_XRPUSDT",
+    "UNIUSDT_APTUSDT",
+    "ZECUSDT_XRPUSDT"
+  ],
+  "phase": "R21 edge G1 (daily freq, expanded universe, strict cross-fit)",
+  "total_complete": 20
+}

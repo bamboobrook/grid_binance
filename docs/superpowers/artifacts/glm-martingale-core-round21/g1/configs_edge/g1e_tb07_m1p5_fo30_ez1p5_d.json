@@ -1,0 +1,68 @@
+{
+  "budget_quote": 500.0,
+  "fits": [
+    {
+      "betas": [
+        0.8934679931982449
+      ],
+      "fit_sha256": "8ae58902d537d43d",
+      "group_id": "EDG_ALGOUSDT_APTUSDT",
+      "half_life_h": 18.98249680085735,
+      "leg_direction_signs": [
+        1,
+        -1
+      ],
+      "leg_markets": [],
+      "legs": [
+        "APTUSDT",
+        "ALGOUSDT"
+      ],
+      "mus": [
+        -3.729862326815933
+      ],
+      "residual_sigma": 0.21475008142698138,
+      "weights": []
+    },
+    {
+      "betas": [
+        0.8540227733497273
+      ],
+      "fit_sha256": "d0627ff47c18fdbc",
+      "group_id": "EDG_ANKRUSDT_FILUSDT",
+      "half_life_h": 24.628905730743462,
+      "leg_direction_signs": [
+        1,
+        -1
+      ],
+      "leg_markets": [],
+      "legs": [
+        "FILUSDT",
+        "ANKRUSDT"
+      ],
+      "mus": [
+        -4.885942827229219
+      ],
+      "residual_sigma": 0.15930709029852042,
+      "weights": []
+    }
+  ],
+  "synchronized_cycle": {
+    "bar_boundary_minutes": 1440,
+    "c1_scheduler": null,
+    "cycle_deadline_h": 168,
+    "entry_z": 1.5,
+    "exit_z": 0.5,
+    "family": "C1E",
+    "fit_lookback_days": 180,
+    "group_fo_quote": 30.0,
+    "group_gross_cap_pct": 400.0,
+    "inventory_reservation_skew_k": 0,
+    "jump_first_passage_gate": null,
+    "leverage": 10,
+    "max_legs": 4,
+    "multiplier": 1.5,
+    "regime_envelope": null,
+    "so_residual_step_z": 0.5,
+    "tp_net_bps_floor": 25
+  }
+}

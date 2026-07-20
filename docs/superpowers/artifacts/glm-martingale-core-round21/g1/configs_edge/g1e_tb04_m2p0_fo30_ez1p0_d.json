@@ -1,0 +1,112 @@
+{
+  "budget_quote": 500.0,
+  "fits": [
+    {
+      "betas": [
+        0.8516497913573097
+      ],
+      "fit_sha256": "744de818beacf342",
+      "group_id": "EDG_ALGOUSDT_APTUSDT",
+      "half_life_h": 14.947487804734159,
+      "leg_direction_signs": [
+        1,
+        -1
+      ],
+      "leg_markets": [],
+      "legs": [
+        "APTUSDT",
+        "ALGOUSDT"
+      ],
+      "mus": [
+        -3.6504121443510806
+      ],
+      "residual_sigma": 0.1939358364274428,
+      "weights": []
+    },
+    {
+      "betas": [
+        0.8097115424549745
+      ],
+      "fit_sha256": "b8bdf5cd56e213b7",
+      "group_id": "EDG_ETCUSDT_DOGEUSDT",
+      "half_life_h": 12.246545900147064,
+      "leg_direction_signs": [
+        1,
+        -1
+      ],
+      "leg_markets": [],
+      "legs": [
+        "DOGEUSDT",
+        "ETCUSDT"
+      ],
+      "mus": [
+        5.054697519822897
+      ],
+      "residual_sigma": 0.09588142962735785,
+      "weights": []
+    },
+    {
+      "betas": [
+        0.7913497858296951
+      ],
+      "fit_sha256": "a778156526bec7cb",
+      "group_id": "EDG_ANKRUSDT_FILUSDT",
+      "half_life_h": 8.561891284545062,
+      "leg_direction_signs": [
+        1,
+        -1
+      ],
+      "leg_markets": [],
+      "legs": [
+        "FILUSDT",
+        "ANKRUSDT"
+      ],
+      "mus": [
+        -4.887302530301692
+      ],
+      "residual_sigma": 0.09704808004723282,
+      "weights": []
+    },
+    {
+      "betas": [
+        -0.5661985619706493
+      ],
+      "fit_sha256": "ba9c93b32fadd0e0",
+      "group_id": "EDG_ZECUSDT_XRPUSDT",
+      "half_life_h": 15.898814350491334,
+      "leg_direction_signs": [
+        1,
+        -1
+      ],
+      "leg_markets": [],
+      "legs": [
+        "XRPUSDT",
+        "ZECUSDT"
+      ],
+      "mus": [
+        3.0552580075469553
+      ],
+      "residual_sigma": 0.18367461959900439,
+      "weights": []
+    }
+  ],
+  "synchronized_cycle": {
+    "bar_boundary_minutes": 1440,
+    "c1_scheduler": null,
+    "cycle_deadline_h": 168,
+    "entry_z": 1.0,
+    "exit_z": 0.5,
+    "family": "C1E",
+    "fit_lookback_days": 180,
+    "group_fo_quote": 30.0,
+    "group_gross_cap_pct": 400.0,
+    "inventory_reservation_skew_k": 0,
+    "jump_first_passage_gate": null,
+    "leverage": 10,
+    "max_legs": 4,
+    "multiplier": 2.0,
+    "regime_envelope": null,
+    "so_residual_step_z": 0.5,
+    "tp_net_bps_floor": 25
+  }
+}
