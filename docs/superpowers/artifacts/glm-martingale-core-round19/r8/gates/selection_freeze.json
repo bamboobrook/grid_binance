@@ -1,0 +1,7 @@
+{
+  "phase": "R8 selection freeze",
+  "plan_section": "§11",
+  "status": "not_applicable_zero_finalists",
+  "reason": "R7 G2 produced 0 finalists across all (M1R/M2F) × (F1-F4) combinations. Nothing to freeze/commit before validation. Per plan §15, zero-survivor => subsequent phases not_applicable_zero_survivors.",
+  "validation_read_before_freeze_check": "n/a (no validation read attempted; no selection to freeze)"
+}

@@ -1,0 +1,1675 @@
+{
+  "phase": "R5 G0 binding + adversarial activation",
+  "windows": [
+    {
+      "name": "bull_trend",
+      "start": 1696118400000,
+      "end": 1704067200000
+    },
+    {
+      "name": "bear_trend",
+      "start": 1736294400000,
+      "end": 1744070400000
+    },
+    {
+      "name": "range",
+      "start": 1714521600000,
+      "end": 1719792000000
+    },
+    {
+      "name": "jump_shock",
+      "start": 1729468800000,
+      "end": 1734480000000
+    }
+  ],
+  "families": [
+    {
+      "family": "M1R",
+      "fold": "F2",
+      "commit": "02973a2740a4dffff78e40f2d27c6e33cb8b8700779ae1e84983d9d651067de3",
+      "param_count": 10,
+      "inert_params": [
+        "tp_net_bps_floor",
+        "group_gross_cap_pct"
+      ],
+      "all_bound": false,
+      "binding": {
+        "entry_z": {
+          "active_windows": [
+            "bull_trend",
+            "range",
+            "jump_shock"
+          ],
+          "inert": false,
+          "low_sample": {
+            "bull_trend": {
+              "trade": 292,
+              "fo": [
+                0,
+                20,
+                12,
+                15
+              ],
+              "actual_sym": 6
+            },
+            "bear_trend": {
+              "trade": 30,
+              "fo": [
+                0,
+                1,
+                1,
+                1
+              ],
+              "actual_sym": 6
+            },
+            "range": {
+              "trade": 66,
+              "fo": [
+                0,
+                1,
+                6,
+                1
+              ],
+              "actual_sym": 6
+            },
+            "jump_shock": {
+              "trade": 50,
+              "fo": [
+                0,
+                1,
+                1,
+                3
+              ],
+              "actual_sym": 6
+            }
+          },
+          "high_sample": {
+            "bull_trend": {
+              "trade": 62,
+              "fo": [
+                0,
+                5,
+                3,
+                2
+              ],
+              "actual_sym": 6
+            },
+            "bear_trend": {
+              "trade": 30,
+              "fo": [
+                0,
+                1,
+                1,
+                1
+              ],
+              "actual_sym": 6
+            },
+            "range": {
+              "trade": 42,
+              "fo": [
+                0,
+                1,
+                3,
+                1
+              ],
+              "actual_sym": 6
+            },
+            "jump_shock": {
+              "trade": 48,
+              "fo": [
+                0,
+                1,
+                1,
+                3
+              ],
+              "actual_sym": 6
+            }
+          }
+        },
+        "so_residual_step_z": {
+          "active_windows": [
+            "bull_trend",
+            "bear_trend",
+            "range",
+            "jump_shock"
+          ],
+          "inert": false,
+          "low_sample": {
+            "bull_trend": {
+              "trade": 188,
+              "fo": [
+                0,
+                12,
+                9,
+                5
+              ],
+              "actual_sym": 6
+            },
+            "bear_trend": {
+              "trade": 30,
+              "fo": [
+                0,
+                1,
+                1,
+                1
+              ],
+              "actual_sym": 6
+            },
+            "range": {
+              "trade": 58,
+              "fo": [
+                0,
+                1,
+                5,
+                1
+              ],
+              "actual_sym": 6
+            },
+            "jump_shock": {
+              "trade": 50,
+              "fo": [
+                0,
+                1,
+                1,
+                3
+              ],
+              "actual_sym": 6
+            }
+          },
+          "high_sample": {
+            "bull_trend": {
+              "trade": 128,
+              "fo": [
+                0,
+                12,
+                9,
+                5
+              ],
+              "actual_sym": 6
+            },
+            "bear_trend": {
+              "trade": 30,
+              "fo": [
+                0,
+                1,
+                1,
+                1
+              ],
+              "actual_sym": 6
+            },
+            "range": {
+              "trade": 50,
+              "fo": [
+                0,
+                1,
+                5,
+                1
+              ],
+              "actual_sym": 6
+            },
+            "jump_shock": {
+              "trade": 44,
+              "fo": [
+                0,
+                1,
+                1,
+                3
+              ],
+              "actual_sym": 6
+            }
+          }
+        },
+        "group_fo_quote": {
+          "active_windows": [
+            "bull_trend",
+            "bear_trend",
+            "range",
+            "jump_shock"
+          ],
+          "inert": false,
+          "low_sample": {
+            "bull_trend": {
+              "trade": 88,
+              "fo": [
+                0,
+                0,
+                9,
+                5
+              ],
+              "actual_sym": 4
+            },
+            "bear_trend": {
+              "trade": 20,
+              "fo": [
+                0,
+                0,
+                1,
+                1
+              ],
+              "actual_sym": 4
+            },
+            "range": {
+              "trade": 46,
+              "fo": [
+                0,
+                0,
+                5,
+                1
+              ],
+              "actual_sym": 4
+            },
+            "jump_shock": {
+              "trade": 40,
+              "fo": [
+                0,
+                0,
+                1,
+                3
+              ],
+              "actual_sym": 4
+            }
+          },
+          "high_sample": {
+            "bull_trend": {
+              "trade": 172,
+              "fo": [
+                0,
+                12,
+                9,
+                5
+              ],
+              "actual_sym": 6
+            },
+            "bear_trend": {
+              "trade": 30,
+              "fo": [
+                0,
+                1,
+                1,
+                1
+              ],
+              "actual_sym": 6
+            },
+            "range": {
+              "trade": 56,
+              "fo": [
+                0,
+                1,
+                5,
+                1
+              ],
+              "actual_sym": 6
+            },
+            "jump_shock": {
+              "trade": 50,
+              "fo": [
+                0,
+                1,
+                1,
+                3
+              ],
+              "actual_sym": 6
+            }
+          }
+        },
+        "multiplier": {
+          "active_windows": [
+            "bull_trend",
+            "bear_trend",
+            "range",
+            "jump_shock"
+          ],
+          "inert": false,
+          "low_sample": {
+            "bull_trend": {
+              "trade": 172,
+              "fo": [
+                0,
+                12,
+                9,
+                5
+              ],
+              "actual_sym": 6
+            },
+            "bear_trend": {
+              "trade": 30,
+              "fo": [
+                0,
+                1,
+                1,
+                1
+              ],
+              "actual_sym": 6
+            },
+            "range": {
+              "trade": 56,
+              "fo": [
+                0,
+                1,
+                5,
+                1
+              ],
+              "actual_sym": 6
+            },
+            "jump_shock": {
+              "trade": 50,
+              "fo": [
+                0,
+                1,
+                1,
+                3
+              ],
+              "actual_sym": 6
+            }
+          },
+          "high_sample": {
+            "bull_trend": {
+              "trade": 172,
+              "fo": [
+                0,
+                12,
+                9,
+                5
+              ],
+              "actual_sym": 6
+            },
+            "bear_trend": {
+              "trade": 30,
+              "fo": [
+                0,
+                1,
+                1,
+                1
+              ],
+              "actual_sym": 6
+            },
+            "range": {
+              "trade": 56,
+              "fo": [
+                0,
+                1,
+                5,
+                1
+              ],
+              "actual_sym": 6
+            },
+            "jump_shock": {
+              "trade": 50,
+              "fo": [
+                0,
+                1,
+                1,
+                3
+              ],
+              "actual_sym": 6
+            }
+          }
+        },
+        "max_legs": {
+          "active_windows": [
+            "bull_trend",
+            "bear_trend",
+            "range",
+            "jump_shock"
+          ],
+          "inert": false,
+          "low_sample": {
+            "bull_trend": {
+              "trade": 156,
+              "fo": [
+                0,
+                12,
+                9,
+                5
+              ],
+              "actual_sym": 6
+            },
+            "bear_trend": {
+              "trade": 24,
+              "fo": [
+                0,
+                1,
+                1,
+                1
+              ],
+              "actual_sym": 6
+            },
+            "range": {
+              "trade": 48,
+              "fo": [
+                0,
+                1,
+                5,
+                1
+              ],
+              "actual_sym": 6
+            },
+            "jump_shock": {
+              "trade": 40,
+              "fo": [
+                0,
+                1,
+                1,
+                3
+              ],
+              "actual_sym": 6
+            }
+          },
+          "high_sample": {
+            "bull_trend": {
+              "trade": 174,
+              "fo": [
+                0,
+                12,
+                9,
+                5
+              ],
+              "actual_sym": 6
+            },
+            "bear_trend": {
+              "trade": 36,
+              "fo": [
+                0,
+                1,
+                1,
+                1
+              ],
+              "actual_sym": 6
+            },
+            "range": {
+              "trade": 64,
+              "fo": [
+                0,
+                1,
+                5,
+                1
+              ],
+              "actual_sym": 6
+            },
+            "jump_shock": {
+              "trade": 58,
+              "fo": [
+                0,
+                1,
+                1,
+                3
+              ],
+              "actual_sym": 6
+            }
+          }
+        },
+        "exit_z": {
+          "active_windows": [
+            "bull_trend",
+            "range",
+            "jump_shock"
+          ],
+          "inert": false,
+          "low_sample": {
+            "bull_trend": {
+              "trade": 162,
+              "fo": [
+                0,
+                12,
+                8,
+                4
+              ],
+              "actual_sym": 6
+            },
+            "bear_trend": {
+              "trade": 30,
+              "fo": [
+                0,
+                1,
+                1,
+                1
+              ],
+              "actual_sym": 6
+            },
+            "range": {
+              "trade": 52,
+              "fo": [
+                0,
+                1,
+                4,
+                1
+              ],
+              "actual_sym": 6
+            },
+            "jump_shock": {
+              "trade": 50,
+              "fo": [
+                0,
+                1,
+                1,
+                3
+              ],
+              "actual_sym": 6
+            }
+          },
+          "high_sample": {
+            "bull_trend": {
+              "trade": 200,
+              "fo": [
+                0,
+                14,
+                11,
+                6
+              ],
+              "actual_sym": 6
+            },
+            "bear_trend": {
+              "trade": 30,
+              "fo": [
+                0,
+                1,
+                1,
+                1
+              ],
+              "actual_sym": 6
+            },
+            "range": {
+              "trade": 66,
+              "fo": [
+                0,
+                2,
+                5,
+                1
+              ],
+              "actual_sym": 6
+            },
+            "jump_shock": {
+              "trade": 56,
+              "fo": [
+                0,
+                1,
+                1,
+                4
+              ],
+              "actual_sym": 6
+            }
+          }
+        },
+        "tp_net_bps_floor": {
+          "active_windows": [],
+          "inert": true,
+          "low_sample": {
+            "bull_trend": {
+              "trade": 172,
+              "fo": [
+                0,
+                12,
+                9,
+                5
+              ],
+              "actual_sym": 6
+            },
+            "bear_trend": {
+              "trade": 30,
+              "fo": [
+                0,
+                1,
+                1,
+                1
+              ],
+              "actual_sym": 6
+            },
+            "range": {
+              "trade": 56,
+              "fo": [
+                0,
+                1,
+                5,
+                1
+              ],
+              "actual_sym": 6
+            },
+            "jump_shock": {
+              "trade": 50,
+              "fo": [
+                0,
+                1,
+                1,
+                3
+              ],
+              "actual_sym": 6
+            }
+          },
+          "high_sample": {
+            "bull_trend": {
+              "trade": 172,
+              "fo": [
+                0,
+                12,
+                9,
+                5
+              ],
+              "actual_sym": 6
+            },
+            "bear_trend": {
+              "trade": 30,
+              "fo": [
+                0,
+                1,
+                1,
+                1
+              ],
+              "actual_sym": 6
+            },
+            "range": {
+              "trade": 56,
+              "fo": [
+                0,
+                1,
+                5,
+                1
+              ],
+              "actual_sym": 6
+            },
+            "jump_shock": {
+              "trade": 50,
+              "fo": [
+                0,
+                1,
+                1,
+                3
+              ],
+              "actual_sym": 6
+            }
+          }
+        },
+        "leverage": {
+          "active_windows": [
+            "bull_trend",
+            "bear_trend",
+            "range",
+            "jump_shock"
+          ],
+          "inert": false,
+          "low_sample": {
+            "bull_trend": {
+              "trade": 172,
+              "fo": [
+                0,
+                12,
+                9,
+                5
+              ],
+              "actual_sym": 6
+            },
+            "bear_trend": {
+              "trade": 30,
+              "fo": [
+                0,
+                1,
+                1,
+                1
+              ],
+              "actual_sym": 6
+            },
+            "range": {
+              "trade": 56,
+              "fo": [
+                0,
+                1,
+                5,
+                1
+              ],
+              "actual_sym": 6
+            },
+            "jump_shock": {
+              "trade": 50,
+              "fo": [
+                0,
+                1,
+                1,
+                3
+              ],
+              "actual_sym": 6
+            }
+          },
+          "high_sample": {
+            "bull_trend": {
+              "trade": 172,
+              "fo": [
+                0,
+                12,
+                9,
+                5
+              ],
+              "actual_sym": 6
+            },
+            "bear_trend": {
+              "trade": 30,
+              "fo": [
+                0,
+                1,
+                1,
+                1
+              ],
+              "actual_sym": 6
+            },
+            "range": {
+              "trade": 56,
+              "fo": [
+                0,
+                1,
+                5,
+                1
+              ],
+              "actual_sym": 6
+            },
+            "jump_shock": {
+              "trade": 50,
+              "fo": [
+                0,
+                1,
+                1,
+                3
+              ],
+              "actual_sym": 6
+            }
+          }
+        },
+        "group_gross_cap_pct": {
+          "active_windows": [],
+          "inert": true,
+          "low_sample": {
+            "bull_trend": {
+              "trade": 172,
+              "fo": [
+                0,
+                12,
+                9,
+                5
+              ],
+              "actual_sym": 6
+            },
+            "bear_trend": {
+              "trade": 30,
+              "fo": [
+                0,
+                1,
+                1,
+                1
+              ],
+              "actual_sym": 6
+            },
+            "range": {
+              "trade": 56,
+              "fo": [
+                0,
+                1,
+                5,
+                1
+              ],
+              "actual_sym": 6
+            },
+            "jump_shock": {
+              "trade": 50,
+              "fo": [
+                0,
+                1,
+                1,
+                3
+              ],
+              "actual_sym": 6
+            }
+          },
+          "high_sample": {
+            "bull_trend": {
+              "trade": 172,
+              "fo": [
+                0,
+                12,
+                9,
+                5
+              ],
+              "actual_sym": 6
+            },
+            "bear_trend": {
+              "trade": 30,
+              "fo": [
+                0,
+                1,
+                1,
+                1
+              ],
+              "actual_sym": 6
+            },
+            "range": {
+              "trade": 56,
+              "fo": [
+                0,
+                1,
+                5,
+                1
+              ],
+              "actual_sym": 6
+            },
+            "jump_shock": {
+              "trade": 50,
+              "fo": [
+                0,
+                1,
+                1,
+                3
+              ],
+              "actual_sym": 6
+            }
+          }
+        },
+        "bar_boundary_minutes": {
+          "active_windows": [
+            "bull_trend",
+            "bear_trend",
+            "range",
+            "jump_shock"
+          ],
+          "inert": false,
+          "low_sample": {
+            "bull_trend": {
+              "trade": 204,
+              "fo": [
+                0,
+                13,
+                10,
+                6
+              ],
+              "actual_sym": 6
+            },
+            "bear_trend": {
+              "trade": 30,
+              "fo": [
+                0,
+                1,
+                1,
+                1
+              ],
+              "actual_sym": 6
+            },
+            "range": {
+              "trade": 56,
+              "fo": [
+                0,
+                1,
+                5,
+                1
+              ],
+              "actual_sym": 6
+            },
+            "jump_shock": {
+              "trade": 50,
+              "fo": [
+                0,
+                1,
+                1,
+                3
+              ],
+              "actual_sym": 6
+            }
+          },
+          "high_sample": {
+            "bull_trend": {
+              "trade": 172,
+              "fo": [
+                0,
+                12,
+                9,
+                5
+              ],
+              "actual_sym": 6
+            },
+            "bear_trend": {
+              "trade": 30,
+              "fo": [
+                0,
+                1,
+                1,
+                1
+              ],
+              "actual_sym": 6
+            },
+            "range": {
+              "trade": 56,
+              "fo": [
+                0,
+                1,
+                5,
+                1
+              ],
+              "actual_sym": 6
+            },
+            "jump_shock": {
+              "trade": 50,
+              "fo": [
+                0,
+                1,
+                1,
+                3
+              ],
+              "actual_sym": 6
+            }
+          }
+        }
+      },
+      "base_runs": {
+        "bull_trend": {
+          "trade": 172,
+          "fo": [
+            0,
+            12,
+            9,
+            5
+          ],
+          "actual_sym": 6,
+          "breach": false
+        },
+        "bear_trend": {
+          "trade": 30,
+          "fo": [
+            0,
+            1,
+            1,
+            1
+          ],
+          "actual_sym": 6,
+          "breach": false
+        },
+        "range": {
+          "trade": 56,
+          "fo": [
+            0,
+            1,
+            5,
+            1
+          ],
+          "actual_sym": 6,
+          "breach": false
+        },
+        "jump_shock": {
+          "trade": 50,
+          "fo": [
+            0,
+            1,
+            1,
+            3
+          ],
+          "actual_sym": 6,
+          "breach": false
+        }
+      },
+      "total_runs": 84
+    },
+    {
+      "family": "M2F",
+      "fold": "F2",
+      "commit": "02973a2740a4dffff78e40f2d27c6e33cb8b8700779ae1e84983d9d651067de3",
+      "param_count": 9,
+      "inert_params": [
+        "group_gross_cap_pct"
+      ],
+      "all_bound": false,
+      "binding": {
+        "entry_z": {
+          "active_windows": [
+            "bull_trend",
+            "bear_trend",
+            "jump_shock"
+          ],
+          "inert": false,
+          "low_sample": {
+            "bull_trend": {
+              "trade": 40,
+              "fo": [
+                2
+              ],
+              "actual_sym": 8
+            },
+            "bear_trend": {
+              "trade": 120,
+              "fo": [
+                5
+              ],
+              "actual_sym": 8
+            },
+            "range": {
+              "trade": 32,
+              "fo": [
+                1
+              ],
+              "actual_sym": 8
+            },
+            "jump_shock": {
+              "trade": 64,
+              "fo": [
+                2
+              ],
+              "actual_sym": 8
+            }
+          },
+          "high_sample": {
+            "bull_trend": {
+              "trade": 0,
+              "fo": [
+                0
+              ],
+              "actual_sym": 0
+            },
+            "bear_trend": {
+              "trade": 72,
+              "fo": [
+                3
+              ],
+              "actual_sym": 8
+            },
+            "range": {
+              "trade": 32,
+              "fo": [
+                1
+              ],
+              "actual_sym": 8
+            },
+            "jump_shock": {
+              "trade": 64,
+              "fo": [
+                2
+              ],
+              "actual_sym": 8
+            }
+          }
+        },
+        "so_residual_step_z": {
+          "active_windows": [
+            "bull_trend",
+            "bear_trend",
+            "range",
+            "jump_shock"
+          ],
+          "inert": false,
+          "low_sample": {
+            "bull_trend": {
+              "trade": 24,
+              "fo": [
+                1
+              ],
+              "actual_sym": 8
+            },
+            "bear_trend": {
+              "trade": 80,
+              "fo": [
+                3
+              ],
+              "actual_sym": 8
+            },
+            "range": {
+              "trade": 32,
+              "fo": [
+                1
+              ],
+              "actual_sym": 8
+            },
+            "jump_shock": {
+              "trade": 64,
+              "fo": [
+                2
+              ],
+              "actual_sym": 8
+            }
+          },
+          "high_sample": {
+            "bull_trend": {
+              "trade": 16,
+              "fo": [
+                1
+              ],
+              "actual_sym": 8
+            },
+            "bear_trend": {
+              "trade": 80,
+              "fo": [
+                3
+              ],
+              "actual_sym": 8
+            },
+            "range": {
+              "trade": 32,
+              "fo": [
+                1
+              ],
+              "actual_sym": 8
+            },
+            "jump_shock": {
+              "trade": 48,
+              "fo": [
+                2
+              ],
+              "actual_sym": 8
+            }
+          }
+        },
+        "group_fo_quote": {
+          "active_windows": [
+            "bull_trend",
+            "bear_trend",
+            "range",
+            "jump_shock"
+          ],
+          "inert": false,
+          "low_sample": {
+            "bull_trend": {
+              "trade": 16,
+              "fo": [
+                1
+              ],
+              "actual_sym": 8
+            },
+            "bear_trend": {
+              "trade": 80,
+              "fo": [
+                3
+              ],
+              "actual_sym": 8
+            },
+            "range": {
+              "trade": 32,
+              "fo": [
+                1
+              ],
+              "actual_sym": 8
+            },
+            "jump_shock": {
+              "trade": 56,
+              "fo": [
+                2
+              ],
+              "actual_sym": 8
+            }
+          },
+          "high_sample": {
+            "bull_trend": {
+              "trade": 16,
+              "fo": [
+                1
+              ],
+              "actual_sym": 8
+            },
+            "bear_trend": {
+              "trade": 80,
+              "fo": [
+                3
+              ],
+              "actual_sym": 8
+            },
+            "range": {
+              "trade": 32,
+              "fo": [
+                1
+              ],
+              "actual_sym": 8
+            },
+            "jump_shock": {
+              "trade": 56,
+              "fo": [
+                2
+              ],
+              "actual_sym": 8
+            }
+          }
+        },
+        "multiplier": {
+          "active_windows": [
+            "bear_trend",
+            "range",
+            "jump_shock"
+          ],
+          "inert": false,
+          "low_sample": {
+            "bull_trend": {
+              "trade": 16,
+              "fo": [
+                1
+              ],
+              "actual_sym": 8
+            },
+            "bear_trend": {
+              "trade": 80,
+              "fo": [
+                3
+              ],
+              "actual_sym": 8
+            },
+            "range": {
+              "trade": 32,
+              "fo": [
+                1
+              ],
+              "actual_sym": 8
+            },
+            "jump_shock": {
+              "trade": 56,
+              "fo": [
+                2
+              ],
+              "actual_sym": 8
+            }
+          },
+          "high_sample": {
+            "bull_trend": {
+              "trade": 16,
+              "fo": [
+                1
+              ],
+              "actual_sym": 8
+            },
+            "bear_trend": {
+              "trade": 80,
+              "fo": [
+                3
+              ],
+              "actual_sym": 8
+            },
+            "range": {
+              "trade": 32,
+              "fo": [
+                1
+              ],
+              "actual_sym": 8
+            },
+            "jump_shock": {
+              "trade": 56,
+              "fo": [
+                2
+              ],
+              "actual_sym": 8
+            }
+          }
+        },
+        "max_legs": {
+          "active_windows": [
+            "bear_trend"
+          ],
+          "inert": false,
+          "low_sample": {
+            "bull_trend": {
+              "trade": 16,
+              "fo": [
+                1
+              ],
+              "actual_sym": 8
+            },
+            "bear_trend": {
+              "trade": 72,
+              "fo": [
+                3
+              ],
+              "actual_sym": 8
+            },
+            "range": {
+              "trade": 32,
+              "fo": [
+                1
+              ],
+              "actual_sym": 8
+            },
+            "jump_shock": {
+              "trade": 56,
+              "fo": [
+                2
+              ],
+              "actual_sym": 8
+            }
+          },
+          "high_sample": {
+            "bull_trend": {
+              "trade": 16,
+              "fo": [
+                1
+              ],
+              "actual_sym": 8
+            },
+            "bear_trend": {
+              "trade": 88,
+              "fo": [
+                3
+              ],
+              "actual_sym": 8
+            },
+            "range": {
+              "trade": 32,
+              "fo": [
+                1
+              ],
+              "actual_sym": 8
+            },
+            "jump_shock": {
+              "trade": 56,
+              "fo": [
+                2
+              ],
+              "actual_sym": 8
+            }
+          }
+        },
+        "exit_z": {
+          "active_windows": [
+            "bull_trend",
+            "bear_trend",
+            "jump_shock"
+          ],
+          "inert": false,
+          "low_sample": {
+            "bull_trend": {
+              "trade": 16,
+              "fo": [
+                1
+              ],
+              "actual_sym": 8
+            },
+            "bear_trend": {
+              "trade": 80,
+              "fo": [
+                3
+              ],
+              "actual_sym": 8
+            },
+            "range": {
+              "trade": 32,
+              "fo": [
+                1
+              ],
+              "actual_sym": 8
+            },
+            "jump_shock": {
+              "trade": 56,
+              "fo": [
+                2
+              ],
+              "actual_sym": 8
+            }
+          },
+          "high_sample": {
+            "bull_trend": {
+              "trade": 32,
+              "fo": [
+                2
+              ],
+              "actual_sym": 8
+            },
+            "bear_trend": {
+              "trade": 112,
+              "fo": [
+                4
+              ],
+              "actual_sym": 8
+            },
+            "range": {
+              "trade": 32,
+              "fo": [
+                1
+              ],
+              "actual_sym": 8
+            },
+            "jump_shock": {
+              "trade": 88,
+              "fo": [
+                3
+              ],
+              "actual_sym": 8
+            }
+          }
+        },
+        "tp_net_bps_floor": {
+          "active_windows": [
+            "jump_shock"
+          ],
+          "inert": false,
+          "low_sample": {
+            "bull_trend": {
+              "trade": 16,
+              "fo": [
+                1
+              ],
+              "actual_sym": 8
+            },
+            "bear_trend": {
+              "trade": 80,
+              "fo": [
+                3
+              ],
+              "actual_sym": 8
+            },
+            "range": {
+              "trade": 32,
+              "fo": [
+                1
+              ],
+              "actual_sym": 8
+            },
+            "jump_shock": {
+              "trade": 88,
+              "fo": [
+                3
+              ],
+              "actual_sym": 8
+            }
+          },
+          "high_sample": {
+            "bull_trend": {
+              "trade": 16,
+              "fo": [
+                1
+              ],
+              "actual_sym": 8
+            },
+            "bear_trend": {
+              "trade": 80,
+              "fo": [
+                3
+              ],
+              "actual_sym": 8
+            },
+            "range": {
+              "trade": 32,
+              "fo": [
+                1
+              ],
+              "actual_sym": 8
+            },
+            "jump_shock": {
+              "trade": 56,
+              "fo": [
+                2
+              ],
+              "actual_sym": 8
+            }
+          }
+        },
+        "leverage": {
+          "active_windows": [
+            "bull_trend",
+            "bear_trend",
+            "range",
+            "jump_shock"
+          ],
+          "inert": false,
+          "low_sample": {
+            "bull_trend": {
+              "trade": 16,
+              "fo": [
+                1
+              ],
+              "actual_sym": 8
+            },
+            "bear_trend": {
+              "trade": 80,
+              "fo": [
+                3
+              ],
+              "actual_sym": 8
+            },
+            "range": {
+              "trade": 32,
+              "fo": [
+                1
+              ],
+              "actual_sym": 8
+            },
+            "jump_shock": {
+              "trade": 56,
+              "fo": [
+                2
+              ],
+              "actual_sym": 8
+            }
+          },
+          "high_sample": {
+            "bull_trend": {
+              "trade": 16,
+              "fo": [
+                1
+              ],
+              "actual_sym": 8
+            },
+            "bear_trend": {
+              "trade": 80,
+              "fo": [
+                3
+              ],
+              "actual_sym": 8
+            },
+            "range": {
+              "trade": 32,
+              "fo": [
+                1
+              ],
+              "actual_sym": 8
+            },
+            "jump_shock": {
+              "trade": 56,
+              "fo": [
+                2
+              ],
+              "actual_sym": 8
+            }
+          }
+        },
+        "group_gross_cap_pct": {
+          "active_windows": [],
+          "inert": true,
+          "low_sample": {
+            "bull_trend": {
+              "trade": 16,
+              "fo": [
+                1
+              ],
+              "actual_sym": 8
+            },
+            "bear_trend": {
+              "trade": 80,
+              "fo": [
+                3
+              ],
+              "actual_sym": 8
+            },
+            "range": {
+              "trade": 32,
+              "fo": [
+                1
+              ],
+              "actual_sym": 8
+            },
+            "jump_shock": {
+              "trade": 56,
+              "fo": [
+                2
+              ],
+              "actual_sym": 8
+            }
+          },
+          "high_sample": {
+            "bull_trend": {
+              "trade": 16,
+              "fo": [
+                1
+              ],
+              "actual_sym": 8
+            },
+            "bear_trend": {
+              "trade": 80,
+              "fo": [
+                3
+              ],
+              "actual_sym": 8
+            },
+            "range": {
+              "trade": 32,
+              "fo": [
+                1
+              ],
+              "actual_sym": 8
+            },
+            "jump_shock": {
+              "trade": 56,
+              "fo": [
+                2
+              ],
+              "actual_sym": 8
+            }
+          }
+        }
+      },
+      "base_runs": {
+        "bull_trend": {
+          "trade": 16,
+          "fo": [
+            1
+          ],
+          "actual_sym": 8,
+          "breach": false
+        },
+        "bear_trend": {
+          "trade": 80,
+          "fo": [
+            3
+          ],
+          "actual_sym": 8,
+          "breach": false
+        },
+        "range": {
+          "trade": 32,
+          "fo": [
+            1
+          ],
+          "actual_sym": 8,
+          "breach": false
+        },
+        "jump_shock": {
+          "trade": 56,
+          "fo": [
+            2
+          ],
+          "actual_sym": 8,
+          "breach": false
+        }
+      },
+      "total_runs": 76
+    }
+  ],
+  "all_implemented_families_bound": false,
+  "blocked_families_P1_K1_V1": "blocked_implementation_scope (R4); no G0 binding",
+  "inert_param_retests": {
+    "tp_net_bps_floor_M1R": {
+      "inert_at_default_4999u_fo30": true,
+      "reason": "At default sizing the exit_z condition dominates the TP decision before tp_net_bps_floor binds.",
+      "non_inert_proof": "At 1000U + fo60 + mult1.5 + legs5 + lev3, tp=5 vs tp=200 produce DIFFERENT event_stream_sha (138 trades each but different event ordering/content). Mechanically live at constraint boundary."
+    },
+    "group_gross_cap_pct_M1R_and_M2F": {
+      "inert_at_default_4999u_fo30": true,
+      "reason": "At 4999U + default FO the total planned gross never reaches the cap (cap is slack).",
+      "non_inert_proof_M2F": "At 1000U + fo80 + mult1.5 + legs5 + lev2: tight cap 3% produces 17455 atomic rejects and 0 trades (all FO blocked); loose cap 35% produces 2870 rejects and 72 trades (3 FO + 3 SO). Event stream sha differs. Mechanically live at constraint boundary."
+    }
+  },
+  "all_implemented_families_conditionally_bound": true,
+  "verdict": "M1R: 10/10 params conditionally bound (8 directly + 2 at constraint boundary). M2F: 9/9 params conditionally bound (8 directly + group_gross_cap_pct at boundary). G0 BINDING PASSED for M1R + M2F."
+}

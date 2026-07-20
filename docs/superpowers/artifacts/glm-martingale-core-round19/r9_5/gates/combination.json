@@ -1,0 +1,1 @@
+{"phase": "R9.5 combination", "status": "skipped", "reason": "Plan §13 requires >=2 parent families pass G3 before combination is allowed. R7 G2 produced 0 finalists => no parent passed => combination not allowed. Skipped (valid: optional)."}
