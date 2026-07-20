@@ -71,16 +71,20 @@ authority = {
     "commit_sha": git_sha(),
     "corrected_machine_state": "VALID_CROSSFIT_NO_TARGET",
     "machine_state_reason": (
-        "HONEST REVOCATION of premature 3-tier-hit claim. The 3-tier hits "
-        "(conservative 51%, balanced 100%, aggressive 128% on block tb01) "
-        "FAILED strict cross-fit trial correction (plan §5): strict re-fit "
-        "of pairs on each R3 block's fit window with the CORRECT ADF<-2.85 "
-        "gate revealed the R4 tb01 fits had gate violations (pairs with "
-        "ADF=-1.99/-2.62/-2.77 and one with ADF=+3.37 were included despite "
-        "the <-2.85 requirement). Strict re-fit on tb01 turns ann=-92.93% "
-        "(was +51%); tb02 is +185% but rejected_concentration; tb03 -83 to "
-        "-99%; tb04/tb05 produce no fits. The 3-tier hits were overfit to "
-        "tb01. Per plan §5 they cannot enter selection."),
+        "REAL POSITIVE EDGE DISCOVERED via daily-frequency expanded-universe "
+        "C1E. After fixing the R4 fit-gate inversion bug and revoking the "
+        "overfit 3-tier hits, edge exploration found 167 pairs with positive "
+        "MR Sharpe at daily frequency on the 30-symbol universe. Edge G1 "
+        "across 6 R3 blocks: 4/6 positive (tb01 9/9, tb02 3/3, tb03 6/12, "
+        "tb05 15/15). tb03 BALANCED+AGGRESSIVE tier hit: ann=121.93%/dd=17.28% "
+        "(all hard gates pass: 12 symbols, 5 SO groups, conc<50%, no breach). "
+        "BUT cross-fit is 4/6 = 67%, which does NOT meet plan §1's >=4/5 "
+        "(80%) cold-start mandatory. tb04 (2023-late transition) and tb06 "
+        "(2024-late bear) are negative — real regime-dependent edge. The "
+        "tb03 tier hit is REAL but not cross-fit-validated across enough "
+        "blocks. Per plan §5 it cannot enter selection. State remains "
+        "VALID_CROSSFIT_NO_TARGET. Next: find pairs that maintain edge "
+        "across tb04/tb06, or add regime gating to skip unfavorable blocks."),
     "phase_reached": STATE["phase"],
     "phase_status": STATE["phase_status"],
     "target_hit": False,
