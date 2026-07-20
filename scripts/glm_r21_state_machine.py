@@ -471,9 +471,21 @@ def recompute_gate(gate: str, rows: list[dict]) -> tuple[bool, dict]:
         if not p.exists():
             return False, {"reason": "R3 manifest missing"}
         d = json.load(open(p))
-        ok = (d.get("committed") is True
-              and d.get("commit_sha") is not None)
-        return ok, d
+        # Plan §5: the manifest must be COMMITTED to git (not just on disk)
+        # before any market-data load. Verify via `git cat-file`.
+        rel = str(p.relative_to(ROOT))
+        try:
+            proc = subprocess.run(
+                ["git", "cat-file", "-e", f"HEAD:{rel}"], cwd=ROOT,
+                capture_output=True, text=True, timeout=10)
+            in_git = proc.returncode == 0
+        except Exception:
+            in_git = False
+        ok = in_git and d.get("total_test_blocks", 0) > 0
+        return ok, {"committed_to_git": in_git,
+                    "commit_sha_at_freeze": d.get("commit_sha_at_freeze"),
+                    "total_test_blocks": d.get("total_test_blocks"),
+                    "total_stitched_test_days": d.get("total_stitched_test_days")}
     if gate == "four_families_implemented":
         p = ART / "r4" / "gates" / "four_families.json"
         if not p.exists():

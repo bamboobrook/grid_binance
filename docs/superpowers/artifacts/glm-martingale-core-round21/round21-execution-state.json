@@ -1,7 +1,6 @@
 {
   "blocked_reasons": [
-    "R3: 1 failed: ['causal_crossfit_manifest_committed']",
-    "R4: blocked_predecessor",
+    "R4: 1 failed: ['four_families_implemented']",
     "G0: blocked_predecessor",
     "G1: blocked_predecessor",
     "G2: blocked_predecessor",
@@ -10,7 +9,7 @@
     "R10: blocked_predecessor",
     "HANDOFF: blocked_predecessor"
   ],
-  "phase": "R3",
+  "phase": "R4",
   "phase_status": {
     "G0": {
       "status": "blocked_predecessor"
@@ -37,13 +36,13 @@
       "status": "complete"
     },
     "R3": {
-      "failed": [
-        "causal_crossfit_manifest_committed"
-      ],
-      "status": "blocked"
+      "status": "complete"
     },
     "R4": {
-      "status": "blocked_predecessor"
+      "failed": [
+        "four_families_implemented"
+      ],
+      "status": "blocked"
     },
     "R8": {
       "status": "blocked_predecessor"
@@ -55,6 +54,6 @@
   "plan_sha256": "11eb7da27505d483cd15201434b03b67dcb332d5f34a48f40a48e811a7112e34",
   "registry_rows": 0,
   "status": "blocked",
-  "validated_at": "2026-07-20T12:57:21.046521+00:00",
-  "validator_sha256": "d0ae9708253752b8705593641562dbe3d30a462ebf31470a4e75cb3b30ae4099"
+  "validated_at": "2026-07-20T13:00:13.521276+00:00",
+  "validator_sha256": "8c340284bf34ae5d260f5470947a5a7bf4d1c45989c26f695bfe8299c0100b12"
 }
