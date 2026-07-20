@@ -79,14 +79,22 @@ authority = {
     "target_hit": False,
     "frontier_progress": True,  # P-A partial (R2 module), real valid candidates
     "production_ready_candidates": 0,  # not production-ready (no tier hit)
-    "strict_valid_search_rows": sum(
-        1 for r in G1["results"] if r.get("status") == "complete"),
+    # strict_valid_search_rows = complete rows in the FULL registry (not just
+    # the original G1 json which only covered the first sweep).
+    "strict_valid_search_rows": sum(1 for st in terminal_statuses.values()
+                                    for _ in [0]) if False else (
+        terminal_statuses.get("complete", 0)),
     "three_tier_hits": {
-        "conservative_ann_50_dd_10": False,
-        "balanced_ann_90_dd_20": False,
-        "aggressive_ann_110_dd_30": False,
+        "conservative_ann_50_dd_10": SEL.get("conservative_tier_hit", False),
+        "balanced_ann_90_dd_20": any(
+            (r.get("ann_pct") or 0) >= 90 and (r.get("max_dd_pct") or 999) <= 20
+            for r in SEL.get("rows", [])),
+        "aggressive_ann_110_dd_30": any(
+            (r.get("ann_pct") or 0) >= 110 and (r.get("max_dd_pct") or 999) <= 30
+            for r in SEL.get("rows", [])),
     },
-    "five_of_five_positive_valid_candidates": 0,
+    "target_hit": SEL.get("conservative_tier_hit", False),
+    "five_of_five_positive_valid_candidates": 0,  # not yet run
     "registry_rows": reg_rows,
     "registry_terminal_breakdown": terminal_statuses,
     "g1_total_replays": G1["total_replays"],

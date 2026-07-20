@@ -19,7 +19,7 @@
     "max_symbol_conc_pct": 41.80043749252127,
     "tag": "g1uf_m2p26_fo148_ez1p05"
   },
-  "commit_sha": "20d4a2d019d97899db8db81565a574c79eadaad6",
+  "commit_sha": "a8938c7e84ad476bf1aa1a01b74db99e1832e524",
   "corrected_machine_state": "CROSS_VALIDATED_RESEARCH_FINALIST",
   "families_status": {
     "B1S": {
@@ -131,12 +131,12 @@
   },
   "round": 21,
   "schema_version": 1,
-  "strict_valid_search_rows": 128,
-  "target_hit": false,
+  "strict_valid_search_rows": 953,
+  "target_hit": true,
   "three_tier_hits": {
     "aggressive_ann_110_dd_30": false,
     "balanced_ann_90_dd_20": false,
-    "conservative_ann_50_dd_10": false
+    "conservative_ann_50_dd_10": true
   },
-  "validated_at": "2026-07-20T14:15:35.269332+00:00"
+  "validated_at": "2026-07-20T14:17:03.824167+00:00"
 }
