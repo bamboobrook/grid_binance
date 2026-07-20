@@ -131,10 +131,10 @@ def sobol_configs(family, n):
         return [dict(fc["base"], **{k: random.choice(v) for k, v in fc["grid"].items()}) for _ in range(n)]
 
 
-def build_config(family, fits, params):
+def build_config(family, fits, params, budget):
     cfg = dict(params)
     cfg["pairs"] = []
-    return {"synchronized_cycle": cfg, "fits": fits, "budget_quote": 4999.0}
+    return {"synchronized_cycle": cfg, "fits": fits, "budget_quote": float(budget)}
 
 
 def run(cfg, budget, start, end, label):
@@ -223,7 +223,7 @@ def main():
                             n_done += 1
                             continue
                         label = f"g1_{cid}_{bname}_{int(budget)}"
-                        res = run(build_config(family, fits, params), budget, bs, be, label)
+                        res = run(build_config(family, fits, params, budget), budget, bs, be, label)
                         if res["ok"]:
                             rec = {k: v for k, v in res.items() if k != "ok" and k != "event_sha"}
                             rec["status"] = "complete"

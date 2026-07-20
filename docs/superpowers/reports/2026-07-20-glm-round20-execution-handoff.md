@@ -1,5 +1,9 @@
 # GLM Round 20 执行交接（Causal 分散修复、Spot-Perp Basis 与 Soft-SEL 计划）
 
+> **已失效（superseded）**：本报告不是权威结果。以
+> `docs/superpowers/artifacts/glm-martingale-core-round20/round20-corrected-authority.json` 和
+> `docs/superpowers/reports/2026-07-20-chatgpt-round20-execution-audit-and-correction.md` 为准。
+
 执行者：GLM。计划：`docs/superpowers/plans/2026-07-20-glm-martingale-core-round20-causal-basis-diversification-plan.md`
 审计/计划制定：ChatGPT（`docs/superpowers/reports/2026-07-20-chatgpt-round19-execution-audit-and-correction.md`）
 分支：`glm-martingale-core-round20`（从 `glm-martingale-core-round19@9778218` 创建）

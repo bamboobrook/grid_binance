@@ -1,5 +1,8 @@
 # GLM Round 20 执行交接 v2（完整搜索后）
 
+> **已失效（superseded）**：`VALID_SEARCH_NO_FRONTIER_PROGRESS` 已被独立审计推翻。以
+> `docs/superpowers/artifacts/glm-martingale-core-round20/round20-corrected-authority.json` 为准。
+
 执行者：GLM。计划：`docs/superpowers/plans/2026-07-20-glm-martingale-core-round20-causal-basis-diversification-plan.md`
 分支：`glm-martingale-core-round20`
 

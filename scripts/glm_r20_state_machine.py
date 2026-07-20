@@ -220,27 +220,69 @@ def run_negative_tests(rows):
     """The 8 negative tests from plan §2.2."""
     results = {}
     # 1. gate stub writes complete but registry 0 rows => fail
-    results["nt1_gate_stub_no_registry_rows"] = True  # enforced by this validator requiring rows
-    # 2. local registry has rows, central 0 => fail (enforced: we only read central)
-    results["nt2_local_rows_central_zero"] = len(rows) > 0 or True  # central is the only registry
+    results["nt1_gate_stub_no_registry_rows"] = len(rows) > 0
+    # 2. checkpoint/local execution evidence with a zero-row central registry => fail
+    checkpoint_rows = 0
+    for path in glob.glob(os.path.join(ART, "**", "*checkpoint.json"), recursive=True):
+        try:
+            data = json.load(open(path))
+            done = data.get("done", {}) if isinstance(data, dict) else {}
+            checkpoint_rows += len(done) if isinstance(done, (dict, list)) else 0
+        except (OSError, json.JSONDecodeError):
+            continue
+    local_rows = 0
+    for path in glob.glob(os.path.join(ART, "**", "*registry*.jsonl"), recursive=True):
+        if os.path.abspath(path) == os.path.abspath(REGISTRY):
+            continue
+        try:
+            local_rows += sum(1 for line in open(path) if line.strip())
+        except OSError:
+            continue
+    has_local_execution = checkpoint_rows > 0 or local_rows > 0
+    results["nt2_local_rows_central_zero"] = not has_local_execution or len(rows) > 0
+    results["nt2_checkpoint_rows"] = checkpoint_rows
+    results["nt2_local_registry_rows"] = local_rows
     # 3. terminal missing running/command/exit/hash => fail
     problems, orphan = check_terminal_integrity(rows)
     results["nt3_terminal_integrity"] = len(problems) == 0
     results["nt3_problems"] = problems[:5]
-    # 4. G2 config not in committed G1 survivors => fail (enforced at P8 by reading committed artifact)
-    results["nt4_g2_input_from_committed_g1"] = True  # enforced by P8 reading committed artifact
-    # 5. all_bound=false but conditional flag => fail (enforced in g0 gate)
-    results["nt5_no_conditional_flag_override"] = True  # enforced in g0_binding gate
-    # 6. missing mandatory family => round blocked (enforced in six_families gate)
-    results["nt6_all_six_families_required"] = True  # enforced in six_families gate
-    # 7. fit end later than replay first decision => invalid_data_leakage (enforced at P3)
-    results["nt7_causal_fit_no_leakage"] = True  # enforced at P3
+    # 4. G2 must consume a frozen, committed G1 survivor manifest.
+    selected = os.path.join(ART, "p7", "selected-configs.json")
+    results["nt4_g2_input_from_committed_g1"] = os.path.exists(selected)
+    # 5. all_bound=false cannot be hidden behind a conditional flag.
+    g0_path = os.path.join(ART, "p6", "gates", "g0_binding.json")
+    if os.path.exists(g0_path):
+        g0 = json.load(open(g0_path))
+        families = g0.get("families", {})
+        results["nt5_no_conditional_flag_override"] = bool(families) and all(
+            detail.get("all_bound") is True
+            for detail in families.values()
+            if detail.get("status") == "implemented"
+        )
+    else:
+        results["nt5_no_conditional_flag_override"] = False
+    # 6. all mandatory families must have registry-backed implementation evidence.
+    family_rows = {r.get("family") for r in rows if r.get("family")}
+    results["nt6_all_six_families_required"] = set(MANDATORY_FAMILIES) <= family_rows
+    # 7. every completed replay must expose a causal fit interval.
+    completed = [r for r in rows if r.get("status") == "complete"]
+    results["nt7_causal_fit_no_leakage"] = bool(completed) and all(
+        isinstance(r.get("fit_end_ms"), int)
+        and isinstance(r.get("replay_start_ms"), int)
+        and r["fit_end_ms"] < r["replay_start_ms"]
+        for r in completed
+    )
     # 8. original handoff conflicts with corrected authority => corrected wins
-    results["nt8_corrected_authority_wins"] = True  # enforced by reading corrected authority
-    all_passed = (results["nt3_terminal_integrity"]
-                  and results["nt2_local_rows_central_zero"]
-                  and results["nt1_gate_stub_no_registry_rows"])
-    # if there are no rows yet (early in round), nt3 trivially passes
+    authority_path = os.path.join(ART, "round20-corrected-authority.json")
+    if os.path.exists(authority_path):
+        authority = json.load(open(authority_path))
+        results["nt8_corrected_authority_wins"] = (
+            authority.get("corrected_machine_state") == "materially_incomplete_invalid_results"
+        )
+    else:
+        results["nt8_corrected_authority_wins"] = False
+    checks = [key for key in results if key.startswith("nt") and isinstance(results[key], bool)]
+    all_passed = all(results[key] for key in checks)
     results["all_passed"] = all_passed
     results["orphan_running"] = orphan[:5]
     return results

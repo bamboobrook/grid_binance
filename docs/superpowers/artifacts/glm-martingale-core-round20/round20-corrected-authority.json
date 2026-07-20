@@ -1,0 +1,59 @@
+{
+  "schema_version": 1,
+  "round": 20,
+  "authority": "chatgpt_independent_audit",
+  "generated_date": "2026-07-20",
+  "supersedes": [
+    "docs/superpowers/reports/2026-07-20-glm-round20-execution-handoff.md",
+    "docs/superpowers/reports/2026-07-20-glm-round20-execution-handoff-v2.md",
+    "docs/superpowers/reports/2026-07-20-glm-round20-final-handoff.md"
+  ],
+  "audit_artifact": "docs/superpowers/artifacts/glm-martingale-core-round20/audit/round20-independent-audit.json",
+  "corrected_machine_state": "materially_incomplete_invalid_results",
+  "target_hit": false,
+  "frontier_progress": false,
+  "production_ready_candidates": 0,
+  "strict_valid_search_rows": 0,
+  "self_reported_replays": 3946,
+  "evidence_classification": "research_diagnostic_only",
+  "three_tier_hits": {
+    "conservative_ann_50_dd_10": false,
+    "balanced_ann_90_dd_20": false,
+    "aggressive_ann_110_dd_30": false
+  },
+  "five_of_five_positive_valid_candidates": 0,
+  "best_reproducible_but_invalid_diagnostic": {
+    "id": "cap30_mult150_fo80@1000U",
+    "annualized_return_pct": 17.718307783416186,
+    "max_equity_drawdown_pct": 4.549096341848162,
+    "actual_symbols": 8,
+    "groups_with_so": 4,
+    "max_symbol_concentration_pct": 27.972010980803823,
+    "max_group_concentration_pct": 60.36174576924304,
+    "first_failed_gate": "max_group_concentration_pct_gt_50",
+    "additional_invalidity": "same F4 validation was repeatedly used for parameter selection"
+  },
+  "best_post_validation_common_gate_diagnostic": {
+    "id": "cap30_mult170_fo60@1000U",
+    "annualized_return_pct": 13.529113180086828,
+    "max_equity_drawdown_pct": 3.726646134074574,
+    "actual_symbols": 8,
+    "groups_with_so": 4,
+    "max_group_concentration_pct": 44.06728354570289,
+    "classification": "not_candidate_validation_contaminated_and_engine_contract_invalid"
+  },
+  "blocking_findings": [
+    "central registry has zero rows",
+    "state-machine negative tests were hard-coded stubs",
+    "six declared families map to only M1_pair or M2F runtime paths",
+    "B1 duplicate symbols are deduplicated and do not represent spot/perpetual legs",
+    "exchange_model is not called by synchronized replay",
+    "G1 configs labeled 1000U embed budget_quote=4999",
+    "outer-train-end fits are reused on earlier inner blocks",
+    "planned family quotas were only 16.7%-25% executed",
+    "selection was not frozen in a separate commit before validation",
+    "F4 validation was reused for neighborhood and concentrated parameter search",
+    "Soft-SEL was skipped despite declared parent survivors"
+  ],
+  "next_plan": "docs/superpowers/plans/2026-07-20-glm-martingale-core-round21-real-execution-crossfit-plan.md"
+}

@@ -1,0 +1,305 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-07-20T08:14:34.794543+00:00",
+  "audit_scope": "Round 20 implementation, registries, checkpoints, selection history, and selected independent replays",
+  "original_self_reported_state": "VALID_SEARCH_NO_FRONTIER_PROGRESS",
+  "corrected_machine_state": "materially_incomplete_invalid_results",
+  "target_hit": false,
+  "production_ready_candidates": 0,
+  "strict_valid_search_rows": 0,
+  "registry": {
+    "central_rows": 0,
+    "central_running_rows": 0,
+    "central_terminal_rows": 0,
+    "checkpoint_rows": {
+      "g1": 1408,
+      "g2": 2350,
+      "validation": 20
+    },
+    "self_reported_full_replays": 3946,
+    "contract_pass": false,
+    "reason": "checkpoint execution evidence exists while the mandatory append-only central registry is empty"
+  },
+  "quota": {
+    "planned_configs_per_fold": {
+      "C1": 64,
+      "B1": 96,
+      "M2R": 64,
+      "P1": 64,
+      "K1": 48,
+      "V1": 64
+    },
+    "actual_configs_per_fold": {
+      "C1": 16,
+      "B1": 16,
+      "M2R": 16,
+      "P1": 16,
+      "K1": 12,
+      "V1": 16
+    },
+    "completion_ratio": {
+      "C1": 0.25,
+      "B1": 0.16666666666666666,
+      "M2R": 0.25,
+      "P1": 0.25,
+      "K1": 0.25,
+      "V1": 0.25
+    },
+    "quota_complete": false
+  },
+  "family_runtime": {
+    "declared_to_runtime_family": {
+      "C1": "M1_pair",
+      "B1": "M2F",
+      "M2R": "M2F",
+      "P1": "M1_pair",
+      "K1": "M1_pair",
+      "V1": "M2F"
+    },
+    "distinct_runtime_families": [
+      "M1_pair",
+      "M2F"
+    ],
+    "p1_k1_online_state_implemented": false,
+    "v1_weights_present_as_extra_fit_field_count": 4,
+    "v1_weights_consumed_by_engine": false,
+    "c1_scheduler_artifact_values": [
+      null,
+      null,
+      null,
+      null
+    ],
+    "c1_scheduler_consumed_by_engine": false,
+    "b1_fit_count": 24,
+    "b1_duplicate_symbol_leg_count": 24,
+    "b1_examples": [
+      {
+        "fold": "F1",
+        "group_id": "B1_BTCUSDT",
+        "legs": [
+          "BTCUSDT",
+          "BTCUSDT"
+        ]
+      },
+      {
+        "fold": "F1",
+        "group_id": "B1_ETHUSDT",
+        "legs": [
+          "ETHUSDT",
+          "ETHUSDT"
+        ]
+      },
+      {
+        "fold": "F1",
+        "group_id": "B1_BNBUSDT",
+        "legs": [
+          "BNBUSDT",
+          "BNBUSDT"
+        ]
+      },
+      {
+        "fold": "F1",
+        "group_id": "B1_SOLUSDT",
+        "legs": [
+          "SOLUSDT",
+          "SOLUSDT"
+        ]
+      }
+    ],
+    "cli_deduplicates_market_legs": true,
+    "cli_has_market_type_leg_identity": false,
+    "exchange_module_size_bytes": 11929,
+    "exchange_model_consumed_by_sync_engine": false,
+    "exchange_model_consumed_by_cli": false,
+    "min_liquidation_buffer_unmodeled": true,
+    "family_contract_pass": false
+  },
+  "fit_causality": {
+    "blocks": [
+      {
+        "fold": "F1",
+        "block": "ib2",
+        "nominal_causal_fit_end_ms": 1676015999999,
+        "used_outer_fit_end_ms": 1688169599999,
+        "replay_start_ms": 1681199999999,
+        "replay_end_ms": 1684684799998,
+        "causal": false
+      },
+      {
+        "fold": "F1",
+        "block": "ib3",
+        "nominal_causal_fit_end_ms": 1679500799998,
+        "used_outer_fit_end_ms": 1688169599999,
+        "replay_start_ms": 1684684799998,
+        "replay_end_ms": 1688169599999,
+        "causal": false
+      },
+      {
+        "fold": "F2",
+        "block": "ib2",
+        "nominal_causal_fit_end_ms": 1681315199999,
+        "used_outer_fit_end_ms": 1704067199999,
+        "replay_start_ms": 1686499199999,
+        "replay_end_ms": 1695283199998,
+        "causal": false
+      },
+      {
+        "fold": "F2",
+        "block": "ib3",
+        "nominal_causal_fit_end_ms": 1690099199998,
+        "used_outer_fit_end_ms": 1704067199999,
+        "replay_start_ms": 1695283199998,
+        "replay_end_ms": 1704067199999,
+        "causal": false
+      },
+      {
+        "fold": "F3",
+        "block": "ib2",
+        "nominal_causal_fit_end_ms": 1691855999999,
+        "used_outer_fit_end_ms": 1735689599999,
+        "replay_start_ms": 1697039999999,
+        "replay_end_ms": 1716364799998,
+        "causal": false
+      },
+      {
+        "fold": "F3",
+        "block": "ib3",
+        "nominal_causal_fit_end_ms": 1711180799998,
+        "used_outer_fit_end_ms": 1735689599999,
+        "replay_start_ms": 1716364799998,
+        "replay_end_ms": 1735689599999,
+        "causal": false
+      },
+      {
+        "fold": "F4",
+        "block": "ib2",
+        "nominal_causal_fit_end_ms": 1702367999999,
+        "used_outer_fit_end_ms": 1767225599999,
+        "replay_start_ms": 1707551999999,
+        "replay_end_ms": 1737388799998,
+        "causal": false
+      },
+      {
+        "fold": "F4",
+        "block": "ib3",
+        "nominal_causal_fit_end_ms": 1732204799998,
+        "used_outer_fit_end_ms": 1767225599999,
+        "replay_start_ms": 1737388799998,
+        "replay_end_ms": 1767225599999,
+        "causal": false
+      }
+    ],
+    "causal_blocks": 0,
+    "leaky_blocks": 8,
+    "runner_refits_before_each_block": false
+  },
+  "validation": {
+    "p9_rows": 20,
+    "p9_common_gate_rows": 3,
+    "p9_best_common_gate": {
+      "wall_s": 3.7,
+      "ann": 3.850803181049822,
+      "dd": 17.065757675847042,
+      "trade_count": 78,
+      "breach": false,
+      "fee_quote": 2.064415948249243,
+      "funding_quote": 2.661951022742832,
+      "groups_with_so": 4,
+      "actual_symbols": 8,
+      "max_symbol_conc": 26.908649577899148,
+      "max_group_conc": 38.96865206048442,
+      "min_equity": 905.7863543447761,
+      "status": "complete",
+      "config_id": "P1_F3_013",
+      "budget": 1000,
+      "train_median_ann": 28.732349467503514,
+      "train_worst_dd": 10.533015770215126
+    },
+    "continued_validation_rows": 24,
+    "continued_common_gate_rows": 1,
+    "continued_best_common_gate": {
+      "label": "cap30_mult170_fo60",
+      "budget": 1000,
+      "ok": true,
+      "wall_s": 1.5,
+      "ann": 13.529113180086828,
+      "dd": 3.726646134074574,
+      "trade_count": 248,
+      "breach": false,
+      "groups_with_so": 4,
+      "actual_symbols": 8,
+      "max_symbol_conc": 23.721807101323204,
+      "max_group_conc": 44.06728354570289
+    },
+    "reported_best": {
+      "label": "cap30_mult150_fo80",
+      "budget": 1000,
+      "ok": true,
+      "wall_s": 1.5,
+      "ann": 17.718307783416186,
+      "dd": 4.549096341848162,
+      "trade_count": 246,
+      "breach": false,
+      "groups_with_so": 4,
+      "actual_symbols": 8,
+      "max_symbol_conc": 27.972010980803823,
+      "max_group_conc": 60.36174576924304
+    },
+    "reported_best_group_concentration_pass": false,
+    "selection_manifest_exists": false,
+    "p8_p9_same_commit": true,
+    "p8_p9_commit": "5adf50d",
+    "post_validation_neighborhood_and_direct_f4_push": true,
+    "oos_contract_pass": false,
+    "reason": "F4 validation was read repeatedly for neighborhood and direct parameter search after P9"
+  },
+  "phase_corrections": {
+    "P0": "invalid_empty_central_registry_and_stub_negative_tests",
+    "P1": "artifact_only_not_registry_proven",
+    "P2": "isolated_exchange_module_not_connected_to_replay",
+    "P3": "schedule_artifact_exists_but_runner_reuses_outer_train_end_fit",
+    "P4": "labels_created_but_six_machine_definitions_not_implemented",
+    "P5": "incorrectly_skipped_despite_c1_and_p1_g1_survivors",
+    "P6": "not_registry_proven_and_runtime_parameters_not_family_specific",
+    "P7": "research_diagnostic_only_wrong_budget_leaky_fit_and_quota_shortfall",
+    "P8": "research_diagnostic_only_not_from_committed_g1_manifest",
+    "P9": "invalid_no_selection_freeze_and_repeated_oos_reuse",
+    "P10": "blocked_predecessor",
+    "P11": "blocked_predecessor",
+    "P12": "superseded_by_chatgpt_corrected_authority"
+  },
+  "never_repeat": [
+    "Do not infer execution from checkpoint counts when the central registry is empty.",
+    "Do not map named mechanisms to M1_pair/M2F without online family state in the engine.",
+    "Do not represent spot and perpetual legs by duplicate strings that the loader deduplicates.",
+    "Do not place exchange realism in an uncalled module and claim production-conservative replay.",
+    "Do not embed 4999U in configs labeled 1000U.",
+    "Do not reuse outer-train-end fits for earlier inner blocks.",
+    "Do not call partial quotas exhaustive.",
+    "Do not read validation, tune parameters, and read the same validation again.",
+    "Do not skip Soft-SEL when its declared parent gate has survivors."
+  ],
+  "independent_replays": {
+    "best_continued_replay": {
+      "config": "docs/superpowers/artifacts/glm-martingale-core-round20/concentrated_push/configs/push_cap30_mult150_fo80_1000.json",
+      "config_sha256": "a98b6b4d5dcd7d0c2db3054f37805ab87142826431572523985a21b9f5f8bcad",
+      "stdout_sha256": "3367f9b312bc512ca4441b700e4cf9e47dfb01d62786ef54d469d6b326630f9d",
+      "annualized_return_pct": 17.718307783416186,
+      "max_drawdown_pct": 4.549096341848162,
+      "actual_symbols": 8,
+      "groups_with_so": 4,
+      "max_symbol_concentration_pct": 27.972010980803823,
+      "max_group_concentration_pct": 60.36174576924304,
+      "strict_common_gate_pass": false
+    },
+    "g1_budget_override_reproduction": {
+      "config": "docs/superpowers/artifacts/glm-martingale-core-round20/p6_p7/configs/g1_C1_F4_008_ib2_1000.json",
+      "embedded_budget_quote": 4999.0,
+      "cli_1000_output_budget_quote": 4999.0,
+      "cli_4999_output_budget_quote": 4999.0,
+      "cli_1000_stdout_sha256": "7bd558d3ad4bffa81f15da93cda44a780ae76e2a8551c9d6ef585203a5547b2e",
+      "cli_4999_stdout_sha256": "7bd558d3ad4bffa81f15da93cda44a780ae76e2a8551c9d6ef585203a5547b2e",
+      "outputs_identical": true
+    }
+  }
+}

@@ -1,5 +1,8 @@
 # GLM Round 20 最终交接（含 continued search）
 
+> **已失效（superseded）**：3946 次记录仅可作 research diagnostic，严格有效 candidate 为 0。以
+> `docs/superpowers/artifacts/glm-martingale-core-round20/round20-corrected-authority.json` 为准。
+
 执行者：GLM。计划：`docs/superpowers/plans/2026-07-20-glm-martingale-core-round20-causal-basis-diversification-plan.md`
 分支：`glm-martingale-core-round20`
 
