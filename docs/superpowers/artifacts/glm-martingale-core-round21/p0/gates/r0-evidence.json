@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "generated_at_utc": "2026-07-20T12:30:00Z",
+  "phase": "R0",
+  "deliverables": {
+    "central_registry": "docs/superpowers/artifacts/glm-martingale-core-round21/exploration-registry.jsonl",
+    "failure_ledger": "docs/superpowers/artifacts/glm-martingale-core-round21/failure-ledger.jsonl",
+    "single_launcher": "scripts/glm_r21_launcher.py (Launcher.run_synchronized_cycle = only spawn site)",
+    "validator_with_ten_canaries": "scripts/glm_r21_state_machine.py",
+    "ci_static_scan": "scripts/glm_r21_ci_scan_launcher_monopoly.py"
+  },
+  "r0_gates": {
+    "r20_corrected_authority_verified": "round20-corrected-authority.json confirms materially_incomplete_invalid_results, target_hit=false, production_ready_candidates=0, strict_valid_search_rows=0",
+    "central_state_created": "registry bootstrapped empty, launcher appends running+terminal rows",
+    "ten_canaries_pass": "all 10 canaries from plan §2 lines 72-83 promoted into the persistent validator (R20 only had ~3)"
+  },
+  "ten_canaries_status": {
+    "c1_central_vs_checkpoint": "central 0 + checkpoint 1 => blocked (R20 bug fix)",
+    "c2_terminal_integrity": "terminal missing running/raw argv/exit/hash => invalid",
+    "c3_budget_mismatch": "config budget != argv budget => invalid_budget (R20 4999U/1000U bug fix; launcher rewrites config budget_quote to argv budget)",
+    "c4_duplicate_market_leg": "duplicate (venue,market_type,symbol) leg => invalid_market_identity (R20 B1 BTCUSDT,BTCUSDT bug fix)",
+    "c5_fit_leakage": "fit_end >= replay_start - purge => invalid_data_leakage (R20 outer-fit-on-inner bug fix)",
+    "c6_family_label_vs_runtime": "family label != runtime trace family => invalid_mechanism (R20 6 families -> 2 runtime bug fix)",
+    "c7_g2_from_committed_g1": "G2 id not in committed G1 manifest => blocked (R20 G2-not-from-G1 bug fix)",
+    "c8_validation_after_selection": "validation query time <= selection commit => invalid_oos (R20 read-tune-reread bug fix)",
+    "c9_symbol_vs_group_conc": "symbol pass but group conc fail => rejected (R20 group conc 60% bug fix)",
+    "c10_quota": "registry quota short by one row => incomplete, not complete (R20 16.7-25% quota bug fix)"
+  },
+  "r20_blocking_findings_addressed": [
+    "central registry now bootstrapped + enforced (was 0 rows in R20)",
+    "10 negative tests now all in validator (R20 had hardcoded stubs)",
+    "launcher is the sole spawn site (R20 runners bypassed it via raw subprocess.run)",
+    "registry rows carry full plan §2 contract: parent_id, fold, block, seed, pid, start/end ms, fit/purge/replay windows, git_dirty, borrow hash"
+  ]
+}
