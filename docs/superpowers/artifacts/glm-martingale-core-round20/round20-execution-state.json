@@ -1,0 +1,67 @@
+{
+  "blocked_reasons": [
+    "P0: 1 failed: ['central_state_created']",
+    "P1: blocked_predecessor",
+    "P2: blocked_predecessor",
+    "P3: blocked_predecessor",
+    "P4: blocked_predecessor",
+    "P5: blocked_predecessor",
+    "P6: blocked_predecessor",
+    "P7: blocked_predecessor",
+    "P8: blocked_predecessor",
+    "P9: blocked_predecessor",
+    "P10: blocked_predecessor",
+    "P11: blocked_predecessor",
+    "P12: blocked_predecessor"
+  ],
+  "phase": "P0",
+  "phase_status": {
+    "P0": {
+      "failed": [
+        "central_state_created"
+      ],
+      "status": "blocked"
+    },
+    "P1": {
+      "status": "blocked_predecessor"
+    },
+    "P10": {
+      "status": "blocked_predecessor"
+    },
+    "P11": {
+      "status": "blocked_predecessor"
+    },
+    "P12": {
+      "status": "blocked_predecessor"
+    },
+    "P2": {
+      "status": "blocked_predecessor"
+    },
+    "P3": {
+      "status": "blocked_predecessor"
+    },
+    "P4": {
+      "status": "blocked_predecessor"
+    },
+    "P5": {
+      "status": "blocked_predecessor"
+    },
+    "P6": {
+      "status": "blocked_predecessor"
+    },
+    "P7": {
+      "status": "blocked_predecessor"
+    },
+    "P8": {
+      "status": "blocked_predecessor"
+    },
+    "P9": {
+      "status": "blocked_predecessor"
+    }
+  },
+  "plan_sha256": "9c71aaf5c4d4292b1f07705636941929298c25efade63c8d865c396b8fb3910a",
+  "registry_rows": 0,
+  "status": "blocked",
+  "validated_at": "2026-07-20T03:50:48.428135+00:00",
+  "validator_sha256": "891c9dc08c66607fdfb5f07eff874ebcbeedf6c84334747fc04f77dad8f517e8"
+}

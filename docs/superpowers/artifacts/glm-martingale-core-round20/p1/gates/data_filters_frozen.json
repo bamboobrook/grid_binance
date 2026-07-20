@@ -1,0 +1,29 @@
+{
+  "phase": "P1",
+  "plan_section": "§3",
+  "data_provenance": {
+    "market_data_full_db": "data/market_data_full.db",
+    "schema": "klines(symbol TEXT, market_type TEXT, timeframe TEXT, open_time INTEGER, open REAL, high REAL, low REAL, close REAL, volume REAL, close_time INTEGER)",
+    "authoritative_query_pattern": "WHERE market_type='spot' AND timeframe='1m' / WHERE market_type='futures_usdt_perp' AND timeframe='1m'",
+    "spot_perp_both_available": ["BTCUSDT","ETHUSDT","BNBUSDT","SOLUSDT","XRPUSDT","DOGEUSDT"],
+    "coverage": "2023-01-01..2026-07-15 (1m), ~1.86M rows per symbol per market_type",
+    "basis_unknown_rule_§3_1": "when spot or perp missing at a timestamp => basis UNKNOWN, no forward-fill, no order"
+  },
+  "funding_data": "data/funding_rates_round12.db (32 symbols, 2023-01-01..2026-07-10, 8h)",
+  "premium_index": "data/premium_index.db (6 symbols, 2023-01-01..2026-05-31, hourly; cross-check only, never zero-fill)",
+  "exchange_filter_snapshot": {
+    "approach": "current Binance exchangeInfo + maintenance brackets + conservative stress (plan §3.2). Historical rules unavailable => use current + conservative-stress pair, never zero-threshold.",
+    "spot_filters_doc": "https://developers.binance.com/docs/binance-spot-api-docs/filters",
+    "perp_exchange_info_doc": "https://developers.binance.com/docs/derivatives/usds-margined-futures/market-data/rest-api/Exchange-Information",
+    "implementation_status": "to be wired into P2 engine (PRICE_FILTER/LOT_SIZE/MARKET_LOT_SIZE/MIN_NOTIONAL/NOTIONAL + maintenance tiers + liquidation)"
+  },
+  "future_lock": {
+    "lock_after": "2026-07-11",
+    "current_date": "2026-07-20",
+    "days_since_lock": 9,
+    "rule_§3_3": "<30 days since lock AND no provisional finalist => 2026-07-11+ region is sealed; no selection or diagnostic read",
+    "status": "locked_no_finalist_no_30day_window"
+  },
+  "frozen": true,
+  "conclusion": "P1 PASSED. Data provenance documented; spot+perp both available for 6 base assets (B1 feasible); future lock sealed (<30 days, no finalist)."
+}

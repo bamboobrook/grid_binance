@@ -1,0 +1,31 @@
+{
+  "phase": "P0",
+  "plan_section": "§2",
+  "r19_authority_verified": {
+    "path": "docs/superpowers/artifacts/glm-martingale-core-round19/round19-corrected-authority.json",
+    "corrected_machine_state": "materially_incomplete_invalid_results",
+    "target_hit": false,
+    "production_ready_candidates": 0,
+    "strict_valid_search_rows": 0,
+    "matches_plan_§2_1": true
+  },
+  "central_state_created": {
+    "state_file": "docs/superpowers/artifacts/glm-martingale-core-round20/round20-execution-state.json",
+    "registry": "docs/superpowers/artifacts/glm-martingale-core-round20/exploration-registry.jsonl",
+    "failure_ledger": "docs/superpowers/artifacts/glm-martingale-core-round20/failure-ledger.jsonl",
+    "single_launcher": "scripts/glm_r20_launcher.py (Launcher class — the only entry point; runners must call start()/terminal(), no bespoke JSONL)",
+    "validator": "scripts/glm_r20_state_machine.py (recomputes from raw registry + git commit; runners cannot self-report)",
+    "contract": "running + terminal rows with full hash contract (engine/data/funding/filter/maintenance/fit/weights/effective/cost + 5 trace hashes)"
+  },
+  "negative_tests": {
+    "nt1_gate_stub_no_registry_rows": "validator requires registry rows; a gate stub alone cannot pass",
+    "nt2_local_rows_central_zero": "only the central registry is read; local JSONL in runners is forbidden",
+    "nt3_terminal_integrity": "terminal rows missing raw_command/exit_code/fingerprint/trace hashes => fail",
+    "nt4_g2_input_from_committed_g1": "P8 reads committed G1 survivor artifact (not checkpoint re-selection)",
+    "nt5_no_conditional_flag_override": "g0 gate requires all_bound=true; no conditional-flag override",
+    "nt6_all_six_families_required": "six_families gate requires all of C1/B1/M2R/P1/K1/V1 implemented (not blocked); §16: any blocked => round BLOCKED",
+    "nt7_causal_fit_no_leakage": "P3 requires fit_end <= replay_first_decision; injection test fail-closes",
+    "nt8_corrected_authority_wins": "validator reads corrected authority, not original handoff"
+  },
+  "conclusion": "P0 PASSED. R19 authority verified materially_incomplete_invalid_results. Central state machine + single launcher + append-only registry + failure ledger created. 8 negative tests enforced by validator."
+}
