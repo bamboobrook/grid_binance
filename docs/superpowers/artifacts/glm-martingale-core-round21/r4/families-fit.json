@@ -1,4 +1,1055 @@
 {
+  "P1S_state_space": {
+    "blocks": [
+      {
+        "block_id": "tb01",
+        "frozen_fits": [
+          {
+            "betas": [
+              1.2882599561780992
+            ],
+            "fit_sha256": "0e903eb80964698e",
+            "group_id": "P1Sss_ETHUSDT_BTCUSDT",
+            "half_life_h": 157.89148236542724,
+            "leg_direction_signs": [
+              1,
+              -1
+            ],
+            "leg_markets": [],
+            "legs": [
+              "ETHUSDT",
+              "BTCUSDT"
+            ],
+            "log_likelihood": 406.07829256138433,
+            "method": "true RW+MR state-space (Kalman-filtered MLE)",
+            "mr_share": 0.9999,
+            "mus": [
+              0.5414195071637913
+            ],
+            "phi": 0.9,
+            "residual_sigma": 0.037092663959238076,
+            "sigma_mr": 0.037092663959238076,
+            "sigma_rw": 0.00037094518731545126,
+            "weights": []
+          },
+          {
+            "betas": [
+              0.4015384733627856
+            ],
+            "fit_sha256": "7101e33bc197721f",
+            "group_id": "P1Sss_BNBUSDT_BTCUSDT",
+            "half_life_h": 157.89148236542724,
+            "leg_direction_signs": [
+              1,
+              -1
+            ],
+            "leg_markets": [],
+            "legs": [
+              "BNBUSDT",
+              "BTCUSDT"
+            ],
+            "log_likelihood": 172.5621322236159,
+            "method": "true RW+MR state-space (Kalman-filtered MLE)",
+            "mr_share": 0.9999,
+            "mus": [
+              7.842170613240589
+            ],
+            "phi": 0.9,
+            "residual_sigma": 0.14580140788148335,
+            "sigma_mr": 0.14580140788148335,
+            "sigma_rw": 0.0014580869849867826,
+            "weights": []
+          },
+          {
+            "betas": [
+              0.3338693861864826
+            ],
+            "fit_sha256": "c828a13747891d63",
+            "group_id": "P1Sss_SOLUSDT_BTCUSDT",
+            "half_life_h": 157.89148236542724,
+            "leg_direction_signs": [
+              1,
+              -1
+            ],
+            "leg_markets": [],
+            "legs": [
+              "SOLUSDT",
+              "BTCUSDT"
+            ],
+            "log_likelihood": 181.05888489466048,
+            "method": "true RW+MR state-space (Kalman-filtered MLE)",
+            "mr_share": 0.9998999999999999,
+            "mus": [
+              9.125561259062964
+            ],
+            "phi": 0.9,
+            "residual_sigma": 0.13990084886379864,
+            "sigma_mr": 0.13990084886379864,
+            "sigma_rw": 0.0013990784443091372,
+            "weights": []
+          },
+          {
+            "betas": [
+              0.9417707841376143
+            ],
+            "fit_sha256": "162cab051531a940",
+            "group_id": "P1Sss_XRPUSDT_BTCUSDT",
+            "half_life_h": 157.89148236542724,
+            "leg_direction_signs": [
+              1,
+              -1
+            ],
+            "leg_markets": [],
+            "legs": [
+              "XRPUSDT",
+              "BTCUSDT"
+            ],
+            "log_likelihood": 260.13303151995257,
+            "method": "true RW+MR state-space (Kalman-filtered MLE)",
+            "mr_share": 0.9999,
+            "mus": [
+              10.915304341112927
+            ],
+            "phi": 0.9,
+            "residual_sigma": 0.08684049516102199,
+            "sigma_mr": 0.08684049516102199,
+            "sigma_rw": 0.0008684483751145904,
+            "weights": []
+          },
+          {
+            "betas": [
+              -0.10839330205723174
+            ],
+            "fit_sha256": "b61abe24a04b5cdb",
+            "group_id": "P1Sss_DOGEUSDT_BTCUSDT",
+            "half_life_h": 157.89148236542724,
+            "leg_direction_signs": [
+              1,
+              -1
+            ],
+            "leg_markets": [],
+            "legs": [
+              "DOGEUSDT",
+              "BTCUSDT"
+            ],
+            "log_likelihood": 164.5645614749238,
+            "method": "true RW+MR state-space (Kalman-filtered MLE)",
+            "mr_share": 0.9999,
+            "mus": [
+              9.852432758249948
+            ],
+            "phi": 0.9,
+            "residual_sigma": 0.15096470789248087,
+            "sigma_mr": 0.15096470789248087,
+            "sigma_rw": 0.0015097225669404033,
+            "weights": []
+          },
+          {
+            "betas": [
+              0.4284320653694727
+            ],
+            "fit_sha256": "f9283d843628b4f4",
+            "group_id": "P1Sss_ADAUSDT_BTCUSDT",
+            "half_life_h": 157.89148236542724,
+            "leg_direction_signs": [
+              1,
+              -1
+            ],
+            "leg_markets": [],
+            "legs": [
+              "ADAUSDT",
+              "BTCUSDT"
+            ],
+            "log_likelihood": 180.60672110796068,
+            "method": "true RW+MR state-space (Kalman-filtered MLE)",
+            "mr_share": 0.9999,
+            "mus": [
+              10.577051772520623
+            ],
+            "phi": 0.9,
+            "residual_sigma": 0.1398874360889808,
+            "sigma_mr": 0.1398874360889808,
+            "sigma_rw": 0.0013989443098540685,
+            "weights": []
+          }
+        ],
+        "status": "6 true-state-space fits"
+      },
+      {
+        "block_id": "tb02",
+        "frozen_fits": [
+          {
+            "betas": [
+              1.2697362211394074
+            ],
+            "fit_sha256": "8d0d1438aa755328",
+            "group_id": "P1Sss_ETHUSDT_BTCUSDT",
+            "half_life_h": 157.89148236542724,
+            "leg_direction_signs": [
+              1,
+              -1
+            ],
+            "leg_markets": [],
+            "legs": [
+              "ETHUSDT",
+              "BTCUSDT"
+            ],
+            "log_likelihood": 542.5782940729288,
+            "method": "true RW+MR state-space (Kalman-filtered MLE)",
+            "mr_share": 0.9999,
+            "mus": [
+              0.7044844387840357
+            ],
+            "phi": 0.9,
+            "residual_sigma": 0.05026412151604608,
+            "sigma_mr": 0.05026412151604608,
+            "sigma_rw": 0.0005026663491062805,
+            "weights": []
+          },
+          {
+            "betas": [
+              -0.10637590827421047
+            ],
+            "fit_sha256": "03b2a7e7fba2e3b5",
+            "group_id": "P1Sss_BNBUSDT_BTCUSDT",
+            "half_life_h": 157.89148236542724,
+            "leg_direction_signs": [
+              1,
+              -1
+            ],
+            "leg_markets": [],
+            "legs": [
+              "BNBUSDT",
+              "BTCUSDT"
+            ],
+            "log_likelihood": 271.0784937340023,
+            "method": "true RW+MR state-space (Kalman-filtered MLE)",
+            "mr_share": 0.9999000000000001,
+            "mus": [
+              10.764554736582689
+            ],
+            "phi": 0.9,
+            "residual_sigma": 0.1389603333674209,
+            "sigma_mr": 0.1389603333674209,
+            "sigma_rw": 0.0013896728190523394,
+            "weights": []
+          },
+          {
+            "betas": [
+              0.39015637587231766
+            ],
+            "fit_sha256": "c0d29eefa543346a",
+            "group_id": "P1Sss_SOLUSDT_BTCUSDT",
+            "half_life_h": 157.89148236542724,
+            "leg_direction_signs": [
+              1,
+              -1
+            ],
+            "leg_markets": [],
+            "legs": [
+              "SOLUSDT",
+              "BTCUSDT"
+            ],
+            "log_likelihood": 302.9299536011219,
+            "method": "true RW+MR state-space (Kalman-filtered MLE)",
+            "mr_share": 0.9999000000000001,
+            "mus": [
+              8.985190237760202
+            ],
+            "phi": 0.9,
+            "residual_sigma": 0.125299339797878,
+            "sigma_mr": 0.125299339797878,
+            "sigma_rw": 0.0012530560523477958,
+            "weights": []
+          },
+          {
+            "betas": [
+              0.5316792963550905
+            ],
+            "fit_sha256": "68867b70667c64b8",
+            "group_id": "P1Sss_XRPUSDT_BTCUSDT",
+            "half_life_h": 157.89148236542724,
+            "leg_direction_signs": [
+              1,
+              -1
+            ],
+            "leg_markets": [],
+            "legs": [
+              "XRPUSDT",
+              "BTCUSDT"
+            ],
+            "log_likelihood": 367.7307569957396,
+            "method": "true RW+MR state-space (Kalman-filtered MLE)",
+            "mr_share": 0.9999000000000001,
+            "mus": [
+              10.564094046577988
+            ],
+            "phi": 0.9,
+            "residual_sigma": 0.09611503222244488,
+            "sigma_mr": 0.09611503222244488,
+            "sigma_rw": 0.0009611983833451741,
+            "weights": []
+          },
+          {
+            "betas": [
+              -0.20322525968543767
+            ],
+            "fit_sha256": "3b83bcf1b8403a8f",
+            "group_id": "P1Sss_DOGEUSDT_BTCUSDT",
+            "half_life_h": 157.89148236542724,
+            "leg_direction_signs": [
+              1,
+              -1
+            ],
+            "leg_markets": [],
+            "legs": [
+              "DOGEUSDT",
+              "BTCUSDT"
+            ],
+            "log_likelihood": 272.4623371050501,
+            "method": "true RW+MR state-space (Kalman-filtered MLE)",
+            "mr_share": 0.9999,
+            "mus": [
+              9.637640743735053
+            ],
+            "phi": 0.9,
+            "residual_sigma": 0.1377627549299276,
+            "sigma_mr": 0.1377627549299276,
+            "sigma_rw": 0.0013776964358432748,
+            "weights": []
+          },
+          {
+            "betas": [
+              0.03949765841161199
+            ],
+            "fit_sha256": "875b4748b1c16f28",
+            "group_id": "P1Sss_ADAUSDT_BTCUSDT",
+            "half_life_h": 157.89148236542724,
+            "leg_direction_signs": [
+              1,
+              -1
+            ],
+            "leg_markets": [],
+            "legs": [
+              "ADAUSDT",
+              "BTCUSDT"
+            ],
+            "log_likelihood": 270.5182094218171,
+            "method": "true RW+MR state-space (Kalman-filtered MLE)",
+            "mr_share": 0.9999,
+            "mus": [
+              10.212046370012171
+            ],
+            "phi": 0.9,
+            "residual_sigma": 0.1397760116243992,
+            "sigma_mr": 0.1397760116243992,
+            "sigma_rw": 0.0013978300094918414,
+            "weights": []
+          }
+        ],
+        "status": "6 true-state-space fits"
+      },
+      {
+        "block_id": "tb03",
+        "frozen_fits": [
+          {
+            "betas": [
+              1.4748471248113362
+            ],
+            "fit_sha256": "f51521b677c49600",
+            "group_id": "P1Sss_ETHUSDT_BTCUSDT",
+            "half_life_h": 157.89148236542724,
+            "leg_direction_signs": [
+              1,
+              -1
+            ],
+            "leg_markets": [],
+            "legs": [
+              "ETHUSDT",
+              "BTCUSDT"
+            ],
+            "log_likelihood": 556.0264261061095,
+            "method": "true RW+MR state-space (Kalman-filtered MLE)",
+            "mr_share": 0.9998999999999999,
+            "mus": [
+              -0.7894610864625342
+            ],
+            "phi": 0.9,
+            "residual_sigma": 0.08100153737896727,
+            "sigma_mr": 0.08100153737896727,
+            "sigma_rw": 0.000810055877596173,
+            "weights": []
+          },
+          {
+            "betas": [
+              -0.34439472148432804
+            ],
+            "fit_sha256": "4fc2a39058a566a6",
+            "group_id": "P1Sss_BNBUSDT_BTCUSDT",
+            "half_life_h": 157.89148236542724,
+            "leg_direction_signs": [
+              1,
+              -1
+            ],
+            "leg_markets": [],
+            "legs": [
+              "BNBUSDT",
+              "BTCUSDT"
+            ],
+            "log_likelihood": 255.1316643079315,
+            "method": "true RW+MR state-space (Kalman-filtered MLE)",
+            "mr_share": 0.9999,
+            "mus": [
+              12.160820584959902
+            ],
+            "phi": 0.9,
+            "residual_sigma": 0.18834200332976478,
+            "sigma_mr": 0.18834200332976478,
+            "sigma_rw": 0.0018835142113627261,
+            "weights": []
+          },
+          {
+            "betas": [
+              0.36934250831834436
+            ],
+            "fit_sha256": "51cc9b3e9d072d14",
+            "group_id": "P1Sss_SOLUSDT_BTCUSDT",
+            "half_life_h": 157.89148236542724,
+            "leg_direction_signs": [
+              1,
+              -1
+            ],
+            "leg_markets": [],
+            "legs": [
+              "SOLUSDT",
+              "BTCUSDT"
+            ],
+            "log_likelihood": 444.47992209559334,
+            "method": "true RW+MR state-space (Kalman-filtered MLE)",
+            "mr_share": 0.9998999999999999,
+            "mus": [
+              9.052599372756237
+            ],
+            "phi": 0.9,
+            "residual_sigma": 0.11180341302694802,
+            "sigma_mr": 0.11180341302694802,
+            "sigma_rw": 0.001118090036168971,
+            "weights": []
+          },
+          {
+            "betas": [
+              0.7817683374288074
+            ],
+            "fit_sha256": "f9cfb34d8984a524",
+            "group_id": "P1Sss_XRPUSDT_BTCUSDT",
+            "half_life_h": 157.89148236542724,
+            "leg_direction_signs": [
+              1,
+              -1
+            ],
+            "leg_markets": [],
+            "legs": [
+              "XRPUSDT",
+              "BTCUSDT"
+            ],
+            "log_likelihood": 407.7443738845185,
+            "method": "true RW+MR state-space (Kalman-filtered MLE)",
+            "mr_share": 0.9999,
+            "mus": [
+              10.78409798807974
+            ],
+            "phi": 0.9,
+            "residual_sigma": 0.12194874550630849,
+            "sigma_mr": 0.12194874550630849,
+            "sigma_rw": 0.0012195484340092972,
+            "weights": []
+          },
+          {
+            "betas": [
+              0.30678325246873334
+            ],
+            "fit_sha256": "24677d15ec0cd0ba",
+            "group_id": "P1Sss_DOGEUSDT_BTCUSDT",
+            "half_life_h": 157.89148236542724,
+            "leg_direction_signs": [
+              1,
+              -1
+            ],
+            "leg_markets": [],
+            "legs": [
+              "DOGEUSDT",
+              "BTCUSDT"
+            ],
+            "log_likelihood": 251.91790512058813,
+            "method": "true RW+MR state-space (Kalman-filtered MLE)",
+            "mr_share": 0.9999000000000001,
+            "mus": [
+              11.041407802162022
+            ],
+            "phi": 0.9,
+            "residual_sigma": 0.19133055342538952,
+            "sigma_mr": 0.19133055342538952,
+            "sigma_rw": 0.0019134012067061016,
+            "weights": []
+          },
+          {
+            "betas": [
+              0.3953847139832196
+            ],
+            "fit_sha256": "61c15bc15d99dda9",
+            "group_id": "P1Sss_ADAUSDT_BTCUSDT",
+            "half_life_h": 157.89148236542724,
+            "leg_direction_signs": [
+              1,
+              -1
+            ],
+            "leg_markets": [],
+            "legs": [
+              "ADAUSDT",
+              "BTCUSDT"
+            ],
+            "log_likelihood": 282.7869708202786,
+            "method": "true RW+MR state-space (Kalman-filtered MLE)",
+            "mr_share": 0.9999,
+            "mus": [
+              10.675547446179118
+            ],
+            "phi": 0.9,
+            "residual_sigma": 0.17593145019866177,
+            "sigma_mr": 0.17593145019866177,
+            "sigma_rw": 0.001759402474309696,
+            "weights": []
+          }
+        ],
+        "status": "6 true-state-space fits"
+      },
+      {
+        "block_id": "tb04",
+        "frozen_fits": [
+          {
+            "betas": [
+              1.297134989738697
+            ],
+            "fit_sha256": "bea9513f245251a8",
+            "group_id": "P1Sss_ETHUSDT_BTCUSDT",
+            "half_life_h": 157.89148236542724,
+            "leg_direction_signs": [
+              1,
+              -1
+            ],
+            "leg_markets": [],
+            "legs": [
+              "ETHUSDT",
+              "BTCUSDT"
+            ],
+            "log_likelihood": 687.7083177293231,
+            "method": "true RW+MR state-space (Kalman-filtered MLE)",
+            "mr_share": 0.9999,
+            "mus": [
+              0.5408820375240797
+            ],
+            "phi": 0.9,
+            "residual_sigma": 0.08281719309888566,
+            "sigma_mr": 0.08281719309888566,
+            "sigma_rw": 0.0008282133426913096,
+            "weights": []
+          },
+          {
+            "betas": [
+              0.6996520762884487
+            ],
+            "fit_sha256": "206d861c3a29b45f",
+            "group_id": "P1Sss_BNBUSDT_BTCUSDT",
+            "half_life_h": 157.89148236542724,
+            "leg_direction_signs": [
+              1,
+              -1
+            ],
+            "leg_markets": [],
+            "legs": [
+              "BNBUSDT",
+              "BTCUSDT"
+            ],
+            "log_likelihood": 168.79997562609208,
+            "method": "true RW+MR state-space (Kalman-filtered MLE)",
+            "mr_share": 0.9999,
+            "mus": [
+              6.416747424896515
+            ],
+            "phi": 0.9,
+            "residual_sigma": 0.2663543806842014,
+            "sigma_mr": 0.2663543806842014,
+            "sigma_rw": 0.0026636769940214778,
+            "weights": []
+          },
+          {
+            "betas": [
+              0.39225945281885943
+            ],
+            "fit_sha256": "773bf38d3a592e00",
+            "group_id": "P1Sss_SOLUSDT_BTCUSDT",
+            "half_life_h": 157.89148236542724,
+            "leg_direction_signs": [
+              1,
+              -1
+            ],
+            "leg_markets": [],
+            "legs": [
+              "SOLUSDT",
+              "BTCUSDT"
+            ],
+            "log_likelihood": 548.6976493009399,
+            "method": "true RW+MR state-space (Kalman-filtered MLE)",
+            "mr_share": 0.9999,
+            "mus": [
+              8.978363669357236
+            ],
+            "phi": 0.9,
+            "residual_sigma": 0.11366738446962682,
+            "sigma_mr": 0.11366738446962682,
+            "sigma_rw": 0.0011367306826513851,
+            "weights": []
+          },
+          {
+            "betas": [
+              1.118951073510178
+            ],
+            "fit_sha256": "f74471801900ae5f",
+            "group_id": "P1Sss_XRPUSDT_BTCUSDT",
+            "half_life_h": 157.89148236542724,
+            "leg_direction_signs": [
+              1,
+              -1
+            ],
+            "leg_markets": [],
+            "legs": [
+              "XRPUSDT",
+              "BTCUSDT"
+            ],
+            "log_likelihood": 241.37837174770883,
+            "method": "true RW+MR state-space (Kalman-filtered MLE)",
+            "mr_share": 0.9998999999999999,
+            "mus": [
+              11.105392663098236
+            ],
+            "phi": 0.9,
+            "residual_sigma": 0.22492729257760433,
+            "sigma_mr": 0.22492729257760433,
+            "sigma_rw": 0.0022493853978578083,
+            "weights": []
+          },
+          {
+            "betas": [
+              0.930566871909138
+            ],
+            "fit_sha256": "42a07fed3ceeaa4f",
+            "group_id": "P1Sss_DOGEUSDT_BTCUSDT",
+            "half_life_h": 157.89148236542724,
+            "leg_direction_signs": [
+              1,
+              -1
+            ],
+            "leg_markets": [],
+            "legs": [
+              "DOGEUSDT",
+              "BTCUSDT"
+            ],
+            "log_likelihood": 230.35213905898374,
+            "method": "true RW+MR state-space (Kalman-filtered MLE)",
+            "mr_share": 0.9998999999999999,
+            "mus": [
+              12.727823531342567
+            ],
+            "phi": 0.9,
+            "residual_sigma": 0.23129744451166678,
+            "sigma_mr": 0.23129744451166678,
+            "sigma_rw": 0.0023130901025133007,
+            "weights": []
+          },
+          {
+            "betas": [
+              0.7928119277811057
+            ],
+            "fit_sha256": "e6e76b134e3ad83f",
+            "group_id": "P1Sss_ADAUSDT_BTCUSDT",
+            "half_life_h": 157.89148236542724,
+            "leg_direction_signs": [
+              1,
+              -1
+            ],
+            "leg_markets": [],
+            "legs": [
+              "ADAUSDT",
+              "BTCUSDT"
+            ],
+            "log_likelihood": 316.21001419822846,
+            "method": "true RW+MR state-space (Kalman-filtered MLE)",
+            "mr_share": 0.9999,
+            "mus": [
+              11.140403276742786
+            ],
+            "phi": 0.9,
+            "residual_sigma": 0.1915755000562563,
+            "sigma_mr": 0.1915755000562563,
+            "sigma_rw": 0.0019158507954972711,
+            "weights": []
+          }
+        ],
+        "status": "6 true-state-space fits"
+      },
+      {
+        "block_id": "tb05",
+        "frozen_fits": [
+          {
+            "betas": [
+              1.3053141020599495
+            ],
+            "fit_sha256": "126a138d05dbef7a",
+            "group_id": "P1Sss_ETHUSDT_BTCUSDT",
+            "half_life_h": 157.89148236542724,
+            "leg_direction_signs": [
+              1,
+              -1
+            ],
+            "leg_markets": [],
+            "legs": [
+              "ETHUSDT",
+              "BTCUSDT"
+            ],
+            "log_likelihood": 822.2802147789077,
+            "method": "true RW+MR state-space (Kalman-filtered MLE)",
+            "mr_share": 0.9999,
+            "mus": [
+              0.4822071937196952
+            ],
+            "phi": 0.9,
+            "residual_sigma": 0.08299395809101681,
+            "sigma_mr": 0.08299395809101681,
+            "sigma_rw": 0.0008299810810017465,
+            "weights": []
+          },
+          {
+            "betas": [
+              0.8872007402287182
+            ],
+            "fit_sha256": "49f7d74f78e9a332",
+            "group_id": "P1Sss_BNBUSDT_BTCUSDT",
+            "half_life_h": 157.89148236542724,
+            "leg_direction_signs": [
+              1,
+              -1
+            ],
+            "leg_markets": [],
+            "legs": [
+              "BNBUSDT",
+              "BTCUSDT"
+            ],
+            "log_likelihood": 240.78393453154277,
+            "method": "true RW+MR state-space (Kalman-filtered MLE)",
+            "mr_share": 0.9999,
+            "mus": [
+              5.3718094500890565
+            ],
+            "phi": 0.9,
+            "residual_sigma": 0.24834846198937363,
+            "sigma_mr": 0.24834846198937363,
+            "sigma_rw": 0.0024836088034385743,
+            "weights": []
+          },
+          {
+            "betas": [
+              0.4303900276004943
+            ],
+            "fit_sha256": "55d2641c7ae364a8",
+            "group_id": "P1Sss_SOLUSDT_BTCUSDT",
+            "half_life_h": 157.89148236542724,
+            "leg_direction_signs": [
+              1,
+              -1
+            ],
+            "leg_markets": [],
+            "legs": [
+              "SOLUSDT",
+              "BTCUSDT"
+            ],
+            "log_likelihood": 669.395207258332,
+            "method": "true RW+MR state-space (Kalman-filtered MLE)",
+            "mr_share": 0.9999,
+            "mus": [
+              8.8573022852531
+            ],
+            "phi": 0.9,
+            "residual_sigma": 0.11158859061772866,
+            "sigma_mr": 0.11158859061772866,
+            "sigma_rw": 0.0011159417046575164,
+            "weights": []
+          },
+          {
+            "betas": [
+              1.186739987508045
+            ],
+            "fit_sha256": "a47918316488c16b",
+            "group_id": "P1Sss_XRPUSDT_BTCUSDT",
+            "half_life_h": 157.89148236542724,
+            "leg_direction_signs": [
+              1,
+              -1
+            ],
+            "leg_markets": [],
+            "legs": [
+              "XRPUSDT",
+              "BTCUSDT"
+            ],
+            "log_likelihood": 78.74780896181873,
+            "method": "true RW+MR state-space (Kalman-filtered MLE)",
+            "mr_share": 0.9999,
+            "mus": [
+              11.26793302056018
+            ],
+            "phi": 0.9,
+            "residual_sigma": 0.3352992753271313,
+            "sigma_mr": 0.3352992753271313,
+            "sigma_rw": 0.003353160415483747,
+            "weights": []
+          },
+          {
+            "betas": [
+              0.9950768997644275
+            ],
+            "fit_sha256": "e1333a965e6fc720",
+            "group_id": "P1Sss_DOGEUSDT_BTCUSDT",
+            "half_life_h": 157.89148236542724,
+            "leg_direction_signs": [
+              1,
+              -1
+            ],
+            "leg_markets": [],
+            "legs": [
+              "DOGEUSDT",
+              "BTCUSDT"
+            ],
+            "log_likelihood": 310.24209750517645,
+            "method": "true RW+MR state-space (Kalman-filtered MLE)",
+            "mr_share": 0.9998999999999999,
+            "mus": [
+              12.900251318347866
+            ],
+            "phi": 0.9,
+            "residual_sigma": 0.21699985573852154,
+            "sigma_mr": 0.21699985573852154,
+            "sigma_rw": 0.0021701070654512574,
+            "weights": []
+          },
+          {
+            "betas": [
+              0.9794310717160221
+            ],
+            "fit_sha256": "01eacecd7808f369",
+            "group_id": "P1Sss_ADAUSDT_BTCUSDT",
+            "half_life_h": 157.89148236542724,
+            "leg_direction_signs": [
+              1,
+              -1
+            ],
+            "leg_markets": [],
+            "legs": [
+              "ADAUSDT",
+              "BTCUSDT"
+            ],
+            "log_likelihood": 204.30596199325336,
+            "method": "true RW+MR state-space (Kalman-filtered MLE)",
+            "mr_share": 0.9999000000000001,
+            "mus": [
+              11.407590310598902
+            ],
+            "phi": 0.9,
+            "residual_sigma": 0.26598528263938875,
+            "sigma_mr": 0.26598528263938875,
+            "sigma_rw": 0.0026599858290104867,
+            "weights": []
+          }
+        ],
+        "status": "6 true-state-space fits"
+      },
+      {
+        "block_id": "tb06",
+        "frozen_fits": [
+          {
+            "betas": [
+              1.3322342907534348
+            ],
+            "fit_sha256": "ae865a9d1c3a22fe",
+            "group_id": "P1Sss_ETHUSDT_BTCUSDT",
+            "half_life_h": 157.89148236542724,
+            "leg_direction_signs": [
+              1,
+              -1
+            ],
+            "leg_markets": [],
+            "legs": [
+              "ETHUSDT",
+              "BTCUSDT"
+            ],
+            "log_likelihood": 784.3033470721604,
+            "method": "true RW+MR state-space (Kalman-filtered MLE)",
+            "mr_share": 0.9999,
+            "mus": [
+              0.29699334228990537
+            ],
+            "phi": 0.9,
+            "residual_sigma": 0.11071134790151331,
+            "sigma_mr": 0.11071134790151331,
+            "sigma_rw": 0.0011071688388411055,
+            "weights": []
+          },
+          {
+            "betas": [
+              0.9112498299898824
+            ],
+            "fit_sha256": "d45d69b54ce4347e",
+            "group_id": "P1Sss_BNBUSDT_BTCUSDT",
+            "half_life_h": 157.89148236542724,
+            "leg_direction_signs": [
+              1,
+              -1
+            ],
+            "leg_markets": [],
+            "legs": [
+              "BNBUSDT",
+              "BTCUSDT"
+            ],
+            "log_likelihood": 327.5488368520511,
+            "method": "true RW+MR state-space (Kalman-filtered MLE)",
+            "mr_share": 0.9999,
+            "mus": [
+              5.2386295127865505
+            ],
+            "phi": 0.9,
+            "residual_sigma": 0.23072350173775957,
+            "sigma_mr": 0.23072350173775957,
+            "sigma_rw": 0.002307350387781317,
+            "weights": []
+          },
+          {
+            "betas": [
+              0.43193173742235563
+            ],
+            "fit_sha256": "ae35d85254b8cf62",
+            "group_id": "P1Sss_SOLUSDT_BTCUSDT",
+            "half_life_h": 157.89148236542724,
+            "leg_direction_signs": [
+              1,
+              -1
+            ],
+            "leg_markets": [],
+            "legs": [
+              "SOLUSDT",
+              "BTCUSDT"
+            ],
+            "log_likelihood": 825.2343309025127,
+            "method": "true RW+MR state-space (Kalman-filtered MLE)",
+            "mr_share": 0.9999,
+            "mus": [
+              8.852347319841108
+            ],
+            "phi": 0.9,
+            "residual_sigma": 0.1039038743503937,
+            "sigma_mr": 0.1039038743503937,
+            "sigma_rw": 0.0010390906993378323,
+            "weights": []
+          },
+          {
+            "betas": [
+              1.2471492349852042
+            ],
+            "fit_sha256": "8d0ce58c9c2f2fb9",
+            "group_id": "P1Sss_XRPUSDT_BTCUSDT",
+            "half_life_h": 157.89148236542724,
+            "leg_direction_signs": [
+              1,
+              -1
+            ],
+            "leg_markets": [],
+            "legs": [
+              "XRPUSDT",
+              "BTCUSDT"
+            ],
+            "log_likelihood": 61.69099280282779,
+            "method": "true RW+MR state-space (Kalman-filtered MLE)",
+            "mr_share": 0.9999,
+            "mus": [
+              11.373184846333793
+            ],
+            "phi": 0.9,
+            "residual_sigma": 0.3521543543136005,
+            "sigma_mr": 0.3521543543136005,
+            "sigma_rw": 0.0035217196335200506,
+            "weights": []
+          },
+          {
+            "betas": [
+              1.0693552088846534
+            ],
+            "fit_sha256": "33dac8f816e9de9d",
+            "group_id": "P1Sss_DOGEUSDT_BTCUSDT",
+            "half_life_h": 157.89148236542724,
+            "leg_direction_signs": [
+              1,
+              -1
+            ],
+            "leg_markets": [],
+            "legs": [
+              "DOGEUSDT",
+              "BTCUSDT"
+            ],
+            "log_likelihood": 331.62651397386776,
+            "method": "true RW+MR state-space (Kalman-filtered MLE)",
+            "mr_share": 0.9999,
+            "mus": [
+              13.122254008760292
+            ],
+            "phi": 0.9,
+            "residual_sigma": 0.2280203860751902,
+            "sigma_mr": 0.2280203860751902,
+            "sigma_rw": 0.0022803178794964167,
+            "weights": []
+          },
+          {
+            "betas": [
+              0.9184428056384009
+            ],
+            "fit_sha256": "8cf7c28176ca6ca0",
+            "group_id": "P1Sss_ADAUSDT_BTCUSDT",
+            "half_life_h": 157.89148236542724,
+            "leg_direction_signs": [
+              1,
+              -1
+            ],
+            "leg_markets": [],
+            "legs": [
+              "ADAUSDT",
+              "BTCUSDT"
+            ],
+            "log_likelihood": 123.30468972553078,
+            "method": "true RW+MR state-space (Kalman-filtered MLE)",
+            "mr_share": 0.9999,
+            "mus": [
+              11.432724084756316
+            ],
+            "phi": 0.9,
+            "residual_sigma": 0.3201188846618846,
+            "sigma_mr": 0.3201188846618846,
+            "sigma_rw": 0.0032013489180666354,
+            "weights": []
+          }
+        ],
+        "status": "6 true-state-space fits"
+      }
+    ],
+    "generated_at_utc": "2026-07-20T15:28:43.872974+00:00",
+    "method": "Kalman-filtered MLE on (sigma_RW, phi, sigma_MR); residual = RW + MR; online uses MR component",
+    "phase": "R21 P1S true RW+MR state-space (plan \u00a76.3)"
+  },
   "P1S_v2": {
     "blocks": [
       {
@@ -507,6 +1558,193 @@
     "generated_at_utc": "2026-07-20T14:47:35.215305+00:00",
     "method": "pairwise OLS cointegration; ADF<-3.0 + half_life<120h gate (plan \u00a76.3 does not mandate the 1-phi^2 MR_share formula; the 1-phi^2 was a wrong proxy for the P1 state-space MR innovation share, see Earnest 2015)",
     "phase": "R4.P1S v2 with pairwise cointegration + correct MR gate"
+  },
+  "V1B_daily": {
+    "blocks": [
+      {
+        "block_id": "tb01",
+        "frozen_fits": [
+          {
+            "betas": [
+              0.0,
+              0.0,
+              0.1798656322549777,
+              0.0,
+              0.0,
+              0.13408041326183726,
+              0.1798656322549777,
+              0.0,
+              0.0,
+              0.0,
+              -0.1798656322549777,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              -0.1798656322549777,
+              0.0,
+              0.0,
+              -0.14645705771825196,
+              0.0
+            ],
+            "fit_sha256": "c1dcfb05cc6792c9",
+            "freq": "daily",
+            "group_id": "V1Bd_tb01_pc3",
+            "half_life_days": 12.376533727716586,
+            "half_life_h": 297.0368094651981,
+            "leg_direction_signs": [
+              0,
+              0,
+              1,
+              0,
+              0,
+              1,
+              1,
+              0,
+              0,
+              0,
+              -1,
+              0,
+              0,
+              0,
+              0,
+              -1,
+              0,
+              0,
+              -1,
+              0
+            ],
+            "leg_markets": [],
+            "legs": [
+              "BTCUSDT",
+              "ETHUSDT",
+              "BNBUSDT",
+              "SOLUSDT",
+              "XRPUSDT",
+              "DOGEUSDT",
+              "ADAUSDT",
+              "TRXUSDT",
+              "LINKUSDT",
+              "LTCUSDT",
+              "BCHUSDT",
+              "DOTUSDT",
+              "AVAXUSDT",
+              "ATOMUSDT",
+              "NEARUSDT",
+              "APTUSDT",
+              "AAVEUSDT",
+              "ALGOUSDT",
+              "COMPUSDT",
+              "UNIUSDT"
+            ],
+            "mus": [
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ],
+            "residual_sigma": 0.07512496761939884,
+            "source": "pc3",
+            "weights": [
+              0.0,
+              0.0,
+              0.1798656322549777,
+              0.0,
+              0.0,
+              0.13408041326183726,
+              0.1798656322549777,
+              0.0,
+              0.0,
+              0.0,
+              -0.1798656322549777,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              -0.1798656322549777,
+              0.0,
+              0.0,
+              -0.14645705771825196,
+              0.0
+            ]
+          }
+        ],
+        "status": "daily rank>1 pc3 hl=12.4d sigma=0.0751"
+      },
+      {
+        "block_id": "tb02",
+        "frozen_fits": [],
+        "status": "no rank>1 candidate with hl<30d (best=107.2d)"
+      },
+      {
+        "block_id": "tb03",
+        "frozen_fits": [],
+        "status": "no rank>1 candidate with hl<30d (best=999.0d)"
+      },
+      {
+        "block_id": "tb04",
+        "frozen_fits": [],
+        "status": "no rank>1 candidate with hl<30d (best=147.1d)"
+      },
+      {
+        "block_id": "tb05",
+        "frozen_fits": [],
+        "status": "no rank>1 candidate with hl<30d (best=108.0d)"
+      },
+      {
+        "block_id": "tb06",
+        "frozen_fits": [],
+        "status": "no rank>1 candidate with hl<30d (best=999.0d)"
+      },
+      {
+        "block_id": "tb07",
+        "frozen_fits": [],
+        "status": "no rank>1 candidate with hl<30d (best=110.9d)"
+      },
+      {
+        "block_id": "tb08",
+        "frozen_fits": [],
+        "status": "no rank>1 candidate with hl<30d (best=999.0d)"
+      },
+      {
+        "block_id": "tb09",
+        "frozen_fits": [],
+        "status": "no rank>1 candidate with hl<30d (best=227.1d)"
+      },
+      {
+        "block_id": "tb10",
+        "frozen_fits": [],
+        "status": "no rank>1 candidate with hl<30d (best=296.3d)"
+      },
+      {
+        "block_id": "tb11",
+        "frozen_fits": [],
+        "status": "no rank>1 candidate with hl<30d (best=300.5d)"
+      },
+      {
+        "block_id": "tb12",
+        "frozen_fits": [],
+        "status": "no rank>1 candidate with hl<30d (best=999.0d)"
+      }
+    ],
+    "generated_at_utc": "2026-07-20T15:28:04.215167+00:00",
+    "phase": "R21 V1B daily frequency (tradeability fix)"
   },
   "V1B_retry": {
     "blocks": [
