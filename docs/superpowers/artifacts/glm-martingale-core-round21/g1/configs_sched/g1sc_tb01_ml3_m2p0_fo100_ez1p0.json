@@ -1,0 +1,95 @@
+{
+  "budget_quote": 500.0,
+  "fits": [
+    {
+      "betas": [
+        1.7939230801958914
+      ],
+      "fit_sha256": "3080673b6839f934",
+      "group_id": "BS_tb01_ALGOUSDT_UNIUSDT",
+      "half_life_h": 2.547945030394653,
+      "leg_direction_signs": [
+        1,
+        -1
+      ],
+      "leg_markets": [],
+      "legs": [
+        "UNIUSDT",
+        "ALGOUSDT"
+      ],
+      "mr_sharpe": 4.906817395535879,
+      "mus": [
+        -4.777662654651019
+      ],
+      "residual_sigma": 0.06398121207779418,
+      "weights": []
+    },
+    {
+      "betas": [
+        0.7085514791854077
+      ],
+      "fit_sha256": "1a1202bf2e898f1b",
+      "group_id": "BS_tb01_AAVEUSDT_ZECUSDT",
+      "half_life_h": 8.572867244820477,
+      "leg_direction_signs": [
+        1,
+        -1
+      ],
+      "leg_markets": [],
+      "legs": [
+        "ZECUSDT",
+        "AAVEUSDT"
+      ],
+      "mr_sharpe": 4.1415434680720065,
+      "mus": [
+        1.69949067731653
+      ],
+      "residual_sigma": 0.09148924711621413,
+      "weights": []
+    },
+    {
+      "betas": [
+        0.8208133583854884
+      ],
+      "fit_sha256": "3298f9a563bb6bbe",
+      "group_id": "BS_tb01_SOLUSDT_CRVUSDT",
+      "half_life_h": 2.75314928698734,
+      "leg_direction_signs": [
+        1,
+        -1
+      ],
+      "leg_markets": [],
+      "legs": [
+        "CRVUSDT",
+        "SOLUSDT"
+      ],
+      "mr_sharpe": 4.0980637078323925,
+      "mus": [
+        3.116518157557254
+      ],
+      "residual_sigma": 0.06849067588395281,
+      "weights": []
+    }
+  ],
+  "synchronized_cycle": {
+    "bar_boundary_minutes": 1440,
+    "c1_scheduler": {
+      "max_live": 3
+    },
+    "cycle_deadline_h": 168,
+    "entry_z": 1.0,
+    "exit_z": 0.5,
+    "family": "C1E",
+    "fit_lookback_days": 180,
+    "group_fo_quote": 100.0,
+    "group_gross_cap_pct": 400.0,
+    "inventory_reservation_skew_k": 0,
+    "jump_first_passage_gate": null,
+    "leverage": 10,
+    "max_legs": 4,
+    "multiplier": 2.0,
+    "regime_envelope": null,
+    "so_residual_step_z": 0.5,
+    "tp_net_bps_floor": 25
+  }
+}

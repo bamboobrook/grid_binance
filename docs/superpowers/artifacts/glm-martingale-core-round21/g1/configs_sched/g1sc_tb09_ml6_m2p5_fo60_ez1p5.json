@@ -1,0 +1,164 @@
+{
+  "budget_quote": 500.0,
+  "fits": [
+    {
+      "betas": [
+        0.9585300689031307
+      ],
+      "fit_sha256": "1a8da2ad52b9dc7f",
+      "group_id": "BS_tb09_AVAXUSDT_ICPUSDT",
+      "half_life_h": 22.262840017582427,
+      "leg_direction_signs": [
+        1,
+        -1
+      ],
+      "leg_markets": [],
+      "legs": [
+        "ICPUSDT",
+        "AVAXUSDT"
+      ],
+      "mr_sharpe": 3.7556208439859105,
+      "mus": [
+        1.2772788594082118
+      ],
+      "residual_sigma": 0.15326075499027525,
+      "weights": []
+    },
+    {
+      "betas": [
+        0.37334772704656044
+      ],
+      "fit_sha256": "86b14d4de0259574",
+      "group_id": "BS_tb09_LTCUSDT_ALGOUSDT",
+      "half_life_h": 20.680260885063174,
+      "leg_direction_signs": [
+        1,
+        -1
+      ],
+      "leg_markets": [],
+      "legs": [
+        "ALGOUSDT",
+        "LTCUSDT"
+      ],
+      "mr_sharpe": 3.5146653495272173,
+      "mus": [
+        5.053769594845363
+      ],
+      "residual_sigma": 0.11971271956227851,
+      "weights": []
+    },
+    {
+      "betas": [
+        0.2346068523399893
+      ],
+      "fit_sha256": "1be9b62bd6964c84",
+      "group_id": "BS_tb09_COMPUSDT_ZECUSDT",
+      "half_life_h": 36.91699553864385,
+      "leg_direction_signs": [
+        1,
+        -1
+      ],
+      "leg_markets": [],
+      "legs": [
+        "ZECUSDT",
+        "COMPUSDT"
+      ],
+      "mr_sharpe": 3.174038739429605,
+      "mus": [
+        3.1064557944976863
+      ],
+      "residual_sigma": 0.24405187478604323,
+      "weights": []
+    },
+    {
+      "betas": [
+        1.035827101614214
+      ],
+      "fit_sha256": "497244584948b697",
+      "group_id": "BS_tb09_BTCUSDT_TRXUSDT",
+      "half_life_h": 25.852132759907267,
+      "leg_direction_signs": [
+        1,
+        -1
+      ],
+      "leg_markets": [],
+      "legs": [
+        "TRXUSDT",
+        "BTCUSDT"
+      ],
+      "mr_sharpe": 2.996094155812397,
+      "mus": [
+        12.982751364481901
+      ],
+      "residual_sigma": 0.16236549470985853,
+      "weights": []
+    },
+    {
+      "betas": [
+        0.5560785665161428
+      ],
+      "fit_sha256": "59d9e881d5bbcaf0",
+      "group_id": "BS_tb09_ETCUSDT_FILUSDT",
+      "half_life_h": 31.986465060933586,
+      "leg_direction_signs": [
+        1,
+        -1
+      ],
+      "leg_markets": [],
+      "legs": [
+        "FILUSDT",
+        "ETCUSDT"
+      ],
+      "mr_sharpe": 2.9328341245751948,
+      "mus": [
+        2.21021674921546
+      ],
+      "residual_sigma": 0.12747732813970203,
+      "weights": []
+    },
+    {
+      "betas": [
+        0.750640088389814
+      ],
+      "fit_sha256": "625e4e17b70efebd",
+      "group_id": "BS_tb09_APTUSDT_DASHUSDT",
+      "half_life_h": 26.770002474375836,
+      "leg_direction_signs": [
+        1,
+        -1
+      ],
+      "leg_markets": [],
+      "legs": [
+        "DASHUSDT",
+        "APTUSDT"
+      ],
+      "mr_sharpe": 2.839913166873335,
+      "mus": [
+        -0.520862663977248
+      ],
+      "residual_sigma": 0.24196718800753733,
+      "weights": []
+    }
+  ],
+  "synchronized_cycle": {
+    "bar_boundary_minutes": 1440,
+    "c1_scheduler": {
+      "max_live": 6
+    },
+    "cycle_deadline_h": 168,
+    "entry_z": 1.5,
+    "exit_z": 0.5,
+    "family": "C1E",
+    "fit_lookback_days": 180,
+    "group_fo_quote": 60.0,
+    "group_gross_cap_pct": 400.0,
+    "inventory_reservation_skew_k": 0,
+    "jump_first_passage_gate": null,
+    "leverage": 10,
+    "max_legs": 4,
+    "multiplier": 2.5,
+    "regime_envelope": null,
+    "so_residual_step_z": 0.5,
+    "tp_net_bps_floor": 25
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "elapsed_s": 72.5,
+  "generated_at_utc": "2026-07-20T15:31:53.484042+00:00",
+  "phase": "R21 R4.1 C1E deficit-round-robin scheduler (plan \u00a76.1)",
+  "results": [],
+  "scheduler_policy": "max_live caps concurrent active groups; activity deficit = groups inactive longest get priority",
+  "total_complete": 0
+}

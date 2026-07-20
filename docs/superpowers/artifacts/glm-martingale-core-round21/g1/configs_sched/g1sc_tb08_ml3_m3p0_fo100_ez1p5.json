@@ -1,0 +1,95 @@
+{
+  "budget_quote": 500.0,
+  "fits": [
+    {
+      "betas": [
+        1.2825630426492616
+      ],
+      "fit_sha256": "76d04aaa5d0cd3cf",
+      "group_id": "BS_tb08_CRVUSDT_DASHUSDT",
+      "half_life_h": 29.791509079621264,
+      "leg_direction_signs": [
+        1,
+        -1
+      ],
+      "leg_markets": [],
+      "legs": [
+        "DASHUSDT",
+        "CRVUSDT"
+      ],
+      "mr_sharpe": 3.463448395162428,
+      "mus": [
+        -5.087129527755104
+      ],
+      "residual_sigma": 0.21305840977722634,
+      "weights": []
+    },
+    {
+      "betas": [
+        0.3694631762393047
+      ],
+      "fit_sha256": "9ca844c11d21aebf",
+      "group_id": "BS_tb08_LTCUSDT_ALGOUSDT",
+      "half_life_h": 21.221748595846194,
+      "leg_direction_signs": [
+        1,
+        -1
+      ],
+      "leg_markets": [],
+      "legs": [
+        "ALGOUSDT",
+        "LTCUSDT"
+      ],
+      "mr_sharpe": 3.3931079989491266,
+      "mus": [
+        5.0452632613659425
+      ],
+      "residual_sigma": 0.12403126518375698,
+      "weights": []
+    },
+    {
+      "betas": [
+        0.8273550793522184
+      ],
+      "fit_sha256": "6b913ab1f20934ce",
+      "group_id": "BS_tb08_TRXUSDT_AAVEUSDT",
+      "half_life_h": 21.34312785746214,
+      "leg_direction_signs": [
+        1,
+        -1
+      ],
+      "leg_markets": [],
+      "legs": [
+        "AAVEUSDT",
+        "TRXUSDT"
+      ],
+      "mr_sharpe": 3.335296492170754,
+      "mus": [
+        -6.021864706749778
+      ],
+      "residual_sigma": 0.17998450103616281,
+      "weights": []
+    }
+  ],
+  "synchronized_cycle": {
+    "bar_boundary_minutes": 1440,
+    "c1_scheduler": {
+      "max_live": 3
+    },
+    "cycle_deadline_h": 168,
+    "entry_z": 1.5,
+    "exit_z": 0.5,
+    "family": "C1E",
+    "fit_lookback_days": 180,
+    "group_fo_quote": 100.0,
+    "group_gross_cap_pct": 400.0,
+    "inventory_reservation_skew_k": 0,
+    "jump_first_passage_gate": null,
+    "leverage": 10,
+    "max_legs": 4,
+    "multiplier": 3.0,
+    "regime_envelope": null,
+    "so_residual_step_z": 0.5,
+    "tp_net_bps_floor": 25
+  }
+}

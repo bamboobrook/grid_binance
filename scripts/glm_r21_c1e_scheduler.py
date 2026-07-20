@@ -32,9 +32,9 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 from glm_r21_launcher import Launcher, sha256_file  # noqa: E402
-from glm_r21_edge_blockspec import (BLOCKS, select_block_specific_pairs,
-                                     run_one, FREQ, LEV, CAP, DIR,
-                                     engine_sha, md_sha, fd_sha)
+from glm_r21_edge_blockspecific import (BLOCKS, select_block_specific_pairs,
+                                         run_one, FREQ, LEV, CAP, DIR,
+                                         engine_sha, md_sha, fd_sha)
 
 ART = ROOT / "docs/superpowers/artifacts/glm-martingale-core-round21"
 SCD = ART / "g1" / "configs_sched"
@@ -101,7 +101,12 @@ def main():
                             budget=500.0, fold=block["block_id"],
                             block="g1sc", seed=20261101)
                         if ln.is_duplicate(fp): continue
-                        row = run_one(ln, active_fits, block, mult, fo, ez, FREQ, tag)
+                        row = ln.run_synchronized_cycle(
+                            experiment_id=tag, parent_id=None, fingerprint=fp,
+                            config_path=cfg_path, budget=500.0,
+                            start_ms=block["test_start_ms"], end_ms=block["test_end_ms"],
+                            fit_start_ms=block["fit_start_ms"], fit_end_ms=block["fit_end_ms"],
+                            purge_ms=86_400_000, timeout_s=600)
                         if not row or row.get("skipped"): continue
                         if row.get("status") != "complete": continue
                         m = row.get("metrics", {}) or {}
