@@ -1,0 +1,42 @@
+{
+  "elapsed_s": 162.5,
+  "generated_at_utc": "2026-07-20T14:09:19.238947+00:00",
+  "grid": {
+    "blocks": [
+      "tb01",
+      "tb02"
+    ],
+    "budgets": [
+      500,
+      1000
+    ],
+    "cap": [
+      300.0,
+      400.0
+    ],
+    "ez": [
+      1.0,
+      1.5
+    ],
+    "fo": [
+      150.0,
+      200.0,
+      250.0
+    ],
+    "mult": [
+      1.6,
+      1.7,
+      1.8,
+      1.9,
+      2.0,
+      2.1,
+      2.2
+    ]
+  },
+  "phase": "R21 G1 multiplier sweet-spot sweep",
+  "tier_hits": {
+    "balanced": [],
+    "conservative": []
+  },
+  "total_replays": 336
+}

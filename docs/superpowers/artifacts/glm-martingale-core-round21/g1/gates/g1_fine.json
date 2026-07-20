@@ -1,0 +1,38 @@
+{
+  "conservative_hits": [],
+  "elapsed_s": 130.2,
+  "generated_at_utc": "2026-07-20T14:12:14.005520+00:00",
+  "grid": {
+    "blocks": [
+      "tb01",
+      "tb02"
+    ],
+    "budgets": [
+      500
+    ],
+    "cap": [
+      250.0,
+      300.0,
+      350.0
+    ],
+    "ez": [
+      0.8,
+      1.0,
+      1.2
+    ],
+    "fo": [
+      140.0,
+      150.0,
+      160.0
+    ],
+    "mult": [
+      2.05,
+      2.1,
+      2.15,
+      2.2,
+      2.25
+    ]
+  },
+  "phase": "R21 G1 fine sweet-spot sweep",
+  "total_replays": 270
+}
