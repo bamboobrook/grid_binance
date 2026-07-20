@@ -730,11 +730,18 @@ pub fn run_synchronized_cycle_replay(
         for (gi, fit) in fits.iter().enumerate() {
             // A synchronized decision requires a fresh completed bar for every
             // leg. Stale marks remain valid for equity only, never for orders.
-            if !fit
-                .legs
-                .iter()
-                .all(|symbol| updated_symbols.contains(symbol))
-            {
+            // Round 21 R4.3: when leg_markets is present the bar symbols are
+            // encoded as "{symbol}::{market_type}", so we check the encoded key.
+            let fresh = fit.legs.iter().enumerate().all(|(i, symbol)| {
+                if let Some(m) = fit.leg_markets.get(i) {
+                    if !m.market_type.is_empty() {
+                        let key = format!("{}::{}", m.symbol.to_uppercase(), m.market_type);
+                        return updated_symbols.contains(&key);
+                    }
+                }
+                updated_symbols.contains(symbol)
+            });
+            if !fresh {
                 continue;
             }
             let marks = collect_marks(fit, &latest_close);
