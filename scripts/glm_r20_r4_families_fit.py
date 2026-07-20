@@ -172,12 +172,69 @@ def fit_b1_basis(train_start, train_end):
     return selected, len(selected)
 
 
+def solve_constrained_weights(betas, max_abs_w=0.25, beta_exposure_limit=0.10,
+                              min_gross_per_side=0.35, n_iter=2000, tol=1e-9):
+    """Iterative projection: beta-neutral hyperplane -> box[-0.25,0.25] -> normalize sum|w|=1."""
+    n = len(betas)
+    if n < 6:
+        return None
+    sorted_idx = sorted(range(n), key=lambda i: betas[i])
+    half = n // 2
+    signs = [0] * n
+    for i in sorted_idx[:half]:
+        signs[i] = 1
+    for i in sorted_idx[half:]:
+        signs[i] = -1
+    w = [signs[i] / n for i in range(n)]
+
+    def project_beta_neutral(w):
+        s = sum(wi * bi for wi, bi in zip(w, betas))
+        norm2 = sum(bi * bi for bi in betas)
+        if norm2 < 1e-12:
+            return w
+        return [wi - (s / norm2) * bi for wi, bi in zip(w, betas)]
+
+    def project_box(w):
+        return [max(-max_abs_w, min(max_abs_w, wi)) for wi in w]
+
+    def project_normalize(w):
+        total = sum(abs(wi) for wi in w)
+        if total < 1e-12:
+            return w
+        return [wi / total for wi in w]
+
+    prev_w = None
+    for it in range(n_iter):
+        w = project_beta_neutral(w)
+        w = project_box(w)
+        w = project_normalize(w)
+        if prev_w is not None:
+            diff = max(abs(wi - pwi) for wi, pwi in zip(w, prev_w))
+            if diff < tol:
+                break
+        prev_w = list(w)
+    exposure = abs(sum(wi * bi for wi, bi in zip(w, betas)))
+    long_gross = sum(abs(wi) for wi in w if wi > 0)
+    short_gross = sum(abs(wi) for wi in w if wi < 0)
+    max_w = max(abs(wi) for wi in w)
+    total = sum(abs(wi) for wi in w)
+    feasible = (exposure <= beta_exposure_limit and max_w <= max_abs_w + 1e-9
+                and long_gross >= min_gross_per_side - 1e-9
+                and short_gross >= min_gross_per_side - 1e-9
+                and abs(total - 1.0) < 1e-6)
+    return {"weights": w, "exposure": exposure, "long_gross": long_gross,
+            "short_gross": short_gross, "max_w": max_w, "feasible": feasible}
+
+
 def fit_m2r_basket(train_start, train_end):
     """M2R: constrained factor-residual basket. factor=BTC.
     residual_i = log(P_i) - beta_i*log(BTC) - mu_i.
     Constrained solve: sum(abs(w))=1, abs(sum(w*beta))<=0.10, max abs(w)<=0.25,
     long gross>=0.35, short gross>=0.35, actual legs>=6.
+    Searches 8-symbol combos to find a feasible constrained basket (the
+    altcoin-betas are mostly positive so feasibility needs beta dispersion).
     """
+    import itertools
     factor = load_log_prices_1h("BTCUSDT", train_start, train_end)
     if len(factor) < 200:
         return [], 0
@@ -201,40 +258,28 @@ def fit_m2r_basket(train_start, train_end):
             continue
         sigma_i = vr**0.5
         legs_data[sym] = {"beta": beta, "mu": mu, "sigma_i": sigma_i, "n": n}
-    # pick 6-8 most stationary
-    ranked = sorted(legs_data.items(), key=lambda kv: kv[1]["sigma_i"])  # lower sigma = more stable
-    selected = ranked[:8]
-    if len(selected) < 6:
+    if len(legs_data) < 8:
         return [], len(legs_data)
-    legs = [s for s, _ in selected]
-    betas = [d["beta"] for _, d in selected]
-    mus = [d["mu"] for _, d in selected]
-    # constrained weights: equal-ish but capped at 0.25, normalized to sum(abs)=1,
-    # and we verify abs(sum(w*beta)) <= 0.10 by construction (equal weights => small)
+    # Search 8-symbol combos for a feasible constrained solve (prefer low residual sigma)
+    all_syms = sorted(legs_data.keys())
+    best = None  # (avg_sigma, combo_syms, betas, mus, sigmas, solve)
+    for combo in itertools.combinations(all_syms, 8):
+        betas = [legs_data[s]["beta"] for s in combo]
+        sol = solve_constrained_weights(betas)
+        if sol and sol["feasible"]:
+            avg_sigma = sum(legs_data[s]["sigma_i"] for s in combo) / 8
+            if best is None or avg_sigma < best[0]:
+                best = (avg_sigma, combo, betas, [legs_data[s]["mu"] for s in combo],
+                        [legs_data[s]["sigma_i"] for s in combo], sol)
+    if best is None:
+        return [], len(legs_data)
+    avg_sigma, combo, betas, mus, sigmas, sol = best
+    legs = list(combo)
     n = len(legs)
-    w = [1.0/n] * n  # start equal
-    # cap at 0.25 (already satisfied for n>=4)
-    w = [min(0.25, wi) for wi in w]
-    total = sum(abs(wi) for wi in w)
-    w = [wi/total for wi in w]  # normalize sum(abs)=1
-    # split into long (positive residual => short in MR; but plan: long most-negative residual)
-    # For the fit artifact, record weights; engine assigns signs at cycle open from residual ranks.
-    # Check beta exposure
-    exposure = abs(sum(wi * bi for wi, bi in zip(w, betas)))
-    sigma = sum(d["sigma_i"] for _, d in selected) / n
-    # long/short gross: assign half long half short by median residual sign at train end
-    # (train-frozen snapshot; engine recomputes at cycle open)
-    signs = []
-    for sym, d in selected:
-        sp = load_log_prices_1h(sym, train_start, train_end)
-        fc = load_log_prices_1h("BTCUSDT", train_start, train_end)
-        common = sorted(set(sp) & set(fc))
-        last_r = sp[common[-1]] - d["beta"]*fc[common[-1]] - d["mu"]
-        signs.append(-1 if last_r > 0 else 1)
-    if all(s > 0 for s in signs): signs[0] = -1
-    if all(s < 0 for s in signs): signs[0] = 1
-    long_gross = sum(abs(wi) for wi, s in zip(w, signs) if s > 0)
-    short_gross = sum(abs(wi) for wi, s in zip(w, signs) if s < 0)
+    sigma = sum(sigmas) / n
+    w = sol["weights"]
+    signs = [1 if wi > 0 else -1 for wi in w]
+    exposure = sol["exposure"]
     fit_sha = hashlib.sha256(json.dumps({"legs": legs, "betas": [round(b,8) for b in betas],
         "mus": [round(m,8) for m in mus], "weights": [round(x,8) for x in w],
         "sigma": round(sigma,8), "train_start": train_start, "train_end": train_end},
@@ -244,9 +289,12 @@ def fit_m2r_basket(train_start, train_end):
         "mus": [round(m,8) for m in mus], "residual_sigma": round(sigma,8),
         "half_life_h": 24.0, "fit_sha256": fit_sha,
         "weights": [round(x,8) for x in w],
-        "diagnostics": {"beta_exposure": round(exposure,4), "long_gross": round(long_gross,4),
-                        "short_gross": round(short_gross,4), "n_legs": n,
-                        "beta_exposure_pass": exposure <= 0.10}}]
+        "diagnostics": {"beta_exposure": round(exposure,4),
+                        "beta_exposure_pass": exposure <= 0.10,
+                        "long_gross": round(sol["long_gross"],4),
+                        "short_gross": round(sol["short_gross"],4),
+                        "max_w": round(sol["max_w"],4),
+                        "n_legs": n, "constrained_solve_feasible": True}}]
     return frozen, len(legs_data)
 
 

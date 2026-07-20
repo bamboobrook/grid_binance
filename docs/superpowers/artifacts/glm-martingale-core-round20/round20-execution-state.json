@@ -1,16 +1,13 @@
 {
   "blocked_reasons": [
-    "P4: 1 failed: ['six_mandatory_families_implemented']",
-    "P5: blocked_predecessor",
-    "P6: blocked_predecessor",
-    "P7: blocked_predecessor",
+    "P7: 1 failed: ['g1_causal_inner_oos']",
     "P8: blocked_predecessor",
     "P9: blocked_predecessor",
     "P10: blocked_predecessor",
     "P11: blocked_predecessor",
     "P12: blocked_predecessor"
   ],
-  "phase": "P4",
+  "phase": "P7",
   "phase_status": {
     "P0": {
       "status": "complete"
@@ -34,19 +31,19 @@
       "status": "complete"
     },
     "P4": {
-      "failed": [
-        "six_mandatory_families_implemented"
-      ],
-      "status": "blocked"
+      "status": "complete"
     },
     "P5": {
-      "status": "blocked_predecessor"
+      "status": "complete"
     },
     "P6": {
-      "status": "blocked_predecessor"
+      "status": "complete"
     },
     "P7": {
-      "status": "blocked_predecessor"
+      "failed": [
+        "g1_causal_inner_oos"
+      ],
+      "status": "blocked"
     },
     "P8": {
       "status": "blocked_predecessor"
@@ -58,6 +55,6 @@
   "plan_sha256": "9c71aaf5c4d4292b1f07705636941929298c25efade63c8d865c396b8fb3910a",
   "registry_rows": 0,
   "status": "blocked",
-  "validated_at": "2026-07-20T04:00:12.499937+00:00",
+  "validated_at": "2026-07-20T04:14:21.809459+00:00",
   "validator_sha256": "48039b97498d5aff2c2814e667512817527c445d2b7b662d792251f473b4f3be"
 }
