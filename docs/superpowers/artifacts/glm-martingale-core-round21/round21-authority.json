@@ -1,7 +1,7 @@
 {
   "additive_to": "docs/superpowers/artifacts/glm-martingale-core-round20/round20-corrected-authority.json",
   "authority": "glm_round21_strict_execution_per_chatgpt_plan_HONEST_REVOCATION",
-  "commit_sha": "c7a49bbb36e49aa93b1589e73ac54b694f9d1ba9",
+  "commit_sha": "89aeef41e9b82079fd3de19a3bc04e18997ab6a4",
   "corrected_machine_state": "CROSS_VALIDATED_RESEARCH_FINALIST",
   "five_of_five_positive_valid_candidates": 5,
   "frontier_progress": true,
@@ -67,10 +67,10 @@
     "Stream suffix hash parity PASS: all 5 streams (event/trade/equity/funding/rejection) identical across 2 independent runs (plan \u00a712 \u5b9e\u76d8\u53ef\u590d\u73b0 hard gate passed at single-binary level)",
     "Strict cross-fit trial correction EXECUTED honestly \u2014 revealed the overfit that the premature 3-tier claim missed (this is the plan's anti-overfit machinery working as designed)"
   ],
-  "registry_rows": 9180,
+  "registry_rows": 10332,
   "registry_terminal_breakdown": {
     "complete": 2136,
-    "invalid_engine_bug": 925,
+    "invalid_engine_bug": 1501,
     "not_martingale_no_so": 4,
     "rejected_concentration": 1221,
     "rejected_gate": 304
@@ -86,5 +86,5 @@
     "balanced_ann_90_dd_20": true,
     "conservative_ann_50_dd_10": true
   },
-  "validated_at": "2026-07-20T15:17:42.924560+00:00"
+  "validated_at": "2026-07-20T15:32:40.925622+00:00"
 }
