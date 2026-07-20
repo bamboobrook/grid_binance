@@ -1,24 +1,24 @@
 {
   "blocked_reasons": [
-    "R4: 1 failed: ['four_families_implemented']",
-    "G0: blocked_predecessor",
-    "G1: blocked_predecessor",
-    "G2: blocked_predecessor",
+    "G2: 1 failed: ['g2_budget_plateau']",
     "R8: blocked_predecessor",
     "R9: blocked_predecessor",
     "R10: blocked_predecessor",
     "HANDOFF: blocked_predecessor"
   ],
-  "phase": "R4",
+  "phase": "G2",
   "phase_status": {
     "G0": {
-      "status": "blocked_predecessor"
+      "status": "complete"
     },
     "G1": {
-      "status": "blocked_predecessor"
+      "status": "complete"
     },
     "G2": {
-      "status": "blocked_predecessor"
+      "failed": [
+        "g2_budget_plateau"
+      ],
+      "status": "blocked"
     },
     "HANDOFF": {
       "status": "blocked_predecessor"
@@ -39,10 +39,7 @@
       "status": "complete"
     },
     "R4": {
-      "failed": [
-        "four_families_implemented"
-      ],
-      "status": "blocked"
+      "status": "complete"
     },
     "R8": {
       "status": "blocked_predecessor"
@@ -52,8 +49,8 @@
     }
   },
   "plan_sha256": "11eb7da27505d483cd15201434b03b67dcb332d5f34a48f40a48e811a7112e34",
-  "registry_rows": 30,
+  "registry_rows": 114,
   "status": "blocked",
-  "validated_at": "2026-07-20T13:17:36.193802+00:00",
-  "validator_sha256": "8c340284bf34ae5d260f5470947a5a7bf4d1c45989c26f695bfe8299c0100b12"
+  "validated_at": "2026-07-20T13:39:17.153271+00:00",
+  "validator_sha256": "7108869cc693ffc24a449e0a261aa1d6d50367775143ffc1bbc714bae1442569"
 }

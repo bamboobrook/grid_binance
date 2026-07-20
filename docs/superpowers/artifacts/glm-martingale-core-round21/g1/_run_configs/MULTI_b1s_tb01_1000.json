@@ -1,0 +1,264 @@
+{
+  "budget_quote": 1000.0,
+  "fits": [
+    {
+      "adf_t": -40.326477499527854,
+      "basis_mean": -0.00033644259894850906,
+      "betas": [
+        1.0,
+        -1.0
+      ],
+      "fit_sha256": "3d4930df9c3611be",
+      "group_id": "B1S_BTCUSDT",
+      "half_life_h": 1.0,
+      "leg_direction_signs": [
+        1,
+        -1
+      ],
+      "leg_markets": [
+        {
+          "market_type": "spot",
+          "symbol": "BTCUSDT",
+          "venue": "binance"
+        },
+        {
+          "market_type": "futures_usdt_perp",
+          "symbol": "BTCUSDT",
+          "venue": "binance"
+        }
+      ],
+      "legs": [
+        "BTCUSDT",
+        "BTCUSDT"
+      ],
+      "mus": [
+        -0.00033644259894850906,
+        0.00033644259894850906
+      ],
+      "residual_sigma": 0.00036983183570333606,
+      "weights": [
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "adf_t": -43.32686738265342,
+      "basis_mean": -0.00030877376401892655,
+      "betas": [
+        1.0,
+        -1.0
+      ],
+      "fit_sha256": "29e898e196506436",
+      "group_id": "B1S_ETHUSDT",
+      "half_life_h": 1.0,
+      "leg_direction_signs": [
+        1,
+        -1
+      ],
+      "leg_markets": [
+        {
+          "market_type": "spot",
+          "symbol": "ETHUSDT",
+          "venue": "binance"
+        },
+        {
+          "market_type": "futures_usdt_perp",
+          "symbol": "ETHUSDT",
+          "venue": "binance"
+        }
+      ],
+      "legs": [
+        "ETHUSDT",
+        "ETHUSDT"
+      ],
+      "mus": [
+        -0.00030877376401892655,
+        0.00030877376401892655
+      ],
+      "residual_sigma": 0.00048653222070947595,
+      "weights": [
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "adf_t": -24.54380602844123,
+      "basis_mean": -0.00032191570829733087,
+      "betas": [
+        1.0,
+        -1.0
+      ],
+      "fit_sha256": "6bde449af9e3d7cb",
+      "group_id": "B1S_BNBUSDT",
+      "half_life_h": 2.4675664241304136,
+      "leg_direction_signs": [
+        1,
+        -1
+      ],
+      "leg_markets": [
+        {
+          "market_type": "spot",
+          "symbol": "BNBUSDT",
+          "venue": "binance"
+        },
+        {
+          "market_type": "futures_usdt_perp",
+          "symbol": "BNBUSDT",
+          "venue": "binance"
+        }
+      ],
+      "legs": [
+        "BNBUSDT",
+        "BNBUSDT"
+      ],
+      "mus": [
+        -0.00032191570829733087,
+        0.00032191570829733087
+      ],
+      "residual_sigma": 0.0008116278085024852,
+      "weights": [
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "adf_t": -28.389267970961793,
+      "basis_mean": -0.00038034562748665566,
+      "betas": [
+        1.0,
+        -1.0
+      ],
+      "fit_sha256": "4865c20a396e1ac6",
+      "group_id": "B1S_SOLUSDT",
+      "half_life_h": 1.8348005183960125,
+      "leg_direction_signs": [
+        1,
+        -1
+      ],
+      "leg_markets": [
+        {
+          "market_type": "spot",
+          "symbol": "SOLUSDT",
+          "venue": "binance"
+        },
+        {
+          "market_type": "futures_usdt_perp",
+          "symbol": "SOLUSDT",
+          "venue": "binance"
+        }
+      ],
+      "legs": [
+        "SOLUSDT",
+        "SOLUSDT"
+      ],
+      "mus": [
+        -0.00038034562748665566,
+        0.00038034562748665566
+      ],
+      "residual_sigma": 0.00087840994459076,
+      "weights": [
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "adf_t": -40.753029298341815,
+      "basis_mean": -0.00046910454320942696,
+      "betas": [
+        1.0,
+        -1.0
+      ],
+      "fit_sha256": "b5d6adb371bc4c3f",
+      "group_id": "B1S_XRPUSDT",
+      "half_life_h": 1.0,
+      "leg_direction_signs": [
+        1,
+        -1
+      ],
+      "leg_markets": [
+        {
+          "market_type": "spot",
+          "symbol": "XRPUSDT",
+          "venue": "binance"
+        },
+        {
+          "market_type": "futures_usdt_perp",
+          "symbol": "XRPUSDT",
+          "venue": "binance"
+        }
+      ],
+      "legs": [
+        "XRPUSDT",
+        "XRPUSDT"
+      ],
+      "mus": [
+        -0.00046910454320942696,
+        0.00046910454320942696
+      ],
+      "residual_sigma": 0.00046463884488463493,
+      "weights": [
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "adf_t": -29.895811510048286,
+      "basis_mean": -0.00023126587540844127,
+      "betas": [
+        1.0,
+        -1.0
+      ],
+      "fit_sha256": "4701d5bab36945d9",
+      "group_id": "B1S_DOGEUSDT",
+      "half_life_h": 1.6459666578609167,
+      "leg_direction_signs": [
+        1,
+        -1
+      ],
+      "leg_markets": [
+        {
+          "market_type": "spot",
+          "symbol": "DOGEUSDT",
+          "venue": "binance"
+        },
+        {
+          "market_type": "futures_usdt_perp",
+          "symbol": "DOGEUSDT",
+          "venue": "binance"
+        }
+      ],
+      "legs": [
+        "DOGEUSDT",
+        "DOGEUSDT"
+      ],
+      "mus": [
+        -0.00023126587540844127,
+        0.00023126587540844127
+      ],
+      "residual_sigma": 0.0005625698003805423,
+      "weights": [
+        0.5,
+        0.5
+      ]
+    }
+  ],
+  "synchronized_cycle": {
+    "bar_boundary_minutes": 60,
+    "c1_scheduler": null,
+    "cycle_deadline_h": 168,
+    "entry_z": 1.5,
+    "exit_z": 0.5,
+    "family": "B1S",
+    "fit_lookback_days": 180,
+    "group_fo_quote": 30.0,
+    "group_gross_cap_pct": 100.0,
+    "inventory_reservation_skew_k": 0,
+    "jump_first_passage_gate": null,
+    "leverage": 3,
+    "max_legs": 4,
+    "multiplier": 1.5,
+    "regime_envelope": null,
+    "so_residual_step_z": 0.5,
+    "tp_net_bps_floor": 25
+  }
+}

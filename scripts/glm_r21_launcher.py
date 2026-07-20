@@ -45,7 +45,9 @@ REGISTRY = ART / "exploration-registry.jsonl"
 FAILURE_LEDGER = ART / "failure-ledger.jsonl"
 BINARY = ROOT / "target/release/synchronized_cycle_replay"
 MARKET_DATA = ROOT / "data/market_data_full.db"
-FUNDING_DATA = ROOT / "data/funding_rates.db"
+# funding_rates_round12.db covers MORE symbols than funding_rates.db (incl
+# LTCUSDT, ANKRUSDT) — needed for C1E/P1S/V1B fits that include LTC/BCH.
+FUNDING_DATA = ROOT / "data/funding_rates_round12.db"
 
 # Plan §2: terminal statuses. Adds round-21-specific blocked statuses that
 # surface the exact contract failure (invalid_budget, invalid_market_identity,

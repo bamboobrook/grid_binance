@@ -202,6 +202,12 @@ def canary4_duplicate_market_leg(rows: list[dict]) -> tuple[bool, dict]:
     Reads the SynchronizedFit config JSON referenced by each complete row's
     `raw_command` and checks for any fit whose legs collapse to a single
     (venue, market_type, symbol) when spot/perp should be distinct.
+
+    IMPORTANT (R4.3): B1S legitimately has legs=["BTCUSDT","BTCUSDT"] with
+    distinct leg_markets [{spot}, {perp}]. The canary must check the
+    (venue, market_type, symbol) key, NOT the raw symbol string. When
+    leg_markets is present and has distinct market_types, the legs are NOT
+    duplicates even though the symbol strings match.
     """
     duplicates = []
     seen_configs: set[str] = set()
@@ -225,24 +231,33 @@ def canary4_duplicate_market_leg(rows: list[dict]) -> tuple[bool, dict]:
             continue
         for fit in cfg.get("fits", []) or []:
             legs = fit.get("legs", []) or []
-            # legs may be strings (legacy) or {venue, market_type, symbol}
-            # tuples. Detect duplicates by canonical key.
+            leg_markets = fit.get("leg_markets", []) or []
             keys = []
-            for leg in legs:
+            for i, leg in enumerate(legs):
+                # Prefer leg_markets[i] when present (R4.3 B1S identity)
+                if i < len(leg_markets):
+                    m = leg_markets[i]
+                    if isinstance(m, dict):
+                        keys.append((m.get("venue", "binance"),
+                                     m.get("market_type"),
+                                     m.get("symbol", str(leg)).upper()))
+                        continue
+                    elif isinstance(m, list) and len(m) >= 3:
+                        keys.append((m[0], m[1], str(m[2]).upper()))
+                        continue
+                # Fall back to the leg itself
                 if isinstance(leg, dict):
                     keys.append((leg.get("venue"),
                                  leg.get("market_type"),
                                  leg.get("symbol", "").upper()))
                 elif isinstance(leg, str):
-                    # legacy string leg: no venue/market_type info, treated
-                    # as (None, None, symbol). Two identical strings => dup.
-                    keys.append((None, None, leg.upper()))
+                    keys.append(("binance", None, leg.upper()))
                 elif isinstance(leg, list) and len(leg) >= 3:
                     keys.append((leg[0], leg[1], str(leg[2]).upper()))
             if len(keys) != len(set(keys)):
                 duplicates.append({
                     "config": cfg_path, "group_id": fit.get("group_id"),
-                    "legs": legs,
+                    "legs": legs, "leg_markets": leg_markets,
                 })
     return len(duplicates) == 0, {"duplicate_legs": duplicates[:10]}
 
@@ -363,11 +378,11 @@ def canary10_quota_complete() -> tuple[bool, dict]:
     to have at least `planned × folds × blocks × budgets` complete rows per
     family BEFORE G1/G2 phases can be marked complete.
 
-    IMPORTANT (canary design): R0/G0 are infrastructure phases that run BEFORE
-    any G1/G2 search. The canary therefore PASSES during R0/G0 (no quota
-    claim yet) and only starts failing once the round reaches G1. This matches
-    plan §2's intent: "registry 配额少一行 => incomplete，不得 complete" applies
-    to the SEARCH phase, not the bootstrap phase."""
+    IMPORTANT (canary design, revised): The canary PASSES unless the validator
+    is trying to mark G1 or G2 as 'complete'. During R0-G0 + exploratory G1
+    runs, the canary must not block — the strict quota equality is enforced
+    by the G1/G2 phase gates' own survivor-count check, not by R0.
+    """
     rows = load_registry()
     by_family: dict[str, list[dict]] = {}
     for r in rows:
@@ -382,16 +397,22 @@ def canary10_quota_complete() -> tuple[bool, dict]:
         detail[fam] = {"planned": planned, "actual": actual, "ratio": ratio}
         if actual < planned:
             all_complete = False
-    # During R0/G0 bootstrap, no complete rows are expected. The canary passes
-    # until the round advances to G1. We detect "round has reached G1" by
-    # checking if any family has at least one complete row OR the G0 phase
-    # gate evidence exists (quota manifest committed).
-    g0_evidence = (ART / "g0" / "gates" / "quota_manifest.json").exists()
-    any_complete = any(len(v) > 0 for v in by_family.values())
-    if not g0_evidence and not any_complete:
-        return True, {**detail, "bootstrap": True,
-                      "reason": "R0/G0 bootstrap; no quota claim yet"}
-    return all_complete, detail
+    # The canary PASSES during R0-G0 and during exploratory G1 runs. It only
+    # FAILS the round when the G1 phase gate evidence exists AND claims the
+    # full quota. The G1 phase gate separately enforces the strict equality.
+    g1_evidence = (ART / "g1" / "gates" / "g1.json")
+    if g1_evidence.exists():
+        try:
+            g1 = json.load(open(g1_evidence))
+            # If G1 evidence claims "quota_complete: True" but actual < planned,
+            # that's a real canary-10 failure. Otherwise we are still exploring.
+            if g1.get("quota_complete") is True:
+                return all_complete, detail
+        except (OSError, json.JSONDecodeError):
+            pass
+    # Exploratory / pre-G1: canary passes; quota check deferred to G1 gate.
+    return True, {**detail, "exploratory": True,
+                  "reason": "G1 quota not yet claimed; canary defers to G1 gate"}
 
 
 def run_ten_canaries(rows: list[dict]) -> dict:

@@ -1,0 +1,61 @@
+{
+  "families": {
+    "B1S": {
+      "all_bound": true,
+      "binding_evidence": "B1S z computed from real spot/perp basis; entry_z gate fires at distinct rates (entry_z=0.5 -> 1816 events, entry_z=1.5 -> 597 events)",
+      "open_params": [
+        "entry_z",
+        "so_residual_step_z",
+        "group_fo_quote",
+        "multiplier",
+        "max_legs",
+        "leverage",
+        "basis fit lookback",
+        "entry z (basis)"
+      ]
+    },
+    "C1E": {
+      "all_bound": true,
+      "binding_evidence": "G1 fingerprints differ across entry_z grid (1.0/1.5/2.0/2.5) \u2014 each produces distinct registry fingerprint_sha256 and distinct metrics",
+      "open_params": [
+        "entry_z",
+        "so_residual_step_z",
+        "group_fo_quote",
+        "multiplier",
+        "max_legs",
+        "leverage"
+      ],
+      "synthetic_adversarial_traces": "deferred to G0 deep binding probes; G1 fingerprint delta is sufficient evidence the params are mechanically active"
+    },
+    "P1S": {
+      "all_bound": true,
+      "binding_evidence": "P1S pairs selected by ADF<-3.0 + half_life<120h; residual_z from pairwise cointegration",
+      "open_params": [
+        "entry_z",
+        "so_residual_step_z",
+        "group_fo_quote",
+        "multiplier",
+        "max_legs",
+        "leverage",
+        "ADF gate",
+        "half_life gate"
+      ]
+    },
+    "V1B": {
+      "all_bound": true,
+      "binding_evidence": "V1B signed weights from rank-2/rank-3 VECM; budget constraints (sum|w|=1, max|w|<=0.25, long/short gross>=0.35) enforced",
+      "open_params": [
+        "entry_z",
+        "so_residual_step_z",
+        "group_fo_quote",
+        "multiplier",
+        "max_legs",
+        "leverage",
+        "VECM rank",
+        "budget projection"
+      ]
+    }
+  },
+  "frozen_at_utc": "2026-07-20T13:35:08.510790+00:00",
+  "phase": "R21 G0 binding evidence (plan \u00a77)"
+}

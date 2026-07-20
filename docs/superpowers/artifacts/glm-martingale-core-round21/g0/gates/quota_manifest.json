@@ -1,0 +1,26 @@
+{
+  "commit_sha": "18f5a7d78e98ff89feaa50040fbb455050857d95",
+  "committed": true,
+  "families_implemented": {
+    "B1S": "spot/perp basis with MarketLegId (R4.3 wired)",
+    "C1E": "disjoint OLS residual pairs + scheduler config",
+    "P1S": "pairwise cointegration @4h ADF<-3.0 + half_life<120h",
+    "V1B": "rank-2/rank-3 VECM with budget projection"
+  },
+  "frozen_at_utc": "2026-07-20T13:34:56.158016+00:00",
+  "phase": "R21 G0 quota manifest freeze (plan \u00a75)",
+  "quota": {
+    "B1S": 96,
+    "C1E": 64,
+    "P1S": 64,
+    "P1S_SoftSEL": 32,
+    "V1B": 64
+  },
+  "seeds": {
+    "B1S": 20261102,
+    "C1E": 20261101,
+    "P1S": 20261103,
+    "P1S_SoftSEL": 20261104,
+    "V1B": 20261105
+  }
+}
