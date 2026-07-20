@@ -1,0 +1,90 @@
+{
+  "budget_quote": 500.0,
+  "fits": [
+    {
+      "betas": [
+        0.6772543989888408
+      ],
+      "fit_sha256": "27137f22778ac307",
+      "group_id": "EDG_ADAUSDT_DOGEUSDT",
+      "half_life_h": 44.27277865321045,
+      "leg_direction_signs": [
+        1,
+        -1
+      ],
+      "leg_markets": [],
+      "legs": [
+        "DOGEUSDT",
+        "ADAUSDT"
+      ],
+      "mus": [
+        0.6749748035469155
+      ],
+      "residual_sigma": 0.19398301972147317,
+      "weights": []
+    },
+    {
+      "betas": [
+        0.19762979492938704
+      ],
+      "fit_sha256": "061a6f29a9c6e392",
+      "group_id": "EDG_ZECUSDT_XRPUSDT",
+      "half_life_h": 41.027348416184104,
+      "leg_direction_signs": [
+        1,
+        -1
+      ],
+      "leg_markets": [],
+      "legs": [
+        "XRPUSDT",
+        "ZECUSDT"
+      ],
+      "mus": [
+        3.5453088491985367
+      ],
+      "residual_sigma": 0.22604786756745474,
+      "weights": []
+    },
+    {
+      "betas": [
+        0.8753322707204206
+      ],
+      "fit_sha256": "08063346e0cb327d",
+      "group_id": "EDG_ANKRUSDT_FILUSDT",
+      "half_life_h": 24.04262656596118,
+      "leg_direction_signs": [
+        1,
+        -1
+      ],
+      "leg_markets": [],
+      "legs": [
+        "FILUSDT",
+        "ANKRUSDT"
+      ],
+      "mus": [
+        -4.913730505508736
+      ],
+      "residual_sigma": 0.14098764590097498,
+      "weights": []
+    }
+  ],
+  "synchronized_cycle": {
+    "bar_boundary_minutes": 1440,
+    "c1_scheduler": null,
+    "cycle_deadline_h": 168,
+    "entry_z": 1.0,
+    "exit_z": 0.5,
+    "family": "C1E",
+    "fit_lookback_days": 180,
+    "group_fo_quote": 60.0,
+    "group_gross_cap_pct": 400.0,
+    "inventory_reservation_skew_k": 0,
+    "jump_first_passage_gate": null,
+    "leverage": 10,
+    "max_legs": 4,
+    "multiplier": 1.5,
+    "regime_envelope": null,
+    "so_residual_step_z": 0.5,
+    "tp_net_bps_floor": 25
+  }
+}

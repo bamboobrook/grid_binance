@@ -1,0 +1,85 @@
+{
+  "best_aggressive": [
+    {
+      "ann": 121.9326710906449,
+      "block": "tb03",
+      "dd": 17.275185254777686,
+      "ez": 1.0,
+      "fingerprint": "dd2976946a801d4d6ee103b870154363638200c809f5dc101a853226261b653c",
+      "fo": 100.0,
+      "grpc": 49.03586415782014,
+      "mult": 2.0,
+      "so": 5,
+      "sym": 12,
+      "symc": 26.058969181999796,
+      "tag": "g1ef_tb03_m2p0_fo100_ez1p0"
+    }
+  ],
+  "best_balanced": [
+    {
+      "ann": 121.9326710906449,
+      "block": "tb03",
+      "dd": 17.275185254777686,
+      "ez": 1.0,
+      "fingerprint": "dd2976946a801d4d6ee103b870154363638200c809f5dc101a853226261b653c",
+      "fo": 100.0,
+      "grpc": 49.03586415782014,
+      "mult": 2.0,
+      "so": 5,
+      "sym": 12,
+      "symc": 26.058969181999796,
+      "tag": "g1ef_tb03_m2p0_fo100_ez1p0"
+    }
+  ],
+  "best_conservative": [],
+  "blocks_positive": 4,
+  "blocks_total": 6,
+  "blocks_with_fits": 12,
+  "cross_fit_per_block": {
+    "tb01": {
+      "best_ann": 6.149490680020597,
+      "best_dd": 5.139784071257269,
+      "positive": 9,
+      "total": 9
+    },
+    "tb02": {
+      "best_ann": 16.3304542052227,
+      "best_dd": 18.90892260520134,
+      "positive": 3,
+      "total": 3
+    },
+    "tb03": {
+      "best_ann": 121.9326710906449,
+      "best_dd": 17.275185254777686,
+      "positive": 6,
+      "total": 12
+    },
+    "tb04": {
+      "best_ann": -14.044185898944628,
+      "best_dd": 6.6337415970196805,
+      "positive": 0,
+      "total": 24
+    },
+    "tb05": {
+      "best_ann": 48.42927155864112,
+      "best_dd": 6.303331122240786,
+      "positive": 15,
+      "total": 15
+    },
+    "tb06": {
+      "best_ann": -0.45145183484095464,
+      "best_dd": 19.604828208656517,
+      "positive": 0,
+      "total": 21
+    }
+  },
+  "elapsed_s": 249.2,
+  "generated_at_utc": "2026-07-20T15:04:37.988387+00:00",
+  "phase": "R21 edge full G1 (daily, expanded universe, all blocks)",
+  "tier_hits": {
+    "aggressive": 1,
+    "balanced": 1,
+    "conservative": 0
+  },
+  "total_complete": 84
+}
