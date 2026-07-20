@@ -1,0 +1,226 @@
+{
+  "families": {
+    "C1": {
+      "configs": 16,
+      "folds": {
+        "F1": {
+          "configs_run": 64,
+          "survivors": 0,
+          "best": null
+        },
+        "F2": {
+          "configs_run": 64,
+          "survivors": 0,
+          "best": null
+        },
+        "F3": {
+          "configs_run": 64,
+          "survivors": 6,
+          "best": {
+            "config_id": "C1_F3_003",
+            "budget": 1000,
+            "median_ann": 20.53970419246214,
+            "worst_dd": 2.094032820432912,
+            "pos_blocks": 2
+          }
+        },
+        "F4": {
+          "configs_run": 64,
+          "survivors": 32,
+          "best": {
+            "config_id": "C1_F4_003",
+            "budget": 1000,
+            "median_ann": 26.803902298214588,
+            "worst_dd": 7.309729570481238,
+            "pos_blocks": 2
+          }
+        }
+      },
+      "g0_bound_params": 0,
+      "g0_total_params": 0
+    },
+    "B1": {
+      "configs": 16,
+      "folds": {
+        "F1": {
+          "configs_run": 64,
+          "survivors": 0,
+          "best": null
+        },
+        "F2": {
+          "configs_run": 64,
+          "survivors": 0,
+          "best": null
+        },
+        "F3": {
+          "configs_run": 64,
+          "survivors": 0,
+          "best": null
+        },
+        "F4": {
+          "configs_run": 64,
+          "survivors": 0,
+          "best": null
+        }
+      },
+      "g0_bound_params": 0,
+      "g0_total_params": 0
+    },
+    "M2R": {
+      "configs": 16,
+      "folds": {
+        "F1": {
+          "configs_run": 64,
+          "survivors": 4,
+          "best": {
+            "config_id": "M2R_F1_005",
+            "budget": 1000,
+            "median_ann": 2.2644544514217158,
+            "worst_dd": 0.18148814123962445,
+            "pos_blocks": 1
+          }
+        },
+        "F2": {
+          "status": "blocked_no_fits"
+        },
+        "F3": {
+          "configs_run": 64,
+          "survivors": 16,
+          "best": {
+            "config_id": "M2R_F3_000",
+            "budget": 1000,
+            "median_ann": 0.4396814986024733,
+            "worst_dd": 0.7555417070881859,
+            "pos_blocks": 1
+          }
+        },
+        "F4": {
+          "configs_run": 64,
+          "survivors": 14,
+          "best": {
+            "config_id": "M2R_F4_011",
+            "budget": 1000,
+            "median_ann": 2.7152799410816497,
+            "worst_dd": 1.0238195953454707,
+            "pos_blocks": 2
+          }
+        }
+      },
+      "g0_bound_params": 0,
+      "g0_total_params": 0
+    },
+    "P1": {
+      "configs": 16,
+      "folds": {
+        "F1": {
+          "configs_run": 64,
+          "survivors": 18,
+          "best": {
+            "config_id": "P1_F1_008",
+            "budget": 1000,
+            "median_ann": 17.92276998697435,
+            "worst_dd": 0.3385074299025083,
+            "pos_blocks": 2
+          }
+        },
+        "F2": {
+          "configs_run": 64,
+          "survivors": 16,
+          "best": {
+            "config_id": "P1_F2_013",
+            "budget": 1000,
+            "median_ann": 16.07292481825626,
+            "worst_dd": 2.704391782421399,
+            "pos_blocks": 2
+          }
+        },
+        "F3": {
+          "configs_run": 64,
+          "survivors": 26,
+          "best": {
+            "config_id": "P1_F3_013",
+            "budget": 1000,
+            "median_ann": 18.299465949073035,
+            "worst_dd": 3.8740909911848886,
+            "pos_blocks": 2
+          }
+        },
+        "F4": {
+          "configs_run": 64,
+          "survivors": 16,
+          "best": {
+            "config_id": "P1_F4_003",
+            "budget": 1000,
+            "median_ann": 22.836499490060326,
+            "worst_dd": 3.059615334080042,
+            "pos_blocks": 2
+          }
+        }
+      },
+      "g0_bound_params": 0,
+      "g0_total_params": 0
+    },
+    "K1": {
+      "configs": 12,
+      "folds": {
+        "F1": {
+          "configs_run": 48,
+          "survivors": 0,
+          "best": null
+        },
+        "F2": {
+          "configs_run": 48,
+          "survivors": 0,
+          "best": null
+        },
+        "F3": {
+          "configs_run": 48,
+          "survivors": 0,
+          "best": null
+        },
+        "F4": {
+          "configs_run": 48,
+          "survivors": 0,
+          "best": null
+        }
+      },
+      "g0_bound_params": 0,
+      "g0_total_params": 0
+    },
+    "V1": {
+      "configs": 16,
+      "folds": {
+        "F1": {
+          "configs_run": 64,
+          "survivors": 8,
+          "best": {
+            "config_id": "V1_F1_003",
+            "budget": 1000,
+            "median_ann": 1.282799414255864,
+            "worst_dd": 0.5410047047446953,
+            "pos_blocks": 1
+          }
+        },
+        "F2": {
+          "configs_run": 64,
+          "survivors": 0,
+          "best": null
+        },
+        "F3": {
+          "configs_run": 64,
+          "survivors": 0,
+          "best": null
+        },
+        "F4": {
+          "configs_run": 64,
+          "survivors": 0,
+          "best": null
+        }
+      },
+      "g0_bound_params": 0,
+      "g0_total_params": 0
+    }
+  },
+  "total_runs": 1408,
+  "elapsed_s": 2350.8
+}

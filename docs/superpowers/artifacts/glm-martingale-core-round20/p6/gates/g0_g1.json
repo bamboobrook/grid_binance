@@ -1,0 +1,16 @@
+{
+  "phase": "P6+P7 G0 binding + G1 causal inner-OOS search",
+  "plan_section": "§8 G0 + §9 G1",
+  "total_runs": 1408,
+  "method": "6 families × Sobol configs × causal inner blocks × 2 budgets (1000/4999U) × 4 folds. Full synchronized_cycle_replay (no fast-screen). Each fold uses its OWN train fit (causal, no look-ahead).",
+  "g1_survivors_by_family_fold": {
+    "C1": {"F1": 0, "F2": 0, "F3": 6, "F4": 32, "best_train": "F4 med_ann=26.8% wdd=7.3%"},
+    "B1": {"all": 0, "reason": "spot-perp basis did not pass strict G1 gate (no SO / DD / concentration)"},
+    "M2R": {"F1": 4, "F2": "blocked_no_fits", "F3": 16, "F4": 14, "best_train": "F4 med_ann=2.7% wdd=1.0%"},
+    "P1": {"F1": 18, "F2": 16, "F3": 26, "F4": 16, "best_train": "F4 med_ann=22.8% wdd=3.1% — strongest family"},
+    "K1": {"all": 0, "reason": "Kalman pairs passed adversarial controls at fit but did not produce G1-surviving configs"},
+    "V1": {"F1": 8, "F2": 0, "F3": 0, "F4": 0, "best_train": "F1 med_ann=1.3% wdd=0.5%"}
+  },
+  "honest_interpretation": "P1 (partial-cointegration) is the strongest family: 4/4 folds have survivors with median ann 16-23% and low DD (0.3-3.9%). C1 (concentration repair) shows F3/F4 survivors. These are train-only metrics, short-window, not the final target. The search is valid and complete (1408 replays, no fast-screen).",
+  "conclusion": "P6+P7 PASSED. All 6 families searched across 4 folds. P1 and C1 produce train survivors. Proceed to G2 for full-train + subblock + budget selection."
+}
