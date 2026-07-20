@@ -52,8 +52,8 @@
     }
   },
   "plan_sha256": "11eb7da27505d483cd15201434b03b67dcb332d5f34a48f40a48e811a7112e34",
-  "registry_rows": 0,
+  "registry_rows": 30,
   "status": "blocked",
-  "validated_at": "2026-07-20T13:09:30.103561+00:00",
+  "validated_at": "2026-07-20T13:17:36.193802+00:00",
   "validator_sha256": "8c340284bf34ae5d260f5470947a5a7bf4d1c45989c26f695bfe8299c0100b12"
 }

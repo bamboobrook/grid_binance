@@ -1,0 +1,16 @@
+{
+  "db_max_open_time_ms": 1784500500000,
+  "db_max_open_time_utc": "2026-07-19T22:35:00+00:00",
+  "earliest_one_shot_confirmation_utc": "~2026-08-10 (30 days after 2026-07-11)",
+  "first_future_query_at": null,
+  "lock_date_ms": 1783555200000,
+  "lock_date_utc": "2026-07-11T00:00:00Z",
+  "one_shot_rule": "failure after the one-shot replay is final \u2014 no parameter tuning and re-reading. Insufficient future days (<180) report raw return only, not ann; <365 days cannot claim target hit.",
+  "phase": "R21 R9 future-lock audit setup (plan \u00a711)",
+  "rule": "2026-07-11+ is sealed until (a) 30 full calendar days elapse AND (b) selection is committed/pushed AND (c) future data has never been queried. Only then each selected row gets ONE replay. The validator records DB max timestamp and first future-query time.",
+  "selection_commit_pushed_at": null,
+  "setup_recorded": true,
+  "status": "setup_only_lock_not_elapsed",
+  "thirty_full_calendar_days_elapsed": false,
+  "today_utc": "2026-07-20"
+}
