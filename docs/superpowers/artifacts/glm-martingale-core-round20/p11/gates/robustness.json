@@ -1,1 +1,1 @@
-{"phase": "P11 finalist robustness + production parity", "status": "blocked_predecessor", "reason": "P9 blocked (0 finalists). No finalist to run robustness or production parity on."}
+{"phase": "P11 finalist robustness", "status": "not_applicable_zero_survivors", "reason": "R9 validation produced 11 OOS survivors but NONE hit any three-tier target (best C1_F4_008 val 12.7% vs conservative 50%). Per plan §13, robustness is for finalists approaching a target tier; no target-approaching candidate exists. The 11 OOS survivors are backtest_candidate diagnostics only."}

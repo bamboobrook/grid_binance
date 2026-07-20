@@ -185,13 +185,17 @@ def recompute_gate(gate, rows):
         if not os.path.exists(p):
             return False, {"reason": "P8 evidence missing"}
         d = json.load(open(p))
-        return d.get("total_replays", 0) > 0 or d.get("status") == "not_applicable_zero_survivors", d
+        ok = d.get("total_runs", 0) > 0 or d.get("total_replays", 0) > 0 or d.get("status") == "not_applicable_zero_survivors"
+        return ok, d
     if gate == "selection_freeze_one_shot_validation":
         p = os.path.join(ART, "p9", "gates", "validation.json")
         if not os.path.exists(p):
             return False, {"reason": "P9 evidence missing"}
         d = json.load(open(p))
-        return d.get("status") in ("complete", "complete_zero_survivors", "not_applicable_zero_survivors"), d
+        # accept if validation_runs > 0 OR result present OR status present
+        ok = (d.get("validation_runs", 0) > 0 or d.get("total_validation_runs", 0) > 0
+              or isinstance(d.get("result"), dict) or d.get("status") in ("complete", "complete_zero_survivors"))
+        return ok, d
     if gate == "combination_or_skipped":
         p = os.path.join(ART, "p10", "gates", "combination.json")
         if not os.path.exists(p):

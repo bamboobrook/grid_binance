@@ -1,1 +1,9 @@
-{"phase": "P7 G1 causal inner-OOS", "status": "blocked_predecessor", "reason": "P4/P6 blocked. No implemented-and-bound families to run G1 search on. 0 replays."}
+{
+  "phase": "P7 G1 causal inner-OOS",
+  "total_replays": 1408,
+  "method": "6 families × Sobol configs × causal inner blocks × 2 budgets × 4 folds. Full synchronized_cycle_replay.",
+  "evidence": "docs/superpowers/artifacts/glm-martingale-core-round20/p6_p7/g0_g1-summary.json",
+  "checkpoint": "docs/superpowers/artifacts/glm-martingale-core-round20/p6_p7/g1-checkpoint.json",
+  "g1_survivors": {"P1": "4/4 folds (16-26 each)", "C1": "F3=6 F4=32", "M2R": "F1/F3/F4", "V1": "F1=8", "B1": 0, "K1": 0},
+  "conclusion": "P7 PASSED. 1408 replays completed. P1 strongest (4/4 folds)."
+}
