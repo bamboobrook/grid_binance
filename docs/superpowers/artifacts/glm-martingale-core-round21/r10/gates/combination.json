@@ -1,0 +1,10 @@
+{
+  "decision": "skipped",
+  "families_with_positive_ann": [
+    "C1E"
+  ],
+  "frozen_at_utc": "2026-07-20T13:51:52.539801+00:00",
+  "phase": "R21 R10 event-level combination (plan \u00a712)",
+  "plan_\u00a712_rule": "combination allowed only if >=2 families pass R8; forbidden: curve sum, old-validation weighting, rotation",
+  "reason": "Only C1E has positive ann (6.58%). B1S is break-even (-0.02%). P1S/V1B produced no G1/G2 survivors. Plan \u00a712 requires >=2 families for combination; condition not met. Combination correctly SKIPPED per plan \u00a712."
+}

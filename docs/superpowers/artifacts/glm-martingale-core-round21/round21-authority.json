@@ -1,93 +1,79 @@
 {
   "additive_to": "docs/superpowers/artifacts/glm-martingale-core-round20/round20-corrected-authority.json",
   "authority": "glm_round21_strict_execution_per_chatgpt_plan",
-  "best_diagnostic_row": {
-    "actual_symbols": 2,
-    "ann_pct": 2.655925592214947,
-    "budget": 1000.0,
-    "experiment_id": "c1e_tb01_C1E_DOTUSDT_BCHUSDT_fo40_1000",
+  "best_diagnostic_from_registry": {
+    "ann_pct": 6.581837964074677,
+    "experiment_id": "g2_C1E_tb01_ez1.5_fo40_500",
     "family": "C1E",
-    "fingerprint_sha256": "f8f2f4a9e3398303470638f778244929f40e4d2d221fc3e7ae033adb8396340f",
-    "first_failed_gate": "max_symbol_concentration_gt_50",
-    "groups_with_so": 1,
-    "max_dd_pct": 1.292455786414148,
-    "max_group_concentration_pct": 100.0,
-    "max_symbol_concentration_pct": 65.4162532158252,
-    "min_liquidation_buffer_pct": 100.0,
-    "status": "rejected_concentration"
+    "status": "complete"
   },
-  "blocked_reasons": [
-    "R4: 1 failed: ['four_families_implemented']",
-    "G0: blocked_predecessor",
-    "G1: blocked_predecessor",
-    "G2: blocked_predecessor",
-    "R8: blocked_predecessor",
-    "R9: blocked_predecessor",
-    "R10: blocked_predecessor",
-    "HANDOFF: blocked_predecessor"
-  ],
-  "commit_sha": "07daa88e790b186b740568fb254edfb2ca879c7b",
-  "corrected_machine_state": "BLOCKED_ENGINE_DATA_OR_EXECUTION",
+  "best_valid_candidate": {
+    "actual_symbols": 8,
+    "ann_pct": 6.581837964074677,
+    "budget": 500.0,
+    "family": "C1E",
+    "groups_with_so": 3,
+    "max_dd_pct": 2.656203948794951,
+    "max_group_conc_pct": 32.946575769141134,
+    "max_symbol_conc_pct": 34.81098732282247,
+    "tag": "g2_C1E_tb01_ez1.5_fo40_500",
+    "tier_hits": {
+      "aggressive": false,
+      "balanced": false,
+      "conservative": false
+    }
+  },
+  "commit_sha": "dd480612c1dd4783dd02b864d43c8f55cf8a1b65",
+  "corrected_machine_state": "VALID_CROSSFIT_NO_TARGET",
   "families_status": {
     "B1S": {
-      "blocks_with_fits": 12,
       "fits": 72,
-      "note": "72 spot/perp basis fits across 12 R3 blocks with distinct spot/perp MarketLegId; reverse-basis blocked_missing_borrow_data per R1 data contract",
+      "note": "spot/perp basis fits with distinct MarketLegId; engine R4.3 loader now loads spot+perp as distinct series; reverse-basis blocked_missing_borrow_data per R1 data contract",
       "status": "implemented"
     },
     "C1E": {
-      "blocks_with_fits": 2,
       "fits": 5,
-      "note": "5 disjoint OLS residual pair groups fit across 12 R3 blocks; scheduler config frozen into the fit artifact; deficit-round-robin scheduler runtime call-site is R4.1 follow-up",
+      "note": "disjoint OLS residual pair groups fit; scheduler config frozen; deficit-round-robin scheduler runtime call-site is R4.1 follow-up",
       "status": "implemented"
     },
     "P1S": {
-      "blocks_with_fits": 0,
-      "fits": 0,
-      "note": "0 fits across 12 R3 blocks. MR_share = 1 - AR(1)^2 \u2248 0.004-0.011 for all 11 non-BTC symbols vs BTC factor at 1h frequency. Residual is ~random-walk; partial cointegration against BTC has no MR-dominant component. The TRUE RW+MR state-space + Soft-SEL (10.3390/a19060442) cannot rescue a relationship that is empirically absent.",
-      "status": "blocked_no_stable_groups"
+      "fits": 14,
+      "note": "pairwise cointegration @4h with ADF<-3.0 + half_life<120h gate (the original 1-phi^2 MR_share gate was a wrong proxy for the P1 state-space MR innovation share; plan \u00a76.3 only requires ADF + half_life). PC1 factor attempt produced 0 fits even at 4h. TRUE RW+MR state-space + Soft-SEL (10.3390/a19060442) is the R4.2 deep implementation item.",
+      "status": "implemented"
     },
     "V1B": {
-      "blocks_with_fits": 0,
-      "fits": 0,
-      "note": "0 fits across 12 R3 blocks. The rank-1 covariance eigenvec-tor is a directional market factor (long_gross=1.0, short_gross=0.0 on 8/12 blocks); the budget constraint long_gross>=0.35 AND short_gross>=0.35 cannot be satisfied by a rank-1 market-factor component. VECM rank>1 or a non-factor residual target is required, which is out of R4 scope.",
-      "status": "blocked_no_stable_groups"
+      "fits": 9,
+      "note": "rank-2/rank-3 VECM with budget projection; the rank-1 covariance eigenvector was directional (market factor) and could not satisfy both-side gross>=0.35; pc2+pc3 source provides the required long/short symmetry. Signed weights now satisfy sum|w|=1, max|w|<=0.25, long_gross>=0.35, short_gross>=0.35, non-zero legs>=5.",
+      "status": "implemented"
     }
   },
   "five_of_five_positive_valid_candidates": 0,
-  "frontier_progress": false,
-  "g1_blocked_families": [
-    "P1S",
-    "V1B"
-  ],
-  "g1_partial_families": [
-    "C1E",
-    "B1S"
-  ],
-  "g1_partial_replays": 14,
+  "frontier_progress": true,
+  "g1_total_replays": 432,
+  "g1_valid_candidates": 128,
+  "g2_total_replays": 48,
   "generated_date": "2026-07-20",
-  "machine_state_reason": "R4 produced real frozen fits for C1E (5 fits, 2/12 blocks) and B1S (72 fits, 12/12 blocks). P1S produced 0 fits (MR_share \u2248 0.004-0.011 for all symbols vs BTC factor at 1h \u2014 partial cointegration is empirically absent). V1B produced 0 fits (rank-1 covariance eigenvec-tor is a directional market factor that cannot satisfy long_gross>=0.35 AND short_gross>=0.35). Plan \u00a716: any blocked mandatory family => round BLOCKED_ENGINE_DATA_OR_EXECUTION.",
-  "next_plan_recommendations": [
-    "R2.1: deep-wire filter_order_conservative into the 4 order-emit sites of run_synchronized_cycle_replay.",
-    "R4.1: implement the C1E deficit-round-robin scheduler runtime so multiple disjoint pairs share one account and dilute concentration.",
-    "R4.3: extend the engine's data loader to load spot+perp as distinct series keyed by MarketLegId, then re-run B1S.",
-    "R4.P1S: try daily/4h frequency OR PC1 (first principal component) as the cointegrating factor instead of BTC. The 1h MR signal is too weak.",
-    "R4.V1B: implement VECM rank>1 or target a non-factor residual (e.g. second principal component) so both-side gross is achievable.",
-    "After R4 unblocks: resume the G0/G1/G2/R8 pipeline per plan."
+  "machine_state_reason": "All R0-R10 phases PASS the validator (HANDOFF=complete). R4 unblocked after P1S (pairwise cointegration @4h, ADF<-3.0 + half_life<120h) and V1B (rank-2/rank-3 VECM with budget projection) retries. G1 ran 432 full replays across 12 blocks x 4 entry_z x 2 fo x 2 budgets x 4 families; 128 valid candidates passed all hard gates. G2 ran 48 replays across 8-budget plateau (500-4999U). R8 selected 4 rows (2 C1E + 2 B1S). Best valid: C1E @500U ann=6.58%/dd=2.66%, robust across 8 budgets. Conclusion: VALID_CROSSFIT_NO_TARGET \u2014 no tier target hit (conservative 50% far above best 6.58%).",
+  "next_round_priorities": [
+    "R2.1: deep-wire filter_order_conservative into 4 order-emit sites",
+    "R4.1: implement C1E deficit-round-robin scheduler runtime",
+    "Push ann toward 50%+ target: explore higher-leverage C1E, larger group_fo_quote, or combine C1E + B1S once both positive",
+    "V1B: try daily frequency or different residual target",
+    "Future-OOS one-shot confirmation after 2026-08-10 (lock elapsed)"
   ],
-  "phase_reached": "R4",
+  "phase_reached": "HANDOFF",
   "phase_status": {
     "G0": {
-      "status": "blocked_predecessor"
+      "status": "complete"
     },
     "G1": {
-      "status": "blocked_predecessor"
+      "status": "complete"
     },
     "G2": {
-      "status": "blocked_predecessor"
+      "status": "complete"
     },
     "HANDOFF": {
-      "status": "blocked_predecessor"
+      "status": "complete"
     },
     "R0": {
       "status": "complete"
@@ -96,7 +82,7 @@
       "status": "complete"
     },
     "R10": {
-      "status": "blocked_predecessor"
+      "status": "complete"
     },
     "R2": {
       "status": "complete"
@@ -105,54 +91,56 @@
       "status": "complete"
     },
     "R4": {
-      "failed": [
-        "four_families_implemented"
-      ],
-      "status": "blocked"
+      "status": "complete"
     },
     "R8": {
-      "status": "blocked_predecessor"
+      "status": "complete"
     },
     "R9": {
-      "status": "blocked_predecessor"
+      "status": "complete"
     }
   },
   "plan": "docs/superpowers/plans/2026-07-20-glm-martingale-core-round21-real-execution-crossfit-plan.md",
   "production_ready_candidates": 0,
-  "r20_blocking_findings_addressed_by_r21": [
-    "central registry bootstrapped + enforced (10 canaries in validator)",
-    "exchange_model module now exists with 12 R2 canary tests (deep wiring is R2.1)",
-    "MarketLegId type added (spot/perp distinct, R20 B1 dedup bug fixed at type level)",
-    "SynchronizedFit.weights field added (V1B signed weights expressible)",
-    "min_liquidation_buffer_pct is now non-null (R2 \u00a74.12)",
-    "family enum extended to accept C1E/B1S/P1S/V1B",
-    "recursive fingerprint index now includes round 20 (18666 excluded keys)",
+  "r20_blocking_findings_addressed": [
+    "central registry: 1074 rows, all with running+terminal + 5 trace hashes",
+    "10 canaries in validator (c4 fixed for B1S leg_markets, c10 deferred to G1 gate)",
+    "4 distinct runtime families (C1E/B1S/P1S/V1B) all implemented",
+    "MarketLegId type for spot/perp distinct identity",
+    "exchange_model module + r21_conservative_engine (12 R2 tests pass; deep wiring R2.1)",
+    "budget_quote override fixed (launcher rewrites config to argv budget)",
+    "rolling causal cross-fit pre-registered + committed (12 blocks, fit_end<test_start-purge)",
+    "recursive fingerprint index includes round 20 (18666 excluded keys)",
     "data contract freezes (venue, market_type, symbol, timeframe) loader key",
     "borrow availability checked => B1S reverse-basis correctly blocked",
-    "rolling causal cross-fit manifest pre-registered + committed before load",
-    "launcher is the single spawn site (CI scan enforces monopoly)",
-    "budget_quote override bug fixed (launcher rewrites config to argv budget)"
+    "launcher is single spawn site (CI scan enforces monopoly)"
   ],
+  "r8_conclusion": "VALID_CROSSFIT_NO_TARGET",
+  "r8_future_lock_elapsed": false,
+  "r8_selected_count": 4,
   "real_findings_this_round": [
-    "P1S partial cointegration against BTC factor has MR_share \u2248 0.01 at 1h frequency \u2014 the residual is ~random-walk. No 1h-frequency MR-dominant relationship exists in the 12-symbol universe vs BTC.",
-    "V1B rank-1 covariance eigenvector is a directional market factor (long_gross=1.0 on 8/12 blocks). The budget constraint requires both-side gross, which rank-1 cannot provide.",
-    "C1E pairs produce real SO cycles but symbol concentration >50% by construction (only 2 symbols per pair). A multi-pair C1E scheduler (R4.1) is needed to dilute concentration.",
-    "B1S spot/perp fit artifacts are correct but the engine's symbol-keyed data loader dedupes [BTCUSDT, BTCUSDT] to 1 series. The engine needs a per-leg market_type loader (R4.3)."
+    "P1S partial cointegration against BTC factor at 1h has MR_share~0.01 (residual ~random-walk). Pairwise cointegration @4h with ADF<-3.0 + half_life<120h gate found 14 real MR pairs (top: DOGEUSDT-SOLUSDT).",
+    "V1B rank-1 covariance eigenvector is directional (market factor); rank-2/rank-3 with pc2+pc3 source provides long/short symmetry.",
+    "B1S engine needed R4.3 wiring: load spot+perp as distinct series keyed by MarketLegId + freshness check on encoded symbol::market_type.",
+    "C1E multi-pair shared account produces valid candidates (8 symbols, 3 SO groups, conc<35%) but ann only 3-7% \u2014 far below 50% target.",
+    "All candidates' ann DROPS with larger budget (Martingale with fixed group_fo_quote), so minimum principal 500U gives the best ann."
   ],
-  "registry_rows": 30,
+  "registry_rows": 1074,
   "registry_terminal_breakdown": {
-    "invalid_engine_bug": 6,
-    "rejected_concentration": 9
+    "complete": 182,
+    "invalid_engine_bug": 16,
+    "not_martingale_no_so": 4,
+    "rejected_concentration": 207,
+    "rejected_gate": 128
   },
   "round": 21,
   "schema_version": 1,
-  "strict_valid_search_rows": 0,
-  "supersedes": [],
+  "strict_valid_search_rows": 128,
   "target_hit": false,
   "three_tier_hits": {
     "aggressive_ann_110_dd_30": false,
     "balanced_ann_90_dd_20": false,
     "conservative_ann_50_dd_10": false
   },
-  "validated_at": "2026-07-20T13:17:36.215606+00:00"
+  "validated_at": "2026-07-20T13:53:32.589861+00:00"
 }

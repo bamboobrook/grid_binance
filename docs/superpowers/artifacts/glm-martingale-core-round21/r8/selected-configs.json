@@ -1,0 +1,109 @@
+{
+  "any_tier_hit": false,
+  "commit_sha": "dd480612c1dd4783dd02b864d43c8f55cf8a1b65",
+  "committed": true,
+  "conclusion": "VALID_CROSSFIT_NO_TARGET",
+  "frozen_at_utc": "2026-07-20T13:51:17.925241+00:00",
+  "future_lock_status": {
+    "earliest_one_shot_confirmation": "~2026-08-10",
+    "first_future_query_at": null,
+    "lock_date_utc": "2026-07-11T00:00:00Z",
+    "rule": "Plan \u00a711: one-shot confirmation deferred until lock elapsed + selection pushed + future never queried.",
+    "thirty_full_calendar_days_elapsed": false,
+    "today_utc": "2026-07-20"
+  },
+  "honest_summary": "Cross-fit ran cleanly across 12 R3 blocks, 4 entry_z, 2 fo_quote, 2 budgets, 4 families (432 G1 replays) + 8-budget G2 plateau (48 replays). 128 valid candidates passed all hard gates. Best valid: C1E @500U ann=6.58%/dd=2.66%, robust across 8 budgets. This is the FIRST round with valid hard-gate-passing candidates AND real SO cycles. However, 6.58% is far below the conservative 50% target \u2014 no tier was hit. Conclusion: VALID_CROSSFIT_NO_TARGET.",
+  "phase": "R21 R8 selection freeze (plan \u00a710)",
+  "pushed_at": "2026-07-20T13:51:17.926857+00:00",
+  "rows": [
+    {
+      "actual_symbols": 8,
+      "ann_pct": 6.581837964074677,
+      "budget": 500.0,
+      "config_path": "g2/configs/g2_C1E_tb01_ez1.5_fo40_500.json",
+      "family": "C1E",
+      "first_failed_gate": null,
+      "groups_with_so": 3,
+      "max_dd_pct": 2.656203948794951,
+      "max_group_conc_pct": 32.946575769141134,
+      "max_symbol_conc_pct": 34.81098732282247,
+      "tag": "g2_C1E_tb01_ez1.5_fo40_500",
+      "tier_hits": {
+        "aggressive": false,
+        "balanced": false,
+        "conservative": false
+      }
+    },
+    {
+      "actual_symbols": 8,
+      "ann_pct": 6.432320806494007,
+      "budget": 500.0,
+      "config_path": "g2/configs/g2_C1E_tb01_ez1.0_fo40_500.json",
+      "family": "C1E",
+      "first_failed_gate": null,
+      "groups_with_so": 3,
+      "max_dd_pct": 2.370650383070173,
+      "max_group_conc_pct": 33.4577336096397,
+      "max_symbol_conc_pct": 35.958164950331636,
+      "tag": "g2_C1E_tb01_ez1.0_fo40_500",
+      "tier_hits": {
+        "aggressive": false,
+        "balanced": false,
+        "conservative": false
+      }
+    },
+    {
+      "actual_symbols": 5,
+      "ann_pct": -0.01816207772478151,
+      "budget": 4999.0,
+      "config_path": "g2/configs/g2_B1S_tb09_ez2.0_fo20_4999.json",
+      "family": "B1S",
+      "first_failed_gate": null,
+      "groups_with_so": 1,
+      "max_dd_pct": 0.004514483186819566,
+      "max_group_conc_pct": 39.720936410739895,
+      "max_symbol_conc_pct": 39.720936410739846,
+      "tag": "g2_B1S_tb09_ez2.0_fo20_4999",
+      "tier_hits": {
+        "aggressive": false,
+        "balanced": false,
+        "conservative": false
+      }
+    },
+    {
+      "actual_symbols": 5,
+      "ann_pct": -0.0226976687541125,
+      "budget": 4000.0,
+      "config_path": "g2/configs/g2_B1S_tb09_ez2.0_fo20_4000.json",
+      "family": "B1S",
+      "first_failed_gate": null,
+      "groups_with_so": 1,
+      "max_dd_pct": 0.005641974856974217,
+      "max_group_conc_pct": 39.720936410739895,
+      "max_symbol_conc_pct": 39.720936410739846,
+      "tag": "g2_B1S_tb09_ez2.0_fo20_4000",
+      "tier_hits": {
+        "aggressive": false,
+        "balanced": false,
+        "conservative": false
+      }
+    }
+  ],
+  "tier_targets": {
+    "aggressive": {
+      "ann_min": 110.0,
+      "cold_starts_min": 3,
+      "dd_max": 30.0
+    },
+    "balanced": {
+      "ann_min": 90.0,
+      "cold_starts_min": 4,
+      "dd_max": 20.0
+    },
+    "conservative": {
+      "ann_min": 50.0,
+      "cold_starts_min": 4,
+      "dd_max": 10.0
+    }
+  }
+}

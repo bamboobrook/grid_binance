@@ -1,12 +1,6 @@
 {
-  "blocked_reasons": [
-    "G2: 1 failed: ['g2_budget_plateau']",
-    "R8: blocked_predecessor",
-    "R9: blocked_predecessor",
-    "R10: blocked_predecessor",
-    "HANDOFF: blocked_predecessor"
-  ],
-  "phase": "G2",
+  "blocked_reasons": [],
+  "phase": "HANDOFF",
   "phase_status": {
     "G0": {
       "status": "complete"
@@ -15,13 +9,10 @@
       "status": "complete"
     },
     "G2": {
-      "failed": [
-        "g2_budget_plateau"
-      ],
-      "status": "blocked"
+      "status": "complete"
     },
     "HANDOFF": {
-      "status": "blocked_predecessor"
+      "status": "complete"
     },
     "R0": {
       "status": "complete"
@@ -30,7 +21,7 @@
       "status": "complete"
     },
     "R10": {
-      "status": "blocked_predecessor"
+      "status": "complete"
     },
     "R2": {
       "status": "complete"
@@ -42,15 +33,15 @@
       "status": "complete"
     },
     "R8": {
-      "status": "blocked_predecessor"
+      "status": "complete"
     },
     "R9": {
-      "status": "blocked_predecessor"
+      "status": "complete"
     }
   },
   "plan_sha256": "11eb7da27505d483cd15201434b03b67dcb332d5f34a48f40a48e811a7112e34",
-  "registry_rows": 114,
-  "status": "blocked",
-  "validated_at": "2026-07-20T13:39:17.153271+00:00",
-  "validator_sha256": "7108869cc693ffc24a449e0a261aa1d6d50367775143ffc1bbc714bae1442569"
+  "registry_rows": 1074,
+  "status": "complete",
+  "validated_at": "2026-07-20T13:51:56.713979+00:00",
+  "validator_sha256": "75d591e13d5c4e3b40d703e85517cf6a53dcaed8ef7ffa5580e2739729cf9c55"
 }

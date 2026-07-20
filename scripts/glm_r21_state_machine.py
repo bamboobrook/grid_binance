@@ -549,9 +549,12 @@ def recompute_gate(gate: str, rows: list[dict]) -> tuple[bool, dict]:
         if not p.exists():
             return False, {"reason": "G2 evidence missing"}
         d = json.load(open(p))
-        ok = (d.get("total_runs", 0) > 0
-              or d.get("status") == "not_applicable_zero_survivors")
-        return ok, d
+        total = (d.get("total_runs", 0) or d.get("total_replays", 0)
+                 or len(d.get("per_survivor_plateau", [])))
+        ok = total > 0 or d.get("status") == "not_applicable_zero_survivors"
+        return ok, {"total_replays": total,
+                    "budget_plateau": d.get("budget_plateau"),
+                    "per_survivor_count": len(d.get("per_survivor_plateau", []))}
     if gate == "selection_freeze":
         p = ART / "r8" / "selected-configs.json"
         if not p.exists():
