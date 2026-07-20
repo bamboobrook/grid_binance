@@ -40,8 +40,8 @@
     }
   },
   "plan_sha256": "11eb7da27505d483cd15201434b03b67dcb332d5f34a48f40a48e811a7112e34",
-  "registry_rows": 7740,
+  "registry_rows": 8604,
   "status": "complete",
-  "validated_at": "2026-07-20T14:53:46.497597+00:00",
+  "validated_at": "2026-07-20T15:06:46.643438+00:00",
   "validator_sha256": "75d591e13d5c4e3b40d703e85517cf6a53dcaed8ef7ffa5580e2739729cf9c55"
 }

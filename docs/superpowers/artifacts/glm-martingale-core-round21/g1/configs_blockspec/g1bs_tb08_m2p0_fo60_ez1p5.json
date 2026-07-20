@@ -1,0 +1,162 @@
+{
+  "budget_quote": 500.0,
+  "fits": [
+    {
+      "betas": [
+        1.2825630426492616
+      ],
+      "fit_sha256": "76d04aaa5d0cd3cf",
+      "group_id": "BS_tb08_CRVUSDT_DASHUSDT",
+      "half_life_h": 29.791509079621264,
+      "leg_direction_signs": [
+        1,
+        -1
+      ],
+      "leg_markets": [],
+      "legs": [
+        "DASHUSDT",
+        "CRVUSDT"
+      ],
+      "mr_sharpe": 3.463448395162428,
+      "mus": [
+        -5.087129527755104
+      ],
+      "residual_sigma": 0.21305840977722634,
+      "weights": []
+    },
+    {
+      "betas": [
+        0.3694631762393047
+      ],
+      "fit_sha256": "9ca844c11d21aebf",
+      "group_id": "BS_tb08_LTCUSDT_ALGOUSDT",
+      "half_life_h": 21.221748595846194,
+      "leg_direction_signs": [
+        1,
+        -1
+      ],
+      "leg_markets": [],
+      "legs": [
+        "ALGOUSDT",
+        "LTCUSDT"
+      ],
+      "mr_sharpe": 3.3931079989491266,
+      "mus": [
+        5.0452632613659425
+      ],
+      "residual_sigma": 0.12403126518375698,
+      "weights": []
+    },
+    {
+      "betas": [
+        0.8273550793522184
+      ],
+      "fit_sha256": "6b913ab1f20934ce",
+      "group_id": "BS_tb08_TRXUSDT_AAVEUSDT",
+      "half_life_h": 21.34312785746214,
+      "leg_direction_signs": [
+        1,
+        -1
+      ],
+      "leg_markets": [],
+      "legs": [
+        "AAVEUSDT",
+        "TRXUSDT"
+      ],
+      "mr_sharpe": 3.335296492170754,
+      "mus": [
+        -6.021864706749778
+      ],
+      "residual_sigma": 0.17998450103616281,
+      "weights": []
+    },
+    {
+      "betas": [
+        0.3964729760060026
+      ],
+      "fit_sha256": "95361feacbae57c0",
+      "group_id": "BS_tb08_ETCUSDT_ICPUSDT",
+      "half_life_h": 16.42208327631903,
+      "leg_direction_signs": [
+        1,
+        -1
+      ],
+      "leg_markets": [],
+      "legs": [
+        "ICPUSDT",
+        "ETCUSDT"
+      ],
+      "mr_sharpe": 3.1188749299484546,
+      "mus": [
+        2.2919148001528002
+      ],
+      "residual_sigma": 0.10925806995051653,
+      "weights": []
+    },
+    {
+      "betas": [
+        0.8052708552089882
+      ],
+      "fit_sha256": "90adca7e11fe6956",
+      "group_id": "BS_tb08_DOTUSDT_FILUSDT",
+      "half_life_h": 17.40525426749895,
+      "leg_direction_signs": [
+        1,
+        -1
+      ],
+      "leg_markets": [],
+      "legs": [
+        "FILUSDT",
+        "DOTUSDT"
+      ],
+      "mr_sharpe": 3.016333999663216,
+      "mus": [
+        0.5020915899512135
+      ],
+      "residual_sigma": 0.0952391622055296,
+      "weights": []
+    },
+    {
+      "betas": [
+        0.6074475443851869
+      ],
+      "fit_sha256": "99931493eacfe816",
+      "group_id": "BS_tb08_COMPUSDT_UNIUSDT",
+      "half_life_h": 20.962037087203115,
+      "leg_direction_signs": [
+        1,
+        -1
+      ],
+      "leg_markets": [],
+      "legs": [
+        "UNIUSDT",
+        "COMPUSDT"
+      ],
+      "mr_sharpe": 2.9811878798479703,
+      "mus": [
+        2.7530474931306363
+      ],
+      "residual_sigma": 0.1557341908369526,
+      "weights": []
+    }
+  ],
+  "synchronized_cycle": {
+    "bar_boundary_minutes": 1440,
+    "c1_scheduler": null,
+    "cycle_deadline_h": 168,
+    "entry_z": 1.5,
+    "exit_z": 0.5,
+    "family": "C1E",
+    "fit_lookback_days": 180,
+    "group_fo_quote": 60.0,
+    "group_gross_cap_pct": 400.0,
+    "inventory_reservation_skew_k": 0,
+    "jump_first_passage_gate": null,
+    "leverage": 10,
+    "max_legs": 4,
+    "multiplier": 2.0,
+    "regime_envelope": null,
+    "so_residual_step_z": 0.5,
+    "tp_net_bps_floor": 25
+  }
+}

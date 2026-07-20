@@ -1,0 +1,91 @@
+{
+  "block_fits_count": {
+    "tb01": 6,
+    "tb02": 6,
+    "tb03": 6,
+    "tb04": 6,
+    "tb05": 6,
+    "tb06": 6,
+    "tb07": 6,
+    "tb08": 6,
+    "tb09": 6,
+    "tb10": 6,
+    "tb11": 6,
+    "tb12": 6
+  },
+  "blocks_positive": 8,
+  "blocks_total": 11,
+  "cross_fit_per_block": {
+    "tb01": {
+      "best_ann": -5.563836105845599,
+      "best_dd": 5.481121502806067,
+      "positive": 0,
+      "total": 23
+    },
+    "tb02": {
+      "best_ann": -97.01611748921376,
+      "best_dd": 72.46359591024562,
+      "positive": 0,
+      "total": 2
+    },
+    "tb03": {
+      "best_ann": 33.583465176763426,
+      "best_dd": 22.499048513288407,
+      "positive": 3,
+      "total": 12
+    },
+    "tb04": {
+      "best_ann": 25.784308140329372,
+      "best_dd": 10.004683549937564,
+      "positive": 18,
+      "total": 24
+    },
+    "tb05": {
+      "best_ann": 158.4627064632182,
+      "best_dd": 11.491906073771489,
+      "positive": 12,
+      "total": 12
+    },
+    "tb07": {
+      "best_ann": 14.613603568455913,
+      "best_dd": 11.987521465950856,
+      "positive": 1,
+      "total": 7
+    },
+    "tb08": {
+      "best_ann": 5.120647672651901,
+      "best_dd": 15.803007145166706,
+      "positive": 9,
+      "total": 21
+    },
+    "tb09": {
+      "best_ann": -4.440154289192888,
+      "best_dd": 2.43483812898307,
+      "positive": 0,
+      "total": 24
+    },
+    "tb10": {
+      "best_ann": 50.00340977260509,
+      "best_dd": 8.59694198998814,
+      "positive": 15,
+      "total": 15
+    },
+    "tb11": {
+      "best_ann": 36.133741378341135,
+      "best_dd": 10.665348127514685,
+      "positive": 18,
+      "total": 18
+    },
+    "tb12": {
+      "best_ann": 70.20331065474265,
+      "best_dd": 6.350255605938856,
+      "positive": 9,
+      "total": 21
+    }
+  },
+  "elapsed_s": 416.6,
+  "generated_at_utc": "2026-07-20T15:14:51.607583+00:00",
+  "method": "each block selects its OWN top-K daily pairs from its OWN fit window (block-specific, not global top-12)",
+  "phase": "R21 block-specific pair selection edge G1",
+  "total_complete": 179
+}
