@@ -120,41 +120,43 @@ def save_checkpoint(ckpt):
 
 
 def get_g1_top16(family, fold):
-    """Pull the G1 top16 survivors for a (family, fold) from the G1 checkpoint."""
+    """Pull the G1 top16 survivors for a (family, fold) from the G1 checkpoint.
+    The G1 checkpoint stores flat rows keyed by config_id|block|budget; each row
+    has a single block + budget. We group by (config_id, budget) and require all
+    3 blocks (tb1/tb2/tb3) present per (config_id, budget)."""
     g1_ckpt = json.load(open(G1_CKPT))
-    # Re-derive top16 by scanning all configs of this family+fold in the checkpoint.
-    candidates = {}
     prefix = f"{family}_{fold}_"
+    # group rows by (config_id, budget)
+    groups = {}
     for key, rec in g1_ckpt["done"].items():
         if not key.startswith(prefix):
             continue
         cid = rec.get("config_id")
-        candidates.setdefault(cid, {})[rec.get("block")] = rec
+        bud = rec.get("budget")
+        groups.setdefault((cid, bud), {})[rec.get("block")] = rec
     survivors = []
-    for cid, blocks in candidates.items():
-        for budget in BUDGETS:
-            bs = str(int(budget))
-            brs = [blocks.get(bn, {}).get(bs) for bn in ("tb1", "tb2", "tb3")]
-            brs = [r for r in brs if r and r.get("status") == "complete"]
-            if len(brs) < 3:
-                continue
-            if any(r.get("breach") for r in brs):
-                continue
-            if any((r.get("dd") or 0) > 45 for r in brs):
-                continue
-            anns = [r.get("ann") or 0.0 for r in brs]
-            if sum(1 for a in anns if a < 0) >= 2:
-                continue
-            if sum(r.get("groups_with_so", 0) for r in brs) == 0:
-                continue
-            median_ann = sorted(anns)[1]
-            worst_dd = max(r.get("dd") or 0 for r in brs)
-            pos_blocks = sum(1 for a in anns if a > 0)
-            survivors.append({"config_id": cid, "budget": int(budget),
-                              "params": brs[0].get("params", {}),
-                              "median_ann": median_ann, "worst_dd": worst_dd,
-                              "pos_blocks": pos_blocks,
-                              "train_score": median_ann - worst_dd * 0.5 + pos_blocks * 5})
+    for (cid, bud), blocks in groups.items():
+        brs = [blocks.get(bn) for bn in ("tb1", "tb2", "tb3")]
+        brs = [r for r in brs if r and r.get("status") == "complete"]
+        if len(brs) < 3:
+            continue
+        if any(r.get("breach") for r in brs):
+            continue
+        if any((r.get("dd") or 0) > 45 for r in brs):
+            continue
+        anns = [r.get("ann") or 0.0 for r in brs]
+        if sum(1 for a in anns if a < 0) >= 2:
+            continue
+        if sum(r.get("groups_with_so", 0) for r in brs) == 0:
+            continue
+        median_ann = sorted(anns)[1]
+        worst_dd = max(r.get("dd") or 0 for r in brs)
+        pos_blocks = sum(1 for a in anns if a > 0)
+        survivors.append({"config_id": cid, "budget": int(bud),
+                          "params": brs[0].get("params", {}),
+                          "median_ann": median_ann, "worst_dd": worst_dd,
+                          "pos_blocks": pos_blocks,
+                          "train_score": median_ann - worst_dd * 0.5 + pos_blocks * 5})
     survivors.sort(key=lambda x: -x["train_score"])
     # de-duplicate by config_id (keep best budget per config)
     seen = set(); top = []

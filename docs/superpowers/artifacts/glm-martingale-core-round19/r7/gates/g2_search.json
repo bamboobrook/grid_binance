@@ -1,0 +1,20 @@
+{
+  "phase": "R7 G2 full train + 5 non-overlapping subblocks + budget select",
+  "plan_section": "§10",
+  "total_runs": 2580,
+  "completed_runs": 2580,
+  "method": "G1 top16 per (family,fold) × full train + 5 NON-overlapping anchored train-only subblocks (audit §4.2 fix) × budgets 1000/2000/3000/4000/4999U. Each fold uses its OWN train fit. G2 strict gate: median subblock ann>=30%, worst subblock DD<=35%, >=4/5 positive, full-train no breach, actual symbols>=5, max conc<=50%, real SO in >=4/5 subblocks.",
+  "result": "0 finalists across all (family, fold) combinations.",
+  "per_family_per_fold": {
+    "M1R/F1": "blocked_no_stable_groups",
+    "M1R/F2": {"g1_in": 16, "g2_finalists": 0},
+    "M1R/F3": {"g1_in": 16, "g2_finalists": 0},
+    "M1R/F4": {"g1_in": 16, "g2_finalists": 0},
+    "M2F/F1": {"g1_in": 6, "g2_finalists": 0},
+    "M2F/F2": "no_g1_survivors",
+    "M2F/F3": {"g1_in": 16, "g2_finalists": 0},
+    "M2F/F4": {"g1_in": 16, "g2_finalists": 0}
+  },
+  "honest_interpretation": "With the corrected engine (proper residual-pair directions, quantity-weighted Martingale PnL, close fee/slippage, gross-notional cap, real concentration from fills), NEITHER M1R nor M2F produces a config that passes the strict G2 train gate (median ann>=30%, DD<=35%, >=4/5 pos with real SO) in any fold. This is the TRUE performance after fixing all the R18 accounting bugs. R18's reported train ann up to 147.9% was an artifact of the buggy engine.",
+  "conclusion": "R7 PASSED (search executed fully: 2580 replays). 0 finalists => R9 validation has nothing to validate => VALID_SEARCH_NO_FRONTIER_PROGRESS per plan §19."
+}

@@ -1,0 +1,64 @@
+{
+  "phase": "R7 G2 full train + 5 non-overlapping subblocks + budget select",
+  "families": [
+    "M1R",
+    "M2F"
+  ],
+  "folds": [
+    "F1",
+    "F2",
+    "F3",
+    "F4"
+  ],
+  "total_runs": 2580,
+  "completed_runs": 2580,
+  "elapsed_s": 7189.8,
+  "per_family_per_fold": {
+    "M1R": {
+      "F1": {
+        "status": "blocked_no_stable_groups"
+      },
+      "F2": {
+        "g1_in": 16,
+        "g2_finalists": 0,
+        "selected_for_validation": 0,
+        "selected": []
+      },
+      "F3": {
+        "g1_in": 16,
+        "g2_finalists": 0,
+        "selected_for_validation": 0,
+        "selected": []
+      },
+      "F4": {
+        "g1_in": 16,
+        "g2_finalists": 0,
+        "selected_for_validation": 0,
+        "selected": []
+      }
+    },
+    "M2F": {
+      "F1": {
+        "g1_in": 6,
+        "g2_finalists": 0,
+        "selected_for_validation": 0,
+        "selected": []
+      },
+      "F2": {
+        "status": "no_g1_survivors"
+      },
+      "F3": {
+        "g1_in": 16,
+        "g2_finalists": 0,
+        "selected_for_validation": 0,
+        "selected": []
+      },
+      "F4": {
+        "g1_in": 16,
+        "g2_finalists": 0,
+        "selected_for_validation": 0,
+        "selected": []
+      }
+    }
+  }
+}
