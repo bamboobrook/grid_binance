@@ -1,7 +1,1522 @@
 {
+  "P1S_v2": {
+    "blocks": [
+      {
+        "block_id": "tb01",
+        "fit_end_ms": 1688083200000,
+        "fit_start_ms": 1672531200000,
+        "pair_4h": {
+          "block_id": "tb01",
+          "freq_hours": 4,
+          "frozen_fits": [
+            {
+              "ac1": 0.9778723671579121,
+              "adf_t": -5.1601669546432305,
+              "betas": [
+                1.0883353786942789
+              ],
+              "fit_sha256": "d2124614eaea3af8",
+              "freq_hours": 4,
+              "gate": "ADF<-3.0 AND half_life<120h (no MR_share gate)",
+              "group_id": "P1S_DOGEUSDT_SOLUSDT",
+              "half_life_h": 30.977084359276038,
+              "leg_direction_signs": [
+                1,
+                -1
+              ],
+              "leg_markets": [],
+              "legs": [
+                "DOGEUSDT",
+                "SOLUSDT"
+              ],
+              "mus": [
+                5.801242674009684
+              ],
+              "residual_sigma": 0.11914632635636428,
+              "weights": []
+            },
+            {
+              "ac1": 0.9736518704616771,
+              "adf_t": -3.8026889504416452,
+              "betas": [
+                0.7719653878573312
+              ],
+              "fit_sha256": "197c997ba04b95ef",
+              "freq_hours": 4,
+              "gate": "ADF<-3.0 AND half_life<120h (no MR_share gate)",
+              "group_id": "P1S_DOTUSDT_LINKUSDT",
+              "half_life_h": 25.959140603638136,
+              "leg_direction_signs": [
+                1,
+                -1
+              ],
+              "leg_markets": [],
+              "legs": [
+                "DOTUSDT",
+                "LINKUSDT"
+              ],
+              "mus": [
+                0.5526986238391574
+              ],
+              "residual_sigma": 0.037732836858948626,
+              "weights": []
+            },
+            {
+              "ac1": 0.9858650425456538,
+              "adf_t": -3.2197861473398577,
+              "betas": [
+                0.7130102661055582
+              ],
+              "fit_sha256": "cdcb82ee210b48f6",
+              "freq_hours": 4,
+              "gate": "ADF<-3.0 AND half_life<120h (no MR_share gate)",
+              "group_id": "P1S_XRPUSDT_ETHUSDT",
+              "half_life_h": 48.69038888292604,
+              "leg_direction_signs": [
+                1,
+                -1
+              ],
+              "leg_markets": [],
+              "legs": [
+                "XRPUSDT",
+                "ETHUSDT"
+              ],
+              "mus": [
+                8.038512365120198
+              ],
+              "residual_sigma": 0.06382742187890116,
+              "weights": []
+            },
+            {
+              "ac1": 0.9771438664880963,
+              "adf_t": -3.2060932358875807,
+              "betas": [
+                0.6879874974426519
+              ],
+              "fit_sha256": "d5a186265a1d7d5e",
+              "freq_hours": 4,
+              "gate": "ADF<-3.0 AND half_life<120h (no MR_share gate)",
+              "group_id": "P1S_ADAUSDT_BNBUSDT",
+              "half_life_h": 29.978611403104242,
+              "leg_direction_signs": [
+                1,
+                -1
+              ],
+              "leg_markets": [],
+              "legs": [
+                "ADAUSDT",
+                "BNBUSDT"
+              ],
+              "mus": [
+                6.416625957112301
+              ],
+              "residual_sigma": 0.041718245095208134,
+              "weights": []
+            }
+          ],
+          "implementation_status": "pairwise cointegration @ 4h, ADF<-3.0 + half_life<120h gate; 4 disjoint pairs"
+        }
+      },
+      {
+        "block_id": "tb02",
+        "fit_end_ms": 1695859200000,
+        "fit_start_ms": 1672531200000,
+        "pair_4h": {
+          "block_id": "tb02",
+          "freq_hours": 4,
+          "frozen_fits": [
+            {
+              "ac1": 0.9854555927411853,
+              "adf_t": -5.243851294680928,
+              "betas": [
+                0.6660084442098134
+              ],
+              "fit_sha256": "afab0c4ff3f972f9",
+              "freq_hours": 4,
+              "gate": "ADF<-3.0 AND half_life<120h (no MR_share gate)",
+              "group_id": "P1S_DOGEUSDT_SOLUSDT",
+              "half_life_h": 47.30986783623179,
+              "leg_direction_signs": [
+                1,
+                -1
+              ],
+              "leg_markets": [],
+              "legs": [
+                "DOGEUSDT",
+                "SOLUSDT"
+              ],
+              "mus": [
+                4.769703649407494
+              ],
+              "residual_sigma": 0.13572032661761618,
+              "weights": []
+            },
+            {
+              "ac1": 0.9818071368230536,
+              "adf_t": -4.143308832555192,
+              "betas": [
+                0.8820233000029577
+              ],
+              "fit_sha256": "4dfda1425740b047",
+              "freq_hours": 4,
+              "gate": "ADF<-3.0 AND half_life<120h (no MR_share gate)",
+              "group_id": "P1S_ADAUSDT_BNBUSDT",
+              "half_life_h": 37.75230621762764,
+              "leg_direction_signs": [
+                1,
+                -1
+              ],
+              "leg_markets": [],
+              "legs": [
+                "ADAUSDT",
+                "BNBUSDT"
+              ],
+              "mus": [
+                6.599900925943879
+              ],
+              "residual_sigma": 0.05135133826344543,
+              "weights": []
+            },
+            {
+              "ac1": 0.985679289295143,
+              "adf_t": -3.885683305199392,
+              "betas": [
+                -0.33986450017972136
+              ],
+              "fit_sha256": "b98d48ab057eb16e",
+              "freq_hours": 4,
+              "gate": "ADF<-3.0 AND half_life<120h (no MR_share gate)",
+              "group_id": "P1S_DOTUSDT_TRXUSDT",
+              "half_life_h": 48.05431124969697,
+              "leg_direction_signs": [
+                1,
+                -1
+              ],
+              "leg_markets": [],
+              "legs": [
+                "DOTUSDT",
+                "TRXUSDT"
+              ],
+              "mus": [
+                -2.0779310773352955
+              ],
+              "residual_sigma": 0.09633112150566284,
+              "weights": []
+            },
+            {
+              "ac1": 0.9933900962739431,
+              "adf_t": -3.370077153805489,
+              "betas": [
+                0.31566304673900586
+              ],
+              "fit_sha256": "38e4535e4df36802",
+              "freq_hours": 4,
+              "gate": "ADF<-3.0 AND half_life<120h (no MR_share gate)",
+              "group_id": "P1S_LTCUSDT_ETHUSDT",
+              "half_life_h": 104.51795958107186,
+              "leg_direction_signs": [
+                1,
+                -1
+              ],
+              "leg_markets": [],
+              "legs": [
+                "LTCUSDT",
+                "ETHUSDT"
+              ],
+              "mus": [
+                6.0538121214749125
+              ],
+              "residual_sigma": 0.09194607341160835,
+              "weights": []
+            }
+          ],
+          "implementation_status": "pairwise cointegration @ 4h, ADF<-3.0 + half_life<120h gate; 4 disjoint pairs"
+        }
+      },
+      {
+        "block_id": "tb03",
+        "fit_end_ms": 1703635200000,
+        "fit_start_ms": 1672531200000,
+        "pair_4h": {
+          "block_id": "tb03",
+          "freq_hours": 4,
+          "frozen_fits": [
+            {
+              "ac1": 0.9829180451365471,
+              "adf_t": -4.108773643296969,
+              "betas": [
+                0.5532095268541147
+              ],
+              "fit_sha256": "8a7a11a74d0dc853",
+              "freq_hours": 4,
+              "gate": "ADF<-3.0 AND half_life<120h (no MR_share gate)",
+              "group_id": "P1S_ADAUSDT_DOGEUSDT",
+              "half_life_h": 40.23016407941363,
+              "leg_direction_signs": [
+                1,
+                -1
+              ],
+              "leg_markets": [],
+              "legs": [
+                "ADAUSDT",
+                "DOGEUSDT"
+              ],
+              "mus": [
+                -1.997698304872253
+              ],
+              "residual_sigma": 0.06529112036947392,
+              "weights": []
+            },
+            {
+              "ac1": 0.9937791484029703,
+              "adf_t": -3.371566281256974,
+              "betas": [
+                0.26115375041228606
+              ],
+              "fit_sha256": "edd56a457bfc68c0",
+              "freq_hours": 4,
+              "gate": "ADF<-3.0 AND half_life<120h (no MR_share gate)",
+              "group_id": "P1S_LINKUSDT_ETHUSDT",
+              "half_life_h": 111.07623523724493,
+              "leg_direction_signs": [
+                1,
+                -1
+              ],
+              "leg_markets": [],
+              "legs": [
+                "LINKUSDT",
+                "ETHUSDT"
+              ],
+              "mus": [
+                6.946189765081813
+              ],
+              "residual_sigma": 0.09121423034953988,
+              "weights": []
+            },
+            {
+              "ac1": 0.988932811731182,
+              "adf_t": -3.1515610160509278,
+              "betas": [
+                -0.3440908830623111
+              ],
+              "fit_sha256": "d6a88e4f719317df",
+              "freq_hours": 4,
+              "gate": "ADF<-3.0 AND half_life<120h (no MR_share gate)",
+              "group_id": "P1S_BCHUSDT_BNBUSDT",
+              "half_life_h": 62.28359677125686,
+              "leg_direction_signs": [
+                1,
+                -1
+              ],
+              "leg_markets": [],
+              "legs": [
+                "BCHUSDT",
+                "BNBUSDT"
+              ],
+              "mus": [
+                7.334586717575682
+              ],
+              "residual_sigma": 0.10658619970502022,
+              "weights": []
+            }
+          ],
+          "implementation_status": "pairwise cointegration @ 4h, ADF<-3.0 + half_life<120h gate; 3 disjoint pairs"
+        }
+      },
+      {
+        "block_id": "tb04",
+        "fit_end_ms": 1711411200000,
+        "fit_start_ms": 1672531200000,
+        "pair_4h": {
+          "block_id": "tb04",
+          "freq_hours": 4,
+          "frozen_fits": [
+            {
+              "ac1": 0.9903876478565924,
+              "adf_t": -3.0907694121396228,
+              "betas": [
+                1.6666041699566418
+              ],
+              "fit_sha256": "4a7bbbbc3c0c4f8c",
+              "freq_hours": 4,
+              "gate": "ADF<-3.0 AND half_life<120h (no MR_share gate)",
+              "group_id": "P1S_LINKUSDT_SOLUSDT",
+              "half_life_h": 71.76289843507423,
+              "leg_direction_signs": [
+                1,
+                -1
+              ],
+              "leg_markets": [],
+              "legs": [
+                "LINKUSDT",
+                "SOLUSDT"
+              ],
+              "mus": [
+                -0.15070921433864326
+              ],
+              "residual_sigma": 0.17870864713239232,
+              "weights": []
+            }
+          ],
+          "implementation_status": "pairwise cointegration @ 4h, ADF<-3.0 + half_life<120h gate; 1 disjoint pairs"
+        }
+      },
+      {
+        "block_id": "tb05",
+        "fit_end_ms": 1719187200000,
+        "fit_start_ms": 1672531200000,
+        "pair_4h": {
+          "block_id": "tb05",
+          "freq_hours": 4,
+          "frozen_fits": [
+            {
+              "ac1": 0.9931122058806277,
+              "adf_t": -3.348320042645178,
+              "betas": [
+                1.1703260120311176
+              ],
+              "fit_sha256": "a84250d19d2a57ff",
+              "freq_hours": 4,
+              "gate": "ADF<-3.0 AND half_life<120h (no MR_share gate)",
+              "group_id": "P1S_DOTUSDT_ADAUSDT",
+              "half_life_h": 100.28713275900115,
+              "leg_direction_signs": [
+                1,
+                -1
+              ],
+              "leg_markets": [],
+              "legs": [
+                "DOTUSDT",
+                "ADAUSDT"
+              ],
+              "mus": [
+                -3.0363266422208186
+              ],
+              "residual_sigma": 0.09540031745587357,
+              "weights": []
+            }
+          ],
+          "implementation_status": "pairwise cointegration @ 4h, ADF<-3.0 + half_life<120h gate; 1 disjoint pairs"
+        }
+      },
+      {
+        "block_id": "tb06",
+        "fit_end_ms": 1726963200000,
+        "fit_start_ms": 1672531200000,
+        "pair_4h": {
+          "block_id": "tb06",
+          "freq_hours": 4,
+          "frozen_fits": [
+            {
+              "ac1": 0.9936727023841345,
+              "adf_t": -3.7150852906294567,
+              "betas": [
+                -0.1757329777972831
+              ],
+              "fit_sha256": "09be4a0997e11185",
+              "freq_hours": 4,
+              "gate": "ADF<-3.0 AND half_life<120h (no MR_share gate)",
+              "group_id": "P1S_LTCUSDT_XRPUSDT",
+              "half_life_h": 109.20172377347217,
+              "leg_direction_signs": [
+                1,
+                -1
+              ],
+              "leg_markets": [],
+              "legs": [
+                "LTCUSDT",
+                "XRPUSDT"
+              ],
+              "mus": [
+                0.11238361828964394
+              ],
+              "residual_sigma": 0.16488281426038257,
+              "weights": []
+            }
+          ],
+          "implementation_status": "pairwise cointegration @ 4h, ADF<-3.0 + half_life<120h gate; 1 disjoint pairs"
+        }
+      },
+      {
+        "block_id": "tb07",
+        "fit_end_ms": 1734739200000,
+        "fit_start_ms": 1672531200000,
+        "pair_4h": {
+          "block_id": "tb07",
+          "freq_hours": 4,
+          "frozen_fits": [],
+          "implementation_status": "pairwise cointegration @ 4h, ADF<-3.0 + half_life<120h gate; 0 disjoint pairs"
+        }
+      },
+      {
+        "block_id": "tb08",
+        "fit_end_ms": 1742515200000,
+        "fit_start_ms": 1672531200000,
+        "pair_4h": {
+          "block_id": "tb08",
+          "freq_hours": 4,
+          "frozen_fits": [],
+          "implementation_status": "pairwise cointegration @ 4h, ADF<-3.0 + half_life<120h gate; 0 disjoint pairs"
+        }
+      },
+      {
+        "block_id": "tb09",
+        "fit_end_ms": 1750291200000,
+        "fit_start_ms": 1672531200000,
+        "pair_4h": {
+          "block_id": "tb09",
+          "freq_hours": 4,
+          "frozen_fits": [],
+          "implementation_status": "pairwise cointegration @ 4h, ADF<-3.0 + half_life<120h gate; 0 disjoint pairs"
+        }
+      },
+      {
+        "block_id": "tb10",
+        "fit_end_ms": 1758067200000,
+        "fit_start_ms": 1672531200000,
+        "pair_4h": {
+          "block_id": "tb10",
+          "freq_hours": 4,
+          "frozen_fits": [],
+          "implementation_status": "pairwise cointegration @ 4h, ADF<-3.0 + half_life<120h gate; 0 disjoint pairs"
+        }
+      },
+      {
+        "block_id": "tb11",
+        "fit_end_ms": 1765843200000,
+        "fit_start_ms": 1672531200000,
+        "pair_4h": {
+          "block_id": "tb11",
+          "freq_hours": 4,
+          "frozen_fits": [],
+          "implementation_status": "pairwise cointegration @ 4h, ADF<-3.0 + half_life<120h gate; 0 disjoint pairs"
+        }
+      },
+      {
+        "block_id": "tb12",
+        "fit_end_ms": 1773619200000,
+        "fit_start_ms": 1672531200000,
+        "pair_4h": {
+          "block_id": "tb12",
+          "freq_hours": 4,
+          "frozen_fits": [],
+          "implementation_status": "pairwise cointegration @ 4h, ADF<-3.0 + half_life<120h gate; 0 disjoint pairs"
+        }
+      }
+    ],
+    "generated_at_utc": "2026-07-20T14:47:35.215305+00:00",
+    "method": "pairwise OLS cointegration; ADF<-3.0 + half_life<120h gate (plan \u00a76.3 does not mandate the 1-phi^2 MR_share formula; the 1-phi^2 was a wrong proxy for the P1 state-space MR innovation share, see Earnest 2015)",
+    "phase": "R4.P1S v2 with pairwise cointegration + correct MR gate"
+  },
+  "V1B_retry": {
+    "blocks": [
+      {
+        "block_id": "tb01",
+        "fit_end_ms": 1688083200000,
+        "fit_start_ms": 1672531200000,
+        "rank2": {
+          "block_id": "tb01",
+          "frozen_fits": [],
+          "implementation_status": "no rank-2 candidate satisfied budget constraints (long>=0.35, short>=0.35, nz>=5, max<=0.25, net<=0.10)",
+          "k_rank": 2
+        },
+        "rank3": {
+          "block_id": "tb01",
+          "frozen_fits": [
+            {
+              "betas": [
+                0.16666666666666666,
+                0.16666666666666666,
+                -0.16666666666666666,
+                0.0,
+                0.16666666666666666,
+                -0.16666666666666666,
+                -0.16666666666666666,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0
+              ],
+              "constraints": {
+                "abs_sum_w_btc_beta": 0.0,
+                "long_gross": 0.5,
+                "max_abs_w": 0.16666666666666666,
+                "non_zero_legs": 6,
+                "short_gross": 0.5,
+                "sum_abs_w": 1.0
+              },
+              "fit_sha256": "246935851164945253",
+              "group_id": "V1B_rank3_pc2+pc3",
+              "half_life_h": 675.6634760272004,
+              "k_rank": 3,
+              "leg_direction_signs": [
+                1,
+                1,
+                -1,
+                0,
+                1,
+                -1,
+                -1,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "leg_markets": [],
+              "legs": [
+                "BTCUSDT",
+                "ETHUSDT",
+                "BNBUSDT",
+                "SOLUSDT",
+                "XRPUSDT",
+                "DOGEUSDT",
+                "ADAUSDT",
+                "TRXUSDT",
+                "LINKUSDT",
+                "LTCUSDT",
+                "BCHUSDT",
+                "DOTUSDT"
+              ],
+              "mus": [
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0
+              ],
+              "residual_sigma": 0.07428442801669233,
+              "source": "pc2+pc3",
+              "weights": [
+                0.16666666666666666,
+                0.16666666666666666,
+                -0.16666666666666666,
+                0.0,
+                0.16666666666666666,
+                -0.16666666666666666,
+                -0.16666666666666666,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0
+              ]
+            }
+          ],
+          "implementation_status": "rank-3 subspace projected to budget; source=pc2+pc3; long_gross=0.500 short_gross=0.500 nz=6 max_w=0.167",
+          "k_rank": 3
+        }
+      },
+      {
+        "block_id": "tb02",
+        "fit_end_ms": 1695859200000,
+        "fit_start_ms": 1672531200000,
+        "rank2": {
+          "block_id": "tb02",
+          "frozen_fits": [
+            {
+              "betas": [
+                0.0,
+                0.0,
+                -0.17091189075411156,
+                0.0,
+                0.17091189075411156,
+                0.0,
+                -0.17091189075411156,
+                0.1474918198689309,
+                0.0,
+                0.0,
+                0.17091189075411156,
+                -0.1688606171146229
+              ],
+              "constraints": {
+                "abs_sum_w_btc_beta": 0.021368797245692017,
+                "long_gross": 0.489315601377154,
+                "max_abs_w": 0.17091189075411156,
+                "non_zero_legs": 6,
+                "short_gross": 0.510684398622846,
+                "sum_abs_w": 1.0
+              },
+              "fit_sha256": "-6410130865084823119",
+              "group_id": "V1B_rank2_pc1",
+              "half_life_h": 2199.680103017656,
+              "k_rank": 2,
+              "leg_direction_signs": [
+                0,
+                0,
+                -1,
+                0,
+                1,
+                0,
+                -1,
+                1,
+                0,
+                0,
+                1,
+                -1
+              ],
+              "leg_markets": [],
+              "legs": [
+                "BTCUSDT",
+                "ETHUSDT",
+                "BNBUSDT",
+                "SOLUSDT",
+                "XRPUSDT",
+                "DOGEUSDT",
+                "ADAUSDT",
+                "TRXUSDT",
+                "LINKUSDT",
+                "LTCUSDT",
+                "BCHUSDT",
+                "DOTUSDT"
+              ],
+              "mus": [
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0
+              ],
+              "residual_sigma": 0.14824763361747081,
+              "source": "pc1",
+              "weights": [
+                0.0,
+                0.0,
+                -0.17091189075411156,
+                0.0,
+                0.17091189075411156,
+                0.0,
+                -0.17091189075411156,
+                0.1474918198689309,
+                0.0,
+                0.0,
+                0.17091189075411156,
+                -0.1688606171146229
+              ]
+            }
+          ],
+          "implementation_status": "rank-2 subspace projected to budget; source=pc1; long_gross=0.489 short_gross=0.511 nz=6 max_w=0.171",
+          "k_rank": 2
+        },
+        "rank3": {
+          "block_id": "tb02",
+          "frozen_fits": [
+            {
+              "betas": [
+                0.0,
+                0.0,
+                -0.17091189075411156,
+                0.0,
+                0.17091189075411156,
+                0.0,
+                -0.17091189075411156,
+                0.1474918198689309,
+                0.0,
+                0.0,
+                0.17091189075411156,
+                -0.1688606171146229
+              ],
+              "constraints": {
+                "abs_sum_w_btc_beta": 0.021368797245692017,
+                "long_gross": 0.489315601377154,
+                "max_abs_w": 0.17091189075411156,
+                "non_zero_legs": 6,
+                "short_gross": 0.510684398622846,
+                "sum_abs_w": 1.0
+              },
+              "fit_sha256": "-6410130865084823119",
+              "group_id": "V1B_rank3_pc1",
+              "half_life_h": 2199.680103017656,
+              "k_rank": 3,
+              "leg_direction_signs": [
+                0,
+                0,
+                -1,
+                0,
+                1,
+                0,
+                -1,
+                1,
+                0,
+                0,
+                1,
+                -1
+              ],
+              "leg_markets": [],
+              "legs": [
+                "BTCUSDT",
+                "ETHUSDT",
+                "BNBUSDT",
+                "SOLUSDT",
+                "XRPUSDT",
+                "DOGEUSDT",
+                "ADAUSDT",
+                "TRXUSDT",
+                "LINKUSDT",
+                "LTCUSDT",
+                "BCHUSDT",
+                "DOTUSDT"
+              ],
+              "mus": [
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0
+              ],
+              "residual_sigma": 0.14824763361747081,
+              "source": "pc1",
+              "weights": [
+                0.0,
+                0.0,
+                -0.17091189075411156,
+                0.0,
+                0.17091189075411156,
+                0.0,
+                -0.17091189075411156,
+                0.1474918198689309,
+                0.0,
+                0.0,
+                0.17091189075411156,
+                -0.1688606171146229
+              ]
+            }
+          ],
+          "implementation_status": "rank-3 subspace projected to budget; source=pc1; long_gross=0.489 short_gross=0.511 nz=6 max_w=0.171",
+          "k_rank": 3
+        }
+      },
+      {
+        "block_id": "tb03",
+        "fit_end_ms": 1703635200000,
+        "fit_start_ms": 1672531200000,
+        "rank2": {
+          "block_id": "tb03",
+          "frozen_fits": [],
+          "implementation_status": "no rank-2 candidate satisfied budget constraints (long>=0.35, short>=0.35, nz>=5, max<=0.25, net<=0.10)",
+          "k_rank": 2
+        },
+        "rank3": {
+          "block_id": "tb03",
+          "frozen_fits": [
+            {
+              "betas": [
+                0.0,
+                0.0,
+                0.0,
+                0.16666666666666666,
+                -0.16666666666666666,
+                0.0,
+                0.16666666666666666,
+                0.0,
+                0.16666666666666666,
+                -0.16666666666666666,
+                -0.16666666666666666,
+                0.0
+              ],
+              "constraints": {
+                "abs_sum_w_btc_beta": 0.0,
+                "long_gross": 0.5,
+                "max_abs_w": 0.16666666666666666,
+                "non_zero_legs": 6,
+                "short_gross": 0.5,
+                "sum_abs_w": 1.0
+              },
+              "fit_sha256": "7075588851472152574",
+              "group_id": "V1B_rank3_pc2-pc3",
+              "half_life_h": 973.6473585941319,
+              "k_rank": 3,
+              "leg_direction_signs": [
+                0,
+                0,
+                0,
+                1,
+                -1,
+                0,
+                1,
+                0,
+                1,
+                -1,
+                -1,
+                0
+              ],
+              "leg_markets": [],
+              "legs": [
+                "BTCUSDT",
+                "ETHUSDT",
+                "BNBUSDT",
+                "SOLUSDT",
+                "XRPUSDT",
+                "DOGEUSDT",
+                "ADAUSDT",
+                "TRXUSDT",
+                "LINKUSDT",
+                "LTCUSDT",
+                "BCHUSDT",
+                "DOTUSDT"
+              ],
+              "mus": [
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0
+              ],
+              "residual_sigma": 0.12947534671881514,
+              "source": "pc2-pc3",
+              "weights": [
+                0.0,
+                0.0,
+                0.0,
+                0.16666666666666666,
+                -0.16666666666666666,
+                0.0,
+                0.16666666666666666,
+                0.0,
+                0.16666666666666666,
+                -0.16666666666666666,
+                -0.16666666666666666,
+                0.0
+              ]
+            }
+          ],
+          "implementation_status": "rank-3 subspace projected to budget; source=pc2-pc3; long_gross=0.500 short_gross=0.500 nz=6 max_w=0.167",
+          "k_rank": 3
+        }
+      },
+      {
+        "block_id": "tb04",
+        "fit_end_ms": 1711411200000,
+        "fit_start_ms": 1672531200000,
+        "rank2": {
+          "block_id": "tb04",
+          "frozen_fits": [],
+          "implementation_status": "no rank-2 candidate satisfied budget constraints (long>=0.35, short>=0.35, nz>=5, max<=0.25, net<=0.10)",
+          "k_rank": 2
+        },
+        "rank3": {
+          "block_id": "tb04",
+          "frozen_fits": [
+            {
+              "betas": [
+                -0.16666666666666666,
+                0.0,
+                0.0,
+                0.16666666666666666,
+                -0.16666666666666666,
+                0.0,
+                0.16666666666666666,
+                0.0,
+                0.16666666666666666,
+                0.0,
+                -0.16666666666666666,
+                0.0
+              ],
+              "constraints": {
+                "abs_sum_w_btc_beta": 0.0,
+                "long_gross": 0.5,
+                "max_abs_w": 0.16666666666666666,
+                "non_zero_legs": 6,
+                "short_gross": 0.5,
+                "sum_abs_w": 1.0
+              },
+              "fit_sha256": "3706146694707445075",
+              "group_id": "V1B_rank3_pc2-pc3",
+              "half_life_h": 3452.8129627298745,
+              "k_rank": 3,
+              "leg_direction_signs": [
+                -1,
+                0,
+                0,
+                1,
+                -1,
+                0,
+                1,
+                0,
+                1,
+                0,
+                -1,
+                0
+              ],
+              "leg_markets": [],
+              "legs": [
+                "BTCUSDT",
+                "ETHUSDT",
+                "BNBUSDT",
+                "SOLUSDT",
+                "XRPUSDT",
+                "DOGEUSDT",
+                "ADAUSDT",
+                "TRXUSDT",
+                "LINKUSDT",
+                "LTCUSDT",
+                "BCHUSDT",
+                "DOTUSDT"
+              ],
+              "mus": [
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0
+              ],
+              "residual_sigma": 0.15240891475746818,
+              "source": "pc2-pc3",
+              "weights": [
+                -0.16666666666666666,
+                0.0,
+                0.0,
+                0.16666666666666666,
+                -0.16666666666666666,
+                0.0,
+                0.16666666666666666,
+                0.0,
+                0.16666666666666666,
+                0.0,
+                -0.16666666666666666,
+                0.0
+              ]
+            }
+          ],
+          "implementation_status": "rank-3 subspace projected to budget; source=pc2-pc3; long_gross=0.500 short_gross=0.500 nz=6 max_w=0.167",
+          "k_rank": 3
+        }
+      },
+      {
+        "block_id": "tb05",
+        "fit_end_ms": 1719187200000,
+        "fit_start_ms": 1672531200000,
+        "rank2": {
+          "block_id": "tb05",
+          "frozen_fits": [],
+          "implementation_status": "no rank-2 candidate satisfied budget constraints (long>=0.35, short>=0.35, nz>=5, max<=0.25, net<=0.10)",
+          "k_rank": 2
+        },
+        "rank3": {
+          "block_id": "tb05",
+          "frozen_fits": [
+            {
+              "betas": [
+                0.0,
+                0.0,
+                0.16666666666666666,
+                0.0,
+                -0.16666666666666666,
+                0.16666666666666666,
+                0.0,
+                -0.16666666666666666,
+                -0.16666666666666666,
+                0.16666666666666666,
+                0.0,
+                0.0
+              ],
+              "constraints": {
+                "abs_sum_w_btc_beta": 0.0,
+                "long_gross": 0.5,
+                "max_abs_w": 0.16666666666666666,
+                "non_zero_legs": 6,
+                "short_gross": 0.5,
+                "sum_abs_w": 1.0
+              },
+              "fit_sha256": "798191270309016463",
+              "group_id": "V1B_rank3_pc2+pc3",
+              "half_life_h": 3932.888744908029,
+              "k_rank": 3,
+              "leg_direction_signs": [
+                0,
+                0,
+                1,
+                0,
+                -1,
+                1,
+                0,
+                -1,
+                -1,
+                1,
+                0,
+                0
+              ],
+              "leg_markets": [],
+              "legs": [
+                "BTCUSDT",
+                "ETHUSDT",
+                "BNBUSDT",
+                "SOLUSDT",
+                "XRPUSDT",
+                "DOGEUSDT",
+                "ADAUSDT",
+                "TRXUSDT",
+                "LINKUSDT",
+                "LTCUSDT",
+                "BCHUSDT",
+                "DOTUSDT"
+              ],
+              "mus": [
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0
+              ],
+              "residual_sigma": 0.12712820172637906,
+              "source": "pc2+pc3",
+              "weights": [
+                0.0,
+                0.0,
+                0.16666666666666666,
+                0.0,
+                -0.16666666666666666,
+                0.16666666666666666,
+                0.0,
+                -0.16666666666666666,
+                -0.16666666666666666,
+                0.16666666666666666,
+                0.0,
+                0.0
+              ]
+            }
+          ],
+          "implementation_status": "rank-3 subspace projected to budget; source=pc2+pc3; long_gross=0.500 short_gross=0.500 nz=6 max_w=0.167",
+          "k_rank": 3
+        }
+      },
+      {
+        "block_id": "tb06",
+        "fit_end_ms": 1726963200000,
+        "fit_start_ms": 1672531200000,
+        "rank2": {
+          "block_id": "tb06",
+          "frozen_fits": [],
+          "implementation_status": "no rank-2 candidate satisfied budget constraints (long>=0.35, short>=0.35, nz>=5, max<=0.25, net<=0.10)",
+          "k_rank": 2
+        },
+        "rank3": {
+          "block_id": "tb06",
+          "frozen_fits": [
+            {
+              "betas": [
+                0.0,
+                0.0,
+                0.16666666666666666,
+                0.0,
+                -0.16666666666666666,
+                0.16666666666666666,
+                0.0,
+                -0.16666666666666666,
+                -0.16666666666666666,
+                0.16666666666666666,
+                0.0,
+                0.0
+              ],
+              "constraints": {
+                "abs_sum_w_btc_beta": 0.0,
+                "long_gross": 0.5,
+                "max_abs_w": 0.16666666666666666,
+                "non_zero_legs": 6,
+                "short_gross": 0.5,
+                "sum_abs_w": 1.0
+              },
+              "fit_sha256": "798191270309016463",
+              "group_id": "V1B_rank3_pc2+pc3",
+              "half_life_h": 3717.408002625839,
+              "k_rank": 3,
+              "leg_direction_signs": [
+                0,
+                0,
+                1,
+                0,
+                -1,
+                1,
+                0,
+                -1,
+                -1,
+                1,
+                0,
+                0
+              ],
+              "leg_markets": [],
+              "legs": [
+                "BTCUSDT",
+                "ETHUSDT",
+                "BNBUSDT",
+                "SOLUSDT",
+                "XRPUSDT",
+                "DOGEUSDT",
+                "ADAUSDT",
+                "TRXUSDT",
+                "LINKUSDT",
+                "LTCUSDT",
+                "BCHUSDT",
+                "DOTUSDT"
+              ],
+              "mus": [
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0
+              ],
+              "residual_sigma": 0.11838863020341388,
+              "source": "pc2+pc3",
+              "weights": [
+                0.0,
+                0.0,
+                0.16666666666666666,
+                0.0,
+                -0.16666666666666666,
+                0.16666666666666666,
+                0.0,
+                -0.16666666666666666,
+                -0.16666666666666666,
+                0.16666666666666666,
+                0.0,
+                0.0
+              ]
+            }
+          ],
+          "implementation_status": "rank-3 subspace projected to budget; source=pc2+pc3; long_gross=0.500 short_gross=0.500 nz=6 max_w=0.167",
+          "k_rank": 3
+        }
+      },
+      {
+        "block_id": "tb07",
+        "fit_end_ms": 1734739200000,
+        "fit_start_ms": 1672531200000,
+        "rank2": {
+          "block_id": "tb07",
+          "frozen_fits": [],
+          "implementation_status": "no rank-2 candidate satisfied budget constraints (long>=0.35, short>=0.35, nz>=5, max<=0.25, net<=0.10)",
+          "k_rank": 2
+        },
+        "rank3": {
+          "block_id": "tb07",
+          "frozen_fits": [],
+          "implementation_status": "no rank-3 candidate satisfied budget constraints (long>=0.35, short>=0.35, nz>=5, max<=0.25, net<=0.10)",
+          "k_rank": 3
+        }
+      },
+      {
+        "block_id": "tb08",
+        "fit_end_ms": 1742515200000,
+        "fit_start_ms": 1672531200000,
+        "rank2": {
+          "block_id": "tb08",
+          "frozen_fits": [],
+          "implementation_status": "no rank-2 candidate satisfied budget constraints (long>=0.35, short>=0.35, nz>=5, max<=0.25, net<=0.10)",
+          "k_rank": 2
+        },
+        "rank3": {
+          "block_id": "tb08",
+          "frozen_fits": [],
+          "implementation_status": "no rank-3 candidate satisfied budget constraints (long>=0.35, short>=0.35, nz>=5, max<=0.25, net<=0.10)",
+          "k_rank": 3
+        }
+      },
+      {
+        "block_id": "tb09",
+        "fit_end_ms": 1750291200000,
+        "fit_start_ms": 1672531200000,
+        "rank2": {
+          "block_id": "tb09",
+          "frozen_fits": [
+            {
+              "betas": [
+                0.0,
+                -0.17687896688129437,
+                0.0,
+                -0.18528384387228075,
+                0.18528384387228075,
+                0.0,
+                0.14306038889724418,
+                0.1427741472316698,
+                0.0,
+                0.0,
+                -0.1667188092452301,
+                0.0
+              ],
+              "constraints": {
+                "abs_sum_w_btc_beta": 0.05776323999761049,
+                "long_gross": 0.47111838000119477,
+                "max_abs_w": 0.18528384387228075,
+                "non_zero_legs": 6,
+                "short_gross": 0.5288816199988052,
+                "sum_abs_w": 1.0
+              },
+              "fit_sha256": "-3318559248901882543",
+              "group_id": "V1B_rank2_pc2",
+              "half_life_h": 5440.155362034085,
+              "k_rank": 2,
+              "leg_direction_signs": [
+                0,
+                -1,
+                0,
+                -1,
+                1,
+                0,
+                1,
+                1,
+                0,
+                0,
+                -1,
+                0
+              ],
+              "leg_markets": [],
+              "legs": [
+                "BTCUSDT",
+                "ETHUSDT",
+                "BNBUSDT",
+                "SOLUSDT",
+                "XRPUSDT",
+                "DOGEUSDT",
+                "ADAUSDT",
+                "TRXUSDT",
+                "LINKUSDT",
+                "LTCUSDT",
+                "BCHUSDT",
+                "DOTUSDT"
+              ],
+              "mus": [
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0
+              ],
+              "residual_sigma": 0.21456723400206695,
+              "source": "pc2",
+              "weights": [
+                0.0,
+                -0.17687896688129437,
+                0.0,
+                -0.18528384387228075,
+                0.18528384387228075,
+                0.0,
+                0.14306038889724418,
+                0.1427741472316698,
+                0.0,
+                0.0,
+                -0.1667188092452301,
+                0.0
+              ]
+            }
+          ],
+          "implementation_status": "rank-2 subspace projected to budget; source=pc2; long_gross=0.471 short_gross=0.529 nz=6 max_w=0.185",
+          "k_rank": 2
+        },
+        "rank3": {
+          "block_id": "tb09",
+          "frozen_fits": [
+            {
+              "betas": [
+                0.0,
+                -0.17687896688129437,
+                0.0,
+                -0.18528384387228075,
+                0.18528384387228075,
+                0.0,
+                0.14306038889724418,
+                0.1427741472316698,
+                0.0,
+                0.0,
+                -0.1667188092452301,
+                0.0
+              ],
+              "constraints": {
+                "abs_sum_w_btc_beta": 0.05776323999761049,
+                "long_gross": 0.47111838000119477,
+                "max_abs_w": 0.18528384387228075,
+                "non_zero_legs": 6,
+                "short_gross": 0.5288816199988052,
+                "sum_abs_w": 1.0
+              },
+              "fit_sha256": "-3318559248901882543",
+              "group_id": "V1B_rank3_pc2",
+              "half_life_h": 5440.155362034085,
+              "k_rank": 3,
+              "leg_direction_signs": [
+                0,
+                -1,
+                0,
+                -1,
+                1,
+                0,
+                1,
+                1,
+                0,
+                0,
+                -1,
+                0
+              ],
+              "leg_markets": [],
+              "legs": [
+                "BTCUSDT",
+                "ETHUSDT",
+                "BNBUSDT",
+                "SOLUSDT",
+                "XRPUSDT",
+                "DOGEUSDT",
+                "ADAUSDT",
+                "TRXUSDT",
+                "LINKUSDT",
+                "LTCUSDT",
+                "BCHUSDT",
+                "DOTUSDT"
+              ],
+              "mus": [
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0
+              ],
+              "residual_sigma": 0.21456723400206695,
+              "source": "pc2",
+              "weights": [
+                0.0,
+                -0.17687896688129437,
+                0.0,
+                -0.18528384387228075,
+                0.18528384387228075,
+                0.0,
+                0.14306038889724418,
+                0.1427741472316698,
+                0.0,
+                0.0,
+                -0.1667188092452301,
+                0.0
+              ]
+            }
+          ],
+          "implementation_status": "rank-3 subspace projected to budget; source=pc2; long_gross=0.471 short_gross=0.529 nz=6 max_w=0.185",
+          "k_rank": 3
+        }
+      },
+      {
+        "block_id": "tb10",
+        "fit_end_ms": 1758067200000,
+        "fit_start_ms": 1672531200000,
+        "rank2": {
+          "block_id": "tb10",
+          "frozen_fits": [],
+          "implementation_status": "no rank-2 candidate satisfied budget constraints (long>=0.35, short>=0.35, nz>=5, max<=0.25, net<=0.10)",
+          "k_rank": 2
+        },
+        "rank3": {
+          "block_id": "tb10",
+          "frozen_fits": [],
+          "implementation_status": "no rank-3 candidate satisfied budget constraints (long>=0.35, short>=0.35, nz>=5, max<=0.25, net<=0.10)",
+          "k_rank": 3
+        }
+      },
+      {
+        "block_id": "tb11",
+        "fit_end_ms": 1765843200000,
+        "fit_start_ms": 1672531200000,
+        "rank2": {
+          "block_id": "tb11",
+          "frozen_fits": [],
+          "implementation_status": "no rank-2 candidate satisfied budget constraints (long>=0.35, short>=0.35, nz>=5, max<=0.25, net<=0.10)",
+          "k_rank": 2
+        },
+        "rank3": {
+          "block_id": "tb11",
+          "frozen_fits": [],
+          "implementation_status": "no rank-3 candidate satisfied budget constraints (long>=0.35, short>=0.35, nz>=5, max<=0.25, net<=0.10)",
+          "k_rank": 3
+        }
+      },
+      {
+        "block_id": "tb12",
+        "fit_end_ms": 1773619200000,
+        "fit_start_ms": 1672531200000,
+        "rank2": {
+          "block_id": "tb12",
+          "frozen_fits": [],
+          "implementation_status": "no rank-2 candidate satisfied budget constraints (long>=0.35, short>=0.35, nz>=5, max<=0.25, net<=0.10)",
+          "k_rank": 2
+        },
+        "rank3": {
+          "block_id": "tb12",
+          "frozen_fits": [],
+          "implementation_status": "no rank-3 candidate satisfied budget constraints (long>=0.35, short>=0.35, nz>=5, max<=0.25, net<=0.10)",
+          "k_rank": 3
+        }
+      }
+    ],
+    "generated_at_utc": "2026-07-20T14:48:05.474046+00:00",
+    "phase": "R4.V1B retry with rank>1 VECM",
+    "ranks_tried": [
+      2,
+      3
+    ]
+  },
   "blocks": 12,
-  "commit_sha": "2915fa6c447a89a22283051048e8588056f81297",
-  "elapsed_s": 67.9,
+  "commit_sha": "5dd6b51728dfa347733e0c1a863443183dc3649e",
+  "elapsed_s": 69.9,
   "families": [
     "C1E",
     "B1S",
@@ -265,13 +1780,36 @@
         "fit_start_ms": 1672531200000,
         "frozen_fits": [
           {
-            "adf_t": 3.373573624441575,
+            "adf_t": -5.1209953577734035,
             "betas": [
-              0.44824988862233184
+              1.0908584701249775
             ],
-            "fit_sha256": "d10b1ed4b8eb726d",
-            "group_id": "C1E_DOTUSDT_BCHUSDT",
-            "half_life_h": 110.45689917996104,
+            "fit_sha256": "1e27e7dac20b4107",
+            "group_id": "C1E_DOGEUSDT_SOLUSDT",
+            "half_life_h": 122.10447360240883,
+            "leg_direction_signs": [
+              1,
+              -1
+            ],
+            "leg_markets": [],
+            "legs": [
+              "DOGEUSDT",
+              "SOLUSDT"
+            ],
+            "mus": [
+              5.807797894208831
+            ],
+            "residual_sigma": 0.11879909425200452,
+            "weights": []
+          },
+          {
+            "adf_t": -3.892266466440435,
+            "betas": [
+              0.7733244089624688
+            ],
+            "fit_sha256": "a24ab59dbb5ab0c6",
+            "group_id": "C1E_DOTUSDT_LINKUSDT",
+            "half_life_h": 99.2842790303082,
             "leg_direction_signs": [
               1,
               -1
@@ -279,81 +1817,35 @@
             "leg_markets": [],
             "legs": [
               "DOTUSDT",
-              "BCHUSDT"
+              "LINKUSDT"
             ],
             "mus": [
-              4.033253162652574
+              0.5502335635367415
             ],
-            "residual_sigma": 0.12360707632364708,
+            "residual_sigma": 0.03795738425491461,
             "weights": []
           },
           {
-            "adf_t": -1.9922054881036666,
+            "adf_t": -3.286957643220709,
             "betas": [
-              0.4836721345931793
+              0.687695049309062
             ],
-            "fit_sha256": "3dfeb390b47bdc36",
-            "group_id": "C1E_SOLUSDT_BNBUSDT",
-            "half_life_h": 148.57144704914754,
+            "fit_sha256": "0841c46a3789ba9b",
+            "group_id": "C1E_ADAUSDT_BNBUSDT",
+            "half_life_h": 115.02595208061712,
             "leg_direction_signs": [
               1,
               -1
             ],
             "leg_markets": [],
             "legs": [
-              "SOLUSDT",
+              "ADAUSDT",
               "BNBUSDT"
             ],
             "mus": [
-              4.243387652796753
+              6.416595226038031
             ],
-            "residual_sigma": 0.059019700590760525,
-            "weights": []
-          },
-          {
-            "adf_t": -2.6212431594426233,
-            "betas": [
-              0.9520162612067226
-            ],
-            "fit_sha256": "6d30f0ef01d0f446",
-            "group_id": "C1E_LTCUSDT_DOGEUSDT",
-            "half_life_h": 160.7811888697127,
-            "leg_direction_signs": [
-              1,
-              -1
-            ],
-            "leg_markets": [],
-            "legs": [
-              "LTCUSDT",
-              "DOGEUSDT"
-            ],
-            "mus": [
-              -6.8236349328696235
-            ],
-            "residual_sigma": 0.08029566632853143,
-            "weights": []
-          },
-          {
-            "adf_t": -2.7724172901678283,
-            "betas": [
-              1.2904393631035453
-            ],
-            "fit_sha256": "893edf9d1ac2e362",
-            "group_id": "C1E_ETHUSDT_BTCUSDT",
-            "half_life_h": 127.41833662555797,
-            "leg_direction_signs": [
-              1,
-              -1
-            ],
-            "leg_markets": [],
-            "legs": [
-              "ETHUSDT",
-              "BTCUSDT"
-            ],
-            "mus": [
-              0.5243306566248478
-            ],
-            "residual_sigma": 0.0367604365741254,
+            "residual_sigma": 0.04173329463871818,
             "weights": []
           }
         ],
@@ -657,7 +2149,77 @@
         "block_id": "tb02",
         "fit_end_ms": 1695859200000,
         "fit_start_ms": 1672531200000,
-        "frozen_fits": [],
+        "frozen_fits": [
+          {
+            "adf_t": -4.696916951965509,
+            "betas": [
+              1.1855289216748237
+            ],
+            "fit_sha256": "3bca1cbea0ef3fee",
+            "group_id": "C1E_LINKUSDT_SOLUSDT",
+            "half_life_h": 137.37114681228815,
+            "leg_direction_signs": [
+              1,
+              -1
+            ],
+            "leg_markets": [],
+            "legs": [
+              "LINKUSDT",
+              "SOLUSDT"
+            ],
+            "mus": [
+              0.775725861936488
+            ],
+            "residual_sigma": 0.10041312353851667,
+            "weights": []
+          },
+          {
+            "adf_t": -4.187360954738833,
+            "betas": [
+              0.8824978152984884
+            ],
+            "fit_sha256": "26a03c591d31d9d3",
+            "group_id": "C1E_ADAUSDT_BNBUSDT",
+            "half_life_h": 147.00413676785558,
+            "leg_direction_signs": [
+              1,
+              -1
+            ],
+            "leg_markets": [],
+            "legs": [
+              "ADAUSDT",
+              "BNBUSDT"
+            ],
+            "mus": [
+              6.60059377590568
+            ],
+            "residual_sigma": 0.051443890468799804,
+            "weights": []
+          },
+          {
+            "adf_t": -4.080307552611681,
+            "betas": [
+              0.6907210045677178
+            ],
+            "fit_sha256": "acea85d904432311",
+            "group_id": "C1E_DOTUSDT_DOGEUSDT",
+            "half_life_h": 142.0114909303985,
+            "leg_direction_signs": [
+              1,
+              -1
+            ],
+            "leg_markets": [],
+            "legs": [
+              "DOTUSDT",
+              "DOGEUSDT"
+            ],
+            "mus": [
+              -3.771574063861155
+            ],
+            "residual_sigma": 0.05960493330429388,
+            "weights": []
+          }
+        ],
         "implementation_status": "fit_complete_scheduler_runtime_pending \u2014 the deficit-round-robin scheduler call-site in the engine is the R4.1 follow-up. The fit artifact carries the scheduler config; the engine runs the groups through the existing synchronized-cycle path until the scheduler lands.",
         "scheduler_config": {
           "family_gross_cap_pct": 40,
@@ -960,26 +2522,26 @@
         "fit_start_ms": 1672531200000,
         "frozen_fits": [
           {
-            "adf_t": -2.843940450246945,
+            "adf_t": -4.292567522727401,
             "betas": [
-              1.3854886407853986
+              0.5542855368564468
             ],
-            "fit_sha256": "9cb83719b02e4bb5",
-            "group_id": "C1E_LINKUSDT_SOLUSDT",
-            "half_life_h": 151.09475910630456,
+            "fit_sha256": "705578a9e91a910c",
+            "group_id": "C1E_ADAUSDT_DOGEUSDT",
+            "half_life_h": 148.4817864648393,
             "leg_direction_signs": [
               1,
               -1
             ],
             "leg_markets": [],
             "legs": [
-              "LINKUSDT",
-              "SOLUSDT"
+              "ADAUSDT",
+              "DOGEUSDT"
             ],
             "mus": [
-              0.38927155200082053
+              -1.9964979318445386
             ],
-            "residual_sigma": 0.12714218256031265,
+            "residual_sigma": 0.06523299151297118,
             "weights": []
           }
         ],
@@ -3739,7 +5301,7 @@
       "test_start_ms": 1773705600000
     }
   ],
-  "generated_at_utc": "2026-07-20T13:08:04.163942+00:00",
+  "generated_at_utc": "2026-07-20T14:47:03.833342+00:00",
   "honest_disclosure": {
     "B1S": "fit artifact complete with real spot/perp MarketLegId identity; reverse-basis blocked_missing_borrow_data; engine spot/perp two-series loader is R4.3 follow-up",
     "C1E": "fit artifact complete; deficit-round-robin scheduler runtime is R4.1 follow-up",

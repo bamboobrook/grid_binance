@@ -144,14 +144,22 @@ def fit_c1e_block(block: dict) -> dict:
         f = fit_pair_ols(prices[a], prices[b])
         if f is None:
             continue
-        if f["adf_t"] < -2.85 or f["half_life_h"] > 168:
+        # Plan §6.1 C1E gate: ADF t-stat must be < -2.85 (strong stationarity
+        # rejection of unit root) AND half_life < 168h (MR speed usable).
+        # FIX: the previous version had inverted logic — it REJECTED pairs
+        # with adf<-2.85 (good) and KEPT pairs with adf>=-2.85 (bad). This
+        # caused tb01 to include ADF=+3.37 (DOT/BCH) and other non-stationary
+        # pairs. Correct: REJECT pairs that FAIL the gate.
+        if f["adf_t"] >= -2.85 or f["half_life_h"] >= 168:
             continue
         pair_fits[f"{b}_{a}"] = f
 
-    # Greedy disjoint selection: pick the strongest pair, remove its symbols,
-    # repeat. Target 3-6 disjoint residual groups.
+    # Greedy disjoint selection: pick the MOST stationary pair (most negative
+    # ADF), remove its symbols, repeat. FIX: previous sort used -adf_t (most
+    # positive first = worst first). Correct: sort ascending by adf_t (most
+    # negative = most stationary = best first).
     by_strength = sorted(pair_fits.items(),
-                         key=lambda kv: (-kv[1]["adf_t"], kv[1]["half_life_h"]))
+                         key=lambda kv: (kv[1]["adf_t"], kv[1]["half_life_h"]))
     used: set[str] = set()
     groups = []
     for name, f in by_strength:
