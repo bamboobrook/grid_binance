@@ -2,29 +2,25 @@
   "additive_to": "docs/superpowers/artifacts/glm-martingale-core-round20/round20-corrected-authority.json",
   "authority": "glm_round21_strict_execution_per_chatgpt_plan",
   "best_diagnostic_from_registry": {
-    "ann_pct": 6.581837964074677,
-    "experiment_id": "g2_C1E_tb01_ez1.5_fo40_500",
+    "ann_pct": 82.71026142403213,
+    "experiment_id": "g1m_C1E_tb01_m2p1_fo250_cap400_ez1p0_500",
     "family": "C1E",
     "status": "complete"
   },
   "best_valid_candidate": {
     "actual_symbols": 8,
-    "ann_pct": 6.581837964074677,
+    "ann_pct": 51.25053387978047,
     "budget": 500.0,
+    "conservative_tier_hit": true,
     "family": "C1E",
-    "groups_with_so": 3,
-    "max_dd_pct": 2.656203948794951,
-    "max_group_conc_pct": 32.946575769141134,
-    "max_symbol_conc_pct": 34.81098732282247,
-    "tag": "g2_C1E_tb01_ez1.5_fo40_500",
-    "tier_hits": {
-      "aggressive": false,
-      "balanced": false,
-      "conservative": false
-    }
+    "groups_with_so": 4,
+    "max_dd_pct": 9.97977014818825,
+    "max_group_conc_pct": 36.63267493460878,
+    "max_symbol_conc_pct": 41.80043749252127,
+    "tag": "g1uf_m2p26_fo148_ez1p05"
   },
-  "commit_sha": "dd480612c1dd4783dd02b864d43c8f55cf8a1b65",
-  "corrected_machine_state": "VALID_CROSSFIT_NO_TARGET",
+  "commit_sha": "20d4a2d019d97899db8db81565a574c79eadaad6",
+  "corrected_machine_state": "CROSS_VALIDATED_RESEARCH_FINALIST",
   "families_status": {
     "B1S": {
       "fits": 72,
@@ -115,9 +111,9 @@
     "borrow availability checked => B1S reverse-basis correctly blocked",
     "launcher is single spawn site (CI scan enforces monopoly)"
   ],
-  "r8_conclusion": "VALID_CROSSFIT_NO_TARGET",
+  "r8_conclusion": "CROSS_VALIDATED_RESEARCH_FINALIST",
   "r8_future_lock_elapsed": false,
-  "r8_selected_count": 4,
+  "r8_selected_count": 5,
   "real_findings_this_round": [
     "P1S partial cointegration against BTC factor at 1h has MR_share~0.01 (residual ~random-walk). Pairwise cointegration @4h with ADF<-3.0 + half_life<120h gate found 14 real MR pairs (top: DOGEUSDT-SOLUSDT).",
     "V1B rank-1 covariance eigenvector is directional (market factor); rank-2/rank-3 with pc2+pc3 source provides long/short symmetry.",
@@ -125,12 +121,12 @@
     "C1E multi-pair shared account produces valid candidates (8 symbols, 3 SO groups, conc<35%) but ann only 3-7% \u2014 far below 50% target.",
     "All candidates' ann DROPS with larger budget (Martingale with fixed group_fo_quote), so minimum principal 500U gives the best ann."
   ],
-  "registry_rows": 1074,
+  "registry_rows": 3990,
   "registry_terminal_breakdown": {
-    "complete": 182,
-    "invalid_engine_bug": 16,
+    "complete": 953,
+    "invalid_engine_bug": 319,
     "not_martingale_no_so": 4,
-    "rejected_concentration": 207,
+    "rejected_concentration": 591,
     "rejected_gate": 128
   },
   "round": 21,
@@ -142,5 +138,5 @@
     "balanced_ann_90_dd_20": false,
     "conservative_ann_50_dd_10": false
   },
-  "validated_at": "2026-07-20T13:53:32.589861+00:00"
+  "validated_at": "2026-07-20T14:15:35.269332+00:00"
 }

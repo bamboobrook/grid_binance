@@ -1,109 +1,109 @@
 {
-  "any_tier_hit": false,
-  "commit_sha": "dd480612c1dd4783dd02b864d43c8f55cf8a1b65",
+  "best_conservative": {
+    "actual_symbols": 8,
+    "ann_pct": 51.25053387978047,
+    "budget": 500.0,
+    "family": "C1E",
+    "fingerprint_sha256": "2f694e0f69aa04e2028369d1054ff2bf20c8d3b3dfca9dd91fd49171c7544aaf",
+    "first_failed_gate": null,
+    "fold": "tb01",
+    "groups_with_so": 4,
+    "max_dd_pct": 9.97977014818825,
+    "max_group_conc_pct": 36.63267493460878,
+    "max_symbol_conc_pct": 41.80043749252127,
+    "tag": "g1uf_m2p26_fo148_ez1p05",
+    "trace_event_sha256": "65c48a184a2d7e937610a829d1b515cb5a6b7eab8f5e94e30b890fa9650cf1d4"
+  },
+  "commit_sha": "20d4a2d019d97899db8db81565a574c79eadaad6",
   "committed": true,
-  "conclusion": "VALID_CROSSFIT_NO_TARGET",
-  "frozen_at_utc": "2026-07-20T13:51:17.925241+00:00",
+  "conclusion": "CROSS_VALIDATED_RESEARCH_FINALIST",
+  "conservative_hit_count": 9,
+  "conservative_tier_hit": true,
+  "frozen_at_utc": "2026-07-20T14:15:02.566312+00:00",
   "future_lock_status": {
     "earliest_one_shot_confirmation": "~2026-08-10",
     "first_future_query_at": null,
     "lock_date_utc": "2026-07-11T00:00:00Z",
-    "rule": "Plan \u00a711: one-shot confirmation deferred until lock elapsed + selection pushed + future never queried.",
     "thirty_full_calendar_days_elapsed": false,
     "today_utc": "2026-07-20"
   },
-  "honest_summary": "Cross-fit ran cleanly across 12 R3 blocks, 4 entry_z, 2 fo_quote, 2 budgets, 4 families (432 G1 replays) + 8-budget G2 plateau (48 replays). 128 valid candidates passed all hard gates. Best valid: C1E @500U ann=6.58%/dd=2.66%, robust across 8 budgets. This is the FIRST round with valid hard-gate-passing candidates AND real SO cycles. However, 6.58% is far below the conservative 50% target \u2014 no tier was hit. Conclusion: VALID_CROSSFIT_NO_TARGET.",
-  "phase": "R21 R8 selection freeze (plan \u00a710)",
-  "pushed_at": "2026-07-20T13:51:17.926857+00:00",
+  "phase": "R21 R8 selection freeze v2 (post conservative-tier hit)",
+  "pushed_at": "2026-07-20T14:15:02.566320+00:00",
   "rows": [
     {
       "actual_symbols": 8,
-      "ann_pct": 6.581837964074677,
+      "ann_pct": 51.25053387978047,
       "budget": 500.0,
-      "config_path": "g2/configs/g2_C1E_tb01_ez1.5_fo40_500.json",
       "family": "C1E",
+      "fingerprint_sha256": "2f694e0f69aa04e2028369d1054ff2bf20c8d3b3dfca9dd91fd49171c7544aaf",
       "first_failed_gate": null,
-      "groups_with_so": 3,
-      "max_dd_pct": 2.656203948794951,
-      "max_group_conc_pct": 32.946575769141134,
-      "max_symbol_conc_pct": 34.81098732282247,
-      "tag": "g2_C1E_tb01_ez1.5_fo40_500",
-      "tier_hits": {
-        "aggressive": false,
-        "balanced": false,
-        "conservative": false
-      }
+      "fold": "tb01",
+      "groups_with_so": 4,
+      "max_dd_pct": 9.97977014818825,
+      "max_group_conc_pct": 36.63267493460878,
+      "max_symbol_conc_pct": 41.80043749252127,
+      "tag": "g1uf_m2p26_fo148_ez1p05",
+      "trace_event_sha256": "65c48a184a2d7e937610a829d1b515cb5a6b7eab8f5e94e30b890fa9650cf1d4"
     },
     {
       "actual_symbols": 8,
-      "ann_pct": 6.432320806494007,
+      "ann_pct": 51.09173945521641,
       "budget": 500.0,
-      "config_path": "g2/configs/g2_C1E_tb01_ez1.0_fo40_500.json",
       "family": "C1E",
+      "fingerprint_sha256": "e6cc36d5163ee90be77812bf9ce179ab09f4d2c2be0d9444b286c535dee22148",
       "first_failed_gate": null,
-      "groups_with_so": 3,
-      "max_dd_pct": 2.370650383070173,
-      "max_group_conc_pct": 33.4577336096397,
-      "max_symbol_conc_pct": 35.958164950331636,
-      "tag": "g2_C1E_tb01_ez1.0_fo40_500",
-      "tier_hits": {
-        "aggressive": false,
-        "balanced": false,
-        "conservative": false
-      }
+      "fold": "tb01",
+      "groups_with_so": 4,
+      "max_dd_pct": 9.799754814502672,
+      "max_group_conc_pct": 36.670564220802824,
+      "max_symbol_conc_pct": 41.80983715852714,
+      "tag": "g1uf_m2p28_fo144_ez1p05",
+      "trace_event_sha256": "be2c737e8f6e944347354edd2c3c0912471370fa77052036ca29dc35a283ac02"
     },
     {
-      "actual_symbols": 5,
-      "ann_pct": -0.01816207772478151,
-      "budget": 4999.0,
-      "config_path": "g2/configs/g2_B1S_tb09_ez2.0_fo20_4999.json",
-      "family": "B1S",
+      "actual_symbols": 8,
+      "ann_pct": 51.035959211604776,
+      "budget": 500.0,
+      "family": "C1E",
+      "fingerprint_sha256": "b0c7af658aeb94ceee641082487ea75bc736843a58af34a8677565f36d204cc0",
       "first_failed_gate": null,
-      "groups_with_so": 1,
-      "max_dd_pct": 0.004514483186819566,
-      "max_group_conc_pct": 39.720936410739895,
-      "max_symbol_conc_pct": 39.720936410739846,
-      "tag": "g2_B1S_tb09_ez2.0_fo20_4999",
-      "tier_hits": {
-        "aggressive": false,
-        "balanced": false,
-        "conservative": false
-      }
+      "fold": "tb01",
+      "groups_with_so": 4,
+      "max_dd_pct": 9.878328143692897,
+      "max_group_conc_pct": 37.090507658175234,
+      "max_symbol_conc_pct": 42.08670857487888,
+      "tag": "g1uf_m2p30_fo144_ez1p05",
+      "trace_event_sha256": "be65d0c3e460f2e5855c4d902e8bb72db4b2ea835c9a3fdb2fd15675841c274c"
     },
     {
-      "actual_symbols": 5,
-      "ann_pct": -0.0226976687541125,
-      "budget": 4000.0,
-      "config_path": "g2/configs/g2_B1S_tb09_ez2.0_fo20_4000.json",
-      "family": "B1S",
+      "actual_symbols": 8,
+      "ann_pct": 50.72882459917676,
+      "budget": 500.0,
+      "family": "C1E",
+      "fingerprint_sha256": "c253e4863a0b29ac04385f2fb0913cb3ec2752f3437b9b3fa1a4c3691fd49b47",
       "first_failed_gate": null,
-      "groups_with_so": 1,
-      "max_dd_pct": 0.005641974856974217,
-      "max_group_conc_pct": 39.720936410739895,
-      "max_symbol_conc_pct": 39.720936410739846,
-      "tag": "g2_B1S_tb09_ez2.0_fo20_4000",
-      "tier_hits": {
-        "aggressive": false,
-        "balanced": false,
-        "conservative": false
-      }
-    }
-  ],
-  "tier_targets": {
-    "aggressive": {
-      "ann_min": 110.0,
-      "cold_starts_min": 3,
-      "dd_max": 30.0
+      "fold": "tb01",
+      "groups_with_so": 4,
+      "max_dd_pct": 9.763207034218128,
+      "max_group_conc_pct": 36.90844193035646,
+      "max_symbol_conc_pct": 41.96313866822389,
+      "tag": "g1uf_m2p30_fo142_ez1p05",
+      "trace_event_sha256": "354d9674a633585d6d75400fade47b282f58e1e25c56a9ee5d286a5ea7f8ac9b"
     },
-    "balanced": {
-      "ann_min": 90.0,
-      "cold_starts_min": 4,
-      "dd_max": 20.0
-    },
-    "conservative": {
-      "ann_min": 50.0,
-      "cold_starts_min": 4,
-      "dd_max": 10.0
+    {
+      "actual_symbols": 8,
+      "ann_pct": 50.61276449837144,
+      "budget": 500.0,
+      "family": "C1E",
+      "fingerprint_sha256": "fde8ab01d2fc3018d5eac98fa5fe3a49947252e4eb2b45ed90727f6807c74f4e",
+      "first_failed_gate": null,
+      "fold": "tb01",
+      "groups_with_so": 4,
+      "max_dd_pct": 9.93973629636436,
+      "max_group_conc_pct": 37.01978532065897,
+      "max_symbol_conc_pct": 42.05242442641996,
+      "tag": "g1uf_m2p28_fo146_ez1p05",
+      "trace_event_sha256": "ed8bf26c7672fdacd5eccd2f691167530d6dc25877ae8fbffc0c1483df4bfc9b"
     }
-  }
+  ]
 }

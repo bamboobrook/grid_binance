@@ -63,7 +63,7 @@ authority = {
     "additive_to": "docs/superpowers/artifacts/glm-martingale-core-round20/round20-corrected-authority.json",
     "plan": "docs/superpowers/plans/2026-07-20-glm-martingale-core-round21-real-execution-crossfit-plan.md",
     "commit_sha": git_sha(),
-    "corrected_machine_state": "VALID_CROSSFIT_NO_TARGET",
+    "corrected_machine_state": SEL.get("conclusion", "VALID_CROSSFIT_NO_TARGET"),
     "machine_state_reason": (
         "All R0-R10 phases PASS the validator (HANDOFF=complete). R4 unblocked "
         "after P1S (pairwise cointegration @4h, ADF<-3.0 + half_life<120h) and "
@@ -98,16 +98,18 @@ authority = {
     "r8_selected_count": len(SEL["rows"]),
     "r8_future_lock_elapsed": SEL["future_lock_status"]["thirty_full_calendar_days_elapsed"],
     "best_valid_candidate": ({
-        "family": best_selected["family"],
-        "tag": best_selected["tag"],
-        "budget": best_selected["budget"],
-        "ann_pct": best_selected["ann_pct"],
-        "max_dd_pct": best_selected["max_dd_pct"],
-        "actual_symbols": best_selected["actual_symbols"],
-        "groups_with_so": best_selected["groups_with_so"],
-        "max_symbol_conc_pct": best_selected["max_symbol_conc_pct"],
-        "max_group_conc_pct": best_selected["max_group_conc_pct"],
-        "tier_hits": best_selected["tier_hits"],
+        "family": best_selected.get("family"),
+        "tag": best_selected.get("tag"),
+        "budget": best_selected.get("budget"),
+        "ann_pct": best_selected.get("ann_pct"),
+        "max_dd_pct": best_selected.get("max_dd_pct"),
+        "actual_symbols": best_selected.get("actual_symbols"),
+        "groups_with_so": best_selected.get("groups_with_so"),
+        "max_symbol_conc_pct": best_selected.get("max_symbol_conc_pct"),
+        "max_group_conc_pct": best_selected.get("max_group_conc_pct"),
+        "conservative_tier_hit": (
+            (best_selected.get("ann_pct") or 0) >= 50
+            and (best_selected.get("max_dd_pct") or 999) <= 10),
     } if best_selected else None),
     "best_diagnostic_from_registry": ({
         "experiment_id": best_diagnostic.get("experiment_id"),
