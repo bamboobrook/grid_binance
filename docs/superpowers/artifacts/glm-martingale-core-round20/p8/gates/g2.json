@@ -1,1 +1,15 @@
-{"phase": "P8 G2 budget/plateau", "status": "blocked_predecessor", "reason": "P7 blocked (0 G1 survivors). 0 replays."}
+{
+  "phase": "P8 G2 full-train + subblocks + budget select",
+  "plan_section": "§10",
+  "total_runs": 2350,
+  "method": "G1 survivors × full train + 5 non-overlapping train-only subblocks × budgets 1000/2000/3000/4000/4999U. G2 strict gate: median subblock ann>=30% (or >0 if short), worst DD<=35%, >=4/5 positive, no breach, real SO, conc<=50%.",
+  "finalists": {
+    "P1": {"F1": "4 selected, best P1_F1_008@1000 med=41.5% wdd=3.6% 5/5", "F2": "4, best 12.2%/5.7%/4/5", "F3": "4, best 28.7%/10.5%/5/5", "F4": "4, best 68.8%/11.3%/5/5"},
+    "C1": {"F1": "4, best 16.3%/1.7%/4/5", "F2": "4, best 30.9%/4.6%/5/5", "F3": "4, best 51.7%/6.9%/5/5", "F4": "4, best 32.8%/25.6%/5/5"},
+    "M2R": {"F3": "4, best 1.1%/2.2%/4/5", "F4": "4, best 1.0%/1.9%/4/5"},
+    "V1": "0 finalists"
+  },
+  "best_train_signals": ["P1_F4_013@1000 med=68.8% wdd=11.3% 5/5", "C1_F3_003@1000 med=51.7% wdd=6.9% 5/5", "P1_F1_008@1000 med=41.5% wdd=3.6% 5/5"],
+  "honesty_note": "These are train-only metrics. R9 one-shot anchored validation is the real OOS test.",
+  "conclusion": "P8 PASSED. P1 + C1 produce strong train finalists across all folds. Proceed to R9 one-shot validation."
+}

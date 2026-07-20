@@ -1,1 +1,22 @@
-{"phase": "P9 selection freeze + one-shot validation", "status": "blocked_predecessor", "reason": "P8 blocked (0 G2 finalists). No selection to freeze, no validation to read."}
+{
+  "phase": "P9 one-shot anchored validation",
+  "plan_section": "§11/§12",
+  "validation_runs": 16,
+  "validation_read_once": true,
+  "result": {
+    "n_survivors": 11,
+    "n_eliminated": 5,
+    "three_tier_hit": {"conservative_50_10": false, "balanced_90_20": false, "aggressive_110_30": false},
+    "best_oos_candidate": "C1_F4_008@1000 val_ann=12.7% val_max_dd=4.2% (conservative needs 50%/10%)"
+  },
+  "oos_vs_train_gap": {
+    "P1_F4_013": {"train_median_ann": 68.8, "val_ann": -6.25, "diagnosis": "train overfit; F4 train signal does not generalize to F4 validation"},
+    "P1_F1_008": {"train_median_ann": 41.5, "val_ann": "not validated (F1 train too short for strong signal)"},
+    "C1_F3_003": {"train_median_ann": 51.7, "val_ann": 1.58, "diagnosis": "train overfit"},
+    "C1_F4_008": {"train_median_ann": 32.8, "val_ann": 12.73, "diagnosis": "partial generalization; best OOS survivor"}
+  },
+  "honest_interpretation": "Validation confirms the train signals are largely overfit (P1_F4 68.8% train -> -6.2% val). The best OOS survivor is C1_F4_008 at 12.7% ann / 4.2% DD — positive but far below the 50/90/110% targets. No three-tier target hit. frontier_progress=false.",
+  "frontier_gates": {"P-A": "NO", "P-B": "NO", "P-C": "NO", "P-D": "NO"},
+  "outcome": "VALID_SEARCH_NO_FRONTIER_PROGRESS — complete search (1408 G1 + 2350 G2 + 16 validation = 3774 full replays), 6 families implemented, honest OOS result: no target hit.",
+  "conclusion": "P9 complete. Best OOS combination recorded: C1_F4_008@1000U (concentration-repair M1R family), val ann=12.7%, val max DD=4.2%, 5+ symbols, real SO. Not a target hit but a valid positive-OOS diagnostic."
+}

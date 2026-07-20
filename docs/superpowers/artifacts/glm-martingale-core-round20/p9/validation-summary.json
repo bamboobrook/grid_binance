@@ -1,0 +1,211 @@
+{
+  "phase": "P9 one-shot anchored validation",
+  "validation_read_once": true,
+  "total_validation_runs": 20,
+  "n_survivors": 11,
+  "n_eliminated": 5,
+  "survivors": [
+    {
+      "family": "C1",
+      "config_id": "C1_F4_008",
+      "anns": {
+        "F4": 12.732804132585995
+      },
+      "dds": {
+        "F4": 4.1913133089388115
+      },
+      "val_median_ann": 12.732804132585995,
+      "val_max_dd": 4.1913133089388115
+    },
+    {
+      "family": "C1",
+      "config_id": "C1_F4_003",
+      "anns": {
+        "F4": 12.597235938301354
+      },
+      "dds": {
+        "F4": 4.185898477103038
+      },
+      "val_median_ann": 12.597235938301354,
+      "val_max_dd": 4.185898477103038
+    },
+    {
+      "family": "M2R",
+      "config_id": "M2R_F3_003",
+      "anns": {
+        "F3": 4.43339334439441
+      },
+      "dds": {
+        "F3": 2.2811896676959447
+      },
+      "val_median_ann": 4.43339334439441,
+      "val_max_dd": 2.2811896676959447
+    },
+    {
+      "family": "P1",
+      "config_id": "P1_F3_013",
+      "anns": {
+        "F3": 3.850803181049822
+      },
+      "dds": {
+        "F3": 17.065757675847042
+      },
+      "val_median_ann": 3.850803181049822,
+      "val_max_dd": 17.065757675847042
+    },
+    {
+      "family": "C1",
+      "config_id": "C1_F3_003",
+      "anns": {
+        "F3": 1.5799129495546849
+      },
+      "dds": {
+        "F3": 15.509615891344058
+      },
+      "val_median_ann": 1.5799129495546849,
+      "val_max_dd": 15.509615891344058
+    },
+    {
+      "family": "P1",
+      "config_id": "P1_F4_006",
+      "anns": {
+        "F4": 0.47336314088537446
+      },
+      "dds": {
+        "F4": 6.207105980814887
+      },
+      "val_median_ann": 0.47336314088537446,
+      "val_max_dd": 6.207105980814887
+    },
+    {
+      "family": "P1",
+      "config_id": "P1_F3_008",
+      "anns": {
+        "F3": -2.0513675135922615
+      },
+      "dds": {
+        "F3": 12.51558731415156
+      },
+      "val_median_ann": -2.0513675135922615,
+      "val_max_dd": 12.51558731415156
+    },
+    {
+      "family": "P1",
+      "config_id": "P1_F2_011",
+      "anns": {
+        "F2": -4.533220097515633
+      },
+      "dds": {
+        "F2": 13.608934308615378
+      },
+      "val_median_ann": -4.533220097515633,
+      "val_max_dd": 13.608934308615378
+    },
+    {
+      "family": "P1",
+      "config_id": "P1_F4_013",
+      "anns": {
+        "F4": -6.247913367180924
+      },
+      "dds": {
+        "F4": 8.84668998286472
+      },
+      "val_median_ann": -6.247913367180924,
+      "val_max_dd": 8.84668998286472
+    },
+    {
+      "family": "P1",
+      "config_id": "P1_F2_013",
+      "anns": {
+        "F2": -8.270546760044251
+      },
+      "dds": {
+        "F2": 25.833194242065105
+      },
+      "val_median_ann": -8.270546760044251,
+      "val_max_dd": 25.833194242065105
+    }
+  ],
+  "eliminated_sample": [
+    {
+      "family": "P1",
+      "config_id": "P1_F1_008",
+      "anns": {
+        "F1": -33.12782073687711
+      },
+      "dds": {
+        "F1": 22.90659298694625
+      },
+      "val_median_ann": -33.12782073687711,
+      "val_max_dd": 22.90659298694625,
+      "elimination_reasons": [
+        "sym_conc>50"
+      ]
+    },
+    {
+      "family": "P1",
+      "config_id": "P1_F1_013",
+      "anns": {
+        "F1": -55.84415751426428
+      },
+      "dds": {
+        "F1": 40.70632158031507
+      },
+      "val_median_ann": -55.84415751426428,
+      "val_max_dd": 40.70632158031507,
+      "elimination_reasons": [
+        "sym_conc>50"
+      ]
+    },
+    {
+      "family": "C1",
+      "config_id": "C1_F1_003",
+      "anns": {
+        "F1": -10.93331104640517
+      },
+      "dds": {
+        "F1": 10.153209399887494
+      },
+      "val_median_ann": -10.93331104640517,
+      "val_max_dd": 10.153209399887494,
+      "elimination_reasons": [
+        "sym_conc>50"
+      ]
+    },
+    {
+      "family": "C1",
+      "config_id": "C1_F2_003",
+      "anns": {
+        "F2": -40.97507223063839
+      },
+      "dds": {
+        "F2": 80.64651819913551
+      },
+      "val_median_ann": -40.97507223063839,
+      "val_max_dd": 80.64651819913551,
+      "elimination_reasons": [
+        "dd>45"
+      ]
+    },
+    {
+      "family": "M2R",
+      "config_id": "M2R_F4_002",
+      "anns": {
+        "F4": 0.24979297693070723
+      },
+      "dds": {
+        "F4": 0.05848171302140633
+      },
+      "val_median_ann": 0.24979297693070723,
+      "val_max_dd": 0.05848171302140633,
+      "elimination_reasons": [
+        "no_so"
+      ]
+    }
+  ],
+  "three_tier_check": {
+    "conservative_50_10": false,
+    "balanced_90_20": false,
+    "aggressive_110_30": false
+  }
+}
