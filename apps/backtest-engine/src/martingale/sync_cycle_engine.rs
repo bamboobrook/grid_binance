@@ -397,12 +397,29 @@ pub fn residual_z(
     if fit.residual_sigma <= 0.0 {
         return None;
     }
-    // M1 pair: single residual.
+    // Round 21 R4.3: B1S basis pair — residual = log(perp) - log(spot) - mu
+    // where mu is the basis mean. leg[0]=spot, leg[1]=perp, betas=[1,-1] OR
+    // single-beta [1] (treated as classical M1 below).
+    let is_b1s_pair = !fit.leg_markets.is_empty()
+        && fit.leg_markets.len() == fit.legs.len()
+        && fit.legs.len() == 2
+        && fit.leg_markets[0].symbol == fit.leg_markets[1].symbol
+        && fit.leg_markets[0].market_type != fit.leg_markets[1].market_type;
     if fit.legs.len() == 2 {
-        let p_dep = *marks.get(&fit.legs[1])?;
-        let p_fac = *marks.get(&fit.legs[0])?;
+        // Look up by encoded key when leg_markets present (B1S spot::/perp::).
+        let k_dep = leg_lookup_key(fit, 1, &fit.legs[1]);
+        let k_fac = leg_lookup_key(fit, 0, &fit.legs[0]);
+        let p_dep = *marks.get(&k_dep)?;
+        let p_fac = *marks.get(&k_fac)?;
         if p_dep <= 0.0 || p_fac <= 0.0 {
             return None;
+        }
+        if is_b1s_pair {
+            // B1S: residual = log(perp) - log(spot) - mu
+            // mus[0] is the basis mean from the train fit.
+            let mu = fit.mus.first().copied().unwrap_or(0.0);
+            let r = p_dep.ln() - p_fac.ln() - mu;
+            return Some(r / fit.residual_sigma);
         }
         let r = p_dep.ln() - fit.betas[0] * p_fac.ln() - fit.mus[0];
         return Some(r / fit.residual_sigma);
@@ -415,7 +432,8 @@ pub fn residual_z(
     let log_f = factor.ln();
     let mut residuals: Vec<f64> = Vec::with_capacity(fit.legs.len());
     for (i, sym) in fit.legs.iter().enumerate() {
-        let p = *marks.get(sym)?;
+        let k = leg_lookup_key(fit, i, sym);
+        let p = *marks.get(&k)?;
         if p <= 0.0 {
             return None;
         }
@@ -482,24 +500,51 @@ pub fn run_synchronized_cycle_replay(
     for fit in fits {
         // Round 19 R4: generalize the fit validator for both M1 pair (2 legs)
         // and basket families (M2F/P1/K1/V1 with >2 legs).
+        // Round 21 R4.3 (plan §6.2 B1S): a 2-leg B1S fit has per-leg betas
+        // [1, -1] (long spot / short perp notional), NOT the single M1 hedge
+        // beta. Accept either form for 2-leg fits.
+        let is_b1s_pair = family == "B1S"
+            || (fit.legs.len() == 2 && !fit.leg_markets.is_empty()
+                && fit.leg_markets.len() == 2
+                && fit.leg_markets[0].symbol == fit.leg_markets[1].symbol
+                && fit.leg_markets[0].market_type != fit.leg_markets[1].market_type);
         if fit.legs.len() == 2 {
-            // M1 pair fit: 1 beta, 1 mu.
-            if fit.betas.len() != 1 || fit.mus.len() != 1 {
-                return Err(format!(
-                    "invalid M1 fit {}: expected 2 legs, 1 beta, and 1 mu",
-                    fit.group_id
-                ));
-            }
-            if !fit.betas[0].is_finite()
-                || fit.betas[0].abs() < 1e-9
-                || !fit.mus[0].is_finite()
-                || !fit.residual_sigma.is_finite()
-                || fit.residual_sigma <= 0.0
-            {
-                return Err(format!(
-                    "invalid M1 fit {}: beta/mu/sigma must be finite, beta non-zero, sigma > 0",
-                    fit.group_id
-                ));
+            if is_b1s_pair {
+                // B1S basis pair: per-leg betas (length 2) or single beta.
+                if fit.betas.is_empty()
+                    || (fit.betas.len() != 2 && fit.betas.len() != 1)
+                    || fit.mus.is_empty()
+                {
+                    return Err(format!(
+                        "invalid B1S fit {}: expected 2 legs with per-leg betas (len 2) and mus",
+                        fit.group_id
+                    ));
+                }
+                if !fit.residual_sigma.is_finite() || fit.residual_sigma <= 0.0 {
+                    return Err(format!(
+                        "invalid B1S fit {}: residual_sigma must be > 0",
+                        fit.group_id
+                    ));
+                }
+            } else {
+                // M1 pair fit: 1 beta, 1 mu.
+                if fit.betas.len() != 1 || fit.mus.len() != 1 {
+                    return Err(format!(
+                        "invalid M1 fit {}: expected 2 legs, 1 beta, and 1 mu",
+                        fit.group_id
+                    ));
+                }
+                if !fit.betas[0].is_finite()
+                    || fit.betas[0].abs() < 1e-9
+                    || !fit.mus[0].is_finite()
+                    || !fit.residual_sigma.is_finite()
+                    || fit.residual_sigma <= 0.0
+                {
+                    return Err(format!(
+                        "invalid M1 fit {}: beta/mu/sigma must be finite, beta non-zero, sigma > 0",
+                        fit.group_id
+                    ));
+                }
             }
         } else {
             // Basket fit: betas/mus must match legs count; per-leg direction
@@ -1254,10 +1299,26 @@ pub fn run_synchronized_cycle_replay(
 
 fn collect_marks(fit: &SynchronizedFit, latest_close: &BTreeMap<String, f64>) -> Option<Vec<f64>> {
     let mut out = Vec::with_capacity(fit.legs.len());
-    for sym in &fit.legs {
-        out.push(*latest_close.get(sym)?);
+    for (i, sym) in fit.legs.iter().enumerate() {
+        // Round 21 R4.3 (plan §6.2 B1S): if leg_markets is present, look up
+        // the encoded "{symbol}::{market_type}" key so spot and perp on the
+        // same symbol are distinct series.
+        let key = leg_lookup_key(fit, i, sym);
+        out.push(*latest_close.get(&key)?);
     }
     Some(out)
+}
+
+/// Round 21 R4.3: build the latest_close lookup key for a leg. When
+/// leg_markets is present and non-empty, returns "{symbol}::{market_type}"
+/// (matching the CLI's encoding). Otherwise returns the raw symbol (legacy).
+fn leg_lookup_key(fit: &SynchronizedFit, idx: usize, symbol: &str) -> String {
+    if let Some(m) = fit.leg_markets.get(idx) {
+        if !m.market_type.is_empty() {
+            return format!("{}::{}", m.symbol.to_uppercase(), m.market_type);
+        }
+    }
+    symbol.to_string()
 }
 
 fn factor_price(

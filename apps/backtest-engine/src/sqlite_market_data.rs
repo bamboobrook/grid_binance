@@ -94,6 +94,80 @@ impl SqliteMarketDataSource {
         &self.path
     }
 
+    /// Round 21 R4.3 (plan §6.2 B1S): load klines filtered by (symbol,
+    /// market_type, timeframe, range). Required so the engine can load spot
+    /// and perp as DISTINCT series for the same symbol. Uses the index
+    /// idx_klines_symbol_time for fast per-symbol lookup on the 118GB DB.
+    pub fn load_klines_with_market_type(
+        &self,
+        symbol: &str,
+        market_type: &str,
+        start_ms: i64,
+        end_ms: i64,
+        timeframe: &str,
+    ) -> Result<Vec<KlineBar>, String> {
+        // The market_data_full.db schema is klines(symbol, market_type,
+        // timeframe, open_time, open, high, low, close, volume, close_time).
+        // We use an explicit SQL that filters on market_type — this works
+        // regardless of the detected schema variant.
+        let sql = match self.schema {
+            MarketDataSchema::Canonical => {
+                // Canonical schema has no market_type column; perp is implied.
+                "SELECT symbol, open_time_ms, open, high, low, close, volume \
+                 FROM klines \
+                 WHERE symbol = ?1 AND interval = ?2 \
+                   AND open_time_ms BETWEEN ?3 AND ?4 \
+                 ORDER BY open_time_ms"
+            }
+            MarketDataSchema::DiscordC2im => {
+                "SELECT symbol, open_time, open, high, low, close, volume \
+                 FROM klines \
+                 WHERE symbol = ?1 AND timeframe = ?2 \
+                   AND market_type = ?3 \
+                   AND open_time BETWEEN ?4 AND ?5 \
+                 ORDER BY open_time"
+            }
+        };
+        let mut stmt = self.conn.prepare(sql)
+            .map_err(|e| format!("prepare market_type kline query: {e}"))?;
+        // The two schema variants take different parameter tuples; branch and
+        // collect separately to keep concrete types uniform.
+        match self.schema {
+            MarketDataSchema::Canonical => {
+                let rows = stmt.query_map(
+                    (symbol, timeframe, start_ms, end_ms),
+                    |row| Ok(KlineBar {
+                        symbol: row.get(0)?,
+                        open_time_ms: row.get(1)?,
+                        open: row.get(2)?,
+                        high: row.get(3)?,
+                        low: row.get(4)?,
+                        close: row.get(5)?,
+                        volume: row.get(6)?,
+                    }),
+                ).map_err(|e| format!("query market_type klines: {e}"))?;
+                rows.collect::<Result<Vec<_>, _>>()
+                    .map_err(|e| format!("collect market_type klines: {e}"))
+            }
+            MarketDataSchema::DiscordC2im => {
+                let rows = stmt.query_map(
+                    (symbol, timeframe, market_type, start_ms, end_ms),
+                    |row| Ok(KlineBar {
+                        symbol: row.get(0)?,
+                        open_time_ms: row.get(1)?,
+                        open: row.get(2)?,
+                        high: row.get(3)?,
+                        low: row.get(4)?,
+                        close: row.get(5)?,
+                        volume: row.get(6)?,
+                    }),
+                ).map_err(|e| format!("query market_type klines: {e}"))?;
+                rows.collect::<Result<Vec<_>, _>>()
+                    .map_err(|e| format!("collect market_type klines: {e}"))
+            }
+        }
+    }
+
     pub fn recommended_liquid_symbols(
         &self,
         start_ms: i64,

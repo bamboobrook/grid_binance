@@ -126,36 +126,65 @@ fn main() -> Result<(), String> {
     });
 
     // Build the union of all leg symbols across all groups (for data loading).
-    let mut symbols: std::collections::BTreeSet<String> = std::collections::BTreeSet::new();
+    // Round 21 R4.3 (plan §6.2): B1S needs spot AND perp as DISTINCT series
+    // for the same symbol. The legacy loader deduped [BTCUSDT, BTCUSDT] to 1
+    // series — that was the R20 audit's B1 blocking finding. Now when a fit
+    // carries leg_markets, we load each (symbol, market_type) pair separately
+    // and encode the market_type into the bar's symbol string as
+    // "{SYMBOL}::{market_type}" so the engine's latest_close map keeps both.
+    let family = cfg.synchronized_cycle.family.clone();
+    let is_b1s = family == "B1S";
+    let mut load_keys: std::collections::BTreeSet<(String, String)> =
+        std::collections::BTreeSet::new();
     for fit in &cfg.fits {
-        for leg in &fit.legs {
-            symbols.insert(leg.trim().to_uppercase());
+        if !fit.leg_markets.is_empty() && fit.leg_markets.len() == fit.legs.len() {
+            // Use the explicit market identity per leg.
+            for m in &fit.leg_markets {
+                load_keys.insert((m.market_type.clone(), m.symbol.trim().to_uppercase()));
+            }
+        } else {
+            // Legacy: load as perp (the engine's default market_type).
+            for leg in &fit.legs {
+                load_keys.insert(("futures_usdt_perp".to_string(),
+                                  leg.trim().to_uppercase()));
+            }
         }
     }
     // For M2 baskets, the factor symbol (BTCUSDT) must also be loaded even if
     // it is not itself a traded leg (it feeds residual computation).
     if cfg.synchronized_cycle.factor.as_deref() == Some("BTC") {
-        symbols.insert("BTCUSDT".to_string());
+        load_keys.insert(("futures_usdt_perp".to_string(), "BTCUSDT".to_string()));
     }
-    let symbols: Vec<String> = symbols.into_iter().collect();
+    let load_keys: Vec<(String, String)> = load_keys.into_iter().collect();
+    let symbols: Vec<String> = load_keys.iter().map(|(_, s)| s.clone()).collect();
     eprintln!(
-        "sync_replay: family={}, {} groups, {} symbols, budget={}, range {}..{} ({} days)",
+        "sync_replay: family={}, {} groups, {} (symbol,market_type) load keys, budget={}, range {}..{} ({} days)",
         cfg.synchronized_cycle.family,
         cfg.fits.len(),
-        symbols.len(),
+        load_keys.len(),
         budget_f,
         args.start_ms,
         args.end_ms,
         (args.end_ms - args.start_ms) / 86_400_000
     );
 
-    // Load market data (read-only).
+    // Load market data (read-only). For B1S / explicit leg_markets, encode the
+    // market_type into the bar symbol so the engine can distinguish spot vs perp.
     let market = SqliteMarketDataSource::open_readonly(&args.market_data_path)?;
     let mut bars = Vec::new();
-    for symbol in &symbols {
-        let loaded = market.load_klines(symbol, args.start_ms, args.end_ms, "1m")?;
-        eprintln!("  loaded {symbol}: {} bars", loaded.len());
-        bars.extend(loaded);
+    for (market_type, symbol) in &load_keys {
+        let loaded = market.load_klines_with_market_type(
+            symbol, market_type, args.start_ms, args.end_ms, "1m")?;
+        eprintln!("  loaded {symbol} ({market_type}): {} bars", loaded.len());
+        // Encode market_type into symbol for B1S so latest_close keeps both
+        if is_b1s || !load_keys.iter().all(|(mt, _)| mt == "futures_usdt_perp") {
+            for mut b in loaded {
+                b.symbol = format!("{symbol}::{market_type}");
+                bars.push(b);
+            }
+        } else {
+            bars.extend(loaded);
+        }
     }
     bars.sort_by(|l, r| {
         l.open_time_ms
