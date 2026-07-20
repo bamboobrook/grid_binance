@@ -1,0 +1,264 @@
+{
+  "phase": "P3 causal nested fit + inner replay",
+  "folds": [
+    {
+      "fold": "F1",
+      "train_start": 1672531200000,
+      "train_end": 1688169599999,
+      "val_start": 1688774400000,
+      "val_end": 1704067199999
+    },
+    {
+      "fold": "F2",
+      "train_start": 1672531200000,
+      "train_end": 1704067199999,
+      "val_start": 1704662400000,
+      "val_end": 1735689599999
+    },
+    {
+      "fold": "F3",
+      "train_start": 1672531200000,
+      "train_end": 1735689599999,
+      "val_start": 1736294400000,
+      "val_end": 1767225599999
+    },
+    {
+      "fold": "F4",
+      "train_start": 1672531200000,
+      "train_end": 1767225599999,
+      "val_start": 1767820800000,
+      "val_end": 1780271999999
+    }
+  ],
+  "contract": "fit uses ONLY data <= inner_fit_end; purge >= max(lookback, settlement, 1 bar); replay starts strictly after fit_end+purge; never replay earlier block with later fit (R19 bug)",
+  "fold_schedules": [
+    {
+      "fold": "F1",
+      "train_start": 1672531200000,
+      "train_end": 1688169599999,
+      "val_start": 1688774400000,
+      "val_end": 1704067199999,
+      "inner_blocks": [
+        {
+          "block": "ib2",
+          "fit_start": 1672531200000,
+          "fit_end": 1674622079999,
+          "replay_start": 1679806079999,
+          "replay_end": 1681896959998,
+          "purge_ms": 5184000000,
+          "replay_days": 24.199999988425926,
+          "causal_ok": true
+        },
+        {
+          "block": "ib3",
+          "fit_start": 1672531200000,
+          "fit_end": 1676712959998,
+          "replay_start": 1681896959998,
+          "replay_end": 1683987839997,
+          "purge_ms": 5184000000,
+          "replay_days": 24.199999988425926,
+          "causal_ok": true
+        },
+        {
+          "block": "ib4",
+          "fit_start": 1673619839997,
+          "fit_end": 1678803839997,
+          "replay_start": 1683987839997,
+          "replay_end": 1686078719996,
+          "purge_ms": 5184000000,
+          "replay_days": 24.199999988425926,
+          "causal_ok": true
+        },
+        {
+          "block": "ib5",
+          "fit_start": 1675710719996,
+          "fit_end": 1680894719996,
+          "replay_start": 1686078719996,
+          "replay_end": 1688169599999,
+          "purge_ms": 5184000000,
+          "replay_days": 24.200000034722223,
+          "causal_ok": true
+        }
+      ],
+      "causal_valid": true,
+      "causal_problems": [],
+      "stitched_replay_days": 96.8,
+      "report_ann_eligible": false
+    },
+    {
+      "fold": "F2",
+      "train_start": 1672531200000,
+      "train_end": 1704067199999,
+      "val_start": 1704662400000,
+      "val_end": 1735689599999,
+      "inner_blocks": [
+        {
+          "block": "ib2",
+          "fit_start": 1672617599999,
+          "fit_end": 1677801599999,
+          "replay_start": 1682985599999,
+          "replay_end": 1688255999998,
+          "purge_ms": 5184000000,
+          "replay_days": 60.99999998842593,
+          "causal_ok": true
+        },
+        {
+          "block": "ib3",
+          "fit_start": 1677887999998,
+          "fit_end": 1683071999998,
+          "replay_start": 1688255999998,
+          "replay_end": 1693526399997,
+          "purge_ms": 5184000000,
+          "replay_days": 60.99999998842593,
+          "causal_ok": true
+        },
+        {
+          "block": "ib4",
+          "fit_start": 1683158399997,
+          "fit_end": 1688342399997,
+          "replay_start": 1693526399997,
+          "replay_end": 1698796799996,
+          "purge_ms": 5184000000,
+          "replay_days": 60.99999998842593,
+          "causal_ok": true
+        },
+        {
+          "block": "ib5",
+          "fit_start": 1688428799996,
+          "fit_end": 1693612799996,
+          "replay_start": 1698796799996,
+          "replay_end": 1704067199999,
+          "purge_ms": 5184000000,
+          "replay_days": 61.00000003472222,
+          "causal_ok": true
+        }
+      ],
+      "causal_valid": true,
+      "causal_problems": [],
+      "stitched_replay_days": 244.0,
+      "report_ann_eligible": true
+    },
+    {
+      "fold": "F3",
+      "train_start": 1672531200000,
+      "train_end": 1735689599999,
+      "val_start": 1736294400000,
+      "val_end": 1767225599999,
+      "inner_blocks": [
+        {
+          "block": "ib2",
+          "fit_start": 1678942079999,
+          "fit_end": 1684126079999,
+          "replay_start": 1689310079999,
+          "replay_end": 1700904959998,
+          "purge_ms": 5184000000,
+          "replay_days": 134.19999998842593,
+          "causal_ok": true
+        },
+        {
+          "block": "ib3",
+          "fit_start": 1690536959998,
+          "fit_end": 1695720959998,
+          "replay_start": 1700904959998,
+          "replay_end": 1712499839997,
+          "purge_ms": 5184000000,
+          "replay_days": 134.19999998842593,
+          "causal_ok": true
+        },
+        {
+          "block": "ib4",
+          "fit_start": 1702131839997,
+          "fit_end": 1707315839997,
+          "replay_start": 1712499839997,
+          "replay_end": 1724094719996,
+          "purge_ms": 5184000000,
+          "replay_days": 134.19999998842593,
+          "causal_ok": true
+        },
+        {
+          "block": "ib5",
+          "fit_start": 1713726719996,
+          "fit_end": 1718910719996,
+          "replay_start": 1724094719996,
+          "replay_end": 1735689599999,
+          "purge_ms": 5184000000,
+          "replay_days": 134.20000003472222,
+          "causal_ok": true
+        }
+      ],
+      "causal_valid": true,
+      "causal_problems": [],
+      "stitched_replay_days": 536.8,
+      "report_ann_eligible": true
+    },
+    {
+      "fold": "F4",
+      "train_start": 1672531200000,
+      "train_end": 1767225599999,
+      "val_start": 1767820800000,
+      "val_end": 1780271999999,
+      "inner_blocks": [
+        {
+          "block": "ib2",
+          "fit_start": 1685249279999,
+          "fit_end": 1690433279999,
+          "replay_start": 1695617279999,
+          "replay_end": 1713519359998,
+          "purge_ms": 5184000000,
+          "replay_days": 207.19999998842593,
+          "causal_ok": true
+        },
+        {
+          "block": "ib3",
+          "fit_start": 1703151359998,
+          "fit_end": 1708335359998,
+          "replay_start": 1713519359998,
+          "replay_end": 1731421439997,
+          "purge_ms": 5184000000,
+          "replay_days": 207.19999998842593,
+          "causal_ok": true
+        },
+        {
+          "block": "ib4",
+          "fit_start": 1721053439997,
+          "fit_end": 1726237439997,
+          "replay_start": 1731421439997,
+          "replay_end": 1749323519996,
+          "purge_ms": 5184000000,
+          "replay_days": 207.19999998842593,
+          "causal_ok": true
+        },
+        {
+          "block": "ib5",
+          "fit_start": 1738955519996,
+          "fit_end": 1744139519996,
+          "replay_start": 1749323519996,
+          "replay_end": 1767225599999,
+          "purge_ms": 5184000000,
+          "replay_days": 207.20000003472222,
+          "causal_ok": true
+        }
+      ],
+      "causal_valid": true,
+      "causal_problems": [],
+      "stitched_replay_days": 828.8,
+      "report_ann_eligible": true
+    }
+  ],
+  "leakage_counterexample_injection": {
+    "leaky_block": {
+      "block": "leaky_ib1",
+      "fit_start": 1698883199999,
+      "fit_end": 1704067199999,
+      "replay_start": 1677715200000,
+      "replay_end": 1680307200000,
+      "purge_ms": 604800000
+    },
+    "validator_caught_leak": true,
+    "problems": [
+      "leaky_ib1: fit_end 1704067199999 >= replay_start 1677715200000 (look-ahead)",
+      "leaky_ib1: fit_start 1698883199999 > replay_start 1677715200000"
+    ]
+  },
+  "validated": true
+}

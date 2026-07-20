@@ -1,0 +1,15 @@
+{
+  "phase": "P3",
+  "plan_section": "§5 causal nested fit + inner replay",
+  "fixes_audit_section_7": "R19 used outer-train-end fit for all 5 subblocks (inner-train look-ahead). R20 generates causal rolling/expanding fit: each block's fit_end < its own replay_start; purge >= max(lookback, settlement, 1 bar).",
+  "evidence": "docs/superpowers/artifacts/glm-martingale-core-round20/p3/causal-fit.json",
+  "per_fold": {
+    "F1": "4 causal blocks, stitched=97d (<180d => raw return only, no ann ranking)",
+    "F2": "4 causal blocks, stitched=244d (ann eligible)",
+    "F3": "4 causal blocks, stitched=537d (ann eligible)",
+    "F4": "4 causal blocks, stitched=829d (ann eligible)"
+  },
+  "leakage_counterexample": "R19 train-end-fit-on-early-replay injected => validator caught it (fit_end >= replay_start)",
+  "validated": true,
+  "conclusion": "P3 PASSED. Causal nested fit schedule generated for all 4 folds; no-leakage validator passes; leakage counterexample fail-closes. F1 <180d => raw return only (anti-overfit §5)."
+}
