@@ -1,0 +1,40 @@
+{
+  "all_four_implemented": false,
+  "blocking_rule_\u00a716": "ANY mandatory family (C1E/B1S/P1S/V1B) skipped for implementation scope => round BLOCKED_ENGINE_DATA_OR_EXECUTION, not CROSS_VALIDATED_RESEARCH_FINALIST or any target-hit claim.",
+  "families": {
+    "B1S": {
+      "blocks_with_fits": 12,
+      "fits": 72,
+      "note": "72 spot/perp basis fits across 12 R3 blocks with distinct spot/perp MarketLegId; reverse-basis blocked_missing_borrow_data per R1 data contract",
+      "status": "implemented"
+    },
+    "C1E": {
+      "blocks_with_fits": 2,
+      "fits": 5,
+      "note": "5 disjoint OLS residual pair groups fit across 12 R3 blocks; scheduler config frozen into the fit artifact; deficit-round-robin scheduler runtime call-site is R4.1 follow-up",
+      "status": "implemented"
+    },
+    "P1S": {
+      "blocks_with_fits": 0,
+      "fits": 0,
+      "note": "0 fits across 12 R3 blocks. MR_share = 1 - AR(1)^2 \u2248 0.004-0.011 for all 11 non-BTC symbols vs BTC factor at 1h frequency. Residual is ~random-walk; partial cointegration against BTC has no MR-dominant component. The TRUE RW+MR state-space + Soft-SEL (10.3390/a19060442) cannot rescue a relationship that is empirically absent.",
+      "status": "blocked_no_stable_groups"
+    },
+    "V1B": {
+      "blocks_with_fits": 0,
+      "fits": 0,
+      "note": "0 fits across 12 R3 blocks. The rank-1 covariance eigenvec-tor is a directional market factor (long_gross=1.0, short_gross=0.0 on 8/12 blocks); the budget constraint long_gross>=0.35 AND short_gross>=0.35 cannot be satisfied by a rank-1 market-factor component. VECM rank>1 or a non-factor residual target is required, which is out of R4 scope.",
+      "status": "blocked_no_stable_groups"
+    }
+  },
+  "followup_paths": [
+    "P1S: try daily/4h frequency where MR is stronger, or use PC1 (first principal component of the universe) instead of BTC as the cointegrating factor. This is out of R21 scope.",
+    "V1B: implement VECM rank>1 or use a non-factor residual target (e.g. second principal component). The rank-1 market factor is incompatible with the budget constraint by construction.",
+    "C1E scheduler runtime: implement the deficit-round-robin scheduler call-site in the engine (R4.1).",
+    "B1S deep wiring: load spot+perp as two distinct series in the engine (R4.3)."
+  ],
+  "generated_at_utc": "2026-07-20T13:09:18.833287+00:00",
+  "honest_finding": "C1E and B1S produced real frozen fits (5 and 72 respectively). P1S and V1B produced 0 fits across all 12 R3 blocks because the underlying statistical relationships are empirically absent at 1h frequency: P1S partial cointegration MR_share \u2248 0.01 (residual is ~random-walk), V1B rank-1 VECM is a directional market factor (cannot satisfy long_gross>=0.35 AND short_gross>=0.35). This is a real mechanism-level block, not an implementation gap. Per \u00a716 the round status is BLOCKED_ENGINE_DATA_OR_EXECUTION.",
+  "phase": "R21 R4 four families evidence (plan \u00a76, \u00a716)",
+  "round_status_per_\u00a716": "BLOCKED_ENGINE_DATA_OR_EXECUTION"
+}
