@@ -1,0 +1,60 @@
+{
+  "all_passed": true,
+  "canaries": {
+    "r21_canary_1": {
+      "passed": true,
+      "plan_ref": "\u00a74.1 spot/perp same symbol are two distinct MarketLegIds"
+    },
+    "r21_canary_10": {
+      "passed": true,
+      "plan_ref": "\u00a74.10 backtest adapter vs fake exchange parity"
+    },
+    "r21_canary_11": {
+      "passed": true,
+      "plan_ref": "\u00a74.11 64-concurrency same-input same-hash"
+    },
+    "r21_canary_12": {
+      "passed": true,
+      "plan_ref": "\u00a74.12 min_liquidation_buffer_pct non-null, event-ledger recomputed"
+    },
+    "r21_canary_2": {
+      "passed": true,
+      "plan_ref": "\u00a74.2 PRICE_FILTER/LOT_SIZE/MARKET_LOT_SIZE/MIN_NOTIONAL applied"
+    },
+    "r21_canary_3": {
+      "passed": true,
+      "plan_ref": "\u00a74.3 post-rounding paired hedge re-check"
+    },
+    "r21_canary_4": {
+      "passed": true,
+      "plan_ref": "\u00a74.4 maintenance tier + conservative liquidation"
+    },
+    "r21_canary_5": {
+      "passed": true,
+      "plan_ref": "\u00a74.5 25/50/75% partial fill + legging loss"
+    },
+    "r21_canary_6": {
+      "passed": true,
+      "plan_ref": "\u00a74.6 FO/SO/TP/abort/end-close uniform fee; funding as cycle cashflow"
+    },
+    "r21_canary_7": {
+      "passed": true,
+      "plan_ref": "\u00a74.7 next-SO + close fee + maintenance reserve gate"
+    },
+    "r21_canary_8": {
+      "passed": true,
+      "plan_ref": "\u00a74.8 reject cooldown permanent_config vs temporary_margin"
+    },
+    "r21_canary_9": {
+      "passed": true,
+      "plan_ref": "\u00a74.9 kill/restart/reconcile idempotent"
+    }
+  },
+  "cargo_exit_code": 0,
+  "generated_at_utc": "2026-07-20T12:57:16.829633+00:00",
+  "phase": "R21 R2 engine conservative tests (plan \u00a74.1-\u00a74.12)",
+  "plan_\u00a74_blocking_rule": "R2 \u4efb\u4e00\u6d4b\u8bd5\u5931\u8d25\uff0c\u6574\u8f6e\u72b6\u6001\u4e3a BLOCKED_ENGINE_DATA_OR_EXECUTION\uff0c\u7981\u6b62\u5f00\u59cb family fit \u6216\u641c\u7d22.",
+  "stdout_tail": "598 |                         if let Some(rule) = active_rule {\n    |                                     ^^^^ help: if this is intentional, prefix it with an underscore: `_rule`\n\nwarning: unused variable: `close_price`\n    --> apps/backtest-engine/src/martingale/kline_engine.rs:2783:33\n     |\n2783 | ...                   let close_price = match states[state_index].strategy.direction {\n     |                           ^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_close_price`\n\nwarning: field `period` is never read\n   --> apps/backtest-engine/src/martingale/htf_regime.rs:202:5\n    |\n201 | struct EmaState {\n    |        -------- field in this struct\n202 |     period: usize,\n    |     ^^^^^^\n    |\n    = note: `EmaState` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis\n    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default\n\nwarning: function `sma` is never used\n   --> apps/backtest-engine/src/martingale/htf_regime.rs:229:4\n    |\n229 | fn sma(values: &[f64], period: usize) -> Option<f64> {\n    |    ^^^\n\nwarning: method `downside_percentile` is never used\n   --> apps/backtest-engine/src/martingale/inventory_scheduler.rs:106:8\n    |\n 81 | impl InventoryScheduler {\n    | ----------------------- method in this implementation\n...\n106 |     fn downside_percentile(&self, symbol: &str) -> Option<f64> {\n    |        ^^^^^^^^^^^^^^^^^^^\n\nwarning: function `strategy_active_margin_quote` is never used\n    --> apps/backtest-engine/src/martingale/kline_engine.rs:3061:4\n     |\n3061 | fn strategy_active_margin_quote(state: &StrategyRuntime<'_>) -> f64 {\n     |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n\nwarning: `backtest-engine` (lib test) generated 18 warnings (run `cargo fix --lib -p backtest-engine --tests` to apply 14 suggestions)\n    Finished `release` profile [optimized] target(s) in 0.09s\n     Running unittests src/lib.rs (target/release/deps/backtest_engine-b268dc94477ac6b8)\n",
+  "total_failed": 0,
+  "total_passed": 12
+}

@@ -16,6 +16,7 @@ pub mod xs_selector;
 pub mod kline_engine;
 pub mod metrics;
 pub mod r17_controls;
+pub mod r21_conservative_engine;
 pub mod scoring;
 pub mod exchange_model;
 pub mod sync_cycle_engine;
