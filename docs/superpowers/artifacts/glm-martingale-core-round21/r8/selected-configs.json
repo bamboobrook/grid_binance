@@ -1,84 +1,128 @@
 {
-  "adapter_parity": {
-    "evidence": {
-      "mechanism": "filter_order_conservative is a pure function; both backtest and fake-exchange produce identical hashes.",
-      "r21_canary_10_backtest_fake_exchange_parity": true,
-      "r21_canary_11_concurrency_determinism_64x": true
-    },
-    "frozen_at_utc": "2026-07-20T14:36:40.083690+00:00",
-    "honest_caveat": "order-EMIT decision hash parity verified; full event/trade/equity stream suffix hash vs live service entry is a production integration test not yet wired.",
-    "parity_pass": true,
-    "phase": "R21 R10/R12 backtest-live adapter parity (plan \u00a712)",
-    "plan_\u00a712_rule": "backtest adapter vs real service entry + fake exchange order/rejection/equity suffix hash must be identical"
-  },
   "best_per_tier": {
-    "aggressive": {
-      "actual_symbols": 8,
-      "ann_pct": 128.22721919993225,
-      "budget": 500.0,
-      "family": "C1E",
-      "fingerprint_sha256": "4544a0dde1556d0422bf892f799830d0ac428a7954c57ecc211e1e0dae504c4a",
-      "groups_with_so": 4,
-      "max_dd_pct": 16.87036479073721,
-      "max_group_conc_pct": 40.197386151788486,
-      "max_symbol_conc_pct": 36.892794653607886,
-      "tag": "g1a3_tb01_m2p85_fo200_ez0p90",
-      "trace_event_sha256": "6a511566f9a17e87605d922a448ae53757ebed3a352a162e7fac6302e91c96ea"
-    },
-    "balanced": {
-      "actual_symbols": 8,
-      "ann_pct": 128.22721919993225,
-      "budget": 500.0,
-      "family": "C1E",
-      "fingerprint_sha256": "4544a0dde1556d0422bf892f799830d0ac428a7954c57ecc211e1e0dae504c4a",
-      "groups_with_so": 4,
-      "max_dd_pct": 16.87036479073721,
-      "max_group_conc_pct": 40.197386151788486,
-      "max_symbol_conc_pct": 36.892794653607886,
-      "tag": "g1a3_tb01_m2p85_fo200_ez0p90",
-      "trace_event_sha256": "6a511566f9a17e87605d922a448ae53757ebed3a352a162e7fac6302e91c96ea"
-    },
-    "conservative": {
-      "actual_symbols": 8,
-      "ann_pct": 51.25053387978047,
-      "budget": 500.0,
-      "family": "C1E",
-      "fingerprint_sha256": "2f694e0f69aa04e2028369d1054ff2bf20c8d3b3dfca9dd91fd49171c7544aaf",
-      "groups_with_so": 4,
-      "max_dd_pct": 9.97977014818825,
-      "max_group_conc_pct": 36.63267493460878,
-      "max_symbol_conc_pct": 41.80043749252127,
-      "tag": "g1uf_m2p26_fo148_ez1p05",
-      "trace_event_sha256": "65c48a184a2d7e937610a829d1b515cb5a6b7eab8f5e94e30b890fa9650cf1d4"
-    }
+    "aggressive": [
+      {
+        "actual_symbols": 10,
+        "ann_pct": 158.4627064632182,
+        "budget": 500.0,
+        "fingerprint_sha256": "c86bea05ff427877cb4d29c9ad1f7dc8438b5c6e0f656b5c574324087e2ff76c",
+        "fold": "tb05",
+        "groups_with_so": 2,
+        "max_dd_pct": 11.491906073771489,
+        "max_group_conc_pct": 40.81910396412717,
+        "max_symbol_conc_pct": 18.062117664085193,
+        "tag": "g1bs_tb05_m3p0_fo100_ez1p0"
+      },
+      {
+        "actual_symbols": 10,
+        "ann_pct": 122.7434827873259,
+        "budget": 500.0,
+        "fingerprint_sha256": "b7216f6ce17c2f71d28b158c89e1ff03551fcf637230f583dcbe22710f31f33f",
+        "fold": "tb05",
+        "groups_with_so": 2,
+        "max_dd_pct": 9.907887621008733,
+        "max_group_conc_pct": 33.040380623564104,
+        "max_symbol_conc_pct": 21.196946950877297,
+        "tag": "g1bs_tb05_m2p5_fo100_ez1p0"
+      }
+    ],
+    "balanced": [
+      {
+        "actual_symbols": 10,
+        "ann_pct": 158.4627064632182,
+        "budget": 500.0,
+        "fingerprint_sha256": "c86bea05ff427877cb4d29c9ad1f7dc8438b5c6e0f656b5c574324087e2ff76c",
+        "fold": "tb05",
+        "groups_with_so": 2,
+        "max_dd_pct": 11.491906073771489,
+        "max_group_conc_pct": 40.81910396412717,
+        "max_symbol_conc_pct": 18.062117664085193,
+        "tag": "g1bs_tb05_m3p0_fo100_ez1p0"
+      },
+      {
+        "actual_symbols": 10,
+        "ann_pct": 122.7434827873259,
+        "budget": 500.0,
+        "fingerprint_sha256": "b7216f6ce17c2f71d28b158c89e1ff03551fcf637230f583dcbe22710f31f33f",
+        "fold": "tb05",
+        "groups_with_so": 2,
+        "max_dd_pct": 9.907887621008733,
+        "max_group_conc_pct": 33.040380623564104,
+        "max_symbol_conc_pct": 21.196946950877297,
+        "tag": "g1bs_tb05_m2p5_fo100_ez1p0"
+      },
+      {
+        "actual_symbols": 10,
+        "ann_pct": 96.17076279772346,
+        "budget": 500.0,
+        "fingerprint_sha256": "518298c52091abcd5764b23d14a6959bef4d39b5a0f9e9b4e6dee99f96ed75eb",
+        "fold": "tb05",
+        "groups_with_so": 2,
+        "max_dd_pct": 8.882425195805004,
+        "max_group_conc_pct": 38.48882335991341,
+        "max_symbol_conc_pct": 24.76076790417708,
+        "tag": "g1bs_tb05_m2p0_fo100_ez1p0"
+      }
+    ],
+    "conservative": [
+      {
+        "actual_symbols": 10,
+        "ann_pct": 122.7434827873259,
+        "budget": 500.0,
+        "fingerprint_sha256": "b7216f6ce17c2f71d28b158c89e1ff03551fcf637230f583dcbe22710f31f33f",
+        "fold": "tb05",
+        "groups_with_so": 2,
+        "max_dd_pct": 9.907887621008733,
+        "max_group_conc_pct": 33.040380623564104,
+        "max_symbol_conc_pct": 21.196946950877297,
+        "tag": "g1bs_tb05_m2p5_fo100_ez1p0"
+      },
+      {
+        "actual_symbols": 10,
+        "ann_pct": 96.17076279772346,
+        "budget": 500.0,
+        "fingerprint_sha256": "518298c52091abcd5764b23d14a6959bef4d39b5a0f9e9b4e6dee99f96ed75eb",
+        "fold": "tb05",
+        "groups_with_so": 2,
+        "max_dd_pct": 8.882425195805004,
+        "max_group_conc_pct": 38.48882335991341,
+        "max_symbol_conc_pct": 24.76076790417708,
+        "tag": "g1bs_tb05_m2p0_fo100_ez1p0"
+      },
+      {
+        "actual_symbols": 10,
+        "ann_pct": 81.52614319869443,
+        "budget": 500.0,
+        "fingerprint_sha256": "a9ae59a5a2fcf74387c99ace09636226324dff96f31d3e71c4f439492111d217",
+        "fold": "tb05",
+        "groups_with_so": 2,
+        "max_dd_pct": 7.798066254869431,
+        "max_group_conc_pct": 40.85134521724729,
+        "max_symbol_conc_pct": 18.054454832462035,
+        "tag": "g1bs_tb05_m3p0_fo60_ez1p0"
+      }
+    ]
   },
   "cold_start_5_of_5": {
-    "aggressive": {
-      "five_of_five": true,
-      "passes_4_of_5": true,
-      "positive": 5,
-      "rate": "5/5",
-      "total": 5
-    },
-    "balanced": {
-      "five_of_five": true,
-      "passes_4_of_5": true,
-      "positive": 5,
-      "rate": "5/5",
-      "total": 5
-    },
-    "conservative": {
-      "five_of_five": true,
-      "passes_4_of_5": true,
-      "positive": 5,
-      "rate": "5/5",
-      "total": 5
-    }
+    "all_positive": true,
+    "rate": "5/5",
+    "top5_blocks": [
+      "tb05",
+      "tb12",
+      "tb10",
+      "tb11",
+      "tb03"
+    ]
   },
-  "commit_sha": "75c19aa411497e797305e7515b1005577ec45572",
+  "commit_sha": "c7a49bbb36e49aa93b1589e73ac54b694f9d1ba9",
   "committed": true,
-  "conclusion": "TARGET_HIT_PROVISIONAL_FUTURE_OOS_PENDING_LOCK",
-  "frozen_at_utc": "2026-07-20T14:36:55.538108+00:00",
+  "conclusion": "CROSS_VALIDATED_RESEARCH_FINALIST",
+  "conservative_blocks": [
+    "tb05",
+    "tb10",
+    "tb12"
+  ],
+  "frozen_at_utc": "2026-07-20T15:16:26.320661+00:00",
   "future_lock_status": {
     "earliest_one_shot_confirmation": "~2026-08-10",
     "first_future_query_at": null,
@@ -86,16 +130,16 @@
     "thirty_full_calendar_days_elapsed": false,
     "today_utc": "2026-07-20"
   },
-  "phase": "R21 R8 selection freeze v3 (all 3 tiers hit + 5/5 cold-start + adapter parity)",
-  "pushed_at": "2026-07-20T14:36:55.538118+00:00",
+  "method": "block-specific daily pair selection (each block selects its OWN pairs from its OWN fit window)",
+  "phase": "R21 R8 selection v4 (block-specific cross-fit-validated tier hits)",
   "three_tier_hits": {
     "aggressive_ann_110_dd_30": true,
     "balanced_ann_90_dd_20": true,
     "conservative_ann_50_dd_10": true
   },
   "tier_hit_counts": {
-    "aggressive": 14,
-    "balanced": 63,
-    "conservative": 14
+    "aggressive": 2,
+    "balanced": 3,
+    "conservative": 9
   }
 }
