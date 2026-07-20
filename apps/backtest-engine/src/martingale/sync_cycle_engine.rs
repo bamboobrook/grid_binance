@@ -93,6 +93,27 @@ pub struct SynchronizedFit {
     pub fit_sha256: String,
 }
 
+/// Round 21 R2.1 (plan §4.2): apply production-conservative exchange filters
+/// (PRICE_FILTER/LOT_SIZE/MARKET_LOT_SIZE/MIN_NOTIONAL/NOTIONAL) to an
+/// intended (price, notional_quote) order. Returns the rounded notional and
+/// a boolean ok. When the order is filter-impossible (notional < min_notional
+/// or qty < min_qty after rounding), returns (0.0, false) and the caller
+/// treats it as a permanent_config rejection (cycle/family freeze).
+///
+/// This is the R2.1 deep-wiring call-site invoked at every order-emit point.
+/// Before this fix, the engine emitted orders with raw notionals; now every
+/// fill passes through the same filter the production adapter would apply.
+fn conservative_filter_notional(symbol: &str, price: f64, notional: f64) -> (f64, bool) {
+    use crate::martingale::r21_conservative_engine::filter_order_conservative;
+    let filters = crate::martingale::exchange_model::ExchangeFilters::default_for(symbol);
+    let decision = filter_order_conservative(&filters, price, notional);
+    if decision.reject.is_some() {
+        (0.0, false)
+    } else {
+        (decision.rounded_notional, true)
+    }
+}
+
 /// Round 21 R2 (plan §4.1, §2 canary 4): market leg identity. Two legs with
 /// the same symbol but different market_type are DISTINCT and must not be
 /// deduplicated by a string-only set. This is the type B1S needs for its
@@ -878,7 +899,11 @@ pub fn run_synchronized_cycle_replay(
                                 Vec::with_capacity(fit.legs.len());
                             for (li, sym) in fit.legs.iter().enumerate() {
                                 let mark = marks[li];
-                                let layer_notional = group_notionals[gi][layer_idx][li];
+                                let raw_notional = group_notionals[gi][layer_idx][li];
+                                // Round 21 R2.1 (plan §4.2): apply production-
+                                // conservative exchange filters before emitting.
+                                let (layer_notional, filter_ok) =
+                                    conservative_filter_notional(sym, mark, raw_notional);
                                 // exchange min notional + margin cap check
                                 let fee = layer_notional * fee_bps / 10_000.0;
                                 let slip = layer_notional * slip_bps / 10_000.0;
@@ -887,7 +912,8 @@ pub fn run_synchronized_cycle_replay(
                                 let projected_portfolio_margin = portfolio_margin_before
                                     + group_notionals[gi][layer_idx].iter().sum::<f64>()
                                         / cfg.leverage as f64;
-                                if layer_notional < 5.0
+                                if !filter_ok
+                                    || layer_notional < 5.0
                                     || projected_group_gross > group_gross_cap_quote
                                     || projected_portfolio_margin > available_equity_before.max(0.0)
                                 {
@@ -981,15 +1007,20 @@ pub fn run_synchronized_cycle_replay(
                 let mut new_fills: Vec<Option<LegFill>> = Vec::with_capacity(fit.legs.len());
                 // M1 factor/dependent directions were derived above from the
                 // residual sign and the train-frozen hedge beta.
-                for (li, _sym) in fit.legs.iter().enumerate() {
+                for (li, sym) in fit.legs.iter().enumerate() {
                     let mark = marks[li];
-                    let layer_notional = group_notionals[gi][0][li];
+                    let raw_notional = group_notionals[gi][0][li];
+                    // Round 21 R2.1 (plan §4.2): apply production-conservative
+                    // exchange filters before emitting the FO.
+                    let (layer_notional, filter_ok) =
+                        conservative_filter_notional(sym, mark, raw_notional);
                     let fee = layer_notional * fee_bps / 10_000.0;
                     let slip = layer_notional * slip_bps / 10_000.0;
                     let layer_total = group_notionals[gi][0].iter().sum::<f64>();
                     let projected_portfolio_margin =
                         portfolio_margin_before + layer_total / cfg.leverage as f64;
-                    if layer_notional < 5.0
+                    if !filter_ok
+                        || layer_notional < 5.0
                         || layer_total > group_gross_cap_quote
                         || projected_portfolio_margin > available_equity_before.max(0.0)
                     {
