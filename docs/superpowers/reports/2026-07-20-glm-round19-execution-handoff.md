@@ -1,3 +1,10 @@
+> **SUPERSEDED_BY_CHATGPT_AUDIT**
+>
+> 本文的 `VALID_SEARCH_NO_FRONTIER_PROGRESS` 不是权威结论。Round 19 缺少三个计划主 family、完整
+> fail-close 交易所模型、有效中央 registry 和 causal inner fit，M2F 也未满足计划机器定义。权威状态已由
+> `docs/superpowers/artifacts/glm-martingale-core-round19/round19-corrected-authority.json` 修正为
+> `materially_incomplete_invalid_results`。原文仅保留作历史执行记录。
+
 # GLM Round 19 执行交接（有效残差恢复：Partial Cointegration 与稀疏 VECM 组合计划）
 
 执行者：GLM。计划：`docs/superpowers/plans/2026-07-17-glm-martingale-core-round19-valid-residual-recovery-plan.md`

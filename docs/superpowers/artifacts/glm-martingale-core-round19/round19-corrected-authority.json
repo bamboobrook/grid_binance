@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "corrected_by": "ChatGPT Round 19 audit on 2026-07-20",
+  "audit_report": "docs/superpowers/reports/2026-07-20-chatgpt-round19-execution-audit-and-correction.md",
+  "independent_audit": "docs/superpowers/artifacts/glm-martingale-core-round19/audit/round19-independent-audit.json",
+  "next_plan": "docs/superpowers/plans/2026-07-20-glm-martingale-core-round20-causal-basis-diversification-plan.md",
+  "original_handoff": "docs/superpowers/reports/2026-07-20-glm-round19-execution-handoff.md",
+  "original_self_reported_state": "VALID_SEARCH_NO_FRONTIER_PROGRESS",
+  "corrected_machine_state": "materially_incomplete_invalid_results",
+  "target_hit": false,
+  "production_ready_candidates": 0,
+  "strict_valid_search_rows": 0,
+  "correction_basis": [
+    "P1 partial cointegration, K1 spurious-control Kalman, and V1 sparse VECM were planned as independent mandatory families but had zero implementation and zero replay",
+    "R2 deferred next-SO reserve, Binance filters, maintenance liquidation, partial fill, rejection, and legging loss even though the plan required them before search",
+    "M2F used train-end static signs, equal notionals, and an unsigned mean residual instead of cycle-open dynamic ranks, constrained weights, and the residual of the actual held basket",
+    "all four M2F fits violate the abs signed beta exposure <=0.10 constraint under the equal-weight implementation",
+    "G0 explicitly reports inert open parameters but the state machine accepted a separate conditional-binding flag",
+    "the central exploration registry has zero rows while 6612 local rows have no running record, command, exit code, canonical fingerprint, contract hashes, or trace hashes",
+    "R7 reconstructed G1 inputs with weaker gates and therefore replayed many configs that the authoritative G1 summary had rejected",
+    "R7 reused each outer fold train-end fit in all five earlier train subblocks, creating inner-train look-ahead",
+    "the claimed cycle-sequence determinism fix still raced between concurrent in-process replays; the audit replaced the process-global counter with invocation-local state",
+    "the engine has no liquidation buffer, exact exchange filters, partial-fill state, legging policy, or rejection cooldown state and therefore cannot prove sub-5000U survival or live reproducibility"
+  ],
+  "retained_scoped_evidence": [
+    "6612 local replay rows may be used as idealized research-level negative or mechanism diagnostics only",
+    "independent F3-train replays of M1R_F3_044 and M1R_F3_028 exactly reproduce the GLM checkpoint metrics and emit deterministic trace digests after the concurrency fix",
+    "M1R_F3_044 at 1000U is a selected train-only concentration diagnostic: median subblock ann 48.1879%, worst DD 6.8108%, 5/5 positive and 5/5 with real SO, but only 3/5 concentration pass and it has inner-fit look-ahead",
+    "M1R_F3_028 at 1000U is a selected train-only concentration diagnostic: median subblock ann 42.4371%, worst DD 6.1091%, 5/5 positive and 5/5 with real SO, but only 4/5 concentration pass and it has inner-fit look-ahead"
+  ],
+  "not_valid_for": "Round 19 completion, valid family exhaustion, frontier progress, target hit, validation selection, minimum executable principal, or production readiness",
+  "history_preserved": "Original artifacts remain available. The handoff is marked superseded and this additive authority is canonical."
+}

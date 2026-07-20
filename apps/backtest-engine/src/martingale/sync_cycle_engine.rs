@@ -382,10 +382,11 @@ pub fn run_synchronized_cycle_replay(
     funding_rates: &[FundingRatePoint],
     budget_quote: f64,
 ) -> Result<MartingaleBacktestResult, String> {
-    // Round 19 R2: reset cycle seq so each backtest invocation is deterministic
-    // (same config + same bars => same cycle_ids => same trace hashes).
-    reset_cycle_seq();
     validate_martingale_contract(cfg)?;
+    // Cycle IDs are replay-local. A process-global counter races when multiple
+    // backtests run concurrently and makes otherwise identical trace hashes
+    // depend on thread scheduling.
+    let mut next_cycle_seq = 1_u64;
     // Round 19 R4: M2F factor-residual basket is now implemented with per-leg
     // residual-sign directions and factor-neutral notional weights. The M1 pair
     // remains the 2-leg path. Other family names (P1/K1/V1) reuse the basket
@@ -885,7 +886,8 @@ pub fn run_synchronized_cycle_replay(
                     }
                 }
                 if all_ok && new_fills.iter().all(|f| f.is_some()) {
-                    let cycle_seq = next_cycle_seq();
+                    let cycle_seq = next_cycle_seq;
+                    next_cycle_seq += 1;
                     let cycle_id = format!("{}-sync-cycle-{}", fit.group_id, cycle_seq);
                     let mut cycle = SynchronizedCycleState::new(
                         cycle_id.clone(),
@@ -1147,23 +1149,6 @@ pub fn run_synchronized_cycle_replay(
 
     Ok(result)
 }
-
-fn next_cycle_seq() -> u64 {
-    CYCLE_SEQ.fetch_add(1, std::sync::atomic::Ordering::SeqCst)
-}
-
-/// Round 19 R2 fix: reset the cycle sequence counter at the start of each
-/// `run_synchronized_cycle_replay` invocation so each backtest is DETERMINISTIC
-/// and reproducible (same config + same bars => same cycle_ids => same trace
-/// hashes). Without this, the global AtomicU64 made each binary invocation
-/// produce different cycle_ids, breaking backtest/live parity and the
-/// "same-config same-bars => identical event hash" guarantee.
-fn reset_cycle_seq() {
-    CYCLE_SEQ.store(1, std::sync::atomic::Ordering::SeqCst);
-}
-
-use std::sync::atomic::AtomicU64;
-static CYCLE_SEQ: AtomicU64 = AtomicU64::new(1);
 
 fn collect_marks(fit: &SynchronizedFit, latest_close: &BTreeMap<String, f64>) -> Option<Vec<f64>> {
     let mut out = Vec::with_capacity(fit.legs.len());
@@ -1665,16 +1650,45 @@ mod tests {
             bar("AUSDT", 60_000, 1.0),
             bar("BUSDT", 60_000, std::f64::consts::E.powi(2)),
         ];
-        let mut digests = Vec::new();
-        for _ in 0..5 {
-            let r = run_synchronized_cycle_replay(
-                &executable_pair_config(), &[fit.clone()], &bars, &[], 1000.0).unwrap();
-            let s = r.rejection_reasons.iter().find(|s| s.starts_with("SYNC_SUMMARY:")).unwrap();
-            let v: serde_json::Value = serde_json::from_str(&s["SYNC_SUMMARY:".len()..]).unwrap();
-            digests.push(v["trace_digests"]["event_stream_sha256"].as_str().unwrap().to_string());
-        }
+        let digests = (0..8)
+            .map(|_| {
+                let fit = fit.clone();
+                let bars = bars.clone();
+                std::thread::spawn(move || {
+                    (0..20)
+                        .map(|_| {
+                            let r = run_synchronized_cycle_replay(
+                                &executable_pair_config(),
+                                &[fit.clone()],
+                                &bars,
+                                &[],
+                                1000.0,
+                            )
+                            .unwrap();
+                            let s = r
+                                .rejection_reasons
+                                .iter()
+                                .find(|s| s.starts_with("SYNC_SUMMARY:"))
+                                .unwrap();
+                            let v: serde_json::Value =
+                                serde_json::from_str(&s["SYNC_SUMMARY:".len()..]).unwrap();
+                            v["trace_digests"]["event_stream_sha256"]
+                                .as_str()
+                                .unwrap()
+                                .to_string()
+                        })
+                        .collect::<Vec<_>>()
+                })
+            })
+            .collect::<Vec<_>>()
+            .into_iter()
+            .flat_map(|handle| handle.join().unwrap())
+            .collect::<Vec<_>>();
         let first = &digests[0];
-        assert!(digests.iter().all(|d| d == first), "same-config same-bars must produce identical event hash");
+        assert!(
+            digests.iter().all(|d| d == first),
+            "same-config same-bars must produce identical event hash"
+        );
     }
 
     /// Plan §4 item 16: actual symbol/group concentration must be recomputed from
