@@ -1,0 +1,93 @@
+{
+  "budget_quote": 500.0,
+  "fits": [
+    {
+      "adf_t": -5.1209953577734035,
+      "betas": [
+        1.0908584701249775
+      ],
+      "fit_sha256": "1e27e7dac20b4107",
+      "group_id": "C1E_DOGEUSDT_SOLUSDT",
+      "half_life_h": 122.10447360240883,
+      "leg_direction_signs": [
+        1,
+        -1
+      ],
+      "leg_markets": [],
+      "legs": [
+        "DOGEUSDT",
+        "SOLUSDT"
+      ],
+      "mus": [
+        5.807797894208831
+      ],
+      "residual_sigma": 0.11879909425200452,
+      "weights": []
+    },
+    {
+      "adf_t": -3.892266466440435,
+      "betas": [
+        0.7733244089624688
+      ],
+      "fit_sha256": "a24ab59dbb5ab0c6",
+      "group_id": "C1E_DOTUSDT_LINKUSDT",
+      "half_life_h": 99.2842790303082,
+      "leg_direction_signs": [
+        1,
+        -1
+      ],
+      "leg_markets": [],
+      "legs": [
+        "DOTUSDT",
+        "LINKUSDT"
+      ],
+      "mus": [
+        0.5502335635367415
+      ],
+      "residual_sigma": 0.03795738425491461,
+      "weights": []
+    },
+    {
+      "adf_t": -3.286957643220709,
+      "betas": [
+        0.687695049309062
+      ],
+      "fit_sha256": "0841c46a3789ba9b",
+      "group_id": "C1E_ADAUSDT_BNBUSDT",
+      "half_life_h": 115.02595208061712,
+      "leg_direction_signs": [
+        1,
+        -1
+      ],
+      "leg_markets": [],
+      "legs": [
+        "ADAUSDT",
+        "BNBUSDT"
+      ],
+      "mus": [
+        6.416595226038031
+      ],
+      "residual_sigma": 0.04173329463871818,
+      "weights": []
+    }
+  ],
+  "synchronized_cycle": {
+    "bar_boundary_minutes": 60,
+    "c1_scheduler": null,
+    "cycle_deadline_h": 168,
+    "entry_z": 1.0,
+    "exit_z": 0.5,
+    "family": "C1E",
+    "fit_lookback_days": 180,
+    "group_fo_quote": 150.0,
+    "group_gross_cap_pct": 400.0,
+    "inventory_reservation_skew_k": 0,
+    "jump_first_passage_gate": null,
+    "leverage": 10,
+    "max_legs": 4,
+    "multiplier": 2.4,
+    "regime_envelope": null,
+    "so_residual_step_z": 0.5,
+    "tp_net_bps_floor": 25
+  }
+}

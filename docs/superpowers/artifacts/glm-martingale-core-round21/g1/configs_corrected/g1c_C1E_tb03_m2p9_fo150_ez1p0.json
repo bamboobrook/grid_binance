@@ -1,0 +1,47 @@
+{
+  "budget_quote": 500.0,
+  "fits": [
+    {
+      "adf_t": -4.292567522727401,
+      "betas": [
+        0.5542855368564468
+      ],
+      "fit_sha256": "705578a9e91a910c",
+      "group_id": "C1E_ADAUSDT_DOGEUSDT",
+      "half_life_h": 148.4817864648393,
+      "leg_direction_signs": [
+        1,
+        -1
+      ],
+      "leg_markets": [],
+      "legs": [
+        "ADAUSDT",
+        "DOGEUSDT"
+      ],
+      "mus": [
+        -1.9964979318445386
+      ],
+      "residual_sigma": 0.06523299151297118,
+      "weights": []
+    }
+  ],
+  "synchronized_cycle": {
+    "bar_boundary_minutes": 60,
+    "c1_scheduler": null,
+    "cycle_deadline_h": 168,
+    "entry_z": 1.0,
+    "exit_z": 0.5,
+    "family": "C1E",
+    "fit_lookback_days": 180,
+    "group_fo_quote": 150.0,
+    "group_gross_cap_pct": 400.0,
+    "inventory_reservation_skew_k": 0,
+    "jump_first_passage_gate": null,
+    "leverage": 10,
+    "max_legs": 4,
+    "multiplier": 2.9,
+    "regime_envelope": null,
+    "so_residual_step_z": 0.5,
+    "tp_net_bps_floor": 25
+  }
+}

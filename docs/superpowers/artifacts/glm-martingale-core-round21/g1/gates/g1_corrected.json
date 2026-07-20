@@ -1,0 +1,30 @@
+{
+  "blocks": [
+    "tb02"
+  ],
+  "cross_fit_positivity": {
+    "tb02": {
+      "positive_configs": 5,
+      "total": 5
+    }
+  },
+  "elapsed_s": 176.6,
+  "generated_at_utc": "2026-07-20T14:52:14.626078+00:00",
+  "per_block_best": {
+    "tb02": {
+      "ann": 40.88657145721826,
+      "block": "tb02",
+      "dd": 54.130928221775534,
+      "ez": 1.1,
+      "fo": 200.0,
+      "grpc": 39.781934016760154,
+      "mult": 3.0,
+      "so": 3,
+      "sym": 6,
+      "symc": 40.61038640267784,
+      "tag": "g1c_C1E_tb02_m3p0_fo200_ez1p1"
+    }
+  },
+  "phase": "R21 G1 corrected sweep (strict cross-fit, fixed ADF gate)",
+  "total_complete": 5
+}
