@@ -1,0 +1,1 @@
+{"phase": "P6 G0 binding", "status": "blocked_predecessor", "reason": "P4 blocked (P1/K1/V1 missing, M2R constrained-solve incomplete). G0 binding requires implemented families with all open params bound. Cannot run G0 on blocked families."}

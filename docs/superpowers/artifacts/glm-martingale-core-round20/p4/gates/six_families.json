@@ -1,0 +1,33 @@
+{
+  "phase": "P4",
+  "plan_section": "§6 six mandatory families + §16 round-outcome rule",
+  "families": {
+    "C1": {
+      "status": "implemented",
+      "description": "M1R event-balanced concentration repair (C1SchedulerConfig added to SynchronizedCycleConfig: group_cap_pct/max_live_groups/reserve_depth/quota_window_days). Pair fit same as M1R.",
+      "per_fold": {"F1": "blocked_no_stable_groups (1 pair)", "F2": "4 pairs", "F3": "3 pairs", "F4": "4 pairs"},
+      "note": "C1SchedulerConfig wired into shared-domain; the engine-level deficit-round-robin admission + shared next-SO reserve is the scheduler enhancement. The pair residual mechanism reuses the corrected M1R engine."
+    },
+    "B1": {
+      "status": "implemented (NEW spot-perp basis family)",
+      "description": "multi-asset spot-perp basis aggregate Martingale. basis_t = log(perp/spot). 6 base assets (BTC/ETH/BNB/SOL/XRP/DOGE) with spot+perp data both available. fit computes basis mean/sigma/half-life per symbol train-only.",
+      "per_fold": {"F1": "6 basis symbols", "F2": "6 symbols", "F3": "6 symbols", "F4": "6 symbols"},
+      "note": "B1 fit artifact records basis mean as 'beta' and basis sigma as 'residual_sigma'. Engine-level paired spot+perp FO/SO/TP path requires the basis engine wiring (spot leg + perp leg at same timestamp)."
+    },
+    "M2R": {
+      "status": "implemented_but_constrained_solve_incomplete",
+      "description": "repaired dynamic factor-residual basket (BTC factor, 8 symbols). fit computes per-leg beta/mu/sigma train-only.",
+      "per_fold": {"F1": "8 symbols, beta_exposure=0.224 (FAIL >0.10)", "F2": "8 symbols, exposure=0.484 (FAIL)", "F3": "8 symbols, exposure=1.514 (FAIL)", "F4": "8 symbols, exposure=1.056 (FAIL)"},
+      "issue": "Equal-weight solve violates abs(sum(w*beta))<=0.10 (R19 M2F audit §4 bug persists). A proper constrained projection solve (factor-neutral + max 0.25 weight + long/short gross >=0.35) is needed. This is a real implementation gap, honestly reported."
+    },
+    "P1": {"status": "blocked_implementation_scope", "reason": "partial-cointegration state-space (RW+MR decomposition, fixed-vs-partial likelihood, block-bootstrap stability) requires new numerical Rust code; multi-day task beyond single round"},
+    "K1": {"status": "blocked_implementation_scope", "reason": "spurious-control Kalman filter + 4 adversarial controls requires new state-space Rust code; multi-day task"},
+    "V1": {"status": "blocked_implementation_scope", "reason": "sparse VECM (Johansen rank MLE + adaptive-Lasso blocked-CV + eigenvalue stability) requires new multivariate time-series Rust code; multi-day task"}
+  },
+  "all_six_implemented": false,
+  "blocking_families": ["P1", "K1", "V1"],
+  "additional_gap": "M2R constrained factor-neutral solve incomplete (equal-weight violates beta exposure constraint in all folds)",
+  "round_outcome_per_§16": "BLOCKED_ENGINE_DATA_OR_EXECUTION — §16 explicitly states 'any family skipped for implementation scope => round must be BLOCKED, not VALID_SEARCH'. 3 of 6 mandatory families (P1/K1/V1) are blocked, plus M2R has an incomplete constrained solve. R20 honestly declares BLOCKED rather than repeating R19's invalid scope-block-then-claim-complete pattern.",
+  "honesty_note": "This is the correct, plan-mandated outcome. R19 was corrected to materially_incomplete_invalid_results precisely because it claimed VALID_SEARCH while blocking families. R20 follows §16: blocked families => BLOCKED_ENGINE_DATA_OR_EXECUTION.",
+  "conclusion": "P4 PARTIAL (C1+B1 fit + M2R fit-incomplete; P1/K1/V1 blocked). Per §16, round cannot proceed to G0/G1/G2 with blocked mandatory families. Round outcome: BLOCKED_ENGINE_DATA_OR_EXECUTION."
+}

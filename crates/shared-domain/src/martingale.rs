@@ -532,6 +532,36 @@ pub struct SynchronizedCycleConfig {
     pub jump_first_passage_gate: Option<bool>,
     #[serde(default)]
     pub regime_envelope: Option<String>,
+    /// Round 20 P4 C1: event-balanced concentration repair scheduler. When
+    /// present, the engine admits new FO via deficit-round-robin / activity
+    /// quota across groups, reserves next-SO before new FO, and caps concurrent
+    /// live groups. All fields participate in the effective config hash.
+    #[serde(default)]
+    pub c1_scheduler: Option<C1SchedulerConfig>,
+}
+
+/// Round 20 P4 C1: event-balanced scheduler config (plan §6.1).
+/// Goal: raise independent group fill opportunity WITHOUT diluting PnL share
+/// with losing groups.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct C1SchedulerConfig {
+    /// Max group gross as percent of budget (20/25).
+    pub group_cap_pct: f64,
+    /// Max concurrent live groups (2/3/4).
+    pub max_live_groups: u32,
+    /// Reserve depth: "next" (next SO only) or "all" (all declared SO layers).
+    pub reserve_depth: String,
+    /// Activity quota window in days (7/30). Used by deficit-round-robin to
+    /// balance FO admission across groups using ONLY completed data + train-
+    /// frozen spread vol / cycle duration / cost / historical activation rate.
+    pub quota_window_days: u32,
+}
+
+impl Default for C1SchedulerConfig {
+    fn default() -> Self {
+        Self { group_cap_pct: 20.0, max_live_groups: 3, reserve_depth: "next".to_string(),
+               quota_window_days: 7 }
+    }
 }
 
 impl Default for SynchronizedCycleConfig {
@@ -556,6 +586,7 @@ impl Default for SynchronizedCycleConfig {
             inventory_reservation_skew_k: None,
             jump_first_passage_gate: None,
             regime_envelope: None,
+            c1_scheduler: None,
         }
     }
 }

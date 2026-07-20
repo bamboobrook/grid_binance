@@ -1,0 +1,1 @@
+{"phase": "P5 Soft-SEL", "status": "blocked_predecessor", "reason": "P4 blocked (3 of 6 mandatory families missing). Soft-SEL requires parent Martingale family to pass train gate first (plan §7). No parent passed => Soft-SEL not generated."}

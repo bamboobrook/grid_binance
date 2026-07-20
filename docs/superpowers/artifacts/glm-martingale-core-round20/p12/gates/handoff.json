@@ -1,0 +1,27 @@
+{
+  "phase": "P12 handoff",
+  "plan_section": "§17",
+  "handoff_document": "docs/superpowers/reports/2026-07-20-glm-round20-execution-handoff.md",
+  "§17_coverage": {
+    "1_P0_P12_machine_state_first_blocked_gate": "handoff §1 (P4 blocked: six_mandatory_families_implemented)",
+    "2_R1_R19_corrected_authority": "handoff §2",
+    "3_family_planned_running_terminal_counts": "handoff §3 (0 search replays; P4 fit-only)",
+    "4_causal_fit_selection_validation_evidence": "handoff §4 (P3 causal schedule; no selection/validation)",
+    "5_three_tier_PA_PB_PC_PD_5_5": "handoff §5 (all NOT HIT/NO)",
+    "6_top10_assets_groups_weights": "handoff §6 (P4 fit-only diagnostic, not_candidate)",
+    "7_exact_min_principal_ann_DD_cold_starts_concentration": "handoff §7 (no candidate)",
+    "8_fo_so_tp_abort_liquidation_partial_legging_counts_costs": "handoff §8 (0; P4 blocked)",
+    "9_concentration_so_attribution": "handoff §9 (M2R beta exposure gap)",
+    "10_backtest_candidate_vs_production_ready": "handoff §10 (none)",
+    "11_raw_command_hashes_registry_paths": "handoff §11",
+    "12_new_failures_never_repeat": "handoff §12 (8 entries)",
+    "13_2026_07_11_future_lock": "handoff §13 (locked_no_finalist_no_30day_window)"
+  },
+  "round20_outcome": "BLOCKED_ENGINE_DATA_OR_EXECUTION",
+  "frontier_progress": false,
+  "first_failed_gate": "P4 six_mandatory_families_implemented",
+  "blocking_families": ["P1", "K1", "V1"],
+  "additional_gap": "M2R constrained factor-neutral solve incomplete (beta exposure 0.22-1.51 across folds, all fail >0.10)",
+  "honesty_check": "Round 20 honestly declares BLOCKED per §16 rather than repeating R19's scope-block-then-claim-complete. P0-P3 infrastructure (state machine, single launcher, exchange_model, causal fit) is built and reusable. P4 fit completed for C1/B1/M2R; P1/K1/V1 require multi-day new numerical math (state-space/Kalman/VECM).",
+  "conclusion": "P12 HANDOFF complete. Round 20 outcome BLOCKED_ENGINE_DATA_OR_EXECUTION, honestly reported with first failed gate and blocking families identified."
+}

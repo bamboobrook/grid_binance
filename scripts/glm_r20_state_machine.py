@@ -139,7 +139,10 @@ def recompute_gate(gate, rows):
         if not os.path.exists(p):
             return False, {"reason": "P2 evidence missing"}
         d = json.load(open(p))
-        return d.get("all_passed") is True, d
+        ap = d.get("all_passed")
+        if ap is None:
+            ap = d.get("tests", {}).get("all_passed") if isinstance(d.get("tests"), dict) else None
+        return ap is True, d
     if gate == "causal_nested_fit_validated":
         p = os.path.join(ART, "p3", "gates", "causal_fit.json")
         if not os.path.exists(p):
