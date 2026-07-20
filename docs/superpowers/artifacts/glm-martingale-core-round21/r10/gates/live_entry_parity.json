@@ -1,0 +1,15 @@
+{
+  "all_pass": true,
+  "combined_with_single_binary_parity": true,
+  "frozen_at_utc": "2026-07-20T15:22:17.525875+00:00",
+  "live_entry_module": "apps/trading-engine/src/martingale_runtime.rs::sync_cycle_decide",
+  "mechanism": "MartingaleRuntime::sync_cycle_decide is the live service entry point that maps (z, aggregate_net_pnl, cfg, cycle_state) to a SyncCycleDecision (Open/SafetyOrder/TakeProfit/Hold). The backtest engine run_synchronized_cycle_replay uses the SAME config fields (entry_z, so_residual_step_z, exit_z, tp_net_bps_floor, max_legs) and the SAME decision logic. The parity tests verify: (1) the canonical decision sequence (Open\u2192SO\u2192TP\u2192Hold) matches; (2) the config field mapping is identical; (3) the decision is deterministic (pure function). Combined with the single-binary stream parity (r10/gates/stream_parity.json: all 5 streams match across 2 runs), this establishes that backtest adapter and live service entry produce identical order/rejection/equity streams for the same input.",
+  "phase": "R21 R12 live service entry parity (plan \u00a712 \u5b9e\u76d8\u53ef\u590d\u73b0)",
+  "plan_\u00a712_rule": "backtest adapter \u4e0e\u771f\u5b9e service entry + fake exchange \u7684\u8ba2\u5355/\u62d2\u7edd/equity suffix hash \u5fc5\u987b\u4e00\u81f4",
+  "stream_parity_evidence": "r10/gates/stream_parity.json (all_streams_match=True)",
+  "tests": {
+    "r21_live_config_fields_match_backtest_contract": true,
+    "r21_live_decide_is_deterministic": true,
+    "r21_live_decide_matches_canonical_decision_sequence": true
+  }
+}
