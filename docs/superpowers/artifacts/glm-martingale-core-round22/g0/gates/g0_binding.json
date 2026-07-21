@@ -1,0 +1,18 @@
+{
+  "frozen_at_utc": "2026-07-21T03:20:06.584323+00:00",
+  "mechanisms": {
+    "S0xE0": {
+      "all_bound": true,
+      "evidence": "G1 fingerprint delta across entry_z grid",
+      "open_params": [
+        "entry_z",
+        "so_step",
+        "exit_z",
+        "group_fo_quote",
+        "multiplier",
+        "max_legs"
+      ]
+    }
+  },
+  "phase": "R22 G0 binding (plan \u00a78)"
+}

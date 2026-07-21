@@ -1,0 +1,20 @@
+{
+  "commit_sha": "9744d02fe4bb5d2debdc3fe0cfffd8bda553c371",
+  "committed": true,
+  "frozen_at_utc": "2026-07-21T03:20:06.584129+00:00",
+  "phase": "R22 G0 quota manifest (plan \u00a78)",
+  "quota": {
+    "E1_verified": 24,
+    "S0xE0": 8,
+    "S1xE0": 48,
+    "S2xE0": 48,
+    "S3_parent": 32
+  },
+  "seeds": {
+    "E1": 20261205,
+    "S0xE0": 20261201,
+    "S1xE0": 20261202,
+    "S2xE0": 20261203,
+    "S3": 20261204
+  }
+}

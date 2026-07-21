@@ -1,0 +1,6 @@
+{
+  "phase": "R22 R5 execution enhancement",
+  "e0_implemented": true,
+  "e0_soft_ladder": "relative layers [1.00, 1.25, 1.55, 1.90] via multiplier parameter",
+  "e1_micro_martingale": "not implemented (requires verifiable source 10.2139/ssrn.5895159)"
+}

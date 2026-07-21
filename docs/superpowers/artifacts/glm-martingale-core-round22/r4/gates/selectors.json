@@ -1,0 +1,9 @@
+{
+  "phase": "R22 R4 dynamic pair selectors",
+  "selectors": {
+    "S0_OLS_static": "implemented (r3 select_block_pairs: OLS + ADF<-2.85 + hl<168h + mr_sharpe>0.3)",
+    "S1_PC1_dynamic": "planned (PC1 factor residual selector)",
+    "S2_KSS_hazard": "planned (KSS structural break gate)",
+    "S3_delayed_cointegration": "planned (change-point detection)"
+  }
+}
