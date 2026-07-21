@@ -1,4 +1,7 @@
-# R9 Future-OOS Physical Block — Final Declaration
+# R9 Future-OOS Physical Block — SUPERSEDED
+
+> 用户已取消等待/监控要求。Round 22 不创建 30 天等待任务，改为立即执行历史 prequential nested backtest。
+> 本文件仅保留为 Round 21 历史记录，不再是后续执行条件。
 
 **Date**: 2026-07-20  
 **Status**: PHYSICALLY BLOCKED (not work-blocked)

@@ -160,22 +160,41 @@ def canary2_terminal_integrity(rows: list[dict]) -> tuple[bool, dict]:
     problems = []
     orphan = []
     for eid, exp_rows in by_exp.items():
-        statuses = [r.get("status") for r in exp_rows]
-        has_running = "running" in statuses
-        has_terminal = any(s and s != "running" for s in statuses)
-        if has_running and not has_terminal:
+        running = [r for r in exp_rows if r.get("status") == "running"]
+        terminal = [r for r in exp_rows if r.get("status") != "running"]
+        if len(running) != 1 or len(terminal) != 1:
             orphan.append(eid)
-        for r in exp_rows:
-            st = r.get("status")
-            if st and st != "running":
-                if not r.get("raw_command"):
-                    problems.append(f"{eid}: terminal missing raw_command")
-                if "exit_code" not in r:
-                    problems.append(f"{eid}: terminal missing exit_code")
-                if not r.get("fingerprint_sha256"):
-                    problems.append(f"{eid}: terminal missing fingerprint")
-                if r.get("trace_event_sha256") is None and st == "complete":
-                    problems.append(f"{eid}: complete missing trace_event_sha256")
+            problems.append(
+                f"{eid}: expected one running and one terminal, got "
+                f"{len(running)}/{len(terminal)}")
+            continue
+        start = running[0]
+        end = terminal[0]
+        if start.get("git_dirty") is not False:
+            problems.append(f"{eid}: running row is not from a clean commit")
+        if not end.get("raw_command"):
+            problems.append(f"{eid}: terminal missing raw_command")
+        if "exit_code" not in end:
+            problems.append(f"{eid}: terminal missing exit_code")
+        hash_fields = [
+            "fingerprint_sha256", "engine_sha256", "market_data_sha256",
+            "funding_data_sha256", "exchange_filter_snapshot_sha256",
+            "maintenance_tiers_sha256", "effective_config_sha256",
+            "cost_model_sha256",
+        ]
+        trace_fields = [
+            "trace_event_sha256", "trace_trade_sha256",
+            "trace_order_sha256", "trace_equity_sha256",
+            "trace_funding_sha256", "trace_rejection_sha256",
+        ]
+        for field in hash_fields:
+            value = start.get(field) or end.get(field)
+            if not isinstance(value, str) or not re.fullmatch(r"[0-9a-f]{64}", value):
+                problems.append(f"{eid}: invalid {field}")
+        for field in trace_fields:
+            value = end.get(field)
+            if not isinstance(value, str) or not re.fullmatch(r"[0-9a-f]{64}", value):
+                problems.append(f"{eid}: invalid {field}")
     return len(problems) == 0, {"problems": problems[:10], "orphan": orphan[:10]}
 
 
@@ -485,8 +504,18 @@ def recompute_gate(gate: str, rows: list[dict]) -> tuple[bool, dict]:
         if not p.exists():
             return False, {"reason": "R2 engine evidence missing"}
         d = json.load(open(p))
-        ap = d.get("all_passed")
-        return ap is True, d
+        sync_source = (ROOT / "apps/backtest-engine/src/martingale/"
+                       "sync_cycle_engine.rs").read_text()
+        runtime_wired = (
+            "apply_partial_fill(" in sync_source
+            and "liquidation_triggered(" in sync_source
+            and '"trace_order_sha256"' in sync_source
+            and "partial_fill_count\": 0_i64" not in sync_source
+            and "liquidation_count\": 0_i64" not in sync_source
+            and "legging_loss_quote\": 0.0_f64" not in sync_source
+        )
+        detail = {**d, "runtime_wired": runtime_wired}
+        return d.get("all_passed") is True and runtime_wired, detail
     if gate == "causal_crossfit_manifest_committed":
         p = ART / "r3" / "gates" / "causal_crossfit_manifest.json"
         if not p.exists():
@@ -524,9 +553,10 @@ def recompute_gate(gate: str, rows: list[dict]) -> tuple[bool, dict]:
             return False, {"reason": "G0 evidence missing"}
         d = json.load(open(p))
         fams = d.get("families", {})
-        all_bound = all(f.get("all_bound") is True
-                        for f in fams.values()
-                        if f.get("status") == "implemented")
+        all_bound = set(fams) == set(MANDATORY_FAMILIES) and all(
+            fams[f].get("all_bound") is True
+            and "deferred" not in json.dumps(fams[f]).lower()
+            for f in MANDATORY_FAMILIES)
         return all_bound, d
     if gate == "quota_manifest_frozen":
         p = ART / "g0" / "gates" / "quota_manifest.json"
@@ -542,8 +572,19 @@ def recompute_gate(gate: str, rows: list[dict]) -> tuple[bool, dict]:
         if not p.exists():
             return False, {"reason": "G1 evidence missing"}
         d = json.load(open(p))
-        ok = d.get("total_replays", 0) > 0 and d.get("survivors_count", 0) >= 0
-        return ok, d
+        complete_by_family = {}
+        for family in MANDATORY_FAMILIES:
+            complete_by_family[family] = sum(
+                r.get("family") == family and r.get("status") == "complete"
+                for r in rows)
+        ok = (
+            d.get("quota_complete") is True
+            and d.get("stitched_test_days", 0) >= 365
+            and isinstance(d.get("stitched_metrics"), dict)
+            and all(complete_by_family[f] >= PLANNED_QUOTA[f]
+                    for f in MANDATORY_FAMILIES)
+        )
+        return ok, {**d, "complete_by_family": complete_by_family}
     if gate == "g2_budget_plateau":
         p = ART / "g2" / "gates" / "g2.json"
         if not p.exists():
@@ -560,7 +601,15 @@ def recompute_gate(gate: str, rows: list[dict]) -> tuple[bool, dict]:
         if not p.exists():
             return False, {"reason": "R8 selection missing"}
         d = json.load(open(p))
-        ok = (d.get("committed") is True and d.get("commit_sha") is not None)
+        cold = d.get("cold_start_5_of_5", {})
+        ok = (
+            d.get("committed") is True
+            and d.get("commit_sha") is not None
+            and d.get("stitched_test_days", 0) >= 365
+            and isinstance(d.get("stitched_metrics"), dict)
+            and cold.get("selection_rule") == "pre_registered_before_replay"
+            and cold.get("all_positive") is True
+        )
         return ok, d
     if gate == "future_lock_audit_setup":
         p = ART / "r9" / "future-lock-audit.json"

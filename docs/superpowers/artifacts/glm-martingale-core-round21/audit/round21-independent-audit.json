@@ -1,0 +1,317 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-07-21T02:09:28.142882+00:00",
+  "original_self_reported_state": "CROSS_VALIDATED_RESEARCH_FINALIST",
+  "corrected_machine_state": "materially_incomplete_invalid_results",
+  "target_hit": false,
+  "production_ready_candidates": 0,
+  "strict_valid_search_rows": 0,
+  "registry": {
+    "rows": 10908,
+    "running_rows": 5454,
+    "terminal_rows": 5454,
+    "unique_experiment_ids": 5436,
+    "malformed_running_terminal_pairs": 18,
+    "running_rows_git_dirty_true": 5454,
+    "terminal_statuses": {
+      "rejected_concentration": 1323,
+      "invalid_engine_bug": 1501,
+      "rejected_gate": 316,
+      "complete": 2298,
+      "not_martingale_no_so": 16
+    },
+    "invalid_or_non_sha256_contract_rows": {
+      "engine_sha256": 5454,
+      "market_data_sha256": 5454,
+      "funding_data_sha256": 5454,
+      "exchange_filter_snapshot_sha256": 5454,
+      "maintenance_tiers_sha256": 5454,
+      "cost_model_sha256": 5454,
+      "effective_config_sha256": 5454
+    },
+    "invalid_trace_rows": {
+      "trace_event_sha256": 1501,
+      "trace_trade_sha256": 1501,
+      "trace_order_sha256": 5454,
+      "trace_equity_sha256": 1501,
+      "trace_funding_sha256": 1501,
+      "trace_rejection_sha256": 1501
+    },
+    "failure_ledger_rows": 0,
+    "contract_pass": false
+  },
+  "engine": {
+    "filter_rounding_called": true,
+    "partial_fill_called_by_main_replay": false,
+    "liquidation_model_called_by_main_replay": false,
+    "partial_fill_count_hardcoded_zero": true,
+    "liquidation_count_hardcoded_zero": true,
+    "legging_loss_hardcoded_zero": true,
+    "liquidation_buffer_uses_approximation": true,
+    "selected_candidate_scheduler": null,
+    "scheduler_is_static_fit_subset": true,
+    "scheduler_complete_rows": 0,
+    "parity_is_same_binary_twice": true,
+    "parity_has_real_live_fake_exchange_stream_comparison": false,
+    "production_conservative_contract_pass": false
+  },
+  "families": {
+    "C1E": {
+      "terminal_rows": 4702,
+      "complete_rows": 1996,
+      "statuses": {
+        "rejected_concentration": 1043,
+        "invalid_engine_bug": 1487,
+        "complete": 1996,
+        "rejected_gate": 176
+      },
+      "planned_configs_per_fold": 64
+    },
+    "B1S": {
+      "terminal_rows": 520,
+      "complete_rows": 302,
+      "statuses": {
+        "invalid_engine_bug": 6,
+        "rejected_gate": 14,
+        "rejected_concentration": 182,
+        "complete": 302,
+        "not_martingale_no_so": 16
+      },
+      "planned_configs_per_fold": 96
+    },
+    "P1S": {
+      "terminal_rows": 108,
+      "complete_rows": 0,
+      "statuses": {
+        "rejected_concentration": 98,
+        "invalid_engine_bug": 2,
+        "rejected_gate": 8
+      },
+      "planned_configs_per_fold": 64
+    },
+    "V1B": {
+      "terminal_rows": 124,
+      "complete_rows": 0,
+      "statuses": {
+        "invalid_engine_bug": 6,
+        "rejected_gate": 118
+      },
+      "planned_configs_per_fold": 64
+    },
+    "P1S_SoftSEL": {
+      "terminal_rows": 0,
+      "complete_rows": 0,
+      "statuses": {},
+      "planned_configs_per_fold": 32
+    }
+  },
+  "selector_and_crossfit": {
+    "test_block_days": 90,
+    "short_block_ann_used_for_tier_claim": true,
+    "manifest_requires_stitched_days_gte_365_for_ann": true,
+    "stitched_metrics_artifact_exists": false,
+    "reported_blocks_positive": 8,
+    "reported_blocks_denominator": 11,
+    "manifest_test_blocks": 12,
+    "missing_block_dropped_from_denominator": true,
+    "selected_tier_blocks": [
+      "tb05"
+    ],
+    "selected_rows_all_from_tb05": true,
+    "reported_cold_start_rule": {
+      "all_positive": true,
+      "rate": "5/5",
+      "top5_blocks": [
+        "tb05",
+        "tb12",
+        "tb10",
+        "tb11",
+        "tb03"
+      ]
+    },
+    "strict_pre_registered_five_block_results": {
+      "aggressive": {
+        "five_of_five": false,
+        "passes_4_of_5": false,
+        "positive": 0,
+        "rate": "0/5",
+        "total": 5
+      },
+      "balanced": {
+        "five_of_five": false,
+        "passes_4_of_5": false,
+        "positive": 0,
+        "rate": "0/5",
+        "total": 5
+      },
+      "conservative": {
+        "five_of_five": false,
+        "passes_4_of_5": false,
+        "positive": 1,
+        "rate": "1/5",
+        "total": 5
+      }
+    },
+    "best_fixed_parameter_policies": [
+      {
+        "params": "m1p5_fo30_ez1p0",
+        "blocks": 12,
+        "complete_blocks": 10,
+        "positive_complete_blocks": 5,
+        "failed_blocks": 2,
+        "worst_dd_pct": 50.96369943520139,
+        "compounded_return_pct": -52.0477772438124
+      },
+      {
+        "params": "m1p5_fo30_ez1p5",
+        "blocks": 12,
+        "complete_blocks": 6,
+        "positive_complete_blocks": 4,
+        "failed_blocks": 6,
+        "worst_dd_pct": 31.507002085760256,
+        "compounded_return_pct": -34.185931760887115
+      },
+      {
+        "params": "m2p0_fo30_ez1p5",
+        "blocks": 12,
+        "complete_blocks": 7,
+        "positive_complete_blocks": 4,
+        "failed_blocks": 5,
+        "worst_dd_pct": 47.24363925912532,
+        "compounded_return_pct": -47.66530598088169
+      },
+      {
+        "params": "m2p0_fo30_ez1p0",
+        "blocks": 12,
+        "complete_blocks": 9,
+        "positive_complete_blocks": 4,
+        "failed_blocks": 3,
+        "worst_dd_pct": 84.33564937167995,
+        "compounded_return_pct": -79.7508008360259
+      },
+      {
+        "params": "m1p5_fo60_ez1p5",
+        "blocks": 12,
+        "complete_blocks": 7,
+        "positive_complete_blocks": 4,
+        "failed_blocks": 5,
+        "worst_dd_pct": 98.19654094461508,
+        "compounded_return_pct": -86.7788552977315
+      },
+      {
+        "params": "m2p0_fo60_ez1p5",
+        "blocks": 12,
+        "complete_blocks": 8,
+        "positive_complete_blocks": 4,
+        "failed_blocks": 4,
+        "worst_dd_pct": 129.85586787080527,
+        "compounded_return_pct": -99.04768876135786
+      },
+      {
+        "params": "m2p5_fo30_ez1p0",
+        "blocks": 12,
+        "complete_blocks": 8,
+        "positive_complete_blocks": 4,
+        "failed_blocks": 4,
+        "worst_dd_pct": 132.34891877181897,
+        "compounded_return_pct": null
+      },
+      {
+        "params": "m1p5_fo100_ez1p5",
+        "blocks": 12,
+        "complete_blocks": 6,
+        "positive_complete_blocks": 4,
+        "failed_blocks": 6,
+        "worst_dd_pct": 133.69611379773238,
+        "compounded_return_pct": null
+      }
+    ],
+    "fixed_policy_reaches_four_of_five": false,
+    "selection_contract_pass": false
+  },
+  "authority": {
+    "self_reported_state": "CROSS_VALIDATED_RESEARCH_FINALIST",
+    "self_reported_target_hit": true,
+    "self_reported_production_ready_candidates": 14,
+    "self_reported_registry_rows": 10332,
+    "actual_registry_rows": 10908,
+    "authority_claims_five_of_five": 5,
+    "authority_points_to_strict_evidence": "g1/gates/five_cold_starts_blocks.json (1/5 positive best)",
+    "strict_evidence_best_positive": 1,
+    "internally_consistent": false
+  },
+  "phase_corrections": {
+    "R0": "invalid_registry_hash_trace_and_clean_commit_contract",
+    "R1": "partial_data_contract_only",
+    "R2": "failed_runtime_wiring_partial_fill_liquidation_legging_order_trace",
+    "R3": "manifest_valid_but_reporting_rule_violated",
+    "R4": "partial_b1s_only_p1s_v1b_no_complete_candidate_c1e_scheduler_not_runtime",
+    "G0": "invalid_deferred_and_artifact_only_binding",
+    "G1": "research_diagnostic_only_quota_and_stitched_policy_failed",
+    "G2": "blocked_predecessor_and_not_from_final_block_specific_manifest",
+    "R8": "invalid_short_block_ann_and_post_test_top_block_selection",
+    "R9": "not_executed",
+    "R10": "invalid_same_binary_determinism_is_not_live_fake_exchange_parity",
+    "HANDOFF": "superseded_by_chatgpt_corrected_authority"
+  },
+  "never_repeat": [
+    "Do not compare annualized metrics from a 90-day block with annual target gates.",
+    "Do not select the five best test blocks and call them five cold starts.",
+    "Do not count blocks where any parameter is positive; evaluate one frozen parameter policy across all blocks.",
+    "Do not drop a no-complete block from the cross-fit denominator.",
+    "Do not claim a scheduler when the implementation statically truncates fits before replay.",
+    "Do not mark isolated unit helpers as wired when the main replay hard-codes zero partial fills, liquidations, and legging loss.",
+    "Do not call two runs of one backtest binary backtest-vs-live parity.",
+    "Do not declare a family complete when it has zero complete G1 rows.",
+    "Do not leave the failure ledger empty when thousands of rows fail.",
+    "Do not use labels or truncated strings where the registry contract requires full SHA256 hashes."
+  ],
+  "independent_replays": [
+    {
+      "block": "tb05",
+      "config": "docs/superpowers/artifacts/glm-martingale-core-round21/_run_configs/g1bs_tb05_m3p0_fo100_ez1p0.json",
+      "config_sha256": "dae02b99c04bf2cf63f4fb43e10085aa69f3a6e749a90ad9401123699ab0c77e",
+      "metrics": {
+        "annualized_return_pct": 158.4627064632182,
+        "breach": false,
+        "max_drawdown_pct": 11.491906073771489,
+        "min_equity_quote": 452.3588579993884,
+        "total_fee_quote": 4.989415275599452,
+        "total_funding_quote": -0.14342710932937658,
+        "total_return_pct": 26.38233231520003,
+        "total_slippage_quote": 2.2175179002664227,
+        "trade_count": 112
+      },
+      "actual_symbols": 10,
+      "groups_with_so": 2,
+      "max_group_concentration_pct": 40.81910396412717,
+      "liquidation_count": 0,
+      "partial_fill_count": 0,
+      "legging_loss_quote": 0.0,
+      "order_trace_present": false
+    },
+    {
+      "block": "tb02",
+      "config": "docs/superpowers/artifacts/glm-martingale-core-round21/_run_configs/g1bs_tb02_m3p0_fo100_ez1p0.json",
+      "config_sha256": "84d4b9984b43d94b2ac83e503d89558ce0f5e6f1245f8c234387dd1a7cff3576",
+      "metrics": {
+        "annualized_return_pct": -100.0,
+        "breach": true,
+        "max_drawdown_pct": 105.9147040773393,
+        "min_equity_quote": -30.45078183076751,
+        "total_fee_quote": 10.9857787133413,
+        "total_funding_quote": 10.548474073891272,
+        "total_return_pct": -102.26772633075696,
+        "total_slippage_quote": 4.882568317040577,
+        "trade_count": 232
+      },
+      "actual_symbols": 10,
+      "groups_with_so": 5,
+      "max_group_concentration_pct": 49.21529072899007,
+      "liquidation_count": 0,
+      "partial_fill_count": 0,
+      "legging_loss_quote": 0.0,
+      "order_trace_present": false
+    }
+  ]
+}

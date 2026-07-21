@@ -1,5 +1,9 @@
 # GLM Round 21 执行交接文档（最终版 — 四 family 完整实现）
 
+> **已失效（superseded）**：三档命中、5/5、14 个 production-ready candidate 与 R0-R10 全 PASS 均被
+> 独立审计推翻。以 `docs/superpowers/artifacts/glm-martingale-core-round21/round21-corrected-authority.json`
+> 和 `docs/superpowers/reports/2026-07-21-chatgpt-round21-execution-audit-and-correction.md` 为准。
+
 **日期**：2026-07-20  
 **分支**：`glm-martingale-core-round21`（36 commits）  
 **权威**：`docs/superpowers/artifacts/glm-martingale-core-round21/round21-authority.json`

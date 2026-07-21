@@ -1,0 +1,72 @@
+{
+  "schema_version": 1,
+  "round": 21,
+  "authority": "chatgpt_independent_audit",
+  "generated_date": "2026-07-21",
+  "supersedes": [
+    "docs/superpowers/artifacts/glm-martingale-core-round21/round21-authority.json",
+    "docs/superpowers/reports/2026-07-20-glm-round21-execution-handoff.md"
+  ],
+  "audit_artifact": "docs/superpowers/artifacts/glm-martingale-core-round21/audit/round21-independent-audit.json",
+  "corrected_machine_state": "materially_incomplete_invalid_results",
+  "target_hit": false,
+  "frontier_progress": false,
+  "production_ready_candidates": 0,
+  "strict_valid_search_rows": 0,
+  "three_tier_hits": {
+    "conservative_ann_50_dd_10": false,
+    "balanced_ann_90_dd_20": false,
+    "aggressive_ann_110_dd_30": false
+  },
+  "five_of_five_positive_valid_candidates": 0,
+  "best_reproducible_short_block_diagnostic": {
+    "id": "g1bs_tb05_m3p0_fo100_ez1p0",
+    "test_days": 90,
+    "budget_quote": 500.0,
+    "annualized_return_pct": 158.4627064632182,
+    "raw_total_return_pct": 26.38233231520003,
+    "max_equity_drawdown_pct": 11.491906073771489,
+    "actual_symbols": 10,
+    "groups_with_so": 2,
+    "classification": "not_candidate_short_block_ann_and_post_test_selection"
+  },
+  "same_policy_failure": {
+    "id": "g1bs_tb02_m3p0_fo100_ez1p0",
+    "budget_quote": 500.0,
+    "raw_total_return_pct": -102.26772633075696,
+    "max_equity_drawdown_pct": 105.9147040773393,
+    "min_equity_quote": -30.45078183076751,
+    "breach": true
+  },
+  "best_fixed_policy_across_12_blocks": {
+    "params": "m1p5_fo30_ez1p0",
+    "positive_complete_blocks": 5,
+    "complete_blocks": 10,
+    "failed_blocks": 2,
+    "compounded_return_pct": -52.0477772438124,
+    "worst_block_drawdown_pct": 50.96369943520139
+  },
+  "strict_cold_start_results": {
+    "conservative": "1/5 positive",
+    "balanced": "0/5 positive",
+    "aggressive": "0/5 positive"
+  },
+  "blocking_findings": [
+    "all 5454 running rows were executed from a dirty worktree",
+    "all engine/data/filter/maintenance/cost/config contract hashes are truncated labels rather than full SHA256",
+    "all 5454 terminal rows lack an order stream hash",
+    "failure ledger is empty despite 3156 rejected or invalid terminal rows",
+    "main replay hard-codes liquidation_count partial_fill_count and legging_loss to zero",
+    "liquidation buffer is approximated after replay rather than enforced event by event",
+    "P1S V1B and P1S SoftSEL have zero complete rows",
+    "C1E scheduler statically truncates fits and has zero complete scheduler rows",
+    "selected candidates have c1_scheduler null",
+    "90-day annualized metrics were compared directly with annual targets despite manifest prohibition",
+    "five best test blocks were selected after seeing results and called five cold starts",
+    "one missing test block was dropped from the denominator",
+    "no stitched 365-day policy metrics exist",
+    "same-binary determinism was mislabeled as backtest versus live fake-exchange parity"
+  ],
+  "next_plan": "docs/superpowers/plans/2026-07-21-glm-martingale-core-round22-prequential-dynamic-multipair-plan.md",
+  "no_waiting_monitor": true
+}

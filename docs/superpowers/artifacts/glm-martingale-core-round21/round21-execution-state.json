@@ -1,47 +1,63 @@
 {
-  "blocked_reasons": [],
-  "phase": "HANDOFF",
+  "blocked_reasons": [
+    "R0: 1 failed: ['ten_canaries_pass']",
+    "R1: blocked_predecessor",
+    "R2: blocked_predecessor",
+    "R3: blocked_predecessor",
+    "R4: blocked_predecessor",
+    "G0: blocked_predecessor",
+    "G1: blocked_predecessor",
+    "G2: blocked_predecessor",
+    "R8: blocked_predecessor",
+    "R9: blocked_predecessor",
+    "R10: blocked_predecessor",
+    "HANDOFF: blocked_predecessor"
+  ],
+  "phase": "R0",
   "phase_status": {
     "G0": {
-      "status": "complete"
+      "status": "blocked_predecessor"
     },
     "G1": {
-      "status": "complete"
+      "status": "blocked_predecessor"
     },
     "G2": {
-      "status": "complete"
+      "status": "blocked_predecessor"
     },
     "HANDOFF": {
-      "status": "complete"
+      "status": "blocked_predecessor"
     },
     "R0": {
-      "status": "complete"
+      "failed": [
+        "ten_canaries_pass"
+      ],
+      "status": "blocked"
     },
     "R1": {
-      "status": "complete"
+      "status": "blocked_predecessor"
     },
     "R10": {
-      "status": "complete"
+      "status": "blocked_predecessor"
     },
     "R2": {
-      "status": "complete"
+      "status": "blocked_predecessor"
     },
     "R3": {
-      "status": "complete"
+      "status": "blocked_predecessor"
     },
     "R4": {
-      "status": "complete"
+      "status": "blocked_predecessor"
     },
     "R8": {
-      "status": "complete"
+      "status": "blocked_predecessor"
     },
     "R9": {
-      "status": "complete"
+      "status": "blocked_predecessor"
     }
   },
   "plan_sha256": "11eb7da27505d483cd15201434b03b67dcb332d5f34a48f40a48e811a7112e34",
-  "registry_rows": 9180,
-  "status": "complete",
-  "validated_at": "2026-07-20T15:26:29.503551+00:00",
-  "validator_sha256": "75d591e13d5c4e3b40d703e85517cf6a53dcaed8ef7ffa5580e2739729cf9c55"
+  "registry_rows": 10908,
+  "status": "blocked",
+  "validated_at": "2026-07-21T02:09:18.994750+00:00",
+  "validator_sha256": "d9235d11d270bae7ca4eb516dc4ff121b5049873a421ad920a00f48935d04ed2"
 }
