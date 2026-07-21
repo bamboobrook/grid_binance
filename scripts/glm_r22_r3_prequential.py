@@ -40,14 +40,14 @@ UNIVERSE = ["BTCUSDT", "ETHUSDT", "BNBUSDT", "SOLUSDT", "XRPUSDT", "DOGEUSDT",
             "ADAUSDT", "TRXUSDT", "LINKUSDT", "LTCUSDT", "BCHUSDT", "DOTUSDT",
             "AVAXUSDT", "ATOMUSDT", "NEARUSDT", "APTUSDT", "AAVEUSDT",
             "ALGOUSDT", "COMPUSDT", "UNIUSDT"]
-FREQ_HOURS = 24  # daily
+FREQ_HOURS = 24  # default; overridden by config  # daily
 MIN_NOTIONAL = 5.0
 
 
-def load_log_prices_daily(symbol, start_ms, end_ms):
+def load_log_prices_daily(symbol, start_ms, end_ms, freq_hours=24):
     conn = sqlite3.connect(f"file:{ROOT}/data/market_data_full.db?mode=ro", uri=True)
     cur = conn.cursor()
-    mod = FREQ_HOURS * 3600 * 1000
+    mod = freq_hours * 3600 * 1000
     cur.execute(
         "SELECT open_time, close FROM klines WHERE symbol=? "
         "AND market_type='futures_usdt_perp' AND timeframe='1m' "
@@ -109,9 +109,9 @@ def fit_pair_ols(la, lb):
             "mr_sharpe": sharpe, "n": n}
 
 
-def select_block_pairs(block):
+def select_block_pairs(block, freq_hours=24):
     """Select top-K disjoint pairs for this block's fit window."""
-    prices = {s: load_log_prices_daily(s, block["fit_start_ms"], block["fit_end_ms"])
+    prices = {s: load_log_prices_daily(s, block["fit_start_ms"], block["fit_end_ms"], freq_hours)
               for s in UNIVERSE}
     candidates = []
     for a, b in itertools.combinations(UNIVERSE, 2):
@@ -183,10 +183,11 @@ def residual_z(pair_fit, price_a, price_b):
 
 def run_block(account: ContinuousAccount, block: dict, pairs: list,
               entry_z: float, so_step: float, exit_z: float,
-              group_fo_quote: float, multiplier: float, max_legs: int):
+              group_fo_quote: float, multiplier: float, max_legs: int,
+              freq_hours: int = 24):
     """Run one 90-day block on the continuous account."""
     pair_fits = {p["pair"]: p for p in pairs}
-    prices = {s: load_log_prices_daily(s, block["test_start_ms"], block["test_end_ms"])
+    prices = {s: load_log_prices_daily(s, block["test_start_ms"], block["test_end_ms"], freq_hours)
               for s in UNIVERSE}
     # Build unified timestamp set
     all_ts = set()
@@ -318,6 +319,7 @@ def cycle_unrealized_pnl_at_close(cycle, prices, ts):
 
 
 def run_prequential(config: dict) -> dict:
+    freq_hours = config.get("freq_hours", 24)
     """Run the full 12-block continuous prequential backtest."""
     budget = config.get("budget", 500.0)
     entry_z = config.get("entry_z", 1.0)
@@ -333,14 +335,14 @@ def run_prequential(config: dict) -> dict:
 
     block_results = []
     for block in BLOCKS:
-        pairs = select_block_pairs(block)
+        pairs = select_block_pairs(block, freq_hours)
         if not pairs:
             block_results.append({"block_id": block["block_id"], "status": "no_pairs",
                                   "equity_start": account.equity, "equity_end": account.equity})
             continue
         equity_before = account.equity
         run_block(account, block, pairs, entry_z, so_step, exit_z,
-                  group_fo_quote, multiplier, max_legs)
+                  group_fo_quote, multiplier, max_legs, freq_hours)
         equity_after = account.equity
         block_return_pct = (equity_after / equity_before - 1) * 100 if equity_before > 0 else -100
         block_results.append({
