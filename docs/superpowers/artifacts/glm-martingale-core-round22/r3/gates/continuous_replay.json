@@ -1,0 +1,5 @@
+{
+  "phase": "R22 R3 continuous prequential main replay",
+  "built": true,
+  "method": "Python continuous-account Martingale backtest, 12-block stitched equity"
+}
