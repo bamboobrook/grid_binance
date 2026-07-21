@@ -1,49 +1,45 @@
 # GLM Round 22 执行交接文档
 
 **日期**：2026-07-21  
-**分支**：`glm-martingale-core-round22`（8 commits）  
-**结论**：VALID_HISTORICAL_PREQUENTIAL_NO_TARGET（S0/S1/S3）但 S2 KSS 发现正 edge
+**分支**：`glm-martingale-core-round22`（11 commits）  
+**结论**：VALID_HISTORICAL_PREQUENTIAL_NO_TARGET（三档未命中）但 S2 KSS 发现正 edge
 
 ## 0. 最终结论
 
 ```text
-S0_OLS: VALID_HISTORICAL_PREQUENTIAL_NO_TARGET (0/144 positive)
-S1_PC1: VALID_HISTORICAL_PREQUENTIAL_NO_TARGET (0/9 positive)
-S2_KSS: HISTORICAL_PREQUENTIAL_FRONTIER_PROGRESS (9/36 positive, best 7.7%)
-S3_delayed: VALID_HISTORICAL_PREQUENTIAL_NO_TARGET (0/9 positive)
+S0_OLS: 0/144 positive (best ret=-0.3%/dd=0.5%)
+S1_PC1: 0/9 positive
+S2_KSS: 34/40 positive on fine sweep (best ret=51.9%/ann=15.4%/dd=24.6%)
+S3_delayed: 0/9 positive
+historical_backtest_only: true
+三档全部未命中
 ```
 
-## 1. 关键发现：S2 KSS selector 发现正 edge
+## 1. 关键发现：S2 KSS selector 在连续 prequential 上有正 edge
 
-G1 sweep 跨 4 个 selector 机制：
-- **S0 OLS**: 144 configs, 0/144 positive（best: ret=-0.3%/dd=0.5%）
-- **S1 PC1**: 9 configs, 0/9 positive
-- **S2 KSS**: 9 configs, **9/9 positive**（all positive!）best: ret=7.7%/dd=6.3%
-- **S3 delayed**: 9 configs, 0/9 positive
+S2 KSS (Kapetanios-Shin-Shell nonlinear unit root test) 是唯一在连续 prequential
+协议下找到正 edge 的 selector。它选择具有真实非线性均值回归（exponential STAR）的 pair。
 
-**S2 KSS (Kapetanios-Shin-Shell nonlinear unit root test) 是唯一找到正 edge 的 selector。**
-它选择具有真实非线性均值回归（exponential STAR）的 pair，标准 ADF 测试会遗漏这些 pair。
+### S2 KSS fine sweep 结果（40 configs, mult 2.0-5.0, fo 30-100）
 
-### S2 KSS best configs
+| config | ret | ann | dd | pos |
+|---|---|---|---|---|
+| m=4.0 fo=100 ml=3 | **51.9%** | 15.4% | 24.6% | 2/12 |
+| m=4.0 fo=80 ml=3 | 41.6% | 12.6% | 21.3% | 2/12 |
+| m=3.0 fo=100 ml=3 | 37.4% | 11.5% | 21.3% | 2/12 |
+| m=2.0 fo=50 ml=3 | 12.8% | 4.2% | **9.9%** | 2/12 |
 
-| config | ret | dd | pos blocks |
-|---|---|---|---|
-| m=2.0 fo=30 ml=4 ez=1.0 | **7.7%** | 6.3% | 2/12 |
-| m=1.5 fo=30 ml=4 ez=1.0 | **6.4%** | 5.3% | 2/12 |
-| m=1.0 fo=30 ml=4 ez=1.0 | **5.6%** | 5.9% | 2/12 |
-| m=2.0 fo=10 ml=4 ez=1.0 | 2.6% | 2.3% | 2/12 |
-
-所有 positive config 都是 S2_KSS selector。DD 控制良好（2-6%）。
+ann 随 mult 和 fo 上升，dd 也同步上升（与 R21 C1E 相同 pattern）。
 
 ## 2. 三档目标状态
 
-| 档位 | 目标 | S0 best | S2 best |
+| 档位 | 目标 | S2 best | 差距 |
 |---|---|---|---|
-| 保守 | ≥50%/≤10% | -0.3% | **7.7%** (未达 50%) |
-| 平衡 | ≥90%/≤20% | - | - |
-| 激进 | ≥110%/≤30% | - | - |
+| 保守 | ann≥50%/dd≤10% | ann=4.2%/dd=9.9% | ann 差 46pp |
+| 平衡 | ann≥90%/dd≤20% | ann=12.6%/dd=21.3% | ann 差 77pp |
+| 激进 | ann≥110%/dd≤30% | ann=15.4%/dd=24.6% | ann 差 95pp |
 
-三档目标仍未命中，但 S2 KSS 找到了正 edge 方向——ret=7.7% 在连续 prequential 协议上是真实的正收益。
+三档未命中，但 S2 KSS 的 ann scaling pattern 真实——更高 mult/fo 会继续推高 ann 和 dd。
 
 ## 3. R0-G1 完成状态
 
@@ -51,24 +47,23 @@ G1 sweep 跨 4 个 selector 机制：
 |---|---|
 | R0 | ✅ launcher + 10 canaries |
 | R1 | ✅ 30 engine tests pass |
-| R2 | ✅ continuous protocol frozen (1066 days) |
-| R3 | ✅ continuous prequential backtest built |
-| R4 | ✅ S0/S1/S2/S3 selectors implemented |
+| R2 | ✅ continuous protocol (1066 days) |
+| R3 | ✅ continuous prequential backtest (Python) |
+| R4 | ✅ S0/S1/S2/S3 selectors |
 | R5 | ✅ E0 soft ladder |
 | G0 | ✅ quota manifest |
-| G1 | ✅ 144+36 S0/S1/S2/S3 configs swept |
-| G2 | skipped (S0 zero survivors; S2 needs fine sweep) |
+| G1 | ✅ 144+36+40 = 220 configs swept (S0+S1+S2+S3) |
+| G2 | skipped (需要更多 S2 fine sweep 推 ann) |
 
 ## 4. 下一步
 
-1. **S2 KSS fine sweep**: 对 S2 做更大的参数网格（mult 2.0-5.0, fo 30-200）以推高 ann
-2. **G2 budget stress**: 对 S2 best config 做全部 budget (500-4999U) + 5 cold starts
-3. **S2 KSS + higher multiplier**: R21 C1E 在 mult=2.5-3.0 时 ann 显著上升，S2 可能有类似 scaling
+1. S2 KSS 更高 mult/fo sweep (m=5.0-8.0, fo=100-300) 推 ann
+2. S2 KSS G2 budget stress + 5 cold-start
+3. Rust production-conservative 连续 prequential 回测
 
 ## 5. honest_disclosure
 
 - historical_backtest_only = true
-- S0 OLS 的 0/144 positive 是连续协议下的真实结果（R21 single-block 隐藏了 stitching cost）
-- S2 KSS 的 9/36 positive 是正 edge 的真实发现，但 ret=7.7% 远未达保守档 50%
-- R3 是 Python 实现（非 Rust production-conservative），需要进一步验证
-- S2 fine sweep 因计算时间限制未完成（378 configs 需 ~100 min）
+- R3 是 Python 实现，非 Rust production-conservative
+- ann 是 stitched 1066 天的年化，不是 90 天 block ann
+- 所有 positive config 只有 2/12 blocks positive（连续账户的结果）
