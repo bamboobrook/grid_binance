@@ -1,33 +1,176 @@
 {
-  "elapsed_s": 2457.8,
-  "grid": {
-    "entry_z": [
-      0.5,
-      1.5,
-      3.0
-    ],
-    "fo": [
-      5,
-      10,
-      20,
-      50
-    ],
-    "max_legs": [
-      3,
-      5
-    ],
-    "mult": [
-      1.0,
-      1.5,
-      2.0,
-      3.0,
-      4.0,
-      5.0
-    ]
-  },
-  "phase": "R22 G1 expanded prequential sweep",
-  "positive_configs": 0,
+  "phase": "R22 G1 expanded",
+  "positive_configs": 9,
+  "selector_configs": 36,
+  "selector_positive": 9,
+  "selector_top10": [
+    {
+      "config": {
+        "budget": 500.0,
+        "entry_z": 1.0,
+        "exit_z": 0.5,
+        "group_fo_quote": 30.0,
+        "max_legs": 4,
+        "multiplier": 2.0,
+        "selector": "S2_KSS",
+        "so_step": 0.5
+      },
+      "max_equity_dd_pct": 6.332671833878406,
+      "positive_blocks": 2,
+      "total_return_pct": 7.701005219800194
+    },
+    {
+      "config": {
+        "budget": 500.0,
+        "entry_z": 1.0,
+        "exit_z": 0.5,
+        "group_fo_quote": 30.0,
+        "max_legs": 4,
+        "multiplier": 1.5,
+        "selector": "S2_KSS",
+        "so_step": 0.5
+      },
+      "max_equity_dd_pct": 5.305116029460888,
+      "positive_blocks": 2,
+      "total_return_pct": 6.445480531409764
+    },
+    {
+      "config": {
+        "budget": 500.0,
+        "entry_z": 1.0,
+        "exit_z": 0.5,
+        "group_fo_quote": 30.0,
+        "max_legs": 4,
+        "multiplier": 1.0,
+        "selector": "S2_KSS",
+        "so_step": 0.5
+      },
+      "max_equity_dd_pct": 5.94969289673997,
+      "positive_blocks": 2,
+      "total_return_pct": 5.614932418095098
+    },
+    {
+      "config": {
+        "budget": 500.0,
+        "entry_z": 1.0,
+        "exit_z": 0.5,
+        "group_fo_quote": 10.0,
+        "max_legs": 4,
+        "multiplier": 2.0,
+        "selector": "S2_KSS",
+        "so_step": 0.5
+      },
+      "max_equity_dd_pct": 2.2550852251099722,
+      "positive_blocks": 2,
+      "total_return_pct": 2.5670017399333833
+    },
+    {
+      "config": {
+        "budget": 500.0,
+        "entry_z": 1.0,
+        "exit_z": 0.5,
+        "group_fo_quote": 10.0,
+        "max_legs": 4,
+        "multiplier": 1.5,
+        "selector": "S2_KSS",
+        "so_step": 0.5
+      },
+      "max_equity_dd_pct": 1.87041476083483,
+      "positive_blocks": 2,
+      "total_return_pct": 2.1484935104699288
+    },
+    {
+      "config": {
+        "budget": 500.0,
+        "entry_z": 1.0,
+        "exit_z": 0.5,
+        "group_fo_quote": 10.0,
+        "max_legs": 4,
+        "multiplier": 1.0,
+        "selector": "S2_KSS",
+        "so_step": 0.5
+      },
+      "max_equity_dd_pct": 2.1012987485992136,
+      "positive_blocks": 2,
+      "total_return_pct": 1.8716441393650252
+    },
+    {
+      "config": {
+        "budget": 500.0,
+        "entry_z": 1.0,
+        "exit_z": 0.5,
+        "group_fo_quote": 5.0,
+        "max_legs": 4,
+        "multiplier": 2.0,
+        "selector": "S2_KSS",
+        "so_step": 0.5
+      },
+      "max_equity_dd_pct": 1.147132727715979,
+      "positive_blocks": 2,
+      "total_return_pct": 1.283500869966736
+    },
+    {
+      "config": {
+        "budget": 500.0,
+        "entry_z": 1.0,
+        "exit_z": 0.5,
+        "group_fo_quote": 5.0,
+        "max_legs": 4,
+        "multiplier": 1.5,
+        "selector": "S2_KSS",
+        "so_step": 0.5
+      },
+      "max_equity_dd_pct": 0.9488962397458384,
+      "positive_blocks": 2,
+      "total_return_pct": 1.0742467552349755
+    },
+    {
+      "config": {
+        "budget": 500.0,
+        "entry_z": 1.0,
+        "exit_z": 0.5,
+        "group_fo_quote": 5.0,
+        "max_legs": 4,
+        "multiplier": 1.0,
+        "selector": "S2_KSS",
+        "so_step": 0.5
+      },
+      "max_equity_dd_pct": 1.0665227110693833,
+      "positive_blocks": 2,
+      "total_return_pct": 0.9358220696825903
+    },
+    {
+      "config": {
+        "budget": 500.0,
+        "entry_z": 1.0,
+        "exit_z": 0.5,
+        "group_fo_quote": 5.0,
+        "max_legs": 4,
+        "multiplier": 1.0,
+        "selector": "S1_PC1",
+        "so_step": 0.5
+      },
+      "max_equity_dd_pct": 0.0,
+      "positive_blocks": 0,
+      "total_return_pct": 0.0
+    }
+  ],
   "top10": [
+    {
+      "config": {
+        "budget": 500.0,
+        "entry_z": 1.0,
+        "exit_z": 0.5,
+        "group_fo_quote": 5.0,
+        "max_legs": 3,
+        "multiplier": 1.0,
+        "so_step": 0.5
+      },
+      "had_so": true,
+      "max_equity_dd_pct": 0.5309811280385545,
+      "positive_blocks": 1,
+      "total_return_pct": -0.30385011642498627
+    },
     {
       "config": {
         "budget": 500.0,
@@ -47,6 +190,21 @@
       "config": {
         "budget": 500.0,
         "entry_z": 1.5,
+        "exit_z": 0.5,
+        "group_fo_quote": 5.0,
+        "max_legs": 3,
+        "multiplier": 1.0,
+        "so_step": 0.5
+      },
+      "had_so": true,
+      "max_equity_dd_pct": 0.5309811280385545,
+      "positive_blocks": 1,
+      "total_return_pct": -0.30385011642498627
+    },
+    {
+      "config": {
+        "budget": 500.0,
+        "entry_z": 2.0,
         "exit_z": 0.5,
         "group_fo_quote": 5.0,
         "max_legs": 3,
@@ -76,6 +234,36 @@
     {
       "config": {
         "budget": 500.0,
+        "entry_z": 1.0,
+        "exit_z": 0.5,
+        "group_fo_quote": 5.0,
+        "max_legs": 4,
+        "multiplier": 1.0,
+        "so_step": 0.5
+      },
+      "had_so": true,
+      "max_equity_dd_pct": 0.6993912758990859,
+      "positive_blocks": 1,
+      "total_return_pct": -0.42883284306576286
+    },
+    {
+      "config": {
+        "budget": 500.0,
+        "entry_z": 1.0,
+        "exit_z": 0.5,
+        "group_fo_quote": 5.0,
+        "max_legs": 5,
+        "multiplier": 1.0,
+        "so_step": 0.5
+      },
+      "had_so": true,
+      "max_equity_dd_pct": 0.8760917722941965,
+      "positive_blocks": 1,
+      "total_return_pct": -0.5421390075099008
+    },
+    {
+      "config": {
+        "budget": 500.0,
         "entry_z": 0.5,
         "exit_z": 0.5,
         "group_fo_quote": 5.0,
@@ -106,67 +294,7 @@
     {
       "config": {
         "budget": 500.0,
-        "entry_z": 0.5,
-        "exit_z": 0.5,
-        "group_fo_quote": 5.0,
-        "max_legs": 3,
-        "multiplier": 1.5,
-        "so_step": 0.5
-      },
-      "had_so": true,
-      "max_equity_dd_pct": 0.8878322032759792,
-      "positive_blocks": 1,
-      "total_return_pct": -0.5734796093303962
-    },
-    {
-      "config": {
-        "budget": 500.0,
-        "entry_z": 1.5,
-        "exit_z": 0.5,
-        "group_fo_quote": 5.0,
-        "max_legs": 3,
-        "multiplier": 1.5,
-        "so_step": 0.5
-      },
-      "had_so": true,
-      "max_equity_dd_pct": 0.8878322032759792,
-      "positive_blocks": 1,
-      "total_return_pct": -0.5734796093303962
-    },
-    {
-      "config": {
-        "budget": 500.0,
-        "entry_z": 0.5,
-        "exit_z": 0.5,
-        "group_fo_quote": 10.0,
-        "max_legs": 3,
-        "multiplier": 1.0,
-        "so_step": 0.5
-      },
-      "had_so": true,
-      "max_equity_dd_pct": 1.0618878153641298,
-      "positive_blocks": 1,
-      "total_return_pct": -0.6077002328501169
-    },
-    {
-      "config": {
-        "budget": 500.0,
-        "entry_z": 1.5,
-        "exit_z": 0.5,
-        "group_fo_quote": 10.0,
-        "max_legs": 3,
-        "multiplier": 1.0,
-        "so_step": 0.5
-      },
-      "had_so": true,
-      "max_equity_dd_pct": 1.0618878153641298,
-      "positive_blocks": 1,
-      "total_return_pct": -0.6077002328501169
-    },
-    {
-      "config": {
-        "budget": 500.0,
-        "entry_z": 3.0,
+        "entry_z": 2.0,
         "exit_z": 0.5,
         "group_fo_quote": 5.0,
         "max_legs": 5,
@@ -174,11 +302,11 @@
         "so_step": 0.5
       },
       "had_so": true,
-      "max_equity_dd_pct": 0.8760320047075556,
-      "positive_blocks": 0,
-      "total_return_pct": -0.6079817137204957
+      "max_equity_dd_pct": 0.8760917722941965,
+      "positive_blocks": 1,
+      "total_return_pct": -0.5421390075099008
     }
   ],
-  "total_configs": 144,
-  "total_replays": 144
+  "total_configs": 192,
+  "total_replays": 192
 }
