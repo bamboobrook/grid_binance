@@ -1,0 +1,252 @@
+{
+  "budget_quote": 500.0,
+  "fits": [
+    {
+      "betas": [
+        1.0,
+        -1.0
+      ],
+      "fit_sha256": "3407d12438dc6b1b",
+      "group_id": "B1Sd_tb05_ALGOUSDT",
+      "half_life_h": 34.61171065491956,
+      "leg_direction_signs": [
+        1,
+        -1
+      ],
+      "leg_markets": [
+        {
+          "market_type": "spot",
+          "symbol": "ALGOUSDT",
+          "venue": "binance"
+        },
+        {
+          "market_type": "futures_usdt_perp",
+          "symbol": "ALGOUSDT",
+          "venue": "binance"
+        }
+      ],
+      "legs": [
+        "ALGOUSDT",
+        "ALGOUSDT"
+      ],
+      "mus": [
+        -0.00010432021027351601,
+        0.00010432021027351601
+      ],
+      "residual_sigma": 0.0009615061990040157,
+      "weights": [
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "betas": [
+        1.0,
+        -1.0
+      ],
+      "fit_sha256": "54f7cfbf5d3186e1",
+      "group_id": "B1Sd_tb05_ADAUSDT",
+      "half_life_h": 55.09147234714966,
+      "leg_direction_signs": [
+        1,
+        -1
+      ],
+      "leg_markets": [
+        {
+          "market_type": "spot",
+          "symbol": "ADAUSDT",
+          "venue": "binance"
+        },
+        {
+          "market_type": "futures_usdt_perp",
+          "symbol": "ADAUSDT",
+          "venue": "binance"
+        }
+      ],
+      "legs": [
+        "ADAUSDT",
+        "ADAUSDT"
+      ],
+      "mus": [
+        -0.0001523865851306717,
+        0.0001523865851306717
+      ],
+      "residual_sigma": 0.0006632703137955118,
+      "weights": [
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "betas": [
+        1.0,
+        -1.0
+      ],
+      "fit_sha256": "4e98672344d94a22",
+      "group_id": "B1Sd_tb05_AVAXUSDT",
+      "half_life_h": 38.326983351584126,
+      "leg_direction_signs": [
+        1,
+        -1
+      ],
+      "leg_markets": [
+        {
+          "market_type": "spot",
+          "symbol": "AVAXUSDT",
+          "venue": "binance"
+        },
+        {
+          "market_type": "futures_usdt_perp",
+          "symbol": "AVAXUSDT",
+          "venue": "binance"
+        }
+      ],
+      "legs": [
+        "AVAXUSDT",
+        "AVAXUSDT"
+      ],
+      "mus": [
+        -0.00010402346835666872,
+        0.00010402346835666872
+      ],
+      "residual_sigma": 0.0007385182391837662,
+      "weights": [
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "betas": [
+        1.0,
+        -1.0
+      ],
+      "fit_sha256": "2c8b7f4695f8d7a9",
+      "group_id": "B1Sd_tb05_UNIUSDT",
+      "half_life_h": 65.73879966349928,
+      "leg_direction_signs": [
+        1,
+        -1
+      ],
+      "leg_markets": [
+        {
+          "market_type": "spot",
+          "symbol": "UNIUSDT",
+          "venue": "binance"
+        },
+        {
+          "market_type": "futures_usdt_perp",
+          "symbol": "UNIUSDT",
+          "venue": "binance"
+        }
+      ],
+      "legs": [
+        "UNIUSDT",
+        "UNIUSDT"
+      ],
+      "mus": [
+        -0.00011649046088423097,
+        0.00011649046088423097
+      ],
+      "residual_sigma": 0.0007206145498042853,
+      "weights": [
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "betas": [
+        1.0,
+        -1.0
+      ],
+      "fit_sha256": "9a6c82198cc9b1a6",
+      "group_id": "B1Sd_tb05_BCHUSDT",
+      "half_life_h": 31.524832674222722,
+      "leg_direction_signs": [
+        1,
+        -1
+      ],
+      "leg_markets": [
+        {
+          "market_type": "spot",
+          "symbol": "BCHUSDT",
+          "venue": "binance"
+        },
+        {
+          "market_type": "futures_usdt_perp",
+          "symbol": "BCHUSDT",
+          "venue": "binance"
+        }
+      ],
+      "legs": [
+        "BCHUSDT",
+        "BCHUSDT"
+      ],
+      "mus": [
+        -0.0005829523506894077,
+        0.0005829523506894077
+      ],
+      "residual_sigma": 0.0006709026328558575,
+      "weights": [
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "betas": [
+        1.0,
+        -1.0
+      ],
+      "fit_sha256": "ad5a6dafbc97e6ce",
+      "group_id": "B1Sd_tb05_LINKUSDT",
+      "half_life_h": 100.72028113828213,
+      "leg_direction_signs": [
+        1,
+        -1
+      ],
+      "leg_markets": [
+        {
+          "market_type": "spot",
+          "symbol": "LINKUSDT",
+          "venue": "binance"
+        },
+        {
+          "market_type": "futures_usdt_perp",
+          "symbol": "LINKUSDT",
+          "venue": "binance"
+        }
+      ],
+      "legs": [
+        "LINKUSDT",
+        "LINKUSDT"
+      ],
+      "mus": [
+        -8.738239544729218e-05,
+        8.738239544729218e-05
+      ],
+      "residual_sigma": 0.0006445561305574173,
+      "weights": [
+        0.5,
+        0.5
+      ]
+    }
+  ],
+  "synchronized_cycle": {
+    "bar_boundary_minutes": 1440,
+    "c1_scheduler": null,
+    "cycle_deadline_h": 168,
+    "entry_z": 1.0,
+    "exit_z": 0.5,
+    "family": "B1S",
+    "fit_lookback_days": 180,
+    "group_fo_quote": 30.0,
+    "group_gross_cap_pct": 400.0,
+    "inventory_reservation_skew_k": 0,
+    "jump_first_passage_gate": null,
+    "leverage": 10,
+    "max_legs": 4,
+    "multiplier": 1.5,
+    "regime_envelope": null,
+    "so_residual_step_z": 0.5,
+    "tp_net_bps_floor": 25
+  }
+}

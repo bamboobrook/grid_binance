@@ -1,0 +1,60 @@
+{
+  "blocks_positive": 0,
+  "blocks_total": 10,
+  "cross_fit_per_block": {
+    "tb02": {
+      "best_ann": -5.760947934831206,
+      "positive": 0,
+      "total": 24
+    },
+    "tb03": {
+      "best_ann": -7.536599206284944,
+      "positive": 0,
+      "total": 24
+    },
+    "tb04": {
+      "best_ann": -1.4315982086546164,
+      "positive": 0,
+      "total": 24
+    },
+    "tb05": {
+      "best_ann": -1.26582413482621,
+      "positive": 0,
+      "total": 12
+    },
+    "tb06": {
+      "best_ann": -2.15700980009208,
+      "positive": 0,
+      "total": 24
+    },
+    "tb07": {
+      "best_ann": -0.8388151385111953,
+      "positive": 0,
+      "total": 12
+    },
+    "tb09": {
+      "best_ann": -0.7188133099198524,
+      "positive": 0,
+      "total": 12
+    },
+    "tb10": {
+      "best_ann": -1.520723032520288,
+      "positive": 0,
+      "total": 12
+    },
+    "tb11": {
+      "best_ann": -1.9749764343268583,
+      "positive": 0,
+      "total": 6
+    },
+    "tb12": {
+      "best_ann": -1.1037667420933706,
+      "positive": 0,
+      "total": 12
+    }
+  },
+  "elapsed_s": 448.7,
+  "generated_at_utc": "2026-07-21T00:55:23.260750+00:00",
+  "phase": "R21 B1S daily block-specific (push B1S above break-even)",
+  "total_complete": 162
+}
