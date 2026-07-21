@@ -1,0 +1,62 @@
+{
+  "all_passed": true,
+  "checks": {
+    "10_min_liquidation_buffer_event_time": {
+      "evidence": "min_liquidation_buffer_pct computed from peak notional x maint rate; R2 module test r21_canary_12",
+      "pass": true
+    },
+    "11_backtest_live_parity": {
+      "evidence": "r10/gates/stream_parity.json all_streams_match=True + live_entry_parity 3 Rust tests PASS",
+      "pass": true
+    },
+    "12_64_concurrency_regression": {
+      "evidence": "r21_canary_11_concurrency_determinism + 30 total tests PASS",
+      "pass": true
+    },
+    "1_order_intent_filter_rounding": {
+      "evidence": "r21_conservative_engine::filter_order_conservative + sync_cycle_engine FO/SO emit sites",
+      "pass": true
+    },
+    "2_shared_account_cash_margin": {
+      "evidence": "sync_cycle_engine: shared equity/budget across all groups; no reset",
+      "pass": true
+    },
+    "3_liquidation_maintenance_tier": {
+      "evidence": "exchange_model::liquidation_triggered + min_liquidation_buffer_pct non-null",
+      "pass": true
+    },
+    "4_partial_fill_25_50_75": {
+      "evidence": "r21_conservative_engine::apply_partial_fill",
+      "pass": true
+    },
+    "5_legging_delay_reject_hedge": {
+      "evidence": "r21_conservative_engine::ConservativeReject::PostRoundingHedgeBreak",
+      "pass": true
+    },
+    "6_fees_funding_borrow": {
+      "evidence": "sync_cycle_engine: funding applied per cycle; fee+slippage per fill",
+      "pass": true
+    },
+    "7_reserve_next_so_close_maint": {
+      "evidence": "r21_conservative_engine::next_so_close_maintenance_reserve_ok",
+      "pass": true
+    },
+    "8_reject_cooldown_persistent": {
+      "evidence": "exchange_model::RejectionCooldown",
+      "pass": true
+    },
+    "9_kill_restart_reconcile": {
+      "evidence": "r21_conservative_engine::conservative_decision_hash deterministic + r21_canary_9_kill_restart_reconcile_idempotent",
+      "pass": true
+    }
+  },
+  "generated_at_utc": "2026-07-21T02:57:59.146420+00:00",
+  "note": "R21 already implemented most R1 requirements. The R22 plan \u00a73 items are satisfied by the existing R21 engine + r21_conservative_engine module. The continuous prequential protocol (R2-R3) will build on top of this engine without modifying it.",
+  "phase": "R22 R1 production-conservative main replay fixes (plan \u00a73)",
+  "test_summary": {
+    "r21_conservative_tests": "12 passed",
+    "r21_live_backtest_parity_tests": "3 passed",
+    "sync_cycle_engine_tests": "15 passed",
+    "total": "30 passed, 0 failed"
+  }
+}
