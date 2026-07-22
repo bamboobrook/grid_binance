@@ -64,7 +64,6 @@ pub fn compute_m1_states(
 ) -> Vec<M1State> {
     // merge metrics and closes by timestamp
     use std::collections::BTreeMap;
-    let close_map: BTreeMap<i64, f64> = closes_5m.iter().cloned().collect();
     let metric_map: BTreeMap<i64, &MetricRow> = metrics.iter().map(|m| (m.ts_ms, m)).collect();
     let mut states = Vec::new();
     let mut log_oi_hist: Vec<f64> = Vec::new(); // rolling log OI value

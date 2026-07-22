@@ -99,20 +99,20 @@
     }
   ],
   "commit_on_upstream": true,
-  "failure_ledger_rows": 0,
-  "git_commit": "2bb7703e8bc90e299178c311f5736fe3af93a578",
+  "failure_ledger_rows": 3,
+  "git_commit": "337b2e2bdeb129aba800f8b982371ed6bfdb7256",
   "git_dirty": true,
   "phases_completed": [
     "R0",
-    "R1",
-    "R4"
+    "G1",
+    "R4",
+    "R1"
   ],
   "phases_remaining": [
     "R2",
     "R3",
     "R5",
     "G0",
-    "G1",
     "G2",
     "R8",
     "HANDOFF"
@@ -121,8 +121,8 @@
   "r0_canaries_all_rejected": true,
   "r0_canary_count": 15,
   "r22_corrected_authority_sha256": "a313f89d7030eba0a093e0fc4579188d2d65e2abd2ee1d90cbd2aa207007ee0f",
-  "registry_rows": 50,
+  "registry_rows": 102,
   "status": "BLOCKED_ENGINE_DATA_OR_EXECUTION",
-  "upstream_remote_commit": "2bb7703e8bc90e299178c311f5736fe3af93a578",
-  "validated_at_utc": "2026-07-22T13:34:18Z"
+  "upstream_remote_commit": "337b2e2bdeb129aba800f8b982371ed6bfdb7256",
+  "validated_at_utc": "2026-07-22T13:59:14Z"
 }
