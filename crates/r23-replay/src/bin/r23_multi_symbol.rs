@@ -24,9 +24,16 @@ fn main() -> Result<()> {
     let price_ext_thresh: f64 = std::env::args().nth(3).and_then(|s| s.parse().ok()).unwrap_or(1.5);
     let fo_pct: f64 = std::env::args().nth(4).and_then(|s| s.parse().ok()).unwrap_or(10.0);
     let max_legs: u32 = std::env::args().nth(5).and_then(|s| s.parse().ok()).unwrap_or(2);
-    let symbols: Vec<String> = std::env::args().skip(6).collect();
+    let tp_mode_str: String = std::env::args().nth(6).unwrap_or_else(|| "ScaleOut".to_string());
+    let tp_mode = match tp_mode_str.as_str() {
+        "Micro" => r23_replay::gated_martin::TpMode::Micro,
+        "Fixed" => r23_replay::gated_martin::TpMode::Fixed,
+        "Early" => r23_replay::gated_martin::TpMode::Early,
+        _ => r23_replay::gated_martin::TpMode::ScaleOut,
+    };
+    let symbols: Vec<String> = std::env::args().skip(7).collect();
     let symbols: Vec<String> = if symbols.is_empty() { vec!["BTCUSDT".to_string(), "ETHUSDT".to_string()] } else { symbols };
-    println!("params: budget={budget} price_ext_thresh={price_ext_thresh} fo_pct={fo_pct} max_legs={max_legs}");
+    println!("params: budget={budget} thresh={price_ext_thresh} fo_pct={fo_pct} max_legs={max_legs} tp={tp_mode_str}");
 
     // Load per-symbol bars + signals over the COMMON intersection window.
     let src = SqliteMarketDataSource::open_readonly("data/market_data.full.db").or_else(|_| SqliteMarketDataSource::open_readonly("data/market_data_full.db")).unwrap();
@@ -78,7 +85,7 @@ fn main() -> Result<()> {
             slippage_bps: 1.0,
             leverage: 3,
             direction_bias: 1,
-            tp_mode: TpMode::ScaleOut, // smoother returns
+            tp_mode,
             max_legs,
         };
         let res = run_gated_martin(&cfg, &cbars, &signal).unwrap_or_else(|_| empty_result(sleeve_budget));

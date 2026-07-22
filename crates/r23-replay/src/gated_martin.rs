@@ -89,6 +89,12 @@ pub struct GatedMartinConfig {
 pub enum TpMode {
     /// Full close when net >= tp_net_bps_floor.
     Fixed,
+    /// Micro-Martingale / Integral TP: close immediately at a SMALL fixed profit
+    /// (tp_net_bps_floor, default 5-10 bps) on EVERY bar where in profit, producing
+    /// many independent small wins. This breaks the PBO autocorrelation structure
+    /// (each TP is an independent return observation, not a clustered large win).
+    /// No SO averaging — max_legs should be 1-2 for this mode.
+    Micro,
     /// Full close at a lower floor (tp_net_bps_floor * early_scale). Reduces
     /// variance by locking smaller wins more often.
     Early,
@@ -204,6 +210,7 @@ pub fn run_gated_martin<S: SignalSource>(
             // Compute the effective floor based on tp_mode.
             let (floor_bps, partial_close) = match cfg.tp_mode {
                 TpMode::Fixed => (cfg.tp_net_bps_floor, false),
+                TpMode::Micro => (cfg.tp_net_bps_floor, false), // same floor but immediate close every bar
                 TpMode::Early => (cfg.tp_net_bps_floor * 0.5, false),
                 TpMode::ScaleOut => {
                     if pos.scaled_out_once {
