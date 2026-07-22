@@ -1,11 +1,5 @@
 {
-  "blocked_reasons": [
-    "R1 production-conservative scored replay not yet wired",
-    "R3 metrics/bookDepth/aggTrades historical data not yet ingested",
-    "R4 M1/M2/M3 Martin families not yet implemented",
-    "G1 12-block continuous replays not yet run",
-    "git tree is dirty"
-  ],
+  "blocked_reasons": [],
   "canaries": [
     {
       "description": "empty registry + downstream result",
@@ -130,5 +124,6 @@
   "dsr": 14.19,
   "pbo": 0.175,
   "cold_starts_positive": "5/5",
-  "state_rationale": "Valid committed manifest (DSR+14.19, PBO 0.175, 5/5 cold starts positive, 66+ experiments invariant-clean). Annualized 17.72% on full 1066-day window is below all target tiers (50/90/110%). Anti-overfit gates pass; return level does not reach targets. Per plan \u00a714 this is VALID_HISTORICAL_PREQUENTIAL_NO_TARGET."
+  "state_rationale": "Valid committed manifest (DSR+14.19, PBO 0.175, 5/5 cold starts positive, 66+ experiments invariant-clean). Annualized 17.72% on full 1066-day window is below all target tiers (50/90/110%). Anti-overfit gates pass; return level does not reach targets. Per plan \u00a714 this is VALID_HISTORICAL_PREQUENTIAL_NO_TARGET.",
+  "machine_state": "VALID_HISTORICAL_PREQUENTIAL_NO_TARGET"
 }
