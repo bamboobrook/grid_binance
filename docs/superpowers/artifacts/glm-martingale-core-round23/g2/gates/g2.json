@@ -1,0 +1,138 @@
+{
+  "budget": 1000.0,
+  "cold_positive_count": 5,
+  "cold_starts": [
+    {
+      "compounded": 38.99005722900037,
+      "days": 910.0,
+      "liquidation": false,
+      "max_dd": 17.27708329441665,
+      "offset_days": 0,
+      "positive": true
+    },
+    {
+      "compounded": 38.11915555600041,
+      "days": 880.0,
+      "liquidation": false,
+      "max_dd": 17.39392517087605,
+      "offset_days": 30,
+      "positive": true
+    },
+    {
+      "compounded": 37.681728193000396,
+      "days": 850.0,
+      "liquidation": false,
+      "max_dd": 17.45320954244756,
+      "offset_days": 60,
+      "positive": true
+    },
+    {
+      "compounded": 37.01342315600043,
+      "days": 820.0,
+      "liquidation": false,
+      "max_dd": 17.54456912741828,
+      "offset_days": 90,
+      "positive": true
+    },
+    {
+      "compounded": 36.89442949400037,
+      "days": 790.0,
+      "liquidation": false,
+      "max_dd": 17.56093637229545,
+      "offset_days": 120,
+      "positive": true
+    }
+  ],
+  "cscv_pbo": 0.01,
+  "dsr": -2.5701993013163706,
+  "loso": [
+    {
+      "compounded": 38.99005722900037,
+      "max_dd": 17.27708329441665,
+      "symbol": "BTCUSDT",
+      "trades": 1755
+    }
+  ],
+  "pbo": 0.01,
+  "phase": "G2",
+  "primary": "BTCUSDT",
+  "stitched": {
+    "annualized_pct": 14.117071584557461,
+    "breach": false,
+    "days": 910.0,
+    "max_dd_pct": 17.27708329441665
+  },
+  "stress_matrix": [
+    {
+      "compounded": 38.99005722900037,
+      "label": "fee_slip_1x",
+      "liquidation": false,
+      "max_dd": 17.27708329441665,
+      "trades": 1755
+    },
+    {
+      "compounded": 34.174287478499735,
+      "label": "fee_slip_1.5x",
+      "liquidation": false,
+      "max_dd": 17.850944268693826,
+      "trades": 1689
+    },
+    {
+      "compounded": 29.278507502000185,
+      "label": "fee_slip_2x",
+      "liquidation": false,
+      "max_dd": 18.43732842089475,
+      "trades": 1643
+    },
+    {
+      "compounded": 23.97297876524962,
+      "label": "partial_fill_25pct",
+      "liquidation": false,
+      "max_dd": 19.1262979838365,
+      "trades": 1755
+    },
+    {
+      "compounded": 28.97867158649936,
+      "label": "partial_fill_50pct",
+      "liquidation": false,
+      "max_dd": 18.468805887418487,
+      "trades": 1755
+    },
+    {
+      "compounded": 33.98436440775035,
+      "label": "partial_fill_75pct",
+      "liquidation": false,
+      "max_dd": 17.853726182863074,
+      "trades": 1755
+    },
+    {
+      "compounded": 18.9672859440001,
+      "label": "leg_delay_1bars",
+      "liquidation": false,
+      "max_dd": 19.830745891609915,
+      "trades": 1755
+    },
+    {
+      "compounded": -1.0554853409999732,
+      "label": "leg_delay_2bars",
+      "liquidation": false,
+      "max_dd": 25.353158458000042,
+      "trades": 1755
+    },
+    {
+      "compounded": -21.078256626000247,
+      "label": "leg_delay_3bars",
+      "liquidation": false,
+      "max_dd": 41.654334788000064,
+      "trades": 1755
+    },
+    {
+      "compounded": 0.0,
+      "label": "one_leg_reject_stress_filters",
+      "liquidation": false,
+      "max_dd": 0.0,
+      "trades": 0
+    }
+  ],
+  "validated_at_utc": "2026-07-22T14:05:33Z"
+}

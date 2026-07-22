@@ -1,0 +1,52 @@
+{
+  "multiple_testing": {
+    "ann_sharpe": 1.5834989146618628,
+    "cscv_pbo": 0.01,
+    "dsr": -2.5701993013163706,
+    "n_trials": 11,
+    "pbo": 0.01
+  },
+  "note": "single-symbol BTC; multi-symbol combination (symbol gross<=25%) is the next step to reach tiers",
+  "phase": "R8",
+  "stitched": {
+    "annualized_pct": 14.117071584557461,
+    "days": 910.0,
+    "max_dd_pct": 17.27708329441665
+  },
+  "tiers": {
+    "aggressive": {
+      "actual": {
+        "ann": 14.117071584557461,
+        "cold_pos_ratio": 1.0,
+        "dd": 17.27708329441665
+      },
+      "hit": false,
+      "needed": "ann>=110%/dd<=30%/cs>=3-5"
+    },
+    "balanced": {
+      "actual": {
+        "ann": 14.117071584557461,
+        "cold_pos_ratio": 1.0,
+        "dd": 17.27708329441665
+      },
+      "hit": false,
+      "needed": "ann>=90%/dd<=20%/cs>=4-5"
+    },
+    "conservative": {
+      "actual": {
+        "ann": 14.117071584557461,
+        "cold_pos_ratio": 1.0,
+        "dd": 17.27708329441665
+      },
+      "hit": false,
+      "needed": "ann>=50%/dd<=10%/cs>=4-5"
+    },
+    "gates_common": {
+      "dsr_positive": false,
+      "no_breach": true,
+      "pbo_below_half": true,
+      "stitched_days_ok": true
+    }
+  },
+  "validated_at_utc": "2026-07-22T14:05:33Z"
+}
