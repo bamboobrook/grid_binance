@@ -104,25 +104,31 @@
   "git_dirty": true,
   "phases_completed": [
     "R0",
-    "G2",
-    "R4",
     "R1",
-    "G1"
+    "R3",
+    "R4",
+    "G1",
+    "G2",
+    "R8"
   ],
   "phases_remaining": [
     "R2",
-    "R3",
     "R5",
-    "G0",
-    "R8",
-    "HANDOFF"
+    "G0"
   ],
   "plan_sha256": "e471144d18b6e3d6a75c54bd9eede17e7235145d61979e82105b862c3af30e1e",
   "r0_canaries_all_rejected": true,
   "r0_canary_count": 15,
   "r22_corrected_authority_sha256": "a313f89d7030eba0a093e0fc4579188d2d65e2abd2ee1d90cbd2aa207007ee0f",
   "registry_rows": 132,
-  "status": "BLOCKED_ENGINE_DATA_OR_EXECUTION",
+  "status": "VALID_HISTORICAL_PREQUENTIAL_NO_TARGET",
   "upstream_remote_commit": "92b5d6d69bee7381bec10c8dd212842da05fa37a",
-  "validated_at_utc": "2026-07-22T14:08:12Z"
+  "validated_at_utc": "2026-07-22T16:02:39Z",
+  "target_hit": false,
+  "best_annualized_pct": 17.72,
+  "best_max_dd_pct": 29.52,
+  "dsr": 14.19,
+  "pbo": 0.175,
+  "cold_starts_positive": "5/5",
+  "state_rationale": "Valid committed manifest (DSR+14.19, PBO 0.175, 5/5 cold starts positive, 66+ experiments invariant-clean). Annualized 17.72% on full 1066-day window is below all target tiers (50/90/110%). Anti-overfit gates pass; return level does not reach targets. Per plan \u00a714 this is VALID_HISTORICAL_PREQUENTIAL_NO_TARGET."
 }
