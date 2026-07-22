@@ -54,6 +54,7 @@ pub mod g2_stress;
 pub mod gated_martin;
 pub mod m1_signal;
 pub mod m2_signal;
+pub mod ml_predictor;
 pub mod multiple_testing;
 pub mod summary;
 pub mod directed_checks;
