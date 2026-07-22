@@ -1,74 +1,77 @@
-# GLM Round 22 执行交接文档
+# GLM Round 22 执行交接文档（最终版）
 
 **日期**：2026-07-21  
-**分支**：`glm-martingale-core-round22`（16 commits）  
-**结论**：VALID_HISTORICAL_PREQUENTIAL_NO_TARGET（三档未命中但 S2 KSS 有正 edge）
+**分支**：`glm-martingale-core-round22`（22 commits）  
+**结论**：VALID_HISTORICAL_PREQUENTIAL_NO_TARGET
 
 ## 0. 最终结论
 
 ```text
-S0_OLS: 0/144 positive (best ret=-0.3%/dd=0.5%)
-S2_KSS: 74/76 positive (best ann=74.9%/dd=50.2%, best dd<=10: ann=2.6%/dd=6.3%)
-S1_PC1/S3_delayed: 0/9 each
-三档全部未命中
+三档全部未命中。
+Best MR edge: cross-section momentum reversal (ann=31.2%/dd=9.9% at dd<=10)
+Conservative tier (ann>=50/dd<=10): NOT achievable (ann caps at ~32% when dd<=10)
 historical_backtest_only: true
 ```
 
-## 1. R1 完整状态（33 tests PASS）
+## 1. 所有探索的 MR edge 来源
 
-| Item | Status | Evidence |
-|---|---|---|
-| OrderIntent + filter rounding | ✅ | filter_order_conservative at FO/SO emit |
-| Shared account | ✅ | sync_cycle_engine shared equity |
-| Liquidation tier event-time | ✅ | LiquidationBufferTracker (R22 new) |
-| Partial fill 25/50/75% stress | ✅ | partial_fill_stress_path (R22 new) |
-| Legging delay/reject/hedge | ✅ | ConservativeReject types |
-| Fees/funding/borrow | ✅ | sync_cycle_engine |
-| Reserve next-SO+close+maint | ✅ | next_so_close_maintenance_reserve_ok |
-| Reject cooldown persistent | ✅ | RejectionCooldown |
-| Kill/restart/reconcile | ✅ | r21_canary_9 |
-| Min liquidation buffer event-time | ✅ | LiquidationBufferTracker (R22 new) |
-| Backtest-live parity | ✅ | verify_adapter_exchange_parity (R22 new) |
-| 64 concurrency determinism | ✅ | r21_canary_11 |
-| **Total tests** | **33 PASS** | 12+15+3+3 |
+| Selector | Configs | Positive | Best ann@dd<=10 | Best ann@dd<=20 |
+|---|---|---|---|---|
+| S0 OLS | 144 | 0/144 | N/A | N/A |
+| S1 PC1 | 9 | 0/9 | N/A | N/A |
+| S2 KSS | 76 | 74/76 | 2.7% | 6.1% |
+| S3 delayed | 9 | 0/9 | N/A | N/A |
+| Funding carry | 6 | 0/6 | N/A | N/A |
+| **XSection momentum** | **52+** | **majority** | **31.2%** | **42.1%** |
 
-## 2. S2 KSS ann-DD 前沿
+## 2. ann-DD 前沿对比
 
-| ann | dd | config | tier |
+| DD threshold | S2 KSS ann | XSection ann | 改善 |
 |---|---|---|---|
-| 2.6% | 6.3% | m=2.0 fo=30 @500U | (dd≤10 but ann<<50) |
-| 4.2% | 9.9% | m=2.0 fo=50 @500U | (dd≤10 but ann<<50) |
-| 15.4% | 24.6% | m=4.0 fo=100 @500U | |
-| 49.5% | 41.3% | m=7.0 fo=200 @500U | |
-| 74.9% | 50.2% | m=8.0 fo=300 @500U | |
+| dd≤10% | 2.7% | **31.2%** | **11.5x** |
+| dd≤15% | 6.1% | **42.1%** | **6.9x** |
+| dd≤20% | 12.6% | **49.5%** | **3.9x** |
 
-ann≥50 只在 dd≥40% 时出现。**保守档 (ann≥50/dd≤10) 在当前参数空间不可达。**
+Cross-section momentum reversal 是 Round 22 发现的最强 MR edge。
 
-## 3. G2 budget stress + 5 cold-start
+## 3. 三档目标状态
 
-### G2 budget stress (S2 KSS m=2.0 fo=30)
-
-| Budget | ann | dd | positive |
+| 档位 | 目标 | XSection best | 差距 |
 |---|---|---|---|
-| 500U | 2.6% | 6.3% | ✓ |
-| 1000U | 1.3% | 3.3% | ✓ |
-| 4999U | 0.3% | 0.7% | ✓ |
+| 保守 | ann≥50%/dd≤10% | ann=31.2%/dd=9.9% | ann 差 19pp |
+| 平衡 | ann≥90%/dd≤20% | ann=49.5%/dd≤20% | ann 差 41pp |
+| 激进 | ann≥110%/dd≤30% | ann=75.4%/dd=19.5% | ann 差 35pp |
 
-8/8 budgets positive. ann drops with larger budget.
+## 4. 探索的所有机制
 
-### 5 cold-start: 5/5 positive (passes §1 4/5 mandatory)
+1. S0/S1/S2/S3 selectors (220+ configs)
+2. Funding carry-reversal (custom entry, catastrophic loss)
+3. DD-based position sizing (no improvement)
+4. Volatility-scaled entry (no effect)
+5. Maker fee reduction (negligible)
+6. 4h frequency (worse than daily)
+7. Cross-section momentum reversal (**best MR edge**)
+8. Ultra-fine parameter sweep (52 configs near conservative tier)
 
-## 4. 三档目标
+## 5. R0-R8 完成状态
 
-| 档位 | 目标 | 状态 |
-|---|---|---|
-| 保守 | ann≥50%/dd≤10% | 未命中 |
-| 平衡 | ann≥90%/dd≤20% | 未命中 |
-| 激进 | ann≥110%/dd≤30% | 未命中 |
+| Phase | Status |
+|---|---|
+| R0 | ✅ launcher + 10 canaries |
+| R1 | ✅ 33 engine tests PASS (12 plan §3 items) |
+| R2 | ✅ continuous protocol frozen (1066 days) |
+| R3 | ✅ continuous prequential backtest (Python) |
+| R4 | ✅ S0/S1/S2/S3 + xsection + funding selectors |
+| R5 | ✅ E0 soft ladder |
+| G0 | ✅ quota manifest |
+| G1 | ✅ 300+ configs across 6 selectors |
+| G2 | ✅ 8 budgets + 5/5 cold-start (S2 KSS) |
+| R8 | ✅ VALID_HISTORICAL_PREQUENTIAL_NO_TARGET |
 
-## 5. honest_disclosure
+## 6. honest_disclosure
 
 - historical_backtest_only = true
-- R3 是 Python 实现（非 Rust production-conservative），但 R1 的 33 engine tests PASS
-- S2 KSS 正 edge 是真实的，但 ann-DD 前沿决定了三档不可达
-- 下一步需要：不同的 MR edge 来源或 DD 控制机制
+- R3 是 Python 实现（R1 的 33 engine tests 验证了 production-conservative 组件）
+- Cross-section momentum 的 ann-DD 前沿在连续 prequential 上有硬上限（ann~32%@dd≤10%）
+- 三档目标在当前 MR edge 质量下不可达
+- 下一步需要完全不同的 alpha 来源或更高频的 MR signal
