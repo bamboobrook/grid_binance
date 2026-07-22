@@ -37,12 +37,23 @@
   },
   "upstream_remote_commit": "92b5d6d69bee7381bec10c8dd212842da05fa37a",
   "best_result": {
-    "annualized_pct": 17.72,
-    "max_dd_pct": 29.52,
-    "ann_sharpe": 0.71,
-    "dsr": 14.19,
-    "pbo": 0.175,
-    "cold_starts_positive": "5/5"
+    "config": "BTCUSDT single-symbol, M1 OI/crowding, adverse=0.010, tp_bps=5, thresh=1.5, fo=35%, legs=3, ScaleOut",
+    "annualized_pct": 25.69,
+    "max_dd_pct": 23.54,
+    "ann_sharpe": 1.074,
+    "dsr": 12.23,
+    "pbo": 0.435,
+    "cold_starts_positive": "5/5",
+    "note": "Grid-sweep discovered better params than prior 17.72%/0.71. Still below Sharpe>=2 gate."
   },
-  "no_target_rationale": "M1 OI/crowding mechanism Sharpe ~0.7; targets need Sharpe 2-5. Best ann 17.72%/DD 29.52% on full 1066d window. Anti-overfit gates pass (DSR+14.19/PBO 0.175)."
+  "no_target_rationale": "M1 OI/crowding mechanism Sharpe ~0.7; targets need Sharpe 2-5. Best ann 17.72%/DD 29.52% on full 1066d window. Anti-overfit gates pass (DSR+14.19/PBO 0.175).",
+  "grid_sweep_evidence": {
+    "single_symbol_cells": 648,
+    "multi_symbol_combos": 432,
+    "fo_push_points": 25,
+    "total_backtests": 915,
+    "best_single_symbol_sharpe": 1.074,
+    "best_multi_symbol_sharpe": 0.86,
+    "key_finding": "Multi-symbol Sharpe < single-symbol (factor correlated); Sharpe>=2 unreachable"
+  }
 }
