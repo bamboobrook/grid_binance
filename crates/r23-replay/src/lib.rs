@@ -49,6 +49,7 @@
 pub mod account;
 pub mod continuous;
 pub mod fit;
+pub mod m1_signal;
 pub mod summary;
 pub mod directed_checks;
 

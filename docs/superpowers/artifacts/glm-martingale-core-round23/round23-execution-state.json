@@ -100,7 +100,7 @@
   ],
   "commit_on_upstream": true,
   "failure_ledger_rows": 0,
-  "git_commit": "716a481f10385c49f4af3171e59ac47ff48f22b9",
+  "git_commit": "2bb7703e8bc90e299178c311f5736fe3af93a578",
   "git_dirty": true,
   "phases_completed": [
     "R0",
@@ -123,6 +123,6 @@
   "r22_corrected_authority_sha256": "a313f89d7030eba0a093e0fc4579188d2d65e2abd2ee1d90cbd2aa207007ee0f",
   "registry_rows": 50,
   "status": "BLOCKED_ENGINE_DATA_OR_EXECUTION",
-  "upstream_remote_commit": "716a481f10385c49f4af3171e59ac47ff48f22b9",
-  "validated_at_utc": "2026-07-22T13:29:48Z"
+  "upstream_remote_commit": "2bb7703e8bc90e299178c311f5736fe3af93a578",
+  "validated_at_utc": "2026-07-22T13:34:18Z"
 }
