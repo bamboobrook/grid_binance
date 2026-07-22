@@ -4,7 +4,7 @@
     "R3 metrics/bookDepth/aggTrades historical data not yet ingested",
     "R4 M1/M2/M3 Martin families not yet implemented",
     "G1 12-block continuous replays not yet run",
-    "git tree is dirty"
+    "HEAD commit not on upstream remote"
   ],
   "canaries": [
     {
@@ -98,10 +98,10 @@
       "outcome": "RejectedCorrectly"
     }
   ],
-  "commit_on_upstream": true,
+  "commit_on_upstream": false,
   "failure_ledger_rows": 0,
-  "git_commit": "23809e33d9fc37199ff4a6ec59eb2c2d88f77292",
-  "git_dirty": true,
+  "git_commit": "72bdb6f2a9ebe369494c90af37adaddcee451336",
+  "git_dirty": false,
   "phases_completed": [
     "R0"
   ],
@@ -124,5 +124,5 @@
   "registry_rows": 0,
   "status": "BLOCKED_ENGINE_DATA_OR_EXECUTION",
   "upstream_remote_commit": "23809e33d9fc37199ff4a6ec59eb2c2d88f77292",
-  "validated_at_utc": "2026-07-22T12:47:19Z"
+  "validated_at_utc": "2026-07-22T12:51:25Z"
 }

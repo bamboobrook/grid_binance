@@ -1,8 +1,8 @@
 {
   "checks": {
     "canaries_all_rejected": true,
-    "commit_on_upstream": true,
-    "git_tree_clean": false,
+    "commit_on_upstream": false,
+    "git_tree_clean": true,
     "ledger_writable": true,
     "manifest_valid": true,
     "registry_writable": true
@@ -10,5 +10,5 @@
   "gate": "R0_registry_contract_valid",
   "passed": false,
   "phase": "R0",
-  "validated_at_utc": "2026-07-22T12:47:19Z"
+  "validated_at_utc": "2026-07-22T12:51:25Z"
 }
