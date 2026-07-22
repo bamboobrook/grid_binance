@@ -57,6 +57,7 @@ pub mod m2_signal;
 pub mod multiple_testing;
 pub mod summary;
 pub mod directed_checks;
+pub mod xs_momentum;
 
 pub use account::{ContinuousAccount, AccountSnapshot};
 pub use continuous::{
