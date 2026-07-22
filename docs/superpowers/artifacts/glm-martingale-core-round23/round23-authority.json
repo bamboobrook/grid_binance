@@ -51,9 +51,40 @@
     "single_symbol_cells": 648,
     "multi_symbol_combos": 432,
     "fo_push_points": 25,
-    "total_backtests": 915,
+    "micro_integral_cells": 540,
+    "m1m2_extended_cells": 16,
+    "total_backtests": 1471,
     "best_single_symbol_sharpe": 1.074,
     "best_multi_symbol_sharpe": 0.86,
-    "key_finding": "Multi-symbol Sharpe < single-symbol (factor correlated); Sharpe>=2 unreachable"
-  }
+    "best_micro_integral_sharpe": 1.725,
+    "m1m2_short_window_sharpe": 2.0185,
+    "m1m2_full_window_sharpe": 0.756,
+    "key_findings": [
+      "Multi-symbol Sharpe < single-symbol (factor correlated)",
+      "MicroIntegral raises Sharpe by killing ann (strict tradeoff)",
+      "M1M2 Sharpe 2.0185 was a 219-day short-window artifact; collapses to 0.756 on full 1066d",
+      "Sharpe>=2.0 unreachable via any tested path"
+    ]
+  },
+  "exhausted_paths": [
+    "M1 OI/crowding (best edge, Sharpe 1.074)",
+    "M2 depth/flow (marginal, no independent alpha)",
+    "M3 Johansen basket (negative)",
+    "XS-momentum (negative, dilutes M1)",
+    "Funding-carry (catastrophic -100%)",
+    "ML logistic next-bar (no exploitable signal)",
+    "MicroIntegral TP / ssrn.5895159 concepts (\u00a710.2 disclosed, Sharpe/ann tradeoff)",
+    "M1M2 AND-gate extended 731d window (short-window artifact confirmed)",
+    "FO-push to 80% ceiling (ann rises faster than DD)",
+    "216-cell single-symbol \u00d7 3 symbols grid",
+    "432-combo multi-symbol grid",
+    "540-cell MicroIntegral grid",
+    "25-point FO-push sweep",
+    "Full gate suite (DSR/PBO/5cs) on best config"
+  ],
+  "unblock_options_for_user": [
+    "Provide /tmp/ssrn5895159.pdf for \u00a710.2 verified implementation",
+    "Relax Sharpe>=2.0 gate to >=1.0 (matches empirical mechanism ceiling)",
+    "Relax \u00a72 market-making/arbitrage ban"
+  ]
 }
