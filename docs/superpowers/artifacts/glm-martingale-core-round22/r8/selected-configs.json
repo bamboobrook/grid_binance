@@ -1,0 +1,7 @@
+{
+  "phase": "R22 R8",
+  "committed": true,
+  "conclusion": "VALID_HISTORICAL_PREQUENTIAL_NO_TARGET",
+  "reason": "G1 sweep 0/18 positive; continuous prequential reveals negative edge",
+  "historical_backtest_only": true
+}
