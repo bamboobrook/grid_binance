@@ -1,64 +1,64 @@
 {
-  "best_ann": 26.691250892811702,
-  "best_dd": 25.959976557091842,
+  "best_ann": 11.31648026886458,
+  "best_dd": 24.499892742192124,
   "budget": 1000.0,
   "cold_positive": 5,
   "cold_ratio": 1.0,
   "cold_starts": [
     {
-      "annualized_pct": 25.712405393252702,
-      "compounded_pct": 49.17894685515958,
-      "days": 638.0,
-      "max_dd_pct": 25.37153169761827,
-      "max_symbol_gross_pct": 27.194811635147147,
+      "annualized_pct": 11.31648026886458,
+      "compounded_pct": 36.766317142714385,
+      "days": 1066.0,
+      "max_dd_pct": 24.499892742192124,
+      "max_symbol_gross_pct": 25.5107750777905,
       "offset_days": 0,
       "positive": true
     },
     {
-      "annualized_pct": 23.685112071820868,
-      "compounded_pct": 42.487927626178035,
-      "days": 608.0,
-      "max_dd_pct": 26.446406588479192,
-      "max_symbol_gross_pct": 27.23688792429267,
+      "annualized_pct": 10.301262797101508,
+      "compounded_pct": 32.08654510081339,
+      "days": 1036.0,
+      "max_dd_pct": 25.177814704734125,
+      "max_symbol_gross_pct": 25.4631729809908,
       "offset_days": 30,
       "positive": true
     },
     {
-      "annualized_pct": 26.691250892811702,
-      "compounded_pct": 45.447283068715464,
-      "days": 578.0,
-      "max_dd_pct": 25.959976557091842,
-      "max_symbol_gross_pct": 26.94286754200741,
+      "annualized_pct": 11.21523497473027,
+      "compounded_pct": 34.0405973792649,
+      "days": 1006.0,
+      "max_dd_pct": 24.890236463419036,
+      "max_symbol_gross_pct": 25.303671541771184,
       "offset_days": 60,
       "positive": true
     },
     {
-      "annualized_pct": 25.43449174600505,
-      "compounded_pct": 40.52716322675851,
-      "days": 548.0,
-      "max_dd_pct": 26.778864385015094,
-      "max_symbol_gross_pct": 27.35664839582818,
+      "annualized_pct": 10.502480794157165,
+      "compounded_pct": 30.60975501552774,
+      "days": 976.0,
+      "max_dd_pct": 25.39960191609008,
+      "max_symbol_gross_pct": 25.561635574953407,
       "offset_days": 90,
       "positive": true
     },
     {
-      "annualized_pct": 24.654653326228782,
-      "compounded_pct": 36.71853583456024,
-      "days": 518.0,
-      "max_dd_pct": 27.449121408033406,
-      "max_symbol_gross_pct": 27.897703258280877,
+      "annualized_pct": 9.965928386400225,
+      "compounded_pct": 27.918120361773745,
+      "days": 946.0,
+      "max_dd_pct": 25.81405176629177,
+      "max_symbol_gross_pct": 25.92005720283209,
       "offset_days": 120,
       "positive": true
     }
   ],
-  "common_window_days": 638.0,
+  "common_window_days": 1066.0,
   "cs00_stats": {
-    "ann_sharpe": 0.8731666440481141,
-    "kurt": 4.412260587905405,
-    "skew": -0.13136127226413627
+    "ann_sharpe": 0.5981948493645916,
+    "kurt": 4.01018959601171,
+    "skew": -0.21144659883100048
   },
-  "dsr_n1": 15.75853440333405,
-  "fo_pct": 35.0,
+  "dsr_n1": 16.01842826344799,
+  "fo_pct": 25.0,
   "gates_common": {
     "cold_ratio_ok": true,
     "days_ok": true,
@@ -73,5 +73,5 @@
     "balanced_hit": false,
     "conservative_hit": false
   },
-  "validated_at_utc": "2026-07-22T15:00:00Z"
+  "validated_at_utc": "2026-07-22T15:32:14Z"
 }

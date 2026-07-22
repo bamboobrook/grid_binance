@@ -1,62 +1,62 @@
 {
-  "ann_sharpe": 1.6983171044250254,
-  "best_ann": 75.47297802426458,
-  "best_dd": 4.12634370767243,
+  "ann_sharpe": 2.018509863095619,
+  "best_ann": 94.28406874540521,
+  "best_dd": 6.454321815352268,
   "cold_positive": 5,
   "cold_ratio": 1.0,
   "cold_starts": [
     {
-      "annualized_pct": 42.60128709220048,
-      "compounded_pct": 20.406236785904873,
-      "days": 190.99546296296296,
+      "annualized_pct": 52.05172470520749,
+      "compounded_pct": 28.5856629199146,
+      "days": 218.99546296296296,
       "max_dd_pct": 17.829321120832578,
       "offset_days": 0,
       "positive": true
     },
     {
-      "annualized_pct": 39.255088766207805,
-      "compounded_pct": 15.726464744003898,
-      "days": 160.99546296296296,
+      "annualized_pct": 51.281239686300765,
+      "compounded_pct": 23.9058908780136,
+      "days": 188.99546296296296,
       "max_dd_pct": 18.65214029670599,
       "offset_days": 30,
       "positive": true
     },
     {
-      "annualized_pct": 57.40122201540625,
-      "compounded_pct": 17.680517022455323,
-      "days": 130.99546296296296,
-      "max_dd_pct": 3.9146779617830627,
+      "annualized_pct": 69.5540269164923,
+      "compounded_pct": 25.85994315646505,
+      "days": 158.99546296296296,
+      "max_dd_pct": 6.140881342043903,
       "offset_days": 60,
       "positive": true
     },
     {
-      "annualized_pct": 61.841256652822075,
-      "compounded_pct": 14.249674658718225,
-      "days": 100.99546296296296,
-      "max_dd_pct": 4.030534740876202,
+      "annualized_pct": 77.28608262132552,
+      "compounded_pct": 22.42910079272793,
+      "days": 128.99546296296296,
+      "max_dd_pct": 6.3126686415406805,
       "offset_days": 90,
       "positive": true
     },
     {
-      "annualized_pct": 75.47297802426458,
-      "compounded_pct": 11.558040004964209,
-      "days": 70.99546296296296,
-      "max_dd_pct": 4.12634370767243,
+      "annualized_pct": 94.28406874540521,
+      "compounded_pct": 19.737466138973936,
+      "days": 98.99546296296296,
+      "max_dd_pct": 6.454321815352268,
       "offset_days": 120,
       "positive": true
     }
   ],
-  "dsr_n1": 8.512245913751167,
+  "dsr_n1": 9.631529997556159,
   "fo_pct": 25.0,
-  "kurt": 7.648247726771084,
-  "pbo": 0.95,
+  "kurt": 7.417059189283048,
+  "pbo": 0.99,
   "policy": "R23-M1M2-5SYM-ANDGATE",
-  "skew": -0.5937774151667119,
+  "skew": -0.48345125833131236,
   "tiers": {
     "aggressive_hit": false,
     "balanced_hit": false,
     "conservative_hit": false
   },
-  "validated_at_utc": "2026-07-22T15:27:28Z",
-  "window_days": 190.99546296296296
+  "validated_at_utc": "2026-07-22T15:30:02Z",
+  "window_days": 218.99546296296296
 }
