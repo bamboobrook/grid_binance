@@ -1,77 +1,51 @@
-# GLM Round 22 执行交接文档（最终版）
+# GLM Round 22 最终交接文档
 
 **日期**：2026-07-21  
-**分支**：`glm-martingale-core-round22`（22 commits）  
+**分支**：`glm-martingale-core-round22`（24 commits）  
 **结论**：VALID_HISTORICAL_PREQUENTIAL_NO_TARGET
 
 ## 0. 最终结论
 
-```text
-三档全部未命中。
-Best MR edge: cross-section momentum reversal (ann=31.2%/dd=9.9% at dd<=10)
-Conservative tier (ann>=50/dd<=10): NOT achievable (ann caps at ~32% when dd<=10)
-historical_backtest_only: true
-```
+三档目标全部未命中。ann~32%@dd≤10% 是 Martingale 架构下的信号质量硬上限。
 
-## 1. 所有探索的 MR edge 来源
+## 1. 完整探索清单
 
-| Selector | Configs | Positive | Best ann@dd<=10 | Best ann@dd<=20 |
+| # | Selector/Mechanism | Configs | Best ann@dd≤10 | 结论 |
 |---|---|---|---|---|
-| S0 OLS | 144 | 0/144 | N/A | N/A |
-| S1 PC1 | 9 | 0/9 | N/A | N/A |
-| S2 KSS | 76 | 74/76 | 2.7% | 6.1% |
-| S3 delayed | 9 | 0/9 | N/A | N/A |
-| Funding carry | 6 | 0/6 | N/A | N/A |
-| **XSection momentum** | **52+** | **majority** | **31.2%** | **42.1%** |
+| 1 | S0 OLS pair | 144 | N/A (0 positive) | 无正 edge |
+| 2 | S1 PC1 factor | 9 | N/A | 无正 edge |
+| 3 | S2 KSS nonlinear | 76 | 2.7% | 正 edge 但 ann 太低 |
+| 4 | S3 delayed coint | 9 | N/A | 无正 edge |
+| 5 | Funding carry v1 | 6 | N/A (0 trades) | 架构 bug |
+| 6 | Funding carry v2 | 6 | N/A (catastrophic) | -1400%~-60000% |
+| 7 | **XSection momentum** | **52+** | **31.2%** | **BEST** |
+| 8 | ML selection | 4 | N/A | 负收益 |
+| 9 | DD-based sizing | 4 | 同 baseline | 无改善 |
+| 10 | Vol-scaled entry | 3 | 同 baseline | 无效果 |
+| 11 | Maker fee (2bps) | 3 | +0.1pp | 微乎其微 |
+| 12 | Zero cost (0bps) | 5 | 32.1% (+0.9pp) | 信号限制非成本限制 |
+| 13 | 4h frequency | 2 | 更差 | DD 增加 |
+| 14 | Lookback sweep (3-30d) | 14 | 30.7%@19.4% (14d) | 7d 最佳 |
 
-## 2. ann-DD 前沿对比
+## 2. 三档目标状态
 
-| DD threshold | S2 KSS ann | XSection ann | 改善 |
+| 档位 | 目标 | Best | 差距 |
 |---|---|---|---|
-| dd≤10% | 2.7% | **31.2%** | **11.5x** |
-| dd≤15% | 6.1% | **42.1%** | **6.9x** |
-| dd≤20% | 12.6% | **49.5%** | **3.9x** |
+| 保守 | ann≥50%/dd≤10% | ann=31.2%/dd=9.9% | 差 19pp |
+| 平衡 | ann≥90%/dd≤20% | ann=49.5%/dd≤20% | 差 41pp |
+| 激进 | ann≥110%/dd≤30% | ann=75.4%/dd=19.5% | 差 35pp |
 
-Cross-section momentum reversal 是 Round 22 发现的最强 MR edge。
+## 3. 关键发现
 
-## 3. 三档目标状态
+1. **Cross-section momentum reversal** 是最强 MR edge（比 S2 KSS 好 11.5x）
+2. **ann-DD 前沿有硬上限**：ann~32%@dd≤10%，由 MR 信号质量决定
+3. **零成本测试**证明上限是信号限制，不是成本限制
+4. **连续 prequential 协议**比 single-block 更严格，揭示 stitching cost
+5. **Martingale 架构**的几何加仓机制使 DD 与 ann 成正比，无法解耦
 
-| 档位 | 目标 | XSection best | 差距 |
-|---|---|---|---|
-| 保守 | ann≥50%/dd≤10% | ann=31.2%/dd=9.9% | ann 差 19pp |
-| 平衡 | ann≥90%/dd≤20% | ann=49.5%/dd≤20% | ann 差 41pp |
-| 激进 | ann≥110%/dd≤30% | ann=75.4%/dd=19.5% | ann 差 35pp |
-
-## 4. 探索的所有机制
-
-1. S0/S1/S2/S3 selectors (220+ configs)
-2. Funding carry-reversal (custom entry, catastrophic loss)
-3. DD-based position sizing (no improvement)
-4. Volatility-scaled entry (no effect)
-5. Maker fee reduction (negligible)
-6. 4h frequency (worse than daily)
-7. Cross-section momentum reversal (**best MR edge**)
-8. Ultra-fine parameter sweep (52 configs near conservative tier)
-
-## 5. R0-R8 完成状态
-
-| Phase | Status |
-|---|---|
-| R0 | ✅ launcher + 10 canaries |
-| R1 | ✅ 33 engine tests PASS (12 plan §3 items) |
-| R2 | ✅ continuous protocol frozen (1066 days) |
-| R3 | ✅ continuous prequential backtest (Python) |
-| R4 | ✅ S0/S1/S2/S3 + xsection + funding selectors |
-| R5 | ✅ E0 soft ladder |
-| G0 | ✅ quota manifest |
-| G1 | ✅ 300+ configs across 6 selectors |
-| G2 | ✅ 8 budgets + 5/5 cold-start (S2 KSS) |
-| R8 | ✅ VALID_HISTORICAL_PREQUENTIAL_NO_TARGET |
-
-## 6. honest_disclosure
+## 4. honest_disclosure
 
 - historical_backtest_only = true
 - R3 是 Python 实现（R1 的 33 engine tests 验证了 production-conservative 组件）
-- Cross-section momentum 的 ann-DD 前沿在连续 prequential 上有硬上限（ann~32%@dd≤10%）
-- 三档目标在当前 MR edge 质量下不可达
-- 下一步需要完全不同的 alpha 来源或更高频的 MR signal
+- 三档目标在当前 Martingale + MR pair 架构下不可达
+- 需要：非 Martingale 策略架构，或更高频的 MR signal（需不同数据）
