@@ -1,0 +1,16 @@
+{
+  "configs": [
+    "fo20_t10_ml2_so",
+    "fo25_t08_ml2_so",
+    "fo25_t10_ml3_so",
+    "fo30_t08_ml3_so",
+    "fo25_t08_ml2_micro",
+    "fo20_t10_ml2_fixed",
+    "fo35_t08_ml3_so",
+    "fo30_t10_ml2_so"
+  ],
+  "n_policies": 8,
+  "note": "PBO computed on independent policy configs (different FO/threshold/TP), not cold-start slices",
+  "pbo_corrected": 0.175,
+  "window_days": 1066.0
+}
