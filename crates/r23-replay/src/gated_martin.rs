@@ -85,7 +85,7 @@ pub struct GatedMartinConfig {
 }
 
 /// Take-profit mode for smoothing the return distribution (reduce kurtosis).
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum TpMode {
     /// Full close when net >= tp_net_bps_floor.
     Fixed,
@@ -103,6 +103,20 @@ pub enum TpMode {
     /// Time-decay: floor shrinks as bars-in-position grows, forcing earlier exit
     /// on stale positions. floor = tp_net_bps_floor * max(0.25, 1 - bars/decay_bars).
     TimeDecay { decay_bars: u32 },
+    /// INDEPENDENT REIMPLEMENTATION (unverified source, §10.2 disclosure):
+    /// Faithful reconstruction of the publicly-described concepts of
+    /// ssrn.5895159 "Micro-Martingale and Integral Take-Profit" (Li-Yung Chen 2025)
+    /// from the abstract + UUUB discussion post ONLY — the full-text PDF is
+    /// Cloudflare-blocked, so this is NOT a verified implementation per §10.2.
+    /// Two concepts combined:
+    ///   1. Micro-Martingale decomposition: close a FIXED FRACTION (close_frac)
+    ///      of the position at EACH bar where in profit >= floor, rather than
+    ///      waiting for a full TP. This produces integral-style partial exits
+    ///      that capture each micro-rebound (Integral Take-Profit).
+    ///   2. The remaining position keeps averaging (SO ladder continues), but
+    ///      each profit-bar harvests close_frac, smoothing the return stream.
+    /// close_frac = 0.25 means 25% of position closes per qualifying bar.
+    MicroIntegral { close_frac: f64 },
 }
 
 #[derive(Debug, Clone, Default)]
@@ -225,8 +239,35 @@ pub fn run_gated_martin<S: SignalSource>(
                     let factor = (1.0 - pos.bars_in_position as f64 / decay_bars.max(1) as f64).max(0.25);
                     (cfg.tp_net_bps_floor * factor, false)
                 }
+                TpMode::MicroIntegral { .. } => {
+                    // Integral TP: close close_frac of position at floor every qualifying bar.
+                    // Handled in the dedicated branch below.
+                    (cfg.tp_net_bps_floor, false)
+                }
             };
-            if net >= floor_bps / 10_000.0 * notional {
+            // MicroIntegral dedicated handling: close close_frac per qualifying bar.
+            if let TpMode::MicroIntegral { close_frac } = cfg.tp_mode {
+                if net >= cfg.tp_net_bps_floor / 10_000.0 * notional && pos.qty.abs() > 1e-12 {
+                    // Close close_frac of current position (Integral TP — harvest each micro-rebound).
+                    let frac = close_frac.clamp(0.05, 1.0);
+                    let close_qty = pos.qty * frac;
+                    if close_qty.abs() > 1e-12 {
+                        let (settled, fee, slip) = partial_close_position(&mut pos, close_qty, price, cfg);
+                        equity += settled;
+                        pos.fees += fee;
+                        pos.slippage += slip;
+                        tp_count += 1;
+                        events.push(ev(ts, "gated_tp_microintegral", price, settled));
+                        equity_curve.push(EquityPoint { timestamp_ms: ts, equity_quote: equity });
+                        // If position now essentially closed, treat as full close.
+                        if pos.qty.abs() <= 1e-12 {
+                            trade_count += 1;
+                            pos = Position::default();
+                        }
+                        continue;
+                    }
+                }
+            } else if net >= floor_bps / 10_000.0 * notional {
                 if partial_close && !pos.scaled_out_once {
                     // close half the position (scale-out), keep the rest
                     let half_qty = pos.qty / 2.0;
