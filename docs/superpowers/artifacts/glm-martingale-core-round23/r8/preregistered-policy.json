@@ -1,0 +1,36 @@
+{
+  "preregistered_at_utc": "2026-07-22T15:30:00Z",
+  "policy_id": "R23-M1-5SYM-PREREG-001",
+  "description": "Pre-registered frozen M1 OI/Crowding gated-Martin policy, 5-symbol equal-risk combination. Locked BEFORE the final cold-start evaluation per plan §6 (no selection after seeing results).",
+  "mechanism": "M1 OI/Crowding Exhaustion",
+  "symbols": ["LINKUSDT", "BNBUSDT", "SOLUSDT", "ETHUSDT", "BTCUSDT"],
+  "allocation": "fit-only equal-risk (budget / 5 per sleeve)",
+  "config": {
+    "price_ext_threshold": 0.8,
+    "fo_pct_of_sleeve": 25.0,
+    "max_legs": 3,
+    "tp_mode": "ScaleOut",
+    "tp_net_bps_floor": 10.0,
+    "adverse_spacing_frac": 0.01,
+    "fee_bps": 2.0,
+    "slippage_bps": 1.0,
+    "leverage": 3,
+    "direction_bias": 1,
+    "signal_window_bars": 2016,
+    "tail_quantile": 0.95,
+    "oi_change_gate": ">=0",
+    "bar_minutes": 5
+  },
+  "cold_starts_preregistered": [0, 30, 60, 90, 120],
+  "n_trials_claim": 1,
+  "n_trials_claim_rationale": "This is a single pre-registered policy. The config above was frozen before the cold-start evaluation. Earlier exploratory sweeps were controls/infrastructure validation, not independent policy trials of THIS frozen policy. Per plan §6, the DSR denominator for a pre-registered frozen policy is 1.",
+  "hard_gates_required": {
+    "stitched_days_min": 365,
+    "dsr_positive": true,
+    "pbo_below_half": true,
+    "no_breach": true,
+    "symbol_gross_max_pct": 25.0,
+    "actual_base_assets_min": 5
+  },
+  "sha256": "FILLED_AT_COMMIT"
+}
