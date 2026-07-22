@@ -75,6 +75,28 @@ pub struct GatedMartinConfig {
     pub leverage: u32,
     /// Direction bias: +1 long-only, -1 short-only, 0 both (signal decides).
     pub direction_bias: i8,
+    /// TP mode: Fixed (full close at tp_net_bps_floor), Early (lower floor =
+    /// tp_net_bps_floor * early_scale), ScaleOut (partial close: half at floor,
+    /// rest at 2x floor), TimeDecay (floor decays with bars-in-position).
+    pub tp_mode: TpMode,
+    /// Maximum number of legs (FO + SOs). Caps how deep averaging-down goes.
+    /// Lower = smaller max DD but fewer recovery fills. Default 4 (full ladder).
+    pub max_legs: u32,
+}
+
+/// Take-profit mode for smoothing the return distribution (reduce kurtosis).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TpMode {
+    /// Full close when net >= tp_net_bps_floor.
+    Fixed,
+    /// Full close at a lower floor (tp_net_bps_floor * early_scale). Reduces
+    /// variance by locking smaller wins more often.
+    Early,
+    /// Partial scale-out: close 50% at tp_net_bps_floor, rest at 2x floor.
+    ScaleOut,
+    /// Time-decay: floor shrinks as bars-in-position grows, forcing earlier exit
+    /// on stale positions. floor = tp_net_bps_floor * max(0.25, 1 - bars/decay_bars).
+    TimeDecay { decay_bars: u32 },
 }
 
 #[derive(Debug, Clone, Default)]
@@ -95,6 +117,10 @@ struct Position {
     last_fill_price: f64,
     /// last fill timestamp
     last_fill_ts: i64,
+    /// bars since the position was opened (for time-decay TP).
+    bars_in_position: u32,
+    /// for ScaleOut TP: true once the first half has been closed.
+    scaled_out_once: bool,
 }
 
 /// Run the gated single-symbol Martin over a bar stream with a signal source.
@@ -170,19 +196,51 @@ pub fn run_gated_martin<S: SignalSource>(
             continue;
         }
 
-        // ---- TP if in profit beyond floor ----
+        // ---- TP if in profit beyond floor (mode-dependent) ----
         if pos.qty.abs() > 1e-12 {
+            pos.bars_in_position = pos.bars_in_position.saturating_add(1);
             let net = net_pnl_after_cost(&pos, price, cfg);
-            if net >= cfg.tp_net_bps_floor / 10_000.0 * (pos.qty.abs() * pos.avg_entry) {
-                let (settled, fee, slip) = close_position(&mut pos, price, cfg);
-                equity += settled;
-                pos.fees += fee;
-                pos.slippage += slip;
-                tp_count += 1;
-                trade_count += 1;
-                events.push(ev(ts, "gated_tp", price, settled));
-                equity_curve.push(EquityPoint { timestamp_ms: ts, equity_quote: equity });
-                continue;
+            let notional = pos.qty.abs() * pos.avg_entry;
+            // Compute the effective floor based on tp_mode.
+            let (floor_bps, partial_close) = match cfg.tp_mode {
+                TpMode::Fixed => (cfg.tp_net_bps_floor, false),
+                TpMode::Early => (cfg.tp_net_bps_floor * 0.5, false),
+                TpMode::ScaleOut => {
+                    if pos.scaled_out_once {
+                        // second half closes at 2x floor
+                        (cfg.tp_net_bps_floor * 2.0, false)
+                    } else {
+                        // first half closes at floor
+                        (cfg.tp_net_bps_floor, true)
+                    }
+                }
+                TpMode::TimeDecay { decay_bars } => {
+                    let factor = (1.0 - pos.bars_in_position as f64 / decay_bars.max(1) as f64).max(0.25);
+                    (cfg.tp_net_bps_floor * factor, false)
+                }
+            };
+            if net >= floor_bps / 10_000.0 * notional {
+                if partial_close && !pos.scaled_out_once {
+                    // close half the position (scale-out), keep the rest
+                    let half_qty = pos.qty / 2.0;
+                    let (settled, fee, slip) = partial_close_position(&mut pos, half_qty, price, cfg);
+                    equity += settled;
+                    pos.fees += fee;
+                    pos.slippage += slip;
+                    pos.scaled_out_once = true;
+                    events.push(ev(ts, "gated_tp_scaleout1", price, settled));
+                    // do NOT continue — keep evaluating; the remaining half uses 2x floor
+                } else {
+                    let (settled, fee, slip) = close_position(&mut pos, price, cfg);
+                    equity += settled;
+                    pos.fees += fee;
+                    pos.slippage += slip;
+                    tp_count += 1;
+                    trade_count += 1;
+                    events.push(ev(ts, "gated_tp", price, settled));
+                    equity_curve.push(EquityPoint { timestamp_ms: ts, equity_quote: equity });
+                    continue;
+                }
             }
         }
 
@@ -227,6 +285,15 @@ pub fn run_gated_martin<S: SignalSource>(
             };
             let next_layer = (pos.depth as usize).min(SOFT_LADDER.len() - 1) + 1;
             let layer_quote = cfg.fo_quote * SOFT_LADDER[next_layer.min(SOFT_LADDER.len() - 1)];
+            // cap SO depth at max_legs (FO counts as leg 1)
+            if pos.depth >= cfg.max_legs {
+                // no more averaging; wait for TP/abort/liquidation
+                let unreal = unrealized(&pos, price);
+                let mtm = equity + unreal;
+                equity_curve.push(EquityPoint { timestamp_ms: ts, equity_quote: mtm });
+                if mtm <= 0.0 { breach = true; liquidation_count += 1; events.push(ev(ts, "gated_equity_nonpositive", price, mtm)); break; }
+                continue;
+            }
             let net = net_pnl_after_cost(&pos, price, cfg);
             let maint = cfg.filters.maintenance_margin(pos.qty.abs() * price);
             if gate.so_allowed
@@ -369,10 +436,11 @@ fn try_fill(cfg: &GatedMartinConfig, signed_notional: f64, price: f64) -> Option
 }
 
 fn apply_fill(pos: &mut Position, qty: f64, price: f64, fee: f64, slip: f64, ts: i64) {
+    let was_flat = pos.qty.abs() < 1e-12;
     let new_qty = pos.qty + qty;
     if new_qty.abs() < 1e-12 {
         pos.avg_entry = 0.0;
-    } else if pos.qty.abs() < 1e-12 {
+    } else if was_flat {
         pos.avg_entry = price;
     } else if qty.signum() == pos.qty.signum() {
         // adding same direction -> weighted average
@@ -385,6 +453,10 @@ fn apply_fill(pos: &mut Position, qty: f64, price: f64, fee: f64, slip: f64, ts:
     pos.depth += 1;
     pos.last_fill_price = price;
     pos.last_fill_ts = ts;
+    if was_flat {
+        pos.bars_in_position = 0;
+        pos.scaled_out_once = false;
+    }
 }
 
 fn close_position(pos: &mut Position, price: f64, cfg: &GatedMartinConfig) -> (f64, f64, f64) {
@@ -401,7 +473,25 @@ fn close_position(pos: &mut Position, price: f64, cfg: &GatedMartinConfig) -> (f
     pos.avg_entry = 0.0;
     pos.depth = 0;
     pos.last_fill_price = 0.0;
+    pos.bars_in_position = 0;
+    pos.scaled_out_once = false;
     (r, fee, slip)
+}
+
+/// Close a partial quantity (for ScaleOut TP). Does NOT reset depth-tracking
+/// fields; the remaining position keeps its avg_entry.
+fn partial_close_position(pos: &mut Position, qty_to_close: f64, price: f64, cfg: &GatedMartinConfig) -> (f64, f64, f64) {
+    if qty_to_close.abs() < 1e-12 || pos.qty.abs() < 1e-12 {
+        return (0.0, 0.0, 0.0);
+    }
+    let close_qty = if qty_to_close.abs() > pos.qty.abs() { pos.qty } else { qty_to_close };
+    let realized = (price - pos.avg_entry) * close_qty;
+    let notional = close_qty.abs() * price;
+    let fee = notional * cfg.fee_bps / 10_000.0;
+    let slip = notional * cfg.slippage_bps / 10_000.0;
+    pos.realized += realized - fee - slip;
+    pos.qty -= close_qty;
+    (realized - fee - slip, fee, slip)
 }
 
 fn unrealized(pos: &Position, price: f64) -> f64 {
@@ -478,6 +568,8 @@ mod tests {
             slippage_bps: 1.0,
             leverage: 3,
             direction_bias: 1,
+            tp_mode: TpMode::Fixed,
+            max_legs: 4,
         };
         let res = run_gated_martin(&cfg, &bars_mean_revert(), &AlwaysOn).unwrap();
         let s = res.rejection_reasons.iter().find(|s| s.starts_with("GATED_SUMMARY:")).unwrap();

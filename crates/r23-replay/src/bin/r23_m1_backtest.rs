@@ -92,6 +92,8 @@ fn main() -> Result<()> {
         slippage_bps: 1.0,
         leverage: 3,
         direction_bias,
+        tp_mode: r23_replay::gated_martin::TpMode::Fixed,
+        max_legs: 4,
     };
     let res = run_gated_martin(&cfg, &bars, &relaxed).map_err(|e| anyhow!("engine: {e}"))?;
     let v: serde_json::Value = serde_json::from_str(&res.rejection_reasons[0]["GATED_SUMMARY:".len()..])?;

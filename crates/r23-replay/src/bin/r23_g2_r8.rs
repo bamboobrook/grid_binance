@@ -80,6 +80,8 @@ fn main() -> Result<()> {
         slippage_bps: 1.0,
         leverage: 3,
         direction_bias: 1,
+        tp_mode: r23_replay::gated_martin::TpMode::Fixed,
+        max_legs: 4,
     };
 
     let sm = primary_states.clone();
