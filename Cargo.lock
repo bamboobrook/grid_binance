@@ -1861,6 +1861,7 @@ dependencies = [
  "chrono",
  "csv",
  "r23-registry",
+ "rusqlite",
  "serde",
  "serde_json",
  "sha2",

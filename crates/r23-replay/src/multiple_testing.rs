@@ -102,6 +102,7 @@ pub fn probability_of_backtest_overfitting(policy_returns: &[Vec<f64>], n_splits
         let mut test_cum = vec![0.0f64; n_policies];
         for (pi, pret) in policy_returns.iter().enumerate() {
             for (t, r) in pret.iter().enumerate() {
+                if t >= n_periods { break; }
                 if in_train[t] { train_cum[pi] += r; } else { test_cum[pi] += r; }
             }
         }
@@ -158,6 +159,7 @@ pub fn cscv(policy_returns: &[Vec<f64>], n_splits: usize) -> CscvResult {
         let mut test_cum = vec![0.0f64; n_policies];
         for (pi, pret) in policy_returns.iter().enumerate() {
             for (t, r) in pret.iter().enumerate() {
+                if t >= n_periods { break; }
                 if in_train[t] { train_cum[pi] += r; } else { test_cum[pi] += r; }
             }
         }
