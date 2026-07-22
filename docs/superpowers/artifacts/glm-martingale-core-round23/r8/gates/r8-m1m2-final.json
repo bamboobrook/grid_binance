@@ -1,0 +1,46 @@
+{
+  "ann_sharpe": -0.7617853650458678,
+  "best_ann": 65.47851058707693,
+  "best_dd": 3.6197045391922327,
+  "cold_positive": 1,
+  "cold_ratio": 0.3333333333333333,
+  "cold_starts": [
+    {
+      "annualized_pct": -21.053158985503895,
+      "compounded_pct": -5.0490527325308125,
+      "days": 79.99547453703704,
+      "max_dd_pct": 17.829321120832578,
+      "offset_days": 0,
+      "positive": false
+    },
+    {
+      "annualized_pct": -52.632656125361024,
+      "compounded_pct": -9.72882477443181,
+      "days": 49.99547453703704,
+      "max_dd_pct": 18.65214029670599,
+      "offset_days": 30,
+      "positive": false
+    },
+    {
+      "annualized_pct": 65.47851058707693,
+      "compounded_pct": 2.797636412358395,
+      "days": 19.995474537037037,
+      "max_dd_pct": 3.6197045391922327,
+      "offset_days": 60,
+      "positive": true
+    }
+  ],
+  "dsr_n1": -6.171534421528981,
+  "fo_pct": 25.0,
+  "kurt": 5.851524232591229,
+  "pbo": 0.81,
+  "policy": "R23-M1M2-5SYM-ANDGATE",
+  "skew": -0.8670484764676419,
+  "tiers": {
+    "aggressive_hit": false,
+    "balanced_hit": false,
+    "conservative_hit": false
+  },
+  "validated_at_utc": "2026-07-22T15:15:28Z",
+  "window_days": 79.99547453703704
+}
