@@ -1,7 +1,11 @@
 {
+  "authority": "docs/superpowers/artifacts/glm-martingale-core-round22/round22-corrected-authority.json",
+  "committed": false,
+  "conclusion": "MATERIALLY_INCOMPLETE_INVALID_RESULTS",
+  "historical_backtest_only": true,
   "phase": "R22 R8",
-  "committed": true,
-  "conclusion": "VALID_HISTORICAL_PREQUENTIAL_NO_TARGET",
-  "reason": "G1 sweep 0/18 positive; continuous prequential reveals negative edge",
-  "historical_backtest_only": true
+  "reason": "R0 registry is empty, the main replay is not production-conservative, and G2 has no actual cold-start or stress rows",
+  "revoked_claim": "VALID_HISTORICAL_PREQUENTIAL_NO_TARGET",
+  "selected_configs": [],
+  "target_hit": false
 }

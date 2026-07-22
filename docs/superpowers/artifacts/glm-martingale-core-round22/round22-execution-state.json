@@ -1,44 +1,59 @@
 {
-  "blocked_reasons": [],
-  "phase": "HANDOFF",
+  "blocked_reasons": [
+    "R0: 1 failed: ['registry_contract_valid']",
+    "R1: blocked_predecessor",
+    "R2: blocked_predecessor",
+    "R3: blocked_predecessor",
+    "R4: blocked_predecessor",
+    "R5: blocked_predecessor",
+    "G0: blocked_predecessor",
+    "G1: blocked_predecessor",
+    "G2: blocked_predecessor",
+    "R8: blocked_predecessor",
+    "HANDOFF: blocked_predecessor"
+  ],
+  "phase": "R0",
   "phase_status": {
     "G0": {
-      "status": "complete"
+      "status": "blocked_predecessor"
     },
     "G1": {
-      "status": "complete"
+      "status": "blocked_predecessor"
     },
     "G2": {
-      "status": "complete"
+      "status": "blocked_predecessor"
     },
     "HANDOFF": {
-      "status": "complete"
+      "status": "blocked_predecessor"
     },
     "R0": {
-      "status": "complete"
+      "failed": [
+        "registry_contract_valid"
+      ],
+      "status": "blocked"
     },
     "R1": {
-      "status": "complete"
+      "status": "blocked_predecessor"
     },
     "R2": {
-      "status": "complete"
+      "status": "blocked_predecessor"
     },
     "R3": {
-      "status": "complete"
+      "status": "blocked_predecessor"
     },
     "R4": {
-      "status": "complete"
+      "status": "blocked_predecessor"
     },
     "R5": {
-      "status": "complete"
+      "status": "blocked_predecessor"
     },
     "R8": {
-      "status": "complete"
+      "status": "blocked_predecessor"
     }
   },
   "plan_sha256": "13d7b754815c5bdad17d59aa3c312a709c588f2bc62369fb944eae178a147e40",
   "registry_rows": 0,
-  "status": "complete",
-  "validated_at": "2026-07-22T01:05:29.086607+00:00",
-  "validator_sha256": "d08012035e5824d8880157d7d534b759eb442213a1dfe203b244909701fbd9c4"
+  "status": "blocked",
+  "validated_at": "2026-07-22T05:08:05.157394+00:00",
+  "validator_sha256": "ff592ded58e4401fbfdf084c553f761a3e478c8cb99e1763e72d4d6feb70644d"
 }

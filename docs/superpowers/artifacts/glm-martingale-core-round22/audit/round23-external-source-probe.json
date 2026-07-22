@@ -1,0 +1,100 @@
+{
+  "probed_at": "2026-07-22T12:57:29+08:00",
+  "purpose": "Round 23 source verification and exact-dedup evidence",
+  "sources": [
+    {
+      "doi": "10.2139/ssrn.5895159",
+      "title": "Micro-Martingale and Integral Take-Profit: A Dynamic Multi-Pair Framework for Volatility-Adaptive Trading in Cryptocurrency Markets",
+      "metadata_status": "verified_crossref_openalex",
+      "full_text_status": "blocked_by_ssrn_cloudflare_no_formula_extracted",
+      "decision": "metadata is not enough; E1 remains blocked until formula pages and file hash are committed"
+    },
+    {
+      "doi": "10.1007/s10203-021-00318-x",
+      "title": "Common dynamic factors for cryptocurrencies and multiple pair-trading statistical arbitrages",
+      "open_pdf_sha256": "483272a52caa345743a6f5b3020692e4ffc419b354ad26824f7a28c1269919f8",
+      "mechanism": "trade multiple long-short residuals only while the fitted second common factor is stationary",
+      "local_dedup": "PC1/V1B was attempted but had no valid executable factor leg; this is a repair, not a repeat of a valid result"
+    },
+    {
+      "doi": "10.1108/SEF-08-2018-0264",
+      "title": "Constructing cointegrated cryptocurrency portfolios for statistical arbitrage",
+      "mechanism": "Johansen/Engle-Granger multi-coin executable basket",
+      "local_dedup": "sparse VECM was planned in R20/R21 but has zero strict-valid complete rows"
+    },
+    {
+      "doi": "10.1007/s10614-025-10958-5",
+      "title": "The Optimal Threshold Selection for High-Frequency Pairs Trading via Supervised Machine Learning Algorithms",
+      "open_pdf_sha256": "5b61ae8dcf2cec7a7c98e91363cf47aa42503f32a8dcc7edd645d51130aab7b8",
+      "mechanism": "train-only threshold-range classification from distribution and risk features",
+      "constraint": "may choose Martin FO/SO/TP thresholds only; outer returns cannot train the classifier"
+    },
+    {
+      "doi": "10.1093/jjfinec/nbt003",
+      "title": "The Price Impact of Order Book Events",
+      "mechanism": "order-flow imbalance normalized by depth as an event-time microstructure state",
+      "constraint": "signal/gate only, never an independent PnL sleeve"
+    },
+    {
+      "doi": "10.1142/S2382626619500114",
+      "title": "Multi-Level Order-Flow Imbalance in a Limit Order Book",
+      "mechanism": "multi-level depth-flow vector improves out-of-sample contemporaneous price-impact fit",
+      "constraint": "use only causal lagged depth/flow and test return prediction separately from mechanical contemporaneous impact"
+    },
+    {
+      "doi": "10.2139/ssrn.6938742",
+      "title": "Order-Flow Imbalance and Short-Horizon Return Predictability in Cryptocurrency Markets",
+      "mechanism": "public aggressor-side crypto trades with explicit OOS, cost and data-snooping controls",
+      "evidence_limit": "review/design paper; it reports no new profitability estimate"
+    },
+    {
+      "url": "https://github.com/binance/binance-public-data",
+      "title": "Binance Public Data",
+      "status": "official daily/monthly archives with sidecar CHECKSUM files"
+    },
+    {
+      "url": "https://data.binance.vision/data/futures/um/daily/metrics/BTCUSDT/BTCUSDT-metrics-2026-05-31.zip",
+      "archive_sha256": "9aa1866ee0def3fae16869b2a4ff96520bd6245eee88b30be9a6a97a14b17af8",
+      "archive_bytes": 10893,
+      "coverage_probe": "BTC/ETH/BNB/SOL/XRP/DOGE all return HTTP 200 on 2023-01-01 and BTC returns HTTP 200 on 2026-05-31",
+      "schema": [
+        "create_time",
+        "symbol",
+        "sum_open_interest",
+        "sum_open_interest_value",
+        "count_toptrader_long_short_ratio",
+        "sum_toptrader_long_short_ratio",
+        "count_long_short_ratio",
+        "sum_taker_long_short_vol_ratio"
+      ],
+      "local_dedup": "R3 previously rejected REST OI/ratio because only 30 days were available; this official archive resolves that blocker"
+    },
+    {
+      "url": "https://data.binance.vision/data/futures/um/daily/bookDepth/BTCUSDT/BTCUSDT-bookDepth-2026-05-31.zip",
+      "archive_sha256": "ca1f90f4e25969307a92a782967222d6855906e1e3c1e877c2f396b54ee503a0",
+      "archive_bytes": 508046,
+      "coverage_probe": "BTC/ETH/SOL return HTTP 200 from 2023-01-01 and BTC returns HTTP 200 on 2026-05-31",
+      "schema": [
+        "timestamp",
+        "percentage",
+        "depth",
+        "notional"
+      ]
+    },
+    {
+      "url": "https://data.binance.vision/data/futures/um/daily/aggTrades/BTCUSDT/BTCUSDT-aggTrades-2026-05-31.zip",
+      "archive_bytes": 6896080,
+      "status": "HTTP 200",
+      "purpose": "aggressor-side signed flow for a bounded six-symbol microstructure family"
+    }
+  ],
+  "never_repeat": [
+    "ordinary cross-sectional momentum/reversal from Round 13/14",
+    "same-symbol long+short hedged grid from Round 5",
+    "single-symbol SSRN 5935414 depth-controlled claim without formulas or multi-coin evidence",
+    "standalone funding carry/reversal",
+    "generic HTF trend/ADX/EMA gates",
+    "static multiplier/spacing/legs sweeps",
+    "Round 22 invalid Python PnL engine"
+  ]
+}

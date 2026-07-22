@@ -34,7 +34,7 @@ PLAN = (ROOT / "docs/superpowers/plans/"
 PHASES = ["R0", "R1", "R2", "R3", "R4", "R5", "G0", "G1", "G2", "R8", "HANDOFF"]
 PHASE_GATES = {
     "R0": ["r21_corrected_authority_verified", "central_state_created",
-           "ten_canaries_pass"],
+           "registry_contract_valid", "ten_canaries_pass"],
     "R1": ["engine_conservative_tests_pass"],
     "R2": ["prequential_protocol_frozen"],
     "R3": ["continuous_replay_built"],
@@ -73,6 +73,79 @@ def load_registry():
             except json.JSONDecodeError:
                 pass
     return rows
+
+
+HASH_FIELDS = (
+    "fingerprint_sha256", "engine_sha256", "market_data_sha256",
+    "funding_data_sha256", "exchange_filter_snapshot_sha256",
+    "maintenance_tiers_sha256", "borrow_snapshot_sha256",
+    "trigger_contract_sha256", "fit_contract_sha256",
+    "universe_group_weights_sha256", "scheduler_sha256",
+    "resolved_config_sha256", "effective_config_sha256",
+    "cost_model_sha256",
+)
+
+TRACE_FIELDS = (
+    "trace_event_sha256", "trace_trade_sha256", "trace_order_sha256",
+    "trace_equity_sha256", "trace_funding_sha256",
+    "trace_rejection_sha256",
+)
+
+
+def _is_sha256(value):
+    return (isinstance(value, str) and len(value) == 64
+            and all(ch in "0123456789abcdef" for ch in value.lower()))
+
+
+def _is_full_git_commit(value):
+    return (isinstance(value, str) and len(value) in (40, 64)
+            and all(ch in "0123456789abcdef" for ch in value.lower()))
+
+
+def validate_registry_contract(rows):
+    downstream = any((ART / rel).exists() for rel in (
+        "g1/gates/g1.json", "g2/gates/g2.json", "r8/selected-configs.json",
+    ))
+    if not rows:
+        if downstream:
+            return False, {"reason": "downstream results exist but registry is empty"}
+        return True, {"reason": "bootstrap before any experiment"}
+
+    by_experiment = {}
+    for row in rows:
+        experiment_id = row.get("experiment_id")
+        if not experiment_id:
+            return False, {"reason": "registry row missing experiment_id"}
+        by_experiment.setdefault(experiment_id, []).append(row)
+
+    complete = 0
+    for experiment_id, experiment_rows in by_experiment.items():
+        running = [r for r in experiment_rows if r.get("status") == "running"]
+        terminal = [r for r in experiment_rows if r.get("status") != "running"]
+        if len(running) != 1 or len(terminal) != 1:
+            return False, {
+                "reason": (f"{experiment_id}: expected one running and one terminal, "
+                           f"got {len(running)}/{len(terminal)}"),
+            }
+        start, end = running[0], terminal[0]
+        if start.get("git_dirty") is not False or not _is_full_git_commit(
+                start.get("git_commit")):
+            return False, {"reason": f"{experiment_id}: run was not clean at a full commit"}
+        for field in HASH_FIELDS:
+            if not _is_sha256(start.get(field)) or not _is_sha256(end.get(field)):
+                return False, {"reason": f"{experiment_id}: invalid {field}"}
+        if end.get("status") == "complete":
+            complete += 1
+            for field in TRACE_FIELDS:
+                if not _is_sha256(end.get(field)):
+                    return False, {"reason": f"{experiment_id}: invalid {field}"}
+            if end.get("actual_binary_replays") != 1:
+                return False, {"reason": f"{experiment_id}: no auditable binary replay"}
+    return True, {
+        "experiments": len(by_experiment),
+        "complete_experiments": complete,
+        "rows": len(rows),
+    }
 
 
 def _checkpoint_rows():
@@ -130,10 +203,13 @@ def canary4_reused_experiment_id(rows):
         if eid:
             by_exp.setdefault(eid, []).append(r)
     for eid, exp_rows in by_exp.items():
+        running = [r for r in exp_rows if r.get("status") == "running"]
         terminals = [r for r in exp_rows if r.get("status")
                      and r.get("status") != "running"]
-        if len(terminals) > 1:
-            return False, {"reason": f"{eid}: {len(terminals)} terminals"}
+        if len(running) != 1 or len(terminals) != 1:
+            return False, {
+                "reason": f"{eid}: running={len(running)} terminals={len(terminals)}",
+            }
     return True, {"experiments": len(by_exp)}
 
 
@@ -231,8 +307,7 @@ def run_ten_canaries(rows):
     results["c8_90day_ann_target"] = canary8_90day_ann_target(rows)
     results["c9_manifest_block_deleted"] = canary9_manifest_block_deleted()
     results["c10_coldstart_after_test"] = canary10_coldstart_selection_after_test()
-    results["all_passed"] = all(p for p, _ in results.values()
-                                if isinstance(p, bool))
+    results["all_passed"] = all(value[0] for value in results.values())
     return results
 
 
@@ -247,12 +322,12 @@ def recompute_gate(gate, rows):
         return ok, {"state": a.get("corrected_machine_state"),
                     "target_hit": a.get("target_hit")}
     if gate == "central_state_created":
-        ART.mkdir(parents=True, exist_ok=True)
-        if not REGISTRY.exists():
-            REGISTRY.touch()
-        if not (ART / "failure-ledger.jsonl").exists():
-            (ART / "failure-ledger.jsonl").touch()
-        return True, {"registry_exists": True}
+        ledger = ART / "failure-ledger.jsonl"
+        ok = ART.exists() and REGISTRY.exists() and ledger.exists()
+        return ok, {"registry_exists": REGISTRY.exists(),
+                    "failure_ledger_exists": ledger.exists()}
+    if gate == "registry_contract_valid":
+        return validate_registry_contract(rows)
     if gate == "ten_canaries_pass":
         return run_ten_canaries(rows)["all_passed"], run_ten_canaries(rows)
     if gate == "engine_conservative_tests_pass":
@@ -282,7 +357,16 @@ def recompute_gate(gate, rows):
         if not p.exists():
             return False, {"reason": "R4 evidence missing"}
         d = json.load(open(p))
-        return all(d.get("selectors", {}).values()), d
+        selectors = d.get("selectors", {})
+        required = ("S0_OLS_static", "S1_PC1_dynamic", "S2_KSS_hazard",
+                    "S3_delayed_cointegration")
+        implemented = {
+            key: (isinstance(selectors.get(key), str)
+                  and selectors[key].lower().startswith("implemented"))
+            for key in required
+        }
+        return all(implemented.values()), {"implemented": implemented,
+                                           "evidence": d}
     if gate == "execution_enhancement_implemented":
         p = ART / "r5" / "gates" / "execution_enhancement.json"
         if not p.exists():
@@ -294,7 +378,11 @@ def recompute_gate(gate, rows):
         if not p.exists():
             return False, {"reason": "G0 evidence missing"}
         d = json.load(open(p))
-        return all(v.get("all_bound") for v in d.get("mechanisms", {}).values()), d
+        mechanisms = d.get("mechanisms", {})
+        required = ("S0xE0", "S1xE0", "S2xE0", "S3_parent")
+        bound = {key: mechanisms.get(key, {}).get("all_bound") is True
+                 for key in required}
+        return all(bound.values()), {"bound": bound, "evidence": d}
     if gate == "quota_manifest_frozen":
         p = ART / "g0" / "gates" / "quota_manifest.json"
         if not p.exists():
@@ -310,13 +398,33 @@ def recompute_gate(gate, rows):
         if not p.exists():
             return False, {"reason": "G1 evidence missing"}
         d = json.load(open(p))
-        return d.get("total_replays", 0) > 0, d
+        complete = sum(1 for row in rows if row.get("status") == "complete")
+        total_replays = d.get("total_replays", 0)
+        total_configs = d.get("total_configs", 0)
+        ok = (total_replays > 0 and total_configs == total_replays
+              and complete == total_replays)
+        return ok, {"reported_configs": total_configs,
+                    "reported_replays": total_replays,
+                    "registry_complete": complete}
     if gate == "g2_budget_stress":
         p = ART / "g2" / "gates" / "g2.json"
         if not p.exists():
             return False, {"reason": "G2 evidence missing"}
         d = json.load(open(p))
-        return d.get("total_runs", 0) > 0 or d.get("status") == "not_applicable", d
+        budgets = {row.get("budget") for row in d.get("configs", [])}
+        expected_budgets = {500, 750, 1000, 1500, 2000, 3000, 4000, 4999}
+        cold_starts = d.get("cold_start_results", [])
+        required_stress = {
+            "fee_slippage", "partial_fill", "leg_delay", "reject",
+            "filter_maintenance", "loso", "logo",
+        }
+        stress = set(d.get("completed_stress_families", []))
+        ok = (budgets == expected_budgets and len(cold_starts) == 5
+              and required_stress <= stress)
+        return ok, {"budgets": sorted(b for b in budgets if b is not None),
+                    "cold_start_count": len(cold_starts),
+                    "completed_stress_families": sorted(stress),
+                    "missing_stress": sorted(required_stress - stress)}
     if gate == "selection_freeze":
         p = ART / "r8" / "selected-configs.json"
         if not p.exists():
@@ -326,7 +434,11 @@ def recompute_gate(gate, rows):
     if gate == "handoff_from_validator":
         candidates = glob.glob(str(
             ROOT / "docs/superpowers/reports/*round22*handoff*.md"))
-        return len(candidates) > 0, {"path": candidates[0] if candidates else None}
+        if not candidates:
+            return False, {"reason": "handoff missing"}
+        text = Path(candidates[0]).read_text(errors="replace")
+        ok = "generated_by_validator: true" in text
+        return ok, {"path": candidates[0], "generated_by_validator": ok}
     return False, {"reason": f"unknown gate {gate}"}
 
 

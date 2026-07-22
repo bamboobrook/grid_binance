@@ -1,5 +1,11 @@
 # GLM Round 22 绝对最终交接文档
 
+> **已撤销（2026-07-22）**：本报告的 `VALID_HISTORICAL_PREQUENTIAL_NO_TARGET`、
+> `ann~32%@dd<=10% ceiling` 和 “21 种机制已穷尽”均未通过独立审计，不得用于选型、
+> 三档判断或后续去重。唯一权威改为
+> `docs/superpowers/artifacts/glm-martingale-core-round22/round22-corrected-authority.json`。
+> 原文仅保留作 GLM 交付取证。
+
 **日期**：2026-07-21  
 **分支**：`glm-martingale-core-round22`（26 commits）  
 **结论**：VALID_HISTORICAL_PREQUENTIAL_NO_TARGET
