@@ -1,0 +1,98 @@
+{
+  "plan_sha256": "e471144d18b6e3d6a75c54bd9eede17e7235145d61979e82105b862c3af30e1e",
+  "fit_start_utc": "2023-01-01",
+  "test_end_utc": "2026-05-31",
+  "blocks": [
+    {
+      "block_index": 1,
+      "test_start_utc": "2023-07-01",
+      "test_end_utc": "2023-09-29",
+      "fit_cutoff_utc": "2023-06-30",
+      "purge_days": 1
+    },
+    {
+      "block_index": 2,
+      "test_start_utc": "2023-09-29",
+      "test_end_utc": "2023-12-28",
+      "fit_cutoff_utc": "2023-09-28",
+      "purge_days": 1
+    },
+    {
+      "block_index": 3,
+      "test_start_utc": "2023-12-28",
+      "test_end_utc": "2024-03-27",
+      "fit_cutoff_utc": "2023-12-27",
+      "purge_days": 1
+    },
+    {
+      "block_index": 4,
+      "test_start_utc": "2024-03-27",
+      "test_end_utc": "2024-06-25",
+      "fit_cutoff_utc": "2024-03-26",
+      "purge_days": 1
+    },
+    {
+      "block_index": 5,
+      "test_start_utc": "2024-06-25",
+      "test_end_utc": "2024-09-23",
+      "fit_cutoff_utc": "2024-06-24",
+      "purge_days": 1
+    },
+    {
+      "block_index": 6,
+      "test_start_utc": "2024-09-23",
+      "test_end_utc": "2024-12-22",
+      "fit_cutoff_utc": "2024-09-22",
+      "purge_days": 1
+    },
+    {
+      "block_index": 7,
+      "test_start_utc": "2024-12-22",
+      "test_end_utc": "2025-03-22",
+      "fit_cutoff_utc": "2024-12-21",
+      "purge_days": 1
+    },
+    {
+      "block_index": 8,
+      "test_start_utc": "2025-03-22",
+      "test_end_utc": "2025-06-20",
+      "fit_cutoff_utc": "2025-03-21",
+      "purge_days": 1
+    },
+    {
+      "block_index": 9,
+      "test_start_utc": "2025-06-20",
+      "test_end_utc": "2025-09-18",
+      "fit_cutoff_utc": "2025-06-19",
+      "purge_days": 1
+    },
+    {
+      "block_index": 10,
+      "test_start_utc": "2025-09-18",
+      "test_end_utc": "2025-12-17",
+      "fit_cutoff_utc": "2025-09-17",
+      "purge_days": 1
+    },
+    {
+      "block_index": 11,
+      "test_start_utc": "2025-12-17",
+      "test_end_utc": "2026-03-17",
+      "fit_cutoff_utc": "2025-12-16",
+      "purge_days": 1
+    },
+    {
+      "block_index": 12,
+      "test_start_utc": "2026-03-17",
+      "test_end_utc": "2026-06-15",
+      "fit_cutoff_utc": "2026-03-16",
+      "purge_days": 1
+    }
+  ],
+  "cold_start_offsets_days": [
+    0,
+    30,
+    60,
+    90,
+    120
+  ]
+}

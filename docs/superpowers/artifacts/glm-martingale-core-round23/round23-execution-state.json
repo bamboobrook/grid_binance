@@ -1,0 +1,128 @@
+{
+  "blocked_reasons": [
+    "R1 production-conservative scored replay not yet wired",
+    "R3 metrics/bookDepth/aggTrades historical data not yet ingested",
+    "R4 M1/M2/M3 Martin families not yet implemented",
+    "G1 12-block continuous replays not yet run",
+    "git tree is dirty"
+  ],
+  "canaries": [
+    {
+      "description": "empty registry + downstream result",
+      "id": "C01_empty_registry_with_downstream_result",
+      "never_repeat": "do not emit any G1/G2 result without a complete registry row",
+      "outcome": "RejectedCorrectly"
+    },
+    {
+      "description": "dirty/unpushed commit",
+      "id": "C02_dirty_or_unpushed_commit",
+      "never_repeat": "every replay parent commit must be clean and on the upstream remote",
+      "outcome": "RejectedCorrectly"
+    },
+    {
+      "description": "63-char hash",
+      "id": "C03_short_hash",
+      "never_repeat": "all manifest hashes must be full 64-char lowercase-hex SHA-256",
+      "outcome": "RejectedCorrectly"
+    },
+    {
+      "description": "reused experiment ID",
+      "id": "C04_reused_experiment_id",
+      "never_repeat": "an experiment_id is immutable and may not be reused",
+      "outcome": "RejectedCorrectly"
+    },
+    {
+      "description": "missing running or terminal row",
+      "id": "C05_missing_running_or_terminal",
+      "never_repeat": "every experiment_id needs exactly one running and one terminal row",
+      "outcome": "RejectedCorrectly"
+    },
+    {
+      "description": "null order/signal/margin trace",
+      "id": "C06_null_trace",
+      "never_repeat": "null/empty traces are rejected; a trace SHA-256 must hash real events",
+      "outcome": "RejectedCorrectly"
+    },
+    {
+      "description": "config/argv budget mismatch",
+      "id": "C07_budget_mismatch",
+      "never_repeat": "config budget and argv budget must agree",
+      "outcome": "RejectedCorrectly"
+    },
+    {
+      "description": "G2 without committed G1 parent",
+      "id": "C08_g2_without_g1_parent",
+      "never_repeat": "a G2 launch must reference a committed G1 terminal row",
+      "outcome": "RejectedCorrectly"
+    },
+    {
+      "description": "90-day ann entering target",
+      "id": "C09_90day_ann_entering_target",
+      "never_repeat": "only >=365 stitched test days may judge the annualized target",
+      "outcome": "RejectedCorrectly"
+    },
+    {
+      "description": "deleted manifest block",
+      "id": "C10_deleted_manifest_block",
+      "never_repeat": "a manifest with a deleted block is invalid",
+      "outcome": "RejectedCorrectly"
+    },
+    {
+      "description": "cold-start selection after seeing test results",
+      "id": "C11_cold_start_selection_after_test",
+      "never_repeat": "the five cold starts are frozen before any return replay",
+      "outcome": "RejectedCorrectly"
+    },
+    {
+      "description": "summary replay count != registry",
+      "id": "C12_summary_replay_count_mismatch",
+      "never_repeat": "summary replay counts must equal registry terminal rows",
+      "outcome": "RejectedCorrectly"
+    },
+    {
+      "description": "selector state == planned",
+      "id": "C13_selector_planned",
+      "never_repeat": "a selector in the planned state cannot seed any FO/SO",
+      "outcome": "RejectedCorrectly"
+    },
+    {
+      "description": "future/stale metrics/depth",
+      "id": "C14_future_or_stale_metrics",
+      "never_repeat": "metrics/depth more than one snapshot stale or with a future timestamp are rejected",
+      "outcome": "RejectedCorrectly"
+    },
+    {
+      "description": "terminal without failure row",
+      "id": "C15_terminal_without_failure_row",
+      "never_repeat": "a non-complete terminal row must atomically write a failure ledger row",
+      "outcome": "RejectedCorrectly"
+    }
+  ],
+  "commit_on_upstream": true,
+  "failure_ledger_rows": 0,
+  "git_commit": "23809e33d9fc37199ff4a6ec59eb2c2d88f77292",
+  "git_dirty": true,
+  "phases_completed": [
+    "R0"
+  ],
+  "phases_remaining": [
+    "R1",
+    "R2",
+    "R3",
+    "R4",
+    "R5",
+    "G0",
+    "G1",
+    "G2",
+    "R8",
+    "HANDOFF"
+  ],
+  "plan_sha256": "e471144d18b6e3d6a75c54bd9eede17e7235145d61979e82105b862c3af30e1e",
+  "r0_canaries_all_rejected": true,
+  "r0_canary_count": 15,
+  "r22_corrected_authority_sha256": "a313f89d7030eba0a093e0fc4579188d2d65e2abd2ee1d90cbd2aa207007ee0f",
+  "registry_rows": 0,
+  "status": "BLOCKED_ENGINE_DATA_OR_EXECUTION",
+  "upstream_remote_commit": "23809e33d9fc37199ff4a6ec59eb2c2d88f77292",
+  "validated_at_utc": "2026-07-22T12:47:19Z"
+}

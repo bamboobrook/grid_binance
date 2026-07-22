@@ -15,6 +15,7 @@ members = [
     "crates/shared-chain",
     "crates/shared-events",
     "crates/shared-telemetry",
+    "crates/r23-registry",
 ]
 resolver = "2"
 
