@@ -3,7 +3,8 @@
     "R1 production-conservative scored replay not yet wired",
     "R3 metrics/bookDepth/aggTrades historical data not yet ingested",
     "R4 M1/M2/M3 Martin families not yet implemented",
-    "G1 12-block continuous replays not yet run"
+    "G1 12-block continuous replays not yet run",
+    "git tree is dirty"
   ],
   "canaries": [
     {
@@ -99,13 +100,13 @@
   ],
   "commit_on_upstream": true,
   "failure_ledger_rows": 0,
-  "git_commit": "b7bdbadfce3cda38ed095c14e172dabb1a8de161",
-  "git_dirty": false,
+  "git_commit": "6fe6f1a935b9ad7b60ace78e058771711c47f010",
+  "git_dirty": true,
   "phases_completed": [
-    "R0"
+    "R0",
+    "R1"
   ],
   "phases_remaining": [
-    "R1",
     "R2",
     "R3",
     "R4",
@@ -120,8 +121,8 @@
   "r0_canaries_all_rejected": true,
   "r0_canary_count": 15,
   "r22_corrected_authority_sha256": "a313f89d7030eba0a093e0fc4579188d2d65e2abd2ee1d90cbd2aa207007ee0f",
-  "registry_rows": 0,
+  "registry_rows": 36,
   "status": "BLOCKED_ENGINE_DATA_OR_EXECUTION",
-  "upstream_remote_commit": "b7bdbadfce3cda38ed095c14e172dabb1a8de161",
-  "validated_at_utc": "2026-07-22T12:51:51Z"
+  "upstream_remote_commit": "6fe6f1a935b9ad7b60ace78e058771711c47f010",
+  "validated_at_utc": "2026-07-22T13:19:59Z"
 }

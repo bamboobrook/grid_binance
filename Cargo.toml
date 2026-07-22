@@ -16,6 +16,7 @@ members = [
     "crates/shared-events",
     "crates/shared-telemetry",
     "crates/r23-registry",
+    "crates/r23-replay",
 ]
 resolver = "2"
 

@@ -103,12 +103,29 @@ fn main() {
         std::fs::write(&ledger_path, b"").unwrap();
     }
     let registry = Registry::new(&registry_path);
-    let _ledger = FailureLedger::new(&ledger_path);
+    let ledger = FailureLedger::new(&ledger_path);
 
-    // 6. Execution state.
-    let input = DeriveInput { registry: &registry, completed_phases: vec!["R0".to_string()] };
+    // 6. Execution state. Detect completed phases from registry terminal rows.
+    let mut completed_phases = vec!["R0".to_string()];
+    let reg_rows = registry.read_all().unwrap_or_default();
+    use r23_registry::registry::{RowKind, TerminalStatus};
+    let mut phases_with_complete: std::collections::HashSet<String> = std::collections::HashSet::new();
+    for r in &reg_rows {
+        if matches!(r.row_kind, RowKind::Terminal)
+            && matches!(r.terminal_status, Some(TerminalStatus::Complete))
+        {
+            phases_with_complete.insert(r.phase.clone());
+        }
+    }
+    for p in &phases_with_complete {
+        if !completed_phases.iter().any(|c| c.eq_ignore_ascii_case(p)) {
+            completed_phases.push(p.clone());
+        }
+    }
+    let input = DeriveInput { registry: &registry, completed_phases };
     let state = derive_execution_state(&input);
     println!("execution state: {}", state.as_str());
+    println!("completed phases (registry-detected): {:?}", input.completed_phases);
 
     // 7. Write artifacts.
     let manifest_json = serde_json::to_string_pretty(&manifest).unwrap();
@@ -124,13 +141,13 @@ fn main() {
         "upstream_remote_commit": upstream,
         "commit_on_upstream": on_upstream,
         "registry_rows": registry.read_all().map(|r| r.len()).unwrap_or(0),
-        "failure_ledger_rows": _ledger.read_all().map(|r| r.len()).unwrap_or(0),
+        "failure_ledger_rows": ledger.read_all().map(|r| r.len()).unwrap_or(0),
         "r0_canaries_all_rejected": all_green,
         "r0_canary_count": canary_results.len(),
         "canaries": canary_results,
         "blocked_reasons": blocked_reasons(&state, git_dirty, on_upstream),
-        "phases_completed": ["R0"],
-        "phases_remaining": ["R1", "R2", "R3", "R4", "R5", "G0", "G1", "G2", "R8", "HANDOFF"],
+        "phases_completed": input.completed_phases.clone(),
+        "phases_remaining": compute_remaining_phases(&input.completed_phases),
     });
     std::fs::write(
         artifact_dir.join("round23-execution-state.json"),
@@ -216,6 +233,14 @@ fn git_output(repo: &std::path::Path, args: &[&str]) -> String {
         Ok(o) => String::from_utf8_lossy(&o.stdout).trim().to_string(),
         Err(_) => String::new(),
     }
+}
+
+fn compute_remaining_phases(completed: &[String]) -> Vec<String> {
+    let all = ["R1", "R2", "R3", "R4", "R5", "G0", "G1", "G2", "R8", "HANDOFF"];
+    all.iter()
+        .filter(|p| !completed.iter().any(|c| c.eq_ignore_ascii_case(p)))
+        .map(|s| s.to_string())
+        .collect()
 }
 
 fn now_utc() -> String {

@@ -1,0 +1,37 @@
+{
+  "breach": false,
+  "checks": {
+    "independent_adapter_parity": true,
+    "main_replay_no_engine_error": true,
+    "registry_invariant_clean": true,
+    "running_plus_terminal_recorded": true
+  },
+  "config": {
+    "bar_minutes": 5,
+    "budget_quote": 4999.0,
+    "entry_z": 0.5,
+    "max_legs": 3,
+    "multiplier": 1.5,
+    "so_residual_step_z": 0.25
+  },
+  "fit": {
+    "beta": 0.7266102310384367,
+    "fit_sha256": "34bb6d7c3ddd7ce313e1f06644e089e19aa6dbc5c21c50cca1347b4daca42cbd",
+    "half_life_h": 115.21331720846847,
+    "mu": 0.08297043909250945,
+    "n_train": 52128,
+    "residual_sigma": 0.027759151990504504
+  },
+  "gate": "P-A_production_conservative_main_replay_and_adapter_parity",
+  "passed": true,
+  "phase": "R1",
+  "stitched_metrics_control_not_target": {
+    "end_equity_quote": 5003.0057738401065,
+    "max_equity_dd_pct": 19.084085442848004,
+    "monthly_win_rate_pct": null,
+    "start_equity_quote": 4998.85860571,
+    "total_return_pct": 0.08296230114148706,
+    "trade_count": 278
+  },
+  "validated_at_utc": "2026-07-22T13:17:26Z"
+}

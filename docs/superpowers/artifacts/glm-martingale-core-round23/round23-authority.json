@@ -1,8 +1,8 @@
 {
   "authority_version": 1,
-  "generated_at_utc": "2026-07-22T12:51:51Z",
-  "git_commit": "b7bdbadfce3cda38ed095c14e172dabb1a8de161",
-  "git_dirty": false,
+  "generated_at_utc": "2026-07-22T13:19:59Z",
+  "git_commit": "6fe6f1a935b9ad7b60ace78e058771711c47f010",
+  "git_dirty": true,
   "historical_backtest_only": true,
   "machine_state": "docs/superpowers/artifacts/glm-martingale-core-round23/round23-execution-state.json",
   "never_repeat": [
@@ -35,5 +35,5 @@
     "balanced": false,
     "conservative": false
   },
-  "upstream_remote_commit": "b7bdbadfce3cda38ed095c14e172dabb1a8de161"
+  "upstream_remote_commit": "6fe6f1a935b9ad7b60ace78e058771711c47f010"
 }

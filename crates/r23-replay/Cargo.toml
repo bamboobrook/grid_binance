@@ -1,0 +1,22 @@
+[package]
+name = "r23-replay"
+version = "0.1.0"
+edition.workspace = true
+description = "Round 23 R1 continuous prequential scored replay driver. Reuses the production-conservative sync_cycle_engine (filter/margin/partial-fill/leg-delay/liquidation gates wired in at FO/SO emit sites) to drive a single-account continuous replay across the frozen 12-block protocol, and records every experiment via r23_registry::Launcher. Implements plan §5 (R1 accounting + execution path) and the §5.3 directed tests."
+
+[lib]
+name = "r23_replay"
+path = "src/lib.rs"
+
+[dependencies]
+backtest-engine = { path = "../../apps/backtest-engine" }
+r23-registry = { path = "../r23-registry" }
+shared-domain = { path = "../shared-domain" }
+anyhow.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+chrono.workspace = true
+
+[dev-dependencies]
+tempfile = "3"

@@ -1812,6 +1812,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "r23-replay"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "backtest-engine",
+ "chrono",
+ "r23-registry",
+ "serde",
+ "serde_json",
+ "sha2",
+ "shared-domain",
+ "tempfile",
+]
+
+[[package]]
 name = "radium"
 version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
