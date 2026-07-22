@@ -19,10 +19,14 @@ use r23_replay::m1_signal::{compute_m1_states, M1State, MetricRow};
 use r23_replay::multiple_testing::{deflated_sharpe, probability_of_backtest_overfitting, sharpe_stats};
 
 fn main() -> Result<()> {
-    let metrics_dir = std::env::args().nth(1).ok_or_else(|| anyhow!("usage: r23_multi_symbol <metrics_dir> [budget] [symbols...]"))?;
+    let metrics_dir = std::env::args().nth(1).ok_or_else(|| anyhow!("usage: r23_multi_symbol <metrics_dir> [budget] [price_ext_thresh] [fo_pct] [max_legs] [symbols...]"))?;
     let budget: f64 = std::env::args().nth(2).and_then(|s| s.parse().ok()).unwrap_or(1000.0);
-    let symbols: Vec<String> = std::env::args().skip(3).collect();
+    let price_ext_thresh: f64 = std::env::args().nth(3).and_then(|s| s.parse().ok()).unwrap_or(1.5);
+    let fo_pct: f64 = std::env::args().nth(4).and_then(|s| s.parse().ok()).unwrap_or(10.0);
+    let max_legs: u32 = std::env::args().nth(5).and_then(|s| s.parse().ok()).unwrap_or(2);
+    let symbols: Vec<String> = std::env::args().skip(6).collect();
     let symbols: Vec<String> = if symbols.is_empty() { vec!["BTCUSDT".to_string(), "ETHUSDT".to_string()] } else { symbols };
+    println!("params: budget={budget} price_ext_thresh={price_ext_thresh} fo_pct={fo_pct} max_legs={max_legs}");
 
     // Load per-symbol bars + signals over the COMMON intersection window.
     let src = SqliteMarketDataSource::open_readonly("data/market_data.full.db").or_else(|_| SqliteMarketDataSource::open_readonly("data/market_data_full.db")).unwrap();
@@ -53,7 +57,7 @@ fn main() -> Result<()> {
     if common_mn >= common_mx { return Err(anyhow!("no common window")); }
     let n_sym = per_sym.len() as f64;
     let sleeve_budget = budget / n_sym; // equal-risk: split budget equally
-    let fo_quote = (0.10 * sleeve_budget).max(6.0); // each sleeve 10% of its budget
+    let fo_quote = (fo_pct / 100.0 * sleeve_budget).max(6.0); // each sleeve fo_pct of its budget
     println!("combination: {} symbols, common window {:.0}d, sleeve_budget={:.1}, fo={:.1}", n_sym, (common_mx-common_mn) as f64/86_400_000.0, sleeve_budget, fo_quote);
 
     // Run each symbol's policy independently, collect equity curves.
@@ -62,7 +66,7 @@ fn main() -> Result<()> {
     let mut policy_returns: Vec<Vec<f64>> = Vec::new();
     for (sym, (bars, sm, _, _)) in &per_sym {
         let cbars: Vec<KlineBar> = bars.iter().filter(|b| b.open_time_ms >= common_mn && b.open_time_ms <= common_mx).cloned().collect();
-        let signal = RelaxedM1 { state_map: sm.clone() };
+        let signal = RelaxedM1 { state_map: sm.clone(), thresh: price_ext_thresh };
         let cfg = GatedMartinConfig {
             symbol: sym.clone(),
             filters: ExchangeFilters::default_for(sym),
@@ -75,7 +79,7 @@ fn main() -> Result<()> {
             leverage: 3,
             direction_bias: 1,
             tp_mode: TpMode::ScaleOut, // smoother returns
-            max_legs: 2, // cap DD
+            max_legs,
         };
         let res = run_gated_martin(&cfg, &cbars, &signal).unwrap_or_else(|_| empty_result(sleeve_budget));
         let mut daily: BTreeMap<i64, f64> = BTreeMap::new();
@@ -134,11 +138,11 @@ fn main() -> Result<()> {
 }
 
 #[derive(Clone)]
-struct RelaxedM1 { state_map: BTreeMap<i64, M1State> }
+struct RelaxedM1 { state_map: BTreeMap<i64, M1State>, thresh: f64 }
 impl SignalSource for RelaxedM1 {
     fn gate(&self, _i: usize, ts: i64, _price: f64) -> SignalGate {
         match self.state_map.get(&ts) {
-            Some(s) => SignalGate { long_fo: s.price_ext <= -1.5 && s.oi_change >= 0.0, short_fo: s.price_ext >= 1.5 && s.oi_change >= 0.0, so_allowed: true, force_abort: false },
+            Some(s) => SignalGate { long_fo: s.price_ext <= -self.thresh && s.oi_change >= 0.0, short_fo: s.price_ext >= self.thresh && s.oi_change >= 0.0, so_allowed: true, force_abort: false },
             None => SignalGate::default(),
         }
     }
