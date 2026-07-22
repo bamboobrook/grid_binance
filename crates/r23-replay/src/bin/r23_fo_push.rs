@@ -1,0 +1,169 @@
+//! R8 FO-push sweep — with the best BTC config (adverse=0.010, tp_bps=5,
+//! thresh=1.5, legs=3, ScaleOut) fixed, sweep FO sizing from 35% to 300% to
+//! find the ann-maximizing point that still passes DD<=30%.
+//!
+//! The grid sweep showed leverage has NO effect (no liquidation hit), meaning
+//! the engine isn't margin-constrained at these configs. The ann is then
+//! roughly linear in FO. We need ann>=50% for conservative tier — push FO.
+
+use std::collections::BTreeMap;
+use std::io::Read;
+use std::path::Path;
+
+use anyhow::{anyhow, Result};
+
+use backtest_engine::martingale::exchange_model::ExchangeFilters;
+use backtest_engine::sqlite_market_data::SqliteMarketDataSource;
+use backtest_engine::market_data::KlineBar;
+use r23_replay::gated_martin::{run_gated_martin, GatedMartinConfig, SignalSource, TpMode};
+use r23_replay::m1_signal::{compute_m1_states, M1State, MetricRow};
+use r23_replay::multiple_testing::{deflated_sharpe, sharpe_stats};
+
+struct RelaxedM1 {
+    state_map: BTreeMap<i64, M1State>,
+    thresh: f64,
+}
+
+impl SignalSource for RelaxedM1 {
+    fn gate(&self, bar_idx: usize, ts_ms: i64, price: f64) -> r23_replay::gated_martin::SignalGate {
+        let _ = bar_idx;
+        let s = match self.state_map.range(..=ts_ms).next_back() {
+            Some((_, v)) if (ts_ms - v.ts_ms) < 600_000 => v,
+            _ => return r23_replay::gated_martin::SignalGate { long_fo: false, short_fo: false, so_allowed: false, force_abort: false },
+        };
+        let long_fo = s.price_ext <= -self.thresh;
+        let short_fo = s.price_ext >= self.thresh;
+        let exhaustion = s.top_crowd > 0.5 || s.all_crowd > 0.5;
+        r23_replay::gated_martin::SignalGate { long_fo, short_fo, so_allowed: exhaustion, force_abort: false }
+    }
+}
+
+fn parse_ts(s: &str) -> Option<i64> {
+    let dt = chrono::NaiveDateTime::parse_from_str(s, "%Y-%m-%d %H:%M:%S").ok()?;
+    Some(dt.and_utc().timestamp_millis())
+}
+
+fn load_metrics(sym_dir: &Path, symbol: &str) -> Result<Vec<MetricRow>> {
+    let mut metrics = Vec::new();
+    if !sym_dir.exists() { return Ok(metrics); }
+    for entry in std::fs::read_dir(sym_dir)? {
+        let entry = entry?;
+        let path = entry.path();
+        if path.extension().and_then(|s| s.to_str()) != Some("zip") { continue; }
+        let bytes = std::fs::read(&path)?;
+        let mut za = zip::ZipArchive::new(std::io::Cursor::new(bytes.as_slice())).map_err(|e| anyhow!("zip: {e}"))?;
+        let name = za.by_index(0).map_err(|e| anyhow!("idx: {e}"))?.name().to_string();
+        let mut buf = Vec::new();
+        za.by_name(&name).map_err(|e| anyhow!("name: {e}"))?.read_to_end(&mut buf)?;
+        let text = String::from_utf8_lossy(&buf);
+        let mut rdr = csv::ReaderBuilder::new().has_headers(true).from_reader(text.as_bytes());
+        for rec in rdr.records() {
+            let r = match rec { Ok(r) => r, Err(_) => continue };
+            let ts = match parse_ts(&r[0]) { Some(t) => t, None => continue };
+            let oiv: f64 = r.get(3).and_then(|s| s.parse().ok()).unwrap_or(0.0);
+            let top: f64 = r.get(5).and_then(|s| s.parse().ok()).unwrap_or(1.0);
+            let all: f64 = r.get(6).and_then(|s| s.parse().ok()).unwrap_or(1.0);
+            let taker: f64 = r.get(7).and_then(|s| s.parse().ok()).unwrap_or(1.0);
+            metrics.push(MetricRow { ts_ms: ts, symbol: symbol.to_string(), open_interest_value: oiv, top_trader_ls_ratio: top, all_trader_ls_ratio: all, taker_ls_vol_ratio: taker });
+        }
+    }
+    metrics.sort_by_key(|m| m.ts_ms);
+    Ok(metrics)
+}
+
+fn resample(bars1m: &[KlineBar], bm: u32) -> Vec<KlineBar> {
+    let mut o: BTreeMap<i64, KlineBar> = BTreeMap::new();
+    let bk = (bm as i64) * 60_000;
+    for b in bars1m {
+        let bu = (b.open_time_ms / bk) * bk;
+        let e = o.entry(bu).or_insert_with(|| KlineBar { symbol: b.symbol.clone(), open_time_ms: bu, open: b.open, high: b.high, low: b.low, close: b.close, volume: 0.0 });
+        e.high = e.high.max(b.high); e.low = e.low.min(b.low); e.close = b.close; e.volume += b.volume;
+    }
+    o.into_values().collect()
+}
+
+fn main() -> Result<()> {
+    let metrics_dir = std::env::args().nth(1).ok_or_else(|| anyhow!("usage: r23_fo_push <metrics_dir> [budget] [symbol]"))?;
+    let budget: f64 = std::env::args().nth(2).and_then(|s| s.parse().ok()).unwrap_or(1000.0);
+    let symbol = std::env::args().nth(3).unwrap_or_else(|| "BTCUSDT".to_string());
+
+    let mdir = Path::new(&metrics_dir).join(&symbol);
+    let metrics = load_metrics(&mdir, &symbol)?;
+    if metrics.is_empty() { return Err(anyhow!("no metrics for {symbol}")); }
+    let src = SqliteMarketDataSource::open_readonly("data/market_data.full.db")
+        .or_else(|_| SqliteMarketDataSource::open_readonly("data/market_data_full.db"))
+        .map_err(|e| anyhow!("{e}"))?;
+    let mn = metrics.first().unwrap().ts_ms;
+    let mx = metrics.last().unwrap().ts_ms;
+    let bars1m = src.load_klines_with_market_type(&symbol, "futures_usdt_perp", mn, mx, "1m").map_err(|e| anyhow!("{e}"))?;
+    let bars = resample(&bars1m, 5);
+    let closes: Vec<(i64, f64)> = bars.iter().map(|b| (b.open_time_ms, b.close)).collect();
+    let states = compute_m1_states(&metrics, &closes, 2016);
+    let sm: BTreeMap<i64, M1State> = states.iter().map(|s| (s.ts_ms, s.clone())).collect();
+    println!("{symbol}: {} bars, {} states, {:.0}d", bars.len(), sm.len(), ((mx - mn) as f64) / 86_400_000.0);
+
+    // FO sweep: 35% to 400% (leveraged FO).
+    let fo_pcts: Vec<f64> = (35..=400).step_by(15).map(|x| x as f64).collect();
+    println!("\nfo_pct,ann_pct,dd_pct,sharpe,skew,kurt,dsr,end_eq,liquidated");
+    let mut best_ann = -100.0f64;
+    let mut best_fo = 0.0;
+    let mut best_dd = 0.0;
+    let mut best_sh = 0.0;
+    for &fo_pct in &fo_pcts {
+        let signal = RelaxedM1 { state_map: sm.clone(), thresh: 1.5 };
+        let cfg = GatedMartinConfig {
+            symbol: symbol.clone(),
+            filters: ExchangeFilters::default_for(&symbol),
+            budget_quote: budget,
+            fo_quote: (fo_pct / 100.0 * budget).max(6.0),
+            adverse_spacing_frac: 0.010,
+            tp_net_bps_floor: 5.0,
+            fee_bps: 2.0,
+            slippage_bps: 1.0,
+            leverage: 3,
+            direction_bias: 1,
+            tp_mode: TpMode::ScaleOut,
+            max_legs: 3,
+        };
+        let res = match run_gated_martin(&cfg, &bars, &signal) {
+            Ok(r) => r,
+            Err(e) => { println!("{fo_pct:.0},ERROR: {e},,,,,,"); continue; }
+        };
+        let mut daily: BTreeMap<i64, f64> = BTreeMap::new();
+        for e in &res.equity_curve { daily.insert(e.timestamp_ms / 86_400_000, e.equity_quote); }
+        let rets: Vec<f64> = daily.values().collect::<Vec<_>>().windows(2)
+            .filter_map(|w| if w[0] > &0.0 { Some(w[1] / w[0] - 1.0) } else { None }).collect();
+        if rets.len() < 30 { println!("{fo_pct:.0},too_few_rets,,,,,,"); continue; }
+        let st = sharpe_stats(&rets);
+        let ann_sharpe = st.sharpe * (365.0_f64).sqrt();
+        let dsr = deflated_sharpe(ann_sharpe, 1, st.n as u64, st.skew, st.kurtosis);
+        let ee = res.equity_curve.last().map(|e| e.equity_quote).unwrap_or(budget);
+        let days = ((mx - mn) as f64) / 86_400_000.0;
+        let ann = if ee > 0.0 { ((ee / budget).powf(365.0 / days) - 1.0) * 100.0 } else { -100.0 };
+        let mut peak = budget;
+        let mut max_dd = 0.0f64;
+        for e in &res.equity_curve {
+            if e.equity_quote > peak { peak = e.equity_quote; }
+            let dd = (peak - e.equity_quote) / peak * 100.0;
+            if dd > max_dd { max_dd = dd; }
+        }
+        let liquidated = ee < budget * 0.1;
+        println!("{fo_pct:.0},{ann:.2},{max_dd:.2},{ann_sharpe:.3},{st_skew:.3},{st_kurt:.3},{dsr:.2},{ee:.1},{liquidated}",
+            st_skew = st.skew, st_kurt = st.kurtosis);
+        // Track best ann that keeps DD<=30%
+        if ann > best_ann && max_dd <= 30.0 && !liquidated {
+            best_ann = ann; best_fo = fo_pct; best_dd = max_dd; best_sh = ann_sharpe;
+        }
+    }
+
+    println!("\n=== BEST ann with DD<=30%: fo={best_fo:.0}% -> ann={best_ann:.2}% dd={best_dd:.2}% sharpe={best_sh:.3} ===");
+
+    // Tier check on best.
+    let conservative = best_ann >= 50.0 && best_dd <= 10.0;
+    let balanced = best_ann >= 90.0 && best_dd <= 20.0;
+    let aggressive = best_ann >= 110.0 && best_dd <= 30.0;
+    println!("Conservative(50%/DD<=10%): {}", if conservative { "HIT" } else { "MISS" });
+    println!("Balanced(90%/DD<=20%): {}", if balanced { "HIT" } else { "MISS" });
+    println!("Aggressive(110%/DD<=30%): {}", if aggressive { "HIT" } else { "MISS" });
+    Ok(())
+}
