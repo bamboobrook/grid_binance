@@ -20,8 +20,9 @@ The prior conclusion (ann 17.72%, Sharpe 0.71) was based on **single-point tests
 | FO-push (35-400%) on best BTC | 25 | ~3min | Hard ceiling at fo=80%; best DD≤30% = 25.69% |
 | **Full gate suite on best BTC** | — | ~5min | DSR+12.23, PBO 0.435, 5/5cs — **all pass except Sharpe≥2** |
 | MicroIntegral TP (ssrn.5895159 concepts, §10.2 disclosed) | 540 | ~25min | Best Sharpe 1.725 but ann 0.57%; best ann 29.32% but Sharpe 0.874 — **strict tradeoff, no config reaches Sharpe≥2 AND ann≥50%** |
+| M1M2 AND-gate extended window (731d bookDepth, downloaded 1808 new files) | 16 | ~40min | **CRITICAL: prior Sharpe 2.0185 was a short-window (219d) artifact — on full 1066d it collapses to 0.756** |
 
-**Total: 1455 distinct backtests this session, all on full 1066-day real data.**
+**Total: 1471 distinct backtests this session, all on full 1066-day real data.**
 
 ---
 
@@ -103,6 +104,26 @@ I implemented this as `TpMode::MicroIntegral{close_frac}` — closing `close_fra
 - **STRICT TRADEOFF**: MicroIntegral raises Sharpe by killing ann. The paper's concepts trade return for smoothness — they do not create new edge.
 
 **Conclusion**: Even with the ssrn.5895159 concepts faithfully reimplemented (per §10.2 disclosure), the target tiers (Sharpe≥2 AND ann≥50%) are unreachable. The binding constraint is the Sharpe/ann frontier of the M1 orderflow signal, not the TP mechanism. This exhausts the last identified path.
+
+---
+
+## 8. M1M2 AND-gate — CRITICAL CORRECTION (short-window artifact)
+
+A prior M1M2 AND-gate result showed **Sharpe 2.0185** on a 219-day common window, which appeared to break the Sharpe≥2.0 barrier. This was investigated rigorously:
+
+1. **Downloaded 1808 new bookDepth files** (5 symbols, 2024-07 to 2025-06) to extend the depth window from 366d to **731d**.
+2. **Re-ran the M1M2 AND-gate** on the full 1066-day window with a 16-cell grid (fo[15-50] × thresh[0.5-1.5]).
+
+**RESULT: The Sharpe COLLAPSES from 2.0185 to 0.756 on the full window.**
+
+| Window | Best Sharpe | Best ann | Best DD |
+|---|---|---|---|
+| 219 days (prior) | 2.0185 | 94.28% | 6.45% |
+| 1066 days (full) | 0.756 | 23.60% | 35.59% |
+
+**Why**: The short window had fewer independent return observations, which inflates the Sharpe ratio (Sharpe = mean/std, and with fewer samples the std is underestimated). The M2 AND-gate filters trades (fewer entries) but does NOT add independent alpha — it just makes the return stream sparser, which looks better on short windows.
+
+**Conclusion**: The M1M2 AND-gate is NOT a route to the target tiers. The prior Sharpe 2.0185 was a statistical artifact, not a real edge. This is now confirmed with full-window evidence.
 
 ---
 
