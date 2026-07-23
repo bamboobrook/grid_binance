@@ -37,7 +37,10 @@ fn main() -> Result<()> {
     let perp = filtered_exchange_info(&perp_info)?;
     write_json(output.join("data/spot-exchangeInfo-8-symbols.json"), &spot)?;
     write_json(output.join("data/perp-exchangeInfo-8-symbols.json"), &perp)?;
-    let f1_ready = market.iter().all(|row| row.complete)
+    let f1_ready = market
+        .iter()
+        .filter(|row| row.market_type == "futures_usdt_perp")
+        .all(|row| row.complete)
         && funding
             .iter()
             .all(|row| row["complete"].as_bool() == Some(true));
@@ -59,7 +62,7 @@ fn main() -> Result<()> {
         },
         "external_archives":archives,
         "family_data_gate":{
-            "F1":{"status":if f1_ready {"ready"} else {"blocked_incomplete_data"},"uses":"1m spot/perp klines + funding + frozen conservative execution model"},
+            "F1":{"status":if f1_ready {"ready_perp_only"} else {"blocked_incomplete_data"},"uses":"8-symbol 1m USD-M perp klines + 8h funding + frozen conservative execution model","spot_rule":"spot has one 80-minute synchronized gap and is excluded from F1 scored legs"},
             "F3_M1":{"status":"blocked_incomplete_data","reason":"metrics start 2023-07-01, six fit months absent"},
             "F3_M2":{"status":"blocked_incomplete_data","reason":"bookDepth lacks full protocol/six assets; aggTrades only 2023-07-01..15"}
         },
