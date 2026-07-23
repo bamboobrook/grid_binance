@@ -1875,6 +1875,7 @@ name = "r24-engine"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "r24-registry",
  "rusqlite",
  "serde",
  "serde_json",

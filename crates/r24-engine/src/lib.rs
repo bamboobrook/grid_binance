@@ -567,6 +567,20 @@ impl SharedAccount {
         .all(|kind| self.traces.iter().any(|row| row.stream == *kind))
     }
 
+    pub fn record_signal(&mut self, timestamp: i64, symbol: &str, detail: &str) {
+        self.trace(
+            timestamp,
+            "signal",
+            "lagged_signal",
+            None,
+            None,
+            Some(symbol),
+            None,
+            None,
+            detail,
+        );
+    }
+
     fn fill_now(&mut self, request: FillRequest) -> Result<FillOutcome> {
         let fraction = request.fill_fraction.clamp(0.0, 1.0);
         let quantity = request.requested_quantity * fraction;
