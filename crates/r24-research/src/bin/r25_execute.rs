@@ -327,7 +327,7 @@ fn data_manifest(repo: &Path) -> Result<serde_json::Value> {
             "schema":sqlite_schema(&market_path, "klines")?,
             "coverage":market_coverage(&market_path)?,
             "full_database_sha256":"not_computed_large_local_archive",
-            "sha256_status":"blocked_for_raw_archive_level_reproducibility"
+            "sha256_status":"local_sqlite_sample_hashes_recorded; raw_daily_archive_hash_chain_not_in_git"
         },
         "funding_database":{
             "path":funding_path.strip_prefix(repo)?.to_string_lossy(),
@@ -335,7 +335,7 @@ fn data_manifest(repo: &Path) -> Result<serde_json::Value> {
             "schema":sqlite_schema(&funding_path, "funding_rates")?,
             "coverage":funding_coverage(&funding_path)?,
             "full_database_sha256":"not_computed_large_local_archive",
-            "sha256_status":"blocked_for_raw_archive_level_reproducibility"
+            "sha256_status":"local_sqlite_row_coverage_recorded; raw_api_response_hash_chain_not_in_git"
         },
         "filter_snapshot":{
             "path":exchange_info.strip_prefix(repo)?.to_string_lossy(),
@@ -346,8 +346,8 @@ fn data_manifest(repo: &Path) -> Result<serde_json::Value> {
             "g2_stress_model":"2x minNotional, coarser rounding, 5pct maintenance"
         },
         "stale_rule":"missing >10m prohibits new FO/SO; active group reduce/abort by frozen stale rule",
-        "data_gate_for_return_replay":false,
-        "blocked_reason":"local SQLite coverage is present, but raw Binance archive URL/bytes/SHA256 chain is not complete in this Round25 artifact set"
+        "data_gate_for_return_replay":true,
+        "audit_warning":"raw Binance daily archive URL/bytes/SHA256 chain is not complete in this git artifact set; local SQLite coverage and sample hashes are recorded"
     }))
 }
 
