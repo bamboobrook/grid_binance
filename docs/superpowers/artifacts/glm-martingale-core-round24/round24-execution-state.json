@@ -1,0 +1,25 @@
+{
+  "machine_derived": true,
+  "phases": {
+    "E1": "pending",
+    "F1": "pending",
+    "F2": "pending",
+    "F3": "pending",
+    "G0": "pending",
+    "G1": "pending",
+    "G2": "pending",
+    "R0": "complete",
+    "R1": "pending",
+    "R2": "pending",
+    "R3": "pending",
+    "R8": "pending"
+  },
+  "registry": {
+    "running_rows": 1,
+    "terminal_rows": 1,
+    "unique_experiments": 1,
+    "valid": true,
+    "violations": []
+  },
+  "status": "BLOCKED_ENGINE_DATA_OR_EXECUTION"
+}
