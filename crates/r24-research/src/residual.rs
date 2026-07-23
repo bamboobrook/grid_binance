@@ -40,6 +40,13 @@ impl PairFit {
     pub fn zscore(&self, y_price: f64, x_price: f64) -> f64 {
         (self.residual(y_price, x_price) - self.residual_mean) / self.residual_sigma
     }
+
+    pub fn stationarity_eligible(&self) -> bool {
+        self.adf_t < -2.86
+            && self.kpss_stat < 0.463
+            && (2.0..=24.0 * 30.0).contains(&self.half_life_hours)
+            && self.crossing_count >= 6
+    }
 }
 
 pub fn load_hourly_perp(
@@ -104,6 +111,25 @@ pub fn fit_all_pairs(
 }
 
 pub fn fit_pair(
+    data: &BTreeMap<String, Vec<HourBar>>,
+    y_symbol: &str,
+    x_symbol: &str,
+    fit_start_ms: i64,
+    fit_end_ms: i64,
+    expected_round_trip_cost_bps: f64,
+) -> Option<PairFit> {
+    diagnose_pair(
+        data,
+        y_symbol,
+        x_symbol,
+        fit_start_ms,
+        fit_end_ms,
+        expected_round_trip_cost_bps,
+    )
+    .filter(PairFit::stationarity_eligible)
+}
+
+pub fn diagnose_pair(
     data: &BTreeMap<String, Vec<HourBar>>,
     y_symbol: &str,
     x_symbol: &str,
@@ -177,13 +203,6 @@ pub fn fit_pair(
         .filter(|value| (**value - residual_mean).abs() > 4.0 * residual_sigma)
         .count() as f64
         / residuals.len() as f64;
-    if adf_t >= -2.86
-        || kpss_stat >= 0.463
-        || !(2.0..=24.0 * 30.0).contains(&half_life_hours)
-        || crossing_count < 6
-    {
-        return None;
-    }
     let train_score = crossing_count as f64
         / (half_life_hours.max(1.0)
             * (expected_round_trip_cost_bps.max(1.0) / 10.0)

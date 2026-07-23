@@ -11,7 +11,10 @@ use r24_registry::{
     TerminalStatus, TRACE_KINDS,
 };
 use r24_research::g0::{admission_order, synthetic_adversarial_gate, SchedulerArm};
-use r24_research::residual::{fit_all_pairs, load_hourly_perp, maximum_disjoint_matching, HourBar};
+use r24_research::residual::{
+    diagnose_pair, fit_all_pairs, load_hourly_perp, maximum_disjoint_matching, HourBar,
+};
+use r24_research::UNIVERSE;
 
 fn main() -> Result<()> {
     let args = std::env::args().collect::<Vec<_>>();
@@ -141,6 +144,38 @@ fn child(trace_dir: &Path, database: &Path) -> Result<()> {
             let fit_end = start_ms - 3_600_000;
             let fit_start = fit_end - lookback * 86_400_000;
             let fits = fit_all_pairs(&data, fit_start, fit_end, 16.0);
+            let mut diagnostics = Vec::new();
+            for y_index in 0..UNIVERSE.len() {
+                for x_index in (y_index + 1)..UNIVERSE.len() {
+                    if let Some(fit) = diagnose_pair(
+                        &data,
+                        UNIVERSE[y_index],
+                        UNIVERSE[x_index],
+                        fit_start,
+                        fit_end,
+                        16.0,
+                    ) {
+                        diagnostics.push(fit);
+                    }
+                }
+            }
+            diagnostics.sort_by(|left, right| {
+                left.kpss_stat
+                    .partial_cmp(&right.kpss_stat)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            });
+            let diagnostic_sample = diagnostics
+                .iter()
+                .take(5)
+                .map(|fit| {
+                    serde_json::json!({
+                        "pair":format!("{}-{}",fit.y_symbol,fit.x_symbol),
+                        "adf_t":fit.adf_t,"kpss":fit.kpss_stat,
+                        "half_life_hours":fit.half_life_hours,
+                        "crossings":fit.crossing_count,"eligible":fit.stationarity_eligible()
+                    })
+                })
+                .collect::<Vec<_>>();
             let matching = maximum_disjoint_matching(&fits, 3).unwrap_or_default();
             let orders = activation_orders(&data, &matching, start_ms, end_ms, entry_z);
             if name == "low" {
@@ -152,7 +187,8 @@ fn child(trace_dir: &Path, database: &Path) -> Result<()> {
                 "config":name,"lookback_days":lookback,"entry_z":entry_z,
                 "eligible_pair_count":fits.len(),"matching_pair_count":matching.len(),
                 "actual_assets":matching.len()*2,"activation_order_count":orders.len(),
-                "fit_end_ms":fit_end,"outer_window_read_by_fit":false
+                "fit_end_ms":fit_end,"outer_window_read_by_fit":false,
+                "diagnostic_pair_count":diagnostics.len(),"best_kpss_diagnostics":diagnostic_sample
             }));
         }
         real_results.push(
