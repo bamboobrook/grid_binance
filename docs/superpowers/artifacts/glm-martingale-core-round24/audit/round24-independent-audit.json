@@ -22,7 +22,7 @@
     "trace_jsonl_parse_failures": 0,
     "tracked_trace_files": 186,
     "r24_commits_missing_required_log_fields": 0,
-    "remote_branch_head_matches_audited_commit": true,
+    "remote_branch_head_matched_audited_commit_before_audit_commit": true,
     "tests": {
       "command": "cargo test -p r24-registry -p r24-engine -p r24-research",
       "passed": 24,
