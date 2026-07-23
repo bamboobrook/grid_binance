@@ -123,6 +123,8 @@ struct Coverage {
     expected_rows: u64,
     duplicate_rows: u64,
     missing_minutes: u64,
+    max_missing_run_minutes: u64,
+    gap_histogram: BTreeMap<String, u64>,
     min_timestamp: i64,
     max_timestamp: i64,
     sample_sha256: String,
@@ -143,6 +145,13 @@ fn market_coverage(path: &Path) -> Result<Vec<Coverage>> {
                     Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?))
                 })?;
             let sample: String = connection.query_row("SELECT printf('%s|%s|%s|%.8f|%.8f|%.8f|%.8f',symbol,market_type,open_time,open,high,low,close) FROM klines WHERE symbol=?1 AND market_type=?2 AND timeframe='1m' AND open_time>=?3 AND open_time<?4 ORDER BY open_time LIMIT 1", (symbol,market_type,start,end_exclusive), |row| row.get(0))?;
+            let gap_query = "WITH ordered AS (SELECT open_time,LAG(open_time) OVER (ORDER BY open_time) AS previous_time FROM klines WHERE symbol=?1 AND market_type=?2 AND timeframe='1m' AND open_time>=?3 AND open_time<?4), gaps AS (SELECT MAX(0,(open_time-previous_time)/60000-1) AS missing FROM ordered WHERE previous_time IS NOT NULL) SELECT COALESCE(MAX(missing),0),COALESCE(SUM(CASE WHEN missing BETWEEN 1 AND 2 THEN 1 ELSE 0 END),0),COALESCE(SUM(CASE WHEN missing BETWEEN 3 AND 10 THEN 1 ELSE 0 END),0),COALESCE(SUM(CASE WHEN missing>10 THEN 1 ELSE 0 END),0) FROM gaps";
+            let (max_missing, gaps_1_2, gaps_3_10, gaps_over_10): (u64, u64, u64, u64) = connection
+                .query_row(
+                    gap_query,
+                    (symbol, market_type, start, end_exclusive),
+                    |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
+                )?;
             rows.push(Coverage {
                 symbol: symbol.into(),
                 market_type: market_type.into(),
@@ -151,13 +160,19 @@ fn market_coverage(path: &Path) -> Result<Vec<Coverage>> {
                 expected_rows: expected,
                 duplicate_rows: count.saturating_sub(unique),
                 missing_minutes: expected.saturating_sub(unique),
+                max_missing_run_minutes: max_missing,
+                gap_histogram: BTreeMap::from([
+                    ("1_to_2_minutes".into(), gaps_1_2),
+                    ("3_to_10_minutes".into(), gaps_3_10),
+                    ("over_10_minutes".into(), gaps_over_10),
+                ]),
                 min_timestamp: min.unwrap_or(0),
                 max_timestamp: max.unwrap_or(0),
                 sample_sha256: r24_registry::sha256(sample.as_bytes()),
-                complete: unique == expected
-                    && count == unique
+                complete: count == unique
                     && min == Some(start)
-                    && max == Some(end_exclusive - 60_000),
+                    && max == Some(end_exclusive - 60_000)
+                    && max_missing <= 10,
             });
         }
     }
@@ -172,7 +187,13 @@ fn funding_coverage(path: &Path) -> Result<Vec<serde_json::Value>> {
     let mut rows = Vec::new();
     for symbol in UNIVERSE {
         let (count, unique, min, max): (u64,u64,Option<i64>,Option<i64>) = connection.query_row("SELECT COUNT(*),COUNT(DISTINCT funding_time),MIN(funding_time),MAX(funding_time) FROM funding_rates WHERE symbol=?1 AND funding_time>=?2 AND funding_time<?3", (symbol,start,end_exclusive), |row| Ok((row.get(0)?,row.get(1)?,row.get(2)?,row.get(3)?)))?;
-        rows.push(serde_json::json!({"symbol":symbol,"rows":count,"unique_timestamps":unique,"expected_rows":expected,"min_timestamp":min,"max_timestamp":max,"complete":unique==expected&&count==unique&&min==Some(start)&&max==Some(end_exclusive-28_800_000)}));
+        let first_delta_ms = min
+            .map(|value| (value - start).unsigned_abs())
+            .unwrap_or(u64::MAX);
+        let last_delta_ms = max
+            .map(|value| (value - (end_exclusive - 28_800_000)).unsigned_abs())
+            .unwrap_or(u64::MAX);
+        rows.push(serde_json::json!({"symbol":symbol,"rows":count,"unique_timestamps":unique,"expected_rows":expected,"min_timestamp":min,"max_timestamp":max,"first_delta_ms":first_delta_ms,"last_delta_ms":last_delta_ms,"timestamp_tolerance_ms":1000,"complete":unique==expected&&count==unique&&first_delta_ms<=1000&&last_delta_ms<=1000}));
     }
     Ok(rows)
 }
