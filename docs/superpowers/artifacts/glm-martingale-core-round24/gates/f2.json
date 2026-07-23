@@ -1,0 +1,7 @@
+{
+  "eligible_distinct_mechanisms": 0,
+  "executed_combinations": 0,
+  "phase": "F2",
+  "reason": "F2 requires at least two distinct G1 P-B parents; finished curves were not injected",
+  "status": "not_applicable_single_or_zero_parent"
+}

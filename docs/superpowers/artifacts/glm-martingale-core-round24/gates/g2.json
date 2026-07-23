@@ -1,0 +1,10 @@
+{
+  "anti_overfit_status": "not_applicable_no_survivor",
+  "budgets_executed": 0,
+  "cold_starts_executed": 0,
+  "eligible_survivors": 0,
+  "phase": "G2",
+  "reason": "G2 may run only for committed G1 survivors",
+  "status": "not_applicable_no_committed_g1_survivor",
+  "stress_replays_executed": 0
+}

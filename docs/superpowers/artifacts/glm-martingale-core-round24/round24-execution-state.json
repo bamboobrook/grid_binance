@@ -1,5 +1,5 @@
 {
-  "audited_commit": "470769921a5d3823dd8183c530c93d479988945a",
+  "audited_commit": "9bb7c4a54e4f7bcb23e0557552c816caa0ffe371",
   "best_strict_candidate": null,
   "dirty": false,
   "machine_derived": true,
@@ -34,5 +34,5 @@
     "F3-M2 bookDepth lacks full six-asset protocol and aggTrades ends 2023-07-15",
     "all 16 F1 policies failed G1 P-B; no eligible E1/F2/G2 parent"
   ],
-  "upstream_commit": "470769921a5d3823dd8183c530c93d479988945a"
+  "upstream_commit": "9bb7c4a54e4f7bcb23e0557552c816caa0ffe371"
 }

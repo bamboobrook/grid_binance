@@ -1,0 +1,14 @@
+{
+  "best_strict_candidate": null,
+  "eligible_g2_survivors": 0,
+  "old_110_target_used": false,
+  "phase": "R8",
+  "sharpe_hard_gate_used": false,
+  "status": "complete_no_candidate",
+  "strict_candidates": 0,
+  "tiers": {
+    "aggressive_100_30": false,
+    "balanced_90_20": false,
+    "conservative_50_10": false
+  }
+}

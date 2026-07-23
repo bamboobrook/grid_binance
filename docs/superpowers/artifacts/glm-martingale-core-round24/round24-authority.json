@@ -1,0 +1,79 @@
+{
+  "audited_commit": "9bb7c4a54e4f7bcb23e0557552c816caa0ffe371",
+  "authority_version": 1,
+  "best_failed_diagnostic": {
+    "actual_assets": [
+      "BNBUSDT",
+      "DOGEUSDT",
+      "ETHUSDT",
+      "LINKUSDT",
+      "SOLUSDT",
+      "XRPUSDT"
+    ],
+    "annualized_return_pct": -2.716500713735215,
+    "failure_reasons": [
+      "group_positive_contribution_above_50pct",
+      "block_positive_contribution_above_50pct",
+      "family_positive_contribution_above_50pct",
+      "cost_to_gross_profit_above_50pct"
+    ],
+    "max_equity_drawdown_pct": 7.728440078157599,
+    "policy_id": "R24-F1-11",
+    "so_count": 23
+  },
+  "best_strict_candidate": null,
+  "closed_exact_fingerprint_scope": "R24 F1 16-policy rolling-168h causal residual disjoint-pair fingerprint only",
+  "dirty": false,
+  "exact_executed_policy_count": 16,
+  "exact_g1_replay_count": 16,
+  "frontier_progress": false,
+  "g1_pb_survivors": 0,
+  "historical_prequential_only": true,
+  "latest_tiers": {
+    "aggressive": {
+      "ann_target_pct": 100,
+      "dd_cap_pct": 30,
+      "hit": false
+    },
+    "balanced": {
+      "ann_target_pct": 90,
+      "dd_cap_pct": 20,
+      "hit": false
+    },
+    "conservative": {
+      "ann_target_pct": 50,
+      "dd_cap_pct": 10,
+      "hit": false
+    }
+  },
+  "not_claimed": "all Martingale possibilities exhausted",
+  "p_c_count": 0,
+  "p_d_count": 0,
+  "phase_status": {
+    "E1": "not_applicable_no_parent",
+    "F1": "complete_g1_all_failed",
+    "F2": "not_applicable_no_two_parents",
+    "F3_M1": "blocked_incomplete_data",
+    "F3_M2": "blocked_incomplete_data",
+    "G0": "complete",
+    "G1": "complete_no_survivor",
+    "G2": "not_applicable_no_survivor",
+    "R0": "complete",
+    "R1": "complete",
+    "R2": "complete_for_F1_F3_data_blocked",
+    "R3": "complete",
+    "R8": "complete_no_candidate"
+  },
+  "registry": {
+    "running_rows": 19,
+    "terminal_rows": 19,
+    "unique_experiments": 19,
+    "valid": true,
+    "violations": []
+  },
+  "status": "BLOCKED_ENGINE_DATA_OR_EXECUTION",
+  "target_hit": false,
+  "trace_content_changed": false,
+  "trace_path_corrections": 144,
+  "upstream_commit": "9bb7c4a54e4f7bcb23e0557552c816caa0ffe371"
+}

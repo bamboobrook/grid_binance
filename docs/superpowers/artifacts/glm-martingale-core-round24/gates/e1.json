@@ -1,0 +1,8 @@
+{
+  "eligible_parents": 0,
+  "executed_policies": 0,
+  "phase": "E1",
+  "reason": "E1 may run only after an F1/F3 parent passes G1 P-B",
+  "source_pdf_not_required": true,
+  "status": "not_applicable_no_g1_pb_parent"
+}

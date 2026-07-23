@@ -1,0 +1,15 @@
+{
+  "authority_state_match": true,
+  "final_status": "BLOCKED_ENGINE_DATA_OR_EXECUTION",
+  "passed": true,
+  "registry": {
+    "running_rows": 19,
+    "terminal_rows": 19,
+    "unique_experiments": 19,
+    "valid": true,
+    "violations": []
+  },
+  "trace_files_verified": 152,
+  "trace_path_corrections": 144,
+  "validator_generated": true
+}
