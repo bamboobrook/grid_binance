@@ -1,0 +1,102 @@
+{
+  "first": {
+    "event": "abort",
+    "group_id": "R25-C1-16-bull-R25-C1-16-g000001",
+    "net_after_cost": 3.5702998430320996,
+    "pair": "ETHUSDT-SOLUSDT",
+    "timestamp": 1708556400000
+  },
+  "last": {
+    "detail": "closing cost included",
+    "event": "abort",
+    "group_id": null,
+    "metadata": {
+      "close_fee_cost": 0.007957504,
+      "close_slippage_cost": 0.003978752,
+      "gross_pnl": 2.3419400000000015,
+      "net_wallet_change": 2.3300037440000017,
+      "owner_group": "R25-C1-16-bull-R25-C1-16-g000001"
+    },
+    "order_id": null,
+    "quantity": 0.19,
+    "quote": 2.3300037440000017,
+    "symbol": "SOLUSDT",
+    "timestamp": 1708556400000
+  },
+  "row_count": 5,
+  "sample": [
+    {
+      "event": "abort",
+      "group_id": "R25-C1-16-bull-R25-C1-16-g000001",
+      "net_after_cost": 3.5702998430320996,
+      "pair": "ETHUSDT-SOLUSDT",
+      "timestamp": 1708556400000
+    },
+    {
+      "detail": "actual fill changes account state",
+      "event": "fill",
+      "group_id": "R25-C1-16-bull-R25-C1-16-g000001",
+      "metadata": {
+        "entry_fee_cost": 0.008896352,
+        "entry_slippage_cost": 0.004448176,
+        "notional": 22.24088
+      },
+      "order_id": "R25-C1-16-bull-R25-C1-16-g000001-L0-0",
+      "quantity": 0.008,
+      "quote": 22.24088,
+      "symbol": "ETHUSDT",
+      "timestamp": 1707948000000
+    },
+    {
+      "detail": "actual fill changes account state",
+      "event": "fill",
+      "group_id": "R25-C1-16-bull-R25-C1-16-g000001",
+      "metadata": {
+        "entry_fee_cost": 0.008894280000000001,
+        "entry_slippage_cost": 0.0044471400000000005,
+        "notional": 22.2357
+      },
+      "order_id": "R25-C1-16-bull-R25-C1-16-g000001-L0-1",
+      "quantity": 0.19,
+      "quote": 22.2357,
+      "symbol": "SOLUSDT",
+      "timestamp": 1707948000000
+    },
+    {
+      "detail": "closing cost included",
+      "event": "abort",
+      "group_id": null,
+      "metadata": {
+        "close_fee_cost": 0.009389312,
+        "close_slippage_cost": 0.004694656,
+        "gross_pnl": 1.232399999999998,
+        "net_wallet_change": 1.218316031999998,
+        "owner_group": "R25-C1-16-bull-R25-C1-16-g000001"
+      },
+      "order_id": null,
+      "quantity": 0.008,
+      "quote": 1.218316031999998,
+      "symbol": "ETHUSDT",
+      "timestamp": 1708556400000
+    },
+    {
+      "detail": "closing cost included",
+      "event": "abort",
+      "group_id": null,
+      "metadata": {
+        "close_fee_cost": 0.007957504,
+        "close_slippage_cost": 0.003978752,
+        "gross_pnl": 2.3419400000000015,
+        "net_wallet_change": 2.3300037440000017,
+        "owner_group": "R25-C1-16-bull-R25-C1-16-g000001"
+      },
+      "order_id": null,
+      "quantity": 0.19,
+      "quote": 2.3300037440000017,
+      "symbol": "SOLUSDT",
+      "timestamp": 1708556400000
+    }
+  ],
+  "schema": "round25-corrected-deterministic-trace-sample-v1",
+  "stream": "trade"
+}

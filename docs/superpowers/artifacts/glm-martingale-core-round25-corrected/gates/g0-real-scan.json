@@ -41,16 +41,16 @@
     },
     {
       "btc_order_count": 0,
-      "decision_hash": "4a74222e7db4f00af8f2ed09a186f9c92635376a4f3dbe765927d5b5e9324d37",
+      "decision_hash": "1d29e79aca9d7b44235d235963b9599b5d6e9cb2cbedd191a973ab19c0e7f9e1",
       "fit_hash": "08e5ca36779780dddd84252346ff8e1a1cebd4211933e1dc42c7fa1f7fbf23b8",
       "fitted_pair_count": 1,
       "label": "bull",
-      "order_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
-      "order_submit_count": 0,
+      "order_hash": "0aab0c8cbd5859af8847fee919c3e42a00d7b9866ecd7cfe1c002cb49fbdb4d5",
+      "order_submit_count": 2,
       "policy_id": "R25-C1-16",
-      "rejection_count": 1,
-      "rejection_hash": "4d7b0b27e689baf5c2e7afac6ec2b9c595b523f4c00ef818a3fb194bc72dfeee",
-      "so_decision_count": 0
+      "rejection_count": 0,
+      "rejection_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "so_decision_count": 169
     },
     {
       "btc_order_count": 0,

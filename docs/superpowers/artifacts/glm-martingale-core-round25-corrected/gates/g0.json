@@ -1,18 +1,18 @@
 {
   "btc_order_trade_count_zero": true,
-  "experiment_id": "R25R-G0-REAL-4ede7298",
-  "filter_feasible_eth_or_link_path": false,
+  "experiment_id": "R25R-G0-REAL-6b636d37",
+  "filter_feasible_eth_or_link_path": true,
   "fitted_pair_seen": true,
   "frozen_model_persisted": true,
   "one_minute_risk_complete": true,
   "parameter_delta": true,
-  "passed": false,
+  "passed": true,
   "phase": "G0",
   "real_order_or_rejection": true,
   "real_replay_count": 8,
   "reserve_reconciled": true,
   "return_replays_run": 8,
   "scheduler_status": "not_testable_in_g0_real",
-  "so_guard_called": false,
-  "status": "IMPLEMENTATION_OR_DATA_BLOCKED"
+  "so_guard_called": true,
+  "status": "PASS_WITH_REAL_SCHEDULER_NOT_TESTABLE"
 }

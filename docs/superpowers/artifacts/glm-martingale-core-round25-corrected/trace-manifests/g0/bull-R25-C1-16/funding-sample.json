@@ -1,0 +1,910 @@
+{
+  "first": {
+    "cashflow": -0.002220912,
+    "event": "funding_cashflow",
+    "rate": 0.0001,
+    "symbol": "ETHUSDT",
+    "timestamp": 1707955200000
+  },
+  "last": {
+    "detail": "perp funding settled into shared wallet",
+    "event": "funding_cashflow",
+    "group_id": null,
+    "metadata": {
+      "cashflow": 0.003500214048,
+      "rate": 0.0001773
+    },
+    "order_id": null,
+    "quantity": 0.19,
+    "quote": 0.003500214048,
+    "symbol": "SOLUSDT",
+    "timestamp": 1708531200000
+  },
+  "row_count": 84,
+  "sample": [
+    {
+      "cashflow": -0.002220912,
+      "event": "funding_cashflow",
+      "rate": 0.0001,
+      "symbol": "ETHUSDT",
+      "timestamp": 1707955200000
+    },
+    {
+      "cashflow": 0.0030194279856,
+      "event": "funding_cashflow",
+      "rate": 0.00013572,
+      "symbol": "SOLUSDT",
+      "timestamp": 1707955200000
+    },
+    {
+      "cashflow": -0.0026931434496,
+      "event": "funding_cashflow",
+      "rate": 0.00012136,
+      "symbol": "ETHUSDT",
+      "timestamp": 1707984000000
+    },
+    {
+      "cashflow": 0.00348416908,
+      "event": "funding_cashflow",
+      "rate": 0.00015932,
+      "symbol": "SOLUSDT",
+      "timestamp": 1707984000000
+    },
+    {
+      "cashflow": -0.0034872300864000005,
+      "event": "funding_cashflow",
+      "rate": 0.00015412,
+      "symbol": "ETHUSDT",
+      "timestamp": 1708012800000
+    },
+    {
+      "cashflow": 0.0026023236,
+      "event": "funding_cashflow",
+      "rate": 0.00012,
+      "symbol": "SOLUSDT",
+      "timestamp": 1708012800000
+    },
+    {
+      "cashflow": -0.0025138317,
+      "event": "funding_cashflow",
+      "rate": 0.00011125,
+      "symbol": "ETHUSDT",
+      "timestamp": 1708041600000
+    },
+    {
+      "cashflow": 0.0048284291253,
+      "event": "funding_cashflow",
+      "rate": 0.00022371,
+      "symbol": "SOLUSDT",
+      "timestamp": 1708041600000
+    },
+    {
+      "cashflow": -0.0026135741407999997,
+      "event": "funding_cashflow",
+      "rate": 0.00011597,
+      "symbol": "ETHUSDT",
+      "timestamp": 1708070400000
+    },
+    {
+      "cashflow": 0.0068013498333,
+      "event": "funding_cashflow",
+      "rate": 0.00032087,
+      "symbol": "SOLUSDT",
+      "timestamp": 1708070400000
+    },
+    {
+      "cashflow": -0.002221952,
+      "event": "funding_cashflow",
+      "rate": 0.0001,
+      "symbol": "ETHUSDT",
+      "timestamp": 1708099200000
+    },
+    {
+      "cashflow": 0.003526349118,
+      "event": "funding_cashflow",
+      "rate": 0.00016914,
+      "symbol": "SOLUSDT",
+      "timestamp": 1708099200000
+    },
+    {
+      "cashflow": -0.00224296,
+      "event": "funding_cashflow",
+      "rate": 0.0001,
+      "symbol": "ETHUSDT",
+      "timestamp": 1708128000000
+    },
+    {
+      "cashflow": 0.0037043364687,
+      "event": "funding_cashflow",
+      "rate": 0.00017661,
+      "symbol": "SOLUSDT",
+      "timestamp": 1708128000000
+    },
+    {
+      "cashflow": -0.0022377599999999997,
+      "event": "funding_cashflow",
+      "rate": 0.0001,
+      "symbol": "ETHUSDT",
+      "timestamp": 1708156800000
+    },
+    {
+      "cashflow": 0.008819888509599999,
+      "event": "funding_cashflow",
+      "rate": 0.00042046,
+      "symbol": "SOLUSDT",
+      "timestamp": 1708156800000
+    },
+    {
+      "cashflow": -0.002981047652,
+      "event": "funding_cashflow",
+      "rate": 0.00013519,
+      "symbol": "ETHUSDT",
+      "timestamp": 1708185600000
+    },
+    {
+      "cashflow": 0.0057634666367,
+      "event": "funding_cashflow",
+      "rate": 0.00028279,
+      "symbol": "SOLUSDT",
+      "timestamp": 1708185600000
+    },
+    {
+      "cashflow": -0.0022299520000000003,
+      "event": "funding_cashflow",
+      "rate": 0.0001,
+      "symbol": "ETHUSDT",
+      "timestamp": 1708214400000
+    },
+    {
+      "cashflow": 0.0047175061867,
+      "event": "funding_cashflow",
+      "rate": 0.00022777,
+      "symbol": "SOLUSDT",
+      "timestamp": 1708214400000
+    },
+    {
+      "cashflow": -0.002497391936,
+      "event": "funding_cashflow",
+      "rate": 0.0001114,
+      "symbol": "ETHUSDT",
+      "timestamp": 1708243200000
+    },
+    {
+      "cashflow": 0.0040281650055,
+      "event": "funding_cashflow",
+      "rate": 0.00019395,
+      "symbol": "SOLUSDT",
+      "timestamp": 1708243200000
+    },
+    {
+      "cashflow": -0.0022468799999999997,
+      "event": "funding_cashflow",
+      "rate": 0.0001,
+      "symbol": "ETHUSDT",
+      "timestamp": 1708272000000
+    },
+    {
+      "cashflow": 0.0047402933103999996,
+      "event": "funding_cashflow",
+      "rate": 0.00022192,
+      "symbol": "SOLUSDT",
+      "timestamp": 1708272000000
+    },
+    {
+      "cashflow": -0.0023068480000000002,
+      "event": "funding_cashflow",
+      "rate": 0.0001,
+      "symbol": "ETHUSDT",
+      "timestamp": 1708300800000
+    },
+    {
+      "cashflow": 0.006452702327999999,
+      "event": "funding_cashflow",
+      "rate": 0.0003023,
+      "symbol": "SOLUSDT",
+      "timestamp": 1708300800000
+    },
+    {
+      "cashflow": -0.002342312,
+      "event": "funding_cashflow",
+      "rate": 0.0001,
+      "symbol": "ETHUSDT",
+      "timestamp": 1708329600000
+    },
+    {
+      "cashflow": 0.006364054890600001,
+      "event": "funding_cashflow",
+      "rate": 0.00029566,
+      "symbol": "SOLUSDT",
+      "timestamp": 1708329600000
+    },
+    {
+      "cashflow": -0.002328296,
+      "event": "funding_cashflow",
+      "rate": 0.0001,
+      "symbol": "ETHUSDT",
+      "timestamp": 1708358400000
+    },
+    {
+      "cashflow": 0.006905778501600001,
+      "event": "funding_cashflow",
+      "rate": 0.00031944,
+      "symbol": "SOLUSDT",
+      "timestamp": 1708358400000
+    },
+    {
+      "cashflow": -0.006246686,
+      "event": "funding_cashflow",
+      "rate": 0.000265,
+      "symbol": "ETHUSDT",
+      "timestamp": 1708387200000
+    },
+    {
+      "cashflow": 0.010070679801,
+      "event": "funding_cashflow",
+      "rate": 0.0004747,
+      "symbol": "SOLUSDT",
+      "timestamp": 1708387200000
+    },
+    {
+      "cashflow": -0.0023386560000000006,
+      "event": "funding_cashflow",
+      "rate": 0.0001,
+      "symbol": "ETHUSDT",
+      "timestamp": 1708416000000
+    },
+    {
+      "cashflow": 0.0062289630666,
+      "event": "funding_cashflow",
+      "rate": 0.00029934,
+      "symbol": "SOLUSDT",
+      "timestamp": 1708416000000
+    },
+    {
+      "cashflow": -0.0059548008912,
+      "event": "funding_cashflow",
+      "rate": 0.00025431,
+      "symbol": "ETHUSDT",
+      "timestamp": 1708444800000
+    },
+    {
+      "cashflow": 0.006431979860200001,
+      "event": "funding_cashflow",
+      "rate": 0.00031742,
+      "symbol": "SOLUSDT",
+      "timestamp": 1708444800000
+    },
+    {
+      "cashflow": -0.0049045514544,
+      "event": "funding_cashflow",
+      "rate": 0.00020319,
+      "symbol": "ETHUSDT",
+      "timestamp": 1708473600000
+    },
+    {
+      "cashflow": 0.0033484048365,
+      "event": "funding_cashflow",
+      "rate": 0.00016255,
+      "symbol": "SOLUSDT",
+      "timestamp": 1708473600000
+    },
+    {
+      "cashflow": -0.0027776054208,
+      "event": "funding_cashflow",
+      "rate": 0.00011802,
+      "symbol": "ETHUSDT",
+      "timestamp": 1708502400000
+    },
+    {
+      "cashflow": 0.005046411571,
+      "event": "funding_cashflow",
+      "rate": 0.0002531,
+      "symbol": "SOLUSDT",
+      "timestamp": 1708502400000
+    },
+    {
+      "cashflow": -0.002332488,
+      "event": "funding_cashflow",
+      "rate": 0.0001,
+      "symbol": "ETHUSDT",
+      "timestamp": 1708531200000
+    },
+    {
+      "cashflow": 0.003500214048,
+      "event": "funding_cashflow",
+      "rate": 0.0001773,
+      "symbol": "SOLUSDT",
+      "timestamp": 1708531200000
+    },
+    {
+      "detail": "perp funding settled into shared wallet",
+      "event": "funding_cashflow",
+      "group_id": null,
+      "metadata": {
+        "cashflow": -0.002220912,
+        "rate": 0.0001
+      },
+      "order_id": null,
+      "quantity": 0.008,
+      "quote": -0.002220912,
+      "symbol": "ETHUSDT",
+      "timestamp": 1707955200000
+    },
+    {
+      "detail": "perp funding settled into shared wallet",
+      "event": "funding_cashflow",
+      "group_id": null,
+      "metadata": {
+        "cashflow": 0.0030194279856,
+        "rate": 0.00013572
+      },
+      "order_id": null,
+      "quantity": 0.19,
+      "quote": 0.0030194279856,
+      "symbol": "SOLUSDT",
+      "timestamp": 1707955200000
+    },
+    {
+      "detail": "perp funding settled into shared wallet",
+      "event": "funding_cashflow",
+      "group_id": null,
+      "metadata": {
+        "cashflow": -0.0026931434496,
+        "rate": 0.00012136
+      },
+      "order_id": null,
+      "quantity": 0.008,
+      "quote": -0.0026931434496,
+      "symbol": "ETHUSDT",
+      "timestamp": 1707984000000
+    },
+    {
+      "detail": "perp funding settled into shared wallet",
+      "event": "funding_cashflow",
+      "group_id": null,
+      "metadata": {
+        "cashflow": 0.00348416908,
+        "rate": 0.00015932
+      },
+      "order_id": null,
+      "quantity": 0.19,
+      "quote": 0.00348416908,
+      "symbol": "SOLUSDT",
+      "timestamp": 1707984000000
+    },
+    {
+      "detail": "perp funding settled into shared wallet",
+      "event": "funding_cashflow",
+      "group_id": null,
+      "metadata": {
+        "cashflow": -0.0034872300864000005,
+        "rate": 0.00015412
+      },
+      "order_id": null,
+      "quantity": 0.008,
+      "quote": -0.0034872300864000005,
+      "symbol": "ETHUSDT",
+      "timestamp": 1708012800000
+    },
+    {
+      "detail": "perp funding settled into shared wallet",
+      "event": "funding_cashflow",
+      "group_id": null,
+      "metadata": {
+        "cashflow": 0.0026023236,
+        "rate": 0.00012
+      },
+      "order_id": null,
+      "quantity": 0.19,
+      "quote": 0.0026023236,
+      "symbol": "SOLUSDT",
+      "timestamp": 1708012800000
+    },
+    {
+      "detail": "perp funding settled into shared wallet",
+      "event": "funding_cashflow",
+      "group_id": null,
+      "metadata": {
+        "cashflow": -0.0025138317,
+        "rate": 0.00011125
+      },
+      "order_id": null,
+      "quantity": 0.008,
+      "quote": -0.0025138317,
+      "symbol": "ETHUSDT",
+      "timestamp": 1708041600000
+    },
+    {
+      "detail": "perp funding settled into shared wallet",
+      "event": "funding_cashflow",
+      "group_id": null,
+      "metadata": {
+        "cashflow": 0.0048284291253,
+        "rate": 0.00022371
+      },
+      "order_id": null,
+      "quantity": 0.19,
+      "quote": 0.0048284291253,
+      "symbol": "SOLUSDT",
+      "timestamp": 1708041600000
+    },
+    {
+      "detail": "perp funding settled into shared wallet",
+      "event": "funding_cashflow",
+      "group_id": null,
+      "metadata": {
+        "cashflow": -0.0026135741407999997,
+        "rate": 0.00011597
+      },
+      "order_id": null,
+      "quantity": 0.008,
+      "quote": -0.0026135741407999997,
+      "symbol": "ETHUSDT",
+      "timestamp": 1708070400000
+    },
+    {
+      "detail": "perp funding settled into shared wallet",
+      "event": "funding_cashflow",
+      "group_id": null,
+      "metadata": {
+        "cashflow": 0.0068013498333,
+        "rate": 0.00032087
+      },
+      "order_id": null,
+      "quantity": 0.19,
+      "quote": 0.0068013498333,
+      "symbol": "SOLUSDT",
+      "timestamp": 1708070400000
+    },
+    {
+      "detail": "perp funding settled into shared wallet",
+      "event": "funding_cashflow",
+      "group_id": null,
+      "metadata": {
+        "cashflow": -0.002221952,
+        "rate": 0.0001
+      },
+      "order_id": null,
+      "quantity": 0.008,
+      "quote": -0.002221952,
+      "symbol": "ETHUSDT",
+      "timestamp": 1708099200000
+    },
+    {
+      "detail": "perp funding settled into shared wallet",
+      "event": "funding_cashflow",
+      "group_id": null,
+      "metadata": {
+        "cashflow": 0.003526349118,
+        "rate": 0.00016914
+      },
+      "order_id": null,
+      "quantity": 0.19,
+      "quote": 0.003526349118,
+      "symbol": "SOLUSDT",
+      "timestamp": 1708099200000
+    },
+    {
+      "detail": "perp funding settled into shared wallet",
+      "event": "funding_cashflow",
+      "group_id": null,
+      "metadata": {
+        "cashflow": -0.00224296,
+        "rate": 0.0001
+      },
+      "order_id": null,
+      "quantity": 0.008,
+      "quote": -0.00224296,
+      "symbol": "ETHUSDT",
+      "timestamp": 1708128000000
+    },
+    {
+      "detail": "perp funding settled into shared wallet",
+      "event": "funding_cashflow",
+      "group_id": null,
+      "metadata": {
+        "cashflow": 0.0037043364687,
+        "rate": 0.00017661
+      },
+      "order_id": null,
+      "quantity": 0.19,
+      "quote": 0.0037043364687,
+      "symbol": "SOLUSDT",
+      "timestamp": 1708128000000
+    },
+    {
+      "detail": "perp funding settled into shared wallet",
+      "event": "funding_cashflow",
+      "group_id": null,
+      "metadata": {
+        "cashflow": -0.0022377599999999997,
+        "rate": 0.0001
+      },
+      "order_id": null,
+      "quantity": 0.008,
+      "quote": -0.0022377599999999997,
+      "symbol": "ETHUSDT",
+      "timestamp": 1708156800000
+    },
+    {
+      "detail": "perp funding settled into shared wallet",
+      "event": "funding_cashflow",
+      "group_id": null,
+      "metadata": {
+        "cashflow": 0.008819888509599999,
+        "rate": 0.00042046
+      },
+      "order_id": null,
+      "quantity": 0.19,
+      "quote": 0.008819888509599999,
+      "symbol": "SOLUSDT",
+      "timestamp": 1708156800000
+    },
+    {
+      "detail": "perp funding settled into shared wallet",
+      "event": "funding_cashflow",
+      "group_id": null,
+      "metadata": {
+        "cashflow": -0.002981047652,
+        "rate": 0.00013519
+      },
+      "order_id": null,
+      "quantity": 0.008,
+      "quote": -0.002981047652,
+      "symbol": "ETHUSDT",
+      "timestamp": 1708185600000
+    },
+    {
+      "detail": "perp funding settled into shared wallet",
+      "event": "funding_cashflow",
+      "group_id": null,
+      "metadata": {
+        "cashflow": 0.0057634666367,
+        "rate": 0.00028279
+      },
+      "order_id": null,
+      "quantity": 0.19,
+      "quote": 0.0057634666367,
+      "symbol": "SOLUSDT",
+      "timestamp": 1708185600000
+    },
+    {
+      "detail": "perp funding settled into shared wallet",
+      "event": "funding_cashflow",
+      "group_id": null,
+      "metadata": {
+        "cashflow": -0.0022299520000000003,
+        "rate": 0.0001
+      },
+      "order_id": null,
+      "quantity": 0.008,
+      "quote": -0.0022299520000000003,
+      "symbol": "ETHUSDT",
+      "timestamp": 1708214400000
+    },
+    {
+      "detail": "perp funding settled into shared wallet",
+      "event": "funding_cashflow",
+      "group_id": null,
+      "metadata": {
+        "cashflow": 0.0047175061867,
+        "rate": 0.00022777
+      },
+      "order_id": null,
+      "quantity": 0.19,
+      "quote": 0.0047175061867,
+      "symbol": "SOLUSDT",
+      "timestamp": 1708214400000
+    },
+    {
+      "detail": "perp funding settled into shared wallet",
+      "event": "funding_cashflow",
+      "group_id": null,
+      "metadata": {
+        "cashflow": -0.002497391936,
+        "rate": 0.0001114
+      },
+      "order_id": null,
+      "quantity": 0.008,
+      "quote": -0.002497391936,
+      "symbol": "ETHUSDT",
+      "timestamp": 1708243200000
+    },
+    {
+      "detail": "perp funding settled into shared wallet",
+      "event": "funding_cashflow",
+      "group_id": null,
+      "metadata": {
+        "cashflow": 0.0040281650055,
+        "rate": 0.00019395
+      },
+      "order_id": null,
+      "quantity": 0.19,
+      "quote": 0.0040281650055,
+      "symbol": "SOLUSDT",
+      "timestamp": 1708243200000
+    },
+    {
+      "detail": "perp funding settled into shared wallet",
+      "event": "funding_cashflow",
+      "group_id": null,
+      "metadata": {
+        "cashflow": -0.0022468799999999997,
+        "rate": 0.0001
+      },
+      "order_id": null,
+      "quantity": 0.008,
+      "quote": -0.0022468799999999997,
+      "symbol": "ETHUSDT",
+      "timestamp": 1708272000000
+    },
+    {
+      "detail": "perp funding settled into shared wallet",
+      "event": "funding_cashflow",
+      "group_id": null,
+      "metadata": {
+        "cashflow": 0.0047402933103999996,
+        "rate": 0.00022192
+      },
+      "order_id": null,
+      "quantity": 0.19,
+      "quote": 0.0047402933103999996,
+      "symbol": "SOLUSDT",
+      "timestamp": 1708272000000
+    },
+    {
+      "detail": "perp funding settled into shared wallet",
+      "event": "funding_cashflow",
+      "group_id": null,
+      "metadata": {
+        "cashflow": -0.0023068480000000002,
+        "rate": 0.0001
+      },
+      "order_id": null,
+      "quantity": 0.008,
+      "quote": -0.0023068480000000002,
+      "symbol": "ETHUSDT",
+      "timestamp": 1708300800000
+    },
+    {
+      "detail": "perp funding settled into shared wallet",
+      "event": "funding_cashflow",
+      "group_id": null,
+      "metadata": {
+        "cashflow": 0.006452702327999999,
+        "rate": 0.0003023
+      },
+      "order_id": null,
+      "quantity": 0.19,
+      "quote": 0.006452702327999999,
+      "symbol": "SOLUSDT",
+      "timestamp": 1708300800000
+    },
+    {
+      "detail": "perp funding settled into shared wallet",
+      "event": "funding_cashflow",
+      "group_id": null,
+      "metadata": {
+        "cashflow": -0.002342312,
+        "rate": 0.0001
+      },
+      "order_id": null,
+      "quantity": 0.008,
+      "quote": -0.002342312,
+      "symbol": "ETHUSDT",
+      "timestamp": 1708329600000
+    },
+    {
+      "detail": "perp funding settled into shared wallet",
+      "event": "funding_cashflow",
+      "group_id": null,
+      "metadata": {
+        "cashflow": 0.006364054890600001,
+        "rate": 0.00029566
+      },
+      "order_id": null,
+      "quantity": 0.19,
+      "quote": 0.006364054890600001,
+      "symbol": "SOLUSDT",
+      "timestamp": 1708329600000
+    },
+    {
+      "detail": "perp funding settled into shared wallet",
+      "event": "funding_cashflow",
+      "group_id": null,
+      "metadata": {
+        "cashflow": -0.002328296,
+        "rate": 0.0001
+      },
+      "order_id": null,
+      "quantity": 0.008,
+      "quote": -0.002328296,
+      "symbol": "ETHUSDT",
+      "timestamp": 1708358400000
+    },
+    {
+      "detail": "perp funding settled into shared wallet",
+      "event": "funding_cashflow",
+      "group_id": null,
+      "metadata": {
+        "cashflow": 0.006905778501600001,
+        "rate": 0.00031944
+      },
+      "order_id": null,
+      "quantity": 0.19,
+      "quote": 0.006905778501600001,
+      "symbol": "SOLUSDT",
+      "timestamp": 1708358400000
+    },
+    {
+      "detail": "perp funding settled into shared wallet",
+      "event": "funding_cashflow",
+      "group_id": null,
+      "metadata": {
+        "cashflow": -0.006246686,
+        "rate": 0.000265
+      },
+      "order_id": null,
+      "quantity": 0.008,
+      "quote": -0.006246686,
+      "symbol": "ETHUSDT",
+      "timestamp": 1708387200000
+    },
+    {
+      "detail": "perp funding settled into shared wallet",
+      "event": "funding_cashflow",
+      "group_id": null,
+      "metadata": {
+        "cashflow": 0.010070679801,
+        "rate": 0.0004747
+      },
+      "order_id": null,
+      "quantity": 0.19,
+      "quote": 0.010070679801,
+      "symbol": "SOLUSDT",
+      "timestamp": 1708387200000
+    },
+    {
+      "detail": "perp funding settled into shared wallet",
+      "event": "funding_cashflow",
+      "group_id": null,
+      "metadata": {
+        "cashflow": -0.0023386560000000006,
+        "rate": 0.0001
+      },
+      "order_id": null,
+      "quantity": 0.008,
+      "quote": -0.0023386560000000006,
+      "symbol": "ETHUSDT",
+      "timestamp": 1708416000000
+    },
+    {
+      "detail": "perp funding settled into shared wallet",
+      "event": "funding_cashflow",
+      "group_id": null,
+      "metadata": {
+        "cashflow": 0.0062289630666,
+        "rate": 0.00029934
+      },
+      "order_id": null,
+      "quantity": 0.19,
+      "quote": 0.0062289630666,
+      "symbol": "SOLUSDT",
+      "timestamp": 1708416000000
+    },
+    {
+      "detail": "perp funding settled into shared wallet",
+      "event": "funding_cashflow",
+      "group_id": null,
+      "metadata": {
+        "cashflow": -0.0059548008912,
+        "rate": 0.00025431
+      },
+      "order_id": null,
+      "quantity": 0.008,
+      "quote": -0.0059548008912,
+      "symbol": "ETHUSDT",
+      "timestamp": 1708444800000
+    },
+    {
+      "detail": "perp funding settled into shared wallet",
+      "event": "funding_cashflow",
+      "group_id": null,
+      "metadata": {
+        "cashflow": 0.006431979860200001,
+        "rate": 0.00031742
+      },
+      "order_id": null,
+      "quantity": 0.19,
+      "quote": 0.006431979860200001,
+      "symbol": "SOLUSDT",
+      "timestamp": 1708444800000
+    },
+    {
+      "detail": "perp funding settled into shared wallet",
+      "event": "funding_cashflow",
+      "group_id": null,
+      "metadata": {
+        "cashflow": -0.0049045514544,
+        "rate": 0.00020319
+      },
+      "order_id": null,
+      "quantity": 0.008,
+      "quote": -0.0049045514544,
+      "symbol": "ETHUSDT",
+      "timestamp": 1708473600000
+    },
+    {
+      "detail": "perp funding settled into shared wallet",
+      "event": "funding_cashflow",
+      "group_id": null,
+      "metadata": {
+        "cashflow": 0.0033484048365,
+        "rate": 0.00016255
+      },
+      "order_id": null,
+      "quantity": 0.19,
+      "quote": 0.0033484048365,
+      "symbol": "SOLUSDT",
+      "timestamp": 1708473600000
+    },
+    {
+      "detail": "perp funding settled into shared wallet",
+      "event": "funding_cashflow",
+      "group_id": null,
+      "metadata": {
+        "cashflow": -0.0027776054208,
+        "rate": 0.00011802
+      },
+      "order_id": null,
+      "quantity": 0.008,
+      "quote": -0.0027776054208,
+      "symbol": "ETHUSDT",
+      "timestamp": 1708502400000
+    },
+    {
+      "detail": "perp funding settled into shared wallet",
+      "event": "funding_cashflow",
+      "group_id": null,
+      "metadata": {
+        "cashflow": 0.005046411571,
+        "rate": 0.0002531
+      },
+      "order_id": null,
+      "quantity": 0.19,
+      "quote": 0.005046411571,
+      "symbol": "SOLUSDT",
+      "timestamp": 1708502400000
+    },
+    {
+      "detail": "perp funding settled into shared wallet",
+      "event": "funding_cashflow",
+      "group_id": null,
+      "metadata": {
+        "cashflow": -0.002332488,
+        "rate": 0.0001
+      },
+      "order_id": null,
+      "quantity": 0.008,
+      "quote": -0.002332488,
+      "symbol": "ETHUSDT",
+      "timestamp": 1708531200000
+    },
+    {
+      "detail": "perp funding settled into shared wallet",
+      "event": "funding_cashflow",
+      "group_id": null,
+      "metadata": {
+        "cashflow": 0.003500214048,
+        "rate": 0.0001773
+      },
+      "order_id": null,
+      "quantity": 0.19,
+      "quote": 0.003500214048,
+      "symbol": "SOLUSDT",
+      "timestamp": 1708531200000
+    }
+  ],
+  "schema": "round25-corrected-deterministic-trace-sample-v1",
+  "stream": "funding"
+}
