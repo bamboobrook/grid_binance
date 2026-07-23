@@ -2,6 +2,9 @@ use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 
+pub mod g0;
+pub mod residual;
+
 pub const UNIVERSE: [&str; 8] = [
     "BTCUSDT", "ETHUSDT", "BNBUSDT", "SOLUSDT", "XRPUSDT", "DOGEUSDT", "LINKUSDT", "LTCUSDT",
 ];

@@ -36,6 +36,7 @@ pub struct PositionKey {
     pub symbol: String,
     pub market_type: MarketType,
     pub mode: PositionMode,
+    pub owner_group: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -237,6 +238,25 @@ impl SharedAccount {
             "shared reserve accepted",
         );
         Ok(())
+    }
+
+    pub fn consume_group_reserve(&mut self, group_id: &str) -> Result<f64> {
+        let group = self.groups.get_mut(group_id).context("unknown group")?;
+        let released = group.reserved_next_so;
+        group.reserved_next_so = 0.0;
+        self.reserved_quote = (self.reserved_quote - released).max(0.0);
+        self.trace(
+            self.last_timestamp,
+            "margin",
+            "reserve_consumed",
+            None,
+            Some(group_id),
+            None,
+            None,
+            Some(released),
+            "reserved next SO released into actual order margin",
+        );
+        Ok(released)
     }
 
     pub fn submit(&mut self, request: FillRequest) -> Result<FillOutcome> {
@@ -938,6 +958,7 @@ mod tests {
             symbol: symbol.into(),
             market_type,
             mode,
+            owner_group: "g".into(),
         }
     }
 

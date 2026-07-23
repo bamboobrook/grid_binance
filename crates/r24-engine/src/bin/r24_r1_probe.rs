@@ -290,6 +290,7 @@ fn key(symbol: &str, mode: PositionMode) -> PositionKey {
         symbol: symbol.into(),
         market_type: MarketType::UsdMPerp,
         mode,
+        owner_group: "r1-probe".into(),
     }
 }
 
