@@ -80,6 +80,7 @@ pub fn preregister_policies() -> Vec<Policy> {
                     sequence += 1;
                     let parameters = params([
                         ("fit_lookback_days", serde_json::json!(lookback)),
+                        ("hedge_ratio_window_hours", serde_json::json!(168)),
                         ("entry_z", serde_json::json!(entry_z)),
                         ("so_residual_sigma", serde_json::json!(so_step)),
                         ("max_live_groups", serde_json::json!(max_groups)),

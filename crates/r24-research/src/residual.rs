@@ -158,29 +158,10 @@ pub fn diagnose_pair(
     }
     let y_values = aligned.iter().map(|value| value.0).collect::<Vec<_>>();
     let x_values = aligned.iter().map(|value| value.1).collect::<Vec<_>>();
-    let x_mean = mean(&x_values);
-    let y_mean = mean(&y_values);
-    let variance = x_values
-        .iter()
-        .map(|value| (value - x_mean).powi(2))
-        .sum::<f64>();
-    if variance <= 1e-12 {
-        return None;
-    }
-    let beta = x_values
-        .iter()
-        .zip(&y_values)
-        .map(|(x, y)| (x - x_mean) * (y - y_mean))
-        .sum::<f64>()
-        / variance;
+    let (alpha, beta, residuals) = rolling_ols_residuals(&y_values, &x_values, 168)?;
     if !(0.2..=5.0).contains(&beta) {
         return None;
     }
-    let alpha = y_mean - beta * x_mean;
-    let residuals = aligned
-        .iter()
-        .map(|(y, x)| y - alpha - beta * x)
-        .collect::<Vec<_>>();
     let residual_mean = mean(&residuals);
     let residual_sigma = sample_std(&residuals, residual_mean);
     if residual_sigma <= 1e-8 {
@@ -354,6 +335,43 @@ fn ar1_phi(values: &[f64]) -> Option<f64> {
         .map(|value| (value - average).powi(2))
         .sum::<f64>();
     (denominator > 1e-14).then_some(numerator / denominator)
+}
+
+fn rolling_ols_residuals(y: &[f64], x: &[f64], window: usize) -> Option<(f64, f64, Vec<f64>)> {
+    if y.len() != x.len() || y.len() < window * 2 {
+        return None;
+    }
+    let mut sum_x = vec![0.0; x.len() + 1];
+    let mut sum_y = vec![0.0; y.len() + 1];
+    let mut sum_xx = vec![0.0; x.len() + 1];
+    let mut sum_xy = vec![0.0; x.len() + 1];
+    for index in 0..x.len() {
+        sum_x[index + 1] = sum_x[index] + x[index];
+        sum_y[index + 1] = sum_y[index] + y[index];
+        sum_xx[index + 1] = sum_xx[index] + x[index] * x[index];
+        sum_xy[index + 1] = sum_xy[index] + x[index] * y[index];
+    }
+    let mut residuals = Vec::with_capacity(x.len() - window + 1);
+    let mut final_alpha = 0.0;
+    let mut final_beta = 0.0;
+    for end in (window - 1)..x.len() {
+        let start = end + 1 - window;
+        let count = window as f64;
+        let sx = sum_x[end + 1] - sum_x[start];
+        let sy = sum_y[end + 1] - sum_y[start];
+        let sxx = sum_xx[end + 1] - sum_xx[start];
+        let sxy = sum_xy[end + 1] - sum_xy[start];
+        let denominator = sxx - sx * sx / count;
+        if denominator <= 1e-12 {
+            return None;
+        }
+        let beta = (sxy - sx * sy / count) / denominator;
+        let alpha = sy / count - beta * sx / count;
+        residuals.push(y[end] - alpha - beta * x[end]);
+        final_alpha = alpha;
+        final_beta = beta;
+    }
+    Some((final_alpha, final_beta, residuals))
 }
 
 fn mean(values: &[f64]) -> f64 {
