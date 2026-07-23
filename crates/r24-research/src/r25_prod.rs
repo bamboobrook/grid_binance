@@ -1,6 +1,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::sync::{Arc, Mutex, OnceLock};
 
 use anyhow::{bail, Context, Result};
 use chrono::NaiveDate;
@@ -135,6 +136,11 @@ struct RiskData {
     bars: BTreeMap<String, Vec<MinuteBar>>,
 }
 
+type SignalData = BTreeMap<String, Vec<SignalBar>>;
+
+static SIGNAL_DATA_CACHE: OnceLock<Mutex<BTreeMap<String, Arc<SignalData>>>> = OnceLock::new();
+static RISK_DATA_CACHE: OnceLock<Mutex<BTreeMap<String, Arc<RiskData>>>> = OnceLock::new();
+
 #[derive(Debug, Clone)]
 struct ActiveGroup {
     id: String,
@@ -258,7 +264,7 @@ pub fn run_r25_c1_replay(config: &R25ReplayConfig) -> Result<R25ReplayEvidence> 
     let layer_schedule = [50.0, 62.5, 77.5, 95.0];
     let filters = load_filters(&config.exchange_info)?;
     let data_start = config.start_ms - lookback_days * 86_400_000 - 86_400_000;
-    let data = load_signal_bars(
+    let data = load_signal_bars_cached(
         &config.market_db,
         &symbols,
         data_start.max(utc_ms("2023-01-01")),
@@ -268,7 +274,7 @@ pub fn run_r25_c1_replay(config: &R25ReplayConfig) -> Result<R25ReplayEvidence> 
     let risk_data = if config.mode == R25ReplayMode::ActivationCensus {
         None
     } else {
-        Some(load_minute_bars(
+        Some(load_minute_bars_cached(
             &config.market_db,
             &symbols,
             config.start_ms,
@@ -1103,6 +1109,32 @@ fn sample_standard_deviation(values: &[f64], mean: f64) -> f64 {
         .sqrt()
 }
 
+fn load_signal_bars_cached(
+    database: &Path,
+    symbols: &[String],
+    start_ms: i64,
+    end_ms: i64,
+    frequency_ms: i64,
+) -> Result<Arc<SignalData>> {
+    let key = hash_json(&serde_json::json!({
+        "database":database,"symbols":symbols,"start_ms":start_ms,
+        "end_ms":end_ms,"frequency_ms":frequency_ms
+    }));
+    let cache = SIGNAL_DATA_CACHE.get_or_init(|| Mutex::new(BTreeMap::new()));
+    if let Some(data) = cache.lock().unwrap().get(&key).cloned() {
+        return Ok(data);
+    }
+    let loaded = Arc::new(load_signal_bars(
+        database,
+        symbols,
+        start_ms,
+        end_ms,
+        frequency_ms,
+    )?);
+    cache.lock().unwrap().insert(key, loaded.clone());
+    Ok(loaded)
+}
+
 fn load_signal_bars(
     database: &Path,
     symbols: &[String],
@@ -1144,6 +1176,24 @@ fn load_signal_bars(
         output.insert(symbol.clone(), bars);
     }
     Ok(output)
+}
+
+fn load_minute_bars_cached(
+    database: &Path,
+    symbols: &[String],
+    start_ms: i64,
+    end_ms: i64,
+) -> Result<Arc<RiskData>> {
+    let key = hash_json(&serde_json::json!({
+        "database":database,"symbols":symbols,"start_ms":start_ms,"end_ms":end_ms
+    }));
+    let cache = RISK_DATA_CACHE.get_or_init(|| Mutex::new(BTreeMap::new()));
+    if let Some(data) = cache.lock().unwrap().get(&key).cloned() {
+        return Ok(data);
+    }
+    let loaded = Arc::new(load_minute_bars(database, symbols, start_ms, end_ms)?);
+    cache.lock().unwrap().insert(key, loaded.clone());
+    Ok(loaded)
 }
 
 fn load_minute_bars(
