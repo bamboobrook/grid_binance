@@ -89,6 +89,31 @@ pub struct ReserveComponents {
     pub hedge_or_flatten: f64,
 }
 
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
+pub struct CostLedger {
+    pub entry_fee_cost: f64,
+    pub entry_slippage_cost: f64,
+    pub close_fee_cost: f64,
+    pub close_slippage_cost: f64,
+    pub funding_pnl: f64,
+    pub legging_cost: f64,
+    pub liquidation_cost: f64,
+    pub gross_realized_profit: f64,
+    pub gross_realized_loss: f64,
+}
+
+impl CostLedger {
+    pub fn all_in_cost(&self) -> f64 {
+        self.entry_fee_cost
+            + self.entry_slippage_cost
+            + self.close_fee_cost
+            + self.close_slippage_cost
+            + self.legging_cost
+            + self.liquidation_cost
+            + (-self.funding_pnl).max(0.0)
+    }
+}
+
 impl ReserveComponents {
     pub fn total(&self) -> f64 {
         self.next_so_initial_margin
@@ -111,6 +136,8 @@ pub struct TraceRecord {
     pub quantity: Option<f64>,
     pub quote: Option<f64>,
     pub detail: String,
+    #[serde(default)]
+    pub metadata: serde_json::Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -151,6 +178,12 @@ pub struct SharedAccount {
     #[serde(default)]
     pub reserve_ledger: BTreeMap<String, ReserveComponents>,
     pub reserved_quote: f64,
+    #[serde(default)]
+    pub cost_ledger: CostLedger,
+    #[serde(default)]
+    pub realized_pnl_by_symbol: BTreeMap<String, f64>,
+    #[serde(default)]
+    pub realized_pnl_by_group: BTreeMap<String, f64>,
     pub running_peak_equity: f64,
     pub max_equity_drawdown_pct: f64,
     pub terminated: bool,
@@ -195,6 +228,9 @@ impl SharedAccount {
             pending_orders: BTreeMap::new(),
             reserve_ledger: BTreeMap::new(),
             reserved_quote: 0.0,
+            cost_ledger: CostLedger::default(),
+            realized_pnl_by_symbol: BTreeMap::new(),
+            realized_pnl_by_group: BTreeMap::new(),
             running_peak_equity: principal,
             max_equity_drawdown_pct: 0.0,
             terminated: false,
@@ -360,6 +396,12 @@ impl SharedAccount {
             Some(required),
             detail,
         );
+        if let Some(trace) = self.traces.last_mut() {
+            trace.metadata = serde_json::json!({
+                "owner":owner,"components":self.reserve_ledger.get(owner),
+                "reserved_quote_after":self.reserved_quote
+            });
+        }
         self.assert_reserve_invariant()
     }
 
@@ -385,6 +427,12 @@ impl SharedAccount {
             Some(released),
             detail,
         );
+        if let Some(trace) = self.traces.last_mut() {
+            trace.metadata = serde_json::json!({
+                "owner":owner,"released":released,
+                "reserved_quote_after":self.reserved_quote
+            });
+        }
         self.assert_reserve_invariant()?;
         Ok(released)
     }
@@ -518,6 +566,7 @@ impl SharedAccount {
                 .copied()
                 .unwrap_or(pending.price);
             let legging_loss = (price - pending.price).abs() * pending.quantity;
+            self.cost_ledger.legging_cost += legging_loss;
             self.wallet_balance -= legging_loss;
             self.spot_cash -= legging_loss;
             self.trace(
@@ -531,6 +580,9 @@ impl SharedAccount {
                 Some(-legging_loss),
                 "delayed leg executed at event-time price",
             );
+            if let Some(trace) = self.traces.last_mut() {
+                trace.metadata = serde_json::json!({"legging_cost":legging_loss});
+            }
             self.fill_now(FillRequest {
                 timestamp,
                 order_id: pending.order_id,
@@ -575,6 +627,7 @@ impl SharedAccount {
         position.funding_or_borrow += cashflow;
         let quantity = position.quantity;
         self.wallet_balance += cashflow;
+        self.cost_ledger.funding_pnl += cashflow;
         self.trace(
             timestamp,
             "funding",
@@ -586,6 +639,9 @@ impl SharedAccount {
             Some(cashflow),
             "perp funding settled into shared wallet",
         );
+        if let Some(trace) = self.traces.last_mut() {
+            trace.metadata = serde_json::json!({"rate":rate,"cashflow":cashflow});
+        }
         self.update_equity_metrics();
         Ok(cashflow)
     }
@@ -690,6 +746,8 @@ impl SharedAccount {
         let notional = position.quantity * price;
         let pnl = key.mode.sign() * position.quantity * (price - position.average_price);
         let close_cost = notional * (self.config.fee_bps + self.config.slippage_bps) / 10_000.0;
+        let close_fee = notional * self.config.fee_bps / 10_000.0;
+        let close_slippage = notional * self.config.slippage_bps / 10_000.0;
         if key.market_type == MarketType::Spot {
             let inventory = self.spot_inventory.entry(key.symbol.clone()).or_default();
             *inventory = (*inventory - key.mode.sign() * position.quantity).max(0.0);
@@ -698,6 +756,19 @@ impl SharedAccount {
         } else {
             self.wallet_balance += pnl - close_cost;
         }
+        self.cost_ledger.close_fee_cost += close_fee;
+        self.cost_ledger.close_slippage_cost += close_slippage;
+        self.cost_ledger.gross_realized_profit += pnl.max(0.0);
+        self.cost_ledger.gross_realized_loss += (-pnl).max(0.0);
+        let net = pnl - close_cost;
+        *self
+            .realized_pnl_by_symbol
+            .entry(key.symbol.clone())
+            .or_default() += net;
+        *self
+            .realized_pnl_by_group
+            .entry(key.owner_group.clone())
+            .or_default() += net;
         self.trace(
             timestamp,
             "trade",
@@ -709,6 +780,13 @@ impl SharedAccount {
             Some(pnl - close_cost),
             "closing cost included",
         );
+        if let Some(trace) = self.traces.last_mut() {
+            trace.metadata = serde_json::json!({
+                "gross_pnl":pnl,"close_fee_cost":close_fee,
+                "close_slippage_cost":close_slippage,"net_wallet_change":net,
+                "owner_group":key.owner_group
+            });
+        }
         self.update_equity_metrics();
         Ok(())
     }
@@ -798,6 +876,7 @@ impl SharedAccount {
                     record.quantity.map(|value| format!("{value:.8}")),
                     record.quote.map(|value| format!("{value:.8}")),
                     record.detail.as_str(),
+                    &record.metadata,
                 )
             })
             .collect::<Vec<_>>();
@@ -887,6 +966,8 @@ impl SharedAccount {
         }
         let fee = notional * self.config.fee_bps / 10_000.0;
         let slip = notional * self.config.slippage_bps / 10_000.0;
+        self.cost_ledger.entry_fee_cost += fee;
+        self.cost_ledger.entry_slippage_cost += slip;
         if request.key.market_type == MarketType::Spot {
             let cash_change = notional + fee + slip;
             if request.key.mode == PositionMode::Long {
@@ -953,6 +1034,11 @@ impl SharedAccount {
             Some(notional),
             "actual fill changes account state",
         );
+        if let Some(trace) = self.traces.last_mut() {
+            trace.metadata = serde_json::json!({
+                "notional":notional,"entry_fee_cost":fee,"entry_slippage_cost":slip
+            });
+        }
         self.update_equity_metrics();
         Ok(FillOutcome {
             accepted: true,
@@ -988,6 +1074,17 @@ impl SharedAccount {
                     + self.config.slippage_bps
                     + self.config.liquidation_fee_bps)
                 / 10_000.0;
+            self.cost_ledger.liquidation_cost += cost;
+            self.cost_ledger.gross_realized_profit += pnl.max(0.0);
+            self.cost_ledger.gross_realized_loss += (-pnl).max(0.0);
+            *self
+                .realized_pnl_by_symbol
+                .entry(key.symbol.clone())
+                .or_default() += pnl - cost;
+            *self
+                .realized_pnl_by_group
+                .entry(key.owner_group.clone())
+                .or_default() += pnl - cost;
             final_equity -= cost;
             self.trace(
                 timestamp,
@@ -1000,6 +1097,12 @@ impl SharedAccount {
                 Some(pnl - cost),
                 "liquidation and forced-close costs included once",
             );
+            if let Some(trace) = self.traces.last_mut() {
+                trace.metadata = serde_json::json!({
+                    "gross_pnl":pnl,"liquidation_cost":cost,
+                    "net_wallet_change":pnl-cost,"owner_group":key.owner_group
+                });
+            }
         }
         self.wallet_balance = final_equity.max(0.0);
         self.spot_cash = self.wallet_balance;
@@ -1056,6 +1159,7 @@ impl SharedAccount {
             quantity,
             quote,
             detail: detail.into(),
+            metadata: serde_json::Value::Null,
         });
     }
 }

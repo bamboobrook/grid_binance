@@ -12,8 +12,11 @@ use rusqlite::{Connection, OpenFlags};
 use serde::{Deserialize, Serialize};
 
 use crate::r25::{
-    decide_r25_so, gaussian_conditional_h, r25_so_guard_call_path_hash, R25Filter, R25Policy,
-    R25SoState, R25_REFERENCE_SYMBOL, R25_UNIVERSE,
+    decide_r25_so, r25_so_guard_call_path_hash, R25Filter, R25Policy, R25SoState, R25_BLOCKS,
+    R25_REFERENCE_SYMBOL, R25_UNIVERSE,
+};
+use crate::r25_corrected::{
+    self, CopulaFit, CorrectedPairModel as PairModel, ReferenceSpreadFit as ReferenceFit,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -97,6 +100,14 @@ pub struct R25ReplayEvidence {
     pub decision_hash: String,
     pub fit_hash: String,
     pub so_guard_call_path_hash: String,
+    pub risk_path_rows: u64,
+    pub risk_path_first_ms: Option<i64>,
+    pub risk_path_last_ms: Option<i64>,
+    pub final_positions: usize,
+    pub final_groups: usize,
+    pub final_pending: usize,
+    pub final_reserved_quote: f64,
+    pub metrics: serde_json::Value,
     pub streams: BTreeMap<String, Vec<serde_json::Value>>,
 }
 
@@ -109,21 +120,18 @@ struct SignalBar {
     fill_open: f64,
 }
 
-#[derive(Debug, Clone)]
-struct ReferenceFit {
-    alt: String,
-    beta: f64,
-    mean: f64,
-    sigma: f64,
-    sorted_spreads: Vec<f64>,
+#[derive(Debug, Clone, Copy)]
+struct MinuteBar {
+    open_time_ms: i64,
+    high: f64,
+    low: f64,
+    close: f64,
 }
 
 #[derive(Debug, Clone)]
-struct PairModel {
-    left: ReferenceFit,
-    right: ReferenceFit,
-    rho: f64,
-    score: f64,
+struct RiskData {
+    timestamps: Vec<i64>,
+    bars: BTreeMap<String, Vec<MinuteBar>>,
 }
 
 #[derive(Debug, Clone)]
@@ -131,6 +139,7 @@ struct ActiveGroup {
     id: String,
     left: ReferenceFit,
     right: ReferenceFit,
+    copula: CopulaFit,
     long_left_short_right: bool,
     level: usize,
     last_filled_diff_z: f64,
@@ -139,6 +148,9 @@ struct ActiveGroup {
     left_key: PositionKey,
     right_key: PositionKey,
     so_filled: bool,
+    last_observed_adverse: f64,
+    recent_left_spreads: Vec<f64>,
+    recent_right_spreads: Vec<f64>,
 }
 
 #[derive(Debug, Clone)]
@@ -242,7 +254,7 @@ pub fn run_r25_c1_replay(config: &R25ReplayConfig) -> Result<R25ReplayEvidence> 
     let entry_alpha = policy_f64(&config.policy, "entry_alpha").unwrap_or(0.10);
     let so_step = policy_f64(&config.policy, "so_adverse_step_train_sigma").unwrap_or(0.50);
     let max_groups = policy_u64(&config.policy, "max_groups").unwrap_or(3) as usize;
-    let layer_schedule = [20.0, 25.0, 31.0, 38.0];
+    let layer_schedule = [50.0, 62.5, 77.5, 95.0];
     let filters = load_filters(&config.exchange_info)?;
     let data_start = config.start_ms - lookback_days * 86_400_000 - 86_400_000;
     let data = load_signal_bars(
@@ -252,6 +264,16 @@ pub fn run_r25_c1_replay(config: &R25ReplayConfig) -> Result<R25ReplayEvidence> 
         config.end_ms + frequency_ms + 60_000,
         frequency_ms,
     )?;
+    let risk_data = if config.mode == R25ReplayMode::ActivationCensus {
+        None
+    } else {
+        Some(load_minute_bars(
+            &config.market_db,
+            &symbols,
+            config.start_ms,
+            config.end_ms,
+        )?)
+    };
     let mut funding = load_funding(
         &config.funding_db,
         &symbols,
@@ -262,7 +284,7 @@ pub fn run_r25_c1_replay(config: &R25ReplayConfig) -> Result<R25ReplayEvidence> 
     config_engine.maintenance_rate = 0.025;
     config_engine.leverage = 2.0;
     config_engine.max_effective_leverage = 2.0;
-    let mut account = SharedAccount::new(1000.0, config_engine)?;
+    let mut account = SharedAccount::new(2000.0, config_engine)?;
     let mut streams = empty_streams();
     push(
         &mut streams,
@@ -278,6 +300,7 @@ pub fn run_r25_c1_replay(config: &R25ReplayConfig) -> Result<R25ReplayEvidence> 
     let mut traded_pairs = BTreeSet::new();
     let mut actual_assets = BTreeSet::new();
     let mut loss_so_groups = BTreeSet::new();
+    let mut frozen_symbols = BTreeSet::new();
     let mut sequence = 0_u64;
     let mut counts = BTreeMap::<&'static str, u64>::new();
     let mut peak_equity = account.equity();
@@ -288,6 +311,10 @@ pub fn run_r25_c1_replay(config: &R25ReplayConfig) -> Result<R25ReplayEvidence> 
     let mut last_block_fit_hashes = Vec::new();
     let mut models = Vec::<PairModel>::new();
     let mut current_block_start = 0_i64;
+    let mut neutral_armed = BTreeMap::<String, bool>::new();
+    let mut risk_cursor = 0_usize;
+    let mut risk_path_first_ms = None;
+    let mut risk_path_last_ms = None;
 
     let Some(reference_bars) = data.get(R25_REFERENCE_SYMBOL) else {
         bail!("missing BTC reference bars");
@@ -300,6 +327,21 @@ pub fn run_r25_c1_replay(config: &R25ReplayConfig) -> Result<R25ReplayEvidence> 
             break;
         }
         step_count += 1;
+        if let Some(risk) = &risk_data {
+            process_risk_until(
+                &mut account,
+                risk,
+                &mut risk_cursor,
+                bar.fill_ms,
+                &mut funding,
+                &mut streams,
+                &mut risk_path_first_ms,
+                &mut risk_path_last_ms,
+            )?;
+            if account.terminated {
+                break;
+            }
+        }
         let block_start = block_start_for(bar.fill_ms);
         if block_start != current_block_start {
             current_block_start = block_start;
@@ -329,7 +371,9 @@ pub fn run_r25_c1_replay(config: &R25ReplayConfig) -> Result<R25ReplayEvidence> 
             continue;
         }
         update_marks(&mut account, &prices_fill);
-        apply_due_funding(&mut account, &mut funding, bar.fill_ms, &mut streams)?;
+        if risk_data.is_none() {
+            apply_due_funding(&mut account, &mut funding, bar.fill_ms, &mut streams)?;
+        }
         let equity = account.equity();
         peak_equity = peak_equity.max(equity);
         if peak_equity > 0.0 {
@@ -353,18 +397,37 @@ pub fn run_r25_c1_replay(config: &R25ReplayConfig) -> Result<R25ReplayEvidence> 
             } else {
                 current_diff - group.last_filled_diff_z
             };
-            let h = pair_h_values(&group.left, &group.right, 0.0, &prices_close);
+            let h = active_pair_h_values(&group, &prices_close);
             let same_tail = if group.long_left_short_right {
                 h.0 <= entry_alpha * 1.5 && h.1 >= 1.0 - entry_alpha * 1.5
             } else {
                 h.1 <= entry_alpha * 1.5 && h.0 >= 1.0 - entry_alpha * 1.5
             };
+            let worsening = adverse > group.last_observed_adverse + 1e-12;
+            let mut left_recent = group.recent_left_spreads.clone();
+            let mut right_recent = group.recent_right_spreads.clone();
+            if let (Some(btc), Some(left), Some(right)) = (
+                prices_close.get(R25_REFERENCE_SYMBOL),
+                prices_close.get(&group.left.alt),
+                prices_close.get(&group.right.alt),
+            ) {
+                left_recent.push(btc.ln() - group.left.beta * left.ln());
+                right_recent.push(btc.ln() - group.right.beta * right.ln());
+                if left_recent.len() > 240 {
+                    left_recent.remove(0);
+                }
+                if right_recent.len() > 240 {
+                    right_recent.remove(0);
+                }
+            }
+            let rolling_stationarity = r25_corrected::rolling_stationarity_valid(&left_recent)
+                && r25_corrected::rolling_stationarity_valid(&right_recent);
             let so_state = R25SoState {
                 group_net_after_close_cost: net,
                 adverse_sigma_from_last_fill: adverse,
                 conditional_probabilities_same_tail: same_tail,
-                current_one_bar_adverse_increment_worsening: false,
-                rolling_stationarity_valid: true,
+                current_one_bar_adverse_increment_worsening: worsening,
+                rolling_stationarity_valid: rolling_stationarity,
                 previous_layer_gross: layer_schedule[group.level],
                 next_layer_gross: *layer_schedule
                     .get(group.level + 1)
@@ -382,6 +445,7 @@ pub fn run_r25_c1_replay(config: &R25ReplayConfig) -> Result<R25ReplayEvidence> 
                 serde_json::json!({
                     "event":"so_guard_decision","group_id":id,"timestamp":bar.fill_ms,
                     "state":so_state,"threshold_sigma":so_step,"allow":allow,
+                    "frozen_copula":group.copula,
                     "call_site_version":decision.call_path_hash,
                     "input_hash":decision.input_hash,
                     "event_sequence":step_count
@@ -399,11 +463,13 @@ pub fn run_r25_c1_replay(config: &R25ReplayConfig) -> Result<R25ReplayEvidence> 
                 if realized > 0.0 {
                     *counts.entry("tp").or_default() += 1;
                 }
+                update_dynamic_freeze(&account, bar.fill_ms, &mut frozen_symbols, &mut streams);
                 active.remove(&id);
                 continue;
             }
             if allow && group.level + 1 < layer_schedule.len() {
                 let next_level = group.level + 1;
+                account.consume_group_reserve_at(bar.fill_ms, &id)?;
                 if fill_layer(
                     &mut account,
                     &group,
@@ -415,12 +481,51 @@ pub fn run_r25_c1_replay(config: &R25ReplayConfig) -> Result<R25ReplayEvidence> 
                     &mut streams,
                     &mut counts,
                 )? {
+                    let next_gross = layer_schedule.get(next_level + 1).copied();
+                    if account
+                        .reserve_group_after_fill(
+                            bar.fill_ms,
+                            &id,
+                            next_gross,
+                            layer_schedule[..=next_level].iter().sum(),
+                        )
+                        .is_err()
+                    {
+                        close_group(
+                            &mut account,
+                            &group,
+                            &prices_fill,
+                            bar.fill_ms,
+                            "so_reserve_failed_paired_close",
+                            &mut streams,
+                        )?;
+                        active.remove(&id);
+                        update_dynamic_freeze(
+                            &account,
+                            bar.fill_ms,
+                            &mut frozen_symbols,
+                            &mut streams,
+                        );
+                        continue;
+                    }
                     let updated = active.get_mut(&id).unwrap();
                     updated.level = next_level;
                     updated.last_filled_diff_z = current_diff;
                     updated.so_filled = true;
                     loss_so_groups.insert(id.clone());
                     *counts.entry("so_fill").or_default() += 1;
+                } else {
+                    close_group(
+                        &mut account,
+                        &group,
+                        &prices_fill,
+                        bar.fill_ms,
+                        "so_failed_paired_close",
+                        &mut streams,
+                    )?;
+                    active.remove(&id);
+                    update_dynamic_freeze(&account, bar.fill_ms, &mut frozen_symbols, &mut streams);
+                    continue;
                 }
             }
             if bar.fill_ms - group.opened_ms > 7 * 86_400_000 {
@@ -434,6 +539,13 @@ pub fn run_r25_c1_replay(config: &R25ReplayConfig) -> Result<R25ReplayEvidence> 
                 )?;
                 *counts.entry("abort").or_default() += 1;
                 active.remove(&id);
+                update_dynamic_freeze(&account, bar.fill_ms, &mut frozen_symbols, &mut streams);
+                continue;
+            }
+            if let Some(updated) = active.get_mut(&id) {
+                updated.last_observed_adverse = adverse;
+                updated.recent_left_spreads = left_recent;
+                updated.recent_right_spreads = right_recent;
             }
         }
 
@@ -449,7 +561,17 @@ pub fn run_r25_c1_replay(config: &R25ReplayConfig) -> Result<R25ReplayEvidence> 
                 if used.contains(&model.left.alt) || used.contains(&model.right.alt) {
                     continue;
                 }
-                let h = pair_h_values(&model.left, &model.right, model.rho, &prices_close);
+                if frozen_symbols.contains(&model.left.alt)
+                    || frozen_symbols.contains(&model.right.alt)
+                {
+                    continue;
+                }
+                let h = pair_h_values(model, &prices_close);
+                let pair = pair_name(&model.left.alt, &model.right.alt);
+                let neutral = h.0 > 0.35 && h.0 < 0.65 && h.1 > 0.35 && h.1 < 0.65;
+                if neutral {
+                    neutral_armed.insert(pair.clone(), true);
+                }
                 let direction = if h.0 <= entry_alpha && h.1 >= 1.0 - entry_alpha {
                     Some(true)
                 } else if h.1 <= entry_alpha && h.0 >= 1.0 - entry_alpha {
@@ -468,7 +590,10 @@ pub fn run_r25_c1_replay(config: &R25ReplayConfig) -> Result<R25ReplayEvidence> 
                         "h_right_given_left":h.1,"entry_alpha":entry_alpha,"direction":direction
                     }),
                 );
-                if let Some(long_left_short_right) = direction {
+                if let Some(long_left_short_right) =
+                    direction.filter(|_| neutral_armed.get(&pair).copied().unwrap_or(false))
+                {
+                    neutral_armed.insert(pair, false);
                     *counts.entry("fo_signal").or_default() += 1;
                     sequence += 1;
                     let id = format!(
@@ -502,14 +627,14 @@ pub fn run_r25_c1_replay(config: &R25ReplayConfig) -> Result<R25ReplayEvidence> 
                         net_pnl_after_close_cost: 0.0,
                         reserved_next_so: 0.0,
                     })?;
-                    if reserve_next_so(
-                        &mut account,
-                        &id,
-                        layer_schedule[1],
-                        bar.fill_ms,
-                        &mut streams,
-                    )
-                    .is_err()
+                    if account
+                        .reserve_group_after_fill(
+                            bar.fill_ms,
+                            &id,
+                            Some(layer_schedule[1]),
+                            layer_schedule[0],
+                        )
+                        .is_err()
                     {
                         *counts.entry("rejection").or_default() += 1;
                         push(
@@ -520,7 +645,7 @@ pub fn run_r25_c1_replay(config: &R25ReplayConfig) -> Result<R25ReplayEvidence> 
                                 "group_id":id,"timestamp":bar.fill_ms
                             }),
                         );
-                        account.remove_group(&id);
+                        account.remove_group_at(bar.fill_ms, &id)?;
                         continue;
                     }
                     if fill_layer(
@@ -539,12 +664,23 @@ pub fn run_r25_c1_replay(config: &R25ReplayConfig) -> Result<R25ReplayEvidence> 
                         traded_pairs.insert(pair_name(&model.left.alt, &model.right.alt));
                         active.insert(id, group);
                     } else {
-                        let _ = account.consume_group_reserve(&id);
-                        account.remove_group(&id);
+                        account.remove_group_at(bar.fill_ms, &id)?;
                     }
                 }
             }
         }
+    }
+    if let Some(risk) = &risk_data {
+        process_risk_until(
+            &mut account,
+            risk,
+            &mut risk_cursor,
+            config.end_ms,
+            &mut funding,
+            &mut streams,
+            &mut risk_path_first_ms,
+            &mut risk_path_last_ms,
+        )?;
     }
     let final_prices = data
         .iter()
@@ -556,26 +692,71 @@ pub fn run_r25_c1_replay(config: &R25ReplayConfig) -> Result<R25ReplayEvidence> 
         })
         .collect::<BTreeMap<_, _>>();
     for group in active.values().cloned().collect::<Vec<_>>() {
-        let _ = close_group(
+        close_group(
             &mut account,
             &group,
             &final_prices,
             config.end_ms - 1,
             "end_close",
             &mut streams,
-        );
+        )?;
     }
+    account.assert_reserve_invariant()?;
     append_account_traces(&mut streams, &account);
     let order_rows = streams.get("order").cloned().unwrap_or_default();
     let rejection_rows = streams.get("rejection").cloned().unwrap_or_default();
     let decision_rows = streams.get("event").cloned().unwrap_or_default();
+    let btc_order_count = order_rows
+        .iter()
+        .filter(|row| row["symbol"] == R25_REFERENCE_SYMBOL)
+        .count() as u64;
+    let btc_trade_count = streams["trade"]
+        .iter()
+        .filter(|row| row["symbol"] == R25_REFERENCE_SYMBOL)
+        .count() as u64;
     let final_equity = account.equity();
     let days = ((config.end_ms - config.start_ms).max(86_400_000)) as f64 / 86_400_000.0;
-    let compounded = final_equity / 1000.0 - 1.0;
-    let annualized = ((final_equity / 1000.0).max(1e-9).powf(365.0 / days) - 1.0) * 100.0;
+    let compounded = final_equity / account.initial_principal - 1.0;
+    let annualized = ((final_equity / account.initial_principal)
+        .max(1e-9)
+        .powf(365.0 / days)
+        - 1.0)
+        * 100.0;
+    let metrics = build_replay_metrics(
+        &account,
+        &streams,
+        config.start_ms,
+        config.end_ms,
+        annualized,
+        max_dd.max(account.max_equity_drawdown_pct),
+        max_balance_dd,
+    );
+    let positive_blocks = metrics["positive_blocks"].as_u64().unwrap_or(0);
+    let symbol_concentration = metrics["contribution"]["symbol_max_positive_pct"]
+        .as_f64()
+        .unwrap_or(0.0);
+    let group_concentration = metrics["contribution"]["group_max_positive_pct"]
+        .as_f64()
+        .unwrap_or(0.0);
+    let block_concentration = metrics["contribution"]["block_max_positive_pct"]
+        .as_f64()
+        .unwrap_or(0.0);
+    let cost_ratio = metrics["cost_to_gross_profit_pct"]
+        .as_f64()
+        .unwrap_or(1_000_000.0);
     let mut immediate_fail_reasons = Vec::new();
     if account.terminated {
         immediate_fail_reasons.push("liquidation_or_principal_breach".into());
+    }
+    if !account.positions.is_empty()
+        || !account.groups.is_empty()
+        || !account.pending_orders.is_empty()
+        || account.reserved_quote.abs() > 1e-9
+    {
+        immediate_fail_reasons.push("unreconciled_final_account_state".into());
+    }
+    if btc_order_count > 0 || btc_trade_count > 0 {
+        immediate_fail_reasons.push("btc_reference_was_traded".into());
     }
     if config.mode == R25ReplayMode::Full {
         if actual_assets.len() < 6 {
@@ -586,6 +767,24 @@ pub fn run_r25_c1_replay(config: &R25ReplayConfig) -> Result<R25ReplayEvidence> 
         }
         if loss_so_groups.len() < 2 {
             immediate_fail_reasons.push("loss_after_add_so_groups_below_2".into());
+        }
+        if positive_blocks < 8 {
+            immediate_fail_reasons.push("positive_blocks_below_8".into());
+        }
+        if symbol_concentration > 50.0 {
+            immediate_fail_reasons.push("symbol_positive_contribution_above_50pct".into());
+        }
+        if group_concentration > 50.0 {
+            immediate_fail_reasons.push("group_positive_contribution_above_50pct".into());
+        }
+        if block_concentration > 50.0 {
+            immediate_fail_reasons.push("block_positive_contribution_above_50pct".into());
+        }
+        if cost_ratio > 50.0 {
+            immediate_fail_reasons.push("all_in_cost_to_gross_profit_above_50pct".into());
+        }
+        if risk_cursor as i64 != (config.end_ms - config.start_ms) / 60_000 {
+            immediate_fail_reasons.push("one_minute_risk_path_incomplete".into());
         }
     }
     let p_a = !account.terminated;
@@ -611,16 +810,8 @@ pub fn run_r25_c1_replay(config: &R25ReplayConfig) -> Result<R25ReplayEvidence> 
         so_fill_count: count(&counts, "so_fill"),
         tp_count: count(&counts, "tp"),
         abort_count: count(&counts, "abort"),
-        btc_order_count: order_rows
-            .iter()
-            .filter(|row| row["symbol"] == R25_REFERENCE_SYMBOL)
-            .count() as u64,
-        btc_trade_count: streams
-            .get("trade")
-            .unwrap()
-            .iter()
-            .filter(|row| row["symbol"] == R25_REFERENCE_SYMBOL)
-            .count() as u64,
+        btc_order_count,
+        btc_trade_count,
         actual_assets: actual_assets.into_iter().collect(),
         distinct_traded_pairs: traded_pairs.into_iter().collect(),
         final_equity,
@@ -628,7 +819,7 @@ pub fn run_r25_c1_replay(config: &R25ReplayConfig) -> Result<R25ReplayEvidence> 
         annualized_return_pct: annualized,
         max_equity_drawdown_pct: max_dd.max(account.max_equity_drawdown_pct),
         balance_drawdown_pct: max_balance_dd,
-        positive_blocks: 0,
+        positive_blocks,
         loss_after_add_so_groups: loss_so_groups.len() as u64,
         immediate_fail_reasons,
         p_a,
@@ -638,8 +829,229 @@ pub fn run_r25_c1_replay(config: &R25ReplayConfig) -> Result<R25ReplayEvidence> 
         decision_hash: hash_json(&decision_rows),
         fit_hash: hash_json(&last_block_fit_hashes),
         so_guard_call_path_hash: r25_so_guard_call_path_hash(),
+        risk_path_rows: risk_cursor as u64,
+        risk_path_first_ms,
+        risk_path_last_ms,
+        final_positions: account.positions.len(),
+        final_groups: account.groups.len(),
+        final_pending: account.pending_orders.len(),
+        final_reserved_quote: account.reserved_quote,
+        metrics,
         streams,
     })
+}
+
+#[derive(Debug, Clone, Default)]
+struct BlockAccumulator {
+    start_equity: Option<f64>,
+    end_equity: Option<f64>,
+    peak_equity: f64,
+    max_drawdown_pct: f64,
+    gross_profit: f64,
+    gross_loss: f64,
+}
+
+fn build_replay_metrics(
+    account: &SharedAccount,
+    streams: &BTreeMap<String, Vec<serde_json::Value>>,
+    start_ms: i64,
+    end_ms: i64,
+    annualized_return_pct: f64,
+    equity_drawdown_pct: f64,
+    balance_drawdown_pct: f64,
+) -> serde_json::Value {
+    let mut blocks = R25_BLOCKS
+        .iter()
+        .map(|(start, _)| (utc_ms(start), BlockAccumulator::default()))
+        .collect::<BTreeMap<_, _>>();
+    let mut daily_equity = BTreeMap::<i64, f64>::new();
+    let mut peak_gross = 0.0_f64;
+    let mut peak_effective_leverage = 0.0_f64;
+    let mut peak_maintenance = 0.0_f64;
+    let mut peak_reserved = 0.0_f64;
+    for row in &streams["event"] {
+        if row["event"] != "one_minute_risk_path" {
+            continue;
+        }
+        let Some(timestamp) = row["timestamp"].as_i64() else {
+            continue;
+        };
+        let equity = row["equity"].as_f64().unwrap_or(account.initial_principal);
+        if let Some(block) = blocks.get_mut(&block_start_for(timestamp)) {
+            block.start_equity.get_or_insert(equity);
+            block.end_equity = Some(equity);
+            block.peak_equity = block.peak_equity.max(equity);
+            if block.peak_equity > 0.0 {
+                block.max_drawdown_pct = block
+                    .max_drawdown_pct
+                    .max((block.peak_equity - equity) / block.peak_equity * 100.0);
+            }
+        }
+        daily_equity.insert(timestamp / 86_400_000, equity);
+        peak_gross = peak_gross.max(row["gross_notional"].as_f64().unwrap_or(0.0));
+        peak_effective_leverage =
+            peak_effective_leverage.max(row["effective_leverage"].as_f64().unwrap_or(0.0));
+        peak_maintenance = peak_maintenance.max(row["maintenance"].as_f64().unwrap_or(0.0));
+        peak_reserved = peak_reserved.max(row["reserved_quote"].as_f64().unwrap_or(0.0));
+    }
+    for row in &streams["trade"] {
+        let Some(timestamp) = row["timestamp"].as_i64() else {
+            continue;
+        };
+        let Some(net) = row["net_after_cost"].as_f64() else {
+            continue;
+        };
+        if let Some(block) = blocks.get_mut(&block_start_for(timestamp)) {
+            block.gross_profit += net.max(0.0);
+            block.gross_loss += (-net).max(0.0);
+        }
+    }
+    let block_rows = R25_BLOCKS
+        .iter()
+        .map(|(start, end)| {
+            let block = &blocks[&utc_ms(start)];
+            let start_equity = block.start_equity.unwrap_or(account.initial_principal);
+            let end_equity = block.end_equity.unwrap_or(start_equity);
+            let raw_return_pct = (end_equity / start_equity - 1.0) * 100.0;
+            serde_json::json!({
+                "start":start,"end":end,"start_equity":start_equity,"end_equity":end_equity,
+                "raw_return_pct":raw_return_pct,"local_drawdown_pct":block.max_drawdown_pct,
+                "profit_factor":if block.gross_loss > 0.0 {block.gross_profit / block.gross_loss} else if block.gross_profit > 0.0 {1_000_000.0} else {0.0},
+                "positive":raw_return_pct > 0.0,"gross_profit":block.gross_profit,"gross_loss":block.gross_loss
+            })
+        })
+        .collect::<Vec<_>>();
+    let positive_blocks = block_rows
+        .iter()
+        .filter(|row| row["positive"] == true)
+        .count();
+    let daily_values = daily_equity.values().copied().collect::<Vec<_>>();
+    let daily_returns = daily_values
+        .windows(2)
+        .filter(|window| window[0] > 0.0)
+        .map(|window| window[1] / window[0] - 1.0)
+        .collect::<Vec<_>>();
+    let mean_return = mean(&daily_returns);
+    let return_sigma = sample_standard_deviation(&daily_returns, mean_return);
+    let downside = daily_returns
+        .iter()
+        .copied()
+        .filter(|value| *value < 0.0)
+        .collect::<Vec<_>>();
+    let downside_sigma = sample_standard_deviation(&downside, mean(&downside));
+    let mut sorted_returns = daily_returns.clone();
+    sorted_returns.sort_by(f64::total_cmp);
+    let tail_count = (sorted_returns.len() / 20)
+        .max(1)
+        .min(sorted_returns.len().max(1));
+    let tail_loss_pct = if sorted_returns.is_empty() {
+        0.0
+    } else {
+        -mean(&sorted_returns[..tail_count]) * 100.0
+    };
+    let compounded_return_pct = (account.equity() / account.initial_principal - 1.0) * 100.0;
+    let positive_concentration = |values: &BTreeMap<String, f64>| {
+        let positive_sum = values.values().filter(|value| **value > 0.0).sum::<f64>();
+        if positive_sum <= 0.0 {
+            0.0
+        } else {
+            values.values().copied().fold(0.0, f64::max) / positive_sum * 100.0
+        }
+    };
+    let block_positive_sum = block_rows
+        .iter()
+        .map(|row| row["raw_return_pct"].as_f64().unwrap_or(0.0).max(0.0))
+        .sum::<f64>();
+    let block_concentration = if block_positive_sum > 0.0 {
+        block_rows
+            .iter()
+            .map(|row| row["raw_return_pct"].as_f64().unwrap_or(0.0).max(0.0))
+            .fold(0.0, f64::max)
+            / block_positive_sum
+            * 100.0
+    } else {
+        0.0
+    };
+    let gross_profit =
+        account.cost_ledger.gross_realized_profit + account.cost_ledger.funding_pnl.max(0.0);
+    let actual_legs = streams["order"]
+        .iter()
+        .filter(|row| row["event"] == "submit_attempt")
+        .map(|row| {
+            serde_json::json!({
+                "timestamp":row["timestamp"],"group_id":row["group_id"],
+                "symbol":row["symbol"],"position_mode":row["position_mode"],
+                "rounded_quantity":row["rounded_qty"],"rounded_price":row["rounded_price"],
+                "resolved_gross":row["resolved_gross"]
+            })
+        })
+        .collect::<Vec<_>>();
+    let event_count = |stream: &str, event: &str| {
+        streams[stream]
+            .iter()
+            .filter(|row| row["event"] == event)
+            .count()
+    };
+    serde_json::json!({
+        "principal":account.initial_principal,"start_ms":start_ms,"end_ms":end_ms,
+        "days":(end_ms-start_ms) as f64 / 86_400_000.0,
+        "final_wallet":account.wallet_balance,"final_equity":account.equity(),
+        "compounded_return_pct":compounded_return_pct,"annualized_return_pct":annualized_return_pct,
+        "equity_drawdown_pct":equity_drawdown_pct,"balance_drawdown_pct":balance_drawdown_pct,
+        "ddr":if equity_drawdown_pct > 0.0 {compounded_return_pct/equity_drawdown_pct} else {0.0},
+        "sharpe":if return_sigma > 0.0 {mean_return/return_sigma*365.0_f64.sqrt()} else {0.0},
+        "sortino":if downside_sigma > 0.0 {mean_return/downside_sigma*365.0_f64.sqrt()} else {0.0},
+        "calmar":if equity_drawdown_pct > 0.0 {annualized_return_pct/equity_drawdown_pct} else {0.0},
+        "tail_loss_pct":tail_loss_pct,"blocks":block_rows,"positive_blocks":positive_blocks,
+        "counts":{
+            "order_submit":event_count("order","submit_attempt"),
+            "rejection":streams["rejection"].len(),
+            "partial_fill":event_count("trade","partial_fill"),
+            "legging":event_count("trade","legging_pnl"),
+            "liquidation":event_count("trade","forced_close"),
+            "dynamic_freeze":event_count("event","dynamic_symbol_freeze")
+        },
+        "actual_signed_legs":actual_legs,
+        "costs":account.cost_ledger,
+        "gross_profit":gross_profit,
+        "cost_to_gross_profit_pct":if gross_profit > 0.0 {account.cost_ledger.all_in_cost()/gross_profit*100.0} else {1_000_000.0},
+        "contribution":{
+            "symbol":account.realized_pnl_by_symbol,
+            "group":account.realized_pnl_by_group,
+            "symbol_max_positive_pct":positive_concentration(&account.realized_pnl_by_symbol),
+            "group_max_positive_pct":positive_concentration(&account.realized_pnl_by_group),
+            "block_max_positive_pct":block_concentration
+        },
+        "risk":{
+            "peak_gross":peak_gross,"peak_effective_leverage":peak_effective_leverage,
+            "peak_maintenance":peak_maintenance,"peak_reserved_quote":peak_reserved,
+            "final_reserve_components":account.reserve_ledger
+        },
+        "final_state":{
+            "positions":account.positions.len(),"groups":account.groups.len(),
+            "pending":account.pending_orders.len(),"reserved_quote":account.reserved_quote
+        }
+    })
+}
+
+fn mean(values: &[f64]) -> f64 {
+    if values.is_empty() {
+        0.0
+    } else {
+        values.iter().sum::<f64>() / values.len() as f64
+    }
+}
+
+fn sample_standard_deviation(values: &[f64], mean: f64) -> f64 {
+    if values.len() < 2 {
+        return 0.0;
+    }
+    (values
+        .iter()
+        .map(|value| (*value - mean).powi(2))
+        .sum::<f64>()
+        / (values.len() - 1) as f64)
+        .sqrt()
 }
 
 fn load_signal_bars(
@@ -685,6 +1097,102 @@ fn load_signal_bars(
     Ok(output)
 }
 
+fn load_minute_bars(
+    database: &Path,
+    symbols: &[String],
+    start_ms: i64,
+    end_ms: i64,
+) -> Result<RiskData> {
+    let connection = Connection::open_with_flags(database, OpenFlags::SQLITE_OPEN_READ_ONLY)?;
+    let mut timestamps = Vec::new();
+    let mut bars = BTreeMap::new();
+    for symbol in symbols {
+        let mut symbol_bars = Vec::new();
+        let mut statement = connection.prepare(
+            "SELECT open_time,high,low,close FROM klines WHERE symbol=?1 AND market_type='futures_usdt_perp' AND timeframe='1m' AND open_time>=?2 AND open_time<?3 ORDER BY open_time",
+        )?;
+        let mut rows = statement.query((symbol, start_ms, end_ms))?;
+        while let Some(row) = rows.next()? {
+            symbol_bars.push(MinuteBar {
+                open_time_ms: row.get(0)?,
+                high: row.get(1)?,
+                low: row.get(2)?,
+                close: row.get(3)?,
+            });
+        }
+        if timestamps.is_empty() {
+            timestamps = symbol_bars.iter().map(|bar| bar.open_time_ms).collect();
+        } else if symbol_bars.len() != timestamps.len()
+            || symbol_bars
+                .iter()
+                .zip(&timestamps)
+                .any(|(bar, timestamp)| bar.open_time_ms != *timestamp)
+        {
+            bail!("unaligned one-minute risk data for {symbol}");
+        }
+        bars.insert(symbol.clone(), symbol_bars);
+    }
+    let expected = ((end_ms - start_ms) / 60_000).max(0) as usize;
+    if timestamps.len() != expected {
+        bail!(
+            "one-minute risk path incomplete: expected={expected} actual={}",
+            timestamps.len()
+        );
+    }
+    Ok(RiskData { timestamps, bars })
+}
+
+#[allow(clippy::too_many_arguments)]
+fn process_risk_until(
+    account: &mut SharedAccount,
+    risk: &RiskData,
+    cursor: &mut usize,
+    end_exclusive_ms: i64,
+    funding: &mut FundingMap,
+    streams: &mut BTreeMap<String, Vec<serde_json::Value>>,
+    first_ms: &mut Option<i64>,
+    last_ms: &mut Option<i64>,
+) -> Result<()> {
+    while *cursor < risk.timestamps.len() && risk.timestamps[*cursor] < end_exclusive_ms {
+        let timestamp = risk.timestamps[*cursor];
+        apply_due_funding(account, funding, timestamp, streams)?;
+        let mut lows = BTreeMap::new();
+        let mut highs = BTreeMap::new();
+        let mut closes = BTreeMap::new();
+        for (symbol, bars) in &risk.bars {
+            let bar = bars[*cursor];
+            lows.insert(symbol.clone(), bar.low);
+            highs.insert(symbol.clone(), bar.high);
+            closes.insert(symbol.clone(), bar.close);
+        }
+        if !account.positions.is_empty() {
+            account.mark_adverse_bar(timestamp, &lows, &highs, &closes)?;
+        }
+        push(
+            streams,
+            "event",
+            serde_json::json!({
+                "event":"one_minute_risk_path","timestamp":timestamp,
+                "position_count":account.positions.len(),
+                "equity":account.equity(),"maintenance":account.maintenance_margin(),
+                "wallet_balance":account.wallet_balance,
+                "gross_notional":account.gross_notional(),
+                "effective_leverage":account.gross_notional() / account.equity().max(1e-9),
+                "reserved_quote":account.reserved_quote,
+                "reserve_ledger":account.reserve_ledger,
+                "liquidated":account.terminated
+            }),
+        );
+        *first_ms = Some(first_ms.unwrap_or(timestamp));
+        *last_ms = Some(timestamp);
+        *cursor += 1;
+        if account.terminated {
+            break;
+        }
+    }
+    Ok(())
+}
+
 fn fit_reference_pairs(
     data: &BTreeMap<String, Vec<SignalBar>>,
     alts: &[String],
@@ -702,147 +1210,61 @@ fn fit_reference_pairs(
         .collect::<BTreeMap<_, _>>();
     let mut fits = Vec::new();
     for alt in alts {
-        if let Some(fit) = fit_reference_spread(data, &btc_map, alt, fit_start, fit_end) {
+        let Some(alt_bars) = data.get(alt) else {
+            continue;
+        };
+        let observations = alt_bars
+            .iter()
+            .filter(|bar| bar.signal_close_ms >= fit_start && bar.signal_close_ms <= fit_end)
+            .filter_map(|bar| {
+                btc_map
+                    .get(&bar.signal_close_ms)
+                    .map(|btc| (bar.signal_close_ms, *btc, bar.close))
+            })
+            .collect::<Vec<_>>();
+        if let Some(fit) = r25_corrected::fit_reference_spread(alt, &observations, fit_end) {
             fits.push(fit);
         }
     }
     let mut pairs = Vec::new();
     for i in 0..fits.len() {
         for j in (i + 1)..fits.len() {
-            let rho = spread_corr(&fits[i], &fits[j]);
-            let score = (1.0 - rho.abs()) + fits[i].sigma.min(fits[j].sigma);
-            pairs.push(PairModel {
-                left: fits[i].clone(),
-                right: fits[j].clone(),
-                rho,
-                score,
-            });
+            if let Some(model) =
+                r25_corrected::corrected_pair_model(fits[i].clone(), fits[j].clone())
+            {
+                pairs.push(model);
+            }
         }
     }
-    pairs.sort_by(|left, right| {
-        right
-            .score
-            .partial_cmp(&left.score)
-            .unwrap_or(std::cmp::Ordering::Equal)
-    });
-    let mut used = BTreeSet::new();
-    let mut selected = Vec::new();
-    for pair in pairs {
-        if selected.len() >= max_pairs {
-            break;
-        }
-        if !used.contains(&pair.left.alt) && !used.contains(&pair.right.alt) {
-            used.insert(pair.left.alt.clone());
-            used.insert(pair.right.alt.clone());
-            selected.push(pair);
-        }
-    }
-    selected
+    r25_corrected::maximum_weight_disjoint(pairs, max_pairs)
 }
 
-fn fit_reference_spread(
-    data: &BTreeMap<String, Vec<SignalBar>>,
-    btc_map: &BTreeMap<i64, f64>,
-    alt: &str,
-    fit_start: i64,
-    fit_end: i64,
-) -> Option<ReferenceFit> {
-    let alt_bars = data.get(alt)?;
-    let aligned = alt_bars
-        .iter()
-        .filter(|bar| bar.signal_close_ms >= fit_start && bar.signal_close_ms <= fit_end)
-        .filter_map(|bar| {
-            btc_map
-                .get(&bar.signal_close_ms)
-                .map(|btc| (btc.ln(), bar.close.ln()))
-        })
-        .collect::<Vec<_>>();
-    if aligned.len() < 200 {
-        return None;
-    }
-    let x_mean = aligned.iter().map(|(_, alt)| *alt).sum::<f64>() / aligned.len() as f64;
-    let y_mean = aligned.iter().map(|(btc, _)| *btc).sum::<f64>() / aligned.len() as f64;
-    let var_x = aligned
-        .iter()
-        .map(|(_, alt)| (*alt - x_mean).powi(2))
-        .sum::<f64>();
-    if var_x <= 1e-12 {
-        return None;
-    }
-    let cov = aligned
-        .iter()
-        .map(|(btc, alt)| (*alt - x_mean) * (*btc - y_mean))
-        .sum::<f64>();
-    let beta = (cov / var_x).clamp(0.2, 5.0);
-    let spreads = aligned
-        .iter()
-        .map(|(btc, alt)| *btc - beta * *alt)
-        .collect::<Vec<_>>();
-    let mean = spreads.iter().sum::<f64>() / spreads.len() as f64;
-    let sigma = (spreads
-        .iter()
-        .map(|value| (*value - mean).powi(2))
-        .sum::<f64>()
-        / (spreads.len() as f64 - 1.0))
-        .sqrt();
-    if sigma <= 1e-8 {
-        return None;
-    }
-    let mut sorted = spreads;
-    sorted.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
-    Some(ReferenceFit {
-        alt: alt.into(),
-        beta,
-        mean,
-        sigma,
-        sorted_spreads: sorted,
-    })
-}
-
-fn spread_corr(left: &ReferenceFit, right: &ReferenceFit) -> f64 {
-    let n = left.sorted_spreads.len().min(right.sorted_spreads.len());
-    if n < 3 {
-        return 0.0;
-    }
-    let left_mean = left.sorted_spreads.iter().take(n).sum::<f64>() / n as f64;
-    let right_mean = right.sorted_spreads.iter().take(n).sum::<f64>() / n as f64;
-    let mut cov = 0.0;
-    let mut lv = 0.0;
-    let mut rv = 0.0;
-    for i in 0..n {
-        let l = left.sorted_spreads[i] - left_mean;
-        let r = right.sorted_spreads[i] - right_mean;
-        cov += l * r;
-        lv += l * l;
-        rv += r * r;
-    }
-    if lv <= 1e-12 || rv <= 1e-12 {
-        0.0
-    } else {
-        (cov / (lv.sqrt() * rv.sqrt())).clamp(-0.95, 0.95)
-    }
-}
-
-fn pair_h_values(
-    left: &ReferenceFit,
-    right: &ReferenceFit,
-    rho: f64,
-    prices: &BTreeMap<String, f64>,
-) -> (f64, f64) {
+fn pair_h_values(model: &PairModel, prices: &BTreeMap<String, f64>) -> (f64, f64) {
     let (Some(btc), Some(left_price), Some(right_price)) = (
         prices.get(R25_REFERENCE_SYMBOL),
-        prices.get(&left.alt),
-        prices.get(&right.alt),
+        prices.get(&model.left.alt),
+        prices.get(&model.right.alt),
     ) else {
         return (0.5, 0.5);
     };
-    let left_spread = btc.ln() - left.beta * left_price.ln();
-    let right_spread = btc.ln() - right.beta * right_price.ln();
-    let u_left = empirical_cdf(&left.sorted_spreads, left_spread);
-    let u_right = empirical_cdf(&right.sorted_spreads, right_spread);
-    (
-        gaussian_conditional_h(u_left, u_right, rho),
-        gaussian_conditional_h(u_right, u_left, rho),
+    r25_corrected::conditional_h(model, *btc, *left_price, *right_price)
+}
+
+fn active_pair_h_values(group: &ActiveGroup, prices: &BTreeMap<String, f64>) -> (f64, f64) {
+    let (Some(btc), Some(left_price), Some(right_price)) = (
+        prices.get(R25_REFERENCE_SYMBOL),
+        prices.get(&group.left.alt),
+        prices.get(&group.right.alt),
+    ) else {
+        return (0.5, 0.5);
+    };
+    r25_corrected::conditional_h_from_parts(
+        &group.left,
+        &group.right,
+        &group.copula,
+        *btc,
+        *left_price,
+        *right_price,
     )
 }
 
@@ -857,11 +1279,6 @@ fn pair_diff_z(left: &ReferenceFit, right: &ReferenceFit, prices: &BTreeMap<Stri
     let left_z = (btc.ln() - left.beta * left_price.ln() - left.mean) / left.sigma;
     let right_z = (btc.ln() - right.beta * right_price.ln() - right.mean) / right.sigma;
     left_z - right_z
-}
-
-fn empirical_cdf(sorted: &[f64], value: f64) -> f64 {
-    let rank = sorted.partition_point(|probe| *probe <= value);
-    ((rank as f64 + 0.5) / (sorted.len() as f64 + 1.0)).clamp(1e-6, 1.0 - 1e-6)
 }
 
 fn prices_at(
@@ -907,6 +1324,7 @@ fn build_group(
         id: id.into(),
         left: model.left.clone(),
         right: model.right.clone(),
+        copula: model.copula.clone(),
         long_left_short_right,
         level: 0,
         last_filled_diff_z: pair_diff_z(&model.left, &model.right, prices),
@@ -915,37 +1333,17 @@ fn build_group(
         left_key: key(&model.left.alt, left_mode, id),
         right_key: key(&model.right.alt, right_mode, id),
         so_filled: false,
+        last_observed_adverse: 0.0,
+        recent_left_spreads: recent_spreads(&model.left),
+        recent_right_spreads: recent_spreads(&model.right),
     }
 }
 
-fn reserve_next_so(
-    account: &mut SharedAccount,
-    group_id: &str,
-    next_gross: f64,
-    timestamp: i64,
-    streams: &mut BTreeMap<String, Vec<serde_json::Value>>,
-) -> Result<()> {
-    let required = next_gross / account.config.leverage
-        + next_gross
-            * (account.config.fee_bps
-                + account.config.slippage_bps
-                + account.config.close_reserve_bps)
-            / 10_000.0
-        + next_gross * account.config.maintenance_rate;
-    account.reserve(group_id, required)?;
-    if let Some(group) = account.groups.get_mut(group_id) {
-        group.reserved_next_so = required;
-    }
-    push(
-        streams,
-        "margin",
-        serde_json::json!({
-            "event":"persistent_next_so_reserve","timestamp":timestamp,
-            "group_id":group_id,"reserved_next_so":required,
-            "available_after":account.available_quote()
-        }),
-    );
-    Ok(())
+fn recent_spreads(fit: &ReferenceFit) -> Vec<f64> {
+    fit.aligned_spreads[fit.aligned_spreads.len().saturating_sub(240)..]
+        .iter()
+        .map(|(_, spread)| *spread)
+        .collect()
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -972,12 +1370,13 @@ fn fill_layer(
             .get(symbol)
             .with_context(|| format!("missing filter for {symbol}"))?;
         let raw_qty = gross * 0.5 / price;
-        let order = filter.resolve(raw_qty, price);
+        let order = filter.resolve_for_mode(raw_qty, price, key.mode);
         resolved.push((key.clone(), symbol.clone(), order));
     }
     let left = resolved[0].2;
     let right = resolved[1].2;
-    if !crate::r25::atomic_pair_admission(left, right) {
+    let resolved_total = left.gross + right.gross;
+    if !crate::r25::atomic_pair_admission(left, right) || resolved_total > gross * 1.01 {
         *counts.entry("rejection").or_default() += 1;
         push(
             streams,
@@ -985,7 +1384,9 @@ fn fill_layer(
             serde_json::json!({
                 "event":"atomic_filter_reject","reason":"min_notional_or_pair_gross_mismatch",
                 "timestamp":bar.fill_ms,"group_id":group.id,"level":level,
-                "left":left,"right":right,"filter_version":"round24-current-perp-exchangeInfo-8-symbols"
+                "left":left,"right":right,"resolved_total_gross":resolved_total,
+                "group_gross_cap":gross * 1.01,
+                "filter_version":"round24-current-perp-exchangeInfo-8-symbols"
             }),
         );
         return Ok(false);
@@ -999,6 +1400,7 @@ fn fill_layer(
             serde_json::json!({
                 "event":"submit_attempt","timestamp":bar.fill_ms,"order_id":order_id,
                 "group_id":group.id,"symbol":symbol,"level":level,
+                "position_mode":key.mode,
                 "signal_bar_open":bar.signal_open_ms,"signal_bar_close":bar.signal_close_ms,
                 "signal_ready":bar.signal_close_ms,"earliest_fill":bar.fill_ms,"actual_fill":bar.fill_ms,
                 "raw_qty":order.raw_qty,"rounded_qty":order.rounded_qty,
@@ -1055,7 +1457,7 @@ fn close_group(
             account.close_key(timestamp, key, *price, reason)?;
         }
     }
-    account.remove_group(&group.id);
+    account.remove_group_at(timestamp, &group.id)?;
     push(
         streams,
         "trade",
@@ -1083,6 +1485,44 @@ fn group_net_after_cost(account: &SharedAccount, group: &ActiveGroup) -> f64 {
             })
         })
         .sum()
+}
+
+fn update_dynamic_freeze(
+    account: &SharedAccount,
+    timestamp: i64,
+    frozen_symbols: &mut BTreeSet<String>,
+    streams: &mut BTreeMap<String, Vec<serde_json::Value>>,
+) {
+    let positive_groups = account
+        .realized_pnl_by_group
+        .values()
+        .filter(|value| **value > 0.0)
+        .count();
+    if positive_groups < 3 {
+        return;
+    }
+    let positive_total = account
+        .realized_pnl_by_symbol
+        .values()
+        .filter(|value| **value > 0.0)
+        .sum::<f64>();
+    if positive_total <= 0.0 {
+        return;
+    }
+    for (symbol, pnl) in &account.realized_pnl_by_symbol {
+        let contribution_pct = pnl.max(0.0) / positive_total * 100.0;
+        if contribution_pct > 35.0 && frozen_symbols.insert(symbol.clone()) {
+            push(
+                streams,
+                "event",
+                serde_json::json!({
+                    "event":"dynamic_symbol_freeze","timestamp":timestamp,
+                    "symbol":symbol,"positive_contribution_pct":contribution_pct,
+                    "threshold_pct":35.0
+                }),
+            );
+        }
+    }
 }
 
 fn update_marks(account: &mut SharedAccount, prices: &BTreeMap<String, f64>) {
@@ -1210,7 +1650,7 @@ fn append_account_traces(
                 "timestamp":trace.timestamp,"event":trace.event,
                 "order_id":trace.order_id,"group_id":trace.group_id,
                 "symbol":trace.symbol,"quantity":trace.quantity,
-                "quote":trace.quote,"detail":trace.detail
+                "quote":trace.quote,"detail":trace.detail,"metadata":trace.metadata
             }),
         );
     }
@@ -1257,7 +1697,13 @@ fn pair_model_key(model: &PairModel) -> serde_json::Value {
     serde_json::json!({
         "left":model.left.alt,"right":model.right.alt,
         "left_beta":model.left.beta,"right_beta":model.right.beta,
-        "rho":model.rho,"score":model.score
+        "left_stationarity":model.left.stationarity,
+        "right_stationarity":model.right.stationarity,
+        "family":model.copula.family,"rho":model.copula.rho,"nu":model.copula.nu,
+        "log_likelihood":model.copula.log_likelihood,"aic":model.copula.aic,
+        "sample_count":model.copula.sample_count,"fit_cutoff_ms":model.copula.fit_cutoff_ms,
+        "independent_reference_error":model.copula.independent_reference_error,
+        "score":model.score
     })
 }
 

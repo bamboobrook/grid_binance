@@ -245,20 +245,38 @@ pub fn conditional_h(
     left_price: f64,
     right_price: f64,
 ) -> (f64, f64) {
-    let left_spread = btc.ln() - model.left.beta * left_price.ln();
-    let right_spread = btc.ln() - model.right.beta * right_price.ln();
-    let left_u = empirical_cdf(&model.left.sorted_spreads, left_spread);
-    let right_u = empirical_cdf(&model.right.sorted_spreads, right_spread);
-    match model.copula.family {
+    conditional_h_from_parts(
+        &model.left,
+        &model.right,
+        &model.copula,
+        btc,
+        left_price,
+        right_price,
+    )
+}
+
+pub fn conditional_h_from_parts(
+    left: &ReferenceSpreadFit,
+    right: &ReferenceSpreadFit,
+    copula: &CopulaFit,
+    btc: f64,
+    left_price: f64,
+    right_price: f64,
+) -> (f64, f64) {
+    let left_spread = btc.ln() - left.beta * left_price.ln();
+    let right_spread = btc.ln() - right.beta * right_price.ln();
+    let left_u = empirical_cdf(&left.sorted_spreads, left_spread);
+    let right_u = empirical_cdf(&right.sorted_spreads, right_spread);
+    match copula.family {
         CopulaFamily::Gaussian => (
-            gaussian_conditional_h(left_u, right_u, model.copula.rho),
-            gaussian_conditional_h(right_u, left_u, model.copula.rho),
+            gaussian_conditional_h(left_u, right_u, copula.rho),
+            gaussian_conditional_h(right_u, left_u, copula.rho),
         ),
         CopulaFamily::StudentT => {
-            let nu = model.copula.nu.unwrap_or(3) as f64;
+            let nu = copula.nu.unwrap_or(3) as f64;
             (
-                student_t_conditional_h(left_u, right_u, model.copula.rho, nu),
-                student_t_conditional_h(right_u, left_u, model.copula.rho, nu),
+                student_t_conditional_h(left_u, right_u, copula.rho, nu),
+                student_t_conditional_h(right_u, left_u, copula.rho, nu),
             )
         }
     }
@@ -267,6 +285,15 @@ pub fn conditional_h(
 pub fn empirical_cdf(sorted: &[f64], value: f64) -> f64 {
     let rank = sorted.partition_point(|probe| *probe <= value);
     ((rank as f64 + 0.5) / (sorted.len() as f64 + 1.0)).clamp(1e-6, 1.0 - 1e-6)
+}
+
+pub fn rolling_stationarity_valid(values: &[f64]) -> bool {
+    if values.len() < 200 {
+        return false;
+    }
+    let mean = values.iter().sum::<f64>() / values.len() as f64;
+    let sigma = sample_sigma(values, mean);
+    sigma > 1e-8 && stationarity_diagnostics(values, sigma).passed
 }
 
 pub fn kendall_tau_b(observations: &[(f64, f64)]) -> f64 {
