@@ -44,6 +44,7 @@ pub struct R25ReplayConfig {
     pub label: String,
     pub mode: R25ReplayMode,
     pub max_steps: Option<usize>,
+    pub fit_cache_root: Option<PathBuf>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -347,8 +348,16 @@ pub fn run_r25_c1_replay(config: &R25ReplayConfig) -> Result<R25ReplayEvidence> 
             current_block_start = block_start;
             let fit_end = bar.signal_open_ms - frequency_ms;
             let fit_start = fit_end - lookback_days * 86_400_000;
-            let fit_outcome =
-                fit_reference_pairs(&data, &eligible_alts, fit_start, fit_end, max_groups);
+            let fit_outcome = load_or_fit_reference_pairs(
+                &data,
+                &eligible_alts,
+                fit_start,
+                fit_end,
+                max_groups,
+                config.fit_cache_root.as_deref(),
+                frequency_ms,
+                lookback_days,
+            )?;
             models = fit_outcome.0;
             let fit_hash = hash_json(&models.iter().map(pair_model_key).collect::<Vec<_>>());
             last_block_fit_hashes.push(fit_hash.clone());
@@ -371,6 +380,43 @@ pub fn run_r25_c1_replay(config: &R25ReplayConfig) -> Result<R25ReplayEvidence> 
         if !prices_close.contains_key(R25_REFERENCE_SYMBOL)
             || !prices_fill.contains_key(R25_REFERENCE_SYMBOL)
         {
+            continue;
+        }
+        if config.mode == R25ReplayMode::ActivationCensus {
+            for model in &models {
+                let h = pair_h_values(model, &prices_close);
+                let pair = pair_name(&model.left.alt, &model.right.alt);
+                let neutral = h.0 > 0.35 && h.0 < 0.65 && h.1 > 0.35 && h.1 < 0.65;
+                if neutral {
+                    neutral_armed.insert(pair.clone(), true);
+                }
+                let direction = if h.0 <= entry_alpha && h.1 >= 1.0 - entry_alpha {
+                    Some(true)
+                } else if h.1 <= entry_alpha && h.0 >= 1.0 - entry_alpha {
+                    Some(false)
+                } else {
+                    None
+                };
+                let fresh_crossing =
+                    direction.is_some() && neutral_armed.get(&pair).copied().unwrap_or(false);
+                push(
+                    &mut streams,
+                    "signal",
+                    serde_json::json!({
+                        "event":"activation_census_eval","timestamp":bar.signal_close_ms,
+                        "signal_bar_open":bar.signal_open_ms,"signal_bar_close":bar.signal_close_ms,
+                        "signal_ready":bar.signal_close_ms,"earliest_fill":bar.fill_ms,
+                        "left":model.left.alt,"right":model.right.alt,
+                        "h_left_given_right":h.0,"h_right_given_left":h.1,
+                        "entry_alpha":entry_alpha,"direction":direction,
+                        "neutral_reset_armed":neutral_armed.get(&pair),"fresh_crossing":fresh_crossing
+                    }),
+                );
+                if fresh_crossing {
+                    *counts.entry("fo_signal").or_default() += 1;
+                    neutral_armed.insert(pair, false);
+                }
+            }
             continue;
         }
         update_marks(&mut account, &prices_fill);
@@ -1194,6 +1240,52 @@ fn process_risk_until(
         }
     }
     Ok(())
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct CachedPairFit {
+    models: Vec<PairModel>,
+    diagnostics: Vec<serde_json::Value>,
+}
+
+#[allow(clippy::too_many_arguments)]
+fn load_or_fit_reference_pairs(
+    data: &BTreeMap<String, Vec<SignalBar>>,
+    alts: &[String],
+    fit_start: i64,
+    fit_end: i64,
+    max_pairs: usize,
+    cache_root: Option<&Path>,
+    frequency_ms: i64,
+    lookback_days: i64,
+) -> Result<(Vec<PairModel>, Vec<serde_json::Value>)> {
+    let cache_path = cache_root.map(|root| {
+        let key = hash_json(&serde_json::json!({
+            "fit_start":fit_start,"fit_end":fit_end,"max_pairs":max_pairs,
+            "frequency_ms":frequency_ms,"lookback_days":lookback_days,"alts":alts
+        }));
+        root.join(format!("{key}.json"))
+    });
+    if let Some(path) = &cache_path {
+        if path.exists() {
+            let cached: CachedPairFit = serde_json::from_slice(&fs::read(path)?)?;
+            return Ok((cached.models, cached.diagnostics));
+        }
+    }
+    let (models, diagnostics) = fit_reference_pairs(data, alts, fit_start, fit_end, max_pairs);
+    if let Some(path) = cache_path {
+        if let Some(parent) = path.parent() {
+            fs::create_dir_all(parent)?;
+        }
+        fs::write(
+            path,
+            serde_json::to_vec(&CachedPairFit {
+                models: models.clone(),
+                diagnostics: diagnostics.clone(),
+            })?,
+        )?;
+    }
+    Ok((models, diagnostics))
 }
 
 fn fit_reference_pairs(

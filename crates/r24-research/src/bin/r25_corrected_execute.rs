@@ -636,6 +636,7 @@ fn run_one_replay(
         label: label.into(),
         mode,
         max_steps,
+        fit_cache_root: Some(context.raw_root.join("fit-cache")),
     })
 }
 
