@@ -79,6 +79,27 @@ pub struct PendingOrder {
     pub reserved_quote: f64,
 }
 
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
+pub struct ReserveComponents {
+    pub next_so_initial_margin: f64,
+    pub next_so_entry_cost: f64,
+    pub open_close_cost: f64,
+    pub maintenance_buffer: f64,
+    pub pending_leg: f64,
+    pub hedge_or_flatten: f64,
+}
+
+impl ReserveComponents {
+    pub fn total(&self) -> f64 {
+        self.next_so_initial_margin
+            + self.next_so_entry_cost
+            + self.open_close_cost
+            + self.maintenance_buffer
+            + self.pending_leg
+            + self.hedge_or_flatten
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct TraceRecord {
     pub timestamp: i64,
@@ -127,6 +148,8 @@ pub struct SharedAccount {
     pub positions: BTreeMap<PositionKey, Position>,
     pub groups: BTreeMap<String, MartinGroup>,
     pub pending_orders: BTreeMap<String, PendingOrder>,
+    #[serde(default)]
+    pub reserve_ledger: BTreeMap<String, ReserveComponents>,
     pub reserved_quote: f64,
     pub running_peak_equity: f64,
     pub max_equity_drawdown_pct: f64,
@@ -170,6 +193,7 @@ impl SharedAccount {
             positions: BTreeMap::new(),
             groups: BTreeMap::new(),
             pending_orders: BTreeMap::new(),
+            reserve_ledger: BTreeMap::new(),
             reserved_quote: 0.0,
             running_peak_equity: principal,
             max_equity_drawdown_pct: 0.0,
@@ -192,9 +216,27 @@ impl SharedAccount {
     }
 
     pub fn remove_group(&mut self, group_id: &str) {
-        if !self.positions.keys().any(|key| key.owner_group == group_id) {
-            self.groups.remove(group_id);
+        let timestamp = self.last_timestamp.max(1);
+        let _ = self.remove_group_at(timestamp, group_id);
+    }
+
+    pub fn remove_group_at(&mut self, timestamp: i64, group_id: &str) -> Result<()> {
+        if self.positions.keys().any(|key| key.owner_group == group_id) {
+            bail!("cannot remove group with open positions");
         }
+        let pending_ids = self
+            .pending_orders
+            .values()
+            .filter(|order| order.group_id == group_id)
+            .map(|order| order.order_id.clone())
+            .collect::<Vec<_>>();
+        for order_id in pending_ids {
+            self.pending_orders.remove(&order_id);
+            self.release_owner_reserve(timestamp, &order_id, "group_pending_release")?;
+        }
+        self.release_owner_reserve(timestamp, group_id, "group_release")?;
+        self.groups.remove(group_id);
+        self.assert_reserve_invariant()
     }
 
     pub fn request_next_so(&mut self, group_id: &str, gross: f64) -> Result<()> {
@@ -205,54 +247,182 @@ impl SharedAccount {
         if gross <= group.current_level_gross {
             bail!("next layer gross must strictly increase");
         }
-        let required = gross / self.config.leverage
-            + gross * (self.config.close_reserve_bps + self.config.fee_bps) / 10_000.0;
-        self.reserve(group_id, required)?;
+        let current_gross = group.current_level_gross;
+        self.reserve_group_after_fill(
+            self.last_timestamp.max(1),
+            group_id,
+            Some(gross),
+            current_gross,
+        )?;
         let group = self.groups.get_mut(group_id).unwrap();
         group.previous_level_gross = group.current_level_gross;
         group.current_level_gross = gross;
         group.level += 1;
-        group.reserved_next_so = required;
         Ok(())
     }
 
     pub fn reserve(&mut self, owner: &str, quote: f64) -> Result<()> {
-        if quote <= 0.0 || quote > self.available_quote() {
+        let timestamp = self.last_timestamp.max(1);
+        let mut components = self.reserve_ledger.get(owner).cloned().unwrap_or_default();
+        components.hedge_or_flatten += quote;
+        self.set_owner_reserve(timestamp, owner, components, "compat_reserve")
+    }
+
+    pub fn reserve_group_after_fill(
+        &mut self,
+        timestamp: i64,
+        group_id: &str,
+        next_gross: Option<f64>,
+        open_gross: f64,
+    ) -> Result<()> {
+        if timestamp <= 0 {
+            bail!("reserve timestamp must be a real event timestamp");
+        }
+        if !self.groups.contains_key(group_id) {
+            bail!("unknown group");
+        }
+        let next = next_gross.unwrap_or(0.0);
+        let components = ReserveComponents {
+            next_so_initial_margin: next / self.config.leverage,
+            next_so_entry_cost: next * (self.config.fee_bps + self.config.slippage_bps) / 10_000.0,
+            open_close_cost: open_gross
+                * (self.config.fee_bps + self.config.slippage_bps + self.config.close_reserve_bps)
+                / 10_000.0,
+            maintenance_buffer: if next_gross.is_some() {
+                next * self.config.maintenance_rate
+            } else {
+                0.0
+            },
+            ..ReserveComponents::default()
+        };
+        self.set_owner_reserve(timestamp, group_id, components, "group_after_fill")?;
+        let next_so_total = self.reserve_ledger[group_id].next_so_initial_margin
+            + self.reserve_ledger[group_id].next_so_entry_cost
+            + self.reserve_ledger[group_id].maintenance_buffer;
+        self.groups.get_mut(group_id).unwrap().reserved_next_so = next_so_total;
+        Ok(())
+    }
+
+    fn reserve_pending_leg(&mut self, timestamp: i64, owner: &str, quote: f64) -> Result<()> {
+        self.set_owner_reserve(
+            timestamp,
+            owner,
+            ReserveComponents {
+                pending_leg: quote,
+                ..ReserveComponents::default()
+            },
+            "pending_leg",
+        )
+    }
+
+    fn set_owner_reserve(
+        &mut self,
+        timestamp: i64,
+        owner: &str,
+        components: ReserveComponents,
+        detail: &str,
+    ) -> Result<()> {
+        if timestamp <= 0 {
+            bail!("reserve timestamp must be a real event timestamp");
+        }
+        self.last_timestamp = self.last_timestamp.max(timestamp);
+        let previous = self
+            .reserve_ledger
+            .get(owner)
+            .map(ReserveComponents::total)
+            .unwrap_or(0.0);
+        let required = components.total();
+        let additional = (required - previous).max(0.0);
+        if required <= 0.0 || additional > self.available_quote() {
             self.trace(
-                0,
+                timestamp,
                 "rejection",
                 "reserve_rejected",
                 None,
                 Some(owner),
                 None,
                 None,
-                Some(quote),
+                Some(required),
                 "joint shared-account reserve failed",
             );
             bail!("joint reserve unavailable");
         }
-        self.reserved_quote += quote;
+        self.reserve_ledger.insert(owner.to_owned(), components);
+        self.sync_reserved_quote();
         self.trace(
-            0,
+            timestamp,
             "margin",
             "reserve",
             None,
             Some(owner),
             None,
             None,
-            Some(quote),
-            "shared reserve accepted",
+            Some(required),
+            detail,
         );
+        self.assert_reserve_invariant()
+    }
+
+    fn release_owner_reserve(&mut self, timestamp: i64, owner: &str, detail: &str) -> Result<f64> {
+        if timestamp <= 0 {
+            bail!("reserve timestamp must be a real event timestamp");
+        }
+        self.last_timestamp = self.last_timestamp.max(timestamp);
+        let released = self
+            .reserve_ledger
+            .remove(owner)
+            .map(|components| components.total())
+            .unwrap_or(0.0);
+        self.sync_reserved_quote();
+        self.trace(
+            timestamp,
+            "margin",
+            "reserve_released",
+            None,
+            Some(owner),
+            None,
+            None,
+            Some(released),
+            detail,
+        );
+        self.assert_reserve_invariant()?;
+        Ok(released)
+    }
+
+    fn sync_reserved_quote(&mut self) {
+        self.reserved_quote = self
+            .reserve_ledger
+            .values()
+            .map(ReserveComponents::total)
+            .sum();
+    }
+
+    pub fn assert_reserve_invariant(&self) -> Result<()> {
+        let recomputed = self
+            .reserve_ledger
+            .values()
+            .map(ReserveComponents::total)
+            .sum::<f64>();
+        if (self.reserved_quote - recomputed).abs() > 1e-9 {
+            bail!(
+                "reserved_quote mismatch: recorded={} recomputed={}",
+                self.reserved_quote,
+                recomputed
+            );
+        }
         Ok(())
     }
 
     pub fn consume_group_reserve(&mut self, group_id: &str) -> Result<f64> {
-        let group = self.groups.get_mut(group_id).context("unknown group")?;
-        let released = group.reserved_next_so;
-        group.reserved_next_so = 0.0;
-        self.reserved_quote = (self.reserved_quote - released).max(0.0);
+        self.consume_group_reserve_at(self.last_timestamp.max(1), group_id)
+    }
+
+    pub fn consume_group_reserve_at(&mut self, timestamp: i64, group_id: &str) -> Result<f64> {
+        self.groups.get(group_id).context("unknown group")?;
+        let released = self.release_owner_reserve(timestamp, group_id, "next_so_consumed")?;
+        self.groups.get_mut(group_id).unwrap().reserved_next_so = 0.0;
         self.trace(
-            self.last_timestamp,
+            timestamp,
             "margin",
             "reserve_consumed",
             None,
@@ -295,7 +465,7 @@ impl SharedAccount {
         if request.delayed_bars > 0 {
             let notional = request.requested_quantity * request.price;
             let reserve = self.order_reserve(&request.key, notional);
-            self.reserve(&request.order_id, reserve)?;
+            self.reserve_pending_leg(request.timestamp, &request.order_id, reserve)?;
             self.pending_orders.insert(
                 request.order_id.clone(),
                 PendingOrder {
@@ -342,7 +512,7 @@ impl SharedAccount {
             .collect::<Vec<_>>();
         for order_id in due {
             let pending = self.pending_orders.remove(&order_id).unwrap();
-            self.reserved_quote = (self.reserved_quote - pending.reserved_quote).max(0.0);
+            self.release_owner_reserve(timestamp, &pending.order_id, "pending_leg_consumed")?;
             let price = execution_prices
                 .get(&pending.key.symbol)
                 .copied()
@@ -561,7 +731,9 @@ impl SharedAccount {
             connection.query_row("SELECT payload FROM account_state WHERE id=1", [], |row| {
                 row.get(0)
             })?;
-        Ok(serde_json::from_str(&payload)?)
+        let account: Self = serde_json::from_str(&payload)?;
+        account.assert_reserve_invariant()?;
+        Ok(account)
     }
 
     pub fn canonical_order_equity_hash(&self) -> String {
@@ -790,8 +962,10 @@ impl SharedAccount {
         }
         self.wallet_balance = final_equity.max(0.0);
         self.spot_cash = self.wallet_balance;
-        self.reserved_quote = 0.0;
+        self.reserve_ledger.clear();
+        self.sync_reserved_quote();
         self.pending_orders.clear();
+        self.groups.clear();
         self.terminated = true;
         self.update_equity_metrics();
         Ok(())
