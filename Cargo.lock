@@ -1871,6 +1871,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "r24-engine"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "rusqlite",
+ "serde",
+ "serde_json",
+ "sha2",
+ "tempfile",
+]
+
+[[package]]
 name = "r24-registry"
 version = "0.1.0"
 dependencies = [

@@ -18,6 +18,7 @@ members = [
     "crates/r23-registry",
     "crates/r23-replay",
     "crates/r24-registry",
+    "crates/r24-engine",
 ]
 resolver = "2"
 
