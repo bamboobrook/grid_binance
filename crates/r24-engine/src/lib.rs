@@ -1233,4 +1233,125 @@ mod tests {
         let b = ServiceFakeExchange.replay(&mut right, &orders).unwrap();
         assert_eq!(a, b);
     }
+
+    #[test]
+    fn closed_group_releases_all_owned_reserve_exactly() {
+        let mut account = SharedAccount::new(1000.0, EngineConfig::default()).unwrap();
+        account.add_group(group("g", "fit1")).unwrap();
+        account
+            .reserve_group_after_fill(10, "g", Some(125.0), 100.0)
+            .unwrap();
+        assert!(account.reserved_quote > 0.0);
+
+        account.remove_group_at(11, "g").unwrap();
+
+        assert_eq!(account.reserved_quote, 0.0);
+        assert!(account.reserve_ledger.is_empty());
+    }
+
+    #[test]
+    fn one_hundred_close_cycles_leave_reserved_quote_zero() {
+        let mut account = SharedAccount::new(1000.0, EngineConfig::default()).unwrap();
+        for cycle in 0..100 {
+            let id = format!("g-{cycle}");
+            account.add_group(group(&id, "fit1")).unwrap();
+            account
+                .reserve_group_after_fill(10 + cycle, &id, Some(62.5), 50.0)
+                .unwrap();
+            account.remove_group_at(11 + cycle, &id).unwrap();
+        }
+        assert_eq!(account.reserved_quote, 0.0);
+        account.assert_reserve_invariant().unwrap();
+    }
+
+    #[test]
+    fn so_consumes_old_reserve_then_replaces_next_layer_reserve() {
+        let mut account = SharedAccount::new(1000.0, EngineConfig::default()).unwrap();
+        account.add_group(group("g", "fit1")).unwrap();
+        account
+            .reserve_group_after_fill(10, "g", Some(125.0), 100.0)
+            .unwrap();
+        let old = account.reserve_ledger["g"].next_so_initial_margin;
+
+        account.consume_group_reserve_at(11, "g").unwrap();
+        assert_eq!(account.reserved_quote, 0.0);
+        account
+            .reserve_group_after_fill(12, "g", Some(155.0), 225.0)
+            .unwrap();
+
+        assert!(account.reserve_ledger["g"].next_so_initial_margin > old);
+        account.assert_reserve_invariant().unwrap();
+    }
+
+    #[test]
+    fn last_layer_keeps_close_reserve_only() {
+        let mut account = SharedAccount::new(1000.0, EngineConfig::default()).unwrap();
+        account.add_group(group("g", "fit1")).unwrap();
+        account
+            .reserve_group_after_fill(10, "g", None, 380.0)
+            .unwrap();
+
+        let reserve = &account.reserve_ledger["g"];
+        assert!(reserve.open_close_cost > 0.0);
+        assert_eq!(reserve.next_so_initial_margin, 0.0);
+        assert_eq!(reserve.next_so_entry_cost, 0.0);
+        assert_eq!(reserve.maintenance_buffer, 0.0);
+        account.assert_reserve_invariant().unwrap();
+    }
+
+    #[test]
+    fn failed_fo_releases_group_and_pending_leg_reserve() {
+        let mut account = SharedAccount::new(1000.0, EngineConfig::default()).unwrap();
+        account.add_group(group("g", "fit1")).unwrap();
+        account
+            .reserve_group_after_fill(10, "g", Some(125.0), 100.0)
+            .unwrap();
+        let mut delayed = request("pending", "BTCUSDT", 100.0);
+        delayed.delayed_bars = 2;
+        account.submit(delayed).unwrap();
+
+        account.remove_group_at(11, "g").unwrap();
+
+        assert!(account.groups.is_empty());
+        assert!(account.pending_orders.is_empty());
+        assert!(account.reserve_ledger.is_empty());
+        assert_eq!(account.reserved_quote, 0.0);
+    }
+
+    #[test]
+    fn end_close_leaves_zero_positions_groups_pending_and_reserve() {
+        let mut account = SharedAccount::new(1000.0, EngineConfig::default()).unwrap();
+        account.add_group(group("g", "fit1")).unwrap();
+        let left = key("BTCUSDT", MarketType::UsdMPerp, PositionMode::Long);
+        account.submit(request("left", "BTCUSDT", 100.0)).unwrap();
+        account
+            .reserve_group_after_fill(10, "g", Some(125.0), 100.0)
+            .unwrap();
+
+        account.close_key(11, &left, 100.0, "end_close").unwrap();
+        account.remove_group_at(11, "g").unwrap();
+
+        assert!(account.positions.is_empty());
+        assert!(account.groups.is_empty());
+        assert!(account.pending_orders.is_empty());
+        assert_eq!(account.reserved_quote, 0.0);
+        account.assert_reserve_invariant().unwrap();
+    }
+
+    #[test]
+    fn replay_restart_preserves_component_reserve_ledger() {
+        let file = tempfile::NamedTempFile::new().unwrap();
+        let mut account = SharedAccount::new(1000.0, EngineConfig::default()).unwrap();
+        account.add_group(group("g", "fit1")).unwrap();
+        account
+            .reserve_group_after_fill(10, "g", Some(125.0), 100.0)
+            .unwrap();
+        account.save_sqlite(file.path()).unwrap();
+
+        let restored = SharedAccount::load_sqlite(file.path()).unwrap();
+
+        assert_eq!(account.reserve_ledger, restored.reserve_ledger);
+        assert_eq!(account.reserved_quote, restored.reserved_quote);
+        restored.assert_reserve_invariant().unwrap();
+    }
 }
