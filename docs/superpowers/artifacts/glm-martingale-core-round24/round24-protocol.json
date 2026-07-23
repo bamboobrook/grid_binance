@@ -1,0 +1,115 @@
+{
+  "active_group_open_fit_frozen": true,
+  "annualize_only_stitched_days_gte": 365,
+  "block_boundary_resets": false,
+  "blocks": [
+    {
+      "block": "tb01",
+      "empty_block_kept": true,
+      "fit_cutoff": "2023-03-02",
+      "purge_days": 121,
+      "test_end": "2023-09-30",
+      "test_start": "2023-07-01"
+    },
+    {
+      "block": "tb02",
+      "empty_block_kept": true,
+      "fit_cutoff": "2023-06-02",
+      "purge_days": 121,
+      "test_end": "2023-12-31",
+      "test_start": "2023-10-01"
+    },
+    {
+      "block": "tb03",
+      "empty_block_kept": true,
+      "fit_cutoff": "2023-09-02",
+      "purge_days": 121,
+      "test_end": "2024-03-31",
+      "test_start": "2024-01-01"
+    },
+    {
+      "block": "tb04",
+      "empty_block_kept": true,
+      "fit_cutoff": "2023-12-02",
+      "purge_days": 121,
+      "test_end": "2024-06-30",
+      "test_start": "2024-04-01"
+    },
+    {
+      "block": "tb05",
+      "empty_block_kept": true,
+      "fit_cutoff": "2024-03-02",
+      "purge_days": 121,
+      "test_end": "2024-09-30",
+      "test_start": "2024-07-01"
+    },
+    {
+      "block": "tb06",
+      "empty_block_kept": true,
+      "fit_cutoff": "2024-06-02",
+      "purge_days": 121,
+      "test_end": "2024-12-31",
+      "test_start": "2024-10-01"
+    },
+    {
+      "block": "tb07",
+      "empty_block_kept": true,
+      "fit_cutoff": "2024-09-02",
+      "purge_days": 121,
+      "test_end": "2025-03-31",
+      "test_start": "2025-01-01"
+    },
+    {
+      "block": "tb08",
+      "empty_block_kept": true,
+      "fit_cutoff": "2024-12-01",
+      "purge_days": 121,
+      "test_end": "2025-06-30",
+      "test_start": "2025-04-01"
+    },
+    {
+      "block": "tb09",
+      "empty_block_kept": true,
+      "fit_cutoff": "2025-03-02",
+      "purge_days": 121,
+      "test_end": "2025-09-30",
+      "test_start": "2025-07-01"
+    },
+    {
+      "block": "tb10",
+      "empty_block_kept": true,
+      "fit_cutoff": "2025-06-02",
+      "purge_days": 121,
+      "test_end": "2025-12-31",
+      "test_start": "2025-10-01"
+    },
+    {
+      "block": "tb11",
+      "empty_block_kept": true,
+      "fit_cutoff": "2025-09-02",
+      "purge_days": 121,
+      "test_end": "2026-03-31",
+      "test_start": "2026-01-01"
+    },
+    {
+      "block": "tb12",
+      "empty_block_kept": true,
+      "fit_cutoff": "2025-12-01",
+      "purge_days": 121,
+      "test_end": "2026-05-31",
+      "test_start": "2026-04-01"
+    }
+  ],
+  "cold_starts": [
+    "2023-07-01",
+    "2023-07-31",
+    "2023-08-30",
+    "2023-09-29",
+    "2023-10-29"
+  ],
+  "continuous_shared_account": true,
+  "fit_start": "2023-01-01",
+  "historical_prequential_only": true,
+  "test_end": "2026-05-31",
+  "test_start": "2023-07-01"
+}

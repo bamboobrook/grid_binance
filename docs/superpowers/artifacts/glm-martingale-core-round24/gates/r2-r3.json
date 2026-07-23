@@ -1,0 +1,17 @@
+{
+  "R2": {
+    "F3_M1": "blocked_incomplete_data",
+    "F3_M2": "blocked_incomplete_data",
+    "passed_for_F1": true
+  },
+  "R3": {
+    "e1_conditional": 8,
+    "f1_count": 16,
+    "f2_conditional": 12,
+    "m1_count": 8,
+    "m2_count": 8,
+    "passed": true,
+    "policy_count": 52
+  },
+  "return_replays_run": 0
+}

@@ -1,0 +1,15 @@
+{
+  "dsr_sensitivity_trial_counts": [
+    10000,
+    50000,
+    100000,
+    1000000
+  ],
+  "historical_global_trial_count": "unknown_not_zero",
+  "historical_prequential_only": true,
+  "round1_22_trials": "unknown",
+  "round23_visible_trial_floor": 1080,
+  "round24_executed_trials": 0,
+  "round24_preregistered_policy_templates": 52,
+  "rule": "DSR trial count may never be below the historical global ledger floor"
+}

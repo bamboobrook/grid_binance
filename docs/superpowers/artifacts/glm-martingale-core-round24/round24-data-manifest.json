@@ -1,0 +1,498 @@
+{
+  "execution_constraints": {
+    "filter_model": "current PRICE_FILTER/LOT_SIZE/MARKET_LOT_SIZE/NOTIONAL applied conservatively across history and stressed at G2",
+    "historical_snapshot_claim": false,
+    "maintenance_model": "per-symbol current maintMarginPercent, stressed upward at event time; authenticated historical leverage brackets unavailable",
+    "mode": "current_snapshot_plus_conservative_static_model_and_event_time_stress",
+    "perp_snapshot_sha256": "fda87d8ec571338bce0f1ba27fd0b661d87628769386ef6b11239f354a2796de",
+    "signal_or_selection_input": false,
+    "spot_snapshot_sha256": "3506195014fe707ffa3280d3b229301dddac7d75f59ff1abdef55b1ceed10f36"
+  },
+  "external_archives": {
+    "aggTrades": {
+      "all_sidecars_present": false,
+      "archive_count": 89,
+      "excluded_duplicate_files": 0,
+      "max_date": "2023-07-15",
+      "min_date": "2023-07-01",
+      "status": "blocked_incomplete_data",
+      "symbols": [
+        "BNBUSDT",
+        "BTCUSDT",
+        "ETHUSDT",
+        "LINKUSDT",
+        "SOLUSDT",
+        "XRPUSDT"
+      ]
+    },
+    "bookDepth": {
+      "all_sidecars_present": false,
+      "archive_count": 3611,
+      "excluded_duplicate_files": 1808,
+      "max_date": "2025-06-30",
+      "min_date": "2023-07-01",
+      "status": "blocked_incomplete_data",
+      "symbols": [
+        "BNBUSDT",
+        "BTCUSDT",
+        "ETHUSDT",
+        "LINKUSDT",
+        "SOLUSDT"
+      ]
+    },
+    "metrics": {
+      "all_sidecars_present": false,
+      "archive_count": 8503,
+      "excluded_duplicate_files": 0,
+      "max_date": "2026-05-31",
+      "min_date": "2023-07-01",
+      "status": "blocked_incomplete_data",
+      "symbols": [
+        "BNBUSDT",
+        "BTCUSDT",
+        "DOGEUSDT",
+        "ETHUSDT",
+        "LINKUSDT",
+        "LTCUSDT",
+        "SOLUSDT",
+        "XRPUSDT"
+      ]
+    }
+  },
+  "family_data_gate": {
+    "F1": {
+      "spot_rule": "spot has one 80-minute synchronized gap and is excluded from F1 scored legs",
+      "status": "ready_perp_only",
+      "uses": "8-symbol 1m USD-M perp klines + 8h funding + frozen conservative execution model"
+    },
+    "F3_M1": {
+      "reason": "metrics start 2023-07-01, six fit months absent",
+      "status": "blocked_incomplete_data"
+    },
+    "F3_M2": {
+      "reason": "bookDepth lacks full protocol/six assets; aggTrades only 2023-07-01..15",
+      "status": "blocked_incomplete_data"
+    }
+  },
+  "funding_8h": [
+    {
+      "complete": true,
+      "expected_rows": 3741,
+      "first_delta_ms": 0,
+      "last_delta_ms": 4,
+      "max_timestamp": 1780243200004,
+      "min_timestamp": 1672531200000,
+      "rows": 3741,
+      "symbol": "BTCUSDT",
+      "timestamp_tolerance_ms": 1000,
+      "unique_timestamps": 3741
+    },
+    {
+      "complete": true,
+      "expected_rows": 3741,
+      "first_delta_ms": 0,
+      "last_delta_ms": 4,
+      "max_timestamp": 1780243200004,
+      "min_timestamp": 1672531200000,
+      "rows": 3741,
+      "symbol": "ETHUSDT",
+      "timestamp_tolerance_ms": 1000,
+      "unique_timestamps": 3741
+    },
+    {
+      "complete": true,
+      "expected_rows": 3741,
+      "first_delta_ms": 0,
+      "last_delta_ms": 4,
+      "max_timestamp": 1780243200004,
+      "min_timestamp": 1672531200000,
+      "rows": 3741,
+      "symbol": "BNBUSDT",
+      "timestamp_tolerance_ms": 1000,
+      "unique_timestamps": 3741
+    },
+    {
+      "complete": true,
+      "expected_rows": 3741,
+      "first_delta_ms": 0,
+      "last_delta_ms": 4,
+      "max_timestamp": 1780243200004,
+      "min_timestamp": 1672531200000,
+      "rows": 3741,
+      "symbol": "SOLUSDT",
+      "timestamp_tolerance_ms": 1000,
+      "unique_timestamps": 3741
+    },
+    {
+      "complete": true,
+      "expected_rows": 3741,
+      "first_delta_ms": 0,
+      "last_delta_ms": 4,
+      "max_timestamp": 1780243200004,
+      "min_timestamp": 1672531200000,
+      "rows": 3741,
+      "symbol": "XRPUSDT",
+      "timestamp_tolerance_ms": 1000,
+      "unique_timestamps": 3741
+    },
+    {
+      "complete": true,
+      "expected_rows": 3741,
+      "first_delta_ms": 0,
+      "last_delta_ms": 4,
+      "max_timestamp": 1780243200004,
+      "min_timestamp": 1672531200000,
+      "rows": 3741,
+      "symbol": "DOGEUSDT",
+      "timestamp_tolerance_ms": 1000,
+      "unique_timestamps": 3741
+    },
+    {
+      "complete": true,
+      "expected_rows": 3741,
+      "first_delta_ms": 0,
+      "last_delta_ms": 4,
+      "max_timestamp": 1780243200004,
+      "min_timestamp": 1672531200000,
+      "rows": 3741,
+      "symbol": "LINKUSDT",
+      "timestamp_tolerance_ms": 1000,
+      "unique_timestamps": 3741
+    },
+    {
+      "complete": true,
+      "expected_rows": 3741,
+      "first_delta_ms": 0,
+      "last_delta_ms": 4,
+      "max_timestamp": 1780243200004,
+      "min_timestamp": 1672531200000,
+      "rows": 3741,
+      "symbol": "LTCUSDT",
+      "timestamp_tolerance_ms": 1000,
+      "unique_timestamps": 3741
+    }
+  ],
+  "generated_from_local_data": true,
+  "manifest_version": 1,
+  "market_1m": [
+    {
+      "complete": false,
+      "duplicate_rows": 0,
+      "expected_rows": 1795680,
+      "gap_histogram": {
+        "1_to_2_minutes": 0,
+        "3_to_10_minutes": 0,
+        "over_10_minutes": 1
+      },
+      "market_type": "spot",
+      "max_missing_run_minutes": 80,
+      "max_timestamp": 1780271940000,
+      "min_timestamp": 1672531200000,
+      "missing_minutes": 80,
+      "rows": 1795600,
+      "sample_sha256": "8f3dae21c02a417d0303cf0864a245b5c398ed9465553b3371e7f485063ea726",
+      "symbol": "BTCUSDT",
+      "unique_timestamps": 1795600
+    },
+    {
+      "complete": true,
+      "duplicate_rows": 0,
+      "expected_rows": 1795680,
+      "gap_histogram": {
+        "1_to_2_minutes": 0,
+        "3_to_10_minutes": 0,
+        "over_10_minutes": 0
+      },
+      "market_type": "futures_usdt_perp",
+      "max_missing_run_minutes": 0,
+      "max_timestamp": 1780271940000,
+      "min_timestamp": 1672531200000,
+      "missing_minutes": 0,
+      "rows": 1795680,
+      "sample_sha256": "6f46c8da8f2c23f57f60ee591bdc31af15064f5d9f4c366d2b259d04d6bcdfcb",
+      "symbol": "BTCUSDT",
+      "unique_timestamps": 1795680
+    },
+    {
+      "complete": false,
+      "duplicate_rows": 0,
+      "expected_rows": 1795680,
+      "gap_histogram": {
+        "1_to_2_minutes": 0,
+        "3_to_10_minutes": 0,
+        "over_10_minutes": 1
+      },
+      "market_type": "spot",
+      "max_missing_run_minutes": 80,
+      "max_timestamp": 1780271940000,
+      "min_timestamp": 1672531200000,
+      "missing_minutes": 80,
+      "rows": 1795600,
+      "sample_sha256": "a1ce620a9d6af3e3f23bc6fa3b3d4f9f77cb13023a27ba7450d29b615f4f1e73",
+      "symbol": "ETHUSDT",
+      "unique_timestamps": 1795600
+    },
+    {
+      "complete": true,
+      "duplicate_rows": 0,
+      "expected_rows": 1795680,
+      "gap_histogram": {
+        "1_to_2_minutes": 0,
+        "3_to_10_minutes": 0,
+        "over_10_minutes": 0
+      },
+      "market_type": "futures_usdt_perp",
+      "max_missing_run_minutes": 0,
+      "max_timestamp": 1780271940000,
+      "min_timestamp": 1672531200000,
+      "missing_minutes": 0,
+      "rows": 1795680,
+      "sample_sha256": "30b14caae134fb0c7089b5b0e98e5f2b8a3f8cf8191f712d38b55e04897005ef",
+      "symbol": "ETHUSDT",
+      "unique_timestamps": 1795680
+    },
+    {
+      "complete": false,
+      "duplicate_rows": 0,
+      "expected_rows": 1795680,
+      "gap_histogram": {
+        "1_to_2_minutes": 0,
+        "3_to_10_minutes": 0,
+        "over_10_minutes": 1
+      },
+      "market_type": "spot",
+      "max_missing_run_minutes": 80,
+      "max_timestamp": 1780271940000,
+      "min_timestamp": 1672531200000,
+      "missing_minutes": 80,
+      "rows": 1795600,
+      "sample_sha256": "2964b68b2e57cd92e64a9e483d7c9cd7b701c6a8c0b28dac0504fb884ac52629",
+      "symbol": "BNBUSDT",
+      "unique_timestamps": 1795600
+    },
+    {
+      "complete": true,
+      "duplicate_rows": 0,
+      "expected_rows": 1795680,
+      "gap_histogram": {
+        "1_to_2_minutes": 0,
+        "3_to_10_minutes": 0,
+        "over_10_minutes": 0
+      },
+      "market_type": "futures_usdt_perp",
+      "max_missing_run_minutes": 0,
+      "max_timestamp": 1780271940000,
+      "min_timestamp": 1672531200000,
+      "missing_minutes": 0,
+      "rows": 1795680,
+      "sample_sha256": "c8fdabe234fc0bc635dae98bd4f183a4ea6fd083ffcd4fac7fd31127da7a9def",
+      "symbol": "BNBUSDT",
+      "unique_timestamps": 1795680
+    },
+    {
+      "complete": false,
+      "duplicate_rows": 0,
+      "expected_rows": 1795680,
+      "gap_histogram": {
+        "1_to_2_minutes": 1,
+        "3_to_10_minutes": 0,
+        "over_10_minutes": 1
+      },
+      "market_type": "spot",
+      "max_missing_run_minutes": 80,
+      "max_timestamp": 1780271940000,
+      "min_timestamp": 1672531200000,
+      "missing_minutes": 81,
+      "rows": 1795599,
+      "sample_sha256": "529c66607dba1120e9ddd4be0956c42545d1d1bbe0ef0c5ee6d18f2f329e303d",
+      "symbol": "SOLUSDT",
+      "unique_timestamps": 1795599
+    },
+    {
+      "complete": true,
+      "duplicate_rows": 0,
+      "expected_rows": 1795680,
+      "gap_histogram": {
+        "1_to_2_minutes": 0,
+        "3_to_10_minutes": 0,
+        "over_10_minutes": 0
+      },
+      "market_type": "futures_usdt_perp",
+      "max_missing_run_minutes": 0,
+      "max_timestamp": 1780271940000,
+      "min_timestamp": 1672531200000,
+      "missing_minutes": 0,
+      "rows": 1795680,
+      "sample_sha256": "c9b2fba4857d6aabd3bd5978fcc120ec0cc3a84e55021d258a8f840efdf1e5e1",
+      "symbol": "SOLUSDT",
+      "unique_timestamps": 1795680
+    },
+    {
+      "complete": false,
+      "duplicate_rows": 0,
+      "expected_rows": 1795680,
+      "gap_histogram": {
+        "1_to_2_minutes": 0,
+        "3_to_10_minutes": 0,
+        "over_10_minutes": 1
+      },
+      "market_type": "spot",
+      "max_missing_run_minutes": 80,
+      "max_timestamp": 1780271940000,
+      "min_timestamp": 1672531200000,
+      "missing_minutes": 80,
+      "rows": 1795600,
+      "sample_sha256": "473acc9687baf50b77b095b5f7fb707198e7ad2a98bae2a409fe824f0f00761a",
+      "symbol": "XRPUSDT",
+      "unique_timestamps": 1795600
+    },
+    {
+      "complete": true,
+      "duplicate_rows": 0,
+      "expected_rows": 1795680,
+      "gap_histogram": {
+        "1_to_2_minutes": 0,
+        "3_to_10_minutes": 0,
+        "over_10_minutes": 0
+      },
+      "market_type": "futures_usdt_perp",
+      "max_missing_run_minutes": 0,
+      "max_timestamp": 1780271940000,
+      "min_timestamp": 1672531200000,
+      "missing_minutes": 0,
+      "rows": 1795680,
+      "sample_sha256": "3f76965263fccc5ba244600f864a49f37541ff2f42233578a791695557d20362",
+      "symbol": "XRPUSDT",
+      "unique_timestamps": 1795680
+    },
+    {
+      "complete": false,
+      "duplicate_rows": 0,
+      "expected_rows": 1795680,
+      "gap_histogram": {
+        "1_to_2_minutes": 0,
+        "3_to_10_minutes": 0,
+        "over_10_minutes": 1
+      },
+      "market_type": "spot",
+      "max_missing_run_minutes": 80,
+      "max_timestamp": 1780271940000,
+      "min_timestamp": 1672531200000,
+      "missing_minutes": 80,
+      "rows": 1795600,
+      "sample_sha256": "cf02129614547188f6c0ee9a7333bd0001b7bd7fef2db6a1bdcb11abec5f6480",
+      "symbol": "DOGEUSDT",
+      "unique_timestamps": 1795600
+    },
+    {
+      "complete": true,
+      "duplicate_rows": 0,
+      "expected_rows": 1795680,
+      "gap_histogram": {
+        "1_to_2_minutes": 0,
+        "3_to_10_minutes": 0,
+        "over_10_minutes": 0
+      },
+      "market_type": "futures_usdt_perp",
+      "max_missing_run_minutes": 0,
+      "max_timestamp": 1780271940000,
+      "min_timestamp": 1672531200000,
+      "missing_minutes": 0,
+      "rows": 1795680,
+      "sample_sha256": "085ce89672a9fb0d30aadaaa94574c5603cdc82c3018b9d69d3c733f6e0fb5fa",
+      "symbol": "DOGEUSDT",
+      "unique_timestamps": 1795680
+    },
+    {
+      "complete": false,
+      "duplicate_rows": 0,
+      "expected_rows": 1795680,
+      "gap_histogram": {
+        "1_to_2_minutes": 0,
+        "3_to_10_minutes": 0,
+        "over_10_minutes": 1
+      },
+      "market_type": "spot",
+      "max_missing_run_minutes": 80,
+      "max_timestamp": 1780271940000,
+      "min_timestamp": 1672531200000,
+      "missing_minutes": 80,
+      "rows": 1795600,
+      "sample_sha256": "ccf9e795133d050fe93d30d5942eb46083bf9d0468341c38a36144d91a3f1475",
+      "symbol": "LINKUSDT",
+      "unique_timestamps": 1795600
+    },
+    {
+      "complete": true,
+      "duplicate_rows": 0,
+      "expected_rows": 1795680,
+      "gap_histogram": {
+        "1_to_2_minutes": 0,
+        "3_to_10_minutes": 0,
+        "over_10_minutes": 0
+      },
+      "market_type": "futures_usdt_perp",
+      "max_missing_run_minutes": 0,
+      "max_timestamp": 1780271940000,
+      "min_timestamp": 1672531200000,
+      "missing_minutes": 0,
+      "rows": 1795680,
+      "sample_sha256": "cc5fe7307b78d4f6eed1e62afef4fe6acfa7eeae8c1d27d881f1bed7c55e708c",
+      "symbol": "LINKUSDT",
+      "unique_timestamps": 1795680
+    },
+    {
+      "complete": false,
+      "duplicate_rows": 0,
+      "expected_rows": 1795680,
+      "gap_histogram": {
+        "1_to_2_minutes": 0,
+        "3_to_10_minutes": 0,
+        "over_10_minutes": 1
+      },
+      "market_type": "spot",
+      "max_missing_run_minutes": 80,
+      "max_timestamp": 1780271940000,
+      "min_timestamp": 1672531200000,
+      "missing_minutes": 80,
+      "rows": 1795600,
+      "sample_sha256": "ed41b822b9daa8f5bfb939087e724a63171ec38e512014e780a0d4aff2f0058a",
+      "symbol": "LTCUSDT",
+      "unique_timestamps": 1795600
+    },
+    {
+      "complete": true,
+      "duplicate_rows": 0,
+      "expected_rows": 1795680,
+      "gap_histogram": {
+        "1_to_2_minutes": 0,
+        "3_to_10_minutes": 0,
+        "over_10_minutes": 0
+      },
+      "market_type": "futures_usdt_perp",
+      "max_missing_run_minutes": 0,
+      "max_timestamp": 1780271940000,
+      "min_timestamp": 1672531200000,
+      "missing_minutes": 0,
+      "rows": 1795680,
+      "sample_sha256": "edc5a705d5eb94b3267474f3a346c17fd1c29b7ca0b161cf0369f86faef3538a",
+      "symbol": "LTCUSDT",
+      "unique_timestamps": 1795680
+    }
+  ],
+  "no_short_window_annualization": true,
+  "protocol_window": {
+    "end": "2026-05-31",
+    "start": "2023-01-01"
+  },
+  "universe": [
+    "BTCUSDT",
+    "ETHUSDT",
+    "BNBUSDT",
+    "SOLUSDT",
+    "XRPUSDT",
+    "DOGEUSDT",
+    "LINKUSDT",
+    "LTCUSDT"
+  ]
+}
