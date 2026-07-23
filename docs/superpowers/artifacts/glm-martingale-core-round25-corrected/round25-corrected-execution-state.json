@@ -1,0 +1,17 @@
+{
+  "dirty": false,
+  "phases": {
+    "G0": "pending",
+    "G1": "pending",
+    "G2": "conditional",
+    "R0": "complete",
+    "R1": "complete",
+    "R2": "complete",
+    "R3": "complete",
+    "R4": "complete"
+  },
+  "remote_sync_status": "PUSH_PENDING",
+  "source_commit": "541b688e30ba1b4321e7f74eff778d9a4dfa280f",
+  "source_tree": "fbad4fc3d04aec61c0f534d11c2636c27b488a19",
+  "status": "PREFLIGHT_COMPLETE"
+}

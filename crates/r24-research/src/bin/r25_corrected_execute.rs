@@ -178,11 +178,26 @@ fn run_preflight(context: &RunContext, force: bool) -> Result<()> {
         context.artifact.join("round25-corrected-protocol.json"),
         &protocol_json(),
     )?;
+    let data_manifest_path = context
+        .artifact
+        .join("round25-corrected-data-manifest.json");
+    let existing_data_manifest = if data_manifest_path.exists() {
+        let value: serde_json::Value = serde_json::from_slice(&fs::read(&data_manifest_path)?)?;
+        let sizes_match = value["market_database"]["bytes"].as_u64()
+            == Some(fs::metadata(&context.market_db)?.len())
+            && value["funding_database"]["bytes"].as_u64()
+                == Some(fs::metadata(&context.funding_db)?.len());
+        sizes_match.then_some(value)
+    } else {
+        None
+    };
     write_json(
-        context
-            .artifact
-            .join("round25-corrected-data-manifest.json"),
-        &data_manifest(context)?,
+        data_manifest_path,
+        &if let Some(manifest) = existing_data_manifest {
+            manifest
+        } else {
+            data_manifest(context)?
+        },
     )?;
     write_json(
         context
@@ -391,10 +406,11 @@ fn run_g0(context: &RunContext, resume: bool) -> Result<G0Summary> {
         parameter_delta,
         scheduler_status: scheduler_status.into(),
     };
+    let experiment_id = format!("R25R-G0-REAL-{}", &context.commit[..8]);
     append_registry_for_phase(
         context,
         "G0",
-        "R25R-G0-REAL-001",
+        &experiment_id,
         None,
         pass,
         real_replay_count,
@@ -405,6 +421,7 @@ fn run_g0(context: &RunContext, resume: bool) -> Result<G0Summary> {
         gate_path,
         &serde_json::json!({
             "phase":"G0",
+            "experiment_id":experiment_id,
             "passed":pass,
             "status":status,
             "real_replay_count":real_replay_count,
@@ -532,11 +549,13 @@ fn run_g1(context: &RunContext, resume: bool) -> Result<()> {
             "terminals":result_rows
         }),
     )?;
+    let g0_gate: serde_json::Value =
+        serde_json::from_slice(&fs::read(context.artifact.join("gates/g0.json"))?)?;
     append_registry_for_phase(
         context,
         "G1",
-        "R25R-G1-16POLICY-001",
-        Some("R25R-G0-REAL-001"),
+        &format!("R25R-G1-16POLICY-{}", &context.commit[..8]),
+        g0_gate["experiment_id"].as_str(),
         true,
         results.len(),
         &serde_json::json!({"policies":result_rows}),

@@ -347,7 +347,9 @@ pub fn run_r25_c1_replay(config: &R25ReplayConfig) -> Result<R25ReplayEvidence> 
             current_block_start = block_start;
             let fit_end = bar.signal_open_ms - frequency_ms;
             let fit_start = fit_end - lookback_days * 86_400_000;
-            models = fit_reference_pairs(&data, &eligible_alts, fit_start, fit_end, max_groups);
+            let fit_outcome =
+                fit_reference_pairs(&data, &eligible_alts, fit_start, fit_end, max_groups);
+            models = fit_outcome.0;
             let fit_hash = hash_json(&models.iter().map(pair_model_key).collect::<Vec<_>>());
             last_block_fit_hashes.push(fit_hash.clone());
             for model in &models {
@@ -359,6 +361,7 @@ pub fn run_r25_c1_replay(config: &R25ReplayConfig) -> Result<R25ReplayEvidence> 
                 serde_json::json!({
                     "event":"fit_roll","block_start_ms":block_start,"fit_start_ms":fit_start,
                     "fit_end_ms":fit_end,"pair_count":models.len(),"fit_hash":fit_hash,
+                    "alt_fit_diagnostics":fit_outcome.1,
                     "pairs":models.iter().map(pair_model_key).collect::<Vec<_>>()
                 }),
             );
@@ -1199,9 +1202,9 @@ fn fit_reference_pairs(
     fit_start: i64,
     fit_end: i64,
     max_pairs: usize,
-) -> Vec<PairModel> {
+) -> (Vec<PairModel>, Vec<serde_json::Value>) {
     let Some(btc) = data.get(R25_REFERENCE_SYMBOL) else {
-        return Vec::new();
+        return (Vec::new(), Vec::new());
     };
     let btc_map = btc
         .iter()
@@ -1209,6 +1212,7 @@ fn fit_reference_pairs(
         .map(|bar| (bar.signal_close_ms, bar.close))
         .collect::<BTreeMap<_, _>>();
     let mut fits = Vec::new();
+    let mut diagnostics = Vec::new();
     for alt in alts {
         let Some(alt_bars) = data.get(alt) else {
             continue;
@@ -1223,7 +1227,17 @@ fn fit_reference_pairs(
             })
             .collect::<Vec<_>>();
         if let Some(fit) = r25_corrected::fit_reference_spread(alt, &observations, fit_end) {
+            diagnostics.push(serde_json::json!({
+                "alt":alt,"fit_status":if fit.stationarity.passed {"passed"} else {"stationarity_rejected"},
+                "beta":fit.beta,"sigma":fit.sigma,"sample_count":fit.aligned_spreads.len(),
+                "stationarity":fit.stationarity
+            }));
             fits.push(fit);
+        } else {
+            diagnostics.push(serde_json::json!({
+                "alt":alt,"fit_status":"spread_fit_unavailable",
+                "sample_count":observations.len()
+            }));
         }
     }
     let mut pairs = Vec::new();
@@ -1236,7 +1250,10 @@ fn fit_reference_pairs(
             }
         }
     }
-    r25_corrected::maximum_weight_disjoint(pairs, max_pairs)
+    (
+        r25_corrected::maximum_weight_disjoint(pairs, max_pairs),
+        diagnostics,
+    )
 }
 
 fn pair_h_values(model: &PairModel, prices: &BTreeMap<String, f64>) -> (f64, f64) {

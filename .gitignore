@@ -33,6 +33,10 @@ temp/
 runtime/
 artifacts/
 artifacts-local/
+!docs/superpowers/artifacts/
+docs/superpowers/artifacts/*
+!docs/superpowers/artifacts/glm-martingale-core-round25-corrected/
+!docs/superpowers/artifacts/glm-martingale-core-round25-corrected/**
 *.pid
 *.sock
 *.db

@@ -1,0 +1,20 @@
+{
+  "dsr_sensitivity_trial_counts": [
+    10000,
+    50000,
+    100000,
+    1000000
+  ],
+  "historical_global_trial_count": "unknown_not_less_than_1096",
+  "invalid_attempt_00": {
+    "artifact_root": "docs/superpowers/artifacts/glm-martingale-core-round25",
+    "class": "MATERIALLY_INCOMPLETE_INVALID_RESULTS",
+    "commit": "0e64767c",
+    "exact_failure_closure": false,
+    "return_replays_run": 0
+  },
+  "round25_invalid_replays_counted": 16,
+  "round25_preregistered_c1_policy_population": 16,
+  "schema_version": 2,
+  "visible_trial_floor": 1096
+}

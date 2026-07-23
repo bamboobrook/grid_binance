@@ -1,0 +1,143 @@
+{
+  "eligible_alts": [
+    "ETHUSDT",
+    "BNBUSDT",
+    "SOLUSDT",
+    "XRPUSDT",
+    "DOGEUSDT",
+    "LINKUSDT"
+  ],
+  "filter_snapshot": {
+    "path": "docs/superpowers/artifacts/glm-martingale-core-round24/data/perp-exchangeInfo-8-symbols.json",
+    "sha256": "0320b9b72fe178b71505e344b092c4db0a98554529061f2138c562be24b5098d"
+  },
+  "funding_database": {
+    "bytes": 7417856,
+    "path": "data/funding_rates.db",
+    "sha256": "356e270dacce36b4703364545beeafe402f1aa55aa11caebc5708f5f3b6767a1"
+  },
+  "g0_data_gate": true,
+  "g1_data_gate": true,
+  "ltc_rule": "LTCUSDT has no local funding rows and is ineligible_for_trade unless funding is补齐",
+  "market_database": {
+    "bytes": 118747582464,
+    "path": "data/market_data_full.db",
+    "sha256": "0776260929dfaf183ba543a4c2a894703d77d391de8c05ad1f32e890f5ce6609"
+  },
+  "reference_symbol": "BTCUSDT",
+  "schema_version": 2,
+  "symbol_gates": [
+    {
+      "eligible_for_trade": false,
+      "filter_available": true,
+      "funding_complete": true,
+      "funding_expected_rows": 3741,
+      "funding_rows": 3741,
+      "kline_complete": true,
+      "kline_expected_rows": 1795680,
+      "kline_rows": 1795680,
+      "maintenance_available": true,
+      "reason": "reference_only_not_tradable",
+      "reference": true,
+      "symbol": "BTCUSDT"
+    },
+    {
+      "eligible_for_trade": true,
+      "filter_available": true,
+      "funding_complete": true,
+      "funding_expected_rows": 3741,
+      "funding_rows": 3741,
+      "kline_complete": true,
+      "kline_expected_rows": 1795680,
+      "kline_rows": 1795680,
+      "maintenance_available": true,
+      "reason": null,
+      "reference": false,
+      "symbol": "ETHUSDT"
+    },
+    {
+      "eligible_for_trade": true,
+      "filter_available": true,
+      "funding_complete": true,
+      "funding_expected_rows": 3741,
+      "funding_rows": 3741,
+      "kline_complete": true,
+      "kline_expected_rows": 1795680,
+      "kline_rows": 1795680,
+      "maintenance_available": true,
+      "reason": null,
+      "reference": false,
+      "symbol": "BNBUSDT"
+    },
+    {
+      "eligible_for_trade": true,
+      "filter_available": true,
+      "funding_complete": true,
+      "funding_expected_rows": 3741,
+      "funding_rows": 3741,
+      "kline_complete": true,
+      "kline_expected_rows": 1795680,
+      "kline_rows": 1795680,
+      "maintenance_available": true,
+      "reason": null,
+      "reference": false,
+      "symbol": "SOLUSDT"
+    },
+    {
+      "eligible_for_trade": true,
+      "filter_available": true,
+      "funding_complete": true,
+      "funding_expected_rows": 3741,
+      "funding_rows": 3741,
+      "kline_complete": true,
+      "kline_expected_rows": 1795680,
+      "kline_rows": 1795680,
+      "maintenance_available": true,
+      "reason": null,
+      "reference": false,
+      "symbol": "XRPUSDT"
+    },
+    {
+      "eligible_for_trade": true,
+      "filter_available": true,
+      "funding_complete": true,
+      "funding_expected_rows": 3741,
+      "funding_rows": 3741,
+      "kline_complete": true,
+      "kline_expected_rows": 1795680,
+      "kline_rows": 1795680,
+      "maintenance_available": true,
+      "reason": null,
+      "reference": false,
+      "symbol": "DOGEUSDT"
+    },
+    {
+      "eligible_for_trade": true,
+      "filter_available": true,
+      "funding_complete": true,
+      "funding_expected_rows": 3741,
+      "funding_rows": 3741,
+      "kline_complete": true,
+      "kline_expected_rows": 1795680,
+      "kline_rows": 1795680,
+      "maintenance_available": true,
+      "reason": null,
+      "reference": false,
+      "symbol": "LINKUSDT"
+    },
+    {
+      "eligible_for_trade": false,
+      "filter_available": true,
+      "funding_complete": false,
+      "funding_expected_rows": 3741,
+      "funding_rows": 0,
+      "kline_complete": true,
+      "kline_expected_rows": 1795680,
+      "kline_rows": 1795680,
+      "maintenance_available": true,
+      "reason": "incomplete_funding_mark_ineligible_for_trade",
+      "reference": false,
+      "symbol": "LTCUSDT"
+    }
+  ]
+}

@@ -354,12 +354,14 @@ fn stationarity_diagnostics(values: &[f64], sigma: f64) -> StationarityDiagnosti
         f64::INFINITY
     };
     let mean = values.iter().sum::<f64>() / values.len() as f64;
+    let residuals = values.iter().map(|value| *value - mean).collect::<Vec<_>>();
+    let long_run_sigma = long_run_variance(&residuals).sqrt();
     let mut cumulative = 0.0_f64;
     let cusum_max = values
         .iter()
         .map(|value| {
             cumulative += value - mean;
-            cumulative.abs() / (sigma * (values.len() as f64).sqrt()).max(1e-12)
+            cumulative.abs() / (long_run_sigma * (values.len() as f64).sqrt()).max(1e-12)
         })
         .fold(0.0, f64::max);
     let break_valid = cusum_max <= 1.63;
@@ -424,17 +426,7 @@ fn kpss_level(values: &[f64]) -> (f64, f64) {
     let n = values.len();
     let mean = values.iter().sum::<f64>() / n as f64;
     let residuals = values.iter().map(|x| *x - mean).collect::<Vec<_>>();
-    let bandwidth = ((n as f64).sqrt() as usize).max(1).min(n - 1);
-    let mut long_run_variance = residuals.iter().map(|x| x * x).sum::<f64>() / n as f64;
-    for lag in 1..=bandwidth {
-        let covariance = residuals[lag..]
-            .iter()
-            .zip(&residuals[..n - lag])
-            .map(|(a, b)| a * b)
-            .sum::<f64>()
-            / n as f64;
-        long_run_variance += 2.0 * (1.0 - lag as f64 / (bandwidth + 1) as f64) * covariance;
-    }
+    let long_run_variance = long_run_variance(&residuals);
     let mut cumulative = 0.0;
     let eta = residuals
         .iter()
@@ -455,6 +447,22 @@ fn kpss_level(values: &[f64]) -> (f64, f64) {
         0.01
     };
     (statistic, p_value)
+}
+
+fn long_run_variance(residuals: &[f64]) -> f64 {
+    let n = residuals.len();
+    let bandwidth = ((n as f64).sqrt() as usize).max(1).min(n.saturating_sub(1));
+    let mut variance = residuals.iter().map(|x| x * x).sum::<f64>() / n.max(1) as f64;
+    for lag in 1..=bandwidth {
+        let covariance = residuals[lag..]
+            .iter()
+            .zip(&residuals[..n - lag])
+            .map(|(a, b)| a * b)
+            .sum::<f64>()
+            / n as f64;
+        variance += 2.0 * (1.0 - lag as f64 / (bandwidth + 1) as f64) * covariance;
+    }
+    variance.max(1e-12)
 }
 
 fn gaussian_copula_log_likelihood(uniforms: &[(f64, f64)], rho: f64) -> f64 {

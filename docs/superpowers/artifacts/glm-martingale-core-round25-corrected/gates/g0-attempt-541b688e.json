@@ -1,0 +1,17 @@
+{
+  "btc_order_trade_count_zero": true,
+  "filter_feasible_eth_or_link_path": false,
+  "fitted_pair_seen": false,
+  "frozen_model_persisted": false,
+  "one_minute_risk_complete": true,
+  "parameter_delta": true,
+  "passed": false,
+  "phase": "G0",
+  "real_order_or_rejection": false,
+  "real_replay_count": 8,
+  "reserve_reconciled": true,
+  "return_replays_run": 8,
+  "scheduler_status": "not_testable_in_g0_real",
+  "so_guard_called": false,
+  "status": "VALID_NO_ACTIVATION"
+}

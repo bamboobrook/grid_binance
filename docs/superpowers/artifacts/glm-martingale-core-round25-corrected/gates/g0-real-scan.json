@@ -1,0 +1,108 @@
+{
+  "scan": [
+    {
+      "btc_order_count": 0,
+      "decision_hash": "7aede9d7a7bdbf302cd43ea4cde8749a28d48c6ce32b63f6fab8bb6f43494566",
+      "fit_hash": "ae486b749fadd3695f8e475e092ea96ad5279cc453339fcc5bed0d8b1532eb22",
+      "fitted_pair_count": 0,
+      "label": "range",
+      "order_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "order_submit_count": 0,
+      "policy_id": "R25-C1-01",
+      "rejection_count": 0,
+      "rejection_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "so_decision_count": 0
+    },
+    {
+      "btc_order_count": 0,
+      "decision_hash": "e98e83e851e28be12ab68a427ca8aa6aba01a4f03d26c6631a2d2e34cf1c7fef",
+      "fit_hash": "ae486b749fadd3695f8e475e092ea96ad5279cc453339fcc5bed0d8b1532eb22",
+      "fitted_pair_count": 0,
+      "label": "range",
+      "order_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "order_submit_count": 0,
+      "policy_id": "R25-C1-16",
+      "rejection_count": 0,
+      "rejection_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "so_decision_count": 0
+    },
+    {
+      "btc_order_count": 0,
+      "decision_hash": "6e4c31c9045a291065f0e0e50c68cc0baa00d85506149be8a644805a4c750a1e",
+      "fit_hash": "ae486b749fadd3695f8e475e092ea96ad5279cc453339fcc5bed0d8b1532eb22",
+      "fitted_pair_count": 0,
+      "label": "bull",
+      "order_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "order_submit_count": 0,
+      "policy_id": "R25-C1-01",
+      "rejection_count": 0,
+      "rejection_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "so_decision_count": 0
+    },
+    {
+      "btc_order_count": 0,
+      "decision_hash": "b793441ba23c94e37772e246932dc88586d8eef9f395e10366875ac24a5a64a4",
+      "fit_hash": "ae486b749fadd3695f8e475e092ea96ad5279cc453339fcc5bed0d8b1532eb22",
+      "fitted_pair_count": 0,
+      "label": "bull",
+      "order_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "order_submit_count": 0,
+      "policy_id": "R25-C1-16",
+      "rejection_count": 0,
+      "rejection_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "so_decision_count": 0
+    },
+    {
+      "btc_order_count": 0,
+      "decision_hash": "b09e78ca3c0a3aa081018f23524af7fd0c535b611fec042edb0dc65c59b87c1b",
+      "fit_hash": "ae486b749fadd3695f8e475e092ea96ad5279cc453339fcc5bed0d8b1532eb22",
+      "fitted_pair_count": 0,
+      "label": "shock",
+      "order_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "order_submit_count": 0,
+      "policy_id": "R25-C1-01",
+      "rejection_count": 0,
+      "rejection_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "so_decision_count": 0
+    },
+    {
+      "btc_order_count": 0,
+      "decision_hash": "93c59874244a3fd7adf878d9ca7c6bc93e4e51d5feb59b75262749266d4f9ae9",
+      "fit_hash": "ae486b749fadd3695f8e475e092ea96ad5279cc453339fcc5bed0d8b1532eb22",
+      "fitted_pair_count": 0,
+      "label": "shock",
+      "order_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "order_submit_count": 0,
+      "policy_id": "R25-C1-16",
+      "rejection_count": 0,
+      "rejection_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "so_decision_count": 0
+    },
+    {
+      "btc_order_count": 0,
+      "decision_hash": "db353dd75f7ab3cb97a35760e43edb9f9e45b49892acddbdeed741cdd594da5c",
+      "fit_hash": "ae486b749fadd3695f8e475e092ea96ad5279cc453339fcc5bed0d8b1532eb22",
+      "fitted_pair_count": 0,
+      "label": "bear",
+      "order_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "order_submit_count": 0,
+      "policy_id": "R25-C1-01",
+      "rejection_count": 0,
+      "rejection_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "so_decision_count": 0
+    },
+    {
+      "btc_order_count": 0,
+      "decision_hash": "537940e446146d95e6636b50fc633b58d0abb6f25943822bc8088ea1b9571ae0",
+      "fit_hash": "ae486b749fadd3695f8e475e092ea96ad5279cc453339fcc5bed0d8b1532eb22",
+      "fitted_pair_count": 0,
+      "label": "bear",
+      "order_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "order_submit_count": 0,
+      "policy_id": "R25-C1-16",
+      "rejection_count": 0,
+      "rejection_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "so_decision_count": 0
+    }
+  ]
+}

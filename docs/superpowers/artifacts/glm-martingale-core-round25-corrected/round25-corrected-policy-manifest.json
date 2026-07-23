@@ -1,0 +1,330 @@
+{
+  "conditional_enhancement": "C2_ASYMMETRIC_TAIL_SO_VETO",
+  "corrects_invalid_attempt": "docs/superpowers/artifacts/glm-martingale-core-round25-recovery",
+  "frozen_before_return_replay": true,
+  "only_family": "C1_REFERENCE_ASSET_CONDITIONAL_COPULA_MARTIN",
+  "policies": [
+    {
+      "family": "C1_REFERENCE_ASSET_CONDITIONAL_COPULA_MARTIN",
+      "mechanism_fingerprint": "26c5db77ab9bcc64b8f27778bf218cf50757a4e838a701db1acd25cc3a65fb7f",
+      "parameters": {
+        "entry_alpha": 0.05,
+        "fit_lookback_days": 60,
+        "group_fo_gross_u": 20.0,
+        "layer_quote_schedule_u": [
+          20.0,
+          25.0,
+          31.0,
+          38.0
+        ],
+        "max_groups": 3,
+        "principal_u": 1000.0,
+        "signal_frequency": "completed_5m",
+        "so_adverse_step_train_sigma": 0.5
+      },
+      "policy_id": "R25-C1-01"
+    },
+    {
+      "family": "C1_REFERENCE_ASSET_CONDITIONAL_COPULA_MARTIN",
+      "mechanism_fingerprint": "927bbaee6a1c0e7e6a2b9e9ec98d03251032847a708f577053c559ddac313fec",
+      "parameters": {
+        "entry_alpha": 0.05,
+        "fit_lookback_days": 60,
+        "group_fo_gross_u": 20.0,
+        "layer_quote_schedule_u": [
+          20.0,
+          25.0,
+          31.0,
+          38.0
+        ],
+        "max_groups": 3,
+        "principal_u": 1000.0,
+        "signal_frequency": "completed_5m",
+        "so_adverse_step_train_sigma": 0.75
+      },
+      "policy_id": "R25-C1-02"
+    },
+    {
+      "family": "C1_REFERENCE_ASSET_CONDITIONAL_COPULA_MARTIN",
+      "mechanism_fingerprint": "e4ce3b4eb581f418b7ab488d6d2dfd4e4b0b32a8a19e6a9dff5c6f7a9df904c3",
+      "parameters": {
+        "entry_alpha": 0.1,
+        "fit_lookback_days": 60,
+        "group_fo_gross_u": 20.0,
+        "layer_quote_schedule_u": [
+          20.0,
+          25.0,
+          31.0,
+          38.0
+        ],
+        "max_groups": 3,
+        "principal_u": 1000.0,
+        "signal_frequency": "completed_5m",
+        "so_adverse_step_train_sigma": 0.5
+      },
+      "policy_id": "R25-C1-03"
+    },
+    {
+      "family": "C1_REFERENCE_ASSET_CONDITIONAL_COPULA_MARTIN",
+      "mechanism_fingerprint": "4c9d85c4caf5acbeb5be07bff1bf6228d27cc2b24c81c9b1f0b1469bce14e1d1",
+      "parameters": {
+        "entry_alpha": 0.1,
+        "fit_lookback_days": 60,
+        "group_fo_gross_u": 20.0,
+        "layer_quote_schedule_u": [
+          20.0,
+          25.0,
+          31.0,
+          38.0
+        ],
+        "max_groups": 3,
+        "principal_u": 1000.0,
+        "signal_frequency": "completed_5m",
+        "so_adverse_step_train_sigma": 0.75
+      },
+      "policy_id": "R25-C1-04"
+    },
+    {
+      "family": "C1_REFERENCE_ASSET_CONDITIONAL_COPULA_MARTIN",
+      "mechanism_fingerprint": "c9a1207bceb427f12e861008243290387da44ddee72e33d3b8e6546f68e9b004",
+      "parameters": {
+        "entry_alpha": 0.05,
+        "fit_lookback_days": 120,
+        "group_fo_gross_u": 20.0,
+        "layer_quote_schedule_u": [
+          20.0,
+          25.0,
+          31.0,
+          38.0
+        ],
+        "max_groups": 3,
+        "principal_u": 1000.0,
+        "signal_frequency": "completed_5m",
+        "so_adverse_step_train_sigma": 0.5
+      },
+      "policy_id": "R25-C1-05"
+    },
+    {
+      "family": "C1_REFERENCE_ASSET_CONDITIONAL_COPULA_MARTIN",
+      "mechanism_fingerprint": "3ca89d20bc6b173621e5d2feb7a2635860856a00d844d69a0dd342cc17e0ce92",
+      "parameters": {
+        "entry_alpha": 0.05,
+        "fit_lookback_days": 120,
+        "group_fo_gross_u": 20.0,
+        "layer_quote_schedule_u": [
+          20.0,
+          25.0,
+          31.0,
+          38.0
+        ],
+        "max_groups": 3,
+        "principal_u": 1000.0,
+        "signal_frequency": "completed_5m",
+        "so_adverse_step_train_sigma": 0.75
+      },
+      "policy_id": "R25-C1-06"
+    },
+    {
+      "family": "C1_REFERENCE_ASSET_CONDITIONAL_COPULA_MARTIN",
+      "mechanism_fingerprint": "37dbd71a3de85cb008b605d5e80c71e93f58d76eba30f349b23e67d464a0e404",
+      "parameters": {
+        "entry_alpha": 0.1,
+        "fit_lookback_days": 120,
+        "group_fo_gross_u": 20.0,
+        "layer_quote_schedule_u": [
+          20.0,
+          25.0,
+          31.0,
+          38.0
+        ],
+        "max_groups": 3,
+        "principal_u": 1000.0,
+        "signal_frequency": "completed_5m",
+        "so_adverse_step_train_sigma": 0.5
+      },
+      "policy_id": "R25-C1-07"
+    },
+    {
+      "family": "C1_REFERENCE_ASSET_CONDITIONAL_COPULA_MARTIN",
+      "mechanism_fingerprint": "41d1756909cb0b55968a819e765e03f6634edca449079f9a4303e8c532c2c717",
+      "parameters": {
+        "entry_alpha": 0.1,
+        "fit_lookback_days": 120,
+        "group_fo_gross_u": 20.0,
+        "layer_quote_schedule_u": [
+          20.0,
+          25.0,
+          31.0,
+          38.0
+        ],
+        "max_groups": 3,
+        "principal_u": 1000.0,
+        "signal_frequency": "completed_5m",
+        "so_adverse_step_train_sigma": 0.75
+      },
+      "policy_id": "R25-C1-08"
+    },
+    {
+      "family": "C1_REFERENCE_ASSET_CONDITIONAL_COPULA_MARTIN",
+      "mechanism_fingerprint": "b39db1dd6a3a5ffa9cfed46687e03d74dd7ebd255891d9b2b716aae93b89ee24",
+      "parameters": {
+        "entry_alpha": 0.05,
+        "fit_lookback_days": 60,
+        "group_fo_gross_u": 20.0,
+        "layer_quote_schedule_u": [
+          20.0,
+          25.0,
+          31.0,
+          38.0
+        ],
+        "max_groups": 3,
+        "principal_u": 1000.0,
+        "signal_frequency": "completed_1h",
+        "so_adverse_step_train_sigma": 0.5
+      },
+      "policy_id": "R25-C1-09"
+    },
+    {
+      "family": "C1_REFERENCE_ASSET_CONDITIONAL_COPULA_MARTIN",
+      "mechanism_fingerprint": "47c2b00c18b752222420b24dcd0d4f89321efe9ad2fa3c21c92933ec4430a71b",
+      "parameters": {
+        "entry_alpha": 0.05,
+        "fit_lookback_days": 60,
+        "group_fo_gross_u": 20.0,
+        "layer_quote_schedule_u": [
+          20.0,
+          25.0,
+          31.0,
+          38.0
+        ],
+        "max_groups": 3,
+        "principal_u": 1000.0,
+        "signal_frequency": "completed_1h",
+        "so_adverse_step_train_sigma": 0.75
+      },
+      "policy_id": "R25-C1-10"
+    },
+    {
+      "family": "C1_REFERENCE_ASSET_CONDITIONAL_COPULA_MARTIN",
+      "mechanism_fingerprint": "464694807913526ddb04b08684f4414146389520ddec1ed5c03c3268104919ee",
+      "parameters": {
+        "entry_alpha": 0.1,
+        "fit_lookback_days": 60,
+        "group_fo_gross_u": 20.0,
+        "layer_quote_schedule_u": [
+          20.0,
+          25.0,
+          31.0,
+          38.0
+        ],
+        "max_groups": 3,
+        "principal_u": 1000.0,
+        "signal_frequency": "completed_1h",
+        "so_adverse_step_train_sigma": 0.5
+      },
+      "policy_id": "R25-C1-11"
+    },
+    {
+      "family": "C1_REFERENCE_ASSET_CONDITIONAL_COPULA_MARTIN",
+      "mechanism_fingerprint": "94654ce7a96517ee4be175eca80b45b2fb7befdc39990074e16d81eea02cda86",
+      "parameters": {
+        "entry_alpha": 0.1,
+        "fit_lookback_days": 60,
+        "group_fo_gross_u": 20.0,
+        "layer_quote_schedule_u": [
+          20.0,
+          25.0,
+          31.0,
+          38.0
+        ],
+        "max_groups": 3,
+        "principal_u": 1000.0,
+        "signal_frequency": "completed_1h",
+        "so_adverse_step_train_sigma": 0.75
+      },
+      "policy_id": "R25-C1-12"
+    },
+    {
+      "family": "C1_REFERENCE_ASSET_CONDITIONAL_COPULA_MARTIN",
+      "mechanism_fingerprint": "16898504fedd6c5b455405f30bcb224562ea9d69035d4e9f06005ab9782485ac",
+      "parameters": {
+        "entry_alpha": 0.05,
+        "fit_lookback_days": 120,
+        "group_fo_gross_u": 20.0,
+        "layer_quote_schedule_u": [
+          20.0,
+          25.0,
+          31.0,
+          38.0
+        ],
+        "max_groups": 3,
+        "principal_u": 1000.0,
+        "signal_frequency": "completed_1h",
+        "so_adverse_step_train_sigma": 0.5
+      },
+      "policy_id": "R25-C1-13"
+    },
+    {
+      "family": "C1_REFERENCE_ASSET_CONDITIONAL_COPULA_MARTIN",
+      "mechanism_fingerprint": "be09a6c36493196e521c3ec4e83447cb4200feb5e5794e2fc15227d7dc4e56cc",
+      "parameters": {
+        "entry_alpha": 0.05,
+        "fit_lookback_days": 120,
+        "group_fo_gross_u": 20.0,
+        "layer_quote_schedule_u": [
+          20.0,
+          25.0,
+          31.0,
+          38.0
+        ],
+        "max_groups": 3,
+        "principal_u": 1000.0,
+        "signal_frequency": "completed_1h",
+        "so_adverse_step_train_sigma": 0.75
+      },
+      "policy_id": "R25-C1-14"
+    },
+    {
+      "family": "C1_REFERENCE_ASSET_CONDITIONAL_COPULA_MARTIN",
+      "mechanism_fingerprint": "b42f265d3dfb9173b1f98d527222a8da816b8377973593487f19bf5b9ffbf2c1",
+      "parameters": {
+        "entry_alpha": 0.1,
+        "fit_lookback_days": 120,
+        "group_fo_gross_u": 20.0,
+        "layer_quote_schedule_u": [
+          20.0,
+          25.0,
+          31.0,
+          38.0
+        ],
+        "max_groups": 3,
+        "principal_u": 1000.0,
+        "signal_frequency": "completed_1h",
+        "so_adverse_step_train_sigma": 0.5
+      },
+      "policy_id": "R25-C1-15"
+    },
+    {
+      "family": "C1_REFERENCE_ASSET_CONDITIONAL_COPULA_MARTIN",
+      "mechanism_fingerprint": "ada09c58777556685a6d39655bc47f5678c40c63ecc62b5b99eac742dc980642",
+      "parameters": {
+        "entry_alpha": 0.1,
+        "fit_lookback_days": 120,
+        "group_fo_gross_u": 20.0,
+        "layer_quote_schedule_u": [
+          20.0,
+          25.0,
+          31.0,
+          38.0
+        ],
+        "max_groups": 3,
+        "principal_u": 1000.0,
+        "signal_frequency": "completed_1h",
+        "so_adverse_step_train_sigma": 0.75
+      },
+      "policy_id": "R25-C1-16"
+    }
+  ],
+  "policy_count": 16,
+  "schema_version": 2
+}

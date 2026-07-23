@@ -1,0 +1,102 @@
+{
+  "calibration_principal_u": 2000,
+  "cold_starts": [
+    "2023-07-01",
+    "2023-07-31",
+    "2023-08-30",
+    "2023-09-29",
+    "2023-10-29"
+  ],
+  "completed_bar_contract": "signal_close < signal_ready < order_time <= fill_time",
+  "conditional_enhancement": "C2_ASYMMETRIC_TAIL_SO_VETO",
+  "copula_fit": "timestamp-aligned Kendall tau; Gaussian versus Student-t nu=3..30 by train AIC",
+  "family": "C1_REFERENCE_ASSET_CONDITIONAL_COPULA_MARTIN",
+  "group_fo_target_gross_u": 50,
+  "historical_backtest_only": true,
+  "leverage_cap": 2.0,
+  "max_active_groups": 3,
+  "outer_blocks": [
+    [
+      "2023-07-01",
+      "2023-09-30"
+    ],
+    [
+      "2023-10-01",
+      "2023-12-31"
+    ],
+    [
+      "2024-01-01",
+      "2024-03-31"
+    ],
+    [
+      "2024-04-01",
+      "2024-06-30"
+    ],
+    [
+      "2024-07-01",
+      "2024-09-30"
+    ],
+    [
+      "2024-10-01",
+      "2024-12-31"
+    ],
+    [
+      "2025-01-01",
+      "2025-03-31"
+    ],
+    [
+      "2025-04-01",
+      "2025-06-30"
+    ],
+    [
+      "2025-07-01",
+      "2025-09-30"
+    ],
+    [
+      "2025-10-01",
+      "2025-12-31"
+    ],
+    [
+      "2026-01-01",
+      "2026-03-31"
+    ],
+    [
+      "2026-04-01",
+      "2026-05-31"
+    ]
+  ],
+  "principal_contract": [
+    500,
+    750,
+    1000,
+    1500,
+    2000,
+    3000,
+    4000,
+    4999
+  ],
+  "reference_symbol": "BTCUSDT",
+  "risk_path": "every 1m high/low adverse path then close mark",
+  "schema_version": 2,
+  "shared_account": true,
+  "target_layer_gross_u": [
+    50.0,
+    62.5,
+    77.5,
+    95.0
+  ],
+  "targets": {
+    "aggressive": "100/30",
+    "balanced": "90/20",
+    "conservative": "50/10"
+  },
+  "tradable_alts": [
+    "ETHUSDT",
+    "BNBUSDT",
+    "SOLUSDT",
+    "XRPUSDT",
+    "DOGEUSDT",
+    "LINKUSDT",
+    "LTCUSDT"
+  ]
+}
