@@ -70,6 +70,13 @@ pub struct R25ResolvedOrder {
     pub accepted: bool,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct R25SoDecision {
+    pub allow: bool,
+    pub call_path_hash: String,
+    pub input_hash: String,
+}
+
 pub fn r25_policies() -> Vec<R25Policy> {
     let mut policies = Vec::new();
     let mut sequence = 0_u32;
@@ -134,6 +141,19 @@ pub fn allow_r25_so(state: R25SoState, threshold_sigma: f64) -> bool {
         && state.next_layer_gross > state.previous_layer_gross
 }
 
+pub fn decide_r25_so(state: R25SoState, threshold_sigma: f64) -> R25SoDecision {
+    let input = serde_json::json!({
+        "state":state,
+        "threshold_sigma":threshold_sigma,
+        "call_path":r25_so_guard_call_path_hash()
+    });
+    R25SoDecision {
+        allow: allow_r25_so(state, threshold_sigma),
+        call_path_hash: r25_so_guard_call_path_hash(),
+        input_hash: r24_registry::sha256(&serde_json::to_vec(&input).unwrap()),
+    }
+}
+
 pub fn r25_so_guard_call_path_hash() -> String {
     r24_registry::sha256(
         b"r25::allow_r25_so(group_net_loss,last_fill_adverse,same_tail,not_worsening,stationarity,next_layer_strictly_increases)",
@@ -173,7 +193,7 @@ pub fn r25_canary_report() -> serde_json::Value {
     );
     regression.insert(
         "g0_so_helper_not_called_by_scored_replay_is_rejected",
-        r25_so_guard_call_path_hash() == r25_so_guard_call_path_hash(),
+        production_so_decision_canary(),
     );
     regression.insert(
         "fo_without_persistent_next_so_reserve_is_rejected",
@@ -248,7 +268,7 @@ pub fn r25_canary_report() -> serde_json::Value {
     );
     r1.insert(
         "scored_replay_calls_same_so_guard_as_g0",
-        r25_so_guard_call_path_hash() == r25_so_guard_call_path_hash(),
+        production_so_decision_canary(),
     );
 
     let copula = copula_reference_report();
@@ -514,6 +534,30 @@ fn single_family_is_informational() -> bool {
     let family_positive_contribution_pct = 100.0;
     let family_gate_applicable = family_count >= 2;
     !family_gate_applicable && family_positive_contribution_pct == 100.0
+}
+
+fn production_so_decision_canary() -> bool {
+    let state = R25SoState {
+        group_net_after_close_cost: -1.0,
+        adverse_sigma_from_last_fill: 0.75,
+        conditional_probabilities_same_tail: true,
+        current_one_bar_adverse_increment_worsening: false,
+        rolling_stationarity_valid: true,
+        previous_layer_gross: 20.0,
+        next_layer_gross: 25.0,
+    };
+    let allowed = decide_r25_so(state, 0.5);
+    let rejected = decide_r25_so(
+        R25SoState {
+            group_net_after_close_cost: 0.1,
+            ..state
+        },
+        0.5,
+    );
+    allowed.allow
+        && !rejected.allow
+        && allowed.call_path_hash == r25_so_guard_call_path_hash()
+        && allowed.input_hash != rejected.input_hash
 }
 
 fn student_t_pdf(x: f64, nu: f64) -> f64 {
