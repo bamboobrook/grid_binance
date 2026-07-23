@@ -11,7 +11,8 @@ use r24_engine::{
     ServiceFakeExchange, SharedAccount,
 };
 use r24_registry::{
-    sha256, sha256_file, validate_registry, Evidence, LaunchSpec, Launcher, Registry, TRACE_KINDS,
+    sha256, sha256_file, validate_registry, Evidence, LaunchSpec, Launcher, Registry,
+    TerminalStatus, TRACE_KINDS,
 };
 
 fn main() -> Result<()> {
@@ -66,7 +67,7 @@ fn main() -> Result<()> {
     for (name, path) in sources {
         hashes.insert(name.into(), sha256_file(&path)?);
     }
-    launcher.run(
+    let terminal = launcher.run(
         LaunchSpec {
             experiment_id: "R24-R1-SHARED-ACCOUNT-001".into(),
             parent_experiment_id: Some("R24-R0-BOOTSTRAP-001".into()),
@@ -92,12 +93,18 @@ fn main() -> Result<()> {
         &["child".into(), trace_dir.to_string_lossy().into_owned()],
         &trace_dir,
     )?;
+    if terminal.terminal_status != Some(TerminalStatus::Complete) {
+        bail!("R1 child did not complete: {:?}", terminal.terminal_status);
+    }
     let summary = validate_registry(&registry.rows()?, &registry.failures()?, Some(2));
     if !summary.valid {
         bail!("R1 registry invalid: {:?}", summary.violations);
     }
     let child_gate: serde_json::Value =
         serde_json::from_slice(&fs::read(trace_dir.join("r1-result.json"))?)?;
+    if child_gate["passed"] != true {
+        bail!("R1 child gate is not true");
+    }
     let gate = serde_json::json!({
         "phase":"R1", "passed":child_gate["passed"], "registry":summary,
         "git_commit":commit, "upstream_commit":upstream, "git_dirty":dirty,

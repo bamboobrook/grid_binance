@@ -548,6 +548,19 @@ impl SharedAccount {
                     "order" | "rejection" | "equity" | "margin"
                 )
             })
+            .map(|record| {
+                (
+                    record.timestamp,
+                    record.stream.as_str(),
+                    record.event.as_str(),
+                    record.order_id.as_deref(),
+                    record.group_id.as_deref(),
+                    record.symbol.as_deref(),
+                    record.quantity.map(|value| format!("{value:.8}")),
+                    record.quote.map(|value| format!("{value:.8}")),
+                    record.detail.as_str(),
+                )
+            })
             .collect::<Vec<_>>();
         hash_json(&records)
     }
