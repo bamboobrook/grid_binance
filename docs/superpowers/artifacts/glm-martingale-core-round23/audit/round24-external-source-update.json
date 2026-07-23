@@ -1,0 +1,93 @@
+{
+  "schema_version": 1,
+  "searched_at": "2026-07-23T10:15:39+08:00",
+  "purpose": "Round 24 mechanism verification and exact non-repeat boundaries",
+  "historical_profit_claims_are_evidence": false,
+  "sources": [
+    {
+      "doi": "10.3390/a19060442",
+      "title": "Soft Martingale Strategy with Strategy-Embedded Labeling",
+      "publisher_url": "https://doi.org/10.3390/a19060442",
+      "pdf_url": "https://mdpi-res.com/d_attachment/algorithms/algorithms-19-00442/article_deploy/algorithms-19-00442.pdf",
+      "pdf_sha256": "8df91d970f91610d318440c86108a5e33f8d515500f836c47ca727d2afdc3935",
+      "pdf_pages": 4,
+      "verified_mechanisms": [
+        "ten-layer Soft Martin relative schedule linspace(1,5,10)",
+        "Strategy-Embedded Labeling derived from the strategy path rather than a generic fixed-horizon direction label",
+        "report equity drawdown separately from balance drawdown"
+      ],
+      "reported_context": {
+        "market": "EUR/USD only",
+        "leverage": "1:500",
+        "annualized_return_pct": 442.6,
+        "max_equity_drawdown_pct": 79.97,
+        "max_balance_drawdown_pct": 13.98,
+        "ddr": 5.72
+      },
+      "adoption": "Only exact schedule plus inner-train path labels may be tested after a parent Martin family passes G1. The paper's return, leverage and drawdown are not transferable targets.",
+      "dedup": "Round 23 MicroIntegral TP is a different, source-unverified SSRN reconstruction. It does not test or close this Soft Martin plus SEL mechanism."
+    },
+    {
+      "doi": "10.3390/risks11050093",
+      "title": "Multiple Pairs Trading and Portfolio Allocation research",
+      "publisher_url": "https://doi.org/10.3390/risks11050093",
+      "verified_mechanism": "diversify across multiple spread groups and allocate capital from train-period spread/risk statistics",
+      "adoption": "Use train-only equal-risk/activity quotas for disjoint residual Martin groups in one shared account.",
+      "dedup": "Round 9 combined finished equity curves and Round 19 had no valid event-level scheduler; a chronological shared-account reconstruction is a changed implementation, not a repeated valid test."
+    },
+    {
+      "doi": "10.1057/s41599-025-05661-7",
+      "title": "Network-based disjoint pair portfolio research",
+      "publisher_url": "https://doi.org/10.1057/s41599-025-05661-7",
+      "verified_mechanism": "fit-period network matching can choose non-overlapping pairs to reduce duplicated asset exposure",
+      "adoption": "Build a train-only disjoint graph, then freeze each group's executable legs for the next test block.",
+      "dedup": "No previous round produced a strict-valid disjoint-pair shared-account Martin replay."
+    },
+    {
+      "doi": "10.2139/ssrn.5895159",
+      "title": "Micro-Martingale and Integral Take-Profit: A Dynamic Multi-Pair Framework for Volatility-Adaptive Trading in Cryptocurrency Markets",
+      "metadata_url": "https://api.openalex.org/works/https://doi.org/10.2139/ssrn.5895159",
+      "metadata_status": "title verified; OpenAlex cited_by_count 0; no open PDF or abstract",
+      "pdf_fetch_status": "SSRN returned Cloudflare challenge HTML, not a PDF",
+      "local_failed_fetch_sha256": "06658c33a2bd437b53b5610deb959b6735d45419600ffe27c8b26f264cd2fa3c",
+      "adoption": "blocked_unverified_source",
+      "dedup": "The Round 23 540-cell reconstruction is invalid_unverified_source and must never be used to rank, reject or close this source mechanism."
+    },
+    {
+      "doi": "10.3390/app9091796",
+      "title": "GTSbot grid-trading research",
+      "publisher_url": "https://doi.org/10.3390/app9091796",
+      "adoption": "not_selected_for_round24",
+      "reason": "It is adjacent to previously explored grid/DGT mechanisms and is not the highest-priority unresolved Martin path under the user's constraints."
+    },
+    {
+      "doi": "10.1093/jjfinec/nbt003",
+      "title": "The Price Impact of Order Book Events",
+      "publisher_url": "https://doi.org/10.1093/jjfinec/nbt003",
+      "adoption": "lagged depth-normalized order-flow state only",
+      "constraint": "Contemporaneous impact is not future return and cannot produce an independent PnL sleeve."
+    },
+    {
+      "doi": "10.1142/S2382626619500114",
+      "title": "Multi-Level Order-Flow Imbalance in a Limit Order Book",
+      "publisher_url": "https://doi.org/10.1142/S2382626619500114",
+      "adoption": "strictly lagged multi-level depth/flow confirmation only",
+      "constraint": "Do not substitute unavailable depth levels or use the current aggregation bucket."
+    }
+  ],
+  "round24_priority": [
+    "repair Round 19 residual Martin into a causal disjoint multi-pair shared account",
+    "rebuild the Round 9 allocator as chronological event-level Martin family routing",
+    "test exact Soft Martin plus train-only SEL only after a valid parent",
+    "rerun strict lagged M1/M2 only after complete validated data"
+  ],
+  "never_repeat": [
+    "ordinary multiplier/spacing/max-leg/TP grid",
+    "equity-curve sleeve allocation",
+    "single-symbol promotion",
+    "post-selected PBO subsets or DSR n_trials=1",
+    "unverified implementation from title or abstract",
+    "current-bar depth, flow, regime or allocator decisions",
+    "standalone trend, funding carry, market-making or anti-Martingale PnL"
+  ]
+}

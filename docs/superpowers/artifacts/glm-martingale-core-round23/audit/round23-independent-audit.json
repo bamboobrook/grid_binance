@@ -1,0 +1,304 @@
+{
+  "audit_id": "chatgpt-round23-20260723",
+  "audited_glm_commit": "9c8be3fab6aa359a27569d0628a2a2a31c8d7bf2",
+  "audited_remote_commit": "590c6c30c2457cf26b85a2fe370dd1f46fbb5ab8",
+  "corrected_at": "2026-07-23T10:15:39+08:00",
+  "corrected_machine_state": "MATERIALLY_INCOMPLETE_INVALID_RESULTS",
+  "historical_backtest_only": true,
+  "strict_valid_complete_experiments": 0,
+  "strict_valid_policies": 0,
+  "target_hit": false,
+  "valid_frontier": null,
+  "original_claims_revoked": [
+    "VALID_HISTORICAL_PREQUENTIAL_NO_TARGET",
+    "invariant-clean registry",
+    "anti-overfit gates pass",
+    "25.69%/23.54% best valid candidate",
+    "all Round 23 phases complete",
+    "1471 or 1633 valid backtests",
+    "MicroIntegral path exhaustively closed"
+  ],
+  "evidence_chain": {
+    "registry_path": "docs/superpowers/artifacts/glm-martingale-core-round23/exploration-registry.jsonl",
+    "registry_sha256": "a42995d6f9182ae27a03c7a253f22a968b2d4755ffdeb141dc201e480122c944",
+    "registry_rows": 141,
+    "running_rows": 66,
+    "terminal_rows": 75,
+    "unique_experiment_ids": 75,
+    "terminal_only_experiment_ids": 9,
+    "raw_argv_empty_rows": 141,
+    "wall_seconds_nonpositive_rows": 141,
+    "rss_kb_nonpositive_rows": 141,
+    "fit_cutoff_empty_rows": 141,
+    "nonempty_start_equals_end_rows": 132,
+    "rows_with_known_empty_trace_digest": 91,
+    "terminal_rows_with_any_trace_hash_equal_to_git_commit": 35,
+    "rows_missing_or_malformed_required_hashes": 9,
+    "rows_with_64_character_git_commit_label": 132,
+    "rows_with_real_40_character_git_commit": 9,
+    "committed_trace_files_found": 0,
+    "committed_stdout_files_found": 0,
+    "original_failure_ledger_rows": 3,
+    "authority_git_dirty": true,
+    "authority_registry_rows_claimed": 141,
+    "execution_state_registry_rows_claimed": 132,
+    "authority_total_backtests_claimed": 1471,
+    "other_final_report_total_backtests_claimed": 1633,
+    "authority_best_ann_pct": 25.69,
+    "authority_best_dd_pct": 23.54,
+    "execution_state_best_ann_pct": 17.72,
+    "execution_state_best_dd_pct": 29.52,
+    "execution_state_phases_remaining": ["R2", "R5", "G0"]
+  },
+  "terminal_only_experiment_ids": [
+    "r8-btc-best-gates-20260723",
+    "r8-fo-push-btc-20260723",
+    "r8-grid-btc-216cell-20260723",
+    "r8-grid-eth-216cell-20260723",
+    "r8-grid-sol-216cell-20260723",
+    "r8-m1m2-extended-731d-20260723",
+    "r8-micro-integral-540cell-20260723",
+    "r8-multi-grid-432combo-20260723",
+    "r8-tier-push-162cell-20260723"
+  ],
+  "data_audit": {
+    "metrics_manifest": {
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round23/r3/data/r3-metrics-manifest.jsonl",
+      "sha256": "d60e3e452d550f0763b180b344c6a80631738ae901ec762e8b88c16a14e2534d",
+      "rows": 15122,
+      "unique_symbol_date_kind_keys": 8515,
+      "duplicate_key_groups": 6532,
+      "excess_duplicate_rows": 6607,
+      "checksum_failed_rows": 45,
+      "symbols": 8,
+      "min_date": "2023-07-01",
+      "max_date": "2026-05-31",
+      "required_min_date": "2023-01-01",
+      "valid_for_round23_protocol": false
+    },
+    "book_depth_manifest": {
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round23/r3/data/r3-bookDepth-manifest.jsonl",
+      "sha256": "a86c6c617be764b8d3532d3beda8310efc3368a1501941bba96cac04c10483ad",
+      "rows": 2121,
+      "unique_symbol_date_kind_keys": 1814,
+      "duplicate_key_groups": 307,
+      "checksum_failed_rows": 12,
+      "symbols": 5,
+      "min_date": "2023-07-01",
+      "max_date": "2024-06-30",
+      "nested_extension": {
+        "rows": 1817,
+        "checksum_failed_rows": 9,
+        "min_date": "2024-07-01",
+        "max_date": "2025-06-30"
+      },
+      "required_max_date": "2026-05-31",
+      "valid_for_round23_protocol": false
+    },
+    "agg_trades_manifest": {
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round23/r3/data/r3-aggTrades-manifest.jsonl",
+      "sha256": "f31faa29e1d82745d2b829db6f1594ea6c1c230c734b3c0780d296511ce4c523",
+      "rows": 90,
+      "checksum_failed_rows": 1,
+      "symbols": 6,
+      "min_date": "2023-07-01",
+      "max_date": "2023-07-15",
+      "valid_for_round23_protocol": false
+    },
+    "conclusion": "R3 does not contain a deduplicated, checksum-clean 2023-01-01 through 2026-05-31 dataset. M2 cannot be a 1066-day strict order-flow replay."
+  },
+  "phase_audit": {
+    "R0": {
+      "status": "invalid_evidence_chain",
+      "reason": "The test fixtures reject 15 canaries, but the real registry violates the same running/terminal, git, argv/runtime and trace contracts."
+    },
+    "R1": {
+      "status": "partial_corrected_forensic_only",
+      "reason": "The single-symbol engine had ladder, cost, reserve, leverage, liquidation and drawdown errors. The corrected BTC replay is useful only as a forensic diagnostic and is not a shared multi-symbol production engine."
+    },
+    "R2": {
+      "status": "incomplete",
+      "reason": "The committed execution state itself lists R2 as remaining; registry fit cutoffs are empty and no immutable per-block fit evidence exists."
+    },
+    "R3": {
+      "status": "invalid_incomplete_data",
+      "reason": "All three manifests contain checksum failures or incomplete coverage; metrics and bookDepth also contain duplicate keys."
+    },
+    "R4": {
+      "status": "invalid_mechanism_mismatch",
+      "reason": "Scored M1 uses RelaxedM1 instead of the five required conditions; M2 remaps 0.2/1.0% to 1/2% and consumes current buckets; E1 was implemented without the required source."
+    },
+    "R5": {
+      "status": "not_completed",
+      "reason": "The committed execution state lists R5 as remaining and there is no complete activation manifest proving each parameter changes canonical orders."
+    },
+    "G0": {
+      "status": "not_completed",
+      "reason": "The committed execution state lists G0 as remaining; later broad grids therefore ran after a failed predecessor gate."
+    },
+    "G1": {
+      "status": "invalid_results",
+      "reason": "The harness skips empty blocks, resets the position cycle at every block, uses per-block DD maxima rather than a continuous running peak and can mark a single-symbol row complete despite 100% symbol contribution."
+    },
+    "G2": {
+      "status": "invalid_results",
+      "reason": "Partial fills, leg delays and rejects are represented by slippage/filter changes rather than order events; LOSO runs each symbol separately; funding and a complete trial correction are absent."
+    },
+    "R8": {
+      "status": "revoked",
+      "reason": "The multi-symbol grid sums independently funded accounts, the selected BTC row is single-symbol, and terminal-only R8 registry rows have no replay provenance."
+    },
+    "HANDOFF": {
+      "status": "revoked",
+      "reason": "The handoff conflicts with the authority/state files and is not generated from strict-valid trace-backed experiments."
+    }
+  },
+  "code_findings": [
+    {
+      "id": "R23-C01",
+      "path": "crates/r23-registry/src/launcher.rs",
+      "line": 273,
+      "finding": "The launcher writes empty argv, zero wall/RSS, equal start/end timestamps and an empty fit cutoff into every running row."
+    },
+    {
+      "id": "R23-C02",
+      "path": "crates/r23-replay/src/summary.rs",
+      "line": 99,
+      "finding": "Missing order/signal/margin streams are padded with the known empty SHA-256 instead of failing closed."
+    },
+    {
+      "id": "R23-C03",
+      "path": "crates/r23-registry/src/state_machine.rs",
+      "line": 81,
+      "finding": "The implemented state machine always returns BLOCKED after R0; the committed valid state was written outside this derivation."
+    },
+    {
+      "id": "R23-C04",
+      "path": "crates/r23-replay/src/bin/r23_m1_backtest.rs",
+      "line": 77,
+      "finding": "The scored replay deliberately replaces the planned strict five-condition M1 gate with a relaxed price-extension/OI gate."
+    },
+    {
+      "id": "R23-C05",
+      "path": "crates/r23-replay/src/m2_signal.rs",
+      "line": 91,
+      "finding": "The implementation remaps requested 0.2/1.0% depth to 1/2% and uses the current aggTrade bucket without a completed-bucket lag."
+    },
+    {
+      "id": "R23-C06",
+      "path": "crates/r23-replay/src/bin/r23_multi_grid.rs",
+      "line": 117,
+      "finding": "Each symbol receives an independent budget and account; equity curves are summed afterward, so this is not shared cash/margin/reserve execution."
+    },
+    {
+      "id": "R23-C07",
+      "path": "crates/r23-replay/src/bin/r23_multi_grid.rs",
+      "line": 168,
+      "finding": "max_sym_gross is computed from ending equity share, DSR uses n_trials=1 and PBO treats symbols as competing policies."
+    },
+    {
+      "id": "R23-C08",
+      "path": "crates/r23-replay/src/g1_harness.rs",
+      "line": 66,
+      "finding": "Each block calls a fresh single-symbol engine, empty blocks are skipped, and stitched DD is only the maximum of per-block DD values."
+    },
+    {
+      "id": "R23-C09",
+      "path": "crates/r23-replay/src/g2_stress.rs",
+      "line": 108,
+      "finding": "Partial-fill and delay stress only inflate slippage; no canonical partial order, delayed leg or hedge-or-flatten event occurs."
+    },
+    {
+      "id": "R23-C10",
+      "path": "crates/r23-replay/src/bin/r23_g2_r8.rs",
+      "line": 118,
+      "finding": "LOSO is implemented as one independent single-symbol replay per symbol, not leave-one-symbol-out on a multi-symbol policy."
+    },
+    {
+      "id": "R23-C11",
+      "path": "crates/r23-replay/src/gated_martin.rs",
+      "line": 529,
+      "finding": "The scored gated-Martin path reports funding as zero and never books funding cashflows."
+    },
+    {
+      "id": "R23-C12",
+      "path": "crates/r23-replay/src/gated_martin.rs",
+      "line": 104,
+      "finding": "MicroIntegral explicitly reconstructs SSRN 5895159 from an abstract and discussion despite the plan forbidding implementation without a PDF hash and formula pages."
+    }
+  ],
+  "corrected_engine_changes": [
+    "use the first safety layer at 1.25x rather than skipping to 1.55x",
+    "include opening and closing fee/slippage in cycle-net TP and SO eligibility",
+    "reserve margin, maintenance, closing cost and the following SO",
+    "apply the leverage cap to projected notional",
+    "check event-time maintenance and terminate breached accounts at zero",
+    "include forced-close costs in final equity",
+    "calculate drawdown from a continuous running peak",
+    "report actual peak leverage and accumulated fees/slippage"
+  ],
+  "corrected_btc_recheck": {
+    "artifact": "docs/superpowers/artifacts/glm-martingale-core-round23/audit/round23-btc-corrected-engine-recheck.json",
+    "artifact_sha256": "12c79d31b5820d24a19f03086522172c93c0f3b024b86ba57c2e7d563f1d0680",
+    "engine_source_sha256": "4b5ed7cced9848ce225327170cf4eb355283c85966aef2c4774f505ca976a420",
+    "recheck_binary_source_sha256": "c3de91236fa384ba9b57c7b23326160e24c9698240bc64a1c3b828064636a27a",
+    "classification": "reproduced_on_corrected_single_symbol_engine_but_invalid_for_promotion",
+    "annualized_return_pct": 19.59274132026687,
+    "max_equity_drawdown_pct": 20.821317422090893,
+    "annualized_sharpe_reporting_only": 0.9559695748338639,
+    "ending_equity_u": 1686.3,
+    "cold_starts_positive": "5/5",
+    "cold_start_ann_range_pct": [19.59274132026687, 20.860727142208347],
+    "cold_start_dd_range_pct": [20.821317422090893, 21.403075283290356],
+    "observed_trial_count_floor": 1080,
+    "local_approximate_dsr_at_trial_floor": -44.22639052023543,
+    "selected_eight_config_pbo": 0.48,
+    "anti_overfit_status": "not_auditable",
+    "disqualifications": [
+      "single BTC symbol",
+      "RelaxedM1 signal",
+      "funding omitted",
+      "no shared multi-symbol account",
+      "global trial matrix unavailable",
+      "selected-config PBO is post-selection"
+    ]
+  },
+  "source_violation": {
+    "experiment": "r8-micro-integral-540cell-20260723",
+    "classification": "invalid_unverified_source",
+    "reason": "SSRN response is Cloudflare HTML rather than a PDF, and no formula page or verbatim variable map exists. The 540-cell result cannot close or rank the claimed source mechanism."
+  },
+  "tier_status_latest_contract": {
+    "conservative": {
+      "annualized_return_pct_min": 50.0,
+      "max_equity_drawdown_pct_max": 10.0,
+      "strict_valid_rows": 0,
+      "hit": false
+    },
+    "balanced": {
+      "annualized_return_pct_min": 90.0,
+      "max_equity_drawdown_pct_max": 20.0,
+      "strict_valid_rows": 0,
+      "hit": false
+    },
+    "aggressive": {
+      "annualized_return_pct_min": 100.0,
+      "max_equity_drawdown_pct_max": 30.0,
+      "strict_valid_rows": 0,
+      "hit": false
+    }
+  },
+  "test_evidence": {
+    "targeted_command": "cargo test -p r23-replay gated_martin --lib",
+    "targeted_passed": 4,
+    "targeted_failed": 0,
+    "full_command": "cargo test -p r23-registry -p r23-replay",
+    "full_passed": 45,
+    "full_failed": 0,
+    "full_suite_status": "passed",
+    "format_command": "cargo fmt --all -- --check",
+    "format_status": "failed_on_pre_existing_repository_wide_format_drift",
+    "changed_files_format_command": "rustfmt --edition 2021 --check crates/r23-replay/src/gated_martin.rs crates/r23-replay/src/bin/r23_btc_best_gates.rs",
+    "changed_files_format_status": "passed"
+  }
+}

@@ -1,0 +1,81 @@
+{
+  "authority_version": 2,
+  "corrected_at": "2026-07-23T10:15:39+08:00",
+  "corrected_machine_state": "MATERIALLY_INCOMPLETE_INVALID_RESULTS",
+  "historical_backtest_only": true,
+  "independent_audit": "docs/superpowers/artifacts/glm-martingale-core-round23/audit/round23-independent-audit.json",
+  "round1_23_consolidated_frontier": "docs/superpowers/artifacts/glm-martingale-core-round23/audit/round1-23-consolidated-frontier.json",
+  "corrected_failure_ledger": "docs/superpowers/artifacts/glm-martingale-core-round23/audit/round23-corrected-failure-ledger.jsonl",
+  "external_source_update": "docs/superpowers/artifacts/glm-martingale-core-round23/audit/round24-external-source-update.json",
+  "original_authority_revoked": true,
+  "original_authority_path": "docs/superpowers/artifacts/glm-martingale-core-round23/round23-authority.json",
+  "original_status_revoked": "VALID_HISTORICAL_PREQUENTIAL_NO_TARGET",
+  "original_best_result_is_authoritative": false,
+  "strict_valid_complete_experiments": 0,
+  "strict_valid_policies": 0,
+  "strict_valid_five_of_five_policies": 0,
+  "target_hit": false,
+  "valid_frontier": null,
+  "tiers_latest_user_contract": {
+    "conservative": {
+      "annualized_return_pct_min": 50.0,
+      "max_equity_drawdown_pct_max": 10.0,
+      "hit": false
+    },
+    "balanced": {
+      "annualized_return_pct_min": 90.0,
+      "max_equity_drawdown_pct_max": 20.0,
+      "hit": false
+    },
+    "aggressive": {
+      "annualized_return_pct_min": 100.0,
+      "max_equity_drawdown_pct_max": 30.0,
+      "hit": false
+    }
+  },
+  "first_failed_gate": "R0_REAL_REGISTRY_AND_TRACE_EVIDENCE",
+  "phase_status": {
+    "R0": "invalid_evidence_chain",
+    "R1": "partial_corrected_forensic_only",
+    "R2": "incomplete",
+    "R3": "invalid_incomplete_data",
+    "R4": "invalid_mechanism_mismatch",
+    "R5": "not_completed",
+    "G0": "not_completed",
+    "G1": "invalid_results",
+    "G2": "invalid_results",
+    "R8": "revoked",
+    "HANDOFF": "revoked"
+  },
+  "forensic_only": {
+    "config": "BTCUSDT/adverse0.010/tp5/thresh1.5/fo35/max_legs3/ScaleOut/budget1000",
+    "annualized_return_pct": 19.59274132026687,
+    "max_equity_drawdown_pct": 20.821317422090893,
+    "cold_starts_positive": "5/5",
+    "classification": "reproduced_on_corrected_single_symbol_engine_but_invalid_for_promotion",
+    "artifact": "docs/superpowers/artifacts/glm-martingale-core-round23/audit/round23-btc-corrected-engine-recheck.json"
+  },
+  "anti_overfit_authority": {
+    "status": "not_auditable",
+    "observed_trial_count_floor": 1080,
+    "local_approximate_dsr_at_trial_floor": -44.22639052023543,
+    "selected_eight_config_pbo": 0.48,
+    "reason": "The full Round 1-23 trial matrix is not reconstructable and the eight PBO configs were selected after the wider search. Neither statistic may promote a policy."
+  },
+  "invalidated_source_experiment": {
+    "experiment_id": "r8-micro-integral-540cell-20260723",
+    "cells": 540,
+    "status": "invalid_unverified_source",
+    "reason": "SSRN 5895159 formula pages and PDF hash were unavailable; implementation from abstract/discussion was forbidden by the Round 23 plan."
+  },
+  "required_next_action": "Execute Round 24 repair-first historical prequential plan. No Round 23 result may seed promotion, claim an empirical ceiling or count as a strict anti-overfit pass.",
+  "round24_plan": "docs/superpowers/plans/2026-07-23-glm-martingale-core-round24-causal-ensemble-recovery-plan.md",
+  "revoked_claim_sources": [
+    "docs/superpowers/reports/2026-07-23-glm-round23-execution-handoff.md",
+    "docs/superpowers/reports/2026-07-23-glm-round23-CORRECTED-FINAL-WITH-TIER-GATES.md",
+    "docs/superpowers/reports/2026-07-23-glm-round23-plan-compliance-final-audit.md",
+    "docs/superpowers/reports/2026-07-23-glm-round23-DEFINITIVE-FINAL-CONCLUSION.md",
+    "docs/superpowers/reports/2026-07-23-glm-round23-SESSION-COMPLETE-FINAL.md",
+    "docs/superpowers/reports/2026-07-23-glm-round23-GRID-SWEEP-DEFINITIVE.md"
+  ]
+}

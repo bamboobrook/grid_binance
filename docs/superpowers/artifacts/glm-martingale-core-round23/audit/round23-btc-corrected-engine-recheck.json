@@ -1,0 +1,84 @@
+{
+  "all_cold_positive": true,
+  "anti_overfit": {
+    "dsr_at_observed_trial_floor": -44.22639052023543,
+    "dsr_formula_status": "project_local_approximation_not_formal_authority",
+    "observed_trials_floor": 1080,
+    "reason": "full Round 1-23 trial matrix is not reconstructable; eight configs were selected after the wider search",
+    "selected_config_count": 8,
+    "selected_config_pbo": 0.48,
+    "status": "not_auditable"
+  },
+  "any_hit": false,
+  "baseline": {
+    "ann_pct": 19.59274132026687,
+    "days": 1066,
+    "dd_pct": 20.821317422090893,
+    "sharpe": 0.9559695748338639
+  },
+  "classification": "reproduced_on_corrected_single_symbol_engine_but_invalid_for_promotion",
+  "cold_starts": [
+    {
+      "annualized_pct": 19.59274132026687,
+      "max_dd_pct": 20.821317422090893,
+      "offset_days": 0,
+      "positive": true,
+      "sharpe": 0.9559695748338639
+    },
+    {
+      "annualized_pct": 19.60907102809777,
+      "max_dd_pct": 21.08414632950748,
+      "offset_days": 30,
+      "positive": true,
+      "sharpe": 0.9325536034166481
+    },
+    {
+      "annualized_pct": 20.502888726217392,
+      "max_dd_pct": 20.977291892486743,
+      "offset_days": 60,
+      "positive": true,
+      "sharpe": 1.028996328682682
+    },
+    {
+      "annualized_pct": 20.382906379375587,
+      "max_dd_pct": 21.310147371291436,
+      "offset_days": 90,
+      "positive": true,
+      "sharpe": 0.9955321167484374
+    },
+    {
+      "annualized_pct": 20.860727142208347,
+      "max_dd_pct": 21.403075283290356,
+      "offset_days": 120,
+      "positive": true,
+      "sharpe": 0.9979110779773094
+    }
+  ],
+  "config": {
+    "adverse": 0.01,
+    "budget": 1000.0,
+    "fo_pct": 35.0,
+    "max_legs": 3,
+    "symbol": "BTCUSDT",
+    "thresh": 1.5,
+    "tp_bps": 5.0,
+    "tp_mode": "ScaleOut"
+  },
+  "gate_passes": {
+    "cold_starts": true,
+    "funding_booked": false,
+    "multi_symbol": false,
+    "shared_account": false,
+    "strict_contract": false,
+    "strict_m1_gate": false,
+    "trial_correction_auditable": false
+  },
+  "reporting_only": {
+    "sharpe": 0.9559695748338639
+  },
+  "tier_hits": {
+    "aggressive": false,
+    "balanced": false,
+    "conservative": false
+  }
+}

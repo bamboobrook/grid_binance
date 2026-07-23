@@ -1,10 +1,9 @@
 //! Single-symbol gated Martin scored engine (plan §5.2 execution path).
 //!
 //! This is a self-contained, production-conservative single-symbol Martin that
-//! REUSES the exchange-realism primitives from
-//! `backtest_engine::martingale::r21_conservative_engine` and `exchange_model`
-//! (filter_order_conservative, check_liquidation_buffer, apply_partial_fill,
-//! next_so_close_maintenance_reserve_ok). It accepts an external **signal
+//! reuses the exchange filter and maintenance primitives from
+//! `backtest_engine::martingale::r21_conservative_engine` and `exchange_model`.
+//! It accepts an external **signal
 //! gating callback** so M1 (OI/crowding) or M2 (depth/flow) flags decide when
 //! FO / SO / TP / abort may fire — exactly plan §1.10 ("OI/flow/depth/factor
 //! only decide FO/SO/TP/abort/freeze") and §5.2 ("each order is an OrderIntent
@@ -22,15 +21,13 @@
 
 use serde::{Deserialize, Serialize};
 
+use backtest_engine::market_data::KlineBar;
 use backtest_engine::martingale::exchange_model::ExchangeFilters;
 use backtest_engine::martingale::metrics::{
-    calculate_annualized_return_pct, MartingaleBacktestEvent, MartingaleBacktestResult,
-    DrawdownPoint, EquityPoint,
+    calculate_annualized_return_pct, DrawdownPoint, EquityPoint, MartingaleBacktestEvent,
+    MartingaleBacktestResult,
 };
-use backtest_engine::martingale::r21_conservative_engine::{
-    check_liquidation_buffer, filter_order_conservative, next_so_close_maintenance_reserve_ok,
-};
-use backtest_engine::market_data::KlineBar;
+use backtest_engine::martingale::r21_conservative_engine::filter_order_conservative;
 
 /// Soft-ladder relative layer gross (plan §8: [1.00, 1.25, 1.55, 1.90]).
 pub const SOFT_LADDER: [f64; 4] = [1.00, 1.25, 1.55, 1.90];
@@ -131,6 +128,9 @@ struct Position {
     fees: f64,
     /// total slippage cost (quote)
     slippage: f64,
+    /// Opening fee and slippage still attributable to the current open cycle.
+    /// TP/SO eligibility must use net cycle PnL, not mark-to-market gross alone.
+    cycle_open_cost: f64,
     /// depth (number of layers filled so far, 1 = FO only)
     depth: u32,
     /// last fill price (for adverse-distance SO basis, plan §4.8)
@@ -163,6 +163,10 @@ pub fn run_gated_martin<S: SignalSource>(
     let mut abort_count: u64 = 0;
     let mut liquidation_count: u64 = 0;
     let mut breach = false;
+    let mut total_fees = 0.0f64;
+    let mut total_slippage = 0.0f64;
+    let mut peak_effective_leverage = 0.0f64;
+    let mut min_liquidation_buffer_pct = f64::INFINITY;
 
     for (i, b) in bars.iter().enumerate() {
         if b.close <= 0.0 {
@@ -176,17 +180,15 @@ pub fn run_gated_martin<S: SignalSource>(
         if pos.qty.abs() > 1e-12 {
             let pos_notional = pos.qty.abs() * price;
             let unreal = unrealized(&pos, price);
-            let avail_margin = equity.max(0.0);
-            let (_, would_liq) = check_liquidation_buffer(
-                &cfg.filters,
-                pos_notional,
-                -unreal.max(0.0),
-                avail_margin,
-            );
-            // The conservative primitive returns would_liquidate when buffer too thin.
-            // We treat a deep-enough loss that breaches maintenance as liquidation.
+            let wallet_equity = equity + unreal;
             let maint = cfg.filters.maintenance_margin(pos_notional);
-            if would_liq || (unreal < 0.0 && unreal.abs() + maint > avail_margin) {
+            let liq_buffer_pct = if pos_notional > 0.0 {
+                (wallet_equity - maint) / pos_notional * 100.0
+            } else {
+                f64::INFINITY
+            };
+            min_liquidation_buffer_pct = min_liquidation_buffer_pct.min(liq_buffer_pct);
+            if wallet_equity <= maint {
                 liquidation_count += 1;
                 breach = true;
                 events.push(MartingaleBacktestEvent {
@@ -195,12 +197,18 @@ pub fn run_gated_martin<S: SignalSource>(
                     symbol: cfg.symbol.clone(),
                     strategy_instance_id: "M1".to_string(),
                     cycle_id: None,
-                    detail: format!("equity={:.2} unreal={:.2} maint={:.2}", equity, unreal, maint),
+                    detail: format!(
+                        "equity={:.2} unreal={:.2} maint={:.2}",
+                        equity, unreal, maint
+                    ),
                 });
                 // liquidation terminates the shared account (§5.1.12)
                 equity = 0.0;
                 pos = Position::default();
-                equity_curve.push(EquityPoint { timestamp_ms: ts, equity_quote: 0.0 });
+                equity_curve.push(EquityPoint {
+                    timestamp_ms: ts,
+                    equity_quote: 0.0,
+                });
                 break;
             }
         }
@@ -211,8 +219,15 @@ pub fn run_gated_martin<S: SignalSource>(
             equity += settled;
             pos.fees += fee;
             pos.slippage += slip;
+            total_fees += fee;
+            total_slippage += slip;
             abort_count += 1;
+            trade_count += 1;
             events.push(ev(ts, "gated_abort", price, settled));
+            equity_curve.push(EquityPoint {
+                timestamp_ms: ts,
+                equity_quote: equity,
+            });
             continue;
         }
 
@@ -236,7 +251,8 @@ pub fn run_gated_martin<S: SignalSource>(
                     }
                 }
                 TpMode::TimeDecay { decay_bars } => {
-                    let factor = (1.0 - pos.bars_in_position as f64 / decay_bars.max(1) as f64).max(0.25);
+                    let factor =
+                        (1.0 - pos.bars_in_position as f64 / decay_bars.max(1) as f64).max(0.25);
                     (cfg.tp_net_bps_floor * factor, false)
                 }
                 TpMode::MicroIntegral { .. } => {
@@ -252,13 +268,19 @@ pub fn run_gated_martin<S: SignalSource>(
                     let frac = close_frac.clamp(0.05, 1.0);
                     let close_qty = pos.qty * frac;
                     if close_qty.abs() > 1e-12 {
-                        let (settled, fee, slip) = partial_close_position(&mut pos, close_qty, price, cfg);
+                        let (settled, fee, slip) =
+                            partial_close_position(&mut pos, close_qty, price, cfg);
                         equity += settled;
                         pos.fees += fee;
                         pos.slippage += slip;
+                        total_fees += fee;
+                        total_slippage += slip;
                         tp_count += 1;
                         events.push(ev(ts, "gated_tp_microintegral", price, settled));
-                        equity_curve.push(EquityPoint { timestamp_ms: ts, equity_quote: equity });
+                        equity_curve.push(EquityPoint {
+                            timestamp_ms: ts,
+                            equity_quote: equity,
+                        });
                         // If position now essentially closed, treat as full close.
                         if pos.qty.abs() <= 1e-12 {
                             trade_count += 1;
@@ -271,10 +293,13 @@ pub fn run_gated_martin<S: SignalSource>(
                 if partial_close && !pos.scaled_out_once {
                     // close half the position (scale-out), keep the rest
                     let half_qty = pos.qty / 2.0;
-                    let (settled, fee, slip) = partial_close_position(&mut pos, half_qty, price, cfg);
+                    let (settled, fee, slip) =
+                        partial_close_position(&mut pos, half_qty, price, cfg);
                     equity += settled;
                     pos.fees += fee;
                     pos.slippage += slip;
+                    total_fees += fee;
+                    total_slippage += slip;
                     pos.scaled_out_once = true;
                     events.push(ev(ts, "gated_tp_scaleout1", price, settled));
                     // do NOT continue — keep evaluating; the remaining half uses 2x floor
@@ -283,10 +308,15 @@ pub fn run_gated_martin<S: SignalSource>(
                     equity += settled;
                     pos.fees += fee;
                     pos.slippage += slip;
+                    total_fees += fee;
+                    total_slippage += slip;
                     tp_count += 1;
                     trade_count += 1;
                     events.push(ev(ts, "gated_tp", price, settled));
-                    equity_curve.push(EquityPoint { timestamp_ms: ts, equity_quote: equity });
+                    equity_curve.push(EquityPoint {
+                        timestamp_ms: ts,
+                        equity_quote: equity,
+                    });
                     continue;
                 }
             }
@@ -302,23 +332,17 @@ pub fn run_gated_martin<S: SignalSource>(
                 0
             };
             if dir != 0 {
-                // reserve check: must cover full ladder + close + maintenance
-                let full_ladder_notional: f64 =
-                    SOFT_LADDER.iter().map(|m| cfg.fo_quote * m).sum();
-                let close_cost = full_ladder_notional * cfg.fee_bps / 10_000.0;
-                let maint = cfg.filters.maintenance_margin(full_ladder_notional);
-                let ok = next_so_close_maintenance_reserve_ok(
-                    equity,
-                    cfg.fo_quote,
-                    cfg.fo_quote * SOFT_LADDER[1],
-                    maint,
-                    cfg.fee_bps / 10_000.0,
-                    cfg.fo_quote,
-                );
-                if ok && close_cost + maint < equity {
+                let next_so = if cfg.max_legs > 1 {
+                    cfg.fo_quote * SOFT_LADDER[1]
+                } else {
+                    0.0
+                };
+                if reserve_ok(equity, 0.0, cfg.fo_quote, next_so, cfg) {
                     if let Some(fill) = try_fill(cfg, dir as f64 * cfg.fo_quote, price) {
                         apply_fill(&mut pos, fill.qty, price, fill.fee, fill.slip, ts);
                         equity -= fill.fee + fill.slip;
+                        total_fees += fill.fee;
+                        total_slippage += fill.slip;
                         fo_count += 1;
                         events.push(ev(ts, "gated_fo", price, -(fill.fee + fill.slip)));
                     }
@@ -331,35 +355,54 @@ pub fn run_gated_martin<S: SignalSource>(
             } else {
                 (price - pos.last_fill_price) / pos.last_fill_price
             };
-            let next_layer = (pos.depth as usize).min(SOFT_LADDER.len() - 1) + 1;
-            let layer_quote = cfg.fo_quote * SOFT_LADDER[next_layer.min(SOFT_LADDER.len() - 1)];
             // cap SO depth at max_legs (FO counts as leg 1)
             if pos.depth >= cfg.max_legs {
                 // no more averaging; wait for TP/abort/liquidation
                 let unreal = unrealized(&pos, price);
                 let mtm = equity + unreal;
-                equity_curve.push(EquityPoint { timestamp_ms: ts, equity_quote: mtm });
-                if mtm <= 0.0 { breach = true; liquidation_count += 1; events.push(ev(ts, "gated_equity_nonpositive", price, mtm)); break; }
+                equity_curve.push(EquityPoint {
+                    timestamp_ms: ts,
+                    equity_quote: mtm.max(0.0),
+                });
+                if mtm <= 0.0 {
+                    breach = true;
+                    liquidation_count += 1;
+                    events.push(ev(ts, "gated_equity_nonpositive", price, mtm));
+                    equity = 0.0;
+                    pos = Position::default();
+                    break;
+                }
                 continue;
             }
+            // depth=1 after FO, so the first SO must use SOFT_LADDER[1].
+            let next_layer = (pos.depth as usize).min(SOFT_LADDER.len() - 1);
+            let layer_quote = layer_quote_for_depth(cfg.fo_quote, pos.depth);
+            let following_so = if pos.depth + 1 < cfg.max_legs && next_layer + 1 < SOFT_LADDER.len()
+            {
+                cfg.fo_quote * SOFT_LADDER[next_layer + 1]
+            } else {
+                0.0
+            };
             let net = net_pnl_after_cost(&pos, price, cfg);
-            let maint = cfg.filters.maintenance_margin(pos.qty.abs() * price);
+            let current_notional = pos.qty.abs() * price;
+            let available_equity = equity + unrealized(&pos, price);
             if gate.so_allowed
                 && net < 0.0
                 && adverse >= cfg.adverse_spacing_frac
-                && next_so_close_maintenance_reserve_ok(
-                    equity,
-                    cfg.fo_quote,
+                && reserve_ok(
+                    available_equity,
+                    current_notional,
                     layer_quote,
-                    maint,
-                    cfg.fee_bps / 10_000.0,
-                    cfg.fo_quote,
+                    following_so,
+                    cfg,
                 )
             {
                 let dir_sign = pos.qty.signum();
                 if let Some(fill) = try_fill(cfg, dir_sign * layer_quote, price) {
                     apply_fill(&mut pos, fill.qty, price, fill.fee, fill.slip, ts);
                     equity -= fill.fee + fill.slip;
+                    total_fees += fill.fee;
+                    total_slippage += fill.slip;
                     so_count += 1;
                     events.push(ev(ts, "gated_so", price, -(fill.fee + fill.slip)));
                 }
@@ -367,44 +410,73 @@ pub fn run_gated_martin<S: SignalSource>(
         }
 
         // mark-to-market equity
-        let unreal = if pos.qty.abs() > 1e-12 { unrealized(&pos, price) } else { 0.0 };
+        let unreal = if pos.qty.abs() > 1e-12 {
+            unrealized(&pos, price)
+        } else {
+            0.0
+        };
         let mtm = equity + unreal;
-        equity_curve.push(EquityPoint { timestamp_ms: ts, equity_quote: mtm });
+        if mtm > 0.0 {
+            peak_effective_leverage = peak_effective_leverage.max(pos.qty.abs() * price / mtm);
+        }
+        equity_curve.push(EquityPoint {
+            timestamp_ms: ts,
+            equity_quote: mtm.max(0.0),
+        });
         if mtm <= 0.0 {
             breach = true;
             liquidation_count += 1;
             events.push(ev(ts, "gated_equity_nonpositive", price, mtm));
+            equity = 0.0;
+            pos = Position::default();
             break;
         }
     }
 
     // force-close any open position at the last bar
-    if pos.qty.abs() > 1e-12 {
+    if !breach && pos.qty.abs() > 1e-12 {
         if let Some(last) = bars.last() {
             let (settled, fee, slip) = close_position(&mut pos, last.close, cfg);
             equity += settled;
-            pos.fees += fee;
-            pos.slippage += slip;
-            events.push(ev(last.open_time_ms, "gated_force_close_end", last.close, settled));
+            total_fees += fee;
+            total_slippage += slip;
+            trade_count += 1;
+            events.push(ev(
+                last.open_time_ms,
+                "gated_force_close_end",
+                last.close,
+                settled,
+            ));
+            equity_curve.push(EquityPoint {
+                timestamp_ms: last.open_time_ms,
+                equity_quote: equity,
+            });
         }
     }
 
-    let ending_equity = equity_curve.last().map(|e| e.equity_quote).unwrap_or(initial_equity);
-    let peak = equity_curve
-        .iter()
-        .fold(f64::NEG_INFINITY, |p, e| p.max(e.equity_quote));
-    let max_dd = equity_curve
-        .iter()
-        .map(|e| if peak > 0.0 { (peak - e.equity_quote) / peak * 100.0 } else { 0.0 })
-        .fold(0.0f64, f64::max);
+    let ending_equity = equity_curve
+        .last()
+        .map(|e| e.equity_quote)
+        .unwrap_or(initial_equity);
     let drawdown_curve: Vec<DrawdownPoint> = equity_curve
         .iter()
         .scan(f64::NEG_INFINITY, |peak, e| {
             *peak = peak.max(e.equity_quote);
-            let dd = if *peak > 0.0 { (*peak - e.equity_quote) / *peak * 100.0 } else { 0.0 };
-            Some(DrawdownPoint { timestamp_ms: e.timestamp_ms, drawdown_pct: dd })
+            let dd = if *peak > 0.0 {
+                (*peak - e.equity_quote) / *peak * 100.0
+            } else {
+                0.0
+            };
+            Some(DrawdownPoint {
+                timestamp_ms: e.timestamp_ms,
+                drawdown_pct: dd,
+            })
         })
         .collect();
+    let max_dd = drawdown_curve
+        .iter()
+        .map(|d| d.drawdown_pct)
+        .fold(0.0f64, f64::max);
 
     let days = if bars.len() >= 2 {
         ((bars.last().unwrap().open_time_ms - bars.first().unwrap().open_time_ms) as f64)
@@ -437,16 +509,24 @@ pub fn run_gated_martin<S: SignalSource>(
 
     Ok(MartingaleBacktestResult {
         metrics: backtest_engine::martingale::metrics::MartingaleMetrics {
-            total_return_pct: if initial_equity > 0.0 { (ending_equity / initial_equity - 1.0) * 100.0 } else { 0.0 },
+            total_return_pct: if initial_equity > 0.0 {
+                (ending_equity / initial_equity - 1.0) * 100.0
+            } else {
+                0.0
+            },
             annualized_return_pct: ann,
             max_drawdown_pct: max_dd,
             global_drawdown_pct: Some(max_dd),
             max_strategy_drawdown_pct: Some(max_dd),
             monthly_win_rate_pct: None,
-            max_leverage_used: Some(cfg.leverage as f64),
-            min_liquidation_buffer_pct: Some(0.0),
-            total_fee_quote: Some(pos.fees),
-            total_slippage_quote: Some(pos.slippage),
+            max_leverage_used: Some(peak_effective_leverage),
+            min_liquidation_buffer_pct: Some(if min_liquidation_buffer_pct.is_finite() {
+                min_liquidation_buffer_pct
+            } else {
+                100.0
+            }),
+            total_fee_quote: Some(total_fees),
+            total_slippage_quote: Some(total_slippage),
             total_funding_quote: Some(0.0),
             planned_margin_quote: Some(cfg.fo_quote / cfg.leverage as f64),
             planned_notional_quote: Some(cfg.fo_quote),
@@ -498,6 +578,11 @@ fn apply_fill(pos: &mut Position, qty: f64, price: f64, fee: f64, slip: f64, ts:
     pos.qty = new_qty;
     pos.fees += fee;
     pos.slippage += slip;
+    if was_flat {
+        pos.cycle_open_cost = fee + slip;
+    } else {
+        pos.cycle_open_cost += fee + slip;
+    }
     pos.depth += 1;
     pos.last_fill_price = price;
     pos.last_fill_ts = ts;
@@ -523,22 +608,36 @@ fn close_position(pos: &mut Position, price: f64, cfg: &GatedMartinConfig) -> (f
     pos.last_fill_price = 0.0;
     pos.bars_in_position = 0;
     pos.scaled_out_once = false;
+    pos.cycle_open_cost = 0.0;
     (r, fee, slip)
 }
 
 /// Close a partial quantity (for ScaleOut TP). Does NOT reset depth-tracking
 /// fields; the remaining position keeps its avg_entry.
-fn partial_close_position(pos: &mut Position, qty_to_close: f64, price: f64, cfg: &GatedMartinConfig) -> (f64, f64, f64) {
+fn partial_close_position(
+    pos: &mut Position,
+    qty_to_close: f64,
+    price: f64,
+    cfg: &GatedMartinConfig,
+) -> (f64, f64, f64) {
     if qty_to_close.abs() < 1e-12 || pos.qty.abs() < 1e-12 {
         return (0.0, 0.0, 0.0);
     }
-    let close_qty = if qty_to_close.abs() > pos.qty.abs() { pos.qty } else { qty_to_close };
+    let qty_before = pos.qty.abs();
+    let close_qty = if qty_to_close.abs() > qty_before {
+        pos.qty
+    } else {
+        qty_to_close
+    };
     let realized = (price - pos.avg_entry) * close_qty;
     let notional = close_qty.abs() * price;
     let fee = notional * cfg.fee_bps / 10_000.0;
     let slip = notional * cfg.slippage_bps / 10_000.0;
     pos.realized += realized - fee - slip;
     pos.qty -= close_qty;
+    if qty_before > 1e-12 {
+        pos.cycle_open_cost *= (pos.qty.abs() / qty_before).clamp(0.0, 1.0);
+    }
     (realized - fee - slip, fee, slip)
 }
 
@@ -548,8 +647,42 @@ fn unrealized(pos: &Position, price: f64) -> f64 {
 
 fn net_pnl_after_cost(pos: &Position, price: f64, cfg: &GatedMartinConfig) -> f64 {
     let gross = (price - pos.avg_entry) * pos.qty;
-    let close_fee = pos.qty.abs() * price * cfg.fee_bps / 10_000.0;
-    gross - close_fee
+    let close_cost = pos.qty.abs() * price * (cfg.fee_bps + cfg.slippage_bps) / 10_000.0;
+    gross - pos.cycle_open_cost - close_cost
+}
+
+fn reserve_ok(
+    available_equity: f64,
+    current_notional: f64,
+    new_notional: f64,
+    following_so_notional: f64,
+    cfg: &GatedMartinConfig,
+) -> bool {
+    if available_equity <= 0.0 || cfg.leverage == 0 {
+        return false;
+    }
+    let projected_notional = current_notional + new_notional;
+    let leverage = cfg.leverage as f64;
+    if projected_notional > available_equity * leverage {
+        return false;
+    }
+    let round_trip_bps = cfg.fee_bps + cfg.slippage_bps;
+    let projected_margin = projected_notional / leverage;
+    let projected_maintenance = cfg.filters.maintenance_margin(projected_notional);
+    let projected_close_cost = projected_notional * round_trip_bps / 10_000.0;
+    let following_margin = following_so_notional / leverage;
+    let following_open_cost = following_so_notional * round_trip_bps / 10_000.0;
+    projected_margin
+        + projected_maintenance
+        + projected_close_cost
+        + following_margin
+        + following_open_cost
+        <= available_equity
+}
+
+fn layer_quote_for_depth(fo_quote: f64, filled_depth: u32) -> f64 {
+    let next_layer = (filled_depth as usize).min(SOFT_LADDER.len() - 1);
+    fo_quote * SOFT_LADDER[next_layer]
 }
 
 fn ev(ts: i64, etype: &str, price: f64, pnl: f64) -> MartingaleBacktestEvent {
@@ -589,16 +722,31 @@ mod tests {
     struct AlwaysOn;
     impl SignalSource for AlwaysOn {
         fn gate(&self, _: usize, _: i64, _: f64) -> SignalGate {
-            SignalGate { long_fo: true, short_fo: false, so_allowed: true, force_abort: false }
+            SignalGate {
+                long_fo: true,
+                short_fo: false,
+                so_allowed: true,
+                force_abort: false,
+            }
         }
     }
 
     fn bars_mean_revert() -> Vec<KlineBar> {
         // price dips then reverts -> long FO should profit
         let mut v = Vec::new();
-        let prices: Vec<f64> = (0..200).map(|t| 100.0 - 10.0 * (((t as f64) * 0.1).sin()) ).collect();
+        let prices: Vec<f64> = (0..200)
+            .map(|t| 100.0 - 10.0 * (((t as f64) * 0.1).sin()))
+            .collect();
         for (t, p) in prices.iter().enumerate() {
-            v.push(KlineBar { symbol: "X".into(), open_time_ms: (t as i64) * 60_000, open: *p, high: *p, low: *p, close: *p, volume: 1.0 });
+            v.push(KlineBar {
+                symbol: "X".into(),
+                open_time_ms: (t as i64) * 60_000,
+                open: *p,
+                high: *p,
+                low: *p,
+                close: *p,
+                volume: 1.0,
+            });
         }
         v
     }
@@ -620,10 +768,120 @@ mod tests {
             max_legs: 4,
         };
         let res = run_gated_martin(&cfg, &bars_mean_revert(), &AlwaysOn).unwrap();
-        let s = res.rejection_reasons.iter().find(|s| s.starts_with("GATED_SUMMARY:")).unwrap();
+        let s = res
+            .rejection_reasons
+            .iter()
+            .find(|s| s.starts_with("GATED_SUMMARY:"))
+            .unwrap();
         assert!(s.contains("M1_gated_martin"));
         // should have opened at least one FO
         let v: serde_json::Value = serde_json::from_str(&s["GATED_SUMMARY:".len()..]).unwrap();
         assert!(v["fo"].as_u64().unwrap() >= 1, "fo={}", v["fo"]);
+    }
+
+    #[test]
+    fn soft_ladder_does_not_skip_the_first_safety_layer() {
+        assert_eq!(layer_quote_for_depth(100.0, 1), 125.0);
+        assert_eq!(layer_quote_for_depth(100.0, 2), 155.0);
+        assert_eq!(layer_quote_for_depth(100.0, 3), 190.0);
+    }
+
+    #[test]
+    fn forced_close_cost_is_in_final_equity() {
+        let cfg = GatedMartinConfig {
+            symbol: "X".into(),
+            filters: ExchangeFilters::default_for("X"),
+            budget_quote: 1000.0,
+            fo_quote: 100.0,
+            adverse_spacing_frac: 0.05,
+            tp_net_bps_floor: 10_000.0,
+            fee_bps: 2.0,
+            slippage_bps: 1.0,
+            leverage: 2,
+            direction_bias: 1,
+            tp_mode: TpMode::Fixed,
+            max_legs: 1,
+        };
+        let bars = vec![
+            KlineBar {
+                symbol: "X".into(),
+                open_time_ms: 0,
+                open: 100.0,
+                high: 100.0,
+                low: 100.0,
+                close: 100.0,
+                volume: 1.0,
+            },
+            KlineBar {
+                symbol: "X".into(),
+                open_time_ms: 60_000,
+                open: 100.0,
+                high: 100.0,
+                low: 100.0,
+                close: 100.0,
+                volume: 1.0,
+            },
+        ];
+
+        let res = run_gated_martin(&cfg, &bars, &AlwaysOn).unwrap();
+        let ending = res.equity_curve.last().unwrap().equity_quote;
+        assert!((ending - 999.94).abs() < 1e-9, "ending={ending}");
+        assert!((res.metrics.total_return_pct + 0.006).abs() < 1e-9);
+        assert_eq!(res.metrics.trade_count, 1);
+        assert_eq!(res.metrics.total_fee_quote, Some(0.04));
+        assert_eq!(res.metrics.total_slippage_quote, Some(0.02));
+    }
+
+    #[test]
+    fn liquidation_terminates_at_zero_without_end_close() {
+        let cfg = GatedMartinConfig {
+            symbol: "X".into(),
+            filters: ExchangeFilters::default_for("X"),
+            budget_quote: 1000.0,
+            fo_quote: 1000.0,
+            adverse_spacing_frac: 0.05,
+            tp_net_bps_floor: 10_000.0,
+            fee_bps: 2.0,
+            slippage_bps: 1.0,
+            leverage: 2,
+            direction_bias: 1,
+            tp_mode: TpMode::Fixed,
+            max_legs: 1,
+        };
+        let bars = vec![
+            KlineBar {
+                symbol: "X".into(),
+                open_time_ms: 0,
+                open: 100.0,
+                high: 100.0,
+                low: 100.0,
+                close: 100.0,
+                volume: 1.0,
+            },
+            KlineBar {
+                symbol: "X".into(),
+                open_time_ms: 60_000,
+                open: 0.01,
+                high: 0.01,
+                low: 0.01,
+                close: 0.01,
+                volume: 1.0,
+            },
+        ];
+
+        let res = run_gated_martin(&cfg, &bars, &AlwaysOn).unwrap();
+        assert_eq!(res.equity_curve.last().unwrap().equity_quote, 0.0);
+        assert_eq!(res.metrics.total_return_pct, -100.0);
+        assert_eq!(
+            res.events
+                .iter()
+                .filter(|event| event.event_type == "gated_liquidation")
+                .count(),
+            1
+        );
+        assert!(res
+            .events
+            .iter()
+            .all(|event| event.event_type != "gated_force_close_end"));
     }
 }

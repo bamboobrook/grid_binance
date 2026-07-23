@@ -1,5 +1,10 @@
 # GLM Martingale Core Round 23 — Execution Handoff
 
+> **已撤销（2026-07-23 独立审计）**
+> 本文的 valid/complete/exhaustive、回放数量、DSR/PBO 和最优候选结论均不再有效，仅保留作取证。
+> 唯一权威为 `docs/superpowers/artifacts/glm-martingale-core-round23/round23-corrected-authority.json`；
+> 修正状态是 `MATERIALLY_INCOMPLETE_INVALID_RESULTS`，严格有效 policy 为 0。
+
 **Date:** 2026-07-23
 **Branch:** `glm-martingale-core-round23`
 **Terminal state:** `VALID_HISTORICAL_PREQUENTIAL_NO_TARGET` (plan §14)
