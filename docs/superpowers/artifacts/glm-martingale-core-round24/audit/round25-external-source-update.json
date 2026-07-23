@@ -1,0 +1,110 @@
+{
+  "schema_version": 1,
+  "searched_at": "2026-07-23T12:53:10+08:00",
+  "purpose": "筛选前 24 轮没有获得有效 order-level replay、且可严格转化为 Martin FO/SO/TP/abort 的机制",
+  "search_channels": [
+    "OpenAlex works API",
+    "Crossref works API",
+    "publisher full-text HTML/PDF",
+    "repository-wide exact DOI/mechanism search"
+  ],
+  "primary_source": {
+    "doi": "10.1186/s40854-024-00702-7",
+    "title": "Copula-based trading of cointegrated cryptocurrency Pairs",
+    "journal": "Financial Innovation",
+    "published": "2025-01-13",
+    "publisher_url": "https://jfin-swufe.springeropen.com/articles/10.1186/s40854-024-00702-7",
+    "pdf_url": "https://jfin-swufe.springeropen.com/counter/pdf/10.1186/s40854-024-00702-7",
+    "pdf_sha256": "61541b3b501d0491c1a635cfe5067aba0439fc6612ee0159b678d6373e5bcecb",
+    "pdf_bytes": 3508722,
+    "pdf_pages": 32,
+    "html_sha256": "c6df4dab1dfc9fce26964de61f1fbc6d97fc1886e13f1ab0306fcab7e63843ca",
+    "table6_html_sha256": "39404206bbf5b21f99ace2deb41b875e6872dbbba59d4699013da17462fbb20a",
+    "verified_sections": [
+      "Cryptocurrency exchange and data source",
+      "Implementation methodology",
+      "Key assumptions and limitations",
+      "Empirical results",
+      "Conclusion"
+    ],
+    "verified_mechanism": [
+      "以 BTCUSDT 为 reference asset，为每个 alt 构造 stationary spread S_i = BTC - beta_i*alt_i",
+      "使用 formation-only EG/KSS 与 Kendall tau 选 spread pairs",
+      "对两个 stationary spreads 拟合 marginal 与 copula，以 conditional probabilities 生成相对误价信号",
+      "交易两只 alt 的多空腿，BTC 只作 reference signal，不必成为收益腿"
+    ],
+    "reported_numbers_not_imported": {
+      "best_5m_eg_annualized_net_return_pct": 75.2,
+      "best_5m_eg_max_drawdown_pct": 30.5,
+      "best_5m_eg_sharpe": 3.77,
+      "hourly_eg_max_drawdown_range_pct": "36.6-41.6",
+      "kss_5m_max_drawdown_pct": "160.0-163.5"
+    },
+    "limitations": [
+      "仅 2021-01-01 至 2023-01-19，不能证明穿越当前牛熊",
+      "104 个高度重叠的三周 formation/一周 trading cycles",
+      "entry thresholds 在同一历史样本 back-test 后比较，缺少 nested prequential selection",
+      "每侧初始资金约 20000U，不满足用户小资金条件",
+      "只建模 market-order commission；没有 funding、maintenance、liquidation、partial fill、legging、shared next-SO reserve",
+      "原策略不是 Martingale，没有亏损后递增 SO"
+    ],
+    "round25_allowed_translation": [
+      "只采用 reference-spread conditional-copula mispricing 作为 Martin FO/SO/TP/abort 的信号",
+      "所有 pair、marginal、copula family、threshold 只在 outer block 之前的 fit 数据确定",
+      "至少三组 disjoint pairs、六个实际成交 alt assets、一个 shared account",
+      "不导入论文选出的币、20k sizing、重叠周结果、KSS 配置或收益数字"
+    ]
+  },
+  "secondary_sources": [
+    {
+      "doi": "10.1214/21-AOAS1568",
+      "title": "Asymmetric tail dependence modeling, with application to cryptocurrency market data",
+      "verified_via": "OpenAlex abstract plus DOI landing metadata",
+      "finding": "上下尾依赖可不同且随时间变化；长仓与短仓需要分别看 lower/upper tail risk。",
+      "round25_use": "仅作为 train-only asymmetric-tail SO/admission veto；不得产生方向、独立收益或 leverage。",
+      "status": "conditional_enhancement_only"
+    },
+    {
+      "doi": "10.1038/s41598-022-21192-6",
+      "title": "Pairwise and high-order dependencies in the cryptocurrency trading network",
+      "pdf_sha256": "f4801735106a3b747561d7c64c77ab6d773554db39dfdc71c55567e428402337",
+      "pdf_bytes": 8730937,
+      "finding": "pairwise 与 high-order dependency 提供互补信息。",
+      "round25_use": "不立新 family；此前 correlation/MST/cluster 已多轮出现，避免换名重复。",
+      "status": "rejected_as_primary_overlap"
+    },
+    {
+      "doi": "10.1007/s10203-021-00318-x",
+      "title": "Common dynamic factors for cryptocurrencies and multiple pair-trading statistical arbitrages",
+      "pdf_sha256": "483272a52caa345743a6f5b3020692e4ffc419b354ad26824f7a28c1269919f8",
+      "pdf_bytes": 1201489,
+      "finding": "dynamic factor 中 stationary factor 可构造多对 long-short。",
+      "round25_use": "不再执行；Round 18-23 已有 PC1/VECM/Johansen/dynamic-factor fingerprints。",
+      "status": "rejected_duplicate_scope"
+    },
+    {
+      "doi": "10.1016/j.ribaf.2025.103163",
+      "title": "Bitcoin wild moves: Evidence from order flow toxicity and price jumps",
+      "finding": "VPIN/toxicity 与 jumps 有关。",
+      "round25_use": "不执行；与 Round 23/24 F3 order-flow exhaustion 重叠，且完整 aggTrades/depth 数据仍阻断。",
+      "status": "deferred_incomplete_data_and_overlap"
+    }
+  ],
+  "novelty_check": {
+    "repository_exact_primary_doi_hits_before_this_update": 0,
+    "repository_copula_mentions_before_this_update": "Round 22 taskbook only; no executable copula family, registry replay or corrected valid result",
+    "not_duplicates": [
+      "ordinary z-score residual pair Martin",
+      "PC1/Johansen/VECM basket",
+      "generic EMA/ADX/RSI regime gate",
+      "strict OI/depth/taker-flow exhaustion",
+      "finished equity-curve allocation"
+    ],
+    "mechanism_delta": "conditional copula tail probabilities over two BTC-reference stationary spreads must alter real two-alt FO/SO/TP/rejection traces"
+  },
+  "decision": {
+    "primary_round25_family": "C1_REFERENCE_ASSET_CONDITIONAL_COPULA_MARTIN",
+    "conditional_risk_enhancement": "C2_ASYMMETRIC_TAIL_SO_VETO",
+    "reason": "使用现有完整 1m perp/funding 数据即可构造 completed 5m 信号，避免再次被缺失 order-flow archives 阻断；信号结构与前 24 轮有效 fingerprints 不同。"
+  }
+}

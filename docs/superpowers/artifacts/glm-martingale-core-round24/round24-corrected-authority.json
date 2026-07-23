@@ -1,0 +1,49 @@
+{
+  "authority_version": 2,
+  "corrected_at": "2026-07-23T12:53:10+08:00",
+  "historical_backtest_only": true,
+  "supersedes": "docs/superpowers/artifacts/glm-martingale-core-round24/round24-authority.json",
+  "independent_audit": "docs/superpowers/artifacts/glm-martingale-core-round24/audit/round24-independent-audit.json",
+  "corrected_failure_ledger": "docs/superpowers/artifacts/glm-martingale-core-round24/audit/round24-corrected-failure-ledger.jsonl",
+  "corrected_state": "MATERIALLY_INCOMPLETE_INVALID_RESULTS",
+  "target_hit": false,
+  "frontier_progress": false,
+  "strict_valid_candidates": 0,
+  "strict_valid_five_of_five_candidates": 0,
+  "best_strict_candidate": null,
+  "validly_closed_round24_f1_fingerprints": 0,
+  "executed_but_invalid_round24_f1_replays": 16,
+  "latest_tiers": {
+    "conservative": {"annualized_return_pct_min": 50.0, "max_equity_drawdown_pct_max": 10.0, "hit": false},
+    "balanced": {"annualized_return_pct_min": 90.0, "max_equity_drawdown_pct_max": 20.0, "hit": false},
+    "aggressive": {"annualized_return_pct_min": 100.0, "max_equity_drawdown_pct_max": 30.0, "hit": false}
+  },
+  "phase_status": {
+    "R0": "partial_metadata_validator_only",
+    "R1": "partial_unit_contract_not_scored_path_complete",
+    "R2": "invalid_for_f1_and_blocked_for_f3",
+    "R3": "complete_preregistration_only",
+    "G0": "invalid_binding",
+    "G1": "quota_complete_results_invalid",
+    "F3_M1": "blocked_incomplete_data",
+    "F3_M2": "blocked_incomplete_data",
+    "E1": "not_applicable_no_valid_parent",
+    "F2": "not_applicable_no_two_valid_parents",
+    "G2": "not_applicable_no_valid_survivor",
+    "R8": "no_target_but_round_invalid"
+  },
+  "preserved_valid_evidence": {
+    "registry_pairs": "19 running + 19 terminal + 19 unique",
+    "trace_refs": "152/152 SHA256, bytes, rows and JSONL parse verified",
+    "tests": "24/24 pass",
+    "git": "remote branch equals audited clean commit; required commit-body fields present"
+  },
+  "invalidated_claims": [
+    "F1 16/16 are valid economic failures",
+    "R24 F1 exact fingerprints are closed and must never be retried after engine repair",
+    "G0 proves the scored worsening-veto and scheduler path is bound",
+    "R1 account tests make G1 Binance-executable",
+    "BLOCKED_ENGINE_DATA_OR_EXECUTION is the complete Round 24 state"
+  ],
+  "next_authority": "docs/superpowers/plans/2026-07-23-glm-martingale-core-round25-reference-copula-recovery-plan.md"
+}

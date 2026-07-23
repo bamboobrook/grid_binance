@@ -1,0 +1,133 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-07-23T12:53:10+08:00",
+  "historical_backtest_only": true,
+  "authority_inputs": [
+    "docs/superpowers/artifacts/glm-martingale-core-round23/audit/round1-23-consolidated-frontier.json",
+    "docs/superpowers/artifacts/glm-martingale-core-round24/audit/round24-independent-audit.json"
+  ],
+  "latest_user_contract": {
+    "martin_is_only_return_engine": true,
+    "principal_u_strictly_below": 5000,
+    "minimum_actual_base_assets": 5,
+    "continuous_shared_account": true,
+    "anti_overfit_required": true,
+    "live_reproducibility_required": true,
+    "tiers": {
+      "conservative": {"annualized_return_pct_min": 50.0, "max_equity_drawdown_pct_max": 10.0},
+      "balanced": {"annualized_return_pct_min": 90.0, "max_equity_drawdown_pct_max": 20.0},
+      "aggressive": {"annualized_return_pct_min": 100.0, "max_equity_drawdown_pct_max": 30.0}
+    }
+  },
+  "strict_summary": {
+    "rounds_reviewed": 24,
+    "strict_valid_target_candidates": 0,
+    "strict_valid_five_of_five_candidates": 0,
+    "target_hit": false,
+    "round24_added_valid_frontier": false
+  },
+  "round_representatives": [
+    {"round": 1, "id": "glm-mart-core-aggressive-008-best", "ann_pct": 22.2, "dd_pct": 26.1, "stability": "3/5 legacy", "principal_u": 5000, "assets": 6, "strict_valid": false},
+    {"round": 2, "id": "r2-H-best-cd12h", "ann_pct": 28.6, "dd_pct": 22.5, "stability": "4/5 legacy", "principal_u": 5000, "assets": 6, "strict_valid": false},
+    {"round": 3, "id": "r3-P1-best-cd11", "ann_pct": 34.5, "dd_pct": 17.8, "stability": "4/5 legacy", "principal_u": 5000, "assets": 6, "strict_valid": false},
+    {"round": 4, "id": "R4 corrected canonical CLI", "ann_pct": 34.8121, "dd_pct": 17.6672, "stability": "4/5", "principal_u": 4999, "assets": 6, "strict_valid": false},
+    {"round": 5, "id": "r5-G-best-ANKRUSDT", "ann_pct": 59.5, "dd_pct": 32.1, "stability": "4/5 legacy", "principal_u": 5000, "assets": 6, "strict_valid": false},
+    {"round": 6, "id": "q1w24p24 XRP quarantine", "ann_pct": 55.8, "dd_pct": 25.0, "stability": "4/5 legacy", "principal_u": 5000, "assets": 6, "strict_valid": false},
+    {"round": 7, "id": "ANKR_q1w24p24 corrected", "ann_pct": 62.5129, "dd_pct": 28.6242, "stability": "4/5; holdout negative", "principal_u": 4999, "assets": 6, "strict_valid": false},
+    {"round": 8, "id": "P2 allocator corrected timing diagnostic", "ann_pct": 60.4, "dd_pct": 18.2, "stability": "no valid five-event replay", "principal_u": null, "assets": 8, "strict_valid": false},
+    {"round": 9, "id": "r9-P5 allocator", "ann_pct": 64.4196, "corrected_ann_pct": 62.7845, "dd_pct": 18.384, "stability": "5/5 curve slices", "principal_u": null, "assets": 8, "strict_valid": false},
+    {"round": 10, "id": "Round 9 allocator carry-forward", "ann_pct": 64.4196, "dd_pct": 18.2111, "stability": "inherited curve diagnostic", "principal_u": null, "assets": 8, "strict_valid": false},
+    {"round": 11, "id": "R9 allocator funding-corrected", "ann_pct": 62.7845, "dd_pct": 18.384, "stability": "5/5 curve slices", "principal_u": null, "assets": 8, "strict_valid": false},
+    {"round": 12, "id": "R4 corrected replay", "ann_pct": 34.7233, "dd_pct": 17.6843, "stability": "4/5; holdout negative", "principal_u": 4999, "assets": 6, "strict_valid": false},
+    {"round": 13, "id": "R7 corrected carry-forward", "ann_pct": 62.5129, "dd_pct": 28.6242, "stability": "4/5", "principal_u": 4999, "assets": 6, "strict_valid": false},
+    {"round": 14, "id": "R4 corrected XS-REV72 active2", "ann_pct": 28.7659, "dd_pct": 21.804, "stability": "3/5", "principal_u": 4999, "assets": 6, "strict_valid": false},
+    {"round": 15, "id": "T3-8 fo45/m2.2/spacing150/max_legs5/partial-TP", "ann_pct": 42.107, "dd_pct": 29.9014, "stability": "cold starts include breach", "principal_u": 4999, "assets": null, "strict_valid": false},
+    {"round": 16, "id": "T3-8 fo15/m1.32 full corrected", "ann_pct": -2.1142, "dd_pct": 31.7622, "stability": "0/5", "principal_u": 4999, "assets": null, "strict_valid": false},
+    {"round": 17, "id": "seven-arm inert ablation", "ann_pct": -34.1137, "dd_pct": 11.0979, "stability": "inert", "principal_u": null, "assets": null, "strict_valid": false},
+    {"round": 18, "id": "M1_067|1000|F4 corrected diagnostic", "ann_pct": 5.2086, "dd_pct": 1.2947, "stability": "diagnostic only", "principal_u": 1000, "assets": 8, "strict_valid": false},
+    {"round": 19, "id": "M1R_F3_044@1000", "ann_pct": 41.4309, "dd_pct": 6.2723, "stability": "5/5 inner-train only", "principal_u": 1000, "assets": 6, "strict_valid": false},
+    {"round": 20, "id": "best continued config independent replay", "ann_pct": 17.7183, "dd_pct": 4.5491, "stability": "diagnostic only", "principal_u": 1000, "assets": null, "strict_valid": false},
+    {"round": 21, "id": "best fixed policy stitched", "ann_pct": null, "compounded_return_pct": -52.0478, "dd_pct": 50.9637, "stability": "<=5/12", "principal_u": 500, "assets": 10, "strict_valid": false},
+    {"round": 22, "id": "cross_section_7d_reversal/budget500/m3/fo120/ez1/ml4", "ann_pct": 31.1854, "dd_pct": 9.8671, "stability": "6/12; one block +121%", "principal_u": 500, "assets": 2, "strict_valid": false},
+    {"round": 23, "id": "BTC corrected-engine forensic recheck", "ann_pct": 19.5927, "dd_pct": 20.8213, "stability": "5/5", "principal_u": 1000, "assets": 1, "strict_valid": false},
+    {"round": 24, "id": "R24-F1-11", "ann_pct": -2.7165, "dd_pct": 7.7284, "stability": "0 positive blocks", "principal_u": 1000, "assets": 6, "strict_valid": false, "classification": "invalid_forensic_only"}
+  ],
+  "top_multi_asset_research_leads": [
+    {
+      "rank": 1,
+      "id": "M1R_F3_044@1000",
+      "round": 19,
+      "why_ranked": "最接近 50/10 形状且本金仅 1000U",
+      "ann_pct": 41.4309,
+      "dd_pct": 6.2723,
+      "stability": "5/5 inner-train only",
+      "principal_u": 1000,
+      "leverage": 3,
+      "groups": ["LTCUSDT-TRXUSDT", "BCHUSDT-ETHUSDT", "XRPUSDT-BNBUSDT"],
+      "weight_contract": "three groups use 60U FO and 25% group cap; exact leg weights are not promotable because the audited engine binding is invalid",
+      "disqualifiers": ["inner-train look-ahead", "max symbol/group positive contribution about 56%", "no valid exchange execution/filter/liquidation path"]
+    },
+    {
+      "rank": 2,
+      "id": "r9-P5-winner funding-corrected",
+      "round": 9,
+      "why_ranked": "最高的分散化研究 ann/DD 且 5/5 curve slices",
+      "ann_pct": 62.7845,
+      "dd_pct": 18.384,
+      "stability": "5/5 curve slices",
+      "principal_u": null,
+      "leverage": "varies by inherited sleeve; not jointly validated",
+      "symbols": ["AAVEUSDT", "ANKRUSDT", "BCHUSDT", "BNBUSDT", "DOTUSDT", "SOLUSDT", "TRXUSDT", "XRPUSDT"],
+      "weight_contract": "60-day lookback, 7-day rebalance, dynamic sleeve weights; no fixed per-symbol weight",
+      "disqualifiers": ["finished equity-curve allocator", "no event-level position continuity", "no shared reserve", "strict sub-5000U minimum unknown"]
+    },
+    {
+      "rank": 3,
+      "id": "ANKR_q1w24p24 corrected",
+      "round": 7,
+      "why_ranked": "最高的可定位原生多空马丁组合收益之一",
+      "ann_pct": 62.5129,
+      "dd_pct": 28.6242,
+      "stability": "4/5; 2025 negative",
+      "principal_u": 4999,
+      "leverage": 10,
+      "long_weights_pct": {"BNBUSDT": 13.3, "TRXUSDT": 13.3, "ANKRUSDT": 13.3},
+      "short_weights_pct": {"AAVEUSDT": 8.0, "SOLUSDT": 8.0, "DOTUSDT": 8.0},
+      "disqualifiers": ["1000-4000U ann collapses to 1.28%-5.51%", "DD above conservative and balanced caps", "opened holdout negative", "10x exceeds latest effective leverage caps"]
+    },
+    {
+      "rank": 4,
+      "id": "R4 corrected canonical CLI",
+      "round": 4,
+      "why_ranked": "最清楚可定位的旧 event-level 六币基线",
+      "ann_pct": 34.8121,
+      "dd_pct": 17.6672,
+      "stability": "4/5; 2025 negative",
+      "principal_u": 4999,
+      "leverage": 10,
+      "long_weights_pct": {"BNBUSDT": 13.3, "TRXUSDT": 13.3, "BCHUSDT": 13.3},
+      "short_weights_pct": {"AAVEUSDT": 8.0, "SOLUSDT": 8.0, "DOTUSDT": 8.0},
+      "disqualifiers": ["1000U and 2000U negative", "positive-net concentration 51.09%", "DD misses conservative cap", "10x exceeds latest effective leverage caps"]
+    },
+    {
+      "rank": 5,
+      "id": "xrpq20_r460",
+      "round": 6,
+      "why_ranked": "旧组合中较低 DD 的风险预算混合诊断",
+      "ann_pct": 33.9558,
+      "dd_pct": 18.0331,
+      "stability": "4/5; 2025 negative",
+      "principal_u": 5000,
+      "leverage": 10,
+      "symbols": ["AAVEUSDT", "BCHUSDT", "BNBUSDT", "DOTUSDT", "SOLUSDT", "TRXUSDT", "XRPUSDT"],
+      "weight_contract": "20% XRP-quarantine curve plus 60% R4 curve; duplicate strategy rows, not one event-level shared account",
+      "disqualifiers": ["principal is not below 5000U", "curve blend rather than joint event engine", "2025 negative", "10x leverage"]
+    }
+  ],
+  "excluded_headlines": [
+    {"id": "Round14 3000U ann=50.70/DD=20.29/5-of-5", "reason": "revoked after canonical loader and selector fixes"},
+    {"id": "Round14 4999U ann=35.07/DD=13.56/5-of-5", "reason": "revoked after canonical loader and selector fixes"},
+    {"id": "Round23 BTC 25.69/23.54", "reason": "single symbol, omitted funding, invalid registry/trial correction"},
+    {"id": "Round24 best -2.72/7.73", "reason": "current-hour look-ahead and invalid scored engine; forensic only"}
+  ]
+}

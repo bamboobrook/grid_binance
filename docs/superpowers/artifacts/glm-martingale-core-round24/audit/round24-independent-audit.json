@@ -1,0 +1,182 @@
+{
+  "schema_version": 1,
+  "audit_id": "chatgpt-round24-20260723",
+  "audited_commit": "1841e806c49c87afe2e6e814cb767e76c7250ab8",
+  "audited_upstream": "1841e806c49c87afe2e6e814cb767e76c7250ab8",
+  "audited_worktree_dirty": false,
+  "historical_backtest_only": true,
+  "original_state": "BLOCKED_ENGINE_DATA_OR_EXECUTION",
+  "corrected_state": "MATERIALLY_INCOMPLETE_INVALID_RESULTS",
+  "target_hit": false,
+  "strict_valid_candidates": 0,
+  "strict_valid_five_of_five_candidates": 0,
+  "round24_exact_fingerprints_validly_closed": 0,
+  "round24_f1_replays_executed_but_invalid": 16,
+  "administrative_evidence": {
+    "registry_running_rows": 19,
+    "registry_terminal_rows": 19,
+    "registry_unique_experiments": 19,
+    "registry_reported_violations": 0,
+    "trace_refs_recomputed": 152,
+    "trace_ref_mismatches": 0,
+    "trace_jsonl_parse_failures": 0,
+    "tracked_trace_files": 186,
+    "r24_commits_missing_required_log_fields": 0,
+    "remote_branch_head_matches_audited_commit": true,
+    "tests": {
+      "command": "cargo test -p r24-registry -p r24-engine -p r24-research",
+      "passed": 24,
+      "failed": 0
+    },
+    "interpretation": "文件、registry、trace 和单元测试证据完整，不代表 scored replay 的经济语义正确。"
+  },
+  "phase_audit": {
+    "R0": {
+      "status": "partial_metadata_validator_only",
+      "reason": "32/32 metadata canaries 被拒绝，但 validator 没有验证 completed-bar 成交边界、G0 helper 到 G1 的调用绑定、主动 next-SO reserve、交易所 rounding 或动态贡献限额。"
+    },
+    "R1": {
+      "status": "partial_unit_contract_not_scored_path_complete",
+      "reason": "15 个 shared-account 单测通过；F1 scored path 仍未执行 filter/rounding、持续 next-SO reserve、partial/reject/delay 或真实 symbol/group quota。"
+    },
+    "R2": {
+      "status": "invalid_for_claimed_f1_execution_contract",
+      "reason": "perp kline/funding 完整，但只使用 current filter snapshot 与静态 maintenance；任务书要求主 universe 历史 filters/maintenance 完整并在 event time 生效。F3 数据阻断判断本身正确。"
+    },
+    "R3": {
+      "status": "complete_preregistration_only",
+      "reason": "52 个条件模板及 16 个 F1 policy 在收益前冻结；冻结不能挽救后续 replay 语义错误。"
+    },
+    "G0": {
+      "status": "invalid_binding",
+      "reason": "allow_so 的 worsening veto 只在 synthetic helper 中测试，G1 replay 从未调用；scheduler 三臂仅对三条手工字符串排序，真实 G0 四窗 order delta=false，不能证明 scored path 的 order-level binding。"
+    },
+    "G1": {
+      "status": "quota_complete_results_invalid",
+      "reason": "16/16 policy 进程和 traces 存在，但 current-hour close look-ahead、缺 reserve/filter/quota、错误单-family gate 与成本漏记使收益、DD 和 P-B 结论不可用于淘汰机制。"
+    },
+    "F3_M1": {
+      "status": "blocked_incomplete_data",
+      "reason": "metrics 缺 2023-01-01 至 2023-06-30。"
+    },
+    "F3_M2": {
+      "status": "blocked_incomplete_data",
+      "reason": "bookDepth 不足六币完整窗口，aggTrades 仅到 2023-07-15。"
+    },
+    "E1": {
+      "status": "not_applicable_no_valid_parent",
+      "reason": "没有有效 G1 P-B parent。"
+    },
+    "F2": {
+      "status": "not_applicable_no_two_valid_parents",
+      "reason": "没有两个不同机制的有效 G1 P-B parents。"
+    },
+    "G2": {
+      "status": "not_applicable_no_valid_survivor",
+      "reason": "没有有效 G1 survivor。"
+    },
+    "R8": {
+      "status": "correct_no_target_but_invalid_round",
+      "reason": "三档均未命中是正确的保守结论；不能把该轮写成有效完成或关闭 F1 方向。"
+    }
+  },
+  "code_findings": [
+    {
+      "id": "R24-A01",
+      "severity": "critical",
+      "path": "crates/r24-research/src/residual.rs",
+      "line": 68,
+      "finding": "每小时最后一根 1m close 被标记成该小时 open timestamp；replay 在同 timestamp mark、算 z 并成交，实际读取未来约 59 分钟。",
+      "effect": "全部 G0/G1 实盘因果性声明失效。"
+    },
+    {
+      "id": "R24-A02",
+      "severity": "critical",
+      "path": "crates/r24-research/src/replay.rs",
+      "line": 243,
+      "finding": "scored SO 只检查 net loss 与 adverse distance，没有调用 G0::allow_so，也没有 stationarity-still-valid 或 residual-worsening veto。",
+      "effect": "G0 通过的是未绑定 helper，非真实 Martingale order path。"
+    },
+    {
+      "id": "R24-A03",
+      "severity": "critical",
+      "path": "crates/r24-research/src/replay.rs",
+      "line": 254,
+      "finding": "next-SO reserve 仅在 SO 已触发时临时申请并立即消费；FO/每层成交后未持续为所有 active groups 预留下一层、close 和 maintenance。",
+      "effect": "shared-account 可接受任务书本应拒绝的新 FO，最小本金和可执行性不可审计。"
+    },
+    {
+      "id": "R24-A04",
+      "severity": "critical",
+      "path": "crates/r24-engine/src/lib.rs",
+      "line": 623,
+      "finding": "scored submit path 不读取 PRICE_FILTER、LOT_SIZE、MARKET_LOT_SIZE 或 NOTIONAL，不做 qty/price rounding，也不执行 per-symbol historical maintenance tier。",
+      "effect": "订单、资金占用、拒绝和收益不能称 Binance 可复现。"
+    },
+    {
+      "id": "R24-A05",
+      "severity": "critical",
+      "path": "crates/r24-research/src/replay.rs",
+      "line": 414,
+      "finding": "单一 F1 family 的正贡献被定义为 100%，随后 family>50% 立即失败。",
+      "effect": "任何单-family policy 数学上都不可能通过 P-B，parent gate 构成自锁。"
+    },
+    {
+      "id": "R24-A06",
+      "severity": "high",
+      "path": "crates/r24-research/src/replay.rs",
+      "line": 163,
+      "finding": "所谓动态 35% concentration repair 只在 block 开始复制一次 group contribution 并排序；没有实时 35% FO freeze、symbol/group reserved gross 25% cap，跨 block active groups 也可能与新 pair 共用 symbol。",
+      "effect": "贡献度失败不能被解释为已测试过计划中的 repair。"
+    },
+    {
+      "id": "R24-A07",
+      "severity": "high",
+      "path": "crates/r24-research/src/replay.rs",
+      "line": 327,
+      "finding": "frozen legs 固定写 0.5/-0.5，未编码 long_y 方向或可审计的 beta sizing；下单量也始终为 gross*0.5/price。",
+      "effect": "任务书要求的 frozen pair weights/beta 与真实 order quantities 未绑定。"
+    },
+    {
+      "id": "R24-A08",
+      "severity": "high",
+      "path": "crates/r24-research/src/replay.rs",
+      "line": 437,
+      "finding": "cost_to_gross_profit 只累计 FO/SO fill fee+slippage；close、abort、end-close、funding/borrow 与 legging 成本未进入分子。",
+      "effect": "报告的成本占毛利比例系统性偏低。"
+    },
+    {
+      "id": "R24-A09",
+      "severity": "medium",
+      "path": "crates/r24-research/src/replay.rs",
+      "line": 364,
+      "finding": "block DD 用全局 max DD 的差值代替 block 内 running-peak DD；tb12 block 指标在 end-close 前落盘。",
+      "effect": "12-block DD/return 不能与 stitched 结果严格对账。"
+    }
+  ],
+  "forensic_round24_best_row": {
+    "policy_id": "R24-F1-11",
+    "annualized_return_pct": -2.716500713735215,
+    "max_equity_drawdown_pct": 7.728440078157599,
+    "actual_assets": 6,
+    "so_count": 23,
+    "classification": "invalid_forensic_only_not_candidate"
+  },
+  "corrective_actions": [
+    "在 Round 24 handoff 顶部写入 superseded 指针，不覆盖原始 traces。",
+    "发布 corrected authority，并撤销 16 个 F1 exact fingerprints 的有效关闭结论。",
+    "把全部九项 fail-close regression 作为 Round 25 R0 前置门。",
+    "Round 25 在任何收益 replay 前修复 scored Rust engine，再测试新 fingerprint。"
+  ],
+  "source_sha256": {
+    "round24_plan": "5b192ba3cba21171ff8c68a274c965c94f284a49e787c20d72bc43a099b62c5e",
+    "registry": "8acc6fcc7905699ebfc68e9729d1d623e3e716f6713fcd883eca0531fdce036f",
+    "g1": "95cf9047162ef040ee754cc36671e662499008f59ba21fea26e63bbf9f4c3019",
+    "original_authority": "a1069abb23a6d1c7da0c74860f621985897d1d0c8d30c4b9976bd7db60bd4b56",
+    "replay_rs": "f99efc9dba546c42a9f27dbbba0defe045ec862fdb6bc6542f1beed4a525ebe3",
+    "residual_rs": "4e49526f8793fcd32dca0bd4beafae3cf1ed850a4a64585fbb80ee41c1ad5596",
+    "g0_rs": "1e98e61c9fe4f74e00fc9aa4b01dc3b3f44432f97e733d0e2daa0c209b849b45",
+    "engine_rs": "55264945c30791657acae28d95870cc6e0c86af20954ded9a3d18819240b3a61",
+    "registry_rs": "b460d293efdb05a770713265b36ebc0745ce55c3a2746e3b4dcf18aa9f178ef0"
+  }
+}

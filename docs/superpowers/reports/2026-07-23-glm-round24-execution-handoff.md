@@ -1,3 +1,11 @@
+> **SUPERSEDED_BY_CHATGPT_AUDIT（2026-07-23）**
+>
+> 本交接的 registry/trace 数量仍可作取证，但 `F1 16/16 valid failures`、exact fingerprint 已关闭及
+> `BLOCKED_ENGINE_DATA_OR_EXECUTION` 完整状态已撤销。独立审计发现 current-hour look-ahead、G0 helper
+> 未绑定 scored path、缺主动 next-SO reserve/filter/rounding/动态 concentration，以及单-family 100%
+> 自锁门。唯一修正权威为
+> `docs/superpowers/artifacts/glm-martingale-core-round24/round24-corrected-authority.json`。
+
 # GLM Martingale Core Round 24 执行交接
 
 | 字段 | 权威值 |
