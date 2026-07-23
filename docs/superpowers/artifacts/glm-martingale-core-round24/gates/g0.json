@@ -1,0 +1,561 @@
+{
+  "F3_M1": "blocked_incomplete_data",
+  "F3_M2": "blocked_incomplete_data",
+  "git_commit": "9592dad6fa3ca4d3eaf6e4ec214828a73e5807bd",
+  "git_dirty": false,
+  "passed": true,
+  "phase": "G0",
+  "registry": {
+    "running_rows": 3,
+    "terminal_rows": 3,
+    "unique_experiments": 3,
+    "valid": true,
+    "violations": []
+  },
+  "result": {
+    "config_order_delta": false,
+    "config_rejection_state_delta": true,
+    "high_config_order_count": 0,
+    "high_config_order_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+    "high_config_state_hash": "374657b99fbdff5974796fe4b0c24b5fe235d4ad9457f18af61af21653ca79c1",
+    "label_swap_rejected": true,
+    "long_short_symmetric": true,
+    "low_config_order_count": 0,
+    "low_config_order_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+    "low_config_state_hash": "1a4c26013ccb55d854fd2ed4be3e6368a6d1524e93c001297aef9d4b3c7e7219",
+    "no_fit_is_rejection_not_deleted_window": true,
+    "one_bar_future_shift_rejected": true,
+    "passed": true,
+    "real_windows": [
+      {
+        "configs": [
+          {
+            "activation_order_count": 0,
+            "actual_assets": 0,
+            "best_kpss_diagnostics": [
+              {
+                "adf_t": -4.256418715763276,
+                "crossings": 59,
+                "eligible": true,
+                "half_life_hours": 22.71136788207116,
+                "kpss": 0.45344201728837646,
+                "pair": "LINKUSDT-LTCUSDT"
+              },
+              {
+                "adf_t": -5.239449557329112,
+                "crossings": 110,
+                "eligible": false,
+                "half_life_hours": 16.098132637527346,
+                "kpss": 0.5621922271589732,
+                "pair": "DOGEUSDT-LTCUSDT"
+              },
+              {
+                "adf_t": -2.9877406800874136,
+                "crossings": 69,
+                "eligible": false,
+                "half_life_hours": 49.29514507647388,
+                "kpss": 0.6090942607732067,
+                "pair": "BTCUSDT-ETHUSDT"
+              },
+              {
+                "adf_t": -3.6655665301992784,
+                "crossings": 73,
+                "eligible": false,
+                "half_life_hours": 32.11064323653173,
+                "kpss": 0.6129222524681849,
+                "pair": "BTCUSDT-BNBUSDT"
+              },
+              {
+                "adf_t": -3.1624511349613473,
+                "crossings": 45,
+                "eligible": false,
+                "half_life_hours": 42.77357128583417,
+                "kpss": 0.6836176648402369,
+                "pair": "BTCUSDT-XRPUSDT"
+              }
+            ],
+            "config": "low",
+            "diagnostic_pair_count": 25,
+            "eligible_pair_count": 1,
+            "entry_z": 1.5,
+            "fit_end_ms": 1706742000000,
+            "lookback_days": 60,
+            "matching_pair_count": 0,
+            "outer_window_read_by_fit": false
+          },
+          {
+            "activation_order_count": 0,
+            "actual_assets": 0,
+            "best_kpss_diagnostics": [
+              {
+                "adf_t": -6.203057053895948,
+                "crossings": 169,
+                "eligible": true,
+                "half_life_hours": 24.26871484949883,
+                "kpss": 0.34069546704101844,
+                "pair": "BTCUSDT-XRPUSDT"
+              },
+              {
+                "adf_t": -7.362845686459671,
+                "crossings": 169,
+                "eligible": true,
+                "half_life_hours": 17.341859423372973,
+                "kpss": 0.34345305365613327,
+                "pair": "SOLUSDT-XRPUSDT"
+              },
+              {
+                "adf_t": -4.299068107529645,
+                "crossings": 108,
+                "eligible": true,
+                "half_life_hours": 50.93292257465992,
+                "kpss": 0.373457910477328,
+                "pair": "ETHUSDT-SOLUSDT"
+              },
+              {
+                "adf_t": -4.869481487733869,
+                "crossings": 155,
+                "eligible": true,
+                "half_life_hours": 39.520183869852715,
+                "kpss": 0.3966523405454187,
+                "pair": "BNBUSDT-SOLUSDT"
+              },
+              {
+                "adf_t": -4.676667892687071,
+                "crossings": 129,
+                "eligible": true,
+                "half_life_hours": 43.24117647143193,
+                "kpss": 0.414603428400536,
+                "pair": "ETHUSDT-BNBUSDT"
+              }
+            ],
+            "config": "high",
+            "diagnostic_pair_count": 25,
+            "eligible_pair_count": 6,
+            "entry_z": 2.0,
+            "fit_end_ms": 1706742000000,
+            "lookback_days": 120,
+            "matching_pair_count": 0,
+            "outer_window_read_by_fit": false
+          }
+        ],
+        "end": "2024-03-31",
+        "label": "bull",
+        "start": "2024-02-01"
+      },
+      {
+        "configs": [
+          {
+            "activation_order_count": 0,
+            "actual_assets": 0,
+            "best_kpss_diagnostics": [
+              {
+                "adf_t": -4.850541083396707,
+                "crossings": 78,
+                "eligible": true,
+                "half_life_hours": 18.53057422247107,
+                "kpss": 0.3196579789205208,
+                "pair": "BTCUSDT-BNBUSDT"
+              },
+              {
+                "adf_t": -4.028337223461703,
+                "crossings": 46,
+                "eligible": false,
+                "half_life_hours": 27.40750271419327,
+                "kpss": 0.4774993642577181,
+                "pair": "BTCUSDT-LTCUSDT"
+              },
+              {
+                "adf_t": -4.839221504929364,
+                "crossings": 48,
+                "eligible": false,
+                "half_life_hours": 18.827072047823695,
+                "kpss": 0.5035490056815743,
+                "pair": "BTCUSDT-XRPUSDT"
+              },
+              {
+                "adf_t": -3.1026841503224,
+                "crossings": 67,
+                "eligible": false,
+                "half_life_hours": 38.24331026884277,
+                "kpss": 0.663355665071284,
+                "pair": "SOLUSDT-LTCUSDT"
+              },
+              {
+                "adf_t": -4.8822341784327765,
+                "crossings": 76,
+                "eligible": false,
+                "half_life_hours": 18.626699077698294,
+                "kpss": 0.7641738787020251,
+                "pair": "BTCUSDT-DOGEUSDT"
+              }
+            ],
+            "config": "low",
+            "diagnostic_pair_count": 23,
+            "eligible_pair_count": 1,
+            "entry_z": 1.5,
+            "fit_end_ms": 1710457200000,
+            "lookback_days": 60,
+            "matching_pair_count": 0,
+            "outer_window_read_by_fit": false
+          },
+          {
+            "activation_order_count": 0,
+            "actual_assets": 0,
+            "best_kpss_diagnostics": [
+              {
+                "adf_t": -5.023523379936915,
+                "crossings": 141,
+                "eligible": true,
+                "half_life_hours": 36.29045195421391,
+                "kpss": 0.26160246086103234,
+                "pair": "BTCUSDT-ETHUSDT"
+              },
+              {
+                "adf_t": -6.219098777576601,
+                "crossings": 143,
+                "eligible": true,
+                "half_life_hours": 24.31883588189281,
+                "kpss": 0.3476941258968366,
+                "pair": "BTCUSDT-DOGEUSDT"
+              },
+              {
+                "adf_t": -6.284140354622455,
+                "crossings": 149,
+                "eligible": false,
+                "half_life_hours": 23.800115475292987,
+                "kpss": 0.48966458700050774,
+                "pair": "BTCUSDT-XRPUSDT"
+              },
+              {
+                "adf_t": -6.421406982509575,
+                "crossings": 133,
+                "eligible": false,
+                "half_life_hours": 22.718998512837484,
+                "kpss": 0.5339958009266609,
+                "pair": "BTCUSDT-BNBUSDT"
+              },
+              {
+                "adf_t": -6.33127029241099,
+                "crossings": 160,
+                "eligible": false,
+                "half_life_hours": 23.428911218671765,
+                "kpss": 0.6094165726674753,
+                "pair": "XRPUSDT-DOGEUSDT"
+              }
+            ],
+            "config": "high",
+            "diagnostic_pair_count": 23,
+            "eligible_pair_count": 2,
+            "entry_z": 2.0,
+            "fit_end_ms": 1710457200000,
+            "lookback_days": 120,
+            "matching_pair_count": 0,
+            "outer_window_read_by_fit": false
+          }
+        ],
+        "end": "2024-05-01",
+        "label": "bear",
+        "start": "2024-03-15"
+      },
+      {
+        "configs": [
+          {
+            "activation_order_count": 0,
+            "actual_assets": 0,
+            "best_kpss_diagnostics": [
+              {
+                "adf_t": -5.307031999210033,
+                "crossings": 83,
+                "eligible": false,
+                "half_life_hours": 15.675252468961,
+                "kpss": 0.502429440036169,
+                "pair": "XRPUSDT-LINKUSDT"
+              },
+              {
+                "adf_t": -4.416667313215949,
+                "crossings": 66,
+                "eligible": false,
+                "half_life_hours": 23.449508487793494,
+                "kpss": 0.7557004368606212,
+                "pair": "BNBUSDT-LTCUSDT"
+              },
+              {
+                "adf_t": -3.9808648366193258,
+                "crossings": 66,
+                "eligible": false,
+                "half_life_hours": 27.829881812135653,
+                "kpss": 0.7946819181215773,
+                "pair": "SOLUSDT-LINKUSDT"
+              },
+              {
+                "adf_t": -3.062138410505002,
+                "crossings": 67,
+                "eligible": false,
+                "half_life_hours": 46.86047601170955,
+                "kpss": 0.8571512864034179,
+                "pair": "ETHUSDT-BNBUSDT"
+              },
+              {
+                "adf_t": -2.9562961221598902,
+                "crossings": 66,
+                "eligible": false,
+                "half_life_hours": 50.16609690748663,
+                "kpss": 1.0874554325645638,
+                "pair": "SOLUSDT-LTCUSDT"
+              }
+            ],
+            "config": "low",
+            "diagnostic_pair_count": 13,
+            "eligible_pair_count": 0,
+            "entry_z": 1.5,
+            "fit_end_ms": 1690844400000,
+            "lookback_days": 60,
+            "matching_pair_count": 0,
+            "outer_window_read_by_fit": false
+          },
+          {
+            "activation_order_count": 0,
+            "actual_assets": 0,
+            "best_kpss_diagnostics": [
+              {
+                "adf_t": -5.505064170974143,
+                "crossings": 138,
+                "eligible": true,
+                "half_life_hours": 30.976632671963888,
+                "kpss": 0.2983655793360179,
+                "pair": "SOLUSDT-LINKUSDT"
+              },
+              {
+                "adf_t": -5.196623284206291,
+                "crossings": 120,
+                "eligible": false,
+                "half_life_hours": 35.01836977908789,
+                "kpss": 0.5695381822524072,
+                "pair": "BTCUSDT-ETHUSDT"
+              },
+              {
+                "adf_t": -7.138913226864037,
+                "crossings": 135,
+                "eligible": false,
+                "half_life_hours": 18.428197971302044,
+                "kpss": 0.7216599459050197,
+                "pair": "XRPUSDT-LINKUSDT"
+              },
+              {
+                "adf_t": -6.067408161453776,
+                "crossings": 183,
+                "eligible": false,
+                "half_life_hours": 25.54859036148944,
+                "kpss": 0.788067803132624,
+                "pair": "BNBUSDT-LTCUSDT"
+              },
+              {
+                "adf_t": -4.87522327792276,
+                "crossings": 154,
+                "eligible": false,
+                "half_life_hours": 39.54398715598771,
+                "kpss": 1.0658457618805202,
+                "pair": "ETHUSDT-BNBUSDT"
+              }
+            ],
+            "config": "high",
+            "diagnostic_pair_count": 13,
+            "eligible_pair_count": 1,
+            "entry_z": 2.0,
+            "fit_end_ms": 1690844400000,
+            "lookback_days": 120,
+            "matching_pair_count": 0,
+            "outer_window_read_by_fit": false
+          }
+        ],
+        "end": "2023-10-01",
+        "label": "range",
+        "start": "2023-08-01"
+      },
+      {
+        "configs": [
+          {
+            "activation_order_count": 0,
+            "actual_assets": 0,
+            "best_kpss_diagnostics": [
+              {
+                "adf_t": -4.587357608108285,
+                "crossings": 95,
+                "eligible": false,
+                "half_life_hours": 20.89271543600275,
+                "kpss": 0.5620925567146139,
+                "pair": "ETHUSDT-LTCUSDT"
+              },
+              {
+                "adf_t": -4.677571468447614,
+                "crossings": 66,
+                "eligible": false,
+                "half_life_hours": 29.765923153677974,
+                "kpss": 0.5659348040843607,
+                "pair": "BNBUSDT-SOLUSDT"
+              },
+              {
+                "adf_t": -3.3624235718477173,
+                "crossings": 64,
+                "eligible": false,
+                "half_life_hours": 38.85473750184729,
+                "kpss": 0.6100757869622462,
+                "pair": "ETHUSDT-DOGEUSDT"
+              },
+              {
+                "adf_t": -4.239816197376273,
+                "crossings": 90,
+                "eligible": false,
+                "half_life_hours": 25.846938416518373,
+                "kpss": 0.6108361903775269,
+                "pair": "BTCUSDT-SOLUSDT"
+              },
+              {
+                "adf_t": -3.499905057683926,
+                "crossings": 69,
+                "eligible": false,
+                "half_life_hours": 35.5713179468345,
+                "kpss": 0.8100393589612889,
+                "pair": "ETHUSDT-LINKUSDT"
+              }
+            ],
+            "config": "low",
+            "diagnostic_pair_count": 21,
+            "eligible_pair_count": 0,
+            "entry_z": 1.5,
+            "fit_end_ms": 1722466800000,
+            "lookback_days": 60,
+            "matching_pair_count": 0,
+            "outer_window_read_by_fit": false
+          },
+          {
+            "activation_order_count": 0,
+            "actual_assets": 0,
+            "best_kpss_diagnostics": [
+              {
+                "adf_t": -5.808755992761358,
+                "crossings": 159,
+                "eligible": true,
+                "half_life_hours": 27.71448498450658,
+                "kpss": 0.260958003784573,
+                "pair": "LINKUSDT-LTCUSDT"
+              },
+              {
+                "adf_t": -5.653314066347466,
+                "crossings": 169,
+                "eligible": true,
+                "half_life_hours": 29.41115118532468,
+                "kpss": 0.30983820910139026,
+                "pair": "BNBUSDT-LTCUSDT"
+              },
+              {
+                "adf_t": -5.786733733692183,
+                "crossings": 170,
+                "eligible": true,
+                "half_life_hours": 28.04012670149084,
+                "kpss": 0.3551305809357233,
+                "pair": "BNBUSDT-LINKUSDT"
+              },
+              {
+                "adf_t": -6.364764045396021,
+                "crossings": 160,
+                "eligible": true,
+                "half_life_hours": 23.21784277569766,
+                "kpss": 0.40644570250763784,
+                "pair": "BTCUSDT-DOGEUSDT"
+              },
+              {
+                "adf_t": -5.258133161570486,
+                "crossings": 161,
+                "eligible": false,
+                "half_life_hours": 34.17864100306136,
+                "kpss": 0.5023595947986842,
+                "pair": "DOGEUSDT-LTCUSDT"
+              }
+            ],
+            "config": "high",
+            "diagnostic_pair_count": 21,
+            "eligible_pair_count": 4,
+            "entry_z": 2.0,
+            "fit_end_ms": 1722466800000,
+            "lookback_days": 120,
+            "matching_pair_count": 0,
+            "outer_window_read_by_fit": false
+          }
+        ],
+        "end": "2024-08-10",
+        "label": "jump_liquidity_shock",
+        "start": "2024-08-01"
+      }
+    ],
+    "scheduler_ablation": [
+      {
+        "arm": "NoScheduler",
+        "order": [
+          "BTC-ETH",
+          "BNB-SOL",
+          "XRP-DOGE"
+        ],
+        "order_hash": "9c42a2ee0dab953d4b472907ae052a65288df01a835d60c0ce43cf94de7aaab5"
+      },
+      {
+        "arm": "StaticFirstN",
+        "order": [
+          "BNB-SOL",
+          "BTC-ETH",
+          "XRP-DOGE"
+        ],
+        "order_hash": "ddcf72d226dc94de63d6632ce4f6855a1df389ce146afc885876e10bd5cd1b53"
+      },
+      {
+        "arm": "DeficitRoundRobin",
+        "order": [
+          "BNB-SOL",
+          "XRP-DOGE",
+          "BTC-ETH"
+        ],
+        "order_hash": "14dbff7fddde0ad6a7760acb70359e6453f99d6fb50b1a85ce24ba469f24c896"
+      }
+    ],
+    "scheduler_hashes_unique": true,
+    "source_label_changes_pnl": false,
+    "synthetic": {
+      "checks": [
+        [
+          "valid_loss_after_add",
+          true
+        ],
+        [
+          "no_net_loss_no_so",
+          true
+        ],
+        [
+          "not_adverse_no_so",
+          true
+        ],
+        [
+          "stationarity_break_no_so",
+          true
+        ],
+        [
+          "worsening_residual_no_blind_so",
+          true
+        ],
+        [
+          "nonincreasing_layer_no_so",
+          true
+        ],
+        [
+          "future_shift_rejected",
+          true
+        ],
+        [
+          "current_bucket_rejected",
+          true
+        ]
+      ],
+      "passed": true
+    }
+  },
+  "upstream_commit": "9592dad6fa3ca4d3eaf6e4ec214828a73e5807bd"
+}
